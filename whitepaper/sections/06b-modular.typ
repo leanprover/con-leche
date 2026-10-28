@@ -46,9 +46,10 @@ environment has a model, and these models agree wherever modules share
 a constant. In the set-theoretic instance, no module proves `False`,
 an empty proposition; @cor:mod states the exact hypothesis.
 
-We first state the model interface and define developments, then give
-the set-theoretic instance (@sec:mod-instance). The local checks lead
-to the modular theorem, followed by parallel checking and comparison;
+We first state the model interface, define developments and abstract
+validity, and prove the modular theorem (@sec:mod-thm). We then give
+the set-theoretic instance (@sec:mod-instance) and its local checks
+(@sec:mod-local), followed by parallel checking and comparison;
 @sec:mod-lean gives the mapping to Lean's module system.
 
 == Environment models in the abstract <sec:mod-iface>
@@ -201,6 +202,170 @@ Every comparison uses the same name in both environments. A context,
 an own environment or a view may contain constants imported from
 several modules. There is no combined environment for the whole
 development, and no renaming of constants is assumed.
+
+== Abstract validity
+
+Module $i$ draws from its imports' views. Define its
+#src("whitepaper/Fragment/ModularSemantics.lean", 170, 176)[sources and designations]
+by
+$
+  X_i & = {(j,V) mid(|) j in imp_i, V in cal(V)_j}, \
+  sigma_i (c,(j,V)) & :<==> kappa_i (c) = kappa_j (c), \
+  Asm_i (E) & :<==> Asm(E,(V)_((j,V) in X_i),sigma_i).
+$
+Matching keys designate a source for a name; assembly then requires
+such a source to store the name and satisfy the dependency conditions.
+
+#definition(name: "Valid module")[
+  The #src("whitepaper/Fragment/ModularSemantics.lean", 178, 198)[abstract checks]
+  are
+  $
+    New_i & :<==> forall c in St(E_i) without St(Gamma_i). thin
+      kappa_i (c) = home(i) or \
+      & quad ((exists s. thin kappa_i (c) = prf(s)) and c in Fl(D_i)), \
+    Checked_i & :<==> Asm_i (Gamma_i) and Acc(Gamma_i,D_i,E_i) and New_i, \
+    Compared_i & :<==> Asm_i (E_i), \
+    Valid_i & :<==> (forall V in cal(V)_i. thin V refines E_i)
+      and (forall j in imp_i. thin j < i) \
+      & quad and (Checked_i or Compared_i).
+  $
+] <def:valid>
+
+A checked module extends a context model, while a compared module
+obtains its model directly from imported views. Both check their own
+views and import order, so that restriction and induction apply.
+
+== The theorem <sec:mod-thm>
+
+The induction constructs models together with their compatibility,
+because amalgamation must preserve the imports' values. If two
+designated sources store $c$ but give it different values, no target
+model can preserve both:
+$
+  m_C (c) = m_x (c) and m_C (c) = m_y (c) ==> m_x (c) = m_y (c).
+$
+
+#definition(name: "Compatible family of a development")[
+  For models $m_i in Mod(E_i)$ with $i < k$, define
+  #src("whitepaper/Fragment/ModularSemantics.lean", 200, 207)[compatibility]
+  by
+  $
+    Cmp_k ((m_i)) quad :<==> quad
+    & (forall i,j < k. thin forall c in St(E_i) inter St(E_j). thin
+      kappa_i (c) = kappa_j (c) ==> m_i (c) = m_j (c)) \
+    & and (forall i < k. thin forall c in St(E_i). thin forall s. thin
+      kappa_i (c) = prf(s) ==> m_i (c) = pi).
+  $
+] <def:compatible>
+
+The first clause provides agreement between imports. The second
+allows two modules to introduce a proof of the same statement under
+the same name, without comparing their proof bodies.
+
+Compatibility constrains the values that models give a name. It could
+not constrain the definition bodies instead: a single environment
+containing a module's context together with the bodies hidden from it
+need not exist, because two modules may store one name with different
+meanings that never meet. For example, let $j$ define $d := 0$ and
+$c := d$, presenting only $c : sans("Nat")$ as an assumption. Let $k$
+read all of $j$, prove $e : c = 0$ by unfolding, and present $c$ and $e$
+as assumptions. Independently, let $m$ define $d := 1$. A module $i$
+importing $k$ and $m$ has the context
+$ Gamma_i = {c : sans("Nat"), quad e : c = 0, quad d := 1}, $
+and every module is valid, since the two definitions of $d$ never meet in
+one context. Restoring $c := d$ in one environment for $i$ would make $c$
+unfold to $1$, while $e$ states $c = 0$. In the set-theoretic instance
+below, a value is a set at each level instantiation and mentions no
+constant names, so the model of $i$ takes the value of $c$ from the model of $j$
+and the value of $d$ from the model of $m$, without renaming anything.
+
+#lemma(name: "Homes are earlier")[
+  #src("whitepaper/Fragment/ModularSemantics.lean", 225, 227)[Validity bounds home keys]:
+  $
+    (forall j <= i. thin Valid_j) ==> forall c in St(E_i). thin forall h. thin
+      kappa_i (c) = home(h) ==> h <= i.
+  $
+] <lem:home-le>
+
+#proof[
+  By strong induction on $i$. If $i$ is compared, assembly supplies
+  a source $(j,V) in X_i$ storing $c$ with the same key. If $i$ is
+  checked and $c in St(Gamma_i)$, context assembly supplies such a
+  source too. The import order gives $j < i$, and refinement gives
+  $c in St(E_j)$. Induction yields $h <= j < i$.
+
+  In the remaining case $i$ is checked and $c$ is new. The condition
+  $New_i$ gives a home key $home(i)$ or a proof key. Since the two
+  key forms are disjoint, a home key here has $h = i$.
+]
+
+#theorem(name: "Modular checking")[
+  Every valid finite prefix has a compatible family of models:
+  $
+    (forall i < k. thin Valid_i) ==> \
+      exists (m_i in Mod(E_i))_(i < k). thin Cmp_k ((m_i)).
+  $
+] <thm:mod>
+
+#proof[
+  We induct on $k$, starting with the compatible empty family at
+  $k = 0$. Suppose $(m_j)_(j < k)$ is compatible and module $k$ is
+  valid; we construct its model from the imports' models.
+
+  _Restrict the imports' models._ For each $(j,V) in X_k$, the
+  import order gives $j < k$, and validity gives
+  $V refines E_j$. By @lem:restrict choose $m_(j,V) in Mod(V)$ with
+  $
+    St(V) subset.eq St(E_j), quad
+    forall c in St(V). thin m_(j,V) (c) = m_j (c).
+  $
+  These view models are compatible under $sigma_k$. Indeed, if two
+  sources are designated for $c$ and both store it, then
+  $
+    kappa_j (c) = kappa_k (c) = kappa_(j') (c), quad
+    m_(j,V) (c) = m_j (c) = m_(j') (c) = m_(j',V') (c).
+  $
+  The middle equality is compatibility below $k$.
+
+  _Amalgamate and extend._ If $k$ is checked, $Asm_k (Gamma_k)$
+  gives a model $m_C$ of $Gamma_k$ with the view models' values.
+  The step at $Acc(Gamma_k,D_k,E_k)$ extends it to $m_k in Mod(E_k)$,
+  preserving all context values and giving flagged names value $pi$.
+  If $k$ is compared, $Asm_k (E_k)$ gives $m_k$ directly by
+  amalgamation.
+
+  In both cases, each $c in St(E_k)$ satisfies at least one of
+  $
+    & exists (j,V) in X_k. thin c in St(V) and
+      kappa_k (c) = kappa_j (c) and m_k (c) = m_j (c), \
+    & kappa_k (c) = home(k), \
+    & exists s. thin kappa_k (c) = prf(s) and m_k (c) = pi.
+  $
+  For a checked module the first case covers context names; the
+  other two follow from $New_k$ and the step. For a compared module
+  every name satisfies the first case.
+
+  _Preserve compatibility._ Let $i < k$ and
+  $c in St(E_k) inter St(E_i)$ with equal keys. In the first case,
+  compatibility below $k$ gives $m_j (c) = m_i (c)$. In the second,
+  $kappa_i (c) = home(k)$ contradicts @lem:home-le, since $i < k$.
+  In the third, the earlier model gives $m_i (c) = pi$ by the proof
+  clause of compatibility. Thus $m_k (c) = m_i (c)$.
+
+  Finally suppose $c in St(E_k)$ has a proof key. In the first case
+  the source has the same proof key and gives $c$ value $pi$. The
+  second case is impossible, and the third gives the value directly.
+  Both clauses of $Cmp_(k+1)$ therefore hold.
+]
+
+#corollary(name: "Every module has a model")[
+  Under #src("whitepaper/Fragment/ModularSemantics.lean", 340, 345)[the abstract interface],
+  $
+    (forall j <= i. thin Valid_j) ==> exists m in Mod(E_i).
+  $
+] <cor:mod-abstract>
+
+Read the family at $k = i+1$.
 
 == The set-theoretic instance <sec:mod-instance>
 
@@ -481,36 +646,6 @@ For the set-theoretic instance, a module's own environment is
 Here $D_i$ denotes the declaration list; the corresponding abstract
 declaration data are $(D_i,p_i)$, including the module's flags.
 
-Module $i$ draws from its imports' views. Define its
-#src("whitepaper/Fragment/ModularSemantics.lean", 170, 176)[sources and designations]
-by
-$
-  X_i & = {(j,V) mid(|) j in imp_i, V in cal(V)_j}, \
-  sigma_i (c,(j,V)) & :<==> kappa_i (c) = kappa_j (c), \
-  Asm_i (E) & :<==> Asm(E,(V)_((j,V) in X_i),sigma_i).
-$
-Matching keys designate a source for a name; assembly then requires
-such a source to store the name and satisfy the dependency conditions.
-
-#definition(name: "Valid module")[
-  The #src("whitepaper/Fragment/ModularSemantics.lean", 178, 198)[abstract checks]
-  are
-  $
-    New_i & :<==> forall c in St(E_i) without St(Gamma_i). thin
-      kappa_i (c) = home(i) or \
-      & quad ((exists s. thin kappa_i (c) = prf(s)) and c in Fl(D_i)), \
-    Checked_i & :<==> Asm_i (Gamma_i) and Acc(Gamma_i,D_i,E_i) and New_i, \
-    Compared_i & :<==> Asm_i (E_i), \
-    Valid_i & :<==> (forall V in cal(V)_i. thin V refines E_i)
-      and (forall j in imp_i. thin j < i) \
-      & quad and (Checked_i or Compared_i).
-  $
-] <def:valid>
-
-A checked module extends a context model, while a compared module
-obtains its model directly from imported views. Both check their own
-views and import order, so that restriction and induction apply.
-
 #definition(name: "Local checks")[
   In the set-theoretic instance, put $s(a) = (arrow(p)_a,T_a)$.
   The #src("whitepaper/Fragment/ModularModel.lean", 421, 443)[local checks]
@@ -561,138 +696,11 @@ in its home context, where the values it needs may be visible. An
 importer transfers its laws by assembly; it does not recheck the
 original value against a context that hides those dependencies.
 
-== The theorem <sec:mod-thm>
-
-The induction constructs models together with their compatibility,
-because amalgamation must preserve the imports' values. If two
-designated sources store $c$ but give it different values, no target
-model can preserve both:
-$
-  m_C (c) = m_x (c) and m_C (c) = m_y (c) ==> m_x (c) = m_y (c).
-$
-
-#definition(name: "Compatible family of a development")[
-  For models $m_i in Mod(E_i)$ with $i < k$, define
-  #src("whitepaper/Fragment/ModularSemantics.lean", 200, 207)[compatibility]
-  by
-  $
-    Cmp_k ((m_i)) quad :<==> quad
-    & (forall i,j < k. thin forall c in St(E_i) inter St(E_j). thin
-      kappa_i (c) = kappa_j (c) ==> m_i (c) = m_j (c)) \
-    & and (forall i < k. thin forall c in St(E_i). thin forall s. thin
-      kappa_i (c) = prf(s) ==> m_i (c) = pi).
-  $
-] <def:compatible>
-
-The first clause provides agreement between imports. The second
-allows two modules to introduce a proof of the same statement under
-the same name, without comparing their proof bodies.
-
-Compatibility constrains the values that models give a name. It could
-not constrain the definition bodies instead: a single environment
-containing a module's context together with the bodies hidden from it
-need not exist, because two modules may store one name with different
-meanings that never meet. For example, let $j$ define $d := 0$ and
-$c := d$, presenting only $c : sans("Nat")$ as an assumption. Let $k$
-read all of $j$, prove $e : c = 0$ by unfolding, and present $c$ and $e$
-as assumptions. Independently, let $m$ define $d := 1$. A module $i$
-importing $k$ and $m$ has the context
-$ Gamma_i = {c : sans("Nat"), quad e : c = 0, quad d := 1}, $
-and all local checks pass, since the two definitions of $d$ never meet in
-one context. Restoring $c := d$ in one environment for $i$ would make $c$
-unfold to $1$, while $e$ states $c = 0$. In the set-theoretic instance a
-value is a set at each level instantiation and mentions no constant
-names, so the model of $i$ takes the value of $c$ from the model of $j$
-and the value of $d$ from the model of $m$, without renaming anything.
-
-#lemma(name: "Homes are earlier")[
-  #src("whitepaper/Fragment/ModularSemantics.lean", 225, 227)[Validity bounds home keys]:
-  $
-    (forall j <= i. thin Valid_j) ==> forall c in St(E_i). thin forall h. thin
-      kappa_i (c) = home(h) ==> h <= i.
-  $
-] <lem:home-le>
-
-#proof[
-  By strong induction on $i$. If $i$ is compared, assembly supplies
-  a source $(j,V) in X_i$ storing $c$ with the same key. If $i$ is
-  checked and $c in St(Gamma_i)$, context assembly supplies such a
-  source too. The import order gives $j < i$, and refinement gives
-  $c in St(E_j)$. Induction yields $h <= j < i$.
-
-  In the remaining case $i$ is checked and $c$ is new. The condition
-  $New_i$ gives a home key $home(i)$ or a proof key. Since the two
-  key forms are disjoint, a home key here has $h = i$.
-]
-
-#theorem(name: "Modular checking")[
-  Every valid finite prefix has a compatible family of models:
-  $
-    (forall i < k. thin Valid_i) ==> \
-      exists (m_i in Mod(E_i))_(i < k). thin Cmp_k ((m_i)).
-  $
-] <thm:mod>
-
-#proof[
-  We induct on $k$, starting with the compatible empty family at
-  $k = 0$. Suppose $(m_j)_(j < k)$ is compatible and module $k$ is
-  valid; we construct its model from the imports' models.
-
-  _Restrict the imports' models._ For each $(j,V) in X_k$, the
-  import order gives $j < k$, and the home check gives
-  $V refines E_j$. By @lem:restrict choose $m_(j,V) in Mod(V)$ with
-  $
-    St(V) subset.eq St(E_j), quad
-    forall c in St(V). thin m_(j,V) (c) = m_j (c).
-  $
-  These view models are compatible under $sigma_k$. Indeed, if two
-  sources are designated for $c$ and both store it, then
-  $
-    kappa_j (c) = kappa_k (c) = kappa_(j') (c), quad
-    m_(j,V) (c) = m_j (c) = m_(j') (c) = m_(j',V') (c).
-  $
-  The middle equality is compatibility below $k$.
-
-  _Amalgamate and extend._ If $k$ is checked, $Asm_k (Gamma_k)$
-  gives a model $m_C$ of $Gamma_k$ with the view models' values.
-  The step at $Acc(Gamma_k,D_k,E_k)$ extends it to $m_k in Mod(E_k)$,
-  preserving all context values and giving flagged names value $pi$.
-  If $k$ is compared, $Asm_k (E_k)$ gives $m_k$ directly by
-  amalgamation.
-
-  In both cases, each $c in St(E_k)$ satisfies at least one of
-  $
-    & exists (j,V) in X_k. thin c in St(V) and
-      kappa_k (c) = kappa_j (c) and m_k (c) = m_j (c), \
-    & kappa_k (c) = home(k), \
-    & exists s. thin kappa_k (c) = prf(s) and m_k (c) = pi.
-  $
-  For a checked module the first case covers context names; the
-  other two follow from $New_k$ and the step. For a compared module
-  every name satisfies the first case.
-
-  _Preserve compatibility._ Let $i < k$ and
-  $c in St(E_k) inter St(E_i)$ with equal keys. In the first case,
-  compatibility below $k$ gives $m_j (c) = m_i (c)$. In the second,
-  $kappa_i (c) = home(k)$ contradicts @lem:home-le, since $i < k$.
-  In the third, the earlier model gives $m_i (c) = pi$ by the proof
-  clause of compatibility. Thus $m_k (c) = m_i (c)$.
-
-  Finally suppose $c in St(E_k)$ has a proof key. In the first case
-  the source has the same proof key and gives $c$ value $pi$. The
-  second case is impossible, and the third gives the value directly.
-  Both clauses of $Cmp_(k+1)$ therefore hold.
-]
-
 The #src("whitepaper/Fragment/ModularSemantics.lean", 254, 258)[generic theorem]
 therefore #src("whitepaper/Fragment/ModularInstance.lean", 115, 128)[applies to modules passing the concrete checks]
 in the set-theoretic instance.
 
-#corollary(name: "Every module has a model")[
-  Under #src("whitepaper/Fragment/ModularSemantics.lean", 340, 345)[the abstract interface],
-  $
-    (forall j <= i. thin Valid_j) ==> exists m in Mod(E_i).
-  $
+#corollary(name: "Consequences of the set-theoretic checks")[
   In the set-theoretic instance, assume $Pass_j$ for every
   $j <= i$. Then the following hold.
 
@@ -717,9 +725,9 @@ in the set-theoretic instance.
     $
 ] <cor:mod>
 
-The first claim reads the family at $k = i+1$. The second uses the
-recursor argument of @cor:consistency in that model. The third is its
-typing law, with the required number of level arguments. For an
+The first claim follows from @cor:mod-abstract and $Pass_j ==> Valid_j$.
+The second uses the recursor argument of @cor:consistency in that model.
+The third is its typing law, with the required number of level arguments. For an
 assumption used as a proposition, it says that the proposition holds
 in this model.
 
