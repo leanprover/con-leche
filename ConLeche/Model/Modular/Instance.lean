@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Modular.Generic
 public import ConLeche.Model.Modular.Restrict
-public import ConLeche.Model.Modular.Step
+import ConLeche.Model.Modular.Step
 
 public section
 
