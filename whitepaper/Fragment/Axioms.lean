@@ -549,12 +549,12 @@ info: 'Fragment.Checks.blockModel' depends on axioms: [propext, Classical.choice
 #guard_msgs in #print axioms Fragment.Checks.blockModel
 
 /--
-info: 'Fragment.PReads.model' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.Assembled.model' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.PReads.model
+#guard_msgs in #print axioms Fragment.Assembled.model
 
 /--
-info: 'Fragment.Development.modular' depends on axioms: [propext, Quot.sound]
+info: 'Fragment.Development.modular' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.Development.modular
 
