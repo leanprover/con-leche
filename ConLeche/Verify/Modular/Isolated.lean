@@ -2,7 +2,8 @@ module
 
 public import ConLeche.Verify.Modular.IsoRun
 public import ConLeche.Verify.Modular.Ghost
-public import ConLeche.Verify.Modular.Mask
+import ConLeche.Verify.Modular.Mask
+import ConLeche.Verify.Modular.IsoCtx
 import ConLeche.Verify.Modular.Local
 
 public section

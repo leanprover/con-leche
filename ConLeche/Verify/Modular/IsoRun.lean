@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.Verify.Modular.Dev
-public import ConLeche.Verify.Modular.IsoCtx
+public import ConLeche.Verify.Modular.IsoFold
+import ConLeche.Verify.Modular.IsoCtx
 import ConLeche.Verify.Modular.Congr
 import ConLeche.Verify.Modular.Scope
 

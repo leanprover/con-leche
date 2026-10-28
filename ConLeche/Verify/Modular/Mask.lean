@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Modular.IsoCtx
+public import ConLeche.Cached.ModIso
+import ConLeche.Verify.Modular.IsoCtx
 
 public section
 

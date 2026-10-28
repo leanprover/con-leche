@@ -2,6 +2,7 @@ module
 
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Modular.Isolated
+public import ConLeche.Verify.Modular.IsoCtx
 meta import ConLeche.Cached.ModIso
 
 public section

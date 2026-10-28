@@ -30,28 +30,43 @@
    505  def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
    506      IO (Except (CheckError × Nat) (Array Declaration)) := do
 
-== ConLeche/Driver/Modular.lean#L1316-L1317
-  1316  def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat)
-  1317      (keepGoing : Bool := false) (cmps : Array (Name × Name) := #[]) (isolated : Bool := false) :
+== ConLeche/Driver/Modular.lean#L1507-L1508
+  1507  def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat)
+  1508      (keepGoing : Bool := false) (cmps : Array (Name × Name) := #[]) (isolated : Bool := false) :
 
-== ConLeche/Cached/ModIso.lean#L124-L125
-   124  def isoCtx (slot : Nat → ModSlot) (lv : ByteArray) : Env :=
-   125    let es := firstNamed (isoEntries slot lv)
+== ConLeche/Driver/Modular.lean#L856-L857
+   856  def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : Array (Thunk ModSlot))
+   857      (lvls : Array ByteArray) : Work (IsoModOk mode g slots) := fun k => do
 
-== ConLeche/Cached/ModIso.lean#L186-L187
-   186  def checkModuleIsolated (mode : CheckMode) (pins : List NatOpPinSet) (slot : Nat → ModSlot)
-   187      (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
+== ConLeche/Cached/ModIso.lean#L150-L151
+   150  def mask (slot : Nat → ModSlot) (lv : ByteArray) (h : Nat) : ModSlot :=
+   151    let l := lvlAt lv h
 
-== ConLeche/Verify/Modular/IsoCtx.lean#L677-L680
-   677  theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
-   678      (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
-   679      checkModuleIsolated mode pins S.slot (S.lvl i) ds =
-   680        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
+== tests/ConLecheTests/ModBoundary.lean#L150-L154
+   150  theorem isolated_boundary {lv : ByteArray} {s s' : Nat → ModSlot} (h : LoadedAgree lv s s') :
+   151      isoBuild (mask s lv) lv = isoBuild (mask s' lv) lv ∧
+   152      (∀ mode pins ds, checkModuleIsolated mode pins (mask s lv) lv ds =
+   153        checkModuleIsolated mode pins (mask s' lv) lv ds) ∧
+   154      (∀ m fe fl u r, unitOk (isoUView (mask s lv) lv) m fe fl u r =
 
-== ConLeche/Driver/Modular.lean#L1105-L1107
-  1105  def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store)
-  1106      (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
-  1107      IO (Except String (PLift (CmpClaim mode S M i chal) × Array (Name × Nat))) := do
+== ConLeche/Cached/ModIso.lean#L125-L126
+   125  def isoCtx (slot : Nat → ModSlot) (lv : ByteArray) : Env :=
+   126    let es := firstNamed (isoEntries slot lv)
+
+== ConLeche/Cached/ModIso.lean#L284-L285
+   284  def checkModuleIsolated (mode : CheckMode) (pins : List NatOpPinSet) (slot : Nat → ModSlot)
+   285      (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
+
+== ConLeche/Verify/Modular/IsoCtx.lean#L583-L586
+   583  theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
+   584      (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
+   585      checkModuleIsolated mode pins S.slot (S.lvl i) ds =
+   586        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
+
+== ConLeche/Driver/Modular.lean#L1227-L1229
+  1227  def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store)
+  1228      (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
+  1229      IO (Except String (PLift (CmpClaim mode S M i chal) × Array (Name × Nat))) := do
 
 == ConLeche/Driver/Run.lean#L38
     38  def ConLeche.CheckError.exitCode : CheckError → UInt32
@@ -219,18 +234,22 @@
    142      ∀ k, (∀ i < k, dev.Valid i) →
    143        Nonempty (S.Mod (dev.world k)) ∧ ∀ i < k, S.Refines (dev.own i) (dev.ren i) (dev.world k)
 
-== ConLeche/Verify/Modular/Scope.lean#L892-L893
-   892  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
-   893      LocalOk mode natOpPinSets (devOf S M) i :=
+== ConLeche/Verify/Modular/Scope.lean#L893-L894
+   893  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
+   894      LocalOk mode natOpPinSets (devOf S M) i :=
 
-== ConLeche/Driver/Modular.lean#L1008-L1010
-  1008  def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))
-  1009      (hc : CommonOk S (A.map ModOk.d))
-  1010      (chks : Array (Option (At (ChkP mode (A.map ModOk.d))))) (off : Array Nat) :
+== ConLeche/Driver/Modular.lean#L1101-L1103
+  1101  def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))
+  1102      (hc : CommonOk S (A.map ModOk.d))
+  1103      (chks : Array (Option (At (ChkP mode (A.map ModOk.d))))) (off : Array Nat) :
 
-== ConLeche/Verify/Modular/IsoRun.lean#L316-L317
-   316  theorem IsoRunOk.localOk (h : IsoRunOk mode S M) (i : Nat) :
-   317      LocalOk mode natOpPinSets (isoDevOf S M) i := by
+== ConLeche/Verify/Modular/Isolated.lean#L334-L335
+   334  theorem IsoRunOk.localOk {slots : Array (Thunk ModSlot)} {M : Array ModData}
+   335      (h : IsoRunOk mode slots M) (i : Nat) : LocalOk mode natOpPinSets (isoRunDev slots M) i :=
+
+== ConLeche/Verify/Modular/Isolated.lean#L369-L370
+   369  theorem RunOk.isoRunOk {S : Store} {M : Array ModData} (hR : RunOk mode S M) :
+   370      IsoRunOk mode S.slots (ownData M) := by
 
 == tests/ConLecheTests/Axioms.lean#L91-L95
     91  Everything below them is what they are corollaries of. -/

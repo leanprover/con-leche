@@ -17,6 +17,9 @@ import ConLeche.Verify.Frontend.Olean.Equiv
 one-pass context build computes the specifications its evidence is
 stated in. -/
 public import ConLeche.Verify.Modular.IsoFast
+/- `isoCtx_mask`: a challenge's context from the masked units is its
+context (the comparison's evidence). -/
+import ConLeche.Verify.Modular.Mask
 
 /-!
 # The modular driver: module by module, over one store (task #370)
