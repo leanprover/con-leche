@@ -251,7 +251,15 @@ def usage : String := String.intercalate "\n" [
   "                    `import all`, and what they re-export), with the",
   "                    local checks that tie each module's context to its",
   "                    imports.  One process, one store of installed",
-  "                    constants, parallel along the import graph.",
+  "                    constants, each module checked at its view of it,",
+  "                    parallel along the import graph.",
+  "  --modular=isolated",
+  "                    as --modular, but every module is checked in an",
+  "                    environment of its own, built from its imports'",
+  "                    exported parts (private parts under `import all`)",
+  "                    alone and dropped after its checks; proved to give",
+  "                    the same verdicts and units as the store.",
+  "  --modular=store   the same as --modular.",
   "  --compare CHALLENGE SOLUTION",
   "                    with --olean (implies --modular, may be given more",
   "                    than once): the module CHALLENGE is not checked but",
@@ -365,6 +373,9 @@ structure Args where
   /-- `--modular` (with `--olean`): check module by module, each module
   against its own context (task #370). -/
   modular : Bool := false
+  /-- `--modular=isolated`: every module checked in an environment of its
+  own, built from its imports' units (task #373). -/
+  isolated : Bool := false
   /-- `--keep-going` (with `--modular`): install every module whose imports
   installed, report every failure. -/
   keepGoing : Bool := false
@@ -392,6 +403,8 @@ def parseArgs : List String → Args → Args
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | "--modular" :: rest, a => parseArgs rest { a with modular := true }
+  | "--modular=store" :: rest, a => parseArgs rest { a with modular := true, isolated := false }
+  | "--modular=isolated" :: rest, a => parseArgs rest { a with modular := true, isolated := true }
   | "--keep-going" :: rest, a => parseArgs rest { a with keepGoing := true }
   | "--compare" :: c :: s :: rest, a =>
     if c.startsWith "-" || s.startsWith "-" then
@@ -485,7 +498,7 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
       let roots := a.files.map modName
       if a.modular then
         return ← ConLeche.Driver.Modular.checkModular a.searchPath roots a.mode a.progress jobs
-          a.keepGoing (a.compares.map fun (c, s) => (modName c, modName s))
+          a.keepGoing (a.compares.map fun (c, s) => (modName c, modName s)) a.isolated
       return ← checkMain (.oleans a.searchPath roots) a.mode a.progress jobs a.noMark drain
     else if a.modular then
       IO.eprintln "con-leche: --modular is only meaningful with --olean"
