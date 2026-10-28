@@ -456,6 +456,26 @@ theorem RunOk.pick_none_own (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j
     obtain ⟨h', j', ci⟩ := x
     unfold MBase.find? at this; rw [hp] at this; cases this
 
+/-- **The qualified name of a unit's constant**, from its private record
+(the exported presentation has the same statement). -/
+theorem keyOfSlot_of_priv {fe : FEnv} {fl : Name → Bool} {s : ModSlot}
+    (hs : shapeOk fe fl s = true) {h j : Nat} {n : Name} {c : ConstantInfo}
+    (hc : s.prv.priv[j]? = some c) :
+    keyOfSlot s h j n = match s.exp.prf[j]?, s.prv.priv[j]? with
+      | some true, some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
+      | _, _ => .qual h n := by
+  obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec hs
+  obtain ⟨-, -, ha, -⟩ := hj j c hc
+  unfold keyOfSlot
+  rw [hc]
+  cases s.exp.prf[j]? with
+  | none => rfl
+  | some b =>
+    cases b with
+    | false => rfl
+    | true =>
+      rcases ha with ha | ha | ⟨ha, -⟩ <;> rw [ha] <;> rfl
+
 /-- **A home resolves its own constant to the qualified name the store
 gives it.** -/
 theorem RunOk.res_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
@@ -464,7 +484,8 @@ theorem RunOk.res_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Na
   unfold resOf
   rw [hR.pick_none_own hh hc]
   simp only [hR.own_find? hh hc]
-  unfold Store.keyAt keyOfSlot
+  unfold Store.keyAt
+  rw [keyOfSlot_of_priv (hR.shape hh) hc]
   obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
   obtain ⟨-, -, -, -, -, hpf, -⟩ := hj j c hc
   rw [hpf, hc]
@@ -1240,7 +1261,8 @@ theorem RunOk.keyAt_qual (hR : RunOk mode S M) {h j : Nat} (hh : h < M.size) {c 
     (hk : proofKind c = false) (n : Name) : S.keyAt h j n = .qual h n := by
   obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
   obtain ⟨-, -, -, -, -, hpf, hpk, -⟩ := hj j c hc
-  unfold Store.keyAt keyOfSlot
+  unfold Store.keyAt
+  rw [keyOfSlot_of_priv (hR.shape hh) hc]
   rw [hpf, hc]
   cases hf : M[h].flags.contains c.name with
   | false => rfl
@@ -1265,7 +1287,8 @@ theorem RunOk.pick_of_vis (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {d :
   obtain ⟨c₀, hc₀, hc₀n⟩ := hR.at?_name hyat h0
   -- its qualified name is the home's and the name: the same module
   have hh0 : h₀ = t.1 := by
-    unfold Store.keyAt keyOfSlot at hkey
+    unfold Store.keyAt at hkey
+    rw [keyOfSlot_of_priv (hR.shape h0) hc₀] at hkey
     rw [hc₀] at hkey
     revert hkey
     cases (S.slot h₀).exp.prf[j₀]? with

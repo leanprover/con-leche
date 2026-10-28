@@ -108125,3 +108125,39 @@ same `runOk` over the collected results. Not built.
 
 **Open.** Typeless assumptions (held back). The upstream Lean question
 above. README suggestions are reported, not written.
+
+## TASK #370 (follow-up) — an exported-level importer reads only `exp` (2026-10-28, agent/370-exp)
+
+**The ruling.** A module that loads module `h` at the exported level
+reads only `h`'s interface (`ModSlot.exp`), never its private record
+(`prv`), which is for `import all` importers only.
+
+**The audit.** Before, `prv` was read by `MBase.at?` and
+`MBase.findTable?` at level 2 (an `import all` viewer: allowed); by the
+home's own checks of its own unit (`shapeOk`, `recFamOk`, the read sets
+in `unitOk`, `full2Ok`/`full1Ok` for an own target, the driver's
+`priv = consts` check: not importer reads); and by `keyOfSlot`, which
+took a proof's statement from `prv.priv[j]` for every viewer, through
+`resOf` (a context name's qualified name) and `oneKey` (the local check
+on names stored twice). That last read crossed the boundary.
+
+**Now.** `keyOfSlot` takes a proof's statement from its exported
+presentation `exp.at1[j]` (the constant or the assumption of its
+statement: the same `ConstantVal`, `shapeOk`); only a proof the
+exported part does not present reads `prv`, and only a viewer that
+loads `h` with `import all` can see such a constant (`at?` presents
+nothing else). The proofs read the key through `keyOfSlot_of_priv`
+(under `shapeOk`, the old reading). So `prv` is read now by `at?`/
+`findTable?` at level 2, by `keyOfSlot` for a proof not presented at
+the exported level (reached from level-2 viewers only), and by the
+home's checks of its own unit.
+
+**The regression test** (`tests/ConLecheTests/ModBoundary.lean`, under
+`lake test`): `maskPrv b` empties the private record of every module
+the viewer does not load at level 2; every lookup answers the same
+(`maskPrv_at?`, `_pick?`, `_find?`, `_findTable?`), the view is the twin
+of the masked one (`view_twin_maskPrv`: every install step and record
+check runs alike, `installDeclStep_twin`, `checkPending_congr`), and a
+presented constant's qualified name reads `exp` alone
+(`keyOfSlot_maskPrv`). A `prv` read added on an exported-level path
+breaks one of them.
