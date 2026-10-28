@@ -6316,6 +6316,20 @@
    192  noncomputable def common (C E : Env) (same : Name → Prop) : Env :=
    193    ⟨E.consts.filter fun x => decide ((C.find? x.1).isSome = true ∧ same x.1)⟩
 
+== whitepaper/Fragment/Decl.lean#L699-L710
+   699  def Scoped (env : Env) : Prop :=
+   700    (∀ i A, S.params[i]? = some A → Expr.Scoped env S.lparams (S.nP - 1 - i) A) ∧
+   701    (∀ t T, S.indices[t]? = some T → Expr.Scoped env S.lparams (S.nP + (S.nI - 1 - t)) T) ∧
+   702    S.sort.paramsIn S.lparams = true ∧
+   703    (∀ c ∈ S.ctors,
+   704      (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
+   705      (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
+   706      c.idx.length = S.nI ∧
+   707      (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
+   708    (S.large = true → S.elim ∉ S.lparams) ∧
+   709    S.lparams.Nodup ∧
+   710    S.NestScoped env
+
 == whitepaper/Fragment/ModularModel.lean#L208-L221
    208  /-- **A constant within an environment**: what its laws read — its
    209  type, its value, its rules with their constructors, its block — is in
@@ -6346,20 +6360,6 @@
    233    blocks : ∀ n ci nP nI cs S, C.find? n = some ci → ci.kind = .induct nP nI cs S →
    234      S.nest = none → C.find? S.name = some S.indInfo ∧
    235        ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → C.find? c.name = some (S.ctorInfo c)
-
-== whitepaper/Fragment/Decl.lean#L699-L710
-   699  def Scoped (env : Env) : Prop :=
-   700    (∀ i A, S.params[i]? = some A → Expr.Scoped env S.lparams (S.nP - 1 - i) A) ∧
-   701    (∀ t T, S.indices[t]? = some T → Expr.Scoped env S.lparams (S.nP + (S.nI - 1 - t)) T) ∧
-   702    S.sort.paramsIn S.lparams = true ∧
-   703    (∀ c ∈ S.ctors,
-   704      (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
-   705      (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
-   706      c.idx.length = S.nI ∧
-   707      (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
-   708    (S.large = true → S.elim ∉ S.lparams) ∧
-   709    S.lparams.Nodup ∧
-   710    S.NestScoped env
 
 == whitepaper/Fragment/BlockModel.lean#L46-L66
     46  /-- **The block's law** in a model: for a plain block, its scope, its
@@ -6498,15 +6498,6 @@
     80    rw [heq] at hmem
     81    exact eq_pt_of_mem_univ_zero hU hmem
 
-== whitepaper/Fragment/ModularModel.lean#L404-L410
-   404  /-- **A module's own environment**: its context with its declarations. -/
-   405  def Module.own (m : Module) : Env := applyAll m.decls m.context
-   406  
-   407  /-- The key of an own constant of module `i`: its statement for a
-   408  proof, the module itself otherwise. -/
-   409  def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
-   410    if m.proofs n then .proof (ci.lparams, ci.type) else .home i
-
 == whitepaper/Fragment/Modular.lean#L200-L209
    200  /-- **A list of declarations checks** against an environment: each
    201  declaration accepted on top of it and the declarations before it. -/
@@ -6576,6 +6567,15 @@
     78    Flagged := Flagged
     79    Accepts := FAccepts
     80    step h m := h.step m
+
+== whitepaper/Fragment/ModularModel.lean#L404-L410
+   404  /-- **A module's own environment**: its context with its declarations. -/
+   405  def Module.own (m : Module) : Env := applyAll m.decls m.context
+   406  
+   407  /-- The key of an own constant of module `i`: its statement for a
+   408  proof, the module itself otherwise. -/
+   409  def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
+   410    if m.proofs n then .proof (ci.lparams, ci.type) else .home i
 
 == whitepaper/Fragment/ModularSemantics.lean#L170-L176
    170  /-- The views module `i` reads: a view of one of its imports. -/

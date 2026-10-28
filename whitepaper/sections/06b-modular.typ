@@ -43,20 +43,21 @@ statements of theorems and may also see definitions without their bodies.
 
 We show that if every module passes its local checks, every module's
 environment has a model, and these models agree wherever modules share
-a constant. In the set-theoretic instance, no module can then prove an
-empty proposition whose generated recursor it stores (@cor:mod).
+a constant. In the set-theoretic instance, no module proves `False`,
+an empty proposition; @cor:mod states the exact hypothesis.
 
-We first state what the argument needs from environment models, then
-define modules and their checks. The theorem also explains parallel
-checking and comparison with a solution; @sec:mod-lean gives the
-mapping to Lean's module system.
+We first state the model interface and define developments, then give
+the set-theoretic instance (@sec:mod-instance). The local checks lead
+to the modular theorem, followed by parallel checking and comparison;
+@sec:mod-lean gives the mapping to Lean's module system.
 
 == Environment models in the abstract <sec:mod-iface>
 
 Fix a type $Env$ of environments and a type $Name$ of constant names. Write
 #src("whitepaper/Fragment/ModularSemantics.lean", 95, 96)[$St(E) subset.eq Name$]
 for the names an environment $E$ stores. No structure on stored
-entries is needed yet.
+entries is needed yet. Here and below, $Gamma$ denotes an environment
+of constants; the variable contexts of §2 are a separate notion.
 
 A consistency proof supplies a type $Mod(E)$ of models and a type
 $Val$ of values, with each model $m$ assigning a value $m(c)$ to every
@@ -71,9 +72,9 @@ assembly will also require a designated source that stores the name.
   Given models $m_x in Mod(E_x)$ with values $m_x (c) in Val$, define
   $
     Cmp_C^sigma ((m_x)) quad :<==> quad
-      forall c in St(C). thin forall x,y in X. quad
+      forall c in St(C). thin forall x,y in X. \
       sigma(c,x) and sigma(c,y) and c in St(E_x) inter St(E_y)
-      ==> m_x (c) = m_y (c).
+        ==> m_x (c) = m_y (c).
   $
 ] <def:compatible-for>
 
@@ -161,13 +162,11 @@ context from no imports.
 A small syntactic instance also satisfies the interface
 (@rem:mod-syntactic). We return to it after the modular argument.
 
-== Environments of modules <sec:mod-env>
+== Developments <sec:mod-env>
 
-A module has a _context_ $Gamma_i$, an environment containing the
-constants available to its declarations, and an _own environment_
-$E_i$ containing its context and declarations. The module context
-$Gamma_i$ is an environment of constants; the variable contexts
-$Gamma$ of §2 are a separate notion.
+Module $i$ has a _context_ $Gamma_i$, the environment of constants
+available to its declarations, and an _own environment_ $E_i$
+containing its context and declarations.
 
 A _view_ is an environment the module presents to importers. It may
 omit entries or hide information, provided it refines the own
@@ -188,9 +187,9 @@ environment, so that its models can be obtained by restriction.
 ] <def:development>
 
 For a fixed name $c$, equal keys identify its occurrences in different
-modules. The identifier is the pair $(c,kappa_i (c))$: all ordinary
-constants declared by module $j$ have key $home(j)$. Different names
-with that key are still different constants.
+modules. The identifier is the pair $(c,kappa_i (c))$, where a home
+key $home(j)$ records the originating module $j$. Different names
+with that home key are still different constants.
 
 Proofs may instead have a statement key $prf(s)$. The theorem will
 ensure that every stored name with such a key has value $pi$.
@@ -203,11 +202,15 @@ an own environment or a view may contain constants imported from
 several modules. There is no combined environment for the whole
 development, and no renaming of constants is assumed.
 
-=== Assembly for the set-theoretic model
+== The set-theoretic instance <sec:mod-instance>
 
-Fix the set theory and level oracle assumed in §2 and §4. We now give
-the instance for the environments of §3 and §4. A stored
-entry $a$ has level parameters $arrow(p)_a$, type $T_a$ and kind
+Fix the set theory and level oracle assumed in §2 and §4. We now show
+that the models of those sections, retaining the block facts below,
+provide the abstract interface.
+
+=== Assembly and models
+
+A stored entry $a$ has level parameters $arrow(p)_a$, type $T_a$ and kind
 $K_a$; write $E(c) = a$ for its lookup. We use this entry notation
 only for this instance.
 
@@ -252,12 +255,31 @@ is
 $
   E_x^C = E_x "restricted to" {c in St(C) mid(|) sigma(c,x)}.
 $
-It retains source entries at names the target stores under the source's
-meaning. The entries themselves may differ, since the target may hide
+It contains source entries at names that $C$ stores and designates as
+that source's. The entries may differ from $C$'s, since $C$ may hide
 a definition's value.
 
-For assumptions, definitions, constructors and recursors, define the
-#src("whitepaper/Fragment/ModularModel.lean", 208, 221)[scope needed by an entry's laws]
+Write $I_B$ for a block's name, $c_d$ for constructor specification
+$d$'s name, and $a_B$, $a_(B,d)$ for their generated entries
+(@sec:ind-checks). A block is _plain_ when it has no nesting.
+
+*Inductive blocks.* The scope conditions on a block are those of
+@sec:ind-checks, now read in the source environment $A$. Write
+#src("whitepaper/Fragment/Decl.lean", 699, 710)[$BSc(A,B)$]
+for that specification-scope predicate:
+$
+  BSc(A,B) quad :<==> quad
+    B "satisfies the specification-scope conditions of §4 over" A.
+$
+This is the entire specification-scope check: the parameter, index
+and field scopes, the result sort's level scope, index-list lengths,
+the restriction on later fields' dependence on reflexive fields, and
+distinct level parameters. Large elimination also requires a fresh
+elimination parameter. For a plain block, the check permits only
+ordinary and reflexive fields.
+
+*Entry scope.* For any entry $a$, define the
+#src("whitepaper/Fragment/ModularModel.lean", 208, 221)[scope needed by its laws]
 by
 $
   Sc(A,C,a) quad :<==> quad
@@ -267,19 +289,19 @@ $
     & and (forall R. thin K_a = sans("recursor")(R) ==> \
     & quad forall (d,r) in R. thin Cl(A,arrow(p)_a,emptyset,r) and \
     & quad exists b. thin A(d) = b and C(d) = b
-      and Cl(A,arrow(p)_b,emptyset,T_b)).
+      and Cl(A,arrow(p)_b,emptyset,T_b)) \
+    & and (forall B. thin K_a "is a type former for the plain block" B ==> \
+    & quad BSc(A,B) and I_B in St(A) \
+    & quad and (forall d in op("ctors")(B). thin c_d in St(A))).
 $
 A rule $(d,r)$ names a constructor and a right-hand side; the
 recursor's other stored counts are left implicit. Requiring
 $A(d) = C(d)$ makes the rule read the same constructor entry in both
-environments. The additional clause for type formers is given below.
+environments. The last clause applies only to a retained plain type
+former, so an assumption of its type brings no extra block dependencies.
 
 #definition(name: "Assembly")[
-  Write $I_B$ for a block's name, $c_d$ for constructor specification
-  $d$'s name, and $a_B$, $a_(B,d)$ for their generated entries
-  (@sec:ind-checks). A block is _plain_ when it has no nesting.
-  Using the full scope predicate $Sc$, including its type-former
-  clause below, the instance's
+  Using the entry-scope predicate $Sc$, the instance's
   #src("whitepaper/Fragment/ModularModel.lean", 223, 235)[assembly relation]
   is
   $
@@ -299,29 +321,9 @@ so an assumption requires only its type's dependencies. The second
 requires exact generated entries for a retained plain block; it does
 not apply when the type former is retained as an assumption.
 
-*Inductive blocks.* The scope conditions on a block are those of
-@sec:ind-checks, now read in the source environment $A$. Write
-#src("whitepaper/Fragment/Decl.lean", 699, 710)[$BSc(A,B)$]
-for that specification-scope predicate:
-$
-  BSc(A,B) quad :<==> quad
-    B "satisfies the specification-scope conditions of §4 over" A.
-$
-This is the entire specification-scope check: the parameter, index
-and field scopes, the result sort's level scope, index-list lengths,
-the restriction on later fields' dependence on reflexive fields, and
-distinct level parameters with a fresh elimination parameter. For a
-plain block, the check permits only ordinary and reflexive fields.
-For a type former with block $B$, the full entry condition is
-$
-  Sc(A,C,a) quad :<==> quad
-    & Cl(A,arrow(p)_a,emptyset,T_a) \
-    & and (B "is plain" ==> BSc(A,B) and I_B in St(A) \
-    & quad and (forall d in op("ctors")(B). thin c_d in St(A))).
-$
-
-The models used here retain the construction facts of @sec:ind-model,
-because a later block may use a plain block as a container.
+*Inductive model laws.* The models used here retain the construction
+facts of @sec:ind-model, because a later block may use a plain block
+as a container.
 For each stored plain block $B$, these
 #src("whitepaper/Fragment/BlockModel.lean", 46, 66)[additional model laws]
 are
@@ -344,22 +346,25 @@ amalgamation must preserve the existing sets and their bound.
 
 For such a model $m$ with assignment $M$, the abstract values are
 $
-  Mod(E) = {m mid(|) m "satisfies these model laws over" E}, quad
-  m(c) = (arrow(n) |-> M(c,arrow(n))), quad pi = (arrow(n) |-> pt).
+  Mod(E) & = {m mid(|) m "satisfies these model laws over" E}, \
+  m(c) & = (arrow(n) |-> M(c,arrow(n))), quad pi = (arrow(n) |-> pt).
 $
+Thus equality of abstract values $m(c)$ compares the assigned sets at
+every list of concrete levels.
 
 An environment is
 #src("whitepaper/Fragment/InstallDef.lean", 84, 94)[closed]
 when its stored terms are in scope and its recursor rules name stored
 constructors. Precisely,
 $
-  Closed(C) quad :<==> quad forall c in St(C). thin
-    & Cl(C,arrow(p)_(C(c)),emptyset,T_(C(c))) \
-    & and (forall v. thin K_(C(c)) = sans("defn")(v) ==>
-      Cl(C,arrow(p)_(C(c)),emptyset,v)) \
-    & and (forall R. thin K_(C(c)) = sans("recursor")(R) ==>
+  Closed(C) quad :<==> quad
+    & forall c,a. thin C(c) = a ==> \
+    & quad Cl(C,arrow(p)_a,emptyset,T_a) \
+    & quad and (forall v. thin K_a = sans("defn")(v) ==>
+      Cl(C,arrow(p)_a,emptyset,v)) \
+    & quad and (forall R. thin K_a = sans("recursor")(R) ==>
       forall (d,r) in R. thin \
-    & quad Cl(C,arrow(p)_(C(c)),emptyset,r) and d in St(C)).
+    & quad quad Cl(C,arrow(p)_a,emptyset,r) and d in St(C)).
 $
 Assembly #src("whitepaper/Fragment/ModularModel.lean", 374, 387)[implies closure]:
 $
@@ -431,10 +436,9 @@ only correctly sized instantiations.
 Write $D = (d_1,dots,d_r)$ for a list of declarations, $names(d)$ for
 the names a declaration stores, and $p(c)$ for its Boolean proof
 flag. Let $Gamma^0 = Gamma$ and let $Gamma^t$ store $d_t$ over
-$Gamma^(t-1)$. Thus
-#src("whitepaper/Fragment/ModularModel.lean", 404, 410)[$E_i = Gamma_i + D_i$]
-in the instance. In the abstract notation $D_i$ includes the flags;
-here we display the list and flags separately as $(D_i,p_i)$.
+$Gamma^(t-1)$. In this instance the abstract declaration data are
+$(D,p)$: the list together with its flags. We write $Gamma + D$ for
+the final environment $Gamma^r$.
 
 Write $op("Ok")_E (d)$ for the checks of a definition (§3), theorem
 (above) or inductive block (§4). The
@@ -471,6 +475,11 @@ Together with @thm:amalg, this proves that the models just described
 of @def:mod-iface.
 
 == The local checks <sec:mod-local>
+
+For the set-theoretic instance, a module's own environment is
+#src("whitepaper/Fragment/ModularModel.lean", 404, 410)[$E_i = Gamma_i + D_i$].
+Here $D_i$ denotes the declaration list; the corresponding abstract
+declaration data are $(D_i,p_i)$, including the module's flags.
 
 Module $i$ draws from its imports' views. Define its
 #src("whitepaper/Fragment/ModularSemantics.lean", 170, 176)[sources and designations]
@@ -605,9 +614,6 @@ the same name, without comparing their proof bodies.
     (forall i < k. thin Valid_i) ==> \
       exists (m_i in Mod(E_i))_(i < k). thin Cmp_k ((m_i)).
   $
-  The #src("whitepaper/Fragment/ModularSemantics.lean", 254, 258)[generic theorem]
-  therefore #src("whitepaper/Fragment/ModularInstance.lean", 115, 128)[applies to modules passing the concrete checks]
-  in the set-theoretic instance.
 ] <thm:mod>
 
 #proof[
@@ -660,6 +666,10 @@ the same name, without comparing their proof bodies.
   second case is impossible, and the third gives the value directly.
   Both clauses of $Cmp_(k+1)$ therefore hold.
 ]
+
+The #src("whitepaper/Fragment/ModularSemantics.lean", 254, 258)[generic theorem]
+therefore #src("whitepaper/Fragment/ModularInstance.lean", 115, 128)[applies to modules passing the concrete checks]
+in the set-theoretic instance.
 
 #corollary(name: "Every module has a model")[
   Under #src("whitepaper/Fragment/ModularSemantics.lean", 340, 345)[the abstract interface],
@@ -738,9 +748,10 @@ and every hole's type.
 
 Assume $Pass_j$ for every $j <= i$. Then @thm:mod gives the challenge
 a model agreeing with the solution's on names stored under the same
-key, and @cor:mod makes every hole's type inhabited in that model. In particular, if the challenge
-stores the empty Prop block's recursor as in that corollary, it cannot
-also have a hole of that empty proposition's type and pass validation
+key, and @cor:mod makes every hole's type inhabited in that model.
+In particular, if the challenge stores the empty Prop block's recursor
+as in that corollary, it cannot also have a hole of that empty
+proposition's type and pass validation
 with a solution passing its local checks.
 
 #remark(name: "A syntactic illustration")[
