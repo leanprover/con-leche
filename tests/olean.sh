@@ -57,6 +57,40 @@ case_ "--olean without a module" 3 --olean --search-path=$LIB
 case_ "--search-path without --olean" 3 --search-path=$LIB tests/mode/split_good.ndjson
 case_ "a module not on the search path" 3 --olean --search-path=$LIB NoSuchModule
 
+# patch any of a module's three parts, objects found by name across them:
+# <dir> <module> <python over consts(part) / fld / setfld>
+xpatch() {
+  python3 -I - "$1" "$2" "$3" <<'PY'
+import struct, sys
+d, m, expr = sys.argv[1], sys.argv[2], sys.argv[3]
+parts = {}
+import os
+for ext in ['olean', 'olean.server', 'olean.private']:
+    if not os.path.exists(f'{d}/{m}.{ext}'): continue
+    b = bytearray(open(f'{d}/{m}.{ext}', 'rb').read())
+    parts[ext] = (struct.unpack_from('<Q', b, 80)[0], b)
+def at(a):
+    for ext, (base, b) in parts.items():
+        if 0 <= a - base < len(b): return b, a - base
+    raise Exception('address outside the parts')
+def fld(a, i): b, o = at(a); return struct.unpack_from('<Q', b, o + 8 + 8 * i)[0]
+def setfld(a, i, v): b, o = at(a); struct.pack_into('<Q', b, o + 8 + 8 * i, v)
+def name(a):
+    if a == 1: return ''
+    pre = name(fld(a, 0)); b, s = at(fld(a, 1))
+    sz = struct.unpack_from('<Q', b, s + 8)[0]
+    return (pre + '.' if pre else '') + b[s + 32:s + 32 + sz - 1].decode()
+def consts(ext):
+    base, b = parts[ext]
+    ab, ao = at(fld(struct.unpack_from('<Q', b, 88)[0], 2))
+    n = struct.unpack_from('<Q', ab, ao + 8)[0]
+    # a ConstantInfo's field 0 is its XxxVal, whose field 0 is the ConstantVal
+    return {name(fld(fld(fld(c, 0), 0), 0)): c for c in
+            (struct.unpack_from('<Q', ab, ao + 24 + 8 * i)[0] for i in range(n))}
+exec(expr)
+for ext, (base, b) in parts.items(): open(f'{d}/{m}.{ext}', 'wb').write(b)
+PY
+}
 # --- corrupted files ----------------------------------------------------
 # Each case copies the fixtures and changes bytes of Tiny's files.
 # patch <file> <python expression over b (bytearray), base, root>
@@ -109,6 +143,67 @@ while i + 32 <= len(b):
         sz = struct.unpack_from('<Q', b, i + 8)[0]
         if 0 < sz < len(b) and i + 32 + sz <= len(b): b[i + 32 + sz - 1] = 65
     i += 8" TinyClassic
+
+# the name table (ModuleData.constNames: the keys Lean's loader stores the
+# constants under) must list the constants' names (task #383): two of
+# its entries swapped, in each part
+cswap="
+nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
+x, y = (struct.unpack_from('<Q', b, nt + 24 + 8 * i)[0] for i in (0, 1))
+struct.pack_into('<Q', b, nt + 24, y); struct.pack_into('<Q', b, nt + 32, x)"
+corrupt "a name table that names the constants differently (classic)" 3 TinyClassic.olean "$cswap" TinyClassic
+corrupt "a name table that names the constants differently (private part)" 3 Tiny.olean.private "$cswap"
+corrupt "a name table that names the constants differently (exported part)" 3 Tiny.olean "$cswap"
+corrupt "a name table shorter than the constants" 3 TinyClassic.olean "
+nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
+struct.pack_into('<Q', b, nt + 8, struct.unpack_from('<Q', b, nt + 8)[0] - 1)" TinyClassic
+# one module storing `idU` twice (in place of U.recOn, which nothing
+# uses): malformed (task #383: the merge rejected two definitions of one
+# name, the modular emission kept the later one only, below)
+cdup="
+nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
+cs = struct.unpack_from('<Q', b, ro + 24)[0] - base
+for a in (nt, cs):
+    struct.pack_into('<Q', b, a + 24 + 16, struct.unpack_from('<Q', b, a + 24 + 32)[0])"
+corrupt "one module storing a name twice" 3 TinyClassic.olean "$cdup" TinyClassic
+
+# the private part's header (task #383): its module-system flag cleared
+corrupt "a private part outside the module system" 3 Tiny.olean.private "b[ro + 48] = 0"
+xcorrupt0() { # <description> <expected-exit> <module> <expr> <args...>   (mode: $MOD)
+  local desc=$1 want=$2 m=$3 expr=$4; shift 4
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  xpatch "$d" "$m" "$expr"
+  case_ "$desc${MOD:+ [$MOD]}" "$want" --olean $MOD --search-path=$d:$INIT "$@"
+  rm -rf "$d"
+}
+INIT="$(dirname "$(dirname "$(elan which lean 2>/dev/null || command -v lean)")")/lib/lean"
+rcases() {
+  # the exported axiom standing for the safe definition idT made unsafe:
+  # not the private constant with its value hidden
+  xcorrupt0 "an exported constant that is not its private one" 3 Tiny "
+b, o = at(fld(consts('olean')['idT'], 0))
+b[o + 16] = 1" Tiny
+  # an import cycle: HidA's import of Init.Prelude renamed to HidUse,
+  # which imports HidA (Lean's import refuses a cycle)
+  xcorrupt0 "an import cycle" 3 HidA "
+base, b = parts['olean']
+root = struct.unpack_from('<Q', b, 88)[0]
+imp0 = struct.unpack_from('<Q', b, fld(root, 0) - base + 24)[0]
+n = fld(imp0, 0)
+setfld(n, 0, 1)
+sb, so = at(fld(n, 1))
+struct.pack_into('<QQQ', sb, so + 8, 7, struct.unpack_from('<Q', sb, so + 16)[0], 6)
+sb[so + 32:so + 39] = b'HidUse\\0'" HidUse
+  # the server part's imports (shared with the exported part) replaced by
+  # an empty array
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch "$d/HidAll.olean.server" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
+  case_ "the server part's imports not the exported part's${MOD:+ [$MOD]}" 3 --olean $MOD --search-path=$d:$INIT HidAll
+  rm -rf "$d"
+}
+MOD=; rcases
 
 # --- modular checking (--modular) ----------------------------------------
 # The fixtures below import `Init.Prelude` from the toolchain's own
@@ -211,7 +306,67 @@ modular_cases() {
     --olean $MOD --keep-going --search-path=$MSP --compare CmpChal CmpSolDef CmpSolSorry
 
 }
-for MOD in --modular --modular=isolated; do modular_cases; done
+xcorrupt() { # <description> <expected-exit> <module> <expr> <args...>   (mode: $MOD)
+  local desc=$1 want=$2 m=$3 expr=$4; shift 4
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  xpatch "$d" "$m" "$expr"
+  case_ "$desc [$MOD]" "$want" --olean $MOD --search-path=$d:$INIT "$@"
+  rm -rf "$d"
+}
+
+# --- task #383: the review's findings -----------------------------------
+review_cases() {
+  # one challenge, two comparisons: the second compared an emptied
+  # challenge, and with a second solution that does not clash with the
+  # first the run accepted, no hole filled (now a usage error, before the
+  # graph changes)
+  case_ "compare: one challenge compared twice [$MOD]" 3 --olean $MOD --search-path=$MSP \
+    --compare CmpChal CmpSol --compare CmpChal TinyClassic
+  # a challenge's records are not installed, so it is no solution
+  case_ "compare: a challenge as another one's solution [$MOD]" 3 --olean $MOD --search-path=$MSP \
+    --compare CmpChal CmpSol --compare CmpSolDef CmpChal
+  # definition and opaque holes (assumed by their statements), and a
+  # non-hole opaque constant compared by its value
+  case_grep "compare: definition and opaque holes filled [$MOD]" 0 "hole answer filled by CmpOpqSol" \
+    --olean $MOD --search-path=$MSP --compare CmpOpq CmpOpqSol
+  case_grep "compare: an opaque constant of another value [$MOD]" 1 "k: the solution's opaque constant has another value" \
+    --olean $MOD --search-path=$MSP --compare CmpOpq CmpOpqSolK
+  # the solution's definition filling the hole has a value of the wrong
+  # type (`answer : Nat` pointed at `flag`'s `Bool.true`)
+  xcorrupt "compare: a hole filled by a value of the wrong type" 1 CmpOpqSolTy "
+cs = consts('olean.private')
+setfld(fld(cs['answer'], 0), 1, fld(fld(cs['flag'], 0), 1))" --compare CmpOpq CmpOpqSolTy
+  # --keep-going keeps the verdict's category: a decline alone stays one
+  case_ "compare: a decline under --keep-going [$MOD]" 2 --olean $MOD --keep-going --search-path=$MSP \
+    --compare CmpChal CmpSolSorry
+  # the duplicate name (above): the modular emission rejects it too
+  corruptM() { # <description> <expected-exit> <file> <expr> <root>
+    local d="$TMPDIR/con-leche-olean-$total"
+    rm -rf "$d"; cp -r "$LIB" "$d"
+    patch "$d/$3" "$4"
+    case_ "$1 [$MOD]" "$2" --olean $MOD --search-path=$d "$5"
+    rm -rf "$d"
+  }
+  corruptM "modular: one module storing a name twice" 3 TinyClassic.olean "$cdup" TinyClassic
+  corruptM "modular: a name table that names the constants differently" 3 Tiny.olean.private "$cswap" Tiny
+  # the private part's imports (the module's check reads them) replaced by
+  # an empty array (the root's extraConstNames): not the exported part's
+  # imports (closure discovery reads those)
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch "$d/HidAll.olean.private" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
+  case_ "the private part's imports not the exported part's [$MOD]" 3 --olean $MOD --search-path=$d:$INIT HidAll
+  rm -rf "$d"
+}
+for MOD in --modular --modular=isolated; do modular_cases; review_cases; rcases; done
+# the same import disagreement in the merged mode
+MOD=
+d="$TMPDIR/con-leche-olean-imports"
+rm -rf "$d"; cp -r "$LIB" "$d"
+patch "$d/HidAll.olean.private" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
+case_ "the private part's imports not the exported part's [merged]" 3 --olean --search-path=$d:$INIT HidAll
+rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"
 echo "olean gate: $ok/$total as expected"

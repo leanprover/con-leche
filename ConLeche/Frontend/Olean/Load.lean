@@ -167,37 +167,259 @@ def undecodable (m : Name) : CheckError :=
   .internal s!"module {m}: malformed .olean data (an object of the wrong shape, or a \
     pointer that does not point below its object)"
 
-/-- **Load one module**: its `.olean`, and for a module of the module
-system its `.olean.server` and `.olean.private`, decoded from the
-private part's root. -/
-def loadModule (dec : Decoder) (sp : SearchPath) (m : Name) :
-    IO (Except CheckError Loaded) := do
+/-- **A part's name table agrees with its constants** (task #383):
+`ModuleData.constNames`, the keys Lean's `finalizeImport` stores the
+constants under (it zips the two arrays), has as many entries as
+`ModuleData.constants`, entry `i` the name of constant `i` (the same
+object, or the same name decoded), and no name twice.  The decoder reads
+the constants alone, so a table that names them differently would make
+the checked constants differ from the ones Lean loads under those names;
+and a name stored twice in one part is disambiguated by Lean's loader
+(`subsumesInfo`, or "already contains") in a way no other tool need
+share. -/
+def constNamesOk (r : Region) (root : UInt64) : Bool := Id.run do
+  let some g := r.loc root | return false
+  unless r.isCtor g 0 5 do return false
+  let some ns := r.objArray g (r.fld g 1) | return false
+  let some cs := r.objArray g (r.fld g 2) | return false
+  unless ns.size == cs.size do return false
+  let mut seen : Std.HashSet Name := Std.HashSet.emptyWithCapacity ns.size
+  for h : i in [0:ns.size] do
+    let some sk := (cs[i]?).bind (constSkel r) | return false
+    let some a := nameAt r ns[i] | return false
+    unless r.loc sk.name == some ns[i] do
+      match nameP r sk.name with
+      | some b => unless a == b do return false
+      | none => return false
+    if seen.contains a then return false
+    seen := seen.insert a
+  return true
+
+/-- The malformed name table's error. -/
+def badConstNames (m : Name) (part : String) : CheckError :=
+  .internal s!"module {m}: the {part} part's name table (constNames) does not list its \
+    constants' names, each once"
+
+/-! ## The imports -/
+
+/-- One `import` of a module, with Lean's flags (`Lean.Import`). -/
+structure ImportRec where
+  module : Name
+  /-- `import all` -/
+  importAll : Bool
+  /-- `public import` (re-exported to the importer's importers) -/
+  isExported : Bool
+  /-- `meta import` (IR only; irrelevant to the kernel) -/
+  isMeta : Bool
+  deriving Inhabited, Repr, BEq
+
+/-- The root `ModuleData`'s imports with their flags (the `Import`
+structure: the module's name, then three one-byte scalars in declaration
+order). -/
+def importsAt (r : Region) (root : UInt64) : Option (Array ImportRec) := do
+  let g ← r.loc root
+  unless r.isCtor g 0 5 do none
+  let imps ← r.objArray g (r.fld g 0)
+  imps.mapM fun i => do
+    unless r.isCtor i 0 1 do none
+    let m ← nameP r (← r.ptrFld i 0)
+    pure { module := m, importAll := ← r.bool i 0, isExported := ← r.bool i 1,
+           isMeta := ← r.bool i 2 }
+
+/-! ## The exported level -/
+
+/-- **A private constant at the exported level.** -/
+inductive Expo where
+  /-- the exported part stores the same constant -/
+  | same
+  /-- the exported part stores it as an axiom of the same name, level
+  parameters and type: its value is hidden -/
+  | hidden
+  /-- the exported part does not store it -/
+  | absent
+  deriving Inhabited, DecidableEq, Repr
+
+def hintsEq : HintsRec → HintsRec → Bool
+  | .abbrev, .abbrev | .opaque, .opaque => true
+  | .regular a, .regular b => a == b
+  | _, _ => false
+
+def rulesEq : List (Name × Nat × Expr) → List (Name × Nat × Expr) → Bool
+  | [], [] => true
+  | (a, b, c) :: xs, (a', b', c') :: ys => a == a' && b == b' && c == c' && rulesEq xs ys
+  | _, _ => false
+
+/-- Structural equality of two stored constants (expressions by the
+checker's equality, pointer-equal first). -/
+def entrySame (a b : CEntryF Name Expr) : Bool :=
+  a.name == b.name && a.levelParams == b.levelParams && a.type == b.type &&
+  match a.kind, b.kind with
+  | .ax u, .ax u' => u == u'
+  | .defn v h s, .defn v' h' s' => v == v' && hintsEq h h' && s == s'
+  | .thm v al, .thm v' al' => v == v' && al == al'
+  | .opaq v u, .opaq v' u' => v == v' && u == u'
+  | .quot k, .quot k' => k == k'
+  | .induct a b c d e f g h, .induct a' b' c' d' e' f' g' h' =>
+    a == a' && b == b' && c == c' && d == d' && e == e' && f == f' && g == g' && h == h'
+  | .ctor a b c d e, .ctor a' b' c' d' e' =>
+    a == a' && b == b' && c == c' && d == d' && e == e'
+  | .recur a b c d e f g h, .recur a' b' c' d' e' f' g' h' =>
+    a == a' && b == b' && c == c' && d == d' && e == e' && rulesEq f f' && g == g' && h == h'
+  | _, _ => false
+
+/-- A stored constant's kind, for messages. -/
+def kindWord : CKind → String
+  | .ax u => s!"axiom{if u then " (unsafe)" else ""}"
+  | .defn _ _ s => s!"definition ({s})"
+  | .thm .. => "theorem"
+  | .opaq _ u => s!"opaque{if u then " (unsafe)" else ""}"
+  | .quot _ => "quotient"
+  | .induct .. => "inductive"
+  | .ctor .. => "constructor"
+  | .recur .. => "recursor"
+
+/-- **The exported level of one private constant**, given the exported
+part's constant of that name: the same constant, or the private one
+with its value hidden; `none` is a constant the exported part does not
+refine. -/
+def expoOf (priv ex : CEntryF Name Expr) : Option Expo :=
+  if entrySame priv ex then some .same
+  else if priv.name == ex.name && priv.levelParams == ex.levelParams && priv.type == ex.type then
+    -- the axiom Lean exports in its place (`addDeclCore`): unsafe exactly
+    -- when the definition is not safe or the opaque constant is unsafe
+    match priv.kind, ex.kind with
+    | .defn _ _ s, .ax u => if u == (s != "safe") then some .hidden else none
+    | .thm .., .ax u => if !u then some .hidden else none
+    | .opaq _ u', .ax u => if u == u' then some .hidden else none
+    | _, _ => none
+  else none
+
+/-! ## One module -/
+
+instance : Inhabited CEntry :=
+  ⟨{ name := .anonymous, levelParams := [], type := .bvar 0, kind := .ax false }⟩
+
+
+/-- **One module, read**: its imports with their flags, whether it is a
+module of the module system, its private-level constants and each
+one's exported level. -/
+structure ModRead where
+  name : Name
+  isModule : Bool
+  imports : Array ImportRec
+  constants : Array CEntry
+  expo : Array Expo
+  deriving Inhabited
+
+/-- **The exported level of a module's private constants**: for each
+exported constant, the private constant it stands for — the same object
+(the private part points into the exported part), the same skeleton
+(names and expressions as pointers), the same constant decoded, or an
+axiom of the same name, level parameters and type (by pointer, else
+decoded) where the private one is a definition, theorem or opaque
+constant.  `none` with the reason: an exported view that is not a
+refinement of the private one. -/
+def expoOfParts (r : Region) (privRoot expRoot : UInt64) (cs : Array CEntry) :
+    Except String (Array Expo) := do
+  let some skP := moduleSkel r privRoot | throw "malformed private part"
+  let some skE := moduleSkel r expRoot | throw "malformed exported part"
+  let privLoc : Std.HashMap Nat Nat :=
+    skP.consts.foldl (fun (m, i) c => (m.insert c i, i + 1)) ({}, 0) |>.1
+  let privLocs := skP.consts.toArray
+  let privIdx : Std.HashMap Name Nat :=
+    cs.size.fold (init := {}) fun i _ acc => acc.insert cs[i].name i
+  let mut expo : Array Expo := cs.map fun _ => .absent
+  for c in skE.consts do
+    if let some i := privLoc[c]? then
+      expo := expo.set! i .same
+    else
+      let some se := constSkel r c | throw "malformed exported constant"
+      let some en := nameP r se.name | throw "malformed exported constant"
+      let some i := privIdx[en]? | throw s!"the exported constant {en} is not stored at the private level"
+      let some sp := (privLocs[i]?).bind (constSkel r) | throw "malformed private constant"
+      let samePtrs : Bool := se.type == sp.type && se.levelParams == sp.levelParams
+      let hiddenKind : Bool := match se.kind, sp.kind with
+        | .ax u, .defn _ _ s => u == (s != "safe")
+        | .ax u, .thm .. => !u
+        | .ax u, .opaq _ u' => u == u'
+        | _, _ => false
+      if hiddenKind && samePtrs then expo := expo.set! i .hidden
+      else
+        -- the fallback: decode the exported constant
+        let some e := constSpec r c | throw "malformed exported constant"
+        match expoOf cs[i]!.toCEntryF e with
+        | some x => expo := expo.set! i x
+        | none => throw s!"the exported view of {en} is not a refinement of its private \
+            constant ({kindWord cs[i]!.kind} / {kindWord e.kind})"
+  return expo
+
+/-- **Read one module**: its imports with their flags, its private-level
+constants, and for a module of the module system each one's exported
+level — with every check that the parts' redundant data agree (task
+#383; a mismatch is malformed input, `.internal`, exit 3):
+
+* every part's name table lists its constants, each name once
+  (`constNamesOk`: the exported, server and private part);
+* the server and private parts' headers are the exported part's: a
+  module of the module system, the same imports with the same flags
+  (closure discovery reads the exported part's, the module's check the
+  private part's);
+* every constant of the exported part, and of the server part, is the
+  private part's constant of its name or that constant with its value
+  hidden (`expoOfParts`). -/
+def readModule (dec : Decoder) (sp : SearchPath) (m : Name) : IO (Except CheckError ModRead) := do
   let some dir ← findModule sp m
     | return .error (.internal s!"module {m}: no .olean on the search path")
-  let ex ← readPart (modFile dir m "olean")
-  let ex ← match ex with
+  let ex ← match ← readPart (modFile dir m "olean") with
     | .ok p => pure p
     | .error e => return .error e
-  -- the exported part's root says whether the module is a module-system
-  -- one (the `isModule` byte of its `ModuleData`)
-  let some sk := moduleSkel (Region.single ex) ex.root
-    | return .error (undecodable m)
-  let (r, root) ← if sk.isModule then do
-      let sv ← readPart (modFile dir m "olean.server")
-      let pv ← readPart (modFile dir m "olean.private")
-      match sv, pv with
-      | .ok s, .ok p =>
-        match Region.ofParts #[ex, s, p] with
-        | .ok r => pure (r, p.root)
-        | .error e => return .error e
-      | .error e, _ | _, .error e => return .error e
-    else pure (Region.single ex, ex.root)
-  match dec r root true with
-  | some d =>
-    pure (.ok ⟨m, d.imports, d.constants.map fun c =>
-      let c : CEntry := { toCEntryF := c }
-      { c with uses := constsOf c.deps }⟩)
-  | none => pure (.error (undecodable m))
+  let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
+  let rE := Region.single ex
+  let some sk := moduleSkel rE ex.root | return .error (undecodable m)
+  let some impE := importsAt rE ex.root | return .error (undecodable m)
+  -- a module imported twice (`public import A` beside `import all A`) is
+  -- Lean's own case, merged by its level fixpoint (`importModulesCore`,
+  -- here `levelsOf`); a module importing itself is a cycle, which the
+  -- closure's walk rejects before any module is read (`closureGo`)
+  unless constNamesOk rE ex.root do return .error (badConstNames m "exported")
+  let mkCs (d : ModDecoded) : Array CEntry := d.constants.map fun c =>
+    let c : CEntry := { toCEntryF := c }
+    { c with uses := constsOf c.deps }
+  if !sk.isModule then
+    let some d := dec rE ex.root true | return .error (undecodable m)
+    let cs := mkCs d
+    return .ok ⟨m, false, impE, cs, cs.map fun _ => .same⟩
+  let sv ← readPart (modFile dir m "olean.server")
+  let pv ← readPart (modFile dir m "olean.private")
+  let (s, p) ← match sv, pv with
+    | .ok s, .ok p => pure (s, p)
+    | .error e, _ | _, .error e => return .error e
+  let r ← match Region.ofParts #[ex, s, p] with
+    | .ok r => pure r
+    | .error e => return .error e
+  for (part, root) in [("server", s.root), ("private", p.root)] do
+    let some skP := moduleSkel r root | return .error (undecodable m)
+    unless skP.isModule do
+      return .error (bad s!"the {part} part is not of a module of the module system, the \
+        exported part is")
+    let some impP := importsAt r root | return .error (undecodable m)
+    unless impP == impE do
+      return .error (bad s!"the {part} part's imports are not the exported part's")
+    unless constNamesOk r root do return .error (badConstNames m part)
+  let some d := dec r p.root true | return .error (undecodable m)
+  let cs := mkCs d
+  match expoOfParts r p.root ex.root cs, expoOfParts r p.root s.root cs with
+  | .ok expo, .ok _ => return .ok ⟨m, true, impE, cs, expo⟩
+  | .error msg, _ => return .error (bad s!"the exported part: {msg}")
+  | _, .error msg => return .error (bad s!"the server part: {msg}")
+
+/-- **Load one module** for the merge: `readModule`'s read, with every
+validation of the module's parts, its private-level constants kept. -/
+def loadModule (dec : Decoder) (sp : SearchPath) (m : Name) :
+    IO (Except CheckError Loaded) := do
+  match ← readModule dec sp m with
+  | .ok r => pure (.ok ⟨m, r.imports.map (·.module), r.constants⟩)
+  | .error e => pure (.error e)
 
 /-! ## The closure -/
 
@@ -217,24 +439,29 @@ def moduleImports (dec : Decoder) (sp : SearchPath) (m : Name) :
 everything it imports, the roots and each module's imports in their
 order (a depth-first post-order, as `importModules` builds its module
 array).  An explicit stack (`(module, imports expanded?)`) instead of
-recursion. -/
+recursion.  A module whose imports are being expanded (`seen`, not yet
+`done`) is on the walk's current path, so an import of it is an import
+cycle: malformed input (task #383; Lean's own import refuses a cycle). -/
 partial def closureGo (dec : Decoder) (sp : SearchPath) (stack : List (Name × Bool))
-    (seen : Std.HashSet Name) (out : Array Name) : IO (Except CheckError (Array Name)) := do
+    (seen done : Std.HashSet Name) (out : Array Name) : IO (Except CheckError (Array Name)) := do
   match stack with
   | [] => pure (.ok out)
-  | (m, true) :: rest => closureGo dec sp rest seen (out.push m)
+  | (m, true) :: rest => closureGo dec sp rest seen (done.insert m) (out.push m)
   | (m, false) :: rest =>
-    if seen.contains m then closureGo dec sp rest seen out
+    if seen.contains m then closureGo dec sp rest seen done out
     else
       match ← moduleImports dec sp m with
       | .error e => pure (.error e)
       | .ok imps =>
+        let seen := seen.insert m
+        if let some c := imps.find? fun i => seen.contains i && !done.contains i then
+          return .error (.internal s!"import cycle: {m} imports {c}")
         let kids := imps.toList.filter (!seen.contains ·) |>.map (·, false)
-        closureGo dec sp (kids ++ (m, true) :: rest) (seen.insert m) out
+        closureGo dec sp (kids ++ (m, true) :: rest) seen done out
 
 def closureOrder (dec : Decoder) (sp : SearchPath) (roots : Array Name) :
     IO (Except CheckError (Array Name)) :=
-  closureGo dec sp (roots.toList.map (·, false)) {} #[]
+  closureGo dec sp (roots.toList.map (·, false)) {} {} #[]
 
 /-- The modules decoded one after the other. -/
 partial def loadSerial (dec : Decoder) (sp : SearchPath) (ms : List Name) (out : Array Loaded) :
@@ -483,6 +710,72 @@ def emitAll (mg : Merged) : Emit :=
   let roots := mg.order.filter (!Name.isInternal ·)
   emitLoop mg recMap (roots.toList.map .visit) {}
 
+/-! ## The coverage of the emission -/
+
+/-- The names an emitted record declares. -/
+def Emit.declared (em : Emit) : Std.HashSet Name :=
+  let nm (cv : CVRec) (s : Std.HashSet Name) : Std.HashSet Name :=
+    match em.names[cv.name]? with
+    | some n => s.insert n
+    | none => s
+  em.out.foldl (init := {}) fun s d => match d with
+    | .ax cv _ | .defn cv .. | .thm cv _ | .opaq cv .. | .quot cv _ => nm cv s
+    | .ind ts cs rs =>
+      let s := ts.foldl (fun s t => nm t.cv s) s
+      let s := cs.foldl (fun s c => nm c.cv s) s
+      rs.foldl (fun s r => nm r.cv s) s
+
+/-- **Every constant the walk reached is in an emitted record**
+(task #383): the walk's `visit` of a constructor or recursor emits its
+inductive block, and a block takes its members, constructors and
+recursors from the constants by name; a constructor its block does not
+list, a recursor no member of its block finds, or a block naming a
+member or constructor that is not stored would otherwise be dropped
+without a word.  Every constant the walk reached and did not skip
+(`CEntry.skipped`) must be declared by an emitted record, and every
+inductive type's block members and constructors must be stored, the
+members must agree on the block and the constructors name their type,
+and a recursor's block must be its first member's; a violation is
+malformed input. -/
+def coverageOk (mg : Merged) (em : Emit) : Except CheckError Unit := do
+  let decl := em.declared
+  for n in mg.order do
+    if let some c := mg.map[n]? then
+      if !c.skipped && em.visited.contains n then
+        unless decl.contains n do
+          throw (.internal s!"the constant {n} is in no emitted record (a constructor or \
+            recursor its inductive block does not have)")
+        -- the data that decides which constants form one block (task
+        -- #383), which a reader could take from `all`, from `ctors` or
+        -- from a constructor's `induct`: they must agree.  The other
+        -- fields are the record builder's (`validateIndF`) and the
+        -- installer's.
+        let bad (what : String) : CheckError := .internal s!"the inductive data of {n}: {what}"
+        match c.kind with
+        | .induct _ _ all cs _ _ _ _ =>
+          unless all.contains n do throw (bad "its block does not list it")
+          for x in all do
+            match ((mg.map[x]?).map (·.kind) : Option CKind) with
+            | some (.induct _ _ all' ..) =>
+              unless all' == all do throw (bad s!"its block member {x} names another block")
+            | some _ => throw (bad s!"its block member {x} is not an inductive type")
+            | none => throw (bad s!"its block member {x} is not stored")
+          for x in cs do
+            match ((mg.map[x]?).map (·.kind) : Option CKind) with
+            | some (.ctor ind ..) =>
+              unless ind == n do throw (bad s!"its constructor {x} names another type")
+            | some _ => throw (bad s!"its constructor {x} is not a constructor")
+            | none => throw (bad s!"its constructor {x} is not stored")
+        | .recur all .. =>
+          match all.head? with
+          | none => throw (bad "the recursor names no block")
+          | some t =>
+            match ((mg.map[t]?).map (·.kind) : Option CKind) with
+            | some (.induct _ _ all' ..) =>
+              unless all' == all do throw (bad s!"the recursor's block is not {t}'s")
+            | _ => throw (bad s!"the recursor's block member {t} is not a stored inductive type")
+        | _ => pure ()
+
 /-! ## The records -/
 
 /-- **The `Declaration` records**, through the stream reader's builder.
@@ -509,6 +802,10 @@ def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Na
   | .ok ls =>
     match mergeAll ls with
     | .error e => pure (.error (e, 0))
-    | .ok mg => pure (declsOf (emitAll mg))
+    | .ok mg =>
+      let em := emitAll mg
+      match coverageOk mg em with
+      | .error e => pure (.error (e, 0))
+      | .ok () => pure (declsOf em)
 
 end ConLeche.Frontend.Olean

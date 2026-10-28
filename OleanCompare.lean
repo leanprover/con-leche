@@ -19,7 +19,9 @@ the record.  Two orders lean4export takes from hash-map and `NameSet`
 iteration are normalised before comparing: the record order itself
 (hence the map) and the order of the recursors inside an inductive
 block (sorted by name).  Prints the records present on one side only
-and the records that differ, and exits 1 if there are any.
+and the records that differ, and exits 1 if there are any, if either
+side has two records of one key, or if the two sides' record counts
+differ (so the maps' equality is equality record for record).
 
 A development tool, not a default target: the gate it gives is the
 statement "the olean reader produces exactly the records lean4export
@@ -169,8 +171,12 @@ def main (args : List String) : IO UInt32 := do
       unless jm.contains k do
         bad := bad + 1
         if shown < 40 then IO.println s!"only in the oleans: {k}"; shown := shown + 1
-    IO.println s!"{jm.size} stream keys, {om.size} olean keys, {bad} differences"
-    return if bad == 0 then 0 else 1
+    -- record for record (task #383): a key two records share, or a
+    -- different number of records, is a difference the maps hide
+    let countDiff := if js.size == os.size then 0 else 1
+    IO.println s!"{jm.size} stream keys, {om.size} olean keys, {bad} differences, \
+      {jd + od} duplicate keys, {js.size} / {os.size} records"
+    return if bad == 0 && jd == 0 && od == 0 && countDiff == 0 then 0 else 1
   | _ =>
     IO.eprintln "usage: olean-compare EXPORT.ndjson SEARCHPATH MODULE..."
     return 3

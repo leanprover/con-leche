@@ -108874,3 +108874,166 @@ con-leche jargon replaced by plain words.
 
 Gates: whitepaper links and fragment gates, build without warnings.
 No Lean file changed.
+
+## TASK #383 — the olean branch review's findings: one comparison per challenge, holes as assumptions, opaque values, redundant file data checked, keep-going categories (2026-10-28, agent/383-fixes)
+
+Codex's review of `olean` at 0f0ad60b8 (`_tmp/382/review-final.md`),
+widened by two maintainer rulings: "the oleans are not to be trusted;
+there is no clear standard on how to read them (are constNames
+authoritative or constants?), so be maximally picky: read both, reject
+on mismatch; same for unexpected duplicates" — scaled back to "reject
+wherever two parts of the file could give the same name (or position)
+different content that tools might resolve differently; meaning-free
+redundant fields (isRec, numNested, …) are not compared".  Every check
+below has a fixture in `tests/olean.sh` (both modular modes where it
+applies; 114 cases, was 80) or a guard in
+`tests/ConLecheTests/OleanTests.lean`; each fixture fails on the
+binary of 0f0ad60b8 except the wrong-typed solution value (that binary
+rejected every definition hole) and the merged duplicate (rejected as
+an incompatible pair before, now as malformed).
+
+**Findings and fixes.**
+
+1. *A challenge compared twice* (`--compare C S1 --compare C S2`: the
+   second comparison set aside an emptied challenge and accepted with no
+   hole filled — verified on the old binary).  `addCompares` rejects a
+   challenge named twice and a challenge that is another comparison's
+   solution (its records are never installed), before the graph changes:
+   usage error, exit 3.  Fixtures `compare: one challenge compared twice`,
+   `compare: a challenge as another one's solution`.
+2. *The name table* (`ModuleData.constNames`, the keys of Lean's
+   `finalizeImport`, which zips it with `constants`).  `constNamesOk`
+   (Load.lean) checks in every part — exported, server, private, and the
+   classic file — that the table has the constants' length, entry `i`
+   the name of constant `i` (pointer first, else decoded) and no name
+   twice; malformed input, exit 3.  The check sits in `readModule`, after
+   and outside the decoder: `decodeModuleSpec` and its equality with the
+   fast decoder are untouched.  Fixtures: two entries swapped (classic,
+   private, exported part, and in both modular modes), a table one
+   shorter.
+3. *Duplicates and coverage.*  A name stored twice in one part is
+   malformed (exit 3, by the name table's uniqueness; the modular map no
+   longer can overwrite: its insert is safe because the part check ran).
+   This is stricter than the task's "exit 1" because of the ruling; Lean
+   defines a merge for one name in two MODULES only (`subsumesInfo`,
+   `mergeEntry`, unchanged and checked again against v4.35.0's source).
+   Coverage (`coverageOk`, both the merged and the modular emission):
+   every constant the walk reached and did not skip lands in an emitted
+   record, and the data deciding which constants form one inductive
+   block agree — every member's `all` is the block's and contains it,
+   the members are inductive types, each listed constructor is a stored
+   constructor naming that type, a recursor's `all` is its first
+   member's.  Violations are malformed (exit 3).  The merged path had
+   the same gap (an orphan constructor or recursor vanished); unreferenced
+   internal constants stay outside the merged walk, as in lean4export
+   (that is its root set, not a coverage gap).  Guards: orphan
+   constructor (modular and merged), constructor of another type, block
+   members naming different blocks, a listed constructor not stored;
+   fixture `one module storing a name twice` (merged, both modular).
+4. *Opaque values.*  An installed opaque constant is an assumption on
+   both sides, so the comparison now also checks every non-hole opaque
+   record of the challenge against the value of the context's opaque
+   constant of that name (`opaquesMet`, `opaqueVal`): the home module's
+   record, read only where the challenge's context sees the value (home
+   loaded at the private level, or exported with `Expo.same`).  Part of
+   `CmpClaim`/`IsoCmpClaim`.  Fixture `compare: an opaque constant of
+   another value` (CmpOpq vs CmpOpqSolK).  OVERVIEW and §7's "including
+   values" now hold as written.
+5. *Definition and opaque holes.*  A hole is installed by its statement
+   alone (`assumeHoles`: a theorem record, whose phase-A install guards
+   the header and stores `.thmInfo`; the value is never checked — an
+   axiom record would be a non-standard axiom, a decline), and
+   remembers the kind that fills it (`holesOf`: theorem/definition by
+   their kind, opaque by an assumption, always or an assumption).  A
+   comparison's install error keeps its category (`withPrefix`), so a
+   decline stays a decline.  Fixtures: CmpOpq with a definition and an
+   opaque hole filled by CmpOpqSol (accept, holes listed), and by
+   CmpOpqSolTy whose `answer` value is patched to a `Bool` (reject).
+6. *`--keep-going` categories.*  `worseExit`: 3 over 1 over 2 over 0
+   (a failure of unclear cause decides nothing about the input, so it
+   is never reported as a rejection; a rejection is a definite verdict
+   that a decline elsewhere does not change).  Both aggregations (the
+   install/module results and the pending checks).  The skipped-module
+   test compared `toString e` (which starts with "internal error: ")
+   with "skipped", so skipped modules counted as failures; now
+   `skippedMsg`.  Fixture `compare: a decline under --keep-going` (2,
+   was 1); guard on `worseExit`.
+7. *Fidelity tests.*  OleanTests now also checks the specification's
+   reading of Tiny, TinyUse and TinyClassic against facts written down
+   from their sources (imports, the names stored, kinds, `T`'s
+   constructors and sort, `idT := fun x => x`, `yes := Yes.intro`, the
+   exported axioms, `twice`'s body, the name tables), and the module
+   header says which check catches what.  `olean-compare` fails on
+   duplicate keys and on differing record counts.
+
+(a) *Imports of the parts.*  The server and private parts' headers must
+be the exported part's (module-system flag, imports with their flags);
+closure discovery reads the exported part, the module check the private
+one.  Fixtures: the private and the server part's imports pointed at an
+empty array (merged and modular), the private part's flag cleared.
+(b) OVERVIEW's "against the context Lean elaborated it in" now says the
+context is built by Lean's loading rules, refinement and scope checked,
+equality with Lean's environment not; the same wording in the
+`--modular` help text and the module headers.
+
+**The ruling's list, checked against the v4.35.0 sources.**
+
+* constNames vs constants, every part: checked (2).
+* Headers across the parts (flag, imports with flags): checked (a).
+* Exported part vs private part: `expoOfParts` already visited every
+  exported constant (not only imported ones); it now runs on the server
+  part too, in the merged read as well (`readModule` is now the one
+  reader of both modes, moved to Load.lean), and the hidden form must be
+  the axiom Lean writes (`addDeclCore`: unsafe exactly for an unsafe or
+  partial definition or an unsafe opaque, never for a theorem).  Fixture:
+  the exported axiom of the safe `idT` marked unsafe.
+* The server part: Lean's `finalizeImport` reads constants from the
+  main (last) part and the public (first) part only; its own data are
+  checked like the others' (name table, header, constants refine the
+  private ones).  Its name table and imports are the exported part's
+  objects in the fixtures (shared), so only the import case has a
+  fixture of its own.
+* `extraConstNames`: Lean takes them from the `.ir` data
+  (`irData.extraConstNames`), not from an olean part, and only for
+  `const2ModIdx` (IR lookup), never as constants: not read.
+* Duplicate imports: Lean's own case (`public import A` beside `import
+  all A`, fixture HidAll), merged by the level fixpoint of
+  `importModulesCore`, which `levelsOf` computes: allowed.  A cycle,
+  including a self-import: `closureGo` rejects an import of a module on
+  the walk's current path (merged and modular; buildGraph's cycle error
+  is now malformed too).  Fixture: HidA's import renamed to HidUse.
+* Inductive fields: the modular records go through `declOfF` and so
+  `validateIndF` exactly like the merged ones (both via `declsOf`);
+  validateIndF unchanged.  Block grouping data: checked (3).
+* Recursor rules: NOT landed — a pinned verdict would move.  Lean's
+  kernel runs a loaded file's stored rules, the checker installs the
+  generated ones, and official's replay compares the two structurally
+  ("Invalid recursor"), so by the ruling a mismatch should be rejected.
+  The check (`rulesAgree`, after the install in every mode and for the
+  stream path: count, constructor, field count, right-hand side up to
+  level-parameter names — pinned basis blocks are installed under the
+  pin's names, `Eq.rec` — and the λ-binders' domains, which an iota
+  step never reads: the generator keeps the declared parameter types,
+  `outParam (Type w)` in `HXor.rec`, where Lean's rule has `Type w`)
+  accepts Init and Lean in the merged mode, but turns 19 pinned e2e
+  verdicts from 0 into 1: `genrec_rules_garbage{,_nested}`,
+  `corner_rec_{rule_missing,rule_nfields,rules_swapped,alien_rule,
+  closed_major,call_const_bad,body_redex,redex_nonindex,wtype_redex,
+  call_redex}`, `corner_tshadow_aux_nonfield_bad`,
+  `mutual_rec_{wrong_member,nonfield,unguarded,rules_swapped,body_redex,
+  missing_rule}` — all official 1, pinned 0 by charter item 8 ("the
+  stream's rules are not read, the generated rules are installed",
+  GENREC "TARGET 0").  The maintainer decides between the charter and
+  the ruling; the check with its two olean fixtures (T.rec's rules
+  swapped, T.b's rule given T.a's right-hand side) is on branch
+  `agent/383-rules`.
+* Residual: con-leche's decoded expressions carry no binder names or
+  infos, so the subsumption merge compares types up to them where Lean
+  compares them too.
+
+**Disagreements / choices.**  Duplicates are exit 3, not 1 (ruling).
+A hole is a theorem record internally (no assumption record exists that
+installs without being a non-standard axiom).  Reading the home's
+opaque record in isolated mode reads only what the challenge's context
+shows (private level, or exported as stored); otherwise the comparison
+fails with "not in the challenge's context".

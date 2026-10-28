@@ -35,7 +35,8 @@ is there to measure what the mark is worth;
 (below); `--olean` reads `.olean` files instead of a stream, found
 along `--search-path` (below), `--modular` checks them module by module
 (`--modular=isolated`: each module in an environment of its own),
-`--keep-going` reports every failing module instead of the first, and
+`--keep-going` reports every failing module instead of the first (the
+exit code the most severe failure's: 3 over 1 over 2), and
 `--compare` compares a challenge module with its solution (below); `--help` prints the usage text and exits 0
 ([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L91)).
 Any other option is a usage error: the run reports it, prints the
@@ -63,14 +64,24 @@ sharing
 and the decoder that runs, which reads each object once, is proved to
 be that function
 ([theorem `decodeModuleSpec_eq_fast` in `ConLeche/Verify/Frontend/Olean/Equiv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Olean/Equiv.lean#L330)).
-A malformed file is an error (exit 3). What is read is what
+A malformed file is an error (exit 3), and so is a file whose
+redundant data disagree, since another reader could follow either
+copy: every part's name table must list the part's constants, each
+name once; the three parts of a module of the module system must agree
+on that flag and on the imports with their flags; every constant of the
+exported and server parts must be the private part's constant of its
+name or that constant with its value hidden (the axiom Lean writes in
+its place); the fields that group constants into an inductive block
+(its members' `all`, their constructor lists, a constructor's type, a
+recursor's block) must agree and every constant reached must land in a
+record; and the imports must have no cycle. What is read is what
 `lean4export` exports: each module of the module system at its private
 level (the `.olean.private` part, which holds the theorems' proofs and
 every definition's body), merged across modules as Lean's own import
 merges them (a name two modules store differently is a reject), and
 emitted in `lean4export`'s order — every constant after the constants
 it mentions, unsafe and partial constants left out
-([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L505-L506)).
+([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L798-L799)).
 The records are built by the stream reader's own builder, so on the
 same modules the two inputs give the same records: on `Init`, `Std`,
 `Lean` and `Mathlib` they are equal, record for record (`lake exe
@@ -78,10 +89,13 @@ olean-compare`, not a default target). With more than one worker the modules are
 decoded in parallel.
 
 **Checking module by module.** With `--modular` every module of the
-closure is checked on its own, against the context Lean elaborated it
-in: the constants of the modules it loads, at the level Lean loads them
-(the exported part, or the private part under `import all`, with what
-`public import`s re-export), computed by Lean's own import rules. One
+closure is checked on its own, against a context con-leche builds by
+Lean's loading rules: the constants of the modules it loads, at the
+level Lean loads them (the exported part, or the private part under
+`import all`, with what `public import`s re-export). That this context
+refines what the files store and stays within the module's scope is
+checked; that it equals the environment Lean elaborated the module in
+is not (see the reader's boundary below). One
 store holds every module's installed constants, partitioned by home
 module, and a module's view of it is gated by module, never by a
 position in a global order. An imported constant is presented as
@@ -90,7 +104,7 @@ importer's context, as the assumption of its type if only its type
 does, and not at all otherwise (an inductive block as a whole). Modules
 whose imports are installed are installed in parallel; then every
 module's local checks and every record's check run in one pool
-([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1526-L1527)).
+([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1642-L1643)).
 With `--modular=isolated` there is no store. When a module is checked
 it publishes its *unit*: what its importers may read of it, the
 counterpart of Lean's interface files. A unit says, for each of the
@@ -103,7 +117,7 @@ context, installing and checking its records, computing its unit and
 checking it, and M's local checks — reads M's own files and the units
 of exactly the modules Lean loads for M, and of those only the
 interface unless M loads them with `import all`
-([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1022-L1023)).
+([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1125-L1126)).
 Every such step takes the units through one function that keeps
 exactly that and drops the rest
 ([function `mask` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L150-L151)),
@@ -132,13 +146,16 @@ under its name in module order, which every store run checks
 The accept is printed from the evidence that the run passes the local
 checks of the modular theorem (§1). With `--compare CHALLENGE SOLUTION`
 the module `CHALLENGE` is not checked but compared: its constants must
-be the solution's, a *hole* (a value that is `sorry`) by a constant of
-the same statement, anything else by the same constant; `sorry` is
-permitted there and nowhere else, and the run lists the holes and the
-modules that fill them. The comparison is part of the challenge's own
+be the solution's, a *hole* (a theorem, definition or opaque constant
+whose value uses `sorry`, installed as the assumption of its statement)
+by a constant of the same statement and kind, anything else by the same
+constant, an opaque constant including its value; `sorry` is permitted
+there and nowhere else, and the run lists the holes and the modules
+that fill them. A challenge is compared with one solution and is no
+other challenge's solution. The comparison is part of the challenge's own
 work, after its unit is published, and in isolated mode it reads only
 the units the challenge loads
-([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L714-L716)).
+([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L804-L806)).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L38)):
@@ -496,7 +513,7 @@ the interface check from the unit check at the home alone
 (`RunOk.interfaceOk`), the importer's from its levels, gates and the
 one-key check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
-([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1288-L1290)).
+([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1391-L1393)).
 `--modular=isolated` establishes it for the development whose contexts
 are built from the units each module reads and whose own environments
 are the modules' constants over them
@@ -578,7 +595,7 @@ Read from the outside in:
    instead (§0), and what it returns is the records alone: the steps
    after it are the same. The reader decodes each module with the
    decoder the driver passes it
-   ([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L505-L506)),
+   ([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L798-L799)),
    and the driver passes the specification
    ([the `--olean` input in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L90)):
    the compiler runs the fast decoder on the strength of
