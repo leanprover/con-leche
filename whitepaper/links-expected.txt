@@ -6290,6 +6290,61 @@
     85    | home (module : Nat)
     86    | proof (stmt : Stmt)
 
+== whitepaper/Fragment/ModularSemantics.lean#L170-L176
+   170  /-- The views module `i` reads: a view of one of its imports. -/
+   171  def Src (i : Nat) : Type u := {x : Nat × S.Env // x.1 ∈ dev.imports i ∧ x.2 ∈ dev.views x.1}
+   172  
+   173  /-- **Assembled from the imports' views**: a constant of `E` counts as a
+   174  view's when module `i` and the view's module give its name one key. -/
+   175  def Assembled (i : Nat) (E : S.Env) : Prop :=
+   176    S.Assembled E (fun x : dev.Src i => x.1.2) fun n x => dev.key i n = dev.key x.1.1 n
+
+== whitepaper/Fragment/ModularSemantics.lean#L178-L198
+   178  /-- **The new names are keyed by the module, or flagged proofs.** -/
+   179  def NewKeys (i : Nat) : Prop :=
+   180    ∀ n, S.Stores (dev.own i) n → ¬ S.Stores (dev.ctx i) n →
+   181      dev.key i n = .home i ∨ (∃ s, dev.key i n = .proof s) ∧ S.Flagged (dev.decls i) n
+   182  
+   183  /-- **A checked module**: its context assembled from its imports' views,
+   184  its declarations accepted over it, its new names keyed by it or
+   185  flagged proofs. -/
+   186  def Checked (i : Nat) : Prop :=
+   187    dev.Assembled i (dev.ctx i) ∧ S.Accepts (dev.ctx i) (dev.decls i) (dev.own i) ∧ dev.NewKeys i
+   188  
+   189  /-- **A compared module**: its own environment assembled from its
+   190  imports' views. -/
+   191  def Compared (i : Nat) : Prop := dev.Assembled i (dev.own i)
+   192  
+   193  /-- **A valid module**: its views refine its own environment, it imports
+   194  earlier modules, and it is checked or compared. -/
+   195  structure Valid (i : Nat) : Prop where
+   196    views : ∀ E ∈ dev.views i, S.Refines E (dev.own i)
+   197    imports : ∀ j ∈ dev.imports i, j < i
+   198    checked_or_compared : dev.Checked i ∨ dev.Compared i
+
+== whitepaper/Fragment/ModularSemantics.lean#L200-L207
+   200  /-- **A compatible family** of models below `k`: two modules that store
+   201  a name under one key give it one value, and a proof key gets the
+   202  proofs' value. -/
+   203  def Compatible (k : Nat) (m : (i : Nat) → i < k → S.Mod (dev.own i)) : Prop :=
+   204    (∀ i i' (hi : i < k) (hi' : i' < k) n, S.Stores (dev.own i) n → S.Stores (dev.own i') n →
+   205      dev.key i n = dev.key i' n → S.val (m i hi) n = S.val (m i' hi') n) ∧
+   206    ∀ i (hi : i < k) n s, S.Stores (dev.own i) n → dev.key i n = .proof s →
+   207      S.val (m i hi) n = S.proofVal
+
+== whitepaper/Fragment/ModularSemantics.lean#L225-L227
+   225  /-- **A module's homes are itself or earlier modules.** -/
+   226  theorem home_le : ∀ i, (∀ j ≤ i, dev.Valid j) →
+   227      ∀ n h, S.Stores (dev.own i) n → dev.key i n = .home h → h ≤ i := by
+
+== whitepaper/Fragment/ModularSemantics.lean#L340-L345
+   340  /-- **Every valid module's own environment has a model.** -/
+   341  theorem own_model (k : Nat) (hv : ∀ i < k, dev.Valid i) :
+   342      ∀ i < k, Nonempty (S.Mod (dev.own i)) := by
+   343    obtain ⟨m, -⟩ := dev.modular k hv
+   344    exact fun i hi => ⟨m i hi⟩
+   345  
+
 == whitepaper/Fragment/Env.lean#L83-L86
     83    /-- **An assumption**: a constant known by its type alone — a
     84    theorem's statement, or a definition whose value is left out
@@ -6577,38 +6632,6 @@
    409  def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
    410    if m.proofs n then .proof (ci.lparams, ci.type) else .home i
 
-== whitepaper/Fragment/ModularSemantics.lean#L170-L176
-   170  /-- The views module `i` reads: a view of one of its imports. -/
-   171  def Src (i : Nat) : Type u := {x : Nat × S.Env // x.1 ∈ dev.imports i ∧ x.2 ∈ dev.views x.1}
-   172  
-   173  /-- **Assembled from the imports' views**: a constant of `E` counts as a
-   174  view's when module `i` and the view's module give its name one key. -/
-   175  def Assembled (i : Nat) (E : S.Env) : Prop :=
-   176    S.Assembled E (fun x : dev.Src i => x.1.2) fun n x => dev.key i n = dev.key x.1.1 n
-
-== whitepaper/Fragment/ModularSemantics.lean#L178-L198
-   178  /-- **The new names are keyed by the module, or flagged proofs.** -/
-   179  def NewKeys (i : Nat) : Prop :=
-   180    ∀ n, S.Stores (dev.own i) n → ¬ S.Stores (dev.ctx i) n →
-   181      dev.key i n = .home i ∨ (∃ s, dev.key i n = .proof s) ∧ S.Flagged (dev.decls i) n
-   182  
-   183  /-- **A checked module**: its context assembled from its imports' views,
-   184  its declarations accepted over it, its new names keyed by it or
-   185  flagged proofs. -/
-   186  def Checked (i : Nat) : Prop :=
-   187    dev.Assembled i (dev.ctx i) ∧ S.Accepts (dev.ctx i) (dev.decls i) (dev.own i) ∧ dev.NewKeys i
-   188  
-   189  /-- **A compared module**: its own environment assembled from its
-   190  imports' views. -/
-   191  def Compared (i : Nat) : Prop := dev.Assembled i (dev.own i)
-   192  
-   193  /-- **A valid module**: its views refine its own environment, it imports
-   194  earlier modules, and it is checked or compared. -/
-   195  structure Valid (i : Nat) : Prop where
-   196    views : ∀ E ∈ dev.views i, S.Refines E (dev.own i)
-   197    imports : ∀ j ∈ dev.imports i, j < i
-   198    checked_or_compared : dev.Checked i ∨ dev.Compared i
-
 == whitepaper/Fragment/ModularModel.lean#L421-L443
    421  /-- **The check per home**: every view a module presents refines its
    422  own environment.  It reads the module alone, and runs once, however
@@ -6666,21 +6689,6 @@
    110      · exact absurd (show ((dev i).context.find? n).isSome = true by rw [hl]; rfl) hC
    111    · exact ⟨h.iface, h.imports, .inr h.reads⟩
 
-== whitepaper/Fragment/ModularSemantics.lean#L200-L207
-   200  /-- **A compatible family** of models below `k`: two modules that store
-   201  a name under one key give it one value, and a proof key gets the
-   202  proofs' value. -/
-   203  def Compatible (k : Nat) (m : (i : Nat) → i < k → S.Mod (dev.own i)) : Prop :=
-   204    (∀ i i' (hi : i < k) (hi' : i' < k) n, S.Stores (dev.own i) n → S.Stores (dev.own i') n →
-   205      dev.key i n = dev.key i' n → S.val (m i hi) n = S.val (m i' hi') n) ∧
-   206    ∀ i (hi : i < k) n s, S.Stores (dev.own i) n → dev.key i n = .proof s →
-   207      S.val (m i hi) n = S.proofVal
-
-== whitepaper/Fragment/ModularSemantics.lean#L225-L227
-   225  /-- **A module's homes are itself or earlier modules.** -/
-   226  theorem home_le : ∀ i, (∀ j ≤ i, dev.Valid j) →
-   227      ∀ n h, S.Stores (dev.own i) n → dev.key i n = .home h → h ≤ i := by
-
 == whitepaper/Fragment/ModularSemantics.lean#L254-L258
    254  /-- **The modular theorem, over the interface**: if every module
    255  below `k` is valid, there is a compatible family of models, one of each
@@ -6703,14 +6711,6 @@
    126            (m i hi).M n = (m i' hi').M n) ∧
    127        ∀ i (hi : i < k) n s, ((dev i).own.find? n).isSome → (dev i).key n = .proof s →
    128          ∀ ls, (m i hi).M n ls = pt := by
-
-== whitepaper/Fragment/ModularSemantics.lean#L340-L345
-   340  /-- **Every valid module's own environment has a model.** -/
-   341  theorem own_model (k : Nat) (hv : ∀ i < k, dev.Valid i) :
-   342      ∀ i < k, Nonempty (S.Mod (dev.own i)) := by
-   343    obtain ⟨m, -⟩ := dev.modular k hv
-   344    exact fun i hi => ⟨m i hi⟩
-   345  
 
 == whitepaper/Fragment/ModularInstance.lean#L132-L135
    132  variable (V) in
