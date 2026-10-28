@@ -109031,6 +109031,24 @@ equality with Lean's environment not; the same wording in the
   infos, so the subsumption merge compares types up to them where Lean
   compares them too.
 
+**Measurements** (instructions:u ×10⁹, one run each, 96 workers; base =
+0f0ad60b8's binary, rerun today; every run accepted, counts unchanged):
+
+| closure | merged base → new | store base → new | isolated base → new |
+|---|---|---|---|
+| Init | 402.9 → 406.4 | 497.0 → 499.9 | 444.4 → 447.3 |
+| Lean | 727.8 → 739.7 | 943.4 → 953.0 | 929.3 → 939.8 |
+| Mathlib, patched (10 976 modules) | — | 9 658 (#376) → 9 702 | — |
+
+The cost is the part checks: the merged read now compares the exported
+and server parts with the private one too (+1.6 % on Lean), and every
+part's name table is decoded once (+0.6 to +1.1 % in the modular modes).
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+114/114; `tests/arena.sh` on the final tree (e2e 496/496, challenge
+statements identical, shake, layering, link and quote gates);
+whitepaper links gate.
+
 **Disagreements / choices.**  Duplicates are exit 3, not 1 (ruling).
 A hole is a theorem record internally (no assumption record exists that
 installs without being a non-standard axiom).  Reading the home's
