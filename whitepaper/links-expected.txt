@@ -6270,75 +6270,6 @@
    146  theorem restrict {Γ E : S.Env} (h : S.Refines Γ E) (m : S.Mod E) :
    147      ∃ m' : S.Mod Γ, ∀ n, S.Stores Γ n → S.val m' n = S.val m n := by
 
-== whitepaper/Fragment/ModularSyntactic.lean#L83-L91
-    83  /-- **σ realises `E`**: every constant's realisation has the realised
-    84  type, and a definition's is its realised value. -/
-    85  def Realises (σ : N → T.Tm) (E : N → Option (Entry T)) : Prop :=
-    86    ∀ c A v, E c = some (A, v) → T.HasTy (σ c) (T.subst σ A) ∧ ∀ t, v = some t → σ c = T.subst σ t
-    87  
-    88  /-- **A model of an environment**: a realisation. -/
-    89  structure Real (T : SubstSystem N) (E : SEnv T) where
-    90    σ : N → T.Tm
-    91    real : Realises σ E.1
-
-== whitepaper/Fragment/ModularSyntactic.lean#L60-L63
-    60    /-- **the substitution lemma** -/
-    61    der_subst : ∀ {Γ t A} {σ : N → Tm}, Der Γ t A →
-    62      (∀ c B v, Γ c = some (B, v) → HasTy (σ c) (subst σ B) ∧ ∀ s, v = some s → σ c = subst σ s) →
-    63      HasTy (subst σ t) (subst σ A)
-
-== whitepaper/Fragment/ModularSyntactic.lean#L170-L177
-   170  /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
-   171  the same name, the entry of a member `C` counts as the same, its value
-   172  kept or left out, and every constant the entry mentions is counted as
-   173  that member's too. -/
-   174  def Assembled (C : SEnv T) {ι : Type u} (E : ι → SEnv T) (same : N → ι → Prop) : Prop :=
-   175    ∀ c A v, C.1 c = some (A, v) → ∃ i, same c i ∧
-   176      (∃ v', (E i).1 c = some (A, v') ∧ ∀ t, v = some t → v' = some t) ∧
-   177      (∀ d, T.Mentions A d → same d i) ∧ ∀ t, v = some t → ∀ d, T.Mentions t d → same d i
-
-== whitepaper/Fragment/ModularSyntactic.lean#L179-L186
-   179  /-- **Amalgamation**: the union of realisations that agree where `C`
-   180  counts two members as the same. -/
-   181  theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T} {same : N → ι → Prop}
-   182      (h : Assembled C E same) (m : (i : ι) → Real T (E i))
-   183      (hcomp : ∀ c i i', (C.1 c).isSome → same c i → same c i' → ((E i).1 c).isSome →
-   184        ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
-   185      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome →
-   186        some (mC.σ c) = some ((m i).σ c) := by
-
-== whitepaper/Fragment/ModularSyntactic.lean#L130-L135
-   130  /-- **The step for one definition**: realised by its realised value,
-   131  by the substitution lemma. -/
-   132  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
-   133      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
-   134    have hval := T.der_subst hd m.real
-   135    let σ' : N → T.Tm := fun d => if d = c then T.subst m.σ t else m.σ d
-
-== whitepaper/Fragment/ModularSyntactic.lean#L215-L236
-   215  variable (T) in
-   216  /-- **A syntactic consistency proof as a modular semantics.** -/
-   217  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
-   218    Env := SEnv T
-   219    Name := N
-   220    Stores E c := (E.1 c).isSome = true
-   221    Mod := Real T
-   222    Val := Option T.Tm
-   223    val m c := some (m.σ c)
-   224    proofVal := none
-   225    Assembled C _ E same := Assembled C E same
-   226    assembled_src h c hc := by
-   227      obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
-   228      obtain ⟨i, hs, ⟨v', hE, -⟩, -⟩ := h c A v hA
-   229      exact ⟨i, hs, by rw [hE]; rfl⟩
-   230    amalgamate h m hc := amalgamate h m hc
-   231    Decls := List (N × T.Tm × T.Tm)
-   232    Flagged _ _ := False
-   233    Accepts := Accepts
-   234    step h m := by
-   235      obtain ⟨m', hm'⟩ := h.step m
-   236      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
-
 == whitepaper/Fragment/ModularSemantics.lean#L155-L164
    155  /-- **A development** over `S`: per module its context, declarations,
    156  own environment, the views it presents to its importers, the modules
@@ -6378,20 +6309,6 @@
    583  def Scoped (env : Env) (ps : List Name) (k : Nat) (e : Expr) : Prop :=
    584    e.closedAt k = true ∧ (∀ c ∈ e.consts, (env.find? c).isSome) ∧ e.lparamsIn ps = true
 
-== whitepaper/Fragment/Decl.lean#L699-L710
-   699  def Scoped (env : Env) : Prop :=
-   700    (∀ i A, S.params[i]? = some A → Expr.Scoped env S.lparams (S.nP - 1 - i) A) ∧
-   701    (∀ t T, S.indices[t]? = some T → Expr.Scoped env S.lparams (S.nP + (S.nI - 1 - t)) T) ∧
-   702    S.sort.paramsIn S.lparams = true ∧
-   703    (∀ c ∈ S.ctors,
-   704      (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
-   705      (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
-   706      c.idx.length = S.nI ∧
-   707      (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
-   708    (S.large = true → S.elim ∉ S.lparams) ∧
-   709    S.lparams.Nodup ∧
-   710    S.NestScoped env
-
 == whitepaper/Fragment/ModularModel.lean#L189-L193
    189  open Classical in
    190  /-- **The part of `E` that `C` reads as `E` does**: `E`'s constants at
@@ -6430,34 +6347,19 @@
    234      S.nest = none → C.find? S.name = some S.indInfo ∧
    235        ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → C.find? c.name = some (S.ctorInfo c)
 
-== whitepaper/Fragment/InstallDef.lean#L84-L94
-    84  /-- Every stored term is closed, mentions only stored constants and
-    85  uses only its constant's level parameters, and every recursor rule
-    86  fires on a stored constructor: the environment is closed under
-    87  itself. -/
-    88  def Env.Scoped (env : Env) : Prop :=
-    89    ∀ c ci, env.find? c = some ci →
-    90      Expr.Scoped env ci.lparams 0 ci.type ∧
-    91      (∀ v, ci.value? = some v → Expr.Scoped env ci.lparams 0 v) ∧
-    92      (∀ nP nM nMin nI rules, ci.kind = .recursor nP nM nMin nI rules →
-    93        ∀ rl ∈ rules, Expr.Scoped env ci.lparams 0 rl.rhs ∧ (env.find? rl.ctor).isSome)
-    94  
-
-== whitepaper/Fragment/ModularModel.lean#L374-L387
-   374  omit [IndLib V] [LevelOracle] in
-   375  /-- **An assembled environment is closed.** -/
-   376  theorem Assembled.scoped {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
-   377      (h : Assembled C E same) : Env.Scoped C := by
-   378    have hsub : ∀ q d, ((common C (E q) (same · q)).find? d).isSome → (C.find? d).isSome :=
-   379      fun q d hd => by
-   380        obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
-   381        exact (find?_common he).2.1
-   382    intro c ci hf
-   383    obtain ⟨q, -, -, -, -, hsc⟩ := h.le c ci hf
-   384    refine ⟨hsc.1.mono (hsub _), fun v hv => (hsc.2.1 v hv).mono (hsub _),
-   385      fun nP nM nMin nI rules hk rl hrl => ?_⟩
-   386    · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
-   387      exact ⟨hrhs.mono (hsub _), by rw [hE]; rfl⟩
+== whitepaper/Fragment/Decl.lean#L699-L710
+   699  def Scoped (env : Env) : Prop :=
+   700    (∀ i A, S.params[i]? = some A → Expr.Scoped env S.lparams (S.nP - 1 - i) A) ∧
+   701    (∀ t T, S.indices[t]? = some T → Expr.Scoped env S.lparams (S.nP + (S.nI - 1 - t)) T) ∧
+   702    S.sort.paramsIn S.lparams = true ∧
+   703    (∀ c ∈ S.ctors,
+   704      (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
+   705      (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
+   706      c.idx.length = S.nI ∧
+   707      (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
+   708    (S.large = true → S.elim ∉ S.lparams) ∧
+   709    S.lparams.Nodup ∧
+   710    S.NestScoped env
 
 == whitepaper/Fragment/BlockModel.lean#L46-L66
     46  /-- **The block's law** in a model: for a plain block, its scope, its
@@ -6505,6 +6407,35 @@
    620            FitsVals M (S.ψ ls) (consList fs (envP ps)) (tele.drop (t + 1)) ys →
    621            interp M (S.ψ ls) (consList ys (consList fs (envP ps))) T ∈ˢ (univ (S.u₀ ls) : V)
    622        | .container => True
+
+== whitepaper/Fragment/InstallDef.lean#L84-L94
+    84  /-- Every stored term is closed, mentions only stored constants and
+    85  uses only its constant's level parameters, and every recursor rule
+    86  fires on a stored constructor: the environment is closed under
+    87  itself. -/
+    88  def Env.Scoped (env : Env) : Prop :=
+    89    ∀ c ci, env.find? c = some ci →
+    90      Expr.Scoped env ci.lparams 0 ci.type ∧
+    91      (∀ v, ci.value? = some v → Expr.Scoped env ci.lparams 0 v) ∧
+    92      (∀ nP nM nMin nI rules, ci.kind = .recursor nP nM nMin nI rules →
+    93        ∀ rl ∈ rules, Expr.Scoped env ci.lparams 0 rl.rhs ∧ (env.find? rl.ctor).isSome)
+    94  
+
+== whitepaper/Fragment/ModularModel.lean#L374-L387
+   374  omit [IndLib V] [LevelOracle] in
+   375  /-- **An assembled environment is closed.** -/
+   376  theorem Assembled.scoped {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
+   377      (h : Assembled C E same) : Env.Scoped C := by
+   378    have hsub : ∀ q d, ((common C (E q) (same · q)).find? d).isSome → (C.find? d).isSome :=
+   379      fun q d hd => by
+   380        obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
+   381        exact (find?_common he).2.1
+   382    intro c ci hf
+   383    obtain ⟨q, -, -, -, -, hsc⟩ := h.le c ci hf
+   384    refine ⟨hsc.1.mono (hsub _), fun v hv => (hsc.2.1 v hv).mono (hsub _),
+   385      fun nP nM nMin nI rules hk rl hrl => ?_⟩
+   386    · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
+   387      exact ⟨hrhs.mono (hsub _), by rw [hE]; rfl⟩
 
 == whitepaper/Fragment/ModularModel.lean#L252-L260
    252  /-- **Amalgamation**: models of the family that agree wherever `C`
@@ -6806,6 +6737,75 @@
    156      ∃ m : BlockModel V (dev i).own, ∀ c ci, (dev i).own.find? c = some ci →
    157        ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
    158          ∃ x, x ∈ˢ interp m.M φ ρ (ci.type.instL ci.lparams ls) := by
+
+== whitepaper/Fragment/ModularSyntactic.lean#L83-L91
+    83  /-- **σ realises `E`**: every constant's realisation has the realised
+    84  type, and a definition's is its realised value. -/
+    85  def Realises (σ : N → T.Tm) (E : N → Option (Entry T)) : Prop :=
+    86    ∀ c A v, E c = some (A, v) → T.HasTy (σ c) (T.subst σ A) ∧ ∀ t, v = some t → σ c = T.subst σ t
+    87  
+    88  /-- **A model of an environment**: a realisation. -/
+    89  structure Real (T : SubstSystem N) (E : SEnv T) where
+    90    σ : N → T.Tm
+    91    real : Realises σ E.1
+
+== whitepaper/Fragment/ModularSyntactic.lean#L60-L63
+    60    /-- **the substitution lemma** -/
+    61    der_subst : ∀ {Γ t A} {σ : N → Tm}, Der Γ t A →
+    62      (∀ c B v, Γ c = some (B, v) → HasTy (σ c) (subst σ B) ∧ ∀ s, v = some s → σ c = subst σ s) →
+    63      HasTy (subst σ t) (subst σ A)
+
+== whitepaper/Fragment/ModularSyntactic.lean#L170-L177
+   170  /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
+   171  the same name, the entry of a member `C` counts as the same, its value
+   172  kept or left out, and every constant the entry mentions is counted as
+   173  that member's too. -/
+   174  def Assembled (C : SEnv T) {ι : Type u} (E : ι → SEnv T) (same : N → ι → Prop) : Prop :=
+   175    ∀ c A v, C.1 c = some (A, v) → ∃ i, same c i ∧
+   176      (∃ v', (E i).1 c = some (A, v') ∧ ∀ t, v = some t → v' = some t) ∧
+   177      (∀ d, T.Mentions A d → same d i) ∧ ∀ t, v = some t → ∀ d, T.Mentions t d → same d i
+
+== whitepaper/Fragment/ModularSyntactic.lean#L179-L186
+   179  /-- **Amalgamation**: the union of realisations that agree where `C`
+   180  counts two members as the same. -/
+   181  theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T} {same : N → ι → Prop}
+   182      (h : Assembled C E same) (m : (i : ι) → Real T (E i))
+   183      (hcomp : ∀ c i i', (C.1 c).isSome → same c i → same c i' → ((E i).1 c).isSome →
+   184        ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
+   185      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome →
+   186        some (mC.σ c) = some ((m i).σ c) := by
+
+== whitepaper/Fragment/ModularSyntactic.lean#L130-L135
+   130  /-- **The step for one definition**: realised by its realised value,
+   131  by the substitution lemma. -/
+   132  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
+   133      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
+   134    have hval := T.der_subst hd m.real
+   135    let σ' : N → T.Tm := fun d => if d = c then T.subst m.σ t else m.σ d
+
+== whitepaper/Fragment/ModularSyntactic.lean#L215-L236
+   215  variable (T) in
+   216  /-- **A syntactic consistency proof as a modular semantics.** -/
+   217  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
+   218    Env := SEnv T
+   219    Name := N
+   220    Stores E c := (E.1 c).isSome = true
+   221    Mod := Real T
+   222    Val := Option T.Tm
+   223    val m c := some (m.σ c)
+   224    proofVal := none
+   225    Assembled C _ E same := Assembled C E same
+   226    assembled_src h c hc := by
+   227      obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
+   228      obtain ⟨i, hs, ⟨v', hE, -⟩, -⟩ := h c A v hA
+   229      exact ⟨i, hs, by rw [hE]; rfl⟩
+   230    amalgamate h m hc := amalgamate h m hc
+   231    Decls := List (N × T.Tm × T.Tm)
+   232    Flagged _ _ := False
+   233    Accepts := Accepts
+   234    step h m := by
+   235      obtain ⟨m', hm'⟩ := h.step m
+   236      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
 == ConLeche/Cached/ModStore.lean#L143-L167
    143  
