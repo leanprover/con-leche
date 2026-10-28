@@ -90,7 +90,7 @@ importer's context, as the assumption of its type if only its type
 does, and not at all otherwise (an inductive block as a whole). Modules
 whose imports are installed are installed in parallel; then every
 module's local checks and every record's check run in one pool
-([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1507-L1508)).
+([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1510-L1511)).
 With `--modular=isolated` there is no store. When a module is checked
 it publishes its *unit*: what its importers may read of it, the
 counterpart of Lean's interface files. A unit says, for each of the
@@ -103,7 +103,7 @@ context, installing and checking its records, computing its unit and
 checking it, and M's local checks — reads M's own files and the units
 of exactly the modules Lean loads for M, and of those only the
 interface unless M loads them with `import all`
-([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L856-L857)).
+([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L859-L860)).
 Every such step takes the units through one function that keeps
 exactly that and drops the rest
 ([function `mask` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L150-L151)),
@@ -136,7 +136,7 @@ be the solution's, a *hole* (a value that is `sorry`) by a constant of
 the same statement, anything else by the same constant; `sorry` is
 permitted there and nowhere else, and the run lists the holes and the
 modules that fill them
-([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1227-L1229)).
+([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1230-L1232)).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L38)):
@@ -490,18 +490,18 @@ the interface check from the unit check at the home alone
 (`RunOk.interfaceOk`), the importer's from its levels, gates and the
 one-qualified-name check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
-([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1101-L1103)).
+([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1104-L1106)).
 `--modular=isolated` establishes it for the development whose contexts
 are built from the units each module reads and whose own environments
 are the modules' constants over them
-([theorem `IsoRunOk.localOk` in `ConLeche/Verify/Modular/Isolated.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Isolated.lean#L334-L335)).
+([theorem `IsoRunOk.localOk` in `ConLeche/Verify/Modular/Isolated.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Isolated.lean#L335-L336)).
 The proof goes through the store mode's theorems at a store made of the
 run's units, which exists in the proof only
 (`ghostStore` in `ConLeche/Verify/Modular/Ghost.lean`): a module's unit
 check and local checks, computed from the units it reads, are the
 store's at that store. Conversely a store run is an isolated run of its
 units
-([theorem `RunOk.isoRunOk` in `ConLeche/Verify/Modular/Isolated.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Isolated.lean#L369-L370)),
+([theorem `RunOk.isoRunOk` in `ConLeche/Verify/Modular/Isolated.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Isolated.lean#L370-L371)),
 so the store mode is an optimisation of the isolated one: one shared
 name index in place of a context per module. The local checks read a
 context and an own environment only through their lookups, beside two
