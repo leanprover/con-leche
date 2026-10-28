@@ -501,10 +501,10 @@ not inspected.
   the kind above, in two modes. In the first, every module is checked at its
   view of one store of installed constants; in the second
   (`--modular=isolated`), every module is checked in
-  #src("ConLeche/Cached/ModIso.lean", 182, 188)[an environment of its
+  #src("ConLeche/Cached/ModIso.lean", 280, 286)[an environment of its
   own], built from its imports' exported levels (private levels under
   `import all`) alone, and the two modes are
-  #src("ConLeche/Verify/Modular/IsoCtx.lean", 674, 681)[proved to give
+  #src("ConLeche/Verify/Modular/IsoCtx.lean", 580, 587)[proved to give
   the same verdicts]. With `--compare CHALLENGE SOLUTION` a challenge
   is compared with its solution as in @sec:mod-compare, and its holes
   are listed. The modular theorem
