@@ -164,7 +164,7 @@ theorem MBase.at?_eq_presentAt (b : MBase) (h j : Nat) :
 
 theorem Store.mb_slotAt (S : Store) (i h : Nat) : (S.mb i).slotAt h = S.slot h := rfl
 
-theorem Store.mb_lvl (S : Store) (i : Nat) : (S.mb i).lvl = S.lvl i := rfl
+theorem Store.mb_lvl_iso (S : Store) (i : Nat) : (S.mb i).lvl = S.lvl i := rfl
 
 theorem Store.mb_alts (S : Store) (i : Nat) (n : Name) : (S.mb i).alts n = S.alts n := rfl
 
@@ -326,7 +326,7 @@ theorem entry_of_at? {S : Store} {i h j : Nat} {c : ConstantInfo}
     (hat : (S.mb i).at? h j = some c) :
     ⟨h, j, c, entryTbl c (presentTbl (S.slot h) (lvlAt (S.lvl i) h) j)⟩ ∈
       isoEntries S.slot (S.lvl i) := by
-  rw [MBase.at?_eq_presentAt, Store.mb_slotAt, Store.mb_lvl] at hat
+  rw [MBase.at?_eq_presentAt, Store.mb_slotAt, Store.mb_lvl_iso] at hat
   refine mem_isoEntries.mpr ⟨?_, (presentAt_some hat).1, hat, rfl⟩
   rcases Nat.lt_or_ge h (S.lvl i).size with hl | hl
   · exact hl
@@ -338,7 +338,7 @@ theorem entry_of_at? {S : Store} {i h j : Nat} {c : ConstantInfo}
 /-- An entry is a position the viewer sees its constant at. -/
 theorem at?_of_entry {S : Store} {i : Nat} {e : IsoEntry} (he : e ∈ isoEntries S.slot (S.lvl i)) :
     (S.mb i).at? e.h e.j = some e.ci := by
-  rw [MBase.at?_eq_presentAt, Store.mb_slotAt, Store.mb_lvl]
+  rw [MBase.at?_eq_presentAt, Store.mb_slotAt, Store.mb_lvl_iso]
   exact (mem_isoEntries.mp he).2.2.1
 
 /-- **The view's choice of a name is the first presentation of it in the
@@ -625,7 +625,7 @@ theorem baseLike_isoCtx {S : Store} (hI : IdxOk S) (i : Nat) :
         simp only [hs', ↓reduceDIte, hl]
         unfold entryTbl presentTbl lvlAt
         rw [← hci, hn]
-        simp only [Store.mb_lvl] at hl
+        simp only [Store.mb_lvl_iso] at hl
         simp only [hl, ↓reduceDIte]
         have hsl : S.slot e.h = (S.slots[e.h]'hs).get := by
           unfold Store.slot; rw [Array.getElem?_eq_getElem hs]; rfl

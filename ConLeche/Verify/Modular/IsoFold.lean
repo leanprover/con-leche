@@ -297,7 +297,7 @@ theorem checkPendingList_over {mb : MBase} {C : Env} (hC : BaseLike C mb) {fe : 
     rw [checkPending_over hC hfe pc {}, checkPendingList_over hC hfe l]
     rfl
 
-theorem envAt_viewOf (mb : MBase) (C : Env) : envAt (viewOf mb) C = C := by
+theorem envAt_viewOf_over (mb : MBase) (C : Env) : envAt (viewOf mb) C = C := by
   cases C; rfl
 
 /-- **The module's check over `C` is its check at the view**: the same
@@ -308,7 +308,7 @@ theorem checkDeclsAt_over {mb : MBase} {C : Env} (hC : BaseLike C mb) (ds : Arra
       (checkDeclsAt mode pins (viewOf mb) ds).map (Env.over · C) := by
   have h0 : overState C (0, viewOf mb, #[]) = (0, ConLeche.mkFEnv C, #[]) := by
     unfold overState
-    rw [envAt_viewOf]
+    rw [envAt_viewOf_over]
     simp
   obtain ⟨hf, hq⟩ := foldlM_over (mode := mode) (pins := pins) hC ds.toList (0, viewOf mb, #[])
     (canonB_viewOf mb)
