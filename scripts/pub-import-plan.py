@@ -779,6 +779,11 @@ FALLBACK = {
     # and `valueStep` (`ParInstall`).  MEASURED by demoting it alone
     # (unknown identifier `IdxBelow`, `View.lean:142`; `Twin`, `:157`).
     ('ConLeche.Verify.Modular.View', 'ConLeche.Verify.Cached.ViewCongr'),
+    # task #373: `IsoFast`'s one public statement is the `@[csimp]` equation
+    # `@isoIndex = @isoIndexFast`, which the census does not attribute to the
+    # module.  MEASURED by demoting it alone (unknown identifier `isoIndex`,
+    # `IsoFast.lean:111`).
+    ('ConLeche.Verify.Modular.IsoFast', 'ConLeche.Cached.ModIso'),
 }
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean

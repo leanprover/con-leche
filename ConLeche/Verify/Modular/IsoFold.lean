@@ -2,9 +2,6 @@ module
 
 public import ConLeche.Verify.Modular.View
 public import ConLeche.Cached.ModIso
-import ConLeche.Verify.Cached.InstalledC
-import ConLeche.Verify.EnvBound
-import ConLeche.Verify.Cached.KnotCongr
 
 public section
 

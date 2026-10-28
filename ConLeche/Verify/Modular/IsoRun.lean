@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Modular.Dev
 public import ConLeche.Verify.Modular.IsoCtx
-public import ConLeche.Verify.Modular.IsoFast
 import ConLeche.Verify.Modular.Congr
 import ConLeche.Verify.Modular.Scope
 

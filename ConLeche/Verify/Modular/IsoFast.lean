@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Modular.IsoCtx
+public import ConLeche.Cached.ModIso
 import ConLeche.Verify.EnvBound
 import Std.Data.HashMap.Lemmas
 import Std.Data.HashSet.Lemmas
@@ -25,11 +25,11 @@ open ConLeche
 
 /-- The state `isoIndexFast` holds after the entries `acc` were kept
 (newest first). -/
-@[expose] def stateOf (acc : List IsoEntry) : IsoAcc :=
+private def stateOf (acc : List IsoEntry) : IsoAcc :=
   ⟨acc.length, acc.map (·.ci), acc.filterMap (·.tbl), (mkFEnvGo (acc.map (·.ci))).2,
     mkTblsGo (acc.filterMap (·.tbl))⟩
 
-theorem idxSpec_isSome {n : Name} : ∀ l : List ConstantInfo,
+private theorem idxSpec_isSome {n : Name} : ∀ l : List ConstantInfo,
     (idxSpec l n).isSome = true ↔ ∃ c ∈ l, c.name = n
   | [] => by simp [idxSpec]
   | c :: l => by
@@ -46,7 +46,7 @@ theorem idxSpec_isSome {n : Name} : ∀ l : List ConstantInfo,
         · exact absurd (beq_iff_eq.mpr hdn) h
         · exact ⟨d, hd, hdn⟩
 
-theorem stateOf_contains (acc : List IsoEntry) (m : Name) :
+private theorem stateOf_contains (acc : List IsoEntry) (m : Name) :
     (stateOf acc).idx.contains m = true ↔ ∃ e ∈ acc, e.ci.name = m := by
   unfold stateOf
   simp only
@@ -59,7 +59,7 @@ theorem stateOf_contains (acc : List IsoEntry) (m : Name) :
     exact ⟨e.ci, List.mem_map_of_mem he, hen⟩
 
 /-- One entry: `add` is `firstNamedGo`'s step. -/
-theorem stateOf_add (acc : List IsoEntry) (e : IsoEntry) :
+private theorem stateOf_add (acc : List IsoEntry) (e : IsoEntry) :
     (stateOf acc).add e.ci e.tbl =
       if (stateOf acc).idx.contains e.ci.name then stateOf acc else stateOf (e :: acc) := by
   unfold IsoAcc.add
@@ -74,7 +74,7 @@ theorem stateOf_add (acc : List IsoEntry) (e : IsoEntry) :
       simp only [List.length_cons, List.map_cons, List.filterMap_cons, ht, mkFEnvGo,
         mkFEnvGo_fst, List.length_map]
 
-theorem foldl_add (es : List IsoEntry) :
+private theorem foldl_add (es : List IsoEntry) :
     ∀ (seen : Std.HashSet Name) (acc : List IsoEntry),
       (∀ m, seen.contains m = true ↔ ∃ e ∈ acc, e.ci.name = m) →
       es.foldl (fun a e => a.add e.ci e.tbl) (stateOf acc) = stateOf (firstNamedGo es seen acc) := by
@@ -97,7 +97,7 @@ theorem foldl_add (es : List IsoEntry) :
       simp only [Bool.or_eq_true, beq_iff_eq, List.mem_cons, exists_eq_or_imp]
       rw [hinv m]
 
-theorem isoAccModule_eq (lv : ByteArray) (slot : Nat → ModSlot) (a : IsoAcc) (h : Nat) :
+private theorem isoAccModule_eq (lv : ByteArray) (slot : Nat → ModSlot) (a : IsoAcc) (h : Nat) :
     isoAccModule lv slot a h = (entriesOf lv h slot).foldl (fun a e => a.add e.ci e.tbl) a := by
   unfold isoAccModule entriesOf
   split

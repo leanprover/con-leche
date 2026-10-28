@@ -349,7 +349,7 @@ theorem find?_filter_name (l : List ConstantInfo) (q : Name → Bool) (m : Name)
       · simp only [hq, ↓reduceIte, List.find?_cons, hne]; exact ih
       · simp only [hq, Bool.false_eq_true, ↓reduceIte, hne]; exact ih
 
-theorem readsAlike_find? (dev : Nat → Module) (i b : Nat) (m : Name) :
+theorem readsAlike_lookup (dev : Nat → Module) (i b : Nat) (m : Name) :
     (readsAlike dev i b).find? m =
       if ((dev i).context.find? m).isSome && (dev i).res m == (dev b).res m then
         (dev b).own.find? m else none := by
@@ -383,7 +383,7 @@ theorem LocalOk.congr {dev₁ dev₂ : Nat → Module} {i : Nat} (Cx Ow : Nat �
     funext ci; unfold Module.ownKey; rw [e_prf]
   have hra : ∀ b m, (readsAlike dev₂ i b).find? m = (readsAlike dev₁ i b).find? m := by
     intro b m
-    rw [readsAlike_find?, readsAlike_find?]
+    rw [readsAlike_lookup, readsAlike_lookup]
     simp only [(hctx i).find, e_res]
     split
     · exact ((hown b).find m).symm

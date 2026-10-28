@@ -90,23 +90,23 @@ importer's context, as the assumption of its type if only its type
 does, and not at all otherwise (an inductive block as a whole). Modules
 whose imports are installed are installed in parallel; then every
 module's local checks and every record's check run in one pool
-([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1011-L1012)).
+([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1316-L1317)).
 With `--modular=isolated` no module is checked at a view: each module's
 context is built from its imports' units alone — every constant of
 every module it loads, as its level presents it, read from the private
 record at the private level and from the interface alone at the
 exported level, each name once
-([function `isoCtx` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L1)) —
+([function `isoCtx` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L124-L125)) —
 its records are installed and checked by the declaration fold from that
 environment's canonical index, the same fold `checkDecls` runs
-([function `checkModuleIsolated` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L1)),
+([function `checkModuleIsolated` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L186-L187)),
 and the environment is dropped after its checks; its unit, and every
 local check, are the store mode's. The two modes are proved to give
 the same verdict on every module — the same error at the same record,
 or the same installed constants — whenever the store's name index lists
 every unit constant under its name in module order, which every run
 checks
-([theorem `checkAtView_isolated` in `ConLeche/Verify/Modular/IsoCtx.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/IsoCtx.lean#L1)).
+([theorem `checkAtView_isolated` in `ConLeche/Verify/Modular/IsoCtx.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/IsoCtx.lean#L677-L680)).
 The accept is printed from the evidence that the run passes the local
 checks of the modular theorem (§1). With `--compare CHALLENGE SOLUTION`
 the module `CHALLENGE` is not checked but compared: its constants must
@@ -114,7 +114,7 @@ be the solution's, a *hole* (a value that is `sorry`) by a constant of
 the same statement, anything else by the same constant; `sorry` is
 permitted there and nowhere else, and the run lists the holes and the
 modules that fill them
-([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L949-L951)).
+([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1105-L1107)).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L38)):
@@ -468,11 +468,11 @@ the interface check from the unit check at the home alone
 (`RunOk.interfaceOk`), the importer's from its levels, gates and the
 one-qualified-name check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
-([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L841-L843)).
+([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1008-L1010)).
 `--modular=isolated` establishes it for the development whose contexts
 are built from the imports' units and whose own environments are the
 modules' constants over them
-([theorem `IsoRunOk.localOk` in `ConLeche/Verify/Modular/IsoRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/IsoRun.lean#L1)),
+([theorem `IsoRunOk.localOk` in `ConLeche/Verify/Modular/IsoRun.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/IsoRun.lean#L316-L317)),
 and each mode's evidence gives the other's, with the same units
 (`RunOk.isoRunOk`, `IsoRunOk.runOk`): the one store with a view per
 module checks exactly what checking each module on its own checks. The

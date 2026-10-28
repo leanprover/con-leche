@@ -5,7 +5,7 @@ import ConLeche.Driver.OwnerParse
 public import ConLeche.Frontend.Olean.Modules
 import ConLeche.Modular
 import ConLeche.Cached.ModStore
-public import ConLeche.Verify.Modular.Dev
+import ConLeche.Verify.Modular.Dev
 public import ConLeche.Verify.Modular.IsoRun
 import ConLeche.Verify.Modular.Scope
 import ConLeche.Verify.Modular.Local
@@ -13,6 +13,10 @@ public import Std.Data.TreeSet.Basic
 /- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader is passed the
 specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/
 import ConLeche.Verify.Frontend.Olean.Equiv
+/- `isoIndex_eq_fast` (`@[csimp]`): an isolated module's context index is
+passed as the specification `isoIndex`, and the compiler runs the one-pass
+`isoIndexFast`. -/
+import ConLeche.Verify.Modular.IsoFast
 
 /-!
 # The modular driver: module by module, over one store (task #370)
