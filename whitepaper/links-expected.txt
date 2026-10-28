@@ -6212,7 +6212,16 @@
     95    /-- the names an environment stores -/
     96    Stores : Env → Name → Prop
 
-== whitepaper/Fragment/ModularSemantics.lean#L97-L104
+== whitepaper/Fragment/ModularSemantics.lean#L88-L127
+    88  /-- **What a consistency proof provides for modular checking** (see the
+    89  module docstring). -/
+    90  structure ModularSemantics where
+    91    /-- environments -/
+    92    Env : Type u
+    93    /-- names -/
+    94    Name : Type u
+    95    /-- the names an environment stores -/
+    96    Stores : Env → Name → Prop
     97    /-- **the models** of an environment -/
     98    Mod : Env → Type w
     99    /-- values -/
@@ -6221,8 +6230,6 @@
    102    val : ∀ {E : Env}, Mod E → Name → Val
    103    /-- **the value of every proof** -/
    104    proofVal : Val
-
-== whitepaper/Fragment/ModularSemantics.lean#L105-L111
    105    /-- **assembly**: `C` is made of constants of the family `E`, the
    106    member `i` counting as having `C`'s constant `n` when `same n i` -/
    107    Assembled : Env → ∀ {ι : Type u}, (ι → Env) → (Name → ι → Prop) → Prop
@@ -6230,24 +6237,18 @@
    109    it -/
    110    assembled_src : ∀ {C : Env} {ι : Type u} {E : ι → Env} {same : Name → ι → Prop},
    111      Assembled C E same → ∀ n, Stores C n → ∃ i, same n i ∧ Stores (E i) n
-
-== whitepaper/Fragment/ModularSemantics.lean#L112-L117
    112    /-- **amalgamation** of a compatible family -/
    113    amalgamate : ∀ {C : Env} {ι : Type u} {E : ι → Env} {same : Name → ι → Prop},
    114      Assembled C E same → ∀ m : (i : ι) → Mod (E i),
    115      (∀ n i i', Stores C n → same n i → same n i' → Stores (E i) n → Stores (E i') n →
    116        val (m i) n = val (m i') n) →
    117      ∃ mC : Mod C, ∀ n i, Stores C n → same n i → Stores (E i) n → val mC n = val (m i) n
-
-== whitepaper/Fragment/ModularSemantics.lean#L118-L123
    118    /-- declarations -/
    119    Decls : Type u
    120    /-- the names declarations flag as proofs -/
    121    Flagged : Decls → Name → Prop
    122    /-- **acceptance**: the checker accepts `D` over `Γ`, giving `Γ'` -/
    123    Accepts : Env → Decls → Env → Prop
-
-== whitepaper/Fragment/ModularSemantics.lean#L124-L127
    124    /-- **the conservative step** -/
    125    step : ∀ {Γ Γ' : Env} {D : Decls}, Accepts Γ D Γ' → ∀ m : Mod Γ,
    126      ∃ m' : Mod Γ', (∀ n, Stores Γ n → val m' n = val m n) ∧
@@ -6258,21 +6259,16 @@
    134  as `E`'s. -/
    135  def Refines (Γ E : S.Env) : Prop := S.Assembled Γ (fun _ : PUnit.{u + 1} => E) fun _ _ => True
 
-== whitepaper/Fragment/ModularSemantics.lean#L139-L140
+== whitepaper/Fragment/ModularSemantics.lean#L139-L147
    139  theorem Refines.stores {Γ E : S.Env} (h : S.Refines Γ E) {n : S.Name} (hn : S.Stores Γ n) :
    140      S.Stores E n := by
-
-== whitepaper/Fragment/ModularSemantics.lean#L144-L147
+   141    obtain ⟨_, -, h⟩ := S.assembled_src h n hn
+   142    exact h
+   143  
    144  /-- **Restriction**: a model of `E` gives one of every refinement of
    145  `E`, with the same values. -/
    146  theorem restrict {Γ E : S.Env} (h : S.Refines Γ E) (m : S.Mod E) :
    147      ∃ m' : S.Mod Γ, ∀ n, S.Stores Γ n → S.val m' n = S.val m n := by
-
-== whitepaper/Fragment/ModularSyntactic.lean#L60-L63
-    60    /-- **the substitution lemma** -/
-    61    der_subst : ∀ {Γ t A} {σ : N → Tm}, Der Γ t A →
-    62      (∀ c B v, Γ c = some (B, v) → HasTy (σ c) (subst σ B) ∧ ∀ s, v = some s → σ c = subst σ s) →
-    63      HasTy (subst σ t) (subst σ A)
 
 == whitepaper/Fragment/ModularSyntactic.lean#L83-L91
     83  /-- **σ realises `E`**: every constant's realisation has the realised
@@ -6284,6 +6280,12 @@
     89  structure Real (T : SubstSystem N) (E : SEnv T) where
     90    σ : N → T.Tm
     91    real : Realises σ E.1
+
+== whitepaper/Fragment/ModularSyntactic.lean#L60-L63
+    60    /-- **the substitution lemma** -/
+    61    der_subst : ∀ {Γ t A} {σ : N → Tm}, Der Γ t A →
+    62      (∀ c B v, Γ c = some (B, v) → HasTy (σ c) (subst σ B) ∧ ∀ s, v = some s → σ c = subst σ s) →
+    63      HasTy (subst σ t) (subst σ A)
 
 == whitepaper/Fragment/ModularSyntactic.lean#L170-L177
    170  /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
@@ -6305,11 +6307,13 @@
    185      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome →
    186        some (mC.σ c) = some ((m i).σ c) := by
 
-== whitepaper/Fragment/ModularSyntactic.lean#L130-L133
+== whitepaper/Fragment/ModularSyntactic.lean#L130-L135
    130  /-- **The step for one definition**: realised by its realised value,
    131  by the substitution lemma. -/
    132  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
    133      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
+   134    have hval := T.der_subst hd m.real
+   135    let σ' : N → T.Tm := fun d => if d = c then T.subst m.σ t else m.σ d
 
 == whitepaper/Fragment/ModularSyntactic.lean#L215-L236
    215  variable (T) in
@@ -6335,47 +6339,6 @@
    235      obtain ⟨m', hm'⟩ := h.step m
    236      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
-== whitepaper/Fragment/Env.lean#L83-L86
-    83    /-- **An assumption**: a constant known by its type alone — a
-    84    theorem's statement, or a definition whose value is left out
-    85    (`Modular.lean`).  It never unfolds. -/
-    86    | assumed
-
-== whitepaper/Fragment/Decl.lean#L608-L618
-   608  /-- **A theorem is accepted** (con-leche's theorem check): its
-   609  statement `ci.type` and a proof `v` pass the definition check, and the
-   610  statement is a proposition.  What is stored is the statement alone, as
-   611  an assumption (`ConstKind.assumed`, `ci.kind`): a theorem never
-   612  unfolds, in the checker (`Rules/Rel.lean`, only a definition unfolds)
-   613  as in the fragment.  So two proofs of one statement store the same
-   614  constant. -/
-   615  def ThmOk (env : Env) (c : Name) (ci : ConstInfo) (v : Expr) : Prop :=
-   616    ci.kind = .assumed ∧
-   617    DefOk env c { ci with kind := .defn v } ∧
-   618    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
-
-== whitepaper/Fragment/InstallThm.lean#L249-L254
-   249  /-- **Installing a theorem preserves having a model**: install its
-   250  proof as a definition, then hide the value.  Every stored constant
-   251  keeps its set, and the theorem's is its proof's (`defVal`). -/
-   252  theorem install_thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr}
-   253      (hs : Env.Scoped env) (m : BlockModel V env) (hok : ThmOk env c ci v) :
-   254      ∃ m' : BlockModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
-
-== whitepaper/Fragment/Modular.lean#L23-L26
-    23  /-- **One constant refines another**: it is the other, or an
-    24  assumption with the other's level parameters and type. -/
-    25  def ConstInfo.Le (ci ci' : ConstInfo) : Prop :=
-    26    ci = ci' ∨ (ci.kind = .assumed ∧ ∃ k, ci' = { ci with kind := k })
-
-== whitepaper/Fragment/ModularModel.lean#L61-L66
-    61  /-- **A proof's set is the point**, at every list of levels: the value
-    62  lies in the type, and the type is a truth value. -/
-    63  theorem defVal_eq_pt {env : Env} (m : EnvModel V env) {c : Name} {ci : ConstInfo} {v : Expr}
-    64      (hok : DefOk env c ci) (hk : ci.kind = .defn v)
-    65      (hp : ∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
-    66      (ls : List Nat) : defVal m.M ci v ls = pt := by
-
 == whitepaper/Fragment/ModularSemantics.lean#L155-L164
    155  /-- **A development** over `S`: per module its context, declarations,
    156  own environment, the views it presents to its importers, the modules
@@ -6388,10 +6351,6 @@
    163    imports : Nat → List Nat
    164    key : Nat → S.Name → Key Stmt
 
-== whitepaper/Fragment/ModularModel.lean#L404-L405
-   404  /-- **A module's own environment**: its context with its declarations. -/
-   405  def Module.own (m : Module) : Env := applyAll m.decls m.context
-
 == whitepaper/Fragment/ModularSemantics.lean#L81-L86
     81  /-- **The key of a constant**, what identifies it across modules: the
     82  module that declares it (its **home**), or, for a proof, its
@@ -6400,10 +6359,17 @@
     85    | home (module : Nat)
     86    | proof (stmt : Stmt)
 
-== whitepaper/Fragment/ModularModel.lean#L159-L161
-   159  /-- **A constant's statement**: its level parameters and its type, what
-   160  a proof's key records. -/
-   161  abbrev Stmt := List Name × Expr
+== whitepaper/Fragment/Env.lean#L83-L86
+    83    /-- **An assumption**: a constant known by its type alone — a
+    84    theorem's statement, or a definition whose value is left out
+    85    (`Modular.lean`).  It never unfolds. -/
+    86    | assumed
+
+== whitepaper/Fragment/Modular.lean#L23-L26
+    23  /-- **One constant refines another**: it is the other, or an
+    24  assumption with the other's level parameters and type. -/
+    25  def ConstInfo.Le (ci ci' : ConstInfo) : Prop :=
+    26    ci = ci' ∨ (ci.kind = .assumed ∧ ∃ k, ci' = { ci with kind := k })
 
 == whitepaper/Fragment/Decl.lean#L580-L584
    580  /-- **A term in scope** of an environment and level parameters, under
@@ -6411,6 +6377,20 @@
    582  parameter declared. -/
    583  def Scoped (env : Env) (ps : List Name) (k : Nat) (e : Expr) : Prop :=
    584    e.closedAt k = true ∧ (∀ c ∈ e.consts, (env.find? c).isSome) ∧ e.lparamsIn ps = true
+
+== whitepaper/Fragment/Decl.lean#L699-L710
+   699  def Scoped (env : Env) : Prop :=
+   700    (∀ i A, S.params[i]? = some A → Expr.Scoped env S.lparams (S.nP - 1 - i) A) ∧
+   701    (∀ t T, S.indices[t]? = some T → Expr.Scoped env S.lparams (S.nP + (S.nI - 1 - t)) T) ∧
+   702    S.sort.paramsIn S.lparams = true ∧
+   703    (∀ c ∈ S.ctors,
+   704      (∀ i f, c.fields[i]? = some f → S.fieldScoped env (c.fields.length - 1 - i) f) ∧
+   705      (∀ i f, c.fields[i]? = some f → fieldNoRecDep (c.fields.drop (i + 1)) f) ∧
+   706      c.idx.length = S.nI ∧
+   707      (∀ e ∈ c.idx, Expr.Scoped env S.lparams (S.nP + c.fields.length) e)) ∧
+   708    (S.large = true → S.elim ∉ S.lparams) ∧
+   709    S.lparams.Nodup ∧
+   710    S.NestScoped env
 
 == whitepaper/Fragment/ModularModel.lean#L189-L193
    189  open Classical in
@@ -6450,11 +6430,81 @@
    234      S.nest = none → C.find? S.name = some S.indInfo ∧
    235        ∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → C.find? c.name = some (S.ctorInfo c)
 
-== whitepaper/Fragment/ModularModel.lean#L374-L377
+== whitepaper/Fragment/InstallDef.lean#L84-L94
+    84  /-- Every stored term is closed, mentions only stored constants and
+    85  uses only its constant's level parameters, and every recursor rule
+    86  fires on a stored constructor: the environment is closed under
+    87  itself. -/
+    88  def Env.Scoped (env : Env) : Prop :=
+    89    ∀ c ci, env.find? c = some ci →
+    90      Expr.Scoped env ci.lparams 0 ci.type ∧
+    91      (∀ v, ci.value? = some v → Expr.Scoped env ci.lparams 0 v) ∧
+    92      (∀ nP nM nMin nI rules, ci.kind = .recursor nP nM nMin nI rules →
+    93        ∀ rl ∈ rules, Expr.Scoped env ci.lparams 0 rl.rhs ∧ (env.find? rl.ctor).isSome)
+    94  
+
+== whitepaper/Fragment/ModularModel.lean#L374-L387
    374  omit [IndLib V] [LevelOracle] in
    375  /-- **An assembled environment is closed.** -/
    376  theorem Assembled.scoped {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
    377      (h : Assembled C E same) : Env.Scoped C := by
+   378    have hsub : ∀ q d, ((common C (E q) (same · q)).find? d).isSome → (C.find? d).isSome :=
+   379      fun q d hd => by
+   380        obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hd
+   381        exact (find?_common he).2.1
+   382    intro c ci hf
+   383    obtain ⟨q, -, -, -, -, hsc⟩ := h.le c ci hf
+   384    refine ⟨hsc.1.mono (hsub _), fun v hv => (hsc.2.1 v hv).mono (hsub _),
+   385      fun nP nM nMin nI rules hk rl hrl => ?_⟩
+   386    · obtain ⟨hrhs, cij, -, hE, -⟩ := hsc.2.2.1 nP nM nMin nI rules hk rl hrl
+   387      exact ⟨hrhs.mono (hsub _), by rw [hE]; rfl⟩
+
+== whitepaper/Fragment/BlockModel.lean#L46-L66
+    46  /-- **The block's law** in a model: for a plain block, its scope, its
+    47  constants stored, its former's set the family's graph, its
+    48  constructors' sets their graphs, and the universe bound on its fields
+    49  at fitting parameters.  Vacuous for a nested block. -/
+    50  def BlockLaw (env : Env) (M : Name → List Nat → V) : Prop :=
+    51    S.nest = none →
+    52      S.Scoped env ∧ S.NoCont ∧
+    53      env.find? S.name = some S.indInfo ∧
+    54      (∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → env.find? c.name = some (S.ctorInfo c)) ∧
+    55      (∀ ls, M S.name ls = S.famSet M ls) ∧
+    56      (∀ (j : Nat) (c : CtorSpec), S.ctors[j]? = some c → ∀ ls, M c.name ls = S.ctorSet M ls j c) ∧
+    57      (∀ ls ps, FitsVals M (S.ψ ls) base S.params ps → S.DomsBounded M ls ps)
+    58  
+    59  end IndSpec
+    60  
+    61  /-- **A model of an environment that remembers its blocks**: an
+    62  `EnvModel` with the block law of every stored block. -/
+    63  structure BlockModel (V : Type u) [IndLib V] (env : Env) extends EnvModel V env where
+    64    /-- Every stored block's law. -/
+    65    blocks : ∀ (K : Name) (ci : ConstInfo) (nP nI : Nat) (cs : List Name) (spec : IndSpec),
+    66      env.find? K = some ci → ci.kind = .induct nP nI cs spec → spec.BlockLaw env M
+
+== whitepaper/Fragment/IndSem.lean#L601-L622
+   601  /-- **The universe bound on the fields, at every family in the
+   602  universe**: above a proposition, along any list fitting the fields
+   603  before a position relative to a family of members of the result
+   604  universe, an ordinary field's domain is a member of the result
+   605  universe, and so is every entry of a reflexive field's telescope at
+   606  every fitting prefix of the telescope.  Con-leche: the constructors'
+   607  fields are small at every hole frame of the tuple space
+   608  (`LfpClause.fieldsOk`, `ConLeche/Model/Env/BlockLfp.lean`, the
+   609  install's `FieldsOkB`); the installation derives it from the checker's
+   610  field-sort check read in a model in which the former denotes the
+   611  one-fibre family (`domsBounded_of`, `InstallInd.lean`), whence every
+   612  family by `domsBounded_of_fam`. -/
+   613  def DomsBounded (ps : List V) : Prop :=
+   614    S.z ls = false → ∀ W, InUniv (S.u₀ ls) W → ∀ c ∈ S.ctors, ∀ k f,
+   615      c.fields[c.fields.length - 1 - k]? = some f → k < c.fields.length →
+   616      ∀ fs, S.FitsFields M ls W ps (c.fields.drop (c.fields.length - k)) fs →
+   617        match f with
+   618        | .ordinary A => interp M (S.ψ ls) (consList fs (envP ps)) A ∈ˢ (univ (S.u₀ ls) : V)
+   619        | .reflexive tele _ => ∀ t T, tele[t]? = some T → ∀ ys,
+   620            FitsVals M (S.ψ ls) (consList fs (envP ps)) (tele.drop (t + 1)) ys →
+   621            interp M (S.ψ ls) (consList ys (consList fs (envP ps))) T ∈ˢ (univ (S.u₀ ls) : V)
+   622        | .container => True
 
 == whitepaper/Fragment/ModularModel.lean#L252-L260
    252  /-- **Amalgamation**: models of the family that agree wherever `C`
@@ -6471,6 +6521,108 @@
    593  theorem interp_consts {e : Expr} (h : ∀ c ∈ e.consts, ∀ ls, M c ls = M' c ls) {ρ : Nat → V} :
    594      interp M φ ρ e = interp M' φ ρ e := by
    595    induction e generalizing ρ with
+
+== whitepaper/Fragment/Decl.lean#L608-L618
+   608  /-- **A theorem is accepted** (con-leche's theorem check): its
+   609  statement `ci.type` and a proof `v` pass the definition check, and the
+   610  statement is a proposition.  What is stored is the statement alone, as
+   611  an assumption (`ConstKind.assumed`, `ci.kind`): a theorem never
+   612  unfolds, in the checker (`Rules/Rel.lean`, only a definition unfolds)
+   613  as in the fragment.  So two proofs of one statement store the same
+   614  constant. -/
+   615  def ThmOk (env : Env) (c : Name) (ci : ConstInfo) (v : Expr) : Prop :=
+   616    ci.kind = .assumed ∧
+   617    DefOk env c { ci with kind := .defn v } ∧
+   618    (∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
+
+== whitepaper/Fragment/InstallThm.lean#L249-L255
+   249  /-- **Installing a theorem preserves having a model**: install its
+   250  proof as a definition, then hide the value.  Every stored constant
+   251  keeps its set, and the theorem's is its proof's (`defVal`). -/
+   252  theorem install_thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr}
+   253      (hs : Env.Scoped env) (m : BlockModel V env) (hok : ThmOk env c ci v) :
+   254      ∃ m' : BlockModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+   255        ∀ ls, m'.M c ls = defVal m.M { ci with kind := .defn v } v ls := by
+
+== whitepaper/Fragment/ModularModel.lean#L61-L81
+    61  /-- **A proof's set is the point**, at every list of levels: the value
+    62  lies in the type, and the type is a truth value. -/
+    63  theorem defVal_eq_pt {env : Env} (m : EnvModel V env) {c : Name} {ci : ConstInfo} {v : Expr}
+    64      (hok : DefOk env c ci) (hk : ci.kind = .defn v)
+    65      (hp : ∃ s u, Infer env [] ci.type s ∧ Red env [] s (.sort u) ∧ LevelOracle.eq u .zero = true)
+    66      (ls : List Nat) : defVal m.M ci v ls = pt := by
+    67    obtain ⟨-, ⟨s₀, u₀, hT, hsu⟩, ⟨v', T, hk', hv, hd, -⟩, -⟩ := hok
+    68    rw [hk] at hk'; cases hk'
+    69    obtain ⟨s, u, hs, hsr, hu⟩ := hp
+    70    let φ := valOf ci.lparams ls
+    71    have hvsem := infer_sound (m := m) (φ := φ) hv base (Sat_nil _ _ _)
+    72    obtain ⟨hTw, hTmem⟩ := Infer.mem_typeU_of (m := m) (φ := φ)
+    73      (infer_sound hT) (red_sound hsu) (Sat_nil _ _ base)
+    74    have heq := defeq_sound (m := m) (φ := φ) hd base (Sat_nil _ _ _)
+    75      hvsem.2.1 hTw hvsem.2.2.1.ne_pt (IsTy_of_mem_typeU hTmem).ne_pt
+    76    obtain ⟨-, hU⟩ := Infer.mem_typeU_of (m := m) (φ := φ)
+    77      (infer_sound hs) (red_sound hsr) (Sat_nil _ _ base)
+    78    rw [eval_eq_of_oracle hu, Level.eval, mem_typeU_zero] at hU
+    79    have hmem := hvsem.2.2.2
+    80    rw [heq] at hmem
+    81    exact eq_pt_of_mem_univ_zero hU hmem
+
+== whitepaper/Fragment/ModularModel.lean#L404-L410
+   404  /-- **A module's own environment**: its context with its declarations. -/
+   405  def Module.own (m : Module) : Env := applyAll m.decls m.context
+   406  
+   407  /-- The key of an own constant of module `i`: its statement for a
+   408  proof, the module itself otherwise. -/
+   409  def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
+   410    if m.proofs n then .proof (ci.lparams, ci.type) else .home i
+
+== whitepaper/Fragment/Modular.lean#L200-L209
+   200  /-- **A list of declarations checks** against an environment: each
+   201  declaration accepted on top of it and the declarations before it. -/
+   202  inductive Checks : Env → List Decl → Prop
+   203    | nil {E : Env} : Checks E []
+   204    | cons {E : Env} {d : Decl} {ds : List Decl} : d.Ok E → Checks (d.apply E) ds → Checks E (d :: ds)
+   205  
+   206  /-- The environment with a list of declarations stored. -/
+   207  def applyAll : List Decl → Env → Env
+   208    | [], E => E
+   209    | d :: ds, E => applyAll ds (d.apply E)
+
+== whitepaper/Fragment/ModularModel.lean#L54-L59
+    54  /-- **A declaration of a proposition**: a theorem, or a definition
+    55  whose type the checker finds to be a proposition. -/
+    56  def Decl.IsProof (E : Env) : Decl → Prop
+    57    | .thm .. => True
+    58    | .defn _ ci => ∃ s u, Infer E [] ci.type s ∧ Red E [] s (.sort u) ∧ LevelOracle.eq u .zero = true
+    59    | .ind _ => False
+
+== whitepaper/Fragment/ModularModel.lean#L85-L90
+    85  /-- **The proof flags of a list**: a flagged name belongs to a
+    86  declaration of a proposition, at the point it is checked. -/
+    87  inductive FlagsOk (p : Name → Bool) : Env → List Decl → Prop
+    88    | nil {E : Env} : FlagsOk p E []
+    89    | cons {E : Env} {d : Decl} {ds : List Decl} :
+    90        (∀ n ∈ d.names, p n = true → d.IsProof E) → FlagsOk p (d.apply E) ds → FlagsOk p E (d :: ds)
+
+== whitepaper/Fragment/ModularInstance.lean#L41-L48
+    41  /-- **The names a list of declarations flags as proofs.** -/
+    42  def Flagged (D : List Decl × (Name → Bool)) (n : Name) : Prop :=
+    43    ∃ d ∈ D.1, n ∈ d.names ∧ D.2 n = true
+    44  
+    45  /-- **Acceptance**: the checked list over a closed context, with its
+    46  proof flags. -/
+    47  def FAccepts (Γ : Env) (D : List Decl × (Name → Bool)) (Γ' : Env) : Prop :=
+    48    Γ' = applyAll D.1 Γ ∧ Checks Γ D.1 ∧ FlagsOk D.2 Γ D.1 ∧ Env.Scoped Γ
+
+== whitepaper/Fragment/ModularModel.lean#L100-L107
+   100  /-- **Installing a checked list preserves having a model**: every
+   101  stored constant keeps its set, and every flagged constant's set is the
+   102  point. -/
+   103  theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
+   104      ∀ (p : Name → Bool), FlagsOk p E ds → Env.Scoped E → ∀ m : BlockModel V E,
+   105        ∃ m' : BlockModel V (applyAll ds E),
+   106          (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+   107          (∀ d ∈ ds, ∀ n ∈ d.names, p n = true → ∀ ls, m'.M n ls = pt) := by
 
 == whitepaper/Fragment/ModularInstance.lean#L61-L80
     61  variable (V) in
@@ -6494,38 +6646,31 @@
     79    Accepts := FAccepts
     80    step h m := h.step m
 
-== whitepaper/Fragment/ModularInstance.lean#L41-L43
-    41  /-- **The names a list of declarations flags as proofs.** -/
-    42  def Flagged (D : List Decl × (Name → Bool)) (n : Name) : Prop :=
-    43    ∃ d ∈ D.1, n ∈ d.names ∧ D.2 n = true
-
-== whitepaper/Fragment/ModularInstance.lean#L45-L48
-    45  /-- **Acceptance**: the checked list over a closed context, with its
-    46  proof flags. -/
-    47  def FAccepts (Γ : Env) (D : List Decl × (Name → Bool)) (Γ' : Env) : Prop :=
-    48    Γ' = applyAll D.1 Γ ∧ Checks Γ D.1 ∧ FlagsOk D.2 Γ D.1 ∧ Env.Scoped Γ
-
-== whitepaper/Fragment/ModularModel.lean#L100-L107
-   100  /-- **Installing a checked list preserves having a model**: every
-   101  stored constant keeps its set, and every flagged constant's set is the
-   102  point. -/
-   103  theorem Checks.blockModel {E : Env} {ds : List Decl} (hc : Checks E ds) :
-   104      ∀ (p : Name → Bool), FlagsOk p E ds → Env.Scoped E → ∀ m : BlockModel V E,
-   105        ∃ m' : BlockModel V (applyAll ds E),
-   106          (∀ n, (E.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
-   107          (∀ d ∈ ds, ∀ n ∈ d.names, p n = true → ∀ ls, m'.M n ls = pt) := by
-
-== whitepaper/Fragment/ModularSemantics.lean#L170-L171
+== whitepaper/Fragment/ModularSemantics.lean#L170-L176
    170  /-- The views module `i` reads: a view of one of its imports. -/
    171  def Src (i : Nat) : Type u := {x : Nat × S.Env // x.1 ∈ dev.imports i ∧ x.2 ∈ dev.views x.1}
-
-== whitepaper/Fragment/ModularSemantics.lean#L173-L176
+   172  
    173  /-- **Assembled from the imports' views**: a constant of `E` counts as a
    174  view's when module `i` and the view's module give its name one key. -/
    175  def Assembled (i : Nat) (E : S.Env) : Prop :=
    176    S.Assembled E (fun x : dev.Src i => x.1.2) fun n x => dev.key i n = dev.key x.1.1 n
 
-== whitepaper/Fragment/ModularSemantics.lean#L193-L198
+== whitepaper/Fragment/ModularSemantics.lean#L178-L198
+   178  /-- **The new names are keyed by the module, or flagged proofs.** -/
+   179  def NewKeys (i : Nat) : Prop :=
+   180    ∀ n, S.Stores (dev.own i) n → ¬ S.Stores (dev.ctx i) n →
+   181      dev.key i n = .home i ∨ (∃ s, dev.key i n = .proof s) ∧ S.Flagged (dev.decls i) n
+   182  
+   183  /-- **A checked module**: its context assembled from its imports' views,
+   184  its declarations accepted over it, its new names keyed by it or
+   185  flagged proofs. -/
+   186  def Checked (i : Nat) : Prop :=
+   187    dev.Assembled i (dev.ctx i) ∧ S.Accepts (dev.ctx i) (dev.decls i) (dev.own i) ∧ dev.NewKeys i
+   188  
+   189  /-- **A compared module**: its own environment assembled from its
+   190  imports' views. -/
+   191  def Compared (i : Nat) : Prop := dev.Assembled i (dev.own i)
+   192  
    193  /-- **A valid module**: its views refine its own environment, it imports
    194  earlier modules, and it is checked or compared. -/
    195  structure Valid (i : Nat) : Prop where
@@ -6533,25 +6678,19 @@
    197    imports : ∀ j ∈ dev.imports i, j < i
    198    checked_or_compared : dev.Checked i ∨ dev.Compared i
 
-== whitepaper/Fragment/ModularSemantics.lean#L178-L181
-   178  /-- **The new names are keyed by the module, or flagged proofs.** -/
-   179  def NewKeys (i : Nat) : Prop :=
-   180    ∀ n, S.Stores (dev.own i) n → ¬ S.Stores (dev.ctx i) n →
-   181      dev.key i n = .home i ∨ (∃ s, dev.key i n = .proof s) ∧ S.Flagged (dev.decls i) n
-
-== whitepaper/Fragment/ModularSemantics.lean#L183-L187
-   183  /-- **A checked module**: its context assembled from its imports' views,
-   184  its declarations accepted over it, its new names keyed by it or
-   185  flagged proofs. -/
-   186  def Checked (i : Nat) : Prop :=
-   187    dev.Assembled i (dev.ctx i) ∧ S.Accepts (dev.ctx i) (dev.decls i) (dev.own i) ∧ dev.NewKeys i
-
-== whitepaper/Fragment/ModularSemantics.lean#L189-L191
-   189  /-- **A compared module**: its own environment assembled from its
-   190  imports' views. -/
-   191  def Compared (i : Nat) : Prop := dev.Assembled i (dev.own i)
-
-== whitepaper/Fragment/ModularModel.lean#L433-L443
+== whitepaper/Fragment/ModularModel.lean#L421-L443
+   421  /-- **The check per home**: every view a module presents refines its
+   422  own environment.  It reads the module alone, and runs once, however
+   423  many modules import it. -/
+   424  def InterfaceOk (dev : Nat → Module) (j : Nat) : Prop := ∀ E ∈ (dev j).views, Refines E (dev j).own
+   425  
+   426  /-- **The check per importer**: the module imports earlier modules, and
+   427  its context is assembled from their views.  It reads the module and its
+   428  imports' views, never an import's own environment. -/
+   429  structure ImportOk (dev : Nat → Module) (i : Nat) : Prop where
+   430    imports : ∀ j ∈ (dev i).imports, j < i
+   431    reads : FromViews dev i (dev i).context
+   432  
    433  /-- **The local checks at module `i`**: its interface, its imports, its
    434  declarations accepted against its context, a constant flagged a proof
    435  a declaration of a proposition, and every own constant keyed by the
@@ -6564,39 +6703,7 @@
    442    key_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
    443      (dev i).key n = (dev i).ownKey i n ci
 
-== whitepaper/Fragment/ModularModel.lean#L421-L424
-   421  /-- **The check per home**: every view a module presents refines its
-   422  own environment.  It reads the module alone, and runs once, however
-   423  many modules import it. -/
-   424  def InterfaceOk (dev : Nat → Module) (j : Nat) : Prop := ∀ E ∈ (dev j).views, Refines E (dev j).own
-
-== whitepaper/Fragment/ModularModel.lean#L426-L431
-   426  /-- **The check per importer**: the module imports earlier modules, and
-   427  its context is assembled from their views.  It reads the module and its
-   428  imports' views, never an import's own environment. -/
-   429  structure ImportOk (dev : Nat → Module) (i : Nat) : Prop where
-   430    imports : ∀ j ∈ (dev i).imports, j < i
-   431    reads : FromViews dev i (dev i).context
-
-== whitepaper/Fragment/ModularModel.lean#L85-L90
-    85  /-- **The proof flags of a list**: a flagged name belongs to a
-    86  declaration of a proposition, at the point it is checked. -/
-    87  inductive FlagsOk (p : Name → Bool) : Env → List Decl → Prop
-    88    | nil {E : Env} : FlagsOk p E []
-    89    | cons {E : Env} {d : Decl} {ds : List Decl} :
-    90        (∀ n ∈ d.names, p n = true → d.IsProof E) → FlagsOk p (d.apply E) ds → FlagsOk p E (d :: ds)
-
-== whitepaper/Fragment/ModularModel.lean#L407-L410
-   407  /-- The key of an own constant of module `i`: its statement for a
-   408  proof, the module itself otherwise. -/
-   409  def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstInfo) : Key Stmt :=
-   410    if m.proofs n then .proof (ci.lparams, ci.type) else .home i
-
-== whitepaper/Fragment/ModularModel.lean#L453-L454
-   453  /-- **A validated module**: checked, or compared. -/
-   454  def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
-
-== whitepaper/Fragment/ModularModel.lean#L445-L451
+== whitepaper/Fragment/ModularModel.lean#L445-L454
    445  /-- **Validation by comparison**: module `i`'s whole own environment,
    446  its declarations included, is assembled from its imports' views —
    447  every constant is an import's, or an assumption of its type. -/
@@ -6604,11 +6711,29 @@
    449    iface : InterfaceOk dev i
    450    imports : ∀ j ∈ (dev i).imports, j < i
    451    reads : FromViews dev i (dev i).own
+   452  
+   453  /-- **A validated module**: checked, or compared. -/
+   454  def Valid (dev : Nat → Module) (i : Nat) : Prop := LocalOk dev i ∨ Compared dev i
 
-== whitepaper/Fragment/ModularInstance.lean#L94-L96
+== whitepaper/Fragment/ModularInstance.lean#L94-L111
     94  /-- **A validated module is valid over the instance.** -/
     95  theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv : Valid dev i) :
     96      (toDev V dev).Valid i := by
+    97    rcases hv with h | h
+    98    · refine ⟨h.iface, h.importOk.imports, .inl ⟨h.importOk.reads, ⟨rfl, h.checks, h.flags,
+    99        h.importOk.reads.scoped⟩, fun n hn hC => ?_⟩⟩
+   100      obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hn
+   101      rcases find?_applyAll he with ⟨d, hd, hl⟩ | hl
+   102      · have hnm : n ∈ d.names := (d.mem_names_iff n).mpr ⟨e, key_of_lookup hl⟩
+   103        have hk := h.key_own d hd n hnm e he
+   104        show (dev i).key n = _ ∨ (∃ s, (dev i).key n = _) ∧ Flagged ((dev i).decls, (dev i).proofs) n
+   105        rw [hk]
+   106        unfold Module.ownKey
+   107        split
+   108        · rename_i hp; exact .inr ⟨⟨_, rfl⟩, d, hd, hnm, hp⟩
+   109        · exact .inl rfl
+   110      · exact absurd (show ((dev i).context.find? n).isSome = true by rw [hl]; rfl) hC
+   111    · exact ⟨h.iface, h.imports, .inr h.reads⟩
 
 == whitepaper/Fragment/ModularSemantics.lean#L200-L207
    200  /-- **A compatible family** of models below `k`: two modules that store
@@ -6648,10 +6773,13 @@
    127        ∀ i (hi : i < k) n s, ((dev i).own.find? n).isSome → (dev i).key n = .proof s →
    128          ∀ ls, (m i hi).M n ls = pt := by
 
-== whitepaper/Fragment/ModularSemantics.lean#L340-L342
+== whitepaper/Fragment/ModularSemantics.lean#L340-L345
    340  /-- **Every valid module's own environment has a model.** -/
    341  theorem own_model (k : Nat) (hv : ∀ i < k, dev.Valid i) :
    342      ∀ i < k, Nonempty (S.Mod (dev.own i)) := by
+   343    obtain ⟨m, -⟩ := dev.modular k hv
+   344    exact fun i hi => ⟨m i hi⟩
+   345  
 
 == whitepaper/Fragment/ModularInstance.lean#L132-L135
    132  variable (V) in
@@ -6679,6 +6807,79 @@
    157        ∀ (φ : Name → Nat) (ρ : Nat → V) (ls : List Level), ls.length = ci.lparams.length →
    158          ∃ x, x ∈ˢ interp m.M φ ρ (ci.type.instL ci.lparams ls) := by
 
+== ConLeche/Cached/ModStore.lean#L143-L167
+   143  
+   144  /-- **The laws of a presented constant**: its type; a definition's value;
+   145  a recursor's rules (right-hand sides, nested pins, constructors); an
+   146  inductive type's members, constructors, η constructor and projection
+   147  table (`tbl`); a constructor's result family; and the names a pinned
+   148  constant's fast path reads. -/
+   149  def lawsOf (tbl : Option ProjTable) (ci : ConstantInfo) : Laws :=
+   150    let pinN := ConLeche.Modular.pinFootprint ci.name
+   151    match ci with
+   152    | .defnInfo cv v _ => { es := [cv.type, v], ns := pinN }
+   153    | .recInfo cv _ _ rules =>
+   154      { es := cv.type :: rules.flatMap (fun r => r.rhs :: match r.fire with
+   155          | .nested _ pins => pins
+   156          | .plain => []),
+   157        ns := rules.map (·.ctor) ++ pinN, fc := rules.map (·.ctor) }
+   158    | .indInfo cv caps =>
+   159      let cs := caps.ctors ++ (if caps.eta then [caps.etaCtor] else [])
+   160      match tbl with
+   161      | some t => { es := cv.type :: t.bodies.toList, ns := caps.all ++ cs ++ [t.ctor] ++ pinN,
+   162                    fi := caps.all, fc := cs ++ [t.ctor] }
+   163      | none => { es := [cv.type], ns := caps.all ++ cs ++ pinN, fi := caps.all, fc := cs }
+   164    | .ctorInfo cv _ _ =>
+   165      { es := [cv.type], ns := pinN,
+   166        fi := match cv.type.piResult.getAppFn with
+   167          | .const T _ => [T]
+
+== ConLeche/Cached/ModIso.lean#L54-L73
+    54  /-- **A unit's constant `j`, as a viewer with levels `lv` that loads its
+    55  module at level `l` sees it**: at the private level (`2`) the installed
+    56  constant, from the private record; at the exported level (`1`) its
+    57  exported presentation, from the interface alone — absent unless its
+    58  gate is open, the assumption of its statement unless its value gate is
+    59  open too; nothing at any other level. -/
+    60  def presentAt (lv : ByteArray) (s : ModSlot) (l : UInt8) (j : Nat) : Option ConstantInfo :=
+    61    if l == 2 then s.prv.priv[j]?
+    62    else if l == 1 then
+    63      match (s.exp.at1[j]?).join with
+    64      | some ci =>
+    65        if gateOpen lv ((s.exp.g1[j]?).getD #[]) then
+    66          if gateOpen lv ((s.exp.v1[j]?).getD #[]) then some ci
+    67          else some (.axiomInfo ci.toConstantVal)
+    68        else none
+    69      | none => none
+    70    else none
+    71  
+    72  /-- The projection table of a unit's constant `j` at level `l`. -/
+    73  def presentTbl (s : ModSlot) (l : UInt8) (j : Nat) : Option ProjTable :=
+
+== ConLeche/Verify/Modular/Interface.lean#L150-L171
+   150  theorem LocalOk.of_interface {mode : CheckMode} {pins : List NatOpPinSet} {dev : Nat → Module}
+   151      {i : Nat} (hI : ∀ b < i, InterfaceOk dev b) (hM : ImportOk mode pins dev i) :
+   152      LocalOk mode pins dev i := by
+   153    have pres := hM.presented
+   154    have src {n : Name} {ci : ConstantInfo} (hf : (dev i).context.find? n = some ci) :
+   155        (dev i).src n < i := hM.src_lt n (by rw [hf]; rfl)
+   156    refine { below := hM.below, src_lt := hM.src_lt, nodup := hM.nodup, accepted := hM.accepted,
+   157             compared_own := hM.compared_own, context_le := ?_, scoping := ?_, tables := ?_,
+   158             projs := hM.projs, blocks := hM.blocks, recFam := ?_, tables_mem := hM.tables_mem,
+   159             key_context := hM.key_context, key_own := hM.key_own }
+   160    · intro n ci hf
+   161      obtain ⟨e, he, rfl, -, -⟩ := pres n ci hf
+   162      exact (hI _ (src hf)).refines n e he
+   163    · intro n ci hf
+   164      obtain ⟨e, he, rfl, ht, hr⟩ := pres n ci hf
+   165      have hIb := hI _ (src hf)
+   166      refine (hIb.reads n e he).mono (fun d hd => ?_) (fun cv caps hce => ?_)
+   167      · obtain ⟨hown, hdn⟩ := find?_readsIn hd
+   168        obtain ⟨hc, hk⟩ := hr d hdn
+   169        exact readsAlike_isSome hown hc hk
+   170      · rw [ht, hce]; exact hIb.table n e he cv caps hce
+   171    · intro T ci hf
+
 == ConLeche/Cached/ModIso.lean#L280-L286
    280  /-- **A module checked in isolation**: its records, installed and
    281  checked by the declaration fold from the canonical index of its context
@@ -6688,7 +6889,12 @@
    285      (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
    286    checkDeclsAt mode pins (isoIndex slot lv) ds
 
-== ConLeche/Verify/Modular/IsoCtx.lean#L580-L587
+== ConLeche/Verify/Modular/IsoCtx.lean#L575-L587
+   575  
+   576  /-- **The one-store-many-views check is the isolated check**: when the
+   577  store's name index lists every unit constant under its name in module
+   578  order, module `i` checked at its view of the store and checked in
+   579  isolation — the declaration fold from the canonical index of the
    580  context built from its imports' units alone — give the same verdict:
    581  the same error at the same position, or the same installed constants and
    582  tables (over that context). -/
@@ -6698,7 +6904,7 @@
    586        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
    587    checkDeclsAt_over (baseLike_isoCtx hI i) ds
 
-== ConLeche/MainTheorem.lean#L131-L139
+== ConLeche/MainTheorem.lean#L131-L145
    131  theorem modular_model_exists (V : Type w) [SetTheory V]
    132      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
    133      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
@@ -6708,10 +6914,39 @@
    137          (m j hj).cval n = (m j' hj').cval n) ∧
    138        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
    139          (m j hj).cval n = fun _ => pt := by
+   140    obtain ⟨a, hm, hc, hp⟩ := Model.Modular.modular_envModels (V := V) rfl dev i hok
+   141    have hcval : ∀ j (hj : j ≤ i) n, ((dev j).own.find? n).isSome = true →
+   142        (Model.Model.ofEnvModelM (Classical.choose (hm j hj))).cval n =
+   143          fun φ => Semantics.interp V (fun _ => empty) (a j n φ) := fun j hj n hn =>
+   144      funext fun φ => by rw [Model.Model.ofEnvModelM_cval, Classical.choose_spec (hm j hj) n hn]
+   145    refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hm j hj)),
 
-== ConLeche/Modular/Generic.lean#L256-L257
+== ConLeche/Modular/Generic.lean#L256-L260
    256  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    257      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+   258    | 0, _ => ⟨fun _ h => absurd h (Nat.not_lt_zero _),
+   259        fun _ _ h => absurd h (Nat.not_lt_zero _), fun _ h => absurd h (Nat.not_lt_zero _)⟩
+   260    | k + 1, hv => by
+
+== ConLeche/Model/Modular/Instance.lean#L236-L253
+   236  variable (V μ) in
+   237  /-- **Con-leche's models as a modular semantics.** -/
+   238  @[expose] noncomputable def conlecheSemantics (hμ : μ.isVerified = true) (pins : List NatOpPinSet) :
+   239      ModularSemantics.{0, 0} where
+   240    Env := Env
+   241    Name := Name
+   242    Stores E n := (E.find? n).isSome = true
+   243    Mod := MMod V μ
+   244    Val := (Name → Nat) → Term
+   245    val m n := m.1 n
+   246    proofVal := dfltLeaf
+   247    Assembled C _ E same := AssembledC C E same
+   248    assembled_src h := h.src
+   249    amalgamate h m hc := amalgamateC h m hc
+   250    Decls := List Declaration × (Name → Bool)
+   251    Flagged D n := D.2 n = true
+   252    Accepts := AcceptsC μ pins
+   253    step h m := stepC hμ h m
 
 >>> whitepaper/sections/07-left-out.typ
 
