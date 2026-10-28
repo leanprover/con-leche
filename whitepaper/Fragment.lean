@@ -54,4 +54,6 @@ public import Fragment.IOWitness
 public import Fragment.Consistency
 public import Fragment.Modular
 public import Fragment.ModularModel
+public import Fragment.ModularSemantics
+public import Fragment.ModularInstance
 public import Fragment.Axioms
