@@ -257,12 +257,31 @@ theorem pickIn_eq (b : MBase) (n : Name) :
 
 /-! ## The entries -/
 
+/-- A module the viewer does not load presents nothing: the guard of
+`entriesOf` (which keeps such a module's unit unread) changes nothing. -/
+theorem entriesOf_eq (lv : ByteArray) (h : Nat) (slot : Nat → ModSlot) :
+    entriesOf lv h slot = (List.range (posCount (slot h) (lvlAt lv h))).filterMap fun j =>
+      (presentAt lv (slot h) (lvlAt lv h) j).map fun ci =>
+        ⟨h, j, ci, entryTbl ci (presentTbl (slot h) (lvlAt lv h) j)⟩ := by
+  unfold entriesOf
+  split
+  · rename_i h0
+    have h0' : lvlAt lv h = 0 := beq_iff_eq.mp h0
+    symm
+    rw [List.filterMap_eq_nil_iff]
+    intro j _
+    rw [h0']
+    unfold presentAt
+    simp
+  · rfl
+
 theorem mem_isoEntries {slot : Nat → ModSlot} {lv : ByteArray} {e : IsoEntry} :
     e ∈ isoEntries slot lv ↔ e.h < lv.size ∧ e.j < posCount (slot e.h) (lvlAt lv e.h) ∧
       presentAt lv (slot e.h) (lvlAt lv e.h) e.j = some e.ci ∧
       e.tbl = entryTbl e.ci (presentTbl (slot e.h) (lvlAt lv e.h) e.j) := by
   obtain ⟨h, j, ci, tbl⟩ := e
-  unfold isoEntries entriesOf
+  unfold isoEntries
+  simp only [entriesOf_eq]
   simp only [List.mem_flatMap, List.mem_range, List.mem_filterMap, Option.map_eq_some_iff]
   constructor
   · rintro ⟨h', hh', j', hj', ci', hp, he⟩
@@ -276,8 +295,7 @@ theorem isoEntries_sorted (slot : Nat → ModSlot) (lv : ByteArray) :
   unfold isoEntries
   rw [List.pairwise_flatMap]
   refine ⟨fun h _ => ?_, ?_⟩
-  · unfold entriesOf
-    rw [List.pairwise_filterMap]
+  · rw [entriesOf_eq, List.pairwise_filterMap]
     refine List.pairwise_lt_range.imp ?_
     intro a a' ha b hb b' hb'
     simp only [Option.map_eq_some_iff] at hb hb'
@@ -286,7 +304,7 @@ theorem isoEntries_sorted (slot : Nat → ModSlot) (lv : ByteArray) :
     exact .inr ⟨rfl, ha⟩
   · refine List.pairwise_lt_range.imp ?_
     intro h h' hh x hx y hy
-    unfold entriesOf at hx hy
+    rw [entriesOf_eq] at hx hy
     simp only [List.mem_filterMap, Option.map_eq_some_iff] at hx hy
     obtain ⟨_, _, _, _, rfl⟩ := hx
     obtain ⟨_, _, _, _, rfl⟩ := hy

@@ -93,6 +93,39 @@ theorem IsoRunOk.checks (h : IsoRunOk mode S M) (i : Nat) (hi : i < M.size) :
   rw [checkPendingList_ok mode feI pendI.toList hchk, henv]
   rfl
 
+/-! ## An install from a context only conses onto it -/
+
+theorem Twin.refl' {fe : FEnv} (h : IdxBelow fe) : Twin fe fe := ⟨rfl, rfl, h, h⟩
+
+/-- A run of the fold's steps only conses constants and tables onto its
+start's. -/
+theorem _root_.ConLeche.Cached.InstallRun.extends {pins : List NatOpPinSet} {ds : List Declaration}
+    {p q : Nat × FEnv × Array PendingCheck} (hrun : InstallRun mode pins ds p q)
+    (hp : IdxBelow p.2.1) :
+    ∃ L Q, q.2.1.env = ⟨L ++ p.2.1.env.consts, Q ++ p.2.1.env.tables⟩ := by
+  induction hrun with
+  | nil p => exact ⟨[], [], rfl⟩
+  | @cons d ds p p₁ q hstep rest ih =>
+    obtain ⟨i, fe, pend⟩ := p
+    obtain ⟨L, Q, vg?, rfl, -, -⟩ := installDeclStep_twin (pend₂ := pend) (Twin.refl' hp) hstep
+    obtain ⟨L', Q', he⟩ := ih (hp.pushDelta L Q)
+    refine ⟨L' ++ L.reverse, Q' ++ Q.reverse, ?_⟩
+    rw [he, pushDelta_env]
+    simp
+
+/-- **An install from a context's canonical index ends over the
+context**: its environment is its own part (`ownPart`) over it. -/
+theorem _root_.ConLeche.Cached.InstallRun.over_ctx {pins : List NatOpPinSet} {ds : List Declaration} {C : Env}
+    {n : Nat} {fe : FEnv} {pend : Array PendingCheck}
+    (hrun : InstallRun mode pins ds (0, mkFEnv C, #[]) (n, fe, pend)) :
+    fe.env = Env.over (ownPart C fe.env) C := by
+  obtain ⟨L, Q, he⟩ := hrun.extends (IdxBelow.mkFEnv C)
+  have hc : (mkFEnv C).env = C := rfl
+  rw [hc] at he
+  rw [he]
+  unfold ownPart Env.over
+  simp only [List.length_append, Nat.add_sub_cancel, List.take_left]
+
 /-! ## From one mode's evidence to the other's -/
 
 theorem shiftPC_vg (k : Nat) (pc : PendingCheck) : (shiftPC k pc).vg = pc.vg := rfl

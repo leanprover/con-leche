@@ -93,15 +93,19 @@ private level, the interface's otherwise. -/
 def posCount (s : ModSlot) (l : UInt8) : Nat :=
   if l == 2 then s.prv.priv.size else s.exp.at1.size
 
-/-- **Module `h`'s presented constants**, in unit order. -/
-def entriesOf (lv : ByteArray) (h : Nat) (s : ModSlot) : List IsoEntry :=
-  (List.range (posCount s (lvlAt lv h))).filterMap fun j =>
-    (presentAt lv s (lvlAt lv h) j).map fun ci => ⟨h, j, ci, entryTbl ci (presentTbl s (lvlAt lv h) j)⟩
+/-- **Module `h`'s presented constants**, in unit order: none of a
+module the viewer does not load, whose unit is not read at all (it may
+not be published yet: a later module, or the viewer itself). -/
+def entriesOf (lv : ByteArray) (h : Nat) (slot : Nat → ModSlot) : List IsoEntry :=
+  if lvlAt lv h == 0 then [] else
+  (List.range (posCount (slot h) (lvlAt lv h))).filterMap fun j =>
+    (presentAt lv (slot h) (lvlAt lv h) j).map fun ci =>
+      ⟨h, j, ci, entryTbl ci (presentTbl (slot h) (lvlAt lv h) j)⟩
 
 /-- **Every presented constant of a viewer's context**, module by module
 in module order. -/
 def isoEntries (slot : Nat → ModSlot) (lv : ByteArray) : List IsoEntry :=
-  (List.range lv.size).flatMap fun h => entriesOf lv h (slot h)
+  (List.range lv.size).flatMap fun h => entriesOf lv h slot
 
 /-- The walk of `firstNamed`: an entry whose name was seen is dropped. -/
 def firstNamedGo : List IsoEntry → Std.HashSet Name → List IsoEntry → List IsoEntry
