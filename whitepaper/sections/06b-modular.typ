@@ -11,8 +11,9 @@ its checks, then the environment of every module has a model. In
 particular, no module proves an empty proposition.
 
 The argument is first stated for an arbitrary notion of model
-(@sec:mod-iface). It applies to any consistency proof that provides
-the constructions listed there. @sec:mod-env and @sec:mod-local
+(@sec:mod-iface). The interface lists the constructions the argument
+needs from a consistency proof; the fragment's set-theoretic model
+and con-leche's graded model provide them. @sec:mod-env and @sec:mod-local
 define the environments of a module and the checks it passes.
 @sec:mod-thm states and proves the theorem, @sec:mod-par describes
 which checks can run in parallel, and @sec:mod-compare treats a module
@@ -48,17 +49,17 @@ are designated as having $n$ and store it give $n$ the same value.
 #definition(name: "What a consistency proof provides")[
   #set enum(numbering: "1.")
   + *Models and values.*
-    #src("whitepaper/Fragment/ModularSemantics.lean", 95, 102)[For every
+    #src("whitepaper/Fragment/ModularSemantics.lean", 97, 104)[For every
     environment, a type of models], each model giving every name a
     value, and one value $pi$, the value of a proof.
   + *Amalgamation.* If $C$ is assembled from $(E_i)$ and $(m_i)$ is
     compatible for $C$, then $C$
-    #src("whitepaper/Fragment/ModularSemantics.lean", 110, 115)[has a
+    #src("whitepaper/Fragment/ModularSemantics.lean", 112, 117)[has a
     model] that gives every name $n$ of $C$ the value of $n$ in every
     member designated as having $n$ and storing it.
   + *The conservative step.* If the checker accepts declarations $D$
     over $Gamma$, giving $Gamma'$, then every model of $Gamma$
-    #src("whitepaper/Fragment/ModularSemantics.lean", 122, 125)[extends]
+    #src("whitepaper/Fragment/ModularSemantics.lean", 124, 127)[extends]
     to a model of $Gamma'$ that gives every name of $Gamma$ the same
     value, and gives every name that $D$ flags as a proof the value
     $pi$.
@@ -69,12 +70,12 @@ A declaration may be _flagged_ as a proof. The checks of
 whose type is a proposition.
 
 *Refinement and restriction.* An environment $Gamma$
-#src("whitepaper/Fragment/ModularSemantics.lean", 131, 133)[_refines_]
+#src("whitepaper/Fragment/ModularSemantics.lean", 133, 135)[_refines_]
 an environment $E$ when $Gamma$ is assembled from the family whose only
 member is $E$, with every name designated. A family with one member is
 compatible for any environment. Amalgamation therefore turns every
 model of $E$ into a model of $Gamma$ with the same values, the
-#src("whitepaper/Fragment/ModularSemantics.lean", 142, 147)[_restriction_]
+#src("whitepaper/Fragment/ModularSemantics.lean", 144, 149)[_restriction_]
 of the model to $Gamma$. The empty environment is assembled from the
 empty family, which is compatible, so amalgamation also gives the
 empty environment a model.
@@ -101,29 +102,38 @@ restriction is the reduct of a model along a morphism, and
 amalgamation combines models of the parts of a diagram that agree
 where the parts overlap.
 
-*A syntactic proof provides the same.* Nothing in @def:mod-iface is
-about sets. Consider a type system with constants and a fixed theory
+*An instance by syntax.* Nothing in @def:mod-iface is about sets, and
+the fragment includes a small syntactic instance of it. Consider a type system with constants and a fixed theory
 of closed terms, with a
-#src("whitepaper/Fragment/ModularSyntactic.lean", 53, 56)[substitution
+#src("whitepaper/Fragment/ModularSyntactic.lean", 60, 63)[substitution
 lemma]: a derivation over an environment remains a derivation in the
 fixed theory when a closed term is substituted for every constant,
 provided each substituted term has the substituted type and equals
 the substituted value of a definition. Take as a model of an
 environment such a
-#src("whitepaper/Fragment/ModularSyntactic.lean", 76, 84)[_realisation_],
+#src("whitepaper/Fragment/ModularSyntactic.lean", 83, 91)[_realisation_],
 and as the value of a constant its realising term. An environment is
-#src("whitepaper/Fragment/ModularSyntactic.lean", 163, 170)[assembled]
+#src("whitepaper/Fragment/ModularSyntactic.lean", 170, 177)[assembled]
 when each of its entries is the entry of a designated member, with the
 value kept or dropped, and every constant the entry mentions is
 designated as that member's. Amalgamation is the
-#src("whitepaper/Fragment/ModularSyntactic.lean", 172, 179)[union of
+#src("whitepaper/Fragment/ModularSyntactic.lean", 179, 186)[union of
 the realisations], and the step
-#src("whitepaper/Fragment/ModularSyntactic.lean", 123, 126)[realises a
+#src("whitepaper/Fragment/ModularSyntactic.lean", 130, 133)[realises a
 new definition by its realised value], which has the realised type by
-the substitution lemma. This system flags no declaration as a proof. So a proof
-by syntax
-#src("whitepaper/Fragment/ModularSyntactic.lean", 208, 229)[provides]
+the substitution lemma. This system flags no declaration as a proof. So this
+syntactic instance
+#src("whitepaper/Fragment/ModularSyntactic.lean", 215, 236)[provides]
 @def:mod-iface, and @thm:mod holds for it.
+
+The instance illustrates the interface; it does not show that a
+syntactic consistency proof of Lean fits it. It handles definitions
+only: no axioms, no inductive types, and nothing is flagged a proof.
+The interface also gives every proof one shared value $pi$, which
+suits set models but not a syntactic proof, where proofs of different
+propositions are different terms. Whether the interface suits another
+real consistency proof is open until there is such a proof to connect
+it to.
 
 == Environments of modules <sec:mod-env>
 
@@ -173,7 +183,7 @@ consists of
 + for every name $n$ it uses, the _key_ $kappa_M (n)$ of the constant
   $n$ denotes in $M$.
 
-A #src("whitepaper/Fragment/ModularSemantics.lean", 78, 84)[key] is
+A #src("whitepaper/Fragment/ModularSemantics.lean", 80, 86)[key] is
 either a module, the _home_ of the constant, which is the module that
 declares it, or, for a proof, the proof's statement: its level
 parameters and its type. Two modules mean the same constant by a name
@@ -295,7 +305,7 @@ with each other.
 #definition(name: "Compatible family")[
   A family of models $(m_M)$, with $m_M$ a model of $E_M$ for every
   module $M$, is
-  #src("whitepaper/Fragment/ModularSemantics.lean", 198, 205)[compatible]
+  #src("whitepaper/Fragment/ModularSemantics.lean", 200, 207)[compatible]
   when
   #set enum(numbering: "1.")
   + whenever $E_M$ and $E_N$ both store a name $n$ and
@@ -322,8 +332,8 @@ only the existence of models.
   If every module of a development is validated, then there is a
   compatible family of models, one model of the own environment of
   every module
-  (#src("whitepaper/Fragment/ModularSemantics.lean", 252, 256)[for any
-  consistency proof],
+  (#src("whitepaper/Fragment/ModularSemantics.lean", 254, 258)[over the
+  interface],
   #src("whitepaper/Fragment/ModularInstance.lean", 115, 128)[for the
   fragment's]).
 ] <thm:mod>
@@ -372,7 +382,7 @@ statement.
   which by compatibility is its value in $m_N$. If $n$ is declared by
   $M$, its key is $M$ or a statement. No earlier module stores a name
   with the key $M$, since
-  #src("whitepaper/Fragment/ModularSemantics.lean", 223, 225)[the keys
+  #src("whitepaper/Fragment/ModularSemantics.lean", 225, 227)[the keys
   of every module name that module or earlier ones]. A statement key
   gives the value $pi$ in both models. The same case analysis shows
   that every name of $E_M$ with a statement key has the value $pi$.
@@ -513,7 +523,7 @@ not inspected.
   own environment has a model, and the models are compatible. Keys are
   home modules or a proof's level parameters and type, and no name is
   renamed. Its proof is
-  #src("ConLeche/Modular/Generic.lean", 255, 256)[the theorem over the
+  #src("ConLeche/Modular/Generic.lean", 256, 257)[the theorem over the
   interface] of @sec:mod-iface, the same statement as the fragment's,
   with con-leche's models as the instance: a model is a leaf assignment
   of the module's environment, and amalgamation gives each name the

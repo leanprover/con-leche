@@ -3,14 +3,15 @@ module
 @[expose] public section
 
 /-!
-# The modular argument, for any consistency proof
+# The modular argument, over an interface of models
 
 The modular theorem (`ConLeche.modular_model_exists`) has two halves:
 a consistency proof for one environment, and the argument that carries
 it from module to module.  This file is the second half, stated over an
 interface (`ModularSemantics`) that says what the first half must
-provide, so that the consistency proof can be swapped (for a syntactic
-one, say) without redoing the argument.  It imports nothing; it is the
+provide.  The interface gives every proof one shared value, which suits
+set models; whether it suits another consistency proof is open.  It
+imports nothing; it is the
 interface and theorem of the proof-idea paper's fragment
 (`whitepaper/Fragment/ModularSemantics.lean`), and con-leche's graded
 models are an instance (`ConLeche/Model/Modular/Instance.lean`).
@@ -249,7 +250,7 @@ theorem extendFam_lt {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k →
 theorem extendFam_self {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k → P i) (x : P k)
     (hk : k < k + 1) : extendFam m x k hk = x := dite_eq_right (Nat.lt_irrefl k)
 
-/-- **The modular theorem, for any consistency proof**: if every module
+/-- **The modular theorem, over the interface**: if every module
 below `k` is valid, there is a compatible family of models, one of each
 module's own environment. -/
 theorem modular : ∀ k, (∀ i < k, dev.Valid i) →

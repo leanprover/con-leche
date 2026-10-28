@@ -119,7 +119,7 @@ are recorded here so every lane works from the same spec. Task #324.
 5. Nested inductive types (the full check, the model as a sketch).
 6. Extensionality corollaries (η for structures, unit-like).
 7. Checking module by module (tasks #370, #375): abstract first —
-   what any consistency proof must provide (models with values,
+   what the argument needs from a consistency proof (models with values,
    assembly and amalgamation of a compatible family, the conservative
    step; refinement and restriction derived); then modules, refinement
    and keys (home module, or a proof's statement), the local checks per

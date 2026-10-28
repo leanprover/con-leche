@@ -6208,109 +6208,109 @@
 
 >>> whitepaper/sections/06b-modular.typ
 
-== whitepaper/Fragment/ModularSemantics.lean#L95-L102
-    95    /-- **the models** of an environment -/
-    96    Mod : Env → Type w
-    97    /-- values -/
-    98    Val : Type w
-    99    /-- **the value** a model gives a name -/
-   100    val : ∀ {E : Env}, Mod E → Name → Val
-   101    /-- **the value of every proof** -/
-   102    proofVal : Val
+== whitepaper/Fragment/ModularSemantics.lean#L97-L104
+    97    /-- **the models** of an environment -/
+    98    Mod : Env → Type w
+    99    /-- values -/
+   100    Val : Type w
+   101    /-- **the value** a model gives a name -/
+   102    val : ∀ {E : Env}, Mod E → Name → Val
+   103    /-- **the value of every proof** -/
+   104    proofVal : Val
 
-== whitepaper/Fragment/ModularSemantics.lean#L110-L115
-   110    /-- **amalgamation** of a compatible family -/
-   111    amalgamate : ∀ {C : Env} {ι : Type u} {E : ι → Env} {same : Name → ι → Prop},
-   112      Assembled C E same → ∀ m : (i : ι) → Mod (E i),
-   113      (∀ n i i', Stores C n → same n i → same n i' → Stores (E i) n → Stores (E i') n →
-   114        val (m i) n = val (m i') n) →
-   115      ∃ mC : Mod C, ∀ n i, Stores C n → same n i → Stores (E i) n → val mC n = val (m i) n
+== whitepaper/Fragment/ModularSemantics.lean#L112-L117
+   112    /-- **amalgamation** of a compatible family -/
+   113    amalgamate : ∀ {C : Env} {ι : Type u} {E : ι → Env} {same : Name → ι → Prop},
+   114      Assembled C E same → ∀ m : (i : ι) → Mod (E i),
+   115      (∀ n i i', Stores C n → same n i → same n i' → Stores (E i) n → Stores (E i') n →
+   116        val (m i) n = val (m i') n) →
+   117      ∃ mC : Mod C, ∀ n i, Stores C n → same n i → Stores (E i) n → val mC n = val (m i) n
 
-== whitepaper/Fragment/ModularSemantics.lean#L122-L125
-   122    /-- **the conservative step** -/
-   123    step : ∀ {Γ Γ' : Env} {D : Decls}, Accepts Γ D Γ' → ∀ m : Mod Γ,
-   124      ∃ m' : Mod Γ', (∀ n, Stores Γ n → val m' n = val m n) ∧
-   125        ∀ n, Flagged D n → val m' n = proofVal
+== whitepaper/Fragment/ModularSemantics.lean#L124-L127
+   124    /-- **the conservative step** -/
+   125    step : ∀ {Γ Γ' : Env} {D : Decls}, Accepts Γ D Γ' → ∀ m : Mod Γ,
+   126      ∃ m' : Mod Γ', (∀ n, Stores Γ n → val m' n = val m n) ∧
+   127        ∀ n, Flagged D n → val m' n = proofVal
 
-== whitepaper/Fragment/ModularSemantics.lean#L131-L133
-   131  /-- **Refinement**: `Γ` is assembled from `E` alone, every name counted
-   132  as `E`'s. -/
-   133  def Refines (Γ E : S.Env) : Prop := S.Assembled Γ (fun _ : PUnit.{u + 1} => E) fun _ _ => True
+== whitepaper/Fragment/ModularSemantics.lean#L133-L135
+   133  /-- **Refinement**: `Γ` is assembled from `E` alone, every name counted
+   134  as `E`'s. -/
+   135  def Refines (Γ E : S.Env) : Prop := S.Assembled Γ (fun _ : PUnit.{u + 1} => E) fun _ _ => True
 
-== whitepaper/Fragment/ModularSemantics.lean#L142-L147
-   142  /-- **Restriction**: a model of `E` gives one of every refinement of
-   143  `E`, with the same values. -/
-   144  theorem restrict {Γ E : S.Env} (h : S.Refines Γ E) (m : S.Mod E) :
-   145      ∃ m' : S.Mod Γ, ∀ n, S.Stores Γ n → S.val m' n = S.val m n := by
-   146    obtain ⟨m', hm'⟩ := S.amalgamate h (fun _ => m) fun _ _ _ _ _ _ _ _ => rfl
-   147    exact ⟨m', fun n hn => hm' n ⟨⟩ hn trivial (h.stores hn)⟩
+== whitepaper/Fragment/ModularSemantics.lean#L144-L149
+   144  /-- **Restriction**: a model of `E` gives one of every refinement of
+   145  `E`, with the same values. -/
+   146  theorem restrict {Γ E : S.Env} (h : S.Refines Γ E) (m : S.Mod E) :
+   147      ∃ m' : S.Mod Γ, ∀ n, S.Stores Γ n → S.val m' n = S.val m n := by
+   148    obtain ⟨m', hm'⟩ := S.amalgamate h (fun _ => m) fun _ _ _ _ _ _ _ _ => rfl
+   149    exact ⟨m', fun n hn => hm' n ⟨⟩ hn trivial (h.stores hn)⟩
 
-== whitepaper/Fragment/ModularSyntactic.lean#L53-L56
-    53    /-- **the substitution lemma** -/
-    54    der_subst : ∀ {Γ t A} {σ : N → Tm}, Der Γ t A →
-    55      (∀ c B v, Γ c = some (B, v) → HasTy (σ c) (subst σ B) ∧ ∀ s, v = some s → σ c = subst σ s) →
-    56      HasTy (subst σ t) (subst σ A)
+== whitepaper/Fragment/ModularSyntactic.lean#L60-L63
+    60    /-- **the substitution lemma** -/
+    61    der_subst : ∀ {Γ t A} {σ : N → Tm}, Der Γ t A →
+    62      (∀ c B v, Γ c = some (B, v) → HasTy (σ c) (subst σ B) ∧ ∀ s, v = some s → σ c = subst σ s) →
+    63      HasTy (subst σ t) (subst σ A)
 
-== whitepaper/Fragment/ModularSyntactic.lean#L76-L84
-    76  /-- **σ realises `E`**: every constant's realisation has the realised
-    77  type, and a definition's is its realised value. -/
-    78  def Realises (σ : N → T.Tm) (E : N → Option (Entry T)) : Prop :=
-    79    ∀ c A v, E c = some (A, v) → T.HasTy (σ c) (T.subst σ A) ∧ ∀ t, v = some t → σ c = T.subst σ t
-    80  
-    81  /-- **A model of an environment**: a realisation. -/
-    82  structure Real (T : SubstSystem N) (E : SEnv T) where
-    83    σ : N → T.Tm
-    84    real : Realises σ E.1
+== whitepaper/Fragment/ModularSyntactic.lean#L83-L91
+    83  /-- **σ realises `E`**: every constant's realisation has the realised
+    84  type, and a definition's is its realised value. -/
+    85  def Realises (σ : N → T.Tm) (E : N → Option (Entry T)) : Prop :=
+    86    ∀ c A v, E c = some (A, v) → T.HasTy (σ c) (T.subst σ A) ∧ ∀ t, v = some t → σ c = T.subst σ t
+    87  
+    88  /-- **A model of an environment**: a realisation. -/
+    89  structure Real (T : SubstSystem N) (E : SEnv T) where
+    90    σ : N → T.Tm
+    91    real : Realises σ E.1
 
-== whitepaper/Fragment/ModularSyntactic.lean#L163-L170
-   163  /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
-   164  the same name, the entry of a member `C` counts as the same, its value
-   165  kept or left out, and every constant the entry mentions is counted as
-   166  that member's too. -/
-   167  def Assembled (C : SEnv T) {ι : Type u} (E : ι → SEnv T) (same : N → ι → Prop) : Prop :=
-   168    ∀ c A v, C.1 c = some (A, v) → ∃ i, same c i ∧
-   169      (∃ v', (E i).1 c = some (A, v') ∧ ∀ t, v = some t → v' = some t) ∧
-   170      (∀ d, T.Mentions A d → same d i) ∧ ∀ t, v = some t → ∀ d, T.Mentions t d → same d i
+== whitepaper/Fragment/ModularSyntactic.lean#L170-L177
+   170  /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
+   171  the same name, the entry of a member `C` counts as the same, its value
+   172  kept or left out, and every constant the entry mentions is counted as
+   173  that member's too. -/
+   174  def Assembled (C : SEnv T) {ι : Type u} (E : ι → SEnv T) (same : N → ι → Prop) : Prop :=
+   175    ∀ c A v, C.1 c = some (A, v) → ∃ i, same c i ∧
+   176      (∃ v', (E i).1 c = some (A, v') ∧ ∀ t, v = some t → v' = some t) ∧
+   177      (∀ d, T.Mentions A d → same d i) ∧ ∀ t, v = some t → ∀ d, T.Mentions t d → same d i
 
-== whitepaper/Fragment/ModularSyntactic.lean#L172-L179
-   172  /-- **Amalgamation**: the union of realisations that agree where `C`
-   173  counts two members as the same. -/
-   174  theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T} {same : N → ι → Prop}
-   175      (h : Assembled C E same) (m : (i : ι) → Real T (E i))
-   176      (hcomp : ∀ c i i', (C.1 c).isSome → same c i → same c i' → ((E i).1 c).isSome →
-   177        ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
-   178      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome →
-   179        some (mC.σ c) = some ((m i).σ c) := by
+== whitepaper/Fragment/ModularSyntactic.lean#L179-L186
+   179  /-- **Amalgamation**: the union of realisations that agree where `C`
+   180  counts two members as the same. -/
+   181  theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T} {same : N → ι → Prop}
+   182      (h : Assembled C E same) (m : (i : ι) → Real T (E i))
+   183      (hcomp : ∀ c i i', (C.1 c).isSome → same c i → same c i' → ((E i).1 c).isSome →
+   184        ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
+   185      ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome →
+   186        some (mC.σ c) = some ((m i).σ c) := by
 
-== whitepaper/Fragment/ModularSyntactic.lean#L123-L126
-   123  /-- **The step for one definition**: realised by its realised value,
-   124  by the substitution lemma. -/
-   125  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
-   126      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
+== whitepaper/Fragment/ModularSyntactic.lean#L130-L133
+   130  /-- **The step for one definition**: realised by its realised value,
+   131  by the substitution lemma. -/
+   132  theorem addDef_step {Γ : SEnv T} {c : N} {A t : T.Tm} {hd : T.Der Γ.1 t A} (hc : Γ.1 c = none)
+   133      (m : Real T Γ) : ∃ m' : Real T (addDef Γ c A t hd), ∀ d, (Γ.1 d).isSome → m'.σ d = m.σ d := by
 
-== whitepaper/Fragment/ModularSyntactic.lean#L208-L229
-   208  variable (T) in
-   209  /-- **A syntactic consistency proof as a modular semantics.** -/
-   210  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
-   211    Env := SEnv T
-   212    Name := N
-   213    Stores E c := (E.1 c).isSome = true
-   214    Mod := Real T
-   215    Val := Option T.Tm
-   216    val m c := some (m.σ c)
-   217    proofVal := none
-   218    Assembled C _ E same := Assembled C E same
-   219    assembled_src h c hc := by
-   220      obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
-   221      obtain ⟨i, hs, ⟨v', hE, -⟩, -⟩ := h c A v hA
-   222      exact ⟨i, hs, by rw [hE]; rfl⟩
-   223    amalgamate h m hc := amalgamate h m hc
-   224    Decls := List (N × T.Tm × T.Tm)
-   225    Flagged _ _ := False
-   226    Accepts := Accepts
-   227    step h m := by
-   228      obtain ⟨m', hm'⟩ := h.step m
-   229      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
+== whitepaper/Fragment/ModularSyntactic.lean#L215-L236
+   215  variable (T) in
+   216  /-- **A syntactic consistency proof as a modular semantics.** -/
+   217  noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
+   218    Env := SEnv T
+   219    Name := N
+   220    Stores E c := (E.1 c).isSome = true
+   221    Mod := Real T
+   222    Val := Option T.Tm
+   223    val m c := some (m.σ c)
+   224    proofVal := none
+   225    Assembled C _ E same := Assembled C E same
+   226    assembled_src h c hc := by
+   227      obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
+   228      obtain ⟨i, hs, ⟨v', hE, -⟩, -⟩ := h c A v hA
+   229      exact ⟨i, hs, by rw [hE]; rfl⟩
+   230    amalgamate h m hc := amalgamate h m hc
+   231    Decls := List (N × T.Tm × T.Tm)
+   232    Flagged _ _ := False
+   233    Accepts := Accepts
+   234    step h m := by
+   235      obtain ⟨m', hm'⟩ := h.step m
+   236      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
 == whitepaper/Fragment/Env.lean#L83-L86
     83    /-- **An assumption**: a constant known by its type alone — a
@@ -6382,14 +6382,14 @@
    401    key : Name → Key Stmt
    402    proofs : Name → Bool
 
-== whitepaper/Fragment/ModularSemantics.lean#L78-L84
-    78  
-    79  /-- **The key of a constant**, what identifies it across modules: the
-    80  module that declares it (its **home**), or, for a proof, its
-    81  statement. -/
-    82  inductive Key (Stmt : Type v) where
-    83    | home (module : Nat)
-    84    | proof (stmt : Stmt)
+== whitepaper/Fragment/ModularSemantics.lean#L80-L86
+    80  
+    81  /-- **The key of a constant**, what identifies it across modules: the
+    82  module that declares it (its **home**), or, for a proof, its
+    83  statement. -/
+    84  inductive Key (Stmt : Type v) where
+    85    | home (module : Nat)
+    86    | proof (stmt : Stmt)
 
 == whitepaper/Fragment/ModularModel.lean#L223-L235
    223  /-- **`C` is assembled from the family `E`**, member `i` counting as
@@ -6492,22 +6492,22 @@
    442    key_own : ∀ d ∈ (dev i).decls, ∀ n ∈ d.names, ∀ ci, (dev i).own.find? n = some ci →
    443      (dev i).key n = (dev i).ownKey i n ci
 
-== whitepaper/Fragment/ModularSemantics.lean#L198-L205
-   198  /-- **A compatible family** of models below `k`: two modules that store
-   199  a name under one key give it one value, and a proof key gets the
-   200  proofs' value. -/
-   201  def Compatible (k : Nat) (m : (i : Nat) → i < k → S.Mod (dev.own i)) : Prop :=
-   202    (∀ i i' (hi : i < k) (hi' : i' < k) n, S.Stores (dev.own i) n → S.Stores (dev.own i') n →
-   203      dev.key i n = dev.key i' n → S.val (m i hi) n = S.val (m i' hi') n) ∧
-   204    ∀ i (hi : i < k) n s, S.Stores (dev.own i) n → dev.key i n = .proof s →
-   205      S.val (m i hi) n = S.proofVal
+== whitepaper/Fragment/ModularSemantics.lean#L200-L207
+   200  /-- **A compatible family** of models below `k`: two modules that store
+   201  a name under one key give it one value, and a proof key gets the
+   202  proofs' value. -/
+   203  def Compatible (k : Nat) (m : (i : Nat) → i < k → S.Mod (dev.own i)) : Prop :=
+   204    (∀ i i' (hi : i < k) (hi' : i' < k) n, S.Stores (dev.own i) n → S.Stores (dev.own i') n →
+   205      dev.key i n = dev.key i' n → S.val (m i hi) n = S.val (m i' hi') n) ∧
+   206    ∀ i (hi : i < k) n s, S.Stores (dev.own i) n → dev.key i n = .proof s →
+   207      S.val (m i hi) n = S.proofVal
 
-== whitepaper/Fragment/ModularSemantics.lean#L252-L256
-   252  /-- **The modular theorem, for any consistency proof**: if every module
-   253  below `k` is valid, there is a compatible family of models, one of each
-   254  module's own environment. -/
-   255  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
-   256      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+== whitepaper/Fragment/ModularSemantics.lean#L254-L258
+   254  /-- **The modular theorem, over the interface**: if every module
+   255  below `k` is valid, there is a compatible family of models, one of each
+   256  module's own environment. -/
+   257  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
+   258      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
 == whitepaper/Fragment/ModularInstance.lean#L115-L128
    115  variable (V) in
@@ -6558,10 +6558,10 @@
    159    obtain ⟨m⟩ := modular_model V dev i h
    160    exact ⟨m, fun c ci hf φ ρ ls hls => ⟨_, (m.type_ok c ci hf φ ρ ls hls).2.2⟩⟩
 
-== whitepaper/Fragment/ModularSemantics.lean#L223-L225
-   223  /-- **A module's homes are itself or earlier modules.** -/
-   224  theorem home_le : ∀ i, (∀ j ≤ i, dev.Valid j) →
-   225      ∀ n h, S.Stores (dev.own i) n → dev.key i n = .home h → h ≤ i := by
+== whitepaper/Fragment/ModularSemantics.lean#L225-L227
+   225  /-- **A module's homes are itself or earlier modules.** -/
+   226  theorem home_le : ∀ i, (∀ j ≤ i, dev.Valid j) →
+   227      ∀ n h, S.Stores (dev.own i) n → dev.key i n = .home h → h ≤ i := by
 
 == whitepaper/Fragment/ModularModel.lean#L445-L451
    445  /-- **Validation by comparison**: module `i`'s whole own environment,
@@ -6602,9 +6602,9 @@
    138        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
    139          (m j hj).cval n = fun _ => pt := by
 
-== ConLeche/Modular/Generic.lean#L255-L256
-   255  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
-   256      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+== ConLeche/Modular/Generic.lean#L256-L257
+   256  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
+   257      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
 >>> whitepaper/sections/07-left-out.typ
 
