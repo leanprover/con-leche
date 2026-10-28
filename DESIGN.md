@@ -108815,3 +108815,26 @@ recorded by the definition's own record check (its type's sort is
 already inferred there) would cost nothing, but in isolated mode the
 flags are needed in the unit before the record checks run, and the
 proof would have to relate the two checks.
+
+## TASK #378 — §7 of the whitepaper with precise formulas (2026-10-28, agent/378-formulas)
+
+Maintainer feedback: §7's prose was hard to read, and "assembly",
+"compatible" and the interface definition needed precise formulas.
+Every definition, lemma and theorem of §7 now states its content as a
+formula in the paper's notation, checked against the fragment
+(`ModularSemantics.lean`, `ModularModel.lean`, `ModularInstance.lean`;
+no Lean change): $St(E)$ for the stored names, $m(c)$ for values, a
+family $(E_x)_{x∈X}$ with a designation $σ ⊆ Name × X$, `Asm`, `Acc`,
+`Fl`, refinement $≼$, constant refinement $≤$, the part $E_x^C$ of a
+member that $C$ reads and the scope condition `Sc`; a development
+indexed by numbers ($imp_i$, $Γ_i$, $D_i$, $E_i$, $𝒱_i$, $κ_i$), the
+views' index set $X_i$ and designation $σ_i$, `NewKeys`/`Checked`/
+`Compared`/valid, the fragment's local checks, the compatible family
+below $k$. Restriction and "homes are earlier" (`home_le`) became
+lemmas with proofs; the theorem's proof follows the theorem and works
+case by case on the three sources of a value. One claim was dropped:
+"the empty environment is assembled from the empty family" does not
+follow from the interface (assembly is the proof's own relation); the
+text now says that amalgamation gives a model to every environment
+assembled from the empty family. The rule is recorded in
+`whitepaper/PLAN.md`.
