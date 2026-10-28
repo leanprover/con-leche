@@ -65,13 +65,15 @@
 # in trailing `EXPECT:` comment markers, exactly the lines the gate must
 # report; `--selftest` runs that check alone.
 #
-# NOT SCANNED: `tests/e2e/src/*.lean` and `tests/trust-surface/*.lean`.
-# The former are fixture *inputs* — the Lean sources that get exported
-# into the streams the checker must REJECT — so they deliberately
-# contain the very constructs this gate hunts
-# (`tests/e2e/src/sorry_use.lean` is a `sorry`, by design).  The latter
-# is the lexer fixture, which contains the same constructs for the same
-# reason.  Neither is part of con-leche's own build.
+# NOT SCANNED: `tests/e2e/src/*.lean`, `tests/olean/src/*.lean` and
+# `tests/trust-surface/*.lean`.  The first two are fixture *inputs* —
+# the Lean sources that get exported into the streams, or compiled into
+# the `.olean` files, the checker reads — so they deliberately contain
+# the very constructs this gate hunts (`tests/e2e/src/sorry_use.lean`
+# is a `sorry`, by design; so are the holes of the `--compare`
+# challenge `tests/olean/src/CmpChal.lean`).  The last is the lexer
+# fixture, which contains the same constructs for the same reason.
+# None is part of con-leche's own build.
 #
 # THE ALLOWLIST, and the justification for every entry (file → the
 # tokens tolerated there).  A token in an allowlisted file that is not
@@ -308,7 +310,7 @@ ALLOW = {
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
 # contain what the checker must reject, and the lexer's own fixture.
-SKIP_DIRS = ('tests/e2e/src/', 'tests/trust-surface/')
+SKIP_DIRS = ('tests/e2e/src/', 'tests/olean/src/', 'tests/trust-surface/')
 
 ROOTS = ('Main.lean', 'ConLeche.lean', 'PinDump.lean')
 

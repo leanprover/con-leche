@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Modular.Store
 public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Verify.Cached.PushChain
-public import ConLeche.Verify.Cached.InstalledC
+import ConLeche.Verify.Cached.InstalledC
 import ConLeche.Verify.EnvBound
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Cached.KnotCongr

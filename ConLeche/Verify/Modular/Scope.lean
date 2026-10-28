@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.Modular.Local
+public import ConLeche.Verify.Modular.Dev
+import ConLeche.Verify.Modular.Local
 import ConLeche.Verify.Cached.GuardsC
 
 public section

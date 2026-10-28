@@ -1,12 +1,13 @@
 module
 
 public import ConLeche.Driver.Run
-public import ConLeche.Driver.CheckPool
-public import ConLeche.Driver.OwnerParse
+import ConLeche.Driver.OwnerParse
 public import ConLeche.Frontend.Olean.Modules
-public import ConLeche.Modular
-public import ConLeche.Cached.ModStore
-public import ConLeche.Verify.Modular.Scope
+import ConLeche.Modular
+import ConLeche.Cached.ModStore
+public import ConLeche.Verify.Modular.Dev
+import ConLeche.Verify.Modular.Scope
+import ConLeche.Verify.Modular.Local
 public import Std.Data.TreeSet.Basic
 /- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader is passed the
 specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/

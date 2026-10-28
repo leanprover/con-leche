@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Driver.Run
 public import ConLeche.Driver.Modular
 public import Std.Async.System
 

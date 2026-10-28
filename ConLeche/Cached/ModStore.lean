@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Installed
+import ConLeche.Cached.Installed
 public import ConLeche.Modular
 public import Std.Data.HashSet.Basic
 

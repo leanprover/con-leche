@@ -30,6 +30,15 @@
    505  def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
    506      IO (Except (CheckError × Nat) (Array Declaration)) := do
 
+== ConLeche/Driver/Modular.lean#L1011-L1012
+  1011  def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat)
+  1012      (keepGoing : Bool := false) (cmps : Array (Name × Name) := #[]) : IO UInt32 := do
+
+== ConLeche/Driver/Modular.lean#L949-L951
+   949  def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store)
+   950      (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
+   951      IO (Except String (PLift (CmpClaim mode S M i chal) × Array (Name × Nat))) := do
+
 == ConLeche/Driver/Run.lean#L38
     38  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
@@ -187,6 +196,15 @@
    151      ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
    152        c.toConstantVal.type = .const falseName [] → False := by
 
+== ConLeche/Verify/Modular/Scope.lean#L476-L477
+   476  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
+   477      LocalOk mode natOpPinSets (devOf S M) i := by
+
+== ConLeche/Driver/Modular.lean#L841-L843
+   841  def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))
+   842      (locs : Array (Option (At fun i => Mod.localOk S ((A.map ModOk.d).map Mod.ModData.unit) i = true)))
+   843      (chks : Array (Option (At (ChkP mode (A.map ModOk.d))))) (off : Array Nat) :
+
 == tests/ConLecheTests/Axioms.lean#L91-L95
     91  Everything below them is what they are corollaries of. -/
     92  
@@ -259,14 +277,14 @@
    757          (Σ' (p' : Nat × FEnv × Array PendingCheck),
    758            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1405-L1411
-  1405  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-  1406      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
-  1407      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
-  1408      (hand : andPinOk pd = true)
-  1409      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
-  1410      installDeclStep mode pins (i, fe, pend) pd =
-  1411        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1403-L1409
+  1403  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
+  1404      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
+  1405      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
+  1406      (hand : andPinOk pd = true)
+  1407      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+  1408      installDeclStep mode pins (i, fe, pend) pd =
+  1409        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
 
 == ConLeche/Cached/Installed.lean#L356-L358
    356  def checkRecord {pins : List NatOpPinSet} {ds : List Declaration}
@@ -1342,11 +1360,11 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L520
-   520  def main (args : List String) : IO UInt32 := do
+== Main.lean#L561
+   561  def main (args : List String) : IO UInt32 := do
 
-== Main.lean#L392
-   392  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
+== Main.lean#L426
+   426  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
 
 == ConLeche/MainTheorem.lean#L113-L120
    113  theorem no_False_declaration (V : Type w) [SetTheory V]

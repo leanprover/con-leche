@@ -774,6 +774,11 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.RecStage'),
     ('ConLeche.Verify.Cached.TargetRecC', 'ConLeche.Verify.Inductives.NestedRead'),
     ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Inductives.TargetAuxFire'),
+    # task #370 driver lane: `View`'s public statements name `Twin`
+    # (`ViewCongr`; `CanonB.twin`) and, through its re-exports, `IdxBelow`
+    # and `valueStep` (`ParInstall`).  MEASURED by demoting it alone
+    # (unknown identifier `IdxBelow`, `View.lean:142`; `Twin`, `:157`).
+    ('ConLeche.Verify.Modular.View', 'ConLeche.Verify.Cached.ViewCongr'),
 }
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean
