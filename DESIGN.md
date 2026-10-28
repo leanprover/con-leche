@@ -108261,3 +108261,126 @@ consistency proof must provide" (restriction, conservative step,
 amalgamation, base; Goguen–Burstall 1992 added to the bib; the
 counterexample; the syntactic instance), the interface/importer sentence,
 and its `#real` block now states the modular theorem as it is.
+
+## TASK #373 — the isolated check of a module, and the one-store-many-views check proved equal to it (2026-10-28, agent/373-isolated)
+
+**Why.** Maintainer request: the modular driver reads every constant into
+one store and checks each module at a view of it; implement the
+per-module mode as well and prove the two equivalent — the correctness
+of the one-store-many-views trick.
+
+**The specification** (`ConLeche/Cached/ModIso.lean`). `isoCtx slot lv`:
+module `M`'s context built from its imports' units alone — for every
+module `M` loads (levels `lv`), in module order, every unit constant as
+`M`'s level presents it (`presentAt`: level 2 reads the private record
+`prv.priv`; level 1 reads the interface `exp` alone — `at1` through the
+gates `g1`/`v1`, the assumption of its statement when the value gate is
+closed), with its table if presented as a type former (`entryTbl`), each
+name once, the first (`firstNamed`). A module not loaded is not read at
+all (`entriesOf`'s guard: its unit may not be published yet — without
+the guard the isolated run deadlocked on its own promise).
+`checkModuleIsolated mode pins slot lv ds := checkDeclsAt mode pins
+(isoIndex slot lv) ds`, where `checkDeclsAt fe₀` is `checkDecls`'s fold
+from an index (`checkDecls = checkDeclsAt (mkFEnv Env.empty)`, rfl) and
+`isoIndex = mkFEnv (isoCtx …)`. The store run's per-module check is the
+same fold from the view, `checkAtView mode pins mb ds`. The index runs
+as `isoIndexFast` (one pass, the index under construction deciding
+"first of its name"), `@[csimp] isoIndex_eq_fast`
+(`ConLeche/Verify/Modular/IsoFast.lean`): the hash maps receive the same
+insertions in the same order, so the two are equal as values.
+
+**The equivalence** (`ConLeche/Verify/Modular/`):
+
+```lean
+theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
+    (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
+    checkModuleIsolated mode pins S.slot (S.lvl i) ds =
+      (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i)))
+```
+
+— the same verdict, the same error at the same position, or the same
+installed constants and tables (over the context), for every module of
+any store, accepted or not. `IdxOk S` (decided by `idxOk`, now checked
+by every modular run in both modes, cheap): every alternate list of the
+name index strictly increasing, every unit constant (private record and
+exported presentation) an alternate of its name. Two halves:
+`checkDeclsAt_over` (`IsoFold.lean`): for ANY environment `C` with the
+view's base lookups (`BaseLike C mb`), the fold from `mkFEnv C` is the
+fold at `viewOf mb`, step by step (`installDeclStep_twin_full`: twin
+indices fail alike or push alike; the state over `C` is `overState`,
+records' bounds shifted by `|C|`, `restrict_find?_over`: the prefix
+views agree); and `baseLike_isoCtx` (`IsoCtx.lean`): the view's choice
+of a name (`MBase.pick?`, the first visible alternate) is the first
+presentation in module order (`pick?_iso`: both are the least position,
+in strictly sorted lists, of a set the index lists completely).
+`baseLike_ctxOf` gives the same for the store's own context `ctxOf`.
+
+**The run evidence.** `IsoRunOk` (`IsoRun.lean`): `RunOk` with the install,
+record checks and proofs done in the isolated environment, plus `IdxOk`
+and `M[i].fe = ownView M[i].fe.env (S.mb i)` (the module's own constants
+over the store: what the unit's check reads, in both modes).
+`RunOk.isoRunOk : RunOk mode S M → IdxOk S → IsoRunOk mode S M` and
+`IsoRunOk.runOk : IsoRunOk mode S M → ∃ M', RunOk mode S M' ∧ ∀ k, devOf S
+M' k = devOf S M k` (M' differs only in the view's record list, recovered
+by the fold equation): the same store, the same units. `isoDevOf`: the
+development whose contexts are `isoCtx` and own environments
+`Env.over d.fe.env (isoCtx …)` (sources, proofs, qualified names,
+interfaces as `devOf`). **`IsoRunOk.localOk : IsoRunOk mode S M → ∀ i,
+LocalOk mode natOpPinSets (isoDevOf S M) i`** — via `IsoRunOk.runOk`,
+`RunOk.localOk`, and `LocalOk.congr` (`Congr.lean`: the local checks read
+a context and an own environment through `find?` and the table lookup
+only, beside nodup, tables found under their structure, and the
+acceptance, which `AcceptedFrom.over_congr` transfers between contexts
+with the same lookups). `RunOk.localOk_iso` derives the same for a store
+run.
+
+**The capstones.** Unchanged: `modular_model_exists`/`modular_no_False`
+are over any development with `LocalOk`; the isolated instance is
+`modular_model_exists V natOpPinSets (isoDevOf S M) i (fun j _ =>
+h.localOk j)`, assembled as an `example` in
+`tests/ConLecheTests/ModIso.lean` (with the axiom pins of the four
+theorems above, at the three axioms, and `#guard`s of `isoCtx` on a toy
+store). The Challenge cannot state it (it may not import `Verify/*`);
+`tests/challenge.sh` green, no public statement changed. Driver:
+`Accepted` gains `idx : IdxOk S` and the theorems `Accepted.isolated`,
+`Accepted.localOk_iso`; `IsoAccepted` with `IsoAccepted.localOk` and
+`IsoAccepted.store`.
+
+**The mode.** `--modular=isolated` (`--modular=store` = `--modular`). The
+install along the import graph is generic over a module's work (`Work`:
+install and unit, published at once so dependents start, then the rest):
+`storeWork` (as before) and `isoWork` (the index of the context from the
+units, the install from it, the proofs there; the unit by `unitOf`/
+`unitOk` at `ownView`, published; then every record checked in the
+module's environment, which is then dropped). The facts both modes
+decide are one function (`commonOk`, with `idxOk`); `runOk`/`isoRunOk`
+add each mode's own. What is not isolated in the isolated mode: the
+unit's bookkeeping (presentations, gates, qualified names) and the local
+checks read the name index and the units as in store mode; `--compare`
+installs the challenge at a view in both modes.
+
+**Measurements** (instructions:u, one run each, 96 workers; peak RSS from
+the 1 s watchdog; merged = `--olean` without `--modular`; every run
+accepted, the two modular modes with the same counts):
+
+| closure | merged | store | isolated | peak RSS merged / store / isolated |
+|---|---|---|---|---|
+| Init (653 modules) | 403 G | 489 G | 438 G | 0.93 / 0.97 / 1.28 GiB |
+| Std (1 012) | 595 G | 723 G | 666 G | 1.57 / 1.64 / 1.65 GiB |
+| Lean (2 374) | 728 G | 927 G | 923 G | 1.56 / 1.71 / 1.83 GiB |
+| Mathlib, patched (10 976) | 7 464 G | 9 534 G | 10 841 G | 7.44 / 7.72 / 8.48 GiB |
+
+The isolated mode's lookups are one hash map's, cheaper than the
+store's (shard, alternates, level, gates); building each module's
+context costs in proportion to its size, which on Mathlib (contexts of
+hundreds of thousands of constants) outweighs it: +14 % over store mode.
+Before the one-pass index (the list specification run as is) Lean's
+isolated run was 1 000 G.
+
+**Fixtures.** `tests/olean.sh` runs every modular case (20) in both modes:
+65 cases.
+
+**Open.** The bookkeeping above still reads the closure's name index; an
+isolated unit computation would need `unitOf`/`unitOk` over the context's
+own provenance (`isoEntries` carries it). README suggestion (not
+written): the modular paragraph could mention `--modular=isolated`.
