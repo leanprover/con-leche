@@ -845,8 +845,8 @@ theorem RunOk.importOk (hR : RunOk mode S M) (i : Nat) :
   case neg =>
     have hd := devOf_of_ge (S := S) hi
     refine { below := ?_, src_lt := ?_, nodup := ?_, accepted := ?_, compared_own := ?_,
-             presented := ?_, projs := ?_, blocks := ?_, tables_mem := ?_, res_context := ?_,
-             res_own := ?_ } <;>
+             presented := ?_, projs := ?_, blocks := ?_, tables_mem := ?_, key_context := ?_,
+             key_own := ?_ } <;>
       simp [hd, emptyModule, Env.find?, AcceptedFrom.nil]
   have hd := devOf_of_lt (S := S) hi
   have hent : ∀ n ci, (devOf S M i).context.find? n = some ci →
@@ -859,7 +859,7 @@ theorem RunOk.importOk (hR : RunOk mode S M) (i : Nat) :
   refine { below := ?_, src_lt := hR.src_lt hi, nodup := ?_, accepted := fun _ => hR.accepted hi,
            compared_own := ?_, presented := fun n ci hf => ?_,
            projs := fun n ci hf => (hent n ci hf).1, blocks := fun n ci hf => (hent n ci hf).2,
-           tables_mem := ?_, res_context := hR.res_context hi, res_own := ?_ }
+           tables_mem := ?_, key_context := hR.key_context hi, key_own := ?_ }
   · rw [hd]; exact hR.below i hi
   · rw [hd]; exact ctxOf_nodup _
   · rw [hd]; intro h; cases h
@@ -872,8 +872,8 @@ theorem RunOk.importOk (hR : RunOk mode S M) (i : Nat) :
     intro n ci hown hctx
     change (envAt M[i].fe (ctxOf (S.mb i))).find? n = some ci at hown
     change (ctxOf (S.mb i)).find? n = none at hctx
-    show resOf S i M[i] n = _
-    unfold resOf
+    show keyOf S i M[i] n = _
+    unfold keyOf
     rw [ctxOf_find?] at hctx
     have hp : (S.mb i).pick? n = none := by
       cases hp : (S.mb i).pick? n with

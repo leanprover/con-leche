@@ -28,6 +28,14 @@ case_() { # <description> <expected-exit> <args...>
   else echo "OLEAN FAIL ($desc): expected exit $want, got $got"; fail=1; fi
 }
 
+case_grep() { # <description> <expected-exit> <pattern the output must hold> <args...>
+  local desc=$1 want=$2 pat=$3; shift 3
+  case_ "$desc" "$want" "$@"
+  if ! grep -q -- "$pat" "$TMPDIR/olean-case.out"; then
+    echo "OLEAN FAIL ($desc): the output lacks \"$pat\""; fail=1; ok=$((ok-1))
+  fi
+}
+
 # --- well-formed closures ---------------------------------------------
 case_ "a module-system module" 0 --olean --search-path=$LIB Tiny
 case_ "…at one worker" 0 --jobs=1 --olean --search-path=$LIB Tiny
@@ -160,6 +168,12 @@ modular_cases() {
   # a private constant exported with its value (privateInPublic) whose
   # value reads a private-only constant: presented as an assumption
   case_ "modular: an exported value reading a private-only constant [$MOD]" 0 --olean $MOD --search-path=$MSP PoM
+  # a definition whose statement is a proposition Lean's cheap test does
+  # not see (`id True`) meets a theorem of that name and statement (PdM:
+  # the definition exported, the theorem under `import all`); Lean merges
+  # them, and the modular check flags the definition a proof by its
+  # inferred type, so the two have one key
+  case_ "modular: a propositional definition meeting a theorem [$MOD]" 0 --olean $MOD --search-path=$MSP PdM
   # ReB's `public import ReA` turned private: ReC no longer loads ReA, and
   # its theorem about `r` is rejected (Lean would not have elaborated it)
   mcorrupt "modular: a public import chain broken" 1 ReB.olean \
@@ -190,6 +204,11 @@ modular_cases() {
   case_ "compare: a solution that uses sorry [$MOD]" 2 --olean $MOD --search-path=$MSP --compare CmpChal CmpSolSorry
   case_ "compare: a module compared with itself [$MOD]" 3 --olean $MOD --search-path=$MSP --compare CmpChal CmpChal
   case_ "compare: one module name only [$MOD]" 3 --olean $MOD --search-path=$MSP --compare CmpChal
+  # the comparison is part of the challenge's own work: it runs (and
+  # fails) beside an unrelated module that fails (CmpSolSorry's sorry),
+  # and is reported under --keep-going
+  case_grep "compare: in the challenge's own work [$MOD]" 1 "compared with CmpSolDef" \
+    --olean $MOD --keep-going --search-path=$MSP --compare CmpChal CmpSolDef CmpSolSorry
 
 }
 for MOD in --modular --modular=isolated; do modular_cases; done

@@ -36,10 +36,7 @@ the pure part of the run that the proofs are about:
   what it loads: every module it loads is earlier, a module loaded
   privately brings its whole context, one loaded at the exported level
   brings `fp1`; in the store mode with the store's duplicates' check
-  (`oneKey`; the isolated mode's is `keysOk`);
-* `isPropCheap` — Lean's test for a statement that is a proposition,
-  which decides the proofs of a module (their qualified name is their
-  statement).
+  (`oneKey`; the isolated mode's is `keysOk`).
 
 Nothing here type-checks: the declarations' checks are the fold's own
 (`installDeclStep`, `checkPending`).
@@ -280,7 +277,7 @@ def lawsOk (r : ReadSet) (l : Laws) : Bool :=
   l.es.all (constsResolveFC dv) && l.es.all (projsInC r.fi.contains) &&
   l.ns.all (fun n => (dv.find? n).isSome) && l.fi.all r.fi.contains && l.fc.all r.fc.contains
 
-/-! ## Qualified names -/
+/-! ## Keys -/
 
 /-- The alternates of a name in the store. -/
 def Store.alts (S : Store) (n : Name) : List (Nat × Nat) := (S.mb 0).alts n
@@ -306,26 +303,26 @@ def idxOk (S : Store) : Bool :=
       | some c => (S.alts c.name).contains (h, j)
       | none => true)
 
-/-- **The qualified name a unit's constant `j` of module `h` has**: a
+/-- **The key a unit's constant `j` of module `h` has**: a
 proof's is its statement, read off its exported presentation (the
 constant or the assumption of its statement: the same statement); only
 a proof the exported part does not present — which only a viewer
 loading `h` with `import all` sees — reads the private record. -/
-def keyOfSlot (s : ModSlot) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
+def keyOfSlot (s : ModSlot) (h j : Nat) : ConLeche.Modular.Key ConLeche.Modular.Stmt :=
   match s.exp.prf[j]? with
   | some true =>
     match (s.exp.at1[j]?).join with
-    | some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
+    | some ci => .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type)
     | none =>
       match s.prv.priv[j]? with
-      | some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
-      | none => .qual h n
-  | _ => .qual h n
+      | some ci => .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type)
+      | none => .home h
+  | _ => .home h
 
-/-- **The qualified name of module `h`'s constant `j`**, stored under `n`:
-its statement for a proof, its home and name otherwise. -/
-def Store.keyAt (S : Store) (h j : Nat) (n : Name) : ConLeche.Modular.Key :=
-  keyOfSlot (S.slot h) h j n
+/-- **The key of module `h`'s constant `j`**: its statement for a
+proof, its home otherwise. -/
+def Store.keyAt (S : Store) (h j : Nat) : ConLeche.Modular.Key ConLeche.Modular.Stmt :=
+  keyOfSlot (S.slot h) h j
 
 /-! ## What a module's bookkeeping reads of its context -/
 
@@ -550,9 +547,9 @@ def levelsOk (m : Nat) (lv : ByteArray) (unit : Nat → ModSlot) : Bool :=
         (unit h).exp.fp1.all (fun (x, need) => lvlAt lv x ≥ need))
 
 /-- **The copies of a name that meet in module `m`'s context have one
-qualified name**: every alternate `m` sees has the qualified name of the
+key**: every alternate `m` sees has the key of the
 first.  (Lean merges such copies only when they are proofs of one
-statement, whose qualified name is the statement.) -/
+statement, whose key is the statement.) -/
 def oneKey (S : Store) (m : Nat) (n : Name) : Bool :=
   let mb := S.mb m
   let vis := (mb.alts n).filter fun (h, j) => match mb.at? h j with
@@ -560,7 +557,7 @@ def oneKey (S : Store) (m : Nat) (n : Name) : Bool :=
     | none => false
   match vis with
   | [] => true
-  | (h₀, j₀) :: rest => rest.all fun (h, j) => S.keyAt h j n == S.keyAt h₀ j₀ n
+  | (h₀, j₀) :: rest => rest.all fun (h, j) => S.keyAt h j == S.keyAt h₀ j₀
 
 /-- **The names with several alternates are listed** (`Store.dups`): a
 name the store's index gives two alternates is in the list. -/
@@ -570,11 +567,11 @@ def dupsOk (S : Store) : Bool :=
 /-- **Module `m`'s local checks in a store run**: its levels against the
 units of what it loads (`levelsOk`, every module's own levels the
 store's), and the copies of a name that meet in `m`'s context have one
-qualified name (`oneKey`, over the store's names stored twice). -/
+key (`oneKey`, over the store's names stored twice). -/
 def localOk (S : Store) (m : Nat) : Bool :=
   levelsOk m (S.lvl m) S.slot && S.dups.all (oneKey S m)
 
-/-! ## The proofs of a module -/
+/-! ## The proofs of a module: a shortcut -/
 
 /-- The body of a statement under its `∀` binders, with the binders'
 types, innermost first. -/
@@ -582,30 +579,40 @@ def forallBody : Expr → List Expr → Expr × List Expr
   | .forallE t b, bs => forallBody b (t :: bs)
   | e, bs => (e, bs)
 
-/-- A type with `k` more `∀` binders whose body is `Prop`. -/
-def propAfter : Nat → Expr → Bool
-  | 0, e => e == .sort .zero
-  | k + 1, .forallE _ b => propAfter k b
+/-- A level that is not zero whatever its parameters are. -/
+def neverZero : Level → Bool
+  | .succ _ => true
+  | .max a b => neverZero a || neverZero b
+  | .imax _ b => neverZero b
+  | _ => false
+
+/-- A type with `k` more `∀` binders whose body is a sort of a level
+that is never zero. -/
+def typeAfter : Nat → Expr → Bool
+  | 0, .sort l => neverZero l
+  | k + 1, .forallE _ b => typeAfter k b
   | _, _ => false
 
-/-- **A statement whose type is cheaply seen to be a proposition** (Lean's
-`subsumesInfo.isPropCheap`, `Lean/Environment.lean`, which decides when
-Lean merges two copies of a constant imported from different modules):
-under its `∀` binders, an application of a constant (or, beyond Lean, of
-a bound variable) whose type takes exactly that many arguments to
-`Prop`.  `find` is the module's own environment's lookup.  An
-approximation: a constant it accepts is flagged a proof only if its
-value also passes the theorem check. -/
-def isPropCheap (find : Name → Option ConstantInfo) (ty : Expr) : Bool :=
+/-- **A statement that is cheaply seen not to be a proposition**: under
+its `∀` binders, a sort, or an application of a constant (or of a bound
+variable) whose type takes exactly that many arguments to a sort whose
+level is never zero — so its type is that sort, not `Prop`.  `find` is
+the module's own environment's lookup.  Used only to skip the theorem
+check of a definition (`Driver.Modular.proofsOf`), which would reject
+it: a statement it misses is decided by the check itself. -/
+def isTypeCheap (find : Name → Option ConstantInfo) (ty : Expr) : Bool :=
   let (body, bs) := forallBody ty []
-  match body.getAppFn with
-  | .const n _ => match find n with
-    | some ci => propAfter body.numArgs ci.toConstantVal.type
-    | none => false
-  | .bvar k => match bs[k]? with
-    | some t => propAfter body.numArgs t
-    | none => false
-  | _ => false
+  match body with
+  | .sort _ => true
+  | _ =>
+    match body.getAppFn with
+    | .const n _ => match find n with
+      | some ci => typeAfter body.numArgs ci.toConstantVal.type
+      | none => false
+    | .bvar k => match bs[k]? with
+      | some t => typeAfter body.numArgs t
+      | none => false
+    | _ => false
 
 /-! ## A module, checked -/
 

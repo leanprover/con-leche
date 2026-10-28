@@ -12,8 +12,8 @@ the derived notion: a module's interface checked once
 (`InterfaceOk`, at every source) and the importer's own checks
 (`ImportOk`) give it (`LocalOk.of_interface`).  What a context
 constant's laws read is stored in its source's own environment because
-the source's interface says so, and stored in the context and resolved
-alike because the importer checks the presentation's footprint.
+the source's interface says so, and stored in the context under the
+source's keys because the importer checks the presentation's footprint.
 -/
 
 namespace ConLeche.Modular
@@ -113,11 +113,11 @@ theorem readsIn_isSome {E : Env} {ns : List Name} {d : Name}
   rw [hcn']
   exact List.contains_iff_mem.mpr hd
 
-/-- What module `i` reads alike from module `b` its context stores and
-resolves as `b` does. -/
+/-- What module `i` reads alike from module `b` its context stores under
+`b`'s keys. -/
 theorem of_readsAlike {dev : Nat → Module} {i b : Nat} {d : Name}
     (h : ((readsAlike dev i b).find? d).isSome = true) :
-    ((dev i).context.find? d).isSome = true ∧ (dev i).res d = (dev b).res d := by
+    ((dev i).context.find? d).isSome = true ∧ (dev i).key d = (dev b).key d := by
   unfold readsAlike Env.find? at h
   simp only at h
   rw [List.find?_isSome] at h
@@ -128,11 +128,11 @@ theorem of_readsAlike {dev : Nat → Module} {i b : Nat} {d : Name}
   simp only [Bool.and_eq_true, beq_iff_eq] at hc
   exact hc.2
 
-/-- A name module `i`'s context stores and resolves as module `b` does,
+/-- A name module `i`'s context stores under module `b`'s key,
 stored by `b`, is in what `i` reads alike from `b`. -/
 theorem readsAlike_isSome {dev : Nat → Module} {i b : Nat} {d : Name}
     (hb : ((dev b).own.find? d).isSome = true) (hi : ((dev i).context.find? d).isSome = true)
-    (hk : (dev i).res d = (dev b).res d) : ((readsAlike dev i b).find? d).isSome = true := by
+    (hk : (dev i).key d = (dev b).key d) : ((readsAlike dev i b).find? d).isSome = true := by
   unfold readsAlike Env.find?
   simp only
   rw [List.find?_isSome]
@@ -156,7 +156,7 @@ theorem LocalOk.of_interface {mode : CheckMode} {pins : List NatOpPinSet} {dev :
   refine { below := hM.below, src_lt := hM.src_lt, nodup := hM.nodup, accepted := hM.accepted,
            compared_own := hM.compared_own, context_le := ?_, scoping := ?_, tables := ?_,
            projs := hM.projs, blocks := hM.blocks, recFam := ?_, tables_mem := hM.tables_mem,
-           res_context := hM.res_context, res_own := hM.res_own }
+           key_context := hM.key_context, key_own := hM.key_own }
   · intro n ci hf
     obtain ⟨e, he, rfl, -, -⟩ := pres n ci hf
     exact (hI _ (src hf)).refines n e he

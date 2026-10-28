@@ -16,7 +16,7 @@ presented constants of the units it reads, in module order, each name's
 first kept (`isoCtx`); its index is `isoIndex = mkFEnv (isoCtx …)`, its
 lookup `isoLook` (a name's first presentation, with its module and
 position), its duplicates' check `keysOk` (every presentation of a name
-has the first's qualified name).  What runs is one pass over the units
+has the first's key).  What runs is one pass over the units
 (`isoBuild`), deciding "first of its name" by the index under
 construction, recording each kept constant's module and position by
 counter and each dropped presentation.  This file proves that it
@@ -26,7 +26,7 @@ computes the three:
   maps receive the same insertions in the same order);
 * `isoBuild_look` — its lookup is `isoLook`;
 * `isoBuild_keysOk` — its check of the dropped presentations is
-  `keysOk` (a kept presentation is its name's first, whose qualified name
+  `keysOk` (a kept presentation is its name's first, whose key
   is trivially the first's).
 -/
 

@@ -6591,23 +6591,20 @@
    586        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
    587    checkDeclsAt_over (baseLike_isoCtx hI i) ds
 
-== ConLeche/MainTheorem.lean#L127-L137
-   127  /-- **The modular theorem.**  If every module of a development up to
-   128  `i` passes its local checks, there is ONE assignment of sets to the
-   129  qualified names — every proof the point — under which every such
-   130  module's own environment, read through its resolution, has a model. -/
+== ConLeche/MainTheorem.lean#L131-L139
    131  theorem modular_model_exists (V : Type w) [SetTheory V]
    132      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
    133      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
-   134      ∃ G : Modular.Key → (LevelParam → Nat) → V,
-   135        (∀ n lps T φ, G (.proof n lps T) φ = pt) ∧
-   136        ∀ j ≤ i, ∃ m : Model V (dev j).own,
-   137          ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n) := by
+   134      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   135        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+   136          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+   137          (m j hj).cval n = (m j' hj').cval n) ∧
+   138        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+   139          (m j hj).cval n = fun _ => pt := by
 
-== ConLeche/Modular/Generic.lean#L141-L143
-   141  theorem Development.modular (dev : Development S) :
-   142      ∀ k, (∀ i < k, dev.Valid i) →
-   143        Nonempty (S.Mod (dev.world k)) ∧ ∀ i < k, S.Refines (dev.own i) (dev.ren i) (dev.world k)
+== ConLeche/Modular/Generic.lean#L255-L256
+   255  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
+   256      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
 >>> whitepaper/sections/07-left-out.typ
 

@@ -125,7 +125,7 @@ theorem checkModuleIsolated_mask (mode : CheckMode) (pins : List NatOpPinSet)
   unfold checkModuleIsolated
   rw [isoIndex_mask]
 
-/-! ## Qualified names and the local checks -/
+/-! ## Keys and the local checks -/
 
 /-- A presented constant's level is 1 or 2. -/
 theorem entry_lvl {s : Nat → ModSlot} {lv : ByteArray} {e : IsoEntry} (he : e ∈ isoEntries s lv) :
@@ -137,10 +137,10 @@ theorem entry_lvl {s : Nat → ModSlot} {lv : ByteArray} {e : IsoEntry} (he : e 
     · exact .inl h1
     · rw [presentAt_other h1 h2] at hp; cases hp
 
-/-- **A presented constant's qualified name reads what the mask keeps.** -/
+/-- **A presented constant's key reads what the mask keeps.** -/
 theorem keyOfSlot_mask {s : Nat → ModSlot} {lv : ByteArray} {e : IsoEntry}
-    (he : e ∈ isoEntries s lv) (n : Name) :
-    keyOfSlot (mask s lv e.h) e.h e.j n = keyOfSlot (s e.h) e.h e.j n := by
+    (he : e ∈ isoEntries s lv) :
+    keyOfSlot (mask s lv e.h) e.h e.j = keyOfSlot (s e.h) e.h e.j := by
   rcases entry_lvl he with h1 | h2
   · rw [mask_one h1]
     obtain ⟨-, -, hp, -⟩ := mem_isoEntries.mp he

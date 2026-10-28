@@ -25,7 +25,7 @@ module computes from them:
   presentation with its module and position) and what the unit's
   bookkeeping reads of the context;
 * `keysOk`, `localOkIso` — the copies of a name that meet in the context
-  have one qualified name; with the levels' check, `M`'s local checks;
+  have one key; with the levels' check, `M`'s local checks;
 * `isoBuild` — the context's index, lookup and duplicates in one pass
   (`ConLeche/Verify/Modular/IsoFast.lean` proves it computes the three);
 * `checkModuleIsolated` — the checker's own declaration fold (the
@@ -164,16 +164,16 @@ def isoUView (slot : Nat → ModSlot) (lv : ByteArray) : UView :=
 
 /-- **The copies of a name that meet in the context have one qualified
 name** (the specification): every presentation of a name has the
-qualified name of the first. -/
+key of the first. -/
 def keysOk (slot : Nat → ModSlot) (lv : ByteArray) : Bool :=
   (isoEntries slot lv).all fun e => match isoLook slot lv e.ci.name with
     | some (h₀, j₀, _) =>
-      keyOfSlot (slot e.h) e.h e.j e.ci.name == keyOfSlot (slot h₀) h₀ j₀ e.ci.name
+      keyOfSlot (slot e.h) e.h e.j == keyOfSlot (slot h₀) h₀ j₀
     | none => false
 
 /-- **Module `m`'s local checks in an isolated run**, against the units it
 reads (`slot`, its levels `lv`): its levels (`levelsOk`), and the copies
-of a name that meet in its context have one qualified name
+of a name that meet in its context have one key
 (`keysOk`). -/
 def localOkIso (m : Nat) (slot : Nat → ModSlot) (lv : ByteArray) : Bool :=
   levelsOk m lv slot && keysOk slot lv
@@ -240,7 +240,7 @@ def IsoAcc.look (a : IsoAcc) (n : Name) : Option (Nat × Nat × ConstantInfo) :=
 name of the name's first. -/
 def IsoAcc.keysOk (slot : Nat → ModSlot) (a : IsoAcc) : Bool :=
   a.dropped.all fun (h, j, n) => match a.look n with
-    | some (h₀, j₀, _) => keyOfSlot (slot h) h j n == keyOfSlot (slot h₀) h₀ j₀ n
+    | some (h₀, j₀, _) => keyOfSlot (slot h) h j == keyOfSlot (slot h₀) h₀ j₀
     | none => false
 
 /-- **The context's lookup, from the install's own index**: after module

@@ -90,7 +90,7 @@ importer's context, as the assumption of its type if only its type
 does, and not at all otherwise (an inductive block as a whole). Modules
 whose imports are installed are installed in parallel; then every
 module's local checks and every record's check run in one pool
-([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1510-L1511)).
+([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1526-L1527)).
 With `--modular=isolated` there is no store. When a module is checked
 it publishes its *unit*: what its importers may read of it, the
 counterpart of Lean's interface files. A unit says, for each of the
@@ -103,7 +103,7 @@ context, installing and checking its records, computing its unit and
 checking it, and M's local checks — reads M's own files and the units
 of exactly the modules Lean loads for M, and of those only the
 interface unless M loads them with `import all`
-([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L859-L860)).
+([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1022-L1023)).
 Every such step takes the units through one function that keeps
 exactly that and drops the rest
 ([function `mask` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L150-L151)),
@@ -113,16 +113,16 @@ same result for M
 M's context holds every constant of every module M loads, as M's
 level of that module presents it, the first copy of each name
 ([function `isoCtx` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L125-L126));
-copies of one name that meet there must have one qualified name (be
-proofs of one statement, the only copies Lean merges), which M checks
-among those copies alone. M's records are installed and checked by the
+copies of one name that meet there must have one key (be proofs of one
+statement, the only copies Lean merges), which M checks among those
+copies alone. M's records are installed and checked by the
 declaration fold from that context's canonical index, the same fold
 `checkDecls` runs
 ([function `checkModuleIsolated` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L284-L285)),
 and the context is dropped after its checks. Which constants count as
-proofs is decided by the module alone, by Lean's own test for merging
-copies (a statement that is cheaply seen to be a proposition) and the
-theorem check. Beyond the modules one by one, an isolated run decides
+proofs is decided by the module that installs them: its theorems, and
+every definition or opaque constant that passes the theorem check (its
+type inferred to be a proposition, its value of that type). Beyond the modules one by one, an isolated run decides
 only that every module was checked once and published what it checked.
 The store mode's per-module check gives the same verdict as the
 isolated one — the same error at the same record, or the same installed
@@ -135,8 +135,10 @@ the module `CHALLENGE` is not checked but compared: its constants must
 be the solution's, a *hole* (a value that is `sorry`) by a constant of
 the same statement, anything else by the same constant; `sorry` is
 permitted there and nowhere else, and the run lists the holes and the
-modules that fill them
-([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1230-L1232)).
+modules that fill them. The comparison is part of the challenge's own
+work, after its unit is published, and in isolated mode it reads only
+the units the challenge loads
+([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L714-L716)).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L38)):
@@ -414,21 +416,22 @@ say; it cannot make it accept an environment without a model.
 **The modular theorem** is about checking a development module by
 module rather than as one stream. A development is a family of modules
 (`Modular.Module` in
-[`ConLeche/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular.lean#L245-L280),
+[`ConLeche/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular.lean#L243-L278),
 definitions only, no proof tier imported). Each module has its
 declarations, its *context* (the environment they are checked against),
 its *own environment* (the context with the declarations installed),
-and a *resolution* of every name it stores to a *qualified name*: the
-home module and the name for an ordinary constant, and the name, level
-parameters and statement for a proof, so two proofs of one statement
-are one constant whatever their bodies. The local checks `LocalOk` read
+and the *key* of every name it stores, which identifies the constant
+across modules beside its name: the home module (the module that
+declares it) for an ordinary constant, and the level parameters and
+statement for a proof, so two proofs of one name and statement are one
+constant whatever their bodies. No name is renamed. The local checks `LocalOk` read
 the module and the own environments of the earlier modules its context
 is read from, and nothing else. The declarations are accepted from the
 context by the fold's own install step and record check, one at a
 time. Every context constant is the constant of the module it is read
 from, or an assumption with the same name, level parameters and type
-(never at a pinned name). What its laws read is stored in both and
-resolved alike. A context name resolves as its source does.
+(never at a pinned name). What its laws read is stored in both under
+one key. A context name has the key its source gives it.
 These checks split into one per home and one per importer, and
 `LocalOk` is derived from the two
 ([theorem `LocalOk.of_interface` in `ConLeche/Verify/Modular/Interface.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Interface.lean#L150-L151)).
@@ -438,48 +441,51 @@ the names its laws read); `InterfaceOk` is checked once for the module:
 every presentation refines its own constant and what its laws read is
 stored there. `ImportOk` is checked per importer: every context
 constant is a presentation from its source's interface, and the names
-that presentation reads are in the context, resolved as the source
-resolves them.
+that presentation reads are in the context, under the source's keys.
 A *compared* module is not checked but validated by refinement: its
 own environment is its context, read name by name from earlier
 modules. The theorem,
-[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L131-L137):
+[`modular_model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L131-L139):
 
-> If every module up to `i` passes its local checks, there is ONE
-> assignment of sets to the qualified names, every proof the proof
-> point, under which every such module's own environment, read through
-> its resolution, has a model.
+> If every module up to `i` passes its local checks, every such
+> module's own environment has a model, and the models are compatible:
+> two modules that store a name under one key give it one value, and
+> every proof the proof point.
 
 Its corollary
-[`modular_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L152)
+[`modular_no_False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L153-L157)
 says no such module's own environment stores a constant of type
-`False`. The proof is in two halves. The first is the gluing, stated for
-any consistency proof
-([theorem `Development.modular` in `ConLeche/Modular/Generic.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular/Generic.lean#L141-L143)):
+`False`. Two modules that store unrelated constants of one name under
+different keys are not constrained; they are never in one context. The
+proof is in two halves. The first is the argument from module to
+module, stated for any consistency proof
+([theorem `Development.modular` in `ConLeche/Modular/Generic.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular/Generic.lean#L255-L256)):
 it asks of the consistency proof an interface, `ModularSemantics`, of
-environments with refinement up to an injective renaming of names, a
-type of models for each with restriction along refinements, the
-conservative step (if the checker accepts declarations over an
-environment, every model of it extends to one of the extension that
-restricts back), amalgamation (a model of the world and one of a
-module's own environment that agree on its context combine to one of
-the world with what the module adds), and a base. A predicate "has a
-model" would not do: if a context assumes `c : Nat`, the world defines
-`c := 5` and a module adds the axiom `c = 0`, the module and the world
-each have a model and their union has none; the step excludes the axiom,
-because it must extend every model of the context. The world grows by
-every checked module, and a compared module's own environment refines
-the world. The second half is con-leche's models as such an interface
-(`conlecheSemantics` in `ConLeche/Model/Modular/Instance.lean`): an
-environment over qualified names is a list of con-leche environments
-each with its resolution, a model is an assignment of the qualified
-names (every proof the proof point) under which each of them has a
-model, restriction reads a context's model from its sources' models,
-the step installs the declarations keeping every context constant's set
-and giving every flagged proof the proof point, and amalgamation grows
-the assignment by the module's own ordinary constants. A proof is a
-theorem, or a definition or opaque constant whose type the theorem
-check finds to be a proposition. What remains is syntax: the local
+environments, a type of models for each giving every name a value and
+every proof one value, assembly (an environment made of constants of a
+family of environments), amalgamation (models of the family that agree
+wherever the assembly counts two members as having one constant give
+one model of the assembled environment, with the members' values), and
+the conservative step (if the checker accepts declarations over an
+environment, every model of it extends to one of the extension with the
+same values, every flagged proof at the proofs' value). A predicate
+"has a model" would not do: if a context assumes `c : Nat`, an import
+defines `c := 5` and a module adds the axiom `c = 0`, the module and the
+import each have a model and their union has none; the step excludes
+the axiom, because it must extend every model of the context. The
+theorem goes module by module: the imports' models are compatible, so
+they amalgamate to a model of the context, which the step extends over
+the declarations; there is no global environment. The second half is
+con-leche's models as such an interface (`conlecheSemantics` in
+`ConLeche/Model/Modular/Instance.lean`): an environment is a con-leche
+environment, a model is a leaf assignment under which it has a model,
+assembly is a context read name by name from its sources (or one
+environment itself), amalgamation gives each name the leaf of the
+source it is read from, and the step installs the declarations keeping
+every context constant's leaf and giving every flagged proof the proof
+point. A proof is a theorem, or a definition or opaque constant whose
+type the theorem check finds to be a proposition. What remains is
+syntax: the local
 checks make every module valid (`ConLeche/Model/Modular/Main.lean`).
 
 `--modular` (§0) establishes that hypothesis: a run's store and
@@ -488,9 +494,9 @@ development they stand for its local checks
 ([theorem `RunOk.localOk` in `ConLeche/Verify/Modular/Scope.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Modular/Scope.lean#L893-L894)):
 the interface check from the unit check at the home alone
 (`RunOk.interfaceOk`), the importer's from its levels, gates and the
-one-qualified-name check (`RunOk.importOk`),
+one-key check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
-([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1104-L1106)).
+([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1288-L1290)).
 `--modular=isolated` establishes it for the development whose contexts
 are built from the units each module reads and whose own environments
 are the modules' constants over them
@@ -1602,8 +1608,8 @@ and every such line carries its reason.
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`); the `.olean` decoder is its specification (`Frontend/Olean/`: the marks and values `Memo.lean`, the table of what an object leads to `Kids.lean`, the node functions against it `Nodes.lean`, the two sweeps `Mark.lean`, `Build.lean`, both from the roots `Engine.lean`, the theorem `Equiv.lean`, which `ConLeche/Driver/Run.lean` imports); a modular run's checks are the local checks (`Modular/`: the context a view presents, the canonical index along an install at a view, the development a run stands for, levels and reads, the walks' specifications and `RunOk.localOk`, which `ConLeche/Driver/Modular.lean` imports; the fold at a view is the fold at any environment with its lookups `IsoFold.lean`, the context from the units has them `IsoCtx.lean`, the one-pass build computes it `IsoFast.lean`, the mask of the units an isolated module reads changes nothing `Mask.lean`, the local checks read lookups `Congr.lean`, isolated installs over a store's bookkeeping `IsoRun.lean`, the store of a set of units (in the proof only) `Ghost.lean`, the isolated run's evidence, its local checks and its equivalence with the store run's `Isolated.lean`)). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/Modular.lean` | The modular theorem's vocabulary: modules, qualified names, refinement and the local checks; imports the checker and nothing of the proof tiers. |
-| `ConLeche/Modular/Generic.lean` | The modular argument for any consistency proof: the interface `ModularSemantics` (refinement with renaming, models with restriction, the conservative step, amalgamation, a base), developments, the world, and the theorem `Development.modular`; imports nothing. |
+| `ConLeche/Modular.lean` | The modular theorem's vocabulary: modules, their keys, refinement and the local checks; imports the checker and nothing of the proof tiers. |
+| `ConLeche/Modular/Generic.lean` | The modular argument for any consistency proof: the interface `ModularSemantics` (models with values, assembly, amalgamation of a compatible family, the conservative step), keys, developments, and the theorem `Development.modular` (a compatible family of models, one per module); imports nothing. |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — the modular theorem and its corollary, and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |

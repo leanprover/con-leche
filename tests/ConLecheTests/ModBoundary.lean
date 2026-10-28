@@ -18,7 +18,7 @@ private level (`maskPrv`) and every lookup of its view answers the same
 (`at?`, `pick?`, `find?`, `findTable?`), so the view is a twin of the
 masked one (`Twin`: every install step and record check runs alike,
 `installDeclStep_twin`, `checkPending_congr`); and a constant's
-qualified name, for a constant the exported part presents, reads the
+key, for a constant the exported part presents, reads the
 interface alone (`keyOfSlot_maskPrv`).  A read of `prv` added on an
 exported-level path breaks one of these.
 -/
@@ -122,10 +122,10 @@ theorem view_twin_maskPrv (b : MBase) : Twin (viewOf b) (viewOf (maskPrv b)) := 
     unfold viewOf FEnv.rawTable? FBase.findTable?
     simp [maskPrv_findTable?]
 
-/-- **A presented constant's qualified name reads the interface alone.** -/
-theorem keyOfSlot_maskPrv (s : ModSlot) (h j : Nat) (n : Name)
+/-- **A presented constant's key reads the interface alone.** -/
+theorem keyOfSlot_maskPrv (s : ModSlot) (h j : Nat)
     (hp : ((s.exp.at1[j]?).join).isSome = true) :
-    keyOfSlot s h j n = keyOfSlot { s with prv := {} } h j n := by
+    keyOfSlot s h j = keyOfSlot { s with prv := {} } h j := by
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hp
   unfold keyOfSlot
   simp only [hci]

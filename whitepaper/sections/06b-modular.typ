@@ -506,16 +506,19 @@ not inspected.
   `import all`) alone, and the two modes are
   #src("ConLeche/Verify/Modular/IsoCtx.lean", 580, 587)[proved to give
   the same verdicts]. With `--compare CHALLENGE SOLUTION` a challenge
-  is compared with its solution as in @sec:mod-compare, and its holes
-  are listed. The modular theorem
-  #src("ConLeche/MainTheorem.lean", 127, 137)[is stated] with one
-  assignment of sets to qualified names (a home module and a name, or
-  a proof's statement), under which every module's own environment,
-  read through its resolution of names to qualified names, has a
-  model. Its proof goes through a global environment over the
-  qualified names, by
-  #src("ConLeche/Modular/Generic.lean", 141, 143)[a theorem over an
-  interface] with renaming. It is being moved to the per-module form
-  of this section, with compatible families in place of the global
-  environment and no renaming.
+  is compared with its solution as in @sec:mod-compare, as part of the
+  challenge's own work, and its holes are listed. The modular theorem
+  #src("ConLeche/MainTheorem.lean", 131, 139)[is stated] in the form of
+  @sec:mod-thm: if every module passes its local checks, every module's
+  own environment has a model, and the models are compatible. Keys are
+  home modules or a proof's level parameters and type, and no name is
+  renamed. Its proof is
+  #src("ConLeche/Modular/Generic.lean", 255, 256)[the theorem over the
+  interface] of @sec:mod-iface, the same statement as the fragment's,
+  with con-leche's models as the instance: a model is a leaf assignment
+  of the module's environment, and amalgamation gives each name the
+  leaf of the module it is read from. A constant counts as a proof if it
+  is a theorem, or a definition or opaque constant whose type the
+  checker infers to be a proposition, decided by the module that
+  installs it.
 ]

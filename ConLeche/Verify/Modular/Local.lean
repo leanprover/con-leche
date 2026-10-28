@@ -448,14 +448,14 @@ theorem RunOk.pick_none_own (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j
     obtain ⟨h', j', ci⟩ := x
     unfold MBase.find? at this; rw [hp] at this; cases this
 
-/-- **The qualified name of a unit's constant**, from its private record
+/-- **The key of a unit's constant**, from its private record
 (the exported presentation has the same statement). -/
 theorem keyOfSlot_of_priv {fe : FEnv} {fl : Name → Bool} {s : ModSlot}
-    (hs : shapeOk fe fl s = true) {h j : Nat} {n : Name} {c : ConstantInfo}
+    (hs : shapeOk fe fl s = true) {h j : Nat} {c : ConstantInfo}
     (hc : s.prv.priv[j]? = some c) :
-    keyOfSlot s h j n = match s.exp.prf[j]?, s.prv.priv[j]? with
-      | some true, some ci => .proof n ci.toConstantVal.levelParams ci.toConstantVal.type
-      | _, _ => .qual h n := by
+    keyOfSlot s h j = match s.exp.prf[j]?, s.prv.priv[j]? with
+      | some true, some ci => .proof (ci.toConstantVal.levelParams, ci.toConstantVal.type)
+      | _, _ => .home h := by
   obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec hs
   obtain ⟨-, -, ha, -⟩ := hj j c hc
   unfold keyOfSlot
@@ -468,12 +468,11 @@ theorem keyOfSlot_of_priv {fe : FEnv} {fl : Name → Bool} {s : ModSlot}
     | true =>
       rcases ha with ha | ha | ⟨ha, -⟩ <;> rw [ha] <;> rfl
 
-/-- **A home resolves its own constant to the qualified name the store
-gives it.** -/
-theorem RunOk.res_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
+/-- **A home gives its own constant the key the store gives it.** -/
+theorem RunOk.key_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
     {c : ConstantInfo} (hc : (S.slot h).prv.priv[j]? = some c) :
-    resOf S h M[h] c.name = S.keyAt h j c.name := by
-  unfold resOf
+    keyOf S h M[h] c.name = S.keyAt h j := by
+  unfold keyOf
   rw [hR.pick_none_own hh hc]
   simp only [hR.own_find? hh hc]
   unfold Store.keyAt
@@ -483,9 +482,9 @@ theorem RunOk.res_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Na
   rw [hpf, hc]
   cases M[h].flags.contains c.name <;> rfl
 
-theorem RunOk.res_context (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (n : Name)
+theorem RunOk.key_context (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (n : Name)
     (hn : ((devOf S M i).context.find? n).isSome = true) :
-    (devOf S M i).res n = (devOf S M ((devOf S M i).src n)).res n := by
+    (devOf S M i).key n = (devOf S M ((devOf S M i).src n)).key n := by
   rw [devOf_of_lt hi] at hn ⊢
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
   obtain ⟨h, j, hp, hat, hcn, hlt, -⟩ := hR.ctx_entry hi hci
@@ -498,9 +497,9 @@ theorem RunOk.res_context (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (n :
   rw [hsrc, devOf_of_lt hh]
   obtain ⟨c, hc, hci'⟩ := hR.at?_home hat hh
   have hname : c.name = n := by rcases hci' with rfl | ⟨rfl, -⟩ <;> exact hcn
-  show resOf S i M[i] n = resOf S h M[h] n
-  rw [← hname, hR.res_home hh hc]
-  unfold resOf
+  show keyOf S i M[i] n = keyOf S h M[h] n
+  rw [← hname, hR.key_home hh hc]
+  unfold keyOf
   rw [hname, hp]
 
 /-- A view at the end of its install looks up what the environment it
@@ -536,7 +535,7 @@ theorem RunOk.own_findTable? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {
       rw [← ctxOf_find?, hR.own_not_ctx hh hc] at this
       cases this
 
-/-! ## The first visible alternate, and qualified names -/
+/-! ## The first visible alternate, and keys -/
 
 /-- The visible alternates of a name, in order. -/
 def visAlts (mb : MBase) (n : Name) (l : List (Nat × Nat)) : List (Nat × Nat) :=
@@ -601,12 +600,12 @@ theorem mem_visAlts {mb : MBase} {n : Name} {l : List (Nat × Nat)} {x : Nat × 
 theorem Store.alts_mb (S : Store) (i : Nat) (n : Name) : (S.mb i).alts n = S.alts n := rfl
 
 /-- **Two visible alternates of a name that meets in a context have one
-qualified name** (`oneKey`, `dupsOk`): the first visible one's and any
+key** (`oneKey`, `dupsOk`): the first visible one's and any
 other's. -/
 theorem RunOk.key_pick (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
     {h j : Nat} {ci : ConstantInfo} (hp : (S.mb i).pick? n = some (h, j, ci))
     {x : Nat × Nat} {c : ConstantInfo} (hx : x ∈ S.alts n) (hat : (S.mb i).at? x.1 x.2 = some c)
-    (hn : c.name = n) : S.keyAt x.1 x.2 n = S.keyAt h j n := by
+    (hn : c.name = n) : S.keyAt x.1 x.2 = S.keyAt h j := by
   have hhead := pickIn_head hp
   have hvis := mem_visAlts (mb := S.mb i) (l := (S.mb i).alts n)
     (by rw [Store.alts_mb]; exact hx) hat hn
@@ -626,7 +625,7 @@ theorem RunOk.key_pick (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Na
     simp only [hn, beq_self_eq_true, ↓reduceIte, Option.some.injEq, Prod.mk.injEq] at hp'
     obtain ⟨rfl, rfl, -⟩ := hp'
     rfl
-  · -- several: the name is listed, and its copies have one qualified name
+  · -- several: the name is listed, and its copies have one key
     have hdup : n ∈ S.dups := by
       have hd := hR.dups
       unfold dupsOk at hd
@@ -664,7 +663,7 @@ theorem RunOk.key_pick (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Na
     have hhead' : (visAlts (S.mb i) n ((S.mb i).alts n)).head? = some (h, j) := hhead
     have hok' : (match visAlts (S.mb i) n ((S.mb i).alts n) with
         | [] => true
-        | (h₀, j₀) :: rest => rest.all fun x => S.keyAt x.1 x.2 n == S.keyAt h₀ j₀ n) = true :=
+        | (h₀, j₀) :: rest => rest.all fun x => S.keyAt x.1 x.2 == S.keyAt h₀ j₀) = true :=
       hok
     generalize visAlts (S.mb i) n ((S.mb i).alts n) = vis at hok' hhead' hvis
     cases vis with
@@ -905,7 +904,7 @@ theorem RunOk.at?_mono (hR : RunOk mode S M) {a b h j : Nat} {ci : ConstantInfo}
 context stores it, and both resolve it alike. -/
 def GoodAt (S : Store) (M : Array ModData) (i h : Nat) (d : Name) : Prop :=
   ((devOf S M h).own.find? d).isSome = true ∧ ((devOf S M i).context.find? d).isSome = true ∧
-  (devOf S M i).res d = (devOf S M h).res d
+  (devOf S M i).key d = (devOf S M h).key d
 
 theorem readsAlike_find? {i h : Nat} {d : Name} (hg : GoodAt S M i h d) :
     ((readsAlike (devOf S M) i h).find? d).isSome = true := by
@@ -1002,18 +1001,18 @@ theorem RunOk.good_of_vis (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (h
     rcases hR.target_cases hh ht with ⟨-, p, -, -, hf⟩ | ⟨-, ci, -, hf⟩ <;> rw [hf] <;> rfl
   · rw [devOf_of_lt hi]; exact hctx
   · rw [devOf_of_lt hi, devOf_of_lt hh]
-    show resOf S i M[i] d = resOf S h M[h] d
+    show keyOf S i M[i] d = keyOf S h M[h] d
     obtain ⟨y, hy⟩ := Option.isSome_iff_exists.mp (by rw [ctxOf_find?] at hctx; exact hctx)
     obtain ⟨h₀, j₀, hp⟩ := MBase.find?_some hy
     have hki := hR.key_pick hi hp hx hat hn
-    have hli : resOf S i M[i] d = S.keyAt h₀ j₀ d := by unfold resOf; rw [hp]
+    have hli : keyOf S i M[i] d = S.keyAt h₀ j₀ := by unfold keyOf; rw [hp]
     rw [hli, ← hki]
     rcases hR.target_cases hh ht with ⟨ht1, p, hp', hpn, -⟩ | ⟨-, ci, hph, -⟩
     · obtain ⟨t1, t2⟩ := t
       simp only at ht1 hp' ⊢
       subst ht1
-      rw [← hpn, hR.res_home hh hp']
-    · unfold resOf; rw [hph]
+      rw [← hpn, hR.key_home hh hp']
+    · unfold keyOf; rw [hph]
 
 theorem RunOk.good2 (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh : h < M.size)
     (h2 : lvlAt (S.lvl i) h = 2) {d : Name} (hr : read2Ok (S.uview h) h M[h].fe d = true) :
@@ -1148,10 +1147,10 @@ theorem RunOk.priv_inj (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j j' :
   rw [List.getElem?_map, List.getElem?_map, hc, hc']
   simp [hn]
 
-/-- A constant that is not a proof has the qualified name of its home. -/
+/-- A constant that is not a proof has the key of its home. -/
 theorem RunOk.keyAt_qual (hR : RunOk mode S M) {h j : Nat} (hh : h < M.size) {c : ConstantInfo}
     (hc : (S.slot h).prv.priv[j]? = some c)
-    (hk : proofKind c = false) (n : Name) : S.keyAt h j n = .qual h n := by
+    (hk : proofKind c = false) : S.keyAt h j = .home h := by
   obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
   obtain ⟨-, -, -, -, -, hpf, hpk, -⟩ := hj j c hc
   unfold Store.keyAt
@@ -1178,7 +1177,7 @@ theorem RunOk.pick_of_vis (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {d :
   have h0 : h₀ < M.size := Nat.lt_trans (hR.lvl_lt hi
     (by rcases hlv with h' | h' <;> rw [h'] <;> decide)) hi
   obtain ⟨c₀, hc₀, hc₀n⟩ := hR.at?_name hyat h0
-  -- its qualified name is the home's and the name: the same module
+  -- its key is the home: the same module
   have hh0 : h₀ = t.1 := by
     unfold Store.keyAt at hkey
     rw [keyOfSlot_of_priv (hR.shape h0) hc₀] at hkey

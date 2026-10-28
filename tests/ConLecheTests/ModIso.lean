@@ -69,17 +69,19 @@ info: 'ConLeche.Cached.Mod.RunOk.isoRunOk' depends on axioms: [propext, Classica
 
 universe w
 
-/-- **An isolated accept has a model**: one assignment of sets to the
-qualified names, every proof the point, under which every module's own
-environment — its constants over the context built from the units it
-reads — has a model. -/
+/-- **An isolated accept has a model**: every module's own environment —
+its constants over the context built from the units it reads — has a
+model, the models compatible (one value per name and key, every proof
+the point). -/
 example (V : Type w) [SetTheory V] {slots : Array (Thunk ModSlot)} {M : Array ModData}
     (h : IsoRunOk .verified slots M) (i : Nat) :
-    ∃ G : Modular.Key → (LevelParam → Nat) → V,
-      (∀ n lps T φ, G (.proof n lps T) φ = SetTheory.pt) ∧
-      ∀ j ≤ i, ∃ m : Model V (isoRunDev slots M j).own,
-        ∀ n, ((isoRunDev slots M j).own.find? n).isSome = true →
-          m.cval n = G ((isoRunDev slots M j).res n) :=
+    ∃ m : ∀ j ≤ i, Model V (isoRunDev slots M j).own,
+      (∀ j hj j' hj' n, ((isoRunDev slots M j).own.find? n).isSome = true →
+        ((isoRunDev slots M j').own.find? n).isSome = true →
+        (isoRunDev slots M j).key n = (isoRunDev slots M j').key n →
+        (m j hj).cval n = (m j' hj').cval n) ∧
+      ∀ j hj n s, ((isoRunDev slots M j).own.find? n).isSome = true →
+        (isoRunDev slots M j).key n = .proof s → (m j hj).cval n = fun _ => SetTheory.pt :=
   modular_model_exists V natOpPinSets (isoRunDev slots M) i fun j _ => h.localOk j
 
 /-- **So has a store accept, as an isolated run of its units**
@@ -136,7 +138,7 @@ def slots : Nat → ModSlot
 #guard (isoBuild slots (ByteArray.mk #[0, 1, 0])).look (nm "a") = some (1, 0, defn "a")
 #guard (isoBuild slots (ByteArray.mk #[1, 2, 0])).look (nm "c") = some (1, 1, defn "c")
 -- …and the duplicates: both modules store an ordinary `a`, which meet when
--- both are loaded (two qualified names), and not when only one is.
+-- both are loaded (two keys), and not when only one is.
 #guard (isoBuild slots (ByteArray.mk #[1, 1, 0])).dropped = [(1, 0, nm "a")]
 #guard !((isoBuild slots (ByteArray.mk #[1, 1, 0])).keysOk slots)
 #guard (isoBuild slots (ByteArray.mk #[0, 1, 0])).keysOk slots

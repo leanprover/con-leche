@@ -6,29 +6,28 @@ public import ConLeche.Model.Modular.Step
 public section
 
 /-!
-# The modular theorem: one model of every module's own environment
+# The modular theorem: a compatible family of models, one per module
 
 The proof of `ConLeche.modular_model_exists` (`ConLeche/MainTheorem.lean`):
 the generic theorem (`Development.modular`, `ConLeche/Modular/Generic.lean`)
 at con-leche's models (`conlecheSemantics`, `Instance.lean`), for the
-development a list of modules stands for (`toDev`).  What is left here is
+development a list of modules stands for (`toDev`: a module's context,
+declarations and own environment, its own environment as its one view,
+the earlier modules as its imports, its keys).  What is left here is
 syntax, no model: that the local checks (`LocalOk`) make every module
 valid (`valid_of`).
 
-* **The qualified names fit** (`Fits`, `fits_all`, by induction over the
-  modules): every constant a module's own environment stores refines
-  the constant of the home module its qualified name names (or, for a
-  proof, has the name's statement), and what an inductive kind's laws
-  read resolves as at the home.
-* **A context reads from the modules before it** (`ctx_reads`): its
-  sources are their own environments, and what it reads alike agrees
-  there (`ctx_same`, `readAgreeS_of`, `deep_of`, from the fit); the
-  modules before it refine the world (`before_ref`: a checked one is in
-  it, a compared one reads from the modules before it).
-* **The declarations are accepted** from the context (`AcceptedFrom`, the
-  context reading from the own environment, `ext_reads`), and what they
-  add is fresh: an own ordinary name's qualified name is its module's,
-  which no earlier module's constant has (`key_le`).
+* **The keys fit** (`Fits`, `fits_all`, by induction over the modules):
+  every constant a module's own environment stores refines the constant
+  of the home module its key names (or, for a proof, has the key's
+  statement), and what an inductive kind's laws read has the keys the
+  home gives it.
+* **A context is assembled from the modules before it** (`ctx_reads`,
+  `ctx_assembled`): every name is read from its source's own
+  environment, and what it reads under the source's keys agrees there
+  (`ctx_same`, `readAgreeS_of`, `deep_of`, from the fit).
+* **The declarations are accepted** from the context (`AcceptedFrom`),
+  and a new name is keyed by its module or flagged a proof (`key_own`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -46,12 +45,12 @@ variable (dev : Nat → Module)
 theorem find?_readsAlike {ii bb : Nat} {d' : Name} {ci : ConstantInfo}
     (h : (readsAlike dev ii bb).find? d' = some ci) :
     (dev bb).own.find? d' = some ci ∧ ((dev ii).context.find? d').isSome = true ∧
-      (dev ii).res d' = (dev bb).res d' := by
+      (dev ii).key d' = (dev bb).key d' := by
   have h' : List.find? (·.name == d') ((dev bb).own.consts.filter fun c =>
-      ((dev ii).context.find? c.name).isSome && (dev ii).res c.name == (dev bb).res c.name)
+      ((dev ii).context.find? c.name).isSome && (dev ii).key c.name == (dev bb).key c.name)
       = some ci := h
   rw [find?_filter_name (p := fun x =>
-      ((dev ii).context.find? x).isSome && (dev ii).res x == (dev bb).res x)] at h'
+      ((dev ii).context.find? x).isSome && (dev ii).key x == (dev bb).key x)] at h'
   have h := h'
   clear h'
   split at h
@@ -62,29 +61,28 @@ theorem find?_readsAlike {ii bb : Nat} {d' : Name} {ci : ConstantInfo}
 
 end
 
-/-! ## Qualified names fit -/
+/-! ## The keys fit -/
 
 section
 variable (dev : Nat → Module)
 
-/-- **What a qualified name says of a constant** module `j` stores
-under `n`: an ordinary name is the home module, no later than `j`, whose
-own constant this one refines — with the home's table, if it is a type
-former, and, if it is an inductive kind, with what its laws read
-resolved as at the home; a proof's name carries its level parameters
-and statement, and is never an inductive kind or a pinned name. -/
-@[expose] def KeyFits (j : Nat) (n : Name) (ci : ConstantInfo) : Key → Prop
-  | .qual P n' => n' = n ∧ P ≤ j ∧ ∃ cp, (dev P).own.find? n = some cp ∧ Refines n ci cp ∧
+/-- **What a key says of a constant** module `j` stores under `n`: an
+ordinary constant's key is its home module, no later than `j`, whose own
+constant this one refines — with the home's table, if it is a type
+former, and, if it is an inductive kind, with what its laws read keyed
+as at the home; a proof's key is its level parameters and statement,
+and a proof is never an inductive kind or a pinned name. -/
+@[expose] def KeyFits (j : Nat) (n : Name) (ci : ConstantInfo) : Key Stmt → Prop
+  | .home P => P ≤ j ∧ ∃ cp, (dev P).own.find? n = some cp ∧ Refines n ci cp ∧
       (ci.isFormer = true → (dev j).own.findTable? n = (dev P).own.findTable? n) ∧
       (ci.isIndKind = true → EntryScopedP (fun d => ((dev j).own.find? d).isSome = true →
-        (dev j).res d = (dev P).res d) (dev j).own n ci)
-  | .proof n' lps T => n' = n ∧ ci.toConstantVal.levelParams = lps ∧
-      ci.toConstantVal.type = T ∧ ci.isIndKind = false ∧ n ∉ pinnedNames
+        (dev j).key d = (dev P).key d) (dev j).own n ci)
+  | .proof s => ci.toConstantVal.levelParams = s.1 ∧
+      ci.toConstantVal.type = s.2 ∧ ci.isIndKind = false ∧ n ∉ pinnedNames
 
-/-- **Every constant of a module's own environment fits its qualified
-name.** -/
+/-- **Every constant of a module's own environment fits its key.** -/
 @[expose] def Fits (j : Nat) : Prop :=
-  ∀ n ci, (dev j).own.find? n = some ci → KeyFits dev j n ci ((dev j).res n)
+  ∀ n ci, (dev j).own.find? n = some ci → KeyFits dev j n ci ((dev j).key n)
 
 theorem isIndKind_of_isFormer {ci : ConstantInfo} (h : ci.isFormer = true) :
     ci.isIndKind = true := by
@@ -94,12 +92,12 @@ theorem constantVal_eq {a b : ConstantVal} (h1 : a.name = b.name)
     (h2 : a.levelParams = b.levelParams) (h3 : a.type = b.type) : a = b := by
   cases a; cases b; simp_all
 
-/-- **Two constants of one qualified name** (in two modules' own
+/-- **Two constants of one name and key** (in two modules' own
 environments): one constant value; equal where both are inductive kinds
 or the name is pinned; one table where both are type formers. -/
 theorem fits_same {j j' : Nat} {n : Name} {ci ci' : ConstantInfo}
     (hj : Fits dev j) (hj' : Fits dev j') (hf : (dev j).own.find? n = some ci)
-    (hf' : (dev j').own.find? n = some ci') (hk : (dev j).res n = (dev j').res n) :
+    (hf' : (dev j').own.find? n = some ci') (hk : (dev j).key n = (dev j').key n) :
     ci.toConstantVal = ci'.toConstantVal ∧
       (ci.isIndKind = true → ci'.isIndKind = true → ci = ci') ∧
       (n ∈ pinnedNames → ci = ci') ∧
@@ -109,16 +107,16 @@ theorem fits_same {j j' : Nat} {n : Name} {ci ci' : ConstantInfo}
   have h2 := hj' n ci' hf'
   rw [← hk] at h2
   revert h1 h2
-  cases (dev j).res n with
-  | qual P n' =>
-    rintro ⟨-, -, cp, hcp, hr, htab, -⟩ ⟨-, -, cp', hcp', hr', htab', -⟩
+  cases (dev j).key n with
+  | home P =>
+    rintro ⟨-, cp, hcp, hr, htab, -⟩ ⟨-, cp', hcp', hr', htab', -⟩
     rw [hcp] at hcp'; obtain rfl := Option.some.inj hcp'
     refine ⟨hr.cv.trans hr'.cv.symm, fun hk1 hk2 => ?_, fun hp => ?_, fun hf1 hf2 => ?_⟩
     · rw [hr.eq_of_indKind hk1, hr'.eq_of_indKind hk2]
     · rw [hr.eq_of_pinned hp, hr'.eq_of_pinned hp]
     · rw [htab hf1, htab' hf2]
-  | proof n' lps T =>
-    rintro ⟨-, hl, ht, hki, hp⟩ ⟨-, hl', ht', hki', -⟩
+  | proof s =>
+    rintro ⟨hl, ht, hki, hp⟩ ⟨hl', ht', hki', -⟩
     refine ⟨constantVal_eq ?_ (hl.trans hl'.symm) (ht.trans ht'.symm), fun h => ?_,
       fun h => absurd h hp, fun h => ?_⟩
     · exact (ConLeche.Env.find?_name hf).trans (ConLeche.Env.find?_name hf').symm
@@ -237,12 +235,12 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {pins : List NatOpPinSet}
 section
 variable {dev : Nat → Module} {i : Nat}
 
-/-- **A context entry and a source entry of one qualified name**: one
+/-- **A context entry and a source entry of one name and key**: one
 constant value; equal where both are inductive kinds or the name is
 pinned; one table where both are type formers. -/
 theorem ctx_same (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) {b : Nat} (hb : b < i)
     {d : Name} {cc ce : ConstantInfo} (hc : (dev i).context.find? d = some cc)
-    (he : (dev b).own.find? d = some ce) (hk : (dev i).res d = (dev b).res d) :
+    (he : (dev b).own.find? d = some ce) (hk : (dev i).key d = (dev b).key d) :
     cc.toConstantVal = ce.toConstantVal ∧
       (cc.isIndKind = true → ce.isIndKind = true → cc = ce) ∧
       (d ∈ pinnedNames → cc = ce) ∧
@@ -251,7 +249,7 @@ theorem ctx_same (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) {b 
   have hcs : ((dev i).context.find? d).isSome = true := by rw [hc]; rfl
   have hs := h.src_lt d hcs
   obtain ⟨cs, hfs, hr⟩ := h.context_le d cc hc
-  have hk' : (dev ((dev i).src d)).res d = (dev b).res d := (h.res_context d hcs).symm.trans hk
+  have hk' : (dev ((dev i).src d)).key d = (dev b).key d := (h.key_context d hcs).symm.trans hk
   obtain ⟨h1, h2, h3, h4⟩ := fits_same dev (hfits _ hs) (hfits b hb) hfs he hk'
   refine ⟨hr.cv.trans h1, fun hk1 hk2 => ?_, fun hp => ?_, fun hf1 hf2 => ?_⟩
   · have := hr.eq_of_indKind hk1; subst this; exact h2 hk1 hk2
@@ -263,27 +261,27 @@ theorem ctx_same (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) {b 
     | indInfo _ _ => exact h4 hf1 hf2
     | _ => simp [ConstantInfo.isFormer] at hf1
 
-/-- A name the context stores and resolves as module `b` does, stored by
+/-- A name the context stores under module `b`'s key, stored by
 `b`, is read alike. -/
 theorem readsAlike_of {b : Nat} {d : Name} {ci : ConstantInfo}
     (he : (dev b).own.find? d = some ci) (hc : ((dev i).context.find? d).isSome = true)
-    (hk : (dev i).res d = (dev b).res d) : ((readsAlike dev i b).find? d).isSome = true := by
+    (hk : (dev i).key d = (dev b).key d) : ((readsAlike dev i b).find? d).isSome = true := by
   have : List.find? (·.name == d) ((dev b).own.consts.filter fun c =>
-      ((dev i).context.find? c.name).isSome && (dev i).res c.name == (dev b).res c.name)
+      ((dev i).context.find? c.name).isSome && (dev i).key c.name == (dev b).key c.name)
       = some ci := by
     rw [find?_filter_name (p := fun x =>
-      ((dev i).context.find? x).isSome && (dev i).res x == (dev b).res x)]
+      ((dev i).context.find? x).isSome && (dev i).key x == (dev b).key x)]
     simp only [hc, hk, beq_self_eq_true, Bool.and_self, ↓reduceIte]
     exact he
   show (List.find? (·.name == d) ((dev b).own.consts.filter fun c =>
-      ((dev i).context.find? c.name).isSome && (dev i).res c.name == (dev b).res c.name)).isSome
+      ((dev i).context.find? c.name).isSome && (dev i).key c.name == (dev b).key c.name)).isSome
     = true
   rw [this]; rfl
 
 /-- The entries on both sides of a name read alike. -/
 theorem ctx_entries {b : Nat} {d : Name} (hR : ((readsAlike dev i b).find? d).isSome = true) :
     ∃ cc ce, (dev i).context.find? d = some cc ∧ (dev b).own.find? d = some ce ∧
-      (dev i).res d = (dev b).res d := by
+      (dev i).key d = (dev b).key d := by
   obtain ⟨ce, hce⟩ := Option.isSome_iff_exists.mp hR
   obtain ⟨he, hc, hk⟩ := find?_readsAlike dev hce
   obtain ⟨cc, hcc⟩ := Option.isSome_iff_exists.mp hc
@@ -331,7 +329,7 @@ section
 variable {dev : Nat → Module} {i : Nat}
 
 /-- **What an inductive kind read alike reads is read alike**, where both
-sides store it: both resolve it as the kind's home does. -/
+sides store it: both key it as the kind's home does. -/
 theorem deep_of (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) {b : Nat} (hb : b < i)
     {c : Name} {ci : ConstantInfo} (hc : ((readsAlike dev i b).find? c).isSome = true)
     (hfc : (dev i).context.find? c = some ci) (hk : ci.isIndKind = true)
@@ -349,18 +347,18 @@ theorem deep_of (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) {b :
   rw [hfe] at he'; obtain rfl := Option.some.inj he'
   obtain ⟨-, hsame, -, htabb⟩ := ctx_same hfits h hb hfc hfe hkb
   obtain rfl := hsame hk hke
-  have hks := h.res_context c hcs
+  have hks := h.key_context c hcs
   obtain ⟨-, -, -, htabs⟩ := ctx_same hfits h hs hfc hfs hks
   have hFs := hfits _ hs c ci hfs
   have hFb := hfits b hb c ci hfe
   rw [← hks] at hFs
   rw [← hkb] at hFb
   revert hFs hFb
-  cases hkey : (dev i).res c with
-  | proof n' lps T =>
-    rintro ⟨-, -, -, hki, -⟩; rw [hk] at hki; exact nomatch hki
-  | qual P n' =>
-    rintro ⟨-, -, -, -, -, -, hGs⟩ ⟨-, -, -, -, -, -, hGb⟩
+  cases hkey : (dev i).key c with
+  | proof s =>
+    rintro ⟨-, -, hki, -⟩; rw [hk] at hki; exact nomatch hki
+  | home P =>
+    rintro ⟨-, -, -, -, -, hGs⟩ ⟨-, -, -, -, -, hGb⟩
     have hGs' := (hGs hk).table' (C' := (dev i).context) fun cv caps he => by
       subst he; exact htabs rfl rfl
     have hGb' := (hGb hk).table' (C' := (dev i).context) fun cv caps he => by
@@ -375,212 +373,27 @@ theorem deep_of (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) {b :
 
 end
 
-/-! ## Modules as pieces -/
-
-section
-variable (dev : Nat → Module)
-
-/-- Module `j`'s own environment as a piece. -/
-@[expose] def ownPiece (j : Nat) : Piece := ⟨(dev j).own, (dev j).res⟩
-
-/-- Module `j`'s context as a piece. -/
-@[expose] def ctxPiece (j : Nat) : Piece := ⟨(dev j).context, (dev j).res⟩
-
-/-- The modules before `i`, as pieces. -/
-@[expose] def before (i : Nat) : PEnv := (List.range i).map (ownPiece dev)
-
-/-- The source piece of a context name. -/
-@[expose] def srcP (i : Nat) (n : Name) : Piece :=
-  if (dev i).src n < i then ownPiece dev ((dev i).src n) else Piece.empty
-
-end
-
 section
 variable {dev : Nat → Module} {i : Nat}
 
-theorem srcP_pos {n : Name} (hs : (dev i).src n < i) :
-    srcP dev i n = ownPiece dev ((dev i).src n) := by
-  simp only [srcP, hs, ↓reduceIte]
-
-theorem srcP_neg {n : Name} (hs : ¬ (dev i).src n < i) : srcP dev i n = Piece.empty := by
-  simp only [srcP, hs, ↓reduceIte]
-
-/-- **A context reads from the modules before it** (`PieceReads`), by the
-local checks and the qualified names' fit. -/
-theorem ctx_reads (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) :
-    PieceReads (ctxPiece dev i) (before dev i) := by
-  refine ⟨srcP dev i, fun n => ?_, ?_⟩
-  · try dsimp only [ctxPiece] at *
-    by_cases hs : (dev i).src n < i
-    · rw [srcP_pos hs]; exact Or.inl (List.mem_map.mpr ⟨_, List.mem_range.mpr hs, rfl⟩)
-    · rw [srcP_neg hs]; exact Or.inr rfl
-  show CtxRead (dev i).context (fun n => (srcP dev i n).env)
-    (fun n => readsAlikeP ⟨(dev i).context, (dev i).res⟩ (srcP dev i n))
-  refine ⟨fun n d ci hR => ?_, fun n hn => ?_, fun n ci hf => ?_, fun n hn => ?_,
-    fun n ci hf => ?_, fun n d hR hk => ?_, fun n cv mI rP rules hf r hr cvj nP nF hfc T us hh => ?_,
-    fun n c ci hR hfc hk hE => ?_, fun T ci hf => ?_, h.projs, h.blocks, h.tables_mem, h.nodup⟩
-  · try dsimp only [ctxPiece] at *
-    by_cases hs : (dev i).src n < i
-    · rw [srcP_pos hs] at hR ⊢
-      obtain ⟨h1, h2, -⟩ := find?_readsAlike dev hR
-      exact ⟨h1, h2⟩
-    · rw [srcP_neg hs] at hR; exact nomatch hR
-  · try dsimp only [ctxPiece] at *
-    have hs := h.src_lt n hn
-    rw [srcP_pos hs]
-    exact readAgreeS_of hfits h hs
-  · try dsimp only [ctxPiece] at *
-    have hs := h.src_lt n (by rw [hf]; rfl)
-    rw [srcP_pos hs]
-    exact h.context_le n ci hf
-  · try dsimp only [ctxPiece] at *
-    have hs := h.src_lt n hn
-    rw [srcP_pos hs]
-    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-    obtain ⟨ci', hf', -⟩ := h.context_le n ci hci
-    exact readsAlike_of hf' hn (h.res_context n hn)
-  · try dsimp only [ctxPiece] at *
-    have hs := h.src_lt n (by rw [hf]; rfl)
-    rw [srcP_pos hs]
-    exact h.scoping n ci hf
-  · try dsimp only [ctxPiece] at *
-    by_cases hs : (dev i).src n < i
-    · rw [srcP_pos hs] at hR hk ⊢
-      obtain ⟨cc, ce, hc, he, hkd⟩ := ctx_entries hR
-      obtain ⟨-, hind, hpin, -⟩ := ctx_same hfits h hs hc he hkd
-      show (dev i).context.find? d = (dev ((dev i).src n)).own.find? d
-      rw [hc, he]
-      rcases hk with ⟨⟨c1, hc1, hk1⟩, c2, hc2, hk2⟩ | hp
-      · rw [hc] at hc1; obtain rfl := Option.some.inj hc1
-        change (dev ((dev i).src n)).own.find? d = some c2 at hc2
-        rw [he] at hc2; obtain rfl := Option.some.inj hc2
-        rw [hind hk1 hk2]
-      · rw [hpin hp]
-    · rw [srcP_neg hs] at hR; exact nomatch hR
-  · try dsimp only [ctxPiece] at *
-    have hs := h.src_lt n (by rw [hf]; rfl)
-    rw [srcP_pos hs] at hfc ⊢
-    exact h.recFam n cv mI rP rules hf r hr cvj nP nF hfc T us hh
-  · try dsimp only [ctxPiece] at *
-    by_cases hs : (dev i).src n < i
-    · rw [srcP_pos hs] at hR hE ⊢
-      exact deep_of hfits h hs hR hfc hk hE
-    · rw [srcP_neg hs] at hR; exact nomatch hR
-  · try dsimp only [ctxPiece] at *
-    have hs := h.src_lt T (by rw [hf]; rfl)
-    rw [srcP_pos hs]
-    exact h.tables T ci hf
-
-/-- What a context's own part reads: the own environment filtered to the
-context is the context. -/
-theorem readsAlikeP_ext_find? {C E' : Env} {r : Name → Key} (hext : Extends C E')
-    (hnd : NodupNames E') (d : Name) : (readsAlikeP ⟨C, r⟩ ⟨E', r⟩).find? d = C.find? d := by
-  have h' : (readsAlikeP ⟨C, r⟩ ⟨E', r⟩).find? d = List.find? (·.name == d)
-      (E'.consts.filter fun c => (C.find? c.name).isSome && r c.name == r c.name) := rfl
-  rw [h', find?_filter_name (p := fun x => (C.find? x).isSome && r x == r x)]
-  cases hc : C.find? d with
-  | none => simp
-  | some ci =>
-    simp only [Option.isSome_some, beq_self_eq_true, Bool.and_self, ↓reduceIte]
-    exact hext.find? hnd hc
-
-/-- **A context reads from the own environment extending it.** -/
-theorem ext_reads (h : LocalOk μ pins dev i) {E' : Env} (hext : Extends (dev i).context E')
-    (hnd : NodupNames E') : PieceReads (ctxPiece dev i) [⟨E', (dev i).res⟩] := by
-  have hRC : ∀ d, (readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? d =
-      (dev i).context.find? d := readsAlikeP_ext_find? hext hnd
-  have hCE : ∀ d, ((dev i).context.find? d).isSome = true →
-      (dev i).context.find? d = E'.find? d := by
-    intro d hd
-    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hd
-    rw [hci, hext.find? hnd hci]
-  have hRsome : ∀ d, ((readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? d).isSome = true →
-      ((dev i).context.find? d).isSome = true := fun d hd => by rw [← hRC d]; exact hd
-  refine ⟨fun _ => ⟨E', (dev i).res⟩, fun _ => Or.inl (List.mem_singleton_self _), ?_⟩
-  show CtxRead (dev i).context (fun _ => E')
-    (fun _ => readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩)
-  have hnat : (∀ n ∈ natLitNames,
-      ((readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? n).isSome = true ∧
-        (E'.find? n).isSome = true) → natLitSupported (dev i).context = natLitSupported E' :=
-    fun hn => natLitSupported_congr fun d hd => hCE d (hRsome d (hn d hd).1)
-  refine ⟨fun n d ci hR => ?_, fun n hn => ⟨fun d hR hE => ?_, fun T k hR hE hC hE' => ?_,
-      hnat, fun hn => ?_⟩, fun n ci hf => ⟨ci, hext.find? hnd hf, Refines.refl n ci⟩,
-    fun n hn => by show ((readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? n).isSome = true; rw [hRC]; exact hn,
-    fun n ci hf => ?_, fun n d hR _ => hCE d (hRsome d hR),
-    fun n cv mI rP rules hf r hr cvj nP nF hfc T us hh => ?_,
-    fun n c ci _ _ _ _ => EntryScopedP.of_forall (fun d hdC _ => by
-      show ((readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? d).isSome = true; rw [hRC]; exact hdC) _ c ci,
-    fun T ci hf => ?_, h.projs, h.blocks, h.tables_mem, h.nodup⟩
-  · change (readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? d = some ci at hR
-    rw [hRC] at hR
-    exact ⟨hext.find? hnd hR, by rw [hR]; rfl⟩
-  · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp (hRsome d hR)
-    exact ⟨ci, ci, hci, hext.find? hnd hci, rfl⟩
-  · unfold Env.findProj?
-    rw [hext.findTable? hnd (hRsome T hR)]
-  · refine strLitSupported_congr (hnat fun n hn' => hn n (by
-        simp only [natLitNames, strLitNames, List.mem_cons, List.not_mem_nil, or_false] at hn' ⊢
-        rcases hn' with rfl | rfl | rfl <;> simp)) fun d hd => ?_
-    have hd' := hn d (by
-      simp only [strLitNames, List.mem_cons, List.not_mem_nil, or_false] at hd ⊢
-      rcases hd with rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp)
-    rw [hCE d (hRsome d hd'.1)]
-  · refine entryScoped_iff.mpr ((entryScoped_iff.mp (h.scoping n ci hf)).mono fun d hd => ?_)
-    show ((readsAlikeP ⟨(dev i).context, (dev i).res⟩ ⟨E', (dev i).res⟩).find? d).isSome = true
-    rw [hRC]
-    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hd
-    exact (find?_readsAlike dev hc).2.1
-  · obtain ⟨-, hctor, -⟩ := (h.scoping n _ hf).2.2.1 cv mI rP rules rfl r hr
-    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hctor
-    have hCc := (find?_readsAlike dev hc).2.1
-    have hfc' : (dev i).context.find? r.ctor = some (.ctorInfo cvj nP nF) := by
-      rw [hCE _ hCc]; exact hfc
-    obtain ⟨cvT, capsT, hT⟩ := h.blocks r.ctor _ hfc' T us hh
-    exact ⟨cvT, capsT, hext.find? hnd hT⟩
-  · have h1 := h.tables T ci hf
-    have hT : ((dev i).context.find? T).isSome = true := by rw [hf]; rfl
-    cases ci with
-    | indInfo cv caps => exact (hext.findTable? hnd hT).symm
-    | _ => exact h1
-
-end
-
-/-! ## Qualified names fit, module by module -/
-
-section
-variable {dev : Nat → Module}
-
-/-- **A stored name resolves to a home no later than its module.** -/
-theorem key_le {j : Nat} (hj : Fits dev j) {n : Name} (hn : ((dev j).own.find? n).isSome = true)
-    {P : Nat} {n' : Name} (hk : (dev j).res n = .qual P n') : P ≤ j := by
-  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-  have := hj n ci hci
-  rw [hk] at this
-  exact this.2.1
-
-end
-
-section
-variable {dev : Nat → Module} {i : Nat}
-
-/-- **A context constant fits its qualified name** in the module's own
+/-- **A context constant fits its key** in the module's own
 environment, read from the source module's fit. -/
 theorem fits_context (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i)
     (hext : Extends (dev i).context (dev i).own) (hnd : NodupNames (dev i).own)
     {n : Name} {cc : ConstantInfo} (hcn : (dev i).context.find? n = some cc) :
-    KeyFits dev i n cc ((dev i).res n) := by
+    KeyFits dev i n cc ((dev i).key n) := by
   have hcs : ((dev i).context.find? n).isSome = true := by rw [hcn]; rfl
   have hs := h.src_lt n hcs
   obtain ⟨cs, hfs, hr⟩ := h.context_le n cc hcn
   have hF := hfits _ hs n cs hfs
-  rw [← h.res_context n hcs] at hF
+  rw [← h.key_context n hcs] at hF
   have htabC : (dev i).own.findTable? n = (dev i).context.findTable? n :=
     hext.findTable? hnd hcs
   revert hF
-  cases (dev i).res n with
-  | qual P n' =>
-    rintro ⟨hn', hP, cp, hcp, hr2, htab, hind⟩
-    refine ⟨hn', Nat.le_trans hP (Nat.le_of_lt hs), cp, hcp, hr.trans hr2, fun hfm => ?_,
+  cases (dev i).key n with
+  | home P =>
+    rintro ⟨hP, cp, hcp, hr2, htab, hind⟩
+    refine ⟨Nat.le_trans hP (Nat.le_of_lt hs), cp, hcp, hr.trans hr2, fun hfm => ?_,
       fun hki => ?_⟩
     · obtain rfl := hr.eq_of_indKind (isIndKind_of_isFormer hfm)
       rw [htabC, h.tables n cc hcn, ← htab hfm]
@@ -597,9 +410,9 @@ theorem fits_context (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i)
       obtain ⟨ce, hce⟩ := Option.isSome_iff_exists.mp h1
       obtain ⟨he, -, hk⟩ := find?_readsAlike dev hce
       exact hk.trans (h2 (by rw [he]; rfl))
-  | proof n' lps T =>
-    rintro ⟨hn', hl, ht, hki, hp⟩
-    refine ⟨hn', by rw [hr.cv]; exact hl, by rw [hr.cv]; exact ht, ?_, hp⟩
+  | proof s =>
+    rintro ⟨hl, ht, hki, hp⟩
+    refine ⟨by rw [hr.cv]; exact hl, by rw [hr.cv]; exact ht, ?_, hp⟩
     cases hcc : cc.isIndKind with
     | false => rfl
     | true => obtain rfl := hr.eq_of_indKind hcc; rw [hki] at hcc; exact nomatch hcc
@@ -620,7 +433,7 @@ theorem own_facts (h : LocalOk μ pins dev i) :
     rw [h.compared_own hc]
     exact ⟨Extends.refl _, h.nodup, fun n _ h1 h2 => by rw [h1] at h2; exact nomatch h2⟩
 
-/-- **Module `i`'s qualified names fit**, from the earlier modules'. -/
+/-- **Module `i`'s keys fit**, from the earlier modules'. -/
 theorem fits_of (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) : Fits dev i := by
   obtain ⟨hext, hnd', hfl⟩ := own_facts h
   intro n ci hf
@@ -630,18 +443,18 @@ theorem fits_of (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) : Fi
     rw [hf] at hcc; obtain rfl := Option.some.inj hcc
     exact fits_context hfits h hext hnd' hcn
   | none =>
-    rw [h.res_own n ci hf hcn]
+    rw [h.key_own n ci hf hcn]
     unfold Module.ownKey
     cases hp : (dev i).proofs n with
     | true =>
       obtain ⟨ci', hf', hki, hpn⟩ := hfl n hp hcn (by rw [hf]; rfl)
       rw [hf] at hf'; obtain rfl := Option.some.inj hf'
-      exact ⟨rfl, rfl, rfl, hki, hpn⟩
+      exact ⟨rfl, rfl, hki, hpn⟩
     | false =>
-      exact ⟨rfl, Nat.le_refl i, ci, hf, Refines.refl n ci, fun _ => rfl,
+      exact ⟨Nat.le_refl i, ci, hf, Refines.refl n ci, fun _ => rfl,
         fun _ => EntryScopedP.of_forall (fun _ _ => rfl) _ n ci⟩
 
-/-- **Every module's qualified names fit.** -/
+/-- **Every module's keys fit.** -/
 theorem fits_all : ∀ i, (∀ j < i, LocalOk μ pins dev j) → ∀ j < i, Fits dev j
   | 0, _ => fun _ h => absurd h (Nat.not_lt_zero _)
   | i + 1, hok => by
@@ -652,183 +465,207 @@ theorem fits_all : ∀ i, (∀ j < i, LocalOk μ pins dev j) → ∀ j < i, Fits
     · exact fits_of ih (hok j (Nat.lt_succ_self j))
 
 end
+/-! ## The context, assembled from the modules before it -/
+
+section
+variable (dev : Nat → Module)
+
+/-- The own environment of the module a context name of module `i` is
+read from, if it is earlier (the empty one otherwise). -/
+@[expose] def srcE (i : Nat) (n : Name) : Env :=
+  if (dev i).src n < i then (dev ((dev i).src n)).own else Env.empty
+
+/-- What module `i`'s context reads of it under its keys. -/
+@[expose] def srcR (i : Nat) (n : Name) : Env :=
+  if (dev i).src n < i then readsAlike dev i ((dev i).src n) else Env.empty
+
+end
+
+section
+variable {dev : Nat → Module} {i : Nat}
+
+theorem srcE_pos {n : Name} (hs : (dev i).src n < i) :
+    srcE dev i n = (dev ((dev i).src n)).own := by
+  simp only [srcE, hs, ↓reduceIte]
+
+theorem srcR_pos {n : Name} (hs : (dev i).src n < i) :
+    srcR dev i n = readsAlike dev i ((dev i).src n) := by
+  simp only [srcR, hs, ↓reduceIte]
+
+theorem srcR_neg {n : Name} (hs : ¬ (dev i).src n < i) : srcR dev i n = Env.empty := by
+  simp only [srcR, hs, ↓reduceIte]
+
+/-- **A context reads from the modules before it** (`CtxRead`), by the
+local checks and the keys' fit. -/
+theorem ctx_reads (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) :
+    CtxRead (dev i).context (srcE dev i) (srcR dev i) := by
+  refine ⟨fun n d ci hR => ?_, fun n hn => ?_, fun n ci hf => ?_, fun n hn => ?_,
+    fun n ci hf => ?_, fun n d hR hk => ?_, fun n cv mI rP rules hf r hr cvj nP nF hfc T us hh => ?_,
+    fun n c ci hR hfc hk hE => ?_, fun T ci hf => ?_, h.projs, h.blocks, h.tables_mem, h.nodup⟩
+  · by_cases hs : (dev i).src n < i
+    · rw [srcR_pos hs] at hR
+      rw [srcE_pos hs]
+      obtain ⟨h1, h2, -⟩ := find?_readsAlike dev hR
+      exact ⟨h1, h2⟩
+    · rw [srcR_neg hs] at hR; exact nomatch hR
+  · have hs := h.src_lt n hn
+    rw [srcR_pos hs, srcE_pos hs]
+    exact readAgreeS_of hfits h hs
+  · have hs := h.src_lt n (by rw [hf]; rfl)
+    rw [srcE_pos hs]
+    exact h.context_le n ci hf
+  · have hs := h.src_lt n hn
+    rw [srcR_pos hs]
+    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+    obtain ⟨ci', hf', -⟩ := h.context_le n ci hci
+    exact readsAlike_of hf' hn (h.key_context n hn)
+  · have hs := h.src_lt n (by rw [hf]; rfl)
+    rw [srcR_pos hs]
+    exact h.scoping n ci hf
+  · by_cases hs : (dev i).src n < i
+    · rw [srcR_pos hs] at hR
+      rw [srcE_pos hs] at hk ⊢
+      obtain ⟨cc, ce, hc, he, hkd⟩ := ctx_entries hR
+      obtain ⟨-, hind, hpin, -⟩ := ctx_same hfits h hs hc he hkd
+      rw [hc, he]
+      rcases hk with ⟨⟨c1, hc1, hk1⟩, c2, hc2, hk2⟩ | hp
+      · rw [hc] at hc1; obtain rfl := Option.some.inj hc1
+        rw [he] at hc2; obtain rfl := Option.some.inj hc2
+        rw [hind hk1 hk2]
+      · rw [hpin hp]
+    · rw [srcR_neg hs] at hR; exact nomatch hR
+  · have hs := h.src_lt n (by rw [hf]; rfl)
+    rw [srcE_pos hs] at hfc ⊢
+    exact h.recFam n cv mI rP rules hf r hr cvj nP nF hfc T us hh
+  · by_cases hs : (dev i).src n < i
+    · rw [srcR_pos hs] at hR
+      rw [srcE_pos hs] at hE
+      rw [srcE_pos hs, srcR_pos hs]
+      exact deep_of hfits h hs hR hfc hk hE
+    · rw [srcR_neg hs] at hR; exact nomatch hR
+  · have hs := h.src_lt T (by rw [hf]; rfl)
+    rw [srcE_pos hs]
+    exact h.tables T ci hf
+
+end
 
 /-! ## The development over con-leche's models -/
 
 section
 variable (V μ) in
 /-- **A development of modules as a development over con-leche's
-models**: a module's context and own environment as pieces, its
-declarations with its proof flags, no renaming (the resolution is the
-pieces'). -/
+models**: a module's context, declarations (flagged: its proofs new in
+its context), own environment, its own environment as its one view, the
+earlier modules as its imports, and its keys. -/
 @[expose] noncomputable def toDev (hμ : μ.isVerified = true) (pins : List NatOpPinSet)
-    (dev : Nat → Module) : Development (conlecheSemantics V μ hμ pins) where
-  ctx j := [ctxPiece dev j]
-  decls j := ((dev j).decls, (dev j).proofs)
-  own j := [ownPiece dev j]
-  ren _ := id
-  compared j := (dev j).compared
+    (dev : Nat → Module) : Development (conlecheSemantics V μ hμ pins) Stmt where
+  ctx j := (dev j).context
+  decls j := ((dev j).decls, fun n => (dev j).proofs n && ((dev j).context.find? n).isNone)
+  own j := (dev j).own
+  views j := [(dev j).own]
+  imports j := List.range j
+  key j := (dev j).key
 
 variable {dev : Nat → Module} {hμ : μ.isVerified = true}
 
-/-- The world before module `i`, as a list. -/
-@[expose] noncomputable def worldL (V : Type w) [SetTheory V] (μ : CheckMode)
-    (hμ : μ.isVerified = true) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) : PEnv :=
-  (toDev V μ hμ pins dev).world i
+/-- The view a context name of module `i` is read from: its source's own
+environment. -/
+@[expose] noncomputable def srcAt (i : Nat) (n : Name) (hs : (dev i).src n < i) :
+    (toDev V μ hμ pins dev).Src i :=
+  ⟨((dev i).src n, (dev ((dev i).src n)).own), List.mem_range.mpr hs, List.mem_singleton_self _⟩
 
-theorem worldL_succ (i : Nat) : worldL V μ hμ pins dev (i + 1) =
-    if (dev i).compared then worldL V μ hμ pins dev i
-    else worldL V μ hμ pins dev i ++ [ownPiece dev i] := rfl
+/-- The view a context name of module `i` is read from, if its source is
+earlier. -/
+@[expose] noncomputable def srcOpt (i : Nat) (n : Name) : Option ((toDev V μ hμ pins dev).Src i) :=
+  if hs : (dev i).src n < i then some (srcAt i n hs) else none
 
-theorem mem_world : ∀ {i : Nat} {p : Piece}, p ∈ worldL V μ hμ pins dev i ↔
-    ∃ j < i, (dev j).compared = false ∧ p = ownPiece dev j
-  | 0, p => by
-    show p ∈ ([] : PEnv) ↔ _
-    exact ⟨fun h => (nomatch h), fun ⟨_, h, _⟩ => absurd h (Nat.not_lt_zero _)⟩
-  | i + 1, p => by
-    have ih := mem_world (i := i) (p := p)
-    rw [worldL_succ]
-    cases hc : (dev i).compared with
-    | true =>
-      simp only [↓reduceIte]
-      rw [ih]
-      constructor
-      · rintro ⟨j, hj, h1, h2⟩; exact ⟨j, Nat.lt_succ_of_lt hj, h1, h2⟩
-      · rintro ⟨j, hj, h1, h2⟩
-        rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj | rfl
-        · exact ⟨j, hj, h1, h2⟩
-        · rw [hc] at h1; exact nomatch h1
-    | false =>
-      simp only [Bool.false_eq_true, ↓reduceIte, List.mem_append, List.mem_singleton]
-      rw [ih]
-      constructor
-      · rintro (⟨j, hj, h1, h2⟩ | h)
-        · exact ⟨j, Nat.lt_succ_of_lt hj, h1, h2⟩
-        · exact ⟨i, Nat.lt_succ_self i, hc, h⟩
-      · rintro ⟨j, hj, h1, h2⟩
-        rcases Nat.lt_succ_iff_lt_or_eq.mp hj with hj | rfl
-        · exact Or.inl ⟨j, hj, h1, h2⟩
-        · exact Or.inr h2
+theorem srcEnv_srcOpt (i : Nat) :
+    srcEnv (fun x : (toDev V μ hμ pins dev).Src i => x.1.2) (srcOpt (V := V) (μ := μ) (hμ := hμ) (pins := pins) (dev := dev) i) =
+      srcE dev i := by
+  funext n
+  by_cases hs : (dev i).src n < i
+  · simp only [srcEnv, srcOpt, srcE, hs, ↓reduceDIte, ↓reduceIte, srcAt]
+  · simp only [srcEnv, srcOpt, srcE, hs, ↓reduceDIte, ↓reduceIte]
 
-theorem world_sub {i : Nat} : ∀ p ∈ worldL V μ hμ pins dev i,
-    p ∈ worldL V μ hμ pins dev (i + 1) := by
-  intro p hp
-  obtain ⟨j, hj, h1, h2⟩ := mem_world.mp hp
-  exact mem_world.mpr ⟨j, Nat.lt_succ_of_lt hj, h1, h2⟩
-
-/-- **The modules before `i` refine the world before `i`**: a checked
-module is in it, a compared one reads from the modules before it. -/
-theorem before_ref : ∀ i, (∀ j < i, LocalOk μ pins dev j) →
-    Ref (before dev i) id (worldL V μ hμ pins dev i)
-  | 0, _ => Ref.sub fun _ h => nomatch h
-  | i + 1, hok => by
-    have ih := before_ref i fun j hj => hok j (Nat.lt_succ_of_lt hj)
-    have hb : before dev (i + 1) = before dev i ++ [ownPiece dev i] := by
-      simp only [before, List.range_succ, List.map_append, List.map_cons, List.map_nil]
-    rw [hb]
-    have hsub : Ref (worldL V μ hμ pins dev i) id (worldL V μ hμ pins dev (i + 1)) :=
-      Ref.sub world_sub
-    refine Ref.union (Ref.trans (ρ := id) (σ := id) ih hsub) ?_
-    cases hc : (dev i).compared with
-    | false =>
-      exact Ref.sub fun p hp => by
-        rw [List.mem_singleton.mp hp]
-        exact mem_world.mpr ⟨i, Nat.lt_succ_self i, hc, rfl⟩
-    | true =>
-      have h := hok i (Nat.lt_succ_self i)
-      have hr := ctx_reads (fits_all i fun j hj => hok j (Nat.lt_succ_of_lt hj)) h
-      have hpc : ownPiece dev i = ctxPiece dev i := by
-        simp only [ownPiece, ctxPiece, h.compared_own hc]
-      have hr' : Ref [ownPiece dev i] id (before dev i) :=
-        Ref.reads fun p hp => by rw [List.mem_singleton.mp hp, hpc]; exact hr
-      exact Ref.trans (ρ := id) (σ := id) (Ref.trans (ρ := id) (σ := id) hr' ih) hsub
+/-- **A context is assembled from the views of the modules before it.** -/
+theorem ctx_assembled {i : Nat} (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) :
+    (toDev V μ hμ pins dev).Assembled i (dev i).context := by
+  refine AssembledC.reads (srcOpt (V := V) (μ := μ) (hμ := hμ) (pins := pins) (dev := dev) i) (srcR dev i) (fun n hn => ?_)
+    (fun n d ci hR => ?_) ?_
+  · have hs := h.src_lt n hn
+    exact ⟨srcAt i n hs, dite_eq_left hs, h.key_context n hn⟩
+  · by_cases hs : (dev i).src n < i
+    · rw [srcR_pos hs] at hR
+      obtain ⟨-, -, hk⟩ := find?_readsAlike dev hR
+      exact ⟨srcAt i n hs, dite_eq_left hs, hk⟩
+    · rw [srcR_neg hs] at hR; exact nomatch hR
+  · rw [srcEnv_srcOpt]; exact ctx_reads hfits h
 
 /-- **Every module that passes its local checks is valid.** -/
 theorem valid_of {i : Nat} (hok : ∀ j ≤ i, LocalOk μ pins dev j) :
     (toDev V μ hμ pins dev).Valid i := by
-  have hok' : ∀ j < i, LocalOk μ pins dev j := fun j hj => hok j (Nat.le_of_lt hj)
   have h := hok i (Nat.le_refl i)
-  have hfits := fits_all i hok'
-  have hfi : Fits dev i := fits_of hfits h
-  have hbr := before_ref (V := V) (μ := μ) (hμ := hμ) (pins := pins) i hok'
-  have hcr : Ref [ctxPiece dev i] id (before dev i) :=
-    Ref.reads fun p hp => by rw [List.mem_singleton.mp hp]; exact ctx_reads hfits h
-  unfold Development.Valid
-  show if (dev i).compared then Ref [ownPiece dev i] id _ else
-    Ref [ctxPiece dev i] id _ ∧ AcceptsP μ pins [ctxPiece dev i] ((dev i).decls, (dev i).proofs)
-      [ownPiece dev i] ∧ FreshP _ id [ctxPiece dev i] [ownPiece dev i]
-  cases hc : (dev i).compared with
-  | true =>
-    simp only [↓reduceIte]
-    have hpc : ownPiece dev i = ctxPiece dev i := by
-      simp only [ownPiece, ctxPiece, h.compared_own hc]
-    rw [hpc]
-    exact Ref.trans (ρ := id) (σ := id) hcr hbr
-  | false =>
-    simp only [Bool.false_eq_true, ↓reduceIte]
-    obtain ⟨hext, hnd', -⟩ := own_facts h
-    have hinj : ∀ n n', ((dev i).own.find? n).isSome = true →
-        ((dev i).own.find? n').isSome = true → (dev i).res n = (dev i).res n' → n = n' := by
-      intro n n' hn hn' hk
-      obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-      obtain ⟨ci', hci'⟩ := Option.isSome_iff_exists.mp hn'
-      have h1 := hfi n ci hci
-      have h2 := hfi n' ci' hci'
-      rw [hk] at h1
-      revert h1 h2
-      cases (dev i).res n' with
-      | qual P m => rintro ⟨rfl, -⟩ ⟨h2, -⟩; exact h2
-      | proof m lps T => rintro ⟨rfl, -⟩ ⟨h2, -⟩; exact h2
-    refine ⟨Ref.trans (ρ := id) (σ := id) hcr hbr,
-      ⟨(dev i).context, (dev i).own, (dev i).res, rfl, rfl, h.accepted hc, ext_reads h hext hnd',
-        hinj, fun n hn hcn hpk => ?_⟩, fun k k' _ _ hk => hk, fun _ _ => rfl, ?_⟩
-    · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-      have := h.res_own n ci hci hcn
-      unfold Module.ownKey at this
-      cases hp : (dev i).proofs n with
-      | true => exact hp
-      | false =>
-        simp only [hp, Bool.false_eq_true, ↓reduceIte] at this
-        change ((dev i).res n).isProof = true at hpk
-        rw [this] at hpk; exact nomatch hpk
-    · rintro k ⟨p, hp, n, hn, rfl⟩ hnot ⟨q, hq, m, hm, hkm⟩
-      obtain rfl := List.mem_singleton.mp hp
-      change ((dev i).own.find? n).isSome = true at hn
-      change q.res m = (dev i).res n at hkm
-      have hcn : (dev i).context.find? n = none := by
-        cases hcn : (dev i).context.find? n with
-        | none => rfl
-        | some _ => exact absurd ⟨ctxPiece dev i, List.mem_singleton_self _, n,
-            by rw [show (ctxPiece dev i).env = (dev i).context from rfl, hcn]; rfl, rfl⟩ hnot
-      obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-      have hown := h.res_own n ci hci hcn
-      unfold Module.ownKey at hown
-      show ((dev i).res n).isProof = true
-      cases hp : (dev i).proofs n with
-      | true => simp only [hp, ↓reduceIte] at hown; rw [hown]; rfl
-      | false =>
-        simp only [hp, Bool.false_eq_true, ↓reduceIte] at hown
-        obtain ⟨j, hj, -, rfl⟩ := mem_world.mp hq
-        have := key_le (hfits j hj) hm (hkm.trans hown)
-        exact absurd (Nat.lt_of_le_of_lt this hj) (Nat.lt_irrefl _)
+  have hfits := fits_all i fun j hj => hok j (Nat.le_of_lt hj)
+  have hA := ctx_assembled (V := V) (hμ := hμ) hfits h
+  refine ⟨fun E hE => ?_, fun j hj => List.mem_range.mp hj, ?_⟩
+  · rw [List.mem_singleton.mp hE]
+    exact AssembledC.self PUnit.unit rfl fun _ _ => trivial
+  · cases hc : (dev i).compared with
+    | true =>
+      refine .inr ?_
+      show (toDev V μ hμ pins dev).Assembled i (dev i).own
+      rw [h.compared_own hc]; exact hA
+    | false =>
+      refine .inl ⟨hA, ⟨(dev i).proofs, h.accepted hc, fun n hn => ?_⟩, fun n hn hC => ?_⟩
+      · change ((dev i).proofs n && ((dev i).context.find? n).isNone) = true at hn
+        simp only [Bool.and_eq_true, Option.isNone_iff_eq_none] at hn
+        exact hn
+      · change ((dev i).own.find? n).isSome = true at hn
+        change ¬ ((dev i).context.find? n).isSome = true at hC
+        have hcn : (dev i).context.find? n = none := by
+          cases e : (dev i).context.find? n with
+          | none => rfl
+          | some _ => exact absurd (by rw [e]; rfl) hC
+        obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+        have hk := h.key_own n ci hci hcn
+        unfold Module.ownKey at hk
+        cases hp : (dev i).proofs n with
+        | true =>
+          simp only [hp, ↓reduceIte] at hk
+          refine .inr ⟨⟨_, hk⟩, ?_⟩
+          show ((dev i).proofs n && ((dev i).context.find? n).isNone) = true
+          rw [hp, hcn]; rfl
+        | false =>
+          simp only [hp, Bool.false_eq_true, ↓reduceIte] at hk
+          exact .inl hk
 
 end
 
-/-- **The modular theorem, at the leaves**: one world under which every
-module up to `i` has a model of its own environment, read through its
-resolution — the generic theorem (`Development.modular`) at con-leche's
-models. -/
+/-- **The modular theorem, at the leaves**: a compatible family of leaf
+assignments, one per module up to `i`, each with a model of the module's
+own environment reading it — the generic theorem
+(`Development.modular`) at con-leche's models. -/
 theorem modular_envModels (hμ : μ.isVerified = true) (dev : Nat → Module) (i : Nat)
     (hok : ∀ j ≤ i, LocalOk μ pins dev j) :
-    ∃ W, WorldOk V W ∧ ∀ j ≤ i, ∃ mp : EnvModelM V μ (dev j).own,
-      ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = W ((dev j).res n) := by
-  obtain ⟨⟨m⟩, hr⟩ := (toDev V μ hμ pins dev).modular (i + 1) fun j hj =>
+    ∃ a : Nat → Name → (Name → Nat) → Term,
+      (∀ j ≤ i, ∃ mp : EnvModelM V μ (dev j).own,
+        ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = a j n) ∧
+      (∀ j ≤ i, ∀ j' ≤ i, ∀ n, ((dev j).own.find? n).isSome = true →
+        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+        a j n = a j' n) ∧
+      ∀ j ≤ i, ∀ n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+        a j n = fun _ => .prf := by
+  obtain ⟨m, hc, hp⟩ := (toDev V μ hμ pins dev).modular (i + 1) fun j hj =>
     valid_of fun k hk => hok k (Nat.le_trans hk (Nat.lt_succ_iff.mp hj))
-  refine ⟨m.1, m.2.2.1, fun j hj => ?_⟩
-  have hrj : Ref [ownPiece dev j] id (worldL V μ hμ pins dev (i + 1)) :=
-    hr j (Nat.lt_succ_iff.mpr hj)
-  obtain ⟨mp, -, -, -, hl⟩ := (restrictP hrj m).2.2.2 (ownPiece dev j) (List.mem_singleton_self _)
-  exact ⟨mp, fun n hn => (hl n hn).trans
-    (normalize_pos ⟨ownPiece dev j, List.mem_singleton_self _, n, hn, rfl⟩)⟩
+  refine ⟨fun j => if hj : j < i + 1 then (m j hj).1 else fun _ => dfltLeaf,
+    fun j hj => ?_, fun j hj j' hj' n hn hn' hk => ?_, fun j hj n s hn hk => ?_⟩
+  · obtain ⟨mp, -, -, -, hl⟩ := (m j (Nat.lt_succ_of_le hj)).2.2
+    exact ⟨mp, fun n hn => by dsimp only; rw [hl n hn, dite_eq_left (Nat.lt_succ_of_le hj)]⟩
+  · dsimp only
+    rw [dite_eq_left (Nat.lt_succ_of_le hj), dite_eq_left (Nat.lt_succ_of_le hj')]
+    exact hc j j' _ _ n hn hn' hk
+  · dsimp only
+    rw [dite_eq_left (Nat.lt_succ_of_le hj)]
+    exact hp j _ n s hn hk
 
 end ConLeche.Model.Modular
