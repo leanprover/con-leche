@@ -107985,3 +107985,143 @@ module; for a compared module, `own = context`.
   plus one `inferConst` guard, the `type_reads`/`mem_type` laws
   guarded, and the public `Model.mem` restricted to typed constants
   (a ruling); about 1–1.5k lines, as its own task.
+
+## TASK #370 — the modular driver: module by module, over one store, proof-carrying (2026-10-27/28, agent/370-driver)
+
+**What runs.** `con-leche --olean --modular --search-path=… MODULE…`
+(`ConLeche/Driver/Modular.lean`, `checkModular`): read the closure
+(the specification decoder `decodeModuleSpec`, run as the fast one by
+`@[csimp]`), build the graph (`buildGraph`: every module's own records
+by lean4export's walk, `moduleDecls`, prepared with the prelude), the
+**levels** (`levelsOf`: Lean's `importModulesCore` lattice over the
+`importAll`/`isExported` flags; a classic module loads everything
+privately; `0` not loaded, `1` exported, `2` private), the store's
+sharded name index (`buildIdx`, from `predictSlots`; a name several
+modules store has an alternate per module), then install every module
+at its **view** (`Mod.viewOf (S.mb i)`: no constants of its own, the
+store as its base, gated by the module's levels) on a ready queue over
+the import graph (`installAll`), publish each module's **unit**
+(`ModSlot`: the private record `prv` — the installed constants in push
+order and their tables — and the interface `exp` — per constant its
+exported presentation `at1`, `stored`, `tbls`, gates `g1`/`v1`, `prf`;
+two separate objects), then the local checks (`Mod.localOk`, parallel
+per module) and every record's check (one pool, each at its module's
+final view).
+
+**Presentations (maintainer's ruling: remove, never add).** An imported
+constant is presented as stored if its type and its value/rules/block
+mention only names present in the importer's context; as the
+assumption of its type if only its type does; absent if its type does
+not; an inductive block as a whole, else each member as an assumption
+or absent; a fixed point per module over its own constants (`unitOf`),
+with **gates** (`g1`/`v1`, pairs `(module, level)`) for what the
+importer's levels must reach. Pinned names are never degraded (an
+incomplete pinned constant is an error). No special treatment of
+`_private` names. An importer reads only its imports' interfaces
+(level 1) or private records (level 2, `import all`), never the
+private part of a module it loads at level 1. The stop-gap of an
+earlier revision (lifting a home's private statements into its
+interface when an exported value read them) is **removed**: Mathlib's
+one such case, `WittVector.comm_ring_aux₂` reading the private
+`comm_ring_aux₁`, is fixed on the Mathlib side by a local patch
+(`set_option backward.privateInPublic true in` before
+`comm_ring_aux₁` in `Mathlib/RingTheory/WittVector/Basic.lean`, branch
+`conleche/privateInPublic-fix`, commit e5fea2f of the reference
+checkout). Whether Lean should stop exporting values that read
+private-only constants is an open question with the maintainer.
+
+**The proof** (`ConLeche/Verify/Modular/`, no model): `Store.lean`
+(`ctxOf`: the logical context of a view, the store's first visible
+alternate per name; its `find?`/`findTable?`/nodup), `View.lean`
+(`envAt`, the canonical-index invariant `CanonB` along an install at a
+view, `accepted_of_run`: a run at a view with its checks is
+`AcceptedFrom` the context), `Dev.lean` (`devOf`: the development a run
+stands for; `RunOk`: what a run establishes), `Local.lean` (levels,
+targets, good reads, refinement, tables, `recFam`, resolution),
+`Scope.lean` (the walk specifications `lawsOk_spec`/`readsOk_spec`/
+`unitOk_spec` and **`Mod.RunOk.localOk : RunOk mode S M → ∀ i,
+LocalOk mode natOpPinSets (devOf S M) i`**, the hypothesis of
+`modular_model_exists`/`modular_no_False`). No sorry. The executable
+side (`ConLeche/Cached/ModStore.lean`): `unitOk` (shape, recursor
+families, the laws' read sets at both levels and per gate), `localOk`
+(levels below and at most 2; a level-2 import's levels below the
+importer's; a level-1 import's guaranteed pairs `fp1`; one qualified
+name per stored-twice name, `oneKey`), `dupsOk`.
+
+**The accept is printed from the evidence.** Each worker returns
+`ModOk` (the module's data with its accepting `InstallRun`, its proofs
+attested `ProofsAttested` by `proofsOf`, its unit checked); `runOk`
+decides the rest (sizes, imports below, every published slot the unit
+(`sameB`), the unit's constants the install's (`sameArr`), the local
+checks and the record checks from the parallel maps' tagged results
+(`At`), `dupsOk`) and returns `Mod.RunOk`; `Accepted` packs it with the
+coverage (one module per graph module, each module's records the
+graph's) and the compared modules' claims, and the success line is
+printed from it.
+
+**Compared modules** (`--compare CHALLENGE SOLUTION`, repeatable,
+implies `--modular`). The challenge installs nothing into the store
+(its `decls` empty; in the development a module with no declarations
+— the theory's `compared` flag is not needed: its own environment is
+its context because it installs nothing). It imports its solution with
+`import all` (`addCompares`, a stable re-sort so the solution comes
+first; a solution importing its challenge is an error), so its context
+presents every solution constant as stored. Its records are installed
+at its own context (its levels without the solution) — types checked,
+values not, which is where a hole's `sorry` is permitted and nowhere
+else — and every constant they give must be met by the context
+(`cmpOk`): a hole (a value using `sorryAx`) by a constant of the same
+`ConstantVal` and kind (or an assumption of it), anything else by the
+same constant. `CmpClaim` carries this as evidence. The holes and the
+module that fills each are printed. `ConLeche.Challenge` vs
+`ConLeche.MainTheorem`: 4 holes, all filled by `ConLeche.MainTheorem`,
+the whole closure (2 916 modules, 235 985 records) accepted.
+
+**Fixtures** (`tests/olean.sh`, 45 cases; sources in
+`tests/olean/src/`): the modular verdicts of the earlier closures;
+`ClashA`+`ClashB` (different constants of one name that never meet:
+modular accepts, the merge rejects; two that meet Lean cannot build);
+twin theorems of one statement; an exported definition read as an
+assumption; `import all` unfolding; a public re-export; a private
+definition behind an exported theorem; two patched import lists
+(`import all` turned plain: the unfolding is rejected; an import
+redirected: the constant is unknown, rejected); compare: filled,
+differing definition, hole stated differently, missing constant, a
+solution using `sorry` (declined, the checker's usual `sorryAx`
+verdict), self-compare and a missing argument (usage errors). Not
+produced: a meeting clash and an exported view that is not a
+refinement (Lean writes neither).
+
+**Measurements** (instructions:u, one run each, binary 0ad50c5 / 3f0dc91,
+peak RSS from the watchdog; merged = `--olean` without `--modular`, the
+same oleans):
+
+| closure | modular verdict | instr. modular | merged | peak RSS mod / merged |
+|---|---|---|---|---|
+| Init | 653 modules, 64 065 records, 0 rejected | 489 G | 410 G | 1.25 / 0.86 GiB |
+| Std | 1 012, 109 383, 0 | 723 G | 607 G | 1.63 / 1.45 GiB |
+| Lean | 2 374, 196 737, 0 | 927 G | 749 G | 1.78 / 1.67 GiB |
+| Mathlib (patched) | 10 976, 776 338, 0 | 9 538 G | 7 576 G | 7.51 / 7.01 GiB |
+
+Modular counts every module's own records (a name stored by several
+modules counts for each). Mathlib modular phases: read 4.1 s, graph
+10.4 s, install 20.3 s, local checks 20.9 s, checks 40.7 s. Exported
+presentations on Mathlib: 138 assumptions (125 definitions, 13 type
+formers), 1 038 absent (991 theorems, mostly private-statement
+equation lemmas), 504 gated, 62 full-gated. Never stricter than Lean
+on these runs: no module modular rejects that the merge accepts.
+
+**Splitting across processes.** Everything a module's check reads of
+another module is that module's unit (its `ModSlot`, separable: the
+interface `exp` and the private record `prv` are separate objects),
+the name index entries of its names and its levels row; the evidence a
+module needs (`ModOk`, its `localOk`, its record checks) is per
+module, and `RunOk`'s fields are per-module conjunctions except
+`dupsOk` (the store's list of names stored twice, computable from the
+index). A process per module would read its imports' units from files
+(written after their homes are checked), rebuild the index from the
+graph, and emit its own evidence; the assembly into `RunOk` is the
+same `runOk` over the collected results. Not built.
+
+**Open.** Typeless assumptions (held back). The upstream Lean question
+above. README suggestions are reported, not written.

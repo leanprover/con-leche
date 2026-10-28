@@ -99,6 +99,69 @@ while i + 32 <= len(b):
         if 0 < sz < len(b) and i + 32 + sz <= len(b): b[i + 32 + sz - 1] = 65
     i += 8" TinyClassic
 
+# --- modular checking (--modular) ----------------------------------------
+# The fixtures below import `Init.Prelude` from the toolchain's own
+# library (their closure is six modules of it: cheap).
+INIT="$(dirname "$(dirname "$(elan which lean 2>/dev/null || command -v lean)")")/lib/lean"
+MSP="$LIB:$INIT"
+case_ "modular: a module-system module" 0 --olean --modular --search-path=$LIB Tiny
+case_ "modular: a module and its import" 0 --olean --modular --search-path=$LIB TinyUse
+case_ "modular: a classic module beside a module-system one" 0 --olean --modular --search-path=$LIB TinyUse TinyClassic
+case_ "modular: at one worker" 0 --jobs=1 --olean --modular --search-path=$LIB TinyUse
+# two modules storing different constants under one name that never
+# meet (no module has both in its context): Lean builds both and so
+# does the modular check; the merge rejects them (above).  Two that
+# meet cannot be built by Lean (no fixture).
+case_ "modular: conflicting constants that never meet" 0 --olean --modular --search-path=$LIB ClashA ClashB
+case_ "modular: two theorems of one statement, different proofs" 0 --olean --modular --search-path=$MSP TwinA TwinB
+case_ "modular: an exported definition read as an assumption" 0 --olean --modular --search-path=$MSP HidUse
+case_ "modular: import all unfolds a definition" 0 --olean --modular --search-path=$MSP HidAll
+case_ "modular: a public import re-exports" 0 --olean --modular --search-path=$MSP ReC
+case_ "modular: a private definition behind an exported theorem" 0 --olean --modular --search-path=$MSP PrivUse
+case_ "modular: --keep-going" 0 --olean --modular --keep-going --search-path=$MSP PrivUse ReC
+# patch the root's import list: <file> <python over b, base, ro, imps>
+mpatch() {
+  python3 -I - "$1" "$2" <<'PY'
+import struct, sys
+p, expr = sys.argv[1], sys.argv[2]
+b = bytearray(open(p, 'rb').read())
+base = struct.unpack_from('<Q', b, 80)[0]
+ro = struct.unpack_from('<Q', b, 88)[0] - base
+arr = struct.unpack_from('<Q', b, ro + 8)[0] - base
+imps = [struct.unpack_from('<Q', b, arr + 24 + 8 * i)[0] - base
+        for i in range(struct.unpack_from('<Q', b, arr + 8)[0])]
+exec(expr)
+open(p, 'wb').write(b)
+PY
+}
+mcorrupt() { # <description> <expected-exit> <file> <expr> <root module>
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  mpatch "$d/$3" "$4"
+  case_ "$1" "$2" --olean --modular --search-path=$d:$INIT "$5"
+  rm -rf "$d"
+}
+# `import all HidA` turned into a plain import: `h` is an assumption in
+# the context, and the private theorem that unfolds it is rejected
+# (Lean would not have elaborated it)
+mcorrupt "modular: unfolding a definition the context hides" 1 HidAll.olean \
+  "for e in imps:
+    if b[e + 16] == 1: b[e + 16] = 0" HidAll
+# the import of HidA pointed at Init.Prelude: `h` is not in the context
+mcorrupt "modular: a constant of a module not imported" 1 HidUse.olean \
+  "struct.pack_into('<Q', b, imps[-1] + 8, struct.unpack_from('<Q', b, imps[0] + 8)[0])" HidUse
+
+# --- compared modules (--compare CHALLENGE SOLUTION) -------------------
+case_ "compare: the solution fills the holes" 0 --olean --search-path=$MSP --compare CmpChal CmpSol
+case_ "compare: a definition that differs" 1 --olean --search-path=$MSP --compare CmpChal CmpSolDef
+case_ "compare: a hole stated differently" 1 --olean --search-path=$MSP --compare CmpChal CmpSolStmt
+case_ "compare: a constant the solution lacks" 1 --olean --search-path=$MSP --compare CmpChal CmpSolMissing
+# sorry is permitted in a challenge only: a solution's is the checker's
+# decline of sorryAx, as everywhere
+case_ "compare: a solution that uses sorry" 2 --olean --search-path=$MSP --compare CmpChal CmpSolSorry
+case_ "compare: a module compared with itself" 3 --olean --search-path=$MSP --compare CmpChal CmpChal
+case_ "compare: one module name only" 3 --olean --search-path=$MSP --compare CmpChal
+
 rm -f "$TMPDIR/olean-case.out"
 echo "olean gate: $ok/$total as expected"
 exit $fail
