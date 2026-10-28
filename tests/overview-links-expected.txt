@@ -196,6 +196,11 @@
    151      ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
    152        c.toConstantVal.type = .const falseName [] → False := by
 
+== ConLeche/Modular/Generic.lean#L141-L143
+   141  theorem Development.modular (dev : Development S) :
+   142      ∀ k, (∀ i < k, dev.Valid i) →
+   143        Nonempty (S.Mod (dev.world k)) ∧ ∀ i < k, S.Refines (dev.own i) (dev.ren i) (dev.world k)
+
 == ConLeche/Verify/Modular/Scope.lean#L476-L477
    476  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
    477      LocalOk mode natOpPinSets (devOf S M) i := by
