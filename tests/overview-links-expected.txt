@@ -142,43 +142,47 @@
    445    checkPendingList mode p.2.1 p.2.2.toList
    446    pure p.2.1.env
 
-== ConLeche/Modular.lean#L218-L253
-   218  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   219      Prop where
-   220    below : ∀ b ∈ (dev i).imports, b < i
-   221    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
-   222    nodup : ((dev i).context.consts.map (·.name)).Nodup
-   223    accepted : (dev i).compared = false →
-   224      AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
-   225    /-- a compared module's own environment is its context: every name of
-   226    it, its own included, refines the constant of the earlier module it is
-   227    read from (its solution, for its own names) -/
-   228    compared_own : (dev i).compared = true → (dev i).own = (dev i).context
-   229    context_le : ∀ n ci, (dev i).context.find? n = some ci →
-   230      ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ Refines n ci ci'
-   231    scoping : ∀ n ci, (dev i).context.find? n = some ci →
-   232      EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context n ci
-   233    /-- a type former's table is its source's; nothing else has one (an
-   234    assumed former included) -/
-   235    tables : ∀ T ci, (dev i).context.find? T = some ci →
-   236      (dev i).context.findTable? T =
-   237        match ci with
-   238        | .indInfo .. => (dev ((dev i).src T)).own.findTable? T
-   239        | _ => none
-   240    projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
-   241    blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
-   242    /-- a recursor's source module stores its rules' constructors'
-   243    families as type formers -/
-   244    recFam : ∀ n cv mI rP rules, (dev i).context.find? n = some (.recInfo cv mI rP rules) →
-   245      ∀ r ∈ rules, ∀ cvj nP nF,
-   246        (dev ((dev i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
-   247        ∀ T us, cvj.type.piResult.getAppFn = .const T us →
-   248        ∃ cvT capsT, (dev ((dev i).src n)).own.find? T = some (.indInfo cvT capsT)
-   249    tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
-   250    res_context : ∀ n, ((dev i).context.find? n).isSome = true →
-   251      (dev i).res n = (dev ((dev i).src n)).res n
-   252    res_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
-   253      (dev i).res n = (dev i).ownKey i n ci
+== ConLeche/Modular.lean#L245-L280
+   245  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   246      Prop where
+   247    below : ∀ b ∈ (dev i).imports, b < i
+   248    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   249    nodup : ((dev i).context.consts.map (·.name)).Nodup
+   250    accepted : (dev i).compared = false →
+   251      AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
+   252    /-- a compared module's own environment is its context: every name of
+   253    it, its own included, refines the constant of the earlier module it is
+   254    read from (its solution, for its own names) -/
+   255    compared_own : (dev i).compared = true → (dev i).own = (dev i).context
+   256    context_le : ∀ n ci, (dev i).context.find? n = some ci →
+   257      ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ Refines n ci ci'
+   258    scoping : ∀ n ci, (dev i).context.find? n = some ci →
+   259      EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context n ci
+   260    /-- a type former's table is its source's; nothing else has one (an
+   261    assumed former included) -/
+   262    tables : ∀ T ci, (dev i).context.find? T = some ci →
+   263      (dev i).context.findTable? T =
+   264        match ci with
+   265        | .indInfo .. => (dev ((dev i).src T)).own.findTable? T
+   266        | _ => none
+   267    projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
+   268    blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
+   269    /-- a recursor's source module stores its rules' constructors'
+   270    families as type formers -/
+   271    recFam : ∀ n cv mI rP rules, (dev i).context.find? n = some (.recInfo cv mI rP rules) →
+   272      ∀ r ∈ rules, ∀ cvj nP nF,
+   273        (dev ((dev i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
+   274        ∀ T us, cvj.type.piResult.getAppFn = .const T us →
+   275        ∃ cvT capsT, (dev ((dev i).src n)).own.find? T = some (.indInfo cvT capsT)
+   276    tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
+   277    res_context : ∀ n, ((dev i).context.find? n).isSome = true →
+   278      (dev i).res n = (dev ((dev i).src n)).res n
+   279    res_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
+   280      (dev i).res n = (dev i).ownKey i n ci
+
+== ConLeche/Verify/Modular/Interface.lean#L150-L151
+   150  theorem LocalOk.of_interface {mode : CheckMode} {pins : List NatOpPinSet} {dev : Nat → Module}
+   151      {i : Nat} (hI : ∀ b < i, InterfaceOk dev b) (hM : ImportOk mode pins dev i) :
 
 == ConLeche/MainTheorem.lean#L131-L137
    131  theorem modular_model_exists (V : Type w) [SetTheory V]
@@ -196,9 +200,14 @@
    151      ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
    152        c.toConstantVal.type = .const falseName [] → False := by
 
-== ConLeche/Verify/Modular/Scope.lean#L476-L477
-   476  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
-   477      LocalOk mode natOpPinSets (devOf S M) i := by
+== ConLeche/Modular/Generic.lean#L141-L143
+   141  theorem Development.modular (dev : Development S) :
+   142      ∀ k, (∀ i < k, dev.Valid i) →
+   143        Nonempty (S.Mod (dev.world k)) ∧ ∀ i < k, S.Refines (dev.own i) (dev.ren i) (dev.world k)
+
+== ConLeche/Verify/Modular/Scope.lean#L892-L893
+   892  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
+   893      LocalOk mode natOpPinSets (devOf S M) i :=
 
 == ConLeche/Driver/Modular.lean#L841-L843
    841  def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))

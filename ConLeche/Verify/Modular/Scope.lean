@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Modular.Dev
 import ConLeche.Verify.Modular.Local
+import ConLeche.Verify.Modular.Interface
 import ConLeche.Verify.Cached.GuardsC
 
 public section
@@ -9,9 +10,14 @@ public section
 /-!
 # What a context entry's laws read (task #370)
 
-From a unit's verified read sets (`lawsOk`) to the scoping facts
-`ConLeche.Modular.LocalOk` asks of a context entry: `EntryScoped`,
-`EntryProjs`, `BlockIn`.
+From a unit's verified read sets (`lawsOk`) to the two halves of the
+local checks: a module's interface (`ifaceOf`) checked once, at its home
+(`RunOk.interfaceOk`: its presentations refine its installed constants,
+and what their laws read is stored there and listed in their footprint),
+and each importer's checks (`RunOk.importOk`: its context is made of its
+sources' presentations, their footprints good in it — the gates — and its
+projections and blocks within it).  `RunOk.localOk` derives
+`ConLeche.Modular.LocalOk` from both (`LocalOk.of_interface`).
 -/
 
 namespace ConLeche.Cached.Mod
@@ -369,11 +375,293 @@ theorem ctx_findTable_slot {i h j : Nat} {n : Name} {cv : ConstantVal} {caps : I
   rw [lvlAt_eq hl]
   exact hsel
 
-/-- **The scoping facts of a context entry.** -/
-theorem RunOk.entry (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
+/-! ## The interface, checked at its home -/
+
+/-- A name a home's read checks accept is stored in its own environment. -/
+theorem RunOk.read_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 : Bool}
+    {G : Array (Nat × UInt8)} {d : Name}
+    (hr : (if lvl2 then read2Ok S h M[h].fe d else read1Ok S h M[h].fe M[h].unit G d) = true) :
+    ((envAt M[h].fe (ctxOf (S.mb h))).find? d).isSome = true := by
+  cases ht : target h M[h].fe d with
+  | none => cases lvl2 <;> simp [read2Ok, read1Ok, ht] at hr
+  | some t =>
+    rw [← hR.fe_find? hh]
+    rcases hR.target_cases hh ht with ⟨-, p, -, -, hf⟩ | ⟨-, ci, -, hf⟩ <;> rw [hf] <;> rfl
+
+/-- A name a home's full read checks accept is stored in its own
+environment, of the wanted kind. -/
+theorem RunOk.full_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 : Bool}
+    {G : Array (Nat × UInt8)} {w : Want} {d : Name}
+    (hr : (if lvl2 then full2Ok S h M[h].fe M[h].unit w d
+      else full1Ok S h M[h].fe M[h].unit G w d) = true) :
+    ∃ x, (envAt M[h].fe (ctxOf (S.mb h))).find? d = some x ∧ w.ok x = true := by
+  cases ht : target h M[h].fe d with
+  | none => cases lvl2 <;> simp [full2Ok, full1Ok, ht] at hr
+  | some t =>
+    obtain ⟨t1, t2⟩ := t
+    have hb := (hR.finalCanon hh).base
+    rcases hR.target_cases hh ht with ⟨ht1, p, hp, -, hf⟩ | ⟨hne, ci, hpk, hf⟩
+    · simp only at ht1 hp
+      subst ht1
+      refine ⟨p, by rw [← hR.fe_find? hh, hf], ?_⟩
+      rw [hR.slot t1 hh] at hp
+      cases lvl2 <;> simp [full2Ok, full1Ok, ht, hp] at hr
+      · exact hr.1.2
+      · exact hr.2
+    · simp only at hne hpk
+      refine ⟨ci, by rw [← hR.fe_find? hh, hf], ?_⟩
+      cases lvl2 <;> simp [full2Ok, full1Ok, ht, hb, hpk, hne] at hr
+      · exact hr.1
+      · exact hr
+
+/-- **A home's read set, checked, gives good names in the home**: the
+names it reads are stored in its own environment and listed, the type
+formers and constructors stored as such. -/
+theorem RunOk.lawsGood_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 : Bool}
+    {G : Array (Nat × UInt8)} {r : ReadSet} (hr : readsOk S h M[h].fe M[h].unit lvl2 G r = true) :
+    LawsGood (readsIn (envAt M[h].fe (ctxOf (S.mb h))) r.d.keys)
+      (envAt M[h].fe (ctxOf (S.mb h))) r := by
+  obtain ⟨hd, hfi, hfc⟩ := readsOk_spec hr
+  refine ⟨fun d hd' => readsIn_isSome (hR.read_home hh (hd d hd'))
+      (Std.HashMap.mem_keys.mpr (Std.HashMap.mem_iff_contains.mpr hd')), fun d hd' => ?_,
+    fun d hd' => ?_⟩
+  · obtain ⟨x, hx, hw⟩ := hR.full_home hh (hfi d hd')
+    rw [hx]
+    cases x with
+    | indInfo cv caps => exact ⟨cv, caps, rfl⟩
+    | _ => cases hw
+  · obtain ⟨x, hx, hw⟩ := hR.full_home hh (hfc d hd')
+    rw [hx]
+    cases x with
+    | ctorInfo cv nP nF => exact ⟨cv, nP, nF, rfl⟩
+    | _ => cases hw
+
+theorem lawsOf_axiomInfo (t t' : Option ProjTable) (cv : ConstantVal) :
+    lawsOf t (.axiomInfo cv) = lawsOf t' (.axiomInfo cv) := rfl
+
+/-- **The presentations of a home's constant**: each is the constant or
+the assumption of its statement; a presented type former carries the
+home's table; and each was checked against a read set whose names are its
+footprint. -/
+theorem RunOk.presOf_spec (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j : Nat}
+    {c : ConstantInfo} {e : Presented} (hc : (S.slot h).prv.priv[j]? = some c)
+    (he : e ∈ presOf S h M[h] j) :
+    (e.ci = c ∨ (e.ci = asAxiom c ∧ hideable c = true)) ∧
+    (∀ cv caps, e.ci = .indInfo cv caps →
+      e.table = M[h].fe.env.tables.find? (·.structName == c.name)) ∧
+    ∃ (r : ReadSet) (lvl2 : Bool) (G : Array (Nat × UInt8)), e.reads = r.d.keys ∧
+      lawsOk r (lawsOf e.table e.ci) = true ∧ readsOk S h M[h].fe M[h].unit lvl2 G r = true := by
+  obtain ⟨hA2, hR2, hA1, hR1, hGt⟩ := unitOk_spec (hR.unit h hh)
+  rw [← hR.slot h hh] at hA2 hA1 hGt
+  obtain ⟨h1, h2, h3, h4, -, -, h7, hj⟩ := shapeOk_spec (hR.shape hh)
+  obtain ⟨st, -, hat1, hstiff, hvst, -, -, hpt, het⟩ := hj j c hc
+  have hjp : j < (S.slot h).prv.priv.size := by
+    rcases Nat.lt_or_ge j (S.slot h).prv.priv.size with h' | h'
+    · exact h'
+    · rw [Array.getElem?_eq_none h'] at hc; cases hc
+  have hgj : (S.slot h).exp.g1[j]? = some (S.slot h).exp.g1[j] :=
+    Array.getElem?_eq_getElem (by rw [← h3]; exact hjp)
+  have hvj : (S.slot h).exp.v1[j]? = some (S.slot h).exp.v1[j] :=
+    Array.getElem?_eq_getElem (by rw [← h4]; exact hjp)
+  -- the home's table of a presented former
+  have hX : ∀ a, (a = c ∨ (a = asAxiom c ∧ hideable c = true)) →
+      (S.slot h).exp.at1[j]? = some (some a) → ∀ cv caps, a = .indInfo cv caps →
+      (if st then M[h].fe.env.tables.find? (·.structName == c.name) else none) =
+        M[h].fe.env.tables.find? (·.structName == c.name) := by
+    intro a ha hat cv caps hind
+    have : a = c := by
+      rcases ha with rfl | ⟨rfl, -⟩
+      · rfl
+      · unfold asAxiom at hind; cases hind
+    subst this
+    rw [(hstiff.mpr hat)]; rfl
+  unfold presOf at he
+  rw [hc] at he
+  simp only [List.mem_cons] at he
+  rcases he with rfl | he
+  · refine ⟨.inl rfl, fun cv caps _ => by rw [hpt]; rfl,
+      (S.slot h).prv.priv.size |> fun _ => ⟨M[h].reads.all2, true, #[], rfl, ?_, hR2⟩⟩
+    have := hA2 j c _ hc hpt
+    rw [hpt]
+    exact this
+  -- the exported level
+  have hA : ∀ a, (S.slot h).exp.at1[j]? = some (some a) →
+      (a = c ∨ (a = asAxiom c ∧ hideable c = true)) := by
+    intro a ha
+    rcases hat1 with h' | h' | ⟨h', hh'⟩ <;> rw [h'] at ha <;> cases ha
+    · exact .inl rfl
+    · exact .inr ⟨rfl, hh'⟩
+  cases hat : (S.slot h).exp.at1[j]? with
+  | none => rw [hat] at he; simp at he
+  | some x =>
+    cases x with
+    | none => rw [hat] at he; simp at he
+    | some a =>
+      have ha := hA a hat
+      rw [hat, hgj, hvj, het] at he
+      simp only at he
+      split at he
+      · -- ungated
+        rename_i hun
+        simp only [List.mem_singleton] at he
+        subst he
+        simp only [Bool.and_eq_true] at hun
+        refine ⟨ha, fun cv caps hind => hX a ha hat cv caps hind,
+          ⟨M[h].reads.all1, false, #[], rfl, ?_, hR1⟩⟩
+        exact hA1 j a _ _ _ hjp hat hgj hvj het hun.1 hun.2
+      · rename_i hun
+        cases hx : M[h].reads.gated.find? (gatedOk S h M[h] j a (S.slot h).exp.g1[j]
+            (S.slot h).exp.v1[j] (if st then M[h].fe.env.tables.find? (·.structName == c.name)
+              else none)) with
+        | none => rw [hx] at he; simp at he
+        | some x =>
+          rw [hx] at he
+          obtain ⟨j', rt, rf⟩ := x
+          simp only at he
+          have hok := Array.find?_some hx
+          unfold gatedOk at hok
+          simp only [Bool.and_eq_true, Bool.or_eq_true] at hok
+          obtain ⟨⟨⟨-, hlt⟩, hrt⟩, hrest⟩ := hok
+          have hve : (S.slot h).exp.v1[j].isEmpty = false → a = c ∧ hideable c = true := by
+            intro hve
+            rcases hvst _ hvj with h' | ⟨hst', hh'⟩
+            · rw [hve] at h'; cases h'
+            · rw [hst'] at hstiff
+              have := hstiff.mp rfl
+              rw [hat] at this
+              cases this
+              exact ⟨rfl, hh'⟩
+          simp only [List.mem_cons] at he
+          rcases he with rfl | he
+          · cases hv : (S.slot h).exp.v1[j].isEmpty with
+            | true =>
+              simp only [hv, ↓reduceIte] at hlt ⊢
+              exact ⟨ha, fun cv caps hind => hX a ha hat cv caps hind,
+                ⟨rt, false, _, rfl, hlt, hrt⟩⟩
+            | false =>
+              simp only [hv, Bool.false_eq_true, ↓reduceIte] at hlt ⊢
+              obtain ⟨rfl, hh'⟩ := hve hv
+              refine ⟨.inr ⟨rfl, hh'⟩, (fun cv caps hind => by unfold asAxiom at hind; cases hind),
+                ⟨rt, false, _, rfl, ?_, hrt⟩⟩
+              unfold asAxiom at hlt ⊢
+              rw [lawsOf_axiomInfo none]
+              exact hlt
+          · cases hv : (S.slot h).exp.v1[j].isEmpty with
+            | true => simp [hv] at he
+            | false =>
+              simp only [hv, Bool.false_eq_true, ↓reduceIte, List.mem_singleton] at he
+              subst he
+              rcases hrest with h' | ⟨hlf, hrf⟩
+              · rw [hv] at h'; cases h'
+              · exact ⟨ha, fun cv caps hind => hX a ha hat cv caps hind,
+                  ⟨rf, false, _, rfl, hlf, hrf⟩⟩
+
+/-- A name of a home's interface is the name of one of its constants,
+presented. -/
+theorem iface_mem {h : Nat} (hh : h < M.size) {n : Name} {e : Presented}
+    (he : e ∈ ifaceOf S h M[h] n) :
+    ∃ j c, (S.slot h).prv.priv[j]? = some c ∧ c.name = n ∧ e ∈ presOf S h M[h] j := by
+  unfold ifaceOf at he
+  rw [List.mem_flatMap] at he
+  obtain ⟨j, -, he⟩ := he
+  cases hc : (S.slot h).prv.priv[j]? with
+  | none => rw [hc] at he; simp at he
+  | some c =>
+    rw [hc] at he
+    simp only [Option.map_some, beq_iff_eq, Option.some.injEq] at he
+    split at he
+    · rename_i hn; exact ⟨j, c, hc, hn, he⟩
+    · simp at he
+
+/-- **The interface of every module of a run is checked once** (by its
+unit's check, `unitOk`, at its home). -/
+theorem RunOk.interfaceOk (hR : RunOk mode S M) (b : Nat) : InterfaceOk (devOf S M) b := by
+  by_cases hb : b < M.size
+  case neg =>
+    have hd := devOf_of_ge (S := S) hb
+    refine ⟨fun n e he => ?_, fun n e he => ?_, fun n e he => ?_, fun n e he => ?_⟩ <;>
+      (rw [hd] at he; simp [emptyModule] at he)
+  have hd := devOf_of_lt (S := S) hb
+  have hown : (devOf S M b).own = envAt M[b].fe (ctxOf (S.mb b)) := by rw [hd]; rfl
+  have hmem : ∀ n e, e ∈ (devOf S M b).iface n →
+      ∃ j c, (S.slot b).prv.priv[j]? = some c ∧ c.name = n ∧ e ∈ presOf S b M[b] j :=
+    fun n e he => iface_mem hb (by rw [hd] at he; exact he)
+  have hname : ∀ {e : Presented} {c : ConstantInfo},
+      (e.ci = c ∨ (e.ci = asAxiom c ∧ hideable c = true)) → e.ci.name = c.name := by
+    intro e c hci
+    rcases hci with h' | ⟨h', -⟩ <;> rw [h'] <;> rfl
+  refine ⟨fun n e he => ?_, fun n e he cv caps hce => ?_, fun n e he => ?_,
+    fun n e he cv mI rP rules hce r hr cvj nP nF hcj T us hT => ?_⟩
+  · obtain ⟨j, c, hc, rfl, he'⟩ := hmem n e he
+    obtain ⟨hci, -, -⟩ := hR.presOf_spec hb hc he'
+    refine ⟨c, by rw [hown]; exact hR.own_find? hb hc, ?_⟩
+    rcases hci with h' | ⟨h', hhide⟩
+    · rw [h']; exact .inl rfl
+    · rw [h']; exact .inr ⟨not_pinned_of_hideable hhide, rfl⟩
+  · obtain ⟨j, c, hc, rfl, he'⟩ := hmem n e he
+    obtain ⟨-, htab, -⟩ := hR.presOf_spec hb hc he'
+    rw [htab cv caps hce, hown, hR.own_findTable? hb hc]
+  · obtain ⟨j, c, hc, rfl, he'⟩ := hmem n e he
+    obtain ⟨hci, htab, r, l2, G, hre, hlaw, hrd⟩ := hR.presOf_spec hb hc he'
+    rw [hre, hown]
+    refine (laws_entry hlaw (hR.lawsGood_home hb hrd) (fun cv caps hce T hT => ?_)
+      (hname hci)).1
+    rw [htab cv caps hce, ← hR.own_findTable? hb hc]
+    exact hT
+  · obtain ⟨j, c, hc, rfl, he'⟩ := hmem n e he
+    obtain ⟨hci, -, -⟩ := hR.presOf_spec hb hc he'
+    have hcrec : c = .recInfo cv mI rP rules := by
+      rcases hci with h' | ⟨h', -⟩
+      · rw [← h', hce]
+      · rw [hce] at h'; unfold asAxiom at h'; cases h'
+    subst hcrec
+    rw [hown] at hcj ⊢
+    -- the unit's recursor check
+    have hu := hR.unit b hb
+    unfold unitOk at hu
+    simp only [Bool.and_eq_true] at hu
+    have hrf := hu.1.1.1.1.1.2
+    rw [← hR.slot b hb, Array.all_eq_true] at hrf
+    have hjs : j < (S.slot b).prv.priv.size := by
+      rcases Nat.lt_or_ge j (S.slot b).prv.priv.size with h' | h'
+      · exact h'
+      · rw [Array.getElem?_eq_none h'] at hc; cases hc
+    have := hrf j hjs
+    have hpj : (S.slot b).prv.priv[j] = .recInfo cv mI rP rules := by
+      rw [Array.getElem?_eq_getElem hjs] at hc
+      exact Option.some.inj hc
+    rw [hpj] at this
+    unfold recFamOk at this
+    simp only [List.all_eq_true] at this
+    have hr' := this r hr
+    have hcj' : M[b].fe.find? r.ctor = some (.ctorInfo cvj nP nF) := by
+      rw [hR.fe_find? hb]; exact hcj
+    rw [hcj'] at hr'
+    simp only at hr'
+    rw [hT] at hr'
+    simp only at hr'
+    revert hr'
+    cases hfT : M[b].fe.find? T with
+    | none => intro h'; cases h'
+    | some cT =>
+      intro h'
+      cases cT with
+      | indInfo cvT capsT =>
+        refine ⟨cvT, capsT, ?_⟩
+        rw [← hR.fe_find? hb]; exact hfT
+      | _ => cases h'
+
+/-! ## The importer's checks -/
+
+/-- **A context constant is a presentation of its source's interface**,
+with that presentation's table, checked against a read set of names
+good in the importer. -/
+theorem RunOk.ctx_pres (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
     {ci : ConstantInfo} (hf : (devOf S M i).context.find? n = some ci) :
-    EntryScoped (readsAlike (devOf S M) i ((devOf S M i).src n)) (devOf S M i).context n ci ∧
-    EntryProjs (devOf S M i).context n ci ∧ BlockIn (devOf S M i).context n ci := by
+    ci.name = n ∧ ∃ e ∈ (devOf S M ((devOf S M i).src n)).iface n, e.ci = ci ∧
+      (devOf S M i).context.findTable? n = formerTable ci e.table ∧
+      ∃ r : ReadSet, e.reads = r.d.keys ∧ lawsOk r (lawsOf e.table e.ci) = true ∧
+        LawsGood (readsAlike (devOf S M) i ((devOf S M i).src n)) (devOf S M i).context r := by
   have hf' := hf
   rw [devOf_of_lt hi] at hf'
   obtain ⟨h, j, hp, hat, hcn, hlt, hl, hlv⟩ := hR.ctx_entry hi hf'
@@ -386,44 +674,94 @@ theorem RunOk.entry (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
       | none => 0) = h
     rw [hp]
   rw [hsrc]
+  refine ⟨hcn, ?_⟩
   have hctx : (devOf S M i).context = ctxOf (S.mb i) := by rw [devOf_of_lt hi]; rfl
+  have hif : (devOf S M h).iface n = ifaceOf S h M[h] n := by rw [devOf_of_lt hh]; rfl
+  rw [hif]
+  obtain ⟨c, hc, hcname⟩ := hR.at?_name hat hh
+  rw [hcn] at hcname
+  have hjp : j < (S.slot h).prv.priv.size := by
+    rcases Nat.lt_or_ge j (S.slot h).prv.priv.size with h' | h'
+    · exact h'
+    · rw [Array.getElem?_eq_none h'] at hc; cases hc
+  have hin : ∀ e ∈ presOf S h M[h] j, e ∈ ifaceOf S h M[h] n := by
+    intro e he
+    unfold ifaceOf
+    rw [List.mem_flatMap]
+    refine ⟨j, List.mem_range.mpr hjp, ?_⟩
+    simp only [hc, Option.map_some, hcname, beq_self_eq_true, ↓reduceIte]
+    exact he
   obtain ⟨hA2, hR2, hA1, hR1, hGt⟩ := unitOk_spec (hR.unit h hh)
   rw [← hR.slot h hh] at hA2 hA1 hGt
-  obtain ⟨h1, h2, h3, h4, h5, h6, h7, hj⟩ := shapeOk_spec (hR.shape hh)
-  -- the table the context presents, at the viewer's level
-  have htab : ∀ (t : Option ProjTable),
+  obtain ⟨h1, h2, h3, h4, -, -, h7, hj⟩ := shapeOk_spec (hR.shape hh)
+  obtain ⟨st, -, -, hstiff, hvst, -, -, hpt, het⟩ := hj j c hc
+  -- the context's table: the home's, at the viewer's level, for a former
+  have htabC : ∀ t : Option ProjTable,
       ((if lvlAt (S.lvl i) h == 2 then (S.slot h).prv.tbls[j]? else (S.slot h).exp.tbls[j]?)
-        = some t) →
-      ∀ cv caps, ci = .indInfo cv caps → ∀ T, (devOf S M i).context.findTable? n = some T →
-        t = some T := by
-    intro t ht cv caps hci T hT
-    rw [hctx] at hT
-    subst hci
-    have := ctx_findTable_slot hp hT hl hs
-    rw [ht] at this
-    exact this
+        = some t) → (∀ cv caps, ci = .indInfo cv caps →
+          t = M[h].fe.env.tables.find? (·.structName == c.name)) →
+      (devOf S M i).context.findTable? n = formerTable ci t := by
+    intro t ht hX
+    rw [hctx, ctxOf_findTable?]
+    unfold MBase.findTable?
+    rw [hp]
+    revert hX
+    cases ci with
+    | indInfo cvI capsI =>
+      intro hX
+      simp only [formerTable]
+      have hs' : h < (S.mb i).slots.size := (MBase.at?_some hat).2.1
+      simp only [hs', ↓reduceDIte]
+      have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs'
+      have hl' : h < (S.mb i).lvl.size := hl
+      simp only [hl', ↓reduceDIte, hsl]
+      have hlv' : (S.mb i).lvl[h] = lvlAt (S.lvl i) h := by
+        unfold lvlAt; simp only [hl, ↓reduceDIte]; rfl
+      rw [hlv', ht, hX cvI capsI rfl]
+      simp only [Option.join_some]
+      cases hq : M[h].fe.env.tables.find? (·.structName == c.name) with
+      | none => rfl
+      | some t' =>
+        have := List.find?_some hq
+        simp only [beq_iff_eq] at this
+        simp [this, hcname]
+    | _ => intro _; rfl
   rcases hlv with hl1 | hl2
   · -- the exported level
     obtain ⟨a, ha, hg, hv⟩ := at?_lvl1 hat hl1
-    have hja : j < (S.slot h).exp.at1.size := by
-      rcases Nat.lt_or_ge j (S.slot h).exp.at1.size with h' | h'
-      · exact h'
-      · rw [Array.getElem?_eq_none h'] at ha; cases ha
-    have hjp : j < (S.slot h).prv.priv.size := by rw [h1]; exact hja
+    have hja : j < (S.slot h).exp.at1.size := by rw [← h1]; exact hjp
     have hgj : (S.slot h).exp.g1[j]? = some (S.slot h).exp.g1[j] :=
       Array.getElem?_eq_getElem (by rw [← h3]; exact hjp)
     have hvj : (S.slot h).exp.v1[j]? = some (S.slot h).exp.v1[j] :=
       Array.getElem?_eq_getElem (by rw [← h4]; exact hjp)
-    have htj : (S.slot h).exp.tbls[j]? = some (S.slot h).exp.tbls[j] :=
-      Array.getElem?_eq_getElem (by rw [← h7]; exact hjp)
-    have ht' : ((if lvlAt (S.lvl i) h == 2 then (S.slot h).prv.tbls[j]?
-        else (S.slot h).exp.tbls[j]?) = some (S.slot h).exp.tbls[j]) := by
+    have ht' : (if lvlAt (S.lvl i) h == 2 then (S.slot h).prv.tbls[j]?
+        else (S.slot h).exp.tbls[j]?) = some (if st then M[h].fe.env.tables.find?
+          (·.structName == c.name) else none) := by
       rw [hl1]; simp only [show ((1 : UInt8) == 2) = false from rfl, Bool.false_eq_true,
-        ↓reduceIte, htj]
+        ↓reduceIte, het]
+    -- a former at the exported level is presented as stored
+    have hX : ∀ cv caps, ci = .indInfo cv caps →
+        (if st then M[h].fe.env.tables.find? (·.structName == c.name) else none) =
+          M[h].fe.env.tables.find? (·.structName == c.name) := by
+      intro cv caps hind
+      have hac : a = c := by
+        rcases hv with ⟨-, rfl⟩ | ⟨-, rfl⟩
+        · obtain ⟨c', hc', hci'⟩ := hR.at?_home hat hh
+          rw [hc] at hc'; cases hc'
+          rcases hci' with h' | ⟨h', -⟩
+          · exact h'
+          · rw [hind] at h'; unfold asAxiom at h'; cases h'
+        · cases hind
+      subst hac
+      rw [hstiff.mpr ha]; rfl
     rw [hgj] at hg
     rw [hvj] at hv
     simp only [Option.getD_some] at hg hv
     have hgG := gateOk_iff.mp hg
+    have hpres := hin
+    unfold presOf at hpres
+    rw [hc] at hpres
+    simp only [ha, hgj, hvj, het, List.mem_cons] at hpres
     by_cases hun : ((S.slot h).exp.g1[j].isEmpty && (S.slot h).exp.v1[j].isEmpty) = true
     · simp only [Bool.and_eq_true] at hun
       have hci : ci = a := by
@@ -431,19 +769,45 @@ theorem RunOk.entry (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
         · rfl
         · rw [Array.isEmpty_iff.mp hun.2, gateOk_nil] at hvc; cases hvc
       subst hci
-      exact laws_entry (hA1 j ci _ _ _ hjp ha hgj hvj htj hun.1 hun.2)
-        (hctx ▸ hR.lawsGood hi hh (lvl2 := false) hl1 (fun p hp => by simp at hp) hR1)
-        (htab _ ht') hcn
-    · obtain ⟨rt, rf, -, hlt', hrt, hrf⟩ :=
-        hGt j a _ _ _ hjp ha hgj hvj htj (Bool.not_eq_true _ ▸ hun)
+      refine ⟨⟨ci, (if st then M[h].fe.env.tables.find? (·.structName == c.name) else none), M[h].reads.all1.d.keys⟩,
+        hpres _ (.inr (by simp [hun])), rfl, htabC _ ht' hX, M[h].reads.all1, rfl,
+        hA1 j ci _ _ _ hjp ha hgj hvj het hun.1 hun.2,
+        hR.lawsGood hi hh (lvl2 := false) hl1 (fun p hp => by simp at hp) hR1⟩
+    · obtain ⟨rt, rf, hmem, hlt', hrt, hrf⟩ :=
+        hGt j a _ _ _ hjp ha hgj hvj het (Bool.not_eq_true _ ▸ hun)
+      have hfind : (M[h].reads.gated.find? (gatedOk S h M[h] j a (S.slot h).exp.g1[j]
+          (S.slot h).exp.v1[j] (if st then M[h].fe.env.tables.find? (·.structName == c.name)
+            else none))).isSome = true := by
+        rw [Array.find?_isSome]
+        refine ⟨(j, rt, rf), hmem, ?_⟩
+        unfold gatedOk
+        simp only [beq_self_eq_true, Bool.true_and, Bool.and_eq_true, Bool.or_eq_true]
+        refine ⟨⟨hlt', hrt⟩, ?_⟩
+        cases hve : (S.slot h).exp.v1[j].isEmpty with
+        | true => exact .inl rfl
+        | false => exact .inr (hrf hve)
+      obtain ⟨x, hx⟩ := Option.isSome_iff_exists.mp hfind
+      obtain ⟨j', rt', rf'⟩ := x
+      have hok := Array.find?_some hx
+      unfold gatedOk at hok
+      simp only [Bool.and_eq_true, Bool.or_eq_true] at hok
+      obtain ⟨⟨⟨-, hlt''⟩, hrt'⟩, hrest⟩ := hok
+      have hun' : ((S.slot h).exp.g1[j].isEmpty && (S.slot h).exp.v1[j].isEmpty) = false :=
+        Bool.not_eq_true _ ▸ hun
+      simp only [hun', Bool.false_eq_true, ↓reduceIte, hx, List.mem_cons] at hpres
       rcases hv with ⟨hvo, rfl⟩ | ⟨hvc, rfl⟩
-      · by_cases hve : (S.slot h).exp.v1[j].isEmpty = true
-        · simp only [hve, ↓reduceIte] at hlt'
-          exact laws_entry hlt' (hctx ▸ hR.lawsGood hi hh (lvl2 := false) hl1 hgG hrt)
-            (htab _ ht') hcn
-        · obtain ⟨hlf, hrf'⟩ := hrf (Bool.not_eq_true _ ▸ hve)
-          refine laws_entry hlf (hctx ▸ hR.lawsGood hi hh (lvl2 := false) hl1 (fun p hp => ?_) hrf')
-            (htab _ ht') hcn
+      · cases hve : (S.slot h).exp.v1[j].isEmpty with
+        | true =>
+          simp only [hve, ↓reduceIte] at hlt'' hpres
+          exact ⟨⟨ci, (if st then M[h].fe.env.tables.find? (·.structName == c.name) else none), rt'.d.keys⟩, hpres _ (.inr (.inl rfl)), rfl,
+            htabC _ ht' hX, rt', rfl, hlt'', hR.lawsGood hi hh (lvl2 := false) hl1 hgG hrt'⟩
+        | false =>
+          simp only [hve, Bool.false_eq_true, ↓reduceIte, List.mem_singleton] at hpres
+          rcases hrest with h' | ⟨hlf, hrf'⟩
+          · rw [hve] at h'; cases h'
+          refine ⟨⟨ci, (if st then M[h].fe.env.tables.find? (·.structName == c.name) else none), rf'.d.keys⟩, hpres _ (.inr (.inr rfl)), rfl,
+            htabC _ ht' hX, rf', rfl, hlf,
+            hR.lawsGood hi hh (lvl2 := false) hl1 (fun p hp => ?_) hrf'⟩
           rcases Array.mem_append.mp hp with hp | hp
           · exact hgG p hp
           · exact gateOk_iff.mp hvo p hp
@@ -451,49 +815,57 @@ theorem RunOk.entry (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Name}
           cases hq : (S.slot h).exp.v1[j].isEmpty with
           | false => rfl
           | true => rw [Array.isEmpty_iff.mp hq, gateOk_nil] at hvc; cases hvc
-        rw [hve] at hlt'
-        simp only [Bool.false_eq_true, ↓reduceIte] at hlt'
-        exact laws_entry hlt' (hctx ▸ hR.lawsGood hi hh (lvl2 := false) hl1 hgG hrt)
-          (fun cv caps he => (nomatch he)) hcn
+        simp only [hve, Bool.false_eq_true, ↓reduceIte] at hlt'' hpres
+        refine ⟨⟨asAxiom a, none, rt'.d.keys⟩, hpres _ (.inr (.inl rfl)), rfl,
+          by rw [htabC _ ht' (fun cv caps he => nomatch he)]; rfl,
+          rt', rfl, ?_, hR.lawsGood hi hh (lvl2 := false) hl1 hgG hrt'⟩
+        show lawsOk rt' (lawsOf none (asAxiom a)) = true
+        exact hlt''
   · -- the private level
     have hpj := at?_lvl2 hat hl2
-    have hjp : j < (S.slot h).prv.priv.size := by
-      rcases Nat.lt_or_ge j (S.slot h).prv.priv.size with h' | h'
-      · exact h'
-      · rw [Array.getElem?_eq_none h'] at hpj; cases hpj
-    have htj : (S.slot h).prv.tbls[j]? = some (S.slot h).prv.tbls[j] :=
-      Array.getElem?_eq_getElem (by rw [← h2]; exact hjp)
+    have hcc : c = ci := by rw [hc] at hpj; exact Option.some.inj hpj
+    subst hcc
     have ht' : ((if lvlAt (S.lvl i) h == 2 then (S.slot h).prv.tbls[j]?
-        else (S.slot h).exp.tbls[j]?) = some (S.slot h).prv.tbls[j]) := by
-      rw [hl2]; simp only [show ((2 : UInt8) == 2) = true from rfl, ↓reduceIte, htj]
-    exact laws_entry (hA2 j ci _ hpj htj)
-      (hctx ▸ hR.lawsGood hi hh (lvl2 := true) hl2 (fun p hp => by simp at hp) hR2)
-      (htab _ ht') hcn
+        else (S.slot h).exp.tbls[j]?) = some (M[h].fe.env.tables.find? (·.structName == c.name))) := by
+      rw [hl2]; simp only [show ((2 : UInt8) == 2) = true from rfl, ↓reduceIte, hpt]
+    have hpres := hin
+    unfold presOf at hpres
+    rw [hc] at hpres
+    refine ⟨⟨c, ((S.slot h).prv.tbls[j]?).join, M[h].reads.all2.d.keys⟩,
+      hpres _ (List.mem_cons_self ..), rfl, ?_, M[h].reads.all2, rfl, ?_,
+      hR.lawsGood hi hh (lvl2 := true) hl2 (fun p hp => by simp at hp) hR2⟩
+    · rw [hpt]; exact htabC _ ht' fun _ _ _ => rfl
+    · rw [hpt]; exact hA2 j c _ hc hpt
 
-/-! ## The local checks -/
-
-/-- **A modular run's checks are the local checks.** -/
-theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
-    LocalOk mode natOpPinSets (devOf S M) i := by
+/-- **Every module of a run passes its importer's checks.** -/
+theorem RunOk.importOk (hR : RunOk mode S M) (i : Nat) :
+    ImportOk mode natOpPinSets (devOf S M) i := by
   by_cases hi : i < M.size
   case neg =>
     have hd := devOf_of_ge (S := S) hi
     refine { below := ?_, src_lt := ?_, nodup := ?_, accepted := ?_, compared_own := ?_,
-             context_le := ?_, scoping := ?_, tables := ?_, projs := ?_, blocks := ?_,
-             recFam := ?_, tables_mem := ?_, res_context := ?_, res_own := ?_ } <;>
+             presented := ?_, projs := ?_, blocks := ?_, tables_mem := ?_, res_context := ?_,
+             res_own := ?_ } <;>
       simp [hd, emptyModule, Env.find?, AcceptedFrom.nil]
   have hd := devOf_of_lt (S := S) hi
+  have hent : ∀ n ci, (devOf S M i).context.find? n = some ci →
+      EntryProjs (devOf S M i).context n ci ∧ BlockIn (devOf S M i).context n ci := by
+    intro n ci hf
+    obtain ⟨hn, e, -, rfl, ht, r, -, hlaw, hg⟩ := hR.ctx_pres hi hf
+    refine (laws_entry hlaw hg (fun cv caps hce T hT => ?_) hn).2
+    rw [ht, hce] at hT
+    exact hT
   refine { below := ?_, src_lt := hR.src_lt hi, nodup := ?_, accepted := fun _ => hR.accepted hi,
-           compared_own := ?_, context_le := hR.context_le hi, scoping := ?_,
-           tables := hR.tables hi, projs := ?_,
-           blocks := ?_, recFam := hR.recFam hi, tables_mem := ?_,
-           res_context := hR.res_context hi, res_own := ?_ }
+           compared_own := ?_, presented := fun n ci hf => ?_,
+           projs := fun n ci hf => (hent n ci hf).1, blocks := fun n ci hf => (hent n ci hf).2,
+           tables_mem := ?_, res_context := hR.res_context hi, res_own := ?_ }
   · rw [hd]; exact hR.below i hi
   · rw [hd]; exact ctxOf_nodup _
   · rw [hd]; intro h; cases h
-  · exact fun n ci hf => (hR.entry hi hf).1
-  · exact fun n ci hf => (hR.entry hi hf).2.1
-  · exact fun n ci hf => (hR.entry hi hf).2.2
+  · obtain ⟨-, e, he, hec, ht, r, hre, -, hg⟩ := hR.ctx_pres hi hf
+    refine ⟨e, he, hec, ht, fun d hd' => ?_⟩
+    rw [hre] at hd'
+    exact of_readsAlike (hg.d d (Std.HashMap.mem_iff_contains.mp (Std.HashMap.mem_keys.mp hd')))
   · rw [hd]; exact ctxOf_tables_mem _
   · rw [hd]
     intro n ci hown hctx
@@ -512,5 +884,13 @@ theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
     simp only [hown]
     show _ = (if M[i].flags.contains n = true then _ else _)
     rfl
+
+/-! ## The local checks -/
+
+/-- **A modular run's checks are the local checks**: every interface
+checked at its home, every importer's checks at the importer. -/
+theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
+    LocalOk mode natOpPinSets (devOf S M) i :=
+  LocalOk.of_interface (fun b _ => hR.interfaceOk b) (hR.importOk i)
 
 end ConLeche.Cached.Mod

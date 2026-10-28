@@ -33,17 +33,37 @@ universe w
 /-- A type former of `C`. -/
 @[expose] def FormerIn (C : Env) (n : Name) : Prop := ∃ cv caps, C.find? n = some (.indInfo cv caps)
 
-/-- **A context, read from its sources** (see the module docstring). -/
-structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
-    (aC : Name → (Name → Nat) → Term) where
-  /-- the source environment of each name -/
-  E : Name → Env
-  /-- its model -/
-  m : (n : Name) → EnvModelM V μ (E n)
-  /-- the part of it the context reads as the source does -/
-  R : Name → Env
+/-- **What a context and a source agree on**, without the leaves: every
+name of `R` stored in `E` is stored in `C` and `E` with one constant
+value, its projection entries are the same, and the literal guards agree
+wherever their names are (`ReadAgree` with its leaf clause dropped). -/
+structure ReadAgreeS (R C E : Env) : Prop where
+  find : ∀ d, (R.find? d).isSome = true → (E.find? d).isSome = true →
+    ∃ ciC ciE, C.find? d = some ciC ∧ E.find? d = some ciE ∧
+      ciC.toConstantVal = ciE.toConstantVal
+  proj : ∀ T i, (R.find? T).isSome = true → (E.find? T).isSome = true →
+    (∃ cv caps, C.find? T = some (.indInfo cv caps)) →
+    (∃ cv caps, E.find? T = some (.indInfo cv caps)) → C.findProj? T i = E.findProj? T i
+  nat : (∀ n ∈ natLitNames, (R.find? n).isSome = true ∧ (E.find? n).isSome = true) →
+    natLitSupported C = natLitSupported E
+  str : (∀ n ∈ strLitNames, (R.find? n).isSome = true ∧ (E.find? n).isSome = true) →
+    strLitSupported C = strLitSupported E
+
+/-- With one leaf per name read alike, the agreement is `ReadAgree`. -/
+theorem ReadAgreeS.leaves {R C E : Env} {aC aE : Name → (Name → Nat) → Term}
+    (h : ReadAgreeS R C E)
+    (hl : ∀ d, (R.find? d).isSome = true → (E.find? d).isSome = true → aC d = aE d) :
+    ReadAgree R C E aC aE := by
+  refine ⟨fun d hR hE => ?_, h.proj, h.nat, h.str⟩
+  obtain ⟨ciC, ciE, h1, h2, h3⟩ := h.find d hR hE
+  exact ⟨ciC, ciE, h1, h2, h3, hl d hR hE⟩
+
+/-- **A context, read from its sources, without models** (see the module
+docstring): per stored name `n`, the source environment `E n` and the
+part `R n` of it the context reads as the source does. -/
+structure CtxRead (C : Env) (E R : Name → Env) : Prop where
   R_sub : ∀ n d ci, (R n).find? d = some ci → (E n).find? d = some ci ∧ (C.find? d).isSome = true
-  agree : ∀ n, (C.find? n).isSome = true → ReadAgree (R n) C (E n) aC (m n).base2.acval
+  agree : ∀ n, (C.find? n).isSome = true → ReadAgreeS (R n) C (E n)
   entry : ∀ n ci, C.find? n = some ci → ∃ ci', (E n).find? n = some ci' ∧ Refines n ci ci'
   self : ∀ n, (C.find? n).isSome = true → ((R n).find? n).isSome = true
   scope : ∀ n ci, C.find? n = some ci → EntryScoped (R n) C n ci
@@ -64,8 +84,6 @@ structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
     (∃ ci', (E n).find? c = some ci' ∧ ci'.isIndKind = true) →
     EntryScopedP (fun d => (C.find? d).isSome = true → ((E n).find? d).isSome = true →
       ((R n).find? d).isSome = true) C c ci
-  cover : ∀ n, LfpCover (m n) []
-  eta : ∀ n, ConLeche.EtaFamiliesClosed (E n)
   tables : ∀ T ci, C.find? T = some ci → C.findTable? T =
     match ci with
     | .indInfo .. => (E T).findTable? T
@@ -74,6 +92,23 @@ structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
   blocks : ∀ n ci, C.find? n = some ci → BlockIn C n ci
   tables_mem : ∀ t ∈ C.tables, C.findTable? t.structName = some t
   nodup : NodupNames C
+
+/-- **A context, read from its sources' models**: the reading
+(`CtxRead`), a covered model of each source, and the context's leaves
+`aC`, the sources' leaves on every name read alike. -/
+structure CtxSrc (V : Type w) [SetTheory V] (μ : CheckMode) (C : Env)
+    (aC : Name → (Name → Nat) → Term) where
+  /-- the source environment of each name -/
+  E : Name → Env
+  /-- its model -/
+  m : (n : Name) → EnvModelM V μ (E n)
+  /-- the part of it the context reads as the source does -/
+  R : Name → Env
+  read : CtxRead C E R
+  leafEq : ∀ n, (C.find? n).isSome = true → ∀ d, ((R n).find? d).isSome = true →
+    ((E n).find? d).isSome = true → aC d = (m n).base2.acval d
+  cover : ∀ n, LfpCover (m n) []
+  eta : ∀ n, ConLeche.EtaFamiliesClosed (E n)
   closed : ∀ n ψ, Term.Closed (aC n ψ)
   wd : ∀ n ψ (ρ : Nat → V), WellDenoted V ρ (aC n ψ)
 
@@ -255,6 +290,40 @@ theorem projsFormer_of_natFragOk {E E' : Env} {c : Name} :
 namespace CtxSrc
 
 variable (S : CtxSrc V μ C aC)
+
+theorem R_sub : ∀ n d ci, (S.R n).find? d = some ci →
+    (S.E n).find? d = some ci ∧ (C.find? d).isSome = true := S.read.R_sub
+theorem agree (n : Name) (hn : (C.find? n).isSome = true) :
+    ReadAgree (S.R n) C (S.E n) aC (S.m n).base2.acval :=
+  (S.read.agree n hn).leaves (S.leafEq n hn)
+theorem entry : ∀ n ci, C.find? n = some ci → ∃ ci', (S.E n).find? n = some ci' ∧ Refines n ci ci' :=
+  S.read.entry
+theorem self : ∀ n, (C.find? n).isSome = true → ((S.R n).find? n).isSome = true := S.read.self
+theorem scope : ∀ n ci, C.find? n = some ci → EntryScoped (S.R n) C n ci := S.read.scope
+theorem same : ∀ n d, ((S.R n).find? d).isSome = true →
+    (((∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) ∧
+      ∃ ci, (S.E n).find? d = some ci ∧ ci.isIndKind = true) ∨ d ∈ pinnedNames) →
+    C.find? d = (S.E n).find? d := S.read.same
+theorem recFam : ∀ n cv mI rP rules, C.find? n = some (.recInfo cv mI rP rules) → ∀ r ∈ rules,
+    ∀ cvj nP nF, (S.E n).find? r.ctor = some (.ctorInfo cvj nP nF) → ∀ T us,
+      cvj.type.piResult.getAppFn = .const T us →
+      ∃ cvT capsT, (S.E n).find? T = some (.indInfo cvT capsT) := S.read.recFam
+theorem deep : ∀ n c ci, ((S.R n).find? c).isSome = true → C.find? c = some ci →
+    ci.isIndKind = true → (∃ ci', (S.E n).find? c = some ci' ∧ ci'.isIndKind = true) →
+    EntryScopedP (fun d => (C.find? d).isSome = true → ((S.E n).find? d).isSome = true →
+      ((S.R n).find? d).isSome = true) C c ci := S.read.deep
+theorem tables : ∀ T ci, C.find? T = some ci → C.findTable? T =
+    match ci with
+    | .indInfo .. => (S.E T).findTable? T
+    | _ => none := S.read.tables
+include S in
+theorem projs : ∀ n ci, C.find? n = some ci → EntryProjs C n ci := S.read.projs
+include S in
+theorem blocks : ∀ n ci, C.find? n = some ci → BlockIn C n ci := S.read.blocks
+include S in
+theorem tables_mem : ∀ t ∈ C.tables, C.findTable? t.structName = some t := S.read.tables_mem
+include S in
+theorem nodup : NodupNames C := S.read.nodup
 
 theorem storedC {n d : Name} (h : ((S.R n).find? d).isSome = true) : (C.find? d).isSome = true := by
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h

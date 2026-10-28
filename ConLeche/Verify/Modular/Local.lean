@@ -7,8 +7,11 @@ public section
 /-!
 # A modular run's checks are the local checks (task #370)
 
-`RunOk.localOk`: every module of the development a modular run stands
-for (`devOf`) passes `ConLeche.Modular.LocalOk`.
+The lookups, levels, resolutions and good reads of a modular run, from
+which `ConLeche/Verify/Modular/Scope.lean` proves that every module's
+interface passes `ConLeche.Modular.InterfaceOk` and every module passes
+`ConLeche.Modular.ImportOk`, hence (`RunOk.localOk`)
+`ConLeche.Modular.LocalOk`.
 -/
 
 namespace ConLeche.Cached.Mod
@@ -405,29 +408,6 @@ theorem not_pinned_of_hideable {c : ConstantInfo} (h : hideable c = true) :
   intro hm
   simp [hm] at h
 
-theorem RunOk.context_le (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) (n : Name)
-    (ci : ConstantInfo) (hf : (devOf S M i).context.find? n = some ci) :
-    ∃ ci', (devOf S M ((devOf S M i).src n)).own.find? n = some ci' ∧ Refines n ci ci' := by
-  rw [devOf_of_lt hi] at hf ⊢
-  obtain ⟨h, j, hp, hat, hn, hlt, -⟩ := hR.ctx_entry hi hf
-  have hh : h < M.size := Nat.lt_trans hlt hi
-  have hsrc : (moduleOf S i M[i]).src n = h := by
-    show (match (S.mb i).pick? n with
-      | some (h, _, _) => h
-      | none => 0) = h
-    rw [hp]
-  rw [hsrc, devOf_of_lt hh]
-  obtain ⟨c, hc, hci⟩ := hR.at?_home hat hh
-  have hcn : c.name = n := by
-    rcases hci with rfl | ⟨rfl, -⟩
-    · exact hn
-    · exact hn
-  refine ⟨c, ?_, ?_⟩
-  · rw [← hcn]; exact hR.own_find? hh hc
-  · rcases hci with rfl | ⟨rfl, hhide⟩
-    · exact .inl rfl
-    · exact .inr ⟨hcn ▸ not_pinned_of_hideable hhide, rfl⟩
-
 /-! ## The home's own lookups -/
 
 /-- A home's own constant is not in its context. -/
@@ -519,65 +499,6 @@ theorem RunOk.fe_find? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) (n : Na
   obtain ⟨hc, -, -⟩ := viewRun_trace hrun (canonB_viewOf (S.mb h))
   exact congrFun hc.twin.find n |>.trans (mkFEnv_find? _ n)
 
-theorem RunOk.recFam (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) :
-    ∀ n cv mI rP rules, (devOf S M i).context.find? n = some (.recInfo cv mI rP rules) →
-      ∀ r ∈ rules, ∀ cvj nP nF,
-        (devOf S M ((devOf S M i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
-        ∀ T us, cvj.type.piResult.getAppFn = .const T us →
-          ∃ cvT capsT, (devOf S M ((devOf S M i).src n)).own.find? T = some (.indInfo cvT capsT) := by
-  intro n cv mI rP rules hf r hr cvj nP nF hcj T us hT
-  rw [devOf_of_lt hi] at hf hcj ⊢
-  obtain ⟨h, j, hp, hat, hcn, hlt, -⟩ := hR.ctx_entry hi hf
-  have hh : h < M.size := Nat.lt_trans hlt hi
-  have hsrc : (moduleOf S i M[i]).src n = h := by
-    show (match (S.mb i).pick? n with
-      | some (h, _, _) => h
-      | none => 0) = h
-    rw [hp]
-  rw [hsrc, devOf_of_lt hh] at hcj ⊢
-  obtain ⟨c, hc, hci'⟩ := hR.at?_home hat hh
-  have hcrec : c = .recInfo cv mI rP rules := by
-    rcases hci' with rfl | ⟨h', -⟩
-    · rfl
-    · unfold asAxiom at h'; cases h'
-  subst hcrec
-  -- the unit's recursor check
-  have hu := hR.unit h hh
-  unfold unitOk at hu
-  simp only [Bool.and_eq_true] at hu
-  have hrf := hu.1.1.1.1.1.2
-  rw [← hR.slot h hh, Array.all_eq_true] at hrf
-  have hjs : j < (S.slot h).prv.priv.size := by
-    rcases Nat.lt_or_ge j (S.slot h).prv.priv.size with h' | h'
-    · exact h'
-    · rw [Array.getElem?_eq_none h'] at hc; cases hc
-  have := hrf j hjs
-  have hpj : (S.slot h).prv.priv[j] = .recInfo cv mI rP rules := by
-    rw [Array.getElem?_eq_getElem hjs] at hc
-    exact Option.some.inj hc
-  rw [hpj] at this
-  unfold recFamOk at this
-  simp only [List.all_eq_true] at this
-  have hr' := this r hr
-  have hcj' : M[h].fe.find? r.ctor = some (.ctorInfo cvj nP nF) := by
-    rw [hR.fe_find? hh]; exact hcj
-  clear hcj
-  rw [hcj'] at hr'
-  simp only at hr'
-  rw [hT] at hr'
-  simp only at hr'
-  revert hr'
-  cases hfT : M[h].fe.find? T with
-  | none => intro h'; cases h'
-  | some cT =>
-    intro h'
-    cases cT with
-    | indInfo cvT capsT =>
-      refine ⟨cvT, capsT, ?_⟩
-      show (envAt M[h].fe (ctxOf (S.mb h))).find? T = _
-      rw [← hR.fe_find? hh]; exact hfT
-    | _ => cases h'
-
 /-! ## Tables -/
 
 /-- **A home's own table is its environment's.** -/
@@ -602,78 +523,6 @@ theorem RunOk.own_findTable? (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {
       have := (MBase.findTable?_some ht).2
       rw [← ctxOf_find?, hR.own_not_ctx hh hc] at this
       cases this
-
-theorem RunOk.tables (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) :
-    ∀ T ci, (devOf S M i).context.find? T = some ci →
-    (devOf S M i).context.findTable? T =
-      match ci with
-      | .indInfo .. => (devOf S M ((devOf S M i).src T)).own.findTable? T
-      | _ => none := by
-  intro T ci hf
-  rw [devOf_of_lt hi] at hf ⊢
-  obtain ⟨h, j, hp, hat, hcn, hlt, hl, hlv⟩ := hR.ctx_entry hi hf
-  have hh : h < M.size := Nat.lt_trans hlt hi
-  have hsrc : (moduleOf S i M[i]).src T = h := by
-    show (match (S.mb i).pick? T with
-      | some (h, _, _) => h
-      | none => 0) = h
-    rw [hp]
-  rw [hsrc, devOf_of_lt hh]
-  show (ctxOf (S.mb i)).findTable? T = _
-  rw [ctxOf_findTable?]
-  obtain ⟨c, hc, hci'⟩ := hR.at?_home hat hh
-  cases ci with
-  | indInfo cvI capsI =>
-    have hci : c = .indInfo cvI capsI := by
-      rcases hci' with rfl | ⟨h', -⟩
-      · rfl
-      · unfold asAxiom at h'; cases h'
-    subst hci
-    show _ = (envAt M[h].fe (ctxOf (S.mb h))).findTable? T
-    rw [← hcn, hR.own_findTable? hh hc]
-    obtain ⟨-, -, -, -, -, -, -, hj⟩ := shapeOk_spec (hR.shape hh)
-    obtain ⟨st, hst, -, hstiff, -, -, -, hpt, het⟩ := hj j _ hc
-    unfold MBase.findTable?
-    rw [hcn, hp]
-    simp only
-    have hs : h < (S.mb i).slots.size := by
-      have := (MBase.at?_some hat).2.1; exact this
-    simp only [hs, ↓reduceDIte]
-    have hsl : (S.mb i).slots[h].get = S.slot h := Store.slot_eq S hs
-    have hl' : h < (S.mb i).lvl.size := hl
-    simp only [hl', ↓reduceDIte, hsl]
-    have hlv' : (S.mb i).lvl[h] = lvlAt (S.lvl i) h := by
-      unfold lvlAt; simp only [hl, ↓reduceDIte]; rfl
-    rw [hlv']
-    -- the table found, whichever level
-    have hsel : ((if lvlAt (S.lvl i) h == 2 then (S.slot h).prv.tbls[j]?
-        else (S.slot h).exp.tbls[j]?)).join =
-        M[h].fe.env.tables.find? (·.structName == (ConstantInfo.indInfo cvI capsI).name) := by
-      rcases hlv with h1 | h2
-      · rw [h1]
-        simp only [show ((1 : UInt8) == 2) = false from rfl, Bool.false_eq_true, ↓reduceIte]
-        -- at the exported level the former is presented as stored
-        obtain ⟨a, ha1, -, hv⟩ := at?_lvl1 hat h1
-        have hst' : st = true := by
-          rw [hstiff, ha1]
-          rcases hv with ⟨-, rfl⟩ | ⟨-, h'⟩
-          · rfl
-          · cases h'
-        rw [het, hst']
-        rfl
-      · rw [h2]
-        simp only [show ((2 : UInt8) == 2) = true from rfl, ↓reduceIte]
-        rw [hpt]
-        rfl
-    rw [hsel, hcn]
-    cases hq : M[h].fe.env.tables.find? (·.structName == T) with
-    | none => rfl
-    | some t =>
-      have := List.find?_some hq
-      simp [this]
-  | _ =>
-    unfold MBase.findTable?
-    rw [hp]
 
 /-! ## The first visible alternate, and qualified names -/
 

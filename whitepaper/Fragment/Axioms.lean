@@ -3,6 +3,8 @@ module
 public import Fragment.Consistency
 public import Fragment.Modular
 public import Fragment.ModularModel
+public import Fragment.ModularInstance
+public import Fragment.ModularSyntactic
 public import Fragment.Install
 public import Fragment.Access
 public import Fragment.UniformBeta
@@ -547,9 +549,24 @@ info: 'Fragment.Checks.blockModel' depends on axioms: [propext, Classical.choice
 #guard_msgs in #print axioms Fragment.Checks.blockModel
 
 /--
-info: 'Fragment.reads_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'Fragment.PReads.model' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
-#guard_msgs in #print axioms Fragment.reads_model
+#guard_msgs in #print axioms Fragment.PReads.model
+
+/--
+info: 'Fragment.Development.modular' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Development.modular
+
+/--
+info: 'Fragment.fragmentSemantics' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.fragmentSemantics
+
+/--
+info: 'Fragment.Syntactic.syntacticSemantics' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Syntactic.syntacticSemantics
 
 /--
 info: 'Fragment.modular' depends on axioms: [propext, Classical.choice, Quot.sound]
