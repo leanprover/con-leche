@@ -6572,24 +6572,24 @@
    450    imports : ∀ j ∈ (dev i).imports, j < i
    451    reads : FromViews dev i (dev i).own
 
-== ConLeche/Cached/ModIso.lean#L182-L188
-   182  /-- **A module checked in isolation**: its records, installed and
-   183  checked by the declaration fold from the canonical index of its context
-   184  built from its imports' units (`isoCtx`); the result is its own
-   185  environment (its constants and tables, then the context's). -/
-   186  def checkModuleIsolated (mode : CheckMode) (pins : List NatOpPinSet) (slot : Nat → ModSlot)
-   187      (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
-   188    checkDeclsAt mode pins (isoIndex slot lv) ds
+== ConLeche/Cached/ModIso.lean#L280-L286
+   280  /-- **A module checked in isolation**: its records, installed and
+   281  checked by the declaration fold from the canonical index of its context
+   282  built from its imports' units (`isoCtx`); the result is its own
+   283  environment (its constants and tables, then the context's). -/
+   284  def checkModuleIsolated (mode : CheckMode) (pins : List NatOpPinSet) (slot : Nat → ModSlot)
+   285      (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
+   286    checkDeclsAt mode pins (isoIndex slot lv) ds
 
-== ConLeche/Verify/Modular/IsoCtx.lean#L674-L681
-   674  context built from its imports' units alone — give the same verdict:
-   675  the same error at the same position, or the same installed constants and
-   676  tables (over that context). -/
-   677  theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
-   678      (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
-   679      checkModuleIsolated mode pins S.slot (S.lvl i) ds =
-   680        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
-   681    checkDeclsAt_over (baseLike_isoCtx hI i) ds
+== ConLeche/Verify/Modular/IsoCtx.lean#L580-L587
+   580  context built from its imports' units alone — give the same verdict:
+   581  the same error at the same position, or the same installed constants and
+   582  tables (over that context). -/
+   583  theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
+   584      (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
+   585      checkModuleIsolated mode pins S.slot (S.lvl i) ds =
+   586        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
+   587    checkDeclsAt_over (baseLike_isoCtx hI i) ds
 
 == ConLeche/MainTheorem.lean#L127-L137
    127  /-- **The modular theorem.**  If every module of a development up to

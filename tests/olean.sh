@@ -39,6 +39,9 @@ case_ "a search path of two directories" 0 --olean --search-path=$TMPDIR:$LIB Ti
 # import refuses the pair ("environment already contains"), and so does
 # the merge (a reject: the input says two contradicting things)
 case_ "conflicting constants in two modules" 1 --olean --search-path=$LIB ClashA ClashB
+# the same, with one of the two outside every module's view (modular
+# accepts it, below)
+case_ "conflicting constants in one closure" 1 --olean --search-path=$LIB:$(dirname "$(dirname "$(elan which lean 2>/dev/null || command -v lean)")")/lib/lean NlM
 
 # --- usage --------------------------------------------------------------
 case_ "--olean without a search path" 3 --olean Tiny
@@ -147,6 +150,26 @@ modular_cases() {
   case_ "modular: a public import re-exports [$MOD]" 0 --olean $MOD --search-path=$MSP ReC
   case_ "modular: a private definition behind an exported theorem [$MOD]" 0 --olean $MOD --search-path=$MSP PrivUse
   case_ "modular: --keep-going [$MOD]" 0 --olean $MOD --keep-going --search-path=$MSP PrivUse ReC
+  # the loaded set (Lean's importModulesCore): `import all LdB` loads
+  # LdB's private import LdX too, so LdB's definition unfolds through it
+  case_ "modular: import all loads the private imports [$MOD]" 0 --olean $MOD --search-path=$MSP LdM
+  # NlX is in NlM's closure (NlB imports it privately) but not loaded by
+  # NlM, whose `nl` is NlY's: the two never meet (the merge rejects them:
+  # below); an isolated module never reads NlX's unit
+  case_ "modular: a clashing name outside the loaded set [$MOD]" 0 --olean $MOD --search-path=$MSP NlM
+  # a private constant exported with its value (privateInPublic) whose
+  # value reads a private-only constant: presented as an assumption
+  case_ "modular: an exported value reading a private-only constant [$MOD]" 0 --olean $MOD --search-path=$MSP PoM
+  # ReB's `public import ReA` turned private: ReC no longer loads ReA, and
+  # its theorem about `r` is rejected (Lean would not have elaborated it)
+  mcorrupt "modular: a public import chain broken" 1 ReB.olean \
+    "for e in imps:
+      if b[e + 17] == 1: b[e + 17] = 0" ReC
+  # NlB's import of NlX made public: NlM loads both `nl`s, different
+  # constants under one name that meet (Lean refuses such an import)
+  mcorrupt "modular: two constants of one name that meet" 1 NlB.olean \
+    "for e in imps:
+      b[e + 17] = 1" NlM
   # `import all HidA` turned into a plain import: `h` is an assumption in
   # the context, and the private theorem that unfolds it is rejected
   # (Lean would not have elaborated it)

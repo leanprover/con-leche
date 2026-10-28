@@ -1,7 +1,8 @@
 module
 
 public import ConLeche.MainTheorem
-public import ConLeche.Verify.Modular.IsoRun
+public import ConLeche.Verify.Modular.Isolated
+public import ConLeche.Verify.Modular.IsoCtx
 meta import ConLeche.Cached.ModIso
 
 public section
@@ -10,13 +11,16 @@ public section
 # The isolated check and the store's views (task #373)
 
 A modular run checks every module either at its view of one store
-(`--modular`) or in an environment of its own built from its imports'
-units (`--modular=isolated`).  The theorems that make the two one
-check are pinned here at Lean's three axioms, and the isolated mode's
+(`--modular`) or in an environment of its own built from the units it
+reads (`--modular=isolated`).  The theorems that make the two one check
+— a store run is an isolated run of its units (`RunOk.isoRunOk`), an
+isolated run a store run at the store of its units (`IsoRunOk.storeOk`)
+— are pinned here at Lean's three axioms, and the isolated mode's
 capstone is assembled: an isolated accept gives every module of the
-isolated development a model (`modular_model_exists` at
-`Mod.isoDevOf`, its hypothesis `Mod.IsoRunOk.localOk`).  A few
-`#guard`s evaluate the context construction on a toy store.
+development it stands for a model (`modular_model_exists` at
+`Mod.isoRunDev`, its hypothesis `Mod.IsoRunOk.localOk`).  A few
+`#guard`s evaluate the context construction, its lookup and its
+duplicates' check on a toy set of units.
 -/
 
 namespace ConLecheTests.ModIso
@@ -32,16 +36,22 @@ info: 'ConLeche.Cached.Mod.checkAtView_isolated' depends on axioms: [propext, Cl
 #print axioms checkAtView_isolated
 
 /--
-info: 'ConLeche.Cached.Mod.RunOk.isoRunOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.Mod.RunOk.isoStoreOk' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms RunOk.isoRunOk
+#print axioms RunOk.isoStoreOk
 
 /--
-info: 'ConLeche.Cached.Mod.IsoRunOk.runOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.Mod.IsoStoreOk.runOk' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms IsoRunOk.runOk
+#print axioms IsoStoreOk.runOk
+
+/--
+info: 'ConLeche.Cached.Mod.IsoRunOk.storeOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms IsoRunOk.storeOk
 
 /--
 info: 'ConLeche.Cached.Mod.IsoRunOk.localOk' depends on axioms: [propext, Classical.choice, Quot.sound]
@@ -49,28 +59,36 @@ info: 'ConLeche.Cached.Mod.IsoRunOk.localOk' depends on axioms: [propext, Classi
 #guard_msgs in
 #print axioms IsoRunOk.localOk
 
+/--
+info: 'ConLeche.Cached.Mod.RunOk.isoRunOk' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms RunOk.isoRunOk
+
 /-! ## The isolated mode's capstone -/
 
 universe w
 
 /-- **An isolated accept has a model**: one assignment of sets to the
 qualified names, every proof the point, under which every module's own
-environment — its constants over the context built from its imports'
-units — has a model. -/
-example (V : Type w) [SetTheory V] {S : Store} {M : Array ModData}
-    (h : IsoRunOk .verified S M) (i : Nat) :
+environment — its constants over the context built from the units it
+reads — has a model. -/
+example (V : Type w) [SetTheory V] {slots : Array (Thunk ModSlot)} {M : Array ModData}
+    (h : IsoRunOk .verified slots M) (i : Nat) :
     ∃ G : Modular.Key → (LevelParam → Nat) → V,
       (∀ n lps T φ, G (.proof n lps T) φ = SetTheory.pt) ∧
-      ∀ j ≤ i, ∃ m : Model V (isoDevOf S M j).own,
-        ∀ n, ((isoDevOf S M j).own.find? n).isSome = true → m.cval n = G ((isoDevOf S M j).res n) :=
-  modular_model_exists V natOpPinSets (isoDevOf S M) i fun j _ => h.localOk j
+      ∀ j ≤ i, ∃ m : Model V (isoRunDev slots M j).own,
+        ∀ n, ((isoRunDev slots M j).own.find? n).isSome = true →
+          m.cval n = G ((isoRunDev slots M j).res n) :=
+  modular_model_exists V natOpPinSets (isoRunDev slots M) i fun j _ => h.localOk j
 
-/-- **So has a store accept, in the isolated development**: a store run
-is an isolated run (`RunOk.isoRunOk`). -/
+/-- **So has a store accept, as an isolated run of its units**
+(`RunOk.isoRunOk`). -/
 example (V : Type w) [SetTheory V] {S : Store} {M : Array ModData}
-    (h : RunOk .verified S M) (hI : IdxOk S) (i : Nat) :
-    ∀ j ≤ i, ∀ c ∈ (isoDevOf S M j).own.consts, c.toConstantVal.type = .const falseName [] → False :=
-  modular_no_False V natOpPinSets (isoDevOf S M) i fun j _ => h.localOk_iso hI j
+    (h : RunOk .verified S M) (i : Nat) :
+    ∀ j ≤ i, ∀ c ∈ (isoRunDev S.slots (ownData M) j).own.consts,
+      c.toConstantVal.type = .const falseName [] → False :=
+  modular_no_False V natOpPinSets (isoRunDev S.slots (ownData M)) i fun j _ => h.isoRunOk.localOk j
 
 /-! ## The context on a toy store -/
 
@@ -112,5 +130,19 @@ def slots : Nat → ModSlot
 -- A module not loaded presents nothing (and is not read).
 #guard (isoCtx slots (ByteArray.mk #[0, 1, 0])).find? (nm "b") = none
 #guard ((isoCtx slots (ByteArray.mk #[0, 0, 0])).consts).isEmpty
+
+-- The one pass computes the context's lookup (module, position, constant)…
+#guard (isoBuild slots (ByteArray.mk #[1, 1, 0])).look (nm "a") = some (0, 0, defn "a")
+#guard (isoBuild slots (ByteArray.mk #[0, 1, 0])).look (nm "a") = some (1, 0, defn "a")
+#guard (isoBuild slots (ByteArray.mk #[1, 2, 0])).look (nm "c") = some (1, 1, defn "c")
+-- …and the duplicates: both modules store an ordinary `a`, which meet when
+-- both are loaded (two qualified names), and not when only one is.
+#guard (isoBuild slots (ByteArray.mk #[1, 1, 0])).dropped = [(1, 0, nm "a")]
+#guard !((isoBuild slots (ByteArray.mk #[1, 1, 0])).keysOk slots)
+#guard (isoBuild slots (ByteArray.mk #[0, 1, 0])).keysOk slots
+-- A module loaded at the exported level is read without its private record.
+#guard (mask slots (ByteArray.mk #[1, 2, 0]) 0).prv.priv.isEmpty
+#guard (mask slots (ByteArray.mk #[1, 2, 0]) 1).prv.priv.size = 2
+#guard (mask slots (ByteArray.mk #[0, 2, 0]) 0) == {}
 
 end ConLecheTests.ModIso

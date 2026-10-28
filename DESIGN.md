@@ -108464,3 +108464,178 @@ statement, with footprints), keys are the qualified names without the
 name component (home module, or `.prf` statement); `modular_model_exists`
 then gives each module's model directly (or a compatible family), and
 the Challenge statement can drop the global assignment `G`.
+
+## TASK #374 — the isolated mode reads only what Lean loads for a module (2026-10-28, agent/374-isolated)
+
+**Why.** Maintainer request: make the isolated mode fully isolated, so
+that massive developments can be checked with a high amount of
+parallelism, possibly on several machines: everything done around a
+module M — building its context, checking it, building and checking what
+it publishes, its local checks — reads only M's own `.olean` files and
+the units of the modules Lean loads for M (Lean's `importModulesCore`
+fixpoint): their interface, plus the private half only for the modules M
+loads with `import all`.  After #373 the isolated mode still read the
+closure's name index and list of names stored twice for a module's
+bookkeeping, its local checks, the proof flags and `IdxOk`.
+
+**Terms.**  A module's *unit* (`ModSlot`) is what it publishes for its
+importers, the counterpart of Lean's interface files: its *interface*
+`exp` (per installed constant, its *presentation* to an importer at the
+exported level — the constant, the assumption of its statement, or
+nothing — the *gates* `g1`/`v1`, i.e. the modules with levels an
+importer must load for that presentation, the tables, the proof flags,
+and now `fp1`, what every importer at that level loads by Lean's rules)
+and its *private record* `prv` (the installed constants, for `import all`
+importers, and now `lvl`, the module's own levels).
+
+**What each step reads now** (isolated mode, `isoWork` in
+`ConLeche/Driver/Modular.lean`; every step takes the imports' units as
+`Mod.mask slot lv`, which keeps the interface of every module M loads,
+the private record of those loaded at level 2, and nothing else):
+* the levels `lv`: the import headers of the modules M loads (`levelsOf`,
+  Lean's worklist);
+* the context: `isoBuild units lv` (`ConLeche/Cached/ModIso.lean`), one
+  pass over the loaded units giving the canonical index of `isoCtx`, the
+  provenance (module, position) of every context constant by counter
+  (two number arrays) and the presentations dropped because their name
+  was already there;
+* the install and record checks: M's own records, from that index; the
+  lookup the bookkeeping needs is answered afterwards by the install's
+  own index (`lookAfter`: a context constant's counter is below the
+  context's size), so the one-pass state does not live through the
+  install and the install's index is never shared;
+* the proof flags (`proofsOf`): M's own environment — a definition or
+  opaque constant is a proof candidate iff `Mod.isPropCheap` (Lean's own
+  test in `subsumesInfo`, extended to a bound-variable head), then the
+  theorem check as before.  Before: only names some other module of the
+  closure also stored (the global duplicate list);
+* the unit (`unitOf`, the oracle) and its check (`unitOk`): M's own
+  constants (`mkFEnv own`), its records' exported levels (its own olean),
+  the public-import headers from M (`pubReachOf`), and the context
+  through `Mod.UView` only — the lookup and the interfaces of the modules
+  the lookup answers with (`needAt`, `storedAt`, gates).  The store
+  conditions "an own target is the index's alternate" are gone from
+  `read2Ok`/`read1Ok`/`full*Ok` (the store mode gets them from `IdxOk`,
+  now a field of `RunOk`);
+* the local checks (`localOkIso`): `levelsOk` (loaded modules earlier, at
+  level ≤ 2; a level-2 import's own levels, read from its `prv.lvl`, below
+  M's; a level-1 import's `fp1`, read from its `exp`, loaded by M) and
+  `keysOk` (every presentation of a name in M's context has the first's
+  qualified name; decided on the dropped presentations only, by
+  `IsoAcc.keysOk`) — done in M's own work, before its unit is published.
+What the isolated run decides beyond the modules one by one is only the
+coverage (`isoRunOk`: a unit per module, published as checked, its
+constants the install's, imports earlier, levels over the run's modules).
+No name index, no list of names stored twice, no `IdxOk`, no `dupsOk`.
+Nothing strictly needed more than Lean's loaded set: no stop.
+
+**The boundary** (`ConLeche/Verify/Modular/Mask.lean`, pinned in
+`tests/ConLecheTests/ModBoundary.lean`).  `LoadedAgree lv s s'` (two
+families of units agree on every loaded module's interface and every
+level-2 module's private record) gives `mask s lv = mask s' lv`
+(`mask_agree`), so the one-pass build, the record check, the unit check,
+the local checks (`isolated_boundary`) and the driver's `unitOf`
+(`unitOf_boundary`) are the same on both — by construction, since each
+takes the masked units.  And the mask changes nothing (`isoCtx_mask`,
+`isoLook_mask`, `keysOk_mask`, `levelsOk_mask`,
+`checkModuleIsolated_mask`; `isolated_mask`): what an isolated module
+computes from the units it reads is what it would compute from all
+units.
+
+**The soundness chain** (`ConLeche/Verify/Modular/Isolated.lean`).
+`Mod.IsoRunOk mode slots M` is the isolated run's evidence, per module
+about the published units only (install from `isoCtx (mask …)`, record
+checks, attested proofs, own index, `unitOk` at `isoUView`,
+`localOkIso`) plus the coverage.  The proof reuses the store mode's
+theorems at the store made of the run's units, which exists in the proof
+only (`ghostStore`, `ConLeche/Verify/Modular/Ghost.lean`: index =
+every unit position under its names, `ghostStore_idxOk`,
+`ghostStore_dupsOk`): `unitOk_congr` (a unit's check reads its context
+only through the lookup and the interfaces of the modules the lookup
+answers with) gives `unitOk_store` (the isolated unit check is the
+store's whenever the store's index is complete), `keysOk_oneKey` gives
+the store's duplicates' check, and `IsoRunOk.storeOk : IsoRunOk mode
+slots M → IsoStoreOk mode (ghostStore slots) (ghostData slots M)` (the
+#373 structure, renamed from `IsoRunOk`: isolated installs over a
+store's bookkeeping), hence **`IsoRunOk.localOk : ∀ i, LocalOk mode
+natOpPinSets (isoRunDev slots M) i`**, the hypothesis of
+`modular_model_exists`/`modular_no_False` (assembled as `example`s in
+`tests/ConLecheTests/ModIso.lean`; capstone statements unchanged,
+`tests/challenge.sh` green).  Conversely **`RunOk.isoRunOk : RunOk mode S
+M → IsoRunOk mode S.slots (ownData M)`** (a store run is an isolated run
+of its units, via `pick?_iso`, `RunOk.key_pick` and `unitOk_store`): the
+store mode is a proved optimisation of the isolated one — one shared name
+index in place of a context per module — and its bookkeeping is the same
+generic code at `Store.uview`.  `lookAfter_iso`, `isoBuild_fenv`,
+`isoBuild_look`, `isoBuild_keysOk` (`IsoFast.lean`) connect what runs to
+the specifications.  The per-home `InterfaceOk` and per-importer
+`ImportOk` split (#372) is what the runtime does literally: the unit
+check at the home, the levels and duplicates at the importer.
+
+**Serialising units** (not built).  A unit is plain data (arrays of
+constants, flags, gates, tables, byte arrays); the thunks are only the
+in-process hand-over.  Module references in gates, `fp1` and `lvl` are
+positions in the run's module order, which every process can compute from
+the roots (Lean's module order of the closure), or would be written as
+module names.  The constants need not be written at all: `prv.priv` is
+the module's own records as installed, a function of its own `.olean`
+files, and an exported presentation is that constant or the assumption
+of its statement, so a unit file would hold per position only the
+presentation kind, the gates, the proof flag and the table choice, plus
+`fp1` and `lvl`; an importer at the exported level would rebuild the
+presented constants from the module's exported `.olean` (Lean's interface
+file), an `import all` importer from its private one.  A process per
+module (or per group of modules) would read its loaded modules' unit
+files, run `isoWork`'s steps, write its own unit file and emit its
+`IsoModOk`; the coverage check is the same `isoRunOk` over the collected
+results.
+
+**Fixtures** (`tests/olean.sh`, 76 cases, every modular one in both
+modes): `import all` loads the private imports (`LdM`: `import all LdB`
+makes LdB's private import LdX loaded, LdB's definition unfolds through
+it); a clashing name outside the loaded set (`NlM`: NlX, in the closure
+through NlB's private import, stores another `nl`; modular accepts, the
+merge rejects); an exported value reading a private-only constant (`PoM`:
+a private constant exported with its value under `privateInPublic` reads
+one that is not exported: presented as an assumption); two patched
+cases: ReB's `public import ReA` turned private (the chain no longer
+re-exports: ReC rejected) and NlB's import of NlX made public (two
+constants of one name meet in NlM's context: rejected, in isolated mode by
+`keysOk`).
+
+**Measurements** (instructions:u, one run each, 96 workers, binary
+a6f8f12; peak RSS from the 1 s watchdog; merged = `--olean` without
+`--modular`; every run accepted, the two modular modes with the same
+counts; #373's figures in brackets):
+
+| closure | merged | store | isolated | peak RSS merged / store / isolated |
+|---|---|---|---|---|
+| Init (653 modules) | 403 G | 496 G [489] | 443 G [438] | 1.18 / 1.21 / 1.20 GiB |
+| Std (1 012) | 595 G | 730 G [723] | 671 G [666] | 1.70 / 1.49 / 1.57 GiB |
+| Lean (2 374) | 727 G | 936 G [927] | 922 G [923] | 1.76 / 1.80 / 1.58 GiB |
+| Mathlib, patched (10 976) | 7 463 G | 9 626 G [9 534] | 10 731 G [10 841] | 7.00 / 6.92–7.51 / 8.30–8.90 GiB [8.48] |
+
+Mathlib isolated over four runs: 10 729–10 731 G, peak RSS 8.30, 8.77,
+8.90, 8.80 GiB (the spread is scheduling: how many contexts are alive at
+once); store over two runs 6.92 and 7.51 GiB.  Both modular modes pay
+about +1 % for the local proof flags (a theorem check for every
+definition `isPropCheap` accepts, where before only names stored twice
+were tested); the isolated mode wins it back by dropping the closure-wide
+duplicates' loop of every module's local checks (now over the dropped
+presentations of its own context) and the index lookups of its
+bookkeeping.  A first version kept the one-pass state referenced across
+the install, so the install's `markLinear` silently copied the context's
+bucket array once per module (+0.46 GiB on Mathlib); `lookAfter` removed
+it.  Small closures' RSS varies run to run by a few hundred MiB.
+
+**Open.**  (1) Proof candidates follow Lean's `isPropCheap` (plus a
+bound-variable head): a definition whose statement fails it is not a
+proof, so if it met a theorem of the same name and statement in some
+context (Lean merges theorem with an exported definition there without a
+Prop test) the duplicates' check would reject it; before, the closure's
+duplicate list caught such names.  Never observed (the verdicts below
+agree).  Genuine `axiom`s of one name meeting in a context are rejected
+as before (Lean merges Prop axioms).  (2) `--compare` still runs after
+all modules (it could run in the challenge's own work).  (3) Store mode
+keeps its global index by design.  README suggestion (not written):
+README does not mention modular checking yet.
