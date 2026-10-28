@@ -253,14 +253,14 @@ theorem laws_entry {R C : Env} {n : Name} {ci : ConstantInfo} {t : Option ProjTa
 
 variable {mode : CheckMode} {S : Store} {M : Array ModData}
 
-theorem readsOk_spec {h : Nat} {fe : FEnv} {u : Unit'} {lvl2 : Bool} {G : Array (Nat × UInt8)}
-    {r : ReadSet} (hr : readsOk S h fe u lvl2 G r = true) :
+theorem readsOk_spec {U : UView} {h : Nat} {fe : FEnv} {u : ModSlot} {lvl2 : Bool}
+    {G : Array (Nat × UInt8)} {r : ReadSet} (hr : readsOk U h fe u lvl2 G r = true) :
     (∀ d, r.d.contains d = true →
-      (if lvl2 then read2Ok S h fe d else read1Ok S h fe u G d) = true) ∧
+      (if lvl2 then read2Ok U h fe d else read1Ok U h fe u G d) = true) ∧
     (∀ d, r.fi.contains d = true →
-      (if lvl2 then full2Ok S h fe u .ind d else full1Ok S h fe u G .ind d) = true) ∧
+      (if lvl2 then full2Ok U h fe u .ind d else full1Ok U h fe u G .ind d) = true) ∧
     (∀ d, r.fc.contains d = true →
-      (if lvl2 then full2Ok S h fe u .ctor d else full1Ok S h fe u G .ctor d) = true) := by
+      (if lvl2 then full2Ok U h fe u .ctor d else full1Ok U h fe u G .ctor d) = true) := by
   unfold readsOk at hr
   simp only [Bool.and_eq_true, List.all_eq_true] at hr
   obtain ⟨⟨h1, h2⟩, h3⟩ := hr
@@ -278,9 +278,10 @@ theorem RunOk.lawsGood (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh :
     {lvl2 : Bool} {G : Array (Nat × UInt8)} {r : ReadSet}
     (hl : lvlAt (S.lvl i) h = (if lvl2 then 2 else 1))
     (hG : ∀ p ∈ G, lvlAt (S.lvl i) p.1 ≥ p.2)
-    (hr : readsOk S h M[h].fe M[h].unit lvl2 G r = true) :
+    (hr : readsOk (S.uview h) h M[h].fe (S.slot h) lvl2 G r = true) :
     LawsGood (readsAlike (devOf S M) i h) (devOf S M i).context r := by
   obtain ⟨hd, hfi, hfc⟩ := readsOk_spec hr
+  rw [hR.slot h hh] at hd hfi hfc
   rw [devOf_of_lt hi]
   refine ⟨fun d hd' => ?_, fun d hd' => ?_, fun d hd' => ?_⟩
   · apply readsAlike_find?
@@ -309,32 +310,32 @@ theorem RunOk.lawsGood (hR : RunOk mode S M) {i h : Nat} (hi : i < M.size) (hh :
     | ctorInfo cv nP nF => exact ⟨cv, nP, nF, rfl⟩
     | _ => cases hw
 
-theorem unitOk_spec {h : Nat} {fe : FEnv} {flagged : Name → Bool} {u : Unit'} {r : Reads}
-    (hu : unitOk S h fe flagged u r = true) :
+theorem unitOk_spec {U : UView} {h : Nat} {fe : FEnv} {flagged : Name → Bool} {u : ModSlot}
+    {r : Reads} (hu : unitOk U h fe flagged u r = true) :
     (∀ (j : Nat) (ci : ConstantInfo) (t : Option ProjTable),
-      u.slot.prv.priv[j]? = some ci → u.slot.prv.tbls[j]? = some t →
+      u.prv.priv[j]? = some ci → u.prv.tbls[j]? = some t →
       lawsOk r.all2 (lawsOf t ci) = true) ∧
-    readsOk S h fe u true #[] r.all2 = true ∧
+    readsOk U h fe u true #[] r.all2 = true ∧
     (∀ (j : Nat) (ci : ConstantInfo) (g v : Array (Nat × UInt8)) (t : Option ProjTable),
-      j < u.slot.prv.priv.size → u.slot.exp.at1[j]? = some (some ci) → u.slot.exp.g1[j]? = some g →
-      u.slot.exp.v1[j]? = some v → u.slot.exp.tbls[j]? = some t → g.isEmpty = true →
+      j < u.prv.priv.size → u.exp.at1[j]? = some (some ci) → u.exp.g1[j]? = some g →
+      u.exp.v1[j]? = some v → u.exp.tbls[j]? = some t → g.isEmpty = true →
       v.isEmpty = true → lawsOk r.all1 (lawsOf t ci) = true) ∧
-    readsOk S h fe u false #[] r.all1 = true ∧
+    readsOk U h fe u false #[] r.all1 = true ∧
     (∀ (j : Nat) (ci : ConstantInfo) (g v : Array (Nat × UInt8)) (t : Option ProjTable),
-      j < u.slot.prv.priv.size → u.slot.exp.at1[j]? = some (some ci) →
-      u.slot.exp.g1[j]? = some g → u.slot.exp.v1[j]? = some v → u.slot.exp.tbls[j]? = some t →
+      j < u.prv.priv.size → u.exp.at1[j]? = some (some ci) →
+      u.exp.g1[j]? = some g → u.exp.v1[j]? = some v → u.exp.tbls[j]? = some t →
       (g.isEmpty && v.isEmpty) = false → ∃ rt rf, (j, rt, rf) ∈ r.gated ∧
         lawsOk rt (lawsOf t (if v.isEmpty then ci else asAxiom ci)) = true ∧
-        readsOk S h fe u false g rt = true ∧
+        readsOk U h fe u false g rt = true ∧
         (v.isEmpty = false → lawsOk rf (lawsOf t ci) = true ∧
-          readsOk S h fe u false (g ++ v) rf = true)) := by
+          readsOk U h fe u false (g ++ v) rf = true)) := by
   unfold unitOk at hu
   simp only [Bool.and_eq_true, List.all_eq_true, List.mem_range] at hu
   obtain ⟨⟨⟨⟨⟨⟨-, -⟩, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := hu
   refine ⟨fun j ci t hc ht => ?_, h3, fun j ci g v t hj ha hg hv ht hge hve => ?_, h5,
     fun j ci g v t hj ha hg hv ht hgv => ?_⟩
-  · have hj : j < u.slot.prv.priv.size := by
-      rcases Nat.lt_or_ge j u.slot.prv.priv.size with h' | h'
+  · have hj : j < u.prv.priv.size := by
+      rcases Nat.lt_or_ge j u.prv.priv.size with h' | h'
       · exact h'
       · rw [Array.getElem?_eq_none h'] at hc; cases hc
     have := h2 j hj
@@ -380,9 +381,9 @@ theorem ctx_findTable_slot {i h j : Nat} {n : Name} {cv : ConstantVal} {caps : I
 /-- A name a home's read checks accept is stored in its own environment. -/
 theorem RunOk.read_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 : Bool}
     {G : Array (Nat × UInt8)} {d : Name}
-    (hr : (if lvl2 then read2Ok S h M[h].fe d else read1Ok S h M[h].fe M[h].unit G d) = true) :
+    (hr : (if lvl2 then read2Ok (S.uview h) h M[h].fe d else read1Ok (S.uview h) h M[h].fe M[h].unit G d) = true) :
     ((envAt M[h].fe (ctxOf (S.mb h))).find? d).isSome = true := by
-  cases ht : target h M[h].fe d with
+  cases ht : target h M[h].fe (S.uview h) d with
   | none => cases lvl2 <;> simp [read2Ok, read1Ok, ht] at hr
   | some t =>
     rw [← hR.fe_find? hh]
@@ -392,14 +393,13 @@ theorem RunOk.read_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 
 environment, of the wanted kind. -/
 theorem RunOk.full_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 : Bool}
     {G : Array (Nat × UInt8)} {w : Want} {d : Name}
-    (hr : (if lvl2 then full2Ok S h M[h].fe M[h].unit w d
-      else full1Ok S h M[h].fe M[h].unit G w d) = true) :
+    (hr : (if lvl2 then full2Ok (S.uview h) h M[h].fe M[h].unit w d
+      else full1Ok (S.uview h) h M[h].fe M[h].unit G w d) = true) :
     ∃ x, (envAt M[h].fe (ctxOf (S.mb h))).find? d = some x ∧ w.ok x = true := by
-  cases ht : target h M[h].fe d with
+  cases ht : target h M[h].fe (S.uview h) d with
   | none => cases lvl2 <;> simp [full2Ok, full1Ok, ht] at hr
   | some t =>
     obtain ⟨t1, t2⟩ := t
-    have hb := (hR.finalCanon hh).base
     rcases hR.target_cases hh ht with ⟨ht1, p, hp, -, hf⟩ | ⟨hne, ci, hpk, hf⟩
     · simp only at ht1 hp
       subst ht1
@@ -407,10 +407,10 @@ theorem RunOk.full_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 
       rw [hR.slot t1 hh] at hp
       cases lvl2 <;> simp [full2Ok, full1Ok, ht, hp] at hr
       · exact hr.1.2
-      · exact hr.2
+      · exact hr
     · simp only at hne hpk
       refine ⟨ci, by rw [← hR.fe_find? hh, hf], ?_⟩
-      cases lvl2 <;> simp [full2Ok, full1Ok, ht, hb, hpk, hne] at hr
+      cases lvl2 <;> simp [full2Ok, full1Ok, ht, hpk, hne] at hr
       · exact hr.1
       · exact hr
 
@@ -418,10 +418,11 @@ theorem RunOk.full_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 
 names it reads are stored in its own environment and listed, the type
 formers and constructors stored as such. -/
 theorem RunOk.lawsGood_home (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {lvl2 : Bool}
-    {G : Array (Nat × UInt8)} {r : ReadSet} (hr : readsOk S h M[h].fe M[h].unit lvl2 G r = true) :
+    {G : Array (Nat × UInt8)} {r : ReadSet} (hr : readsOk (S.uview h) h M[h].fe (S.slot h) lvl2 G r = true) :
     LawsGood (readsIn (envAt M[h].fe (ctxOf (S.mb h))) r.d.keys)
       (envAt M[h].fe (ctxOf (S.mb h))) r := by
   obtain ⟨hd, hfi, hfc⟩ := readsOk_spec hr
+  rw [hR.slot h hh] at hd hfi hfc
   refine ⟨fun d hd' => readsIn_isSome (hR.read_home hh (hd d hd'))
       (Std.HashMap.mem_keys.mpr (Std.HashMap.mem_iff_contains.mpr hd')), fun d hd' => ?_,
     fun d hd' => ?_⟩
@@ -450,9 +451,9 @@ theorem RunOk.presOf_spec (hR : RunOk mode S M) {h : Nat} (hh : h < M.size) {j :
     (∀ cv caps, e.ci = .indInfo cv caps →
       e.table = M[h].fe.env.tables.find? (·.structName == c.name)) ∧
     ∃ (r : ReadSet) (lvl2 : Bool) (G : Array (Nat × UInt8)), e.reads = r.d.keys ∧
-      lawsOk r (lawsOf e.table e.ci) = true ∧ readsOk S h M[h].fe M[h].unit lvl2 G r = true := by
+      lawsOk r (lawsOf e.table e.ci) = true ∧ readsOk (S.uview h) h M[h].fe (S.slot h) lvl2 G r = true := by
   obtain ⟨hA2, hR2, hA1, hR1, hGt⟩ := unitOk_spec (hR.unit h hh)
-  rw [← hR.slot h hh] at hA2 hA1 hGt
+  rw [← hR.slot h hh] at hA2 hR2 hA1 hR1 hGt
   obtain ⟨h1, h2, h3, h4, -, -, h7, hj⟩ := shapeOk_spec (hR.shape hh)
   obtain ⟨st, -, hat1, hstiff, hvst, -, -, hpt, het⟩ := hj j c hc
   have hjp : j < (S.slot h).prv.priv.size := by
@@ -632,7 +633,7 @@ theorem RunOk.interfaceOk (hR : RunOk mode S M) (b : Nat) : InterfaceOk (devOf S
       exact Option.some.inj hc
     rw [hpj] at this
     unfold recFamOk at this
-    simp only [List.all_eq_true] at this
+    simp only [List.all_eq_true, hR.findIn_eq hb] at this
     have hr' := this r hr
     have hcj' : M[b].fe.find? r.ctor = some (.ctorInfo cvj nP nF) := by
       rw [hR.fe_find? hb]; exact hcj
@@ -692,7 +693,7 @@ theorem RunOk.ctx_pres (hR : RunOk mode S M) {i : Nat} (hi : i < M.size) {n : Na
     simp only [hc, Option.map_some, hcname, beq_self_eq_true, ↓reduceIte]
     exact he
   obtain ⟨hA2, hR2, hA1, hR1, hGt⟩ := unitOk_spec (hR.unit h hh)
-  rw [← hR.slot h hh] at hA2 hA1 hGt
+  rw [← hR.slot h hh] at hA2 hR2 hA1 hR1 hGt
   obtain ⟨h1, h2, h3, h4, -, -, h7, hj⟩ := shapeOk_spec (hR.shape hh)
   obtain ⟨st, -, -, hstiff, hvst, -, -, hpt, het⟩ := hj j c hc
   -- the context's table: the home's, at the viewer's level, for a former

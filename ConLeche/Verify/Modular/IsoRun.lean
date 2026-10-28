@@ -13,23 +13,23 @@ public section
 A modular run in **store mode** installs and checks every module at its
 view of one store and establishes `RunOk`.  A run in **isolated mode**
 checks every module in an environment of its own, built from its
-imports' units alone (`isoCtx`), and establishes `IsoRunOk`: the same
+imports' units alone (`isoCtx`), and establishes `IsoStoreOk`: the same
 facts with the install, the record checks and the proofs' checks done
 in that environment.  The bookkeeping of the two (the units, their
 checks `unitOk`, the local checks `localOk`, the list of names stored
 twice) is the same, and so are the units: in isolated mode a module's
 view is rebuilt from its own constants (`ownView`).
 
-* `IsoRunOk.runOk` and `RunOk.isoRunOk` — each establishes the other
+* `IsoStoreOk.runOk` and `RunOk.isoStoreOk` — each establishes the other
   (for the same store and units; the store run's records' check list,
   whose bounds count from the view's zero, is recovered by the
   equivalence of the folds), given that the name index lists every unit
-  constant (`IdxOk`, part of `IsoRunOk`, decided by every run);
+  constant (`IdxOk`, part of `IsoStoreOk`, decided by every run);
 * `isoDevOf` — the development an isolated run stands for: every
   module's context is the one built from its imports' units, its own
   environment its constants over that context; the rest (sources,
   proofs, qualified names, interfaces) as the store run's (`devOf`);
-* **`IsoRunOk.localOk`** — every module of it passes the local checks,
+* **`IsoStoreOk.localOk`** — every module of it passes the local checks,
   the hypothesis of the modular capstones `ConLeche.modular_model_exists`
   and `ConLeche.modular_no_False`; and `RunOk.localOk_iso`, the same for
   a store run.
@@ -62,7 +62,7 @@ attested there, its own constants and tables those its data holds over
 that context — and its data's view the canonical index of its own
 constants over the store (`ownView`, what the unit's check reads); and
 the store's name index lists every unit constant (`IdxOk`). -/
-structure IsoRunOk (mode : CheckMode) (S : Store) (M : Array ModData) : Prop where
+structure IsoStoreOk (mode : CheckMode) (S : Store) (M : Array ModData) : Prop where
   slots : S.slots.size = M.size
   lvls : ∀ i, i < M.size → (S.lvl i).size = M.size
   below : ∀ i (h : i < M.size), ∀ b ∈ M[i].imports, b < i
@@ -74,16 +74,18 @@ structure IsoRunOk (mode : CheckMode) (S : Store) (M : Array ModData) : Prop whe
     ProofsAttested mode M[i].flags.contains feI pendI ∧
     feI.env = Env.over M[i].fe.env (isoCtx S.slot (S.lvl i))
   view : ∀ i (h : i < M.size), M[i].fe = ownView M[i].fe.env (S.mb i)
-  slot : ∀ i (h : i < M.size), S.slot i = M[i].unit.slot
-  priv : ∀ i (h : i < M.size), M[i].unit.slot.prv.priv = M[i].fe.env.consts.reverse.toArray
-  unit : ∀ i (h : i < M.size), unitOk S i M[i].fe M[i].flags.contains M[i].unit M[i].reads = true
-  locals : ∀ i, i < M.size → localOk S (M.map (·.unit)) i = true
+  slot : ∀ i (h : i < M.size), S.slot i = M[i].unit
+  priv : ∀ i (h : i < M.size), M[i].unit.prv.priv = M[i].fe.env.consts.reverse.toArray
+  ulvl : ∀ i (h : i < M.size), M[i].unit.prv.lvl = S.lvl i
+  unit : ∀ i (h : i < M.size),
+    unitOk (S.uview i) i M[i].fe M[i].flags.contains M[i].unit M[i].reads = true
+  locals : ∀ i, i < M.size → localOk S i = true
   dups : dupsOk S = true
 
 /-- **Every module of an isolated run passes its isolated check**: the
 declaration fold from its context built from its imports' units
 accepts, with its own constants and tables over that context. -/
-theorem IsoRunOk.checks (h : IsoRunOk mode S M) (i : Nat) (hi : i < M.size) :
+theorem IsoStoreOk.checks (h : IsoStoreOk mode S M) (i : Nat) (hi : i < M.size) :
     checkModuleIsolated mode natOpPinSets S.slot (S.lvl i) M[i].ds =
       .ok (Env.over M[i].fe.env (isoCtx S.slot (S.lvl i))) := by
   obtain ⟨n, feI, pendI, hrun, hchk, -, henv⟩ := h.iso i hi
@@ -182,10 +184,11 @@ theorem CanonB.eq_ownView {fe : FEnv} {mb : MBase} (h : CanonB fe { mb := some m
 checks and proofs are its isolated install, checks and proofs (the
 same constants, the same verdicts), when the name index lists every
 unit constant. -/
-theorem RunOk.isoRunOk (hR : RunOk mode S M) (hI : IdxOk S) : IsoRunOk mode S M := by
+theorem RunOk.isoStoreOk (hR : RunOk mode S M) : IsoStoreOk mode S M := by
+  have hI := hR.idx
   refine { slots := hR.slots, lvls := hR.lvls, below := hR.below, idx := hI, iso := ?_,
-           view := ?_, slot := hR.slot, priv := hR.priv, unit := hR.unit, locals := hR.locals,
-           dups := hR.dups }
+           view := ?_, slot := hR.slot, priv := hR.priv, ulvl := hR.ulvl, unit := hR.unit,
+           locals := hR.locals, dups := hR.dups }
   · intro i hi
     have hC := baseLike_isoCtx hI i
     obtain ⟨n, hrun⟩ := hR.run i hi
@@ -212,7 +215,7 @@ theorem RunOk.isoRunOk (hR : RunOk mode S M) (hI : IdxOk S) : IsoRunOk mode S M 
 
 /-- The view's records of an isolated module: the store run's install,
 checks and proofs at the view, recovered from the isolated ones. -/
-theorem IsoRunOk.viewRun (h : IsoRunOk mode S M) (i : Nat) (hi : i < M.size) :
+theorem IsoStoreOk.viewRun (h : IsoStoreOk mode S M) (i : Nat) (hi : i < M.size) :
     ∃ n pend, InstallRun mode natOpPinSets M[i].ds.toList (0, S.view i, #[]) (n, M[i].fe, pend) ∧
       (∀ pc ∈ pend.toList, ∃ s, checkPending mode M[i].fe pc {} = .ok ((), s)) ∧
       ProofsAttested mode M[i].flags.contains M[i].fe pend := by
@@ -258,7 +261,7 @@ theorem IsoRunOk.viewRun (h : IsoRunOk mode S M) (i : Nat) (hi : i < M.size) :
 /-- **An isolated run is a store run** of the same store and units: the
 view's records' check list, recovered module by module, completes the
 evidence; nothing the development reads changes. -/
-theorem IsoRunOk.runOk (h : IsoRunOk mode S M) :
+theorem IsoStoreOk.runOk (h : IsoStoreOk mode S M) :
     ∃ M' : Array ModData, RunOk mode S M' ∧ ∀ k, devOf S M' k = devOf S M k := by
   classical
   let pf : (i : Nat) → i < M.size → Array PendingCheck := fun i hi =>
@@ -272,20 +275,16 @@ theorem IsoRunOk.runOk (h : IsoRunOk mode S M) :
   have hsz : M'.size = M.size := Array.size_ofFn
   have hget : ∀ i (hi : i < M'.size), M'[i] = { M[i]'(hsz ▸ hi) with pend := pf i (hsz ▸ hi) } :=
     fun i hi => Array.getElem_ofFn ..
-  have hunits : M'.map (·.unit) = M.map (·.unit) := by
-    apply Array.ext (by simp [hsz])
-    intro k h₁ h₂
-    simp only [Array.getElem_map]
-    rw [hget k (by simpa using h₁)]
   refine ⟨M', ?_, fun k => ?_⟩
   · refine { slots := hsz ▸ h.slots, lvls := fun i hi => hsz ▸ h.lvls i (hsz ▸ hi),
              below := fun i hi => by rw [hget]; exact h.below i _,
              run := fun i hi => ?_, chk := fun i hi => ?_, prf := fun i hi => ?_,
              slot := fun i hi => by rw [hget]; exact h.slot i _,
              priv := fun i hi => by rw [hget]; exact h.priv i _,
+             ulvl := fun i hi => by rw [hget]; exact h.ulvl i _,
              unit := fun i hi => by rw [hget]; exact h.unit i _,
-             locals := fun i hi => by rw [hunits]; exact h.locals i (hsz ▸ hi),
-             dups := h.dups }
+             locals := fun i hi => h.locals i (hsz ▸ hi),
+             idx := h.idx, dups := h.dups }
     · rw [hget]; obtain ⟨n, r, -, -⟩ := hpf i (hsz ▸ hi); exact ⟨n, r⟩
     · rw [hget]; exact (hpf i (hsz ▸ hi)).choose_spec.2.1
     · rw [hget]; exact (hpf i (hsz ▸ hi)).choose_spec.2.2
@@ -313,7 +312,7 @@ theorem env_over_nil (C : Env) : C = Env.over ⟨[], []⟩ C := by
 development the run stands for — contexts built from the imports' units,
 own environments over them: the hypothesis of the modular capstones
 (`ConLeche.modular_model_exists`, `ConLeche.modular_no_False`). -/
-theorem IsoRunOk.localOk (h : IsoRunOk mode S M) (i : Nat) :
+theorem IsoStoreOk.localOk (h : IsoStoreOk mode S M) (i : Nat) :
     LocalOk mode natOpPinSets (isoDevOf S M) i := by
   obtain ⟨M', hR, hdev⟩ := h.runOk
   have h₁ : LocalOk mode natOpPinSets (devOf S M) i := by
@@ -353,9 +352,9 @@ theorem IsoRunOk.localOk (h : IsoRunOk mode S M) (i : Nat) :
     · intro hc; cases hc
 
 /-- **Every module of a store run passes its local checks in the isolated
-development too**: the store run is an isolated run (`RunOk.isoRunOk`). -/
-theorem RunOk.localOk_iso (hR : RunOk mode S M) (hI : IdxOk S) (i : Nat) :
+development too**: the store run is an isolated run (`RunOk.isoStoreOk`). -/
+theorem RunOk.localOk_iso (hR : RunOk mode S M) (i : Nat) :
     LocalOk mode natOpPinSets (isoDevOf S M) i :=
-  (hR.isoRunOk hI).localOk i
+  hR.isoStoreOk.localOk i
 
 end ConLeche.Cached.Mod

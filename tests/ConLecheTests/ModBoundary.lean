@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Verify.Modular.View
+public import ConLeche.Verify.Modular.Mask
+public import ConLeche.Driver.Modular
 import ConLeche.Verify.Modular.Local
 
 public section
@@ -127,5 +129,57 @@ theorem keyOfSlot_maskPrv (s : ModSlot) (h j : Nat) (n : Name)
   obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hp
   unfold keyOfSlot
   simp only [hci]
+
+/-! ## An isolated module reads what Lean loads for it (task #374)
+
+Module `M` with levels `lv` (Lean's `importModulesCore` for `M`: `1` a
+module loaded at the exported level, `2` one loaded with `import all`, `0`
+one not loaded) reads its imports' units only through `mask s lv`: the
+interface of a module loaded at level 1 or 2, the private record of one
+loaded at level 2, nothing of any other.  Two families of units that agree
+there (`LoadedAgree`) give every isolated computation around `M` the same
+result — its context's one-pass build (index, lookup, duplicates), the
+check of its records, its unit (the driver's `unitOf`) and that unit's
+check, its local checks.  This holds by construction (each takes the
+masked units); the theorems below pin it, and `isoCtx_mask` and the other
+lemmas of `ConLeche/Verify/Modular/Mask.lean` that masking changes
+nothing. -/
+
+/-- **An isolated module's computations read only the units Lean loads
+for it**, and of those loaded at the exported level only the interface. -/
+theorem isolated_boundary {lv : ByteArray} {s s' : Nat → ModSlot} (h : LoadedAgree lv s s') :
+    isoBuild (mask s lv) lv = isoBuild (mask s' lv) lv ∧
+    (∀ mode pins ds, checkModuleIsolated mode pins (mask s lv) lv ds =
+      checkModuleIsolated mode pins (mask s' lv) lv ds) ∧
+    (∀ m fe fl u r, unitOk (isoUView (mask s lv) lv) m fe fl u r =
+      unitOk (isoUView (mask s' lv) lv) m fe fl u r) ∧
+    (∀ m, localOkIso m (mask s lv) lv = localOkIso m (mask s' lv) lv) := by
+  rw [mask_agree h]
+  exact ⟨rfl, fun _ _ _ => rfl, fun _ _ _ _ _ => rfl, fun _ => rfl⟩
+
+/-- **The unit an isolated module computes reads only what Lean loads for
+it**: the driver's `unitOf` over two agreeing families. -/
+theorem unitOf_boundary {lv : ByteArray} {s s' : Nat → ModSlot} (h : LoadedAgree lv s s')
+    (g : Array Driver.Modular.ModIn) (fl : Std.HashSet Name) (k : Nat) (fe : FEnv) :
+    Driver.Modular.unitOf g (isoUView (mask s lv) lv) fl k lv fe =
+      Driver.Modular.unitOf g (isoUView (mask s' lv) lv) fl k lv fe := by
+  rw [mask_agree h]
+
+/-- **Masking changes nothing**: the context, its lookup, the records'
+check and the local checks from the masked units are those from all the
+units. -/
+theorem isolated_mask (s : Nat → ModSlot) (lv : ByteArray) :
+    isoCtx (mask s lv) lv = isoCtx s lv ∧ isoLook (mask s lv) lv = isoLook s lv ∧
+    (∀ mode pins ds, checkModuleIsolated mode pins (mask s lv) lv ds =
+      checkModuleIsolated mode pins s lv ds) ∧
+    (∀ m, localOkIso m (mask s lv) lv = localOkIso m s lv) :=
+  ⟨isoCtx_mask s lv, isoLook_mask s lv, fun mode pins ds => checkModuleIsolated_mask mode pins s lv ds,
+    fun m => localOkIso_mask m s lv⟩
+
+/--
+info: 'ConLeche.Cached.Mod.isolated_boundary' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms isolated_boundary
 
 end ConLeche.Cached.Mod

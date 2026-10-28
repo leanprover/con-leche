@@ -45,8 +45,9 @@ accepts (`unitOk`): `a` its exported presentation, `g`/`v` its gates,
 @[expose] def gatedOk (S : Store) (h : Nat) (d : ModData) (j : Nat) (a : ConstantInfo)
     (g v : Array (Nat × UInt8)) (t : Option ProjTable) (x : Nat × ReadSet × ReadSet) : Bool :=
   x.1 == j && lawsOk x.2.1 (lawsOf t (if v.isEmpty then a else asAxiom a)) &&
-    readsOk S h d.fe d.unit false g x.2.1 &&
-    (v.isEmpty || (lawsOk x.2.2 (lawsOf t a) && readsOk S h d.fe d.unit false (g ++ v) x.2.2))
+    readsOk (S.uview h) h d.fe (S.slot h) false g x.2.1 &&
+    (v.isEmpty || (lawsOk x.2.2 (lawsOf t a) &&
+      readsOk (S.uview h) h d.fe (S.slot h) false (g ++ v) x.2.2))
 
 /-- **The presentations of module `h`'s constant `j`**: at the private
 level the installed constant with its reads; at the exported level its
@@ -94,10 +95,11 @@ name. -/
   if h : i < M.size then moduleOf S i M[i] else emptyModule
 
 /-- **What a modular run establishes**: the store's units are the run's;
-every module's levels are over the run's modules; every module's
-records were installed at its view, its records checked, its proofs
-attested, its unit checked; every module passes its local checks; the
-store's list of names with several alternates is complete. -/
+every module's levels are over the run's modules and recorded in its
+unit; every module's records were installed at its view, its records
+checked, its proofs attested, its unit checked; every module passes its
+local checks; the store's name index lists every unit constant in module
+order, and its list of names with several alternates is complete. -/
 structure RunOk (mode : CheckMode) (S : Store) (M : Array ModData) : Prop where
   slots : S.slots.size = M.size
   lvls : ∀ i, i < M.size → (S.lvl i).size = M.size
@@ -107,10 +109,13 @@ structure RunOk (mode : CheckMode) (S : Store) (M : Array ModData) : Prop where
   chk : ∀ i (h : i < M.size), ∀ pc ∈ M[i].pend.toList,
     ∃ s, checkPending mode M[i].fe pc {} = .ok ((), s)
   prf : ∀ i (h : i < M.size), ProofsAttested mode M[i].flags.contains M[i].fe M[i].pend
-  slot : ∀ i (h : i < M.size), S.slot i = M[i].unit.slot
-  priv : ∀ i (h : i < M.size), M[i].unit.slot.prv.priv = M[i].fe.env.consts.reverse.toArray
-  unit : ∀ i (h : i < M.size), unitOk S i M[i].fe M[i].flags.contains M[i].unit M[i].reads = true
-  locals : ∀ i, i < M.size → localOk S (M.map (·.unit)) i = true
+  slot : ∀ i (h : i < M.size), S.slot i = M[i].unit
+  priv : ∀ i (h : i < M.size), M[i].unit.prv.priv = M[i].fe.env.consts.reverse.toArray
+  ulvl : ∀ i (h : i < M.size), M[i].unit.prv.lvl = S.lvl i
+  unit : ∀ i (h : i < M.size),
+    unitOk (S.uview i) i M[i].fe M[i].flags.contains M[i].unit M[i].reads = true
+  locals : ∀ i, i < M.size → localOk S i = true
+  idx : IdxOk S
   dups : dupsOk S = true
 
 end ConLeche.Cached.Mod

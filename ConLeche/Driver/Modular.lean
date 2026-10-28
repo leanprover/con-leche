@@ -6,17 +6,17 @@ public import ConLeche.Frontend.Olean.Modules
 import ConLeche.Modular
 import ConLeche.Cached.ModStore
 import ConLeche.Verify.Modular.Dev
-public import ConLeche.Verify.Modular.IsoRun
+public import ConLeche.Verify.Modular.Isolated
 import ConLeche.Verify.Modular.Scope
 import ConLeche.Verify.Modular.Local
 public import Std.Data.TreeSet.Basic
 /- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader is passed the
 specification `decodeModuleSpec`, and the compiler runs the fast decoder. -/
 import ConLeche.Verify.Frontend.Olean.Equiv
-/- `isoIndex_eq_fast` (`@[csimp]`): an isolated module's context index is
-passed as the specification `isoIndex`, and the compiler runs the one-pass
-`isoIndexFast`. -/
-import ConLeche.Verify.Modular.IsoFast
+/- `isoBuild_fenv`, `isoBuild_look`, `isoBuild_keysOk`: an isolated module's
+one-pass context build computes the specifications its evidence is
+stated in. -/
+public import ConLeche.Verify.Modular.IsoFast
 
 /-!
 # The modular driver: module by module, over one store (task #370)
@@ -286,10 +286,16 @@ it — which the importer decides against its own levels through the
 constant's **gates** (`g1`: what its presence needs, `v1`: what its full
 presentation needs beyond that), transitively.  A pinned name is never
 presented as an assumption or left out: one whose presentation would be
-is an error. -/
-def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : Nat)
-    (ds : Array Declaration) (fe : FEnv) : Except String (Mod.Unit' × Mod.Reads × Diag) := do
-  let _ := ds
+is an error.
+
+**What it reads** (task #374): the module's own constants (`fe`, their
+index) and records' exported levels (`expo`, from its own `.olean`
+files), its import graph's headers (`pubReachOf`, the public imports
+from it: all modules it loads), and its context through `U` alone — the
+context's lookup and the interfaces of the modules it loads.  The unit
+records the module's levels `lv` (for its `import all` importers). -/
+def unitOf (g : Array ModIn) (U : Mod.UView) (flagged : Std.HashSet Name) (k : Nat)
+    (lv : ByteArray) (fe : FEnv) : Except String (ModSlot × Mod.Reads × Diag) := do
   let some m := g[k]? | throw "no module"
   let priv := fe.env.consts.reverse.toArray
   let n := priv.size
@@ -297,7 +303,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
   let guaranteed (p : Nat × UInt8) : Bool := p.2 == 1 && reach.get! p.1 == 1
   let tblOf (ci : ConstantInfo) : Option ProjTable := fe.env.tables.find? (·.structName == ci.name)
   let resolve (d : Name) : Except String (Nat × Nat) :=
-    match Mod.target k fe d with
+    match Mod.target k fe U d with
     | some t => pure t
     | none => throw s!"{d} does not resolve in its module"
   -- a read: a name, its target, and the kind it must be stored as (`none`:
@@ -335,9 +341,7 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     else
       match w with
       | none => true
-      | some w => match fe.base.mb with
-        | some mb => ((mb.pick? d).map fun (_, _, ci) => w.ok ci).getD false
-        | none => false
+      | some w => ((U.look d).map fun (_, _, ci) => w.ok ci).getD false
   let mut st := init
   let mut changed := true
   let mut rounds := n + 1
@@ -360,9 +364,9 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
     let (_, t, w) := r
     if isOwn t then (k, 1)
     else match w with
-      | none => (t.1, S.needAt t.1 t.2)
+      | none => (t.1, U.needAt t.1 t.2)
       | some _ =>
-        if S.storedAt t.1 t.2 then (t.1, 1) else (t.1, 2)
+        if U.storedAt t.1 t.2 then (t.1, 1) else (t.1, 2)
   let tgtGate (g1 v1 : Array (Array (Nat × UInt8))) (r : Name × (Nat × Nat) × Option Mod.Want) :
       Array (Nat × UInt8) :=
     let (_, t, w) := r
@@ -371,9 +375,9 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
       | none => g1[t.2]?.getD #[]
       | some _ => g1[t.2]?.getD #[] ++ v1[t.2]?.getD #[]
     else match w with
-      | none => if S.needAt t.1 t.2 == 1 then S.gateAt t.1 t.2 else #[]
+      | none => if U.needAt t.1 t.2 == 1 then U.gateAt t.1 t.2 else #[]
       | some _ =>
-        if S.storedAt t.1 t.2 then S.fullGateAt t.1 t.2
+        if U.storedAt t.1 t.2 then U.fullGateAt t.1 t.2
         else #[]
   let gateOver (g1 v1 : Array (Array (Nat × UInt8)))
       (rs : Array (Name × (Nat × Nat) × Option Mod.Want)) : Std.HashSet (Nat × UInt8) := Id.run do
@@ -438,12 +442,6 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
   -- presented as stored: the presentation is the constant (an assumption
   -- presented as an assumption included)
   let stored : Array Bool := (Array.range n).map fun j => at1[j]! == some priv[j]!
-  let slot : ModSlot := {
-    exp := {
-      at1, stored,
-      tbls := (Array.range n).map fun j => if stored[j]! then tbls[j]! else none,
-      g1, v1, prf := priv.map fun ci => flagged.contains ci.name }
-    prv := { priv, tbls } }
   let dummy (d : Name) : Nat × ConstantInfo := (0, .axiomInfo ⟨d, [], .sort .zero⟩)
   let addReads (r : Mod.ReadSet) (rs : Array (Name × (Nat × Nat) × Option Mod.Want)) :
       Mod.ReadSet :=
@@ -473,7 +471,13 @@ def unitOf (g : Array ModIn) (S : Mod.Store) (flagged : Std.HashSet Name) (k : N
         let rt := if v1[j]!.isEmpty then addReads {} rs else addReads {} tReads[j]!
         let rf := if v1[j]!.isEmpty then {} else addReads {} fReads[j]!
         gated := gated.push (j, rt, rf)
-  return ({ slot, fp1 := fp1.toArray }, { all2, all1, gated }, diag)
+  let slot : ModSlot := {
+    exp := {
+      at1, stored,
+      tbls := (Array.range n).map fun j => if stored[j]! then tbls[j]! else none,
+      g1, v1, prf := priv.map fun ci => flagged.contains ci.name, fp1 := fp1.toArray }
+    prv := { priv, tbls, lvl := lv } }
+  return (slot, { all2, all1, gated }, diag)
 
 /-! ## The install -/
 
@@ -565,7 +569,8 @@ theorem attested_insert {mode : CheckMode} {fe : FEnv} {pend : Array PendingChec
   · exact h n h1
 
 /-- The walk of `proofsOf` over the records left. -/
-def proofsGo (mode : CheckMode) (dups : Std.HashSet Name) (fe : FEnv) (pend : Array PendingCheck) :
+def proofsGo (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv)
+    (pend : Array PendingCheck) :
     (l : List PendingCheck) → (∀ pc ∈ l, pc ∈ pend.toList) → (s : Std.HashSet Name) →
       Mod.ProofsAttested mode s.contains fe pend →
       { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend }
@@ -573,28 +578,32 @@ def proofsGo (mode : CheckMode) (dups : Std.HashSet Name) (fe : FEnv) (pend : Ar
   | pc :: l, hl, s, h =>
     have hm : pc ∈ pend.toList := hl pc (List.mem_cons_self ..)
     have hl' : ∀ x ∈ l, x ∈ pend.toList := fun x hx => hl x (List.mem_cons_of_mem _ hx)
-    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode dups fe pend l hl' s h
+    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode find fe pend l hl' s h
     else
       have hpin : pc.vg.cv.name ∉ ConLeche.Modular.pinnedNames := fun hn => by
         simp [Mod.isPinned, hn] at hp
       if hk : pc.vg.kind = .thm then
-        proofsGo mode dups fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
-      else if dups.contains pc.vg.cv.name then
+        proofsGo mode find fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
+      else if Mod.isPropCheap find pc.vg.cv.type then
         match hc : checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
         | .ok ((), st) =>
-          proofsGo mode dups fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
-        | .error _ => proofsGo mode dups fe pend l hl' s h
-      else proofsGo mode dups fe pend l hl' s h
+          proofsGo mode find fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
+        | .error _ => proofsGo mode find fe pend l hl' s h
+      else proofsGo mode find fe pend l hl' s h
 
 /-- **A module's proofs**: its theorems, and every definition or opaque
-constant whose name another module stores too and whose value passes
+constant whose statement is cheaply seen to be a proposition
+(`Mod.isPropCheap`, Lean's own test for merging two imported copies of a
+constant, over the module's environment `find`) and whose value passes
 the theorem record's check (its type a proposition) — never a pinned
 name.  Read off the module's recorded checks: a theorem's record and a
-value record are what its declarations leave.  With the evidence that
-every name in it is attested (`ProofsAttested`). -/
-def proofsOf (mode : CheckMode) (dups : Std.HashSet Name) (fe : FEnv)
+value record are what its declarations leave.  A function of the module
+and its context alone (task #374: before, a definition was tested only
+if another module of the closure stored its name too).  With the
+evidence that every name in it is attested (`ProofsAttested`). -/
+def proofsOf (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv)
     (pend : Array PendingCheck) : { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend } :=
-  proofsGo mode dups fe pend pend.toList (fun _ h => h) {} (fun n hn => by
+  proofsGo mode find fe pend pend.toList (fun _ h => h) {} (fun n hn => by
     simp at hn)
 
 /-! ## Facts below a bound -/
@@ -660,32 +669,38 @@ structure ModOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
   ds : d.ds = declsAt g i
   run : ∃ n, InstallRun mode natOpPinSets d.ds.toList (0, S.view i, #[]) (n, d.fe, d.pend)
   prf : Mod.ProofsAttested mode d.flags.contains d.fe d.pend
-  unit : Mod.unitOk S i d.fe d.flags.contains d.unit d.reads = true
+  unit : Mod.unitOk (S.uview i) i d.fe d.flags.contains d.unit d.reads = true
 
-/-- **A module checked in isolation, its unit checked** (`--modular=isolated`),
-with the evidence the run's theorem needs of it (`Mod.IsoRunOk`): its
-records are the graph's, installed from the canonical index of its
-context built from its imports' units (`Mod.isoCtx`) with the accepting
-run, every record checked there, its proofs attested there; its data's
-view its own constants over the store (`Mod.ownView`), its unit checked
-against it. -/
-structure IsoModOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
+/-- **A module checked in isolation** (`--modular=isolated`), with the
+evidence the run's theorem needs of it (`Mod.IsoRunOk`), all about the
+units it reads (`Mod.mask`: those of the modules it loads, at the level
+it loads them; its levels those its unit records): its records are the
+graph's, installed from the canonical index of the context built from
+them (`Mod.isoCtx`) with the accepting run, every record checked there,
+its proofs attested there; its data's index the canonical index of its
+own constants; its unit checked against them and that context
+(`Mod.isoUView`); its local checks (`Mod.localOkIso`). -/
+structure IsoModOk (mode : CheckMode) (g : Array ModIn) (slots : Array (Thunk ModSlot)) where
   i : Nat
   d : Mod.ModData
   ds : d.ds = declsAt g i
   iso : ∃ n feI pendI,
-    InstallRun mode natOpPinSets d.ds.toList (0, mkFEnv (Mod.isoCtx S.slot (S.lvl i)), #[])
+    InstallRun mode natOpPinSets d.ds.toList
+      (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl), #[])
       (n, feI, pendI) ∧
     (∀ pc ∈ pendI.toList, ∃ s, checkPending mode feI pc {} = .ok ((), s)) ∧
     Mod.ProofsAttested mode d.flags.contains feI pendI ∧
-    feI.env = Mod.Env.over d.fe.env (Mod.isoCtx S.slot (S.lvl i))
-  view : d.fe = Mod.ownView d.fe.env (S.mb i)
-  unit : Mod.unitOk S i d.fe d.flags.contains d.unit d.reads = true
+    feI.env = Mod.Env.over d.fe.env
+      (Mod.isoCtx (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl)
+  own : d.fe = mkFEnv d.fe.env
+  unit : Mod.unitOk (Mod.isoUView (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl) i
+    d.fe d.flags.contains d.unit d.reads = true
+  locals : Mod.localOkIso i (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl = true
 
 /-- A module's install, tagged with its index. -/
 structure ModRes (α : Type) where
   i : Nat
-  unit : Mod.Unit'
+  unit : ModSlot
   diag : Diag
   res : Except (CheckError × Nat) α
 
@@ -693,7 +708,7 @@ structure ModRes (α : Type) where
 it is there, its dependents released), and the rest of its work, done
 after (an isolated module's record checks). -/
 abbrev Work (α : Type) :=
-  Nat → IO (Except (CheckError × Nat) (Mod.Unit' × Diag × (Unit → IO (Except (CheckError × Nat) α))))
+  Nat → IO (Except (CheckError × Nat) (ModSlot × Diag × (Unit → IO (Except (CheckError × Nat) α))))
 
 /-- **The install of every module**: `jobs` workers take ready modules
 off the queue, do each one's work (`work`), publish its unit, release
@@ -735,7 +750,7 @@ def installAll {α : Type} (err : IO.FS.Stream) (jobs : Nat) (g : Array ModIn)
             else work k
           match r with
           | .ok (u, dg, rest) =>
-            let unit := u.slot
+            let unit := u
             OwnerParse.markOne unit
             if let some p := proms[k]? then p.resolve unit
             sc.finish k
@@ -785,80 +800,120 @@ def markData (d : Mod.ModData) : IO Unit := do
 
 /-- **A module's work in store mode**: its records installed at its view
 of the store, its proofs, its unit and the unit's check. -/
-def storeWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store)
-    (dups : Std.HashSet Name) : Work (ModOk mode g S) := fun k => do
+def storeWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store) :
+    Work (ModOk mode g S) := fun k => do
   match ← installModule mode err (declsAt g k) (S.view k) with
   | .error e => return .error e
   | .ok e =>
-    let ⟨flags, hprf⟩ := proofsOf mode dups e.fe e.pend
-    match unitOf g S flags k (declsAt g k) e.fe with
+    let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
+    match unitOf g (S.uview k) flags k (S.lvl k) e.fe with
     | .error msg => return .error (.internal s!"the unit of the module: {msg}", 0)
     | .ok (u, rd, dg) =>
       let d : Mod.ModData :=
         { imports := ((g[k]?.map (·.imports)).getD #[]).toList.map (·.1)
           ds := declsAt g k, fe := e.fe, pend := e.pend, unit := u, flags, reads := rd }
-      if hu : Mod.unitOk S k d.fe d.flags.contains d.unit d.reads = true then
+      if hu : Mod.unitOk (S.uview k) k d.fe d.flags.contains d.unit d.reads = true then
         return .ok (u, dg, fun _ => pure (.ok ⟨k, d, rfl, e.run, hprf, hu⟩))
       else return .error (.internal "the unit of the module fails its check", 0)
 
-/-- **A module's work in isolated mode**: its context built from its
-imports' units (`Mod.isoCtx`), its records installed from its canonical
-index, its proofs; its unit computed and checked from its own constants
-over the store (`Mod.ownView`, the same unit as the store run's), and
-published; then every record checked in the module's environment, which
-is dropped after. -/
-def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store)
-    (dups : Std.HashSet Name) : Work (IsoModOk mode g S) := fun k => do
-  -- the context's canonical index, built in one pass (`Mod.isoIndex_eq_fast`);
-  -- the context itself is its environment
-  let fe₀ := Mod.isoIndex S.slot (S.lvl k)
-  let C := fe₀.env
+/-- Why a module's levels fail their check against the units it reads,
+for the message. -/
+def levelsWhy (g : Array ModIn) (m : Nat) (lv : ByteArray) (unit : Nat → ModSlot) :
+    Option String := Id.run do
+  let nm (h : Nat) : Name := (g[h]?.map (·.name)).getD .anonymous
+  for h in [0:lv.size] do
+    let l := Mod.lvlAt lv h
+    if l != 0 then
+      if !(h < m && l ≤ 2) then return some s!"{nm m} loads the later module {nm h}"
+      if l == 2 then
+        let lh := (unit h).prv.lvl
+        for x in [0:lh.size] do
+          unless Mod.lvlAt lh x ≤ Mod.lvlAt lv x do
+            return some s!"{nm m} loads {nm h} at its private level but not {nm x}, \
+              which {nm h}'s context holds"
+      else
+        for (x, need) in (unit h).exp.fp1 do
+          unless Mod.lvlAt lv x ≥ need do
+            return some s!"{nm h}'s exported constants read {nm x}, which {nm m} does not load"
+  return none
+
+/-- **A module's work in isolated mode**, a function of the module's own
+records and of the units it reads (`Mod.mask`: the interface of every
+module it loads, the private record of those it loads with `import all`,
+nothing else): its context's index, lookup and duplicates in one pass
+(`Mod.isoBuild`), its records installed from that index, its proofs; its
+unit computed and checked from its own constants and that context
+(`Mod.isoUView`); its local checks; the unit published; then every record
+checked in the module's environment, which is dropped after. -/
+def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : Array (Thunk ModSlot))
+    (lvls : Array ByteArray) : Work (IsoModOk mode g slots) := fun k => do
+  let lv := (lvls[k]?).getD .empty
+  -- the units module `k` reads: what Lean loads for it, and nothing else
+  let units := Mod.mask (Mod.slotOf slots) lv
+  let a := Mod.isoBuild units lv
+  let fe₀ := a.fenv
   match ← installModule mode err (declsAt g k) fe₀ with
   | .error e => return .error e
   | .ok e =>
-    let ⟨flags, hprf⟩ := proofsOf mode dups e.fe e.pend
-    let own := Mod.ownPart C e.fe.env
-    let vw := Mod.ownView own (S.mb k)
-    match unitOf g S flags k (declsAt g k) vw with
+    let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
+    let own := Mod.ownPart fe₀.env e.fe.env
+    let U : Mod.UView := ⟨fun h => (units h).exp, a.look⟩
+    match unitOf g U flags k lv (mkFEnv own) with
     | .error msg => return .error (.internal s!"the unit of the module: {msg}", 0)
     | .ok (u, rd, dg) =>
       let d : Mod.ModData :=
         { imports := ((g[k]?.map (·.imports)).getD #[]).toList.map (·.1)
-          ds := declsAt g k, fe := vw, pend := #[], unit := u, flags, reads := rd }
-      if hu : Mod.unitOk S k d.fe d.flags.contains d.unit d.reads = true then
-        have hrun := e.run.choose_spec
-        have henv : e.fe.env = Mod.Env.over d.fe.env C := hrun.over_ctx
+          ds := declsAt g k, fe := mkFEnv own, pend := #[], unit := u, flags, reads := rd }
+      if hlv : OwnerParse.sameB d.unit.prv.lvl lv = true then
+      if hu : Mod.unitOk U k d.fe d.flags.contains d.unit d.reads = true then
+      if hl : (Mod.levelsOk k lv units && a.keysOk units) = true then
+        have hlv : d.unit.prv.lvl = lv := OwnerParse.sameB_iff.mp hlv
+        have hfe : fe₀ = mkFEnv (Mod.isoCtx units lv) := Mod.isoBuild_fenv units lv
+        have hU : U = Mod.isoUView units lv := by
+          show (⟨_, (Mod.isoBuild units lv).look⟩ : Mod.UView) = ⟨_, _⟩
+          rw [Mod.isoBuild_look]
+        have hrun₀ : ∃ n, InstallRun mode natOpPinSets (declsAt g k).toList
+            (0, mkFEnv (Mod.isoCtx units lv), #[]) (n, e.fe, e.pend) := by
+          rw [← hfe]; exact e.run
+        have hrun := hrun₀.choose_spec
+        have hC : fe₀.env = Mod.isoCtx units lv := by rw [hfe]; rfl
+        have henv : e.fe.env = Mod.Env.over d.fe.env (Mod.isoCtx units lv) := by
+          have h1 := hrun.over_ctx
+          have h2 : (mkFEnv own).env = Mod.ownPart (Mod.isoCtx units lv) e.fe.env := by
+            show Mod.ownPart fe₀.env e.fe.env = _
+            rw [hC]
+          show e.fe.env = Mod.Env.over (mkFEnv own).env _
+          rw [h2]; exact h1
+        have hloc : Mod.localOkIso k units lv = true := by
+          unfold Mod.localOkIso
+          rw [← Mod.isoBuild_keysOk units lv]
+          exact hl
         return .ok (u, dg, fun _ =>
           match hc : checkPendingList mode e.fe e.pend.toList with
-          | .ok () => pure (.ok ⟨k, d, rfl,
-              ⟨_, e.fe, e.pend, hrun, checkPendingList_records mode e.fe _ hc, hprf, henv⟩, rfl, hu⟩)
+          | .ok () => pure (.ok ⟨k, d, rfl, by
+                rw [hlv]
+                exact ⟨_, e.fe, e.pend, hrun, checkPendingList_records mode e.fe _ hc, hprf, henv⟩,
+              rfl, by rw [hlv, ← hU]; exact hu, by rw [hlv]; exact hloc⟩)
           | .error (x, pos) => pure (.error (x, pos)))
+      else
+        let why := match levelsWhy g k lv units with
+          | some w => w
+          | none => s!"two modules store constants of one name under different qualified \
+              names (not proofs of one statement), and both are in the context of \
+              {(g[k]?.map (·.name)).getD .anonymous}"
+        -- a position past the records: the failure is the module's, not a record's
+        return .error (.invalid why, (declsAt g k).size)
       else return .error (.internal "the unit of the module fails its check", 0)
+      else return .error (.internal "the unit does not record the module's levels", 0)
 
 /-! ## The local checks -/
 
 /-- A module's name, for messages. -/
 def nameOf (g : Array ModIn) (h : Nat) : Name := (g[h]?.map (·.name)).getD .anonymous
 
-/-- Why module `m`'s local checks fail, for the message. -/
-def localWhy (g : Array ModIn) (S : Mod.Store) (units : Array Mod.Unit') (m : Nat) : String := Id.run do
-  let lv := S.lvl m
-  for h in [0:lv.size] do
-    let l := Mod.lvlAt lv h
-    if l != 0 then
-      if !(h < m && l ≤ 2) then return s!"{nameOf g m} loads the later module {nameOf g h}"
-      let some u := units[h]? | return "no unit"
-      if l == 2 then
-        let lh := S.lvl h
-        for x in [0:lh.size] do
-          unless Mod.lvlAt lh x ≤ Mod.lvlAt lv x do
-            return s!"{nameOf g m} loads {nameOf g h} at its private level but not {nameOf g x}, \
-              which {nameOf g h}'s context holds"
-      else
-        for (x, need) in u.fp1 do
-          unless Mod.lvlAt lv x ≥ need do
-            return s!"{nameOf g h}'s exported constants read {nameOf g x}, which {nameOf g m} \
-              does not load"
+/-- Why module `m`'s local checks fail in a store run, for the message. -/
+def localWhy (g : Array ModIn) (S : Mod.Store) (m : Nat) : String := Id.run do
+  if let some w := levelsWhy g m (S.lvl m) S.slot then return w
   for n in S.dups do
     unless Mod.oneKey S m n do
       return s!"two modules store constants named {n} under different qualified names (not \
@@ -903,8 +958,8 @@ theorem modOk_facts {mode : CheckMode} {g : Array ModIn} {S : Mod.Store}
         (n, (A.map ModOk.d)[i].fe, (A.map ModOk.d)[i].pend)) ∧
     Mod.ProofsAttested mode (A.map ModOk.d)[i].flags.contains (A.map ModOk.d)[i].fe
       (A.map ModOk.d)[i].pend ∧
-    Mod.unitOk S i (A.map ModOk.d)[i].fe (A.map ModOk.d)[i].flags.contains (A.map ModOk.d)[i].unit
-      (A.map ModOk.d)[i].reads = true ∧
+    Mod.unitOk (S.uview i) i (A.map ModOk.d)[i].fe (A.map ModOk.d)[i].flags.contains
+      (A.map ModOk.d)[i].unit (A.map ModOk.d)[i].reads = true ∧
     (A.map ModOk.d)[i].ds = declsAt g i := by
   have h' : i < A.size := by simpa using h
   simp only [Array.getElem_map]
@@ -917,47 +972,52 @@ theorem modOk_facts {mode : CheckMode} {g : Array ModIn} {S : Mod.Store}
   exact ⟨r, p, u, dd⟩
 
 /-- The facts a module's `IsoModOk` carries, read at its position. -/
-theorem isoModOk_facts {mode : CheckMode} {g : Array ModIn} {S : Mod.Store}
-    {A : Array (IsoModOk mode g S)} (hA : ∀ k, k < A.size → ∀ h : k < A.size, A[k].i = k)
+theorem isoModOk_facts {mode : CheckMode} {g : Array ModIn} {slots : Array (Thunk ModSlot)}
+    {A : Array (IsoModOk mode g slots)} (hA : ∀ k, k < A.size → ∀ h : k < A.size, A[k].i = k)
     (i : Nat) (h : i < (A.map IsoModOk.d).size) :
+    let d := (A.map IsoModOk.d)[i]
+    let units := Mod.mask (Mod.slotOf slots) d.unit.prv.lvl
     (∃ n feI pendI,
-      InstallRun mode natOpPinSets (A.map IsoModOk.d)[i].ds.toList
-        (0, mkFEnv (Mod.isoCtx S.slot (S.lvl i)), #[]) (n, feI, pendI) ∧
+      InstallRun mode natOpPinSets d.ds.toList (0, mkFEnv (Mod.isoCtx units d.unit.prv.lvl), #[])
+        (n, feI, pendI) ∧
       (∀ pc ∈ pendI.toList, ∃ s, checkPending mode feI pc {} = .ok ((), s)) ∧
-      Mod.ProofsAttested mode (A.map IsoModOk.d)[i].flags.contains feI pendI ∧
-      feI.env = Mod.Env.over (A.map IsoModOk.d)[i].fe.env (Mod.isoCtx S.slot (S.lvl i))) ∧
-    (A.map IsoModOk.d)[i].fe = Mod.ownView (A.map IsoModOk.d)[i].fe.env (S.mb i) ∧
-    Mod.unitOk S i (A.map IsoModOk.d)[i].fe (A.map IsoModOk.d)[i].flags.contains
-      (A.map IsoModOk.d)[i].unit (A.map IsoModOk.d)[i].reads = true ∧
-    (A.map IsoModOk.d)[i].ds = declsAt g i := by
+      Mod.ProofsAttested mode d.flags.contains feI pendI ∧
+      feI.env = Mod.Env.over d.fe.env (Mod.isoCtx units d.unit.prv.lvl)) ∧
+    d.fe = mkFEnv d.fe.env ∧
+    Mod.unitOk (Mod.isoUView units d.unit.prv.lvl) i d.fe d.flags.contains d.unit d.reads = true ∧
+    Mod.localOkIso i units d.unit.prv.lvl = true ∧
+    d.ds = declsAt g i := by
   have h' : i < A.size := by simpa using h
   simp only [Array.getElem_map]
   have hi := hA i h' h'
   have r := A[i].iso
-  have v := A[i].view
+  have o := A[i].own
   have u := A[i].unit
+  have l := A[i].locals
   have dd := A[i].ds
-  rw [hi] at r v u dd
-  exact ⟨r, v, u, dd⟩
+  rw [hi] at u l dd
+  exact ⟨r, o, u, l, dd⟩
 
-/-- **The facts both modes decide the same way**, about the modules'
-data `M`: the sizes, the imports below, the published units the store's,
-the units' constants the installs', the local checks, the list of names
-stored twice, and the name index listing every unit constant. -/
+/-- **The facts of a store run decided after every module**, about the
+modules' data `M`: the sizes, the imports below, the published units the
+store's, the units' constants the installs', the levels each unit records
+the store's, the local checks, the list of names stored twice, and the
+name index listing every unit constant. -/
 structure CommonOk (S : Mod.Store) (M : Array Mod.ModData) : Prop where
   slots : S.slots.size = M.size
   lvls : ∀ i, i < M.size → (S.lvl i).size = M.size
   below : ∀ i (h : i < M.size), ∀ b ∈ M[i].imports, b < i
-  slot : ∀ i (h : i < M.size), S.slot i = M[i].unit.slot
-  priv : ∀ i (h : i < M.size), M[i].unit.slot.prv.priv = M[i].fe.env.consts.reverse.toArray
-  locals : ∀ i, i < M.size → Mod.localOk S (M.map (·.unit)) i = true
+  slot : ∀ i (h : i < M.size), S.slot i = M[i].unit
+  priv : ∀ i (h : i < M.size), M[i].unit.prv.priv = M[i].fe.env.consts.reverse.toArray
+  ulvl : ∀ i (h : i < M.size), M[i].unit.prv.lvl = S.lvl i
+  locals : ∀ i, i < M.size → Mod.localOk S i = true
   dups : Mod.dupsOk S = true
   idx : Mod.IdxOk S
 
 /-- Decide the facts of `CommonOk`, from the local checks' tagged
 results. -/
 def commonOk (S : Mod.Store) (M : Array Mod.ModData)
-    (locs : Array (Option (At fun i => Mod.localOk S (M.map Mod.ModData.unit) i = true))) :
+    (locs : Array (Option (At fun i => Mod.localOk S i = true))) :
     Except String (PLift (CommonOk S M)) := do
   let hslots ← if h : S.slots.size = M.size then pure (PLift.up h)
     else .error "the store has a unit per module"
@@ -970,29 +1030,36 @@ def commonOk (S : Mod.Store) (M : Array Mod.ModData)
       else .error s!"module {i}'s imports" :
     Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, ∀ b ∈ (M[i]'h).imports, b < i)))
   let ⟨hslot⟩ ← (allBelow M.size fun i hi =>
-      if h : OwnerParse.sameB (S.slot i) M[i].unit.slot = true then
+      if h : OwnerParse.sameB (S.slot i) M[i].unit = true then
         .ok ⟨fun _ => OwnerParse.sameB_iff.mp h⟩
       else .error s!"module {i}'s published unit" :
-    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, S.slot i = (M[i]'h).unit.slot)))
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, S.slot i = (M[i]'h).unit)))
   let ⟨hpriv⟩ ← (allBelow M.size fun i hi =>
-      let r : Option (PLift (M[i].unit.slot.prv.priv = M[i].fe.env.consts.reverse.toArray)) :=
-        sameArr M[i].unit.slot.prv.priv M[i].fe.env.consts.reverse.toArray
+      let r : Option (PLift (M[i].unit.prv.priv = M[i].fe.env.consts.reverse.toArray)) :=
+        sameArr M[i].unit.prv.priv M[i].fe.env.consts.reverse.toArray
       match r with
       | some ⟨h⟩ => .ok ⟨fun _ => h⟩
       | none => .error s!"module {i}'s unit's constants" :
     Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size,
-      (M[i]'h).unit.slot.prv.priv = (M[i]'h).fe.env.consts.reverse.toArray)))
+      (M[i]'h).unit.prv.priv = (M[i]'h).fe.env.consts.reverse.toArray)))
+  let ⟨hulvl⟩ ← (allBelow M.size fun i hi =>
+      if h : OwnerParse.sameB M[i].unit.prv.lvl (S.lvl i) = true then
+        .ok ⟨fun _ => OwnerParse.sameB_iff.mp h⟩
+      else .error s!"module {i}'s unit's levels" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size,
+      (M[i]'h).unit.prv.lvl = S.lvl i)))
   let ⟨hloc⟩ ← (allBelow M.size fun i _ =>
       match At.get? (locs[i]?.join) i with
       | some h => .ok h
       | none => .error s!"module {i}'s local checks" :
-    Except String (PLift (∀ i, i < M.size → Mod.localOk S (M.map Mod.ModData.unit) i = true)))
+    Except String (PLift (∀ i, i < M.size → Mod.localOk S i = true)))
   let hdups ← if h : Mod.dupsOk S = true then pure (PLift.up h)
     else .error "the store's list of names stored twice"
   let hidx ← if h : Mod.idxOk S = true then pure (PLift.up (Mod.idxOk_spec h))
     else .error "the store's name index does not list every unit constant in module order"
   return ⟨{ slots := hslots.down, lvls := hlvls, below := fun i h => hbelow i h h,
-            slot := fun i h => hslot i h h, priv := fun i h => hpriv i h h, locals := hloc,
+            slot := fun i h => hslot i h h, priv := fun i h => hpriv i h h,
+            ulvl := fun i h => hulvl i h h, locals := hloc,
             dups := hdups.down, idx := hidx.down }⟩
 
 /-- Every slot of an array of tagged results holds its own index. -/
@@ -1002,9 +1069,9 @@ def indexed {β : Type} (A : Array β) (ix : β → Nat) :
     if h : ix A[k] = k then .ok ⟨fun _ => h⟩ else .error s!"slot {k} holds module {ix A[k]}"
 
 /-- **The store run's evidence, assembled**: from the modules' `ModOk`s
-(one per module, in module order), the facts both modes decide, and the
-records' checks' tagged results (`off[i]` the position of module `i`'s
-first record check). -/
+(one per module, in module order), the facts decided after every module,
+and the records' checks' tagged results (`off[i]` the position of module
+`i`'s first record check). -/
 def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))
     (hc : CommonOk S (A.map ModOk.d))
     (chks : Array (Option (At (ChkP mode (A.map ModOk.d))))) (off : Array Nat) :
@@ -1034,30 +1101,59 @@ def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk
     prf := fun i h => (modOk_facts hA i h).2.1
     slot := hc.slot
     priv := hc.priv
+    ulvl := hc.ulvl
     unit := fun i h => (modOk_facts hA i h).2.2.1
     locals := hc.locals
+    idx := hc.idx
     dups := hc.dups }, fun i h => (modOk_facts hA i h).2.2.2⟩
 
 /-- **The isolated run's evidence, assembled**: from the modules'
-`IsoModOk`s (one per module, in module order) and the facts both modes
-decide. -/
-def isoRunOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (IsoModOk mode g S))
-    (hc : CommonOk S (A.map IsoModOk.d)) :
-    Except String (PLift (Mod.IsoRunOk mode S (A.map IsoModOk.d) ∧
+`IsoModOk`s (one per module, in module order), each established by the
+module's own work, and the coverage — one unit per module, the published
+unit the module's data, its constants the install's, imports earlier,
+levels over the run's modules — decided here.  No name index, no list of
+names stored twice: nothing about the whole closure beyond the
+coverage. -/
+def isoRunOk (mode : CheckMode) (g : Array ModIn) (slots : Array (Thunk ModSlot))
+    (A : Array (IsoModOk mode g slots)) :
+    Except String (PLift (Mod.IsoRunOk mode slots (A.map IsoModOk.d) ∧
       ∀ i (h : i < (A.map IsoModOk.d).size), (A.map IsoModOk.d)[i].ds = declsAt g i)) := do
+  let M := A.map IsoModOk.d
   let ⟨hA⟩ ← indexed A IsoModOk.i
+  let hsz ← if h : slots.size = M.size then pure (PLift.up h)
+    else .error "a unit per module"
+  let ⟨hlvls⟩ ← (allBelow M.size fun i _ =>
+      if h : M[i].unit.prv.lvl.size = M.size then .ok ⟨fun _ => h⟩
+      else .error s!"module {i}'s levels" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, (M[i]'h).unit.prv.lvl.size = M.size)))
+  let ⟨hbelow⟩ ← (allBelow M.size fun i hi =>
+      if h : M[i].imports.all (· < i) = true then
+        .ok ⟨fun _ b hb => by simpa using List.all_eq_true.mp h b hb⟩
+      else .error s!"module {i}'s imports" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, ∀ b ∈ (M[i]'h).imports, b < i)))
+  let ⟨hslot⟩ ← (allBelow M.size fun i hi =>
+      if h : OwnerParse.sameB (Mod.slotOf slots i) M[i].unit = true then
+        .ok ⟨fun _ => OwnerParse.sameB_iff.mp h⟩
+      else .error s!"module {i}'s published unit" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size, Mod.slotOf slots i = (M[i]'h).unit)))
+  let ⟨hpriv⟩ ← (allBelow M.size fun i hi =>
+      let r : Option (PLift (M[i].unit.prv.priv = M[i].fe.env.consts.reverse.toArray)) :=
+        sameArr M[i].unit.prv.priv M[i].fe.env.consts.reverse.toArray
+      match r with
+      | some ⟨h⟩ => .ok ⟨fun _ => h⟩
+      | none => .error s!"module {i}'s unit's constants" :
+    Except String (PLift (∀ i, i < M.size → ∀ h : i < M.size,
+      (M[i]'h).unit.prv.priv = (M[i]'h).fe.env.consts.reverse.toArray)))
   return ⟨{
-    slots := hc.slots
-    lvls := hc.lvls
-    below := hc.below
-    idx := hc.idx
+    sizes := hsz.down
+    below := fun i h => hbelow i h h
+    lvls := fun i h => hlvls i h h
+    slot := fun i h => hslot i h h
+    priv := fun i h => hpriv i h h
+    own := fun i h => (isoModOk_facts hA i h).2.1
     iso := fun i h => (isoModOk_facts hA i h).1
-    view := fun i h => (isoModOk_facts hA i h).2.1
-    slot := hc.slot
-    priv := hc.priv
     unit := fun i h => (isoModOk_facts hA i h).2.2.1
-    locals := hc.locals
-    dups := hc.dups }, fun i h => (isoModOk_facts hA i h).2.2.2⟩
+    locals := fun i h => (isoModOk_facts hA i h).2.2.2.1 }, fun i h => (isoModOk_facts hA i h).2.2.2.2⟩
 
 /-! ## Compared modules (`--compare`) -/
 
@@ -1138,6 +1234,67 @@ def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store)
         return .error (String.intercalate "; " why)
   else return .error "no such module"
 
+/-- **What a compared module establishes in isolated mode**: its records,
+installed from the context its own levels give it (`lv`, without its
+solution) built from the units it reads, give constants every one of
+which its context — the one its levels with its solution give it, built
+from the units — meets (`cmpOk`). -/
+def IsoCmpClaim (mode : CheckMode) (slots : Array (Thunk ModSlot)) (M : Array Mod.ModData) (i : Nat)
+    (chal : Array Declaration) : Prop :=
+  ∃ lv n fe pend, InstallRun mode natOpPinSets chal.toList
+      (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, fe, pend) ∧
+    ∀ ci ∈ (Mod.ownPart (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) fe.env).consts,
+      cmpOk (holesOf chal)
+        ((Mod.isoCtx (Mod.slotOf slots) ((M[i]?.map (·.unit.prv.lvl)).getD .empty)).find? ci.name)
+        ci = true
+
+/-- **Compare challenge `i` in isolated mode**: as `compareOne`, every
+context built from the units the challenge reads at the levels in
+question (its own `lv`, then with its solution). -/
+def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (slots : Array (Thunk ModSlot))
+    (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
+    IO (Except String (PLift (IsoCmpClaim mode slots M i chal) × Array (Name × Nat))) := do
+  let aS := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lv) lv
+  match ← installModule mode err chal aS.fenv with
+  | .error (e, pos) =>
+    let d := match chal[pos]? with
+      | some d => s!"{ConLeche.Cached.declCLabel d}: "
+      | none => ""
+    return .error s!"the challenge's records do not install at its own context: {d}{e}"
+  | .ok e =>
+    let holes := holesOf chal
+    let lvC := (M[i]?.map (·.unit.prv.lvl)).getD .empty
+    let aC := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC
+    let own := (Mod.ownPart aS.fenv.env e.fe.env).consts
+    if h : own.all (fun ci => cmpOk holes (aC.fenv.find? ci.name) ci) = true then
+      let filled := own.filterMap fun ci =>
+        if holes.contains ci.name then
+          some (ci.name, match aC.look ci.name with
+            | some (h, _, _) => h
+            | none => 0)
+        else none
+      have hfS : aS.fenv = mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) :=
+        Mod.isoBuild_fenv _ lv
+      have hrun₀ : ∃ n, InstallRun mode natOpPinSets chal.toList
+          (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, e.fe, e.pend) := by
+        rw [← hfS]; exact e.run
+      have hrun := hrun₀.choose_spec
+      return .ok (⟨⟨lv, _, e.fe, e.pend, hrun, fun ci hci => by
+        have hC : aS.fenv.env = Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv := by
+          rw [hfS]; rfl
+        have hci' : ci ∈ (Mod.ownPart aS.fenv.env e.fe.env).consts := by rw [hC]; exact hci
+        have := List.all_eq_true.mp h ci hci'
+        rw [Mod.isoBuild_fenv, Mod.isoIndex, mkFEnv_find?, Mod.isoCtx_mask] at this
+        exact this⟩⟩, filled.reverse.toArray)
+    else
+      let bad := own.filter fun ci => !cmpOk holes (aC.fenv.find? ci.name) ci
+      let why := bad.reverse.take 5 |>.map fun ci => match aC.fenv.find? ci.name with
+        | none => s!"{ci.name}: the solution has no such constant"
+        | some _ =>
+          if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
+          else s!"{ci.name}: the solution's constant is not the challenge's"
+      return .error (String.intercalate "; " why)
+
 /-- **A modular accept** (store mode): the store and the modules' data of
 a run with its evidence (`Mod.RunOk`), one module per graph module, each
 one's records the graph's, the name index listing every unit constant,
@@ -1152,7 +1309,6 @@ structure Accepted (mode : CheckMode) (g : Array ModIn) where
   S : Mod.Store
   M : Array Mod.ModData
   ok : Mod.RunOk mode S M
-  idx : Mod.IdxOk S
   size : M.size = g.size
   decls : ∀ i (h : i < M.size), M[i].ds = declsAt g i
   /-- every compared module's records are met by its context -/
@@ -1166,8 +1322,8 @@ theorem Accepted.localOk {mode : CheckMode} {g : Array ModIn} (a : Accepted mode
 /-- **A store accept is an isolated accept**: every module checked in
 isolation passes, with the same units. -/
 theorem Accepted.isolated {mode : CheckMode} {g : Array ModIn} (a : Accepted mode g) :
-    Mod.IsoRunOk mode a.S a.M :=
-  a.ok.isoRunOk a.idx
+    Mod.IsoStoreOk mode a.S a.M :=
+  a.ok.isoStoreOk
 
 /-- Every module of a store accept passes its local checks in the
 isolated development. -/
@@ -1175,37 +1331,40 @@ theorem Accepted.localOk_iso {mode : CheckMode} {g : Array ModIn} (a : Accepted 
     ConLeche.Modular.LocalOk mode natOpPinSets (Mod.isoDevOf a.S a.M) i :=
   a.isolated.localOk i
 
-/-- **An isolated accept** (`--modular=isolated`): the modules' data of a
-run with its evidence (`Mod.IsoRunOk`: every module checked in an
-environment of its own, built from its imports' units), one module per
-graph module, each one's records the graph's, every compared module's
-records met by its context.  By `Mod.IsoRunOk.localOk` every module of
-the isolated development (`Mod.isoDevOf`) passes its local checks. -/
+/-- **An isolated accept** (`--modular=isolated`): the published units
+and the modules' data of a run with its evidence (`Mod.IsoRunOk`: every
+module checked in an environment of its own, built from the units it
+reads), one module per graph module, each one's records the graph's,
+every compared module's records met by its context.  By
+`Mod.IsoRunOk.localOk` every module of the development it stands for
+(`Mod.isoRunDev`) passes its local checks. -/
 structure IsoAccepted (mode : CheckMode) (g : Array ModIn) where
-  S : Mod.Store
+  slots : Array (Thunk ModSlot)
   M : Array Mod.ModData
-  ok : Mod.IsoRunOk mode S M
+  ok : Mod.IsoRunOk mode slots M
   size : M.size = g.size
   decls : ∀ i (h : i < M.size), M[i].ds = declsAt g i
-  compared : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal
+  compared : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) → IsoCmpClaim mode slots M i chal
 
 /-- Every module of an isolated accept passes its local checks. -/
 theorem IsoAccepted.localOk {mode : CheckMode} {g : Array ModIn} (a : IsoAccepted mode g)
-    (i : Nat) : ConLeche.Modular.LocalOk mode natOpPinSets (Mod.isoDevOf a.S a.M) i :=
+    (i : Nat) : ConLeche.Modular.LocalOk mode natOpPinSets (Mod.isoRunDev a.slots a.M) i :=
   a.ok.localOk i
 
-/-- **An isolated accept is a store accept** of the same store and units
-(the view's records recovered by the equivalence of the folds). -/
+/-- **An isolated accept is a store accept** at the store of its units
+(which exists in the proof only: the run built no name index). -/
 theorem IsoAccepted.store {mode : CheckMode} {g : Array ModIn} (a : IsoAccepted mode g) :
-    ∃ M', Mod.RunOk mode a.S M' ∧ ∀ k, Mod.devOf a.S M' k = Mod.devOf a.S a.M k :=
-  a.ok.runOk
+    ∃ M', Mod.RunOk mode (Mod.ghostStore a.slots) M' ∧
+      ∀ k, Mod.devOf (Mod.ghostStore a.slots) M' k =
+        Mod.devOf (Mod.ghostStore a.slots) (Mod.ghostData a.slots a.M) k :=
+  a.ok.storeOk.runOk
 
 /-! ## The run -/
 
 /-- The first failing module of an install, in module order (a module
 after a failure may never have been installed: the run stopped), with
 its message; the counts under `--keep-going`. -/
-def installFailure {α : Type} (g : Array ModIn) (S : Mod.Store) (keepGoing : Bool)
+def installFailure {α : Type} (g : Array ModIn) (inCtx : Nat → Name → Bool) (keepGoing : Bool)
     (results : Array (Option (ModRes α))) (fail : CheckError → String → IO UInt32)
     (modeTag : String) : IO (Option UInt32) := do
   if keepGoing then
@@ -1234,10 +1393,11 @@ def installFailure {α : Type} (g : Array ModIn) (S : Mod.Store) (keepGoing : Bo
         -- context nor the module itself stores
         let ownNames : Std.HashSet Name :=
           (declsAt g k).foldl (fun s d => d.names.foldl (·.insert ·) s) {}
+        let ctxK := inCtx k
         let extra := match (declsAt g k)[pos]? with
           | some (.thmDecl cv v) | some (.defnDecl cv v _) | some (.opaqueDecl cv v) =>
             let bad := (Mod.collectGo [cv.type, v] {} {}).toList.filter fun n =>
-              ((S.view k).find? n).isNone && !ownNames.contains n
+              !ctxK n && !ownNames.contains n
             if bad.isEmpty then "" else s!" (not in the module's context: {bad.take 5})"
           | _ => ""
         return some (← fail e s!"{d}module {nameOf g k}{extra}")
@@ -1259,34 +1419,36 @@ def collectOk {α : Type} (g : Array ModIn) (results : Array (Option (ModRes α)
 /-- **The local checks of every module**, in parallel, tagged; the first
 failing module's message. -/
 def localChecks (g : Array ModIn) (S : Mod.Store) (M : Array Mod.ModData) (jobs : Nat) :
-    IO (Except (String × Nat) (Array (Option (At fun i => Mod.localOk S (M.map Mod.ModData.unit) i = true)))) := do
-  let units : Array Mod.Unit' := M.map Mod.ModData.unit
+    IO (Except (String × Nat) (Array (Option (At fun i => Mod.localOk S i = true)))) := do
   let locals ← parMap jobs M.size fun i =>
-    if h : Mod.localOk S units i = true then
-      some (⟨i, h⟩ : At fun i => Mod.localOk S (M.map Mod.ModData.unit) i = true)
+    if h : Mod.localOk S i = true then
+      some (⟨i, h⟩ : At fun i => Mod.localOk S i = true)
     else none
   for h : k in [0:locals.size] do
     if locals[k].isNone then
-      return .error (localWhy g S units k, k)
+      return .error (localWhy g S k, k)
   return .ok locals
 
-/-- **The compared modules, each against its context**: the evidence
-for every module, or the exit code of the first failure. -/
-def compareAll (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store)
-    (M : Array Mod.ModData) (cmpIx : Array (Nat × Nat)) (sideLvls : Array ByteArray)
+/-- **The compared modules, each against its context** (`one`: a
+challenge's comparison, store or isolated): the evidence for every
+module, or the exit code of the first failure. -/
+def compareAll {Claim : Nat → Array Declaration → Prop} (g : Array ModIn)
+    (cmpIx : Array (Nat × Nat)) (sideLvls : Array ByteArray) (ownLvl : Nat → ByteArray)
+    (one : (i : Nat) → (chal : Array Declaration) → ByteArray →
+      IO (Except String (PLift (Claim i chal) × Array (Name × Nat))))
     (fail : CheckError → String → IO UInt32) :
     IO (Except UInt32 (PLift (∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) →
-      CmpClaim mode S M i chal))) := do
+      Claim i chal))) := do
   let mut cres : Array (Option (At fun i =>
-      ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal)) :=
+      ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → Claim i chal)) :=
     Array.replicate g.size none
   for h : i in [0:g.size] do
     match hc : g[i].cmp with
     | none => cres := cres.set! i (some ⟨i, fun h' is chal hc' => by
         simp only [hc] at hc'; cases hc'⟩)
     | some (is, chal) =>
-      let lv := ((cmpIx.findIdx? (·.1 == i)).bind (sideLvls[·]?)).getD (S.lvl i)
-      match ← compareOne mode err S M i chal lv with
+      let lv := ((cmpIx.findIdx? (·.1 == i)).bind (sideLvls[·]?)).getD (ownLvl i)
+      match ← one i chal lv with
       | .error msg =>
         return .error (← fail (.invalid s!"compared with {nameOf g is}: {msg}") s!"module {nameOf g i}")
       | .ok (⟨hc1⟩, filled) =>
@@ -1299,7 +1461,7 @@ def compareAll (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mo
         for (n, h) in filled do
           IO.println s!"con-leche:   hole {n} filled by {nameOf g h}"
   let cmpOk' : Except Unit (PLift (∀ i, i < g.size →
-      ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal)) :=
+      ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → Claim i chal)) :=
     allBelow g.size fun i _ => match At.get? (cres[i]?.join) i with
       | some h => .ok h
       | none => .error ()
@@ -1369,18 +1531,11 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   OwnerParse.markOne g
   let nDecls := g.foldl (· + ·.decls.size) 0
   let lvls ← parMap jobs g.size (levelsOf g)
-  let (idx, dupArr) := buildIdx g
-  let dups : Std.HashSet Name := dupArr.foldl (·.insert ·) {}
-  phase s!"graph: {g.size} modules, {nDecls} records, {dupArr.size} names stored twice"
-  -- the index and the levels live to the end and are read by every
-  -- worker: persistent, so that no lookup counts references on them
-  -- (the slots are thunks over the units' promises, which the mark would
-  -- wait for)
-  OwnerParse.markOne idx
+  -- the levels live to the end and are read by every worker: persistent,
+  -- so that no lookup counts references on them
   OwnerParse.markOne lvls
   let proms ← g.mapM fun _ => IO.Promise.new
   let slots : Array (Thunk ModSlot) := proms.map fun p => Thunk.mk fun _ => (p.result?.get).getD {}
-  let S : Mod.Store := { idx, dups := dupArr, slots, lvls }
   let diagOf {α : Type} (results : Array (Option (ModRes α))) : IO Unit := do
     if stride > 0 then
       let dg : Diag := results.foldl (fun (d : Diag) r? => d.merge ((r?.map (·.diag)).getD {})) {}
@@ -1389,39 +1544,46 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
       for x in dg.ex do err.putStr s!"con-leche:   {x}\n"
       for x in dg.indEx do err.putStr s!"con-leche:   {x}\n"
   if isolated then
-    -- every module in an environment of its own
-    let results ← installAll err jobs g proms keepGoing (isoWork mode err g S dups)
+    -- every module in an environment of its own, from the units it reads:
+    -- no name index, nothing about the whole closure
+    phase s!"graph: {g.size} modules, {nDecls} records"
+    let lvlOf (k : Nat) : ByteArray := (lvls[k]?).getD .empty
+    let inCtx (k : Nat) : Name → Bool :=
+      let a := Mod.isoBuild (Mod.mask (Mod.slotOf slots) (lvlOf k)) (lvlOf k)
+      fun n => (a.fenv.find? n).isSome
+    let results ← installAll err jobs g proms keepGoing (isoWork mode err g slots lvls)
       (fun a => markData a.d)
-    if let some code ← installFailure g S keepGoing results fail modeTag then return code
+    if let some code ← installFailure g inCtx keepGoing results fail modeTag then return code
     phase "modules checked in isolation"
     diagOf results
     let A ← match collectOk g results with
       | .ok A => pure A
       | .error m => return ← fail (.internal "the module was never installed") m
     let M : Array Mod.ModData := A.map IsoModOk.d
-    let locs ← match ← localChecks g S M jobs with
-      | .ok l => pure l
-      | .error (why, k) => return ← fail (.invalid why) s!"module {nameOf g k}"
-    phase "local checks done"
-    match commonOk S M locs with
-    | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
-    | .ok ⟨hc⟩ =>
-    match isoRunOk mode g S A hc with
+    match isoRunOk mode g slots A with
     | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
     | .ok ⟨⟨hR, hds⟩⟩ =>
       if hs : M.size = g.size then
-        match ← compareAll mode err g S M cmpIx sideLvls fail with
+        match ← compareAll g cmpIx sideLvls lvlOf (compareOneIso mode err slots M) fail with
         | .error code => return code
         | .ok ⟨hcmp⟩ =>
-          let acc : IsoAccepted mode g := ⟨S, M, hR, hs, hds, hcmp⟩
+          let acc : IsoAccepted mode g := ⟨slots, M, hR, hs, hds, hcmp⟩
           IO.println s!"con-leche: accepted {nDecls} declarations in {acc.M.size} modules, \
             each checked in isolation ({modeTag})"
           return 0
       else fail (.internal "the run lost a module") "the run"
   else
-  let results ← installAll err jobs g proms keepGoing (storeWork mode err g S dups)
+  let (idx, dupArr) := buildIdx g
+  phase s!"graph: {g.size} modules, {nDecls} records, {dupArr.size} names stored twice"
+  -- the index lives to the end and is read by every worker: persistent,
+  -- so that no lookup counts references on it (the slots are thunks over
+  -- the units' promises, which the mark would wait for)
+  OwnerParse.markOne idx
+  let S : Mod.Store := { idx, dups := dupArr, slots, lvls }
+  let results ← installAll err jobs g proms keepGoing (storeWork mode err g S)
     (fun a => markData a.d)
-  if let some code ← installFailure g S keepGoing results fail modeTag then return code
+  if let some code ← installFailure g (fun k n => ((S.view k).find? n).isSome) keepGoing results
+      fail modeTag then return code
   phase "install done"
   diagOf results
   -- the modules' data in module order, each with its evidence
@@ -1488,10 +1650,10 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
   | .ok ⟨⟨hR, hds⟩⟩ =>
     if hs : M.size = g.size then
-      match ← compareAll mode err g S M cmpIx sideLvls fail with
+      match ← compareAll g cmpIx sideLvls S.lvl (compareOne mode err S M) fail with
       | .error code => return code
       | .ok ⟨hcmp⟩ =>
-        let acc : Accepted mode g := ⟨S, M, hR, hc.idx, hs, hds, hcmp⟩
+        let acc : Accepted mode g := ⟨S, M, hR, hs, hds, hcmp⟩
         IO.println s!"con-leche: accepted {nDecls} declarations in {acc.M.size} modules ({modeTag})"
         return 0
     else fail (.internal "the run lost a module") "the run"

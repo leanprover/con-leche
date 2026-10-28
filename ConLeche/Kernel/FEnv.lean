@@ -36,7 +36,10 @@ the constant as stored (`stored`), the projection table of a structure
 presented as stored (`tbls`), the **gates** (`g1`: the modules, with a
 level at each, that a viewer must load for the constant to be presented
 at all; `v1`: for it to be presented as stored, beyond that), and
-whether it is a proof (`prf`: its qualified name is its statement). -/
+whether it is a proof (`prf`: its qualified name is its statement); and
+the modules, with a level at each, that its presentations read and that
+every importer at the exported level loads by Lean's rules (`fp1`: the
+importer checks that it does, task #374). -/
 structure ModIface where
   at1 : Array (Option ConstantInfo) := #[]
   stored : Array Bool := #[]
@@ -44,14 +47,18 @@ structure ModIface where
   g1 : Array (Array (Nat × UInt8)) := #[]
   v1 : Array (Array (Nat × UInt8)) := #[]
   prf : Array Bool := #[]
+  fp1 : Array (Nat × UInt8) := #[]
   deriving DecidableEq, Inhabited
 
 /-- **A module's private record** (task #370): the constants its install
-pushed, in push order, with their projection tables — what a module
-loading it with `import all` reads. -/
+pushed, in push order, with their projection tables, and the module's
+own level of every module (`lvl`, as in `MBase.lvl`: an `import all`
+importer checks that it loads that context at least as high, task #374) —
+what a module loading it with `import all` reads. -/
 structure ModPriv where
   priv : Array ConstantInfo := #[]
   tbls : Array (Option ProjTable) := #[]
+  lvl : ByteArray := ByteArray.empty
   deriving DecidableEq, Inhabited
 
 /-- **One module's unit, published**: its interface and its private

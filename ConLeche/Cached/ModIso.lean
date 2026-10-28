@@ -126,42 +126,117 @@ def isoCtx (slot : Nat → ModSlot) (lv : ByteArray) : Env :=
   ⟨es.map (·.ci), es.filterMap (·.tbl)⟩
 
 /-- **The canonical index of module `M`'s context** (the specification:
-`mkFEnv` of `isoCtx`).  It runs as `isoIndexFast`, one pass over the
-units with no intermediate lists (`Mod.isoIndex_eq_fast`, `@[csimp]`,
-`ConLeche/Verify/Modular/IsoFast.lean`). -/
+`mkFEnv` of `isoCtx`).  It is built, with the context's lookup and its
+duplicates, in one pass over the units (`isoBuild`, below;
+`Mod.isoBuild_fenv`, `ConLeche/Verify/Modular/IsoFast.lean`). -/
 def isoIndex (slot : Nat → ModSlot) (lv : ByteArray) : FEnv := mkFEnv (isoCtx slot lv)
 
-/-- The state of `isoIndexFast`: the context so far (its constants
-newest first, its tables), its name index and table map, and its size. -/
+/-! ## What a module reads, and its context's lookup -/
+
+/-- Module `h`'s unit in an array of published units (each a thunk over
+the promise its module's work resolves: forcing it waits for that
+module). -/
+def slotOf (slots : Array (Thunk ModSlot)) (h : Nat) : ModSlot :=
+  ((slots[h]?).map Thunk.get).getD {}
+
+
+/-- **The units module `M` reads** (task #374), for levels `lv`: of a
+module it loads at the private level its whole unit, of one it loads at
+the exported level its interface alone (its private record empty), of
+any other module nothing (its unit is not even forced: it may not be
+published yet).  Every isolated computation around `M` takes its imports'
+units through this, so what it can read is what the argument holds. -/
+def mask (slot : Nat → ModSlot) (lv : ByteArray) (h : Nat) : ModSlot :=
+  let l := lvlAt lv h
+  if l == 2 then slot h else if l == 1 then { exp := (slot h).exp } else {}
+
+/-- **The context's lookup** (the specification): a name's first
+presentation, with its module and its position in that module's unit. -/
+def isoLook (slot : Nat → ModSlot) (lv : ByteArray) (n : Name) :
+    Option (Nat × Nat × ConstantInfo) :=
+  ((isoEntries slot lv).find? (·.ci.name == n)).map fun e => (e.h, e.j, e.ci)
+
+/-- **What an isolated module's bookkeeping reads of its context**: the
+interfaces of the units it reads, and its context's lookup. -/
+def isoUView (slot : Nat → ModSlot) (lv : ByteArray) : UView :=
+  ⟨fun h => (slot h).exp, isoLook slot lv⟩
+
+/-- **The copies of a name that meet in the context have one qualified
+name** (the specification): every presentation of a name has the
+qualified name of the first. -/
+def keysOk (slot : Nat → ModSlot) (lv : ByteArray) : Bool :=
+  (isoEntries slot lv).all fun e => match isoLook slot lv e.ci.name with
+    | some (h₀, j₀, _) =>
+      keyOfSlot (slot e.h) e.h e.j e.ci.name == keyOfSlot (slot h₀) h₀ j₀ e.ci.name
+    | none => false
+
+/-- **Module `m`'s local checks in an isolated run**, against the units it
+reads (`slot`, its levels `lv`): its levels (`levelsOk`), and the copies
+of a name that meet in its context have one qualified name
+(`keysOk`). -/
+def localOkIso (m : Nat) (slot : Nat → ModSlot) (lv : ByteArray) : Bool :=
+  levelsOk m lv slot && keysOk slot lv
+
+/-! ## The context in one pass -/
+
+/-- The state of `isoBuild`: the context so far (its constants newest
+first, its tables), its name index and table map, its size, the module
+and position of each of its constants (`src`, by counter), and the
+presentations dropped because their name was there already. -/
 structure IsoAcc where
   n : Nat
   consts : List ConstantInfo
   tables : List ProjTable
   idx : Std.HashMap Name (Nat × ConstantInfo)
   tbls : Std.HashMap Name ProjTable
+  src : Array (Nat × Nat)
+  dropped : List (Nat × Nat × Name)
 
-/-- One presented constant added, unless its name is there already. -/
-@[inline] def IsoAcc.add (a : IsoAcc) (ci : ConstantInfo) (t : Option ProjTable) : IsoAcc :=
-  if a.idx.contains ci.name then a else
+/-- One presented constant (module `h`, position `j`) added, unless its
+name is there already (then it is noted as dropped). -/
+@[inline] def IsoAcc.add (a : IsoAcc) (h j : Nat) (ci : ConstantInfo) (t : Option ProjTable) :
+    IsoAcc :=
+  if a.idx.contains ci.name then { a with dropped := (h, j, ci.name) :: a.dropped } else
   match t with
   | some t => ⟨a.n + 1, ci :: a.consts, t :: a.tables, a.idx.insert ci.name (a.n, ci),
-      a.tbls.insert t.structName t⟩
-  | none => ⟨a.n + 1, ci :: a.consts, a.tables, a.idx.insert ci.name (a.n, ci), a.tbls⟩
+      a.tbls.insert t.structName t, a.src.push (h, j), a.dropped⟩
+  | none => ⟨a.n + 1, ci :: a.consts, a.tables, a.idx.insert ci.name (a.n, ci), a.tbls,
+      a.src.push (h, j), a.dropped⟩
 
 /-- Module `h`'s presented constants added (none of a module the viewer
 does not load, whose unit is not read). -/
 def isoAccModule (lv : ByteArray) (slot : Nat → ModSlot) (a : IsoAcc) (h : Nat) : IsoAcc :=
   if lvlAt lv h == 0 then a else
-  (List.range (posCount (slot h) (lvlAt lv h))).foldl (fun a j =>
-    match presentAt lv (slot h) (lvlAt lv h) j with
-    | some ci => a.add ci (entryTbl ci (presentTbl (slot h) (lvlAt lv h) j))
+  let s := slot h
+  let l := lvlAt lv h
+  (List.range (posCount s l)).foldl (fun a j =>
+    match presentAt lv s l j with
+    | some ci => a.add h j ci (entryTbl ci (presentTbl s l j))
     | none => a) a
 
-/-- **The canonical index of a module's context, in one pass**: what
-`isoIndex` computes. -/
-def isoIndexFast (slot : Nat → ModSlot) (lv : ByteArray) : FEnv :=
-  let a := (List.range lv.size).foldl (isoAccModule lv slot) ⟨0, [], [], {}, {}⟩
-  ⟨⟨a.consts, a.tables⟩, a.idx, a.n, {}, [], a.tbls⟩
+/-- **A module's context, in one pass over the units it reads**: its
+index (`IsoAcc.fenv`, which is `isoIndex`), its lookup (`IsoAcc.look`,
+which is `isoLook`) and its duplicates (`IsoAcc.keysOk`, which decides
+`keysOk`), `ConLeche/Verify/Modular/IsoFast.lean`. -/
+def isoBuild (slot : Nat → ModSlot) (lv : ByteArray) : IsoAcc :=
+  (List.range lv.size).foldl (isoAccModule lv slot) ⟨0, [], [], {}, {}, #[], []⟩
+
+/-- The context's canonical index. -/
+def IsoAcc.fenv (a : IsoAcc) : FEnv := ⟨⟨a.consts, a.tables⟩, a.idx, a.n, {}, [], a.tbls⟩
+
+/-- The context's lookup: the index, then the constant's module and
+position. -/
+def IsoAcc.look (a : IsoAcc) (n : Name) : Option (Nat × Nat × ConstantInfo) :=
+  match a.idx[n]? with
+  | some (c, ci) => (a.src[c]?).map fun (h, j) => (h, j, ci)
+  | none => none
+
+/-- The duplicates' check: every dropped presentation has the qualified
+name of the name's first. -/
+def IsoAcc.keysOk (slot : Nat → ModSlot) (a : IsoAcc) : Bool :=
+  a.dropped.all fun (h, j, n) => match a.look n with
+    | some (h₀, j₀, _) => keyOfSlot (slot h) h j n == keyOfSlot (slot h₀) h₀ j₀ n
+    | none => false
 
 /-! ## The checks -/
 
@@ -208,26 +283,5 @@ def ownPart (C E : Env) : Env :=
 final view of a module whose install pushed `own` (the canonical index
 of `own`, the store below). -/
 def ownView (own : Env) (mb : MBase) : FEnv := { mkFEnv own with base := { mb := some mb } }
-
-/-! ## The name index lists every unit constant -/
-
-/-- Pairs in strictly increasing lexicographic order. -/
-def sortedLex : List (Nat × Nat) → Bool
-  | a :: b :: rest => (a.1 < b.1 || (a.1 == b.1 && a.2 < b.2)) && sortedLex (b :: rest)
-  | _ => true
-
-/-- **The store's name index lists every unit constant under its name,
-in module order**: every alternate list strictly increasing, and every
-constant of every unit — of its private record, and every exported
-presentation — an alternate of its name. -/
-def idxOk (S : Store) : Bool :=
-  S.idx.all (fun m => m.toList.all fun (_, l) => sortedLex l) &&
-  (List.range S.slots.size).all fun h =>
-    (List.range (S.slot h).prv.priv.size).all (fun j => match (S.slot h).prv.priv[j]? with
-      | some c => (S.alts c.name).contains (h, j)
-      | none => true) &&
-    (List.range (S.slot h).exp.at1.size).all (fun j => match ((S.slot h).exp.at1[j]?).join with
-      | some c => (S.alts c.name).contains (h, j)
-      | none => true)
 
 end ConLeche.Cached.Mod
