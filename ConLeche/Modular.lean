@@ -71,6 +71,15 @@ inductive Key where
   | proof (n : Name) (lparams : List Name) (type : Expr)
   deriving DecidableEq, Repr, Inhabited
 
+/-- **A presented constant**: one way a module's interface presents one
+of its constants to importers — the constant (the module's own, or the
+assumption of its statement), its projection table, and what its laws
+read (`reads`, its footprint). -/
+structure Presented where
+  ci : ConstantInfo
+  table : Option ProjTable
+  reads : List Name
+
 /-- **A module** (see the module docstring). -/
 structure Module where
   imports : List Nat
@@ -85,6 +94,9 @@ structure Module where
   name, from earlier modules (its own names from its solution), as a
   context is -/
   compared : Bool := false
+  /-- **its interface**: per name, the presentations its importers may
+  read the constant stored under it as -/
+  iface : Name → List Presented := fun _ => []
 
 /-- The qualified name of an own constant of module `i`. -/
 def Module.ownKey (m : Module) (i : Nat) (n : Name) (ci : ConstantInfo) : Key :=
@@ -246,6 +258,62 @@ structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Mo
       (dev ((dev i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
       ∀ T us, cvj.type.piResult.getAppFn = .const T us →
       ∃ cvT capsT, (dev ((dev i).src n)).own.find? T = some (.indInfo cvT capsT)
+  tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
+  res_context : ∀ n, ((dev i).context.find? n).isSome = true →
+    (dev i).res n = (dev ((dev i).src n)).res n
+  res_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
+    (dev i).res n = (dev i).ownKey i n ci
+
+/-! ## The local checks, split: once per interface, then per importer -/
+
+/-- **The part of `E` a footprint names.** -/
+def readsIn (E : Env) (ns : List Name) : Env :=
+  ⟨E.consts.filter fun c => ns.contains c.name, []⟩
+
+/-- **A module's interface is checked once** (at module `b`): every
+presentation of a name refines the constant `b`'s own environment stores
+under it; its table is `b`'s own table for a type former and none
+otherwise; what its laws read is stored in `b`'s own environment and
+listed in its footprint; and a presented recursor's rules are of
+constructors of type formers `b`'s own environment stores. -/
+structure InterfaceOk (dev : Nat → Module) (b : Nat) : Prop where
+  refines : ∀ n e, e ∈ (dev b).iface n →
+    ∃ ci', (dev b).own.find? n = some ci' ∧ Refines n e.ci ci'
+  table : ∀ n e, e ∈ (dev b).iface n →
+    e.table = match e.ci with
+      | .indInfo .. => (dev b).own.findTable? n
+      | _ => none
+  reads : ∀ n e, e ∈ (dev b).iface n →
+    EntryScoped (readsIn (dev b).own e.reads) (dev b).own n e.ci
+  recFam : ∀ n e, e ∈ (dev b).iface n → ∀ cv mI rP rules, e.ci = .recInfo cv mI rP rules →
+    ∀ r ∈ rules, ∀ cvj nP nF, (dev b).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
+      ∀ T us, cvj.type.piResult.getAppFn = .const T us →
+      ∃ cvT capsT, (dev b).own.find? T = some (.indInfo cvT capsT)
+
+/-- **An importer's checks** (at module `i`): its context consists of
+presentations from its sources' interfaces — every context constant is
+a presentation of the interface of the module it is read from, with that
+presentation's table, and every name of its footprint is stored in the
+context and resolved as by that module — together with the checks that
+concern the importer alone: its imports and sources are earlier, its
+names unique, its declarations accepted (or, compared, its own
+environment its context), its context's projections and blocks within
+it, its tables listed once, and its resolution that of its sources for
+context names and its own for its own names. -/
+structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+    Prop where
+  below : ∀ b ∈ (dev i).imports, b < i
+  src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+  nodup : ((dev i).context.consts.map (·.name)).Nodup
+  accepted : (dev i).compared = false →
+    AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
+  compared_own : (dev i).compared = true → (dev i).own = (dev i).context
+  presented : ∀ n ci, (dev i).context.find? n = some ci →
+    ∃ e ∈ (dev ((dev i).src n)).iface n, e.ci = ci ∧ (dev i).context.findTable? n = e.table ∧
+      ∀ d ∈ e.reads, ((dev i).context.find? d).isSome = true ∧
+        (dev i).res d = (dev ((dev i).src n)).res d
+  projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
+  blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
   tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
   res_context : ∀ n, ((dev i).context.find? n).isSome = true →
     (dev i).res n = (dev ((dev i).src n)).res n
