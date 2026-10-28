@@ -108603,7 +108603,30 @@ re-exports: ReC rejected) and NlB's import of NlX made public (two
 constants of one name meet in NlM's context: rejected, in isolated mode by
 `keysOk`).
 
-**Measurements** — see below.
+**Measurements** (instructions:u, one run each, 96 workers, binary
+a6f8f12; peak RSS from the 1 s watchdog; merged = `--olean` without
+`--modular`; every run accepted, the two modular modes with the same
+counts; #373's figures in brackets):
+
+| closure | merged | store | isolated | peak RSS merged / store / isolated |
+|---|---|---|---|---|
+| Init (653 modules) | 403 G | 496 G [489] | 443 G [438] | 1.18 / 1.21 / 1.20 GiB |
+| Std (1 012) | 595 G | 730 G [723] | 671 G [666] | 1.70 / 1.49 / 1.57 GiB |
+| Lean (2 374) | 727 G | 936 G [927] | 922 G [923] | 1.76 / 1.80 / 1.58 GiB |
+| Mathlib, patched (10 976) | 7 463 G | 9 626 G [9 534] | 10 731 G [10 841] | 7.00 / 6.92–7.51 / 8.30–8.90 GiB [8.48] |
+
+Mathlib isolated over four runs: 10 729–10 731 G, peak RSS 8.30, 8.77,
+8.90, 8.80 GiB (the spread is scheduling: how many contexts are alive at
+once); store over two runs 6.92 and 7.51 GiB.  Both modular modes pay
+about +1 % for the local proof flags (a theorem check for every
+definition `isPropCheap` accepts, where before only names stored twice
+were tested); the isolated mode wins it back by dropping the closure-wide
+duplicates' loop of every module's local checks (now over the dropped
+presentations of its own context) and the index lookups of its
+bookkeeping.  A first version kept the one-pass state referenced across
+the install, so the install's `markLinear` silently copied the context's
+bucket array once per module (+0.46 GiB on Mathlib); `lookAfter` removed
+it.  Small closures' RSS varies run to run by a few hundred MiB.
 
 **Open.**  (1) Proof candidates follow Lean's `isPropCheap` (plus a
 bound-variable head): a definition whose statement fails it is not a
