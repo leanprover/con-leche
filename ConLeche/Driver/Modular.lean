@@ -60,6 +60,10 @@ structure ModIn where
   imports : Array (Nat × ImportRec)
   decls : Array Declaration
   expo : Std.HashMap Name Expo
+  /-- **A compared module** (`--compare`, a challenge): its solution's
+  index and its own records, which are not installed into the store (the
+  module's `decls` are empty) but compared (`compareOne`) -/
+  cmp : Option (Nat × Array Declaration) := none
   deriving Inhabited
 
 /-- **The graph**: the modules in Lean's module order, each one's
@@ -84,7 +88,47 @@ def buildGraph (pre : PreludeIx) (rs : Array ModRead) :
       | .error (e, _) => throw (e, r.name)
     let expo : Std.HashMap Name Expo := r.constants.size.fold (init := {}) fun k _ m =>
       m.insert r.constants[k]!.name (r.expo[k]?.getD .absent)
-    out := out.push ⟨r.name, r.isModule, imps, prepareModule pre ds, expo⟩
+    out := out.push ⟨r.name, r.isModule, imps, prepareModule pre ds, expo, none⟩
+  return out
+
+/-- **The compared pairs, read into the closure** (`--compare C S`): the
+challenge `C` imports its solution `S` with `import all` (its context
+is read from `S`'s private part, so that every constant of `S` is
+presented as stored), and the modules are put back in an order where
+every module comes after its imports, the read order kept where it can
+be (a stable topological sort).  A solution that imports its challenge
+is a cycle, an error. -/
+def addCompares (rs : Array ModRead) (cmps : Array (Name × Name)) :
+    Except String (Array ModRead) := do
+  let pos : Std.HashMap Name Nat := rs.size.fold (init := {}) fun i _ m => m.insert rs[i].name i
+  let mut rs := rs
+  for (c, s) in cmps do
+    let some ic := pos[c]? | throw s!"the challenge {c} was not read"
+    let some _ := pos[s]? | throw s!"the solution {s} was not read"
+    if c == s then throw s!"{c} is compared with itself"
+    if rs[ic]!.imports.any (·.module == s) then
+      throw s!"the challenge {c} imports its solution {s}"
+    rs := rs.modify ic fun r =>
+      { r with imports := r.imports.push (ImportRec.mk s true false false) }
+  -- the stable topological sort: repeatedly the first module in read
+  -- order whose imports are all placed
+  let n := rs.size
+  let mut placed : Std.HashSet Name := {}
+  let mut done : Array Bool := Array.replicate n false
+  let mut out : Array ModRead := Array.mkEmpty n
+  let mut start := 0
+  for _ in [0:n] do
+    let mut found := false
+    let mut j := start
+    while !found && j < n do
+      if !done[j]! && rs[j]!.imports.all fun im => placed.contains im.module || !pos.contains im.module then
+        found := true
+      else j := j + 1
+    if !found then throw "a solution imports its challenge (an import cycle through --compare)"
+    out := out.push rs[j]!
+    placed := placed.insert rs[j]!.name
+    done := done.set! j true
+    while start < n && done[start]! do start := start + 1
   return out
 
 /-! ## The levels -/
@@ -858,9 +902,89 @@ def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk
     locals := hloc
     dups := hdups.down }, fun i h => (modOk_facts hA i h).2.2.2⟩
 
+/-! ## Compared modules (`--compare`) -/
+
+/-- **A challenge's holes**: its theorems, definitions and opaque
+constants whose value uses `sorryAx`. -/
+def holesOf (ds : Array Declaration) : Std.HashSet Name :=
+  ds.foldl (init := {}) fun h d => match d with
+    | .thmDecl cv v | .defnDecl cv v _ | .opaqueDecl cv v =>
+      if v.mentionsConst sorryAxName then h.insert cv.name else h
+    | _ => h
+
+/-- The kind of a constant, as a number (for the comparison of a hole). -/
+def kindTag : ConstantInfo → Nat
+  | .axiomInfo .. => 0 | .defnInfo .. => 1 | .thmInfo .. => 2 | .indInfo .. => 3
+  | .ctorInfo .. => 4 | .recInfo .. => 5
+
+/-- **A challenge constant met by its context**: a hole by a constant of
+the same statement (name, level parameters, type; a theorem's by a
+theorem, a definition's by a definition, the solution's value whatever
+it is, or its assumption), anything else by the constant itself. -/
+def cmpOk (holes : Std.HashSet Name) (o : Option ConstantInfo) (ci : ConstantInfo) : Bool :=
+  match o with
+  | some ci' =>
+    if holes.contains ci.name then
+      decide (ci'.toConstantVal = ci.toConstantVal) &&
+        (kindTag ci' == kindTag ci || kindTag ci' == 0)
+    else decide (ci' = ci)
+  | none => false
+
+/-- **What a compared module establishes**: its records, installed at a
+view of the store (the challenge's own context: its imports, not its
+solution), give constants every one of which its context in the
+development (`Mod.devOf`, read from its solution) meets (`cmpOk`). -/
+def CmpClaim (mode : CheckMode) (S : Mod.Store) (M : Array Mod.ModData) (i : Nat)
+    (chal : Array Declaration) : Prop :=
+  ∃ lv n fe pend, InstallRun mode natOpPinSets chal.toList (0, Mod.viewOf ⟨S.idx, S.slots, lv⟩, #[])
+      (n, fe, pend) ∧
+    ∀ ci ∈ fe.env.consts, cmpOk (holesOf chal) ((Mod.devOf S M i).context.find? ci.name) ci = true
+
+/-- **Compare challenge `i`**: install its records at its own context
+(`lv`, its levels without its solution) — types checked, values not
+(a hole's value is `sorry`) — and meet every constant they give with
+its context.  The holes, each with the module its context reads it
+from, beside the evidence. -/
+def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store)
+    (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
+    IO (Except String (PLift (CmpClaim mode S M i chal) × Array (Name × Nat))) := do
+  if hi : i < M.size then
+    match ← installModule mode err chal (Mod.viewOf ⟨S.idx, S.slots, lv⟩) with
+    | .error (e, pos) =>
+      let d := match chal[pos]? with
+        | some d => s!"{ConLeche.Cached.declCLabel d}: "
+        | none => ""
+      return .error s!"the challenge's records do not install at its own context: {d}{e}"
+    | .ok e =>
+      let holes := holesOf chal
+      let mb := S.mb i
+      if h : e.fe.env.consts.all (fun ci => cmpOk holes (mb.find? ci.name) ci) = true then
+        let filled := e.fe.env.consts.filterMap fun ci =>
+          if holes.contains ci.name then
+            some (ci.name, match mb.pick? ci.name with
+              | some (h, _, _) => h
+              | none => 0)
+          else none
+        return .ok (⟨⟨lv, _, e.fe, e.pend, e.run.choose_spec, fun ci hci => by
+          have := List.all_eq_true.mp h ci hci
+          rw [Mod.devOf_of_lt hi]
+          show cmpOk holes ((Mod.ctxOf (S.mb i)).find? ci.name) ci = true
+          rw [Mod.ctxOf_find?]
+          exact this⟩⟩, filled.reverse.toArray)
+      else
+        let bad := e.fe.env.consts.filter fun ci => !cmpOk holes (mb.find? ci.name) ci
+        let why := bad.reverse.take 5 |>.map fun ci => match mb.find? ci.name with
+          | none => s!"{ci.name}: the solution has no such constant"
+          | some _ =>
+            if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
+            else s!"{ci.name}: the solution's constant is not the challenge's"
+        return .error (String.intercalate "; " why)
+  else return .error "no such module"
+
 /-- **A modular accept**: the store and the modules' data of a run with
 its evidence (`Mod.RunOk`), one module per graph module, each one's
-records the graph's.  By `Mod.RunOk.localOk` every module of the
+records the graph's, every compared module's records met by its
+context.  By `Mod.RunOk.localOk` every module of the
 development it stands for (`Mod.devOf`) passes its local checks — the
 hypothesis of the capstones `ConLeche.modular_model_exists` and
 `ConLeche.modular_no_False` (`ConLeche/MainTheorem.lean`). -/
@@ -870,6 +994,8 @@ structure Accepted (mode : CheckMode) (g : Array ModIn) where
   ok : Mod.RunOk mode S M
   size : M.size = g.size
   decls : ∀ i (h : i < M.size), M[i].ds = declsAt g i
+  /-- every compared module's records are met by its context -/
+  compared : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal
 
 /-- Every module of an accept passes its local checks. -/
 theorem Accepted.localOk {mode : CheckMode} {g : Array ModIn} (a : Accepted mode g) (i : Nat) :
@@ -882,7 +1008,7 @@ theorem Accepted.localOk {mode : CheckMode} {g : Array ModIn} (a : Accepted mode
 every module, compute the requirements, run the local checks and every
 record's check; the verdict line and the exit code. -/
 def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat)
-    (keepGoing : Bool := false) : IO UInt32 := do
+    (keepGoing : Bool := false) (cmps : Array (Name × Name) := #[]) : IO UInt32 := do
   let t0 ← IO.monoMsNow
   let err ← IO.getStderr
   let modeTag : String := match mode with
@@ -904,13 +1030,31 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     | .error _ =>
       IO.eprintln s!"con-leche: the built-in prelude does not parse ({modeTag})"
       return 3
+  let roots := cmps.foldl (fun r (c, s) => r.push c |>.push s) roots
   let rs ← match ← readClosure decodeModuleSpec sp roots jobs with
     | .ok rs => pure rs
     | .error e => return ← fail e "reading the oleans"
+  let rs ← match addCompares rs cmps with
+    | .ok rs => pure rs
+    | .error msg => return ← fail (.internal msg) "--compare"
   phase s!"read {rs.size} modules"
   let g ← match buildGraph pre rs with
     | .ok g => pure g
     | .error (e, m) => return ← fail e s!"module {m}"
+  -- the compared modules: their records set aside, their solution noted
+  let gpos : Std.HashMap Name Nat := g.size.fold (init := {}) fun i _ m => m.insert g[i].name i
+  let mut cmpIx : Array (Nat × Nat) := #[]
+  let mut g := g
+  for (c, s) in cmps do
+    match gpos[c]?, gpos[s]? with
+    | some ic, some is =>
+      cmpIx := cmpIx.push (ic, is)
+      g := g.modify ic fun m => { m with cmp := some (is, m.decls), decls := #[] }
+    | _, _ => return ← fail (.internal s!"{c} or {s} is not in the graph") "--compare"
+  -- a challenge's own context, for the install of its records: its
+  -- levels without the import of its solution
+  let sideLvls : Array ByteArray := cmpIx.map fun (ic, is) =>
+    levelsOf (g.modify ic fun m => { m with imports := m.imports.filter (·.1 != is) }) ic
   -- the graph lives to the end and every worker reads it (its names are
   -- hash-consed across modules): persistent before any worker starts, so
   -- that no later mark (an installed unit's) reaches a counted object
@@ -1048,7 +1192,35 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
   | .ok ⟨⟨hR, hds⟩⟩ =>
     if hs : M.size = g.size then
-      let acc : Accepted mode g := ⟨S, M, hR, hs, hds⟩
+      -- the compared modules, each against its context
+      let mut cres : Array (Option (At fun i =>
+          ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal)) :=
+        Array.replicate g.size none
+      for h : i in [0:g.size] do
+        match hc : g[i].cmp with
+        | none => cres := cres.set! i (some ⟨i, fun h' is chal hc' => by
+            simp only [hc] at hc'; cases hc'⟩)
+        | some (is, chal) =>
+          let lv := ((cmpIx.findIdx? (·.1 == i)).bind (sideLvls[·]?)).getD (S.lvl i)
+          match ← compareOne mode err S M i chal lv with
+          | .error msg =>
+            return ← fail (.invalid s!"compared with {nameOf g is}: {msg}") s!"module {nameOf g i}"
+          | .ok (⟨hc1⟩, filled) =>
+            cres := cres.set! i (some ⟨i, fun h' is' chal' hc' => by
+              rw [hc] at hc'
+              cases hc'
+              exact hc1⟩)
+            IO.println s!"con-leche: {nameOf g i} compared with {nameOf g is}: {chal.size} records, \
+              {filled.size} holes"
+            for (n, h) in filled do
+              IO.println s!"con-leche:   hole {n} filled by {nameOf g h}"
+      let cmpOk' : Except Unit (PLift (∀ i, i < g.size →
+          ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal)) :=
+        allBelow g.size fun i _ => match At.get? (cres[i]?.join) i with
+          | some h => .ok h
+          | none => .error ()
+      let .ok ⟨hcmp⟩ := cmpOk' | return ← fail (.internal "a compared module was not compared") "the run"
+      let acc : Accepted mode g := ⟨S, M, hR, hs, hds, fun i h => hcmp i h h⟩
       IO.println s!"con-leche: accepted {nDecls} declarations in {acc.M.size} modules ({modeTag})"
       return 0
     else fail (.internal "the run lost a module") "the run"

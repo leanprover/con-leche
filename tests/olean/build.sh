@@ -7,7 +7,7 @@ set -euo pipefail
 LEAN="$(elan which lean 2>/dev/null || command -v lean)"
 OUT=tests/olean/lib
 rm -rf "$OUT"; mkdir -p "$OUT"
-for m in Tiny TinyClassic TinyUse ClashA ClashB; do
+for m in Tiny TinyClassic TinyUse ClashA ClashB CmpBase CmpChal CmpSol CmpSolDef CmpSolStmt CmpSolMissing CmpSolSorry HidA HidAll HidUse ReA ReB ReC Priv PrivUse TwinA TwinB; do
   LEAN_PATH="$OUT" "$LEAN" -o "$OUT/$m.olean" "tests/olean/src/$m.lean"
 done
 # only the olean levels are fixtures

@@ -253,6 +253,15 @@ def usage : String := String.intercalate "\n" [
   "                    local checks that tie each module's context to its",
   "                    imports.  One process, one store of installed",
   "                    constants, parallel along the import graph.",
+  "  --compare CHALLENGE SOLUTION",
+  "                    with --olean (implies --modular, may be given more",
+  "                    than once): the module CHALLENGE is not checked but",
+  "                    compared with SOLUTION: each of its constants must",
+  "                    be SOLUTION's (or its imports'), a hole (a value",
+  "                    that is `sorry`) by a constant of the same",
+  "                    statement, anything else by the same constant.",
+  "                    `sorry` is permitted in a challenge and nowhere",
+  "                    else.  The holes and their solutions are listed.",
   "  --search-path=DIR[:DIR...]",
   "                    the directories holding .olean trees, as",
   "                    LEAN_PATH lists them (the toolchain's lib/lean,",
@@ -360,6 +369,10 @@ structure Args where
   /-- `--keep-going` (with `--modular`): install every module whose imports
   installed, report every failure. -/
   keepGoing : Bool := false
+  /-- `--compare CHALLENGE SOLUTION` (with `--olean`, implies
+  `--modular`): the challenge module's records are met by the
+  solution's constants instead of being checked. -/
+  compares : Array (String × String) := #[]
   /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
   searchPath : List System.FilePath := []
   bad : Option String := none
@@ -381,6 +394,12 @@ def parseArgs : List String → Args → Args
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | "--modular" :: rest, a => parseArgs rest { a with modular := true }
   | "--keep-going" :: rest, a => parseArgs rest { a with keepGoing := true }
+  | "--compare" :: c :: s :: rest, a =>
+    if c.startsWith "-" || s.startsWith "-" then
+      { a with bad := some "--compare takes two module names: --compare CHALLENGE SOLUTION" }
+    else parseArgs rest { a with modular := true, compares := a.compares.push (c, s) }
+  | ["--compare"], a | ["--compare", _], a =>
+    { a with bad := some "--compare takes two module names: --compare CHALLENGE SOLUTION" }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -457,16 +476,17 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
     if a.olean then
       -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
       -- read with their import closure along the search path.
-      if a.files.isEmpty || a.searchPath.isEmpty then
+      if (a.files.isEmpty && a.compares.isEmpty) || a.searchPath.isEmpty then
         IO.eprintln "con-leche: --olean takes one or more module names and a \
           --search-path=DIR[:DIR…]"
         IO.eprintln usage
         return 3
-      let roots := a.files.map fun m =>
+      let modName (m : String) : ConLeche.Name :=
         (m.splitOn ".").foldl ConLeche.Name.str ConLeche.Name.anonymous
+      let roots := a.files.map modName
       if a.modular then
         return ← ConLeche.Driver.Modular.checkModular a.searchPath roots a.mode a.progress jobs
-          a.keepGoing
+          a.keepGoing (a.compares.map fun (c, s) => (modName c, modName s))
       return ← checkMain (.oleans a.searchPath roots) a.mode a.progress jobs a.noMark drain
     else if a.modular then
       IO.eprintln "con-leche: --modular is only meaningful with --olean"
