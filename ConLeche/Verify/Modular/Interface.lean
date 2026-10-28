@@ -100,6 +100,34 @@ theorem find?_readsIn {E : Env} {ns : List Name} {d : Name}
   rw [List.find?_isSome]
   exact ⟨c, hc.1, by simp⟩
 
+/-- A name `E` stores that a footprint names is in the part of `E` it names. -/
+theorem readsIn_isSome {E : Env} {ns : List Name} {d : Name}
+    (hE : (E.find? d).isSome = true) (hd : d ∈ ns) : ((readsIn E ns).find? d).isSome = true := by
+  unfold readsIn Env.find?
+  simp only
+  unfold Env.find? at hE
+  rw [List.find?_isSome] at hE ⊢
+  obtain ⟨c, hc, hcn⟩ := hE
+  have hcn' : c.name = d := beq_iff_eq.mp hcn
+  refine ⟨c, List.mem_filter.mpr ⟨hc, ?_⟩, hcn⟩
+  rw [hcn']
+  exact List.contains_iff_mem.mpr hd
+
+/-- What module `i` reads alike from module `b` its context stores and
+resolves as `b` does. -/
+theorem of_readsAlike {dev : Nat → Module} {i b : Nat} {d : Name}
+    (h : ((readsAlike dev i b).find? d).isSome = true) :
+    ((dev i).context.find? d).isSome = true ∧ (dev i).res d = (dev b).res d := by
+  unfold readsAlike Env.find? at h
+  simp only at h
+  rw [List.find?_isSome] at h
+  obtain ⟨c, hc, hcn⟩ := h
+  rw [List.mem_filter] at hc
+  have hd : c.name = d := beq_iff_eq.mp hcn
+  subst hd
+  simp only [Bool.and_eq_true, beq_iff_eq] at hc
+  exact hc.2
+
 /-- A name module `i`'s context stores and resolves as module `b` does,
 stored by `b`, is in what `i` reads alike from `b`. -/
 theorem readsAlike_isSome {dev : Nat → Module} {i b : Nat} {d : Name}
@@ -139,10 +167,13 @@ theorem LocalOk.of_interface {mode : CheckMode} {pins : List NatOpPinSet} {dev :
     · obtain ⟨hown, hdn⟩ := find?_readsIn hd
       obtain ⟨hc, hk⟩ := hr d hdn
       exact readsAlike_isSome hown hc hk
-    · rw [ht, hIb.table n e he, hce]
+    · rw [ht, hce]; exact hIb.table n e he cv caps hce
   · intro T ci hf
     obtain ⟨e, he, rfl, ht, -⟩ := pres T ci hf
-    rw [ht, (hI _ (src hf)).table T e he]
+    rw [ht]
+    cases hce : e.ci with
+    | indInfo cv caps => exact (hI _ (src hf)).table T e he cv caps hce
+    | _ => rfl
   · intro n cv mI rP rules hf r hr cvj nP nF hcj T us hT
     obtain ⟨e, he, hec, -, -⟩ := pres n _ hf
     exact (hI _ (src hf)).recFam n e he cv mI rP rules hec r hr cvj nP nF hcj T us hT

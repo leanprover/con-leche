@@ -57,6 +57,21 @@ both read it.
      parameters and statement (`res_context`, `res_own`).
   The context's constant is the one scoped, not the source's: a
   module that sees a definition as an assumption reads only its type.
+
+**The local checks, split** (`LocalOk.of_interface`,
+`ConLeche/Verify/Modular/Interface.lean`): `LocalOk` is derived from a
+check of every module's **interface** (`iface`: per name, the
+presentations — the constant or the assumption of its statement, its
+table, its footprint) done once at the module (`InterfaceOk`: the
+presentations refine its own constants, and what their laws read is
+stored in its own environment and listed in the footprint) and the
+checks of each **importer** (`ImportOk`: its context consists of its
+sources' presentations, each footprint stored in the context and
+resolved as by the source; plus 1, 2, 4 and the context-internal parts
+of 3).  In the Lean mapping a presentation is a constant at a level of
+its home (private: the installed constant; exported: its exported
+presentation, the value hidden when its value gate is closed), and the
+importer's footprint check is evaluating the presentation's gates.
 -/
 
 namespace ConLeche.Modular
@@ -270,19 +285,23 @@ structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Mo
 def readsIn (E : Env) (ns : List Name) : Env :=
   ⟨E.consts.filter fun c => ns.contains c.name, []⟩
 
+/-- The table a context gives a presented constant: the presentation's,
+for a type former; none otherwise. -/
+def formerTable (ci : ConstantInfo) (t : Option ProjTable) : Option ProjTable :=
+  match ci with
+  | .indInfo .. => t
+  | _ => none
+
 /-- **A module's interface is checked once** (at module `b`): every
 presentation of a name refines the constant `b`'s own environment stores
-under it; its table is `b`'s own table for a type former and none
-otherwise; what its laws read is stored in `b`'s own environment and
+under it; a presented type former's table is `b`'s own table; what its laws read is stored in `b`'s own environment and
 listed in its footprint; and a presented recursor's rules are of
 constructors of type formers `b`'s own environment stores. -/
 structure InterfaceOk (dev : Nat → Module) (b : Nat) : Prop where
   refines : ∀ n e, e ∈ (dev b).iface n →
     ∃ ci', (dev b).own.find? n = some ci' ∧ Refines n e.ci ci'
-  table : ∀ n e, e ∈ (dev b).iface n →
-    e.table = match e.ci with
-      | .indInfo .. => (dev b).own.findTable? n
-      | _ => none
+  table : ∀ n e, e ∈ (dev b).iface n → ∀ cv caps, e.ci = .indInfo cv caps →
+    e.table = (dev b).own.findTable? n
   reads : ∀ n e, e ∈ (dev b).iface n →
     EntryScoped (readsIn (dev b).own e.reads) (dev b).own n e.ci
   recFam : ∀ n e, e ∈ (dev b).iface n → ∀ cv mI rP rules, e.ci = .recInfo cv mI rP rules →
@@ -292,8 +311,8 @@ structure InterfaceOk (dev : Nat → Module) (b : Nat) : Prop where
 
 /-- **An importer's checks** (at module `i`): its context consists of
 presentations from its sources' interfaces — every context constant is
-a presentation of the interface of the module it is read from, with that
-presentation's table, and every name of its footprint is stored in the
+a presentation of the interface of the module it is read from, a type
+former with that presentation's table and nothing else with one, and every name of its footprint is stored in the
 context and resolved as by that module — together with the checks that
 concern the importer alone: its imports and sources are earlier, its
 names unique, its declarations accepted (or, compared, its own
@@ -309,7 +328,8 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → M
     AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
   compared_own : (dev i).compared = true → (dev i).own = (dev i).context
   presented : ∀ n ci, (dev i).context.find? n = some ci →
-    ∃ e ∈ (dev ((dev i).src n)).iface n, e.ci = ci ∧ (dev i).context.findTable? n = e.table ∧
+    ∃ e ∈ (dev ((dev i).src n)).iface n, e.ci = ci ∧
+      (dev i).context.findTable? n = formerTable ci e.table ∧
       ∀ d ∈ e.reads, ((dev i).context.find? d).isSome = true ∧
         (dev i).res d = (dev ((dev i).src n)).res d
   projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
