@@ -649,3 +649,24 @@ values) constant by constant with the solution's, treat axioms and
 `sorryAx`-valued constants as holes, and read the result off the
 modular theorem.
 
+
+**2026-10-28 (task #375, modular checking per module).** The modular
+theorem needs neither a global environment nor renaming. Each module
+keeps its own names and records a key per name (home module, or a
+proof's statement); the theorem gives a compatible family of models,
+one per module, and the proof of a module's model reads only its
+imports' models: restrict each to the views the module reads,
+amalgamate them (they agree where the keys agree), extend by the step
+(`Development.modular`, `ModularSemantics.lean`). Refinement and
+restriction are the one-member case of assembly and amalgamation, and
+a model of the empty environment the empty case, so the interface has
+three constructions (models with values, amalgamation, the step).
+Con-leche's `Modular/Generic.lean` and its instance can follow the
+same shape: drop the world, the renaming `ren` and the freshness and
+glue fields; state amalgamation over the views a module's context
+draws from (its units), with keys in place of qualified names; let
+`modular_model_exists` return a compatible family (or only the
+existence of each module's model, its corollary). The per-home /
+per-importer split then reads off the theorem: a view must refine its
+module's own environment (once per module), a context must be
+assembled from the imports' views (once per importer).
