@@ -670,3 +670,14 @@ existence of each module's model, its corollary). The per-home /
 per-importer split then reads off the theorem: a view must refine its
 module's own environment (once per module), a context must be
 assembled from the imports' views (once per importer).
+
+**2026-10-28 (task #377, tone on other consistency proofs).** Maintainer
+ruling: no claim that any consistency proof, a syntactic one in
+particular, plugs into the modular interface. The text states the
+limits instead. The interface gives every proof one shared value
+(`proofVal`), which suits set models but not a syntactic proof; the
+fragment's syntactic instance (`ModularSyntactic.lean`) handles
+definitions only (no axioms, no inductive types, nothing flagged a
+proof), so it illustrates the interface; whether the interface suits
+another real consistency proof is open until there is such a proof to
+connect it to.

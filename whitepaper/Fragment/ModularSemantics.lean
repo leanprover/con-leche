@@ -3,16 +3,18 @@ module
 @[expose] public section
 
 /-!
-# Modular checking, for any consistency proof
+# Modular checking, over an interface of models
 
 The fragment's modular theorem (`modular`, `ModularInstance.lean`) has
 two halves: a consistency proof for one environment, and the argument
 that carries it from module to module.  This file is the second half,
 stated over an interface (`ModularSemantics`) that says what the first
-half must provide, so that the consistency proof can be swapped (for a
-syntactic one, say) without redoing the argument.  It imports nothing.
-The fragment's model is one instance (`ModularInstance.lean`), a
-syntactic realisation another (`ModularSyntactic.lean`).
+half must provide.  It imports nothing.  The fragment's model is one
+instance (`ModularInstance.lean`).  `ModularSyntactic.lean` is a second,
+small one, an illustration of the interface (see there for its limits).
+The interface gives every proof one shared value (`proofVal`), which
+suits set models; whether it suits another consistency proof is open
+until there is such a proof to connect it to.
 
 There is no global environment and no renaming.  Each module's
 environments use the module's own names; what identifies a constant
@@ -249,7 +251,7 @@ theorem extendFam_lt {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k →
 theorem extendFam_self {P : Nat → Sort w} {k : Nat} (m : (i : Nat) → i < k → P i) (x : P k)
     (hk : k < k + 1) : extendFam m x k hk = x := dite_eq_right (Nat.lt_irrefl k)
 
-/-- **The modular theorem, for any consistency proof**: if every module
+/-- **The modular theorem, over the interface**: if every module
 below `k` is valid, there is a compatible family of models, one of each
 module's own environment. -/
 theorem modular : ∀ k, (∀ i < k, dev.Valid i) →

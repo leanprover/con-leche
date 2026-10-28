@@ -5,13 +5,19 @@ public import Fragment.ModularSemantics
 @[expose] public section
 
 /-!
-# A syntactic consistency proof as a modular semantics
+# A syntactic instance of the modular interface
 
 The interface of `ModularSemantics.lean` asks nothing of models but
-what the modular argument needs, so a proof by syntax plugs in as well
-as the fragment's set-theoretic one.  This file is such an instance,
-for any type system with constants (`SubstSystem`) in which closed
-terms of a fixed ground theory realise environments:
+what the modular argument needs.  This file instantiates it with
+realisations in a type system with constants (`SubstSystem`) in which
+closed terms of a fixed ground theory realise environments.  It
+illustrates the interface; it does not show that a syntactic
+consistency proof of Lean fits it.  The interface gives every proof one
+shared value (`proofVal`), which suits set models but not a syntactic
+proof, where proofs of different propositions are different terms; and
+this instance handles definitions only (see the end of this comment).
+Whether the interface suits another real consistency proof is open
+until there is such a proof to connect it to.
 
 * **a model** of an environment (`Real`) is a **realisation**: a
   ground term for every constant, of the realised type, equal to the
@@ -23,9 +29,10 @@ terms of a fixed ground theory realise environments:
 * **amalgamation** is the union of realisations that agree where the
   assembled environment counts two of them as the same.
 
-Declarations are definitions only, and none is flagged a proof: an
-axiom has no realised value, and the step must extend every
-realisation, so axioms are not conservative here either.
+Declarations are definitions only: no axioms, no inductive types, and
+none is flagged a proof.  An axiom has no realised value, and the step
+must extend every realisation, so axioms are not conservative here
+either.
 -/
 
 namespace Fragment.Syntactic
