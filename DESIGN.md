@@ -108383,4 +108383,4 @@ isolated run was 1 000 G.
 **Open.** The bookkeeping above still reads the closure's name index; an
 isolated unit computation would need `unitOf`/`unitOk` over the context's
 own provenance (`isoEntries` carries it). README suggestion (not
-written): the modular paragraph could mention `--modular=isolated`.
+written): README does not mention modular checking yet.
