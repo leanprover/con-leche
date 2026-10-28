@@ -580,8 +580,7 @@ theorem attested_insert {mode : CheckMode} {fe : FEnv} {pend : Array PendingChec
   · exact h n h1
 
 /-- The walk of `proofsOf` over the records left. -/
-def proofsGo (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv)
-    (pend : Array PendingCheck) :
+def proofsGo (mode : CheckMode) (fe : FEnv) (pend : Array PendingCheck) :
     (l : List PendingCheck) → (∀ pc ∈ l, pc ∈ pend.toList) → (s : Std.HashSet Name) →
       Mod.ProofsAttested mode s.contains fe pend →
       { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend }
@@ -589,32 +588,31 @@ def proofsGo (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv
   | pc :: l, hl, s, h =>
     have hm : pc ∈ pend.toList := hl pc (List.mem_cons_self ..)
     have hl' : ∀ x ∈ l, x ∈ pend.toList := fun x hx => hl x (List.mem_cons_of_mem _ hx)
-    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode find fe pend l hl' s h
+    if hp : Mod.isPinned pc.vg.cv.name = true then proofsGo mode fe pend l hl' s h
     else
       have hpin : pc.vg.cv.name ∉ ConLeche.Modular.pinnedNames := fun hn => by
         simp [Mod.isPinned, hn] at hp
       if hk : pc.vg.kind = .thm then
-        proofsGo mode find fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
-      else if Mod.isPropCheap find pc.vg.cv.type then
+        proofsGo mode fe pend l hl' _ (attested_insert h hm hpin (.inl hk))
+      else
         match hc : checkPending mode fe { pc with vg := { pc.vg with kind := .thm } } {} with
         | .ok ((), st) =>
-          proofsGo mode find fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
-        | .error _ => proofsGo mode find fe pend l hl' s h
-      else proofsGo mode find fe pend l hl' s h
+          proofsGo mode fe pend l hl' _ (attested_insert h hm hpin (.inr ⟨hk, st, hc⟩))
+        | .error _ => proofsGo mode fe pend l hl' s h
 
 /-- **A module's proofs**: its theorems, and every definition or opaque
-constant whose statement is cheaply seen to be a proposition
-(`Mod.isPropCheap`, Lean's own test for merging two imported copies of a
-constant, over the module's environment `find`) and whose value passes
-the theorem record's check (its type a proposition) — never a pinned
-name.  Read off the module's recorded checks: a theorem's record and a
-value record are what its declarations leave.  A function of the module
-and its context alone (task #374: before, a definition was tested only
-if another module of the closure stored its name too).  With the
+constant that passes the theorem record's check — its type inferred to
+be a proposition, its value of that type — never a pinned name.  The
+check is the checker's own (`checkPending` with the record's kind set to
+theorem), run once at the module that installs the constant, over its
+environment; for a definition whose type is not a proposition it stops
+after inferring the type's sort.  Read off the module's recorded
+checks: a theorem's record and a value record are what its declarations
+leave.  A function of the module and its context alone.  With the
 evidence that every name in it is attested (`ProofsAttested`). -/
-def proofsOf (mode : CheckMode) (find : Name → Option ConstantInfo) (fe : FEnv)
+def proofsOf (mode : CheckMode) (fe : FEnv)
     (pend : Array PendingCheck) : { s : Std.HashSet Name // Mod.ProofsAttested mode s.contains fe pend } :=
-  proofsGo mode find fe pend pend.toList (fun _ h => h) {} (fun n hn => by
+  proofsGo mode fe pend pend.toList (fun _ h => h) {} (fun n hn => by
     simp at hn)
 
 /-! ## Facts below a bound -/
@@ -665,6 +663,145 @@ def sameArr {α : Type} [DecidableEq α] (a b : Array α) : Option (PLift (a = b
     | .error () => none
   else none
 
+/-- A module's name, for messages. -/
+def nameOf (g : Array ModIn) (h : Nat) : Name := (g[h]?.map (·.name)).getD .anonymous
+
+/-! ## Compared modules (`--compare`) -/
+
+/-- **A challenge's holes**: its theorems, definitions and opaque
+constants whose value uses `sorryAx`. -/
+def holesOf (ds : Array Declaration) : Std.HashSet Name :=
+  ds.foldl (init := {}) fun h d => match d with
+    | .thmDecl cv v | .defnDecl cv v _ | .opaqueDecl cv v =>
+      if v.mentionsConst sorryAxName then h.insert cv.name else h
+    | _ => h
+
+/-- The kind of a constant, as a number (for the comparison of a hole). -/
+def kindTag : ConstantInfo → Nat
+  | .axiomInfo .. => 0 | .defnInfo .. => 1 | .thmInfo .. => 2 | .indInfo .. => 3
+  | .ctorInfo .. => 4 | .recInfo .. => 5
+
+/-- **A challenge constant met by its context**: a hole by a constant of
+the same statement (name, level parameters, type; a theorem's by a
+theorem, a definition's by a definition, the solution's value whatever
+it is, or its assumption), anything else by the constant itself. -/
+def cmpOk (holes : Std.HashSet Name) (o : Option ConstantInfo) (ci : ConstantInfo) : Bool :=
+  match o with
+  | some ci' =>
+    if holes.contains ci.name then
+      decide (ci'.toConstantVal = ci.toConstantVal) &&
+        (kindTag ci' == kindTag ci || kindTag ci' == 0)
+    else decide (ci' = ci)
+  | none => false
+
+/-- **What a compared module establishes**: its records, installed at a
+view of the store (the challenge's own context: its imports, not its
+solution), give constants every one of which its context (`Mod.ctxOf`,
+read from its solution) meets (`cmpOk`). -/
+def CmpClaim (mode : CheckMode) (S : Mod.Store) (i : Nat) (chal : Array Declaration) : Prop :=
+  ∃ lv n fe pend, InstallRun mode natOpPinSets chal.toList (0, Mod.viewOf ⟨S.idx, S.slots, lv⟩, #[])
+      (n, fe, pend) ∧
+    ∀ ci ∈ fe.env.consts, cmpOk (holesOf chal) ((Mod.ctxOf (S.mb i)).find? ci.name) ci = true
+
+/-- **Compare challenge `i`**, in its own work: install its records at
+its own context (`lv`, its levels without its solution) — types checked,
+values not (a hole's value is `sorry`) — and meet every constant they
+give with its context.  The holes, each with the module its context
+reads it from, beside the evidence. -/
+def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store) (i : Nat)
+    (chal : Array Declaration) (lv : ByteArray) :
+    IO (Except String (PLift (CmpClaim mode S i chal) × Array (Name × Nat))) := do
+  match ← installModule mode err chal (Mod.viewOf ⟨S.idx, S.slots, lv⟩) with
+  | .error (e, pos) =>
+    let d := match chal[pos]? with
+      | some d => s!"{ConLeche.Cached.declCLabel d}: "
+      | none => ""
+    return .error s!"the challenge's records do not install at its own context: {d}{e}"
+  | .ok e =>
+    let holes := holesOf chal
+    let mb := S.mb i
+    if h : e.fe.env.consts.all (fun ci => cmpOk holes (mb.find? ci.name) ci) = true then
+      let filled := e.fe.env.consts.filterMap fun ci =>
+        if holes.contains ci.name then
+          some (ci.name, match mb.pick? ci.name with
+            | some (h, _, _) => h
+            | none => 0)
+        else none
+      return .ok (⟨⟨lv, _, e.fe, e.pend, e.run.choose_spec, fun ci hci => by
+        have := List.all_eq_true.mp h ci hci
+        rw [Mod.ctxOf_find?]
+        exact this⟩⟩, filled.reverse.toArray)
+    else
+      let bad := e.fe.env.consts.filter fun ci => !cmpOk holes (mb.find? ci.name) ci
+      let why := bad.reverse.take 5 |>.map fun ci => match mb.find? ci.name with
+        | none => s!"{ci.name}: the solution has no such constant"
+        | some _ =>
+          if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
+          else s!"{ci.name}: the solution's constant is not the challenge's"
+      return .error (String.intercalate "; " why)
+
+/-- **What a compared module establishes in isolated mode**: its records,
+installed from the context its own levels give it (`lv`, without its
+solution) built from the units it reads, give constants every one of
+which its context — the one its levels with its solution (`lvC`) give
+it, built from the units — meets (`cmpOk`). -/
+def IsoCmpClaim (mode : CheckMode) (slots : Array (Thunk ModSlot)) (lvC : ByteArray)
+    (chal : Array Declaration) : Prop :=
+  ∃ lv n fe pend, InstallRun mode natOpPinSets chal.toList
+      (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, fe, pend) ∧
+    ∀ ci ∈ (Mod.ownPart (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) fe.env).consts,
+      cmpOk (holesOf chal) ((Mod.isoCtx (Mod.slotOf slots) lvC).find? ci.name) ci = true
+
+/-- **Compare a challenge in isolated mode**, in its own work: as
+`compareOne`, every context built from the units the challenge reads
+at the levels in question (`lv`, its own without its solution; `lvC`,
+with it), so that the comparison reads only what the challenge loads. -/
+def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (slots : Array (Thunk ModSlot))
+    (lvC : ByteArray) (chal : Array Declaration) (lv : ByteArray) :
+    IO (Except String (PLift (IsoCmpClaim mode slots lvC chal) × Array (Name × Nat))) := do
+  let aS := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lv) lv
+  let feS := aS.fenv
+  let CS := feS.env
+  match ← installModule mode err chal feS with
+  | .error (e, pos) =>
+    let d := match chal[pos]? with
+      | some d => s!"{ConLeche.Cached.declCLabel d}: "
+      | none => ""
+    return .error s!"the challenge's records do not install at its own context: {d}{e}"
+  | .ok e =>
+    let holes := holesOf chal
+    let aC := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC
+    let own := (Mod.ownPart CS e.fe.env).consts
+    if h : own.all (fun ci => cmpOk holes (aC.fenv.find? ci.name) ci) = true then
+      let filled := own.filterMap fun ci =>
+        if holes.contains ci.name then
+          some (ci.name, match aC.look ci.name with
+            | some (h, _, _) => h
+            | none => 0)
+        else none
+      have hfS : feS = mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) :=
+        Mod.isoBuild_fenv _ lv
+      have hrun₀ : ∃ n, InstallRun mode natOpPinSets chal.toList
+          (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, e.fe, e.pend) := by
+        rw [← hfS]; exact e.run
+      have hrun := hrun₀.choose_spec
+      return .ok (⟨⟨lv, _, e.fe, e.pend, hrun, fun ci hci => by
+        have hC : CS = Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv := by
+          show feS.env = _
+          rw [hfS]; rfl
+        have hci' : ci ∈ (Mod.ownPart CS e.fe.env).consts := by rw [hC]; exact hci
+        have := List.all_eq_true.mp h ci hci'
+        rw [Mod.isoBuild_fenv, Mod.isoIndex, mkFEnv_find?, Mod.isoCtx_mask] at this
+        exact this⟩⟩, filled.reverse.toArray)
+    else
+      let bad := own.filter fun ci => !cmpOk holes (aC.fenv.find? ci.name) ci
+      let why := bad.reverse.take 5 |>.map fun ci => match aC.fenv.find? ci.name with
+        | none => s!"{ci.name}: the solution has no such constant"
+        | some _ =>
+          if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
+          else s!"{ci.name}: the solution's constant is not the challenge's"
+      return .error (String.intercalate "; " why)
+
 /-! ## The run -/
 
 /-- Module `i`'s records. -/
@@ -673,7 +810,8 @@ def declsAt (g : Array ModIn) (i : Nat) : Array Declaration := (g[i]?.map (·.de
 /-- **A module installed and its unit checked**, with the evidence the
 run's theorem needs of it (`Mod.RunOk`): its records are the graph's,
 installed at its view with the accepting run, its proofs attested, its
-unit checked. -/
+unit checked; and, for a challenge, its comparison (`CmpClaim`) with the
+holes it filled. -/
 structure ModOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
   i : Nat
   d : Mod.ModData
@@ -681,6 +819,8 @@ structure ModOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) where
   run : ∃ n, InstallRun mode natOpPinSets d.ds.toList (0, S.view i, #[]) (n, d.fe, d.pend)
   prf : Mod.ProofsAttested mode d.flags.contains d.fe d.pend
   unit : Mod.unitOk (S.uview i) i d.fe d.flags.contains d.unit d.reads = true
+  filled : Array (Name × Nat)
+  cmp : ∀ is chal, (g[i]?.bind (·.cmp)) = some (is, chal) → CmpClaim mode S i chal
 
 /-- **A module checked in isolation** (`--modular=isolated`), with the
 evidence the run's theorem needs of it (`Mod.IsoRunOk`), all about the
@@ -690,7 +830,8 @@ graph's, installed from the canonical index of the context built from
 them (`Mod.isoCtx`) with the accepting run, every record checked there,
 its proofs attested there; its data's index the canonical index of its
 own constants; its unit checked against them and that context
-(`Mod.isoUView`); its local checks (`Mod.localOkIso`). -/
+(`Mod.isoUView`); its local checks (`Mod.localOkIso`); for a challenge,
+its comparison (`IsoCmpClaim`) with the holes it filled. -/
 structure IsoModOk (mode : CheckMode) (g : Array ModIn) (slots : Array (Thunk ModSlot)) where
   i : Nat
   d : Mod.ModData
@@ -707,6 +848,8 @@ structure IsoModOk (mode : CheckMode) (g : Array ModIn) (slots : Array (Thunk Mo
   unit : Mod.unitOk (Mod.isoUView (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl) i
     d.fe d.flags.contains d.unit d.reads = true
   locals : Mod.localOkIso i (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl = true
+  filled : Array (Name × Nat)
+  cmp : ∀ is chal, (g[i]?.bind (·.cmp)) = some (is, chal) → IsoCmpClaim mode slots d.unit.prv.lvl chal
 
 /-- A module's install, tagged with its index. -/
 structure ModRes (α : Type) where
@@ -810,13 +953,15 @@ def markData (d : Mod.ModData) : IO Unit := do
   OwnerParse.markOne d.pend
 
 /-- **A module's work in store mode**: its records installed at its view
-of the store, its proofs, its unit and the unit's check. -/
-def storeWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store) :
-    Work (ModOk mode g S) := fun k => do
+of the store, its proofs, its unit and the unit's check; the unit
+published; then, for a challenge, its comparison (at `sideLv`, its levels
+without its solution). -/
+def storeWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store)
+    (sideLv : Nat → ByteArray) : Work (ModOk mode g S) := fun k => do
   match ← installModule mode err (declsAt g k) (S.view k) with
   | .error e => return .error e
   | .ok e =>
-    let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
+    let ⟨flags, hprf⟩ := proofsOf mode e.fe e.pend
     match unitOf g (S.uview k) flags k (S.lvl k) e.fe with
     | .error msg => return .error (.internal s!"the unit of the module: {msg}", 0)
     | .ok (u, rd, dg) =>
@@ -824,7 +969,20 @@ def storeWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod
         { imports := ((g[k]?.map (·.imports)).getD #[]).toList.map (·.1)
           ds := declsAt g k, fe := e.fe, pend := e.pend, unit := u, flags, reads := rd }
       if hu : Mod.unitOk (S.uview k) k d.fe d.flags.contains d.unit d.reads = true then
-        return .ok (u, dg, fun _ => pure (.ok ⟨k, d, rfl, e.run, hprf, hu⟩))
+        return .ok (u, dg, fun _ => do
+          match hg : g[k]?.bind (·.cmp) with
+          | none => pure (.ok ⟨k, d, rfl, e.run, hprf, hu, #[], fun _ _ h => by
+              rw [hg] at h; cases h⟩)
+          | some (is, chal) =>
+            match ← compareOne mode err S k chal (sideLv k) with
+            | .error msg =>
+              pure (.error (.invalid s!"compared with {nameOf g is}: {msg}", (declsAt g k).size))
+            | .ok (⟨hcl⟩, filled) => pure (.ok ⟨k, d, rfl, e.run, hprf, hu, filled,
+                fun is' chal' h => by
+                  rw [hg] at h
+                  simp only [Option.some.injEq, Prod.mk.injEq] at h
+                  obtain ⟨-, rfl⟩ := h
+                  exact hcl⟩))
       else return .error (.internal "the unit of the module fails its check", 0)
 
 /-- Why a module's levels fail their check against the units it reads,
@@ -855,9 +1013,11 @@ nothing else): its context's index, lookup and duplicates in one pass
 (`Mod.isoBuild`), its records installed from that index, its proofs; its
 unit computed and checked from its own constants and that context
 (`Mod.isoUView`); its local checks; the unit published; then every record
-checked in the module's environment, which is dropped after. -/
+checked in the module's environment, which is dropped after, and, for a
+challenge, its comparison (at `sideLv`, its levels without its
+solution, and its own levels). -/
 def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : Array (Thunk ModSlot))
-    (lvls : Array ByteArray) : Work (IsoModOk mode g slots) := fun k => do
+    (lvls : Array ByteArray) (sideLv : Nat → ByteArray) : Work (IsoModOk mode g slots) := fun k => do
   let lv := (lvls[k]?).getD .empty
   -- the units module `k` reads: what Lean loads for it, and nothing else
   let units := Mod.mask (Mod.slotOf slots) lv
@@ -875,7 +1035,7 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
   match ← installModule mode err (declsAt g k) fe₀ with
   | .error e => return .error e
   | .ok e =>
-    let ⟨flags, hprf⟩ := proofsOf mode e.fe.find? e.fe e.pend
+    let ⟨flags, hprf⟩ := proofsOf mode e.fe e.pend
     let own := Mod.ownPart C e.fe.env
     -- the context's lookup, answered by the install's own index
     let U : Mod.UView := ⟨fun h => (units h).exp, Mod.lookAfter e.fe srcH srcJ nC⟩
@@ -912,12 +1072,36 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
           unfold Mod.localOkIso
           rw [← Mod.isoBuild_keysOk units lv]
           exact hl
-        return .ok (u, dg, fun _ =>
+        return .ok (u, dg, fun _ => do
           match hc : checkPendingList mode e.fe e.pend.toList with
-          | .ok () => pure (.ok ⟨k, d, rfl, by
-                rw [hlv]
-                exact ⟨_, e.fe, e.pend, hrun, checkPendingList_records mode e.fe _ hc, hprf, henv⟩,
-              rfl, by rw [hlv, ← hU]; exact hu, by rw [hlv]; exact hloc⟩)
+          | .ok () =>
+            have hiso : ∃ n feI pendI, InstallRun mode natOpPinSets d.ds.toList
+                (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl)
+                  d.unit.prv.lvl), #[]) (n, feI, pendI) ∧
+                (∀ pc ∈ pendI.toList, ∃ s, checkPending mode feI pc {} = .ok ((), s)) ∧
+                Mod.ProofsAttested mode d.flags.contains feI pendI ∧
+                feI.env = Mod.Env.over d.fe.env
+                  (Mod.isoCtx (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl) d.unit.prv.lvl) := by
+              rw [hlv]
+              exact ⟨_, e.fe, e.pend, hrun, checkPendingList_records mode e.fe _ hc, hprf, henv⟩
+            have hu' : Mod.unitOk (Mod.isoUView (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl)
+                d.unit.prv.lvl) k d.fe d.flags.contains d.unit d.reads = true := by
+              rw [hlv, ← hU]; exact hu
+            have hloc' : Mod.localOkIso k (Mod.mask (Mod.slotOf slots) d.unit.prv.lvl)
+                d.unit.prv.lvl = true := by rw [hlv]; exact hloc
+            match hg : g[k]?.bind (·.cmp) with
+            | none => pure (.ok ⟨k, d, rfl, hiso, rfl, hu', hloc', #[], fun _ _ h => by
+                rw [hg] at h; cases h⟩)
+            | some (is, chal) =>
+              match ← compareOneIso mode err slots d.unit.prv.lvl chal (sideLv k) with
+              | .error msg =>
+                pure (.error (.invalid s!"compared with {nameOf g is}: {msg}", (declsAt g k).size))
+              | .ok (⟨hcl⟩, filled) => pure (.ok ⟨k, d, rfl, hiso, rfl, hu', hloc', filled,
+                  fun is' chal' h => by
+                    rw [hg] at h
+                    simp only [Option.some.injEq, Prod.mk.injEq] at h
+                    obtain ⟨-, rfl⟩ := h
+                    exact hcl⟩)
           | .error (x, pos) => pure (.error (x, pos)))
       else
         -- (a failure: the one-pass state built again, for the message)
@@ -936,9 +1120,6 @@ def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : A
       else return .error (.internal "the unit does not record the module's levels", 0)
 
 /-! ## The local checks -/
-
-/-- A module's name, for messages. -/
-def nameOf (g : Array ModIn) (h : Nat) : Name := (g[h]?.map (·.name)).getD .anonymous
 
 /-- Why module `m`'s local checks fail in a store run, for the message. -/
 def localWhy (g : Array ModIn) (S : Mod.Store) (m : Nat) : String := Id.run do
@@ -1184,153 +1365,11 @@ def isoRunOk (mode : CheckMode) (g : Array ModIn) (slots : Array (Thunk ModSlot)
     unit := fun i h => (isoModOk_facts hA i h).2.2.1
     locals := fun i h => (isoModOk_facts hA i h).2.2.2.1 }, fun i h => (isoModOk_facts hA i h).2.2.2.2⟩
 
-/-! ## Compared modules (`--compare`) -/
-
-/-- **A challenge's holes**: its theorems, definitions and opaque
-constants whose value uses `sorryAx`. -/
-def holesOf (ds : Array Declaration) : Std.HashSet Name :=
-  ds.foldl (init := {}) fun h d => match d with
-    | .thmDecl cv v | .defnDecl cv v _ | .opaqueDecl cv v =>
-      if v.mentionsConst sorryAxName then h.insert cv.name else h
-    | _ => h
-
-/-- The kind of a constant, as a number (for the comparison of a hole). -/
-def kindTag : ConstantInfo → Nat
-  | .axiomInfo .. => 0 | .defnInfo .. => 1 | .thmInfo .. => 2 | .indInfo .. => 3
-  | .ctorInfo .. => 4 | .recInfo .. => 5
-
-/-- **A challenge constant met by its context**: a hole by a constant of
-the same statement (name, level parameters, type; a theorem's by a
-theorem, a definition's by a definition, the solution's value whatever
-it is, or its assumption), anything else by the constant itself. -/
-def cmpOk (holes : Std.HashSet Name) (o : Option ConstantInfo) (ci : ConstantInfo) : Bool :=
-  match o with
-  | some ci' =>
-    if holes.contains ci.name then
-      decide (ci'.toConstantVal = ci.toConstantVal) &&
-        (kindTag ci' == kindTag ci || kindTag ci' == 0)
-    else decide (ci' = ci)
-  | none => false
-
-/-- **What a compared module establishes**: its records, installed at a
-view of the store (the challenge's own context: its imports, not its
-solution), give constants every one of which its context in the
-development (`Mod.devOf`, read from its solution) meets (`cmpOk`). -/
-def CmpClaim (mode : CheckMode) (S : Mod.Store) (M : Array Mod.ModData) (i : Nat)
-    (chal : Array Declaration) : Prop :=
-  ∃ lv n fe pend, InstallRun mode natOpPinSets chal.toList (0, Mod.viewOf ⟨S.idx, S.slots, lv⟩, #[])
-      (n, fe, pend) ∧
-    ∀ ci ∈ fe.env.consts, cmpOk (holesOf chal) ((Mod.devOf S M i).context.find? ci.name) ci = true
-
-/-- **Compare challenge `i`**: install its records at its own context
-(`lv`, its levels without its solution) — types checked, values not
-(a hole's value is `sorry`) — and meet every constant they give with
-its context.  The holes, each with the module its context reads it
-from, beside the evidence. -/
-def compareOne (mode : CheckMode) (err : IO.FS.Stream) (S : Mod.Store)
-    (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
-    IO (Except String (PLift (CmpClaim mode S M i chal) × Array (Name × Nat))) := do
-  if hi : i < M.size then
-    match ← installModule mode err chal (Mod.viewOf ⟨S.idx, S.slots, lv⟩) with
-    | .error (e, pos) =>
-      let d := match chal[pos]? with
-        | some d => s!"{ConLeche.Cached.declCLabel d}: "
-        | none => ""
-      return .error s!"the challenge's records do not install at its own context: {d}{e}"
-    | .ok e =>
-      let holes := holesOf chal
-      let mb := S.mb i
-      if h : e.fe.env.consts.all (fun ci => cmpOk holes (mb.find? ci.name) ci) = true then
-        let filled := e.fe.env.consts.filterMap fun ci =>
-          if holes.contains ci.name then
-            some (ci.name, match mb.pick? ci.name with
-              | some (h, _, _) => h
-              | none => 0)
-          else none
-        return .ok (⟨⟨lv, _, e.fe, e.pend, e.run.choose_spec, fun ci hci => by
-          have := List.all_eq_true.mp h ci hci
-          rw [Mod.devOf_of_lt hi]
-          show cmpOk holes ((Mod.ctxOf (S.mb i)).find? ci.name) ci = true
-          rw [Mod.ctxOf_find?]
-          exact this⟩⟩, filled.reverse.toArray)
-      else
-        let bad := e.fe.env.consts.filter fun ci => !cmpOk holes (mb.find? ci.name) ci
-        let why := bad.reverse.take 5 |>.map fun ci => match mb.find? ci.name with
-          | none => s!"{ci.name}: the solution has no such constant"
-          | some _ =>
-            if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
-            else s!"{ci.name}: the solution's constant is not the challenge's"
-        return .error (String.intercalate "; " why)
-  else return .error "no such module"
-
-/-- **What a compared module establishes in isolated mode**: its records,
-installed from the context its own levels give it (`lv`, without its
-solution) built from the units it reads, give constants every one of
-which its context — the one its levels with its solution give it, built
-from the units — meets (`cmpOk`). -/
-def IsoCmpClaim (mode : CheckMode) (slots : Array (Thunk ModSlot)) (M : Array Mod.ModData) (i : Nat)
-    (chal : Array Declaration) : Prop :=
-  ∃ lv n fe pend, InstallRun mode natOpPinSets chal.toList
-      (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, fe, pend) ∧
-    ∀ ci ∈ (Mod.ownPart (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) fe.env).consts,
-      cmpOk (holesOf chal)
-        ((Mod.isoCtx (Mod.slotOf slots) ((M[i]?.map (·.unit.prv.lvl)).getD .empty)).find? ci.name)
-        ci = true
-
-/-- **Compare challenge `i` in isolated mode**: as `compareOne`, every
-context built from the units the challenge reads at the levels in
-question (its own `lv`, then with its solution). -/
-def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (slots : Array (Thunk ModSlot))
-    (M : Array Mod.ModData) (i : Nat) (chal : Array Declaration) (lv : ByteArray) :
-    IO (Except String (PLift (IsoCmpClaim mode slots M i chal) × Array (Name × Nat))) := do
-  let aS := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lv) lv
-  let feS := aS.fenv
-  let CS := feS.env
-  match ← installModule mode err chal feS with
-  | .error (e, pos) =>
-    let d := match chal[pos]? with
-      | some d => s!"{ConLeche.Cached.declCLabel d}: "
-      | none => ""
-    return .error s!"the challenge's records do not install at its own context: {d}{e}"
-  | .ok e =>
-    let holes := holesOf chal
-    let lvC := (M[i]?.map (·.unit.prv.lvl)).getD .empty
-    let aC := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC
-    let own := (Mod.ownPart CS e.fe.env).consts
-    if h : own.all (fun ci => cmpOk holes (aC.fenv.find? ci.name) ci) = true then
-      let filled := own.filterMap fun ci =>
-        if holes.contains ci.name then
-          some (ci.name, match aC.look ci.name with
-            | some (h, _, _) => h
-            | none => 0)
-        else none
-      have hfS : feS = mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) :=
-        Mod.isoBuild_fenv _ lv
-      have hrun₀ : ∃ n, InstallRun mode natOpPinSets chal.toList
-          (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, e.fe, e.pend) := by
-        rw [← hfS]; exact e.run
-      have hrun := hrun₀.choose_spec
-      return .ok (⟨⟨lv, _, e.fe, e.pend, hrun, fun ci hci => by
-        have hC : CS = Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv := by
-          show feS.env = _
-          rw [hfS]; rfl
-        have hci' : ci ∈ (Mod.ownPart CS e.fe.env).consts := by rw [hC]; exact hci
-        have := List.all_eq_true.mp h ci hci'
-        rw [Mod.isoBuild_fenv, Mod.isoIndex, mkFEnv_find?, Mod.isoCtx_mask] at this
-        exact this⟩⟩, filled.reverse.toArray)
-    else
-      let bad := own.filter fun ci => !cmpOk holes (aC.fenv.find? ci.name) ci
-      let why := bad.reverse.take 5 |>.map fun ci => match aC.fenv.find? ci.name with
-        | none => s!"{ci.name}: the solution has no such constant"
-        | some _ =>
-          if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
-          else s!"{ci.name}: the solution's constant is not the challenge's"
-      return .error (String.intercalate "; " why)
-
 /-- **A modular accept** (store mode): the store and the modules' data of
 a run with its evidence (`Mod.RunOk`), one module per graph module, each
 one's records the graph's, the name index listing every unit constant,
-every compared module's records met by its context.  By
+every compared module's records met by its context (each compared in
+its own work).  By
 `Mod.RunOk.localOk` every module of the development it stands for
 (`Mod.devOf`) passes its local checks — the hypothesis of the capstones
 `ConLeche.modular_model_exists` and `ConLeche.modular_no_False`
@@ -1344,7 +1383,7 @@ structure Accepted (mode : CheckMode) (g : Array ModIn) where
   size : M.size = g.size
   decls : ∀ i (h : i < M.size), M[i].ds = declsAt g i
   /-- every compared module's records are met by its context -/
-  compared : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S M i chal
+  compared : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) → CmpClaim mode S i chal
 
 /-- Every module of an accept passes its local checks. -/
 theorem Accepted.localOk {mode : CheckMode} {g : Array ModIn} (a : Accepted mode g) (i : Nat) :
@@ -1367,7 +1406,8 @@ theorem Accepted.localOk_iso {mode : CheckMode} {g : Array ModIn} (a : Accepted 
 and the modules' data of a run with its evidence (`Mod.IsoRunOk`: every
 module checked in an environment of its own, built from the units it
 reads), one module per graph module, each one's records the graph's,
-every compared module's records met by its context.  By
+every compared module's records met by its context (each compared in
+its own work, from the units it reads).  By
 `Mod.IsoRunOk.localOk` every module of the development it stands for
 (`Mod.isoRunDev`) passes its local checks. -/
 structure IsoAccepted (mode : CheckMode) (g : Array ModIn) where
@@ -1376,7 +1416,8 @@ structure IsoAccepted (mode : CheckMode) (g : Array ModIn) where
   ok : Mod.IsoRunOk mode slots M
   size : M.size = g.size
   decls : ∀ i (h : i < M.size), M[i].ds = declsAt g i
-  compared : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) → IsoCmpClaim mode slots M i chal
+  compared : ∀ i (h : i < M.size) is chal, (g[i]?.bind (·.cmp)) = some (is, chal) →
+    IsoCmpClaim mode slots M[i].unit.prv.lvl chal
 
 /-- Every module of an isolated accept passes its local checks. -/
 theorem IsoAccepted.localOk {mode : CheckMode} {g : Array ModIn} (a : IsoAccepted mode g)
@@ -1461,44 +1502,16 @@ def localChecks (g : Array ModIn) (S : Mod.Store) (M : Array Mod.ModData) (jobs 
       return .error (localWhy g S k, k)
   return .ok locals
 
-/-- **The compared modules, each against its context** (`one`: a
-challenge's comparison, store or isolated): the evidence for every
-module, or the exit code of the first failure. -/
-def compareAll {Claim : Nat → Array Declaration → Prop} (g : Array ModIn)
-    (cmpIx : Array (Nat × Nat)) (sideLvls : Array ByteArray) (ownLvl : Nat → ByteArray)
-    (one : (i : Nat) → (chal : Array Declaration) → ByteArray →
-      IO (Except String (PLift (Claim i chal) × Array (Name × Nat))))
-    (fail : CheckError → String → IO UInt32) :
-    IO (Except UInt32 (PLift (∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) →
-      Claim i chal))) := do
-  let mut cres : Array (Option (At fun i =>
-      ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → Claim i chal)) :=
-    Array.replicate g.size none
-  for h : i in [0:g.size] do
-    match hc : g[i].cmp with
-    | none => cres := cres.set! i (some ⟨i, fun h' is chal hc' => by
-        simp only [hc] at hc'; cases hc'⟩)
-    | some (is, chal) =>
-      let lv := ((cmpIx.findIdx? (·.1 == i)).bind (sideLvls[·]?)).getD (ownLvl i)
-      match ← one i chal lv with
-      | .error msg =>
-        return .error (← fail (.invalid s!"compared with {nameOf g is}: {msg}") s!"module {nameOf g i}")
-      | .ok (⟨hc1⟩, filled) =>
-        cres := cres.set! i (some ⟨i, fun h' is' chal' hc' => by
-          rw [hc] at hc'
-          cases hc'
-          exact hc1⟩)
-        IO.println s!"con-leche: {nameOf g i} compared with {nameOf g is}: {chal.size} records, \
-          {filled.size} holes"
-        for (n, h) in filled do
-          IO.println s!"con-leche:   hole {n} filled by {nameOf g h}"
-  let cmpOk' : Except Unit (PLift (∀ i, i < g.size →
-      ∀ (h : i < g.size) is chal, g[i].cmp = some (is, chal) → Claim i chal)) :=
-    allBelow g.size fun i _ => match At.get? (cres[i]?.join) i with
-      | some h => .ok h
-      | none => .error ()
-  let .ok ⟨hcmp⟩ := cmpOk' | return .error (← fail (.internal "a compared module was not compared") "the run")
-  return .ok ⟨fun i h => hcmp i h h⟩
+/-- The comparisons' report, in module order: per challenge its solution,
+its records and the holes it filled, each with the module its context
+reads it from. -/
+def reportCompared (g : Array ModIn) (cmps : Array (Nat × Array (Name × Nat))) : IO Unit := do
+  for (i, filled) in cmps do
+    if let some (is, chal) := g[i]?.bind (·.cmp) then
+      IO.println s!"con-leche: {nameOf g i} compared with {nameOf g is}: {chal.size} records, \
+        {filled.size} holes"
+      for (n, h) in filled do
+        IO.println s!"con-leche:   hole {n} filled by {nameOf g h}"
 
 /-- **The modular run**: read, build the graph and the store, install
 every module, compute the requirements, run the local checks and every
@@ -1556,6 +1569,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   -- levels without the import of its solution
   let sideLvls : Array ByteArray := cmpIx.map fun (ic, is) =>
     levelsOf (g.modify ic fun m => { m with imports := m.imports.filter (·.1 != is) }) ic
+  let sideLv (i : Nat) : ByteArray := ((cmpIx.findIdx? (·.1 == i)).bind (sideLvls[·]?)).getD .empty
   -- the graph lives to the end and every worker reads it (its names are
   -- hash-consed across modules): persistent before any worker starts, so
   -- that no later mark (an installed unit's) reaches a counted object
@@ -1583,7 +1597,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     let inCtx (k : Nat) : Name → Bool :=
       let a := Mod.isoBuild (Mod.mask (Mod.slotOf slots) (lvlOf k)) (lvlOf k)
       fun n => (a.fenv.find? n).isSome
-    let results ← installAll err jobs g proms keepGoing (isoWork mode err g slots lvls)
+    let results ← installAll err jobs g proms keepGoing (isoWork mode err g slots lvls sideLv)
       (fun a => markData a.d)
     if let some code ← installFailure g inCtx keepGoing results fail modeTag then return code
     phase "modules checked in isolation"
@@ -1596,10 +1610,16 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
     | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
     | .ok ⟨⟨hR, hds⟩⟩ =>
       if hs : M.size = g.size then
-        match ← compareAll g cmpIx sideLvls lvlOf (compareOneIso mode err slots M) fail with
-        | .error code => return code
-        | .ok ⟨hcmp⟩ =>
+        match indexed A IsoModOk.i with
+        | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
+        | .ok ⟨hA⟩ =>
+          have hcmp : ∀ i (h : i < M.size) is chal, (g[i]?.bind (·.cmp)) = some (is, chal) →
+              IsoCmpClaim mode slots M[i].unit.prv.lvl chal := fun i h is chal hc => by
+            have h' : i < A.size := by simpa [M] using h
+            have := A[i].cmp is chal (by rw [hA i h' h']; exact hc)
+            simpa [M] using this
           let acc : IsoAccepted mode g := ⟨slots, M, hR, hs, hds, hcmp⟩
+          reportCompared g (A.map fun a => (a.i, a.filled))
           IO.println s!"con-leche: accepted {nDecls} declarations in {acc.M.size} modules, \
             each checked in isolation ({modeTag})"
           return 0
@@ -1612,7 +1632,7 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   -- the units' promises, which the mark would wait for)
   OwnerParse.markOne idx
   let S : Mod.Store := { idx, dups := dupArr, slots, lvls }
-  let results ← installAll err jobs g proms keepGoing (storeWork mode err g S)
+  let results ← installAll err jobs g proms keepGoing (storeWork mode err g S sideLv)
     (fun a => markData a.d)
   if let some code ← installFailure g (fun k n => ((S.view k).find? n).isSome) keepGoing results
       fail modeTag then return code
@@ -1682,10 +1702,18 @@ def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stri
   | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
   | .ok ⟨⟨hR, hds⟩⟩ =>
     if hs : M.size = g.size then
-      match ← compareAll g cmpIx sideLvls S.lvl (compareOne mode err S M) fail with
-      | .error code => return code
-      | .ok ⟨hcmp⟩ =>
+      match indexed A ModOk.i with
+      | .error msg => fail (.internal s!"the run's evidence: {msg}") "the run"
+      | .ok ⟨hA⟩ =>
+        have hcmp : ∀ i (h : i < g.size) is chal, g[i].cmp = some (is, chal) →
+            CmpClaim mode S i chal := fun i h is chal hc => by
+          have h' : i < A.size := by
+            have e : A.size = g.size := by simpa [M] using hs
+            omega
+          have := A[i].cmp is chal (by rw [hA i h' h']; simp [h, hc])
+          rwa [hA i h' h'] at this
         let acc : Accepted mode g := ⟨S, M, hR, hs, hds, hcmp⟩
+        reportCompared g (A.map fun a => (a.i, a.filled))
         IO.println s!"con-leche: accepted {nDecls} declarations in {acc.M.size} modules ({modeTag})"
         return 0
     else fail (.internal "the run lost a module") "the run"

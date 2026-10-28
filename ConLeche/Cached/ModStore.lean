@@ -36,10 +36,7 @@ the pure part of the run that the proofs are about:
   what it loads: every module it loads is earlier, a module loaded
   privately brings its whole context, one loaded at the exported level
   brings `fp1`; in the store mode with the store's duplicates' check
-  (`oneKey`; the isolated mode's is `keysOk`);
-* `isPropCheap` — Lean's test for a statement that is a proposition,
-  which decides the proofs of a module (their key is their
-  statement).
+  (`oneKey`; the isolated mode's is `keysOk`).
 
 Nothing here type-checks: the declarations' checks are the fold's own
 (`installDeclStep`, `checkPending`).
@@ -573,39 +570,6 @@ store's), and the copies of a name that meet in `m`'s context have one
 key (`oneKey`, over the store's names stored twice). -/
 def localOk (S : Store) (m : Nat) : Bool :=
   levelsOk m (S.lvl m) S.slot && S.dups.all (oneKey S m)
-
-/-! ## The proofs of a module -/
-
-/-- The body of a statement under its `∀` binders, with the binders'
-types, innermost first. -/
-def forallBody : Expr → List Expr → Expr × List Expr
-  | .forallE t b, bs => forallBody b (t :: bs)
-  | e, bs => (e, bs)
-
-/-- A type with `k` more `∀` binders whose body is `Prop`. -/
-def propAfter : Nat → Expr → Bool
-  | 0, e => e == .sort .zero
-  | k + 1, .forallE _ b => propAfter k b
-  | _, _ => false
-
-/-- **A statement whose type is cheaply seen to be a proposition** (Lean's
-`subsumesInfo.isPropCheap`, `Lean/Environment.lean`, which decides when
-Lean merges two copies of a constant imported from different modules):
-under its `∀` binders, an application of a constant (or, beyond Lean, of
-a bound variable) whose type takes exactly that many arguments to
-`Prop`.  `find` is the module's own environment's lookup.  An
-approximation: a constant it accepts is flagged a proof only if its
-value also passes the theorem check. -/
-def isPropCheap (find : Name → Option ConstantInfo) (ty : Expr) : Bool :=
-  let (body, bs) := forallBody ty []
-  match body.getAppFn with
-  | .const n _ => match find n with
-    | some ci => propAfter body.numArgs ci.toConstantVal.type
-    | none => false
-  | .bvar k => match bs[k]? with
-    | some t => propAfter body.numArgs t
-    | none => false
-  | _ => false
 
 /-! ## A module, checked -/
 
