@@ -109055,3 +109055,120 @@ installs without being a non-standard axiom).  Reading the home's
 opaque record in isolated mode reads only what the challenge's context
 shows (private level, or exported as stored); otherwise the comparison
 fails with "not in the challenge's context".
+
+## TASK #384 — Lake's and Comparator's test suites ported; kind-checked holes; module names in «» (2026-10-29, agent/384-cmptests)
+
+Maintainer request: turn the tests of the comparator repository (now in
+Lean core as `lake comparator` / `lake check`, v4.35.0) into con-leche
+tests.  Sources: `tests/lake/tests/challenge-*` (15) and `check-*` (7) of
+Lean v4.35.0, and the comparator repository's `tests/projects` (20; the
+four not in core: char_ofnat_issue, proj_trick, quot_mismatch,
+theorem_hole_issue; the nanoda ones are about nanoda).  Comparator's
+shared projects are the core ones, except primitive_issue (the old one
+defines Nat.land/lor/xor and the shifts as 0 instead of importing
+Init.Data.String.Bootstrap).
+
+**Fixtures.**  `tests/olean/src/Up*.lean` (34 modules, built by
+`tests/olean/build.sh`), each with a header naming the upstream test, its
+path and its outcome there.  Adaptation: `prelude` and a small import
+(`Init.Data.Nat.Basic`, `Init.Data.Int.Basic`, `Init.Classical`,
+`Init.Data.Nat.Gcd`) instead of all of Init, and `grind` replaced by
+`Nat.add_comm n m`: with all of Init each run checks 655 modules (about
+100 CPU-seconds), with these 15 to 55.  Verbatim: UpGcdSol,
+UpBoomOleanSol (`import Lean`, for `run_elab`; the reader reads Lean's
+closure and fails, about 1 s), UpBoomCharSol, UpQuot, UpQuotSol.  proj_trick
+uses the projection function `S.a` where upstream's elaborator (from
+`import Lean`) writes a raw `Expr.proj S 0`: the trick is aimed at a
+comparison that follows only the constants a hole mentions, and
+con-leche compares every constant of the challenge.  Before the
+adaptation every upstream project was built verbatim (all of Init,
+`import Lean` where upstream has it) and run in all three modes
+(`_tmp/384/runs`); the adapted fixtures give the same verdicts.
+Comparator's config has no counterpart: every sorry in a challenge is a
+hole, and every upstream test permits exactly con-leche's three axioms.
+`tests/olean.sh` runs every comparison in both modular modes
+(`upstream_cases`) and every module merged: 193 cases (was 114),
+47 s wall (was 16).
+
+| upstream test | con-leche fixture | upstream | con-leche (store / isolated / merged) | note |
+|---|---|---|---|---|
+| challenge-simple-match | UpComm vs UpCommSol | 0 | 0 / 0 / Sol 0, Chal 2 | |
+| challenge-simple-axiom-issue | UpComm vs UpCommAxSol | 1 | 2 / 2 / 2 | non-standard axiom: declined |
+| challenge-simple-kind-mismatch | (same files as simple-axiom-issue) | 1 | 2 / 2 / 2 | as above |
+| challenge-simple-mismatch | UpComm vs UpCommMisSol | 1 | 2 / 2 / 2 | the solution's axiom is declined before any comparison |
+| challenge-def-hole | UpDefHole vs UpDefHoleSol | 0 | 0 / 0 / Sol 0 | |
+| challenge-def-hole-axiom-issue | UpDefHole vs UpDefHoleAxSol | 1 | 2 / 2 / 2 | sorry outside a challenge: declined |
+| challenge-def-hole-kind-mismatch | UpDefHole vs UpDefHoleKindSol | 1 | 2 / 2 / 2 | the axiom is declined first; kind mismatch alone: next rows |
+| (own) kind, definition hole | UpKindDef vs UpKindDefOpqSol | (1) | 1 / 1 / Sol 0 | **was 0**: fixed, below |
+| (own) kind, theorem hole | UpKindThm vs UpKindThmOpqSol | (1) | 1 / 1 / Sol 0 | **was 0**: fixed |
+| (own) kind, theorem hole by a definition | UpKindThm vs UpKindThmDefSol | (1) | 1 / 1 / Sol 0 | message now says kind |
+| (own) converse | UpKindDef vs UpHidDefSol | — | 0 / 0 / Sol 0 | a hidden definition is an assumption of unknown kind |
+| challenge-def-hole-type-mismatch | UpDefHoleTy vs UpDefHoleTySol | 1 | 1 / 2 / 2; `--keep-going` 1 / 1 | two failures, first one met reported (below) |
+| challenge-numeric-namespace | UpNum.«12.34».«5» vs UpNumSol | 0 | 0 / 0 / Sol 0, Chal 2 | **was 3** (name split at every dot): fixed |
+| challenge-olean-issue | UpBoom vs UpBoomOleanSol | 1 | 3 / 3 / 3 | negative GMP Nat literal: malformed file data |
+| challenge-opaque-value | UpBoom vs UpBoomOpqSol | 1 | 2 / 2 / 2 | the axiom behind the value: declined |
+| challenge-primitive-issue | UpGcd vs UpGcdSol | 1 | 2 / 2 / 2 | Nat.gcd matches no pin: declined |
+| challenge-bad-config, -no-sandbox, -inadvisably-no-sandbox | skipped | 2 / 2 / 0 | — | configuration and sandbox handling; the project is simple-match's |
+| check-audit | UpCommSol | 0 | 0 / 0 / 0 | the axiom report has no counterpart |
+| check-audit-reject | UpBoomOleanSol | 1 | — / — / 3 | as olean-issue |
+| check-from-export | UpCommSol, UpSorry (merged) | 0, 1 | 0, 2 | the export-file handling is not ported: the stream path has its own e2e suite |
+| check-inadvisably-no-sandbox | skipped | 0 | — | sandbox |
+| check-multi | UpMultiA UpMultiB (two roots) | 0 | 0 / 0 / 0 | |
+| check-paranoid | UpComm vs UpCommSol | 0 | 0 / 0 / 0 | con-leche is one of the paranoid checkers; the stub plumbing is Lake's |
+| check-sorry | UpSorry | 1 | 2 / 2 / 2 | sorry: declined |
+| comparator char_ofnat_issue | UpBoom vs UpBoomCharSol | 1 | 1 / 2 / Sol 2 | store: the solution's Char/String meet Init's in the challenge's context; isolated: the solution's string literal declined first |
+| comparator proj_trick | UpProj vs UpProjSol | 1 | 1 / 1 / Sol 0 | S compared because it is the challenge's |
+| comparator quot_mismatch | UpQuot vs UpQuotSol | 1 | 1 / 1 / 1 | `Quot.lift` is a basis name |
+| comparator theorem_hole_issue | UpThmHole vs UpThmHoleSol | 0 | 0 / 0 / Sol 0 | |
+
+No wrong accept remains; every upstream accept is accepted.  Every
+remaining difference is a decline or a malformed-file error where
+upstream rejects, by con-leche's standing rules (only the three axioms,
+no sorry outside a challenge, pinned GMP operations, untrusted file
+data).
+
+**Fix 1: a hole filled by an opaque constant (a wrong accept).**
+`cmpOk` let any assumption (`kindTag` 0) fill a hole, so that an
+exported-level hidden theorem or definition can fill one; an installed
+opaque constant is such an assumption too, so a definition or theorem
+hole filled by an opaque constant was accepted (Comparator: "Solution
+constant is not a definition"), contradicting the help text's "of the
+same statement and kind".  Now an assumption fills a hole only where
+the kind of its home record (`homeKind`, `recKind`), read where the
+challenge's context sees that record (the home at its private level, or
+exported as stored — `opaqueVal`'s condition), is the hole's, or where
+the record is not seen.  `CmpClaim`/`IsoCmpClaim` carry it
+(`storeHomeKind`, `isoHomeKind`); nothing downstream reads `cmpOk`'s
+inside, so no proof changed.  The message names the kind ("the
+solution's constant is not of the hole's kind").  Residual: Lean
+exports a theorem, a hidden definition and a hidden opaque constant
+alike as an axiom, so at the exported level the kind is not visible and
+any of them fills a hole of any kind (fixture UpHidDefSol: accepted).
+Reading the home's private record would read more than Lean loads (the
+#374 rule).  Consistency is not at stake either way, since the filling
+constant's value is checked at its home.
+
+**Fix 2: module names in «».**  The command line split module names at
+every dot, so `Challenge.«12.34».«5»` (Lake's file
+`Challenge/12.34/5.olean`) was not found (exit 3).
+`Frontend/Olean/Load.lean` `parseModName` reads `«»` escapes as Lean
+does (no numeric components: module names have none); a malformed name
+is a usage error.  Guards in `OleanTests.lean`.
+
+**Observed, not changed: the reported failure depends on the mode.**
+Without `--keep-going` a run reports the first failure it meets, and
+the two modes meet them in different orders: the store installs every
+module, runs the local checks (the comparison among them), then checks
+values; the isolated mode checks a module's values with its install,
+so a solution's sorry is met before its challenge's comparison.  Hence
+def-hole-type-mismatch is 1 in the store and 2 in isolation (both 1
+under `--keep-going`), and char_ofnat_issue 1 / 2 even under
+`--keep-going`: the store's local-check failure ends the run, and in
+isolation the challenge is skipped because its solution failed.
+Acceptance agrees, as proved; only the category of a run with several
+failures differs.  `--keep-going` in the store mode also stops after a
+phase that failed (the record checks of later phases are not run).
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+193/193; overview/README links repointed (line shifts only); whitepaper
+links; quote gate; `tests/arena.sh` on the final tree.

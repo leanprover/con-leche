@@ -232,6 +232,18 @@ def orphanMerged : Merged :=
   | .error (.internal m, _) => m.startsWith "the inductive data of I: its block member J"
   | _ => false
 
+-- Module names on the command line (task #384, upstream's
+-- challenge-numeric-namespace): `«»` escapes taken literally, dots
+-- included; empty components and unclosed escapes refused.
+#guard parseModName "Challenge.«12.34».«5»" ==
+  some ((((Name.anonymous.str "Challenge").str "12.34").str "5"))
+#guard parseModName "Init.Data.Nat" == some (((Name.anonymous.str "Init").str "Data").str "Nat")
+#guard parseModName "«a.b»" == some (Name.anonymous.str "a.b")
+#guard parseModName "123" == some (Name.anonymous.str "123")
+#guard ["", "A.", ".A", "A..B", "«A", "«A»B", "A.«B"].all (parseModName · |>.isNone)
+#guard (modFile "d" ((((Name.anonymous.str "Challenge").str "12.34").str "5")) "olean").toString
+  == "d/Challenge/12.34/5.olean"
+
 -- The equality's footprint: the standard three, nothing else.
 /--
 info: 'ConLeche.Frontend.Olean.decodeModuleSpec_eq_fast' depends on axioms: [propext, Classical.choice, Quot.sound]

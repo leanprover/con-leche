@@ -359,7 +359,132 @@ setfld(fld(cs['answer'], 0), 1, fld(fld(cs['flag'], 0), 1))" --compare CmpOpq Cm
   case_ "the private part's imports not the exported part's [$MOD]" 3 --olean $MOD --search-path=$d:$INIT HidAll
   rm -rf "$d"
 }
-for MOD in --modular --modular=isolated; do modular_cases; review_cases; rcases; done
+# --- task #384: Lake's and Comparator's test suites, ported ------------
+# The Up* fixtures (tests/olean/src/Up*.lean; each header names the
+# upstream test, its path and its outcome there) are the test projects
+# of Lean v4.35.0's tests/lake/tests/challenge-* and check-* (`lake
+# comparator`, `lake check`) and of the comparator repository's
+# tests/projects.  Comparator's config has no counterpart: every sorry of
+# a challenge is a hole (theorem_names, definition_names), and the
+# permitted axioms are con-leche's three (propext, Classical.choice,
+# Quot.sound), as in every upstream test.  Not ported (sandbox and
+# configuration handling, no checker verdict): challenge-bad-config,
+# -no-sandbox, -inadvisably-no-sandbox, check-inadvisably-no-sandbox;
+# their projects are the simple-match pair (UpComm, UpCommSol).  DESIGN
+# #384 has the table.  Where con-leche's verdict differs from upstream's
+# the case says why.
+upstream_cases() {
+  # challenge-simple-match (also check-paranoid's pair): upstream 0
+  case_grep "upstream simple-match [$MOD]" 0 "hole comm filled by UpCommSol" \
+    --olean $MOD --search-path=$MSP --compare UpComm UpCommSol
+  # challenge-simple-axiom-issue and -simple-kind-mismatch (one solution):
+  # upstream 1 ("Illegal axiom detected: 'helper'"); con-leche declines
+  # every axiom but its three, before any comparison
+  case_ "upstream simple-axiom-issue [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpComm UpCommAxSol
+  # challenge-simple-mismatch: upstream 1 (kind); the solution's axiom is
+  # declined first
+  case_ "upstream simple-mismatch [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpComm UpCommMisSol
+  # challenge-def-hole: upstream 0
+  case_grep "upstream def-hole [$MOD]" 0 "hole n filled by UpDefHoleSol" \
+    --olean $MOD --search-path=$MSP --compare UpDefHole UpDefHoleSol
+  # challenge-def-hole-axiom-issue: upstream 1 (sorryAx hidden in the
+  # filling definition); con-leche declines sorry outside a challenge
+  case_ "upstream def-hole-axiom-issue [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpDefHole UpDefHoleAxSol
+  # challenge-def-hole-kind-mismatch: upstream 1 (an axiom fills the
+  # definition hole); the axiom is declined first
+  case_ "upstream def-hole-kind-mismatch [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpDefHole UpDefHoleKindSol
+  # the kind mismatch without the axiom (con-leche's own): a definition
+  # or theorem hole filled by an opaque constant, a theorem hole by a
+  # definition (task #384: the opaque ones were accepted, 0; Comparator
+  # rejects them)
+  case_grep "upstream kind: a definition hole filled by an opaque constant [$MOD]" 1 \
+    "n: the solution's constant is not of the hole's kind" \
+    --olean $MOD --search-path=$MSP --compare UpKindDef UpKindDefOpqSol
+  case_grep "upstream kind: a theorem hole filled by an opaque constant [$MOD]" 1 \
+    "t: the solution's constant is not of the hole's kind" \
+    --olean $MOD --search-path=$MSP --compare UpKindThm UpKindThmOpqSol
+  case_grep "upstream kind: a theorem hole filled by a definition [$MOD]" 1 \
+    "t: the solution's constant is not of the hole's kind" \
+    --olean $MOD --search-path=$MSP --compare UpKindThm UpKindThmDefSol
+  # the converse: a definition the solution re-exports with its value
+  # hidden is an assumption whose kind the context cannot see (Lean
+  # exports theorems, hidden definitions and opaque constants alike as
+  # axioms): it fills the hole (checked at its home)
+  case_grep "upstream kind: a definition hole filled by a hidden definition [$MOD]" 0 \
+    "hole n filled by UpHidDef" --olean $MOD --search-path=$MSP --compare UpKindDef UpHidDefSol
+  # challenge-def-hole-type-mismatch: upstream 1.  The run has two
+  # failures, the comparison's (n stated differently, 1) and the
+  # solution's sorry (2); without --keep-going each mode reports the
+  # first it meets — the store compares before it checks values, the
+  # isolated mode checks the solution's values with its install
+  if [ "$MOD" = --modular ]; then want=1; else want=2; fi
+  case_ "upstream def-hole-type-mismatch [$MOD]" $want --olean $MOD --search-path=$MSP --compare UpDefHoleTy UpDefHoleTySol
+  case_grep "upstream def-hole-type-mismatch, --keep-going [$MOD]" 1 "n: the solution states it differently" \
+    --olean $MOD --keep-going --search-path=$MSP --compare UpDefHoleTy UpDefHoleTySol
+  # challenge-numeric-namespace: upstream 0; a module name in «» on the
+  # command line (task #384: split at every dot before, exit 3)
+  case_grep "upstream numeric-namespace [$MOD]" 0 "hole «123».foo filled by UpNumSol" \
+    --olean $MOD --search-path=$MSP --compare 'UpNum.«12.34».«5»' UpNumSol
+  # challenge-olean-issue: upstream 1 (Lean's kernel rejects); the
+  # solution's Nat literal is a negative GMP number, malformed data for
+  # the reader (3), as every corrupted file above.  It imports Lean: the
+  # reader reads Lean's closure (~1 s)
+  case_grep "upstream olean-issue [$MOD]" 3 "module UpBoomOleanSol: malformed .olean data" \
+    --olean $MOD --search-path=$MSP --compare UpBoom UpBoomOleanSol
+  # challenge-opaque-value: upstream 1 (the axiom behind an opaque
+  # value); declined
+  case_ "upstream opaque-value [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpBoom UpBoomOpqSol
+  # challenge-primitive-issue: upstream 1 (Nat.gcd differs); the
+  # solution's Nat.gcd matches no pinned definition of the GMP-accelerated
+  # operation: declined
+  case_ "upstream primitive-issue [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpGcd UpGcdSol
+  # comparator's char_ofnat_issue: upstream 1.  The store rejects the
+  # solution's own Char/String constants meeting Init's in the
+  # challenge's context (a local check, before values are checked); the
+  # isolated mode declines the solution's string literal (con-leche's
+  # String support needs Init's declarations) and so skips the challenge
+  if [ "$MOD" = --modular ]; then want=1; else want=2; fi
+  case_ "upstream char_ofnat_issue [$MOD]" $want --olean $MOD --search-path=$MSP --compare UpBoom UpBoomCharSol
+  # comparator's proj_trick: upstream 1 (adapted: S.a for a raw
+  # projection, see UpProj)
+  case_grep "upstream proj_trick [$MOD]" 1 "S: the solution's constant is not the challenge's" \
+    --olean $MOD --search-path=$MSP --compare UpProj UpProjSol
+  # comparator's quot_mismatch: upstream 1; a prelude module storing
+  # `Quot.lift` (a name of con-leche's basis)
+  case_grep "upstream quot_mismatch [$MOD]" 1 "reserved basis name Quot.lift" \
+    --olean $MOD --search-path=$MSP --compare UpQuot UpQuotSol
+  # comparator's theorem_hole_issue: upstream 0
+  case_grep "upstream theorem_hole_issue [$MOD]" 0 "hole hw filled by UpThmHoleSol" \
+    --olean $MOD --search-path=$MSP --compare UpThmHole UpThmHoleSol
+  # check-audit (and check-from-export's solution): upstream 0
+  case_ "upstream check-audit [$MOD]" 0 --olean $MOD --search-path=$MSP UpCommSol
+  # check-multi: two roots, upstream 0
+  case_ "upstream check-multi [$MOD]" 0 --olean $MOD --search-path=$MSP UpMultiA UpMultiB
+  # check-sorry (and check-from-export's Bad): upstream 1 ("Axiom
+  # 'sorryAx' is not permitted"); declined
+  case_ "upstream check-sorry [$MOD]" 2 --olean $MOD --search-path=$MSP UpSorry
+}
+for MOD in --modular --modular=isolated; do modular_cases; review_cases; rcases; upstream_cases; done
+# the upstream modules as plain developments, merged (a challenge, with
+# its sorry, declines; a solution's verdict is the compare cases' cause)
+for m in UpComm UpDefHole UpDefHoleTy UpKindDef UpKindThm 'UpNum.«12.34».«5»' UpBoom UpGcd UpProj \
+    UpThmHole UpSorry UpCommAxSol UpCommMisSol UpDefHoleAxSol UpDefHoleKindSol UpDefHoleTySol \
+    UpBoomOpqSol UpBoomCharSol UpGcdSol; do
+  case_ "upstream merged: $m" 2 --olean --search-path=$MSP "$m"
+done
+for m in UpCommSol UpDefHoleSol UpKindDefOpqSol UpKindThmOpqSol UpKindThmDefSol UpHidDefSol UpNumSol \
+    UpProjSol UpThmHoleSol; do
+  case_ "upstream merged: $m" 0 --olean --search-path=$MSP "$m"
+done
+case_ "upstream merged: check-multi's two roots" 0 --olean --search-path=$MSP UpMultiA UpMultiB
+# quot_mismatch's modules both store Quot.lift: rejected
+case_ "upstream merged: UpQuot" 1 --olean --search-path=$MSP UpQuot
+case_ "upstream merged: UpQuotSol" 1 --olean --search-path=$MSP UpQuotSol
+case_grep "upstream merged: UpBoomOleanSol (olean-issue, check-audit-reject)" 3 "malformed .olean data" \
+  --olean --search-path=$MSP UpBoomOleanSol
+# module names on the command line: an unclosed escape
+case_ "a module name with an unclosed «" 3 --olean --search-path=$MSP 'UpNum.«12.34'
+
 # the same import disagreement in the merged mode
 MOD=
 d="$TMPDIR/con-leche-olean-imports"

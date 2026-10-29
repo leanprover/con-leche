@@ -720,16 +720,29 @@ def kindTag : ConstantInfo → Nat
   | .axiomInfo .. => 0 | .defnInfo .. => 1 | .thmInfo .. => 2 | .indInfo .. => 3
   | .ctorInfo .. => 4 | .recInfo .. => 5
 
+/-- The kind of a record, as `kindTag` numbers a hole's (`holesOf`): an
+opaque constant's is an opaque constant's (`0`), an axiom's too. -/
+def recKind : Declaration → Nat
+  | .opaqueDecl .. | .axiomDecl .. => 0 | .defnDecl .. => 1 | .thmDecl .. => 2 | _ => 3
+
 /-- **A challenge constant met by its context**: a hole by a constant of
 the same statement (name, level parameters, type) and of the hole's kind
-(`holesOf`), whatever its value, or by its assumption; anything else by
-the constant itself. -/
-def cmpOk (holes : Std.HashMap Name Nat) (o : Option ConstantInfo) (ci : ConstantInfo) : Bool :=
+(`holesOf`), whatever its value, or by its assumption — the axiom an
+installed opaque constant is (`installStepC`), or the one a module
+exports for a theorem or a definition whose value it hides.  An
+assumption meets a hole only where its record's kind (`kind`, read at
+its home where the context sees that record, `homeKind`) is the hole's,
+or is not seen (task #384: a definition or theorem hole filled by an
+opaque constant was accepted; Comparator rejects it, "Solution constant
+is not a definition").  Anything else is met by the constant itself. -/
+def cmpOk (holes : Std.HashMap Name Nat) (kind : Name → Option Nat) (o : Option ConstantInfo)
+    (ci : ConstantInfo) : Bool :=
   match o with
   | some ci' =>
     match holes[ci.name]? with
     | some k =>
-      decide (ci'.toConstantVal = ci.toConstantVal) && (kindTag ci' == k || kindTag ci' == 0)
+      decide (ci'.toConstantVal = ci.toConstantVal) &&
+        (kindTag ci' == k || (kindTag ci' == 0 && (kind ci.name).all (· == k)))
     | none => decide (ci' = ci)
   | none => false
 
@@ -744,6 +757,18 @@ def opaqueVal (g : Array ModIn) (lv : ByteArray) (h : Nat) (n : Name) : Option E
     ((g[h]?.map (·.decls)).getD #[]).findSome? fun d => match d with
       | .opaqueDecl cv v => if cv.name == n then some v else none
       | _ => none
+  else none
+
+/-- **The kind of a constant's record at its home `h`** (`recKind`), where
+the challenge's context sees that record: `h` loaded at its private
+level, or at its exported level with the constant exported as it is
+stored (`opaqueVal`'s condition); `none` where the context sees only the
+axiom `h` exports for it. -/
+def homeKind (g : Array ModIn) (lv : ByteArray) (h : Nat) (n : Name) : Option Nat :=
+  let l := Mod.lvlAt lv h
+  if l == 2 || (l == 1 && (g[h]?.bind (·.expo[n]?)) == some .same) then
+    ((g[h]?.map (·.decls)).getD #[]).findSome? fun d =>
+      if d.names.contains n then some (recKind d) else none
   else none
 
 /-- **A challenge's opaque constants met by value** (task #383): an
@@ -762,6 +787,11 @@ its home in the challenge's base. -/
 def storeOpaqueVal (g : Array ModIn) (S : Mod.Store) (i : Nat) (n : Name) : Option Expr :=
   ((S.mb i).pick? n).bind fun (h, _, _) => opaqueVal g (S.lvl i) h n
 
+/-- The kind of a constant's record as the challenge's context sees it,
+in store mode (`homeKind` at its home in the challenge's base). -/
+def storeHomeKind (g : Array ModIn) (S : Mod.Store) (i : Nat) (n : Name) : Option Nat :=
+  ((S.mb i).pick? n).bind fun (h, _, _) => homeKind g (S.lvl i) h n
+
 /-- **What a compared module establishes**: its records, the holes
 assumed (`assumeHoles`), installed at a view of the store (the
 challenge's own context: its imports, not its solution), give constants
@@ -772,7 +802,7 @@ def CmpClaim (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (i : Nat)
     (chal : Array Declaration) : Prop :=
   ∃ lv n fe pend, InstallRun mode natOpPinSets (assumeHoles chal).toList
       (0, Mod.viewOf ⟨S.idx, S.slots, lv⟩, #[]) (n, fe, pend) ∧
-    (∀ ci ∈ fe.env.consts, cmpOk (holesOf chal) ((Mod.ctxOf (S.mb i)).find? ci.name) ci = true) ∧
+    (∀ ci ∈ fe.env.consts, cmpOk (holesOf chal) (storeHomeKind g S i) ((Mod.ctxOf (S.mb i)).find? ci.name) ci = true) ∧
     opaquesMet (holesOf chal) (storeOpaqueVal g S i) chal = true
 
 /-- The comparison's message for the constants it does not meet. -/
@@ -780,8 +810,11 @@ def cmpWhy (holes : Std.HashMap Name Nat) (find : Name → Option ConstantInfo)
     (bad : List ConstantInfo) : String :=
   String.intercalate "; " <| bad.take 5 |>.map fun ci => match find ci.name with
     | none => s!"{ci.name}: the solution has no such constant"
-    | some _ =>
-      if holes.contains ci.name then s!"{ci.name}: the solution states it differently"
+    | some ci' =>
+      if holes.contains ci.name then
+        if ci'.toConstantVal = ci.toConstantVal then
+          s!"{ci.name}: the solution's constant is not of the hole's kind"
+        else s!"{ci.name}: the solution states it differently"
       else s!"{ci.name}: the solution's constant is not the challenge's"
 
 /-- The comparison's message for the opaque records it does not meet. -/
@@ -814,7 +847,7 @@ def compareOne (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mo
   | .ok e =>
     let holes := holesOf chal
     let mb := S.mb i
-    if h : e.fe.env.consts.all (fun ci => cmpOk holes (mb.find? ci.name) ci) = true then
+    if h : e.fe.env.consts.all (fun ci => cmpOk holes (storeHomeKind g S i) (mb.find? ci.name) ci) = true then
       if ho : opaquesMet holes (storeOpaqueVal g S i) chal = true then
         let filled := e.fe.env.consts.filterMap fun ci =>
           if holes.contains ci.name then
@@ -828,7 +861,7 @@ def compareOne (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mo
           exact this, ho⟩⟩, filled.reverse.toArray)
       else return .error (.invalid <| opaqueWhy holes (storeOpaqueVal g S i) chal)
     else
-      let bad := e.fe.env.consts.filter fun ci => !cmpOk holes (mb.find? ci.name) ci
+      let bad := e.fe.env.consts.filter fun ci => !cmpOk holes (storeHomeKind g S i) (mb.find? ci.name) ci
       return .error (.invalid <| cmpWhy holes mb.find? bad.reverse)
 
 /-- The context's value of an opaque constant, in isolated mode: read at
@@ -838,6 +871,13 @@ def isoOpaqueVal (g : Array ModIn) (slots : Array (Thunk ModSlot)) (lvC : ByteAr
     Option Expr :=
   ((Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC).look n).bind fun (h, _, _) =>
     opaqueVal g lvC h n
+
+/-- The kind of a constant's record as the challenge's context sees it,
+in isolated mode (`homeKind` at its home in the context `lvC` gives). -/
+def isoHomeKind (g : Array ModIn) (slots : Array (Thunk ModSlot)) (lvC : ByteArray) (n : Name) :
+    Option Nat :=
+  ((Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC).look n).bind fun (h, _, _) =>
+    homeKind g lvC h n
 
 /-- **What a compared module establishes in isolated mode**: its records,
 installed from the context its own levels give it (`lv`, without its
@@ -849,7 +889,8 @@ def IsoCmpClaim (mode : CheckMode) (g : Array ModIn) (slots : Array (Thunk ModSl
   ∃ lv n fe pend, InstallRun mode natOpPinSets (assumeHoles chal).toList
       (0, mkFEnv (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv), #[]) (n, fe, pend) ∧
     (∀ ci ∈ (Mod.ownPart (Mod.isoCtx (Mod.mask (Mod.slotOf slots) lv) lv) fe.env).consts,
-      cmpOk (holesOf chal) ((Mod.isoCtx (Mod.slotOf slots) lvC).find? ci.name) ci = true) ∧
+      cmpOk (holesOf chal) (isoHomeKind g slots lvC) ((Mod.isoCtx (Mod.slotOf slots) lvC).find? ci.name)
+        ci = true) ∧
     opaquesMet (holesOf chal) (isoOpaqueVal g slots lvC) chal = true
 
 /-- **Compare a challenge in isolated mode**, in its own work: as
@@ -873,7 +914,11 @@ def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn)
     let holes := holesOf chal
     let aC := Mod.isoBuild (Mod.mask (Mod.slotOf slots) lvC) lvC
     let own := (Mod.ownPart CS e.fe.env).consts
-    if h : own.all (fun ci => cmpOk holes (aC.fenv.find? ci.name) ci) = true then
+    -- the homes read off the context already built (`isoHomeKind`'s own
+    -- build, unfolded)
+    let kind : Name → Option Nat := fun n =>
+      (aC.look n).bind fun (h, _, _) => homeKind g lvC h n
+    if h : own.all (fun ci => cmpOk holes kind (aC.fenv.find? ci.name) ci) = true then
       -- the homes read off the context already built (`isoOpaqueVal`'s
       -- own build, unfolded)
       let val : Name → Option Expr := fun n =>
@@ -901,7 +946,7 @@ def compareOneIso (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn)
           exact this, ho⟩⟩, filled.reverse.toArray)
       else return .error (.invalid <| opaqueWhy holes val chal)
     else
-      let bad := own.filter fun ci => !cmpOk holes (aC.fenv.find? ci.name) ci
+      let bad := own.filter fun ci => !cmpOk holes kind (aC.fenv.find? ci.name) ci
       return .error (.invalid <| cmpWhy holes aC.fenv.find? bad.reverse)
 
 /-! ## The run -/
