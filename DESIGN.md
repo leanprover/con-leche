@@ -109239,3 +109239,8 @@ v4.35.0 toolchain oleans; base = `olean` 4a158f9dc's binary built
 today): Init merged 406.51 → 406.67 ×10⁹ (+0.04 %), Init `--modular`
 499.91 → 500.05 (+0.03 %), Lean merged 740.17 → 739.79 (−0.05 %,
 noise).  All accepted, declaration counts unchanged.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+199/199; `tests/arena.sh` on the final tree (e2e 496/496, trusted and
+`--jobs` sweeps, shake, layering, link and quote gates, challenge
+statements identical); OVERVIEW links repointed (line shifts only).
