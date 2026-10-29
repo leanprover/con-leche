@@ -140,7 +140,7 @@ The latter case will serve challenge–solution comparison.
   are
   $
     New_i & :<==> forall c in E_i without Gamma_i. thin
-      Decl_i (c,i) or ((exists s. thin Prf_i (c,s)) and c in Fl(D_i)), \
+      Decl_i (c,i) or (c in Fl(D_i) and exists s. thin Prf_i (c,s)), \
     Checked_i & :<==> Asm_i (Gamma_i) and One_i (Gamma_i)
       and Acc(Gamma_i,D_i,E_i) and New_i, \
     Compared_i & :<==> Asm_i (E_i) and One_i (E_i), \
@@ -175,11 +175,11 @@ names that have a different meaning in the importer. Let module $j$
 define $d := 0$ and $c := d$, presenting only $c : sans("Nat")$ as
 an assumption. Module $k$ reads all of $j$, proves $e : c = 0$ by
 unfolding, and presents $c$ and $e$ as assumptions. Independently,
-module $h$ defines $d := 1$. A module $i$ importing $k$ and $h$ sees
+module $m$ defines $d := 1$. A module $i$ importing $k$ and $m$ sees
 $c : sans("Nat")$, $e : c = 0$ and $d := 1$. The two definitions of
 $d$ never meet in a context. Restoring $c := d$ in $i$ would make it
 unfold to $1$, contradicting $e$; a model instead takes $c$'s value
-from $j$ and $d$'s from $h$. There is no combined environment of
+from $j$ and $d$'s from $m$. There is no combined environment of
 bodies and no renaming of names.
 
 #theorem(name: "Modular checking")[
