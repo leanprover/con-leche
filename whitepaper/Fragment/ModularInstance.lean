@@ -68,11 +68,11 @@ variable (V) in
   Val := List Nat → V
   val m n := m.M n
   proofVal := dflt
-  Assembled C _ E same := Assembled C E same
+  Assembled C _ E := Assembled C E
   assembled_src h n hn := by
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
-    obtain ⟨i, hs, ci', hf', -⟩ := h.le n ci hci
-    exact ⟨i, hs, by rw [hf']; rfl⟩
+    obtain ⟨i, ci', hf', -⟩ := h.le n ci hci
+    exact ⟨i, by rw [hf']; rfl⟩
   amalgamate h m hc := h.model m hc
   Decls := List Decl × (Name → Bool)
   Flagged := Flagged
@@ -87,16 +87,27 @@ def toDev (dev : Nat → Module) : Development (fragmentSemantics V) Stmt where
   ctx i := (dev i).context
   decls i := ((dev i).decls, (dev i).proofs)
   own i := (dev i).own
-  views i := (dev i).views
-  imports i := (dev i).imports
+  sources i := sources dev i
   key i := (dev i).key
 
-/-- **A validated module is valid over the instance.** -/
-theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv : Valid dev i) :
+theorem Valid.iface {dev : Nat → Module} {j : Nat} (h : Valid dev j) : InterfaceOk dev j := by
+  rcases h with h | h
+  · exact h.iface
+  · exact h.iface
+
+/-- **A validated module, its imports validated, is valid over the
+instance.** -/
+theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv' : ∀ j ≤ i, Valid dev j) :
     (toDev V dev).Valid i := by
+  have hv := hv' i (Nat.le_refl i)
+  have hsrc : (∀ j ∈ (dev i).imports, j < i) → ∀ x ∈ sources dev i,
+        x.1 < i ∧ Refines x.2 (dev x.1).own := fun him x hx => by
+    obtain ⟨hj, hE⟩ := mem_sources.mp hx
+    exact ⟨him _ hj, (hv' _ (Nat.le_of_lt (him _ hj))).iface _ hE⟩
   rcases hv with h | h
-  · refine ⟨h.iface, h.importOk.imports, .inl ⟨h.importOk.reads, ⟨rfl, h.checks, h.flags,
-      h.importOk.reads.scoped⟩, fun n hn hC => ?_⟩⟩
+  · refine ⟨hsrc h.importOk.imports, .inl ⟨h.importOk.reads.1,
+      fun n hn x hx hs => Development.interchangeable_iff.mpr (h.importOk.reads.2 n hn x hx hs),
+      ⟨rfl, h.checks, h.flags, h.importOk.reads.1.scoped⟩, fun n hn hC => ?_⟩⟩
     obtain ⟨e, he⟩ := Option.isSome_iff_exists.mp hn
     rcases find?_applyAll he with ⟨d, hd, hl⟩ | hl
     · have hnm : n ∈ d.names := (d.mem_names_iff n).mpr ⟨e, key_of_lookup hl⟩
@@ -108,25 +119,26 @@ theorem toDev_valid (dev : Nat → Module) (i : Nat) (hv : Valid dev i) :
       · rename_i hp; exact .inr ⟨⟨_, rfl⟩, d, hd, hnm, hp⟩
       · exact .inl rfl
     · exact absurd (show ((dev i).context.find? n).isSome = true by rw [hl]; rfl) hC
-  · exact ⟨h.iface, h.imports, .inr h.reads⟩
+  · exact ⟨hsrc h.imports, .inr ⟨h.reads.1,
+      fun n hn x hx hs => Development.interchangeable_iff.mpr (h.reads.2 n hn x hx hs)⟩⟩
 
 /-! ## The theorem -/
 
 variable (V) in
 /-- **Modular checking** (the theorem): if every module below `k` is
 validated, there is a family of models, one of each module's own
-environment, that is **compatible**: two modules that store a name
-under one key give it one set, and every proof's set is the point.  It
-is the generic theorem (`Development.modular`) at the fragment's
-semantics. -/
+environment, that is **compatible**: interchangeable occurrences of a
+name get one set, and every proof's set is the point.  It is the
+generic theorem (`Development.modular`) at the fragment's semantics. -/
 theorem modular (dev : Nat → Module) (k : Nat) (h : ∀ i < k, Valid dev i) :
     ∃ m : (i : Nat) → i < k → BlockModel V (dev i).own,
       (∀ i i' (hi : i < k) (hi' : i' < k) n, ((dev i).own.find? n).isSome →
-        ((dev i').own.find? n).isSome → (dev i).key n = (dev i').key n →
+        ((dev i').own.find? n).isSome → (toDev V dev).Interchangeable i i' n →
           (m i hi).M n = (m i' hi').M n) ∧
-      ∀ i (hi : i < k) n s, ((dev i).own.find? n).isSome → (dev i).key n = .proof s →
+      ∀ i (hi : i < k) n s, ((dev i).own.find? n).isSome → (toDev V dev).ProofOf i n s →
         ∀ ls, (m i hi).M n ls = pt := by
-  obtain ⟨m, hc, hp⟩ := (toDev V dev).modular k fun i hi => toDev_valid dev i (h i hi)
+  obtain ⟨m, hc, hp⟩ := (toDev V dev).modular k fun i hi =>
+    toDev_valid dev i fun j hj => h j (Nat.lt_of_le_of_lt hj hi)
   exact ⟨m, hc, fun i hi n s hn hs ls => congrFun (hp i hi n s hn hs) ls⟩
 
 variable (V) in

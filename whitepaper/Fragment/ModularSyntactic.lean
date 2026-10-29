@@ -26,8 +26,8 @@ until there is such a proof to connect it to.
   has the realised type by the system's **substitution lemma**
   (`SubstSystem.der_subst`): a derivation over an environment stays a
   derivation when a realisation of the environment is substituted in;
-* **amalgamation** is the union of realisations that agree where the
-  assembled environment counts two of them as the same.
+* **amalgamation** is the union of realisations that agree on every
+  name of the assembled environment that two of them store.
 
 Declarations are definitions only: no axioms, no inductive types, and
 none is flagged a proof.  An axiom has no realised value, and the step
@@ -168,47 +168,43 @@ theorem Accepts.step {Γ Γ' : SEnv T} {D : List (N × T.Tm × T.Tm)} (h : Accep
 /-! ## Assembly and amalgamation -/
 
 /-- **`C` is assembled from the family `E`**: every entry of `C` is, at
-the same name, the entry of a member `C` counts as the same, its value
-kept or left out, and every constant the entry mentions is counted as
-that member's too. -/
-def Assembled (C : SEnv T) {ι : Type u} (E : ι → SEnv T) (same : N → ι → Prop) : Prop :=
-  ∀ c A v, C.1 c = some (A, v) → ∃ i, same c i ∧
-    (∃ v', (E i).1 c = some (A, v') ∧ ∀ t, v = some t → v' = some t) ∧
-    (∀ d, T.Mentions A d → same d i) ∧ ∀ t, v = some t → ∀ d, T.Mentions t d → same d i
+the same name, the entry of a member, its value kept or left out. -/
+def Assembled (C : SEnv T) {ι : Type u} (E : ι → SEnv T) : Prop :=
+  ∀ c A v, C.1 c = some (A, v) → ∃ i,
+    ∃ v', (E i).1 c = some (A, v') ∧ ∀ t, v = some t → v' = some t
 
-/-- **Amalgamation**: the union of realisations that agree where `C`
-counts two members as the same. -/
-theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T} {same : N → ι → Prop}
-    (h : Assembled C E same) (m : (i : ι) → Real T (E i))
-    (hcomp : ∀ c i i', (C.1 c).isSome → same c i → same c i' → ((E i).1 c).isSome →
+/-- **Amalgamation**: the union of realisations that agree on every name
+of `C` two members store. -/
+theorem amalgamate {C : SEnv T} {ι : Type u} {E : ι → SEnv T}
+    (h : Assembled C E) (m : (i : ι) → Real T (E i))
+    (hcomp : ∀ c i i', (C.1 c).isSome → ((E i).1 c).isSome →
       ((E i').1 c).isSome → some ((m i).σ c) = some ((m i').σ c)) :
-    ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome →
+    ∃ mC : Real T C, ∀ c i, (C.1 c).isSome → ((E i).1 c).isSome →
       some (mC.σ c) = some ((m i).σ c) := by
   let σ : N → T.Tm := fun c =>
-    if hx : ∃ i, same c i ∧ ((E i).1 c).isSome then (m (Classical.choose hx)).σ c else T.const c
-  have hag : ∀ c i, (C.1 c).isSome → same c i → ((E i).1 c).isSome → σ c = (m i).σ c := by
-    intro c i hC hs hE
-    have hx : ∃ i, same c i ∧ ((E i).1 c).isSome := ⟨i, hs, hE⟩
+    if hx : ∃ i, ((E i).1 c).isSome then (m (Classical.choose hx)).σ c else T.const c
+  have hag : ∀ c i, (C.1 c).isSome → ((E i).1 c).isSome → σ c = (m i).σ c := by
+    intro c i hC hE
+    have hx : ∃ i, ((E i).1 c).isSome := ⟨i, hE⟩
     simp only [σ, dite_eq_left hx]
-    obtain ⟨h1, h2⟩ := Classical.choose_spec hx
-    exact Option.some.inj (hcomp c _ i hC h1 hs h2 hE)
+    exact Option.some.inj (hcomp c _ i hC (Classical.choose_spec hx) hE)
   have hreal : Realises σ C.1 := by
     intro c A v hc
-    obtain ⟨i, hs, ⟨v', hE, hv⟩, hmA, hmv⟩ := h c A v hc
+    obtain ⟨i, v', hE, hv⟩ := h c A v hc
     have hCs : (C.1 c).isSome := by rw [hc]; rfl
     have hEs : ((E i).1 c).isSome := by rw [hE]; rfl
     obtain ⟨r1, r2⟩ := (m i).real c A v' hE
-    have hsub : ∀ t, (∀ d, T.Mentions t d → (C.1 d).isSome ∧ ((E i).1 d).isSome ∧ same d i) →
+    have hsub : ∀ t, (∀ d, T.Mentions t d → (C.1 d).isSome ∧ ((E i).1 d).isSome) →
         T.subst σ t = T.subst (m i).σ t := fun t ht =>
-      T.subst_congr fun d hd => hag d i (ht d hd).1 (ht d hd).2.2 (ht d hd).2.1
+      T.subst_congr fun d hd => hag d i (ht d hd).1 (ht d hd).2
     refine ⟨?_, fun t ht => ?_⟩
-    · rw [hag c i hCs hs hEs, hsub A fun d hd =>
-        ⟨(C.2 c A v hc).1 d hd, ((E i).2 c A v' hE).1 d hd, hmA d hd⟩]
+    · rw [hag c i hCs hEs, hsub A fun d hd =>
+        ⟨(C.2 c A v hc).1 d hd, ((E i).2 c A v' hE).1 d hd⟩]
       exact r1
-    · rw [hag c i hCs hs hEs, hsub t fun d hd =>
-        ⟨(C.2 c A v hc).2 t ht d hd, ((E i).2 c A v' hE).2 t (hv t ht) d hd, hmv t ht d hd⟩]
+    · rw [hag c i hCs hEs, hsub t fun d hd =>
+        ⟨(C.2 c A v hc).2 t ht d hd, ((E i).2 c A v' hE).2 t (hv t ht) d hd⟩]
       exact r2 t (hv t ht)
-  exact ⟨{ σ := σ, real := hreal }, fun c i hC hs hE => congrArg some (hag c i hC hs hE)⟩
+  exact ⟨{ σ := σ, real := hreal }, fun c i hC hE => congrArg some (hag c i hC hE)⟩
 
 /-! ## The instance -/
 
@@ -222,11 +218,11 @@ noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
   Val := Option T.Tm
   val m c := some (m.σ c)
   proofVal := none
-  Assembled C _ E same := Assembled C E same
+  Assembled C _ E := Assembled C E
   assembled_src h c hc := by
     obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
-    obtain ⟨i, hs, ⟨v', hE, -⟩, -⟩ := h c A v hA
-    exact ⟨i, hs, by rw [hE]; rfl⟩
+    obtain ⟨i, v', hE, -⟩ := h c A v hA
+    exact ⟨i, by rw [hE]; rfl⟩
   amalgamate h m hc := amalgamate h m hc
   Decls := List (N × T.Tm × T.Tm)
   Flagged _ _ := False

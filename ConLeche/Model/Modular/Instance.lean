@@ -14,21 +14,26 @@ The instance of `ConLeche.Modular.ModularSemantics`
 (`conlecheSemantics`), so that the modular theorem is the generic one
 (`Development.modular`) at con-leche's models.
 
-* **Environments** are con-leche's environments, a name stored when
-  `find?` finds it.  Nothing is renamed: a module's environment uses its
-  own names, and the keys live in the development.
+* **Environments** are con-leche's environments, each with the names
+  it **exposes**; a name is stored when `find?` finds it and it is
+  exposed.  A module's own environment and context expose every name;
+  the view a module reads of an earlier one is that module's own
+  environment exposing only what the reader reads alike (the reader's
+  `readsAlike`, `Main.lean`).  Nothing is renamed: a module's
+  environment uses its own names, and what declared each name lives in
+  the development.
 * **A model** (`MMod`) is a leaf assignment, closed and graded, under
   which the environment has a covered model (`EnvModelM`) reading its
   leaves; a name's **value** is its leaf, and every proof's is the
   canonical one (`dfltLeaf`).
-* **Assembly** (`AssembledC`): the environment is one of the family,
-  counted as having all its names, or every name of it is read from a
-  member counted as having it (`src`), with the part of that member it
-  reads under one key (`R`), as `CtxRead` (`Restrict.lean`) says.
+* **Assembly** (`AssembledC`): the environment is a member's, exposing
+  no more names, or every name of it is exposed and read from a member
+  exposing it (`src`), with the part of that member it reads (`R`),
+  exposed there, as `CtxRead` (`Restrict.lean`) says.
 * **Amalgamation** (`amalgamateC`) gives each name the leaf of the member
-  it is read from; where the family is compatible, the leaves a
-  constant's laws read are the leaves of the member it is read from,
-  and `CtxSrc.ctxModel` builds the model.
+  it is read from; where the family is compatible for the environment,
+  the leaves a constant's laws read are the leaves of the member it is
+  read from, and `CtxSrc.ctxModel` builds the model.
 * **Acceptance** (`AcceptsC`) is `AcceptedFrom`, the flagged names new
   in the context and flagged to it; **the step** (`stepC`) is
   `acceptedFrom_model`.
@@ -86,14 +91,14 @@ none). -/
   | none => Env.empty
 
 /-- **Assembly** (see the module docstring). -/
-inductive AssembledC (C : Env) {ι : Type} (E : ι → Env) (same : Name → ι → Prop) : Prop
-  /-- `C` is a member, counted as having all its names -/
-  | self (i : ι) (hC : C = E i) (hs : ∀ n, (C.find? n).isSome = true → same n i)
-  /-- every name of `C` is read from a member counted as having it -/
+inductive AssembledC (C : Env × (Name → Prop)) {ι : Type} (E : ι → Env × (Name → Prop)) : Prop
+  /-- `C` is a member's environment, exposing no more names -/
+  | self (i : ι) (hC : C.1 = (E i).1) (hs : ∀ n, (C.1.find? n).isSome = true → C.2 n → (E i).2 n)
+  /-- every name of `C` is exposed, and read from a member exposing it -/
   | reads (src : Name → Option ι) (R : Name → Env)
-      (hsrc : ∀ n, (C.find? n).isSome = true → ∃ i, src n = some i ∧ same n i)
-      (hR : ∀ n d ci, (R n).find? d = some ci → ∃ i, src n = some i ∧ same d i)
-      (hread : CtxRead C (srcEnv E src) R)
+      (hsrc : ∀ n, (C.1.find? n).isSome = true → C.2 n ∧ ∃ i, src n = some i ∧ (E i).2 n)
+      (hR : ∀ n d ci, (R n).find? d = some ci → ∃ i, src n = some i ∧ (E i).2 d)
+      (hread : CtxRead C.1 (srcEnv (fun i => (E i).1) src) R)
 
 theorem srcEnv_of {ι : Type} {E : ι → Env} {src : Name → Option ι} {n : Name} {i : ι}
     (h : src n = some i) : srcEnv E src n = E i := by
@@ -108,37 +113,39 @@ theorem AssembledC.stores_src {C : Env} {ι : Type} {E : ι → Env} {src : Name
   rw [srcEnv_of hi] at hf
   rw [hf]; rfl
 
-theorem AssembledC.src {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
-    (h : AssembledC C E same) (n : Name) (hn : (C.find? n).isSome = true) :
-    ∃ i, same n i ∧ ((E i).find? n).isSome = true := by
-  cases h with
-  | self i hC hs => subst hC; exact ⟨i, hs n hn, hn⟩
-  | reads src R hsrc _ hread =>
-    obtain ⟨i, hi, hs⟩ := hsrc n hn
-    exact ⟨i, hs, AssembledC.stores_src hread hn hi⟩
+/-- The names an environment of the instance stores: the ones it has
+and exposes. -/
+@[expose] def StoresC (E : Env × (Name → Prop)) (n : Name) : Prop :=
+  (E.1.find? n).isSome = true ∧ E.2 n
 
-/-- **Amalgamation** of a compatible family. -/
-theorem amalgamateC {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι → Prop}
-    (h : AssembledC C E same) (m : (i : ι) → MMod V μ (E i))
-    (hc : ∀ n i i', (C.find? n).isSome = true → same n i → same n i' →
-      ((E i).find? n).isSome = true → ((E i').find? n).isSome = true → (m i).1 n = (m i').1 n) :
-    ∃ mC : MMod V μ C, ∀ n i, (C.find? n).isSome = true → same n i →
-      ((E i).find? n).isSome = true → mC.1 n = (m i).1 n := by
+theorem AssembledC.src {C : Env × (Name → Prop)} {ι : Type} {E : ι → Env × (Name → Prop)}
+    (h : AssembledC C E) (n : Name) (hn : StoresC C n) : ∃ i, StoresC (E i) n := by
+  cases h with
+  | self i hC hs => exact ⟨i, by rw [← hC]; exact hn.1, hs n hn.1 hn.2⟩
+  | reads src R hsrc _ hread =>
+    obtain ⟨-, i, hi, hs⟩ := hsrc n hn.1
+    exact ⟨i, AssembledC.stores_src hread hn.1 hi, hs⟩
+
+/-- **Amalgamation** of a family compatible for `C`. -/
+theorem amalgamateC {C : Env × (Name → Prop)} {ι : Type} {E : ι → Env × (Name → Prop)}
+    (h : AssembledC C E) (m : (i : ι) → MMod V μ (E i).1)
+    (hc : ∀ n i i', StoresC C n → StoresC (E i) n → StoresC (E i') n → (m i).1 n = (m i').1 n) :
+    ∃ mC : MMod V μ C.1, ∀ n i, StoresC C n → StoresC (E i) n → mC.1 n = (m i).1 n := by
   classical
   cases h with
   | self i hC hs =>
-    subst hC
-    exact ⟨m i, fun n i' hn hs' he' => hc n i i' hn (hs n hn) hs' hn he'⟩
+    refine ⟨⟨(m i).1, by rw [hC]; exact (m i).2⟩, fun n i' hn hs' => ?_⟩
+    exact hc n i i' hn ⟨by rw [← hC]; exact hn.1, hs n hn.1 hn.2⟩ hs'
   | reads src R hsrc hR hread =>
     let srcOf : Name → Σ E' : Env, EnvModelM V μ E' := fun n =>
       match src n with
-      | some i => ⟨E i, Classical.choose (m i).2.2⟩
+      | some i => ⟨(E i).1, Classical.choose (m i).2.2⟩
       | none => ⟨Env.empty, EnvModelM.empty V μ⟩
-    have hpos : ∀ n i, src n = some i → srcOf n = ⟨E i, Classical.choose (m i).2.2⟩ :=
+    have hpos : ∀ n i, src n = some i → srcOf n = ⟨(E i).1, Classical.choose (m i).2.2⟩ :=
       fun n i h => by simp only [srcOf, h]
     have hneg : ∀ n, src n = none → srcOf n = ⟨Env.empty, EnvModelM.empty V μ⟩ :=
       fun n h => by simp only [srcOf, h]
-    have hE : (fun n => (srcOf n).1) = srcEnv E src := by
+    have hE : (fun n => (srcOf n).1) = srcEnv (fun i => (E i).1) src := by
       funext n
       cases hs : src n with
       | some i => rw [hpos n i hs, srcEnv_of hs]
@@ -156,14 +163,13 @@ theorem amalgamateC {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι �
       · cases hs : src n with
         | some i => rw [haC n i hs]; exact (m i).2.1.2 n ψ ρ
         | none => simp only [aC, hs]; exact dfltLeaf_wd ψ ρ
-    -- a name stored in `C` has the leaf of every member counted as having it
-    have hval : ∀ n i, (C.find? n).isSome = true → same n i → ((E i).find? n).isSome = true →
-        aC n = (m i).1 n := by
-      intro n i hn hs he
-      obtain ⟨i', hi', hs'⟩ := hsrc n hn
+    -- a name stored in `C` has the leaf of every member storing it
+    have hval : ∀ n i, StoresC C n → StoresC (E i) n → aC n = (m i).1 n := by
+      intro n i hn he
+      obtain ⟨-, i', hi', hs'⟩ := hsrc n hn.1
       rw [haC n i' hi']
-      exact hc n i' i hn hs' hs (AssembledC.stores_src hread hn hi') he
-    let S : CtxSrc V μ C aC :=
+      exact hc n i' i hn ⟨AssembledC.stores_src hread hn.1 hi', hs'⟩ he
+    let S : CtxSrc V μ C.1 aC :=
       { E := fun n => (srcOf n).1
         m := fun n => (srcOf n).2
         R := R
@@ -173,7 +179,7 @@ theorem amalgamateC {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι �
           obtain ⟨i, hi, hsd⟩ := hR n d ci hci
           have hCd := (hread.R_sub n d ci hci).2
           rw [hpos n i hi] at hEd ⊢
-          rw [hval d i hCd hsd hEd]
+          rw [hval d i ⟨hCd, (hsrc d hCd).1⟩ ⟨hEd, hsd⟩]
           exact ((Classical.choose_spec (m i).2.2).2.2.2 d hEd).symm
         cover := fun n => by
           cases hs : src n with
@@ -192,7 +198,8 @@ theorem amalgamateC {C : Env} {ι : Type} {E : ι → Env} {same : Name → ι �
 
 variable (μ) in
 /-- **Acceptance**: the declarations are accepted from `Γ` at some proof
-flags, and every name flagged here is new in `Γ` and flagged there. -/
+flags, and every name flagged here is new in `Γ` and flagged there
+(the exposed names play no part). -/
 @[expose] def AcceptsC (pins : List NatOpPinSet) (Γ : Env) (D : List Declaration × (Name → Bool))
     (Γ' : Env) : Prop :=
   ∃ p : Name → Bool, AcceptedFrom μ pins p Γ D.1 Γ' ∧
@@ -237,19 +244,21 @@ variable (V μ) in
 /-- **Con-leche's models as a modular semantics.** -/
 @[expose] noncomputable def conlecheSemantics (hμ : μ.isVerified = true) (pins : List NatOpPinSet) :
     ModularSemantics.{0, 0} where
-  Env := Env
+  Env := Env × (Name → Prop)
   Name := Name
-  Stores E n := (E.find? n).isSome = true
-  Mod := MMod V μ
+  Stores := StoresC
+  Mod E := MMod V μ E.1
   Val := (Name → Nat) → Term
   val m n := m.1 n
   proofVal := dfltLeaf
-  Assembled C _ E same := AssembledC C E same
+  Assembled C _ E := AssembledC C E
   assembled_src h := h.src
   amalgamate h m hc := amalgamateC h m hc
   Decls := List Declaration × (Name → Bool)
   Flagged D n := D.2 n = true
-  Accepts := AcceptsC μ pins
-  step h m := stepC hμ h m
+  Accepts Γ D Γ' := AcceptsC μ pins Γ.1 D Γ'.1
+  step h m := by
+    obtain ⟨m', h1, h2⟩ := stepC hμ h m
+    exact ⟨m', fun n hn => h1 n hn.1, h2⟩
 
 end ConLeche.Model.Modular
