@@ -109411,3 +109411,13 @@ Gates: `lake build`, `lake test` warning-free; fragment gate, links
 gate, `tests/overview-links.sh`, `tests/quote-gate.sh`,
 `tests/challenge.sh` green; whitepaper builds without warnings.  No
 runtime file changed (no `tests/olean.sh`).
+
+**Addendum (agent/389-views).**  Maintainer ruling: §7 says "imported
+view" and never "source".  `X_i` is introduced as the list of views
+module `i` reads, pairs `(j, V)` of an earlier module `j` and a view
+`V` that `j` presents, covering every module whose declarations `i`
+can see (re-exports included, not only direct imports), with a pointer
+to the Lean mapping (the modules loaded for `i`, each at its loaded
+level).  Assembly's family members are "members" in the abstract and
+instance prose.  Lean names (`sources`, `Src`, `assembled_src`)
+unchanged.  Whitepaper builds without warnings; links gate green.
