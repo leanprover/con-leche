@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
+public import ConLeche.Driver.RecRules
 public import ConLeche.Driver.OwnerParse
 public import ConLeche.Frontend.Olean.Load
 /- `decodeModuleSpec_eq_fast` (`@[csimp]`): the reader below is passed the
@@ -176,6 +177,12 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     printStats err (tParse - t0) (now - tParse) none (← instRep) instLabel none (fun _ => "")
     return .error e
   | .ok ⟨(n, fe, pend), ⟨r⟩⟩ =>
+    -- the records' recursor rules agree with the installed (generated)
+    -- ones (`recRulesAgree`, task #386): a guard, nothing installed
+    if let .error e := recRulesAgree mode fe ds then
+      let now ← IO.monoMsNow
+      heartbeat s!"recursor rules disagree at {e.2}/{total} t={secs (now - t0)}s"
+      return .error e
     let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
       ⟨fe, pend, ⟨n, r⟩⟩
     let tCheck ← IO.monoMsNow

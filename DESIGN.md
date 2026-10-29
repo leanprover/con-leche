@@ -197,7 +197,11 @@ route takes declines (exit 2) naming its class.
   major; outside classes SEED the positivity check), the minor premises
   and rules are built from the positivity check's recorded normal
   forms, each generated type must be `isDefEq` to the stream's, and the
-  GENERATED family is installed — the stream's rules are never read.
+  GENERATED family is installed.  The stream's rules are not
+  installed; after the install each must agree with the generated one
+  up to definitional equality (`recRulesAgree`,
+  `ConLeche/Driver/RecRules.lean`, task #386: a guard that only
+  rejects, outside the theorem).
   There is no conformance check (`ConLeche/Conformance/` and charter
   item 6 retired at GENREC M3).  The model: the least fixed TUPLE of
   the block's operator, closed by accessibility (`closed_of_acc`,
@@ -109172,3 +109176,71 @@ phase that failed (the record checks of later phases are not run).
 **Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
 193/193; overview/README links repointed (line shifts only); whitepaper
 links; quote gate; `tests/arena.sh` on the final tree.
+
+## TASK #386 — the stored recursor rules must agree with the generated ones, up to definitional equality (2026-10-29, agent/386-rules)
+
+Maintainer ruling (2026-10-29): "we can land the recursor check (up to
+defeq), better safe than sorry."  The installer generates every
+recursor and installs the generated rules; Lean's kernel runs the rules
+a loaded file STORES, and official's replay rejects a mismatch
+("Invalid recursor").  The standing design's "the stream's rules are
+never read" (charter item 5's GENREC stage) is revised: the stage still
+never reads them, but after the install they must agree with the
+generated ones.  Supersedes the unlanded `agent/383-rules`
+(c30624c28), which compared syntactically.
+
+**The check** (`recRulesAgree`, new `ConLeche/Driver/RecRules.lean`).
+For every recursor record of every `.indDecl` record, against the
+installed recursor of its name (a pinned basis block's rules read at
+the record's level-parameter names):
+* the same number of rules; rule by rule the same constructor (in
+  order) and the same field count;
+* the right-hand side: a FAST PATH accepts it when it equals the
+  generated one but for the domains of its `rulePrefix + nfields`
+  leading λ-binders (`rhsSameUnder`; the generator's binder types may
+  differ from the elaborator's, e.g. an `outParam` kept).  Otherwise it
+  must be closed
+  (no loose bound variable, no free variable), use only the record's
+  level parameters, and — with the rule's telescope (parameters,
+  motives, minors, fields) opened as locals at the GENERATED rule's
+  binder types, the stored side instantiated at the same locals (or
+  applied to them where it has no λ) — its body must infer at the full
+  grade and be `isDefEq` to the generated body (`coreKnotI … checkFuel`,
+  fresh memo state).  The leading domains are not compared because an
+  iota step applies the rule and β-reduces: they are never read.
+* The view is the installed environment restricted below the block's
+  last recursor (`blockView`): nothing installed later is visible.
+* Verdicts: a disagreement is `.invalid` (exit 1) naming the recursor
+  and the rule's constructor; a resource limit in the inference or
+  comparison is a decline (exit 2, `.notImplemented` passed through);
+  an `.internal` error stays exit 3.
+
+**Where.**  The one shared install of each path: `checkDeclsIO`
+(`Driver/Run.lean`: JSON and `--olean` merged), right after phase A;
+`installModule` (`Driver/Modular.lean`: both modular modes and the
+compared challenges' records).  A pure guard: an early `.error`, so no
+proof changed and nothing it computes is installed.
+
+**Verdicts.**  13 pinned e2e verdicts 0 → 1, in line with official:
+`mutual_rec_{wrong_member,nonfield,unguarded,rules_swapped,missing_rule}`,
+`corner_rec_{call_const_bad,closed_major,alien_rule,rule_missing,
+rule_nfields,rules_swapped}`, `genrec_rules_garbage{,_nested}`.  The
+other 6 of the 19 the syntactic check moved STAY 0, because their
+stored rule is the generated one under a β-redex, definitionally equal:
+`mutual_rec_body_redex`, `corner_rec_{body_redex,call_redex,
+wtype_redex,redex_nonindex}`, `corner_tshadow_aux_nonfield_bad`
+(official, comparing syntactically, 1; the comments say so).  No other
+pinned verdict moved.  `tests/olean.sh`: two corrupted-file fixtures
+(T.rec's rules in another order; a rule with the other rule's
+right-hand side), both 1.
+
+**Cost** (`perf stat -e instructions:u`, one run each, 96 workers,
+v4.35.0 toolchain oleans; base = `olean` 4a158f9dc's binary built
+today): Init merged 406.51 → 406.67 ×10⁹ (+0.04 %), Init `--modular`
+499.91 → 500.05 (+0.03 %), Lean merged 740.17 → 739.79 (−0.05 %,
+noise).  All accepted, declaration counts unchanged.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+199/199; `tests/arena.sh` on the final tree (e2e 496/496, trusted and
+`--jobs` sweeps, shake, layering, link and quote gates, challenge
+statements identical); OVERVIEW links repointed (line shifts only).

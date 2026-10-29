@@ -509,7 +509,8 @@ structure ModInstalled (mode : CheckMode) (ds : Array Declaration) (fe₀ : FEnv
   pend : Array PendingCheck
   run : ∃ n, InstallRun mode natOpPinSets ds.toList (0, fe₀, #[]) (n, fe, pend)
 
-/-- Install module `i` at its view. -/
+/-- Install module `i` at its view; then the records' recursor rules must
+agree with the generated ones (`recRulesAgree`). -/
 def installModule (mode : CheckMode) (err : IO.FS.Stream) (ds : Array Declaration) (fe₀ : FEnv) :
     IO (Except (CheckError × Nat) (ModInstalled mode ds fe₀)) := do
   let st ← IO.mkRef ({} : WStats)
@@ -517,7 +518,11 @@ def installModule (mode : CheckMode) (err : IO.FS.Stream) (ds : Array Declaratio
   match ← installLoop mode err 0 ds.size 0 st ds p₀ 0 p₀ (by
       rw [List.take_zero]; exact .nil _) with
   | .error e => return .error e
-  | .ok ⟨(n, fe, pend), ⟨r⟩⟩ => return .ok ⟨fe, pend, ⟨n, FEnv.markLinear_eq fe₀ ▸ r⟩⟩
+  | .ok ⟨(n, fe, pend), ⟨r⟩⟩ =>
+    -- the records' recursor rules agree with the installed (generated)
+    -- ones (`recRulesAgree`, task #386): a guard, nothing installed
+    if let .error e := recRulesAgree mode fe ds then return .error e
+    return .ok ⟨fe, pend, ⟨n, FEnv.markLinear_eq fe₀ ▸ r⟩⟩
 
 /-- The ready queue of the install: the modules whose imports are all
 installed, lowest index first; and the count of unfinished imports of
