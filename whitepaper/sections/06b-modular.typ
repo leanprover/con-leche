@@ -36,7 +36,10 @@ Let $C$ be the context of the module we are checking, built from a
 family of imported views $(E_x)_(x in X)$. To check the declarations,
 we need a model of $C$ that preserves the values already assigned by
 the imports' models. This requires agreement wherever two imported
-views store a name of $C$.
+views store a name of $C$. We state the laws below for an arbitrary
+environment $C$ assembled from a family $(E_x)_(x in X)$, because they
+are used twice: for a checked module's context, called $Gamma_i$ in
+@sec:mod-env, and for the whole environment $E_i$ of a compared module.
 
 In general, write
 #src("whitepaper/Fragment/ModularSemantics.lean", 104, 120)[$c in E$]
@@ -96,7 +99,7 @@ at every $c in V$
 Amalgamation of the empty family supplies a model for any context
 assembled from no environments.
 
-== Developments
+== Developments <sec:mod-env>
 
 Number modules by natural numbers. For
 #src("whitepaper/Fragment/ModularSemantics.lean", 166, 174)[module $i in NN$],
@@ -119,11 +122,12 @@ Module $i$ records each occurrence of a name $c$ as either
 one module $h in NN$, written $Decl_i (c,h)$, or a
 #src("whitepaper/Fragment/ModularSemantics.lean", 183, 184)[_proof of_]
 one statement $s$, written $Prf_i (c,s)$. The two possibilities are disjoint.
-The occurrences $(i,c)$ and $(j,c)$ of $c$ in modules $i$ and $j$ are
-#src("whitepaper/Fragment/ModularSemantics.lean", 186, 191)[_interchangeable_]
-when these records agree:
+Modules $i$ and $j$ use $c$
+#src("whitepaper/Fragment/ModularSemantics.lean", 186, 191)[_interchangeably_],
+written $i scripts(approx)_c j$, when these records agree, that is,
+when they mean the same constant by $c$:
 $
-  (i,c) approx (j,c) quad :<==> quad
+  i scripts(approx)_c j quad :<==> quad
     (exists h. thin Decl_i (c,h) and Decl_j (c,h)) or
     (exists s. thin Prf_i (c,s) and Prf_j (c,s)).
 $
@@ -143,7 +147,7 @@ $Asm_i (E)$, and write
 for this _one-copy condition_:
 $
   One_i (E) quad :<==> quad forall c in E. thin forall (j,V) in X_i. thin
-    c in V ==> (i,c) approx (j,c).
+    c in V ==> i scripts(approx)_c j.
 $
 A module may either check its declarations over the assembled context,
 or obtain its whole own environment by comparison with its imported views.
@@ -177,7 +181,7 @@ has value $pi$:
 $
   Cmp_k ((m_i)) quad :<==> quad
   & (forall i,j < k. thin forall c in E_i. thin c in E_j and
-    (i,c) approx (j,c) ==> m_i (c) = m_j (c)) \
+    i scripts(approx)_c j ==> m_i (c) = m_j (c)) \
   & and (forall i < k. thin forall c in E_i. thin forall s. thin
     Prf_i (c,s) ==> m_i (c) = pi).
 $
