@@ -478,26 +478,32 @@ says no such module's own environment stores a constant of type
 different keys are not constrained; they are never in one context. The
 proof is in two halves. The first is the argument from module to
 module, stated over an interface of models
-([theorem `Development.modular` in `ConLeche/Modular/Generic.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular/Generic.lean#L256-L257)):
+([theorem `Development.modular` in `ConLeche/Modular/Generic.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular/Generic.lean#L297-L298)):
 it asks of the consistency proof an interface, `ModularSemantics`, of
 environments, a type of models for each giving every name a value and
 every proof one value, assembly (an environment made of constants of a
-family of environments), amalgamation (models of the family that agree
-wherever the assembly counts two members as having one constant give
-one model of the assembled environment, with the members' values), and
+family of environments, each from a member that stores it),
+amalgamation (models of the family that agree on every name of the
+assembled environment that two members store give one model of it,
+agreeing with every member that stores the name), and
 the conservative step (if the checker accepts declarations over an
 environment, every model of it extends to one of the extension with the
 same values, every flagged proof at the proofs' value). A predicate
 "has a model" would not do: if a context assumes `c : Nat`, an import
 defines `c := 5` and a module adds the axiom `c = 0`, the module and the
 import each have a model and their union has none; the step excludes
-the axiom, because it must extend every model of the context. The
-theorem goes module by module: the imports' models are compatible, so
-they amalgamate to a model of the context, which the step extends over
+the axiom, because it must extend every model of the context. A
+module reads sources (views of earlier modules), and validity asks
+that every copy of a context name in a source be interchangeable with
+the module's (declared by one module, or proofs of one statement: one
+key). The theorem goes module by module: the earlier models,
+restricted to the sources, are then compatible, so they amalgamate to
+a model of the context, which the step extends over
 the declarations; there is no global environment. The second half is
 con-leche's models as such an interface (`conlecheSemantics` in
 `ConLeche/Model/Modular/Instance.lean`): an environment is a con-leche
-environment, a model is a leaf assignment under which it has a model,
+environment with the names it exposes (a module's source is an earlier
+module's own environment exposing what the module reads alike), a model is a leaf assignment under which it has a model,
 assembly is a context read name by name from its sources (or one
 environment itself), amalgamation gives each name the leaf of the
 source it is read from, and the step installs the declarations keeping
@@ -1644,7 +1650,7 @@ and every such line carries its reason.
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
 | `ConLeche/Modular.lean` | The modular theorem's vocabulary: modules, their keys, refinement and the local checks; imports the checker and nothing of the proof tiers. |
-| `ConLeche/Modular/Generic.lean` | The modular argument over an interface of models: the interface `ModularSemantics` (models with values, assembly, amalgamation of a compatible family, the conservative step), keys, developments, and the theorem `Development.modular` (a compatible family of models, one per module); imports nothing. |
+| `ConLeche/Modular/Generic.lean` | The modular argument over an interface of models: the interface `ModularSemantics` (models with values, assembly, amalgamation of a compatible family, the conservative step), keys and interchangeable occurrences, developments with sources, and the theorem `Development.modular` (a compatible family of models, one per module); imports nothing. |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — the modular theorem and its corollary, and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |

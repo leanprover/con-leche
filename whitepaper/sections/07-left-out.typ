@@ -162,11 +162,11 @@ preserved\; the main
 theorem #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[composes it with the fold's soundness].
 
 *Modular checking.* In the fragment, a module's context, views and
-keys are given, and the local checks of @sec:mod-local say what they
-must satisfy. Con-leche computes them from the `.olean` files: the
-context of a module from its imports' exported levels (private levels
-under `import all`) by the rule of @sec:mod-lean, and the key of each
-name from the module that declares it. Its modular theorem has the
+what declared its names are given, and the local checks of
+@sec:mod-local say what they must satisfy. Con-leche computes them from
+the `.olean` files: the context of a module from its imports' exported
+levels (private levels under `import all`) by the rule of
+@sec:mod-lean, and for each name the module that declares it. Its modular theorem has the
 statement of @sec:mod-thm, a compatible family of models, and its
 proof is the theorem over the interface of @sec:mod-iface with
 con-leche's models as the instance, as described at the end of
