@@ -109244,3 +109244,128 @@ noise).  All accepted, declaration counts unchanged.
 199/199; `tests/arena.sh` on the final tree (e2e 496/496, trusted and
 `--jobs` sweeps, shake, layering, link and quote gates, challenge
 statements identical); OVERVIEW links repointed (line shifts only).
+
+## TASK #387 — no designation in the modular interface; interchangeable occurrences; sources per importer (2026-10-29, agent/387-nosigma)
+
+Maintainer-approved simplification (2026-10-29), with the refinement
+that the word "key" leaves the presentation.  Done in the fragment
+(`whitepaper/Fragment/ModularSemantics.lean`) and, character for
+character apart from the namespace, the module docstring's first
+paragraph and `deriving DecidableEq, Repr` on `Key`, in
+`ConLeche/Modular/Generic.lean`.
+
+**The interface** (`ModularSemantics`), fields now: `Env`, `Name`,
+`Stores` (`c ∈ E`), `Mod`, `Val`, `val` (`m(c)`), `proofVal` (π),
+`Assembled : Env → ∀ {ι}, (ι → Env) → Prop` (no designation argument),
+`assembled_src : Assembled C E → ∀ n, Stores C n → ∃ i, Stores (E i) n`,
+`amalgamate : Assembled C E → ∀ m, (∀ n i i', Stores C n →
+Stores (E i) n → Stores (E i') n → val (m i) n = val (m i') n) →
+∃ mC, ∀ n i, Stores C n → Stores (E i) n → val mC n = val (m i) n`,
+`Decls`, `Flagged`, `Accepts`, `step` (unchanged).  So a family is
+*compatible for C* when it agrees on every name of C that two members
+store; amalgamation agrees with every member storing the name.
+`Refines Γ E := Assembled Γ (fun _ : PUnit => E)`; `restrict` as before.
+
+**Developments** (`Development`): `ctx`, `decls`, `own`,
+`sources : Nat → List (Nat × S.Env)` (NEW, replaces `views` and
+`imports`: the views module i reads, each paired with the module
+presenting it), `key` (kept, as the internal representation).  New
+definitions: `DeclaredBy i n h := key i n = .home h`,
+`ProofOf i n s := key i n = .proof s`,
+`Interchangeable i j n := (∃ h, DeclaredBy i n h ∧ DeclaredBy j n h) ∨
+(∃ s, ProofOf i n s ∧ ProofOf j n s)` (paper: (i,c) ≈ (j,c);
+Decl_i(c,h), Prf_i(c,s)); `interchangeable_iff` (↔ key equality) and
+`interchangeable_equivalence` (an equivalence for each name: trivial,
+since every occurrence has exactly one key; no validity fact needed).
+`Src i := {x // x ∈ sources i}`, `Assembled i E := S.Assembled E
+(fun x : Src i => x.1.2)`, `OneCopy i E := ∀ n, Stores E n →
+∀ x ∈ sources i, Stores x.2 n → Interchangeable i x.1 n` (the
+one-copy condition), `NewNames i` (was `NewKeys`: a new name is
+`DeclaredBy i n i` or a flagged `ProofOf`), `Checked i := Assembled i
+(ctx i) ∧ OneCopy i (ctx i) ∧ Accepts ∧ NewNames i`, `Compared i :=
+Assembled i (own i) ∧ OneCopy i (own i)`, `Valid i` = `sources : ∀ x ∈
+sources i, x.1 < i ∧ Refines x.2 (own x.1)` and `checked_or_compared`
+(the field `views`/`imports` gone), `Compatible k m` = interchangeable
+occurrences get one value, `ProofOf` gets π.  `Development.modular`,
+`own_model`, `home_le` keep their statements' shape; the proof uses
+OneCopy where it used the designation (compatibility of the
+restricted source models for C, and `Valid.src`).
+`Development.modular`: 83 → 90 lines (two conversions to key equality).
+
+**Why sources per importer** (a deviation from the brief's literal
+plan, needed so that nothing the runtime does not check is assumed).
+With per-module views read in full by every importer, the one-copy
+condition quantifies over everything any importer could read: in
+con-leche a module h's own environment holds its context's copies,
+which an importer at h's exported level does not see, so the
+condition would demand key agreement the runtime never checks (it
+checks only the copies a module sees: `oneKey`/`keysOk`); in the
+fragment it would forbid a private copy in an import's private view
+meeting another module's exported one, stricter than Lean.  So a
+development lists, per module, the views that module reads.
+
+**Fragment** (`ModularModel.lean`): `common C E` (no `same`: E's
+constants at names C stores), `Assembled C E` (`le` without the
+designation), `Refines`, `glueM`, `Assembled.model`,
+`Assembled.scoped` adapted; `sources dev i` (every view of every
+import, with the import) and `mem_sources`; `FromViews dev i E` now
+`Assembled E (sources) ∧` the one-copy condition (key equality, i.e.
+interchangeable).  `ImportOk`, `LocalOk`, `Compared`, `InterfaceOk`
+unchanged in shape.  `ModularInstance.lean`: `toDev` sets
+`sources i := sources dev i`; `toDev_valid` now takes `∀ j ≤ i, Valid
+dev j` (the sources' refinement is the imports' `InterfaceOk`);
+`Valid.iface` new.  `modular` (fragment) states compatibility with
+`(toDev V dev).Interchangeable` and `(toDev V dev).ProofOf` (was key
+equality / `.proof s`).  `ModularSyntactic.lean`: `Assembled` drops
+the designation and the mention conditions (they follow from the
+environments' scoping).
+
+**Con-leche** (`Model/Modular/Instance.lean`): the instance's
+environments are `Env × (Name → Prop)`, a con-leche environment with
+the names it exposes; `StoresC E n := (E.1.find? n).isSome ∧ E.2 n`;
+`Mod E := MMod V μ E.1`; `AssembledC C E` has `self` (same underlying
+environment, exposing no more) and `reads` (every name of C exposed
+and read from a member exposing it, the reads `R n` exposed there,
+`CtxRead` on the underlying environments); `amalgamateC` adapted;
+`Accepts Γ D Γ' := AcceptsC μ pins Γ.1 D Γ'.1`.
+(`Model/Modular/Main.lean`): `alikeIn dev i b d` (d is in
+`readsAlike dev i b`); `toDev` has `ctx`/`own` exposing every name and
+`sources i := (List.range i).map fun b => (b, ((dev b).own, alikeIn dev
+i b))`: a source is an earlier module's own environment exposing what
+module i reads alike of it.  `mem_srcList`, `mem_toDev_sources`,
+`ctx_oneCopy` new; `srcAt`, `srcOpt`, `srcEnv_srcOpt`,
+`ctx_assembled`, `valid_of`, `modular_envModels` adapted.  The
+one-copy condition then holds because a source exposes only names
+read alike, i.e. under one key; that the context's reads are read
+alike is the existing local check (`LocalOk.scoping` via
+`readsAlike`, from the runtime's `oneKey`/`keysOk` through
+`RunOk.key_pick`).  `LocalOk`, `ImportOk`, `InterfaceOk`,
+`ConLeche/Modular.lean` and the evidence chain RunOk/IsoRunOk ⇒
+LocalOk are UNCHANGED.
+
+**Statements.**  `modular_model_exists`, `modular_no_False` and
+`ConLeche/Challenge.lean` unchanged (they still say "one key": the
+capstone keeps `key`, the paper does not).  `Generic.lean` 347 → 395
+lines, `Instance.lean` 255 → 264, `Main.lean` 671 → 717; fragment
+`ModularSemantics` 348 → 394, `ModularModel` 456 → 471,
+`ModularInstance` 162 → 174, `ModularSyntactic` 238 → 234.  Axioms
+unchanged (Lean's three).
+
+**§7** (`whitepaper/sections/06b-modular.typ`): notation `c ∈ E`
+(stores) and `E(c)` (entry) throughout (the `St` operator is gone);
+the designation σ is gone from compatibility for an environment
+(`Cmp_C`), assembly `Asm(C,(E_x))`, amalgamation, refinement, the
+common part `E_x^C`; a development is Γ_i, E_i, D_i, X_i (sources)
+and the declared-by / proof-of predicates `Decl_i(c,h)`,
+`Prf_i(c,s)`; new Definition "Interchangeable occurrences" `(i,c) ≈
+(j,c)`; `One_i(E)` is the one-copy condition, in `Checked_i`,
+`Compared_i` and the local check `Import_i` and comparison; validity
+asks `∀(j,V) ∈ X_i. j < i ∧ V ⪯ E_j`; the local checks define
+`X_i = {(j,V) | j ∈ imp_i, V ∈ 𝒱_j}`; `OwnKeys_i` renamed `Own_i`;
+`(∀ j ≤ i. Pass_j) ⇒ Valid_i`; Lemma "Declarers are earlier" (was
+"Homes are earlier"); the Lean table and the con-leche block say
+"declared by" / "interchangeable" instead of keys.  No other prose
+rewritten (the #388 rewrite follows).  §8 "Modular checking" no longer
+says keys.
+
+**Gates.**  See the landing commit.

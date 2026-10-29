@@ -12,10 +12,10 @@ The proof of `ConLeche.modular_model_exists` (`ConLeche/MainTheorem.lean`):
 the generic theorem (`Development.modular`, `ConLeche/Modular/Generic.lean`)
 at con-leche's models (`conlecheSemantics`, `Instance.lean`), for the
 development a list of modules stands for (`toDev`: a module's context,
-declarations and own environment, its own environment as its one view,
-the earlier modules as its imports, its keys).  What is left here is
-syntax, no model: that the local checks (`LocalOk`) make every module
-valid (`valid_of`).
+declarations and own environment, as its sources each earlier module's
+own environment exposing what the module reads alike of it
+(`alikeIn`), its keys).  What is left here is syntax, no model: that
+the local checks (`LocalOk`) make every module valid (`valid_of`).
 
 * **The keys fit** (`Fits`, `fits_all`, by induction over the modules):
   every constant a module's own environment stores refines the constant
@@ -26,8 +26,11 @@ valid (`valid_of`).
   `ctx_assembled`): every name is read from its source's own
   environment, and what it reads under the source's keys agrees there
   (`ctx_same`, `readAgreeS_of`, `deep_of`, from the fit).
+* **One copy** (`ctx_oneCopy`): a source exposes only names the module
+  reads alike, so every copy there is interchangeable with the module's.
 * **The declarations are accepted** from the context (`AcceptedFrom`),
-  and a new name is keyed by its module or flagged a proof (`key_own`).
+  and a new name is declared by its module or flagged a proof
+  (`key_own`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -552,54 +555,94 @@ end
 /-! ## The development over con-leche's models -/
 
 section
+variable (dev : Nat → Module)
+
+/-- **What module `i` reads alike of module `b`** (`readsAlike`): the
+names it exposes in the view `i` reads of `b`. -/
+@[expose] def alikeIn (i b : Nat) (d : Name) : Prop := ((readsAlike dev i b).find? d).isSome = true
+
+end
+
+section
 variable (V μ) in
 /-- **A development of modules as a development over con-leche's
 models**: a module's context, declarations (flagged: its proofs new in
-its context), own environment, its own environment as its one view, the
-earlier modules as its imports, and its keys. -/
+its context), own environment (both exposing every name), as its
+sources each earlier module's own environment exposing what the module
+reads alike of it, and its keys. -/
 @[expose] noncomputable def toDev (hμ : μ.isVerified = true) (pins : List NatOpPinSet)
     (dev : Nat → Module) : Development (conlecheSemantics V μ hμ pins) Stmt where
-  ctx j := (dev j).context
+  ctx j := ((dev j).context, fun _ => True)
   decls j := ((dev j).decls, fun n => (dev j).proofs n && ((dev j).context.find? n).isNone)
-  own j := (dev j).own
-  views j := [(dev j).own]
-  imports j := List.range j
+  own j := ((dev j).own, fun _ => True)
+  sources j := (List.range j).map fun b => (b, ((dev b).own, alikeIn dev j b))
   key j := (dev j).key
 
 variable {dev : Nat → Module} {hμ : μ.isVerified = true}
 
-/-- The view a context name of module `i` is read from: its source's own
-environment. -/
+theorem mem_srcList {i : Nat} {x : Nat × (Env × (Name → Prop))} :
+    x ∈ (List.range i).map (fun b => (b, ((dev b).own, alikeIn dev i b))) ↔
+      x.1 < i ∧ x.2 = ((dev x.1).own, alikeIn dev i x.1) := by
+  rw [List.mem_map]
+  constructor
+  · rintro ⟨b, hb, rfl⟩; exact ⟨List.mem_range.mp hb, rfl⟩
+  · obtain ⟨b, E⟩ := x
+    rintro ⟨hb, h⟩
+    exact ⟨b, List.mem_range.mpr hb, by simp only at h; rw [h]⟩
+
+theorem mem_toDev_sources {i : Nat} {x : Nat × (conlecheSemantics V μ hμ pins).Env} :
+    x ∈ (toDev V μ hμ pins dev).sources i ↔
+      x.1 < i ∧ x.2 = ((dev x.1).own, alikeIn dev i x.1) :=
+  mem_srcList (dev := dev)
+
+/-- The source a context name of module `i` is read from: its source
+module's own environment, exposing what `i` reads alike of it. -/
 @[expose] noncomputable def srcAt (i : Nat) (n : Name) (hs : (dev i).src n < i) :
     (toDev V μ hμ pins dev).Src i :=
-  ⟨((dev i).src n, (dev ((dev i).src n)).own), List.mem_range.mpr hs, List.mem_singleton_self _⟩
+  ⟨((dev i).src n, ((dev ((dev i).src n)).own, alikeIn dev i ((dev i).src n))),
+    List.mem_map.mpr ⟨_, List.mem_range.mpr hs, rfl⟩⟩
 
-/-- The view a context name of module `i` is read from, if its source is
-earlier. -/
+/-- The source a context name of module `i` is read from, if its source
+module is earlier. -/
 @[expose] noncomputable def srcOpt (i : Nat) (n : Name) : Option ((toDev V μ hμ pins dev).Src i) :=
   if hs : (dev i).src n < i then some (srcAt i n hs) else none
 
 theorem srcEnv_srcOpt (i : Nat) :
-    srcEnv (fun x : (toDev V μ hμ pins dev).Src i => x.1.2) (srcOpt (V := V) (μ := μ) (hμ := hμ) (pins := pins) (dev := dev) i) =
+    srcEnv (fun x : (toDev V μ hμ pins dev).Src i => x.1.2.1) (srcOpt (V := V) (μ := μ) (hμ := hμ) (pins := pins) (dev := dev) i) =
       srcE dev i := by
   funext n
   by_cases hs : (dev i).src n < i
   · simp only [srcEnv, srcOpt, srcE, hs, ↓reduceDIte, ↓reduceIte, srcAt]
   · simp only [srcEnv, srcOpt, srcE, hs, ↓reduceDIte, ↓reduceIte]
 
-/-- **A context is assembled from the views of the modules before it.** -/
+/-- **A context is assembled from the sources.** -/
 theorem ctx_assembled {i : Nat} (hfits : ∀ j < i, Fits dev j) (h : LocalOk μ pins dev i) :
-    (toDev V μ hμ pins dev).Assembled i (dev i).context := by
+    (toDev V μ hμ pins dev).Assembled i ((dev i).context, fun _ => True) := by
   refine AssembledC.reads (srcOpt (V := V) (μ := μ) (hμ := hμ) (pins := pins) (dev := dev) i) (srcR dev i) (fun n hn => ?_)
     (fun n d ci hR => ?_) ?_
   · have hs := h.src_lt n hn
-    exact ⟨srcAt i n hs, dite_eq_left hs, h.key_context n hn⟩
+    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+    obtain ⟨ci', hf', -⟩ := h.context_le n ci hci
+    exact ⟨trivial, srcAt i n hs, dite_eq_left hs, readsAlike_of hf' hn (h.key_context n hn)⟩
   · by_cases hs : (dev i).src n < i
     · rw [srcR_pos hs] at hR
-      obtain ⟨-, -, hk⟩ := find?_readsAlike dev hR
-      exact ⟨srcAt i n hs, dite_eq_left hs, hk⟩
+      exact ⟨srcAt i n hs, dite_eq_left hs, by
+        show ((readsAlike dev i ((dev i).src n)).find? d).isSome = true
+        rw [hR]; rfl⟩
     · rw [srcR_neg hs] at hR; exact nomatch hR
   · rw [srcEnv_srcOpt]; exact ctx_reads hfits h
+
+/-- **One copy**: a copy of a context name in a source, which `i` reads
+alike, is interchangeable with `i`'s. -/
+theorem ctx_oneCopy {i : Nat} (E : Env × (Name → Prop)) :
+    (toDev V μ hμ pins dev).OneCopy i E := by
+  intro n _ x hx hs
+  rw [mem_toDev_sources] at hx
+  obtain ⟨-, hx⟩ := hx
+  have hs : ((readsAlike dev i x.1).find? n).isSome = true := by
+    have := hs.2; rw [hx] at this; exact this
+  obtain ⟨ce, hce⟩ := Option.isSome_iff_exists.mp hs
+  exact Development.interchangeable_iff.mpr (find?_readsAlike dev hce).2.2
 
 /-- **Every module that passes its local checks is valid.** -/
 theorem valid_of {i : Nat} (hok : ∀ j ≤ i, LocalOk μ pins dev j) :
@@ -607,26 +650,29 @@ theorem valid_of {i : Nat} (hok : ∀ j ≤ i, LocalOk μ pins dev j) :
   have h := hok i (Nat.le_refl i)
   have hfits := fits_all i fun j hj => hok j (Nat.le_of_lt hj)
   have hA := ctx_assembled (V := V) (hμ := hμ) hfits h
-  refine ⟨fun E hE => ?_, fun j hj => List.mem_range.mp hj, ?_⟩
-  · rw [List.mem_singleton.mp hE]
-    exact AssembledC.self PUnit.unit rfl fun _ _ => trivial
+  refine ⟨fun x hx => ?_, ?_⟩
+  · obtain ⟨hb, hx⟩ := mem_toDev_sources.mp hx
+    refine ⟨hb, ?_⟩
+    rw [hx]
+    exact AssembledC.self PUnit.unit rfl fun _ _ _ => trivial
   · cases hc : (dev i).compared with
     | true =>
-      refine .inr ?_
-      show (toDev V μ hμ pins dev).Assembled i (dev i).own
+      refine .inr ⟨?_, ctx_oneCopy _⟩
+      show (toDev V μ hμ pins dev).Assembled i ((dev i).own, fun _ => True)
       rw [h.compared_own hc]; exact hA
     | false =>
-      refine .inl ⟨hA, ⟨(dev i).proofs, h.accepted hc, fun n hn => ?_⟩, fun n hn hC => ?_⟩
+      refine .inl ⟨hA, ctx_oneCopy _, ⟨(dev i).proofs, h.accepted hc, fun n hn => ?_⟩,
+        fun n hn hC => ?_⟩
       · change ((dev i).proofs n && ((dev i).context.find? n).isNone) = true at hn
         simp only [Bool.and_eq_true, Option.isNone_iff_eq_none] at hn
         exact hn
-      · change ((dev i).own.find? n).isSome = true at hn
-        change ¬ ((dev i).context.find? n).isSome = true at hC
+      · change ((dev i).own.find? n).isSome = true ∧ True at hn
+        change ¬ (((dev i).context.find? n).isSome = true ∧ True) at hC
         have hcn : (dev i).context.find? n = none := by
           cases e : (dev i).context.find? n with
           | none => rfl
-          | some _ => exact absurd (by rw [e]; rfl) hC
-        obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+          | some _ => exact absurd ⟨by rw [e]; rfl, trivial⟩ hC
+        obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn.1
         have hk := h.key_own n ci hci hcn
         unfold Module.ownKey at hk
         cases hp : (dev i).proofs n with
@@ -663,9 +709,9 @@ theorem modular_envModels (hμ : μ.isVerified = true) (dev : Nat → Module) (i
     exact ⟨mp, fun n hn => by dsimp only; rw [hl n hn, dite_eq_left (Nat.lt_succ_of_le hj)]⟩
   · dsimp only
     rw [dite_eq_left (Nat.lt_succ_of_le hj), dite_eq_left (Nat.lt_succ_of_le hj')]
-    exact hc j j' _ _ n hn hn' hk
+    exact hc j j' _ _ n ⟨hn, trivial⟩ ⟨hn', trivial⟩ (Development.interchangeable_iff.mpr hk)
   · dsimp only
     rw [dite_eq_left (Nat.lt_succ_of_le hj)]
-    exact hp j _ n s hn hk
+    exact hp j _ n s ⟨hn, trivial⟩ hk
 
 end ConLeche.Model.Modular

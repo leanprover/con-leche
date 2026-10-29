@@ -231,9 +231,9 @@
    156      ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
    157        c.toConstantVal.type = .const falseName [] → False := by
 
-== ConLeche/Modular/Generic.lean#L256-L257
-   256  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
-   257      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+== ConLeche/Modular/Generic.lean#L297-L298
+   297  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
+   298      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
 
 == ConLeche/Verify/Modular/Scope.lean#L893-L894
    893  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
