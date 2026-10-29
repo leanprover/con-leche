@@ -223,7 +223,9 @@ noncomputable def syntacticSemantics : ModularSemantics.{u, u} where
     obtain ⟨⟨A, v⟩, hA⟩ := Option.isSome_iff_exists.mp hc
     obtain ⟨i, v', hE, -⟩ := h c A v hA
     exact ⟨i, by rw [hE]; rfl⟩
-  amalgamate h m hc := amalgamate h m hc
+  amalgamate h m hc := by
+    obtain ⟨mC, hmC⟩ := amalgamate h m fun c i i' => hc i i' c
+    exact ⟨mC, fun i c hc _ hs => hmC c i hc hs⟩
   Decls := List (N × T.Tm × T.Tm)
   Flagged _ _ := False
   Accepts := Accepts

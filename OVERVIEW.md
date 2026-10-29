@@ -478,7 +478,7 @@ says no such module's own environment stores a constant of type
 different keys are not constrained; they are never in one context. The
 proof is in two halves. The first is the argument from module to
 module, stated over an interface of models
-([theorem `Development.modular` in `ConLeche/Modular/Generic.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular/Generic.lean#L297-L298)):
+([theorem `Development.modular` in `ConLeche/Modular/Generic.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Modular/Generic.lean#L305-L306)):
 it asks of the consistency proof an interface, `ModularSemantics`, of
 environments, a type of models for each giving every name a value and
 every proof one value, assembly (an environment made of constants of a
