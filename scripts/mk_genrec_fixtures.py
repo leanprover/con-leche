@@ -15,13 +15,14 @@
       `Nat'.zero` — ill-typed, not a recursion at all — its TYPE untouched,
       the base's definitions and theorems kept (they reduce through the
       recursor's rules).  Official 1 (replay compares the rules).  The
-      generated stage never reads the stream's rules: it installs its own,
-      so the stream is accepted and every theorem that reduces through
-      `Nat'.rec` checks against the GENERATED rules: 0.
+      generated stage never reads the stream's rules: it installs its own;
+      but after the install the stored rules must agree with the generated
+      ones up to definitional equality (`recRulesAgree`, task #386), and an
+      ill-typed rule does not: 1.
   genrec_rules_garbage_nested   the same at a NESTED block: every rule of
       `NT.rec` and `NT.rec_1` (`ind_rec_struct_proj_raw`, `NT` nested through
       `List`) replaced by `Nat.zero`, the definition `NT.lbl` and the theorem
-      `NT.lbl_proj` (by reduction) kept: 0 (official 1).
+      `NT.lbl_proj` (by reduction) kept: 1 (official 1).
 
 Usage: scripts/mk_genrec_fixtures.py   (reads and writes under tests/e2e/)
 """

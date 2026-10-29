@@ -104,7 +104,7 @@ importer's context, as the assumption of its type if only its type
 does, and not at all otherwise (an inductive block as a whole). Modules
 whose imports are installed are installed in parallel; then every
 module's local checks and every record's check run in one pool
-([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1687-L1688)).
+([function `checkModular` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1692-L1693)).
 With `--modular=isolated` there is no store. When a module is checked
 it publishes its *unit*: what its importers may read of it, the
 counterpart of Lean's interface files. A unit says, for each of the
@@ -117,7 +117,7 @@ context, installing and checking its records, computing its unit and
 checking it, and M's local checks — reads M's own files and the units
 of exactly the modules Lean loads for M, and of those only the
 interface unless M loads them with `import all`
-([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1170-L1171)).
+([function `isoWork` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1175-L1176)).
 Every such step takes the units through one function that keeps
 exactly that and drops the rest
 ([function `mask` in `ConLeche/Cached/ModIso.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ModIso.lean#L150-L151)),
@@ -157,10 +157,10 @@ that fill them. A challenge is compared with one solution and is no
 other challenge's solution. The comparison is part of the challenge's own
 work, after its unit is published, and in isolated mode it reads only
 the units the challenge loads
-([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L837-L839)).
+([function `compareOne` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L842-L844)).
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L38)):
+([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L39)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -515,7 +515,7 @@ the interface check from the unit check at the home alone
 (`RunOk.interfaceOk`), the importer's from its levels, gates and the
 one-key check (`RunOk.importOk`),
 and the driver prints its accept from that evidence alone
-([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1436-L1438)).
+([function `runOk` in `ConLeche/Driver/Modular.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Modular.lean#L1441-L1443)).
 `--modular=isolated` establishes it for the development whose contexts
 are built from the units each module reads and whose own environments
 are the modules' constants over them
@@ -548,7 +548,7 @@ Everything below explains how those theorems are reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseInput` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L63))
+   ([function `parseInput` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L64))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
@@ -599,7 +599,7 @@ Read from the outside in:
    decoder the driver passes it
    ([function `readOleans` in `ConLeche/Frontend/Olean/Load.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Load.lean#L829-L830)),
    and the driver passes the specification
-   ([the `--olean` input in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L90)):
+   ([the `--olean` input in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L91)):
    the compiler runs the fast decoder on the strength of
    `decodeModuleSpec_eq_fast`, as it runs the fast line recogniser for
    the stream. The fast decoder marks the objects the constants need in
@@ -668,10 +668,14 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L132-L135))
+   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L133-L136))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L523-L525)).
+   Between the two phases the driver also checks that the stream's
+   recursor rules agree with the installed ones (§5, the recursor
+   check): a disagreement is a rejection, and an agreement changes
+   nothing.
 2. **The fully checked environment**
    ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L244-L248))
    is stated over the executable steps: the installed environment is
@@ -1145,9 +1149,19 @@ check's recorded normal forms, and from them the checker builds every
 recursor's type and rules — the minor premises over the constructors'
 declared fields, each inductive hypothesis over its field's normal
 form. Each generated type must be definitionally equal to the stream's
-recursor type; the stream's rules are never read, and the generated
-recursors are the ones installed
+recursor type, and the generated recursors are the ones installed
 ([function `genRecCheck` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L537)).
+The stream's rules are not installed, but a tool that loads the input
+as it is runs them, so after the install they must agree with the
+generated ones: as many, for the same constructors in the same order
+with the same field counts, and each right-hand side type-checks and
+is definitionally equal to the generated one under the rule's
+parameters, motives, minor premises and fields, bound at the generated
+rule's binder types; the comparison sees the environment up to the
+block
+([function `recRulesAgree` in `ConLeche/Driver/RecRules.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/RecRules.lean#L136)).
+This check only rejects: nothing it computes is installed, and the
+theorem does not read it.
 The rules of a recursor for an outside class fire at the instantiation
 read off its type
 ([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608)).
@@ -1323,6 +1337,8 @@ table of step 5, as the official kernel's `mk_rec_infos` and
 * `env3` is `env2` plus the generated recursors with their generated
   rules (an outside class's rules fire at its instantiation), plus the
   projection tables of structure-like members.
+* After the install, the stream's rules agree with the generated ones
+  up to definitional equality (a guard the proof does not need).
 
 **Checks made for the proof alone.** Three checks have no counterpart
 in the official kernel; they are there because the proof reads them:
@@ -1612,7 +1628,7 @@ and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The CLI: argument parsing, usage, exit codes; calls `ConLeche.Driver.checkMain`. |
-| `ConLeche/Driver/` | The proof-carrying IO driver: the install loop and the parallel install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the end-of-run statistics (`Stats.lean`), the phase sequencing and `checkDeclsIO` (`Run.lean`), the modular run (`Modular.lean`: the graph, the levels, the store, the install along the import graph in either mode, the units, the evidence the accept is printed from, compared modules). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
+| `ConLeche/Driver/` | The proof-carrying IO driver: the install loop and the parallel install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the end-of-run statistics (`Stats.lean`), the phase sequencing and `checkDeclsIO` (`Run.lean`), the check that the stored recursor rules agree with the generated ones (`RecRules.lean`), the modular run (`Modular.lean`: the graph, the levels, the store, the install along the import graph in either mode, the units, the evidence the accept is printed from, compared modules). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`); the install skeleton (`InstallSkel.lean`, which the parallel install predicts from and the trusted/verified agreement floor is stated over); the modular store, its views and the executable unit and local checks over what a module reads of its context (`ModStore.lean`); what an isolated module reads, its context built from those units in one pass, its local checks and the isolated check (`ModIso.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean/`: the files, the address-to-position map and the reads of the runtime's own objects `Region.lean`, the specification of a module's reading `Spec.lean`, the two-sweep decoder that runs `Fast.lean`, the import closure loaded, merged and emitted as the stream reader's records `Load.lean`, a module's own records and imports for the modular run `Modules.lean`). |

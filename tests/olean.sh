@@ -184,6 +184,17 @@ rcases() {
   xcorrupt0 "an exported constant that is not its private one" 3 Tiny "
 b, o = at(fld(consts('olean')['idT'], 0))
 b[o + 16] = 1" Tiny
+  # the stored recursor rules (Lean's kernel runs them on a loaded
+  # .olean; con-leche installs the generated ones): T.rec's two rules in
+  # the other order, and T.b's rule with T.a's right-hand side
+  xcorrupt0 "recursor rules in another order than the generated ones" 1 Tiny "
+r = fld(consts('olean.private')['T.rec'], 0)
+c1 = fld(r, 6); c2 = fld(c1, 1); r1 = fld(c1, 0); r2 = fld(c2, 0)
+setfld(c1, 0, r2); setfld(c2, 0, r1)" Tiny
+  xcorrupt0 "a recursor rule of another right-hand side than the generated one" 1 Tiny "
+r = fld(consts('olean.private')['T.rec'], 0)
+c1 = fld(r, 6); c2 = fld(c1, 1); r1 = fld(c1, 0); r2 = fld(c2, 0)
+setfld(r2, 2, fld(r1, 2))" Tiny
   # an import cycle: HidA's import of Init.Prelude renamed to HidUse,
   # which imports HidA (Lean's import refuses a cycle)
   xcorrupt0 "an import cycle" 3 HidA "
