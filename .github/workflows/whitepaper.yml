@@ -1,7 +1,11 @@
 # The whitepaper (task #324): build the document from its one Typst
-# source, run its link gate, keep the rendering as an artifact, and on
+# source, run its link gate, keep the rendering as artifacts, and on
 # master publish the HTML to GitHub Pages (enable Pages with source
 # "GitHub Actions" in the repository settings once).
+#
+# On every branch and pull request the self-contained HTML is also
+# uploaded unzipped (`archive: false`), so it can be opened directly
+# from the run's artifact list and read before it reaches master.
 #
 # The toolchain is the flake in whitepaper/ — the same `nix develop
 # ./whitepaper -c whitepaper/build.sh` the maintainer runs locally, so
@@ -11,7 +15,7 @@ name: whitepaper
 
 on:
   push:
-    branches: [master]
+    branches: ['**']
     paths:
       - 'whitepaper/**'
       - '.github/workflows/whitepaper.yml'
@@ -34,6 +38,11 @@ jobs:
         with:
           name: whitepaper
           path: whitepaper/_build
+      # the single HTML file, unzipped: viewable directly from the run
+      - uses: actions/upload-artifact@v7
+        with:
+          path: whitepaper/_build/con-leche-proof-idea.html
+          archive: false
       - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v3
         with:
