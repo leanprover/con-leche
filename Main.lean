@@ -235,8 +235,10 @@ def usage : String := String.intercalate "\n" [
   "                    as a run without it, and so is a run on the pool.",
   "  --olean           read the input from .olean files instead of a",
   "                    lean4export stream: the arguments are root",
-  "                    modules (Init, Std, Mathlib, ...), checked with",
-  "                    their whole import closure.  The closure is read",
+  "                    modules (Init, Std, Mathlib, ...; a component in",
+  "                    «» is taken literally, as in Challenge.«12.34».«5»),",
+  "                    checked with their whole import closure.  The",
+  "                    closure is read",
   "                    at the private level (theorems with proofs,",
   "                    definitions with bodies), merged as Lean's own",
   "                    import merges it, and emitted as the records",
@@ -268,8 +270,10 @@ def usage : String := String.intercalate "\n" [
   "                    its constants must be SOLUTION's (or its imports'),",
   "                    a hole (a theorem, definition or opaque constant",
   "                    whose value uses `sorry`) by a constant of the same",
-  "                    statement and kind, anything else by the same",
-  "                    constant, an opaque one including its value.",
+  "                    statement and kind (one whose value its module",
+  "                    hides from the challenge's context: of any kind),",
+  "                    anything else by the same constant, an opaque one",
+  "                    including its value.",
   "                    `sorry` is permitted in a challenge and nowhere",
   "                    else.  The holes and their solutions are listed.",
   "  --search-path=DIR[:DIR...]",
@@ -496,8 +500,16 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
           --search-path=DIR[:DIR…]"
         IO.eprintln usage
         return 3
+      -- module names as Lean spells them, `«»` escapes included
+      -- (`Challenge.«12.34».«5»`)
+      let bad := (a.files ++ a.compares.flatMap fun (c, s) => #[c, s]).filter
+        (ConLeche.Frontend.Olean.parseModName · |>.isNone)
+      if let some m := bad[0]? then
+        IO.eprintln s!"con-leche: not a module name: {m}"
+        IO.eprintln usage
+        return 3
       let modName (m : String) : ConLeche.Name :=
-        (m.splitOn ".").foldl ConLeche.Name.str ConLeche.Name.anonymous
+        (ConLeche.Frontend.Olean.parseModName m).getD .anonymous
       let roots := a.files.map modName
       if a.modular then
         return ← ConLeche.Driver.Modular.checkModular a.searchPath roots a.mode a.progress jobs

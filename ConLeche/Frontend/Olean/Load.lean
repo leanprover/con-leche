@@ -65,6 +65,37 @@ def modFile (dir : System.FilePath) (m : Name) (ext : String) : System.FilePath 
     | .num p n => comps p ++ [toString n]
   (comps m).foldl (· / ·) dir |>.addExtension ext
 
+/-- Where `parseModName`'s scan is. -/
+inductive ModNameScan where
+  | start | plain | esc | closed
+
+/-- **A module name as the command line spells it** (task #384): its
+components separated by dots, a component in `«»` taken literally, dots
+included (Lean's own spelling of a name, `String.toName`: Lake's module
+`Challenge.«12.34».«5»` is stored as `Challenge/12.34/5.olean`).  `none`
+for an empty component or an escape without its `»`.  Unlike
+`String.toName`, an unescaped component is never read as a number: a
+module name has string components only. -/
+def parseModName (s : String) : Option Name :=
+  go s.toList .anonymous .start ""
+where
+  /-- The scan, one character at a time: `st` says where it is (at a
+  component's start, in a plain or an escaped component, just after an
+  escape's `»`), `cur` holds the component read so far. -/
+  go : List Char → Name → ModNameScan → String → Option Name
+    | [], n, .plain, cur => some (n.str cur)
+    | [], n, .closed, _ => some n
+    | [], _, _, _ => none
+    | c :: cs, n, .start, _ =>
+      if c == '«' then go cs n .esc ""
+      else if c == '.' then none
+      else go cs n .plain (String.singleton c)
+    | c :: cs, n, .plain, cur =>
+      if c == '.' then go cs (n.str cur) .start "" else go cs n .plain (cur.push c)
+    | c :: cs, n, .esc, cur =>
+      if c == '»' then go cs (n.str cur) .closed "" else go cs n .esc (cur.push c)
+    | c :: cs, n, .closed, _ => if c == '.' then go cs n .start "" else none
+
 /-- The first search-path directory holding the module's `.olean`. -/
 def findModule (sp : SearchPath) (m : Name) : IO (Option System.FilePath) := do
   for d in sp do
