@@ -253,7 +253,9 @@ variable (V μ) in
   proofVal := dfltLeaf
   Assembled C _ E := AssembledC C E
   assembled_src h := h.src
-  amalgamate h m hc := amalgamateC h m hc
+  amalgamate h m hc := by
+    obtain ⟨mC, hmC⟩ := amalgamateC h m fun n i i' => hc i i' n
+    exact ⟨mC, fun i n hn _ hs => hmC n i hn hs⟩
   Decls := List Declaration × (Name → Bool)
   Flagged D n := D.2 n = true
   Accepts Γ D Γ' := AcceptsC μ pins Γ.1 D Γ'.1

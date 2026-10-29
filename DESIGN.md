@@ -109369,3 +109369,45 @@ rewritten (the #388 rewrite follows).  §8 "Modular checking" no longer
 says keys.
 
 **Gates.**  See the landing commit.
+
+## TASK #389 — compatibility through a binary agreement predicate (2026-10-29, agent/389-agree)
+
+Maintainer request: factor "compatible for `C`" through agreement of
+two models relative to the target environment.  Same logical content,
+no strengthening to agreement on all shared names.
+
+**Lean** (`whitepaper/Fragment/ModularSemantics.lean`, mirrored in
+`ConLeche/Modular/Generic.lean`, still identical apart from
+namespace/docstring/deriving).  New top-level
+`ModelsAgree Stores val C m m'` for `m : Mod E`, `m' : Mod E'`:
+`∀ n, Stores C n → Stores E n → Stores E' n → val m n = val m' n`
+(the name `AgreeOn` is taken by `Fragment.Read`).  It is defined
+before `ModularSemantics`, parametric in `Stores` and `val`, so the
+field can use it.  `amalgamate` now reads
+`(∀ i i', ModelsAgree Stores @val C (m i) (m i')) →
+∃ mC, ∀ i, ModelsAgree Stores @val C mC (m i)` (the conclusion's
+extra `Stores C n` premise is redundant with `n ∈ C`, so the content
+is unchanged; `@val` because Lean otherwise infers `Mod` as a constant
+family).  `restrict` and `modular`'s `hcomp` adjusted; the three
+instances (`ModularInstance`, `ModularSyntactic`, con-leche's
+`Model/Modular/Instance`) keep their amalgamation lemmas and adapt in
+the field (argument order).  `Development.Compatible` unchanged: its
+clause is agreement on interchangeable occurrences, not on an
+environment, and phrasing it through `ModelsAgree` would not read
+better.  Capstones and `Challenge.lean` unchanged.
+
+**§7.**  `m ≍_C m'` (`agr` macro, `scripts(asymp)`) defined after
+`Mod`/`Val`; "compatible for `C`" is one sentence (`m_x ≍_C m_y` for
+all `x, y`); the amalgamation law reads
+`Asm(C,(E_x)) ∧ (∀ x,y. m_x ≍_C m_y) ⇒ ∃ m_C ∈ Mod(C). ∀ x. m_C ≍_C m_x`.
+Coordinator's follow-up rule applied through the section: every
+variable is introduced with its range at first use (`m ∈ Mod(E)`,
+`c ∈ E`, `π ∈ Val`, `i, j, h, k ∈ ℕ`, `Γ, Γ', D`, `S`, `u`, `r_B`,
+`I_B`, …); the example's module `m` became `l` (it clashed with
+models).  Anchors shifted (+8 in the semantics file, +2 in the
+instances), links regenerated.
+
+Gates: `lake build`, `lake test` warning-free; fragment gate, links
+gate, `tests/overview-links.sh`, `tests/quote-gate.sh`,
+`tests/challenge.sh` green; whitepaper builds without warnings.  No
+runtime file changed (no `tests/olean.sh`).

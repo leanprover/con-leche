@@ -33,10 +33,10 @@ relation).
 2. **assembly** (`Assembled C E`): an environment `C` is made of
    constants of a family `E` of environments, every constant of `C`
    coming from a member that stores it (`assembled_src`);
-3. **amalgamation** (`amalgamate`): models of the family that agree on
-   every name of `C` that two members store (a family **compatible**
-   for `C`) give one model of `C`, agreeing with every member that
-   stores the name;
+3. **amalgamation** (`amalgamate`): models of the family that pairwise
+   **agree on `C`** (`ModelsAgree`: equal values at every name of `C` both
+   members store) give one model of `C` that agrees on `C` with every
+   member;
 4. **the conservative step** (`step`): if the checker accepts
    declarations `D` over `Γ`, giving `Γ'`, every model of `Γ` extends
    to one of `Γ'` with the same values on `Γ`, and every declaration
@@ -91,6 +91,14 @@ inductive Key (Stmt : Type v) where
   | home (module : Nat)
   | proof (stmt : Stmt)
 
+/-- **Agreement on `C`** (`m ≍_C m'` in the paper): models `m` of `E`
+and `m'` of `E'` give the same value to every name of `C` that `E` and
+`E'` both store. -/
+def ModelsAgree {Env Name : Type u} {Mod : Env → Type w} {Val : Type w}
+    (Stores : Env → Name → Prop) (val : ∀ {E : Env}, Mod E → Name → Val)
+    (C : Env) {E E' : Env} (m : Mod E) (m' : Mod E') : Prop :=
+  ∀ n, Stores C n → Stores E n → Stores E' n → val m n = val m' n
+
 /-- **What a consistency proof provides for modular checking** (see the
 module docstring). -/
 structure ModularSemantics where
@@ -114,11 +122,11 @@ structure ModularSemantics where
   that stores it -/
   assembled_src : ∀ {C : Env} {ι : Type u} {E : ι → Env},
     Assembled C E → ∀ n, Stores C n → ∃ i, Stores (E i) n
-  /-- **amalgamation** of a family compatible for `C` -/
+  /-- **amalgamation** of a family that pairwise agrees on `C` -/
   amalgamate : ∀ {C : Env} {ι : Type u} {E : ι → Env},
     Assembled C E → ∀ m : (i : ι) → Mod (E i),
-    (∀ n i i', Stores C n → Stores (E i) n → Stores (E i') n → val (m i) n = val (m i') n) →
-    ∃ mC : Mod C, ∀ n i, Stores C n → Stores (E i) n → val mC n = val (m i) n
+    (∀ i i', ModelsAgree Stores @val C (m i) (m i')) →
+    ∃ mC : Mod C, ∀ i, ModelsAgree Stores @val C mC (m i)
   /-- declarations -/
   Decls : Type u
   /-- the names declarations flag as proofs -/
@@ -149,7 +157,7 @@ theorem Refines.stores {Γ E : S.Env} (h : S.Refines Γ E) {n : S.Name} (hn : S.
 theorem restrict {Γ E : S.Env} (h : S.Refines Γ E) (m : S.Mod E) :
     ∃ m' : S.Mod Γ, ∀ n, S.Stores Γ n → S.val m' n = S.val m n := by
   obtain ⟨m', hm'⟩ := S.amalgamate h (fun _ => m) fun _ _ _ _ _ _ => rfl
-  exact ⟨m', fun n hn => hm' n ⟨⟩ hn (h.stores hn)⟩
+  exact ⟨m', fun n hn => hm' ⟨⟩ n hn hn (h.stores hn)⟩
 
 end ModularSemantics
 
@@ -313,10 +321,10 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
       obtain ⟨mv, hmv⟩ := ModularSemantics.restrict hr (m x.1.1 (hlt x))
       exact ⟨mv, fun n hn => ⟨hr.stores hn, hmv n hn⟩⟩
     obtain ⟨fam, hfam⟩ := Classical.axiomOfChoice hview
-    -- with one copy of each name, they are compatible for `C`, so they amalgamate
-    have hcomp : ∀ (C : S.Env), dev.OneCopy k C → ∀ n (x x' : dev.Src k), S.Stores C n →
-        S.Stores x.1.2 n → S.Stores x'.1.2 n → S.val (fam x) n = S.val (fam x') n := by
-      intro C h1 n x x' hn hs hs'
+    -- with one copy of each name, they agree on `C`, so they amalgamate
+    have hcomp : ∀ (C : S.Env), dev.OneCopy k C → ∀ x x' : dev.Src k,
+        ModelsAgree S.Stores @S.val C (fam x) (fam x') := by
+      intro C h1 x x' n hn hs hs'
       obtain ⟨ho, he⟩ := hfam x n hs
       obtain ⟨ho', he'⟩ := hfam x' n hs'
       rw [he, he']
@@ -328,20 +336,20 @@ theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
           S.val mk n = S.val (fam x) n) ∨
         (dev.key k n = .home k ∨ (∃ s, dev.key k n = .proof s) ∧ S.val mk n = S.proofVal) := by
       rcases hk.checked_or_compared with ⟨hA, h1, hacc, hnew⟩ | ⟨hA, h1⟩
-      · obtain ⟨mC, hmC⟩ := S.amalgamate hA fam fun n x x' hn => hcomp _ h1 n x x' hn
+      · obtain ⟨mC, hmC⟩ := S.amalgamate hA fam (hcomp _ h1)
         obtain ⟨mk, hag, hfl⟩ := S.step hacc mC
         refine ⟨mk, fun n hn => ?_⟩
         by_cases hC : S.Stores (dev.ctx k) n
         · obtain ⟨x, hs⟩ := S.assembled_src hA n hC
           exact .inl ⟨x, interchangeable_iff.mp (h1 n hC x.1 x.2 hs), hs,
-            (hag n hC).trans (hmC n x hC hs)⟩
+            (hag n hC).trans (hmC x n hC hC hs)⟩
         · rcases hnew n hn hC with h | ⟨hs, hf⟩
           · exact .inr (.inl h)
           · exact .inr (.inr ⟨hs, hfl n hf⟩)
-      · obtain ⟨mk, hmk⟩ := S.amalgamate hA fam fun n x x' hn => hcomp _ h1 n x x' hn
+      · obtain ⟨mk, hmk⟩ := S.amalgamate hA fam (hcomp _ h1)
         refine ⟨mk, fun n hn => ?_⟩
         obtain ⟨x, hs⟩ := S.assembled_src hA n hn
-        exact .inl ⟨x, interchangeable_iff.mp (h1 n hn x.1 x.2 hs), hs, hmk n x hn hs⟩
+        exact .inl ⟨x, interchangeable_iff.mp (h1 n hn x.1 x.2 hs), hs, hmk x n hn hn hs⟩
     have hhome := home_le (dev := dev)
     -- the new module against an earlier one
     have hnew : ∀ i' (hi' : i' < k) n, S.Stores (dev.own k) n → S.Stores (dev.own i') n →

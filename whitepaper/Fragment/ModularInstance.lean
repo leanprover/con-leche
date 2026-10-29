@@ -73,7 +73,9 @@ variable (V) in
     obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
     obtain ⟨i, ci', hf', -⟩ := h.le n ci hci
     exact ⟨i, by rw [hf']; rfl⟩
-  amalgamate h m hc := h.model m hc
+  amalgamate h m hc := by
+    obtain ⟨mC, hmC⟩ := h.model m fun n i i' => hc i i' n
+    exact ⟨mC, fun i n hn _ hs => hmC n i hn hs⟩
   Decls := List Decl × (Name → Bool)
   Flagged := Flagged
   Accepts := FAccepts
