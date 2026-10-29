@@ -351,7 +351,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
     fun ψ => EnvModel.acval_pinned mp.base2 hN (by decide) rfl
   have hZl0 : ∀ ψ : Name → Nat, mp.base2.acval natZeroName ψ = Term.const .natZero [] :=
     fun ψ => EnvModel.acval_pinned mp.base2 hZ (by decide) rfl
-  refine coverTo_addLfp (D := natLfp natName natZeroName natSuccName)
+  refine coverTo_addLfp (D := natLfp natName natZeroName natSuccName) (hag := fun _ h => Agrees.cons hfresh h)
     (hL := natLfp_clause
       (fun ψ ρ => by rw [acvalWith_ne (by decide), hNl0]; rfl)
       (fun ψ ρ => by rw [acvalWith_ne (by decide), hZl0]; simp [interp_const, bval, natzero])
@@ -415,7 +415,7 @@ theorem extendNatSucc (mp : EnvModelM V μ env)
           ConLeche.Env.find?_cons_self, Option.bind_some,
           ctorEntry_self (c₀ := natSuccA) (T := natName) rfl rfl rfl,
           ctorEntry_self (c₀ := natZeroA) (T := natName) rfl rfl rfl]
-        rfl)
+        rfl) rfl
       ⟨0, [(natZeroA.toConstantVal, 0), (natSuccA.toConstantVal, 1)], rfl, rfl, fun j hj => by
         rcases (show j = 0 ∨ j = 1 by simp at hj; omega) with rfl | rfl
         · show (⟨natSuccA :: env.consts, env.tables⟩ : ConLeche.Env).find? natZeroName = _

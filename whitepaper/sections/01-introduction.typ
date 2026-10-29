@@ -11,7 +11,7 @@ stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every environment the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 96, 99)[has a model in set theory].
+#src("ConLeche/MainTheorem.lean", 99, 102)[has a model in set theory].
 #src("ConLeche/Denotes.lean", 248, 268)[Each constant is assigned a set], each type denotes a set, and every stored
 constant is a member of the set its type denotes. The constant `False`
 denotes the empty set, and `Eq` denotes set equality, so every
@@ -101,8 +101,8 @@ no number or string literals, no mutual inductive types, nesting only
 one container deep and not under a binder (@sec:nested describes the
 full check, without proof), no quotients, no axioms, no built-in
 copies of `False`, `Eq`, `Nat` and their kin (the real checker pins
-these rather than reading them from the stream), no distinction
-between a theorem and a definition, and none of the checker's
+these rather than reading them from the stream), no opaques, and
+none of the checker's
 performance devices (memo tables, fuel, the parallel check phase).
 @sec:left-out lists every omission with one sentence on what the real
 proof does about it. The fragment is verified in Lean in a small
@@ -111,7 +111,7 @@ from the main proof and is parametric in the same kind of abstract set
 theory. The underlined source links lead into the real proof and into
 that development.
 
-The rest is in seven parts. §2 presents the fragment without an
+The rest is in eight parts. §2 presents the fragment without an
 environment: terms and universe levels, the three relations, the
 abstract set theory, the interpretation, the semantic invariant, and
 the three claims with their proof. The routine cases of the proof are
@@ -132,6 +132,12 @@ mention the type being defined inside another one, as in
 the model extends to them. §6 shows that two features of Lean's
 definitional equality that the fragment drops, η for structures and
 unit-likeness, follow from the extensionality of the model, with one
-proof case each. §7 lists what was left out, and how the real proof
+proof case each. §7 checks a development module by module, each
+module against an environment built from what its imports present,
+and shows that every module's environment has a model, the models of
+different modules agreeing on the constants they share. A module may
+also be validated by comparison with another, as a challenge is with
+its solution. §8 lists what
+was left out, and how the real proof
 differs from the fragment where they share a feature. @sec:related
 relates the argument to earlier work.

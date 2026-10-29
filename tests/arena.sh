@@ -208,6 +208,13 @@ if tests/no-local-paths.sh; then :; else fail=1; fi
 # between the challenge and the solution module.  Seconds on a built tree.
 if tests/challenge.sh; then :; else fail=1; fi
 
+# THE OLEAN GATE (task #369).  `--olean` on the committed .olean fixtures
+# of tests/olean/lib (a module-system module, a classic one, an import,
+# two conflicting modules) and on corrupted copies made at run time: a
+# truncated file, another toolchain, another format, a pointer outside
+# the files, a field not below its object, a wrong tag.  Seconds.
+if tests/olean.sh; then :; else fail=1; fi
+
 # THE IMPORT GATE (task #235).  Two questions no other gate asks and the
 # compiler answers for neither: is an import LINE needed at all (`lake shake`,
 # read against task #223's criterion and an allowlist of the proposals that

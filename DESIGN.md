@@ -197,7 +197,11 @@ route takes declines (exit 2) naming its class.
   major; outside classes SEED the positivity check), the minor premises
   and rules are built from the positivity check's recorded normal
   forms, each generated type must be `isDefEq` to the stream's, and the
-  GENERATED family is installed — the stream's rules are never read.
+  GENERATED family is installed.  The stream's rules are not
+  installed; after the install each must agree with the generated one
+  up to definitional equality (`recRulesAgree`,
+  `ConLeche/Driver/RecRules.lean`, task #386: a guard that only
+  rejects, outside the theorem).
   There is no conformance check (`ConLeche/Conformance/` and charter
   item 6 retired at GENREC M3).  The model: the least fixed TUPLE of
   the block's operator, closed by accessibility (`closed_of_acc`,
@@ -107165,3 +107169,2255 @@ universe-valued type arguments, quotients, polymorphic `F`.  Not wired:
 the install gate's capability bit and invariant and the bridge case for
 the hook (estimated 0.7–1.2 k lines; no model work).  Reports:
 `_tmp/spike-boost*-report.md` (not committed).
+
+## TASK #369 — reading `.olean` files: the import closure as one record stream (2026-10-27, agent/369-olean)
+
+**Request (maintainer, 2026-10-27).** Checking very large developments
+should not have to go through a lean4export JSON file: read the `.olean`
+files directly — not by mapping and trusting them, but by parsing every
+object — and, as a second task, make the checking module-aware (each
+module checked against its imports' exported interfaces, the module
+system's exported axioms accepted, with global bookkeeping that every
+such axiom is realised).  This task is the first half: the olean parser,
+with the closure merged into one environment before checking, as
+lean4export does.  The modular checking is the next task.
+
+**Rulings.**
+* The olean reader is trusted base for now — no file-level corollary
+  like `jsonWithTheoremFalse` — but the proof must still cover the
+  runs: whatever the files contain, the environment accepted has a
+  model.  (It does: the reader produces an `Array Declaration`, which
+  goes through `preparePrelude` and `checkDecls` like the stream
+  parse's, and `model_exists` is stated for every record array.)
+* Read the files (`IO.FS.readBinFile`), no mmap, no new `unsafe`.
+* The checker's own toolchain only (v4.35.0); other toolchains decline.
+* A run takes root modules and checks their whole import closure,
+  `Init`/`Std`/`Lean` included.
+* Same records as the stream parser: a different parser, the rest of
+  the pipeline unchanged.
+
+**The format** (v4.35.0; `src/runtime/compact.cpp`,
+`src/library/module.cpp`).  A compacted region: an 88-byte header
+(`olean`, format version 2, flags bit 0 = GMP bignums, the version
+string, the githash, the base address), the root pointer, then the
+runtime objects with absolute pointers.  A module of the module system
+has three files written by one compactor in sequence (`.olean` exported,
+`.olean.server`, `.olean.private`), one address space with increasing
+base addresses; the private part points into the exported part.  The
+compactor writes children before parents, so every pointer points
+strictly below its object — checked for every constructor object
+(`Region.obj`), which makes every walk terminate and the bottom-up
+decode possible.  The exported level stores theorems and non-exposed
+definitions as `axiomInfo` (`Lean/AddDecl.lean`); this task reads the
+PRIVATE level, as `importModules` (and so lean4export) does.
+
+**The reader** (`ConLeche/Frontend/Olean/`).
+* `Region.lean`: the header validated (a wrong marker or a truncated
+  file is malformed input, exit 3; another format version, bignum
+  encoding or toolchain a decline, exit 2); objects located and
+  validated once (inside a file, past the header, aligned, room for the
+  fields, every field a scalar or below the object), after which field
+  reads are total and allocate nothing; `Nat` (scalar or GMP
+  `mpz_object`, the limb pointer required to point at the limbs right
+  after the object), `String` (NUL-terminated, valid UTF-8), `Array`,
+  `List`.
+* `Decode.lean`: `Name`, `Level` (recursive, depth-bounded at 10000,
+  memoized, hash-consed across the run), `Expr` (an iterative bottom-up
+  walk, memoized per module; metadata transparent; binder names and
+  infos, `nonDep` dropped, as lean4export drops them; `fvar`/`mvar` an
+  error), `ConstantInfo` and `ModuleData`, by their runtime layouts
+  (constructor tags, pointer fields, then the scalar area; the computed
+  hash/data words of `Name`/`Level`/`Expr` skipped, never trusted).
+* `Load.lean`: the closure discovered from the exported files' import
+  lists (Lean's module order, a depth-first post-order); the modules
+  decoded on `min jobs modules` workers, each decoding a round-robin
+  share serially with its own hash-cons tables, each constant's
+  dependencies (`constsOf`, lean4export's `getUsedConstants` plus the
+  literal dependencies `Nat`, `Char.ofNat`, `String.ofList`) computed
+  there; merged by `finalizeImport`'s `subsumesInfo` rule (a name two
+  modules store differently is `.invalid`, exit 1 — Lean's own import
+  refuses the pair); emitted by lean4export's `dumpConstant` walk
+  (iterative: non-internal roots, dependencies first, an inductive block
+  as one record with its constructors and the recursors whose `all`
+  names the visited type, the quotient package after `Eq`, unsafe and
+  partial constants left out); built into `Declaration`s by the stream
+  reader's own `declOfF`, so the inductive-record validation and every
+  decline are the stream path's.
+* CLI: `con-leche [flags] --olean --search-path=DIR[:DIR…] MODULE…`
+  (`Main.lean`; the binary still reads no environment variable), the
+  driver's `Input` (`ConLeche/Driver/Run.lean`).
+
+**Validation against lean4export.**  `lake exe olean-compare EXPORT
+SEARCHPATH MODULE…` (classic file `OleanCompare.lean`, not a default
+target; a `module` root would collide with `Main`'s `main` in
+`tests/shake.sh`'s `lake shake`) parses both and compares the records
+as maps from a record's first name, the recursors inside a block sorted
+(lean4export takes their order from a `NameSet`).  Fresh v4.35.0
+exports: **`Init` 57 919, `Std` 96 919, `Lean` 164 016 records, 0
+differences each.**  Mathlib is not compared: the reference checkout
+(`_tmp/ref/mathlib4`) is built with v4.33.0, which the reader declines.
+
+**Numbers** (`instructions:u`, one run each; verdicts identical,
+every run accepts):
+
+| closure | jobs | olean | ndjson | peak RSS olean / ndjson |
+|---|---|---|---|---|
+| Init | 1 | 410.4 G | 371.5 G | 0.33 / 0.30 GiB |
+| Init | 96 | 424.4 G | 386.7 G | 1.43 / 0.93 GiB |
+| Std | 1 | 608.2 G | 544.6 G | 0.48 / 0.46 GiB |
+| Std | 96 | 631.3 G | 571.0 G | 1.78 / 1.17 GiB |
+| Lean | 1 | 748.9 G | 649.9 G | 0.69 / 0.55 GiB |
+| Lean | 96 | 784.5 G | 687.7 G | 2.26 / 1.49 GiB |
+
+The difference is the parse: on `Init` the olean read alone is 47.9 G
+against the stream parse's 14.1 G, the check phases are within a few G
+of each other.  Wall time of the parse phase at 96 workers: `Lean` 1.7 s
+(ndjson 0.3 s), `Init` 0.5 s (0.1 s).  The stream parse is cheaper
+because lean4export already did the sharing and ordering work, in a run
+of its own that this comparison does not count.
+
+**Performance decisions, measured.**
+* Every record update takes its table out of the record first
+  (`DS.putName` …, `Emit.name` …): `{ st with f := st.f.insert … }`
+  copied the whole table at every insert (`Init.Prelude`'s parse
+  19.7 s → under 0.1 s; `Init` 36.5 s → 14.6 s).
+* Dense per-module memos indexed by word offset (`Region.slot`)
+  instead of hash maps keyed by addresses (8-aligned keys cluster in
+  Std's buckets).
+* Validate once, read without `Except`: 79 G → 52 G on `Init`'s read;
+  one bounds check per 64-bit read and the private part searched first:
+  → 48 G.
+* No cross-module hash-consing of expressions: a run-wide table cost
+  twice the peak memory on `Init` (0.63 → 0.32 GiB at one worker) and
+  bought about 1 % of the check; names and levels stay hash-consed.
+* Parallel decode on bounded workers: `Lean`'s load 5.4 s → 0.7 s at 32
+  workers; spawning one task per module instead gave 3.8 s and 8 GB.
+  Dependencies computed in the workers: emission 2.6 s → 0.3–0.5 s.
+
+**Gates.**  `tests/olean.sh` (in `tests/arena.sh`): 24 cases on
+committed fixtures `tests/olean/lib` (a module-system module, a classic
+one, an import, two roots, a two-directory search path, two conflicting
+modules → 1; usage errors → 3) and corrupted copies made at run time
+(truncation, another githash / format / bignum encoding → 2, parts out
+of order, a root pointer outside the files or misaligned, a field at or
+above its object, a wrong constructor tag or field count, a
+`ConstantInfo` of no kind, unterminated strings → 3).  The fixtures are
+built by `tests/olean/build.sh` with the toolchain's `lean` and must be
+regenerated on a toolchain bump, like the pins.  `tests/shake.sh`:
+`OleanCompare.lean` is a classic file (`scripts/pub-import-plan.py`'s
+`CLASSIC`).
+
+**Open.**
+* Modular checking (the next task): per-module checks against the
+  imports' exported levels, the module system's `axiomInfo`s accepted
+  and realised, independent modules in parallel.
+* A Mathlib-scale run needs a v4.35.0 Mathlib build.
+* The olean parse is 3.4× the stream parse in instructions on `Init`;
+  what is left is allocation (one `Obj` per object visit, the `Except`
+  results of the decoder monad) and the per-declaration dependency walk.
+
+## TASK #370 — modular checking: the proof idea section (2026-10-27, agent/370-paper)
+
+The maintainer asked for a section of the proof-idea document
+(`whitepaper/`) on how modular checking works, as part of the olean
+campaign (#369 reads `.olean` files; #370 is checking module by module
+against the imports' exported views).  The section is
+`whitepaper/sections/06b-modular.typ` ("Checking module by module",
+§7; "What we left out" becomes §8), backed by the fragment, per the
+whitepaper's rule that no pen-and-paper claim goes without it.
+
+**The fragment** (`whitepaper/Fragment/Modular.lean`, ~590 lines, no
+sorry, axioms pinned in `Axioms.lean`):
+
+* `ConstKind.assumed` — a constant with a type and no value; the
+  rules read it through its type only (rule const), δ never fires on
+  it.  No existing proof needed a change.
+* `Env.hide` — the exported view (definitions as assumptions);
+  `Env.Le` — `I ≼ U`, an interface: every constant `I` stores is stored
+  in `U` with the same level parameters and type, with the same kind
+  unless it is an assumption in `I`.  `Le.hide`, `Le.trans`, `Le.add`,
+  `Le.prepend`.
+* **Monotonicity** — `Red.mono`, `DefEq.mono`, `DefEqLams.mono`,
+  `DefEqIn.mono`, `Infer.mono` (one mutual structural recursion over
+  all 43 rule constructors; every case rebuilds the same rule, a lookup
+  of a constant whose kind or value the rule reads transfers unchanged,
+  one whose type only it reads transfers at some kind);
+  `DefOk.mono`, `IndSpec.IndOk.mono` (plain and nested),
+  `Decl.Ok.mono`, `Checks.mono` — at names fresh in the larger
+  environment (freshness is the one check that reads an absence).
+* **The union** — `Modular` (the empty environment; a module checked
+  against an interface of the union before it, its names fresh there)
+  and `Modular.accepted : Modular U → Accepted U`, hence
+  `modular_model` and `modular_no_empty_prop_inhabitant` by
+  `accepted_model`.  No new model theory: monotonicity turns each
+  module's check into one against the union before it.
+
+**What the fragment does not cover**, listed in §8: two modules storing
+the same name (Lean's subsumption merge); the fragment's union stores
+each name once.  The con-leche implementation of modular checking is
+described as planned, in a `#real` block, with its target statement
+(all modules accepted against their interfaces ⇒ the union of the
+private views has a model).  NOTES.md records that con-leche's
+modular capstone could take the fragment's route: a weakening lemma for
+the rules tier plus the existing fold theorem.
+
+Gates: `whitepaper/fragment-gate.sh` OK (warning-free, axioms pinned),
+`whitepaper/links-gate.sh` OK (482 links; the shifted `Env.lean`
+citations repointed, snapshot updated), `whitepaper/build.sh` OK (PDF and
+HTML, synced to `_out/whitepaper/`).
+
+### #370 follow-up: names stored by several modules, and the local checks (2026-10-27, agent/370-dup)
+
+Maintainer requests: model the same name in several modules, with an
+algorithm whose checks are local (no global name table); the theory
+abstract (refinement, joins, compatibility), Lean's module system only
+mapped onto it.  §7 of the whitepaper is rewritten accordingly; the
+fragment (`whitepaper/Fragment/Modular.lean`, `InstallThm.lean`, ~1300
+lines, standard axioms only) backs it.
+
+**Abstract notions.**  *Assumption*: a constant with a type and no
+value.  *Theorem*: checked as a definition with its statement a
+proposition (`ThmOk`), stored as its statement — an assumption — so two
+proofs of one statement store the same entry (`Accepted.thm`,
+`install_thm` = install the proof as a definition, then hide the value;
+`BlockModel.hide`: hiding values keeps a model at the same assignment).
+*Refinement* `E₁ ≼ E₂` (`Env.Le`): constants left out or turned into
+assumptions of the same level parameters and type; pointwise.
+*Compatibility* of declaration lists (`Compatible`): two declarations
+storing a common name store the same entries.  *Join* (`join`): the
+first list, then the second's declarations that store no name the first
+stores.
+
+**Monotonicity** (`Red/DefEq/DefEqLams/DefEqIn/Infer.mono`, `DefOk`,
+`ThmOk`, `IndOk.mono`, `Decl.Ok.mono`, `Checks.mono`): against a
+refinement nothing more is accepted; no hypothesis on the smaller
+environment.  The only check reading an absence is freshness (a
+hypothesis).  Positivity and the universe conditions are syntactic in
+the fragment and monotone; **an implementation reading them through
+whnf must keep them monotone: no admission check may pass on a term
+stuck on a hidden value that its unfolding would fail.**
+
+**The algorithm (per module M; reads M and its direct imports only).**
+Data per module: its declarations `decls_M` (private level, theorems as
+statements), its base `B_M` (the environment its declarations are
+checked against), its own environment `own_M = B_M + decls_M`, and its
+summary `S_M` (a declaration list).
+1. *Type check*: `decls_M` checked in order against `B_M` (`Checks`).
+   Reads nothing of other modules' results — all modules in parallel.
+2. *Base refinement*: every constant of `B_M` refines a constant of
+   `own_B` for some direct import `B` (same entry, or `B_M`'s is an
+   assumption with the same level parameters and type).  Lean's base
+   satisfies it when each module's exported view refines its own
+   environment — checked once per module at the producer; the consumer
+   then only identifies each base constant with its source.
+3. *Compatibility*: `decls_M` and the summaries `S_B` of the direct
+   imports, pairwise compatible (names stored in two of them: identical
+   entries).
+4. *Summary*: `S_M = join(join(… join([], S_B₁) …, S_Bₖ), decls_M)`.
+   Checks 2–4 follow the import graph but type-check nothing; the
+   summary can be a persistent name → (entry or entry hash) map shared
+   along the edges.
+
+**Theorem** (`local_checks`, `local_accepted`, `local_model`,
+`local_no_empty_prop_inhabitant`): if every module passes 1–4, every
+module's summary is a checked list from the empty environment, its world
+`applyAll S_M ∅` is accepted declaration by declaration and has a
+model, `own_M ≼ world_M`, and no closed term of `own_M` inhabits an
+empty proposition.  Per module by necessity: modules never in one
+summary may store a name differently, and nothing compares them.
+Proof: induction along the import graph; `Checks.joined` (a list
+checked against an environment refining a compatible checked list joins
+onto it) and `Checks.le_of_stores`.
+
+**Lean, and how the checks compare.**  Lean's `finalizeImport`
+(Lean/Environment.lean ~2309) merges, for the module being elaborated,
+the constants of the modules it LOADS: each direct import at its
+exported level (private under `import all`), plus the modules reached
+through `public import` (and, under `import all B`, all of B's
+imports), each at one level (the max over paths); duplicates pass
+`subsumesInfo` (thm/thm with equal type, level params and `all`; a
+theorem over its exported axiom; axiom/axiom only of a proposition) or
+the import fails.  Private names are `_private.<Module>.0.…`, so they
+never collide across modules.  Mapping: exported view ≼ own
+environment; Lean's elaboration environment = the base; theorem =
+assumption-entry; `subsumesInfo` = compatibility (thm/thm) plus
+refinement (theorem over its exported view).  Stricter than Lean:
+compatibility covers whole summaries, including internals behind
+non-re-exported imports that Lean never loads (a hidden clash is
+rejected as soon as one module rests on both sides), and two
+definitions of one proposition with different values (Lean's
+axiom/axiom case on exported views).  Looser: identical non-theorem
+declarations in two modules are compatible (Lean refuses them when it
+loads both) — harmless, identical entries.  Not covered: accepting
+hidden clashes (would need renaming the hidden names).  To measure in
+the implementation lane: how often compatibility rejects real
+developments (Mathlib) that Lean accepts.
+
+Gates: fragment gate OK, links gate OK (491 links), whitepaper build OK.
+
+## TASK #369 (cont.) — the olean reader on Mathlib (2026-10-27, agent/369-mathlib)
+
+**Run.** Mathlib tag `v4.35.0` (commit `56a005855ea1`, "chore: bump
+toolchain to v4.35.0 (#44806)"), oleans from `lake exe cache get`, every
+header's githash `eb6cafb7290e`.  Search path: the toolchain's
+`lib/lean`, Mathlib's and each of the eight packages' `.lake/build/lib/lean`;
+10 976 modules in the closure.  lean4export v4.35.0 of `Mathlib`: 6.26 GB,
+110.9 M lines.  `--jobs=32 --progress`, one run each, verified mode:
+
+| input | verdict | instructions:u | parse-only instructions:u | phases (parse / install / check) | peak RSS |
+|---|---|---|---|---|---|
+| `--olean` | accepted 712 205 | 7 979.7 G | 984.8 G (32 workers), 962.8 G (1) | 24.8 / 11.3 / 55.2 s | 6.30 GiB |
+| ndjson | accepted 712 205 | 7 231.5 G | 244.6 G (serial stream parse) | 6.1 / 5.4 / 42.2 s | 5.48 GiB |
+
+Parse-only is `olean-compare --time` / `--time-stream`.  Total minus
+parse: 6 995 G against 6 987 G, so install and check do the same work;
+the whole difference is the parse (4× the stream parse, as on `Init`'s
+3.4×).  The olean run's install marks its records persistent in 4.4 s
+(ndjson 7 ms): the per-module expression DAGs are not shared across
+modules, so there are more objects to mark.
+
+**`olean-compare` on Mathlib: 712 205 records each side, 0 differences**
+(1 391 G instructions, 8.9 GiB peak).  The first attempt did not finish:
+`Declaration`'s derived `DecidableEq` compares `Expr`s by the derived tree
+walk, exponential in the sharing of Mathlib's proof terms (more than 20
+minutes in `instDecidableEqExpr`).  The tool now compares records field
+by field with `Expr.beq` (pointer-equality first, memoized on pointer
+pairs), `declEq` in `OleanCompare.lean`; `#guard`s there pin it on
+2^200-node DAGs that are equal without being pointer-equal and on a
+difference behind such a DAG, at build time of the tool.
+
+## TASK #370 (measurement) — compatibility and summary sizes on Mathlib (2026-10-27, agent/370-measure)
+
+**Tool.** `lake exe olean-modular JOBS SEARCHPATH MODULE...`
+(`OleanModular.lean`, a development tool like `olean-compare`, not a
+default target).  It loads the closure at the private level with the
+reader's decoder (`constAt` got an optional `skipThm`: a theorem's proof
+is not decoded, the fragment stores a theorem as its statement), the
+exported part (`.olean`) alone as a second pass, and reports the three
+items below.  Fragment equality of two stored entries (`fragEq`): same
+name, level parameters, type, and the same value for definitions and
+opaque constants; theorem and axiom are both "assumption", equal when
+the statements are; inductive, constructor and recursor entries field by
+field.  Lean's acceptance: the reader's own `mergeEntry`/`subsumes`
+(`subsumesInfo`) folded over a name's entries at the exported level.  The
+local check of M is simulated exactly: the summary entry of a name is the
+first one among the imports' summaries in import order, then M's own
+(the `join`), and M fails when the own entry and the direct imports'
+summary entries for a name are not all equal.  Self-test
+(`OLEAN_MODULAR_SELFTEST=1` perturbs one duplicated name): the four
+modules resting on both copies are reported, the clash is classified.
+
+**Runs** (tag `v4.35.0` oleans, 8 workers, `perf stat -e instructions:u`
+including the loads, peak RSS):
+
+| closure | modules | constants | distinct names | names in >1 module | instructions:u | peak RSS |
+|---|---|---|---|---|---|---|
+| Init | 653 | 66 100 | 65 972 | 90 | 20.0 G | 371 MB |
+| Std | 1 012 | 112 973 | 112 803 | 114 | 39.2 G | 453 MB |
+| Lean | 2 374 | 208 149 | 207 958 | 129 | 80.5 G | 608 MB |
+| Mathlib | 10 976 | 798 311 | 797 294 | 626 | 596.4 G | 2 071 MB |
+
+**1. Names stored by several modules.**  Every one of them is a
+theorem in every module storing it (kind pair thm/thm; no definition,
+axiom, constructor or recursor is ever stored twice).  All are
+fragment-compatible (same level parameters and type) and all are
+accepted by `subsumesInfo`: Init 90/90, Std 114/114, Lean 129/129,
+Mathlib 626/626; incompatible 0, "compatible only" 0, "Lean only" 0.
+Multiplicity on Mathlib: 2 modules 421, 3: 114, 4: 52, 5: 13, 6: 12,
+7: 7, 8: 3, 9: 1, 10: 1, 11: 2.  They are generated lemmas that
+several modules re-derive for the same constant: `congr_simp`,
+`induct_unfolding`, `eq_N` equation lemmas, `hcongr_N`, `_simp_N`
+(e.g. `List.eraseIdx.eq_2`, `forall_const._simp_2`,
+`SimpleGraph.edgeDensity.congr_simp`).  So the looser case (identical
+non-theorem duplicates) and both stricter cases (a clash hidden behind a
+non-re-exported import; two definitions of one proposition) do not occur
+in any of the four closures.
+
+**2. The local check per module.**  Fails for 0 of 653 / 1 012 / 2 374 /
+10 976 modules; there is nothing to list.  (Lean accepts every module by
+construction: its oleans exist.)  On the corpora tested, the fragment's
+compatibility check never rejects a development Lean accepts.
+
+**3. Summary sizes** (names stored, private level, duplicates counted
+once; `S_M` = the names of M's whole import closure):
+
+| closure | min | median | p90 | max | sum over modules | distinct names | sum / distinct | sum over edges of `|S_B|` |
+|---|---|---|---|---|---|---|---|---|
+| Init | 5 | 18 693 | 44 406 | 65 972 | 13.9 M | 65 972 | 210 | 58.3 M |
+| Std | 5 | 26 369 | 83 593 | 112 803 | 36.8 M | 112 803 | 326 | 113.9 M |
+| Lean | 5 | 70 450 | 110 000 | 207 958 | 149.3 M | 207 958 | 718 | 511.3 M |
+| Mathlib | 5 | 244 369 | 382 375 | 797 294 | 2 546.1 M | 797 294 | 3 193 | 10 073.9 M |
+
+Mathlib: p99 441 195; 59 642 import edges; closure size in modules
+median 2 495, p90 4 013, max 10 976; own declarations per module
+median 36, p90 175, max 4 877.  A name is in 3 193 summaries on
+average, so summaries copied along import edges cost 10.1 G entries
+(4x the sum of the summaries themselves, 12 600x the distinct names);
+summaries as persistent name-to-entry maps shared along the edges
+(summary = union of the imports' maps plus own) avoid that copying; the
+duplicated names are 0.08 % of the names, so most of the join is
+disjoint union.
+
+**Exported views** (what each module's exported part turns into
+assumptions; compared constant by constant with the private part):
+
+| closure | exported / private constants | theorems -> assumption | definitions -> assumption | opaque -> assumption | private-only names | per module median / p90 / max hidden |
+|---|---|---|---|---|---|---|
+| Init | 52 140 / 66 100 | 28 905 | 3 256 | 223 | 13 960 | 11 / 96 / 2 004 |
+| Std | 91 528 / 112 973 | 51 937 | 5 607 | 327 | 21 445 | 11 / 96 / 2 004 |
+| Lean | 153 142 / 208 149 | 60 397 | 20 663 | 1 678 | 55 007 | 8 / 69 / 2 004 |
+| Mathlib | 661 703 / 798 311 | 425 821 | 30 167 | 2 149 | 136 608 | 19 / 101 / 2 004 |
+
+No other kind change occurs (a constructor, recursor or inductive is
+never altered).  On Mathlib 77 % of the theorems and 14 % of the
+definitions of the private level are assumptions in the exported
+view; 17 % of the private-level names do not appear there at all.
+
+Caveats: the check compares names at constant granularity (the fragment
+at declaration granularity: an inductive block stores several names);
+theorem and axiom of equal statement count as equal (both
+"assumption"); hints and safety of definitions are compared only for
+safety.  The Lean-acceptance column is `subsumesInfo` on the exported
+entries of the closure, not on each module's actual loaded set.
+Logs: `_tmp/370/{Init,Std,Lean,Mathlib}.log` (not committed).
+
+## TASK #370 revision — qualified names, no summaries: the algorithm to implement (2026-10-27, agent/370-qual)
+
+Maintainer rulings: the local checks must never be stricter than
+Lean — theorems with different bodies are fine (proof irrelevance), and
+name clashes that never meet are fine; qualify names in the proof; one
+global statement; summaries were an artifact of unqualified names.
+**This revision supersedes the summary/join algorithm of the previous
+entry; implementation lanes should follow this one.**
+
+**The theory** (`whitepaper/Fragment/ModularModel.lean`, with the
+syntactic part in `Modular.lean`; standard axioms only):
+* *Qualified names* (`Key`): an ordinary constant is (home module,
+  name); a proof — a theorem, or a definition whose type the checker
+  finds to be a proposition — is (name, level params, statement).
+  Every proof denotes the point at every level list (`defVal_eq_pt`),
+  so two proofs of one statement are one qualified name, whatever their
+  bodies.  Qualified names exist in the proof only.
+* *A module* has its imports, its declarations, its **context** (the
+  environment its declarations are checked against), for each context
+  name the import it is read from, the set of its own constants that are
+  proofs, and its **resolution** (name → qualified name).
+* *Refinement of a constant*: equal, or an assumption with the same
+  level params and type.
+
+**The local checks at module M** (`LocalOk`; they read M and its
+direct imports' own environments and resolution tables, nothing else):
+1. imports come earlier (acyclic), every context name is read from a
+   direct import;
+2. M's declarations are accepted against M's context, in order; every
+   constant flagged a proof is a theorem, or a definition whose type
+   the checker infers to be a proposition at its position;
+3. each context constant refines the constant of the import it is read
+   from, and that constant lies within the part of the import's own
+   environment that M stores and resolves as the import does: its
+   type's and value's constants, its rules' right-hand sides and
+   constructors (stored in M's context as in the import, types
+   included), its inductive block (spec, type former, constructors);
+4. M resolves each context name as the import it is read from does,
+   and its own constants to (M, n), or to (n, lparams, type) when
+   flagged a proof;
+5. a type former in M's context comes with its constructors (as in the
+   import).
+
+**The theorem** (`modular`, `modular_model`,
+`modular_no_empty_prop_inhabitant`): if every module up to i passes
+its local checks, there is ONE assignment of sets to the qualified
+names (every proof the point) under which every module's own
+environment (context + declarations), read through its resolution, has
+a model; hence no module's own environment stores a closed proof of an
+empty proposition.  Global facts used: coverage (every module checked)
+and the import order (acyclicity), nothing else.
+
+**Proof route = the implementation's route ("B", restriction and
+extension of models)**: at module M, the world's assignment read
+through M's resolution is a model of M's context (`context_model`: each
+law is the import constant's law, at names M reads as the import does);
+M's declarations are installed on it by the ordinary install theorems
+(`Checks.blockModel`; proofs get the point); the world's assignment is
+extended by M's own ordinary constants (`modular_step`).  No
+monotonicity of derivations is used — the previous entry's warning
+about admission checks through whnf is withdrawn: M's checks are
+ordinary checks against M's context, sound at any model of it.
+
+**For the implementation**:
+* Build M's context exactly as Lean does (its loaded set; exported
+  levels, private under `import all`, plus re-exports), merging copies
+  of a name as Lean does.  Record for each context name its source
+  import and its qualified name (from the source's resolution table).
+* Check 2 is the expensive part and depends on no other module's
+  result: all modules in parallel.
+* Check 3 in practice: each module's exported view refines its own
+  environment (check once at the exporter); the importer's context
+  constant is then an exported constant of its source, and the
+  "reads as the import does" condition is a comparison of qualified
+  names for the constants that constant mentions (Lean's module system
+  guarantees it for modules it writes: exported terms mention only what
+  importers load).
+* A module's resolution table is name → qualified name for every name
+  of its own environment; check 4 compares it with the direct imports'.
+* Merged copies of a name in the context (Lean's thm/thm, thm/exported
+  axiom, Prop axiom/axiom) must have one qualified name: flag every
+  theorem and every definition of a proposition as a proof, so their
+  qualified name is the statement.
+
+**Compared with Lean**: never stricter on the merge (copies Lean merges
+are proofs of one statement, one qualified name) and never compares
+constants that are not read together.  Stricter only where an imported
+constant mentions a name the importer resolves differently from the
+exporter, which Lean's module system rules out for the modules it
+writes.  Looser: identical non-theorem duplicates in a context
+(harmless).
+
+Fragment changes: `Modular.lean` reduced to declarations, checking and
+constant refinement (monotonicity, summaries and joins removed);
+`ModularModel.lean` new; `install_def`/`install_def'`/`install_thm`
+expose the installed value; `EnvModel.transport`'s law congruences
+factored out (`RecRuleLaw.congr` …); `no_empty_inductive_inhabitant_of_model`.
+§7 rewritten, §8's "Hidden name clashes" entry removed.
+
+**Addendum (2026-10-27, agent/370-scope, from the driver lane).**  Check
+3's scoping applies to the module's OWN context entry, not to the
+import's: when M reads an exported view, its context has the
+assumption, and only that assumption's type must lie within what M
+reads as the import does; a hidden value (e.g. B `public import all h`,
+M imports B: h's definition `f` is an assumption in M, its value
+mentions h's private names that M never loads) is never inspected.
+`context_model` reads the import entry's value and rules only where the
+context entry is that entry.  The proof flag may be set for every
+theorem and every definition whose type is a proposition (hidden ones
+included), as the con-leche side does.  Fragment, §7 check list and its
+"one remaining strictness" remark updated.
+
+**Addendum (2026-10-27, agent/370-earlier, from the driver lane on
+Init).**  Check 1 relaxed: a context name is read from an EARLIER
+module (its home), not necessarily a direct import — Lean's exported
+views are not closed and depend on the importer (e.g. an `eq_1` lemma
+of `Init.WFExtrinsicFix` exported with a statement that reads a name
+visible only under `import all`; `Init.Data.String.Pattern.Basic` sees
+the lemma, none of its direct imports does).  Check 3 compares with the
+home's own constant and resolution.  The step proof needs only models
+of earlier modules; `Module.imports` is gone from the fragment.  The
+section presents "not stricter than Lean" as an aim validated by runs,
+not as a theorem.
+
+**Addendum (2026-10-27, agent/370-compare): subsuming Comparator.**  A
+module is *validated* either by its local checks or by **comparison**
+(`Compared`): its whole own environment reads from earlier modules —
+each constant refines the constant of its home (equal, or an assumption
+of the same type), lies within what it reads as the home does, and
+resolves as the home resolves it.  The compared module adds no
+qualified name; its model is the restriction of the world's
+(`reads_model`, the same lemma that gives a checked module's context
+its model, formerly `context_model`).  Theorem (`modular`,
+`modular_model`, `modular_no_empty_prop_inhabitant`,
+`modular_statements_hold`): if every module is validated, one assignment
+of the qualified names gives every module — checked or compared — a
+model; no closed term proves an empty proposition it stores; every
+statement it stores, in particular every hole, holds there.
+
+For the implementation (Challenge vs Solution, Comparator's job):
+* read the CHALLENGE's private level (full definitions), not its
+  exported view — otherwise a non-exposed `def isPrime` would be an
+  assumption and the solution could redefine it;
+* holes = axioms of the challenge and constants whose value is
+  `sorryAx …` (definitions and theorems), treated as assumptions;
+* every other challenge constant must equal the solution's constant of
+  the same name (refinement: identical, values included); every hole
+  must have the solution's constant's type and level params;
+* the challenge's names resolve to the solution's qualified names, and
+  each compared constant lies within what the challenge reads as the
+  solution does (check 3 of `ReadsFrom`);
+* the solution is validated as usual (local checks, axioms limited as
+  today); the user must look at the challenge's list of holes —
+  definition holes let the solution choose their values.
+Comparator's `theorem_names`/`definition_names` lists and its `landrun`
+build sandbox have no counterpart: the comparison runs over the whole
+challenge environment read from the built oleans.
+
+**Addendum (2026-10-27, agent/370-hide; maintainer ruling "better to
+remove stuff than add stuff").**  How an imported constant enters a
+module's context: as stored if everything its type and value mention
+is present there; as an assumption of its type if only its type is
+complete; not at all if its type is incomplete.  An inductive block
+with an incomplete constructor or recursor type enters as an ASSUMED
+type former, with no constructors or recursors.  Computed as a
+fixpoint per module.  No constant of another module's private part is
+ever added to repair an exported one, and no name is special for being
+`_private`.  The fragment already allows this: refinement lets an
+assumption refine any constant of its type, a type former included, and
+the block-completeness condition of `ReadsFrom` applies only to type
+formers stored as such.  §7's check list and Lean paragraph updated.
+
+## TASK #371 — the olean reader specified, and its fast decoder proved to be the specification (2026-10-27, agent/371-olean-spec)
+
+**Request (maintainer, 2026-10-27).** "Define a naive parser or
+declarative spec [for the `.olean` reader] and then implement a fast
+parser proven to be correct, similar to the fast json parser."
+
+**The specification** (`ConLeche/Frontend/Olean/Spec.lean`) is a naive
+functional decoder, not a relation: a relation "the object at `g`
+denotes `v`" would be the same table of layouts written as inference
+rules, plus a proof that the decoder realises it, and the decoder is
+already that table read top to bottom.  It is a recursion on the
+position, with no memo, no sharing and no worklist: every pointer the
+reader follows must point to an object at an earlier position in the
+module's files (`Region.down`), so the recursion is well-founded, and
+it is exponential in a module's sharing — it is never executed.  Its
+shape:
+
+* **one node function per recursive type** (`nameNode`, `levelNode`,
+  `levelsNode`, `exprNode`): one object, its fields read, its
+  sub-values obtained from function arguments asked only about
+  positions below the object; the specification ties the knot with
+  itself (`nameAt` … `exprAt`), the fast decoder hands the same
+  functions its memo;
+* **skeletons** for the rest (`constSkel`, `moduleSkel`): a
+  `ConstantInfo` or `ModuleData` read with its names and expressions
+  left as pointers (`CEntryF UInt64 UInt64`), which `CEntryF.mapM`
+  reads; `decodeModuleSpec r root consts` is the module's flag, its
+  imports' names and (when `consts`) its constants.
+* The reads of the runtime's own objects (`Nat` as scalar or GMP
+  bignum, `String`, object arrays, `List`) and the region
+  (`Region.loc`: an address is a position of the module's files laid
+  end to end; `Region.fileEnd`) are shared by both sides
+  (`Region.lean`), as the escape decoder and `String.fromUTF8?` are on
+  the stream path.
+
+**Scope, and what stays trusted.**  Specified and proved: the decode of
+one module's files into the checker's values.  Not specified: the
+closure order, the `subsumesInfo` merge, the dependency walk
+`constsOf` and the emission in lean4export's order (`Load.lean`) —
+their specification is "what Lean's import and lean4export do", itself
+an algorithm over the same values, so a second formulation would be a
+copy, not a specification; they stay checked by comparison
+(`olean-compare`).  The specification's fidelity to the runtime's
+layouts is likewise review plus comparison: a theorem about two Lean
+functions cannot say that either reads what Lean wrote.  The
+`ConLecheTests.OleanTests` checks evaluate a spelled-out
+specification on the committed fixtures and compare it with the fast
+decoder (`decodeModuleSpec` itself runs as the fast decoder).
+
+**The fast decoder** (`ConLeche/Frontend/Olean/Fast.lean`) reads each
+object once, in two sweeps over the module's slots (a position divided
+by 8), with no recursion and no worklist:
+
+1. **mark, downwards**: the skeletons' name and expression roots are
+   marked with their kind; from the highest slot down, every marked
+   object's shape is checked and the objects it leads to are marked
+   (`markName` … `markExpr`) — they lie below it, so the sweep reaches
+   them later.  The marks are one byte per slot, a bit per kind; a
+   failure is bit 7 of slot 0's byte (no object starts at position 0),
+   so no step returns an `Option`;
+2. **build, upwards**: every marked object is read by its node function
+   with its sub-values from the memo, which holds them already; the
+   values are one array per kind, threaded apart from the marks.
+
+The memo ends at the highest root.  The decode needs nothing of any
+other module, so it is a pure function `Region → UInt64 → Bool →
+Option ModDecoded`.
+
+**The proof** (`ConLeche/Verify/Frontend/Olean/`, about 2 450 lines,
+no `sorry`, the standard three axioms):
+`decodeModuleSpec_eq_fast : @decodeModuleSpec = @decodeModuleFast`,
+`@[csimp]`, with no hypothesis about the bytes.  `Kids.lean` reads the
+four marking functions off one table (`kidTable`: per kind and shape,
+the fields followed and their kinds) and characterises them (`MarkOK`:
+the shape reads and every followed field is fine; `Kid`: the object
+leads to that object).  `Nodes.lean`: a node function fails where
+`MarkOK` fails, the specification's objects lead only to objects that
+read (`KindOK.kid`), and a node function asks its arguments about its
+`Kid`s only (`…Node_congr`).  `Mark.lean`: the downward sweep keeps
+`Reach A` (a marked object reads once every root does, `A`) and
+`Closed p n` (marked objects from slot `p` up are `MarkOK` with their
+`Kid`s marked); its failure refutes `A`.  `Build.lean`: by induction up
+the slots every marked object holds its specification's value
+(`Built`), by the congruence; a node that does not read refutes `A`.
+`Engine.lean` composes both from the roots (`runPasses_spec`), and
+`Equiv.lean` concludes: on success the memo answers every root with
+its specification's value, on failure some root does not read and the
+specification fails at it.
+
+**Wiring.**  The theorem lives in `Verify/*` (the implementation never
+imports it), so it cannot be `@[csimp]` where the reader is compiled.
+The reader therefore takes its decoder as an argument
+(`readOleans (dec : Decoder) …`, `Load.lean`), and the driver
+(`ConLeche/Driver/Run.lean`, which may import `Verify/*`) passes
+`decodeModuleSpec`; the compiler substitutes `decodeModuleFast` there
+(the generated `Run.c` names `decodeModuleFast` and not the
+specification).  The development tools pass the specification the same
+way and import the theorem.
+
+**What changed for the user.**
+* Cross-module hash-consing of names and levels is gone: the decode is
+  a function of one module's bytes.  It never bought much: at 32
+  workers each worker had its own tables, and the install and check of
+  the olean runs matched the ndjson runs' to 0.1 % without it.
+* A decode failure is one message per module ("malformed .olean data
+  …"); the old decoder named the address.  The header's messages are
+  sharper: a file shorter than its header and a wrong marker are told
+  apart (both exit 3, maintainer request), and a size that is not a
+  whole number of words is malformed.
+* Fields the reader does not follow (binder names, metadata,
+  `constNames`, `entries`) are no longer checked to point below their
+  object.  No accepted verdict changes: `tests/olean.sh` 25/25 (a
+  wrong-marker case added), `olean-compare` 0 differences on `Init`
+  (57 919), `Std` (96 919), `Lean` (164 016) and `Mathlib` (712 205,
+  a fresh v4.35.0 lean4export).
+
+**Numbers** (`instructions:u`, one run each; parse-only is
+`olean-compare --time`):
+
+| run | before | after | peak RSS before / after |
+|---|---|---|---|
+| `Init` parse, 1 worker | 50.1 G | 28.1 G | 0.31 / 0.33 GiB |
+| `Std` parse, 1 worker | 82.7 G | 46.0 G | 0.47 / 0.49 GiB |
+| `Lean` parse, 1 worker | 126.2 G | 68.3 G | 0.69 / 0.71 GiB |
+| `Mathlib` parse, 1 worker | 962.8 G | 523.3 G | 5.04 / 5.15 GiB |
+| `Mathlib` parse, 32 workers | 984.8 G | 560.9 G | 5.50 / 5.26 GiB |
+| `Init` check, `--jobs=1` | 410.4 G | 396.3 G (ndjson 371.5 G) | 0.33 / 0.33 GiB |
+| `Mathlib` check, `--jobs=32` | 7 979.7 G | 7 577.2 G (ndjson 7 231.5 G) | 6.30 / 6.58 GiB |
+
+The `Mathlib` check's parse phase: 24.8 s → 9.5 s wall at 32 workers.
+Measured on the way (`Init` parse): the dense sweep at 4 mark bytes
+per slot cost more than the old decoder (the per-slot test); one byte
+per slot with a quick skip of unmarked slots, a filler for the
+expression array built at run time (a closed `.bvar 0` is a shared
+multi-threaded constant, so freeing the array paid an atomic decrement
+per slot: 61.8 G → 51.1 G with the mark read kept out of line), the
+marks threaded apart from the values (−2.2 G), `Region.loc` reading no
+more than it needs (−0.6 G), the failure bit instead of an `Option` per
+marking step (−1.6 G), and `constsOf`'s sets pre-sized (−1.1 G).
+
+**Open.**
+* The build sweep still allocates an `Option` per object (the node
+  function's result); inlining the node functions into the sweep made
+  it slower (more code, the same allocations).
+* `constsOf` (the per-constant dependency walk, `Load.lean`) is now
+  about a fifth of the olean parse: a hash set of expressions per
+  constant.
+* The higher `Mathlib` peak (+0.28 GiB): names and levels are no
+  longer shared across modules.
+
+## TASK #370 — the modular theorem, proved over the model tier (2026-10-27, agent/370-theory)
+
+**What is proved.** `ConLeche.modular_model_exists` and
+`ConLeche.modular_no_False` (`ConLeche/MainTheorem.lean`, stated in
+`ConLeche/Challenge.lean`, axioms pinned in
+`tests/ConLecheTests/Axioms.lean`: propext, Classical.choice,
+Quot.sound). If every module `j ≤ i` of a development satisfies
+`Modular.LocalOk .verified pins dev j`, there is one
+`G : Modular.Key → (LevelParam → Nat) → V`, `G` of every proof key the
+point, and for every `j ≤ i` a `Model V (dev j).own` whose `cval n` is
+`G ((dev j).res n)` at every stored `n`. The corollary: no
+`(dev j).own` stores a constant of type `False`. This is route B of the
+fragment's `modular` (one world leaf assignment). The internal form is
+`Model.Modular.modular_envModels`, at the leaves (`Term`s), with the
+`Model` read off by `Model.ofEnvModelM`.
+
+**The vocabulary** (`ConLeche/Modular.lean`, base tier, definitions
+only): `Key`, `Module` (imports, decls, context, own, src, proofs, res,
+compared), `pinnedNames`/`pinFootprint`, `Refines` (equal, or an
+assumption with the same constant value at a name not pinned),
+`EntryScoped`/`readsAlike`, `EntryProjs`, `BlockIn`, `ProofDecl`,
+`AcceptedFrom` (check 2: one canonical `installDeclStep` at
+`mkFEnv E` plus the records' `checkPending` per declaration), and
+`LocalOk`. The checks read the home modules' units: a context entry is
+compared with the constant of the source module's OWN environment
+(`src n`, any earlier module), private constants included, and
+resolved as that module resolves it. They never read an exported view.
+
+**The proof** (`ConLeche/Model/Modular/`):
+* `Scope.lean`: the footprint of a constant's laws as a predicate
+  (`Expr.constsAll`, `EntryScopedP`).
+* `Restrict.lean`: `CtxSrc` packages a context read from source
+  environments with covered models (agreement on what both store and
+  resolve alike, `ReadAgree`/`denote_agree` in
+  `Verify/Denote/Agree.lean`; refinement; scoping; the kind facts).
+  `CtxSrc.ctxModel` builds the context's `EnvModelM` at the given
+  leaves, with `LfpCover` and η-closure. Each law is transported by
+  `denote_agree`; recursor rules and tower entries go through
+  `RuleExt`/`TowerExt` (`Model/RecRulesCons.lean`), and the lfp blocks
+  through `lfpOne_transport`.
+* `Step.lean`: `acceptedFrom_model` installs an `AcceptedFrom` chain
+  on a covered model. It keeps every context leaf (`Agrees`), extends
+  the environment (`Extends`), and gives every flagged new name the
+  canonical proof leaf `.prf`.
+* `Main.lean`: `Fits` (every own constant fits its qualified name:
+  the home's constant refined, the home's table, inductive kinds' reads
+  resolved as at the home), `Stage` (modules below `i` done under world
+  `W`), `ctxSrcOf`, `step` (the world grows by `extendAt`, module
+  `i`'s ordinary constants only), `stages` (the induction from the
+  world of `.prf` leaves) and `modular_envModels`.
+
+**Changes below the modular files**, made so the shared world can
+exist:
+* Every proof's leaf is the canonical `.prf`
+  (`Model/Harvest.lean`: theorems always; definitions and opaques when
+  flagged and their type is a proposition, `PropTypeRun`). So two
+  proofs of one statement share a leaf. `AcvalDefnInst` is relaxed to
+  `LeafReads` (the value reads to something whose interpretation is the
+  leaf's), and δ-soundness goes through `wd_interp_mkAppN`
+  (`Model/Rules/RedSound*.lean`).
+* `CoverTo` carries `Agrees`: every step keeps the stored names'
+  leaves (`Model/Cover.lean` and the inductive covers).
+
+**Definition changes announced to the driver lane** (each its own
+commit, `DEFINITION CHANGE` in the title): readsAlike, `src_lt` (any
+earlier module), compared modules, assumed type formers with
+`projs`/`blocks`/`tables`, any non-pinned constant presentable as an
+assumption with `BlockIn`, `recFam`.
+
+**What the driver must establish**: every field of `LocalOk` per
+module; for a compared module, `own = context`.
+
+**Open, possibly stricter than Lean** (to be confirmed by runs):
+* A pinned name (basis, certified `Nat` operations, `reduce*`) is
+  never an assumption. A context that hides one must store it.
+* `scoping` requires everything a kept entry's laws read to be stored
+  in the source and the context and resolved alike. A value mentioning
+  a constant the context leaves out forces the entry down to an
+  assumption.
+* `blocks`, `projs`, `recFam`: an inductive kind kept as stored needs
+  its block's members kept as inductive kinds.
+* Typeless (name-only) assumptions, as the maintainer suggests, are not
+  supported. Estimate sent to the coordinator: a reserved type marker
+  plus one `inferConst` guard, the `type_reads`/`mem_type` laws
+  guarded, and the public `Model.mem` restricted to typed constants
+  (a ruling); about 1–1.5k lines, as its own task.
+
+## TASK #370 — the modular driver: module by module, over one store, proof-carrying (2026-10-27/28, agent/370-driver)
+
+**What runs.** `con-leche --olean --modular --search-path=… MODULE…`
+(`ConLeche/Driver/Modular.lean`, `checkModular`): read the closure
+(the specification decoder `decodeModuleSpec`, run as the fast one by
+`@[csimp]`), build the graph (`buildGraph`: every module's own records
+by lean4export's walk, `moduleDecls`, prepared with the prelude), the
+**levels** (`levelsOf`: Lean's `importModulesCore` lattice over the
+`importAll`/`isExported` flags; a classic module loads everything
+privately; `0` not loaded, `1` exported, `2` private), the store's
+sharded name index (`buildIdx`, from `predictSlots`; a name several
+modules store has an alternate per module), then install every module
+at its **view** (`Mod.viewOf (S.mb i)`: no constants of its own, the
+store as its base, gated by the module's levels) on a ready queue over
+the import graph (`installAll`), publish each module's **unit**
+(`ModSlot`: the private record `prv` — the installed constants in push
+order and their tables — and the interface `exp` — per constant its
+exported presentation `at1`, `stored`, `tbls`, gates `g1`/`v1`, `prf`;
+two separate objects), then the local checks (`Mod.localOk`, parallel
+per module) and every record's check (one pool, each at its module's
+final view).
+
+**Presentations (maintainer's ruling: remove, never add).** An imported
+constant is presented as stored if its type and its value/rules/block
+mention only names present in the importer's context; as the
+assumption of its type if only its type does; absent if its type does
+not; an inductive block as a whole, else each member as an assumption
+or absent; a fixed point per module over its own constants (`unitOf`),
+with **gates** (`g1`/`v1`, pairs `(module, level)`) for what the
+importer's levels must reach. Pinned names are never degraded (an
+incomplete pinned constant is an error). No special treatment of
+`_private` names. An importer reads only its imports' interfaces
+(level 1) or private records (level 2, `import all`), never the
+private part of a module it loads at level 1. The stop-gap of an
+earlier revision (lifting a home's private statements into its
+interface when an exported value read them) is **removed**: Mathlib's
+one such case, `WittVector.comm_ring_aux₂` reading the private
+`comm_ring_aux₁`, is fixed on the Mathlib side by a local patch
+(`set_option backward.privateInPublic true in` before
+`comm_ring_aux₁` in `Mathlib/RingTheory/WittVector/Basic.lean`, branch
+`conleche/privateInPublic-fix`, commit e5fea2f of the reference
+checkout). Whether Lean should stop exporting values that read
+private-only constants is an open question with the maintainer.
+
+**The proof** (`ConLeche/Verify/Modular/`, no model): `Store.lean`
+(`ctxOf`: the logical context of a view, the store's first visible
+alternate per name; its `find?`/`findTable?`/nodup), `View.lean`
+(`envAt`, the canonical-index invariant `CanonB` along an install at a
+view, `accepted_of_run`: a run at a view with its checks is
+`AcceptedFrom` the context), `Dev.lean` (`devOf`: the development a run
+stands for; `RunOk`: what a run establishes), `Local.lean` (levels,
+targets, good reads, refinement, tables, `recFam`, resolution),
+`Scope.lean` (the walk specifications `lawsOk_spec`/`readsOk_spec`/
+`unitOk_spec` and **`Mod.RunOk.localOk : RunOk mode S M → ∀ i,
+LocalOk mode natOpPinSets (devOf S M) i`**, the hypothesis of
+`modular_model_exists`/`modular_no_False`). No sorry. The executable
+side (`ConLeche/Cached/ModStore.lean`): `unitOk` (shape, recursor
+families, the laws' read sets at both levels and per gate), `localOk`
+(levels below and at most 2; a level-2 import's levels below the
+importer's; a level-1 import's guaranteed pairs `fp1`; one qualified
+name per stored-twice name, `oneKey`), `dupsOk`.
+
+**The accept is printed from the evidence.** Each worker returns
+`ModOk` (the module's data with its accepting `InstallRun`, its proofs
+attested `ProofsAttested` by `proofsOf`, its unit checked); `runOk`
+decides the rest (sizes, imports below, every published slot the unit
+(`sameB`), the unit's constants the install's (`sameArr`), the local
+checks and the record checks from the parallel maps' tagged results
+(`At`), `dupsOk`) and returns `Mod.RunOk`; `Accepted` packs it with the
+coverage (one module per graph module, each module's records the
+graph's) and the compared modules' claims, and the success line is
+printed from it.
+
+**Compared modules** (`--compare CHALLENGE SOLUTION`, repeatable,
+implies `--modular`). The challenge installs nothing into the store
+(its `decls` empty; in the development a module with no declarations
+— the theory's `compared` flag is not needed: its own environment is
+its context because it installs nothing). It imports its solution with
+`import all` (`addCompares`, a stable re-sort so the solution comes
+first; a solution importing its challenge is an error), so its context
+presents every solution constant as stored. Its records are installed
+at its own context (its levels without the solution) — types checked,
+values not, which is where a hole's `sorry` is permitted and nowhere
+else — and every constant they give must be met by the context
+(`cmpOk`): a hole (a value using `sorryAx`) by a constant of the same
+`ConstantVal` and kind (or an assumption of it), anything else by the
+same constant. `CmpClaim` carries this as evidence. The holes and the
+module that fills each are printed. `ConLeche.Challenge` vs
+`ConLeche.MainTheorem`: 4 holes, all filled by `ConLeche.MainTheorem`,
+the whole closure (2 916 modules, 235 985 records) accepted.
+
+**Fixtures** (`tests/olean.sh`, 45 cases; sources in
+`tests/olean/src/`): the modular verdicts of the earlier closures;
+`ClashA`+`ClashB` (different constants of one name that never meet:
+modular accepts, the merge rejects; two that meet Lean cannot build);
+twin theorems of one statement; an exported definition read as an
+assumption; `import all` unfolding; a public re-export; a private
+definition behind an exported theorem; two patched import lists
+(`import all` turned plain: the unfolding is rejected; an import
+redirected: the constant is unknown, rejected); compare: filled,
+differing definition, hole stated differently, missing constant, a
+solution using `sorry` (declined, the checker's usual `sorryAx`
+verdict), self-compare and a missing argument (usage errors). Not
+produced: a meeting clash and an exported view that is not a
+refinement (Lean writes neither).
+
+**Measurements** (instructions:u, one run each, binary 0ad50c5 / 3f0dc91,
+peak RSS from the watchdog; merged = `--olean` without `--modular`, the
+same oleans):
+
+| closure | modular verdict | instr. modular | merged | peak RSS mod / merged |
+|---|---|---|---|---|
+| Init | 653 modules, 64 065 records, 0 rejected | 489 G | 410 G | 1.25 / 0.86 GiB |
+| Std | 1 012, 109 383, 0 | 723 G | 607 G | 1.63 / 1.45 GiB |
+| Lean | 2 374, 196 737, 0 | 927 G | 749 G | 1.78 / 1.67 GiB |
+| Mathlib (patched) | 10 976, 776 338, 0 | 9 538 G | 7 576 G | 7.51 / 7.01 GiB |
+
+Modular counts every module's own records (a name stored by several
+modules counts for each). Mathlib modular phases: read 4.1 s, graph
+10.4 s, install 20.3 s, local checks 20.9 s, checks 40.7 s. Exported
+presentations on Mathlib: 138 assumptions (125 definitions, 13 type
+formers), 1 038 absent (991 theorems, mostly private-statement
+equation lemmas), 504 gated, 62 full-gated. Never stricter than Lean
+on these runs: no module modular rejects that the merge accepts.
+
+**Splitting across processes.** Everything a module's check reads of
+another module is that module's unit (its `ModSlot`, separable: the
+interface `exp` and the private record `prv` are separate objects),
+the name index entries of its names and its levels row; the evidence a
+module needs (`ModOk`, its `localOk`, its record checks) is per
+module, and `RunOk`'s fields are per-module conjunctions except
+`dupsOk` (the store's list of names stored twice, computable from the
+index). A process per module would read its imports' units from files
+(written after their homes are checked), rebuild the index from the
+graph, and emit its own evidence; the assembly into `RunOk` is the
+same `runOk` over the collected results. Not built.
+
+**Open.** Typeless assumptions (held back). The upstream Lean question
+above. README suggestions are reported, not written.
+
+## TASK #370 (follow-up) — an exported-level importer reads only `exp` (2026-10-28, agent/370-exp)
+
+**The ruling.** A module that loads module `h` at the exported level
+reads only `h`'s interface (`ModSlot.exp`), never its private record
+(`prv`), which is for `import all` importers only.
+
+**The audit.** Before, `prv` was read by `MBase.at?` and
+`MBase.findTable?` at level 2 (an `import all` viewer: allowed); by the
+home's own checks of its own unit (`shapeOk`, `recFamOk`, the read sets
+in `unitOk`, `full2Ok`/`full1Ok` for an own target, the driver's
+`priv = consts` check: not importer reads); and by `keyOfSlot`, which
+took a proof's statement from `prv.priv[j]` for every viewer, through
+`resOf` (a context name's qualified name) and `oneKey` (the local check
+on names stored twice). That last read crossed the boundary.
+
+**Now.** `keyOfSlot` takes a proof's statement from its exported
+presentation `exp.at1[j]` (the constant or the assumption of its
+statement: the same `ConstantVal`, `shapeOk`); only a proof the
+exported part does not present reads `prv`, and only a viewer that
+loads `h` with `import all` can see such a constant (`at?` presents
+nothing else). The proofs read the key through `keyOfSlot_of_priv`
+(under `shapeOk`, the old reading). So `prv` is read now by `at?`/
+`findTable?` at level 2, by `keyOfSlot` for a proof not presented at
+the exported level (reached from level-2 viewers only), and by the
+home's checks of its own unit.
+
+**The regression test** (`tests/ConLecheTests/ModBoundary.lean`, under
+`lake test`): `maskPrv b` empties the private record of every module
+the viewer does not load at level 2; every lookup answers the same
+(`maskPrv_at?`, `_pick?`, `_find?`, `_findTable?`), the view is the twin
+of the masked one (`view_twin_maskPrv`: every install step and record
+check runs alike, `installDeclStep_twin`, `checkPending_congr`), and a
+presented constant's qualified name reads `exp` alone
+(`keyOfSlot_maskPrv`). A `prv` read added on an exported-level path
+breaks one of them.
+
+## TASK #372 — the modular argument over an interface; con-leche's models an instance; the local checks per home and per importer (2026-10-28, agent/372-abstract, agent/372-paper, agent/372-iface)
+
+**Why.** Maintainer request: make the modularisation abstract, so that the
+consistency proof can be swapped (for a syntactic type-system proof, say)
+without redoing the gluing of modules.
+
+**The interface** (`ConLeche/Modular/Generic.lean`, imports nothing):
+`ModularSemantics` with `Env`, `Name`, refinement with renaming
+`Refines Γ ρ E` (`refines_id`, `refines_comp`), models as data
+`Mod : Env → Type` with `restrict` along refinements (`restrict_id`,
+`restrict_comp`), `Decls` and `Accepts Γ D Γ'` with `accepts_refines`,
+the conservative step `step` (every model of `Γ` extends to one of `Γ'`
+restricting back), `Fresh W ρ Γ Γ'`, `glue W ρ Γ'` with `glue_left`,
+`glue_right`, amalgamation `amalgamate` (models of `W` and `Γ'` with one
+restriction to `Γ` give one of the glue restricting to both), `base`,
+`baseModel`.  A predicate "has a model" is too weak (Γ assumes `c : Nat`,
+W defines `c := 5`, D adds the axiom `c = 0`: Γ + D and W consistent,
+W + D not); the docstring says so.  This is an institution with
+amalgamation (Goguen–Burstall).
+
+**The generic theorem.**  `Development` (per module `ctx`, `decls`,
+`own`, `ren`, `compared`), `Development.world` (the base, glued with
+every checked module's own environment), `Development.Valid` (checked:
+context refines the world so far, declarations accepted, what they add
+fresh; compared: own environment refines the world so far), and
+`Development.modular : ∀ k, (∀ i < k, dev.Valid i) → Nonempty (S.Mod
+(dev.world k)) ∧ ∀ i < k, S.Refines (dev.own i) (dev.ren i) (dev.world k)`,
+with `own_model` (each own environment has a model, the world's
+restricted).  Compared modules do not glue (they add nothing).
+
+**Con-leche's instance** (`ConLeche/Model/Modular/Instance.lean`,
+`conlecheSemantics V μ hμ pins`): an environment is a list of pieces (a
+con-leche `Env` with its resolution to `Key`s); a model `PMod` is a leaf
+assignment, the default off the keys, every proof `.prf`, under which every
+piece has a covered `EnvModelM`; refinement `Ref` is generated by reading
+(`PieceReads`: the syntactic half of the old `CtxSrc`, now `CtxRead` in
+`Restrict.lean`, with the leaf agreement left to `CtxSrc.leafEq`),
+renaming that keeps proof keys (`KeyMap`), sublists, unions and
+composition; restriction is `normalize P (G ∘ ρ)` (functorial by
+construction, `Ref.pieces` by induction, a reading via `ctxModel`);
+acceptance `AcceptsP` is `AcceptedFrom` between one-piece environments of
+one resolution, injective on the own names, a new proof-keyed name
+flagged; the step is `acceptedFrom_model`; amalgamation appends the renamed
+piece.  Con-leche's development uses no renaming (`ren := id`: the
+resolution lives in the pieces).
+
+**What changed in the proof.**  `Model/Modular/Main.lean` no longer has
+an induction over models (`Stage`, `step`, `stages`, `extendAt`,
+`ctxSrcOf` are gone): what remains is syntax, that `LocalOk` makes every
+module valid (`fits_all`, `ctx_reads`, `ext_reads`, `before_ref`,
+`valid_of`), and `modular_envModels` is `Development.modular` at
+`conlecheSemantics`.  `Step.lean` gains the model-free
+`acceptedFrom_syn` (names unique, extension, a flagged new name stored by
+no inductive kind at no pinned name; via `installStepC_proof_push`), and
+`acceptedFrom_model` returns only the semantic facts.  Sizes: Generic 174
+lines, Instance 564 (new), Main 716 → 833, Restrict +93, Step +125.
+`modular_model_exists`/`modular_no_False` are unchanged (Challenge,
+`tests/challenge.sh` green); axioms unchanged.
+
+**The local checks, split per home and per importer** (agent/372-iface,
+coordinator's addition).  `LocalOk` is now derived
+(`LocalOk.of_interface`, `ConLeche/Verify/Modular/Interface.lean`) from
+two conditions in `ConLeche/Modular.lean`.  `InterfaceOk dev b` is checked
+once per module: every presentation in its interface (`Module.iface`: per
+name a list of `Presented` — constant or assumption of its statement,
+table, footprint) refines the module's own constant, carries its own table
+if it is a type former, has its laws' reads stored in the module's own
+environment and listed in the footprint, and a presented recursor's
+families are stored as type formers.  `ImportOk mode pins dev i` is
+checked per importer: every context constant is a presentation of its
+source's interface, a type former with that presentation's table, its
+footprint stored in the context and resolved as by the source; plus the
+importer-only checks (levels below, unique names, acceptance, projections
+and blocks within the context, the resolution).  In the Lean mapping a
+presentation is a unit constant at a level (private: installed; exported:
+`at1`, value-hidden when the value gate is closed), and the importer's
+footprint check is evaluating its gates (`fp1`, `g1`, `v1`) with
+`oneKey`.  The driver evidence follows the split: `RunOk.interfaceOk`
+uses `unitOk` alone, `RunOk.importOk` uses `localOk` and the levels, and
+`RunOk.localOk` derives `LocalOk` from both (no runtime change).
+Choice: the generic theorem's hypothesis stays "the context refines the
+world"; in con-leche that refinement is derived from `LocalOk`, which is
+derived from `InterfaceOk` + `ImportOk`.  The public statements keep
+`LocalOk` so the Challenge is stable.
+
+**Fragment and §7** (agent/372-paper).  `Fragment/ModularSemantics.lean`
+is the same interface and theorem; the fragment's model is an instance
+(`Fragment/ModularInstance.lean`, the same piece design; `modular` and its
+corollaries derived from `Development.modular`, the old induction gone).
+A second, syntactic instance (`Fragment/ModularSyntactic.lean`): models are
+realisations by closed terms of a ground theory for any type system with
+constants and a substitution lemma; the step is the substitution lemma,
+amalgamation the union, declarations definitions only (axioms are not
+conservative); not built on the fragment's own typing rules, which would
+need a substitution lemma for `Infer`/`Red`/`DefEq`.  §7 gains "What any
+consistency proof must provide" (restriction, conservative step,
+amalgamation, base; Goguen–Burstall 1992 added to the bib; the
+counterexample; the syntactic instance), the interface/importer sentence,
+and its `#real` block now states the modular theorem as it is.
+
+## TASK #373 — the isolated check of a module, and the one-store-many-views check proved equal to it (2026-10-28, agent/373-isolated)
+
+**Why.** Maintainer request: the modular driver reads every constant into
+one store and checks each module at a view of it; implement the
+per-module mode as well and prove the two equivalent — the correctness
+of the one-store-many-views trick.
+
+**The specification** (`ConLeche/Cached/ModIso.lean`). `isoCtx slot lv`:
+module `M`'s context built from its imports' units alone — for every
+module `M` loads (levels `lv`), in module order, every unit constant as
+`M`'s level presents it (`presentAt`: level 2 reads the private record
+`prv.priv`; level 1 reads the interface `exp` alone — `at1` through the
+gates `g1`/`v1`, the assumption of its statement when the value gate is
+closed), with its table if presented as a type former (`entryTbl`), each
+name once, the first (`firstNamed`). A module not loaded is not read at
+all (`entriesOf`'s guard: its unit may not be published yet — without
+the guard the isolated run deadlocked on its own promise).
+`checkModuleIsolated mode pins slot lv ds := checkDeclsAt mode pins
+(isoIndex slot lv) ds`, where `checkDeclsAt fe₀` is `checkDecls`'s fold
+from an index (`checkDecls = checkDeclsAt (mkFEnv Env.empty)`, rfl) and
+`isoIndex = mkFEnv (isoCtx …)`. The store run's per-module check is the
+same fold from the view, `checkAtView mode pins mb ds`. The index runs
+as `isoIndexFast` (one pass, the index under construction deciding
+"first of its name"), `@[csimp] isoIndex_eq_fast`
+(`ConLeche/Verify/Modular/IsoFast.lean`): the hash maps receive the same
+insertions in the same order, so the two are equal as values.
+
+**The equivalence** (`ConLeche/Verify/Modular/`):
+
+```lean
+theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
+    (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
+    checkModuleIsolated mode pins S.slot (S.lvl i) ds =
+      (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i)))
+```
+
+— the same verdict, the same error at the same position, or the same
+installed constants and tables (over the context), for every module of
+any store, accepted or not. `IdxOk S` (decided by `idxOk`, now checked
+by every modular run in both modes, cheap): every alternate list of the
+name index strictly increasing, every unit constant (private record and
+exported presentation) an alternate of its name. Two halves:
+`checkDeclsAt_over` (`IsoFold.lean`): for ANY environment `C` with the
+view's base lookups (`BaseLike C mb`), the fold from `mkFEnv C` is the
+fold at `viewOf mb`, step by step (`installDeclStep_twin_full`: twin
+indices fail alike or push alike; the state over `C` is `overState`,
+records' bounds shifted by `|C|`, `restrict_find?_over`: the prefix
+views agree); and `baseLike_isoCtx` (`IsoCtx.lean`): the view's choice
+of a name (`MBase.pick?`, the first visible alternate) is the first
+presentation in module order (`pick?_iso`: both are the least position,
+in strictly sorted lists, of a set the index lists completely).
+`baseLike_ctxOf` gives the same for the store's own context `ctxOf`.
+
+**The run evidence.** `IsoRunOk` (`IsoRun.lean`): `RunOk` with the install,
+record checks and proofs done in the isolated environment, plus `IdxOk`
+and `M[i].fe = ownView M[i].fe.env (S.mb i)` (the module's own constants
+over the store: what the unit's check reads, in both modes).
+`RunOk.isoRunOk : RunOk mode S M → IdxOk S → IsoRunOk mode S M` and
+`IsoRunOk.runOk : IsoRunOk mode S M → ∃ M', RunOk mode S M' ∧ ∀ k, devOf S
+M' k = devOf S M k` (M' differs only in the view's record list, recovered
+by the fold equation): the same store, the same units. `isoDevOf`: the
+development whose contexts are `isoCtx` and own environments
+`Env.over d.fe.env (isoCtx …)` (sources, proofs, qualified names,
+interfaces as `devOf`). **`IsoRunOk.localOk : IsoRunOk mode S M → ∀ i,
+LocalOk mode natOpPinSets (isoDevOf S M) i`** — via `IsoRunOk.runOk`,
+`RunOk.localOk`, and `LocalOk.congr` (`Congr.lean`: the local checks read
+a context and an own environment through `find?` and the table lookup
+only, beside nodup, tables found under their structure, and the
+acceptance, which `AcceptedFrom.over_congr` transfers between contexts
+with the same lookups). `RunOk.localOk_iso` derives the same for a store
+run.
+
+**The capstones.** Unchanged: `modular_model_exists`/`modular_no_False`
+are over any development with `LocalOk`; the isolated instance is
+`modular_model_exists V natOpPinSets (isoDevOf S M) i (fun j _ =>
+h.localOk j)`, assembled as an `example` in
+`tests/ConLecheTests/ModIso.lean` (with the axiom pins of the four
+theorems above, at the three axioms, and `#guard`s of `isoCtx` on a toy
+store). The Challenge cannot state it (it may not import `Verify/*`);
+`tests/challenge.sh` green, no public statement changed. Driver:
+`Accepted` gains `idx : IdxOk S` and the theorems `Accepted.isolated`,
+`Accepted.localOk_iso`; `IsoAccepted` with `IsoAccepted.localOk` and
+`IsoAccepted.store`.
+
+**The mode.** `--modular=isolated` (`--modular=store` = `--modular`). The
+install along the import graph is generic over a module's work (`Work`:
+install and unit, published at once so dependents start, then the rest):
+`storeWork` (as before) and `isoWork` (the index of the context from the
+units, the install from it, the proofs there; the unit by `unitOf`/
+`unitOk` at `ownView`, published; then every record checked in the
+module's environment, which is then dropped). The facts both modes
+decide are one function (`commonOk`, with `idxOk`); `runOk`/`isoRunOk`
+add each mode's own. What is not isolated in the isolated mode: the
+unit's bookkeeping (presentations, gates, qualified names) and the local
+checks read the name index and the units as in store mode; `--compare`
+installs the challenge at a view in both modes.
+
+**Measurements** (instructions:u, one run each, 96 workers; peak RSS from
+the 1 s watchdog; merged = `--olean` without `--modular`; every run
+accepted, the two modular modes with the same counts):
+
+| closure | merged | store | isolated | peak RSS merged / store / isolated |
+|---|---|---|---|---|
+| Init (653 modules) | 403 G | 489 G | 438 G | 0.93 / 0.97 / 1.28 GiB |
+| Std (1 012) | 595 G | 723 G | 666 G | 1.57 / 1.64 / 1.65 GiB |
+| Lean (2 374) | 728 G | 927 G | 923 G | 1.56 / 1.71 / 1.83 GiB |
+| Mathlib, patched (10 976) | 7 464 G | 9 534 G | 10 841 G | 7.44 / 7.72 / 8.48 GiB |
+
+The isolated mode's lookups are one hash map's, cheaper than the
+store's (shard, alternates, level, gates); building each module's
+context costs in proportion to its size, which on Mathlib (contexts of
+hundreds of thousands of constants) outweighs it: +14 % over store mode.
+Before the one-pass index (the list specification run as is) Lean's
+isolated run was 1 000 G.
+
+**Fixtures.** `tests/olean.sh` runs every modular case (20) in both modes:
+65 cases.
+
+**Open.** The bookkeeping above still reads the closure's name index; an
+isolated unit computation would need `unitOf`/`unitOk` over the context's
+own provenance (`isoEntries` carries it). README suggestion (not
+written): README does not mention modular checking yet.
+
+## TASK #375 — §7 per module: compatible families, no global environment, no renaming (2026-10-28, agent/375-paper)
+
+**Why.** Maintainer feedback on §7 of the proof-idea paper: the
+interface ("what any consistency proof must provide") belongs first;
+and the renaming plus the global world over qualified names is doubtful
+(what if the theory is not up to renaming, e.g. special names such as
+`Quot`?). What users need is that each module has a model; the global
+model was only a proof device.
+
+**The theory** (`whitepaper/Fragment/ModularSemantics.lean`, imports
+nothing). Interface `ModularSemantics`: `Env`, `Name`, `Stores`;
+models `Mod E` with a value per name (`Val`, `val`) and the proofs'
+value `proofVal`; `Assembled C E same` (an environment made of
+constants of a family, `same n i` designating which members have
+`C`'s `n`) with `assembled_src`; `amalgamate` (a family compatible for
+`C` — designated members storing `n` agree on its value — gives a
+model of `C` with the members' values); `Decls`, `Flagged`, `Accepts`,
+`step` (every model of `Γ` extends to `Γ'` with the same values on
+`Γ`, flagged proofs at `proofVal`). Refinement (`Refines`: assembly
+from one member, all designated) and `restrict` are derived; the base
+is amalgamation of the empty family. No renaming anywhere; the keys
+(`Key`: `home module` or `proof stmt`) live in the development.
+`Development` (per module: `ctx`, `decls`, `own`, `views`, `imports`,
+`key`); `Valid` = views refine the own environment, imports earlier,
+and checked (context assembled from the imports' views, designated by
+equal keys; accepted; new names keyed by the module or flagged proofs)
+or compared (own environment assembled from the imports' views).
+`Development.modular : (∀ i < k, Valid i) → ∃ m, Compatible k m`
+(same key ⇒ same value; proof keys ⇒ `proofVal`), by induction: the
+imports' models restricted to their views are compatible, amalgamate,
+step; new names carry the module's key (`home_le`: keys name the module
+or earlier ones) or are proofs. `own_model` is the corollary.
+
+**The fragment's instance** (`ModularModel.lean`, `ModularInstance.lean`).
+`Assembled` = the old reading (`ConstInfo.Le` + `EntryScoped` over
+`common C (E i) (same · i)` + blocks), generalised from "pieces with
+resolutions" to a family with a designation; `Assembled.model` is the
+old `PReads.model` with the glued assignment `glueM` (proof unchanged
+in structure). `Module` gains `imports`, `views` and `key` and loses
+`src`/`res`. Local checks: `InterfaceOk` (per home: each view refines
+the own environment), `ImportOk` (per importer: imports earlier,
+context assembled from the imports' views), `LocalOk` (both, plus
+acceptance, flags, own keys), `Compared`; `toDev_valid`; theorems
+`modular` (compatible family), `modular_model`,
+`modular_no_empty_prop_inhabitant`, `modular_statements_hold`.
+Removed: `Key.Fits`/`fits`, `readsAlike`, `ReadsFrom`, `Piece`,
+`PReads`, `resAssign`, `WMod`, `Ref`, `Keys`, `normalize`, `KeyMap`,
+`FFresh`, `fglue`, `famalgamate`, the world lemmas (`world_pieces`,
+`below_ref`, `self_reads`), `Checks.keep`, `Decl.Ok.fresh`. The
+syntactic instance (`ModularSyntactic.lean`) follows the new interface:
+realisations, union as amalgamation, no renaming, nothing flagged
+(renaming laws of `SubstSystem` dropped). Axioms pinned (standard
+three; `Development.modular` now uses choice, `Classical.axiomOfChoice`
+for the views' models).
+
+**The paper.** §7 rewritten: environment models in the abstract
+(definition of what a consistency proof provides; refinement,
+restriction, base derived; the `c := 5`/axiom `c = 0` example for why
+the step must extend every model; institutions; the syntactic
+instance), environments of modules (assumptions, theorems, refinement
+of constants, proofs the point, modules, keys, the fragment's
+assembly and amalgamation), the local checks (per home, per importer,
+own), the theorem (compatible family, the example of two importers of
+a hidden `c` for why compatibility, theorem, corollary, proof), what
+runs in parallel, comparing a module, Lean's module system (table),
+and an "In con-leche" block. §1's overview sentence and §8's "how the
+real proof differs" updated. PLAN.md records the rulings and the
+writing rule.
+
+**For con-leche's proof (to follow after #374).** `Modular/Generic.lean`
+should become this interface and theorem: drop `world`, `ren`,
+`Fresh`, `glue`, `glue_left/right`, `refines_comp`/`restrict_comp`;
+state amalgamation over a family with a designation; the instance's
+"assembly" is `ImportOk`'s reading of units (a unit presents views of
+its module: per name the stored constant or the assumption of its
+statement, with footprints), keys are the qualified names without the
+name component (home module, or `.prf` statement); `modular_model_exists`
+then gives each module's model directly (or a compatible family), and
+the Challenge statement can drop the global assignment `G`.
+
+## TASK #374 — the isolated mode reads only what Lean loads for a module (2026-10-28, agent/374-isolated)
+
+**Why.** Maintainer request: make the isolated mode fully isolated, so
+that massive developments can be checked with a high amount of
+parallelism, possibly on several machines: everything done around a
+module M — building its context, checking it, building and checking what
+it publishes, its local checks — reads only M's own `.olean` files and
+the units of the modules Lean loads for M (Lean's `importModulesCore`
+fixpoint): their interface, plus the private half only for the modules M
+loads with `import all`.  After #373 the isolated mode still read the
+closure's name index and list of names stored twice for a module's
+bookkeeping, its local checks, the proof flags and `IdxOk`.
+
+**Terms.**  A module's *unit* (`ModSlot`) is what it publishes for its
+importers, the counterpart of Lean's interface files: its *interface*
+`exp` (per installed constant, its *presentation* to an importer at the
+exported level — the constant, the assumption of its statement, or
+nothing — the *gates* `g1`/`v1`, i.e. the modules with levels an
+importer must load for that presentation, the tables, the proof flags,
+and now `fp1`, what every importer at that level loads by Lean's rules)
+and its *private record* `prv` (the installed constants, for `import all`
+importers, and now `lvl`, the module's own levels).
+
+**What each step reads now** (isolated mode, `isoWork` in
+`ConLeche/Driver/Modular.lean`; every step takes the imports' units as
+`Mod.mask slot lv`, which keeps the interface of every module M loads,
+the private record of those loaded at level 2, and nothing else):
+* the levels `lv`: the import headers of the modules M loads (`levelsOf`,
+  Lean's worklist);
+* the context: `isoBuild units lv` (`ConLeche/Cached/ModIso.lean`), one
+  pass over the loaded units giving the canonical index of `isoCtx`, the
+  provenance (module, position) of every context constant by counter
+  (two number arrays) and the presentations dropped because their name
+  was already there;
+* the install and record checks: M's own records, from that index; the
+  lookup the bookkeeping needs is answered afterwards by the install's
+  own index (`lookAfter`: a context constant's counter is below the
+  context's size), so the one-pass state does not live through the
+  install and the install's index is never shared;
+* the proof flags (`proofsOf`): M's own environment — a definition or
+  opaque constant is a proof candidate iff `Mod.isPropCheap` (Lean's own
+  test in `subsumesInfo`, extended to a bound-variable head), then the
+  theorem check as before.  Before: only names some other module of the
+  closure also stored (the global duplicate list);
+* the unit (`unitOf`, the oracle) and its check (`unitOk`): M's own
+  constants (`mkFEnv own`), its records' exported levels (its own olean),
+  the public-import headers from M (`pubReachOf`), and the context
+  through `Mod.UView` only — the lookup and the interfaces of the modules
+  the lookup answers with (`needAt`, `storedAt`, gates).  The store
+  conditions "an own target is the index's alternate" are gone from
+  `read2Ok`/`read1Ok`/`full*Ok` (the store mode gets them from `IdxOk`,
+  now a field of `RunOk`);
+* the local checks (`localOkIso`): `levelsOk` (loaded modules earlier, at
+  level ≤ 2; a level-2 import's own levels, read from its `prv.lvl`, below
+  M's; a level-1 import's `fp1`, read from its `exp`, loaded by M) and
+  `keysOk` (every presentation of a name in M's context has the first's
+  qualified name; decided on the dropped presentations only, by
+  `IsoAcc.keysOk`) — done in M's own work, before its unit is published.
+What the isolated run decides beyond the modules one by one is only the
+coverage (`isoRunOk`: a unit per module, published as checked, its
+constants the install's, imports earlier, levels over the run's modules).
+No name index, no list of names stored twice, no `IdxOk`, no `dupsOk`.
+Nothing strictly needed more than Lean's loaded set: no stop.
+
+**The boundary** (`ConLeche/Verify/Modular/Mask.lean`, pinned in
+`tests/ConLecheTests/ModBoundary.lean`).  `LoadedAgree lv s s'` (two
+families of units agree on every loaded module's interface and every
+level-2 module's private record) gives `mask s lv = mask s' lv`
+(`mask_agree`), so the one-pass build, the record check, the unit check,
+the local checks (`isolated_boundary`) and the driver's `unitOf`
+(`unitOf_boundary`) are the same on both — by construction, since each
+takes the masked units.  And the mask changes nothing (`isoCtx_mask`,
+`isoLook_mask`, `keysOk_mask`, `levelsOk_mask`,
+`checkModuleIsolated_mask`; `isolated_mask`): what an isolated module
+computes from the units it reads is what it would compute from all
+units.
+
+**The soundness chain** (`ConLeche/Verify/Modular/Isolated.lean`).
+`Mod.IsoRunOk mode slots M` is the isolated run's evidence, per module
+about the published units only (install from `isoCtx (mask …)`, record
+checks, attested proofs, own index, `unitOk` at `isoUView`,
+`localOkIso`) plus the coverage.  The proof reuses the store mode's
+theorems at the store made of the run's units, which exists in the proof
+only (`ghostStore`, `ConLeche/Verify/Modular/Ghost.lean`: index =
+every unit position under its names, `ghostStore_idxOk`,
+`ghostStore_dupsOk`): `unitOk_congr` (a unit's check reads its context
+only through the lookup and the interfaces of the modules the lookup
+answers with) gives `unitOk_store` (the isolated unit check is the
+store's whenever the store's index is complete), `keysOk_oneKey` gives
+the store's duplicates' check, and `IsoRunOk.storeOk : IsoRunOk mode
+slots M → IsoStoreOk mode (ghostStore slots) (ghostData slots M)` (the
+#373 structure, renamed from `IsoRunOk`: isolated installs over a
+store's bookkeeping), hence **`IsoRunOk.localOk : ∀ i, LocalOk mode
+natOpPinSets (isoRunDev slots M) i`**, the hypothesis of
+`modular_model_exists`/`modular_no_False` (assembled as `example`s in
+`tests/ConLecheTests/ModIso.lean`; capstone statements unchanged,
+`tests/challenge.sh` green).  Conversely **`RunOk.isoRunOk : RunOk mode S
+M → IsoRunOk mode S.slots (ownData M)`** (a store run is an isolated run
+of its units, via `pick?_iso`, `RunOk.key_pick` and `unitOk_store`): the
+store mode is a proved optimisation of the isolated one — one shared name
+index in place of a context per module — and its bookkeeping is the same
+generic code at `Store.uview`.  `lookAfter_iso`, `isoBuild_fenv`,
+`isoBuild_look`, `isoBuild_keysOk` (`IsoFast.lean`) connect what runs to
+the specifications.  The per-home `InterfaceOk` and per-importer
+`ImportOk` split (#372) is what the runtime does literally: the unit
+check at the home, the levels and duplicates at the importer.
+
+**Serialising units** (not built).  A unit is plain data (arrays of
+constants, flags, gates, tables, byte arrays); the thunks are only the
+in-process hand-over.  Module references in gates, `fp1` and `lvl` are
+positions in the run's module order, which every process can compute from
+the roots (Lean's module order of the closure), or would be written as
+module names.  The constants need not be written at all: `prv.priv` is
+the module's own records as installed, a function of its own `.olean`
+files, and an exported presentation is that constant or the assumption
+of its statement, so a unit file would hold per position only the
+presentation kind, the gates, the proof flag and the table choice, plus
+`fp1` and `lvl`; an importer at the exported level would rebuild the
+presented constants from the module's exported `.olean` (Lean's interface
+file), an `import all` importer from its private one.  A process per
+module (or per group of modules) would read its loaded modules' unit
+files, run `isoWork`'s steps, write its own unit file and emit its
+`IsoModOk`; the coverage check is the same `isoRunOk` over the collected
+results.
+
+**Fixtures** (`tests/olean.sh`, 76 cases, every modular one in both
+modes): `import all` loads the private imports (`LdM`: `import all LdB`
+makes LdB's private import LdX loaded, LdB's definition unfolds through
+it); a clashing name outside the loaded set (`NlM`: NlX, in the closure
+through NlB's private import, stores another `nl`; modular accepts, the
+merge rejects); an exported value reading a private-only constant (`PoM`:
+a private constant exported with its value under `privateInPublic` reads
+one that is not exported: presented as an assumption); two patched
+cases: ReB's `public import ReA` turned private (the chain no longer
+re-exports: ReC rejected) and NlB's import of NlX made public (two
+constants of one name meet in NlM's context: rejected, in isolated mode by
+`keysOk`).
+
+**Measurements** (instructions:u, one run each, 96 workers, binary
+a6f8f12; peak RSS from the 1 s watchdog; merged = `--olean` without
+`--modular`; every run accepted, the two modular modes with the same
+counts; #373's figures in brackets):
+
+| closure | merged | store | isolated | peak RSS merged / store / isolated |
+|---|---|---|---|---|
+| Init (653 modules) | 403 G | 496 G [489] | 443 G [438] | 1.18 / 1.21 / 1.20 GiB |
+| Std (1 012) | 595 G | 730 G [723] | 671 G [666] | 1.70 / 1.49 / 1.57 GiB |
+| Lean (2 374) | 727 G | 936 G [927] | 922 G [923] | 1.76 / 1.80 / 1.58 GiB |
+| Mathlib, patched (10 976) | 7 463 G | 9 626 G [9 534] | 10 731 G [10 841] | 7.00 / 6.92–7.51 / 8.30–8.90 GiB [8.48] |
+
+Mathlib isolated over four runs: 10 729–10 731 G, peak RSS 8.30, 8.77,
+8.90, 8.80 GiB (the spread is scheduling: how many contexts are alive at
+once); store over two runs 6.92 and 7.51 GiB.  Both modular modes pay
+about +1 % for the local proof flags (a theorem check for every
+definition `isPropCheap` accepts, where before only names stored twice
+were tested); the isolated mode wins it back by dropping the closure-wide
+duplicates' loop of every module's local checks (now over the dropped
+presentations of its own context) and the index lookups of its
+bookkeeping.  A first version kept the one-pass state referenced across
+the install, so the install's `markLinear` silently copied the context's
+bucket array once per module (+0.46 GiB on Mathlib); `lookAfter` removed
+it.  Small closures' RSS varies run to run by a few hundred MiB.
+
+**Open.**  (1) Proof candidates follow Lean's `isPropCheap` (plus a
+bound-variable head): a definition whose statement fails it is not a
+proof, so if it met a theorem of the same name and statement in some
+context (Lean merges theorem with an exported definition there without a
+Prop test) the duplicates' check would reject it; before, the closure's
+duplicate list caught such names.  Never observed (the verdicts below
+agree).  Genuine `axiom`s of one name meeting in a context are rejected
+as before (Lean merges Prop axioms).  (2) `--compare` still runs after
+all modules (it could run in the challenge's own work).  (3) Store mode
+keeps its global index by design.  README suggestion (not written):
+README does not mention modular checking yet.
+
+## TASK #376 — con-leche's modular theory per module: compatible families, no world, no renaming; proofs by the theorem check; `--compare` in the challenge's own work (2026-10-28, agent/376-permodule)
+
+**Why.** Maintainer ruling (2026-10-28), after #375 moved the paper's
+§7 to the per-module form: con-leche's own modular theory follows it —
+no global world and no renaming (names the theory treats specially,
+such as `Quot`, `Nat` or the pins, keep their meaning; nothing needs a
+renaming invariance).  Each module knows the key of every name it uses;
+the theorem is a compatible family of models, one per module's own
+environment; the proof goes module by module, amalgamating the imports'
+models into a model of the context and extending it by the step.  Plus
+three of #374's open issues where small.
+
+**The interface** (`ConLeche/Modular/Generic.lean`, imports nothing):
+the fragment's `ModularSemantics` and theorem verbatim
+(`whitepaper/Fragment/ModularSemantics.lean`, namespace
+`ConLeche.Modular`): `Stores`, models `Mod E` with values `val` and the
+proofs' value `proofVal`, assembly `Assembled C E same` with
+`assembled_src`, amalgamation of a compatible family, `Decls`/`Flagged`/
+`Accepts` and the conservative step; `Refines`/`restrict` derived;
+`Key Stmt` (`home module` | `proof stmt`, now `deriving DecidableEq,
+Repr`); `Development` (`ctx`, `decls`, `own`, `views`, `imports`,
+`key`), `Valid`, `Compatible`, `Development.modular : (∀ i < k, Valid i)
+→ ∃ m, Compatible k m`, `own_model`.
+
+**Con-leche's instance** (`ConLeche/Model/Modular/Instance.lean`,
+564 → 255 lines).  An environment is a con-leche `Env`, a name stored
+when `find?` finds it.  A model (`MMod V μ E`) is a leaf assignment,
+closed and graded, with a covered `EnvModelM` of `E` reading it; a
+value is a leaf, `proofVal` the leaf `.prf`.  Assembly (`AssembledC`):
+`self` (the environment is a member, counted as having all its names:
+what a module's one view, its own environment, needs to refine it) or
+`reads` (a source per name, the part of it read under one key, and
+`CtxRead` of `Restrict.lean`).  Amalgamation (`amalgamateC`) gives each
+name the leaf of its source and builds the model with `CtxSrc.ctxModel`
+(the leaves a constant's laws read are its source's by compatibility).
+Acceptance (`AcceptsC`) is `AcceptedFrom` with every flagged name new
+in the context; the step is `acceptedFrom_model`.  `toDev`
+(`Model/Modular/Main.lean`): a module's context, declarations (flagged:
+its proofs new in its context), own environment, its own environment
+as its one view, the earlier modules as imports (con-leche's `src` may
+name any earlier module, not only a direct import), its keys.
+`valid_of`: assembly by `ctx_reads`/`ctx_assembled` (the old `ctx_reads`
+with the source pieces replaced by `srcE`/`srcR`), new keys from
+`key_own`.  `modular_envModels` now returns the compatible family of
+leaves.
+
+**Removed** (no use left): the world (`Development.world`, `worldL`,
+`mem_world`, `world_sub`, `before`, `before_ref`), renaming (`ren`,
+`KeyMap`, `Piece.rename`, `refines_comp`/`restrict_comp`), the pieces
+with resolutions (`Piece`, `PEnv`, `PEnv.HasKey`, `PieceReads`,
+`readsAlikeP`, `Ref`, `Ref.keys`, `Ref.pieces`, `PMod`, `WorldOk`,
+`PiecesOk`, `normalize`, `Normalized`, `restrictP`, `stepP`,
+`FreshP`, `glueP`, `amalgamateP`, `baseModelP`, `ext_reads`,
+`key_le`, the injectivity `hinj`), the old `Key` (`qual module name`,
+`proof name lps type`).  Keys lose the name: `Key.home h`,
+`Key.proof (lps, type)` (`Modular.Stmt`); `keyOfSlot`/`Store.keyAt` no
+longer take the name.  `Module.res` is `Module.key`, `res_context`/
+`res_own` are `key_context`/`key_own`, `resOf` is `keyOf`.  The
+runtime compares keys only for one name, so no verdict changes.
+
+**The capstones.**  Old (`ConLeche/MainTheorem.lean`, `Challenge.lean`):
+
+```lean
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ G : Modular.Key → (LevelParam → Nat) → V,
+      (∀ n lps T φ, G (.proof n lps T) φ = pt) ∧
+      ∀ j ≤ i, ∃ m : Model V (dev j).own,
+        ∀ n, ((dev j).own.find? n).isSome = true → m.cval n = G ((dev j).res n)
+```
+
+New:
+
+```lean
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ m : ∀ j ≤ i, Model V (dev j).own,
+      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+        (m j hj).cval n = (m j' hj').cval n) ∧
+      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+        (m j hj).cval n = fun _ => pt
+```
+
+`modular_no_False` keeps its statement (`∀ j ≤ i, ∀ c ∈ (dev
+j).own.consts, c.toConstantVal.type = .const falseName [] → False`).
+The Challenge states both and gains a plain-words paragraph on keys and
+compatibility; `tests/challenge.sh` green; axioms pinned at the
+standard three (`Axioms.lean`, `ModIso.lean`).  The isolated-mode and
+store-mode evidence feed them unchanged (`IsoRunOk.localOk`,
+`RunOk.localOk`; the `example` in `tests/ConLecheTests/ModIso.lean`
+restated).
+
+**(a) Proofs by the checker's test.**  A module's proofs are its
+theorems and every definition or opaque constant that passes the
+theorem record's check (`checkPending` with the kind set to theorem:
+its type inferred to be a proposition, its value of that type), run at
+the module that installs it (`proofsOf`).  Lean's `isPropCheap` filter
+is gone from the modular path (`Mod.isPropCheap`, `propAfter` removed;
+the merged mode keeps its own copy, which mirrors Lean's merge).  The
+check is skipped only where it would fail: `Mod.isTypeCheap` (under the
+binders a sort, or a constant or bound variable applied to as many
+arguments as its type takes to a sort of a level that is never zero).
+It is a filter only: the evidence is the theorem check, as before.
+Fixture `PdM` (`tests/olean/src/Pd*.lean`): PdA's `def pd : id True`
+(exported as the assumption of its statement), PdB's `theorem pd : id
+True`, PdM loads PdA and `import all PdB`; Lean merges the two (a
+theorem stands for an assumption of its statement, without a
+proposition test), and before this change the modular check rejected
+PdM (`isPropCheap (id True)` is false, so the definition was keyed by
+its home); now accepted in both modes.  (Two theorems of `id True` at
+the exported level are not merged by Lean, which tests `isPropCheap`
+for two assumptions; no fixture.)
+
+**(b) Units by module name: not done.**  The units' module references
+(gates `g1`/`v1`, `fp1`, the levels `lvl`, a byte per run position)
+are positions in the run's module order throughout the store, the
+mask, the level checks and their proofs (`Verify/Modular/*`).  Changing
+the in-memory representation buys nothing until units are written out;
+the plan stays #374's: a serialised unit carries the names of the
+modules it mentions (or positions in the closure's module order, which
+every process computes from the roots) and is translated on reading.
+Reported, not built.
+
+**(c) `--compare` in the challenge's own work.**  The comparison runs in
+the challenge's work after its unit is published (`storeWork`,
+`isoWork`): `compareOne` at the store's view, `compareOneIso` from the
+units the challenge loads at its levels without its solution (`sideLv`)
+and with it (its own levels).  `ModOk`/`IsoModOk` carry the claim
+(`CmpClaim mode S i chal`, `IsoCmpClaim mode slots lvC chal`, neither
+mentions the run's other modules any more) and the filled holes; the
+report is printed in module order after the accept; `compareAll` is
+gone.  A failing comparison is the challenge's failure, reported like
+any module's (same message).  Fixture: `--keep-going --compare CmpChal
+CmpSolDef CmpSolSorry` reports the comparison's failure beside the
+unrelated failing module (exit 1, the output names the comparison);
+before, the comparison ran only after every module and record passed.
+
+**Measurements** (instructions:u, one run each, 96 workers; peak RSS
+from the 1 s watchdog; base = #374's binary, rerun today for
+Init/Std/Lean, #374's Mathlib runs; every run accepted, counts
+unchanged):
+
+| closure | store base → new | isolated base → new | peak RSS store / isolated (new) |
+|---|---|---|---|
+| Init (653 modules) | 495 G → 497 G | 442 G → 444 G | 1.04 / 0.97 GiB |
+| Std (1 012) | 730 G → 732 G | 671 G → 673 G | 1.64 / 1.46 GiB |
+| Lean (2 374) | 935 G → 943 G | 922 G → 929 G | 1.58 / 1.75 GiB |
+| Mathlib, patched (10 976) | 9 625 G → 9 658 G | 10 730 G → 10 761 G | 7.15 / 8.80 GiB [#374: 6.92–7.51 / 8.30–8.90] |
+
+The cost is (a): the theorem check's type inference for every
+definition the shortcut does not settle (universe-polymorphic
+statements over `Sort u`, for instance).  Without the shortcut it was
++1.4 % on Lean and +1.0 % on Mathlib; with it +0.8 % and +0.3 %.  The
+theory change costs nothing at run time.
+
+**Gates.** `lake build`, `lake test` warning-free; `tests/olean.sh`
+80/80 (the two new cases in both modes); `tests/challenge.sh`;
+`tests/shake.sh`; `tests/layering.sh`; the OVERVIEW and whitepaper link
+gates; `tests/arena.sh` on the final tree.
+
+**Docs.**  OVERVIEW: keys, the per-module theorem, the interface and
+instance as they are, proofs by the theorem check, the comparison in
+the challenge's work.  Whitepaper §7's "In con-leche" block and §8's
+paragraph now state what is true (the per-module theorem, the instance,
+keys, no renaming); `_out/whitepaper/` rebuilt.  README suggestion (not
+written): README does not mention modular checking yet.
+
+**Open.**  (b) above.  The proof flags cost +0.3 % on Mathlib; a flag
+recorded by the definition's own record check (its type's sort is
+already inferred there) would cost nothing, but in isolated mode the
+flags are needed in the unit before the record checks run, and the
+proof would have to relate the two checks.
+
+## TASK #378 — §7 of the whitepaper with precise formulas (2026-10-28, agent/378-formulas)
+
+Maintainer feedback: §7's prose was hard to read, and "assembly",
+"compatible" and the interface definition needed precise formulas.
+Every definition, lemma and theorem of §7 now states its content as a
+formula in the paper's notation, checked against the fragment
+(`ModularSemantics.lean`, `ModularModel.lean`, `ModularInstance.lean`;
+no Lean change): $St(E)$ for the stored names, $m(c)$ for values, a
+family $(E_x)_{x∈X}$ with a designation $σ ⊆ Name × X$, `Asm`, `Acc`,
+`Fl`, refinement $≼$, constant refinement $≤$, the part $E_x^C$ of a
+member that $C$ reads and the scope condition `Sc`; a development
+indexed by numbers ($imp_i$, $Γ_i$, $D_i$, $E_i$, $𝒱_i$, $κ_i$), the
+views' index set $X_i$ and designation $σ_i$, `NewKeys`/`Checked`/
+`Compared`/valid, the fragment's local checks, the compatible family
+below $k$. Restriction and "homes are earlier" (`home_le`) became
+lemmas with proofs; the theorem's proof follows the theorem and works
+case by case on the three sources of a value. One claim was dropped:
+"the empty environment is assembled from the empty family" does not
+follow from the interface (assembly is the proof's own relation); the
+text now says that amalgamation gives a model to every environment
+assembled from the empty family. The rule is recorded in
+`whitepaper/PLAN.md`.
+
+## TASK #379 — §7 reviewed and rewritten with Codex (2026-10-28, agent/379-codex)
+
+Maintainer request: have Codex (gpt-6.1-sol) review §7 of the proof-idea
+paper for content (complete and valid against the fragment) and for
+exposition and writing, rewrite it, and iterate with Claude's review.
+Three rounds in one Codex session; Claude built and read the PDF after
+each round and wrote the next round's review. Reviews kept under
+`_tmp/379/review{1,2,3}.md` (not committed).
+
+**Content fixes (round 1, Codex's review against the fragment):** the
+generic interface gives model existence only; consistency is stated for
+the set-theoretic instance with the exact recursor hypothesis
+(`falseSpec`); the models are `BlockModel`s and keep the block facts
+(scope, generated entries, family and constructor sets, field universe
+bound), which amalgamation must preserve; the full specification-scope
+check of §4 is part of entry scope; theorem installation extends a
+model and preserves old values; the stored-statement corollary needs
+`|ℓ⃗| = |p⃗|` and an explicit model; keys identify occurrences of one
+name (the pair name–key); closure is derived from assembly (acceptance
+needs it); construction of a module's model uses only its imports'
+models, while the compatibility proof also compares with earlier
+modules; the institution analogy is removed.
+
+**Exposition (rounds 2–3, Claude's review of the rendered PDF):** a
+Typst rendering bug (`m_C(c)` etc. put the parentheses into the
+subscript) fixed throughout; motivation in the opening; connected prose;
+the axiom example (why the step must extend every model) restored as an
+illustration; inductive-block conditions refer to §4 instead of
+re-deriving them; the set-theoretic instance is its own subsection
+(7.3); one display for entry scope; concrete checks named `Pass_i`
+(vs the abstract `Valid_i`); the syntactic instance moved to Remark 30;
+con-leche jargon replaced by plain words.
+
+Gates: whitepaper links and fragment gates, build without warnings.
+No Lean file changed.
+
+## TASK #383 — the olean branch review's findings: one comparison per challenge, holes as assumptions, opaque values, redundant file data checked, keep-going categories (2026-10-28, agent/383-fixes)
+
+Codex's review of `olean` at 0f0ad60b8 (`_tmp/382/review-final.md`),
+widened by two maintainer rulings: "the oleans are not to be trusted;
+there is no clear standard on how to read them (are constNames
+authoritative or constants?), so be maximally picky: read both, reject
+on mismatch; same for unexpected duplicates" — scaled back to "reject
+wherever two parts of the file could give the same name (or position)
+different content that tools might resolve differently; meaning-free
+redundant fields (isRec, numNested, …) are not compared".  Every check
+below has a fixture in `tests/olean.sh` (both modular modes where it
+applies; 114 cases, was 80) or a guard in
+`tests/ConLecheTests/OleanTests.lean`; each fixture fails on the
+binary of 0f0ad60b8 except the wrong-typed solution value (that binary
+rejected every definition hole) and the merged duplicate (rejected as
+an incompatible pair before, now as malformed).
+
+**Findings and fixes.**
+
+1. *A challenge compared twice* (`--compare C S1 --compare C S2`: the
+   second comparison set aside an emptied challenge and accepted with no
+   hole filled — verified on the old binary).  `addCompares` rejects a
+   challenge named twice and a challenge that is another comparison's
+   solution (its records are never installed), before the graph changes:
+   usage error, exit 3.  Fixtures `compare: one challenge compared twice`,
+   `compare: a challenge as another one's solution`.
+2. *The name table* (`ModuleData.constNames`, the keys of Lean's
+   `finalizeImport`, which zips it with `constants`).  `constNamesOk`
+   (Load.lean) checks in every part — exported, server, private, and the
+   classic file — that the table has the constants' length, entry `i`
+   the name of constant `i` (pointer first, else decoded) and no name
+   twice; malformed input, exit 3.  The check sits in `readModule`, after
+   and outside the decoder: `decodeModuleSpec` and its equality with the
+   fast decoder are untouched.  Fixtures: two entries swapped (classic,
+   private, exported part, and in both modular modes), a table one
+   shorter.
+3. *Duplicates and coverage.*  A name stored twice in one part is
+   malformed (exit 3, by the name table's uniqueness; the modular map no
+   longer can overwrite: its insert is safe because the part check ran).
+   This is stricter than the task's "exit 1" because of the ruling; Lean
+   defines a merge for one name in two MODULES only (`subsumesInfo`,
+   `mergeEntry`, unchanged and checked again against v4.35.0's source).
+   Coverage (`coverageOk`, both the merged and the modular emission):
+   every constant the walk reached and did not skip lands in an emitted
+   record, and the data deciding which constants form one inductive
+   block agree — every member's `all` is the block's and contains it,
+   the members are inductive types, each listed constructor is a stored
+   constructor naming that type, a recursor's `all` is its first
+   member's.  Violations are malformed (exit 3).  The merged path had
+   the same gap (an orphan constructor or recursor vanished); unreferenced
+   internal constants stay outside the merged walk, as in lean4export
+   (that is its root set, not a coverage gap).  Guards: orphan
+   constructor (modular and merged), constructor of another type, block
+   members naming different blocks, a listed constructor not stored;
+   fixture `one module storing a name twice` (merged, both modular).
+4. *Opaque values.*  An installed opaque constant is an assumption on
+   both sides, so the comparison now also checks every non-hole opaque
+   record of the challenge against the value of the context's opaque
+   constant of that name (`opaquesMet`, `opaqueVal`): the home module's
+   record, read only where the challenge's context sees the value (home
+   loaded at the private level, or exported with `Expo.same`).  Part of
+   `CmpClaim`/`IsoCmpClaim`.  Fixture `compare: an opaque constant of
+   another value` (CmpOpq vs CmpOpqSolK).  OVERVIEW and §7's "including
+   values" now hold as written.
+5. *Definition and opaque holes.*  A hole is installed by its statement
+   alone (`assumeHoles`: a theorem record, whose phase-A install guards
+   the header and stores `.thmInfo`; the value is never checked — an
+   axiom record would be a non-standard axiom, a decline), and
+   remembers the kind that fills it (`holesOf`: theorem/definition by
+   their kind, opaque by an assumption, always or an assumption).  A
+   comparison's install error keeps its category (`withPrefix`), so a
+   decline stays a decline.  Fixtures: CmpOpq with a definition and an
+   opaque hole filled by CmpOpqSol (accept, holes listed), and by
+   CmpOpqSolTy whose `answer` value is patched to a `Bool` (reject).
+6. *`--keep-going` categories.*  `worseExit`: 3 over 1 over 2 over 0
+   (a failure of unclear cause decides nothing about the input, so it
+   is never reported as a rejection; a rejection is a definite verdict
+   that a decline elsewhere does not change).  Both aggregations (the
+   install/module results and the pending checks).  The skipped-module
+   test compared `toString e` (which starts with "internal error: ")
+   with "skipped", so skipped modules counted as failures; now
+   `skippedMsg`.  Fixture `compare: a decline under --keep-going` (2,
+   was 1); guard on `worseExit`.
+7. *Fidelity tests.*  OleanTests now also checks the specification's
+   reading of Tiny, TinyUse and TinyClassic against facts written down
+   from their sources (imports, the names stored, kinds, `T`'s
+   constructors and sort, `idT := fun x => x`, `yes := Yes.intro`, the
+   exported axioms, `twice`'s body, the name tables), and the module
+   header says which check catches what.  `olean-compare` fails on
+   duplicate keys and on differing record counts.
+
+(a) *Imports of the parts.*  The server and private parts' headers must
+be the exported part's (module-system flag, imports with their flags);
+closure discovery reads the exported part, the module check the private
+one.  Fixtures: the private and the server part's imports pointed at an
+empty array (merged and modular), the private part's flag cleared.
+(b) OVERVIEW's "against the context Lean elaborated it in" now says the
+context is built by Lean's loading rules, refinement and scope checked,
+equality with Lean's environment not; the same wording in the
+`--modular` help text and the module headers.
+
+**The ruling's list, checked against the v4.35.0 sources.**
+
+* constNames vs constants, every part: checked (2).
+* Headers across the parts (flag, imports with flags): checked (a).
+* Exported part vs private part: `expoOfParts` already visited every
+  exported constant (not only imported ones); it now runs on the server
+  part too, in the merged read as well (`readModule` is now the one
+  reader of both modes, moved to Load.lean), and the hidden form must be
+  the axiom Lean writes (`addDeclCore`: unsafe exactly for an unsafe or
+  partial definition or an unsafe opaque, never for a theorem).  Fixture:
+  the exported axiom of the safe `idT` marked unsafe.
+* The server part: Lean's `finalizeImport` reads constants from the
+  main (last) part and the public (first) part only; its own data are
+  checked like the others' (name table, header, constants refine the
+  private ones).  Its name table and imports are the exported part's
+  objects in the fixtures (shared), so only the import case has a
+  fixture of its own.
+* `extraConstNames`: Lean takes them from the `.ir` data
+  (`irData.extraConstNames`), not from an olean part, and only for
+  `const2ModIdx` (IR lookup), never as constants: not read.
+* Duplicate imports: Lean's own case (`public import A` beside `import
+  all A`, fixture HidAll), merged by the level fixpoint of
+  `importModulesCore`, which `levelsOf` computes: allowed.  A cycle,
+  including a self-import: `closureGo` rejects an import of a module on
+  the walk's current path (merged and modular; buildGraph's cycle error
+  is now malformed too).  Fixture: HidA's import renamed to HidUse.
+* Inductive fields: the modular records go through `declOfF` and so
+  `validateIndF` exactly like the merged ones (both via `declsOf`);
+  validateIndF unchanged.  Block grouping data: checked (3).
+* Recursor rules: NOT landed — a pinned verdict would move.  Lean's
+  kernel runs a loaded file's stored rules, the checker installs the
+  generated ones, and official's replay compares the two structurally
+  ("Invalid recursor"), so by the ruling a mismatch should be rejected.
+  The check (`rulesAgree`, after the install in every mode and for the
+  stream path: count, constructor, field count, right-hand side up to
+  level-parameter names — pinned basis blocks are installed under the
+  pin's names, `Eq.rec` — and the λ-binders' domains, which an iota
+  step never reads: the generator keeps the declared parameter types,
+  `outParam (Type w)` in `HXor.rec`, where Lean's rule has `Type w`)
+  accepts Init and Lean in the merged mode, but turns 19 pinned e2e
+  verdicts from 0 into 1: `genrec_rules_garbage{,_nested}`,
+  `corner_rec_{rule_missing,rule_nfields,rules_swapped,alien_rule,
+  closed_major,call_const_bad,body_redex,redex_nonindex,wtype_redex,
+  call_redex}`, `corner_tshadow_aux_nonfield_bad`,
+  `mutual_rec_{wrong_member,nonfield,unguarded,rules_swapped,body_redex,
+  missing_rule}` — all official 1, pinned 0 by charter item 8 ("the
+  stream's rules are not read, the generated rules are installed",
+  GENREC "TARGET 0").  The maintainer decides between the charter and
+  the ruling; the check with its two olean fixtures (T.rec's rules
+  swapped, T.b's rule given T.a's right-hand side) is on branch
+  `agent/383-rules`.
+* Residual: con-leche's decoded expressions carry no binder names or
+  infos, so the subsumption merge compares types up to them where Lean
+  compares them too.
+
+**Measurements** (instructions:u ×10⁹, one run each, 96 workers; base =
+0f0ad60b8's binary, rerun today; every run accepted, counts unchanged):
+
+| closure | merged base → new | store base → new | isolated base → new |
+|---|---|---|---|
+| Init | 402.9 → 406.4 | 497.0 → 499.9 | 444.4 → 447.3 |
+| Lean | 727.8 → 739.7 | 943.4 → 953.0 | 929.3 → 939.8 |
+| Mathlib, patched (10 976 modules) | — | 9 658 (#376) → 9 702 | — |
+
+The cost is the part checks: the merged read now compares the exported
+and server parts with the private one too (+1.6 % on Lean), and every
+part's name table is decoded once (+0.6 to +1.1 % in the modular modes).
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+114/114; `tests/arena.sh` on the final tree (e2e 496/496, challenge
+statements identical, shake, layering, link and quote gates);
+whitepaper links gate.
+
+**Disagreements / choices.**  Duplicates are exit 3, not 1 (ruling).
+A hole is a theorem record internally (no assumption record exists that
+installs without being a non-standard axiom).  Reading the home's
+opaque record in isolated mode reads only what the challenge's context
+shows (private level, or exported as stored); otherwise the comparison
+fails with "not in the challenge's context".
+
+## TASK #384 — Lake's and Comparator's test suites ported; kind-checked holes; module names in «» (2026-10-29, agent/384-cmptests)
+
+Maintainer request: turn the tests of the comparator repository (now in
+Lean core as `lake comparator` / `lake check`, v4.35.0) into con-leche
+tests.  Sources: `tests/lake/tests/challenge-*` (15) and `check-*` (7) of
+Lean v4.35.0, and the comparator repository's `tests/projects` (20; the
+four not in core: char_ofnat_issue, proj_trick, quot_mismatch,
+theorem_hole_issue; the nanoda ones are about nanoda).  Comparator's
+shared projects are the core ones, except primitive_issue (the old one
+defines Nat.land/lor/xor and the shifts as 0 instead of importing
+Init.Data.String.Bootstrap).
+
+**Fixtures.**  `tests/olean/src/Up*.lean` (34 modules, built by
+`tests/olean/build.sh`), each with a header naming the upstream test, its
+path and its outcome there.  Adaptation: `prelude` and a small import
+(`Init.Data.Nat.Basic`, `Init.Data.Int.Basic`, `Init.Classical`,
+`Init.Data.Nat.Gcd`) instead of all of Init, and `grind` replaced by
+`Nat.add_comm n m`: with all of Init each run checks 655 modules (about
+100 CPU-seconds), with these 15 to 55.  Verbatim: UpGcdSol,
+UpBoomOleanSol (`import Lean`, for `run_elab`; the reader reads Lean's
+closure and fails, about 1 s), UpBoomCharSol, UpQuot, UpQuotSol.  proj_trick
+uses the projection function `S.a` where upstream's elaborator (from
+`import Lean`) writes a raw `Expr.proj S 0`: the trick is aimed at a
+comparison that follows only the constants a hole mentions, and
+con-leche compares every constant of the challenge.  Before the
+adaptation every upstream project was built verbatim (all of Init,
+`import Lean` where upstream has it) and run in all three modes
+(`_tmp/384/runs`); the adapted fixtures give the same verdicts.
+Comparator's config has no counterpart: every sorry in a challenge is a
+hole, and every upstream test permits exactly con-leche's three axioms.
+`tests/olean.sh` runs every comparison in both modular modes
+(`upstream_cases`) and every module merged: 193 cases (was 114),
+47 s wall (was 16).
+
+| upstream test | con-leche fixture | upstream | con-leche (store / isolated / merged) | note |
+|---|---|---|---|---|
+| challenge-simple-match | UpComm vs UpCommSol | 0 | 0 / 0 / Sol 0, Chal 2 | |
+| challenge-simple-axiom-issue | UpComm vs UpCommAxSol | 1 | 2 / 2 / 2 | non-standard axiom: declined |
+| challenge-simple-kind-mismatch | (same files as simple-axiom-issue) | 1 | 2 / 2 / 2 | as above |
+| challenge-simple-mismatch | UpComm vs UpCommMisSol | 1 | 2 / 2 / 2 | the solution's axiom is declined before any comparison |
+| challenge-def-hole | UpDefHole vs UpDefHoleSol | 0 | 0 / 0 / Sol 0 | |
+| challenge-def-hole-axiom-issue | UpDefHole vs UpDefHoleAxSol | 1 | 2 / 2 / 2 | sorry outside a challenge: declined |
+| challenge-def-hole-kind-mismatch | UpDefHole vs UpDefHoleKindSol | 1 | 2 / 2 / 2 | the axiom is declined first; kind mismatch alone: next rows |
+| (own) kind, definition hole | UpKindDef vs UpKindDefOpqSol | (1) | 1 / 1 / Sol 0 | **was 0**: fixed, below |
+| (own) kind, theorem hole | UpKindThm vs UpKindThmOpqSol | (1) | 1 / 1 / Sol 0 | **was 0**: fixed |
+| (own) kind, theorem hole by a definition | UpKindThm vs UpKindThmDefSol | (1) | 1 / 1 / Sol 0 | message now says kind |
+| (own) converse | UpKindDef vs UpHidDefSol | — | 0 / 0 / Sol 0 | a hidden definition is an assumption of unknown kind |
+| challenge-def-hole-type-mismatch | UpDefHoleTy vs UpDefHoleTySol | 1 | 1 / 2 / 2; `--keep-going` 1 / 1 | two failures, first one met reported (below) |
+| challenge-numeric-namespace | UpNum.«12.34».«5» vs UpNumSol | 0 | 0 / 0 / Sol 0, Chal 2 | **was 3** (name split at every dot): fixed |
+| challenge-olean-issue | UpBoom vs UpBoomOleanSol | 1 | 3 / 3 / 3 | negative GMP Nat literal: malformed file data |
+| challenge-opaque-value | UpBoom vs UpBoomOpqSol | 1 | 2 / 2 / 2 | the axiom behind the value: declined |
+| challenge-primitive-issue | UpGcd vs UpGcdSol | 1 | 2 / 2 / 2 | Nat.gcd matches no pin: declined |
+| challenge-bad-config, -no-sandbox, -inadvisably-no-sandbox | skipped | 2 / 2 / 0 | — | configuration and sandbox handling; the project is simple-match's |
+| check-audit | UpCommSol | 0 | 0 / 0 / 0 | the axiom report has no counterpart |
+| check-audit-reject | UpBoomOleanSol | 1 | — / — / 3 | as olean-issue |
+| check-from-export | UpCommSol, UpSorry (merged) | 0, 1 | 0, 2 | the export-file handling is not ported: the stream path has its own e2e suite |
+| check-inadvisably-no-sandbox | skipped | 0 | — | sandbox |
+| check-multi | UpMultiA UpMultiB (two roots) | 0 | 0 / 0 / 0 | |
+| check-paranoid | UpComm vs UpCommSol | 0 | 0 / 0 / 0 | con-leche is one of the paranoid checkers; the stub plumbing is Lake's |
+| check-sorry | UpSorry | 1 | 2 / 2 / 2 | sorry: declined |
+| comparator char_ofnat_issue | UpBoom vs UpBoomCharSol | 1 | 1 / 2 / Sol 2 | store: the solution's Char/String meet Init's in the challenge's context; isolated: the solution's string literal declined first |
+| comparator proj_trick | UpProj vs UpProjSol | 1 | 1 / 1 / Sol 0 | S compared because it is the challenge's |
+| comparator quot_mismatch | UpQuot vs UpQuotSol | 1 | 1 / 1 / 1 | `Quot.lift` is a basis name |
+| comparator theorem_hole_issue | UpThmHole vs UpThmHoleSol | 0 | 0 / 0 / Sol 0 | |
+
+No wrong accept remains; every upstream accept is accepted.  Every
+remaining difference is a decline or a malformed-file error where
+upstream rejects, by con-leche's standing rules (only the three axioms,
+no sorry outside a challenge, pinned GMP operations, untrusted file
+data).
+
+**Fix 1: a hole filled by an opaque constant (a wrong accept).**
+`cmpOk` let any assumption (`kindTag` 0) fill a hole, so that an
+exported-level hidden theorem or definition can fill one; an installed
+opaque constant is such an assumption too, so a definition or theorem
+hole filled by an opaque constant was accepted (Comparator: "Solution
+constant is not a definition"), contradicting the help text's "of the
+same statement and kind".  Now an assumption fills a hole only where
+the kind of its home record (`homeKind`, `recKind`), read where the
+challenge's context sees that record (the home at its private level, or
+exported as stored — `opaqueVal`'s condition), is the hole's, or where
+the record is not seen.  `CmpClaim`/`IsoCmpClaim` carry it
+(`storeHomeKind`, `isoHomeKind`); nothing downstream reads `cmpOk`'s
+inside, so no proof changed.  The message names the kind ("the
+solution's constant is not of the hole's kind").  Residual: Lean
+exports a theorem, a hidden definition and a hidden opaque constant
+alike as an axiom, so at the exported level the kind is not visible and
+any of them fills a hole of any kind (fixture UpHidDefSol: accepted).
+Reading the home's private record would read more than Lean loads (the
+#374 rule).  Consistency is not at stake either way, since the filling
+constant's value is checked at its home.
+
+**Fix 2: module names in «».**  The command line split module names at
+every dot, so `Challenge.«12.34».«5»` (Lake's file
+`Challenge/12.34/5.olean`) was not found (exit 3).
+`Frontend/Olean/Load.lean` `parseModName` reads `«»` escapes as Lean
+does (no numeric components: module names have none); a malformed name
+is a usage error.  Guards in `OleanTests.lean`.
+
+**Observed, not changed: the reported failure depends on the mode.**
+Without `--keep-going` a run reports the first failure it meets, and
+the two modes meet them in different orders: the store installs every
+module, runs the local checks (the comparison among them), then checks
+values; the isolated mode checks a module's values with its install,
+so a solution's sorry is met before its challenge's comparison.  Hence
+def-hole-type-mismatch is 1 in the store and 2 in isolation (both 1
+under `--keep-going`), and char_ofnat_issue 1 / 2 even under
+`--keep-going`: the store's local-check failure ends the run, and in
+isolation the challenge is skipped because its solution failed.
+Acceptance agrees, as proved; only the category of a run with several
+failures differs.  `--keep-going` in the store mode also stops after a
+phase that failed (the record checks of later phases are not run).
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+193/193; overview/README links repointed (line shifts only); whitepaper
+links; quote gate; `tests/arena.sh` on the final tree.
+
+## TASK #386 — the stored recursor rules must agree with the generated ones, up to definitional equality (2026-10-29, agent/386-rules)
+
+Maintainer ruling (2026-10-29): "we can land the recursor check (up to
+defeq), better safe than sorry."  The installer generates every
+recursor and installs the generated rules; Lean's kernel runs the rules
+a loaded file STORES, and official's replay rejects a mismatch
+("Invalid recursor").  The standing design's "the stream's rules are
+never read" (charter item 5's GENREC stage) is revised: the stage still
+never reads them, but after the install they must agree with the
+generated ones.  Supersedes the unlanded `agent/383-rules`
+(c30624c28), which compared syntactically.
+
+**The check** (`recRulesAgree`, new `ConLeche/Driver/RecRules.lean`).
+For every recursor record of every `.indDecl` record, against the
+installed recursor of its name (a pinned basis block's rules read at
+the record's level-parameter names):
+* the same number of rules; rule by rule the same constructor (in
+  order) and the same field count;
+* the right-hand side: a FAST PATH accepts it when it equals the
+  generated one but for the domains of its `rulePrefix + nfields`
+  leading λ-binders (`rhsSameUnder`; the generator's binder types may
+  differ from the elaborator's, e.g. an `outParam` kept).  Otherwise it
+  must be closed
+  (no loose bound variable, no free variable), use only the record's
+  level parameters, and — with the rule's telescope (parameters,
+  motives, minors, fields) opened as locals at the GENERATED rule's
+  binder types, the stored side instantiated at the same locals (or
+  applied to them where it has no λ) — its body must infer at the full
+  grade and be `isDefEq` to the generated body (`coreKnotI … checkFuel`,
+  fresh memo state).  The leading domains are not compared because an
+  iota step applies the rule and β-reduces: they are never read.
+* The view is the installed environment restricted below the block's
+  last recursor (`blockView`): nothing installed later is visible.
+* Verdicts: a disagreement is `.invalid` (exit 1) naming the recursor
+  and the rule's constructor; a resource limit in the inference or
+  comparison is a decline (exit 2, `.notImplemented` passed through);
+  an `.internal` error stays exit 3.
+
+**Where.**  The one shared install of each path: `checkDeclsIO`
+(`Driver/Run.lean`: JSON and `--olean` merged), right after phase A;
+`installModule` (`Driver/Modular.lean`: both modular modes and the
+compared challenges' records).  A pure guard: an early `.error`, so no
+proof changed and nothing it computes is installed.
+
+**Verdicts.**  13 pinned e2e verdicts 0 → 1, in line with official:
+`mutual_rec_{wrong_member,nonfield,unguarded,rules_swapped,missing_rule}`,
+`corner_rec_{call_const_bad,closed_major,alien_rule,rule_missing,
+rule_nfields,rules_swapped}`, `genrec_rules_garbage{,_nested}`.  The
+other 6 of the 19 the syntactic check moved STAY 0, because their
+stored rule is the generated one under a β-redex, definitionally equal:
+`mutual_rec_body_redex`, `corner_rec_{body_redex,call_redex,
+wtype_redex,redex_nonindex}`, `corner_tshadow_aux_nonfield_bad`
+(official, comparing syntactically, 1; the comments say so).  No other
+pinned verdict moved.  `tests/olean.sh`: two corrupted-file fixtures
+(T.rec's rules in another order; a rule with the other rule's
+right-hand side), both 1.
+
+**Cost** (`perf stat -e instructions:u`, one run each, 96 workers,
+v4.35.0 toolchain oleans; base = `olean` 4a158f9dc's binary built
+today): Init merged 406.51 → 406.67 ×10⁹ (+0.04 %), Init `--modular`
+499.91 → 500.05 (+0.03 %), Lean merged 740.17 → 739.79 (−0.05 %,
+noise).  All accepted, declaration counts unchanged.
+
+**Gates.**  `lake build`, `lake test` warning-free; `tests/olean.sh`
+199/199; `tests/arena.sh` on the final tree (e2e 496/496, trusted and
+`--jobs` sweeps, shake, layering, link and quote gates, challenge
+statements identical); OVERVIEW links repointed (line shifts only).
+
+## TASK #387 — no designation in the modular interface; interchangeable occurrences; sources per importer (2026-10-29, agent/387-nosigma)
+
+Maintainer-approved simplification (2026-10-29), with the refinement
+that the word "key" leaves the presentation.  Done in the fragment
+(`whitepaper/Fragment/ModularSemantics.lean`) and, character for
+character apart from the namespace, the module docstring's first
+paragraph and `deriving DecidableEq, Repr` on `Key`, in
+`ConLeche/Modular/Generic.lean`.
+
+**The interface** (`ModularSemantics`), fields now: `Env`, `Name`,
+`Stores` (`c ∈ E`), `Mod`, `Val`, `val` (`m(c)`), `proofVal` (π),
+`Assembled : Env → ∀ {ι}, (ι → Env) → Prop` (no designation argument),
+`assembled_src : Assembled C E → ∀ n, Stores C n → ∃ i, Stores (E i) n`,
+`amalgamate : Assembled C E → ∀ m, (∀ n i i', Stores C n →
+Stores (E i) n → Stores (E i') n → val (m i) n = val (m i') n) →
+∃ mC, ∀ n i, Stores C n → Stores (E i) n → val mC n = val (m i) n`,
+`Decls`, `Flagged`, `Accepts`, `step` (unchanged).  So a family is
+*compatible for C* when it agrees on every name of C that two members
+store; amalgamation agrees with every member storing the name.
+`Refines Γ E := Assembled Γ (fun _ : PUnit => E)`; `restrict` as before.
+
+**Developments** (`Development`): `ctx`, `decls`, `own`,
+`sources : Nat → List (Nat × S.Env)` (NEW, replaces `views` and
+`imports`: the views module i reads, each paired with the module
+presenting it), `key` (kept, as the internal representation).  New
+definitions: `DeclaredBy i n h := key i n = .home h`,
+`ProofOf i n s := key i n = .proof s`,
+`Interchangeable i j n := (∃ h, DeclaredBy i n h ∧ DeclaredBy j n h) ∨
+(∃ s, ProofOf i n s ∧ ProofOf j n s)` (paper: (i,c) ≈ (j,c);
+Decl_i(c,h), Prf_i(c,s)); `interchangeable_iff` (↔ key equality) and
+`interchangeable_equivalence` (an equivalence for each name: trivial,
+since every occurrence has exactly one key; no validity fact needed).
+`Src i := {x // x ∈ sources i}`, `Assembled i E := S.Assembled E
+(fun x : Src i => x.1.2)`, `OneCopy i E := ∀ n, Stores E n →
+∀ x ∈ sources i, Stores x.2 n → Interchangeable i x.1 n` (the
+one-copy condition), `NewNames i` (was `NewKeys`: a new name is
+`DeclaredBy i n i` or a flagged `ProofOf`), `Checked i := Assembled i
+(ctx i) ∧ OneCopy i (ctx i) ∧ Accepts ∧ NewNames i`, `Compared i :=
+Assembled i (own i) ∧ OneCopy i (own i)`, `Valid i` = `sources : ∀ x ∈
+sources i, x.1 < i ∧ Refines x.2 (own x.1)` and `checked_or_compared`
+(the field `views`/`imports` gone), `Compatible k m` = interchangeable
+occurrences get one value, `ProofOf` gets π.  `Development.modular`,
+`own_model`, `home_le` keep their statements' shape; the proof uses
+OneCopy where it used the designation (compatibility of the
+restricted source models for C, and `Valid.src`).
+`Development.modular`: 83 → 90 lines (two conversions to key equality).
+
+**Why sources per importer** (a deviation from the brief's literal
+plan, needed so that nothing the runtime does not check is assumed).
+With per-module views read in full by every importer, the one-copy
+condition quantifies over everything any importer could read: in
+con-leche a module h's own environment holds its context's copies,
+which an importer at h's exported level does not see, so the
+condition would demand key agreement the runtime never checks (it
+checks only the copies a module sees: `oneKey`/`keysOk`); in the
+fragment it would forbid a private copy in an import's private view
+meeting another module's exported one, stricter than Lean.  So a
+development lists, per module, the views that module reads.
+
+**Fragment** (`ModularModel.lean`): `common C E` (no `same`: E's
+constants at names C stores), `Assembled C E` (`le` without the
+designation), `Refines`, `glueM`, `Assembled.model`,
+`Assembled.scoped` adapted; `sources dev i` (every view of every
+import, with the import) and `mem_sources`; `FromViews dev i E` now
+`Assembled E (sources) ∧` the one-copy condition (key equality, i.e.
+interchangeable).  `ImportOk`, `LocalOk`, `Compared`, `InterfaceOk`
+unchanged in shape.  `ModularInstance.lean`: `toDev` sets
+`sources i := sources dev i`; `toDev_valid` now takes `∀ j ≤ i, Valid
+dev j` (the sources' refinement is the imports' `InterfaceOk`);
+`Valid.iface` new.  `modular` (fragment) states compatibility with
+`(toDev V dev).Interchangeable` and `(toDev V dev).ProofOf` (was key
+equality / `.proof s`).  `ModularSyntactic.lean`: `Assembled` drops
+the designation and the mention conditions (they follow from the
+environments' scoping).
+
+**Con-leche** (`Model/Modular/Instance.lean`): the instance's
+environments are `Env × (Name → Prop)`, a con-leche environment with
+the names it exposes; `StoresC E n := (E.1.find? n).isSome ∧ E.2 n`;
+`Mod E := MMod V μ E.1`; `AssembledC C E` has `self` (same underlying
+environment, exposing no more) and `reads` (every name of C exposed
+and read from a member exposing it, the reads `R n` exposed there,
+`CtxRead` on the underlying environments); `amalgamateC` adapted;
+`Accepts Γ D Γ' := AcceptsC μ pins Γ.1 D Γ'.1`.
+(`Model/Modular/Main.lean`): `alikeIn dev i b d` (d is in
+`readsAlike dev i b`); `toDev` has `ctx`/`own` exposing every name and
+`sources i := (List.range i).map fun b => (b, ((dev b).own, alikeIn dev
+i b))`: a source is an earlier module's own environment exposing what
+module i reads alike of it.  `mem_srcList`, `mem_toDev_sources`,
+`ctx_oneCopy` new; `srcAt`, `srcOpt`, `srcEnv_srcOpt`,
+`ctx_assembled`, `valid_of`, `modular_envModels` adapted.  The
+one-copy condition then holds because a source exposes only names
+read alike, i.e. under one key; that the context's reads are read
+alike is the existing local check (`LocalOk.scoping` via
+`readsAlike`, from the runtime's `oneKey`/`keysOk` through
+`RunOk.key_pick`).  `LocalOk`, `ImportOk`, `InterfaceOk`,
+`ConLeche/Modular.lean` and the evidence chain RunOk/IsoRunOk ⇒
+LocalOk are UNCHANGED.
+
+**Statements.**  `modular_model_exists`, `modular_no_False` and
+`ConLeche/Challenge.lean` unchanged (they still say "one key": the
+capstone keeps `key`, the paper does not).  `Generic.lean` 347 → 395
+lines, `Instance.lean` 255 → 264, `Main.lean` 671 → 717; fragment
+`ModularSemantics` 348 → 394, `ModularModel` 456 → 471,
+`ModularInstance` 162 → 174, `ModularSyntactic` 238 → 234.  Axioms
+unchanged (Lean's three).
+
+**§7** (`whitepaper/sections/06b-modular.typ`): notation `c ∈ E`
+(stores) and `E(c)` (entry) throughout (the `St` operator is gone);
+the designation σ is gone from compatibility for an environment
+(`Cmp_C`), assembly `Asm(C,(E_x))`, amalgamation, refinement, the
+common part `E_x^C`; a development is Γ_i, E_i, D_i, X_i (sources)
+and the declared-by / proof-of predicates `Decl_i(c,h)`,
+`Prf_i(c,s)`; new Definition "Interchangeable occurrences" `(i,c) ≈
+(j,c)`; `One_i(E)` is the one-copy condition, in `Checked_i`,
+`Compared_i` and the local check `Import_i` and comparison; validity
+asks `∀(j,V) ∈ X_i. j < i ∧ V ⪯ E_j`; the local checks define
+`X_i = {(j,V) | j ∈ imp_i, V ∈ 𝒱_j}`; `OwnKeys_i` renamed `Own_i`;
+`(∀ j ≤ i. Pass_j) ⇒ Valid_i`; Lemma "Declarers are earlier" (was
+"Homes are earlier"); the Lean table and the con-leche block say
+"declared by" / "interchangeable" instead of keys.  No other prose
+rewritten (the #388 rewrite follows).  §8 "Modular checking" no longer
+says keys.
+
+**Gates.**  See the landing commit.
+
+## TASK #389 — compatibility through a binary agreement predicate (2026-10-29, agent/389-agree)
+
+Maintainer request: factor "compatible for `C`" through agreement of
+two models relative to the target environment.  Same logical content,
+no strengthening to agreement on all shared names.
+
+**Lean** (`whitepaper/Fragment/ModularSemantics.lean`, mirrored in
+`ConLeche/Modular/Generic.lean`, still identical apart from
+namespace/docstring/deriving).  New top-level
+`ModelsAgree Stores val C m m'` for `m : Mod E`, `m' : Mod E'`:
+`∀ n, Stores C n → Stores E n → Stores E' n → val m n = val m' n`
+(the name `AgreeOn` is taken by `Fragment.Read`).  It is defined
+before `ModularSemantics`, parametric in `Stores` and `val`, so the
+field can use it.  `amalgamate` now reads
+`(∀ i i', ModelsAgree Stores @val C (m i) (m i')) →
+∃ mC, ∀ i, ModelsAgree Stores @val C mC (m i)` (the conclusion's
+extra `Stores C n` premise is redundant with `n ∈ C`, so the content
+is unchanged; `@val` because Lean otherwise infers `Mod` as a constant
+family).  `restrict` and `modular`'s `hcomp` adjusted; the three
+instances (`ModularInstance`, `ModularSyntactic`, con-leche's
+`Model/Modular/Instance`) keep their amalgamation lemmas and adapt in
+the field (argument order).  `Development.Compatible` unchanged: its
+clause is agreement on interchangeable occurrences, not on an
+environment, and phrasing it through `ModelsAgree` would not read
+better.  Capstones and `Challenge.lean` unchanged.
+
+**§7.**  `m ≍_C m'` (`agr` macro, `scripts(asymp)`) defined after
+`Mod`/`Val`; "compatible for `C`" is one sentence (`m_x ≍_C m_y` for
+all `x, y`); the amalgamation law reads
+`Asm(C,(E_x)) ∧ (∀ x,y. m_x ≍_C m_y) ⇒ ∃ m_C ∈ Mod(C). ∀ x. m_C ≍_C m_x`.
+Coordinator's follow-up rule applied through the section: every
+variable is introduced with its range at first use (`m ∈ Mod(E)`,
+`c ∈ E`, `π ∈ Val`, `i, j, h, k ∈ ℕ`, `Γ, Γ', D`, `S`, `u`, `r_B`,
+`I_B`, …); the example's module `m` became `l` (it clashed with
+models).  Anchors shifted (+8 in the semantics file, +2 in the
+instances), links regenerated.
+
+Gates: `lake build`, `lake test` warning-free; fragment gate, links
+gate, `tests/overview-links.sh`, `tests/quote-gate.sh`,
+`tests/challenge.sh` green; whitepaper builds without warnings.  No
+runtime file changed (no `tests/olean.sh`).
+
+**Addendum (agent/389-views).**  Maintainer ruling: §7 says "imported
+view" and never "source".  `X_i` is introduced as the list of views
+module `i` reads, pairs `(j, V)` of an earlier module `j` and a view
+`V` that `j` presents, covering every module whose declarations `i`
+can see (re-exports included, not only direct imports), with a pointer
+to the Lean mapping (the modules loaded for `i`, each at its loaded
+level).  Assembly's family members are "members" in the abstract and
+instance prose.  Lean names (`sources`, `Src`, `assembled_src`)
+unchanged.  Whitepaper builds without warnings; links gate green.

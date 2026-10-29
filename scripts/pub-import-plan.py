@@ -78,6 +78,11 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.PosFieldLeaf', 'ConLeche.Model.Inductives.TargetRecRead'),
     ('ConLeche.Model.Inductives.PosFieldLeaf', 'ConLeche.Verify.Inductives.PosNodes'),
     ('ConLeche.Model.Inductives.BlockRuleGrading', 'ConLeche.Model.Inductives.BlockRuleRun'),
+    # task #371: `Engine`'s statements name `Region`, `maxLoc`, `nameP`
+    # (`ConLeche/Frontend/Olean/{Region,Spec,Fast}`); the census attributes
+    # them to its private `Mark` import.  Measured: demoting it breaks the
+    # file (unknown identifier `Region`, `Engine.lean:25`).
+    ('ConLeche.Verify.Frontend.Olean.Engine', 'ConLeche.Frontend.Olean.Fast'),
     # lane GENREC (G): measured by demoting each alone (unknown identifier
     # `blockRulePdomsAV`, `GenRecParams.lean:732`; `BlockMembersRun`, `:730`;
     # `SameDoms`, `:58`).
@@ -769,6 +774,16 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.RecStage'),
     ('ConLeche.Verify.Cached.TargetRecC', 'ConLeche.Verify.Inductives.NestedRead'),
     ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Inductives.TargetAuxFire'),
+    # task #370 driver lane: `View`'s public statements name `Twin`
+    # (`ViewCongr`; `CanonB.twin`) and, through its re-exports, `IdxBelow`
+    # and `valueStep` (`ParInstall`).  MEASURED by demoting it alone
+    # (unknown identifier `IdxBelow`, `View.lean:142`; `Twin`, `:157`).
+    ('ConLeche.Verify.Modular.View', 'ConLeche.Verify.Cached.ViewCongr'),
+    # task #373: `IsoFast`'s one public statement is the `@[csimp]` equation
+    # `@isoIndex = @isoIndexFast`, which the census does not attribute to the
+    # module.  MEASURED by demoting it alone (unknown identifier `isoIndex`,
+    # `IsoFast.lean:111`).
+    ('ConLeche.Verify.Modular.IsoFast', 'ConLeche.Cached.ModIso'),
 }
 
 # `whitepaper/` (task #324) is its own lake library — the paper's Lean
@@ -784,7 +799,7 @@ UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLech
           'ConLeche/Kernel/Basis.lean','ConLeche/Complete.lean'}
 # frozen: the umbrellas exist to re-export, the classic roots have no `public`
 # keyword, `tests/*` and the PinGen generator are outside the census roots.
-CLASSIC={'tests/ProofDeps.lean','PinDump.lean'}
+CLASSIC={'tests/ProofDeps.lean','PinDump.lean','OleanCompare.lean','OleanModular.lean'}
 FROZEN_PREFIX=('tests/','ConLeche/PinGen/','ConLeche/Challenge.lean','ConLeche/PinGen.lean')
 EXT=('Std','Lean','Init')
 

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
+public import ConLeche.Modular
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
@@ -109,6 +110,29 @@ equation of the two sides' denotations.
 
 Both statements are about the checking function and the parse, not
 the process, and `--trusted` mode is outside both.  See README.md.
+
+> **Modular theorem.**  If every module of a development passes its
+> local checks, every module's own environment has a model, and the
+> models are compatible.
+>
+> **Modular corollary.**  Hence no module stores a constant of type
+> `False`.
+
+* `dev : Nat → Modular.Module` is the development, one module per
+  number, and `Modular.LocalOk` its local checks
+  (`ConLeche/Modular.lean`, which states them in plain words): each
+  reads one module and the own environments of the earlier modules it
+  reads from, nothing global.  `(dev j).own` is module `j`'s own
+  environment: its context with its declarations installed.
+* `(dev j).key n` is the **key** module `j` gives a name `n` it stores,
+  what identifies the constant across modules beside its name:
+  `.home h` for an ordinary constant declared by module `h`, and
+  `.proof s` for a proof, `s` its level parameters and type.  Nothing
+  is renamed.
+* **Compatible**: two modules that store a name under one key give it
+  one value (`cval`), and a proof's value is the point `pt`.  Two
+  modules that store unrelated constants of one name under different
+  keys are not constrained.
 -/
 
 namespace ConLeche
@@ -137,6 +161,30 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
       let r ← parseChunks chunks
       let ds := preparePrelude pre r.decls
       checkDecls .verified pins ds) = .error e :=
+  sorry
+
+/-- **The modular theorem.**  If every module of a development up to
+`i` passes its local checks, every such module's own environment has a
+model, and the models are compatible: two modules that store a name
+under one key give it one value, and every proof the point. -/
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ m : ∀ j ≤ i, Model V (dev j).own,
+      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+        (m j hj).cval n = (m j' hj').cval n) ∧
+      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+        (m j hj).cval n = fun _ => pt :=
+  sorry
+
+/-- **The modular corollary.**  No module of such a development stores
+a constant of type `False` in its own environment. -/
+theorem modular_no_False (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
+      c.toConstantVal.type = .const falseName [] → False :=
   sorry
 
 end ConLeche

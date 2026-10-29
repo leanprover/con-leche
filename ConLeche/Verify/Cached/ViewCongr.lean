@@ -80,12 +80,12 @@ theorem sharedOpsC_congr {mode : CheckMode} {fe₁ fe₂ : FEnv} (hfe : fe₁.fi
 
 /-- **Two indices that answer alike and grow alike**: the same
 lookups — of constants, and of tables before the constant gate
-(`FEnv.rawTable?`) — the same counter, every entry below it and no
-overlay. -/
+(`FEnv.rawTable?`) — every entry below the counter and no overlay.  The
+counters themselves may differ (task #370: a modular view counts from
+zero, the canonical index of its context from the context's size). -/
 structure Twin (fe₁ fe₂ : FEnv) : Prop where
   find : fe₁.find? = fe₂.find?
   raw : fe₁.rawTable? = fe₂.rawTable?
-  vis : fe₁.visibleBelow = fe₂.visibleBelow
   idx₁ : IdxBelow fe₁
   idx₂ : IdxBelow fe₂
 
@@ -98,15 +98,13 @@ theorem Twin.findTable {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) :
 
 theorem Twin.push {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) (ci : ConstantInfo) :
     Twin (fe₁.push ci) (fe₂.push ci) := by
-  refine ⟨?_, h.raw, ?_, h.idx₁.push ci, h.idx₂.push ci⟩
-  · funext n
-    rw [h.idx₁.find?_push, h.idx₂.find?_push, h.find]
-  · show fe₁.visibleBelow + 1 = fe₂.visibleBelow + 1
-    rw [h.vis]
+  refine ⟨?_, h.raw, h.idx₁.push ci, h.idx₂.push ci⟩
+  funext n
+  rw [h.idx₁.find?_push, h.idx₂.find?_push, h.find]
 
 theorem Twin.pushTable {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) (t : ProjTable) :
     Twin (fe₁.pushTable t) (fe₂.pushTable t) := by
-  refine ⟨h.find, ?_, h.vis, h.idx₁.pushTable t, h.idx₂.pushTable t⟩
+  refine ⟨h.find, ?_, h.idx₁.pushTable t, h.idx₂.pushTable t⟩
   funext T
   rw [FEnv.rawTable?_pushTable, FEnv.rawTable?_pushTable, h.raw]
 
@@ -318,7 +316,7 @@ the other's), which is what a stage looks like at two twin indices. -/
 
 /-- The two runs fail alike or end in the same state with related
 results. -/
-def RelRun {α : Type} (R : α → α → Prop) (x₁ x₂ : CheckCM α) : Prop :=
+@[expose] def RelRun {α : Type} (R : α → α → Prop) (x₁ x₂ : CheckCM α) : Prop :=
   ∀ s, (∃ e, x₁ s = .error e ∧ x₂ s = .error e) ∨
     (∃ a₁ a₂ s', x₁ s = .ok (a₁, s') ∧ x₂ s = .ok (a₂, s') ∧ R a₁ a₂)
 
@@ -387,7 +385,7 @@ macro_rules
 
 /-- Two indices pushed the same constants and installed the same tables
 onto twin bases. -/
-def PushedFrom (fe₁ fe₂ : FEnv) (a₁ a₂ : FEnv) : Prop :=
+@[expose] def PushedFrom (fe₁ fe₂ : FEnv) (a₁ a₂ : FEnv) : Prop :=
   ∃ L Q, a₁ = FEnv.pushDelta L Q fe₁ ∧ a₂ = FEnv.pushDelta L Q fe₂
 
 theorem PushedFrom.refl (fe₁ fe₂ : FEnv) : PushedFrom fe₁ fe₂ fe₁ fe₂ := ⟨[], [], rfl, rfl⟩
@@ -1361,7 +1359,7 @@ theorem IdxBelow.ofWorkerView (B : BaseIdx) (S : Slots) (v : Nat) :
 
 theorem Twin.ofViewAgrees {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees B S fe)
     (hidx : IdxBelow fe) : Twin fe (workerView B S fe.visibleBelow) :=
-  ⟨(funext hag.find).symm, (funext hag.raw).symm, rfl, hidx, IdxBelow.ofWorkerView B S _⟩
+  ⟨(funext hag.find).symm, (funext hag.raw).symm, hidx, IdxBelow.ofWorkerView B S _⟩
 
 /-- Where `valueStep` has no verdict, phase A's step is the ordinary step. -/
 theorem installStepC_of_valueStep_none {pins : List NatOpPinSet} {i : Nat} {fe W : FEnv}
@@ -1395,7 +1393,7 @@ theorem installStepC_of_valueStep_none {pins : List NatOpPinSet} {i : Nat} {fe W
 
 /-- The pending checks after a record: its check recorded, for a value
 record. -/
-def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
+@[expose] def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
   | some vg => pend.push ⟨vg, i, v⟩
   | none => pend
 

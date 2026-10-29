@@ -47,6 +47,8 @@ equation the compiled equality rests on.
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
 | `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
+| `ConLeche.modular_model_exists` | **THE MODULAR THEOREM**: a development whose modules pass their local checks (`ConLeche/Modular.lean`) gives every module's own environment a model, the models compatible: two modules storing a name under one key (home module, or a proof's statement) give it one value, every proof the point |
+| `ConLeche.modular_no_False` | its corollary: no such module's own environment stores a constant of type `False` |
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
@@ -111,6 +113,18 @@ info: 'ConLeche.no_False_declaration' depends on axioms: [propext, Classical.cho
 -/
 #guard_msgs in
 #print axioms ConLeche.no_False_declaration
+
+/--
+info: 'ConLeche.modular_model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.modular_model_exists
+
+/--
+info: 'ConLeche.modular_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.modular_no_False
 
 /-! ## What the fold stores of what it reads
 (`ConLeche/Model/StreamConsts.lean`)

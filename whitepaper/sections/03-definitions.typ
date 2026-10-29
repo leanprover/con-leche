@@ -21,16 +21,17 @@ definitions; inductive types, the rule $iota$ and the consistency
 corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
-#src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
+#src("whitepaper/Fragment/Env.lean", 116, 132)[list of the constants] accepted so far,
 #src("ConLeche/Kernel/Env.lean", 536)[most recent first]. A
-#src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
+#src("whitepaper/Fragment/Env.lean", 66, 107)[stored constant] has its level parameters $arrow(p)$, its type (a closed
 term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 354, 368)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
 _definition_ carries a value. The other kinds (type former,
 constructor, recursor) are what an inductive block stores, and
-@sec:ind-checks introduces them. A name is
+@sec:ind-checks introduces them. An assumption, a type without a
+value, is how @sec:modular stores a theorem and leaves a definition's value out. A name is
 stored at most once.
 
 *Constants.* The grammar of @sec:terms gains one form: a #src("whitepaper/Fragment/Syntax.lean", 35, 36)[constant $c$]
@@ -77,7 +78,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
-#src("whitepaper/Fragment/Decl.lean", 591, 605)[checks four things]
+#src("whitepaper/Fragment/Decl.lean", 592, 606)[checks four things]
 (in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 105, 121)[the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 
@@ -85,7 +86,7 @@ and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 - the type has a sort: $tack T => S red Sort u$;
 - the value's inferred type is definitionally equal to the declared
   type: $tack v => T'$ and $tack T' equiv T$;
-- both terms #src("whitepaper/Fragment/Decl.lean", 604, 605)[use only the level parameters] $arrow(p)$.
+- both terms #src("whitepaper/Fragment/Decl.lean", 605, 606)[use only the level parameters] $arrow(p)$.
 
 A stored term is thus closed, mentions only stored constants and
 uses only the declared level parameters. These three facts
@@ -184,7 +185,7 @@ gains three cases, one per rule.
 #theorem(name: "Installing a definition")[
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
-  #src("whitepaper/Fragment/InstallDef.lean", 345, 350)[extended with $c$ has a model]
+  #src("whitepaper/Fragment/InstallDef.lean", 351, 356)[extended with $c$ has a model]
   (#src("ConLeche/Model/Install.lean", 337, 340)[as in con-leche]).
 ] <thm:install-def>
 
@@ -194,7 +195,7 @@ gains three cases, one per rule.
   valuation that sends $arrow(p)$ to $arrow(n)$. Since $v$ is closed and
   uses no other parameter, no $rho$ and no other part of $phi$
   enters. The old laws hold for $M'$ because
-  #src("whitepaper/Fragment/InstallDef.lean", 158, 161)[no stored term mentions $c$]. For the new constant we use @cor:closed and the second claim of
+  #src("whitepaper/Fragment/InstallDef.lean", 267, 270)[no stored term mentions $c$]. For the new constant we use @cor:closed and the second claim of
   @thm:sound. From $tack v => T'$ the value and $T'$ are
   well-denoted and $lden v rden in lden T' rden$, a type; from
   $tack T => S red Sort u$ the type $T$ is well-denoted and a type;

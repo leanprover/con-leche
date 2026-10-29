@@ -70,7 +70,7 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
       C ∈ ex ∨ env.find? C = none ∨
         ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = []) :
     ∃ mk : EnvModelM V μ env', mk.base2 = mpX.base2 ∧ mk.lfpBlocks = mp.lfpBlocks ∧
-      (LfpCover mp ex → LfpCover mk ex') := by
+      Agrees mp mk ∧ (LfpCover mp ex → LfpCover mk ex') := by
   obtain ⟨cs, ts⟩ := env'
   simp only at henv htab
   subst henv htab
@@ -93,7 +93,9 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
     (fun _ _ hf _ _ hA ψ d _ hta =>
       hden ψ d _ (canonOf_constsBound
         (hbound _ (ConLeche.Env.find?_mem hf)).1 hA) hta)
-  refine ⟨{ mpX with lfpBlocks := mp.lfpBlocks, lfp_ok := hok }, rfl, rfl, fun hc => ?_⟩
+  refine ⟨{ mpX with lfpBlocks := mp.lfpBlocks, lfp_ok := hok }, rfl, rfl,
+    fun n hn => ⟨by obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn; rw [hfwd _ _ hci]; rfl,
+      hag n hn⟩, fun hc => ?_⟩
   refine hc.ext rfl hfwd ?_ hex' ?_
   · intro n cv caps hf hn _
     rw [find?_append] at hf
@@ -340,7 +342,20 @@ theorem blockLfpOwn {envC : Env} {d : BlockData V}
     intro caps l hl
     obtain ⟨a, l', rfl⟩ := List.exists_cons_of_ne_nil hl
     simp [nestPick, List.map_map, Function.comp_def]
-  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_⟩
+  refine ⟨fun c hc => ?_, fun c hc nP' hL => ?_, fun c hc => ?_, fun c hc j hj => ?_,
+    fun c hc cv' caps' hf' x hx => ?_⟩
+  rotate_right
+  · obtain ⟨cv0, caps0, hf0, -, -, hcs⟩ := hfindT c hc
+    have hf'' : envC.find? (d.memberName c) = some (.indInfo cv' caps') := hf'
+    rw [hf0] at hf''
+    obtain rfl : caps0 = caps' := by injection hf'' with h1; injection h1
+    rw [hcs] at hx
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hx
+    obtain ⟨bs, body, us, hs, hg⟩ := hhead c hc a ha
+    have ha' : a ∈ d.ctorsM c := by rw [hctorsM]; exact ha
+    obtain ⟨j, hj⟩ := List.getElem?_of_mem ha'
+    exact ctorLook_of (hfindC c hc j a hj)
+      (by show (ctorEntry (d.memberName c) _).isSome = true; rw [ctorEntry_self rfl hs hg]; rfl)
   · obtain ⟨cv, caps, -, hnp, -, hN⟩ := hnc c hc
     show ∃ nP' L, ConLeche.nestContainer (envCtx envC) (d.memberName c) = some (nP', L) ∧ _
     rw [hN]

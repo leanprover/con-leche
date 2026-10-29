@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Driver.Run
+public import ConLeche.Driver.Modular
 public import Std.Async.System
 
 @[expose] public section
@@ -90,6 +90,7 @@ def jobsCount (v : String) : Except String Nat :=
 
 def usage : String := String.intercalate "\n" [
   "usage: con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] FILE.ndjson",
+  "       con-leche [flags] --olean --search-path=DIR[:DIR...] MODULE...",
   "       con-leche --help",
   "",
   "  --verified        the default, and the mode the main theorem is",
@@ -232,6 +233,54 @@ def usage : String := String.intercalate "\n" [
   "                    what it prints in between does not touch that",
   "                    type, so a run with the flag is covered exactly",
   "                    as a run without it, and so is a run on the pool.",
+  "  --olean           read the input from .olean files instead of a",
+  "                    lean4export stream: the arguments are root",
+  "                    modules (Init, Std, Mathlib, ...; a component in",
+  "                    «» is taken literally, as in Challenge.«12.34».«5»),",
+  "                    checked with their whole import closure.  The",
+  "                    closure is read",
+  "                    at the private level (theorems with proofs,",
+  "                    definitions with bodies), merged as Lean's own",
+  "                    import merges it, and emitted as the records",
+  "                    lean4export would write, so the same checker",
+  "                    checks them.  Only .olean files of the toolchain",
+  "                    this checker was built with are read; every",
+  "                    object is decoded and validated, nothing in the",
+  "                    files is trusted.",
+  "  --modular         with --olean: check every module of the closure on",
+  "                    its own, against a context built by Lean's loading",
+  "                    rules (its imports' exported parts, private parts",
+  "                    under `import all`, and what they re-export),",
+  "                    with the local checks that tie each module's",
+  "                    context to its imports.  One process, one store of",
+  "                    installed constants, each module checked at its",
+  "                    view of it, parallel along the import graph.",
+  "  --modular=isolated",
+  "                    as --modular, but with no store: everything about a",
+  "                    module is computed from its own files and the units",
+  "                    (what a checked module publishes) of the modules",
+  "                    Lean loads for it, their private parts only under",
+  "                    `import all`. Proved equivalent to --modular.",
+  "  --modular=store   the same as --modular.",
+  "  --compare CHALLENGE SOLUTION",
+  "                    with --olean (implies --modular, may be given more",
+  "                    than once, one SOLUTION per CHALLENGE, a CHALLENGE",
+  "                    never another one's SOLUTION): the module CHALLENGE",
+  "                    is not checked but compared with SOLUTION: each of",
+  "                    its constants must be SOLUTION's (or its imports'),",
+  "                    a hole (a theorem, definition or opaque constant",
+  "                    whose value uses `sorry`) by a constant of the same",
+  "                    statement and kind (one whose value its module",
+  "                    hides from the challenge's context: of any kind),",
+  "                    anything else by the same constant, an opaque one",
+  "                    including its value.",
+  "                    `sorry` is permitted in a challenge and nowhere",
+  "                    else.  The holes and their solutions are listed.",
+  "  --search-path=DIR[:DIR...]",
+  "                    the directories holding .olean trees, as",
+  "                    LEAN_PATH lists them (the toolchain's lib/lean,",
+  "                    a package's .lake/build/lib/lean).  May be",
+  "                    given more than once.",
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position; no input is read.",
   "",
@@ -325,6 +374,24 @@ structure Args where
   measures its effect on the shipped binary. -/
   noMark : Bool := false
   files : Array String := #[]
+  /-- `--olean`: the positional arguments are root MODULE names, read
+  with their import closure from `.olean` files (task #369). -/
+  olean : Bool := false
+  /-- `--modular` (with `--olean`): check module by module, each module
+  against its own context (task #370). -/
+  modular : Bool := false
+  /-- `--modular=isolated`: every module checked in an environment of its
+  own, built from its imports' units (task #373). -/
+  isolated : Bool := false
+  /-- `--keep-going` (with `--modular`): install every module whose imports
+  installed, report every failure. -/
+  keepGoing : Bool := false
+  /-- `--compare CHALLENGE SOLUTION` (with `--olean`, implies
+  `--modular`): the challenge module's records are met by the
+  solution's constants instead of being checked. -/
+  compares : Array (String × String) := #[]
+  /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
+  searchPath : List System.FilePath := []
   bad : Option String := none
 
 def parseArgs : List String → Args → Args
@@ -341,6 +408,17 @@ def parseArgs : List String → Args → Args
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   -- The persistent mark is on by default on the pool; this turns it off.
   | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
+  | "--olean" :: rest, a => parseArgs rest { a with olean := true }
+  | "--modular" :: rest, a => parseArgs rest { a with modular := true }
+  | "--modular=store" :: rest, a => parseArgs rest { a with modular := true, isolated := false }
+  | "--modular=isolated" :: rest, a => parseArgs rest { a with modular := true, isolated := true }
+  | "--keep-going" :: rest, a => parseArgs rest { a with keepGoing := true }
+  | "--compare" :: c :: s :: rest, a =>
+    if c.startsWith "-" || s.startsWith "-" then
+      { a with bad := some "--compare takes two module names: --compare CHALLENGE SOLUTION" }
+    else parseArgs rest { a with modular := true, compares := a.compares.push (c, s) }
+  | ["--compare"], a | ["--compare", _], a =>
+    { a with bad := some "--compare takes two module names: --compare CHALLENGE SOLUTION" }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -350,6 +428,9 @@ def parseArgs : List String → Args → Args
       match jobsCount ((s.drop "--jobs=".length).toString) with
       | .ok n => parseArgs rest { a with jobs := some n }
       | .error msg => { a with bad := some msg }
+    else if s.startsWith "--search-path=" then
+      let dirs := ((s.drop "--search-path=".length).toString.splitOn ":").filter (· != "")
+      parseArgs rest { a with searchPath := a.searchPath ++ dirs.map System.FilePath.mk }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
           flag for one worker per hardware thread" }
@@ -408,6 +489,38 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
       IO.eprintln s!"con-leche: {msg}"
       IO.eprintln usage
       return 3
+    let jobs := a.jobs.getD
+      (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+       if hw = 0 then 1 else hw)
+    if a.olean then
+      -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
+      -- read with their import closure along the search path.
+      if (a.files.isEmpty && a.compares.isEmpty) || a.searchPath.isEmpty then
+        IO.eprintln "con-leche: --olean takes one or more module names and a \
+          --search-path=DIR[:DIR…]"
+        IO.eprintln usage
+        return 3
+      -- module names as Lean spells them, `«»` escapes included
+      -- (`Challenge.«12.34».«5»`)
+      let bad := (a.files ++ a.compares.flatMap fun (c, s) => #[c, s]).filter
+        (ConLeche.Frontend.Olean.parseModName · |>.isNone)
+      if let some m := bad[0]? then
+        IO.eprintln s!"con-leche: not a module name: {m}"
+        IO.eprintln usage
+        return 3
+      let modName (m : String) : ConLeche.Name :=
+        (ConLeche.Frontend.Olean.parseModName m).getD .anonymous
+      let roots := a.files.map modName
+      if a.modular then
+        return ← ConLeche.Driver.Modular.checkModular a.searchPath roots a.mode a.progress jobs
+          a.keepGoing (a.compares.map fun (c, s) => (modName c, modName s)) a.isolated
+      return ← checkMain (.oleans a.searchPath roots) a.mode a.progress jobs a.noMark drain
+    else if a.modular then
+      IO.eprintln "con-leche: --modular is only meaningful with --olean"
+      return 3
+    else if !a.searchPath.isEmpty then
+      IO.eprintln "con-leche: --search-path is only meaningful with --olean"
+      return 3
     match a.files.toList with
     | [file] =>
       -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
@@ -416,10 +529,7 @@ def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
       -- `abort()` under the `LEAN_ABORT_ON_PANIC` set above.
       -- `--jobs=<n>`: the check phase's worker count; without the flag,
       -- one worker per hardware thread (1 if the runtime cannot tell).
-      let jobs := a.jobs.getD
-        (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
-         if hw = 0 then 1 else hw)
-      checkMain file a.mode a.progress jobs a.noMark drain
+      checkMain (.ndjson file) a.mode a.progress jobs a.noMark drain
     | _ =>
       IO.eprintln usage
       return 3

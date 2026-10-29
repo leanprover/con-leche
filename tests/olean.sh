@@ -1,0 +1,509 @@
+#!/usr/bin/env bash
+# THE OLEAN GATE: `con-leche --olean` on the committed fixtures of
+# tests/olean/lib (compiled from tests/olean/src by tests/olean/build.sh
+# with the toolchain's own `lean`), and on corrupted copies of them made
+# here.  Every verdict is pinned below; the comment on a case names what
+# it guards.  Run from the repository root after `lake build`; the
+# arena battery (tests/arena.sh) runs it.
+#
+# Exit codes (arena convention): 0 accept, 1 reject, 2 decline, 3 error.
+set -u
+BIN=${BIN:-.lake/build/bin/con-leche}
+export TMPDIR="${TMPDIR:-$PWD/_tmp/tmp}"
+mkdir -p "$TMPDIR"
+LIB=tests/olean/lib
+fail=0
+ok=0
+total=0
+case_() { # <description> <expected-exit> <args...>
+  local desc=$1 want=$2; shift 2
+  total=$((total+1))
+  timeout 60 "$BIN" "$@" >"$TMPDIR/olean-case.out" 2>&1
+  local got=$?
+  # OLEAN_VERBOSE=1 shows each case's verdict line
+  if [ -n "${OLEAN_VERBOSE:-}" ]; then
+    echo "-- $desc"; grep -v "stats:" "$TMPDIR/olean-case.out" | tail -1
+  fi
+  if [ "$got" = "$want" ]; then ok=$((ok+1))
+  else echo "OLEAN FAIL ($desc): expected exit $want, got $got"; fail=1; fi
+}
+
+case_grep() { # <description> <expected-exit> <pattern the output must hold> <args...>
+  local desc=$1 want=$2 pat=$3; shift 3
+  case_ "$desc" "$want" "$@"
+  if ! grep -q -- "$pat" "$TMPDIR/olean-case.out"; then
+    echo "OLEAN FAIL ($desc): the output lacks \"$pat\""; fail=1; ok=$((ok-1))
+  fi
+}
+
+# --- well-formed closures ---------------------------------------------
+case_ "a module-system module" 0 --olean --search-path=$LIB Tiny
+case_ "…at one worker" 0 --jobs=1 --olean --search-path=$LIB Tiny
+case_ "a module outside the module system (one .olean)" 0 --olean --search-path=$LIB TinyClassic
+case_ "a module and its import" 0 --olean --search-path=$LIB TinyUse
+case_ "two roots" 0 --olean --search-path=$LIB TinyUse TinyClassic
+case_ "a search path of two directories" 0 --olean --search-path=$TMPDIR:$LIB TinyUse
+# two modules storing different constants under one name: Lean's own
+# import refuses the pair ("environment already contains"), and so does
+# the merge (a reject: the input says two contradicting things)
+case_ "conflicting constants in two modules" 1 --olean --search-path=$LIB ClashA ClashB
+# the same, with one of the two outside every module's view (modular
+# accepts it, below)
+case_ "conflicting constants in one closure" 1 --olean --search-path=$LIB:$(dirname "$(dirname "$(elan which lean 2>/dev/null || command -v lean)")")/lib/lean NlM
+
+# --- usage --------------------------------------------------------------
+case_ "--olean without a search path" 3 --olean Tiny
+case_ "--olean without a module" 3 --olean --search-path=$LIB
+case_ "--search-path without --olean" 3 --search-path=$LIB tests/mode/split_good.ndjson
+case_ "a module not on the search path" 3 --olean --search-path=$LIB NoSuchModule
+
+# patch any of a module's three parts, objects found by name across them:
+# <dir> <module> <python over consts(part) / fld / setfld>
+xpatch() {
+  python3 -I - "$1" "$2" "$3" <<'PY'
+import struct, sys
+d, m, expr = sys.argv[1], sys.argv[2], sys.argv[3]
+parts = {}
+import os
+for ext in ['olean', 'olean.server', 'olean.private']:
+    if not os.path.exists(f'{d}/{m}.{ext}'): continue
+    b = bytearray(open(f'{d}/{m}.{ext}', 'rb').read())
+    parts[ext] = (struct.unpack_from('<Q', b, 80)[0], b)
+def at(a):
+    for ext, (base, b) in parts.items():
+        if 0 <= a - base < len(b): return b, a - base
+    raise Exception('address outside the parts')
+def fld(a, i): b, o = at(a); return struct.unpack_from('<Q', b, o + 8 + 8 * i)[0]
+def setfld(a, i, v): b, o = at(a); struct.pack_into('<Q', b, o + 8 + 8 * i, v)
+def name(a):
+    if a == 1: return ''
+    pre = name(fld(a, 0)); b, s = at(fld(a, 1))
+    sz = struct.unpack_from('<Q', b, s + 8)[0]
+    return (pre + '.' if pre else '') + b[s + 32:s + 32 + sz - 1].decode()
+def consts(ext):
+    base, b = parts[ext]
+    ab, ao = at(fld(struct.unpack_from('<Q', b, 88)[0], 2))
+    n = struct.unpack_from('<Q', ab, ao + 8)[0]
+    # a ConstantInfo's field 0 is its XxxVal, whose field 0 is the ConstantVal
+    return {name(fld(fld(fld(c, 0), 0), 0)): c for c in
+            (struct.unpack_from('<Q', ab, ao + 24 + 8 * i)[0] for i in range(n))}
+exec(expr)
+for ext, (base, b) in parts.items(): open(f'{d}/{m}.{ext}', 'wb').write(b)
+PY
+}
+# --- corrupted files ----------------------------------------------------
+# Each case copies the fixtures and changes bytes of Tiny's files.
+# patch <file> <python expression over b (bytearray), base, root>
+patch() {
+  python3 -I - "$1" "$2" <<'PY'
+import struct, sys
+p, expr = sys.argv[1], sys.argv[2]
+b = bytearray(open(p, 'rb').read())
+base = struct.unpack_from('<Q', b, 80)[0]
+root = struct.unpack_from('<Q', b, 88)[0]
+ro = root - base                      # the root object's offset
+exec(expr)
+open(p, 'wb').write(b)
+PY
+}
+corrupt() { # <description> <expected-exit> <file> <expr> [<root module>]
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  if [ "$4" = TRUNCATE ]; then head -c 60 "$LIB/$3" > "$d/$3"; else patch "$d/$3" "$4"; fi
+  case_ "$1" "$2" --olean --search-path=$d "${5:-Tiny}"
+  rm -rf "$d"
+}
+corrupt "a truncated file: malformed input" 3 Tiny.olean.private TRUNCATE
+corrupt "a wrong marker: malformed input" 3 Tiny.olean "b[0:5] = b'oleam'"
+corrupt "another toolchain's githash: a decline" 2 Tiny.olean "b[40:48] = b'00000000'"
+corrupt "another format version: a decline" 2 Tiny.olean "b[5] = 3"
+corrupt "non-GMP bignums: a decline" 2 Tiny.olean.private "b[6] = 0"
+corrupt "parts out of address order" 3 Tiny.olean.server "struct.pack_into('<Q', b, 80, 8)"
+corrupt "a root pointer outside the files" 3 Tiny.olean.private "struct.pack_into('<Q', b, 88, 16)"
+corrupt "a misaligned root pointer" 3 Tiny.olean.private "struct.pack_into('<Q', b, 88, root + 4)"
+corrupt "a field pointing at its own object (a cycle)" 3 Tiny.olean.private "struct.pack_into('<Q', b, ro + 8, root)"
+corrupt "a field pointing above its object" 3 Tiny.olean.private "struct.pack_into('<Q', b, ro + 8, root + 64)"
+corrupt "the root's constructor tag changed" 3 Tiny.olean.private "b[ro + 7] = 200"
+corrupt "the root's field count changed" 3 Tiny.olean.private "b[ro + 6] = 1"
+# (the next two patch objects reachable from the root, so they use the
+# classic module, whose one file holds all of them: a module-system
+# module's private part points into its exported part)
+# every constant of the module, its ConstantInfo tag set past recInfo
+corrupt "a ConstantInfo of no kind" 3 TinyClassic.olean "
+cs = struct.unpack_from('<Q', b, ro + 8 + 16)[0] - base
+n = struct.unpack_from('<Q', b, cs + 8)[0]
+for i in range(n):
+    c = struct.unpack_from('<Q', b, cs + 24 + 8 * i)[0] - base
+    b[c + 7] = 9" TinyClassic
+# every string object's last byte (its NUL) replaced: not a string
+corrupt "strings without their terminator" 3 TinyClassic.olean "
+i = 96
+while i + 32 <= len(b):
+    if b[i + 7] == 249:
+        sz = struct.unpack_from('<Q', b, i + 8)[0]
+        if 0 < sz < len(b) and i + 32 + sz <= len(b): b[i + 32 + sz - 1] = 65
+    i += 8" TinyClassic
+
+# the name table (ModuleData.constNames: the keys Lean's loader stores the
+# constants under) must list the constants' names (task #383): two of
+# its entries swapped, in each part
+cswap="
+nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
+x, y = (struct.unpack_from('<Q', b, nt + 24 + 8 * i)[0] for i in (0, 1))
+struct.pack_into('<Q', b, nt + 24, y); struct.pack_into('<Q', b, nt + 32, x)"
+corrupt "a name table that names the constants differently (classic)" 3 TinyClassic.olean "$cswap" TinyClassic
+corrupt "a name table that names the constants differently (private part)" 3 Tiny.olean.private "$cswap"
+corrupt "a name table that names the constants differently (exported part)" 3 Tiny.olean "$cswap"
+corrupt "a name table shorter than the constants" 3 TinyClassic.olean "
+nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
+struct.pack_into('<Q', b, nt + 8, struct.unpack_from('<Q', b, nt + 8)[0] - 1)" TinyClassic
+# one module storing `idU` twice (in place of U.recOn, which nothing
+# uses): malformed (task #383: the merge rejected two definitions of one
+# name, the modular emission kept the later one only, below)
+cdup="
+nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
+cs = struct.unpack_from('<Q', b, ro + 24)[0] - base
+for a in (nt, cs):
+    struct.pack_into('<Q', b, a + 24 + 16, struct.unpack_from('<Q', b, a + 24 + 32)[0])"
+corrupt "one module storing a name twice" 3 TinyClassic.olean "$cdup" TinyClassic
+
+# the private part's header (task #383): its module-system flag cleared
+corrupt "a private part outside the module system" 3 Tiny.olean.private "b[ro + 48] = 0"
+xcorrupt0() { # <description> <expected-exit> <module> <expr> <args...>   (mode: $MOD)
+  local desc=$1 want=$2 m=$3 expr=$4; shift 4
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  xpatch "$d" "$m" "$expr"
+  case_ "$desc${MOD:+ [$MOD]}" "$want" --olean $MOD --search-path=$d:$INIT "$@"
+  rm -rf "$d"
+}
+INIT="$(dirname "$(dirname "$(elan which lean 2>/dev/null || command -v lean)")")/lib/lean"
+rcases() {
+  # the exported axiom standing for the safe definition idT made unsafe:
+  # not the private constant with its value hidden
+  xcorrupt0 "an exported constant that is not its private one" 3 Tiny "
+b, o = at(fld(consts('olean')['idT'], 0))
+b[o + 16] = 1" Tiny
+  # the stored recursor rules (Lean's kernel runs them on a loaded
+  # .olean; con-leche installs the generated ones): T.rec's two rules in
+  # the other order, and T.b's rule with T.a's right-hand side
+  xcorrupt0 "recursor rules in another order than the generated ones" 1 Tiny "
+r = fld(consts('olean.private')['T.rec'], 0)
+c1 = fld(r, 6); c2 = fld(c1, 1); r1 = fld(c1, 0); r2 = fld(c2, 0)
+setfld(c1, 0, r2); setfld(c2, 0, r1)" Tiny
+  xcorrupt0 "a recursor rule of another right-hand side than the generated one" 1 Tiny "
+r = fld(consts('olean.private')['T.rec'], 0)
+c1 = fld(r, 6); c2 = fld(c1, 1); r1 = fld(c1, 0); r2 = fld(c2, 0)
+setfld(r2, 2, fld(r1, 2))" Tiny
+  # an import cycle: HidA's import of Init.Prelude renamed to HidUse,
+  # which imports HidA (Lean's import refuses a cycle)
+  xcorrupt0 "an import cycle" 3 HidA "
+base, b = parts['olean']
+root = struct.unpack_from('<Q', b, 88)[0]
+imp0 = struct.unpack_from('<Q', b, fld(root, 0) - base + 24)[0]
+n = fld(imp0, 0)
+setfld(n, 0, 1)
+sb, so = at(fld(n, 1))
+struct.pack_into('<QQQ', sb, so + 8, 7, struct.unpack_from('<Q', sb, so + 16)[0], 6)
+sb[so + 32:so + 39] = b'HidUse\\0'" HidUse
+  # the server part's imports (shared with the exported part) replaced by
+  # an empty array
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch "$d/HidAll.olean.server" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
+  case_ "the server part's imports not the exported part's${MOD:+ [$MOD]}" 3 --olean $MOD --search-path=$d:$INIT HidAll
+  rm -rf "$d"
+}
+MOD=; rcases
+
+# --- modular checking (--modular) ----------------------------------------
+# The fixtures below import `Init.Prelude` from the toolchain's own
+# library (their closure is six modules of it: cheap).
+INIT="$(dirname "$(dirname "$(elan which lean 2>/dev/null || command -v lean)")")/lib/lean"
+MSP="$LIB:$INIT"
+# patch the root's import list: <file> <python over b, base, ro, imps>
+mpatch() {
+  python3 -I - "$1" "$2" <<'PY'
+import struct, sys
+p, expr = sys.argv[1], sys.argv[2]
+b = bytearray(open(p, 'rb').read())
+base = struct.unpack_from('<Q', b, 80)[0]
+ro = struct.unpack_from('<Q', b, 88)[0] - base
+arr = struct.unpack_from('<Q', b, ro + 8)[0] - base
+imps = [struct.unpack_from('<Q', b, arr + 24 + 8 * i)[0] - base
+        for i in range(struct.unpack_from('<Q', b, arr + 8)[0])]
+exec(expr)
+open(p, 'wb').write(b)
+PY
+}
+mcorrupt() { # <description> <expected-exit> <file> <expr> <root module>   (mode: $MOD)
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  mpatch "$d/$3" "$4"
+  case_ "$1 [$MOD]" "$2" --olean $MOD --search-path=$d:$INIT "$5"
+  rm -rf "$d"
+}
+# Every modular case runs in both modes: the store (`--modular`: every
+# module checked at its view of one store) and isolated
+# (`--modular=isolated`: every module checked in an environment of its
+# own, built from its imports' units).  The verdicts must agree
+# (`Mod.checkAtView_isolated`, `Mod.RunOk.isoRunOk`, `Mod.IsoRunOk.runOk`).
+modular_cases() {
+  case_ "modular: a module-system module [$MOD]" 0 --olean $MOD --search-path=$LIB Tiny
+  case_ "modular: a module and its import [$MOD]" 0 --olean $MOD --search-path=$LIB TinyUse
+  case_ "modular: a classic module beside a module-system one [$MOD]" 0 --olean $MOD --search-path=$LIB TinyUse TinyClassic
+  case_ "modular: at one worker [$MOD]" 0 --jobs=1 --olean $MOD --search-path=$LIB TinyUse
+  # two modules storing different constants under one name that never
+  # meet (no module has both in its context): Lean builds both and so
+  # does the modular check; the merge rejects them (above).  Two that
+  # meet cannot be built by Lean (no fixture).
+  case_ "modular: conflicting constants that never meet [$MOD]" 0 --olean $MOD --search-path=$LIB ClashA ClashB
+  case_ "modular: two theorems of one statement, different proofs [$MOD]" 0 --olean $MOD --search-path=$MSP TwinA TwinB
+  case_ "modular: an exported definition read as an assumption [$MOD]" 0 --olean $MOD --search-path=$MSP HidUse
+  case_ "modular: import all unfolds a definition [$MOD]" 0 --olean $MOD --search-path=$MSP HidAll
+  case_ "modular: a public import re-exports [$MOD]" 0 --olean $MOD --search-path=$MSP ReC
+  case_ "modular: a private definition behind an exported theorem [$MOD]" 0 --olean $MOD --search-path=$MSP PrivUse
+  case_ "modular: --keep-going [$MOD]" 0 --olean $MOD --keep-going --search-path=$MSP PrivUse ReC
+  # the loaded set (Lean's importModulesCore): `import all LdB` loads
+  # LdB's private import LdX too, so LdB's definition unfolds through it
+  case_ "modular: import all loads the private imports [$MOD]" 0 --olean $MOD --search-path=$MSP LdM
+  # NlX is in NlM's closure (NlB imports it privately) but not loaded by
+  # NlM, whose `nl` is NlY's: the two never meet (the merge rejects them:
+  # below); an isolated module never reads NlX's unit
+  case_ "modular: a clashing name outside the loaded set [$MOD]" 0 --olean $MOD --search-path=$MSP NlM
+  # a private constant exported with its value (privateInPublic) whose
+  # value reads a private-only constant: presented as an assumption
+  case_ "modular: an exported value reading a private-only constant [$MOD]" 0 --olean $MOD --search-path=$MSP PoM
+  # a definition whose statement is a proposition Lean's cheap test does
+  # not see (`id True`) meets a theorem of that name and statement (PdM:
+  # the definition exported, the theorem under `import all`); Lean merges
+  # them, and the modular check flags the definition a proof by its
+  # inferred type, so the two have one key
+  case_ "modular: a propositional definition meeting a theorem [$MOD]" 0 --olean $MOD --search-path=$MSP PdM
+  # ReB's `public import ReA` turned private: ReC no longer loads ReA, and
+  # its theorem about `r` is rejected (Lean would not have elaborated it)
+  mcorrupt "modular: a public import chain broken" 1 ReB.olean \
+    "for e in imps:
+      if b[e + 17] == 1: b[e + 17] = 0" ReC
+  # NlB's import of NlX made public: NlM loads both `nl`s, different
+  # constants under one name that meet (Lean refuses such an import)
+  mcorrupt "modular: two constants of one name that meet" 1 NlB.olean \
+    "for e in imps:
+      b[e + 17] = 1" NlM
+  # `import all HidA` turned into a plain import: `h` is an assumption in
+  # the context, and the private theorem that unfolds it is rejected
+  # (Lean would not have elaborated it)
+  mcorrupt "modular: unfolding a definition the context hides" 1 HidAll.olean \
+    "for e in imps:
+      if b[e + 16] == 1: b[e + 16] = 0" HidAll
+  # the import of HidA pointed at Init.Prelude: `h` is not in the context
+  mcorrupt "modular: a constant of a module not imported" 1 HidUse.olean \
+    "struct.pack_into('<Q', b, imps[-1] + 8, struct.unpack_from('<Q', b, imps[0] + 8)[0])" HidUse
+
+  # --- compared modules (--compare CHALLENGE SOLUTION) -------------------
+  case_ "compare: the solution fills the holes [$MOD]" 0 --olean $MOD --search-path=$MSP --compare CmpChal CmpSol
+  case_ "compare: a definition that differs [$MOD]" 1 --olean $MOD --search-path=$MSP --compare CmpChal CmpSolDef
+  case_ "compare: a hole stated differently [$MOD]" 1 --olean $MOD --search-path=$MSP --compare CmpChal CmpSolStmt
+  case_ "compare: a constant the solution lacks [$MOD]" 1 --olean $MOD --search-path=$MSP --compare CmpChal CmpSolMissing
+  # sorry is permitted in a challenge only: a solution's is the checker's
+  # decline of sorryAx, as everywhere
+  case_ "compare: a solution that uses sorry [$MOD]" 2 --olean $MOD --search-path=$MSP --compare CmpChal CmpSolSorry
+  case_ "compare: a module compared with itself [$MOD]" 3 --olean $MOD --search-path=$MSP --compare CmpChal CmpChal
+  case_ "compare: one module name only [$MOD]" 3 --olean $MOD --search-path=$MSP --compare CmpChal
+  # the comparison is part of the challenge's own work: it runs (and
+  # fails) beside an unrelated module that fails (CmpSolSorry's sorry),
+  # and is reported under --keep-going
+  case_grep "compare: in the challenge's own work [$MOD]" 1 "compared with CmpSolDef" \
+    --olean $MOD --keep-going --search-path=$MSP --compare CmpChal CmpSolDef CmpSolSorry
+
+}
+xcorrupt() { # <description> <expected-exit> <module> <expr> <args...>   (mode: $MOD)
+  local desc=$1 want=$2 m=$3 expr=$4; shift 4
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  xpatch "$d" "$m" "$expr"
+  case_ "$desc [$MOD]" "$want" --olean $MOD --search-path=$d:$INIT "$@"
+  rm -rf "$d"
+}
+
+# --- task #383: the review's findings -----------------------------------
+review_cases() {
+  # one challenge, two comparisons: the second compared an emptied
+  # challenge, and with a second solution that does not clash with the
+  # first the run accepted, no hole filled (now a usage error, before the
+  # graph changes)
+  case_ "compare: one challenge compared twice [$MOD]" 3 --olean $MOD --search-path=$MSP \
+    --compare CmpChal CmpSol --compare CmpChal TinyClassic
+  # a challenge's records are not installed, so it is no solution
+  case_ "compare: a challenge as another one's solution [$MOD]" 3 --olean $MOD --search-path=$MSP \
+    --compare CmpChal CmpSol --compare CmpSolDef CmpChal
+  # definition and opaque holes (assumed by their statements), and a
+  # non-hole opaque constant compared by its value
+  case_grep "compare: definition and opaque holes filled [$MOD]" 0 "hole answer filled by CmpOpqSol" \
+    --olean $MOD --search-path=$MSP --compare CmpOpq CmpOpqSol
+  case_grep "compare: an opaque constant of another value [$MOD]" 1 "k: the solution's opaque constant has another value" \
+    --olean $MOD --search-path=$MSP --compare CmpOpq CmpOpqSolK
+  # the solution's definition filling the hole has a value of the wrong
+  # type (`answer : Nat` pointed at `flag`'s `Bool.true`)
+  xcorrupt "compare: a hole filled by a value of the wrong type" 1 CmpOpqSolTy "
+cs = consts('olean.private')
+setfld(fld(cs['answer'], 0), 1, fld(fld(cs['flag'], 0), 1))" --compare CmpOpq CmpOpqSolTy
+  # --keep-going keeps the verdict's category: a decline alone stays one
+  case_ "compare: a decline under --keep-going [$MOD]" 2 --olean $MOD --keep-going --search-path=$MSP \
+    --compare CmpChal CmpSolSorry
+  # the duplicate name (above): the modular emission rejects it too
+  corruptM() { # <description> <expected-exit> <file> <expr> <root>
+    local d="$TMPDIR/con-leche-olean-$total"
+    rm -rf "$d"; cp -r "$LIB" "$d"
+    patch "$d/$3" "$4"
+    case_ "$1 [$MOD]" "$2" --olean $MOD --search-path=$d "$5"
+    rm -rf "$d"
+  }
+  corruptM "modular: one module storing a name twice" 3 TinyClassic.olean "$cdup" TinyClassic
+  corruptM "modular: a name table that names the constants differently" 3 Tiny.olean.private "$cswap" Tiny
+  # the private part's imports (the module's check reads them) replaced by
+  # an empty array (the root's extraConstNames): not the exported part's
+  # imports (closure discovery reads those)
+  local d="$TMPDIR/con-leche-olean-$total"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch "$d/HidAll.olean.private" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
+  case_ "the private part's imports not the exported part's [$MOD]" 3 --olean $MOD --search-path=$d:$INIT HidAll
+  rm -rf "$d"
+}
+# --- task #384: Lake's and Comparator's test suites, ported ------------
+# The Up* fixtures (tests/olean/src/Up*.lean; each header names the
+# upstream test, its path and its outcome there) are the test projects
+# of Lean v4.35.0's tests/lake/tests/challenge-* and check-* (`lake
+# comparator`, `lake check`) and of the comparator repository's
+# tests/projects.  Comparator's config has no counterpart: every sorry of
+# a challenge is a hole (theorem_names, definition_names), and the
+# permitted axioms are con-leche's three (propext, Classical.choice,
+# Quot.sound), as in every upstream test.  Not ported (sandbox and
+# configuration handling, no checker verdict): challenge-bad-config,
+# -no-sandbox, -inadvisably-no-sandbox, check-inadvisably-no-sandbox;
+# their projects are the simple-match pair (UpComm, UpCommSol).  DESIGN
+# #384 has the table.  Where con-leche's verdict differs from upstream's
+# the case says why.
+upstream_cases() {
+  # challenge-simple-match (also check-paranoid's pair): upstream 0
+  case_grep "upstream simple-match [$MOD]" 0 "hole comm filled by UpCommSol" \
+    --olean $MOD --search-path=$MSP --compare UpComm UpCommSol
+  # challenge-simple-axiom-issue and -simple-kind-mismatch (one solution):
+  # upstream 1 ("Illegal axiom detected: 'helper'"); con-leche declines
+  # every axiom but its three, before any comparison
+  case_ "upstream simple-axiom-issue [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpComm UpCommAxSol
+  # challenge-simple-mismatch: upstream 1 (kind); the solution's axiom is
+  # declined first
+  case_ "upstream simple-mismatch [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpComm UpCommMisSol
+  # challenge-def-hole: upstream 0
+  case_grep "upstream def-hole [$MOD]" 0 "hole n filled by UpDefHoleSol" \
+    --olean $MOD --search-path=$MSP --compare UpDefHole UpDefHoleSol
+  # challenge-def-hole-axiom-issue: upstream 1 (sorryAx hidden in the
+  # filling definition); con-leche declines sorry outside a challenge
+  case_ "upstream def-hole-axiom-issue [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpDefHole UpDefHoleAxSol
+  # challenge-def-hole-kind-mismatch: upstream 1 (an axiom fills the
+  # definition hole); the axiom is declined first
+  case_ "upstream def-hole-kind-mismatch [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpDefHole UpDefHoleKindSol
+  # the kind mismatch without the axiom (con-leche's own): a definition
+  # or theorem hole filled by an opaque constant, a theorem hole by a
+  # definition (task #384: the opaque ones were accepted, 0; Comparator
+  # rejects them)
+  case_grep "upstream kind: a definition hole filled by an opaque constant [$MOD]" 1 \
+    "n: the solution's constant is not of the hole's kind" \
+    --olean $MOD --search-path=$MSP --compare UpKindDef UpKindDefOpqSol
+  case_grep "upstream kind: a theorem hole filled by an opaque constant [$MOD]" 1 \
+    "t: the solution's constant is not of the hole's kind" \
+    --olean $MOD --search-path=$MSP --compare UpKindThm UpKindThmOpqSol
+  case_grep "upstream kind: a theorem hole filled by a definition [$MOD]" 1 \
+    "t: the solution's constant is not of the hole's kind" \
+    --olean $MOD --search-path=$MSP --compare UpKindThm UpKindThmDefSol
+  # the converse: a definition the solution re-exports with its value
+  # hidden is an assumption whose kind the context cannot see (Lean
+  # exports theorems, hidden definitions and opaque constants alike as
+  # axioms): it fills the hole (checked at its home)
+  case_grep "upstream kind: a definition hole filled by a hidden definition [$MOD]" 0 \
+    "hole n filled by UpHidDef" --olean $MOD --search-path=$MSP --compare UpKindDef UpHidDefSol
+  # challenge-def-hole-type-mismatch: upstream 1.  The run has two
+  # failures, the comparison's (n stated differently, 1) and the
+  # solution's sorry (2); without --keep-going each mode reports the
+  # first it meets — the store compares before it checks values, the
+  # isolated mode checks the solution's values with its install
+  if [ "$MOD" = --modular ]; then want=1; else want=2; fi
+  case_ "upstream def-hole-type-mismatch [$MOD]" $want --olean $MOD --search-path=$MSP --compare UpDefHoleTy UpDefHoleTySol
+  case_grep "upstream def-hole-type-mismatch, --keep-going [$MOD]" 1 "n: the solution states it differently" \
+    --olean $MOD --keep-going --search-path=$MSP --compare UpDefHoleTy UpDefHoleTySol
+  # challenge-numeric-namespace: upstream 0; a module name in «» on the
+  # command line (task #384: split at every dot before, exit 3)
+  case_grep "upstream numeric-namespace [$MOD]" 0 "hole «123».foo filled by UpNumSol" \
+    --olean $MOD --search-path=$MSP --compare 'UpNum.«12.34».«5»' UpNumSol
+  # challenge-olean-issue: upstream 1 (Lean's kernel rejects); the
+  # solution's Nat literal is a negative GMP number, malformed data for
+  # the reader (3), as every corrupted file above.  It imports Lean: the
+  # reader reads Lean's closure (~1 s)
+  case_grep "upstream olean-issue [$MOD]" 3 "module UpBoomOleanSol: malformed .olean data" \
+    --olean $MOD --search-path=$MSP --compare UpBoom UpBoomOleanSol
+  # challenge-opaque-value: upstream 1 (the axiom behind an opaque
+  # value); declined
+  case_ "upstream opaque-value [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpBoom UpBoomOpqSol
+  # challenge-primitive-issue: upstream 1 (Nat.gcd differs); the
+  # solution's Nat.gcd matches no pinned definition of the GMP-accelerated
+  # operation: declined
+  case_ "upstream primitive-issue [$MOD]" 2 --olean $MOD --search-path=$MSP --compare UpGcd UpGcdSol
+  # comparator's char_ofnat_issue: upstream 1.  The store rejects the
+  # solution's own Char/String constants meeting Init's in the
+  # challenge's context (a local check, before values are checked); the
+  # isolated mode declines the solution's string literal (con-leche's
+  # String support needs Init's declarations) and so skips the challenge
+  if [ "$MOD" = --modular ]; then want=1; else want=2; fi
+  case_ "upstream char_ofnat_issue [$MOD]" $want --olean $MOD --search-path=$MSP --compare UpBoom UpBoomCharSol
+  # comparator's proj_trick: upstream 1 (adapted: S.a for a raw
+  # projection, see UpProj)
+  case_grep "upstream proj_trick [$MOD]" 1 "S: the solution's constant is not the challenge's" \
+    --olean $MOD --search-path=$MSP --compare UpProj UpProjSol
+  # comparator's quot_mismatch: upstream 1; a prelude module storing
+  # `Quot.lift` (a name of con-leche's basis)
+  case_grep "upstream quot_mismatch [$MOD]" 1 "reserved basis name Quot.lift" \
+    --olean $MOD --search-path=$MSP --compare UpQuot UpQuotSol
+  # comparator's theorem_hole_issue: upstream 0
+  case_grep "upstream theorem_hole_issue [$MOD]" 0 "hole hw filled by UpThmHoleSol" \
+    --olean $MOD --search-path=$MSP --compare UpThmHole UpThmHoleSol
+  # check-audit (and check-from-export's solution): upstream 0
+  case_ "upstream check-audit [$MOD]" 0 --olean $MOD --search-path=$MSP UpCommSol
+  # check-multi: two roots, upstream 0
+  case_ "upstream check-multi [$MOD]" 0 --olean $MOD --search-path=$MSP UpMultiA UpMultiB
+  # check-sorry (and check-from-export's Bad): upstream 1 ("Axiom
+  # 'sorryAx' is not permitted"); declined
+  case_ "upstream check-sorry [$MOD]" 2 --olean $MOD --search-path=$MSP UpSorry
+}
+for MOD in --modular --modular=isolated; do modular_cases; review_cases; rcases; upstream_cases; done
+# the upstream modules as plain developments, merged (a challenge, with
+# its sorry, declines; a solution's verdict is the compare cases' cause)
+for m in UpComm UpDefHole UpDefHoleTy UpKindDef UpKindThm 'UpNum.«12.34».«5»' UpBoom UpGcd UpProj \
+    UpThmHole UpSorry UpCommAxSol UpCommMisSol UpDefHoleAxSol UpDefHoleKindSol UpDefHoleTySol \
+    UpBoomOpqSol UpBoomCharSol UpGcdSol; do
+  case_ "upstream merged: $m" 2 --olean --search-path=$MSP "$m"
+done
+for m in UpCommSol UpDefHoleSol UpKindDefOpqSol UpKindThmOpqSol UpKindThmDefSol UpHidDefSol UpNumSol \
+    UpProjSol UpThmHoleSol; do
+  case_ "upstream merged: $m" 0 --olean --search-path=$MSP "$m"
+done
+case_ "upstream merged: check-multi's two roots" 0 --olean --search-path=$MSP UpMultiA UpMultiB
+# quot_mismatch's modules both store Quot.lift: rejected
+case_ "upstream merged: UpQuot" 1 --olean --search-path=$MSP UpQuot
+case_ "upstream merged: UpQuotSol" 1 --olean --search-path=$MSP UpQuotSol
+case_grep "upstream merged: UpBoomOleanSol (olean-issue, check-audit-reject)" 3 "malformed .olean data" \
+  --olean --search-path=$MSP UpBoomOleanSol
+# module names on the command line: an unclosed escape
+case_ "a module name with an unclosed «" 3 --olean --search-path=$MSP 'UpNum.«12.34'
+
+# the same import disagreement in the merged mode
+MOD=
+d="$TMPDIR/con-leche-olean-imports"
+rm -rf "$d"; cp -r "$LIB" "$d"
+patch "$d/HidAll.olean.private" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
+case_ "the private part's imports not the exported part's [merged]" 3 --olean --search-path=$d:$INIT HidAll
+rm -rf "$d"
+
+rm -f "$TMPDIR/olean-case.out"
+echo "olean gate: $ok/$total as expected"
+exit $fail

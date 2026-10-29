@@ -4,8 +4,11 @@ import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+import ConLeche.Cached.Installed
+public import ConLeche.Modular
 import ConLeche.Model.Denotes
+import ConLeche.Model.Capstone
+import ConLeche.Model.Modular.Main
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
@@ -120,5 +123,41 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+
+/-- **The modular theorem.**  If every module of a development up to
+`i` passes its local checks, every such module's own environment has a
+model, and the models are compatible: two modules that store a name
+under one key give it one value, and every proof the point. -/
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∃ m : ∀ j ≤ i, Model V (dev j).own,
+      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+        (m j hj).cval n = (m j' hj').cval n) ∧
+      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+        (m j hj).cval n = fun _ => pt := by
+  obtain ⟨a, hm, hc, hp⟩ := Model.Modular.modular_envModels (V := V) rfl dev i hok
+  have hcval : ∀ j (hj : j ≤ i) n, ((dev j).own.find? n).isSome = true →
+      (Model.Model.ofEnvModelM (Classical.choose (hm j hj))).cval n =
+        fun φ => Semantics.interp V (fun _ => empty) (a j n φ) := fun j hj n hn =>
+    funext fun φ => by rw [Model.Model.ofEnvModelM_cval, Classical.choose_spec (hm j hj) n hn]
+  refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hm j hj)),
+    fun j hj j' hj' n hn hn' hk => ?_, fun j hj n s hn hk => ?_⟩
+  · rw [hcval j hj n hn, hcval j' hj' n hn', hc j hj j' hj' n hn hn' hk]
+  · rw [hcval j hj n hn, hp j hj n s hn hk]
+    exact funext fun _ => Semantics.interp_prf (V := V) _
+
+/-- **The modular corollary.**  No module of such a development stores
+a constant of type `False` in its own environment. -/
+theorem modular_no_False (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
+      c.toConstantVal.type = .const falseName [] → False := by
+  obtain ⟨_, hm, -⟩ := Model.Modular.modular_envModels (V := V) rfl dev i hok
+  intro j hj c hc hty
+  obtain ⟨mp, -⟩ := hm j hj
+  exact Model.no_constant_of_False mp c hc hty
 
 end ConLeche

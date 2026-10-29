@@ -1,6 +1,10 @@
 module
 
 public import Fragment.Consistency
+public import Fragment.Modular
+public import Fragment.ModularModel
+public import Fragment.ModularInstance
+public import Fragment.ModularSyntactic
 public import Fragment.Install
 public import Fragment.Access
 public import Fragment.UniformBeta
@@ -531,3 +535,55 @@ info: 'Fragment.IndSpec.rec_rule_slotN' depends on axioms: [propext, Classical.c
 info: 'Fragment.IndSpec.rec_rule_slot1N' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Fragment.IndSpec.rec_rule_slot1N
+
+
+
+/--
+info: 'Fragment.install_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.install_thm
+
+/--
+info: 'Fragment.Checks.blockModel' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Checks.blockModel
+
+/--
+info: 'Fragment.Assembled.model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Assembled.model
+
+/--
+info: 'Fragment.Development.modular' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Development.modular
+
+/--
+info: 'Fragment.fragmentSemantics' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.fragmentSemantics
+
+/--
+info: 'Fragment.Syntactic.syntacticSemantics' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.Syntactic.syntacticSemantics
+
+/--
+info: 'Fragment.modular' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular
+
+/--
+info: 'Fragment.modular_model' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_model
+
+/--
+info: 'Fragment.modular_no_empty_prop_inhabitant' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_no_empty_prop_inhabitant
+
+/--
+info: 'Fragment.modular_statements_hold' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms Fragment.modular_statements_hold

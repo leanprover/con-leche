@@ -10,17 +10,75 @@
 == Main.lean#L91
     91  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/Run.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Frontend/Olean/Region.lean#L217-L220
+   217  @[inline] def Region.down (r : @& Region) (g : Nat) (v : UInt64) : Option Nat :=
+   218    match r.loc v with
+   219    | some c => if c < g then some c else none
+   220    | none => none
+
+== ConLeche/Frontend/Olean/Spec.lean#L404-L408
+   404  def decodeModuleSpec (r : Region) (root : UInt64) (consts : Bool) : Option ModDecoded := do
+   405    let sk ← moduleSkel r root
+   406    let imports ← sk.imports.mapM (nameP r)
+   407    let constants ← if consts then sk.consts.mapM (constSpec r) else pure []
+   408    pure ⟨sk.isModule, imports.toArray, constants.toArray⟩
+
+== ConLeche/Verify/Frontend/Olean/Equiv.lean#L330
+   330  @[csimp] theorem decodeModuleSpec_eq_fast : @decodeModuleSpec = @decodeModuleFast := by
+
+== ConLeche/Frontend/Olean/Load.lean#L829-L830
+   829  def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+   830      IO (Except (CheckError × Nat) (Array Declaration)) := do
+
+== ConLeche/Driver/Modular.lean#L1692-L1693
+  1692  def checkModular (sp : SearchPath) (roots : Array Name) (mode : CheckMode) (stride jobs : Nat)
+  1693      (keepGoing : Bool := false) (cmps : Array (Name × Name) := #[]) (isolated : Bool := false) :
+
+== ConLeche/Driver/Modular.lean#L1175-L1176
+  1175  def isoWork (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (slots : Array (Thunk ModSlot))
+  1176      (lvls : Array ByteArray) (sideLv : Nat → ByteArray) : Work (IsoModOk mode g slots) := fun k => do
+
+== ConLeche/Cached/ModIso.lean#L150-L151
+   150  def mask (slot : Nat → ModSlot) (lv : ByteArray) (h : Nat) : ModSlot :=
+   151    let l := lvlAt lv h
+
+== tests/ConLecheTests/ModBoundary.lean#L150-L154
+   150  theorem isolated_boundary {lv : ByteArray} {s s' : Nat → ModSlot} (h : LoadedAgree lv s s') :
+   151      isoBuild (mask s lv) lv = isoBuild (mask s' lv) lv ∧
+   152      (∀ mode pins ds, checkModuleIsolated mode pins (mask s lv) lv ds =
+   153        checkModuleIsolated mode pins (mask s' lv) lv ds) ∧
+   154      (∀ m fe fl u r, unitOk (isoUView (mask s lv) lv) m fe fl u r =
+
+== ConLeche/Cached/ModIso.lean#L125-L126
+   125  def isoCtx (slot : Nat → ModSlot) (lv : ByteArray) : Env :=
+   126    let es := firstNamed (isoEntries slot lv)
+
+== ConLeche/Cached/ModIso.lean#L284-L285
+   284  def checkModuleIsolated (mode : CheckMode) (pins : List NatOpPinSet) (slot : Nat → ModSlot)
+   285      (lv : ByteArray) (ds : Array Declaration) : Except (CheckError × Nat) Env :=
+
+== ConLeche/Verify/Modular/IsoCtx.lean#L583-L586
+   583  theorem checkAtView_isolated {S : Store} (hI : IdxOk S) (mode : CheckMode)
+   584      (pins : List NatOpPinSet) (i : Nat) (ds : Array Declaration) :
+   585      checkModuleIsolated mode pins S.slot (S.lvl i) ds =
+   586        (checkAtView mode pins (S.mb i) ds).map (Env.over · (isoCtx S.slot (S.lvl i))) :=
+
+== ConLeche/Driver/Modular.lean#L842-L844
+   842  def compareOne (mode : CheckMode) (err : IO.FS.Stream) (g : Array ModIn) (S : Mod.Store) (i : Nat)
+   843      (chal : Array Declaration) (lv : ByteArray) :
+   844      IO (Except CheckError (PLift (CmpClaim mode g S i chal) × Array (Name × Nat))) := do
+
+== ConLeche/Driver/Run.lean#L39
+    39  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L99-L102
+    99  theorem model_exists (V : Type w) [SetTheory V]
+   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   101      (accepted : checkDecls .verified pins ds = .ok env) :
+   102      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L123-L124
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -49,15 +107,15 @@
    267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    268      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L110-L117
-   110  theorem no_False_declaration (V : Type w) [SetTheory V]
-   111      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   112      (h : jsonWithTheoremFalse chunks) :
-   113      ∃ e, (do
-   114        let pre ← builtinPreludeE
-   115        let r ← parseChunks chunks
-   116        let ds := preparePrelude pre r.decls
-   117        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L113-L120
+   113  theorem no_False_declaration (V : Type w) [SetTheory V]
+   114      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   115      (h : jsonWithTheoremFalse chunks) :
+   116      ∃ e, (do
+   117        let pre ← builtinPreludeE
+   118        let r ← parseChunks chunks
+   119        let ds := preparePrelude pre r.decls
+   120        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -113,15 +171,96 @@
    445    checkPendingList mode p.2.1 p.2.2.toList
    446    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L91-L95
-    91  /--
-    92  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    93  -/
-    94  #guard_msgs in
-    95  #print axioms ConLeche.model_exists
+== ConLeche/Modular.lean#L243-L278
+   243  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   244      Prop where
+   245    below : ∀ b ∈ (dev i).imports, b < i
+   246    src_lt : ∀ n, ((dev i).context.find? n).isSome = true → (dev i).src n < i
+   247    nodup : ((dev i).context.consts.map (·.name)).Nodup
+   248    accepted : (dev i).compared = false →
+   249      AcceptedFrom mode pins (dev i).proofs (dev i).context (dev i).decls (dev i).own
+   250    /-- a compared module's own environment is its context: every name of
+   251    it, its own included, refines the constant of the earlier module it is
+   252    read from (its solution, for its own names) -/
+   253    compared_own : (dev i).compared = true → (dev i).own = (dev i).context
+   254    context_le : ∀ n ci, (dev i).context.find? n = some ci →
+   255      ∃ ci', (dev ((dev i).src n)).own.find? n = some ci' ∧ Refines n ci ci'
+   256    scoping : ∀ n ci, (dev i).context.find? n = some ci →
+   257      EntryScoped (readsAlike dev i ((dev i).src n)) (dev i).context n ci
+   258    /-- a type former's table is its source's; nothing else has one (an
+   259    assumed former included) -/
+   260    tables : ∀ T ci, (dev i).context.find? T = some ci →
+   261      (dev i).context.findTable? T =
+   262        match ci with
+   263        | .indInfo .. => (dev ((dev i).src T)).own.findTable? T
+   264        | _ => none
+   265    projs : ∀ n ci, (dev i).context.find? n = some ci → EntryProjs (dev i).context n ci
+   266    blocks : ∀ n ci, (dev i).context.find? n = some ci → BlockIn (dev i).context n ci
+   267    /-- a recursor's source module stores its rules' constructors'
+   268    families as type formers -/
+   269    recFam : ∀ n cv mI rP rules, (dev i).context.find? n = some (.recInfo cv mI rP rules) →
+   270      ∀ r ∈ rules, ∀ cvj nP nF,
+   271        (dev ((dev i).src n)).own.find? r.ctor = some (.ctorInfo cvj nP nF) →
+   272        ∀ T us, cvj.type.piResult.getAppFn = .const T us →
+   273        ∃ cvT capsT, (dev ((dev i).src n)).own.find? T = some (.indInfo cvT capsT)
+   274    tables_mem : ∀ t ∈ (dev i).context.tables, (dev i).context.findTable? t.structName = some t
+   275    key_context : ∀ n, ((dev i).context.find? n).isSome = true →
+   276      (dev i).key n = (dev ((dev i).src n)).key n
+   277    key_own : ∀ n ci, (dev i).own.find? n = some ci → (dev i).context.find? n = none →
+   278      (dev i).key n = (dev i).ownKey i n ci
 
-== ConLeche/Driver/Run.lean#L59
-    59  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Verify/Modular/Interface.lean#L150-L151
+   150  theorem LocalOk.of_interface {mode : CheckMode} {pins : List NatOpPinSet} {dev : Nat → Module}
+   151      {i : Nat} (hI : ∀ b < i, InterfaceOk dev b) (hM : ImportOk mode pins dev i) :
+
+== ConLeche/MainTheorem.lean#L131-L139
+   131  theorem modular_model_exists (V : Type w) [SetTheory V]
+   132      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   133      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   134      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   135        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+   136          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+   137          (m j hj).cval n = (m j' hj').cval n) ∧
+   138        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+   139          (m j hj).cval n = fun _ => pt := by
+
+== ConLeche/MainTheorem.lean#L153-L157
+   153  theorem modular_no_False (V : Type w) [SetTheory V]
+   154      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   155      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+   156      ∀ j ≤ i, ∀ c ∈ (dev j).own.consts,
+   157        c.toConstantVal.type = .const falseName [] → False := by
+
+== ConLeche/Modular/Generic.lean#L305-L306
+   305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
+   306      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+
+== ConLeche/Verify/Modular/Scope.lean#L893-L894
+   893  theorem RunOk.localOk (hR : RunOk mode S M) (i : Nat) :
+   894      LocalOk mode natOpPinSets (devOf S M) i :=
+
+== ConLeche/Driver/Modular.lean#L1441-L1443
+  1441  def runOk (mode : CheckMode) (g : Array ModIn) (S : Mod.Store) (A : Array (ModOk mode g S))
+  1442      (hc : CommonOk S (A.map ModOk.d))
+  1443      (chks : Array (Option (At (ChkP mode (A.map ModOk.d))))) (off : Array Nat) :
+
+== ConLeche/Verify/Modular/Isolated.lean#L335-L336
+   335  theorem IsoRunOk.localOk {slots : Array (Thunk ModSlot)} {M : Array ModData}
+   336      (h : IsoRunOk mode slots M) (i : Nat) : LocalOk mode natOpPinSets (isoRunDev slots M) i :=
+
+== ConLeche/Verify/Modular/Isolated.lean#L370-L371
+   370  theorem RunOk.isoRunOk {S : Store} {M : Array ModData} (hR : RunOk mode S M) :
+   371      IsoRunOk mode S.slots (ownData M) := by
+
+== tests/ConLecheTests/Axioms.lean#L91-L95
+    91  Everything below them is what they are corollaries of. -/
+    92  
+    93  /--
+    94  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    95  -/
+
+== ConLeche/Driver/Run.lean#L64
+    64  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -157,6 +296,13 @@
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
   1745    obtain ⟨st0, hr0, hh0, hd0, hcov⟩ := hg
 
+== ConLeche/Frontend/Olean/Load.lean#L829-L830
+   829  def readOleans (dec : Decoder) (sp : SearchPath) (roots : Array Name) (jobs : Nat := 1) :
+   830      IO (Except (CheckError × Nat) (Array Declaration)) := do
+
+== ConLeche/Driver/Run.lean#L91
+    91    | .oleans sp roots => Frontend.Olean.readOleans Frontend.Olean.decodeModuleSpec sp roots jobs
+
 == ConLeche/Driver/ParInstall.lean#L155
    155  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
@@ -178,14 +324,14 @@
    757          (Σ' (p' : Nat × FEnv × Array PendingCheck),
    758            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1405-L1411
-  1405  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-  1406      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
-  1407      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
-  1408      (hand : andPinOk pd = true)
-  1409      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
-  1410      installDeclStep mode pins (i, fe, pend) pd =
-  1411        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1403-L1409
+  1403  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
+  1404      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
+  1405      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
+  1406      (hand : andPinOk pd = true)
+  1407      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+  1408      installDeclStep mode pins (i, fe, pend) pd =
+  1409        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
 
 == ConLeche/Cached/Installed.lean#L356-L358
    356  def checkRecord {pins : List NatOpPinSet} {ds : List Declaration}
@@ -205,11 +351,11 @@
    393      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    394        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== ConLeche/Driver/Run.lean#L107-L110
-   107  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   108      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
-   109      IO (Except (ConLeche.CheckError × Nat)
-   110        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L133-L136
+   133  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   134      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
+   135      IO (Except (ConLeche.CheckError × Nat)
+   136        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L523-L525
    523  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -319,17 +465,17 @@
   1741        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L268-L275
-   268  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   269      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
-   270      {ds : List Declaration} {env' : Env}
-   271      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   272      ∀ c ∈ env'.consts,
-   273        c.toConstantVal.type = .const falseName [] → False := by
-   274    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   275    exact fun c hc hty => no_constant_of_False mp c hc hty
+   268  accepted. -/
+   269  theorem no_proof_of_Empty_pure_of (V : Type w) [SetTheory V]
+   270      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+   271      {ds : List Declaration} {env' : Env}
+   272      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env')
+   273      (c : ConstantInfo) (hc : c ∈ env'.consts)
+   274      (hty : c.toConstantVal.type = .const emptyName []) : False := by
+   275    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
 
 == ConLeche/Model/Fold.lean#L141
-   141  theorem declStep_preserves (hμ : μ.isVerified = true)
+   141  theorem EnvModelOk.empty : EnvModelOk V μ Env.empty :=
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -901,6 +1047,9 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L537
    537  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
+== ConLeche/Driver/RecRules.lean#L136
+   136  def recRulesAgree (mode : CheckMode) (fe : FEnv) (ds : Array Declaration) :
+
 == ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608
    607  def tgtStoredRules (find? : Name → Option ConstantInfo)
    608      (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
@@ -918,7 +1067,7 @@
     72      (mp : EnvModelM V μ env)
     73      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     74      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    75      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+    75      ∃ mp' : EnvModelM V μ env₂, Agrees mp mp' ∧ LfpCover mp' [] := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
@@ -1254,28 +1403,28 @@
    213        else if cv.name = sorryAxName then
    214          pure fe
 
-== Main.lean#L124
-   124    "  --jobs=<n>        the number of worker threads (default: the",
+== Main.lean#L125
+   125    "  --jobs=<n>        the number of worker threads (default: the",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L479
-   479  def main (args : List String) : IO UInt32 := do
+== Main.lean#L589
+   589  def main (args : List String) : IO UInt32 := do
 
-== Main.lean#L365
-   365  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
+== Main.lean#L446
+   446  def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
 
-== ConLeche/MainTheorem.lean#L110-L117
-   110  theorem no_False_declaration (V : Type w) [SetTheory V]
-   111      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   112      (h : jsonWithTheoremFalse chunks) :
-   113      ∃ e, (do
-   114        let pre ← builtinPreludeE
-   115        let r ← parseChunks chunks
-   116        let ds := preparePrelude pre r.decls
-   117        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L113-L120
+   113  theorem no_False_declaration (V : Type w) [SetTheory V]
+   114      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   115      (h : jsonWithTheoremFalse chunks) :
+   116      ∃ e, (do
+   117        let pre ← builtinPreludeE
+   118        let r ← parseChunks chunks
+   119        let ds := preparePrelude pre r.decls
+   120        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1384,6 +1533,6 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== Main.lean#L107
-   107    "  --trusted         the unverified mode: the SAME checker bodies as",
+== Main.lean#L108
+   108    "  --trusted         the unverified mode: the SAME checker bodies as",
 

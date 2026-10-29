@@ -1379,17 +1379,19 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
           simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3, -, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
+  obtain ⟨mp3, hac3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
   -- coverage: `Eq`'s former opened the exemption list, its record
   -- closes it
-  exact ⟨mp3, fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
+  exact ⟨mp3, (Agrees.cons hf1 hac1).trans ((Agrees.cons hf2 hac2).trans
+    ((Agrees.of_acval (mp := mp2) (mp' := mp2') rfl).trans (Agrees.cons hf3 hac3))),
+    fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))
     (lfpOwn_one (T := eqName) (cs := [(eqReflA.toConstantVal, 2, 0)]) rfl rfl hE2
       (by
         show List.filterMap (ctorLook (ConLeche.Env.find? ⟨eqReflA :: eqA :: env.consts, env.tables⟩) eqName)
           [eqReflA.name] = _
-        rfl)
+        rfl) rfl
       ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by
         obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
         exact hR2⟩

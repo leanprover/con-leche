@@ -618,3 +618,66 @@ comment block at the top of `lib.typ`.
     through the projections (`EtaIota.lean`) cover every remaining
     large eliminator, and no ι step checks a constructor application.
     (Lane R4, 2026-10-13.)
+
+**2026-10-27 (task #370, modular checking).** The module-by-module
+theorem needs no global name table and no weakening of derivations.
+Qualified names (home module and name; a proof by its statement) make
+every module's own environment a reading of one assignment, and the
+proof goes by restriction and extension of models: the world's model,
+read through a module's resolution, is a model of the module's context
+(`context_model`), the ordinary installation theorems extend it over
+the module's declarations (`Checks.blockModel`), and the module's own
+ordinary constants extend the world's assignment (`modular_step`).
+Con-leche's implementation should follow the same route: its soundness
+consumes checker runs, not derivations, so restricting the world's
+model to a module's context, applying the existing step theorem of the
+fold there, and extending back is the argument that fits, and no
+monotonicity of the checker in its environment is needed. Every module
+can be type-checked in parallel against its context; the remaining
+local checks compare constants and resolutions with the direct imports
+and type-check nothing.
+
+**2026-10-27 (task #370, comparison).** Comparator's contract fits the
+modular theorem as a second way to validate a module: a module whose
+whole own environment reads from earlier modules (every constant an
+earlier module's, or an assumption of its type) needs no type checking,
+and its model is the restriction of the world's, by the same lemma that
+gives a checked module's context its model (`reads_model`). So
+con-leche can subsume Comparator without a second soundness argument:
+compare the challenge's private environment (definitions with their
+values) constant by constant with the solution's, treat axioms and
+`sorryAx`-valued constants as holes, and read the result off the
+modular theorem.
+
+
+**2026-10-28 (task #375, modular checking per module).** The modular
+theorem needs neither a global environment nor renaming. Each module
+keeps its own names and records a key per name (home module, or a
+proof's statement); the theorem gives a compatible family of models,
+one per module, and the proof of a module's model reads only its
+imports' models: restrict each to the views the module reads,
+amalgamate them (they agree where the keys agree), extend by the step
+(`Development.modular`, `ModularSemantics.lean`). Refinement and
+restriction are the one-member case of assembly and amalgamation, and
+a model of the empty environment the empty case, so the interface has
+three constructions (models with values, amalgamation, the step).
+Con-leche's `Modular/Generic.lean` and its instance can follow the
+same shape: drop the world, the renaming `ren` and the freshness and
+glue fields; state amalgamation over the views a module's context
+draws from (its units), with keys in place of qualified names; let
+`modular_model_exists` return a compatible family (or only the
+existence of each module's model, its corollary). The per-home /
+per-importer split then reads off the theorem: a view must refine its
+module's own environment (once per module), a context must be
+assembled from the imports' views (once per importer).
+
+**2026-10-28 (task #377, tone on other consistency proofs).** Maintainer
+ruling: no claim that any consistency proof, a syntactic one in
+particular, plugs into the modular interface. The text states the
+limits instead. The interface gives every proof one shared value
+(`proofVal`), which suits set models but not a syntactic proof; the
+fragment's syntactic instance (`ModularSyntactic.lean`) handles
+definitions only (no axioms, no inductive types, nothing flagged a
+proof), so it illustrates the interface; whether the interface suits
+another real consistency proof is open until there is such a proof to
+connect it to.

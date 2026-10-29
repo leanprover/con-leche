@@ -314,7 +314,9 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     -- input's recorded list
     obtain ⟨mk, hb, hL⟩ := EnvModelM.keepLfpOfTable hT' mp' hac
     rw [← hb] at hcore'
-    obtain ⟨mpF, hF⟩ := stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mk hl' h hcore'
-    exact ⟨mpF, fun hc => hF (hc.pushTable hL)⟩
+    obtain ⟨mpF, hagF, hF⟩ :=
+      stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mk hl' h hcore'
+    have hagk : Agrees mp mk := fun n hn => ⟨hn, by rw [hb, hac]⟩
+    exact ⟨mpF, hagk.trans hagF, fun hc => hF (hc.pushTable hL)⟩
 
 end ConLeche.Model

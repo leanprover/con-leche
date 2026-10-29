@@ -75,9 +75,9 @@ A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
 
 Two conditions of shape come with the kinds. No field's domain
 mentions $I$ anywhere else; this is
-#src("whitepaper/Fragment/Decl.lean", 628, 642)[strict positivity].
+#src("whitepaper/Fragment/Decl.lean", 641, 655)[strict positivity].
 And nothing after a reflexive field
-#src("whitepaper/Fragment/Decl.lean", 645, 650)[may depend on its value]
+#src("whitepaper/Fragment/Decl.lean", 658, 663)[may depend on its value]
 (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
@@ -108,7 +108,7 @@ generates the types of the type former, the constructors and the
 recursor, and the recursor's rules. The type former's type is the one
 displayed above; a constructor's type is
 $ forall arrow(x) : arrow(P). thin forall arrow(f) : arrow(F). thin I thick arrow(x) thick arrow(e)_j $
-(#src("whitepaper/Fragment/Decl.lean", 209, 216)[the two generators]).
+(#src("whitepaper/Fragment/Decl.lean", 210, 217)[the two generators]).
 The recursor eliminates into $Sort ell$, where the _elimination
 level_ $ell$ is either a fresh level parameter (_large elimination_)
 or $0$ (_small elimination_); the elimination rule below says which.
@@ -189,11 +189,11 @@ $ C thick arrow(e)_j thick (c_j thick arrow(x) thick arrow(f)). $
 The recursor takes the parameters, the motive, the minors, the
 indices and the major, and ends in $C thick arrow(y) thick t$.
 (Generated:
-#src("whitepaper/Fragment/Decl.lean", 218, 220)[the motive],
-#src("whitepaper/Fragment/Decl.lean", 231, 243)[an inductive hypothesis],
-#src("whitepaper/Fragment/Decl.lean", 256, 265)[a minor premise],
-#src("whitepaper/Fragment/Decl.lean", 272, 277)[the recursor's type]
-and #src("whitepaper/Fragment/Decl.lean", 314, 321)[a rule's right-hand side]\;
+#src("whitepaper/Fragment/Decl.lean", 219, 221)[the motive],
+#src("whitepaper/Fragment/Decl.lean", 232, 244)[an inductive hypothesis],
+#src("whitepaper/Fragment/Decl.lean", 257, 266)[a minor premise],
+#src("whitepaper/Fragment/Decl.lean", 273, 278)[the recursor's type]
+and #src("whitepaper/Fragment/Decl.lean", 315, 322)[a rule's right-hand side]\;
 in con-leche: #src("ConLeche/Kernel/Inductives/GenRec.lean", 175, 182)[the type],
 #src("ConLeche/Kernel/Inductives/GenRec.lean", 188, 207)[a rule].)
 
@@ -214,10 +214,10 @@ $I thick arrow(x) thick arrow(e)$ determines every field: the
 propositional ones are all the same proof, and the others can be read
 off the indices. Otherwise the motive lands in $Prop$, $ell = 0$
 (_small elimination_). In the fragment the criterion is
-#src("whitepaper/Fragment/Decl.lean", 710, 717)[a condition per field]
-plus #src("whitepaper/Fragment/Decl.lean", 763)[the constructor count], required of a large
+#src("whitepaper/Fragment/Decl.lean", 723, 730)[a condition per field]
+plus #src("whitepaper/Fragment/Decl.lean", 776)[the constructor count], required of a large
 eliminator on a family whose sort _may_ be zero
-(#src("whitepaper/Fragment/Decl.lean", 706, 708)[never zero: $1 <= u$ at every valuation]).
+(#src("whitepaper/Fragment/Decl.lean", 719, 721)[never zero: $1 <= u$ at every valuation]).
 
 #real[
   The checker asks the constructor count of every family whose sort
@@ -238,7 +238,7 @@ the checker answers each with the level oracle:
   elimination);
 - a field's sort does not exceed the result sort (the _universe
   bound_): $v <= u$, unless $u eq.dot 0$, in which case
-  #src("whitepaper/Fragment/Decl.lean", 699, 704)[there is no bound]
+  #src("whitepaper/Fragment/Decl.lean", 712, 717)[there is no bound]
   (Lean's impredicativity of $Prop$).
 
 #example(name: [an indexed proposition with large elimination])[
@@ -265,7 +265,7 @@ the checker answers each with the level oracle:
 
 === When a block is accepted
 
-A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
+A block #src("whitepaper/Fragment/Decl.lean", 732, 777)[is accepted] when
 (#src("ConLeche/Kernel/Inductives/BlockTail.lean", 141, 146)[as in con-leche]):
 
 - its names are distinct and fresh;
@@ -279,7 +279,7 @@ A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
 - the constructor count respects the elimination rule;
 - in the environment holding the type former and the constructors, the
   generated recursor's type has a type, and so has
-  #src("whitepaper/Fragment/Decl.lean", 307, 312)[each rule's type],
+  #src("whitepaper/Fragment/Decl.lean", 308, 313)[each rule's type],
   the recursor's binder prefix with the constructor's fields in place
   of the indices and the major.
 
@@ -297,9 +297,9 @@ generated type a well-denoted type.
 
 === What is stored
 
-The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
+The block #src("whitepaper/Fragment/Decl.lean", 532, 573)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
-(#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
+(#src("whitepaper/Fragment/Env.lean", 66, 82)[the kinds],
 #src("ConLeche/Kernel/Env.lean", 165, 182)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
@@ -311,7 +311,7 @@ with the notation of @sec:env, a stored declaration is one of
 - $(r.\{arrow(ell)\} : T)^sans("rec") [k, 1, n, m; R_1, dots, R_n]$, a
   recursor: $k$ parameters, one motive, $n$ minors, $m$ indices, the
   major; rules $R_1, dots, R_n$, each
-  #src("whitepaper/Fragment/Env.lean", 53, 60)[flagged _K_] when the
+  #src("whitepaper/Fragment/Env.lean", 56, 63)[flagged _K_] when the
   block is K-like (@sec:iota-cases).
 
 The counts are the sizes of the argument groups (@ex:nat shows them
@@ -975,18 +975,19 @@ without a certificate, through the projections of the major.
 
 == Consistency <sec:consistency>
 
-An environment is #src("whitepaper/Fragment/Consistency.lean", 36, 47)[_accepted_] when it is built from the empty
+An environment is #src("whitepaper/Fragment/Consistency.lean", 36, 50)[_accepted_] when it is built from the empty
 environment by the two steps of §3 and §4: a definition that
 passes its checks, or an inductive block that passes its checks and
-is installed.
-An accepted environment is closed: #src("whitepaper/Fragment/Consistency.lean", 50, 55)[every stored term mentions only stored constants]. This is what
+is installed. (A third step, a theorem stored as its statement, joins
+in @sec:modular.)
+An accepted environment is closed: #src("whitepaper/Fragment/Consistency.lean", 54, 59)[every stored term mentions only stored constants]. This is what
 @thm:install-def and the construction of @sec:ind-model
 assumed of the environment they extend.
 
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
-  #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 96, 99)[con-leche's main theorem]).
+  #src("whitepaper/Fragment/Consistency.lean", 62, 79)[has a model in it]
+  (#src("ConLeche/MainTheorem.lean", 99, 102)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
@@ -1006,10 +1007,10 @@ assumed of the environment they extend.
 #corollary(name: "No proof of an empty proposition")[
   Let $I$ be an inductive type with no constructors, no parameters,
   no indices and no level parameters, installed in an accepted
-  environment. Then #src("whitepaper/Fragment/Consistency.lean", 89, 98)[no closed term $e$ has] $tack e => I$; in
+  environment. Then #src("whitepaper/Fragment/Consistency.lean", 139, 149)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
-  (#src("whitepaper/Fragment/Consistency.lean", 134, 138)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 268, 275)[as in con-leche]).
+  (#src("whitepaper/Fragment/Consistency.lean", 155, 159)[at the block `inductive False : Prop`]\;
+  #src("ConLeche/Model/Fold.lean", 308, 315)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1037,7 +1038,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 198, 200)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 238, 240)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

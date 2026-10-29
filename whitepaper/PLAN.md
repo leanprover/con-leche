@@ -118,7 +118,17 @@ are recorded here so every lane works from the same spec. Task #324.
    projections), large elimination; the consistency corollary.
 5. Nested inductive types (the full check, the model as a sketch).
 6. Extensionality corollaries (η for structures, unit-like).
-7. What we left out, and how the real proof differs from the fragment
+7. Checking module by module (tasks #370, #375): abstract first —
+   what the argument needs from a consistency proof (models with values,
+   assembly and amalgamation of a compatible family, the conservative
+   step; refinement and restriction derived); then modules, refinement
+   and keys (home module, or a proof's statement), the local checks per
+   home and per importer, the per-module theorem (a compatible family
+   of models, one per module; corollary: every module has a model),
+   parallelism, comparison; NO global environment and NO renaming;
+   Lean's levels, `import all`, re-exports and merge rule appear only
+   in a mapping table at the end; con-leche in a `#real` block.
+8. What we left out, and how the real proof differs from the fragment
    (fvar, `Term` layer, bridge, ...), with links.
 
 Links: unobtrusive, `blob/master/...#L..-L..` into the real proof AND into
@@ -225,6 +235,11 @@ in HTML the phrase shows the cited lines on hover.
 * (2026-10-02) Use display style liberally: a formula longer than a few
   symbols (a telescope, a generated type, a rule's right-hand side) is
   set on its own line, not inline.
+* (2026-10-28) Every definition, lemma and theorem states its content
+  as a precise formula (Typst math, in the paper's notation), with short
+  prose around it; the formula matches the fragment's statement. Short
+  sentences, one idea per paragraph, terms defined before use, no
+  taglines ("X is a Y, not a Z").
 * (2026-10-03) Always "the type former", never a bare "the former"
   (confusable with "the former/the latter").
 * (2026-10-03) No boasting, no line counts ("ten lines", "two lines",
@@ -309,3 +324,19 @@ pen-and-paper claim without the fragment behind it".
   domain", "$lambda$-telescopes", "$lambda$-congruence"); λ stays where
   it is notation: inside formulas and rules, binder notation such as
   `$lambda x : A. b$`, rule names inside formulas, and code identifiers.
+
+## Rulings of 2026-10-28 (task #375): §7 per module
+
+* No global world, no renaming. Every module uses its own names; what
+  identifies a constant across modules is its key (home module, or a
+  proof's statement). The theorem is per module: a compatible family
+  of models (same key, same value; every proof the point); the
+  corollary drops compatibility. The proof glues only over a module's
+  imports.
+* §7 starts with the abstract view on environment models: what any
+  consistency proof must provide, stated before any Lean or fragment
+  detail.
+* Writing (maintainer, on §7): careful mathematical prose. State what a
+  notion is (a definition), then why it is needed; one claim and its
+  justification per paragraph; no slogans, no "X is a Y, not a Z"
+  constructions, no aphorisms.

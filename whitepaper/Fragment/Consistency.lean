@@ -2,6 +2,7 @@ module
 
 public import Fragment.NestInstall
 public import Fragment.Sound
+public import Fragment.InstallThm
 
 @[expose] public section
 
@@ -35,8 +36,8 @@ variable (V : Type u) [IndLib V] [LevelOracle]
 
 /-- **The environments the checker accepts**: the empty environment,
 a definition the definition check passes, an inductive block the
-block check passes (con-leche's `addDecl`, `ConLeche/Kernel/Env.lean`,
-run to completion). -/
+block check passes, a theorem the theorem check passes (con-leche's
+`addDecl`, `ConLeche/Kernel/Env.lean`, run to completion). -/
 inductive Accepted : Env → Prop
   /-- Nothing is stored. -/
   | empty : Accepted Env.empty
@@ -45,6 +46,9 @@ inductive Accepted : Env → Prop
       Accepted env → DefOk env c ci → Accepted (env.add c ci)
   /-- An inductive block, plain or nested (`IndOk`, `Decl.lean`). -/
   | ind {env : Env} (S : IndSpec) : Accepted env → IndOk env S → Accepted (S.install env)
+  /-- A theorem (`ThmOk`, `Decl.lean`), stored as its statement. -/
+  | thm {env : Env} {c : Name} {ci : ConstInfo} {v : Expr} :
+      Accepted env → ThmOk env c ci v → Accepted (env.add c ci)
 
 omit [IndLib V] in
 /-- An accepted environment is closed: its stored terms mention only
@@ -53,6 +57,7 @@ theorem Accepted.scoped : ∀ {env : Env}, Accepted env → Env.Scoped env
   | _, .empty => Env.Scoped.empty
   | _, .defn h hok => h.scoped.add_def hok
   | _, .ind S h hok => h.scoped.install_any hok
+  | _, .thm h hok => h.scoped.add_thm hok
 
 /-- **Every accepted environment has a model** (in any `IndLib`) — a
 block model, which remembers its blocks for the nestings to come
@@ -62,11 +67,15 @@ theorem accepted_model {env : Env} (h : Accepted env) : Nonempty (BlockModel V e
   | empty => exact ⟨BlockModel.empty fun _ _ => pt⟩
   | defn h hok ih =>
     obtain ⟨m⟩ := ih
-    obtain ⟨m', -⟩ := install_def' h.scoped m hok
+    obtain ⟨m', -, -⟩ := install_def' h.scoped m hok
     exact ⟨m'⟩
   | ind S h hok ih =>
     obtain ⟨m⟩ := ih
     obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
+    exact ⟨m'⟩
+  | thm h hok ih =>
+    obtain ⟨m⟩ := ih
+    obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
     exact ⟨m'⟩
 
 namespace IndSpec
@@ -85,19 +94,18 @@ section Corollaries
 library is the proof's device, so it is an explicit parameter of
 them: any `IndLib` will do. -/
 
-include V in
-/-- **No closed term inhabits an empty inductive type.**  For a block
+/-- **No closed term inhabits an empty inductive type**, in any
+environment with a model.  For a block
 without constructors, parameters, indices and level parameters whose
 recursor the environment stores, no closed term has the type former's
 type: in a model, the recursor's set lies in the function space over the
 motives and the fibre, and at the motive with the empty fibre a
 member of the type would be a member of the empty set. -/
-theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
+theorem no_empty_inductive_inhabitant_of_model {env : Env} (m : EnvModel V env) {S : IndSpec}
     (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
     (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
     ¬ Infer env [] e (.const S.name []) := by
   intro he
-  obtain ⟨m⟩ := accepted_model V hacc
   -- the recursor at the identity instantiation and the all-zero valuation
   have hR := (m.type_ok S.recName S.recInfo hrec (fun _ => 0) base (S.recLparams.map .param)
     (by simp [IndSpec.recInfo])).2.2
@@ -121,11 +129,24 @@ theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : Ind
     lamV_mem (fun _ _ => mem_typeU_zero.mpr (truthVal_mem_univ_zero _)) fun _ _ => IsTy_typeU 0
   have h₁ := app_mem_piV hR hmo
   -- a member of the type would be a member of the empty set
-  have ht := closed_infer m.toEnvModel (fun _ => 0) he base
+  have ht := closed_infer m (fun _ => 0) he base
   simp only [interp_const, List.map_nil] at ht
   have h₂ := app_mem_piV h₁ ht
   rw [app_lamV ht] at h₂
   exact of_mem_truthVal h₂
+
+include V in
+/-- **No closed term inhabits an empty inductive type.**  For a block
+without constructors, parameters, indices and level parameters whose
+recursor the environment stores, no closed term has the type former's
+type (`no_empty_inductive_inhabitant_of_model`, at a model of the
+accepted environment). -/
+theorem no_empty_inductive_inhabitant {env : Env} (hacc : Accepted env) {S : IndSpec}
+    (hctors : S.ctors = []) (hparams : S.params = []) (hidx : S.indices = [])
+    (hlp : S.lparams = []) (hrec : env.find? S.recName = some S.recInfo) (e : Expr) :
+    ¬ Infer env [] e (.const S.name []) := by
+  obtain ⟨m⟩ := accepted_model V hacc
+  exact no_empty_inductive_inhabitant_of_model V m.toEnvModel hctors hparams hidx hlp hrec e
 
 include V in
 /-- **No closed term inhabits an empty proposition**: the block
