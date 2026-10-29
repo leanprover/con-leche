@@ -234,9 +234,20 @@ bodies and no renaming of names.
   giving both clauses of $Cmp_(k+1)$.
 ]
 
-Taking $k = i+1$ and forgetting compatibility gives
-#src("whitepaper/Fragment/ModularSemantics.lean", 395, 399)[a model of each $E_i$]
-whenever every module through $i$ is valid.
+Forgetting compatibility gives the statement one usually needs.
+
+#corollary(name: "Every module has a model")[
+  For every $i in NN$,
+  #src("whitepaper/Fragment/ModularSemantics.lean", 395, 399)[validity of the modules up to $i$ gives a model of $E_i$]:
+  $
+    (forall j <= i. thin Valid_j) ==> exists m in Mod(E_i).
+  $
+] <cor:mod-model>
+
+#proof[
+  Apply @thm:mod with $k = i + 1$ and take the member $m_i$ of the
+  compatible family.
+]
 
 == The set-theoretic instance <sec:mod-instance>
 
