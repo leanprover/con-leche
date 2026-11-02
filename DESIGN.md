@@ -107711,3 +107711,121 @@ At the default (`groundMode = 0`):
 * the trusted sweep was not re-run: the change is the engine module and its import, both inert at mode 0.
 
 An engine-on build still needs `DiscC5.defeqBodyI_eq` replaced (`scr/mkvariant.sh` does it for the probe builds only).  The engine-on verdicts are the 20 nightly streams, init-prelude, init-full, grind-ring-5 and the six fixtures, all accepted as on master.
+
+### Round 3 (2026-11-02): coarser transitions for direct-`.rec` code, the program kept for the declaration
+
+**The rulings** (maintainer, 2026-11-02):
+* Approved: coarser transitions, and the compiled program kept per declaration.
+* Optimise for direct `.rec` code (the nightly's `_k` style): known calls binding all arguments, recursor ι as one step, and erasure of type, motive and proof arguments.
+* Matchers (`match_k → casesOn → rec`): correct and slow is fine.
+
+**A correction to round 2's report.**  It said the arena perf tests were unchanged and that the site never fires there.  That is wrong for `grind-ring-5`, which is one of the arena perf tests: the site fires 425 times on it, and round 2 made it +16.7 % (15.13 → 17.65 G).  The other fifteen arena perf tests do not reach the site.  The regression is explained in §R3.3.
+
+**The verdict, first.**
+1. **Transitions per source-level call drop from 13.9 to 11.8** (grind_field_kernel_cancel; 12.0–12.7 elsewhere).
+2. **The engine's own cost drops only 5 %.** On grind_field_kernel_cancel it goes 20.4 → 19.5 G (305 instructions per transition).  The own part is 19.57 G against official's 28.02 G (0.70×) and the native bound of 0.31 G: **63× native**.  The other direct-`.rec` benchmarks are at 0.95–1.12× official, and their own parts are mostly not engine work.
+3. **The coarsening catches less than expected**: in `_k` code almost every call is already saturated.  The remaining transitions are argument cells and their forcing (call-by-need: one cell, one enter, one update per lazily passed argument), not λ peeling or matcher chains.  The gap to native is the price of each elementary operation in Lean's `Array Nat` (§R3.4).
+4. **The program kept for the declaration recovers init-full** (381.38 → 378.36 G; master 378.91 G, −0.15 %) and part of grind-ring-5 (18.06 → 17.38 G; still +14.9 % over master).
+5. **20 117 of 20 117 calls evaluate to `Bool.true`; 0 aborts.**
+
+#### R3.1 What changed (`ConLeche/Cached/Ground3.lean`, `groundMode = 7`; rounds 1 and 2 stay at `1` and `3`)
+
+* **Known calls.**  A λ node carries its telescope's length and its innermost body (`[2, body, n, inner]`).  A λ with argument frames on the stack binds as many as the telescope has in **one transition**.  A δ-unfolded definition is a λ telescope, so a saturated call is: dispatch, bind, body.  The same holds for a closure applied to arguments.
+* **ι as one step.**  The rule's right-hand side `λ params motives minors fields => body` is bound directly from the two argument spans (the recursor's leading arguments and the constructor's fields), with no frame pushed or popped, and evaluation continues at the innermost body.
+* **Erasure at compile time** (`g3Mask`, per constant, from its stored type):
+  - an argument whose domain is, after its Π-binders, a sort (a type or a motive) is compiled to the neutral and never built;
+  - so is a proof: an argument whose domain's head constant has a type ending in `Prop`;
+  - at a recursor only types and motives are erased, because a recursor's major can be a proof (K, `Acc`).
+
+  The effect is −2–3 % of the engine (no cell is built), with the transitions unchanged (the frame is still pushed).
+* **The program per declaration.**  `CState.ground3` keeps the compiled program for the declaration and is flushed with the environment-dependent memos.  The sharing slots are kept with it, **epoch-tagged**: an entry is `epBase + cell` and is valid only in the run whose `epBase` it carries.  Zeroing the slot array for every run was what made the first version of this slower than not keeping the program (grind-ring-5 19.53 G).  An abort drops the program: keeping the pre-run program alive for the abort path would have shared it, and every compile during the run would then have copied it.
+* **Tried and dropped**: pushing the leading run of no-cell arguments in one transition gave 17 % fewer transitions and 11 % more instructions (the arguments are scanned twice), so it was reverted.  A stronger slot hash finalizer changed nothing, so it was reverted.
+
+#### R3.2 Direct-`.rec` benchmarks (G instructions:u; own part = full minus prefix; engine = the run with the engine twice, minus the run with it once)
+
+| stream | incumbent own | round 1 own | round 2 own | round 3 own | official own | native | r3/official | transitions per call r2 → r3 | engine G (r3) | instr/transition (r3) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| grind_field_kernel_cancel | 58.25 | 26.82 | 20.44 | 19.57 | 28.02 | 0.31 | 0.70 | 13.9 → 11.8 | 19.47 | 305 |
+| groebner_hard | 12.40 | 4.76 | 4.67 | 4.66 | 4.79 |  | 0.97 | 13.9 → 12.1 | 1.12 | 376 |
+| groebner | 2.06 | 0.98 | 0.99 | 0.92 | 0.94 |  | 0.97 | 14.0 → 12.1 | – | – |
+| groebner_char | 2.66 | 2.61 | 2.63 | 2.61 | 2.78 |  | 0.94 | 14.0 → 12.1 | – | – |
+| grind_ring_5 | 1.09 | 0.42 | 0.42 | 0.39 | 0.41 |  | 0.95 | 13.9 → 12.0 | – | – |
+| identities | 2.48 | 2.22 | 2.22 | 2.21 | 2.73 |  | 0.81 | 14.8 → 12.4 | – | – |
+| lia_oss_verify_1 | 2.84 | 2.47 | 2.67 | 2.60 | 2.36 |  | 1.10 | 13.6 → 11.8 | – | – |
+| lia_oss_verify_2 | 4.89 | 4.52 | 4.82 | 4.60 | 4.09 |  | 1.12 | 13.6 → 11.8 | 0.99 | 332 |
+| lia_oss_verify_3 | 3.34 | 2.94 | 3.16 | 3.05 | 2.89 |  | 1.06 | 13.6 → 11.8 | – | – |
+| lia_oss_verify_4 | 2.60 | 2.24 | 2.42 | 2.37 | 2.38 |  | 1.00 | 13.6 → 11.8 | – | – |
+| lia_case_splits | -0.00 | 0.00 | 0.00 | 0.00 | 0.01 |  | – | 13.1 → 11.5 | – | – |
+| sym_norm | 5.64 | 4.83 | 4.88 | 4.83 | 4.08 |  | 1.18 | 14.2 → 12.2 | – | – |
+| sym_arith | 13.37 | 13.18 | 13.28 | 13.26 | 9.35 |  | 1.42 | 15.4 → 12.7 | – | – |
+
+(Native: #422's compiled `cancelInvs_cert`, for grind_field_kernel_cancel only.)  Per transition on grind_field_kernel_cancel: round 1 ≈ 500, round 2 271, round 3 305 instructions.  Round 3's transitions are coarser, so a binding transition does several bindings.
+
+#### R3.3 The gate table: grind-ring-5 and init-full
+
+| stream | master | round 1 | round 2 | round 3 (program per run) | round 3 (program per declaration) |
+|---|---|---|---|---|---|
+| grind-ring-5 (arena perf) | 15.13 | 16.45 (+8.7 %) | 17.65 (+16.7 %) | 18.06 (+19.4 %) | **17.38 (+14.9 %)** |
+| init-full | 378.91 | 376.91 (−0.5 %) | 380.82 (+0.5 %) | 381.38 (+0.7 %) | **378.36 (−0.15 %)** |
+
+* **grind-ring-5.**  The site fires 425 times, and the engine runs 24.9 M transitions there for 9.05 G.  The incumbent did the same comparisons in about 6.9 G (master's total minus the engine-on run's non-engine part).
+  - The certificates are Lean 4.29.1's, written before lean4#15943, with no `_k` functions.  They are `brecOn`/matcher code (`Mon.rec`, `PProd.mk` below-tuples, `OfNat.ofNat` towers, `hugeFuel` `Nat.rec` loops), exactly the code the ruling leaves slow.
+  - The incumbent's memo keyed by term shares across them what the cell-keyed memo cannot (round 1 §3).
+  - The nightly's grind_ring_5 runs the same goal on `_k` certificates, and there the engine gives 0.39 G own against the incumbent's 1.09 G.
+* **init-full.**  It has 8 376 small `decide` sites (13.05 M transitions, 3.79 G of engine).  Round 2's and the per-run round 3's +0.5–0.7 % was the compile repeated per run.  The program kept per declaration removes it: −0.15 % against master.
+
+#### R3.4 Where the instructions go, and the native gap
+
+Per source-level call in `_k` code (11.8 transitions):
+* the call node;
+* one argument transition per argument that needs a cell (an application, a non-erased closed term the first time);
+* the constant dispatch, with the application memo's hash and probe (about 25 % of the engine);
+* the telescope bind;
+* then per forced thunk an enter, its evaluation and an update.
+
+Each transition runs bounds-checked reads and out-of-line `lean_array_push` calls on boxed scalars (13–14 %), and the loop body's dispatch.
+
+Native code for the same function:
+* passes arguments in registers;
+* is strict (no cells, no updates);
+* has no memo;
+* runs about 60 instructions per source-level call (0.31 G for 5.4 M calls).
+
+The two remaining factors are therefore:
+1. **Call-by-need where the code is strict.**  `_k` functions evaluate their recursor majors and their `Bool.rec` scrutinees immediately.  An argument whose callee forces it first could be evaluated before the call, with no cell and no update.  This is a strictness analysis at compile time, per constant and per parameter, exact for direct `.rec` code: a parameter is strict if the body's head is a recursor or an accelerated operation whose major or scrutinee is that parameter.
+2. **The representation.**  An unboxed machine with unchecked access is not available in Lean without `unsafe` or `implemented_by`, which the trust surface forbids.  `ByteArray` with `uget`/`uset` and in-bounds proofs is the closest legal form.
+
+My estimate: (1) halves the transitions; (2) would take the per-transition price from ~300 to ~50–80, the native-like regime, but is a rewrite of the machine's state handling.
+
+#### R3.5 The steps that need types (unchanged from §R2.4)
+
+0 of 20 117 calls reach a K major that is not a constructor, a structure-η major that is not a constructor, case 3, a well-founded `Nat` operation, or `Nat.pow` beyond 2²⁴.  Erasure adds one way to reach "K major": an erased proof that a K-like recursor then scrutinises.  It occurs 0 times.
+
+#### R3.6 Verification plan, updated
+
+The plan of §R2.5 (round 1's `Red` invariant, compiler correctness, an abstraction from the flat arrays) stands, with three additions:
+* **Erasure.**  An erased argument is the neutral cell, not its origin, so "a cell denotes its origin" fails at erased positions.  Two routes:
+  - a relevance lemma: `Red` and the machine's moves never read a type, motive or proof argument except at a K-like or `Acc` major, which is never erased;
+  - ghost origins: the abstraction maps each erased position to its source term, which is known statically at the call site, together with the environment.
+
+  The second is mechanical, an estimated +0.4–0.7 k lines.
+* **The program per declaration**: the compiled-code invariant is per code node and the environment is fixed between flushes, so it carries over from run to run; about +0.1–0.2 k lines.
+* **Epoch slots**: the abstraction reads only current-epoch entries; about +0.1 k lines.
+
+**Total for the round-3 engine: 4.6–7 k lines**, all at the `Red` level, with no model work and no new rule.
+
+#### R3.7 Gates
+
+At the default (`groundMode = 0`), after the round-3 code:
+* `lake build` and `lake test` are warning-free;
+* `tests/arena.sh --no-sweeps` is green: tutorial 90/92 as master, e2e 496/496, self-check accepted, shake (`StateC` now re-exports the engine module, and `CoreC` no longer imports it), layering, trust surface, the link gates (the whitepaper's `CoreC` citation is back at lines 8–11) and the quote gate.
+
+The engine-on verdicts: all 20 nightly streams, init-prelude, init-full, grind-ring-5 and the fixtures are accepted as on master.
+
+#### R3.8 Rulings needed (round 3)
+
+1. **Strictness for direct `.rec` code** (§R3.4 (1)).  *Recommendation:* the next spike, if the interpreter line continues; it is exact, not a heuristic.
+2. **Whether to continue toward native at all.**  Round 3 is 0.70× official on the one engine-dominated benchmark and 63× native; neither the coarsening nor the per-declaration program changed the per-operation price.  *Recommendation:*
+   - either take strictness plus a `ByteArray` state as one last measured spike, with a stop criterion of 5× native on `cancelInvs_cert`;
+   - or park the interpreter line here and prove round 3 (4.6–7 k lines) for an official-speed verified evaluator that is linear on DAG-shaped inputs.
+3. **grind-ring-5's +14.9 %.**  It is code the ruling leaves slow (no `_k`).  *Recommendation:* accept it while the arena carries the old stream; the nightly's version of the benchmark gains 2.8× on its own part.
