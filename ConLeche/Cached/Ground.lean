@@ -47,7 +47,8 @@ open ConLeche
 orientations), `2` as 1 with a per-call trace on stderr (`dbgTrace`,
 probe builds only), `3` the round-2 flat machine (`Ground2.lean`), `4`
 as 3 with the trace, `5`/`6` as 1/3 with the engine run twice (its own
-cost is the difference). -/
+cost is the difference), `7` the round-3 machine (`Ground3.lean`), `8`
+as 7 with the trace, `9` as 7 run twice. -/
 @[noinline] def groundMode : Nat := 0
 
 /-- A weak head value of the ground machine. -/
