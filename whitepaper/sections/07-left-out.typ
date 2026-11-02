@@ -151,7 +151,7 @@ connects the two: wherever the reading `denote` exists, its
 interpretation is a `Denotes`-denotation of the term. The paper's theorem is
 the model side directly.
 
-*The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 8, 11)[a
+*The cached checker and its simulation.* The core the binary runs is #src("ConLeche/Cached/CoreC.lean", 9, 12)[a
 clone of the pure one] over a term representation that carries a
 precomputed hash in every node, with memo tables for reduction,
 equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 10, 15)[A simulation proof] shows
