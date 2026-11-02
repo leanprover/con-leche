@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.StateC
+public import ConLeche.Kernel.FEnv
 
 @[expose] public section
 
@@ -437,5 +437,50 @@ def groundBool (fe : FEnv) (e : Expr) : Option Bool × (Nat × Nat) × String :=
       else (none, (st, tr), "not a Bool")
     | _ => (none, (st, tr), "not a constructor")
   | .abort why st => (none, (st, 0), why)
+
+/-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
+comparison with `Bool.true` on either side whose other side is closed
+evaluates that side on the ground machine: `Bool.true` answers `true`,
+`Bool.false` answers `false` (the two constructors are not
+definitionally equal), anything else (an abort) leaves the comparison
+to the incumbent path (`none`).  Read by `defeqBodyI`
+(`ConLeche/Cached/CoreC.lean`). -/
+def groundShortcut (mode : CheckMode) (fe : FEnv) (a b : Expr) : Option Bool :=
+  let t? : Option Expr :=
+    if Expr.isBoolTrue b && (mode.eager || !(Expr.hasFvar a)) then some a
+    else if Expr.isBoolTrue a && (mode.eager || !(Expr.hasFvar b)) then some b
+    else none
+  match t? with
+  | none => none
+  | some t =>
+    if Expr.hasFvar t then none else
+    let (r, steps, why) := groundBool fe t
+    -- probe 5: the engine twice (its own cost is the difference)
+    let r := if groundMode == 5 then
+        (if (groundBool fe (dbgTrace "" fun _ => t)).1 == r then r else none) else r
+    if groundMode == 2 then
+      dbgTrace s!"GROUND {repr r} {steps.1} {steps.2} {why}" fun _ => r
+    else r
+
+/-- The shortcut behind the switch: `none` (the incumbent path) at
+`groundMode = 0`. -/
+@[inline] def groundGate (mode : CheckMode) (fe : FEnv) (a b : Expr) : Option Bool :=
+  if groundMode == 0 then none else groundShortcut mode fe a b
+
+/-- The ground shortcut reads `fe` only through `find?` and
+`findTable?` (for `ConLeche/Verify/Cached/KnotCongr.lean`). -/
+theorem groundShortcut_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (mode : CheckMode) :
+    groundShortcut mode fe₁ = groundShortcut mode fe₂ := by
+  have hp : fe₁.findProj? = fe₂.findProj? := by
+    funext T i; unfold FEnv.findProj?; rw [htb]
+  have hg : groundBool fe₁ = groundBool fe₂ := by
+    funext e; unfold groundBool strLitSupportedF natLitSupportedF; rw [hfe, hp]
+  funext a b; unfold groundShortcut; rw [hg]
+
+theorem groundGate_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (mode : CheckMode) :
+    groundGate mode fe₁ = groundGate mode fe₂ := by
+  funext a b; unfold groundGate; rw [groundShortcut_congr hfe htb]
 
 end ConLeche.Cached

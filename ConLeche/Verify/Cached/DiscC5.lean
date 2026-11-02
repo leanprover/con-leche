@@ -631,7 +631,7 @@ theorem defeqBodyI_eq (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
         let af ← pure (Expr.hasFvar a)
         if ← (if bt && (mode.eager || !af) then boolTrueShortcutI r depth a
             else pure false) then pure true else
-        quickDefEqI mode r depth a b >>= bodyQ1I mode r fe depth a b : CheckCM Bool) := by first | rfl | sorry
+        quickDefEqI mode r depth a b >>= bodyQ1I mode r fe depth a b : CheckCM Bool) := rfl
 
 theorem bodyTailC_spec (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} {a b : Expr}
     {s₀ : CState} (hs : CSOK mode env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
