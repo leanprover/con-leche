@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Cached.StateC
+public import ConLeche.Cached.Ground
 
 @[expose] public section
 
@@ -1416,10 +1417,33 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     else stuckIrrelI r fe depth a b
   | _, _ => stuckIrrelI r fe depth a b
 
+/-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
+comparison with `Bool.true` on either side whose other side is closed
+(or the eager flag is set) evaluates that side on the ground machine
+(`ConLeche/Cached/Ground.lean`); `true` iff it evaluates to
+`Bool.true`.  Otherwise the comparison continues on the incumbent
+path. -/
+def groundShortcutI (fe : FEnv) (a b : Expr) : CheckCM Bool :=
+  let t? : Option Expr :=
+    if Expr.isBoolTrue b && (mode.eager || !(Expr.hasFvar a)) then some a
+    else if Expr.isBoolTrue a && (mode.eager || !(Expr.hasFvar b)) then some b
+    else none
+  match t? with
+  | none => pure false
+  | some t =>
+    if Expr.hasFvar t then pure false else
+    let (r, steps, why) := groundBool fe t
+    let r := if groundMode == 2 then
+        dbgTrace s!"GROUND {repr r} {steps} {why}" fun _ => r
+      else r
+    pure (r == some true)
+
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => do
     if a == b then pure true else
+    if ← (if groundMode == 0 then pure false else groundShortcutI mode fe a b) then
+      pure true else
     -- the eq-true shortcut (E2), as in the spec
     let bt ← pure (Expr.isBoolTrue b)
     let af ← pure (Expr.hasFvar a)
