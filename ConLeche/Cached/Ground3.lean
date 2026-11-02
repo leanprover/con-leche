@@ -869,32 +869,41 @@ end ConLeche.Cached
 namespace ConLeche.Cached
 open ConLeche
 
-/-- The outcome of a round-2 evaluation at the `Bool.true` comparison,
-as `groundBool`'s. -/
+/-- The outcome of a round-3 evaluation at the `Bool.true` comparison,
+as `groundBool`'s.  **The compiled program is kept for the declaration** (task #423
+round 3): `P₀` is the program the declaration's earlier runs compiled
+(empty at the first; `CState.ground3`, flushed with the other
+environment-dependent memos).  The result carries the program back. -/
 def ground3BoolCore (find? : Name → Option ConstantInfo)
-    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (e : Expr) :
-    Option Bool × (Nat × Nat) × String :=
-  let P : G3Prog := { natOk := natOk, strOk := strOk }
-  let (kT, P) := g3Resolve find? P boolTrueName []
-  let (kF, P) := g3Resolve find? P boolFalseName []
-  let (kZ, P) := g3Resolve find? P natZeroName []
-  let (kS, P) := g3Resolve find? P natSuccName []
-  let P := { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
+    (findProj? : Name → Nat → Option ProjEntry) (natOk strOk : Bool) (P₀ : G3Prog) (e : Expr) :
+    (Option Bool × (Nat × Nat) × String) × G3Prog :=
+  let P : G3Prog := if P₀.kTag.size == 0 then
+      let P : G3Prog := { natOk := natOk, strOk := strOk }
+      let (kT, P) := g3Resolve find? P boolTrueName []
+      let (kF, P) := g3Resolve find? P boolFalseName []
+      let (kZ, P) := g3Resolve find? P natZeroName []
+      let (kS, P) := g3Resolve find? P natSuccName []
+      { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
+    else P₀
   let (o, P) := g3Comp find? findProj? g3CompFuel P e
-  match g3Run find? findProj? groundFuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] #[] #[]
+  let P₁ := P
+  let r : Option Bool × (Nat × Nat) × String × G3Prog :=
+    match g3Run find? findProj? groundFuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] #[] #[]
       (Array.replicate 1024 0) 0 o 0 0 0 with
   | .done v val P st left =>
     let tr := groundFuel - left
     if val[g3X4 v]! == 1 && val[g3X4 v + 3]! == 0 then
       let k := val[g3X4 v + 1]!
-      if k == P.kTrue then (some true, (st, tr), "")
-      else if k == P.kFalse then (some false, (st, tr), "")
-      else (none, (st, tr), "not a Bool")
-    else (none, (st, tr), "not a constructor")
-  | .abort why st => (none, (st, 0), why)
+      if k == P.kTrue then (some true, (st, tr), "", P)
+      else if k == P.kFalse then (some false, (st, tr), "", P)
+      else (none, (st, tr), "not a Bool", P)
+    else (none, (st, tr), "not a constructor", P)
+  | .abort why st => (none, (st, 0), why, P₁)
+  ((r.1, r.2.1, r.2.2.1), r.2.2.2)
 
-def ground3Bool (fe : FEnv) (e : Expr) : Option Bool × (Nat × Nat) × String :=
-  ground3BoolCore fe.find? fe.findProj? (natLitSupportedF fe) (strLitSupportedF fe) e
+def ground3Bool (fe : FEnv) (P₀ : G3Prog) (e : Expr) :
+    (Option Bool × (Nat × Nat) × String) × G3Prog :=
+  ground3BoolCore fe.find? fe.findProj? (natLitSupportedF fe) (strLitSupportedF fe) P₀ e
 
 /-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
 comparison with `Bool.true` on either side whose other side is closed
@@ -903,30 +912,28 @@ evaluates that side on the ground machine: `Bool.true` answers `true`,
 definitionally equal), anything else (an abort) leaves the comparison
 to the incumbent path (`none`).  Read by `defeqBodyI`
 (`ConLeche/Cached/CoreC.lean`). -/
-def groundShortcut (mode : CheckMode) (fe : FEnv) (a b : Expr) : Option Bool :=
+def groundShortcut (mode : CheckMode) (fe : FEnv) (P : G3Prog) (a b : Expr) :
+    Option Bool × G3Prog :=
   let t? : Option Expr :=
     if Expr.isBoolTrue b && (mode.eager || !(Expr.hasFvar a)) then some a
     else if Expr.isBoolTrue a && (mode.eager || !(Expr.hasFvar b)) then some b
     else none
   match t? with
-  | none => none
+  | none => (none, P)
   | some t =>
-    if Expr.hasFvar t then none else
-    let eng := fun t =>
-      if groundMode ≥ 7 then ground3Bool fe t
-      else if groundMode ≥ 3 && groundMode != 5 then ground2Bool fe t else groundBool fe t
-    let (r, steps, why) := eng t
-    -- probes 5 and 6: the engine twice (its own cost is the difference)
-    let r := if groundMode == 5 || groundMode == 6 || groundMode == 9 then
-        (if (eng (dbgTrace "" fun _ => t)).1 == r then r else none) else r
+    if Expr.hasFvar t then (none, P) else
+    let eng : G3Prog → Expr → (Option Bool × (Nat × Nat) × String) × G3Prog := fun P t =>
+      if groundMode ≥ 7 then ground3Bool fe P t
+      else if groundMode ≥ 3 && groundMode != 5 then (ground2Bool fe t, P)
+      else (groundBool fe t, P)
+    let ((r, steps, why), P) := eng P t
+    -- probes 5, 6 and 9: the engine twice (its own cost is the difference)
+    let (r, P) := if groundMode == 5 || groundMode == 6 || groundMode == 9 then
+        let ((r', _, _), P) := eng P (dbgTrace "" fun _ => t)
+        (if r' == r then r else none, P) else (r, P)
     if groundMode == 2 || groundMode == 4 || groundMode == 8 then
-      dbgTrace s!"GROUND {repr r} {steps.1} {steps.2} {why}" fun _ => r
-    else r
-
-/-- The shortcut behind the switch: `none` (the incumbent path) at
-`groundMode = 0`. -/
-@[inline] def groundGate (mode : CheckMode) (fe : FEnv) (a b : Expr) : Option Bool :=
-  if groundMode == 0 then none else groundShortcut mode fe a b
+      (dbgTrace s!"GROUND {repr r} {steps.1} {steps.2} {why}" fun _ => r, P)
+    else (r, P)
 
 /-- The ground shortcut reads `fe` only through `find?` and
 `findTable?` (for `ConLeche/Verify/Cached/KnotCongr.lean`). -/
@@ -944,12 +951,7 @@ theorem groundShortcut_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
   have hg2 : ground2Bool fe₁ = ground2Bool fe₂ := by
     funext e; unfold ground2Bool; rw [hfe, hp, hn, hs]
   have hg3 : ground3Bool fe₁ = ground3Bool fe₂ := by
-    funext e; unfold ground3Bool; rw [hfe, hp, hn, hs]
-  funext a b; unfold groundShortcut; rw [hg, hg2, hg3]
-
-theorem groundGate_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) (mode : CheckMode) :
-    groundGate mode fe₁ = groundGate mode fe₂ := by
-  funext a b; unfold groundGate; rw [groundShortcut_congr hfe htb]
+    funext P e; unfold ground3Bool; rw [hfe, hp, hn, hs]
+  funext P a b; unfold groundShortcut; rw [hg, hg2, hg3]
 
 end ConLeche.Cached

@@ -495,13 +495,18 @@ theorem defeqStuckI_congr (hfe : fe₁.find? = fe₂.find?)
   simp only [stuckIrrelI_congr hfe htb, strLitSupportedF_congr hfe,
     defEqListI_congr hfe, etaCertI_congr hfe]
 
+theorem groundGateM_congr (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) :
+    groundGateM mode fe₁ = groundGateM mode fe₂ := by
+  funext a b; unfold groundGateM; rw [groundShortcut_congr hfe htb]
+
 /-- `defeqBodyI` reads `fe` only through `find?` and `findTable?`. -/
 theorem defeqBodyI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     defeqBodyI mode r fe₁ = defeqBodyI mode r fe₂ := by
   funext depth a b; unfold defeqBodyI
   simp only [propIrrelI_congr hfe htb, lazyDeltaReductionI_congr hfe,
-    defeqProjPairI_congr hfe htb, defeqStuckI_congr hfe htb, groundGate_congr hfe htb]
+    defeqProjPairI_congr hfe htb, defeqStuckI_congr hfe htb, groundGateM_congr hfe htb]
 
 /-! ## The knot, and the operation records built on it -/
 

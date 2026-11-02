@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Cached.StateC
-public import ConLeche.Cached.Ground3
 
 @[expose] public section
 
@@ -1417,10 +1416,22 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
     else stuckIrrelI r fe depth a b
   | _, _ => stuckIrrelI r fe depth a b
 
+/-- The ground shortcut behind the switch (task #423): `none` (the
+incumbent path) at `groundMode = 0`; the compiled program is threaded
+through `CState.ground3`. -/
+@[inline] def groundGateM (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) :=
+  if groundMode == 0 then pure none else do
+    let P ← modifyGet fun s => (s.ground3, { s with ground3 := {} })
+    let (r, P) := groundShortcut mode fe P a b
+    modify fun s => { s with ground3 := P }
+    pure r
+
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => do
-    if a == b then pure true else if let some v := groundGate mode fe a b then pure v else
+    if a == b then pure true else
+    let g ← groundGateM mode fe a b
+    if let some v := g then pure v else
     -- the eq-true shortcut (E2), as in the spec
     let bt ← pure (Expr.isBoolTrue b)
     let af ← pure (Expr.hasFvar a)
