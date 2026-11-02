@@ -1426,6 +1426,13 @@ through `CState.ground3`. -/
     modify fun s => { s with ground3 := P }
     pure r
 
+/-- The gate reads `fe` only through `find?` and `findTable?` (for
+`ConLeche/Verify/Cached/KnotCongr.lean`). -/
+theorem groundGateM_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) :
+    groundGateM mode fe₁ = groundGateM mode fe₂ := by
+  funext a b; unfold groundGateM; rw [groundShortcut_congr hfe htb]
+
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => do
