@@ -96,6 +96,8 @@ structure G3Prog where
   kE : Array Nat := #[]
   kInfo : Array G3Info := #[]
   nids : Std.HashMap Name Nat := {}
+  /-- the erasure mask of each constant applied (§ erasure) -/
+  masks : Std.HashMap Name (Array Bool) := {}
   kMap : Std.HashMap (Name × List Level) Nat := {}
   rules : Array G3Rule := #[]
   ruleCode : Array Nat := #[]
@@ -150,10 +152,35 @@ def g3NatVal (op a b : Nat) : Nat :=
   | 6 => a / b | 7 => a % b | 8 => Nat.gcd a b | 9 => Nat.land a b | 10 => Nat.lor a b
   | 11 => Nat.xor a b | 12 => Nat.shiftLeft a b | 13 => Nat.shiftRight a b | _ => 0
 
+/-- Strip the Π-binders of a type. -/
+def g3PiBody : Expr → Expr
+  | .forallE _ b => g3PiBody b
+  | e => e
+
+/-- **Erasure** (task #423 round 3): the argument positions of a constant
+whose argument is never scrutinised by the machine — a type former (the
+domain is, after its Π-binders, a sort: types, motives) and, except at a
+recursor, a proof (the domain's head constant's type ends in `Prop`).
+Such an argument is bound to the neutral cell and never compiled. -/
+def g3Mask (find? : Name → Option ConstantInfo) (isRec : Bool) : Expr → Array Bool → Array Bool
+  | .forallE d b, acc =>
+    let tf := match g3PiBody d with | .sort _ => true | _ => false
+    let pf := !isRec && (match (g3PiBody d).getAppFn with
+      | .const c _ => match find? c with
+        | some ci => (match g3PiBody ci.toConstantVal.type with
+          | .sort .zero => true | _ => false)
+        | none => false
+      | _ => false)
+    g3Mask find? isRec b (acc.push (tf || pf))
+  | _, acc => acc
+
 /-- The number of leading Π-binders of a type. -/
 def g3Pis : Expr → Nat → Nat
   | .forallE _ b, n => g3Pis b (n + 1)
   | _, n => n
+
+/-- The erasure switch (task #423 round 3 probe). -/
+@[noinline] def g3Erase : Bool := true
 
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
@@ -223,8 +250,11 @@ def g3Comp : Nat → G3Prog → Expr → Nat × G3Prog
     match e with
     | .bvar i => let o := P.code.size; (o, P.emit (fun c => (c.push 0).push i))
     | .lam _ b =>
+      -- `[2, body, n, inner]`: `n` the λ-telescope's length from here,
+      -- `inner` the innermost body (all of them bound in one step)
       let (bo, P) := g3Comp f P b
-      let o := P.code.size; (o, P.emit (fun c => (c.push 2).push bo))
+      let (tn, inner) := if P.code[bo]! == 2 then (P.code[bo + 2]! + 1, P.code[bo + 3]!) else (1, bo)
+      let o := P.code.size; (o, P.emit (fun c => (((c.push 2).push bo).push tn).push inner))
     | .letE _ v b =>
       let (vo, P) := g3CompArg f P v
       let (bo, P) := g3Comp f P b
@@ -257,9 +287,24 @@ def g3Comp : Nat → G3Prog → Expr → Nat × G3Prog
         | none => (0, P)
       let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
     | .app .. =>
-      let (ho, args) := (e.getAppFn, e.getAppArgs)
-      let (ho, P) := g3Comp f P ho
+      let (hd, args) := (e.getAppFn, e.getAppArgs)
+      let (mask, P) : Array Bool × G3Prog := match hd with
+        | .const c _ =>
+          match P.masks[c]? with
+          | some m => (m, P)
+          | none =>
+            let m := match find? c with
+              | some ci => g3Mask find? (match ci with | .recInfo .. => true | _ => false)
+                  ci.toConstantVal.type #[]
+              | none => #[]
+            let ms := P.masks; let P := { P with masks := {} }
+            (m, { P with masks := ms.insert c m })
+        | _ => (#[], P)
+      let (ho, P) := g3Comp f P hd
       let (aos, P) := args.foldl (fun (acc : Array Nat × G3Prog) a =>
+        if g3Erase && mask.getD acc.1.size false then
+          let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
+        else
         let (ao, P) := g3CompArg f acc.2 a; (acc.1.push ao, P)) (#[], P)
       let o := P.code.size
       (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
@@ -297,6 +342,27 @@ end
 division; `<<<` is out of line). -/
 @[inline] def g3X4 (n : Nat) : Nat := let d := n + n; d + d
 @[inline] def g3Tag (c t : Nat) : Nat := let d := g3X4 c; let e := g3X4 d; e + t
+
+/-- Bind the top `k` argument frames (the first argument first) as
+environment records over `env`; the new environment is the last record.
+The frames are not popped. -/
+def g3BindFrames (fs : Array Nat) (ev : Array Nat) : Nat → Nat → Nat → Array Nat
+  | 0, _, _ => ev
+  | k + 1, j, env =>
+    let e' := (ev.size >>> 1) + 1
+    g3BindFrames fs ((ev.push (fs[fs.size - 1 - j]! >>> 4)).push env) k (j + 1) e'
+
+/-- Bind `argA[start, start + k)` (in order) over `env`. -/
+def g3BindSpan (argA : Array Nat) (start : Nat) (ev : Array Nat) : Nat → Nat → Nat → Array Nat
+  | 0, _, _ => ev
+  | k + 1, j, env =>
+    let e' := (ev.size >>> 1) + 1
+    g3BindSpan argA start ((ev.push argA[start + j]!).push env) k (j + 1) e'
+
+/-- The body of the `k`-th nested λ from node `p`. -/
+def g3LamWalk (code : Array Nat) : Nat → Nat → Nat
+  | 0, p => p
+  | k + 1, p => g3LamWalk code k code[p + 1]!
 
 /-- The number of argument frames on top of the stack. -/
 def g3CountArgs (fs : Array Nat) : Nat → Nat → Nat
@@ -427,10 +493,14 @@ def g3Run : Nat → G3Prog → (cel val ev fs argA slots mem mH : Array Nat) →
       | 1 => g3Run n P cel val ev fs argA slots mem mH 4 pc env P.code[pc + 2]! st
       | 2 =>
         if fs.size > 0 && fs[fs.size - 1]! &&& 15 == 1 then
-          let c := fs[fs.size - 1]! >>> 4
-          let e' := (ev.size >>> 1) + 1
-          g3Run n P cel val ((ev.push c).push env) fs.pop argA slots mem mH 0
-            P.code[pc + 1]! e' 0 st
+          -- a known call: bind as many arguments as the telescope has, at once
+          let na := g3CountArgs fs fs.size 0
+          let tn := P.code[pc + 2]!
+          let k := if na < tn then na else tn
+          let body := if k == tn then P.code[pc + 3]! else g3LamWalk P.code k pc
+          let ev := g3BindFrames fs ev k 0 env
+          let e' := ev.size >>> 1
+          g3Run n P cel val ev (g3PopN fs k) argA slots mem mH 0 body e' 0 st
         else
           let v := (val.size >>> 2)
           g3Run n P cel ((((val.push 0).push pc).push env).push 0) ev fs argA slots mem mH 1 0 0 v st
@@ -608,9 +678,15 @@ def g3Run : Nat → G3Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         let c := fs[fs.size - 1]! >>> 4
         match val[g3X4 v]! with
         | 0 =>
-          let e' := (ev.size >>> 1) + 1
-          g3Run n P cel val ((ev.push c).push val[g3X4 v + 2]!) fs.pop argA slots mem mH 0
-            P.code[val[g3X4 v + 1]! + 1]! e' 0 st
+          let _ := c
+          let lp := val[g3X4 v + 1]!
+          let na := g3CountArgs fs fs.size 0
+          let tn := P.code[lp + 2]!
+          let k := if na < tn then na else tn
+          let body := if k == tn then P.code[lp + 3]! else g3LamWalk P.code k lp
+          let ev := g3BindFrames fs ev k 0 val[g3X4 v + 2]!
+          let e' := ev.size >>> 1
+          g3Run n P cel val ev (g3PopN fs k) argA slots mem mH 0 body e' 0 st
         | 1 =>
           let na := g3CountArgs fs fs.size 0
           let start := argA.size
@@ -677,9 +753,18 @@ def g3Run : Nat → G3Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             let rhs := P.ruleCode[ri]! - 1
             let rP := P.kB[k]!
             let fs := g3PopN fs 4
-            let fs := g3PushArgs argA (ms + cp) fs nf
-            let fs := g3PushArgs argA start fs rP
-            g3Run n P cel val ev fs argA slots mem mH 0 rhs 0 0 st
+            if P.code[rhs]! == 2 && P.code[rhs + 2]! == rP + nf then
+              -- the rule's right-hand side binds the leading arguments and
+              -- the fields at once: no frame is pushed
+              let ev := g3BindSpan argA start ev rP 0 0
+              let e1 := ev.size >>> 1
+              let ev := g3BindSpan argA (ms + cp) ev nf 0 (if rP == 0 then 0 else e1)
+              let e2 := if rP + nf == 0 then 0 else ev.size >>> 1
+              g3Run n P cel val ev fs argA slots mem mH 0 P.code[rhs + 3]! e2 0 st
+            else
+              let fs := g3PushArgs argA (ms + cp) fs nf
+              let fs := g3PushArgs argA start fs rP
+              g3Run n P cel val ev fs argA slots mem mH 0 rhs 0 0 st
         | 5 =>
           let fl := P.kE[k]!
           if fl % 2 == 1 then .abort "K major" st
