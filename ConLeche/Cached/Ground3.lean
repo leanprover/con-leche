@@ -117,6 +117,11 @@ structure G3Prog where
   pAlw : Array Nat := #[]
   strs : Array String := #[]
   nslots : Nat := 1
+  /-- the sharing slots, kept with the program across the declaration's
+  runs; an entry is `epBase + cell`, valid only in the run whose
+  `epBase` it carries (no per-run clearing) -/
+  slotA : Array Nat := #[]
+  epBase : Nat := 0
   natOk : Bool := false
   strOk : Bool := false
   kTrue : Nat := 0
@@ -390,8 +395,11 @@ where g3GrowGo (a : Array Nat) : Nat → Array Nat
   | 0 => a
   | k + 1 => g3GrowGo (a.push 0) k
 
-@[inline] def g3SlotGet (slots : Array Nat) (s : Nat) : Nat :=
-  if s < slots.size then slots[s]! else 0
+/-- One run's epoch step (above every cell index of a run). -/
+@[noinline] def g3EpochStep : Nat := 4294967296  -- 2^32
+
+@[inline] def g3SlotGet (slots : Array Nat) (ep s : Nat) : Nat :=
+  if s < slots.size then (let w := slots[s]!; if w > ep then w - ep else 0) else 0
 
 def g3SlotSet (slots : Array Nat) (s c : Nat) : Array Nat :=
   if s < slots.size then slots.set! s c
@@ -476,7 +484,7 @@ variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Op
 /-- The machine's outcome: a value (with the value array to read it),
 or an abort; the constant dispatches and the fuel left. -/
 inductive G3Out where
-  | done (v : Nat) (val : Array Nat) (P : G3Prog) (steps left : Nat)
+  | done (v : Nat) (val : Array Nat) (P : G3Prog) (slots : Array Nat) (steps left : Nat)
   | abort (why : String) (steps : Nat)
 
 /-- **The machine.**  Modes: `0` evaluate node `pc` under `env`, `1`
@@ -524,11 +532,11 @@ def g3Run : Nat → G3Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           P.code[pc + 2]! env 0 st
       | 9 => -- a shared closed term at the head: its slot's cell
         let s := P.code[pc + 1]!
-        let c := g3SlotGet slots s
+        let c := g3SlotGet slots P.epBase s
         if c != 0 then g3Run n P cel val ev fs argA slots mem mH 2 0 0 c st
         else
           let c := (cel.size >>> 2)
-          g3Run n P ((((cel.push 0).push P.code[pc + 2]!).push 0).push 0) val ev fs argA (g3SlotSet slots s c)
+          g3Run n P ((((cel.push 0).push P.code[pc + 2]!).push 0).push 0) val ev fs argA (g3SlotSet slots s (P.epBase + c))
             mem mH 2 0 0 c st
       | _ => g3Run n P cel val ev fs argA slots mem mH 1 0 0 0 st
     | 4 => -- push the spine's arguments, the last first
@@ -555,22 +563,22 @@ def g3Run : Nat → G3Prog → (cel val ev fs argA slots mem mH : Array Nat) →
         | 8 => g3Run n P cel val ev (fs.push 1) argA slots mem mH 4 pc env j st
         | 4 => -- a constant: its entry's shared cell
           let s := P.kSlot[P.code[ao + 1]!]!
-          let c := g3SlotGet slots s
+          let c := g3SlotGet slots P.epBase s
           if c != 0 then
             g3Run n P cel val ev (fs.push (g3Tag c 1)) argA slots mem mH 4 pc env j st
           else
             let c := (cel.size >>> 2)
             g3Run n P ((((cel.push 0).push ao).push 0).push 0) val ev (fs.push (g3Tag c 1)) argA
-              (g3SlotSet slots s c) mem mH 4 pc env j st
+              (g3SlotSet slots s (P.epBase + c)) mem mH 4 pc env j st
         | 9 =>
           let s := P.code[ao + 1]!
-          let c := g3SlotGet slots s
+          let c := g3SlotGet slots P.epBase s
           if c != 0 then
             g3Run n P cel val ev (fs.push (g3Tag c 1)) argA slots mem mH 4 pc env j st
           else
             let c := (cel.size >>> 2)
             g3Run n P ((((cel.push 0).push P.code[ao + 2]!).push 0).push 0) val ev (fs.push (g3Tag c 1)) argA
-              (g3SlotSet slots s c) mem mH 4 pc env j st
+              (g3SlotSet slots s (P.epBase + c)) mem mH 4 pc env j st
         | _ =>
           let c := (cel.size >>> 2)
           g3Run n P ((((cel.push 0).push ao).push env).push 0) val ev (fs.push (g3Tag c 1)) argA slots mem mH
@@ -669,7 +677,7 @@ def g3Run : Nat → G3Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           else g3Run n P cel val ev fs argA slots mem mH 0 body 0 0 st
     | _ => -- return value `x`
       let v := x
-      if fs.size == 0 then .done v val P st n else
+      if fs.size == 0 then .done v val P slots st n else
       match fs[fs.size - 1]! &&& 15 with
       | 2 =>
         let c := fs[fs.size - 1]! >>> 4
@@ -886,11 +894,13 @@ def ground3BoolCore (find? : Name → Option ConstantInfo)
       { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
     else P₀
   let (o, P) := g3Comp find? findProj? g3CompFuel P e
-  let P₁ := P
   let r : Option Bool × (Nat × Nat) × String × G3Prog :=
-    match g3Run find? findProj? groundFuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] #[] #[]
+    let sl := P.slotA
+    let P := { P with slotA := #[], epBase := P.epBase + g3EpochStep }
+    match g3Run find? findProj? groundFuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] sl #[]
       (Array.replicate 1024 0) 0 o 0 0 0 with
-  | .done v val P st left =>
+  | .done v val P sl st left =>
+    let P := { P with slotA := sl }
     let tr := groundFuel - left
     if val[g3X4 v]! == 1 && val[g3X4 v + 3]! == 0 then
       let k := val[g3X4 v + 1]!
@@ -898,7 +908,9 @@ def ground3BoolCore (find? : Name → Option ConstantInfo)
       else if k == P.kFalse then (some false, (st, tr), "", P)
       else (none, (st, tr), "not a Bool", P)
     else (none, (st, tr), "not a constructor", P)
-  | .abort why st => (none, (st, 0), why, P₁)
+  -- (an abort drops the program: keeping the pre-run one alive across the
+  -- run would share it, and every compile during the run would copy it)
+  | .abort why st => (none, (st, 0), why, {})
   ((r.1, r.2.1, r.2.2.1), r.2.2.2)
 
 def ground3Bool (fe : FEnv) (P₀ : G3Prog) (e : Expr) :
