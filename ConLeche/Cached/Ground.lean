@@ -7,33 +7,35 @@ public import ConLeche.Cached.StateC
 /-!
 # The ground engine (task #423, spike)
 
-A call-by-need abstract machine for closed terms: environments of heap
-addresses instead of substitution, a heap of thunks updated in place
-(`Array`, threaded linearly through `EStateM`), constructors and
-literals as values, weak head evaluation only.  It is run where the
-checker would otherwise head-normalise a closed term completely (the
-`Bool.true` comparison of a reflection certificate), and its answer is
-a `Bool.true` or `Bool.false` constructor or an abort.
+A call-by-need abstract machine for closed terms, in the style of
+Sestoft's lazy machine: environments of heap addresses instead of
+substitution, a heap of thunks updated in place (an `Array` threaded
+through the loop), constructors and literals as values, an explicit
+continuation stack (argument, update, ι, projection and literal
+frames), weak head evaluation only.  The machine is ONE tail-recursive
+function (`gRun`), so it runs in constant native stack and allocates
+nothing per transition beyond the frames, environments and cells it
+builds.  It is run where the checker would otherwise head-normalise a
+closed term completely (the `Bool.true` comparison of a reflection
+certificate); its answer is a value or an abort.
 
-**Every step is a step of `Red`** (`ConLeche/Rules/Rel.lean`) under
-the *origin denotation* (task #307): a heap cell denotes the term it
-was created for, `⟦thunk (ρ, e)⟧ = e[⟦ρ⟧]`; a forced cell keeps that
-denotation and its value is a `Red` reduct of it.  Forcing happens
-only where `Red` has a premise that reduces a subterm: the head of an
-application (`appFn`, β), a recursor's major (`iota`), a projection's
-scrutinee (`projArg`), the arguments of literal acceleration
-(`natSucc`, `natOp`).  No argument is ever reduced in place, so no
-congruence beyond the existing rules is needed (`Red.appArg` is not
-used).
+**Every transition is a step of `Red`** (`ConLeche/Rules/Rel.lean`)
+under the *origin denotation* (task #307): a heap cell denotes the
+term it was created for, `⟦thunk (ρ, e)⟧ = e[⟦ρ⟧]`; an updated cell
+keeps that denotation and its value is a `Red` reduct of it.  A cell
+is forced only where `Red` has a premise that reduces a subterm: the
+head of an application (`appFn`, β), a recursor's major (`iota`), a
+projection's scrutinee (`projArg`), the arguments of literal
+acceleration (`natSucc`, `natOp`).  No argument is ever reduced in
+place, so no congruence beyond the existing rules is needed.
 
-Not handled (an abort, `GErr`): a K rule or a structure-η rule whose
-major does not evaluate to a constructor (the rescues need
-inference), case 3 of the ι split (its certificates need inference and
-definitional equality), anything with a free variable in a scrutinised
-position.
+Not handled (an abort): a K rule or a structure-η rule whose major does
+not evaluate to a constructor (the rescues need inference), case 3 of
+the ι split (its certificates need inference and definitional
+equality), a free variable in a scrutinised position.
 
-The fuel is a recursion budget for the termination proof only
-(effectively unbounded, as `checkFuel`).
+The fuel is a step budget for the termination proof only (effectively
+unbounded, as `checkFuel`).
 -/
 
 namespace ConLeche.Cached
@@ -43,14 +45,9 @@ open ConLeche
 /-- **The spike's switch** (task #423): `0` the incumbent path only,
 `1` the ground engine at the `Bool.true` comparison (both
 orientations), `2` as 1 with a per-call trace on stderr (`dbgTrace`,
-probe builds only), `3` the incumbent path with the eligible
-comparisons wrapped in a `noinline` marker (the opportunity probe). -/
+probe builds only), `5` as 1 with the engine run twice (its own cost
+is the difference). -/
 @[noinline] def groundMode : Nat := 0
-
-/-- Why a ground evaluation stopped without a constructor value. -/
-inductive GErr where
-  | abort (why : String)
-  deriving Inhabited
 
 /-- A weak head value of the ground machine. -/
 inductive GVal where
@@ -60,10 +57,13 @@ inductive GVal where
   parameters included -/
   | ctor (c : Name) (us : List Level) (args : Array Nat)
   | lit (l : Literal)
-  /-- a recursor short of its major: waits for more arguments -/
+  /-- a constant short of the arguments its reduction needs (a
+  recursor short of its major, an accelerated `Nat` operation short of
+  its two arguments): waits for more -/
   | pap (c : Name) (us : List Level) (args : Array Nat)
   /-- an irreducible head (a type former, an axiom, a theorem, a sort,
-  a Π-type), with or without arguments: never scrutinised -/
+  a Π-type, a free variable), with or without arguments: never
+  scrutinised -/
   | neutral
   deriving Inhabited
 
@@ -74,48 +74,91 @@ inductive GCell where
   | val (v : GVal)
   deriving Inhabited
 
-structure GState where
-  heap : Array GCell := #[]
+/-- The continuation frames. -/
+inductive GFrame where
+  /-- a pending application argument -/
+  | arg (a : Nat)
+  /-- write the value into this cell -/
+  | upd (a : Nat)
+  /-- the major of a recursor application is being evaluated -/
+  | iota (c : Name) (us : List Level) (lps : List Name) (mI rP : Nat)
+      (rules : List RecRule) (args : Array Nat)
+  /-- the scrutinee of a projection is being evaluated -/
+  | proj (sn : Name) (i : Nat)
+  /-- the first argument of an accelerated operation is being read -/
+  | natA (c : Name) (a b : Nat)
+  /-- the second argument, behind a first literal `n₁` -/
+  | natB (c : Name) (n₁ : Nat) (a b : Nat)
+  /-- add one to the literal reading returned (`Nat.succ` packing) -/
+  | plus1
+  deriving Inhabited
+
+/-- What the machine does next. -/
+inductive GCtrl where
+  | eval (env : List Nat) (e : Expr)
+  | ret (v : GVal)
+  | enter (a : Nat)
+  /-- a constant at the head, its arguments still on the stack -/
+  | const (c : Name) (us : List Level)
+
+/-- The effectively unbounded step budget of the ground machine (a
+termination device, as `checkFuel`). -/
+@[irreducible, noinline] def groundFuel : Nat := 4611686018427387904  -- 2^62
+
+/-- The machine's final state (`steps`: constant dispatches; `left`:
+the fuel left, so the transitions are `groundFuel - left`). -/
+inductive GOut where
+  | done (v : GVal) (heap : Array GCell) (steps left : Nat)
+  | abort (why : String) (steps : Nat)
+
+/-- The level-instantiation memos of a run: definition values, and
+rule right-hand sides with their case-3 bit. -/
+structure GCache where
   vals : Std.HashMap (Name × List Level) Expr := {}
   rhss : Std.HashMap (Name × Name × List Level) (Expr × Bool) := {}
-  steps : Nat := 0
+  /-- the cell of each closed argument term (origin sharing: one closed
+  term, one cell) -/
+  closed : Std.HashMap Expr Nat := {}
+  /-- the cell of each recursor or definition application, keyed by its
+  head and its argument cells (origin sharing: equal cells, equal
+  origins) -/
+  apps : Std.HashMap (Name × List Level × Array Nat) Nat := {}
 
-abbrev GM := EStateM GErr GState
+@[inline] def GCache.insVal (cc : GCache) (k : Name × List Level) (e : Expr) : GCache :=
+  let m := cc.vals; let cc := { cc with vals := {} }; { cc with vals := m.insert k e }
+@[inline] def GCache.insRhs (cc : GCache) (k : Name × Name × List Level) (e : Expr × Bool) :
+    GCache :=
+  let m := cc.rhss; let cc := { cc with rhss := {} }; { cc with rhss := m.insert k e }
+@[inline] def GCache.insClosed (cc : GCache) (k : Expr) (a : Nat) : GCache :=
+  let m := cc.closed; let cc := { cc with closed := {} }; { cc with closed := m.insert k a }
+@[inline] def GCache.insApp (cc : GCache) (k : Name × List Level × Array Nat) (a : Nat) :
+    GCache :=
+  let m := cc.apps; let cc := { cc with apps := {} }; { cc with apps := m.insert k a }
 
-@[inline] def gAbort (why : String) : GM α := throw (.abort why)
+/-- **The sharing switch** (task #423 probe): `0` thunks only, `1` one
+cell per closed argument term, `2` as 1 and one cell per recursor or
+definition application on equal argument cells. -/
+@[noinline] def groundMemo : Nat := 2
 
-@[inline] def gRead (a : Nat) : GM GCell :=
-  modifyGet fun s => (s.heap[a]!, s)
+/-- The hashes of the fourteen accelerated operations' names and the
+well-founded ones: a cheap prefilter before the name comparisons. -/
+def natBin14Names : List Name :=
+  [natAddName, natSubName, natMulName, natPowName, natBeqName, natBleName,
+   natDivName, natModName, natGcdName, natLandName, natLorName, natXorName,
+   natShiftLeftName, natShiftRightName]
 
-@[inline] def gWrite (a : Nat) (c : GCell) : GM Unit :=
-  modify fun s =>
-    let h := s.heap
-    let s := { s with heap := #[] }
-    { s with heap := h.set! a c }
+def natOpHashes : Array UInt64 :=
+  (natBin14Names ++ natOpWfNames).toArray.map Name.hashData
 
-@[inline] def gAlloc (c : GCell) : GM Nat :=
-  modifyGet fun s =>
-    let h := s.heap
-    let n := h.size
-    let s := { s with heap := #[] }
-    (n, { s with heap := h.push c })
+def natBin14Slow (c : Name) : Bool :=
+  c == natAddName || c == natSubName || c == natMulName ||
+    c == natPowName || c == natBeqName || c == natBleName ||
+    c == natDivName || c == natModName || c == natGcdName ||
+    c == natLandName || c == natLorName || c == natXorName ||
+    c == natShiftLeftName || c == natShiftRightName
 
-@[inline] def gTick : GM Unit :=
-  modify fun s => { s with steps := s.steps + 1 }
-
-/-- The level-instantiated value of a stored definition, memoised for
-the evaluation. -/
-def gVal (c : Name) (lps : List Name) (us : List Level) (v : Expr) : GM Expr := do
-  let hit? ← modifyGet fun s => (s.vals[(c, us)]?, s)
-  match hit? with
-  | some e => pure e
-  | none =>
-    let e := v.instantiateLevelParams lps us
-    modify fun s =>
-      let mp := s.vals
-      let s := { s with vals := ∅ }
-      { s with vals := mp.insert (c, us) e }
-    pure e
+def natBin14 (c : Name) : Bool :=
+  natOpHashes.contains c.hashData && natBin14Slow c
 
 /-- The comparand levels of a firing rule (`recFireComparands`'s first
 component, which needs no arguments). -/
@@ -125,242 +168,274 @@ def gCmpLevels (rl : RecRule) (lps : List Name) (us : List Level)
   | .nested lvls _ => lvls.map (Level.subst lps us)
   | .plain => cvjLps.map fun p => Level.subst lps us (.param p)
 
-/-- An argument's heap address: an environment entry is shared, a
-literal or a λ is a value, anything else a thunk. -/
-@[inline] def gArg (env : List Nat) (a : Expr) : GM Nat :=
-  match a with
-  | .bvar i =>
-    match env[i]? with
-    | some x => pure x
-    | none => gAbort "loose bvar"
-  | .lit l => gAlloc (.val (.lit l))
-  | .lam ty b => gAlloc (.val (.lam env ty b))
-  | .const .. | .sort _ | .forallE .. => gAlloc (.thunk [] a)
-  | _ => gAlloc (.thunk env a)
+/-- The leading argument frames of a stack, at most `k` of them, in
+order, and the rest. -/
+def gTakeArgs : Nat → List GFrame → Array Nat → Array Nat × List GFrame
+  | 0, k, acc => (acc, k)
+  | n + 1, .arg a :: k, acc => gTakeArgs n k (acc.push a)
+  | _, k, acc => (acc, k)
 
-def natBin14 (c : Name) : Bool :=
-  c == natAddName || c == natSubName || c == natMulName ||
-    c == natPowName || c == natBeqName || c == natBleName ||
-    c == natDivName || c == natModName || c == natGcdName ||
-    c == natLandName || c == natLorName || c == natXorName ||
-    c == natShiftLeftName || c == natShiftRightName
+/-- All the leading argument frames of a stack, in order, and the
+rest. -/
+def gTakeAll : List GFrame → Array Nat → Array Nat × List GFrame
+  | .arg a :: k, acc => gTakeAll k (acc.push a)
+  | k, acc => (acc, k)
+
+/-- Push the addresses as argument frames, the first on top. -/
+def gPushArgs (xs : Array Nat) (k : List GFrame) : List GFrame :=
+  xs.foldr (fun a k => .arg a :: k) k
+
+/-- Is the frame stack's top exactly two argument frames, then no
+third? -/
+def gTwoArgs : List GFrame → Option (Nat × Nat × List GFrame)
+  | .arg _ :: .arg _ :: .arg _ :: _ => none
+  | .arg a :: .arg b :: k => some (a, b, k)
+  | _ => none
+
+/-- The literal reading of a value that is already a numeral or a
+`Nat` constructor application: `.inl n` a literal, `.inr t` a
+`Nat.succ` of the cell `t`, `none` no reading. -/
+@[inline] def gNatHead (natOk : Bool) : GVal → Option (Sum Nat Nat)
+  | .lit (.natVal n) => some (.inl n)
+  | .ctor c [] args =>
+    if c == natZeroName && args.size == 0 then some (.inl 0)
+    else if natOk && c == natSuccName && args.size == 1 then some (.inr args[0]!)
+    else none
+  | _ => none
 
 section
 variable (find? : Name → Option ConstantInfo) (findProj? : Name → Nat → Option ProjEntry)
   (natOk strOk : Bool)
 
-/-- The level-instantiated rule rhs and the case-3 bit, memoised. -/
-def gRhs (c : Name) (cv : ConstantVal) (cj : Name) (rl : RecRule)
-    (us : List Level) : GM (Expr × Bool) := do
-  let hit? ← modifyGet fun s => (s.rhss[(c, cj, us)]?, s)
-  match hit? with
-  | some r => pure r
-  | none =>
-    let case3 := match find? cj with
-      | some (.ctorInfo cvj _ _) =>
-        iotaCase3 find? rl cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
-      | _ => true
-    let r := (rl.rhs.instantiateLevelParams cv.levelParams us, case3)
-    modify fun s =>
-      let mp := s.rhss
-      let s := { s with rhss := ∅ }
-      { s with rhss := mp.insert (c, cj, us) r }
-    pure r
-
-
-mutual
-
-/-- Evaluate `e` under `env` applied to the argument stack `stk`. -/
-def gEval : Nat → List Nat → Expr → List Nat → GM GVal
-  | 0, _, _, _ => gAbort "fuel"
-  | n + 1, env, e, stk => do
-    match e with
-    | .bvar i =>
-      match env[i]? with
-      | some a => do
-        let v ← gForce n a
-        gApply n v stk
-      | none => gAbort "loose bvar"
-    | .app f a => do
-      let x ← gArg env a
-      gEval n env f (x :: stk)
-    | .lam ty b =>
-      match stk with
-      | x :: rest => gEval n (x :: env) b rest
-      | [] => pure (.lam env ty b)
-    | .letE _ v b => do
-      let x ← gArg env v
-      gEval n (x :: env) b stk
-    | .const c us => gConst n c us stk
-    | .lit l =>
-      match stk with
-      | [] => pure (.lit l)
-      | _ => gAbort "literal applied"
-    | .proj sn i s => do
-      let v ← gEval n env s []
-      let v ← gStrCtor n v
-      match v with
-      | .ctor k us args =>
-        match findProj? sn i with
-        | some entry =>
-          if k == entry.ctor && i < entry.numFields &&
-              args.size == entry.numParams + entry.numFields &&
-              us.length == entry.levelParams.length && entry.fireOk us then
-            match find? k with
-            | some (.ctorInfo cvC _ _) =>
-              if (Expr.peelPis args.size cvC.type).isSome then do
-                let a := args[entry.numParams + i]!
-                let w ← gForce n a
-                gApply n w stk
-              else gAbort "proj cert"
-            | _ => gAbort "proj ctor"
-          else gAbort "proj shape"
-        | none => gAbort "proj table"
-      | _ => gAbort "proj of non-constructor"
-    | .sort _ | .forallE .. =>
-      match stk with
-      | [] => pure .neutral
-      | _ => gAbort "type applied"
-    | .fvar .. => pure .neutral
-
-/-- Force a heap cell (call-by-need: the value replaces the thunk). -/
-def gForce : Nat → Nat → GM GVal
-  | 0, _ => gAbort "fuel"
-  | n + 1, a => do
-    match ← gRead a with
-    | .val v => pure v
-    | .thunk env e => do
-      gWrite a .busy
-      let v ← gEval n env e []
-      gWrite a (.val v)
-      pure v
-    | .busy => gAbort "black hole"
-
-/-- Apply a value to an argument stack. -/
-def gApply : Nat → GVal → List Nat → GM GVal
-  | 0, _, _ => gAbort "fuel"
-  | _, v, [] => pure v
-  | n + 1, v, x :: rest =>
-    match v with
-    | .lam env _ b => gEval n (x :: env) b rest
-    | .ctor c us args => pure (.ctor c us (args ++ (x :: rest).toArray))
-    | .pap c us args => gConst n c us (args.toList ++ x :: rest)
-    | .neutral => pure .neutral
-    | .lit _ => gAbort "literal applied"
-
-/-- A string literal in a scrutinised position becomes its constructor
-form (`Red.strLit`). -/
-def gStrCtor : Nat → GVal → GM GVal
-  | 0, _ => gAbort "fuel"
-  | n + 1, v =>
-    match v with
-    | .lit (.strVal s) =>
-      if strOk then gEval n [] (strLitToConstructor s) [] else gAbort "string literal"
-    | _ => pure v
-
-/-- The literal reading of a value (`rawNatLit?` after head
-normalisation, with the `Nat.succ` packing of `Red.natSucc`). -/
-def gNatLit : Nat → GVal → GM (Option Nat)
-  | 0, _ => gAbort "fuel"
-  | n + 1, v =>
-    match v with
-    | .lit (.natVal k) => pure (some k)
-    | .ctor c [] args =>
-      if c == natZeroName && args.size == 0 then pure (some 0)
-      else if c == natSuccName && args.size == 1 && natOk then do
-        let w ← gForce n args[0]!
-        match ← gNatLit n w with
-        | some k => pure (some (k + 1))
-        | none => pure none
-      else pure none
-    | _ => pure none
-
-/-- A constant applied to an argument stack: literal acceleration,
-δ, a constructor value, ι, or a neutral. -/
-def gConst : Nat → Name → List Level → List Nat → GM GVal
-  | 0, _, _, _ => gAbort "fuel"
-  | n + 1, c, us, stk => do
-    gTick
-    match find? c with
-    | some (.defnInfo cv v _) => do
-      -- literal acceleration (`reduceNat`): the first argument, and the
-      -- second only behind a literal
-      let acc? : Option Expr ← match us, stk with
-        | [], [a, b] =>
-          if natBin14 c && natOk then do
-            match ← gNatLit n (← gForce n a) with
-            | some k₁ =>
-              match ← gNatLit n (← gForce n b) with
-              | some k₂ => pure (natOpResult c k₁ k₂)
-              | none => pure none
-            | none => pure none
-          else if natOpWfNames.contains c then gAbort "wf nat op"
-          else pure none
-        | _, _ => pure none
-      match acc? with
-      | some r => gEval n [] r []
-      | none =>
-        if us.length == cv.levelParams.length then do
-          let body ← gVal c cv.levelParams us v
-          gEval n [] body stk
-        else gAbort "level arity"
-    | some (.ctorInfo ..) => pure (.ctor c us stk.toArray)
-    | some (.recInfo cv mI rP rules) =>
-      if stk.length < mI + 1 then pure (.pap c us stk.toArray) else
-      if us.length != cv.levelParams.length then gAbort "rec level arity" else
-      if !(Expr.peelPis (mI + 1) cv.type).isSome then gAbort "rec type" else do
-      let args := stk.toArray
-      let mv ← gForce n args[mI]!
-      let mv ← gStrCtor n mv
-      let mv ← match mv with
-        | .lit (.natVal k) =>
+/-- **The machine.**  `n` is the fuel, `h` the heap, `c` the control,
+`k` the continuation. -/
+def gRun : Nat → Array GCell → GCache → GCtrl → List GFrame → Nat → GOut
+  | 0, _, _, _, _, st => .abort "fuel" st
+  | n + 1, h, cc, ctrl, k, st =>
+    match ctrl with
+    | .eval env e =>
+      match e with
+      | .bvar i =>
+        match env[i]? with
+        | some a => gRun n h cc (.enter a) k st
+        | none => .abort "loose bvar" st
+      | .app f a =>
+        match a with
+        | .bvar i =>
+          match env[i]? with
+          | some x => gRun n h cc (.eval env f) (.arg x :: k) st
+          | none => .abort "loose bvar" st
+        | .lit l =>
+          let x := h.size
+          gRun n (h.push (.val (.lit l))) cc (.eval env f) (.arg x :: k) st
+        | .lam ty b =>
+          let x := h.size
+          gRun n (h.push (.val (.lam env ty b))) cc (.eval env f) (.arg x :: k) st
+        | _ =>
+          if groundMemo != 0 && a.bvarBRaw == 0 then
+            match cc.closed[a]? with
+            | some x => gRun n h cc (.eval env f) (.arg x :: k) st
+            | none =>
+              let x := h.size
+              gRun n (h.push (.thunk [] a)) (cc.insClosed a x) (.eval env f) (.arg x :: k) st
+          else
+            let x := h.size
+            gRun n (h.push (.thunk env a)) cc (.eval env f) (.arg x :: k) st
+      | .lam ty b =>
+        match k with
+        | .arg x :: k' => gRun n h cc (.eval (x :: env) b) k' st
+        | _ => gRun n h cc (.ret (.lam env ty b)) k st
+      | .letE _ v b =>
+        let x := h.size
+        gRun n (h.push (.thunk env v)) cc (.eval (x :: env) b) k st
+      | .const c us => gRun n h cc (.const c us) k (st + 1)
+      | .lit l => gRun n h cc (.ret (.lit l)) k st
+      | .proj sn i s => gRun n h cc (.eval env s) (.proj sn i :: k) st
+      | .sort _ | .forallE .. | .fvar .. => gRun n h cc (.ret .neutral) k st
+    | .enter a =>
+      match h[a]! with
+      | .val v => gRun n h cc (.ret v) k st
+      | .thunk env e => gRun n (h.set! a .busy) cc (.eval env e) (.upd a :: k) st
+      | .busy => .abort "black hole" st
+    | .const c us =>
+      match find? c with
+      | some (.defnInfo cv v _) =>
+        -- literal acceleration first (`reduceNat`): exactly two
+        -- arguments; short of them, the operation waits for them (the
+        -- incumbent meets it as a spine, after substitution)
+        let accel : Nat :=
+          if us.isEmpty && natOk && natBin14 c then
+            match gTwoArgs k with
+            | some _ => 1
+            | none => match k with
+              | .arg _ :: .arg _ :: _ => 0
+              | _ => 2
+          else if us.isEmpty && natOpHashes.contains c.hashData && natOpWfNames.contains c &&
+              (gTwoArgs k).isSome then 3
+          else 0
+        match accel, gTwoArgs k with
+        | 1, some (a, b, k') => gRun n h cc (.enter a) (.natA c a b :: k') st
+        | 2, _ =>
+          let (xs, k') := gTakeArgs 2 k #[]
+          gRun n h cc (.ret (.pap c us xs)) k' st
+        | 3, _ => .abort "wf nat op" st
+        | _, _ =>
+          if groundMemo ≥ 2 then
+            let (xs, k') := gTakeAll k #[]
+            match cc.apps[(c, us, xs)]? with
+            | some r => gRun n h cc (.enter r) k' st
+            | none =>
+              if us.length == cv.levelParams.length then
+                let (body, cc) := if cv.levelParams.isEmpty then (v, cc) else
+                  match cc.vals[(c, us)]? with
+                  | some body => (body, cc)
+                  | none =>
+                    let body := v.instantiateLevelParams cv.levelParams us
+                    (body, cc.insVal (c, us) body)
+                let r := h.size
+                gRun n (h.push .busy) (cc.insApp (c, us, xs) r) (.eval [] body)
+                  (gPushArgs xs (.upd r :: k')) st
+              else .abort "level arity" st
+          else if cv.levelParams.isEmpty && us.isEmpty then
+            gRun n h cc (.eval [] v) k st
+          else if us.length == cv.levelParams.length then
+            match cc.vals[(c, us)]? with
+            | some body => gRun n h cc (.eval [] body) k st
+            | none =>
+              let body := v.instantiateLevelParams cv.levelParams us
+              gRun n h (cc.insVal (c, us) body) (.eval [] body) k st
+          else .abort "level arity" st
+      | some (.ctorInfo ..) =>
+        let (xs, k') := gTakeAll k #[]
+        gRun n h cc (.ret (.ctor c us xs)) k' st
+      | some (.recInfo cv mI rP rules) =>
+        let (xs, k') := gTakeArgs (mI + 1) k #[]
+        if xs.size < mI + 1 then gRun n h cc (.ret (.pap c us xs)) k' st
+        else if us.length != cv.levelParams.length then .abort "rec level arity" st
+        else if !(Expr.peelPis (mI + 1) cv.type).isSome then .abort "rec type" st
+        else if groundMemo ≥ 2 then
+          match cc.apps[(c, us, xs)]? with
+          | some r => gRun n h cc (.enter r) k' st
+          | none =>
+            let r := h.size
+            gRun n (h.push .busy) (cc.insApp (c, us, xs) r) (.enter xs[mI]!)
+              (.iota c us cv.levelParams mI rP rules xs :: .upd r :: k') st
+        else
+          gRun n h cc (.enter xs[mI]!) (.iota c us cv.levelParams mI rP rules xs :: k') st
+      | some _ =>
+        let (_, k') := gTakeAll k #[]
+        gRun n h cc (.ret .neutral) k' st
+      | none => .abort "unknown constant" st
+    | .ret v =>
+      match k with
+      | [] => .done v h st n
+      | .upd a :: k' => gRun n (h.set! a (.val v)) cc (.ret v) k' st
+      | .arg x :: k' =>
+        match v with
+        | .lam env _ b => gRun n h cc (.eval (x :: env) b) k' st
+        | .ctor c us args =>
+          let (xs, k'') := gTakeAll k' (args.push x)
+          gRun n h cc (.ret (.ctor c us xs)) k'' st
+        | .pap c us args => gRun n h cc (.const c us) (gPushArgs (args.push x) k') st
+        | .neutral =>
+          let (_, k'') := gTakeAll k' #[]
+          gRun n h cc (.ret .neutral) k'' st
+        | .lit _ => .abort "literal applied" st
+      | .iota c us lps mI rP rules xs :: k' =>
+        match v with
+        | .lit (.natVal m) =>
           if natOk then
-            match k with
-            | 0 => pure (GVal.ctor natZeroName [] #[])
-            | k + 1 => do
-              let x ← gAlloc (.val (.lit (.natVal k)))
-              pure (GVal.ctor natSuccName [] #[x])
-          else gAbort "nat literal"
-        | v => pure v
-      match mv with
-      | .ctor cj usj margs =>
-        match rules.find? (fun r' => r'.ctor == cj) with
-        | some rl =>
-          if margs.size != rl.ctorParams + rl.nfields then gAbort "ctor arity" else do
-          let (rhs, case3) ← gRhs find? c cv cj rl us
-          if case3 then gAbort "case 3" else
-          let _ := usj
-          let stk' := (args.extract 0 rP).toList ++
-            (margs.extract rl.ctorParams margs.size).toList ++
-            (args.extract (mI + 1) args.size).toList
-          gEval n [] rhs stk'
-        | none => gAbort "no rule"
-      | _ => if recRuleK rules then gAbort "K major" else gAbort "major not a constructor"
-    | some _ => pure .neutral
-    | none => gAbort "unknown constant"
+            match m with
+            | 0 => gRun n h cc (.ret (.ctor natZeroName [] #[])) k st
+            | m + 1 =>
+              let x := h.size
+              gRun n (h.push (.val (.lit (.natVal m)))) cc
+                (.ret (.ctor natSuccName [] #[x])) k st
+          else .abort "nat literal" st
+        | .lit (.strVal s) =>
+          if strOk then gRun n h cc (.eval [] (strLitToConstructor s)) k st
+          else .abort "string literal" st
+        | .ctor cj _ margs =>
+          match rules.find? (fun r' => r'.ctor == cj) with
+          | some rl =>
+            if margs.size != rl.ctorParams + rl.nfields then .abort "ctor arity" st else
+            let (rhs, case3, cc) := match cc.rhss[(c, cj, us)]? with
+              | some (rhs, case3) => (rhs, case3, cc)
+              | none =>
+                let case3 := match find? cj with
+                  | some (.ctorInfo cvj _ _) =>
+                    iotaCase3 find? rl cvj (gCmpLevels rl lps us cvj.levelParams)
+                  | _ => true
+                let rhs := rl.rhs.instantiateLevelParams lps us
+                (rhs, case3, cc.insRhs (c, cj, us) (rhs, case3))
+            if case3 then .abort "case 3" st else
+            let k₁ := gPushArgs (xs.extract (mI + 1) xs.size) k'
+            let k₂ := gPushArgs (margs.extract rl.ctorParams margs.size) k₁
+            let k₃ := gPushArgs (xs.extract 0 rP) k₂
+            gRun n h cc (.eval [] rhs) k₃ st
+          | none => .abort "no rule" st
+        | _ =>
+          if recRuleK rules then .abort "K major" st
+          else .abort "major not a constructor" st
+      | .proj sn i :: k' =>
+        match v with
+        | .lit (.strVal s) =>
+          if strOk then gRun n h cc (.eval [] (strLitToConstructor s)) k st
+          else .abort "string literal" st
+        | .ctor kc us args =>
+          match findProj? sn i with
+          | some entry =>
+            if kc == entry.ctor && i < entry.numFields &&
+                args.size == entry.numParams + entry.numFields &&
+                us.length == entry.levelParams.length && entry.fireOk us then
+              match find? kc with
+              | some (.ctorInfo cvC _ _) =>
+                if (Expr.peelPis args.size cvC.type).isSome then
+                  gRun n h cc (.enter args[entry.numParams + i]!) k' st
+                else .abort "proj cert" st
+              | _ => .abort "proj ctor" st
+            else .abort "proj shape" st
+          | none => .abort "proj table" st
+        | _ => .abort "proj of non-constructor" st
+      | .plus1 :: k' =>
+        match gNatHead natOk v with
+        | some (.inl m) => gRun n h cc (.ret (.lit (.natVal (m + 1)))) k' st
+        | some (.inr t) => gRun n h cc (.enter t) (.plus1 :: k) st
+        | none => gRun n h cc (.ret .neutral) k' st
+      | .natA c a b :: k' =>
+        match gNatHead natOk v with
+        | some (.inl m) => gRun n h cc (.enter b) (.natB c m a b :: k') st
+        | some (.inr t) => gRun n h cc (.enter t) (.plus1 :: k) st
+        | none =>
+          -- no literal: unfold the operation (`reduceNat` fails, δ)
+          gRun n h cc (.const c []) (.arg a :: .arg b :: k') st
+      | .natB c m a b :: k' =>
+        match gNatHead natOk v with
+        | some (.inl m₂) =>
+          match natOpResult c m m₂ with
+          | some r => gRun n h cc (.eval [] r) k' st
+          | none => .abort "nat op" st
+        | some (.inr t) => gRun n h cc (.enter t) (.plus1 :: k) st
+        | none => gRun n h cc (.const c []) (.arg a :: .arg b :: k') st
 
 end
 
-end
-
-/-- The effectively unbounded recursion budget of the ground machine
-(a termination device, as `checkFuel`). -/
-@[irreducible, noinline] def groundFuel : Nat := 4611686018427387904  -- 2^62
 
 /-- The outcome of a ground evaluation at the `Bool.true` comparison:
 `some true`/`some false` for a `Bool` constructor, `none` otherwise,
 with the step count and the abort reason (for the probe trace). -/
-def groundBool (fe : FEnv) (e : Expr) : Option Bool × Nat × String :=
+def groundBool (fe : FEnv) (e : Expr) : Option Bool × (Nat × Nat) × String :=
   let natOk := natLitSupportedF fe
   let strOk := strLitSupportedF fe
-  match (gEval fe.find? fe.findProj? natOk strOk groundFuel [] e []).run {} with
-  | .ok v s =>
+  match gRun fe.find? fe.findProj? natOk strOk groundFuel #[] {} (.eval [] e) [] 0 with
+  | .done v _ st left =>
+    let tr := groundFuel - left
     match v with
     | .ctor c [] args =>
-      if c == boolTrueName && args.size == 0 then (some true, s.steps, "")
-      else if c == boolFalseName && args.size == 0 then (some false, s.steps, "")
-      else (none, s.steps, "not a Bool")
-    | _ => (none, s.steps, "not a constructor")
-  | .error (.abort why) s => (none, s.steps, why)
+      if c == boolTrueName && args.size == 0 then (some true, (st, tr), "")
+      else if c == boolFalseName && args.size == 0 then (some false, (st, tr), "")
+      else (none, (st, tr), "not a Bool")
+    | _ => (none, (st, tr), "not a constructor")
+  | .abort why st => (none, (st, 0), why)
 
 end ConLeche.Cached

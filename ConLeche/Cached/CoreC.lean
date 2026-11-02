@@ -1419,31 +1419,36 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
 
 /-- **The ground shortcut** (task #423, spike; `groundMode ≠ 0`): a
 comparison with `Bool.true` on either side whose other side is closed
-(or the eager flag is set) evaluates that side on the ground machine
-(`ConLeche/Cached/Ground.lean`); `true` iff it evaluates to
-`Bool.true`.  Otherwise the comparison continues on the incumbent
-path. -/
-def groundShortcutI (fe : FEnv) (a b : Expr) : CheckCM Bool :=
+evaluates that side on the ground machine
+(`ConLeche/Cached/Ground.lean`): `Bool.true` answers `true`,
+`Bool.false` answers `false` (the two constructors are not
+definitionally equal), anything else (an abort) leaves the comparison
+to the incumbent path. -/
+def groundShortcutI (fe : FEnv) (a b : Expr) : CheckCM (Option Bool) :=
   let t? : Option Expr :=
     if Expr.isBoolTrue b && (mode.eager || !(Expr.hasFvar a)) then some a
     else if Expr.isBoolTrue a && (mode.eager || !(Expr.hasFvar b)) then some b
     else none
   match t? with
-  | none => pure false
+  | none => pure none
   | some t =>
-    if Expr.hasFvar t then pure false else
+    if Expr.hasFvar t then pure none else
     let (r, steps, why) := groundBool fe t
+    -- probe 5: the engine twice (its own cost is the difference)
+    let r := if groundMode == 5 then
+        (if (groundBool fe (dbgTrace "" fun _ => t)).1 == r then r else none) else r
     let r := if groundMode == 2 then
-        dbgTrace s!"GROUND {repr r} {steps} {why}" fun _ => r
+        dbgTrace s!"GROUND {repr r} {steps.1} {steps.2} {why}" fun _ => r
       else r
-    pure (r == some true)
+    pure r
 
 /-- Twin of `defeqBody`. -/
 def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => do
     if a == b then pure true else
-    if ← (if groundMode == 0 then pure false else groundShortcutI mode fe a b) then
-      pure true else
+    match ← (if groundMode == 0 then pure none else groundShortcutI mode fe a b) with
+    | some v => pure v
+    | none =>
     -- the eq-true shortcut (E2), as in the spec
     let bt ← pure (Expr.isBoolTrue b)
     let af ← pure (Expr.hasFvar a)
