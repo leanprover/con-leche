@@ -107941,3 +107941,42 @@ The engine-on verdicts (round 4): the 20 nightly streams, init-prelude, init-ful
 1. **The interpreter line has reached its floor in Lean.**  The engine is 0.56× official and 51× native on `cancelInvs_cert`.  The remaining per-call cost (about 3 500 instructions against native's 60) is the compiled-Lean price of each machine step, which neither coarser steps, strictness nor a packed state moves by more than tens of percent.  *Recommendation:* stop optimising.  Either prove round 4 (4.7–7.1 k lines), for a verified evaluator at about half the official kernel's cost on reflection certificates that stays linear on DAG-shaped inputs, or park it.  A `vm_compute`-class speed would need code generation, which is #422's `#boost` direction.
 2. **Strictness**: keep it (exact, cheap, +0.3 k proof lines) or drop it (it fires nowhere measured).  *Recommendation:* drop it from the engine to be proved; keep the record.
 3. **Folded recursion**: *recommendation:* not pursued, in the engine or the incumbent (§R4.3).
+
+### Round 4 on the nightly (2026-11-02)
+
+No new optimisation work: this is round 4's engine re-measured on the benchmarks' own toolchain, so that it is comparable with #422.
+
+**The bump.**  #422's two bump commits are cherry-picked onto `agent/423-ground` with no conflicts: `d4f8dd4e1` (nightly-2026-10-30, con-agua's patches, the vendored `withPtrEq`) and `57c3aa91a` (prelude, trust surface, imports, anchors).  So is #422's `10870edf2` (the old pinners build their last source revision), which `tests/pindump.sh` needs on the nightly.  The bump moved three whitepaper citations of `Kernel/Expr.lean` (`Level`, `Expr`, `fvar`) by three lines; they are repointed.
+
+**Gates.**  At the default (engine off), `lake build` and `lake test` are warning-free, and `tests/arena.sh --no-sweeps` is green: pindump, trust surface, links, quotes, shake, self-check (49 835 declarations, with the bench lane's nightly exporter seeded into `_tmp/selfcheck-gate/lean4export`), tutorial 90/92, e2e 496/496.
+
+**Results** (G instructions:u, `--jobs=1`, verified, one run each; own part = stream minus prefix; official from the bench baseline; #422 = `table-r4.txt`'s "own r3 → r4" right-hand value):
+
+| stream | engine off (nightly) own | round 4 (nightly) own | official own | #422 round 4 own | r4/off | r4/official | exits |
+|---|---|---|---|---|---|---|---|
+| grind_field_kernel_cancel | 58.25 | 15.73 | 28.02 | 0.238 | 0.27 | 0.56 | 0/0 |
+| grind_ring_5 | 1.10 | 0.31 | 0.41 | 0.178 | 0.28 | 0.76 | 0/0 |
+| groebner | 2.06 | 0.76 | 0.94 | 0.415 | 0.37 | 0.81 | 0/0 |
+| groebner_char | 2.72 | 2.61 | 2.78 | 2.535 | 0.96 | 0.94 | 0/0 |
+| groebner_hard | 12.38 | 4.40 | 4.79 | 3.939 | 0.36 | 0.92 | 0/0 |
+| identities | 2.49 | 2.19 | 2.73 | 2.314 | 0.88 | 0.80 | 0/0 |
+| lia_case_splits | -0.00 | -0.00 | 0.01 | -0.109 | – | – | 0/0 |
+| lia_oss_verify_1 | 2.91 | 2.57 | 2.36 | 2.779 | 0.88 | 1.09 | 0/0 |
+| lia_oss_verify_2 | 4.97 | 4.54 | 4.09 | 4.842 | 0.91 | 1.11 | 0/0 |
+| lia_oss_verify_3 | 3.41 | 3.01 | 2.89 | 3.320 | 0.88 | 1.04 | 0/0 |
+| lia_oss_verify_4 | 2.66 | 2.33 | 2.38 | 2.552 | 0.88 | 0.98 | 0/0 |
+| sym_arith | 12.88 | 12.81 | 9.35 | 12.374 | 0.99 | 1.37 | 0/0 |
+| sym_arith_char | 5.71 | 5.72 | 3.36 | 5.576 | 1.00 | 1.70 | 0/0 |
+| sym_arith_expand | 7.01 | 7.01 | 6.54 | 6.953 | 1.00 | 1.07 | 0/0 |
+| sym_arith_field | 6.61 | 6.34 | 3.81 | 6.213 | 0.96 | 1.66 | 0/0 |
+| sym_arith_linear | 7.33 | 7.15 | 6.21 | 6.049 | 0.98 | 1.15 | 0/0 |
+| sym_arith_rel | 5.72 | 5.73 | 4.99 | 5.526 | 1.00 | 1.15 | 0/0 |
+| sym_arith_small | 2.74 | 2.51 | 1.78 | 1.751 | 0.91 | 1.41 | 0/0 |
+| sym_arith_terms | 3.26 | 3.21 | 2.74 | 2.932 | 0.99 | 1.17 | 0/0 |
+| sym_norm | 5.67 | 4.74 | 4.08 | 4.400 | 0.84 | 1.16 | 0/0 |
+
+All 11 296 site calls on the 20 streams evaluate to `Bool.true`; 0 aborts.
+
+* **init-full.nightly**: engine off 397.80 G, round 4 397.82 G (±0.0 %).
+* **The arena perf tests** (engine off → round 4): grind-ring-5 14.69 → **12.93 G (−12 %)**; the other fifteen are within ±0.6 % (church-numerals +1.9 %, args-before-unfold +0.6 %).
+* **Against #422**: the boosted functions are 15–66× ahead where a single certificate function dominates (grind_field_kernel_cancel 0.24 G against the engine's 15.73 G; grind_ring_5 0.18 against 0.31; groebner 0.42 against 0.76).  Elsewhere the two are within 10–20 % of each other, because neither touches the own part's non-evaluation work.
