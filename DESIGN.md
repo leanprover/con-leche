@@ -107829,3 +107829,115 @@ The engine-on verdicts: all 20 nightly streams, init-prelude, init-full, grind-r
    - either take strictness plus a `ByteArray` state as one last measured spike, with a stop criterion of 5× native on `cancelInvs_cert`;
    - or park the interpreter line here and prove round 3 (4.6–7 k lines) for an official-speed verified evaluator that is linear on DAG-shaped inputs.
 3. **grind-ring-5's +14.9 %.**  It is code the ruling leaves slow (no `_k`).  *Recommendation:* accept it while the arena carries the old stream; the nightly's version of the benchmark gains 2.8× on its own part.
+
+### Round 4 (2026-11-02): strictness, the packed state, folded recursion, grind-ring-5
+
+**The rulings** (maintainer, 2026-11-02):
+1. Investigate the exact strictness analysis and a `ByteArray`-style packed state, separately and combined, with 5× native on `cancelInvs_cert` as the reference point.
+2. Try primitive structural recursion with a folded right-hand side again, inside the engine (task #366's idea), and say what changes for the incumbent.
+3. grind-ring-5's +14.9 % is not a blocker, but find out why the engine loses there and fix whatever is cheap and exact, aiming for at most master's figure, with no heuristic routing.
+
+**The verdict, first.**
+* **grind-ring-5 is now below master: 13.42 G against 15.13 G (−11 %)**, from round 3's 17.38 G.  The cause was neither the matcher chains nor term-keyed against cell-keyed memoisation as such.  It was **closed argument terms built once per code node instead of once per term**.  Hash-consing them by `Expr` at compile time (one node, one sharing slot per distinct closed term in the program) is exact (one term, one origin) and is the round's main gain everywhere:
+  - grind_field_kernel_cancel 19.57 → **15.73 G** own (0.56× official, **51× native**);
+  - groebner_hard 4.66 → 4.39 G (0.92× official);
+  - groebner 0.92 → 0.76 G; grind_ring_5 (nightly) 0.39 → 0.31 G.
+* **Strictness, implemented exactly as ruled, changes nothing on these benchmarks**: the transition counts are identical with it on and off.  In direct `.rec` code, the argument in a strict position (a recursor's major, the first operand of a `Nat` operation) is almost always a variable or a field, i.e. an existing cell.  So there is no thunk to save.
+* **The packed state, not built.**  A micro-benchmark puts its ceiling at about −20–25 % per state access (§R4.2), far from the 10× the stop criterion needs.
+* **Folded recursion: not worth it in the engine.**  The IH is already a known, saturated recursor call that shares the minors' closures for the whole recursion, and folding needs a proof rule the tier does not have (§R4.3).
+* **Where it lands**: 51× native on `cancelInvs_cert`; the 5× stop criterion is not met.  20 117 of 20 117 calls evaluate to `Bool.true`; 0 aborts.
+
+#### R4.1 What changed (`ConLeche/Cached/Ground4.lean`, `groundMode = 10`; rounds 1–3 stay at `1`, `3` and `7`)
+
+* **One node per closed argument term** (`G4Prog.closedNode : HashMap Expr Nat`, keyed pointer-first): a closed application, `let` or projection in argument position is compiled once per program.  Every later occurrence, in any definition or rule compiled for the declaration, reuses its node and its sharing slot.  Round 3 shared per code node, so `OfNat.ofNat Nat k (instOfNatNat k)`, `Int.ofNat …`, `hugeFuel` and their like were re-evaluated at every distinct position.
+* **Strictness** (`g4Strict`, per definition name): a parameter is strict if the body under its λ telescope is a recursor application whose major is that parameter, or an accelerated `Nat` operation whose first operand is.  At a saturated call to such a definition, a strict argument that would have become a thunk (an application, `let` or projection) is compiled as `[10, a]`: evaluated before the call into a value cell, with no thunk and no update frame.
+* **Cost**: init-full is 379.43 G (+0.14 % against master; round 3 −0.15 %), from the closed-term hash lookups at compile time.
+
+#### R4.2 The results (own part, G instructions:u; the transition counts are the trace runs')
+
+| stream | incumbent own | round 3 own | round 4 own | official own | native | r4/official | transitions/call r3 → r4 | transitions r4 |
+|---|---|---|---|---|---|---|---|---|
+| grind_ring_5 | 1.09 | 0.39 | 0.31 | 0.41 |  | 0.76 | 12.0 → 12.1 | 0.77 M |
+| groebner | 2.06 | 0.92 | 0.76 | 0.94 |  | 0.81 | 12.1 → 12.2 | 1.42 M |
+| groebner_char | 2.66 | 2.61 | 2.60 | 2.78 |  | 0.94 | 12.1 → 12.2 | 0.50 M |
+| groebner_hard | 12.40 | 4.66 | 4.39 | 4.79 |  | 0.92 | 12.1 → 12.2 | 2.38 M |
+| identities | 2.48 | 2.21 | 2.18 | 2.73 |  | 0.80 | 12.4 → 12.4 | 0.53 M |
+| sym_norm | 5.64 | 4.83 | 4.73 | 4.08 |  | 1.16 | 12.2 → 12.3 | 1.05 M |
+| sym_arith | 13.37 | 13.26 | 13.27 | 9.35 |  | 1.42 | 12.7 → 13.0 | 0.69 M |
+| grind_field_kernel_cancel | 58.25 | 19.57 | 15.73 | 28.02 | 0.31 | 0.56 | 11.8 → 12.0 | 53.14 M |
+| lia_case_splits | -0.00 | 0.00 | -0.00 | 0.01 |  | – | 11.5 → 11.3 | 0.13 M |
+| sym_arith_char | 6.18 | 6.19 | 6.20 | 3.36 |  | 1.85 | 12.4 → 12.7 | 0.31 M |
+| sym_arith_expand | 6.98 | 6.97 | 6.99 | 6.54 |  | 1.07 | 12.0 → 12.2 | 0.29 M |
+| sym_arith_field | 7.13 | 6.91 | 6.82 | 3.81 |  | 1.79 | 12.0 → 12.4 | 0.58 M |
+| sym_arith_linear | 7.29 | 7.23 | 7.13 | 6.21 |  | 1.15 | 14.1 → 15.2 | 0.90 M |
+| sym_arith_rel | 5.75 | 5.60 | 5.71 | 4.99 |  | 1.15 | 13.0 → 13.4 | 0.60 M |
+| sym_arith_small | 2.62 | 2.52 | 2.50 | 1.78 |  | 1.41 | 13.3 → 13.7 | 1.26 M |
+| sym_arith_terms | 3.19 | 3.21 | 3.20 | 2.74 |  | 1.17 | 12.4 → 12.5 | 0.49 M |
+| lia_oss_verify_1 | 2.84 | 2.60 | 2.56 | 2.36 |  | 1.09 | 11.8 → 12.1 | 1.70 M |
+| lia_oss_verify_2 | 4.89 | 4.60 | 4.53 | 4.09 |  | 1.11 | 11.8 → 12.1 | 2.39 M |
+| lia_oss_verify_3 | 3.34 | 3.05 | 3.00 | 2.89 |  | 1.04 | 11.8 → 12.1 | 1.77 M |
+| lia_oss_verify_4 | 2.60 | 2.37 | 2.33 | 2.38 |  | 0.98 | 11.8 → 12.2 | 1.43 M |
+
+| measure on grind_field_kernel_cancel | round 2 | round 3 | round 4 | native |
+|---|---|---|---|---|
+| own part | 20.44 | 19.57 | 15.73 | 0.31 |
+| engine (run twice minus once) | 20.4 | 19.47 | 15.60 | — |
+| transitions | 75.3 M | 63.8 M | 53.1 M | — |
+| constant dispatches (≈ source-level calls) | 5.40 M | 5.40 M | 4.44 M | — |
+| transitions per call | 13.9 | 11.8 | 12.0 | — |
+| instructions per transition | 271 | 305 | 294 | — |
+| instructions per call | 3 780 | 3 600 | 3 510 | ≈ 60 |
+
+**Strictness, separately**: with it off (`g4StrictOn = false`), grind_field_kernel_cancel, groebner_hard, lia_oss_verify_2 and grind-ring-5 give the same transition and dispatch counts, and instructions within 0.5 %.  Closed-term sharing alone is the whole round-4 gain.
+
+**The packed state, by micro-benchmark** (`_tmp/423-ground/micro/Micro.lean`, compiled by the toolchain's `leanc -O3`, 10⁷ iterations of one read, one write and the index arithmetic):
+* `Array Nat` with `get!`/`set!` (the round-2 to round-4 representation): 88 instructions per iteration;
+* a `FloatArray` used as unboxed 64-bit words (`get`/`set` with in-bounds proofs, `toBits`/`ofBits`): 68.
+
+Lean has no unboxed `UInt64` array.  `ByteArray`'s `uget`/`uset` move single bytes, so a word costs eight of them, and `FloatArray` with bit casts is the only legal unboxed word store.  The difference, about 20 instructions per access pair, bounds what a packed state can save at roughly −20–25 %.  The stop criterion needs about 10×.  The rest of each transition's ~300 instructions is the loop's dispatch and the boxed-`Nat` arithmetic and bounds checks every compiled Lean loop pays.  That is the same order as the micro-benchmark's 68–88 for one read and one write.  **Combined** (strictness plus packed state) was therefore not built: strictness contributes 0, and the packed state's ceiling is far from the target.
+
+#### R4.3 Folded primitive recursion (task #366 revisited, inside the engine)
+
+* **What #366 did** (branch `agent/spike-primrec`): `f := fun xs => T.rec … maj …` gets per-constructor rules derived at install, with the IH `T.rec … field` folded to `f xs[maj := field]`.  This was −3 % on grind-ring-5 in the incumbent and +37 %/+105 %/×4 on args-before-unfold, discarded-argument and shared-subterm, because it changed conversion order.
+* **In the engine, the IH is already a cheap known call.**  The rule's right-hand side binds the recursor's leading arguments (motive erased, minors as cells) and the fields in one transition.  An IH cell is `T.rec ps mot mins field` over cells that already exist.  Forcing it is one saturated recursor dispatch on those same cells, so the minors' closures are built once per call to `f` and shared down the whole recursion.  The application memo keys IH dispatches on equal cells too.
+* **A folded IH costs more**: `f xs field` is a δ, a telescope bind and the body, which itself re-pushes the recursor's arguments.  Derived per-constructor rules (#366's) would save the body and the re-push but rebuild the minors' closures on every call.  On `_k` code, where minors are λ-closures over `xs`, that is the larger cost.  Net: no gain expected; not built.
+* **The proof cost of a fold is real.**  Under the origin denotation an IH cell must denote the ι reduct's own subterm `T.rec … field`; a folded cell denotes `f xs' field`, which only *δβ-reduces* to it.  Justifying the fold needs one of:
+  - a reduction under an argument position from the reduct back to the folded term (the wrong direction for `Red`);
+  - an argument congruence (`Red.appArg`), which round 1 found is not a one-line rule under the conditional point semantics;
+  - a new rule.
+
+  None of these is in the tier today.
+* **For the incumbent's whnf nothing changes** relative to #366: the engine's site evaluates fully and is order-independent, but the incumbent's conversion still interleaves head reduction with comparison.  A fold there changes which unfoldings lazy delta sees, which is what produced #366's regressions.
+
+#### R4.4 Why grind-ring-5 lost, and what fixed it
+
+Measured, with the engine cost from the run-twice probe:
+
+| | dispatches | transitions | engine G | whole stream G |
+|---|---|---|---|---|
+| round 3 (program per declaration) | 1.97 M | 24.9 M | 9.05 | 17.38 |
+| round 4 | 1.18 M | 16.2 M | 5.00 | **13.42** (master 15.13) |
+
+* The certificates (Lean 4.29.1, before lean4#15943) evaluate literal and instance towers like `OfNat.ofNat Nat 2 (instOfNatNat 2)` at every use.  In round 3 each distinct occurrence in each compiled body was its own slot, so its δ chain (`OfNat.ofNat → instOfNatNat → OfNat.mk → proj`) re-ran once per occurrence and run.  The incumbent's term memo shares them: one term, one whnf.
+* Hash-consing closed terms at compile time gives the engine the same sharing: 40 % fewer dispatches, 35 % fewer transitions.  It is exact (equal closed terms have one origin) and involves no routing.
+* What remains different (`brecOn` below-tuples, matcher chains, `hugeFuel` `Nat.rec` loops) costs no more than the incumbent pays now.
+
+#### R4.5 Verification plan, updated
+
+Round 3's plan (§R3.6) stands, with these changes:
+* **Closed-term sharing** needs a lemma that the hash-consing key (`Expr.beq`) implies syntactic equality, so that a shared slot's origin is the one term: about +0.1 k lines.
+* **Strictness** needs the forcing-order lemma that a strict argument evaluated early yields the cell the callee would have forced (the same `Red` derivation, reordered): about +0.3 k lines.  Since it fires nowhere measured, it could be dropped.
+
+**Total for the round-4 engine: 4.7–7.1 k lines** (round 3's 4.6–7 k, plus about 0.1 k for closed-term sharing), or about 0.3 k more with strictness kept.
+
+#### R4.6 Gates
+
+At the default (`groundMode = 0`): `lake build` and `lake test` are warning-free, and `tests/arena.sh --no-sweeps` is green: tutorial 90/92 as master, e2e 496/496, self-check accepted, shake (`Ground3` now imports `Ground`, and `Ground4` imports `Ground2` and `Ground3`), layering, trust surface, links and quotes.  The trusted sweep was not re-run (the engine is inert at mode 0).
+
+The engine-on verdicts (round 4): the 20 nightly streams, init-prelude, init-full and grind-ring-5 are all accepted as on master, with 20 117 calls `Bool.true` and 0 aborts.
+
+#### R4.7 Rulings needed (round 4)
+
+1. **The interpreter line has reached its floor in Lean.**  The engine is 0.56× official and 51× native on `cancelInvs_cert`.  The remaining per-call cost (about 3 500 instructions against native's 60) is the compiled-Lean price of each machine step, which neither coarser steps, strictness nor a packed state moves by more than tens of percent.  *Recommendation:* stop optimising.  Either prove round 4 (4.7–7.1 k lines), for a verified evaluator at about half the official kernel's cost on reflection certificates that stays linear on DAG-shaped inputs, or park it.  A `vm_compute`-class speed would need code generation, which is #422's `#boost` direction.
+2. **Strictness**: keep it (exact, cheap, +0.3 k proof lines) or drop it (it fires nowhere measured).  *Recommendation:* drop it from the engine to be proved; keep the record.
+3. **Folded recursion**: *recommendation:* not pursued, in the engine or the incumbent (§R4.3).
