@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.ExprOpsC
-public import ConLeche.Cached.Ground3
+public import ConLeche.Cached.Ground4
 
 @[expose] public section
 
@@ -119,6 +119,8 @@ structure CState where
   /-- The ground engine's compiled program (task #423 round 3), kept for
   the declaration; flushed with the environment-dependent memos. -/
   ground3 : G3Prog := {}
+  /-- The round-4 engine's program (task #423 round 4), as `ground3`. -/
+  ground4 : G4Prog := {}
   constTyAt : Std.HashMap (Name × List Level) Expr := {}
   constValAt : Std.HashMap (Name × List Level) Expr := {}
   ruleRhsAt : Std.HashMap (Name × Name × List Level) Expr := {}
@@ -343,7 +345,7 @@ def CState.flushed (s : CState) : CState :=
   { s with
       constTyAt := {}, constValAt := {}, ruleRhsAt := {},
       whnfCoreC := {}, whnfCoreCheapC := {}, whnfC := {}, inferC := {}, inferIOC := {},
-      defeqC := {}, instC := {}, eagerMemos := {}, ground3 := {} }
+      defeqC := {}, instC := {}, eagerMemos := {}, ground3 := {}, ground4 := {} }
 
 def flushC : CheckCM Unit := modify (·.flushed)
 
