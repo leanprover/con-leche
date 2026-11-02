@@ -86,11 +86,33 @@ structure G2Prog where
   kCode : Array Nat := #[]
   kArity : Array Nat := #[]
   kSlot : Array Nat := #[]
+  /-- recursor: `rulePrefix`; constructor: its name's id -/
+  kB : Array Nat := #[]
+  /-- recursor: first rule -/
+  kC : Array Nat := #[]
+  /-- recursor: number of rules; constructor: number of levels -/
+  kD : Array Nat := #[]
+  /-- recursor: bit 1 K, bit 2 structure η -/
+  kE : Array Nat := #[]
   kInfo : Array G2Info := #[]
+  nids : Std.HashMap Name Nat := {}
   kMap : Std.HashMap (Name × List Level) Nat := {}
   rules : Array G2Rule := #[]
   ruleCode : Array Nat := #[]
+  /-- per rule: the constructor's name id, fields, parameters, case 3 -/
+  rNid : Array Nat := #[]
+  rNF : Array Nat := #[]
+  rCP : Array Nat := #[]
+  rC3 : Array Nat := #[]
   projs : Array G2Proj := #[]
+  /-- per projection: constructor name id, index, parameters, fields,
+  levels, always-fires -/
+  pNid : Array Nat := #[]
+  pIdx : Array Nat := #[]
+  pNP : Array Nat := #[]
+  pNF : Array Nat := #[]
+  pNl : Array Nat := #[]
+  pAlw : Array Nat := #[]
   strs : Array String := #[]
   nslots : Nat := 1
   natOk : Bool := false
@@ -100,6 +122,33 @@ structure G2Prog where
   kZero : Nat := 0
   kSucc : Nat := 0
   deriving Inhabited
+
+/-- Append to the code in place (the array is detached from the record
+first, so it is unshared when pushed). -/
+@[inline] def G2Prog.emit (P : G2Prog) (f : Array Nat → Array Nat) : G2Prog :=
+  let c := P.code; let P := { P with code := #[] }; { P with code := f c }
+
+/-- The id of a name (constructor matching by `Nat` comparison). -/
+def G2Prog.nid (P : G2Prog) (c : Name) : Nat × G2Prog :=
+  match P.nids[c]? with
+  | some i => (i, P)
+  | none =>
+    let m := P.nids; let i := m.size
+    let P := { P with nids := {} }
+    (i, { P with nids := m.insert c i })
+
+/-- `natOpResult` by operation index (the order of `natBin14Names`):
+`0` a literal result, `1` a `Bool` result (`0`/`1`), `2` no result
+(`Nat.pow` beyond official's exponent bound). -/
+@[inline] def g2NatKind (op b : Nat) : Nat :=
+  if op == 4 || op == 5 then 1 else if op == 3 && b > 16777216 then 2 else 0
+
+def g2NatVal (op a b : Nat) : Nat :=
+  match op with
+  | 0 => a + b | 1 => a - b | 2 => a * b | 3 => a ^ b
+  | 4 => if a == b then 1 else 0 | 5 => if a ≤ b then 1 else 0
+  | 6 => a / b | 7 => a % b | 8 => Nat.gcd a b | 9 => Nat.land a b | 10 => Nat.lor a b
+  | 11 => Nat.xor a b | 12 => Nat.shiftLeft a b | 13 => Nat.shiftRight a b | _ => 0
 
 /-- The number of leading Π-binders of a type. -/
 def g2Pis : Expr → Nat → Nat
@@ -118,18 +167,21 @@ def g2Resolve (P : G2Prog) (c : Name) (us : List Level) : Nat × G2Prog :=
   | some k => (k, P)
   | none =>
     let k := P.kTag.size
-    let (tag, ar, info, P) : Nat × Nat × G2Info × G2Prog :=
+    let (tag, ar, b, c', d, e', info, P) : Nat × Nat × Nat × Nat × Nat × Nat × G2Info × G2Prog :=
       match find? c with
       | some (.defnInfo cv v _) =>
-        if us.length != cv.levelParams.length then (5, 0, .neutral, P)
+        if us.length != cv.levelParams.length then (5, 0, 0, 0, 0, 0, .neutral, P)
         else
           let tag := if us.isEmpty && P.natOk && natBin14 c then 3
             else if us.isEmpty && natOpWfNames.contains c then 4 else 0
-          (tag, 0, .defn c cv.levelParams us v, P)
-      | some (.ctorInfo cv nP nF) => (1, g2Pis cv.type 0, .ctor c us nP nF, P)
+          let op := (natBin14Names.idxOf? c).getD 0
+          (tag, 0, 0, 0, 0, op, .defn c cv.levelParams us v, P)
+      | some (.ctorInfo cv nP nF) =>
+        let (ni, P) := P.nid c
+        (1, g2Pis cv.type 0, ni, 0, us.length, 0, .ctor c us nP nF, P)
       | some (.recInfo cv mI rP rules) =>
         if us.length != cv.levelParams.length || !(Expr.peelPis (mI + 1) cv.type).isSome then
-          (5, 0, .neutral, P)
+          (5, 0, 0, 0, 0, 0, .neutral, P)
         else
           let base := P.rules.size
           let P := rules.foldl (fun P rl =>
@@ -137,14 +189,26 @@ def g2Resolve (P : G2Prog) (c : Name) (us : List Level) : Nat × G2Prog :=
               | some (.ctorInfo cvj _ _) =>
                 iotaCase3 find? rl cvj (gCmpLevels rl cv.levelParams us cvj.levelParams)
               | _ => true
-            { P with rules := P.rules.push ⟨rl.ctor, rl.nfields, rl.ctorParams, case3, rl.rhs⟩,
-                     ruleCode := P.ruleCode.push 0 }) P
+            let (ni, P) := P.nid rl.ctor
+            let (r1, r2, r3, r4, r5, r6) := (P.rules, P.ruleCode, P.rNid, P.rNF, P.rCP, P.rC3)
+            let P := { P with rules := #[], ruleCode := #[], rNid := #[], rNF := #[], rCP := #[],
+                              rC3 := #[] }
+            { P with rules := r1.push ⟨rl.ctor, rl.nfields, rl.ctorParams, case3, rl.rhs⟩,
+                     ruleCode := r2.push 0, rNid := r3.push ni, rNF := r4.push rl.nfields,
+                     rCP := r5.push rl.ctorParams, rC3 := r6.push (if case3 then 1 else 0) }) P
           let isEta := match rules with | [rl] => rl.eta | _ => false
-          (2, mI, .recr cv.levelParams us mI rP base rules.length (recRuleK rules) isEta, P)
-      | _ => (5, 0, .neutral, P)
-    (k, { P with kTag := P.kTag.push tag, kCode := P.kCode.push 0, kArity := P.kArity.push ar,
-                 kSlot := P.kSlot.push P.nslots, nslots := P.nslots + 1,
-                 kInfo := P.kInfo.push info, kMap := P.kMap.insert (c, us) k })
+          let fl := (if recRuleK rules then 1 else 0) + (if isEta then 2 else 0)
+          (2, mI, rP, base, rules.length, fl,
+            .recr cv.levelParams us mI rP base rules.length (recRuleK rules) isEta, P)
+      | _ => (5, 0, 0, 0, 0, 0, .neutral, P)
+    let (t1, t2, t3, t4, t5, t6, ns) := (P.kTag, P.kCode, P.kArity, P.kSlot, P.kInfo, P.kMap, P.nslots)
+    let (u1, u2, u3, u4) := (P.kB, P.kC, P.kD, P.kE)
+    let P := { P with kTag := #[], kCode := #[], kArity := #[], kSlot := #[], kInfo := #[], kMap := {},
+                      kB := #[], kC := #[], kD := #[], kE := #[] }
+    (k, { P with kTag := t1.push tag, kCode := t2.push 0, kArity := t3.push ar,
+                 kSlot := t4.push ns, nslots := ns + 1,
+                 kInfo := t5.push info, kMap := t6.insert (c, us) k,
+                 kB := u1.push b, kC := u2.push c', kD := u3.push d, kE := u4.push e' })
 
 mutual
 /-- Compile `e` (closed under the binders the code will be run under);
@@ -154,54 +218,65 @@ spine `[1, head, n, a₁ … aₙ]`, `2` λ `[2, body]`, `3` let `[3, v, body]`,
 s]`, `7` projection `[7, proj + 1 or 0, e]`, `8` neutral `[8]`, `9`
 shared closed argument `[9, slot, e]`. -/
 def g2Comp : Nat → G2Prog → Expr → Nat × G2Prog
-  | 0, P, _ => let o := P.code.size; (o, { P with code := P.code.push 8 })
+  | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
   | f + 1, P, e =>
     match e with
-    | .bvar i => let o := P.code.size; (o, { P with code := (P.code.push 0).push i })
+    | .bvar i => let o := P.code.size; (o, P.emit (fun c => (c.push 0).push i))
     | .lam _ b =>
       let (bo, P) := g2Comp f P b
-      let o := P.code.size; (o, { P with code := (P.code.push 2).push bo })
+      let o := P.code.size; (o, P.emit (fun c => (c.push 2).push bo))
     | .letE _ v b =>
       let (vo, P) := g2CompArg f P v
       let (bo, P) := g2Comp f P b
-      let o := P.code.size; (o, { P with code := ((P.code.push 3).push vo).push bo })
+      let o := P.code.size; (o, P.emit (fun c => ((c.push 3).push vo).push bo))
     | .const c us =>
       let (k, P) := g2Resolve find? P c us
-      let o := P.code.size; (o, { P with code := (P.code.push 4).push k })
-    | .lit (.natVal n) => let o := P.code.size; (o, { P with code := (P.code.push 5).push n })
+      let o := P.code.size; (o, P.emit (fun c => (c.push 4).push k))
+    | .lit (.natVal n) => let o := P.code.size; (o, P.emit (fun c => (c.push 5).push n))
     | .lit (.strVal s) =>
       let o := P.code.size
-      (o, { P with code := (P.code.push 6).push P.strs.size, strs := P.strs.push s })
+      let si := P.strs.size
+      let P := P.emit (fun c => (c.push 6).push si)
+      let ss := P.strs; let P := { P with strs := #[] }
+      (o, { P with strs := ss.push s })
     | .proj sn i s =>
       let (so, P) := g2Comp f P s
       let (pi, P) := match findProj? sn i with
         | some en =>
           let pj : G2Proj := ⟨en.ctor, i, en.numParams, en.numFields, en.levelParams.length,
              !(Level.isEquiv en.structSort .zero == some true), en⟩
-          (P.projs.size + 1, { P with projs := P.projs.push pj })
+          let (ni, P) := P.nid en.ctor
+          let (q1, q2, q3, q4, q5, q6, q7) := (P.projs, P.pNid, P.pIdx, P.pNP, P.pNF, P.pNl, P.pAlw)
+          let P := { P with projs := #[], pNid := #[], pIdx := #[], pNP := #[], pNF := #[],
+                            pNl := #[], pAlw := #[] }
+          let P := { P with projs := q1.push pj, pNid := q2.push ni, pIdx := q3.push i }
+          let P := { P with pNP := q4.push en.numParams, pNF := q5.push en.numFields }
+          let P := { P with pNl := q6.push en.levelParams.length,
+                            pAlw := q7.push (if pj.always then 1 else 0) }
+          (q1.size + 1, P)
         | none => (0, P)
-      let o := P.code.size; (o, { P with code := ((P.code.push 7).push pi).push so })
+      let o := P.code.size; (o, P.emit (fun c => ((c.push 7).push pi).push so))
     | .app .. =>
       let (ho, args) := (e.getAppFn, e.getAppArgs)
       let (ho, P) := g2Comp f P ho
       let (aos, P) := args.foldl (fun (acc : Array Nat × G2Prog) a =>
         let (ao, P) := g2CompArg f acc.2 a; (acc.1.push ao, P)) (#[], P)
       let o := P.code.size
-      let code := ((P.code.push 1).push ho).push aos.size
-      (o, { P with code := aos.foldl (fun c a => c.push a) code })
-    | .sort _ | .forallE .. | .fvar .. => let o := P.code.size; (o, { P with code := P.code.push 8 })
+      (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
+    | .sort _ | .forallE .. | .fvar .. => let o := P.code.size; (o, P.emit (fun c => c.push 8))
 
 /-- An argument position: a closed application, `let` or projection
 gets a sharing slot. -/
 def g2CompArg : Nat → G2Prog → Expr → Nat × G2Prog
-  | 0, P, _ => let o := P.code.size; (o, { P with code := P.code.push 8 })
+  | 0, P, _ => let o := P.code.size; (o, P.emit (fun c => c.push 8))
   | f + 1, P, a =>
     match a with
     | .app .. | .letE .. | .proj .. =>
       let (ao, P) := g2Comp f P a
       if a.bvarBRaw == 0 then
         let o := P.code.size
-        (o, { P with code := ((P.code.push 9).push P.nslots).push ao, nslots := P.nslots + 1 })
+        let ns := P.nslots
+        (o, { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 })
       else (ao, P)
     | _ => g2Comp f P a
 end
@@ -215,20 +290,22 @@ end
 
 @[inline] def g2EnvGet (ev : Array Nat) : Nat → Nat → Nat
   | 0, _ => 0
-  | e + 1, 0 => ev[2 * e]!
-  | e + 1, i + 1 => g2EnvGet ev ev[2 * e + 1]! i
+  | e + 1, 0 => ev[e + e]!
+  | e + 1, i + 1 => g2EnvGet ev ev[e + e + 1]! i
+
+/-- `4 n` and `16 n + t` by additions (`Nat.mul`'s overflow check is a
+division; `<<<` is out of line). -/
+@[inline] def g2X4 (n : Nat) : Nat := let d := n + n; d + d
+@[inline] def g2Tag (c t : Nat) : Nat := let d := g2X4 c; let e := g2X4 d; e + t
 
 /-- The number of argument frames on top of the stack. -/
 def g2CountArgs (fs : Array Nat) : Nat → Nat → Nat
   | 0, n => n
   | top + 1, n =>
-    if fs[top]! == 1 then match top with
-      | t + 1 => g2CountArgs fs t (n + 1)
-      | 0 => n
-    else n
+    if fs[top]! &&& 15 == 1 then g2CountArgs fs top (n + 1) else n
 
 /-- The `j`-th argument cell from the top. -/
-@[inline] def g2ArgAt (fs : Array Nat) (j : Nat) : Nat := fs[fs.size - 2 - 2 * j]!
+@[inline] def g2ArgAt (fs : Array Nat) (j : Nat) : Nat := fs[fs.size - 1 - j]! >>> 4
 
 /-- Append the top `n` argument cells, first argument first. -/
 def g2CopyArgs (fs : Array Nat) (argA : Array Nat) : Nat → Nat → Array Nat
@@ -240,12 +317,19 @@ def g2CopyFrom (argA : Array Nat) (start : Nat) : Nat → Nat → Array Nat
   | 0, _ => argA
   | n + 1, j => g2CopyFrom (argA.push argA[start + j]!) start n (j + 1)
 
+/-- Extend with zeros to `n` entries, in place. -/
+def g2Grow (a : Array Nat) (n : Nat) : Array Nat :=
+  if a.size < n then g2GrowGo a (n - a.size) else a
+where g2GrowGo (a : Array Nat) : Nat → Array Nat
+  | 0 => a
+  | k + 1 => g2GrowGo (a.push 0) k
+
 @[inline] def g2SlotGet (slots : Array Nat) (s : Nat) : Nat :=
   if s < slots.size then slots[s]! else 0
 
 def g2SlotSet (slots : Array Nat) (s c : Nat) : Array Nat :=
   if s < slots.size then slots.set! s c
-  else (slots ++ Array.replicate (s + 1 - slots.size) 0).set! s c
+  else (g2Grow slots (max (s + 1) (2 * slots.size))).set! s c
 
 def g2PopN (fs : Array Nat) : Nat → Array Nat
   | 0 => fs
@@ -255,7 +339,12 @@ def g2PopN (fs : Array Nat) : Nat → Array Nat
 top. -/
 def g2PushArgs (argA : Array Nat) (start : Nat) (fs : Array Nat) : Nat → Array Nat
   | 0 => fs
-  | len + 1 => g2PushArgs argA start ((fs.push argA[start + len]!).push 1) len
+  | len + 1 => g2PushArgs argA start (fs.push (g2Tag argA[start + len]! 1)) len
+
+/-- A hash finalizer for slot selection (the low bits of `mixHash` over
+small integers cluster). -/
+@[inline] def g2Slot (h : UInt64) (size : Nat) : Nat :=
+  (((h * 0x9E3779B97F4A7C15) >>> 29) % size.toUInt64).toNat
 
 /-- The memo key's hash. -/
 def g2Hash (fs : Array Nat) (k : Nat) : Nat → Nat → UInt64 → UInt64
@@ -267,20 +356,49 @@ def g2SpanEq (fs argA : Array Nat) (start : Nat) : Nat → Nat → Bool
   | 0, _ => true
   | n + 1, j => argA[start + j]! == g2ArgAt fs j && g2SpanEq fs argA start n (j + 1)
 
-/-- Walk a memo chain for the entry `k` and the top `n` arguments; the
+/-- Probe the open-addressing memo table `mT` (a power-of-two size;
+`0` empty, `r + 1` record `r` of `mem`, stride 4 `[entry, argStart,
+argLen, cell]`) for the entry `k` and the top `n` arguments; the
 result cell, or `0`. -/
-def g2MemoFind (mem fs argA : Array Nat) (k n : Nat) : Nat → Nat → Nat
+def g2MemoFind (mem mT fs argA : Array Nat) (k n : Nat) : Nat → Nat → Nat
   | 0, _ => 0
-  | f + 1, r =>
+  | f + 1, i =>
+    let r := mT[i]!
     if r == 0 then 0 else
-    let b := 5 * (r - 1)
+    let b := g2X4 (r - 1)
     if mem[b]! == k && mem[b + 2]! == n && g2SpanEq fs argA mem[b + 1]! n 0 then mem[b + 3]!
-    else g2MemoFind mem fs argA k n f mem[b + 4]!
+    else g2MemoFind mem mT fs argA k n f ((i + 1) % mT.size)
 
-/-- Find the rule of constructor `c` among `n` rules from `base`. -/
-def g2FindRule (P : G2Prog) (c : Name) : Nat → Nat → Option Nat
-  | 0, _ => none
-  | n + 1, i => if P.rules[i]!.ctor == c then some i else g2FindRule P c n (i + 1)
+/-- The hash of a record's key, from its span. -/
+def g2HashSpan (argA : Array Nat) (start : Nat) : Nat → Nat → UInt64 → UInt64
+  | 0, _, h => h
+  | n + 1, j, h => g2HashSpan argA start n (j + 1) (mixHash h argA[start + j]!.toUInt64)
+
+/-- Put record `r` at the first empty slot from `i`. -/
+def g2Place (mT : Array Nat) (r : Nat) : Nat → Nat → Array Nat
+  | 0, _ => mT
+  | f + 1, i => if mT[i]! == 0 then mT.set! i (r + 1) else g2Place mT r f ((i + 1) % mT.size)
+
+/-- Re-insert records `0 … n-1` into a table of the given size. -/
+def g2Rehash (mem argA : Array Nat) (mT : Array Nat) : Nat → Nat → Array Nat
+  | 0, _ => mT
+  | f + 1, r =>
+    let b := g2X4 r
+    let h := g2HashSpan argA mem[b + 1]! mem[b + 2]! 0 (UInt64.ofNat mem[b]!)
+    g2Rehash mem argA (g2Place mT r mT.size (g2Slot h mT.size)) f (r + 1)
+
+/-- Insert record `r` (already in `mem`) under hash `h`, growing the
+table to keep it at most half full. -/
+def g2MemoIns (mem argA mT : Array Nat) (r : Nat) (h : UInt64) : Array Nat :=
+  let mT := if 2 * (r + 1) > mT.size then
+      g2Rehash mem argA (Array.replicate (2 * mT.size) 0) r 0 else mT
+  g2Place mT r mT.size (g2Slot h mT.size)
+
+/-- The rule of constructor name id `c` among `n` rules from `i`; the
+index past the rules if none. -/
+def g2FindRule (rNid : Array Nat) (c : Nat) : Nat → Nat → Nat
+  | 0, i => i
+  | n + 1, i => if rNid[i]! == c then i else g2FindRule rNid c n (i + 1)
 
 /-- The application memo switch (task #423 probe): `0` none, `1`
 recursor applications only, `2` recursors and definitions. -/
@@ -298,8 +416,8 @@ inductive G2Out where
 /-- **The machine.**  Modes: `0` evaluate node `pc` under `env`, `1`
 return value `x`, `2` enter cell `x`, `3` dispatch constant entry `x` (`pc = 1`: as a plain definition),
 `4` push the arguments of spine `pc` from the `x`-th down. -/
-def g2Run : Nat → G2Prog → (cel val ev fs argA slots mem : Array Nat) →
-    Std.HashMap UInt64 Nat → (mode pc env x st : Nat) → G2Out
+def g2Run : Nat → G2Prog → (cel val ev fs argA slots mem mH : Array Nat) →
+    (mode pc env x st : Nat) → G2Out
   | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, st => .abort "fuel" st
   | n + 1, P, cel, val, ev, fs, argA, slots, mem, mH, mode, pc, env, x, st =>
     match mode with
@@ -308,28 +426,28 @@ def g2Run : Nat → G2Prog → (cel val ev fs argA slots mem : Array Nat) →
       | 0 => g2Run n P cel val ev fs argA slots mem mH 2 0 0 (g2EnvGet ev env P.code[pc + 1]!) st
       | 1 => g2Run n P cel val ev fs argA slots mem mH 4 pc env P.code[pc + 2]! st
       | 2 =>
-        if fs.size > 0 && fs[fs.size - 1]! == 1 then
-          let c := fs[fs.size - 2]!
-          let e' := ev.size / 2 + 1
-          g2Run n P cel val ((ev.push c).push env) fs.pop.pop argA slots mem mH 0
+        if fs.size > 0 && fs[fs.size - 1]! &&& 15 == 1 then
+          let c := fs[fs.size - 1]! >>> 4
+          let e' := (ev.size >>> 1) + 1
+          g2Run n P cel val ((ev.push c).push env) fs.pop argA slots mem mH 0
             P.code[pc + 1]! e' 0 st
         else
-          let v := val.size / 4
+          let v := (val.size >>> 2)
           g2Run n P cel ((((val.push 0).push pc).push env).push 0) ev fs argA slots mem mH 1 0 0 v st
       | 3 =>
         -- `let`: the value as an argument cell, then the body
         let vo := P.code[pc + 1]!
-        let c := cel.size / 3
-        let e' := ev.size / 2 + 1
-        g2Run n P (((cel.push 0).push vo).push env) val ((ev.push c).push env) fs argA slots mem mH
+        let c := (cel.size >>> 2)
+        let e' := (ev.size >>> 1) + 1
+        g2Run n P ((((cel.push 0).push vo).push env).push 0) val ((ev.push c).push env) fs argA slots mem mH
           0 P.code[pc + 2]! e' 0 st
       | 4 => g2Run n P cel val ev fs argA slots mem mH 3 0 0 P.code[pc + 1]! (st + 1)
       | 5 =>
-        let v := val.size / 4
+        let v := (val.size >>> 2)
         g2Run n P cel ((((val.push 2).push P.code[pc + 1]!).push 0).push 0) ev fs argA slots mem mH
           1 0 0 v st
       | 6 =>
-        let v := val.size / 4
+        let v := (val.size >>> 2)
         g2Run n P cel ((((val.push 3).push P.code[pc + 1]!).push 0).push 0) ev fs argA slots mem mH
           1 0 0 v st
       | 7 => g2Run n P cel val ev ((fs.push P.code[pc + 1]!).push 4) argA slots mem mH 0
@@ -339,8 +457,8 @@ def g2Run : Nat → G2Prog → (cel val ev fs argA slots mem : Array Nat) →
         let c := g2SlotGet slots s
         if c != 0 then g2Run n P cel val ev fs argA slots mem mH 2 0 0 c st
         else
-          let c := cel.size / 3
-          g2Run n P (((cel.push 0).push P.code[pc + 2]!).push 0) val ev fs argA (g2SlotSet slots s c)
+          let c := (cel.size >>> 2)
+          g2Run n P ((((cel.push 0).push P.code[pc + 2]!).push 0).push 0) val ev fs argA (g2SlotSet slots s c)
             mem mH 2 0 0 c st
       | _ => g2Run n P cel val ev fs argA slots mem mH 1 0 0 0 st
     | 4 => -- push the spine's arguments, the last first
@@ -350,49 +468,50 @@ def g2Run : Nat → G2Prog → (cel val ev fs argA slots mem : Array Nat) →
         let ao := P.code[pc + 3 + j]!
         match P.code[ao]! with
         | 0 =>
-          g2Run n P cel val ev ((fs.push (g2EnvGet ev env P.code[ao + 1]!)).push 1) argA slots mem mH
+          g2Run n P cel val ev (fs.push (g2Tag (g2EnvGet ev env P.code[ao + 1]!) 1)) argA slots mem mH
             4 pc env j st
         | 2 =>
-          let v := val.size / 4
-          let c := cel.size / 3
-          g2Run n P (((cel.push (v + 2)).push ao).push env)
-            ((((val.push 0).push ao).push env).push 0) ev ((fs.push c).push 1) argA slots mem mH
+          let v := (val.size >>> 2)
+          let c := (cel.size >>> 2)
+          g2Run n P ((((cel.push (v + 2)).push ao).push env).push 0)
+            ((((val.push 0).push ao).push env).push 0) ev (fs.push (g2Tag c 1)) argA slots mem mH
             4 pc env j st
         | 5 =>
-          let v := val.size / 4
-          let c := cel.size / 3
-          g2Run n P (((cel.push (v + 2)).push ao).push 0)
-            ((((val.push 2).push P.code[ao + 1]!).push 0).push 0) ev ((fs.push c).push 1) argA
+          let v := (val.size >>> 2)
+          let c := (cel.size >>> 2)
+          g2Run n P ((((cel.push (v + 2)).push ao).push 0).push 0)
+            ((((val.push 2).push P.code[ao + 1]!).push 0).push 0) ev (fs.push (g2Tag c 1)) argA
             slots mem mH 4 pc env j st
-        | 8 => g2Run n P cel val ev ((fs.push 0).push 1) argA slots mem mH 4 pc env j st
+        | 8 => g2Run n P cel val ev (fs.push 1) argA slots mem mH 4 pc env j st
         | 4 => -- a constant: its entry's shared cell
           let s := P.kSlot[P.code[ao + 1]!]!
           let c := g2SlotGet slots s
           if c != 0 then
-            g2Run n P cel val ev ((fs.push c).push 1) argA slots mem mH 4 pc env j st
+            g2Run n P cel val ev (fs.push (g2Tag c 1)) argA slots mem mH 4 pc env j st
           else
-            let c := cel.size / 3
-            g2Run n P (((cel.push 0).push ao).push 0) val ev ((fs.push c).push 1) argA
+            let c := (cel.size >>> 2)
+            g2Run n P ((((cel.push 0).push ao).push 0).push 0) val ev (fs.push (g2Tag c 1)) argA
               (g2SlotSet slots s c) mem mH 4 pc env j st
         | 9 =>
           let s := P.code[ao + 1]!
           let c := g2SlotGet slots s
           if c != 0 then
-            g2Run n P cel val ev ((fs.push c).push 1) argA slots mem mH 4 pc env j st
+            g2Run n P cel val ev (fs.push (g2Tag c 1)) argA slots mem mH 4 pc env j st
           else
-            let c := cel.size / 3
-            g2Run n P (((cel.push 0).push P.code[ao + 2]!).push 0) val ev ((fs.push c).push 1) argA
+            let c := (cel.size >>> 2)
+            g2Run n P ((((cel.push 0).push P.code[ao + 2]!).push 0).push 0) val ev (fs.push (g2Tag c 1)) argA
               (g2SlotSet slots s c) mem mH 4 pc env j st
         | _ =>
-          let c := cel.size / 3
-          g2Run n P (((cel.push 0).push ao).push env) val ev ((fs.push c).push 1) argA slots mem mH
+          let c := (cel.size >>> 2)
+          g2Run n P ((((cel.push 0).push ao).push env).push 0) val ev (fs.push (g2Tag c 1)) argA slots mem mH
             4 pc env j st
     | 2 => -- enter a cell
-      let s := cel[3 * x]!
+      let s := cel[g2X4 x]!
       if s ≥ 2 then g2Run n P cel val ev fs argA slots mem mH 1 0 0 (s - 2) st
       else if s == 0 then
-        g2Run n P (cel.set! (3 * x) 1) val ev ((fs.push x).push 2) argA slots mem mH 0
-          cel[3 * x + 1]! cel[3 * x + 2]! 0 st
+        let co := cel[g2X4 x + 1]!
+        let ce := cel[g2X4 x + 2]!
+        g2Run n P (cel.set! (g2X4 x) 1) val ev (fs.push (g2Tag x 2)) argA slots mem mH 0 co ce 0 st
       else .abort "black hole" st
     | 3 => -- dispatch a constant
       let k := x
@@ -401,252 +520,263 @@ def g2Run : Nat → G2Prog → (cel val ev fs argA slots mem : Array Nat) →
       | 1 =>
         let na := g2CountArgs fs fs.size 0
         let start := argA.size
-        let v := val.size / 4
-        g2Run n P cel ((((val.push 1).push k).push start).push na) ev (g2PopN fs (2 * na))
-          (g2CopyArgs fs argA na 0) slots mem mH 1 0 0 v st
+        let v := (val.size >>> 2)
+        let argA := g2CopyArgs fs argA na 0
+        g2Run n P cel ((((val.push 1).push k).push start).push na) ev (g2PopN fs na)
+          argA slots mem mH 1 0 0 v st
       | 2 =>
-        match P.kInfo[k]! with
-        | .recr _ _ mI _ _ _ _ _ =>
+          let mI := P.kArity[k]!
           let na := g2CountArgs fs fs.size 0
           if na < mI + 1 then
             let start := argA.size
-            let v := val.size / 4
-            g2Run n P cel ((((val.push 4).push k).push start).push na) ev (g2PopN fs (2 * na))
-              (g2CopyArgs fs argA na 0) slots mem mH 1 0 0 v st
+            let v := (val.size >>> 2)
+            let argA := g2CopyArgs fs argA na 0
+            g2Run n P cel ((((val.push 4).push k).push start).push na) ev (g2PopN fs na)
+              argA slots mem mH 1 0 0 v st
           else
             let h := g2Hash fs k (mI + 1) 0 (UInt64.ofNat k)
-            let hit := if g2Memo ≥ 1 then g2MemoFind mem fs argA k (mI + 1) mem.size (mH.getD h 0)
-              else 0
+            let hit := if g2Memo ≥ 1 then
+                g2MemoFind mem mH fs argA k (mI + 1) mH.size (g2Slot h mH.size) else 0
             if hit != 0 then
-              g2Run n P cel val ev (g2PopN fs (2 * (mI + 1))) argA slots mem mH 2 0 0 hit st
+              g2Run n P cel val ev (g2PopN fs (mI + 1)) argA slots mem mH 2 0 0 hit st
             else
               let start := argA.size
               let argA := g2CopyArgs fs argA (mI + 1) 0
-              let fs := g2PopN fs (2 * (mI + 1))
-              let r := cel.size / 3
-              let (mem, mH) := if g2Memo ≥ 1 then
-                  let rec_ := mem.size / 5 + 1
-                  (((((mem.push k).push start).push (mI + 1)).push r).push (mH.getD h 0),
-                   mH.insert h rec_)
-                else (mem, mH)
-              g2Run n P (((cel.push 1).push 0).push 0) val ev
-                ((((((fs.push r).push 2).push k).push start).push (mI + 1)).push 3) argA slots
-                mem mH 2 0 0 argA[start + mI]! st
-        | _ => .abort "rec info" st
+              let fs := g2PopN fs (mI + 1)
+              let r := (cel.size >>> 2)
+              let maj := argA[start + mI]!
+              let rr := (mem.size >>> 2)
+              let mem := if g2Memo ≥ 1 then (((mem.push k).push start).push (mI + 1)).push r else mem
+              let mH := if g2Memo ≥ 1 then g2MemoIns mem argA mH rr h else mH
+              g2Run n P ((((cel.push 1).push 0).push 0).push 0) val ev
+                (((((fs.push (g2Tag r 2)).push k).push start).push (mI + 1)).push 3) argA slots
+                mem mH 2 0 0 maj st
       | 5 =>
         let na := g2CountArgs fs fs.size 0
-        g2Run n P cel val ev (g2PopN fs (2 * na)) argA slots mem mH 1 0 0 0 st
+        g2Run n P cel val ev (g2PopN fs na) argA slots mem mH 1 0 0 0 st
       | t =>
         -- a definition; tags 3 and 4 try literal acceleration first
         let na := g2CountArgs fs fs.size 0
         if (t == 3 || t == 4) && na == 2 then
           let a := g2ArgAt fs 0
           let b := g2ArgAt fs 1
-          g2Run n P cel val ev ((((((g2PopN fs 4).push k).push a).push b).push (if t == 3 then 5 else 15)))
+          g2Run n P cel val ev ((((((g2PopN fs 2).push k).push a).push b).push (if t == 3 then 5 else 8)))
             argA slots mem mH 2 0 0 a st
         else if t == 3 && na < 2 then
           let start := argA.size
-          let v := val.size / 4
-          g2Run n P cel ((((val.push 4).push k).push start).push na) ev (g2PopN fs (2 * na))
-            (g2CopyArgs fs argA na 0) slots mem mH 1 0 0 v st
+          let v := (val.size >>> 2)
+          let argA := g2CopyArgs fs argA na 0
+          g2Run n P cel ((((val.push 4).push k).push start).push na) ev (g2PopN fs na)
+            argA slots mem mH 1 0 0 v st
         else
-          -- δ: the compiled body, memoised on the argument cells
-          let (body, P) :=
-            if P.kCode[k]! != 0 then (P.kCode[k]! - 1, P) else
+          -- δ: the compiled body (compiled on first use, then the
+          -- dispatch is repeated), memoised on the argument cells
+          if P.kCode[k]! == 0 then
             match P.kInfo[k]! with
             | .defn _ lps us v =>
               let (o, P) := g2Comp find? findProj? g2CompFuel P (v.instantiateLevelParams lps us)
-              (o, { P with kCode := P.kCode.set! k (o + 1) })
-            | _ => (0, P)
+              let P := let kc := P.kCode; let P := { P with kCode := #[] }
+                { P with kCode := kc.set! k (o + 1) }
+              g2Run n P cel val ev fs argA slots mem mH 3 pc env k st
+            | _ => .abort "defn info" st
+          else
+          let body := P.kCode[k]! - 1
           if g2Memo ≥ 2 && na > 0 then
             let h := g2Hash fs k na 0 (UInt64.ofNat k)
-            let hit := g2MemoFind mem fs argA k na mem.size (mH.getD h 0)
+            let hit := g2MemoFind mem mH fs argA k na mH.size (g2Slot h mH.size)
             if hit != 0 then
-              g2Run n P cel val ev (g2PopN fs (2 * na)) argA slots mem mH 2 0 0 hit st
+              g2Run n P cel val ev (g2PopN fs na) argA slots mem mH 2 0 0 hit st
             else
               let start := argA.size
               let argA := g2CopyArgs fs argA na 0
-              let fs := g2PopN fs (2 * na)
-              let r := cel.size / 3
-              let rec_ := mem.size / 5 + 1
-              let mem := ((((mem.push k).push start).push na).push r).push (mH.getD h 0)
-              let mH := mH.insert h rec_
-              g2Run n P (((cel.push 1).push 0).push 0) val ev
-                (g2PushArgs argA start ((fs.push r).push 2) na) argA slots mem mH 0 body 0 0 st
+              let fs := g2PopN fs na
+              let r := (cel.size >>> 2)
+              let rr := (mem.size >>> 2)
+              let mem := (((mem.push k).push start).push na).push r
+              let mH := g2MemoIns mem argA mH rr h
+              g2Run n P ((((cel.push 1).push 0).push 0).push 0) val ev
+                (g2PushArgs argA start (fs.push (g2Tag r 2)) na) argA slots mem mH 0 body 0 0 st
           else g2Run n P cel val ev fs argA slots mem mH 0 body 0 0 st
     | _ => -- return value `x`
       let v := x
       if fs.size == 0 then .done v val P st n else
-      match fs[fs.size - 1]! with
+      match fs[fs.size - 1]! &&& 15 with
       | 2 =>
-        let c := fs[fs.size - 2]!
-        g2Run n P (cel.set! (3 * c) (v + 2)) val ev fs.pop.pop argA slots mem mH 1 0 0 v st
+        let c := fs[fs.size - 1]! >>> 4
+        g2Run n P (cel.set! (g2X4 c) (v + 2)) val ev fs.pop argA slots mem mH 1 0 0 v st
       | 1 =>
-        let c := fs[fs.size - 2]!
-        match val[4 * v]! with
+        let c := fs[fs.size - 1]! >>> 4
+        match val[g2X4 v]! with
         | 0 =>
-          let e' := ev.size / 2 + 1
-          g2Run n P cel val ((ev.push c).push val[4 * v + 2]!) fs.pop.pop argA slots mem mH 0
-            P.code[val[4 * v + 1]! + 1]! e' 0 st
+          let e' := (ev.size >>> 1) + 1
+          g2Run n P cel val ((ev.push c).push val[g2X4 v + 2]!) fs.pop argA slots mem mH 0
+            P.code[val[g2X4 v + 1]! + 1]! e' 0 st
         | 1 =>
           let na := g2CountArgs fs fs.size 0
           let start := argA.size
-          let len := val[4 * v + 3]!
-          let argA := g2CopyArgs fs (g2CopyFrom argA val[4 * v + 2]! len 0) na 0
-          let w := val.size / 4
-          g2Run n P cel ((((val.push 1).push val[4 * v + 1]!).push start).push (len + na)) ev
-            (g2PopN fs (2 * na)) argA slots mem mH 1 0 0 w st
+          let len := val[g2X4 v + 3]!
+          let argA := g2CopyArgs fs (g2CopyFrom argA val[g2X4 v + 2]! len 0) na 0
+          let w := (val.size >>> 2)
+          let kc := val[g2X4 v + 1]!
+          g2Run n P cel ((((val.push 1).push kc).push start).push (len + na)) ev
+            (g2PopN fs na) argA slots mem mH 1 0 0 w st
         | 4 =>
-          g2Run n P cel val ev (g2PushArgs argA val[4 * v + 2]! fs val[4 * v + 3]!) argA slots mem mH
-            3 0 0 val[4 * v + 1]! st
+          g2Run n P cel val ev (g2PushArgs argA val[g2X4 v + 2]! fs val[g2X4 v + 3]!) argA slots mem mH
+            3 0 0 val[g2X4 v + 1]! st
         | _ =>
           let na := g2CountArgs fs fs.size 0
-          g2Run n P cel val ev (g2PopN fs (2 * na)) argA slots mem mH 1 0 0 0 st
+          g2Run n P cel val ev (g2PopN fs na) argA slots mem mH 1 0 0 0 st
       | 3 =>
         let _len := fs[fs.size - 2]!
         let start := fs[fs.size - 3]!
         let k := fs[fs.size - 4]!
-        match val[4 * v]! with
+        match val[g2X4 v]! with
         | 2 =>
           if !P.natOk then .abort "nat literal" st else
-          let m := val[4 * v + 1]!
+          let m := val[g2X4 v + 1]!
           match m with
           | 0 =>
-            let w := val.size / 4
+            let w := (val.size >>> 2)
             g2Run n P cel ((((val.push 1).push P.kZero).push 0).push 0) ev fs argA slots mem mH
               1 0 0 w st
           | m + 1 =>
-            let c := cel.size / 3
-            let u := val.size / 4
+            let c := (cel.size >>> 2)
+            let u := (val.size >>> 2)
             let w := u + 1
             let sa := argA.size
-            g2Run n P (((cel.push (u + 2)).push 0).push 0)
+            g2Run n P ((((cel.push (u + 2)).push 0).push 0).push 0)
               ((((((((val.push 2).push m).push 0).push 0).push 1).push P.kSucc).push sa).push 1)
               ev fs (argA.push c) slots mem mH 1 0 0 w st
         | 3 =>
           if !P.strOk then .abort "string literal" st else
-          let (o, P) := g2Comp find? findProj? g2CompFuel P (strLitToConstructor P.strs[val[4 * v + 1]!]!)
+          let sE := strLitToConstructor P.strs[val[g2X4 v + 1]!]!
+          let (o, P) := g2Comp find? findProj? g2CompFuel P sE
           g2Run n P cel val ev fs argA slots mem mH 0 o 0 0 st
         | 1 =>
-          let kc := val[4 * v + 1]!
-          match P.kInfo[k]!, P.kInfo[kc]! with
-          | .recr lps us mI rP base nr _ _, .ctor cname _ _ _ =>
-            match g2FindRule P cname nr base with
-            | some ri =>
-              let rl := P.rules[ri]!
-              let margs := val[4 * v + 3]!
-              let ms := val[4 * v + 2]!
-              if margs != rl.ctorParams + rl.nfields then .abort "ctor arity" st
-              else if rl.case3 then .abort "case 3" st
-              else
-                let (rhs, P) :=
-                  if P.ruleCode[ri]! != 0 then (P.ruleCode[ri]! - 1, P) else
-                  let (o, P) := g2Comp find? findProj? g2CompFuel P
-                    (rl.rhs.instantiateLevelParams lps us)
-                  (o, { P with ruleCode := P.ruleCode.set! ri (o + 1) })
-                let fs := g2PopN fs 4
-                let fs := g2PushArgs argA (ms + rl.ctorParams) fs rl.nfields
-                let fs := g2PushArgs argA start fs rP
-                let _ := mI
-                g2Run n P cel val ev fs argA slots mem mH 0 rhs 0 0 st
-            | none => .abort "no rule" st
-          | _, _ => .abort "iota info" st
+          let kc := val[g2X4 v + 1]!
+          let base := P.kC[k]!
+          let nr := P.kD[k]!
+          let ri := g2FindRule P.rNid P.kB[kc]! nr base
+          if P.kTag[kc]! != 1 || ri == base + nr then .abort "no rule" st else
+          let nf := P.rNF[ri]!
+          let cp := P.rCP[ri]!
+          let ms := val[g2X4 v + 2]!
+          if val[g2X4 v + 3]! != cp + nf then .abort "ctor arity" st
+          else if P.rC3[ri]! != 0 then .abort "case 3" st
+          else if P.ruleCode[ri]! == 0 then
+            -- compile the rule's right-hand side, then return again
+            match P.kInfo[k]! with
+            | .recr lps us _ _ _ _ _ _ =>
+              let rhsE := P.rules[ri]!.rhs.instantiateLevelParams lps us
+              let (o, P) := g2Comp find? findProj? g2CompFuel P rhsE
+              let P := let rc := P.ruleCode; let P := { P with ruleCode := #[] }
+                { P with ruleCode := rc.set! ri (o + 1) }
+              g2Run n P cel val ev fs argA slots mem mH 1 0 0 v st
+            | _ => .abort "iota info" st
+          else
+            let rhs := P.ruleCode[ri]! - 1
+            let rP := P.kB[k]!
+            let fs := g2PopN fs 4
+            let fs := g2PushArgs argA (ms + cp) fs nf
+            let fs := g2PushArgs argA start fs rP
+            g2Run n P cel val ev fs argA slots mem mH 0 rhs 0 0 st
         | 5 =>
-          match P.kInfo[k]! with
-          | .recr _ _ _ _ _ _ kK kEta =>
-            if kK then .abort "K major" st
-            else if kEta then .abort "struct-eta major" st
-            else g2Run n P cel val ev (g2PopN fs 4) argA slots mem mH 1 0 0 0 st
-          | _ => .abort "iota info" st
+          let fl := P.kE[k]!
+          if fl % 2 == 1 then .abort "K major" st
+          else if fl / 2 % 2 == 1 then .abort "struct-eta major" st
+          else g2Run n P cel val ev (g2PopN fs 4) argA slots mem mH 1 0 0 0 st
         | _ => g2Run n P cel val ev (g2PopN fs 4) argA slots mem mH 1 0 0 0 st
       | 4 =>
         let pi := fs[fs.size - 2]!
         let fs := fs.pop.pop
         if pi == 0 then g2Run n P cel val ev fs argA slots mem mH 1 0 0 0 st else
-        let pj := P.projs[pi - 1]!
-        match val[4 * v]! with
+        let q := pi - 1
+        match val[g2X4 v]! with
         | 1 =>
-          let kc := val[4 * v + 1]!
-          let len := val[4 * v + 3]!
-          match P.kInfo[kc]! with
-          | .ctor cname us _ _ =>
-            if cname == pj.ctor && pj.idx < pj.numFields && len == pj.numParams + pj.numFields &&
-                len ≤ P.kArity[kc]! && us.length == pj.nlps &&
-                (pj.always || pj.entry.fireOk us) then
-              g2Run n P cel val ev fs argA slots mem mH 2 0 0
-                argA[val[4 * v + 2]! + pj.numParams + pj.idx]! st
-            else .abort "proj shape" st
-          | _ => .abort "proj ctor" st
+          let kc := val[g2X4 v + 1]!
+          let len := val[g2X4 v + 3]!
+          let np := P.pNP[q]!
+          let idx := P.pIdx[q]!
+          if P.kTag[kc]! == 1 && P.kB[kc]! == P.pNid[q]! && idx < P.pNF[q]! &&
+              len == np + P.pNF[q]! && len ≤ P.kArity[kc]! && P.kD[kc]! == P.pNl[q]! &&
+              (P.pAlw[q]! == 1 || (match P.kInfo[kc]! with
+                | .ctor _ us _ _ => P.projs[q]!.entry.fireOk us
+                | _ => false)) then
+            g2Run n P cel val ev fs argA slots mem mH 2 0 0 argA[val[g2X4 v + 2]! + np + idx]! st
+          else .abort "proj shape" st
         | 3 =>
           if !P.strOk then .abort "string literal" st else
-          let (o, P) := g2Comp find? findProj? g2CompFuel P (strLitToConstructor P.strs[val[4 * v + 1]!]!)
+          let sE := strLitToConstructor P.strs[val[g2X4 v + 1]!]!
+          let (o, P) := g2Comp find? findProj? g2CompFuel P sE
           g2Run n P cel val ev ((fs.push pi).push 4) argA slots mem mH 0 o 0 0 st
         | _ => g2Run n P cel val ev fs argA slots mem mH 1 0 0 0 st
       | 7 =>
-        match val[4 * v]! with
+        match val[g2X4 v]! with
         | 2 =>
-          let w := val.size / 4
-          g2Run n P cel ((((val.push 2).push (val[4 * v + 1]! + 1)).push 0).push 0) ev fs.pop
+          let w := (val.size >>> 2)
+          let m := val[g2X4 v + 1]!
+          g2Run n P cel ((((val.push 2).push (m + 1)).push 0).push 0) ev fs.pop
             argA slots mem mH 1 0 0 w st
         | 1 =>
-          let kc := val[4 * v + 1]!
-          if kc == P.kZero && val[4 * v + 3]! == 0 then
-            let w := val.size / 4
+          let kc := val[g2X4 v + 1]!
+          if kc == P.kZero && val[g2X4 v + 3]! == 0 then
+            let w := (val.size >>> 2)
             g2Run n P cel ((((val.push 2).push 1).push 0).push 0) ev fs.pop argA slots mem mH 1 0 0 w st
-          else if kc == P.kSucc && val[4 * v + 3]! == 1 then
-            g2Run n P cel val ev (fs.push 7) argA slots mem mH 2 0 0 argA[val[4 * v + 2]!]! st
+          else if kc == P.kSucc && val[g2X4 v + 3]! == 1 then
+            g2Run n P cel val ev (fs.push 7) argA slots mem mH 2 0 0 argA[val[g2X4 v + 2]!]! st
           else g2Run n P cel val ev fs.pop argA slots mem mH 1 0 0 0 st
         | _ => g2Run n P cel val ev fs.pop argA slots mem mH 1 0 0 0 st
       | t =>
         -- literal acceleration: `[k, a, b, 5|15]` reads the first
         -- argument, `[k, n₁, a, b, 6|16]` the second
-        let first := t == 5 || t == 15
-        let wf := t == 15 || t == 16
-        let lit? : Option Nat ⊕ Nat := match val[4 * v]! with
-          | 2 => .inl (some val[4 * v + 1]!)
-          | 1 =>
-            let kc := val[4 * v + 1]!
-            if kc == P.kZero && val[4 * v + 3]! == 0 then .inl (some 0)
-            else if kc == P.kSucc && val[4 * v + 3]! == 1 then .inr argA[val[4 * v + 2]!]!
-            else .inl none
-          | _ => .inl none
-        match lit? with
-        | .inr cellT => g2Run n P cel val ev (fs.push 7) argA slots mem mH 2 0 0 cellT st
-        | .inl (some m) =>
+        let first := t == 5 || t == 8
+        let wf := t == 8 || t == 9
+        -- the reading: `0` a literal `m`, `1` a `Nat.succ` of cell `m`, `2` none
+        let tg := val[g2X4 v]!
+        let kc := val[g2X4 v + 1]!
+        let rd : Nat := if tg == 2 then 0
+          else if tg == 1 && kc == P.kZero && val[g2X4 v + 3]! == 0 then 0
+          else if tg == 1 && kc == P.kSucc && val[g2X4 v + 3]! == 1 then 1 else 2
+        let m : Nat := if tg == 2 then kc else if rd == 0 then 0
+          else if rd == 1 then argA[val[g2X4 v + 2]!]! else 0
+        match rd with
+        | 1 => g2Run n P cel val ev (fs.push 7) argA slots mem mH 2 0 0 m st
+        | 0 =>
           if first then
             let b := fs[fs.size - 2]!
             let a := fs[fs.size - 3]!
             let k := fs[fs.size - 4]!
             let fs := g2PopN fs 4
-            g2Run n P cel val ev (((((fs.push k).push m).push a).push b).push (if wf then 16 else 6))
+            g2Run n P cel val ev (((((fs.push k).push m).push a).push b).push (if wf then 9 else 6))
               argA slots mem mH 2 0 0 b st
           else
             let k := fs[fs.size - 5]!
             let m₁ := fs[fs.size - 4]!
             let fs := g2PopN fs 5
             if wf then .abort "wf nat op" st else
-            match P.kInfo[k]! with
-            | .defn c _ _ _ =>
-              match natOpResult c m₁ m with
-              | some (.lit (.natVal r)) =>
-                let w := val.size / 4
-                g2Run n P cel ((((val.push 2).push r).push 0).push 0) ev fs argA slots mem mH
-                  1 0 0 w st
-              | some (.const c []) =>
-                let kb := if c == boolTrueName then P.kTrue else P.kFalse
-                let w := val.size / 4
-                g2Run n P cel ((((val.push 1).push kb).push 0).push 0) ev fs argA slots mem mH
-                  1 0 0 w st
-              | _ => .abort "nat op" st
-            | _ => .abort "nat op info" st
-        | .inl none =>
+            let op := P.kE[k]!
+            match g2NatKind op m with
+            | 0 =>
+              let w := (val.size >>> 2)
+              g2Run n P cel ((((val.push 2).push (g2NatVal op m₁ m)).push 0).push 0) ev fs argA slots
+                mem mH 1 0 0 w st
+            | 1 =>
+              let kb := if g2NatVal op m₁ m == 1 then P.kTrue else P.kFalse
+              let w := (val.size >>> 2)
+              g2Run n P cel ((((val.push 1).push kb).push 0).push 0) ev fs argA slots mem mH
+                1 0 0 w st
+            | _ =>
+              -- no result (the exponent bound; the incumbent unfolds `Nat.pow`)
+              .abort "nat pow bound" st
+        | _ =>
           -- no literal: unfold the operation (`reduceNat` fails, δ)
-          let (k, a, b, fs) :=
-            if first then (fs[fs.size - 4]!, fs[fs.size - 3]!, fs[fs.size - 2]!, g2PopN fs 4)
-            else (fs[fs.size - 5]!, fs[fs.size - 3]!, fs[fs.size - 2]!, g2PopN fs 5)
+          let k := fs[fs.size - (if first then 4 else 5)]!
+          let a := fs[fs.size - 3]!
+          let b := fs[fs.size - 2]!
+          let fs := g2PopN fs (if first then 4 else 5)
           -- the operation's tag is 3 or 4; dispatch it as a plain definition
           g2Run n P cel val ev
-            ((((fs.push b).push 1).push a).push 1) argA slots mem mH 3 1 0 k st
+            ((fs.push (g2Tag b 1)).push (g2Tag a 1)) argA slots mem mH 3 1 0 k st
 end
 
 end ConLeche.Cached
@@ -666,12 +796,12 @@ def ground2BoolCore (find? : Name → Option ConstantInfo)
   let (kS, P) := g2Resolve find? P natSuccName []
   let P := { P with kTrue := kT, kFalse := kF, kZero := kZ, kSucc := kS }
   let (o, P) := g2Comp find? findProj? g2CompFuel P e
-  match g2Run find? findProj? groundFuel P #[2, 0, 0] #[5, 0, 0, 0] #[] #[] #[] #[] #[] {}
-      0 o 0 0 0 with
+  match g2Run find? findProj? groundFuel P #[2, 0, 0, 0] #[5, 0, 0, 0] #[] #[] #[] #[] #[]
+      (Array.replicate 1024 0) 0 o 0 0 0 with
   | .done v val P st left =>
     let tr := groundFuel - left
-    if val[4 * v]! == 1 && val[4 * v + 3]! == 0 then
-      let k := val[4 * v + 1]!
+    if val[g2X4 v]! == 1 && val[g2X4 v + 3]! == 0 then
+      let k := val[g2X4 v + 1]!
       if k == P.kTrue then (some true, (st, tr), "")
       else if k == P.kFalse then (some false, (st, tr), "")
       else (none, (st, tr), "not a Bool")
