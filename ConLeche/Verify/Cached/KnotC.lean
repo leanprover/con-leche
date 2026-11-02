@@ -64,6 +64,14 @@ theorem CSOK.whnfCore_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
   exact ⟨⟨F, hrun⟩, whnfCore_WScoped henv F hrun hw⟩
 grind_pattern [conleche_grind] CSOK.whnfCore_hit =>
   CSOK mode env s, s.whnfCoreC[i]?, Runs ((fueledFns mode env).whnfCore false d i) r
+-- con-agua patch (nightly-2026-10-06+, lean4#15487): `vcgen` now splits the
+-- postcondition's `∧`, so the `WScoped` VC no longer contains the `Runs` term
+-- that triggers `CSOK.whnfCore_hit`; this conjunct gets its own trigger.
+theorem CSOK.whnfCore_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode env s) (hl : s.whnfCoreC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := (CSOK.whnfCore_hit henv hs hl hw).2
+grind_pattern [conleche_grind] CSOK.whnfCore_hit_ws =>
+  CSOK mode env s, s.whnfCoreC[i]?, Expr.WScoped d r
 
 /-- A cheap whnfCore memo hit answers the fueled cheap whnfCore. -/
 theorem CSOK.whnfCoreCheap_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
@@ -74,6 +82,14 @@ theorem CSOK.whnfCoreCheap_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : 
   exact ⟨⟨F, hrun⟩, whnfCore_WScoped henv F hrun hw⟩
 grind_pattern [conleche_grind] CSOK.whnfCoreCheap_hit =>
   CSOK mode env s, s.whnfCoreCheapC[i]?, Runs ((fueledFns mode env).whnfCore true d i) r
+-- con-agua patch (nightly-2026-10-06+, lean4#15487): `vcgen` now splits the
+-- postcondition's `∧`, so the `WScoped` VC no longer contains the `Runs` term
+-- that triggers `CSOK.whnfCoreCheap_hit`; this conjunct gets its own trigger.
+theorem CSOK.whnfCoreCheap_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode env s) (hl : s.whnfCoreCheapC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := (CSOK.whnfCoreCheap_hit henv hs hl hw).2
+grind_pattern [conleche_grind] CSOK.whnfCoreCheap_hit_ws =>
+  CSOK mode env s, s.whnfCoreCheapC[i]?, Expr.WScoped d r
 
 /-- A body answer is a whnfCore answer one fuel up. -/
 theorem Runs.whnfCore_of_body {c : Bool} {d : Nat} {i r : Expr}
@@ -140,6 +156,14 @@ theorem CSOK.whnf_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
   exact ⟨⟨F, hrun⟩, whnf_WScoped henv F hrun hw⟩
 grind_pattern [conleche_grind] CSOK.whnf_hit =>
   CSOK mode env s, s.whnfC[i]?, Runs ((fueledFns mode env).whnf d i) r
+-- con-agua patch (nightly-2026-10-06+, lean4#15487): `vcgen` now splits the
+-- postcondition's `∧`, so the `WScoped` VC no longer contains the `Runs` term
+-- that triggers `CSOK.whnf_hit`; this conjunct gets its own trigger.
+theorem CSOK.whnf_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode env s) (hl : s.whnfC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := (CSOK.whnf_hit henv hs hl hw).2
+grind_pattern [conleche_grind] CSOK.whnf_hit_ws =>
+  CSOK mode env s, s.whnfC[i]?, Expr.WScoped d r
 
 /-- A body answer is a whnf answer one fuel up. -/
 theorem Runs.whnf_of_body {d : Nat} {i r : Expr}
@@ -192,6 +216,14 @@ theorem CSOK.infer_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
   exact ⟨⟨F, hrun⟩, inferTypeCore_WScoped henv F hrun hw⟩
 grind_pattern [conleche_grind] CSOK.infer_hit =>
   CSOK mode env s, s.inferC[i]?, Runs ((fueledFns mode env).infer d i) r
+-- con-agua patch (nightly-2026-10-06+, lean4#15487): `vcgen` now splits the
+-- postcondition's `∧`, so the `WScoped` VC no longer contains the `Runs` term
+-- that triggers `CSOK.infer_hit`; this conjunct gets its own trigger.
+theorem CSOK.infer_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode env s) (hl : s.inferC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := (CSOK.infer_hit henv hs hl hw).2
+grind_pattern [conleche_grind] CSOK.infer_hit_ws =>
+  CSOK mode env s, s.inferC[i]?, Expr.WScoped d r
 
 /-- A body answer is an infer answer one fuel up. -/
 theorem Runs.infer_of_body {d : Nat} {i r : Expr}
@@ -249,6 +281,14 @@ theorem CSOK.inferIO_hit (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
   exact ⟨⟨F, hrun⟩, inferTypeIO_WScoped henv F hrun hw⟩
 grind_pattern [conleche_grind] CSOK.inferIO_hit =>
   CSOK mode env s, s.inferIOC[i]?, Runs ((fueledFns mode env).inferIO d i) r
+-- con-agua patch (nightly-2026-10-06+, lean4#15487): `vcgen` now splits the
+-- postcondition's `∧`, so the `WScoped` VC no longer contains the `Runs` term
+-- that triggers `CSOK.inferIO_hit`; this conjunct gets its own trigger.
+theorem CSOK.inferIO_hit_ws (henv : EnvWF env) {s : CState} {d : Nat} {i r : Expr}
+    (hs : CSOK mode env s) (hl : s.inferIOC[i]? = some r) (hw : Expr.WScoped d i) :
+    Expr.WScoped d r := (CSOK.inferIO_hit henv hs hl hw).2
+grind_pattern [conleche_grind] CSOK.inferIO_hit_ws =>
+  CSOK mode env s, s.inferIOC[i]?, Expr.WScoped d r
 
 /-- An io body answer is an io-slot answer one fuel up. -/
 theorem Runs.inferIO_of_body {d : Nat} {i r : Expr}

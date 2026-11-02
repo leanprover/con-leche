@@ -6,7 +6,7 @@ import ConLeche.Verify.Cached.KnotCongr
 *defined* through it and `slotIs_spec` needs its body (`k ()`), which
 `import all` makes visible in this module only (the `Init.Util`
 exception CLAUDE.md lists). -/
-import all Init.Util
+public import ConLeche.Util.PtrEq
 
 /-!
 # The parallel install's commit step (task #329)
@@ -221,7 +221,7 @@ structural comparison, which is what it means logically
 (`slotIs_spec`). -/
 def slotIs (S : Slots) (k j : Nat) (ci : ConstantInfo) : Bool :=
   match slotGet S k j with
-  | some ci' => withPtrEq ci' ci (fun _ => decide (ci' = ci)) (fun h => by simp [h])
+  | some ci' => ConLeche.withPtrEq ci' ci (fun _ => decide (ci' = ci)) (fun h => by simp [h])
   | none => false
 
 theorem slotIs_spec {S : Slots} {k j : Nat} {ci : ConstantInfo}

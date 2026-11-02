@@ -9,7 +9,7 @@ body visible **in this module only**; those theorems are the public
 relays, so no importer needs it, and the executed `Level.beq` and
 `Expr.beq` stay the plain `decide (· = ·)` that the kernel can still
 reduce. -/
-import all Init.Util
+public import ConLeche.Util.PtrEq
 
 /-!
 # Kernel expressions
@@ -62,7 +62,7 @@ the cached **hash** and the **pointer** before the structural walk —
 implementation of `Level.beq`; `Level.beqPtr_eq` proves both guards
 redundant. -/
 @[inline] def Level.beqPtr (a b : Level) : Bool :=
-  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+  ConLeche.withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
     (fun h => by subst h; simp)
 
 /-- Both guards are redundant (see `Name.beqPtr_eq`). -/
@@ -742,7 +742,7 @@ continuation's result does not depend on the address — is then
 /-- Identity, decided: the pointer test at runtime, the derived
 structural decision in the pure model. -/
 @[inline] def ptrDec (a b : Expr) : Decidable (a = b) :=
-  withPtrEqDecEq a b (fun _ => instDecidableEqExpr a b)
+  withPtrEqDecEq ConLeche.withPtrEq (fun _ _ _ _ => rfl) a b (fun _ => instDecidableEqExpr a b)
 
 /-- Does the entry at `key` identify the pair `(a, b)`?  The stored
 addresses are the filter; the stored objects, tested by identity, are
@@ -948,7 +948,7 @@ def beqDec (a b : Expr) : Decidable (a = b) :=
 memoised descent.  The implementation of `beq`; `beqMemo_eq` proves
 it is `decide (a = b)`. -/
 @[inline] def beqMemo (a b : Expr) : Bool :=
-  withPtrEq a b (fun _ => if a.data == b.data then @decide (a = b) (beqDec a b) else false)
+  ConLeche.withPtrEq a b (fun _ => if a.data == b.data then @decide (a = b) (beqDec a b) else false)
     (fun h => by subst h; simp)
 
 /-- The executed equality is the specification: `withPtrEq a b k h`

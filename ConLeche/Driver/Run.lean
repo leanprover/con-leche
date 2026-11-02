@@ -188,8 +188,10 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- process exits right after.  `--no-mark-persistent` turns it off,
     -- which is how the A/B above is measured on the shipped binary.
     if !noMark then
-      let _ ← unsafe Runtime.markPersistent fe
-      let _ ← unsafe Runtime.markPersistent pend
+      -- (nightly toolchain: an `unsafe` term over local types needs a
+      -- `Nonempty` instance of its abstracted type; `BaseIO Unit` has one)
+      unsafe (Runtime.markPersistent fe *> pure ())
+      unsafe (Runtime.markPersistent pend *> pure ())
     let tMark ← IO.monoMsNow
     heartbeat s!"persistent mark {secs (tMark - tCheck)}s"
     let workers := max 1 (min jobs pend.size)

@@ -892,7 +892,7 @@ theorem iotaRecC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
       iotaCertGate_of hμ, → EnvWF.rules_ok henv] =>
     vcgen [iotaRecI_eq, certAtI, mkAppNM, prepareMajorC_spec hμ ih,
       iotaCertC_spec ih henv (mode := mode) (env := env),
-      ruleRhsAtM_spec (mode := mode) (env := env)] <;> finish
+      ruleRhsAtM_spec (mode := mode) (env := env)] <;> finish [Expr.WScoped.of_not_hasFvar]
 
 end Walks
 

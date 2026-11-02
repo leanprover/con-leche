@@ -912,7 +912,10 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
       -- the main thread is waiting here, and the other shard tasks touch
       -- only the names of their own shards.
       if noMark then Runtime.markMultiThreaded r
-      else unsafe Runtime.markPersistent r)
+      -- (nightly toolchain: an `unsafe` term over local types needs a
+      -- `Nonempty` instance of its abstracted type; `BaseIO Unit` has one,
+      -- and the mark is the identity on `r`)
+      else do unsafe (Runtime.markPersistent r *> pure ()); pure r)
   let mut shards : Array (Cached.BuiltShard slots offs buckets) := Array.mkEmpty parts
   for t in shardTasks do
     shards := shards.push (← IO.ofExcept (← IO.wait t))

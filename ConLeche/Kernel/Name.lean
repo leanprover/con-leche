@@ -7,7 +7,7 @@ is that it is *definitionally* `k ()` — which is what
 this module only**; that theorem is the public relay, so no importer
 needs it, and the executed `Name.beq` stays the plain
 `decide (· = ·)` that the kernel can still reduce. -/
-import all Init.Util
+public import ConLeche.Util.PtrEq
 
 /-!
 # Hierarchical names
@@ -55,7 +55,7 @@ instance : Hashable Name := ⟨Name.hashData⟩
 *implementation* of `Name.beq`; `Name.beqPtr_eq` proves the two guards
 redundant. -/
 @[inline] def Name.beqPtr (a b : Name) : Bool :=
-  withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
+  ConLeche.withPtrEq a b (fun _ => a.hashData == b.hashData && decide (a = b))
     (fun h => by subst h; simp)
 
 /-- Both guards are redundant: `withPtrEq a b k h` is *defined* as
