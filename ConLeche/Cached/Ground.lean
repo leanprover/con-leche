@@ -51,7 +51,7 @@ is the difference). -/
 
 /-- A weak head value of the ground machine. -/
 inductive GVal where
-  /-- a λ-closure: the λ's domain and body, under an environment -/
+  /-- a closure: a lambda's domain and body, under an environment -/
   | lam (env : List Nat) (ty body : Expr)
   /-- a constructor applied to (heap addresses of) its arguments,
   parameters included -/

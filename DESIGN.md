@@ -107165,3 +107165,407 @@ universe-valued type arguments, quotients, polymorphic `F`.  Not wired:
 the install gate's capability bit and invariant and the bridge case for
 the hook (estimated 0.7–1.2 k lines; no model work).  Reports:
 `_tmp/spike-boost*-report.md` (not committed).
+
+## TASK #423 — spike: a ground engine for closed `Bool` evaluations, a call-by-need machine behind the incumbent (2026-11-02, agent/423-ground)
+
+**A measurement spike, not landed.**  The code is on branch
+`agent/423-ground` (based on master `e3fd221f1`), switched off by
+default (`groundMode = 0` in `ConLeche/Cached/Ground.lean`), and the
+proofs are untouched apart from two congruence lemmas; the brief's
+reports and logs are in `_tmp/423-ground/` (not committed).
+
+**The question** (maintainer, 2026-11-02): reflection tactics (grind's
+ring/lia certificates, `decide`) make the kernel evaluate a function on
+closed data completely.  Can con-leche recognise those terms by an exact
+criterion and hand them to a much faster engine, in the style of Rocq's
+`vm_compute` (closures instead of substitution, values, read-back only at
+the end), with a result that is a `Red` reduct, so that the capstones are
+unaffected?  Two rulings of the same day frame the answer: the engine is
+chosen once, by an exact criterion, with no trial-and-error retry; and
+every performance-only parameter is labelled as such.
+
+**The verdict, first.**
+1. **The criterion is exact and catches the whole opportunity on the
+   ring/field certificates.**  The comparison `t =?= Bool.true` (either
+   side), `t` closed, is the site.  It fires 22–1 826 times per
+   benchmark; **every one of the 13 650 calls on the 20 nightly streams,
+   init-prelude, init-full and grind-ring-5 evaluates to `Bool.true`**,
+   none aborts, so the fallback never runs.
+2. **Speed: 2.1–2.6× on the own part of the evaluation-heavy
+   certificates, at the official kernel's figure, not below it.**
+   grind_field_kernel_cancel 58.25 G → 26.82 G (official 28.02 G);
+   groebner_hard 12.40 G → 4.76 G (official 4.79 G); grind_ring_5 1.09 G →
+   0.42 G; groebner 2.06 G → 0.98 G.  init-full −0.5 %.  The sym_arith
+   family, sym_norm and lia barely move (−1 % to −14 %): their cost is
+   not at this site.  The arena perf tests do not reach the site
+   (±0.2 %).  **The one regression is the arena's grind-ring-5** (Lean
+   4.29.1 certificates), +8.7 %.
+3. **The `vm_compute` target is missed by about 25×, and the reason is
+   the runtime representation, not the design.**  The machine runs ~500
+   instructions per transition (53.2 M transitions for 26.8 G on
+   grind_field_kernel_cancel): every transition allocates and frees
+   Lean objects (a frame, an environment cons, a cell, the control
+   record).  An abstract machine on unboxed arrays would run 15–30 per
+   transition (an estimate, not measured: ~1 G there).  This is task
+   #307/#310's finding again ("what remains is the runtime representation
+   of values"), now measured for a machine without inference or
+   comparison: the remaining gap is the object model alone.
+4. **Memoisation: cell-keyed sharing is required, and it is admissible
+   without a new rule.**  Thunks alone (call-by-need) are exponential on
+   a tree whose subtrees are one value (the arena's
+   shared-subterm/repeated-subproblem shapes as `Bool` checks: out of
+   memory at 8 GB), where the incumbent's instantiated-term memo is
+   linear.  One memo keyed by a recursor's or a definition's head and
+   its argument **cells** restores linearity (0.056–0.071 G against the
+   incumbent's 0.063–0.545 G and official's 0.238–0.499 G).  Under the
+   origin denotation two equal cells are one term, so a hit is the same
+   `Red` derivation and needs no congruence rule.
+5. **Verification: an engine proved once, in the rules tier as it is.**
+   Every transition is a step of an existing `Red` rule under the origin
+   denotation, forcing only at `Red` premise positions, so the soundness
+   theorem is a machine invariant with one lemma per transition.  No
+   model work, no `Red.appArg`.  Estimated at 2.0–3.0 k lines.  Nothing is
+   proved yet beyond the congruence lemma the knot needs.
+
+### 1. The engine
+
+`ConLeche/Cached/Ground.lean`, an implementation module (it imports
+`Kernel/FEnv`; `Cached/StateC` re-exports it).  **One tail-recursive
+function**, `gRun`: the C code has 45 `goto _start` and no recursive
+call, so the machine runs in constant native stack.  Its parts:
+
+* **State.**  The heap is an `Array GCell` threaded linearly through the
+  loop (a cell is `thunk env e`, `busy`, or `val v`).  The control is
+  `eval env e`, `ret v`, `enter a` or `const c us`.  The continuation is
+  a list of frames: `arg a`, `upd a`, `iota …` (a major being
+  evaluated), `proj sn i`, `natA`/`natB` (the arguments of an
+  accelerated operation), and `plus1` (`Nat.succ` packing).  An
+  environment is a `List Nat` of cell addresses.
+* **Values.**  A closure of a lambda, a constructor applied to argument cells, a
+  literal, a `pap` (a recursor short of its major, or an accelerated
+  operation short of its two arguments, waiting for more), or a
+  `neutral` (a type, sort, axiom, theorem, inductive type or free
+  variable, never scrutinised).
+* **Call-by-need.**  An argument that is a variable shares its cell; a
+  literal or a lambda is a value cell; anything else becomes a thunk.  A thunk
+  is forced only at a head (β), at a recursor's major (ι), at a
+  projection's scrutinee, and at the arguments of literal acceleration,
+  in official's order (the first argument, and the second only behind a
+  literal).  So a discarded argument is never evaluated (GDiscarded
+  below: 0.025 G, the startup).  Strict call-by-value is not an option
+  for Lean's kernel terms in any case: `ite`/`dite`/`cond` and `&&` take
+  their branches as ordinary arguments, and strictness would evaluate
+  both branches of every recursive `if`.  Erasure of proofs and types
+  comes free: such arguments are thunks that nothing forces.
+* **The rules it implements**: β, ζ, δ (definitions only, as
+  `unfoldDefinition`; level instantiation memoised per run), ι with the
+  rule's arity and level checks and `peelPis` (the `Red.iota`
+  premises), the literal-major conversions (`natLit`, `strLit`), the
+  structural projection with the table entry, `fireOk` and the
+  telescope arity (`Red.proj`), `Nat.succ` packing and the fourteen
+  binary operations (`Red.natSucc`/`natOp`, `natOpResult`).
+* **What it does not do, as an abort**: a K rule or structure-η rescue
+  on a major that does not evaluate to a constructor (both need
+  inference); case 3 of the ι split (`iotaCase3`; its certificates need
+  inference and definitional equality); a WF `Nat` operation (the
+  incumbent declines there); fuel.  On the benchmarks none of them
+  occurs.
+* **Sharing** (`groundMemo`, a probe switch): `0` thunks only; `1` one
+  cell per closed argument term (keyed by the `Expr`, pointer-first, as
+  the incumbent's memos); `2` as 1 plus one cell per recursor or
+  definition application, keyed by `(head, levels, argument cells)`.
+  All memos live for one engine run.  Mode 2 is the measured
+  configuration.
+* **The fuel** `groundFuel = 2^62` is a termination device for the
+  proof, as `checkFuel` (performance-free).  There is no other
+  parameter.
+
+**The site** (`groundShortcut`, `groundGate`; read in `defeqBodyI`
+right after the `a == b` fast path): if one side is `Bool.true` and the
+other side `t` has no free variable, `t` is run on the machine.
+`Bool.true` answers `true`; `Bool.false` answers `false` (two distinct
+constructors are never definitionally equal); anything else (an abort)
+answers `none`, and the comparison continues on the incumbent path
+from the beginning.  This is the incumbent's own `Bool.true` shortcut
+criterion (official `is_def_eq_core`: `!has_fvar(t) && is_constant(s,
+Bool.true)`), widened to both orientations, because the certificates
+reach it as `true =?= check … `: `Eq.refl true : true = true` is
+compared with the domain `check … = true` argument by argument.
+Official's shortcut does not fire in that orientation and lazy delta
+does the work instead.  So the engine runs *instead of* lazy-delta
+unfolding of the certificate.  This is acceleration beyond official
+order, of the kind the `Nat.gcd` ruling allows.
+
+### 2. Results
+
+`perf stat -e instructions:u`, `--verified --jobs=1`, one run per
+stream, guarded.  *incumbent* = master `e3fd221f1`, the #422 bench
+agent's `baseline.tsv` (same binary; my reruns of master reproduce it).
+*fast* = the branch at `groundMode = 1`, `groundMemo = 2`.
+*official* = the nightly's kernel (`_tmp/422-bench/off-nightly`).
+*own* = full minus the stream cut before the benchmark's first
+declaration (the fast column subtracts the fast binary's own prefix
+run).  G = 10⁹ instructions.
+
+| stream | incumbent full | fast full | official full | incumbent own | fast own | official own | own fast/inc | own fast/off |
+|---|---|---|---|---|---|---|---|---|
+| grind_field_kernel_cancel | 58.81 | 27.36 | 28.41 | 58.25 | 26.82 | 28.02 | **0.46** | 0.96 |
+| groebner_hard | 26.97 | 19.23 | 15.85 | 12.40 | 4.76 | 4.79 | **0.38** | 0.99 |
+| grind_ring_5 | 17.51 | 16.75 | 12.85 | 1.09 | 0.42 | 0.41 | **0.39** | 1.04 |
+| groebner | 19.23 | 18.02 | 14.26 | 2.06 | 0.98 | 0.94 | **0.48** | 1.04 |
+| groebner_char | 21.08 | 20.88 | 16.88 | 2.66 | 2.61 | 2.78 | 0.98 | 0.94 |
+| identities | 15.45 | 15.10 | 12.01 | 2.48 | 2.22 | 2.73 | 0.89 | 0.81 |
+| sym_norm | 20.95 | 20.03 | 16.12 | 5.64 | 4.83 | 4.08 | 0.86 | 1.18 |
+| sym_arith | 27.61 | 27.33 | 19.73 | 13.37 | 13.18 | 9.35 | 0.99 | 1.41 |
+| sym_arith_char | 18.81 | 18.72 | 12.24 | 6.18 | 6.16 | 3.36 | 1.00 | 1.84 |
+| sym_arith_expand | 18.65 | 18.53 | 14.56 | 6.98 | 6.93 | 6.54 | 0.99 | 1.06 |
+| sym_arith_field | 21.71 | 21.34 | 14.61 | 7.13 | 6.84 | 3.81 | 0.96 | 1.79 |
+| sym_arith_linear | 19.77 | 19.60 | 13.49 | 7.29 | 7.19 | 6.21 | 0.99 | 1.16 |
+| sym_arith_rel | 25.11 | 24.97 | 17.94 | 5.75 | 5.68 | 4.99 | 0.99 | 1.14 |
+| sym_arith_small | 21.13 | 20.62 | 15.61 | 2.62 | 2.49 | 1.78 | 0.95 | 1.40 |
+| sym_arith_terms | 24.57 | 24.38 | 17.42 | 3.19 | 3.20 | 2.74 | 1.00 | 1.17 |
+| lia_case_splits | 18.18 | 18.13 | 14.08 | – | – | – | – | – |
+| lia_oss_verify_1 | 21.39 | 20.45 | 17.20 | 2.84 | 2.47 | 2.36 | 0.87 | 1.05 |
+| lia_oss_verify_2 | 17.42 | 16.52 | 14.67 | 4.89 | 4.52 | 4.09 | 0.92 | 1.10 |
+| lia_oss_verify_3 | 16.19 | 15.27 | 13.55 | 3.34 | 2.94 | 2.89 | 0.88 | 1.01 |
+| lia_oss_verify_4 | 14.68 | 13.84 | 12.50 | 2.60 | 2.24 | 2.38 | 0.86 | 0.94 |
+
+**The ideal column, as an estimate.**  A `vm_compute`-class machine
+(unboxed state, ~15–30 instructions per transition) on the transition
+counts below gives grind_field_kernel_cancel ≈ 0.8–1.6 G and
+groebner_hard ≈ 0.03–0.07 G.  This is not a measurement: the certificate
+functions are `noncomputable` (`cancelInvs_cert`, the `_k` family), so
+there is no `#eval` to time, and the computable twins evaluate other
+terms.
+
+| stream | calls | constant dispatches | transitions |
+|---|---|---|---|
+| grind_field_kernel_cancel | 22 | 4 927 503 | 53 198 881 |
+| groebner_hard | 307 | 200 572 | 2 323 657 |
+| groebner | 386 | 120 447 | 1 380 791 |
+| grind_ring_5 (nightly) | 283 | 65 052 | 737 951 |
+| sym_arith | 569 | 54 755 | 702 010 |
+| lia_oss_verify_2 | 1 826 | 211 166 | 2 303 476 |
+| init-full | 8 376 | 856 176 | 9 912 007 |
+| grind-ring-5 (arena) | 425 | 1 245 336 | 16 147 346 |
+
+**The arena perf tests and init-full** (master → fast, G): app-lam
+22.075 → 22.076, beta-ladder 4.856 → 4.856, let-ladder 2.562 → 2.562,
+church-numerals 0.296 → 0.301, shared-subterm 0.203 → 0.203,
+repeated-subproblem 0.021 → 0.021, discarded-argument(-match)
+0.066/0.198 → 0.066/0.199, irrelevance-before-evaluation 0.021 → 0.021,
+unroll-versus-evaluate 0.026 → 0.026, the rest within 0.5 %.  None of
+them reaches the site: they compare data with `Eq`, not with
+`Bool.true`.  **grind-ring-5 15.13 → 16.45 (+8.7 %)**; init-full 378.91 →
+376.91 (−0.5 %).
+
+**grind-ring-5 decomposed** (`groundMode = 5` runs the engine twice, so
+the difference is its own cost): the engine costs 11.65 G with thunks
+only, 9.41 G with closed-argument sharing and 8.06 G with application
+sharing, against about 6.9 G for the incumbent's work at the same sites
+(master's total minus the run's non-engine part).  These are Lean
+4.29.1 certificates, written before lean4#15943's kernel-friendly
+rewrite: the incumbent's instantiated-term memo shares across them in a
+way the cell-keyed memos cannot (two thunks with equal origins are
+equal terms, not equal cells: #307's §5).  The nightly's certificates
+are the other way round.
+
+**The path to here** (all on grind-ring-5, the engine's own cost): a
+recursive `EStateM` evaluator, 10.9 G for 2.7 M dispatches.  It was
+unfolding `Nat.add`/`Nat.mul`/`Nat.pow` unarily until accelerated
+operations waited for their arguments as a `pap`.  It was then rewritten
+as the one-loop machine: 1 195 G, because `h.push x` followed by
+`h.size` kept the heap at RC 2 and copied it at every push (the
+`lean-rc-linearity` skill's rule 1); 12.4 G after reading the size
+first.  Then 11.65 G after `2^62` stopped being parsed per use
+(`gTakeAll`) and the name tests got a hash prefilter, 9.41 G with
+closed-argument sharing, and 8.06 G with application sharing.
+
+### 3. Memoisation
+
+The brief asked whether an engine that does not memoise the way the
+kernel does gets into trouble.  The arena's perf tests compare data with
+`Eq` and never reach the site, so their shapes were rebuilt as `Bool`
+checks (`_tmp/423-ground/fix/src/G*.lean`, exported with v4.29.1,
+proved by an unchecked `Eq.refl true`; G instructions):
+
+| fixture (shape) | incumbent | thunks only | + closed args | + applications | official v4.35 |
+|---|---|---|---|---|---|
+| GShared — `ldepth (perfect 1000 leaf)`, subtrees one value | 0.836 | 0.339 | 0.265 | 0.322 | 0.808 |
+| GSharedSize — `&&` over both subtrees of `perfect 200` | 0.545 | **OOM** | **OOM** | 0.071 | 0.499 |
+| GRepeated — `size (perfect 24 leaf)` on `Nat` | 0.063 | **OOM** | **OOM** | 0.056 | 0.238 |
+| GUnroll — `count 1000` against `add (count 1000) 0` | 0.661 | 0.390 | 0.238 | 0.309 | 0.654 |
+| GDiscarded — `dropArg (10⁶·…)` | 0.025 | 0.025 | 0.025 | 0.025 | 0.186 |
+| GFib — naive `fib 27` (`brecOn`) | 0.057 | 0.051 | 0.051 | 0.051 | 0.229 |
+
+(OOM: killed by the guard at 8 GB.  Official includes its own
+prelude parse, about 0.18 G.)
+
+* **Call-by-need alone is exponential on a DAG** whose two subtrees are
+  one cell: the recursor builds two induction-hypothesis thunks on equal
+  cells, and both are forced.  The incumbent shares these through its
+  instantiated-term memo (the two `Tr.rec … l` terms are one term).
+* **The cure is a memo keyed by cells**: `(head, levels, argument
+  cells) ↦ result cell` for recursor and definition applications.  It
+  is sound **under the origin denotation without any new rule**.  A cell
+  denotes one term, so equal argument cells mean syntactically equal
+  applications, and a hit reuses the first one's derivation.  This is
+  where it differs from #310's content-keyed sharing, which equated
+  different terms with equal values and therefore needed `Red.appArg`.
+  Its cost is 20–30 % on the shapes that do not need it (GShared,
+  GUnroll), and it is the measured configuration.
+* **The limit of cell keys** is what #307 found: two cells with equal
+  origins (the same term built twice) are not recognised.  That is why
+  the arena's grind-ring-5 regresses.  Closed argument terms are keyed by
+  their `Expr` (pointer-first `Expr.beq`), which recovers part of it
+  (11.65 → 9.41 G).
+* **Discarded arguments and proofs**: laziness handles both.  A
+  discarded argument, a proof argument and a type argument are thunks
+  that nothing forces.  Strict call-by-value would be incorrect here
+  (it would evaluate both `ite` branches), not just slower.
+* **No memo outlives a run**: per-declaration sharing between the 22–8
+  376 runs (one heap kept in `CState`) is the next step if the arena
+  shape needs it.  It would be a per-declaration memo, inside the
+  ruling.
+
+### 4. The heuristic's precision
+
+The site is an **exact criterion**: a closed term compared with
+`Bool.true` must reach `Bool.true` by head reduction for the comparison
+to succeed, whichever engine does it.  So the engine never does work the
+incumbent would not, and full evaluation (to a constructor without
+arguments) is needed anyway.  Measured: **13 650 of 13 650 calls
+answered `Bool.true`** (all nightly streams, init-prelude, init-full,
+grind-ring-5), 0 `Bool.false`, **0 aborts**.  The fallback's cost was
+therefore 0 on every benchmark.  An abort would cost the engine's
+transitions up to the abort plus the incumbent's full run.  That is the
+trial-and-error pattern the ruling forbids, so §5's design removes it
+(open ruling 3).
+
+The other candidates of the brief:
+* `eagerReduce` sites: one distinct node per certificate module.  They
+  reach the site above (the eager comparison of `Eq Bool true true`
+  against `Eq Bool (check …) true` decomposes into `true =?= check …`),
+  so they are a subset and need no criterion of their own.  As a
+  criterion of their own they would be exact and opt-in (open ruling
+  1).
+* `Decidable.decide`/`of_decide_eq_true`: 42–82 distinct nodes per
+  sym/groebner module, also reaching the site.  A subset.
+* δ-heads with all arguments closed constructor data: **not
+  implemented**.  On the benchmarks it would add nothing: every
+  certificate check reaches the `Bool.true` comparison.  On the arena
+  perf tests it is the dangerous one.  unroll-versus-evaluate and
+  shared-subterm are *designed* so that evaluating both sides is the
+  wrong strategy against one lazy unfolding.  A data/data criterion is a
+  heuristic in the ruling's sense, not an exact one.
+* The bench attribution's dominating functions (`cancelInvs_cert`,
+  `Poly.powC_k`, `Expr.toPolyC_k`, `Poly.combineC`) all sit under the
+  site.  The sym_arith family's (`Omega.LinearCombo.eval`,
+  `Poly.cancelAux`, `Expr.denoteF`) are applied to abstract contexts.
+  They are not ground, which is why the sym rows do not move.
+
+### 5. Verification plan (estimated, not done)
+
+**Where the engine sits in the proofs.**  `groundShortcut` is a pure
+function of `fe.find?`, `fe.findProj?` and the two literal-support bits.
+The cached knot calls it in `defeqBodyI`; the plan is that the pure
+spec's `defeqBody` calls the same function on `env.find?`.  The cached
+simulation is then the identity at that site.  The congruence the knot
+needs is proved (`groundShortcut_congr`, `groundGate_congr` in
+`Ground.lean`, used by `defeqBodyI_congr`).  `Deep.lean`'s shift lemma
+holds because the engine runs only on fvar-free terms.  The bridge needs
+one theorem:
+
+    groundBool_sound : groundBool (mkFEnv env) t = (some true, _) →
+      Red env d t (.const boolTrueName [])
+
+and `DefEq.boolTrue` (and `.symm` for the other orientation) as today.
+For the `false` answer nothing is needed: the soundness theorem is about
+acceptance.
+
+**The invariant (origin denotation, as #307's).**  A ghost assignment
+`o : Nat → Expr` (the origin of every cell), with:
+* `thunk ρ e` at `a`: `o a = e.instantiateList (ρ.map o)`;
+* `val v` at `a`: `Red env d (o a) ⟦v⟧`;
+* `⟦ctor c us xs⟧ = mkAppN (const c us) (xs.map o)`, `⟦lam ρ ty b⟧` the
+  lambda over the substitution, and similarly for `pap`.
+* The continuation plugs the focus term into the frames: `arg x` ↦
+  `app _ (o x)`, `proj` ↦ `.proj sn i _` (`Red.projArg`).  `upd a`,
+  `iota`, `natA`/`natB` and `plus1` carry a **side condition** instead
+  (`Red (o a) (focus above)`, the major's `Red` premise, an argument's
+  literal reading).  These are exactly the `Red` premises of the rule
+  that fires when the frame is popped.
+* The machine invariant: `Red env d t (plug k focus)`.
+
+**One lemma per transition** (about 25 cases): β is the
+instantiate-composition lemma that `BetaSpine.lean` already proves for
+the bulk walk.  δ is `unfoldDefinition` on `mkAppN`.  ι discharges the
+premises of `Red.iota`: the machine checks `peelPis`, rule lookup, arity
+and levels, and `iotaCase3 = false` makes the four case-3 premises
+vacuous.  `natLit`/`strLit` are direct.  Projection uses `Red.proj`
+with the same table checks.  The literal frames use `natSucc`/`natOp`.
+The two memos are `Red.trans` with the stored derivation, because
+equal cells have equal origins.
+
+**Size**: invariant and denotation 300–500 lines; transition lemmas
+1.2–2.0 k; the loop induction over the fuel, the spec site, the
+bridge case and the shift lemma 300–500.  **Total 2.0–3.0 k lines, no
+model work** (only `Red`, which is already sound), no new rule, no
+change to the capstones' axioms.  The fixed cost would be the ghost
+assignment's bookkeeping across `Array.set!`/`push`, which is plain
+`Array` lemmas.
+
+**What a flat machine would change**: the same invariant with an
+abstraction function from arrays to these structured states.  That is
+one refinement layer, estimated at +1–1.5 k lines.
+
+### 6. Gates
+
+`lake build` and `lake test` are warning-free at the default
+(`groundMode = 0`).  The full `tests/arena.sh` was green apart from the
+shake gate, which asked for the engine's import to sit in `CoreC`
+itself.  After that move, the gates the move can affect were re-run and
+are green: build, test, `tests/shake.sh`, `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/overview-links.sh` and
+`whitepaper/links-gate.sh` (the whitepaper's `CoreC` citation moved by
+one line).  The rest of that run: arena tutorial 90/92 as on master,
+e2e 496/496, trusted sweep 0 divergences, self-check accepted.
+The engine-on binary is not gated: it is the measurement subject, and
+`DiscC5.defeqBodyI_eq := rfl` holds only at `groundMode = 0`, so an
+engine-on build needs that one restatement replaced (it is the
+equation the spec site of §5 would supply).  The engine-on verdicts are
+the trace runs above: every stream gave its master verdict (accept).
+
+### 7. Rulings needed
+
+1. **The site.**  Keep the exact criterion of §1 (closed `t =?=
+   Bool.true`, both orientations).  The alternative is an opt-in gadget
+   (`eagerReduce` or a new `groundReduce`) that also catches the term
+   inside it.  *Recommendation:* the exact site.  It needs no
+   cooperation from Lean, catches 100 % of the measured opportunity, and
+   `eagerReduce` reaches it anyway.  A gadget is worth it only for terms
+   that are not `Bool` checks, and none of the benchmarks has one.
+2. **Is 2× at official's figure enough to continue?**  The engine as
+   built gets the ring/field certificates to official (0.96–1.04×), not
+   to `vm_compute`.  *Recommendation:* if the target stays `vm_compute`,
+   the next spike is the **runtime representation**: the same machine
+   with unboxed array state (frames, environments and cells in `Array
+   Nat` arenas, no allocation per transition), measured against the
+   ~25× gap of §2, before any proof.  If official is the target, prove
+   this machine (§5, 2–3 k lines).
+3. **Aborts without retry.**  Today an abort restarts the comparison on
+   the incumbent path (0 occurrences, but the pattern is the one the
+   ruling forbids).  *Recommendation:* make an abort a **suspension**.
+   The machine state is data, so at a K/η rescue, a case-3 certificate
+   or a WF operation the engine returns its state and the cells
+   involved.  The caller runs the incumbent's certificate (`inferIO`,
+   `defeq` on the cells' read-back) and resumes the machine.  No work is
+   repeated and no engine is chosen twice.
+4. **The application memo** (the per-run cell-keyed memo of §3) is
+   needed against exponential DAG walks and costs 20–30 % where it is
+   not needed.  *Recommendation:* keep it always on; it is a memo, not a
+   cap.
+5. **The arena's grind-ring-5 (+8.7 %)**: old-style certificates where
+   origin-equal cells are not cell-equal.  *Recommendation:* accept it.
+   The nightly's version of the same benchmark gains 2.6× on its own
+   part, and the arena stream predates lean4#15943.
