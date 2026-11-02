@@ -1,4 +1,4 @@
-{"meta":{"exporter":{"name":"con-leche-prelude","version":"1"},"format":{"version":"3.1.0"},"lean":{"githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","version":"4.35.0"}}}
+{"meta":{"exporter":{"name":"con-leche-prelude","version":"1"},"format":{"version":"3.1.0"},"lean":{"githash":"f0fc2fc18852fa60ff43f0daa33020d825c92e72","version":"4.37.0-nightly-2026-10-30"}}}
 {"in":1,"str":{"pre":0,"str":"Eq"}}
 {"in":2,"str":{"pre":0,"str":"u_1"}}
 {"il":1,"param":2}

@@ -1,11 +1,9 @@
 module
 
 public import Std.Data.HashMap
-/- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
-is that it is *definitionally* `k ()` — which is what
-`Name.beqPtr_eq` proves.  `import all` makes that body visible **in
-this module only**; that theorem is the public relay, so no importer
-needs it, and the executed `Name.beq` stays the plain
+/- `ConLeche.withPtrEq` (the pre-2026-09-21 safe `withPtrEq`, vendored
+for the nightly toolchain, task #422) is *definitionally* `k ()` — which
+is what `Name.beqPtr_eq` proves; the executed `Name.beq` stays the plain
 `decide (· = ·)` that the kernel can still reduce. -/
 public import ConLeche.Util.PtrEq
 

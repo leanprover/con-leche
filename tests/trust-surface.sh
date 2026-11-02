@@ -99,6 +99,17 @@
 #       (`Name.beqPtr_eq`), per the user's 2026-09-05 ruling *"do not
 #       use `implemented_by`"*.
 #
+#   ConLeche/Util/PtrEq.lean           implemented_by
+#       The toolchain bump to nightly-2026-10-30 (task #422): Lean
+#       deprecated the safe `withPtrEq` (definitionally `k ()`,
+#       `@[implemented_by withPtrEqUnsafe]`) and made it an `unsafe def`
+#       on 2026-09-21.  This file restores that old shape verbatim as
+#       `ConLeche.withPtrEq` (con-agua's vendored patch 0001), so the
+#       escape is the one `Init.Util` itself carried before: the same
+#       TCB entry as on v4.35.0, moved into the tree.  Its users prove the
+#       guard redundant (`Name.beqPtr_eq`, `Expr.beqMemo_eq`, `sameB_eq`,
+#       `slotIs_spec`).
+#
 #   ConLeche/Challenge.lean            sorry
 #       THE PALOMAR CHALLENGE STATEMENT (task #183).  This file is the
 #       *challenge* half of the Comparator pair (`comparator.json`): the
@@ -302,6 +313,7 @@ ALLOW = {
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
+    'ConLeche/Util/PtrEq.lean':      {'implemented_by'},
     'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
 }

@@ -2,10 +2,9 @@ module
 
 public import ConLeche.Verify.Frontend.Rounds
 public import Std.Sync.Mutex
-/- `withPtrEq` is `public` but not `@[expose]`; `sameB_eq` below needs
-its body (it is *defined* as `k ()`).  `import all` makes it visible in
-this module only. -/
-public import ConLeche.Util.PtrEq
+/- `ConLeche.withPtrEq` (`ConLeche/Util/PtrEq.lean`, reached through
+`ConLeche.Kernel.Name`) is exposed: `sameB_eq` below needs its body (it
+is *defined* as `k ()`). -/
 
 /-!
 # The rounds parse driver: owner threads (task #329)

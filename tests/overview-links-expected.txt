@@ -13,8 +13,8 @@
 == ConLeche/Driver/Run.lean#L34
     34  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
-== ConLeche/Kernel/Name.lean#L207
-   207  def render (n : Name) : String :=
+== ConLeche/Kernel/Name.lean#L205
+   205  def render (n : Name) : String :=
 
 == ConLeche/MainTheorem.lean#L96-L99
     96  theorem model_exists (V : Type w) [SetTheory V]
@@ -133,9 +133,9 @@
    304  partial def serialLoop (h : IO.FS.Handle) (chunk : USize) (st : StateD) (carry : ByteArray)
    305      (lineNo total : Nat) (hr : Reached st carry lineNo total) : IO ParseOutcome := do
 
-== ConLeche/Driver/OwnerParse.lean#L640-L641
-   640  def parseExportStreamO (path : System.FilePath) (jobs : Nat) (csz : USize) (noMark : Bool) :
-   641      IO ParseOutcome :=
+== ConLeche/Driver/OwnerParse.lean#L641-L642
+   641  def parseExportStreamO (path : System.FilePath) (jobs : Nat) (csz : USize) (noMark : Bool) :
+   642      IO ParseOutcome :=
 
 == ConLeche/Verify/Frontend/Good.lean#L522
    522  inductive Good (Γ : WCtx) : Nat → TV → Prop where

@@ -6,7 +6,7 @@ import ConLeche.Verify.Cached.KnotCongr
 *defined* through it and `slotIs_spec` needs its body (`k ()`), which
 `import all` makes visible in this module only (the `Init.Util`
 exception CLAUDE.md lists). -/
-public import ConLeche.Util.PtrEq
+import ConLeche.Util.PtrEq
 
 /-!
 # The parallel install's commit step (task #329)

@@ -2,14 +2,11 @@ module
 
 public import ConLeche.Kernel.Name
 public import ConLeche.Kernel.Exclusive
-/- `withPtrEq` is `public` but not `@[expose]`, and its whole point here
-is that it is *definitionally* `k ()` — which is what
-`Level.beqPtr_eq` and `Expr.beqMemo_eq` prove.  `import all` makes that
-body visible **in this module only**; those theorems are the public
-relays, so no importer needs it, and the executed `Level.beq` and
-`Expr.beq` stay the plain `decide (· = ·)` that the kernel can still
-reduce. -/
-public import ConLeche.Util.PtrEq
+/- `ConLeche.withPtrEq` (`ConLeche/Util/PtrEq.lean`, through
+`ConLeche.Kernel.Name`) is *definitionally* `k ()` — which is what
+`Level.beqPtr_eq` and `Expr.beqMemo_eq` prove; the executed `Level.beq`
+and `Expr.beq` stay the plain `decide (· = ·)` that the kernel can
+still reduce. -/
 
 /-!
 # Kernel expressions
