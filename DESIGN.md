@@ -107569,3 +107569,145 @@ the trace runs above: every stream gave its master verdict (accept).
    origin-equal cells are not cell-equal.  *Recommendation:* accept it.
    The nightly's version of the same benchmark gains 2.6× on its own
    part, and the arena stream predates lean4#15943.
+
+### Round 2 (2026-11-02): a flat machine, the survey, the steps that need types
+
+**The rulings the round started from** (maintainer, 2026-11-02):
+* The trigger stays the exact `t =?= Bool.true`, with `t` closed, as the only site; no gadget for now.  At this site the engine may switch to a much more aggressive mode.
+* The application memo stays, keyed by (head, levels, argument cells).  It was the reason for an opt-in, so that tactic writers know when they rely on memoisation; with this design the opt-in is not needed.
+* The goal is an evaluator substantially faster than official, not official's figure.
+* Aborts are acceptable: an unsupported step answers "unknown" and the incumbent runs.  Pause-and-resume is not required.
+
+**The verdict, first.**
+1. **The flat machine allocates nothing per transition and halves the per-transition price** (≈500 → 271 instructions on grind_field_kernel_cancel).
+2. **It is still not substantially faster than official.**  grind_field_kernel_cancel's own part goes 58.25 G (incumbent) → 26.82 G (round 1) → **20.44 G (round 2)**, against official's 28.02 G and the native bound of 0.31 G (#422's compiled `cancelInvs_cert`): 0.73× official, 66× native.  Every other benchmark's own part is unchanged from round 1, because its engine share was already small.
+3. **The remaining price is the representation that Lean's `Array Nat` imposes**, plus the number of transitions per source-level call (about 14).  Neither can be fixed by tuning this machine.  The survey says what the fast designs do differently, and the next step (open ruling 1) is to compile to fewer, coarser transitions.
+4. **20 117 of 20 117 calls evaluate to `Bool.true`; 0 aborts; 0 stuck results.**  The steps that would need types (§R2.4) are reached by no benchmark.
+
+#### R2.1 The machine (`ConLeche/Cached/Ground2.lean`; `groundMode = 3`, round 1 stays at `1`)
+
+* **Compiled once per run.**  Every definition body and rule right-hand side the site reaches is level-instantiated and compiled into one `Array Nat` code array:
+  - spines are flattened (`[1, head, n, a₁ … aₙ]`); binder domains, sorts and Π-types are dropped (the neutral);
+  - constants are resolved to a per-run constant table;
+  - each closed argument term gets a sharing **slot**, replacing round 1's `Expr`-keyed closed-argument memo, and so does each constant;
+  - definitions and rules are compiled on first use.  The table also flattens what dispatch reads: rule arity, parameters, case-3 bit, constructor name ids, projection data, and the accelerated operation's index.
+* **State: seven `Array Nat`s, passed as separate parameters** of one tail-recursive loop (60 jumps in the C, no recursive call) and mutated in place:
+  - cells `[state, code, env, _]`;
+  - values `[tag, a, b, c]`;
+  - environments `[cell, next]`;
+  - the frame stack, with argument and update frames one word each (`16·cell + tag`);
+  - argument spans;
+  - slots;
+  - memo records.
+* **The memo** is an open-addressing table in an `Array Nat`.  An entry is a heap index (`[entry, argStart, argLen, cell]`), so it survives every in-place mutation.
+* **Indices are computed by additions and shifts** (`Nat.mul`'s overflow check is a division, `<<<` is out of line).  `Nat` operations go by operation index, with no name comparison.
+* **Linearity**, found by profile and each a copy of a whole array per transition:
+  - an array read after it was consumed in the same call (`(g2PopN fs …) (g2CopyArgs fs …)`, `cel.set! … cel[…]!`);
+  - quadratic growth of the slot array;
+  - `{ P with code := P.code.push … }` without detaching the field;
+  - a `UInt64.toNat` of a hash above `2^63`, which allocated a bignum per probe.
+
+  After the fixes, `lean_alloc_small_object_core` is 0.45 % of the profile (it was 10 %).
+
+**Where the 271 instructions per transition go** (grind_field_kernel_cancel, `perf record`):
+* 39 % the loop body: dispatch, bounds-checked reads of boxed scalars, environment walks;
+* 14 % `lean_array_push` (an out-of-line call per word pushed);
+* 24 % the application memo: hash 6 %, probe 6.5 %, insert 6 %, rehash 5 %;
+* 6 % environment lookups (linked environments, as round 1).
+
+Measured variant: a recursor-only memo (no definition memo) costs **more** here (26.3 G engine against 20.4 G), so the definition memo pays for itself.
+
+#### R2.2 Results (G instructions:u, own part = full minus prefix; one run each)
+
+| stream | incumbent own | round 1 own | round 2 own | official own | native | r2/official | r2 transitions | r2 instr/transition (own÷transitions) |
+|---|---|---|---|---|---|---|---|---|
+| grind_ring_5 | 1.09 | 0.42 | 0.42 | 0.41 |  | 1.03 | 1.09 M | – |
+| groebner | 2.06 | 0.98 | 0.99 | 0.94 |  | 1.05 | 2.09 M | 471 |
+| groebner_char | 2.66 | 2.61 | 2.63 | 2.78 |  | 0.95 | 0.67 M | – |
+| groebner_hard | 12.40 | 4.76 | 4.67 | 4.79 |  | 0.98 | 3.42 M | 1367 |
+| identities | 2.48 | 2.22 | 2.22 | 2.73 |  | 0.81 | 0.75 M | – |
+| sym_norm | 5.64 | 4.83 | 4.88 | 4.08 |  | 1.20 | 1.54 M | 3174 |
+| sym_arith | 13.37 | 13.18 | 13.28 | 9.35 |  | 1.42 | 0.94 M | – |
+| grind_field_kernel_cancel | 58.25 | 26.82 | 20.44 | 28.02 | 0.31 | 0.73 | 75.32 M | 271 |
+| lia_case_splits | -0.00 | 0.00 | 0.00 | 0.01 |  | – | 0.17 M | – |
+| sym_arith_char | 6.18 | 6.16 | 6.19 | 3.36 |  | 1.84 | 0.39 M | – |
+| sym_arith_expand | 6.98 | 6.93 | 6.96 | 6.54 |  | 1.06 | 0.37 M | – |
+| sym_arith_field | 7.13 | 6.84 | 6.92 | 3.81 |  | 1.81 | 1.11 M | 6225 |
+| sym_arith_linear | 7.29 | 7.19 | 7.23 | 6.21 |  | 1.16 | 1.51 M | 4798 |
+| sym_arith_rel | 5.75 | 5.68 | 5.72 | 4.99 |  | 1.15 | 0.86 M | – |
+| sym_arith_small | 2.62 | 2.49 | 2.55 | 1.78 |  | 1.43 | 1.77 M | 1443 |
+| sym_arith_terms | 3.19 | 3.20 | 3.23 | 2.74 |  | 1.18 | 0.66 M | – |
+| lia_oss_verify_1 | 2.84 | 2.47 | 2.67 | 2.36 |  | 1.13 | 2.39 M | 1117 |
+| lia_oss_verify_2 | 4.89 | 4.52 | 4.82 | 4.09 |  | 1.18 | 3.45 M | 1400 |
+| lia_oss_verify_3 | 3.34 | 2.94 | 3.16 | 2.89 |  | 1.09 | 2.50 M | 1263 |
+| lia_oss_verify_4 | 2.60 | 2.24 | 2.42 | 2.38 |  | 1.02 | 2.04 M | 1184 |
+
+(The last column is meaningful only where the engine dominates the own part, i.e. grind_field_kernel_cancel; elsewhere the own part is mostly not engine work.)
+
+* **The arena perf tests**: unchanged (none reaches the site).  grind-ring-5 is 17.65 G (master 15.13, round 1 16.45).
+* **init-full**: 380.82 G (master 378.91, round 1 376.91).  Round 2 compiles per run, and init-full has 8 376 small runs.  Keeping the compiled program for the declaration (a per-declaration memo) is the fix; it is not done.
+* **The memo fixtures** (§3 of round 1, G instructions): GShared 0.292, GSharedSize 0.056, GRepeated 0.055, GUnroll 0.353, GDiscarded 0.025, GFib 0.050.  All are linear; with a recursor-only memo, 0.255/0.052/0.055/0.291/0.025/0.050.
+
+#### R2.3 Survey
+
+| design | run-time representation | cost per transition (est.) | sharing / memo | what we can borrow |
+|---|---|---|---|---|
+| Rocq kernel conversion, `CClosure` (Barras's lazy Krivine machine; `kernel/cClosure.ml`, `reduction.ml`) | `fconstr` closures (term × explicit substitution) with a mutable `norm` field, a stack of application/case/fix/update frames, OCaml heap | 100–300 instr (an OCaml allocation per closure, plus updates) | call-by-need: a closure is updated in place when reduced, so every holder sees the head form; per-constant unfolding cache (`infos`); no memo keyed by term | update in place, lazy δ, a conversion that interleaves head reduction with comparison. Round 1 is this machine |
+| `lazy` / `cbn` tactics (`CClosure` with user flags) | as above | as above | as above | — |
+| `cbv` / `compute` (`pretyping/cbv.ml`) | environments plus values (`VAL`, `STACK`, `CBN` for under-binder parts), strict | 100–200 instr | none beyond the environment: values are shared by pointer, nothing is memoised | strictness where safe (below) |
+| `vm_compute` (Grégoire–Leroy, *A compiled implementation of strong reduction*, ICFP 2002) | bytecode of a ZINC/ZAM-style machine (OCaml's own), closure-converted terms, flat closures, accumulators for neutral terms, read-back at the end; strict call-by-value | ~10–30 instr per bytecode instruction | none: exponential on repeated subproblems unless the program shares them itself; terms are compiled once per constant | compile once per constant; flat closures (O(1) variable access); constant references resolved at compile time; accumulators as the neutral |
+| `native_compute` (Boespflug–Dénès–Grégoire, *Full reduction at full throttle*, CPP 2011) | Rocq terms compiled to OCaml source, then `ocamlopt`; accumulators as OCaml closures | ~1–5 instr per source-level operation, plus a compile latency of seconds per module | none | not applicable: a verified checker cannot trust a code generator; this is the #422 lane's `#boost` bound |
+| Rocq's later kernel work (Pédrot et al.: `CClosure` reworks, primitive integers/arrays/floats in the kernel and both VMs; MetaRocq's verified safe checker) | as the rows above | — | — | primitive types: con-leche's certified `Nat` operations are the same idea |
+| Agda (`Agda.TypeChecking.Reduce.Fast`, Norell 2017) | an abstract machine over *compiled clauses* (case trees), environments, call-by-need thunks, a control stack | tens of instr per step (GHC-compiled) | call-by-need through thunks; no memo | case trees: one `match` dispatch instead of Lean's `match_k → casesOn → rec` δ/ι chain |
+| Idris 2 (`Core.Normalise`, glued NbE; Chez Scheme backend at run time) | closures and environments, values with read-back | similar to Agda | thunks; no memo | — |
+| smalltt (Kovács) and lean4lean | NbE with closures, glued values (smalltt); substitution with caches (lean4lean) | 50–150 (GHC; Lean) | smalltt: glued unfolding, no memo; lean4lean: memo tables as Lean's kernel | — |
+| Lean 4 kernel (`type_checker.cpp`) | substitution on hash-consed-ish `expr`, `whnf_core`/`whnf`/`infer` caches, GMP literals | 300–1 000 instr per β/δ/ι (instantiate plus cache probes) | **memoised by term** (the caches): linear on DAG-shaped repeated subproblems; this is what con-leche's incumbent mirrors | the memo, as a cell-keyed memo (rounds 1–2) |
+| Lean 4 compiler (LCNF → IR → C, `#eval`, `native_decide`/`Lean.ofReduceBool`) | erased types and proofs, unboxed scalars, reference counting with destructive updates, matchers compiled to switches, instance projections specialised away | ~1–3 instr per source operation | none (only what the program shares) | **erasure** (types, proofs and motives are never built), **case trees**, **known calls** (a constant applied to its arity jumps straight to its body) |
+
+The two costs that separate the fast end (`vm_compute`, Lean's compiled code) from what we built are:
+1. **The per-transition price of the run-time representation.**  The machine state lives in unboxed arrays, with no allocation, no reference counting and no bounds-checked arithmetic on boxed scalars.
+2. **Transitions per source-level call.**  Known calls enter at the body with all arguments bound at once, matchers are switches, and types and proofs are not passed.
+
+con-leche's round 2 attacks (1) only as far as Lean's `Array Nat` allows.  (2) is the next lever.
+
+#### R2.4 Which ground steps the engine can do, and which need types
+
+| step | in the engine | carried | cost per transition | reached by a benchmark (20 117 calls) |
+|---|---|---|---|---|
+| β, ζ, δ (levels at compile time), ι on constructors (case 1/2), literal ↔ constructor, projections, `Nat` acceleration, string literals | yes | nothing beyond the machine | — | all |
+| a scrutinee that is stuck (axiom, opaque, theorem, partial application) | yes: the redex is stuck (the neutral), as in the incumbent | nothing | 0 | 0 |
+| K-like ι on a major that is not a constructor (`Eq.rec` on a theorem proof) | abort | the major's type, its whnf, and a comparison of its indices (official's `to_cnstr_when_K`), i.e. inference on the major's origin | carrying types everywhere would add a type cell per argument (estimated +50–100 % per transition); on demand (read back the major, run the incumbent's rescue) costs nothing until reached | 0 |
+| structure-η ι on a major that is not a constructor | abort | the major's type is the structure (inference) | as for K; in closed evaluation the major is then stuck anyway, so the result is a constructor of stuck projections | 0 |
+| ι case 3 (a family that may be `Prop`: `And.rec`, `Acc.rec`, …) | abort | the level/parameter comparisons and the full-grade telescope certificate (inference and definitional equality on the constructor's fields) | as for K, plus unerased proofs as fields | 0 |
+| unit-like η, proof irrelevance | not needed: they are conversion rules, and the engine evaluates without comparing | — | — | — |
+| a well-founded `Nat` operation on two literals, `Nat.pow` beyond 2²⁴ | abort (the incumbent declines or unfolds) | nothing | — | 0 |
+
+None of the type-needing steps occurs, so none is built (the maintainer's instruction).  The cheapest complete design for them is on demand.  It reads back only the redex (origins are code nodes under environments) and runs the incumbent's step on that one redex.  That is the pause-and-resume the ruling makes optional.
+
+#### R2.5 Verification plan, updated
+
+* **Round 1's invariant (§5) is unchanged in substance**: origin denotation, one `Red` rule per transition, `Red.trans` for memo hits on equal cells.
+* **Round 2 adds two layers:**
+  1. **Compiler correctness**: decompiling the code at an offset gives back the level-instantiated `Expr` (minus the dropped domains and types, which a lemma replaces by their originals because no transition reads them).  About 0.6–1.0 k lines.
+  2. **An abstraction function** from the flat arrays to round 1's structured state (cells, values, environments, frames), with a simulation per transition.  About 1.5–2.5 k lines, mostly `Array` index arithmetic, the one-word frame encoding and the open-addressing memo's lookup lemma (a hit returns a record whose key equals the query).
+* **Total for the round-2 engine: 4–6 k lines.**  It is still all at the `Red` level: no model work, no new rule, capstone axioms unchanged.
+
+#### R2.6 Rulings needed (round 2)
+
+1. **The next lever is fewer transitions, not cheaper ones.**  *Recommendation:* a spike that compiles the reached definitions into coarser code before touching the representation further:
+   - known calls: a constant applied to at least its λ-arity binds all arguments in one step;
+   - case trees: a matcher's `match_k → casesOn → rec` chain becomes one switch on the scrutinee's constructor;
+   - erasure: arguments in type, motive and proof positions, known from the constant's type at compile time, are never pushed.
+
+   Expected 3–5× fewer transitions, by the survey's account of the ZAM and of Lean's own compiler.  Below that, a hand-managed `Array` with explicit tops (no `lean_array_push` calls) would take another ~15 %.
+2. **The compiled program per declaration**, not per run, to recover init-full's +0.5 %.  It would be a per-declaration memo.  *Recommendation:* yes, with the next spike.
+3. **Type-needing steps on demand only** (§R2.4), built when an input needs them.  *Recommendation:* as ruled; until then they abort, 0 times in 20 117 calls.
+
+#### R2.7 Gates
+
+At the default (`groundMode = 0`):
+* `lake build` and `lake test` are warning-free;
+* `tests/arena.sh --no-sweeps` is green (tutorial 90/92 as master, e2e 496/496, self-check accepted, shake, layering, trust surface, link and quote gates);
+* the trusted sweep was not re-run: the change is the engine module and its import, both inert at mode 0.
+
+An engine-on build still needs `DiscC5.defeqBodyI_eq` replaced (`scr/mkvariant.sh` does it for the probe builds only).  The engine-on verdicts are the 20 nightly streams, init-prelude, init-full, grind-ring-5 and the six fixtures, all accepted as on master.
