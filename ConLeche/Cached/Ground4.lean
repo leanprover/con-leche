@@ -98,6 +98,12 @@ structure G4Prog where
   nids : Std.HashMap Name Nat := {}
   /-- the erasure mask of each constant applied (§ erasure) -/
   masks : Std.HashMap Name (Array Bool) := {}
+  /-- per definition name: the strict-parameter bitmask and the λ arity
+  (§ strictness) -/
+  stricts : Std.HashMap Name (Nat × Nat) := {}
+  /-- the code node of each closed argument term compiled so far (one
+  closed term, one node, one sharing slot) -/
+  closedNode : Std.HashMap Expr Nat := {}
   kMap : Std.HashMap (Name × List Level) Nat := {}
   rules : Array G4Rule := #[]
   ruleCode : Array Nat := #[]
@@ -179,10 +185,36 @@ def g4Mask (find? : Name → Option ConstantInfo) (isRec : Bool) : Expr → Arra
     g4Mask find? isRec b (acc.push (tf || pf))
   | _, acc => acc
 
+/-- **Strictness** (task #423 round 4), exact for direct `.rec` code: a
+parameter of a definition is strict if the body (under its λ telescope)
+is a recursor application whose major is that parameter, or an
+accelerated `Nat` operation whose first operand is (the second is read
+only behind a literal).  A saturated call evaluates a strict argument
+before the call: it would be forced first anyway.  Result: the bitmask
+(bit `p` for the `p`-th parameter) and the telescope's length. -/
+def g4Strict (find? : Name → Option ConstantInfo) (v : Expr) : Nat × Nat :=
+  let rec peel : Expr → Nat → Expr × Nat
+    | .lam _ b, n => peel b (n + 1)
+    | e, n => (e, n)
+  let (b, n) := peel v 0
+  let args := b.getAppArgs.toArray
+  let bit (a : Expr) : Nat := match a with
+    | .bvar i => if i < n then Nat.shiftLeft 1 (n - 1 - i) else 0
+    | _ => 0
+  match b.getAppFn with
+  | .const r _ =>
+    match find? r with
+    | some (.recInfo _ mI _ _) => (if mI < args.size then bit args[mI]! else 0, n)
+    | _ => (if natBin14 r && args.size == 2 then bit args[0]! else 0, n)
+  | _ => (0, n)
+
 /-- The number of leading Π-binders of a type. -/
 def g4Pis : Expr → Nat → Nat
   | .forallE _ b, n => g4Pis b (n + 1)
   | _, n => n
+
+/-- The strictness switch (task #423 round 4 probe). -/
+@[noinline] def g4StrictOn : Bool := true
 
 /-- The erasure switch (task #423 round 3 probe). -/
 @[noinline] def g4Erase : Bool := true
@@ -305,12 +337,31 @@ def g4Comp : Nat → G4Prog → Expr → Nat × G4Prog
             let ms := P.masks; let P := { P with masks := {} }
             (m, { P with masks := ms.insert c m })
         | _ => (#[], P)
+      let ((smask, sn), P) : (Nat × Nat) × G4Prog := match hd with
+        | .const c _ =>
+          if !g4StrictOn then ((0, 0), P) else
+          match P.stricts[c]? with
+          | some r => (r, P)
+          | none =>
+            let r := match find? c with
+              | some (.defnInfo _ v _) => g4Strict find? v
+              | _ => (0, 0)
+            let ms := P.stricts; let P := { P with stricts := {} }
+            (r, { P with stricts := ms.insert c r })
+        | _ => ((0, 0), P)
+      let smask := if args.length ≥ sn then smask else 0
       let (ho, P) := g4Comp f P hd
       let (aos, P) := args.foldl (fun (acc : Array Nat × G4Prog) a =>
         if g4Erase && mask.getD acc.1.size false then
           let o := acc.2.code.size; (acc.1.push o, acc.2.emit (fun c => c.push 8))
         else
-        let (ao, P) := g4CompArg f acc.2 a; (acc.1.push ao, P)) (#[], P)
+        let (ao, P) := g4CompArg f acc.2 a
+        -- a strict argument that would become a thunk: `[10, ao]`, evaluated
+        -- before the call
+        if Nat.testBit smask acc.1.size && (P.code[ao]! == 1 || P.code[ao]! == 3 ||
+            P.code[ao]! == 7) then
+          let o := P.code.size; (acc.1.push o, P.emit (fun c => (c.push 10).push ao))
+        else (acc.1.push ao, P)) (#[], P)
       let o := P.code.size
       (o, P.emit (fun c => aos.foldl (fun c a => c.push a) (((c.push 1).push ho).push aos.size)))
     | .sort _ | .forallE .. | .fvar .. => let o := P.code.size; (o, P.emit (fun c => c.push 8))
@@ -322,12 +373,17 @@ def g4CompArg : Nat → G4Prog → Expr → Nat × G4Prog
   | f + 1, P, a =>
     match a with
     | .app .. | .letE .. | .proj .. =>
-      let (ao, P) := g4Comp f P a
       if a.bvarBRaw == 0 then
-        let o := P.code.size
-        let ns := P.nslots
-        (o, { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 })
-      else (ao, P)
+        match P.closedNode[a]? with
+        | some o => (o, P)
+        | none =>
+          let (ao, P) := g4Comp f P a
+          let o := P.code.size
+          let ns := P.nslots
+          let P := { P.emit (fun c => ((c.push 9).push ns).push ao) with nslots := ns + 1 }
+          let cm := P.closedNode; let P := { P with closedNode := {} }
+          (o, { P with closedNode := cm.insert a o })
+      else g4Comp f P a
     | _ => g4Comp f P a
 end
 end
@@ -561,6 +617,9 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
             ((((val.push 2).push P.code[ao + 1]!).push 0).push 0) ev (fs.push (g4Tag c 1)) argA
             slots mem mH 4 pc env j st
         | 8 => g4Run n P cel val ev (fs.push 1) argA slots mem mH 4 pc env j st
+        | 10 => -- a strict argument: evaluate it now, then continue the spine
+          g4Run n P cel val ev ((((fs.push pc).push env).push j).push 10) argA slots mem mH 0
+            P.code[ao + 1]! env 0 st
         | 4 => -- a constant: its entry's shared cell
           let s := P.kSlot[P.code[ao + 1]!]!
           let c := g4SlotGet slots P.epBase s
@@ -779,6 +838,16 @@ def g4Run : Nat → G4Prog → (cel val ev fs argA slots mem mH : Array Nat) →
           else if fl / 2 % 2 == 1 then .abort "struct-eta major" st
           else g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
         | _ => g4Run n P cel val ev (g4PopN fs 4) argA slots mem mH 1 0 0 0 st
+      | 10 =>
+        -- a strict argument's value: a value cell, pushed, and the spine goes on
+        let j := fs[fs.size - 2]!
+        let env' := fs[fs.size - 3]!
+        let pc' := fs[fs.size - 4]!
+        let fs := g4PopN fs 4
+        let c := (cel.size >>> 2)
+        let ao := P.code[P.code[pc' + 3 + j]! + 1]!
+        g4Run n P ((((cel.push (v + 2)).push ao).push env').push 0) val ev (fs.push (g4Tag c 1)) argA
+          slots mem mH 4 pc' env' j st
       | 4 =>
         let pi := fs[fs.size - 2]!
         let fs := fs.pop.pop
