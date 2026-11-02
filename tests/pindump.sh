@@ -217,6 +217,21 @@ for p in pinners/*/; do
   fi
 
   out=$ROOT/$SCRATCH/$d
+  # A PINNED SOURCE REVISION (task #422): a pinner whose toolchain no
+  # longer builds the repository's shared sources (a toolchain bump
+  # changed them) names the last revision that does, in `source-rev`;
+  # that revision's sources are extracted into the scratch directory and
+  # the pinner builds there (its `srcDir = "../.."` then reads them).
+  if [ -f "$p/source-rev" ]; then
+    rev=$(tr -d ' \t\n\r' < "$p/source-rev")
+    src=$ROOT/$SCRATCH/src-$d
+    mkdir -p "$src"
+    git archive "$rev" ConLeche PinDump.lean scripts/natop_prefix.json | tar -x -C "$src" ||
+      fail "$p: cannot extract source revision $rev"
+    mkdir -p "$src/pinners/$d"
+    cp "$p/lean-toolchain" "$p/lakefile.toml" "$p/lake-manifest.json" "$src/pinners/$d/"
+    p=$src/pinners/$d/
+  fi
   mkdir -p "$out"
   log=$ROOT/$SCRATCH/$d.build.log
   # A foreign toolchain may deprecate a name the shared sources use;
