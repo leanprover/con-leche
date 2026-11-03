@@ -107652,3 +107652,105 @@ others.
   needs are the generator's (Phase 3 makes them the job's, so the
   thunk forces an inference from a fresh memo: equal to the eager one by
   the cached simulation).
+
+### 6. State at the end of the first session (#431 cont.)
+
+**Landed on the branch** (`agent/431-stored`, off `agent/427-installer`):
+
+* Phase 2's checker: `Kernel/Inductives/StoredRecs.lean` —
+  `storedRecsCheck` (shape guards outside the runner; the comparison
+  `storedRecCompare` through it), `recTyCheck` (the stored type closed,
+  levels, resolving, a type; both types opened `mI + 1` binders deep by
+  `openPisAtFvars`, the domains compared pairwise at their depths,
+  `recDomsAt`, then the residues, `recTyOpened`), `ruleAgree`,
+  `storedOut` (what is installed: the generated constant at the stored
+  type, the stored right-hand sides).  `checkBlockTail` runs it at the
+  generated install and conses `storedOut`; `checkBlockTailS` runs it
+  at an overlay of the generated recursors, each comparison in a memo
+  of its own.  `RecShape` carries the record's rules.  The #386 guard
+  (`Driver/RecRules.lean`) and its call are deleted.
+* `reservedRecName` also reserves `Bool`, `Bool.true`, `Bool.false`:
+  `natOpTyPinned`/`natOpGuard` read their entries, and the swap changes
+  recursor TYPES (no recursor can be so named — `T.rec`/`T.rec_i` — so
+  no verdict moves).
+* Verify tier, complete: datF lemmas, `GenRun` (#410's
+  `checkBlockTailS_gen`), twins (`storedRecsCheck_twin`), push chain,
+  skeletons, the cached simulation (`recDomsAtS_spec`,
+  `recTyOpenedS_spec`, `recTyCheckS_spec`, `ruleAgreeS_spec`,
+  `storedRecCheckS_spec`, … `checkBlockTailS_run`), the inversions
+  (`Verify/Inductives/StoredRecsInv.lean`), the stored install's `EnvWF`
+  (`storedRecs_recsWF`).  `installDeclStep_defer` (#411) is untouched.
+* P tier: `SwapTyList` (`Verify/Extend/RecsTy.lean`) and its
+  congruences; `EnvModelM.swapTyP` and `blockRecStagedAt_stored`
+  (`Model/Inductives/StoredSwap.lean`), wired into `declBlock`.
+* Fixtures: `stored_rec_outparam` (a class with an `outParam`, a
+  structure with an `autoParam` field, one with an `optParam` field: 0),
+  `stored_rule_dom_redex`, `stored_type_dom_redex` (0, official 1),
+  `stored_type_dom_bad` (1); `ind_rule_binder_bad` 0 → 1 (official 1:
+  the stored rule is now compared with its domains).  No other pinned
+  verdict moved (e2e 499/499 at the default `--jobs`).
+* Docs: OVERVIEW §5 and the module map, the whitepaper's §4 sentence,
+  citations repointed.
+
+**OPEN — the one proof obligation**: `storedSwap_sem`
+(`Model/Inductives/StoredSwap.lean`, `sorry`; `lake test`'s axiom pins
+and `tests/trust-surface.sh` fail on it, nothing else does).  It owes,
+at the stored install over the generated install's carrier `mpG` (same
+leaf valuation):
+1. `EnvWF` — `storedRecs_recsWF` at the generated stage's run
+   (`declBlock` has the run; it needs `ctx.params.length = nP` and
+   `ClassOutParams` of the classes, or a variant of
+   `storedRecs_recsWF` reading the generated entries' facts off
+   `mpG.base2.wf`);
+2. `RecCtorsStored`, `BasisPinnedTT`, `ProjOkT` — as `recSwapFacts3`,
+   through `SwapTyList`'s correspondence (no name, kind or table moves);
+3. the stored types' three facts — reads and grading from
+   `recTyCheck`'s inference (`acceptedReads_of`, `sortSemAt_of_claims`,
+   as `constChecked_reads`); the membership from
+   `interp ⟦S⟧ = interp ⟦G⟧`: both types opened (`opened_of`), the
+   domains' pins give `paramFrames` (Sat-equivalent frames, equal
+   domains), the residues' `DefEqClaim` at depth `mI + 1` under the
+   generated frame (`CtxOk.transfer` for the stored residue), then the
+   Π-towers' congruence (`interp_mkPisAV_congr`'s shape, with the body
+   equal under the frame);
+4. `RecRules` at the stored install — a transport lemma
+   `RecRuleLaw mG φ n cvG mI rP rlG → RecRuleLaw mS φ n cvS mI rP rlS`
+   for same-acval carriers whose `denote` agree (`denote_swap`) and whose
+   non-recursor lookups agree (`iotaCtorNeverProp` reads an `indInfo`
+   only), given (a) fits transfer: `TeleFitPA ρ ⟦S⟧ xs rest` with
+   `|xs| ≤ mI + 1` gives a fit at `⟦G⟧` (`teleFitPA_to_chain`, the
+   frames' equalities at the chain, `teleFitPA_of_tower`; for a prefix
+   fit split the `PiTeleAV`), and (b) the stored right-hand side reads
+   to `RaS` with `∀ ρ, WellDenoted ρ RaS` and `interp RaS = interp RaG`
+   (`ruleAgree`: both inferred, types `DefEqClaim`-equal and `IsTy`, so
+   both sides are the point or neither, `IsTy.eq_of_ne_pt`, then the
+   rules' `DefEqClaim`); then `interp`/`WellDenoted` of `mkAppN` depend
+   on the head's value and grading only (two small lemmas).  An
+   unchanged recursor is the special case `S = G`, `rhs` equal.
+
+**Not yet**: Phases 3–5 (§5); the derived-data exit-3 fixture belongs to
+Phase 3 (no syntactic reader exists yet whose disagreement could be
+crafted — the one exit-3 guard of Phase 2, `storedNestedOk`, reads the
+stored major the classes were read off, so a stream cannot make it
+fail), the def-headed former fixture to Phase 4 (#195's fixtures are
+unchanged).  `tests/arena.sh` was not run in full (its trust-surface and
+axiom steps fail on the open `sorry`); the e2e corpus was run at the
+default `--jobs`, `--jobs=1` and `--jobs=4` (below).
+
+**Numbers** (`instructions:u`, `--verified`, one run each; base =
+`agent/427-installer` 4d37c03e6, new = this branch at 12ce53b70):
+
+| stream | base | new | Δ |
+|---|---|---|---|
+| init-full `--jobs=1` | 379.476 G | 379.521 G | +0.01 % |
+| init-full `--jobs=8` | 395.584 G | 393.361 G | −0.56 % (pool scheduling noise) |
+| init-prelude `--jobs=1` | 1.841 G | 1.878 G | +1.96 % |
+| init-prelude `--jobs=8` | 2.181 G | 2.225 G | +2.04 % |
+| grind-ring-5 | 15.166 G | 15.206 G | +0.26 % |
+| app-lam, beta-ladder, let-ladder | 22.073 / 4.840 / 2.562 G | | −0.00 … +0.00 % |
+| the other thirteen perf streams (19–296 M) | | | −0.02 … +0.13 % |
+
+The cost is the comparisons of the stored recursors that differ from
+the generated ones (Init's classes and structures with
+`outParam`/`optParam`/`autoParam` binders): a second inference of the
+stored type and of each differing rule, and their defeq comparisons.
