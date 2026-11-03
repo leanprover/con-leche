@@ -6424,27 +6424,24 @@
    331        Red env d ttp (.sort v) → Level.isEquiv v .zero = some true →
    332        Red env d major fab
 
-== ConLeche/Cached/Installed.lean#L452-L457
-   452  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
-   453      (ds : Array Declaration) :
-   454      Except (CheckError × Nat) Env := do
-   455    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
-   456    checkPendingList mode p.2.1 p.2.2.toList
-   457    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L339-L344
+   339  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
+   340      (ds : Array Declaration) :
+   341      Except (CheckError × Nat) Env := do
+   342    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
+   343    checkPendingList mode p.2.1 p.2.2.toList
+   344    pure p.2.1.env
 
-== ConLeche/Cached/Installed.lean#L352-L363
-   352  The driver's check phase — the in-thread loop or a pool of workers —
-   353  runs `checkRecord` on every record.  Its result is the record's own
-   354  evidence: on an accept the `GroupChecked` fact of that record, on a
-   355  failure the error tagged with the record's fold position, the tag
-   356  `checkPendingList` gives.  A worker hands back exactly this (a `Nat`
-   357  and an erased proof, or the error), so the thread that computed a
-   358  check is irrelevant to what it proves, and the results of any number
-   359  of workers, in whatever order they finished, are assembled into
-   360  `∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
-   361  results in record order, which is also what makes the verdict of a
-   362  pool the verdict of the walk `checkPendingList`: the first failing
-   363  record in fold order.  Nothing here is `IO`. -/
+== ConLeche/Verify/Cached/Defer.lean#L244-L252
+   244  /-! ## The check phase's jobs
+   245  
+   246  The check phase runs two kinds of job: a recorded value check
+   247  (`checkPending`, the record's `GroupChecked` fact) and a deferred block
+   248  check (`blockCheck`, the block's `BlockCheck.Ok`).  The jobs are put in
+   249  FOLD ORDER (`jobOrder`, the two position-sorted arrays merged), run by
+   250  any number of workers in any order, and assembled by a walk in job
+   251  order that stops at the first failure (`collectJobs`): the verdict is
+   252  the first failing job in fold order, whatever the workers' timing. -/
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L40
     37  theorem checkDecls_sound (hμ : μ.isVerified = true)

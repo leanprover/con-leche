@@ -107330,3 +107330,144 @@ e2e streams (mutual, indexed mutual, mutual structures with
 projections, a list rose tree, mutual nesting, an indexed family) the
 checked fold, and at every inductive block the generate-only step at
 the same index, compared push for push.
+
+## TASK #411 — inductive blocks checked in the check phase on the parallel install (2026-11-01, agent/411-par; stream path ported to master 2026-11-03, task #427)
+
+Ported from the integration branch `cfsg` (merge 48678479d) by task
+#427: the stream path only.  On `cfsg` the deferral also applies to a
+module's install (isolated and worker modes with a pool for the record
+checks, modules a worker loads privately, store mode in the module's
+callback), whose view is the module's constants over the frozen context
+index (`FBase.fz`, `BlockView.own`, `Twin.ownView`, `DeferCtx`,
+`DeferInv`, `checkBlocks`); master has no modular driver and none of
+that is ported.  On master the one-shot `--jobs=1` loop keeps the
+checked step (as on `cfsg`), so only the parallel install defers, and
+its view is the worker view (`BlockCheck.view : FEnv`, no `BlockView`).
+
+**Ruling** (maintainer: "go for it, it's generally desirable"): move the
+checks of an inductive block out of the sequential install phase into
+the parallel check phase — the same situation as a definition, which is
+pushed before its check.  One job per block.
+
+**Design.**  The fold `checkDecls` (the specification the capstones are
+about) is UNCHANGED: its phase A still installs a block by the checked
+step.  What changes is how the driver builds that step's evidence.
+
+* **Install phase.**  On the parallel install a block is installed
+  generate-only (`installStepG` at the record's worker view: the
+  generate-only `genIndStep`, task #410) and its checked install is
+  recorded as a job of the check phase: `BlockCheck`
+  (`ConLeche/Verify/Cached/Defer.lean`) — the block, its fold position
+  and the view its checked install runs at (the worker view).  The run
+  the commit loop carries is the fold's run CONDITIONAL on the jobs so
+  far: `(∀ b ∈ D, b.Ok) → InstallRun …` (`DeferredRun`).
+* **The step's evidence** (`installDeclStep_defer`): where the
+  generate-only step at the index `fe` pushed `fe₁` and the checked
+  install accepts the block at a twin `W` of `fe` (`Twin`: the same
+  lookups, nothing above the counters), the fold's checked step at `fe`
+  pushes `fe₁` — the twin lemma (`checkDeclStepC_twin`) carries the
+  accept from `W` to `fe`, the contract of the generate-only step
+  (`genIndStep_eq`) makes its push `fe₁`.  The worker view is the
+  serial index's twin by `ViewAgrees`, which the commit maintains
+  anyway; the commit's step for a block is `installStepG_ind`.
+* **Check phase.**  The jobs are the recorded value checks and the block
+  checks merged in fold order (`jobOrder`); a job's result is its fact
+  or its tagged error (`runJob`); the walk (`collectJobs`) stops at the
+  first failing job in fold order and assembles every record checked
+  (`PendOk`, which is `GroupChecked`) and every block job passed, from
+  which the driver discharges the run's condition.
+  `checkLoop`/`checkPool` (`Driver/CheckPool.lean`) now walk jobs.  The
+  old record-only walk (`checkRecord`, `checkRecordResult`,
+  `collectChecks`, `groupChecked_*` in `Cached/Installed.lean`) is gone.
+  At `--jobs=1` the serial `installLoop` is unchanged and its run is
+  taken as a `DeferredRun` with no job.
+* **Soundness.**  The Bool barrier, as for definitions: a run is
+  accepted only if every job of the check phase passed, and then the
+  run is the fold's.  The capstones and their axioms are unchanged.
+
+**Robustness: the generator on unchecked blocks.**
+* A block whose generator fails is reported with its checked install's
+  error at the same view (the checks come first; that the checked
+  install then fails is `genIndStep_eq`) — a reject stays a reject.
+* A block whose constants do not fill the predicted slots (a skeleton
+  the checked install would have rejected) gets its checked install's
+  error too, not the misprediction's exit 3.
+* A failure of a later record after a deferred block whose check fails
+  is reported at that block (`blockFailure`): the serial fold's
+  verdict.  The recursor-rules guard (task #386) runs after the
+  install; a disagreement found there is likewise reported at a failing
+  deferred block before it.
+* Termination: no function of the block installer is `partial` (each is
+  total, by structure or by fuel; already so on master), and its whnf
+  and inference calls run on the core's fuel (`checkFuel`); the
+  generator adds no loop.
+* The deferred block checks are not marked persistent at the phase
+  boundary: a worker view's slots are thunks over promises the install's
+  workers resolved, which those threads may still be counting (on
+  `cfsg` the mark raced with them; segfaults on four fixtures).
+* `tests/ConLecheTests/DeferTests.lean`: the deferring fold (each block
+  generate-only, checked at the index it was installed at) against the
+  checked fold — on six accepted streams the same environment with every
+  job passing, on rejected streams with a faulty block the same verdict
+  at the same position.
+
+**`isoC` kept**: `installDeclStep_defer` rests on `genIndStep_eq`, which
+rests on the generator never observing a check.
+
+**Numbers on `cfsg`** (`instructions:u`): `--jobs=1` unchanged
+(init-full +0.09 %); at `--jobs=8` every block is generated twice:
+init-full +0.51 %, perf streams +0.1 … +1.2 %, init-prelude +3.9 %; the
+install pool's wall time on MulP merged 1.32 s → 1.09 s.  The numbers on
+master are task #427's.
+
+## TASK #427 — the inductive installer's "less install, more check" ported to master (2026-11-03, agent/427-installer)
+
+The first features of the integration branches `olean`/`cfsg` that do
+not depend on modular checking, ported to master as one commit each:
+#386 (the stored recursor rules agree with the generated ones; the
+stream path), #410's kernel side (the generate-only install) and #411's
+stream path (the parallel install's blocks checked in the check phase).
+The prerequisites on `cfsg` that master lacks — `Env.holes` (#399),
+the certified-Nat-name guards (#397), the `FBase.mb`/`FBase.fz` layers
+(#370, #411) — are not needed by these pieces: the ported code was
+adapted where it touched them (the anonymous `Env` constructors, the
+model's `checkBlockInds`/`checkBlockCtors` hypotheses, the worker view).
+Three definitions of `Verify/Cached/ViewCongr.lean` are `@[expose]`
+as on `cfsg` (`RelRun`, `PushedFrom`, `pushPending`: `Defer.lean` and
+the parallel install unfold them).
+
+**Numbers on master** (`perf stat -e instructions:u`, `--verified`, one
+run each; base = master e3fd221f1; "+410" = the branch after the #386
+and #410 commits, "+411" = the branch head):
+
+| stream | `--jobs=1` base | +410 | +411 | `--jobs=8` base | +410 | +411 |
+|---|---|---|---|---|---|---|
+| init-full | 378.92 G | +0.06 % | +0.14 % | 390.55 G | +0.05 % | +0.66 % |
+| init-prelude | 1.8177 G | +1.33 % | +1.40 % | 2.0677 G | +1.31 % | +5.59 % |
+| grind-ring-5 | 15.134 G | +0.19 % | +0.23 % | 15.599 G | +0.19 % | +1.31 % |
+| app-lam | 22.078 G | +0.00 % | −0.03 % | 22.403 G | +0.22 % | +0.25 % |
+| beta-ladder | 4.858 G | +0.01 % | −0.33 % | 4.918 G | +0.01 % | +0.15 % |
+| let-ladder | 2.563 G | +0.02 % | +0.02 % | 2.649 G | −0.08 % | +0.10 % |
+| the other twelve perf streams (20–300 M) | | +0.07 … +2.02 % | +0.10 … +1.95 % | | +0.06 … +1.53 % | +0.39 … +9.73 % |
+
+As on `cfsg`: the isolation of the checks (`isoC`, #410) costs about
++1.3 % on init-prelude at either job count; at `--jobs=1` #411 adds
+nothing; at `--jobs=8` every block is generated twice (the install's
+generator, then the job's checked install), +4.2 points on
+init-prelude, +0.6 on init-full.  The large relative numbers are on the
+smallest streams, where the prelude's blocks are most of the work (the
+absolute delta at `--jobs=8` is about 2 M instructions each).
+
+**Gates.**  `lake build`, `lake test` warning-free after each commit's
+code (the doc-only repoints of each commit checked with the link and
+quote gates); `tests/arena.sh` in full on the head under the RSS guard
+at 8 GB: layering, pindump, trust surface, overview and whitepaper
+links, fragment, quote, no-local-paths, challenge, shake (all
+allowlisted, no public import demotable), selfcheck 48 381
+declarations, axioms pinned, arena tutorial 90/92 as before, e2e
+495/496 with the 13 verdicts #386 moves, the trusted, `--jobs=1` and
+`--jobs=4` sweeps without divergence — but for `stack_fuel_offset`
+(expected exit 134, the native stack overflow), which the guard kills
+at 8 GB before it overflows: master's binary is killed the same way
+(peak 8.02 GB vs 8.05 GB), so that verdict is unchecked under this cap,
+not changed.

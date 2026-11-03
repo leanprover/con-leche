@@ -318,7 +318,7 @@ the other's), which is what a stage looks like at two twin indices. -/
 
 /-- The two runs fail alike or end in the same state with related
 results. -/
-def RelRun {α : Type} (R : α → α → Prop) (x₁ x₂ : CheckCM α) : Prop :=
+@[expose] def RelRun {α : Type} (R : α → α → Prop) (x₁ x₂ : CheckCM α) : Prop :=
   ∀ s, (∃ e, x₁ s = .error e ∧ x₂ s = .error e) ∨
     (∃ a₁ a₂ s', x₁ s = .ok (a₁, s') ∧ x₂ s = .ok (a₂, s') ∧ R a₁ a₂)
 
@@ -387,7 +387,7 @@ macro_rules
 
 /-- Two indices pushed the same constants and installed the same tables
 onto twin bases. -/
-def PushedFrom (fe₁ fe₂ : FEnv) (a₁ a₂ : FEnv) : Prop :=
+@[expose] def PushedFrom (fe₁ fe₂ : FEnv) (a₁ a₂ : FEnv) : Prop :=
   ∃ L Q, a₁ = FEnv.pushDelta L Q fe₁ ∧ a₂ = FEnv.pushDelta L Q fe₂
 
 theorem PushedFrom.refl (fe₁ fe₂ : FEnv) : PushedFrom fe₁ fe₂ fe₁ fe₂ := ⟨[], [], rfl, rfl⟩
@@ -1408,7 +1408,7 @@ theorem installStepC_of_valueStep_none {pins : List NatOpPinSet} {i : Nat} {fe W
 
 /-- The pending checks after a record: its check recorded, for a value
 record. -/
-def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
+@[expose] def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
   | some vg => pend.push ⟨vg, i, v⟩
   | none => pend
 

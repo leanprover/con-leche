@@ -67,7 +67,12 @@ reads which list the matched variant came from.
 
 Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
 steps and carry their accepting runs as the proofs the subtypes ask
-for.  A rejection carries the FOLD POSITION of the declaration it
+for.  **The parallel install checks an inductive block in the check
+phase** (task #411): it runs a block's generate-only step
+(`genIndStep`) and records the block's checked install as a job of the
+check phase, so the run it carries is this fold's run CONDITIONAL on
+those jobs; the check phase discharges them, and the run is this
+fold's (`ConLeche/Verify/Cached/Defer.lean`).  A rejection carries the FOLD POSITION of the declaration it
 names (`installDeclStep` tags its error with the position, a phase-B
 failure with `PendingCheck.pos`), so the driver reports the
 declaration by indexing the record array it already holds, with no
@@ -298,124 +303,6 @@ def FullyChecked (pins : List NatOpPinSet) (ds : List Declaration) : Type :=
 /-- The environment of a fully checked environment. -/
 def FullyChecked.env {pins : List NatOpPinSet} {ds : List Declaration}
     (fc : FullyChecked mode pins ds) : Env := fc.1.fe.env
-
-/-! ## The records' checks, in the type
-
-The driver's check loop carries the checks it has established —
-`GroupChecked` of every record below `k`, extended one record at a
-time — and these are its three lemmas: a record's check as its
-`GroupChecked` fact, the accumulator's extension, and the closing
-argument. -/
-
-/-- Record `k`'s check, as its `GroupChecked` fact. -/
-theorem groupChecked_of_run {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) {k : Nat}
-    (hk : k < e.pend.size) {s' : CState}
-    (h : checkPending mode e.fe e.pend[k] {} = .ok ((), s')) :
-    GroupChecked mode e k := by
-  unfold GroupChecked
-  rw [Array.getElem?_eq_getElem hk]
-  exact ⟨s', h⟩
-
-/-- Beyond the records, nothing is pending. -/
-theorem groupChecked_of_ge {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) {k : Nat}
-    (hk : e.pend.size ≤ k) : GroupChecked mode e k := by
-  unfold GroupChecked
-  rw [Array.getElem?_eq_none hk]
-  trivial
-
-/-- The accumulator, one record further. -/
-theorem groupChecked_extend {pins : List NatOpPinSet} {ds : List Declaration}
-    {e : InstalledEnv mode pins ds} {k : Nat}
-    (acc : ∀ j, j < k → GroupChecked mode e j) (hk : GroupChecked mode e k) :
-    ∀ j, j < k + 1 → GroupChecked mode e j := by
-  intro j hj
-  by_cases hjk : j < k
-  · exact acc j hjk
-  · have : j = k := by omega
-    subst this
-    exact hk
-
-/-- The closing argument: every record below the size, and nothing
-beyond it. -/
-theorem groupChecked_all {pins : List NatOpPinSet} {ds : List Declaration}
-    {e : InstalledEnv mode pins ds}
-    (acc : ∀ j, j < e.pend.size → GroupChecked mode e j) : ∀ i, GroupChecked mode e i := by
-  intro i
-  by_cases hi : i < e.pend.size
-  · exact acc i hi
-  · exact groupChecked_of_ge mode e (Nat.le_of_not_lt hi)
-
-/-! ## One record's check, as evidence
-
-The driver's check phase — the in-thread loop or a pool of workers —
-runs `checkRecord` on every record.  Its result is the record's own
-evidence: on an accept the `GroupChecked` fact of that record, on a
-failure the error tagged with the record's fold position, the tag
-`checkPendingList` gives.  A worker hands back exactly this (a `Nat`
-and an erased proof, or the error), so the thread that computed a
-check is irrelevant to what it proves, and the results of any number
-of workers, in whatever order they finished, are assembled into
-`∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
-results in record order, which is also what makes the verdict of a
-pool the verdict of the walk `checkPendingList`: the first failing
-record in fold order.  Nothing here is `IO`. -/
-
-/-- Record `k`'s check: its `GroupChecked` fact, or the error tagged with
-its fold position. -/
-def checkRecord {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) (k : Nat)
-    (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
-  match h : checkPending mode e.fe e.pend[k] {} with
-  | .ok ((), _) => .ok ⟨groupChecked_of_run mode e hk h⟩
-  | .error err => .error (err, e.pend[k].pos)
-
-/-- A checked record: its index with its `GroupChecked` fact — a `Nat`
-at run time. -/
-abbrev CheckedRecord {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) : Type :=
-  { k : Nat // GroupChecked mode e k }
-
-/-- A worker's result for one record: the checked record, or the error
-tagged with the record's fold position. -/
-abbrev RecordResult {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) : Type :=
-  Except (CheckError × Nat) (CheckedRecord mode e)
-
-/-- Record `k`'s check as a worker's result. -/
-def checkRecordResult {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds) (k : Nat)
-    (hk : k < e.pend.size) : RecordResult mode e :=
-  match checkRecord mode e k hk with
-  | .ok ⟨h⟩ => .ok ⟨k, h⟩
-  | .error err => .error err
-
-/-- **The results, assembled in record order.**  Slot `j` of the table
-must hold record `j`'s result; the walk carries the facts of the
-records below `j` and stops at the first failure — the walk's verdict
-is therefore `checkPendingList`'s whatever order the results were
-produced in.  A slot that is empty or holds another record's result is
-an internal error (a pool that did not do its job), never a verdict on
-the input. -/
-def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
-    (e : InstalledEnv mode pins ds)
-    (tab : Array (Option (RecordResult mode e))) :
-    (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
-      Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
-  | j, acc =>
-    if hj : j < e.pend.size then
-      match tab[j]? with
-      | some (some (.ok ⟨k, hk⟩)) =>
-        if h : k = j then
-          collectChecks e tab (j + 1) (groupChecked_extend mode acc (h ▸ hk))
-        else .error (.internal s!"check phase: slot {j} holds record {k}", e.pend[j].pos)
-      | some (some (.error err)) => .error err
-      | _ => .error (.internal s!"check phase: record {j} was never checked", e.pend[j].pos)
-    else
-      .ok ⟨groupChecked_all mode
-        (fun i hi => acc i (Nat.lt_of_lt_of_le hi (Nat.le_of_not_lt hj)))⟩
-  termination_by j => e.pend.size - j
 
 /-! ## The fold, and the fully checked environment it is
 

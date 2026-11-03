@@ -90,7 +90,9 @@ comes out is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
-steps; the fully checked environment they assemble
+steps (at `--jobs=<n>` the parallel install installs an inductive
+block generate-only and its checks are a job of the check phase, task
+#411: the fold's run is assembled once every job passed); the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
 the success line `checkMain` prints is printed from an accept of
 `checkDecls` and from nothing else.  A rejection carries the fold
@@ -121,6 +123,11 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
   let parRep ← IO.mkRef (pure none : IO (Option PoolRep))
   let tI0 ← IO.monoNanosNow
   let installed ← if jobs ≤ 1 then
+      -- (one thread: the blocks are checked in the install, nothing
+      -- would run beside their deferred checks; the run is the fold's
+      -- with no block job)
+      (·.map fun ⟨p, ⟨r⟩⟩ => (⟨p, #[], fun _ => r⟩ :
+        ConLeche.Cached.DeferredRun mode ConLeche.natOpPinSets ds.toList _)) <$>
       installLoop mode err stride total t0 serialStats ds
         (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) 0
         -- the install environment's index marked linear (task #331): a
@@ -151,18 +158,19 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       check not reached t={secs (now - t0)}s"
     printStats err (tParse - t0) (now - tParse) none (← instRep) instLabel none (fun _ => "")
     return .error e
-  | .ok ⟨(n, fe, pend), ⟨r⟩⟩ =>
+  | .ok ⟨(n, fe, pend), D, r⟩ =>
     -- the records' recursor rules agree with the installed (generated)
     -- ones (`recRulesAgree`, task #386): a guard, nothing installed
     if let .error e := recRulesAgree mode fe ds then
       let now ← IO.monoMsNow
       heartbeat s!"recursor rules disagree at {e.2}/{total} t={secs (now - t0)}s"
-      return .error e
-    let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
-      ⟨fe, pend, ⟨n, r⟩⟩
+      return .error ((ConLeche.Cached.blockFailure mode ConLeche.natOpPinSets D).getD e)
+    -- the check phase's jobs: the recorded value checks and the deferred
+    -- block checks, in fold order
+    let J : Jobs := ⟨fe, pend, D, ConLeche.Cached.jobOrder pend D⟩
     let tCheck ← IO.monoMsNow
     heartbeat s!"install done: {total}/{total} declarations installed, \
-      {pend.size} checks pending t={secs (tCheck - t0)}s \
+      {J.order.size} checks pending ({D.size} of them inductive blocks) t={secs (tCheck - t0)}s \
       (install {secs (tCheck - tParse)}s)"
     -- **THE PERSISTENT MARK AT THE PHASE BOUNDARY.**  The installed
     -- environment is complete and READ-ONLY from here on: every
@@ -194,20 +202,26 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- unsafe only in that the marked closure is never freed, and the
     -- process exits right after.  `--no-mark-persistent` turns it off,
     -- which is how the A/B above is measured on the shipped binary.
+    -- (the deferred block checks are NOT marked: a worker view's slots
+    -- are thunks over promises the install's workers resolved, objects
+    -- those threads may still be counting — the mark would race with
+    -- them; there are few block checks, their counts stay atomic)
     if !noMark then
       let _ ← unsafe Runtime.markPersistent fe
       let _ ← unsafe Runtime.markPersistent pend
+      let _ ← unsafe Runtime.markPersistent J.order
     let tMark ← IO.monoMsNow
     heartbeat s!"persistent mark {secs (tMark - tCheck)}s"
-    let workers := max 1 (min jobs pend.size)
+    let workers := max 1 (min jobs J.order.size)
     let tC0 ← IO.monoNanosNow
     let (chkRep, res) ← if jobs ≤ 1 then
-        -- ONE worker, and no pool: no shared claim counter, no result
-        -- table, the same `checkLoop` accumulator — only the thread is
-        -- new.  A worker that fails as an `IO` action (not a check
-        -- failing) is an internal error, exit 3, never a verdict.
-        let (st, r) ← match ← IO.wait (← IO.asTask (prio := .dedicated)
-            (checkLoop mode err stride t0 e 0 (fun j hj => absurd hj (Nat.not_lt_zero j)) {})) with
+        -- ONE worker, and no pool: no shared claim counter, the same
+        -- table and walk — only the thread is new.  A worker that fails
+        -- as an `IO` action (not a check failing) is an internal error,
+        -- exit 3, never a verdict.
+        let (st, r) ← match ← IO.wait (← IO.asTask (prio := .dedicated) do
+            let (st, tab) ← checkLoop mode err stride t0 J 0 (Array.replicate J.order.size none) {}
+            pure (st, collect mode J tab)) with
           | .ok r => pure r
           | .error ioe =>
             pure ({}, .error (.internal s!"check phase: the worker failed: {ioe}", 0))
@@ -216,11 +230,11 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
                                tEnd := tC1, stats := #[st] }
         pure (rep, r)
       else
-        checkPool mode err stride t0 jobs e
+        checkPool mode err stride t0 jobs J
     let now ← IO.monoMsNow
     let stats : IO Unit :=
       printStats err (tParse - t0) (tCheck - tParse) (some (now - tCheck)) (← instRep)
-        instLabel (some chkRep) (checkLabel e)
+        instLabel (some chkRep) (jobLabel J)
     let summary := s!"done: parse {secs (tParse - t0)}s, install {secs (tCheck - tParse)}s, \
       check {secs (now - tCheck)}s, {workers} worker{if workers = 1 then "" else "s"} \
       t={secs (now - t0)}s"
@@ -232,12 +246,15 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       stats
       return .error e'
     | .ok ⟨hall⟩ =>
-      heartbeat s!"check done: {pend.size}/{pend.size} t={secs (now - t0)}s \
+      heartbeat s!"check done: {J.order.size}/{J.order.size} t={secs (now - t0)}s \
         (check {secs (now - tCheck)}s)"
       heartbeat summary
       stats
+      -- every deferred block check passed: the serial fold's run
+      let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
+        ⟨fe, pend, ⟨n, r hall.2⟩⟩
       let fc : ConLeche.Cached.FullyChecked mode ConLeche.natOpPinSets ds.toList :=
-        ⟨e, hall⟩
+        ⟨e, ConLeche.Cached.groupChecked_of_pendOk mode ConLeche.natOpPinSets hall.1⟩
       return .ok ⟨fc.env, ConLeche.Cached.fullyChecked_checkDecls mode fc⟩
 
 /-- The real driver, which `main` calls in process.  `mode` is the

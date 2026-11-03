@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Cached.ViewCongr
+public import ConLeche.Verify.Cached.Defer
 public import ConLeche.Cached.InstallSkel
 public import Std.Sync.Mutex
 public import ConLeche.Driver.Stats
@@ -43,10 +43,12 @@ phase A of the fold — whatever the schedule.
   waits only on an earlier record.  The prediction, the base, the
   slots, the dependencies and the dependents are each computed on
   per-chunk (per-shard) tasks.
-* **The install** of record `k` is `installStep` at the view of its
-  predicted counter (`ConLeche/Verify/Cached/ViewCongr.lean`): the
+* **The install** of record `k` is `installStepG` at the view of its
+  predicted counter (`ConLeche/Verify/Cached/Defer.lean`): the
   constants it pushes and, for a definition, theorem or opaque, its
-  pending check.  After publishing its slot the installer makes the
+  pending check; an inductive block is installed generate-only, and
+  its checked install at the same view is a job of the check phase
+  (task #411), so the records after it wait on its generator only.  After publishing its slot the installer makes the
   commit's checks (`goodB`: the `And` pin, and every slot the constants
   fill holds that very constant — `slotsOk`, base probes and pointer
   comparisons), and the result travels to the commit thread with its
@@ -59,7 +61,8 @@ phase A of the fold — whatever the schedule.
   `installStep_commit` — the view answers every lookup as the serial
   index does (`ViewAgrees`), and an install at two such indices pushes
   the same constants (`checkDeclStepC_twin`), so the install at the view
-  IS the serial step.  The index is marked linear (task #331) as on the
+  IS the serial step.  A block's step is added conditional on its
+  block job (`installStepG_ind`).  The index is marked linear (task #331) as on the
   serial path: the commit thread is its only holder, and a copy panics.
 * **Progress.**  A record the commit thread reaches unclaimed it claims
   and installs itself, at its view, which waits on nothing (every earlier
@@ -69,7 +72,11 @@ phase A of the fold — whatever the schedule.
   the first failing record in fold order, with the serial step's error
   (`installStep_commit_error`); a failed `And` pin with the serial
   step's error too (`installDeclStep` rejects it before installing
-  anything).  A misprediction — a counter or a slot that does not match
+  anything).  A block whose generator fails, or whose constants do not
+  fill the predicted slots, is reported with its checked install's
+  error at the view; and a failure after a deferred block whose check
+  fails is reported at that block (`blockFailure`), the serial fold's
+  verdict.  A misprediction — a counter or a slot that does not match
   — is an internal error (exit 3).  No input reaches it: every accepting
   step installs exactly the predicted skeleton (`installStepC_skels`).
   Either way, and on an IO exception of the commit thread (a failing
@@ -197,12 +204,13 @@ namespace ParInstall
 
 open ConLeche ConLeche.Cached
 
-/-- What the install of record `k` computes: `installStep` at the view of
-the record's predicted counter. -/
+/-- What the install of record `k` computes: `installStepG` at the view of
+the record's predicted counter (an inductive block generate-only, its
+checks deferred to the check phase). -/
 def workerRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) (k : Nat) : Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match ds[k]?, vis[k]? with
-  | some pd, some v => installStep mode natOpPinSets (workerView B S v) pd
+  | some pd, some v => installStepG mode natOpPinSets (workerView B S v) pd
   | _, _ => .error (.internal "parallel install: no such record")
 
 /-- The constants and the tables an install result publishes. -/
@@ -749,14 +757,13 @@ place (the index is marked linear, and a copy would panic). -/
 def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
     (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
     (p₀ : Nat × FEnv × Array PendingCheck) :
-    (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) →
+    (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
     fe.visibleBelow = c →
-    InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend) →
+    ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
+      InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
     IdxBelow fe → ViewAgrees B S fe →
-      IO (Except (CheckError × Nat)
-        (Σ' (p' : Nat × FEnv × Array PendingCheck),
-          PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
-  | k, i, c, fe, pend, hc, hrun, hidx, hag => do
+      IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
+  | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
     if hk : k < ds.size then
       let pd := ds[k]
       have hlist : ds.toList.take (k + 1) = ds.toList.take k ++ [pd] := by
@@ -794,43 +801,78 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
             if hgood : good = true then
               have hG : GoodAt ds B S vis k r := hk' ▸ hg hgood
               have hG' := hG pd c (Array.getElem?_eq_getElem hk) hv
-              have hval : r = installStep mode natOpPinSets (workerView B S fe.visibleBelow) pd := by
+              have hval : r = installStepG mode natOpPinSets (workerView B S fe.visibleBelow) pd := by
                 have hr' : r = workerRes mode ds B S vis k := hk' ▸ hr
                 rw [hr', hc]
                 simp only [workerRes, Array.getElem?_eq_getElem hk, hv, pd]
               match hres : r with
               | .ok (L, Q, vg?) =>
-                have hstep0 := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
-                  hag hidx hG'.1 (hval.symm.trans hres)
-                have hstep : installDeclStep mode natOpPinSets (i, fe, pend) pd =
-                    .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i c vg?) := by
-                  rw [← hc]; exact hstep0
-                commitLoop err stride total t0 hB sh cst p₀ (k + 1)
-                  (i + 1) (c + L.length) (FEnv.pushDelta L Q fe) (pushPending pend i c vg?)
-                  (by rw [FEnv.visibleBelow_pushDelta, hc])
-                  (by rw [hlist]; exact InstallRun.snoc mode hrun hstep)
-                  (hidx.pushDelta L Q)
-                  (ViewAgrees.commit hB hidx hag (hc ▸ hG'.2 L Q vg? hres))
+                match hpd : indParts? pd with
+                | some (block, nP) =>
+                  -- an inductive block, installed generate-only: its step is
+                  -- conditional on its checked install at the same view, a
+                  -- job of the check phase
+                  have hpd' := indParts?_some hpd
+                  have hand : andPinOk (.indDecl block nP) = true := hpd' ▸ hG'.1
+                  have hg := installStepG_ind (pins := natOpPinSets) (i := i) (pend := pend)
+                    hag hidx hand (hpd' ▸ hval.symm.trans hres)
+                  have hvg : vg? = none := hg.1
+                  let b : BlockCheck := ⟨workerView B S c, block, nP, i⟩
+                  commitLoop err stride total t0 hB sh cst p₀ (k + 1)
+                    (i + 1) (c + L.length) (FEnv.pushDelta L Q fe) (pushPending pend i c vg?)
+                    (D.push b)
+                    (by rw [FEnv.visibleBelow_pushDelta, hc])
+                    (by
+                      rw [hlist]
+                      refine deferRun_push hrun fun hb => ?_
+                      rw [hvg, hpd']
+                      have h' := hg.2 (by rw [hc]; exact blockCheck_ok hb)
+                      exact h')
+                    (hidx.pushDelta L Q)
+                    (ViewAgrees.commit hB hidx hag (hc ▸ hG'.2 L Q vg? hres))
+                | none =>
+                  have hstep0 := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
+                    hag hidx hG'.1 ((installStepG_none hpd _).symm.trans (hval.symm.trans hres))
+                  have hstep : installDeclStep mode natOpPinSets (i, fe, pend) pd =
+                      .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i c vg?) := by
+                    rw [← hc]; exact hstep0
+                  commitLoop err stride total t0 hB sh cst p₀ (k + 1)
+                    (i + 1) (c + L.length) (FEnv.pushDelta L Q fe) (pushPending pend i c vg?) D
+                    (by rw [FEnv.visibleBelow_pushDelta, hc])
+                    (by rw [hlist]; exact deferRun_snoc hrun hstep)
+                    (hidx.pushDelta L Q)
+                    (ViewAgrees.commit hB hidx hag (hc ▸ hG'.2 L Q vg? hres))
               | .error e =>
-                -- the serial step's error at this record, checked here
-                -- (the return type carries no proof for a rejection)
-                have _ : installDeclStep mode natOpPinSets (i, fe, pend) pd = .error (e, i) := by
-                  exact installStep_commit_error hag hidx hG'.1 (hval.symm.trans hres)
-                return .error (e, i)
+                -- (for a record other than a block, the serial step's error,
+                -- `installStep_commit_error`; for a block the checked
+                -- install's at the view, which is the serial step's too)
+                -- a deferred block before it that fails its check is the
+                -- serial fold's verdict
+                return .error ((blockFailure mode natOpPinSets D).getD (e, i))
             else if andPinOk pd then
-              return mispredicted k i "a predicted slot did not match"
+              -- a slot that does not match the prediction: for a block
+              -- installed generate-only (on a block nobody checked yet)
+              -- the verdict is its checked install's at the view, which no
+              -- accepted block reaches (`installStepC_skels`); else a
+              -- misprediction
+              match indParts? pd with
+              | some _ =>
+                match installStep mode natOpPinSets (workerView B S c) pd with
+                | .error e => return .error ((blockFailure mode natOpPinSets D).getD (e, i))
+                | .ok _ => return mispredicted k i "a predicted slot did not match"
+              | none => return mispredicted k i "a predicted slot did not match"
             else
               -- a failed `And` pin: the serial step rejects the record
               -- before installing anything; its error is the verdict
               match installDeclStep mode natOpPinSets (i, fe, pend) pd with
-              | .error e => return .error e
+              | .error e => return .error ((blockFailure mode natOpPinSets D).getD e)
               | .ok _ => return mispredicted k i "the `And` pin"
           else return mispredicted k i "a mismatched install result"
       else return mispredicted k i "a predicted counter did not match"
     else
-      return .ok ⟨(i, fe, pend), ⟨by
+      return .ok ⟨(i, fe, pend), D, by
         rw [List.take_of_length_le (by simp; omega)] at hrun
-        exact hrun⟩⟩
+        exact hrun⟩
   termination_by k => ds.size - k
 
 end ParInstall
@@ -848,9 +890,7 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
     (noMark : Bool) (rep : IO.Ref (IO (Option PoolRep))) (drain : IO.Ref (IO Unit))
     (ds : Array Declaration) :
     IO (Except (CheckError × Nat)
-      (Σ' (p' : Nat × FEnv × Array Cached.PendingCheck),
-        PLift (Cached.InstallRun mode natOpPinSets ds.toList
-          (0, mkFEnv Env.empty, #[]) p'))) := do
+      (Cached.DeferredRun mode natOpPinSets ds.toList (0, mkFEnv Env.empty, #[]))) := do
   let tA ← IO.monoMsNow
   let n := ds.size
   let parts := max 1 jobs
@@ -1013,8 +1053,8 @@ def parInstall (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : N
   let res ← try
       ParInstall.commitLoop err stride total t0
         (Cached.buildBase_inj shards) sh cst (0, mkFEnv Env.empty, #[])
-        0 0 0 (mkFEnv Env.empty).markLinear #[] rfl
-        (FEnv.markLinear_eq _ ▸ .nil _)
+        0 0 0 (mkFEnv Env.empty).markLinear #[] #[] rfl
+        (fun _ => FEnv.markLinear_eq _ ▸ .nil _)
         (FEnv.markLinear_eq _ ▸ Cached.IdxBelow.mkFEnv_empty)
         (FEnv.markLinear_eq _ ▸ Cached.ViewAgrees.empty B S)
     catch ex =>
