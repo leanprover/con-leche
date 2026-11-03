@@ -321,14 +321,42 @@ structure ProjTable where
   `infer_proj` requires to be `Prop` when projecting from a
   propositional structure (task #175 W4c/O4, `structProjGuards`); the
   infer branch checks it at every use of a `Prop`-declared
-  structure. -/
-  guards : List Level
-  deriving DecidableEq, Repr, Inhabited
+  structure.
+
+  **Lazy** (task #431): the levels are the fields' SORTS, an
+  inference, and a table is read at every `.proj` node while its guards
+  are read only at a `Prop`-declared structure.  The checked install
+  stores them computed (`Thunk.pure`); the parallel install's stored
+  install (`storedInstall`, `ConLeche/Driver/StoredInstall.lean`) a thunk
+  that infers them on first use, whose value the block's check job
+  compares with the checked install's.  Logically a thunk is its value
+  (`Thunk.get`), and two tables with equal guard values are equal
+  (`Thunk.ext`). -/
+  guards : Thunk (List Level)
+  deriving Inhabited
+
+instance : Repr ProjTable where
+  reprPrec t _ := s!"ProjTable {t.structName}"
+
+/-- Two tables are equal when their fields are, the guards compared by
+value (`Thunk.ext`); deciding it forces both guard thunks. -/
+instance : DecidableEq ProjTable := fun a b =>
+  if h : a.structName = b.structName ∧ a.levelParams = b.levelParams ∧
+      a.numParams = b.numParams ∧ a.ctor = b.ctor ∧ a.numFields = b.numFields ∧
+      a.structSort = b.structSort ∧ a.bodies = b.bodies ∧ a.guards.get = b.guards.get then
+    .isTrue (by
+      obtain ⟨_, _, _, _, _, _, _, _⟩ := a
+      obtain ⟨_, _, _, _, _, _, _, _⟩ := b
+      obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
+      simp only at h1 h2 h3 h4 h5 h6 h7 h8
+      subst h1 h2 h3 h4 h5 h6 h7
+      rw [Thunk.ext h8])
+  else .isFalse (by intro he; subst he; exact h ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩)
 
 /-- **One projection-table entry** — the per-field VIEW of a
 `ProjTable` (`ProjTable.entry`), what `Env.findProj? T i` returns:
 the table's data at field `idx`.  `body` is `bodies[idx]` and
-`fieldSort` is `guards[idx]`. -/
+`fieldSort` is `guards[idx]`, forced only when read. -/
 structure ProjEntry where
   structName : Name
   idx : Nat
@@ -339,16 +367,21 @@ structure ProjEntry where
   /-- the projection's result-type body, scoped at `numParams + 1`
   (see `ProjTable.bodies`) -/
   body : Expr
-  /-- the projection's `Prop` guard level (see `ProjTable.guards`) -/
-  fieldSort : Level
+  /-- the table's guard levels, unforced (see `ProjTable.guards`):
+  the entry's own is `fieldSort` -/
+  guards : Thunk (List Level)
   structSort : Level
-  deriving DecidableEq, Repr, Inhabited
+  deriving Inhabited
+
+/-- The projection's `Prop` guard level: `guards[idx]`, forced on
+first use (only a `Prop`-declared structure's uses read it). -/
+@[inline] def ProjEntry.fieldSort (e : ProjEntry) : Level := e.guards.get.getD e.idx .zero
 
 /-- The per-field view of a table at field `i` (meaningful for `i <
 numFields`). -/
 def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
   ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
-    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort⟩
+    tbl.bodies.getD i default, tbl.guards, tbl.structSort⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where

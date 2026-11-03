@@ -81,6 +81,6 @@ def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.internal "direct structure: projection table before its structure")
   unless (env.findTable? T).isNone do
     throw (.invalid "projection table taken")
-  pure ⟨env.consts, ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩ :: env.tables⟩
+  pure ⟨env.consts, ⟨T, lps, nP, C, nF, resSort, bodies, Thunk.pure guards⟩ :: env.tables⟩
 
 end ConLeche
