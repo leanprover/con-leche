@@ -108192,3 +108192,94 @@ index-valued, official 0); a shapeless block followed by a record that
 uses one of its names, and a def-headed former whose telescope does not
 reduce followed by a use (the verdict is the block's at every
 `--jobs`).
+
+### 11. The final record (#431 cont. 5, 2026-11-03)
+
+**One install path for every inductive block** (3c4da9cc4, 23221362e).
+On the parallel install every `.indDecl` record goes through the stored
+install, its checked install the block's job; `storedReadable`, the
+fallback of `installStepG` to the checked install, and the commit
+loop's checked install of a mismatched block are gone.
+`storedInstall` is total:
+* **basis-pinned blocks**: the pin's constants (`kind.declsA`, what
+  `checkBasisDeclC` pushes; the pins' semantics are unchanged — the
+  checker's own basis copies are what is installed); the job checks the
+  names are fresh and compares;
+* **blocks the recogniser does not read** (`blockParts?` fails): nothing,
+  the prediction's skeleton for them; the job declines or rejects as the
+  checked install does (`checkShapelessS`);
+* **every other block**: the reading of §8, with a former whose stored
+  type is not a syntactic telescope at the telescope official's `whnf`
+  loop reads (`storedTele`: `whnfTelescope` at the worker view from a
+  fresh memo, closed — the checked install's own computation, §10), and
+  every part whose reading fails at its record as declared (a former
+  that does not reduce, a recursor whose major cannot be read: its
+  rules as declared) or left out (a table whose bodies cannot be
+  built).  A parameter-count mismatch needs no case of its own: the
+  block is read, and the job rejects it.
+The verdict is the block's job's in every case.  One case needs the
+job at once: a block a name of which is taken already (the arena's
+duplicate-name tutorials 132, 133, 134, 137) — its pushes do not fill
+the predicted slots, so the commit loop runs the block's job there
+(installing nothing) and reports its error; a job that passes is a
+misprediction (exit 3).  This is a verdict computation on a stream
+that is rejected, not a second install.  The records that are not
+inductive blocks keep their step: the `Quot` package's records (the
+pin comparison and the pinned push), the pinned `Nat`-operation and
+`reduce*` records, the axioms.
+
+**Phase 4 (def-headed formers): not needed in the model.**  Ruling 2's
+reduced form read off the recursor gives the binders (the recursor's
+parameters, the motive's index binders) but not the former's result
+sort, which no record carries for a large-eliminating family (the
+`Type`-valued `ind_defhead_struct`, `ind_defhead_mutual`,
+`ind_defhead_fix`, `ind_former_redex` and the K-like `Prop`
+`ind_defhead_k`); so the reduced form is the one #195 already installs,
+computed by the same function in the stored install and in the job.
+The installed former is unchanged, so `LfpReads`, `LfpCtorReads`,
+`IndCapsWF` and the container readers are untouched and no proof
+changed for it.  The job checks the declared type, the reduction and
+the reduced telescope from scratch, as before.
+
+**Proofs**: `deferredBlock?` is every `.indDecl`; `installStepG_ind`
+loses its failure branch; no other proof changed.  No `sorry`, no new
+axiom, no new `unsafe`.
+
+**Fixtures** (`tests/e2e`): `ind_defhead_nested` (a def-headed
+`Type`-valued container and a def-headed indexed container, `Vec' α :
+Fam`, nested by later blocks with their ι-reductions; official 0,
+con-leche 0 at every `--jobs`; the variant `Fam α := Nat → Type` at
+`Vec' α : Fam α` is rejected by the official kernel itself, "unknown
+constant", since the auxiliary block's former names the block);
+`ind_defhead_opaque_bad` (the former's definition an opaque, so the
+former does not reduce, followed by a use; official 1, con-leche 1) and
+`ind_shapeless_use` (a constructor with a level parameter the block
+lacks, followed by a use of the recursor the block no longer pushes;
+con-leche 2 "shape not recognised" at every `--jobs`, official 1, as
+before this task), both made by `scripts/mk_stored_install_fixtures.py`.
+`DeferTests` folds the stored install on five def-headed streams too.
+`direct_idx_defhead`, `ind_defhead_struct`, `ind_defhead_k`,
+`ind_defhead_mutual`, `presieve_ofarrows_cone` stay 0 as official.
+
+**Numbers** (`instructions:u`, `--verified`, one run each; base =
+`agent/427-installer` 4d37c03e6, head = 23221362e):
+
+| stream | `--jobs=1` base | Δ | `--jobs=8` base | Δ |
+|---|---|---|---|---|
+| init-full | 379.447 G | −0.08 % | 393.414 G | −0.44 % |
+| init-prelude | 1.8422 G | +0.76 % | 2.1757 G | −2.06 % |
+| grind-ring-5 | 15.165 G | +0.09 % | 15.803 G | −0.79 % |
+| app-lam, beta-ladder, let-ladder | 22.07 / 4.84 / 2.56 G | −0.01 … +0.01 % | 22.45 / 4.92 / 2.65 G | −0.15 … +0.04 % |
+| the other twelve perf streams | 19–296 M | −1.73 … −0.07 % | 24–300 M | −6.82 … −0.24 % |
+
+As §9's: init-full has no def-headed former and its basis blocks were
+pushes before, so the one install path costs nothing measurable.
+
+**Gates on 23221362e**: `lake build`, `lake test` warning-free (axioms
+pinned, 20 theorems at `propext`, `Classical.choice`, `Quot.sound`);
+`tests/arena.sh` in full under the 8 GB guard (peak anon 2.2 GB):
+layering, pindump, trust surface (24 escapes in 8 allowlisted files),
+overview and whitepaper links (repointed), fragment, quote,
+no-local-paths, challenge, shake (all allowlisted), selfcheck 48 648
+declarations, arena tutorial 90/92 as before, e2e 502/502, the
+trusted, `--jobs=1` and `--jobs=4` sweeps without divergence.
