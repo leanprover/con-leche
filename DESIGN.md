@@ -108125,3 +108125,70 @@ telescope exists; the install-time comparison is the model's bridge,
 not a verdict a stream can flip.  The rejects a stream can reach are
 the existing ones (a telescope `whnf` does not reach, e.g. `ind_numparams_bad`).
 
+
+### 10. The plan after the maintainer's rulings of 2026-11-03 (#431 cont. 5)
+
+Two rulings supersede parts of §9.  (1) No separate code path for
+obscure cases: EVERY inductive block goes through the stored install
+with the checked install as its delayed job — def-headed formers,
+pinned basis blocks (their read source is the pin's constants; the pins'
+semantics stay as they are) and shapeless blocks included — and the
+checked in-place step of the parallel install goes.  (2) A def-headed
+former may be installed in the REDUCED form, the telescope the stored
+recursor shows, so that `LfpReads`, `LfpCtorReads` and `IndCapsWF` keep
+their syntactic form.
+
+**What the recursor shows, and what it does not.**  The recursor's
+parameters and the motive's index binders are the whnf'd telescope's
+binders (official builds both off its own `whnf` loop), but the
+former's RESULT SORT is on no record: a recursor eliminating only into
+`Prop` says the family is a proposition, and a large-eliminating one
+(`ind_defhead_struct`, `ind_defhead_mutual`, `ind_defhead_fix`,
+`ind_former_redex` at `Type`, `ind_defhead_k` at a K-like `Prop`) says
+nothing about it.  The reduced form must therefore come from the
+reduction itself.  The stored install takes it from the checked
+install's own function: where a former's stored type is not a
+syntactic telescope ending in a sort, it is installed at
+`closeTelescope` of `whnfTelescope` at the worker view (a fresh memo,
+the shared operations — #195's telescope, the same reduced form the
+recursor shows on every stream the official kernel accepts).  So the
+installed former is exactly what the checked install installs today,
+the job's comparison sees the same constant, and no model invariant
+reads anything new: Phase 4 of §5/§9 (the stored former type in the
+model, `LfpReads`/`LfpCtorReads`/`IndCapsWF` restated over the
+recursor, the container readers moved) is NOT needed.  The job keeps
+checking the declared type (`checkConstantVal`), the reduction and the
+reduced telescope from scratch, as #195 does; the container readers
+(`nestInstType`, `targetOutsideInst`, `classFormerTy`) read the
+installed reduced former, as today, so a def-headed container is
+accepted where official accepts (new fixture).
+
+**One install, every block** (`storedInstall` becomes total):
+* a block matching a basis pin: the pin's constants (`kind.declsA`, the
+  checked install's pushes; the job checks the names are fresh);
+* a block the recogniser does not read (`blockParts?` fails): nothing
+  (the skeleton the prediction has for it); its job declines or rejects
+  it as the checked install does;
+* any other block: the reading of §8, every part of it with the record
+  AS DECLARED where its reading fails — a former whose telescope does
+  not reduce, a recursor whose major cannot be read (rules as
+  declared), a structure whose projection bodies cannot be built (no
+  table).  These are exactly the blocks the checked install rejects (or
+  a reader defect: the job's comparison then fails, exit 3); the pushes
+  keep the predicted slots filled, so the install goes on.
+There is no up-front verdict: the verdict is always the block's job,
+which IS the serial step at the worker view, so `--jobs=1` and
+`--jobs=n` agree by construction.  A later record that fails at install
+because of a malformed block (a name it does not push) is reported at
+the block, by `blockFailure`, as today.  `storedReadable` goes;
+`installStepG` on a block is the stored install, and its fallback to
+the checked install and the commit loop's checked install on a slot
+mismatch go (a mismatch is a misprediction, exit 3).  The `Quot`
+records and the pinned `Nat`-operation definitions are not inductive
+blocks and keep their step.
+
+**Fixtures**: a def-headed container nested by a later block (Type- and
+index-valued, official 0); a shapeless block followed by a record that
+uses one of its names, and a def-headed former whose telescope does not
+reduce followed by a use (the verdict is the block's at every
+`--jobs`).
