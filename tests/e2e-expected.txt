@@ -1113,6 +1113,23 @@
 # --- #210 Part B both install natively (the placeholder sort on the
 # --- one route; the declines were the modeled path's).
 0 ind_defhead_fix.ndjson
+#
+# --- Task #431: every inductive block is installed as stored on the
+# --- parallel install, its checked install a job; a def-headed former at
+# --- its reduced telescope.  ind_defhead_nested: def-headed CONTAINERS
+# --- (`Box : Type → MyType`, `Vec' : Type → Fam`, `Fam := Nat → Type`)
+# --- nested by later blocks, read at the installed reduced former;
+# --- official 0.  The twins of ind_defhead_fix by
+# --- scripts/mk_stored_install_fixtures.py, each followed by a record
+# --- that uses the block: ind_defhead_opaque_bad (`MyType` an opaque, so
+# --- the former does not reduce; official 1) and ind_shapeless_use (a
+# --- constructor with a level parameter the block lacks, so the
+# --- recogniser does not read it and nothing is pushed; TODO official 1,
+# --- con-leche declines, "shape not recognised").  The verdict is the
+# --- block's job's at every `--jobs`.
+0 ind_defhead_nested.ndjson
+1 ind_defhead_opaque_bad.ndjson
+2 ind_shapeless_use.ndjson
 0 ind_former_redex.ndjson
 #
 # --- A4 / crack C4: mutual members whose parameter telescopes (…param…)

@@ -6,9 +6,9 @@ public import ConLeche.Cached.StoredInstall
 /-!
 # Inductive blocks checked in the check phase (tasks #411, #431)
 
-Phase A installs an inductive block **as stored** (`storedInstall`,
-task #431: every constant and table read syntactically off the block's
-records, nothing generated or inferred) and records the block's checked
+Phase A installs every inductive block **as stored** (`storedInstall`,
+task #431: every constant and table read off the block's records,
+nothing generated) and records the block's checked
 install as a job of the check phase (`BlockCheck`): the checked install
 of the block at a view that answers every lookup as the index the block
 was installed at does (`Twin`), and the comparison of what it pushes
@@ -102,40 +102,28 @@ theorem blockCheck_ok {mode : CheckMode} {pins : List NatOpPinSet} {b : BlockChe
     · exact nomatch h
   · exact nomatch h
 
-/-- **An inductive block the stored install reads**, with its parts
-(`storedReadable`); every other record is installed by its ordinary
-step. -/
+/-- **An inductive block**, with its parts: every one is installed as
+stored (`storedInstall`, task #431 cont. 5); every other record is
+installed by its ordinary step. -/
 def deferredBlock? : Declaration → Option (List ConstantInfo × Nat)
-  | .indDecl block nP => if storedReadable block nP then some (block, nP) else none
+  | .indDecl block nP => some (block, nP)
   | _ => none
 
 theorem deferredBlock?_some {pd : Declaration} {block : List ConstantInfo} {nP : Nat}
-    (h : deferredBlock? pd = some (block, nP)) :
-    pd = .indDecl block nP ∧ storedReadable block nP = true := by
-  cases pd <;> simp only [deferredBlock?, reduceCtorEq] at h
-  split at h
-  · rename_i hr; simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h; exact ⟨rfl, hr⟩
-  · exact nomatch h
+    (h : deferredBlock? pd = some (block, nP)) : pd = .indDecl block nP := by
+  cases pd <;> simp only [deferredBlock?, reduceCtorEq, Option.some.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl⟩ := h; rfl
 
-/-- **A record's install at a worker view, a readable block as stored**:
-the ordinary `installStep` but for an inductive block the stored install
-reads, whose constants and tables are the stored install's.  Where the
-stored install fails, the verdict is the checked install's: a block
-nobody checked yet may be malformed, and its checks come first.  (A
-reading that fails where the checked install passes is a defect of the
-reader: an internal error.) -/
+/-- **A record's install at a worker view, an inductive block as
+stored**: the ordinary `installStep` but for an inductive block, whose
+constants and tables are the stored install's — whatever the block, so
+its verdict is always its job's. -/
 def installStepG (mode : CheckMode) (pins : List NatOpPinSet) (W : FEnv) (pd : Declaration) :
     Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match deferredBlock? pd with
   | some (block, nP) =>
-    match storedInstall mode W block nP with
-    | some (L, Q) => .ok (L, Q, none)
-    | none =>
-      match installStep mode pins W pd with
-      | .error e => .error e
-      | .ok _ => .error (.internal "inductive block: the stored install failed \
-          where the checked install passed")
+    let r := storedInstall mode W block nP
+    .ok (r.1, r.2, none)
   | none => installStep mode pins W pd
 
 theorem installStepG_none {mode : CheckMode} {pins : List NatOpPinSet} {pd : Declaration}
@@ -196,15 +184,9 @@ theorem installStepG_ind {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees
   have ht := Twin.ofViewAgrees hag hidx
   unfold installStepG at h
   rw [hd] at h
-  simp only at h
-  split at h
-  · rename_i hs
-    simp only [Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl, rfl⟩ := h
-    exact ⟨rfl, fun hok => installDeclStep_defer ht rfl hand hok⟩
-  · split at h
-    · exact nomatch h
-    · exact nomatch h
+  simp only [Except.ok.injEq, Prod.mk.injEq] at h
+  obtain ⟨rfl, rfl, rfl⟩ := h
+  exact ⟨rfl, fun hok => installDeclStep_defer ht rfl hand hok⟩
 
 /-- **An accepting install with its block checks deferred**: the final
 accumulator, the deferred checks, and the serial fold's accepting run

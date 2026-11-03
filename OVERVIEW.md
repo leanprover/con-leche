@@ -355,7 +355,7 @@ Read from the outside in:
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L164))
+   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L165))
    takes every record, each from a fresh memo state, through the install step
    ([function `installStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L144-L147)):
    a definition or opaque is guarded and pushed with its check
@@ -371,7 +371,7 @@ Read from the outside in:
    steps, a proposition, and what it returns is an installed
    environment. On more than one worker the same run is built by a
    commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L770-L779))
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L771-L780))
    that adds one step per record in stream order, pushing each record's
    constants into the index itself, while worker threads
    install the records ahead of it, each at a *worker view*: an empty index over a frozen base layer that maps
@@ -386,33 +386,35 @@ Read from the outside in:
    every install stage reads its index through the lookups alone (the
    constants' and the projection tables') and writes it by pushes
    alone, so at two indices with the same lookups it pushes the same
-   constants and tables onto each. The workers install an inductive
-   block *as stored*: every constant and table read syntactically off
-   the block's records, nothing generated or inferred (a projection
-   table's guard levels, the fields' sorts, are a thunk inferred on
-   first use), and its checked install, at the same worker view,
+   constants and tables onto each. The workers install every inductive
+   block *as stored*: every constant and table read off the block's
+   records, nothing generated (a projection table's guard levels, the
+   fields' sorts, are a thunk inferred on first use; a former whose type
+   is a definition is put at the telescope official's `whnf` loop reads,
+   the one its recursor shows; a pinned basis block is the pin's
+   constants), and its checked install, at the same worker view,
    becomes a job of the check phase that also compares what it pushes
    with what the stored install pushed (a difference is exit 3: the
-   reading is wrong, not the stream). A block the reading does not take
-   (a pinned basis block, a former whose type is a definition) is
-   installed checked, in place. The run the commit loop carries is then the fold's
+   reading is wrong, not the stream). Where a part of a block cannot be
+   read, it is pushed as declared (a block the recogniser does not read
+   pushes nothing): the block's job then rejects or declines it, so the
+   verdict is always the checked install's. The run the commit loop carries is then the fold's
    run *conditional* on those jobs
-   ([theorem `installDeclStep_defer` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L154-L161)),
+   ([theorem `installDeclStep_defer` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L142-L149)),
    and the check phase discharges the condition: a run is accepted
    only if every job passes, exactly as for a recorded definition,
-   which is installed before its check too. A block the reading
-   cannot install is reported with its checked install's error, and a
-   failure after a block whose job fails is reported at that block.
+   which is installed before its check too. A failure after a
+   block whose job fails is reported at that block.
    What the commit loop returns is therefore
    the same installed environment, whatever the schedule (a prediction
    that does not match, which no accepted block produces, is an internal
-   error, exit 3, or a block's checked install's error). The check
+   error, exit 3). The check
    phase then checks every recorded declaration
    against the *prefix* of the installed index it was installed at — an
    `O(1)` view whose lookup hides everything installed later — from a
    fresh memo state, and runs every block's job, in one order: the
    stream's. A job is its own evidence
-   ([definition `runJob` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L273-L274)):
+   ([definition `runJob` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L255-L256)):
    the fact that the record is checked or the block's install passed,
    or its error tagged with the declaration's position in the stream.
    The installed environment — read-only from the
@@ -425,7 +427,7 @@ Read from the outside in:
    ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L242))
    claims jobs one at a time off a shared counter, and the results,
    merged by job index, are walked in job order
-   ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L322-L326))
+   ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L304-L308))
    — the walk stops at the first failing job in fold order, so the
    pool's verdict is the sequential walk's, and what it assembles is
    the same fact about every record and every block. Either way what comes out is a

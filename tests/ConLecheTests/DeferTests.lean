@@ -37,11 +37,10 @@ open ConLeche ConLeche.Cached ConLeche.Frontend
 (as the worker view's), so that a step's pushes are its environment. -/
 def viewOf (fe : FEnv) : FEnv := { fe with env := Env.empty }
 
-/-- The deferring fold: a readable block as stored with its check
-recorded at the view of its index (where the reading fails, the
-checked install's error at the view), every other record by the
-checked step; a failure reported, as the driver does, after the
-deferred checks below it. -/
+/-- The deferring fold: every inductive block as stored with its check
+recorded at the view of its index, every other record by the checked
+step; a failure reported, as the driver does, after the deferred checks
+below it. -/
 def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array BlockCheck →
     Except (CheckError × Nat) (FEnv × Array BlockCheck)
   | [], acc, D => .ok (acc.2.1, D)
@@ -49,14 +48,9 @@ def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array
     match deferredBlock? d with
     | some (block, nP) =>
       let v := viewOf acc.2.1
-      match storedInstall .verified v block nP with
-      | some (L, Q) =>
-        deferFold ds (acc.1 + 1, FEnv.pushDelta L Q acc.2.1, acc.2.2)
-          (D.push ⟨v, block, nP, acc.1, L, Q⟩)
-      | none =>
-        match blockCheck .verified natOpPinSets ⟨v, block, nP, acc.1, [], []⟩ with
-        | .error e => .error ((blockFailure .verified natOpPinSets D).getD (e, acc.1))
-        | .ok () => .error (.internal "unreachable", acc.1)
+      let (L, Q) := storedInstall .verified v block nP
+      deferFold ds (acc.1 + 1, FEnv.pushDelta L Q acc.2.1, acc.2.2)
+        (D.push ⟨v, block, nP, acc.1, L, Q⟩)
     | none =>
       match installDeclStep .verified natOpPinSets acc d with
       | .ok acc' => deferFold ds acc' D
@@ -113,6 +107,13 @@ def sameReject (path : System.FilePath) : IO Unit := do
 #eval sameAccept "tests/e2e/corner_nestind_f13_listrose.ndjson"
 #eval sameAccept "tests/e2e/corner_nestind_d_mutual.ndjson"
 #eval sameAccept "tests/e2e/indexed_vec.ndjson"
+-- def-headed formers (installed at the reduced telescope), a pinned
+-- basis block (the pin's constants)
+#eval sameAccept "tests/e2e/direct_idx_defhead.ndjson"
+#eval sameAccept "tests/e2e/ind_defhead_struct.ndjson"
+#eval sameAccept "tests/e2e/ind_defhead_k.ndjson"
+#eval sameAccept "tests/e2e/ind_defhead_mutual.ndjson"
+#eval sameAccept "tests/e2e/ind_former_redex.ndjson"
 
 /-- A tampered stored install (the first block's first former's
 capability record with its unit-likeness flipped) fails its job, as an

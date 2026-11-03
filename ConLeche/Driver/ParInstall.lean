@@ -46,8 +46,8 @@ phase A of the fold — whatever the schedule.
 * **The install** of record `k` is `installStepG` at the view of its
   predicted counter (`ConLeche/Verify/Cached/Defer.lean`): the
   constants it pushes and, for a definition, theorem or opaque, its
-  pending check; an inductive block the stored install reads is pushed
-  as stored (`storedInstall`, nothing generated or inferred), and its
+  pending check; an inductive block — every one — is pushed as stored
+  (`storedInstall`, nothing generated: read off the records), and its
   checked install at the same view, compared with those pushes, is a
   job of the check phase (tasks #411, #431), so the records after it
   wait on its syntactic reading only.  After publishing its slot the installer makes the
@@ -74,13 +74,14 @@ phase A of the fold — whatever the schedule.
   the first failing record in fold order, with the serial step's error
   (`installStep_commit_error`); a failed `And` pin with the serial
   step's error too (`installDeclStep` rejects it before installing
-  anything).  A block whose generator fails, or whose constants do not
-  fill the predicted slots, is reported with its checked install's
-  error at the view; and a failure after a deferred block whose check
-  fails is reported at that block (`blockFailure`), the serial fold's
-  verdict.  A misprediction — a counter or a slot that does not match
-  — is an internal error (exit 3).  No input reaches it: every accepting
-  step installs exactly the predicted skeleton (`installStepC_skels`).
+  anything).  A block's install never fails: its verdict is its job's,
+  and a failure after a deferred block whose check fails is reported at
+  that block (`blockFailure`), the serial fold's verdict.  A
+  misprediction — a counter or a slot that does not match — is an
+  internal error (exit 3).  No input reaches it: every accepting step
+  installs exactly the predicted skeleton (`installStepC_skels`), and
+  the stored install of any block pushes the skeleton the prediction
+  reads off it.
   Either way, and on an IO exception of the commit thread (a failing
   heartbeat write, rethrown), the workers are stopped, and every
   unresolved slot is resolved empty so that nobody stays waiting.
@@ -825,7 +826,7 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                   -- an inductive block, installed as stored: its step is
                   -- conditional on its checked install at the same view
                   -- pushing the same, a job of the check phase
-                  have hpd' := (deferredBlock?_some hpd).1
+                  have hpd' := deferredBlock?_some hpd
                   have hand : andPinOk (.indDecl block nP) = true := hpd' ▸ hG'.1
                   have hg := installStepG_ind (pins := natOpPinSets) (i := i) (pend := pend)
                     hag hidx hpd hand (hval.symm.trans hres)
@@ -856,24 +857,16 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                     (hidx.pushDelta L Q)
                     (ViewAgrees.commit hB hidx hag (hc ▸ hG'.2 L Q vg? hres))
               | .error e =>
-                -- (for a record other than a block, the serial step's error,
-                -- `installStep_commit_error`; for a block the checked
-                -- install's at the view, which is the serial step's too)
-                -- a deferred block before it that fails its check is the
-                -- serial fold's verdict
+                -- (a record other than a block — a block's install never
+                -- fails — with the serial step's error,
+                -- `installStep_commit_error`); a deferred block before it
+                -- that fails its check is the serial fold's verdict
                 return .error ((blockFailure mode natOpPinSets D).getD (e, i))
             else if andPinOk pd then
-              -- a slot that does not match the prediction: for a block
-              -- installed as stored (a block nobody checked yet)
-              -- the verdict is its checked install's at the view, which no
-              -- accepted block reaches (`installStepC_skels`); else a
-              -- misprediction
-              match deferredBlock? pd with
-              | some _ =>
-                match installStep mode natOpPinSets (workerView B S c) pd with
-                | .error e => return .error ((blockFailure mode natOpPinSets D).getD (e, i))
-                | .ok _ => return mispredicted k i "a predicted slot did not match"
-              | none => return mispredicted k i "a predicted slot did not match"
+              -- a slot that does not match the prediction: a misprediction
+              -- (the stored install of a block pushes the skeleton the
+              -- prediction read off the block, whatever the block)
+              return mispredicted k i "a predicted slot did not match"
             else
               -- a failed `And` pin: the serial step rejects the record
               -- before installing anything; its error is the verdict

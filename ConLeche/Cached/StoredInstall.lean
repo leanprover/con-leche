@@ -19,14 +19,17 @@ error naming the block (exit 3: this reading is wrong, the stream is
 not).  So this file is unverified: nothing about the reading is proved,
 the job's comparison is what the fold's step is taken from.
 
-What is read, and from where (the checked install's own functions on
-the same inputs wherever one exists):
-* the formers: each stored constant at its stored type, with
-  `blockCapsAt` at official's `is_rec` (`blockRawRec`) and the result
-  sort read off member 0's syntactic telescope.  A former whose stored
-  type is not a syntactic telescope ending in a sort (a def-headed
-  former, #195) is not read: `storedReadable` is `false` and the block
-  is installed checked, inline;
+Every inductive block is installed this way (task #431 cont. 5): a
+block matching a basis pin as the pin's constants, a block the
+recogniser does not read as nothing, every other block by the reading
+below.  What is read, and from where (the checked install's own
+functions on the same inputs wherever one exists):
+* the formers: each at its telescope, with `blockCapsAt` at official's
+  `is_rec` (`blockRawRec`) and member 0's result sort.  The telescope is
+  the stored type where that is a syntactic telescope ending in a sort,
+  else (a def-headed former, #195) the reduced telescope official's
+  `whnf` loop reads, as the checked install computes it (`storedTele`) —
+  the binders the stored recursor shows; the sort is on no record;
 * the constructors as declared (`consSumCtorsF`'s records);
 * the recursors: each record at its stored type, its stored right-hand
   sides, its rules' metadata by `tgtStoredRules` at the record's major —
@@ -40,6 +43,11 @@ the same inputs wherever one exists):
   formers' environment, as the checked install's constructor stage
   does (`checkStructFieldSortsIFA`).  Only a `Prop`-declared
   structure's `.proj` uses and the job's comparison force it.
+
+Where a part cannot be read, it is pushed at its record as declared
+(a former, a recursor's rules) or left out (a table): the block is one
+the checked install rejects, and its job reports it; the pushes keep the
+slots the prediction made for the block filled.
 -/
 
 namespace ConLeche
@@ -139,24 +147,33 @@ open ConLeche
 
 variable (mode : CheckMode)
 
-/-- Member 0's result sort and every member's stored type a syntactic
-telescope ending in a sort at its parameter and index count. -/
-def storedSorts (p : BlockParts) : Option Level :=
-  let ss := p.members.map fun ms =>
-    match ms.cvT.type.stripPis (p.nP + ms.nIdx) with
-    | some (_, .sort s) => some s
-    | _ => none
-  if ss.all (·.isSome) then ss.head?.join else none
+/-- **A former's telescope, as the checked install computes it** (task
+#195's `checkSumTeleF`, without its checks): the stored type where it
+is a syntactic telescope of `n` binders ending in a sort; else the
+telescope official's `whnf` loop reads (`whnfTelescope` at the view,
+from a fresh memo), closed — the reduced form the stored recursor's
+binders show.  `none` where the loop does not reach a sort (the checked
+install rejects the block there). -/
+def storedTele (W : FEnv) (cv : ConstantVal) (n : Nat) : Option (ConstantVal × Level) :=
+  match cv.type.stripPis n with
+  | some (_, .sort s) => some (cv, s)
+  | _ =>
+    let run : CheckCM (List Expr × Level) := do
+      flushC
+      whnfTelescope (sharedOpsC mode W) W.env 0 n cv.type
+    match run {} with
+    | .ok ((bs, s), _) => some ({ cv with type := closeTelescope bs 0 (.sort s) }, s)
+    | .error _ => none
 
-/-- **The blocks the stored install reads**: a recognised block that is
-no pinned basis block, at its declared parameter count, every former
-at a syntactic telescope.  Any other block (a basis block, a shapeless
-one, a def-headed former) is installed checked, inline. -/
-def storedReadable (block : List ConstantInfo) (nP : Nat) : Bool :=
-  (basisPinHit block).isNone && indParamsOk nP block &&
-    match blockParts? nP block with
-    | some p => (storedSorts p).isSome
-    | none => false
+/-- The members' formers at their telescopes (`storedTele`), each at its
+record as declared where its telescope cannot be read, and member 0's
+result sort (the recogniser's placeholder where it cannot be read). -/
+def storedFormers (W : FEnv) (p : BlockParts) : List ConstantVal × Level :=
+  let ts := p.members.map fun ms => (ms.cvT, storedTele mode W ms.cvT (p.nP + ms.nIdx))
+  (ts.map fun (cv, t?) => (t?.map (·.1)).getD cv,
+    match ts.head? with
+    | some (_, some (_, s)) => s
+    | _ => p.resSort)
 
 /-- A recursor record's major, as `tgtStoredRules` reads it: a member
 (its parameter count and constructors), or an outside container at the
@@ -175,14 +192,16 @@ def storedMajor (fe : FEnv) (p : BlockShape) (rc : RecShape) : Option TargetMajo
     some { ind := I, lvls := us, ds := dom.getAppArgs.take nPc, nPc := nPc, nIdx := 0,
            ctors := ctors, member := none }
 
-/-- The recursors' records, in the block's order. -/
-def storedRecs (fe₂ : FEnv) (p : BlockShape) : Nat → List RecShape → Option (List ConstantInfo)
-  | _, [] => some []
-  | r, rc :: rest => do
-    let M ← storedMajor fe₂ p rc
-    let rs ← storedRecs fe₂ p (r + 1) rest
-    some (.recInfo rc.cvR (p.majorIdxAt r) (p.rulePrefixAt r)
-      (tgtStoredRules fe₂.find? rc.cvR (p.rulePrefixAt r) M (rc.rules.map (·.rhs))) :: rs)
+/-- The recursors' records, in the block's order; a recursor whose major
+cannot be read keeps its rules as declared (the checked install rejects
+the block there). -/
+def storedRecs (fe₂ : FEnv) (p : BlockShape) : Nat → List RecShape → List ConstantInfo
+  | _, [] => []
+  | r, rc :: rest =>
+    let rules := match storedMajor fe₂ p rc with
+      | some M => tgtStoredRules fe₂.find? rc.cvR (p.rulePrefixAt r) M (rc.rules.map (·.rhs))
+      | none => rc.rules
+    .recInfo rc.cvR (p.majorIdxAt r) (p.rulePrefixAt r) rules :: storedRecs fe₂ p (r + 1) rest
 
 /-- **A structure's guard levels, inferred on first use**: the fields'
 sorts at the formers' environment `fe₁`, from a fresh memo, by the
@@ -200,37 +219,47 @@ def storedGuards (fe₁ : FEnv) (p : BlockShape) (c : ConstantVal × Nat) : List
   | .error _ => []
 
 /-- The projection tables, member by member in block order, at every
-structure-like member (one constructor, no index). -/
-def storedTables (fe₁ : FEnv) (p : BlockShape) : List MemberShape → Option (List ProjTable)
-  | [] => some []
-  | ms :: rest => do
-    let rs ← storedTables fe₁ p rest
+structure-like member (one constructor, no index); none where the
+bodies cannot be built (the checked install rejects the block there). -/
+def storedTables (fe₁ : FEnv) (p : BlockShape) : List MemberShape → List ProjTable
+  | [] => []
+  | ms :: rest =>
+    let rs := storedTables fe₁ p rest
     match ms.ctors with
     | [c] =>
       if ms.nIdx == 0 then
-        let bodies ← structProjBodiesC ms.cvT.name p.nP c.2 c.1.type
-        some (⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, p.resSort, bodies,
-          Thunk.mk fun _ => storedGuards mode fe₁ p c⟩ :: rs)
-      else some rs
-    | _ => some rs
+        match structProjBodiesC ms.cvT.name p.nP c.2 c.1.type with
+        | some bodies =>
+          ⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, p.resSort, bodies,
+            Thunk.mk fun _ => storedGuards mode fe₁ p c⟩ :: rs
+        | none => rs
+      else rs
+    | _ => rs
 
 /-- **The stored install of a block** at the view `W`: the constants it
 pushes (formers, constructors, recursors, in the checked install's push
-order) and its tables (in install order); `none` where the reading
-fails. -/
+order) and its tables (in install order).  Total: a block matching a
+basis pin pushes the pin's constants, a block the recogniser does not
+read pushes nothing (the checked install's pushes and the prediction's
+skeleton, `declCSkels`, in both cases), and every other block its
+reading, each part at its record as declared where the reading fails —
+the blocks the checked install rejects, which its job reports. -/
 def storedInstall (W : FEnv) (block : List ConstantInfo) (nP : Nat) :
-    Option (List ConstantInfo × List ProjTable) := do
-  let p₀ ← blockParts? nP block
-  let s0 ← storedSorts p₀
-  let p := p₀.toBlockShape.withSort s0
-  let isRec := blockRawRec p₀
-  let formers := (p.members.zipIdx).map fun (ms, i) =>
-    ConstantInfo.indInfo ms.cvT (blockCapsAt p i isRec)
-  let ctors := p.members.flatMap fun ms => ms.ctors.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2
-  let fe₁ := FEnv.pushAll formers W
-  let fe₂ := FEnv.pushAll ctors fe₁
-  let recs ← storedRecs fe₂ p 0 p.recs
-  let tbls ← storedTables mode fe₁ p p.members
-  some (formers ++ ctors ++ recs, tbls)
+    List ConstantInfo × List ProjTable :=
+  match basisPinHit block with
+  | some kind => (kind.declsA, [])
+  | none =>
+    match blockParts? nP block with
+    | none => ([], [])
+    | some p₀ =>
+      let (cvTs, s0) := storedFormers mode W p₀
+      let p := p₀.toBlockShape.withSort s0
+      let isRec := blockRawRec p₀
+      let formers := (cvTs.zipIdx).map fun (cv, i) => ConstantInfo.indInfo cv (blockCapsAt p i isRec)
+      let ctors := p.members.flatMap fun ms =>
+        ms.ctors.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2
+      let fe₁ := FEnv.pushAll formers W
+      let fe₂ := FEnv.pushAll ctors fe₁
+      (formers ++ ctors ++ storedRecs fe₂ p 0 p.recs, storedTables mode fe₁ p p.members)
 
 end ConLeche.Cached
