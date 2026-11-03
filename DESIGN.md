@@ -107170,10 +107170,10 @@ the install gate's capability bit and invariant and the bridge case for
 the hook (estimated 0.7–1.2 k lines; no model work).  Reports:
 `_tmp/spike-boost*-report.md` (not committed).
 
-## TASK #386 — the stored recursor rules must agree with the generated ones, up to definitional equality (2026-10-29, agent/386-rules; ported to master 2026-11-03, task #427)
+## TASK #386 — the stored recursor rules must agree with the generated ones, up to definitional equality (2026-10-29, agent/386-rules; ported to master 2026-11-03, task #430)
 
 Ported from the integration branch `olean` (merge dfc1b03b7) by task
-#427; on master only the stream path exists, so the check runs in
+#430; on master only the stream path exists, so the check runs in
 `checkDeclsIO` alone (on `olean` also after each module's install in
 the modular driver, and on the `--olean` merged input).
 
@@ -107228,12 +107228,12 @@ wtype_redex,redex_nonindex}`, `corner_tshadow_aux_nonfield_bad`
 pinned verdict moved.
 
 **Cost** (on `olean`, `instructions:u`): Init +0.04 %, Lean −0.05 %
-(noise); on master see task #427's numbers.
+(noise); on master see task #430's numbers.
 
-## TASK #410 — the generate-only install of an inductive block (2026-11-01, agent/410-gen; kernel side ported to master 2026-11-03, task #427)
+## TASK #410 — the generate-only install of an inductive block (2026-11-01, agent/410-gen; kernel side ported to master 2026-11-03, task #430)
 
 Ported from the integration branch `cfsg` (merge 642002494) by task
-#427: the kernel side only.  On `cfsg` the first consumer was the
+#430: the kernel side only.  On `cfsg` the first consumer was the
 modular importer (it installs the exported blocks of the modules it
 loads generate-only: `presentExported mode chk`, `fileIface mode chk`,
 `presentExported_gen`, `fileIface_gen`); master has no modular driver,
@@ -107323,7 +107323,7 @@ longer hit the constructor check's entries).  Not recovered: grouping
 the checks into fewer regions shares a memo only between checks that
 are adjacent, and the two that share the most (the stream recursor's
 type and its generated twin) are separated by the generator's class
-and constructor stages.  The numbers on master are task #427's.
+and constructor stages.  The numbers on master are task #430's.
 
 **Tests.**  `tests/ConLecheTests/GenOnlyTests.lean`: on six accepted
 e2e streams (mutual, indexed mutual, mutual structures with
@@ -107331,10 +107331,10 @@ projections, a list rose tree, mutual nesting, an indexed family) the
 checked fold, and at every inductive block the generate-only step at
 the same index, compared push for push.
 
-## TASK #411 — inductive blocks checked in the check phase on the parallel install (2026-11-01, agent/411-par; stream path ported to master 2026-11-03, task #427)
+## TASK #411 — inductive blocks checked in the check phase on the parallel install (2026-11-01, agent/411-par; stream path ported to master 2026-11-03, task #430)
 
 Ported from the integration branch `cfsg` (merge 48678479d) by task
-#427: the stream path only.  On `cfsg` the deferral also applies to a
+#430: the stream path only.  On `cfsg` the deferral also applies to a
 module's install (isolated and worker modes with a pool for the record
 checks, modules a worker loads privately, store mode in the module's
 callback), whose view is the module's constants over the frozen context
@@ -107418,9 +107418,9 @@ rests on the generator never observing a check.
 (init-full +0.09 %); at `--jobs=8` every block is generated twice:
 init-full +0.51 %, perf streams +0.1 … +1.2 %, init-prelude +3.9 %; the
 install pool's wall time on MulP merged 1.32 s → 1.09 s.  The numbers on
-master are task #427's.
+master are task #430's.
 
-## TASK #427 — the inductive installer's "less install, more check" ported to master (2026-11-03, agent/427-installer)
+## TASK #430 — the inductive installer's "less install, more check" ported to master (2026-11-03, agent/427-installer)
 
 The first features of the integration branches `olean`/`cfsg` that do
 not depend on modular checking, ported to master as one commit each:
