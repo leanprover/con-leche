@@ -61,9 +61,9 @@ first (the ROOT frame, `checkBlockPositivity`, with its own lines), then
 every outside class (`nestSeeds`: a cache hit, or its frame walked). -/
 def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
     m (BlockPass Env) := do
-  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
+  let (env₁, cvTas, p₁) ← checkBlockInds id ops env p₀ isRec
   let pC := p₀.complete p₁
-  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
+  let (ctorsAs, sortsss) ← checkBlockCtors id ops env₁ env₁ pC.toBlockShape
     (pC.members.zip cvTas)
   let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas env₁.find?
   -- the classes

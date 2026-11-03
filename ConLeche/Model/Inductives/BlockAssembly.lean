@@ -112,7 +112,7 @@ agreement, read through the level semantics. -/
 theorem blockFormerFacts_of (hμ : μ.isVerified = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     (mp : EnvModelM V μ env)
-    (h : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (h : ConLeche.checkBlockInds (m := ConLeche.CheckM) id (ConLeche.fueledOps μ F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hlps : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps) :
     ∃ (ppsOf : Nat → (Name → Nat) → List Term) (sOf : Nat → Level),
@@ -139,7 +139,7 @@ theorem blockFormerFacts_of (hμ : μ.isVerified = true) {F : Nat} {env envI : E
   have hrunAt : ∀ (m : Nat) (ms : MemberShape),
       (p₀.toBlockShape.withSort s0).members[m]? = some ms →
       ∃ r : ConstantVal × Level, cvsAll[m]? = some r ∧
-        ConLeche.checkBlockTele (ConLeche.fueledOps μ F) env p₀.nP ms = .ok r ∧
+        ConLeche.checkBlockTele id (ConLeche.fueledOps μ F) env p₀.nP ms = .ok r ∧
         ∀ ψ : Name → Nat, r.2.eval ψ = s0.eval ψ := by
     intro m ms hms
     rw [hmembers] at hms
@@ -187,7 +187,7 @@ theorem blockFormerFacts_of (hμ : μ.isVerified = true) {F : Nat} {env envI : E
   -- a former, with its member's record entry and its own run
   have hpair : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
       ∃ ms : MemberShape, (p₀.toBlockShape.withSort s0).members[m]? = some ms ∧
-        ConLeche.checkBlockTele (ConLeche.fueledOps μ F) env p₀.nP ms = .ok (cvTa, sOf m) := by
+        ConLeche.checkBlockTele id (ConLeche.fueledOps μ F) env p₀.nP ms = .ok (cvTa, sOf m) := by
     intro m cvTa hm
     rw [hmap, List.getElem?_map] at hm
     obtain ⟨r, hr, rfl⟩ := Option.map_eq_some_iff.mp hm
@@ -330,7 +330,7 @@ any constructor is. -/
 theorem blockFormerPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) id (ConLeche.fueledOps μ F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
     (hnd : q.memberNames.Nodup)
@@ -448,7 +448,7 @@ member's fixpoint leaf mentions every member's chains. -/
 theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) id (ConLeche.fueledOps μ F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
     (hnd : q.memberNames.Nodup)
@@ -633,7 +633,7 @@ theorem blockCtorFunsAt (hμ : μ.isVerified = true) {F : Nat}
       envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt q j isRec)))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
+        ConLeche.checkSumCtor id (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ pk : BlockMemberPick,
       ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
@@ -664,7 +664,7 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
     {uOf : Nat → (Name → Nat) → Nat} {Chs : (Name → Nat) → Nat → List (List Term)}
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) id (ConLeche.fueledOps μ F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
     (hnd : q.memberNames.Nodup)

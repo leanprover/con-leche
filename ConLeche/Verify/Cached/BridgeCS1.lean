@@ -40,6 +40,27 @@ section Walks1
 
 variable {env : Env} {s₀ : CState}
 
+/-! ### A check in a memo of its own (task #410) -/
+
+/-- The fresh state is a state of every environment. -/
+theorem csok_empty : CSOK mode env ({} : CState) := flushC_csok CSOKF.empty
+
+/-- **A check run in a memo of its own** (`isoC`) is the check's run from
+the fresh state, the caller's state handed on: the check's triple at
+the fresh state is the isolated check's at any state. -/
+theorem isoCS_spec {c : CheckCM Unit} {P : CState → Prop} {R : Unit → Prop}
+    (hc : ⦃fun s => s = ({} : CState)⦄ c ⦃fun v s' => P s' ∧ R v; ⊤⦄)
+    (hs : P s₀) :
+    ⦃fun s => s = s₀⦄ isoC c ⦃fun v s' => P s' ∧ R v; ⊤⦄ := by
+  refine triple_iff_run.mpr fun v s' hr => ?_
+  unfold isoC at hr
+  split at hr
+  · rename_i w hw
+    simp only [Except.ok.injEq, Prod.mk.injEq] at hr
+    obtain ⟨-, rfl⟩ := hr
+    exact ⟨hs, (triple_iff_run.mp hc w.1 w.2 hw).2⟩
+  · cases hr
+
 /-- `checkConstantVal` at the cached shared operations simulates the
 fueled instantiation; the checked constant's type is well-scoped. -/
 theorem checkConstantValS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
@@ -49,6 +70,14 @@ theorem checkConstantValS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF 
       Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, checkConstantVal.eq_1, @wscoped_of_hasFvar_false 0 cv.type] =>
     vcgen [checkConstantVal, inferS_spec hμ henv hs, sortS_spec hμ henv] <;> finish
+
+/-- `checkConstantVal` as a check in a memo of its own (task #410). -/
+theorem checkConstantValIsoS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {cv : ConstantVal} (hs : CSOK mode env s₀) :
+    ⦃fun s => s = s₀⦄ isoC (checkConstantVal (sharedOpsC mode (mkFEnv env)) env cv)
+    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkConstantVal (fueledOpsM mode) env cv) v ∧
+      Expr.WScoped 0 cv.type; ⊤⦄ :=
+  isoCS_spec (checkConstantValS_spec hμ henv csok_empty) hs
 
 /-- The identity certificate's variable is scoped at its frame. -/
 theorem wscoped_reduceCertVar (c : Name) : Expr.WScoped 1 (reduceCertVar c) := by

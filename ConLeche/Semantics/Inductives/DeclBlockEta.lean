@@ -194,7 +194,7 @@ order, each fresh at the environment the loop checks at. -/
 theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat}
     {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (h : ConLeche.checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+    (h : ConLeche.checkSumCtors id (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvTa cs = .ok (ctorsA, sortss)) :
     ctorsA.map (fun cA => (cA.1.name, cA.2)) = cs.map (fun c => (c.1.name, c.2)) ∧
     ∀ cA ∈ ctorsA, env.find? cA.1.name = none := by
@@ -226,7 +226,7 @@ and field counts, each fresh at the environment the loops check at. -/
 theorem checkBlockCtors_names {mode : CheckMode} {env₀ env : Env} {q : BlockShape} {F : Nat} :
     ∀ {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
       {sortsss : List (List (List Level))},
-      checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss) →
+      checkBlockCtors id (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss) →
       ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
         = l.map (fun mc => mc.1.ctors.map (fun c => (c.1.name, c.2))) ∧
       ∀ ctorsA ∈ ctorsAs, ∀ cA ∈ ctorsA, env.find? cA.1.name = none
@@ -256,11 +256,11 @@ theorem checkBlockCtors_names {mode : CheckMode} {env₀ env : Env} {q : BlockSh
 /-- **The k formers are consed at names fresh before the block.** -/
 theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
-    (h : ConLeche.checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
+    (h : ConLeche.checkBlockInds id (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
     ∀ cv ∈ cvTas, env.find? cv.name = none := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, -, rfl, -, -, h0, hcvs, -⟩ := ConLeche.checkBlockInds_shape h
   have hone : ∀ {ms : MemberShape} {cv : ConstantVal} {s : Level},
-      ConLeche.checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cv, s) →
+      ConLeche.checkBlockTele id (fueledOps mode F) env p.nP ms = .ok (cv, s) →
       env.find? cv.name = none := by
     intro ms cv s hh
     obtain ⟨cvT, -, -, heq, hcv, -⟩ := ConLeche.checkBlockTele_shape hh

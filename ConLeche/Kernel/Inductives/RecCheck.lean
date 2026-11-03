@@ -265,19 +265,24 @@ rules at (`ruleEnv`: the rule-less generated recursors consed onto the
 constructors' environment — pushed in the pure install, `classFeR`; an
 overlay sharing the index in the cached one, `classFeROvl`).  The pure
 instantiation ignores the index (the pure operations read the `Env`
-they are handed); the cached one is index-bound. -/
+they are handed); the cached one is index-bound.  `check` runs the
+stage's checks — the parts whose only output is pass or fail (task
+#410): the pure instantiation runs them as they are, the cached checked
+install in a memo of their own (`isoC`), the generate-only install not
+at all. -/
 structure ShadowOps (m : Type → Type) where
   opsAt : FEnv → CheckerOps m
   opsRuleR : FEnv → CheckerOps m
   flush : m Unit
   walkers : StructWalkers
   ruleEnv : BlockShape → List TargetMajor → List ConstantVal → List Nat → FEnv → FEnv
+  check : m Unit → m Unit
 
 /-- A checker's operations as shadow operations: the same at every
 index, no flush, the plain walkers, the rule-less recursors pushed —
 how the PURE install runs the check (`checkBlockRec`, `BlockTail.lean`). -/
 def ShadowOps.ofOps (ops : CheckerOps m) : ShadowOps m :=
-  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain, classFeR⟩
+  ⟨fun _ => ops, fun _ => ops, Pure.pure (), .plain, classFeR, id⟩
 
 /-- The pure operations at fuel `F`, at every index (the fueled
 instantiation the model reads a run of). -/

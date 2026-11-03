@@ -159,19 +159,19 @@ theorem classFeROvl_env {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
 section RulesCongr
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-  {ops : CheckerOps m} {w : StructWalkers} {feT feR₁ feR₂ : FEnv}
+  {ck : m Unit → m Unit} {ops : CheckerOps m} {w : StructWalkers} {feT feR₁ feR₂ : FEnv}
 
 theorem classRuleOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
     (henv : feR₁.env = feR₂.env) (cvR : ConstantVal) (n : Nat) (gen : Expr) :
-    classRuleOk ops w feT feR₁ cvR n gen = classRuleOk ops w feT feR₂ cvR n gen := by
-  unfold classRuleOk
+    classRuleOk ck ops w feT feR₁ cvR n gen = classRuleOk ck ops w feT feR₂ cvR n gen := by
+  unfold classRuleOk classRuleCheck
   rw [hres, henv]
 
 theorem classRulesOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
     (henv : feR₁.env = feR₂.env) (g : ClassGen) (recOf : Nat → Option Name)
     (cvR : ConstantVal) (c : Nat) :
-    ∀ xs, classRulesOk ops w feT feR₁ g recOf cvR c xs
-      = classRulesOk ops w feT feR₂ g recOf cvR c xs
+    ∀ xs, classRulesOk ck ops w feT feR₁ g recOf cvR c xs
+      = classRulesOk ck ops w feT feR₂ g recOf cvR c xs
   | [] => rfl
   | x :: xs => by
     simp only [classRulesOk, classRuleOk_congrR hres henv,
@@ -179,8 +179,8 @@ theorem classRulesOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
 
 theorem classRecsRulesOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
     (henv : feR₁.env = feR₂.env) (g : ClassGen) (recOf : Nat → Option Name) :
-    ∀ cvs cs, classRecsRulesOk ops w feT feR₁ g recOf cvs cs
-      = classRecsRulesOk ops w feT feR₂ g recOf cvs cs
+    ∀ cvs cs, classRecsRulesOk ck ops w feT feR₁ g recOf cvs cs
+      = classRecsRulesOk ck ops w feT feR₂ g recOf cvs cs
   | cvG :: cvs, c :: cs => by
     simp only [classRecsRulesOk, classRulesOk_congrR hres henv,
       classRecsRulesOk_congrR hres henv g recOf cvs cs]
@@ -202,12 +202,12 @@ theorem sharedOpsRuleR_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
 
 /-- **The rule stage at the overlay is the rule stage at the pushes**,
 at the cached operations, on an environment without an overlay. -/
-theorem classRecsRulesOk_classFeROvl {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
+theorem classRecsRulesOk_classFeROvl {ck : CheckCM Unit → CheckCM Unit} {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
     (Ms : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
     (g : ClassGen) (recOf : Nat → Option Name) :
-    classRecsRulesOk (sharedOpsRuleR mode (classFeROvl p Ms cvGs recCls fe))
+    classRecsRulesOk ck (sharedOpsRuleR mode (classFeROvl p Ms cvGs recCls fe))
         structWalkersC fe (classFeROvl p Ms cvGs recCls fe) g recOf cvGs recCls
-      = classRecsRulesOk (sharedOpsRuleR mode (classFeR p Ms cvGs recCls fe))
+      = classRecsRulesOk ck (sharedOpsRuleR mode (classFeR p Ms cvGs recCls fe))
         structWalkersC fe (classFeR p Ms cvGs recCls fe) g recOf cvGs recCls := by
   have hfind := classFeROvl_find? h p Ms cvGs recCls
   rw [sharedOpsRuleR_congr mode hfind (classFeROvl_findTable? h p Ms cvGs recCls)]

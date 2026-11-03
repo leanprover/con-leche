@@ -325,7 +325,7 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
 theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat} {sorts : List Level}
-    (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+    (h : checkSumCtor id (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok (cvCa, sorts)) :
     (cvCa = cvC ∧ checkConstantVal (fueledOps mode F) env cvC = .ok ()) ∧
     (∃ cbs es, cvCa.type.stripPis (nP + nF)
@@ -401,13 +401,13 @@ the input and every entry is its constructor's run. -/
 theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat} :
     ∀ {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)},
-      checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+      checkSumCtors id (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
         cvTa cs = .ok (ctorsA, sortss) →
       ctorsA.length = cs.length ∧ sortss.length = cs.length ∧
       ∀ (j : Nat) (c cA : ConstantVal × Nat), cs[j]? = some c → ctorsA[j]? = some cA →
         cA.2 = c.2 ∧
         ∃ sorts, sortss[j]? = some sorts ∧
-        checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+        checkSumCtor id (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
           c.1 c.2 cvTa = .ok (cA.1, sorts)
   | [], ctorsA, sortss, h => by
     simp only [checkSumCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
@@ -449,7 +449,7 @@ closed and bounded. -/
 theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat} {sorts : List Level}
-    (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
+    (h : checkSumCtor id (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok (cvCa, sorts)) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
     cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by

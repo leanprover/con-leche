@@ -106,7 +106,7 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
 is well-formed, and every checked former's type is closed. -/
 theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
     {p : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
-    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
+    (h : checkBlockInds id (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
     EnvWF envI ∧ ∀ cvTa ∈ cvTas, cvTa.type.hasFvar = false := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, rfl, hq, hcvs, -⟩ :=
     checkBlockInds_shape h
@@ -118,7 +118,7 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
       (cvTa.type.stripPis (p.toBlockShape.withSort s0).nP).isSome = true := by
     intro cvTa hcv
     have step : ∀ (ms : MemberShape) (s : Level),
-        checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cvTa, s) →
+        checkBlockTele id (fueledOps mode F) env p.nP ms = .ok (cvTa, s) →
         cvTa.type.hasFvar = false ∧
         cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
         cvTa.type.constsResolve env = true ∧
@@ -179,7 +179,7 @@ theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
     {q : BlockShape} {l : List (MemberShape × ConstantVal)}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {nP F : Nat}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q l = .ok (ctorsAs, sortsss)) :
+    (h : checkBlockCtors id (fueledOps mode F) env₀ env₁ q l = .ok (ctorsAs, sortsss)) :
     EnvWF (consBlockCtors nP ctorsAs env₁) := by
   obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
   refine envWF_consBlockCtors henv ?_

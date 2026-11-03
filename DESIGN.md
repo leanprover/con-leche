@@ -107229,3 +107229,104 @@ pinned verdict moved.
 
 **Cost** (on `olean`, `instructions:u`): Init +0.04 %, Lean −0.05 %
 (noise); on master see task #427's numbers.
+
+## TASK #410 — the generate-only install of an inductive block (2026-11-01, agent/410-gen; kernel side ported to master 2026-11-03, task #427)
+
+Ported from the integration branch `cfsg` (merge 642002494) by task
+#427: the kernel side only.  On `cfsg` the first consumer was the
+modular importer (it installs the exported blocks of the modules it
+loads generate-only: `presentExported mode chk`, `fileIface mode chk`,
+`presentExported_gen`, `fileIface_gen`); master has no modular driver,
+and its consumer is task #411's deferred block checks on the parallel
+install.
+
+**Ruling** (maintainer, on #408's open item "the importer installs every
+exported inductive block again"): a generate-only install of an
+inductive block, "generally useful even outside modular checking", so
+a first-class kernel entry point, not a driver hack.
+
+**Inventory.**  The cached install is `checkDeclC .indDecl` →
+`checkBlockKS` → `checkBlockPassS` + `checkBlockTailS`
+(`Cached/CheckerC.lean`;
+`Kernel/Inductives/{BlockInstallF,SumInstallF,BlockTail,GenRec,RecCheck}`).
+What the install stores is computed by: the dispatch and shape
+(`basisPinHit`, `indParamsOk`, `blockParts?`), the formers' telescopes
+(`checkSumTeleF`: the whnf'd telescope of a def-headed former, #195)
+and result sort, the capabilities (`blockCapsAt`, `blockRawRec`), the
+constructors' field sorts (`checkStructFieldSortsIFA`: the projection
+tables' guards), the positivity walk's normal forms and table (the
+generator's input for every class), the classes (`classRead`,
+`classKeyOf`, `classMajors`), the recursors' generated types and rules
+(`classGenRecTy`, `classGenRule`) and the tables.  What is only a
+verdict: the formers' and constructors' type checks
+(`checkConstantVal(F)`), the members' parameter-domain and sort
+agreement (`checkBlockAgreeF`), the constructors' parameter domains
+against the former's (`checkStructDomsAtFA`), the stream recursors' type
+checks (`classStreamRecs`), each generated type's check and its
+comparison with the stream's (`classConstOk`, `isDefEq`), and each
+generated rule's guards and typing (`classRuleOk`).
+
+**Design: the generator with its checks marked.**  The install is one
+program; every verdict-only part runs through a runner
+`ck : m Unit → m Unit` passed down the stages (the pure stages and
+their index mirrors take it as their first argument; the recursor
+stage reads it from `ShadowOps.check`).  The pure install runs the
+checks as they are (`ck = id`: the model's `checkBlock` is unchanged
+up to `id`).  The cached install's runner is `ckC chk`: the checked
+install (`chk = true`) runs each check **in a memo of its own**
+(`isoC`: the check from the fresh state, its verdict kept, its state
+dropped, the caller's state handed on); the generate-only install
+(`chk = false`) skips it.  New names: `classRecTyCheck`,
+`classRuleCheck` (the check blocks of a generated type and rule, named
+so that the walks can take them as callee specs), `checkIndDeclC fe
+block nP chk` (`checkDeclC`'s `.indDecl` arm, factored out),
+`genIndDeclC` (the generate-only entry point) and `genIndStep` (the
+fold's step on a block, generate-only: from the fresh state, as
+`installDeclStep`).
+
+Why the checks run in a memo of their own: the generator's operations
+(whnf for the telescopes, inference for the field sorts, the positivity
+walk) read the memo, and a check that shared it would hand the
+generator entries the generate-only run lacks.  Isolated, the generator
+never observes whether a check ran, so the equality of the two installs
+is a fact about the install code's structure, with no hypothesis on the
+environment or the memo: `GenRun x₁ x₂` (every accepting run of `x₁` is
+a run of `x₂` from the same state, with the same value and final
+state) holds of the two runners on any check (`GenRun.ckC`) and
+propagates through bind and the stages, bottom-up
+(`ConLeche/Verify/Cached/GenOnly.lean`: `checkSumCtorF_gen` …
+`genRecCheck_gen`, `checkBlockKS_gen`, `checkIndDeclC_gen`).  The
+contract, `genIndStep_eq`: where `installDeclStep` accepts an inductive
+block at an index, `genIndStep` at that index returns the index the
+checked step pushed (and the checked step records no pending check).
+It holds at every index, with no well-formedness hypothesis.
+
+**What the generate-only install still does** (kept: needed for an
+output, or cheap and not worth a runner site): the syntactic guards of
+every stage, the telescope and sort reads, the field sorts (with their
+`Level.leq`), the positivity walk entire (its occurrence checks are
+interleaved with the normal forms it computes; `nestUniform` and the
+fields' universes at the holes, `checkAbsCtorSorts`, are checks left in
+place), the classes' pin typing (`targetMajorPins`), node agreement
+(`classFieldsAgree`), the index sorts (`checkBlockIdxSortsF`), the
+records' pins.
+
+**The checked install's cost** (on `cfsg`, `--verified --jobs=1`, one
+run each): the arena perf streams +0.005 % … +0.16 % (grind-ring-5
+14.418 G → 14.439 G), init-prelude 1.861 G → 1.877 G (+0.90 %),
+init-full 359.92 G → 360.14 G (+0.061 %).  All of it is the isolation:
+with `isoC` the identity (a throw-away build), init-prelude and
+grind-ring-5 are back at base; two thirds is the recursor stage, where
+the generated type's inference no longer hits the memo the stream
+recursor's own check filled, one third the pass (the field sorts no
+longer hit the constructor check's entries).  Not recovered: grouping
+the checks into fewer regions shares a memo only between checks that
+are adjacent, and the two that share the most (the stream recursor's
+type and its generated twin) are separated by the generator's class
+and constructor stages.  The numbers on master are task #427's.
+
+**Tests.**  `tests/ConLecheTests/GenOnlyTests.lean`: on six accepted
+e2e streams (mutual, indexed mutual, mutual structures with
+projections, a list rose tree, mutual nesting, an indexed family) the
+checked fold, and at every inductive block the generate-only step at
+the same index, compared push for push.

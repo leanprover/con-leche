@@ -79,6 +79,33 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   ensureSort _ d e := opS mode fe d e
   whnf _ d e := opE mode fe (·.whnf) d e
 
+/-! ## The checks' runner (task #410)
+
+The block install is its generator with its checks marked: every part
+whose only output is pass or fail (a type's inference, a comparison
+with `isDefEq`, the rules' typing) runs through a runner `ck`.  The
+checked install runs each check in a memo of its own (`isoC`: from a
+fresh state, the generator's state handed on untouched), so that what
+the generator computes never depends on whether the checks ran; the
+generate-only install skips them (`ckC false`).  Hence an accepting
+checked install and the generate-only install from the same state end
+in the same index and the same state (`checkIndDeclC_gen`,
+`ConLeche/Verify/Cached/GenOnly.lean`). -/
+
+/-- **A check, in a memo of its own**: `c` run from the fresh state;
+its verdict kept, its state dropped, the caller's state handed on. -/
+def isoC (c : CheckCM Unit) : CheckCM Unit := fun s =>
+  match c {} with
+  | .ok _ => .ok ((), s)
+  | .error e => .error e
+
+/-- The checks' runner of the cached install: in a memo of their own
+(`true`, the checked install), or not at all (`false`, the
+generate-only install). -/
+def ckC : Bool → CheckCM Unit → CheckCM Unit
+  | true => isoC
+  | false => fun _ => pure ()
+
 /-! ## Thin phase drivers (one `CState` per declaration)
 
 Each mirrors its `ConLeche/Kernel/Checker.lean` counterpart clause by
@@ -120,20 +147,21 @@ each of a rule's two environment transitions), `flushC` at every
 environment change, the memoised walkers, and the rule-less recursors
 as an overlay sharing the constructors' index (`classFeROvl`).  The
 recursor stage (`checkBlockTailS`) runs `genRecCheck` at them. -/
-def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
+def shadowOpsC (chk : Bool := true) : ShadowOps CheckCM :=
+  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl, ckC chk⟩
 
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
 environment, the classes, and the positivity check walking every class
 (the members' root frame first). -/
-def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
+def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) (chk : Bool := true) :
     CheckCM (BlockPass FEnv) := do
-  let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, cvTas, p₁) ← checkBlockIndsF (ckC chk) (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
-  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (ckC chk) (sharedOpsC mode fe₁) fe₁ fe₁
+    pC.toBlockShape
     (pC.members.zip cvTas)
   let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas fe₁.find?
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ pC.toBlockShape
@@ -153,7 +181,7 @@ recursors are an overlay sharing the index (`shadowOpsC`'s `ruleEnv`,
 `classFeROvl`), the stored recursors' records are built before the
 first push (`blockRecInfosTF`), and the pass record is taken apart up
 front, so the index is unique at every push. -/
-def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (chk : Bool := true) :
     CheckCM FEnv :=
   match q with
   | ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
@@ -161,7 +189,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     (p.members.zip cvTas)
   let fe₂ := consBlockCtorsF p.nP ctorsAs env₁
   flushC
-  let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
+  let out ← genRecCheck (shadowOpsC mode chk) fe₂ p.toBlockShape
     (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
   let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 out
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
@@ -169,12 +197,12 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
 
 /-- **`checkBlock` through the index**: the k-ary
 mirror, at any number of members. -/
-def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
+def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) (chk : Bool := true) :
     CheckCM FEnv := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   flushC
-  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
-  checkBlockTailS mode block q
+  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀) chk
+  checkBlockTailS mode block q chk
 
 end ConLeche.Cached

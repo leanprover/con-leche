@@ -304,7 +304,7 @@ theorem genRecCheckS_fresh (mode : CheckMode) (fe : FEnv)
     (block : List ConstantInfo) (cvTas : List ConstantVal) :
     Yields (genRecCheck (shadowOpsC mode) fe p.toBlockShape nested params tbl rd Ms₀ cvTas block)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
-  refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
+  refine Yields.mono (genRecCheck_names (shadowOpsC mode) rfl fe
     p.toBlockShape nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
   obtain ⟨hnd, hlen, hall⟩ := hout
   have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
@@ -504,6 +504,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
        · exact Yields.ofThrow)
   | indDecl block nP =>
     simp only []
+    unfold checkIndDeclC
     -- task #293: a block the fold recognises as a pinned one installs
     -- the pin
     split

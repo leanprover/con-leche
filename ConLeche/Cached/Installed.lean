@@ -193,6 +193,17 @@ def installDeclStep (pins : List NatOpPinSet)
     | .error e => .error (e, p.1)
   else .error (.invalid "`And` must be the standard `And`", p.1)
 
+/-- **The generate-only install step of an inductive block** (task
+#410): the fold's step on `.indDecl block nP` from the fresh state
+(`installDeclStep`'s), with the block's checks skipped
+(`genIndDeclC`).  For a block whose checked step at the same index
+accepted (another run's): there it pushes what that step pushed
+(`genIndStep_eq`, `ConLeche/Verify/Cached/GenOnly.lean`). -/
+def genIndStep (fe : FEnv) (block : List ConstantInfo) (nP : Nat) : Except CheckError FEnv :=
+  match (do flushC; genIndDeclC mode fe block nP : CheckCM FEnv) {} with
+  | .ok (fe', _) => .ok fe'
+  | .error e => .error e
+
 /-- **Phase A's accepting run**: a chain of accepting `installDeclStep`s
 over the records, from an accumulator to the final one.  A loop builds
 it step by step, whatever else it does between the steps.  (No memo
