@@ -8,6 +8,7 @@ import ConLeche.Verify.ExceptBind
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.GenRecRun
+import ConLeche.Verify.Inductives.StoredRecsInv
 
 @[expose] public section
 
@@ -345,7 +346,7 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
-    pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, hTbl⟩ := h
+    pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   have hlenCv : cvTas.length = p₁.members.length := by
@@ -433,6 +434,8 @@ theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
   refine checkBlockTables_etaClosed ?_ hTbl
   refine EtaFamiliesClosed.keep hEC (consBlockRecsT_extEta (ExtEta.refl _) fun r hr => ?_)
   obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hr
-  exact hfresh o ho
+  obtain ⟨g, hg, hn, -⟩ := ConLeche.mem_storedOut ho
+  rw [hn]
+  exact hfresh g hg
 
 end ConLeche.Semantics

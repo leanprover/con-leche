@@ -26,9 +26,9 @@ generated recursor at the same position:
   installed rules fire at);
 * **the type**, unless it is the generated one: inferred (a sort) and
   compared with the generated one BINDER BY BINDER up to the major —
-  each stored domain `isDefEq` to the generated one, the telescope
-  opened at locals of the GENERATED domains — and then the residues
-  (`recTyAgree`);
+  both opened at their own locals, each stored domain `isDefEq` to the
+  generated one at its depth (`recDomsAt`) — and then the residues
+  (`recTyCheck`);
 * **each rule**, unless its right-hand side is the generated one:
   closed, at the record's level parameters, resolving, inferred, its
   type `isDefEq` to the generated rule's, and `isDefEq` to the
@@ -44,31 +44,41 @@ namespace ConLeche
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- **The stored type against the generated one, binder by binder**: `n`
-binders of each, from local `d` on, each stored domain `isDefEq` to the
-generated one at its depth, both telescopes opened at a local of the
-GENERATED domain; then the two residues.  A stored type that runs out
-of binders first is not the generated type. -/
-def recTyAgree (ops : CheckerOps m) (env : Env) (rec : Name) :
-    Nat → Nat → Expr → Expr → m Unit
-  | 0, d, s, g => do
-    unless ← ops.isDefEq env d s g do
-      throw (.invalid s!"the type of the recursor {rec} is not the generated one: its \
-        body after binder {d} differs")
-  | n + 1, d, .forallE ds bs, .forallE dg bg => do
-    unless ← ops.isDefEq env d ds dg do
+/-- **The stored type's domains against the generated one's**, binder
+by binder from binder `j` on (`k` of them): each stored domain
+`isDefEq` to the generated one at its depth, both telescopes opened at
+their own locals (`openPisAtFvars`; a local's reading ignores its
+annotation, so the two openings are one context). -/
+def recDomsAt (ops : CheckerOps m) (env : Env) (rec : Name) (sfvs gfvs : List Expr) :
+    Nat → Nat → m Unit
+  | _, 0 => pure ()
+  | j, k + 1 => do
+    let a ← unwrapOr sfvs[j]? (.internal "stored recursor: domain index")
+    let b ← unwrapOr gfvs[j]? (.internal "stored recursor: domain index")
+    unless ← ops.isDefEq env j a.fvarTypeD b.fvarTypeD do
       throw (.invalid s!"the type of the recursor {rec} is not the generated one: the \
-        domain of binder {d} differs")
-    recTyAgree ops env rec n (d + 1) (bs.instantiate1 (.fvar d dg))
-      (bg.instantiate1 (.fvar d dg))
-  | _ + 1, d, _, _ =>
-    throw (.invalid s!"the type of the recursor {rec} is not the generated one: it has no \
-      binder {d}")
+        domain of binder {j} differs")
+    recDomsAt ops env rec sfvs gfvs (j + 1) k
+
+/-- The stored and the generated type, opened `n` binders deep: the
+domains, then the residues. -/
+def recTyOpened (ops : CheckerOps m) (env : Env) (rec : Name) (n : Nat) :
+    Option (List Expr × Expr) → Option (List Expr × Expr) → m Unit
+  | some (sfvs, srest), some (gfvs, grest) => do
+    recDomsAt ops env rec sfvs gfvs 0 n
+    unless ← ops.isDefEq env n srest grest do
+      throw (.invalid s!"the type of the recursor {rec} is not the generated one: its body \
+        after the major differs")
+  | none, _ =>
+    throw (.invalid s!"the type of the recursor {rec} is not the generated one: it has fewer \
+      than {n} binders")
+  | some _, none =>
+    throw (.internal s!"the generated type of the recursor {rec} has fewer than {n} binders")
 
 /-- **The stored type's check** (task #431): closed, at the record's
 level parameters `lps`, resolving at `fe`, a type (`inferType`, a sort),
 and the generated one (closed: `classRecTyOk`'s check) binder by binder
-up to the major (`n` binders). -/
+up to the major (`n` binders) — the domains, then the residues. -/
 def recTyCheck (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec : Name)
     (lps : List Name) (n : Nat) (s g : Expr) : m Unit := do
   unless s.looseBVarsBounded 0 && !s.hasFvar && !g.hasFvar do
@@ -79,7 +89,7 @@ def recTyCheck (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rec : Name)
     throw (unresolvedConstsError s!"the type of the recursor {rec}" s)
   let st ← ops.inferType fe.env 0 s
   let _ ← ops.ensureSort fe.env 0 st
-  recTyAgree ops fe.env rec n 0 s g
+  recTyOpened ops fe.env rec n (openPisAtFvars n s 0) (openPisAtFvars n g 0)
 
 /-- **One stored rule's check** (task #431): the stored right-hand side
 `s` is closed, at the record's level parameters `lps`, resolving at

@@ -759,25 +759,57 @@ theorem wscoped_zero_of_hasFvar_false {e : Expr} (h : e.hasFvar = false) : WScop
   WScoped.of_not_hasFvar h
 
 
-/-- **The stored type against the generated one, binder by binder**,
-simulated: both sides opened at locals of the generated domains. -/
-theorem recTyAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name} :
-    ∀ (n d : Nat) (s g : Expr) {s₀ : CState}, CSOK mode env s₀ → WScoped d s →
-      WScoped d g →
-      ⦃fun st => st = s₀⦄ recTyAgree (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec n d s g
+/-- **The stored type's domains against the generated one's**, simulated:
+both telescopes opened at their own locals. -/
+theorem recDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+    {sfvs gfvs : List Expr}
+    (hcs : ∀ (i : Nat) (x : Expr), sfvs[i]? = some x → WScoped i (Expr.fvarTypeD x))
+    (hcg : ∀ (i : Nat) (x : Expr), gfvs[i]? = some x → WScoped i (Expr.fvarTypeD x)) :
+    ∀ (k j : Nat) {s₀ : CState}, CSOK mode env s₀ →
+      ⦃fun st => st = s₀⦄ recDomsAt (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec sfvs gfvs j k
       ⦃fun v s' => CSOK mode env s' ∧
-        Runs (recTyAgree (fueledOpsM mode) (mkFEnv env).env rec n d s g) v; ⊤⦄ := by
-  intro n
-  induction n with
+        Runs (recDomsAt (fueledOpsM mode) (mkFEnv env).env rec sfvs gfvs j k) v; ⊤⦄ := by
+  intro k
+  induction k with
   | zero =>
-    intro d s g _ hs hws hwg
-    sym only [conleche_grind, recTyAgree.eq_1] =>
-      vcgen [recTyAgree, defeqS_specF hμ henv] <;> finish
-  | succ n ih =>
-    intro d s g _ hs hws hwg
-    cases s <;> cases g <;>
-    sym only [conleche_grind, recTyAgree.eq_2, recTyAgree.eq_3] =>
-      vcgen [recTyAgree.eq_def, defeqS_specF hμ henv, ih] <;> finish
+    intro j _ hs
+    sym only [conleche_grind, recDomsAt.eq_1] => vcgen [recDomsAt] <;> finish
+  | succ k ih =>
+    intro j _ hs
+    sym only [conleche_grind, recDomsAt.eq_2, unwrapOr] =>
+      vcgen [recDomsAt, unwrapOr, defeqS_specF hμ henv, ih] <;> finish
+
+/-- The two opened types, compared, simulated. -/
+theorem recTyOpenedS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+    {n : Nat} {s g : Expr} (hws : WScoped 0 s) (hwg : WScoped 0 g) {s₀ : CState}
+    (hs : CSOK mode env s₀) :
+    ⦃fun st => st = s₀⦄
+      recTyOpened (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec n (openPisAtFvars n s 0)
+        (openPisAtFvars n g 0)
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (recTyOpened (fueledOpsM mode) (mkFEnv env).env rec n (openPisAtFvars n s 0)
+        (openPisAtFvars n g 0)) v; ⊤⦄ := by
+  cases hos : openPisAtFvars n s 0 with
+  | none =>
+    sym only [conleche_grind, recTyOpened] => vcgen [recTyOpened.eq_def] <;> finish
+  | some qs =>
+    obtain ⟨sfvs, srest⟩ := qs
+    cases hog : openPisAtFvars n g 0 with
+    | none =>
+      sym only [conleche_grind, recTyOpened] => vcgen [recTyOpened.eq_def] <;> finish
+    | some qg =>
+      obtain ⟨gfvs, grest⟩ := qg
+      have hcs : ∀ (i : Nat) (x : Expr), sfvs[i]? = some x → WScoped i (Expr.fvarTypeD x) :=
+        fun i x hx => by simpa using openers_fvarTypeD_WScoped hos hws hx
+      have hcg : ∀ (i : Nat) (x : Expr), gfvs[i]? = some x → WScoped i (Expr.fvarTypeD x) :=
+        fun i x hx => by simpa using openers_fvarTypeD_WScoped hog hwg hx
+      have hrs : WScoped n srest := by
+        simpa using (ConLeche.openPisAtFvars_WScoped n s 0 hos hws).2
+      have hrg : WScoped n grest := by
+        simpa using (ConLeche.openPisAtFvars_WScoped n g 0 hog hwg).2
+      sym only [conleche_grind, recTyOpened] =>
+        vcgen [recTyOpened.eq_def, recDomsAtS_spec hμ henv hcs hcg, defeqS_specF hμ henv]
+          <;> finish
 
 /-- **The stored type's check**, simulated. -/
 theorem recTyCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
@@ -788,7 +820,7 @@ theorem recTyCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
       Runs (recTyCheck (fueledOpsM mode) .plain (mkFEnv env) rec lps n s g) v; ⊤⦄ := by
   sym only [conleche_grind, recTyCheck.eq_1, → wscoped_zero_of_hasFvar_false] =>
     vcgen [recTyCheck, inferS_specF hμ henv, sortS_specF hμ henv,
-      recTyAgreeS_spec hμ henv] <;> finish
+      recTyOpenedS_spec hμ henv] <;> finish
 
 /-- **One stored rule's check**, simulated. -/
 theorem ruleAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)

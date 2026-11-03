@@ -950,13 +950,20 @@ theorem classRecsRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : F
   | [], _ => by unfold classRecsRulesOk; rfl
   | _ :: _, [] => by unfold classRecsRulesOk; rfl
 
-theorem recTyAgree_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name) :
-    ∀ n d s g, recTyAgree ops env₁ rec n d s g = recTyAgree ops env₂ rec n d s g
-  | 0, d, s, g => by
-    simp only [recTyAgree, h.isDefEq env₁, h.isDefEq env₂]
-  | n + 1, d, s, g => by
-    cases s <;> cases g <;>
-      simp only [recTyAgree, h.isDefEq env₁, h.isDefEq env₂, recTyAgree_envFree h env₁ env₂ rec n]
+theorem recDomsAt_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name)
+    (sfvs gfvs : List Expr) :
+    ∀ j k, recDomsAt ops env₁ rec sfvs gfvs j k = recDomsAt ops env₂ rec sfvs gfvs j k
+  | _, 0 => rfl
+  | j, k + 1 => by
+    simp only [recDomsAt, h.isDefEq env₁, h.isDefEq env₂,
+      recDomsAt_envFree h env₁ env₂ rec sfvs gfvs (j + 1) k]
+
+theorem recTyOpened_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name) (n : Nat) :
+    ∀ os og, recTyOpened ops env₁ rec n os og = recTyOpened ops env₂ rec n os og
+  | some (_, _), some (_, _) => by
+    simp only [recTyOpened, h.isDefEq env₁, h.isDefEq env₂, recDomsAt_envFree h env₁ env₂]
+  | none, _ => rfl
+  | some (_, _), none => rfl
 
 /-- The stored recursors' check (task #431) reads its index through
 `resolve` alone, and through operations that ignore their environment. -/
@@ -980,7 +987,7 @@ theorem storedRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
             h.isDefEq fe₁.env, h.isDefEq fe₂.env, ihr]
     simp only [storedRecsCheck, storedRecCheck, storedRecCompare, recTyCheck, ih, hrules, hR,
       h.inferType fe₁.env, h.inferType fe₂.env, h.ensureSort fe₁.env, h.ensureSort fe₂.env,
-      recTyAgree_envFree h fe₁.env fe₂.env]
+      recTyOpened_envFree h fe₁.env fe₂.env]
   | [], _ :: _ => rfl
   | _ :: _, [] => rfl
 

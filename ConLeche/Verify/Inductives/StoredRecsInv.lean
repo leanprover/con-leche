@@ -3,6 +3,7 @@ module
 public import ConLeche.Kernel.Inductives.StoredRecs
 public import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.ExceptBind
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Verify.Inductives.BlockWF
 
 public section
@@ -45,6 +46,14 @@ theorem storedOut_getElem?_of {recs : List RecShape}
     (storedOut recs out)[j]? = some ({ g.1 with type := rc.cvR.type }, g.2.1,
       rc.rules.map (·.rhs)) := by
   simp only [storedOut, List.getElem?_zipWith, hr, hg]
+
+theorem mem_storedOut {recs : List RecShape}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
+    {t : ConstantVal × TargetMajor × List Expr} (h : t ∈ storedOut recs out) :
+    ∃ g ∈ out, t.1.name = g.1.name ∧ t.1.levelParams = g.1.levelParams ∧ t.2.1 = g.2.1 := by
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem h
+  obtain ⟨rc, g, -, hg, rfl⟩ := storedOut_getElem? hj
+  exact ⟨g, List.mem_of_getElem? hg, rfl, rfl, rfl⟩
 
 theorem storedOut_map_name {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} (h : out.length = recs.length) :
@@ -233,12 +242,35 @@ theorem storedRecsCheck_inv :
       exact hu
     | succ j => exact hall j rc' g' (by simpa using hr) (by simpa using hg)
 
+theorem recDomsAt_inv {env : Env} {rec : Name} {sfvs gfvs : List Expr} :
+    ∀ {k j : Nat}, recDomsAt ops env rec sfvs gfvs j k = .ok () →
+      ∀ i, j ≤ i → i < j + k → ∃ a b, sfvs[i]? = some a ∧ gfvs[i]? = some b ∧
+        ops.isDefEq env i a.fvarTypeD b.fvarTypeD = .ok true
+  | 0, _, _, i, h1, h2 => absurd h2 (by omega)
+  | k + 1, j, h, i, h1, h2 => by
+    unfold recDomsAt at h
+    obtain ⟨a, ha, h⟩ := exceptBind_ok h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    obtain ⟨c, hc, h⟩ := exceptBind_ok h
+    cases c
+    · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+    · simp only [↓reduceIte] at h
+      have h' : recDomsAt ops env rec sfvs gfvs (j + 1) k = .ok () := by
+        simpa [pure, Except.pure, bind, Except.bind] using h
+      by_cases hij : i = j
+      · subst hij
+        exact ⟨a, b, unwrapOr_ok ha, unwrapOr_ok hb, hc⟩
+      · exact recDomsAt_inv h' i (by omega) (by omega)
+
 theorem recTyCheck_inv {rec : Name} {lps : List Name} {n : Nat} {s g : Expr}
     (h : recTyCheck ops w fe rec lps n s g = .ok ()) :
     s.looseBVarsBounded 0 = true ∧ s.hasFvar = false ∧ g.hasFvar = false ∧
     s.allLevelParamsDefined lps = true ∧ w.resolve fe s = true ∧
-    ∃ st u, ops.inferType fe.env 0 s = .ok st ∧ ops.ensureSort fe.env 0 st = .ok u ∧
-      recTyAgree ops fe.env rec n 0 s g = .ok () := by
+    (∃ st u, ops.inferType fe.env 0 s = .ok st ∧ ops.ensureSort fe.env 0 st = .ok u) ∧
+    ∃ sfvs srest gfvs grest, openPisAtFvars n s 0 = some (sfvs, srest) ∧
+      openPisAtFvars n g 0 = some (gfvs, grest) ∧
+      recDomsAt ops fe.env rec sfvs gfvs 0 n = .ok () ∧
+      ops.isDefEq fe.env n srest grest = .ok true := by
   unfold recTyCheck at h
   by_cases h1 : (s.looseBVarsBounded 0 && !s.hasFvar && !g.hasFvar) = true
   · simp only [h1, ↓reduceIte] at h
@@ -248,8 +280,24 @@ theorem recTyCheck_inv {rec : Name} {lps : List Name} {n : Nat} {s g : Expr}
       · simp only [h3, ↓reduceIte] at h
         obtain ⟨st, hst, h⟩ := exceptBind_ok h
         obtain ⟨u, hu, h⟩ := exceptBind_ok h
-        simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1
-        exact ⟨h1.1.1, h1.1.2, h1.2, h2, h3, st, u, hst, hu, h⟩
+        cases hos : openPisAtFvars n s 0 with
+        | none => simp [hos, recTyOpened, throw, throwThe, MonadExceptOf.throw] at h
+        | some qs =>
+          obtain ⟨sfvs, srest⟩ := qs
+          cases hog : openPisAtFvars n g 0 with
+          | none => simp [hos, hog, recTyOpened, throw, throwThe, MonadExceptOf.throw] at h
+          | some qg =>
+            obtain ⟨gfvs, grest⟩ := qg
+            rw [hos, hog] at h
+            simp only [recTyOpened] at h
+            obtain ⟨v, hv, h⟩ := exceptBind_ok h
+            cases v
+            obtain ⟨b, hb, h⟩ := exceptBind_ok h
+            cases b
+            · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+            · simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1
+              exact ⟨h1.1.1, h1.1.2, h1.2, h2, h3, ⟨st, u, hst, hu⟩, sfvs, srest, gfvs, grest,
+                rfl, rfl, hv, hb⟩
       · simp [h3, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
     · simp [h2, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
   · simp [h1, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h

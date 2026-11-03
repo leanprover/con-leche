@@ -79,12 +79,17 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     checkBlockRec (m := ConLeche.CheckM) (fueledOps μ F)
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
       ctx.params st.ctorNfs.toList rd Ms block cvTas = .ok out ∧
-    -- 8  the install spine: the recursors with their rules at their majors,
-    --    then the tables
+    -- 7' the STORED recursors against the generated ones, at the generated
+    --    install (task #431)
+    storedRecsCheck (m := ConLeche.CheckM) id (fueledOps μ F) .plain
+      (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+        (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () ∧
+    -- 8  the install spine: the STORED recursors with their rules at their
+    --    majors, then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))
-      (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
-        (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
+      (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0
+        (storedOut p.recs out) (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
 
 /-- **The uniform install's run**: the pass at official's `is_rec` and
 the install after it. -/
@@ -107,11 +112,11 @@ theorem declBlockRun_of {μ : CheckMode} {F : Nat} {env env₂ : Env}
   dsimp only at h
   obtain ⟨p₁, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hK, hst, hpar, htbl, hp⟩ :=
     ConLeche.checkBlockPass_inv hP
-  obtain ⟨isorts, rs, hsorts, hRec, hTbl⟩ := ConLeche.checkBlockTail_inv h
+  obtain ⟨isorts, rs, hsorts, hRec, hS, hTbl⟩ := ConLeche.checkBlockTail_inv h
   rw [hpar, htbl] at hRec
   refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, ctx,
     holes, q.rd, q.cls, q.kinds, q.nfs, pos, st, isorts, rs, hInd, hp, ?_, ?_, ?_, ?_, hst, rfl,
-    hsorts, hRec, hTbl⟩
+    hsorts, hRec, hS, hTbl⟩
   · rw [hp]; exact hCtors
   · rw [hp]; exact hctx
   · rw [hp]; exact hcls

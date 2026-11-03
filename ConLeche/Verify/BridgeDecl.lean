@@ -863,18 +863,25 @@ theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat
     blockNestCtx_datF, checkBlockClasses_datF, checkBlockPositivity_datF, nestSeeds_datF,
     unwrapOr_atF]
 
-theorem recTyAgree_datF (env : Env) (rec : Name) (F : Nat) :
-    ∀ (n d : Nat) (s g : Expr),
-      (recTyAgree (fueledOpsM mode) env rec n d s g).val F =
-        recTyAgree (fueledOps mode F) env rec n d s g
-  | 0, d, s, g => by
-    unfold recTyAgree
+theorem recDomsAt_datF (env : Env) (rec : Name) (sfvs gfvs : List Expr) (F : Nat) :
+    ∀ (j k : Nat),
+      (recDomsAt (fueledOpsM mode) env rec sfvs gfvs j k).val F =
+        recDomsAt (fueledOps mode F) env rec sfvs gfvs j k
+  | _, 0 => rfl
+  | j, k + 1 => by
+    unfold recDomsAt
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      fueledOpsM_isDefEq_atF]
-  | n + 1, d, s, g => by
-    cases s <;> cases g <;>
-      simp only [recTyAgree, FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
-        FueledM.atF_ite, fueledOpsM_isDefEq_atF, recTyAgree_datF env rec F n]
+      unwrapOr_atF, fueledOpsM_isDefEq_atF, recDomsAt_datF env rec sfvs gfvs F (j + 1) k]
+
+theorem recTyOpened_datF (env : Env) (rec : Name) (n : Nat) (F : Nat) :
+    ∀ (os og : Option (List Expr × Expr)),
+      (recTyOpened (fueledOpsM mode) env rec n os og).val F =
+        recTyOpened (fueledOps mode F) env rec n os og
+  | some (_, _), some (_, _) => by
+    simp only [recTyOpened, FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+      FueledM.atF_ite, fueledOpsM_isDefEq_atF, recDomsAt_datF]
+  | none, _ => by simp only [recTyOpened, FueledM.atF_throw]
+  | some (_, _), none => by simp only [recTyOpened, FueledM.atF_throw]
 
 theorem recTyCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (n : Nat) (s g : Expr)
     (F : Nat) :
@@ -882,7 +889,7 @@ theorem recTyCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (n : Nat) (s 
       recTyCheck (fueledOps mode F) .plain fe rec lps n s g := by
   unfold recTyCheck
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF, recTyAgree_datF]
+    fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF, recTyOpened_datF]
 
 theorem ruleAgree_datF (fe : FEnv) (rec ctor : Name) (lps : List Name) (s g : Expr)
     (F : Nat) :
