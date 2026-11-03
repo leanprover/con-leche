@@ -1,13 +1,10 @@
 module
 
-import ConLeche.Verify.Denote.EnvExt
 import ConLeche.Verify.Denote
 import ConLeche.Model.Swap
-public import ConLeche.Model.IndPinGrade
 public import ConLeche.Verify.Extend.RecsTy
 public import ConLeche.Model.Inductives.DeclBlock
-public import ConLeche.Verify.Inductives.StoredRecsInv
-import ConLeche.Verify.Inductives.BlockWF
+import ConLeche.Verify.Inductives.StoredRecsInv
 import ConLeche.Model.Inductives.BlockCover
 
 public section

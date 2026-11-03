@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.GenRec
+public import ConLeche.Kernel.Inductives.RecCheck
 
 @[expose] public section
 

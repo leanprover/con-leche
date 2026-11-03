@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Kernel.Inductives.StoredRecs
 
 @[expose] public section

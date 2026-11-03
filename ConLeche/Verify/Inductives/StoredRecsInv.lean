@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.Inductives.StoredRecs
 public import ConLeche.Kernel.Inductives.BlockTail
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.DirectInv
