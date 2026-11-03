@@ -1394,8 +1394,11 @@
 # inside the recursor rule's λ prefix retargeted — the field binder
 # `(α : Type)` reads `(α : Prop)`.  The rule's prefix is compared with
 # the recursor record's own type, where the binder is still `Type`.
-# GENREC: official 1
-0 ind_rule_binder_bad.ndjson
+# Official 1.  Since task #431 the STORED rule is what is installed, so
+# it is compared with the generated one whole, domains included, and the
+# retargeted domain makes it ill-typed: 1 (before, the domains of the
+# rule's leading binders were not compared: 0).
+1 ind_rule_binder_bad.ndjson
 # proj_typename_bad: the tutorial's `Prod.snd` (arena 096_projRed, the
 # accepting control) with the `.proj` node's `typeName` pointing at
 # another inductive.  Official: "invalid projection x.1".
@@ -3068,3 +3071,21 @@
 # "application type mismatch" and the variant-fallback combinator
 # caught it).  No variant matches: DECLINE, today and as the target.
 2 natop_typepin_foreign.ndjson
+# --- task #431: the STORED recursor installed once it agrees with the
+# generated one up to definitional equality (the type binder by binder).
+# stored_rec_outparam: a class with an `outParam` parameter, a structure
+# with an `autoParam` field and one with an `optParam` field — official
+# strips those annotations from the domains of the locals it creates,
+# con-leche's generator keeps them; the stored recursors are installed.
+# Official 0.
+0 stored_rec_outparam.ndjson
+# stored_rule_dom_redex / stored_type_dom_redex
+# (`scripts/mk_stored_rec_fixtures.py`): `Nat'.rec`'s rule for `succ`,
+# resp. its type's `succ` minor premise, with a field's domain written as
+# the β-redex `(fun T : Type => T) Nat'`: definitionally the generated
+# one, installed as stored.  Official (syntactic) 1; target: 0.
+0 stored_rule_dom_redex.ndjson
+0 stored_type_dom_redex.ndjson
+# stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
+# (official 1).
+1 stored_type_dom_bad.ndjson
