@@ -3279,13 +3279,13 @@
    763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
    764    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L146-L151
-   146  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
-   147      m Env := do
-   148    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
-   149      throw (.invalid "direct rec: duplicate constructor")
-   150    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
-   151    checkBlockTail ops block q
+== ConLeche/Kernel/Inductives/BlockTail.lean#L147-L152
+   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+   148      m Env := do
+   149    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+   150      throw (.invalid "direct rec: duplicate constructor")
+   151    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
+   152    checkBlockTail ops block q
 
 == whitepaper/Fragment/Decl.lean#L307-L312
    307  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -6211,11 +6211,11 @@
 
 >>> whitepaper/sections/07-left-out.typ
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L106-L109
-   106  /-- **The projection table at every STRUCTURE-LIKE member** (one
-   107  constructor, no index): the member's table; nothing at any other
-   108  member. -/
-   109  def checkBlockTables (p : BlockShape) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L107-L110
+   107  /-- **The projection table at every STRUCTURE-LIKE member** (one
+   108  constructor, no index): the member's table; nothing at any other
+   109  member. -/
+   110  def checkBlockTables (p : BlockShape) :
 
 == ConLeche/Rules/Rel.lean#L169-L185
    169    /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`

@@ -640,10 +640,30 @@ theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
       (mkFEnv (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)) (p₀.complete p₁).toBlockShape
       (ConLeche.blockNestedBit (p₀.complete p₁).toBlockShape kinds) ctx.params st.ctorNfs.toList
       rd Ms cvTas block = .ok outR := hRec
+  -- the stored install is well formed: the parameters' variables are one per
+  -- parameter, an outside class's parameters are the block's
+  have hpl : ctx.params.length = (p₀.complete p₁).toBlockShape.nP := by
+    obtain ⟨cvTa0, fvsP, rest, -, hop, rfl, -⟩ := ConLeche.blockNestCtx_inv hctxR
+    exact ConLeche.Verify.openPisAtFvars_length _ hop
+  have hMs₀ : ∀ M ∈ Ms, ConLeche.ClassOutParams (p₀.complete p₁).toBlockShape.nP M := by
+    intro M hM
+    obtain ⟨C⟩ := ConLeche.checkBlockClasses_run hcls
+    obtain ⟨hlenK, hallK⟩ := ConLeche.classMajors_run C.hMs
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hM
+    obtain ⟨key, hkey⟩ : ∃ key, C.keys[i]? = some key := by
+      have := (List.getElem?_eq_some_iff.mp hi).1
+      exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    obtain ⟨M', hM', ⟨R⟩⟩ := hallK i key hkey
+    obtain rfl := Option.some.inj (hi.symm.trans hM')
+    cases R.major with
+    | member => intro h; exact nomatch h
+    | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc => exact fun _ => ⟨hdsLen, hdsSc⟩
+  have hwfS := ConLeche.Cached.storedRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ _ hSt
+    (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
   obtain ⟨mpR₀, hag, hfindMono, hden⟩ :=
     blockRecStagedAt_stored hμ hG (ConLeche.Cached.genRecCheck_outCv hRec').1
       (ConLeche.genRecCheck_out_fresh hRec') (ConLeche.Cached.genRecCheck_out_unreserved hRec')
-      hSt
+      hSt hwfS
   have hcoreT :=
     (blockTablesCore_of hN hcoreC).consRecs hag hfindMono hden
   -- ## coverage across the recursors' conses: only recursors
