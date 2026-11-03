@@ -1776,8 +1776,7 @@ level is native recursion, as in the official kernel (a `whnf` of
 bounds the depth is therefore the native stack: every checker thread
 has the Lean runtime's default 1 GiB stack, a level costs 0.8–1.2 KB
 of it, and a recursion deeper than about a million levels aborts
-(`Stack overflow detected`, exit 134;
-`tests/e2e/src/stack_fuel_offset.lean`) — an error like exit 3 for
+(`Stack overflow detected`, exit 134) — an error like exit 3 for
 the arena, and never an accept.  Task #353 had sized the fuel to the
 stack (500000) so that the error was a clean exit 3; the openai/math
 ContinuumCoulombHardness challenge needs more than that and is

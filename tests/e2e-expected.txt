@@ -2987,14 +2987,6 @@
 # (500000; since #354 effectively unbounded), so con-leche does too and
 # accepts.  (At the old 100000: exit 3.)
 0 natmul_deep_major.ndjson
-# stack_fuel_offset.ndjson (tasks #353, #354): `h 3000000 ≡ 3000000`, a
-# successor chain compared one `succ` at a time, ~0.8 KB of native stack
-# per knot level (the deepest path measured).  3000000 levels exceed the
-# 1 GiB thread stack: a native stack overflow, an abort (exit 134).
-# Official accepts (3000000 levels on its native stack); target: accept.
-# (Task #353's checkFuel of 500000 made it a clean exit 3; #354 made the
-# fuel effectively unbounded, so the stack is the limit.)
-134 stack_fuel_offset.ndjson
 # --- task #353, official's `eagerReduce` flag (`m_eager_reduce`).
 # eager_open_nat.ndjson: `@id (Nat.ble (x*0 + 1000000) 999999 = false)
 # (eagerReduce (Eq.refl false))` under `x : Nat`.  The argument's type

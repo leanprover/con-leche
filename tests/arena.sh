@@ -313,12 +313,7 @@ arena_half() {
 # whnf_delta_loop, whnf_core_loop: their expected verdict IS the timeout
 # (exit 124: a head normalization that does not terminate, run in
 # constant stack); 5 s is plenty to tell it from a stack overflow.
-# stack_fuel_offset: its expected verdict is the native stack overflow
-# (134), reached after ~30 s of CPU (3000000 knot levels filling the
-# 1 GiB thread stack); at the default 60 s a slower runner times out
-# first (124) — CI did, task #357.
 declare -A E2E_TIMEOUT=(
-  [stack_fuel_offset.ndjson]=300
   [whnf_delta_loop.ndjson]=5
   [whnf_core_loop.ndjson]=5
   [complete_c05b_nest30_pi1000.ndjson]=600
