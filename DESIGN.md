@@ -107471,3 +107471,184 @@ declarations, axioms pinned, arena tutorial 90/92 as before, e2e
 at 8 GB before it overflows: master's binary is killed the same way
 (peak 8.02 GB vs 8.05 GB), so that verdict is unchecked under this cap,
 not changed.
+
+## TASK #431 — the stored inductive constants installed, checked against the generated ones up to defeq (2026-11-03, agent/431-stored)
+
+**Rulings** (maintainer, on task #428's census): (1) install the
+STORED inductive constants — formers, constructors, recursors — as the
+input gives them, and read the derived data (index counts, K, sorts,
+structure η and unit-likeness, rule metadata, an auxiliary recursor's
+firing data) syntactically, every shape assumption checked before the
+install, never a retry; (2) do not make the generator strip
+`outParam`/`semiOutParam`/`optParam`/`autoParam`: the block's check
+regenerates and compares stored with generated UP TO DEFEQ (binder
+domains compared one by one where the proof needs the telescope), and
+the spec is adapted so that this comparison justifies installing the
+stored constants; the separate rules guard of #386 becomes part of that
+check; (3) projection tables lazy in the environment, pure, proved
+equal to the eager table; (4) a def-headed former (#195) is stored at
+its STORED type, its telescope read off the recursor (revising #195's
+decision A); (5) the pins are not touched here.  A disagreement of the
+syntactic reading with the generator is exit 3 naming the block; a
+real disagreement of stored and generated is exit 1 naming the
+recursor and the first differing binder or rule.  #411's composition
+is unchanged (jobs in fold order, first failure in fold order wins;
+`--jobs=1` runs the checked step inline).
+
+Housekeeping: the fixture `stack_fuel_offset` is removed (it cannot be
+tested efficiently: it needs more than 8 GB before the native stack
+overflow it expects).
+
+### 1. What #428 measured, and what follows for the spec
+
+Over 7,469 blocks the stored recursor types and rules equal the
+generated ones syntactically except that official strips a top-level
+`outParam`/`semiOutParam`/`optParam`/`autoParam` from the domain of every
+local it creates (parameters, indices, a minor premise's fields, a
+rule's λ-binders) and con-leche keeps it (12 % of blocks' recursor
+types, 9 % of their rules); rule BODIES always agree.  So the stored
+and the generated constants differ in binder domains only, by
+δ-reducible wrappers: definitionally equal, never syntactically.
+
+The model reads a recursor through two things only: its type's reading
+(`EnvModelM.mem_type`, and the telescope fits `TeleFitPA` every
+`RecRuleLaw` premise is stated at) and its rules' right-hand sides'
+readings (`RecRuleLaw`'s `Ra`).  The recursor's VALUE (`acval`) is the
+block's graph recursor, built at the generated family; nothing reads a
+recursor's type or rules syntactically except `EnvWF`'s scoping clauses
+and a nested rule's `NestedRead` (the major's domain is the container
+at the pins).  Hence the plan: keep the generated install as it is,
+and add one step that SWAPS the block's recursors for the stored ones,
+justified by the checker's own comparison at the generated install.
+
+### 2. The spec: `checkBlockTail` swaps the stored recursors in
+
+`checkBlockTail` gains one stage between the recursor stage and the
+recursors' cons:
+
+    out  ← checkBlockRec …                       -- generated (unchanged)
+    env₃g := consBlockRecsT env₂.find? p 0 out env₂
+    out' ← storedRecsAgree ck ops env₃g p.recs out
+    env₃ := consBlockRecsT env₂.find? p 0 out' env₂   -- stored
+    checkBlockTables … env₃
+
+`storedRecsAgree` (new `Kernel/Inductives/StoredRecs.lean`), per
+recursor `(rc, (cvG, M, rhssG))` — the stream's record `rc` (`RecShape`,
+which now carries the record's rules, not just their right-hand sides)
+and the generated recursor of the same position:
+
+* **shape, decided before anything is installed** (outside `ck`): as
+  many stored rules as generated, rule by rule the generated rule's
+  constructor and field count (exit 1, naming the recursor and the
+  rule); a nested recursor's stored type has the container at the
+  firing data in its major's domain (`NestedRead`, the same Bool test
+  the generated type passes; exit 3: our reading of the stored type
+  failed);
+* **the type** (through `ck`), unless it is the generated one
+  syntactically: the stored type is inferred (a sort), compared with
+  the generated one BINDER BY BINDER over the `mI + 1` binders up to the
+  major — each stored domain `isDefEq` to the generated one at its
+  depth, the telescope opened at locals of the GENERATED domains —
+  and the two residues compared (`recTyAgree`); a missing binder is
+  exit 1 ("not the generated type"), a differing domain exit 1 naming
+  the recursor and the binder;
+* **each rule** (through `ck`), unless its right-hand side is the
+  generated one syntactically: closed, at the record's level
+  parameters, resolving; both sides inferred, their types `isDefEq`,
+  and the two right-hand sides `isDefEq` at depth 0 (`ruleAgree`; exit
+  1 naming the recursor and the constructor).  The type comparison is
+  what makes the point condition of the defeq motive harmless: two
+  members of one type are both the proof point or neither.
+
+It returns the stored constant (`rc.cvR`, whose name and level
+parameters ARE the generated one's: `cvG = {rc.cvR with type := gty}`)
+and the stored right-hand sides; everything else of the recursor —
+`mI`, `rP`, every rule's constructor, field count, constructor
+parameter count, firing mode, K and η bits — is the generator's.  The
+comparisons run at `env₃g`, the generated install without the tables,
+so they may fire the generated rules.
+
+`classRecTyCheck`'s whole-type `isDefEq` of the stream's type against
+the generated one stays (it is the recursor stage's own verdict); the
+#386 guard `recRulesAgree` (`Driver/RecRules.lean`) and its call in
+`checkDeclsIO` are deleted: its comparison is now the install's, at the
+block's fold position, so a disagreement is reported where the serial
+fold meets it (no `blockFailure` special case for it).  A pinned basis
+block needs nothing: `basisPinHit` already compares its rules (up to
+level renaming) with the pin's.
+
+### 3. The model: a swap that changes types and right-hand sides
+
+`declBlock`'s recursor stage gives `EnvModelM` at `env₃g` (unchanged).
+A new `Model/Inductives/StoredSwap.lean` carries it to `env₃` with the
+SAME leaf valuation: the two environments hold the same names, kinds,
+level parameters, rule metadata and tables, so `denote` agrees on them
+(`denote_env_ext`) and every field of the invariant but three moves as
+in `EnvModelM.swapP` (the rule-list swap the recursor stage already
+uses).  The three:
+
+* `type_reads`/`type_wellDenotedTy`/`mem_type` at a swapped recursor:
+  the stored type's inference gives the reading and its grading
+  (`InferSemFull` at depth 0); the binder-wise comparison gives
+  `interp ⟦S⟧ = interp ⟦G⟧` (domains equal along every chain of
+  arguments in the generated domains, residues equal, so the Π-sets
+  agree), so the leaf, a member of `⟦G⟧`, is a member of `⟦S⟧`.
+* `rec_rules`: `RecRuleLaw` at the stored type and right-hand side,
+  from the generated one, by a TRANSPORT lemma
+  (`recRuleLaw_transport`): its type premises are fits
+  `TeleFitPA ρ ⟦S⟧ xs rest` with `|xs| ≤ mI + 1`, carried to fits at
+  `⟦G⟧` by the domain equalities in chain form
+  (`teleFitPA_to_chain`/`teleFitPA_of_tower`); its right-hand side
+  enters through `interp (mkAppN Ra xs)` and the grading of that
+  application, both functions of `interp Ra` and of `Ra`'s own grading
+  (`WellDenoted` of an application reads the head's value only), and
+  `interp ⟦s⟧ = interp ⟦g⟧` is the rule comparison's defeq claim.
+* `wf` (`EnvWF`): the stored type's and right-hand sides' scoping
+  (the comparison's guards), a nested rule's `NestedRead` at the stored
+  type (the shape guard).
+
+The comparisons' claims come from the rules tier's soundness at the
+generated install's carrier (`RulesInputs` of `EnvModelM env₃g`):
+`infer_sound`/`defeq_sound` at depth 0 for the rules and the
+residues, at depth `i` under the generated domains' context for the
+`i`-th binder (the context discipline `CtxOkS` built binder by binder,
+as the λ/Π rules build it).
+
+### 4. The cached install, `GenRun`, the deferred check
+
+`checkBlockTailS` runs the same `storedRecsAgree` at `ckC chk`: the
+comparisons at an OVERLAY of the generated recursors on the
+constructors' index (`FEnv.overlay`, as `classFeROvl`; read-only, dead
+before the stored recursors are pushed, so the index stays unique),
+each check in its own memo (`isoC`).  The generate-only install skips
+the checks and keeps the shape guards, so `checkBlockTailS_gen` (#410)
+extends by one `GenRun.bind`, and #411's `installDeclStep_defer` is
+unchanged.  The cached walk is a `Std.WP` triple like the stage's
+others.
+
+### 5. Later phases (this record's plan; each lands with its proof)
+
+* **Phase 3 — the syntactic install.**  `storedInstall block`: the
+  block's records pushed as given, every derived datum read
+  syntactically (`nIdx = mI − rP` off each member's recursor, `isRec`
+  as `blockRawRec`, the sort off the stored type or — def-headed — off
+  the recursor's motive, K, η/unit-likeness, rule metadata, the
+  auxiliary rules' firing data off the stored major domain).  The
+  parallel install pushes it instead of the generate-only install; the
+  block's job runs the checked step at the worker view and compares
+  its pushes with the syntactic install's, pointer-first; a difference
+  is exit 3 naming the block.  `--jobs=1` does the same inline.  The
+  defer contract becomes "the checked step pushes what the syntactic
+  install pushed", which the job's equality states.
+* **Phase 4 — def-headed formers at their stored type** (ruling 4):
+  `checkBlockInds` stores the declared type; the whnf'd telescope stays
+  internal; every syntactic reader of a former's telescope (the
+  capability arities, nested positivity's container telescope, the
+  index sorts) reads the recursor's telescope instead.
+* **Phase 5 — lazy projection tables**: the environment holds, per
+  structure, a thunk of its table (bodies by substitution, guards from
+  the field sorts) instead of the table; the thunk's value is proved
+  equal to the eager table (`structProjTable`), and the field sorts it
+  needs are the generator's (Phase 3 makes them the job's, so the
+  thunk forces an inference from a fresh memo: equal to the eager one by
+  the cached simulation).
