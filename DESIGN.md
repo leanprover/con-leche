@@ -108422,3 +108422,115 @@ plan is coded.
 4. (C) keep §11: the def-headed former installed at its reduced
    telescope, reduced at install by the checked install's own function;
    no work.
+
+### 13. The final record after the rulings of 2026-11-03 evening (#431 cont. 8)
+
+**Maintainer rulings** (final): (1) align `--jobs=1` — "the checkLoop
+does the checks, for defs and inductives alike; one should not be able
+to tell from the code that there ever was a combined install+check";
+(2) no thunks — a lazily computed datum is an explicit map in the
+environment, never a closure capturing state (porting to con-ron, and
+thunks capturing what is threaded linearly); (3) keep option (C) of
+§12; (4) land on master.
+
+**`--jobs=1` is the install of `--jobs=<n>` with no workers.**
+`installPhase` (`Driver/ParInstall.lean`, formerly `parInstall`) runs at
+every job count; `--jobs=1` passes it zero workers, so the commit
+thread claims and installs every record itself, in order, at its
+worker view — the path a commit thread always had for a record nobody
+took — every inductive block by the stored install, its checked install
+a block job.  The check loop (`checkLoop`, one dedicated thread) runs
+the definitions' value checks and the block jobs in fold order, as the
+pool does with one worker.  Deleted: `installLoop` (the serial install
+loop with the inline checked step of every block), the run adapter that
+gave it an empty job list, its statistics ref, and the `--jobs=1`
+special cases of the persistent marks.  Without workers the
+preparation's per-chunk steps run inline (`ParInstall.spawn`: a
+thread's start and exit cost more than the step on the small streams)
+and the dependency walk is skipped (`depsChunk`'s `walk`: nothing is
+scheduled).  No proof changed: the commit loop and its lemmas were
+already the driver's for any worker count.  The spec fold
+`checkDecls` (`Cached/Installed.lean`) is unchanged: its step is the
+meaning of an install — a block's is its checked install — and the
+driver builds its run at every job count from the stored install and
+the jobs (`installStepG_ind`, `installDeclStep_defer`).
+
+**The projection tables: no thunk.**  Phase 5's `ProjTable.guards :
+Thunk (List Level)` is gone; the field is a `List Level` again and
+`ProjEntry.fieldSort` a field.  The guard levels are the fields' sorts,
+an inference; the stored install now runs it AT INSTALL
+(`storedGuards`, the constructor stage's `checkStructFieldSortsIFA` at
+the formers pushed onto the worker view, from a fresh memo), so the
+table it pushes is a plain value, entered into the environment's
+explicit table map (`FEnv.tbls`, `Env.tables`) by the sequential commit
+loop like every other push; no check thread writes it.  The thunk's
+laziness bought nothing: the block job's comparison (`pushesAgree`)
+forced every guard thunk anyway, so the inference ran once per
+structure either way, now in the install instead of the job.  That the
+map's entries are the eager table's is the job's comparison, as before
+(`ProjTable.eq_of_beqP`, the guards now compared as lists).  With no
+closure over a worker view left in an install result, every result is
+marked persistent again (#411's mark) and the phase boundary marks the
+whole environment at every job count.  No other `Thunk` was introduced
+by this lane (the worker views' slot thunks are #329's, on master).
+
+**Option (C) kept** (ruling 3): a def-headed former stays installed at
+its reduced telescope; the stored install reduces it at install by the
+checked install's own function (`storedTele`), which also gives the
+"is it a `Prop`" sort and the capabilities.  Option (b) of §12 — every
+former at its literal stored type, the reduced telescope only in the
+job — was considered and dropped: the former's result sort, and with
+it `IndCaps.sortZ` and `eta` (read on the ι and η hot paths of every
+later declaration), is on no record for a large-eliminating family, so
+(b) needs either lazy capabilities (a thunk, ruled out by ruling 2, or
+a map filled later) or conservative ones (a possible η reject beyond
+official on def-headed structures), plus a restatement of `LfpReads`,
+`LfpCtorReads`, `IndCapsWF` over a recorded telescope and repairs at
+some twenty consumer sites: five to seven sessions for a stream shape
+(a definition as a former's type) that occurs in nine fixtures and no
+Init stream.  §12 stays as the record of that plan.
+
+**Numbers** (`instructions:u`, `--verified`, one run each; base =
+master e3fd221f1, head = this record's code commit 5b087c735 — the
+whole of #386, #410, #411 and #431 against master):
+
+| stream | `--jobs=1` master | Δ | `--jobs=8` master | Δ |
+|---|---|---|---|---|
+| init-full | 378.898 G | +0.68 % | 390.890 G | +0.41 % |
+| init-prelude | 1.8159 G | +7.65 % | 2.0722 G | +2.65 % |
+| grind-ring-5 | 15.132 G | +1.05 % | 15.613 G | +0.44 % |
+| app-lam, beta-ladder, let-ladder | 22.07 / 4.86 / 2.56 G | +0.01 / −0.18 / +0.27 % | 22.40 / 4.92 / 2.65 G | +0.19 / +0.02 / −0.00 % |
+| the other twelve perf streams | 19–296 M | +0.27 … +5.69 % | 22–299 M | +0.15 … +3.81 % |
+
+**The cost of the `--jobs=1` alignment** (against the branch before it,
+§11's head, one run each): init-full 379.166 → 381.569 G (+0.63 %),
+init-prelude 1.8561 → 1.9567 G (+5.4 %), the 19–26 M streams +0.6–0.9 M
+each.  It is what `--jobs=8` already paid: every block is now read by
+the stored install (its field sorts inferred, a pinned basis block
+matched against its pin) AND checked by its job, whose pushes are then
+compared with the stored ones (the tables' bodies are built twice, so
+that comparison walks them); before, `--jobs=1` ran the checked install
+once, inline.  A profile of init-full shows it spread over allocation
+and freeing (the job's generated constants die after the comparison),
+the memoised `Expr` comparison and the worker view's base lookups; the
+machinery itself (prediction, base, one promise per record) is below
+0.2 M on the smallest streams once its preparation runs inline.
+`--jobs=1` stays the cheapest lane in instructions (init-full 381.5 G
+against 392.5 G at `--jobs=8`).
+
+**Gates on 5b087c735**: `lake build`, `lake test` warning-free (axioms
+pinned, 20 theorems at `propext`, `Classical.choice`, `Quot.sound`);
+`tests/arena.sh` in full under the 8 GB guard (peak anon 2.2 GB):
+layering, pindump, trust surface (21 escapes in 8 allowlisted files:
+the three partial marks the guard thunks needed are gone), overview and whitepaper
+links (repointed), fragment, quote, no-local-paths, challenge, shake
+(all 691 allowlisted), selfcheck 48 651 declarations, arena tutorial
+90/92 as before, e2e 502/502, the trusted, `--jobs=1` and `--jobs=4`
+sweeps without divergence.
+
+**Verdicts beyond official, deliberately** (unchanged by this record):
+`stored_rule_dom_redex` and `stored_type_dom_redex` are accepted (0)
+where official rejects (1) — the stored recursor is compared with the
+generated one up to definitional equality (ruling 2 of §1), official
+syntactically.  **Standing gap**: `ind_shapeless_use` is declined (2,
+"shape not recognised") where official rejects (1), as before #431.
