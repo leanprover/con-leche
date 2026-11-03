@@ -10,8 +10,8 @@
 == Main.lean#L91
     91  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/Run.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Driver/Run.lean#L35
+    35  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -120,8 +120,8 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Run.lean#L59
-    59  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Driver/Run.lean#L60
+    60  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -157,26 +157,23 @@
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
   1745    obtain ⟨st0, hr0, hh0, hd0, hcov⟩ := hg
 
-== ConLeche/Driver/ParInstall.lean#L167
-   167  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
-
 == ConLeche/Cached/Installed.lean#L144-L147
    144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
    145      (pend : Array PendingCheck) :
    146      Declaration → CheckCM (FEnv × Array PendingCheck)
    147    | .defnDecl cv value hint =>
 
-== ConLeche/Driver/ParInstall.lean#L773-L782
-   773  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
-   774      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   775      (p₀ : Nat × FEnv × Array PendingCheck) :
-   776      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
-   777      fe.visibleBelow = c →
-   778      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
-   779        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
-   780      IdxBelow fe → ViewAgrees B S fe →
-   781        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
-   782    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
+== ConLeche/Driver/ParInstall.lean#L696-L705
+   696  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
+   697      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   698      (p₀ : Nat × FEnv × Array PendingCheck) :
+   699      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
+   700      fe.visibleBelow = c →
+   701      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
+   702        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
+   703      IdxBelow fe → ViewAgrees B S fe →
+   704        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
+   705    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468
   1462  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
@@ -214,11 +211,11 @@
    307        (∀ i, i < b → ∀ h : i < D.size, D[i].Ok mode pins) →
    308        Except (CheckError × Nat) (PLift (AllOk mode pins fe pend D))
 
-== ConLeche/Driver/Run.lean#L109-L112
-   109  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   110      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
-   111      IO (Except (ConLeche.CheckError × Nat)
-   112        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L112-L115
+   112  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   113      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
+   114      IO (Except (ConLeche.CheckError × Nat)
+   115        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L411-L413
    411  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -875,15 +872,15 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L446
    446  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L524-L531
-   524  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   525    block.all fun ci => match ci with
-   526      | .indInfo cvT _ =>
-   527        match cvT.type.piSortTeleLen? with
-   528        | some n => decide (nP ≤ n)
-   529        | none => true
-   530      | .ctorInfo _ nPc _ => nPc == nP
-   531      | _ => true
+== ConLeche/Kernel/Env.lean#L491-L498
+   491  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   492    block.all fun ci => match ci with
+   493      | .indInfo cvT _ =>
+   494        match cvT.type.piSortTeleLen? with
+   495        | some n => decide (nP ≤ n)
+   496        | none => true
+   497      | .ctorInfo _ nPc _ => nPc == nP
+   498      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L147
    147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :

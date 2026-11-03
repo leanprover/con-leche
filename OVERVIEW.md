@@ -34,7 +34,7 @@ usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L34)):
+([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L35)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -69,9 +69,9 @@ threads; without it there is one worker per hardware thread. In the
 install phase the workers install the records, each against a view of
 the records before it (an inductive block as stored, its checked
 install left to the check phase), while the main thread commits them in stream
-order; at `--jobs=1` the main thread installs everything, and the
-check phase runs one worker with no shared counter and no result
-table.
+order; at `--jobs=1` the main thread installs everything itself, by
+the same install, and the check phase runs one worker with no shared
+counter and no result table.
 The check phase always runs on worker threads, never on the main
 thread: its per-record memo state is allocated out of the running
 thread's heap, and the main thread's heap is the one the parse and the
@@ -85,11 +85,11 @@ worker count the installed environment is marked persistent once at
 the phase boundary, which removes the atomic reference counting the
 workers would otherwise pay on it and is worth 18–32 % of wall time on
 the pool, growing with the worker count, and 3.5 % at one worker;
-`--no-mark-persistent` turns it off. On more than one worker most of
-that marking happens earlier: the records are marked before the
-install pool starts (a serial walk, about 2.5 s on Mathlib) and each
-install result by the worker that computed it, so the mark at the
-phase boundary finds little left to do (about 0.1 s on Mathlib). The
+`--no-mark-persistent` turns it off. Most of that marking happens
+earlier: the records are marked before the install starts (a serial
+walk, about 2.5 s on Mathlib) and each install result by the thread
+that computed it, so the mark at the phase boundary finds little left
+to do (about 0.1 s on Mathlib). The
 verdict, and the declaration a rejection names, are the same at every
 `n`: the results are walked in record order, so the first failing
 record in fold order is the one reported. The flag
@@ -97,8 +97,8 @@ record in fold order is the one reported. The flag
 shape per phase — `install <i>/<N> <decl>` before every `stride`-th
 declaration is installed, `check <done>/<M> <decl>` after every
 `stride`-th completed check — bracketed by `parse done`, `install
-done` (on more than one worker preceded by a `parallel install` line
-with the install's own phases), `persistent mark`, `check done` and a
+done` (preceded by an `install:` line with the install's own
+phases), `persistent mark`, `check done` and a
 `done:` summary with the three phase durations and the worker count
 (bare, the stride is 1); on more than one worker, each `install` and
 `check` line ends with the number of busy workers and the oldest record
@@ -306,7 +306,7 @@ Everything below explains how those theorems are reached.
 Read from the outside in:
 
 1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseInput` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L59))
+   ([function `parseInput` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L60))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
@@ -354,42 +354,40 @@ Read from the outside in:
    parse returns it.
    What the parser makes of a record
    — index resolution, the smart constructors — is the
-   semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L167))
-   takes every record, each from a fresh memo state, through the install step
+   semantic layer the main corollary's line lemmas are about. The fold
+   installs every record, each from a fresh memo state, by its install step
    ([function `installStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L144-L147)):
    a definition or opaque is guarded and pushed with its check
    *recorded* — the header and value and the number of
    constants installed before it — a theorem is installed by its
    statement alone (the stored constant carrying
    no value; the raw value is recorded for the check and never entered
-   by this loop: a theorem is opaque to reduction), and
+   by the install: a theorem is opaque to reduction), and
    an axiom, an inductive or
    basis block, and the pinned `Nat`-operation and `reduce*`
-   declarations are checked in full as they are installed, by the
-   fold's ordinary step. The loop carries the chain of its accepting
-   steps, a proposition, and what it returns is an installed
-   environment. On more than one worker the same run is built by a
-   commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L773-L782))
-   that adds one step per record in stream order, pushing each record's
-   constants into the index itself, while worker threads
-   install the records ahead of it, each at a *worker view*: an empty index over a frozen base layer that maps
+   declarations are checked by the fold's ordinary step. The driver
+   builds the fold's run, at every worker count, by a commit loop
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L696-L705))
+   that adds one step per record in stream order (a proposition carried
+   beside the index), pushing each record's
+   constants into the index itself, while worker threads (none at
+   `--jobs=1`, where the commit loop installs every record itself)
+   install the records ahead of it; every record is installed at a *worker view*: an empty index over a frozen base layer that maps
    every name the stream will install, predicted from the records, to
    the record that installs it, visible below the record's own
    position, and answering from that record's install once it is done.
    The commit loop keeps the view's lookups equal to the serial index's
    (the installer checks, per constant it pushes, that the predicted slot
    holds that very constant, and hands that verdict over with its
-   result), so a worker's install is the serial step
+   result), so an install at the view is the serial step
    ([theorem `installStep_commit` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468)):
    every install stage reads its index through the lookups alone (the
    constants' and the projection tables') and writes it by pushes
    alone, so at two indices with the same lookups it pushes the same
-   constants and tables onto each. The workers install every inductive
+   constants and tables onto each. The install puts every inductive
    block *as stored*: every constant and table read off the block's
    records, nothing generated (a projection table's guard levels, the
-   fields' sorts, are a thunk inferred on first use; a former whose type
+   fields' sorts, are inferred; a former whose type
    is a definition is put at the telescope official's `whnf` loop reads,
    the one its recursor shows; a pinned basis block is the pin's
    constants), and its checked install, at the same worker view,
@@ -436,7 +434,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L109-L112))
+   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L112-L115))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L411-L413)).
@@ -868,7 +866,7 @@ The recogniser reads the block's shape
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
-([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L524-L531)),
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L491-L498)),
 and each member's index count off what is left of its type former's
 telescope, as the official kernel reads them. Any number of parameters,
 indices, constructors and fields is supported; fields may be recursive,
@@ -1394,7 +1392,7 @@ and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The CLI: argument parsing, usage, exit codes; calls `ConLeche.Driver.checkMain`. |
-| `ConLeche/Driver/` | The proof-carrying IO driver: the install loop and the parallel install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the end-of-run statistics (`Stats.lean`), the phase sequencing and `checkDeclsIO` (`Run.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
+| `ConLeche/Driver/` | The proof-carrying IO driver: the install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the end-of-run statistics (`Stats.lean`), the phase sequencing and `checkDeclsIO` (`Run.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`); the install skeleton (`InstallSkel.lean`, which the parallel install predicts from and the trusted/verified agreement floor is stated over); the stored install of an inductive block, the parallel install's syntactic reading of its records, and the pointer-first equality its check job compares with (`StoredInstall.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |

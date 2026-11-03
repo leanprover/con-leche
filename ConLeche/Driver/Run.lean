@@ -11,10 +11,11 @@ public import ConLeche.Driver.OwnerParse
 Part of the proof-carrying driver (`ConLeche/Driver/*`; the CLI —
 argument parsing, I/O, exit codes — is `Main.lean`).
 
-`checkDeclsIO` is **the driver**: the install — `installLoop` at
-`--jobs=1`, `parInstall` otherwise (`Driver/ParInstall.lean`) — then the
-check phase — `checkLoop` on one dedicated worker thread at `--jobs=1`,
-`checkPool` otherwise (`Driver/CheckPool.lean`) — and what comes out is
+`checkDeclsIO` is **the driver**: the install (`installPhase`,
+`Driver/ParInstall.lean`: the commit thread with `n` workers at
+`--jobs=<n>`, alone at `--jobs=1`) then the check phase — `checkLoop` on
+one dedicated worker thread at `--jobs=1`, `checkPool` otherwise
+(`Driver/CheckPool.lean`) — and what comes out is
 the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).
@@ -82,16 +83,18 @@ def printStats (err : IO.FS.Stream) (parseMs installMs : Nat) (checkMs : Option 
   if let some r ← peakRss then line s!"peak RSS {r}"
   err.flush
 
-/-- **The driver**: the install (`installLoop` at `--jobs=1`,
-`parInstall` otherwise) then the check phase — `checkLoop` on one
-dedicated worker thread at `--jobs=1`, `checkPool` otherwise — and what
-comes out is the environment together with the proof that the fold `checkDecls`
+/-- **The driver**: the install (`installPhase`, with `jobs` workers
+beside the commit thread at `--jobs=<n>`, none at `--jobs=1`) then the
+check phase — `checkLoop` on one dedicated worker thread at `--jobs=1`,
+`checkPool` otherwise — and what comes out is the environment together
+with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
-steps (at `--jobs=<n>` the parallel install pushes an inductive
-block as stored and its checked install is a job of the check phase,
-tasks #411, #431: the fold's run is assembled once every job passed); the fully checked environment they assemble
+steps.  At every job count the install pushes an inductive block as
+stored and the block's checked install is a job of the check phase,
+beside the definitions' value checks, in fold order (tasks #411, #431:
+the fold's run is assembled once every job passed); the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
 the success line `checkMain` prints is printed from an accept of
 `checkDecls` and from nothing else.  A rejection carries the fold
@@ -118,36 +121,13 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
   let instLabel (k : Nat) : String := match ds[k]? with
     | some d => s!"{ConLeche.Cached.declCLabel d} (#{k})"
     | none => s!"record {k}"
-  let serialStats ← IO.mkRef ({} : WStats)
-  let parRep ← IO.mkRef (pure none : IO (Option PoolRep))
-  let tI0 ← IO.monoNanosNow
-  let installed ← if jobs ≤ 1 then
-      -- (one thread: the blocks are checked in the install, nothing
-      -- would run beside their deferred checks; the run is the fold's
-      -- with no block job)
-      (·.map fun ⟨p, ⟨r⟩⟩ => (⟨p, #[], fun _ => r⟩ :
-        ConLeche.Cached.DeferredRun mode ConLeche.natOpPinSets ds.toList _)) <$>
-      installLoop mode err stride total t0 serialStats ds
-        (0, ConLeche.mkFEnv ConLeche.Env.empty, #[]) 0
-        -- the install environment's index marked linear (task #331): a
-        -- copy of it panics instead of silently copying (`main` sets
-        -- `LEAN_ABORT_ON_NONLINEAR`).  Marked HERE, on the value the loop
-        -- threads, not on the closed term `mkFEnv Env.empty`, which is
-        -- persistent and copied by its first insert anyway.  (The
-        -- parallel install marks its commit thread's index the same way.)
-        (0, (ConLeche.mkFEnv ConLeche.Env.empty).markLinear, #[])
-        (ConLeche.FEnv.markLinear_eq _ ▸ .nil _)
-    else
-      parInstall mode err stride total t0 jobs noMark parRep drain ds
-  let tI1 ← IO.monoNanosNow
-  -- the install's report: the pool's, or the main thread's loop
-  let instRep : IO PoolRep := do
-    match ← (← parRep.get) with
-    | some r => pure r
-    | none =>
-      let st ← serialStats.get
-      pure { name := "install (main thread)", workers := 1, tStart := tI0, tEnd := tI1,
-             stats := #[st] }
+  -- the install's report (performance-only), left here by `installPhase`
+  let instRepR ← IO.mkRef (pure default : IO PoolRep)
+  -- the install's worker count: none at `--jobs=1`, where the commit
+  -- thread installs every record itself
+  let installed ← installPhase mode err stride total t0 (if jobs ≤ 1 then 0 else jobs)
+    noMark instRepR drain ds
+  let instRep : IO PoolRep := do (← instRepR.get)
   match installed with
   | .error e =>
     let now ← IO.monoMsNow
@@ -196,19 +176,11 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- process exits right after.  `--no-mark-persistent` turns it off,
     -- which is how the A/B above is measured on the shipped binary.
     -- (the deferred block checks are NOT marked: a worker view's slots
-    -- are thunks over promises the install's workers resolved, objects
-    -- those threads may still be counting — the mark would race with
+    -- are thunks over promises the install resolved, objects the
+    -- install's workers may still be counting — the mark would race with
     -- them; there are few block checks, their counts stay atomic)
-    -- (nor, on the parallel install, are the projection tables: a block
-    -- installed as stored keeps its tables' guards as thunks over the
-    -- worker view, `storedGuards`, whose slots are those same objects;
-    -- the tables' counts stay atomic, the constants' index is marked)
     if !noMark then
-      if jobs ≤ 1 then
-        let _ ← unsafe Runtime.markPersistent fe
-      else
-        let _ ← unsafe Runtime.markPersistent fe.idx
-        let _ ← unsafe Runtime.markPersistent fe.env.consts
+      let _ ← unsafe Runtime.markPersistent fe
       let _ ← unsafe Runtime.markPersistent pend
       let _ ← unsafe Runtime.markPersistent J.order
     let tMark ← IO.monoMsNow

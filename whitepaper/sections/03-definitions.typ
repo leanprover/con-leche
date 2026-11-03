@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 569)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 536)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 387, 401)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 354, 368)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A

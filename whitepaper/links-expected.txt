@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L569
-   569  structure Env where
+== ConLeche/Kernel/Env.lean#L536
+   536  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2535,22 +2535,22 @@
     99    kind : ConstKind
    100    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L387-L401
-   387  inductive ConstantInfo where
-   388    | axiomInfo (val : ConstantVal)
-   389    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   390    | thmInfo (val : ConstantVal)
-   391    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   392    | indInfo (val : ConstantVal) (caps : IndCaps)
-   393    /-- A basis constructor (whnf-stuck; the iota target). -/
-   394    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-   395    /-- A basis recursor with its iota rules.  Only the two sums the
-   396    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   397    numMinors + numIndices, the major premise's argument position) and
-   398    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   399    argument prefix a rule's rhs is applied to).  The individual counts
-   400    are consumed at install time only and are not stored. -/
-   401    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+== ConLeche/Kernel/Env.lean#L354-L368
+   354  inductive ConstantInfo where
+   355    | axiomInfo (val : ConstantVal)
+   356    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   357    | thmInfo (val : ConstantVal)
+   358    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   359    | indInfo (val : ConstantVal) (caps : IndCaps)
+   360    /-- A basis constructor (whnf-stuck; the iota target). -/
+   361    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+   362    /-- A basis recursor with its iota rules.  Only the two sums the
+   363    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   364    numMinors + numIndices, the major premise's argument position) and
+   365    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   366    argument prefix a rule's rhs is applied to).  The individual counts
+   367    are consumed at install time only and are not stored. -/
+   368    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
 
 == whitepaper/Fragment/Syntax.lean#L35-L36
     35    /-- A constant of the environment at a level instantiation. -/

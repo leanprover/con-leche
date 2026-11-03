@@ -18,7 +18,7 @@ as stored, `ConLeche/Verify/Cached/Defer.lean`), in fold order
 (`ConLeche.Cached.jobOrder`).  They are independent by construction —
 a value check reads the installed index at its own prefix view, its own
 record, and a fresh memo state; a block check runs the block's checked
-install at a view of its own (the parallel install's worker view)
+install at a view of its own (the install's worker view)
 from a fresh memo state
 — so phase B is handed to `n` long-lived worker tasks
 (`IO.asTask` on dedicated threads: exactly `n` threads whatever the

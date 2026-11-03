@@ -24,7 +24,7 @@ check phase passes.
   at an empty-environment twin of an index and pushes `L` and `Q`
   there, the serial fold's step at the index pushes `L` and `Q`.  From
   the twin lemma (`checkDeclStepC_twin`).
-* The view a deferred check runs at: the parallel install's worker
+* The view a deferred check runs at: the install's worker
   view at the block's counter (its twin is the serial index by
   `ViewAgrees`, `Twin.ofViewAgrees`; `installStepG_ind`).
 * The check phase's jobs (`Job`, `jobOrder`, `runJob`, `collectJobs`):
@@ -44,8 +44,8 @@ open ConLeche
 /-! ## The deferred check of a block -/
 
 /-- **A deferred block check**: the block, the view its checked install
-runs at (on the parallel install, the worker view at the block's
-counter, `workerView`), the block's fold position (its error tag), and
+runs at (the install's worker view at the block's counter,
+`workerView`), the block's fold position (its error tag), and
 what the stored install pushed: the constants `L` and the tables `Q`,
 in install order. -/
 structure BlockCheck where

@@ -7,11 +7,13 @@ public import ConLeche.Cached.CheckerC
 /-!
 # The stored install of an inductive block (task #431)
 
-The parallel install pushes an inductive block **as the input stores
-it**: every constant the checked install pushes is read syntactically
-off the block's records (`storedInstall`), and nothing is generated or
-inferred — no positivity walk, no recursor generation, no field sort.
-The block's checked install runs later, as a job of the check phase
+The install phase pushes an inductive block **as the input stores
+it**: every constant the checked install pushes is read off the block's
+records (`storedInstall`), and nothing is generated — no positivity
+walk, no recursor generation; the one inference is the structures'
+field sorts (their projection tables' guards), the one reduction a
+def-headed former's telescope.  The block's checked install runs
+later, as a job of the check phase
 (`BlockCheck`, `ConLeche/Verify/Cached/Defer.lean`), and compares what
 it pushes with what this install pushed, pointer-first
 (`ConstantInfo.beqP`, `ProjTable.beqP`); a difference is an internal
@@ -38,11 +40,13 @@ functions on the same inputs wherever one exists):
   stored major domain opened at the recursor's prefix, as the
   generator's class reading opens it);
 * the projection tables: the bodies by substitution
-  (`structProjBodiesC`), the guards **lazily** (`ProjTable.guards`): a
-  thunk that infers the fields' sorts, from a fresh memo, at the
-  formers' environment, as the checked install's constructor stage
-  does (`checkStructFieldSortsIFA`).  Only a `Prop`-declared
-  structure's `.proj` uses and the job's comparison force it.
+  (`structProjBodiesC`), the guards (`ProjTable.guards`, the fields'
+  sorts) inferred here, at install, from a fresh memo at the formers'
+  environment, by the checked install's constructor-stage walk
+  (`checkStructFieldSortsIFA`, `storedGuards`) — the one inference of
+  this install besides a def-headed former's telescope.  The table,
+  guards included, is a value in the environment's table map like the
+  checked install's; no part of it is deferred.
 
 Where a part cannot be read, it is pushed at its record as declared
 (a former, a recursor's rules) or left out (a table): the block is one
@@ -124,18 +128,18 @@ theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a =
     rw [ConstantVal.eq_of_beqP hv, eq_of_listBeqBy (fun _ _ => RecRule.eq_of_beqP) hr]
 
 /-- **`ProjTable` equality, pointer-first**: the bodies by `Expr`'s
-`==`, the guards by value (forcing both thunks). -/
+`==`, the rest by value. -/
 def ProjTable.beqP (a b : ProjTable) : Bool :=
   a.structName == b.structName && a.levelParams == b.levelParams &&
     a.numParams == b.numParams && a.ctor == b.ctor && a.numFields == b.numFields &&
-    a.structSort == b.structSort && a.bodies == b.bodies && a.guards.get == b.guards.get
+    a.structSort == b.structSort && a.bodies == b.bodies && a.guards == b.guards
 
 theorem ProjTable.eq_of_beqP {a b : ProjTable} (h : a.beqP b = true) : a = b := by
   obtain ⟨_, _, _, _, _, _, _, g⟩ := a
   obtain ⟨_, _, _, _, _, _, _, g'⟩ := b
   simp only [ProjTable.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, hg⟩ := h
-  rw [Thunk.ext hg]
+  obtain ⟨⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
+  rfl
 
 end ConLeche
 
@@ -203,7 +207,7 @@ def storedRecs (fe₂ : FEnv) (p : BlockShape) : Nat → List RecShape → List 
       | none => rc.rules
     .recInfo rc.cvR (p.majorIdxAt r) (p.rulePrefixAt r) rules :: storedRecs fe₂ p (r + 1) rest
 
-/-- **A structure's guard levels, inferred on first use**: the fields'
+/-- **A structure's guard levels**: the fields'
 sorts at the formers' environment `fe₁`, from a fresh memo, by the
 constructor stage's own walk; `[]` where the walk fails (the block's
 checked install then fails at the same walk, and the job reports it). -/
@@ -231,7 +235,7 @@ def storedTables (fe₁ : FEnv) (p : BlockShape) : List MemberShape → List Pro
         match structProjBodiesC ms.cvT.name p.nP c.2 c.1.type with
         | some bodies =>
           ⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, p.resSort, bodies,
-            Thunk.mk fun _ => storedGuards mode fe₁ p c⟩ :: rs
+            storedGuards mode fe₁ p c⟩ :: rs
         | none => rs
       else rs
     | _ => rs

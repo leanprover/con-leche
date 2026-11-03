@@ -89,6 +89,6 @@ def checkStructProjTableF (w : StructWalkers) (T C : Name) (lps : List Name) (nP
     throw (.internal "direct structure: projection table before its structure")
   unless (fe.findTable? T).isNone do
     throw (.invalid "projection table taken")
-  pure (fe.pushTable ⟨T, lps, nP, C, nF, resSort, bodies, Thunk.pure guards⟩)
+  pure (fe.pushTable ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩)
 
 end Mirrors

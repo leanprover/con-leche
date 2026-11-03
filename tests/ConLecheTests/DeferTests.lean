@@ -18,7 +18,7 @@ public section
 # Inductive blocks checked in the check phase (tasks #411, #431)
 
 The install with its blocks pushed as stored (`storedInstall`) and their
-checked installs deferred (the parallel install's commit loop, here as
+checked installs deferred (the install's commit loop, here as
 a pure serial fold over the prepared stream, each block checked at a
 view of the index it was installed at), against the checked fold
 `installDeclStep`: on accepted streams the same environment, and every

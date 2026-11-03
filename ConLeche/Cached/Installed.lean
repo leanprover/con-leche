@@ -67,8 +67,8 @@ reads which list the matched variant came from.
 
 Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
 steps and carry their accepting runs as the proofs the subtypes ask
-for.  **The parallel install checks an inductive block in the check
-phase** (tasks #411, #431): it pushes a block as stored
+for.  **The driver checks an inductive block in the check phase**
+(tasks #411, #431), at every job count: its install pushes a block as stored
 (`storedInstall`, `ConLeche/Cached/StoredInstall.lean`) and records the
 block's checked install, compared with those pushes, as a job of the
 check phase, so the run it carries is this fold's run CONDITIONAL on
