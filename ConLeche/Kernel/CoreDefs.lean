@@ -495,16 +495,20 @@ def litGuardNames : List Name :=
    charName, charOfNatName]
 
 /-- **A name no block RECURSOR may take**: one the pinned basis blocks
-reserve, one a literal guard looks up, or one of the certified `Nat`
+reserve, one a literal guard looks up, one of the certified `Nat`
 operations (whose presence in the store IS their certificate, so a
 recursor stored under such a name would claim a capability nothing
-certified).  Type formers and constructors are NOT held to this — a
+certified), or `Bool` and its two constructors, whose stored entries the
+certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
+#431: the stored recursors replace the generated ones' types, which
+must not move a guard).  Type formers and constructors are NOT held to this — a
 stream must be able to declare `List`, `List.cons` and `Nat.add` —
 which is why the block install spends this predicate on the recursors
 alone and keeps `reservedBasisNames` for every declaration. -/
 def reservedRecName (n : Name) : Bool :=
   reservedBasisNames.contains n || litGuardNames.contains n ||
-    natOpNames.contains n || natDivModNames.contains n
+    natOpNames.contains n || natDivModNames.contains n ||
+    n == boolName || n == boolTrueName || n == boolFalseName
 
 /-- The operations (transitively) involved in `c`'s recurrences. -/
 def natOpDeps (c : Name) : List Name :=

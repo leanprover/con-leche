@@ -1205,6 +1205,38 @@ theorem genRecCheck_outCv {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {param
   simp only
   rw [this]
 
+/-- The records' pins: no recursor takes a reserved name. -/
+theorem targetRecPins_unreserved {p : BlockShape} {block : List ConstantInfo}
+    (h : targetRecPins (m := CheckM) p block = .ok ()) :
+    ∀ rc ∈ p.recs, reservedRecName rc.cvR.name = false := by
+  unfold targetRecPins at h
+  by_cases h1 : blockRecLpsOk p = true
+  · simp only [h1, ↓reduceIte] at h
+    by_cases h2 : blockRecNamesUnreserved p = true
+    · intro rc hrc
+      have := List.all_eq_true.mp h2 rc hrc
+      exact eq_of_beq (by simpa using this)
+    · simp [h2, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+  · simp [h1, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+
+/-- No generated recursor takes a reserved name. -/
+theorem genRecCheck_out_unreserved {fe : FEnv} {p : BlockShape} {nestedBit : Bool}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+      = .ok out) :
+    ∀ o ∈ out, reservedRecName o.1.name = false := by
+  obtain ⟨R⟩ := genRecCheck_run h
+  obtain ⟨hlen, hcv⟩ := genRecCheck_outCv h
+  intro o ho
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem ho
+  have hil : i < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hi).1; omega
+  have hrc : p.recs[i]? = some p.recs[i] := List.getElem?_eq_getElem hil
+  rw [hcv i _ o hrc hi]
+  exact targetRecPins_unreserved R.pins _ (List.getElem_mem hil)
+
 /-- **The stored install is well formed** (task #431): each stored type
 is the record's, checked as a constant at the constructors' environment
 (`classStreamRecs`); each stored right-hand side is the generated one or
