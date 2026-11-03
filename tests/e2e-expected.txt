@@ -1597,24 +1597,35 @@
 #
 # the recursive call names the wrong member's recursor
 # GENREC: official 1
-0 mutual_rec_wrong_member.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_wrong_member.ndjson
 # the recursive call's major is a minor premise, not a field
 # GENREC: official 1
-0 mutual_rec_nonfield.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_nonfield.ndjson
 # the recursor is passed partially applied, as an argument
 # GENREC: official 1
-0 mutual_rec_unguarded.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_unguarded.ndjson
 # A.rec and B.rec exchange their rule bodies ("the rule of
 # InModelMutual.B.mk does not bind the recursor's prefix and the
 # constructor's fields"; the modeller declined it, 2, before the flip)
 # GENREC: official 1
-0 mutual_rec_rules_swapped.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_rules_swapped.ndjson
 # GOOD: the canonical body under an identity redex — typed, but not
 # `minor f ih` (the accept-superset).  Official rejects it; the
 # recursor CONFORMANCE check that runs after the uniform route's check
 # (`checkBlockRecConform`) covers ONE member only — the kernel has no
 # mutual generator — so at k = 2 the superset stays.  The k = 1 twin
 # is `corner_rec_body_redex` below.
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 mutual_rec_body_redex.ndjson
 # A recursor with a MISSING rule.  Completeness is a SOUNDNESS
 # requirement — `Nat.rec` with a rule for `zero` only would prove
@@ -1625,7 +1636,9 @@
 # whose two lists must run out together).  Rejected at the pin ("the
 # rules of … are not one per constructor of its major's inductive").
 # GENREC: official 1
-0 mutual_rec_missing_rule.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 mutual_rec_missing_rule.ndjson
 # The FAMILY's shared rule PREFIX (the finding of lane RM16, adopted as
 # a ruling on 2026-09-22; DESIGN).  `B.rec`'s `minorA` premise gets a
 # different — still perfectly well-formed — domain,
@@ -1781,6 +1794,9 @@
 # are refused with it — they are the record of the accept-superset the
 # narrowing gives up.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_call_redex.ndjson
 # `W'` (a W-type) is reflexive and NOT indexed, so no argument of the
 # recursive call carries an index; the same
@@ -1790,6 +1806,9 @@
 # syntactically); with the narrowing the vector itself must be the
 # telescope's variables, so it is refused.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_wtype_redex.ndjson
 # the very block `corner_rec_call_redex` edits, with the redex moved
 # from the index-carrying telescope argument `k` to the other one,
@@ -1799,6 +1818,9 @@
 # narrowing makes the spine's demand syntactic too, so the twins now
 # agree.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_redex_nonindex.ndjson
 # `Nat'.rec`'s `succ` rule is the generated body under an identity
 # redex, `λ m z s n. (fun x : m (Nat'.succ n) => x) (s n (Nat'.rec m z s n))`:
@@ -1810,6 +1832,9 @@
 # The k = 2 twin, `mutual_rec_body_redex`, stays accepted: no mutual
 # generator.  Forged by `scripts/mk_rec_corner.py`.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_rec_body_redex.ndjson
 # `inductive T : Prop | c` closed by `T.rec : (t : T) → True` — an
 # EMPTY rule prefix (no motive, no minor) — with the rule
@@ -1831,17 +1856,23 @@
 # ill-typed however the guard reads it — "a different argument vector"
 # is accepted only when it still types.
 # GENREC: official 1
-0 corner_rec_call_const_bad.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_call_const_bad.ndjson
 # `Nat'.rec`'s `succ` rule recurses on `Nat'.zero`, a closed term of
 # the type rather than a field of the constructor: not structural, and
 # `motive Nat'.zero` is not the `motive n` the minor asks for.
 # GENREC: official 1
-0 corner_rec_closed_major.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_closed_major.ndjson
 # `Nat'.rec` with a THIRD rule, for `List'.nil` — a constructor of
 # another type.  One rule per constructor of the major's type is what
 # completeness means, and a stray rule is not one.
 # GENREC: official 1
-0 corner_rec_alien_rule.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_alien_rule.ndjson
 # `List'.rec`'s major is `t : List' Nat'` where `t : List' α` belongs:
 # the major at the wrong parameters, so the recursor is not this
 # block's.
@@ -1903,16 +1934,22 @@
 # soundness requirement and stays in the record's pin whatever the
 # recursor is called.
 # GENREC: official 1
-0 corner_rec_rule_missing.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_rule_missing.ndjson
 # The rule pin's two per-rule conjuncts at ONE member, which only the
 # recursor check's `targetRulePins` enforces (the conformance check's
 # copy of the pin is gone): `Nat'.rec`'s `succ` rule claiming 2 fields
 # where `Nat'.succ` has 1, and the two rules in the wrong order.
 # Official rejects both.
 # GENREC: official 1
-0 corner_rec_rule_nfields.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_rule_nfields.ndjson
 # GENREC: official 1
-0 corner_rec_rules_swapped.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 corner_rec_rules_swapped.ndjson
 # `Nat'.rec`'s `succ` rule binds its FIELD at a domain that mentions
 # the recursor CONSTANT:
 #   λ m z s (n : (fun _ : T_rec => Nat') Nat'.rec). s n (Nat'.rec m z s n)
@@ -2268,6 +2305,9 @@
 # recursion (the syntactic narrowing of 2026-09-22, kept).
 # FLIP (NESTPLAN L9, the nested flip): 0 → 1 — "not a primitive recursion", official 1.
 # GENREC: official 1
+# #386: stays 0 — the stored rule is definitionally equal to the
+# generated one (a β-redex), which the stored-rules check allows;
+# official, comparing syntactically, 1.
 0 corner_tshadow_aux_nonfield_bad.ndjson
 # corner_tshadow_aux_prop_bad: a non-nested `Type` block whose family
 # carries `T.rec_1` on an OUTSIDE two-constructor `Prop` inductive,
@@ -2773,9 +2813,13 @@
 # rules are not read, the GENERATED rules are installed and every theorem
 # checks against them (charter item 8, GENREC update: any stream rules).
 # GENREC: official 1
-0 genrec_rules_garbage.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 genrec_rules_garbage.ndjson
 # GENREC: official 1
-0 genrec_rules_garbage_nested.ndjson
+# #386: the stored rules must agree with the generated ones up to
+# definitional equality, and these do not: 0 → 1, as official.
+1 genrec_rules_garbage_nested.ndjson
 # The stream's auxiliary recursor family omits a class a constructor
 # field reaches (`T` nested through `W` and `List`; forged by lane
 # FUSEPOS): official 1 ("Invalid recursor T.rec_1"); today 0 (the

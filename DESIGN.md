@@ -197,7 +197,11 @@ route takes declines (exit 2) naming its class.
   major; outside classes SEED the positivity check), the minor premises
   and rules are built from the positivity check's recorded normal
   forms, each generated type must be `isDefEq` to the stream's, and the
-  GENERATED family is installed — the stream's rules are never read.
+  GENERATED family is installed.  The stream's rules are not
+  installed; after the install each must agree with the generated one
+  up to definitional equality (`recRulesAgree`,
+  `ConLeche/Driver/RecRules.lean`, task #386: a guard that only
+  rejects, outside the theorem).
   There is no conformance check (`ConLeche/Conformance/` and charter
   item 6 retired at GENREC M3).  The model: the least fixed TUPLE of
   the block's operator, closed by accessibility (`closed_of_acc`,
@@ -107165,3 +107169,63 @@ universe-valued type arguments, quotients, polymorphic `F`.  Not wired:
 the install gate's capability bit and invariant and the bridge case for
 the hook (estimated 0.7–1.2 k lines; no model work).  Reports:
 `_tmp/spike-boost*-report.md` (not committed).
+
+## TASK #386 — the stored recursor rules must agree with the generated ones, up to definitional equality (2026-10-29, agent/386-rules; ported to master 2026-11-03, task #427)
+
+Ported from the integration branch `olean` (merge dfc1b03b7) by task
+#427; on master only the stream path exists, so the check runs in
+`checkDeclsIO` alone (on `olean` also after each module's install in
+the modular driver, and on the `--olean` merged input).
+
+Maintainer ruling (2026-10-29): "we can land the recursor check (up to
+defeq), better safe than sorry."  The installer generates every
+recursor and installs the generated rules; Lean's kernel runs the rules
+a loaded file STORES, and official's replay rejects a mismatch
+("Invalid recursor").  The standing design's "the stream's rules are
+never read" (charter item 5's GENREC stage) is revised: the stage still
+never reads them, but after the install they must agree with the
+generated ones.
+
+**The check** (`recRulesAgree`, new `ConLeche/Driver/RecRules.lean`).
+For every recursor record of every `.indDecl` record, against the
+installed recursor of its name (a pinned basis block's rules read at
+the record's level-parameter names):
+* the same number of rules; rule by rule the same constructor (in
+  order) and the same field count;
+* the right-hand side: a FAST PATH accepts it when it equals the
+  generated one but for the domains of its `rulePrefix + nfields`
+  leading λ-binders (`rhsSameUnder`; the generator's binder types may
+  differ from the elaborator's, e.g. an `outParam` kept).  Otherwise it
+  must be closed (no loose bound variable, no free variable), use only
+  the record's level parameters, and — with the rule's telescope
+  (parameters, motives, minors, fields) opened as locals at the
+  GENERATED rule's binder types, the stored side instantiated at the
+  same locals (or applied to them where it has no λ) — its body must
+  infer at the full grade and be `isDefEq` to the generated body
+  (`coreKnotI … checkFuel`, fresh memo state).  The leading domains are
+  not compared because an iota step applies the rule and β-reduces:
+  they are never read.
+* The view is the installed environment restricted below the block's
+  last recursor (`blockView`): nothing installed later is visible.
+* Verdicts: a disagreement is `.invalid` (exit 1) naming the recursor
+  and the rule's constructor; a resource limit in the inference or
+  comparison is a decline (exit 2, `.notImplemented` passed through);
+  an `.internal` error stays exit 3.
+
+**Where.**  `checkDeclsIO` (`Driver/Run.lean`), right after phase A.
+A pure guard: an early `.error`, so no proof changed and nothing it
+computes is installed.
+
+**Verdicts.**  13 pinned e2e verdicts 0 → 1, in line with official:
+`mutual_rec_{wrong_member,nonfield,unguarded,rules_swapped,missing_rule}`,
+`corner_rec_{call_const_bad,closed_major,alien_rule,rule_missing,
+rule_nfields,rules_swapped}`, `genrec_rules_garbage{,_nested}`.  The
+other 6 that a syntactic comparison would move STAY 0, because their
+stored rule is the generated one under a β-redex, definitionally equal:
+`mutual_rec_body_redex`, `corner_rec_{body_redex,call_redex,
+wtype_redex,redex_nonindex}`, `corner_tshadow_aux_nonfield_bad`
+(official, comparing syntactically, 1; the comments say so).  No other
+pinned verdict moved.
+
+**Cost** (on `olean`, `instructions:u`): Init +0.04 %, Lean −0.05 %
+(noise); on master see task #427's numbers.

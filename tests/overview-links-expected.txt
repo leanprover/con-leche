@@ -10,8 +10,8 @@
 == Main.lean#L91
     91  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/Run.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Driver/Run.lean#L35
+    35  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -120,8 +120,8 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Run.lean#L59
-    59  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Driver/Run.lean#L60
+    60  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -205,11 +205,11 @@
    393      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
    394        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
 
-== ConLeche/Driver/Run.lean#L107-L110
-   107  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   108      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
-   109      IO (Except (ConLeche.CheckError × Nat)
-   110        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L108-L111
+   108  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   109      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
+   110      IO (Except (ConLeche.CheckError × Nat)
+   111        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L523-L525
    523  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -900,6 +900,9 @@
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L537
    537  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+
+== ConLeche/Driver/RecRules.lean#L136
+   136  def recRulesAgree (mode : CheckMode) (fe : FEnv) (ds : Array Declaration) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608
    607  def tgtStoredRules (find? : Name → Option ConstantInfo)
