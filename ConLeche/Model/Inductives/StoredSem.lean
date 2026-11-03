@@ -2,9 +2,9 @@ module
 
 import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.IndTele
-public import ConLeche.Model.Env.EnvModelM
+import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Kernel.Inductives.StoredRecs
-public import ConLeche.Model.Env.Laws
+import ConLeche.Model.Env.Laws
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.Tiers

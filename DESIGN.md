@@ -107758,3 +107758,117 @@ The cost is the comparisons of the stored recursors that differ from
 the generated ones (Init's classes and structures with
 `outParam`/`optParam`/`autoParam` binders): a second inference of the
 stored type and of each differing rule, and their defeq comparisons.
+
+### 7. State at the end of the second session (#431 cont. 2)
+
+**Landed** (`agent/431-stored`): the open obligation of §6 is proved;
+the branch carries no `sorry` and no new axiom (`lake test`'s axiom pins
+and `tests/trust-surface.sh` green again).
+
+* `Model/Inductives/StoredSem.lean` (new), the model's reading of the
+  stored check at the generated install's carrier:
+  - `TEqAt k ρ T T'`: two readings agree as `k`-binder towers at `ρ`
+    (domains read alike, bodies agree at every member, residues read
+    alike).  `TEqAt.interp_eq` (they read alike), `TEqAt.inst`
+    (agreement survives substitution, by the `instE`/`shiftE` calculus),
+    `TEqAt.fit` (a `TeleFitPA` fit of at most `k` arguments moves to the
+    second reading), `tEqAt_of_tele` (agreement from two `PiTeleAV`
+    contexts whose entries and residues read alike under the second
+    one's earlier entries, `piTeleAV_graded`'s induction);
+  - `storedTy_sem`: `recTyCheck` gives, at every level assignment, the
+    stored reading, its grading (`sortRow` of the stored type's
+    inference), and `TEqAt (mI + 1)` with the generated reading — both
+    types opened (`opened_of`), the binder pins turned into frame
+    identifications by `paramFrames` (at `nF = 0`, the stored type in
+    the constructor's role), the residues' `defEqRow` at the generated
+    frame after `CtxOk.transfer` (residues are types:
+    `piTeleAV_residue_ty`);
+  - `storedRhs_sem`: `ruleAgree` gives the stored side's reading, graded,
+    reading as the generated one (both inferred, their types `defEqRow`
+    equal, both members of one type, `IsTy.eq_of_ne_pt` on the sides'
+    conditional claim);
+  - `recRuleLaw_stored`: the transport of §3, for any carrier with the
+    same leaves, readings, constructor lookups and `iotaCtorNeverProp`;
+    the type enters only through fit premises, the right-hand side only
+    through `interp`/`WellDenoted` of `mkAppN` at its head
+    (`interp_mkAppN_head_congr`, `wellDenoted_mkAppN_head_congr`).
+* `Verify/Inductives/StoredRecsInv.lean`: `tgtStoredRules_eq_map`,
+  `storedRule_corr` (a stored rule is the generated rule at its position
+  with the stored right-hand side), `recEntryG`/`recEntryS` and
+  `StoredCorr` (the stored install's lookups and members are the
+  generated install's or stored entries whose generated entry stands at
+  the same name, positionally, so shadowing needs no distinct names),
+  `StoredCorr.consBlockRecsT`.
+* `storedSwap_sem` assembles `RecCtorsStored`/`BasisPinnedTT`/`ProjOkT`,
+  `RecRules` and the stored types' facts from `StoredCorr`; its EnvWF
+  conjunct moved to the block step, which now derives it with
+  `storedRecs_recsWF` (the parameters' count from `blockNestCtx_inv`,
+  `ClassOutParams` of the classes from `checkBlockClasses_run`'s major
+  records).
+* Shake: four measured keeps recorded in `scripts/pub-import-plan.py`
+  (`StoredRecsInv`→`BlockTail`, `Model/DeclBlock`→`Semantics/DeclBlock`,
+  `StoredSem`→`IndTele`/`StoredRecs`); citations in OVERVIEW and the
+  whitepaper repointed after the one-line shift of `BlockTail.lean`.
+
+**The redex fixtures, deliberately.** `stored_rule_dom_redex` and
+`stored_type_dom_redex` are accepted (0) where the official kernel
+rejects (1).  Their stored recursors differ from the generated ones by a
+β-redex in a binder domain: official compares the stored recursor with
+its own syntactically and fails; the defeq ruling (ruling 2) compares up
+to definitional equality, so con-leche accepts — and installs the
+stored constant, which the model justifies (§3).  This is a
+consequence of the ruling, not a defect; the pinned verdicts stay 0
+with comments naming official's 1.
+
+**Gates on the head**: `lake build`, `lake test` warning-free (axioms
+pinned, 20 theorems at `propext`, `Classical.choice`, `Quot.sound`);
+`tests/arena.sh` in full under the 8 GB guard (peak anon 2.2 GB):
+layering, pindump, trust surface, overview and whitepaper links,
+fragment, quote, no-local-paths, challenge, shake, selfcheck 48 643
+declarations, arena tutorial 90/92 as before, e2e 499/499, the trusted,
+`--jobs=1` and `--jobs=4` sweeps without divergence.  (The battery's
+one finding, four individually demotable `public import`s of the new
+`StoredSem`, was fixed after it: two demoted, two measured keeps; shake,
+`lake build` and `lake test` re-run green.)
+
+**Numbers**: this session changed no executable code (the diff of
+`Kernel/`, `Cached/`, `Driver/`, `Frontend/`, `Main.lean` since
+12ce53b70 is two `import` lines), so §6's measurements against
+`agent/427-installer` stand for the head.
+
+**Not yet — Phases 3–5** (§5).  What this session learned for them:
+
+* **Order: Phase 5 before Phase 3.**  Every datum the install pushes
+  can be read syntactically off the stored constants (formers' `IndCaps`:
+  K, η and its constructor data, unit-likeness, `sortZ` off the stored
+  type, `all`, `nparams`; constructors as given; recursors: `mI`/`rP`
+  off the records, each rule's constructor/field count off the stored
+  rules, `ctorParams` off the major's family, the `.nested` firing data
+  off the stored major domain — `storedNestedOk` already reads it —,
+  `k`/`eta` bits by lookup, `recRuleBits`) EXCEPT the projection tables:
+  their guards are the field SORTS (`structProjGuards … sorts`), an
+  inference.  A syntactic install therefore needs the lazy table first
+  (the thunk forces the sorts' inference on use, proved equal to the
+  eager table).
+* **Phase 3's proof shape.**  `installDeclStep_defer` (Verify/Cached/
+  Defer.lean) uses `genIndStep_eq` (the checked step's pushes ARE the
+  generate-only step's, proved).  With the syntactic install the
+  equality is the job's runtime comparison: the job runs the checked
+  step at the worker view and compares its pushes with the syntactic
+  install's by a lawful equality (pointer-first, memoised —
+  `Expr.beq`'s pattern; `ConstantInfo`/`RecRule`/`IndCaps` need one,
+  with `== true → =`), exit 3 naming the block on a difference; the
+  defer lemma then takes that comparison's success where it now takes
+  `genIndStep_eq`.  `GenRun`/`checkBlockTailS_gen` (#410) and the
+  `chk := false` path become dead once the syntactic install replaces
+  `genIndStep` in the parallel install and `--jobs=1` — they go with
+  their proofs (no dead code).
+* **Phase 4**: `checkBlockTele` stores `checkSumTele`'s whnf'd
+  telescope (`cvTa`); the ruling stores `ms.cvT` and keeps `cvTa`
+  internal.  The model reads a former's telescope syntactically in
+  `FormerData`/`formerData_of`, the capability arities
+  (`IndCapsWF`: `stripPis` of the STORED type), nested positivity's
+  container telescope and the index sorts; each reader moves to the
+  recursor's major premise and motives (`TargetMajor`'s telescope).
+  All 32 corpus cases are indexed `Prop` families, so the fixture is one
+  such family whose type is a definition.

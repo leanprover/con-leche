@@ -77,6 +77,12 @@ FALLBACK = {
     # Measured by demoting it (unknown identifier
     # `ConLeche.Semantics.DeclBlockRun`, `DeclBlockStep.lean:76`).
     ('ConLeche.Model.Inductives.DeclBlock', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    # task #431: `StoredSem`'s public statements name `PiTeleAV` and
+    # `recTyCheck`/`ruleAgree`; the census attributes them elsewhere.
+    # Measured by demoting each alone (unknown identifier `PiTeleAV`,
+    # `StoredSem.lean:120`; `ConLeche.recTyCheck`, `:224`).
+    ('ConLeche.Model.Inductives.StoredSem', 'ConLeche.Model.IndTele'),
+    ('ConLeche.Model.Inductives.StoredSem', 'ConLeche.Kernel.Inductives.StoredRecs'),
     # lane SIMP-AD: measured — demoting it breaks the file's own statements
     # (`Expr.eraseFVarTys`, `NestCallSyn.lean:34`; `targetPiDomsWith`, `:112`).
     ('ConLeche.Verify.Inductives.NestCallSyn', 'ConLeche.Kernel.Inductives.RecCheck'),
