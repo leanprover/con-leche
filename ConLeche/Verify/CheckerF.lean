@@ -179,28 +179,28 @@ theorem checkStructFieldSortsIFA_eq (ops : CheckerOps m) (fe : FEnv)
       List.getElem?_toArray,
       checkStructFieldSortsIFA_eq ops fe isProp large s nP fvs idxArgs j]
 
-theorem checkSumCtorF_eq (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+theorem checkSumCtorF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    checkSumCtorF ck ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
+    checkSumCtorF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
         large cvC nF cvTa
-      = checkSumCtor ck ops env₀ env T lps nP nIdx resSort isProp large cvC nF
+      = checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large cvC nF
         cvTa := by
   simp only [checkSumCtorF, checkSumCtor, checkConstantValF_eq,
     checkStructDomsAtFA_eq, checkStructDomsAtF_eq, openPisAtFvarsF_eq,
     checkStructFieldSortsIFA_eq, checkStructFieldSortsIF_eq, constsResolveF_eq]
 
-theorem checkSumCtorsF_eq (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+theorem checkSumCtorsF_eq (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      checkSumCtorsF ck ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
+      checkSumCtorsF ops (mkFEnv env₀) (mkFEnv env) T lps nP nIdx resSort isProp
           large cvTa cs
-        = checkSumCtors ck ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
+        = checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
   | [] => rfl
   | c :: cs => by
     simp only [checkSumCtorsF, checkSumCtors, checkSumCtorF_eq,
-      checkSumCtorsF_eq ck ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
+      checkSumCtorsF_eq ops env₀ env T lps nP nIdx resSort isProp large cvTa cs]
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_eq (ops : CheckerOps m) (env : Env) (c : Name)

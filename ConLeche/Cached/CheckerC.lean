@@ -79,27 +79,6 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   ensureSort _ d e := opS mode fe d e
   whnf _ d e := opE mode fe (·.whnf) d e
 
-/-! ## The checks' runner (task #410)
-
-The block install is its generator with its checks marked: every part
-whose only output is pass or fail (a type's inference, a comparison
-with `isDefEq`, the rules' typing) runs through a runner `ck`.  The
-cached install runs each check in a memo of its own (`isoC`: from a
-fresh state, the generator's state handed on untouched), so that what
-the generator computes never depends on the checks.  (Task #410 needed
-that for its generate-only install, which skipped the checks; task #431
-replaced that install by the stored one, which generates nothing, so
-the isolation is no longer needed by any proof's statement — only by
-the proofs as written; running the checks in the shared memo is a
-possible follow-up.) -/
-
-/-- **A check, in a memo of its own**: `c` run from the fresh state;
-its verdict kept, its state dropped, the caller's state handed on. -/
-def isoC (c : CheckCM Unit) : CheckCM Unit := fun s =>
-  match c {} with
-  | .ok _ => .ok ((), s)
-  | .error e => .error e
-
 
 /-! ## Thin phase drivers (one `CState` per declaration)
 
@@ -143,7 +122,7 @@ environment change, the memoised walkers, and the rule-less recursors
 as an overlay sharing the constructors' index (`classFeROvl`).  The
 recursor stage (`checkBlockTailS`) runs `genRecCheck` at them. -/
 def shadowOpsC : ShadowOps CheckCM :=
-  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl, isoC⟩
+  ⟨sharedOpsC mode, sharedOpsRuleR mode, flushC, structWalkersC, classFeROvl⟩
 
 /-- **`checkBlockPass` through the index**: the k
 formers checked and consed — one flush entering the environment that
@@ -152,10 +131,10 @@ environment, the classes, and the positivity check walking every class
 (the members' root frame first). -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
-  let (fe₁, cvTas, p₁) ← checkBlockIndsF isoC (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
-  let (ctorsAs, sortsss) ← checkBlockCtorsF isoC (sharedOpsC mode fe₁) fe₁ fe₁
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁
     pC.toBlockShape
     (pC.members.zip cvTas)
   let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas fe₁.find?
@@ -188,11 +167,13 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
     (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
   -- the stored recursors against the generated ones (task #431): the
   -- checks run at the generated recursors as an OVERLAY on the
-  -- constructors' index (read-only, sharing it), each in a memo of its
-  -- own; the overlay is dead once the comparison returns, before the
-  -- stored recursors are pushed
+  -- constructors' index (read-only, sharing it), a flush entering and
+  -- leaving that environment; the overlay is dead once the comparison
+  -- returns, before the stored recursors are pushed
   let feG := fe₂.overlay (blockRecInfosTF fe₂.find? p.toBlockShape 0 out).reverse
-  storedRecsCheck isoC (sharedOpsC mode feG) structWalkersC feG p.recs out
+  flushC
+  storedRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  flushC
   let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 (storedOut p.recs out)
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)

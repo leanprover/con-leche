@@ -376,10 +376,10 @@
 == ConLeche/Kernel/Core.lean#L1347
   1347  def defeqLams (r : CoreFns m) :
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1094-L1096
-  1094  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1095      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1096      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1084-L1086
+  1084  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1085      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1086      envSkels env = streamSkels ds.toList := by
 
 == ConLeche/Kernel/Core.lean#L1784
   1784  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
@@ -888,10 +888,10 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L147
    147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L398-L400
-   398  def targetMajorOf (fe : FEnv) (p : BlockShape)
-   399      (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
-   400      (mty : Expr) : m TargetMajor := do
+== ConLeche/Kernel/Inductives/RecCheck.lean#L394-L396
+   394  def targetMajorOf (fe : FEnv) (p : BlockShape)
+   395      (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+   396      (mty : Expr) : m TargetMajor := do
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1363-L1365
   1363  no frame hole, the only keys that can hit (`nestContKey`). -/
@@ -901,21 +901,21 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1591
   1591  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L498
-   498  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
+== ConLeche/Kernel/Inductives/GenRec.lean#L495
+   495  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L293
-   293  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L290
+   290  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L552
-   552  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+== ConLeche/Kernel/Inductives/GenRec.lean#L549
+   549  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
-== ConLeche/Kernel/Inductives/StoredRecs.lean#L189
-   189  def storedRecsCheck (ck : m Unit → m Unit) (ops : CheckerOps m) (w : StructWalkers)
+== ConLeche/Kernel/Inductives/StoredRecs.lean#L187
+   187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L611-L612
-   611  def tgtStoredRules (find? : Name → Option ConstantInfo)
-   612      (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+== ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608
+   607  def tgtStoredRules (find? : Name → Option ConstantInfo)
+   608      (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
 
 == ConLeche/SetModel/Value.lean#L387-L388
    387  /-- `I → Sort w`, the family space, as the value reading has it. -/
@@ -945,14 +945,14 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L63
     63  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L115
-   115  def checkSumCtor (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+== ConLeche/Kernel/Inductives/SumInstall.lean#L114
+   114  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L522
-   522  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
+== ConLeche/Kernel/Inductives/GenRec.lean#L519
+   519  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L508
-   508  def classKeyOf (nP : Nat) (params : List Expr)
+== ConLeche/Kernel/Inductives/GenRec.lean#L505
+   505  def classKeyOf (nP : Nat) (params : List Expr)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1453
   1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -984,8 +984,8 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L383
    383  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L424
-   424  def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+== ConLeche/Kernel/Inductives/GenRec.lean#L423
+   423  def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
 
 == ConLeche/Kernel/CoreDefs.lean#L440-L448
    440  /-- The certified structural-`Nat` operations.  Six of them

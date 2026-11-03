@@ -305,7 +305,7 @@ theorem genRecCheckS_fresh (mode : CheckMode) (fe : FEnv)
     (block : List ConstantInfo) (cvTas : List ConstantVal) :
     Yields (genRecCheck (shadowOpsC mode) fe p.toBlockShape nested params tbl rd Ms₀ cvTas block)
       (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
-  refine Yields.mono (genRecCheck_names (shadowOpsC mode) rfl fe
+  refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
     p.toBlockShape nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
   obtain ⟨hnd, hlen, hall⟩ := hout
   have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
@@ -395,8 +395,10 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     rw [← h₁.find?]
     exact hfrs c hc
   refine Yields.bind' (Yields.and (genRecCheckS_fresh mode _ p _ _ _ _ _ block cvTas)
-      (genRecCheck_names (shadowOpsC mode) rfl _ p.toBlockShape _ _ _ _ _ cvTas block))
+      (genRecCheck_names (shadowOpsC mode) _ p.toBlockShape _ _ _ _ _ cvTas block))
     fun out hrs => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   have hnm := storedOut_map_name (recs := p.recs) hrs.2.2.1
   refine checkBlockTablesF_push _ _ (pushAll_blockRecInfosTF_push _ _ h₂ ⟨?_, ?_⟩)

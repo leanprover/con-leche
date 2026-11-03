@@ -459,7 +459,7 @@ theorem ClassRecTyRun.type_eq {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShap
 /-- **`classRecTyOk`, inverted.** -/
 theorem classRecTyOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShape}
     {cvRi : ConstantVal} {c : Nat} {cvG : ConstantVal} {F : Nat}
-    (h : classRecTyOk id (fueledOps mode F) fe g k rc cvRi c = .ok cvG) :
+    (h : classRecTyOk (fueledOps mode F) fe g k rc cvRi c = .ok cvG) :
     Nonempty (ClassRecTyRun mode F fe g k rc c cvG) := by
   unfold classRecTyOk at h
   simp only at h
@@ -472,7 +472,6 @@ theorem classRecTyOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShape}
   rw [ite_eq_left h2] at h
   obtain ⟨gty, hgty, h⟩ := exceptBind_ok h
   obtain ⟨u, hchk, h⟩ := exceptBind_ok h
-  simp only [id_eq] at hchk
   unfold classRecTyCheck at hchk
   obtain ⟨u', hcvOk, hchk⟩ := exceptBind_ok hchk
   obtain ⟨b, -, hchk⟩ := exceptBind_ok hchk
@@ -489,7 +488,7 @@ theorem classRecTyOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShape}
 recursor's class. -/
 theorem classRecTysOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {F : Nat} :
     ∀ {recs : List RecShape} {cvs : List ConstantVal} {cls : List Nat} {cvGs : List ConstantVal},
-      classRecTysOk id (fueledOps mode F) fe g k recs cvs cls = .ok cvGs →
+      classRecTysOk (fueledOps mode F) fe g k recs cvs cls = .ok cvGs →
       cvGs.length = recs.length ∧
       ∀ (i : Nat) (rc : RecShape), recs[i]? = some rc →
         ∃ c cvG, cls[i]? = some c ∧ cvGs[i]? = some cvG ∧
@@ -540,13 +539,12 @@ structure ClassRuleRun (mode : CheckMode) (F : Nat) (w : StructWalkers) (feT feR
 /-- **`classRuleOk`, inverted.** -/
 theorem classRuleOk_run {w : StructWalkers} {feT feR : FEnv} {cvR : ConstantVal} 
     {n : Nat} {gen out : Expr} {F : Nat}
-    (h : classRuleOk id (fueledOps mode F) w feT feR cvR n gen = .ok out) :
+    (h : classRuleOk (fueledOps mode F) w feT feR cvR n gen = .ok out) :
     Nonempty (ClassRuleRun mode F w feT feR cvR n gen out) := by
   unfold classRuleOk at h
   obtain ⟨u, hc, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  simp only [id_eq] at hc
   unfold classRuleCheck at hc
   by_cases hcl : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true
   case neg => rw [ite_eq_right hcl] at hc; close_throw hc
@@ -574,7 +572,7 @@ the class. -/
 theorem classRulesOk_run {w : StructWalkers} {feT feR : FEnv} {g : ClassGen}
     {recOf : Nat → Option Name} {cvR : ConstantVal} {c : Nat} {F : Nat} :
     ∀ {xs : List ClassCtor} {rhss : List Expr},
-      classRulesOk id (fueledOps mode F) w feT feR g recOf cvR c xs = .ok rhss →
+      classRulesOk (fueledOps mode F) w feT feR g recOf cvR c xs = .ok rhss →
       rhss.length = xs.length ∧
       ∀ (j : Nat) (x : ClassCtor), xs[j]? = some x →
         ∃ gen rhs, rhss[j]? = some rhs ∧
@@ -606,11 +604,11 @@ theorem classRecsRulesOk_run {w : StructWalkers} {feT feR : FEnv} {g : ClassGen}
     {recOf : Nat → Option Name} {F : Nat} :
     ∀ {cvGs : List ConstantVal} {cls : List Nat}
       {out : List (ConstantVal × TargetMajor × List Expr)},
-      classRecsRulesOk id (fueledOps mode F) w feT feR g recOf cvGs cls = .ok out →
+      classRecsRulesOk (fueledOps mode F) w feT feR g recOf cvGs cls = .ok out →
       out.length = min cvGs.length cls.length ∧
       ∀ (i : Nat) (cvG : ConstantVal) (c : Nat), cvGs[i]? = some cvG → cls[i]? = some c →
         ∃ rhss, out[i]? = some (cvG, g.cls.getD c default, rhss) ∧
-          classRulesOk id (fueledOps mode F) w feT feR g recOf cvG c (g.ctors.getD c [])
+          classRulesOk (fueledOps mode F) w feT feR g recOf cvG c (g.ctors.getD c [])
             = .ok rhss
   | [], _, out, h => by
     simp only [classRecsRulesOk, pure, Except.pure, Except.ok.injEq] at h
@@ -662,7 +660,7 @@ structure GenStageRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- the records' pins -/
   pins : targetRecPins (m := CheckM) p block = .ok ()
   /-- the stream's recursor types, checked -/
-  hcvRis : classStreamRecs id (fueledOps mode F) fe p.recs = .ok cvRis
+  hcvRis : classStreamRecs (fueledOps mode F) fe p.recs = .ok cvRis
   /-- the elimination guard -/
   hk : 0 < p.k
   helim : (p.large && !blockLargeElimAllowed p (nestedBit || Ms₀.any (·.member.isNone))) = false
@@ -677,10 +675,10 @@ structure GenStageRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- the shared prefix -/
   hpre : ClassGen.prefixBinders (genRecGen p params Ms formerTysC rd ctors []) = some pre
   /-- the generated types -/
-  hcvGs : classRecTysOk id (fueledOps mode F) fe (genRecGen p params Ms formerTysC rd ctors pre)
+  hcvGs : classRecTysOk (fueledOps mode F) fe (genRecGen p params Ms formerTysC rd ctors pre)
     p.k p.recs cvRis rd.recCls = .ok cvGs
   /-- the generated rules -/
-  hrules : classRecsRulesOk id (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
+  hrules : classRecsRulesOk (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
     (genRecGen p params Ms formerTysC rd ctors pre) (classRecOf rd.recCls cvGs)
     cvGs rd.recCls = .ok out
 
@@ -759,7 +757,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   /-- the records' pins -/
   pins : targetRecPins (m := CheckM) p block = .ok ()
   /-- the stream's recursor types, checked -/
-  hcvRis : classStreamRecs id (fueledOps mode F) fe p.recs = .ok cvRis
+  hcvRis : classStreamRecs (fueledOps mode F) fe p.recs = .ok cvRis
   /-- the pre-pass on the stream's RAW recursor types (UNVERIFIED: data only) -/
   hrd : classRead p.nP (classNPcOf p fe₁) p.recs = some rd
   /-- the block's canonical parameters and holes (the positivity check's context) -/
@@ -789,10 +787,10 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   /-- the shared prefix -/
   hpre : ClassGen.prefixBinders (genRecGen p ctx.params Ms formerTysC rd ctors []) = some pre
   /-- the generated types -/
-  hcvGs : classRecTysOk id (fueledOps mode F) fe (genRecGen p ctx.params Ms formerTysC rd ctors pre)
+  hcvGs : classRecTysOk (fueledOps mode F) fe (genRecGen p ctx.params Ms formerTysC rd ctors pre)
     p.k p.recs cvRis rd.recCls = .ok cvGs
   /-- the generated rules -/
-  hrules : classRecsRulesOk id (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
+  hrules : classRecsRulesOk (fueledOps mode F) .plain fe (classFeR p Ms cvGs rd.recCls fe)
     (genRecGen p ctx.params Ms formerTysC rd ctors pre) (classRecOf rd.recCls cvGs)
     cvGs rd.recCls = .ok out
 

@@ -399,7 +399,7 @@ theorem sumCtorData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {bs : List Expr}
     {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor id (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
@@ -625,7 +625,7 @@ theorem ctorFramesGen (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor id (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
@@ -1049,7 +1049,7 @@ theorem stageCtorGen {T : Name}
       caps'.etaCtor ≠ cvCa.name)
     (mp : EnvModelM V μ env)
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor id (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there

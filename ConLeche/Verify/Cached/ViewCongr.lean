@@ -205,7 +205,7 @@ theorem divModCertsGuardF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.
 
 section Mirrors
 
-variable {ck : m Unit → m Unit} {ops : CheckerOps m}
+variable {ops : CheckerOps m}
 
 theorem checkConstantValF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
     (hfe : fe₁.find? = fe₂.find?) (cv : ConstantVal) :
@@ -431,7 +431,7 @@ so every such stage is stated equal to its run at `Env.empty`. -/
 
 section EnvNormal
 
-variable {ck : m Unit → m Unit} {ops : CheckerOps m}
+variable {ops : CheckerOps m}
 
 theorem whnfTelescope_env (h : EnvFree ops) (env : Env) :
     ∀ i n e, whnfTelescope ops env i n e = whnfTelescope ops Env.empty i n e
@@ -560,7 +560,7 @@ end EnvNormal
 
 section RecStage
 
-variable {ck : m Unit → m Unit} {ops : CheckerOps m}
+variable {ops : CheckerOps m}
 
 omit [MonadExceptOf CheckError m] in
 theorem targetParamsDefEq_env (h : EnvFree ops) (env : Env) (d : Nat) (absM : Expr → Expr)
@@ -737,13 +737,13 @@ theorem classConstOk_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.f
 
 theorem classRecTyOk_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (g : ClassGen) (k : Nat) (rc : RecShape) (cvRi : ConstantVal) (c : Nat) :
-    classRecTyOk ck ops fe₁ g k rc cvRi c = classRecTyOk ck ops fe₂ g k rc cvRi c := by
+    classRecTyOk ops fe₁ g k rc cvRi c = classRecTyOk ops fe₂ g k rc cvRi c := by
   unfold classRecTyOk classRecTyCheck
   simp only [classConstOk_congr h hfe, h.isDefEq fe₁.env, h.isDefEq fe₂.env]
 
 theorem classRecTysOk_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (g : ClassGen) (k : Nat) :
-    ∀ rcs cvs cs, classRecTysOk ck ops fe₁ g k rcs cvs cs = classRecTysOk ck ops fe₂ g k rcs cvs cs
+    ∀ rcs cvs cs, classRecTysOk ops fe₁ g k rcs cvs cs = classRecTysOk ops fe₂ g k rcs cvs cs
   | rc :: rcs, cvRi :: cvs, c :: cs => by
     have ih := classRecTysOk_congr h hfe g k rcs cvs cs
     unfold classRecTysOk
@@ -753,7 +753,7 @@ theorem classRecTysOk_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.
   | _ :: _, _ :: _, [] => by unfold classRecTysOk; rfl
 
 theorem classStreamRecs_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
-    ∀ rcs, classStreamRecs ck ops fe₁ rcs = classStreamRecs ck ops fe₂ rcs
+    ∀ rcs, classStreamRecs ops fe₁ rcs = classStreamRecs ops fe₂ rcs
   | [] => rfl
   | rc :: rcs => by
     have ih := classStreamRecs_congr h hfe rcs
@@ -766,7 +766,7 @@ end RecStage
 
 section FStages
 
-variable {ck : m Unit → m Unit} {ops : CheckerOps m}
+variable {ops : CheckerOps m}
 
 theorem checkStructDomsAtFA_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (off : Nat)
     (fvs doms : Array Expr) :
@@ -821,12 +821,12 @@ theorem checkSumTeleF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.
 
 theorem checkBlockTeleF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (nP : Nat) (ms : MemberShape) :
-    checkBlockTeleF ck ops fe₁ nP ms = checkBlockTeleF ck ops fe₂ nP ms := by
+    checkBlockTeleF ops fe₁ nP ms = checkBlockTeleF ops fe₂ nP ms := by
   unfold checkBlockTeleF
   simp only [checkConstantValF_congr h hfe, checkSumTeleF_congr h hfe]
 
 theorem checkBlockTelesF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (nP : Nat) : ∀ ms, checkBlockTelesF ck ops fe₁ nP ms = checkBlockTelesF ck ops fe₂ nP ms
+    (nP : Nat) : ∀ ms, checkBlockTelesF ops fe₁ nP ms = checkBlockTelesF ops fe₂ nP ms
   | [] => rfl
   | ms :: rest => by
     have ih := checkBlockTelesF_congr h hfe nP rest
@@ -846,8 +846,8 @@ theorem checkSumCtorF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ : F
     (hfe₀ : fe₀₁.find? = fe₀₂.find?) (hfe : fe₁.find? = fe₂.find?) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    checkSumCtorF ck ops fe₀₁ fe₁ T lps nP nIdx resSort isProp large cvC nF cvTa =
-      checkSumCtorF ck ops fe₀₂ fe₂ T lps nP nIdx resSort isProp large cvC nF cvTa := by
+    checkSumCtorF ops fe₀₁ fe₁ T lps nP nIdx resSort isProp large cvC nF cvTa =
+      checkSumCtorF ops fe₀₂ fe₂ T lps nP nIdx resSort isProp large cvC nF cvTa := by
   unfold checkSumCtorF
   simp only [checkConstantValF_congr h hfe, checkStructDomsAtFA_congr h fe₁ fe₂,
     constsResolveF_congr hfe₀, checkStructFieldSortsIFA_congr h fe₁ fe₂]
@@ -856,8 +856,8 @@ theorem checkSumCtorsF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ : 
     (hfe₀ : fe₀₁.find? = fe₀₂.find?) (hfe : fe₁.find? = fe₂.find?) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
-    ∀ cs, checkSumCtorsF ck ops fe₀₁ fe₁ T lps nP nIdx resSort isProp large cvTa cs =
-      checkSumCtorsF ck ops fe₀₂ fe₂ T lps nP nIdx resSort isProp large cvTa cs
+    ∀ cs, checkSumCtorsF ops fe₀₁ fe₁ T lps nP nIdx resSort isProp large cvTa cs =
+      checkSumCtorsF ops fe₀₂ fe₂ T lps nP nIdx resSort isProp large cvTa cs
   | [] => rfl
   | c :: cs => by
     have ih := checkSumCtorsF_congr h hfe₀ hfe T lps nP nIdx resSort isProp large cvTa cs
@@ -866,7 +866,7 @@ theorem checkSumCtorsF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ : 
 
 theorem checkBlockCtorsF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ : FEnv}
     (hfe₀ : fe₀₁.find? = fe₀₂.find?) (hfe : fe₁.find? = fe₂.find?) (p : BlockShape) :
-    ∀ xs, checkBlockCtorsF ck ops fe₀₁ fe₁ p xs = checkBlockCtorsF ck ops fe₀₂ fe₂ p xs
+    ∀ xs, checkBlockCtorsF ops fe₀₁ fe₁ p xs = checkBlockCtorsF ops fe₀₂ fe₂ p xs
   | [] => rfl
   | (ms, cvTa) :: rest => by
     have ih := checkBlockCtorsF_congr h hfe₀ hfe p rest
@@ -918,20 +918,20 @@ theorem consBlockCtorsF_eq_pushAll (nP : Nat) :
 
 section Rules
 
-variable {ck : m Unit → m Unit} {ops : CheckerOps m} {w : StructWalkers}
+variable {ops : CheckerOps m} {w : StructWalkers}
 
 theorem classRuleOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
     (hT : w.resolve feT₁ = w.resolve feT₂) (hR : w.resolve feR₁ = w.resolve feR₂)
     (cvR : ConstantVal) (n : Nat) (gen : Expr) :
-    classRuleOk ck ops w feT₁ feR₁ cvR n gen = classRuleOk ck ops w feT₂ feR₂ cvR n gen := by
+    classRuleOk ops w feT₁ feR₁ cvR n gen = classRuleOk ops w feT₂ feR₂ cvR n gen := by
   unfold classRuleOk classRuleCheck
   simp only [hT, hR, h.inferType feR₁.env, h.inferType feR₂.env]
 
 theorem classRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
     (hT : w.resolve feT₁ = w.resolve feT₂) (hR : w.resolve feR₁ = w.resolve feR₂)
     (g : ClassGen) (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :
-    ∀ xs, classRulesOk ck ops w feT₁ feR₁ g recOf cvR c xs =
-      classRulesOk ck ops w feT₂ feR₂ g recOf cvR c xs
+    ∀ xs, classRulesOk ops w feT₁ feR₁ g recOf cvR c xs =
+      classRulesOk ops w feT₂ feR₂ g recOf cvR c xs
   | [] => rfl
   | x :: xs => by
     have ih := classRulesOk_twin h hT hR g recOf cvR c xs
@@ -941,8 +941,8 @@ theorem classRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
 theorem classRecsRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : FEnv}
     (hT : w.resolve feT₁ = w.resolve feT₂) (hR : w.resolve feR₁ = w.resolve feR₂)
     (g : ClassGen) (recOf : Nat → Option Name) :
-    ∀ cvs cs, classRecsRulesOk ck ops w feT₁ feR₁ g recOf cvs cs =
-      classRecsRulesOk ck ops w feT₂ feR₂ g recOf cvs cs
+    ∀ cvs cs, classRecsRulesOk ops w feT₁ feR₁ g recOf cvs cs =
+      classRecsRulesOk ops w feT₂ feR₂ g recOf cvs cs
   | cvG :: cvs, c :: cs => by
     have ih := classRecsRulesOk_twin h hT hR g recOf cvs cs
     unfold classRecsRulesOk
@@ -969,7 +969,7 @@ theorem recTyOpened_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name)
 `resolve` alone, and through operations that ignore their environment. -/
 theorem storedRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
     (hR : w.resolve fe₁ = w.resolve fe₂) :
-    ∀ recs out, storedRecsCheck ck ops w fe₁ recs out = storedRecsCheck ck ops w fe₂ recs out
+    ∀ recs out, storedRecsCheck ops w fe₁ recs out = storedRecsCheck ops w fe₂ recs out
   | [], [] => rfl
   | rc :: rcs, g :: gs => by
     have ih := storedRecsCheck_twin h hR rcs gs
@@ -1029,20 +1029,20 @@ theorem genRecCheck_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : Block
   have hfe := ht.find
   have key : ∀ (Ms' : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
       (g : ClassGen) (recOf : Nat → Option Name) ,
-      classRecsRulesOk (shadowOpsC mode).check
+      classRecsRulesOk
           ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₁))
           (shadowOpsC mode).walkers fe₁ (classFeROvl p Ms' cvGs recCls fe₁) g recOf cvGs
           recCls
-        = classRecsRulesOk (shadowOpsC mode).check
+        = classRecsRulesOk
           ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₂))
           (shadowOpsC mode).walkers fe₂ (classFeROvl p Ms' cvGs recCls fe₂) g recOf
           cvGs recCls := by
     intro Ms' cvGs recCls g recOf
     have hR := classFeROvl_find?_twin ht p Ms' cvGs recCls
     have hRt := classFeROvl_findTable?_twin ht p Ms' cvGs recCls
-    show classRecsRulesOk isoC (sharedOpsRuleR mode _) structWalkersC fe₁ _ g recOf cvGs
+    show classRecsRulesOk (sharedOpsRuleR mode _) structWalkersC fe₁ _ g recOf cvGs
         recCls
-      = classRecsRulesOk isoC (sharedOpsRuleR mode _) structWalkersC fe₂ _ g recOf cvGs
+      = classRecsRulesOk (sharedOpsRuleR mode _) structWalkersC fe₂ _ g recOf cvGs
         recCls
     rw [sharedOpsRuleR_congr mode hR hRt]
     exact classRecsRulesOk_twin (sharedOpsRuleR_envFree mode _)
@@ -1148,12 +1148,12 @@ theorem consBlockIndsF_pushed (p₁ : BlockShape) (isRec : Bool) (cvTas : List C
   obtain ⟨L, hL, hL'⟩ := consBlockIndsF_eq_pushAll p₁ isRec cvTas i fe₁
   exact ⟨L, [], hL, hL' fe₂⟩
 
-theorem checkBlockIndsF_twin (ck : CheckCM Unit → CheckCM Unit) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+theorem checkBlockIndsF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (p : BlockParts)
     (isRec : Bool) :
     RelRun (fun a₁ a₂ => PushedFrom fe₁ fe₂ a₁.1 a₂.1 ∧ a₁.2 = a₂.2)
-      (checkBlockIndsF ck (sharedOpsC mode fe₁) fe₁ p isRec)
-      (checkBlockIndsF ck (sharedOpsC mode fe₂) fe₂ p isRec) := by
+      (checkBlockIndsF (sharedOpsC mode fe₁) fe₁ p isRec)
+      (checkBlockIndsF (sharedOpsC mode fe₂) fe₂ p isRec) := by
   unfold checkBlockIndsF
   have h := sharedOpsC_envFree mode fe₂
   simp only [sharedOpsC_congr hfe htb, checkBlockTeleF_congr h hfe, checkBlockTelesF_congr h hfe,
@@ -1166,7 +1166,7 @@ theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec)
       (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
-  refine RelRun.bind (checkBlockIndsF_twin _ ht.find ht.findTable p₀ isRec) ?_
+  refine RelRun.bind (checkBlockIndsF_twin ht.find ht.findTable p₀ isRec) ?_
   rintro ⟨a₁, cvTas, p₁⟩ ⟨a₂, cvTas', p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
   simp only [Prod.mk.injEq] at he
   obtain ⟨rfl, rfl⟩ := he
@@ -1197,11 +1197,11 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     rw [hL₂, hL₂]; exact htL.pushAll L₂
   -- the stored recursors' check, at the generated recursors' overlays
   have hO : ∀ X : List ConstantInfo,
-      storedRecsCheck isoC
+      storedRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
             X.reverse)) structWalkersC
           ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
-        = storedRecsCheck isoC
+        = storedRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
             X.reverse)) structWalkersC
           ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by

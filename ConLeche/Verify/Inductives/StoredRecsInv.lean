@@ -207,7 +207,7 @@ theorem storedRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × 
     exact ⟨Or.inr (by cases u; exact hu), h⟩
 
 theorem storedRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
-    (h : storedRecCheck id ops w fe rc g = .ok ()) :
+    (h : storedRecCheck ops w fe rc g = .ok ()) :
     storedRulesShape (m := CheckM) rc.cvR.name rc.rules g.2.1.ctors = .ok () ∧
     storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf g.2.1 rc.rP) = true ∧
     storedRecCompare ops w fe rc g = .ok () := by
@@ -215,16 +215,16 @@ theorem storedRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × Li
   obtain ⟨u, hu, h⟩ := exceptBind_ok h
   cases u
   by_cases hn : storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf g.2.1 rc.rP) = true
-  · simp only [hn, ↓reduceIte, id_eq] at h
+  · simp only [hn, ↓reduceIte] at h
     exact ⟨hu, hn, by simpa [pure, Except.pure, bind, Except.bind] using h⟩
   · simp [hn, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
 
 theorem storedRecsCheck_inv :
     ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)},
-      storedRecsCheck id ops w fe recs out = .ok () →
+      storedRecsCheck ops w fe recs out = .ok () →
       recs.length = out.length ∧ ∀ (j : Nat) (rc : RecShape)
         (g : ConstantVal × TargetMajor × List Expr), recs[j]? = some rc → out[j]? = some g →
-        storedRecCheck id ops w fe rc g = .ok ()
+        storedRecCheck ops w fe rc g = .ok ()
   | [], [], _ => ⟨rfl, fun j rc g h => by simp at h⟩
   | [], _ :: _, h => by simp [storedRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
   | _ :: _, [], h => by simp [storedRecsCheck, throw, throwThe, MonadExceptOf.throw] at h

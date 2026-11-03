@@ -24,11 +24,10 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-! ## Stage 1: the formers -/
 
-/-- `checkBlockTele` through the index, its check through `ck` (task
-#410: the checks' runner). -/
-def checkBlockTeleF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe : FEnv) (nP : Nat)
+/-- `checkBlockTele` through the index. -/
+def checkBlockTeleF (ops : CheckerOps m) (fe : FEnv) (nP : Nat)
     (ms : MemberShape) : m (ConstantVal × Level) := do
-  ck (checkConstantValF ops fe ms.cvT)
+  checkConstantValF ops fe ms.cvT
   let (cvTa, s) ← checkSumTeleF ops fe ms.cvT (nP + ms.nIdx) ms.cvT
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + ms.nIdx))
     (.internal "direct sum: type former telescope")
@@ -37,12 +36,12 @@ def checkBlockTeleF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe : FEnv) (n
   pure (cvTa, s)
 
 /-- `checkBlockTeles` through the index. -/
-def checkBlockTelesF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe : FEnv) (nP : Nat) :
+def checkBlockTelesF (ops : CheckerOps m) (fe : FEnv) (nP : Nat) :
     List MemberShape → m (List (ConstantVal × Level))
   | [] => pure []
   | ms :: rest => do
-    let r ← checkBlockTeleF ck ops fe nP ms
-    let rs ← checkBlockTelesF ck ops fe nP rest
+    let r ← checkBlockTeleF ops fe nP ms
+    let rs ← checkBlockTelesF ops fe nP rest
     pure (r :: rs)
 
 /-- `checkBlockDomsAt` through the index. -/
@@ -80,31 +79,30 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
   | cvTa :: rest, i, fe =>
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
 
-/-- `checkBlockInds` through the index, its checks (the formers' types,
-their agreement) through `ck` (task #410). -/
-def checkBlockIndsF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
+/-- `checkBlockInds` through the index. -/
+def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
     (isRec : Bool) : m (FEnv × List ConstantVal × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
-    let (cvTa0, s0) ← checkBlockTeleF ck ops fe p.nP ms0
-    let cvs ← checkBlockTelesF ck ops fe p.nP rest
-    ck (checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs)
+    let (cvTa0, s0) ← checkBlockTeleF ops fe p.nP ms0
+    let cvs ← checkBlockTelesF ops fe p.nP rest
+    checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
     let p₁ := p.toBlockShape.withSort s0
     let cvTas := cvTa0 :: cvs.map (·.1)
     pure (consBlockIndsF p₁ isRec cvTas 0 fe, cvTas, p₁)
 
 /-! ## Stage 1b: the constructors -/
 
-/-- `checkBlockCtors` through the index, its checks through `ck`. -/
-def checkBlockCtorsF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
+/-- `checkBlockCtors` through the index. -/
+def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
     List (MemberShape × ConstantVal) →
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])
   | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtorsF ck ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
+    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtorsF ck ops fe₀ fe p rest
+    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p rest
     pure (ctorsA :: restC, sortss :: restS)
 
 /-! ## Stage 2: the tail -/

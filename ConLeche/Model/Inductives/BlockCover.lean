@@ -233,7 +233,7 @@ theorem getAppFn_mkAppN_const (n : Name) (us : List Level) (args : List Expr) :
 /-- A former's check leaves its level parameters distinct. -/
 theorem checkBlockTele_nodup {env : Env} {nP : Nat} {ms : ConLeche.MemberShape} {F : Nat}
     {r : ConstantVal × Level}
-    (h : ConLeche.checkBlockTele id (ConLeche.fueledOps μ F) env nP ms = .ok r) :
+    (h : ConLeche.checkBlockTele (ConLeche.fueledOps μ F) env nP ms = .ok r) :
     ms.cvT.levelParams.Nodup := by
   unfold ConLeche.checkBlockTele at h
   obtain ⟨cv, hcv, -⟩ := exceptBind_ok h

@@ -188,9 +188,9 @@ theorem constsResolveF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
 /-- The stored recursors' check (task #431) reads its index through
 `resolve` and `env` alone. -/
 theorem storedRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-    {ck : m Unit → m Unit} {ops : CheckerOps m} {w : StructWalkers} {fe₁ fe₂ : FEnv}
+    {ops : CheckerOps m} {w : StructWalkers} {fe₁ fe₂ : FEnv}
     (hres : w.resolve fe₁ = w.resolve fe₂) (henv : fe₁.env = fe₂.env) :
-    storedRecsCheck ck ops w fe₁ = storedRecsCheck ck ops w fe₂ := by
+    storedRecsCheck ops w fe₁ = storedRecsCheck ops w fe₂ := by
   have hrules : ∀ rec lps rs gs, storedRulesCheck ops w fe₁ rec lps rs gs
       = storedRulesCheck ops w fe₂ rec lps rs gs := by
     intro rec lps rs
@@ -217,19 +217,19 @@ theorem storedRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
 section RulesCongr
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-  {ck : m Unit → m Unit} {ops : CheckerOps m} {w : StructWalkers} {feT feR₁ feR₂ : FEnv}
+  {ops : CheckerOps m} {w : StructWalkers} {feT feR₁ feR₂ : FEnv}
 
 theorem classRuleOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
     (henv : feR₁.env = feR₂.env) (cvR : ConstantVal) (n : Nat) (gen : Expr) :
-    classRuleOk ck ops w feT feR₁ cvR n gen = classRuleOk ck ops w feT feR₂ cvR n gen := by
+    classRuleOk ops w feT feR₁ cvR n gen = classRuleOk ops w feT feR₂ cvR n gen := by
   unfold classRuleOk classRuleCheck
   rw [hres, henv]
 
 theorem classRulesOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
     (henv : feR₁.env = feR₂.env) (g : ClassGen) (recOf : Nat → Option Name)
     (cvR : ConstantVal) (c : Nat) :
-    ∀ xs, classRulesOk ck ops w feT feR₁ g recOf cvR c xs
-      = classRulesOk ck ops w feT feR₂ g recOf cvR c xs
+    ∀ xs, classRulesOk ops w feT feR₁ g recOf cvR c xs
+      = classRulesOk ops w feT feR₂ g recOf cvR c xs
   | [] => rfl
   | x :: xs => by
     simp only [classRulesOk, classRuleOk_congrR hres henv,
@@ -237,8 +237,8 @@ theorem classRulesOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
 
 theorem classRecsRulesOk_congrR (hres : w.resolve feR₁ = w.resolve feR₂)
     (henv : feR₁.env = feR₂.env) (g : ClassGen) (recOf : Nat → Option Name) :
-    ∀ cvs cs, classRecsRulesOk ck ops w feT feR₁ g recOf cvs cs
-      = classRecsRulesOk ck ops w feT feR₂ g recOf cvs cs
+    ∀ cvs cs, classRecsRulesOk ops w feT feR₁ g recOf cvs cs
+      = classRecsRulesOk ops w feT feR₂ g recOf cvs cs
   | cvG :: cvs, c :: cs => by
     simp only [classRecsRulesOk, classRulesOk_congrR hres henv,
       classRecsRulesOk_congrR hres henv g recOf cvs cs]
@@ -260,12 +260,12 @@ theorem sharedOpsRuleR_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
 
 /-- **The rule stage at the overlay is the rule stage at the pushes**,
 at the cached operations, on an environment without an overlay. -/
-theorem classRecsRulesOk_classFeROvl {ck : CheckCM Unit → CheckCM Unit} {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
+theorem classRecsRulesOk_classFeROvl {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
     (Ms : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
     (g : ClassGen) (recOf : Nat → Option Name) :
-    classRecsRulesOk ck (sharedOpsRuleR mode (classFeROvl p Ms cvGs recCls fe))
+    classRecsRulesOk (sharedOpsRuleR mode (classFeROvl p Ms cvGs recCls fe))
         structWalkersC fe (classFeROvl p Ms cvGs recCls fe) g recOf cvGs recCls
-      = classRecsRulesOk ck (sharedOpsRuleR mode (classFeR p Ms cvGs recCls fe))
+      = classRecsRulesOk (sharedOpsRuleR mode (classFeR p Ms cvGs recCls fe))
         structWalkersC fe (classFeR p Ms cvGs recCls fe) g recOf cvGs recCls := by
   have hfind := classFeROvl_find? h p Ms cvGs recCls
   rw [sharedOpsRuleR_congr mode hfind (classFeROvl_findTable? h p Ms cvGs recCls)]

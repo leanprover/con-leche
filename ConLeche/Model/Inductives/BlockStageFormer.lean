@@ -167,7 +167,7 @@ type.  The producer is defeq soundness at the opened fvar frame
 theorem blockParamsIff (hμ : μ.isVerified = true) (mp : EnvModelM V μ env) {F : Nat}
     {p : ConLeche.BlockParts} {isRec : Bool} {envI : Env} {cvTas : List ConstantVal}
     {p₁ : ConLeche.BlockShape}
-    (h : ConLeche.checkBlockInds id (ConLeche.fueledOps μ F) env p isRec
+    (h : ConLeche.checkBlockInds (ConLeche.fueledOps μ F) env p isRec
       = .ok (envI, cvTas, p₁))
     {nPOf : Nat → Nat} {resSort : Level}
     {ppsOf : Nat → (Name → Nat) → List Term}

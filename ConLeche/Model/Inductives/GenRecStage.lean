@@ -234,7 +234,7 @@ theorem genRecRun_at
     ∃ c cvG rhss, R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
       Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
       out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
-      classRulesOk id (fueledOps μ F) .plain (mkFEnv envC)
+      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
         (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
         (classRecOf R.rd.recCls R.cvGs) cvG
         c (R.ctors.getD c []) = .ok rhss ∧
@@ -373,7 +373,7 @@ theorem recStage_of_gen (hμ : μ.isVerified = true)
       R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
       Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
       out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
-      classRulesOk id (fueledOps μ F) .plain (mkFEnv envC)
+      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
         (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
         (classRecOf R.rd.recCls R.cvGs) cvG
         c (R.ctors.getD c []) = .ok rhss ∧

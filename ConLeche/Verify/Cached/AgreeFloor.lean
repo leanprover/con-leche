@@ -107,17 +107,6 @@ it is kept for the explicit top-level steps that name it. -/
 theorem Yields.letFun {α β : Type} {v : β} {f : β → CheckCM α}
     {P : α → Prop} (h : Yields (f v) P) : Yields (have x := v; f x) P := h
 
-/-- **A check in a memo of its own** (`isoC`, task #410) yields what the
-check yields from the fresh state. -/
-theorem Yields.isoC {c : CheckCM Unit} {Q : Prop} (h : Yields c (fun _ => Q)) :
-    Yields (isoC c) (fun _ => Q) := by
-  intro s a s' hr
-  unfold ConLeche.Cached.isoC at hr
-  split at hr
-  · rename_i v hv
-    exact h {} v.1 v.2 hv
-  · cases hr
-
 /-- A guard's failure branch, closed without descending into the join
 point it calls (which is what keeps the walk linear). -/
 theorem Yields.ofThrowBind {α β : Type} {e : CheckError} {f : α → CheckCM β}
@@ -315,7 +304,7 @@ theorem checkSumTeleF_name (ops : CheckerOps CheckCM) (fe : FEnv)
 theorem checkSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF isoC ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
+    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun r => r.1.name = cvC.name) := by
   unfold checkSumCtorF
   ybind
@@ -328,7 +317,7 @@ theorem checkSumCtorsF_names (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF isoC ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
+      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
         (fun r => r.1.map (fun c => (c.1.name, c.2))
           = cs.map (fun c => (c.1.name, c.2)) ∧ r.2.length = cs.length)
   | [] => Yields.pure ⟨rfl, rfl⟩
@@ -368,10 +357,10 @@ theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
 theorem checkSumCtorF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF isoC ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
+    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
       (fun r => r.1.name = cvC.name ∧ fe.find? cvC.name = none) := by
   unfold checkSumCtorF
-  refine Yields.bind' (Yields.isoC (checkConstantValF_fresh ops fe cvC)) fun _ hfr => ?_
+  refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun _ hfr => ?_
   yields
   all_goals (apply Yields.pure; exact ⟨rfl, hfr⟩)
 
@@ -379,7 +368,7 @@ theorem checkSumCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF isoC ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
+      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
         (fun r => r.1.map (·.1.name) = cs.map (·.1.name) ∧
           ∀ c ∈ r.1, fe.find? c.1.name = none)
   | [] => Yields.pure ⟨rfl, fun _ hc => nomatch hc⟩
@@ -417,10 +406,10 @@ theorem Yields.and {α : Type} {m : CheckCM α} {P Q : α → Prop}
 
 theorem checkBlockTeleF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat)
     (ms : MemberShape) :
-    Yields (checkBlockTeleF isoC ops fe nP ms)
+    Yields (checkBlockTeleF ops fe nP ms)
       (fun r => r.1.name = ms.cvT.name ∧ fe.find? ms.cvT.name = none) := by
   unfold checkBlockTeleF
-  refine Yields.bind' (Yields.isoC (checkConstantValF_fresh ops fe ms.cvT)) fun _ hfr => ?_
+  refine Yields.bind' (checkConstantValF_fresh ops fe ms.cvT) fun _ hfr => ?_
   refine Yields.bind' (checkSumTeleF_name ops fe ms.cvT _ ms.cvT) fun r hn => ?_
   obtain ⟨cvTa, s⟩ := r
   have hn' : cvTa.name = ms.cvT.name := by
@@ -430,7 +419,7 @@ theorem checkBlockTeleF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat)
 
 theorem checkBlockTelesF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat) :
     ∀ mss : List MemberShape,
-      Yields (checkBlockTelesF isoC ops fe nP mss)
+      Yields (checkBlockTelesF ops fe nP mss)
         (fun rs => rs.map (·.1.name) = mss.map (·.cvT.name) ∧
           ∀ ms ∈ mss, fe.find? ms.cvT.name = none)
   | [] => Yields.pure ⟨rfl, fun _ h => nomatch h⟩
@@ -449,7 +438,7 @@ the environment the formers' conses build, the formers' names, and
 their freshness at the block's own index. -/
 theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockParts)
     (isRec : Bool) :
-    Yields (checkBlockIndsF isoC ops fe p isRec)
+    Yields (checkBlockIndsF ops fe p isRec)
       (fun r => (∃ s, r.2.2 = p.toBlockShape.withSort s) ∧
         r.1 = consBlockIndsF r.2.2 isRec r.2.1 0 fe ∧
         r.2.1.map (·.name) = p.members.map (·.cvT.name) ∧
@@ -528,7 +517,7 @@ field-sort list per constructor, and every stored name fresh at the
 environment the stage runs at. -/
 theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p : BlockShape) :
     ∀ l : List (MemberShape × ConstantVal),
-      Yields (checkBlockCtorsF isoC ops fe₀ fe p l)
+      Yields (checkBlockCtorsF ops fe₀ fe p l)
         (fun r => r.1.map (List.map fun c => (c.1.name, c.2))
             = l.map (fun x => x.1.ctors.map fun c => (c.1.name, c.2)) ∧
           r.2.map List.length = l.map (fun x => x.1.ctors.length) ∧
@@ -578,7 +567,7 @@ theorem classConstOk_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (cv : Constant
 at the stage's index. -/
 theorem classRecTyOk_name (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) (k : Nat)
     (rc : RecShape) (cvRi : ConstantVal) (c : Nat) :
-    Yields (classRecTyOk isoC ops fe g k rc cvRi c)
+    Yields (classRecTyOk ops fe g k rc cvRi c)
       (fun cvG => cvG.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold classRecTyOk
   dsimp only
@@ -587,7 +576,7 @@ theorem classRecTyOk_name (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) 
   split
   case isFalse => exact Yields.ofThrowBind
   refine Yields.bind fun gty => ?_
-  refine Yields.bind' (Yields.isoC (Q := fe.find? rc.cvR.name = none) ?_) fun _ hcv =>
+  refine Yields.bind' (Q := fun _ => fe.find? rc.cvR.name = none) ?_ fun _ hcv =>
     Yields.pure ⟨rfl, hcv⟩
   refine Yields.bind' (classConstOk_fresh ops fe _) fun _ hcv => ?_
   yields
@@ -597,7 +586,7 @@ theorem classRecTyOk_name (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) 
 record, in order, under its name; the classes cover the records. -/
 theorem classRecTysOk_names (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) (k : Nat) :
     ∀ (recs : List RecShape) (cvs : List ConstantVal) (cs : List Nat),
-      Yields (classRecTysOk isoC ops fe g k recs cvs cs)
+      Yields (classRecTysOk ops fe g k recs cvs cs)
         (fun xs => xs.length = recs.length ∧ recs.length ≤ cs.length ∧
           ∀ (j : Nat) (rc : RecShape), recs[j]? = some rc →
             ∃ x, xs[j]? = some x ∧ x.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none)
@@ -622,7 +611,7 @@ order. -/
 theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT feR : FEnv)
     (g : ClassGen) (recOf : Nat → Option Name) :
     ∀ (cvGs : List ConstantVal) (cs : List Nat), cvGs.length ≤ cs.length →
-      Yields (classRecsRulesOk isoC ops w feT feR g recOf cvGs cs)
+      Yields (classRecsRulesOk ops w feT feR g recOf cvGs cs)
         (fun out => out.map (·.1) = cvGs)
   | [], _, _ => by unfold classRecsRulesOk; exact Yields.pure rfl
   | _ :: _, [], h => by simp at h
@@ -636,7 +625,7 @@ theorem classRecsRulesOk_fst (ops : CheckerOps CheckCM) (w : StructWalkers) (feT
 /-- **The generated stage at the skeleton level**: one stored recursor
 per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
-theorem genRecCheck_names (so : ShadowOps CheckCM) (hck : so.check = isoC) (fe : FEnv)
+theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor) (cvTas : List ConstantVal)
     (block : List ConstantInfo) :
@@ -645,7 +634,6 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (hck : so.check = isoC) (fe :
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by
   unfold genRecCheck
-  rw [hck]
   refine Yields.bind' (Q := fun _ => (p.recs.map (·.cvR.name)).Nodup) ?_ fun _ hnd => ?_
   · unfold targetRecPins
     dsimp only
@@ -776,9 +764,11 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   have h₂ := consBlockCtorsF_skels p.nP hns h₁
-  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) rfl _ p.toBlockShape _ _ _ _ _ cvTas
+  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ p.toBlockShape _ _ _ _ _ cvTas
       block)
     fun out hout => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   have hrs := pushAll_blockRecInfosTF_skelsT
       (consBlockCtorsF p.nP ctorsAs env₁).find? p.toBlockShape

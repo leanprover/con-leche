@@ -171,7 +171,7 @@ theorem blockCtorData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
     {bs : List Expr} {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor id (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)

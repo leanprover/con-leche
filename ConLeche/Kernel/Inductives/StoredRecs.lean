@@ -18,8 +18,7 @@ generator's.
 `storedRecsCheck`, per recursor, the stream's record against the
 generated recursor at the same position:
 
-* **shape**, decided before anything is installed (never through the
-  checks' runner): as many stored rules as generated ones, each for the
+* **shape**, decided before anything is installed: as many stored rules as generated ones, each for the
   generated rule's constructor with its field count; at an auxiliary
   recursor (an outside major) the stored type's major domain is the
   container at the firing data (`storedNestedOk`, the reading the
@@ -35,8 +34,7 @@ generated recursor at the same position:
   generated right-hand side (`ruleAgree`).
 
 The type and rule comparisons are checks (their only output a
-verdict), run through the checks' runner `ck` (task #410).  They run at
-the GENERATED install `fe` (the constructors' environment with the
+verdict).  They run at the GENERATED install `fe` (the constructors' environment with the
 generated recursors and their rules, no tables).
 -/
 
@@ -176,21 +174,21 @@ def storedRecCompare (ops : CheckerOps m) (w : StructWalkers) (fe : FEnv) (rc : 
 /-- **One recursor, stored against generated** (see the module
 docstring): the stream's record `rc` against the generated recursor
 `(cvG, M, rhssG)` at its position. -/
-def storedRecCheck (ck : m Unit → m Unit) (ops : CheckerOps m) (w : StructWalkers)
+def storedRecCheck (ops : CheckerOps m) (w : StructWalkers)
     (fe : FEnv) (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) : m Unit := do
   storedRulesShape rc.cvR.name rc.rules g.2.1.ctors
   unless storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf g.2.1 rc.rP) do
     throw (.internal s!"the recursor {rc.cvR.name}'s stored type does not apply its \
       major's container at the generated firing data")
-  ck (storedRecCompare ops w fe rc g)
+  storedRecCompare ops w fe rc g
 
 /-- **The block's stored recursors against the generated ones**, record
 by record (the generated family is in the records' order). -/
-def storedRecsCheck (ck : m Unit → m Unit) (ops : CheckerOps m) (w : StructWalkers)
+def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
     (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
   | rc :: rcs, g :: gs => do
-    storedRecCheck ck ops w fe rc g
-    storedRecsCheck ck ops w fe rcs gs
+    storedRecCheck ops w fe rc g
+    storedRecsCheck ops w fe rcs gs
   | [], [] => pure ()
   | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 

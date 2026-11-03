@@ -110,12 +110,11 @@ at the environment holding the type former alone — the constructors do
 not mention each other — and the block conses them afterwards
 (`consBlockCtors`).  Returns the checked constructor and its fields'
 sorts (the projection table's guard levels at a structure-like member
-are computed from them).  The constructor type's check and the
-parameter domains' agreement run through `ck` (task #410). -/
-def checkSumCtor (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+are computed from them). -/
+def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  ck (checkConstantVal ops env cvC)
+  checkConstantVal ops env cvC
   let cvCa := cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
@@ -130,7 +129,7 @@ def checkSumCtor (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env
     (.notImplemented "direct sum: constructor telescope")
   let tq ← unwrapOr (openPisAtFvars nP cvTa.type 0)
     (.notImplemented "direct sum: type former telescope")
-  ck (checkStructDomsAt ops env 0 cq.1 (tq.1.map Expr.fvarTypeD) nP)
+  checkStructDomsAt ops env 0 cq.1 (tq.1.map Expr.fvarTypeD) nP
   let xq ← unwrapOr (openPisAtFvars nF cq.2 nP)
     (.notImplemented "direct sum: constructor field telescope")
   -- the opened residual is the family at the opened parameter
@@ -151,15 +150,15 @@ def checkSumCtor (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env
 /-- Stage 2, all constructors' types, at the environment holding the
 type former; returns the checked constructors with their field
 counts, and beside them the constructors' field sorts. -/
-def checkSumCtors (ck : m Unit → m Unit) (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+def checkSumCtors (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtor ck ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2
+    let (cvCa, sorts) ← checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtors ck ops env₀ env T lps nP nIdx resSort isProp large cvTa
+    let (rest, srest) ← checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa
       cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 

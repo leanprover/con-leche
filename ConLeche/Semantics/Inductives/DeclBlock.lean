@@ -48,12 +48,12 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
     (out : List (ConstantVal × TargetMajor × List Expr)),
     -- 1  the k formers: the constant check, official's telescope loop, the
     --    sort, official's two agreements from member 1 on, then all k consed
-    checkBlockInds (m := ConLeche.CheckM) id (fueledOps μ F) env p₀ isRec
+    checkBlockInds (m := ConLeche.CheckM) (fueledOps μ F) env p₀ isRec
       = .ok (env₁, cvTas, p₁) ∧
     p = p₀.complete p₁ ∧
     -- 2  the constructors, per member, at the environment holding all k formers,
     --    each stored as declared
-    checkBlockCtors (m := ConLeche.CheckM) id (fueledOps μ F) env₁ env₁ p.toBlockShape
+    checkBlockCtors (m := ConLeche.CheckM) (fueledOps μ F) env₁ env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok (ctorsAs, sortsss) ∧
     -- 3  the walk's context; the classes the stream's recursor family eliminates
     --    (read off its raw recursor types, each checked as a major)
@@ -81,7 +81,7 @@ def DeclBlockRun (μ : CheckMode) (F : Nat) (env : Env) (block : List ConstantIn
       ctx.params st.ctorNfs.toList rd Ms block cvTas = .ok out ∧
     -- 7' the STORED recursors against the generated ones, at the generated
     --    install (task #431)
-    storedRecsCheck (m := ConLeche.CheckM) id (fueledOps μ F) .plain
+    storedRecsCheck (m := ConLeche.CheckM) (fueledOps μ F) .plain
       (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () ∧
     -- 8  the install spine: the STORED recursors with their rules at their

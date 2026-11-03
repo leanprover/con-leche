@@ -45,7 +45,7 @@ theorem blockCtorFuns_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor id (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
+        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
           resSort isProp large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List Term)
       (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))

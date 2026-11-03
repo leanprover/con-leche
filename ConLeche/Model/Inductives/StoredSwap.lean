@@ -295,7 +295,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.isVerified = true) {envC : Env
     (mpG : EnvModelM V μ (ConLeche.consBlockRecsT f q 0 out envC))
     (hlen : out.length = q.recs.length)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
-    (hS : ConLeche.storedRecsCheck id (ConLeche.fueledOps μ F) .plain
+    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps μ F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) q.recs out = .ok ()) :
     ConLeche.RecCtorsStored (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC) ∧
     BasisPinnedTT (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)
@@ -353,7 +353,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.isVerified = true) {envC : Env
   obtain ⟨-, hallS⟩ := ConLeche.storedRecsCheck_inv hS
   let Q : Nat → ConLeche.RecShape → ConstantVal × ConLeche.TargetMajor × List Expr → Prop :=
     fun j rc g => q.recs[j]? = some rc ∧ out[j]? = some g ∧
-      ConLeche.storedRecCheck id (ConLeche.fueledOps μ F) .plain
+      ConLeche.storedRecCheck (ConLeche.fueledOps μ F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) rc g = .ok ()
   have hC : ConLeche.StoredCorr f q Q
       (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)
@@ -508,7 +508,7 @@ theorem blockRecStagedAt_stored {μ : CheckMode} (hμ : μ.isVerified = true) {e
     (hlen : out.length = q.recs.length)
     (hfr : ∀ g ∈ out, envC.find? g.1.name = none)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
-    (hS : ConLeche.storedRecsCheck id (ConLeche.fueledOps μ F) .plain
+    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps μ F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) q.recs out = .ok ())
     (hwfS : EnvWF (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)) :
     BlockRecStagedAt μ envC (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)

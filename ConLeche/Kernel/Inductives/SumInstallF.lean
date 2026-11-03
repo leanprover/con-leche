@@ -68,13 +68,11 @@ def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
     let rest ← checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
     pure (rest ++ [u])
 
-/-- `checkSumCtor` through the index; the constructor type's check and
-the parameter domains' agreement run through `ck` (task #410: the
-checks' runner). -/
-def checkSumCtorF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
+/-- `checkSumCtor` through the index. -/
+def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
-  ck (checkConstantValF ops fe cvC)
+  checkConstantValF ops fe cvC
   let cvCa := cvC
   let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
@@ -89,7 +87,7 @@ def checkSumCtorF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe₀ fe : FEnv
     (.notImplemented "direct sum: constructor telescope")
   let tq ← unwrapOr (openPisAtFvarsF nP cvTa.type 0)
     (.notImplemented "direct sum: type former telescope")
-  ck (checkStructDomsAtFA ops fe 0 cq.1.toArray (tq.1.map Expr.fvarTypeD).toArray nP)
+  checkStructDomsAtFA ops fe 0 cq.1.toArray (tq.1.map Expr.fvarTypeD).toArray nP
   let xq ← unwrapOr (openPisAtFvarsF nF cq.2 nP)
     (.notImplemented "direct sum: constructor field telescope")
   unless xq.2.getAppFn == Expr.const T (lps.map .param) &&
@@ -104,15 +102,15 @@ def checkSumCtorF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe₀ fe : FEnv
   pure (cvCa, sorts)
 
 /-- `checkSumCtors` through the index. -/
-def checkSumCtorsF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
+def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
   | [] => pure ([], [])
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtorF ck ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2
+    let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtorsF ck ops fe₀ fe T lps nP nIdx resSort isProp large cvTa
+    let (rest, srest) ← checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa
       cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 
