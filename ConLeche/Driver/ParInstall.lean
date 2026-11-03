@@ -74,9 +74,11 @@ phase A of the fold — whatever the schedule.
   the first failing record in fold order, with the serial step's error
   (`installStep_commit_error`); a failed `And` pin with the serial
   step's error too (`installDeclStep` rejects it before installing
-  anything).  A block's install never fails: its verdict is its job's,
-  and a failure after a deferred block whose check fails is reported at
-  that block (`blockFailure`), the serial fold's verdict.  A
+  anything).  A block's install never fails: its verdict is its job's
+  (run at once, installing nothing, when a name it pushes is taken
+  already and its slot does not match), and a failure after a deferred
+  block whose check fails is reported at that block (`blockFailure`),
+  the serial fold's verdict.  A
   misprediction — a counter or a slot that does not match — is an
   internal error (exit 3).  No input reaches it: every accepting step
   installs exactly the predicted skeleton (`installStepC_skels`), and
@@ -863,10 +865,17 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                 -- that fails its check is the serial fold's verdict
                 return .error ((blockFailure mode natOpPinSets D).getD (e, i))
             else if andPinOk pd then
-              -- a slot that does not match the prediction: a misprediction
-              -- (the stored install of a block pushes the skeleton the
-              -- prediction read off the block, whatever the block)
-              return mispredicted k i "a predicted slot did not match"
+              -- a slot that does not match the prediction.  For a block
+              -- (whose stored install pushes the skeleton the prediction
+              -- read off it) one of its names is taken already: the
+              -- verdict is the block's job, run now — it installs nothing,
+              -- and a passing job is a misprediction; else a misprediction
+              match r, deferredBlock? pd with
+              | .ok (L, Q, _), some (block, nP) =>
+                match blockCheck mode natOpPinSets ⟨workerView B S c, block, nP, i, L, Q⟩ with
+                | .error e => return .error ((blockFailure mode natOpPinSets D).getD (e, i))
+                | .ok () => return mispredicted k i "a predicted slot did not match"
+              | _, _ => return mispredicted k i "a predicted slot did not match"
             else
               -- a failed `And` pin: the serial step rejects the record
               -- before installing anything; its error is the verdict

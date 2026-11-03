@@ -355,7 +355,7 @@ Read from the outside in:
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The install loop
-   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L165))
+   ([function `installLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L167))
    takes every record, each from a fresh memo state, through the install step
    ([function `installStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L144-L147)):
    a definition or opaque is guarded and pushed with its check
@@ -371,7 +371,7 @@ Read from the outside in:
    steps, a proposition, and what it returns is an installed
    environment. On more than one worker the same run is built by a
    commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L771-L780))
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L773-L782))
    that adds one step per record in stream order, pushing each record's
    constants into the index itself, while worker threads
    install the records ahead of it, each at a *worker view*: an empty index over a frozen base layer that maps

@@ -157,8 +157,8 @@
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
   1745    obtain ⟨st0, hr0, hh0, hd0, hcov⟩ := hg
 
-== ConLeche/Driver/ParInstall.lean#L165
-   165  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== ConLeche/Driver/ParInstall.lean#L167
+   167  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
 
 == ConLeche/Cached/Installed.lean#L144-L147
    144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -166,17 +166,17 @@
    146      Declaration → CheckCM (FEnv × Array PendingCheck)
    147    | .defnDecl cv value hint =>
 
-== ConLeche/Driver/ParInstall.lean#L771-L780
-   771  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
-   772      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   773      (p₀ : Nat × FEnv × Array PendingCheck) :
-   774      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
-   775      fe.visibleBelow = c →
-   776      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
-   777        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
-   778      IdxBelow fe → ViewAgrees B S fe →
-   779        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
-   780    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
+== ConLeche/Driver/ParInstall.lean#L773-L782
+   773  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
+   774      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   775      (p₀ : Nat × FEnv × Array PendingCheck) :
+   776      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
+   777      fe.visibleBelow = c →
+   778      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
+   779        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
+   780      IdxBelow fe → ViewAgrees B S fe →
+   781        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
+   782    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468
   1462  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
