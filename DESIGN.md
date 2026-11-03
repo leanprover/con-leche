@@ -107872,3 +107872,120 @@ one finding, four individually demotable `public import`s of the new
   recursor's major premise and motives (`TargetMajor`'s telescope).
   All 32 corpus cases are indexed `Prop` families, so the fixture is one
   such family whose type is a definition.
+
+### 8. State at the end of the third session (#431 cont. 3)
+
+**Landed** (`agent/431-stored`, no `sorry`, no new axiom): Phases 5 and
+3 of §5 in the revised order of §7.  Phase 4 is not started.
+
+**Phase 5 — lazy projection-table guards** (2a32c2920).  A table's
+guard levels are `ProjTable.guards : Thunk (List Level)`; a
+`ProjEntry` carries the table's thunk and `ProjEntry.fieldSort` is a
+function that forces it, so only a `Prop`-declared structure's uses
+(the infer branch's and `fireOk`'s guard, both behind the
+`structSort ≡ 0` test) read it.  The checked install (pure and cached)
+stores `Thunk.pure` of its eager guards, so the spec and every model
+proof read the eager table unchanged (`(Thunk.pure g).get = g` by
+`rfl`); `ProjTable`'s decidable equality compares guard values
+(`Thunk.ext`).  The bodies stay eager: they are a substitution off the
+stored constructor type.  No proof changed beyond the type.
+
+**Phase 3 — the parallel install pushes a block as stored** (a6852c458).
+* `storedInstall` (`Cached/StoredInstall.lean`, unverified) reads what
+  the checked install pushes off the records: formers at their stored
+  types with `blockCapsAt` at `blockRawRec` and the sort off member 0's
+  syntactic telescope; constructors as declared; recursors at their
+  stored types and right-hand sides, rules by `tgtStoredRules` at a
+  member major or at an outside container (`targetCtorsOf`; the firing
+  data from the stored type opened at its prefix, as the class reading
+  opens it); tables with bodies by `structProjBodiesC` and guards a
+  thunk (`storedGuards`: the constructor stage's own field-sort walk,
+  `checkStructFieldSortsIFA`, at the formers pushed onto the worker
+  view, from a fresh memo).  `storedReadable` declines (to the checked
+  install in place) a basis block, a shapeless one, a parameter-count
+  mismatch and a def-headed former (until Phase 4).
+* The job (`BlockCheck` now carries the stored pushes `L`, `Q`) runs
+  the checked install at the worker view and compares its pushes
+  (`pushesAgree`: `ConstantInfo.beqP`, `ProjTable.beqP` — `Expr`'s
+  pointer-first memoised `==`, the guards by value — each with its
+  soundness lemma); a difference is an internal error naming the block
+  (exit 3).  `installDeclStep_defer` takes that comparison's success
+  (at a twin with an empty own environment, the worker view) where it
+  took `genIndStep_eq`; the proof is the twin lemma alone.
+* Dead and deleted: `genIndStep`, `genIndDeclC`, the `chk` parameter of
+  `checkIndDeclC`/`checkBlockKS`/`checkBlockPassS`/`checkBlockTailS`/
+  `shadowOpsC` and their twin lemmas, `ckC` (the cached runner is
+  `isoC`), `Verify/Cached/GenOnly.lean` (`GenRun` and the `_gen` chain)
+  and `tests/ConLecheTests/GenOnlyTests.lean`.  `isoC` stays: no
+  statement needs it any more, only the cached simulation proofs as
+  written; running the checks in the shared memo would recover the
+  ~1.3 % of init-prelude #410 measured for the isolation (follow-up).
+* **The persistent marks.**  A stored table's guard thunk reaches the
+  worker view, whose slots are thunks over the install's promises: the
+  installer's `markPersistent` of its result hung on them
+  (`lean_mark_persistent` waits for the tasks it reaches; the first run
+  of init-prelude at `--jobs=8` deadlocked there), and the phase
+  boundary's mark of the index would race with the workers that still
+  count them (#411's finding).  So a stored block's install result marks
+  only its constants, and at `--jobs>1` the phase boundary marks the
+  index and the constant list, not the tables (they stay counted;
+  `--jobs=1` marks everything as before).  Measured below: no loss.
+* Tests: `DeferTests` folds with the stored install against the checked
+  fold on the six accepted streams (same environment, every job passes —
+  so the reading agrees with the checked install there), the eleven
+  rejected streams (same verdict and position), and a tampered stored
+  install (a flipped unit-likeness bit) failing its job as internal
+  (`tamperedFails`, two streams).  No stream can trigger the exit 3 (the
+  reading is the checked install's by construction), so it is tested
+  in the library, as §7 planned.
+
+**Verdicts.**  e2e 499/499 as pinned at the default `--jobs`; init-full
+and init-prelude accepted at `--jobs=8` (every block's job agreeing);
+the battery's `--jobs=1`/`--jobs=4` sweeps below.
+
+**Numbers** (`instructions:u`, `--verified`, one run each; base =
+`agent/427-installer` 4d37c03e6, new = 58e35d688; the `--jobs=1` path
+is Phase 5's alone, the serial loop still runs the checked step):
+
+| stream | `--jobs=1` base | Δ | `--jobs=8` base | Δ |
+|---|---|---|---|---|
+| init-full | 379.441 G | −0.02 % | 393.189 G | −0.24 % |
+| init-prelude | 1.8414 G | +1.95 % | 2.1812 G | −1.10 % |
+| grind-ring-5 | 15.167 G | +0.24 % | 15.811 G | −0.61 % |
+| app-lam, beta-ladder, let-ladder | 22.07 / 4.84 / 2.56 G | ±0.00 % | 22.45 / 4.91 / 2.65 G | −0.00 / +0.19 / −0.16 % |
+| the other twelve perf streams | | −0.18 … +0.17 % | | −4.81 … −0.32 % |
+
+At `--jobs=1` the numbers are §6's (the stored-recursor comparisons of
+Phase 2; Phase 5's thunk costs nothing measurable).  At `--jobs=8` the
+block is no longer generated twice: init-prelude goes from §6's +2.04 %
+to −1.10 %, the small streams (whose prelude blocks are most of the
+work) gain 0.3–4.8 %.
+
+**Gates on the head**: `lake build`, `lake test` warning-free (axioms
+pinned); layering, trust surface, no-local-paths, shake (one proposal,
+`StoredInstall`'s import narrowed to `CheckerC`), overview and
+whitepaper links (repointed), quote gate, fragment gate.
+`tests/arena.sh` in full under the 8 GB guard (peak anon 2.2 GB): every
+gate above, pindump, challenge, selfcheck 48 669 declarations, axioms
+pinned, arena tutorial 90/92 as before, e2e 499/499, the trusted,
+`--jobs=1` and `--jobs=4` sweeps without divergence.
+
+**Not yet — Phase 4** (def-headed formers at their stored type).  What
+this session found for it: the model's `FormerData`
+(`Model/Inductives/StructFrameKit.lean`) is the syntactic reading of
+the stored former type — `read` is `denote … cvT.type = some (mkPisAV
+pps (.sort s))` and `syn` its `stripPis` shape — and every later stage
+consumes its `pps`; that is #195's design (B), costed then at two to
+three days.  The cheapest route seen: keep `FormerData` over the
+internal whnf'd telescope `cvTa` (still computed and checked, never
+stored) and add, at the install, the one fact that the STORED type
+reads to the same set (`interp ⟦cvT.type⟧ = interp ⟦cvTa.type⟧`, from
+the formers' `isDefEq` of the two — a new check — and `defeq_sound`),
+so that `EnvModelM.mem_type` at the former moves by that equality as
+`storedSwap_sem` moves a recursor's; the syntactic readers of the
+installed former (`IndCapsWF`'s arities, nested positivity's
+`targetOutsideInst`/`nestInstType` on a def-headed container, the
+index sorts) then read the internal telescope where they run inside
+the block and the recursor's major premise where they run later.  With
+Phase 4, `storedReadable` drops its def-headed clause and the stored
+install reads such a block too.
