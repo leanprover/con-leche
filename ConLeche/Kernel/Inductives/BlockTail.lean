@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.GenRec
+public import ConLeche.Kernel.Inductives.StoredRecs
 
 @[expose] public section
 
@@ -122,8 +122,9 @@ def checkBlockTables (p : BlockShape) :
 
 /-- **The install after the pass**: the
 index binders' sorts, the constructors consed,
-the recursor stage, the recursors consed at their majors, and the
-projection tables. -/
+the recursor stage, the STORED recursors against the generated ones
+(`storedRecsCheck`, at the generated install), the stored recursors
+consed at their majors, and the projection tables. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
     (q : BlockPass Env) : m Env := do
   let p := q.p
@@ -131,7 +132,11 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds) q.params
     q.tbl.toList q.rd q.cls block q.cvTas
-  let env₃ := consBlockRecsT env₂.find? p.toBlockShape 0 out env₂
+  -- the stored recursors, against the generated ones at the generated
+  -- install (task #431): what is installed
+  storedRecsCheck id ops .plain
+    (mkFEnv (consBlockRecsT env₂.find? p.toBlockShape 0 out env₂)) p.recs out
+  let env₃ := consBlockRecsT env₂.find? p.toBlockShape 0 (storedOut p.recs out) env₂
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
 

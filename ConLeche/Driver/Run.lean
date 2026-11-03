@@ -3,7 +3,6 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
-public import ConLeche.Driver.RecRules
 public import ConLeche.Driver.OwnerParse
 
 /-!
@@ -159,12 +158,6 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     printStats err (tParse - t0) (now - tParse) none (← instRep) instLabel none (fun _ => "")
     return .error e
   | .ok ⟨(n, fe, pend), D, r⟩ =>
-    -- the records' recursor rules agree with the installed (generated)
-    -- ones (`recRulesAgree`, task #386): a guard, nothing installed
-    if let .error e := recRulesAgree mode fe ds then
-      let now ← IO.monoMsNow
-      heartbeat s!"recursor rules disagree at {e.2}/{total} t={secs (now - t0)}s"
-      return .error ((ConLeche.Cached.blockFailure mode ConLeche.natOpPinSets D).getD e)
     -- the check phase's jobs: the recorded value checks and the deferred
     -- block checks, in fold order
     let J : Jobs := ⟨fe, pend, D, ConLeche.Cached.jobOrder pend D⟩

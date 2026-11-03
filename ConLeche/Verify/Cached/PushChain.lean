@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.AgreeFloor
 public import ConLeche.Verify.EnvBound
+import ConLeche.Verify.Inductives.StoredRecsInv
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
 
@@ -393,14 +394,19 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
     obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
     rw [← h₁.find?]
     exact hfrs c hc
-  refine Yields.bind' (genRecCheckS_fresh mode _ p _ _ _ _ _ block cvTas)
+  refine Yields.bind' (Yields.and (genRecCheckS_fresh mode _ p _ _ _ _ _ block cvTas)
+      (genRecCheck_names (shadowOpsC mode) rfl _ p.toBlockShape _ _ _ _ _ cvTas block))
     fun out hrs => ?_
-  refine checkBlockTablesF_push _ _ (pushAll_blockRecInfosTF_push _ _ h₂ ⟨hrs.1, ?_⟩)
+  refine Yields.bind fun _ => ?_
+  have hnm := storedOut_map_name (recs := p.recs) hrs.2.2.1
+  refine checkBlockTablesF_push _ _ (pushAll_blockRecInfosTF_push _ _ h₂ ⟨?_, ?_⟩)
     (fun x hx => hmem x.1 (List.of_mem_zip hx).1)
+  · rw [hnm]; exact hrs.1.1
   intro n hn
+  rw [hnm] at hn
   obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hn
   rw [← h₂.find?]
-  exact hrs.2 r hr
+  exact hrs.1.2 r hr
 
 /-- **The uniform install at k members keeps the chain**. -/
 theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}

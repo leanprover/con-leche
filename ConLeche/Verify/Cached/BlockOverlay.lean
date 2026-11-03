@@ -132,6 +132,14 @@ theorem classFeROvl_find? {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
   unfold classFeROvl classFeR
   rw [consBlockRecsBareF_eq_pushAll, find?_overlay_pushAll h]
 
+/-- An overlay answers the table lookups as the pushed index does. -/
+theorem findTable?_overlay_pushAll {fe : FEnv} (h : fe.ovl = []) (cis : List ConstantInfo) :
+    (fe.overlay cis.reverse).findTable? = (FEnv.pushAll cis fe).findTable? := by
+  funext T
+  unfold FEnv.findTable?
+  rw [find?_overlay_pushAll h, FEnv.rawTable?_pushAll]
+  rfl
+
 /-- The overlay leaves the table map and the base alone. -/
 theorem classFeROvl_rawTable? (fe : FEnv) (p : BlockShape)
     (Ms : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat) :
@@ -153,6 +161,56 @@ theorem classFeROvl_env {fe : FEnv} (h : fe.ovl = []) (p : BlockShape)
     (classFeROvl p Ms cvGs recCls fe).env = (classFeR p Ms cvGs recCls fe).env := by
   unfold classFeROvl classFeR
   rw [consBlockRecsBareF_eq_pushAll, env_overlay_pushAll fe h]
+
+/-- The cached operations read their index through `find?` alone. -/
+theorem sharedOpsC_congr {mode : CheckMode} {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) :
+    sharedOpsC mode fe₁ = sharedOpsC mode fe₂ := by
+  unfold sharedOpsC opE opB opS
+  simp only [coreKnotI_congr hfe htb]
+
+/-- The resolution guard reads the index through `find?` alone. -/
+theorem constsResolveF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
+    ∀ e : Expr, e.constsResolveF fe₁ = e.constsResolveF fe₂
+  | .bvar _ | .sort _ => rfl
+  | .lit (.natVal _) | .lit (.strVal _) | .const _ _ => by
+    simp only [Expr.constsResolveF, hfe]
+  | .fvar _ ty => by simp only [Expr.constsResolveF, constsResolveF_congr hfe ty]
+  | .app f a => by
+    simp only [Expr.constsResolveF, constsResolveF_congr hfe f, constsResolveF_congr hfe a]
+  | .lam ty b | .forallE ty b => by
+    simp only [Expr.constsResolveF, constsResolveF_congr hfe ty, constsResolveF_congr hfe b]
+  | .letE ty v b => by
+    simp only [Expr.constsResolveF, constsResolveF_congr hfe ty, constsResolveF_congr hfe v,
+      constsResolveF_congr hfe b]
+  | .proj s _ e => by simp only [Expr.constsResolveF, hfe, constsResolveF_congr hfe e]
+
+/-- The stored recursors' check (task #431) reads its index through
+`resolve` and `env` alone. -/
+theorem storedRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+    {ck : m Unit → m Unit} {ops : CheckerOps m} {w : StructWalkers} {fe₁ fe₂ : FEnv}
+    (hres : w.resolve fe₁ = w.resolve fe₂) (henv : fe₁.env = fe₂.env) :
+    storedRecsCheck ck ops w fe₁ = storedRecsCheck ck ops w fe₂ := by
+  have hrules : ∀ rec lps rs gs, storedRulesCheck ops w fe₁ rec lps rs gs
+      = storedRulesCheck ops w fe₂ rec lps rs gs := by
+    intro rec lps rs
+    induction rs with
+    | nil => intro gs; cases gs <;> rfl
+    | cons r rs ih =>
+      intro gs
+      cases gs with
+      | nil => rfl
+      | cons g gs => simp only [storedRulesCheck, ruleAgree, hres, henv, ih]
+  funext recs
+  induction recs with
+  | nil => funext out; cases out <;> rfl
+  | cons rc rcs ih =>
+    funext out
+    cases out with
+    | nil => rfl
+    | cons g gs =>
+      simp only [storedRecsCheck, storedRecCheck, storedRecCompare, recTyCheck, hres, henv,
+        hrules, ih]
 
 /-! ## The rule stage reads `feR` through `resolve` and `env` -/
 

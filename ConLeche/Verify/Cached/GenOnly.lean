@@ -233,6 +233,31 @@ theorem genRecCheck_gen (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (params 
     | ((with_reducible apply GenRun.ite) <;> intro)
     | split)
 
+/-- The stored recursors against the generated ones (task #431): the
+shape guards are the same, the comparison is a check. -/
+theorem storedRecCheck_gen (w : StructWalkers) (fe : FEnv) (rc : RecShape)
+    (g : ConstantVal × TargetMajor × List Expr) :
+    GenRun (storedRecCheck (ckC true) ops w fe rc g)
+      (storedRecCheck (ckC false) ops w fe rc g) := by
+  unfold storedRecCheck
+  repeat' (first
+    | with_reducible exact GenRun.refl
+    | with_reducible exact GenRun.ckC _
+    | ((with_reducible apply GenRun.bind (GenRun.ckC _)); intro)
+    | ((with_reducible apply GenRun.bind_same); intro)
+    | ((with_reducible apply GenRun.ite) <;> intro)
+    | split)
+
+theorem storedRecsCheck_gen (w : StructWalkers) (fe : FEnv) :
+    ∀ recs out, GenRun (storedRecsCheck (ckC true) ops w fe recs out)
+      (storedRecsCheck (ckC false) ops w fe recs out)
+  | [], [] => GenRun.refl
+  | rc :: rcs, g :: gs => by
+    unfold storedRecsCheck
+    exact GenRun.bind (storedRecCheck_gen w fe rc g) fun _ => storedRecsCheck_gen w fe rcs gs
+  | [], _ :: _ => by unfold storedRecsCheck; exact GenRun.refl
+  | _ :: _, [] => by unfold storedRecsCheck; exact GenRun.refl
+
 theorem checkBlockPassS_gen (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     GenRun (checkBlockPassS mode fe p₀ isRec true) (checkBlockPassS mode fe p₀ isRec false) := by
   unfold checkBlockPassS
@@ -243,7 +268,9 @@ theorem checkBlockTailS_gen (block : List ConstantInfo) (q : BlockPass FEnv) :
     GenRun (checkBlockTailS mode block q true) (checkBlockTailS mode block q false) := by
   unfold checkBlockTailS
   exact GenRun.bind_same fun _ => GenRun.bind_same fun _ =>
-    GenRun.bind (genRecCheck_gen ..) fun _ => GenRun.refl
+    GenRun.bind (genRecCheck_gen ..) fun _ =>
+      GenRun.bind (storedRecsCheck_gen ..) fun _ => GenRun.refl
+
 
 theorem checkBlockKS_gen (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
     GenRun (checkBlockKS mode fe block p₀ true) (checkBlockKS mode fe block p₀ false) := by

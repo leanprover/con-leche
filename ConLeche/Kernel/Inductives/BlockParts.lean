@@ -90,9 +90,11 @@ structure RecShape where
   auxiliary recursor, whose major is a CONTAINER: the recursor stage
   resolves it as an outside major (`targetMajorOf`). -/
   tgt : Nat
-  /-- the recursor's rules' right-hand sides as exported, in the
-  constructor order of its target member -/
-  rhss : List Expr
+  /-- the recursor's rules as exported (constructor, field count,
+  right-hand side; the install-computed fields at their parse
+  placeholders), in the record's order: what the install stores once
+  they agree with the generated ones (`storedRecsAgree`, task #431) -/
+  rules : List RecRule
   deriving Repr, Inhabited
 
 /-- The pieces of a recognised block at any number of members: the
@@ -423,7 +425,7 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           let recsL := rs.map
             fun (r : ConstantVal × Nat × Nat × List RecRule) =>
               (⟨r.1, r.2.2.1, r.2.1, recTargetOf names r.2.1 r.1.type,
-                r.2.2.2.map RecRule.rhs⟩ : RecShape)
+                r.2.2.2⟩ : RecShape)
           -- WHICH ELIMINATOR the recursors are: the LARGE one carries a
           -- fresh elimination level parameter in front of the block's.
           -- Read off member 0's; the others are `blockRecLpsOk`'s, thrown

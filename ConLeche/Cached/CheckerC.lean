@@ -191,7 +191,14 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) (chk : Bool
   flushC
   let out ← genRecCheck (shadowOpsC mode chk) fe₂ p.toBlockShape
     (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
-  let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 out
+  -- the stored recursors against the generated ones (task #431): the
+  -- checks run at the generated recursors as an OVERLAY on the
+  -- constructors' index (read-only, sharing it), each in a memo of its
+  -- own; the overlay is dead once the comparison returns, before the
+  -- stored recursors are pushed
+  let feG := fe₂.overlay (blockRecInfosTF fe₂.find? p.toBlockShape 0 out).reverse
+  storedRecsCheck (ckC chk) (sharedOpsC mode feG) structWalkersC feG p.recs out
+  let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 (storedOut p.recs out)
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
 

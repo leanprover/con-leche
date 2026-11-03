@@ -863,13 +863,93 @@ theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat
     blockNestCtx_datF, checkBlockClasses_datF, checkBlockPositivity_datF, nestSeeds_datF,
     unwrapOr_atF]
 
+theorem recTyAgree_datF (env : Env) (rec : Name) (F : Nat) :
+    ∀ (n d : Nat) (s g : Expr),
+      (recTyAgree (fueledOpsM mode) env rec n d s g).val F =
+        recTyAgree (fueledOps mode F) env rec n d s g
+  | 0, d, s, g => by
+    unfold recTyAgree
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_isDefEq_atF]
+  | n + 1, d, s, g => by
+    cases s <;> cases g <;>
+      simp only [recTyAgree, FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
+        FueledM.atF_ite, fueledOpsM_isDefEq_atF, recTyAgree_datF env rec F n]
+
+theorem recTyCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (n : Nat) (s g : Expr)
+    (F : Nat) :
+    (recTyCheck (fueledOpsM mode) .plain fe rec lps n s g).val F =
+      recTyCheck (fueledOps mode F) .plain fe rec lps n s g := by
+  unfold recTyCheck
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    fueledOpsM_inferType_atF, fueledOpsM_ensureSort_atF, recTyAgree_datF]
+
+theorem ruleAgree_datF (fe : FEnv) (rec ctor : Name) (lps : List Name) (s g : Expr)
+    (F : Nat) :
+    (ruleAgree (fueledOpsM mode) .plain fe rec ctor lps s g).val F =
+      ruleAgree (fueledOps mode F) .plain fe rec ctor lps s g := by
+  unfold ruleAgree
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    fueledOpsM_inferType_atF, fueledOpsM_isDefEq_atF]
+
+theorem storedRulesShape_datF (rec : Name) (F : Nat) :
+    ∀ (rs : List RecRule) (cs : List (ConstantVal × Nat)),
+      (storedRulesShape (m := FueledM) rec rs cs).val F = storedRulesShape (m := CheckM) rec rs cs
+  | [], [] => rfl
+  | r :: rs, c :: cs => by
+    unfold storedRulesShape
+    simp only [FueledM.atF_bind, FueledM.atF_throw, FueledM.atF_ite,
+      storedRulesShape_datF rec F rs cs]
+  | [], _ :: _ => by unfold storedRulesShape; simp only [FueledM.atF_throw]
+  | _ :: _, [] => by unfold storedRulesShape; simp only [FueledM.atF_throw]
+
+theorem storedRulesCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (F : Nat) :
+    ∀ (rs : List RecRule) (gs : List Expr),
+      (storedRulesCheck (fueledOpsM mode) .plain fe rec lps rs gs).val F =
+        storedRulesCheck (fueledOps mode F) .plain fe rec lps rs gs
+  | [], [] => by unfold storedRulesCheck; rfl
+  | [], _ :: _ => by unfold storedRulesCheck; simp only [FueledM.atF_throw]
+  | _ :: _, [] => by unfold storedRulesCheck; simp only [FueledM.atF_throw]
+  | r :: rs, g :: gs => by
+    unfold storedRulesCheck
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, ruleAgree_datF,
+      storedRulesCheck_datF fe rec lps F rs gs]
+
+theorem storedRecCompare_datF (fe : FEnv) (rc : RecShape)
+    (g : ConstantVal × TargetMajor × List Expr) (F : Nat) :
+    (storedRecCompare (fueledOpsM mode) .plain fe rc g).val F =
+      storedRecCompare (fueledOps mode F) .plain fe rc g := by
+  unfold storedRecCompare
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, recTyCheck_datF,
+    storedRulesCheck_datF]
+
+theorem storedRecCheck_datF (fe : FEnv) (rc : RecShape)
+    (g : ConstantVal × TargetMajor × List Expr) (F : Nat) :
+    (storedRecCheck id (fueledOpsM mode) .plain fe rc g).val F =
+      storedRecCheck id (fueledOps mode F) .plain fe rc g := by
+  unfold storedRecCheck
+  simp only [id_eq, FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    storedRulesShape_datF, storedRecCompare_datF]
+
+theorem storedRecsCheck_datF (fe : FEnv) (F : Nat) :
+    ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)),
+      (storedRecsCheck id (fueledOpsM mode) .plain fe recs out).val F =
+        storedRecsCheck id (fueledOps mode F) .plain fe recs out
+  | [], [] => rfl
+  | rc :: rcs, g :: gs => by
+    unfold storedRecsCheck
+    simp only [FueledM.atF_bind, storedRecCheck_datF, storedRecsCheck_datF fe F rcs gs]
+  | [], _ :: _ => by unfold storedRecsCheck; simp only [FueledM.atF_throw]
+  | _ :: _, [] => by unfold storedRecsCheck; simp only [FueledM.atF_throw]
+
 theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
     (F : Nat) :
     (checkBlockTail (fueledOpsM mode) block q).val F =
       checkBlockTail (fueledOps mode F) block q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockIdxSorts_datF, checkBlockRec_datF, checkBlockTables_datF]
+    checkBlockIdxSorts_datF, checkBlockRec_datF, storedRecsCheck_datF, checkBlockTables_datF]
+
 
 /-- **The uniform install at fuel `F`, at k members**: the same program
 at the two monads, stage by stage. -/

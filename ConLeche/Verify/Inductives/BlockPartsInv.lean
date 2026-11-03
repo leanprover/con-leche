@@ -156,7 +156,7 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
       (fun a => ⟨a.1.1, a.1.2, a.2⟩) ∧
     p.recs = rs.map (fun r =>
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf p.memberNames r.2.1 r.1.type,
-        r.2.2.2.map RecRule.rhs⟩)
+        r.2.2.2⟩)
 
 /-- The shared tail of `blockShape?_inv`: everything below the
 eliminator reading, which the two branches differ in only by `elim`
@@ -183,7 +183,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
       (fun a => ⟨a.1.1, a.1.2, a.2⟩))
     (hrecs : p.recs = rs.map fun r =>
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf ((cvT0 :: cvTs').map (·.name)) r.2.1 r.1.type,
-        r.2.2.2.map RecRule.rhs⟩) :
+        r.2.2.2⟩) :
     BlockShapeOk nPd block p := by
   have hlenN := blockMemberCounts?_length hmc
   obtain ⟨e1, e2, e3⟩ := blockMembers_proj (cvTs := cvT0 :: cvTs') (nIdxs := nIdxs)

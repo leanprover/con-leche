@@ -69,13 +69,6 @@ theorem sharedOpsRuleR_envFree (mode : CheckMode) (fe : FEnv) :
     EnvFree (sharedOpsRuleR mode fe) :=
   ⟨fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl⟩
 
-/-- The cached operations read their index through `find?` alone. -/
-theorem sharedOpsC_congr {mode : CheckMode} {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) :
-    sharedOpsC mode fe₁ = sharedOpsC mode fe₂ := by
-  unfold sharedOpsC opE opB opS
-  simp only [coreKnotI_congr hfe htb]
-
 /-! ## Twin indices -/
 
 /-- **Two indices that answer alike and grow alike**: the same
@@ -169,21 +162,6 @@ theorem Twin.pushDelta {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) (L : List Con
   Twin.pushTables Q (h.pushAll L)
 
 /-! ## Read-only guards over the index -/
-
-theorem constsResolveF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
-    ∀ e : Expr, e.constsResolveF fe₁ = e.constsResolveF fe₂
-  | .bvar _ | .sort _ => rfl
-  | .lit (.natVal _) | .lit (.strVal _) | .const _ _ => by
-    simp only [Expr.constsResolveF, hfe]
-  | .fvar _ ty => by simp only [Expr.constsResolveF, constsResolveF_congr hfe ty]
-  | .app f a => by
-    simp only [Expr.constsResolveF, constsResolveF_congr hfe f, constsResolveF_congr hfe a]
-  | .lam ty b | .forallE ty b => by
-    simp only [Expr.constsResolveF, constsResolveF_congr hfe ty, constsResolveF_congr hfe b]
-  | .letE ty v b => by
-    simp only [Expr.constsResolveF, constsResolveF_congr hfe ty, constsResolveF_congr hfe v,
-      constsResolveF_congr hfe b]
-  | .proj s _ e => by simp only [Expr.constsResolveF, hfe, constsResolveF_congr hfe e]
 
 theorem stdAxiomOkF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) (cv : ConstantVal) :
     stdAxiomOkF fe₁ cv = stdAxiomOkF fe₂ cv := by
@@ -972,6 +950,40 @@ theorem classRecsRulesOk_twin (h : EnvFree ops) {feT₁ feT₂ feR₁ feR₂ : F
   | [], _ => by unfold classRecsRulesOk; rfl
   | _ :: _, [] => by unfold classRecsRulesOk; rfl
 
+theorem recTyAgree_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name) :
+    ∀ n d s g, recTyAgree ops env₁ rec n d s g = recTyAgree ops env₂ rec n d s g
+  | 0, d, s, g => by
+    simp only [recTyAgree, h.isDefEq env₁, h.isDefEq env₂]
+  | n + 1, d, s, g => by
+    cases s <;> cases g <;>
+      simp only [recTyAgree, h.isDefEq env₁, h.isDefEq env₂, recTyAgree_envFree h env₁ env₂ rec n]
+
+/-- The stored recursors' check (task #431) reads its index through
+`resolve` alone, and through operations that ignore their environment. -/
+theorem storedRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
+    (hR : w.resolve fe₁ = w.resolve fe₂) :
+    ∀ recs out, storedRecsCheck ck ops w fe₁ recs out = storedRecsCheck ck ops w fe₂ recs out
+  | [], [] => rfl
+  | rc :: rcs, g :: gs => by
+    have ih := storedRecsCheck_twin h hR rcs gs
+    have hrules : ∀ lps rec rs gs', storedRulesCheck ops w fe₁ rec lps rs gs'
+        = storedRulesCheck ops w fe₂ rec lps rs gs' := by
+      intro lps rec rs
+      induction rs with
+      | nil => intro gs'; cases gs' <;> rfl
+      | cons r rs ihr =>
+        intro gs'
+        cases gs' with
+        | nil => rfl
+        | cons g' gs' =>
+          simp only [storedRulesCheck, ruleAgree, hR, h.inferType fe₁.env, h.inferType fe₂.env,
+            h.isDefEq fe₁.env, h.isDefEq fe₂.env, ihr]
+    simp only [storedRecsCheck, storedRecCheck, storedRecCompare, recTyCheck, ih, hrules, hR,
+      h.inferType fe₁.env, h.inferType fe₂.env, h.ensureSort fe₁.env, h.ensureSort fe₂.env,
+      recTyAgree_envFree h fe₁.env fe₂.env]
+  | [], _ :: _ => rfl
+  | _ :: _, [] => rfl
+
 end Rules
 
 section RecStageC
@@ -1176,8 +1188,33 @@ theorem checkBlockTailS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ 
   have ht₂ : Twin (consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁))
       (consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)) := by
     rw [hL₂, hL₂]; exact htL.pushAll L₂
+  -- the stored recursors' check, at the generated recursors' overlays
+  have hO : ∀ X : List ConstantInfo,
+      storedRecsCheck (ckC chk)
+          (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
+            X.reverse)) structWalkersC
+          ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
+        = storedRecsCheck (ckC chk)
+          (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
+            X.reverse)) structWalkersC
+          ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
+    intro X
+    have hf : ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse).find?
+        = ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse).find? := by
+      rw [find?_overlay_pushAll ht₂.idx₁.1, find?_overlay_pushAll ht₂.idx₂.1]
+      exact (ht₂.pushAll X).find
+    have htb : ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
+        X.reverse).findTable?
+        = ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
+          X.reverse).findTable? := by
+      rw [findTable?_overlay_pushAll ht₂.idx₁.1, findTable?_overlay_pushAll ht₂.idx₂.1]
+      exact (ht₂.pushAll X).findTable
+    funext recs out
+    rw [sharedOpsC_congr hf htb]
+    exact storedRecsCheck_twin (sharedOpsC_envFree mode _)
+      (constsResolveFC_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
-      (FEnv.pushDelta L Q fe₂), genRecCheck_twin chk ht₂, blockRecInfosTF_twin ht₂.find]
+      (FEnv.pushDelta L Q fe₂), genRecCheck_twin chk ht₂, blockRecInfosTF_twin ht₂.find, hO]
   relrun
   rw [hL₂, hL₂]
   rename_i out
@@ -1185,6 +1222,7 @@ theorem checkBlockTailS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ 
   obtain ⟨L₃, Q₃, rfl, rfl⟩ := hr
   exact (((PushedFrom.refl fe₁ fe₂).trans ⟨L, Q, rfl, rfl⟩).trans
     (PushedFrom.pushAll _ _ L₂)).trans (PushedFrom.pushAll _ _ _) |>.trans ⟨L₃, Q₃, rfl, rfl⟩
+
 
 theorem checkBlockKS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (p₀ : BlockParts) :
