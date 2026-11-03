@@ -360,8 +360,9 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 /-- **The tail, inverted**: every member's index binders' sorts, the
 constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
-recursors consed with their rules at their majors, and the projection
-tables. -/
+stored recursors against the generated ones at the generated install
+(`storedRecsCheck`, task #431), the stored recursors consed
+with their rules at their majors, and the projection tables. -/
 theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
     {F : Nat}
     (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
@@ -372,10 +373,14 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p (blockNestedBit q.p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls block
           q.cvTas = .ok out ∧
+      storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
+        (mkFEnv (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
+          q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out
+        = .ok () ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
-        (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape 0 out
-          (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
+        (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape 0
+          (storedOut q.p.recs out) (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
   try simp only [bind, Except.bind] at h
@@ -393,6 +398,14 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   | ok out =>
   rw [hRec] at h
   dsimp only at h
-  exact ⟨isorts, out, rfl, rfl, h⟩
+  cases hS : storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
+      (mkFEnv (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
+        q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out with
+  | error e => rw [hS] at h; exact nomatch h
+  | ok u =>
+  cases u
+  rw [hS] at h
+  dsimp only at h
+  exact ⟨isorts, out, rfl, rfl, hS, h⟩
 
 end ConLeche

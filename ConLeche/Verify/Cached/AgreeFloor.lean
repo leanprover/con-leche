@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Cached.Installed
 public import ConLeche.Cached.InstallSkel
+import ConLeche.Verify.Inductives.StoredRecsInv
 import ConLeche.Verify.Cached.BlockOverlay
 
 public section
@@ -575,9 +576,11 @@ theorem classRecTyOk_name (ops : CheckerOps CheckCM) (fe : FEnv) (g : ClassGen) 
   split
   case isFalse => exact Yields.ofThrowBind
   refine Yields.bind fun gty => ?_
+  refine Yields.bind' (Q := fun _ => fe.find? rc.cvR.name = none) ?_ fun _ hcv =>
+    Yields.pure ⟨rfl, hcv⟩
   refine Yields.bind' (classConstOk_fresh ops fe _) fun _ hcv => ?_
   yields
-  all_goals first | exact Yields.ofThrow | exact Yields.pure ⟨rfl, hcv⟩
+  all_goals first | exact Yields.ofThrow | exact Yields.pure hcv
 
 /-- Every recursor's generated type, against the records: one per
 record, in order, under its name; the classes cover the records. -/
@@ -764,12 +767,17 @@ theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
   refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ p.toBlockShape _ _ _ _ _ cvTas
       block)
     fun out hout => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   have hrs := pushAll_blockRecInfosTF_skelsT
       (consBlockCtorsF p.nP ctorsAs env₁).find? p.toBlockShape
-      p.recs 0 out _ _ (List.drop_zero (l := p.recs)).symm hout.2.1
+      p.recs 0 (storedOut p.recs out) _ _ (List.drop_zero (l := p.recs)).symm
+      (by rw [storedOut_length hout.2.1]; exact hout.2.1)
       (fun j o rc hoj hrc => by
+        obtain ⟨rc', g, hrc', hg, rfl⟩ := storedOut_getElem? hoj
         obtain ⟨o', hoj', hname, -⟩ := hout.2.2 j rc hrc
-        rw [hoj] at hoj'
+        rw [hg] at hoj'
         obtain rfl := Option.some.inj hoj'
         exact hname) h₂
   exact checkBlockTablesF_skels p.toBlockShape _ hrs
@@ -968,6 +976,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
        · exact Yields.ofThrow)
   | indDecl block nP =>
     simp only []
+    unfold checkIndDeclC
     -- task #293: a block the fold recognises as a pinned one installs
     -- the pin; the declared parameter count (task #228) below it is a
     -- guard whose `throw` installs nothing

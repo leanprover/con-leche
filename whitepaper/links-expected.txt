@@ -2949,26 +2949,26 @@
    102    elim : Name
    103    deriving DecidableEq
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L104-L122
-   104  structure BlockShape where
-   105    /-- the members in block order -/
-   106    members : List MemberShape
-   107    /-- the block's recursors, in the order the stream exports them (any
-   108    number, assigned to their members by their majors) -/
-   109    recs : List RecShape
-   110    /-- the shared parameter count -/
-   111    nP : Nat
-   112    /-- the recursors' fresh elimination level parameter (`large` only;
-   113    `.anonymous` for a small eliminator) -/
-   114    elim : Name
-   115    /-- the result sort (member 0's; the others are `Level.isEquiv` to it) -/
-   116    resSort : Level
-   117    /-- large eliminator (a fresh elimination level parameter in front) -/
-   118    large : Bool
-   119    /-- the result sort is provably `Prop` -/
-   120    isProp : Bool
-   121    deriving Repr, Inhabited
-   122  
+== ConLeche/Kernel/Inductives/BlockParts.lean#L106-L124
+   106  structure BlockShape where
+   107    /-- the members in block order -/
+   108    members : List MemberShape
+   109    /-- the block's recursors, in the order the stream exports them (any
+   110    number, assigned to their members by their majors) -/
+   111    recs : List RecShape
+   112    /-- the shared parameter count -/
+   113    nP : Nat
+   114    /-- the recursors' fresh elimination level parameter (`large` only;
+   115    `.anonymous` for a small eliminator) -/
+   116    elim : Name
+   117    /-- the result sort (member 0's; the others are `Level.isEquiv` to it) -/
+   118    resSort : Level
+   119    /-- large eliminator (a fresh elimination level parameter in front) -/
+   120    large : Bool
+   121    /-- the result sort is provably `Prop` -/
+   122    isProp : Bool
+   123    deriving Repr, Inhabited
+   124  
 
 == whitepaper/Fragment/Spec.lean#L28-L42
     28  /-- A constructor field, as the positivity check classifies it
@@ -3049,22 +3049,30 @@
    102  /-- Stage 2, one constructor's type: the ordinary constant check (the
    103  constructor is stored AS DECLARED), the result
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L385-L399
-   385  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
-   386      (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
-   387    let ci := g.cls.getD c default
-   388    unless rc.tgt == ci.member.getD k do
-   389      throw (.invalid "generated recursor: the recursor record's member is not its class's")
-   390    unless rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + ci.nIdx do
-   391      throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
-   392        not the generated one")
-   393    let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
-   394    let cvG := { rc.cvR with type := gty }
-   395    classConstOk ops fe cvG
-   396    unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
-   397      throw (.invalid s!"generated recursor: the type of {rc.cvR.name} is not the generated one \
-   398        (official: invalid recursor)")
-   399    pure cvG
+== ConLeche/Kernel/Inductives/GenRec.lean#L383-L405
+   383  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
+   384    classConstOk ops fe cvG
+   385    unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
+   386      throw (.invalid s!"generated recursor: the type of {cvG.name} is not the generated one \
+   387        (official: invalid recursor)")
+   388  
+   389  /-- **One recursor's generated type, checked and compared**: the record's
+   390  member, rule prefix and major index are the generated ones; the generated
+   391  type is checked as a constant under the record's name and level
+   392  parameters (`checkConstantValF`) and must be `isDefEq` to the stream's
+   393  checked type `cvRi`.  Returns the generated constant (what is stored). -/
+   394  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen)
+   395      (k : Nat) (rc : RecShape) (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
+   396    let ci := g.cls.getD c default
+   397    unless rc.tgt == ci.member.getD k do
+   398      throw (.invalid "generated recursor: the recursor record's member is not its class's")
+   399    unless rc.rP == g.nP + g.slots.length && rc.mI == rc.rP + ci.nIdx do
+   400      throw (.invalid "generated recursor: the recursor record's rule prefix or major index is \
+   401        not the generated one")
+   402    let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
+   403    let cvG := { rc.cvR with type := gty }
+   404    classRecTyCheck ops fe cvRi cvG
+   405    pure cvG
 
 == ConLeche/Kernel/Inductives/ClassRead.lean#L24-L32
     24  This file READS that data off the recursor types, syntactically, and
@@ -3077,11 +3085,14 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L537-L540
-   537  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
-   538      (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
-   539      (cvTas : List ConstantVal) (block : List ConstantInfo) :
-   540      m (List (ConstantVal × TargetMajor × List Expr)) := do
+== ConLeche/Kernel/Inductives/StoredRecs.lean#L187-L193
+   187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
+   188      (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+   189    | rc :: rcs, g :: gs => do
+   190      storedRecCheck ops w fe rc g
+   191      storedRecsCheck ops w fe rcs gs
+   192    | [], [] => pure ()
+   193    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
 == whitepaper/Fragment/Decl.lean#L218-L220
    218  /-- The motive's type, under the parameters:
@@ -3188,10 +3199,10 @@
     83    p.resSort.isNeverZero ||
     84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L548-L550
-   548    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
-   549      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
-   550        (official: elim_only_at_universe_zero)")
+== ConLeche/Kernel/Inductives/GenRec.lean#L560-L562
+   560    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+   561      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
+   562        (official: elim_only_at_universe_zero)")
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L85-L99
     85  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
@@ -3266,13 +3277,13 @@
    763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
    764    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L141-L146
-   141  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
-   142      m Env := do
-   143    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
-   144      throw (.invalid "direct rec: duplicate constructor")
-   145    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
-   146    checkBlockTail ops block q
+== ConLeche/Kernel/Inductives/BlockTail.lean#L147-L152
+   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+   148      m Env := do
+   149    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+   150      throw (.invalid "direct rec: duplicate constructor")
+   151    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
+   152    checkBlockTail ops block q
 
 == whitepaper/Fragment/Decl.lean#L307-L312
    307  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -3282,29 +3293,30 @@
    311  are never read; the fragment infers the rule's type likewise). -/
    312  def ruleType (c : CtorSpec) : Expr := mkPis (S.ruleCtx c) (S.ruleBodyTy c)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L412-L433
-   412  /-- **One generated rule, installed** (as generated): resolved and typed
-   413  at the rule-less recursors' environment `feR` (its level parameters the
-   414  recursor's), its λ-telescope over the prefix and the fields `n` long,
-   415  its λ-domains resolving at the constructors' environment `feT`.
-   416  Returns the rule (stored). -/
-   417  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
-   418      (n : Nat) (gen : Expr) : m Expr := do
-   419    unless gen.looseBVarsBounded 0 && !gen.hasFvar do
-   420      throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
-   421    let genA := gen
-   422    unless genA.allLevelParamsDefined cvR.levelParams do
-   423      throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
-   424        parameter")
-   425    unless w.resolve feR genA do
-   426      throw (unresolvedConstsError s!"generated rule of {cvR.name}" genA)
-   427    let _ ← ops.inferType feR.env 0 genA
-   428    let (rbs, _) ← unwrapOr (genA.stripLams n)
-   429      (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
-   430        recursor's prefix and the constructor's fields")
-   431    unless rbs.all (fun b => w.resolve feT b) do
-   432      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" genA)
-   433    pure genA
+== ConLeche/Kernel/Inductives/GenRec.lean#L424-L446
+   424      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Unit := do
+   425    unless gen.looseBVarsBounded 0 && !gen.hasFvar do
+   426      throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
+   427    unless gen.allLevelParamsDefined cvR.levelParams do
+   428      throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
+   429        parameter")
+   430    unless w.resolve feR gen do
+   431      throw (unresolvedConstsError s!"generated rule of {cvR.name}" gen)
+   432    let _ ← ops.inferType feR.env 0 gen
+   433    let (rbs, _) ← unwrapOr (gen.stripLams n)
+   434      (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
+   435        recursor's prefix and the constructor's fields")
+   436    unless rbs.all (fun b => w.resolve feT b) do
+   437      throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" gen)
+   438  
+   439  /-- **One generated rule, installed** (as generated), after its check
+   440  (`classRuleCheck`).  Returns the rule (stored). -/
+   441  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+   442      (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Expr := do
+   443    classRuleCheck ops w feT feR cvR n gen
+   444    pure gen
+   445  
+   446  /-- A recursor's generated rules, one per constructor of its class. -/
 
 == whitepaper/Fragment/Decl.lean#L531-L572
    531  /-! ### What is stored -/
@@ -5222,13 +5234,13 @@
    180      ∃ m' : EnvModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls :=
    181    ⟨S.mInstall hpl hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L70-L75
-    70  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
-    71      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    72      (mp : EnvModelM V μ env)
-    73      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    74      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    75      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V μ env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L89-L98
     89  /-- **No closed term inhabits an empty inductive type.**  For a block
@@ -5671,15 +5683,15 @@
    613      rules.map fun rl => { rl with fire := fire }
    614    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L917-L924
-   917  def recFireComparands (rl : RecRule) (lps : List Name)
-   918      (us : List Level) (cvjLps : List Name) (args : List Expr)
-   919      (rP : Nat) : List Level × List Expr :=
-   920    match rl.fire with
-   921    | .nested lvls pins =>
-   922      (lvls.map (Level.subst lps us),
-   923       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-   924         (p.instantiateLevelParams lps us))
+== ConLeche/Kernel/CoreDefs.lean#L921-L928
+   921  def recFireComparands (rl : RecRule) (lps : List Name)
+   922      (us : List Level) (cvjLps : List Name) (args : List Expr)
+   923      (rP : Nat) : List Level × List Expr :=
+   924    match rl.fire with
+   925    | .nested lvls pins =>
+   926      (lvls.map (Level.subst lps us),
+   927       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+   928         (p.instantiateLevelParams lps us))
 
 == ConLeche/Rules/Rel.lean#L213-L224
    213        (iotaCase3 env.find? rl cvj
@@ -5700,12 +5712,12 @@
     83    p.resSort.isNeverZero ||
     84      (p.large && p.k == 1 && !nested && (p.numCtors == 0 || p.numCtors == 1))
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L546-L550
-   546    unless 0 < p.k do
-   547      throw (.invalid "generated recursor: the block declares no family")
-   548    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
-   549      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
-   550        (official: elim_only_at_universe_zero)")
+== ConLeche/Kernel/Inductives/GenRec.lean#L558-L562
+   558    unless 0 < p.k do
+   559      throw (.invalid "generated recursor: the block declares no family")
+   560    if p.large && !blockLargeElimAllowed p (nestedBit || Ms.any (·.member.isNone)) then
+   561      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
+   562        (official: elim_only_at_universe_zero)")
 
 == ConLeche/Kernel/Inductives/ClassRead.lean#L15-L32
     15  * the CLASSES — the types the family eliminates, one per MOTIVE of the
@@ -5778,11 +5790,11 @@
   1652        key.ds nPc cty st
   1653      nestSeeds ops env ctx ks st
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L440-L443
-   440    | x :: xs => do
-   441      let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
-   442        (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
-   443          stream omits (official: unknown constant)")
+== ConLeche/Kernel/Inductives/GenRec.lean#L451-L454
+   451    | x :: xs => do
+   452      let gen ← unwrapOr (classGenRule g recOf (cvR.levelParams.map .param) c x)
+   453        (.invalid s!"generated recursor: the rule of {x.cv.name} calls a class whose recursor the \
+   454          stream omits (official: unknown constant)")
 
 == tests/e2e/src/corner_nestind_f13_listrose.lean#L12-L15
     12  inductive RL (α : Type) : Type where
@@ -6197,11 +6209,11 @@
 
 >>> whitepaper/sections/07-left-out.typ
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L106-L109
-   106  /-- **The projection table at every STRUCTURE-LIKE member** (one
-   107  constructor, no index): the member's table; nothing at any other
-   108  member. -/
-   109  def checkBlockTables (p : BlockShape) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L107-L110
+   107  /-- **The projection table at every STRUCTURE-LIKE member** (one
+   108  constructor, no index): the member's table; nothing at any other
+   109  member. -/
+   110  def checkBlockTables (p : BlockShape) :
 
 == ConLeche/Rules/Rel.lean#L169-L185
    169    /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
@@ -6413,27 +6425,24 @@
    331        Red env d ttp (.sort v) → Level.isEquiv v .zero = some true →
    332        Red env d major fab
 
-== ConLeche/Cached/Installed.lean#L441-L446
-   441  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
-   442      (ds : Array Declaration) :
-   443      Except (CheckError × Nat) Env := do
-   444    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
-   445    checkPendingList mode p.2.1 p.2.2.toList
-   446    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L329-L334
+   329  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
+   330      (ds : Array Declaration) :
+   331      Except (CheckError × Nat) Env := do
+   332    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
+   333    checkPendingList mode p.2.1 p.2.2.toList
+   334    pure p.2.1.env
 
-== ConLeche/Cached/Installed.lean#L341-L352
-   341  The driver's check phase — the in-thread loop or a pool of workers —
-   342  runs `checkRecord` on every record.  Its result is the record's own
-   343  evidence: on an accept the `GroupChecked` fact of that record, on a
-   344  failure the error tagged with the record's fold position, the tag
-   345  `checkPendingList` gives.  A worker hands back exactly this (a `Nat`
-   346  and an erased proof, or the error), so the thread that computed a
-   347  check is irrelevant to what it proves, and the results of any number
-   348  of workers, in whatever order they finished, are assembled into
-   349  `∀ i, GroupChecked mode e i` by `collectChecks` — a walk over the
-   350  results in record order, which is also what makes the verdict of a
-   351  pool the verdict of the walk `checkPendingList`: the first failing
-   352  record in fold order.  Nothing here is `IO`. -/
+== ConLeche/Verify/Cached/Defer.lean#L223-L231
+   223  /-! ## The check phase's jobs
+   224  
+   225  The check phase runs two kinds of job: a recorded value check
+   226  (`checkPending`, the record's `GroupChecked` fact) and a deferred block
+   227  check (`blockCheck`, the block's `BlockCheck.Ok`).  The jobs are put in
+   228  FOLD ORDER (`jobOrder`, the two position-sorted arrays merged), run by
+   229  any number of workers in any order, and assembled by a walk in job
+   230  order that stops at the first failure (`collectJobs`): the verdict is
+   231  the first failing job in fold order, whatever the workers' timing. -/
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L40
     37  theorem checkDecls_sound (hμ : μ.isVerified = true)

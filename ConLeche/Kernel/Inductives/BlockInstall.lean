@@ -111,8 +111,8 @@ def blockRawRec (p : BlockParts) : Bool :=
 /-- One member's type former: the constant check, official's telescope
 loop (task #195) and the result sort — without the environment cons,
 which at k members happens only once every former has been checked. -/
-def checkBlockTele (ops : CheckerOps m) (env : Env) (nP : Nat) (ms : MemberShape) :
-    m (ConstantVal × Level) := do
+def checkBlockTele (ops : CheckerOps m) (env : Env) (nP : Nat)
+    (ms : MemberShape) : m (ConstantVal × Level) := do
   checkConstantVal ops env ms.cvT
   let (cvTa, s) ← checkSumTele ops env ms.cvT (nP + ms.nIdx) ms.cvT
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + ms.nIdx))
@@ -179,8 +179,8 @@ def consBlockInds (p₁ : BlockShape) (isRec : Bool) :
 /-- **Stage 1**: the k type formers, checked, agreed and consed —
 official's `declare_inductive_types`, which puts every former in the
 environment before any constructor is looked at. -/
-def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts) (isRec : Bool) :
-    m (Env × List ConstantVal × BlockShape) :=
+def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
+    (isRec : Bool) : m (Env × List ConstantVal × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
@@ -204,7 +204,8 @@ def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as
 the one-member stage does), each stored as declared. -/
-def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env) (p : BlockShape) :
+def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env)
+    (p : BlockShape) :
     List (MemberShape × ConstantVal) →
       m (List (List (ConstantVal × Nat)) × List (List (List Level)))
   | [] => pure ([], [])

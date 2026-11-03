@@ -40,7 +40,7 @@ directory.
 
 **This file is the CLI only**: argument parsing, I/O, exit codes.  The
 proof-carrying driver — the parallel parse, the install and check
-loops, the parallel install and the phase sequencing — lives in
+loops and the phase sequencing — lives in
 `ConLeche/Driver/*` (`OwnerParse.lean`, `CheckPool.lean`,
 `ParInstall.lean`, `Run.lean`).  The driver and this file may import `ConLeche/Verify/*`
 (the theorems about kernel functions that need no model) and nothing
@@ -360,7 +360,7 @@ def parseArgs : List String → Args → Args
 /-- The argument parse and dispatch — everything `main` below does, up
 to computing the exit code.  Split out (task #336) so that `main` can
 wrap the whole thing in a flush-then-`exit`: see there for why.
-`drain` is where the parallel install leaves the join of its stopped
+`drain` is where the install leaves the join of its stopped
 workers, for `main` to run before the exit. -/
 def run (args : List String) (drain : IO.Ref (IO Unit)) : IO UInt32 := do
   -- **Linearity is enforced, in every run** (task #331).  The install
@@ -465,9 +465,9 @@ nothing more.
 **Waiting for the install pool's workers** (maintainer's ruling,
 2026-10-10).  After a rejection at more than one worker, a stopped
 install worker may still be inside the install of a record past the
-rejected one (`ConLeche.Driver.parInstall`); `exit()`'s teardown must
+rejected one (`ConLeche.Driver.installPhase`); `exit()`'s teardown must
 not run under it.  So after the flush, `main` runs `drain`, the join of
-the install pool's workers that `parInstall` left there, and only then
+the install pool's workers that `installPhase` left there, and only then
 exits.  The verdict line is already out; the rejection path need not be
 fast, and after an accept every worker has long returned.
 
@@ -481,7 +481,7 @@ def main (args : List String) : IO UInt32 := do
   let code ← run args drain
   (← IO.getStdout).flush
   (← IO.getStderr).flush
-  -- the parallel install's stopped workers, joined after the verdict is
+  -- the install's stopped workers, joined after the verdict is
   -- out (see above); immediate unless a rejection left one in an install
   try (← drain.get) catch _ => pure ()
   IO.Process.exit code.toUInt8

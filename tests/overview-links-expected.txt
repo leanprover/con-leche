@@ -10,8 +10,8 @@
 == Main.lean#L91
     91  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/Run.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt32
+== ConLeche/Driver/Run.lean#L35
+    35  def ConLeche.CheckError.exitCode : CheckError → UInt32
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -105,13 +105,13 @@
     99    | .indDecl _ _, _ => False
    100    | .quotDecl _ _, _ => False
 
-== ConLeche/Cached/Installed.lean#L441-L446
-   441  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
-   442      (ds : Array Declaration) :
-   443      Except (CheckError × Nat) Env := do
-   444    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
-   445    checkPendingList mode p.2.1 p.2.2.toList
-   446    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L329-L334
+   329  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
+   330      (ds : Array Declaration) :
+   331      Except (CheckError × Nat) Env := do
+   332    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
+   333    checkPendingList mode p.2.1 p.2.2.toList
+   334    pure p.2.1.env
 
 == tests/ConLecheTests/Axioms.lean#L91-L95
     91  /--
@@ -120,8 +120,8 @@
     94  #guard_msgs in
     95  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Run.lean#L59
-    59  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
+== ConLeche/Driver/Run.lean#L60
+    60  def parseInput (file : String) (jobs : Nat) (noMark : Bool) : IO Frontend.ParseOutcome := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
@@ -157,93 +157,99 @@
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
   1745    obtain ⟨st0, hr0, hh0, hd0, hcov⟩ := hg
 
-== ConLeche/Driver/ParInstall.lean#L155
-   155  def installLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream)
+== ConLeche/Cached/Installed.lean#L144-L147
+   144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
+   145      (pend : Array PendingCheck) :
+   146      Declaration → CheckCM (FEnv × Array PendingCheck)
+   147    | .defnDecl cv value hint =>
 
-== ConLeche/Cached/Installed.lean#L138-L141
-   138  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
-   139      (pend : Array PendingCheck) :
-   140      Declaration → CheckCM (FEnv × Array PendingCheck)
-   141    | .defnDecl cv value hint =>
+== ConLeche/Driver/ParInstall.lean#L696-L705
+   696  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
+   697      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   698      (p₀ : Nat × FEnv × Array PendingCheck) :
+   699      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
+   700      fe.visibleBelow = c →
+   701      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
+   702        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
+   703      IdxBelow fe → ViewAgrees B S fe →
+   704        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
+   705    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
 
-== ConLeche/Driver/ParInstall.lean#L749-L758
-   749  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
-   750      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   751      (p₀ : Nat × FEnv × Array PendingCheck) :
-   752      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) →
-   753      fe.visibleBelow = c →
-   754      InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend) →
-   755      IdxBelow fe → ViewAgrees B S fe →
-   756        IO (Except (CheckError × Nat)
-   757          (Σ' (p' : Nat × FEnv × Array PendingCheck),
-   758            PLift (InstallRun mode natOpPinSets ds.toList p₀ p')))
+== ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468
+  1462  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
+  1463      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
+  1464      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
+  1465      (hand : andPinOk pd = true)
+  1466      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+  1467      installDeclStep mode pins (i, fe, pend) pd =
+  1468        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1405-L1411
-  1405  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-  1406      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
-  1407      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
-  1408      (hand : andPinOk pd = true)
-  1409      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
-  1410      installDeclStep mode pins (i, fe, pend) pd =
-  1411        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
+== ConLeche/Verify/Cached/Defer.lean#L142-L149
+   142  theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hW : W.env = ⟨[], []⟩) {i : Nat}
+   143      {pend : Array PendingCheck} {block : List ConstantInfo} {nP : Nat}
+   144      {L : List ConstantInfo} {Q : List ProjTable}
+   145      (hand : andPinOk (.indDecl block nP) = true)
+   146      (hok : ∃ W' s, checkDeclStepC mode pins W (.indDecl block nP) {} = .ok (W', s) ∧
+   147        W'.env.consts.reverse = L ∧ W'.env.tables.reverse = Q) :
+   148      installDeclStep mode pins (i, fe, pend) (.indDecl block nP) =
+   149        .ok (i + 1, FEnv.pushDelta L Q fe, pend) := by
 
-== ConLeche/Cached/Installed.lean#L356-L358
-   356  def checkRecord {pins : List NatOpPinSet} {ds : List Declaration}
-   357      (e : InstalledEnv mode pins ds) (k : Nat)
-   358      (hk : k < e.pend.size) : Except (CheckError × Nat) (PLift (GroupChecked mode e k)) :=
+== ConLeche/Verify/Cached/Defer.lean#L255-L256
+   255  def runJob (fe : FEnv) (pend : Array PendingCheck) (D : Array BlockCheck) (j : Job) :
+   256      JobResult mode pins fe pend D :=
 
-== ConLeche/Driver/CheckPool.lean#L122
-   122  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat)
+== ConLeche/Driver/CheckPool.lean#L158
+   158  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs) :
 
-== ConLeche/Driver/CheckPool.lean#L213
-   213  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat)
+== ConLeche/Driver/CheckPool.lean#L242
+   242  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat) (J : Jobs) :
 
-== ConLeche/Cached/Installed.lean#L390-L394
-   390  def collectChecks {pins : List NatOpPinSet} {ds : List Declaration}
-   391      (e : InstalledEnv mode pins ds)
-   392      (tab : Array (Option (RecordResult mode e))) :
-   393      (j : Nat) → (∀ i, i < j → GroupChecked mode e i) →
-   394        Except (CheckError × Nat) (PLift (∀ i, GroupChecked mode e i))
+== ConLeche/Verify/Cached/Defer.lean#L304-L308
+   304  def collectJobs (fe : FEnv) (pend : Array PendingCheck) (D : Array BlockCheck)
+   305      (tab : Array (Option (JobResult mode pins fe pend D))) :
+   306      (t a b : Nat) → (∀ i, i < a → PendOk mode fe pend i) →
+   307        (∀ i, i < b → ∀ h : i < D.size, D[i].Ok mode pins) →
+   308        Except (CheckError × Nat) (PLift (AllOk mode pins fe pend D))
 
-== ConLeche/Driver/Run.lean#L107-L110
-   107  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-   108      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
-   109      IO (Except (ConLeche.CheckError × Nat)
-   110        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L112-L115
+   112  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   113      (noMark : Bool) (drain : IO.Ref (IO Unit)) (ds : Array ConLeche.Declaration) :
+   114      IO (Except (ConLeche.CheckError × Nat)
+   115        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
-== ConLeche/Cached/Installed.lean#L523-L525
-   523  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
-   524      (fc : FullyChecked mode pins ds.toList) :
-   525      checkDecls mode pins ds = .ok fc.env := by
+== ConLeche/Cached/Installed.lean#L411-L413
+   411  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
+   412      (fc : FullyChecked mode pins ds.toList) :
+   413      checkDecls mode pins ds = .ok fc.env := by
 
-== ConLeche/Cached/Installed.lean#L244-L248
-   244  structure InstalledEnv (pins : List NatOpPinSet) (ds : List Declaration) where
-   245    fe : FEnv
-   246    pend : Array PendingCheck
-   247    run : ∃ (n : Nat),
-   248      InstallRun mode pins ds (0, mkFEnv Env.empty, #[]) (n, fe, pend)
+== ConLeche/Cached/Installed.lean#L250-L254
+   250  structure InstalledEnv (pins : List NatOpPinSet) (ds : List Declaration) where
+   251    fe : FEnv
+   252    pend : Array PendingCheck
+   253    run : ∃ (n : Nat),
+   254      InstallRun mode pins ds (0, mkFEnv Env.empty, #[]) (n, fe, pend)
 
-== ConLeche/Cached/Installed.lean#L200-L208
-   200  inductive InstallRun (pins : List NatOpPinSet) :
-   201      List Declaration → (Nat × FEnv × Array PendingCheck) →
-   202      (Nat × FEnv × Array PendingCheck) → Prop where
-   203    | nil (p : Nat × FEnv × Array PendingCheck) :
-   204        InstallRun pins [] p p
-   205    | cons {pd : Declaration} {ds : List Declaration} {p p₁ p' : Nat × FEnv × Array PendingCheck}
-   206        (h : installDeclStep mode pins p pd = .ok p₁)
-   207        (rest : InstallRun pins ds p₁ p') :
-   208        InstallRun pins (pd :: ds) p p'
+== ConLeche/Cached/Installed.lean#L206-L214
+   206  inductive InstallRun (pins : List NatOpPinSet) :
+   207      List Declaration → (Nat × FEnv × Array PendingCheck) →
+   208      (Nat × FEnv × Array PendingCheck) → Prop where
+   209    | nil (p : Nat × FEnv × Array PendingCheck) :
+   210        InstallRun pins [] p p
+   211    | cons {pd : Declaration} {ds : List Declaration} {p p₁ p' : Nat × FEnv × Array PendingCheck}
+   212        (h : installDeclStep mode pins p pd = .ok p₁)
+   213        (rest : InstallRun pins ds p₁ p') :
+   214        InstallRun pins (pd :: ds) p p'
 
-== ConLeche/Cached/Installed.lean#L276-L280
-   276  def GroupChecked {pins : List NatOpPinSet} {ds : List Declaration}
-   277      (e : InstalledEnv mode pins ds) (i : Nat) : Prop :=
-   278    match e.pend[i]? with
-   279    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
-   280    | none => True
+== ConLeche/Cached/Installed.lean#L282-L286
+   282  def GroupChecked {pins : List NatOpPinSet} {ds : List Declaration}
+   283      (e : InstalledEnv mode pins ds) (i : Nat) : Prop :=
+   284    match e.pend[i]? with
+   285    | some pc => ∃ s', checkPending mode e.fe pc {} = .ok ((), s')
+   286    | none => True
 
-== ConLeche/Cached/Installed.lean#L534-L535
-   534  theorem checkDecls_fullyChecked {pins : List NatOpPinSet} {ds : Array Declaration}
-   535      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+== ConLeche/Cached/Installed.lean#L422-L423
+   422  theorem checkDecls_fullyChecked {pins : List NatOpPinSet} {ds : Array Declaration}
+   423      {env : Env} (h : checkDecls mode pins ds = .ok env) :
 
 == ConLeche/Model/InstallRun.lean#L215-L222
    215  theorem installRun_model (hμ : μ.isVerified = true) {ds : List Declaration}
@@ -367,13 +373,13 @@
 == ConLeche/Kernel/Core.lean#L1347
   1347  def defeqLams (r : CoreFns m) :
 
-== ConLeche/Verify/Cached/AgreeFloor.lean#L1075-L1077
-  1075  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-  1076      {env : Env} (h : checkDecls mode pins ds = .ok env) :
-  1077      envSkels env = streamSkels ds.toList := by
+== ConLeche/Verify/Cached/AgreeFloor.lean#L1084-L1086
+  1084  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
+  1085      {env : Env} (h : checkDecls mode pins ds = .ok env) :
+  1086      envSkels env = streamSkels ds.toList := by
 
-== ConLeche/Kernel/Core.lean#L1785
-  1785  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1784
+  1784  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -863,8 +869,8 @@
     95    | .quotDecl _ cv => !andPinNames.contains cv.name
     96    | .basisDecl _ => true
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L444
-   444  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L446
+   446  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
 == ConLeche/Kernel/Env.lean#L491-L498
    491  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
@@ -876,8 +882,8 @@
    497      | .ctorInfo _ nPc _ => nPc == nP
    498      | _ => true
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L141
-   141  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L147
+   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L394-L396
    394  def targetMajorOf (fe : FEnv) (p : BlockShape)
@@ -892,14 +898,17 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1591
   1591  def nestRoot (ops : CheckerOps m) (env : Env) (ctx : NestCtx) (holes : List Expr) :
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L483
-   483  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
+== ConLeche/Kernel/Inductives/GenRec.lean#L495
+   495  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L289
-   289  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L290
+   290  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L537
-   537  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+== ConLeche/Kernel/Inductives/GenRec.lean#L549
+   549  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
+
+== ConLeche/Kernel/Inductives/StoredRecs.lean#L187
+   187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608
    607  def tgtStoredRules (find? : Name → Option ConstantInfo)
@@ -912,13 +921,13 @@
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L70-L75
-    70  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
-    71      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    72      (mp : EnvModelM V μ env)
-    73      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    74      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    75      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V μ env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
@@ -927,20 +936,20 @@
 == ConLeche/Kernel/Inductives/ClassRead.lean#L130
    130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L141
-   141  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L147
+   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L62
-    62  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L63
+    63  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L114
    114  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L507
-   507  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
+== ConLeche/Kernel/Inductives/GenRec.lean#L519
+   519  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L493
-   493  def classKeyOf (nP : Nat) (params : List Expr)
+== ConLeche/Kernel/Inductives/GenRec.lean#L505
+   505  def classKeyOf (nP : Nat) (params : List Expr)
 
 == ConLeche/Kernel/Inductives/Positivity.lean#L1453
   1453  def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
@@ -957,8 +966,8 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1563
   1563  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L127
-   127  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L129
+   129  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L294
    294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -969,11 +978,11 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L188
    188  def classGenRule (g : ClassGen) (recOf : Nat → Option Name) (rlvls : List Level) (c : Nat)
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L385
-   385  def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
+== ConLeche/Kernel/Inductives/GenRec.lean#L383
+   383  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L417
-   417  def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
+== ConLeche/Kernel/Inductives/GenRec.lean#L423
+   423  def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
 
 == ConLeche/Kernel/CoreDefs.lean#L440-L448
    440  /-- The certified structural-`Nat` operations.  Six of them
@@ -1072,32 +1081,32 @@
 == ConLeche/Model/DivModCert.lean#L1976
   1976  theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
 
-== ConLeche/Kernel/CoreDefs.lean#L600-L614
-   600  def natOpGuard (env : Env) (c : Name) : Bool :=
-   601    natLitSupported env &&
-   602    (natOpDeps c).all (fun n => match env.find? n with
-   603      | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
-   604      | _ => false) &&
-   605    (if c = natBeqName || c = natBleName || natDivModNames.contains c then
-   606      (match env.find? boolTrueName with
-   607        | some ci => ci.toConstantVal.levelParams.isEmpty &&
-   608            ci.toConstantVal.type == .const boolName []
-   609        | none => false) &&
-   610      (match env.find? boolFalseName with
+== ConLeche/Kernel/CoreDefs.lean#L604-L618
+   604  def natOpGuard (env : Env) (c : Name) : Bool :=
+   605    natLitSupported env &&
+   606    (natOpDeps c).all (fun n => match env.find? n with
+   607      | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
+   608      | _ => false) &&
+   609    (if c = natBeqName || c = natBleName || natDivModNames.contains c then
+   610      (match env.find? boolTrueName with
    611        | some ci => ci.toConstantVal.levelParams.isEmpty &&
    612            ci.toConstantVal.type == .const boolName []
-   613        | none => false)
-   614     else true)
+   613        | none => false) &&
+   614      (match env.find? boolFalseName with
+   615        | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   616            ci.toConstantVal.type == .const boolName []
+   617        | none => false)
+   618     else true)
 
-== ConLeche/Kernel/CoreDefs.lean#L657-L664
-   657  def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
-   658    if c = natBeqName || c = natBleName then
-   659      e == .const boolName [] &&
-   660      (match env.find? boolName with
-   661       | some ci => ci.toConstantVal.levelParams.isEmpty &&
-   662           ci.toConstantVal.type == .sort (.succ .zero)
-   663       | none => false)
-   664    else e == .const natName []
+== ConLeche/Kernel/CoreDefs.lean#L661-L668
+   661  def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
+   662    if c = natBeqName || c = natBleName then
+   663      e == .const boolName [] &&
+   664      (match env.find? boolName with
+   665       | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   666           ci.toConstantVal.type == .sort (.succ .zero)
+   667       | none => false)
+   668    else e == .const natName []
 
 == ConLeche/Frontend/Prepare.lean#L165-L172
    165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
@@ -1250,9 +1259,9 @@
 
 >>> README.md
 
-== ConLeche/Cached/ParsedC.lean#L213-L214
-   213        else if cv.name = sorryAxName then
-   214          pure fe
+== ConLeche/Cached/ParsedC.lean#L236-L237
+   236        else if cv.name = sorryAxName then
+   237          pure fe
 
 == Main.lean#L124
    124    "  --jobs=<n>        the number of worker threads (default: the",
@@ -1304,13 +1313,13 @@
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
    124      (BVarIdx → V) → Expr → V → Prop
 
-== ConLeche/Cached/Installed.lean#L441-L446
-   441  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
-   442      (ds : Array Declaration) :
-   443      Except (CheckError × Nat) Env := do
-   444    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
-   445    checkPendingList mode p.2.1 p.2.2.toList
-   446    pure p.2.1.env
+== ConLeche/Cached/Installed.lean#L329-L334
+   329  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
+   330      (ds : Array Declaration) :
+   331      Except (CheckError × Nat) Env := do
+   332    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
+   333    checkPendingList mode p.2.1 p.2.2.toList
+   334    pure p.2.1.env
 
 == ConLeche/Frontend/Prepare.lean#L165-L172
    165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —

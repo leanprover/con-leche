@@ -79,6 +79,7 @@ def sharedOpsC (fe : FEnv) : CheckerOps CheckCM where
   ensureSort _ d e := opS mode fe d e
   whnf _ d e := opE mode fe (·.whnf) d e
 
+
 /-! ## Thin phase drivers (one `CState` per declaration)
 
 Each mirrors its `ConLeche/Kernel/Checker.lean` counterpart clause by
@@ -133,7 +134,8 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
-  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape
+  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁
+    pC.toBlockShape
     (pC.members.zip cvTas)
   let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas fe₁.find?
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ pC.toBlockShape
@@ -163,7 +165,16 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
   flushC
   let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
     (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
-  let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 out
+  -- the stored recursors against the generated ones (task #431): the
+  -- checks run at the generated recursors as an OVERLAY on the
+  -- constructors' index (read-only, sharing it), a flush entering and
+  -- leaving that environment; the overlay is dead once the comparison
+  -- returns, before the stored recursors are pushed
+  let feG := fe₂.overlay (blockRecInfosTF fe₂.find? p.toBlockShape 0 out).reverse
+  flushC
+  storedRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  flushC
+  let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 (storedOut p.recs out)
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
 

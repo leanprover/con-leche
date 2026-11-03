@@ -12,7 +12,7 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 106, 109)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 107, 110)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 169, 185)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 628, 638)[infers its type from
@@ -89,11 +89,11 @@ theorem][In the fragment the relations are the checker. The real
 checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 441, 446)[The fold] installs every
+#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 329, 334)[The fold] installs every
 declaration first and then checks the recorded declarations one by one,
 each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Cached/Installed.lean", 341, 352)[a pool of workers] whose results are reassembled in
-record order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
+second phase on #src("ConLeche/Verify/Cached/Defer.lean", 223, 231)[a pool of workers] whose results are reassembled in
+fold order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time
 argument of §3 and §4 needs.]

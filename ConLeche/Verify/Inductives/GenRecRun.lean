@@ -471,11 +471,12 @@ theorem classRecTyOk_run {fe : FEnv} {g : ClassGen} {k : Nat} {rc : RecShape}
   case neg => rw [ite_eq_right h2] at h; close_throw h
   rw [ite_eq_left h2] at h
   obtain ⟨gty, hgty, h⟩ := exceptBind_ok h
-  obtain ⟨u, hcvOk, h⟩ := exceptBind_ok h
-  obtain ⟨b, -, h⟩ := exceptBind_ok h
+  obtain ⟨u, hchk, h⟩ := exceptBind_ok h
+  unfold classRecTyCheck at hchk
+  obtain ⟨u', hcvOk, hchk⟩ := exceptBind_ok hchk
+  obtain ⟨b, -, hchk⟩ := exceptBind_ok hchk
   by_cases hb : b = true
-  case neg => rw [ite_eq_right hb] at h; close_throw h
-  rw [ite_eq_left hb] at h
+  case neg => rw [ite_eq_right hb] at hchk; close_throw hchk
   simp only [pure, Except.pure, Except.ok.injEq] at h
   rw [h] at hcvOk
   simp only [beq_iff_eq, Bool.and_eq_true] at h1 h2
@@ -541,24 +542,25 @@ theorem classRuleOk_run {w : StructWalkers} {feT feR : FEnv} {cvR : ConstantVal}
     (h : classRuleOk (fueledOps mode F) w feT feR cvR n gen = .ok out) :
     Nonempty (ClassRuleRun mode F w feT feR cvR n gen out) := by
   unfold classRuleOk at h
-  by_cases hcl : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true
-  case neg => rw [ite_eq_right hcl] at h; close_throw h
-  rw [ite_eq_left hcl] at h
-  simp only at h
-  by_cases hlp : gen.allLevelParamsDefined cvR.levelParams = true
-  case neg => rw [ite_eq_right hlp] at h; close_throw h
-  rw [ite_eq_left hlp] at h
-  by_cases hres : w.resolve feR gen = true
-  case neg => rw [ite_eq_right hres] at h; close_throw h
-  rw [ite_eq_left hres] at h
-  obtain ⟨tyR, htyR, h⟩ := exceptBind_ok h
-  obtain ⟨⟨rbs, body⟩, hstrip, h⟩ := exceptBind_ok h
-  simp only at h
-  by_cases hdoms : (rbs.all fun b => w.resolve feT b) = true
-  case neg => rw [ite_eq_right hdoms] at h; close_throw h
-  rw [ite_eq_left hdoms] at h
+  obtain ⟨u, hc, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
+  unfold classRuleCheck at hc
+  by_cases hcl : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true
+  case neg => rw [ite_eq_right hcl] at hc; close_throw hc
+  rw [ite_eq_left hcl] at hc
+  simp only at hc
+  by_cases hlp : gen.allLevelParamsDefined cvR.levelParams = true
+  case neg => rw [ite_eq_right hlp] at hc; close_throw hc
+  rw [ite_eq_left hlp] at hc
+  by_cases hres : w.resolve feR gen = true
+  case neg => rw [ite_eq_right hres] at hc; close_throw hc
+  rw [ite_eq_left hres] at hc
+  obtain ⟨tyR, htyR, hc⟩ := exceptBind_ok hc
+  obtain ⟨⟨rbs, body⟩, hstrip, hc⟩ := exceptBind_ok hc
+  simp only at hc
+  by_cases hdoms : (rbs.all fun b => w.resolve feT b) = true
+  case neg => rw [ite_eq_right hdoms] at hc; close_throw hc
   simp only [Bool.and_eq_true, Bool.not_eq_true'] at hcl
   simp only [List.all_eq_true] at hdoms
   exact ⟨{

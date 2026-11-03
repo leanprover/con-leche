@@ -126,6 +126,29 @@ def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
       throw (.notImplemented "quotient basis requires the pinned Eq basis")
   kind.declsA.foldlM installBasisDeclF fe
 
+/-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
+twin).
+
+* **The pinned basis blocks** (task #293): the stream's own `Nat`
+  block, recognised here and installed as the pin; a block under a
+  pinned name that does not match falls through and the reserved-name
+  check rejects it.
+* Task #228: the stream's DECLARED parameter count, checked before the
+  dispatch.
+* ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
+  #219): a recognised block is the installer's, nested ones included;
+  any other declines (`checkShapelessS`). -/
+def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
+    CheckCM FEnv :=
+  match basisPinHit block with
+  | some kind => checkBasisDeclC fe kind
+  | none =>
+    if indParamsOk nP block then
+      match blockParts? nP block with
+      | some p => checkBlockKS mode fe block p
+      | none => checkShapelessS mode fe block
+    else throw (.invalid "number of parameters mismatch")
+
 /-- One converted declaration (inductive and basis blocks reuse the
 `Expr`-level drivers).  A separable value declaration (a theorem, a
 definition other than a pinned `Nat` operation, an opaque other than a
@@ -215,24 +238,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
   | .basisDecl kind => checkBasisDeclC fe kind
-  | .indDecl block nP =>
-    -- **THE PINNED BASIS BLOCKS** (`checkDecl`'s twin, task #293): the
-    -- stream's own `Nat` block, recognised here and installed as the
-    -- pin; a block under a pinned name that does not match falls
-    -- through and the reserved-name check rejects it.
-    match basisPinHit block with
-    | some kind => checkBasisDeclC fe kind
-    | none =>
-    -- TASK #228: the stream's DECLARED parameter count, checked before
-    -- the dispatch (`checkDecl`'s twin).
-    if indParamsOk nP block then
-      -- ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
-      -- #219): a recognised block is the installer's, nested ones
-      -- included; any other declines (`checkShapelessS`).
-      match blockParts? nP block with
-      | some p => checkBlockKS mode fe block p
-      | none => checkShapelessS mode fe block
-    else throw (.invalid "number of parameters mismatch")
+  | .indDecl block nP => checkIndDeclC mode fe block nP
   | .quotDecl k cv =>
     -- `checkDecl`'s twin (task #293): the `type` record installs the
     -- pinned block whole, the other members install nothing, and a

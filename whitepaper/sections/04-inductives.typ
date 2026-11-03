@@ -48,7 +48,7 @@ interpretations of a binder from §2, decided for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
-(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 106, 124)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -125,15 +125,17 @@ or $0$ (_small elimination_); the elimination rule below says which.
   parameters and the type, which must be definitionally equal to the
   generated one, and the record's two layout counts, which must equal
   the generated ones
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 385, 399)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 383, 405)[the comparison]).
   An unverified pre-pass reads off that type which type the recursor
   eliminates and how its motive and minor premises are laid out (the
   arguments named on $Nat$ in @ex:nat); a wrong reading can only make
   the comparison fail
   (#src("ConLeche/Kernel/Inductives/ClassRead.lean", 24, 32)[the pre-pass]).
-  The record's rules are never read; the generated recursor and its
-  rules are what is stored
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 537, 540)[the recursor stage]).
+  What is stored is the record's own recursor, its type and its rules,
+  once they agree with the generated ones: the type binder by binder up
+  to the major premise, each rule up to definitional equality, at the
+  generated recursor's firing data
+  (#src("ConLeche/Kernel/Inductives/StoredRecs.lean", 187, 193)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -222,7 +224,7 @@ eliminator on a family whose sort _may_ be zero
 #real[
   The checker asks the constructor count of every family whose sort
   may be zero (#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the guard],
-  #src("ConLeche/Kernel/Inductives/GenRec.lean", 548, 550)[applied])
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 560, 562)[applied])
   but the #src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per-field condition]
   only of a family whose sort is provably zero, which is sound because
   the universe bound (the third check below) makes every field a
@@ -266,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 141, 146)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 147, 152)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -292,7 +294,7 @@ generated type a well-denoted type.
 #real[
   The same steps run in this order, and each generated rule is
   type-checked in the environment holding the rule-less recursor
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 412, 433)[a generated rule]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 424, 446)[a generated rule]).
 ]
 
 === What is stored
@@ -999,7 +1001,7 @@ assumed of the environment they extend.
 
 #real[
   The block step is one theorem,
-  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 70, 75)[the install of a block],
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block],
   read off the checker's run stage by stage.
 ]
 

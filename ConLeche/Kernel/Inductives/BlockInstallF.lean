@@ -25,8 +25,8 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 /-! ## Stage 1: the formers -/
 
 /-- `checkBlockTele` through the index. -/
-def checkBlockTeleF (ops : CheckerOps m) (fe : FEnv) (nP : Nat) (ms : MemberShape) :
-    m (ConstantVal × Level) := do
+def checkBlockTeleF (ops : CheckerOps m) (fe : FEnv) (nP : Nat)
+    (ms : MemberShape) : m (ConstantVal × Level) := do
   checkConstantValF ops fe ms.cvT
   let (cvTa, s) ← checkSumTeleF ops fe ms.cvT (nP + ms.nIdx) ms.cvT
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + ms.nIdx))
@@ -80,8 +80,8 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
 
 /-- `checkBlockInds` through the index. -/
-def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts) (isRec : Bool) :
-    m (FEnv × List ConstantVal × BlockShape) :=
+def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
+    (isRec : Bool) : m (FEnv × List ConstantVal × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do

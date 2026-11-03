@@ -8,6 +8,7 @@ public import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.AgreeFloor
 import ConLeche.Verify.Cached.BlockOverlay
+import ConLeche.Verify.Inductives.StoredRecsInv
 public import ConLeche.Verify.Inductives.TargetAuxFire
 
 public section
@@ -534,6 +535,16 @@ theorem defeqS_specF (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : 
       ⊤⦄ :=
   defeqS_spec hμ henv hs hwa hwb
 
+/-- **The check of a generated recursor type**: the checked constant is
+closed. -/
+theorem classRecTyCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {cvRi cvG : ConstantVal} (hRi : TyClosed cvRi) {s₀ : CState} (hs : CSOK mode env s₀) :
+    ⦃fun s => s = s₀⦄ classRecTyCheck (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cvRi cvG
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (classRecTyCheck (fueledOpsM mode) (mkFEnv env) cvRi cvG) v ∧ TyClosed cvG; ⊤⦄ := by
+  sym only [conleche_grind, classRecTyCheck.eq_1, mkFEnv_env] =>
+    vcgen [classRecTyCheck, classConstOkS_spec hμ henv hs, defeqS_specF hμ henv] <;> finish
+
 /-- **One recursor's generated type, checked and compared**: the stored
 constant is closed. -/
 theorem classRecTyOkS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
@@ -543,7 +554,7 @@ theorem classRecTyOkS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     ⦃fun v s' => CSOK mode env s' ∧
       Runs (classRecTyOk (fueledOpsM mode) (mkFEnv env) g k rc cvRi c) v ∧ TyClosed v; ⊤⦄ := by
   sym only [conleche_grind, classRecTyOk.eq_1, unwrapOr.eq_1, mkFEnv_env] =>
-    vcgen [classRecTyOk, unwrapOr, classConstOkS_spec hμ henv, defeqS_specF hμ henv] <;> finish
+    vcgen [classRecTyOk, unwrapOr, classRecTyCheckS_spec hμ henv hRi hs] <;> finish
 
 theorem classRecTysOk_nil_left {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
     (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (cvs : List ConstantVal)
@@ -633,6 +644,22 @@ theorem wscoped_of_closed {gen : Expr}
     (h : (gen.looseBVarsBounded 0 && !gen.hasFvar) = true) : WScoped 0 gen :=
   WScoped.of_not_hasFvar (by simp only [Bool.and_eq_true, Bool.not_eq_true'] at h; exact h.2)
 
+/-- **The check of one generated rule, simulated**, from a flushed state:
+the rule, closed by its own guard, typed at the rule-less recursors'
+environment `envR` (`sharedOpsRuleR`'s inference flushes last), its
+λ-telescope read syntactically. -/
+theorem classRuleCheckS_spec (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
+    (envT : Env) {cvR : ConstantVal} {n : Nat} {gen : Expr} {s₀ : CState}
+    (hs : CSOKAll mode s₀) :
+    ⦃fun s => s = s₀⦄
+      classRuleCheck (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n
+        gen
+    ⦃fun v s' => CSOKAll mode s' ∧
+      Runs (classRuleCheck (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v;
+      ⊤⦄ := by
+  sym only [conleche_grind, classRuleCheck.eq_1, unwrapOr.eq_1, → wscoped_of_closed] =>
+    vcgen [classRuleCheck, unwrapOr, ruleR_infer_spec hμ henvR] <;> finish
+
 /-- **One generated rule, simulated.**  From a flushed state: the rule,
 closed by the stage's own guard, stored as generated and typed at the
 rule-less recursors' environment `envR` (`sharedOpsRuleR`'s inference
@@ -644,8 +671,8 @@ theorem classRuleOkS_spec (hμ : mode.verifiedChecks = true) {envR : Env} (henvR
       classRuleOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen
     ⦃fun v s' => CSOKAll mode s' ∧
       Runs (classRuleOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v; ⊤⦄ := by
-  sym only [conleche_grind, classRuleOk.eq_1, unwrapOr.eq_1, → wscoped_of_closed] =>
-    vcgen [classRuleOk, unwrapOr, ruleR_infer_spec hμ henvR] <;> finish
+  sym only [conleche_grind, classRuleOk.eq_1] =>
+    vcgen [classRuleOk, classRuleCheckS_spec hμ henvR envT hs] <;> finish
 
 theorem classRulesOkS_spec (hμ : mode.verifiedChecks = true) {envR envT : Env}
     (henvR : EnvWF envR) {g : ClassGen} {recOf : Nat → Option Name} {cvR : ConstantVal}
@@ -695,6 +722,185 @@ theorem classRecsRulesOkS_spec (hμ : mode.verifiedChecks = true) {envR envT : E
       sym only [conleche_grind, classRecsRulesOk] =>
         vcgen [classRecsRulesOk.eq_def, classRulesOkS_spec (envT := envT) hμ henvR,
           ih cs] <;> finish
+
+/-! ### The stored recursors against the generated ones (task #431) -/
+
+/-- A term without free variables is well scoped (the stored check's
+guards). -/
+theorem wscoped_zero_of_hasFvar_false {e : Expr} (h : e.hasFvar = false) : WScoped 0 e :=
+  WScoped.of_not_hasFvar h
+
+
+/-- **The stored type's domains against the generated one's**, simulated:
+both telescopes opened at their own locals. -/
+theorem recDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+    {sfvs gfvs : List Expr}
+    (hcs : ∀ (i : Nat) (x : Expr), sfvs[i]? = some x → WScoped i (Expr.fvarTypeD x))
+    (hcg : ∀ (i : Nat) (x : Expr), gfvs[i]? = some x → WScoped i (Expr.fvarTypeD x)) :
+    ∀ (k j : Nat) {s₀ : CState}, CSOK mode env s₀ →
+      ⦃fun st => st = s₀⦄ recDomsAt (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec sfvs gfvs j k
+      ⦃fun v s' => CSOK mode env s' ∧
+        Runs (recDomsAt (fueledOpsM mode) (mkFEnv env).env rec sfvs gfvs j k) v; ⊤⦄ := by
+  intro k
+  induction k with
+  | zero =>
+    intro j _ hs
+    sym only [conleche_grind, recDomsAt.eq_1] => vcgen [recDomsAt] <;> finish
+  | succ k ih =>
+    intro j _ hs
+    sym only [conleche_grind, recDomsAt.eq_2, unwrapOr] =>
+      vcgen [recDomsAt, unwrapOr, defeqS_specF hμ henv, ih] <;> finish
+
+/-- The two opened types, compared, simulated. -/
+theorem recTyOpenedS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+    {n : Nat} {s g : Expr} (hws : WScoped 0 s) (hwg : WScoped 0 g) {s₀ : CState}
+    (hs : CSOK mode env s₀) :
+    ⦃fun st => st = s₀⦄
+      recTyOpened (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec n (openPisAtFvars n s 0)
+        (openPisAtFvars n g 0)
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (recTyOpened (fueledOpsM mode) (mkFEnv env).env rec n (openPisAtFvars n s 0)
+        (openPisAtFvars n g 0)) v; ⊤⦄ := by
+  cases hos : openPisAtFvars n s 0 with
+  | none =>
+    sym only [conleche_grind, recTyOpened] => vcgen [recTyOpened.eq_def] <;> finish
+  | some qs =>
+    obtain ⟨sfvs, srest⟩ := qs
+    cases hog : openPisAtFvars n g 0 with
+    | none =>
+      sym only [conleche_grind, recTyOpened] => vcgen [recTyOpened.eq_def] <;> finish
+    | some qg =>
+      obtain ⟨gfvs, grest⟩ := qg
+      have hcs : ∀ (i : Nat) (x : Expr), sfvs[i]? = some x → WScoped i (Expr.fvarTypeD x) :=
+        fun i x hx => by simpa using openers_fvarTypeD_WScoped hos hws hx
+      have hcg : ∀ (i : Nat) (x : Expr), gfvs[i]? = some x → WScoped i (Expr.fvarTypeD x) :=
+        fun i x hx => by simpa using openers_fvarTypeD_WScoped hog hwg hx
+      have hrs : WScoped n srest := by
+        simpa using (ConLeche.openPisAtFvars_WScoped n s 0 hos hws).2
+      have hrg : WScoped n grest := by
+        simpa using (ConLeche.openPisAtFvars_WScoped n g 0 hog hwg).2
+      sym only [conleche_grind, recTyOpened] =>
+        vcgen [recTyOpened.eq_def, recDomsAtS_spec hμ henv hcs hcg, defeqS_specF hμ henv]
+          <;> finish
+
+/-- **The stored type's check**, simulated. -/
+theorem recTyCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+    {lps : List Name} {n : Nat} {s g : Expr} {s₀ : CState} (hs : CSOK mode env s₀) :
+    ⦃fun st => st = s₀⦄
+      recTyCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps n s g
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (recTyCheck (fueledOpsM mode) .plain (mkFEnv env) rec lps n s g) v; ⊤⦄ := by
+  sym only [conleche_grind, recTyCheck.eq_1, → wscoped_zero_of_hasFvar_false] =>
+    vcgen [recTyCheck, inferS_specF hμ henv, sortS_specF hμ henv,
+      recTyOpenedS_spec hμ henv] <;> finish
+
+/-- **One stored rule's check**, simulated. -/
+theorem ruleAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {rec ctor : Name} {lps : List Name} {s g : Expr} {s₀ : CState} (hs : CSOK mode env s₀) :
+    ⦃fun st => st = s₀⦄
+      ruleAgree (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec ctor lps s g
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (ruleAgree (fueledOpsM mode) .plain (mkFEnv env) rec ctor lps s g) v; ⊤⦄ := by
+  sym only [conleche_grind, ruleAgree.eq_1, → wscoped_zero_of_hasFvar_false] =>
+    vcgen [ruleAgree, inferS_specF hμ henv, defeqS_specF hμ henv] <;> finish
+
+theorem storedRulesCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {rec : Name} {lps : List Name} :
+    ∀ (rs : List RecRule) (gs : List Expr) {s₀ : CState}, CSOK mode env s₀ →
+      ⦃fun st => st = s₀⦄
+        storedRulesCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps rs gs
+      ⦃fun v s' => CSOK mode env s' ∧
+        Runs (storedRulesCheck (fueledOpsM mode) .plain (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
+  intro rs
+  induction rs with
+  | nil =>
+    intro gs _ hs
+    cases gs <;>
+    sym only [conleche_grind, storedRulesCheck] =>
+      vcgen [storedRulesCheck.eq_def] <;> finish
+  | cons r rs ih =>
+    intro gs
+    cases gs with
+    | nil =>
+      intro _ hs
+      sym only [conleche_grind, storedRulesCheck] =>
+        vcgen [storedRulesCheck.eq_def] <;> finish
+    | cons g gs =>
+      intro _ hs
+      sym only [conleche_grind, storedRulesCheck] =>
+        vcgen [storedRulesCheck.eq_def, ruleAgreeS_spec hμ henv, ih gs] <;> finish
+
+/-- The stored recursors' comparison, simulated. -/
+theorem storedRecCompareS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
+    (hs : CSOK mode env s₀) :
+    ⦃fun st => st = s₀⦄
+      storedRecCompare (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (storedRecCompare (fueledOpsM mode) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+  sym only [conleche_grind, storedRecCompare.eq_1] =>
+    vcgen [storedRecCompare, recTyCheckS_spec hμ henv, storedRulesCheckS_spec hμ henv] <;> finish
+
+/-- The stored rules' shape (no operation), simulated. -/
+theorem storedRulesShapeS_spec {rec : Name} :
+    ∀ (rs : List RecRule) (cs : List (ConstantVal × Nat)) {s₀ : CState}, CSOK mode env s₀ →
+      ⦃fun st => st = s₀⦄ storedRulesShape (m := CheckCM) rec rs cs
+      ⦃fun v s' => CSOK mode env s' ∧ Runs (storedRulesShape (m := FueledM) rec rs cs) v; ⊤⦄ := by
+  intro rs
+  induction rs with
+  | nil =>
+    intro cs _ hs
+    cases cs <;>
+    sym only [conleche_grind, storedRulesShape] =>
+      vcgen [storedRulesShape.eq_def] <;> finish
+  | cons r rs ih =>
+    intro cs
+    cases cs with
+    | nil =>
+      intro _ hs
+      sym only [conleche_grind, storedRulesShape] =>
+        vcgen [storedRulesShape.eq_def] <;> finish
+    | cons c cs =>
+      intro _ hs
+      sym only [conleche_grind, storedRulesShape] =>
+        vcgen [storedRulesShape.eq_def, ih cs] <;> finish
+
+/-- The stored recursors' checks, simulated. -/
+theorem storedRecCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+    {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
+    (hs : CSOK mode env s₀) :
+    ⦃fun st => st = s₀⦄
+      storedRecCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+    ⦃fun v s' => CSOK mode env s' ∧
+      Runs (storedRecCheck (fueledOpsM mode) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+  sym only [conleche_grind, storedRecCheck.eq_1] =>
+    vcgen [storedRecCheck, storedRulesShapeS_spec (mode := mode) (env := env),
+      storedRecCompareS_spec hμ henv] <;> finish
+
+theorem storedRecsCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
+    ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr))
+      {s₀ : CState}, CSOK mode env s₀ →
+      ⦃fun st => st = s₀⦄
+        storedRecsCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) recs out
+      ⦃fun v s' => CSOK mode env s' ∧
+        Runs (storedRecsCheck (fueledOpsM mode) .plain (mkFEnv env) recs out) v; ⊤⦄ := by
+  intro recs
+  induction recs with
+  | nil =>
+    intro out _ hs
+    sym only [conleche_grind, storedRecsCheck] =>
+      vcgen [storedRecsCheck.eq_def] <;> finish
+  | cons rc rcs ih =>
+    intro out
+    cases out with
+    | nil =>
+      intro _ hs
+      sym only [conleche_grind, storedRecsCheck] =>
+        vcgen [storedRecsCheck.eq_def] <;> finish
+    | cons g gs =>
+      intro _ hs
+      sym only [conleche_grind, storedRecsCheck] =>
+        vcgen [storedRecsCheck.eq_def, storedRecCheckS_spec hμ henv, ih gs] <;> finish
 
 /-! ## 3. The assembly -/
 
@@ -811,14 +1017,26 @@ and resolved at the rule-less recursors' environment (`classRuleOk`), and
 an outside class's `.nested` datum reads off the stored type
 (`genStage_nestedRead`, at the block's canonical parameters and the
 classes' checked parameters). -/
-theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
+theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
     {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
     (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
       block = .ok out) (hpl : params.length = p.nP)
-    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (find? : Name → Option ConstantInfo) :
-    EnvWF (consBlockRecsT find? p 0 out env₂) := by
+    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
+    (∀ t ∈ out, t.1.type.hasFvar = false ∧
+      t.1.type.allLevelParamsDefined t.1.levelParams = true ∧
+      t.1.type.constsResolve env₂ = true ∧
+      t.1.type.looseBVarsBounded 0 = true ∧
+      ∀ rhs ∈ t.2.2, rhs.hasFvar = false ∧
+        rhs.allLevelParamsDefined t.1.levelParams = true ∧
+        rhs.constsResolve (consBlockRecsBare p 0 (out.map fun t => (t.1, t.2.1.nIdx)) env₂)
+          = true ∧
+        rhs.looseBVarsBounded 0 = true) ∧
+    (∀ i t, out[i]? = some t → t.2.1.member = none →
+      NestedRead (·.constsResolve env₂) t.1.levelParams t.1.type (p.majorIdxAt i)
+        (p.rulePrefixAt i) t.2.1.nPc t.2.1.lvls
+        (t.2.1.ds.map (Expr.abstractPrefix (p.rulePrefixAt i) 0))) := by
   obtain ⟨R⟩ := genRecCheck_run h
   have hcvGs := R.hcvGs
   have hrules := R.hrules
@@ -861,8 +1079,7 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
       = mkFEnv (consBlockRecsBare p 0 (out.map fun t => (t.1, t.2.1.nIdx)) env₂) := by
     unfold classFeR
     rw [consBlockRecsBareF_mkFEnv, hbare]
-  refine envWF_consBlockRecsT henv₂ (fun o ho => ?_)
-    (fun i t ht hm => genStage_nestedRead R hpl hMs₀ ht hm)
+  refine ⟨fun o ho => ?_, fun i t ht hm => genStage_nestedRead R hpl hMs₀ ht hm⟩
   obtain ⟨i, hoi⟩ := List.getElem?_of_mem ho
   obtain ⟨rc, c, cvG, -, -, ho', ⟨T⟩, hr⟩ := hat i o hoi
   obtain ⟨g1, g2, g3, g4⟩ := classConstOk_typeWF T.hcv
@@ -879,6 +1096,180 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
   rw [hfeR] at hres
   simp only [StructWalkers.plain, constsResolveF_eq] at hres
   refine ⟨by rw [Q.hout]; exact Q.hfv, Q.hlp, hres, by rw [Q.hout]; exact Q.hbv⟩
+
+theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
+    {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
+    {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
+      block = .ok out) (hpl : params.length = p.nP)
+    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (find? : Name → Option ConstantInfo) :
+    EnvWF (consBlockRecsT find? p 0 out env₂) :=
+  envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
+
+/-- The stream's recursor constants, checked at the constructors'
+environment: each type closed, at its level parameters, resolving. -/
+theorem classStreamRecs_typeWF {env : Env} {F : Nat} :
+    ∀ {recs : List RecShape} {cvs : List ConstantVal},
+      classStreamRecs (fueledOps mode F) (mkFEnv env) recs = .ok cvs →
+      ∀ rc ∈ recs, rc.cvR.type.hasFvar = false ∧
+        rc.cvR.type.allLevelParamsDefined rc.cvR.levelParams = true ∧
+        rc.cvR.type.constsResolve env = true ∧
+        rc.cvR.type.looseBVarsBounded 0 = true
+  | [], _, _ => fun rc h => nomatch h
+  | rc :: rcs, cvs, h => by
+    unfold classStreamRecs at h
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    obtain ⟨xs, hxs, -⟩ := exceptBind_ok h
+    cases u
+    intro rc' hrc'
+    rcases List.mem_cons.mp hrc' with rfl | hm
+    · rw [checkConstantValF_eq] at hu
+      exact checkConstantVal_typeWF hu
+    · exact classStreamRecs_typeWF hxs rc' hm
+
+/-- Each generated recursor is its record's constant at the generated
+type. -/
+theorem genRecCheck_outCv {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
+    {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+      = .ok out) :
+    out.length = p.recs.length ∧
+    ∀ (i : Nat) (rc : RecShape) (o : ConstantVal × TargetMajor × List Expr),
+      p.recs[i]? = some rc → out[i]? = some o → o.1 = { rc.cvR with type := o.1.type } := by
+  obtain ⟨R⟩ := genRecCheck_run h
+  obtain ⟨hlenG, hallG⟩ := classRecTysOk_run R.hcvGs
+  obtain ⟨hlenO, hallO⟩ := classRecsRulesOk_run R.hrules
+  refine ⟨?_, fun i rc o hrc ho => ?_⟩
+  · have hge : p.recs.length ≤ rd.recCls.length := by
+      cases hp : p.recs.length with
+      | zero => exact Nat.zero_le _
+      | succ n =>
+        obtain ⟨c, -, hc, -⟩ := hallG n p.recs[n] (List.getElem?_eq_getElem (by omega))
+        have := (List.getElem?_eq_some_iff.mp hc).1
+        omega
+    rw [hlenO, hlenG]
+    exact Nat.min_eq_left hge
+  obtain ⟨c, cvG, hc, hG, ⟨T⟩⟩ := hallG i rc hrc
+  obtain ⟨rhss, hoi, -⟩ := hallO i cvG c hG hc
+  rw [ho] at hoi
+  obtain rfl := Option.some.inj hoi
+  have := T.hcvG
+  simp only
+  rw [this]
+
+/-- The records' pins: no recursor takes a reserved name. -/
+theorem targetRecPins_unreserved {p : BlockShape} {block : List ConstantInfo}
+    (h : targetRecPins (m := CheckM) p block = .ok ()) :
+    ∀ rc ∈ p.recs, reservedRecName rc.cvR.name = false := by
+  unfold targetRecPins at h
+  by_cases h1 : blockRecLpsOk p = true
+  · simp only [h1, ↓reduceIte] at h
+    by_cases h2 : blockRecNamesUnreserved p = true
+    · intro rc hrc
+      have := List.all_eq_true.mp h2 rc hrc
+      exact eq_of_beq (by simpa using this)
+    · simp [h2, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+  · simp [h1, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+
+/-- No generated recursor takes a reserved name. -/
+theorem genRecCheck_out_unreserved {fe : FEnv} {p : BlockShape} {nestedBit : Bool}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+      = .ok out) :
+    ∀ o ∈ out, reservedRecName o.1.name = false := by
+  obtain ⟨R⟩ := genRecCheck_run h
+  obtain ⟨hlen, hcv⟩ := genRecCheck_outCv h
+  intro o ho
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem ho
+  have hil : i < p.recs.length := by
+    have := (List.getElem?_eq_some_iff.mp hi).1; omega
+  have hrc : p.recs[i]? = some p.recs[i] := List.getElem?_eq_getElem hil
+  rw [hcv i _ o hrc hi]
+  exact targetRecPins_unreserved R.pins _ (List.getElem_mem hil)
+
+/-- **The stored install is well formed** (task #431): each stored type
+is the record's, checked as a constant at the constructors' environment
+(`classStreamRecs`); each stored right-hand side is the generated one or
+passed `ruleAgree`'s guards; an auxiliary recursor's stored type reads
+its firing data (`storedNestedOk`). -/
+theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
+    {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
+    {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F F' : Nat}
+    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
+      block = .ok out) (hpl : params.length = p.nP)
+    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (f₀ : Name → Option ConstantInfo)
+    (hS : storedRecsCheck (fueledOps mode F') .plain
+      (mkFEnv (consBlockRecsT f₀ p 0 out env₂)) p.recs out = .ok ())
+    (find? : Name → Option ConstantInfo) :
+    EnvWF (consBlockRecsT find? p 0 (storedOut p.recs out) env₂) := by
+  obtain ⟨hF, hN⟩ := genRecCheck_outFacts h hpl hMs₀
+  obtain ⟨hlenO, hcv⟩ := genRecCheck_outCv h
+  obtain ⟨R⟩ := genRecCheck_run h
+  have hstream := classStreamRecs_typeWF R.hcvRis
+  obtain ⟨-, hallS⟩ := storedRecsCheck_inv hS
+  have hnames : (storedOut p.recs out).map (·.1.name) = out.map (·.1.name) :=
+    storedOut_map_name hlenO
+  -- resolution at the generated install transfers to the stored bare cons
+  have hres : ∀ e : Expr, e.constsResolve (consBlockRecsT f₀ p 0 out env₂) = true →
+      e.constsResolve (consBlockRecsBare p 0
+        ((storedOut p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
+    fun e he => Expr.constsResolve_of_find
+      (isSome_consBlockRecsT_bare (fun _ hn => hn)
+        (by simp only [List.map_map, Function.comp_def]; exact hnames.symm)) he
+  have hresG : ∀ e : Expr,
+      e.constsResolve (consBlockRecsBare p 0 (out.map fun t => (t.1, t.2.1.nIdx)) env₂) = true →
+      e.constsResolve (consBlockRecsBare p 0
+        ((storedOut p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
+    fun e he => Expr.constsResolve_of_find
+      (isSome_consBlockRecsBare_bare (fun _ hn => hn)
+        (by simp only [List.map_map, Function.comp_def]; exact hnames.symm)) he
+  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_)
+  · obtain ⟨i, hti⟩ := List.getElem?_of_mem ht
+    obtain ⟨rc, g, hrc, hg, rfl⟩ := storedOut_getElem? hti
+    have hgcv := hcv i rc g hrc hg
+    obtain ⟨g1, g2, g3, g4, grhs⟩ := hF g (List.mem_of_getElem? hg)
+    obtain ⟨s1, s2, s3, s4⟩ := hstream rc (List.mem_of_getElem? hrc)
+    have hlps : g.1.levelParams = rc.cvR.levelParams := by rw [hgcv]
+    obtain ⟨-, -, hcmp⟩ := storedRecCheck_inv (hallS i rc g hrc hg)
+    obtain ⟨-, hrules⟩ := storedRecCompare_inv hcmp
+    obtain ⟨hlenR, hallR⟩ := storedRulesCheck_inv hrules
+    refine ⟨s1, by simp only; rw [hlps]; exact s2, s3, s4, fun rhs hrhs => ?_⟩
+    obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hrhs
+    obtain ⟨k, hk⟩ := List.getElem?_of_mem hr
+    obtain ⟨gk, hgk⟩ : ∃ gk, g.2.2[k]? = some gk := by
+      have := (List.getElem?_eq_some_iff.mp hk).1
+      exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
+    rcases hallR k r gk hk hgk with heq | hag
+    · obtain ⟨r1, r2, r3, r4⟩ := grhs gk (List.mem_of_getElem? hgk)
+      rw [heq]
+      exact ⟨r1, r2, hresG _ r3, r4⟩
+    · obtain ⟨a1, a2, -, a4, a5, -⟩ := ruleAgree_inv hag
+      refine ⟨a2, a4, hres _ ?_, a1⟩
+      simpa [StructWalkers.plain, constsResolveF_eq] using a5
+  · obtain ⟨rc, g, hrc, hg, rfl⟩ := storedOut_getElem? ht
+    have hgcv := hcv i rc g hrc hg
+    obtain ⟨n1, n2, n3, -, -, -, -, -, -, -, n4⟩ := hN i g hg hm
+    obtain ⟨hn, -⟩ := (storedRecCheck_inv (hallS i rc g hrc hg)).2
+    have hmI : p.majorIdxAt i = rc.mI := by
+      simp only [BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+    have hrP : p.rulePrefixAt i = rc.rP := by
+      simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
+    simp only at hm
+    simp only [storedFireOf, auxRuleFire] at hn
+    rw [hm] at hn
+    obtain ⟨pre, dom, body, D, e1, e2, e3⟩ := storedNestedOk_read hn
+    have hlps : g.1.levelParams = rc.cvR.levelParams := by rw [hgcv]
+    refine ⟨n1, ?_, ?_, pre, dom, body, D, ?_, e2, ?_, n4⟩
+    · simp only; rw [hlps]; rw [hlps] at n2; exact n2
+    · simp only; rw [hlps]; rw [hlps] at n3; exact n3
+    · simp only; rw [hmI]; exact e1
+    · rw [hmI, hrP]; exact e3
 
 /-- **The install after the pass, at k members, at the cached driver**,
 is reproduced by the pure fueled `checkBlockTail`. -/
@@ -920,9 +1311,54 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   rw [show FEnv.find? (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
     = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _] at h
   rw [pushAll_blockRecInfosTF_mkFEnv, structWalkersC_eq_plain] at h
-  obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henv₃ hs₃ h
-  obtain ⟨G, hle₀, hle₃⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G := ⟨max F₀ F₃, by omega, by omega⟩
+  -- the stored recursors' check, at the generated install (an overlay
+  -- that answers as the pushed index)
+  have hovl : (mkFEnv (consBlockCtors p.nP ctorsAs env₁)).ovl = [] := rfl
+  have hf : ((mkFEnv (consBlockCtors p.nP ctorsAs env₁)).overlay
+      (blockRecInfosTF (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out).reverse).find?
+      = (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+          (consBlockCtors p.nP ctorsAs env₁))).find? := by
+    rw [find?_overlay_pushAll hovl, pushAll_blockRecInfosTF_mkFEnv]
+  have htb : ((mkFEnv (consBlockCtors p.nP ctorsAs env₁)).overlay
+      (blockRecInfosTF (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out).reverse
+      ).findTable?
+      = (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+          (consBlockCtors p.nP ctorsAs env₁))).findTable? := by
+    rw [findTable?_overlay_pushAll hovl, pushAll_blockRecInfosTF_mkFEnv]
+  have he : ((mkFEnv (consBlockCtors p.nP ctorsAs env₁)).overlay
+      (blockRecInfosTF (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out).reverse).env
+      = (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+          (consBlockCtors p.nP ctorsAs env₁))).env := by
+    rw [env_overlay_pushAll _ hovl, pushAll_blockRecInfosTF_mkFEnv]
+  rw [sharedOpsC_congr hf htb,
+    storedRecsCheck_congr (w := StructWalkers.plain)
+      (by funext e; exact constsResolveF_congr hf e) he] at h
+  obtain ⟨u3, s₃', hfl3, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl3
+  injection hfl3 with hfl3
+  obtain rfl : s₃.flushed = s₃' := congrArg Prod.snd hfl3
+  obtain ⟨u4, s₄', hst, h⟩ := bindC_ok h
+  obtain ⟨hs₄', F₄, hF₄⟩ := triple_iff_run.mp
+    (storedRecsCheckS_spec hμ henv₃ p.recs out (flushC_csok hs₃)) u4 s₄' hst
+  obtain ⟨u5, s₄, hfl4, h⟩ := bindC_ok h
+  rw [flushC_run] at hfl4
+  injection hfl4 with hfl4
+  obtain rfl : s₄'.flushed = s₄ := congrArg Prod.snd hfl4
+  have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
+  have hF₄' : storedRecsCheck (fueledOps mode F₄) .plain
+      (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+        (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
+    rw [← storedRecsCheck_datF]; cases u4; exact hF₄
+  have henvS := storedRecs_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1) _ hF₄'
+    (consBlockCtors p.nP ctorsAs env₁).find?
+  obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henvS hs₄ h
+  obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
+    ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
+  have g₄ : storedRecsCheck (fueledOps mode G) .plain
+      (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+        (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
+    rw [← storedRecsCheck_datF]; exact FueledM.up hle₄ (by rw [storedRecsCheck_datF]; exact hF₄')
   have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
@@ -938,6 +1374,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   simp only [Except.bind]
   rw [g₃]
   simp only [Except.bind]
+  rw [g₄]
   exact hT₆
 
 /-- **One pass at k members, at the cached driver**, is reproduced by

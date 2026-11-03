@@ -158,7 +158,8 @@ def checkSumCtors (ops : CheckerOps m) (env₀ env : Env) (T : Name)
   | c :: cs => do
     let (cvCa, sorts) ← checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
+    let (rest, srest) ← checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa
+      cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 
 /-- The constructors' conses, in order (the first constructor deepest). -/

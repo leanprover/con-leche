@@ -67,6 +67,22 @@ FALLBACK = {
     # identifier `DefEqBridge`, `DefEqBridge.lean:39`; `QuickExit`, `:40`).
     ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.Rules.Defs'),
     ('ConLeche.Verify.Rules.DefEqBridge', 'ConLeche.Verify.Rules.DefEqStepInv'),
+    # task #431: `StoredRecsInv`'s public statements name `RecShape`,
+    # `storedOut`, `consBlockRecsT` (all through `BlockTail`); the census
+    # attributes them elsewhere.  Measured by demoting it (unknown
+    # identifier `RecShape`, `StoredRecsInv.lean:21`).
+    ('ConLeche.Verify.Inductives.StoredRecsInv', 'ConLeche.Kernel.Inductives.BlockTail'),
+    # task #431: `DeclBlockStep`'s public `declBlock` names
+    # `Semantics.DeclBlockRun`, which it receives through this re-export.
+    # Measured by demoting it (unknown identifier
+    # `ConLeche.Semantics.DeclBlockRun`, `DeclBlockStep.lean:76`).
+    ('ConLeche.Model.Inductives.DeclBlock', 'ConLeche.Semantics.Inductives.DeclBlock'),
+    # task #431: `StoredSem`'s public statements name `PiTeleAV` and
+    # `recTyCheck`/`ruleAgree`; the census attributes them elsewhere.
+    # Measured by demoting each alone (unknown identifier `PiTeleAV`,
+    # `StoredSem.lean:120`; `ConLeche.recTyCheck`, `:224`).
+    ('ConLeche.Model.Inductives.StoredSem', 'ConLeche.Model.IndTele'),
+    ('ConLeche.Model.Inductives.StoredSem', 'ConLeche.Kernel.Inductives.StoredRecs'),
     # lane SIMP-AD: measured — demoting it breaks the file's own statements
     # (`Expr.eraseFVarTys`, `NestCallSyn.lean:34`; `targetPiDomsWith`, `:112`).
     ('ConLeche.Verify.Inductives.NestCallSyn', 'ConLeche.Kernel.Inductives.RecCheck'),

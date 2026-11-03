@@ -110,7 +110,8 @@ def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
   | c :: cs => do
     let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2
       cvTa
-    let (rest, srest) ← checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
+    let (rest, srest) ← checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa
+      cs
     pure ((cvCa, c.2) :: rest, sorts :: srest)
 
 /-- `consSumCtors` through the index. -/

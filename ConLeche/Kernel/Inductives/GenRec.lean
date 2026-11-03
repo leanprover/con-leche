@@ -377,13 +377,22 @@ def classConstOk (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) : m Unit :=
   let stype ← ops.inferType fe.env 0 cv.type
   let _u ← ops.ensureSort fe.env 0 stype
 
+/-- **The check of a generated recursor type** (task #410: a check, its
+only output a verdict): checked as a constant (`classConstOk`) and
+`isDefEq` to the stream's checked type `cvRi`. -/
+def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
+  classConstOk ops fe cvG
+  unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
+    throw (.invalid s!"generated recursor: the type of {cvG.name} is not the generated one \
+      (official: invalid recursor)")
+
 /-- **One recursor's generated type, checked and compared**: the record's
 member, rule prefix and major index are the generated ones; the generated
 type is checked as a constant under the record's name and level
 parameters (`checkConstantValF`) and must be `isDefEq` to the stream's
 checked type `cvRi`.  Returns the generated constant (what is stored). -/
-def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc : RecShape)
-    (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
+def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen)
+    (k : Nat) (rc : RecShape) (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
   let ci := g.cls.getD c default
   unless rc.tgt == ci.member.getD k do
     throw (.invalid "generated recursor: the recursor record's member is not its class's")
@@ -392,16 +401,13 @@ def classRecTyOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (rc :
       not the generated one")
   let gty ← unwrapOr (classGenRecTy g c) (.internal "generated recursor: recursor type")
   let cvG := { rc.cvR with type := gty }
-  classConstOk ops fe cvG
-  unless ← ops.isDefEq fe.env 0 cvRi.type cvG.type do
-    throw (.invalid s!"generated recursor: the type of {rc.cvR.name} is not the generated one \
-      (official: invalid recursor)")
+  classRecTyCheck ops fe cvRi cvG
   pure cvG
 
 /-- Every recursor's generated type, pairwise with the stream's checked
 types and the recursors' classes. -/
-def classRecTysOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) :
-    List RecShape → List ConstantVal → List Nat → m (List ConstantVal)
+def classRecTysOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen)
+    (k : Nat) : List RecShape → List ConstantVal → List Nat → m (List ConstantVal)
   | rc :: rcs, cvRi :: cvs, c :: cs => do
     let x ← classRecTyOk ops fe g k rc cvRi c
     let xs ← classRecTysOk ops fe g k rcs cvs cs
@@ -409,32 +415,37 @@ def classRecTysOk (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) :
   | [], _, _ => pure []
   | _, _, _ => throw (.internal "generated recursor: recursor list")
 
-/-- **One generated rule, installed** (as generated): resolved and typed
-at the rule-less recursors' environment `feR` (its level parameters the
-recursor's), its λ-telescope over the prefix and the fields `n` long,
-its λ-domains resolving at the constructors' environment `feT`.
-Returns the rule (stored). -/
-def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (cvR : ConstantVal)
-    (n : Nat) (gen : Expr) : m Expr := do
+/-- **The check of a generated rule** (task #410: a check, its only
+output a verdict): closed, at the recursor's level parameters, resolved
+and typed at the rule-less recursors' environment `feR`, its
+λ-telescope over the prefix and the fields `n` long, its λ-domains
+resolving at the constructors' environment `feT`. -/
+def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+    (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Unit := do
   unless gen.looseBVarsBounded 0 && !gen.hasFvar do
     throw (.internal s!"generated recursor: a rule of {cvR.name} is not closed")
-  let genA := gen
-  unless genA.allLevelParamsDefined cvR.levelParams do
+  unless gen.allLevelParamsDefined cvR.levelParams do
     throw (.internal s!"generated recursor: a rule of {cvR.name} names an undeclared universe \
       parameter")
-  unless w.resolve feR genA do
-    throw (unresolvedConstsError s!"generated rule of {cvR.name}" genA)
-  let _ ← ops.inferType feR.env 0 genA
-  let (rbs, _) ← unwrapOr (genA.stripLams n)
+  unless w.resolve feR gen do
+    throw (unresolvedConstsError s!"generated rule of {cvR.name}" gen)
+  let _ ← ops.inferType feR.env 0 gen
+  let (rbs, _) ← unwrapOr (gen.stripLams n)
     (.internal s!"generated recursor: a rule of {cvR.name} is not a λ-telescope over the \
       recursor's prefix and the constructor's fields")
   unless rbs.all (fun b => w.resolve feT b) do
-    throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" genA)
-  pure genA
+    throw (unresolvedConstsError s!"the domains of a generated rule of {cvR.name}" gen)
+
+/-- **One generated rule, installed** (as generated), after its check
+(`classRuleCheck`).  Returns the rule (stored). -/
+def classRuleOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
+    (cvR : ConstantVal) (n : Nat) (gen : Expr) : m Expr := do
+  classRuleCheck ops w feT feR cvR n gen
+  pure gen
 
 /-- A recursor's generated rules, one per constructor of its class. -/
-def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : ClassGen)
-    (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :
+def classRulesOk (ops : CheckerOps m) (w : StructWalkers)
+    (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name) (cvR : ConstantVal) (c : Nat) :
     List ClassCtor → m (List Expr)
   | [] => pure []
   | x :: xs => do
@@ -447,8 +458,8 @@ def classRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : 
 
 /-- Every recursor's generated rules, at the rule-less recursors'
 environment `feR`, with its class. -/
-def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (g : ClassGen)
-    (recOf : Nat → Option Name) :
+def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers)
+    (feT feR : FEnv) (g : ClassGen) (recOf : Nat → Option Name) :
     List ConstantVal → List Nat → m (List (ConstantVal × TargetMajor × List Expr))
   | cvG :: cvs, c :: cs => do
     let rhss ← classRulesOk ops w feT feR g recOf cvG c (g.ctors.getD c [])
@@ -458,7 +469,8 @@ def classRecsRulesOk (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv) (
 
 /-- The stream's recursor constants, checked (`checkConstantValF`): what
 the pre-pass reads and the generated types are compared with. -/
-def classStreamRecs (ops : CheckerOps m) (fe : FEnv) : List RecShape → m (List ConstantVal)
+def classStreamRecs (ops : CheckerOps m) (fe : FEnv) :
+    List RecShape → m (List ConstantVal)
   | [] => pure []
   | rc :: rcs => do
     checkConstantValF ops fe rc.cvR
