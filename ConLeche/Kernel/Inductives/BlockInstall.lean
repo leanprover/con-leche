@@ -112,7 +112,7 @@ def blockRawRec (p : BlockParts) : Bool :=
 loop (task #195) and the result sort — without the environment cons,
 which at k members happens only once every former has been checked.
 The constant check runs through `ck` (task #410: the checks' runner —
-`id` in the pure install, skipping in the generate-only one). -/
+`id` in the pure install, `isoC` in the cached one). -/
 def checkBlockTele (ck : m Unit → m Unit) (ops : CheckerOps m) (env : Env) (nP : Nat)
     (ms : MemberShape) : m (ConstantVal × Level) := do
   ck (checkConstantVal ops env ms.cvT)

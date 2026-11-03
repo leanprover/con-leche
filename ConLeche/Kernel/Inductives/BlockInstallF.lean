@@ -25,7 +25,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 /-! ## Stage 1: the formers -/
 
 /-- `checkBlockTele` through the index, its check through `ck` (task
-#410: run by the checked install, skipped by the generate-only one). -/
+#410: the checks' runner). -/
 def checkBlockTeleF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe : FEnv) (nP : Nat)
     (ms : MemberShape) : m (ConstantVal × Level) := do
   ck (checkConstantValF ops fe ms.cvT)

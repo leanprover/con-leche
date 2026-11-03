@@ -46,9 +46,11 @@ phase A of the fold — whatever the schedule.
 * **The install** of record `k` is `installStepG` at the view of its
   predicted counter (`ConLeche/Verify/Cached/Defer.lean`): the
   constants it pushes and, for a definition, theorem or opaque, its
-  pending check; an inductive block is installed generate-only, and
-  its checked install at the same view is a job of the check phase
-  (task #411), so the records after it wait on its generator only.  After publishing its slot the installer makes the
+  pending check; an inductive block the stored install reads is pushed
+  as stored (`storedInstall`, nothing generated or inferred), and its
+  checked install at the same view, compared with those pushes, is a
+  job of the check phase (tasks #411, #431), so the records after it
+  wait on its syntactic reading only.  After publishing its slot the installer makes the
   commit's checks (`goodB`: the `And` pin, and every slot the constants
   fill holds that very constant — `slotsOk`, base probes and pointer
   comparisons), and the result travels to the commit thread with its
@@ -205,8 +207,8 @@ namespace ParInstall
 open ConLeche ConLeche.Cached
 
 /-- What the install of record `k` computes: `installStepG` at the view of
-the record's predicted counter (an inductive block generate-only, its
-checks deferred to the check phase). -/
+the record's predicted counter (an inductive block as stored, its
+checked install deferred to the check phase). -/
 def workerRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) (k : Nat) : Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match ds[k]?, vis[k]? with
@@ -626,8 +628,19 @@ def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
     -- or fresh ones of its own.  If a slot, a slot thunk, a promise or an
     -- `FEnv` (whose base layer holds the slots) ever ends up inside a
     -- `ConstantInfo` or a `ValueGroup`, this mark must go.
-    let _ ← unsafe Runtime.markPersistent r
-    let _ ← unsafe Runtime.markPersistent cs
+    --
+    -- A block installed as stored (task #431) is the case: its tables'
+    -- guards are thunks over a worker view (`storedGuards`), whose slots
+    -- are thunks over promises the mark would wait for (and turn
+    -- persistent under other threads).  Of such a result only the
+    -- constants are marked; the tables stay counted.
+    match (ds[k]?).bind deferredBlock?, r with
+    | some _, .ok (L, _, _) =>
+      let _ ← unsafe Runtime.markPersistent L
+    | some _, .error _ => pure ()
+    | none, _ =>
+      let _ ← unsafe Runtime.markPersistent r
+      let _ ← unsafe Runtime.markPersistent cs
   match sh.slotP[k]? with
   | some p => p.resolve cs
   | none => pure ()
@@ -807,17 +820,17 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                 simp only [workerRes, Array.getElem?_eq_getElem hk, hv, pd]
               match hres : r with
               | .ok (L, Q, vg?) =>
-                match hpd : indParts? pd with
+                match hpd : deferredBlock? pd with
                 | some (block, nP) =>
-                  -- an inductive block, installed generate-only: its step is
-                  -- conditional on its checked install at the same view, a
-                  -- job of the check phase
-                  have hpd' := indParts?_some hpd
+                  -- an inductive block, installed as stored: its step is
+                  -- conditional on its checked install at the same view
+                  -- pushing the same, a job of the check phase
+                  have hpd' := (deferredBlock?_some hpd).1
                   have hand : andPinOk (.indDecl block nP) = true := hpd' ▸ hG'.1
                   have hg := installStepG_ind (pins := natOpPinSets) (i := i) (pend := pend)
-                    hag hidx hand (hpd' ▸ hval.symm.trans hres)
+                    hag hidx hpd hand (hval.symm.trans hres)
                   have hvg : vg? = none := hg.1
-                  let b : BlockCheck := ⟨workerView B S c, block, nP, i⟩
+                  let b : BlockCheck := ⟨workerView B S c, block, nP, i, L, Q⟩
                   commitLoop err stride total t0 hB sh cst p₀ (k + 1)
                     (i + 1) (c + L.length) (FEnv.pushDelta L Q fe) (pushPending pend i c vg?)
                     (D.push b)
@@ -851,11 +864,11 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                 return .error ((blockFailure mode natOpPinSets D).getD (e, i))
             else if andPinOk pd then
               -- a slot that does not match the prediction: for a block
-              -- installed generate-only (on a block nobody checked yet)
+              -- installed as stored (a block nobody checked yet)
               -- the verdict is its checked install's at the view, which no
               -- accepted block reaches (`installStepC_skels`); else a
               -- misprediction
-              match indParts? pd with
+              match deferredBlock? pd with
               | some _ =>
                 match installStep mode natOpPinSets (workerView B S c) pd with
                 | .error e => return .error ((blockFailure mode natOpPinSets D).getD (e, i))

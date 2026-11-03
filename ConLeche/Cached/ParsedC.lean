@@ -127,8 +127,7 @@ def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
   kind.declsA.foldlM installBasisDeclF fe
 
 /-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
-twin), checked (`chk = true`, `checkDeclC`'s arm) or generate-only
-(`chk = false`, `genIndDeclC`).
+twin).
 
 * **The pinned basis blocks** (task #293): the stream's own `Nat`
   block, recognised here and installed as the pin; a block under a
@@ -139,34 +138,16 @@ twin), checked (`chk = true`, `checkDeclC`'s arm) or generate-only
 * ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
   #219): a recognised block is the installer's, nested ones included;
   any other declines (`checkShapelessS`). -/
-def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) (chk : Bool := true) :
+def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
   match basisPinHit block with
   | some kind => checkBasisDeclC fe kind
   | none =>
     if indParamsOk nP block then
       match blockParts? nP block with
-      | some p => checkBlockKS mode fe block p chk
+      | some p => checkBlockKS mode fe block p
       | none => checkShapelessS mode fe block
     else throw (.invalid "number of parameters mismatch")
-
-/-- **The generate-only install of an inductive block** (task #410):
-`checkIndDeclC` with its checks skipped — the dispatch, the syntactic
-guards and everything the install stores computed exactly as the
-checked install computes them, no check whose only output is a verdict
-(the formers', constructors' and recursors' types inferred, the
-parameter domains and the stored recursor types compared by `isDefEq`,
-the generated rules typed).
-
-**Contract.**  It is meant for a block whose checked install at the
-same index has accepted — in another run, by another process: an
-importer installs an imported module's exported block in the module's
-exported view, which the module's own run installed checked.  There
-its result is the checked install's, state included
-(`checkIndDeclC_gen`, `ConLeche/Verify/Cached/GenOnly.lean`); on a
-block the checked install rejects it guarantees nothing. -/
-def genIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) : CheckCM FEnv :=
-  checkIndDeclC mode fe block nP false
 
 /-- One converted declaration (inductive and basis blocks reuse the
 `Expr`-level drivers).  A separable value declaration (a theorem, a

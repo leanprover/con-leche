@@ -1,29 +1,29 @@
 module
 
-import ConLeche.Verify.Cached.GenOnly
 public import ConLeche.Verify.Cached.ViewCongr
+public import ConLeche.Cached.StoredInstall
 
 /-!
-# Inductive blocks checked in the check phase (task #411)
+# Inductive blocks checked in the check phase (tasks #411, #431)
 
-Phase A installs an inductive block **generate-only** (`genIndStep`,
-task #410: the block's generator, its checks skipped) and records the
-block's checks as a job of the check phase (`BlockCheck`): the checked
-install of the block at a view that answers every lookup as the index
-the block was installed at does (`Twin`).  The block's step in the
-serial fold's accepting run (`InstallRun`) is then CONDITIONAL on that
-job: a driver's install loop carries `(∀ b ∈ D, b.Ok) → InstallRun …`
-for the jobs `D` it has recorded, and the check phase discharges the
-premise — the same Bool barrier as for the recorded value checks: a run
-is accepted only if every job of the check phase passes.
+Phase A installs an inductive block **as stored** (`storedInstall`,
+task #431: every constant and table read syntactically off the block's
+records, nothing generated or inferred) and records the block's checked
+install as a job of the check phase (`BlockCheck`): the checked install
+of the block at a view that answers every lookup as the index the block
+was installed at does (`Twin`), and the comparison of what it pushes
+with what the stored install pushed (`pushesAgree`, pointer-first).  The
+block's step in the serial fold's accepting run (`InstallRun`) is then
+CONDITIONAL on that job: a driver's install loop carries
+`(∀ b ∈ D, b.Ok) → InstallRun …` for the jobs `D` it has recorded, and
+the check phase discharges the premise — the same Bool barrier as for
+the recorded value checks: a run is accepted only if every job of the
+check phase passes.
 
-* `installDeclStep_defer` — where the generate-only step at an index
-  pushed `fe₁`, and the checked install accepts the block at a twin of
-  that index, the serial fold's step at the index pushes `fe₁`.  From
-  the twin lemma (`checkDeclStepC_twin`) and the contract of the
-  generate-only step (`genIndStep_eq`).
-* `genIndStep_twin` — the generate-only step at twins pushes the same
-  constants and tables, or fails alike.
+* `installDeclStep_defer` — where the checked install accepts the block
+  at an empty-environment twin of an index and pushes `L` and `Q`
+  there, the serial fold's step at the index pushes `L` and `Q`.  From
+  the twin lemma (`checkDeclStepC_twin`).
 * The view a deferred check runs at: the parallel install's worker
   view at the block's counter (its twin is the serial index by
   `ViewAgrees`, `Twin.ofViewAgrees`; `installStepG_ind`).
@@ -45,12 +45,16 @@ open ConLeche
 
 /-- **A deferred block check**: the block, the view its checked install
 runs at (on the parallel install, the worker view at the block's
-counter, `workerView`), and the block's fold position (its error tag). -/
+counter, `workerView`), the block's fold position (its error tag), and
+what the stored install pushed: the constants `L` and the tables `Q`,
+in install order. -/
 structure BlockCheck where
   view : FEnv
   block : List ConstantInfo
   nP : Nat
   pos : Nat
+  L : List ConstantInfo
+  Q : List ProjTable
 
 /-- The block's name (its first constant's), for the messages. -/
 def BlockCheck.name (b : BlockCheck) : Name :=
@@ -58,11 +62,25 @@ def BlockCheck.name (b : BlockCheck) : Name :=
   | ci :: _ => ci.name
   | [] => .anonymous
 
-/-- The block's checked install at the view, from a fresh memo state. -/
+/-- **The checked install pushed `L` and `Q`** onto a view whose own
+environment is empty: its constants and tables, in install order,
+compared pointer-first. -/
+def pushesAgree (W' : FEnv) (L : List ConstantInfo) (Q : List ProjTable) : Bool :=
+  listBeqBy ConstantInfo.beqP W'.env.consts.reverse L &&
+    listBeqBy ProjTable.beqP W'.env.tables.reverse Q
+
+/-- **The block's job**: its checked install at the view, from a fresh
+memo state, and the comparison of its pushes with the stored install's.
+A difference is an internal error naming the block: the stored reading
+(`storedInstall`) is not the checked install's, a defect of the reader,
+not of the stream. -/
 def blockCheck (mode : CheckMode) (pins : List NatOpPinSet) (b : BlockCheck) :
     Except CheckError Unit :=
   match checkDeclStepC mode pins b.view (.indDecl b.block b.nP) {} with
-  | .ok _ => .ok ()
+  | .ok (W', _) =>
+    if pushesAgree W' b.L b.Q then .ok ()
+    else .error (.internal s!"inductive block {b.name}: the stored install's constants or \
+      tables are not the checked install's")
   | .error e => .error e
 
 /-- The block check passed. -/
@@ -71,143 +89,122 @@ def BlockCheck.Ok (mode : CheckMode) (pins : List NatOpPinSet) (b : BlockCheck) 
 
 theorem blockCheck_ok {mode : CheckMode} {pins : List NatOpPinSet} {b : BlockCheck}
     (h : b.Ok mode pins) :
-    ∃ s, checkDeclStepC mode pins b.view (.indDecl b.block b.nP) {} = .ok s := by
+    ∃ W' s, checkDeclStepC mode pins b.view (.indDecl b.block b.nP) {} = .ok (W', s) ∧
+      W'.env.consts.reverse = b.L ∧ W'.env.tables.reverse = b.Q := by
   unfold BlockCheck.Ok blockCheck at h
   split at h
-  · rename_i s _; exact ⟨_, by assumption⟩
+  · rename_i W' s hc
+    split at h
+    · rename_i ha
+      simp only [pushesAgree, Bool.and_eq_true] at ha
+      exact ⟨W', s, hc, eq_of_listBeqBy (fun _ _ => ConstantInfo.eq_of_beqP) ha.1,
+        eq_of_listBeqBy (fun _ _ => ProjTable.eq_of_beqP) ha.2⟩
+    · exact nomatch h
   · exact nomatch h
 
-/-- An inductive block's parts, if the record is one. -/
-def indParts? : Declaration → Option (List ConstantInfo × Nat)
-  | .indDecl block nP => some (block, nP)
+/-- **An inductive block the stored install reads**, with its parts
+(`storedReadable`); every other record is installed by its ordinary
+step. -/
+def deferredBlock? : Declaration → Option (List ConstantInfo × Nat)
+  | .indDecl block nP => if storedReadable block nP then some (block, nP) else none
   | _ => none
 
-theorem indParts?_some {pd : Declaration} {block : List ConstantInfo} {nP : Nat}
-    (h : indParts? pd = some (block, nP)) : pd = .indDecl block nP := by
-  cases pd <;> simp_all [indParts?]
+theorem deferredBlock?_some {pd : Declaration} {block : List ConstantInfo} {nP : Nat}
+    (h : deferredBlock? pd = some (block, nP)) :
+    pd = .indDecl block nP ∧ storedReadable block nP = true := by
+  cases pd <;> simp only [deferredBlock?, reduceCtorEq] at h
+  split at h
+  · rename_i hr; simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h; exact ⟨rfl, hr⟩
+  · exact nomatch h
 
-/-- **A record's install at a worker view, a block generate-only**: the
-ordinary `installStep` but for an inductive block, whose constants are
-the generate-only install's.  Where the generate-only install fails, the
-verdict is the checked install's: the generator ran on a block nobody
-checked yet, and the checks the generator skipped come first.  (That the
-checked install then fails too is `genIndStep_eq`; the internal error is
-unreachable.) -/
+/-- **A record's install at a worker view, a readable block as stored**:
+the ordinary `installStep` but for an inductive block the stored install
+reads, whose constants and tables are the stored install's.  Where the
+stored install fails, the verdict is the checked install's: a block
+nobody checked yet may be malformed, and its checks come first.  (A
+reading that fails where the checked install passes is a defect of the
+reader: an internal error.) -/
 def installStepG (mode : CheckMode) (pins : List NatOpPinSet) (W : FEnv) (pd : Declaration) :
     Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
-  match pd with
-  | .indDecl block nP =>
-    match genIndStep mode W block nP with
-    | .ok W' => .ok (W'.env.consts.reverse, W'.env.tables.reverse, none)
-    | .error _ =>
+  match deferredBlock? pd with
+  | some (block, nP) =>
+    match storedInstall mode W block nP with
+    | some (L, Q) => .ok (L, Q, none)
+    | none =>
       match installStep mode pins W pd with
       | .error e => .error e
-      | .ok _ => .error (.internal "inductive block: the generate-only install failed \
+      | .ok _ => .error (.internal "inductive block: the stored install failed \
           where the checked install passed")
-  | _ => installStep mode pins W pd
+  | none => installStep mode pins W pd
 
 theorem installStepG_none {mode : CheckMode} {pins : List NatOpPinSet} {pd : Declaration}
-    (h : indParts? pd = none) (W : FEnv) :
+    (h : deferredBlock? pd = none) (W : FEnv) :
     installStepG mode pins W pd = installStep mode pins W pd := by
-  cases pd <;> first | rfl | exact nomatch h
+  unfold installStepG; rw [h]
 
 /-! ## The step, conditional on its block check -/
 
 variable {mode : CheckMode} {pins : List NatOpPinSet}
 
-/-- **The generate-only step at twins** pushes the same constants and
-tables onto each, or fails alike. -/
-theorem genIndStep_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (block : List ConstantInfo)
-    (nP : Nat) :
-    (∃ e, genIndStep mode fe₁ block nP = .error e ∧ genIndStep mode fe₂ block nP = .error e) ∨
-    ∃ L Q, genIndStep mode fe₁ block nP = .ok (FEnv.pushDelta L Q fe₁) ∧
-      genIndStep mode fe₂ block nP = .ok (FEnv.pushDelta L Q fe₂) := by
-  have hr : RelRun (PushedFrom fe₁ fe₂)
-      (flushC >>= fun _ => checkIndDeclC mode fe₁ block nP false)
-      (flushC >>= fun _ => checkIndDeclC mode fe₂ block nP false) :=
-    RelRun.bind_same fun _ => checkIndDeclC_twin false ht block nP
-  have hg : ∀ fe : FEnv, genIndStep mode fe block nP =
-      (match (flushC >>= fun _ => checkIndDeclC mode fe block nP false : CheckCM FEnv) {} with
-        | .ok (fe', _) => .ok fe'
-        | .error e => .error e) := fun _ => rfl
-  rw [hg, hg]
-  rcases hr {} with ⟨e, h₁, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L, Q, rfl, rfl⟩
-  · exact .inl ⟨e, by rw [h₁], by rw [h₂]⟩
-  · exact .inr ⟨L, Q, by rw [h₁], by rw [h₂]⟩
-
-/-- **The serial fold's step on a deferred block**: where the
-generate-only step at `fe` pushed `fe₁` and the checked install accepts
-the block at a twin `W` of `fe`, the fold's step at `fe` pushes `fe₁`
-and records nothing. -/
-theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) {i : Nat}
-    {pend : Array PendingCheck} {block : List ConstantInfo} {nP : Nat} {fe₁ : FEnv}
+/-- **The serial fold's step on a deferred block**: where the checked
+install accepts the block at a twin `W` of `fe` whose own environment
+is empty, pushing `L` and `Q`, the fold's step at `fe` pushes `L` and
+`Q` and records nothing. -/
+theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hW : W.env = ⟨[], []⟩) {i : Nat}
+    {pend : Array PendingCheck} {block : List ConstantInfo} {nP : Nat}
+    {L : List ConstantInfo} {Q : List ProjTable}
     (hand : andPinOk (.indDecl block nP) = true)
-    (hgen : genIndStep mode fe block nP = .ok fe₁)
-    (hok : ∃ s, checkDeclStepC mode pins W (.indDecl block nP) {} = .ok s) :
-    installDeclStep mode pins (i, fe, pend) (.indDecl block nP) = .ok (i + 1, fe₁, pend) := by
-  obtain ⟨s, hW⟩ := hok
+    (hok : ∃ W' s, checkDeclStepC mode pins W (.indDecl block nP) {} = .ok (W', s) ∧
+      W'.env.consts.reverse = L ∧ W'.env.tables.reverse = Q) :
+    installDeclStep mode pins (i, fe, pend) (.indDecl block nP) =
+      .ok (i + 1, FEnv.pushDelta L Q fe, pend) := by
+  obtain ⟨W', s, hW', hL, hQ⟩ := hok
   rcases checkDeclStepC_twin pins ht (.indDecl block nP) {} with
-    ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, -, -⟩
-  · rw [h₂] at hW; exact nomatch hW
-  · have hstep : installDeclStep mode pins (i, fe, pend) (.indDecl block nP) =
-        .ok (i + 1, a₁, pend) := by
-      unfold installDeclStep
-      simp only [hand, ↓reduceIte]
-      show (match (checkDeclStepC mode pins fe (.indDecl block nP) {}).bind
-          (fun v => (pure (v.1, pend) : CheckCM _) v.2) with
-        | .ok ((fe', pend'), _) => Except.ok (i + 1, fe', pend')
-        | .error e => .error (e, i)) = _
-      rw [h₁]
-      rfl
-    obtain ⟨-, hg⟩ := genIndStep_eq mode hstep
-    rw [hgen] at hg
-    obtain rfl : fe₁ = a₁ := Except.ok.inj hg
-    exact hstep
+    ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
+  · rw [h₂] at hW'; exact nomatch hW'
+  · rw [h₂] at hW'
+    obtain ⟨rfl, -⟩ := Prod.mk.inj (Except.ok.inj hW')
+    rw [pushDelta_env, hW] at hL hQ
+    simp only [List.append_nil, List.reverse_reverse] at hL hQ
+    subst hL hQ
+    unfold installDeclStep
+    simp only [hand, ↓reduceIte]
+    show (match (checkDeclStepC mode pins fe (.indDecl block nP) {}).bind
+        (fun v => (pure (v.1, pend) : CheckCM _) v.2) with
+      | .ok ((fe', pend'), _) => Except.ok (i + 1, fe', pend')
+      | .error e => .error (e, i)) = _
+    rw [h₁]
+    rfl
 
-/-- **A block installed generate-only at a worker view**: its result is
-the serial generate-only step's, and the serial fold's step, conditional
-on the block's checked install at the same view. -/
+/-- **A block installed as stored at a worker view**: no value check,
+and the serial fold's step pushes what it pushed, conditional on the
+block's checked install at the same view pushing it too. -/
 theorem installStepG_ind {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees B S fe)
-    (hidx : IdxBelow fe) {i : Nat} {pend : Array PendingCheck} {block : List ConstantInfo}
-    {nP : Nat} {L : List ConstantInfo} {Q : List ProjTable} {vg? : Option ValueGroup}
+    (hidx : IdxBelow fe) {i : Nat} {pend : Array PendingCheck} {pd : Declaration}
+    {block : List ConstantInfo} {nP : Nat}
+    {L : List ConstantInfo} {Q : List ProjTable} {vg? : Option ValueGroup}
+    (hd : deferredBlock? pd = some (block, nP))
     (hand : andPinOk (.indDecl block nP) = true)
-    (h : installStepG mode pins (workerView B S fe.visibleBelow) (.indDecl block nP) =
-      .ok (L, Q, vg?)) :
+    (h : installStepG mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
     vg? = none ∧
-      ((∃ s, checkDeclStepC mode pins (workerView B S fe.visibleBelow) (.indDecl block nP) {}
-          = .ok s) →
+      ((∃ W' s, checkDeclStepC mode pins (workerView B S fe.visibleBelow)
+          (.indDecl block nP) {} = .ok (W', s) ∧
+          W'.env.consts.reverse = L ∧ W'.env.tables.reverse = Q) →
         installDeclStep mode pins (i, fe, pend) (.indDecl block nP) =
           .ok (i + 1, FEnv.pushDelta L Q fe, pend)) := by
   have ht := Twin.ofViewAgrees hag hidx
-  have hG : installStepG mode pins (workerView B S fe.visibleBelow) (.indDecl block nP) =
-      (match genIndStep mode (workerView B S fe.visibleBelow) block nP with
-        | .ok W' => .ok (W'.env.consts.reverse, W'.env.tables.reverse, none)
-        | .error _ =>
-          match installStep mode pins (workerView B S fe.visibleBelow) (.indDecl block nP) with
-          | .error e => .error e
-          | .ok _ => .error (.internal "inductive block: the generate-only install failed \
-              where the checked install passed")) := rfl
-  rw [hG] at h
-  rcases genIndStep_twin (mode := mode) ht block nP with
-    ⟨e, -, h₂⟩ | ⟨L', Q', h₁, h₂⟩
-  · rw [h₂] at h
-    simp only at h
-    split at h
-    · exact nomatch h
-    · exact nomatch h
-  · rw [h₂] at h
+  unfold installStepG at h
+  rw [hd] at h
+  simp only at h
+  split at h
+  · rename_i hs
     simp only [Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨hL, hQ, rfl⟩ := h
-    have hL' : (FEnv.pushDelta L' Q' (workerView B S fe.visibleBelow)).env.consts.reverse
-        = L' := by
-      rw [pushDelta_env]; simp [workerView]
-    have hQ' : (FEnv.pushDelta L' Q' (workerView B S fe.visibleBelow)).env.tables.reverse
-        = Q' := by
-      rw [pushDelta_env]; simp [workerView]
-    rw [hL'] at hL
-    rw [hQ'] at hQ
-    subst hL hQ
-    exact ⟨rfl, fun hok => installDeclStep_defer ht hand h₁ hok⟩
+    obtain ⟨rfl, rfl, rfl⟩ := h
+    exact ⟨rfl, fun hok => installDeclStep_defer ht rfl hand hok⟩
+  · split at h
+    · exact nomatch h
+    · exact nomatch h
 
 /-- **An accepting install with its block checks deferred**: the final
 accumulator, the deferred checks, and the serial fold's accepting run

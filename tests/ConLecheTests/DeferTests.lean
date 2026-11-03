@@ -15,36 +15,46 @@ meta import ConLeche.Verify.Cached.Defer
 public section
 
 /-!
-# Inductive blocks checked in the check phase (task #411)
+# Inductive blocks checked in the check phase (tasks #411, #431)
 
-The install with its blocks generate-only and their checks deferred
-(the parallel install's commit loop, here as a pure serial fold over
-the prepared stream, each block checked at the index it was installed
-at), against the checked fold `installDeclStep`: on accepted streams the same environment, and
-every deferred check passes; on rejected streams with a faulty block the
+The install with its blocks pushed as stored (`storedInstall`) and their
+checked installs deferred (the parallel install's commit loop, here as
+a pure serial fold over the prepared stream, each block checked at a
+view of the index it was installed at), against the checked fold
+`installDeclStep`: on accepted streams the same environment, and every
+deferred check passes; on rejected streams with a faulty block the
 same verdict at the same fold position — the first failure among the
-fold's own errors and the deferred checks below it.
+fold's own errors and the deferred checks below it.  And a stored
+install that is not the checked one's (a tampered capability record)
+fails its job as an internal error.
 -/
 
 namespace ConLecheTests.Defer
 
 open ConLeche ConLeche.Cached ConLeche.Frontend
 
-/-- The deferring fold: a block generate-only with its check recorded at
-the view of its index (on a generator failure, the checked install's
-error at the view), every other record by the checked step; a failure
-reported, as the driver does, after the deferred checks below it. -/
+/-- The index as a view: its lookups, an empty environment of its own
+(as the worker view's), so that a step's pushes are its environment. -/
+def viewOf (fe : FEnv) : FEnv := { fe with env := Env.empty }
+
+/-- The deferring fold: a readable block as stored with its check
+recorded at the view of its index (where the reading fails, the
+checked install's error at the view), every other record by the
+checked step; a failure reported, as the driver does, after the
+deferred checks below it. -/
 def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array BlockCheck →
     Except (CheckError × Nat) (FEnv × Array BlockCheck)
   | [], acc, D => .ok (acc.2.1, D)
   | d :: ds, acc, D =>
-    match indParts? d with
+    match deferredBlock? d with
     | some (block, nP) =>
-      let v := acc.2.1
-      match genIndStep .verified acc.2.1 block nP with
-      | .ok fe₁ => deferFold ds (acc.1 + 1, fe₁, acc.2.2) (D.push ⟨v, block, nP, acc.1⟩)
-      | .error _ =>
-        match blockCheck .verified natOpPinSets ⟨v, block, nP, acc.1⟩ with
+      let v := viewOf acc.2.1
+      match storedInstall .verified v block nP with
+      | some (L, Q) =>
+        deferFold ds (acc.1 + 1, FEnv.pushDelta L Q acc.2.1, acc.2.2)
+          (D.push ⟨v, block, nP, acc.1, L, Q⟩)
+      | none =>
+        match blockCheck .verified natOpPinSets ⟨v, block, nP, acc.1, [], []⟩ with
         | .error e => .error ((blockFailure .verified natOpPinSets D).getD (e, acc.1))
         | .ok () => .error (.internal "unreachable", acc.1)
     | none =>
@@ -103,6 +113,25 @@ def sameReject (path : System.FilePath) : IO Unit := do
 #eval sameAccept "tests/e2e/corner_nestind_f13_listrose.ndjson"
 #eval sameAccept "tests/e2e/corner_nestind_d_mutual.ndjson"
 #eval sameAccept "tests/e2e/indexed_vec.ndjson"
+
+/-- A tampered stored install (the first block's first former's
+capability record with its unit-likeness flipped) fails its job, as an
+internal error. -/
+def tamperedFails (path : System.FilePath) : IO Unit := do
+  let ds ← prepared path
+  match deferFold ds (0, mkFEnv Env.empty, #[]) #[] with
+  | .ok (_, D) =>
+    let some b := D[0]? | throw <| IO.userError s!"{path}: no block deferred"
+    let L' := match b.L with
+      | .indInfo cv caps :: rest => .indInfo cv { caps with unitlike := !caps.unitlike } :: rest
+      | L => L
+    match blockCheck .verified natOpPinSets { b with L := L' } with
+    | .error (.internal _) => pure ()
+    | _ => throw <| IO.userError s!"{path}: the tampered install passed its job"
+  | .error _ => throw <| IO.userError s!"{path}: the fold rejects"
+
+#eval tamperedFails "tests/e2e/inmodel_mutual.ndjson"
+#eval tamperedFails "tests/e2e/mutual_struct_proj.ndjson"
 
 -- rejected at a block: a large eliminator out of a proposition, a bad
 -- index, a negative occurrence, a stub recursor, a stub's positivity,

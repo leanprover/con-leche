@@ -68,8 +68,9 @@ reads which list the matched variant came from.
 Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
 steps and carry their accepting runs as the proofs the subtypes ask
 for.  **The parallel install checks an inductive block in the check
-phase** (task #411): it runs a block's generate-only step
-(`genIndStep`) and records the block's checked install as a job of the
+phase** (tasks #411, #431): it pushes a block as stored
+(`storedInstall`, `ConLeche/Cached/StoredInstall.lean`) and records the
+block's checked install, compared with those pushes, as a job of the
 check phase, so the run it carries is this fold's run CONDITIONAL on
 those jobs; the check phase discharges them, and the run is this
 fold's (`ConLeche/Verify/Cached/Defer.lean`).  A rejection carries the FOLD POSITION of the declaration it
@@ -197,17 +198,6 @@ def installDeclStep (pins : List NatOpPinSet)
     | .ok ((fe', pend'), _) => .ok (p.1 + 1, fe', pend')
     | .error e => .error (e, p.1)
   else .error (.invalid "`And` must be the standard `And`", p.1)
-
-/-- **The generate-only install step of an inductive block** (task
-#410): the fold's step on `.indDecl block nP` from the fresh state
-(`installDeclStep`'s), with the block's checks skipped
-(`genIndDeclC`).  For a block whose checked step at the same index
-accepted (another run's): there it pushes what that step pushed
-(`genIndStep_eq`, `ConLeche/Verify/Cached/GenOnly.lean`). -/
-def genIndStep (fe : FEnv) (block : List ConstantInfo) (nP : Nat) : Except CheckError FEnv :=
-  match (do flushC; genIndDeclC mode fe block nP : CheckCM FEnv) {} with
-  | .ok (fe', _) => .ok fe'
-  | .error e => .error e
 
 /-- **Phase A's accepting run**: a chain of accepting `installDeclStep`s
 over the records, from an accumulator to the final one.  A loop builds

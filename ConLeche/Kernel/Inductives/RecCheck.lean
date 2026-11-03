@@ -267,9 +267,8 @@ overlay sharing the index in the cached one, `classFeROvl`).  The pure
 instantiation ignores the index (the pure operations read the `Env`
 they are handed); the cached one is index-bound.  `check` runs the
 stage's checks — the parts whose only output is pass or fail (task
-#410): the pure instantiation runs them as they are, the cached checked
-install in a memo of their own (`isoC`), the generate-only install not
-at all. -/
+#410): the pure instantiation runs them as they are, the cached
+install in a memo of their own (`isoC`). -/
 structure ShadowOps (m : Type → Type) where
   opsAt : FEnv → CheckerOps m
   opsRuleR : FEnv → CheckerOps m

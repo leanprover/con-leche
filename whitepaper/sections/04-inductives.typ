@@ -125,7 +125,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   parameters and the type, which must be definitionally equal to the
   generated one, and the record's two layout counts, which must equal
   the generated ones
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 383, 407)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 383, 406)[the comparison]).
   An unverified pre-pass reads off that type which type the recursor
   eliminates and how its motive and minor premises are laid out (the
   arguments named on $Nat$ in @ex:nat); a wrong reading can only make
@@ -224,7 +224,7 @@ eliminator on a family whose sort _may_ be zero
 #real[
   The checker asks the constructor count of every family whose sort
   may be zero (#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the guard],
-  #src("ConLeche/Kernel/Inductives/GenRec.lean", 564, 566)[applied])
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 563, 565)[applied])
   but the #src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per-field condition]
   only of a family whose sort is provably zero, which is sound because
   the universe bound (the third check below) makes every field a
@@ -294,7 +294,7 @@ generated type a well-denoted type.
 #real[
   The same steps run in this order, and each generated rule is
   type-checked in the environment holding the rule-less recursor
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 425, 447)[a generated rule]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 424, 446)[a generated rule]).
 ]
 
 === What is stored

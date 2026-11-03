@@ -391,8 +391,7 @@ member, rule prefix and major index are the generated ones; the generated
 type is checked as a constant under the record's name and level
 parameters (`checkConstantValF`) and must be `isDefEq` to the stream's
 checked type `cvRi`.  Returns the generated constant (what is stored).
-The two checks run through `ck` (task #410): the checked install runs
-them, the generate-only install does not (`ck` ignores them). -/
+The two checks run through `ck` (task #410: the checks' runner). -/
 def classRecTyOk (ck : m Unit → m Unit) (ops : CheckerOps m) (fe : FEnv) (g : ClassGen)
     (k : Nat) (rc : RecShape) (cvRi : ConstantVal) (c : Nat) : m ConstantVal := do
   let ci := g.cls.getD c default

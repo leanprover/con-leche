@@ -1021,36 +1021,36 @@ theorem classFeROvl_findTable?_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   exact (classFeR_twin ht p Ms cvGs recCls).findTable
 
 /-- **The recursor stage at twin indices is the same stage.** -/
-theorem genRecCheck_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockShape)
+theorem genRecCheck_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockShape)
     (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead)
     (Ms : List TargetMajor) (cvTas : List ConstantVal) (block : List ConstantInfo) :
-    genRecCheck (shadowOpsC mode chk) fe₁ p nestedBit params tbl rd Ms cvTas block =
-      genRecCheck (shadowOpsC mode chk) fe₂ p nestedBit params tbl rd Ms cvTas block := by
+    genRecCheck (shadowOpsC mode) fe₁ p nestedBit params tbl rd Ms cvTas block =
+      genRecCheck (shadowOpsC mode) fe₂ p nestedBit params tbl rd Ms cvTas block := by
   have hfe := ht.find
   have key : ∀ (Ms' : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
       (g : ClassGen) (recOf : Nat → Option Name) ,
-      classRecsRulesOk (shadowOpsC mode chk).check
-          ((shadowOpsC mode chk).opsRuleR (classFeROvl p Ms' cvGs recCls fe₁))
-          (shadowOpsC mode chk).walkers fe₁ (classFeROvl p Ms' cvGs recCls fe₁) g recOf cvGs
+      classRecsRulesOk (shadowOpsC mode).check
+          ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₁))
+          (shadowOpsC mode).walkers fe₁ (classFeROvl p Ms' cvGs recCls fe₁) g recOf cvGs
           recCls
-        = classRecsRulesOk (shadowOpsC mode chk).check
-          ((shadowOpsC mode chk).opsRuleR (classFeROvl p Ms' cvGs recCls fe₂))
-          (shadowOpsC mode chk).walkers fe₂ (classFeROvl p Ms' cvGs recCls fe₂) g recOf
+        = classRecsRulesOk (shadowOpsC mode).check
+          ((shadowOpsC mode).opsRuleR (classFeROvl p Ms' cvGs recCls fe₂))
+          (shadowOpsC mode).walkers fe₂ (classFeROvl p Ms' cvGs recCls fe₂) g recOf
           cvGs recCls := by
     intro Ms' cvGs recCls g recOf
     have hR := classFeROvl_find?_twin ht p Ms' cvGs recCls
     have hRt := classFeROvl_findTable?_twin ht p Ms' cvGs recCls
-    show classRecsRulesOk (ckC chk) (sharedOpsRuleR mode _) structWalkersC fe₁ _ g recOf cvGs
+    show classRecsRulesOk isoC (sharedOpsRuleR mode _) structWalkersC fe₁ _ g recOf cvGs
         recCls
-      = classRecsRulesOk (ckC chk) (sharedOpsRuleR mode _) structWalkersC fe₂ _ g recOf cvGs
+      = classRecsRulesOk isoC (sharedOpsRuleR mode _) structWalkersC fe₂ _ g recOf cvGs
         recCls
     rw [sharedOpsRuleR_congr mode hR hRt]
     exact classRecsRulesOk_twin (sharedOpsRuleR_envFree mode _)
       (constsResolveFC_congr hfe) (constsResolveFC_congr hR) g recOf cvGs recCls
-  have hops : (shadowOpsC mode chk).opsAt fe₁ = sharedOpsC mode fe₂ :=
+  have hops : (shadowOpsC mode).opsAt fe₁ = sharedOpsC mode fe₂ :=
     sharedOpsC_congr hfe ht.findTable
-  have hops₂ : (shadowOpsC mode chk).opsAt fe₂ = sharedOpsC mode fe₂ := rfl
-  have hre : (shadowOpsC mode chk).ruleEnv = classFeROvl := rfl
+  have hops₂ : (shadowOpsC mode).opsAt fe₂ = sharedOpsC mode fe₂ := rfl
+  have hre : (shadowOpsC mode).ruleEnv = classFeROvl := rfl
   unfold genRecCheck
   simp only [hre]
   simp only [key, hops, hops₂, classStreamRecs_congr (sharedOpsC_envFree mode fe₂) hfe,
@@ -1161,10 +1161,10 @@ theorem checkBlockIndsF_twin (ck : CheckCM Unit → CheckCM Unit) {fe₁ fe₂ :
   relrun
   all_goals exact RelRun.pure ⟨consBlockIndsF_pushed _ _ _ _ _ _, rfl⟩
 
-theorem checkBlockPassS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (p₀ : BlockParts) (isRec : Bool) :
-    RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec chk)
-      (checkBlockPassS mode fe₂ p₀ isRec chk) := by
+    RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec)
+      (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
   refine RelRun.bind (checkBlockIndsF_twin _ ht.find ht.findTable p₀ isRec) ?_
   rintro ⟨a₁, cvTas, p₁⟩ ⟨a₂, cvTas', p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
@@ -1180,10 +1180,10 @@ theorem checkBlockPassS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ 
   relrun
   all_goals exact RelRun.pure ⟨L, Q, rfl, rfl⟩
 
-theorem checkBlockTailS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) {q₁ q₂ : BlockPass FEnv} (hq : PassRel fe₁ fe₂ q₁ q₂) :
-    RelRun (PushedFrom fe₁ fe₂) (checkBlockTailS mode block q₁ chk)
-      (checkBlockTailS mode block q₂ chk) := by
+    RelRun (PushedFrom fe₁ fe₂) (checkBlockTailS mode block q₁)
+      (checkBlockTailS mode block q₂) := by
   obtain ⟨L, Q, rfl, hq₂⟩ := hq
   obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q₂
   simp only at hq₂
@@ -1197,11 +1197,11 @@ theorem checkBlockTailS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ 
     rw [hL₂, hL₂]; exact htL.pushAll L₂
   -- the stored recursors' check, at the generated recursors' overlays
   have hO : ∀ X : List ConstantInfo,
-      storedRecsCheck (ckC chk)
+      storedRecsCheck isoC
           (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
             X.reverse)) structWalkersC
           ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
-        = storedRecsCheck (ckC chk)
+        = storedRecsCheck isoC
           (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
             X.reverse)) structWalkersC
           ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
@@ -1221,7 +1221,7 @@ theorem checkBlockTailS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ 
     exact storedRecsCheck_twin (sharedOpsC_envFree mode _)
       (constsResolveFC_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
-      (FEnv.pushDelta L Q fe₂), genRecCheck_twin chk ht₂, blockRecInfosTF_twin ht₂.find, hO]
+      (FEnv.pushDelta L Q fe₂), genRecCheck_twin ht₂, blockRecInfosTF_twin ht₂.find, hO]
   relrun
   rw [hL₂, hL₂]
   rename_i out
@@ -1231,15 +1231,15 @@ theorem checkBlockTailS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ 
     (PushedFrom.pushAll _ _ L₂)).trans (PushedFrom.pushAll _ _ _) |>.trans ⟨L₃, Q₃, rfl, rfl⟩
 
 
-theorem checkBlockKS_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (p₀ : BlockParts) :
-    RelRun (PushedFrom fe₁ fe₂) (checkBlockKS mode fe₁ block p₀ chk)
-      (checkBlockKS mode fe₂ block p₀ chk) := by
+    RelRun (PushedFrom fe₁ fe₂) (checkBlockKS mode fe₁ block p₀)
+      (checkBlockKS mode fe₂ block p₀) := by
   unfold checkBlockKS
   relrun
   all_goals
-    exact RelRun.bind (checkBlockPassS_twin chk ht p₀ _) fun _ _ hq =>
-      checkBlockTailS_twin chk ht block hq
+    exact RelRun.bind (checkBlockPassS_twin ht p₀ _) fun _ _ hq =>
+      checkBlockTailS_twin ht block hq
 
 end Blocks
 
@@ -1274,17 +1274,16 @@ theorem checkShapelessS_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
   simp only [checkConstantValC_congr hfe htb]
   relrun
 
-/-- The block install, checked or generate-only (task #410), push for
-push at twins. -/
-theorem checkIndDeclC_twin (chk : Bool) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
+/-- The block install, push for push at twins. -/
+theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (nP : Nat) :
-    RelRun (PushedFrom fe₁ fe₂) (checkIndDeclC mode fe₁ block nP chk)
-      (checkIndDeclC mode fe₂ block nP chk) := by
+    RelRun (PushedFrom fe₁ fe₂) (checkIndDeclC mode fe₁ block nP)
+      (checkIndDeclC mode fe₂ block nP) := by
   unfold checkIndDeclC
   relrun
   all_goals first
     | exact checkBasisDeclC_twin ht _
-    | exact checkBlockKS_twin chk ht block _
+    | exact checkBlockKS_twin ht block _
     | exact checkShapelessS_twin ht.find ht.findTable block
 
 /-- **Every declaration step at twin indices pushes the same constants
@@ -1346,7 +1345,7 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
     exact checkBasisDeclC_twin ht kind
   | indDecl block nP =>
     unfold checkDeclC
-    exact checkIndDeclC_twin true ht block nP
+    exact checkIndDeclC_twin ht block nP
   | quotDecl k cv =>
     unfold checkDeclC
     dsimp only

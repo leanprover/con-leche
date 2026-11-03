@@ -69,8 +69,8 @@ def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
     pure (rest ++ [u])
 
 /-- `checkSumCtor` through the index; the constructor type's check and
-the parameter domains' agreement run through `ck` (task #410: run by
-the checked install, skipped by the generate-only one). -/
+the parameter domains' agreement run through `ck` (task #410: the
+checks' runner). -/
 def checkSumCtorF (ck : m Unit → m Unit) (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do

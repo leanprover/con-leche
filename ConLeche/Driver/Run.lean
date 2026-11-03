@@ -89,9 +89,9 @@ comes out is the environment together with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
-steps (at `--jobs=<n>` the parallel install installs an inductive
-block generate-only and its checks are a job of the check phase, task
-#411: the fold's run is assembled once every job passed); the fully checked environment they assemble
+steps (at `--jobs=<n>` the parallel install pushes an inductive
+block as stored and its checked install is a job of the check phase,
+tasks #411, #431: the fold's run is assembled once every job passed); the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
 the success line `checkMain` prints is printed from an accept of
 `checkDecls` and from nothing else.  A rejection carries the fold
@@ -199,8 +199,16 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- are thunks over promises the install's workers resolved, objects
     -- those threads may still be counting — the mark would race with
     -- them; there are few block checks, their counts stay atomic)
+    -- (nor, on the parallel install, are the projection tables: a block
+    -- installed as stored keeps its tables' guards as thunks over the
+    -- worker view, `storedGuards`, whose slots are those same objects;
+    -- the tables' counts stay atomic, the constants' index is marked)
     if !noMark then
-      let _ ← unsafe Runtime.markPersistent fe
+      if jobs ≤ 1 then
+        let _ ← unsafe Runtime.markPersistent fe
+      else
+        let _ ← unsafe Runtime.markPersistent fe.idx
+        let _ ← unsafe Runtime.markPersistent fe.env.consts
       let _ ← unsafe Runtime.markPersistent pend
       let _ ← unsafe Runtime.markPersistent J.order
     let tMark ← IO.monoMsNow

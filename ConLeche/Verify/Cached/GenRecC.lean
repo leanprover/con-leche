@@ -1023,7 +1023,7 @@ theorem genRecCheckS_spec (hμ : mode.verifiedChecks = true) {env₂ : Env}
   -- structural: the shadow operations' fields, and the cached rule stage at the overlay,
   -- which answers as the pushed rule-less recursors do
   unfold genRecCheck
-  dsimp only [shadowOpsC, ShadowOps.ofOps, ckC]
+  dsimp only [shadowOpsC, ShadowOps.ofOps]
   simp only [classRecsRulesOk_classFeROvl mode (fe := mkFEnv env₂) rfl]
   simp only [structWalkersC_eq_plain, classFeR_mkFEnv, mkFEnv_env]
   -- `gen`: the pure side, evaluated bind by bind, through eleven binds and three guards
@@ -1329,7 +1329,7 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) (hpl : params.length = p.nP)
     {s₀ : CState} (hs : CSOK mode env₁ s₀) {feOut : FEnv} {s' : CState}
     (h : checkBlockTailS mode block
-      ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ true
+      ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
       s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, (checkBlockTail (fueledOpsM mode) block
@@ -1420,7 +1420,7 @@ formers' and the constructors' types are fvar-free, the classes scoped. -/
 theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
     {p₀ : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK mode env s₀)
     {q : BlockPass FEnv} {s' : CState}
-    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec true s₀ = .ok (q, s')) :
+    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec s₀ = .ok (q, s')) :
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
@@ -1530,7 +1530,7 @@ the pass at official's `is_rec` and the install after it. -/
 theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
     {env : Env} (henv : EnvWF env) {block : List ConstantInfo} {p₀ : BlockParts}
     {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockKS mode (mkFEnv env) block p₀ true s₀ = .ok (feOut, s')) :
+    (h : checkBlockKS mode (mkFEnv env) block p₀ s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkBlock (fueledOps mode F) env block p₀ = .ok feOut.env := by
   unfold checkBlockKS at h

@@ -276,7 +276,7 @@ not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
 #src("ConLeche/Kernel/Env.lean", 144, 150)[each rule of a recursor at a container class stores the instantiation],
 that is, the class's levels and parameters as terms in the recursor's
 level parameters and parameters
-(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 607, 619)[the stored rules at a container class]).
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 606, 618)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
 #src("ConLeche/Kernel/CoreDefs.lean", 921, 928)[the stored ones, instantiated at the recursor's levels and parameter arguments]
@@ -287,7 +287,7 @@ are what follows its own parameters.
 
 *Large elimination.* A nested block may eliminate into every sort only
 if #src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[its sort is never zero]
-(#src("ConLeche/Kernel/Inductives/GenRec.lean", 562, 566)[where the checker enforces it]),
+(#src("ConLeche/Kernel/Inductives/GenRec.lean", 561, 565)[where the checker enforces it]),
 as in the official kernel. A nested proposition eliminates only into
 $sans("Prop")$, and the subsingleton criterion is never asked of a
 nested block.
@@ -298,11 +298,11 @@ nested block.
   #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
-  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 415, 452)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 414, 451)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
   #src("ConLeche/Kernel/Inductives/Positivity.lean", 1645, 1653)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited. A field landing at a class for which the stream
-  gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 454, 457)[no recursor]
+  gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 453, 456)[no recursor]
   is rejected. One class may be visited at several places. In
   #src("tests/e2e/src/corner_nestind_f13_listrose.lean", 12, 15)[a block with a field of type $List thick (sans("RL") thick sans("TL"))$],
   with $sans("RL") thick alpha$ a rose tree over lists, that

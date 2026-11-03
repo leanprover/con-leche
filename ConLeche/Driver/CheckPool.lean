@@ -13,8 +13,8 @@ Part of the proof-carrying driver (`ConLeche/Driver/*`; the CLI is
 `Main.lean`).
 
 The check phase's jobs are the recorded value checks and the deferred
-checks of the inductive blocks (task #411: phase A installs a block
-generate-only, `ConLeche/Verify/Cached/Defer.lean`), in fold order
+checks of the inductive blocks (tasks #411, #431: phase A pushes a block
+as stored, `ConLeche/Verify/Cached/Defer.lean`), in fold order
 (`ConLeche.Cached.jobOrder`).  They are independent by construction —
 a value check reads the installed index at its own prefix view, its own
 record, and a fresh memo state; a block check runs the block's checked

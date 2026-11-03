@@ -327,7 +327,7 @@ structure ProjTable where
   inference, and a table is read at every `.proj` node while its guards
   are read only at a `Prop`-declared structure.  The checked install
   stores them computed (`Thunk.pure`); the parallel install's stored
-  install (`storedInstall`, `ConLeche/Driver/StoredInstall.lean`) a thunk
+  install (`storedInstall`, `ConLeche/Cached/StoredInstall.lean`) a thunk
   that infers them on first use, whose value the block's check job
   compares with the checked install's.  Logically a thunk is its value
   (`Thunk.get`), and two tables with equal guard values are equal
