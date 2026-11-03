@@ -2949,26 +2949,26 @@
    102    elim : Name
    103    deriving DecidableEq
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L104-L122
-   104  structure BlockShape where
-   105    /-- the members in block order -/
-   106    members : List MemberShape
-   107    /-- the block's recursors, in the order the stream exports them (any
-   108    number, assigned to their members by their majors) -/
-   109    recs : List RecShape
-   110    /-- the shared parameter count -/
-   111    nP : Nat
-   112    /-- the recursors' fresh elimination level parameter (`large` only;
-   113    `.anonymous` for a small eliminator) -/
-   114    elim : Name
-   115    /-- the result sort (member 0's; the others are `Level.isEquiv` to it) -/
-   116    resSort : Level
-   117    /-- large eliminator (a fresh elimination level parameter in front) -/
-   118    large : Bool
-   119    /-- the result sort is provably `Prop` -/
-   120    isProp : Bool
-   121    deriving Repr, Inhabited
-   122  
+== ConLeche/Kernel/Inductives/BlockParts.lean#L106-L124
+   106  structure BlockShape where
+   107    /-- the members in block order -/
+   108    members : List MemberShape
+   109    /-- the block's recursors, in the order the stream exports them (any
+   110    number, assigned to their members by their majors) -/
+   111    recs : List RecShape
+   112    /-- the shared parameter count -/
+   113    nP : Nat
+   114    /-- the recursors' fresh elimination level parameter (`large` only;
+   115    `.anonymous` for a small eliminator) -/
+   116    elim : Name
+   117    /-- the result sort (member 0's; the others are `Level.isEquiv` to it) -/
+   118    resSort : Level
+   119    /-- large eliminator (a fresh elimination level parameter in front) -/
+   120    large : Bool
+   121    /-- the result sort is provably `Prop` -/
+   122    isProp : Bool
+   123    deriving Repr, Inhabited
+   124  
 
 == whitepaper/Fragment/Spec.lean#L28-L42
     28  /-- A constructor field, as the positivity check classifies it
@@ -3087,11 +3087,14 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/GenRec.lean#L553-L556
-   553  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
-   554      (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
-   555      (cvTas : List ConstantVal) (block : List ConstantInfo) :
-   556      m (List (ConstantVal × TargetMajor × List Expr)) := do
+== ConLeche/Kernel/Inductives/StoredRecs.lean#L189-L195
+   189  def storedRecsCheck (ck : m Unit → m Unit) (ops : CheckerOps m) (w : StructWalkers)
+   190      (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+   191    | rc :: rcs, g :: gs => do
+   192      storedRecCheck ck ops w fe rc g
+   193      storedRecsCheck ck ops w fe rcs gs
+   194    | [], [] => pure ()
+   195    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
 == whitepaper/Fragment/Decl.lean#L218-L220
    218  /-- The motive's type, under the parameters:
@@ -3276,13 +3279,13 @@
    763    (S.large = true → ¬ S.NeverProp → S.ctors.length ≤ 1) ∧
    764    (∃ T, Infer (S.envCtors env) [] S.recType T)
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L141-L146
-   141  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
-   142      m Env := do
-   143    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
-   144      throw (.invalid "direct rec: duplicate constructor")
-   145    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
-   146    checkBlockTail ops block q
+== ConLeche/Kernel/Inductives/BlockTail.lean#L146-L151
+   146  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+   147      m Env := do
+   148    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
+   149      throw (.invalid "direct rec: duplicate constructor")
+   150    let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
+   151    checkBlockTail ops block q
 
 == whitepaper/Fragment/Decl.lean#L307-L312
    307  /-- **A rule's type**: `∀ params motive minors fields, motive idx (C params fields)`
@@ -5233,13 +5236,13 @@
    180      ∃ m' : EnvModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls :=
    181    ⟨S.mInstall hpl hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L70-L75
-    70  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
-    71      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    72      (mp : EnvModelM V μ env)
-    73      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    74      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    75      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V μ env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L89-L98
     89  /-- **No closed term inhabits an empty inductive type.**  For a block
@@ -5682,15 +5685,15 @@
    618      rules.map fun rl => { rl with fire := fire }
    619    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L917-L924
-   917  def recFireComparands (rl : RecRule) (lps : List Name)
-   918      (us : List Level) (cvjLps : List Name) (args : List Expr)
-   919      (rP : Nat) : List Level × List Expr :=
-   920    match rl.fire with
-   921    | .nested lvls pins =>
-   922      (lvls.map (Level.subst lps us),
-   923       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-   924         (p.instantiateLevelParams lps us))
+== ConLeche/Kernel/CoreDefs.lean#L921-L928
+   921  def recFireComparands (rl : RecRule) (lps : List Name)
+   922      (us : List Level) (cvjLps : List Name) (args : List Expr)
+   923      (rP : Nat) : List Level × List Expr :=
+   924    match rl.fire with
+   925    | .nested lvls pins =>
+   926      (lvls.map (Level.subst lps us),
+   927       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+   928         (p.instantiateLevelParams lps us))
 
 == ConLeche/Rules/Rel.lean#L213-L224
    213        (iotaCase3 env.find? rl cvj

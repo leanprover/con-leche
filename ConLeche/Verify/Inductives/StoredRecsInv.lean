@@ -294,7 +294,7 @@ theorem recTyCheck_inv {rec : Name} {lps : List Name} {n : Nat} {s g : Expr}
             cases v
             obtain ⟨b, hb, h⟩ := exceptBind_ok h
             cases b
-            · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+            · simp [throw, throwThe, MonadExceptOf.throw] at h
             · simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1
               exact ⟨h1.1.1, h1.1.2, h1.2, h2, h3, ⟨st, u, hst, hu⟩, sfvs, srest, gfvs, grest,
                 rfl, rfl, hv, hb⟩
@@ -323,7 +323,7 @@ theorem ruleAgree_inv {rec ctor : Name} {lps : List Name} {s g : Expr}
         · simp only [↓reduceIte] at h
           obtain ⟨b2, hb2, h⟩ := exceptBind_ok h
           cases b2
-          · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
+          · simp [throw, throwThe, MonadExceptOf.throw] at h
           · simp only [Bool.and_eq_true, Bool.not_eq_true'] at h1
             exact ⟨h1.1.1, h1.1.2, h1.2, h2, h3, ts, tg, hts, htg, hb1, hb2⟩
       · simp [h3, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h

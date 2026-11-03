@@ -48,7 +48,7 @@ interpretations of a binder from §2, decided for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
-(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 104, 122)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 106, 124)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -131,9 +131,11 @@ or $0$ (_small elimination_); the elimination rule below says which.
   arguments named on $Nat$ in @ex:nat); a wrong reading can only make
   the comparison fail
   (#src("ConLeche/Kernel/Inductives/ClassRead.lean", 24, 32)[the pre-pass]).
-  The record's rules are never read; the generated recursor and its
-  rules are what is stored
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 553, 556)[the recursor stage]).
+  What is stored is the record's own recursor, its type and its rules,
+  once they agree with the generated ones: the type binder by binder up
+  to the major premise, each rule up to definitional equality, at the
+  generated recursor's firing data
+  (#src("ConLeche/Kernel/Inductives/StoredRecs.lean", 189, 195)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -266,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 141, 146)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 146, 151)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -999,7 +1001,7 @@ assumed of the environment they extend.
 
 #real[
   The block step is one theorem,
-  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 70, 75)[the install of a block],
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block],
   read off the checker's run stage by stage.
 ]
 

@@ -54,10 +54,12 @@ open ConLeche
 #guard run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu) (.bvar 0)))
   == "accept"
 -- a stream rule recursing on a CLOSED major (`U.rec motive h U.u`):
--- the stage never reads the stream's rules (it stores the generated
--- ones), so the block is ACCEPTED, with the generated rule installed
--- (a whole run rejects it afterwards: the driver's stored-rules check,
--- `recRulesAgree` in `ConLeche/Driver/RecRules.lean`)
+-- the install compares the stream's rule with the generated one at the
+-- generated install (`storedRecsCheck`,
+-- `ConLeche/Kernel/Inductives/StoredRecs.lean`), where it ι-reduces to
+-- `h`: definitionally the generated rule, so the block is ACCEPTED with
+-- the stream's rule installed (official, comparing syntactically,
+-- rejects)
 #guard run (lam (pi cU (.sort (.param (nm "v")))) (lam (.app (.bvar 0) cUu)
     (.app (.app (.app cRec (.bvar 1)) (.bvar 0)) cUu)))
   == "accept"
