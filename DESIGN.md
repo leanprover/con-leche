@@ -107989,3 +107989,139 @@ index sorts) then read the internal telescope where they run inside
 the block and the recursor's major premise where they run later.  With
 Phase 4, `storedReadable` drops its def-headed clause and the stored
 install reads such a block too.
+
+### 9. State at the end of the fourth session (#431 cont. 4)
+
+**Landed** (`agent/431-stored`, no `sorry`, no new axiom): item 2 of
+the session's brief, the checks' isolation dropped.  Phase 4 is not
+started in code; its analysis is below.
+
+**`isoC` dropped** (f1639f0b6).  The checks' runner `ck` — `id` in the
+pure install, `isoC` (each check from a fresh memo, its state dropped)
+in the cached one — had no reader left in any statement once Phase 3
+deleted the generate-only install.  The parameter goes from every
+function that took it (`checkBlockInds`, `checkBlockTele(s)`,
+`checkSumCtor(s)`, `checkBlockCtors`, their `F` mirrors,
+`classRecTyOk`/`classRecTysOk`, `classRuleOk`/`classRulesOk`/
+`classRecsRulesOk`, `classStreamRecs`, `storedRecCheck`/
+`storedRecsCheck`), and `ShadowOps.check` goes: the checks run in the
+generator's memo.  The one check that runs at another environment
+than its neighbours — the stored recursors' comparison, at the
+generated recursors' overlay — gets a `flushC` entering and leaving
+it, the drivers' discipline at every environment transition (the
+rules stage's two transitions were already flushed inside
+`sharedOpsRuleR`).  The proofs needed nothing new: the iso lemmas
+(`isoCS_spec`, `Yields.isoC`, five `…IsoS_spec`s, `csok_empty`) are
+deleted and each caller uses the check's own triple; the stored
+comparison's chain is now stated at `CSOK mode env` instead of
+`CSOKF`, and `checkBlockTailS_run` steps over the two flushes.
+
+**Numbers** (`instructions:u`, `--verified`, one run each; base =
+`agent/427-installer` 4d37c03e6; "cont. 3" = 58e35d688, §8's head;
+head = f1639f0b6):
+
+| stream | jobs | base | head vs base | head vs cont. 3 |
+|---|---|---|---|---|
+| init-full | 1 | 379.446 G | −0.07 % | −0.06 % |
+| init-full | 8 | 393.173 G | −0.27 % | −0.03 % |
+| init-prelude | 1 | 1.8414 G | +0.80 % | −1.13 % |
+| init-prelude | 8 | 2.1804 G | −1.92 % | −0.86 % |
+| grind-ring-5 | 1 | 15.165 G | +0.07 % | −0.19 % |
+| grind-ring-5 | 8 | 15.807 G | −0.79 % | −0.21 % |
+| app-lam, beta-ladder, let-ladder | 1 | 22.07 / 4.84 / 2.56 G | −0.02 … −0.00 % | −0.02 … −0.00 % |
+| app-lam, beta-ladder, let-ladder | 8 | 22.41 / 4.92 / 2.65 G | −0.21 … −0.07 % | −0.42 … +0.11 % |
+| the other twelve perf streams | 1 | 19–297 M | −1.74 … −0.08 % | −1.92 … −0.07 % |
+| the other twelve perf streams | 8 | 24–300 M | −6.36 … −0.31 % | −1.53 … +0.26 % |
+
+The isolation cost #410 measured (about 1.3 % of init-prelude) is
+recovered at `--jobs=1` up to the 0.8 % that remains of Phase 2's
+stored-recursor comparisons; every stream is now at or below the base
+but init-prelude and grind-ring-5 at `--jobs=1` (+0.80 %, +0.07 %).
+
+**Gates on f1639f0b6**: `lake build`, `lake test` warning-free (axioms
+pinned, 20 theorems at `propext`, `Classical.choice`, `Quot.sound`);
+`tests/arena.sh` in full under the 8 GB guard (peak anon 2.2 GB):
+layering, pindump, trust surface, overview and whitepaper links
+(repointed after the signatures' shifts), fragment, quote,
+no-local-paths, challenge, shake (all allowlisted, no public import
+demotable), selfcheck 48 652 declarations, arena tutorial 90/92 as
+before, e2e 499/499, the trusted, `--jobs=1` and `--jobs=4` sweeps
+without divergence.
+
+**Phase 4 — not done; what stands in its way.**  This session costed
+cont. 3's route against the model before touching the kernel, and the
+route is wider than cont. 3 assumed: the stored type of a def-headed
+former is read syntactically not only inside its block but by three
+standing invariants of the environment, each consumed by LATER blocks
+and by the rules tier.
+
+1. **`LfpReads`** (`Model/Env/EnvModelM.lean`): every recorded block's
+   member's STORED type reads as `mkPisAV (pars ++ ids) (.sort w)`.
+   For `∀ params, Presieve X` this is false (the reading ends in a
+   constant application), and `LfpCover` forbids leaving the block
+   unrecorded (every stored inductive is a member of a recorded block).
+   It is consumed at about twenty sites of the nested-container walk
+   (`ContN2`, `ContLeaf`, `ContWalk`, `ContInst`, `GenOutFacts`,
+   `GenClsData`, `GenClsSem`, `GenRecPreRun`, `GenRecExtra`,
+   `GenFrameTie`, `LfpFormer`, `TargetClass`, `GenNodeCalls`,
+   `PosDerivMono`), whenever a later block nests the family as a
+   container.
+2. **`LfpCtorReads`**' hole types: `instPisWith (canonParams nP)
+   cvm.type` read at every level assignment as the clause's `Tys`
+   (the frame's hole context).  For the stored type the reading exists
+   (the parameters are binders) but is not the telescope's, so the
+   clause would hold only up to the readings' equality on the frames
+   satisfying the parameters — a transport of `FieldsEqOn`/`Sat` across
+   contexts that read alike, which does not exist yet.
+3. **`IndCapsWF`** (`EnvWF`): the η/unit arities `stripPis` of the
+   STORED type.  Def-headed structures and unit-like `Prop`s exist
+   (`ind_defhead_struct`, `ind_defhead_k`); their stored types bind
+   their parameters syntactically in every Lean-elaborated stream, but
+   a stream may hide a parameter behind the definition, where the
+   arity fact fails.
+4. `IndFibLaw`/`IndStrictOk` and the fast `isProp` path read the
+   former's type as a Π-tower ending in a sort; for the stored
+   def-headed type their premise fails, so they hold vacuously and the
+   fast path falls back — sound, but a behaviour change to measure.
+
+On the kernel side the later readers are `nestInstType` and
+`nestArity` (`Positivity.lean`), `targetOutsideInst` (`RecCheck.lean`)
+and `classFormerTy` (`GenRec.lean`), all on an outside container.  At
+the stored type `nestInstType` and `targetOutsideInst` REJECT a
+def-headed container ("not a telescope ending in a sort", exit 1)
+where official accepts (it whnf's the auxiliary type) — a new
+"beyond official" reject unless those readers move to the container's
+recursor (its motive's domain is `∀ indices, I params indices → Sort
+u` under the parameters: the index telescope, whnf'd, read off the
+stored recursor, which is what ruling 4 asks for).
+
+**The design that closes it** (one lane, several sessions):
+(a) the install as cont. 3 says — the block's internals at the whnf'd
+telescope, one install-time `isDefEq` of the stored and the whnf'd
+former types at the pre-block environment (only when they differ),
+the final environment's formers at their stored types (the swap at
+the bottom of the block's pushes: in the pure `Env` a rebuild of the
+block's conses over `env₀`, in the cached one an in-place `FEnv` slot
+update — never a retained copy of the pre-block index), the model's
+step a `StoredCorr`-style correspondence for formers with
+`mem_type` moved by `interp ⟦stored⟧ = interp ⟦whnf'd⟩`
+(`defeq_sound` at depth 0); (b) `LfpReads`, `LfpCtorReads`' hole types
+and `IndCapsWF` restated over a telescope the kernel reads off the
+RECURSOR (the major's motive) instead of the former's type, and the
+kernel's container readers (`nestInstType`, `nestArity`,
+`targetOutsideInst`, `classFormerTy`) moved to the same reading — the
+twenty consumer sites then change the expression they are handed,
+not their argument; (c) `storedReadable` drops the def-headed clause
+(`storedSorts` reads the sort off the internal telescope).  The
+fixtures are in place: `direct_idx_defhead` (an indexed `Prop` family
+declared at a definition, official 0), `ind_defhead_struct`,
+`ind_defhead_k`, `ind_defhead_mutual` (official 0), the
+`presieve_ofarrows_cone` stream; Phase 4 adds a def-headed container
+nested by a later block (official 0).  The asked-for reject fixture —
+a stored former type NOT definitionally equal to its unfolding — has
+no stream: the internal telescope is computed FROM the stored type by
+`whnf` steps, so the two are definitionally equal whenever the
+telescope exists; the install-time comparison is the model's bridge,
+not a verdict a stream can flip.  The rejects a stream can reach are
+the existing ones (a telescope `whnf` does not reach, e.g. `ind_numparams_bad`).
+
