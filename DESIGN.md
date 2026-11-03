@@ -108283,3 +108283,142 @@ overview and whitepaper links (repointed), fragment, quote,
 no-local-paths, challenge, shake (all allowlisted), selfcheck 48 648
 declarations, arena tutorial 90/92 as before, e2e 502/502, the
 trusted, `--jobs=1` and `--jobs=4` sweeps without divergence.
+
+### 12. Ruling (b) planned: a def-headed former at its STORED type, no reduction at install (#431 cont. 7, 2026-11-03)
+
+**Maintainer rulings** (2026-11-03): (1) `--jobs=1` stays as it is as
+long as inductives and definitions are treated alike there; (2) "give
+(b) a shot": every former installed at its stored type, literally — no
+`whnf`, no inference at install time for any block; the reduced
+telescope computed only in the block's job (the checked install),
+which checks it against the stored type; the model invariants that
+read the installed former type syntactically restated over a telescope
+that is not necessarily the installed type; the kernel's container
+readers moved so that no reject beyond official appears
+(`ind_defhead_nested` stays 0).  Plan first, with an estimate; stop and
+report if it needs much more than a few sessions or forces a design
+choice.
+
+**Finding on ruling 1.**  At `--jobs=1` the two are NOT treated alike.
+`installLoop` (`Driver/ParInstall.lean`) runs `installDeclStep` =
+`installStepC` (`Cached/Installed.lean`) on every record: a definition,
+theorem or opaque gets its header's syntactic guards and is pushed, its
+type and value checked later by Phase B's `checkLoop` (one dedicated
+worker thread, the records' `PendingCheck`s in fold order); an
+inductive block goes through `checkDeclStepC`, i.e. its checked
+install runs inline in Phase A, and the run carries no block job
+(`Driver/Run.lean`: `⟨p, #[], fun _ => r⟩`).  Both are sequential, but
+in two loops.  Making them alike would run the stored install in
+Phase A at `--jobs=1` too and the block's checked install as a job of
+`checkLoop` (what `--jobs=n` does, through the same `DeferredRun`);
+not done, it is the maintainer's call.
+
+**What the stored install would have to read without reduction.**  The
+installed former is not the only datum #195's reduction feeds.  The
+former's capability record `IndCaps` (`blockCapsAt`,
+`Kernel/Inductives/BlockInstall.lean`) depends on the block's RESULT
+SORT in three fields: `sortZ` (`Level.zeronessOf p.resSort`), `eta`
+(`!p.isProp`) and `ruleK` (`p.isProp`).  `ruleK` is on the stored
+recursor (`k`).  The other two are not on any record: a recursor whose
+motive is fixed at `Prop` says the family is a proposition, but a
+large-eliminating recursor is the same for a `Type`-valued family and
+for a subsingleton-eliminating `Prop` (one constructor, propositional
+fields — `ind_defhead_k`'s shape), and the constructors and the stored
+`InductiveVal` (parameters, indices, `all`, constructors, `isRec`,
+`isReflexive`, nested count) carry no sort either.  So for a def-headed
+former, `sortZ` and `eta` exist only after the former's type is
+reduced.  They are read on hot paths of every later declaration:
+`sortZ` by the ι case split at every redex (`iotaCtorNeverProp`,
+`capsNeverZero`) and by the η rescue, `eta` by `etaCtorOk` and the
+rules' η-rescue stamping (`recRuleBits`).  §10/§11 did not meet this
+because the stored install computed the reduced telescope at install
+(`storedTele`).
+
+**The plan, with the obstacle settled one of two ways.**
+
+* *Kernel, the stored install.*  Formers pushed at their stored type.
+  For a former whose stored type is a syntactic telescope ending in a
+  sort, nothing changes.  For a def-headed former the derived data are
+  either (A) LAZY — `IndCaps` gains a thunk of the reduced form (the
+  closed telescope, `sortZ`, `eta`), `Thunk.pure` in the checked
+  install and for syntactic telescopes, `storedTele`'s computation
+  from a fresh memo at the worker view in the stored install (Phase 5's
+  pattern for the table guards), forced first by the block's job
+  (`pushesAgree` compares by value) and afterwards cached; every reader
+  of `sortZ`/`eta` reads through it — or (B) CONSERVATIVE — `sortZ`
+  "may be zero" and `eta := false` for every def-headed former unless
+  the recursor's motive is fixed at `Prop` (then `sortZ` zero, `eta`
+  false), `ruleK` off the stored recursor, the checked install
+  computing the same so that the job's comparison agrees.
+* *Kernel, the container readers.*  `nestInstType`, `nestArity`
+  (`Positivity.lean`), `targetOutsideInst` (`RecCheck.lean`) and
+  `classFormerTy` (`GenRec.lean`) read the container's reduced
+  telescope: under (A) the thunk; under (B) a `whnfTelescope` of the
+  container's stored type at the reader (inside the reading block's
+  job — official's own `whnf` of the auxiliary type), which needs the
+  readers to become monadic over `ops` where they are pure today.  The
+  fast `isProp` path reads the same.  Each reader's cached twin and
+  simulation proof follow.
+* *The job.*  The checked install installs the stored type, keeps the
+  reduced telescope internal (as derived data), and checks, besides
+  today's checks of the declared type and of the reduced telescope, one
+  `isDefEq` of the stored and the reduced former types at the
+  pre-block environment (only where they differ) — the model's bridge:
+  today nothing relates them (`checkSumTele`: "nothing about the
+  reduction is trusted"), and there is no `whnf` soundness lemma in the
+  model to give it otherwise.
+* *Model.*  (i) `LfpReads`, `LfpCtorReads`' hole types
+  (`instPisWith (canonParams nP) cvm.type`), `LfpCaps`' sort facts,
+  `IndCapsWF`'s arities, `IndFibLaw`/`IndStrictOk` restated over the
+  recorded reduced telescope instead of `cvm.type` — under (A) the
+  thunk's value, under (B) a telescope the invariant quantifies (the
+  reader's `whnfTelescope` result must then be shown to read like the
+  recorded one: two reductions of one type at nested environments,
+  which needs an extension lemma for the pure `whnfTelescope` that does
+  not exist).  (ii) A new `EnvModelM` field: every former's installed
+  type reads, at every level assignment, as its recorded telescope
+  (`interp` equal, both graded), established at the block from the
+  job's `isDefEq` (`defeq_sound` at depth 0) and moved by every
+  extension.  (iii) The consumers: the twenty-odd sites of §9 item 1
+  (`ContN2`, `ContLeaf`, `ContWalk`, `ContInst`, `GenOutFacts`,
+  `GenClsData`, `GenClsSem`, `GenRecPreRun`, `GenRecExtra`,
+  `GenFrameTie`, `LfpFormer`, `TargetClass`, `GenNodeCalls`,
+  `PosDerivMono`), `BlockCtorReads`, `DeclBlockStep`, `BasisLfp`,
+  `Cover`, the η/unit rows of `Model/Caps.lean` (`IndCapsWF`), and
+  wherever a former constant's inferred type (now the stored one) meets
+  its telescope — the transport by (ii).
+* *Fixtures*: the nine def-headed ones at every `--jobs`, a test-library
+  check that the installed former's type is the stored type.
+
+**Estimate.**  Kernel and cached twins with their simulation proofs:
+one to two sessions.  The model's restatements and the new invariant:
+one session.  The consumer sites and the transports: two to four
+sessions (§9 found them; their proofs destructure the reading and
+use its syntactic shape, so each is a real repair, not a rename).
+Total five to seven sessions under (A), somewhat less under (B) for the
+caps but more for the readers' `whnf` extension lemma.  That is well
+over "a few sessions", and the caps question is a design choice of
+the environment's representation on hot paths (A) or of the checker's
+behaviour on def-headed formers (B: a def-headed `Type` structure loses
+η, which official has — a possible new reject beyond official, and a
+slower ι case split for every def-headed family).  So, as the brief
+asks, this lane stops here and reports the options; nothing of the
+plan is coded.
+
+**Options for the maintainer.**
+1. (A) lazy derived data in `IndCaps` (a thunk forced by the job and
+   by readers); no reduction at install, verdicts as official; a
+   `Thunk.get` on the ι and η hot paths to measure; five to seven
+   sessions.
+2. (B) conservative caps for def-headed formers, readers reducing at
+   use; no reduction at install; a possible η deviation from official
+   on def-headed structures; similar effort, plus a `whnfTelescope`
+   extension lemma.
+3. (D) the installed type stored, the derived data (reduced
+   telescope, sort, caps) computed by the one `whnfTelescope` at
+   install as today and recorded eagerly; the model restated as in (A)
+   without thunks.  Reduces at install (against the letter of ruling
+   2) but installs the literal stored type; four to six sessions.
+4. (C) keep §11: the def-headed former installed at its reduced
+   telescope, reduced at install by the checked install's own function;
+   no work.
