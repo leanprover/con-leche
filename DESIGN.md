@@ -107735,7 +107735,11 @@ stored major the classes were read off, so a stream cannot make it
 fail), the def-headed former fixture to Phase 4 (#195's fixtures are
 unchanged).  `tests/arena.sh` was not run in full (its trust-surface and
 axiom steps fail on the open `sorry`); the e2e corpus was run at the
-default `--jobs`, `--jobs=1` and `--jobs=4` (below).
+default `--jobs`, `--jobs=1` and `--jobs=4`: 499/499 as pinned at each.
+The shake gate proposes demoting `StoredRecsInv`'s `public import` of
+`BlockTail`, which does not build (its public statements name
+`RecShape`/`storedOut`/`consBlockRecsT`); to settle with the open
+obligation.
 
 **Numbers** (`instructions:u`, `--verified`, one run each; base =
 `agent/427-installer` 4d37c03e6, new = this branch at 12ce53b70):
