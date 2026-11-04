@@ -142,7 +142,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L100-L103):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L101-L104):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
@@ -183,8 +183,17 @@ denotes, `eq_equality` says that set is the truth value of `⟦a⟧ = ⟦b⟧`,
 and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
-The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L114-L121):
+The main corollary is about all of `main`, in the model of its IO (§2),
+at the fixed arguments `-- <file>`: no flag, so the default mode, which
+is the verified one, and the default worker count; nothing is said
+about `--help` or the other flags
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L165-L167)):
+
+> … on a snapshot where the file's bytes are a `jsonWithTheoremFalse`
+> file, no outcome of `main` is an exit 0.
+
+It is derived from a statement about the chunks the binary reads,
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L117-L124):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -215,7 +224,7 @@ else. This is the form of the statement a reader can check without
 knowing what an `Env`, or even a declaration record, is: it speaks
 only of the bytes handed to the binary. The predicate is a whole-file
 template over the chunks' concatenation
-([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L62-L72)),
+([`jsonWithTheoremFalse` in `ConLeche/Accepts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Accepts.lean#L63-L73)),
 one interpolated Lean string whose five parts are arbitrary — the name
 says so: it is ONE way of putting a theorem of type `False` into a JSON
 file, not every proof of `False` a file might hold. There is no side
@@ -223,18 +232,13 @@ condition: the chunks may be cut anywhere, empty pieces included, and
 an input the machine word cannot address is refused by the parser
 before any of it is read, which is an error like any other.
 
-Both are restated over all of `main`, in the model of its IO (§2), at
-the fixed arguments `-- <file>`: no flag, so the default mode, which is
-the verified one, and the default worker count; nothing is said about
-`--help` or the other flags. Every outcome of `main` that is an exit 0
-read the file's bytes `b` off the snapshot, `b` parses as one chunk to
-records `r`, the fold accepts `r`'s declarations prepared with the
-built-in prelude, and the environment it returns has a model
-([theorem `main_model` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L149-L154)).
-On a snapshot where `b` is a `jsonWithTheoremFalse` file, no outcome of
-`main` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L162-L164)).
-These are theorems about the outcomes of `main`'s code in the model;
+The main theorem is restated over all of `main` at the same arguments:
+every outcome that is an exit 0 read the file's bytes `b` off the
+snapshot, `b` parses as one chunk to records `r`, the fold accepts `r`'s
+declarations prepared with the built-in prelude, and the environment it
+returns has a model
+([theorem `main_model` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L152-L157)).
+These two are theorems about the outcomes of `main`'s code in the model;
 that the binary's run is one of those outcomes is assumed, not proved,
 and §2 states what the assumption is.
 
@@ -1497,7 +1501,7 @@ and every such line carries its reason.
 | `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports; and the parallel install's blocks, installed as stored, become the fold's steps once their checked installs pass, and push the same, as jobs of the check phase (`Defer.lean`, which `ConLeche/Driver/ParInstall.lean` and `CheckPool.lean` import)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`) and that the stream's reads in it put together are the file (`StreamModel.lean`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — with both statements over all of `main` in the IO model, and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem, about the environment the fold returns; the statement about the chunks the binary reads; the main theorem over all of `main` in the IO model and the main corollary; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |

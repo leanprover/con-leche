@@ -109,7 +109,7 @@ def usage : String := String.intercalate "\n" [
   "                    Internal inference is the official",
   "                    kernel's infer_only.  The theorem: a file that",
   "                    declares a theorem of type False is never",
-  "                    accepted in this mode (no_False_declaration,",
+  "                    accepted in this mode (main_no_False,",
   "                    ConLeche/MainTheorem.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",

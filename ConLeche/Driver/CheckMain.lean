@@ -20,7 +20,7 @@ and the fold's two phases with their thread pools (`checkDeclsIO`,
 * `checkMainG_ndjson_accept`: an exit 0 on a stream means the file's
   bytes in the snapshot, as one chunk, parse to records that
   `checkDecls` accepts once prepared with the built-in prelude — the
-  hypothesis of the main corollary (`ConLeche.no_False_declaration`)
+  hypothesis of the main corollary (`ConLeche.main_no_False`)
   about the file itself, under the assumptions stated in
   `ConLeche/Frontend/CheckerIO.lean`.
 -/
@@ -101,8 +101,8 @@ fold the main theorem `ConLeche.model_exists`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design.
 
-**The main corollary's chain is what the three phases below compute**
-(`ConLeche.no_False_declaration`, `ConLeche/MainTheorem.lean`: the
+**The chain of the statement about the chunks is what the three phases
+below compute** (`ConLeche.no_False_declaration`, `ConLeche/MainTheorem.lean`: the
 built-in prelude parses, the chunks parse, `checkDecls .verified`
 accepts the parsed records prepared with the prelude).  The prelude
 step is the same function, `Frontend.builtinPreludeE`.  The parse
@@ -283,7 +283,7 @@ outcome of the driver's run on a lean4export stream `file` over a
 snapshot `fs` that is an exit 0 means the built-in prelude parses, the
 file has bytes `b` in the snapshot, they parse as one chunk to records
 `r`, and `checkDecls` accepts those prepared with the prelude — the
-hypothesis of the main corollary (`ConLeche.no_False_declaration`, at
+chain the main corollary `ConLeche.main_no_False` is derived from (at
 the chunks `[b]`) about the file's own bytes, at any `--jobs`, whatever
 the `liftIO` actions answered.  Under the assumptions of
 `ConLeche/Frontend/CheckerIO.lean` the binary's run is one of these

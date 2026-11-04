@@ -54,7 +54,7 @@
 # `ConLeche/**/*.lean` and `Main.lean` (a document quotes
 # `theorem model_exists`, the tree declares `ConLeche.model_exists`
 # inside a `namespace`).  If more than one file declares that short
-# name — `no_False_declaration` is declared twice, in
+# name — `no_False_declaration`, the statement about the chunks, is declared twice, in
 # `ConLeche/MainTheorem.lean` and in its sorry'd Comparator twin
 # `ConLeche/Challenge.lean` — the gate takes the LAST markdown link
 # ABOVE the block whose target is one of the candidates, which is how

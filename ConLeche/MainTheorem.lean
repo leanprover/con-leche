@@ -16,12 +16,13 @@ public section
 /-!
 # The main theorem and the main corollary
 
-What the checker accepts has a model; hence a file that declares a
-theorem of type `False` is rejected — the form a reader can check
-without knowing what an `Env` is.  Those two theorems, and their
-statements over all of `main` in the IO model (`main_model`,
-`main_no_False`, at the end),
-are all this file holds.  The corollary's hypothesis is the file: the chunks the binary
+What the checker accepts has a model (`model_exists`); hence a file that
+declares a theorem of type `False` makes the binary's accept path fail
+(`no_False_declaration`, about the chunks), and no run of `main` on such
+a file exits 0 (`main_no_False`, THE MAIN COROLLARY, at the end, beside
+`main_model`, the main theorem over `main`) — the form a reader can check
+without knowing what an `Env` is.  Those are all this file holds.
+`no_False_declaration`'s hypothesis is the file: the chunks the binary
 read are the UTF-8 of `jsonWithTheoremFalse`'s template, ONE way of
 writing a theorem of type `False` into a JSON export.  Its conclusion
 is the binary's accept path itself, erroring: the three pure functions
@@ -44,7 +45,7 @@ term has at most one denotation — in `ConLeche/Denotes.lean`.
   or opaque guarded and pushed with its check recorded, everything
   else checked in full as it is installed — and then checks every
   recorded declaration against the prefix of the environment it was
-  installed at.  The binary's driver (`Main.lean`) runs this fold with a
+  installed at.  The binary's driver (`ConLeche/Driver/Cli.lean`) runs this fold with a
   heartbeat between the steps and returns its environment together
   with the proof that `checkDecls` returns it
   (`Cached.fullyChecked_checkDecls`), so the success line is printed
@@ -105,7 +106,9 @@ theorem model_exists (V : Type w) [SetTheory V]
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in
-/-- **The main corollary.**  A file declaring a theorem of type `False`
+/-- **The statement about the checker's chain over the chunks**, which
+the main corollary `main_no_False` rests on and which the comparator pair
+certifies (`ConLeche/Challenge.lean`, `comparator.json`).  A file declaring a theorem of type `False`
 in the shape `jsonWithTheoremFalse` describes is rejected: the parse
 reads the template's four lines into a theorem record of type `False`,
 the preparation keeps the record, and a stream holding it is never
@@ -156,7 +159,7 @@ theorem main_model (V : Type w) [SetTheory V] {file : String} {fs : FS}
   exact ⟨pre, b, r, env, hp, hb, hr, hc, model_exists V _ _ env hc⟩
 
 open Frontend in
-/-- **The main corollary over all of `main`.**  On a snapshot where the
+/-- **The main corollary.**  On a snapshot where the
 file's bytes are a `jsonWithTheoremFalse` file, no outcome of `main` at
 the arguments `-- <file>` is an exit 0. -/
 theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}

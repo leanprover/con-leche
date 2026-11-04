@@ -22,7 +22,7 @@ last newlines and grouped.  Here: the cuts lose and add no byte.
   `parseChunks` of them.
 * `parseChunks_single_of_concat`: a result of `parseChunks` on chunks
   that put together are `b` is the result on `[b]`, the file as one
-  chunk — the form of the main corollary (`ConLeche.no_False_declaration`).
+  chunk — the form the main corollary (`ConLeche.main_no_False`) needs.
 -/
 
 public section

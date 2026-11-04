@@ -35,8 +35,9 @@ enter a capstone's own dependency closure.
 
 **The twenty-two pinned theorems.**  The main theorem first — that is
 the statement a reader comes for — with the functionality of the
-relation it is stated over and the main corollary derived from it,
-the two statements over all of `main` in the IO model,
+relation it is stated over, the statement about the chunks derived from
+it, the main theorem over all of `main` in the IO model and the main
+corollary,
 then the letters on the fold it is stated about, the two transfer theorems between an accept of the fold
 and the driver's fully checked environment, the letters on that
 environment and the model it carries, the pure fueled checker's
@@ -47,9 +48,9 @@ equation the compiled equality rests on.
 |---|---|
 | `ConLeche.model_exists` | **THE MAIN THEOREM**: what `checkDecls` accepts in the verified mode has a model in every `SetTheory V` (`Nonempty (Model V env)`) |
 | `ConLeche.Denotes_functional` | a term has at most one denotation under `Denotes` (`ConLeche/Denotes.lean`, with the relation) |
-| `ConLeche.no_False_declaration` | **THE MAIN COROLLARY**: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
+| `ConLeche.no_False_declaration` | the statement about the chunks the main corollary is derived from: chunks that are a `jsonWithTheoremFalse` file — a name entry `False`, a constant expression of it, a name entry, and a theorem record of that name and type, in that order — make the binary's chain (the prelude parses, the chunks parse, the fold accepts the prepared records) return an error |
 | `ConLeche.main_model` | **ALL OF `main` IN THE IO MODEL, at the arguments `-- <file>`**: every outcome that is an exit 0 read the file's bytes off the snapshot; they parse as one chunk to records the fold accepts prepared with the built-in prelude, and that environment has a model |
-| `ConLeche.main_no_False` | **THE MAIN COROLLARY OVER ALL OF `main`**: on a snapshot where the file's bytes are a `jsonWithTheoremFalse` file, no outcome of `main` at the arguments `-- <file>` is an exit 0 |
+| `ConLeche.main_no_False` | **THE MAIN COROLLARY**: on a snapshot where the file's bytes are a `jsonWithTheoremFalse` file, no outcome of `main` at the arguments `-- <file>` is an exit 0 |
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
@@ -79,10 +80,10 @@ and the relation they are stated over (`ConLeche/Denotes.lean`)
 
 The statements the project exists to make (task #277): every accepted
 environment has a model (`model_exists`, over the relation `Denotes`),
-and hence every FILE — the chunks the binary reads — that the checker
-accepts declares no theorem of type `False` (`no_False_declaration`,
-tasks #290/#294/#296), which is THE MAIN COROLLARY: the statement a reader
-can check without knowing what an `Env`, or even a declaration record,
+and hence no run of `main` on a FILE that declares a theorem of type
+`False` exits 0 (`main_no_False`, THE MAIN COROLLARY, task #450, from
+`no_False_declaration`, about the chunks the binary reads, tasks
+#290/#294/#296): the statement a reader can check without knowing what an `Env`, or even a declaration record,
 is.  The step it rests on at the stream — no list of declarations one
 of whose records declares a theorem of type `False` is accepted
 (`no_False_theorem_accepted`, tasks #286/#288/#291, now in

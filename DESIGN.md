@@ -108728,6 +108728,20 @@ master has it behind that escape with proof-carrying result types.
 One assumption family remains, about the instance and the escape's
 effects, and the replay argument is gone.
 
+**The main corollary, and the challenge** (maintainer's ruling).
+`MainTheorem.lean` has four theorems: `model_exists`,
+`no_False_declaration`, `main_model` and `main_no_False`, the last being
+the main corollary.  `no_False_declaration` is the statement about the
+checker's chain over the chunks that it rests on, and the statement the
+comparator pair certifies: `Challenge.lean` and `comparator.json` are as
+on master, with no mention of `main`.  Measured before the ruling, with
+the main corollary added to the challenge: `tests/challenge.sh` and
+`tests/layering.sh` pass, but the closure of the statement's constants
+(types and values, through opaques and theorems) is 14 280 constants
+with 1 471 from `ConLeche.Verify` and 391 from `ConLeche.Driver`, against
+8 629, 0 and 0 for `no_False_declaration`, because the driver's
+definitions carry their proofs.
+
 **Cost** (`instructions:u`, one run each; master 5fe70746d's binary
 against this lane's):
 

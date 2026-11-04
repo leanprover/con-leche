@@ -30,7 +30,7 @@ applied at the end (`winFin`).
 `r` — whatever the owners' `liftIO` calls answered, each answer
 carrying its proof — means the file's bytes in the snapshot parse to
 `r` as one chunk, `parseChunks [b] = .ok r`: the form the main
-corollary `ConLeche.no_False_declaration` takes its chunks in.  The
+corollary `ConLeche.main_no_False` needs of the file's bytes.  The
 reads of the folds are the model's (`readsFrom`, `winsOf`); that they
 put together are the file is `ConLeche/Verify/Frontend/StreamModel.lean`.
 -/
