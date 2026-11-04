@@ -158,7 +158,7 @@ certificate becomes the `DefEq fab major` premise through
 `proofIrrel_bridge`).
 
 **`hrec`**: the three `Red.rescue*` rules open with `env.find? recName
-= some (.recInfo cv mI rP [rl])` — the rule bits `rl.k`/`rl.eta` are
+= some (.recInfo cv mI rP [rl])` — the rule bit `rl.k` is
 honest only at a stored recursor, which is what the soundness lane
 reads them from.  `majorToCtor` itself ignores its `_recName` argument
 (`Core.lean:556`), so the inversion cannot supply the fact and the

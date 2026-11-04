@@ -287,7 +287,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
       env.find? recName = some (.recInfo cv mI rP [rl]) →
-      rl.eta = true →
+      etaRescueOk rl.ctor cvj cvT caps = true →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const T tus →
       env.find? T = some (.indInfo cvT caps) →

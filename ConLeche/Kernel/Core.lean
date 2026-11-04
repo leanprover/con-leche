@@ -572,7 +572,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if rl.eta = true then
+          else if etaRescueOk rl.ctor cvj cvT caps = true then
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
             | .const T' ust =>

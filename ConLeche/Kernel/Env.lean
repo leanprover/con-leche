@@ -121,8 +121,8 @@ inductive RecRuleFire where
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
 `nfields` fields.  `ctorParams` (the constructor's parameter count) and
-`fire` (the plain/nested firing mode) and the two rescue
-bits `k`/`eta` are *computed at install* from the stored constructor,
+`fire` (the plain/nested firing mode) and the K bit `k`
+are *computed at install* from the stored constructor,
 its inductive's capabilities and the recursor type — input rules carry
 the parse placeholders `0`/`.plain`/`false`; reduction reads only the
 installed values, never re-deriving them per fire. -/
@@ -143,11 +143,6 @@ structure RecRule where
   of `majorToCtor`'s K rescue, decided once at the block's install
   instead of at every recursor application. -/
   k : Bool := false
-  /-- **The η-rescue bit** (install-computed, parse placeholder
-  `false`): this rule is its recursor's only one and its constructor
-  is the η constructor of a stored η-capable inductive — the standing
-  condition of `majorToCtor`'s structure-η rescue. -/
-  eta : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- Reducibility hint of a definition, mirroring Lean's

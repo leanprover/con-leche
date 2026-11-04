@@ -562,7 +562,7 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     · rw [ite_eq_left hK, ite_eq_left hK]
       fst_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     · rw [ite_eq_left hE, ite_eq_left hE]
       fst_tac2
     rw [ite_eq_right hE, ite_eq_right hE]
@@ -602,7 +602,7 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     · rw [ite_eq_left hK, ite_eq_left hK]
       snd_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     · rw [ite_eq_left hE, ite_eq_left hE]
       snd_tac2
     rw [ite_eq_right hE, ite_eq_right hE]

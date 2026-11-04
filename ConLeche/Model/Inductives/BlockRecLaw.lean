@@ -173,7 +173,7 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → List RecRul
     exact hRalaw Ra' hRa0' ρ xs a restR hxl hfit
   · intro cvj cnP cnF hfcj
     have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) := by
-      obtain ⟨⟨cvj', cnP', cnF', h0⟩, -, -⟩ :=
+      obtain ⟨⟨cvj', cnP', cnF', h0⟩, -⟩ :=
         mpC.base2.rec_ctors n cv mI rP rules hfE rl hmem
       have heq := Option.some.inj
         ((find?_consBlockRecsR_keep (R := R) (q := q) hfr _ _ h0).symm.trans hfcj)
@@ -312,7 +312,7 @@ theorem recRuleLaw_consBlockRecsR_prefix {R : Nat → RecDatum → List RecRule}
       hψ hyWD hpin hTVa hTVja hfitR hfitC
     -- the rule's constructor is stored in the constructors' environment
     have hfcjE : envC.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) := by
-      obtain ⟨⟨cvj', cnP', cnF', h0⟩, -, -⟩ :=
+      obtain ⟨⟨cvj', cnP', cnF', h0⟩, -⟩ :=
         mpC.base2.rec_ctors n cv mI rP rules hfE rl hmem
       have heq := Option.some.inj
         ((find?_consBlockRecsR_keep (R := R) (q := q) hfr _ _ h0).symm.trans hfcj)

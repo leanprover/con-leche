@@ -20,7 +20,7 @@ the literal shapes and their guards (`natLitToConstructor`,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
 (`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the install-time rule
-bits (`recRuleBits`, `recRuleK`, `recFireComparands`), the ι case split
+bits (`recRuleBits`, `recRuleK`, `etaRescueOk`, `recFireComparands`), the ι case split
 (`iotaCtorNeverProp`, `iotaCase3`) and the tower entry's readers
 (`ProjEntry.fireOk`, `ProjEntry.typeAt`).
 
@@ -830,42 +830,33 @@ def recRuleKOf (find? : Name → Option ConstantInfo) (ctor : Name) : Bool :=
     | _ => false
   | _ => false
 
-/-- **The η-rescue bit at install** (`RecRule.eta`): the rule's
-constructor is the η constructor of a stored η-capable inductive and
-carries that inductive's own level parameters.  Together with the singleton rule list this is the
-standing condition of `majorToCtor`'s structure-η rescue.
+/-- **The structure-η rescue's standing condition, at use**: the single
+rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
+family `cvT`, which has the η capability, and carries the family's level
+parameters.  The rescue asks this where it has just looked all three up;
+nothing about it is stored.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
-the two lists per call: the installer grants η only at a
-constructor stored with the former's level parameters (the
-recogniser pins `c.1.levelParams == lps`), so the conjunct holds
-wherever the rest does. -/
-def recRuleEtaOf (find? : Name → Option ConstantInfo) (ctor : Name) :
-    Bool :=
-  match find? ctor with
-  | some (.ctorInfo cvj _ _) =>
-    match (cvj.type.piResult).getAppFn with
-    | .const T _ =>
-      match find? T with
-      | some (.indInfo cvT caps) =>
-        caps.eta && caps.etaCtor == ctor &&
-          cvj.levelParams == cvT.levelParams
-      | _ => false
-    | _ => false
-  | _ => false
+the two lists per call. -/
+def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
+  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams
 
-/-- **Stamp a rule's two rescue bits at install** — the one place the
-K and η-rescue conditions are decided.  Every rule is stored
-through this (the pinned basis blocks, the installer's generated
-rules, the projection functions):
-the reduction then reads `RecRule.k`/`RecRule.eta` and re-derives
-nothing, and the environment invariant `RecCtorsStored` records that a
-set bit is the lookup's own verdict. -/
+/-- What `etaRescueOk` says. -/
+theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
+    (h : etaRescueOk ctor cvj cvT caps = true) :
+    caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
+  simpa [etaRescueOk, Bool.and_eq_true, and_assoc] using h
+
+/-- **Stamp a rule's K bit at install** — the one place the K condition
+is decided.  Every rule is stored through this (the pinned basis blocks,
+the installer's generated rules, the projection functions):
+the reduction then reads `RecRule.k` and re-derives nothing, and the
+environment invariant `RecCtorsStored` records that a set bit is the
+lookup's own verdict. -/
 def recRuleBits (find? : Name → Option ConstantInfo)
     (rl : RecRule) : RecRule :=
-  { rl with k := recRuleKOf find? rl.ctor,
-            eta := recRuleEtaOf find? rl.ctor }
+  { rl with k := recRuleKOf find? rl.ctor }
 
 @[simp] theorem recRuleBits_ctor (find? : Name → Option ConstantInfo)
     (rl : RecRule) : (recRuleBits find? rl).ctor
@@ -890,10 +881,6 @@ def recRuleBits (find? : Name → Option ConstantInfo)
 @[simp] theorem recRuleBits_k (find? : Name → Option ConstantInfo)
     (rl : RecRule) : (recRuleBits find? rl).k
       = recRuleKOf find? rl.ctor := rfl
-
-@[simp] theorem recRuleBits_eta (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).eta
-      = recRuleEtaOf find? rl.ctor := rfl
 
 @[simp] theorem map_ctor_recRuleBits (find? : Name → Option ConstantInfo)
     (rs : List RecRule) :

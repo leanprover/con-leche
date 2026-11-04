@@ -199,9 +199,7 @@ about a name the kernel fabricates:
 
 * the stored type of every non-member constant (inference);
 * the value of every non-member definition (δ);
-* the rule right-hand sides of every non-member recursor (ι), and its
-  η-rescue bits are the store's verdict (`recRuleEtaOf`: the η rescue's
-  constructor is the rule's own, a stored constructor);
+* the rule right-hand sides of every non-member recursor (ι);
 * the body of every projection-table entry (a `.proj` node's type);
 * constructors are no members (the K / `And` rescues and the `Nat`
   literal's constructor form fabricate constructor heads);
@@ -215,8 +213,7 @@ about a name the kernel fabricates:
   (∀ n cv v hint, env.find? n = some (.defnInfo cv v hint) → n ∉ names →
     v.occDeep names = false) ∧
   (∀ n cv mI rP rules, env.find? n = some (.recInfo cv mI rP rules) → n ∉ names →
-    ∀ r ∈ rules, r.rhs.occDeep names = false ∧
-      (r.eta = true → recRuleEtaOf env.find? r.ctor = true)) ∧
+    ∀ r ∈ rules, r.rhs.occDeep names = false) ∧
   (∀ T i entry, env.findProj? T i = some entry → entry.body.occDeep names = false) ∧
   (∀ c cv nP nF, env.find? c = some (.ctorInfo cv nP nF) → c ∉ names) ∧
   (natLitSupported env = true → natName ∉ names) ∧
@@ -498,7 +495,7 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
     (hI : ∀ {e t : Expr}, inferTypeIO mode false env fuel d e = .ok t →
       e.occDeep names = false → t.occDeep names = false)
     {recName : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    (hrec : env.find? recName = some (.recInfo cv mI rP rules)) (hrn : recName ∉ names)
+    (_hrec : env.find? recName = some (.recInfo cv mI rP rules)) (_hrn : recName ∉ names)
     {major major' : Expr}
     (h : majorToCtorFueled mode false env fuel d recName rules major = .ok major')
     (hm : major.occDeep names = false) : major'.occDeep names = false := by
@@ -511,16 +508,7 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
   rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨heta, -, -, -, rfl, -⟩ | ⟨rfl, -, -, -, rfl, -⟩
   · exact Expr.occDeep_mkAppN (Expr.occDeep_const hctor)
       (fun x hx => hargs x (List.mem_of_mem_take hx))
-  · subst hrules
-    have hbit := (hN.2.2.1 _ _ _ _ _ hrec hrn rl List.mem_cons_self).2 heta
-    obtain ⟨cvj', _, _, T', _, cvT', caps', hfc', hpr', hfT', -, hec, -⟩ :=
-      recRuleEtaOf_inv hbit
-    rw [hfc] at hfc'
-    obtain ⟨rfl, -, -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfc')
-    rw [hpr] at hpr'
-    obtain ⟨rfl, -⟩ := Expr.const.inj hpr'
-    rw [hfT] at hfT'
-    obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfT')
+  · obtain ⟨-, hec, -⟩ := etaRescueOk_inv heta
     refine Expr.occDeep_mkAppN (Expr.occDeep_const (hec ▸ hctor)) ?_
     exact etaFabArgsE_occDeep hargs hm
   · refine Expr.occDeep_mkAppN (Expr.occDeep_const hctor) ?_
@@ -638,7 +626,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
               (Expr.occDeep_getAppArgs happ _ (getD_mem (by omega)))
           refine ihCore hwe'' (Expr.occDeep_mkAppN ?_ ?_)
           · rw [Expr.occDeep_instantiateLevelParams]
-            exact (hN.2.2.1 _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)).1
+            exact hN.2.2.1 _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)
           · intro x hx
             rcases List.mem_append.mp hx with hx | hx
             · exact Expr.occDeep_getAppArgs happ _ (List.mem_of_mem_take hx)
@@ -1277,14 +1265,11 @@ theorem listConsTyOk_piResult {ci : ConstantInfo} (h : listConsTyOk (some ci) = 
 the block's formers (members `names`, stored as `indInfo`s whose types
 are syntactic telescopes ending in a sort) consed onto a pre-block
 `env`: fresh there, and `envI` agrees with `env` off the members and in
-its tables.  Two
-facts about the pre-block environment are needed beyond `EnvWF`, each
-an install-time invariant of the checker's environments:
-
-* `hRecEta`: a set η-rescue bit is the store's verdict (the η part of
-  `RecCtorsStored`, `ConLeche/Verify/EnvPreds.lean`);
-* `hBool`: `Nat.beq`/`Nat.ble` are stored only with the `Bool`
-  constructors (`natOpGuard` at the operation's install). -/
+its tables.  One
+fact about the pre-block environment is needed beyond `EnvWF`, an
+install-time invariant of the checker's environments: `hBool`:
+`Nat.beq`/`Nat.ble` are stored only with the `Bool` constructors
+(`natOpGuard` at the operation's install). -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {cvTas : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
@@ -1293,8 +1278,6 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
     (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
-    (hRecEta : ∀ n cv mI rP rules, env.find? n = some (.recInfo cv mI rP rules) →
-      ∀ r ∈ rules, r.eta = true → recRuleEtaOf env.find? r.ctor = true)
     (hBool : natOpStored env natBeqName = true ∨ natOpStored env natBleName = true →
       (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true) :
     WhnfNamesFree envI names := by
@@ -1343,13 +1326,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
   · -- recursor rules
     intro n cv mI rP rules hf hn r hr
     rw [hnon n hn] at hf
-    refine ⟨hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP rules rfl r hr).2.2.1, ?_⟩
-    intro heta
-    obtain ⟨cvj, cnP, cnF, T, us, cvT, caps, h1, h2, h3, h4, h5, h7⟩ :=
-      recRuleEtaOf_inv (hRecEta n cv mI rP rules hf r hr heta)
-    refine recRuleEtaOf_of (f := envI.find?) (cnP := cnP) (cnF := cnF) ?_ h2 ?_ h4 h5 h7
-    · rw [hnon _ (hold _ (by rw [h1]; rfl))]; exact h1
-    · rw [hnon _ (hold _ (by rw [h3]; rfl))]; exact h3
+    exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP rules rfl r hr).2.2.1
   · -- projection-table bodies
     intro T i entry hfp
     obtain ⟨tbl, hft, hi, rfl⟩ := Env.findProj?_some hfp

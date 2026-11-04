@@ -930,7 +930,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
            isDefEqCore mode eager env fuel d tmaj tfab = .ok true) ∧
          (mode.verifiedChecks = true →
            proofIrrelFueled mode eager env fuel d major' major = .ok true)) ∨
-        (rl.eta = true ∧
+        (etaRescueOk rl.ctor cvj cvT caps = true ∧
          capsNeverZero cvT.levelParams ust caps = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
@@ -1150,7 +1150,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       Or.inl ⟨hK, hlvl, harK1, rfl,
         ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩⟩
   · rw [ite_eq_right hK] at h
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     case neg =>
       rw [ite_eq_right hE] at h
       by_cases hA : T = andName

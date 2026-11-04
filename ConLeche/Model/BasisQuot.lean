@@ -1088,8 +1088,7 @@ theorem extendQuotInd (mp : EnvModelM V env)
         injection heq with _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨⟨_, _, _, hM⟩, fun hb => Bool.noConfusion hb,
-            fun hb => Bool.noConfusion hb⟩
+        · exact ⟨⟨_, _, _, hM⟩, fun hb => Bool.noConfusion hb⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)
@@ -2452,8 +2451,7 @@ theorem extendQuotLift (mp : EnvModelM V env)
         injection heq with _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨⟨_, _, _, hM⟩, fun hb => Bool.noConfusion hb,
-            fun hb => Bool.noConfusion hb⟩
+        · exact ⟨⟨_, _, _, hM⟩, fun hb => Bool.noConfusion hb⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)

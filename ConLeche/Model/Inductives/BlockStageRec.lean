@@ -244,8 +244,7 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : (Name → (Name → Nat) �
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
           envSelf.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf envSelf.find? r.ctor = true) ∧
-        (r.eta = true → ConLeche.recRuleEtaOf envSelf.find? r.ctor = true)) :
+        (r.k = true → ConLeche.recRuleKOf envSelf.find? r.ctor = true)) :
     ConLeche.RecCtorsStored env₃ ∧ BasisPinnedTT env₃ cval ∧ ProjOkT env₃ := by
   have hcg : ConLeche.SwapCongr envSelf env₃ := ConLeche.SwapShList.congrEnv hswR htabR
   have hcorr := ConLeche.swapSh_find?_corrEnv hswR
@@ -264,20 +263,18 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : (Name → (Name → Nat) �
     rcases hcorr n with heq | ⟨cv', mI', rP', rules', h₀, h₃, hn'⟩
     · have hfS : envSelf.find? n = some (.recInfo cv mI rP rules) := by
         rw [← heq]; exact hf
-      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ := hctorsS n cv mI rP rules hfS r hr
+      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk⟩ := hctorsS n cv mI rP rules hfS r hr
       exact ⟨⟨cvj, cnP, cnF, hkeep _ _
           (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
-        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb),
-        fun hb => ConLeche.recRuleEtaOf_mono hkeep (he hb)⟩
+        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb)⟩
     · obtain ⟨e1, e2, e3, -⟩ :=
         ConstantInfo.recInfo.inj (Option.some.inj (h₃.symm.trans hf))
-      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ :=
+      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk⟩ :=
         hnew n cv mI rP rules hf (by rw [← e1, ← e2, ← e3]; exact h₀)
           (by rw [← e1]; exact hn') r hr
       exact ⟨⟨cvj, cnP, cnF, hkeep _ _
           (fun _ _ _ _ hcon => ConstantInfo.noConfusion hcon) hfc⟩,
-        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb),
-        fun hb => ConLeche.recRuleEtaOf_mono hkeep (he hb)⟩
+        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb)⟩
   · -- `BasisPinnedTT`: a genuinely swapped entry is never reserved
     intro n ci hf hres
     have hf₀ : envSelf.find? n = some ci := by
@@ -391,9 +388,9 @@ theorem find?_consBlockRecsBare_keep {q : BlockShape} {rs : List RecDatum} {envC
 
 /-- **`hnew`, discharged.**  The stored rules' constructors are the
 block's own — stored in the constructors' environment, hence in the
-bare-`k` one — and their two rescue bits are `recRuleBits`' reading of
-that same environment, which `recRuleKOf_mono`/`recRuleEtaOf_mono`
-carry up. -/
+bare-`k` one — and their K bit is `recRuleBits`' reading of
+that same environment, which `recRuleKOf_mono`
+carries up. -/
 theorem recCtorsHead_consBlockRecsR {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
     {envC : Env} {nPc : Nat → Nat} {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
@@ -409,10 +406,7 @@ theorem recCtorsHead_consBlockRecsR {R : Nat → RecDatum → List RecRule} {q :
         (∃ cvj cnP cnF, (consBlockRecsBare q 0 (bareOf rs) envC).find? (RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF)) ∧
         (r.k = true →
-          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor
-            = true) := by
+          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) := by
   have hkeepB := find?_consBlockRecsBare_keep (q := q) hfr
   have hkeepB' : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
@@ -430,13 +424,11 @@ theorem recCtorsHead_consBlockRecsR {R : Nat → RecDatum → List RecRule} {q :
   · obtain ⟨-, -, -, rfl⟩ := ConstantInfo.recInfo.inj hci
     rw [Nat.zero_add] at hrl
     obtain ⟨i, cA, rhs, hi, -, rfl⟩ := hshape j r0 hr0 rl hrl
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_⟩
     · obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsIn r0 (List.mem_of_getElem? hr0) cA (List.mem_of_getElem? hi)
       exact ⟨cvj, cnP, cnF, hkeepB _ _ hfc⟩
     · intro hb
       exact ConLeche.recRuleKOf_mono hkeepB' hb
-    · intro hb
-      exact ConLeche.recRuleEtaOf_mono hkeepB' hb
 
 /-! ## The stage's cons, whole, and its proposition
 
@@ -485,9 +477,7 @@ theorem envModelM_consBlockRecsR
         (∃ cvj cnP cnF, (consBlockRecsBare q 0 (bareOf rs) envC).find? (RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF)) ∧
         (r.k = true →
-          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true))
+          ConLeche.recRuleKOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true))
     (hrecP : ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ) :
     ∃ mp' : EnvModelM V (consBlockRecsR R q 0 rs envC),

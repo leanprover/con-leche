@@ -722,10 +722,10 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
     {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal} {cnP cnF : Nat} {T : Name}
     {tus ust : List Level} {cvT : ConstantVal} {caps : IndCaps}
-    (hrec : env.find? recName = some (.recInfo cv mI rP [rl]))
-    (heta : rl.eta = true)
+    (_hrec : env.find? recName = some (.recInfo cv mI rP [rl]))
+    (heta : ConLeche.etaRescueOk rl.ctor cvj cvT caps = true)
     (hctor : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
-    (hres : (cvj.type.piResult).getAppFn = .const T tus)
+    (_hres : (cvj.type.piResult).getAppFn = .const T tus)
     (hind : env.find? T = some (.indInfo cvT caps))
     (htm : InferSemIO m φ d major tm) (htmaj : RedSem m φ d tm tmaj)
     (htmajr : Red env d tm tmaj)
@@ -748,12 +748,10 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
   have hfF : Frame d fab :=
     ⟨Expr.WScoped.of_wscopedB hws, hb, fun l hl => hfM.2.2 l (hsub l hl)⟩
   -- the family's η record: the rule's constructor IS the family's, and
-  -- carries the former's level parameters (`RecCtorsStored`)
-  obtain ⟨-, hEbits⟩ := ConLeche.recCtors_bits m.rec_ctors hrec
-    List.mem_cons_self hctor hres hind
-  obtain ⟨hcapseta, hectr, hlpsE⟩ := hEbits heta
+  -- carries the former's level parameters (`etaRescueOk`)
+  obtain ⟨hcapseta, hectr, hlpsE⟩ := ConLeche.etaRescueOk_inv heta
   have hfC : env.find? caps.etaCtor = some (.ctorInfo cvj cnP cnF) := by
-    rw [← hectr]; exact hctor
+    rw [hectr]; exact hctor
   have hlpj : ust.length = cvj.levelParams.length := by
     rw [hlpsE]; exact hlv
   -- the major's io-inferred type, reduced, is the family at its spine

@@ -295,7 +295,7 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     · rw [ite_eq_left hK, ite_eq_left hK]
       atF_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     · rw [ite_eq_left hE, ite_eq_left hE]
       atF_tac2
     rw [ite_eq_right hE, ite_eq_right hE]

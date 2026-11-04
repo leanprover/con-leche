@@ -398,22 +398,19 @@ theorem storedSwap_sem {envC : Env}
   · -- `RecCtorsStored`
     intro n cv mI rP rules hf r hr
     rcases hC.1 n _ hf with hG | ⟨j, rc, g, hQ, -, hG, hci⟩
-    · obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ := mpG.base2.rec_ctors n cv mI rP rules hG r hr
+    · obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk⟩ := mpG.base2.rec_ctors n cv mI rP rules hG r hr
       exact ⟨⟨cvj, cnP, cnF, hkeep _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩,
-        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb),
-        fun hb => ConLeche.recRuleEtaOf_mono hkeep (he hb)⟩
+        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb)⟩
     · obtain ⟨e1, e2, e3, e4⟩ := ConstantInfo.recInfo.inj hci
       subst e1 e2 e3 e4
       obtain ⟨-, hl, -, -⟩ := hposQ hQ
       obtain ⟨i, rG, hrG, -, -, hreq⟩ := ConLeche.storedRule_corr (cvG := g.1) hl hr
-      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk, he⟩ := mpG.base2.rec_ctors n g.1 _ _ _ hG rG hrG
+      obtain ⟨⟨cvj, cnP, cnF, hfc⟩, hk⟩ := mpG.base2.rec_ctors n g.1 _ _ _ hG rG hrG
       have hc : r.ctor = rG.ctor := by rw [hreq]
       have hkk : r.k = rG.k := by rw [hreq]
-      have hee : r.eta = rG.eta := by rw [hreq]
-      rw [hc, hkk, hee]
+      rw [hc, hkk]
       exact ⟨⟨cvj, cnP, cnF, hkeep _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h) hfc⟩,
-        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb),
-        fun hb => ConLeche.recRuleEtaOf_mono hkeep (he hb)⟩
+        fun hb => ConLeche.recRuleKOf_mono hkeep (hk hb)⟩
   · -- `BasisPinnedTT`: a stored recursor is never reserved
     intro n ci hf hres
     rcases hC.1 n ci hf with hG | ⟨j, rc, g, ⟨-, hg, -⟩, hn, -, -⟩

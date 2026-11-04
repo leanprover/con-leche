@@ -109,7 +109,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     {rl : RecRule} (hmem : rl ∈ rules) :
     RecRuleExtra m₂ φ n cv mI rP rl := by
   obtain ⟨-, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP rules hfE rl hmem
-  obtain ⟨⟨cvj', cnP', cnF', hst⟩, -, -⟩ :=
+  obtain ⟨⟨cvj', cnP', cnF', hst⟩, -⟩ :=
     mp.base2.rec_ctors n cv mI rP rules hfE rl hmem
   have hsC : (env.find? (RecRule.ctor rl)).isSome = true := by rw [hst]; rfl
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
@@ -297,7 +297,7 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
       hψ hyWD hpin hTVa hTVja hfitR hfitC
     -- **the environment invariant, not the install's kind**: the rule's
     -- constructor is stored
-    obtain ⟨⟨cvj', cnP', cnF', hst⟩, -, -⟩ :=
+    obtain ⟨⟨cvj', cnP', cnF', hst⟩, -⟩ :=
       mp.base2.rec_ctors n cv mI rP rules hfE rl hmem
     have hfcjE : env.find? (RecRule.ctor rl)
         = some (.ctorInfo cvj cnP cnF) := hx.back (by rw [hst]; rfl) hfcj

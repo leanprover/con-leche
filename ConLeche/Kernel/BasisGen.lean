@@ -125,7 +125,7 @@ private def qRecRuleFire : ConLeche.RecRuleFire → Lean.Expr
 private def qRecRule (r : ConLeche.RecRule) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.RecRule.mk)
     #[qName r.ctor, mkRawNatLit r.nfields, mkRawNatLit r.ctorParams,
-      qRecRuleFire r.fire, qExpr r.rhs, qBool r.k, qBool r.eta]
+      qRecRuleFire r.fire, qExpr r.rhs, qBool r.k]
 
 private def qIndCaps (c : ConLeche.IndCaps) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.IndCaps.mk)

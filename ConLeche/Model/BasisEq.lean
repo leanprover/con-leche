@@ -1192,8 +1192,7 @@ theorem extendEqRec (mp : EnvModelM V env)
         injection heq with _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨⟨_, _, _, hR⟩, fun _ => recRuleKOf_of hR rfl hE rfl,
-            fun hb => Bool.noConfusion hb⟩
+        · exact ⟨⟨_, _, _, hR⟩, fun _ => recRuleKOf_of hR rfl hE rfl⟩
         · exact nomatch hr'))
     (fun ψ₁ ψ₂ hp => eqRecValT_congr
       (hp uN (by

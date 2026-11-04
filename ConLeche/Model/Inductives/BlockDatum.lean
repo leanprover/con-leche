@@ -781,10 +781,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     fun n hn => by rw [hcons]; exact consBlockInds_find?_of_ne hn
   have hWI : ConLeche.WhnfNamesFree envI q.memberNames := by
     refine ConLeche.whnfNamesFree_formers mp.base2.wf hnamesIff hfindMI hfreshI hII
-      (by rw [hcons]; exact consBlockInds_tables cvTas 0 env) ?_ ?_
-    · -- the η part of `RecCtorsStored`
-      intro n cv mI rP rules hf r hr
-      exact (mp.base2.rec_ctors n cv mI rP rules hf r hr).2.2
+      (by rw [hcons]; exact consBlockInds_tables cvTas 0 env) ?_
     · -- `natOpGuard` at the operation's install
       have hg : ∀ c, c ∈ ConLeche.natOpNames → (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →
           ConLeche.natOpStored env c = true →

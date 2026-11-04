@@ -193,7 +193,7 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
     (cvj : ConstantVal) (cnP : Nat) (T : Name) (cvT : ConstantVal) (caps : IndCaps) :
     CheckCM Expr :=
   if rl.k = true then mtcKI mode r depth major rl cvj cnP T
-  else if rl.eta = true then mtcEtaI r fe depth major T cvT caps
+  else if etaRescueOk rl.ctor cvj cvT caps = true then mtcEtaI r fe depth major T cvT caps
   else if T = andName then mtcAndI mode r fe depth major rl cvj cnP T
   else pure major
 
@@ -305,7 +305,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   if rl.k = true then
     r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
       mtcKCont mode r depth major rl cvj cnP T
-  else if rl.eta = true then
+  else if etaRescueOk rl.ctor cvj cvT caps = true then
     r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
       mtcEtaCont env depth major T cvT caps
   else if T = andName then

@@ -32,20 +32,15 @@ open Name
 /-- **A stored recursor's rules against the store**: every rule's
 constructor is itself stored (blocks carry their constructors, and the
 recursor is installed after them), and each of the two rescue bits, if
-set, is the *lookup's own* verdict — the K bit is `recRuleKOf` and the
-η-rescue bit is `recRuleEtaOf` at the recursor's stored name.  The
-bits are decided once, at the block's install (`recRuleBits`); this is
-what lets `majorToCtor` read them instead of re-deriving the
-cross-constant conditions — the capabilities and, at the η bit, the
-constructor's level parameters — at every recursor application. -/
+set, is the *lookup's own* verdict: `recRuleKOf`.  The bit is decided
+once, at the block's install (`recRuleBits`). -/
 @[expose] def RecCtorsStored (env : Env) : Prop :=
   ∀ n cv mI rP rules,
     env.find? n = some (.recInfo cv mI rP rules) →
     ∀ r ∈ rules,
       (∃ cvj cnP cnF,
         env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
-      (r.k = true → recRuleKOf env.find? r.ctor = true) ∧
-      (r.eta = true → recRuleEtaOf env.find? r.ctor = true)
+      (r.k = true → recRuleKOf env.find? r.ctor = true)
 
 theorem RecCtorsStored.empty : RecCtorsStored Env.empty := by
   intro n cv mI rP rules h
@@ -97,61 +92,7 @@ theorem recRuleKOf_of {f : Name → Option ConstantInfo} {ctor : Name}
   rw [h1]; dsimp only; rw [h2]; dsimp only; rw [h3]
   simp [h4]
 
-/-- **What a set η-rescue bit says about the store**: the rule's
-constructor is stored, its result type is headed by a stored
-inductive, that inductive is η-capable through this very constructor,
-and the constructor carries the inductive's own level parameters. -/
-theorem recRuleEtaOf_inv {f : Name → Option ConstantInfo}
-    {ctor : Name} (h : recRuleEtaOf f ctor = true) :
-    ∃ (cvj : ConstantVal) (cnP cnF : Nat) (T : Name) (us : List Level)
-      (cvT : ConstantVal) (caps : IndCaps),
-      f ctor = some (.ctorInfo cvj cnP cnF) ∧
-      (cvj.type.piResult).getAppFn = .const T us ∧
-      f T = some (.indInfo cvT caps) ∧ caps.eta = true ∧
-      caps.etaCtor = ctor ∧
-      cvj.levelParams = cvT.levelParams := by
-  revert h
-  unfold recRuleEtaOf
-  match hfc : f ctor with
-  | none => intro h; exact nomatch h
-  | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-  | some (.indInfo _ _) | some (.recInfo _ _ _ _) =>
-    intro h; exact nomatch h
-  | some (.ctorInfo cvj cnP cnF) =>
-    dsimp only
-    match hpr : (cvj.type.piResult).getAppFn with
-    | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _
-    | .forallE _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ =>
-      intro h; exact nomatch h
-    | .const T us =>
-      dsimp only
-      match hfT : f T with
-      | none => intro h; exact nomatch h
-      | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-      | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _) => intro h; exact nomatch h
-      | some (.indInfo cvT caps) =>
-        intro h
-        simp only [Bool.and_eq_true, beq_iff_eq] at h
-        exact ⟨cvj, cnP, cnF, T, us, cvT, caps, rfl, hpr, hfT,
-          h.1.1, h.1.2, h.2⟩
 
-/-- The η-rescue bit, from the store. -/
-theorem recRuleEtaOf_of {f : Name → Option ConstantInfo}
-    {ctor : Name} {cvj : ConstantVal} {cnP cnF : Nat} {T : Name}
-    {us : List Level} {cvT : ConstantVal} {caps : IndCaps}
-    (h1 : f ctor = some (.ctorInfo cvj cnP cnF))
-    (h2 : (cvj.type.piResult).getAppFn = .const T us)
-    (h3 : f T = some (.indInfo cvT caps)) (h4 : caps.eta = true)
-    (h5 : caps.etaCtor = ctor)
-    (h7 : cvj.levelParams = cvT.levelParams) :
-    recRuleEtaOf f ctor = true := by
-  unfold recRuleEtaOf
-  rw [h1]; dsimp only; rw [h2]; dsimp only; rw [h3]
-  simp [h4, h5, h7]
-
-/-- The K bit's verdict survives any change of store that keeps the
-non-recursor lookups (e.g. a fresh cons): it reads a
-constructor and an inductive only. -/
 theorem recRuleKOf_mono {f g : Name → Option ConstantInfo} {ctor : Name}
     (hkeep : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
@@ -161,20 +102,6 @@ theorem recRuleKOf_mono {f g : Name → Option ConstantInfo} {ctor : Name}
   exact recRuleKOf_of
     (hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) h1) h2
     (hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) h3) h4
-
-/-- The η-rescue bit's verdict, likewise. -/
-theorem recRuleEtaOf_mono {f g : Name → Option ConstantInfo}
-    {ctor : Name}
-    (hkeep : ∀ (n : Name) (ci : ConstantInfo),
-      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-      f n = some ci → g n = some ci)
-    (h : recRuleEtaOf f ctor = true) :
-    recRuleEtaOf g ctor = true := by
-  obtain ⟨cvj, cnP, cnF, T, us, cvT, caps, h1, h2, h3, h4, h5, h7⟩ :=
-    recRuleEtaOf_inv h
-  exact recRuleEtaOf_of
-    (hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) h1) h2
-    (hkeep _ _ (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) h3) h4 h5 h7
 
 /-- **The rescue bits, read back at a use.**  At a stored recursor
 whose (single) rule's constructor and inductive have been looked up,
@@ -193,11 +120,8 @@ theorem recCtors_bits {env : Env} (hctors : RecCtorsStored env)
     (hfcj : env.find? rl.ctor = some (.ctorInfo cvj cnP cnF))
     (hpres : (cvj.type.piResult).getAppFn = .const T us₀)
     (hfT : env.find? T = some (.indInfo cvT caps)) :
-    (rl.k = true → caps.ruleK = true ∧ cnF = 0) ∧
-    (rl.eta = true → caps.eta = true ∧ rl.ctor = caps.etaCtor ∧
-      cvj.levelParams = cvT.levelParams) := by
-  obtain ⟨-, hk, he⟩ := hctors recName cv mI rP rules hfrec rl hmem
-  constructor
+    rl.k = true → caps.ruleK = true ∧ cnF = 0 := by
+  obtain ⟨-, hk⟩ := hctors recName cv mI rP rules hfrec rl hmem
   · intro hb
     obtain ⟨cvj', cnP', T', us', cvT', caps', h1, h2, h3, h4⟩ :=
       recRuleKOf_inv (hk hb)
@@ -208,16 +132,6 @@ theorem recCtors_bits {env : Env} (hctors : RecCtorsStored env)
     rw [hfT] at h3
     obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj h3)
     exact ⟨h4, rfl⟩
-  · intro hb
-    obtain ⟨cvj', cnP', cnF', T', us', cvT', caps', h1, h2, h3, h4, h5, h7⟩ :=
-      recRuleEtaOf_inv (he hb)
-    rw [hfcj] at h1
-    obtain ⟨rfl, -, -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj h1)
-    rw [hpres] at h2
-    obtain ⟨rfl, -⟩ := Expr.const.inj h2
-    rw [hfT] at h3
-    obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj h3)
-    exact ⟨h4, h5.symm, h7⟩
 
 /-- **A table entry's syntactic head data** (task #175 wiring
 W5): the facts the direct install establishes syntactically for every

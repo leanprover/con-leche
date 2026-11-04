@@ -95,13 +95,13 @@ theorem RecRuleFire.eq_of_beqP {a b : RecRuleFire} (h : a.beqP b = true) : a = b
 /-- `RecRule` equality, the right-hand side by `Expr`'s `==`. -/
 def RecRule.beqP (a b : RecRule) : Bool :=
   a.ctor == b.ctor && a.nfields == b.nfields && a.ctorParams == b.ctorParams &&
-    a.fire.beqP b.fire && a.rhs == b.rhs && a.k == b.k && a.eta == b.eta
+    a.fire.beqP b.fire && a.rhs == b.rhs && a.k == b.k
 
 theorem RecRule.eq_of_beqP {a b : RecRule} (h : a.beqP b = true) : a = b := by
-  obtain ⟨c, n, p, f, r, k, e⟩ := a
-  obtain ⟨c', n', p', f', r', k', e'⟩ := b
+  obtain ⟨c, n, p, f, r, k⟩ := a
+  obtain ⟨c', n', p', f', r', k'⟩ := b
   simp only [RecRule.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, hf⟩, rfl⟩, rfl⟩, rfl⟩ := h
+  obtain ⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, hf⟩, rfl⟩, rfl⟩ := h
   rw [RecRuleFire.eq_of_beqP hf]
 
 /-- **`ConstantInfo` equality, pointer-first**: every `Expr` by its

@@ -205,16 +205,14 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
     c₀ = pinnedInfo c₀.name ∧
     ∀ (ψ : Name → Nat) (t : Term),
       pinnedStructT c₀.name ψ = some t → (A ψ) = t
-  /-- a head recursor's rules' constructors are stored and its two
-  rescue bits are the store's own verdict (`RecCtorsStored`'s head) -/
+  /-- a head recursor's rules' constructors are stored and its K
+  bit is the store's own verdict (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
     ∀ r ∈ rules,
       (∃ cvj cnP cnF,
         env.find? (ConLeche.RecRule.ctor r)
           = some (.ctorInfo cvj cnP cnF)) ∧
-      (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
-      (r.eta = true →
-        ConLeche.recRuleEtaOf env.find? r.ctor = true)
+      (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true)
 
 /-- **The head obligations of a basis cons**: the head is the pinned
 declaration, its leaf is the direct pin, and (for a recursor) its rules'
@@ -231,9 +229,7 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
         (∃ cvj cnP cnF,
           env.find? (ConLeche.RecRule.ctor r)
             = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf env.find? r.ctor = true)) :
+        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true)) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩, hctors⟩
 
@@ -249,9 +245,7 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
         (∃ cvj cnP cnF,
           env.find? (ConLeche.RecRule.ctor r)
             = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf env.find? r.ctor = true)) :
+        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true)) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
