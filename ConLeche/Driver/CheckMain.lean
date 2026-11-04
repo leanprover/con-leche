@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.StreamParse
 public import ConLeche.Driver.Run
+public import ConLeche.Frontend.Olean.Records
 
 /-!
 # The driver's sequencing, generic in the IO class (tasks #424, #450)
@@ -50,14 +51,18 @@ def declCName : ConLeche.Declaration → String := ConLeche.Cached.declCLabel
 
 open ConLeche
 
-/-- **What a run reads**: a lean4export stream.  The parse ends in the
-file's `Declaration` records, and everything after it works on those. -/
+/-- **What a run reads**: a lean4export stream, or the import closure of
+root modules read from their `.olean` files along a search path.  Either
+read ends in `Declaration` records, and everything after it works on
+those. -/
 inductive Input where
   | ndjson (file : String)
+  | oleans (searchPath : List System.FilePath) (roots : Array ConLeche.Name)
 
 /-- The input's name in a diagnostic. -/
 def Input.label : Input → String
   | .ndjson f => f
+  | .oleans _ rs => String.intercalate " " (rs.toList.map toString)
 
 /-- A line on stderr: a diagnostic (`liftIO`). -/
 @[inline] def diagLine {μ : Type → Type} [CheckerIO μ] (s : String) : μ Unit :=
@@ -78,12 +83,14 @@ def Input.label : Input → String
   CheckerIO.liftIO IO.monoMsNow
 
 /-- The input's declaration records: the stream's, by the stream parse
-(`parseStreamG`). -/
+(`parseStreamG`), or the closure's, by the `.olean` reader
+(`Frontend.Olean.readOleans`). -/
 def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (jobs : Nat) :
     μ (Except (CheckError × Nat) (Array Declaration)) :=
   match inp with
   | .ndjson file => do
     return (← parseStreamG file jobs).map (·.decls)
+  | .oleans sp roots => Frontend.Olean.readOleans sp roots jobs
 
 /-- **The driver, generic in the IO class** (tasks #424, #450): what
 `main` runs in process (at `IO`) and what the theorem is about (at
@@ -330,5 +337,48 @@ theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
         | exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
         | exact ⟨pre, b, r, env, rfl, hb, hpc, henv⟩
     all_goals simp [Except.map]
+
+/-- **An accepted `--olean` run, in the model**: every outcome of the
+driver's run on the import closure of `roots` over a snapshot `fs` that is
+an exit 0 means the built-in prelude parses, the reader has an outcome on
+that snapshot that is records `ds` (at one job: the parallel map's model is
+the sequential map), and `checkDecls` accepts those prepared with the
+prelude, whatever the `liftIO` actions answered. -/
+theorem checkMainG_oleans_accept {sp : List System.FilePath} {roots : Array ConLeche.Name}
+    {mode : CheckMode} {stride jobs : Nat} {fs : FS}
+    (h : (checkMainG (.oleans sp roots) mode stride jobs : ModelIO _) fs (.ok 0)) :
+    ∃ pre ds env, Frontend.builtinPreludeE = .ok pre ∧
+      (Frontend.Olean.readOleans sp roots : ModelIO _) fs (.ok (.ok ds)) ∧
+      Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre ds) = .ok env := by
+  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots) mode stride jobs) fs
+      (fun c => c = 0 → ∃ pre ds env, Frontend.builtinPreludeE = .ok pre ∧
+        (Frontend.Olean.readOleans sp roots : ModelIO _) fs (.ok (.ok ds)) ∧
+        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre ds) = .ok env) from
+    H 0 h rfl
+  cases hp : Frontend.builtinPreludeE with
+  | error x =>
+    rcases x with ⟨_ | _ | _, _⟩ <;>
+      simp [checkMainG, hp, clockMs, diagLine]
+  | ok pre =>
+    simp only [checkMainG, hp, readInputG, clockMs, diagLine, outLine, ModelIO.allOk_bind,
+      ModelIO.liftIO_iff, forall_const]
+    intro _ pre' hpre x hx
+    simp only [ModelIO.pure_iff, Except.ok.injEq] at hpre
+    cases hpre
+    rcases x with ⟨_ | _ | _, _⟩ | ds
+    rotate_right
+    · have hx' : (Frontend.Olean.readOleans sp roots : ModelIO _) fs (.ok (.ok ds)) := hx
+      refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
+        simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
+        intro _ <;>
+        refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
+        simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
+        intro v <;>
+        rcases v with ⟨e, _⟩ | ⟨env, henv⟩ <;>
+        simp only [ModelIO.allOk_bind, ModelIO.allOk_pure, ModelIO.liftIO_iff, forall_const]
+      all_goals first
+        | exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
+        | exact ⟨pre, ds, env, rfl, hx', henv⟩
+    all_goals simp
 
 end ConLeche.Driver

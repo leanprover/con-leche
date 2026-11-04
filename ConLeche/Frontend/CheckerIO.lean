@@ -42,7 +42,10 @@ binary that exits 0 is one of the model's outcomes, with that code, if
    snapshot of the files during the run — the same value where the
    model has one, an exception where the model's outcome is one —
    including the C function behind `readRange` (`readRangeIO`,
-   `native/read_range.c`), which must return the model's slice;
+   `native/read_range.c`), which must return the model's slice; and the
+   parallel map's threads (`parMapIO`) must give the sequential map's
+   answer, which holds when the elements' actions only read files and
+   compute, as `parMapIO`'s docstring argues;
 2. the actions passed to `liftIO` do not change what the file operations
    see (none of them writes a file: they print, read the clock and
    `/proc/self/status`, start and join threads, and compute), and do not
@@ -74,6 +77,21 @@ bytes cut as the reads cut them (`ConLeche/Verify/Frontend/ModelIO.lean`).
 -/
 
 namespace ConLeche
+
+/-! ## The sequential map with a stop -/
+
+/-- **The sequential map with a stop**: `f` on the list in order, up to the
+first `.error`, which is the result. -/
+def mapExcept {m : Type → Type} [Monad m] {α β ε : Type} (f : α → m (Except ε β)) :
+    List α → m (Except ε (List β))
+  | [] => pure (.ok [])
+  | x :: xs => do
+    match ← f x with
+    | .error e => pure (.error e)
+    | .ok b =>
+      match ← mapExcept f xs with
+      | .error e => pure (.error e)
+      | .ok bs => pure (.ok (b :: bs))
 
 /-! ## Reading a stream: the cuts -/
 
@@ -114,6 +132,14 @@ class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m wh
   /-- the size of a regular file in bytes; throws where the path names
   none -/
   fileSize : System.FilePath → m Nat
+  /-- **the parallel map with a stop**: the result is `mapExcept`'s, the
+  first failure in the list's order the one returned, whatever the
+  threads' interleaving (`jobs` is at most how many elements are in
+  flight).  It is an operation because the elements' actions read files:
+  an `IO` thread doing that cannot go through `liftIO`, whose model says
+  nothing about it. -/
+  parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+    m (Except ε (List β))
   /-- **the escape**: an `IO` action that performs none of the operations
   above — output, diagnostics, the clock, threads; in the model, any
   outcome at all.  An explicit method on purpose: there is no
@@ -260,6 +286,7 @@ instance : CheckerIO ModelIO where
   readRange p off len := fun fs =>
     ModelIO.answer ((fs.file p).map fun b => b.extract off (min (off + len) b.size))
   fileSize p := fun fs => ModelIO.answer ((fs.file p).map (·.size))
+  parMapExcept _ f xs := mapExcept f xs
   liftIO _ := fun _ _ => True
 
 /-! ## The binary's instance -/
@@ -277,6 +304,53 @@ def readRangeOf (p : System.FilePath) (off len : Nat) : IO ByteArray :=
     let _ ← readRangeIO p.toString 0 0
     pure .empty
 
+/-- One share of `parMapIO`: the elements at the given indices in order,
+up to the first failure, which is returned with its index (`.error`: an
+exception, `.ok`: an `.error` value). -/
+def parShare {α β ε : Type} (f : α → IO (Except ε β)) (xs : Array α) :
+    List Nat → Array β → IO (Array β × Option (Nat × Except IO.Error ε))
+  | [], acc => pure (acc, none)
+  | i :: is, acc => do
+    match xs[i]? with
+    | none => parShare f xs is acc
+    | some x =>
+      match ← (f x).toBaseIO with
+      | .error ioe => pure (acc, some (i, .error ioe))
+      | .ok (.error e) => pure (acc, some (i, .ok e))
+      | .ok (.ok b) => parShare f xs is (acc.push b)
+
+/-- **The parallel map with a stop, on threads**: at one job the
+sequential map itself; above, the elements dealt round-robin to
+`min jobs n` dedicated threads, each running its share in order up to
+its first failure.  The result is the sequential map's: the first
+failure in the list's order is the least index any share stopped at
+(every element before it is in a share that stopped later, or not at
+all, so it succeeded), and without one the shares' results put back in
+order (element `i` is element `i / w` of share `i % w`).  An
+exception at that index is thrown again. -/
+def parMapIO {α β ε : Type} (jobs : Nat) (f : α → IO (Except ε β)) (xs : List α) :
+    IO (Except ε (List β)) := do
+  if jobs ≤ 1 || xs.length ≤ 1 then return ← mapExcept f xs
+  let arr := xs.toArray
+  let w := min jobs arr.size
+  let tasks ← (List.range w).toArray.mapM fun k =>
+    IO.asTask (prio := .dedicated)
+      (parShare f arr ((List.range arr.size).filter (· % w == k)) #[])
+  let mut parts : Array (Array β) := Array.mkEmpty w
+  let mut first : Option (Nat × Except IO.Error ε) := none
+  for t in tasks do
+    let (bs, stop) ← IO.ofExcept (← IO.wait t)
+    parts := parts.push bs
+    if let some (i, e) := stop then
+      first := match first with
+        | some (j, e') => if j < i then some (j, e') else some (i, e)
+        | none => some (i, e)
+  match first with
+  | some (_, .error ioe) => throw ioe
+  | some (_, .ok e) => return .error e
+  | none =>
+    return .ok ((List.range arr.size).filterMap fun i => (parts[i % w]?).bind (·[i / w]?))
+
 /-- **The binary's instance**: the runtime's calls; `liftIO` the identity. -/
 instance instCheckerIOIO : CheckerIO IO where
   pathExists p := p.pathExists
@@ -287,6 +361,7 @@ instance instCheckerIOIO : CheckerIO IO where
     let md ← System.FilePath.metadata p
     if md.type == .file then pure md.byteSize.toNat
     else throw (.inappropriateType (some p.toString) 21 "not a regular file")
+  parMapExcept jobs f xs := parMapIO jobs f xs
   liftIO a := a
 
 end ConLeche
