@@ -108843,3 +108843,76 @@ exit 1; a throwing flush in `main` still does, as before.
 **`--no-mark-persistent` removed (maintainer's ruling, 2026-11-04):** the flag and the `noMark` parameter are gone and the marks unconditional; older records mention them as history.
 
 **Naming as per README (maintainer's ruling, 2026-11-04, reversing this record's earlier one):** `no_False_declaration` is the main corollary, as on master, and `main_no_False` the main corollary lifted to the driver; statements above calling them otherwise are superseded.  `main_model` (this lane's, not the older theorem of that name) is dropped: `Driver.runArgs_accept` and `model_exists` give it.
+
+## TASK #470 — the `.olean` reader on master, without modular checking (2026-11-04, agent/470-olean)
+
+**The task (maintainer).**  Land the whole olean parsing machinery on
+master, without modular checking, the parsers not yet needed included; the
+cfsg branch says what is needed, not how it is structured.  `olean-compare`
+on master with a CI check; tested on Mathlib.  No `@[csimp]`: the driver calls
+the fast entry points by name, the equality to the specification a plain
+theorem.
+
+**What landed.**  `ConLeche/Frontend/Olean/*`: `Region`, `Spec`, `Fast`,
+`Sparse` from cfsg; `Header`, `Reads`, `Module`, `Files`, `Closure`, `Merge`,
+`Emit`, `Records` cut out of cfsg's `Load`.  `--olean`, `--search-path=` on the
+CLI, `Input.oleans`, `Req.oleans`.  `CheckerIO.parMapExcept` joins the class
+(the model: the sequential map).  `CheckError` moved to `Kernel/Error.lean`, so
+that the reader does not import the core.
+
+**Questioned from cfsg, and changed.**
+* The toolchain allowlist is gone: only the format version and the GMP flag are
+  checked (a decline otherwise), the header's version and githash not looked at.
+  rc3's and v4.35.0's format sources are identical.  Read at both.
+* `decodeModuleSpec` has no `consts` flag and no decoder parameter: there is one
+  full parse per region and root (`parseFull`: name table, fast decoder).
+* `stmtSpec` is gone: `stmtsFast_eq` states against `sks.mapM (stmtP r)`.
+* `locateHits` and the part check are maps, not `for/mut` loops, which is what
+  makes "the snapshot determines the action" (`ModelIO.Det`) short.
+* `parsePart` is a named function; `parseModule` was its local closure.
+
+**The uniform theorems (the maintainer's question).**  One direction on
+purpose: a read looks only at what it needs, so it may succeed on a file whose
+full parse fails.  `decodeModuleFast_eq` is an equality, so the fast parser
+succeeds iff the specification does.
+* pure (`Verify/Frontend/Olean/Reads.lean`), for any region and root with
+  `parseFull r root = some d`: `readHeader_of_full`, `readLight_of_full`,
+  `readEntry_of_full`, `readStmts_of_full`; `readEntry_eq` holds unconditionally.
+  `importsPre_extract` and `importsPre_prefix` relate the prefix read to the file
+  in both directions; `parseExported_full`, `parseModule_full` give the full
+  parses a module's reads are made of, at (single ex, ex.root) and at (combined,
+  s.root / p.root).
+* on a snapshot (`Verify/Frontend/Olean/Files.lean`), from a value of the home's
+  `readModule`: `readExported_of_home`, `readExportedLight_of_home`,
+  `readImports_of_home` state that those reads are DETERMINED and return the
+  home's.  So a home's full read settles every fast read of the exported part,
+  on one snapshot, in one process or in two.  The prefix read needs
+  `foldList_hdr_complete` (the forward read finds on a prefix what the file
+  holds; a prefix validates because the chunks are whole words).
+* `checkMainG_oleans_accept`, `runArgs_oleans_accept`, `main_oleans_no_False`,
+  `readOleans_ok`.  Not stated: what the merge and the emission mean relative to
+  the files' constants (`mergeAll`, `emitAll`, `declsOf` appear in `readOleans_ok`
+  as they are), nor that `closureOrder` covers the closure: `main_oleans_no_False`
+  takes its `False` theorem as a hypothesis on the reader's records.
+
+**Fence.**  `tests/layering.sh`: the reader imports itself and five base modules
+(`Kernel.{Error,Name,Expr,Env}`, `Frontend.Scan.Types`); only `Files` and
+`Closure` reach `CheckerIO`; `Records` alone `ExportC`.  The proofs: themselves,
+the reader, those, `Verify.Frontend.ModelIO`.  `tests/trust-surface.sh`'s IO fence
+covers `Files`, `Closure`, `Records`, with `parShare` and `parMapIO` cut out.
+
+**Tests.**  `tests/olean.sh`: 94 cases, the merged and parts cases of cfsg's gate,
+79 fixture sources (1.4 MB of oleans), upstream Lake and Comparator projects kept;
+`NpAx` is exit 2 here (master declines every other axiom; cfsg's reject is its
+#397, which is not on master).  `tests/ConLecheTests/OleanTests.lean` evaluates
+every partial read on the fixtures.  `tests/olean-compare.sh`, in the battery
+after the self-check, whose exporter it uses.
+
+**Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
+differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
+run): accepted 712 205 declarations, peak RSS 6.01 GiB, parse phase 17.0 s, install
+7.4 s, check 144.0 s, 7 769 G instructions:u, 4 931 G cycles:u.  A slice of CFSG's
+rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`) reads and is accepted.  A module-system
+module's exported part is decoded twice in a full read (alone, then in the
+combined region), the price of `parseExported` being a function of that file alone;
+the parse phase above includes it.

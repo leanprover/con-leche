@@ -38,7 +38,7 @@ usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L34)):
+([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L35)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -311,7 +311,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L93-L97)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L94-L98)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -326,7 +326,7 @@ Read from the outside in:
    flushes the output and exits with the code `runArgs` returned.
    `runArgs` reads the arguments into a request (a
    stream), runs the request's driver
-   ([function `runReq` in `ConLeche/Driver/Dispatch.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Dispatch.lean#L29))
+   ([function `runReq` in `ConLeche/Driver/Dispatch.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Dispatch.lean#L32))
    and turns any `IO` error into exit 3.
    All of it — the argument parse, the prelude, the input, the
    preparation, the fold, the verdict and the exit code — is written against
@@ -334,7 +334,7 @@ Read from the outside in:
    path names something, its real path, a file's bytes, a positional
    read of a file and its size — and one escape, `liftIO`, which runs
    an `IO` action
-   ([class `CheckerIO` in `ConLeche/Frontend/CheckerIO.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L101)).
+   ([class `CheckerIO` in `ConLeche/Frontend/CheckerIO.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L120)).
    Everything else the binary does goes through the escape, spelled at
    every call: the output, the clock, the persistent mark,
    and every thread — the rounds of the parallel parse and the fold's
@@ -349,12 +349,12 @@ Read from the outside in:
    a model: an action is the set of its possible outcomes, a value or
    an exception, on a snapshot of the files; a file operation's outcome
    is determined by the snapshot, and the escape may have every outcome
-   ([type `ModelIO` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L235)).
+   ([type `ModelIO` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L262)).
    The exit code is computed by the generic code and returned outside
    the escape, whose outcomes would otherwise allow any code. On every
    snapshot, every outcome of `runArgs` at the arguments `-- <file>` that
    is an exit 0 establishes the file's chain to the fold's accept
-   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L37-L41)),
+   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L76-L80)),
    whose corollary is `main_no_False` in
    `ConLeche/MainTheorem.lean` (§1). That a run of the binary that
    exits 0 is one of those outcomes is assumed, not proved, and the class's file states
@@ -422,7 +422,7 @@ Read from the outside in:
    threads answered, every outcome that is an exit 0 is one where the
    file's bytes in the snapshot, as one chunk, parse to records the fold
    accepts
-   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L290-L295)):
+   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L297-L302)):
    the hypothesis of the main corollary about the file itself, read at
    the binary under the assumptions of the class's file.
    What the parser makes of a record
@@ -556,7 +556,7 @@ Read from the outside in:
    recursion on a fuel parameter
    ([the entry points in `ConLeche/Kernel/TypeChecker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/TypeChecker.lean#L29-L54));
    on exhaustion every operation throws
-   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1736-L1741)).
+   ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1708-L1713)).
    Its declaration fold is what the model tier proves things about
    ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L268-L275)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
@@ -626,7 +626,7 @@ the form `eagerReduce _ _` is compared with the function's domain with
 the flag set, for that comparison and everything it calls, where
 the lazy-delta `Nat`-literal fold and the `Bool.true` shortcut also fire
 on terms with free variables
-([function `defeqArg` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1070)).
+([function `defeqArg` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1042)).
 The eager comparisons run on memos of their own, kept for the whole
 declaration apart from the plain ones.
 
@@ -638,13 +638,13 @@ reduced by `whnfCore` itself rather than by `whnf`),
 reduction: its value is never unfolded, so whether a declaration
 type-checks never depends on a theorem's value — and the literal fast
 paths
-([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1053)),
+([function `whnfBody` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1025)),
 `inferType` computes a type, and `isDefEq` decides conversion in the
 order of the official `is_def_eq_core` (cheap head normalization, the
 easy cases, the lazy-delta loop — which compares two applications of
 the same definition argument by argument before unfolding them, last
 argument first as the official `is_def_eq_args` does
-([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1309)) —, the
+([function `defeqSpine` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1281)) —, the
 projection-against-projection comparison by scrutinees, the full head
 normalization and a restart, then the stuck comparisons) with one
 deliberate exception: the easy cases and proof irrelevance are tried on
@@ -685,10 +685,10 @@ presentation and matter for the proof:
   domains and `let` values checked) and at the official kernel's
   infer-only grade on the terms reduction and definitional equality
   build on their way
-  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1198)).
+  ([function `inferBodyIO` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1170)).
   Beyond the official kernel, the verified mode compares the opened
   bodies' full-grade types at the innermost level of a λ/λ comparison
-  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1347))
+  ([function `defeqLams` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1319))
   and at η; the proof consumes them. Three cheap guards are the proof's
   too and never change a verdict on well-typed input: η is tried only
   against a term whose head is no λ and no `let` (a weak-head normal
@@ -716,7 +716,7 @@ presentation and matter for the proof:
   runtime's 1 GiB stack, a level costs at most about 1.2 KB of it, and
   a recursion of about a million levels or more aborts with a stack
   overflow, an error
-  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1784)).
+  ([definition `checkFuel` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1756)).
   Reduction *chains* are not bounded by it: the
   `whnf` loop's δ steps, the `whnfCore` loop's β, ι and projection steps
   and the lazy-delta loop each iterate in constant native stack, a
