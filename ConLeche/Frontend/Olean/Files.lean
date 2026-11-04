@@ -61,7 +61,8 @@ where
     | c :: cs, n, .plain, cur =>
       if c == '.' then go cs (n.str cur) .start "" else go cs n .plain (cur.push c)
     | c :: cs, n, .esc, cur =>
-      if c == '»' then go cs (n.str cur) .closed "" else go cs n .esc (cur.push c)
+      if c == '»' then (if cur.isEmpty then none else go cs (n.str cur) .closed "")
+      else go cs n .esc (cur.push c)
     | c :: cs, n, .closed, _ => if c == '.' then go cs n .start "" else none
 
 /-- **Where a module's files are** (task #392): the search-path directory

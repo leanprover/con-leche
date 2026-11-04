@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Verify.Frontend.ModelIO
-import ConLeche.Verify.Frontend.Olean.Reads
+public import ConLeche.Verify.Frontend.Olean.Reads
 
 /-!
 # The `.olean` reads on a file system snapshot
@@ -17,7 +17,8 @@ snapshot, in one process or in two: where `readModule` has a value,
 * the exported file is the one it decoded (`readModule_ok`), so that an
   importer's read (`readExported_of_home`), a light read
   (`readExportedLight_of_home`) and the read of the imports off the file's
-  start (`readImports_of_home`) cannot fail, and return what the home has;
+  start (`readImports_of_home`, `moduleImports_of_home`) cannot fail, and
+  return what the home has;
 * the reads of a part of the module, pure functions of the region and the
   root the full parses have run on, are `ConLeche/Verify/Frontend/Olean/Reads.lean`.
 
@@ -393,28 +394,43 @@ theorem readImports_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
   rw [ModelIO.bind_det (readImportsAt_det hb hp himp)]
   rfl
 
-/-- **A light read of a module with a home's read**: determined, with the
-home's imports and the names of its exported constants. -/
+/-- **The closure's read of a module's imports, with a home's read**:
+determined, the names of the home's imports. -/
+theorem moduleImports_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
+    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
+    (moduleImports sp m : ModelIO _) fs =
+      ModelIO.answer (some (.ok (r.imports.map (·.module)))) := by
+  obtain ⟨loc, b, ex, er, hf, hb, hp, he, -, hi⟩ := home_exported h
+  have himp : importsPre b = some r.imports := by
+    have := (parseExported_full he).2
+    rwa [Part.ofBytes_bytes hp, ← hi] at this
+  simp only [moduleImports]
+  rw [ModelIO.bind_det hf]
+  simp only
+  rw [ModelIO.bind_det (readImportsAt_det hb hp himp)]
+  rfl
+
+/-- **A light read of a module with a home's read**: determined, the exported
+part's: its header, and per stored constant its location with the name, kind
+and filter of the constant the exported read holds there. -/
 theorem readExportedLight_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
     (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ ex l, (readExportedLight sp m : ModelIO _) fs = ModelIO.answer (some (.ok (ex, l))) ∧
-      l.header.imports = r.imports ∧
-      l.consts.toList.map (·.name) = r.exported.toList.map (·.name) := by
+    ∃ ex er sk, parseExported m ex = .ok er ∧
+      moduleSkel (Region.single ex) ex.root = some sk ∧
+      (readExportedLight sp m : ModelIO _) fs = ModelIO.answer (some (.ok (ex,
+        ⟨⟨er.isModule, er.imports⟩,
+          ((sk.consts.zip er.constants.toList).map fun p => LightConst.ofEntry p.1 p.2).toArray⟩))) ∧
+      r.exported = er.constants ∧ r.imports = er.imports := by
   obtain ⟨loc, b, ex, er, hf, hb, hp, he, hc, hi⟩ := home_exported h
   have hfull := (parseExported_full he).1
-  obtain ⟨-, sk, hs, -, hcs, -⟩ := parseFull_some hfull
-  have hlen : sk.consts.length = er.constants.toList.length := (mapM_length_opt hcs).symm
-  refine ⟨ex, ⟨⟨er.isModule, er.imports⟩,
-      ((sk.consts.zip er.constants.toList).map fun p => LightConst.ofEntry p.1 p.2).toArray⟩,
-    ?_, hi.symm, ?_⟩
-  · simp only [readExportedLight]
-    rw [ModelIO.bind_det hf]
-    simp only [readExpAt]
-    rw [ModelIO.bind_det (readPart_det hb), hp]
-    simp only [readLight_of_full hfull hs]
-    rfl
-  · rw [hc]
-    simpa using lightOf_names hlen
+  obtain ⟨-, sk, hs, -, -, -⟩ := parseFull_some hfull
+  refine ⟨ex, er, sk, he, hs, ?_, hc, hi⟩
+  simp only [readExportedLight]
+  rw [ModelIO.bind_det hf]
+  simp only [readExpAt]
+  rw [ModelIO.bind_det (readPart_det hb), hp]
+  simp only [readLight_of_full hfull hs]
+  rfl
 
 /-! ## The whole read -/
 

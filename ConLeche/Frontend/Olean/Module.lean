@@ -164,7 +164,7 @@ def expoOfParts (r : Region) (privRoot expRoot : UInt64) (cs : Array (CEntryF Na
       if hiddenKind && samePtrs then expo := expo.set! i .hidden
       else
         -- the fallback: decode the exported constant
-        let some e := constSpec r c | throw "malformed exported constant"
+        let some e := readEntry r c | throw "malformed exported constant"
         match expoOf cs[i]! e with
         | some x => expo := expo.set! i x
         | none => throw s!"the exported view of {en} is not a refinement of its private \

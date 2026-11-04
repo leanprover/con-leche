@@ -14,8 +14,9 @@ as possible: a value is read off the object it is stored as, field by
 field, by recursion on the location — every pointer points to an
 object at an earlier location (`Region.down`), so the recursion is
 well-founded.  No memo, no sharing, no worklist; on a real module this
-is exponential in the sharing of its expressions, and it is not meant
-to be executed: the reader calls the fast decoder `decodeModuleFast`
+is exponential in the sharing of its expressions, so everything that reads
+a `Level` or an `Expr` here is `noncomputable` (a `Name` is a chain, and
+`nameAt` is linear): the reader calls the fast decoder `decodeModuleFast`
 (`ConLeche/Frontend/Olean/Fast.lean`), and the theorem
 `decodeModuleFast_eq` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
 the two are the same function, so each succeeds exactly where the other
@@ -211,17 +212,17 @@ def nameAt (r : Region) (g : Nat) : Option Name :=
 termination_by g
 
 /-- **The `Level` stored at location `g`.** -/
-def levelAt (r : Region) (g : Nat) : Option Level :=
+noncomputable def levelAt (r : Region) (g : Nat) : Option Level :=
   levelNode r g (fun c _ => levelAt r c) (fun c _ => nameAt r c)
 termination_by g
 
 /-- **The `List Level` stored at location `g`.** -/
-def levelsAt (r : Region) (g : Nat) : Option (List Level) :=
+noncomputable def levelsAt (r : Region) (g : Nat) : Option (List Level) :=
   levelsNode r g (fun c _ => levelsAt r c) (fun c _ => levelAt r c)
 termination_by g
 
 /-- **The `Expr` stored at location `g`.** -/
-def exprAt (r : Region) (g : Nat) : Option Expr :=
+noncomputable def exprAt (r : Region) (g : Nat) : Option Expr :=
   exprNode r g (fun c _ => exprAt r c) (fun c _ => nameAt r c) (fun c _ => levelAt r c)
     (fun c _ => levelsAt r c)
 termination_by g
@@ -234,7 +235,7 @@ def nameP (r : Region) (v : UInt64) : Option Name :=
     | none => none
 
 /-- The `Expr` a pointer stands for. -/
-def exprP (r : Region) (v : UInt64) : Option Expr :=
+noncomputable def exprP (r : Region) (v : UInt64) : Option Expr :=
   match r.loc v with
   | some c => exprAt r c
   | none => none
@@ -427,13 +428,13 @@ structure ModDecoded where
   constants : Array (CEntryF Name Expr)
 
 /-- **The constant at location `c`.** -/
-def constSpec (r : Region) (c : Nat) : Option (CEntryF Name Expr) := do
+noncomputable def constSpec (r : Region) (c : Nat) : Option (CEntryF Name Expr) := do
   let s ← constSkel r c
   s.mapM (nameP r) (exprP r)
 
 /-- **THE SPECIFICATION: the module stored in a region from its root
 pointer.** -/
-def decodeModuleSpec (r : Region) (root : UInt64) : Option ModDecoded := do
+noncomputable def decodeModuleSpec (r : Region) (root : UInt64) : Option ModDecoded := do
   let sk ← moduleSkel r root
   let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
   let constants ← sk.consts.mapM (constSpec r)
@@ -444,7 +445,7 @@ def CEntryF.stmt (c : CEntryF Name Expr) : ConstantVal := ⟨c.name, c.levelPara
 
 /-- **A constant's statement read from its skeleton**: the part of it
 that `CEntryF.mapM (nameP r) (exprP r)` reads for the statement. -/
-def stmtP (r : Region) (s : CEntryF UInt64 UInt64) : Option ConstantVal := do
+noncomputable def stmtP (r : Region) (s : CEntryF UInt64 UInt64) : Option ConstantVal := do
   pure ⟨← nameP r s.name, ← s.levelParams.mapM (nameP r), ← exprP r s.type⟩
 
 end ConLeche.Frontend.Olean

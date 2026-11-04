@@ -148,6 +148,12 @@ info: 'ConLeche.Frontend.Olean.readExportedLight_of_home' depends on axioms: [pr
 #print axioms ConLeche.Frontend.Olean.readExportedLight_of_home
 
 /--
+info: 'ConLeche.Frontend.Olean.moduleImports_of_home' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.moduleImports_of_home
+
+/--
 info: 'ConLeche.Frontend.Olean.readImports_of_home' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in

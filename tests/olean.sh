@@ -313,6 +313,43 @@ done
 case_ "proofs of one statement, two homes" 0 --olean --search-path=$MSP TeqM
 case_ "two statements under one name" 1 --olean --search-path=$MSP TeqDM
 
+# --- an exported constant read by the parts' refinement check -------------
+# `yes`, exported with a statement of 80 doubling applications (a DAG of 80
+# objects, a tree of 2^80): the check that it refines the private constant
+# reads it with a memo, and answers at once.  Appended to the exported file,
+# in the address gap before the server part, as a new root's constants.
+d="$TMPDIR/con-leche-olean-dag"
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" Tiny "
+base, b = parts['olean']
+def push(o):
+    while len(b) % 8: b.append(0)
+    a = base + len(b); b.extend(o)
+    while len(b) % 8: b.append(0)
+    return a
+def size(a): c, o = at(a); return struct.unpack_from('<H', c, o + 4)[0]
+def copy(a): c, o = at(a); return push(bytes(c[o:o + size(a)]))
+c = consts('olean')['yes']
+top = fld(fld(fld(c, 0), 0), 2)
+for _ in range(80):
+    top = push(struct.pack('<iHBBQQQ', 0, 32, 2, 5, top, top, 0))
+cv2 = copy(fld(fld(c, 0), 0))
+setfld(cv2, 2, top)
+v2 = copy(fld(c, 0)); setfld(v2, 0, cv2)
+c2 = copy(c); setfld(c2, 0, v2)
+root = struct.unpack_from('<Q', b, 88)[0]
+arr = fld(root, 2)
+ab, ao = at(arr)
+n = struct.unpack_from('<Q', ab, ao + 8)[0]
+arr2 = push(bytes(ab[ao:ao + 24 + 8 * n]))
+for i in range(n):
+    if struct.unpack_from('<Q', b, arr2 - base + 24 + 8 * i)[0] == c:
+        struct.pack_into('<Q', b, arr2 - base + 24 + 8 * i, c2)
+root2 = copy(root); setfld(root2, 2, arr2)
+struct.pack_into('<Q', b, 88, root2)"
+case_grep "an exported statement of 2^80 nodes as a tree" 3 "not a refinement" --olean --search-path=$d Tiny
+rm -rf "$d"
+
 # --- the imports at the start of the file --------------------------------
 # the root's imports field pointed at its constants array, the prefix
 # unchanged: the full read finds the two different, malformed

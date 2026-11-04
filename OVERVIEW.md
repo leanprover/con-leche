@@ -587,7 +587,8 @@ read, merged as Lean's own import merges it, emitted in `lean4export`'s
 order and handed to the same record builder
 (`ConLeche/Frontend/Olean/Records.lean`). `tests/olean-compare.sh`
 compares the two readers record for record on `Init`. Nothing in a file is
-trusted: every object is decoded and validated, an `.olean` of another
+trusted: every object the imports and constants reach is decoded and
+validated (the environment extensions' entries are not read), an `.olean` of another
 format version is declined, and the toolchain a file's header names is not
 looked at.
 

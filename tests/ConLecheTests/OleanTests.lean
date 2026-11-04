@@ -18,11 +18,11 @@ public section
 
 The theorems say the fast decoder is the specification and every partial
 read is a projection of the full parse, on every input.  The first check
-below evaluates them on the committed fixtures (`tests/olean/lib`, the
+below evaluates the second on the committed fixtures (`tests/olean/lib`, the
 module-system modules at their private and exported levels, the classic
-module), and that the result is not empty.  That catches a slip in either
-implementation, but not one in the layout functions they share.  The second
-compares what the specification reads off the small fixtures with facts
+module), and that the result is not empty.  The specification is not
+executable.  The second compares what the full parse reads off the small
+fixtures with facts
 written down by hand from their sources (`tests/olean/src`): the imports,
 the names stored, and the kind, fields and values of a few constants at each
 level; and every part's name table (`constNamesOk`) lists its constants.
@@ -36,9 +36,6 @@ open ConLeche ConLeche.Frontend.Olean
 -- `HintsRec`'s instance is `ScanTests`'s.
 deriving instance DecidableEq for CKindF, CEntryF
 
-def specDecode (r : Region) (root : UInt64) : Option (Array ImportRec × Array (CEntryF Name Expr)) :=
-  (decodeModuleSpec r root).map fun d => (d.imports, d.constants)
-
 def fastDecode (r : Region) (root : UInt64) : Option (Array ImportRec × Array (CEntryF Name Expr)) :=
   (parseFull r root).map fun d => (d.imports, d.constants)
 
@@ -47,12 +44,10 @@ def readPartOrFail (p : String) : IO Part := do
   | .ok x => pure x
   | .error e => throw (IO.userError s!"{p}: {repr e}")
 
-/-- The decoders agree on one region, read something, and every partial read
-is the full parse's part. -/
+/-- The full parse reads something, and every partial read, the sparse decoder
+among them, is its part. -/
 def agree (what : String) (r : Region) (root : UInt64) : IO Unit := do
-  let s := specDecode r root
-  unless s == fastDecode r root do throw (IO.userError s!"{what}: the decoders disagree")
-  let some (imps, cs) := s | throw (IO.userError s!"{what}: the specification does not read it")
+  let some (imps, cs) := fastDecode r root | throw (IO.userError s!"{what}: it does not read")
   if cs.isEmpty then throw (IO.userError s!"{what}: no constants read")
   let some sk := moduleSkel r root | throw (IO.userError s!"{what}: no skeleton")
   unless (readHeader r root).map (·.imports) == some imps do
@@ -96,9 +91,9 @@ def nm (s : String) : Name := mkN (s.splitOn ".")
 
 def decodeAt (what : String) (r : Region) (root : UInt64) :
     IO (Array ImportRec × Array (CEntryF Name Expr)) := do
-  match specDecode r root with
+  match fastDecode r root with
   | some x => pure x
-  | none => throw (IO.userError s!"{what}: the specification does not read it")
+  | none => throw (IO.userError s!"{what}: the full parse does not read it")
 
 def expect (what : String) (b : Bool) : IO Unit :=
   unless b do throw (IO.userError s!"fixture fact failed: {what}")
@@ -210,7 +205,7 @@ def orphanMerged : Merged :=
 #guard parseModName "Init.Data.Nat" == some (((Name.anonymous.str "Init").str "Data").str "Nat")
 #guard parseModName "«a.b»" == some (Name.anonymous.str "a.b")
 #guard parseModName "123" == some (Name.anonymous.str "123")
-#guard ["", "A.", ".A", "A..B", "«A", "«A»B", "A.«B"].all (parseModName · |>.isNone)
+#guard ["", "A.", ".A", "A..B", "«A", "«A»B", "A.«B", "«»", "A.«»"].all (parseModName · |>.isNone)
 #guard (modFile "d" ((((Name.anonymous.str "Challenge").str "12.34").str "5")) "olean").toString
   == "d/Challenge/12.34/5.olean"
 
