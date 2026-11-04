@@ -40,7 +40,7 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
 /-- **`pdoms`** — the recursor type's domains, off its reading
 (`recStage_tyPis`), which is ψ-congruent at any recursor's
 parameters (`blockRecTyAV_params_ext`). -/
-theorem blockRulePdomsAV_params (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRulePdomsAV_params (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q)

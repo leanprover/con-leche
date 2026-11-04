@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 165, 182)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 129, 146)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);
@@ -535,7 +535,7 @@ which holds in both cases, is used here only for monotonicity.
   #src("ConLeche/Semantics/Inductives/HoleMono.lean", 158, 162)[positive]
   and #src("ConLeche/Semantics/Inductives/HoleAcc.lean", 321, 324)[accessible with the bound ${pt}$]
   (the recursive field). Assembled along the fields, that is
-  #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 310, 315)[the fit's accessibility, for both kinds of family, with a bound in the universe for a type-valued one]
+  #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 311, 316)[the fit's accessibility, for both kinds of family, with a bound in the universe for a type-valued one]
   (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]), and
   #src("ConLeche/Model/Env/BlockLfp.lean", 511, 515)[the operator's monotonicity] follows from it, as in the fragment.
   The fragment's simplification is to take the field kinds from the

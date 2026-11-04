@@ -89,7 +89,7 @@ theorem readParams_lift {acval : Name → (Name → Nat) → Term} {env : Env} {
   rw [hsplit, hdl, interp_liftN_consList]
 
 /-- **The frame tie at the generated stage** (see the module docstring). -/
-theorem genNodeFrameTie (hμ : μ.isVerified = true) {F : Nat} {block : List ConstantInfo}
+theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List ConstantInfo}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}

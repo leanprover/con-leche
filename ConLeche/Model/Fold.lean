@@ -71,7 +71,7 @@ the two standard axioms (`axiomStd`), `Lean.trustCompiler`
 (`axiomTrustCompiler`), `ofReduceNat`/`ofReduceBool` (`axiomOfReduce`,
 on the `ReduceOps` field), and the tolerated skip (`axiomSkip`, which
 stores nothing). -/
-theorem axiomStepPB_of (hμ : μ.isVerified = true) : AxiomStepPB V μ := by
+theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   intro _F _env mp _cv _env₂ hR
   -- the `Quot.sound` arm (task #293) installs nothing
   rcases hR with ⟨-, rfl⟩ | hR
@@ -138,7 +138,7 @@ theorem EnvModelOk.empty : EnvModelOk V μ Env.empty :=
 /-- **The per-declaration P step, by dispatch.**  The premise is the
 RUN record (`DeclRun`, valuation-free; the `ind` kind arrives through
 its `Ind` parameter), so this step consumes exactly what it reads. -/
-theorem declStep_preserves (hμ : μ.isVerified = true)
+theorem declStep_preserves (hμ : μ.verifiedChecks = true)
     {F : Nat} {env env₂ : Env} {d : Declaration}
     (mp : EnvModelM V μ env) (hcov : LfpCover mp [])
     (hE : EtaFamiliesClosed env)
@@ -195,7 +195,7 @@ theorem declStep_preserves (hμ : μ.isVerified = true)
         exact hrun'.elim
 
 /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
-theorem foldPM (hμ : μ.isVerified = true) {F : Nat} :
+theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
       EnvModelOk V μ env →
       ds.foldlM (checkDecl μ (fueledOps μ F) pins) env = .ok env' →
@@ -218,7 +218,7 @@ theorem foldPM (hμ : μ.isVerified = true) {F : Nat} :
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hd)) h
 
 /-- **The acceptance theorem, P route.** -/
-theorem checkDeclsPure_sound_of (hμ : μ.isVerified = true)
+theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true)
     {F : Nat} {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     Nonempty (EnvModelM V μ env') :=
@@ -227,7 +227,7 @@ theorem checkDeclsPure_sound_of (hμ : μ.isVerified = true)
 /-- **The capstone, carrier form**: no proof of `Empty` is ever
 accepted. -/
 theorem no_proof_of_Empty_pure_of (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
@@ -249,7 +249,7 @@ residue: every tier step is discharged (`axiomStepPB_of`, `basisStepPB_of`, `dec
 argument (project rule: consistency proofs stay parametric in the
 `SetTheory` interface), not a hypothesis about the input. -/
 theorem no_proof_of_Empty_pure (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     ∀ c ∈ env'.consts,
@@ -266,7 +266,7 @@ for `Empty` — the statement carries no hypothesis about how the stream
 declared `False`.  Hypotheses are input-level only: the validating
 mode, the accepted run, the stored constant, its type. -/
 theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {ds : List Declaration} {env' : Env}
     (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
     ∀ c ∈ env'.consts,

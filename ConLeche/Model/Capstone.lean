@@ -21,7 +21,7 @@ harvest layer builds toward them:
 * **the final statement, frozen** (checked against the goal's letter —
   consistency of the checker, hypothesis minimal, the #16 precedent):
 
-  `no_proof_of_Empty_pure : ∀ (V) [SetTheory V] {μ}, μ.isVerified = true →
+  `no_proof_of_Empty_pure : ∀ (V) [SetTheory V] {μ}, μ.verifiedChecks = true →
    ∀ {F ds env'}, checkDeclsPure μ (fueledOps μ F) pins ds = .ok env' →
    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] →
    False`

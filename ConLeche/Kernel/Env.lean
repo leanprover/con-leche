@@ -40,30 +40,23 @@ startup and threaded as configuration, never re-read at runtime.
   function gates in `ConLeche/Cached/CoreC.lean` (DESIGN.md, "CORET
   RETIRED").
 
-**The mode is the cores' only parameter** (task #185, 2026-09-06).
-The configuration record that stood between the mode and the
-shipped cores from task #172 B2 to task #185 is gone: what it
-carried is the function `verifiedChecks` below, a `match` on the two
-constructors, so each read reduces by `rfl` at either mode — the
-record's `rfl`-eliminability argument, at the enum itself.
+**The mode is the public interface** (task #185, 2026-09-06; task
+#452): what it carries is the function `verifiedChecks` below, a
+`match` on the two constructors, so each read reduces by `rfl` at
+either mode.  The configuration record that stood between the mode and
+the shipped cores from task #172 B2 to task #185 is gone.
 
 The two values are spelled `--verified` and `--trusted` on the command
 line, and they say what the modes are FOR rather than which artefact
 proves them.
 
-**The eager variants** (task #353): `.verifiedEager` and `.trustedEager`
-are the two modes with the official kernel's `m_eager_reduce` flag set
-— the knot's *eager tower* (`CoreFns.defeqE`, `coreKnot`), which runs
-the comparison of an `eagerReduce _ _` argument's type with its
-domain and everything beneath it.  The flag is read at two places of
-definitional equality (`CheckMode.eager`: the `Bool.true` shortcut and
-the lazy-delta literal fold fire with free variables present), and
-`verifiedChecks` is the base mode's.  No command line selects them. -/
+The cores' other parameter is not the mode's: the official kernel's
+`m_eager_reduce` flag, an argument `eager : Bool` of the knot (tasks
+#353, #452; see `coreKnot`).  It is internal to the core, and every
+entry point outside the knot runs at `eager := false`. -/
 inductive CheckMode where
   | verified
   | trusted
-  | verifiedEager
-  | trustedEager
   deriving DecidableEq, Repr, Inhabited
 
 /-- Are the *verified* mode's extra checks enabled — the work the
@@ -86,37 +79,8 @@ reference kernel does not do it?  Two kinds of work read it:
   instance of the cached-vs-spec simulation is false, deliberately: the
   trusted core skips what the spec runs. -/
 def CheckMode.verifiedChecks : CheckMode → Bool
-  | .trusted => false
-  | .trustedEager => false
-  | _ => true
-
-/-- **Is this the `--verified` mode itself** — `.verified`, not its eager
-tower (task #353)?  The model tier (`ConLeche/Model/*`) is stated at
-the top-level mode a run is started in, under `hμ : μ.isVerified = true`
-(`CheckMode.eq_verified`); the simulation tower and the bridges, which
-also run inside the eager tower, are stated under the weaker
-`verifiedChecks`. -/
-def CheckMode.isVerified : CheckMode → Bool
   | .verified => true
-  | _ => false
-
-/-- The official kernel's `m_eager_reduce` flag (task #353): set while
-an `eagerReduce _ _` argument's type is compared with its domain
-(official `infer_app`, `type_checker.cpp`), for that comparison and
-everything it calls.  Read by `defeqBody` (the `Bool.true` shortcut
-ignores free variables) and `lazyDeltaReduction` (the Nat-literal
-fold ignores free variables). -/
-@[inline] def CheckMode.eager : CheckMode → Bool
-  | .verifiedEager => true
-  | .trustedEager => true
-  | _ => false
-
-/-- The mode with the eager flag set: the eager tower's mode
-(`coreKnot`'s `defeqE` slot). -/
-def CheckMode.toEager : CheckMode → CheckMode
-  | .verified => .verifiedEager
-  | .trusted => .trustedEager
-  | m => m
+  | .trusted => false
 
 /-- Data common to all constants: name, universe parameters, type. -/
 structure ConstantVal where

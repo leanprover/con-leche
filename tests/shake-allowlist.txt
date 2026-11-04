@@ -241,7 +241,6 @@ ConLeche/Verify/InferLemmas.lean	public import ConLeche.Verify.Mono	# compensate
 ConLeche/Verify/InferLemmas.lean	public import ConLeche.Verify.StrLitExpr	# compensated: +import ConLeche.Verify.Leaves in ConLeche/Model/CtxOkKit.lean; +import ConLeche.Verify.InstSpine in ConLeche/Model/IndBottomNested.lean (+52 more)
 ConLeche/Verify/InstSpine.lean	public import ConLeche.Verify.InstLevels	# compensated: +import ConLeche.Verify.Leaves in ConLeche/Model/CtxOkKit.lean; +import ConLeche.Verify.Leaves in ConLeche/Model/Steps/Accepted.lean (+28 more)
 ConLeche/Verify/InstSpine.lean	public import ConLeche.Verify.Leaves	# compensated: +import ConLeche.Verify.Leaves in ConLeche/Model/CtxOkKit.lean; +import ConLeche.Verify.Leaves in ConLeche/Model/Steps/Accepted.lean (+28 more)
-ConLeche/Verify/Knot.lean	public import ConLeche.Verify.Modes	# compensated: +import ConLeche.Verify.Modes in ConLeche/Model/Steps/Whnf.lean; +import ConLeche.Verify.Modes in ConLeche/Verify/Cached/DiscC2.lean (+4 more)
 ConLeche/Verify/Leaves.lean	public import ConLeche.Verify.Abstract	# compensated: +import ConLeche.Verify.Abstract in ConLeche/Semantics/DeclRun.lean; +public import ConLeche.Verify.Abstract in ConLeche/Verify/InferLeaves.lean (+3 more)
 ConLeche/Verify/OfReducePin.lean	import ConLeche.Verify.EnvGuards	# compensated: +public import ConLeche.Kernel.TrustAxioms in ConLeche/Verify/OfReducePin.lean
 ConLeche/Verify/OfReducePin.lean	public import ConLeche.Verify.NatOpFrag	# compensated: +public import ConLeche.Kernel.TrustAxioms in ConLeche/Verify/OfReducePin.lean

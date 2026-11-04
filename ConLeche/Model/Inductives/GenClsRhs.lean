@@ -75,7 +75,7 @@ set_option maxHeartbeats 16000000 in
 a graded Π-tower at the spine's frame, whose domains the declared
 fields and the `ih` values fit (the rule frame's field domains, then the
 `ih` data's domains). -/
-theorem genMinorFit (hμ : μ.isVerified = true)
+theorem genMinorFit (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -326,7 +326,7 @@ set_option maxHeartbeats 16000000 in
 telescope is graded; at every fitting spine its body — the callee's value
 applied to the prefix, the index arguments and the applied field — is
 graded and inhabits the `ih`'s motive application, which is a type. -/
-theorem genIhUnder (hμ : μ.isVerified = true)
+theorem genIhUnder (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -485,7 +485,7 @@ and a spine fitting the rule frame, the generated `ih` terms are graded
 (a λ-tower over `genIhUnder`), and so is the residue at
 their values — the minor premise applied to the fields and the `ih`
 values along its graded Π-tower (`genMinorFit`). -/
-theorem genRhs (hμ : μ.isVerified = true)
+theorem genRhs (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)

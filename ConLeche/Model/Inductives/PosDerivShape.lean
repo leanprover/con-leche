@@ -40,7 +40,8 @@ theorem posD_field_out {env : Env} (henv : ConLeche.EnvWF env) {F : Nat} {ctx : 
   intro J ts h
   have hwb : ∀ {dep : Nat} {e w : Expr}, (fueledOps .verified F).whnf env dep e = .ok w →
       e.looseBVarsBounded 0 = true → w.looseBVarsBounded 0 = true :=
-    fun hw hcl => ConLeche.whnf_looseBVars henv F (show ConLeche.whnf .verified env F _ _ = _ from hw)
+    fun hw hcl => ConLeche.whnf_looseBVars henv F (show ConLeche.whnf .verified false env F _ _ = _
+        from hw)
       hcl
   induction h with
   | @const prog dep kb e w hw hocc =>

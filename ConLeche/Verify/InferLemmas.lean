@@ -26,7 +26,7 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 open Expr
 
@@ -37,17 +37,17 @@ set_option linter.unusedSimpArgs false in
 happened (uniform, no certificate), or an ι step (with the stuck-major
 machinery), or the application is stuck. -/
 theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr} {c : Bool}
-    (h : whnfCore mode env (fuel + 1) d (.app f a) c = .ok e') :
-    ∃ f', whnfCore mode env fuel d f c = .ok f' ∧
+    (h : whnfCore mode eager env (fuel + 1) d (.app f a) c = .ok e') :
+    ∃ f', whnfCore mode eager env fuel d f c = .ok f' ∧
       ((∃ ty body, f' = .lam ty body ∧
-          whnfCore mode env fuel d (body.instantiate1 a) c = .ok e') ∨
-        (∃ e'', iotaRecFueled mode env fuel d (.app f' a) = .ok (some e'') ∧
-          whnfCore mode env fuel d e'' c = .ok e') ∨
+          whnfCore mode eager env fuel d (body.instantiate1 a) c = .ok e') ∨
+        (∃ e'', iotaRecFueled mode eager env fuel d (.app f' a) = .ok (some e'') ∧
+          whnfCore mode eager env fuel d e'' c = .ok e') ∨
         e' = .app f' a) := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, iotaRec_fold] at h
-  cases hwf : whnfCore mode env fuel d f c with
+  cases hwf : whnfCore mode eager env fuel d f c with
   | error err => rw [hwf] at h; exact nomatch h
   | ok f' =>
   rw [hwf] at h
@@ -66,7 +66,7 @@ theorem whnf_app_inv {env : Env} {fuel d : Nat} {f a e' : Expr} {c : Bool}
   | .proj s' i' e'', h => ?_
   all_goals
     try simp only [Bind.bind, Except.bind] at h
-    cases hio : iotaRecFueled mode env fuel d (.app _ a) with
+    cases hio : iotaRecFueled mode eager env fuel d (.app _ a) with
     | error err => rw [hio] at h; exact nomatch h
     | ok o =>
       rw [hio] at h
@@ -87,24 +87,24 @@ continuation-parameterized body; `whnfLoop … (n+1)` *is*
 the budget and use the budget induction hypothesis for `k`. -/
 theorem whnfStep_inv {env : Env} {fuel d : Nat} {k : Expr → CheckM Expr}
     {e e' : Expr}
-    (h : whnfStep (pureFns mode env fuel) env d k e = .ok e') :
-    ∃ e₁, whnfCore mode env fuel d e = .ok e₁ ∧
-      ((∃ e₂, reduceNatFueled mode env fuel d e₁ = .ok (some e₂) ∧
+    (h : whnfStep (pureFns mode eager env fuel) env d k e = .ok e') :
+    ∃ e₁, whnfCore mode eager env fuel d e = .ok e₁ ∧
+      ((∃ e₂, reduceNatFueled mode eager env fuel d e₁ = .ok (some e₂) ∧
           k e₂ = .ok e') ∨
-       (reduceNatFueled mode env fuel d e₁ = .ok none ∧
+       (reduceNatFueled mode eager env fuel d e₁ = .ok none ∧
         ∃ e₂, unfoldDefinition env e₁ = some e₂ ∧
           k e₂ = .ok e') ∨
-       (reduceNatFueled mode env fuel d e₁ = .ok none ∧
+       (reduceNatFueled mode eager env fuel d e₁ = .ok none ∧
         unfoldDefinition env e₁ = none ∧ e' = e₁)) := by
   simp only [whnfStep, Bind.bind, Except.bind] at h
   simp only [whnfCore_def] at h
-  cases hwc : whnfCore mode env fuel d e with
+  cases hwc : whnfCore mode eager env fuel d e with
   | error err => rw [hwc] at h; exact nomatch h
   | ok e₁ =>
   rw [hwc] at h
   dsimp only at h
   simp only [reduceNat_fold] at h
-  cases hrn : reduceNatFueled mode env fuel d e₁ with
+  cases hrn : reduceNatFueled mode eager env fuel d e₁ with
   | error err => rw [hrn] at h; exact nomatch h
   | ok o =>
   rw [hrn] at h
@@ -130,22 +130,22 @@ shape the checker computes it (infer, then whnf to a sort).  At
 `.trusted`, which does not run the check, it is vacuous. -/
 theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.lam ty body) = .ok t) :
+    (h : inferTypeCore mode eager env (fuel + 1) d (.lam ty body) = .ok t) :
     ∃ tty u bt,
-      inferTypeCore mode env fuel d ty = .ok tty ∧
-      whnf mode env fuel d tty = .ok (.sort u) ∧
-      inferTypeCore mode env fuel (d + 1)
+      inferTypeCore mode eager env fuel d ty = .ok tty ∧
+      whnf mode eager env fuel d tty = .ok (.sort u) ∧
+      inferTypeCore mode eager env fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) = .ok bt ∧
       t = .forallE ty (bt.abstract1 d) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
-  cases htty : inferTypeCore mode env fuel d ty with
+  cases htty : inferTypeCore mode eager env fuel d ty with
   | error err => rw [htty] at h; exact nomatch h
   | ok tty =>
   rw [htty] at h
   dsimp only at h
-  cases hwtty : whnf mode env fuel d tty with
+  cases hwtty : whnf mode eager env fuel d tty with
   | error err => rw [hwtty] at h; exact nomatch h
   | ok wtty =>
   rw [hwtty] at h
@@ -158,7 +158,7 @@ theorem inferTypeCore_lam_inv {env : Env} {fuel d : Nat}
     intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
   intro h
   dsimp only at h
-  cases hbt : inferTypeCore mode env fuel (d + 1)
+  cases hbt : inferTypeCore mode eager env fuel (d + 1)
       (body.instantiate1 (.fvar d ty)) with
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
@@ -171,21 +171,21 @@ de-gating: the per-argument re-check runs unconditionally — the former
 possibly-Prop gate of task #49 is unsound-to-model under the
 domain-relative collapse). -/
 theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.app f a) = .ok t) :
-    ∃ tf ty' body', inferTypeCore mode env fuel d f = .ok tf ∧
-      whnf mode env fuel d tf = .ok (.forallE ty' body') ∧
+    (h : inferTypeCore mode eager env (fuel + 1) d (.app f a) = .ok t) :
+    ∃ tf ty' body', inferTypeCore mode eager env fuel d f = .ok tf ∧
+      whnf mode eager env fuel d tf = .ok (.forallE ty' body') ∧
       t = body'.instantiate1 a ∧
-      ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-        isDefEqCore (mode.argMode a) env fuel d ta ty' = .ok true := by
+      ∃ ta, inferTypeCore mode eager env fuel d a = .ok ta ∧
+        isDefEqCore mode (argEager eager a) env fuel d ta ty' = .ok true := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, defeqArg_def] at h
-  cases htf : inferTypeCore mode env fuel d f with
+  cases htf : inferTypeCore mode eager env fuel d f with
   | error err => rw [htf] at h; exact nomatch h
   | ok tf =>
   rw [htf] at h
   dsimp only at h
-  cases hw : whnf mode env fuel d tf with
+  cases hw : whnf mode eager env fuel d tf with
   | error err => rw [hw] at h; exact nomatch h
   | ok w =>
   rw [hw] at h
@@ -202,12 +202,12 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e2, h => exact nomatch h
   dsimp only at h
-  cases hta : inferTypeCore mode env fuel d a with
+  cases hta : inferTypeCore mode eager env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hde : isDefEqCore (mode.argMode a) env fuel d ta ty' with
+  cases hde : isDefEqCore mode (argEager eager a) env fuel d ta ty' with
   | error err => rw [hde] at h; exact nomatch h
   | ok r =>
   rw [hde] at h
@@ -221,23 +221,23 @@ theorem inferTypeCore_app_inv {env : Env} {fuel d : Nat} {f a t : Expr}
 the codomain sort is inferred from the opened body). -/
 theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat}
     {ty body t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.forallE ty body) = .ok t) :
-    ∃ tty u bt v, inferTypeCore mode env fuel d ty = .ok tty ∧
-      whnf mode env fuel d tty = .ok (.sort u) ∧
-      inferTypeCore mode env fuel (d + 1)
+    (h : inferTypeCore mode eager env (fuel + 1) d (.forallE ty body) = .ok t) :
+    ∃ tty u bt v, inferTypeCore mode eager env fuel d ty = .ok tty ∧
+      whnf mode eager env fuel d tty = .ok (.sort u) ∧
+      inferTypeCore mode eager env fuel (d + 1)
         (body.instantiate1 (.fvar d ty)) = .ok bt ∧
-      ensureSortCore mode env fuel (d + 1) bt = .ok v ∧
+      ensureSortCore mode eager env fuel (d + 1) bt = .ok v ∧
       t = .sort (.imax u v) := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def, ensureSort_def] at h
   try dsimp only at h
-  cases hty : inferTypeCore mode env fuel d ty with
+  cases hty : inferTypeCore mode eager env fuel d ty with
   | error err => rw [hty] at h; exact nomatch h
   | ok tty =>
   rw [hty] at h
   dsimp only at h
-  cases hwt : whnf mode env fuel d tty with
+  cases hwt : whnf mode eager env fuel d tty with
   | error err => rw [hwt] at h; exact nomatch h
   | ok w =>
   rw [hwt] at h
@@ -250,13 +250,13 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat}
     intro h; simp [throw, throwThe, MonadExceptOf.throw] at h
   intro h
   dsimp only at h
-  cases hbt : inferTypeCore mode env fuel (d + 1)
+  cases hbt : inferTypeCore mode eager env fuel (d + 1)
       (body.instantiate1 (.fvar d ty)) with
   | error err => rw [hbt] at h; exact nomatch h
   | ok bt =>
   rw [hbt] at h
   dsimp only at h
-  cases hes : ensureSortCore mode env fuel (d + 1) bt with
+  cases hes : ensureSortCore mode eager env fuel (d + 1) bt with
   | error err => rw [hes] at h; exact nomatch h
   | ok v =>
   rw [hes] at h
@@ -265,11 +265,11 @@ theorem inferTypeCore_forall_inv {env : Env} {fuel d : Nat}
 
 /-- Inversion for `ensureSortCore`: the subject whnfs to the sort. -/
 theorem ensureSortCore_inv {env : Env} {fuel d : Nat} {t : Expr} {u : Level}
-    (h : ensureSortCore mode env fuel d t = .ok u) :
-    whnf mode env fuel d t = .ok (.sort u) := by
+    (h : ensureSortCore mode eager env fuel d t = .ok u) :
+    whnf mode eager env fuel d t = .ok (.sort u) := by
   unfold ensureSortCore ensureSort at h
   simp only [Bind.bind, Except.bind, whnf_def] at h
-  cases hw : whnf mode env fuel d t with
+  cases hw : whnf mode eager env fuel d t with
   | error err => rw [hw] at h; exact nomatch h
   | ok w =>
   rw [hw] at h
@@ -301,25 +301,25 @@ definitionally the type, and the result is the body's type at the
 value. -/
 theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat}
     {ty v b t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.letE ty v b) = .ok t) :
-    ∃ tty u tv, inferTypeCore mode env fuel d ty = .ok tty ∧
-      ensureSortCore mode env fuel d tty = .ok u ∧
-      inferTypeCore mode env fuel d v = .ok tv ∧
-      isDefEqCore mode env fuel d tv ty = .ok true ∧
-      inferTypeCore mode env fuel d (b.instantiate1 v) = .ok t := by
+    (h : inferTypeCore mode eager env (fuel + 1) d (.letE ty v b) = .ok t) :
+    ∃ tty u tv, inferTypeCore mode eager env fuel d ty = .ok tty ∧
+      ensureSortCore mode eager env fuel d tty = .ok u ∧
+      inferTypeCore mode eager env fuel d v = .ok tv ∧
+      isDefEqCore mode eager env fuel d tv ty = .ok true ∧
+      inferTypeCore mode eager env fuel d (b.instantiate1 v) = .ok t := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, Bind.bind, Except.bind] at h
   simp only [infer_def, ensureSort_def, defeq_def] at h
-  cases hty : inferTypeCore mode env fuel d ty with
+  cases hty : inferTypeCore mode eager env fuel d ty with
   | error err => simp [hty] at h
   | ok tty =>
-  cases hes : ensureSortCore mode env fuel d tty with
+  cases hes : ensureSortCore mode eager env fuel d tty with
   | error err => simp [hty, hes] at h
   | ok u =>
-  cases hv : inferTypeCore mode env fuel d v with
+  cases hv : inferTypeCore mode eager env fuel d v with
   | error err => simp [hty, hes, hv] at h
   | ok tv =>
-  cases hde : isDefEqCore mode env fuel d tv ty with
+  cases hde : isDefEqCore mode eager env fuel d tv ty with
   | error err => simp [hty, hes, hv, hde] at h
   | ok r =>
   cases r with
@@ -331,8 +331,8 @@ theorem inferTypeCore_letE_inv {env : Env} {fuel d : Nat}
 /-- The ζ arm of `whnfCore`: the body at the value. -/
 theorem whnfCore_letE_inv {env : Env} {fuel d : Nat}
     {ty v b e' : Expr} {c : Bool}
-    (h : whnfCore mode env (fuel + 1) d (.letE ty v b) c = .ok e') :
-    whnfCore mode env fuel d (b.instantiate1 v) c = .ok e' := by
+    (h : whnfCore mode eager env (fuel + 1) d (.letE ty v b) c = .ok e') :
+    whnfCore mode eager env fuel d (b.instantiate1 v) c = .ok e' := by
   rw [whnfCore_succ] at h
   simpa [whnfCoreBody, whnfCore_def] using h
 
@@ -347,28 +347,28 @@ consumes them from here. -/
 
 theorem whnf_forallE_eq {env : Env} {fuel d : Nat}
     {t b e' : Expr}
-    (h : whnf mode env fuel d (.forallE t b) = .ok e') :
+    (h : whnf mode eager env fuel d (.forallE t b) = .ok e') :
     e' = .forallE t b := by
   have h1 := whnf_mono (Nat.le_add_right fuel 2) h
-  have h2 : whnf mode env (fuel + 2) d (.forallE t b) =
+  have h2 : whnf mode eager env (fuel + 2) d (.forallE t b) =
       .ok (.forallE t b) := by
     -- one iteration of the reduction loop suffices (task #106: the
     -- budget is `irreducible`, so peel it with its positivity witness)
     obtain ⟨k, hk⟩ := whnfLoopFuel_succ
     rw [whnf_succ]
-    show whnfLoop (pureFns mode env (fuel + 1)) env d whnfLoopFuel _ = _
+    show whnfLoop (pureFns mode eager env (fuel + 1)) env d whnfLoopFuel _ = _
     rw [hk]
     rfl
   rw [h1] at h2
   exact Except.ok.inj h2
 
 theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
-    {f a t : Expr} (h : inferTypeCore mode env fuel d (.app f a) = .ok t) :
-    ∃ tf ty' body', inferTypeCore mode env fuel d f = .ok tf ∧
-      whnf mode env fuel d tf = .ok (.forallE ty' body') ∧
+    {f a t : Expr} (h : inferTypeCore mode eager env fuel d (.app f a) = .ok t) :
+    ∃ tf ty' body', inferTypeCore mode eager env fuel d f = .ok tf ∧
+      whnf mode eager env fuel d tf = .ok (.forallE ty' body') ∧
       t = body'.instantiate1 a ∧
-      ∃ ta, inferTypeCore mode env fuel d a = .ok ta ∧
-        isDefEqCore (mode.argMode a) env fuel d ta ty' = .ok true := by
+      ∃ ta, inferTypeCore mode eager env fuel d a = .ok ta ∧
+        isDefEqCore mode (argEager eager a) env fuel d ta ty' = .ok true := by
   match fuel, h with
   | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
   | fuel + 1, h =>
@@ -381,7 +381,7 @@ theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
 
 theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCore mode env fuel d (.const n us) = .ok t) :
+    (h : inferTypeCore mode eager env fuel d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧
       t = ci.toConstantVal.type.instantiateLevelParams
         ci.toConstantVal.levelParams us := by
@@ -498,8 +498,8 @@ string-literal expansion step (`projLitToCtorFueled`), then a firing
 table entry, certified, and the selected field. -/
 theorem reduceProjCore_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {c m : Expr}
-    (h : reduceProjCoreFueled mode env fuel d sn i c = .ok (some m)) :
-    ∃ e₃ us entry, projLitToCtorFueled mode env fuel d c = .ok e₃ ∧
+    (h : reduceProjCoreFueled mode eager env fuel d sn i c = .ok (some m)) :
+    ∃ e₃ us entry, projLitToCtorFueled mode eager env fuel d c = .ok e₃ ∧
       e₃.getAppFn = .const entry.ctor us ∧
       env.findProj? sn i = some entry ∧
       i < entry.numFields ∧
@@ -510,7 +510,7 @@ theorem reduceProjCore_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       projCertAt env mode.verifiedChecks entry.ctor e₃.getAppArgs = true := by
   simp only [reduceProjCoreFueled, reduceProjCore, Bind.bind, Except.bind,
     projLitToCtor_fold] at h
-  cases hlit : projLitToCtorFueled mode env fuel d c with
+  cases hlit : projLitToCtorFueled mode eager env fuel d c with
   | error err => rw [hlit] at h; exact nomatch h
   | ok e₃ =>
   rw [hlit] at h
@@ -543,25 +543,25 @@ itself (a stuck projection keeps its scrutinee as it was, official
 projection rule (`reduceProjCore`) and the field's head normalization. -/
 theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : Expr}
     {c : Bool}
-    (h : whnfCore mode env (fuel + 1) d (.proj sn i e) c = .ok e') :
-    ∃ e₂, ((c = true ∧ whnfCore mode env fuel d e true = .ok e₂) ∨
-        (c = false ∧ whnf mode env fuel d e = .ok e₂)) ∧
+    (h : whnfCore mode eager env (fuel + 1) d (.proj sn i e) c = .ok e') :
+    ∃ e₂, ((c = true ∧ whnfCore mode eager env fuel d e true = .ok e₂) ∨
+        (c = false ∧ whnf mode eager env fuel d e = .ok e₂)) ∧
       (e' = .proj sn i e ∨
-        ∃ m, reduceProjCoreFueled mode env fuel d sn i e₂ = .ok (some m) ∧
-          whnfCore mode env fuel d m c = .ok e') := by
+        ∃ m, reduceProjCoreFueled mode eager env fuel d sn i e₂ = .ok (some m) ∧
+          whnfCore mode eager env fuel d m c = .ok e') := by
   rw [whnfCore_succ] at h
   simp only [whnfCoreBody, Bind.bind, Except.bind] at h
   simp only [whnfCore_def, whnf_def, reduceProjCore_fold] at h
   cases c with
   | true =>
     simp only [↓reduceIte] at h
-    cases hx : whnfCore mode env fuel d e true with
+    cases hx : whnfCore mode eager env fuel d e true with
     | error err => rw [hx] at h; exact nomatch h
     | ok e₂ =>
     rw [hx] at h
     dsimp only at h
     refine ⟨e₂, (Or.inl ⟨rfl, rfl⟩), ?_⟩
-    cases hr : reduceProjCoreFueled mode env fuel d sn i e₂ with
+    cases hr : reduceProjCoreFueled mode eager env fuel d sn i e₂ with
     | error err => rw [hr] at h; exact nomatch h
     | ok o =>
     rw [hr] at h
@@ -572,13 +572,13 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 
   | false =>
     simp only [Bool.false_eq_true, ↓reduceIte] at h
-    cases hx : whnf mode env fuel d e with
+    cases hx : whnf mode eager env fuel d e with
     | error err => rw [hx] at h; exact nomatch h
     | ok e₂ =>
     rw [hx] at h
     dsimp only at h
     refine ⟨e₂, (Or.inr ⟨rfl, rfl⟩), ?_⟩
-    cases hr : reduceProjCoreFueled mode env fuel d sn i e₂ with
+    cases hr : reduceProjCoreFueled mode eager env fuel d sn i e₂ with
     | error err => rw [hr] at h; exact nomatch h
     | ok o =>
     rw [hr] at h
@@ -615,20 +615,20 @@ bound variables, leaves, the P tier's readings and gradings) is an
 instance, so none of them names the order. -/
 theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
     {rules : List RecRule} {a m : Expr}
-    (h : prepareMajorFueled mode env fuel d recName rules a = .ok m)
+    (h : prepareMajorFueled mode eager env fuel d recName rules a = .ok m)
     (P : Expr → Prop)
-    (hwhnf : ∀ {e e' : Expr}, whnf mode env fuel d e = .ok e' → P e → P e')
+    (hwhnf : ∀ {e e' : Expr}, whnf mode eager env fuel d e = .ok e' → P e → P e')
     (hlit : ∀ {e e' : Expr},
-      litMajorToCtorFueled mode env fuel d e = .ok e' → P e → P e')
+      litMajorToCtorFueled mode eager env fuel d e = .ok e' → P e → P e')
     (hmaj : ∀ {e e' : Expr},
-      majorToCtorFueled mode env fuel d recName rules e = .ok e' → P e → P e')
+      majorToCtorFueled mode eager env fuel d recName rules e = .ok e' → P e → P e')
     (ha : P a) : P m := by
   dsimp only [prepareMajorFueled] at h
   simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
     litMajorToCtor_fold] at h
   by_cases hk : recRuleK rules = true
   · rw [ite_eq_left hk] at h
-    cases h₁ : majorToCtorFueled mode env fuel d recName rules a with
+    cases h₁ : majorToCtorFueled mode eager env fuel d recName rules a with
     | error err => rw [h₁] at h; exact nomatch h
     | ok m₁ =>
       rw [h₁] at h
@@ -652,19 +652,19 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hE
       · rw [ite_eq_right hca] at h
-        cases h₁ : whnf mode env fuel d mE with
+        cases h₁ : whnf mode eager env fuel d mE with
         | error err => rw [h₁] at h; exact nomatch h
         | ok m₁ =>
           rw [h₁] at h
           dsimp only at h
-          cases h₂ : litMajorToCtorFueled mode env fuel d m₁ with
+          cases h₂ : litMajorToCtorFueled mode eager env fuel d m₁ with
           | error err => rw [h₂] at h; exact nomatch h
           | ok m₂ =>
             rw [h₂] at h
             dsimp only at h
             exact hmaj h (hlit h₂ (hwhnf h₁ hE))
     · rw [ite_eq_right hs] at h
-      cases h₀ : majorToCtorFueled mode env fuel d recName rules a with
+      cases h₀ : majorToCtorFueled mode eager env fuel d recName rules a with
       | error err => rw [h₀] at h; exact nomatch h
       | ok mE =>
       rw [h₀] at h
@@ -675,12 +675,12 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
         simp only [pure, Except.pure, Except.ok.injEq] at h
         exact h ▸ hE
       · rw [ite_eq_right hca] at h
-        cases h₁ : whnf mode env fuel d mE with
+        cases h₁ : whnf mode eager env fuel d mE with
         | error err => rw [h₁] at h; exact nomatch h
         | ok m₁ =>
           rw [h₁] at h
           dsimp only at h
-          cases h₂ : litMajorToCtorFueled mode env fuel d m₁ with
+          cases h₂ : litMajorToCtorFueled mode eager env fuel d m₁ with
           | error err => rw [h₂] at h; exact nomatch h
           | ok m₂ =>
             rw [h₂] at h
@@ -691,7 +691,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
 the stored type has the spine's number of syntactic ∀-binders. -/
 theorem iotaRec_arity {env : Env} {fuel d : Nat} {e eout : Expr} {c : Name}
     {us : List Level} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    (h : iotaRecFueled mode env fuel d e = .ok (some eout))
+    (h : iotaRecFueled mode eager env fuel d e = .ok (some eout))
     (hfn : e.getAppFn = .const c us)
     (hfc : env.find? c = some (.recInfo cv mI rP rules)) :
     (Expr.peelPis (mI + 1) cv.type).isSome = true := by
@@ -708,13 +708,13 @@ theorem iotaRec_arity {env : Env} {fuel d : Nat} {e eout : Expr} {c : Name}
 
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
-    (h : iotaRecFueled mode env fuel d e = .ok (some eout)) :
+    (h : iotaRecFueled mode eager env fuel d e = .ok (some eout)) :
     ∃ c us cv mI rP rules major cj usj cvj cnP cnF r,
       e.getAppFn = .const c us ∧
       env.find? c = some (.recInfo cv mI rP rules) ∧
       e.getAppArgs.length = mI + 1 ∧
       us.length = cv.levelParams.length ∧
-      prepareMajorFueled mode env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
+      prepareMajorFueled mode eager env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
         .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
@@ -726,13 +726,13 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
         Level.isEquivList usj
           (recFireComparands r cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = some true ∧
-        defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
+        defEqListFueled mode eager env fuel d (major.getAppArgs.take r.ctorParams)
           (recFireComparands r cv.levelParams us cvj.levelParams
             e.getAppArgs rP).2 = .ok true ∧
-        iotaCertsFullFueled mode env fuel d
+        iotaCertsFullFueled mode eager env fuel d
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs = .ok true ∧
-        iotaIndexOkFueled mode env fuel d mI rP r.ctorParams
+        iotaIndexOkFueled mode eager env fuel d mI rP r.ctorParams
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true) ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
@@ -772,7 +772,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [ite_eq_right hlen] at h; exact nomatch h
   rw [ite_eq_left hlen] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hprep : prepareMajorFueled mode env fuel d c rules
+  cases hprep : prepareMajorFueled mode eager env fuel d c rules
       (e.getAppArgs.getD mI (.bvar 0)) with
   | error err => rw [hprep] at h; exact nomatch h
   | ok major =>
@@ -841,7 +841,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     | true =>
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hpeq : defEqListFueled mode env fuel d (major.getAppArgs.take r.ctorParams)
+    cases hpeq : defEqListFueled mode eager env fuel d (major.getAppArgs.take r.ctorParams)
         cmp.2 with
     | error err => rw [hpeq] at h; exact nomatch h
     | ok rp =>
@@ -852,7 +852,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     | true =>
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hmcerts : iotaCertsFullFueled mode env fuel d
+    cases hmcerts : iotaCertsFullFueled mode eager env fuel d
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs with
     | error err => rw [hmcerts] at h; exact nomatch h
@@ -865,7 +865,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
     -- the index block (`iotaIndexOk`)
-    cases hidx : iotaIndexOkFueled mode env fuel d mI rP r.ctorParams
+    cases hidx : iotaIndexOkFueled mode eager env fuel d mI rP r.ctorParams
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs ((e.getAppArgs.take mI).drop rP) with
     | error err => rw [hidx] at h; exact nomatch h
@@ -892,10 +892,10 @@ indices: the constructor telescope's residual exists and its index
 arguments compare equal to the recursor's. -/
 theorem iotaIndexOk_inv {env : Env} {fuel d mI rP cnP : Nat} {tyCtor : Expr}
     {margs idx : List Expr}
-    (h : iotaIndexOkFueled mode env fuel d mI rP cnP tyCtor margs idx = .ok true)
+    (h : iotaIndexOkFueled mode eager env fuel d mI rP cnP tyCtor margs idx = .ok true)
     (hne : mI ≠ rP) :
     ∃ residual, piResidual tyCtor margs = some residual ∧
-      defEqListFueled mode env fuel d (residual.getAppArgs.drop cnP) idx =
+      defEqListFueled mode eager env fuel d (residual.getAppArgs.drop cnP) idx =
         .ok true := by
   dsimp only [iotaIndexOkFueled] at h
   simp only [iotaIndexOk, ite_eq_right hne, defEqList_fold] at h
@@ -910,7 +910,7 @@ guarded by the η law's keys (no certificate), in the `And` branch by proof irre
 scoping was checked syntactically (the scope guard). -/
 theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     {rules : List RecRule} {major major' : Expr}
-    (h : majorToCtorFueled mode env fuel d recName rules major = .ok major') :
+    (h : majorToCtorFueled mode eager env fuel d recName rules major = .ok major') :
     major' = major ∨
     (major'.wscopedB d = true ∧ major'.looseBVarsBounded 0 = true ∧
      major'.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true ∧
@@ -919,18 +919,18 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
        env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) ∧
        (cvj.type.piResult).getAppFn = .const T us₀ ∧
        env.find? T = some (.indInfo cvT caps) ∧
-       inferTypeIO mode env fuel d major = .ok tmaj₀ ∧
-       whnf mode env fuel d tmaj₀ = .ok tmaj ∧
+       inferTypeIO mode eager env fuel d major = .ok tmaj₀ ∧
+       whnf mode eager env fuel d tmaj₀ = .ok tmaj ∧
        tmaj.getAppFn = .const T ust ∧
        ((rl.k = true ∧
          cvj.levelParams.length = ust.length ∧
          cnP ≤ tmaj.getAppArgs.length ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
            (tmaj.getAppArgs.take cnP) ∧
-         (∃ tfab, inferTypeIO mode env fuel d major' = .ok tfab ∧
-           isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
+         (∃ tfab, inferTypeIO mode eager env fuel d major' = .ok tfab ∧
+           isDefEqCore mode eager env fuel d tmaj tfab = .ok true) ∧
          (mode.verifiedChecks = true →
-           proofIrrelFueled mode env fuel d major' major = .ok true)) ∨
+           proofIrrelFueled mode eager env fuel d major' major = .ok true)) ∨
         (rl.eta = true ∧
          capsNeverZero cvT.levelParams ust caps = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
@@ -946,10 +946,10 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
          andRescueSlots env rl.ctor cnP ust = true ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
            (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major]) ∧
-         (∃ tfab, inferTypeIO mode env fuel d major' = .ok tfab ∧
-           isDefEqCore mode env fuel d tmaj tfab = .ok true) ∧
+         (∃ tfab, inferTypeIO mode eager env fuel d major' = .ok tfab ∧
+           isDefEqCore mode eager env fuel d tmaj tfab = .ok true) ∧
          (mode.verifiedChecks = true →
-           proofIrrelFueled mode env fuel d major' major = .ok true)))) := by
+           proofIrrelFueled mode eager env fuel d major' major = .ok true)))) := by
   dsimp only [majorToCtorFueled] at h
   simp only [majorToCtor, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def, proofIrrel_fold] at h
@@ -1014,12 +1014,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
   by_cases hK : rl.k = true
   · rw [ite_eq_left hK] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hti : inferTypeIO mode env fuel d major with
+    cases hti : inferTypeIO mode eager env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
     | ok tmaj₀ =>
     rw [hti] at h
     dsimp only at h
-    cases htw : whnf mode env fuel d tmaj₀ with
+    cases htw : whnf mode eager env fuel d tmaj₀ with
     | error err => rw [htw] at h; exact nomatch h
     | ok tmaj =>
     rw [htw] at h
@@ -1094,14 +1094,14 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     rw [hguard] at h
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases htf : inferTypeIO mode env fuel d
+    cases htf : inferTypeIO mode eager env fuel d
         (Expr.mkAppN (.const rl.ctor ust)
           (tmaj.getAppArgs.take cnP)) with
     | error err => rw [htf] at h; exact nomatch h
     | ok tfab =>
     rw [htf] at h
     dsimp only at h
-    cases hdeq : isDefEqCore mode env fuel d tmaj tfab with
+    cases hdeq : isDefEqCore mode eager env fuel d tmaj tfab with
     | error err => rw [hdeq] at h; exact nomatch h
     | ok bde =>
     rw [hdeq] at h
@@ -1129,7 +1129,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         Or.inl ⟨hK, hlvl, harK1, rfl,
           ⟨tfab, htf, hdeq⟩, fun hμ' => absurd hμ' hμ⟩⟩
     rw [ite_eq_left hμ] at h
-    cases hpi : proofIrrelFueled mode env fuel d
+    cases hpi : proofIrrelFueled mode eager env fuel d
         (Expr.mkAppN (.const rl.ctor ust)
           (tmaj.getAppArgs.take cnP)) major with
     | error err => rw [hpi] at h; exact nomatch h
@@ -1161,12 +1161,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
         exact Or.inl h.symm
       rw [ite_eq_left hA] at h
       try simp only [Bind.bind, Except.bind] at h
-      cases hti : inferTypeIO mode env fuel d major with
+      cases hti : inferTypeIO mode eager env fuel d major with
       | error err => rw [hti] at h; exact nomatch h
       | ok tmaj₀ =>
       rw [hti] at h
       dsimp only at h
-      cases htw : whnf mode env fuel d tmaj₀ with
+      cases htw : whnf mode eager env fuel d tmaj₀ with
       | error err => rw [htw] at h; exact nomatch h
       | ok tmaj =>
       rw [htw] at h
@@ -1237,13 +1237,13 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
       rw [hguard] at h
       simp only [↓reduceIte] at h
       try simp only [Bind.bind, Except.bind] at h
-      cases htf : inferTypeIO mode env fuel d (Expr.mkAppN (.const rl.ctor ust)
+      cases htf : inferTypeIO mode eager env fuel d (Expr.mkAppN (.const rl.ctor ust)
             (tmaj.getAppArgs ++ [.proj T' 0 major, .proj T' 1 major])) with
       | error err => rw [htf] at h; exact nomatch h
       | ok tfab =>
       rw [htf] at h
       dsimp only at h
-      cases hdeq : isDefEqCore mode env fuel d tmaj tfab with
+      cases hdeq : isDefEqCore mode eager env fuel d tmaj tfab with
       | error err => rw [hdeq] at h; exact nomatch h
       | ok bde =>
       rw [hdeq] at h
@@ -1270,7 +1270,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
           Or.inr (Or.inr ⟨hA, hplen, hlvl, hslots, rfl,
             ⟨tfab, htf, hdeq⟩, fun hμ' => absurd hμ' hμ⟩)⟩
       rw [ite_eq_left hμ] at h
-      cases hpi : proofIrrelFueled mode env fuel d (Expr.mkAppN (.const rl.ctor ust)
+      cases hpi : proofIrrelFueled mode eager env fuel d (Expr.mkAppN (.const rl.ctor ust)
             (tmaj.getAppArgs ++ [.proj T' 0 major, .proj T' 1 major])) major with
       | error err => rw [hpi] at h; exact nomatch h
       | ok bpi =>
@@ -1292,12 +1292,12 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
           ⟨tfab, htf, hdeq⟩, fun _ => hpi⟩)⟩
     rw [ite_eq_left hE] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hti : inferTypeIO mode env fuel d major with
+    cases hti : inferTypeIO mode eager env fuel d major with
     | error err => rw [hti] at h; exact nomatch h
     | ok tmaj₀ =>
     rw [hti] at h
     dsimp only at h
-    cases htw : whnf mode env fuel d tmaj₀ with
+    cases htw : whnf mode eager env fuel d tmaj₀ with
     | error err => rw [htw] at h; exact nomatch h
     | ok tmaj =>
     rw [htw] at h
@@ -1383,13 +1383,13 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}
     {as bs : List Expr}
-    (h : defEqListFueled mode env fuel d (a :: as) (b :: bs) = .ok true) :
-    isDefEqCore mode env fuel d a b = .ok true ∧
-    defEqListFueled mode env fuel d as bs = .ok true := by
+    (h : defEqListFueled mode eager env fuel d (a :: as) (b :: bs) = .ok true) :
+    isDefEqCore mode eager env fuel d a b = .ok true ∧
+    defEqListFueled mode eager env fuel d as bs = .ok true := by
   dsimp only [defEqListFueled] at h
   simp only [defEqList, Bind.bind, Except.bind] at h
   simp only [defeq_def, defEqList_fold] at h
-  cases hde : isDefEqCore mode env fuel d a b with
+  cases hde : isDefEqCore mode eager env fuel d a b with
   | error err => rw [hde] at h; exact nomatch h
   | ok r =>
   rw [hde] at h
@@ -1405,11 +1405,11 @@ are applications of the same constant, at pointwise-equivalent levels,
 with pairwise definitionally equal spines of equal length, compared
 last to first (the reversed spines). -/
 theorem defeqSpine_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : defeqSpineFueled mode env fuel d a b = .ok true) :
+    (h : defeqSpineFueled mode eager env fuel d a b = .ok true) :
     ∃ n us us', a.getAppFn = .const n us ∧ b.getAppFn = .const n us' ∧
       a.getAppArgs.length = b.getAppArgs.length ∧
       Level.isEquivList us us' = some true ∧
-      defEqListFueled mode env fuel d a.getAppArgs.reverse
+      defEqListFueled mode eager env fuel d a.getAppArgs.reverse
         b.getAppArgs.reverse = .ok true := by
   dsimp only [defeqSpineFueled] at h
   simp only [defeqSpine, defEqList_fold] at h
@@ -1447,20 +1447,20 @@ L10): the argument's FULL-grade type is defeq to the domain, and the
 rest certifies. -/
 theorem iotaCertsFull_step_inv {env : Env} {fuel d : Nat}
     {ty body : Expr} {arg : Expr} {rest : List Expr}
-    (h : iotaCertsFullFueled mode env fuel d (.forallE ty body) (arg :: rest) =
+    (h : iotaCertsFullFueled mode eager env fuel d (.forallE ty body) (arg :: rest) =
       .ok true) :
-    ∃ ta, inferTypeCore mode env fuel d arg = .ok ta ∧
-      isDefEqCore mode env fuel d ta ty = .ok true ∧
-      iotaCertsFullFueled mode env fuel d (body.instantiate1 arg) rest = .ok true := by
+    ∃ ta, inferTypeCore mode eager env fuel d arg = .ok ta ∧
+      isDefEqCore mode eager env fuel d ta ty = .ok true ∧
+      iotaCertsFullFueled mode eager env fuel d (body.instantiate1 arg) rest = .ok true := by
   dsimp only [iotaCertsFullFueled] at h
   simp only [iotaCertsFull, Bind.bind, Except.bind] at h
   simp only [infer_def, defeq_def, iotaCertsFull_fold] at h
-  cases hta : inferTypeCore mode env fuel d arg with
+  cases hta : inferTypeCore mode eager env fuel d arg with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hde : isDefEqCore mode env fuel d ta ty with
+  cases hde : isDefEqCore mode eager env fuel d ta ty with
   | error err => rw [hde] at h; exact nomatch h
   | ok r =>
   rw [hde] at h
@@ -1478,16 +1478,16 @@ the slow branch.  The fast "not a proof" arm only ever answers
 `false`, so it contributes nothing here.  Ungated since 2026-09-06:
 the arms run in both modes, so no mode conjunct survives. -/
 theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : propIrrelFueled mode env fuel d a b = .ok true) :
+    (h : propIrrelFueled mode eager env fuel d a b = .ok true) :
     (isProofFast env.find? env.findTable? a = true ∧ isProofFast env.find? env.findTable? b = true) ∨
     ∃ ta sta uT tb stb vT,
-      inferTypeIO mode env fuel d a = .ok ta ∧
-      inferTypeIO mode env fuel d ta = .ok sta ∧
-      whnf mode env fuel d sta = .ok (.sort uT) ∧
+      inferTypeIO mode eager env fuel d a = .ok ta ∧
+      inferTypeIO mode eager env fuel d ta = .ok sta ∧
+      whnf mode eager env fuel d sta = .ok (.sort uT) ∧
       Level.isEquiv uT .zero = some true ∧
-      inferTypeIO mode env fuel d b = .ok tb ∧
-      inferTypeIO mode env fuel d tb = .ok stb ∧
-      whnf mode env fuel d stb = .ok (.sort vT) ∧
+      inferTypeIO mode eager env fuel d b = .ok tb ∧
+      inferTypeIO mode eager env fuel d tb = .ok stb ∧
+      whnf mode eager env fuel d stb = .ok (.sort vT) ∧
       Level.isEquiv vT .zero = some true := by
   dsimp only [propIrrelFueled] at h
   simp only [propIrrel, Bind.bind, Except.bind] at h
@@ -1499,17 +1499,17 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
     simp only [Bool.and_eq_true] at hc
     exact Or.inl ⟨hc.1, hc.2⟩
   refine Or.inr ?_
-  cases hta : inferTypeIO mode env fuel d a with
+  cases hta : inferTypeIO mode eager env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hsta : inferTypeIO mode env fuel d ta with
+  cases hsta : inferTypeIO mode eager env fuel d ta with
   | error err => rw [hsta] at h; exact nomatch h
   | ok sta =>
   rw [hsta] at h
   dsimp only at h
-  cases hwta : whnf mode env fuel d sta with
+  cases hwta : whnf mode eager env fuel d sta with
   | error err => rw [hwta] at h; exact nomatch h
   | ok wta =>
   rw [hwta] at h
@@ -1532,17 +1532,17 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   try dsimp only [liftFueled] at h
   try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases htb : inferTypeIO mode env fuel d b with
+  cases htb : inferTypeIO mode eager env fuel d b with
   | error err => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h
   dsimp only at h
-  cases hstb : inferTypeIO mode env fuel d tb with
+  cases hstb : inferTypeIO mode eager env fuel d tb with
   | error err => rw [hstb] at h; exact nomatch h
   | ok stb =>
   rw [hstb] at h
   dsimp only at h
-  cases hwtb : whnf mode env fuel d stb with
+  cases hwtb : whnf mode eager env fuel d stb with
   | error err => rw [hwtb] at h; exact nomatch h
   | ok wtb =>
   rw [hwtb] at h
@@ -1572,30 +1572,30 @@ theorem propIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
 /-- Inversion of a successful proof-irrelevance certification: both
 types' sorts are `Prop`. -/
 theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : proofIrrelFueled mode env fuel d a b = .ok true) :
+    (h : proofIrrelFueled mode eager env fuel d a b = .ok true) :
     ∃ ta sta uT tb stb vT,
-      inferTypeIO mode env fuel d a = .ok ta ∧
-      inferTypeIO mode env fuel d ta = .ok sta ∧
-      whnf mode env fuel d sta = .ok (.sort uT) ∧
+      inferTypeIO mode eager env fuel d a = .ok ta ∧
+      inferTypeIO mode eager env fuel d ta = .ok sta ∧
+      whnf mode eager env fuel d sta = .ok (.sort uT) ∧
       Level.isEquiv uT .zero = some true ∧
-      inferTypeIO mode env fuel d b = .ok tb ∧
-      inferTypeIO mode env fuel d tb = .ok stb ∧
-      whnf mode env fuel d stb = .ok (.sort vT) ∧
+      inferTypeIO mode eager env fuel d b = .ok tb ∧
+      inferTypeIO mode eager env fuel d tb = .ok stb ∧
+      whnf mode eager env fuel d stb = .ok (.sort vT) ∧
       Level.isEquiv vT .zero = some true := by
   dsimp only [proofIrrelFueled] at h
   simp only [proofIrrel, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def] at h
-  cases hta : inferTypeIO mode env fuel d a with
+  cases hta : inferTypeIO mode eager env fuel d a with
   | error err => rw [hta] at h; exact nomatch h
   | ok ta =>
   rw [hta] at h
   dsimp only at h
-  cases hsta : inferTypeIO mode env fuel d ta with
+  cases hsta : inferTypeIO mode eager env fuel d ta with
   | error err => rw [hsta] at h; exact nomatch h
   | ok sta =>
   rw [hsta] at h
   dsimp only at h
-  cases hwta : whnf mode env fuel d sta with
+  cases hwta : whnf mode eager env fuel d sta with
   | error err => rw [hwta] at h; exact nomatch h
   | ok wta =>
   rw [hwta] at h
@@ -1618,17 +1618,17 @@ theorem proofIrrel_inv {env : Env} {fuel d : Nat} {a b : Expr}
   try dsimp only [liftFueled] at h
   try simp only [Bind.bind, Except.bind, pure, Except.pure] at h
   try dsimp only at h
-  cases htb : inferTypeIO mode env fuel d b with
+  cases htb : inferTypeIO mode eager env fuel d b with
   | error err => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h
   dsimp only at h
-  cases hstb : inferTypeIO mode env fuel d tb with
+  cases hstb : inferTypeIO mode eager env fuel d tb with
   | error err => rw [hstb] at h; exact nomatch h
   | ok stb =>
   rw [hstb] at h
   dsimp only at h
-  cases hwtb : whnf mode env fuel d stb with
+  cases hwtb : whnf mode eager env fuel d stb with
   | error err => rw [hwtb] at h; exact nomatch h
   | ok wtb =>
   rw [hwtb] at h
@@ -1686,7 +1686,7 @@ theorem andRescueSlots_inv {env : Env} {ctor : Name} {nP : Nat} {ust : List Leve
 set_option maxHeartbeats 3200000 in
 /-- Inversion of a successful structural eta certification. -/
 theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
-    (h : structEtaCertWithFueled mode env fuel d a b wtb = .ok true) :
+    (h : structEtaCertWithFueled mode eager env fuel d a b wtb = .ok true) :
     ∃ (c : Name) (us : List Level) (cvc : ConstantVal) (cnP cnF : Nat)
       (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps),
@@ -1703,9 +1703,9 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       cvc.levelParams = cvT.levelParams ∧
       towerSlotsAll env T caps.etaFields = true ∧
       Level.isEquivList us us' = some true ∧
-      defEqListFueled mode env fuel d (a.getAppArgs.take caps.etaParams)
+      defEqListFueled mode eager env fuel d (a.getAppArgs.take caps.etaParams)
         wtb.getAppArgs = .ok true ∧
-      defEqListFueled mode env fuel d (a.getAppArgs.drop caps.etaParams)
+      defEqListFueled mode eager env fuel d (a.getAppArgs.drop caps.etaParams)
         (etaProjs T b caps.etaFields) = .ok true := by
   dsimp only [structEtaCertWithFueled] at h
   rw [structEtaCertWith] at h
@@ -1784,7 +1784,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | false => simp at h
   | true => ?_
   simp only [↓reduceIte] at h
-  cases hd1 : defEqListFueled mode env fuel d (a.getAppArgs.take caps.etaParams)
+  cases hd1 : defEqListFueled mode eager env fuel d (a.getAppArgs.take caps.etaParams)
       wtb.getAppArgs with
   | error e => rw [hd1] at h; exact nomatch h
   | ok r₃ => ?_
@@ -1802,22 +1802,22 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
 reduction: the stuck side's type is inferred and reduced, and the
 `With` form of the certificate ran on the result. -/
 theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : structEtaCertFueled mode env fuel d a b = .ok true) :
-    ∃ tb wtb, inferTypeIO mode env fuel d b = .ok tb ∧
-      whnf mode env fuel d tb = .ok wtb ∧
-      structEtaCertWithFueled mode env fuel d a b wtb = .ok true := by
+    (h : structEtaCertFueled mode eager env fuel d a b = .ok true) :
+    ∃ tb wtb, inferTypeIO mode eager env fuel d b = .ok tb ∧
+      whnf mode eager env fuel d tb = .ok wtb ∧
+      structEtaCertWithFueled mode eager env fuel d a b wtb = .ok true := by
   dsimp only [structEtaCertFueled] at h
   rw [structEtaCert] at h
   split at h
   case isFalse => exact nomatch h
   simp only [Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, structEtaCertWith_fold] at h
-  cases htb : inferTypeIO mode env fuel d b with
+  cases htb : inferTypeIO mode eager env fuel d b with
   | error e => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h
   dsimp only at h
-  cases hwtb : whnf mode env fuel d tb with
+  cases hwtb : whnf mode eager env fuel d tb with
   | error e => rw [hwtb] at h; exact nomatch h
   | ok wtb =>
   rw [hwtb] at h
@@ -1826,30 +1826,30 @@ theorem structEtaCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
 
 /-- Inversion of a successful unit-likeness certification. -/
 theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
-    (h : structUnitCertFueled mode env fuel d a b = .ok true) :
+    (h : structUnitCertFueled mode eager env fuel d a b = .ok true) :
     ∃ (ta wta : Expr) (T : Name) (us' : List Level)
       (cvT : ConstantVal) (caps : IndCaps) (tb wtb : Expr),
-      inferTypeIO mode env fuel d a = .ok ta ∧
-      whnf mode env fuel d ta = .ok wta ∧
+      inferTypeIO mode eager env fuel d a = .ok ta ∧
+      whnf mode eager env fuel d ta = .ok wta ∧
       wta.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
       caps.unitlike = true ∧
       reservedBasisNames.contains T = false ∧
       wta.getAppArgs.length = caps.unitParams ∧
       us'.length = cvT.levelParams.length ∧
-      inferTypeIO mode env fuel d b = .ok tb ∧
-      whnf mode env fuel d tb = .ok wtb ∧ wtb.isForallE = false ∧
-      isDefEqCore mode env fuel d wta wtb = .ok true := by
+      inferTypeIO mode eager env fuel d b = .ok tb ∧
+      whnf mode eager env fuel d tb = .ok wtb ∧ wtb.isForallE = false ∧
+      isDefEqCore mode eager env fuel d wta wtb = .ok true := by
   dsimp only [structUnitCertFueled] at h
   rw [structUnitCert] at h
   simp only [Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def] at h
-  cases hta : inferTypeIO mode env fuel d a with
+  cases hta : inferTypeIO mode eager env fuel d a with
   | error e => rw [hta] at h; exact nomatch h
   | ok ta => ?_
   rw [hta] at h
   try dsimp only at h
-  cases hwta : whnf mode env fuel d ta with
+  cases hwta : whnf mode eager env fuel d ta with
   | error e => rw [hwta] at h; exact nomatch h
   | ok wta => ?_
   rw [hwta] at h
@@ -1887,12 +1887,12 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   rw [ite_eq_left hcond] at h
   obtain ⟨he1, he2, he3, he4⟩ := hcond
   try simp only [Bind.bind, Except.bind] at h
-  cases htb : inferTypeIO mode env fuel d b with
+  cases htb : inferTypeIO mode eager env fuel d b with
   | error e => rw [htb] at h; exact nomatch h
   | ok tb => ?_
   rw [htb] at h
   try dsimp only at h
-  cases hwtb : whnf mode env fuel d tb with
+  cases hwtb : whnf mode eager env fuel d tb with
   | error e => rw [hwtb] at h; exact nomatch h
   | ok wtb => ?_
   rw [hwtb] at h
@@ -1906,16 +1906,16 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
 
 /-- Inversion of a successful eta certification. -/
 theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
-    (h : etaCertFueled mode env fuel d ty₁ body₁ b = .ok true) :
+    (h : etaCertFueled mode eager env fuel d ty₁ body₁ b = .ok true) :
     b.ioNeutral = true ∧ ∃ tb ty₂ fb,
-      inferTypeIO mode env fuel d b = .ok tb ∧
-      whnf mode env fuel d tb = .ok (.forallE ty₂ fb) ∧
-      isDefEqCore mode env fuel d ty₂ ty₁ = .ok true ∧
-      isDefEqCore mode env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁))
+      inferTypeIO mode eager env fuel d b = .ok tb ∧
+      whnf mode eager env fuel d tb = .ok (.forallE ty₂ fb) ∧
+      isDefEqCore mode eager env fuel d ty₂ ty₁ = .ok true ∧
+      isDefEqCore mode eager env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁))
         (.app b (.fvar d ty₁)) = .ok true ∧
       (mode.verifiedChecks = true → ∃ t₁,
-        inferTypeCore mode env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁)) = .ok t₁ ∧
-        isDefEqCore mode env fuel (d + 1) t₁ (fb.instantiate1 (.fvar d ty₁)) = .ok true) := by
+        inferTypeCore mode eager env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁)) = .ok t₁ ∧
+        isDefEqCore mode eager env fuel (d + 1) t₁ (fb.instantiate1 (.fvar d ty₁)) = .ok true) := by
   dsimp only [etaCertFueled] at h
   simp only [etaCert, Bind.bind, Except.bind] at h
   simp only [inferTypeIO_def, whnf_def, defeq_def, infer_def] at h
@@ -1924,12 +1924,12 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
   | true =>
   simp only [hneu, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
   refine ⟨rfl, ?_⟩
-  cases htb : inferTypeIO mode env fuel d b with
+  cases htb : inferTypeIO mode eager env fuel d b with
   | error err => rw [htb] at h; exact nomatch h
   | ok tb =>
   rw [htb] at h
   dsimp only at h
-  cases hwtb : whnf mode env fuel d tb with
+  cases hwtb : whnf mode eager env fuel d tb with
   | error err => rw [hwtb] at h; exact nomatch h
   | ok wtb =>
   rw [hwtb] at h
@@ -1945,7 +1945,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
   | .lit l2, h => exact nomatch h
   | .proj s2 i2 e3, h => exact nomatch h
   dsimp only at h
-  cases hd1 : isDefEqCore mode env fuel d ty₂ ty₁ with
+  cases hd1 : isDefEqCore mode eager env fuel d ty₂ ty₁ with
   | error err => rw [hd1] at h; exact nomatch h
   | ok r₁ =>
   rw [hd1] at h
@@ -1954,7 +1954,7 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
   | false => simp [pure, Except.pure] at h
   | true =>
   simp only [↓reduceIte] at h
-  cases hd2 : isDefEqCore mode env fuel (d + 1)
+  cases hd2 : isDefEqCore mode eager env fuel (d + 1)
       (body₁.instantiate1 (.fvar d ty₁)) (.app b (.fvar d ty₁)) with
   | error err => rw [hd2] at h; exact nomatch h
   | ok r₂ =>
@@ -1968,10 +1968,10 @@ theorem etaCert_inv {env : Env} {fuel d : Nat} {ty₁ body₁ b : Expr}
   intro hv
   rw [hv] at h
   simp only [↓reduceIte] at h
-  cases ht : inferTypeCore mode env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁)) with
+  cases ht : inferTypeCore mode eager env fuel (d + 1) (body₁.instantiate1 (.fvar d ty₁)) with
   | error err => simp [ht] at h
   | ok t₁ =>
-  cases hd3 : isDefEqCore mode env fuel (d + 1) t₁ (fb.instantiate1 (.fvar d ty₁)) with
+  cases hd3 : isDefEqCore mode eager env fuel (d + 1) t₁ (fb.instantiate1 (.fvar d ty₁)) with
   | error err => simp [ht, hd3] at h
   | ok r₃ =>
   cases r₃ with
@@ -1984,10 +1984,10 @@ projection-table entry, and the result is the entry type's residual
 along the arguments and the subject. -/
 theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {e t : Expr}
-    (h : inferTypeCore mode env (fuel + 1) d (.proj sn i e) = .ok t) :
+    (h : inferTypeCore mode eager env (fuel + 1) d (.proj sn i e) = .ok t) :
     ∃ tpe te T us entry,
-      inferTypeCore mode env fuel d e = .ok tpe ∧
-      whnf mode env fuel d tpe = .ok te ∧
+      inferTypeCore mode eager env fuel d e = .ok tpe ∧
+      whnf mode eager env fuel d tpe = .ok te ∧
       te.getAppFn = .const T us ∧
       env.findProj? T i = some entry ∧
       te.getAppArgs.length = entry.numParams ∧
@@ -2006,12 +2006,12 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure, Bind.bind, Except.bind] at h
   simp only [infer_def, whnf_def] at h
-  cases hte : inferTypeCore mode env fuel d e with
+  cases hte : inferTypeCore mode eager env fuel d e with
   | error err => rw [hte] at h; exact nomatch h
   | ok tpe =>
   rw [hte] at h
   dsimp only at h
-  cases hw : whnf mode env fuel d tpe with
+  cases hw : whnf mode eager env fuel d tpe with
   | error err => rw [hw] at h; exact nomatch h
   | ok te =>
   rw [hw] at h
@@ -2215,10 +2215,10 @@ theorem natLitToConstructor_WScoped (n : Nat) {d : Nat} :
 `Nat` conversion applied, or the major was a supported string literal
 and the result is the reduced constructor form. -/
 theorem litMajorToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
-    (h : litMajorToCtorFueled mode env fuel d e = .ok e₁) :
+    (h : litMajorToCtorFueled mode eager env fuel d e = .ok e₁) :
     e₁ = litToCtorIfNat env e ∨
     ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
-      whnf mode env fuel d (strLitToConstructor s) = .ok e₁ := by
+      whnf mode eager env fuel d (strLitToConstructor s) = .ok e₁ := by
   match e with
   | .lit (.strVal s) =>
     dsimp only [litMajorToCtorFueled, litMajorToCtor] at h
@@ -2244,10 +2244,10 @@ theorem litMajorToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
 identity, or the scrutinee was a supported string literal and the
 result is the reduced constructor form. -/
 theorem projLitToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
-    (h : projLitToCtorFueled mode env fuel d e = .ok e₁) :
+    (h : projLitToCtorFueled mode eager env fuel d e = .ok e₁) :
     e₁ = e ∨
     ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
-      whnf mode env fuel d (strLitToConstructor s) = .ok e₁ := by
+      whnf mode eager env fuel d (strLitToConstructor s) = .ok e₁ := by
   match e with
   | .lit (.strVal s) =>
     dsimp only [projLitToCtorFueled, projLitToCtor] at h
@@ -2275,9 +2275,9 @@ through `whnf` and to a string literal's constructor form. -/
 theorem reduceProjCore_pres {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {c m : Expr} (P : Expr → Prop)
     (hargs : ∀ {x : Expr}, P x → ∀ y ∈ x.getAppArgs, P y)
-    (hW : ∀ {x y : Expr}, whnf mode env fuel d x = .ok y → P x → P y)
+    (hW : ∀ {x y : Expr}, whnf mode eager env fuel d x = .ok y → P x → P y)
     (hstr : ∀ s, strLitSupported env = true → P (strLitToConstructor s))
-    (h : reduceProjCoreFueled mode env fuel d sn i c = .ok (some m)) (hc : P c) :
+    (h : reduceProjCoreFueled mode eager env fuel d sn i c = .ok (some m)) (hc : P c) :
     P m := by
   obtain ⟨e₃, us, entry, hlit, -, -, hi, hlen, -, -, rfl, -⟩ := reduceProjCore_inv h
   have h3 : P e₃ := by
@@ -2371,7 +2371,7 @@ theorem natOpResult_shape {c : Name} {a b : Nat} {e₂ : Expr}
 /-- Literal acceleration produces closed atoms: a literal or a
 `Bool`-constant head. -/
 theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
-    (h : reduceNatFueled mode env fuel d e = .ok (some e₂)) :
+    (h : reduceNatFueled mode eager env fuel d e = .ok (some e₂)) :
     (∃ n, e₂ = .lit (.natVal n)) ∨ (∃ bn, e₂ = .const bn []) := by
   dsimp only [reduceNatFueled] at h
   revert h
@@ -2402,7 +2402,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     split
     · intro h
       revert h
-      cases hw0 : whnf mode env fuel d a with
+      cases hw0 : whnf mode eager env fuel d a with
       | error err => intro h; exact nomatch h
       | ok a0 =>
       intro h
@@ -2423,7 +2423,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
     · -- first argument first; the second only behind a literal (D15)
       intro h
       revert h
-      cases hw1 : whnf mode env fuel d a with
+      cases hw1 : whnf mode eager env fuel d a with
       | error err => intro h; exact nomatch h
       | ok a' =>
       intro h
@@ -2434,7 +2434,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       | some n₁ =>
         intro h
         revert h
-        cases hw2 : whnf mode env fuel d b with
+        cases hw2 : whnf mode eager env fuel d b with
         | error err => intro h; exact nomatch h
         | ok b' =>
         intro h
@@ -2456,7 +2456,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
       split
       · intro h
         revert h
-        cases hw1 : whnf mode env fuel d a with
+        cases hw1 : whnf mode eager env fuel d a with
         | error err => intro h; exact nomatch h
         | ok a' =>
         intro h
@@ -2467,7 +2467,7 @@ theorem reduceNat_inv {env : Env} {fuel d : Nat} {e e₂ : Expr}
         | some _ =>
           intro h
           revert h
-          cases hw2 : whnf mode env fuel d b with
+          cases hw2 : whnf mode eager env fuel d b with
           | error err => intro h; exact nomatch h
           | ok b' =>
           intro h
@@ -2524,9 +2524,9 @@ set_option maxHeartbeats 1600000 in
 well-scopedness. -/
 theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode eager env fuel d e c = .ok e' →
         WScoped d e → WScoped d e') ∧
-      (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnf mode eager env fuel d e = .ok e' →
         WScoped d e → WScoped d e')
   | 0 => ⟨(fun {_ _ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
@@ -2631,7 +2631,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
       -- budget at the *same* knot fuel; `ihCore` covers the per-step
       -- head normalization.
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
-          whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
+          whnfLoop (pureFns mode eager env fuel) env d n e = .ok e' →
           WScoped d e → WScoped d e' := by
         intro n
         induction n with
@@ -2651,20 +2651,20 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
 /-- Head normalization preserves well-scopedness. -/
 theorem whnfCore_WScoped {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr} {c : Bool}
-    (h : whnfCore mode env fuel d e c = .ok e') (hw : WScoped d e) : WScoped d e' :=
+    (h : whnfCore mode eager env fuel d e c = .ok e') (hw : WScoped d e) : WScoped d e' :=
   (whnfPres_WScoped henv fuel).1 h hw
 
 /-- The reduction loop preserves well-scopedness. -/
 theorem whnf_WScoped {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnf mode env fuel d e = .ok e' ) (hw : WScoped d e) : WScoped d e' :=
+    (h : whnf mode eager env fuel d e = .ok e' ) (hw : WScoped d e) : WScoped d e' :=
   (whnfPres_WScoped henv fuel).2 h hw
 
 /-- The major chain preserves well-scopedness (an instance of
 `prepareMajorFueled_ind`). -/
 theorem prepareMajorFueled_WScoped {env : Env} (henv : EnvWF env)
     {fuel d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
-    (h : prepareMajorFueled mode env fuel d recName rules a = .ok m)
+    (h : prepareMajorFueled mode eager env fuel d recName rules a = .ok m)
     (hw : WScoped d a) : WScoped d m :=
   prepareMajorFueled_ind h (WScoped d)
     (fun hw' hwe => whnf_WScoped henv fuel hw' hwe)
@@ -2707,10 +2707,10 @@ variable {env : Env} {fuel d : Nat}
 
 /-- `deltaQuick` hands on its own pair. -/
 theorem deltaQuick_cont {x y a' b' : Expr}
-    (h : deltaQuickFueled mode env fuel d x y = .ok (.cont a' b')) :
+    (h : deltaQuickFueled mode eager env fuel d x y = .ok (.cont a' b')) :
     a' = x ∧ b' = y := by
   simp only [deltaQuickFueled, deltaQuick, Bind.bind, Except.bind, quickDefEq_fold] at h
-  cases hq : quickDefEqFueled mode env fuel d x y with
+  cases hq : quickDefEqFueled mode eager env fuel d x y with
   | error err => rw [hq] at h; exact nomatch h
   | ok o =>
   rw [hq] at h
@@ -2726,19 +2726,19 @@ theorem deltaQuick_cont {x y a' b' : Expr}
 `whnfCore`. -/
 theorem lazyDeltaStep_pres (P : Expr → Prop)
     (hu : ∀ {x y : Expr}, unfoldDefinition env x = some y → P x → P y)
-    (hC : ∀ {c : Bool} {x y : Expr}, whnfCore mode env fuel d x c = .ok y → P x → P y)
+    (hC : ∀ {c : Bool} {x y : Expr}, whnfCore mode eager env fuel d x c = .ok y → P x → P y)
     {a b a' b' : Expr}
-    (h : lazyDeltaStepFueled mode env fuel d a b = .ok (.cont a' b'))
+    (h : lazyDeltaStepFueled mode eager env fuel d a b = .ok (.cont a' b'))
     (ha : P a) (hb : P b) : P a' ∧ P b' := by
   simp only [lazyDeltaStepFueled, lazyDeltaStep, Bind.bind, Except.bind,
     whnfCore_def, tryUnfoldProjApp_fold, deltaQuick_fold, defeqSpine_fold] at h
-  have hT : ∀ {x x' : Expr}, tryUnfoldProjAppFueled mode env fuel d x = .ok (some x') →
+  have hT : ∀ {x x' : Expr}, tryUnfoldProjAppFueled mode eager env fuel d x = .ok (some x') →
       P x → P x' := by
     intro x x' ht hx
     simp only [tryUnfoldProjAppFueled, tryUnfoldProjApp, Bind.bind, Except.bind,
       whnfCore_def] at ht
     split at ht
-    · cases hw : whnfCore mode env fuel d x with
+    · cases hw : whnfCore mode eager env fuel d x with
       | error err => rw [hw] at ht; exact nomatch ht
       | ok x₁ =>
       rw [hw] at ht
@@ -2749,7 +2749,7 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
         subst ht
         exact hC hw hx
     · simp [pure, Except.pure] at ht
-  have hQ : ∀ {x y : Expr}, deltaQuickFueled mode env fuel d x y = .ok (.cont a' b') →
+  have hQ : ∀ {x y : Expr}, deltaQuickFueled mode eager env fuel d x y = .ok (.cont a' b') →
       P x → P y → P a' ∧ P b' := by
     intro x y hq hx hy
     obtain ⟨rfl, rfl⟩ := deltaQuick_cont hq
@@ -2757,7 +2757,7 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
   cases hda : unfoldableHead env a <;> cases hdb : unfoldableHead env b <;>
     rw [hda, hdb] at h <;> dsimp only at h
   · simp [pure, Except.pure] at h
-  · cases ht : tryUnfoldProjAppFueled mode env fuel d a with
+  · cases ht : tryUnfoldProjAppFueled mode eager env fuel d a with
     | error err => rw [ht] at h; exact nomatch h
     | ok o =>
     rw [ht] at h
@@ -2770,10 +2770,10 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
       | none => rw [hu'] at h; simp [pure, Except.pure] at h
       | some b₂ =>
         rw [hu'] at h; dsimp only at h
-        cases hw : whnfCore mode env fuel d b₂ true with
+        cases hw : whnfCore mode eager env fuel d b₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok b₃ => rw [hw] at h; exact hQ h ha (hC hw (hu hu' hb))
-  · cases ht : tryUnfoldProjAppFueled mode env fuel d b with
+  · cases ht : tryUnfoldProjAppFueled mode eager env fuel d b with
     | error err => rw [ht] at h; exact nomatch h
     | ok o =>
     rw [ht] at h
@@ -2786,7 +2786,7 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
       | none => rw [hu'] at h; simp [pure, Except.pure] at h
       | some a₂ =>
         rw [hu'] at h; dsimp only at h
-        cases hw : whnfCore mode env fuel d a₂ true with
+        cases hw : whnfCore mode eager env fuel d a₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok a₃ => rw [hw] at h; exact hQ h (hC hw (hu hu' ha)) hb
   · split at h
@@ -2794,7 +2794,7 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
       | none => rw [hu'] at h; simp [pure, Except.pure] at h
       | some a₂ =>
         rw [hu'] at h; dsimp only at h
-        cases hw : whnfCore mode env fuel d a₂ true with
+        cases hw : whnfCore mode eager env fuel d a₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok a₃ => rw [hw] at h; exact hQ h (hC hw (hu hu' ha)) hb
     split at h
@@ -2802,11 +2802,11 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
       | none => rw [hu'] at h; simp [pure, Except.pure] at h
       | some b₂ =>
         rw [hu'] at h; dsimp only at h
-        cases hw : whnfCore mode env fuel d b₂ true with
+        cases hw : whnfCore mode eager env fuel d b₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok b₃ => rw [hw] at h; exact hQ h ha (hC hw (hu hu' hb))
     cases hsp : (if ReducibilityHint.sameRegular (headHint env a) (headHint env b) &&
-        sameConstHeads a b then defeqSpineFueled mode env fuel d a b
+        sameConstHeads a b then defeqSpineFueled mode eager env fuel d a b
         else pure false) with
     | error err => rw [hsp] at h; exact nomatch h
     | ok sp =>
@@ -2824,12 +2824,12 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
     | some b₂ =>
     rw [hua, hub] at h
     dsimp only at h
-    cases hwa : whnfCore mode env fuel d a₂ true with
+    cases hwa : whnfCore mode eager env fuel d a₂ true with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a₃ =>
     rw [hwa] at h
     dsimp only at h
-    cases hwb : whnfCore mode env fuel d b₂ true with
+    cases hwb : whnfCore mode eager env fuel d b₂ true with
     | error err => rw [hwb] at h; exact nomatch h
     | ok b₃ =>
     rw [hwb] at h
@@ -2839,9 +2839,9 @@ theorem lazyDeltaStep_pres (P : Expr → Prop)
 `whnfCore`. -/
 theorem lazyDeltaReduction_pres (P : Expr → Prop)
     (hu : ∀ {x y : Expr}, unfoldDefinition env x = some y → P x → P y)
-    (hC : ∀ {c : Bool} {x y : Expr}, whnfCore mode env fuel d x c = .ok y → P x → P y) :
+    (hC : ∀ {c : Bool} {x y : Expr}, whnfCore mode eager env fuel d x c = .ok y → P x → P y) :
     ∀ (n : Nat) {a b a₁ b₁ : Expr},
-      lazyDeltaReductionFueled mode env fuel d n a b = .ok (.unknown a₁ b₁) →
+      lazyDeltaReductionFueled mode eager env fuel d n a b = .ok (.unknown a₁ b₁) →
       P a → P b → P a₁ ∧ P b₁
   | 0, _, _, _, _, h, _, _ => by
     simp [lazyDeltaReductionFueled, lazyDeltaReduction, throw, throwThe,
@@ -2849,7 +2849,7 @@ theorem lazyDeltaReduction_pres (P : Expr → Prop)
   | n + 1, a, b, a₁, b₁, h, ha, hb => by
     simp only [lazyDeltaReductionFueled, lazyDeltaReduction, Bind.bind, Except.bind,
       defeqOffset_fold, reduceNat_fold, lazyDeltaStep_fold, defeq_def] at h
-    cases ho : defeqOffsetFueled mode env fuel d a b with
+    cases ho : defeqOffsetFueled mode eager env fuel d a b with
     | error err => rw [ho] at h; exact nomatch h
     | ok o =>
     rw [ho] at h
@@ -2858,8 +2858,8 @@ theorem lazyDeltaReduction_pres (P : Expr → Prop)
     | some v => simp [pure, Except.pure] at h
     | none =>
     dsimp only at h
-    cases hna : (if mode.eager || (!a.hasFvar && !b.hasFvar) then
-        reduceNatFueled mode env fuel d a else pure none) with
+    cases hna : (if eager || (!a.hasFvar && !b.hasFvar) then
+        reduceNatFueled mode eager env fuel d a else pure none) with
     | error err => rw [hna] at h; exact nomatch h
     | ok o₁ =>
     rw [hna] at h
@@ -2867,13 +2867,13 @@ theorem lazyDeltaReduction_pres (P : Expr → Prop)
     cases o₁ with
     | some a₂ =>
       dsimp only at h
-      cases hde : isDefEqCore mode env fuel d a₂ b with
+      cases hde : isDefEqCore mode eager env fuel d a₂ b with
       | error err => rw [hde] at h; exact nomatch h
       | ok v => rw [hde] at h; simp [pure, Except.pure] at h
     | none =>
     dsimp only at h
-    cases hnb : (if mode.eager || (!a.hasFvar && !b.hasFvar) then
-        reduceNatFueled mode env fuel d b else pure none) with
+    cases hnb : (if eager || (!a.hasFvar && !b.hasFvar) then
+        reduceNatFueled mode eager env fuel d b else pure none) with
     | error err => rw [hnb] at h; exact nomatch h
     | ok o₂ =>
     rw [hnb] at h
@@ -2881,12 +2881,12 @@ theorem lazyDeltaReduction_pres (P : Expr → Prop)
     cases o₂ with
     | some b₂ =>
       dsimp only at h
-      cases hde : isDefEqCore mode env fuel d a b₂ with
+      cases hde : isDefEqCore mode eager env fuel d a b₂ with
       | error err => rw [hde] at h; exact nomatch h
       | ok v => rw [hde] at h; simp [pure, Except.pure] at h
     | none =>
     dsimp only at h
-    cases hs : lazyDeltaStepFueled mode env fuel d a b with
+    cases hs : lazyDeltaStepFueled mode eager env fuel d a b with
     | error err => rw [hs] at h; exact nomatch h
     | ok st =>
     rw [hs] at h

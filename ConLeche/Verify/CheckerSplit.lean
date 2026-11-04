@@ -96,21 +96,21 @@ theorem installValueGuards_inv {cv : ConstantVal} {value : Expr}
 theorem checkValueGroup_inv {vg : ValueGroup}
     (h : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     ∃ stype u,
-      inferTypeCore μ env F 0 vg.cv.type = .ok stype ∧
-      ensureSortCore μ env F 0 stype = .ok u ∧
+      inferTypeCore μ false env F 0 vg.cv.type = .ok stype ∧
+      ensureSortCore μ false env F 0 stype = .ok u ∧
       (vg.kind = .thm → Level.isEquiv u .zero = some true) ∧
       (vg.kind = .thm → installValueGuards (m := CheckM) env vg.cv vg.jv = .ok ()) ∧
       ∃ vtype,
-        inferTypeCore μ env F 0 vg.jv = .ok vtype ∧
-        isDefEqCore μ env F 0 vtype vg.cv.type = .ok true := by
+        inferTypeCore μ false env F 0 vg.jv = .ok vtype ∧
+        isDefEqCore μ false env F 0 vtype vg.cv.type = .ok true := by
   simp only [checkValueGroup, fueledOps_inferType, fueledOps_ensureSort,
     fueledOps_isDefEq, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
-  cases hst : inferTypeCore μ env F 0 vg.cv.type with
+  cases hst : inferTypeCore μ false env F 0 vg.cv.type with
   | error e => rw [hst] at h; exact nomatch h
   | ok stype =>
   rw [hst] at h
   try dsimp only at h
-  cases hsort : ensureSortCore μ env F 0 stype with
+  cases hsort : ensureSortCore μ false env F 0 stype with
   | error e => rw [hsort] at h; exact nomatch h
   | ok u =>
   rw [hsort] at h
@@ -133,12 +133,12 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     | ok _ =>
     rw [hiv] at h
     try dsimp only at h
-    cases hvt : inferTypeCore μ env F 0 vg.jv with
+    cases hvt : inferTypeCore μ false env F 0 vg.jv with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore μ env F 0 vtype vg.cv.type with
+    cases hde : isDefEqCore μ false env F 0 vtype vg.cv.type with
     | error e => rw [hde] at h; exact nomatch h
     | ok r =>
     rw [hde] at h
@@ -146,12 +146,12 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     | false => simp at h
     | true => exact ⟨stype, u, rfl, hsort, fun _ => heqv, fun _ => rfl, vtype, rfl, hde⟩
   · rw [ite_eq_right hk] at h
-    cases hvt : inferTypeCore μ env F 0 vg.jv with
+    cases hvt : inferTypeCore μ false env F 0 vg.jv with
     | error e => rw [hvt] at h; exact nomatch h
     | ok vtype =>
     rw [hvt] at h
     try dsimp only at h
-    cases hde : isDefEqCore μ env F 0 vtype vg.cv.type with
+    cases hde : isDefEqCore μ false env F 0 vtype vg.cv.type with
     | error e => rw [hde] at h; exact nomatch h
     | ok r =>
     rw [hde] at h
@@ -177,8 +177,8 @@ theorem checkConstantVal_of_facts {cv : ConstantVal} {stype : Expr} {u : Level}
     (hif : cv.type.hasFvar = false)
     (htp : cv.type.allLevelParamsDefined cv.levelParams = true)
     (htr : cv.type.constsResolve env = true)
-    (hst : inferTypeCore μ env F 0 cv.type = .ok stype)
-    (hsort : ensureSortCore μ env F 0 stype = .ok u) :
+    (hst : inferTypeCore μ false env F 0 cv.type = .ok stype)
+    (hsort : ensureSortCore μ false env F 0 stype = .ok u) :
     checkConstantVal (fueledOps μ F) env cv = .ok () := by
   simp only [checkConstantVal, fueledOps_inferType,
     fueledOps_ensureSort, Bind.bind, Except.bind, Pure.pure, Except.pure, hfind, hres,
@@ -191,23 +191,23 @@ theorem checkDefnVal_of_facts {cv : ConstantVal} {value vtype : Expr}
     (hif : value.hasFvar = false)
     (hvp : value.allLevelParamsDefined cv.levelParams = true)
     (hvr : value.constsResolve env = true)
-    (hvt : inferTypeCore μ env F 0 value = .ok vtype)
-    (hde : isDefEqCore μ env F 0 vtype cv.type = .ok true) :
+    (hvt : inferTypeCore μ false env F 0 value = .ok vtype)
+    (hde : isDefEqCore μ false env F 0 vtype cv.type = .ok true) :
     checkDefnVal (fueledOps μ F) env cv value hint = .ok ⟨.defnInfo cv value hint :: env.consts, env.tables⟩ := by
   simp only [checkDefnVal, fueledOps_inferType, fueledOps_isDefEq,
     Bind.bind, Except.bind, Pure.pure, Except.pure, hlb, hif, hvp, hvr, hvt, hde,
     Bool.false_eq_true, ↓reduceIte]
 
 theorem checkThmVal_of_facts {cv : ConstantVal} {value vtype stype : Expr} {u : Level}
-    (hst : inferTypeCore μ env F 0 cv.type = .ok stype)
-    (hsort : ensureSortCore μ env F 0 stype = .ok u)
+    (hst : inferTypeCore μ false env F 0 cv.type = .ok stype)
+    (hsort : ensureSortCore μ false env F 0 stype = .ok u)
     (heqv : Level.isEquiv u .zero = some true)
     (hlb : value.looseBVarsBounded 0 = true)
     (hif : value.hasFvar = false)
     (hvp : value.allLevelParamsDefined cv.levelParams = true)
     (hvr : value.constsResolve env = true)
-    (hvt : inferTypeCore μ env F 0 value = .ok vtype)
-    (hde : isDefEqCore μ env F 0 vtype cv.type = .ok true) :
+    (hvt : inferTypeCore μ false env F 0 value = .ok vtype)
+    (hde : isDefEqCore μ false env F 0 vtype cv.type = .ok true) :
     checkThmVal (fueledOps μ F) env cv value = .ok ⟨.thmInfo cv :: env.consts, env.tables⟩ := by
   simp only [checkThmVal, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, liftFueled, Bind.bind, Except.bind, Pure.pure, Except.pure, hst,
@@ -218,8 +218,8 @@ theorem checkOpaqueVal_of_facts {cv : ConstantVal} {value vtype : Expr}
     (hif : value.hasFvar = false)
     (hvp : value.allLevelParamsDefined cv.levelParams = true)
     (hvr : value.constsResolve env = true)
-    (hvt : inferTypeCore μ env F 0 value = .ok vtype)
-    (hde : isDefEqCore μ env F 0 vtype cv.type = .ok true) :
+    (hvt : inferTypeCore μ false env F 0 value = .ok vtype)
+    (hde : isDefEqCore μ false env F 0 vtype cv.type = .ok true) :
     checkOpaqueVal (fueledOps μ F) env cv value = .ok ⟨.axiomInfo cv :: env.consts, env.tables⟩ := by
   simp only [checkOpaqueVal, fueledOps_inferType, fueledOps_isDefEq,
     Bind.bind, Except.bind, Pure.pure, Except.pure, hlb, hif, hvp, hvr, hvt, hde,

@@ -8,6 +8,7 @@ import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Denote.ErasedEq
 public import ConLeche.Verify.Inductives.NfMemberFree
+import ConLeche.Verify.Modes
 public section
 
 /-!
@@ -100,9 +101,9 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
       cA.1.type = some crest)
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {u : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {u : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok u)
     {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
@@ -204,7 +205,7 @@ at the hole frame of every tuple**, from the install's positivity stage
 (`DeclBlockRun` conjunct 3: `nestPos` and U2) at the formers'
 environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
-theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.isVerified = true) {env : Env}
+theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}
     (mp : EnvModelM V μ env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
@@ -329,7 +330,7 @@ theorem occDeep_instPisWith {names : List Name} :
 
 section RunLink
 
-variable {μ : ConLeche.CheckMode} (hμ : μ.isVerified = true)
+variable {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   {env : Env} (mp : EnvModelM V μ env) {F : Nat}
   {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
   {isRec : Bool} (hN : BlockNamesOk (V := V) d cvTas)
@@ -582,7 +583,7 @@ end RunLink
 install's positivity stage (`blockRunLink`): the normal form reads as the
 Π-tower over the datum's fields with holes (the datum's reading fact), so
 the producer's fields with holes ARE the datum's. -/
-theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.isVerified = true)
+theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     {env : Env} (mp : EnvModelM V μ env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}

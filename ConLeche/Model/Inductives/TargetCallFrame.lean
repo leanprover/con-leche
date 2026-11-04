@@ -276,9 +276,9 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
     rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hcvwf.2.2.2.1
   obtain ⟨hfr, hCP⟩ := crest_frame mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg hΔ
     hCds hLds hkey hcl hbb hcr
-  have hty' : ConLeche.inferTypeCore .verified envI F
+  have hty' : ConLeche.inferTypeCore .verified false envI F
       (ctx.hiAt u.anc.length + u.grp.length) crest = .ok ty := hty
-  have hsort' : ConLeche.ensureSortCore .verified envI F
+  have hsort' : ConLeche.ensureSortCore .verified false envI F
       (ctx.hiAt u.anc.length + u.grp.length) ty = .ok sv := hsort
   have hgr := gradedTy_of_sort (Rules.RulesInputs.ofSem mk ψ) hty' hsort' hfr hCP.toCtxOk hrd
   -- the walked normal forms: closed and scoped
@@ -339,9 +339,9 @@ theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ'
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
       cA.1.type = some crest)
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {sv : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {sv : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok sv)
     {ks : List NestFieldKind} {tyN : Expr} {ts : List PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)

@@ -138,7 +138,7 @@ agree on the family's parameters restrict to the same one.  The typing
 themselves parametric (`blockRecTyAV_params_ext`: every recursor carries
 the family's one parameter list).  No level-footprint fact about the
 inferred sorts is needed. -/
-theorem blockRecLevel_run (hμ : μ.isVerified = true)
+theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageG μ F envC p cvTas rs) :
     ∃ s : (Name → Nat) → Nat,
       (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),

@@ -249,7 +249,7 @@ member's leaf on the hole chains folded by the override law
 the leaves' frame); with the member's capability laws it feeds
 `blockCtorsLoop`; the carrier that comes out is the one after that
 member's `consSumCtors`, with the core invariant one member on. -/
-theorem stageBlockCtorsAt (hμ : μ.isVerified = true) {F : Nat}
+theorem stageBlockCtorsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
    
@@ -436,7 +436,7 @@ theorem stageBlockCtorsAt (hμ : μ.isVerified = true) {F : Nat}
 /-- **The `k` members' constructors' conses, in block order**
 (`consBlockCtors`): `stageBlockCtorsAt` at every member, the core
 invariant one member further on at each step. -/
-theorem stageBlockCtors (hμ : μ.isVerified = true) {F : Nat}
+theorem stageBlockCtors (hμ : μ.verifiedChecks = true) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
     {envI : Env} {ctorsOf : Name → List Name}

@@ -34,7 +34,7 @@ namespace ConLeche.Cached
 open ConLeche.Expr Std.WP
 open scoped Lean.Order
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-! ## The residual and constructor-head readers -/
 
@@ -400,63 +400,68 @@ end PureMtc
 
 /-! ### The rescue's walks -/
 
-theorem mtcKC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) {d : Nat}
+theorem mtcKC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d major) :
-    ⦃fun s => s = s₀⦄ mtcKI mode (coreKnotI mode (mkFEnv env) f) d major rl cvj cnP T
-    ⦃fun v s' => CSOK mode env s' ∧
-      Runs ((fueledFns mode env).inferIO d major >>= fun tm => (fueledFns mode env).whnf d tm >>=
-        mtcKCont mode (fueledFns mode env) d major rl cvj cnP T) v ∧
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d major) :
+    ⦃fun s => s = s₀⦄ mtcKI mode (coreKnotI mode eager (mkFEnv env) f) d major rl cvj cnP T
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
+          env).whnf d tm >>=
+        mtcKCont mode (fueledFns mode eager env) d major rl cvj cnP T) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcKCont, proofIrrelGate_of hμ] =>
     vcgen [mtcKI, certAtI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
       ih.defeq_spec, proofIrrelC_spec ih] <;> finish
 
-theorem mtcEtaC_spec (ih : SSimC mode env f) {d : Nat} {major : Expr} {T : Name}
-    {cvT : ConstantVal} {caps : IndCaps} {s₀ : CState} (hs : CSOK mode env s₀)
+theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T : Name}
+    {cvT : ConstantVal} {caps : IndCaps} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped d major) :
-    ⦃fun s => s = s₀⦄ mtcEtaI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d major T cvT caps
-    ⦃fun v s' => CSOK mode env s' ∧
-      Runs ((fueledFns mode env).inferIO d major >>= fun tm => (fueledFns mode env).whnf d tm >>=
+    ⦃fun s => s = s₀⦄ mtcEtaI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d major T cvT caps
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
+          env).whnf d tm >>=
         mtcEtaCont env d major T cvT caps) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcEtaCont, etaFabArgsE] =>
     vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
-      projNodesC_spec (mode := mode) (env := env)] <;> finish
+      projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
-theorem mtcAndC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) {d : Nat}
+theorem mtcAndC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d major) :
-    ⦃fun s => s = s₀⦄ mtcAndI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d major rl cvj cnP T
-    ⦃fun v s' => CSOK mode env s' ∧
-      Runs ((fueledFns mode env).inferIO d major >>= fun tm => (fueledFns mode env).whnf d tm >>=
-        mtcAndCont mode (fueledFns mode env) env d major rl cvj cnP T) v ∧
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d major) :
+    ⦃fun s => s = s₀⦄ mtcAndI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d major rl
+        cvj cnP T
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
+          env).whnf d tm >>=
+        mtcAndCont mode (fueledFns mode eager env) env d major rl cvj cnP T) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcAndCont, proofIrrelGate_of hμ] =>
     vcgen [mtcAndI, certAtI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
-      ih.defeq_spec, proofIrrelC_spec ih, projNodesC_spec (mode := mode) (env := env)] <;>
+      ih.defeq_spec, proofIrrelC_spec ih, projNodesC_spec (mode := mode) (eager := eager) (env :=
+          env)] <;>
       finish
 
-theorem mtcBodyC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f) {d : Nat}
+theorem mtcBodyC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f) {d : Nat}
     {major : Expr} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {cvT : ConstantVal}
-    {caps : IndCaps} {s₀ : CState} (hs : CSOK mode env s₀) (hw : Expr.WScoped d major) :
+    {caps : IndCaps} {s₀ : CState} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d major) :
     ⦃fun s => s = s₀⦄
-      mtcBodyI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d major rl cvj cnP T cvT caps
-    ⦃fun v s' => CSOK mode env s' ∧
-      Runs (mtcBodyP mode (fueledFns mode env) env d major rl cvj cnP T cvT caps) v ∧
+      mtcBodyI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d major rl cvj cnP T cvT caps
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (mtcBodyP mode (fueledFns mode eager env) env d major rl cvj cnP T cvT caps) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcBodyP] =>
     vcgen [mtcBodyI, mtcKC_spec hμ ih hs hw, mtcEtaC_spec ih hs hw,
       mtcAndC_spec hμ ih hs hw] <;> finish
 
 /-- `majorToCtorI` simulates its fueled original. -/
-theorem majorToCtorC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+theorem majorToCtorC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
-      majorToCtorI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d recName rules i
-    ⦃fun m s' => CSOK mode env s' ∧
-      Runs (majorToCtor mode (fueledFns mode env) env d recName rules i) m ∧
+      majorToCtorI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d recName rules i
+    ⦃fun m s' => CSOK mode eager env s' ∧
+      Runs (majorToCtor mode (fueledFns mode eager env) env d recName rules i) m ∧
       Expr.WScoped d m; ⊤⦄ := by
   sym only [conleche_grind, mtc_notSingle] =>
     vcgen [majorToCtorI_eq, mtcBodyC_spec hμ ih hs hw] <;> finish
@@ -464,17 +469,17 @@ theorem majorToCtorC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode en
 /-- The major's preparation, in either order (the K flag is the single
 rule's stored bit, read identically on both sides; off K, the rescue on
 the raw major, then, failing a constructor, the whnf chain). -/
-theorem prepareMajorC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
+theorem prepareMajorC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
     {d : Nat} {recName : Name} {rules : List RecRule} {i : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
-      prepareMajorI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d recName rules i
-    ⦃fun m s' => CSOK mode env s' ∧
-      Runs (prepareMajor mode (fueledFns mode env) env d recName rules i) m ∧
+      prepareMajorI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d recName rules i
+    ⦃fun m s' => CSOK mode eager env s' ∧
+      Runs (prepareMajor mode (fueledFns mode eager env) env d recName rules i) m ∧
       Expr.WScoped d m; ⊤⦄ := by
   sym only [conleche_grind, prepareMajor] =>
-    vcgen [prepareMajorI, majorToCtorC_spec (mode := mode) (env := env) hμ ih,
-      litMajorToCtorC_spec (mode := mode) (env := env) ih, ih.whnf_spec] <;> finish
+    vcgen [prepareMajorI, majorToCtorC_spec (mode := mode) (eager := eager) (env := env) hμ ih,
+      litMajorToCtorC_spec (mode := mode) (eager := eager) (env := env) ih, ih.whnf_spec] <;> finish
 
 /-! ### The ι step's named pieces -/
 
@@ -837,9 +842,9 @@ end PureArms
 /-- The cached pin instantiations are the nested comparand's mapped
 list. -/
 theorem pinArgsC_spec (lps : List Name) (us : List Level) :
-    ∀ (ps : List Expr) {s₀ : CState}, CSOK mode env s₀ → ∀ (args : List Expr) (t : Nat),
+    ∀ (ps : List Expr) {s₀ : CState}, CSOK mode eager env s₀ → ∀ (args : List Expr) (t : Nat),
       ⦃fun s => s = s₀⦄ pinArgsI lps us args t ps
-      ⦃fun rs s' => CSOK mode env s' ∧ rs = ps.map (pinInst lps us args t); ⊤⦄ := by
+      ⦃fun rs s' => CSOK mode eager env s' ∧ rs = ps.map (pinInst lps us args t); ⊤⦄ := by
   intro ps
   induction ps with
   | nil =>
@@ -852,47 +857,48 @@ theorem pinArgsC_spec (lps : List Name) (us : List Level) :
 
 /-- The canonical-index comparison (the ι batch) simulates its fueled
 original. -/
-theorem iotaIndexOkC_spec (ih : SSimC mode env f) {d : Nat} {mI rP cnP : Nat}
-    {ty : Expr} {margs idx : List Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+theorem iotaIndexOkC_spec (ih : SSimC mode eager env f) {d : Nat} {mI rP cnP : Nat}
+    {ty : Expr} {margs idx : List Expr} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hwty : Expr.WScoped d ty) (hwm : AllWS d margs) (hwi : AllWS d idx) :
     ⦃fun s => s = s₀⦄
-      iotaIndexOkI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d mI rP cnP ty margs idx
-    ⦃fun b s' => CSOK mode env s' ∧
-      Runs (iotaIndexOk (fueledFns mode env) env d mI rP cnP ty margs idx) b; ⊤⦄ := by
+      iotaIndexOkI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d mI rP cnP ty margs idx
+    ⦃fun b s' => CSOK mode eager env s' ∧
+      Runs (iotaIndexOk (fueledFns mode eager env) env d mI rP cnP ty margs idx) b; ⊤⦄ := by
   sym only [conleche_grind, iotaIndexOk] =>
     vcgen [iotaIndexOkI, piResidualM_spec hs, defEqListC_spec ih] <;> finish
 
 /-- The case-3 certificate block simulates its fueled original. -/
-theorem iotaCertC_spec (ih : SSimC mode env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}
-    (hs : CSOK mode env s₀) (cv : ConstantVal) (mI rP : Nat) (us : List Level)
+theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (cv : ConstantVal) (mI rP : Nat) (us : List Level)
     {args : List Expr} (hargs : AllWS d args) (cj cjn : Name) (usj : List Level)
     {cvj : ConstantVal} (hfj : ctorVal? env cjn = some cvj) {rl : RecRule}
     (hrl : OptRuleOK (some rl)) {margs : List Expr} (hm : AllWS d margs) :
     ⦃fun s => s = s₀⦄
-      iotaCertI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d cv mI rP us args cj cjn usj cvj
+      iotaCertI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d cv mI rP us args cj cjn usj cvj
         rl margs
-    ⦃fun b s' => CSOK mode env s' ∧
-      Runs (iotaCertP (fueledFns mode env) env d cv mI rP us args usj cvj rl margs) b; ⊤⦄ := by
+    ⦃fun b s' => CSOK mode eager env s' ∧
+      Runs (iotaCertP (fueledFns mode eager env) env d cv mI rP us args usj cvj rl margs) b; ⊤⦄ :=
+          by
   obtain ⟨nP, nF, hfj⟩ := ctorVal?_some hfj
   sym only [conleche_grind, iotaCertP, constTyOf, ConstantInfo.toConstantVal,
       Option.isSome_some, EnvWF.ctorTy_closed henv hfj] =>
     vcgen [iotaCertI, liftFueled, substLevelTreesM, isEquivListLM_spec hs,
-      pinArgsC_spec (mode := mode) (env := env),
-      defEqListC_spec ih, constTyAtM_spec (mode := mode) (env := env),
+      pinArgsC_spec (mode := mode) (eager := eager) (env := env),
+      defEqListC_spec ih, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
       iotaCertsFullC_spec ih, iotaIndexOkC_spec ih] <;> finish
 
 /-- The ι step simulates its fueled original. -/
-theorem iotaRecC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode env f)
-    (henv : EnvWF env) {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK mode env s₀)
+theorem iotaRecC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
+    (henv : EnvWF env) {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀)
     (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ iotaRecI mode (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i
-    ⦃fun o s' => CSOK mode env s' ∧ Runs (iotaRec mode (fueledFns mode env) env d i) o ∧
+    ⦃fun s => s = s₀⦄ iotaRecI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d i
+    ⦃fun o s' => CSOK mode eager env s' ∧ Runs (iotaRec mode (fueledFns mode eager env) env d i) o ∧
       OptWS d o; ⊤⦄ := by
   sym only [conleche_grind, iotaRec_notconst, iotaRecK_notconst, Option.isSome_some,
       iotaCertGate_of hμ, → EnvWF.rules_ok henv] =>
     vcgen [iotaRecI_eq, certAtI, mkAppNM, prepareMajorC_spec hμ ih,
-      iotaCertC_spec ih henv (mode := mode) (env := env),
-      ruleRhsAtM_spec (mode := mode) (env := env)] <;> finish
+      iotaCertC_spec ih henv (mode := mode) (eager := eager) (env := env),
+      ruleRhsAtM_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
 end Walks
 

@@ -138,7 +138,7 @@ theorem natHeads_cons_fresh (mp : EnvModelM V μ env)
   simpa only [e1, e2, e3] using this
 
 /-- **The `defn` harvest** (see the module docstring). -/
-theorem harvestDefn (hμ : μ.isVerified = true)
+theorem harvestDefn (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
     {env₂ : Env}
@@ -516,7 +516,7 @@ theorem harvestDefn (hμ : μ.isVerified = true)
 
 `DeclThmRun`'s prop-check conjuncts are not spent (the P invariant
 stores no is-a-proposition field); they are destructured away with `-`. -/
-theorem harvestThm (hμ : μ.isVerified = true)
+theorem harvestThm (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun μ F env cv value env₂) :
@@ -774,7 +774,7 @@ the wrapper crosses it.
 
 `DeclAxiomRun`'s tolerated skip needs none of this: it stores nothing
 (`env₂ = env`), so its P invariant is `mp` itself. -/
-theorem harvestAxiom (hμ : μ.isVerified = true)
+theorem harvestAxiom (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
     (hcv : ConstantValRun μ F env cv type')
@@ -947,7 +947,7 @@ theorem harvestAxiom (hμ : μ.isVerified = true)
 The species, with the value–leaf equation read **directly** off the run's
 leaf equation (no `defn_eq` detour). -/
 
-theorem harvestOpaque (hμ : μ.isVerified = true)
+theorem harvestOpaque (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env)
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun μ F env cv value env₂) :

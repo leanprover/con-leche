@@ -133,8 +133,8 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
     -- run — the unverified lane — must never be mistaken for a
     -- `--verified` one in a log, whatever it says.
     let modeTag : String := match mode with
-      | .verified | .verifiedEager => "--verified"
-      | .trusted | .trustedEager => "--trusted"
+      | .verified => "--verified"
+      | .trusted => "--trusted"
     -- THE BUILT-IN PRELUDE (`ConLeche/Frontend/Prelude.lean`): the
     -- pinned basis blocks, `Bool` and `And`, parsed from the
     -- committed `pins/<toolchain>.prelude.ndjson`.  `preparePrelude`

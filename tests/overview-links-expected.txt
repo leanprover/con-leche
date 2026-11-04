@@ -284,7 +284,7 @@
    423      {env : Env} (h : checkDecls mode pins ds = .ok env) :
 
 == ConLeche/Model/InstallRun.lean#L215-L222
-   215  theorem installRun_model (hμ : μ.isVerified = true) {ds : List Declaration}
+   215  theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
    216      {p : Nat × FEnv × Array PendingCheck}
    217      {q : Nat × FEnv × Array PendingCheck}
    218      (hrun : InstallRun μ pins ds p q) :
@@ -293,19 +293,19 @@
    221      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
    222      EnvModelOk V μ q.2.1.env := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L510-L512
-   510  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
-   511      (htb : fe₁.findTable? = fe₂.findTable?) :
-   512      ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L516-L518
+   516  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
+   517      (htb : fe₁.findTable? = fe₂.findTable?) :
+   518      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
 
 == ConLeche/Model/InstallRun.lean#L243-L245
-   243  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.isVerified = true)
+   243  theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
    244      {ds : List Declaration} (fc : FullyChecked μ pins ds) :
    245      Nonempty (EnvModelM V μ fc.env) := by
 
 == ConLeche/Verify/Cached/MainC.lean#L59-L65
     59  theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
-    60      {μ : CheckMode} (hμ : μ.isVerified = true)
+    60      {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     61      {ds : Array Declaration} {env' : Env}
     62      (h : checkDecls μ pins ds = .ok env') :
     63      ∀ c ∈ env'.consts,
@@ -313,7 +313,7 @@
     65    obtain ⟨mp⟩ := checkDecls_sound (V := V) hμ h
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L42
-    37  theorem checkDecls_sound (hμ : μ.isVerified = true)
+    37  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
     38      {ds : Array Declaration} {env' : Env}
     39      (h : checkDecls μ pins ds = .ok env') :
     40      Nonempty (EnvModelM V μ env') := by
@@ -323,30 +323,30 @@
 == ConLeche/Kernel/TypeChecker.lean#L29-L54
     29  def whnfCore (env : Env) (fuel depth : Nat) (e : Expr) (cheap : Bool := false) :
     30      CheckM Expr :=
-    31    (pureFns mode env fuel).whnfCore cheap depth e
+    31    (pureFns mode eager env fuel).whnfCore cheap depth e
     32  
     33  /-- The full reduction loop (fueled). -/
     34  def whnf (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-    35    (pureFns mode env fuel).whnf depth e
+    35    (pureFns mode eager env fuel).whnf depth e
     36  
     37  /-- Full-grade type inference (fueled): the declaration front door's
     38  entry — official's `infer_type_core(e, infer_only = false)`. -/
     39  def inferTypeCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-    40    (pureFns mode env fuel).infer depth e
+    40    (pureFns mode eager env fuel).infer depth e
     41  
     42  /-- Type inference at the io grade (fueled): the knot's `inferIO` slot
     43  — what every internal inference call site runs (task #170).  At every
     44  mode it is the io lane (`inferTypeIO_on`, `Verify/Knot.lean`). -/
     45  def inferTypeIO (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Expr :=
-    46    (pureFns mode env fuel).inferIO depth e
+    46    (pureFns mode eager env fuel).inferIO depth e
     47  
     48  /-- Definitional equality (fueled). -/
     49  def isDefEqCore (env : Env) (fuel depth : Nat) (a b : Expr) : CheckM Bool :=
-    50    (pureFns mode env fuel).defeq depth a b
+    50    (pureFns mode eager env fuel).defeq depth a b
     51  
     52  /-- `ensureSort` over the pure knot (fueled). -/
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
-    54    ensureSort (pureFns mode env fuel) env depth e
+    54    ensureSort (pureFns mode eager env fuel) env depth e
 
 == ConLeche/Kernel/Core.lean#L1736-L1741
   1736      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
@@ -358,7 +358,7 @@
 
 == ConLeche/Model/Fold.lean#L268-L275
    268  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   269      {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+   269      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
    270      {ds : List Declaration} {env' : Env}
    271      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
    272      ∀ c ∈ env'.consts,
@@ -367,7 +367,7 @@
    275    exact fun c hc hty => no_constant_of_False mp c hc hty
 
 == ConLeche/Model/Fold.lean#L141
-   141  theorem declStep_preserves (hμ : μ.isVerified = true)
+   141  theorem declStep_preserves (hμ : μ.verifiedChecks = true)
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V μ env)
@@ -387,8 +387,8 @@
      2  # tests/layering.sh — THE LAYERING GATE (task #161, S1; re-cut at the
      3  # SetR removal, 2026-09-05).
 
-== ConLeche/Kernel/Env.lean#L62
-    62  inductive CheckMode where
+== ConLeche/Kernel/Env.lean#L57
+    57  inductive CheckMode where
 
 == ConLeche/Kernel/Core.lean#L1070
   1070  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
@@ -759,7 +759,7 @@
     52  @[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     53      (φ : Name → Nat) (fuel : Nat) : Prop :=
     54    ∀ {d : Nat} {e e' : Expr} {Δa : List Term},
-    55      whnfCore μ env fuel d e = .ok e' →
+    55      whnfCore μ false env fuel d e = .ok e' →
     56      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     57      Expr.LeavesBounded e →
     58      ∀ {ea ea' : Term},
@@ -777,7 +777,7 @@
     70  @[expose] def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     71      (φ : Name → Nat) (fuel : Nat) : Prop :=
     72    ∀ {d : Nat} {e e' : Expr} {Δa : List Term},
-    73      whnf μ env fuel d e = .ok e' →
+    73      whnf μ false env fuel d e = .ok e' →
     74      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     75      Expr.LeavesBounded e →
     76      ∀ {ea ea' : Term},
@@ -797,7 +797,7 @@
     90  @[expose] def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     91      (φ : Name → Nat) (fuel : Nat) : Prop :=
     92    ∀ {d : Nat} {a b : Expr} {Δa : List Term},
-    93      ConLeche.isDefEqCore μ env fuel d a b = .ok true →
+    93      ConLeche.isDefEqCore μ false env fuel d a b = .ok true →
     94      Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     95      Expr.LeavesBounded a →
     96      Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -819,7 +819,7 @@
    112  @[expose] def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
    113      (φ : Name → Nat) (fuel : Nat) : Prop :=
    114    ∀ {d : Nat} {e t : Expr} {Δa : List Term},
-   115      inferTypeCore μ env fuel d e = .ok t →
+   115      inferTypeCore μ false env fuel d e = .ok t →
    116      Expr.WScoped d e → e.looseBVarsBounded 0 = true →
    117      Expr.LeavesBounded e →
    118      ∀ {ea ta : Term},
@@ -864,11 +864,11 @@
    356  one chaining that is sound, "reduce, then continue", is `redL`, and
    357  its right-hand and δ variants are derived in `Derived.lean`. -/
 
-== ConLeche/Verify/Rules/Bridge.lean#L30-L33
-    30  theorem bridgeAt (env : Env) :
-    31      ∀ (fuel : Nat) (μ : CheckMode), μ.verifiedChecks = true →
-    32        WhnfCoreBridge μ env fuel ∧ WhnfBridge μ env fuel ∧ DefEqBridge μ env fuel ∧
-    33          InferBridge μ env fuel ∧ InferIOBridge μ env fuel := by
+== ConLeche/Verify/Rules/Bridge.lean#L29-L32
+    29  theorem bridgeAt (env : Env) :
+    30      ∀ (fuel : Nat) (μ : CheckMode), μ.verifiedChecks = true → ∀ eager : Bool,
+    31        WhnfCoreBridge μ eager env fuel ∧ WhnfBridge μ eager env fuel ∧ DefEqBridge μ eager env fuel ∧
+    32          InferBridge μ eager env fuel ∧ InferIOBridge μ eager env fuel := by
 
 == ConLeche/Model/Rules/Sound.lean#L47-L50
     47  mutual
@@ -877,7 +877,7 @@
     50      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
 
 == ConLeche/Model/Rules/Recompose.lean#L50-L55
-    50  theorem checkSoundAtP5 (hμ : μ.isVerified = true)
+    50  theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
     51      {m : EnvModel V env} (h : RulesInputs V m φ) :
     52      ∀ fuel : Nat,
     53        WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
@@ -904,15 +904,15 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L446
    446  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L491-L498
-   491  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   492    block.all fun ci => match ci with
-   493      | .indInfo cvT _ =>
-   494        match cvT.type.piSortTeleLen? with
-   495        | some n => decide (nP ≤ n)
-   496        | none => true
-   497      | .ctorInfo _ nPc _ => nPc == nP
-   498      | _ => true
+== ConLeche/Kernel/Env.lean#L455-L462
+   455  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   456    block.all fun ci => match ci with
+   457      | .indInfo cvT _ =>
+   458        match cvT.type.piSortTeleLen? with
+   459        | some n => decide (nP ≤ n)
+   460        | none => true
+   461      | .ctorInfo _ nPc _ => nPc == nP
+   462      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L147
    147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
@@ -954,7 +954,7 @@
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
 == ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
-    72  theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
+    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
     74      (mp : EnvModelM V μ env)
     75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)

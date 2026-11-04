@@ -263,7 +263,7 @@ the cached core at the view. -/
 def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
   flushC
   let fe := fe.restrictTo pc.vis
-  let jsty ← (coreKnotI mode fe checkFuel).infer 0 pc.vg.cv.type
+  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 pc.vg.cv.type
   let u ← opSIxC mode fe 0 jsty
   if pc.vg.kind = .thm then do
       unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
@@ -271,8 +271,8 @@ def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
       -- a theorem's value arrives raw: its guards run
       -- here, at the view (`installValueGuardsC` — `installValueGuards`'s twin)
       installValueGuardsC fe pc.vg.cv pc.vg.jv
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 pc.vg.jv
-  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt pc.vg.cv.type do
+  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 pc.vg.jv
+  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt pc.vg.cv.type do
     throw (.invalid s!"type mismatch in {pc.vg.kind.word} {pc.vg.cv.name}")
 
 /-- **In a properly installed environment, record `i` has been

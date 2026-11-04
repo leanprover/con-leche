@@ -20,7 +20,7 @@ commute lemmas.
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-- A binary relation between two checker monads, closed under the
 monadic operations the bodies use. -/
@@ -822,8 +822,8 @@ theorem lazyDeltaStep_snd_proj (d : Nat) (a b : Expr) :
 
 theorem lazyDeltaReduction_fst_proj (d : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaReduction mode (pairFns r₁ r₂ h) env d n a b).val.1 =
-        lazyDeltaReduction mode r₁ env d n a b
+      (lazyDeltaReduction mode eager (pairFns r₁ r₂ h) env d n a b).val.1 =
+        lazyDeltaReduction mode eager r₁ env d n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaReduction
@@ -831,8 +831,8 @@ theorem lazyDeltaReduction_fst_proj (d : Nat) :
 
 theorem lazyDeltaReduction_snd_proj (d : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaReduction mode (pairFns r₁ r₂ h) env d n a b).val.2 =
-        lazyDeltaReduction mode r₂ env d n a b
+      (lazyDeltaReduction mode eager (pairFns r₁ r₂ h) env d n a b).val.2 =
+        lazyDeltaReduction mode eager r₂ env d n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaReduction
@@ -1077,14 +1077,14 @@ theorem inferBodyIO_snd_proj (d : Nat) (e : Expr) :
   snd_tac4
 
 theorem defeqBody_fst_proj (d : Nat) (a b : Expr) :
-    (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.1 =
-      defeqBody mode r₁ env d a b := by
+    (defeqBody mode eager (pairFns r₁ r₂ h) env d a b).val.1 =
+      defeqBody mode eager r₁ env d a b := by
   unfold defeqBody
   fst_tac4
 
 theorem defeqBody_snd_proj (d : Nat) (a b : Expr) :
-    (defeqBody mode (pairFns r₁ r₂ h) env d a b).val.2 =
-      defeqBody mode r₂ env d a b := by
+    (defeqBody mode eager (pairFns r₁ r₂ h) env d a b).val.2 =
+      defeqBody mode eager r₂ env d a b := by
   unfold defeqBody
   snd_tac4
 

@@ -40,7 +40,7 @@ set_option maxHeartbeats 2000000
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 open Expr
 
@@ -198,32 +198,32 @@ the fuel steps once). -/
 
 theorem inferTypeCore_forallE_eq (env : Env) (F d : Nat)
     (ty body : Expr) :
-    inferTypeCore mode env (F + 1) d (.forallE ty body)
-      = (inferTypeCore mode env F d ty >>= fun tty =>
-         whnf mode env F d tty >>= fun w =>
+    inferTypeCore mode eager env (F + 1) d (.forallE ty body)
+      = (inferTypeCore mode eager env F d ty >>= fun tty =>
+         whnf mode eager env F d tty >>= fun w =>
          match w with
          | .sort u =>
-           inferTypeCore mode env F (d + 1)
+           inferTypeCore mode eager env F (d + 1)
                (body.instantiate1 (.fvar d ty)) >>= fun bt =>
-             ensureSortCore mode env F (d + 1) bt >>= fun v =>
+             ensureSortCore mode eager env F (d + 1) bt >>= fun v =>
                pure (Expr.sort (.imax u v))
          | _ => throw (.invalid "expected a sort")) := rfl
 
 theorem inferTypeCore_lam_eq (env : Env) (F d : Nat)
     (ty body : Expr) :
-    inferTypeCore mode env (F + 1) d (.lam ty body)
-      = (inferTypeCore mode env F d ty >>= fun tty =>
-         whnf mode env F d tty >>= fun w =>
+    inferTypeCore mode eager env (F + 1) d (.lam ty body)
+      = (inferTypeCore mode eager env F d ty >>= fun tty =>
+         whnf mode eager env F d tty >>= fun w =>
          match w with
          | .sort _ =>
-           inferTypeCore mode env F (d + 1)
+           inferTypeCore mode eager env F (d + 1)
                (body.instantiate1 (.fvar d ty)) >>= fun bt =>
              pure (Expr.forallE ty (bt.abstract1 d))
          | _ => throw (.invalid "expected a sort")) := rfl
 
 theorem ensureSortCore_eq (env : Env) (F d : Nat) (e : Expr) :
-    ensureSortCore mode env F d e
-      = (whnf mode env F d e >>= fun w =>
+    ensureSortCore mode eager env F d e
+      = (whnf mode eager env F d e >>= fun w =>
          match w with
          | .sort u => pure u
          | _ => throw (.invalid "expected a sort")) := rfl
@@ -241,12 +241,12 @@ theorem okB_bind {α β : Type} (a : α)
 
 /-- `whnf` is the identity on sorts (two fuel steps in). -/
 theorem whnf_sort (env : Env) (F d : Nat) (u : Level) :
-    whnf mode env (F + 2) d (.sort u) = .ok (.sort u) := by
+    whnf mode eager env (F + 2) d (.sort u) = .ok (.sort u) := by
   -- one iteration of the reduction loop suffices (task #106: the step
   -- budget is `irreducible`, so peel it with its positivity witness)
   obtain ⟨k, hk⟩ := whnfLoopFuel_succ
   rw [whnf_succ]
-  show whnfLoop (pureFns mode env (F + 1)) env d whnfLoopFuel _ = _
+  show whnfLoop (pureFns mode eager env (F + 1)) env d whnfLoopFuel _ = _
   rw [hk]
   rfl
 
@@ -267,8 +267,8 @@ theorem inferLamsOut_atF (d : Nat) :
 
 theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List Expr) (F : Nat) :
-    (inferLamsLeaf (fueledFns mode env) d t k fvs stk).val F
-      = inferLamsLeaf (pureFns mode env F) d t k fvs stk := by
+    (inferLamsLeaf (fueledFns mode eager env) d t k fvs stk).val F
+      = inferLamsLeaf (pureFns mode eager env F) d t k fvs stk := by
   unfold inferLamsLeaf
   rw [FueledM.atF_bind]
   congr 1
@@ -278,8 +278,8 @@ theorem inferLamsLeaf_atF (d : Nat) (t : Expr) (k : Nat)
 theorem inferLams_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List Expr) (F : Nat),
-      (inferLams (fueledFns mode env) d fuel t k fvs stk).val F
-        = inferLams (pureFns mode env F) d fuel t k fvs stk
+      (inferLams (fueledFns mode eager env) d fuel t k fvs stk).val F
+        = inferLams (pureFns mode eager env F) d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => inferLamsLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hlam : ∃ ty body, t = Expr.lam ty body
@@ -308,8 +308,8 @@ theorem inferPisOut_atF :
 
 theorem inferPisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
     (fvs : List Expr) (stk : List Level) (F : Nat) :
-    (inferPisLeaf (fueledFns mode env) d t k fvs stk).val F
-      = inferPisLeaf (pureFns mode env F) d t k fvs stk := by
+    (inferPisLeaf (fueledFns mode eager env) d t k fvs stk).val F
+      = inferPisLeaf (pureFns mode eager env F) d t k fvs stk := by
   unfold inferPisLeaf
   rw [FueledM.atF_bind]
   congr 1
@@ -327,8 +327,8 @@ theorem inferPisLeaf_atF (d : Nat) (t : Expr) (k : Nat)
 theorem inferPis_atF (d : Nat) :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List Level) (F : Nat),
-      (inferPis (fueledFns mode env) d fuel t k fvs stk).val F
-        = inferPis (pureFns mode env F) d fuel t k fvs stk
+      (inferPis (fueledFns mode eager env) d fuel t k fvs stk).val F
+        = inferPis (pureFns mode eager env F) d fuel t k fvs stk
   | 0, t, k, fvs, stk, F => inferPisLeaf_atF d t k fvs stk F
   | fuel + 1, t, k, fvs, stk, F => by
     by_cases hpi : ∃ ty body, t = Expr.forallE ty body
@@ -404,8 +404,8 @@ theorem inferLamsLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List Expr} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k)
-    (hrun : inferLamsLeaf (pureFns mode env F) d t k fvs stk = .ok res) :
-    ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
+    (hrun : inferLamsLeaf (pureFns mode eager env F) d t k fvs stk = .ok res) :
+    ∃ F', (inferTypeCore mode eager env F' (d + k) (t.instantiateList fvs) >>=
       fun bt => inferLamsWrap (m := CheckM) d stk (k - 1) bt) = .ok res := by
   unfold inferLamsLeaf at hrun
   obtain ⟨bt, hbt, hrun⟩ := bind_okB hrun
@@ -431,8 +431,8 @@ theorem inferLams_sound {d : Nat} :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List Expr) (F : Nat) (res : Expr),
       stk.length = k →
-      inferLams (pureFns mode env F) d fuel t k fvs stk = .ok res →
-      ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
+      inferLams (pureFns mode eager env F) d fuel t k fvs stk = .ok res →
+      ∃ F', (inferTypeCore mode eager env F' (d + k) (t.instantiateList fvs) >>=
         fun bt => inferLamsWrap (m := CheckM) d stk (k - 1) bt) = .ok res := by
   intro fuel
   induction fuel with
@@ -493,8 +493,8 @@ theorem inferLams_sound {d : Nat} :
 theorem inferPisWrap_mono {d : Nat} :
     ∀ {stk : List Level} {j : Nat} {bt : Expr} {F F' : Nat},
       F ≤ F' → ∀ {res : Expr},
-      inferPisWrap (pureFns mode env F) env d stk j bt = .ok res →
-      inferPisWrap (pureFns mode env F') env d stk j bt = .ok res := by
+      inferPisWrap (pureFns mode eager env F) env d stk j bt = .ok res →
+      inferPisWrap (pureFns mode eager env F') env d stk j bt = .ok res := by
   intro stk
   induction stk with
   | nil => intro j bt F F' hle res h; exact h
@@ -511,18 +511,18 @@ run (the chained per-level `ensureSort`s reduce by `whnf_sort`). -/
 theorem inferPisWrap_sort {d : Nat} :
     ∀ (stk : List Level) (j : Nat) (v : Level) {F : Nat},
       2 ≤ F →
-      inferPisWrap (pureFns mode env F) env d stk j (.sort v)
+      inferPisWrap (pureFns mode eager env F) env d stk j (.sort v)
         = (inferPisOut (m := CheckM) stk v).map Expr.sort := by
   intro stk
   induction stk with
   | nil => intro j v F hF; rfl
   | cons u rest ih =>
     intro j v F hF
-    show (ensureSort (pureFns mode env F) env (d + j + 1) (.sort v) >>=
-      fun v' => inferPisWrap (pureFns mode env F) env d rest (j - 1)
+    show (ensureSort (pureFns mode eager env F) env (d + j + 1) (.sort v) >>=
+      fun v' => inferPisWrap (pureFns mode eager env F) env d rest (j - 1)
           (.sort (.imax u v'))) = _
     rw [ensureSort_def, ensureSortCore_eq]
-    have hw : whnf mode env F (d + j + 1) (.sort v) = .ok (.sort v) := by
+    have hw : whnf mode eager env F (d + j + 1) (.sort v) = .ok (.sort v) := by
       obtain ⟨F₂, rfl⟩ : ∃ F₂, F = F₂ + 2 := ⟨F - 2, by omega⟩
       exact whnf_sort env F₂ (d + j + 1) v
     rw [hw, okB_bind]
@@ -535,10 +535,10 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     {k : Nat} {fvs : List Expr} {stk : List Level} {F : Nat}
     {res : Expr}
     (hlen : stk.length = k) (hk : 1 ≤ k)
-    (hrun : inferPisLeaf (pureFns mode env F) d t k fvs stk
+    (hrun : inferPisLeaf (pureFns mode eager env F) d t k fvs stk
       = .ok res) :
-    ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
-      fun bt => inferPisWrap (pureFns mode env F') env d stk
+    ∃ F', (inferTypeCore mode eager env F' (d + k) (t.instantiateList fvs) >>=
+      fun bt => inferPisWrap (pureFns mode eager env F') env d stk
         (k - 1) bt) = .ok res := by
   unfold inferPisLeaf at hrun
   obtain ⟨bt, hbt, hrun⟩ := bind_okB hrun
@@ -567,8 +567,8 @@ theorem inferPisLeaf_sound {d : Nat} {t : Expr}
     have hkeq : d + (k - 1) + 1 = d + k := by omega
     refine ⟨max F 2, ?_⟩
     rw [inferTypeCore_mono (Nat.le_max_left F 2) hbt, okB_bind]
-    show (ensureSort (pureFns mode env (max F 2)) env (d + (k - 1) + 1)
-        bt >>= fun v' => inferPisWrap (pureFns mode env (max F 2)) env d rest
+    show (ensureSort (pureFns mode eager env (max F 2)) env (d + (k - 1) + 1)
+        bt >>= fun v' => inferPisWrap (pureFns mode eager env (max F 2)) env d rest
           ((k - 1) - 1) (.sort (.imax u v'))) = _
     rw [ensureSort_def, ensureSortCore_eq, hkeq]
     rw [whnf_mono (Nat.le_max_left F 2) hww, okB_bind]
@@ -586,9 +586,9 @@ theorem inferPis_sound {d : Nat} :
     ∀ (fuel : Nat) (t : Expr) (k : Nat) (fvs : List Expr)
       (stk : List Level) (F : Nat) (res : Expr),
       stk.length = k → 1 ≤ k →
-      inferPis (pureFns mode env F) d fuel t k fvs stk = .ok res →
-      ∃ F', (inferTypeCore mode env F' (d + k) (t.instantiateList fvs) >>=
-        fun bt => inferPisWrap (pureFns mode env F') env d stk
+      inferPis (pureFns mode eager env F) d fuel t k fvs stk = .ok res →
+      ∃ F', (inferTypeCore mode eager env F' (d + k) (t.instantiateList fvs) >>=
+        fun bt => inferPisWrap (pureFns mode eager env F') env d stk
           (k - 1) bt) = .ok res := by
   intro fuel
   induction fuel with

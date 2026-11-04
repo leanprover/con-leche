@@ -65,8 +65,8 @@ def ConstantValRun (μ : CheckMode) (F : Nat) (env : Env)
   type' = cv.type ∧
   type'.allLevelParamsDefined cv.levelParams = true ∧
   type'.constsResolve env = true ∧
-  (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
-    ensureSortCore μ env F 0 stype = .ok u)
+  (∃ stype u, inferTypeCore μ false env F 0 type' = .ok stype ∧
+    ensureSortCore μ false env F 0 stype = .ok u)
 
 /-- The value front door's guards and runs. -/
 def ValueFrontRun (μ : CheckMode) (F : Nat) (env : Env)
@@ -76,8 +76,8 @@ def ValueFrontRun (μ : CheckMode) (F : Nat) (env : Env)
   value' = value ∧
   value'.allLevelParamsDefined cv.levelParams = true ∧
   value'.constsResolve env = true ∧
-  (∃ vtype, inferTypeCore μ env F 0 value' = .ok vtype ∧
-    isDefEqCore μ env F 0 vtype type' = .ok true)
+  (∃ vtype, inferTypeCore μ false env F 0 value' = .ok vtype ∧
+    isDefEqCore μ false env F 0 vtype type' = .ok true)
 
 /-! ## The conditional pin packs, run half -/
 
@@ -111,7 +111,7 @@ def ReducePinRun (μ : CheckMode) (F : Nat) (env env₂ : Env)
   reduceStoredOk env₂ c = true ∧
   reduceElemOk env c = true ∧
   reducePinGuard env c = true ∧
-    isDefEqCore μ env F 1 (.app value (reduceCertVar c))
+    isDefEqCore μ false env F 1 (.app value (reduceCertVar c))
       (reduceCertVar c) = .ok true
 
 /-! ## The value kinds, run half -/
@@ -140,8 +140,8 @@ def DeclThmRun (μ : CheckMode) (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
   ∃ type' value',
     ConstantValRun μ F env cv type' ∧
-    (∃ stype u, inferTypeCore μ env F 0 type' = .ok stype ∧
-      ensureSortCore μ env F 0 stype = .ok u ∧
+    (∃ stype u, inferTypeCore μ false env F 0 type' = .ok stype ∧
+      ensureSortCore μ false env F 0 stype = .ok u ∧
       Level.isEquiv u .zero = some true) ∧
     ValueFrontRun μ F env cv value type' value' ∧
     -- stored by statement only: the constant carries no value (the

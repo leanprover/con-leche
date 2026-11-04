@@ -45,7 +45,7 @@ set_option maxHeartbeats 1000000
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 variable {mi : CheckMode}
 
 open Expr
@@ -347,8 +347,8 @@ variable {env : Env}
 theorem appStep_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e)
     (w a : Expr) :
-    (appStep mode (fueledFns mode env) env d k w a).val F
-      = appStep mode (pureFns mode env F) env d kF w a := by
+    (appStep mode (fueledFns mode eager env) env d k w a).val F
+      = appStep mode (pureFns mode eager env F) env d kF w a := by
   unfold appStep
   atF_tac4k hk
 
@@ -357,8 +357,8 @@ mutual
 theorem whnfApp_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e) :
     ∀ (xs : List Expr) (v : Expr),
-      (whnfApp mode (fueledFns mode env) env d k v xs).val F
-        = whnfApp mode (pureFns mode env F) env d kF v xs
+      (whnfApp mode (fueledFns mode eager env) env d k v xs).val F
+        = whnfApp mode (pureFns mode eager env F) env d kF v xs
   | [], v => by rw [whnfApp_nil, whnfApp_nil]; rfl
   | a :: rest, v => by
     by_cases hlam : ∃ ty body, v = Expr.lam ty body
@@ -385,8 +385,8 @@ decreasing_by
 theorem betaPeel_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (F : Nat) (hk : ∀ e, (k e).val F = kF e) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr),
-      (betaPeel mode (fueledFns mode env) env d k t acc xs).val F
-        = betaPeel mode (pureFns mode env F) env d kF t acc xs
+      (betaPeel mode (fueledFns mode eager env) env d k t acc xs).val F
+        = betaPeel mode (pureFns mode eager env F) env d kF t acc xs
   | [], t, acc => by rw [betaPeel_nil, betaPeel_nil]; exact hk _
   | a :: rest, t, acc => by
     by_cases hlam : ∃ ty body, t = Expr.lam ty body
@@ -410,8 +410,8 @@ mutual
 
 theorem whnfAppW_atF (d : Nat) (F : Nat) :
     ∀ (xs : List Expr) (v : Expr),
-      (whnfAppW mode (fueledFns mode env) env d v xs).val F
-        = whnfAppW mode (pureFns mode env F) env d v xs
+      (whnfAppW mode (fueledFns mode eager env) env d v xs).val F
+        = whnfAppW mode (pureFns mode eager env F) env d v xs
   | [], v => by rw [whnfAppW_nil, whnfAppW_nil]; rfl
   | a :: rest, v => by
     by_cases hlam : ∃ ty body, v = Expr.lam ty body
@@ -435,8 +435,8 @@ decreasing_by
 
 theorem betaPeelW_atF (d : Nat) (F : Nat) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr),
-      (betaPeelW mode (fueledFns mode env) env d t acc xs).val F
-        = betaPeelW mode (pureFns mode env F) env d t acc xs
+      (betaPeelW mode (fueledFns mode eager env) env d t acc xs).val F
+        = betaPeelW mode (pureFns mode eager env F) env d t acc xs
   | [], t, acc => by rw [betaPeelW_nil, betaPeelW_nil]; rfl
   | a :: rest, t, acc => by
     by_cases hlam : ∃ ty body, t = Expr.lam ty body
@@ -456,8 +456,8 @@ decreasing_by
 end
 
 theorem whnfCoreStepW_atF (c : Bool) (d : Nat) (F : Nat) (e : Expr) :
-    (whnfCoreStepW mode (fueledFns mode env) env c d e).val F
-      = whnfCoreStepW mode (pureFns mode env F) env c d e := by
+    (whnfCoreStepW mode (fueledFns mode eager env) env c d e).val F
+      = whnfCoreStepW mode (pureFns mode eager env F) env c d e := by
   cases e <;> (unfold whnfCoreStepW; try rfl)
   case app f a =>
     rw [FueledM.atF_bind]
@@ -469,8 +469,8 @@ theorem whnfCoreStepW_atF (c : Bool) (d : Nat) (F : Nat) (e : Expr) :
 
 theorem whnfCoreLoopM_atF (c : Bool) (d : Nat) :
     ∀ (n : Nat) (e : Expr) (F : Nat),
-      (whnfCoreLoopM mode (fueledFns mode env) env c d n e).val F
-        = whnfCoreLoopM mode (pureFns mode env F) env c d n e
+      (whnfCoreLoopM mode (fueledFns mode eager env) env c d n e).val F
+        = whnfCoreLoopM mode (pureFns mode eager env F) env c d n e
   | 0, _, _ => rfl
   | n + 1, e, F => by
     simp only [whnfCoreLoopM]
@@ -487,51 +487,51 @@ theorem whnfApp_mono {d : Nat} {xs : List Expr} {v : Expr} {F F' : Nat}
     (k : Expr → FueledM Expr) (kF kF' : Expr → CheckM Expr)
     (hkF : ∀ e, (k e).val F = kF e) (hkF' : ∀ e, (k e).val F' = kF' e)
     (hle : F ≤ F') {res : Expr}
-    (h : whnfApp mode (pureFns mode env F) env d kF v xs = .ok res) :
-    whnfApp mode (pureFns mode env F') env d kF' v xs = .ok res := by
+    (h : whnfApp mode (pureFns mode eager env F) env d kF v xs = .ok res) :
+    whnfApp mode (pureFns mode eager env F') env d kF' v xs = .ok res := by
   rw [← whnfApp_atF d k kF F hkF] at h
   rw [← whnfApp_atF d k kF' F' hkF']
-  exact (whnfApp mode (fueledFns mode env) env d k v xs).property hle h
+  exact (whnfApp mode (fueledFns mode eager env) env d k v xs).property hle h
 
 theorem betaPeel_mono {d : Nat} {xs acc : List Expr} {t : Expr}
     {F F' : Nat}
     (k : Expr → FueledM Expr) (kF kF' : Expr → CheckM Expr)
     (hkF : ∀ e, (k e).val F = kF e) (hkF' : ∀ e, (k e).val F' = kF' e)
     (hle : F ≤ F') {res : Expr}
-    (h : betaPeel mode (pureFns mode env F) env d kF t acc xs = .ok res) :
-    betaPeel mode (pureFns mode env F') env d kF' t acc xs = .ok res := by
+    (h : betaPeel mode (pureFns mode eager env F) env d kF t acc xs = .ok res) :
+    betaPeel mode (pureFns mode eager env F') env d kF' t acc xs = .ok res := by
   rw [← betaPeel_atF d k kF F hkF] at h
   rw [← betaPeel_atF d k kF' F' hkF']
-  exact (betaPeel mode (fueledFns mode env) env d k t acc xs).property hle h
+  exact (betaPeel mode (fueledFns mode eager env) env d k t acc xs).property hle h
 
 theorem appStep_mono {d : Nat} {w a : Expr} {F F' : Nat}
     (k : Expr → FueledM Expr) (kF kF' : Expr → CheckM Expr)
     (hkF : ∀ e, (k e).val F = kF e) (hkF' : ∀ e, (k e).val F' = kF' e)
     (hle : F ≤ F') {res : Expr}
-    (h : appStep mode (pureFns mode env F) env d kF w a = .ok res) :
-    appStep mode (pureFns mode env F') env d kF' w a = .ok res := by
+    (h : appStep mode (pureFns mode eager env F) env d kF w a = .ok res) :
+    appStep mode (pureFns mode eager env F') env d kF' w a = .ok res := by
   rw [← appStep_atF d k kF F hkF] at h
   rw [← appStep_atF d k kF' F' hkF']
-  exact (appStep mode (fueledFns mode env) env d k w a).property hle h
+  exact (appStep mode (fueledFns mode eager env) env d k w a).property hle h
 
 theorem reduceProjCore_mono {d : Nat} {sn : Name} {i : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
-    (h : reduceProjCore mi (pureFns mode env F) env d sn i e = .ok o) :
-    reduceProjCore mi (pureFns mode env F') env d sn i e = .ok o := by
+    (h : reduceProjCore mi (pureFns mode eager env F) env d sn i e = .ok o) :
+    reduceProjCore mi (pureFns mode eager env F') env d sn i e = .ok o := by
   rw [← reduceProjCore_atF] at h ⊢
-  exact (reduceProjCore mi (fueledFns mode env) env d sn i e).property hle h
+  exact (reduceProjCore mi (fueledFns mode eager env) env d sn i e).property hle h
 
 theorem iotaRec_mono {d : Nat} {e : Expr} {F F' : Nat}
     (hle : F ≤ F') {o : Option Expr}
-    (h : iotaRec mode (pureFns mode env F) env d e = .ok o) :
-    iotaRec mode (pureFns mode env F') env d e = .ok o := by
+    (h : iotaRec mode (pureFns mode eager env F) env d e = .ok o) :
+    iotaRec mode (pureFns mode eager env F') env d e = .ok o := by
   rw [← iotaRec_atF] at h ⊢
-  exact (iotaRec mode (fueledFns mode env) env d e).property hle h
+  exact (iotaRec mode (fueledFns mode eager env) env d e).property hle h
 
 /-- `whnfCore` is the identity on a lambda (at nonzero fuel). -/
 theorem whnfCore_lam (F d : Nat) (ty body : Expr)
     {c : Bool} :
-    whnfCore mode env (F + 1) d (.lam ty body) c
+    whnfCore mode eager env (F + 1) d (.lam ty body) c
       = .ok (.lam ty body) := rfl
 
 end AtF
@@ -580,9 +580,9 @@ private theorem ok_bind {α β : Type} (a : α)
 normalization of its function part and one `appStep` (the spec's own
 app clause, at one fuel less). -/
 theorem whnfCore_app_split {d F : Nat} {X a vres : Expr}
-    (H : whnfCore mode env F d (.app X a) c = .ok vres) :
-    ∃ G w, G < F ∧ whnfCore mode env G d X c = .ok w ∧
-      appStep mode (pureFns mode env G) env d (fun x => whnfCore mode env G d x c) w a
+    (H : whnfCore mode eager env F d (.app X a) c = .ok vres) :
+    ∃ G w, G < F ∧ whnfCore mode eager env G d X c = .ok w ∧
+      appStep mode (pureFns mode eager env G) env d (fun x => whnfCore mode eager env G d x c) w a
         = .ok vres := by
   cases F with
   | zero => rw [whnfCore_zero] at H; exact nomatch H
@@ -595,11 +595,14 @@ mutual
 
 theorem whnfApp_snoc {d : Nat} :
     ∀ (xs : List Expr) (v a : Expr) (F : Nat) (vres : Expr),
-      whnfApp mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) v (xs ++ [a])
+      whnfApp mode (pureFns mode eager env F) env d (fun x => whnfCore mode eager env F d x c) v
+          (xs ++ [a])
           = .ok vres →
       ∃ F' w,
-        whnfApp mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) v xs = .ok w ∧
-        appStep mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) w a = .ok vres
+        whnfApp mode (pureFns mode eager env F') env d (fun x => whnfCore mode eager env F' d x c)
+            v xs = .ok w ∧
+        appStep mode (pureFns mode eager env F') env d (fun x => whnfCore mode eager env F' d x c)
+            w a = .ok vres
   | [], v, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -640,11 +643,11 @@ theorem whnfApp_snoc {d : Nat} :
       unfold whnfAppLam at H
       obtain ⟨F₁, w, hw, hstep⟩ := betaPeel_snoc xs' body [x] a F vres H
       refine ⟨max F F₁, w, ?_,
-        appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+        appStep_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
       rw [whnfApp_lam]
       unfold whnfAppLam
-      exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+      exact betaPeel_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
         (fun _ => rfl) (Nat.le_max_right F F₁) hw
     · have hv : ∀ ty body, v ≠ Expr.lam ty body :=
         fun ty b hh => hlam ⟨ty, b, hh⟩
@@ -659,7 +662,7 @@ theorem whnfApp_snoc {d : Nat} :
         rw [Expr.mkAppN_append_one] at H
         obtain ⟨G, w, hGF, hw, hstep⟩ := whnfCore_app_split H
         refine ⟨F, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_of_lt hGF) hstep⟩
         rw [whnfApp_ne_lam _ _ _ _ hv]
         unfold whnfAppIota
@@ -668,13 +671,13 @@ theorem whnfApp_snoc {d : Nat} :
       | none =>
         obtain ⟨F₁, w, hw, hstep⟩ := whnfApp_snoc xs' (.app v x) a F vres H
         refine ⟨max F F₁, w, ?_,
-          appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+          appStep_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
             (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
         rw [whnfApp_ne_lam _ _ _ _ hv]
         unfold whnfAppIota
         rw [iotaRec_mono (Nat.le_max_left F F₁) ho, ok_bind]
         dsimp only
-        exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+        exact whnfApp_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hw
 termination_by xs => (xs.length, 0)
 decreasing_by
@@ -685,12 +688,15 @@ decreasing_by
 theorem betaPeel_snoc {d : Nat} :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr) (a : Expr) (F : Nat)
       (vres : Expr),
-      betaPeel mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) t acc (xs ++ [a])
+      betaPeel mode (pureFns mode eager env F) env d (fun x => whnfCore mode eager env F d x c) t
+          acc (xs ++ [a])
           = .ok vres →
       ∃ F' w,
-        betaPeel mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) t acc xs
+        betaPeel mode (pureFns mode eager env F') env d (fun x => whnfCore mode eager env F' d x c)
+            t acc xs
           = .ok w ∧
-        appStep mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) w a = .ok vres
+        appStep mode (pureFns mode eager env F') env d (fun x => whnfCore mode eager env F' d x c)
+            w a = .ok vres
   | [], t, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -698,8 +704,8 @@ theorem betaPeel_snoc {d : Nat} :
     · obtain ⟨ty, body, rfl⟩ := hlam
       rw [betaPeel_lam] at H
       unfold betaPeelLam at H
-      have hid : betaPeel mode (pureFns mode env (F + 1)) env d
-          (fun x => whnfCore mode env (F + 1) d x c) (Expr.lam ty body) acc []
+      have hid : betaPeel mode (pureFns mode eager env (F + 1)) env d
+          (fun x => whnfCore mode eager env (F + 1) d x c) (Expr.lam ty body) acc []
           = .ok (.lam (ty.instantiateList acc)
               (body.instantiateList acc 1)) := by
         rw [betaPeel_nil, instList_lam]
@@ -726,11 +732,11 @@ theorem betaPeel_snoc {d : Nat} :
       obtain ⟨F₁, w, hw, hstep⟩ :=
         betaPeel_snoc xs' body (x :: acc) a F vres H
       refine ⟨max F F₁, w, ?_,
-        appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+        appStep_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
           (fun _ => rfl) (Nat.le_max_right F F₁) hstep⟩
       rw [betaPeel_lam]
       unfold betaPeelLam
-      exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+      exact betaPeel_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
         (fun _ => rfl) (Nat.le_max_right F F₁) hw
     · have ht : ∀ ty body, t ≠ Expr.lam ty body :=
         fun ty b hh => hlam ⟨ty, b, hh⟩
@@ -756,10 +762,11 @@ variable {env : Env} {c : Bool}
 
 private theorem whnfApp_sound_rev {d : Nat} :
     ∀ (rxs : List Expr) (h vh vres : Expr) (F₀ F : Nat),
-      whnfCore mode env F₀ d h c = .ok vh →
-      whnfApp mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) vh rxs.reverse
+      whnfCore mode eager env F₀ d h c = .ok vh →
+      whnfApp mode (pureFns mode eager env F) env d (fun x => whnfCore mode eager env F d x c) vh
+          rxs.reverse
           = .ok vres →
-      ∃ F', whnfCore mode env F' d (Expr.mkAppN h rxs.reverse) c = .ok vres
+      ∃ F', whnfCore mode eager env F' d (Expr.mkAppN h rxs.reverse) c = .ok vres
   | [], h, vh, vres, F₀, F => by
     intro hh H
     rw [List.reverse_nil, whnfApp_nil] at H
@@ -775,16 +782,17 @@ private theorem whnfApp_sound_rev {d : Nat} :
     rw [List.reverse_cons, Expr.mkAppN_append_one, whnfCore_succ,
       whnfCoreBody_app, whnfCore_def,
       whnfCore_mono (Nat.le_max_left F₂ F₁) hP, ok_bind]
-    exact appStep_mono ((fueledFns mode env).whnfCore c d) _ _ (fun _ => rfl)
+    exact appStep_mono ((fueledFns mode eager env).whnfCore c d) _ _ (fun _ => rfl)
       (fun _ => rfl) (Nat.le_max_right F₂ F₁) hstep
 
 /-- A successful loop run over a normalized head is reproduced by the
 chained `whnfCore` recursion on the whole application, at some fuel. -/
 theorem whnfApp_sound {d : Nat} (xs : List Expr) (h vh vres : Expr)
-    (F₀ F : Nat) (hh : whnfCore mode env F₀ d h c = .ok vh)
-    (H : whnfApp mode (pureFns mode env F) env d (fun x => whnfCore mode env F d x c) vh xs
+    (F₀ F : Nat) (hh : whnfCore mode eager env F₀ d h c = .ok vh)
+    (H : whnfApp mode (pureFns mode eager env F) env d (fun x => whnfCore mode eager env F d x c)
+        vh xs
       = .ok vres) :
-    ∃ F', whnfCore mode env F' d (Expr.mkAppN h xs) c = .ok vres := by
+    ∃ F', whnfCore mode eager env F' d (Expr.mkAppN h xs) c = .ok vres := by
   have hx : xs.reverse.reverse = xs := List.reverse_reverse xs
   have := whnfApp_sound_rev (d := d) xs.reverse h vh vres F₀ F hh
     (by rw [hx]; exact H)
@@ -801,19 +809,20 @@ chain on its own step budget while the specification stays
 chained. -/
 
 /-- The soundness hypothesis carried by a loop continuation. -/
-def KSound (mode : CheckMode) (env : Env) (c : Bool) (d : Nat)
+def KSound (mode : CheckMode) (eager : Bool) (env : Env) (c : Bool) (d : Nat)
     (k : Expr → FueledM Expr) : Prop :=
   ∀ (G : Nat) (e v : Expr), (k e).val G = .ok v →
-    ∃ M, whnfCore mode env M d e c = .ok v
+    ∃ M, whnfCore mode eager env M d e c = .ok v
 
 mutual
 
 theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
-    (hks : KSound mode env c d k) :
+    (hks : KSound mode eager env c d k) :
     ∀ (xs : List Expr) (v res : Expr) (F : Nat),
-      whnfApp mode (pureFns mode env F) env d (fun e => (k e).val F) v xs
+      whnfApp mode (pureFns mode eager env F) env d (fun e => (k e).val F) v xs
         = .ok res →
-      ∃ F', whnfApp mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) v xs
+      ∃ F', whnfApp mode (pureFns mode eager env F') env d (fun x => whnfCore mode eager env F' d x
+          c) v xs
         = .ok res
   | [], v, res, F => by
     intro H
@@ -831,7 +840,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
       refine ⟨max F F₁, ?_⟩
       rw [whnfApp_lam]
       unfold whnfAppLam
-      exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
+      exact betaPeel_mono ((fueledFns mode eager env).whnfCore c d) _ _
         (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
     · have hv : ∀ ty body, v ≠ Expr.lam ty body :=
         fun ty b hh => hlam ⟨ty, b, hh⟩
@@ -853,7 +862,7 @@ theorem whnfApp_ksound {d : Nat} (k : Expr → FueledM Expr)
         unfold whnfAppIota
         rw [iotaRec_mono (Nat.le_max_left F F₁) ho, ok_bind]
         dsimp only
-        exact whnfApp_mono ((fueledFns mode env).whnfCore c d) _ _
+        exact whnfApp_mono ((fueledFns mode eager env).whnfCore c d) _ _
           (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
 termination_by xs => (xs.length, 0)
 decreasing_by
@@ -862,12 +871,13 @@ decreasing_by
     | (apply Prod.Lex.right' <;> simp)
 
 theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
-    (hks : KSound mode env c d k) :
+    (hks : KSound mode eager env c d k) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr) (res : Expr)
       (F : Nat),
-      betaPeel mode (pureFns mode env F) env d (fun e => (k e).val F) t acc xs
+      betaPeel mode (pureFns mode eager env F) env d (fun e => (k e).val F) t acc xs
         = .ok res →
-      ∃ F', betaPeel mode (pureFns mode env F') env d (fun x => whnfCore mode env F' d x c) t acc xs
+      ∃ F', betaPeel mode (pureFns mode eager env F') env d (fun x => whnfCore mode eager env F' d
+          x c) t acc xs
         = .ok res
   | [], t, acc, res, F => by
     intro H
@@ -885,7 +895,7 @@ theorem betaPeel_ksound {d : Nat} (k : Expr → FueledM Expr)
       refine ⟨max F F₁, ?_⟩
       rw [betaPeel_lam]
       unfold betaPeelLam
-      exact betaPeel_mono ((fueledFns mode env).whnfCore c d) _ _
+      exact betaPeel_mono ((fueledFns mode eager env).whnfCore c d) _ _
         (fun _ => rfl) (fun _ => rfl) (Nat.le_max_right F F₁) hP
     · have ht : ∀ ty body, t ≠ Expr.lam ty body :=
         fun ty b hh => hlam ⟨ty, b, hh⟩
@@ -903,10 +913,10 @@ end
 /-- One loop *step* whose continuation is sound is reproduced by the
 chained specification body `whnfCoreBody` at some knot fuel. -/
 theorem whnfCoreStepM_sound {d : Nat} (k : Expr → FueledM Expr)
-    (hks : KSound mode env c d k) {e res : Expr} (F : Nat)
-    (H : whnfCoreStepM mode (pureFns mode env F) env c d (fun x => (k x).val F) e
+    (hks : KSound mode eager env c d k) {e res : Expr} (F : Nat)
+    (H : whnfCoreStepM mode (pureFns mode eager env F) env c d (fun x => (k x).val F) e
       = .ok res) :
-    ∃ F', whnfCoreBody mode (pureFns mode env F') env c d e = .ok res := by
+    ∃ F', whnfCoreBody mode (pureFns mode eager env F') env c d e = .ok res := by
   cases e with
   | bvar j => exact absurd H (by simp [whnfCoreStepM])
   | sort u => exact ⟨F, H⟩
@@ -981,8 +991,8 @@ mutual
 
 theorem whnfApp_run {d F : Nat} (kF : Expr → CheckM Expr) :
     ∀ (xs : List Expr) (v : Expr),
-      whnfApp mode (pureFns mode env F) env d kF v xs
-        = whnfAppW mode (pureFns mode env F) env d v xs >>= WhnfStep.run kF
+      whnfApp mode (pureFns mode eager env F) env d kF v xs
+        = whnfAppW mode (pureFns mode eager env F) env d v xs >>= WhnfStep.run kF
   | [], v => by rw [whnfApp_nil, whnfAppW_nil]; rfl
   | a :: rest, v => by
     by_cases hlam : ∃ ty body, v = Expr.lam ty body
@@ -994,7 +1004,7 @@ theorem whnfApp_run {d F : Nat} (kF : Expr → CheckM Expr) :
         fun ty b hh => hlam ⟨ty, b, hh⟩
       rw [whnfApp_ne_lam _ _ _ _ hv, whnfAppW_ne_lam _ _ _ hv]
       unfold whnfAppIota
-      cases ho : iotaRec mode (pureFns mode env F) env d (.app v a) with
+      cases ho : iotaRec mode (pureFns mode eager env F) env d (.app v a) with
       | error err => rfl
       | ok o =>
         cases o with
@@ -1008,8 +1018,8 @@ decreasing_by
 
 theorem betaPeel_run {d F : Nat} (kF : Expr → CheckM Expr) :
     ∀ (xs : List Expr) (t : Expr) (acc : List Expr),
-      betaPeel mode (pureFns mode env F) env d kF t acc xs
-        = betaPeelW mode (pureFns mode env F) env d t acc xs >>= WhnfStep.run kF
+      betaPeel mode (pureFns mode eager env F) env d kF t acc xs
+        = betaPeelW mode (pureFns mode eager env F) env d t acc xs >>= WhnfStep.run kF
   | [], t, acc => by rw [betaPeel_nil, betaPeelW_nil]; rfl
   | a :: rest, t, acc => by
     by_cases hlam : ∃ ty body, t = Expr.lam ty body
@@ -1030,32 +1040,32 @@ decreasing_by
 end
 
 theorem whnfCoreStepM_run {d F : Nat} (kF : Expr → CheckM Expr) (e : Expr) :
-    whnfCoreStepM mode (pureFns mode env F) env c d kF e
-      = whnfCoreStepW mode (pureFns mode env F) env c d e >>= WhnfStep.run kF := by
+    whnfCoreStepM mode (pureFns mode eager env F) env c d kF e
+      = whnfCoreStepW mode (pureFns mode eager env F) env c d e >>= WhnfStep.run kF := by
   cases e with
   | app f a =>
     simp only [whnfCoreStepM, whnfCoreStepW]
-    cases h : (pureFns mode env F).whnfCore c d (Expr.app f a).getAppFn with
+    cases h : (pureFns mode eager env F).whnfCore c d (Expr.app f a).getAppFn with
     | error err => rfl
     | ok vh => exact whnfApp_run kF _ vh
   | proj sn i pe =>
     cases c with
     | false =>
       simp only [whnfCoreStepM, whnfCoreStepW, Bool.false_eq_true, ↓reduceIte]
-      cases hw : (pureFns mode env F).whnf d pe with
+      cases hw : (pureFns mode eager env F).whnf d pe with
       | error err => rfl
       | ok w =>
         simp only [Bind.bind, Except.bind]
-        cases ho : reduceProjCore mode (pureFns mode env F) env d sn i w with
+        cases ho : reduceProjCore mode (pureFns mode eager env F) env d sn i w with
         | error err => rfl
         | ok o => cases o <;> rfl
     | true =>
       simp only [whnfCoreStepM, whnfCoreStepW, ↓reduceIte]
-      cases hw : (pureFns mode env F).whnfCore true d pe with
+      cases hw : (pureFns mode eager env F).whnfCore true d pe with
       | error err => rfl
       | ok w =>
         simp only [Bind.bind, Except.bind]
-        cases ho : reduceProjCore mode (pureFns mode env F) env d sn i w with
+        cases ho : reduceProjCore mode (pureFns mode eager env F) env d sn i w with
         | error err => rfl
         | ok o => cases o <;> rfl
   | _ => rfl
@@ -1067,7 +1077,7 @@ some knot fuel, so `whnfCoreBody` (and everything above it) never sees
 the loop. -/
 theorem whnfCoreLoopM_ksound {d : Nat} :
     ∀ (n : Nat),
-      KSound mode env c d (fun e => whnfCoreLoopM mode (fueledFns mode env) env c d n e)
+      KSound mode eager env c d (fun e => whnfCoreLoopM mode (fueledFns mode eager env) env c d n e)
   | 0 => by
     intro G e v h
     rw [whnfCoreLoopM_atF c d 0 e G] at h
@@ -1075,18 +1085,18 @@ theorem whnfCoreLoopM_ksound {d : Nat} :
   | n + 1 => by
     intro G e v h
     rw [whnfCoreLoopM_atF c d (n + 1) e G] at h
-    have h' : whnfCoreStepM mode (pureFns mode env G) env c d
-        (whnfCoreLoopM mode (pureFns mode env G) env c d n) e = .ok v := by
+    have h' : whnfCoreStepM mode (pureFns mode eager env G) env c d
+        (whnfCoreLoopM mode (pureFns mode eager env G) env c d n) e = .ok v := by
       rw [whnfCoreStepM_run]
       simp only [whnfCoreLoopM] at h
       exact h
     obtain ⟨F', hF'⟩ :=
       whnfCoreStepM_sound (env := env) (d := d)
-        (fun x => whnfCoreLoopM mode (fueledFns mode env) env c d n x)
+        (fun x => whnfCoreLoopM mode (fueledFns mode eager env) env c d n x)
         (whnfCoreLoopM_ksound n) (e := e) (res := v) G
         (by
-          rw [show (fun x => (whnfCoreLoopM mode (fueledFns mode env) env c d n x).val G)
-              = whnfCoreLoopM mode (pureFns mode env G) env c d n from
+          rw [show (fun x => (whnfCoreLoopM mode (fueledFns mode eager env) env c d n x).val G)
+              = whnfCoreLoopM mode (pureFns mode eager env G) env c d n from
             funext fun x => whnfCoreLoopM_atF c d n x G]
           exact h')
     exact ⟨F' + 1, by rw [whnfCore_succ]; exact hF'⟩
@@ -1095,8 +1105,8 @@ theorem whnfCoreLoopM_ksound {d : Nat} :
 fueled record is reproduced by `whnfCoreBody` on the same node, at
 some knot fuel. -/
 theorem whnfCoreLoop_sound_body (d : Nat) (e vres : Expr) (n F : Nat)
-    (H : (whnfCoreLoopM mode (fueledFns mode env) env c d n e).val F = .ok vres) :
-    ∃ F', (whnfCoreBody mode (fueledFns mode env) env c d e).val F' = .ok vres := by
+    (H : (whnfCoreLoopM mode (fueledFns mode eager env) env c d n e).val F = .ok vres) :
+    ∃ F', (whnfCoreBody mode (fueledFns mode eager env) env c d e).val F' = .ok vres := by
   obtain ⟨M, hM⟩ := whnfCoreLoopM_ksound n F e vres H
   cases M with
   | zero => rw [whnfCore_zero] at hM; exact nomatch hM
@@ -1128,9 +1138,9 @@ def inferStep (r : CoreFns m) (depth : Nat) (tf a : Expr) : m Expr := do
 /-- `inferBody`'s app case at the pure knot is one inference followed
 by `inferStep` (stated at `CheckM`, where the do-notation reduces). -/
 theorem inferBody_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
-    inferBody (pureFns mode env F) env depth (.app f a)
-      = (pureFns mode env F).infer depth f >>= fun tf =>
-          inferStep (pureFns mode env F) depth tf a := by rfl
+    inferBody (pureFns mode eager env F) env depth (.app f a)
+      = (pureFns mode eager env F).infer depth f >>= fun tf =>
+          inferStep (pureFns mode eager env F) depth tf a := by rfl
 
 /-- Pure mirror of the cached inference spine loop `inferSpineI`:
 `ty` is the raw Π-telescope after the binders consumed so far, `acc`
@@ -1208,15 +1218,15 @@ section InferAtF
 variable {env : Env}
 
 theorem inferStep_atF (d : Nat) (tf a : Expr) (F : Nat) :
-    (inferStep (fueledFns mode env) d tf a).val F
-      = inferStep (pureFns mode env F) d tf a := by
+    (inferStep (fueledFns mode eager env) d tf a).val F
+      = inferStep (pureFns mode eager env F) d tf a := by
   unfold inferStep
   atF_tac4
 
 theorem inferSpine_atF (d : Nat) :
     ∀ (xs : List Expr) (ty : Expr) (acc : List Expr) (F : Nat),
-      (inferSpine (fueledFns mode env) d ty acc xs).val F
-        = inferSpine (pureFns mode env F) d ty acc xs
+      (inferSpine (fueledFns mode eager env) d ty acc xs).val F
+        = inferSpine (pureFns mode eager env F) d ty acc xs
   | [], ty, acc, F => by rw [inferSpine_nil, inferSpine_nil]; rfl
   | a :: rest, ty, acc, F => by
     by_cases hpi : ∃ dom body, ty = Expr.forallE dom body
@@ -1232,7 +1242,7 @@ theorem inferSpine_atF (d : Nat) :
       funext b
       cases b with
       | true =>
-        show (inferSpine (fueledFns mode env) d body (a :: acc) rest).val F = _
+        show (inferSpine (fueledFns mode eager env) d body (a :: acc) rest).val F = _
         rw [inferSpine_atF d rest body (a :: acc) F]
         rfl
       | false => rfl
@@ -1255,7 +1265,7 @@ theorem inferSpine_atF (d : Nat) :
         funext b
         cases b with
         | true =>
-          show (inferSpine (fueledFns mode env) d body [a] rest).val F = _
+          show (inferSpine (fueledFns mode eager env) d body [a] rest).val F = _
           rw [inferSpine_atF d rest body [a] F]
           rfl
         | false => rfl
@@ -1263,28 +1273,28 @@ theorem inferSpine_atF (d : Nat) :
 
 theorem inferSpine_mono {d : Nat} {xs acc : List Expr} {ty : Expr}
     {F F' : Nat} (hle : F ≤ F') {res : Expr}
-    (h : inferSpine (pureFns mode env F) d ty acc xs = .ok res) :
-    inferSpine (pureFns mode env F') d ty acc xs = .ok res := by
+    (h : inferSpine (pureFns mode eager env F) d ty acc xs = .ok res) :
+    inferSpine (pureFns mode eager env F') d ty acc xs = .ok res := by
   rw [← inferSpine_atF] at h ⊢
-  exact (inferSpine (fueledFns mode env) d ty acc xs).property hle h
+  exact (inferSpine (fueledFns mode eager env) d ty acc xs).property hle h
 
 theorem inferStep_mono {d : Nat} {tf a : Expr} {F F' : Nat}
     (hle : F ≤ F') {res : Expr}
-    (h : inferStep (pureFns mode env F) d tf a = .ok res) :
-    inferStep (pureFns mode env F') d tf a = .ok res := by
+    (h : inferStep (pureFns mode eager env F) d tf a = .ok res) :
+    inferStep (pureFns mode eager env F') d tf a = .ok res := by
   rw [← inferStep_atF] at h ⊢
-  exact (inferStep (fueledFns mode env) d tf a).property hle h
+  exact (inferStep (fueledFns mode eager env) d tf a).property hle h
 
 /-- `whnf` is the identity on a `∀` (at fuel `≥ 2`: one level for the
 `whnfCore` inside the loop). -/
 theorem whnf_forallE (F d : Nat) (t b : Expr)
     :
-    whnf mode env (F + 2) d (.forallE t b) = .ok (.forallE t b) := by
+    whnf mode eager env (F + 2) d (.forallE t b) = .ok (.forallE t b) := by
   -- one iteration of the reduction loop suffices (task #106: the step
   -- budget is `irreducible`, so peel it with its positivity witness)
   obtain ⟨k, hk⟩ := whnfLoopFuel_succ
   rw [whnf_succ]
-  show whnfLoop (pureFns mode env (F + 1)) env d whnfLoopFuel _ = _
+  show whnfLoop (pureFns mode eager env (F + 1)) env d whnfLoopFuel _ = _
   rw [hk]
   rfl
 
@@ -1297,9 +1307,9 @@ variable {env : Env}
 theorem inferSpine_snoc {d : Nat} :
     ∀ (xs : List Expr) (ty : Expr) (acc : List Expr) (a : Expr) (F : Nat)
       (vres : Expr),
-      inferSpine (pureFns mode env F) d ty acc (xs ++ [a]) = .ok vres →
-      ∃ F' w, inferSpine (pureFns mode env F') d ty acc xs = .ok w ∧
-        inferStep (pureFns mode env F') d w a = .ok vres
+      inferSpine (pureFns mode eager env F) d ty acc (xs ++ [a]) = .ok vres →
+      ∃ F' w, inferSpine (pureFns mode eager env F') d ty acc xs = .ok w ∧
+        inferStep (pureFns mode eager env F') d w a = .ok vres
   | [], ty, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -1336,8 +1346,8 @@ theorem inferSpine_snoc {d : Nat} :
       refine ⟨F, ty.instantiateList acc, by rw [inferSpine_nil]; rfl, ?_⟩
       unfold inferStep
       rw [whnf_def]
-      show (whnf mode env F d (ty.instantiateList acc) >>= _) = _
-      rw [show whnf mode env F d (ty.instantiateList acc) = .ok w₀ from hw₀,
+      show (whnf mode eager env F d (ty.instantiateList acc) >>= _) = _
+      rw [show whnf mode eager env F d (ty.instantiateList acc) = .ok w₀ from hw₀,
         ok_bind]
       cases w₀ with
       | forallE dom body =>
@@ -1411,7 +1421,7 @@ theorem inferSpine_snoc {d : Nat} :
           rw [inferSpine_ne_pi _ _ hty]
           unfold inferSpineWhnf
           rw [whnf_def]
-          show (whnf mode env (max F F₁) d (ty.instantiateList acc) >>= _) = _
+          show (whnf mode eager env (max F F₁) d (ty.instantiateList acc) >>= _) = _
           rw [whnf_mono (Nat.le_max_left F F₁) hw₀, ok_bind]
           dsimp only
           rw [infer_def, inferTypeCore_mono (Nat.le_max_left F F₁) hta,
@@ -1430,9 +1440,9 @@ theorem inferSpine_snoc {d : Nat} :
 
 private theorem inferSpine_sound_rev {d : Nat} :
     ∀ (rxs : List Expr) (h th vres : Expr) (F₀ F : Nat),
-      inferTypeCore mode env F₀ d h = .ok th →
-      inferSpine (pureFns mode env F) d th [] rxs.reverse = .ok vres →
-      ∃ F', inferTypeCore mode env F' d (Expr.mkAppN h rxs.reverse) = .ok vres
+      inferTypeCore mode eager env F₀ d h = .ok th →
+      inferSpine (pureFns mode eager env F) d th [] rxs.reverse = .ok vres →
+      ∃ F', inferTypeCore mode eager env F' d (Expr.mkAppN h rxs.reverse) = .ok vres
   | [], h, th, vres, F₀, F => by
     intro hh H
     rw [List.reverse_nil, inferSpine_nil, Expr.instantiateList_nil] at H
@@ -1454,9 +1464,9 @@ private theorem inferSpine_sound_rev {d : Nat} :
 reproduced by the chained inference on the whole application, at some
 fuel. -/
 theorem inferSpine_sound {d : Nat} (xs : List Expr) (h th vres : Expr)
-    (F₀ F : Nat) (hh : inferTypeCore mode env F₀ d h = .ok th)
-    (H : inferSpine (pureFns mode env F) d th [] xs = .ok vres) :
-    ∃ F', inferTypeCore mode env F' d (Expr.mkAppN h xs) = .ok vres := by
+    (F₀ F : Nat) (hh : inferTypeCore mode eager env F₀ d h = .ok th)
+    (H : inferSpine (pureFns mode eager env F) d th [] xs = .ok vres) :
+    ∃ F', inferTypeCore mode eager env F' d (Expr.mkAppN h xs) = .ok vres := by
   have hx : xs.reverse.reverse = xs := List.reverse_reverse xs
   have := inferSpine_sound_rev (d := d) xs.reverse h th vres F₀ F hh
     (by rw [hx]; exact H)
@@ -1465,10 +1475,10 @@ theorem inferSpine_sound {d : Nat} (xs : List Expr) (h th vres : Expr)
 /-- The bridge the cached walk uses. -/
 theorem inferSpine_sound_body (d : Nat) (fx ax : Expr) (vres : Expr)
     (F : Nat)
-    (H : ((fueledFns mode env).infer d (Expr.app fx ax).getAppFn >>=
-        fun tf => inferSpine (fueledFns mode env) d tf []
+    (H : ((fueledFns mode eager env).infer d (Expr.app fx ax).getAppFn >>=
+        fun tf => inferSpine (fueledFns mode eager env) d tf []
           (Expr.app fx ax).getAppArgs).val F = .ok vres) :
-    ∃ F', (inferBody (fueledFns mode env) env d (.app fx ax)).val F'
+    ∃ F', (inferBody (fueledFns mode eager env) env d (.app fx ax)).val F'
       = .ok vres := by
   rw [FueledM.atF_bind] at H
   obtain ⟨th, hth, H⟩ := bind_ok H
@@ -1561,18 +1571,18 @@ end InferIOSpine
 
 section InferIOAtF
 
-variable {mode : CheckMode} {env : Env}
+variable {mode : CheckMode} {eager : Bool} {env : Env}
 
 theorem inferStepIO_atF (d : Nat) (tf a : Expr) (F : Nat) :
-    (inferStepIO (fueledFns mode env) d tf a).val F
-      = inferStepIO (pureFns mode env F) d tf a := by
+    (inferStepIO (fueledFns mode eager env) d tf a).val F
+      = inferStepIO (pureFns mode eager env F) d tf a := by
   unfold inferStepIO
   atF_tac4
 
 theorem inferSpineIO_atF (d : Nat) :
     ∀ (xs : List Expr) (ty : Expr) (acc : List Expr) (F : Nat),
-      (inferSpineIO (fueledFns mode env) d ty acc xs).val F
-        = inferSpineIO (pureFns mode env F) d ty acc xs
+      (inferSpineIO (fueledFns mode eager env) d ty acc xs).val F
+        = inferSpineIO (pureFns mode eager env F) d ty acc xs
   | [], ty, acc, F => by rw [inferSpineIO_nil, inferSpineIO_nil]; rfl
   | a :: rest, ty, acc, F => by
     by_cases hpi : ∃ dom body, ty = Expr.forallE dom body
@@ -1593,45 +1603,45 @@ theorem inferSpineIO_atF (d : Nat) :
 
 theorem inferSpineIO_mono {d : Nat} {xs acc : List Expr} {ty : Expr}
     {F F' : Nat} (hle : F ≤ F') {res : Expr}
-    (h : inferSpineIO (pureFns mode env F) d ty acc xs = .ok res) :
-    inferSpineIO (pureFns mode env F') d ty acc xs = .ok res := by
+    (h : inferSpineIO (pureFns mode eager env F) d ty acc xs = .ok res) :
+    inferSpineIO (pureFns mode eager env F') d ty acc xs = .ok res := by
   rw [← inferSpineIO_atF] at h ⊢
-  exact (inferSpineIO (fueledFns mode env) d ty acc xs).property hle h
+  exact (inferSpineIO (fueledFns mode eager env) d ty acc xs).property hle h
 
 theorem inferStepIO_mono {d : Nat} {tf a : Expr} {F F' : Nat}
     (hle : F ≤ F') {res : Expr}
-    (h : inferStepIO (pureFns mode env F) d tf a = .ok res) :
-    inferStepIO (pureFns mode env F') d tf a = .ok res := by
+    (h : inferStepIO (pureFns mode eager env F) d tf a = .ok res) :
+    inferStepIO (pureFns mode eager env F') d tf a = .ok res := by
   rw [← inferStepIO_atF] at h ⊢
-  exact (inferStepIO (fueledFns mode env) d tf a).property hle h
+  exact (inferStepIO (fueledFns mode eager env) d tf a).property hle h
 
 /-- The io inference body's app case over the io-grade view is one
 io-slot inference followed by `inferStepIO` (stated at `CheckM`). -/
 theorem inferBodyIO_app_pure (env : Env) (F depth : Nat) (f a : Expr) :
-    inferBodyIO (CoreFns.ioView (pureFns mode env F)) env depth
+    inferBodyIO (CoreFns.ioView (pureFns mode eager env F)) env depth
         (.app f a)
-      = (pureFns mode env F).inferIO depth f >>= fun tf =>
-          inferStepIO (CoreFns.ioView (pureFns mode env F)) depth
+      = (pureFns mode eager env F).inferIO depth f >>= fun tf =>
+          inferStepIO (CoreFns.ioView (pureFns mode eager env F)) depth
             tf a := by rfl
 
 /-- The io mirrors read only `whnf`, `inferIO` and `defeq`, none of
 which the io-grade view touches, so the view is transparent to them. -/
 theorem inferStepIO_ioView (F d : Nat) (tf a : Expr) :
-    inferStepIO (CoreFns.ioView (pureFns mode env F)) d tf a
-      = inferStepIO (pureFns mode env F) d tf a := by rfl
+    inferStepIO (CoreFns.ioView (pureFns mode eager env F)) d tf a
+      = inferStepIO (pureFns mode eager env F) d tf a := by rfl
 
 end InferIOAtF
 
 section InferIOSnoc
 
-variable {mode : CheckMode} {env : Env}
+variable {mode : CheckMode} {eager : Bool} {env : Env}
 
 theorem inferSpineIO_snoc {d : Nat} :
     ∀ (xs : List Expr) (ty : Expr) (acc : List Expr) (a : Expr) (F : Nat)
       (vres : Expr),
-      inferSpineIO (pureFns mode env F) d ty acc (xs ++ [a]) = .ok vres →
-      ∃ F' w, inferSpineIO (pureFns mode env F') d ty acc xs = .ok w ∧
-        inferStepIO (pureFns mode env F') d w a = .ok vres
+      inferSpineIO (pureFns mode eager env F) d ty acc (xs ++ [a]) = .ok vres →
+      ∃ F' w, inferSpineIO (pureFns mode eager env F') d ty acc xs = .ok w ∧
+        inferStepIO (pureFns mode eager env F') d w a = .ok vres
   | [], ty, acc, a, F, vres => by
     intro H
     rw [List.nil_append] at H
@@ -1656,8 +1666,8 @@ theorem inferSpineIO_snoc {d : Nat} :
       refine ⟨F, ty.instantiateList acc, by rw [inferSpineIO_nil]; rfl, ?_⟩
       unfold inferStepIO
       rw [whnf_def]
-      show (whnf mode env F d (ty.instantiateList acc) >>= _) = _
-      rw [show whnf mode env F d (ty.instantiateList acc) = .ok w₀ from hw₀,
+      show (whnf mode eager env F d (ty.instantiateList acc) >>= _) = _
+      rw [show whnf mode eager env F d (ty.instantiateList acc) = .ok w₀ from hw₀,
         ok_bind]
       cases w₀ with
       | forallE dom body =>
@@ -1701,7 +1711,7 @@ theorem inferSpineIO_snoc {d : Nat} :
         rw [inferSpineIO_ne_pi _ _ hty]
         unfold inferSpineIOWhnf
         rw [whnf_def]
-        show (whnf mode env (max F F₁) d (ty.instantiateList acc) >>= _) = _
+        show (whnf mode eager env (max F F₁) d (ty.instantiateList acc) >>= _) = _
         rw [whnf_mono (Nat.le_max_left F F₁) hw₀, ok_bind]
         exact inferSpineIO_mono (Nat.le_max_right F F₁) hw
       | bvar i => exact nomatch H
@@ -1716,10 +1726,10 @@ theorem inferSpineIO_snoc {d : Nat} :
 
 private theorem inferSpineIO_sound_rev {d : Nat} :
     ∀ (rxs : List Expr) (h th vres : Expr) (F₀ F : Nat),
-      inferTypeIO mode env F₀ d h = .ok th →
-      inferSpineIO (pureFns mode env F) d th [] rxs.reverse
+      inferTypeIO mode eager env F₀ d h = .ok th →
+      inferSpineIO (pureFns mode eager env F) d th [] rxs.reverse
         = .ok vres →
-      ∃ F', inferTypeIO mode env F' d (Expr.mkAppN h rxs.reverse)
+      ∃ F', inferTypeIO mode eager env F' d (Expr.mkAppN h rxs.reverse)
         = .ok vres
   | [], h, th, vres, F₀, F => by
     intro hh H
@@ -1736,9 +1746,9 @@ private theorem inferSpineIO_sound_rev {d : Nat} :
     refine ⟨max F₂ F₁ + 1, ?_⟩
     rw [List.reverse_cons, Expr.mkAppN_append_one, inferTypeIO_succ,
       inferBodyIO_app_pure]
-    rw [show (pureFns mode env (max F₂ F₁)).inferIO d
+    rw [show (pureFns mode eager env (max F₂ F₁)).inferIO d
         (Expr.mkAppN h rrs.reverse)
-      = inferTypeIO mode env (max F₂ F₁) d (Expr.mkAppN h rrs.reverse)
+      = inferTypeIO mode eager env (max F₂ F₁) d (Expr.mkAppN h rrs.reverse)
       from rfl]
     rw [inferTypeIO_mono (Nat.le_max_left F₂ F₁) hP, ok_bind]
     rw [inferStepIO_ioView]
@@ -1749,9 +1759,9 @@ reproduced by the chained io slot on the whole application, at some
 fuel. -/
 theorem inferSpineIO_sound {d : Nat}
     (xs : List Expr) (h th vres : Expr) (F₀ F : Nat)
-    (hh : inferTypeIO mode env F₀ d h = .ok th)
-    (H : inferSpineIO (pureFns mode env F) d th [] xs = .ok vres) :
-    ∃ F', inferTypeIO mode env F' d (Expr.mkAppN h xs) = .ok vres := by
+    (hh : inferTypeIO mode eager env F₀ d h = .ok th)
+    (H : inferSpineIO (pureFns mode eager env F) d th [] xs = .ok vres) :
+    ∃ F', inferTypeIO mode eager env F' d (Expr.mkAppN h xs) = .ok vres := by
   have hx : xs.reverse.reverse = xs := List.reverse_reverse xs
   have := inferSpineIO_sound_rev (d := d) xs.reverse h th vres F₀ F hh
     (by rw [hx]; exact H)
@@ -1760,10 +1770,10 @@ theorem inferSpineIO_sound {d : Nat}
 /-- The bridge the cached io walk uses. -/
 theorem inferSpineIO_sound_body (d : Nat)
     (fx ax : Expr) (vres : Expr) (F : Nat)
-    (H : ((fueledFns mode env).inferIO d (Expr.app fx ax).getAppFn >>=
-        fun tf => inferSpineIO (fueledFns mode env) d tf []
+    (H : ((fueledFns mode eager env).inferIO d (Expr.app fx ax).getAppFn >>=
+        fun tf => inferSpineIO (fueledFns mode eager env) d tf []
           (Expr.app fx ax).getAppArgs).val F = .ok vres) :
-    ∃ F', (inferBodyIO (CoreFns.ioView (fueledFns mode env)) env d
+    ∃ F', (inferBodyIO (CoreFns.ioView (fueledFns mode eager env)) env d
       (.app fx ax)).val F' = .ok vres := by
   rw [FueledM.atF_bind] at H
   obtain ⟨th, hth, H⟩ := bind_ok H

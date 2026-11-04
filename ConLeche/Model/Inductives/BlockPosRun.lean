@@ -573,9 +573,9 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
       cA.1.type = some crest)
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {u : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {u : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok u)
     {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
@@ -664,9 +664,9 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
       cA.1.type = some crest)
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {u : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {u : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok u)
     {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List ConLeche.PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)

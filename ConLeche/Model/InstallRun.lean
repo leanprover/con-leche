@@ -60,7 +60,7 @@ The hypotheses about the run's final index (`q`) are the ones a
 separable value declaration needs: phase A installs its header and
 records the value group, and the group's own check — run at the FINAL
 environment, from a fresh memo state — is what the model step consumes. -/
-theorem installStepC_model (hμ : μ.isVerified = true)
+theorem installStepC_model (hμ : μ.verifiedChecks = true)
     {i : Nat} {fe fe₁ : FEnv} {pend pend₁ : Array PendingCheck} {pd : Declaration}
     {s s₁ : CState} {q : Nat × FEnv × Array PendingCheck} {new₁ : List PendingCheck}
     (hfe : fe = mkFEnv fe.env) (hfe₁ : fe₁ = mkFEnv fe₁.env)
@@ -85,7 +85,7 @@ theorem installStepC_model (hμ : μ.isVerified = true)
       simp only [Prod.mk.injEq] at hv
       obtain ⟨rfl, rfl⟩ := hv
       rw [hfe] at hstepC'
-      obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run (CheckMode.vc hμ) henv hresA hstepC'
+      obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run (hμ) henv hresA hstepC'
       exact ⟨declStep_preserves hμ mp hcov hE
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
     -- a separable value declaration: phase A's install (its facts
@@ -128,7 +128,7 @@ theorem installStepC_model (hμ : μ.isVerified = true)
         split at h
         · exact nomatch h
         · exact h
-      obtain ⟨-, F₂, hC⟩ := checkPending_run (CheckMode.vc hμ) henv
+      obtain ⟨-, F₂, hC⟩ := checkPending_run (hμ) henv
         (pc := ⟨⟨kind, cv, jv⟩, i, fe.visibleBelow⟩) (by rw [hvis]; exact hfind)
         (by rw [hvis]; exact htab) hwty hwv CSOKF.empty hchk
       -- the two halves are the declaration's check
@@ -212,7 +212,7 @@ core takes; the records' checks are consumed at the positions that
 produced them.)  A theorem's record holds its RAW value: phase A
 installed the header alone, and phase B's check of the
 value is what the theorem's model step consumes. -/
-theorem installRun_model (hμ : μ.isVerified = true) {ds : List Declaration}
+theorem installRun_model (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck}
     {q : Nat × FEnv × Array PendingCheck}
     (hrun : InstallRun μ pins ds p q) :
@@ -240,7 +240,7 @@ theorem installRun_model (hμ : μ.isVerified = true) {ds : List Declaration}
 /-- **A fully checked environment carries the model.**  The set theory
 is a hypothesis because the walk threads the model for the
 well-formedness it needs; the conclusion is the model itself. -/
-theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.isVerified = true)
+theorem fullyChecked_sound (V : Type w) [SetTheory V] (hμ : μ.verifiedChecks = true)
     {ds : List Declaration} (fc : FullyChecked μ pins ds) :
     Nonempty (EnvModelM V μ fc.env) := by
   obtain ⟨n, r⟩ := fc.1.run
@@ -253,7 +253,7 @@ a validating mode, holds no constant of type `False`.  The step the main
 corollary rests on (`ConLeche/MainTheorem.lean`, about `checkDecls`) is
 this under `checkDecls_fullyChecked`. -/
 theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true) {ds : List Declaration}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     (fc : FullyChecked μ pins ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const falseName [] → False := by
@@ -262,7 +262,7 @@ theorem no_proof_of_False_checked (V : Type w) [SetTheory V]
 
 /-- The same letter about the pinned `Empty`. -/
 theorem no_proof_of_Empty_checked (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true) {ds : List Declaration}
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     (fc : FullyChecked μ pins ds) :
     ∀ c ∈ fc.env.consts,
       c.toConstantVal.type = .const emptyName [] → False := by

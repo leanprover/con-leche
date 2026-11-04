@@ -30,6 +30,7 @@ import ConLeche.Model.Inductives.GenRecParams
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.Denote.ErasedEq
+import ConLeche.Verify.Modes
 
 public section
 
@@ -67,12 +68,12 @@ section Kit
 
 /-- **A successful inference of a telescope infers every opened domain**,
 at its own depth. -/
-theorem inferTypeCore_openPis_dom (hμ : μ.isVerified = true) {envK : Env} {F : Nat}
+theorem inferTypeCore_openPis_dom (hμ : μ.verifiedChecks = true) {envK : Env} {F : Nat}
     {n d : Nat} {e s : Expr} {fvs : List Expr} {o : Expr}
     (hop : openPisAtFvars n e d = some (fvs, o))
-    (hinf : ConLeche.inferTypeCore μ envK F d e = .ok s) :
+    (hinf : ConLeche.inferTypeCore μ false envK F d e = .ok s) :
     ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ t, ConLeche.inferTypeCore μ envK F (d + i) x.fvarTypeD = .ok t := by
+      ∃ t, ConLeche.inferTypeCore μ false envK F (d + i) x.fvarTypeD = .ok t := by
   intro i x hx
   have hi : i < fvs.length := (List.getElem?_eq_some_iff.mp hx).1
   have hn : fvs.length = n := ConLeche.Verify.openPisAtFvars_length _ hop
@@ -94,7 +95,7 @@ theorem inferTypeCore_openPis_dom (hμ : μ.isVerified = true) {envK : Env} {F :
       rw [hfe, List.getElem?_append_right (by omega), hAl, Nat.sub_self] at hx
       simpa using hx.symm
     · exact nomatch hB
-  have hdomInf : ∃ t, ConLeche.inferTypeCore μ envK F (d + i) dom = .ok t := by
+  have hdomInf : ∃ t, ConLeche.inferTypeCore μ false envK F (d + i) dom = .ok t := by
     cases i with
     | zero =>
       simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hA
@@ -110,7 +111,7 @@ theorem inferTypeCore_openPis_dom (hμ : μ.isVerified = true) {envK : Env} {F :
 /-- **A term the kernel infers over a frame of openers is graded at every
 spine fitting the frame**: the openers' types read as the frame's
 domains, which are graded along their fitting spines. -/
-theorem graded_of_infer_openers (hμ : μ.isVerified = true) {envC : Env}
+theorem graded_of_infer_openers (hμ : μ.verifiedChecks = true) {envC : Env}
     (mpC : EnvModelM V μ envC) (ψ : Name → Nat) {F D : Nat} {fr : List Expr}
     {doms : List Term} (hdl : doms.length = D)
     (hshape : ∀ (i : Nat) (x : Expr), fr[i]? = some x → ∃ ty, x = Expr.fvar i ty)
@@ -120,12 +121,12 @@ theorem graded_of_infer_openers (hμ : μ.isVerified = true) {envC : Env}
       denote mpC.base2.acval envC ψ i (Expr.fvarTypeD x) = some (doms.getD i default))
     (hok : ∀ l, l < D → ∀ (σ : Nat → V) (ys : List V), SpineFit σ (doms.take l) ys →
       WellDenotedTy V (consList ys σ) (doms.getD l default))
-    {e t : Expr} (hinf : ConLeche.inferTypeCore μ envC F D e = .ok t)
+    {e t : Expr} (hinf : ConLeche.inferTypeCore μ false envC F D e = .ok t)
     (hwsE : Expr.WScoped D e) (hbE : e.looseBVarsBounded 0 = true)
     (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
     ∃ w, denote mpC.base2.acval envC ψ D e = some w ∧
       (∀ (σ : Nat → V) (ys : List V), SpineFit σ doms ys → WellDenoted V (consList ys σ) w) ∧
-      (∀ u, ConLeche.whnf μ envC F D t = .ok (.sort u) →
+      (∀ u, ConLeche.whnf μ false envC F D t = .ok (.sort u) →
         ∀ (σ : Nat → V) (ys : List V), SpineFit σ doms ys →
           IsTy (interp V (consList ys σ) w)) := by
   obtain rfl : μ = .verified := CheckMode.eq_verified hμ
@@ -176,9 +177,9 @@ theorem list_getD_append_right {α : Type} {l l' : List α} {d : α} {n : Nat}
 
 /-- **A successful inference of a Π infers its domain to a sort.** -/
 theorem inferTypeCore_forallE_dom_sort {envK : Env} {F d : Nat} {ty bd s : Expr}
-    (h : ConLeche.inferTypeCore μ envK F d (.forallE ty bd) = .ok s) :
-    ∃ tty u, ConLeche.inferTypeCore μ envK F d ty = .ok tty ∧
-      ConLeche.whnf μ envK F d tty = .ok (.sort u) := by
+    (h : ConLeche.inferTypeCore μ false envK F d (.forallE ty bd) = .ok s) :
+    ∃ tty u, ConLeche.inferTypeCore μ false envK F d ty = .ok tty ∧
+      ConLeche.whnf μ false envK F d tty = .ok (.sort u) := by
   cases F with
   | zero =>
     rw [ConLeche.inferTypeCore_zero] at h
@@ -194,13 +195,13 @@ theorem inferTypeCore_forallE_dom_sort {envK : Env} {F d : Nat} {ty bd s : Expr}
     | _ => simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **Every opened domain of an inferred telescope is inferred to a sort.** -/
-theorem inferTypeCore_openPis_dom_sort (hμ : μ.isVerified = true) {envK : Env} {F : Nat}
+theorem inferTypeCore_openPis_dom_sort (hμ : μ.verifiedChecks = true) {envK : Env} {F : Nat}
     {n d : Nat} {e s : Expr} {fvs : List Expr} {o : Expr}
     (hop : openPisAtFvars n e d = some (fvs, o))
-    (hinf : ConLeche.inferTypeCore μ envK F d e = .ok s) :
+    (hinf : ConLeche.inferTypeCore μ false envK F d e = .ok s) :
     ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ t u, ConLeche.inferTypeCore μ envK F (d + i) x.fvarTypeD = .ok t ∧
-        ConLeche.whnf μ envK F (d + i) t = .ok (.sort u) := by
+      ∃ t u, ConLeche.inferTypeCore μ false envK F (d + i) x.fvarTypeD = .ok t ∧
+        ConLeche.whnf μ false envK F (d + i) t = .ok (.sort u) := by
   intro i x hx
   have hi : i < fvs.length := (List.getElem?_eq_some_iff.mp hx).1
   have hn : fvs.length = n := ConLeche.Verify.openPisAtFvars_length _ hop
@@ -236,9 +237,9 @@ theorem inferTypeCore_openPis_dom_sort (hμ : μ.isVerified = true) {envK : Env}
 ends in a sort after `m` binders to exactly `m` arguments.** -/
 theorem inferTypeCore_mkAppN_endsInSort_len {envK : Env} {F d : Nat} {s : Level} :
     ∀ (as : List Expr) {f T t : Expr} {m : Nat} {u : Level},
-      ConLeche.inferTypeCore μ envK F d f = .ok T → ConLeche.EndsInSort m s T →
-      ConLeche.inferTypeCore μ envK F d (Expr.mkAppN f as) = .ok t →
-      ConLeche.whnf μ envK F d t = .ok (.sort u) → as.length = m
+      ConLeche.inferTypeCore μ false envK F d f = .ok T → ConLeche.EndsInSort m s T →
+      ConLeche.inferTypeCore μ false envK F d (Expr.mkAppN f as) = .ok t →
+      ConLeche.whnf μ false envK F d t = .ok (.sort u) → as.length = m
   | [], f, T, t, m, u, hf, hT, h, hw => by
     have hTt : T = t := Except.ok.inj (hf.symm.trans h)
     rw [← hTt] at hw
@@ -287,10 +288,10 @@ structure GradedFrame {envC : Env} (mpC : EnvModelM V μ envC) (ψ : Name → Na
     WellDenotedTy V (consList ys σ) (doms.getD l default)
 
 /-- `graded_of_infer_openers` at a graded frame. -/
-theorem GradedFrame.graded (hμ : μ.isVerified = true) {envC : Env}
+theorem GradedFrame.graded (hμ : μ.verifiedChecks = true) {envC : Env}
     {mpC : EnvModelM V μ envC} {ψ : Name → Nat} {D : Nat} {fr : List Expr}
     {doms : List Term} (G : GradedFrame mpC ψ D fr doms) {F : Nat}
-    {e t : Expr} (hinf : ConLeche.inferTypeCore μ envC F D e = .ok t)
+    {e t : Expr} (hinf : ConLeche.inferTypeCore μ false envC F D e = .ok t)
     (hwsE : Expr.WScoped D e) (hbE : e.looseBVarsBounded 0 = true)
     (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
     ∃ w, denote mpC.base2.acval envC ψ D e = some w ∧
@@ -301,11 +302,11 @@ theorem GradedFrame.graded (hμ : μ.isVerified = true) {envC : Env}
 
 /-- `GradedFrame.graded` at a term the kernel infers to a sort: its reading is
 a type. -/
-theorem GradedFrame.gradedTy (hμ : μ.isVerified = true) {envC : Env}
+theorem GradedFrame.gradedTy (hμ : μ.verifiedChecks = true) {envC : Env}
     {mpC : EnvModelM V μ envC} {ψ : Name → Nat} {D : Nat} {fr : List Expr}
     {doms : List Term} (G : GradedFrame mpC ψ D fr doms) {F : Nat}
-    {e t : Expr} {u : Level} (hinf : ConLeche.inferTypeCore μ envC F D e = .ok t)
-    (hwu : ConLeche.whnf μ envC F D t = .ok (.sort u))
+    {e t : Expr} {u : Level} (hinf : ConLeche.inferTypeCore μ false envC F D e = .ok t)
+    (hwu : ConLeche.whnf μ false envC F D t = .ok (.sort u))
     (hwsE : Expr.WScoped D e) (hbE : e.looseBVarsBounded 0 = true)
     (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
     ∃ w, denote mpC.base2.acval envC ψ D e = some w ∧
@@ -318,15 +319,15 @@ set_option maxHeartbeats 4000000 in
 /-- **A graded frame extends by the openers of an inferred telescope over
 it**: their types read (they are inferred), and each is graded along the
 spines fitting the frame and the openers before it. -/
-theorem GradedFrame.extend (hμ : μ.isVerified = true) {envC : Env}
+theorem GradedFrame.extend (hμ : μ.verifiedChecks = true) {envC : Env}
     {mpC : EnvModelM V μ envC} {ψ : Name → Nat} {D : Nat} {fr : List Expr}
     {doms : List Term} (G : GradedFrame mpC ψ D fr doms) {F n : Nat}
     {T body t : Expr} {zs : List Expr} (hop : ConLeche.openPisAtFvars n T D = some (zs, body))
-    (hinf : ConLeche.inferTypeCore μ envC F D T = .ok t)
+    (hinf : ConLeche.inferTypeCore μ false envC F D T = .ok t)
     (hwsT : Expr.WScoped D T) (hbT : T.looseBVarsBounded 0 = true)
     (hleaf : ∀ l ∈ T.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr) :
     GradedFrame mpC ψ (D + n) (fr ++ zs) (doms ++ readOpenedDoms mpC.base2.acval envC ψ D zs) ∧
-      (∃ tb, ConLeche.inferTypeCore μ envC F (D + n) body = .ok tb) ∧
+      (∃ tb, ConLeche.inferTypeCore μ false envC F (D + n) body = .ok tb) ∧
       Expr.WScoped (D + n) body ∧ body.looseBVarsBounded 0 = true ∧
       (∀ l ∈ body.fvarLeaves, Expr.fvar l.1 l.2 ∈ fr ++ zs) := by
   have hzl : zs.length = n := ConLeche.Verify.openPisAtFvars_length _ hop
@@ -525,7 +526,7 @@ slot, hence at the rule prefix — opened there to the declared fields and
 the inductive hypotheses (their types erasure-equal to the generator's)
 and the conclusion; every opened domain and the conclusion inferred, all
 leaves among the openers. -/
-theorem genMinorOpen (hμ : μ.isVerified = true)
+theorem genMinorOpen (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -586,8 +587,10 @@ theorem genMinorOpen (hμ : μ.isVerified = true)
           [Expr.mkAppN (.const x.cv.name (R.g.cls.getD cls default).lvls)
             ((R.g.cls.getD cls default).ds ++ tgtFieldFvs pp.toBlockShape out c j)])) ∧
       (∀ (k : Nat) (y : Expr), xs'[k]? = some y →
-        ∃ t, ConLeche.inferTypeCore μ envC F (R.g.pre.length + k) (Expr.fvarTypeD y) = .ok t) ∧
-      (∃ t, ConLeche.inferTypeCore μ envC F (R.g.pre.length + x.nF + ihs.length) rest = .ok t) ∧
+        ∃ t, ConLeche.inferTypeCore μ false envC F (R.g.pre.length + k) (Expr.fvarTypeD y) = .ok t)
+            ∧
+      (∃ t, ConLeche.inferTypeCore μ false envC F (R.g.pre.length + x.nF + ihs.length) rest = .ok
+          t) ∧
       Expr.WScoped (R.g.pre.length + x.nF + ihs.length) rest ∧ rest.looseBVarsBounded 0 = true ∧
       (∀ l, (l ∈ rest.fvarLeaves ∨ ∃ y ∈ xs', l ∈ y.fvarLeaves) →
         Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs') ∧
@@ -597,8 +600,9 @@ theorem genMinorOpen (hμ : μ.isVerified = true)
       (∀ (i : Nat) (z nd : Expr), i < R.g.pre.length → fvs1[i]? = some z →
         R.g.pre[i]? = some nd → Expr.ErasedEq (Expr.fvarTypeD z) nd) ∧
       (∀ (k : Nat) (z : Expr), xs'[k]? = some z →
-        ∃ t u, ConLeche.inferTypeCore μ envC F (R.g.pre.length + k) (Expr.fvarTypeD z) = .ok t ∧
-          ConLeche.whnf μ envC F (R.g.pre.length + k) t = .ok (.sort u)) := by
+        ∃ t u, ConLeche.inferTypeCore μ false envC F (R.g.pre.length + k) (Expr.fvarTypeD z) = .ok
+            t ∧
+          ConLeche.whnf μ false envC F (R.g.pre.length + k) t = .ok (.sort u)) := by
   obtain ⟨cls, s, x, T, res, ws, ihs, hgc, hgx, hms, hxmem, hMaj, ⟨ihs0, hsS⟩, hpreT, hTs, hrP,
     hopR, hCB, hnF, hcv, hwsR, hihl, hih, ⟨sc, hmc, hscl⟩, hTE⟩ := genMinorSetup R hg h hfind hc hj
   have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
@@ -644,7 +648,7 @@ theorem genMinorOpen (hμ : μ.isVerified = true)
   have hwsY : Expr.WScoped (R.g.nP + s) (Expr.fvarTypeD y) := by
     have := openPisAtFvars_typeWScoped _ hop1 hw0 (R.g.nP + s) y hy
     rwa [Nat.zero_add] at this
-  have htT' : ConLeche.inferTypeCore μ envC F R.g.pre.length (Expr.fvarTypeD y) = .ok tT := by
+  have htT' : ConLeche.inferTypeCore μ false envC F R.g.pre.length (Expr.fvarTypeD y) = .ok tT := by
     rw [ConLeche.inferTypeCore_depth_inv mpC.base2.wf F
       (Expr.WScoped.to_wscopedB (hwsY.mono (by omega)))
       (Expr.WScoped.to_wscopedB hwsY)]
@@ -716,7 +720,7 @@ theorem genMinorOpen (hμ : μ.isVerified = true)
       ∃ ty, z = Expr.fvar (R.g.pre.length + k) ty :=
     fun k z hz => openPisAtFvars_index _ _ _ hop' k z hz
   have hinfX := inferTypeCore_openPis_dom hμ hop' htT'
-  have hinfR : ∃ t, ConLeche.inferTypeCore μ envC F (R.g.pre.length + x.nF + ihs.length) rest
+  have hinfR : ∃ t, ConLeche.inferTypeCore μ false envC F (R.g.pre.length + x.nF + ihs.length) rest
       = .ok t := by
     rcases Nat.eq_zero_or_pos (x.nF + ihs.length) with h0 | hpos
     · rw [h0] at hop'
@@ -792,7 +796,7 @@ set_option maxHeartbeats 8000000 in
 /-- **The rule frame is a graded frame of openers**: the stored type's
 prefix openers, then the minor premise's field openers at the rule prefix
 (`genMinorOpen`'s data), over the rule frame's domains. -/
-theorem genFieldFrame (hμ : μ.isVerified = true)
+theorem genFieldFrame (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -822,7 +826,7 @@ theorem genFieldFrame (hμ : μ.isVerified = true)
         Expr.ErasedEq (Expr.fvarTypeD y)
           (Expr.fvarTypeD ((tgtFieldFvs pp.toBlockShape out c j).getD k default)))
     (hinfX : ∀ (k : Nat) (y : Expr), xs'[k]? = some y →
-        ∃ t, ConLeche.inferTypeCore μ envC F (R.g.pre.length + k) (Expr.fvarTypeD y) = .ok t)
+        ∃ t, ConLeche.inferTypeCore μ false envC F (R.g.pre.length + k) (Expr.fvarTypeD y) = .ok t)
     (hleafs : ∀ l, (l ∈ rest.fvarLeaves ∨ ∃ y ∈ xs', l ∈ y.fvarLeaves) →
         Expr.fvar l.1 l.2 ∈ fvs1.take R.g.pre.length ++ xs') :
     GradedFrame mpC ψ (R.g.pre.length + x.nF)
@@ -939,7 +943,7 @@ set_option maxHeartbeats 8000000 in
 every spine fitting the rule frame (`hargs` of the family premise): each
 is erasure-equal to an argument of the
 minor premise's conclusion, which the stored type's inference infers. -/
-theorem genArgs_graded (hμ : μ.isVerified = true)
+theorem genArgs_graded (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -982,7 +986,7 @@ theorem genArgs_graded (hμ : μ.isVerified = true)
       WScoped.of_erasedEq a hEa (wscoped_of_getAppArgs hwsRest a haA) heS.1
     have hba : a.looseBVarsBounded 0 = true := looseBVarsBounded_getAppArgs hbRest a haA
     obtain ⟨ta, hta⟩ := ConLeche.inferTypeCore_mkAppN_args as' hinfR a (List.mem_of_getElem? ha)
-    have hta' : ConLeche.inferTypeCore μ envC F (R.g.pre.length + x.nF) a = .ok ta := by
+    have hta' : ConLeche.inferTypeCore μ false envC F (R.g.pre.length + x.nF) a = .ok ta := by
       rw [ConLeche.inferTypeCore_depth_inv mpC.base2.wf F (Expr.WScoped.to_wscopedB hwa)
         (Expr.WScoped.to_wscopedB (hwa.mono
           (show R.g.pre.length + x.nF ≤ R.g.pre.length + x.nF + ihs.length by omega)))]
@@ -1072,7 +1076,7 @@ frame**: the rule frame extended by the `ih`'s telescope is a graded
 frame of openers (its domains the `ih` datum's telescope), over which the
 `ih`'s index arguments, applied field, and its motive application are
 graded — all from the stored type's inference of the `ih` binder. -/
-theorem genIhFrame (hμ : μ.isVerified = true)
+theorem genIhFrame (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -1168,7 +1172,7 @@ theorem genIhFrame (hμ : μ.isVerified = true)
     WScoped.of_erasedEq _ hyE hwsY hT0S.1
   have hbY : (Expr.fvarTypeD y).looseBVarsBounded 0 = true := (hwbX y (List.mem_of_getElem? hy)).2
   obtain ⟨tY, htY⟩ := hinfX _ y hy
-  have htYD : ConLeche.inferTypeCore μ envC F D (Expr.fvarTypeD y) = .ok tY := by
+  have htYD : ConLeche.inferTypeCore μ false envC F D (Expr.fvarTypeD y) = .ok tY := by
     rw [ConLeche.inferTypeCore_depth_inv mpC.base2.wf F (Expr.WScoped.to_wscopedB hwsYD)
       (Expr.WScoped.to_wscopedB hwsY)]
     rw [← hD]; rw [← Nat.add_assoc] at htY; exact htY
@@ -1222,8 +1226,9 @@ theorem genIhFrame (hμ : μ.isVerified = true)
   have hrest2' := hrest2
   obtain ⟨f2, as2, hr2E, hf2E, has2l⟩ := erasedEq_mkAppN_inv _ hrest2'
   -- the conclusion's type is a sort
-  have hsortB : ∃ bt u, ConLeche.inferTypeCore μ envC F (D + (xs.map R.g.binder).length) rest2
-      = .ok bt ∧ ConLeche.whnf μ envC F (D + (xs.map R.g.binder).length) bt = .ok (.sort u) := by
+  have hsortB : ∃ bt u, ConLeche.inferTypeCore μ false envC F (D + (xs.map R.g.binder).length) rest2
+      = .ok bt ∧ ConLeche.whnf μ false envC F (D + (xs.map R.g.binder).length) bt = .ok (.sort u)
+          := by
     rcases Nat.eq_zero_or_pos (xs.map R.g.binder).length with h0 | hpos
     · rw [h0] at hopZ ⊢
       simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hopZ
@@ -1254,7 +1259,7 @@ theorem genIhFrame (hμ : μ.isVerified = true)
   rw [hf2] at hbt hleafB'
   obtain ⟨tf, htf⟩ := Model.inferTypeCore_mkAppN_fn_inv as2 hbt
   have hFpos : 1 ≤ F := inferTypeCore_pos htf
-  have htf1 : ConLeche.inferTypeCore μ envC (F - 1 + 1) (D + (xs.map R.g.binder).length)
+  have htf1 : ConLeche.inferTypeCore μ false envC (F - 1 + 1) (D + (xs.map R.g.binder).length)
       (.fvar (R.g.nP + st) T2) = .ok tf := by rw [Nat.sub_add_cancel hFpos]; exact htf
   obtain ⟨-, htfE⟩ := ConLeche.Rules.inferTypeCore_fvar_inv htf1
   rw [htfE] at htf
@@ -1382,7 +1387,7 @@ set_option maxHeartbeats 8000000 in
 name only the recursor's level parameters** (lane C's `hrowP`): they are
 erasure-equal to pieces of the stored recursor type, which is checked to
 name only its own level parameters. -/
-theorem genRowParams (hμ : μ.isVerified = true)
+theorem genRowParams (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -1462,7 +1467,7 @@ Its conclusion is the motive applied to the index spine and the major
 source (1)), and the motive inhabits its slot's domain
 `∀ ı⃗ t, Sort elim` (`mem_univZero_of_endsInSort`); every fibre of the
 tower is then a truth value (`mkPisAV_mem_univZero`). -/
-theorem genRecTyZ (hμ : μ.isVerified = true)
+theorem genRecTyZ (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC) :
@@ -1539,7 +1544,7 @@ the domains, read at the true model as the recursor type's prefix and the
 declared fields (`genRulePrefRead`, `genRuleFieldRead`), the minor premise
 is the point (`genMinor_pt`), so is every body value, and so is the tower
 (`mkLamsAV_eq_pt`). -/
-theorem genRuleRaZ (hμ : μ.isVerified = true)
+theorem genRuleRaZ (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)

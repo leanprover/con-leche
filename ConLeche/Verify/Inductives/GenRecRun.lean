@@ -380,8 +380,8 @@ theorem classConstOk_inv {env : Env} {cv : ConstantVal} {F : Nat}
     cv.type.allLevelParamsDefined cv.levelParams = true ∧
     cv.type.constsResolve env = true ∧
     ∃ stype u,
-      inferTypeCore mode env F 0 cv.type = .ok stype ∧
-      ensureSortCore mode env F 0 stype = .ok u := by
+      inferTypeCore mode false env F 0 cv.type = .ok stype ∧
+      ensureSortCore mode false env F 0 stype = .ok u := by
   unfold classConstOk at h
   simp only [mkFEnv_find?, constsResolveF_eq, mkFEnv_env] at h
   by_cases hfind : (env.find? cv.name).isSome = true

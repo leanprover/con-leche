@@ -33,16 +33,17 @@ rules:
 
 namespace ConLeche.Rules
 
-variable {μ : CheckMode} {env : Env} {fuel : Nat}
+variable {μ : CheckMode} {eager : Bool} {env : Env} {fuel : Nat}
 
 /-- **The λ-telescope comparison is `DefEqLams`** (`defeqLams_inv`,
 by induction on its descent budget): the innermost level is
 `DefEqLams.inner` (the opened bodies and their full-grade types), an
 outer level is `DefEqLams.outer` over the next level's run, and two
 syntactically equal bodies close by `DefEqLams.refl`. -/
-theorem defeqLams_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel) :
+theorem defeqLams_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ eager env fuel) (hi :
+    InferBridge μ eager env fuel) :
     ∀ (k : Nat) {d : Nat} {ty₁ bd₁ ty₂ bd₂ : Expr},
-      defeqLamsFueled μ env fuel k d ty₁ bd₁ ty₂ bd₂ = .ok true →
+      defeqLamsFueled μ eager env fuel k d ty₁ bd₁ ty₂ bd₂ = .ok true →
       DefEqLams env d (.lam ty₁ bd₁) (.lam ty₂ bd₂)
   | k, d, ty₁, bd₁, ty₂, bd₂, h => by
     obtain ⟨hdt, hrest⟩ := defeqLams_inv h
@@ -57,8 +58,9 @@ theorem defeqLams_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ e
       exact .inner (hd hdt) (hd hb) (hi ht₁) (hi ht₂) (hd ht)
 
 /-- The easy cases' exits are equations. -/
-theorem quickExit_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel) {d : Nat} {a b : Expr}
-    (h : QuickExit μ env fuel d a b) : DefEq env d a b := by
+theorem quickExit_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ eager env fuel) (hi :
+    InferBridge μ eager env fuel) {d : Nat} {a b : Expr}
+    (h : QuickExit μ eager env fuel d a b) : DefEq env d a b := by
   cases h with
   | refl => exact .refl
   | sort hle => exact .sort hle
@@ -66,8 +68,9 @@ theorem quickExit_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ e
   | forallE hdt hbd => exact .forallE (hd hdt) (hd hbd)
   | lam hl => exact .lams (defeqLams_bridge hμ hd hi _ hl)
 
-theorem quickDefEq_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel) {d : Nat} {a b : Expr}
-    (h : quickDefEqFueled μ env fuel d a b = .ok (some true)) :
+theorem quickDefEq_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ eager env fuel) (hi :
+    InferBridge μ eager env fuel) {d : Nat} {a b : Expr}
+    (h : quickDefEqFueled μ eager env fuel d a b = .ok (some true)) :
     DefEq env d a b :=
   quickExit_bridge hμ hd hi (quickDefEq_inv h)
 
@@ -99,8 +102,8 @@ private theorem isNatZero_inv {e : Expr} (h : e.isNatZero = true) :
 
 /-- **Offsets** (`defeqOffset`): two zeros, or a literal successor / a
 `Nat.succ` against another, predecessors compared. -/
-theorem defeqOffset_bridge (hd : DefEqBridge μ env fuel) {d : Nat} {a b : Expr}
-    (h : defeqOffsetFueled μ env fuel d a b = .ok (some true)) :
+theorem defeqOffset_bridge (hd : DefEqBridge μ eager env fuel) {d : Nat} {a b : Expr}
+    (h : defeqOffsetFueled μ eager env fuel d a b = .ok (some true)) :
     DefEq env d a b := by
   simp only [defeqOffsetFueled, defeqOffset, defeq_def] at h
   split at h
@@ -118,7 +121,7 @@ theorem defeqOffset_bridge (hd : DefEqBridge μ env fuel) {d : Nat} {a b : Expr}
     split at h
     · rename_i x y hx hy
       simp only [Bind.bind, Except.bind] at h
-      cases hde : isDefEqCore μ env fuel d x y with
+      cases hde : isDefEqCore μ eager env fuel d x y with
       | error err => rw [hde] at h; exact nomatch h
       | ok v =>
       rw [hde] at h
@@ -134,14 +137,14 @@ theorem defeqOffset_bridge (hd : DefEqBridge μ env fuel) {d : Nat} {a b : Expr}
     · simp [pure, Except.pure] at h
 
 /-- `tryUnfoldProjApp` is the full `whnfCore`. -/
-theorem tryUnfoldProjApp_bridge (hwc : WhnfCoreBridge μ env fuel) {d : Nat}
+theorem tryUnfoldProjApp_bridge (hwc : WhnfCoreBridge μ eager env fuel) {d : Nat}
     {e e' : Expr}
-    (h : tryUnfoldProjAppFueled μ env fuel d e = .ok (some e')) :
+    (h : tryUnfoldProjAppFueled μ eager env fuel d e = .ok (some e')) :
     Red env d e e' := by
   simp only [tryUnfoldProjAppFueled, tryUnfoldProjApp, Bind.bind, Except.bind,
     whnfCore_def] at h
   split at h
-  · cases hw : whnfCore μ env fuel d e with
+  · cases hw : whnfCore μ eager env fuel d e with
     | error err => rw [hw] at h; exact nomatch h
     | ok e₁ =>
     rw [hw] at h
@@ -162,13 +165,14 @@ from: `eq` is an equation, `cont` a pair of reductions. -/
   | .unknown => True
 
 /-- The end of a step (`deltaQuick`) on reducts of the pair. -/
-private theorem deltaQuick_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel) {d : Nat}
+private theorem deltaQuick_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBridge μ eager env
+    fuel) (hi : InferBridge μ eager env fuel) {d : Nat}
     {a b x y : Expr} {r : DeltaStep}
-    (h : deltaQuickFueled μ env fuel d x y = .ok r)
+    (h : deltaQuickFueled μ eager env fuel d x y = .ok r)
     (hx : Red env d a x) (hy : Red env d b y) : StepSound env d a b r := by
   simp only [deltaQuickFueled, deltaQuick, Bind.bind, Except.bind,
     quickDefEq_fold] at h
-  cases hq : quickDefEqFueled μ env fuel d x y with
+  cases hq : quickDefEqFueled μ eager env fuel d x y with
   | error err => rw [hq] at h; exact nomatch h
   | ok o =>
   rw [hq] at h
@@ -188,27 +192,28 @@ private theorem deltaQuick_bridge (hμ : μ.verifiedChecks = true) (hd : DefEqBr
     exact .redBoth hx hy (quickDefEq_bridge hμ hd hi hq)
 
 /-- An unfolding put through the cheap `whnfCore`. -/
-private theorem unfold_bridge (hwc : WhnfCoreBridge μ env fuel) {d : Nat}
+private theorem unfold_bridge (hwc : WhnfCoreBridge μ eager env fuel) {d : Nat}
     {a a₂ a₃ : Expr} (hu : unfoldDefinition env a = some a₂)
-    (h : whnfCore μ env fuel d a₂ true = .ok a₃) : Red env d a a₃ :=
+    (h : whnfCore μ eager env fuel d a₂ true = .ok a₃) : Red env d a a₃ :=
   .trans (.delta hu) (hwc h)
 
 /-- **One lazy-delta step** is sound. -/
-theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ env fuel) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel)
+theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ eager env fuel)
+    (hd : DefEqBridge μ eager env fuel) (hi : InferBridge μ eager env fuel)
     {d : Nat} {a b : Expr} {r : DeltaStep}
-    (h : lazyDeltaStepFueled μ env fuel d a b = .ok r) :
+    (h : lazyDeltaStepFueled μ eager env fuel d a b = .ok r) :
     StepSound env d a b r := by
   simp only [lazyDeltaStepFueled, lazyDeltaStep, Bind.bind, Except.bind,
     whnfCore_def, tryUnfoldProjApp_fold, deltaQuick_fold, defeqSpine_fold] at h
   -- one unfolded side, put through the cheap `whnfCore`, then `deltaQuick`
   have hL : ∀ {a₂ a₃ : Expr}, unfoldDefinition env a = some a₂ →
-      whnfCore μ env fuel d a₂ true = .ok a₃ →
-      deltaQuickFueled μ env fuel d a₃ b = .ok r →
+      whnfCore μ eager env fuel d a₂ true = .ok a₃ →
+      deltaQuickFueled μ eager env fuel d a₃ b = .ok r →
       StepSound env d a b r :=
     fun hu hw h => deltaQuick_bridge hμ hd hi h (unfold_bridge hwc hu hw) .refl
   have hR : ∀ {b₂ b₃ : Expr}, unfoldDefinition env b = some b₂ →
-      whnfCore μ env fuel d b₂ true = .ok b₃ →
-      deltaQuickFueled μ env fuel d a b₃ = .ok r →
+      whnfCore μ eager env fuel d b₂ true = .ok b₃ →
+      deltaQuickFueled μ eager env fuel d a b₃ = .ok r →
       StepSound env d a b r :=
     fun hu hw h => deltaQuick_bridge hμ hd hi h .refl (unfold_bridge hwc hu hw)
   have hU : (pure DeltaStep.unknown : CheckM DeltaStep) = .ok r →
@@ -221,7 +226,7 @@ theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
     rw [hda, hdb] at h <;> dsimp only at h
   · exact hU h
   · -- only `b` unfolds: `a`'s projection application first
-    cases ht : tryUnfoldProjAppFueled μ env fuel d a with
+    cases ht : tryUnfoldProjAppFueled μ eager env fuel d a with
     | error err => rw [ht] at h; exact nomatch h
     | ok o =>
     rw [ht] at h
@@ -234,11 +239,11 @@ theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
       | none => rw [hu] at h; exact hU h
       | some b₂ =>
         rw [hu] at h; dsimp only at h
-        cases hw : whnfCore μ env fuel d b₂ true with
+        cases hw : whnfCore μ eager env fuel d b₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok x => rw [hw] at h; exact hR hu hw h
   · -- only `a` unfolds: `b`'s projection application first
-    cases ht : tryUnfoldProjAppFueled μ env fuel d b with
+    cases ht : tryUnfoldProjAppFueled μ eager env fuel d b with
     | error err => rw [ht] at h; exact nomatch h
     | ok o =>
     rw [ht] at h
@@ -251,7 +256,7 @@ theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
       | none => rw [hu] at h; exact hU h
       | some a₂ =>
         rw [hu] at h; dsimp only at h
-        cases hw : whnfCore μ env fuel d a₂ true with
+        cases hw : whnfCore μ eager env fuel d a₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok x => rw [hw] at h; exact hL hu hw h
   · -- both unfold: the hints decide
@@ -260,7 +265,7 @@ theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
       | none => rw [hu] at h; exact hU h
       | some a₂ =>
         rw [hu] at h; dsimp only at h
-        cases hw : whnfCore μ env fuel d a₂ true with
+        cases hw : whnfCore μ eager env fuel d a₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok x => rw [hw] at h; exact hL hu hw h
     split at h
@@ -268,11 +273,11 @@ theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
       | none => rw [hu] at h; exact hU h
       | some b₂ =>
         rw [hu] at h; dsimp only at h
-        cases hw : whnfCore μ env fuel d b₂ true with
+        cases hw : whnfCore μ eager env fuel d b₂ true with
         | error err => rw [hw] at h; exact nomatch h
         | ok x => rw [hw] at h; exact hR hu hw h
     cases hsp : (if ReducibilityHint.sameRegular (headHint env a) (headHint env b) &&
-        sameConstHeads a b then defeqSpineFueled μ env fuel d a b
+        sameConstHeads a b then defeqSpineFueled μ eager env fuel d a b
         else pure false) with
     | error err => rw [hsp] at h; exact nomatch h
     | ok sp =>
@@ -295,12 +300,12 @@ theorem lazyDeltaStep_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
     | some b₂ =>
     rw [hua, hub] at h
     dsimp only at h
-    cases hwa : whnfCore μ env fuel d a₂ true with
+    cases hwa : whnfCore μ eager env fuel d a₂ true with
     | error err => rw [hwa] at h; exact nomatch h
     | ok a₃ =>
     rw [hwa] at h
     dsimp only at h
-    cases hwb : whnfCore μ env fuel d b₂ true with
+    cases hwb : whnfCore μ eager env fuel d b₂ true with
     | error err => rw [hwb] at h; exact nomatch h
     | ok b₃ =>
     rw [hwb] at h
@@ -314,10 +319,12 @@ reductions. -/
   | .unknown a₁ b₁ => Red env d a a₁ ∧ Red env d b b₁
 
 /-- **The lazy-delta loop** is sound, at every budget. -/
-theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ env fuel)
-    (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel) {d : Nat} :
+theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ eager env
+    fuel)
+    (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge μ eager env fuel) (hi : InferBridge μ
+        eager env fuel) {d : Nat} :
     ∀ (n : Nat) {a b : Expr} {r : LazyRes},
-      lazyDeltaReductionFueled μ env fuel d n a b = .ok r →
+      lazyDeltaReductionFueled μ eager env fuel d n a b = .ok r →
       LazySound env d a b r
   | 0, _, _, _, h => by
     simp [lazyDeltaReductionFueled, lazyDeltaReduction, throw, throwThe,
@@ -325,7 +332,7 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
   | n + 1, a, b, r, h => by
     simp only [lazyDeltaReductionFueled, lazyDeltaReduction, Bind.bind, Except.bind,
       defeqOffset_fold, reduceNat_fold, lazyDeltaStep_fold, defeq_def] at h
-    cases ho : defeqOffsetFueled μ env fuel d a b with
+    cases ho : defeqOffsetFueled μ eager env fuel d a b with
     | error err => rw [ho] at h; exact nomatch h
     | ok o =>
     rw [ho] at h
@@ -339,14 +346,14 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
       exact defeqOffset_bridge hd ho
     | none =>
     dsimp only at h
-    cases hna : (if μ.eager || (!a.hasFvar && !b.hasFvar) then
-        reduceNatFueled μ env fuel d a else pure none) with
+    cases hna : (if eager || (!a.hasFvar && !b.hasFvar) then
+        reduceNatFueled μ eager env fuel d a else pure none) with
     | error err => rw [hna] at h; exact nomatch h
     | ok o₁ =>
     rw [hna] at h
     dsimp only at h
     have hred : ∀ {x : Expr} {o : Option Expr} {g : Bool},
-        (if g then reduceNatFueled μ env fuel d x else pure none) = .ok o →
+        (if g then reduceNatFueled μ eager env fuel d x else pure none) = .ok o →
         ∀ {x₂ : Expr}, o = some x₂ → Red env d x x₂ := by
       intro x o g hx x₂ ho
       subst ho
@@ -356,7 +363,7 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
     match o₁, hna, h with
     | some a₂, hna, h =>
       dsimp only at h
-      cases hde : isDefEqCore μ env fuel d a₂ b with
+      cases hde : isDefEqCore μ eager env fuel d a₂ b with
       | error err => rw [hde] at h; exact nomatch h
       | ok v =>
       rw [hde] at h
@@ -367,8 +374,8 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
       exact .redL (hred hna rfl) (hd hde)
     | none, _, h =>
     dsimp only at h
-    cases hnb : (if μ.eager || (!a.hasFvar && !b.hasFvar) then
-        reduceNatFueled μ env fuel d b else pure none) with
+    cases hnb : (if eager || (!a.hasFvar && !b.hasFvar) then
+        reduceNatFueled μ eager env fuel d b else pure none) with
     | error err => rw [hnb] at h; exact nomatch h
     | ok o₂ =>
     rw [hnb] at h
@@ -376,7 +383,7 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
     match o₂, hnb, h with
     | some b₂, hnb, h =>
       dsimp only at h
-      cases hde : isDefEqCore μ env fuel d a b₂ with
+      cases hde : isDefEqCore μ eager env fuel d a b₂ with
       | error err => rw [hde] at h; exact nomatch h
       | ok v =>
       rw [hde] at h
@@ -387,7 +394,7 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
       exact .redR (hred hnb rfl) (hd hde)
     | none, _, h =>
     dsimp only at h
-    cases hs : lazyDeltaStepFueled μ env fuel d a b with
+    cases hs : lazyDeltaStepFueled μ eager env fuel d a b with
     | error err => rw [hs] at h; exact nomatch h
     | ok st =>
     rw [hs] at h
@@ -416,11 +423,13 @@ theorem lazyDeltaReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCo
 
 /-- **`a.i =?= b.i` by the scrutinees** (`lazyDeltaProjReduction`) is
 sound, at every budget. -/
-theorem lazyDeltaProjReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ env fuel)
-    (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel)
-    (hio : InferIOBridge μ env fuel) {d : Nat} {sn : Name} {i : Nat} :
+theorem lazyDeltaProjReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ eager
+    env fuel)
+    (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge μ eager env fuel) (hi : InferBridge μ
+        eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) {d : Nat} {sn : Name} {i : Nat} :
     ∀ (n : Nat) {a b : Expr},
-      lazyDeltaProjReductionFueled μ env fuel d sn i n a b = .ok true →
+      lazyDeltaProjReductionFueled μ eager env fuel d sn i n a b = .ok true →
       DefEq env d (.proj sn i a) (.proj sn i b)
   | 0, _, _, h => by
     simp [lazyDeltaProjReductionFueled, lazyDeltaProjReduction, throw, throwThe,
@@ -428,7 +437,7 @@ theorem lazyDeltaProjReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : Wh
   | n + 1, a, b, h => by
     simp only [lazyDeltaProjReductionFueled, lazyDeltaProjReduction, Bind.bind,
       Except.bind, lazyDeltaStep_fold, reduceProjCore_fold, defeq_def] at h
-    cases hs : lazyDeltaStepFueled μ env fuel d a b with
+    cases hs : lazyDeltaStepFueled μ eager env fuel d a b with
     | error err => rw [hs] at h; exact nomatch h
     | ok st =>
     rw [hs] at h
@@ -442,7 +451,7 @@ theorem lazyDeltaProjReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : Wh
     case eq => exact .proj hss
     all_goals
       dsimp only at h
-      cases hra : reduceProjCoreFueled μ env fuel d sn i a with
+      cases hra : reduceProjCoreFueled μ eager env fuel d sn i a with
       | error err => rw [hra] at h; exact nomatch h
       | ok oa =>
       rw [hra] at h
@@ -451,7 +460,7 @@ theorem lazyDeltaProjReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : Wh
       | none => exact .proj (hd h)
       | some x =>
       dsimp only at h
-      cases hrb : reduceProjCoreFueled μ env fuel d sn i b with
+      cases hrb : reduceProjCoreFueled μ eager env fuel d sn i b with
       | error err => rw [hrb] at h; exact nomatch h
       | ok ob =>
       rw [hrb] at h
@@ -463,10 +472,11 @@ theorem lazyDeltaProjReduction_bridge (hμ : μ.verifiedChecks = true) (hwc : Wh
           (reduceProjCore_bridge hμ hw hrb) (hd h)
 
 /-- The proj/proj check. -/
-theorem defeqProjPair_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ env fuel)
-    (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel)
-    (hio : InferIOBridge μ env fuel) {d : Nat} {a b : Expr}
-    (h : defeqProjPairFueled μ env fuel d a b = .ok true) :
+theorem defeqProjPair_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ eager env fuel)
+    (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge μ eager env fuel) (hi : InferBridge μ
+        eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) {d : Nat} {a b : Expr}
+    (h : defeqProjPairFueled μ eager env fuel d a b = .ok true) :
     DefEq env d a b := by
   simp only [defeqProjPairFueled, defeqProjPair, lazyDeltaProjReduction_fold] at h
   split at h
@@ -479,9 +489,10 @@ theorem defeqProjPair_bridge (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBri
   · simp [pure, Except.pure] at h
 
 /-- The stuck comparison: one rule per exit. -/
-theorem defeqStuck_bridge (hμ : μ.verifiedChecks = true) (hw : WhnfBridge μ env fuel) (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel)
-    (hio : InferIOBridge μ env fuel) {d : Nat} {a b : Expr}
-    (h : defeqStuckFueled μ env fuel d a b = .ok true) :
+theorem defeqStuck_bridge (hμ : μ.verifiedChecks = true) (hw : WhnfBridge μ eager env fuel) (hd :
+    DefEqBridge μ eager env fuel) (hi : InferBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) {d : Nat} {a b : Expr}
+    (h : defeqStuckFueled μ eager env fuel d a b = .ok true) :
     DefEq env d a b := by
   cases defeqStuck_inv h with
   | fallback hs => exact stuckIrrel_bridge hw hd hio hs
@@ -494,9 +505,11 @@ theorem defeqStuck_bridge (hμ : μ.verifiedChecks = true) (hw : WhnfBridge μ e
   | etaR he => exact (etaCert_bridge hμ hw hd hi hio he).symm
 
 /-- **`isDefEqCore` at `fuel + 1`**: the body, piece by piece. -/
-theorem defeq_bridge_succ (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ env fuel) (hw : WhnfBridge μ env fuel)
-    (hd : DefEqBridge μ env fuel) (hi : InferBridge μ env fuel) (hio : InferIOBridge μ env fuel) :
-    DefEqBridge μ env (fuel + 1) := by
+theorem defeq_bridge_succ (hμ : μ.verifiedChecks = true) (hwc : WhnfCoreBridge μ eager env fuel)
+    (hw : WhnfBridge μ eager env fuel)
+    (hd : DefEqBridge μ eager env fuel) (hi : InferBridge μ eager env fuel) (hio : InferIOBridge μ
+        eager env fuel) :
+    DefEqBridge μ eager env (fuel + 1) := by
   intro d a b h
   rw [isDefEqCore_succ] at h
   rcases defeqBody_inv h with rfl | ⟨rfl, hsc⟩ | hq₀ | hpi | ⟨a', b', hwa, hwb, hrest⟩

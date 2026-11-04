@@ -299,7 +299,7 @@ theorem keyParamsFit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level}
     (hul : us.length = cv.levelParams.length) {d F : Nat} {ds : List Expr} {ty r : Expr}
-    (hty : ConLeche.inferTypeCore .verified env F d (Expr.mkAppN (.const (D.member mm) us) ds)
+    (hty : ConLeche.inferTypeCore .verified false env F d (Expr.mkAppN (.const (D.member mm) us) ds)
       = .ok ty)
     (hpi : ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some r)
     (hlenP : ds.length = (D.params (Level.substFn φ cv.levelParams us)).length)

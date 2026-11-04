@@ -96,19 +96,20 @@ telescope's own binders, its domain `∀ …, Sort u` with one binder per
 argument — opens at its binder count, and its conclusion infers to
 `Sort u`.  (`classGenRecTy_conclSort`'s argument, over any telescope: the
 head's opened variable carries its domain, which the inference types.) -/
-theorem genConclSort_core (hμ : μ.isVerified = true) {envK : Env}
+theorem genConclSort_core (hμ : μ.verifiedChecks = true) {envK : Env}
     {nds : List Expr} {k : Nat} {T0 Tm : Expr}
     {as : List Expr} {u : Level} {F : Nat} {S : Expr}
     (hcl : ∀ p ∈ nds, p.looseBVarsBounded 0 = true)
     (hbb : (Expr.mkAppN (.fvar k T0) as).looseBVarsBounded 0 = true)
     (hk : nds[k]? = some Tm) (hTm : EndsInSort as.length u Tm)
     (hfv : (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as)).hasFvar = false)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as))
+    (hinf : ConLeche.inferTypeCore μ false envK F 0 (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0)
+        as))
       = .ok S) :
     ∃ fvs o, openPisAtFvars nds.length (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as)) 0
         = some (fvs, o) ∧
-      ConLeche.inferTypeCore μ envK F nds.length o = .ok (.sort u) ∧
-      ConLeche.ensureSortCore μ envK F nds.length (.sort u) = .ok u := by
+      ConLeche.inferTypeCore μ false envK F nds.length o = .ok (.sort u) ∧
+      ConLeche.ensureSortCore μ false envK F nds.length (.sort u) = .ok u := by
   have hklt : k < nds.length := (List.getElem?_eq_some_iff.mp hk).1
   generalize hbody : Expr.mkAppN (.fvar k T0) as = body at hbb hfv hinf ⊢
   -- the type opens
@@ -160,17 +161,17 @@ theorem classGenRecTy_prefix_plain {g : ClassGen} (hg : ClassGenScoped g) {c : N
 set_option maxHeartbeats 800000 in
 /-- **The generated type opens and its conclusion is sorted at `Sort elim`**
 (`genConclSort_core` at the generated telescope). -/
-theorem classGenRecTy_conclSort_plain (hμ : μ.isVerified = true)
+theorem classGenRecTy_conclSort_plain (hμ : μ.verifiedChecks = true)
     {envK : Env} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
     (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
     {gty S : Expr}
     (hgty : classGenRecTy g c = some gty) (hfv : gty.hasFvar = false)
-    (hinf : ConLeche.inferTypeCore μ envK F 0 gty = .ok S) :
+    (hinf : ConLeche.inferTypeCore μ false envK F 0 gty = .ok S) :
     ∃ fvs o, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gty 0
         = some (fvs, o) ∧
-      ConLeche.inferTypeCore μ envK F (g.pre.length + (g.cls.getD c default).nIdx + 1) o
+      ConLeche.inferTypeCore μ false envK F (g.pre.length + (g.cls.getD c default).nIdx + 1) o
         = .ok (.sort g.elim) ∧
-      ConLeche.ensureSortCore μ envK F (g.pre.length + (g.cls.getD c default).nIdx + 1)
+      ConLeche.ensureSortCore μ false envK F (g.pre.length + (g.cls.getD c default).nIdx + 1)
         (.sort g.elim) = .ok g.elim := by
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
   have hmv := ConLeche.ClassGen.motVar_eq hm
@@ -200,7 +201,7 @@ theorem classGenRecTy_conclSort_plain (hμ : μ.isVerified = true)
 /-- **Syntactically equal terms are definitionally equal at any positive
 fuel** (the defeq loop's syntactic fast path). -/
 theorem isDefEqCore_self {envK : Env} {F d : Nat} (a : Expr) :
-    ConLeche.isDefEqCore μ envK (F + 1) d a a = .ok true := by
+    ConLeche.isDefEqCore μ false envK (F + 1) d a a = .ok true := by
   rw [ConLeche.isDefEqCore_succ]
   simp only [ConLeche.defeqBody, beq_self_eq_true, ite_true]
   rfl
@@ -285,7 +286,7 @@ with the generated type under the record's name and level parameters
 (`ClassRecTyRun.hcvG`), checked as generated (`classConstOk`); it opens
 `mI + 1` binders, its conclusion is sorted at the family's elimination
 level, and it is a telescope over the shared prefix. -/
-theorem genRecTy_run (hμ : μ.isVerified = true)
+theorem genRecTy_run (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape}
@@ -346,7 +347,7 @@ syntactically, every rule the generated one, stored as generated.
   motives, the stored prefix the generator's own) — what the ported
   generator lemmas take throughout (`classGenRecTy_spec`, the prefix's
   motive entry), a fact of the run's earlier binds (`genScoped_of_run`). -/
-theorem recStage_of_gen (hμ : μ.isVerified = true)
+theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) :

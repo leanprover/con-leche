@@ -248,7 +248,7 @@ theorem ofReduce_mem (mp : EnvModelM V μ env)
 canonical proof, which is why every syntactic obligation is `rfl`
 or a `simp` on a leaf clause and the whole content is the
 membership. -/
-theorem axiomOfReduce (hμ : μ.isVerified = true)
+theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
     (hor : cv.name = ConLeche.ofReduceNatName ∨

@@ -12,7 +12,7 @@ functions
 Each lemma relates a generic declaration-checker function instantiated at the
 cached shared operations (`sharedOpsC mode (mkFEnv env)`, state shared
 across all operation calls) to the same function at the fueled families
-(`(fueledOpsM mode)`) — the invariant `CSOK mode env` is threaded through
+(`(fueledOpsM mode)`) — the invariant `CSOK mode false env` is threaded through
 every call, so cache entries created by one call are consumed by later
 ones soundly.  The per-site well-scopedness facts mirror the `_wfimp`
 walks (`ConLeche/Verify/BridgeWfImp.lean`).
@@ -43,9 +43,9 @@ variable {env : Env} {s₀ : CState}
 /-- `checkConstantVal` at the cached shared operations simulates the
 fueled instantiation; the checked constant's type is well-scoped. -/
 theorem checkConstantValS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {cv : ConstantVal} (hs : CSOK mode env s₀) :
+    {cv : ConstantVal} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkConstantVal (sharedOpsC mode (mkFEnv env)) env cv
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkConstantVal (fueledOpsM mode) env cv) v ∧
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkConstantVal (fueledOpsM mode) env cv) v ∧
       Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, checkConstantVal.eq_1, @wscoped_of_hasFvar_false 0 cv.type] =>
     vcgen [checkConstantVal, inferS_spec hμ henv hs, sortS_spec hμ henv] <;> finish
@@ -60,9 +60,9 @@ theorem wscoped_reduceCertVar (c : Name) : Expr.WScoped 1 (reduceCertVar c) := b
 
 /-- `checkReducePin` at the cached shared operations. -/
 theorem checkReducePinS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env2 : Env}
-    {c : Name} {value : Expr} (hvf : value.hasFvar = false) (hs : CSOK mode env s₀) :
+    {c : Name} {value : Expr} (hvf : value.hasFvar = false) (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkReducePin (sharedOpsC mode (mkFEnv env)) env env2 c value
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (checkReducePin (fueledOpsM mode) env env2 c value) v; ⊤⦄ := by
   sym only [conleche_grind, checkReducePin.eq_1, reducePinGuard, wscoped_reduceCertVar c,
       wscoped_of_hasFvar_false (d := 0) hvf, wscoped_of_hasFvar_false (d := 1) hvf,
@@ -73,9 +73,9 @@ theorem checkReducePinS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF en
 theorem certifyNatEqsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
     ∀ {eqs : List (Expr × Expr)},
       (∀ eq ∈ eqs, (eq.1.wscopedB 2 = true) ∧ (eq.2.wscopedB 2 = true)) →
-      ∀ {s₀ : CState}, CSOK mode env s₀ →
+      ∀ {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄ certifyNatEqs (sharedOpsC mode (mkFEnv env)) env eqs
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (certifyNatEqs (fueledOpsM mode) env eqs) v; ⊤⦄ := by
   intro eqs
   induction eqs with
@@ -112,10 +112,10 @@ theorem checkDivModCertsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF 
     ∀ {stmts : List (List Expr × Expr)} {proofs : List Expr},
       (∀ st ∈ stmts, (∀ hyp ∈ st.1, hyp.wscopedB 2 = true) ∧
         st.2.wscopedB 4 = true) →
-      ∀ {s₀ : CState}, CSOK mode env s₀ →
+      ∀ {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄
         checkDivModCerts (sharedOpsC mode (mkFEnv env)) env c annVal stmts proofs
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (checkDivModCerts (fueledOpsM mode) env c annVal stmts proofs) v; ⊤⦄ := by
   intro stmts
   induction stmts with
@@ -171,9 +171,9 @@ theorem divModTypePins_hasFvar {ps : NatOpPinSet} {env : Env} {c : Name} {value'
 theorem checkTypePinsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
     ∀ {tps : List (Name × Expr)},
       (∀ p ∈ tps, (typePinStored env p.1).hasFvar = false ∧ p.2.hasFvar = false) →
-      ∀ {s₀ : CState}, CSOK mode env s₀ →
+      ∀ {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄ checkTypePins (sharedOpsC mode (mkFEnv env)) env tps
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (checkTypePins (fueledOpsM mode) env tps) v; ⊤⦄ := by
   intro tps
   induction tps with
@@ -193,9 +193,9 @@ theorem checkDivModPinAtS_spec (hμ : mode.verifiedChecks = true)
     (henv : EnvWF env) {c : Name} (hc : c ∈ natDivModNames)
     {value' : Expr} (hvf : value'.hasFvar = false) {ps : NatOpPinSet}
     (hping : (divModPinGuard ps env c && divModCertsGuard ps env c value') = true)
-    {s₀ : CState} (hs : CSOK mode env s₀) :
+    {s₀ : CState} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkDivModPinAt (sharedOpsC mode (mkFEnv env)) env c value' ps
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (checkDivModPinAt (fueledOpsM mode) env c value' ps) v; ⊤⦄ := by
   sym only [conleche_grind, checkDivModPinAt.eq_1, wscoped_of_hasFvar_false (d := 0) hvf,
       wscoped_of_hasFvar_false (d := 0) (divModDeclPin_hasFvar hping)] =>
@@ -208,10 +208,10 @@ theorem checkDivModPinLoopS_spec (hμ : mode.verifiedChecks = true)
     (henv : EnvWF env) {c : Name} (hc : c ∈ natDivModNames) {value' : Expr}
     (hvf : value'.hasFvar = false) :
     ∀ (pss : List NatOpPinSet) (tried : List String) {s₀ : CState},
-      CSOK mode env s₀ →
+      CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄
         checkDivModPinLoop (sharedOpsC mode (mkFEnv env)) env c value' pss tried
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (checkDivModPinLoop (fueledOpsM mode) env c value' pss tried) v; ⊤⦄ := by
   intro pss
   induction pss with
@@ -235,9 +235,9 @@ theorem checkDivModPinS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     {c : Name} (hc : c ∈ natDivModNames)
     (hv'f : ∀ cv' v' h', env2.find? c = some (.defnInfo cv' v' h') →
       v'.hasFvar = false)
-    (hs : CSOK mode env s₀) :
+    (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkDivModPin (sharedOpsC mode (mkFEnv env)) pins env env2 c
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (checkDivModPin (fueledOpsM mode) pins env env2 c) v; ⊤⦄ := by
   sym only [conleche_grind, checkDivModPin.eq_1] =>
     vcgen [checkDivModPin, checkDivModPinLoopS_spec hμ henv hc] <;> finish
@@ -245,9 +245,9 @@ theorem checkDivModPinS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF en
 /-- The basis-install fold (operation-free). -/
 theorem installBasisFoldS_spec :
     ∀ (cis : List ConstantInfo) (env' : Env) {s₀ : CState},
-      CSOK mode env s₀ →
+      CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄ (cis.foldlM installBasisDecl env' : CheckCM Env)
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (cis.foldlM installBasisDecl env' : FueledM Env) v; ⊤⦄ := by
   intro cis
   induction cis with

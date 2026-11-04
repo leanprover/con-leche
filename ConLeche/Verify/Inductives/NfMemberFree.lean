@@ -322,7 +322,7 @@ theorem natOpResult_const {c : Name} {a b : Nat} {bn : Name}
 /-- Literal acceleration's reducts, precisely: a literal, or a `Bool`
 constructor produced while `Nat.beq` or `Nat.ble` is stored. -/
 theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
-    (h : reduceNatFueled mode env fuel d e = .ok (some e₂)) :
+    (h : reduceNatFueled mode false env fuel d e = .ok (some e₂)) :
     (∃ n, e₂ = .lit (.natVal n)) ∨
     (∃ bn, e₂ = .const bn [] ∧ (bn = boolTrueName ∨ bn = boolFalseName) ∧
       (natOpStored env natBeqName = true ∨ natOpStored env natBleName = true)) := by
@@ -354,7 +354,7 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
     split
     · intro h
       revert h
-      cases hw0 : whnf mode env fuel d a with
+      cases hw0 : whnf mode false env fuel d a with
       | error err => intro h; exact nomatch h
       | ok a0 =>
       intro h
@@ -374,7 +374,7 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
     · rename_i hcond
       intro h
       revert h
-      cases hw1 : whnf mode env fuel d a with
+      cases hw1 : whnf mode false env fuel d a with
       | error err => intro h; exact nomatch h
       | ok a' =>
       intro h
@@ -385,7 +385,7 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
       | some n₁ =>
         intro h
         revert h
-        cases hw2 : whnf mode env fuel d b with
+        cases hw2 : whnf mode false env fuel d b with
         | error err => intro h; exact nomatch h
         | ok b' =>
         intro h
@@ -413,7 +413,7 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
     · split
       · intro h
         revert h
-        cases hw1 : whnf mode env fuel d a with
+        cases hw1 : whnf mode false env fuel d a with
         | error err => intro h; exact nomatch h
         | ok a' =>
         intro h
@@ -424,7 +424,7 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
         | some _ =>
           intro h
           revert h
-          cases hw2 : whnf mode env fuel d b with
+          cases hw2 : whnf mode false env fuel d b with
           | error err => intro h; exact nomatch h
           | ok b' =>
           intro h
@@ -493,14 +493,14 @@ structure's η family, the arguments come from the major and its
 (member-free) inferred type. -/
 theorem majorToCtor_occDeep {env : Env} {names : List Name}
     (hN : WhnfNamesFree env names) {fuel d : Nat}
-    (hW : ∀ {e w : Expr}, whnf mode env fuel d e = .ok w →
+    (hW : ∀ {e w : Expr}, whnf mode false env fuel d e = .ok w →
       e.occDeep names = false → w.occDeep names = false)
-    (hI : ∀ {e t : Expr}, inferTypeIO mode env fuel d e = .ok t →
+    (hI : ∀ {e t : Expr}, inferTypeIO mode false env fuel d e = .ok t →
       e.occDeep names = false → t.occDeep names = false)
     {recName : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
     (hrec : env.find? recName = some (.recInfo cv mI rP rules)) (hrn : recName ∉ names)
     {major major' : Expr}
-    (h : majorToCtorFueled mode env fuel d recName rules major = .ok major')
+    (h : majorToCtorFueled mode false env fuel d recName rules major = .ok major')
     (hm : major.occDeep names = false) : major'.occDeep names = false := by
   rcases majorToCtor_inv h with rfl | ⟨-, -, -, rl, cvj, cnP, cnF, tmaj₀, tmaj, T, us₀, ust,
       cvT, caps, hrules, hfc, hpr, hfT, hinf, hwt, -, hcase⟩
@@ -550,9 +550,9 @@ theorem projEntry_typeAt_occDeep {env : Env} {names : List Name}
 
 /-- The io slot inherits preservation from the io lane. -/
 theorem inferTypeIO_occDeep_of {env : Env} {names : List Name} {fuel : Nat}
-    (hIO : ∀ {d : Nat} {e t : Expr}, inferTypeCoreIO mode env fuel d e = .ok t →
+    (hIO : ∀ {d : Nat} {e t : Expr}, inferTypeCoreIO mode false env fuel d e = .ok t →
       e.occDeep names = false → t.occDeep names = false)
-    {d : Nat} {e t : Expr} (h : inferTypeIO mode env fuel d e = .ok t)
+    {d : Nat} {e t : Expr} (h : inferTypeIO mode false env fuel d e = .ok t)
     (he : e.occDeep names = false) : t.occDeep names = false := by
   rw [inferTypeIO_on] at h; exact hIO h he
 
@@ -563,19 +563,19 @@ included): the joint fuel induction over `whnfCore`, `whnf`,
 `inferTypeCore` and the io lane `inferTypeCoreIO`. -/
 theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env names) :
     ∀ (fuel : Nat),
-      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode false env fuel d e c = .ok e' →
         e.occDeep names = false → e'.occDeep names = false) ∧
-      (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnf mode false env fuel d e = .ok e' →
         e.occDeep names = false → e'.occDeep names = false) ∧
-      (∀ {d : Nat} {e t : Expr}, inferTypeCore mode env fuel d e = .ok t →
+      (∀ {d : Nat} {e t : Expr}, inferTypeCore mode false env fuel d e = .ok t →
         e.occDeep names = false → t.occDeep names = false) ∧
-      (∀ {d : Nat} {e t : Expr}, inferTypeCoreIO mode env fuel d e = .ok t →
+      (∀ {d : Nat} {e t : Expr}, inferTypeCoreIO mode false env fuel d e = .ok t →
         e.occDeep names = false → t.occDeep names = false)
   | 0 => ⟨(fun {_ _ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h),
       (fun {_ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
     obtain ⟨ihCore, ihLoop, ihInf, ihIO⟩ := whnfPres_occDeep hN fuel
-    have ihI : ∀ {d : Nat} {e t : Expr}, inferTypeIO mode env fuel d e = .ok t →
+    have ihI : ∀ {d : Nat} {e t : Expr}, inferTypeIO mode false env fuel d e = .ok t →
         e.occDeep names = false → t.occDeep names = false :=
       fun h he => inferTypeIO_occDeep_of ihIO h he
     refine ⟨?_, ?_, ?_, ?_⟩
@@ -658,7 +658,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
             (fun s hs => strLitToConstructor_occDeep hN hs s) hr h2)
     · -- whnf: the loop's own step budget
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
-          whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
+          whnfLoop (pureFns mode false env fuel) env d n e = .ok e' →
           e.occDeep names = false → e'.occDeep names = false := by
         intro n
         induction n with
@@ -867,7 +867,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
 /-- **Part 1: `whnf` introduces no member constant** (annotations
 included). -/
 theorem whnf_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env names)
-    (fuel : Nat) {d : Nat} {e w : Expr} (h : whnf mode env fuel d e = .ok w)
+    (fuel : Nat) {d : Nat} {e w : Expr} (h : whnf mode false env fuel d e = .ok w)
     (he : e.occDeep names = false) : w.occDeep names = false :=
   (whnfPres_occDeep hN fuel).2.1 h he
 

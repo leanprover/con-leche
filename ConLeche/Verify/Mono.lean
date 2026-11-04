@@ -14,7 +14,7 @@ every fueled entry point.
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-- `q` succeeds wherever `p` succeeds, with the same value. -/
 @[expose] def MRefines {α : Type} (p q : CheckM α) : Prop :=
@@ -65,8 +65,8 @@ theorem inferBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
   rwa [inferBody_fst_proj, inferBody_snd_proj] at this
 
 theorem defeqBody_mono (h : FnsRefines r₁ r₂) (d : Nat) (a b : Expr) :
-    MRefines (defeqBody mode r₁ env d a b) (defeqBody mode r₂ env d a b) := by
-  have := (defeqBody mode (pairFns r₁ r₂ h) env d a b).property
+    MRefines (defeqBody mode eager r₁ env d a b) (defeqBody mode eager r₂ env d a b) := by
+  have := (defeqBody mode eager (pairFns r₁ r₂ h) env d a b).property
   rwa [defeqBody_fst_proj, defeqBody_snd_proj] at this
 
 theorem inferBodyIO_mono (h : FnsRefines r₁ r₂) (d : Nat) (e : Expr) :
@@ -83,39 +83,39 @@ end Mono
 
 /-! ## Fuel monotonicity at the knot -/
 
-/-- The knot induction, over every mode at once: the eager slot ties the
-knot at `mode.toEager` (task #353). -/
+/-- The knot induction, over both flags at once: the eager slot ties the
+knot at `eager := true` (task #353). -/
 private theorem pureFns_mono_all (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
-    ∀ (mode : CheckMode), FnsRefines (pureFns mode env f) (pureFns mode env f')
-  | 0, f', _, mode => by
+    ∀ (eager : Bool), FnsRefines (pureFns mode eager env f) (pureFns mode eager env f')
+  | 0, f', _, eager => by
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
     · intro c d e v hv
-      rw [show (pureFns mode env 0).whnfCore c d e = whnfCore mode env 0 d e c from rfl,
+      rw [show (pureFns mode eager env 0).whnfCore c d e = whnfCore mode eager env 0 d e c from rfl,
         whnfCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
-      rw [show (pureFns mode env 0).whnf d e = whnf mode env 0 d e from rfl,
+      rw [show (pureFns mode eager env 0).whnf d e = whnf mode eager env 0 d e from rfl,
         whnf_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
-      rw [show (pureFns mode env 0).infer d e = inferTypeCore mode env 0 d e from rfl,
+      rw [show (pureFns mode eager env 0).infer d e = inferTypeCore mode eager env 0 d e from rfl,
         inferTypeCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d a b v hv
-      rw [show (pureFns mode env 0).defeq d a b = isDefEqCore mode env 0 d a b from rfl,
+      rw [show (pureFns mode eager env 0).defeq d a b = isDefEqCore mode eager env 0 d a b from rfl,
         isDefEqCore_zero] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d a b v hv
-      rw [show (pureFns mode env 0).defeqE d a b =
+      rw [show (pureFns mode eager env 0).defeqE d a b =
         throw (.internal "fuel exhausted: defeq") from rfl] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
     · intro d e v hv
-      rw [show (pureFns mode env 0).inferIO d e =
+      rw [show (pureFns mode eager env 0).inferIO d e =
         throw (.internal "fuel exhausted: infer") from rfl] at hv
       simp [throw, throwThe, MonadExceptOf.throw] at hv
-  | f + 1, f' + 1, hle, mode => by
-    have ih := pureFns_mono_all env (Nat.le_of_succ_le_succ hle) mode
-    have ihE := pureFns_mono_all env (Nat.le_of_succ_le_succ hle) mode.toEager
+  | f + 1, f' + 1, hle, eager => by
+    have ih := pureFns_mono_all env (Nat.le_of_succ_le_succ hle) eager
+    have ihE := pureFns_mono_all env (Nat.le_of_succ_le_succ hle) true
     refine ⟨fun c d e => whnfCoreBody_mono ih c d e,
       fun d e => whnfBody_mono ih d e,
       fun d e => inferBody_mono ih d e,
@@ -124,56 +124,56 @@ private theorem pureFns_mono_all (env : Env) : ∀ {f f' : Nat}, f ≤ f' →
       fun d e => inferBodyIO_mono ih.ioView d e⟩
 
 theorem pureFns_mono (env : Env) {f f' : Nat} (hle : f ≤ f') :
-    FnsRefines (pureFns mode env f) (pureFns mode env f') :=
-  pureFns_mono_all env hle mode
+    FnsRefines (pureFns mode eager env f) (pureFns mode eager env f') :=
+  pureFns_mono_all env hle eager
 
 /-! ## Fueled corollaries -/
 
 theorem whnfCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} {c : Bool} (h : whnfCore mode env f d e c = .ok r) :
-    whnfCore mode env f' d e c = .ok r :=
+    {d : Nat} {e r : Expr} {c : Bool} (h : whnfCore mode eager env f d e c = .ok r) :
+    whnfCore mode eager env f' d e c = .ok r :=
   (pureFns_mono env hle).1 c d e r h
 
 theorem whnf_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : whnf mode env f d e = .ok r) :
-    whnf mode env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : whnf mode eager env f d e = .ok r) :
+    whnf mode eager env f' d e = .ok r :=
   (pureFns_mono env hle).2.1 d e r h
 
 theorem inferTypeCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : inferTypeCore mode env f d e = .ok r) :
-    inferTypeCore mode env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : inferTypeCore mode eager env f d e = .ok r) :
+    inferTypeCore mode eager env f' d e = .ok r :=
   (pureFns_mono env hle).2.2.1 d e r h
 
 theorem isDefEqCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {a b : Expr} {r : Bool} (h : isDefEqCore mode env f d a b = .ok r) :
-    isDefEqCore mode env f' d a b = .ok r :=
+    {d : Nat} {a b : Expr} {r : Bool} (h : isDefEqCore mode eager env f d a b = .ok r) :
+    isDefEqCore mode eager env f' d a b = .ok r :=
   (pureFns_mono env hle).2.2.2.1 d a b r h
 
 /-- The full-grade argument check at a larger fuel (task #353: at the
 argument's mode, `defeqArg_def`). -/
 theorem defeqArg_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
     {d : Nat} {a ta ty : Expr} {r : Bool}
-    (h : defeqArg (pureFns mode env f) d a ta ty = .ok r) :
-    defeqArg (pureFns mode env f') d a ta ty = .ok r := by
+    (h : defeqArg (pureFns mode eager env f) d a ta ty = .ok r) :
+    defeqArg (pureFns mode eager env f') d a ta ty = .ok r := by
   rw [defeqArg_def] at h ⊢
   exact isDefEqCore_mono hle h
 
 theorem inferTypeIO_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
-    {d : Nat} {e r : Expr} (h : inferTypeIO mode env f d e = .ok r) :
-    inferTypeIO mode env f' d e = .ok r :=
+    {d : Nat} {e r : Expr} (h : inferTypeIO mode eager env f d e = .ok r) :
+    inferTypeIO mode eager env f' d e = .ok r :=
   (pureFns_mono env hle).2.2.2.2.2 d e r h
 
 theorem ensureSortCore_mono {env : Env} {f f' : Nat} (hle : f ≤ f')
     {d : Nat} {e : Expr} {u : Level}
-    (h : ensureSortCore mode env f d e = .ok u) :
-    ensureSortCore mode env f' d e = .ok u := by
+    (h : ensureSortCore mode eager env f d e = .ok u) :
+    ensureSortCore mode eager env f' d e = .ok u := by
   cases f with
   | zero =>
-    rw [show ensureSortCore mode env 0 d e =
-      ensureSort (pureFns mode env 0) env d e from rfl] at h
+    rw [show ensureSortCore mode eager env 0 d e =
+      ensureSort (pureFns mode eager env 0) env d e from rfl] at h
     revert h
     unfold ensureSort
-    rw [show (pureFns mode env 0).whnf d e = whnf mode env 0 d e from rfl, whnf_zero]
+    rw [show (pureFns mode eager env 0).whnf d e = whnf mode eager env 0 d e from rfl, whnf_zero]
     intro h
     simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
   | succ f =>

@@ -37,6 +37,7 @@ public import ConLeche.Model.Inductives.GenCallData
 import ConLeche.Model.Inductives.GenOutFacts
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Verify.Inductives.ClassMatchRun
+import ConLeche.Verify.Modes
 
 public section
 
@@ -250,7 +251,7 @@ set_option maxHeartbeats 16000000 in
 /-- **THE GENERATED CALLS AT THE ADMISSIBLE FRAMES** (see the module docstring): at the
 generated stage's context, a related (class, node) pair and a true decoding, every generated
 call lands at a node related to its class (`NodeLands`). -/
-theorem genNodeCalls {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)}

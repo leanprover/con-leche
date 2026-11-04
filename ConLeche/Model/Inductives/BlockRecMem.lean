@@ -107,7 +107,7 @@ recursor type READS, its reading is GRADED, and it IS the Π-tower
 readings and the conclusion's reading at the full depth.  This is what
 the recursor model consumes: `hTyE` at `RecTy ψ c := blockRecTyAV …`,
 `rds`/`concl` at the two named spellings. -/
-theorem recStage_tyPis {envC : Env} (hμ : μ.isVerified = true)
+theorem recStage_tyPis {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -163,7 +163,7 @@ own per-index scoping facts hold
 (`openPisAtFvars_typeWScoped`/`openPisAtFvars_bounded`), and
 `bvarsBelow_of_reading` turns a reading at depth `l` into
 `bvarsBelow l`. -/
-theorem recStage_tyBounds {envC : Env} (hμ : μ.isVerified = true)
+theorem recStage_tyBounds {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
@@ -261,7 +261,7 @@ theorem hmem_of_pre {acval : Name → (Name → Nat) → Term} {envC : Env}
 /-- **`blockRecStaged_of`'s `hrd`, end to end**: the reading and the
 grading are the run's (`recStage_tyReads`), the membership is
 the family premise's (`hmem_of_pre`). -/
-theorem hrd_of_pre {envC : Env} (hμ : μ.isVerified = true)
+theorem hrd_of_pre {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}

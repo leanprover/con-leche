@@ -55,7 +55,7 @@ every prefix spine, a node presentation at the GENERATED calls over the
 positivity derivation's node list (`genRecCtx_nodes`), whose dynamic part
 is the admissible frames with the generated calls (`genNodeCalls`), and
 which covers every guarded class. -/
-theorem genClassNodes {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+theorem genClassNodes {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -177,7 +177,7 @@ theorem genClassNodes {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
 /-- **THE CLASS INDUCTION AT THE GENERATED CALLS** (lane GENREC-B2's
 target): `GenClassInd` at every level assignment and context value, from
 the generated stage's context and run, the outside classes' data. -/
-theorem genClassInd {μ : CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+theorem genClassInd {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}

@@ -58,17 +58,17 @@ variable {mode : CheckMode}
 /-! ## Leaf clauses of the inference, inverted -/
 
 theorem whnf_sort_eq {env : Env} {F d : Nat} {u : Level} {e' : Expr}
-    (h : whnf mode env F d (.sort u) = .ok e') : e' = .sort u := by
+    (h : whnf mode false env F d (.sort u) = .ok e') : e' = .sort u := by
   have h1 := ConLeche.whnf_mono (Nat.le_add_right F 2) h
   rw [ConLeche.whnf_sort] at h1
   exact (Except.ok.inj h1).symm
 
 theorem ensureSortCore_sort_eq {env : Env} {F d : Nat} {u v : Level}
-    (h : ensureSortCore mode env F d (.sort u) = .ok v) : v = u :=
+    (h : ensureSortCore mode false env F d (.sort u) = .ok v) : v = u :=
   Expr.sort.inj (whnf_sort_eq (ConLeche.ensureSortCore_inv h))
 
 theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
-    (h : inferTypeCore mode env F d (.sort u) = .ok t) :
+    (h : inferTypeCore mode false env F d (.sort u) = .ok t) :
     t = .sort (.succ u) := by
   match F, h with
   | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
@@ -80,8 +80,8 @@ theorem inferTypeCore_sort_inv {env : Env} {F d : Nat} {u : Level} {t : Expr}
 /-- A run on an application spine carries a run on its head. -/
 theorem inferTypeCore_mkAppN_fn_inv {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f t : Expr},
-      inferTypeCore mode env F d (Expr.mkAppN f as) = .ok t →
-      ∃ tf, inferTypeCore mode env F d f = .ok tf
+      inferTypeCore mode false env F d (Expr.mkAppN f as) = .ok t →
+      ∃ tf, inferTypeCore mode false env F d f = .ok tf
   | [], _, t, h => ⟨t, h⟩
   | a :: as, f, t, h => by
     obtain ⟨tfa, hfa⟩ := inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
@@ -95,9 +95,9 @@ instantiations leave it alone. -/
 theorem inferTypeCore_mkAppN_sort {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f ty : Expr} {bs : List Expr}
       {s : Level} {t : Expr},
-      inferTypeCore mode env F d f = .ok ty →
+      inferTypeCore mode false env F d f = .ok ty →
       ty.stripPis as.length = some (bs, .sort s) →
-      inferTypeCore mode env F d (Expr.mkAppN f as) = .ok t →
+      inferTypeCore mode false env F d (Expr.mkAppN f as) = .ok t →
       t = .sort s
   | [], f, ty, bs, s, t, hf, hst, h => by
     obtain rfl : ty = t := Except.ok.inj (hf.symm.trans h)
@@ -146,11 +146,11 @@ theorem piBits_of_infer {env : Env} (hver : mode.verifiedChecks = true) :
     ∀ (n : Nat) {F d : Nat} {e t : Expr} {v₀ : Level} {fvs : List Expr}
       {opened : Expr},
       openPisAtFvars n e d = some (fvs, opened) →
-      inferTypeCore mode env F d e = .ok t →
-      ensureSortCore mode env F d t = .ok v₀ →
+      inferTypeCore mode false env F d e = .ok t →
+      ensureSortCore mode false env F d t = .ok v₀ →
       ∃ (F' : Nat) (tb : Expr) (vb : Level),
-        inferTypeCore mode env F' (d + n) opened = .ok tb ∧
-        ensureSortCore mode env F' (d + n) tb = .ok vb ∧
+        inferTypeCore mode false env F' (d + n) opened = .ok tb ∧
+        ensureSortCore mode false env F' (d + n) tb = .ok vb ∧
         (∀ φ, Level.eval φ v₀ = 0 ↔ Level.eval φ vb = 0)
   | 0, F, d, e, t, v₀, fvs, opened, hop, h, hens => by
     simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
@@ -829,7 +829,7 @@ structure ClaimsAt (μ : CheckMode) {env : Env} (m : EnvModel V env)
   sort : SortSemAt m μ φ F
 
 /-- A P carrier answers them (the sealed capstone). -/
-theorem claimsAt_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem claimsAt_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     (φ : Name → Nat) (F : Nat) : ClaimsAt μ mp.base2 φ F :=
   have h := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp φ) F
   have hr : InferReads mp.base2 μ φ F :=
@@ -844,7 +844,7 @@ variable {m : EnvModel V env} {F : Nat}
 graded, and the subject inhabits the type. -/
 theorem inferRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr}
     {Δ : List Term} {ea : Term}
-    (hi : inferTypeCore μ env F d e = .ok t)
+    (hi : inferTypeCore μ false env F d e = .ok t)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hL : Expr.LeavesBounded e) (hC : CtxOk m φ d Δ e)
     (hea : denote m.acval env φ d e = some ea) :
@@ -860,8 +860,8 @@ theorem inferRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr}
 lands in that universe. -/
 theorem sortRow (hc : ClaimsAt μ m φ F) {d : Nat} {e t : Expr} {u : Level}
     {Δ : List Term} {ea : Term}
-    (hi : inferTypeCore μ env F d e = .ok t)
-    (hens : ensureSortCore μ env F d t = .ok u)
+    (hi : inferTypeCore μ false env F d e = .ok t)
+    (hens : ensureSortCore μ false env F d t = .ok u)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hL : Expr.LeavesBounded e) (hC : CtxOk m φ d Δ e)
     (hea : denote m.acval env φ d e = some ea) :
@@ -874,7 +874,7 @@ readings interpret alike ("not pt" source (1): types are not the point,
 so the conditional claim decides). -/
 theorem defEqRow (hc : ClaimsAt μ m φ F) {d : Nat} {a b : Expr}
     {Δ : List Term} {aa ba : Term}
-    (h : ConLeche.isDefEqCore μ env F d a b = .ok true)
+    (h : ConLeche.isDefEqCore μ false env F d a b = .ok true)
     (hwa : Expr.WScoped d a) (hba : a.looseBVarsBounded 0 = true)
     (hLa : Expr.LeavesBounded a)
     (hwb : Expr.WScoped d b) (hbb : b.looseBVarsBounded 0 = true)
@@ -1281,7 +1281,7 @@ theorem paramFrames {m : EnvModel V env} {F : Nat}
     (hT : Opened m φ nP tty tfvs trest Γt Rt)
     (hC : Opened m φ (nP + nF) cty cfvs crest Γc Rc)
     (hpin : ∀ i, i < nP → ∃ a b, cfvs[i]? = some a ∧ tfvs[i]? = some b ∧
-      ConLeche.isDefEqCore μ env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b)
+      ConLeche.isDefEqCore μ false env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b)
         = .ok true) :
     ∀ i, i ≤ nP →
       (∀ ρ : Nat → V, Sat V (Γc.drop (nP + nF - i)) ρ ↔
@@ -1537,7 +1537,7 @@ structure FormerData {env : Env} (m : EnvModel V env) (cvT : ConstantVal)
 
 /-- The former's data, from its `checkConstantVal` run at the
 pre-block environment and the stored type's telescope shape. -/
-theorem formerData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem formerData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {cvT cvTa : ConstantVal} {nP : Nat} {resSort : Level}
     {bs : List Expr}
     (hccv : cvTa = cvT ∧
@@ -1555,7 +1555,7 @@ theorem formerData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
   obtain ⟨fvs, hop⟩ := openPisAtFvars_of_stripPis_sort nP 0 hstrip
   -- the opened body is `Sort resSort`, of sort `succ resSort`
   obtain ⟨F', tb, vb, hib, hensb, -⟩ :=
-    piBits_of_infer (CheckMode.vc hμ) nP hop hst hens
+    piBits_of_infer (hμ) nP hop hst hens
   obtain rfl := inferTypeCore_sort_inv hib
   obtain rfl := ensureSortCore_sort_eq hensb
   -- per assignment: the reading, its peel, its grading

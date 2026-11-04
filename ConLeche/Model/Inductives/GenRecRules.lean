@@ -1518,7 +1518,7 @@ theorem genRuleFieldRead
 /-- **The prefix bridge, under D1**: the stored rule's prefix λ-domains
 read as the stored recursor type's prefix domains — both are the
 generated prefix `g.pre`, stored as generated. -/
-theorem genRulePrefRead (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem genRulePrefRead (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
@@ -1809,7 +1809,7 @@ open ConLeche (ScB ClassGenScoped)
 
 /-- **`heqB`** (the skeleton's goal): every equation of the generated
 family is bound below the family. -/
-theorem genRecHeqB_R (hμ : μ.isVerified = true)
+theorem genRecHeqB_R (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
@@ -1846,7 +1846,7 @@ generated run: the constructor's declared type at the class's
 instantiation names only the recursor's level parameters).  The `ih`
 terms are parametric at the stored rule's footprint
 (`genIhsAV_params`, `ClassRuleRun.hlp`), the residue is ψ-free. -/
-theorem genRecHeqP_R (hμ : μ.isVerified = true)
+theorem genRecHeqP_R (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -1930,7 +1930,7 @@ which, its callee's recursor constant read as the callee's leaf
 leaves' values; `hfind`: the stored constructors are installed (the `ih` pieces then name no recursor, `genIhFree_run`).  The family's
 leaf facts come from the equations' `heqB`/`heqP` and the family
 premise `hpre` (as at the target check, `tgtRecDataB`). -/
-theorem genRecHdataS (hμ : μ.isVerified = true)
+theorem genRecHdataS (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
@@ -2146,7 +2146,7 @@ theorem genEqs_eq_R
   exact ⟨rfl, rfl, genIhsAV_eq_R R hg (List.getElem?_eq_getElem hc) hcA hrhs _ _ _ ψ, rfl, rfl⟩
 
 /-- **`heqB`** (the skeleton's goal, at its `ih` terms). -/
-theorem genRecHeqB (hμ : μ.isVerified = true)
+theorem genRecHeqB (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
@@ -2162,7 +2162,7 @@ theorem genRecHeqB (hμ : μ.isVerified = true)
   genRecHeqB_R (mpC := mpC) hμ R hg h ψ e (by rw [← genEqs_eq_R (mpC := mpC) R hg h ψ]; exact he)
 
 /-- **`heqP`** (the skeleton's goal, at its `ih` terms). -/
-theorem genRecHeqP (hμ : μ.isVerified = true)
+theorem genRecHeqP (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)

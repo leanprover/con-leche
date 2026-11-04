@@ -522,7 +522,7 @@ the constructor applied.  The prefix's entry is the minor premise's type
 built at the slot, which IS the one built at the rule prefix
 (`genMinorSetup`); read at the rule prefix it is the Π-tower of exactly
 the rule frame's pieces. -/
-theorem genCls_minor (hμ : μ.isVerified = true)
+theorem genCls_minor (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -772,7 +772,7 @@ the motive applied to the declared result's indices and the constructor
 application of a member of `∀ ı⃗ t, Sort 0` to its full arity, so a truth
 value (`mem_univZero_of_endsInSort`).  The index count is read off the
 class decoding (`hlenEs`) at the fitting field spines. -/
-theorem genMinor_pt (hμ : μ.isVerified = true)
+theorem genMinor_pt (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)

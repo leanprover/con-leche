@@ -33,58 +33,59 @@ namespace ConLeche.Cached
 open ConLeche.Expr Std.WP
 open scoped Lean.Order
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-- The cached conditional simulation at fuel `f`: every cached entry point simulates the corresponding fueled family on
 well-scoped inputs.  Declared here so the per-body walks can
 take it as their induction hypothesis; the knot batch proves it at
 every fuel. -/
-structure SSimC (mode : CheckMode) (env : Env) (f : Nat) : Prop where
+structure SSimC (mode : CheckMode) (eager : Bool) (env : Env) (f : Nat) : Prop where
   whnfCore : ∀ {c : Bool} {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
-    CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
-    SimC mode env s₀ (RelEC d)
-      ((coreKnotI mode (mkFEnv env) f).whnfCore c d i)
-      ((fueledFns mode env).whnfCore c d e)
+    CSOK mode eager env s₀ → RelC i e → Expr.WScoped d e →
+    SimC mode eager env s₀ (RelEC d)
+      ((coreKnotI mode eager (mkFEnv env) f).whnfCore c d i)
+      ((fueledFns mode eager env).whnfCore c d e)
   whnf : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
-    CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
-    SimC mode env s₀ (RelEC d)
-      ((coreKnotI mode (mkFEnv env) f).whnf d i)
-      ((fueledFns mode env).whnf d e)
+    CSOK mode eager env s₀ → RelC i e → Expr.WScoped d e →
+    SimC mode eager env s₀ (RelEC d)
+      ((coreKnotI mode eager (mkFEnv env) f).whnf d i)
+      ((fueledFns mode eager env).whnf d e)
   infer : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
-    CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
-    SimC mode env s₀ (RelEC d)
-      ((coreKnotI mode (mkFEnv env) f).infer d i)
-      ((fueledFns mode env).infer d e)
+    CSOK mode eager env s₀ → RelC i e → Expr.WScoped d e →
+    SimC mode eager env s₀ (RelEC d)
+      ((coreKnotI mode eager (mkFEnv env) f).infer d i)
+      ((fueledFns mode eager env).infer d e)
   defeq : ∀ {s₀ : CState} {d : Nat} {i j : Expr} {a b : Expr},
-    CSOK mode env s₀ → RelC i a → RelC j b →
+    CSOK mode eager env s₀ → RelC i a → RelC j b →
     Expr.WScoped d a → Expr.WScoped d b →
-    SimC mode env s₀ RelVC
-      ((coreKnotI mode (mkFEnv env) f).defeq d i j)
-      ((fueledFns mode env).defeq d a b)
+    SimC mode eager env s₀ RelVC
+      ((coreKnotI mode eager (mkFEnv env) f).defeq d i j)
+      ((fueledFns mode eager env).defeq d a b)
   /-- the eager slot (task #353): the eager tower's comparison, under
   its own memos, simulates the fueled eager slot -/
   defeqE : ∀ {s₀ : CState} {d : Nat} {i j : Expr} {a b : Expr},
-    CSOK mode env s₀ → RelC i a → RelC j b →
+    CSOK mode eager env s₀ → RelC i a → RelC j b →
     Expr.WScoped d a → Expr.WScoped d b →
-    SimC mode env s₀ RelVC
-      ((coreKnotI mode (mkFEnv env) f).defeqE d i j)
-      ((fueledFns mode env).defeqE d a b)
+    SimC mode eager env s₀ RelVC
+      ((coreKnotI mode eager (mkFEnv env) f).defeqE d i j)
+      ((fueledFns mode eager env).defeqE d a b)
   /-- the io slot (task #172 B4): the memoized knot's `inferIO` entry
   simulates the fueled io-slot family -/
   inferIO : ∀ {s₀ : CState} {d : Nat} {i : Expr} {e : Expr},
-    CSOK mode env s₀ → RelC i e → Expr.WScoped d e →
-    SimC mode env s₀ (RelEC d)
-      ((coreKnotI mode (mkFEnv env) f).inferIO d i)
-      ((fueledFns mode env).inferIO d e)
+    CSOK mode eager env s₀ → RelC i e → Expr.WScoped d e →
+    SimC mode eager env s₀ (RelEC d)
+      ((coreKnotI mode eager (mkFEnv env) f).inferIO d i)
+      ((fueledFns mode eager env).inferIO d e)
 
 /-- The base case: fuel `0` throws everywhere. -/
-theorem ssimC_zero (env : Env) : SSimC mode env 0 :=
-  { whnfCore := fun _ _ _ => SimC.throw
-    whnf := fun _ _ _ => SimC.throw
-    infer := fun _ _ _ => SimC.throw
-    defeq := fun _ _ _ _ _ => SimC.throw
-    defeqE := fun _ _ _ _ _ => SimC.throw
-    inferIO := fun _ _ _ => SimC.throw }
+theorem ssimC_zero (env : Env) : SSimC mode eager env 0 := by
+  cases eager <;> exact
+    { whnfCore := fun _ _ _ => SimC.throw
+      whnf := fun _ _ _ => SimC.throw
+      infer := fun _ _ _ => SimC.throw
+      defeq := fun _ _ _ _ _ => SimC.throw
+      defeqE := fun _ _ _ _ _ => SimC.throw
+      inferIO := fun _ _ _ => SimC.throw }
 
 /-! ## The knot hypothesis's fields as triples
 
@@ -96,44 +97,44 @@ section SSimCSpecs
 
 variable {env : Env} {f : Nat}
 
-theorem SSimC.whnfCore_spec (ih : SSimC mode env f) {c : Bool} {s₀ : CState} {d : Nat}
-    {i : Expr} (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) f).whnfCore c d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs ((fueledFns mode env).whnfCore c d i) r ∧
+theorem SSimC.whnfCore_spec (ih : SSimC mode eager env f) {c : Bool} {s₀ : CState} {d : Nat}
+    {i : Expr} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) f).whnfCore c d i
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).whnfCore c d i) r ∧
       Expr.WScoped d r; ⊤⦄ :=
   (ih.whnfCore hs rfl hw).triple relEC_inv
 
-theorem SSimC.whnf_spec (ih : SSimC mode env f) {s₀ : CState} {d : Nat} {i : Expr}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) f).whnf d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs ((fueledFns mode env).whnf d i) r ∧
+theorem SSimC.whnf_spec (ih : SSimC mode eager env f) {s₀ : CState} {d : Nat} {i : Expr}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) f).whnf d i
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).whnf d i) r ∧
       Expr.WScoped d r; ⊤⦄ :=
   (ih.whnf hs rfl hw).triple relEC_inv
 
-theorem SSimC.infer_spec (ih : SSimC mode env f) {s₀ : CState} {d : Nat} {i : Expr}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) f).infer d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs ((fueledFns mode env).infer d i) r ∧
+theorem SSimC.infer_spec (ih : SSimC mode eager env f) {s₀ : CState} {d : Nat} {i : Expr}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) f).infer d i
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).infer d i) r ∧
       Expr.WScoped d r; ⊤⦄ :=
   (ih.infer hs rfl hw).triple relEC_inv
 
-theorem SSimC.inferIO_spec (ih : SSimC mode env f) {s₀ : CState} {d : Nat} {i : Expr}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) f).inferIO d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs ((fueledFns mode env).inferIO d i) r ∧
+theorem SSimC.inferIO_spec (ih : SSimC mode eager env f) {s₀ : CState} {d : Nat} {i : Expr}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) f).inferIO d i
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).inferIO d i) r ∧
       Expr.WScoped d r; ⊤⦄ :=
   (ih.inferIO hs rfl hw).triple relEC_inv
 
-theorem SSimC.defeq_spec (ih : SSimC mode env f) {s₀ : CState} {d : Nat} {i j : Expr}
-    (hs : CSOK mode env s₀) (hwi : Expr.WScoped d i) (hwj : Expr.WScoped d j) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) f).defeq d i j
-    ⦃fun r s' => CSOK mode env s' ∧ Runs ((fueledFns mode env).defeq d i j) r; ⊤⦄ :=
+theorem SSimC.defeq_spec (ih : SSimC mode eager env f) {s₀ : CState} {d : Nat} {i j : Expr}
+    (hs : CSOK mode eager env s₀) (hwi : Expr.WScoped d i) (hwj : Expr.WScoped d j) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) f).defeq d i j
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).defeq d i j) r; ⊤⦄ :=
   (ih.defeq hs rfl rfl hwi hwj).tripleVC
 
-theorem SSimC.defeqE_spec (ih : SSimC mode env f) {s₀ : CState} {d : Nat} {i j : Expr}
-    (hs : CSOK mode env s₀) (hwi : Expr.WScoped d i) (hwj : Expr.WScoped d j) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) f).defeqE d i j
-    ⦃fun r s' => CSOK mode env s' ∧ Runs ((fueledFns mode env).defeqE d i j) r; ⊤⦄ :=
+theorem SSimC.defeqE_spec (ih : SSimC mode eager env f) {s₀ : CState} {d : Nat} {i j : Expr}
+    (hs : CSOK mode eager env s₀) (hwi : Expr.WScoped d i) (hwj : Expr.WScoped d j) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode eager (mkFEnv env) f).defeqE d i j
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs ((fueledFns mode eager env).defeqE d i j) r; ⊤⦄ :=
   (ih.defeqE hs rfl rfl hwi hwj).tripleVC
 
 end SSimCSpecs
@@ -200,21 +201,22 @@ variable {env : Env} {f : Nat}
 
 /-- The full-grade argument check simulates its fueled original: the
 same argument, so the same tower (task #353). -/
-theorem defeqArgC_spec (ih : SSimC mode env f) {s₀ : CState} {d : Nat} {a ta ty : Expr}
-    (hs : CSOK mode env s₀) (hwta : Expr.WScoped d ta) (hwty : Expr.WScoped d ty) :
-    ⦃fun s => s = s₀⦄ defeqArgI (coreKnotI mode (mkFEnv env) f) d a ta ty
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (defeqArg (fueledFns mode env) d a ta ty) v; ⊤⦄ := by
+theorem defeqArgC_spec (ih : SSimC mode eager env f) {s₀ : CState} {d : Nat} {a ta ty : Expr}
+    (hs : CSOK mode eager env s₀) (hwta : Expr.WScoped d ta) (hwty : Expr.WScoped d ty) :
+    ⦃fun s => s = s₀⦄ defeqArgI (coreKnotI mode eager (mkFEnv env) f) d a ta ty
+    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqArg (fueledFns mode eager env) d a ta ty) v;
+        ⊤⦄ := by
   sym only [conleche_grind, defeqArg] =>
     vcgen [defeqArgI, ih.defeq_spec hs, ih.defeqE_spec hs] <;> finish
 
 /-- The pairwise definitional-equality helper simulates its fueled
 original on well-scoped lists. -/
-theorem defEqListC_spec (ih : SSimC mode env f) {d : Nat} :
-    ∀ {args brgs : List Expr} {s₀ : CState}, CSOK mode env s₀ →
+theorem defEqListC_spec (ih : SSimC mode eager env f) {d : Nat} :
+    ∀ {args brgs : List Expr} {s₀ : CState}, CSOK mode eager env s₀ →
       AllWS d args → AllWS d brgs →
-      ⦃fun s => s = s₀⦄ defEqListI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d args brgs
-      ⦃fun v s' => CSOK mode env s' ∧
-          Runs (defEqList (fueledFns mode env) env d args brgs) v; ⊤⦄ := by
+      ⦃fun s => s = s₀⦄ defEqListI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d args brgs
+      ⦃fun v s' => CSOK mode eager env s' ∧
+          Runs (defEqList (fueledFns mode eager env) env d args brgs) v; ⊤⦄ := by
   intro args
   induction args with
   | nil =>
@@ -264,13 +266,13 @@ theorem iotaCertsFull_instList_cons {m : Type → Type} [Monad m] (r : CoreFns m
 
 /-- The bulk-accumulating full-grade certificate loop (task #342 L10)
 simulates its fueled original. -/
-theorem iotaCertsFullCAux_spec (ih : SSimC mode env f) {d : Nat} :
+theorem iotaCertsFullCAux_spec (ih : SSimC mode eager env f) {d : Nat} :
     ∀ {args : List Expr} {ty : Expr} {acc : List Expr} {s₀ : CState},
-      CSOK mode env s₀ → Expr.WScoped d (ty.instantiateList acc) → AllWS d args →
+      CSOK mode eager env s₀ → Expr.WScoped d (ty.instantiateList acc) → AllWS d args →
       ⦃fun s => s = s₀⦄
-        iotaCertsFullIAux (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d ty acc args
-      ⦃fun v s' => CSOK mode env s' ∧
-          Runs (iotaCertsFull (fueledFns mode env) env d (ty.instantiateList acc) args) v; ⊤⦄
+        iotaCertsFullIAux (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d ty acc args
+      ⦃fun v s' => CSOK mode eager env s' ∧
+          Runs (iotaCertsFull (fueledFns mode eager env) env d (ty.instantiateList acc) args) v; ⊤⦄
   | [], _, _, _, _, _, _ => by
     sym only [conleche_grind, iotaCertsFull.eq_1] =>
       vcgen [iotaCertsFullIAux.eq_1] <;> finish
@@ -290,11 +292,11 @@ decreasing_by
     | (apply Prod.Lex.right' <;> simp)
 
 /-- `iotaCertsFullI` simulates its fueled original. -/
-theorem iotaCertsFullC_spec (ih : SSimC mode env f) {d : Nat} {args : List Expr} {ty : Expr}
-    {s₀ : CState} (hs : CSOK mode env s₀) (hw : Expr.WScoped d ty) (hargs : AllWS d args) :
-    ⦃fun s => s = s₀⦄ iotaCertsFullI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d ty args
-    ⦃fun v s' => CSOK mode env s' ∧
-        Runs (iotaCertsFull (fueledFns mode env) env d ty args) v; ⊤⦄ := by
+theorem iotaCertsFullC_spec (ih : SSimC mode eager env f) {d : Nat} {args : List Expr} {ty : Expr}
+    {s₀ : CState} (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d ty) (hargs : AllWS d args) :
+    ⦃fun s => s = s₀⦄ iotaCertsFullI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d ty args
+    ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (iotaCertsFull (fueledFns mode eager env) env d ty args) v; ⊤⦄ := by
   sym only [conleche_grind, Expr.instantiateList_nil] =>
     vcgen [iotaCertsFullI, iotaCertsFullCAux_spec ih] <;> finish
 
@@ -305,24 +307,25 @@ section Walks2
 variable {env : Env} {f : Nat}
 
 /-- `ensureSortI` simulates its fueled original. -/
-theorem ensureSortC_spec (ih : SSimC mode env f) {d : Nat} {i : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ ensureSortI (coreKnotI mode (mkFEnv env) f) d i
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (ensureSort (fueledFns mode env) env d i) v; ⊤⦄ := by
+theorem ensureSortC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ ensureSortI (coreKnotI mode eager (mkFEnv env) f) d i
+    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (ensureSort (fueledFns mode eager env) env d i) v;
+        ⊤⦄ := by
   sym only [conleche_grind, ensureSort] =>
     vcgen [ensureSortI, ih.whnf_spec] <;> finish
 
 /-- The cached twin computes the spec's `litToCtorIfNat`. -/
-theorem litToCtorIfNatC_spec {s₀ : CState} (hs : CSOK mode env s₀) (i : Expr) :
+theorem litToCtorIfNatC_spec {s₀ : CState} (hs : CSOK mode eager env s₀) (i : Expr) :
     ⦃fun s => s = s₀⦄ litToCtorIfNatI (mkFEnv env) i
-    ⦃fun r s' => CSOK mode env s' ∧ r = litToCtorIfNat env i; ⊤⦄ := by
+    ⦃fun r s' => CSOK mode eager env s' ∧ r = litToCtorIfNat env i; ⊤⦄ := by
   sym only [conleche_grind, litToCtorIfNat, natLitSupportedF_eq] =>
     vcgen [litToCtorIfNatI] <;> finish
 
 /-- The cached twin computes the spec's pure `unfoldDefinition`. -/
-theorem unfoldDefinitionC_spec {s₀ : CState} (hs : CSOK mode env s₀) (i : Expr) :
+theorem unfoldDefinitionC_spec {s₀ : CState} (hs : CSOK mode eager env s₀) (i : Expr) :
     ⦃fun s => s = s₀⦄ unfoldDefinitionI (mkFEnv env) i
-    ⦃fun o s' => CSOK mode env s' ∧ o = unfoldDefinition env i; ⊤⦄ := by
+    ⦃fun o s' => CSOK mode eager env s' ∧ o = unfoldDefinition env i; ⊤⦄ := by
   sym only [conleche_grind, unfoldDefinition, constValAt?] =>
     vcgen [unfoldDefinitionI, mkAppNM, constValAtM_spec hs] <;> finish
 
@@ -333,29 +336,32 @@ section Walks3
 variable {env : Env} {f : Nat}
 
 /-- `litMajorToCtorI` simulates its fueled original. -/
-theorem litMajorToCtorC_spec (ih : SSimC mode env f) {d : Nat} {i : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ litMajorToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs (litMajorToCtor (fueledFns mode env) env d i) r ∧
+theorem litMajorToCtorC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ litMajorToCtorI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d i
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs (litMajorToCtor (fueledFns mode eager env) env d i)
+        r ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, litMajorToCtor, strLitSupportedF_eq, strLitToConstructor_WScoped,
       litToCtorIfNat_WScoped] =>
     vcgen [litMajorToCtorI, litToCtorIfNatC_spec hs, ih.whnf_spec] <;> finish
 
 /-- `projLitToCtorI` simulates its fueled original. -/
-theorem projLitToCtorC_spec (ih : SSimC mode env f) {d : Nat} {i : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ projLitToCtorI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i
-    ⦃fun r s' => CSOK mode env s' ∧ Runs (projLitToCtor (fueledFns mode env) env d i) r ∧
+theorem projLitToCtorC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ projLitToCtorI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d i
+    ⦃fun r s' => CSOK mode eager env s' ∧ Runs (projLitToCtor (fueledFns mode eager env) env d i) r
+        ∧
       Expr.WScoped d r; ⊤⦄ := by
   sym only [conleche_grind, projLitToCtor, strLitSupportedF_eq, strLitToConstructor_WScoped] =>
     vcgen [projLitToCtorI, ih.whnf_spec] <;> finish
 
 /-- `defeqSpineI` simulates its fueled original. -/
-theorem defeqSpineC_spec (ih : SSimC mode env f) {d : Nat} {a b : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ defeqSpineI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d a b
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (defeqSpine (fueledFns mode env) env d a b) v; ⊤⦄ := by
+theorem defeqSpineC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ defeqSpineI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
+    ⦃fun v s' => CSOK mode eager env s' ∧ Runs (defeqSpine (fueledFns mode eager env) env d a b) v;
+        ⊤⦄ := by
   sym only [conleche_grind, defeqSpine] =>
     vcgen [defeqSpineI, isEquivListLM_spec hs, defEqListC_spec ih] <;> finish
 
@@ -399,10 +405,10 @@ theorem reduceNat_nested {m : Type → Type} [Monad m] [MonadExceptOf CheckError
   | _ => rfl
 
 /-- `reduceNatI` simulates its fueled original. -/
-theorem reduceNatC_spec (ih : SSimC mode env f) {d : Nat} {i : Expr} {s₀ : CState}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
-    ⦃fun s => s = s₀⦄ reduceNatI (coreKnotI mode (mkFEnv env) f) (mkFEnv env) d i
-    ⦃fun o s' => CSOK mode env s' ∧ Runs (reduceNat (fueledFns mode env) env d i) o ∧
+theorem reduceNatC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) (hw : Expr.WScoped d i) :
+    ⦃fun s => s = s₀⦄ reduceNatI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d i
+    ⦃fun o s' => CSOK mode eager env s' ∧ Runs (reduceNat (fueledFns mode eager env) env d i) o ∧
       OptWS d o; ⊤⦄ := by
   sym only [conleche_grind, reduceNat_nested, reduceNat.eq_1, reduceNat.eq_2,
       natLitSupportedF_eq, natOpStoredF_eq, rawNatLitC?_spec] =>

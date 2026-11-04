@@ -20,7 +20,7 @@ annotation).
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 open Expr in
 /-- `instPisAt` residual leaves come from the telescope or the
@@ -361,9 +361,9 @@ set_option maxHeartbeats 1600000 in
 closure. -/
 theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode eager env fuel d e c = .ok e' →
         ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves) ∧
-      (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnf mode eager env fuel d e = .ok e' →
         ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves)
   | 0 => ⟨(fun {_ _ _ _} h => nomatch h), (fun {_ _ _} h => nomatch h)⟩
   | fuel + 1 => by
@@ -493,7 +493,7 @@ theorem whnfPres_fvarLeaves {env : Env} (henv : EnvWF env) :
           exact hsub₂ l (hsub l (ihCore hm l hl))
     · -- whnf loop: induction on the loop's own step budget (task #106)
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
-          whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
+          whnfLoop (pureFns mode eager env fuel) env d n e = .ok e' →
           ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves := by
         intro n
         induction n with
@@ -517,9 +517,9 @@ set_option maxHeartbeats 1600000 in
 bound. -/
 theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat),
-      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode env fuel d e c = .ok e' →
+      (∀ {c : Bool} {d : Nat} {e e' : Expr}, whnfCore mode eager env fuel d e c = .ok e' →
         e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true) ∧
-      (∀ {d : Nat} {e e' : Expr}, whnf mode env fuel d e = .ok e' →
+      (∀ {d : Nat} {e e' : Expr}, whnf mode eager env fuel d e = .ok e' →
         e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true)
   | 0 => ⟨(fun {_ _ _ _} h _ => nomatch h), (fun {_ _ _} h _ => nomatch h)⟩
   | fuel + 1 => by
@@ -620,7 +620,7 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
             (fun s _ => strLitToConstructor_looseBVars s 0) hr hbe₂)
     · -- whnf loop: induction on the loop's own step budget (task #106)
       have hloop : ∀ (n : Nat) {d : Nat} {e e' : Expr},
-          whnfLoop (pureFns mode env fuel) env d n e = .ok e' →
+          whnfLoop (pureFns mode eager env fuel) env d n e = .ok e' →
           e.looseBVarsBounded 0 = true → e'.looseBVarsBounded 0 = true := by
         intro n
         induction n with
@@ -640,14 +640,14 @@ theorem whnfPres_looseBVars {env : Env} (henv : EnvWF env) :
 /-- The reduction loop only shrinks the leaf closure. -/
 theorem whnf_fvarLeaves {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnf mode env fuel d e = .ok e') :
+    (h : whnf mode eager env fuel d e = .ok e') :
     ∀ l ∈ e'.fvarLeaves, l ∈ e.fvarLeaves :=
   (whnfPres_fvarLeaves henv fuel).2 h
 
 /-- The reduction loop preserves the bvar bound. -/
 theorem whnf_looseBVars {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e e' : Expr}
-    (h : whnf mode env fuel d e = .ok e')
+    (h : whnf mode eager env fuel d e = .ok e')
     (hb : e.looseBVarsBounded 0 = true) : e'.looseBVarsBounded 0 = true :=
   (whnfPres_looseBVars henv fuel).2 h hb
 
@@ -655,7 +655,7 @@ theorem whnf_looseBVars {env : Env} (henv : EnvWF env)
 
 theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore mode env fuel d e = .ok t → WScoped d e → WScoped d t
+      inferTypeCore mode eager env fuel d e = .ok t → WScoped d e → WScoped d t
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
     cases e with
@@ -762,7 +762,7 @@ theorem inferTypeCore_WScoped {env : Env} (henv : EnvWF env) :
 
 theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore mode env fuel d e = .ok t → WScoped d e →
+      inferTypeCore mode eager env fuel d e = .ok t → WScoped d e →
       ∀ l ∈ t.fvarLeaves, l ∈ e.fvarLeaves
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
@@ -903,7 +903,7 @@ theorem inferTypeCore_fvarLeaves {env : Env} (henv : EnvWF env) :
 
 theorem inferTypeCore_looseBVars {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore mode env fuel d e = .ok t → WScoped d e →
+      inferTypeCore mode eager env fuel d e = .ok t → WScoped d e →
       e.looseBVarsBounded 0 = true → Expr.LeavesBounded e →
       t.looseBVarsBounded 0 = true
   | 0, d, e, t, h, _, _, _ => nomatch h

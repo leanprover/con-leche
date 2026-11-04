@@ -164,7 +164,7 @@ are stated at a frame satisfying MEMBER `mm`'s parameter
 telescope, while `Idss c` for `c ≠ mm` is read off member `c`'s own
 type.  The producer is defeq soundness at the opened fvar frame
 (`paramFrames` at `nF = 0`, between two `nP`-binder openings). -/
-theorem blockParamsIff (hμ : μ.isVerified = true) (mp : EnvModelM V μ env) {F : Nat}
+theorem blockParamsIff (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) {F : Nat}
     {p : ConLeche.BlockParts} {isRec : Bool} {envI : Env} {cvTas : List ConstantVal}
     {p₁ : ConLeche.BlockShape}
     (h : ConLeche.checkBlockInds (ConLeche.fueledOps μ F) env p isRec
@@ -204,7 +204,8 @@ theorem blockParamsIff (hμ : μ.isVerified = true) (mp : EnvModelM V μ env) {F
       obtain ⟨R0, hO0⟩ := openedParams mp ⟨heq0, hccv0⟩ (hFD 0 cvTa0 (by simp)) (hle 0) hop0 ψ
       obtain ⟨Rq, hOq⟩ := openedParams mp ⟨heqq, hccvq⟩ (hFD (j + 1) _ hjc) (hle (j + 1)) hopq ψ
       have hpin : ∀ i, i < p.nP → ∃ a b, tfvs[i]? = some a ∧ tfvs0[i]? = some b ∧
-          ConLeche.isDefEqCore μ env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b) = .ok true := by
+          ConLeche.isDefEqCore μ false env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b) = .ok true :=
+              by
         intro i hi
         obtain ⟨a, b, ha, hb, hdeq⟩ := ConLeche.checkBlockDomsAt_inv hdoms i hi
         rw [List.getElem?_map] at hb

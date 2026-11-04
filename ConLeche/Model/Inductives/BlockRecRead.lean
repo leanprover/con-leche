@@ -89,7 +89,7 @@ it as the stream's `checkConstantVal` does.
 **This is the `hlvl` route**: the level a recursor's type lives at is
 the check's INFERRED one, and it already accounts for the binders'
 levels. -/
-theorem constChecked_reads {env : Env} (hμ : μ.isVerified = true)
+theorem constChecked_reads {env : Env} (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {F : Nat} {cv0 cv : ConstantVal}
     (h : ConLeche.ConstChecked μ F env cv0 cv) :
     ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : Term,
@@ -118,7 +118,7 @@ Every stored recursor's type reads at the constructors' environment
 and its reading is graded — from the stage's own
 type checks (`ConstChecked`), at the type record of each stored recursor
 (`RecStage.tyGenAt`, `Verify/Inductives/RecStage.lean`). -/
-theorem recStage_tyReads {envC : Env} (hμ : μ.isVerified = true)
+theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG μ F envC p cvTas rs) :
@@ -136,7 +136,7 @@ theorem recStage_tyReads {envC : Env} (hμ : μ.isVerified = true)
 reading and its grading are the run's (`recStage_tyReads`); what
 is left is that the leaf inhabits the reading — the recursion theorem,
 which the recursor model delivers as `hmem` in this shape. -/
-theorem hrd_of_mem {envC : Env} (hμ : μ.isVerified = true)
+theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → Term}

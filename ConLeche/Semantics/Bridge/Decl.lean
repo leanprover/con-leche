@@ -43,7 +43,7 @@ theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
     intro h eq heq
     simp only [certifyNatEqs, fueledOps_isDefEq, Bind.bind,
       Except.bind] at h
-    cases hx : isDefEqCore μ env F 2 e.1 e.2 with
+    cases hx : isDefEqCore μ false env F 2 e.1 e.2 with
     | error err => rw [hx] at h; exact nomatch h
     | ok b =>
       cases b with

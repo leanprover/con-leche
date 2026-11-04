@@ -139,8 +139,8 @@ module docstring). -/
     (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
       ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
         = some crest →
-      (∃ ty u, ConLeche.inferTypeCore .verified env F hi crest = .ok ty ∧
-        ConLeche.ensureSortCore .verified env F hi ty = .ok u) →
+      (∃ ty u, ConLeche.inferTypeCore .verified false env F hi crest = .ok ty ∧
+        ConLeche.ensureSortCore .verified false env F hi ty = .ok u) →
       ∃ ca, Frame hi crest ∧ CtxOkP mp.base2 φ hi Δ crest ∧
         denote mp.base2.acval env φ hi crest = some ca ∧ GradedTy V Δ ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalked mp.base2 φ ctx hi us ds names holes R x
@@ -235,7 +235,7 @@ theorem mono_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
     (k : Frame dep w → CtxOkP mp.base2 φ dep Δa w → ∀ wa,
       denote mp.base2.acval env φ dep w = some wa → GradedTy V Δa wa → MonoOn R wa) :
     MonoOn R ea := by
-  have hw' : ConLeche.whnf .verified env F dep e = .ok w := hw
+  have hw' : ConLeche.whnf .verified false env F dep e = .ok w := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
     red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
   exact MonoOn.of_eqOn (Q := Sat V Δa) hdom (fun ρ hρ => heq ρ hρ)
@@ -299,7 +299,7 @@ theorem frameKey_of_infer {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
     (hCds : ∀ x ∈ ds, CtxOkP mp.base2 φ hi Δh x) {dsa : List Term}
     (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa)
     (hlenP : (D.params (Level.substFn φ cv.levelParams us)).length = ds.length)
-    (hkty : ∃ ty, ConLeche.inferTypeCore .verified env F hi
+    (hkty : ∃ ty, ConLeche.inferTypeCore .verified false env F hi
       (Expr.mkAppN (.const (D.member mm) us) ds) = .ok ty)
     (hpi : ∃ r, ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some r) :
     ∀ ρ, Sat V Δh ρ →
