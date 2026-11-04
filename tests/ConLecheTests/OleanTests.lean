@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Verify.Frontend.Olean.Equiv
 public import ConLeche.Verify.Frontend.Olean.Reads
 public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLecheTests.ScanTests
