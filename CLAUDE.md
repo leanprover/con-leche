@@ -124,9 +124,10 @@ arm or induction case). No custom tactic, macro or elab.
   import `ConLeche/Verify/*` (the theorems about kernel functions that
   need no model, task #329's maintainer ruling), and nothing else of
   the theory: still never `Model/*`, `SetTheory/*`, `SetModel/*`,
-  `Semantics/*`, `Term/*`, `Complete/*`. `ConLeche/Driver/Cli.lean`
-  is the CLI (argument parsing, the generic `mainG`); `Main.lean` holds
-  only `main` (`mainG` followed by the exit); the rest of
+  `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` holds
+  `main`: the plumbing around `runArgs`, followed by the exit;
+  `ConLeche/Driver/Cli.lean` is the CLI: the argument parse and the
+  generic `runArgs`; the rest of
   `ConLeche/Driver/*` is the driver proper (the install and check
   loops, the parallel install, the phase sequencing), and all of it is
   checker code like `Kernel/*` (a `module` header, one

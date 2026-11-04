@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Driver.Dispatch
-public import Std.Async.System
 
 @[expose] public section
 
@@ -39,9 +38,9 @@ on-disk scratch convention); never default to the system temp
 directory.
 
 **This file and `Main.lean` are the CLI**: argument parsing, I/O, exit
-codes; here everything generic in the IO class, which the theorems over
-`main` (`ConLeche.main_model`, `ConLeche.main_no_False`) are about, in
-`Main.lean` the entry point, `mainG` followed by the exit.  The
+codes; here everything generic in the IO class, `runArgs`, which the
+theorems over `main` (`ConLeche.main_model`, `ConLeche.main_no_False`)
+are about, in `Main.lean` the plumbing around it, followed by the exit.  The
 proof-carrying driver — the parallel parse, the install and check
 loops and the phase sequencing — lives in
 `ConLeche/Driver/*` (`OwnerParse.lean`, `StreamParse.lean`,
@@ -378,100 +377,60 @@ def parseArgs : List String → Args → Args
 @[inline] def eprintln {m : Type → Type} [CheckerIO m] (s : String) : m Unit :=
   CheckerIO.liftIO (IO.eprintln s)
 
-/-- The argument parse and the request run, whose exceptions `run`
-below turns into exit 3. -/
-def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
-  if helpWanted args then
-    CheckerIO.liftIO (IO.println usage)
-    return 0
-  -- `--verified`/`--trusted`: the mode setting, validated here once
-  -- and threaded as configuration — the graded verified core and the
-  -- unverified trusted one.
-  let a := parseArgs args {}
-  if let some msg := a.bad then
-    eprintln s!"con-leche: {msg}"
-    eprintln usage
-    return 3
-  match a.files.toList with
-  | [file] =>
-    -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
-    -- and an out-of-memory condition is the Lean runtime's own panic
-    -- ("INTERNAL PANIC: out of memory", uncatchable in process), an
-    -- `abort()` under the `LEAN_ABORT_ON_PANIC` set by `run`.
-    -- `--jobs=<n>`: the check phase's worker count; without the flag,
-    -- one worker per hardware thread (1 if the runtime cannot tell).
-    let jobs := a.jobs.getD
-      (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
-       if hw = 0 then 1 else hw)
-    runReq (.stream file a.mode a.progress jobs a.noMark)
-  | _ =>
-    eprintln usage
-    return 3
+/-- **What `main` runs, generic in the IO class** (tasks #424, #450): the
+argument parse, `--help` and the usage errors, the request run, and the
+catch of `IO` errors into exit 3.  It reaches the runtime through
+`CheckerIO.liftIO`, and the exit code, the `UInt8` `IO.Process.exit`
+takes, is computed here and returned outside `liftIO`, so that what the
+model says of the code is what the run computed.  The binary's `main`
+(`Main.lean`) is the plumbing around this at `IO`.
 
-/-- The run of `main` up to computing the exit code.  Split out (task
-#336) so that `main` can wrap the whole thing in a flush-then-`exit`:
-see there for why.  Generic in the IO class (task #450), as everything
-`main` runs; it reaches the runtime through `CheckerIO.liftIO`. -/
-def run {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
-  -- **Linearity is enforced, in every run** (task #331).  The install
-  -- environment's index is marked linear (`FEnv.markLinear`, on the
-  -- serial install), and so are the parse's tables (`StateD.markLinear`,
-  -- on the serial parse's state and on the state a rounds window falls
-  -- back to; the rounds mark the arrays they push onto); with
-  -- `LEAN_ABORT_ON_NONLINEAR` set, a copy of a
-  -- marked array is a runtime panic instead of a silent copy of a
-  -- million-slot array, and with `LEAN_ABORT_ON_PANIC` set every panic —
-  -- that one, a Lean-level `panic!`, an out-of-bounds `get!`, the
-  -- runtime's out-of-memory — is an `abort()` (exit 134, SIGABRT), never
-  -- an exit code that reads as a verdict.  The runtime reads both
-  -- variables with `getenv` at the moment it needs them, so setting them
-  -- here, before any thread is started, covers the whole run.
+**An uncaught IO exception is an internal error, exit 3 — never a REJECT
+(task #335).**  `IO.Error` can surface anywhere below: the input path
+naming a directory, a read failing mid-stream, a write to stdout/stderr
+failing (a closed pipe).  Left uncaught, it would reach the Lean
+runtime's own top-level handler, which prints "uncaught exception: …"
+and exits with status 1 — exactly the code the arena convention reserves
+for a declaration *positively* rejected as invalid.  This `try` is the
+one place that turns any such exception into exit 3 instead, and it is
+here, not in `main`, so that the model sees it.  A verdict that is
+deliberately exit 1 (`.invalid`) or exit 2 (`.notImplemented`) is a plain
+`return` out of `runReq`, never a `throw`, so it passes through
+untouched.  The catch handler's own write can itself fail (that same
+closed stderr, say); that must not flip the exit code either, so it is
+best-effort and its own failure is swallowed. -/
+def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
   tryCatchThe IO.Error
     (do
-      CheckerIO.liftIO do
-        Std.Async.System.setEnvVar "LEAN_ABORT_ON_NONLINEAR" "1"
-        Std.Async.System.setEnvVar "LEAN_ABORT_ON_PANIC" "1"
-      -- **An uncaught IO exception is an internal error, exit 3 — never a
-      -- REJECT (task #335).** `IO.Error` can surface anywhere below: the
-      -- input path naming a directory, a read failing mid-stream, a write
-      -- to stdout/stderr failing (a closed pipe).  Left uncaught, it would
-      -- reach the Lean runtime's own top-level handler, which prints
-      -- "uncaught exception: …" and exits with status 1 — exactly the
-      -- code the arena convention reserves for a declaration *positively*
-      -- rejected as invalid.  This `try` is the one place that turns any
-      -- such exception into exit 3 instead.  A verdict that is deliberately
-      -- exit 1 (`.invalid`) or exit 2 (`.notImplemented`) is a plain
-      -- `return` out of `runReq`, never a `throw`, so it passes through
-      -- untouched.  The catch handler's own write can itself fail (that
-      -- same closed stderr, say); that must not flip the exit code either,
-      -- so it is best-effort and its own failure is swallowed.
-      tryCatchThe IO.Error (runArgs args) fun e => do
-        CheckerIO.liftIO
-          (try IO.eprintln s!"con-leche: internal error: {e}" catch _ => pure ())
+      if helpWanted args then
+        CheckerIO.liftIO (IO.println usage)
+        return 0
+      -- `--verified`/`--trusted`: the mode setting, validated here once
+      -- and threaded as configuration — the graded verified core and the
+      -- unverified trusted one.
+      let a := parseArgs args {}
+      if let some msg := a.bad then
+        eprintln s!"con-leche: {msg}"
+        eprintln usage
+        return 3
+      match a.files.toList with
+      | [file] =>
+        -- The checker runs IN THIS PROCESS: it spawns no copy of itself,
+        -- and an out-of-memory condition is the Lean runtime's own panic
+        -- ("INTERNAL PANIC: out of memory", uncatchable in process), an
+        -- `abort()` under the `LEAN_ABORT_ON_PANIC` set by `main`.
+        -- `--jobs=<n>`: the check phase's worker count; without the flag,
+        -- one worker per hardware thread (1 if the runtime cannot tell).
+        let jobs := a.jobs.getD
+          (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+           if hw = 0 then 1 else hw)
+        runReq (.stream file a.mode a.progress jobs a.noMark)
+      | _ =>
+        eprintln usage
         return 3)
     fun e => do
-      eprintln s!"con-leche: cannot set the runtime's abort variables: {e}"
+      CheckerIO.liftIO
+        (try IO.eprintln s!"con-leche: internal error: {e}" catch _ => pure ())
       return 3
-
-/-- **Everything `main` does but the exit** (tasks #336, #450): the run,
-then both streams flushed, and the exit code, computed by the generic
-code as the `UInt8` `IO.Process.exit` takes and returned OUTSIDE `liftIO`: the action under `liftIO` here has a
-unit result, so that what the model says of the code is what the run
-computed.  The binary's `main` (`Main.lean`) is this at `IO`, followed
-by the exit.  No worker is left running by then: `checkDeclsIO` joins
-the ones it started before it returns.
-
-**Flushing first**: `IO.Process.exit`'s own `exit()` call flushes the C
-streams if `IO.FS.Stream.stdout`/`stderr` are backed by them, but this
-does not depend on that — `run`'s last action on every path is already
-the verdict/diagnostic print, so flushing both streams here, right
-before `exit`, is flushing exactly what that print just wrote and
-nothing more. -/
-def mainG {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
-  let code ← run args
-  CheckerIO.liftIO do
-    (← IO.getStdout).flush
-    (← IO.getStderr).flush
-  return code
 
 end ConLeche.Driver

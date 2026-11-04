@@ -10,7 +10,7 @@ public import ConLeche.Frontend.ReadRange
 The driver's reads of the files are written against `CheckerIO m`, a
 monad with the few file operations the checker needs, instead of
 against `IO`; everything else the driver does at the runtime — output,
-diagnostics, the clock, the abort variables, the persistent mark,
+diagnostics, the clock, the persistent mark,
 and every thread (the rounds parse's owners, the install and the check
 pools) — is an `IO` action handed to the class's one escape,
 `CheckerIO.liftIO`.  The same code runs at two instances:
@@ -29,11 +29,12 @@ pools) — is an `IO` action handed to the class's one escape,
   is reasoned about, not executed.
 
 **What is proved, and what is trusted.**  The theorems
-(`Driver.mainG_accept`, `ConLeche.main_model`, `ConLeche.main_no_False`)
-say: every outcome of `Driver.mainG` in the model that is the exit code
-0 implies the statement.  The binary's `main` is the same generic
-`mainG` at `IO`, followed by the exit with the code it returned.  The
-code is computed by the generic code and returned outside `liftIO`
+(`Driver.runArgs_accept`, `ConLeche.main_model`, `ConLeche.main_no_False`)
+say: every outcome of `Driver.runArgs` in the model that is the exit code
+0 implies the statement.  The binary's `main` is `enableAbortOnNonlinear`,
+then the same generic `runArgs` at `IO`, then the flush and the exit with
+the code it returned; those few lines are read, not proved, and the
+theorems cover `runArgs`.  The code is computed by the generic code and returned outside `liftIO`
 (were it `liftIO`'s result, the model would allow any).  The binary's
 run is one of the model's outcomes, and its exit code that outcome's,
 if
@@ -45,11 +46,12 @@ if
    `native/read_range.c`), which must return the model's slice;
 2. the actions passed to `liftIO` do not change what the file operations
    see (none of them writes a file: they print, read the clock and
-   `/proc/self/status`, set the runtime's two abort variables, start
-   and join threads, and compute), and do not themselves end the process
-   with an exit code: the one `IO.Process.exit` is the last step of
-   `main`, outside `mainG` (`tests/trust-surface.sh` checks that it is
-   the only one, textually); a panic is an `abort()`, status 134, never
+   `/proc/self/status`, start and join threads, and compute), and do not
+   themselves end the process with an exit code: `IO.Process.exit` is
+   only in `main`, outside `runArgs`, last with the code `runArgs`
+   returned and, before `runArgs` starts, with 3 if the abort variables
+   cannot be set (`tests/trust-surface.sh` checks that these two are
+   the only ones, textually); a panic is an `abort()`, status 134, never
    a verdict; and
 3. Lean's compiler and runtime run the code as written.
 

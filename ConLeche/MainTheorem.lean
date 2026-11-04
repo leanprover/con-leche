@@ -128,12 +128,13 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
 
-/-! ## All of `main`, in the IO model (tasks #424, #450)
+/-! ## `runArgs`, all of `main` but its plumbing, in the IO model (tasks #424, #450)
 
-`main` (`Main.lean`) is `Driver.mainG` at `IO`, followed by the exit
-with the code `mainG` returned; `mainG` is generic in the IO class
-`CheckerIO`, the code computed outside its `liftIO` escape.  The two
-theorems below are about every outcome of `mainG` in the model
+`main` (`Main.lean`) is `enableAbortOnNonlinear`, then `Driver.runArgs`
+at `IO`, then the flush and the exit with the code `runArgs` returned;
+those few lines are read, not proved.  `runArgs` is generic in the IO
+class `CheckerIO`, the code computed outside its `liftIO` escape.  The
+two theorems below are about every outcome of `runArgs` in the model
 `ModelIO`, at the fixed arguments `-- <file>`: the default mode, which
 is `.verified`, the default worker count; nothing is said about
 `--help` or the other flags.  They are statements about the binary's
@@ -144,29 +145,29 @@ not change what those see and do not end the process, and Lean's
 compiler and runtime run the code as written — so that the binary's run is one of the model's outcomes. -/
 
 open Frontend in
-/-- **An accepted file has a model.**  Every outcome of `main` at the
+/-- **An accepted file has a model.**  Every outcome of `runArgs` at the
 arguments `-- <file>` that is an exit 0 read the file's bytes `b` off
 the snapshot; they parse as one chunk to records `r`, the fold accepts
 `r`'s declarations prepared with the built-in prelude, and the
 environment it returns has a model in `V`. -/
 theorem main_model (V : Type w) [SetTheory V] {file : String} {fs : FS}
-    (h : (Driver.mainG ["--", file] : ModelIO _) fs (.ok 0)) :
+    (h : (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
     ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       parseChunks [b] = .ok r ∧
       checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env ∧
       Nonempty (Model V env) := by
-  obtain ⟨pre, b, r, env, hp, hb, hr, hc⟩ := Driver.mainG_accept h
+  obtain ⟨pre, b, r, env, hp, hb, hr, hc⟩ := Driver.runArgs_accept h
   exact ⟨pre, b, r, env, hp, hb, hr, hc, model_exists V _ _ env hc⟩
 
 open Frontend in
 /-- **The main corollary.**  On a snapshot where the
-file's bytes are a `jsonWithTheoremFalse` file, no outcome of `main` at
+file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at
 the arguments `-- <file>` is an exit 0. -/
 theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
     (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-    ¬ (Driver.mainG ["--", file] : ModelIO _) fs (.ok 0) := by
+    ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
   intro h
-  obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.mainG_accept h
+  obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.runArgs_accept h
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
   obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
   simp [hp, hr, hc, bind, Except.bind] at he

@@ -108610,16 +108610,14 @@ after the first attempt (below); this record states it as landed.
   the model allows carries it too.
 * **The driver, generic**: `parseStreamG` (`StreamParse`), `checkMainG`
   (`CheckMain`), `runReq` (`Dispatch`), and the new
-  `Driver/Cli.lean`: `parseArgs`, `helpWanted`, `runArgs`, `run`, `mainG`.
-  They left `Main.lean` because the theorems over `main` must import them
-  and an executable's root cannot be imported; `Main.lean` is the entry
-  point alone, `main args : IO Unit := do IO.Process.exit (← mainG args)`.
+  `Driver/Cli.lean`: `parseArgs`, `helpWanted`, `runArgs`.
+  They left `Main.lean` because the theorems must import them and an
+  executable's root cannot be imported; `Main.lean` holds only `main`,
+  the plumbing (`enableAbortOnNonlinear`, on failure the message and exit
+  3; `runArgs` at `IO`; the flush; the exit), read and not proved.
   **The exit code is computed by the generic code and returned outside
-  `liftIO`**: `mainG` is `run`, a `liftIO` with a unit result (the
-  flush), and `return code`.  No `exit` in the class; a code passing
-  through `liftIO` would make the model allow exit 0 from any run.  At
-  `IO` the order is: the run (the install's workers joined at the end of
-  `checkDeclsIO`), the flush, the exit.
+  `liftIO`**.  No `exit` in the class; a code passing
+  through `liftIO` would make the model allow exit 0 from any run.
 * **The command line.**  `"--" :: rest` makes every remaining argument a
   file, so `con-leche -- <file>` is safe for any file name; `--help` is
   decided on the arguments before any `--` (`helpWanted`), so a file
@@ -108639,16 +108637,16 @@ after the first attempt (below); this record states it as landed.
   gives `∃ pre b r env`, `builtinPreludeE = .ok pre`,
   `fs.file file = some b`, `parseChunks [b] = .ok r`,
   `checkDecls mode natOpPinSets (preparePrelude pre r.decls) = .ok env`.
-  `mainG_accept` (`Verify/Driver/Main.lean`): the same at `.verified` for
-  all of `mainG ["--", file]`, the argument parse, the abort variables,
-  both handlers (which return 3), the flush included; the
+  `runArgs_accept` (`Verify/Driver/Main.lean`): the same at `.verified` for
+  all of `runArgs ["--", file]`, the argument parse and
+  the handler (which returns 3) included; the
   worker count is what the default computes
   (`getHardwareConcurrency`), which the statement does not depend on.
-  Over all of `main` (`MainTheorem.lean`), at these fixed arguments, so
+  Over `runArgs` (`MainTheorem.lean`), at these fixed arguments, so
   nothing is said about `--help` or other flags:
-  `main_model` (`(mainG ["--", file] : ModelIO _) fs (.ok 0) → ∃ pre b r
+  `main_model` (`(runArgs ["--", file] : ModelIO _) fs (.ok 0) → ∃ pre b r
   env`, the chain and `Nonempty (Model V env)`) and `main_no_False`
-  (`fs.file file = some b → jsonWithTheoremFalse [b] → ¬ (mainG ["--",
+  (`fs.file file = some b → jsonWithTheoremFalse [b] → ¬ (runArgs ["--",
   file] : ModelIO _) fs (.ok 0)`, from `no_False_declaration`).  The
   model theorem says nothing of `False`.  Both pinned in `Axioms.lean`
   at `propext`, `Classical.choice`, `Quot.sound`.
@@ -108777,12 +108775,21 @@ IO-exception gate 5/5 (the FIFO at both job counts); the trusted,
 plumbing is gone: `checkDeclsIO` joins its own install workers at its
 end, on every path (`try … finally`, the join in a local ref that
 `installPhase` sets once the workers are started), so nothing outside it
-sees them and `mainG` only flushes.  At the end of the check phase and
+sees them.  At the end of the check phase and
 not the install phase, so that an accept does not wait for the threads'
 exit (~0.25 s on cslib).  The one behaviour change: after a rejection at
 more than one worker the verdict line comes after the stragglers have
 finished.  And the exit code is `UInt8` throughout the generic code
-(`CheckError.exitCode`, `checkMainG`, `runReq`, `runArgs`, `run`,
-`mainG`), the type `IO.Process.exit` takes, and `main` is at `IO Unit`:
+(`CheckError.exitCode`, `checkMainG`, `runReq`, `runArgs`), the type `IO.Process.exit` takes, and `main` is at `IO Unit`:
 with `UInt32` and `toUInt8`, a code of 256 would have truncated to 0, a
 gap between the theorems' `.ok 0` and the exit status.
+
+**One layer of wrapping (maintainer's ruling, 2026-11-04).**  `mainG` and
+`run` are gone: `main` (`Main.lean`, with `enableAbortOnNonlinear` all it
+declares; the trust-surface gate pins that and the two exits) is the
+abort variables, `runArgs` at `IO`, the flush and the exit, read and not
+proved, and `runArgs` holds all the real logic, the catch of `IO` errors
+into exit 3 included, so that the model sees it.  `main_model` and
+`main_no_False` state `runArgs ["--", file]`, from `runArgs_accept`.  A
+message failing after the abort variables failed no longer escapes as
+exit 1; a throwing flush in `main` still does, as before.

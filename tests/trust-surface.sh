@@ -281,7 +281,8 @@
 #
 #       Run.lean took its escape over from `Main.lean` when the
 #       proof-carrying driver split out of it into `ConLeche/Driver/*`;
-#       `Main.lean` itself is the entry point (`mainG`, then the exit)
+#       `Main.lean` itself is the entry point (the plumbing around
+#       `runArgs`, then the exit)
 #       and tolerates no escape.
 #
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
@@ -765,10 +766,13 @@ print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime on
 # ------------------------------------------ THE ONE EXIT (task #450).
 # The trust assumption of the IO class says the actions passed to
 # `CheckerIO.liftIO` do not themselves end the process with an exit code:
-# the exit code the theorems speak of is the one `mainG` returns, and
+# the exit code the theorems speak of is the one `runArgs` returns, and
 # `main` exits with it.  TEXTUAL, over the code of every scanned file:
 # `IO.Process.exit` (under any spelling of its name) is in `Main.lean`,
-# once.  The C function is pinned above and calls no exit.
+# twice: `IO.Process.exit code` and, when the abort variables cannot be
+# set, before `runArgs` starts, `IO.Process.exit 3`.  The C function is
+# pinned above and calls no exit.  And `Main.lean`, read and not proved,
+# declares only `enableAbortOnNonlinear` and `main`.
 EXIT_RX = re.compile(r'\bProcess\.exit\b|\blean_io_exit\b|\bopen\s+IO\.Process\b')
 exit_hits = []
 for rel in sources():
@@ -777,12 +781,28 @@ for rel in sources():
     for i, line in enumerate(code_only(raw, rel).split('\n'), 1):
         if EXIT_RX.search(line):
             exit_hits.append((rel, i, line.strip()))
-if [h[0] for h in exit_hits] != ['Main.lean']:
-    print(f'ONE-EXIT FAIL - IO.Process.exit must appear once, in Main.lean; found:')
+if [(h[0], h[2]) for h in exit_hits] != [('Main.lean', 'IO.Process.exit 3'),
+                                         ('Main.lean', 'IO.Process.exit code')]:
+    print(f'ONE-EXIT FAIL - IO.Process.exit must appear as `IO.Process.exit 3`, then '
+          f'`IO.Process.exit code`, in Main.lean; found:')
     for rel, i, text in exit_hits:
         print(f'    {rel}:{i} {text}')
     sys.exit(1)
-print('one exit (textual): IO.Process.exit once, in Main.lean')
+with open('Main.lean', encoding='utf-8') as fh:
+    _main_top = [l.strip() for l in code_only(fh.read(), 'Main.lean').split('\n')
+                 if l.strip() and not l[0].isspace()]
+_main_expected = ['module', 'public import ConLeche.Driver.Cli',
+                  'public import Std.Async.System', '@[expose] public section',
+                  'def enableAbortOnNonlinear : IO Unit := do',
+                  'def main (args : List String) : IO Unit := do']
+if _main_top != _main_expected:
+    print(f'MAIN FENCE FAIL - Main.lean must declare only `enableAbortOnNonlinear` and '
+          f'`main`; its top level is:')
+    for l in _main_top:
+        print(f'    {l}')
+    sys.exit(1)
+print('one exit (textual): IO.Process.exit only in Main.lean, the code and the abort '
+      'variables\' 3; Main.lean declares only enableAbortOnNonlinear and main')
 
 files = len({o[0] for o in occurrences})
 print(f'trust surface: {len(occurrences)} escapes in {files} allowlisted '

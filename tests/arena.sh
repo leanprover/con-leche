@@ -418,7 +418,7 @@ echo "mode flags: $mode_ok/$mode_total as expected"
 # failing mid-stream, a write failing -- must not read as a REJECT:
 # the arena convention reserves exit 1 for a declaration *positively*
 # rejected as invalid.  It is an internal error, exit 3, caught once
-# at the top of `main` (Main.lean).  Before the fix, opening a
+# in `runArgs` (ConLeche/Driver/Cli.lean).  Before the fix, opening a
 # directory as the input threw an uncaught `IO.Error`, which the Lean
 # runtime's own top-level handler printed as "uncaught exception: …"
 # and turned into exit 1.

@@ -5,10 +5,10 @@ public import ConLeche.Driver.CheckMain
 /-!
 # What a run does, by its request, generic in the IO class (task #424)
 
-`run` (`ConLeche/Driver/Cli.lean`) reads its arguments into a request (`Req`): today
+`runArgs` (`ConLeche/Driver/Cli.lean`) reads its arguments into a request (`Req`): today
 a lean4export stream.  `runReq` runs the request's driver,
 `checkMainG`, generic in the IO class: the binary runs it at `IO`
-(`ConLeche/Driver/Cli.lean`, `Main.lean`), and `mainG_accept`
+(`ConLeche/Driver/Cli.lean`, `Main.lean`), and `runArgs_accept`
 (`ConLeche/Verify/Driver/Main.lean`) is about the whole run in the
 model, at the arguments `-- <file>`.
 -/
