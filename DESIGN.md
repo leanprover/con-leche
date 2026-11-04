@@ -108950,7 +108950,7 @@ succeeds iff the specification does.
 the reader, those, `Verify.Frontend.ModelIO`.  `tests/trust-surface.sh`'s IO fence
 covers `Files`, `Closure`, `Records`, with `parShare` and `parMapIO` cut out.
 
-**Tests.**  `tests/olean.sh`: 94 cases, the merged and parts cases of cfsg's gate,
+**Tests.**  `tests/olean.sh`: 95 cases, the merged and parts cases of cfsg's gate,
 79 fixture sources (1.4 MB of oleans), upstream Lake and Comparator projects kept;
 `NpAx` is exit 2 here (master declines every other axiom; cfsg's reject is its
 #397, which is not on master).  `tests/ConLecheTests/OleanTests.lean` evaluates
@@ -108959,9 +108959,10 @@ after the self-check, whose exporter it uses.
 
 **Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
 differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
-run): accepted 712 205 declarations, peak RSS 6.01 GiB, parse phase 17.0 s, install
-7.4 s, check 144.0 s, 7 769 G instructions:u, 4 931 G cycles:u.  A slice of CFSG's
-rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`) reads and is accepted.  A module-system
+run, on the final tree): accepted 712 205 declarations, peak RSS 6.11 GiB, parse phase
+16.9 s, install 7.7 s, check 99.4 s, 7 772 G instructions:u, 3 888 G cycles:u.  A slice
+of CFSG's rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`, 113 593 declarations) read and was
+accepted before the interface rewrite; that checkout is gone.  A module-system
 module's exported part is decoded twice in a full read (alone, then in the
 combined region), the price of `parseExported` being a function of that file alone;
 the parse phase above includes it.
