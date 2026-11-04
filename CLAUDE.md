@@ -124,11 +124,14 @@ arm or induction case). No custom tactic, macro or elab.
   import `ConLeche/Verify/*` (the theorems about kernel functions that
   need no model, task #329's maintainer ruling), and nothing else of
   the theory: still never `Model/*`, `SetTheory/*`, `SetModel/*`,
-  `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` is the CLI
-  (argument parsing, I/O, exit codes); `ConLeche/Driver/*` is the
-  driver proper (the install and check loops, the parallel install,
-  the phase sequencing) and is checker code like `Kernel/*` (a
-  `module` header, one `@[expose] public section`).
+  `Semantics/*`, `Term/*`, `Complete/*`. `Main.lean` holds
+  `main`: the plumbing around `runArgs`, followed by the exit;
+  `ConLeche/Driver/Cli.lean` is the CLI: the argument parse and the
+  generic `runArgs`; the rest of
+  `ConLeche/Driver/*` is the driver proper (the install and check
+  loops, the parallel install, the phase sequencing), and all of it is
+  checker code like `Kernel/*` (a `module` header, one
+  `@[expose] public section`).
 * `ConLeche/Model/*` (the graded model) is imported only by itself, the
   capstone assembly (`Verify/Cached/MainC`, the `ConLeche.Verify.Cached`
   umbrella, `MainTheorem`) and `Complete/*`.

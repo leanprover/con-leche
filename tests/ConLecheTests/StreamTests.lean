@@ -13,11 +13,12 @@ public section
 /-!
 # The serial streaming parse (task #329)
 
-`parseExportStreamS` feeds every read to `chunkStep`, the incomplete
-tail of a read carried into the next.  Its result carries the proof
-that `parseChunks` returns it; what is pinned here is that the IO
-around that proof — the reads, the carried tail — hands the fold the
-bytes of the file and nothing else: on fixtures read at every chunk
+`parseFileS` feeds every read to `chunkStep`, the incomplete tail of a
+read carried into the next, through the IO class's serial fold.  In the
+model of the files that is `parseChunks` of the file's reads (a
+theorem); what is pinned here is that the binary's instance of the fold
+— the reads, the carried tail — hands the step the bytes of the file
+and nothing else: on fixtures read at every chunk
 size from one byte up, the result is the wholesale parse's, verdict,
 line number and records alike.
 -/
@@ -38,7 +39,7 @@ def serialAgrees (path : System.FilePath) : IO Unit := do
   let b ← IO.FS.readBinFile path
   let want := parseSummary (parseBytes b)
   for chunk in [1, 2, 7, 64, 1000, 4096] do
-    let got := parseSummary (← parseExportStreamS path chunk.toUSize).val
+    let got := parseSummary (← (parseFileS path chunk.toUSize : IO _))
     unless got == want do
       throw <| IO.userError s!"{path} at chunk {chunk}: {got.take 200} ≠ {want.take 200}"
 

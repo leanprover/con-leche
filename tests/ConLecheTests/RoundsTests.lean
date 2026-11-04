@@ -1,11 +1,11 @@
 module
 
-public import ConLeche.Driver.OwnerParse
+public import ConLeche.Driver.StreamParse
 public import ConLeche.Cached.Installed
 /- The tests below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported
 twice. -/
-meta import ConLeche.Driver.OwnerParse
+meta import ConLeche.Driver.StreamParse
 meta import ConLeche.Cached.Installed
 
 public section
@@ -13,10 +13,12 @@ public section
 /-!
 # The rounds parse (task #329)
 
-`OwnerParse.parseExportStreamO` applies a stream's chunks a window at a
-time — one chunk per owner thread — in rounds, and falls back to the
-serial parse on anything unusual.  Its result carries the proof that `parseChunks`
-returns it; what is pinned here is the IO around that proof and the
+`roundsInfo` (the stream parse's fold over windows, `parseFileW`, at
+`IO`) applies a stream's chunks a window
+at a time — one chunk per owner thread — in rounds, and falls back to
+the serial parse on anything unusual.  Each window's result carries the
+proof that it advances the serial parse over the window's chunks; what
+is pinned here is the IO around that proof and the
 fallback's reach: at small chunk sizes (a chunk of one to a few lines,
 so that a fixture takes many windows) and one, two, three and five
 owners, every fixture's result is the wholesale parse's, verdict, line
@@ -35,6 +37,17 @@ def roundsSummary : Except (CheckError × Nat) ParseResultD → String
   | .error (.invalid m, n) => s!"invalid {n}: {m}"
   | .error (.notImplemented m, n) => s!"declined {n}: {m}"
 
+/-- **The rounds parse of a file** on `jobs` owners, chunks of about
+`csz` bytes (`ConLeche.Driver.parseFileW` at `IO`); with the number of
+windows that fell back, the windows taken through the rounds and their
+later rounds. -/
+def roundsInfo (path : System.FilePath) (jobs : Nat) (csz : USize) :
+    IO (Except (CheckError × Nat) ParseResultD × Nat × Nat × Nat) := do
+  let cfg ← ConLeche.Driver.OwnerParse.Cfg.new
+  let r ← ConLeche.Driver.parseFileW (← ConLeche.Driver.OwnerParse.startRounds cfg jobs) path
+    csz (max 1 jobs)
+  return (r, ← cfg.fallbacks.get, ← cfg.windows.get, ← cfg.rounds.get)
+
 /-- Every chunk size and owner count agrees with `parseBytes` of the
 whole file; `rounds` says whether no window may fall back (`some true`),
 some window must (`some false`), or either.  At 64-byte chunks every
@@ -44,9 +57,8 @@ def roundsAgrees (path : System.FilePath) (rounds : Option Bool) : IO Unit := do
   let want := roundsSummary (parseBytes b)
   for csz in [64, 1000, 65536] do
     for jobs in [1, 2, 3, 5] do
-      let (r, fb, wins, _) ← ConLeche.Driver.OwnerParse.parseExportStreamOInfo path jobs
-        csz.toUSize false
-      let got := roundsSummary r.val
+      let (r, fb, wins, _) ← roundsInfo path jobs csz.toUSize
+      let got := roundsSummary r
       unless got == want do
         throw <| IO.userError s!"{path} at chunk {csz}, {jobs} owners: \
           {got.take 200} ≠ {want.take 200}"

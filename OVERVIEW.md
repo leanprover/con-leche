@@ -14,8 +14,8 @@ The binary reads a Lean export in `lean4export`'s NDJSON format and
 prints one verdict line:
 
 ```
-con-leche [--verified|--trusted] [--jobs=<n>] [--no-mark-persistent]
-          [--progress[=<stride>]] FILE.ndjson
+con-leche [--verified|--trusted] [--jobs=<n>]
+          [--progress[=<stride>]] [--] FILE.ndjson
 con-leche --help
 ```
 
@@ -23,18 +23,18 @@ That is every flag the binary takes. `--verified` is the default and
 the mode the theorem is about; `--trusted` runs the same checker bodies
 with the certification-only work switched off, is faster, and is
 outside the theorem; `--jobs=<n>` sets the check phase's worker count
-(below); `--no-mark-persistent` turns off the check phase's one-shot
-mark of the installed environment (below), which changes no verdict and
-is there to measure what the mark is worth;
+(below);
 `--progress[=<stride>]` turns on a heartbeat on stderr
-(below); `--help` prints the usage text and exits 0
-([the driver's usage text in `Main.lean`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L91)).
+(below); `--` ends the options, every argument after it being a file,
+whatever it is called; `--help` before any `--` prints the usage text
+and exits 0
+([the usage text in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L97)).
 Any other option is a usage error: the run reports it, prints the
 usage text and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
 
 The exit code follows the lean kernel arena convention
-([the exit-code mapping in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L35)):
+([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L34)):
 
 | exit | verdict | meaning |
 |---|---|---|
@@ -84,8 +84,8 @@ to what the limit affords — about ten workers under 16 GB. At every
 worker count the installed environment is marked persistent once at
 the phase boundary, which removes the atomic reference counting the
 workers would otherwise pay on it and is worth 18–32 % of wall time on
-the pool, growing with the worker count, and 3.5 % at one worker;
-`--no-mark-persistent` turns it off. Most of that marking happens
+the pool, growing with the worker count, and 3.5 % at one worker.
+Most of that marking happens
 earlier: the records are marked before the install starts (a serial
 walk, about 2.5 s on Mathlib) and each install result by the thread
 that computed it, so the mark at the phase boundary finds little left
@@ -140,7 +140,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L96-L99):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L99-L102):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
@@ -182,7 +182,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L110-L117):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L113-L120):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -220,6 +220,17 @@ file, not every proof of `False` a file might hold. There is no side
 condition: the chunks may be cut anywhere, empty pieces included, and
 an input the machine word cannot address is refused by the parser
 before any of it is read, which is an error like any other.
+
+The main corollary is lifted to the driver, over `runArgs`, in the model
+of its IO (§2), at the fixed arguments `-- <file>`: no flag, so the
+default mode, which is the verified one, and the default worker count;
+nothing is said about `--help` or the other flags. On a snapshot where
+the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
+`runArgs` is an exit 0
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L150)).
+This is a theorem about the outcomes of `runArgs` in the model; that a
+run of the binary that exits 0 is one of those outcomes is assumed, not
+proved, and §2 states what the assumption is.
 
 The corollary rests on a statement at the stream — the fold's input —
 proved beside the fold
@@ -296,7 +307,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L91-L95)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L93-L97)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -305,21 +316,73 @@ Everything below explains how those theorems are reached.
 
 Read from the outside in:
 
-1. **The driver** (`Main.lean`). The run parses the stream
-   ([function `parseInput` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L60))
+1. **The driver** (`ConLeche/Driver/Cli.lean`, `Main.lean`). `main` is
+   plumbing, a few lines that are read and not proved: it sets the
+   runtime's abort variables, runs the generic `runArgs` at `IO`,
+   flushes the output and exits with the code `runArgs` returned.
+   `runArgs` reads the arguments into a request (a
+   stream), runs the request's driver
+   ([function `runReq` in `ConLeche/Driver/Dispatch.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Dispatch.lean#L29))
+   and turns any `IO` error into exit 3.
+   All of it — the argument parse, the prelude, the input, the
+   preparation, the fold, the verdict and the exit code — is written against
+   a type class of the file operations the checker needs — whether a
+   path names something, its real path, a file's bytes, a positional
+   read of a file and its size — and one escape, `liftIO`, which runs
+   an `IO` action
+   ([class `CheckerIO` in `ConLeche/Frontend/CheckerIO.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L101)).
+   Everything else the binary does goes through the escape, spelled at
+   every call: the output, the clock, the persistent mark,
+   and every thread — the rounds of the parallel parse and the fold's
+   two phases with their pools. Where the driver needs a fact about
+   what such an action returns, the result's type carries it: the
+   fold's two phases return the environment with the proof that the
+   fold `checkDecls` returns it, a window of the rounds its next state
+   with the proof that it advances the serial parse. The binary runs
+   the code at `IO`, each file operation the runtime's own call (the
+   positional read is `pread(2)`, the one function in C the checker
+   carries) and the escape the identity. The proofs reason about it at
+   a model: an action is the set of its possible outcomes, a value or
+   an exception, on a snapshot of the files; a file operation's outcome
+   is determined by the snapshot, and the escape may have every outcome
+   ([type `ModelIO` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L235)).
+   The exit code is computed by the generic code and returned outside
+   the escape, whose outcomes would otherwise allow any code. On every
+   snapshot, every outcome of `runArgs` at the arguments `-- <file>` that
+   is an exit 0 establishes the file's chain to the fold's accept
+   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L37-L41)),
+   whose corollary is `main_no_False` in
+   `ConLeche/MainTheorem.lean` (§1). That a run of the binary that
+   exits 0 is one of those outcomes is assumed, not proved, and the class's file states
+   the assumption: the binary's file operations give the model's
+   answers on one snapshot of the files, the C read included; the
+   actions passed to the escape do not change what those operations
+   see and do not end the process with exit code 0 (an abnormal or
+   nonzero end, such as a panic's abort, is harmless: that run has no
+   exit 0 to explain); and Lean's compiler
+   and runtime run the code as written. Then
+   the generic code is the same at both instances, every file operation
+   answers as the model's, and every escape answers some value or
+   exception, which the model allows; so a run that exits 0 has one of
+   the model's outcomes, with that code. The run parses the stream
+   ([function `parseStreamG` in `ConLeche/Driver/StreamParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/StreamParse.lean#L118-L119))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
    ([theorem `scanLineSpec_eq_scanLineFwd` in `ConLeche/Frontend/Scan/Equiv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Scan/Equiv.lean#L1002)):
    the driver calls the reference, and the compiler runs the fast
-   recogniser on the strength of that equality. At one worker the parse
-   feeds every read of the stream to the pure streaming parse's step
-   over a chunk
+   recogniser on the strength of that equality. The stream is read by
+   two folds written over the class's positional read, one over the
+   file's reads in order and one over its windows of whole lines; in the
+   model they are proved to be the folds over the snapshot's bytes cut
+   as the reads cut them. At one worker the parse feeds every read of
+   the stream to the pure streaming parse's step over a chunk
    ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L630)),
    on one thread
-   ([function `serialLoop` in `ConLeche/Frontend/Stream.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Stream.lean#L304-L305)).
+   ([function `parseFileS` in `ConLeche/Frontend/Stream.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Stream.lean#L309-L311)).
    With more workers the parse runs on as many owner threads and takes
-   a window of chunks at a time, one chunk of whole lines per owner
-   ([function `parseExportStreamO` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L640-L641)):
+   a window of chunks at a time, one chunk of whole lines per owner,
+   the next window read before the current one is computed
+   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L490-L492)):
    the owner scans its chunk once into syntax records that never leave
    its thread and applies its lines, deferring a line that reads an
    entry of another chunk of the window to a later round, until nothing
@@ -344,14 +407,20 @@ Read from the outside in:
    ([theorem `allOK_of_good` in `ConLeche/Verify/Frontend/Good.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Good.lean#L705-L708)),
    so a window whose deferred lines are all done is one more stretch of
    the serial parse
-   ([theorem `GOK.window` in `ConLeche/Verify/Frontend/Rounds.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Rounds.lean#L1737-L1745)).
+   ([theorem `GOK.window` in `ConLeche/Verify/Frontend/Rounds.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Rounds.lean#L1736-L1744)).
    A window whose chunks or rounds meet anything unusual — an index
    below its table's counter, a line the serial parse fails at — is
    handed to the serial parse from the state the chunks before reached,
    which gives the serial verdict at the serial line; so are the bytes
-   after the stream's last newline, a final line without one. Either way the
-   parse returns its result with the proof that the pure streaming
-   parse returns it.
+   after the stream's last newline, a final line without one. Each
+   window's result carries the proof that it advances the serial parse
+   over the window's chunks, so that in the model, whatever the owner
+   threads answered, every outcome that is an exit 0 is one where the
+   file's bytes in the snapshot, as one chunk, parse to records the fold
+   accepts
+   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L290-L295)):
+   the hypothesis of the main corollary about the file itself, read at
+   the binary under the assumptions of the class's file.
    What the parser makes of a record
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The fold
@@ -367,7 +436,7 @@ Read from the outside in:
    basis block, and the pinned `Nat`-operation and `reduce*`
    declarations are checked by the fold's ordinary step. The driver
    builds the fold's run, at every worker count, by a commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L696-L705))
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L690-L699))
    that adds one step per record in stream order (a proposition carried
    beside the index), pushing each record's
    constants into the index itself, while worker threads (none at
@@ -434,7 +503,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L112-L115))
+   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L87-L90))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L411-L413)).
@@ -1334,6 +1403,27 @@ declare it.)
   frontend does *not* establish is that the list it hands over means
   the same as the export: the decoder is written to be
   meaning-preserving, but that is a review claim, not a theorem.
+* The runtime's IO. The binary is the driver's generic code at `IO`;
+  the theorems are about its outcomes in the model of §2. Assumed: that
+  the binary's file operations give the model's answers on one snapshot
+  of the files — the same value where the model has one, an exception
+  where it has none, the positional read (a C function,
+  `native/read_range.c`) the slice of the file's bytes; that the
+  actions passed to `liftIO` (output, the clock, `/proc/self/status`,
+  the threads and the computations on them) do not change what the
+  file operations see and do not end the process with exit code 0 (an
+  abnormal or nonzero end is harmless: that run has no exit 0 to
+  explain); and that Lean's compiler and runtime run the
+  code as written. `tests/trust-surface.sh` checks, textually, that
+  the modules written against the class reach the runtime only through
+  its operations and the arguments of `liftIO`, and, stricter than the
+  assumption needs, that
+  `IO.Process.exit` appears only in `main`, which with
+  `enableAbortOnNonlinear` is all `Main.lean` declares. Those few lines
+  are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>`; other flags and `--help` are not
+  covered. The build file
+  `lakefile.lean`, which compiles and links the C function, and the C
+  function are pinned by content in the trust-surface gate.
 * `--trusted` mode.
 * Non-acceptance: a decline or a reject carries no claim. The verdict
   line reports the count of accepted stream records.
@@ -1391,11 +1481,11 @@ and every such line carries its reason.
 
 | Directory | Contents |
 |---|---|
-| `Main.lean` | The CLI: argument parsing, usage, exit codes; calls `ConLeche.Driver.checkMain`. |
-| `ConLeche/Driver/` | The proof-carrying IO driver: the install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the end-of-run statistics (`Stats.lean`), the phase sequencing and `checkDeclsIO` (`Run.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
+| `Main.lean` | The binary's entry point: the plumbing around `runArgs` at `IO`, followed by the exit. |
+| `ConLeche/Driver/` | The proof-carrying IO driver: the install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`); the install skeleton (`InstallSkel.lean`, which the parallel install predicts from and the trusted/verified agreement floor is stated over); the stored install of an inductive block, the parallel install's syntactic reading of its records, and the pointer-first equality its check job compares with (`StoredInstall.lean`). |
-| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
+| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file's positional reads (`CheckerIO.lean`), the positional read declared in C (`ReadRange.lean`, `native/read_range.c`, its own precompiled library); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The term language the denotation targets and the interpretation reads, its substitution operations and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
@@ -1404,10 +1494,10 @@ and every such line carries its reason.
 | `ConLeche/Rules/` | The relational description of the core checker: seven mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference (checking and infer-only), and four certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
 | `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges). |
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Env/`), the facts about the stored-term reading `denote` that read the environment invariant (`Reading/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), and the model read through the statement's relation (`Denotes.lean`). |
-| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports; and the parallel install's blocks, installed as stored, become the fold's steps once their checked installs pass, and push the same, as jobs of the check phase (`Defer.lean`, which `ConLeche/Driver/ParInstall.lean` and `CheckPool.lean` import)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`)). |
+| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports; and the parallel install's blocks, installed as stored, become the fold's steps once their checked installs pass, and push the same, as jobs of the check phase (`Defer.lean`, which `ConLeche/Driver/ParInstall.lean` and `CheckPool.lean` import)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`) and that the stream's reads in it put together are the file (`StreamModel.lean`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
-| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the challenge module stating both with `sorry`, kept as its own library and compared with the solution by `tests/challenge.sh`. |
+| `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
 | `bridge/lean4lean-model/` | The Mathlib bridge instantiating the interface. |
 | `tests/` | The Lean test library (the axiom pin), the arena and end-to-end fixtures with their expectation files, and the gate scripts. |
 | `scripts/` | Fixture generators, the PERF battery, stream tools. |
@@ -1423,7 +1513,7 @@ rules tier of §4 has the pure implementation in the environment it
 elaborates in — its direct imports plus, transitively, their
 `public import`s, computed from source; the implementation modules
 that the base tiers' own re-exports still carry in are listed in the
-script and the list may only shrink), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by` or `native_decide` outside an allowlist), the pin
+script and the list may only shrink), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the pin
 dump freshness, the challenge comparison (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),

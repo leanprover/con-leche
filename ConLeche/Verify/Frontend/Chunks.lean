@@ -8,7 +8,7 @@ public section
 /-!
 # The chunk boundary is invisible (task #290)
 
-The binary reads its input in chunks (`parseExportHandleS`, 4 MiB at a
+The binary reads its input in chunks (`parseFileS`, 4 MiB at a
 time; the rounds parse cuts each read at its last newline) and feeds each through
 `chunkStep` — every complete line of the buffer, the incomplete tail
 carried into the next chunk.  `parseChunks`

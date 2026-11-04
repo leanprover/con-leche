@@ -10,7 +10,7 @@ public import ConLeche.Driver.Stats
 Phase B's loops: `checkLoop`, the sequential loop at `--jobs=1`, and
 `checkPool`, the pool at `--jobs=<n>`, with the heartbeat they share.
 Part of the proof-carrying driver (`ConLeche/Driver/*`; the CLI is
-`Main.lean`).
+`Cli.lean`).
 
 The check phase's jobs are the recorded value checks and the deferred
 checks of the inductive blocks (tasks #411, #431: phase A pushes a block
@@ -47,7 +47,7 @@ them.  A worker cannot be cancelled mid-check (a check is a pure
 computation), so the pool drains.
 
 Each worker thread reserves 1 GiB of address space — see
-`jobsCount` (`Main.lean`); the default count is the hardware thread
+`jobsCount` (`Cli.lean`); the default count is the hardware thread
 count.
 
 Nothing in the pool touches the driver's type: what a worker returns

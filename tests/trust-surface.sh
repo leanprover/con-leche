@@ -116,6 +116,33 @@
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
+#   ConLeche/Frontend/ReadRange.lean   extern
+#       `readRangeIO` (task #450) — THE ONE NATIVE FUNCTION the checker
+#       carries: the positional read `pread(2)` of a regular file, in C
+#       (`native/read_range.c`, a few dozen lines), because Lean's file
+#       handles have no positional read (maintainer's ruling: an
+#       `[extern]` for seek/pread is allowed, a memory map is not).  It
+#       is the binary's instance of the IO class's `readRange`
+#       (`ConLeche/Frontend/CheckerIO.lean`), whose model is the slice
+#       of the snapshot's bytes; that the C function returns that slice
+#       is part of the trust assumption the IO class states (the
+#       runtime's own file calls are in it already), and
+#       `tests/ConLecheTests/CheckerIOTests.lean` compares the two on
+#       the committed fixtures, at offsets inside, across and past the
+#       end of each file.
+#
+#   THE BUILD AND NATIVE SURFACE (task #450) — not Lean, so not scanned
+#   for tokens, but trusted all the same: the package's build file
+#   (`lakefile.lean`, Lean code that Lake runs to build the binary,
+#   compiling and linking the C below) and every native source in the
+#   tree (`*.c`, `*.h`, `*.cc`, `*.cpp`, `*.S`, `*.s`; today
+#   `native/read_range.c`, the positional read `readRangeIO`).  Each is
+#   PINNED by its SHA-256 in `NATIVE` below with its reason: a change to
+#   one, and a native source or a `lakefile.*` that is not listed, fails
+#   the gate until a reviewer re-pins it here (the failure prints the new
+#   digest).  The other projects' `lakefile.toml`s (`bridge/`,
+#   `pinners/`) build no part of the binary and are not listed.
+#
 #   ConLeche/Kernel/Exclusive.lean     unsafe, implemented_by
 #       `withExclusive` (tasks #314, #317) — THE ONE
 #       `unsafe`-implemented primitive of the substitution walks.  It
@@ -160,8 +187,7 @@
 #       `InstalledEnv` the driver goes on to use is the one it already
 #       had and no verdict, and no step of the proof that `checkDecls`
 #       returns that environment, can turn on whether the mark
-#       happened.  `--no-mark-persistent` turns it off, and the output
-#       is identical either way.  No `implemented_by` and no
+#       happened.  No `implemented_by` and no
 #       `computed_field` is tolerated in this file.
 #
 #   ConLeche/Driver/ParInstall.lean    unsafe
@@ -213,10 +239,7 @@
 #       the other shard tasks take references only on the names of their
 #       own shards: a name lies in one shard).  The results' mark
 #       reaches only the first two kinds (the warning sits at its
-#       call).  `--no-mark-persistent`
-#       turns all six off at once (the
-#       bookkeeping is then multi-threaded), which is how the A/B is
-#       measured on the shipped binary.
+#       call).
 #   ConLeche/Driver/OwnerParse.lean    unsafe
 #       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
 #       `unsafe Runtime.markPersistent` call (`markOne`, through
@@ -235,8 +258,7 @@
 #       is the identity on the value: nothing the parse returns, and no
 #       step of the proof that it is the serial parse's (`GOK.window`:
 #       every stored entry is GOOD, a property of the round functions),
-#       can turn on whether the mark happened.  `--no-mark-persistent`
-#       turns it off.
+#       can turn on whether the mark happened.
 #       The marks rely on one invariant: every object reachable from a
 #       newly built entry was built on this thread since its last
 #       publication, or is already persistent (entries of the finished
@@ -253,8 +275,9 @@
 #
 #       Run.lean took its escape over from `Main.lean` when the
 #       proof-carrying driver split out of it into `ConLeche/Driver/*`;
-#       `Main.lean` itself is CLI only (argument parsing, I/O, exit
-#       codes) and tolerates no escape.
+#       `Main.lean` itself is the entry point (the plumbing around
+#       `runArgs`, then the exit)
+#       and tolerates no escape.
 #
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
 # `ConLeche/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
@@ -304,6 +327,7 @@ ALLOW = {
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
+    'ConLeche/Frontend/ReadRange.lean': {'extern'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
@@ -562,6 +586,218 @@ stale = sorted((f, t) for f, ts in ALLOW.items() for t in ts
 for f, t in stale:
     print(f'note: allowlist entry {f} [{t}] has no occurrence left '
           f'(it may be dropped)')
+
+# ---------------------------------- THE BUILD AND NATIVE SURFACE (task #450).
+# Pinned by content: path -> (sha256, reason).  See the header.
+import hashlib
+NATIVE = {
+    'lakefile.lean': ('f5a0416b3ac7ba58cbdeb6074cf14239601386539c99c8f8ec04100c729bf171',
+        'the build: the targets, and the C compile and link of native/'),
+    'native/read_range.c': ('6ffff889161f74962d0633e2b906523bfc85b3d4ef68ab80da4160f3d0d7c821',
+        'readRangeIO, the positional read behind CheckerIO.readRange'),
+}
+NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')
+found = set(f for f in os.listdir('.') if f.startswith('lakefile.'))
+for dp, dirs, fs in os.walk('.'):
+    dirs[:] = [d for d in dirs if d not in ('.lake', '.git', '_tmp')]
+    for f in fs:
+        if f.endswith(NATIVE_EXT):
+            found.add(os.path.relpath(os.path.join(dp, f), '.'))
+nat_bad = []
+for rel in sorted(found | set(NATIVE)):
+    if not os.path.exists(rel):
+        nat_bad.append(f'{rel}: pinned but missing (drop its entry)')
+        continue
+    with open(rel, 'rb') as fh:
+        h = hashlib.sha256(fh.read()).hexdigest()
+    if rel not in NATIVE:
+        nat_bad.append(f'{rel}: not pinned (sha256 {h}); add it to NATIVE with its reason')
+    elif NATIVE[rel][0] != h:
+        nat_bad.append(f'{rel}: changed (sha256 {h}); review it, then re-pin it in NATIVE')
+if nat_bad:
+    print(f'TRUST-SURFACE FAIL - the build and native surface ({len(nat_bad)}):')
+    for b in nat_bad:
+        print(f'    {b}')
+    sys.exit(1)
+print(f'build and native surface: {len(NATIVE)} files pinned '
+      f'({", ".join(sorted(NATIVE))})')
+
+# ---------------------------------------- THE CHECKER-IO FENCE (task #450).
+# The modules written against the checker's IO class (`CheckerIO`,
+# `ConLeche/Frontend/CheckerIO.lean`) are run at `IO` by the binary and
+# reasoned about at the model `ModelIO` by the proofs.  The trust
+# assumption the class states needs these modules to reach the runtime
+# only through the class: its file operations (whose model is the
+# snapshot) and its escape `CheckerIO.liftIO` (whose model is every
+# outcome).  THIS IS A TEXTUAL CHECK, not a proof: over each module's
+# code (comments and string literals blanked, interpolations kept),
+# with the argument of every `CheckerIO.liftIO` cut out (the rest of
+# its line, any bracket it opens up to its close, and, when the line
+# ends in `do` or with the argument still to come, every following line
+# indented deeper than the line itself) and the named declarations of
+# the binary's instance cut out, no name of the runtime is left: `IO`
+# (but `IO.Error`, the class's error type), `BaseIO`, `EIO`, `ST`,
+# `EST`, `StateRefT`, `Task`, `dbgTrace`/`dbg_trace`, `initialize`, a
+# mutex/channel/condition variable, a file handle, `readRangeIO`, or a
+# runtime file operation by its name (`pathExists`, `realPath`,
+# `readBinFile`, `metadata`, `isDir`, …, except as the class's own
+# `CheckerIO.<op>`).  It does not follow imports or definitions: a
+# helper defined elsewhere that does IO under a pure type
+# (`unsafe`/`implemented_by`/`extern`, which the scan above confines to
+# its allowlist) or a value of a structure of `IO` functions passed in
+# would pass it, so what the fenced modules import is reviewed with
+# them; and it does not see through a notation that expands to a
+# runtime call.  A module joins the list when it is converted.
+IO_FENCE = {
+    # path: the declarations cut out whole (the instance and what only
+    # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
+    'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def readRangeOf',
+                                         'instance instCheckerIOIO',
+                                         # the model's instance: its fields are
+                                         # named as the operations are
+                                         'instance : CheckerIO ModelIO'),
+    'ConLeche/Frontend/Stream.lean': (),
+    'ConLeche/Driver/StreamParse.lean': (),
+    'ConLeche/Driver/CheckMain.lean': (),
+    'ConLeche/Driver/Dispatch.lean': (),
+    'ConLeche/Driver/Cli.lean': (),
+}
+IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'readRange', 'fileSize',
+          'metadata', 'isDir', 'readDir', 'walkDir', 'lines', 'writeFile', 'writeBinFile',
+          'removeFile', 'removeDirAll', 'createDir', 'createDirAll', 'rename',
+          'appDir', 'currentDir', 'getEnv', 'setEnvVar')
+IO_RX = re.compile(
+    r'\b(?:IO|BaseIO|EIO|ST|EST|StateRefT|Task|dbgTrace|dbg_trace|initialize|'
+    r'builtin_initialize|Mutex|Channel|Condvar|Handle|readRangeIO)\b(?!\.Error\b)'
+    r'|(?<!CheckerIO)\.(?:' + '|'.join(IO_OPS) + r')\b'
+    r'|(?<![\w.])(?:' + '|'.join(IO_OPS) + r')\b(?=\s)')
+LIFT = 'CheckerIO.liftIO'
+
+def indent_of(line):
+    return len(line) - len(line.lstrip(' '))
+
+def cut_lift_args(code):
+    """Blank the argument of every `CheckerIO.liftIO` (see above)."""
+    lines = code.split('\n')
+    k = 0
+    while k < len(lines):
+        line = lines[k]
+        at = line.find(LIFT)
+        if at < 0:
+            k += 1
+            continue
+        start = at + len(LIFT)
+        rest = line[start:]
+        # the rest of the line, and any bracket it leaves open
+        depth = sum(rest.count(c) for c in '([{') - sum(rest.count(c) for c in ')]}')
+        lines[k] = line[:at] + 'LIFTED' + ' ' * (len(line) - at - len('LIFTED')) \
+            if len(line) - at >= len('LIFTED') else line[:at] + 'LIFTED'
+        base = indent_of(line)
+        tail = rest.strip()
+        block = tail == '' or tail.endswith(' do') or tail == 'do' or tail.endswith('(')
+        m = k + 1
+        while m < len(lines) and (depth > 0 or (block and (lines[m].strip() == '' or
+                                                            indent_of(lines[m]) > base))):
+            depth += sum(lines[m].count(c) for c in '([{') - \
+                sum(lines[m].count(c) for c in ')]}')
+            lines[m] = ''
+            m += 1
+        k = m if m > k + 1 else k + 1
+    return '\n'.join(lines)
+
+def cut_decls(code, heads):
+    """Blank the named top-level declarations, each up to the next line
+    that starts in column 0."""
+    lines = code.split('\n')
+    k = 0
+    while k < len(lines):
+        if any(lines[k].startswith(h + ' ') or lines[k] == h for h in heads):
+            lines[k] = ''
+            k += 1
+            while k < len(lines) and (lines[k] == '' or lines[k][0] == ' '):
+                lines[k] = ''
+                k += 1
+        else:
+            k += 1
+    return '\n'.join(lines)
+
+# the fence's self-test: what it must see, and what it must not
+_fence_probe = '''def f [CheckerIO m] : m Unit := do
+  CheckerIO.liftIO do
+    IO.println "x"
+    let _ ← IO.monoMsNow
+  let _ ← CheckerIO.liftIO (IO.println
+    "y")
+  let _ ← CheckerIO.readBinFile p
+  let _ ← CheckerIO.liftIO IO.monoMsNow
+  IO.println "seen"
+  let _ ← p.pathExists
+def g : IO Unit := pure ()
+'''
+_fence_hits = [i for i, l in enumerate(cut_lift_args(cut_decls(code_only(_fence_probe),
+    ())).split('\n'), 1) if IO_RX.search(l)]
+if _fence_hits != [9, 10, 11]:
+    print(f'CHECKER-IO FENCE SELF-TEST FAIL: hits at {_fence_hits}, expected [9, 10, 11]')
+    sys.exit(1)
+
+io_bad = []
+for rel, heads in IO_FENCE.items():
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    code = cut_lift_args(cut_decls(code_only(raw, rel), heads))
+    for i, line in enumerate(code.split('\n'), 1):
+        if IO_RX.search(line):
+            io_bad.append((rel, i, line.strip()))
+if io_bad:
+    print(f'CHECKER-IO FENCE FAIL - a module written against CheckerIO reaches '
+          f'the runtime outside CheckerIO.liftIO ({len(io_bad)}):')
+    for rel, i, text in io_bad:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime only '
+      f'through CheckerIO')
+
+# ------------------------------------------ THE ONE EXIT (task #450).
+# The trust assumption of the IO class says the actions passed to
+# `CheckerIO.liftIO` do not end the process with exit code 0: the exit
+# code the theorems speak of is the one `runArgs` returns, and `main`
+# exits with it.  This gate is stricter than the assumption needs, a
+# check of what the code does today.  TEXTUAL, over the code of every scanned file:
+# `IO.Process.exit` (under any spelling of its name) is in `Main.lean`,
+# twice: `IO.Process.exit code` and, when the abort variables cannot be
+# set, before `runArgs` starts, `IO.Process.exit 3`.  The C function is
+# pinned above and calls no exit.  And `Main.lean`, read and not proved,
+# declares only `enableAbortOnNonlinear` and `main`.
+EXIT_RX = re.compile(r'\bProcess\.exit\b|\blean_io_exit\b|\bopen\s+IO\.Process\b')
+exit_hits = []
+for rel in sources():
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    for i, line in enumerate(code_only(raw, rel).split('\n'), 1):
+        if EXIT_RX.search(line):
+            exit_hits.append((rel, i, line.strip()))
+if [(h[0], h[2]) for h in exit_hits] != [('Main.lean', 'IO.Process.exit 3'),
+                                         ('Main.lean', 'IO.Process.exit code')]:
+    print(f'ONE-EXIT FAIL - IO.Process.exit must appear as `IO.Process.exit 3`, then '
+          f'`IO.Process.exit code`, in Main.lean; found:')
+    for rel, i, text in exit_hits:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+with open('Main.lean', encoding='utf-8') as fh:
+    _main_top = [l.strip() for l in code_only(fh.read(), 'Main.lean').split('\n')
+                 if l.strip() and not l[0].isspace()]
+_main_expected = ['module', 'public import ConLeche.Driver.Cli',
+                  'public import Std.Async.System', '@[expose] public section',
+                  'def enableAbortOnNonlinear : IO Unit := do',
+                  'def main (args : List String) : IO Unit := do']
+if _main_top != _main_expected:
+    print(f'MAIN FENCE FAIL - Main.lean must declare only `enableAbortOnNonlinear` and '
+          f'`main`; its top level is:')
+    for l in _main_top:
+        print(f'    {l}')
+    sys.exit(1)
+print('one exit (textual): IO.Process.exit only in Main.lean, the code and the abort '
+      'variables\' 3; Main.lean declares only enableAbortOnNonlinear and main')
 
 files = len({o[0] for o in occurrences})
 print(f'trust surface: {len(occurrences)} escapes in {files} allowlisted '

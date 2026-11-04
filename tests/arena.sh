@@ -383,6 +383,34 @@ mode_case 0 --trusted "$SPLIT_GOOD"                # trusted lane: accepts
 mode_case 1 --trusted "$SPLIT_BAD"                 # front door still rejects
 mode_case 3 --not-a-flag "$SPLIT_GOOD"             # unknown option: usage error
 mode_case 3 --trusted --not-a-flag "$SPLIT_BAD"    # …after a good flag too
+# `--` ends the options: every argument after it is a file, whatever it
+# is called, `--help` included, and only a `--help` before it is help.
+DASHDIR="$TMPDIR/arena-dashes.$$"
+mkdir -p "$DASHDIR"
+cp "$SPLIT_GOOD" "$DASHDIR/-weird-name.ndjson"
+cp "$SPLIT_GOOD" "$DASHDIR/--help"
+BIN_ABS=$(realpath "$BIN")
+dash_case() { # <expected-exit> <args...>, in the directory of those files
+  want=$1; shift
+  mode_total=$((mode_total+1))
+  (cd "$DASHDIR" && timeout 120 "$BIN_ABS" "$@" >/dev/null 2>&1)
+  got=$?
+  if [ "$got" != "$want" ]; then
+    echo "MODE FAIL (-- $*): expected exit $want, got $got"; fail=1
+  else
+    mode_ok=$((mode_ok+1))
+  fi
+}
+dash_case 0 -- -weird-name.ndjson                  # read as a file
+dash_case 3 -weird-name.ndjson                     # without `--`, an unknown option
+dash_case 0 -- --help                              # a file called --help, read
+cp "$SPLIT_BAD" "$DASHDIR/--help"
+dash_case 1 -- --help                              # …really read: its verdict
+dash_case 0 --help                                 # help, before any `--`
+dash_case 0 --help -- no-such-file                 # …help before `--`
+dash_case 3 -- no-such-file --help                 # two files after `--`: usage error
+dash_case 3 -- no-such-file                        # a file that is not there
+rm -rf "$DASHDIR"
 echo "mode flags: $mode_ok/$mode_total as expected"
 
 # THE IO-EXCEPTION GATE (task #335).  An uncaught IO exception
@@ -390,7 +418,7 @@ echo "mode flags: $mode_ok/$mode_total as expected"
 # failing mid-stream, a write failing -- must not read as a REJECT:
 # the arena convention reserves exit 1 for a declaration *positively*
 # rejected as invalid.  It is an internal error, exit 3, caught once
-# at the top of `main` (Main.lean).  Before the fix, opening a
+# in `runArgs` (ConLeche/Driver/Cli.lean).  Before the fix, opening a
 # directory as the input threw an uncaught `IO.Error`, which the Lean
 # runtime's own top-level handler printed as "uncaught exception: …"
 # and turned into exit 1.
@@ -413,6 +441,28 @@ ioerr_case "a directory as the input path" 3 tests/e2e
 # exit (a timeout, 124).
 ioerr_case "a directory, --jobs=1" 3 --jobs=1 tests/e2e
 ioerr_case "a directory, --jobs=4" 3 --jobs=4 tests/e2e
+# A FIFO as the input (task #450): the stream is read by positional
+# reads, which a pipe does not have, so the class's `fileSize` refuses
+# anything but a regular file — exit 3 with "not a regular file", at
+# every `--jobs`, before anything opens the FIFO (an open would block,
+# no writer being there: the `timeout` turns that into a 124, a FAIL).
+# Target verdict: the same (a stream is a regular file; a FIFO input is
+# out of scope).
+FIFO="$TMPDIR/arena-fifo.$$"
+rm -f "$FIFO"
+mkfifo "$FIFO"
+for j in 1 4; do
+  ioerr_total=$((ioerr_total+1))
+  msg=$(timeout 60 "$BIN" --jobs=$j "$FIFO" 2>&1 >/dev/null)
+  got=$?
+  if [ "$got" = 3 ] && printf '%s' "$msg" | grep -q 'not a regular file'; then
+    ioerr_ok=$((ioerr_ok+1))
+  else
+    echo "IO-ERROR FAIL (a FIFO as the input, --jobs=$j): expected exit 3 and" \
+      "'not a regular file', got $got: $msg"; fail=1
+  fi
+done
+rm -f "$FIFO"
 echo "io-exception gate: $ioerr_ok/$ioerr_total as expected"
 
 # THE DISPLAY GATE (task #365).  Names and raw strings from the input

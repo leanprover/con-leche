@@ -218,9 +218,8 @@ theorem parseChunks.go_equiv : ∀ (cs : List ByteArray) (a b : StateD) (carry :
           exact ih s s' _ _ _ hs
 
 /-- The streaming invariant does not see how the tables are kept. -/
-theorem Reached.equiv {a b : StateD} {carry : ByteArray} {n t : Nat}
-    (h : Reached a carry n t) (he : a.Equiv b) : Reached b carry n t := by
-  obtain ⟨done, hd⟩ := h
-  exact ⟨done, fun rest => (hd rest).trans (parseChunks.go_equiv rest a b carry n t he)⟩
+theorem Reached.equiv {done : List ByteArray} {a b : StateD} {carry : ByteArray} {n t : Nat}
+    (h : Reached done a carry n t) (he : a.Equiv b) : Reached done b carry n t :=
+  fun rest => (h rest).trans (parseChunks.go_equiv rest a b carry n t he)
 
 end ConLeche.Frontend
