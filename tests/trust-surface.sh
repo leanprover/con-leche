@@ -759,9 +759,10 @@ print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime on
 
 # ------------------------------------------ THE ONE EXIT (task #450).
 # The trust assumption of the IO class says the actions passed to
-# `CheckerIO.liftIO` do not themselves end the process with an exit code:
-# the exit code the theorems speak of is the one `runArgs` returns, and
-# `main` exits with it.  TEXTUAL, over the code of every scanned file:
+# `CheckerIO.liftIO` do not end the process with exit code 0: the exit
+# code the theorems speak of is the one `runArgs` returns, and `main`
+# exits with it.  This gate is stricter than the assumption needs, a
+# check of what the code does today.  TEXTUAL, over the code of every scanned file:
 # `IO.Process.exit` (under any spelling of its name) is in `Main.lean`,
 # twice: `IO.Process.exit code` and, when the abort variables cannot be
 # set, before `runArgs` starts, `IO.Process.exit 3`.  The C function is

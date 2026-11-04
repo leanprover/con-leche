@@ -137,8 +137,9 @@ is `.verified`, the default worker count; nothing is said about
 exit code under the assumption `ConLeche/Frontend/CheckerIO.lean`
 states and argues for: the binary's file operations give the model's
 answers on one snapshot, the actions passed to `CheckerIO.liftIO` do
-not change what those see and do not end the process, and Lean's
-compiler and runtime run the code as written — so that the binary's run is one of the model's outcomes. -/
+not change what those see and do not end the process with exit code 0,
+and Lean's compiler and runtime run the code as written — so that a run
+of the binary that exits 0 is one of the model's outcomes. -/
 
 open Frontend in
 /-- **The main corollary, lifted to the driver.**  On a snapshot where the

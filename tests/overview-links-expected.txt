@@ -72,10 +72,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L147-L149
-   147  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   148      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   149      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+== ConLeche/MainTheorem.lean#L148-L150
+   148  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   149      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   150      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L125-L128
    125  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -1385,10 +1385,19 @@
 == ConLeche/Frontend/CheckerIO.lean#L235
    235  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/MainTheorem.lean#L147-L149
-   147  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   148      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   149      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+== ConLeche/MainTheorem.lean#L148-L150
+   148  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   149      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   150      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+
+== Main.lean#L84
+    84  def main (args : List String) : IO Unit := do
+
+== ConLeche/Driver/Cli.lean#L389
+   389  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+
+== Main.lean#L29
+    29  def enableAbortOnNonlinear : IO Unit := do
 
 == ConLeche/SetTheory/Core.lean#L95-L133
     95  /-- A model of set theory of exactly the strength the checker needs:

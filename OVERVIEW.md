@@ -227,10 +227,10 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L147-L149)).
-This is a theorem about the outcomes of `runArgs` in the model; that the
-binary's run is one of those outcomes is assumed, not proved, and §2
-states what the assumption is.
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L150)).
+This is a theorem about the outcomes of `runArgs` in the model; that a
+run of the binary that exits 0 is one of those outcomes is assumed, not
+proved, and §2 states what the assumption is.
 
 The corollary rests on a statement at the stream — the fold's input —
 proved beside the fold
@@ -352,18 +352,19 @@ Read from the outside in:
    is an exit 0 establishes the file's chain to the fold's accept
    ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L37-L41)),
    whose corollary is `main_no_False` in
-   `ConLeche/MainTheorem.lean` (§1). That the binary's run is one of
-   those outcomes is assumed, not proved, and the class's file states
+   `ConLeche/MainTheorem.lean` (§1). That a run of the binary that
+   exits 0 is one of those outcomes is assumed, not proved, and the class's file states
    the assumption: the binary's file operations give the model's
    answers on one snapshot of the files, the C read included; the
    actions passed to the escape do not change what those operations
-   see and do not themselves end the process with an exit code
-   (`IO.Process.exit` is only in `main`, outside `runArgs`); and Lean's compiler
+   see and do not end the process with exit code 0 (an abnormal or
+   nonzero end, such as a panic's abort, is harmless: that run has no
+   exit 0 to explain); and Lean's compiler
    and runtime run the code as written. Then
    the generic code is the same at both instances, every file operation
    answers as the model's, and every escape answers some value or
-   exception, which the model allows; so the binary's outcome is one of
-   the model's, and it exits with that outcome's code. The run parses the stream
+   exception, which the model allows; so a run that exits 0 has one of
+   the model's outcomes, with that code. The run parses the stream
    ([function `parseStreamG` in `ConLeche/Driver/StreamParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/StreamParse.lean#L118-L119))
    and runs the fold's two phases as two loops. The byte recogniser that reads each line of the
    stream is proved equal to a naive reference over `List UInt8`
@@ -1410,11 +1411,13 @@ declare it.)
   `native/read_range.c`) the slice of the file's bytes; that the
   actions passed to `liftIO` (output, the clock, `/proc/self/status`,
   the threads and the computations on them) do not change what the
-  file operations see and do not themselves end the process with an
-  exit code; and that Lean's compiler and runtime run the
+  file operations see and do not end the process with exit code 0 (an
+  abnormal or nonzero end is harmless: that run has no exit 0 to
+  explain); and that Lean's compiler and runtime run the
   code as written. `tests/trust-surface.sh` checks, textually, that
   the modules written against the class reach the runtime only through
-  its operations and the arguments of `liftIO`, and that
+  its operations and the arguments of `liftIO`, and, stricter than the
+  assumption needs, that
   `IO.Process.exit` appears only in `main`, which with
   `enableAbortOnNonlinear` is all `Main.lean` declares. Those few lines
   are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>`; other flags and `--help` are not

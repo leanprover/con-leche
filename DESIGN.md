@@ -108654,15 +108654,17 @@ after the first attempt (below); this record states it as landed.
   has one, an exception where it has none — the C function behind
   `readRange` included; (ii) the actions passed to `liftIO` do not
   change what those operations see (none writes a file) and do not
-  themselves end the process with an exit code; (iii) Lean's compiler
+  end the process with exit code 0 (an abnormal or nonzero end is
+  harmless: the run then has no exit-0 outcome to explain; maintainer's
+  ruling, 2026-11-04); (iii) Lean's compiler
   and runtime run the code as written.  Then the generic code is the
   same at both instances, each file operation answers as the model's,
   each `liftIO` answers some value or exception, which the model allows;
-  by induction along the run the binary's outcome is one of the model's,
-  and `main` exits with its code.  No engines, no replay argument, and
+  by induction along the run a run that exits 0 has one of the model's
+  outcomes, with that code.  No engines, no replay argument, and
   no exception for the clock (its values are `liftIO` outcomes like any
-  other).  Checked for (ii): the one `IO.Process.exit` in the tree is the
-  last line of `main`; nothing under `liftIO` calls it; a panic is an
+  other).  Checked for (ii), stricter than it needs: `IO.Process.exit` is
+  only in `main`; nothing under `liftIO` calls it; a panic is an
   `abort()` (`LEAN_ABORT_ON_PANIC`), status 134, not an exit code; the C
   read calls no exit.
 * **The fence** (`tests/trust-surface.sh`, textual and said so): over

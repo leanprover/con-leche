@@ -35,9 +35,8 @@ say: every outcome of `Driver.runArgs` in the model that is the exit code
 then the same generic `runArgs` at `IO`, then the flush and the exit with
 the code it returned; those few lines are read, not proved, and the
 theorems cover `runArgs`.  The code is computed by the generic code and returned outside `liftIO`
-(were it `liftIO`'s result, the model would allow any).  The binary's
-run is one of the model's outcomes, and its exit code that outcome's,
-if
+(were it `liftIO`'s result, the model would allow any).  A run of the
+binary that exits 0 is one of the model's outcomes, with that code, if
 
 1. the binary's file operations give the model's answers on one
    snapshot of the files during the run — the same value where the
@@ -47,20 +46,21 @@ if
 2. the actions passed to `liftIO` do not change what the file operations
    see (none of them writes a file: they print, read the clock and
    `/proc/self/status`, start and join threads, and compute), and do not
-   themselves end the process with an exit code: `IO.Process.exit` is
+   end the process with exit code 0.  An abnormal or nonzero end under
+   `liftIO` (a panic's `abort()`, status 134) is harmless: that run has
+   no exit 0 to explain.  What the code does today is stricter, and
+   `tests/trust-surface.sh` checks it textually: `IO.Process.exit` is
    only in `main`, outside `runArgs`, last with the code `runArgs`
    returned and, before `runArgs` starts, with 3 if the abort variables
-   cannot be set (`tests/trust-surface.sh` checks that these two are
-   the only ones, textually); a panic is an `abort()`, status 134, never
-   a verdict; and
+   cannot be set; and
 3. Lean's compiler and runtime run the code as written.
 
 The argument is then plain: the generic code is the same at both
 instances; at every file operation the binary's answer is, by (1) and
 (2), the model's; at every `liftIO` the binary's answer is SOME value or
 exception, and the model allows every one.  So, by induction along the
-run, the binary's outcome is one of the model's outcomes, and what is
-proved about all of those holds of it.  Where the driver needs a fact
+run, a run of the binary that reaches the exit with 0 has one of the
+model's outcomes, and what is proved about all of those holds of it.  Where the driver needs a fact
 about a `liftIO` result (the fold's accept), the result's type carries
 it (`{ env // checkDecls … = .ok env }`), so every outcome the model
 allows carries it too.
