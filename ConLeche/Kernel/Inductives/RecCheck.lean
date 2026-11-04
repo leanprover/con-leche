@@ -623,6 +623,17 @@ def recKExpected (p : BlockShape) (M : TargetMajor) : Bool :=
   | some _, [c] => p.k == 1 && p.isProp && c.2 == 0
   | _, _ => false
 
+/-- What the K flag says of a member major: one constructor, no fields. -/
+theorem recKExpected_member {p : BlockShape} {M : TargetMajor} {t : Nat}
+    (hm : M.member = some t) (h : recKExpected p M = true) :
+    ∃ c, M.ctors = [c] ∧ c.2 = 0 := by
+  unfold recKExpected at h
+  rw [hm] at h
+  match hc : M.ctors, h with
+  | [c], h =>
+    simp only [Bool.and_eq_true, beq_iff_eq] at h
+    exact ⟨c, rfl, h.2⟩
+
 /-- **The block's container bit** (official's `m_nested`):
 some field kind is not flat (the positivity function reached a
 container instantiation) or some recursor's major is not a member (the

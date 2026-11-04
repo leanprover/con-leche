@@ -36,7 +36,7 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V]
-  {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+  {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
 
 
 /-! ## 1b. `BlockMembersRun` at the seam

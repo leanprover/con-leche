@@ -394,7 +394,7 @@ carries the grading to the chain of any graded fit of the recursor
 type. -/
 theorem recStagePinsOk (mpC : EnvModelM V envC)
         (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
-    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC))
     (hac : m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs)
@@ -406,12 +406,9 @@ theorem recStagePinsOk (mpC : EnvModelM V envC)
         (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j)
         (ConLeche.tgtMajorsOf out j).nPc lvls pins) :
     RecRulePinsOk m₃ φ r.1 (pp.toBlockShape.rulePrefixAt j)
-      ({ ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-            fire := (ConLeche.tgtFireOf pp.toBlockShape
+      ({ ctor := cA.1.name, nfields := cA.2, fire := (ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out)) j r, rhs := rhs }) := by
   intro us hus lvls pins hf q hq
-  simp only [ConLeche.recRuleBits_fire] at hf
-  simp only [ConLeche.recRuleBits_ctorParams] at hq
   have hsyn := hread lvls pins hf
   obtain ⟨-, -, hpinsWf, -⟩ := id hsyn
   -- the stored type's openers
@@ -435,7 +432,7 @@ theorem recStagePinsOk (mpC : EnvModelM V envC)
   generalize hds : TE.maj.fvarTypeD.getAppArgs.take (ConLeche.tgtMajorsOf out j).nPc = ds
     at hpinsE
   have hqd : q < ds.length := by
-    rw [← List.length_map (f := (·.abstractRange 0 rP)), hpinsE, hplen]; exact hq
+    rw [← List.length_map (f := (·.abstractRange 0 rP)), hpinsE]; exact hq
   obtain ⟨x, hxdef⟩ : ∃ x, x = ds[q] := ⟨_, rfl⟩
   have hxA : x ∈ TE.maj.fvarTypeD.getAppArgs := by
     rw [hxdef]; exact List.mem_of_mem_take (by rw [hds]; exact List.getElem_mem hqd)

@@ -1129,7 +1129,7 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
     (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
       block = .ok out) (hpl : params.length = p.nP)
-    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (find? : Name → Option ConstantInfo) :
+    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
     EnvWF (consBlockRecsT p 0 out env₂) :=
   envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
 
@@ -1229,7 +1229,7 @@ theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     {out : List (ConstantVal × TargetMajor × List Expr)} {F F' : Nat}
     (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
       block = .ok out) (hpl : params.length = p.nP)
-    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (f₀ : Name → Option ConstantInfo)
+    (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
     (hS : storedRecsCheck (fueledOps mode F') .plain
       (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out = .ok ()) :
     EnvWF (consBlockRecsT p 0 (storedOut p.recs out) env₂) := by
@@ -1374,7 +1374,7 @@ theorem checkBlockTailS_run
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
     rw [← storedRecsCheck_datF]; cases u4; exact hF₄
-  have henvS := storedRecs_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1) _ hF₄'
+  have henvS := storedRecs_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1) hF₄'
   obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henvS hs₄ h
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩

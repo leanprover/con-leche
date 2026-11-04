@@ -1192,7 +1192,7 @@ theorem genHcallee
     (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     (hnd : ((tgtRs out).map (·.1.name)).Nodup)
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
-    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+    {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r)
     (hleafCl : ∀ (ψ : Name → Nat) (q : Nat),
@@ -1303,7 +1303,7 @@ the contract's premises. -/
         usj.length = cA.1.levelParams.length →
         Level.substFn φ cA.1.levelParams usj
           = Level.substFn φ cA.1.levelParams
-              (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
+              (ConLeche.recFireComparands rl nP r.1.levelParams us cA.1.levelParams []
                 (p.toBlockShape.rulePrefixAt j)).1 →
         (∀ y ∈ ys, WellDenoted V ρ y) →
         (interp V ρ (Term.mkAppN
@@ -1908,7 +1908,7 @@ alike there and at the recursors' cons. -/
 theorem blockRecDenote_cross_CBNF {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal} {F : Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {mpC : EnvModelM V envC} {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
-    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : CBNF envC e) :
     denote mpC.base2.acval envC ψ d e
@@ -1983,8 +1983,7 @@ theorem genRecHdataS
         (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
         (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
         (fun ψ => blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) φ j i r cA
-        ({ ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-            fire := ConLeche.tgtFireOf pp.toBlockShape
+        ({ ctor := cA.1.name, nfields := cA.2, fire := ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out) j r, rhs := rhs })) :
     AtStoredRules mpC (ConLeche.tgtRulesR         pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp (tgtRs out) s (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
           (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
@@ -1993,7 +1992,6 @@ theorem genRecHdataS
           (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd ψ)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd))
-      (fun j => (ConLeche.tgtMajorsOf out j).nPc)
       (ConLeche.tgtFireOf pp.toBlockShape
         (ConLeche.tgtMajorsOf out))
       fun _ φ j r i cA rhs rl =>

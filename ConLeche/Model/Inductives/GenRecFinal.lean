@@ -183,8 +183,7 @@ theorem genRecStage {F : Nat}
         (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
         (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
         (fun ψ => blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) φ j i r cA
-        ({ ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-            fire := ConLeche.tgtFireOf pp.toBlockShape
+        ({ ctor := cA.1.name, nfields := cA.2, fire := ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out) j r, rhs := rhs }) := by
     intro φ j r hr i cA rhs hcA _
     have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
@@ -195,7 +194,7 @@ theorem genRecStage {F : Nat}
       have hf := ConLeche.tgtFireOf_of_out (q := pp.toBlockShape) r hmb'
       exact genRows3_out R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) (fun ψ ρ => (hcsem ψ ρ).2.2.1)
         (fun ψ ρ => (hcsem ψ ρ).2.2.2) hr hmb hcA Rd (hcls j hj hmb) hnP hf
-        (by rw [ConLeche.recRuleBits_fire]; exact hf)
+        hf
     | some t =>
       have hmb' : (ConLeche.tgtMajorsOf out j).member = some t := hmb
       have hplain : ConLeche.tgtFireOf pp.toBlockShape
@@ -203,7 +202,7 @@ theorem genRecStage {F : Nat}
         simp only [ConLeche.tgtFireOf, hmb']
       exact genRows3_mem R h hdRe hN hS hcore hlfp hnames (fun ψ ρ => (hcsem ψ ρ).1)
         (fun ψ ρ => (hcsem ψ ρ).2.2.1) (fun ψ ρ => (hcsem ψ ρ).2.2.2) hr hmb hcA
-        (by rw [ConLeche.recRuleBits_fire]; exact hplain)
+        hplain
   -- the family premise
   have hsem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       GenPreSem pp out mpC dR Dc mc cvc R.g R.rd ψ ρ := by
@@ -234,7 +233,7 @@ theorem genRecStage {F : Nat}
   have hseam := genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
   have hextra : ∀ (Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
-        List ConLeche.RecRule)
+        Bool × List ConLeche.RecRule)
       (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC)),
       m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s
         (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
@@ -249,13 +248,12 @@ theorem genRecStage {F : Nat}
       ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
       RecRuleKWit m₃ φ r.1.name r.1 (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j)
-        ({ ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-            fire := ConLeche.tgtFireOf pp.toBlockShape
+        (ConLeche.recKExpected pp.toBlockShape (tgtMajor out j))
+        ({ ctor := cA.1.name, nfields := cA.2, fire := ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out) j r, rhs := rhs }) ∧
       RecRuleExtraNK m₃ φ r.1.name r.1 (pp.toBlockShape.majorIdxAt j)
-        (pp.toBlockShape.rulePrefixAt j)
-        ({ ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
-            fire := ConLeche.tgtFireOf pp.toBlockShape
+        (pp.toBlockShape.rulePrefixAt j) (ConLeche.recKExpected pp.toBlockShape (tgtMajor out j))
+        ({ ctor := cA.1.name, nfields := cA.2, fire := ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out) j r, rhs := rhs }) := by
     intro Rr m₃ hac φ j r hr i cA rhs hcA hrhs
     have hj : j < (tgtRs out).length := (List.getElem?_eq_some_iff.mp hr).1
@@ -266,21 +264,11 @@ theorem genRecStage {F : Nat}
       obtain ⟨-, cvI, Rd⟩ := hrdAll j hj
       have hmb' : (ConLeche.tgtMajorsOf out j).member = none := hmb
       have hf := ConLeche.tgtFireOf_of_out (q := pp.toBlockShape) r hmb'
-      refine genOutExtra R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) hr hmb hcA Rd (hcls j hj hmb)
-        hnP hf hctorCB hctorRd hac φ rfl rfl rfl
-        (by rw [ConLeche.recRuleBits_fire]; exact hf) rfl
+      exact genOutExtra R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) hr hmb hcA Rd
+        hnP hf hctorCB hctorRd hac φ rfl rfl
+        hf
         (recStagePinsOk mpC h m₃ hac φ j r hr cA rhs
-          (fun _ _ hf' => R.fire_nestedRead hr hf')) ?_
-      intro us hus hℓ
-      refine ⟨fun ρ => ?_, fun Ra hRa ρ => ?_⟩
-      · rw [blockRecHleaf hac (ConLeche.recStageG_nodup h hndM) hr]
-        obtain ⟨a, ha, -⟩ := blockRecAV_facts (hleaf.pre (Level.substFn φ r.1.levelParams us) ρ)
-        obtain ⟨hmem, heq, -⟩ := ha j hj
-        show interp V ρ (ConLeche.Semantics.blockRecAV _ _ _ _ j) = pt
-        rw [heq]
-        exact eq_pt_of_mem_univZero (genRecTyZ R hg h mpC j hj _ ρ hℓ) hmem
-      · rw [denote_instLevels m₃.acval_params φ, hac] at hRa
-        exact genRuleRaZ R hg h mpC hfind hlenEs hr hcA hrhs hRa hℓ ρ
+          (fun _ _ hf' => R.fire_nestedRead hr hf'))
     | some t =>
       have hmb' : (ConLeche.tgtMajorsOf out j).member = some t := hmb
       have hplain : ConLeche.tgtFireOf pp.toBlockShape
@@ -288,7 +276,7 @@ theorem genRecStage {F : Nat}
         simp only [ConLeche.tgtFireOf, hmb']
       obtain ⟨cvT, G⟩ := genMemAt_of R h hdRe hN hS hcore hlfp hnames hr hmb hcA
       exact genMemExtra h R (fun ψ ρ => (hcsem ψ ρ).1) G hr hmb hnP hctorCB hac φ rfl rfl
-        G.hnPc (by rw [ConLeche.recRuleBits_fire]; exact hplain) rfl
+        hplain
   unfold BlockRecStagedT
   rw [ConLeche.consBlockRecsT_eq_R]
   exact blockRecStaged_dataR (ctorTy := fun j i ψ =>

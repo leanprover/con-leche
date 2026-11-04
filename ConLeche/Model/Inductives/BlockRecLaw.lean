@@ -618,7 +618,7 @@ discharged at the run).  The rest (`RecRuleExtraNK`: the arity, (S),
 verbatim). -/
 @[expose] def RecRuleMain {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
-    (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rl : RecRule) :
+    (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
     Prop :=
   ∀ us : List Level, us.length = cv.levelParams.length →
     ∃ Ra : Term,
@@ -848,7 +848,7 @@ enters the recursor's application only through its value, and the
 fieldless spine's field part is empty. -/
 theorem recRuleLaw_of_main {env : Env} {m : EnvModel V env} {φ : Name → Nat}
     {n : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule}
-    (hrPle : rP ≤ mI) (hmain : RecRuleMain m φ n cv mI rP isK rl)
+    (hrPle : rP ≤ mI) (hmain : RecRuleMain m φ n cv mI rP rl)
     (hK : RecRuleKWit m φ n cv mI rP isK rl) (hNK : RecRuleExtraNK m φ n cv mI rP isK rl) :
     RecRuleLaw m φ n cv mI rP isK rl := by
   refine ⟨hrPle, hmain, fun us hus TVa hTVa => ⟨fun hk => ?_, hNK us hus TVa hTVa⟩⟩

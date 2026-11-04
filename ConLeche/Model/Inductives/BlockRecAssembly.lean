@@ -242,10 +242,9 @@ valuation `φ`, and every stored pair (recursor `j` with data `r`,
 constructor `i` = `cA` with right-hand side `rhs`), and the pair's stored
 rule bits. -/
 abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V envC)
-    (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule)
+    (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule)
     (p : BlockParts) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
-    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List Term) (nPc : Nat → Nat)
-    (fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
+    (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List Term) (fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
       ConLeche.RecRuleFire)
     (P : EnvModel V (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) → (Name → Nat) →
       Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Nat →
@@ -256,8 +255,7 @@ abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V envC)
       List (ConstantVal × Nat)), rs[j]? = some r →
     ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-      P m₃ φ j r i cA rhs ({ ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
-          fire := fireOf j r, rhs := rhs })
+      P m₃ φ j r i cA rhs ({ ctor := cA.1.name, nfields := cA.2, fire := fireOf j r, rhs := rhs })
 
 /-- **The recursor stage, at the run, at any rules of the shape**: the
 cons at a rules function `R` whose stored
@@ -271,8 +269,7 @@ theorem blockRecStaged_runR {envC : Env}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     (hnd : (rs.map (·.1.name)).Nodup)
-    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
-    {nPc : Nat → Nat}
+    {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
       ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape R rs fireOf)
@@ -280,9 +277,9 @@ theorem blockRecStaged_runR {envC : Env}
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
     (hleaf : BlockRecLeafOk mpC rs s eqs)
-    (hnew : AtStoredRules mpC R p rs s eqs nPc fireOf fun m₃ φ j r _ _ _ rl =>
+    (hnew : AtStoredRules mpC R p rs s eqs fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleLaw m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
-          (p.toBlockShape.rulePrefixAt j) rl) :
+          (p.toBlockShape.rulePrefixAt j) (R j r).1 rl) :
     BlockRecStagedAt (V := V) envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)
       mpC := by
   have hfacts := ConLeche.recStage_facts h

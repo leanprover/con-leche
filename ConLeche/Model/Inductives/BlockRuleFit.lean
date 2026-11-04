@@ -71,7 +71,7 @@ open ConLeche.SetTheory.Tower
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 variable {V : Type w} [SetTheory V]
-  {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
+  {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
 
 /-! ## 1. The frame transport: a ZERO chain is no chain -/
 

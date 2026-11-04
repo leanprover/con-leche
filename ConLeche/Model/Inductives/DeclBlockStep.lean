@@ -401,31 +401,12 @@ theorem declBlock {F : Nat} {env env₂ : Env}
       refine ⟨cvTb, ConLeche.blockCapsAt p₁ mm isRec, by
         show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
           ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName mm) = _
-        rw [hname]; exact (hcoreC.1 mm cvTb hcv).1, fun ψ hw => ?_, fun hk => ?_⟩
+        rw [hname]; exact (hcoreC.1 mm cvTb hcv).1, fun ψ hw => ?_⟩
       · have hsz : (ConLeche.blockCapsAt p₁ mm isRec).sortZ = Level.zeronessOf p₁.resSort := by
           rcases blockCapsAt_cases p₁ mm isRec with ⟨c, -, h⟩ | h <;> rw [h]
         rw [hsz, ConLeche.PropWhen.zeronessOf_sound]
         have hw' : Level.eval ψ p₁.resSort = 0 := hw
         rw [hw']; rfl
-      · rcases blockCapsAt_cases p₁ mm isRec with ⟨c, hc, h⟩ | h
-        · show (((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM mm)).length = 1
-          have hmmK : mm < ctorsAs.length := by
-            rw [hlenCtorsAs]; exact hmm
-          have hc0 := congrArg (fun L => (L.getD mm []).length) hnames
-          simp only [List.getD_eq_getElem?_getD, List.getElem?_map,
-            List.getElem?_eq_getElem hmmK, Option.map_some, Option.getD_some,
-            List.length_map] at hc0
-          show (ctorsAs.getD mm []).length = 1
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmmK, Option.getD_some, hc0]
-          have hmm' : mm < p₁.members.length := by
-            have := congrArg List.length hnames
-            simp only [List.length_map] at this
-            omega
-          rw [List.getElem?_eq_getElem hmm', Option.map_some, Option.getD_some, List.length_map]
-          have hc' : (p₁.members.getD mm default).ctors = [c] := hc
-          rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm', Option.getD_some] at hc'
-          rw [hc']; rfl
-        · rw [h] at hk; exact nomatch hk
     · have hck : c < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := hc
       have hcj : ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]?
           = some ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j] :=
@@ -658,8 +639,7 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     cases R.major with
     | member => intro h; exact nomatch h
     | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc => exact fun _ => ⟨hdsLen, hdsSc⟩
-  have hwfS := ConLeche.Cached.storedRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ _ hSt
-    (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
+  have hwfS := ConLeche.Cached.storedRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ hSt
   obtain ⟨mpR₀, hag, hfindMono, hden⟩ :=
     blockRecStagedAt_stored hG (ConLeche.Cached.genRecCheck_outCv hRec').1
       (ConLeche.genRecCheck_out_fresh hRec') (ConLeche.Cached.genRecCheck_out_unreserved hRec')
@@ -669,15 +649,14 @@ theorem declBlock {F : Nat} {env env₂ : Env}
   -- ## coverage across the recursors' conses: only recursors
   -- are stored, every old name keeps its leaf
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
-    (find? := (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?)
     (q := (p₀.complete p₁).toBlockShape) 0 (ConLeche.storedOut (p₀.complete p₁).recs outR)
     (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
   obtain ⟨mpR, hbR, -, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
     (consBlockRecsT_tables 0 _ _) hfindMono
     hag (fun _ h => h) (fun _ h => Or.inl h)
-    (fun c hc cv caps h => by obtain ⟨r, -, mI, rP, rules, rfl⟩ := hnewRall c hc; exact nomatch h)
+    (fun c hc cv caps h => by obtain ⟨r, -, mI, rP, isK, rules, rfl⟩ := hnewRall c hc; exact nomatch h)
     (fun c hc C hC => by
-      obtain ⟨r, -, mI, rP, rules, rfl⟩ := hnewRall c hc
+      obtain ⟨r, -, mI, rP, isK, rules, rfl⟩ := hnewRall c hc
       simp [ctorEntry] at hC)
   rw [← hbR] at hcoreT
   -- ## the tables
