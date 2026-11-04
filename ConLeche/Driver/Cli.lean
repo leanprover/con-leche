@@ -188,12 +188,6 @@ def usage : String := String.intercalate "\n" [
   "                    otherwise pay on every object of it -- worth",
   "                    18-32 % of wall time on the pool, growing with",
   "                    <n>, and 3.5 % at <n> = 1.",
-  "  --no-mark-persistent",
-  "                    turn that mark off.  It changes no verdict --",
-  "                    the marked graph is read-only from the boundary",
-  "                    on -- so this is a MEASUREMENT switch: it is how",
-  "                    the mark's effect is measured on the shipped",
-  "                    binary.",
   "  --progress[=<stride>]",
   "                    opt-in progress heartbeat on STDERR, one line",
   "                    shape per phase:",
@@ -327,11 +321,6 @@ structure Args where
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
   jobs : Option Nat := none
-  /-- `--no-mark-persistent`: do NOT mark the installed environment
-  persistent at the phase boundary.  The mark is on by default whenever
-  the check phase runs on the pool; this turns it off, which is what
-  measures its effect on the shipped binary. -/
-  noMark : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -355,8 +344,6 @@ def parseArgs : List String → Args → Args
   -- `--progress=<n>` is the general form (below, with the other
   -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
-  -- The persistent mark is on by default on the pool; this turns it off.
-  | "--no-mark-persistent" :: rest, a => parseArgs rest { a with noMark := true }
   | s :: rest, a =>
     if s.startsWith "--progress=" then
       match progressStride ((s.drop "--progress=".length).toString) with
@@ -424,7 +411,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
-        runReq (.stream file a.mode a.progress jobs a.noMark)
+        runReq (.stream file a.mode a.progress jobs)
       | _ =>
         eprintln usage
         return 3)

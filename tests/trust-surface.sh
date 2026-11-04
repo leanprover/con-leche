@@ -188,8 +188,7 @@
 #       `InstalledEnv` the driver goes on to use is the one it already
 #       had and no verdict, and no step of the proof that `checkDecls`
 #       returns that environment, can turn on whether the mark
-#       happened.  `--no-mark-persistent` turns it off, and the output
-#       is identical either way.  No `implemented_by` and no
+#       happened.  No `implemented_by` and no
 #       `computed_field` is tolerated in this file.
 #
 #   ConLeche/Driver/ParInstall.lean    unsafe
@@ -241,10 +240,7 @@
 #       the other shard tasks take references only on the names of their
 #       own shards: a name lies in one shard).  The results' mark
 #       reaches only the first two kinds (the warning sits at its
-#       call).  `--no-mark-persistent`
-#       turns all six off at once (the
-#       bookkeeping is then multi-threaded), which is how the A/B is
-#       measured on the shipped binary.
+#       call).
 #   ConLeche/Driver/OwnerParse.lean    unsafe
 #       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
 #       `unsafe Runtime.markPersistent` call (`markOne`, through
@@ -263,8 +259,7 @@
 #       is the identity on the value: nothing the parse returns, and no
 #       step of the proof that it is the serial parse's (`GOK.window`:
 #       every stored entry is GOOD, a property of the round functions),
-#       can turn on whether the mark happened.  `--no-mark-persistent`
-#       turns it off.
+#       can turn on whether the mark happened.
 #       The marks rely on one invariant: every object reachable from a
 #       newly built entry was built on this thread since its last
 #       publication, or is already persistent (entries of the finished

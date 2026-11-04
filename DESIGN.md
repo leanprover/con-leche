@@ -108793,3 +108793,5 @@ into exit 3 included, so that the model sees it.  `main_model` and
 `main_no_False` state `runArgs ["--", file]`, from `runArgs_accept`.  A
 message failing after the abort variables failed no longer escapes as
 exit 1; a throwing flush in `main` still does, as before.
+
+**`--no-mark-persistent` removed (maintainer's ruling, 2026-11-04):** the flag and the `noMark` parameter are gone and the marks unconditional; older records mention them as history.

@@ -79,11 +79,11 @@ def Input.label : Input → String
 
 /-- The input's declaration records: the stream's, by the stream parse
 (`parseStreamG`). -/
-def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (jobs : Nat)
-    (noMark : Bool) : μ (Except (CheckError × Nat) (Array Declaration)) :=
+def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (jobs : Nat) :
+    μ (Except (CheckError × Nat) (Array Declaration)) :=
   match inp with
   | .ndjson file => do
-    return (← parseStreamG file jobs noMark).map (·.decls)
+    return (← parseStreamG file jobs).map (·.decls)
 
 /-- **The driver, generic in the IO class** (tasks #424, #450): what
 `main` runs in process (at `IO`) and what the theorem is about (at
@@ -121,7 +121,7 @@ the verdict.  The three steps fail in ONE error type, the checker's
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : CheckMode)
-    (stride jobs : Nat) (noMark : Bool) : μ UInt8 := do
+    (stride jobs : Nat) : μ UInt8 := do
     -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
@@ -161,7 +161,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match ← readInputG input jobs noMark with
+    match ← readInputG input jobs with
     | .error (.notImplemented what, _) =>
       diagLine s!"con-leche: declined: {what} ({modeTag})"
       return 2
@@ -226,7 +226,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
           t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
       let verdict ← CheckerIO.liftIO do
-        checkDeclsIO mode (← IO.getStderr) stride decls.size t0 tParse jobs noMark decls
+        checkDeclsIO mode (← IO.getStderr) stride decls.size t0 tParse jobs decls
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record
@@ -288,13 +288,13 @@ the `liftIO` actions answered.  Under the assumptions of
 `ConLeche/Frontend/CheckerIO.lean` the binary's run is one of these
 outcomes. -/
 theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-    {stride jobs : Nat} {noMark : Bool} {fs : FS}
-    (h : (checkMainG (.ndjson file) mode stride jobs noMark : ModelIO _) fs (.ok 0)) :
+    {stride jobs : Nat} {fs : FS}
+    (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
     ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       Frontend.parseChunks [b] = .ok r ∧
       Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode stride jobs noMark) fs
+  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode stride jobs) fs
       (fun c => c = 0 → ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧
         fs.file file = some b ∧ Frontend.parseChunks [b] = .ok r ∧
         Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env) from

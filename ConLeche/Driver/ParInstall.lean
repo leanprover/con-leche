@@ -275,11 +275,11 @@ in (`chunkOf`), marked persistent.  Without workers (`walk` false,
 walked: every record has no dependency.  Grouping here is what keeps the dependents' assembly
 balanced: a hub every record depends on (the basis) arrives as one
 group per chunk, appended in one copy, not as one push per record. -/
-def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark walk : Bool)
+def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (walk : Bool)
     (gate n parts lo hi : Nat) :
     IO (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) × Array (Array (Nat × Array Nat))) := do
   let mut counts := Array.mkEmpty (hi - lo)
-  let mut state := Array.mkEmpty (hi - lo)
+  let mut state : Array (IO.Ref (RState α)) := Array.mkEmpty (hi - lo)
   let mut pos : Std.HashMap Nat Nat := {}
   let mut grps : Array (Nat × Array Nat) := #[]
   for k in [lo:hi] do
@@ -297,7 +297,7 @@ def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark walk : 
   let mut edges : Array (Array (Nat × Array Nat)) := Array.replicate parts #[]
   for g in grps do
     edges := edges.modify (chunkOf n parts g.1) (·.push g)
-  -- persistent (unless `noMark`), although all three die with the
+  -- persistent, although all three die with the
   -- install (`counts` and `state` with the workers, `edges` once the
   -- dependents are assembled): freeing them instead — on background
   -- tasks, multi-threaded until then — cost the check phase on
@@ -308,17 +308,13 @@ def depsChunk {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark walk : 
   -- `counts` and `state` are WRITTEN by every worker; a persistent ref
   -- is written through the runtime's atomic path like a multi-threaded
   -- one, and what is stored is a scalar or (`RState.done`) a fresh
-  -- wrapper around an already persistent install result.  `noMark`
-  -- keeps the multi-threaded mark (the A/B).
-  if noMark then
-    Runtime.markMultiThreaded (counts, state, edges)
-  else
-    unsafe Runtime.markPersistent (counts, state, edges)
+  -- wrapper around an already persistent install result.
+  unsafe Runtime.markPersistent (counts, state, edges)
 
 /-- One thread of the dependency step: claim fine chunks off `next` and
 run `depsChunk` on each, returning the results with their chunk
 numbers. -/
-partial def depsWorker {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMark walk : Bool)
+partial def depsWorker {α : Type} (B : BaseIdx) (ds : Array Declaration) (walk : Bool)
     (gate n parts : Nat) (fine : Array (Nat × Nat)) (next : IO.Ref Nat)
     (acc : Array (Nat × (Array (IO.Ref Nat) × Array (IO.Ref (RState α)) ×
       Array (Array (Nat × Array Nat))))) :
@@ -327,8 +323,8 @@ partial def depsWorker {α : Type} (B : BaseIdx) (ds : Array Declaration) (noMar
   let c ← next.modifyGet fun c => (c, c + 1)
   match fine[c]? with
   | some (lo, hi) =>
-    let r ← depsChunk B ds noMark walk gate n parts lo hi
-    depsWorker B ds noMark walk gate n parts fine next (acc.push (c, r))
+    let r ← depsChunk B ds walk gate n parts lo hi
+    depsWorker B ds walk gate n parts fine next (acc.push (c, r))
   | none => return acc
 
 /-- The dependents of records `lo .. hi - 1` (chunk `r`), on a task of
@@ -510,7 +506,6 @@ structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : 
   /-- record `k`'s state, with its install result once done -/
   state : Array (IO.Ref (RState (WRes mode ds B S vis)))
   sched : Sched
-  noMark : Bool
   /-- `k + 1` while the commit thread sleeps waiting for record `k`,
   else `0` -/
   commitWait : IO.Ref Nat
@@ -531,7 +526,7 @@ structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : 
   | none => return false
 
 /-- Install record `k` at its view and publish the result: marked
-persistent first (unless `--no-mark-persistent`), then the slot (workers
+persistent first, then the slot (workers
 may wait on it), the commit's checks (`goodB`), the result in the
 record's state (waking the commit thread if it waits for it), and the dependents
 released (the lowest newly ready dependent is returned, for the
@@ -540,20 +535,19 @@ def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
     IO (WRes mode ds B S vis × Option Nat) := do
   let r := workerRes mode ds B S vis k
   let cs := slotOfRes r
-  if !sh.noMark then
-    -- The result is marked persistent although other threads may read it
-    -- concurrently later (the slot's readers, the commit thread).  That is
-    -- safe only while an install result reaches no object that is
-    -- ALREADY multi-threaded and that another thread is still counting:
-    -- the mark would turn such an object persistent (`lean_mark_persistent`
-    -- does not skip a multi-threaded object) while other threads still
-    -- decrement its count — a data race.  Today a result reaches only
-    -- objects that are persistent already (the records, earlier results)
-    -- or fresh ones of its own.  If a slot, a slot thunk, a promise or an
-    -- `FEnv` (whose base layer holds the slots) ever ends up inside a
-    -- `ConstantInfo`, a `ProjTable` or a `ValueGroup`, this mark must go.
-    let _ ← unsafe Runtime.markPersistent r
-    let _ ← unsafe Runtime.markPersistent cs
+  -- The result is marked persistent although other threads may read it
+  -- concurrently later (the slot's readers, the commit thread).  That is
+  -- safe only while an install result reaches no object that is
+  -- ALREADY multi-threaded and that another thread is still counting:
+  -- the mark would turn such an object persistent (`lean_mark_persistent`
+  -- does not skip a multi-threaded object) while other threads still
+  -- decrement its count — a data race.  Today a result reaches only
+  -- objects that are persistent already (the records, earlier results)
+  -- or fresh ones of its own.  If a slot, a slot thunk, a promise or an
+  -- `FEnv` (whose base layer holds the slots) ever ends up inside a
+  -- `ConstantInfo`, a `ProjTable` or a `ValueGroup`, this mark must go.
+  let _ ← unsafe Runtime.markPersistent r
+  let _ ← unsafe Runtime.markPersistent cs
   match sh.slotP[k]? with
   | some p => p.resolve cs
   | none => pure ()
@@ -825,7 +819,7 @@ statistics of the workers that have returned when it runs, waiting for
 none.  The join of the workers is left in `join`, as soon as they are
 started, for `checkDeclsIO` to run at its end, on every path. -/
 def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : Nat)
-    (noMark : Bool) (rep : IO.Ref (IO PoolRep)) (join : IO.Ref (BaseIO Unit))
+    (rep : IO.Ref (IO PoolRep)) (join : IO.Ref (BaseIO Unit))
     (ds : Array Declaration) :
     IO (Except (CheckError × Nat)
       (Cached.DeferredRun mode natOpPinSets ds.toList (0, mkFEnv Env.empty, #[]))) := do
@@ -836,8 +830,7 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   -- the records are read by every task below and live to the end of the
   -- run: persistent first, so that no task spawn walks them for
   -- multi-threaded marking
-  if !noMark then
-    let _ ← unsafe Runtime.markPersistent ds
+  let _ ← unsafe Runtime.markPersistent ds
   let tA0 ← IO.monoMsNow
   -- the prediction, chunk per task; then the counters (prefix sums).
   -- Marked multi-threaded (task #329's `mtclean` audit: kept, not
@@ -883,14 +876,13 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
       -- worker at once on the hot names; multi-threaded, those are atomic
       -- increments on shared cache lines, and that made the dependency
       -- walk and the pool measurably slower (task #329's `ifix` lane,
-      -- DESIGN.md).  Multi-threaded under `noMark`.  The mark reaches
+      -- DESIGN.md).  The mark reaches
       -- multi-threaded objects of the prediction (the projection tables'
       -- names `predictChunk` built, also held by `slots`); safe, because
       -- no other running thread counts them: their tasks have finished,
       -- the main thread is waiting here, and the other shard tasks touch
       -- only the names of their own shards.
-      if noMark then Runtime.markMultiThreaded r
-      else unsafe Runtime.markPersistent r)
+      unsafe Runtime.markPersistent r)
   let mut shards : Array (Cached.BuiltShard slots offs buckets) := Array.mkEmpty parts
   for t in shardTasks do
     shards := shards.push (← IO.ofExcept (← IO.wait t))
@@ -924,7 +916,7 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   let mut depTasks := #[]
   for _ in [0:parts] do
     depTasks := depTasks.push (← ParInstall.spawn (jobs > 0)
-      (ParInstall.depsWorker (α := ParInstall.WRes mode ds B S vis) B ds noMark (jobs > 0)
+      (ParInstall.depsWorker (α := ParInstall.WRes mode ds B S vis) B ds (jobs > 0)
         gate n parts fine nextFine #[]))
   let mut fineRes : Array (Option (Array (IO.Ref Nat) ×
       Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) ×
@@ -955,15 +947,14 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   -- than it saves.  The mark reaches the inner arrays `dependentsChunk`
   -- marked multi-threaded; safe, because their tasks have finished and
   -- only this thread holds them now.
-  if !noMark then
-    let _ ← unsafe Runtime.markPersistent dependents
+  let _ ← unsafe Runtime.markPersistent dependents
   let sched : ParInstall.Sched :=
     { counts, dependents, cursor := ← IO.mkRef 0,
       deferred := ← IO.mkRef ∅, deferredN := ← IO.mkRef 0,
       stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
   let selfStats ← IO.mkRef ({} : WStats)
   let sh : ParInstall.Shared mode ds B S vis :=
-    { slotP, state, sched, noMark, commitWait := ← IO.mkRef 0,
+    { slotP, state, sched, commitWait := ← IO.mkRef 0,
       commitLock := ← Std.BaseMutex.new, commitCv := ← Std.Condvar.new,
       selfStats, live := ← Live.new (if stride > 0 then jobs + 1 else 0) }
   let tD ← IO.monoMsNow

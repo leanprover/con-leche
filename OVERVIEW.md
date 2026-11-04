@@ -14,7 +14,7 @@ The binary reads a Lean export in `lean4export`'s NDJSON format and
 prints one verdict line:
 
 ```
-con-leche [--verified|--trusted] [--jobs=<n>] [--no-mark-persistent]
+con-leche [--verified|--trusted] [--jobs=<n>]
           [--progress[=<stride>]] [--] FILE.ndjson
 con-leche --help
 ```
@@ -23,9 +23,7 @@ That is every flag the binary takes. `--verified` is the default and
 the mode the theorem is about; `--trusted` runs the same checker bodies
 with the certification-only work switched off, is faster, and is
 outside the theorem; `--jobs=<n>` sets the check phase's worker count
-(below); `--no-mark-persistent` turns off the check phase's one-shot
-mark of the installed environment (below), which changes no verdict and
-is there to measure what the mark is worth;
+(below);
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--` ends the options, every argument after it being a file,
 whatever it is called; `--help` before any `--` prints the usage text
@@ -86,8 +84,8 @@ to what the limit affords — about ten workers under 16 GB. At every
 worker count the installed environment is marked persistent once at
 the phase boundary, which removes the atomic reference counting the
 workers would otherwise pay on it and is worth 18–32 % of wall time on
-the pool, growing with the worker count, and 3.5 % at one worker;
-`--no-mark-persistent` turns it off. Most of that marking happens
+the pool, growing with the worker count, and 3.5 % at one worker.
+Most of that marking happens
 earlier: the records are marked before the install starts (a serial
 walk, about 2.5 s on Mathlib) and each install result by the thread
 that computed it, so the mark at the phase boundary finds little left
@@ -392,7 +390,7 @@ Read from the outside in:
    With more workers the parse runs on as many owner threads and takes
    a window of chunks at a time, one chunk of whole lines per owner,
    the next window read before the current one is computed
-   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L493-L495)):
+   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L490-L492)):
    the owner scans its chunk once into syntax records that never leave
    its thread and applies its lines, deferring a line that reads an
    entry of another chunk of the window to a later round, until nothing
@@ -446,7 +444,7 @@ Read from the outside in:
    basis block, and the pinned `Nat`-operation and `reduce*`
    declarations are checked by the fold's ordinary step. The driver
    builds the fold's run, at every worker count, by a commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L696-L705))
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L690-L699))
    that adds one step per record in stream order (a proposition carried
    beside the index), pushing each record's
    constants into the index itself, while worker threads (none at

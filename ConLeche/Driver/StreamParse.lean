@@ -115,13 +115,13 @@ def roundsChunk (size jobs : Nat) : Nat :=
 (`parseFileS`, each 4 MiB read fed to `chunkStep`); above, the rounds
 parse on `jobs` owner threads (`OwnerParse.startRounds`, through `liftIO`), a
 window of one chunk per owner. -/
-def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) (noMark : Bool) :
+def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
     μ (Except (CheckError × Nat) ParseResultD) := do
   if jobs ≤ 1 then
     parseFileS file
   else
     let size ← CheckerIO.fileSize file
-    let R ← CheckerIO.liftIO do OwnerParse.startRounds (← OwnerParse.Cfg.new noMark) jobs
+    let R ← CheckerIO.liftIO do OwnerParse.startRounds (← OwnerParse.Cfg.new) jobs
     parseFileW R file (roundsChunk size jobs).toUSize jobs
 
 /-! ## In the model -/
@@ -272,9 +272,9 @@ that is records `r` on a snapshot `fs` means the file has bytes `b`
 there and `parseChunks [b] = .ok r` — the file's own bytes parse, as one
 chunk, to the records the driver goes on with, whatever the owner
 threads (`liftIO`) answered. -/
-theorem parseStreamG_model {file : String} {jobs : Nat} {noMark : Bool} {fs : FS}
+theorem parseStreamG_model {file : String} {jobs : Nat} {fs : FS}
     {r : ParseResultD}
-    (h : (parseStreamG file jobs noMark : ModelIO _) fs (.ok (.ok r))) :
+    (h : (parseStreamG file jobs : ModelIO _) fs (.ok (.ok r))) :
     ∃ b, fs.file file = some b ∧ parseChunks [b] = .ok r := by
   unfold parseStreamG at h
   split at h

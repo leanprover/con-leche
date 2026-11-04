@@ -134,7 +134,7 @@
     98  #guard_msgs in
 
 == ConLeche/Driver/Dispatch.lean#L29
-    29    | .stream file mode stride jobs noMark => checkMainG (.ndjson file) mode stride jobs noMark
+    29    | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs
 
 == ConLeche/Frontend/CheckerIO.lean#L101
    101  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -150,7 +150,7 @@
     41        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
-   118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) (noMark : Bool) :
+   118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
    119      μ (Except (CheckError × Nat) ParseResultD) := do
 
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
@@ -164,10 +164,10 @@
    310      (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
    311    foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
 
-== ConLeche/Driver/OwnerParse.lean#L493-L495
-   493  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
-   494      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
-   495      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
+== ConLeche/Driver/OwnerParse.lean#L490-L492
+   490  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
+   491      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
+   492      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
 
 == ConLeche/Verify/Frontend/Good.lean#L522
    522  inductive Good (Γ : WCtx) : Nat → TV → Prop where
@@ -191,8 +191,8 @@
 
 == ConLeche/Driver/CheckMain.lean#L290-L295
    290  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   291      {stride jobs : Nat} {noMark : Bool} {fs : FS}
-   292      (h : (checkMainG (.ndjson file) mode stride jobs noMark : ModelIO _) fs (.ok 0)) :
+   291      {stride jobs : Nat} {fs : FS}
+   292      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
    293      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
    294        Frontend.parseChunks [b] = .ok r ∧
    295        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
@@ -203,17 +203,17 @@
    146      Declaration → CheckCM (FEnv × Array PendingCheck)
    147    | .defnDecl cv value hint =>
 
-== ConLeche/Driver/ParInstall.lean#L696-L705
-   696  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
-   697      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
-   698      (p₀ : Nat × FEnv × Array PendingCheck) :
-   699      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
-   700      fe.visibleBelow = c →
-   701      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
-   702        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
-   703      IdxBelow fe → ViewAgrees B S fe →
-   704        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
-   705    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
+== ConLeche/Driver/ParInstall.lean#L690-L699
+   690  def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
+   691      (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+   692      (p₀ : Nat × FEnv × Array PendingCheck) :
+   693      (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
+   694      fe.visibleBelow = c →
+   695      ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
+   696        InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
+   697      IdxBelow fe → ViewAgrees B S fe →
+   698        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
+   699    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
 
 == ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468
   1462  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
@@ -253,7 +253,7 @@
 
 == ConLeche/Driver/Run.lean#L87-L90
     87  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    88      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+    88      (ds : Array ConLeche.Declaration) :
     89      IO (Except (ConLeche.CheckError × Nat)
     90        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
@@ -1313,8 +1313,8 @@
 == Main.lean#L84
     84  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L402
-   402  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L389
+   389  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == ConLeche/MainTheorem.lean#L117-L124
    117  theorem no_False_declaration (V : Type w) [SetTheory V]

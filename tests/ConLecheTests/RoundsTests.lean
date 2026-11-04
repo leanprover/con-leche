@@ -41,9 +41,9 @@ def roundsSummary : Except (CheckError × Nat) ParseResultD → String
 `csz` bytes (`ConLeche.Driver.parseFileW` at `IO`); with the number of
 windows that fell back, the windows taken through the rounds and their
 later rounds. -/
-def roundsInfo (path : System.FilePath) (jobs : Nat) (csz : USize) (noMark : Bool) :
+def roundsInfo (path : System.FilePath) (jobs : Nat) (csz : USize) :
     IO (Except (CheckError × Nat) ParseResultD × Nat × Nat × Nat) := do
-  let cfg ← ConLeche.Driver.OwnerParse.Cfg.new noMark
+  let cfg ← ConLeche.Driver.OwnerParse.Cfg.new
   let r ← ConLeche.Driver.parseFileW (← ConLeche.Driver.OwnerParse.startRounds cfg jobs) path
     csz (max 1 jobs)
   return (r, ← cfg.fallbacks.get, ← cfg.windows.get, ← cfg.rounds.get)
@@ -57,7 +57,7 @@ def roundsAgrees (path : System.FilePath) (rounds : Option Bool) : IO Unit := do
   let want := roundsSummary (parseBytes b)
   for csz in [64, 1000, 65536] do
     for jobs in [1, 2, 3, 5] do
-      let (r, fb, wins, _) ← roundsInfo path jobs csz.toUSize false
+      let (r, fb, wins, _) ← roundsInfo path jobs csz.toUSize
       let got := roundsSummary r
       unless got == want do
         throw <| IO.userError s!"{path} at chunk {csz}, {jobs} owners: \

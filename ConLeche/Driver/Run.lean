@@ -85,7 +85,7 @@ checks, the peak resident set.  Performance-only: printed after the
 verdict is known, from timings the loops accumulate beside their
 proofs; stdout and the exit code do not see them. -/
 def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    (noMark : Bool) (ds : Array ConLeche.Declaration) :
+    (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
   let heartbeat (line : String) : IO Unit := do
@@ -105,7 +105,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
     -- the install's worker count: none at `--jobs=1`, where the commit
     -- thread installs every record itself
     let installed ← installPhase mode err stride total t0 (if jobs ≤ 1 then 0 else jobs)
-      noMark instRepR joinWorkers ds
+      instRepR joinWorkers ds
     let instRep : IO PoolRep := do (← instRepR.get)
     match installed with
     | .error e =>
@@ -152,16 +152,14 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       -- turn on it.  Term-level `unsafe`, the escape
       -- `Lean.Environment.finalizeImport` uses for this same call; it is
       -- unsafe only in that the marked closure is never freed, and the
-      -- process exits right after.  `--no-mark-persistent` turns it off,
-      -- which is how the A/B above is measured on the shipped binary.
+      -- process exits right after.
       -- (the deferred block checks are NOT marked: a worker view's slots
       -- are thunks over promises the install resolved, objects the
       -- install's workers may still be counting — the mark would race with
       -- them; there are few block checks, their counts stay atomic)
-      if !noMark then
-        let _ ← unsafe Runtime.markPersistent fe
-        let _ ← unsafe Runtime.markPersistent pend
-        let _ ← unsafe Runtime.markPersistent J.order
+      let _ ← unsafe Runtime.markPersistent fe
+      let _ ← unsafe Runtime.markPersistent pend
+      let _ ← unsafe Runtime.markPersistent J.order
       let tMark ← IO.monoMsNow
       heartbeat s!"persistent mark {secs (tMark - tCheck)}s"
       let workers := max 1 (min jobs J.order.size)

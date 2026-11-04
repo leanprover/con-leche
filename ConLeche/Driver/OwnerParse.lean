@@ -131,25 +131,23 @@ def markOne {α : Type} (x : α) : IO Unit := do
   let _ ← unsafe Runtime.markPersistent x
 
 /-- Mark the ELEMENTS of an array persistent, not the array (which is
-dropped later), unless `--no-mark-persistent`.  The escape is the
+dropped later).  The escape is the
 install driver's (`Runtime.markPersistent`, the identity on the value;
 the object graph is marked in place and never freed).  An element's
 walk stops at children already persistent: the entries it was built
 from. -/
-def markEach {α : Type} (noMark : Bool) (a : Array α) : IO Unit := do
-  if !noMark then
-    a.forM markOne
+def markEach {α : Type} (a : Array α) : IO Unit :=
+  a.forM markOne
 
 /-- Mark the entries of round 0's slot array persistent: the slots that
 hold an entry, not the late slots' fillers (a constant every owner
 pushes; marking an object other threads are counting is not safe). -/
-def markSlots {α : Type} (noMark : Bool) (d : Array α) (late : ByteArray) : IO Unit := do
-  if !noMark then
-    for k in [0:d.size] do
-      if byteN late k != 1 then
-        match d[k]? with
-        | some x => markOne x
-        | none => pure ()
+def markSlots {α : Type} (d : Array α) (late : ByteArray) : IO Unit := do
+  for k in [0:d.size] do
+    if byteN late k != 1 then
+      match d[k]? with
+      | some x => markOne x
+      | none => pure ()
 
 /-! ## Messages and results
 
@@ -308,33 +306,33 @@ theorem Cur.is_eq {x : Cur} {P c0} (h : x.is P c0 = true) : x.c0 = c0 ∧ x.P = 
 the current window (`cur`, once its round 0 ran), of the next (`nxt`,
 scanned), and the tables of the window it finished last (`fin`), held
 until its next window's round 0 ran. -/
-partial def ownerLoop (bx : Box) (noMark : Bool) (cur : Option Cur) (nxt : Option Mine)
+partial def ownerLoop (bx : Box) (cur : Option Cur) (nxt : Option Mine)
     (fin : Hold) : IO Unit := do
   match ← bx.recv with
   | .stop => return
   | .chunk b =>
-    ownerLoop bx noMark cur (some ⟨b, scanChunkCap (b.size / 32) b, scanChunkCap_eq _ _⟩) fin
+    ownerLoop bx cur (some ⟨b, scanChunkCap (b.size / 32) b, scanChunkCap_eq _ _⟩) fin
   | .start P c0 c out =>
     match nxt with
     | some ⟨b, sc, hx⟩ =>
       let o := round0 P c0 c sc.recs
-      markSlots noMark o.n.d o.n.late; markSlots noMark o.l.d o.l.late
-      markSlots noMark o.e.d o.e.late
+      markSlots o.n.d o.n.late; markSlots o.l.d o.l.late
+      markSlots o.e.d o.e.late
       out.resolve ⟨c, b, true, ({ o with pend := #[] }, o.pend.size, sc.recs.size),
         by intro _; subst hx; exact ⟨rfl, rfl⟩⟩
       -- the next window's chunk is now the current one
-      ownerLoop bx noMark (some ⟨b, sc, hx, P, c0, c, o.pend, pendOK_round0 _ _ _ _,
+      ownerLoop bx (some ⟨b, sc, hx, P, c0, c, o.pend, pendOK_round0 _ _ _ _,
         .none, ⟨o.n, o.l, o.e, .none⟩, fin⟩) none .none
     | none =>
       -- no chunk: the window falls back
       out.resolve (.none c)
-      ownerLoop bx noMark none none fin
+      ownerLoop bx none none fin
   | .round P W out =>
     match cur with
     | some x =>
       if hi : x.is P W.c0 then
         let o := roundR P W x.c x.sc.recs x.pend
-        markEach noMark o.fn; markEach noMark o.fl; markEach noMark o.fe
+        markEach o.fn; markEach o.fl; markEach o.fe
         out.resolve ⟨x.c, x.b, !o.bad,
           ({ o with pend := #[], fn := #[], fl := #[], fe := #[] }, o.pend.size), by
             intro hb
@@ -353,13 +351,13 @@ partial def ownerLoop (bx : Box) (noMark : Bool) (cur : Option Cur) (nxt : Optio
           inp := inp
           hold := hold
           prevHold := .none }
-        ownerLoop bx noMark (some x') nxt fin
+        ownerLoop bx (some x') nxt fin
       else
         out.resolve (.none x.c)
-        ownerLoop bx noMark cur nxt fin
+        ownerLoop bx cur nxt fin
     | none =>
       out.resolve (.none 0)
-      ownerLoop bx noMark cur nxt fin
+      ownerLoop bx cur nxt fin
   | .finish P W m c out =>
     let pn := finSlice P.n W.n m c
     let pl := finSlice P.l W.l m c
@@ -368,7 +366,7 @@ partial def ownerLoop (bx : Box) (noMark : Bool) (cur : Option Cur) (nxt : Optio
     | some x =>
       if x.is P W.c0 && x.c == c then
         let ds := chunkDecls P W c x.sc.recs
-        if let some d := ds then markEach noMark d
+        if let some d := ds then markEach d
         out.resolve ⟨c, x.b, scanEnds x.b x.sc && W.fullAt c && ds.isSome,
           ⟨pn, pl, pe, ds.getD #[]⟩, by
             intro h
@@ -383,13 +381,12 @@ partial def ownerLoop (bx : Box) (noMark : Bool) (cur : Option Cur) (nxt : Optio
       else out.resolve (.none c)
     | none => out.resolve (.none c)
     -- this window's tables, held into the next window
-    ownerLoop bx noMark none nxt (match cur with | some x => x.hold | none => .none)
+    ownerLoop bx none nxt (match cur with | some x => x.hold | none => .none)
 
 /-! ## The coordinator -/
 
 /-- The driver's settings and counters. -/
 structure Cfg where
-  noMark : Bool
   /-- windows that fell back (for the tests) -/
   fallbacks : IO.Ref Nat
   /-- windows taken through the rounds, and their later rounds -/
@@ -566,13 +563,13 @@ def startRounds (cfg : Cfg) (jobs : Nat) : IO RoundsOps := do
   let mut bxs : Array Box := #[]
   for _ in [0:max 1 jobs] do
     let b ← Box.new
-    let _ ← IO.asTask (prio := .dedicated) (ownerLoop b cfg.noMark none none .none)
+    let _ ← IO.asTask (prio := .dedicated) (ownerLoop b none none .none)
     bxs := bxs.push b
   let primed ← IO.mkRef false
   return ⟨windowStep bxs cfg primed, stopAll bxs⟩
 
 /-- The rounds' settings, with fresh counters. -/
-def Cfg.new (noMark : Bool) : IO Cfg :=
-  return ⟨noMark, ← IO.mkRef 0, ← IO.mkRef 0, ← IO.mkRef 0⟩
+def Cfg.new : IO Cfg :=
+  return ⟨← IO.mkRef 0, ← IO.mkRef 0, ← IO.mkRef 0⟩
 
 end ConLeche.Driver.OwnerParse
