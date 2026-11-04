@@ -60,16 +60,6 @@ each naming the theorem family that depends on it. -/
 #guard CheckMode.verifiedChecks .verified == true
 #guard CheckMode.verifiedChecks .trusted == false
 
--- The eager towers (task #353, official's `m_eager_reduce`): each runs
--- its base mode's checks, with the eager flag set; only `.verified`
--- itself is the model tier's mode.
-#guard CheckMode.verifiedChecks .verifiedEager == true
-#guard CheckMode.verifiedChecks .trustedEager == false
-#guard CheckMode.toEager .verified == .verifiedEager
-#guard CheckMode.toEager .trusted == .trustedEager
-#guard (CheckMode.toEager .verified).eager && !CheckMode.eager .verified
-#guard CheckMode.isVerified .verified && !CheckMode.isVerified .verifiedEager
-
 def dummyAxiom : Declaration :=
   .axiomDecl { name := .str .anonymous "foo", levelParams := [], type := .sort .zero }
 
@@ -353,9 +343,9 @@ inference, not of reduction. -/
 private def betaRedex : Expr :=
   .app (.lam (.sort .zero) (.bvar 0)) (.sort .zero)
 
-#guard (whnfCore .verified Env.empty 100 0 betaRedex).toOption
+#guard (whnfCore .verified false Env.empty 100 0 betaRedex).toOption
   == some (.sort .zero)
-#guard (whnfCore .trusted Env.empty 100 0 betaRedex).toOption
+#guard (whnfCore .trusted false Env.empty 100 0 betaRedex).toOption
   == some (.sort .zero)
 
 /-! ## The io grade is official's `infer_only` (`ConLeche/Kernel/CoreIO.lean`)
@@ -368,13 +358,13 @@ private def ioRedex : Expr :=
   .app (.fvar 0 (.forallE (.sort .zero) (.sort .zero))) (.bvar 0)
 
 -- (a) The io grade skips the argument, in both modes.
-#guard (inferTypeCoreIO .verified Env.empty 6 1 ioRedex).toOption
+#guard (inferTypeCoreIO .verified false Env.empty 6 1 ioRedex).toOption
   == some (.sort .zero)
-#guard (inferTypeCoreIO .trusted Env.empty 6 1 ioRedex).toOption
+#guard (inferTypeCoreIO .trusted false Env.empty 6 1 ioRedex).toOption
   == some (.sort .zero)
 
 -- (b) The full grade checks it.
-#guard (inferTypeCore .verified Env.empty 6 1 ioRedex).toOption
+#guard (inferTypeCore .verified false Env.empty 6 1 ioRedex).toOption
   == none
 
 /-! ## Zero-motive recursors

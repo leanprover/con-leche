@@ -109,7 +109,7 @@ former is `cvTas[m]`, checked at the PRE-block environment (official
 stores none before all `k` are checked); `sOf m` is the sort its own
 telescope ends in, and `sEval` is official's `Level.isEquiv`
 agreement, read through the level semantics. -/
-theorem blockFormerFacts_of (hμ : μ.isVerified = true) {F : Nat} {env envI : Env}
+theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     (mp : EnvModelM V μ env)
     (h : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
@@ -546,7 +546,7 @@ theorem zip_getElem? : ∀ {α β : Type} (l₁ : List α) (l₂ : List β) (i :
 /-- **Every member's index telescope is graded** at its own parameter
 frame, at the universe its index binders' sorts give (`idxOk_of` at `k`
 members, from conjunct 6). -/
-theorem blockIdxFacts_of (hμ : μ.isVerified = true) {F : Nat} {envI : Env}
+theorem blockIdxFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {envI : Env}
     (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal}
     {isorts : List (List Level)} {isRec : Bool}
     {ppsOf : Nat → (Name → Nat) → List Term}
@@ -617,7 +617,7 @@ structure BlockMemberPick where
 /-- **The constructors' data functions at ONE member of a block**,
 stated the way `BlockData` reads them: `blockCtorFuns_of` at member
 `m`. -/
-theorem blockCtorFunsAt (hμ : μ.isVerified = true) {F : Nat}
+theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat}
     {envI : Env} (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal}
     {isRec : Bool} {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {sOf : Nat → Level}

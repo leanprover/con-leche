@@ -27,17 +27,17 @@ against the run at depth `d + 1` on `shiftFrom p e` (all `fvar`s at
 indices `≥ p` bumped by one, `p ≤ d` the shift point); the two runs
 step in lock-step, results relating by the shift.  One claim per core
 entry point (`ShiftClaims`), one helper lemma per record-parameterized
-body helper (at the same fuel, against `pureFns mode env fuel`), one fuel
+body helper (at the same fuel, against `pureFns mode eager env fuel`), one fuel
 induction at the knot.  Setting `p := d` and shrinking with
 `shiftFrom_eq_self` turns the bisimulation into
-`whnfCore mode env fuel (d+1) e = whnfCore mode env fuel d e` for `e` scoped at
+`whnfCore mode eager env fuel (d+1) e = whnfCore mode eager env fuel d e` for `e` scoped at
 `d`, and chaining walks any two well-scoped depths
 (`whnfCore_depth_inv` and friends).
 -/
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 open Expr
 
@@ -288,45 +288,45 @@ private theorem piResidual_shiftFrom {p : Nat} :
 /-! ## The bisimulation claims -/
 
 /-- `whnfCore` commutes with the fvar shift. -/
-def WhnfCoreShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
+def WhnfCoreShift (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Prop :=
   ∀ {c : Bool} {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    whnfCore mode env fuel (d + 1) (shiftFrom p e) c =
-      (whnfCore mode env fuel d e c).map (shiftFrom p)
+    whnfCore mode eager env fuel (d + 1) (shiftFrom p e) c =
+      (whnfCore mode eager env fuel d e c).map (shiftFrom p)
 
 /-- The `whnf` reduction loop commutes with the fvar shift. -/
-def WhnfShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
+def WhnfShift (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    whnf mode env fuel (d + 1) (shiftFrom p e) =
-      (whnf mode env fuel d e).map (shiftFrom p)
+    whnf mode eager env fuel (d + 1) (shiftFrom p e) =
+      (whnf mode eager env fuel d e).map (shiftFrom p)
 
 /-- `inferTypeCore` commutes with the fvar shift. -/
-def InferShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
+def InferShift (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    inferTypeCore mode env fuel (d + 1) (shiftFrom p e) =
-      (inferTypeCore mode env fuel d e).map (shiftFrom p)
+    inferTypeCore mode eager env fuel (d + 1) (shiftFrom p e) =
+      (inferTypeCore mode eager env fuel d e).map (shiftFrom p)
 
 /-- `isDefEqCore` is invariant under the fvar shift. -/
-def DefEqShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
+def DefEqShift (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {a b : Expr}, WScoped d a → WScoped d b →
-    isDefEqCore mode env fuel (d + 1) (shiftFrom p a) (shiftFrom p b) =
-      isDefEqCore mode env fuel d a b
+    isDefEqCore mode eager env fuel (d + 1) (shiftFrom p a) (shiftFrom p b) =
+      isDefEqCore mode eager env fuel d a b
 
 /-- The knot's io slot commutes with the fvar shift (task #172 B4): the
 io lane's own walk (`inferIOCore_step` below). -/
-def InferIOShift (mode : CheckMode) (env : Env) (fuel : Nat) : Prop :=
+def InferIOShift (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Prop :=
   ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-    inferTypeIO mode env fuel (d + 1) (shiftFrom p e) =
-      (inferTypeIO mode env fuel d e).map (shiftFrom p)
+    inferTypeIO mode eager env fuel (d + 1) (shiftFrom p e) =
+      (inferTypeIO mode eager env fuel d e).map (shiftFrom p)
 
 /-- All entry-point bisimulation claims at one fuel. -/
-structure ShiftClaims (mode : CheckMode) (env : Env) (fuel : Nat) : Prop where
-  whnfCore : WhnfCoreShift mode env fuel
-  whnf : WhnfShift mode env fuel
-  infer : InferShift mode env fuel
-  defeq : DefEqShift mode env fuel
+structure ShiftClaims (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Prop where
+  whnfCore : WhnfCoreShift mode eager env fuel
+  whnf : WhnfShift mode eager env fuel
+  infer : InferShift mode eager env fuel
+  defeq : DefEqShift mode eager env fuel
   /-- the eager slot (task #353): the eager tower's `defeq` -/
-  defeqE : DefEqShift mode.toEager env fuel
-  inferIO : InferIOShift mode env fuel
+  defeqE : DefEqShift mode true env fuel
+  inferIO : InferIOShift mode eager env fuel
 
 /-! ## Helper bodies at the same fuel
 
@@ -356,10 +356,10 @@ section Helpers
 variable {env : Env} {fuel : Nat}
 
 private theorem ensureSort_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) :
-    ensureSort (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
-      ensureSort (pureFns mode env fuel) env d e := by
+    ensureSort (pureFns mode eager env fuel) env (d + 1) (shiftFrom p e) =
+      ensureSort (pureFns mode eager env fuel) env d e := by
   simp only [ensureSort]
   refine bind_congr _ (ih.whnf hpd hw) ?_
   intro w _
@@ -367,10 +367,10 @@ private theorem ensureSort_shift (_henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 private theorem reduceNat_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) :
-    reduceNat (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
-      (reduceNat (pureFns mode env fuel) env d e).map
+    reduceNat (pureFns mode eager env fuel) env (d + 1) (shiftFrom p e) =
+      (reduceNat (pureFns mode eager env fuel) env d e).map
         (Option.map (shiftFrom p)) := by
   match e with
   | .bvar _ | .fvar _ _ | .sort _ | .lam _ _ | .forallE _ _
@@ -448,11 +448,11 @@ private theorem reduceNat_shift (_henv : EnvWF env)
 /-- `reduceNat_shift` under the defeq-side fvar guard: the pruned
 branch is `pure none` on both sides. -/
 private theorem reduceNatIf_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) (g : Bool) :
-    (if g then reduceNat (pureFns mode env fuel) env (d + 1) (shiftFrom p e)
+    (if g then reduceNat (pureFns mode eager env fuel) env (d + 1) (shiftFrom p e)
       else pure none) =
-      (if g then reduceNat (pureFns mode env fuel) env d e
+      (if g then reduceNat (pureFns mode eager env fuel) env d e
         else (pure none : CheckM (Option Expr))).map
         (Option.map (shiftFrom p)) := by
   cases g
@@ -485,12 +485,12 @@ private theorem isForallE_shiftFrom (p : Nat) (e : Expr) :
   case fvar idx ty => simp only [shiftFrom]; split <;> rfl
 
 private theorem iotaCertsFull_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {args : List Expr} {ty : Expr}, WScoped d ty →
       (∀ x ∈ args, WScoped d x) →
-      iotaCertsFull (pureFns mode env fuel) env (d + 1) (shiftFrom p ty)
+      iotaCertsFull (pureFns mode eager env fuel) env (d + 1) (shiftFrom p ty)
           (args.map (shiftFrom p)) =
-        iotaCertsFull (pureFns mode env fuel) env d ty args := by
+        iotaCertsFull (pureFns mode eager env fuel) env d ty args := by
   intro args
   induction args with
   | nil => intro ty _ _; rfl
@@ -504,16 +504,16 @@ private theorem iotaCertsFull_shift (henv : EnvWF env)
       have hwty' : WScoped d ty' ∧ WScoped d body := by
         simpa only [WScoped] using hwty
       show (do
-          let ta ← (pureFns mode env fuel).infer (d + 1) (shiftFrom p arg)
-          if ← (pureFns mode env fuel).defeq (d + 1) ta (shiftFrom p ty') then
-            iotaCertsFull (pureFns mode env fuel) env (d + 1)
+          let ta ← (pureFns mode eager env fuel).infer (d + 1) (shiftFrom p arg)
+          if ← (pureFns mode eager env fuel).defeq (d + 1) ta (shiftFrom p ty') then
+            iotaCertsFull (pureFns mode eager env fuel) env (d + 1)
               ((shiftFrom p body).instantiate1 (shiftFrom p arg))
               (rest.map (shiftFrom p))
           else pure false : CheckM Bool) =
         (do
-          let ta ← (pureFns mode env fuel).infer d arg
-          if ← (pureFns mode env fuel).defeq d ta ty' then
-            iotaCertsFull (pureFns mode env fuel) env d (body.instantiate1 arg) rest
+          let ta ← (pureFns mode eager env fuel).infer d arg
+          if ← (pureFns mode eager env fuel).defeq d ta ty' then
+            iotaCertsFull (pureFns mode eager env fuel) env d (body.instantiate1 arg) rest
           else pure false : CheckM Bool)
       have hrest := ihrest (WScoped.instantiate1_gen hwarg 0 hwty'.2) hwrest
       rw [shiftFrom_instantiate1_gen] at hrest
@@ -552,12 +552,12 @@ private theorem etaFabArgsE_shift (p : Nat) (T : Name)
   rw [List.map_append, etaProjs_shift]
 
 private theorem defEqList_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {as bs : List Expr}, (∀ x ∈ as, WScoped d x) →
       (∀ x ∈ bs, WScoped d x) →
-      defEqList (pureFns mode env fuel) env (d + 1) (as.map (shiftFrom p))
+      defEqList (pureFns mode eager env fuel) env (d + 1) (as.map (shiftFrom p))
           (bs.map (shiftFrom p)) =
-        defEqList (pureFns mode env fuel) env d as bs := by
+        defEqList (pureFns mode eager env fuel) env d as bs := by
   intro as
   induction as with
   | nil =>
@@ -571,9 +571,9 @@ private theorem defEqList_shift (_henv : EnvWF env)
       have hwa : WScoped d a := hwas a (List.mem_cons_self ..)
       have hwb : WScoped d b := hwbs b (List.mem_cons_self ..)
       show ((do
-          if ← (pureFns mode env fuel).defeq (d + 1) (shiftFrom p a)
+          if ← (pureFns mode eager env fuel).defeq (d + 1) (shiftFrom p a)
               (shiftFrom p b) then
-            defEqList (pureFns mode env fuel) env (d + 1)
+            defEqList (pureFns mode eager env fuel) env (d + 1)
               (as.map (shiftFrom p)) (bs.map (shiftFrom p))
           else pure false : CheckM Bool)) = _
       refine bind_congr_eq (ih.defeq hpd hwa hwb) ?_
@@ -587,10 +587,10 @@ shift: the head constants and levels are shift-fixed, the spine
 lengths are preserved, and the argument comparisons commute
 (`defEqList_shift`). -/
 private theorem defeqSpine_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    defeqSpine (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
-      (shiftFrom p b) = defeqSpine (pureFns mode env fuel) env d a b := by
+    defeqSpine (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
+      (shiftFrom p b) = defeqSpine (pureFns mode eager env fuel) env d a b := by
   unfold defeqSpine
   rw [getAppFn_shiftFrom]
   cases hfa : a.getAppFn <;> try rfl
@@ -617,11 +617,11 @@ private theorem defeqSpine_shift (_henv : EnvWF env)
     | false => rfl
 
 private theorem proofIrrel_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    proofIrrel (pureFns mode env fuel) (d + 1) (shiftFrom p a)
+    proofIrrel (pureFns mode eager env fuel) (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      proofIrrel (pureFns mode env fuel) d a b := by
+      proofIrrel (pureFns mode eager env fuel) d a b := by
   simp only [proofIrrel]
   refine bind_congr _ (ih.inferIO hpd hwa) ?_
   intro ta hta
@@ -648,11 +648,11 @@ private theorem proofIrrel_shift (henv : EnvWF env)
   case fvar => rw [shiftFrom_fvar]
 
 private theorem structEtaCertWith_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b wtb : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b wtb : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) (hwwtb : WScoped d wtb) :
-    structEtaCertWith (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    structEtaCertWith (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) (shiftFrom p wtb) =
-      structEtaCertWith (pureFns mode env fuel) env d a b wtb := by
+      structEtaCertWith (pureFns mode eager env fuel) env d a b wtb := by
   simp only [structEtaCertWith]
   rw [getAppFn_shiftFrom]
   cases hfa : a.getAppFn <;> try rfl
@@ -713,11 +713,11 @@ private theorem etaCtorShape_shiftFrom {env : Env} (p : Nat) (e : Expr) :
   case fvar => rw [shiftFrom_fvar]
 
 private theorem structEtaCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    structEtaCert (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    structEtaCert (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      structEtaCert (pureFns mode env fuel) env d a b := by
+      structEtaCert (pureFns mode eager env fuel) env d a b := by
   simp only [structEtaCert]
   rw [etaCtorShape_shiftFrom]
   refine ite_congr' (fun _ => ?_) (fun _ => rfl)
@@ -730,11 +730,11 @@ private theorem structEtaCert_shift (henv : EnvWF env)
     (whnf_WScoped henv fuel hwtb' hwtb)
 
 private theorem structUnitCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    structUnitCert (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    structUnitCert (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      structUnitCert (pureFns mode env fuel) env d a b := by
+      structUnitCert (pureFns mode eager env fuel) env d a b := by
   simp only [structUnitCert]
   refine bind_congr _ (ih.inferIO hpd hwa) ?_
   intro ta hta
@@ -764,13 +764,13 @@ private theorem structUnitCert_shift (henv : EnvWF env)
       (fun _ => ih.defeq hpd hwwta (whnf_WScoped henv fuel hwtb' hwtb))
 
 private theorem etaCert_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d)
     {ty₁ body₁ : Expr} {b : Expr}
     (hwty₁ : WScoped d ty₁) (hwbody₁ : WScoped d body₁)
     (hwb : WScoped d b) :
-    etaCert mode (pureFns mode env fuel) env (d + 1) (shiftFrom p ty₁)
+    etaCert mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p ty₁)
         (shiftFrom p body₁) (shiftFrom p b) =
-      etaCert mode (pureFns mode env fuel) env d ty₁ body₁ b := by
+      etaCert mode (pureFns mode eager env fuel) env d ty₁ body₁ b := by
   simp only [etaCert]
   rw [ioNeutral_shiftFrom]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
@@ -817,11 +817,11 @@ private theorem etaCert_shift (henv : EnvWF env)
     rfl
 
 private theorem stuckIrrel_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    stuckIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    stuckIrrel (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      stuckIrrel (pureFns mode env fuel) env d a b := by
+      stuckIrrel (pureFns mode eager env fuel) env d a b := by
   simp only [stuckIrrel]
   refine bind_congr_eq (structEtaCert_shift henv ih hpd hwa hwb) ?_
   intro b₃ _
@@ -838,11 +838,11 @@ private theorem stuckIrrel_shift (henv : EnvWF env)
 head symbols only, which the shift preserves (`notProofFast_shiftFrom`);
 the slow branch is `proofIrrel_shift`'s `Prop` branch. -/
 private theorem propIrrel_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    propIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    propIrrel (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      propIrrel (pureFns mode env fuel) env d a b := by
+      propIrrel (pureFns mode eager env fuel) env d a b := by
   simp only [propIrrel, notProofFast_shiftFrom, isProofFast_shiftFrom]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
@@ -876,11 +876,11 @@ private theorem projCertAt_shift {p : Nat} (v : Bool) (c : Name) (args : List Ex
   simp only [projCertAt, projCert, teleArityOk, List.length_map]
 
 private theorem majorToCtor_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
     (rules : List RecRule) {major : Expr} (hwmaj : WScoped d major) :
-    majorToCtor mode (pureFns mode env fuel) env (d + 1) recName rules
+    majorToCtor mode (pureFns mode eager env fuel) env (d + 1) recName rules
         (shiftFrom p major) =
-      (majorToCtor mode (pureFns mode env fuel) env d recName rules major).map
+      (majorToCtor mode (pureFns mode eager env fuel) env d recName rules major).map
         (shiftFrom p) := by
   simp only [majorToCtor]
   rw [isCtorApp_shiftFrom]
@@ -1069,7 +1069,7 @@ private theorem majorToCtor_shift (henv : EnvWF env)
 `whnfPres_WScoped` proof, factored for the bisimulation). -/
 theorem iotaRec_WScoped (henv : EnvWF env)
     {d : Nat} {e e'' : Expr}
-    (h : iotaRec mode (pureFns mode env fuel) env d e = .ok (some e''))
+    (h : iotaRec mode (pureFns mode eager env fuel) env d e = .ok (some e''))
     (hw : WScoped d e) : WScoped d e'' := by
   obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
     cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
@@ -1097,12 +1097,12 @@ theorem iotaRec_WScoped (henv : EnvWF env)
 /-- Shifting commutes with the literal-major conversion (the string
 branch reduces a closed term, invariant under shifting). -/
 private theorem litMajorToCtor_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {e : Expr}, WScoped d e →
-    litMajorToCtor (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
-      (litMajorToCtor (pureFns mode env fuel) env d e).map (shiftFrom p)
+    litMajorToCtor (pureFns mode eager env fuel) env (d + 1) (shiftFrom p e) =
+      (litMajorToCtor (pureFns mode eager env fuel) env d e).map (shiftFrom p)
   | .lit (.strVal s), _ => by
-    show litMajorToCtor (pureFns mode env fuel) env (d + 1) (.lit (.strVal s)) = _
+    show litMajorToCtor (pureFns mode eager env fuel) env (d + 1) (.lit (.strVal s)) = _
     simp only [litMajorToCtor]
     split
     · have hres := ih.whnf (p := p) hpd (strLitToConstructor_WScoped s d)
@@ -1130,7 +1130,7 @@ private theorem litMajorToCtor_shift (_henv : EnvWF env)
     show pure (litToCtorIfNat env (.fvar (shiftIdx p idx) (shiftTy p idx ty))) = _
     rw [show (litToCtorIfNat env (.fvar (shiftIdx p idx) (shiftTy p idx ty))) =
       .fvar (shiftIdx p idx) (shiftTy p idx ty) from rfl]
-    rw [show (litMajorToCtor (pureFns mode env fuel) env d (.fvar idx ty)) =
+    rw [show (litMajorToCtor (pureFns mode eager env fuel) env d (.fvar idx ty)) =
       pure (.fvar idx ty) from rfl]
     rw [show (Except.map (shiftFrom p) (pure (Expr.fvar idx ty)) :
         CheckM Expr) = pure (shiftFrom p (.fvar idx ty)) from rfl]
@@ -1159,12 +1159,12 @@ private theorem litMajorToCtor_shift (_henv : EnvWF env)
 /-- Shifting commutes with the projection-scrutinee literal conversion
 (the string branch reduces a closed term, invariant under shifting). -/
 private theorem projLitToCtor_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) :
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) :
     ∀ {e : Expr}, WScoped d e →
-    projLitToCtor (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
-      (projLitToCtor (pureFns mode env fuel) env d e).map (shiftFrom p)
+    projLitToCtor (pureFns mode eager env fuel) env (d + 1) (shiftFrom p e) =
+      (projLitToCtor (pureFns mode eager env fuel) env d e).map (shiftFrom p)
   | .lit (.strVal s), _ => by
-    show projLitToCtor (pureFns mode env fuel) env (d + 1) (.lit (.strVal s)) = _
+    show projLitToCtor (pureFns mode eager env fuel) env (d + 1) (.lit (.strVal s)) = _
     simp only [projLitToCtor]
     split
     · have hres := ih.whnf (p := p) hpd (strLitToConstructor_WScoped s d)
@@ -1178,7 +1178,7 @@ private theorem projLitToCtor_shift (_henv : EnvWF env)
   | .fvar idx ty, _ => by
     rw [shiftFrom_fvar]
     show pure (Expr.fvar (shiftIdx p idx) (shiftTy p idx ty)) = _
-    rw [show (projLitToCtor (pureFns mode env fuel) env d (.fvar idx ty)) =
+    rw [show (projLitToCtor (pureFns mode eager env fuel) env d (.fvar idx ty)) =
       pure (.fvar idx ty) from rfl]
     rw [show (Except.map (shiftFrom p) (pure (Expr.fvar idx ty)) :
         CheckM Expr) = pure (shiftFrom p (.fvar idx ty)) from rfl]
@@ -1191,10 +1191,10 @@ private theorem projLitToCtor_shift (_henv : EnvWF env)
 
 /-- The projection rule commutes with the shift. -/
 private theorem reduceProjCore_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {sn : Name} {i : Nat}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {sn : Name} {i : Nat}
     {c : Expr} (hw : WScoped d c) :
-    reduceProjCore mode (pureFns mode env fuel) env (d + 1) sn i (shiftFrom p c) =
-      (reduceProjCore mode (pureFns mode env fuel) env d sn i c).map
+    reduceProjCore mode (pureFns mode eager env fuel) env (d + 1) sn i (shiftFrom p c) =
+      (reduceProjCore mode (pureFns mode eager env fuel) env d sn i c).map
         (Option.map (shiftFrom p)) := by
   unfold reduceProjCore
   refine bind_rel _ _ (projLitToCtor_shift henv ih hpd hw) ?_
@@ -1219,13 +1219,13 @@ private theorem reduceProjCore_shift (henv : EnvWF env)
     simp only [pure, Except.pure, map_ok, Option.map_some]
     rw [getD_map_shiftFrom]
 private theorem iotaIndexOk_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d)
     {mI rP cnP : Nat} {tyCtor : Expr} (htel : tyCtor.hasFvar = false)
     {margs idx : List Expr} (hwm : ∀ x ∈ margs, WScoped d x)
     (hwi : ∀ x ∈ idx, WScoped d x) :
-    iotaIndexOk (pureFns mode env fuel) env (d + 1) mI rP cnP tyCtor
+    iotaIndexOk (pureFns mode eager env fuel) env (d + 1) mI rP cnP tyCtor
         (margs.map (shiftFrom p)) (idx.map (shiftFrom p)) =
-      iotaIndexOk (pureFns mode env fuel) env d mI rP cnP tyCtor margs idx := by
+      iotaIndexOk (pureFns mode eager env fuel) env d mI rP cnP tyCtor margs idx := by
   by_cases hmr : mI = rP
   · simp only [iotaIndexOk, ite_eq_left hmr]
   · simp only [iotaIndexOk, ite_eq_right hmr]
@@ -1251,11 +1251,11 @@ private theorem isStrLit_shiftFrom {p : Nat} {e : Expr} :
 
 /-- The major chain commutes with the shift, in either order. -/
 private theorem prepareMajor_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) (recName : Name)
     (rules : List RecRule) {major : Expr} (hwmaj : WScoped d major) :
-    prepareMajor mode (pureFns mode env fuel) env (d + 1) recName rules
+    prepareMajor mode (pureFns mode eager env fuel) env (d + 1) recName rules
         (shiftFrom p major) =
-      (prepareMajor mode (pureFns mode env fuel) env d recName rules major).map
+      (prepareMajor mode (pureFns mode eager env fuel) env d recName rules major).map
         (shiftFrom p) := by
   simp only [prepareMajor]
   by_cases hk : recRuleK rules = true
@@ -1274,14 +1274,14 @@ private theorem prepareMajor_shift (henv : EnvWF env)
     have tail : ∀ {mE : Expr}, WScoped d mE →
         (if isCtorApp env (shiftFrom p mE) = true then pure (shiftFrom p mE)
           else do
-            let major₀ ← (pureFns mode env fuel).whnf (d + 1) (shiftFrom p mE)
-            let major₁ ← litMajorToCtor (pureFns mode env fuel) env (d + 1) major₀
-            majorToCtor mode (pureFns mode env fuel) env (d + 1) recName rules major₁) =
+            let major₀ ← (pureFns mode eager env fuel).whnf (d + 1) (shiftFrom p mE)
+            let major₁ ← litMajorToCtor (pureFns mode eager env fuel) env (d + 1) major₀
+            majorToCtor mode (pureFns mode eager env fuel) env (d + 1) recName rules major₁) =
           (if isCtorApp env mE = true then pure mE
             else do
-              let major₀ ← (pureFns mode env fuel).whnf d mE
-              let major₁ ← litMajorToCtor (pureFns mode env fuel) env d major₀
-              majorToCtor mode (pureFns mode env fuel) env d recName rules major₁).map
+              let major₀ ← (pureFns mode eager env fuel).whnf d mE
+              let major₁ ← litMajorToCtor (pureFns mode eager env fuel) env d major₀
+              majorToCtor mode (pureFns mode eager env fuel) env d recName rules major₁).map
             (shiftFrom p) := by
       intro mE hwE
       rw [isCtorApp_shiftFrom]
@@ -1309,10 +1309,10 @@ private theorem prepareMajor_shift (henv : EnvWF env)
       exact tail hw₁
 
 private theorem iotaRec_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hwe : WScoped d e) :
-    iotaRec mode (pureFns mode env fuel) env (d + 1) (shiftFrom p e) =
-      (iotaRec mode (pureFns mode env fuel) env d e).map
+    iotaRec mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p e) =
+      (iotaRec mode (pureFns mode eager env fuel) env d e).map
         (Option.map (shiftFrom p)) := by
   simp only [iotaRec]
   rw [getAppFn_shiftFrom]
@@ -1441,7 +1441,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
 /-! ## The body step lemmas -/
 
 private theorem whnfCore_step (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) : WhnfCoreShift mode env (fuel + 1) := by
+    (ih : ShiftClaims mode eager env fuel) : WhnfCoreShift mode eager env (fuel + 1) := by
   intro c p d hpd e hw
   rw [whnfCore_succ, whnfCore_succ]
   match e with
@@ -1457,9 +1457,9 @@ private theorem whnfCore_step (henv : EnvWF env)
   | .letE ty v body =>
     -- ζ: the body at the value
     simp only [WScoped] at hw
-    show whnfCoreBody mode (pureFns mode env fuel) env c (d + 1)
+    show whnfCoreBody mode (pureFns mode eager env fuel) env c (d + 1)
         (.letE (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (whnfCoreBody mode (pureFns mode env fuel) env c d (.letE ty v body)).map
+      (whnfCoreBody mode (pureFns mode eager env fuel) env c d (.letE ty v body)).map
         (shiftFrom p)
     simp only [whnfCoreBody]
     have h := ih.whnfCore (c := c) hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
@@ -1474,14 +1474,14 @@ private theorem whnfCore_step (henv : EnvWF env)
     intro f' hf'
     have hwf' : WScoped d f' := whnfCore_WScoped henv fuel hf' hw.1
     have hiota : ∀ (f'' : Expr), WScoped d f'' →
-        (iotaRec mode (pureFns mode env fuel) env (d + 1)
+        (iotaRec mode (pureFns mode eager env fuel) env (d + 1)
             (.app (shiftFrom p f'') (shiftFrom p a)) >>= fun o =>
           match o with
-          | some e'' => (pureFns mode env fuel).whnfCore c (d + 1) e''
+          | some e'' => (pureFns mode eager env fuel).whnfCore c (d + 1) e''
           | none => pure (.app (shiftFrom p f'') (shiftFrom p a))) =
-        ((iotaRec mode (pureFns mode env fuel) env d (.app f'' a) >>= fun o =>
+        ((iotaRec mode (pureFns mode eager env fuel) env d (.app f'' a) >>= fun o =>
           match o with
-          | some e'' => (pureFns mode env fuel).whnfCore c d e''
+          | some e'' => (pureFns mode eager env fuel).whnfCore c d e''
           | none => pure (.app f'' a)).map (shiftFrom p)) := by
       intro f'' hwf''
       have hwapp : WScoped d (Expr.app f'' a) := by
@@ -1516,9 +1516,9 @@ private theorem whnfCore_step (henv : EnvWF env)
     | app f'' a'' => exact hiota _ hwf'
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show whnfCoreBody mode (pureFns mode env fuel) env c (d + 1)
+    show whnfCoreBody mode (pureFns mode eager env fuel) env c (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (whnfCoreBody mode (pureFns mode env fuel) env c d (.proj sn i pe)).map
+      (whnfCoreBody mode (pureFns mode eager env fuel) env c d (.proj sn i pe)).map
         (shiftFrom p)
     cases c
     · simp only [whnfCoreBody, Bool.false_eq_true, ↓reduceIte]
@@ -1552,10 +1552,10 @@ private theorem whnfCore_step (henv : EnvWF env)
 own step budget (task #106); the per-step head normalization comes
 from the knot hypothesis `ih`. -/
 theorem whnfLoop_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) :
+    (ih : ShiftClaims mode eager env fuel) :
     ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-      whnfLoop (pureFns mode env fuel) env (d + 1) n (shiftFrom p e) =
-        (whnfLoop (pureFns mode env fuel) env d n e).map (shiftFrom p) := by
+      whnfLoop (pureFns mode eager env fuel) env (d + 1) n (shiftFrom p e) =
+        (whnfLoop (pureFns mode eager env fuel) env d n e).map (shiftFrom p) := by
   intro n
   induction n with
   | zero => intro p d hpd e hw; rfl
@@ -1583,13 +1583,13 @@ theorem whnfLoop_shift (henv : EnvWF env)
       exact ihN hpd (unfoldDefinition_WScoped henv hu hwe₁)
 
 private theorem whnf_step (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) : WhnfShift mode env (fuel + 1) := by
+    (ih : ShiftClaims mode eager env fuel) : WhnfShift mode eager env (fuel + 1) := by
   intro p d hpd e hw
   rw [whnf_succ, whnf_succ]
   exact whnfLoop_shift henv ih whnfLoopFuel hpd hw
 
 private theorem infer_step (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) : InferShift mode env (fuel + 1) := by
+    (ih : ShiftClaims mode eager env fuel) : InferShift mode eager env (fuel + 1) := by
   intro p d hpd e hw
   rw [inferTypeCore_succ, inferTypeCore_succ]
   match e with
@@ -1598,9 +1598,9 @@ private theorem infer_step (henv : EnvWF env)
     -- official `infer_let`: the type's sort, the value against the
     -- type, the body at the value
     simp only [WScoped] at hw
-    show inferBody (pureFns mode env fuel) env (d + 1)
+    show inferBody (pureFns mode eager env fuel) env (d + 1)
         (.letE (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (inferBody (pureFns mode env fuel) env d (.letE ty v body)).map
+      (inferBody (pureFns mode eager env fuel) env d (.letE ty v body)).map
         (shiftFrom p)
     simp only [inferBody]
     refine bind_rel (shiftFrom p) _ (ih.infer hpd hw.1) ?_
@@ -1619,14 +1619,14 @@ private theorem infer_step (henv : EnvWF env)
     exact h
   | .sort u => rfl
   | .lit (.natVal n) =>
-    show inferBody (pureFns mode env fuel) env (d + 1) (.lit (.natVal n)) =
-      (inferBody (pureFns mode env fuel) env d (.lit (.natVal n))).map
+    show inferBody (pureFns mode eager env fuel) env (d + 1) (.lit (.natVal n)) =
+      (inferBody (pureFns mode eager env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
     simp only [inferBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .lit (.strVal str) =>
-    show inferBody (pureFns mode env fuel) env (d + 1) (.lit (.strVal str)) =
-      (inferBody (pureFns mode env fuel) env d (.lit (.strVal str))).map
+    show inferBody (pureFns mode eager env fuel) env (d + 1) (.lit (.strVal str)) =
+      (inferBody (pureFns mode eager env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
     simp only [inferBody]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
@@ -1642,8 +1642,8 @@ private theorem infer_step (henv : EnvWF env)
     · simp only [shiftTy, ite_eq_right hp, pure, Except.pure, map_ok]
       rw [shiftFrom_eq_self (fvarsBelow_mono (by omega) hw.2.fvarsBelow)]
   | .const n us =>
-    show inferBody (pureFns mode env fuel) env (d + 1) (.const n us) =
-      (inferBody (pureFns mode env fuel) env d (.const n us)).map (shiftFrom p)
+    show inferBody (pureFns mode eager env fuel) env (d + 1) (.const n us) =
+      (inferBody (pureFns mode eager env fuel) env d (.const n us)).map (shiftFrom p)
     simp only [inferBody]
     cases hf : env.find? n with
     | none => rfl
@@ -1658,9 +1658,9 @@ private theorem infer_step (henv : EnvWF env)
         shiftFrom_eq_self_of_not_hasFvar hty]
   | .forallE ty body =>
     simp only [WScoped] at hw
-    show inferBody (pureFns mode env fuel) env (d + 1)
+    show inferBody (pureFns mode eager env fuel) env (d + 1)
         (.forallE (shiftFrom p ty) (shiftFrom p body)) =
-      (inferBody (pureFns mode env fuel) env d (.forallE ty body)).map
+      (inferBody (pureFns mode eager env fuel) env d (.forallE ty body)).map
         (shiftFrom p)
     simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
@@ -1685,9 +1685,9 @@ private theorem infer_step (henv : EnvWF env)
     rfl
   | .lam ty body =>
     simp only [WScoped] at hw
-    show inferBody (pureFns mode env fuel) env (d + 1)
+    show inferBody (pureFns mode eager env fuel) env (d + 1)
         (.lam (shiftFrom p ty) (shiftFrom p body)) =
-      (inferBody (pureFns mode env fuel) env d (.lam ty body)).map
+      (inferBody (pureFns mode eager env fuel) env d (.lam ty body)).map
         (shiftFrom p)
     simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw.1) ?_
@@ -1727,11 +1727,11 @@ private theorem infer_step (henv : EnvWF env)
     intro ta hta
     -- the argument check at the argument's mode (task #353): the
     -- shift keeps an `eagerReduce _ _` argument one
-    have hdeq : defeqArg (pureFns mode env fuel) (d + 1) (shiftFrom p a)
+    have hdeq : defeqArg (pureFns mode eager env fuel) (d + 1) (shiftFrom p a)
         (shiftFrom p ta) (shiftFrom p ty') =
-        defeqArg (pureFns mode env fuel) d a ta ty' := by
+        defeqArg (pureFns mode eager env fuel) d a ta ty' := by
       rw [defeqArg_def, defeqArg_def]
-      unfold CheckMode.argMode
+      unfold argEager
       rw [isEagerReduce_shiftFrom]
       split
       · exact ih.defeqE hpd (inferTypeCore_WScoped henv fuel hta hw.2) hwPi.1
@@ -1743,9 +1743,9 @@ private theorem infer_step (henv : EnvWF env)
     rfl
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show inferBody (pureFns mode env fuel) env (d + 1)
+    show inferBody (pureFns mode eager env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (inferBody (pureFns mode env fuel) env d (.proj sn i pe)).map
+      (inferBody (pureFns mode eager env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [inferBody]
     refine bind_rel _ _ (ih.infer hpd hw) ?_
@@ -1786,13 +1786,13 @@ private theorem infer_step (henv : EnvWF env)
 shift (task #172 B4): `infer_step`'s walk with the io folds and the io
 scoping lemmas. -/
 private theorem inferIOCore_step (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel)
+    (ih : ShiftClaims mode eager env fuel)
     (ihio : ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-      inferTypeCoreIO mode env fuel (d + 1) (shiftFrom p e) =
-        (inferTypeCoreIO mode env fuel d e).map (shiftFrom p)) :
+      inferTypeCoreIO mode eager env fuel (d + 1) (shiftFrom p e) =
+        (inferTypeCoreIO mode eager env fuel d e).map (shiftFrom p)) :
     ∀ {p d : Nat}, p ≤ d → ∀ {e : Expr}, WScoped d e →
-      inferTypeCoreIO mode env (fuel + 1) (d + 1) (shiftFrom p e) =
-        (inferTypeCoreIO mode env (fuel + 1) d e).map (shiftFrom p) := by
+      inferTypeCoreIO mode eager env (fuel + 1) (d + 1) (shiftFrom p e) =
+        (inferTypeCoreIO mode eager env (fuel + 1) d e).map (shiftFrom p) := by
   intro p d hpd e hw
   rw [inferTypeCoreIO_succ, inferTypeCoreIO_succ]
   match e with
@@ -1800,9 +1800,9 @@ private theorem inferIOCore_step (henv : EnvWF env)
   | .letE ty v body =>
     -- official `infer_let` at `infer_only`: the body at the value
     simp only [WScoped] at hw
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1)
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1)
         (.letE (shiftFrom p ty) (shiftFrom p v) (shiftFrom p body)) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.letE ty v body)).map
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.letE ty v body)).map
         (shiftFrom p)
     simp only [inferBodyIO, inferIO_def]
     have h := ihio hpd (WScoped.instantiate1_gen hw.2.1 0 hw.2.2)
@@ -1810,14 +1810,14 @@ private theorem inferIOCore_step (henv : EnvWF env)
     exact h
   | .sort u => rfl
   | .lit (.natVal n) =>
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1) (.lit (.natVal n)) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.lit (.natVal n))).map
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1) (.lit (.natVal n)) =
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.lit (.natVal n))).map
         (shiftFrom p)
     simp only [inferBodyIO]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
   | .lit (.strVal str) =>
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1) (.lit (.strVal str)) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.lit (.strVal str))).map
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1) (.lit (.strVal str)) =
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.lit (.strVal str))).map
         (shiftFrom p)
     simp only [inferBodyIO]
     exact ite_rel _ (fun _ => rfl) (fun _ => rfl)
@@ -1833,8 +1833,8 @@ private theorem inferIOCore_step (henv : EnvWF env)
     · simp only [shiftTy, ite_eq_right hp, pure, Except.pure, map_ok]
       rw [shiftFrom_eq_self (fvarsBelow_mono (by omega) hw.2.fvarsBelow)]
   | .const n us =>
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1) (.const n us) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.const n us)).map (shiftFrom p)
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1) (.const n us) =
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.const n us)).map (shiftFrom p)
     simp only [inferBodyIO]
     cases hf : env.find? n with
     | none => rfl
@@ -1849,9 +1849,9 @@ private theorem inferIOCore_step (henv : EnvWF env)
         shiftFrom_eq_self_of_not_hasFvar hty]
   | .forallE ty body =>
     simp only [WScoped] at hw
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1)
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1)
         (.forallE (shiftFrom p ty) (shiftFrom p body)) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.forallE ty body)).map
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.forallE ty body)).map
         (shiftFrom p)
     simp only [inferBodyIO, inferIO_def,
       pureFnsIO_whnf, ensureSortIO_def]
@@ -1877,9 +1877,9 @@ private theorem inferIOCore_step (henv : EnvWF env)
     rfl
   | .lam ty body =>
     simp only [WScoped] at hw
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1)
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1)
         (.lam (shiftFrom p ty) (shiftFrom p body)) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.lam ty body)).map
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.lam ty body)).map
         (shiftFrom p)
     simp only [inferBodyIO, inferIO_def]
     -- task #168 stage 2: no domain-sort run at the io λ clause
@@ -1915,9 +1915,9 @@ private theorem inferIOCore_step (henv : EnvWF env)
     rw [← shiftFrom_instantiate1_gen]
   | .proj sn i pe =>
     simp only [WScoped] at hw
-    show inferBodyIO (pureFnsIO mode env fuel) env (d + 1)
+    show inferBodyIO (pureFnsIO mode eager env fuel) env (d + 1)
         (.proj sn i (shiftFrom p pe)) =
-      (inferBodyIO (pureFnsIO mode env fuel) env d (.proj sn i pe)).map
+      (inferBodyIO (pureFnsIO mode eager env fuel) env d (.proj sn i pe)).map
         (shiftFrom p)
     simp only [inferBodyIO, inferIO_def,
       pureFnsIO_whnf]
@@ -1958,7 +1958,7 @@ private theorem inferIOCore_step (henv : EnvWF env)
 /-- The knot's io *slot* commutes with the shift, at `fuel + 1`
 (task #172 B4): it is the io lane's walk through `inferTypeIO_on`. -/
 private theorem inferIOSlot_step (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) : InferIOShift mode env (fuel + 1) := by
+    (ih : ShiftClaims mode eager env fuel) : InferIOShift mode eager env (fuel + 1) := by
   intro p d hpd e hw
   rw [inferTypeIO_on, inferTypeIO_on]
   refine inferIOCore_step henv ih ?_ hpd hw
@@ -1975,10 +1975,10 @@ private theorem isBoolTrue_shiftFrom {p : Nat} {e : Expr} :
 /-- The eq-true shortcut (the audit's E2) is shift-invariant: one `whnf`
 and a head test that ignores the shift. -/
 private theorem boolTrueShortcut_shift (_henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
     (hwa : WScoped d a) :
-    boolTrueShortcut (pureFns mode env fuel) (d + 1) (shiftFrom p a) =
-      boolTrueShortcut (pureFns mode env fuel) d a := by
+    boolTrueShortcut (pureFns mode eager env fuel) (d + 1) (shiftFrom p a) =
+      boolTrueShortcut (pureFns mode eager env fuel) d a := by
   unfold boolTrueShortcut
   refine bind_congr (shiftFrom p) (ih.whnf hpd hwa) ?_
   intro w _
@@ -1986,11 +1986,11 @@ private theorem boolTrueShortcut_shift (_henv : EnvWF env)
 
 /-- `boolTrueShortcut_shift` under its guard. -/
 private theorem boolTrueShortcutIf_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a : Expr}
     (hwa : WScoped d a) (g : Bool) :
-    (if g then boolTrueShortcut (pureFns mode env fuel) (d + 1) (shiftFrom p a)
+    (if g then boolTrueShortcut (pureFns mode eager env fuel) (d + 1) (shiftFrom p a)
         else pure false) =
-      (if g then boolTrueShortcut (pureFns mode env fuel) d a else pure false) := by
+      (if g then boolTrueShortcut (pureFns mode eager env fuel) d a else pure false) := by
   cases g
   · rfl
   · exact boolTrueShortcut_shift henv ih hpd hwa
@@ -2045,10 +2045,10 @@ private theorem natPred?_shiftFrom {p : Nat} {e : Expr} :
 
 /-- The innermost level of `defeqLams` is shift-invariant. -/
 private theorem defeqLamsInner_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {b₁ b₂ : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {b₁ b₂ : Expr}
     (hw₁ : WScoped (d + 1) b₁) (hw₂ : WScoped (d + 1) b₂) :
-    defeqLamsInner mode (pureFns mode env fuel) (d + 1) (shiftFrom p b₁) (shiftFrom p b₂) =
-      defeqLamsInner mode (pureFns mode env fuel) d b₁ b₂ := by
+    defeqLamsInner mode (pureFns mode eager env fuel) (d + 1) (shiftFrom p b₁) (shiftFrom p b₂) =
+      defeqLamsInner mode (pureFns mode eager env fuel) d b₁ b₂ := by
   simp only [defeqLamsInner]
   refine bind_congr_eq (ih.defeq (p := p) (d := d + 1) (by omega) hw₁ hw₂) ?_
   intro bb _
@@ -2073,12 +2073,12 @@ private theorem lamPair?_shiftFrom {p : Nat} (B₁ B₂ : Expr) :
 /-- The λ-telescope comparison is shift-invariant (by induction on its
 descent budget). -/
 private theorem defeqLams_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) :
+    (ih : ShiftClaims mode eager env fuel) :
     ∀ (k : Nat) {p d : Nat}, p ≤ d → ∀ {ty₁ body₁ ty₂ body₂ : Expr},
       WScoped d ty₁ → WScoped d body₁ → WScoped d ty₂ → WScoped d body₂ →
-      defeqLams mode (pureFns mode env fuel) k (d + 1) (shiftFrom p ty₁)
+      defeqLams mode (pureFns mode eager env fuel) k (d + 1) (shiftFrom p ty₁)
           (shiftFrom p body₁) (shiftFrom p ty₂) (shiftFrom p body₂) =
-        defeqLams mode (pureFns mode env fuel) k d ty₁ body₁ ty₂ body₂
+        defeqLams mode (pureFns mode eager env fuel) k d ty₁ body₁ ty₂ body₂
   | k, p, d, hpd, ty₁, body₁, ty₂, body₂, hwt₁, hwb₁, hwt₂, hwb₂ => by
     rw [defeqLams.eq_def, defeqLams.eq_def]
     refine bind_congr_eq (ih.defeq hpd hwt₁ hwt₂) ?_
@@ -2109,10 +2109,10 @@ private theorem defeqLams_shift (henv : EnvWF env)
 
 /-- The easy cases are shift-invariant. -/
 private theorem quickDefEq_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    quickDefEq mode (pureFns mode env fuel) (d + 1) (shiftFrom p a) (shiftFrom p b) =
-      quickDefEq mode (pureFns mode env fuel) d a b := by
+    quickDefEq mode (pureFns mode eager env fuel) (d + 1) (shiftFrom p a) (shiftFrom p b) =
+      quickDefEq mode (pureFns mode eager env fuel) d a b := by
   unfold quickDefEq
   rw [shiftFrom_beq]
   refine ite_congr' (fun _ => rfl) (fun _ => ?_)
@@ -2142,10 +2142,10 @@ private theorem quickDefEq_shift (henv : EnvWF env)
 
 /-- Offsets are shift-invariant. -/
 private theorem defeqOffset_shift
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    defeqOffset (pureFns mode env fuel) (d + 1) (shiftFrom p a) (shiftFrom p b) =
-      defeqOffset (pureFns mode env fuel) d a b := by
+    defeqOffset (pureFns mode eager env fuel) (d + 1) (shiftFrom p a) (shiftFrom p b) =
+      defeqOffset (pureFns mode eager env fuel) d a b := by
   unfold defeqOffset
   rw [isNatZero_shiftFrom, isNatZero_shiftFrom, isLit_shiftFrom, isLit_shiftFrom,
     natPred?_shiftFrom, natPred?_shiftFrom]
@@ -2161,10 +2161,10 @@ private theorem defeqOffset_shift
 
 /-- `try_unfold_proj_app` commutes with the shift. -/
 private theorem tryUnfoldProjApp_shift
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {e : Expr}
     (hw : WScoped d e) :
-    tryUnfoldProjApp (pureFns mode env fuel) (d + 1) (shiftFrom p e) =
-      (tryUnfoldProjApp (pureFns mode env fuel) d e).map (Option.map (shiftFrom p)) := by
+    tryUnfoldProjApp (pureFns mode eager env fuel) (d + 1) (shiftFrom p e) =
+      (tryUnfoldProjApp (pureFns mode eager env fuel) d e).map (Option.map (shiftFrom p)) := by
   unfold tryUnfoldProjApp
   rw [headIsProj_shiftFrom]
   refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
@@ -2175,10 +2175,10 @@ private theorem tryUnfoldProjApp_shift
 
 /-- The end of a step commutes with the shift. -/
 private theorem deltaQuick_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    deltaQuick mode (pureFns mode env fuel) (d + 1) (shiftFrom p a) (shiftFrom p b) =
-      (deltaQuick mode (pureFns mode env fuel) d a b).map (DeltaStep.mapE (shiftFrom p)) := by
+    deltaQuick mode (pureFns mode eager env fuel) (d + 1) (shiftFrom p a) (shiftFrom p b) =
+      (deltaQuick mode (pureFns mode eager env fuel) d a b).map (DeltaStep.mapE (shiftFrom p)) := by
   unfold deltaQuick
   refine bind_rel_eq _ (quickDefEq_shift henv ih hpd hwa hwb) ?_
   intro o _
@@ -2189,14 +2189,14 @@ private theorem deltaQuick_shift (henv : EnvWF env)
 
 /-- The scoping of the step's and the loop's pairs. -/
 private theorem lazyDeltaStep_WScoped (henv : EnvWF env) {d : Nat} {a b a' b' : Expr}
-    (h : lazyDeltaStep mode (pureFns mode env fuel) env d a b = .ok (.cont a' b'))
+    (h : lazyDeltaStep mode (pureFns mode eager env fuel) env d a b = .ok (.cont a' b'))
     (hwa : WScoped d a) (hwb : WScoped d b) : WScoped d a' ∧ WScoped d b' :=
   lazyDeltaStep_pres (WScoped d) (fun hu hx => unfoldDefinition_WScoped henv hu hx)
     (fun hc hx => whnfCore_WScoped henv fuel hc hx) h hwa hwb
 
 private theorem lazyDeltaReduction_WScoped (henv : EnvWF env) {d n : Nat}
     {a b a₁ b₁ : Expr}
-    (h : lazyDeltaReduction mode (pureFns mode env fuel) env d n a b =
+    (h : lazyDeltaReduction mode eager (pureFns mode eager env fuel) env d n a b =
       .ok (.unknown a₁ b₁))
     (hwa : WScoped d a) (hwb : WScoped d b) : WScoped d a₁ ∧ WScoped d b₁ :=
   lazyDeltaReduction_pres (WScoped d) (fun hu hx => unfoldDefinition_WScoped henv hu hx)
@@ -2205,17 +2205,17 @@ private theorem lazyDeltaReduction_WScoped (henv : EnvWF env) {d n : Nat}
 /-- One unfolding put through the cheap `whnfCore`, then the step's end,
 commutes with the shift. -/
 private theorem unfoldQuickL_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
     (match unfoldDefinition env (shiftFrom p a) with
       | some a₂ => do
-        let a₃ ← (pureFns mode env fuel).whnfCore true (d + 1) a₂
-        deltaQuick mode (pureFns mode env fuel) (d + 1) a₃ (shiftFrom p b)
+        let a₃ ← (pureFns mode eager env fuel).whnfCore true (d + 1) a₂
+        deltaQuick mode (pureFns mode eager env fuel) (d + 1) a₃ (shiftFrom p b)
       | none => pure .unknown) =
     (match unfoldDefinition env a with
       | some a₂ => do
-        let a₃ ← (pureFns mode env fuel).whnfCore true d a₂
-        deltaQuick mode (pureFns mode env fuel) d a₃ b
+        let a₃ ← (pureFns mode eager env fuel).whnfCore true d a₂
+        deltaQuick mode (pureFns mode eager env fuel) d a₃ b
       | none => pure .unknown).map (DeltaStep.mapE (shiftFrom p)) := by
   rw [unfoldDefinition_shiftFrom henv]
   cases hu : unfoldDefinition env a with
@@ -2228,17 +2228,17 @@ private theorem unfoldQuickL_shift (henv : EnvWF env)
     exact deltaQuick_shift henv ih hpd (whnfCore_WScoped henv fuel ha₃ hwa₂) hwb
 
 private theorem unfoldQuickR_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
     (match unfoldDefinition env (shiftFrom p b) with
       | some b₂ => do
-        let b₃ ← (pureFns mode env fuel).whnfCore true (d + 1) b₂
-        deltaQuick mode (pureFns mode env fuel) (d + 1) (shiftFrom p a) b₃
+        let b₃ ← (pureFns mode eager env fuel).whnfCore true (d + 1) b₂
+        deltaQuick mode (pureFns mode eager env fuel) (d + 1) (shiftFrom p a) b₃
       | none => pure .unknown) =
     (match unfoldDefinition env b with
       | some b₂ => do
-        let b₃ ← (pureFns mode env fuel).whnfCore true d b₂
-        deltaQuick mode (pureFns mode env fuel) d a b₃
+        let b₃ ← (pureFns mode eager env fuel).whnfCore true d b₂
+        deltaQuick mode (pureFns mode eager env fuel) d a b₃
       | none => pure .unknown).map (DeltaStep.mapE (shiftFrom p)) := by
   rw [unfoldDefinition_shiftFrom henv]
   cases hu : unfoldDefinition env b with
@@ -2252,10 +2252,10 @@ private theorem unfoldQuickR_shift (henv : EnvWF env)
 
 /-- One lazy-delta step commutes with the shift. -/
 private theorem lazyDeltaStep_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    lazyDeltaStep mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a) (shiftFrom p b) =
-      (lazyDeltaStep mode (pureFns mode env fuel) env d a b).map
+    lazyDeltaStep mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a) (shiftFrom p b) =
+      (lazyDeltaStep mode (pureFns mode eager env fuel) env d a b).map
         (DeltaStep.mapE (shiftFrom p)) := by
   unfold lazyDeltaStep
   rw [unfoldableHead_shiftFrom, unfoldableHead_shiftFrom]
@@ -2269,7 +2269,7 @@ private theorem lazyDeltaStep_shift (henv : EnvWF env)
       have hwa₂ : WScoped d a₂ := by
         simp only [tryUnfoldProjApp, Bind.bind, Except.bind] at ho
         split at ho
-        · cases hw : (pureFns mode env fuel).whnfCore false d a with
+        · cases hw : (pureFns mode eager env fuel).whnfCore false d a with
           | error err => rw [hw] at ho; exact nomatch ho
           | ok x =>
           rw [hw] at ho
@@ -2290,7 +2290,7 @@ private theorem lazyDeltaStep_shift (henv : EnvWF env)
       have hwb₂ : WScoped d b₂ := by
         simp only [tryUnfoldProjApp, Bind.bind, Except.bind] at ho
         split at ho
-        · cases hw : (pureFns mode env fuel).whnfCore false d b with
+        · cases hw : (pureFns mode eager env fuel).whnfCore false d b with
           | error err => rw [hw] at ho; exact nomatch ho
           | ok x =>
           rw [hw] at ho
@@ -2308,9 +2308,9 @@ private theorem lazyDeltaStep_shift (henv : EnvWF env)
     refine ite_rel _ (fun _ => unfoldQuickR_shift henv ih hpd hwa hwb) (fun _ => ?_)
     rw [sameConstHeads_shiftFrom]
     have hsp : ∀ g : Bool,
-        (if g then defeqSpine (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+        (if g then defeqSpine (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
           (shiftFrom p b) else pure false) =
-        (if g then defeqSpine (pureFns mode env fuel) env d a b else pure false) := by
+        (if g then defeqSpine (pureFns mode eager env fuel) env d a b else pure false) := by
       intro g
       cases g
       · rfl
@@ -2334,11 +2334,11 @@ private theorem lazyDeltaStep_shift (henv : EnvWF env)
 /-- The lazy-delta loop commutes with the shift, by induction on its
 own step budget. -/
 private theorem lazyDeltaReduction_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) :
+    (ih : ShiftClaims mode eager env fuel) :
     ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {a b : Expr}, WScoped d a → WScoped d b →
-      lazyDeltaReduction mode (pureFns mode env fuel) env (d + 1) n (shiftFrom p a)
+      lazyDeltaReduction mode eager (pureFns mode eager env fuel) env (d + 1) n (shiftFrom p a)
           (shiftFrom p b) =
-        (lazyDeltaReduction mode (pureFns mode env fuel) env d n a b).map
+        (lazyDeltaReduction mode eager (pureFns mode eager env fuel) env d n a b).map
           (LazyRes.mapE (shiftFrom p)) := by
   intro n
   induction n with
@@ -2362,11 +2362,12 @@ private theorem lazyDeltaReduction_shift (henv : EnvWF env)
       rcases reduceNat_inv (reduceNatIf_some hoa) with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
     refine bind_rel id _ ?_ (fun v _ => rfl)
-    rw [show ((pureFns mode env fuel).defeq (d + 1) (shiftFrom p a₂) (shiftFrom p b)) =
-      isDefEqCore mode env fuel (d + 1) (shiftFrom p a₂) (shiftFrom p b) from rfl,
+    rw [show ((pureFns mode eager env fuel).defeq (d + 1) (shiftFrom p a₂) (shiftFrom p b)) =
+      isDefEqCore mode eager env fuel (d + 1) (shiftFrom p a₂) (shiftFrom p b) from rfl,
       ih.defeq hpd hwa₂ hwb,
-      show (pureFns mode env fuel).defeq d a₂ b = isDefEqCore mode env fuel d a₂ b from rfl]
-    cases isDefEqCore mode env fuel d a₂ b <;> rfl
+      show (pureFns mode eager env fuel).defeq d a₂ b = isDefEqCore mode eager env fuel d a₂ b from
+          rfl]
+    cases isDefEqCore mode eager env fuel d a₂ b <;> rfl
   | none =>
   dsimp only
   refine bind_rel (Option.map (shiftFrom p)) _ (reduceNatIf_shift henv ih hpd hwb _) ?_
@@ -2378,11 +2379,12 @@ private theorem lazyDeltaReduction_shift (henv : EnvWF env)
       rcases reduceNat_inv (reduceNatIf_some hob) with ⟨k, rfl⟩ | ⟨bn, rfl⟩ <;>
         simp [WScoped]
     refine bind_rel id _ ?_ (fun v _ => rfl)
-    rw [show ((pureFns mode env fuel).defeq (d + 1) (shiftFrom p a) (shiftFrom p b₂)) =
-      isDefEqCore mode env fuel (d + 1) (shiftFrom p a) (shiftFrom p b₂) from rfl,
+    rw [show ((pureFns mode eager env fuel).defeq (d + 1) (shiftFrom p a) (shiftFrom p b₂)) =
+      isDefEqCore mode eager env fuel (d + 1) (shiftFrom p a) (shiftFrom p b₂) from rfl,
       ih.defeq hpd hwa hwb₂,
-      show (pureFns mode env fuel).defeq d a b₂ = isDefEqCore mode env fuel d a b₂ from rfl]
-    cases isDefEqCore mode env fuel d a b₂ <;> rfl
+      show (pureFns mode eager env fuel).defeq d a b₂ = isDefEqCore mode eager env fuel d a b₂ from
+          rfl]
+    cases isDefEqCore mode eager env fuel d a b₂ <;> rfl
   | none =>
   dsimp only
   refine bind_rel (DeltaStep.mapE (shiftFrom p)) _
@@ -2398,11 +2400,11 @@ private theorem lazyDeltaReduction_shift (henv : EnvWF env)
 
 /-- `lazy_delta_proj_reduction` is shift-invariant. -/
 private theorem lazyDeltaProjReduction_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {sn : Name} {i : Nat} :
+    (ih : ShiftClaims mode eager env fuel) {sn : Name} {i : Nat} :
     ∀ (n : Nat) {p d : Nat}, p ≤ d → ∀ {a b : Expr}, WScoped d a → WScoped d b →
-      lazyDeltaProjReduction mode (pureFns mode env fuel) env (d + 1) sn i n
+      lazyDeltaProjReduction mode (pureFns mode eager env fuel) env (d + 1) sn i n
           (shiftFrom p a) (shiftFrom p b) =
-        lazyDeltaProjReduction mode (pureFns mode env fuel) env d sn i n a b := by
+        lazyDeltaProjReduction mode (pureFns mode eager env fuel) env d sn i n a b := by
   intro n
   induction n with
   | zero => intro p d _ a b _ _; rfl
@@ -2413,7 +2415,7 @@ private theorem lazyDeltaProjReduction_shift (henv : EnvWF env)
     (lazyDeltaStep_shift henv ih hpd hwa hwb) ?_
   intro st hst
   have hpc : ∀ {x : Expr}, WScoped d x → ∀ {o : Option Expr},
-      reduceProjCore mode (pureFns mode env fuel) env d sn i x = .ok o →
+      reduceProjCore mode (pureFns mode eager env fuel) env d sn i x = .ok o →
       ∀ {m : Expr}, o = some m → WScoped d m := by
     intro x hx o ho m hm
     subst hm
@@ -2441,11 +2443,11 @@ private theorem lazyDeltaProjReduction_shift (henv : EnvWF env)
 
 /-- The proj/proj check is shift-invariant. -/
 private theorem defeqProjPair_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {a b : Expr}
     (hwa : WScoped d a) (hwb : WScoped d b) :
-    defeqProjPair mode (pureFns mode env fuel) env (d + 1) (shiftFrom p a)
+    defeqProjPair mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p a)
         (shiftFrom p b) =
-      defeqProjPair mode (pureFns mode env fuel) env d a b := by
+      defeqProjPair mode (pureFns mode eager env fuel) env d a b := by
   unfold defeqProjPair
   cases a with
   | proj s₁ i₁ e₁ =>
@@ -2461,14 +2463,14 @@ private theorem defeqProjPair_shift (henv : EnvWF env)
 
 /-- The stuck comparison is shift-invariant. -/
 private theorem defeqStuck_shift (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) {p d : Nat} (hpd : p ≤ d) {wa wb : Expr}
+    (ih : ShiftClaims mode eager env fuel) {p d : Nat} (hpd : p ≤ d) {wa wb : Expr}
     (hwwa : WScoped d wa) (hwwb : WScoped d wb) :
-    defeqStuck mode (pureFns mode env fuel) env (d + 1) (shiftFrom p wa)
+    defeqStuck mode (pureFns mode eager env fuel) env (d + 1) (shiftFrom p wa)
         (shiftFrom p wb) =
-      defeqStuck mode (pureFns mode env fuel) env d wa wb := by
+      defeqStuck mode (pureFns mode eager env fuel) env d wa wb := by
   unfold defeqStuck
-  have hstuck : stuckIrrel (pureFns mode env fuel) env (d + 1) (shiftFrom p wa)
-      (shiftFrom p wb) = stuckIrrel (pureFns mode env fuel) env d wa wb :=
+  have hstuck : stuckIrrel (pureFns mode eager env fuel) env (d + 1) (shiftFrom p wa)
+      (shiftFrom p wb) = stuckIrrel (pureFns mode eager env fuel) env d wa wb :=
     stuckIrrel_shift henv ih hpd hwwa hwwb
   cases wa <;> cases wb <;>
     try (first
@@ -2662,7 +2664,7 @@ private theorem defeqStuck_shift (henv : EnvWF env)
     exact ite_congr' (fun _ => rfl) (fun _ => hstuck)
 
 private theorem defeq_step (henv : EnvWF env)
-    (ih : ShiftClaims mode env fuel) : DefEqShift mode env (fuel + 1) := by
+    (ih : ShiftClaims mode eager env fuel) : DefEqShift mode eager env (fuel + 1) := by
   intro p d hpd a b hwa hwb
   rw [isDefEqCore_succ, isDefEqCore_succ]
   simp only [defeqBody]
@@ -2722,17 +2724,17 @@ end Helpers
 /-- The bisimulation: every core entry point commutes with the fvar
 shift, at every fuel. -/
 theorem shiftClaims {env : Env} (henv : EnvWF env) :
-    ∀ (fuel : Nat), ShiftClaims mode env fuel := by
+    ∀ (fuel : Nat), ShiftClaims mode eager env fuel := by
   intro fuel
-  -- over every mode at once: the eager slot is the knot at
-  -- `mode.toEager` (task #353)
-  induction fuel generalizing mode with
+  -- over both flags at once: the eager slot is the knot at
+  -- `eager := true` (task #353)
+  induction fuel generalizing eager with
   | zero =>
     exact ⟨fun _ _ _ => rfl, fun _ _ _ => rfl, fun _ _ _ => rfl,
       fun _ _ _ _ _ => rfl, fun _ _ _ _ _ => rfl, fun _ _ _ => rfl⟩
   | succ fuel ih =>
     exact ⟨whnfCore_step henv ih, whnf_step henv ih, infer_step henv ih,
-      defeq_step henv ih, defeq_step henv (ih (mode := mode.toEager)),
+      defeq_step henv ih, defeq_step henv (ih (eager := true)),
       inferIOSlot_step henv ih⟩
 
 /-! ## Depth invariance -/
@@ -2743,33 +2745,34 @@ variable {env : Env}
 
 private theorem whnfCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} {c : Bool} (hw : WScoped d e) :
-    whnfCore mode env fuel (d + 1) e c = whnfCore mode env fuel d e c := by
-  have h := (shiftClaims (mode := mode) henv fuel).whnfCore (c := c) (Nat.le_refl d) hw
+    whnfCore mode eager env fuel (d + 1) e c = whnfCore mode eager env fuel d e c := by
+  have h := (shiftClaims (mode := mode) (eager := eager) henv fuel).whnfCore (c := c) (Nat.le_refl
+      d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : whnfCore mode env fuel d e c with
+  cases hres : whnfCore mode eager env fuel d e c with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self (whnfCore_WScoped henv fuel hres hw).fvarsBelow]
 
 private theorem whnf_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    whnf mode env fuel (d + 1) e = whnf mode env fuel d e := by
-  have h := (shiftClaims (mode := mode) henv fuel).whnf (Nat.le_refl d) hw
+    whnf mode eager env fuel (d + 1) e = whnf mode eager env fuel d e := by
+  have h := (shiftClaims (mode := mode) (eager := eager) henv fuel).whnf (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : whnf mode env fuel d e with
+  cases hres : whnf mode eager env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self (whnf_WScoped henv fuel hres hw).fvarsBelow]
 
 private theorem inferTypeCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    inferTypeCore mode env fuel (d + 1) e = inferTypeCore mode env fuel d e := by
-  have h := (shiftClaims (mode := mode) henv fuel).infer (Nat.le_refl d) hw
+    inferTypeCore mode eager env fuel (d + 1) e = inferTypeCore mode eager env fuel d e := by
+  have h := (shiftClaims (mode := mode) (eager := eager) henv fuel).infer (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : inferTypeCore mode env fuel d e with
+  cases hres : inferTypeCore mode eager env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self
@@ -2777,14 +2780,14 @@ private theorem inferTypeCore_depth_succ (henv : EnvWF env) (fuel : Nat)
 
 private theorem isDefEqCore_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {a b : Expr} (hwa : WScoped d a) (hwb : WScoped d b) :
-    isDefEqCore mode env fuel (d + 1) a b = isDefEqCore mode env fuel d a b := by
-  have h := (shiftClaims (mode := mode) henv fuel).defeq (Nat.le_refl d) hwa hwb
+    isDefEqCore mode eager env fuel (d + 1) a b = isDefEqCore mode eager env fuel d a b := by
+  have h := (shiftClaims (mode := mode) (eager := eager) henv fuel).defeq (Nat.le_refl d) hwa hwb
   rwa [shiftFrom_eq_self hwa.fvarsBelow, shiftFrom_eq_self hwb.fvarsBelow]
     at h
 
 private theorem whnfCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} {c : Bool} (hw : WScoped d₁ e) :
-    whnfCore mode env fuel d₂ e c = whnfCore mode env fuel d₁ e c := by
+    whnfCore mode eager env fuel d₂ e c = whnfCore mode eager env fuel d₁ e c := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2795,7 +2798,7 @@ private theorem whnfCore_depth_le (henv : EnvWF env) (fuel : Nat)
 
 private theorem whnf_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    whnf mode env fuel d₂ e = whnf mode env fuel d₁ e := by
+    whnf mode eager env fuel d₂ e = whnf mode eager env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2806,7 +2809,7 @@ private theorem whnf_depth_le (henv : EnvWF env) (fuel : Nat)
 
 private theorem inferTypeCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    inferTypeCore mode env fuel d₂ e = inferTypeCore mode env fuel d₁ e := by
+    inferTypeCore mode eager env fuel d₂ e = inferTypeCore mode eager env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2818,7 +2821,7 @@ private theorem inferTypeCore_depth_le (henv : EnvWF env) (fuel : Nat)
 private theorem isDefEqCore_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {a b : Expr} (hwa : WScoped d₁ a)
     (hwb : WScoped d₁ b) :
-    isDefEqCore mode env fuel d₂ a b = isDefEqCore mode env fuel d₁ a b := by
+    isDefEqCore mode eager env fuel d₂ a b = isDefEqCore mode eager env fuel d₁ a b := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2830,11 +2833,11 @@ private theorem isDefEqCore_depth_le (henv : EnvWF env) (fuel : Nat)
 
 private theorem inferTypeIO_depth_succ (henv : EnvWF env) (fuel : Nat)
     {d : Nat} {e : Expr} (hw : WScoped d e) :
-    inferTypeIO mode env fuel (d + 1) e = inferTypeIO mode env fuel d e := by
-  have h := (shiftClaims (mode := mode) henv fuel).inferIO (Nat.le_refl d) hw
+    inferTypeIO mode eager env fuel (d + 1) e = inferTypeIO mode eager env fuel d e := by
+  have h := (shiftClaims (mode := mode) (eager := eager) henv fuel).inferIO (Nat.le_refl d) hw
   rw [shiftFrom_eq_self hw.fvarsBelow] at h
   rw [h]
-  cases hres : inferTypeIO mode env fuel d e with
+  cases hres : inferTypeIO mode eager env fuel d e with
   | error err => rfl
   | ok r =>
     simp [shiftFrom_eq_self
@@ -2842,7 +2845,7 @@ private theorem inferTypeIO_depth_succ (henv : EnvWF env) (fuel : Nat)
 
 private theorem inferTypeIO_depth_le (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} (hle : d₁ ≤ d₂) {e : Expr} (hw : WScoped d₁ e) :
-    inferTypeIO mode env fuel d₂ e = inferTypeIO mode env fuel d₁ e := by
+    inferTypeIO mode eager env fuel d₂ e = inferTypeIO mode eager env fuel d₁ e := by
   obtain ⟨k, rfl⟩ : ∃ k, d₂ = d₁ + k := ⟨d₂ - d₁, by omega⟩
   clear hle
   induction k with
@@ -2857,7 +2860,7 @@ both depths. -/
 theorem whnfCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} {c : Bool} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    whnfCore mode env fuel d₁ e c = whnfCore mode env fuel d₂ e c := by
+    whnfCore mode eager env fuel d₁ e c = whnfCore mode eager env fuel d₂ e c := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (whnfCore_depth_le henv fuel hle (WScoped.of_wscopedB h₁)).symm
   · exact whnfCore_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
@@ -2866,7 +2869,7 @@ theorem whnfCore_depth_inv (henv : EnvWF env) (fuel : Nat)
 theorem whnf_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    whnf mode env fuel d₁ e = whnf mode env fuel d₂ e := by
+    whnf mode eager env fuel d₁ e = whnf mode eager env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (whnf_depth_le henv fuel hle (WScoped.of_wscopedB h₁)).symm
   · exact whnf_depth_le henv fuel hle (WScoped.of_wscopedB h₂)
@@ -2875,7 +2878,7 @@ theorem whnf_depth_inv (henv : EnvWF env) (fuel : Nat)
 theorem inferTypeCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    inferTypeCore mode env fuel d₁ e = inferTypeCore mode env fuel d₂ e := by
+    inferTypeCore mode eager env fuel d₁ e = inferTypeCore mode eager env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (inferTypeCore_depth_le henv fuel hle
       (WScoped.of_wscopedB h₁)).symm
@@ -2885,7 +2888,7 @@ theorem inferTypeCore_depth_inv (henv : EnvWF env) (fuel : Nat)
 theorem inferTypeIO_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {e : Expr} (h₁ : e.wscopedB d₁ = true)
     (h₂ : e.wscopedB d₂ = true) :
-    inferTypeIO mode env fuel d₁ e = inferTypeIO mode env fuel d₂ e := by
+    inferTypeIO mode eager env fuel d₁ e = inferTypeIO mode eager env fuel d₂ e := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (inferTypeIO_depth_le henv fuel hle
       (WScoped.of_wscopedB h₁)).symm
@@ -2896,7 +2899,7 @@ theorem isDefEqCore_depth_inv (henv : EnvWF env) (fuel : Nat)
     {d₁ d₂ : Nat} {a b : Expr} (ha₁ : a.wscopedB d₁ = true)
     (hb₁ : b.wscopedB d₁ = true) (ha₂ : a.wscopedB d₂ = true)
     (hb₂ : b.wscopedB d₂ = true) :
-    isDefEqCore mode env fuel d₁ a b = isDefEqCore mode env fuel d₂ a b := by
+    isDefEqCore mode eager env fuel d₁ a b = isDefEqCore mode eager env fuel d₂ a b := by
   rcases Nat.le_total d₁ d₂ with hle | hle
   · exact (isDefEqCore_depth_le henv fuel hle (WScoped.of_wscopedB ha₁)
       (WScoped.of_wscopedB hb₁)).symm

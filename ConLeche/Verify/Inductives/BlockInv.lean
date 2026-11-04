@@ -117,7 +117,7 @@ theorem checkBlockTeles_inv {env : Env} {nP : Nat} {F : Nat} :
 theorem checkBlockDomsAt_inv {env : Env} {off : Nat} {fvs doms : List Expr} {F : Nat} :
     ∀ {j : Nat}, checkBlockDomsAt (fueledOps mode F) env off fvs doms j = .ok () →
       ∀ i, i < j → ∃ a b, fvs[i]? = some a ∧ doms[i]? = some b ∧
-        isDefEqCore mode env F (off + i) (Expr.fvarTypeD a) b = .ok true
+        isDefEqCore mode false env F (off + i) (Expr.fvarTypeD a) b = .ok true
   | 0, _ => fun i hi => absurd hi (Nat.not_lt_zero i)
   | j + 1, h => by
     unfold checkBlockDomsAt at h

@@ -47,7 +47,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
 fuel.**  Recomposed from the bridge and the rules soundness; the
 statement is the one the declaration fold and the install rows have
 always consumed. -/
-theorem checkSoundAtP5 (hμ : μ.isVerified = true)
+theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
     {m : EnvModel V env} (h : RulesInputs V m φ) :
     ∀ fuel : Nat,
       WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
@@ -93,7 +93,7 @@ theorem checkSoundAtP5 (hμ : μ.isVerified = true)
 /-- The four sealed claims at every fuel — the joint recomposition's
 first four conjuncts, kept under the landed name so every consumer
 stands verbatim. -/
-theorem checkSoundAt (hμ : μ.isVerified = true)
+theorem checkSoundAt (hμ : μ.verifiedChecks = true)
     {m : EnvModel V env} (h : RulesInputs V m φ) :
     ∀ fuel : Nat,
       WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧

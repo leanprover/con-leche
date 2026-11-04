@@ -53,7 +53,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 set_option maxHeartbeats 4000000 in
 /-- **THE GENERATED RECURSORS' STAGE**: the three cons-monotonicities at
 the cons at the classes (`BlockRecStagedT`). -/
-theorem genRecStage (hμ : μ.isVerified = true) {F : Nat}
+theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}

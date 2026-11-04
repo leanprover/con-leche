@@ -55,7 +55,7 @@ structure RuleOutOk (mode : CheckMode) (F : Nat) (envR : Env) (cvR : ConstantVal
   hfv : out.hasFvar = false
   hlp : out.allLevelParamsDefined cvR.levelParams = true
   hres : out.constsResolve envR = true
-  htyR : ∃ tyR, inferTypeCore mode envR F 0 out = .ok tyR
+  htyR : ∃ tyR, inferTypeCore mode false envR F 0 out = .ok tyR
 
 namespace RuleOutOk
 

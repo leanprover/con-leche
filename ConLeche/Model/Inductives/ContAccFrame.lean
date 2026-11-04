@@ -929,8 +929,8 @@ theorem frameIterAcc (hin : RulesInputs V mp.base2 φ) {w : Nat}
       (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
         ConLeche.nestCrest (grp.map (·.1)) us ds (grpHoles hi grp)
           (x.1.type.instantiateLevelParams x.1.levelParams us) = some crest →
-        (∃ ty u, ConLeche.inferTypeCore .verified env F (hi + grp.length) crest = .ok ty ∧
-          ConLeche.ensureSortCore .verified env F (hi + grp.length) ty = .ok u) →
+        (∃ ty u, ConLeche.inferTypeCore .verified false env F (hi + grp.length) crest = .ok ty ∧
+          ConLeche.ensureSortCore .verified false env F (hi + grp.length) ty = .ok u) →
         ∃ ca, Frame (hi + grp.length) crest ∧ CtxOkP mp.base2 φ (hi + grp.length) Δ crest ∧
           denote mp.base2.acval env φ (hi + grp.length) crest = some ca ∧ GradedTy V Δ ca) →
       (∀ x ∈ ctors, Q x) →

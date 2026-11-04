@@ -289,7 +289,7 @@ recursors (`recRuleLaw_stored`: fits at the stored type are fits at the
 generated one, `storedTy_sem`; the stored right-hand sides read as the
 generated ones, `storedRhs_sem`), and the stored types' readings,
 gradings and the recursors' leaves in them. -/
-theorem storedSwap_sem {μ : CheckMode} (hμ : μ.isVerified = true) {envC : Env}
+theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC : Env}
     {f : Name → Option ConstantInfo} {q : ConLeche.BlockShape}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
     (mpG : EnvModelM V μ (ConLeche.consBlockRecsT f q 0 out envC))
@@ -501,7 +501,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.isVerified = true) {envC : Env
 /-- **The recursors' stage, at the STORED recursors** (task #431): the
 generated install's stage facts carried to the install of the stored
 recursors. -/
-theorem blockRecStagedAt_stored {μ : CheckMode} (hμ : μ.isVerified = true) {envC : Env}
+theorem blockRecStagedAt_stored {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC : Env}
     {mpC : EnvModelM V μ envC} {f : Name → Option ConstantInfo} {q : ConLeche.BlockShape}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
     (hG : BlockRecStagedAt μ envC (ConLeche.consBlockRecsT f q 0 out envC) mpC)

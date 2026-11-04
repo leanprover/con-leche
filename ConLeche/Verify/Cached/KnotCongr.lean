@@ -36,7 +36,7 @@ only the cached checker — nothing from the theory — and opens a plain
 
 namespace ConLeche.Cached
 
-variable {mode : CheckMode} {fe₁ fe₂ : FEnv}
+variable {mode : CheckMode} {eager : Bool} {fe₁ fe₂ : FEnv}
 
 /-! ## The table component (task #362)
 
@@ -461,7 +461,7 @@ theorem lazyDeltaStepI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 
 /-- `lazyDeltaReductionI` reads `fe` only through `find?`. -/
 theorem lazyDeltaReductionI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
-    lazyDeltaReductionI mode r fe₁ = lazyDeltaReductionI mode r fe₂ := by
+    lazyDeltaReductionI mode eager r fe₁ = lazyDeltaReductionI mode eager r fe₂ := by
   funext depth n
   induction n with
   | zero => rfl
@@ -498,25 +498,31 @@ theorem defeqStuckI_congr (hfe : fe₁.find? = fe₂.find?)
 /-- `defeqBodyI` reads `fe` only through `find?` and `findTable?`. -/
 theorem defeqBodyI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
-    defeqBodyI mode r fe₁ = defeqBodyI mode r fe₂ := by
+    defeqBodyI mode eager r fe₁ = defeqBodyI mode eager r fe₂ := by
   funext depth a b; unfold defeqBodyI
   simp only [propIrrelI_congr hfe htb, lazyDeltaReductionI_congr hfe,
     defeqProjPairI_congr hfe htb, defeqStuckI_congr hfe htb]
 
 /-! ## The knot, and the operation records built on it -/
 
+/-- One level of the knot, at either flag. -/
+theorem coreKnotI_succ (fe : FEnv) (F : Nat) :
+    coreKnotI mode eager fe (F + 1) = knotLevelI mode eager fe
+      (fun _ => coreKnotI mode eager fe F) (fun _ => coreKnotI mode true fe F) := by
+  cases eager <;> rfl
+
 /-- **The knot reads the index only through `find?` and `findTable?`.**  `ensureSortI`
 needs no lemma of its own: it takes the tied record, not the index. -/
 theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) :
-    ∀ F, coreKnotI mode fe₁ F = coreKnotI mode fe₂ F := by
+    ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
   intro F
-  -- the eager slot ties the knot at `mode.toEager` (task #353): the
-  -- induction is over every mode at once
-  induction F generalizing mode with
-  | zero => rfl
+  -- the eager slot ties the knot at `eager := true` (task #353): the
+  -- induction is over both flags at once
+  induction F generalizing eager with
+  | zero => cases eager <;> rfl
   | succ F ih =>
-    unfold coreKnotI
+    rw [coreKnotI_succ, coreKnotI_succ]; unfold knotLevelI
     simp only [ih, whnfCoreBodyI_congr hfe htb, whnfBodyI_congr hfe,
       inferBodyI_congr hfe htb, defeqBodyI_congr hfe htb, inferBodyIOI_congr hfe htb]
 

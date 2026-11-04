@@ -47,7 +47,7 @@ variable (mode : CheckMode)
 
 /-- Parsed `ensureSort` (no per-call conversion). -/
 def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode fe checkFuel) d i
+  ensureSortI (coreKnotI mode false fe checkFuel) d i
 
 /-- `checkConstantVal` on a parsed declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `Expr`
@@ -68,7 +68,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe cv.type do
     throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"type of {cv.name}" cv.type)
-  let jsty ← (coreKnotI mode fe checkFuel).infer 0 cv.type
+  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
   let _u ← opSIxC mode fe 0 jsty
 
 /-- `checkShapeless` (`ConLeche/Kernel/CheckDecl.lean`) through the index:
@@ -95,8 +95,8 @@ def checkDefnValCI (fe : FEnv) (cv : ConstantVal)
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"value of {cv.name}" jv)
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt cv.type do
+  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
   pure (.defnInfo cv jv hint)
 
@@ -113,8 +113,8 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
     throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"value of {cv.name}" jv)
-  let jvt ← (coreKnotI mode fe checkFuel).infer 0 jv
-  unless ← (coreKnotI mode fe checkFuel).defeq 0 jvt cv.type do
+  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
   pure (.axiomInfo cv)
 

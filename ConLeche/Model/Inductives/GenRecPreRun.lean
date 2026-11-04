@@ -94,7 +94,7 @@ theorem genRun_at
 
 /-- **`GenPreHyps.gpre`**: the shared prefix is every recursor's rule
 prefix. -/
-theorem genRun_gpre (hμ : μ.isVerified = true)
+theorem genRun_gpre (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -128,7 +128,7 @@ theorem genRun_motive
   exact ⟨s, hs, ConLeche.ClassRead.motiveSlot_lt hs⟩
 
 /-- **`GenPreHyps.mot`**: a recursor's motive sits in its rule prefix. -/
-theorem genRun_mot (hμ : μ.isVerified = true)
+theorem genRun_mot (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC) :
@@ -148,7 +148,7 @@ theorem genRun_mot (hμ : μ.isVerified = true)
   omega
 
 /-- **`GenPreHyps.min`**: a minor premise's slot sits in the rule prefix. -/
-theorem genRun_min (hμ : μ.isVerified = true)
+theorem genRun_min (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC) :
@@ -324,7 +324,7 @@ and constructor `j`, the class's constructor `cA`, the generator's
 constructor `x` (`genCtorAt`), its run (`ClassCtorRun`), the declared
 type at the class (`tgtCrest`) is `x.tyD`, and it opens at the rule
 prefix to the rule's field openers (the rule was generated). -/
-theorem genRun_frame (_hμ : μ.isVerified = true)
+theorem genRun_frame (_hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
@@ -392,7 +392,7 @@ theorem genRun_frame (_hμ : μ.isVerified = true)
 
 /-- **`GenPreHyps.nF`**: the generator's constructor has the declared
 field count. -/
-theorem genRun_nF (hμ : μ.isVerified = true)
+theorem genRun_nF (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (acval : Name → (Name → Nat) → Term)
     (ψ : Name → Nat) :
@@ -430,7 +430,7 @@ theorem readOpenedDoms_below {env : Env} (m : EnvModel V env) {φ : Name → Nat
 set_option maxHeartbeats 800000 in
 /-- **`GenPreHyps.below`**: the generated `ih` data (read raw) are bounded
 at the rule frame's depth. -/
-theorem genRun_below (hμ : μ.isVerified = true)
+theorem genRun_below (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -505,7 +505,7 @@ theorem genRun_below (hμ : μ.isVerified = true)
 
 /-- **The declared field domains are bounded** at the rule frame (read
 off the scoped declared type). -/
-theorem genRun_fdomsBelow (hμ : μ.isVerified = true)
+theorem genRun_fdomsBelow (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -532,7 +532,7 @@ theorem genRun_fdomsBelow (hμ : μ.isVerified = true)
 /-- **The stored type of recursor `c`**: the generated type of its class,
 stored as generated (`classConstOk`); its reading and its peel at the
 major index. -/
-theorem genRun_storedTy (hμ : μ.isVerified = true)
+theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -540,7 +540,7 @@ theorem genRun_storedTy (hμ : μ.isVerified = true)
     ∃ (cls : Nat) (gty : Expr) (S : Expr),
       genClsOf R.rd c = cls ∧ tgtMajor out c = R.g.cls.getD cls default ∧
       ConLeche.classGenRecTy R.g cls = some gty ∧
-      ConLeche.inferTypeCore μ envC F 0 gty = .ok S ∧
+      ConLeche.inferTypeCore μ false envC F 0 gty = .ok S ∧
       denote mpC.base2.acval envC ψ 0 gty
         = some (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∧
       p.toBlockShape.majorIdxAt c + 1 = R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1 ∧
@@ -574,7 +574,7 @@ theorem genRun_storedTy (hμ : μ.isVerified = true)
 spine of the prefix, an index spine and a major, is the class's motive
 variable applied to the index spine and the major (`classGenRecTy_concl`
 at the stored type). -/
-theorem genRun_conclMot (hμ : μ.isVerified = true)
+theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -881,7 +881,7 @@ structure GenPreSem (g : ClassGen) (rd : ClassRead) (ψ : Name → Nat) (ρ : Na
 the `ih` data's bounds, the field counts, the index counts, the classes'
 clauses and components, the stored conclusion, and the elimination
 guard (`genRun_lic`). -/
-theorem genPreHyps_of_run (hμ : μ.isVerified = true)
+theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -929,7 +929,7 @@ premise's typing at the rule frame, the class induction), the rule
 frame's grading (`hframe`), the declared index expressions' and
 constructor application's grading (`hargs`), and the generated `ih`
 terms' and residue's grading at typed tuples (`hrhs`). -/
-theorem genRecPre_run (hμ : μ.isVerified = true)
+theorem genRecPre_run (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))

@@ -52,8 +52,8 @@ structure ConstChecked (mode : CheckMode) (F : Nat) (env : Env) (cv0 cv : Consta
   noFvar : cv.type.hasFvar = false
   lpsDef : cv.type.allLevelParamsDefined cv.levelParams = true
   resolves : cv.type.constsResolve env = true
-  sorted : ∃ stype u, inferTypeCore mode env F 0 cv.type = .ok stype ∧
-    ensureSortCore mode env F 0 stype = .ok u
+  sorted : ∃ stype u, inferTypeCore mode false env F 0 cv.type = .ok stype ∧
+    ensureSortCore mode false env F 0 stype = .ok u
 
 /-- **Stage (b) at ONE recursor, at ANY major**: the checked constant,
 the prefix and the major's position, the recursor type's openers, the
@@ -76,10 +76,10 @@ structure RecTyGen (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
   hmI' : p.majorIdxAt ri = p.rulePrefixAt ri + nIdx
   hopen : openPisAtFvars (p.majorIdxAt ri + 1) cvRi.type 0 = some (fvs, concl)
   hmaj : fvs[p.majorIdxAt ri]? = some maj
-  hsty : inferTypeCore mode env F (p.majorIdxAt ri + 1) concl = .ok sty
-  hu : ensureSortCore mode env F (p.majorIdxAt ri + 1) sty = .ok u
+  hsty : inferTypeCore mode false env F (p.majorIdxAt ri + 1) concl = .ok sty
+  hu : ensureSortCore mode false env F (p.majorIdxAt ri + 1) sty = .ok u
   hsmall : blockLargeElimAllowed p nested = true ∨
-    isDefEqCore mode env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true
+    isDefEqCore mode false env F (p.majorIdxAt ri + 1) sty (.sort .zero) = .ok true
 
 namespace RecTyGen
 

@@ -149,7 +149,7 @@ theorem domsBelow_of_getD :
 /-- **`heqB` from the rows** (any majors): every equation is bound below
 the family once every rule's components are bound by their frames; the
 prefix is the recursor type's (`blockRulePdomsAV_bounded`). -/
-theorem blockRecEqs_below_rows (hμ : μ.isVerified = true)
+theorem blockRecEqs_below_rows (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageG μ F envC pp cvTas rs)
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}
@@ -206,7 +206,7 @@ list reads alike at two level valuations agreeing on ANY recursor's
 parameters (the family shares them, `recStage_lps`) once every rule's
 five components do; the prefix is the recursor type's
 (`blockRulePdomsAV_params`). -/
-theorem blockRecEqs_params_rows (hμ : μ.isVerified = true)
+theorem blockRecEqs_params_rows (hμ : μ.verifiedChecks = true)
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageG μ F envC pp cvTas rs)
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}

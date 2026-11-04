@@ -35,10 +35,10 @@ variable (mode : CheckMode)
 
 /-- The pure instantiation, at an arbitrary fuel. -/
 def fueledOps (F : Nat) : CheckerOps CheckM where
-  inferType env d e := inferTypeCore mode env F d e
-  isDefEq env d a b := isDefEqCore mode env F d a b
-  ensureSort env d e := ensureSortCore mode env F d e
-  whnf env d e := ConLeche.whnf mode env F d e
+  inferType env d e := inferTypeCore mode false env F d e
+  isDefEq env d a b := isDefEqCore mode false env F d a b
+  ensureSort env d e := ensureSortCore mode false env F d e
+  whnf env d e := ConLeche.whnf mode false env F d e
 
 /-- The pure instantiation, at the standard fuel. -/
 def pureOps : CheckerOps CheckM := fueledOps mode checkFuel

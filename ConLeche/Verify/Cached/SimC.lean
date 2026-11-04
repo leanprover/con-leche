@@ -21,15 +21,15 @@ compositions and the driver's run theorems consume, with the few
 run-level combinators they use (`SimC.pure`, `SimC.throw`, `SimC.wp`,
 `SimC.wr`, `SimC.liftFueled`, `CEff.pure`).
 
-* `CSOK mode env s` — the cached-state invariant: the lazy
+* `CSOK mode eager env s` — the cached-state invariant: the lazy
   stored-constant caches hold `RelC`-related conversions of the
   level-instantiated stored data and every entry-point memo entry is
   backed by a pure run at some fuel, valid at every depth at which the
   key is well scoped.
-* `SimC mode env s₀ P c p` — a successful cached run of `c` from `s₀`
+* `SimC mode eager env s₀ P c p` — a successful cached run of `c` from `s₀`
   preserves `CSOK` and produces a value `P`-related to a successful run
   of the fueled computation `p` at some fuel.
-* `CEff mode env s₀ Q c` — a twin-only effect (conversion, cache fill):
+* `CEff mode eager env s₀ Q c` — a twin-only effect (conversion, cache fill):
   no fueled counterpart, just invariant preservation plus a value fact.
 
 The value relation is **state-free**.  Memo clauses assert facts that
@@ -42,7 +42,7 @@ namespace ConLeche.Cached
 open ConLeche
 open Expr
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 /-! ## Lawful keys
 
@@ -208,29 +208,29 @@ theorem RelC.refl (x : Expr) : RelC x x := by rfl
 /-- The mode-memo invariant (task #361): the six entry-point memos of
 a `ModeMemos` set are backed by runs at `mode` — the clauses `CSOK`
 states of the state's own six fields, for the eager tower's stored set
-(`CSOK.eager`, at `mode.toEager`). -/
-structure ModeMemosOK (mode : CheckMode) (env : Env) (mm : ModeMemos) : Prop where
+(`CSOK.eager`, at `eager := true`). -/
+structure ModeMemosOK (mode : CheckMode) (eager : Bool) (env : Env) (mm : ModeMemos) : Prop where
   whnfCoreC : ∀ k v, mm.whnfCoreC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      whnfCore mode env F d k = .ok v
+      whnfCore mode eager env F d k = .ok v
   whnfCoreCheapC : ∀ k v, mm.whnfCoreCheapC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      whnfCore mode env F d k true = .ok v
+      whnfCore mode eager env F d k true = .ok v
   whnfC : ∀ k v, mm.whnfC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      whnf mode env F d k = .ok v
+      whnf mode eager env F d k = .ok v
   inferC : ∀ k v, mm.inferC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      inferTypeCore mode env F d k = .ok v
+      inferTypeCore mode eager env F d k = .ok v
   inferIOC : ∀ k v, mm.inferIOC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      inferTypeIO mode env F d k = .ok v
+      inferTypeIO mode eager env F d k = .ok v
   defeqC : ∀ a b r, mm.defeqC[(a, b)]? = some r →
     ∃ F, ∀ d, (Expr.wscopedB d a) = true → (Expr.wscopedB d b) = true →
-      isDefEqCore mode env F d a b = .ok r
+      isDefEqCore mode eager env F d a b = .ok r
 
-/-- The empty set is backed at every mode. -/
-theorem ModeMemosOK.empty : ModeMemosOK mode env {} := by
+/-- The empty set is backed everywhere. -/
+theorem ModeMemosOK.empty : ModeMemosOK mode eager env {} := by
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;> (intros; simp_all)
 
 /-- The cached-state invariant (see the module docstring); its value
@@ -238,7 +238,7 @@ legs are `RelC` and its keys are trees.
 
 The memo clauses are *functions of their keys*, so a `beq` collision,
 which pins the stored key to the query, preserves them. -/
-structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
+structure CSOK (mode : CheckMode) (eager : Bool) (env : Env) (s : CState) : Prop where
   constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ ci,
     env.find? n = some ci ∧
     RelC i (ci.toConstantVal.type.instantiateLevelParams
@@ -253,18 +253,18 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)
   whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      whnfCore mode env F d k = .ok v
+      whnfCore mode eager env F d k = .ok v
   /-- The cheap-projection head normalization's memo (`whnfCore` at
   `cheap_proj`, lane CHEAPPROJ). -/
   whnfCoreCheapC : ∀ k v, s.whnfCoreCheapC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      whnfCore mode env F d k true = .ok v
+      whnfCore mode eager env F d k true = .ok v
   whnfC : ∀ k v, s.whnfC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      whnf mode env F d k = .ok v
+      whnf mode eager env F d k = .ok v
   inferC : ∀ k v, s.inferC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      inferTypeCore mode env F d k = .ok v
+      inferTypeCore mode eager env F d k = .ok v
   /-- The io memo's clause (task #172 B4, the task-#170 memo ruling):
   an entry is backed by an io-*slot* run — the WEAKER invariant, since
   the io slot witnesses fewer checks than `inferC`'s
@@ -273,10 +273,10 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
   weaker. -/
   inferIOC : ∀ k v, s.inferIOC[k]? = some v →
     ∃ F, ∀ d, (Expr.wscopedB d k) = true →
-      inferTypeIO mode env F d k = .ok v
+      inferTypeIO mode eager env F d k = .ok v
   defeqC : ∀ a b r, s.defeqC[(a, b)]? = some r →
     ∃ F, ∀ d, (Expr.wscopedB d a) = true → (Expr.wscopedB d b) = true →
-      isDefEqCore mode env F d a b = .ok r
+      isDefEqCore mode eager env F d a b = .ok r
   lsimp : ∀ u v, s.lsimpC[u]? = some v → v = Level.simplify u
   lnz : ∀ u b, s.lnzC[u]? = some b → b = Level.isNonZero u
   eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → Level.isEquiv l r = some b
@@ -284,8 +284,8 @@ structure CSOK (mode : CheckMode) (env : Env) (s : CState) : Prop where
     s.instC[(k, vs, d)]? = some r →
       r = (Expr.instantiateList k vs d)
   /-- The eager tower's stored memos (task #361) are backed by runs at
-  `mode.toEager`, the mode the `defeqE` slot runs them at. -/
-  eager : ModeMemosOK mode.toEager env s.eagerMemos
+  `eager := true`, the flag the `defeqE` slot runs them at. -/
+  eager : ModeMemosOK mode true env s.eagerMemos
 
 /-- The environment-free residue: exactly the clauses `flushC`
 preserves — the level-operation memos. -/
@@ -295,7 +295,7 @@ structure CSOKF (s : CState) : Prop where
   eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → Level.isEquiv l r = some b
 
 /-- Every invariant state carries the residue. -/
-theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode env s) :
+theorem CSOK.residue {env : Env} {s : CState} (h : CSOK mode eager env s) :
     CSOKF s := ⟨h.lsimp, h.lnz, h.eqv⟩
 
 /-- The empty state carries the residue. -/
@@ -314,7 +314,7 @@ theorem flushC_run (s : CState) : flushC s = .ok ((), s.flushed) := rfl
 surviving components are the residue and the dropped caches' clauses
 are vacuous. -/
 theorem flushC_csok {env' : Env} {s : CState} (hs : CSOKF s) :
-    CSOK mode env' s.flushed := by
+    CSOK mode eager env' s.flushed := by
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hs.lsimp, hs.lnz, hs.eqv,
     ?_, ModeMemosOK.empty⟩ <;> (intros; simp_all [CState.flushed])
 
@@ -327,79 +327,72 @@ theorem CSOKF.flushed {s : CState} (hs : CSOKF s) : CSOKF s.flushed :=
 
 /-- A successful cached run from `s₀` preserves the invariant and its
 value is `P`-related to the value of a successful fueled run. -/
-@[expose] def SimC (mode : CheckMode) (env : Env) (s₀ : CState) {β α : Type}
+@[expose] def SimC (mode : CheckMode) (eager : Bool) (env : Env) (s₀ : CState) {β α : Type}
     (P : β → α → Prop) (c : CheckCM β) (p : FueledM α) : Prop :=
   ∀ v' s', c s₀ = .ok (v', s') →
-    CSOK mode env s' ∧ ∃ v, P v' v ∧ ∃ F, p.val F = .ok v
+    CSOK mode eager env s' ∧ ∃ v, P v' v ∧ ∃ F, p.val F = .ok v
 
 /-- A twin-only effect: invariant preservation and a value fact — no
 fueled counterpart. -/
-@[expose] def CEff (mode : CheckMode) (env : Env) (s₀ : CState) {β : Type}
+@[expose] def CEff (mode : CheckMode) (eager : Bool) (env : Env) (s₀ : CState) {β : Type}
     (Q : β → Prop) (c : CheckCM β) : Prop :=
-  ∀ v' s', c s₀ = .ok (v', s') → CSOK mode env s' ∧ Q v'
+  ∀ v' s', c s₀ = .ok (v', s') → CSOK mode eager env s' ∧ Q v'
 
 /-! ## The eager tower's memos (tasks #353, #361)
 
 `withEagerMemos` swaps the eager tower's stored memos in for the run
 and back out after it.  The invariant follows the swap: the entered
-state carries the invariant at `mode.toEager` (its six fields are the
+state carries the invariant at `eager := true` (its six fields are the
 stored set, backed there by `CSOK.eager`; its eager slot is empty), and
 the left state takes its six fields from the caller's state and its
 eager set — the run's six fields — from the run's state at
-`mode.toEager`.  At an eager mode nothing moves, and `mode.toEager =
-mode`. -/
+`eager := true`.  With the flag already set nothing moves. -/
 
 /-- The plain fields, as a set, are backed at the state's mode. -/
-theorem CSOK.modeMemos {s : CState} (hs : CSOK mode env s) : ModeMemosOK mode env s.modeMemos :=
+theorem CSOK.modeMemos {s : CState} (hs : CSOK mode eager env s) : ModeMemosOK mode eager env
+    s.modeMemos :=
   ⟨hs.whnfCoreC, hs.whnfCoreCheapC, hs.whnfC, hs.inferC, hs.inferIOC, hs.defeqC⟩
 
-/-- An eager mode is its own eager tower's mode. -/
-theorem CheckMode.toEager_of_eager {mode : CheckMode} (h : mode.eager = true) :
-    mode.toEager = mode := by
-  cases mode <;> simp_all [CheckMode.eager, CheckMode.toEager]
-
-/-- The entered state carries the invariant at the eager tower's mode. -/
-theorem CSOK.enterEager {s : CState} (hs : CSOK mode env s) :
-    CSOK mode.toEager env (s.enterEager mode.eager).2 := by
-  by_cases he : mode.eager = true
-  · simp only [CState.enterEager, he, ite_true]
-    rw [CheckMode.toEager_of_eager he]; exact hs
-  · simp only [CState.enterEager, he, Bool.false_eq_true, ite_false]
+/-- The entered state carries the invariant at the eager tower's flag. -/
+theorem CSOK.enterEager {s : CState} (hs : CSOK mode eager env s) :
+    CSOK mode true env (s.enterEager eager).2 := by
+  cases eager with
+  | true => exact hs
+  | false =>
     exact ⟨hs.constTy, hs.constVal, hs.ruleRhs, hs.eager.whnfCoreC, hs.eager.whnfCoreCheapC,
       hs.eager.whnfC, hs.eager.inferC, hs.eager.inferIOC, hs.eager.defeqC, hs.lsimp, hs.lnz,
       hs.eqv, hs.instC, ModeMemosOK.empty⟩
 
 /-- The left state: the caller's plain memos, the run's six fields as
-the eager set, the run's mode-free caches (at an eager mode, the run's
-state as it is). -/
-theorem CSOK.leaveEager {s₀ s₂ : CState} (hs₀ : CSOK mode env s₀)
-    (hs₂ : CSOK mode.toEager env s₂) :
-    CSOK mode env (s₂.leaveEager (s₀.enterEager mode.eager).1) := by
-  by_cases he : mode.eager = true
-  · simp only [CState.enterEager, he, ite_true, CState.leaveEager]
-    rw [CheckMode.toEager_of_eager he] at hs₂; exact hs₂
-  · simp only [CState.enterEager, he, Bool.false_eq_true, ite_false, CState.leaveEager]
+the eager set, the run's mode-free caches (with the flag already set,
+the run's state as it is). -/
+theorem CSOK.leaveEager {s₀ s₂ : CState} (hs₀ : CSOK mode eager env s₀)
+    (hs₂ : CSOK mode true env s₂) :
+    CSOK mode eager env (s₂.leaveEager (s₀.enterEager eager).1) := by
+  cases eager with
+  | true => exact hs₂
+  | false =>
     exact ⟨hs₂.constTy, hs₂.constVal, hs₂.ruleRhs, hs₀.whnfCoreC, hs₀.whnfCoreCheapC,
       hs₀.whnfC, hs₀.inferC, hs₀.inferIOC, hs₀.defeqC, hs₂.lsimp, hs₂.lnz, hs₂.eqv, hs₂.instC,
       hs₂.modeMemos⟩
 
 /-- **A run on the eager tower's memos** simulates what the run
-simulates at `mode.toEager`, from the caller's invariant at `mode`. -/
+simulates at `eager := true`, from the caller's invariant at `eager`. -/
 theorem SimC.eagerMemos {s₀ : CState} {β α : Type}
     {P : β → α → Prop} {x : CheckCM β} {p : FueledM α}
-    (hs : CSOK mode env s₀)
-    (hx : ∀ {s₁ : CState}, CSOK mode.toEager env s₁ → SimC mode.toEager env s₁ P x p) :
-    SimC mode env s₀ P (withEagerMemos mode x) p := by
-  intro v' s' (hr : withEagerMemos mode x s₀ = .ok (v', s'))
-  have hrun : withEagerMemos mode x s₀ =
-      (match x (s₀.enterEager mode.eager).2 with
-        | .ok (v, s₂) => .ok (v, s₂.leaveEager (s₀.enterEager mode.eager).1)
+    (hs : CSOK mode eager env s₀)
+    (hx : ∀ {s₁ : CState}, CSOK mode true env s₁ → SimC mode true env s₁ P x p) :
+    SimC mode eager env s₀ P (withEagerMemos eager x) p := by
+  intro v' s' (hr : withEagerMemos eager x s₀ = .ok (v', s'))
+  have hrun : withEagerMemos eager x s₀ =
+      (match x (s₀.enterEager eager).2 with
+        | .ok (v, s₂) => .ok (v, s₂.leaveEager (s₀.enterEager eager).1)
         | .error e => .error e) := by
     simp only [withEagerMemos, bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
       StateT.modifyGet, modify, pure, StateT.pure, Except.pure, Except.bind]
-    cases x (s₀.enterEager mode.eager).2 <;> rfl
+    cases x (s₀.enterEager eager).2 <;> rfl
   rw [hrun] at hr
-  cases hx₁ : x (s₀.enterEager mode.eager).2 with
+  cases hx₁ : x (s₀.enterEager eager).2 with
   | error err => rw [hx₁] at hr; exact nomatch hr
   | ok pr =>
     obtain ⟨v, s₂⟩ := pr
@@ -413,7 +406,7 @@ theorem SimC.eagerMemos {s₀ : CState} {β α : Type}
 computations with the same runs are interchangeable. -/
 theorem SimC.congr_fueled {s₀ : CState} {β α : Type} {P : β → α → Prop}
     {c : CheckCM β} {p q : FueledM α} (hpq : ∀ F, q.val F = p.val F)
-    (h : SimC mode env s₀ P c p) : SimC mode env s₀ P c q := by
+    (h : SimC mode eager env s₀ P c p) : SimC mode eager env s₀ P c q := by
   intro v' s' hr
   obtain ⟨hs', v, hP, F, hF⟩ := h v' s' hr
   exact ⟨hs', v, hP, F, by rw [hpq]; exact hF⟩
@@ -432,8 +425,8 @@ namespace SimC
 variable {env : Env} {s₀ : CState}
 
 protected theorem pure {β α : Type} {P : β → α → Prop}
-    {b : β} {a : α} (hs : CSOK mode env s₀) (h : P b a) :
-    SimC mode env s₀ P (pure b) (pure a) := by
+    {b : β} {a : α} (hs : CSOK mode eager env s₀) (h : P b a) :
+    SimC mode eager env s₀ P (pure b) (pure a) := by
   intro v' s' hr
   simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr
@@ -441,16 +434,16 @@ protected theorem pure {β α : Type} {P : β → α → Prop}
 
 protected theorem throw {β α : Type} {P : β → α → Prop}
     {e : CheckError} {p : FueledM α} :
-    SimC mode env s₀ P (throw e) p := by
+    SimC mode eager env s₀ P (throw e) p := by
   intro v' s' hr
   exact nomatch hr
 
 /-- Strengthen the value relation using the fueled run's success. -/
 protected theorem wp {β α : Type} {P Q : β → α → Prop}
     {c : CheckCM β} {p : FueledM α}
-    (h : SimC mode env s₀ P c p)
+    (h : SimC mode eager env s₀ P c p)
     (himp : ∀ v' v, P v' v → (∃ F, p.val F = .ok v) → Q v' v) :
-    SimC mode env s₀ Q c p := by
+    SimC mode eager env s₀ Q c p := by
   intro v' s' hr
   obtain ⟨hs', v, hP, F, hp⟩ := h v' s' hr
   exact ⟨hs', v, himp v' v hP ⟨F, hp⟩, F, hp⟩
@@ -459,17 +452,17 @@ protected theorem wp {β α : Type} {P Q : β → α → Prop}
 subsume `p`'s (at some fuel) can replace it. -/
 protected theorem wr {β α : Type} {P : β → α → Prop}
     {c : CheckCM β} {p q : FueledM α}
-    (h : SimC mode env s₀ P c p)
+    (h : SimC mode eager env s₀ P c p)
     (himp : ∀ (v : α) (F : Nat), p.val F = .ok v → ∃ F', q.val F' = .ok v) :
-    SimC mode env s₀ P c q := by
+    SimC mode eager env s₀ P c q := by
   intro v' s' hr
   obtain ⟨hs', v, hP, F, hp⟩ := h v' s' hr
   obtain ⟨F', hq⟩ := himp v F hp
   exact ⟨hs', v, hP, F', hq⟩
 
 protected theorem liftFueled {α : Type} (what : String) (o : Option α)
-    (hs : CSOK mode env s₀) :
-    SimC mode env s₀ RelVC (liftFueled what o) (liftFueled what o) := by
+    (hs : CSOK mode eager env s₀) :
+    SimC mode eager env s₀ RelVC (liftFueled what o) (liftFueled what o) := by
   cases o with
   | some a => exact SimC.pure hs rfl
   | none => exact SimC.throw
@@ -481,7 +474,7 @@ namespace CEff
 variable {env : Env} {s₀ : CState}
 
 protected theorem pure {β : Type} {Q : β → Prop} {b : β}
-    (hs : CSOK mode env s₀) (h : Q b) : CEff mode env s₀ Q (pure b) := by
+    (hs : CSOK mode eager env s₀) (h : Q b) : CEff mode eager env s₀ Q (pure b) := by
   intro v' s' hr
   simp only [pure, StateT.pure, Except.pure, Except.ok.injEq] at hr
   obtain ⟨rfl, rfl⟩ := Prod.mk.injEq .. ▸ hr

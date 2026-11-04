@@ -52,25 +52,25 @@ fueled operations (`fueledOpsM`) the generic checker functions call:
 the parsed driver calls the knot directly, not through `sharedOpsC`. -/
 
 theorem inferK_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) checkFuel).infer d e
-    ⦃fun v s' => CSOK mode env s' ∧ Runs ((fueledOpsM mode).inferType env d e) v ∧
+    (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode false (mkFEnv env) checkFuel).infer d e
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).inferType env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
   opE_infer_spec hμ henv hs hw
 
 theorem defeqK_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
-    {a b : Expr} (hs : CSOK mode env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ (coreKnotI mode (mkFEnv env) checkFuel).defeq d a b
-    ⦃fun v s' => CSOK mode env s' ∧ Runs ((fueledOpsM mode).isDefEq env d a b) v; ⊤⦄ :=
+    {a b : Expr} (hs : CSOK mode false env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ (coreKnotI mode false (mkFEnv env) checkFuel).defeq d a b
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).isDefEq env d a b) v; ⊤⦄ :=
   opB_spec hμ henv hs hwa hwb
 
 /-! ## Parsed-index entry operations -/
 
 /-- Parsed `ensureSort` is the shared operation `opS`. -/
 theorem opSIxC_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {i : Expr}
-    (hs : CSOK mode env s₀) (hw : Expr.WScoped d i) :
+    (hs : CSOK mode false env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄ opSIxC mode (mkFEnv env) d i
-    ⦃fun u s' => CSOK mode env s' ∧ Runs ((fueledOpsM mode).ensureSort env d i) u; ⊤⦄ :=
+    ⦃fun u s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).ensureSort env d i) u; ⊤⦄ :=
   opS_spec hμ henv hs hw
 
 /-! ## The parsed-declaration checker functions -/
@@ -78,9 +78,9 @@ theorem opSIxC_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : N
 /-- `checkConstantValC` simulates the generic `checkConstantVal` at the
 fueled families; the checked type is well scoped. -/
 theorem checkConstantValC_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {cv : ConstantVal} (hs : CSOK mode env s₀) :
+    {cv : ConstantVal} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkConstantValC mode (mkFEnv env) cv
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkConstantVal (fueledOpsM mode) env cv) v ∧
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkConstantVal (fueledOpsM mode) env cv) v ∧
       Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, checkConstantVal.eq_1,
       Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec, constsResolveF_eq,
@@ -125,10 +125,10 @@ theorem checkDivModPinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : Con
 cached arm's `(mkFEnv env).env`). -/
 theorem certifyNatOpEqsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {c : Name}
     {v : Expr} (hc : natOpNames.contains c = true) (hvf : v.hasFvar = false)
-    (hs : CSOK mode env s₀) :
+    (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ certifyNatEqs (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env
       ((natOpEquations 0 c).map fun eq => (Expr.substConst0 c v eq.1, Expr.substConst0 c v eq.2))
-    ⦃fun r s' => CSOK mode env s' ∧ Runs (certifyNatEqs (fueledOpsM mode) env
+    ⦃fun r s' => CSOK mode false env s' ∧ Runs (certifyNatEqs (fueledOpsM mode) env
       ((natOpEquations 0 c).map fun eq =>
         (Expr.substConst0 c v eq.1, Expr.substConst0 c v eq.2))) r; ⊤⦄ := by
   refine certifyNatEqsS_spec hμ henv (fun eq heq => ?_) hs
@@ -142,10 +142,10 @@ theorem checkDivModPinConsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvW
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint} {ci : ConstantInfo}
     (hci : ci = .defnInfo cv value hint)
     (hc : natDivModNames.contains cv.name = true) (hvf : value.hasFvar = false)
-    (hs : CSOK mode env s₀) :
+    (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkDivModPin (sharedOpsC mode (mkFEnv env)) pins env
       ⟨ci :: env.consts, env.tables⟩ cv.name
-    ⦃fun r s' => CSOK mode env s' ∧ Runs (checkDivModPin (fueledOpsM mode) pins env
+    ⦃fun r s' => CSOK mode false env s' ∧ Runs (checkDivModPin (fueledOpsM mode) pins env
       ⟨ci :: env.consts, env.tables⟩ cv.name) r; ⊤⦄ := by
   subst hci
   refine checkDivModPinS_spec hμ henv (List.contains_iff_mem.mp hc) (fun cv' v' h' hf => ?_) hs
@@ -159,9 +159,9 @@ theorem checkDivModPinConsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvW
 returns is the definition the fueled side conses, its value closed. -/
 theorem checkDefnValCI_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
-    (htf : Expr.WScoped 0 cv.type) (hs : CSOK mode env s₀) :
+    (htf : Expr.WScoped 0 cv.type) (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkDefnValCI mode (mkFEnv env) cv value hint
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (checkDefnVal (fueledOpsM mode) env cv value hint) ⟨v :: env.consts, env.tables⟩ ∧
       v = .defnInfo cv value hint ∧ value.hasFvar = false; ⊤⦄ := by
   sym only [conleche_grind, checkDefnVal.eq_1, Expr.allLevelParamsDefinedC_spec,
@@ -173,9 +173,9 @@ record it returns is the axiom the fueled side conses, the value
 closed. -/
 theorem checkOpaqueValCI_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {cv : ConstantVal} {value : Expr}
-    (htf : Expr.WScoped 0 cv.type) (hs : CSOK mode env s₀) :
+    (htf : Expr.WScoped 0 cv.type) (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkOpaqueValCI mode (mkFEnv env) cv value
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (checkOpaqueVal (fueledOpsM mode) env cv value) ⟨v :: env.consts, env.tables⟩ ∧
       v = .axiomInfo cv ∧ value.hasFvar = false; ⊤⦄ := by
   sym only [conleche_grind, checkOpaqueVal.eq_1, Expr.allLevelParamsDefinedC_spec,
@@ -186,9 +186,9 @@ theorem checkOpaqueValCI_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF e
 
 /-- The pinned-block install simulates its generic twin (task #293:
 three of `checkDeclC`'s arms share this body). -/
-theorem checkBasisDeclC_spec (hs : CSOK mode env s₀) (kind : BasisKind) :
+theorem checkBasisDeclC_spec (hs : CSOK mode false env s₀) (kind : BasisKind) :
     ⦃fun s => s = s₀⦄ checkBasisDeclC (mkFEnv env) kind
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkBasisDecl (m := FueledM) env kind) v.env ∧
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkBasisDecl (m := FueledM) env kind) v.env ∧
       v = mkFEnv v.env; ⊤⦄ := by
   sym only [conleche_grind, checkBasisDecl.eq_1, mkFEnv_env] =>
     vcgen [checkBasisDeclC, installBasisFoldF_pushC, installBasisFoldS_spec (mode := mode) (env := env)] <;> finish
@@ -198,10 +198,11 @@ theorem checkBasisDeclC_spec (hs : CSOK mode env s₀) (kind : BasisKind) :
 on the same declaration.  (There is no bracket in the cached driver:
 `checkDeclC` *is* the plain path.) -/
 theorem checkDeclC_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    (hs : CSOK mode env s₀) {pd : Declaration}
+    (hs : CSOK mode false env s₀) {pd : Declaration}
     (hnotind : ∀ block nP, pd ≠ .indDecl block nP) :
     ⦃fun s => s = s₀⦄ checkDeclC mode pins (mkFEnv env) pd
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkDecl mode (fueledOpsM mode) pins env pd) v.env ∧
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkDecl mode (fueledOpsM mode) pins env pd) v.env
+        ∧
       v = mkFEnv v.env; ⊤⦄ := by
   cases pd with
   | indDecl block nP => exact absurd rfl (hnotind _ _)
@@ -244,7 +245,7 @@ theorem checkDeclStepC_run (hμ : mode.verifiedChecks = true) {env : Env} (henv 
   rw [flushC_run] at hflush
   injection hflush with hflush
   obtain rfl : s₀.flushed = s₁ := congrArg Prod.snd hflush
-  have hcsok : CSOK mode env s₀.flushed := flushC_csok hres
+  have hcsok : CSOK mode false env s₀.flushed := flushC_csok hres
   have main : (∀ block nP, pd ≠ .indDecl block nP) →
       CSOKF s' ∧ fe' = mkFEnv fe'.env ∧
       ∃ F, checkDecl mode (fueledOps mode F) pins env pd = .ok fe'.env := by

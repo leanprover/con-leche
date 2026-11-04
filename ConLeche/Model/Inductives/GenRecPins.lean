@@ -34,6 +34,7 @@ import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Tiers
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Semantics.Tower.SumTower
+import ConLeche.Verify.Modes
 
 public section
 
@@ -64,8 +65,8 @@ variable {mode : CheckMode}
 /-- **An inferred application infers its arguments.** -/
 theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
     ∀ (as : List Expr) {f t : Expr},
-      inferTypeCore mode env F d (Expr.mkAppN f as) = .ok t →
-      ∀ a ∈ as, ∃ ta, inferTypeCore mode env F d a = .ok ta
+      inferTypeCore mode false env F d (Expr.mkAppN f as) = .ok t →
+      ∀ a ∈ as, ∃ ta, inferTypeCore mode false env F d a = .ok ta
   | [], _, _, _, a, ha => nomatch ha
   | b :: as, f, t, h, a, ha => by
     rcases List.mem_cons.mp ha with rfl | ha
@@ -76,8 +77,8 @@ theorem inferTypeCore_mkAppN_args {env : Env} {F d : Nat} :
 
 /-- **An inferred `∀` infers its domain.** -/
 theorem inferTypeCore_forallE_dom' {env : Env} {F d : Nat} {ty bd s : Expr}
-    (h : inferTypeCore mode env F d (.forallE ty bd) = .ok s) :
-    ∃ t, inferTypeCore mode env F d ty = .ok t := by
+    (h : inferTypeCore mode false env F d (.forallE ty bd) = .ok s) :
+    ∃ t, inferTypeCore mode false env F d ty = .ok t := by
   cases F with
   | zero => rw [inferTypeCore_zero] at h; exact nomatch h
   | succ F₀ =>
@@ -184,7 +185,7 @@ over the prefix, in the prefix context**: inferred at the prefix depth
 spine's head and arguments; a term scoped at the prefix infers alike
 there), scoped, and in the prefix context — the prefix openers' readings
 are the prefix domains, graded types (see the module docstring). -/
-theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem storedMajorSub_ctx (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC pp cvTas rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
@@ -193,7 +194,8 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
     {x : Expr} (hxA : x ∈ maj.fvarTypeD.getAppArgs ∨
       ∃ args, maj.fvarTypeD = Expr.mkAppN x args)
     (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) :
-    (∃ tx, ConLeche.inferTypeCore .verified envC F (pp.toBlockShape.rulePrefixAt j) x = .ok tx) ∧
+    (∃ tx, ConLeche.inferTypeCore .verified false envC F (pp.toBlockShape.rulePrefixAt j) x = .ok
+        tx) ∧
       Rules.Frame (pp.toBlockShape.rulePrefixAt j) x ∧
       CtxOk mpC.base2 ψ (pp.toBlockShape.rulePrefixAt j)
         (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse x := by
@@ -216,7 +218,7 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
     obtain ⟨rfl, -⟩ := hB
     rw [hfe, List.getElem?_append_right (by omega), hAlen, Nat.sub_self] at hmaj
     simpa using hmaj.symm
-  have hdomInf : ∃ t, ConLeche.inferTypeCore .verified envC F mI dom = .ok t := by
+  have hdomInf : ∃ t, ConLeche.inferTypeCore .verified false envC F mI dom = .ok t := by
     rw [hrty] at hA
     cases mI with
     | zero =>
@@ -237,7 +239,8 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
   have hbDom : dom.looseBVarsBounded 0 = true := by
     have := hbFvs maj (List.mem_of_getElem? hmaj); rw [hmajE] at this; exact this
   -- the sub-term's inference, scoping and leaves
-  obtain ⟨⟨tx, htx⟩, hwsX, hbX, hlD⟩ : (∃ tx, ConLeche.inferTypeCore .verified envC F mI x = .ok tx) ∧
+  obtain ⟨⟨tx, htx⟩, hwsX, hbX, hlD⟩ : (∃ tx, ConLeche.inferTypeCore .verified false envC F mI x =
+      .ok tx) ∧
       Expr.WScoped mI x ∧ x.looseBVarsBounded 0 = true ∧
       ∀ l ∈ x.fvarLeaves, l ∈ dom.fvarLeaves := by
     rcases hxA with hxA | ⟨args, hdE⟩
@@ -336,7 +339,7 @@ theorem storedMajorSub_ctx (hμ : μ.isVerified = true) (mpC : EnvModelM V μ en
 /-- **A stored major-domain argument, or a head of its application spine,
 over the prefix is graded at every prefix spine** (`storedMajorSub_ctx`,
 then the inference's soundness). -/
-theorem storedMajorSub_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC pp cvTas rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
@@ -360,7 +363,7 @@ theorem storedMajorSub_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ
 
 /-- **A stored major-domain argument over the prefix is graded at every
 prefix spine** (`storedMajorSub_graded` at an argument). -/
-theorem storedMajorArg_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC pp cvTas rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
@@ -392,7 +395,7 @@ back at the prefix openers they are those parameters up to erasure
 stored type's own inference (`storedMajorArg_graded`); `nestedPinGrade`
 carries the grading to the chain of any graded fit of the recursor
 type. -/
-theorem recStagePinsOk (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem recStagePinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
         (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
     {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}

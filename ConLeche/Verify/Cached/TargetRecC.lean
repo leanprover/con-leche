@@ -66,9 +66,10 @@ variable {env : Env}
 /-- `targetOutsideInst` is operation-free: at the cached driver it
 leaves the state alone and computes the pure value. -/
 theorem targetOutsideInstS_spec {fe : FEnv} {I : Name} {us : List Level} {ds : List Expr}
-    {s₀ : CState} (hs : CSOK mode env s₀) :
+    {s₀ : CState} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ targetOutsideInst (m := CheckCM) fe I us ds
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (targetOutsideInst (m := FueledM) fe I us ds) v; ⊤⦄ := by
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetOutsideInst (m := FueledM) fe I us ds) v; ⊤⦄
+        := by
   sym only [conleche_grind, targetOutsideInst.eq_1] =>
     vcgen [targetOutsideInst] <;> finish
 
@@ -77,10 +78,10 @@ theorem targetOutsideInstS_spec {fe : FEnv} {I : Name} {us : List Level} {ds : L
 theorem targetParamsDefEqS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
     {absM : Expr → Expr} (habs : ∀ e, WScoped d e → WScoped d (absM e)) {pfvs : List Expr}
     (hp : ∀ x ∈ pfvs, WScoped d x) :
-    ∀ (as bs : List Expr) {s₀ : CState}, CSOK mode env s₀ →
+    ∀ (as bs : List Expr) {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄
         targetParamsDefEq (sharedOpsC mode (mkFEnv env)) env d absM pfvs as bs
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (targetParamsDefEq (fueledOpsM mode) env d absM pfvs as bs) v; ⊤⦄ := by
   intro as
   induction as with
@@ -116,10 +117,10 @@ block's parameters, the formers closed. -/
 theorem targetClassMatchS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds eds : List Expr} {us lvls : List Level}
-    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) {s₀ : CState} (hs : CSOK mode env s₀) :
+    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) {s₀ : CState} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄
       targetClassMatch (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs us ds lvls eds
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (targetClassMatch (fueledOpsM mode) env p formerTys pfvs us ds lvls eds) v; ⊤⦄ := by
   sym only [conleche_grind, targetClassMatch.eq_1] =>
     vcgen [targetClassMatch, targetParamsDefEqS_spec hμ henv
@@ -130,10 +131,10 @@ theorem targetMajorNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF en
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds : List Expr} {us : List Level} {ctors : List (ConstantVal × Nat)}
     (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) :
-    ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK mode env s₀ →
+    ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄
         targetMajorNfs (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs us ds ctors es
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (targetMajorNfs (fueledOpsM mode) env p formerTys pfvs us ds ctors es) v; ⊤⦄ := by
   intro es
   induction es with
@@ -147,9 +148,9 @@ theorem targetMajorNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF en
 
 theorem targetMajorOfS_spec {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
-    {s₀ : CState} (hs : CSOK mode env s₀) :
+    {s₀ : CState} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ targetMajorOf (m := CheckCM) (mkFEnv env) p ctorsAs pfvs fvs mty
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (targetMajorOf (m := FueledM) (mkFEnv env) p ctorsAs pfvs fvs mty) v; ⊤⦄ := by
   sym only [conleche_grind, targetMajorOf.eq_1, unwrapOr] =>
     vcgen [targetMajorOf, unwrapOr, targetOutsideInstS_spec hs,
@@ -157,9 +158,10 @@ theorem targetMajorOfS_spec {p : BlockShape}
 
 /-- The pin typing at the cached driver. -/
 theorem targetPinTysS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} :
-    ∀ {xs : List Expr}, AllWS d xs → ∀ {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {xs : List Expr}, AllWS d xs → ∀ {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄ targetPinTys (sharedOpsC mode (mkFEnv env)) env d xs
-      ⦃fun v s' => CSOK mode env s' ∧ Runs (targetPinTys (fueledOpsM mode) env d xs) v; ⊤⦄ := by
+      ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetPinTys (fueledOpsM mode) env d xs) v; ⊤⦄ :=
+          by
   intro xs
   induction xs with
   | nil =>
@@ -175,16 +177,17 @@ theorem targetPinTysS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
 pins and the instantiation typed at an outside major. -/
 theorem targetMajorPinsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rP : Nat}
     {M : TargetMajor} (hds : M.member = none → AllWS rP M.ds) {s₀ : CState}
-    (hs : CSOK mode env s₀) :
+    (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC mode (mkFEnv env)) env rP M
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (targetMajorPins (fueledOpsM mode) env rP M) v; ⊤⦄ := by
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetMajorPins (fueledOpsM mode) env rP M) v; ⊤⦄
+        := by
   sym only [conleche_grind, targetMajorPins.eq_1, Option.isNone_iff_eq_none] =>
     vcgen [targetMajorPins, targetPinTysS_spec hμ henv, inferS_spec hμ henv] <;> finish
 
 theorem targetRecPinsS_spec {p : BlockShape} {block : List ConstantInfo} {s₀ : CState}
-    (hs : CSOK mode env s₀) :
+    (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ targetRecPins (m := CheckCM) p block
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (targetRecPins (m := FueledM) p block) v; ⊤⦄ := by
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetRecPins (m := FueledM) p block) v; ⊤⦄ := by
   sym only [conleche_grind, targetRecPins.eq_1] => vcgen [targetRecPins] <;> finish
 
 /-- A resolved major's class, scoped by the block's parameters: its
@@ -203,9 +206,9 @@ theorem TargetMajScoped.getD {l : List TargetMajor}
 theorem targetK53S_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {Mc : TargetMajor}
     (hMc : TargetMajScoped Mc) {tele : List Expr} {majDom f : Expr}
-    {s₀ : CState} (hs : CSOK mode env s₀) :
+    {s₀ : CState} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ targetK53 (sharedOpsC mode (mkFEnv env)) env p formerTys Mc tele majDom f
-    ⦃fun v s' => CSOK mode env s' ∧
+    ⦃fun v s' => CSOK mode false env s' ∧
       Runs (targetK53 (fueledOpsM mode) env p formerTys Mc tele majDom f) v; ⊤⦄ := by
   sym only [conleche_grind, targetK53.eq_1] =>
     vcgen [targetK53, targetClassMatchS_spec hμ henv hformer hMc.1 hs] <;> finish

@@ -54,7 +54,7 @@ def memberShapeI (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level)
   isProp := isProp
 
 /-- **The constructors' conses at a block member.** -/
-theorem blockCtorsLoop (hμ : μ.isVerified = true)
+theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
     {F : Nat} {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}

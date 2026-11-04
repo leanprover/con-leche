@@ -58,9 +58,9 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
       cA.1.type = some crest)
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {u : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {u : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok u)
     {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
@@ -117,9 +117,9 @@ theorem memberCtor_nodesSem {μ : ConLeche.CheckMode} {env : Env} (mk : EnvModel
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
       cA.1.type = some crest)
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {u : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {u : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok u)
     {tyN : Expr} {ksD : List ConLeche.NestFieldKind} {ts : List PosTree}
     (hd : ConLeche.MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
@@ -239,9 +239,9 @@ own levels and parameters) is recorded in the table `tbl`. -/
           cA.1.type = some crest ∧
         ConLeche.MemberCtorD (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?)
           cA.2 crest ks ((nfsR.getD m []).getD j default) ts ∧
-        (∃ ty u, ConLeche.inferTypeCore .verified envI F
+        (∃ ty u, ConLeche.inferTypeCore .verified false envI F
           ((pp.nestCtx fvsP envI.find?).hiAt 0) crest = .ok ty ∧
-          ConLeche.ensureSortCore .verified envI F
+          ConLeche.ensureSortCore .verified false envI F
             ((pp.nestCtx fvsP envI.find?).hiAt 0) ty = .ok u) ∧
         (∀ u ∈ PosTree.forest ts, u ∈ ns) ∧
         (⟨cA.1.name, (pp.nestCtx fvsP envI.find?).lps.map .param,

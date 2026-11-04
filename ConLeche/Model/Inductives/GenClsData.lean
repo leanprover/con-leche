@@ -151,7 +151,7 @@ levels, as a closed graded Π-tower whose outer binders are the class's
 parameter count, and at a prefix spine fitting the rule prefix the
 parameters' readings fit it, the residual being the rule frame's
 constructor (`tgtCrest`) as read at the prefix. -/
-theorem genOutCtorFit (hμ : μ.isVerified = true)
+theorem genOutCtorFit (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
@@ -499,7 +499,7 @@ variable {F : Nat} {env₁ envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos
 set_option maxHeartbeats 4000000 in
 /-- **The rule frame's constructor reads as a Π-tower over the field
 domains** (`genCls_open`'s field half, with the tower itself). -/
-theorem genCls_openCrest (hμ : μ.isVerified = true)
+theorem genCls_openCrest (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
@@ -590,7 +590,7 @@ variable {F : Nat} {env₁ envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos
 
 /-- **The recursor fit's values**, split at the rule prefix: the prefix
 fits the rule's prefix domains, the whole spine the stored binders. -/
-theorem genRow3_frame (hμ : μ.isVerified = true)
+theorem genRow3_frame (hμ : μ.verifiedChecks = true)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (ψ : Name → Nat) {ρ : Nat → V} {xs : List Term}
@@ -632,7 +632,7 @@ recursor's parameters and index tuple, so its fields hole-fit there
 (`blockRuleStoredFit_any`: by injectivity at a `Type`-valued block, by
 the subsingleton criterion under the counting guard at a `Prop`-valued
 one) — `genRow3_core` does the rest. -/
-theorem genRows3_mem (hμ : μ.isVerified = true)
+theorem genRows3_mem (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))

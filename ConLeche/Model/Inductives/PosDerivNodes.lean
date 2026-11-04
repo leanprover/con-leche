@@ -205,8 +205,8 @@ The walked subjects are the constructors' field TYPES, never the point
     (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
       ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
         = some crest →
-      (∃ ty u, ConLeche.inferTypeCore .verified env F hi crest = .ok ty ∧
-        ConLeche.ensureSortCore .verified env F hi ty = .ok u) →
+      (∃ ty u, ConLeche.inferTypeCore .verified false env F hi crest = .ok ty ∧
+        ConLeche.ensureSortCore .verified false env F hi ty = .ok u) →
       ∃ ca, Frame hi crest ∧ CtxOkP mp.base2 φ hi (stackCtx mp.base2 φ ctx prog Δ0) crest ∧
         denote mp.base2.acval env φ hi crest = some ca ∧
         GradedTy V (stackCtx mp.base2 φ ctx prog Δ0) ca) →
@@ -233,7 +233,7 @@ theorem whnf_facts {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
     (hgr : GradedTy V Δa ea) :
     Frame dep w ∧ CtxOkP mp.base2 φ dep Δa w ∧
       ∃ wa, denote mp.base2.acval env φ dep w = some wa ∧ GradedTy V Δa wa := by
-  have hw' : ConLeche.whnf .verified env F dep e = .ok w := hw
+  have hw' : ConLeche.whnf .verified false env F dep e = .ok w := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, -⟩ :=
     red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
   exact ⟨hfrw, hC.of_subset hsub, wa, hwa, hgw⟩

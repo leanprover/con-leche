@@ -75,7 +75,7 @@ theorem eval_le_idxUniv {ψ : Name → Nat} {isorts : List Level} {j : Nat} {s :
 
 /-- **The former's index telescope**, graded and bounded by the tuple
 universe at every parameter frame. -/
-theorem idxOk_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem idxOk_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {nP nIdx : Nat} {resSort : Level} {cvTa : ConstantVal} {T : Name}
     {caps : IndCaps} (hfT : env.find? T = some (.indInfo cvTa caps))
     {tfvs : List Expr} {trest : Expr}
@@ -300,7 +300,7 @@ that it refutes the head as another stored family's η constructor
 (`hEtaOther`, `capsOk_cons_native`'s `hother`).  At a block it is
 `ConLeche.BlockEtaInv` (`BlockCtorsLoop.lean`), since `checkBlockInds`
 leaves up to `k` families pending. -/
-theorem ctorsLoopEta (hμ : μ.isVerified = true)
+theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
     {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
@@ -1598,7 +1598,7 @@ each domain, at the frame under the earlier ones, into `univ w`
 frame satisfying the earlier domains, the next domain's reading is
 graded and lies in `univ w` — the sort claim at the context opened by
 the earlier binders. -/
-theorem teleBound_walk (hμ : μ.isVerified = true) (mp : EnvModelM V μ env) (ψ : Name → Nat)
+theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (ψ : Name → Nat)
     {w : Nat} :
     ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr} {Δ : List Term}
       {tl : List Term},
@@ -1608,8 +1608,8 @@ theorem teleBound_walk (hμ : μ.isVerified = true) (mp : EnvModelM V μ env) (�
       (∀ k a, fvs[k]? = some a →
         denote mp.base2.acval env ψ (d + k) a.fvarTypeD = some (tl.getD k default)) →
       (∀ k a, fvs[k]? = some a → ∃ (F : Nat) (t : Expr) (u : Level),
-        ConLeche.inferTypeCore μ env F (d + k) a.fvarTypeD = .ok t ∧
-        ConLeche.ensureSortCore μ env F (d + k) t = .ok u ∧ Level.eval ψ u ≤ w) →
+        ConLeche.inferTypeCore μ false env F (d + k) a.fvarTypeD = .ok t ∧
+        ConLeche.ensureSortCore μ false env F (d + k) t = .ok u ∧ Level.eval ψ u ≤ w) →
       ∀ k, k < n → ∀ ρ : Nat → V, Sat V (((tl.take k)).reverse ++ Δ) ρ →
         WellDenoted V ρ (tl.getD k default) ∧ interp V ρ (tl.getD k default) ∈ˢ (univ w : V)
   | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, _, k, hk, _, _ => absurd hk (Nat.not_lt_zero k)
@@ -1660,8 +1660,8 @@ theorem teleBound_walk (hμ : μ.isVerified = true) (mp : EnvModelM V μ env) (�
             have := hread (k + 1) a (by simpa using hk)
             rwa [show d + (k + 1) = d + 1 + k from by omega] at this
           have hinf' : ∀ k a, fvs'[k]? = some a → ∃ (F : Nat) (t : Expr) (u : Level),
-              ConLeche.inferTypeCore μ env F (d + 1 + k) a.fvarTypeD = .ok t ∧
-              ConLeche.ensureSortCore μ env F (d + 1 + k) t = .ok u ∧ Level.eval ψ u ≤ w := by
+              ConLeche.inferTypeCore μ false env F (d + 1 + k) a.fvarTypeD = .ok t ∧
+              ConLeche.ensureSortCore μ false env F (d + 1 + k) t = .ok u ∧ Level.eval ψ u ≤ w := by
             intro k a hk
             obtain ⟨F, t, u, h1, h2, h3⟩ := hinf (k + 1) a (by simpa using hk)
             rw [show d + (k + 1) = d + 1 + k from by omega] at h1 h2

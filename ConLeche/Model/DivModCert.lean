@@ -383,7 +383,7 @@ reads bundle supplies it). -/
 /-- **One certificate, extracted at `interp`.** -/
 theorem certValue {F : Nat} (mp : EnvModelM V μ env) (ψ : Name → Nat)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      ConLeche.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote mp.base2.acval env ψ d e = some ea)
@@ -835,7 +835,7 @@ theorem dmStmtEq {F : Nat} {mp : EnvModelM V μ env} {c : Name}
     {A : (Name → Nat) → Term} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrame mp c A value' ψ) (heqlaw : EqLaw mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      ConLeche.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote mp.base2.acval env ψ d e = some ea)
@@ -1139,7 +1139,7 @@ theorem dmClause1 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
     {A : (Name → Nat) → Term} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrame mp c A value' ψ) (heqlaw : EqLaw mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      ConLeche.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote mp.base2.acval env ψ d e = some ea)
@@ -1359,7 +1359,7 @@ theorem dmClause2 {F : Nat} {mp : EnvModelM V μ env} {c : Name}
     {A : (Name → Nat) → Term} {value' : Expr} {ψ : Name → Nat}
     (fr : DmFrame mp c A value' ψ) (heqlaw : EqLaw mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      ConLeche.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote mp.base2.acval env ψ d e = some ea)
@@ -1977,7 +1977,7 @@ theorem divMod_install {F : Nat} (mp : EnvModelM V μ env)
     {φ : Name → Nat} (hprev : DivMod mp.base2 φ)
     (heqlaw : EqLaw mp.base2)
     (hacc : ∀ {d : Nat} {e t : Expr},
-      ConLeche.inferTypeCore μ env F d e = .ok t →
+      ConLeche.inferTypeCore μ false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote mp.base2.acval env φ d e = some ea)

@@ -85,9 +85,9 @@ theorem checkStructDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF
     {fvs doms : List Expr}
     (hc : ∀ (i : Nat) (x : Expr), fvs[i]? = some x → WScoped (off + i) (Expr.fvarTypeD x))
     (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (off + i) x) :
-    ∀ {j : Nat} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {j : Nat} {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄ checkStructDomsAt (sharedOpsC mode (mkFEnv env)) env off fvs doms j
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (checkStructDomsAt (fueledOpsM mode) env off fvs doms j) v; ⊤⦄ := by
   intro j
   induction j with
@@ -103,9 +103,9 @@ theorem checkStructDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF
 every `whnf` is the shared one, on a well-scoped input at its depth
 (the opened body is well-scoped one deeper). -/
 theorem whnfTelescopeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
-    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK mode env s₀ → WScoped i e →
+    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK mode false env s₀ → WScoped i e →
       ⦃fun s => s = s₀⦄ whnfTelescope (sharedOpsC mode (mkFEnv env)) env i n e
-      ⦃fun v s' => CSOK mode env s' ∧
+      ⦃fun v s' => CSOK mode false env s' ∧
         Runs (whnfTelescope (fueledOpsM mode) env i n e) v; ⊤⦄ := by
   intro i n
   induction n generalizing i with
@@ -123,9 +123,9 @@ theorem whnfTelescopeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env
 the checked constant's type is well-scoped either way. -/
 theorem checkSumTeleS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     {cv : ConstantVal} {n : Nat} {cvTa₀ : ConstantVal}
-    (hs : CSOK mode env s₀) (hTw : WScoped 0 cvTa₀.type) :
+    (hs : CSOK mode false env s₀) (hTw : WScoped 0 cvTa₀.type) :
     ⦃fun s => s = s₀⦄ checkSumTele (sharedOpsC mode (mkFEnv env)) env cv n cvTa₀
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkSumTele (fueledOpsM mode) env cv n cvTa₀) v ∧
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkSumTele (fueledOpsM mode) env cv n cvTa₀) v ∧
       WScoped 0 v.1.type; ⊤⦄ := by
   sym only [conleche_grind, checkSumTele.eq_1] =>
     vcgen [checkSumTele, whnfTelescopeS_spec hμ henv, checkConstantValS_spec hμ henv] <;>
@@ -136,10 +136,10 @@ explicit) at the shared operations. -/
 theorem checkSumCtorS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env}
     {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvC : ConstantVal} {nF : Nat} {cvTa : ConstantVal}
-    (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode env s₀) :
+    (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ checkSumCtor (sharedOpsC mode (mkFEnv env)) env₀ env T lps nP
         nIdx resSort isProp large cvC nF cvTa
-    ⦃fun v s' => CSOK mode env s' ∧ Runs (checkSumCtor (fueledOpsM mode) env₀ env T lps nP
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkSumCtor (fueledOpsM mode) env₀ env T lps nP
         nIdx resSort isProp large cvC nF cvTa) v; ⊤⦄ := by
   -- `gen := 13` (the default 8 fails): the fueled side is a chain of ten binds, each one
   -- E-matching generation deeper than the last
@@ -155,10 +155,10 @@ the walk is a plain induction on the list. -/
 theorem checkSumCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env}
     {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) :
-    ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK mode env s₀ →
+    ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK mode false env s₀ →
       ⦃fun s => s = s₀⦄ checkSumCtors (sharedOpsC mode (mkFEnv env)) env₀ env T lps
           nP nIdx resSort isProp large cvTa cs
-      ⦃fun v s' => CSOK mode env s' ∧ Runs (checkSumCtors (fueledOpsM mode) env₀ env T lps
+      ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkSumCtors (fueledOpsM mode) env₀ env T lps
           nP nIdx resSort isProp large cvTa cs) v; ⊤⦄ := by
   intro cs
   induction cs with

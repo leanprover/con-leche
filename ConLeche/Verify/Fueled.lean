@@ -12,7 +12,7 @@ public section
 monotone in the fuel (monotonicity of the components is `Mono.lean`'s
 result, carried pointwise through `bind`).  The `atF` battery relates
 the core bodies instantiated at `FueledM` (with the fueled record) to
-their plain instantiations at `pureFns mode env F` — the same projection
+their plain instantiations at `pureFns mode eager env F` — the same projection
 game as `PairM`, one component instead of two.
 -/
 
@@ -20,12 +20,12 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 /- Task #172 B2: the ι cone's mode is decoupled from the knot's, so
 that the `whnfCore` template's ι-cone mode can occupy it while the
 knot stays at the tower's `mode`.  Generalization only — every landed
 call site unifies `mi := mode`. -/
-variable {mi : CheckMode}
+variable {mi : CheckMode} {ei : Bool}
 
 /-- Monotone fuel-indexed families of pure computations. -/
 @[expose] def FueledM (α : Type) : Type :=
@@ -73,16 +73,16 @@ end FueledM
 
 /-- The fueled record: each entry is the family of its fueled runs,
 monotone by `Mono.lean`. -/
-@[expose] def fueledFns (mode : CheckMode) (env : Env) : CoreFns FueledM where
-  whnfCore c d e := ⟨fun F => whnfCore mode env F d e c, fun hle h => whnfCore_mono hle h⟩
-  whnf d e := ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
-  infer d e := ⟨fun F => inferTypeCore mode env F d e,
+@[expose] def fueledFns (mode : CheckMode) (eager : Bool) (env : Env) : CoreFns FueledM where
+  whnfCore c d e := ⟨fun F => whnfCore mode eager env F d e c, fun hle h => whnfCore_mono hle h⟩
+  whnf d e := ⟨fun F => whnf mode eager env F d e, fun hle h => whnf_mono hle h⟩
+  infer d e := ⟨fun F => inferTypeCore mode eager env F d e,
     fun hle h => inferTypeCore_mono hle h⟩
-  defeq d a b := ⟨fun F => isDefEqCore mode env F d a b,
+  defeq d a b := ⟨fun F => isDefEqCore mode eager env F d a b,
     fun hle h => isDefEqCore_mono hle h⟩
-  defeqE d a b := ⟨fun F => (pureFns mode env F).defeqE d a b,
+  defeqE d a b := ⟨fun F => (pureFns mode eager env F).defeqE d a b,
     fun hle h => (pureFns_mono env hle).2.2.2.2.1 d a b _ h⟩
-  inferIO d e := ⟨fun F => inferTypeIO mode env F d e,
+  inferIO d e := ⟨fun F => inferTypeIO mode eager env F d e,
     fun hle h => inferTypeIO_mono hle h⟩
 
 section AtF
@@ -95,18 +95,18 @@ theorem liftFueled_atF {α : Type} (what : String) (o : Option α) (F : Nat) :
 
 theorem iotaCertsFull_atF (d : Nat) (F : Nat) :
     ∀ (ty : Expr) (args : List Expr),
-      (iotaCertsFull (fueledFns mode env) env d ty args).val F =
-        iotaCertsFull (pureFns mode env F) env d ty args
+      (iotaCertsFull (fueledFns mode eager env) env d ty args).val F =
+        iotaCertsFull (pureFns mode eager env F) env d ty args
   | _, [] => rfl
   | .forallE ty body, arg :: rest => by
     show ((do
-        let ta ← (fueledFns mode env).infer d arg
-        if ← (fueledFns mode env).defeq d ta ty then
-          iotaCertsFull (fueledFns mode env) env d (body.instantiate1 arg) rest
+        let ta ← (fueledFns mode eager env).infer d arg
+        if ← (fueledFns mode eager env).defeq d ta ty then
+          iotaCertsFull (fueledFns mode eager env) env d (body.instantiate1 arg) rest
         else pure false : FueledM Bool)).val F = (do
-        let ta ← (pureFns mode env F).infer d arg
-        if ← (pureFns mode env F).defeq d ta ty then
-          iotaCertsFull (pureFns mode env F) env d (body.instantiate1 arg) rest
+        let ta ← (pureFns mode eager env F).infer d arg
+        if ← (pureFns mode eager env F).defeq d ta ty then
+          iotaCertsFull (pureFns mode eager env F) env d (body.instantiate1 arg) rest
         else pure false)
     rw [FueledM.atF_bind]
     congr 1
@@ -125,16 +125,16 @@ theorem iotaCertsFull_atF (d : Nat) (F : Nat) :
 
 theorem defEqList_atF (d : Nat) (F : Nat) :
     ∀ (as bs : List Expr),
-      (defEqList (fueledFns mode env) env d as bs).val F =
-        defEqList (pureFns mode env F) env d as bs
+      (defEqList (fueledFns mode eager env) env d as bs).val F =
+        defEqList (pureFns mode eager env F) env d as bs
   | [], [] => rfl
   | a :: as, b :: bs => by
     show ((do
-        if ← (fueledFns mode env).defeq d a b then
-          defEqList (fueledFns mode env) env d as bs
+        if ← (fueledFns mode eager env).defeq d a b then
+          defEqList (fueledFns mode eager env) env d as bs
         else pure false : FueledM Bool)).val F = (do
-        if ← (pureFns mode env F).defeq d a b then
-          defEqList (pureFns mode env F) env d as bs
+        if ← (pureFns mode eager env F).defeq d a b then
+          defEqList (pureFns mode eager env F) env d as bs
         else pure false)
     rw [FueledM.atF_bind]
     congr 1
@@ -148,13 +148,13 @@ theorem defEqList_atF (d : Nat) (F : Nat) :
   | _ :: _, [] => rfl
 
 theorem defeqArg_atF (d : Nat) (a ta ty : Expr) (F : Nat) :
-    (defeqArg (fueledFns mode env) d a ta ty).val F =
-      defeqArg (pureFns mode env F) d a ta ty := by
+    (defeqArg (fueledFns mode eager env) d a ta ty).val F =
+      defeqArg (pureFns mode eager env F) d a ta ty := by
   unfold defeqArg; split <;> rfl
 
 theorem defeqSpine_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (defeqSpine (fueledFns mode env) env d a b).val F =
-      defeqSpine (pureFns mode env F) env d a b := by
+    (defeqSpine (fueledFns mode eager env) env d a b).val F =
+      defeqSpine (pureFns mode eager env F) env d a b := by
   unfold defeqSpine
   repeat (first
     | rfl
@@ -165,8 +165,8 @@ theorem defeqSpine_atF (d : Nat) (a b : Expr) (F : Nat) :
 
 theorem iotaIndexOk_atF (d : Nat) (F : Nat) (mI rP cnP : Nat) (tyCtor : Expr)
     (margs idx : List Expr) :
-    (iotaIndexOk (fueledFns mode env) env d mI rP cnP tyCtor margs idx).val F =
-      iotaIndexOk (pureFns mode env F) env d mI rP cnP tyCtor margs idx := by
+    (iotaIndexOk (fueledFns mode eager env) env d mI rP cnP tyCtor margs idx).val F =
+      iotaIndexOk (pureFns mode eager env F) env d mI rP cnP tyCtor margs idx := by
   by_cases hmr : mI = rP
   · simp only [iotaIndexOk, ite_eq_left hmr]; rfl
   · simp only [iotaIndexOk, ite_eq_right hmr]
@@ -192,44 +192,44 @@ macro "atF_tac" : tactic =>
     atF_step <;> atF_step <;> atF_step)
 
 theorem reduceNat_atF (d : Nat) (e : Expr) (F : Nat) :
-    (reduceNat (fueledFns mode env) env d e).val F =
-      reduceNat (pureFns mode env F) env d e := by
+    (reduceNat (fueledFns mode eager env) env d e).val F =
+      reduceNat (pureFns mode eager env F) env d e := by
   unfold reduceNat
   atF_tac
 
 theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
-    (ensureSort (fueledFns mode env) env d e).val F =
-      ensureSort (pureFns mode env F) env d e := by
+    (ensureSort (fueledFns mode eager env) env d e).val F =
+      ensureSort (pureFns mode eager env F) env d e := by
   unfold ensureSort
   atF_tac
 
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (proofIrrel (fueledFns mode env) d a b).val F =
-      proofIrrel (pureFns mode env F) d a b := by
+    (proofIrrel (fueledFns mode eager env) d a b).val F =
+      proofIrrel (pureFns mode eager env F) d a b := by
   unfold proofIrrel
   atF_tac
 
 theorem propIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (propIrrel (fueledFns mode env) env d a b).val F =
-      propIrrel (pureFns mode env F) env d a b := by
+    (propIrrel (fueledFns mode eager env) env d a b).val F =
+      propIrrel (pureFns mode eager env F) env d a b := by
   unfold propIrrel
   atF_tac
 
 theorem structEtaCertWith_atF (d : Nat) (a b wtb : Expr) (F : Nat) :
-    (structEtaCertWith (fueledFns mode env) env d a b wtb).val F =
-      structEtaCertWith (pureFns mode env F) env d a b wtb := by
+    (structEtaCertWith (fueledFns mode eager env) env d a b wtb).val F =
+      structEtaCertWith (pureFns mode eager env F) env d a b wtb := by
   unfold structEtaCertWith
   atF_tac
 
 theorem structUnitCert_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (structUnitCert (fueledFns mode env) env d a b).val F =
-      structUnitCert (pureFns mode env F) env d a b := by
+    (structUnitCert (fueledFns mode eager env) env d a b).val F =
+      structUnitCert (pureFns mode eager env F) env d a b := by
   unfold structUnitCert
   atF_tac
 
 theorem etaCert_atF (d : Nat) (ty body : Expr) (b : Expr) (F : Nat) :
-    (etaCert mi (fueledFns mode env) env d ty body b).val F =
-      etaCert mi (pureFns mode env F) env d ty body b := by
+    (etaCert mi (fueledFns mode eager env) env d ty body b).val F =
+      etaCert mi (pureFns mode eager env F) env d ty body b := by
   unfold etaCert
   atF_tac
 
@@ -258,8 +258,8 @@ macro "atF_tac2" : tactic =>
     atF_step2 <;> atF_step2 <;> atF_step2)
 
 theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (structEtaCert (fueledFns mode env) env d a b).val F =
-      structEtaCert (pureFns mode env F) env d a b := by
+    (structEtaCert (fueledFns mode eager env) env d a b).val F =
+      structEtaCert (pureFns mode eager env F) env d a b := by
   unfold structEtaCert
   atF_tac2
 
@@ -267,8 +267,8 @@ theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
 -- body outgrew the split-driven macro.
 set_option maxHeartbeats 800000 in
 theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (F : Nat) :
-    (majorToCtor mode (fueledFns mode env) env d c rules e).val F =
-      majorToCtor mode (pureFns mode env F) env d c rules e := by
+    (majorToCtor mode (fueledFns mode eager env) env d c rules e).val F =
+      majorToCtor mode (pureFns mode eager env F) env d c rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -306,15 +306,15 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     rfl
 
 theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
-    (litMajorToCtor (fueledFns mode env) env d e).val F =
-      litMajorToCtor (pureFns mode env F) env d e := by
+    (litMajorToCtor (fueledFns mode eager env) env d e).val F =
+      litMajorToCtor (pureFns mode eager env F) env d e := by
   unfold litMajorToCtor
   atF_tac2
 
 theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
     (F : Nat) :
-    (prepareMajor mode (fueledFns mode env) env d c rules e).val F =
-      prepareMajor mode (pureFns mode env F) env d c rules e := by
+    (prepareMajor mode (fueledFns mode eager env) env d c rules e).val F =
+      prepareMajor mode (pureFns mode eager env F) env d c rules e := by
   unfold prepareMajor
   split
   · repeat (first
@@ -329,8 +329,8 @@ theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
     rfl
 
 theorem projLitToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
-    (projLitToCtor (fueledFns mode env) env d e).val F =
-      projLitToCtor (pureFns mode env F) env d e := by
+    (projLitToCtor (fueledFns mode eager env) env d e).val F =
+      projLitToCtor (pureFns mode eager env F) env d e := by
   unfold projLitToCtor
   atF_tac2
 
@@ -366,33 +366,33 @@ macro "atF_tac3" : tactic =>
     atF_step3 <;> atF_step3 <;> atF_step3)
 
 theorem stuckIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (stuckIrrel (fueledFns mode env) env d a b).val F =
-      stuckIrrel (pureFns mode env F) env d a b := by
+    (stuckIrrel (fueledFns mode eager env) env d a b).val F =
+      stuckIrrel (pureFns mode eager env F) env d a b := by
   unfold stuckIrrel
   atF_tac3
 
 theorem iotaRec_atF (d : Nat) (e : Expr) (F : Nat) :
-    (iotaRec mode (fueledFns mode env) env d e).val F =
-      iotaRec mode (pureFns mode env F) env d e := by
+    (iotaRec mode (fueledFns mode eager env) env d e).val F =
+      iotaRec mode (pureFns mode eager env F) env d e := by
   unfold iotaRec
   atF_tac3
 
 theorem reduceProjCore_atF (d : Nat) (sn : Name) (i : Nat) (e : Expr) (F : Nat) :
-    (reduceProjCore mi (fueledFns mode env) env d sn i e).val F =
-      reduceProjCore mi (pureFns mode env F) env d sn i e := by
+    (reduceProjCore mi (fueledFns mode eager env) env d sn i e).val F =
+      reduceProjCore mi (pureFns mode eager env F) env d sn i e := by
   unfold reduceProjCore
   atF_core3 (rw [projLitToCtor_atF])
 
 theorem defeqLamsInner_atF (d : Nat) (b₁ b₂ : Expr) (F : Nat) :
-    (defeqLamsInner mi (fueledFns mode env) d b₁ b₂).val F =
-      defeqLamsInner mi (pureFns mode env F) d b₁ b₂ := by
+    (defeqLamsInner mi (fueledFns mode eager env) d b₁ b₂).val F =
+      defeqLamsInner mi (pureFns mode eager env F) d b₁ b₂ := by
   unfold defeqLamsInner
   atF_tac
 
 theorem defeqLams_atF (F : Nat) :
     ∀ (k d : Nat) (ty₁ body₁ ty₂ body₂ : Expr),
-      (defeqLams mi (fueledFns mode env) k d ty₁ body₁ ty₂ body₂).val F =
-        defeqLams mi (pureFns mode env F) k d ty₁ body₁ ty₂ body₂
+      (defeqLams mi (fueledFns mode eager env) k d ty₁ body₁ ty₂ body₂).val F =
+        defeqLams mi (pureFns mode eager env F) k d ty₁ body₁ ty₂ body₂
   | k, d, ty₁, body₁, ty₂, body₂ => by
     rw [defeqLams.eq_def, defeqLams.eq_def]
     rw [FueledM.atF_bind]
@@ -409,39 +409,39 @@ theorem defeqLams_atF (F : Nat) :
       · exact defeqLamsInner_atF d _ _ F
 
 theorem quickDefEq_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (quickDefEq mi (fueledFns mode env) d a b).val F =
-      quickDefEq mi (pureFns mode env F) d a b := by
+    (quickDefEq mi (fueledFns mode eager env) d a b).val F =
+      quickDefEq mi (pureFns mode eager env F) d a b := by
   unfold quickDefEq
   atF_core3 (rw [defeqLams_atF])
 
 theorem defeqOffset_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (defeqOffset (fueledFns mode env) d a b).val F =
-      defeqOffset (pureFns mode env F) d a b := by
+    (defeqOffset (fueledFns mode eager env) d a b).val F =
+      defeqOffset (pureFns mode eager env F) d a b := by
   unfold defeqOffset
   atF_tac3
 
 theorem tryUnfoldProjApp_atF (d : Nat) (e : Expr) (F : Nat) :
-    (tryUnfoldProjApp (fueledFns mode env) d e).val F =
-      tryUnfoldProjApp (pureFns mode env F) d e := by
+    (tryUnfoldProjApp (fueledFns mode eager env) d e).val F =
+      tryUnfoldProjApp (pureFns mode eager env F) d e := by
   unfold tryUnfoldProjApp
   atF_tac3
 
 theorem deltaQuick_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (deltaQuick mi (fueledFns mode env) d a b).val F =
-      deltaQuick mi (pureFns mode env F) d a b := by
+    (deltaQuick mi (fueledFns mode eager env) d a b).val F =
+      deltaQuick mi (pureFns mode eager env F) d a b := by
   unfold deltaQuick
   atF_core3 (rw [quickDefEq_atF])
 
 theorem lazyDeltaStep_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (lazyDeltaStep mi (fueledFns mode env) env d a b).val F =
-      lazyDeltaStep mi (pureFns mode env F) env d a b := by
+    (lazyDeltaStep mi (fueledFns mode eager env) env d a b).val F =
+      lazyDeltaStep mi (pureFns mode eager env F) env d a b := by
   unfold lazyDeltaStep
   atF_core3 (first | rw [deltaQuick_atF] | rw [tryUnfoldProjApp_atF] | rw [defeqSpine_atF])
 
 theorem lazyDeltaReduction_atF (d : Nat) (F : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaReduction mi (fueledFns mode env) env d n a b).val F =
-        lazyDeltaReduction mi (pureFns mode env F) env d n a b
+      (lazyDeltaReduction mi ei (fueledFns mode eager env) env d n a b).val F =
+        lazyDeltaReduction mi ei (pureFns mode eager env F) env d n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaReduction
@@ -449,22 +449,22 @@ theorem lazyDeltaReduction_atF (d : Nat) (F : Nat) :
 
 theorem lazyDeltaProjReduction_atF (d : Nat) (sn : Name) (i : Nat) (F : Nat) :
     ∀ (n : Nat) (a b : Expr),
-      (lazyDeltaProjReduction mi (fueledFns mode env) env d sn i n a b).val F =
-        lazyDeltaProjReduction mi (pureFns mode env F) env d sn i n a b
+      (lazyDeltaProjReduction mi (fueledFns mode eager env) env d sn i n a b).val F =
+        lazyDeltaProjReduction mi (pureFns mode eager env F) env d sn i n a b
   | 0, _, _ => rfl
   | n + 1, a, b => by
     unfold lazyDeltaProjReduction
     atF_core3 (first | rw [lazyDeltaStep_atF] | rw [reduceProjCore_atF] | rw [lazyDeltaProjReduction_atF d sn i F n])
 
 theorem defeqProjPair_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (defeqProjPair mi (fueledFns mode env) env d a b).val F =
-      defeqProjPair mi (pureFns mode env F) env d a b := by
+    (defeqProjPair mi (fueledFns mode eager env) env d a b).val F =
+      defeqProjPair mi (pureFns mode eager env F) env d a b := by
   unfold defeqProjPair
   atF_core3 (rw [lazyDeltaProjReduction_atF])
 
 theorem defeqStuck_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (defeqStuck mi (fueledFns mode env) env d a b).val F =
-      defeqStuck mi (pureFns mode env F) env d a b := by
+    (defeqStuck mi (fueledFns mode eager env) env d a b).val F =
+      defeqStuck mi (pureFns mode eager env F) env d a b := by
   unfold defeqStuck
   atF_core3 (rw [stuckIrrel_atF])
 
@@ -524,41 +524,41 @@ macro "atF_tac4" : tactic =>
     atF_step4 <;> atF_step4 <;> atF_step4)
 
 theorem whnfCoreBody_atF (c : Bool) (d : Nat) (e : Expr) (F : Nat) :
-    (whnfCoreBody mode (fueledFns mode env) env c d e).val F =
-      whnfCoreBody mode (pureFns mode env F) env c d e := by
+    (whnfCoreBody mode (fueledFns mode eager env) env c d e).val F =
+      whnfCoreBody mode (pureFns mode eager env F) env c d e := by
   unfold whnfCoreBody
   atF_tac4
 
 theorem whnfStep_atF (d : Nat) (k : Expr → FueledM Expr)
     (kF : Expr → CheckM Expr) (hk : ∀ e, (k e).val F = kF e) (e : Expr) :
-    (whnfStep (fueledFns mode env) env d k e).val F =
-      whnfStep (pureFns mode env F) env d kF e := by
+    (whnfStep (fueledFns mode eager env) env d k e).val F =
+      whnfStep (pureFns mode eager env F) env d kF e := by
   unfold whnfStep
   atF_tac4k hk
 
 theorem whnfLoop_atF (d : Nat) (F : Nat) :
     ∀ (n : Nat) (e : Expr),
-      (whnfLoop (fueledFns mode env) env d n e).val F =
-        whnfLoop (pureFns mode env F) env d n e
+      (whnfLoop (fueledFns mode eager env) env d n e).val F =
+        whnfLoop (pureFns mode eager env F) env d n e
   | 0, _ => rfl
   | n + 1, e => whnfStep_atF d _ _ (fun e' => whnfLoop_atF d F n e') e
 
 theorem whnfBody_atF (d : Nat) (e : Expr) (F : Nat) :
-    (whnfBody (fueledFns mode env) env d e).val F =
-      whnfBody (pureFns mode env F) env d e :=
+    (whnfBody (fueledFns mode eager env) env d e).val F =
+      whnfBody (pureFns mode eager env F) env d e :=
   whnfLoop_atF d F whnfLoopFuel e
 
 theorem inferBody_atF (d : Nat) (e : Expr) (F : Nat) :
-    (inferBody (fueledFns mode env) env d e).val F =
-      inferBody (pureFns mode env F) env d e := by
+    (inferBody (fueledFns mode eager env) env d e).val F =
+      inferBody (pureFns mode eager env F) env d e := by
   unfold inferBody
   atF_tac4
 
 /-- The io inference body over the io-grade views (task #172 B4): the
 same walk, the slot's family in the recursion sites. -/
 theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
-    (inferBodyIO (CoreFns.ioView (fueledFns mode env)) env d e).val F =
-      inferBodyIO (CoreFns.ioView (pureFns mode env F)) env d e := by
+    (inferBodyIO (CoreFns.ioView (fueledFns mode eager env)) env d e).val F =
+      inferBodyIO (CoreFns.ioView (pureFns mode eager env F)) env d e := by
   unfold inferBodyIO CoreFns.ioView
   atF_tac4
   -- the residual `ensureSort` goals: the view leaves `whnf` (the only
@@ -566,8 +566,8 @@ theorem inferBodyIO_atF (d : Nat) (e : Expr) (F : Nat) :
   all_goals exact ensureSort_atF _ _ _
 
 theorem defeqBody_atF (d : Nat) (a b : Expr) (F : Nat) :
-    (defeqBody mode (fueledFns mode env) env d a b).val F =
-      defeqBody mode (pureFns mode env F) env d a b := by
+    (defeqBody mode eager (fueledFns mode eager env) env d a b).val F =
+      defeqBody mode eager (pureFns mode eager env F) env d a b := by
   unfold defeqBody
   atF_tac4
 

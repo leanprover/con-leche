@@ -1316,7 +1316,7 @@ def lazyDeltaStepI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
       | _, _ => pure .unknown
 
 /-- Twin of `lazyDeltaReduction`. -/
-def lazyDeltaReductionI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
+def lazyDeltaReductionI (eager : Bool) (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Nat → Expr → Expr → CheckCM LazyRes
   | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
   | n + 1, a, b => do
@@ -1324,7 +1324,7 @@ def lazyDeltaReductionI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     | some v => pure (.verdict v)
     | none =>
     -- the eager flag (task #353) folds with free variables present
-    let fold ← pure (mode.eager || (!Expr.hasFvar a && !Expr.hasFvar b))
+    let fold ← pure (eager || (!Expr.hasFvar a && !Expr.hasFvar b))
     match ← (if fold then reduceNatI r fe depth a else pure none) with
     | some a₂ => do
       let v ← r.defeq depth a₂ b
@@ -1336,7 +1336,7 @@ def lazyDeltaReductionI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
       pure (.verdict v)
     | none =>
     match ← lazyDeltaStepI mode r fe depth a b with
-    | .cont a' b' => lazyDeltaReductionI r fe depth n a' b'
+    | .cont a' b' => lazyDeltaReductionI eager r fe depth n a' b'
     | .eq => pure (.verdict true)
     | .diff => pure (.verdict false)
     | .unknown => pure (.unknown a b)
@@ -1417,13 +1417,13 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | _, _ => stuckIrrelI r fe depth a b
 
 /-- Twin of `defeqBody`. -/
-def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
+def defeqBodyI (eager : Bool) (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bool :=
   fun depth a b => do
     if a == b then pure true else
     -- the eq-true shortcut (E2), as in the spec
     let bt ← pure (Expr.isBoolTrue b)
     let af ← pure (Expr.hasFvar a)
-    if ← (if bt && (mode.eager || !af) then boolTrueShortcutI r depth a
+    if ← (if bt && (eager || !af) then boolTrueShortcutI r depth a
         else pure false) then pure true else
     match ← quickDefEqI mode r depth a b with
     | some v => pure v
@@ -1435,7 +1435,7 @@ def defeqBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr → CheckCM Bo
     match ← quickDefEqI mode r depth a' b' with
     | some v => pure v
     | none =>
-    match ← lazyDeltaReductionI mode r fe depth defeqLoopFuel a' b' with
+    match ← lazyDeltaReductionI mode eager r fe depth defeqLoopFuel a' b' with
     | .verdict v => pure v
     | .unknown a₁ b₁ =>
     if ← defeqProjPairI mode r fe depth a₁ b₁ then pure true else
@@ -1483,6 +1483,87 @@ index pair (`@[inline]` as `memoEI`). -/
         { st with defeqC := mp.insert (a, b) r }
       pure r
 
+/-- One level of the knot, given the level below (`prev`) and the eager
+tower's level below (`prevE`). -/
+@[inline] def knotLevelI (mode : CheckMode) (eager : Bool) (fe : FEnv)
+    (prev prevE : Unit → CoreFnsI) : CoreFnsI :=
+  -- **NOT a `Thunk`** (task #179).  The previous fuel level used to be
+  -- `Thunk`-cached (perf-eng E1: built once per record rather than once
+  -- per cache-missing call), and that single word cost 13.8 % of
+  -- `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
+  -- **value** — the runtime's invariant is that a single-threaded object
+  -- may not be reachable from a multi-threaded one, and a thunk may be
+  -- forced from another thread — so forcing this thunk marked the whole
+  -- reachable graph of its value multi-threaded, and the value's six
+  -- closures capture `fe`.  Two consequences, both `O(|env|)` per
+  -- *declaration*: (i) the mark itself walks the index's whole bucket
+  -- array, and (ii) an MT object is never `lean_is_exclusive`, so
+  -- `FEnv.push`'s `idx.insert` stopped updating in place and copied the
+  -- bucket array (with an atomic `lean_inc` per slot) at every accepted
+  -- constant — the two symbols task #177 left unattributed,
+  -- `lean_mark_mt` (7.6 %) and `lean_copy_expand_array` (6.2 %).  The
+  -- copy re-created the array as single-threaded, the next force marked
+  -- it again, and the loop sustained itself.  A plain `Unit`-closure
+  -- forces nothing and marks nothing; it pays E1 back (one record per
+  -- cache-missing call) and that is the smaller number by 5×.
+  -- `Thunk.get ⟨f⟩` is `f ()` by structure eta, so this is the same
+  -- term: no proof in `ConLeche/Verify/Cached/*` moved.
+  -- task #172 B2 / #185: the template's parameter is the mode, an
+  -- enum passed down once per *driver* — nothing is built per knot
+  -- level or per call (at B2 a record allocation at every
+  -- head-normalization entry cost +0.155 % on `init-prelude`).
+  -- The two modes of `whnfCore` (official `cheap_proj`) under two
+  -- memos: their results differ on a stuck projection.
+  { whnfCore := fun c => if c then
+        memoEI (·.whnfCoreCheapC)
+          (fun st mp => { st with whnfCoreCheapC := mp })
+          (fun d e => whnfCoreBodyI mode (prev ()) fe true d e)
+      else memoEI (·.whnfCoreC)
+        (fun st mp => { st with whnfCoreC := mp })
+        (fun d e => whnfCoreBodyI mode (prev ()) fe false d e)
+    whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+      (fun d e => whnfBodyI (prev ()) fe d e)
+    infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
+      (fun d e => inferBodyI (prev ()) fe d e)
+    defeq := memoBI
+      (fun d a b => defeqBodyI mode eager (prev ()) fe d a b)
+    -- **The eager slot** (task #353): the eager tower — the knot at
+    -- `eager := true` one level down — on its own memos, kept in the
+    -- state between eager comparisons (`withEagerMemos`, task #361:
+    -- an eager entry never serves a plain query)
+    defeqE := fun d a b => withEagerMemos eager
+      (memoBI (fun d a b =>
+        defeqBodyI mode true (prevE ()) fe d a b) d a b)
+    -- **The io slot** (task #170 / #172 B4, task #346): the io body
+    -- under its OWN memo (`CState.inferIOC` — the task-#170 memo
+    -- ruling: a hit in the io memo never serves a full-infer query),
+    -- tied to the io-grade view of the previous level (the grade
+    -- propagates)
+    inferIO := memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
+      (fun d e => inferBodyIOI (prev ()).ioView fe d e) }
+
+
+/-- The knot below fuel: every entry point is out of fuel. -/
+def knotZeroI : CoreFnsI :=
+  { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+    whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+    infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+    defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+    defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+    inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
+
+/-- The eager tower's knot (`coreKnotI` at `eager := true`). -/
+def knotEagerI (mode : CheckMode) (fe : FEnv) : Nat → CoreFnsI
+  | 0 => knotZeroI
+  | fuel + 1 => knotLevelI mode true fe (fun _ => knotEagerI mode fe fuel)
+      (fun _ => knotEagerI mode fe fuel)
+
+/-- The plain knot (`coreKnotI` at `eager := false`). -/
+def knotPlainI (mode : CheckMode) (fe : FEnv) : Nat → CoreFnsI
+  | 0 => knotZeroI
+  | fuel + 1 => knotLevelI mode false fe (fun _ => knotPlainI mode fe fuel)
+      (fun _ => knotEagerI mode fe fuel)
+
 /-- Tie the bodies at the memoizing state monad (fuel only
 here, as in `coreKnot`; levels built lazily).
 
@@ -1492,70 +1573,17 @@ is the verified core the capstones are stated about, and
 `coreKnotI .trusted` is the trusted core `--trusted` runs — the same
 function at the other mode.  The mode-parametric simulation tower
 (`ConLeche/Verify/Cached/*`) is stated at `coreKnotI mode` under
-`hμ : mode.verifiedChecks = true`. -/
-def coreKnotI (mode : CheckMode) (fe : FEnv) : Nat → CoreFnsI
-  | 0 =>
-    { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-      whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-      infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-      defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
-      inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
-  | fuel + 1 =>
-    -- **NOT a `Thunk`** (task #179).  The previous fuel level used to be
-    -- `Thunk`-cached (perf-eng E1: built once per record rather than once
-    -- per cache-missing call), and that single word cost 13.8 % of
-    -- `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
-    -- **value** — the runtime's invariant is that a single-threaded object
-    -- may not be reachable from a multi-threaded one, and a thunk may be
-    -- forced from another thread — so forcing this thunk marked the whole
-    -- reachable graph of its value multi-threaded, and the value's six
-    -- closures capture `fe`.  Two consequences, both `O(|env|)` per
-    -- *declaration*: (i) the mark itself walks the index's whole bucket
-    -- array, and (ii) an MT object is never `lean_is_exclusive`, so
-    -- `FEnv.push`'s `idx.insert` stopped updating in place and copied the
-    -- bucket array (with an atomic `lean_inc` per slot) at every accepted
-    -- constant — the two symbols task #177 left unattributed,
-    -- `lean_mark_mt` (7.6 %) and `lean_copy_expand_array` (6.2 %).  The
-    -- copy re-created the array as single-threaded, the next force marked
-    -- it again, and the loop sustained itself.  A plain `Unit`-closure
-    -- forces nothing and marks nothing; it pays E1 back (one record per
-    -- cache-missing call) and that is the smaller number by 5×.
-    -- `Thunk.get ⟨f⟩` is `f ()` by structure eta, so this is the same
-    -- term: no proof in `ConLeche/Verify/Cached/*` moved.
-    let prev : Unit → CoreFnsI := fun _ => coreKnotI mode fe fuel
-    -- task #172 B2 / #185: the template's parameter is the mode, an
-    -- enum passed down once per *driver* — nothing is built per knot
-    -- level or per call (at B2 a record allocation at every
-    -- head-normalization entry cost +0.155 % on `init-prelude`).
-    -- The two modes of `whnfCore` (official `cheap_proj`) under two
-    -- memos: their results differ on a stuck projection.
-    { whnfCore := fun c => if c then
-          memoEI (·.whnfCoreCheapC)
-            (fun st mp => { st with whnfCoreCheapC := mp })
-            (fun d e => whnfCoreBodyI mode (prev ()) fe true d e)
-        else memoEI (·.whnfCoreC)
-          (fun st mp => { st with whnfCoreC := mp })
-          (fun d e => whnfCoreBodyI mode (prev ()) fe false d e)
-      whnf := memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
-        (fun d e => whnfBodyI (prev ()) fe d e)
-      infer := memoEI (·.inferC) (fun st mp => { st with inferC := mp })
-        (fun d e => inferBodyI (prev ()) fe d e)
-      defeq := memoBI
-        (fun d a b => defeqBodyI mode (prev ()) fe d a b)
-      -- **The eager slot** (task #353): the eager tower — the knot at
-      -- `mode.toEager` one level down — on its own memos, kept in the
-      -- state between eager comparisons (`withEagerMemos`, task #361:
-      -- an eager entry never serves a plain query)
-      defeqE := fun d a b => withEagerMemos mode
-        (memoBI (fun d a b =>
-          defeqBodyI mode.toEager (coreKnotI mode.toEager fe fuel) fe d a b) d a b)
-      -- **The io slot** (task #170 / #172 B4, task #346): the io body
-      -- under its OWN memo (`CState.inferIOC` — the task-#170 memo
-      -- ruling: a hit in the io memo never serves a full-infer query),
-      -- tied to the io-grade view of the previous level (the grade
-      -- propagates)
-      inferIO := memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
-        (fun d e => inferBodyIOI (prev ()).ioView fe d e) }
+`hμ : mode.verifiedChecks = true`.
+
+The flag is decided here, once, and each of the two knots has it as a
+literal (task #452): a level's closures, allocated on every
+cache-missing call, then capture no flag, which on `init-full` costs
++0.5 % otherwise.  A `match` on the flag inside one recursive knot
+does not achieve this: the compiler puts the variable back in the
+branches. -/
+def coreKnotI (mode : CheckMode) (eager : Bool) (fe : FEnv) (fuel : Nat) : CoreFnsI :=
+  match eager with
+  | false => knotPlainI mode fe fuel
+  | true => knotEagerI mode fe fuel
 
 end ConLeche.Cached

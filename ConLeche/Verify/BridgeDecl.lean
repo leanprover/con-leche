@@ -29,13 +29,13 @@ variable {pins : List NatOpPinSet}
 /-- The fueled operations as monotone families. -/
 @[expose] def fueledOpsM (mode : CheckMode) : CheckerOps FueledM where
   inferType env d e :=
-    ⟨fun F => inferTypeCore mode env F d e, fun hle h => inferTypeCore_mono hle h⟩
+    ⟨fun F => inferTypeCore mode false env F d e, fun hle h => inferTypeCore_mono hle h⟩
   isDefEq env d a b :=
-    ⟨fun F => isDefEqCore mode env F d a b, fun hle h => isDefEqCore_mono hle h⟩
+    ⟨fun F => isDefEqCore mode false env F d a b, fun hle h => isDefEqCore_mono hle h⟩
   ensureSort env d e :=
-    ⟨fun F => ensureSortCore mode env F d e, fun hle h => ensureSortCore_mono hle h⟩
+    ⟨fun F => ensureSortCore mode false env F d e, fun hle h => ensureSortCore_mono hle h⟩
   whnf env d e :=
-    ⟨fun F => whnf mode env F d e, fun hle h => whnf_mono hle h⟩
+    ⟨fun F => whnf mode false env F d e, fun hle h => whnf_mono hle h⟩
 
 /-! ## The `atF` battery: fueled-family runs are fueled-ops runs -/
 

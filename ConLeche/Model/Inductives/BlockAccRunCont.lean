@@ -5,6 +5,7 @@ import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Rules.Inputs
+import ConLeche.Verify.Modes
 
 public section
 
@@ -67,9 +68,9 @@ theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvMode
       ksD tyN ts)
     (hcovk : (∃ k ∈ ksD, k.flat = false) →
       ContOk mp ψ (d.w ψ) (p.nestCtx fvsP env.find?))
-    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified env F
+    {ty : Expr} (hinf : ConLeche.inferTypeCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) crest = .ok ty)
-    {u : Level} (hsort : ConLeche.ensureSortCore .verified env F
+    {u : Level} (hsort : ConLeche.ensureSortCore .verified false env F
       ((p.nestCtx fvsP env.find?).hiAt 0) ty = .ok u)
     (hnf : d.nfFF c j = tyN)
     {ρp : Nat → V} (hs : Sat V (d.params ψ).reverse ρp)
@@ -312,7 +313,7 @@ frame**, with a bound that is a set of the level at a `Type`-valued one
 — whence the operator's accessibility, (W) and monotonicity: the block theorem with the
 container rules read at the walk's carrier (coverage) and the walk
 context's sort (the block's level). -/
-theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.isVerified = true) {F : Nat}
+theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))}

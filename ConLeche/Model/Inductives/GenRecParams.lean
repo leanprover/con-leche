@@ -73,8 +73,8 @@ theorem SameDoms.mono :
 
 /-- A run on a `∀` carries a run on its domain. -/
 theorem inferTypeCore_forallE_dom {envK : Env} {F d : Nat} {ty bd s : Expr}
-    (h : inferTypeCore μ envK F d (.forallE ty bd) = .ok s) :
-    ∃ F₀ tty, F = F₀ + 1 ∧ inferTypeCore μ envK F₀ d ty = .ok tty := by
+    (h : inferTypeCore μ false envK F d (.forallE ty bd) = .ok s) :
+    ∃ F₀ tty, F = F₀ + 1 ∧ inferTypeCore μ false envK F₀ d ty = .ok tty := by
   cases F with
   | zero =>
     rw [inferTypeCore_zero] at h
@@ -90,11 +90,11 @@ argument `aₗ` (`l < m`) with the telescope's `l`-th domain at the
 earlier arguments. -/
 theorem inferTypeCore_spine_defeq {envK : Env} {F d : Nat} :
     ∀ (as : List Expr) {f tf t : Expr} {m : Nat}, m ≤ as.length → SameDoms m tf tf →
-      inferTypeCore μ envK F d f = .ok tf →
-      inferTypeCore μ envK F d (Expr.mkAppN f as) = .ok t →
+      inferTypeCore μ false envK F d f = .ok tf →
+      inferTypeCore μ false envK F d (Expr.mkAppN f as) = .ok t →
       ∀ l, l < m → ∃ D b ta, instPisWith (as.take l) tf = some (.forallE D b) ∧
-        inferTypeCore μ envK F d (as.getD l default) = .ok ta ∧
-        isDefEqCore (μ.argMode (as.getD l default)) envK F d ta D = .ok true
+        inferTypeCore μ false envK F d (as.getD l default) = .ok ta ∧
+        isDefEqCore μ (argEager false (as.getD l default)) envK F d ta D = .ok true
   | [], _, _, _, m, hm, _, _, _, l, hl => absurd hl (by simp at hm; omega)
   | a :: as, f, tf, t, m, hm, hsd, hf, h, l, hl => by
     obtain ⟨tfa, hfa⟩ := Model.inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
@@ -202,7 +202,7 @@ member `T_t` infers its major domain `T_t p⃗ ı⃗` — over the prefix's own
 parameter variables — and the application rule compares each variable's
 type, the stored `l`-th prefix domain, with `T_t`'s `l`-th parameter
 domain at the earlier variables; moved to the prefix's depth. -/
-theorem genMemberRec_paramDefeq (hμ : μ.isVerified = true) (hwf : ConLeche.EnvWF envC)
+theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche.EnvWF envC)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape} {cvG : ConstantVal}
@@ -213,7 +213,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.isVerified = true) (hwf : ConLeche.Env
         cvT.levelParams = p.lps → cvT.type.hasFvar = false → SameDoms p.nP cvT.type cvT.type →
         ∃ (xs : List Expr) (o : Expr) (F' : Nat), openPisAtFvars p.nP cvG.type 0 = some (xs, o) ∧
           ∀ l, l < p.nP → ∃ D b, instPisWith (xs.take l) cvT.type = some (.forallE D b) ∧
-            ConLeche.isDefEqCore μ envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
+            ConLeche.isDefEqCore μ false envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
               = .ok true := by
   obtain ⟨-, -, -, -, hfv0, -, -, stype, u0, hinf, -⟩ :=
     ConLeche.classConstOk_inv T.hcv
@@ -353,7 +353,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.isVerified = true) (hwf : ConLeche.Env
     rw [List.getD_eq_getElem?_getD, hargEq l hl, hxl, Option.getD_some]
   rw [hasl] at hta
   -- a free variable is no `eagerReduce _ _`: the knot's own mode
-  rw [hasl, show μ.argMode (.fvar l Al) = μ from rfl] at hde
+  rw [hasl, show argEager false (.fvar l Al) = false from rfl] at hde
   obtain ⟨F₁, rfl⟩ : ∃ F₁, F₀ = F₁ + 1 := ⟨F₀ - 1, by have := inferTypeCore_pos hta; omega⟩
   obtain ⟨-, htaA⟩ := ConLeche.Rules.inferTypeCore_fvar_inv hta
   rw [htaA] at hde
@@ -533,7 +533,7 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-variable {envT : Env} (hμ : μ.isVerified = true)
+variable {envT : Env} (hμ : μ.verifiedChecks = true)
   (mp : EnvModelM V μ envT) {ψ : Name → Nat} {fuel rP : Nat}
   {tyA : Expr} {fvsA : List Expr} {oA : Expr}
   (hopA : openPisAtFvars rP tyA 0 = some (fvsA, oA))
@@ -553,7 +553,7 @@ variable {envT : Env} (hμ : μ.isVerified = true)
   (hokB : ∀ i, i < rP → ∀ (ρ : Nat → V) (ys : List V),
     SpineFit ρ (domsB.take i) ys → WellDenotedTy V (consList ys ρ) (domsB.getD i default))
   (hdeq : ∀ i, i < rP →
-    ConLeche.isDefEqCore μ envT fuel rP ((fvsA.map Expr.fvarTypeD).getD i default)
+    ConLeche.isDefEqCore μ false envT fuel rP ((fvsA.map Expr.fvarTypeD).getD i default)
         (bs.getD i default) = .ok true)
 
 include hμ hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB hokA hokB hdeq in
@@ -687,7 +687,7 @@ set_option maxHeartbeats 1600000 in
 the members' run facts (`BlockMembersRun`): a spine fitting any stored
 recursor's rule prefix fits the block's parameters on its first `nP`
 values. -/
-theorem genParams_fit_run (hμ : μ.isVerified = true) {F : Nat} {envI envC : Env}
+theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : Env}
     {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
     {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} (mpC : EnvModelM V μ envC)
@@ -810,7 +810,7 @@ theorem genParams_fit_run (hμ : μ.isVerified = true) {F : Nat} {envI envC : En
     | _ => default
   have hDof : ∀ l, l < pp.nP → ∃ b, instPisWith (xs0.take l) cvTP.type
       = some (.forallE (Dof l) b) ∧
-      ConLeche.isDefEqCore μ envC F' pp.nP ((xs0.map Expr.fvarTypeD).getD l default) (Dof l)
+      ConLeche.isDefEqCore μ false envC F' pp.nP ((xs0.map Expr.fvarTypeD).getD l default) (Dof l)
         = .ok true := by
     intro l hl
     obtain ⟨D, b, hinst, hde⟩ := hdeqs l hl

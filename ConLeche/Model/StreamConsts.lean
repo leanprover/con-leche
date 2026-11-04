@@ -196,7 +196,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 carries the model, every record's declared constant is stored — with its
 name, its level parameters and its type — and is still there at the
 end.  The hypotheses are `installRun_model`'s. -/
-theorem installRun_declares (hμ : μ.isVerified = true) {ds : List Declaration}
+theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck}
     {q : Nat × FEnv × Array PendingCheck}
     (hrun : InstallRun μ pins ds p q) :

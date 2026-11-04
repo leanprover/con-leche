@@ -125,8 +125,8 @@ module docstring). -/
     (∀ (x : ConstantVal × Nat) (crest : Expr), Q x →
       ConLeche.nestCrest names us ds holes (x.1.type.instantiateLevelParams x.1.levelParams us)
         = some crest →
-      (∃ ty u, ConLeche.inferTypeCore .verified env F hi crest = .ok ty ∧
-        ConLeche.ensureSortCore .verified env F hi ty = .ok u) →
+      (∃ ty u, ConLeche.inferTypeCore .verified false env F hi crest = .ok ty ∧
+        ConLeche.ensureSortCore .verified false env F hi ty = .ok u) →
       ∃ ca, Frame hi crest ∧ CtxOkP mp.base2 φ hi Δ crest ∧
         denote mp.base2.acval env φ hi crest = some ca ∧ GradedTy V Δ ca) →
     (∀ x ∈ cs, Q x) → ∀ x ∈ cs, CtorWalkedA mp.base2 φ w ctx prog hi us ds names holes Δ R x
@@ -157,7 +157,7 @@ theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
       (∀ ρ, Sat V Δa ρ → interp V ρ ea = interp V ρ wa) →
       AccConcl w ctx prog dep e nf R wa ∧ OutOk mp.base2 φ ctx prog dep Δa k nf wa) :
     AccConcl w ctx prog dep e nf R ea ∧ OutOk mp.base2 φ ctx prog dep Δa k nf ea := by
-  have hw' : ConLeche.whnf .verified env F dep e = .ok wt := hw
+  have hw' : ConLeche.whnf .verified false env F dep e = .ok wt := hw
   obtain ⟨hfrw, hsub, wa, hwa, hgw, heq⟩ :=
     red_sound_ty hin (ConLeche.Rules.whnf_bridge hw') hfr hC.toCtxOk hea hgr
   obtain ⟨⟨hTR, ⟨A, hA, hsz, hinv⟩, hout⟩, hok⟩ := kont hfrw (hC.of_subset hsub)

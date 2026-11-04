@@ -62,7 +62,7 @@ IS the context. -/
 @[expose] def InferReads {env : Env} (m : EnvModel V env) (μ : CheckMode)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List Term} {ea : Term},
-    inferTypeCore μ env fuel d e = .ok t →
+    inferTypeCore μ false env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     CtxOk m φ d Δa e →
@@ -73,7 +73,7 @@ IS the context. -/
 the bridge turns the run into a derivation and the infer
 motive CONCLUDES the type's reading — the shape `Recompose.lean`'s
 fourth case destructures. -/
-theorem inferReads_of (hμ : μ.isVerified = true)
+theorem inferReads_of (hμ : μ.verifiedChecks = true)
     {m : EnvModel V env} (hin : Rules.RulesInputs V m φ) :
     InferReads m μ φ fuel := by
   intro d e t Δa ea hrun hws hb hLb hC hea
@@ -96,8 +96,8 @@ scoping package is carried so the claims can be applied. -/
     CtxOk m φ d Δa e →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
-    inferTypeCore μ env fuel d e = .ok t →
-    whnf μ env fuel d t = .ok (.sort u) →
+    inferTypeCore μ false env fuel d e = .ok t →
+    whnf μ false env fuel d t = .ok (.sort u) →
     denote m.acval env φ d e = some ea →
     ∀ ρ : Nat → V, Sat V Δa ρ →
       WellDenoted V ρ ea ∧ interp V ρ ea ∈ˢ (univ (u.eval φ) : V)
@@ -176,7 +176,7 @@ equation the clause's second `throw` tests — which is precisely
 `denote`'s `.const` guard. -/
 theorem inferTypeCore_const_inv_len {fuel d : Nat}
     {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCore μ env fuel d (.const n us) = .ok t) :
+    (h : inferTypeCore μ false env fuel d (.const n us) = .ok t) :
     ∃ ci, env.find? n = some ci ∧
       us.length = ci.toConstantVal.levelParams.length := by
   match fuel, h with
@@ -199,7 +199,7 @@ theorem inferTypeCore_const_inv_len {fuel d : Nat}
 /-- **The `Nat`-literal clause's guard, recorded** — `denote`'s own
 literal guard, verbatim. -/
 theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
-    (h : inferTypeCore μ env fuel d (.lit (.natVal k)) = .ok t) :
+    (h : inferTypeCore μ false env fuel d (.lit (.natVal k)) = .ok t) :
     ConLeche.natLitSupported env = true := by
   match fuel, h with
   | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
@@ -213,7 +213,7 @@ theorem inferTypeCore_natLit_inv {fuel d k : Nat} {t : Expr}
 
 /-- **The string-literal clause's guard, recorded.** -/
 theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
-    (h : inferTypeCore μ env fuel d (.lit (.strVal s)) = .ok t) :
+    (h : inferTypeCore μ false env fuel d (.lit (.strVal s)) = .ok t) :
     ConLeche.strLitSupported env = true := by
   match fuel, h with
   | 0, h => rw [ConLeche.inferTypeCore_zero] at h; exact nomatch h
@@ -230,7 +230,7 @@ theorem inferTypeCore_strLit_inv {fuel d : Nat} {s : String} {t : Expr}
 /-- The walk, with the fuel explicit (the induction's own shape). -/
 private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
     ∀ (F : Nat) {d : Nat} {e t : Expr},
-      inferTypeCore μ env F d e = .ok t →
+      inferTypeCore μ false env F d e = .ok t →
       Expr.WScoped d e → e.looseBVarsBounded 0 = true →
       Expr.LeavesBounded e →
       ∃ ea, denote m.acval env φ d e = some ea := by
@@ -347,7 +347,7 @@ inference accepts, the stored-term reading `denote` reads.  See the
 module docstring for the guard table and for the `letE` clause. -/
 theorem acceptedReads_of (m : EnvModel V env) (φ : Name → Nat)
     {F d : Nat} {e t : Expr}
-    (h : inferTypeCore μ env F d e = .ok t)
+    (h : inferTypeCore μ false env F d e = .ok t)
     (hws : Expr.WScoped d e) (hb : e.looseBVarsBounded 0 = true)
     (hL : Expr.LeavesBounded e) :
     ∃ ea, denote m.acval env φ d e = some ea :=

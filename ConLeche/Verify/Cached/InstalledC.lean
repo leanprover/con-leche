@@ -57,7 +57,7 @@ variable {pins : List NatOpPinSet}
 /-- The per-declaration flush re-establishes the invariant at any
 environment, from the residue. -/
 theorem flushC_spec {env : Env} {s₀ : CState} (hres : CSOKF s₀) :
-    ⦃fun s => s = s₀⦄ flushC ⦃fun _ s' => CSOK μ env s'; ⊤⦄ :=
+    ⦃fun s => s = s₀⦄ flushC ⦃fun _ s' => CSOK μ false env s'; ⊤⦄ :=
   triple_iff_run.mpr fun _ _ h => by
     rw [flushC_run] at h
     cases h
@@ -88,9 +88,9 @@ theorem checkValueGroup_datF (env : Env) (g : ValueGroup) (F : Nat) :
 invariant state at `mkFEnv env`, a successful run is the fueled
 `installHeader`'s, and the header's type is well scoped. -/
 theorem installHeaderC_spec {env : Env} {cv : ConstantVal} {s₀ : CState}
-    (hs : CSOK μ env s₀) :
+    (hs : CSOK μ false env s₀) :
     ⦃fun s => s = s₀⦄ installHeaderC (mkFEnv env) cv
-    ⦃fun v s' => CSOK μ env s' ∧
+    ⦃fun v s' => CSOK μ false env s' ∧
       Runs (installHeader (m := FueledM) env cv) v ∧ Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, installHeader.eq_1, Expr.allLevelParamsDefinedC_spec,
       constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 cv.type] =>
@@ -98,9 +98,9 @@ theorem installHeaderC_spec {env : Env} {cv : ConstantVal} {s₀ : CState}
 
 /-- Phase A's value install is the pure install half. -/
 theorem installValueGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {s₀ : CState}
-    (hs : CSOK μ env s₀) :
+    (hs : CSOK μ false env s₀) :
     ⦃fun s => s = s₀⦄ installValueGuardsC (mkFEnv env) cv value
-    ⦃fun v s' => CSOK μ env s' ∧
+    ⦃fun v s' => CSOK μ false env s' ∧
       Runs (installValueGuards (m := FueledM) env cv value) v ∧ Expr.WScoped 0 value; ⊤⦄ := by
   sym only [conleche_grind, installValueGuards.eq_1, Expr.allLevelParamsDefinedC_spec,
       constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 value] =>
@@ -109,9 +109,9 @@ theorem installValueGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {
 /-- `installHeaderC_spec` on a run, at the install half's `CheckM`
 instance (`ConLeche/Model/InstallRun.lean`). -/
 theorem installHeaderC_run {env : Env}
-    {cv : ConstantVal} {s₀ s' : CState} (hs : CSOK μ env s₀)
+    {cv : ConstantVal} {s₀ s' : CState} (hs : CSOK μ false env s₀)
     (h : installHeaderC (mkFEnv env) cv s₀ = .ok ((), s')) :
-    CSOK μ env s' ∧ Expr.WScoped 0 cv.type ∧
+    CSOK μ false env s' ∧ Expr.WScoped 0 cv.type ∧
     installHeader (m := CheckM) env cv = .ok () := by
   obtain ⟨hs', ⟨F, hF⟩, hw⟩ := triple_iff_run.mp (installHeaderC_spec hs) _ _ h
   exact ⟨hs', hw, installHeader_datF env cv F ▸ hF⟩
@@ -120,7 +120,7 @@ theorem installHeaderC_run {env : Env}
 theorem installGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {s₀ : CState}
     (hres : CSOKF s₀) :
     ⦃fun s => s = s₀⦄ installGuardsC (mkFEnv env) cv value
-    ⦃fun v s' => CSOK .verified env s' ∧ Runs (installHeader (m := FueledM) env cv) () ∧
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (installHeader (m := FueledM) env cv) () ∧
       Runs (installValueGuards (m := FueledM) env cv value) v ∧
       Expr.WScoped 0 cv.type ∧ Expr.WScoped 0 value; ⊤⦄ := by
   sym only [conleche_grind] =>
@@ -160,7 +160,7 @@ theorem checkPending_spec (hμ : μ.verifiedChecks = true) {env : Env} (henv : E
     (hwv : pc.vg.kind ≠ .thm → Expr.WScoped 0 pc.vg.jv)
     {s₀ : CState} (hres : CSOKF s₀) :
     ⦃fun s => s = s₀⦄ checkPending μ feFinal pc
-    ⦃fun v s' => CSOK μ env s' ∧ Runs (checkValueGroup (fueledOpsM μ) env pc.vg) v; ⊤⦄ := by
+    ⦃fun v s' => CSOK μ false env s' ∧ Runs (checkValueGroup (fueledOpsM μ) env pc.vg) v; ⊤⦄ := by
   have hfe : (feFinal.restrictTo pc.vis).find? = (mkFEnv env).find? :=
     funext fun n => (hfind n).trans (mkFEnv_find? env n).symm
   have htb : (feFinal.restrictTo pc.vis).findTable? = (mkFEnv env).findTable? :=
@@ -172,7 +172,7 @@ theorem checkPending_spec (hμ : μ.verifiedChecks = true) {env : Env} (henv : E
   clear hfind hfe htab htb
   sym only [conleche_grind, checkValueGroup.eq_1] =>
     vcgen [flushC_spec (μ := μ) (env := env) hres, inferK_spec hμ henv, opSIxC_spec hμ henv,
-      liftFueled_spec (mode := μ) (env := env), installValueGuardsC_spec (μ := μ),
+      liftFueled_spec (mode := μ) (eager := false) (env := env), installValueGuardsC_spec (μ := μ),
       defeqK_spec hμ henv] <;> finish
 
 /-- `checkPending_spec` on a run, at a fuel. -/

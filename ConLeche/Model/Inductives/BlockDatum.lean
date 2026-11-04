@@ -215,7 +215,7 @@ theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : Consta
         sortss[j]? = some sorts ∧
         (cA.1.type.stripPis (q.nP + cA.2)).isSome = true ∧
         (cA.1.type.hasFvar = false ∧
-          ∃ stype, inferTypeCore μ envI F 0 cA.1.type = .ok stype) ∧
+          ∃ stype, inferTypeCore μ false envI F 0 cA.1.type = .ok stype) ∧
         ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts) := by
   obtain ⟨hlenA, hlenS, hall⟩ := ConLeche.checkSumCtors_inv hrun
@@ -396,7 +396,7 @@ operator at the HOLE chains (`blockLeafH`), graded by the positivity
 stage's run (`hPos`, U2) at the dummy carrier; the record is
 `blockDataOf` at the REAL pick, which shares the dummy pick's fields
 with holes and normal forms. -/
-theorem blockTablesStage_of (hμ : μ.isVerified = true) {F : Nat} {env envI : Env}
+theorem blockTablesStage_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
     {isorts : List (List Level)}
@@ -485,7 +485,7 @@ theorem blockTablesStage_of (hμ : μ.isVerified = true) {F : Nat} {env envI : E
           (sortsss.getD m [])[j]? = some sorts ∧
           (cA.1.type.stripPis (q.nP + cA.2)).isSome = true ∧
           (cA.1.type.hasFvar = false ∧
-            ∃ stype, inferTypeCore μ envI F 0 cA.1.type = .ok stype) ∧
+            ∃ stype, inferTypeCore μ false envI F 0 cA.1.type = .ok stype) ∧
           ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
             (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts) :=
     fun m cvTa hm hcv =>

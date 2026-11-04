@@ -618,7 +618,7 @@ theorem natEqLaw_of_run (mp : EnvModelM V μ env) {ψ : Name → Nat}
     (hlpN : ciN.toConstantVal.levelParams = [])
     (hNty : ∀ ρ : Nat → V, IsTy (natLeafV mp.base2 ψ ρ))
     {lhs rhs : Expr} {la ra : Term}
-    (hrun : ConLeche.isDefEqCore μ env F 2 lhs rhs = .ok true)
+    (hrun : ConLeche.isDefEqCore μ false env F 2 lhs rhs = .ok true)
     (hwl : Expr.WScoped 2 lhs) (hbl : lhs.looseBVarsBounded 0 = true)
     (hLl : Expr.LeavesBounded lhs)
     (hll : ∀ l ∈ lhs.fvarLeaves, l.1 < 2 ∧

@@ -27,13 +27,13 @@ declaration-checker inversions unfold through these (never through
 `fueledOps` itself, so record spellings in hypotheses keep matching). -/
 
 theorem fueledOps_inferType (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps mode F).inferType env d e = inferTypeCore mode env F d e := rfl
+    (fueledOps mode F).inferType env d e = inferTypeCore mode false env F d e := rfl
 theorem fueledOps_isDefEq (F : Nat) (env : Env) (d : Nat) (a b : Expr) :
-    (fueledOps mode F).isDefEq env d a b = isDefEqCore mode env F d a b := rfl
+    (fueledOps mode F).isDefEq env d a b = isDefEqCore mode false env F d a b := rfl
 theorem fueledOps_ensureSort (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps mode F).ensureSort env d e = ensureSortCore mode env F d e := rfl
+    (fueledOps mode F).ensureSort env d e = ensureSortCore mode false env F d e := rfl
 theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
-    (fueledOps mode F).whnf env d e = ConLeche.whnf mode env F d e := rfl
+    (fueledOps mode F).whnf env d e = ConLeche.whnf mode false env F d e := rfl
 
 /-- Inversion for `checkConstantVal`. -/
 theorem checkConstantVal_inv {env : Env} {cv : ConstantVal}
@@ -46,8 +46,8 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal}
     ∃ stype u,
       cv.type.allLevelParamsDefined cv.levelParams = true ∧
       cv.type.constsResolve env = true ∧
-      inferTypeCore mode env F 0 cv.type = .ok stype ∧
-      ensureSortCore mode env F 0 stype = .ok u := by
+      inferTypeCore mode false env F 0 cv.type = .ok stype ∧
+      ensureSortCore mode false env F 0 stype = .ok u := by
   simp only [checkConstantVal, fueledOps_inferType, fueledOps_isDefEq,
     fueledOps_ensureSort, fueledOps_whnf, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
   by_cases hfind : (env.find? cv.name).isSome = true
@@ -73,12 +73,12 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal}
   by_cases htr : cv.type.constsResolve env = true
   case neg => simp [htr] at h
   simp only [htr] at h
-  cases hst : inferTypeCore mode env F 0 cv.type with
+  cases hst : inferTypeCore mode false env F 0 cv.type with
   | error e => rw [hst] at h; exact nomatch h
   | ok stype =>
   rw [hst] at h
   try dsimp only at h
-  cases hsort : ensureSortCore mode env F 0 stype with
+  cases hsort : ensureSortCore mode false env F 0 stype with
   | error e => rw [hsort] at h; exact nomatch h
   | ok u =>
   rw [hsort] at h

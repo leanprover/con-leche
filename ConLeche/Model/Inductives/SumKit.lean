@@ -394,7 +394,7 @@ theorem CtorDataI.cross {m : EnvModel V env} {T : Name} {lps : List Name} {cvC :
 
 /-- The constructor's data, from its stage run at the environment
 holding the former. -/
-theorem sumCtorData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {bs : List Expr}
@@ -428,12 +428,12 @@ theorem sumCtorData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
   have hidx := openPisAtFvars_index nP cvCa.type 0 hopC
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   obtain ⟨F', tb, vb, hib, hensb, -⟩ :=
-    piBits_of_infer (CheckMode.vc hμ) (nP + nF) hopAll hst hens
+    piBits_of_infer (hμ) (nP + nF) hopAll hst hens
   rw [Nat.zero_add] at hib hensb
   obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv (fvsP ++ idxArgs) hib
   obtain ⟨ci, hfci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv htf
   obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
-  have htfT : ConLeche.inferTypeCore μ env F' (nP + nF)
+  have htfT : ConLeche.inferTypeCore μ false env F' (nP + nF)
       (.const T (lps.map .param)) = .ok cvTa.type := by
     have := htf
     rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl,
@@ -621,7 +621,7 @@ under the parameters the field chain graded (at the block's level),
 bounded when the family is not `Prop`, and the index
 expressions graded and fitting the former's index telescope at every
 fitting field spine. -/
-theorem ctorFramesGen (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level}

@@ -129,7 +129,7 @@ theorem checkStructDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :
     ∀ {j : Nat},
       checkStructDomsAt (fueledOps mode F) env off fvs doms j = .ok () →
       ∀ i, i < j → ∃ a b, fvs[i]? = some a ∧ doms[i]? = some b ∧
-        isDefEqCore mode env F (off + i) (Expr.fvarTypeD a) b = .ok true
+        isDefEqCore mode false env F (off + i) (Expr.fvarTypeD a) b = .ok true
   | 0, _, i, hi => absurd hi (Nat.not_lt_zero _)
   | j + 1, h, i, hi => by
     unfold checkStructDomsAt at h
@@ -139,7 +139,7 @@ theorem checkStructDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :
     have hb' := unwrapOr_ok hb
     try simp only at h
     obtain ⟨c, hc, h⟩ := exceptBind_ok h
-    have hc' : isDefEqCore mode env F (off + j) (Expr.fvarTypeD a) b = .ok c := hc
+    have hc' : isDefEqCore mode false env F (off + j) (Expr.fvarTypeD a) b = .ok c := hc
     cases c with
     | false =>
       simp only [Bool.false_eq_true, ↓reduceIte] at h
@@ -236,8 +236,8 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
         = .ok sorts →
       sorts.length = j ∧
       ∀ i, i < j → ∃ fv ty u, fvs[i]? = some fv ∧ sorts[i]? = some u ∧
-        inferTypeCore mode env F (nP + i) (Expr.fvarTypeD fv) = .ok ty ∧
-        ensureSortCore mode env F (nP + i) ty = .ok u ∧
+        inferTypeCore mode false env F (nP + i) (Expr.fvarTypeD fv) = .ok ty ∧
+        ensureSortCore mode false env F (nP + i) ty = .ok u ∧
         (isProp = false → Level.leq u s = some true) ∧
         (isProp = true → large = true →
           (Level.isEquiv u .zero == some true) = true ∨ idxArgs.contains fv = true)
@@ -251,9 +251,9 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
     have hfv' := unwrapOr_ok hfv
     try simp only at h
     obtain ⟨ty, hty₀, h⟩ := exceptBind_ok h
-    have hty : inferTypeCore mode env F (nP + j) (Expr.fvarTypeD fv) = .ok ty := hty₀
+    have hty : inferTypeCore mode false env F (nP + j) (Expr.fvarTypeD fv) = .ok ty := hty₀
     obtain ⟨u, hu₀, h⟩ := exceptBind_ok h
-    have hu : ensureSortCore mode env F (nP + j) ty = .ok u := hu₀
+    have hu : ensureSortCore mode false env F (nP + j) ty = .ok u := hu₀
     try simp only at h
     -- the guard, as one fact per branch
     suffices hs : ∃ rest,

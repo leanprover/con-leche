@@ -357,7 +357,7 @@ theorem exists_uniform_univ {n : Nat} {g : (Name → Nat) → Nat → (Nat → V
 level is the max of the `K` inferred sorts, each of them a `Level` the
 run fixed; every recursor type's reading lands in it by cumulativity,
 and its grading is the same run's. -/
-theorem blockRecTy_univ_run {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRecTy_univ_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG μ F envC p cvTas rs) :
@@ -859,7 +859,7 @@ entries.**  Stage (b') opens the stored type at the rule prefix alone;
 its reading opens it at the full `mI + 1` binders.  The shorter opening
 is the longer one's prefix (`openPisAtFvars_prefix_getElem`), so the two
 carry the same annotations at every position below `rP`. -/
-theorem blockRulePdomsAV_reads (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRulePdomsAV_reads (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) {fvs : List Expr} {o : Expr}
@@ -918,7 +918,7 @@ theorem prefixDoms_graded_of_tower {rds : List Term} {cc : Term}
   exact hres
 
 /-- **The rule prefix's domains are GRADED at the run.** -/
-theorem blockRulePdomsAV_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRulePdomsAV_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
@@ -936,7 +936,7 @@ theorem blockRulePdomsAV_graded (hμ : μ.isVerified = true) (mpC : EnvModelM V 
 domains are bounded at their own depths, so `blockRecPdomsK`'s `K`
 lift is the identity.  `recStage_tyBounds` says it of the whole
 binder list; the prefix is its `take`. -/
-theorem blockRulePdomsAV_bounded (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRulePdomsAV_bounded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
@@ -965,7 +965,7 @@ theorem blockRulePdomsAV_bounded (hμ : μ.isVerified = true) (mpC : EnvModelM V
 
 /-- **§20's guard is the base form, at the run** — `blockRecPdomsK_eq`
 with its premise discharged. -/
-theorem blockRecPdomsK_run (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRecPdomsK_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) (K : Nat) :
@@ -996,7 +996,7 @@ section BitsLaw
 
 /-- A successful inference at fuel `0` is impossible. -/
 theorem inferTypeCore_pos {envK : Env} {d : Nat} {e r : Expr} {F : Nat}
-    (h : ConLeche.inferTypeCore μ envK F d e = .ok r) : 1 ≤ F := by
+    (h : ConLeche.inferTypeCore μ false envK F d e = .ok r) : 1 ≤ F := by
   cases F with
   | zero =>
     rw [ConLeche.inferTypeCore_zero] at h
@@ -1008,11 +1008,11 @@ own witnesses: the codomain's sort `v` and
 the node's own sort. -/
 theorem inferTypeCore_forallE_peel {envK : Env}
     {d F : Nat} {ty bd s : Expr}
-    (h : ConLeche.inferTypeCore μ envK F d (.forallE ty bd) = .ok s) :
+    (h : ConLeche.inferTypeCore μ false envK F d (.forallE ty bd) = .ok s) :
     ∃ (F₀ : Nat) (udom v : Level) (bt₁ : Expr),
       F = F₀ + 1 ∧ 1 ≤ F₀ ∧
-      ConLeche.inferTypeCore μ envK F₀ (d + 1) (bd.instantiate1 (.fvar d ty)) = .ok bt₁ ∧
-      ConLeche.ensureSortCore μ envK F₀ (d + 1) bt₁ = .ok v ∧
+      ConLeche.inferTypeCore μ false envK F₀ (d + 1) (bd.instantiate1 (.fvar d ty)) = .ok bt₁ ∧
+      ConLeche.ensureSortCore μ false envK F₀ (d + 1) bt₁ = .ok v ∧
       s = .sort (.imax udom v) := by
   cases F with
   | zero =>
@@ -1103,8 +1103,8 @@ theorem blockRecElimLevel_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : Li
       ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
         ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
             (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty
+        ConLeche.inferTypeCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) sty
           = .ok (uOf c) := by
   obtain ⟨R⟩ := id h
   have huOf : ∀ {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -1119,7 +1119,7 @@ theorem blockRecElimLevel_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : Li
     obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr
     have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
     refine ⟨E.fvs, E.concl, E.sty, by rw [hrd]; exact E.hopen, E.hsty, ?_⟩
-    show ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) E.sty
+    show ConLeche.ensureSortCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) E.sty
       = .ok ((R.cvRus.map (·.2.2)).getD c .zero)
     rw [huOf hcu]
     exact E.hu
@@ -1135,8 +1135,8 @@ theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List Con
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+        ConLeche.inferTypeCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
     {c : Nat} (hc : c < rs.length) : uOf c ∈ R.cvRus.map (·.2.2) := by
   obtain ⟨r0, hr0⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
   obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr0
@@ -1162,8 +1162,8 @@ theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
       ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+        ConLeche.inferTypeCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
     (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) :
     Level.eval ψ (uOf c)
       = Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) := by
@@ -1532,7 +1532,7 @@ lemmas below share: the recursor stage's run at a member recursor `c`
 variable {envC : Env} {p : ConLeche.BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-  (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+  (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
   (h : ConLeche.RecStageG μ F envC p cvTas rs)
   {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
   (hr : rs[c]? = some r) (ψ : Name → Nat)
@@ -1583,7 +1583,7 @@ theorem fvarLeaves_nil_of_wscoped_zero {e : Expr} (hw : Expr.WScoped 0 e) :
 inferred sort**, at every frame satisfying the type's own domains:
 the claims' `SortSemAt` at the type's opened frame (its context is the
 domains reversed). -/
-theorem piConcl_univ {envC : Env} (hμ : μ.isVerified = true)
+theorem piConcl_univ {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {F : Nat} (ψ : Name → Nat) {n : Nat} {T : Expr}
     {ea : Term} {rds : List Term} {cc : Term}
     {fvs : List Expr} {conclE sty : Expr} {u : Level}
@@ -1595,8 +1595,8 @@ theorem piConcl_univ {envC : Env} (hμ : μ.isVerified = true)
     (hconclRead : denote mpC.base2.acval envC ψ n conclE = some cc)
     (hwdTy : ∀ ρ : Nat → V, WellDenoted V ρ ea)
     (hop : ConLeche.openPisAtFvars n T 0 = some (fvs, conclE))
-    (hinf : ConLeche.inferTypeCore μ envC F n conclE = .ok sty)
-    (hens : ConLeche.ensureSortCore μ envC F n sty = .ok u) :
+    (hinf : ConLeche.inferTypeCore μ false envC F n conclE = .ok sty)
+    (hens : ConLeche.ensureSortCore μ false envC F n sty = .ok u) :
     ∀ ρ : Nat → V, Sat V rds.reverse ρ →
       interp V ρ cc ∈ˢ (univ (u.eval ψ) : V) := by
   -- the frame's syntax
@@ -1673,7 +1673,7 @@ theorem piConcl_univ {envC : Env} (hμ : μ.isVerified = true)
 /-- **THE `univZero` PRODUCER**, in its general form: the recursor's
 conclusion reads into `univ (u.eval ψ)` at every frame satisfying the
 type's own domains. -/
-theorem blockRecConcl_univ {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRecConcl_univ {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
@@ -1682,9 +1682,9 @@ theorem blockRecConcl_univ {envC : Env} (hμ : μ.isVerified = true)
     {fvs : List Expr} {conclE sty : Expr} {u : Level}
     (hop : ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1) r.1.type 0
       = some (fvs, conclE))
-    (hinf : ConLeche.inferTypeCore μ envC F (p.toBlockShape.majorIdxAt c + 1) conclE
+    (hinf : ConLeche.inferTypeCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) conclE
       = .ok sty)
-    (hens : ConLeche.ensureSortCore μ envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok u) :
+    (hens : ConLeche.ensureSortCore μ false envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok u) :
     ∀ ρ : Nat → V,
       Sat V (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).reverse ρ →
       interp V ρ (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)

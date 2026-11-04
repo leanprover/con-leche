@@ -153,7 +153,7 @@ structure CoreFns (m : Type → Type u) where
   official kernel's `is_def_eq` with `m_eager_reduce` set, which
   `infer_app` sets for the comparison of an `eagerReduce _ _`
   argument's type with its domain (`defeqArg`).  The knot ties it to
-  the bodies at `mode.toEager` one level down, so the flag holds for
+  the bodies at `eager := true` one level down, so the flag holds for
   the whole comparison and everything it calls, as official's
   `flet` scope does. -/
   defeqE : Nat → Expr → Expr → m Bool
@@ -1532,33 +1532,33 @@ acceleration — guarded on both sides being free of free variables, as
 in the official kernel and lean4lean (an open `Int32`/`Int64` pair
 would otherwise delta-grind the `Nat.brecOn` tower; the whnf-loop
 `reduceNat` stays unguarded, as the official whnf loop is), unless the
-eager flag is set (`mode.eager`, task #353: official's
+eager flag is set (`eager`, task #353: official's
 `(!has_fvar(t_n) && !has_fvar(s_n)) || m_eager_reduce`) — whose
 reduct restarts the comparison (`defeq`, official `is_def_eq_core`),
 then one `lazyDeltaStep`.  Each unfolding is one iteration of this
 loop on its own step budget (task #106: not one unit of the knot's
 recursion depth). -/
-def lazyDeltaReduction (r : CoreFns m) (env : Env) (depth : Nat) :
+def lazyDeltaReduction (eager : Bool) (r : CoreFns m) (env : Env) (depth : Nat) :
     Nat → Expr → Expr → m LazyRes
   | 0, _, _ => throw (.internal "fuel exhausted: defeq loop")
   | n + 1, a, b => do
     match ← defeqOffset r depth a b with
     | some v => pure (.verdict v)
     | none =>
-    match ← (if mode.eager || (!a.hasFvar && !b.hasFvar) then
+    match ← (if eager || (!a.hasFvar && !b.hasFvar) then
         reduceNat r env depth a else pure none) with
     | some a₂ => do
       let v ← r.defeq depth a₂ b
       pure (.verdict v)
     | none =>
-    match ← (if mode.eager || (!a.hasFvar && !b.hasFvar) then
+    match ← (if eager || (!a.hasFvar && !b.hasFvar) then
         reduceNat r env depth b else pure none) with
     | some b₂ => do
       let v ← r.defeq depth a b₂
       pure (.verdict v)
     | none =>
     match ← lazyDeltaStep mode r env depth a b with
-    | .cont a' b' => lazyDeltaReduction r env depth n a' b'
+    | .cont a' b' => lazyDeltaReduction eager r env depth n a' b'
     | .eq => pure (.verdict true)
     | .diff => pure (.verdict false)
     | .unknown => pure (.unknown a b)
@@ -1668,7 +1668,7 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 the syntactic fast path; the `Bool.true` shortcut (E2,
 `boolTrueShortcut`: right side `Bool.true`, left side fvar-free or the
 eager flag set — official's `(!has_fvar(t) || m_eager_reduce) &&
-is_constant(s, Bool.true)`, the flag being `mode.eager`, task #353);
+is_constant(s, Bool.true)`, the flag being `eager`, task #353);
 `quickDefEq` and proof
 irrelevance (`is_def_eq_proof_irrel`) on the UNREDUCED sides; the cheap
 head normalization of both sides (`whnfCore` with `cheap_proj`);
@@ -1693,10 +1693,10 @@ full `whnfCore` — are `defeq` calls, as official's are `is_def_eq_core`
 calls, so every entry runs the prefix (proof irrelevance included)
 exactly once (the divergence audit's D3 holds by construction); the
 long chains — the unfoldings — are iterations of the lazy loops. -/
-def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
+def defeqBody (eager : Bool) (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
   fun depth a b => do
     if a == b then pure true else
-    if ← (if b.isBoolTrue && (mode.eager || !a.hasFvar) then
+    if ← (if b.isBoolTrue && (eager || !a.hasFvar) then
         boolTrueShortcut r depth a else pure false) then pure true else
     match ← quickDefEq mode r depth a b with
     | some v => pure v
@@ -1709,7 +1709,7 @@ def defeqBody (r : CoreFns m) (env : Env) : Nat → Expr → Expr → m Bool :=
     match ← quickDefEq mode r depth a' b' with
     | some v => pure v
     | none =>
-    match ← lazyDeltaReduction mode r env depth defeqLoopFuel a' b' with
+    match ← lazyDeltaReduction mode eager r env depth defeqLoopFuel a' b' with
     | .verdict v => pure v
     | .unknown a₁ b₁ =>
     if ← defeqProjPair mode r env depth a₁ b₁ then pure true else
@@ -1732,7 +1732,7 @@ next level is constructed lazily, inside each entry point's closure
 (constant work per call; an eager tower would cost `fuel` allocations
 per instantiation). -/
 def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
-    (mode : CheckMode) (env : Env)
+    (mode : CheckMode) (eager : Bool) (env : Env)
     (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
   | 0 =>
     { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
@@ -1744,23 +1744,23 @@ def coreKnot {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
   | fuel + 1 =>
     wrap
       { whnfCore := fun c d e =>
-          whnfCoreBody mode (coreKnot mode env wrap fuel) env c d e
-        whnf := fun d e => whnfBody (coreKnot mode env wrap fuel) env d e
+          whnfCoreBody mode (coreKnot mode eager env wrap fuel) env c d e
+        whnf := fun d e => whnfBody (coreKnot mode eager env wrap fuel) env d e
         infer := fun d e =>
-          inferBody (coreKnot mode env wrap fuel) env d e
+          inferBody (coreKnot mode eager env wrap fuel) env d e
         defeq := fun d a b =>
-          defeqBody mode (coreKnot mode env wrap fuel) env d a b
+          defeqBody mode eager (coreKnot mode eager env wrap fuel) env d a b
         -- **The eager slot** (task #353): the eager tower, the knot at
-        -- `mode.toEager` one level down (the flag propagates to
+        -- `eager := true` one level down (the flag propagates to
         -- everything the comparison calls, as official's does)
         defeqE := fun d a b =>
-          defeqBody mode.toEager (coreKnot mode.toEager env wrap fuel) env d a b
+          defeqBody mode true (coreKnot mode true env wrap fuel) env d a b
         -- **The io slot** (task #170 / #172 B4, task #346): official's
         -- `infer_only`, tied to the io-grade view of the knot one level
         -- down (the grade propagates, as official's does)
         inferIO := fun d e =>
           inferBodyIO
-            (CoreFns.ioView (coreKnot mode env wrap fuel)) env d e }
+            (CoreFns.ioView (coreKnot mode eager env wrap fuel)) env d e }
 
 /-- The shared fuel for the checker core: bounds the recursion depth of
 reduction, inference and definitional equality.  Exhaustion is an

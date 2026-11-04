@@ -166,7 +166,7 @@ theorem BlockCtorDataI.idxArgs_resolve {env : Env} {m : EnvModel V env} {T : Nam
 
 /-- **A block constructor's data**, from its stage run at the
 environment holding ALL the block's formers. -/
-theorem blockCtorData_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}

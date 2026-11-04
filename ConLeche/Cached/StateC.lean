@@ -142,7 +142,7 @@ structure CState where
   eqvC : Std.HashMap (Level × Level) Bool := {}
   instC : Std.HashMap (Expr × List Expr × Nat) Expr := {}
   /-- **The eager tower's mode memos** (task #361): the six entry-point
-  memos of the eager tower (the knot at `mode.toEager`, the `defeqE`
+  memos of the eager tower (the knot at `eager := true`, the `defeqE`
   slot), stored here between eager comparisons and swapped in for each
   one (`withEagerMemos`).  Kept for the declaration like the plain
   ones, and apart from them: an eager entry never serves a plain query,
@@ -352,7 +352,7 @@ def CState.modeMemos (s : CState) : ModeMemos :=
 plain memos move out (returned), the stored eager ones move into the
 six fields, and the eager slot is left empty.  Every map moves — none
 is shared — so the run that follows mutates the eager maps in place.
-From an eager mode the six fields already hold the eager set: nothing
+With the flag set the six fields already hold the eager set: nothing
 moves. -/
 def CState.enterEager (eager : Bool) (s : CState) : Option ModeMemos × CState :=
   if eager then (none, s) else
@@ -382,14 +382,14 @@ next eager comparison of the declaration — the task-#170 memo ruling
 one with and one without the flag") at the eager flag.  The
 mode-independent caches are shared.
 
-Nesting: inside the eager tower the mode is already eager
-(`mode.toEager = mode`) and the six fields already hold the eager set,
+Nesting: inside the eager tower the flag is already set and the six
+fields already hold the eager set,
 so a nested eager comparison runs on them as they are, with no swap.
-The mode test sits in `enterEager`, not in a branch here: `x` occurs
+The flag test sits in `enterEager`, not in a branch here: `x` occurs
 once, so the knot's `defeqE` slot inlines its memo wrapper once and
 builds no extra closure per knot record. -/
-@[inline] def withEagerMemos (mode : CheckMode) (x : CheckCM α) : CheckCM α := do
-  let saved ← modifyGet (CState.enterEager mode.eager)
+@[inline] def withEagerMemos (eager : Bool) (x : CheckCM α) : CheckCM α := do
+  let saved ← modifyGet (CState.enterEager eager)
   let r ← x
   modify (·.leaveEager saved)
   pure r

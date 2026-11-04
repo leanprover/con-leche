@@ -69,7 +69,7 @@ the constructors consed by `stageBlockCtors` (conjunct ②'s install half),
 the recursors' stage `genRecStage` (conjunct ⑧), and the tables
 `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
 `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
-theorem declBlock (hμ : μ.isVerified = true) {F : Nat} {env env₂ : Env}
+theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
     (mp : EnvModelM V μ env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)

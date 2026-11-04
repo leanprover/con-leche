@@ -75,7 +75,7 @@ term. -/
 @[expose] def InferClaimIO (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List Term},
-    inferTypeCoreIO μ env fuel d e = .ok t →
+    inferTypeCoreIO μ false env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ta : Term},

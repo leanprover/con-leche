@@ -22,13 +22,13 @@ set_option linter.unusedSimpArgs false
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 open Expr
 
 theorem inferTypeCoreIO_WScoped {env : Env} (henv : EnvWF env) :
     ∀ (fuel : Nat) {d : Nat} {e t : Expr},
-      inferTypeCoreIO mode env fuel d e = .ok t → WScoped d e →
+      inferTypeCoreIO mode eager env fuel d e = .ok t → WScoped d e →
       WScoped d t
   | 0, d, e, t, h, _ => nomatch h
   | fuel + 1, d, e, t, h, hw => by
@@ -145,7 +145,7 @@ every walk that meets a converted call site consumes one name. -/
 
 theorem inferTypeIO_WScoped {env : Env} (henv : EnvWF env)
     (fuel : Nat) {d : Nat} {e t : Expr}
-    (h : inferTypeIO mode env fuel d e = .ok t) (hw : WScoped d e) :
+    (h : inferTypeIO mode eager env fuel d e = .ok t) (hw : WScoped d e) :
     WScoped d t := by
   rw [inferTypeIO_on] at h
   exact inferTypeCoreIO_WScoped henv fuel h hw

@@ -79,7 +79,7 @@ set_option maxHeartbeats 8000000 in
 /-- **The minor premise of `(c, j)`, read at the rule prefix**: a Π-tower
 whose first binder domains are the rule frame's declared field domains,
 graded at every prefix spine fitting the rule prefix. -/
-theorem genMinorTower (hμ : μ.isVerified = true)
+theorem genMinorTower (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -222,7 +222,7 @@ set_option maxHeartbeats 1600000 in
 /-- **The rule frame is graded** along its own fitting spines: the prefix
 domains (the stored type's), then the declared field domains (the minor
 premise's, `genMinorTower`). -/
-theorem genCls_frameV (hμ : μ.isVerified = true)
+theorem genCls_frameV (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)

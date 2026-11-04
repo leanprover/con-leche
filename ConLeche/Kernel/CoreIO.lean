@@ -49,7 +49,7 @@ the *statement subject* the io claims are phrased at, and the knot
 equations (`Verify/Knot.lean`) identify the executable slot with it.
 Its own `inferIO` slot is the io body again — the io grade is
 idempotent (there is nothing below io to select). -/
-def coreKnotIO (env : Env) : Nat → CoreFns m
+def coreKnotIO (eager : Bool) (env : Env) : Nat → CoreFns m
   | 0 =>
     { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
       whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
@@ -58,22 +58,22 @@ def coreKnotIO (env : Env) : Nat → CoreFns m
       defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
       inferIO := fun _ _ => throw (.internal "fuel exhausted: infer") }
   | fuel + 1 =>
-    { whnfCore := (coreKnot mode env id (fuel + 1)).whnfCore
-      whnf := (coreKnot mode env id (fuel + 1)).whnf
-      defeq := (coreKnot mode env id (fuel + 1)).defeq
-      defeqE := (coreKnot mode env id (fuel + 1)).defeqE
-      infer := fun d e => inferBodyIO (coreKnotIO env fuel) env d e
-      inferIO := fun d e => inferBodyIO (coreKnotIO env fuel) env d e }
+    { whnfCore := (coreKnot mode eager env id (fuel + 1)).whnfCore
+      whnf := (coreKnot mode eager env id (fuel + 1)).whnf
+      defeq := (coreKnot mode eager env id (fuel + 1)).defeq
+      defeqE := (coreKnot mode eager env id (fuel + 1)).defeqE
+      infer := fun d e => inferBodyIO (coreKnotIO eager env fuel) env d e
+      inferIO := fun d e => inferBodyIO (coreKnotIO eager env fuel) env d e }
 
 /-- The io core, tied at `CheckM`: the specification the
 `InferClaimIO` family is stated at. -/
-def pureFnsIO (env : Env) : Nat → CoreFns CheckM :=
-  coreKnotIO mode env
+def pureFnsIO (eager : Bool) (env : Env) : Nat → CoreFns CheckM :=
+  coreKnotIO mode eager env
 
 /-- Infer-only (io-grade) type inference, fueled — the io lane's single
 entry point. -/
-def inferTypeCoreIO (env : Env) (fuel depth : Nat) (e : Expr) :
+def inferTypeCoreIO (eager : Bool) (env : Env) (fuel depth : Nat) (e : Expr) :
     CheckM Expr :=
-  (pureFnsIO mode env fuel).infer depth e
+  (pureFnsIO mode eager env fuel).infer depth e
 
 end ConLeche

@@ -24,7 +24,7 @@ set_option linter.unusedVariables false
 
 namespace ConLeche
 
-variable {mode : CheckMode}
+variable {mode : CheckMode} {eager : Bool}
 
 open Expr
 

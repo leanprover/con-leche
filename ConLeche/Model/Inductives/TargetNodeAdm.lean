@@ -102,7 +102,7 @@ theorem nodeKeyFit {env : Env} (mk : EnvModelM V μ env) {φ : Name → Nat} {ct
         (keyFrame dsa (ctx.hiAt t.anc.length) σ) := by
   obtain ⟨ty, hty⟩ := posD_frame_kty hok.1
   rw [← hhead] at hty
-  have hty' : ConLeche.inferTypeCore .verified env F (ctx.hiAt t.anc.length)
+  have hty' : ConLeche.inferTypeCore .verified false env F (ctx.hiAt t.anc.length)
       (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds) = .ok ty := hty
   have hws := posNodeOk_dsAnc hok
   obtain ⟨-, hC, hL⟩ := hsem

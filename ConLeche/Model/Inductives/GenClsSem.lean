@@ -144,7 +144,7 @@ prefix to the index openers `ifs`; the stored domains are `rP + nIdx
 + 1` entries whose index entries are the readings of the openers' domains
 and whose major entry is the reading of `I lvls (ds ++ ifs)` (the stored
 type IS the generated one). -/
-theorem genRun_binders (hμ : μ.isVerified = true)
+theorem genRun_binders (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -240,7 +240,7 @@ set_option maxHeartbeats 2000000 in
 /-- **The class's instantiation `I lvls ds` is graded at every prefix
 spine** — a head of the stored major domain's application spine
 (`storedMajorSub_graded`: the stored type's own inference). -/
-theorem genCls_inst_graded (hμ : μ.isVerified = true)
+theorem genCls_inst_graded (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -295,7 +295,7 @@ set_option maxHeartbeats 2000000 in
 up to the erasure of its arguments' annotations, in the prefix context —
 a head of the stored major domain's application spine
 (`storedMajorSub_ctx`). -/
-theorem genCls_inst_ctx (hμ : μ.isVerified = true)
+theorem genCls_inst_ctx (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -305,7 +305,7 @@ theorem genCls_inst_ctx (hμ : μ.isVerified = true)
     ∃ ds' : List Expr, ds'.length = (tgtMajor out c).ds.length ∧
       Expr.ErasedEq (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds')
         (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) (tgtMajor out c).ds) ∧
-      (∃ tx, ConLeche.inferTypeCore .verified envC F (p.toBlockShape.rulePrefixAt c)
+      (∃ tx, ConLeche.inferTypeCore .verified false envC F (p.toBlockShape.rulePrefixAt c)
         (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds') = .ok tx) ∧
       Rules.Frame (p.toBlockShape.rulePrefixAt c)
         (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds') ∧
@@ -427,7 +427,7 @@ binders exactly when they fit the class's recorded index telescope at the
 key frame, and then the stored major domain reads as the class's carrier
 at their tuple (`instFormer_read` for the index binders, `keyLeaf` for
 the major). -/
-theorem genCls_core (hμ : μ.isVerified = true)
+theorem genCls_core (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -609,7 +609,7 @@ theorem genCls_Is_fits {c : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc 
 
 set_option maxHeartbeats 2000000 in
 /-- **`GenClsSplit` at one class.** -/
-theorem genCls_split (hμ : μ.isVerified = true)
+theorem genCls_split (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -657,7 +657,7 @@ theorem genCls_split (hμ : μ.isVerified = true)
 
 set_option maxHeartbeats 2000000 in
 /-- **`GenClsBack` at one class.** -/
-theorem genCls_back (hμ : μ.isVerified = true)
+theorem genCls_back (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -719,7 +719,7 @@ levels and parameters (`ClassCtorRun.hD`), so the field domains are the
 datum's recorded fields substituted by `instTau`, the index expressions
 are the recorded result indices substituted (`tgtOutEs`), and the fired
 spine is the constructor at the class's parameters and the fields. -/
-theorem genCls_open (hμ : μ.isVerified = true)
+theorem genCls_open (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
@@ -835,7 +835,7 @@ set_option maxHeartbeats 4000000 in
 /-- **The decoding at the rule frame, at one class** (`GenClsDec`'s body):
 `instCtor_decode` at the class's datum, through the rule frame's reading
 (`genCls_open`). -/
-theorem genCls_dec (hμ : μ.isVerified = true)
+theorem genCls_dec (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -973,7 +973,7 @@ set_option maxHeartbeats 4000000 in
 hole fit at a tuple of the index set fits the rule's declared field
 domains (`instCtor_fit`), and the tuple is the index expressions'
 readings' (the hole fit's result indices ARE the tuple's components). -/
-theorem genCls_decInv (hμ : μ.isVerified = true)
+theorem genCls_decInv (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -1077,7 +1077,7 @@ theorem genRun_former
 set_option maxHeartbeats 4000000 in
 /-- **An outside class's reading facts** (`GenClsRd` from the class's
 record `TgtOutCls` and its check as a major), and its former. -/
-theorem genClsRd_out (hμ : μ.isVerified = true)
+theorem genClsRd_out (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -1222,7 +1222,7 @@ variable {F : Nat} {envI envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos :
 set_option maxHeartbeats 4000000 in
 /-- **A member class's reading facts** (`GenClsRd` at the block's own
 datum `d.toLfp`, the member's stored former), and its former. -/
-theorem genClsRd_mem (hμ : μ.isVerified = true)
+theorem genClsRd_mem (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
@@ -1449,7 +1449,7 @@ variable {F : Nat} {envI envC : Env} {pp : BlockParts} {nestedBit : Bool} {pos :
   {mpC : EnvModelM V μ envC} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal}
 
-variable (hμ : μ.isVerified = true)
+variable (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))

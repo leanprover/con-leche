@@ -34,7 +34,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 variable {pins : List NatOpPinSet}
 
 /-- **Acceptance**: what the fold accepts carries the model. -/
-theorem checkDecls_sound (hμ : μ.isVerified = true)
+theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
     (h : checkDecls μ pins ds = .ok env') :
     Nonempty (EnvModelM V μ env') := by
@@ -45,7 +45,7 @@ theorem checkDecls_sound (hμ : μ.isVerified = true)
 validating mode, never accepts a stream in which some stored constant
 has type `Empty`.  Hypotheses are input-level only. -/
 theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true)
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
     (h : checkDecls μ pins ds = .ok env') :
     ∀ c ∈ env'.consts,
@@ -57,7 +57,7 @@ theorem no_proof_of_Empty_cached (V : Type w) [SetTheory V]
 the pinned `False` block — no hypothesis about how the stream declared
 `False`.  The step the main corollary rests on is this at `.verified`. -/
 theorem no_proof_of_False_cached (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.isVerified = true)
+    {μ : CheckMode} (hμ : μ.verifiedChecks = true)
     {ds : Array Declaration} {env' : Env}
     (h : checkDecls μ pins ds = .ok env') :
     ∀ c ∈ env'.consts,

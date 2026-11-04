@@ -108534,3 +108534,49 @@ where official rejects (1) — the stored recursor is compared with the
 generated one up to definitional equality (ruling 2 of §1), official
 syntactically.  **Standing gap**: `ind_shapeless_use` is declined (2,
 "shape not recognised") where official rejects (1), as before #431.
+
+## TASK #452 — the eager flag separate from the mode (2026-11-04, agent/452-eager)
+
+Maintainer: `CheckMode` conflated an implementation detail of the
+checker with its public interface.  `CheckMode` is now `verified |
+trusted`; the official kernel's `m_eager_reduce` is an argument
+`eager : Bool` next to the mode, on what reads it (`defeqBody`,
+`lazyDeltaReduction` and their cached twins) and on what ties the bodies
+(`coreKnot`, `coreKnotI`, `pureFns` and the fueled entry points).  The
+eager slot ties the knot at `eager := true`; the driver and the
+declaration front doors run at `eager := false`.  The bodies that only
+call through the record take no flag.
+
+**Gone**: `verifiedEager`, `trustedEager`, `CheckMode.eager`,
+`CheckMode.toEager`, `CheckMode.isVerified`, `CheckMode.vc`,
+`verifiedChecks_toEager`, `CheckMode.argMode` (now `argEager`, a flag
+function).  `verifiedChecks` stays as the function on the two
+constructors, and `CheckMode.eq_verified` now reads it.
+
+**Proofs**: what lies under the knot induction (`Verify/{Fueled,Mono,
+Knot,Deep,InferLemmas}`, `Verify/Rules/*`, `Verify/Cached/{SimC,DiscC*,
+KnotC,KnotCongr}`) is general in `eager`, the inductions run over both
+flags rather than over the modes, and `CSOK.eager` is `ModeMemosOK mode
+true env s.eagerMemos`.  What stands above it (the install and block
+walks, `Model/*`, `Semantics/*`) is at `eager := false`.
+
+**Statements**: the capstones' hypothesis `μ.isVerified = true` reads
+`μ.verifiedChecks = true`, since `isVerified` is gone; nothing else in
+them changed and the axiom pins did not move.
+
+**The cached knot is split** (`knotLevelI`, `knotPlainI`, `knotEagerI`;
+`coreKnotI` dispatches on the flag).  The plain shape, one recursive
+knot with the flag as a parameter, made every closure of a level capture
+it: +0.49 % on init-full, +0.35 % on grind-ring-5.  A `match` on the flag
+inside the one knot does not help: the compiler replaces the literal
+with the variable in each branch, and the closures capture it again.
+With two knots the flag is a literal in each.  `coreKnotI` no longer
+reduces at a variable flag, so the lemmas unfolding it go by `cases
+eager`.  The spec knot `coreKnot` keeps the plain shape.
+
+**Instructions** (`instructions:u`, one run, `--verified --jobs=1`,
+master → lane): init-full 381.51 G → 381.76 G (+0.07 %; at `--jobs=4`
+392.87 G → 391.76 G, −0.28 %), init-prelude
+1.9563 G → 1.9578 G (+0.07 %), grind-ring-5 15.292 G → 15.299 G
+(+0.04 %), the other arena perf streams −0.03..+0.14 %.  What is left is
+the extra argument of `defeqBodyI` and `lazyDeltaReductionI`.

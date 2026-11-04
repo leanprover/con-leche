@@ -149,7 +149,7 @@ set_option maxHeartbeats 16000000 in
 Π-tower of the callee's index and major domains** — those domains
 opened at the rule prefix are the tower's opened at the motive's slot,
 lifted past the prefix's later slots. -/
-theorem genMotRds (hμ : μ.isVerified = true)
+theorem genMotRds (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -300,7 +300,7 @@ theorem spineFit_mem_getD :
 set_option maxHeartbeats 4000000 in
 /-- **All recursors share their prefix's reading**: each stored type's
 prefix openers are erasure-equal to the one generated prefix. -/
-theorem genPdoms_read (hμ : μ.isVerified = true)
+theorem genPdoms_read (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -329,7 +329,7 @@ theorem genPdoms_read (hμ : μ.isVerified = true)
     List.getElem?_take, ite_eq_left (by omega), hpd]
   rfl
 
-theorem genPdoms_eq (hμ : μ.isVerified = true)
+theorem genPdoms_eq (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -350,7 +350,7 @@ call's index arguments and applied field, at a spine fitting its
 telescope, fit the motive's Π-tower (the motive application is graded,
 `genIhFrame`), which is the callee's index and major telescope
 (`genMotRds`). -/
-theorem genIhMot (hμ : μ.isVerified = true)
+theorem genIhMot (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
@@ -425,7 +425,7 @@ set_option maxHeartbeats 16000000 in
 data — the prefix is shared, and the index arguments and applied field
 fit the callee's index and major domains, because they fit the motive's
 type (`genIhMot`). -/
-theorem genCallTy (hμ : μ.isVerified = true)
+theorem genCallTy (hμ : μ.verifiedChecks = true)
     (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)

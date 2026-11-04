@@ -72,7 +72,7 @@ module docstring).  The leaf is the stored `True.intro`'s
 leaf valuation, and the membership is that constant's own
 `mem_type`, whose type reads to the same `acval trueName ψ` the
 axiom's does. -/
-theorem axiomTrustCompiler (hμ : μ.isVerified = true)
+theorem axiomTrustCompiler (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
     (hname : cv.name = ConLeche.trustCompilerName)
@@ -154,7 +154,7 @@ theorem axiomTrustCompiler (hμ : μ.isVerified = true)
 /-- **The standard-axiom branch, discharged.**  The leaf is the layer's
 own constant in both halves, so every syntactic obligation is `rfl` or
 a `const` clause, and the whole content is the membership. -/
-theorem axiomStd (hμ : μ.isVerified = true)
+theorem axiomStd (hμ : μ.verifiedChecks = true)
     (mp : EnvModelM V μ env) {cv : ConstantVal} {type' : Expr}
     (hcv : ConstantValRun μ F env cv type')
     (hok : ConLeche.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩

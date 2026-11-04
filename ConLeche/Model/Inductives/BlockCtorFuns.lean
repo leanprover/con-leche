@@ -35,7 +35,7 @@ structure BlockCtorPick where
 
 /-- **The constructors' data functions at one member of a block**:
 every constructor's data, from its stage run. -/
-theorem blockCtorFuns_of (hμ : μ.isVerified = true) (mp : EnvModelM V μ env)
+theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
     {F : Nat} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal}
     {env₁ : Env} {caps : IndCaps} {bs : List Expr}

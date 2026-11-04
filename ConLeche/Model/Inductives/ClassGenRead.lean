@@ -67,12 +67,12 @@ theorem EndsInSort.closeTelescope {u : Level} {m : Nat} {B : Expr} (hB : EndsInS
 
 /-- **A successful inference of a telescope infers its opened body**, at
 a fuel no larger, and sorts it. -/
-theorem inferTypeCore_openPis_body (hμ : μ.isVerified = true) {envK : Env} :
+theorem inferTypeCore_openPis_body (hμ : μ.verifiedChecks = true) {envK : Env} :
     ∀ (n : Nat) {d F : Nat} {e s : Expr} {fvs : List Expr} {o : Expr},
       openPisAtFvars (n + 1) e d = some (fvs, o) →
-      ConLeche.inferTypeCore μ envK F d e = .ok s →
-      ∃ bt u, ConLeche.inferTypeCore μ envK F (d + (n + 1)) o = .ok bt ∧
-        ConLeche.ensureSortCore μ envK F (d + (n + 1)) bt = .ok u
+      ConLeche.inferTypeCore μ false envK F d e = .ok s →
+      ∃ bt u, ConLeche.inferTypeCore μ false envK F (d + (n + 1)) o = .ok bt ∧
+        ConLeche.ensureSortCore μ false envK F (d + (n + 1)) bt = .ok u
   | n, d, F, e, s, fvs, o, hop, hinf => by
     match e, hop with
     | .forallE ty bd, hop =>

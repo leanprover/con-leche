@@ -17,6 +17,7 @@ import ConLeche.Model.Cover
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.PosNodes
+import ConLeche.Verify.Modes
 
 public section
 
@@ -461,7 +462,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 
 /-- **`nestedRecCtx_nodes` at the generated stage's context**: the node
 list over the generated run's table `R.st.ctorNfs` (the seeds' walk). -/
-theorem genRecCtx_nodes (hμ : μ.isVerified = true) {F : Nat} {block : List ConstantInfo}
+theorem genRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List ConstantInfo}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
@@ -605,8 +606,8 @@ theorem genRecCtx_nodes (hμ : μ.isVerified = true) {F : Nat} {block : List Con
           ConLeche.nestCrest ctx.names (pp.lps.map .param) fvsP holes cA.1.type = some crest ∧
           ConLeche.MemberCtorD (fueledOps .verified F) envI ctx cA.2 crest ks
             ((nfsR.getD q.1 []).getD q.2 default) ts ∧
-          (∃ ty u, ConLeche.inferTypeCore .verified envI F (ctx.hiAt 0) crest = .ok ty ∧
-            ConLeche.ensureSortCore .verified envI F (ctx.hiAt 0) ty = .ok u) ∧
+          (∃ ty u, ConLeche.inferTypeCore .verified false envI F (ctx.hiAt 0) crest = .ok ty ∧
+            ConLeche.ensureSortCore .verified false envI F (ctx.hiAt 0) ty = .ok u) ∧
           ConLeche.TreeRec (fueledOps .verified F) envI ctx R.st.ctorNfs.toList ts := by
     intro q
     by_cases h : ∃ cs cA, ctorsAsR[q.1]? = some cs ∧ cs[q.2]? = some cA

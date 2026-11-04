@@ -136,7 +136,7 @@ mode index, for `infer_only` (@sec:io), which the fragment
 states as a relation of its own.
 
 *The bridge and the recomposition.* Because the real checker is a
-program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 30, 33)[The bridge] turns an accepting
+program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 29, 32)[The bridge] turns an accepting
 run at any fuel into a derivation, by one induction on fuel in which
 each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 49, 50)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a

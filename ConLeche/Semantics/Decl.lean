@@ -31,7 +31,7 @@ checker's literal output, one run per equation.  The model's
 establishment route consumes these runs through `DefEqClaim`. -/
 def NatEqsRun (μ : CheckMode) (F : Nat) (env : Env)
     (eqs : List (Expr × Expr)) : Prop :=
-  ∀ eq ∈ eqs, isDefEqCore μ env F 2 eq.1 eq.2 = .ok true
+  ∀ eq ∈ eqs, isDefEqCore μ false env F 2 eq.1 eq.2 = .ok true
 
 /-- The pinned basis-block install (`checkDecl`'s basis branch): the
 quot-requires-`Eq` guard and the freshness-checked fold. -/

@@ -52,7 +52,7 @@ is not the point. -/
 @[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List Term},
-    whnfCore μ env fuel d e = .ok e' →
+    whnfCore μ false env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ea' : Term},
@@ -70,7 +70,7 @@ point (task #342, L9). -/
 @[expose] def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List Term},
-    whnf μ env fuel d e = .ok e' →
+    whnf μ false env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ea' : Term},
@@ -90,7 +90,7 @@ comparing two types or two members of one type closes with
 @[expose] def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List Term},
-    ConLeche.isDefEqCore μ env fuel d a b = .ok true →
+    ConLeche.isDefEqCore μ false env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -112,7 +112,7 @@ the type denotes a type. -/
 @[expose] def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List Term},
-    inferTypeCore μ env fuel d e = .ok t →
+    inferTypeCore μ false env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ta : Term},

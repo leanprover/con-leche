@@ -59,8 +59,8 @@ theorem valueFrontRun_of {env : Env} {μ : CheckMode} {F : Nat}
     (hannv : value' = value)
     (hvp : value'.allLevelParamsDefined cv.levelParams = true)
     (hvr : value'.constsResolve env = true)
-    (hvt : inferTypeCore μ env F 0 value' = .ok vtype)
-    (hde : isDefEqCore μ env F 0 vtype type' = .ok true) :
+    (hvt : inferTypeCore μ false env F 0 value' = .ok vtype)
+    (hde : isDefEqCore μ false env F 0 vtype type' = .ok true) :
     ValueFrontRun μ F env cv value type' value' :=
   ⟨hlbv, hivf, hannv, hvp, hvr, ⟨vtype, hvt, hde⟩⟩
 
@@ -113,12 +113,12 @@ theorem declThmRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   try dsimp only at h
   obtain ⟨-, -, hcv⟩ := constantValRun_of hccv
   simp only [Pure.pure, Except.pure] at h
-  cases hst2 : inferTypeCore μ env F 0 cv.type with
+  cases hst2 : inferTypeCore μ false env F 0 cv.type with
   | error e => rw [hst2] at h; exact nomatch h
   | ok stype2 =>
   rw [hst2] at h
   try dsimp only at h
-  cases hsort2 : ensureSortCore μ env F 0 stype2 with
+  cases hsort2 : ensureSortCore μ false env F 0 stype2 with
   | error e => rw [hsort2] at h; exact nomatch h
   | ok u2 =>
   rw [hsort2] at h
@@ -146,12 +146,12 @@ theorem declThmRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   by_cases hvr : value.constsResolve env = true
   case neg => simp [hvr] at h
   simp only [hvr] at h
-  cases hvt : inferTypeCore μ env F 0 value with
+  cases hvt : inferTypeCore μ false env F 0 value with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore μ env F 0 vtype cv.type with
+  cases hde : isDefEqCore μ false env F 0 vtype cv.type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h
@@ -258,12 +258,12 @@ theorem declOpaqueRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   by_cases hvr : value.constsResolve env = true
   case neg => simp [hvr] at h
   simp only [hvr] at h
-  cases hvt : inferTypeCore μ env F 0 value with
+  cases hvt : inferTypeCore μ false env F 0 value with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore μ env F 0 vtype cv.type with
+  cases hde : isDefEqCore μ false env F 0 vtype cv.type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h
@@ -329,12 +329,12 @@ theorem declDefnRun_of {env env₂ : Env} {μ : CheckMode} {F : Nat}
   by_cases hvr : value.constsResolve env = true
   case neg => simp [hvr] at h
   simp only [hvr] at h
-  cases hvt : inferTypeCore μ env F 0 value with
+  cases hvt : inferTypeCore μ false env F 0 value with
   | error e => rw [hvt] at h; exact nomatch h
   | ok vtype =>
   rw [hvt] at h
   try dsimp only at h
-  cases hde : isDefEqCore μ env F 0 vtype cv.type with
+  cases hde : isDefEqCore μ false env F 0 vtype cv.type with
   | error e => rw [hde] at h; exact nomatch h
   | ok b =>
   rw [hde] at h

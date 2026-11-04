@@ -284,7 +284,7 @@ a named premise here. -/
 /-- The `i`-th stored recursor type's READING is closed — the stored
 type has no free variable and no loose bvar, and `denote` at depth
 `0` preserves that. -/
-theorem closed_blockRecTyAV {envC : Env} (hμ : μ.isVerified = true)
+theorem closed_blockRecTyAV {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
@@ -303,7 +303,7 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
   {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
 
 /-- **C-1 at the run**: the stage's leaf is closed. -/
-theorem blockRecLeafAV_closed (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRecLeafAV_closed (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     (heqB : ∀ ψ : Name → Nat, ∀ e ∈ eqs ψ, Term.bvarsBelow rs.length e)
     (ψ : Name → Nat) (i : Nat) :
@@ -367,7 +367,7 @@ theorem recStage_lps {envC : Env} {p : ConLeche.BlockParts}
 /-- **The recursor types' readings are φ-congruent at ANY recursor's
 level parameters** — `BlockRecLeafOk.par`'s first half, so that what is left of
 it is the equation list's own ψ-dependence. -/
-theorem blockRecTyAV_params_ext {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRecTyAV_params_ext {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
@@ -388,7 +388,7 @@ theorem blockRecTyAV_params_ext {envC : Env} (hμ : μ.isVerified = true)
 
 /-- **C-3 at the run, with the types' half discharged**: what is left
 of `BlockRecLeafOk.par` is the EQUATION LIST's own ψ-dependence. -/
-theorem blockRecLeafAV_par_run (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRecLeafAV_par_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
@@ -403,7 +403,7 @@ theorem blockRecLeafAV_par_run (hμ : μ.isVerified = true) (mpC : EnvModelM V �
 
 /-- **The leaf facts at the run**, from the equation list's two
 facts and the family premise. -/
-theorem blockRecLeafOk_of (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRecLeafOk_of (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     (heqB : ∀ ψ : Name → Nat, ∀ e ∈ eqs ψ, Term.bvarsBelow rs.length e)
     (heqP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -1045,7 +1045,7 @@ five) is then the stage's two pins together: `rds.length = mI + 1` and
   (blockRecRdsAV acval envC p rs ψ c).take (p.rulePrefixAt c)
 
 /-- **`BlockRuleDataAt`'s first conjunct, at the run.** -/
-theorem blockRulePdomsAV_length {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRulePdomsAV_length {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
@@ -1190,7 +1190,7 @@ variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
 /-- **A-2's PREFIX half, generically**: whatever fits the `c`-th
 stored recursor type's reading fits its first `rP` binder domains —
 `spineFit_blockRecTy` truncated at the rule's prefix. -/
-theorem spineFit_blockRulePdomsAV (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem spineFit_blockRulePdomsAV (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) (ψ : Name → Nat)
@@ -1211,7 +1211,7 @@ theorem spineFit_blockRulePdomsAV (hμ : μ.isVerified = true) (mpC : EnvModelM 
 /-- **A-2's prefix half at the contract's own spine**: the fit
 `RecRuleLaw` hands (`hfitR`, at `xs ++ [C ys]`) restricted to the
 rule's prefix. -/
-theorem spineFit_blockRulePdomsAV_app (hμ : μ.isVerified = true)
+theorem spineFit_blockRulePdomsAV_app (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -1401,7 +1401,7 @@ accepted-reads recipe applies at that environment and nowhere below it
 is a MODEL of that environment, and it is `envModelM_consBlockRecsBare`
 at exactly the facts `blockRecStaged_runR` already assembles. -/
 
-theorem blockRecBareModel_run {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRecBareModel_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
@@ -1438,10 +1438,10 @@ OWN inference run — the rule check's `inferType` on the stored
 rule at the rule-less recursor environment.  The subject is not a
 type, so the grading is the INFER claim's first component rather than
 the sort's. -/
-theorem blockRuleRhs_reads {envR : Env} (hμ : μ.isVerified = true)
+theorem blockRuleRhs_reads {envR : Env} (hμ : μ.verifiedChecks = true)
     (mpR : EnvModelM V μ envR) {F : Nat} {out tyR : Expr}
     (hfv : out.hasFvar = false) (hb : out.looseBVarsBounded 0 = true)
-    (hinf : ConLeche.inferTypeCore μ envR F 0 out = .ok tyR) (ψ : Name → Nat) :
+    (hinf : ConLeche.inferTypeCore μ false envR F 0 out = .ok tyR) (ψ : Name → Nat) :
     ∃ Ra : Term, denote mpR.base2.acval envR ψ 0 out = some Ra ∧
       ∀ ρ : Nat → V, WellDenoted V ρ Ra := by
   have hw : Expr.WScoped 0 out := Expr.WScoped.of_not_hasFvar hfv
@@ -1473,7 +1473,7 @@ through the stored level parameters, and the two conses differ in the
 `rules` field alone).  The level instantiation is
 `denote_instLevels`, which is why the reading is a FUNCTION of the
 valuation. -/
-theorem blockRuleRhs_read_run {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRuleRhs_read_run {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
@@ -1646,7 +1646,7 @@ theorem blockRecDenote_cross_eq {mpC : EnvModelM V μ envC}
 /-- **The contract's `TVa` binder, ELIMINATED**: the recursor type's
 reading at the consed environment, at the rule's level arguments, IS
 `blockRecTyAV` at the substituted valuation. -/
-theorem blockRuleTVa_run (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRuleTVa_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {m₃ : EnvModel V (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)}
     (hac : m₃.acval = blockRecAcv mpC.base2.acval envC rs s eqs)
@@ -1699,7 +1699,7 @@ takes the recursor type's reading as a premise (`hTVa`); with the
 contract's `TVa` eliminated (`blockRuleTVa_run`) the fit the contract
 hands IS a fit of that reading, so the premise is discharged by
 `recStage_tyPis` and nothing is left of this half. -/
-theorem blockRuleHspPref_run (hμ : μ.isVerified = true) (mpC : EnvModelM V μ envC)
+theorem blockRuleHspPref_run (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
     (h : ConLeche.RecStageG μ F envC p cvTas rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) (ψ : Name → Nat)
@@ -1814,7 +1814,7 @@ reading (`blockRecTyAV`) and the constructors' stage's (`ctorTy`) ARE
 them.  And `hdataB` has no `∀ m₃`: with `hac` used to spell the
 valuation, it mentions `blockRecAcv mpC.base2.acval envC rs s eqs` and
 the two environments and no model of the consed environment at all. -/
-theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRuleRhsOk_base {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {nCt : Nat → Nat}
@@ -1949,7 +1949,7 @@ the pair — the stored `ctorInfo`, the type's `ConstsBound` and its
 reading `ctorTy` — which is what the eliminations are paid for with,
 and which the constructors' stage owns (`BlockCtorFacts`'s first field
 and `CtorDataI.read`). -/
-theorem blockRecStaged_dataR {envC : Env} (hμ : μ.isVerified = true)
+theorem blockRecStaged_dataR {envC : Env} (hμ : μ.verifiedChecks = true)
     (mpC : EnvModelM V μ envC) {p : BlockParts}
     {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}

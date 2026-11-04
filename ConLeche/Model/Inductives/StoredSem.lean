@@ -219,7 +219,7 @@ variable {μ : CheckMode}
 install): at every level assignment the stored type reads, its reading
 is a graded type, and it agrees with the generated type's reading as an
 `n`-binder tower at every valuation. -/
-theorem storedTy_sem (hμ : μ.isVerified = true) {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+theorem storedTy_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvModelM V μ env) {F : Nat}
     {rec : Name} {lps : List Name} {n : Nat} {S G : Expr}
     (hck : ConLeche.recTyCheck (ConLeche.fueledOps μ F) .plain (ConLeche.mkFEnv env) rec lps n
       S G = .ok ())
@@ -237,8 +237,8 @@ theorem storedTy_sem (hμ : μ.isVerified = true) {env : Env} (mp : EnvModelM V 
   have hnlS : S.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hSf
   have hLS : Expr.LeavesBounded S := fun l hl => by
     rw [hnlS] at hl; exact absurd hl List.not_mem_nil
-  have hinf' : inferTypeCore μ env F 0 S = .ok st := hinf
-  have hens' : ConLeche.ensureSortCore μ env F 0 st = .ok u := hens
+  have hinf' : inferTypeCore μ false env F 0 S = .ok st := hinf
+  have hens' : ConLeche.ensureSortCore μ false env F 0 st = .ok u := hens
   obtain ⟨TS, hTS⟩ := acceptedReads_of mp.base2 φ hinf' hwS hSb hLS
   have hsr := hc.sortRow hinf' hens' hwS hSb hLS (CtxOk.nil hnlS) hTS
   have hTSw : ∀ ρ : Nat → V, WellDenotedTy V ρ TS := fun ρ =>
@@ -286,7 +286,7 @@ theorem storedTy_sem (hμ : μ.isVerified = true) {env : Env} (mp : EnvModelM V 
 generated install): at every level assignment where the generated side
 reads, the stored side reads, is graded, and reads as the generated
 one. -/
-theorem storedRhs_sem (hμ : μ.isVerified = true) {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+theorem storedRhs_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvModelM V μ env) {F : Nat}
     {rec ctor : Name} {lps : List Name} {s g : Expr}
     (hck : ConLeche.ruleAgree (ConLeche.fueledOps μ F) .plain (ConLeche.mkFEnv env) rec ctor lps
       s g = .ok ())
@@ -304,8 +304,8 @@ theorem storedRhs_sem (hμ : μ.isVerified = true) {env : Env} (mp : EnvModelM V
   have hnlg : g.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hgf
   have hLg : Expr.LeavesBounded g := fun l hl => by
     rw [hnlg] at hl; exact absurd hl List.not_mem_nil
-  have hts' : inferTypeCore μ env F 0 s = .ok ts := hts
-  have htg' : inferTypeCore μ env F 0 g = .ok tg := htg
+  have hts' : inferTypeCore μ false env F 0 s = .ok ts := hts
+  have htg' : inferTypeCore μ false env F 0 g = .ok tg := htg
   obtain ⟨Rs, hRs⟩ := acceptedReads_of mp.base2 φ hts' hws hsb hLs
   obtain ⟨tsa, htsa⟩ := hc.reads hts' hws hsb hLs (CtxOk.nil hnls) hRs
   obtain ⟨tga, htga⟩ := hc.reads htg' hwg hgb hLg (CtxOk.nil hnlg) hRg

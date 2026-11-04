@@ -61,15 +61,15 @@ expression type (task #172 B3a). -/
 /-- Shared-state unary entry point: run the cached knot. -/
 def opE (fe : FEnv) (pick : CoreFnsI → Nat → Expr → CheckCM Expr)
     (d : Nat) (e : Expr) : CheckCM Expr := do
-  pick (coreKnotI mode fe checkFuel) d e
+  pick (coreKnotI mode false fe checkFuel) d e
 
 /-- Shared-state definitional-equality entry point. -/
 def opB (fe : FEnv) (d : Nat) (a b : Expr) : CheckCM Bool :=
-  (coreKnotI mode fe checkFuel).defeq d a b
+  (coreKnotI mode false fe checkFuel).defeq d a b
 
 /-- Shared-state sort-ensuring entry point. -/
 def opS (fe : FEnv) (d : Nat) (e : Expr) : CheckCM Level :=
-  ensureSortI (coreKnotI mode fe checkFuel) d e
+  ensureSortI (coreKnotI mode false fe checkFuel) d e
 
 /-- The per-declaration shared operations at a fixed environment
 index. -/
