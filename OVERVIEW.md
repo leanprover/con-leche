@@ -292,7 +292,7 @@ constructors are stored as declared, but they are installed with their
 block and are left out with it.
 
 `checkDecls`
-([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L329-L334))
+([function `checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L331-L336))
 installs every declaration of `ds` first — a definition, theorem or
 opaque guarded and pushed with its check recorded, everything else
 checked in full as it is installed — and then checks every recorded
@@ -425,7 +425,7 @@ Read from the outside in:
    — index resolution, the smart constructors — is the
    semantic layer the main corollary's line lemmas are about. The fold
    installs every record, each from a fresh memo state, by its install step
-   ([function `installStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L144-L147)):
+   ([function `installStepC` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L146-L149)):
    a definition or opaque is guarded and pushed with its check
    *recorded* — the header and value and the number of
    constants installed before it — a theorem is installed by its
@@ -435,8 +435,10 @@ Read from the outside in:
    an axiom, an inductive or
    basis block, and the pinned `Nat`-operation and `reduce*`
    declarations are checked by the fold's ordinary step. The driver
-   builds the fold's run, at every worker count, by a commit loop
-   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L690-L699))
+   installs the same records without running that step: it pushes
+   what the record says and runs the step later, as a job (below).
+   It builds the fold's run, at every worker count, by a commit loop
+   ([function `ParInstall.commitLoop` in `ConLeche/Driver/ParInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/ParInstall.lean#L691-L700))
    that adds one step per record in stream order (a proposition carried
    beside the index), pushing each record's
    constants into the index itself, while worker threads (none at
@@ -448,41 +450,48 @@ Read from the outside in:
    The commit loop keeps the view's lookups equal to the serial index's
    (the installer checks, per constant it pushes, that the predicted slot
    holds that very constant, and hands that verdict over with its
-   result), so an install at the view is the serial step
-   ([theorem `installStep_commit` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468)):
-   every install stage reads its index through the lookups alone (the
-   constants' and the projection tables') and writes it by pushes
-   alone, so at two indices with the same lookups it pushes the same
-   constants and tables onto each. The install puts every inductive
+   result), so a definition's, theorem's or opaque's install at the view
+   is the serial step
+   ([theorem `installStepG_commit` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L256-L261)).
+   Every other record is pushed from the record alone: an axiom or a
+   pinned `Nat` operation or `reduce*` opaque as its own constant, a
+   basis or quotient record as its pin's constants, and every inductive
    block *as stored*: every constant and table read off the block's
    records, nothing generated (a projection table's guard levels, the
    fields' sorts, are inferred; a former whose type
    is a definition is put at the telescope official's `whnf` loop reads,
    the one its recursor shows; a pinned basis block is the pin's
-   constants), and its checked install, at the same worker view,
+   constants). The record's checked step, at the same worker view,
    becomes a job of the check phase that also compares what it pushes
-   with what the stored install pushed (a difference is exit 3: the
-   reading is wrong, not the stream). Where a part of a block cannot be
+   with what the install pushed (a difference is exit 3: the
+   reading is wrong, not the stream). Every install stage reads its
+   index through the lookups alone (the constants' and the projection
+   tables') and writes it by pushes alone, so at two indices with the
+   same lookups the checked step pushes the same constants and tables
+   onto each. Where a part of a block cannot be
    read, it is pushed as declared (a block the recogniser does not read
    pushes nothing): the block's job then rejects or declines it, so the
-   verdict is always the checked install's. The run the commit loop carries is then the fold's
+   verdict is always the checked step's. The run the commit loop carries is then the fold's
    run *conditional* on those jobs
-   ([theorem `installDeclStep_defer` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L142-L149)),
+   ([theorem `installDeclStep_defer` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L204-L211)),
    and the check phase discharges the condition: a run is accepted
    only if every job passes, exactly as for a recorded definition,
-   which is installed before its check too. A failure after a
-   block whose job fails is reported at that block.
+   which is installed before its check too; so a declaration may read a
+   pinned operation, and fire its literal fast path, before the
+   operation's certificates have been checked, and the operation's
+   failure, earlier in the fold, is the verdict. A failure after a
+   record whose job fails is reported at that record.
    What the commit loop returns is therefore
    the same installed environment, whatever the schedule (a prediction
-   that does not match, which no accepted block produces, is an internal
+   that does not match, which no accepted record produces, is an internal
    error, exit 3). The check
    phase then checks every recorded declaration
    against the *prefix* of the installed index it was installed at — an
    `O(1)` view whose lookup hides everything installed later — from a
-   fresh memo state, and runs every block's job, in one order: the
+   fresh memo state, and runs every other record's job, in one order: the
    stream's. A job is its own evidence
-   ([definition `runJob` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L255-L256)):
-   the fact that the record is checked or the block's install passed,
+   ([definition `runJob` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L352-L353)):
+   the fact that the record is checked or its checked step passed,
    or its error tagged with the declaration's position in the stream.
    The installed environment — read-only from the
    boundary on — is marked persistent once, so that no check pays
@@ -494,34 +503,34 @@ Read from the outside in:
    ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L242))
    claims jobs one at a time off a shared counter, and the results,
    merged by job index, are walked in job order
-   ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L304-L308))
+   ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L401-L405))
    — the walk stops at the first failing job in fold order, so the
    pool's verdict is the sequential walk's, and what it assembles is
-   the same fact about every record and every block. Either way what comes out is a
+   the same fact about every record. Either way what comes out is a
    fully checked environment; which thread computed a check is
    irrelevant to what it proves, and so is whether the mark happened:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L87-L90))
+   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L88-L91))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
-   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L411-L413)).
+   ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L413-L415)).
    Between the two phases the driver also checks that the stream's
    recursor rules agree with the installed ones (§5, the recursor
    check): a disagreement is a rejection, and an agreement changes
    nothing.
 2. **The fully checked environment**
-   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L250-L254))
+   ([structure `InstalledEnv` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L252-L256))
    is stated over the executable steps: the installed environment is
    the accepting install run
-   ([inductive `InstallRun` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L206-L214)),
+   ([inductive `InstallRun` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L208-L216)),
    and a record is checked when its check at the prefix view succeeded
-   ([definition `GroupChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L282-L286)).
+   ([definition `GroupChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L284-L288)).
    The records' checks are independent of one another, which is what
    lets a later loop hand them to workers. An accept of `checkDecls`
    is exactly such an environment, and conversely
-   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L422-L423)),
+   ([theorem `checkDecls_fullyChecked` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L424-L425)),
    which is how the theorem about the fold is read off the argument
    of step 3.
 3. **The cached checker** (`ConLeche/Cached/*`) is the implementation
@@ -1233,8 +1242,8 @@ instead of trusting the operation's name.
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
   [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L440-L448)):
-  when a definition under one of these names arrives, the install
-  certifies its defining recurrence equations by definitional
+  when a definition under one of these names arrives, its checked
+  step certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations

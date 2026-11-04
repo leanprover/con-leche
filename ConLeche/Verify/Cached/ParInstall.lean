@@ -41,7 +41,7 @@ driver returns is the serial fold's whatever the schedule.
   step's error (`valueStep_commit_error`).  Every other record — a
   block, an axiom, a basis block, a pinned declaration — goes through
   the cached checker's own step at the view; that its install there is
-  the serial step is `installStep_commit`
+  the serial step is `installStepG_commit`
   (`ConLeche/Verify/Cached/ViewCongr.lean`), which covers both kinds.
 
 Nothing here mentions a schedule, a thread or a promise: the lemmas
@@ -59,7 +59,7 @@ so it moved back here.  It keeps its `@[expose] public section` (not
 the Verify tier's usual plain `public section`): `workerView` and
 `valueStep` are `unfold`ed and `simp`-rewritten by
 `ConLeche/Verify/Cached/ViewCongr.lean`'s own proofs
-(`installStep_commit`'s case split), which needs their bodies exposed,
+(`installStepG_commit`'s case split), which needs their bodies exposed,
 not just their statements visible.
 -/
 
@@ -598,8 +598,8 @@ theorem buildBase_inj {slots : Array (Name × Nat × Nat)} {offs : Array Nat}
 
 /-- **A worker's install of a value record at the view `W`**: the
 constant the serial step pushes and the pending check it records, or
-its error; `none` for every other kind (`installStep` installs those
-with the cached checker's own step, at the same view).  The memo state
+its error; `none` for every other kind (its checked step is a job of
+the check phase, at the same view).  The memo state
 is dropped here — nothing of it crosses to the commit. -/
 def valueStep (W : FEnv) : Declaration →
     Option (Except CheckError (ConstantInfo × ValueGroup))

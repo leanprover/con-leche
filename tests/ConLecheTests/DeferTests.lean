@@ -15,14 +15,14 @@ meta import ConLeche.Verify.Cached.Defer
 public section
 
 /-!
-# Inductive blocks checked in the check phase (tasks #411, #431)
+# Checked steps in the check phase (tasks #411, #431, #480)
 
-The install with its blocks pushed as stored (`storedInstall`) and their
-checked installs deferred (the install's commit loop, here as
-a pure serial fold over the prepared stream, each block checked at a
-view of the index it was installed at), against the checked fold
-`installDeclStep`: on accepted streams the same environment, and every
-deferred check passes; on rejected streams with a faulty block the
+The install with every record but a value record pushed from the record
+alone (`storedStep`) and its checked step deferred (the install's commit
+loop, here as a pure serial fold over the prepared stream, each record
+checked at a view of the index it was installed at), against the checked
+fold `installDeclStep`: on accepted streams the same environment, and
+every deferred check passes; on rejected streams with a faulty block the
 same verdict at the same fold position — the first failure among the
 fold's own errors and the deferred checks below it.  And a stored
 install that is not the checked one's (a tampered capability record)
@@ -37,31 +37,30 @@ open ConLeche ConLeche.Cached ConLeche.Frontend
 (as the worker view's), so that a step's pushes are its environment. -/
 def viewOf (fe : FEnv) : FEnv := { fe with env := Env.empty }
 
-/-- The deferring fold: every inductive block as stored with its check
-recorded at the view of its index, every other record by the checked
-step; a failure reported, as the driver does, after the deferred checks
-below it. -/
-def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array BlockCheck →
-    Except (CheckError × Nat) (FEnv × Array BlockCheck)
+/-- The deferring fold: every deferred record pushed from the record with
+its check recorded at the view of its index, a value record by the
+checked step; a failure reported, as the driver does, after the deferred
+checks below it. -/
+def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array DeferredCheck →
+    Except (CheckError × Nat) (FEnv × Array DeferredCheck)
   | [], acc, D => .ok (acc.2.1, D)
   | d :: ds, acc, D =>
-    match deferredBlock? d with
-    | some (block, nP) =>
+    if deferredDecl d then
       let v := viewOf acc.2.1
-      let (L, Q) := storedInstall .verified v block nP
+      let (L, Q) := storedStep .verified v d
       deferFold ds (acc.1 + 1, FEnv.pushDelta L Q acc.2.1, acc.2.2)
-        (D.push ⟨v, block, nP, acc.1, L, Q⟩)
-    | none =>
+        (D.push ⟨v, d, acc.1, L, Q⟩)
+    else
       match installDeclStep .verified natOpPinSets acc d with
       | .ok acc' => deferFold ds acc' D
-      | .error e => .error ((blockFailure .verified natOpPinSets D).getD e)
+      | .error e => .error ((deferredFailure .verified natOpPinSets D).getD e)
 
 /-- The fold's verdict with every deferred check run: the environment,
 or the first failure in fold order. -/
 def deferVerdict (ds : List Declaration) : Except (CheckError × Nat) Env :=
   match deferFold ds (0, mkFEnv Env.empty, #[]) #[] with
   | .ok (fe, D) =>
-    match blockFailure .verified natOpPinSets D with
+    match deferredFailure .verified natOpPinSets D with
     | some e => .error e
     | none => .ok fe.env
   | .error e => .error e
@@ -84,7 +83,7 @@ def sameAccept (path : System.FilePath) : IO Unit := do
   match deferFold ds (0, mkFEnv Env.empty, #[]) #[], checkedA ds with
   | .ok (fe, D), .ok env =>
     if D.isEmpty then throw <| IO.userError s!"{path}: no block deferred"
-    if (blockFailure .verified natOpPinSets D).isSome then
+    if (deferredFailure .verified natOpPinSets D).isSome then
       throw <| IO.userError s!"{path}: a deferred check fails"
     unless fe.env.consts == env.consts && fe.env.tables == env.tables do
       throw <| IO.userError s!"{path}: the environments differ"
@@ -122,11 +121,12 @@ def tamperedFails (path : System.FilePath) : IO Unit := do
   let ds ← prepared path
   match deferFold ds (0, mkFEnv Env.empty, #[]) #[] with
   | .ok (_, D) =>
-    let some b := D[0]? | throw <| IO.userError s!"{path}: no block deferred"
+    let some b := D.find? (fun b => match b.pd with | .indDecl .. => true | _ => false)
+      | throw <| IO.userError s!"{path}: no block deferred"
     let L' := match b.L with
       | .indInfo cv caps :: rest => .indInfo cv { caps with unitlike := !caps.unitlike } :: rest
       | L => L
-    match blockCheck .verified natOpPinSets { b with L := L' } with
+    match deferredCheck .verified natOpPinSets { b with L := L' } with
     | .error (.internal _) => pure ()
     | _ => throw <| IO.userError s!"{path}: the tampered install passed its job"
   | .error _ => throw <| IO.userError s!"{path}: the fold rejects"

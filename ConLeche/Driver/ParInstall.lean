@@ -41,11 +41,12 @@ run it.
 * **The install** of record `k` is `installStepG` at the view of its
   predicted counter (`ConLeche/Verify/Cached/Defer.lean`): the
   constants it pushes and, for a definition, theorem or opaque, its
-  pending check; an inductive block — every one — is pushed as stored
-  (`storedInstall`, nothing generated: read off the records), and its
-  checked install at the same view, compared with those pushes, is a
-  job of the check phase (tasks #411, #431), so the records after it
-  wait on its stored install only.  After publishing its slot the installer makes the
+  pending check; every other record — an inductive block, an axiom, a
+  pinned `Nat` operation, a `reduce*` opaque, a basis or quotient record —
+  is pushed as the record says (`storedStep`, nothing generated or
+  certified), and its checked step at the same view, compared with those
+  pushes, is a job of the check phase (tasks #411, #431, #480), so the
+  records after it wait on that push only.  After publishing its slot the installer makes the
   commit's checks (`goodB`: the `And` pin, and every slot the constants
   fill holds that very constant — `slotsOk`, base probes and pointer
   comparisons), and the result travels to the commit thread with its
@@ -55,11 +56,11 @@ run it.
   never spinning, never waiting on the task manager), checks that the
   predicted counter is the serial one and the installer's verdict,
   pushes the installer's constants and adds the step by
-  `installStep_commit` — the view answers every lookup as the serial
-  index does (`ViewAgrees`), and an install at two such indices pushes
-  the same constants (`checkDeclStepC_twin`), so the install at the view
-  IS the serial step.  A block's step is added conditional on its
-  block job (`installStepG_ind`).  The index is marked linear (task
+  `installStepG_commit` — the view answers every lookup as the serial
+  index does (`ViewAgrees`), so a value record's guards at the view ARE
+  the serial step's.  Any other record's step is added conditional on
+  its job (`installStepG_deferred`): an install at two such indices
+  pushes the same constants (`checkDeclStepC_twin`).  The index is marked linear (task
   #331): the commit thread is its only holder, and a copy panics.
 * **Progress.**  A record the commit thread reaches unclaimed it claims
   and installs itself, at its view, which waits on nothing (every earlier
@@ -67,18 +68,18 @@ run it.
   cycle exists.
 * **Rejections and mispredictions.**  A failing install is reported at
   the first failing record in fold order, with the serial step's error
-  (`installStep_commit_error`); a failed `And` pin with the serial
+  (`installStepG_commit_error`); a failed `And` pin with the serial
   step's error too (`installDeclStep` rejects it before installing
-  anything).  A block's install never fails: its verdict is its job's
-  (run at once, installing nothing, when a name it pushes is taken
-  already and its slot does not match), and a failure after a deferred
-  block whose check fails is reported at that block (`blockFailure`),
-  the serial fold's verdict.  A
+  anything).  Only a value record's install can fail; any other record's
+  verdict is its job's (run at once, installing nothing, when a name it
+  pushes is taken already and its slot does not match), and a failure
+  after a deferred record whose check fails is reported at that record
+  (`deferredFailure`), the serial fold's verdict.  A
   misprediction — a counter or a slot that does not match — is an
   internal error (exit 3).  No input reaches it: every accepting step
   installs exactly the predicted skeleton (`installStepC_skels`), and
-  the stored install of any block pushes the skeleton the prediction
-  reads off it.
+  a deferred record's install pushes the skeleton the prediction reads
+  off it.
   Either way, and on an IO exception of the commit thread (a failing
   heartbeat write, rethrown), the workers are stopped, and every
   unresolved slot is resolved empty so that nobody stays waiting.
@@ -122,12 +123,12 @@ namespace ParInstall
 open ConLeche ConLeche.Cached
 
 /-- What the install of record `k` computes: `installStepG` at the view of
-the record's predicted counter (an inductive block as stored, its
-checked install deferred to the check phase). -/
+the record's predicted counter (anything but a value record read off the
+record, its checked step deferred to the check phase). -/
 def workerRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) (k : Nat) : Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match ds[k]?, vis[k]? with
-  | some pd, some v => installStepG mode natOpPinSets (workerView B S v) pd
+  | some pd, some v => installStepG mode (workerView B S v) pd
   | _, _ => .error (.internal "install: no such record")
 
 /-- The constants and the tables an install result publishes. -/
@@ -690,7 +691,7 @@ Calibrate by NAME. -/
 def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
     (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
     (p₀ : Nat × FEnv × Array PendingCheck) :
-    (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array BlockCheck) →
+    (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array DeferredCheck) →
     fe.visibleBelow = c →
     ((∀ b ∈ D.toList, b.Ok mode natOpPinSets) →
       InstallRun mode natOpPinSets (ds.toList.take k) p₀ (i, fe, pend)) →
@@ -734,23 +735,21 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
             if hgood : good = true then
               have hG : GoodAt ds B S vis k r := hk' ▸ hg hgood
               have hG' := hG pd c (Array.getElem?_eq_getElem hk) hv
-              have hval : r = installStepG mode natOpPinSets (workerView B S fe.visibleBelow) pd := by
+              have hval : r = installStepG mode (workerView B S fe.visibleBelow) pd := by
                 have hr' : r = workerRes mode ds B S vis k := hk' ▸ hr
                 rw [hr', hc]
                 simp only [workerRes, Array.getElem?_eq_getElem hk, hv, pd]
               match hres : r with
               | .ok (L, Q, vg?) =>
-                match hpd : deferredBlock? pd with
-                | some (block, nP) =>
-                  -- an inductive block, installed as stored: its step is
-                  -- conditional on its checked install at the same view
+                match hpd : deferredDecl pd with
+                | true =>
+                  -- installed from the record alone: its step is
+                  -- conditional on its checked step at the same view
                   -- pushing the same, a job of the check phase
-                  have hpd' := deferredBlock?_some hpd
-                  have hand : andPinOk (.indDecl block nP) = true := hpd' ▸ hG'.1
-                  have hg := installStepG_ind (pins := natOpPinSets) (i := i) (pend := pend)
-                    hag hidx hpd hand (hval.symm.trans hres)
+                  have hg := installStepG_deferred (pins := natOpPinSets) (i := i) (pend := pend)
+                    hag hidx hpd hG'.1 (hval.symm.trans hres)
                   have hvg : vg? = none := hg.1
-                  let b : BlockCheck := ⟨workerView B S c, block, nP, i, L, Q⟩
+                  let b : DeferredCheck := ⟨workerView B S c, pd, i, L, Q⟩
                   commitLoop err stride total t0 hB sh cst p₀ (k + 1)
                     (i + 1) (c + L.length) (FEnv.pushDelta L Q fe) (pushPending pend i c vg?)
                     (D.push b)
@@ -758,14 +757,14 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                     (by
                       rw [hlist]
                       refine deferRun_push hrun fun hb => ?_
-                      rw [hvg, hpd']
-                      have h' := hg.2 (by rw [hc]; exact blockCheck_ok hb)
+                      rw [hvg]
+                      have h' := hg.2 (by rw [hc]; exact deferredCheck_ok hb)
                       exact h')
                     (hidx.pushDelta L Q)
                     (ViewAgrees.commit hB hidx hag (hc ▸ hG'.2 L Q vg? hres))
-                | none =>
-                  have hstep0 := installStep_commit (pins := natOpPinSets) (i := i) (pend := pend)
-                    hag hidx hG'.1 ((installStepG_none hpd _).symm.trans (hval.symm.trans hres))
+                | false =>
+                  have hstep0 := installStepG_commit (pins := natOpPinSets) (i := i) (pend := pend)
+                    hag hpd hG'.1 (hval.symm.trans hres)
                   have hstep : installDeclStep mode natOpPinSets (i, fe, pend) pd =
                       .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i c vg?) := by
                     rw [← hc]; exact hstep0
@@ -776,28 +775,27 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                     (hidx.pushDelta L Q)
                     (ViewAgrees.commit hB hidx hag (hc ▸ hG'.2 L Q vg? hres))
               | .error e =>
-                -- (a record other than a block — a block's install never
-                -- fails — with the serial step's error,
-                -- `installStep_commit_error`); a deferred block before it
-                -- that fails its check is the serial fold's verdict
-                return .error ((blockFailure mode natOpPinSets D).getD (e, i))
+                -- a value record's guards, with the serial step's error
+                -- (`installStepG_commit_error`); a deferred check before it
+                -- that fails is the serial fold's verdict
+                return .error ((deferredFailure mode natOpPinSets D).getD (e, i))
             else if andPinOk pd then
-              -- a slot that does not match the prediction.  For a block
-              -- (whose stored install pushes the skeleton the prediction
-              -- read off it) one of its names is taken already: the
-              -- verdict is the block's job, run now — it installs nothing,
-              -- and a passing job is a misprediction; else a misprediction
-              match r, deferredBlock? pd with
-              | .ok (L, Q, _), some (block, nP) =>
-                match blockCheck mode natOpPinSets ⟨workerView B S c, block, nP, i, L, Q⟩ with
-                | .error e => return .error ((blockFailure mode natOpPinSets D).getD (e, i))
+              -- a slot that does not match the prediction.  For a deferred
+              -- record (which pushes the skeleton the prediction read off
+              -- it) one of its names is taken already: the verdict is its
+              -- job, run now — it installs nothing, and a passing job is a
+              -- misprediction; else a misprediction
+              match r, deferredDecl pd with
+              | .ok (L, Q, _), true =>
+                match deferredCheck mode natOpPinSets ⟨workerView B S c, pd, i, L, Q⟩ with
+                | .error e => return .error ((deferredFailure mode natOpPinSets D).getD (e, i))
                 | .ok () => return mispredicted k i "a predicted slot did not match"
               | _, _ => return mispredicted k i "a predicted slot did not match"
             else
               -- a failed `And` pin: the serial step rejects the record
               -- before installing anything; its error is the verdict
               match installDeclStep mode natOpPinSets (i, fe, pend) pd with
-              | .error e => return .error ((blockFailure mode natOpPinSets D).getD e)
+              | .error e => return .error ((deferredFailure mode natOpPinSets D).getD e)
               | .ok _ => return mispredicted k i "the `And` pin"
           else return mispredicted k i "a mismatched install result"
       else return mispredicted k i "a predicted counter did not match"

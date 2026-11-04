@@ -30,8 +30,8 @@ declaration from CHECKING it:
   with the environment counter the declaration was installed at
   (`fe.visibleBelow`, task #108).  Every other kind — axioms,
   inductive and basis blocks, and the pinned `Nat`-operation and
-  `reduce*` branches, whose checks are not separable from their
-  installs — takes the ordinary step `checkDeclStepC`.  Every step
+  `reduce*` branches, which push what they check — takes the ordinary
+  step `checkDeclStepC`.  Every step
   runs from a FRESH memo state: nothing but the index crosses from one
   record to the next, so a record's install is a function of the
   index it sees and the record alone.  An accepting
@@ -67,13 +67,14 @@ reads which list the matched variant came from.
 
 Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
 steps and carry their accepting runs as the proofs the subtypes ask
-for.  **The driver checks an inductive block in the check phase**
-(tasks #411, #431), at every job count: its install pushes a block as stored
-(`storedInstall`, `ConLeche/Cached/StoredInstall.lean`) and records the
-block's checked install, compared with those pushes, as a job of the
-check phase, so the run it carries is this fold's run CONDITIONAL on
-those jobs; the check phase discharges them, and the run is this
-fold's (`ConLeche/Verify/Cached/Defer.lean`).  A rejection carries the FOLD POSITION of the declaration it
+for.  **The driver runs `checkDeclStepC` in the check phase** (tasks
+#411, #431, #480), at every job count: its install pushes such a record
+from the record alone (`storedStep`, `ConLeche/Verify/Cached/Defer.lean`,
+an inductive block by `storedInstall`) and records the record's checked
+step, compared with those pushes, as a job of the check phase, so the
+run it carries is this fold's run CONDITIONAL on those jobs; the check
+phase discharges them, and the run is this fold's.  This fold is the
+meaning of those steps; it runs them in phase A, the driver does not.  A rejection carries the FOLD POSITION of the declaration it
 names (`installDeclStep` tags its error with the position, a phase-B
 failure with `PendingCheck.pos`), so the driver reports the
 declaration by indexing the record array it already holds, with no
@@ -136,7 +137,8 @@ def installGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) :
   installHeaderC fe cv
   installValueGuardsC fe cv value
 
-/-- Phase A's step body: guard-and-install for the three value
+/-- Phase A's step body in the fold (the driver's install is
+`installStepG`): guard-and-install for the three value
 kinds, the ordinary step `checkDeclStepC` for everything else.  `i` is
 the fold position the record is tagged with.  (The continuations read
 the install's result by projection, so that the statements about this

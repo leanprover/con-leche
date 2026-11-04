@@ -13,12 +13,12 @@ Part of the proof-carrying driver (`ConLeche/Driver/*`; the CLI is
 `Cli.lean`).
 
 The check phase's jobs are the recorded value checks and the deferred
-checks of the inductive blocks (tasks #411, #431: phase A pushes a block
-as stored, `ConLeche/Verify/Cached/Defer.lean`), in fold order
+checks of every other record (tasks #411, #431, #480: phase A pushes it
+from the record alone, `ConLeche/Verify/Cached/Defer.lean`), in fold order
 (`ConLeche.Cached.jobOrder`).  They are independent by construction —
 a value check reads the installed index at its own prefix view, its own
-record, and a fresh memo state; a block check runs the block's checked
-install at a view of its own (the install's worker view)
+record, and a fresh memo state; a deferred check runs the record's checked
+step at a view of its own (the install's worker view)
 from a fresh memo state
 — so phase B is handed to `n` long-lived worker tasks
 (`IO.asTask` on dedicated threads: exactly `n` threads whatever the
@@ -31,8 +31,8 @@ range, and the only item that can strand the pool is the single largest
 check.  The claim costs one `modifyGet` on an `IO.Ref` per job,
 which is below the third decimal of a run.  Each worker keeps
 its results in its own array (job index, `JRes`), which
-is what a job IS: its fact (the record's `PendOk`, the block's
-`BlockCheck.Ok`) or its tagged error (`ConLeche.Cached.runJob`).  The
+is what a job IS: its fact (the record's `PendOk`, the deferred record's
+`DeferredCheck.Ok`) or its tagged error (`ConLeche.Cached.runJob`).  The
 pool merges the arrays by index into one table and walks it in job
 order (`ConLeche.Cached.collectJobs`): the walk stops at the first
 failing job in FOLD order, so the verdict — and the declaration the
@@ -52,7 +52,7 @@ count.
 
 Nothing in the pool touches the driver's type: what a worker returns
 carries its own evidence, and `collectJobs` assembles from the table
-alone every record's check and every block check, which the driver
+alone every record's check and every deferred check, which the driver
 turns into the serial fold's run and the fully checked environment.
 The transfer theorem is untouched.
 
@@ -80,12 +80,12 @@ namespace ConLeche.Driver
 open ConLeche
 
 /-- The jobs of a check phase (task #411): the installed index, the
-recorded value checks, the deferred block checks, and the jobs in fold
+recorded value checks, the deferred checks, and the jobs in fold
 order (`jobOrder`). -/
 structure Jobs where
   fe : ConLeche.FEnv
   pend : Array ConLeche.Cached.PendingCheck
-  D : Array ConLeche.Cached.BlockCheck
+  D : Array ConLeche.Cached.DeferredCheck
   order : Array ConLeche.Cached.Job
 
 /-- A job's result, at the shipped pin list. -/
@@ -103,7 +103,7 @@ def jobLabel (J : Jobs) (t : Nat) : String :=
     | some p => s!"{p.vg.kind.word} {p.vg.cv.name} (#{p.pos})"
     | none => s!"check {t}"
   | some (true, k) => match J.D[k]? with
-    | some b => s!"inductive {b.name} (#{b.pos})"
+    | some b => s!"{b.label} (#{b.pos})"
     | none => s!"check {t}"
   | none => s!"check {t}"
 
@@ -127,7 +127,7 @@ def checkHeartbeat (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs)
         | some p => s!"{p.vg.kind.word} {p.vg.cv.name}"
         | none => s!"check {t}"
       | some (true, k) => match J.D[k]? with
-        | some b => s!"inductive {b.name}"
+        | some b => b.label
         | none => s!"check {t}"
       | none => s!"check {t}"
     err.putStr s!"con-leche: check {n}/{J.order.size} {l} \
@@ -144,7 +144,7 @@ def runAt (mode : ConLeche.CheckMode) (J : Jobs) (t : Nat) : JRes mode J :=
 in fold order, each from a fresh memo state (`ConLeche.Cached.runJob`),
 each result in its slot of the table, until the first failure; the
 table is then walked (`ConLeche.Cached.collectJobs`) into every record
-checked and every block check passed.  Nothing is shared with any other
+checked and every deferred check passed.  Nothing is shared with any other
 thread and no counter is claimed: this loop is the sequential baseline
 the pool below is measured against.  It runs on ONE DEDICATED WORKER
 THREAD all the same: the loop's cost is dominated by the per-check memo

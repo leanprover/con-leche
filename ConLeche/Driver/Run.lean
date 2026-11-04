@@ -55,10 +55,11 @@ with the proof that the fold `checkDecls`
 (`ConLeche/Cached/Installed.lean`) returns it — the subject of the main
 theorem `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`).  The
 loops are the fold's two phases with the heartbeat printed between the
-steps.  At every job count the install pushes an inductive block as
-stored and the block's checked install is a job of the check phase,
-beside the definitions' value checks, in fold order (tasks #411, #431:
-the fold's run is assembled once every job passed); the fully checked environment they assemble
+steps.  At every job count the install pushes every record from the
+record alone, and the checked step of anything but a definition, theorem
+or opaque (an inductive block, an axiom, a pinned `Nat` operation) is a
+job of the check phase, beside the value checks, in fold order (tasks
+#411, #431, #480: the fold's run is assembled once every job passed); the fully checked environment they assemble
 is an accept of the fold (`ConLeche.Cached.fullyChecked_checkDecls`), so
 the success line `checkMainG` prints is printed from an accept of
 `checkDecls` and from nothing else.  A rejection carries the fold
@@ -118,11 +119,11 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       return .error e
     | .ok ⟨(n, fe, pend), D, r⟩ =>
       -- the check phase's jobs: the recorded value checks and the deferred
-      -- block checks, in fold order
+      -- deferred checks, in fold order
       let J : Jobs := ⟨fe, pend, D, ConLeche.Cached.jobOrder pend D⟩
       let tCheck ← IO.monoMsNow
       heartbeat s!"install done: {total}/{total} declarations installed, \
-        {J.order.size} checks pending ({D.size} of them inductive blocks) t={secs (tCheck - t0)}s \
+        {J.order.size} checks pending ({D.size} of them deferred) t={secs (tCheck - t0)}s \
         (install {secs (tCheck - tParse)}s)"
       -- **THE PERSISTENT MARK AT THE PHASE BOUNDARY.**  The installed
       -- environment is complete and READ-ONLY from here on: every
@@ -153,10 +154,10 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
       -- `Lean.Environment.finalizeImport` uses for this same call; it is
       -- unsafe only in that the marked closure is never freed, and the
       -- process exits right after.
-      -- (the deferred block checks are NOT marked: a worker view's slots
+      -- (the deferred checks are NOT marked: a worker view's slots
       -- are thunks over promises the install resolved, objects the
       -- install's workers may still be counting — the mark would race with
-      -- them; there are few block checks, their counts stay atomic)
+      -- them; there are few deferred checks, their counts stay atomic)
       let _ ← unsafe Runtime.markPersistent fe
       let _ ← unsafe Runtime.markPersistent pend
       let _ ← unsafe Runtime.markPersistent J.order
@@ -200,7 +201,7 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
           (check {secs (now - tCheck)}s)"
         heartbeat summary
         stats
-        -- every deferred block check passed: the serial fold's run
+        -- every deferred check passed: the serial fold's run
         let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
           ⟨fe, pend, ⟨n, r hall.2⟩⟩
         let fc : ConLeche.Cached.FullyChecked mode ConLeche.natOpPinSets ds.toList :=

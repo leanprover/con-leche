@@ -3106,3 +3106,19 @@
 # stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
 # (official 1).
 1 stored_type_dom_bad.ndjson
+
+# Task #480: axioms' and pinned operations' checks are jobs of the check
+# phase, the first failure in fold order is the verdict
+# (scripts/mk_defer_order.py).
+#   defer_value_reject_then_axiom: a value reject before a non-standard
+#     axiom.  The reject: until #480 this was 2, the axiom's decline at
+#     install overtaking every value check.  Target verdict: 1.
+#   defer_axiom_then_value_reject: the same two records swapped.  Target: 2.
+#   natop_perturbed_used_later, natop_perturbed_later_reject: a perturbed
+#     pinned `Nat.land` and after it a theorem that may fire its literal
+#     fast path before its job has run, right or wrong by any reading of
+#     the operation.  The operation's decline, earlier in the fold.  Target: 2.
+1 defer_value_reject_then_axiom.ndjson
+2 defer_axiom_then_value_reject.ndjson
+2 natop_perturbed_used_later.ndjson
+2 natop_perturbed_later_reject.ndjson

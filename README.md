@@ -25,7 +25,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L236-L237) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L237-L238) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
 * The checker processes files in three phases: *parsing* the input stream, *installing* all declarations into the environment and then *checking*. All stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L130).
@@ -72,7 +72,7 @@ Denotation of terms and types is captured by the inductive relation [`Denotes`](
 
 The `Model` relation is *not* the strongest property proven (and carried through the induction) about the environment, but a simplified one. For example, it does not contain the delta and iota equations – but since they can easily be added as an explicit `theorem : lhs = rhs := rfl`, this is hopefully not an oversimplification.
 
-This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L329-L334) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
+This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L331-L336) and its output `env`, which has the form that we define our semantics about. You may want to look through the code and consult additional theorems that relate this to your input in a meaningful way. You may want to check that
 
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L157-L162)).
