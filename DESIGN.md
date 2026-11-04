@@ -108534,3 +108534,230 @@ where official rejects (1) — the stored recursor is compared with the
 generated one up to definitional equality (ruling 2 of §1), official
 syntactically.  **Standing gap**: `ind_shapeless_use` is declined (2,
 "shape not recognised") where official rejects (1), as before #431.
+
+## TASK #450 — the checker's IO class, its model, and the binary's run in it (2026-11-03, agent/450-checkerio-v2)
+
+**What.**  The driver of the `.ndjson` stream path and `main` are
+written against a type class of the checker's file operations with one
+explicit escape for everything else; a non-determinism model of the
+class makes the driver's run an object of theorems; the binary is the
+same generic code at `IO`.  The design is the maintainer's ruling
+after the first attempt (below); this record states it as landed.
+
+* **The class** (`ConLeche/Frontend/CheckerIO.lean`): `CheckerIO m`
+  extends `Monad m` and `MonadExceptOf IO.Error m` with the modelled
+  file operations — `pathExists`, `realPath`, `readBinFile`,
+  `readRange p off len` (a stateless positional read: the bytes from
+  `off` up to `off + len` or the end of the file), `fileSize` (throws
+  where the path names no regular file, so a stream must be a regular
+  file) — and `liftIO : IO α → m α`, an explicit method.  There is no
+  `MonadLift IO m` instance: an `IO` action is never lifted by a `←`,
+  and every unverified call site spells `CheckerIO.liftIO`.
+* **The model**: `ModelIO α := FS → Except IO.Error α → Prop`, an
+  action the set of its outcomes on a snapshot `FS` (a real path per
+  path, bytes per real path).  A file operation's outcomes are
+  determined by the snapshot (`ModelIO.answer`: the value where the
+  snapshot has one, any exception where it has none); the positional
+  read is the slice `b.extract off (min (off + len) b.size)`; `liftIO a`
+  has every outcome.  A run that does not end has no outcome.  The model
+  is reasoned about, never run.  `Verify/Frontend/ModelIO.lean`: the
+  `LawfulMonad` instance; `bind_ok`, `map_ok`, `tryCatch_ok`,
+  `throw_ok`, `liftIO_iff`, `bind_det`, `readRange_bind`,
+  `fileSize_ok`; the outcome calculus the driver's theorem is proved
+  with — `ModelIO.AllOk x fs P` (every value outcome satisfies `P`) and
+  its rules `allOk_bind` (the continuation gets the value with the fact
+  that it is an outcome), `allOk_pure`, `allOk_map`, `allOk_liftIO`
+  (any value), `allOk_ite`.
+* **The binary's instance** (`instCheckerIOIO`): the runtime's calls
+  (`System.FilePath.pathExists`, `IO.FS.realPath`, `IO.FS.readBinFile`,
+  the metadata, and for `readRange` `readRangeIO`, `pread(2)` in C) and
+  `liftIO = id`.  `native/read_range.c` (open, `fstat`, refuse a
+  non-regular file, `pread` the slice in requests of at most
+  `SSIZE_MAX`, close — a failing close is an error; a 64-bit `off_t`
+  and `size_t` asserted statically).  Lean 4.35's `IO.FS.Handle` has no
+  seek or positional read and `Std` has none, so the read is C; the
+  maintainer allows an `[extern]` for it, not a memory map.  It is
+  built the Lake-FFI way: `lakefile.toml` → `lakefile.lean`, a custom
+  target compiling the C with the system `cc` (`buildO`, the Lean
+  include directory, `-fPIC`) into a static library, which the declaring
+  library (`ConLecheNative`, `Frontend/ReadRange.lean`, declared last so
+  that it owns the module) links through `moreLinkObjs`; the link stays
+  the toolchain's.  It needs a `cc` with the C library's headers on
+  `PATH`.
+* **Reading a file in pieces** is library code over the class:
+  `foldReads` (the reads at `0, csz, 2·csz, …` below the size),
+  `foldChunks` (a pure step per read: the serial parse) and
+  `foldWindows` (each read cut at its last newline, `w` chunks a
+  window, a window stepped once the next is read: the rounds parse),
+  sequential.  In the model: `foldReads_model` (the reads are
+  `readsFrom`), `foldChunks_model` (`foldList` over them),
+  `foldListM_winRead`, `foldWindows_model` (`ModelIO.foldWins` over
+  `windowsOf`).  The read-ahead thread of the earlier windows' fold is
+  gone (measured worthless in wall time by the first attempt: the parse
+  phase is under a second of 12–64 s runs, the binaries within each
+  other's ranges).
+* **What goes through `liftIO`**: everything the model does not model,
+  unchanged from master — the output (`diagLine`, `outLine`), the clock
+  (`clockMs`), the runtime's abort variables and `--help`/usage lines
+  (`Driver/Cli.lean`), the persistent mark, and every thread: the
+  rounds parse's owners (`OwnerParse.RoundsOps`, an `IO`-only record
+  started, called and stopped through `liftIO` by `StreamParse`), and
+  the fold's two phases with their pools (`checkDeclsIO`, called whole
+  through `liftIO`).  Master's parallelism is unchanged.  Where the
+  driver needs a fact about a `liftIO` result, the result's type carries
+  it: `checkDeclsIO` returns `{ env // checkDecls mode natOpPinSets ds =
+  .ok env }`, a window `Option {g' // WinAdv g bs g'}`; so every outcome
+  the model allows carries it too.  `Driver.Drain` (`IO.Ref (IO Unit)`,
+  the install's join of its stopped workers) is a handle the generic
+  code passes through.
+* **The driver, generic**: `parseStreamG` (`StreamParse`), `checkMainG`
+  (`CheckMain`), `runReq drain` (`Dispatch`), and the new
+  `Driver/Cli.lean`: `parseArgs`, `helpWanted`, `runArgs`, `run`, `mainG`.
+  They left `Main.lean` because the theorems over `main` must import them
+  and an executable's root cannot be imported; `Main.lean` is the entry
+  point alone, `main args := do let code ← mainG args;
+  IO.Process.exit code.toUInt8`.  **The exit code is computed by the
+  generic code and returned outside `liftIO`**: `mainG` is the `liftIO`s
+  with unit results (the flush, the join of the install's stopped
+  workers) around `run`, and `return code`.  No `exit` in the class; a
+  code passing through `liftIO` would make the model allow exit 0 from
+  any run.  At `IO` the order is master's: the run, the flush, the join,
+  the exit.
+* **The command line.**  `"--" :: rest` makes every remaining argument a
+  file, so `con-leche -- <file>` is safe for any file name; `--help` is
+  decided on the arguments before any `--` (`helpWanted`), so a file
+  called `--help` after `--` is read, and `--help` still wins over a bad
+  option before it, as on master.  Fixtures in `tests/arena.sh`'s mode
+  flags: `-- -weird-name.ndjson` and `-- --help` are read as files (their
+  verdicts, 0 and, with a bad stream under that name, 1), `--help` and
+  `--help -- no-such-file` exit 0, `-- no-such-file --help` is a usage
+  error.  The default mode with no flag is `.verified`
+  (`parseArgs_file`).
+* **The theorems.**
+  `parseStreamG_model`: an outcome that is records `r` means the
+  snapshot holds the file's bytes `b` and `parseChunks [b] = .ok r`.
+  `checkMainG_ndjson_accept` (by the `AllOk` rules over the `do` block:
+  the error arms end in `CheckError.exitCode ≠ 0`, the accept arm reads
+  the proof off the fold's result): every exit-0 outcome on a snapshot
+  gives `∃ pre b r env`, `builtinPreludeE = .ok pre`,
+  `fs.file file = some b`, `parseChunks [b] = .ok r`,
+  `checkDecls mode natOpPinSets (preparePrelude pre r.decls) = .ok env`.
+  `mainG_accept` (`Verify/Driver/Main.lean`): the same at `.verified` for
+  all of `mainG ["--", file]`, the argument parse, the abort variables,
+  both handlers (which return 3), the flush and the join included; the
+  worker count is what the default computes
+  (`getHardwareConcurrency`), which the statement does not depend on.
+  Over all of `main` (`MainTheorem.lean`), at these fixed arguments, so
+  nothing is said about `--help` or other flags:
+  `main_model` (`(mainG ["--", file] : ModelIO _) fs (.ok 0) → ∃ pre b r
+  env`, the chain and `Nonempty (Model V env)`) and `main_no_False`
+  (`fs.file file = some b → jsonWithTheoremFalse [b] → ¬ (mainG ["--",
+  file] : ModelIO _) fs (.ok 0)`, from `no_False_declaration`).  The
+  model theorem says nothing of `False`.  Both pinned in `Axioms.lean`
+  at `propext`, `Classical.choice`, `Quot.sound`.
+* **The trust assumption** (the class's header, OVERVIEW §2 and §9):
+  (i) the binary's file operations give the model's answers on one
+  snapshot of the files during the run — the same value where the model
+  has one, an exception where it has none — the C function behind
+  `readRange` included; (ii) the actions passed to `liftIO` do not
+  change what those operations see (none writes a file) and do not
+  themselves end the process with an exit code; (iii) Lean's compiler
+  and runtime run the code as written.  Then the generic code is the
+  same at both instances, each file operation answers as the model's,
+  each `liftIO` answers some value or exception, which the model allows;
+  by induction along the run the binary's outcome is one of the model's,
+  and `main` exits with its code.  No engines, no replay argument, and
+  no exception for the clock (its values are `liftIO` outcomes like any
+  other).  Checked for (ii): the one `IO.Process.exit` in the tree is the
+  last line of `main`; nothing under `liftIO` calls it; a panic is an
+  `abort()` (`LEAN_ABORT_ON_PANIC`), status 134, not an exit code; the C
+  read calls no exit.
+* **The fence** (`tests/trust-surface.sh`, textual and said so): over
+  `Frontend/CheckerIO.lean` (less the class's `liftIO` field, the two
+  instances and `readRangeOf`), `Frontend/Stream.lean`,
+  `Driver/StreamParse.lean`, `Driver/CheckMain.lean`,
+  `Driver/Dispatch.lean` and `Driver/Cli.lean`, with
+  comments and string literals blanked and the argument of every
+  `CheckerIO.liftIO` cut out (its line's rest, open brackets to their
+  close, a deeper-indented `do` block), no `IO` (but `IO.Error`),
+  `BaseIO`, `EIO`, `ST`, `EST`, `StateRefT`, `Task`, `dbgTrace`,
+  `initialize`, mutex/channel/condvar, `Handle`, `readRangeIO`, or a
+  runtime file operation by name (`.pathExists`, `.readBinFile`,
+  `.metadata`, `.isDir`, … unless `CheckerIO.`).  A self-test probe in
+  the script checks what it must see and what it must not.  It does not
+  follow definitions: `extern`/`implemented_by`/`unsafe` are confined
+  by the scan above it.  A second textual entry, the one exit:
+  `IO.Process.exit` (`Process.exit`, `lean_io_exit`, `open IO.Process`)
+  appears once in the scanned code, in `Main.lean`.  The build and native surface (`lakefile.lean`,
+  `native/read_range.c`) stays pinned by SHA-256.
+* **Tests.**  `CheckerIOTests`: a snapshot of e2e fixtures, a directory
+  and a missing path taken with the runtime's calls; the model's
+  answers restated as data (`modelReadRange` …, each the instance by
+  `rfl`), and every operation of the binary's instance compared with
+  them — `readRange` inside, across and past the end, at the end, and
+  at offsets to `2^63` and lengths to `2^70` (the runtime's
+  `ByteArray.extract` runs out of memory at a start of `2^64` and more,
+  which the binary's read never computes: `readRangeOf`), `fileSize`,
+  `readBinFile`, `pathExists`, `realPath`; `foldChunks` against
+  `readsFrom` and `foldWindows` against `windowsOf` (chunk sizes 1 to
+  4096, windows of 0, 1, 3).  `RoundsTests` runs `parseFileW` at `IO`
+  (its helper moved there from the driver); `StreamTests` `parseFileS`.
+  `tests/arena.sh`: a FIFO as the input at `--jobs=1` and `--jobs=4`,
+  exit 3 with "not a regular file", before anything opens it.
+  End-to-end exit codes are the e2e fixtures'.  The history's commits
+  each build and pass `lake test`.
+
+**The earlier attempt** (branch `agent/450-checkerio`, b2a9016e7, kept
+as a record, with its records and an external review's fixes in its
+DESIGN).  It brought
+cfsg's #424 class whole: a dozen operations (output, diagnostics, the
+clock, an environment read, an aborting exit, a parallel map
+`parMapExcept` whose model was the sequential map), the model
+`ReaderT FS (ExceptT IO.Error Option)` (deterministic: the clock `0`,
+the environment `none`), and the proof-carrying steps — the rounds and
+the fold's phases — passed to the driver as ENGINES, the theorems
+quantified over every engine.  The bridge to the binary then needed a
+second assumption (an engine of the model gives the replies the
+binary's engines gave), argued by a replay; the review found the
+clock and the environment outside the first one as well.  Task #455
+(branch `agent/455-engines`) set out to remove the engines and was
+stopped.  The maintainer's ruling replaced the design: model only the
+file operations, make the model non-deterministic so that one escape
+with every outcome covers everything else, keep the parallel code as
+master has it behind that escape with proof-carrying result types.
+One assumption family remains, about the instance and the escape's
+effects, and the replay argument is gone.
+
+**Cost** (`instructions:u`, one run each; master 5fe70746d's binary
+against this lane's):
+
+| run | master | this lane |
+|---|---|---|
+| init-full `--jobs=1` | 381.5120 G | 381.4842 G (−0.007 %) |
+| init-full `--jobs=4` | 393.4958 G | 391.1083 G (−0.607 %) |
+| init-prelude `--jobs=1` | 1.9548 G | 1.9543 G (−0.021 %) |
+| init-prelude `--jobs=4` | 2.1166 G | 2.1183 G (+0.082 %) |
+| grind-ring-5 `--jobs=4` | 15.6489 G | 15.6325 G (−0.105 %) |
+| app-lam `--jobs=4` | 22.3443 G | 22.3812 G (+0.165 %) |
+| beta-ladder `--jobs=4` | 4.8951 G | 4.8938 G (−0.027 %) |
+| let-ladder `--jobs=4` | 2.6349 G | 2.6381 G (+0.121 %) |
+| the twelve other arena perf streams `--jobs=4` | 0.02–0.30 G | −0.53 % … −0.006 % |
+
+Within the four-thread runs' spread everywhere (±0.5 % on init-full
+`--jobs=4` in the earlier attempt's reruns); nothing to rerun.
+
+The final tree, with `Cli.lean` and `mainG`, rerun against the same
+master numbers, `-- <file>`: init-full `--jobs=1` 381.4598 G, init-prelude
+`--jobs=1` 1.9542 G, grind-ring-5 `--jobs=4` 15.6286 G.
+
+**Gates.**  `lake build`, `lake test` warning-free; no `sorry`, no new
+axiom, no new `unsafe`/`implemented_by` (the `pread` extern only, as
+allowlisted).  `tests/arena.sh` in full on the final tree under the 8 GB
+guard (peak 4.4 GB), exit 0: layering; shake (691/691 allowlisted) and the
+import plan (none demotable); the trust surface with the build/native
+pins, the fence (six modules) and the one exit; overview and whitepaper
+links, the fragment; quote gate; pindump; no-local-paths; challenge;
+selfcheck 49 018 declarations; axioms pinned at 22 theorems; tutorial
+90/92 as before; e2e 502/502; mode flags 16/16 (the `--` fixtures); the
+IO-exception gate 5/5 (the FIFO at both job counts); the trusted,
+`--jobs=1` and `--jobs=4` sweeps.  README: link repoints only.

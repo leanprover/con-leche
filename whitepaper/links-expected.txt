@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L100-L103
+   100  theorem model_exists (V : Type w) [SetTheory V]
+   101      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   102      (accepted : checkDecls .verified pins ds = .ok env) :
+   103      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L100-L103
+   100  theorem model_exists (V : Type w) [SetTheory V]
+   101      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   102      (accepted : checkDecls .verified pins ds = .ok env) :
+   103      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -5220,11 +5220,11 @@
     69      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
     70      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L96-L99
-    96  theorem model_exists (V : Type w) [SetTheory V]
-    97      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    98      (accepted : checkDecls .verified pins ds = .ok env) :
-    99      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L100-L103
+   100  theorem model_exists (V : Type w) [SetTheory V]
+   101      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   102      (accepted : checkDecls .verified pins ds = .ok env) :
+   103      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
