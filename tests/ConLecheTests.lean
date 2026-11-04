@@ -381,14 +381,14 @@ e2e `corner_rec_empty_prefix`), so these drive the kernel directly. -/
 private def zNm (s : String) : Name := .str .anonymous s
 
 private def zRule (c : Name) (rhs : Expr) : RecRule :=
-  { ctor := c, nfields := 0, ctorParams := 0, fire := .plain, rhs := rhs }
+  { ctor := c, nfields := 0, fire := .plain, rhs := rhs }
 
 /-- `inductive T : Prop | c` with the zero-motive `T.rec : (t : T) → T`
 and the given rule right-hand side. -/
 private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
   [.indInfo ⟨T, [], .sort .zero⟩ {},
     .ctorInfo ⟨T.str "c", [], .const T []⟩ 0 0,
-    .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T [])⟩ 0 0
+    .recInfo ⟨T.str "rec", [], .forallE (.const T []) (.const T [])⟩ 0 0 false
       [zRule (T.str "c") rhs]]
 
 /-- The kernel's recursor stage (`checkBlockRec`, the generated stage) on
@@ -417,9 +417,9 @@ private def zMutual (rA rB : Expr) : Declaration :=
   let A := zNm "ZA"; let B := zNm "ZB"
   .indDecl [.indInfo ⟨A, [], .sort .zero⟩ {}, .indInfo ⟨B, [], .sort .zero⟩ {},
     .ctorInfo ⟨A.str "c", [], .const A []⟩ 0 0, .ctorInfo ⟨B.str "c", [], .const B []⟩ 0 0,
-    .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A [])⟩ 0 0
+    .recInfo ⟨A.str "rec", [], .forallE (.const A []) (.const A [])⟩ 0 0 false
       [zRule (A.str "c") rA],
-    .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B [])⟩ 0 0
+    .recInfo ⟨B.str "rec", [], .forallE (.const B []) (.const B [])⟩ 0 0 false
       [zRule (B.str "c") rB]] 0
 
 -- Rejected at two members too, with the right rules …

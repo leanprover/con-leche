@@ -672,7 +672,7 @@ theorem bvarsBelow_blockIotaEqsAV {K : Nat} {nCt : Nat → Nat}
 `hnew` (`blockRecStaged_runR`) is `blockRecRuleLaw_gen`
 (`BlockRecLaw.lean`) at one (recursor, constructor) pair, and four of
 its six premises are free once `eqs` is fixed to `blockIotaEqsAV`: the
-firing (`recRuleBits_fire`), the recursor's argument sums
+firing, the recursor's argument sums
 (`recStage_recNamesEq`: the stage pins them), the valuation's
 reading at the block position, and the family's ι law.  What is left
 is the right-hand side's, and it enters `blockRuleDataAt_of_base`

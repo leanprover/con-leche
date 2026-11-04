@@ -13,9 +13,8 @@ the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what an
 export carries for them, which is exactly the toolchain's own
 `Init.Prelude` declaration — binder names and infos
 are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
-signature says `{…}`, for the reader) — with every install-computed
-recursor-rule field at its parse placeholder (`ctorParams := 0`,
-`fire := .plain`).
+signature says `{…}`, for the reader) — with the recursor-rule firing mode at its parse placeholder
+(`fire := .plain`).
 
 Written out with `ConLeche.Expr`'s constructors and `Name.str` chains,
 one such declaration is a single unreadable line.  The helpers below —

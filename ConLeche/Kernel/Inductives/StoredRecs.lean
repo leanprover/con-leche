@@ -11,9 +11,9 @@ The installer GENERATES every recursor of an inductive block
 (`genRecCheck`, `GenRec.lean`) and installs the STORED one — the
 record's type and its rules' right-hand sides — once the two agree up
 to definitional equality.  Everything else of the installed recursor
-(its major index and rule prefix, each rule's constructor, field count,
-constructor parameter count, firing mode and rescue bits) is the
-generator's.
+(its major index and rule prefix, its K flag, each rule's constructor,
+field count and firing mode) is the generator's; the records' K flags are
+checked against it (`storedKCheck`).
 
 `storedRecsCheck`, per recursor, the stream's record against the
 generated recursor at the same position:

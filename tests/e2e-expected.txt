@@ -3106,3 +3106,20 @@
 # stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
 # (official 1).
 1 stored_type_dom_bad.ndjson
+# rec_record_k_off_bad / rec_record_k_on_nested_bad / rec_record_nfields_bad /
+# rec_record_ctor_numparams_bad (`scripts/mk_rec_record_fixtures.py`, task
+# #480): the install reads a recursor's K flag, rules and firing data off
+# the record, the block's job checks them.  `MyEq.rec` (K) declaring
+# `k := false`; the auxiliary `TL.rec_1` declaring `k := true`, which
+# nothing used to compare (accepted before #480); an auxiliary rule with
+# one field too many; a constructor record with one parameter more than
+# its block.  Official 1, target 1.
+1 rec_record_k_off_bad.ndjson
+1 rec_record_k_on_nested_bad.ndjson
+1 rec_record_nfields_bad.ndjson
+1 rec_record_ctor_numparams_bad.ndjson
+# rec_nested_container_params: block `T` with one parameter nested through
+# the two-parameter container `P2`, whose auxiliary recursor's rule fires
+# in two `rfl`s; the firing data come off the record without looking `P2`
+# up.  Official 0, target 0.
+0 rec_nested_container_params.ndjson

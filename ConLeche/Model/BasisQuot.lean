@@ -1047,14 +1047,13 @@ theorem quotIndLaw {m : EnvModel V env}
   refine ⟨?_, ?_⟩
   · -- the fired equality: both sides are the canonical proof
     simp only [show RecRule.ctor quotIndRule = quotMkName from rfl,
-      show quotIndRule.ctorParams = 2 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       Term.mkAppN_cons, Term.mkAppN_nil,
       hrecL, interp_app, interp_const, bval, quotIndRa_interp,
       app_pt]
   · -- the transport: five applications of the canonical proof
     intro hxsA hysA
-    simp only [show quotIndRule.ctorParams = 2 from rfl,
+    simp only [
       List.take, List.drop, List.cons_append, List.nil_append,
       Term.mkAppN_cons, Term.mkAppN_nil]
     have h1 := WellDenoted_app_pt (quotIndRa_wellDenoted (ψ uN) ρ)
@@ -2377,7 +2376,6 @@ theorem quotLiftLaw {m : EnvModel V env}
   refine ⟨?_, ?_⟩
   · -- the fired equality
     simp only [show RecRule.ctor quotLiftRule = quotMkName from rfl,
-      show quotLiftRule.ctorParams = 2 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       Term.mkAppN_cons, Term.mkAppN_nil, hrecL, hctorL,
       interp_app, interp_const, bval, ConLeche.Term.lv,
@@ -2387,7 +2385,7 @@ theorem quotLiftLaw {m : EnvModel V env}
       quotLiftRa_app hval0 hgr0 ρ f1 f2 f3 f4 f5 hg3]
   · -- the transport
     intro hxsA hysA
-    simp only [show quotLiftRule.ctorParams = 2 from rfl,
+    simp only [
       List.take, List.drop, List.cons_append, List.nil_append,
       Term.mkAppN_cons, Term.mkAppN_nil]
     have hRa := quotLiftRa_facts (u := ψ uN) hval0 hgr0 ρ

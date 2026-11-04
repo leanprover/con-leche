@@ -40,7 +40,7 @@ open ConLeche
   [.indInfo ⟨nm "U", [], .sort (.succ .zero)⟩ {},
    .ctorInfo ⟨nm2 "U" "u", [], cU⟩ 0 0,
    .recInfo ⟨nm2 "U" "rec", [nm "v"], recTy⟩ 2 2
-     [{ ctor := nm2 "U" "u", nfields := 0, ctorParams := 0, fire := .plain, rhs := rhs }]]
+     false [{ ctor := nm2 "U" "u", nfields := 0, fire := .plain, rhs := rhs }]]
 
 /-- The fold step's verdict on the block (`accept`/`reject`/`decline`/`error`). -/
 @[expose] def run (rhs : Expr) : String :=

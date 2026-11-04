@@ -1041,7 +1041,6 @@ theorem eqRecLaw {m : EnvModel V env}
   refine ⟨?_, ?_⟩
   · -- the fired equality
     simp only [show RecRule.ctor eqRecRule = eqReflName from rfl,
-      show eqRecRule.ctorParams = 2 from rfl,
       List.take, List.drop, List.cons_append, List.nil_append,
       List.append_nil, Term.mkAppN_cons, Term.mkAppN_nil, hrecL,
       interp_app, hctorL, eqReflValT_interp, app_pt]
@@ -1050,7 +1049,7 @@ theorem eqRecLaw {m : EnvModel V env}
       eqRecRa_app₄ ψ ρ f1 f2 f3 f4]
   · -- the transport
     intro hxsA _
-    simp only [show eqRecRule.ctorParams = 2 from rfl,
+    simp only [
       List.take, List.drop, List.append_nil,
       Term.mkAppN_cons, Term.mkAppN_nil]
     have hRm := (eqRecRa_data ψ ρ).2

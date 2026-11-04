@@ -526,7 +526,7 @@ that is never `Prop` at the comparand levels it runs no check of the
 constructor application at all.  What the step consumes instead, at the
 recursor's levels:
 
-* **K** (`RecRule.k`): the rule's law at the recursor's own
+* **K** (the recursor's K flag): the rule's law at the recursor's own
   parameters, for any major value in the major's domain (the
   fragment's `RecRuleLawK`: inversion of the family's least
   fixed point) — the reduct, the minor, does not mention the major;

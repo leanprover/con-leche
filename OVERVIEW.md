@@ -996,8 +996,8 @@ definitionally equal to it; each right-hand side is closed, type-checks
 at a type definitionally equal to the generated rule's, and is
 definitionally equal to the generated rule. The comparisons run at the
 generated install, and everything else of the installed recursor — its
-major premise's position, each rule's constructor parameter count,
-firing mode and rescue bits — is the generator's
+major premise's position, its K flag, each rule's firing mode — is the
+generator's
 ([function `storedRecsCheck` in `ConLeche/Kernel/Inductives/StoredRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StoredRecs.lean#L187)).
 The rules of a recursor for an outside class fire at the instantiation
 read off its type
@@ -1547,14 +1547,18 @@ types.
 | Where | Field | Lean's counterpart, or how it is computed |
 |---|---|---|
 | `IndCaps` | `all`, `nparams`, `ctors` | `InductiveVal.all`, `numParams`, `ctors` |
-| `IndCaps` | `ruleK` | `RecursorVal.k` |
 | `IndCaps` | `eta`, `etaCtor`, `etaParams`, `etaFields` | whether the family has structure η, and its constructor's name and counts; from the inductive and its single constructor |
 | `IndCaps` | `unitlike`, `unitParams` | whether all inhabitants are definitionally equal; from the constructor types |
 | `IndCaps` | `sortZ` | the zero-ness of the family's result sort, read off its stored type |
 | `recInfo` | `majorIdx`, `rulePrefix` | sums of `RecursorVal.numParams`, `numMotives`, `numMinors`, `numIndices` |
-| `RecRule` | `ctorParams` | the constructor's `numParams` |
-| `RecRule` | `k`, `eta` | the recursor's K flag and its family's structure η, per rule |
-| `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the container's level and parameter instantiation that the installer generated the recursor's major premise at, its parameters closed over the rule prefix |
+| `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
+
+A rule stores what Lean's `RecursorRule` stores (constructor, field count,
+right-hand side) and the firing mode above. A recursor's K flag is its
+record's (`RecursorVal.k`), which the block's check compares with the
+generated recursor's. The constructor's parameter count and the structure-η
+rescue's condition are read off the stored constructor and the family's
+capabilities where the rule fires.
 
 **Projection tables.** For each structure `T` the installer stores one
 projection table (a `ProjTable`, keyed by `T`) in the environment's
