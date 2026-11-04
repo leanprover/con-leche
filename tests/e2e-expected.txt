@@ -3113,7 +3113,7 @@
 # `k := false`; the auxiliary `TL.rec_1` declaring `k := true`, which
 # nothing used to compare (accepted before #480); an auxiliary rule with
 # one field too many; a constructor record with one parameter more than
-# its block.  Official 1, target 1.
+# its block.  Official 1 (inferred from ind_rec_k_bad, not run), target 1.
 1 rec_record_k_off_bad.ndjson
 1 rec_record_k_on_nested_bad.ndjson
 1 rec_record_nfields_bad.ndjson

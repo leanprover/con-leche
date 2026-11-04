@@ -300,14 +300,14 @@ parameter count. -/
   fun _ r => (false, sumRules r.2.2.2 r.2.1)
 
 /-- **`consBlockRecs` is the generic cons at `sumRulesR`.** -/
-theorem consBlockRecs_eq_R (q : BlockShape) (nP : Nat) :
+theorem consBlockRecs_eq_R (q : BlockShape) :
     ∀ (m : Nat) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
       (env : Env),
-      consBlockRecs q nP m rs env = consBlockRecsR sumRulesR q m rs env
+      consBlockRecs q m rs env = consBlockRecsR sumRulesR q m rs env
   | _, [], _ => rfl
   | m, (cvRa, rhss, nIdx, ctorsA) :: rest, env => by
     simp only [consBlockRecs, consBlockRecsR]
-    exact consBlockRecs_eq_R q nP (m + 1) rest _
+    exact consBlockRecs_eq_R q (m + 1) rest _
 
 /-- **The stored rules' SHAPE at a rules function**: every rule the cons
 stores for the recursor at position `j` is the `i`-th constructor's, at
@@ -447,7 +447,7 @@ theorem envWF_consBlockRecsR
 /-- **The k recursors' cons keeps well-formedness** at `sumRulesR`: the
 rules are `sumRules`' per recursor, so `sumRules_mem` is the block's
 rule fact unchanged (never `.nested`). -/
-theorem envWF_consBlockRecs {q : BlockShape} {nP : Nat}
+theorem envWF_consBlockRecs {q : BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {env : Env}
     (henv : EnvWF env)
     (hall : ∀ r ∈ rs, r.1.type.hasFvar = false ∧
@@ -458,7 +458,7 @@ theorem envWF_consBlockRecs {q : BlockShape} {nP : Nat}
         rhs.allLevelParamsDefined r.1.levelParams = true ∧
         rhs.constsResolve (consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true) :
-    EnvWF (consBlockRecs q nP 0 rs env) := by
+    EnvWF (consBlockRecs q 0 rs env) := by
   rw [consBlockRecs_eq_R]
   refine envWF_consBlockRecsR henv hall fun j r _ rl hrl => ?_
   obtain ⟨hmem, hfire⟩ := sumRules_mem hrl

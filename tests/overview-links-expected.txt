@@ -148,8 +148,8 @@
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L630
-   630  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L613
+   613  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == ConLeche/Frontend/Stream.lean#L309-L311
    309  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
@@ -207,14 +207,14 @@
    698        IO (Except (CheckError × Nat) (DeferredRun mode natOpPinSets ds.toList p₀))
    699    | k, i, c, fe, pend, D, hc, hrun, hidx, hag => do
 
-== ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468
-  1462  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-  1463      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
-  1464      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
-  1465      (hand : andPinOk pd = true)
-  1466      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
-  1467      installDeclStep mode pins (i, fe, pend) pd =
-  1468        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
+== ConLeche/Verify/Cached/ViewCongr.lean#L1456-L1462
+  1456  theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
+  1457      {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
+  1458      {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
+  1459      (hand : andPinOk pd = true)
+  1460      (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+  1461      installDeclStep mode pins (i, fe, pend) pd =
+  1462        .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
 
 == ConLeche/Verify/Cached/Defer.lean#L142-L149
    142  theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hW : W.env = ⟨[], []⟩) {i : Nat}
@@ -901,21 +901,21 @@
     95    | .quotDecl _ cv => !andPinNames.contains cv.name
     96    | .basisDecl _ => true
 
-== ConLeche/Kernel/Inductives/BlockParts.lean#L446
-   446  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
+== ConLeche/Kernel/Inductives/BlockParts.lean#L449
+   449  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L455-L462
-   455  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   456    block.all fun ci => match ci with
-   457      | .indInfo cvT _ =>
-   458        match cvT.type.piSortTeleLen? with
-   459        | some n => decide (nP ≤ n)
-   460        | none => true
-   461      | .ctorInfo _ nPc _ => nPc == nP
-   462      | _ => true
+== ConLeche/Kernel/Env.lean#L440-L447
+   440  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   441    block.all fun ci => match ci with
+   442      | .indInfo cvT _ =>
+   443        match cvT.type.piSortTeleLen? with
+   444        | some n => decide (nP ≤ n)
+   445        | none => true
+   446      | .ctorInfo _ nPc _ => nPc == nP
+   447      | _ => true
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L147
-   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L148
+   148  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L394-L396
    394  def targetMajorOf (fe : FEnv) (p : BlockShape)
@@ -933,8 +933,8 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L495
    495  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L290
-   290  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L289
+   289  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L549
    549  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
@@ -942,9 +942,8 @@
 == ConLeche/Kernel/Inductives/StoredRecs.lean#L187
    187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
 
-== ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608
-   607  def tgtStoredRules (find? : Name → Option ConstantInfo)
-   608      (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+== ConLeche/Cached/StoredInstall.lean#L185
+   185  def storedFire (p : BlockShape) (rc : RecShape) : Option RecRuleFire :=
 
 == ConLeche/SetModel/Value.lean#L387-L388
    387  /-- `I → Sort w`, the family space, as the value reading has it. -/
@@ -968,8 +967,8 @@
 == ConLeche/Kernel/Inductives/ClassRead.lean#L130
    130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L147
-   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L148
+   148  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L63
     63  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :

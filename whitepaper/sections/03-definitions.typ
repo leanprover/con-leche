@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 500)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 485)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 318, 332)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 301, 319)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -144,7 +144,7 @@ the declared level parameters.
 
 #real[
   The real proof's model carries the same two laws among others
-  (#src("ConLeche/Model/Env/EnvModelM.lean", 229, 252)[the carrier's invariant]).
+  (#src("ConLeche/Model/Env/EnvModelM.lean", 228, 251)[the carrier's invariant]).
 ]
 
 The empty environment #src("whitepaper/Fragment/EnvModel.lean", 364, 373)[has a model
@@ -185,7 +185,7 @@ gains three cases, one per rule.
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 345, 350)[extended with $c$ has a model]
-  (#src("ConLeche/Model/Install.lean", 337, 340)[as in con-leche]).
+  (#src("ConLeche/Model/Install.lean", 328, 331)[as in con-leche]).
 ] <thm:install-def>
 
 #proof[

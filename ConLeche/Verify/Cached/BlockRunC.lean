@@ -331,17 +331,16 @@ theorem ruleR_infer_simG {envR : Env} (henvR : EnvWF envR)
 /-! ## 5. The assembly -/
 
 /-- The rule-less recursors' cons is a `consBlockRecs` with no rules. -/
-theorem consBlockRecsBare_eq_consBlockRecs (q : BlockShape)
-    (nP : Nat) :
+theorem consBlockRecsBare_eq_consBlockRecs (q : BlockShape) :
     ∀ (m : Nat) (cvRas : List (ConstantVal × Nat)) (env : Env),
       consBlockRecsBare q m cvRas env
-        = consBlockRecs q nP m
+        = consBlockRecs q m
             (cvRas.map fun c => (c.1, ([] : List Expr), c.2, ([] : List (ConstantVal × Nat))))
             env
   | _, [], _ => rfl
   | m, (cv, n) :: rest, env => by
     simp only [consBlockRecsBare, consBlockRecs, List.map_cons, sumRules]
-    exact consBlockRecsBare_eq_consBlockRecs q nP (m + 1) rest _
+    exact consBlockRecsBare_eq_consBlockRecs q (m + 1) rest _
 
 /-- **The rule-less recursors' environment is well-formed** when their
 checked types are. -/
@@ -351,7 +350,7 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
       c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
       c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true) :
     EnvWF (consBlockRecsBare q 0 cvRas env) := by
-  rw [consBlockRecsBare_eq_consBlockRecs q 0]
+  rw [consBlockRecsBare_eq_consBlockRecs q]
   refine envWF_consBlockRecs henv ?_
   intro r hr
   obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr

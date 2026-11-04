@@ -19,7 +19,7 @@ public section
 premise about the ι content of the recursors' cons:
 
 ```
-hrecP : ∀ m₃ : EnvModel V (consBlockRecs q nP 0 rs envC),
+hrecP : ∀ m₃ : EnvModel V (consBlockRecs q 0 rs envC),
   m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ
 ```
 

@@ -152,7 +152,7 @@ not a rule of its relations.
   result. Whether a type has the rule at all is decided once, when it
   is installed, from its shape (one constructor, no index, not a
   proposition, in a block where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded with the type]\;
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 79)[recorded with the type]\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,

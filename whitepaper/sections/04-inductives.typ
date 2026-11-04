@@ -48,7 +48,7 @@ interpretations of a binder from §2, decided for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
-(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 106, 124)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 109, 127)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -268,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 147, 152)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 148, 153)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 129, 146)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 128, 136)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);
@@ -744,7 +744,7 @@ $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$. The reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
-(#src("ConLeche/Rules/Rel.lean", 186, 243)[as in con-leche]). Besides
+(#src("ConLeche/Rules/Rel.lean", 186, 244)[as in con-leche]). Besides
 finding $r$, $c_j$ and the rule in the environment, the fragment's
 rule has three _comparisons_ as premises:
 
@@ -828,7 +828,7 @@ and #src("ConLeche/Model/Rules/IotaSound.lean", 88)[the law] gives the rest.
   Every rule of the recursor of an accepted block
   #src("whitepaper/Fragment/InstallIota.lean", 822, 828)[satisfies its $iota$ law] in the model of @sec:ind-model.
   (Via #src("whitepaper/Fragment/IndRec.lean", 280, 290)[the equation on the semantic recursor]\; in con-leche,
-  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 874, 880)[the graph's equation], lifted to the law of @def:iota-law.)
+  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 875, 881)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
 
 #proof[

@@ -108931,3 +108931,129 @@ never soundness.
    install too: they become jobs of the check phase.
 6. The order of the phases is the coordinator's.  Everything stops on this
    branch for review before master.
+7. A recursor's K flag is the stream's (the record's `k`), carried on the
+   installed recursor and read directly; it is not computed at use.  The job
+   compares it with the recomputed condition (one-member block, one
+   constructor, no fields, family a proposition); a disagreement is exit 1
+   naming the recursor.
+
+### Phase 0: baseline and census (#480)
+
+The campaign's baseline, base head 13e9d0a05, `instructions:u`, one run per
+stream, verified, in G (all exit 0):
+
+| stream | j=1 | j=8 |
+|---|---|---|
+| init-full | 381.764 | 392.661 |
+| init-prelude | 1.956 | 2.131 |
+| app-lam | 22.080 | 22.361 |
+| args-before-unfold | 0.066 | 0.081 |
+| beta-ladder | 4.848 | 4.917 |
+| church-numerals | 0.297 | 0.299 |
+| discarded-argument-match | 0.200 | 0.204 |
+| discarded-argument | 0.067 | 0.070 |
+| folded-constant-first | 0.096 | 0.111 |
+| folded-constant-last | 0.096 | 0.111 |
+| grind-ring-5 | 15.296 | 15.681 |
+| identical-nesting | 0.020 | 0.022 |
+| irrelevance-before-evaluation | 0.022 | 0.026 |
+| let-ladder | 2.569 | 2.646 |
+| repeated-subproblem | 0.022 | 0.025 |
+| shared-subterm | 0.205 | 0.219 |
+| shift-cascade | 0.056 | 0.070 |
+| unroll-versus-evaluate | 0.028 | 0.043 |
+
+Census of the exports (blocks, types, def-headed formers, structure-like
+types, of those literally `Prop`-sorted, `Prop`-sorted families, nested
+blocks):
+
+| export | blocks | types | def-headed | structure-like | Prop-sorted struct | Prop families | nested |
+|---|---|---|---|---|---|---|---|
+| Init | 615 | 615 | 0 | 494 | 149 | 206 | 1 |
+| Mathlib | 6719 | 6752 | 38 | 5751 | 1975 | 2252 | 38 |
+
+The 38 def-headed formers are inductive predicates such as
+`generatePiSystem`, `Presieve.*`, `MorphismProperty.*`, `ObjectProperty.*`,
+none of them nested; #431 §13's "nine fixtures" undercounts them.  The
+projection guards matter at about a third of the structures.
+
+### Phase 1: a recursor rule is what its record says (#480)
+
+**What changed.**  `RecRule` is `(ctor, nfields, fire, rhs)`; `k`, `eta`,
+`ctorParams` are gone, and so is `IndCaps.ruleK`.
+
+* K: `recInfo val majorIdx rulePrefix isK rules`.  The flag is the record's
+  (ruling 7).  `storedKCheck`, run by `checkBlockTail` and its cached twin
+  before `storedRecsCheck`, compares it with `recKExpected`.
+* The constructor's parameter count is read off the `.ctorInfo` where the
+  rule fires (`cnP + rl.nfields`).
+* η: `etaRescueOk ctor cvj cvT caps` is read where the rescue would fire, off
+  the family's capabilities and the stored constructor; `recRuleEtaOf`,
+  `recRuleKOf`, `recRuleBits` are deleted.
+* The checked generator's own rules (`tgtStoredRules`, `blockRecInfosTF`) and
+  the install's (`sumRules`, `storedRecs`, `storedFire`) read no environment.
+  `targetCtorsOf` and `nestContainer` stay in the job's regeneration only.
+* The parser's `k` check is gone: the job's check replaces it, and it also
+  covers nested blocks, which the parser skipped.
+
+**The representation of `fire`.**  `.plain` and `.nested lvls pins` both stay.
+`storedFire` gives `.plain` when the recursor's target is a member of the
+block; otherwise it opens the record's type at the major's position and takes
+the major domain's head levels and its arguments minus the trailing `mI − rP`
+ones, which are the record's index variables, closed over the rule prefix.
+So no container parameter count is needed and nothing is looked up.  `.plain`
+stays because a member's comparands are cheap on the hot path and its law
+clauses differ from an auxiliary's; the alternative, slicing the major domain
+at each firing, costs per ι step what this costs once per recursor.  `fire`
+stays per rule; it could move to the recursor, as all rules of one recursor
+agree.
+
+**The proofs.**  `RecRuleExtra`/`RecRuleLaw` take `mI rP isK rl`, and the
+capabilities no longer carry `ruleK`.  The member K arm comes from
+`recKExpected_member`; the outside arm is absurd because an auxiliary
+recursor's K flag is `false`, so `genOut_Kwit` and its premises are deleted.
+`SwapPairSh`/`SwapPairTy`, `RecRulesShape`, `StoredCorr` and `RecCtorsStored`
+no longer mention a lookup.  No statement equates a value at use with one at
+install: the constructor's parameter count and the η condition are premises
+of the firing at the environment of use.
+
+**A behaviour change.**  An auxiliary recursor over a K container (`Eq`, say)
+used to take K from the container's lookup; it now has `k = false`, as
+official's record does.
+
+**Verdicts.**  The 502 pinned verdicts did not move.  One new stream differs
+from the base binary: `rec_record_k_on_nested_bad` (an auxiliary recursor's
+record declaring `k := true`) was accepted, as nothing compared that flag, and
+is now exit 1.  A failed `storedNestedOk` is now exit 1
+rather than 3.
+
+**New fixtures** (`scripts/mk_rec_record_fixtures.py`):
+`rec_record_k_off_bad`, `rec_record_k_on_nested_bad`,
+`rec_record_nfields_bad`, `rec_record_ctor_numparams_bad` (all 1, target 1) and
+`rec_nested_container_params` (0, target 0), a block of one parameter nested
+through a container of two, with the auxiliary rule firing in `rfl`.
+`ind_rec_k_bad` already covers `k := true` at a member.  The official kernel
+was not run on the bad streams: its verdict 1 is inferred from `ind_rec_k_bad`'s
+"Invalid recursor", and from Lean having elaborated the good one.
+
+**Measurements** against the baseline: init-full j=1 381.767 (+0.00 %), j=8
+392.997 (+0.09 %); grind-ring-5 15.297 (+0.00 %), 15.678 (−0.02 %); app-lam
+22.080 (−0.00 %), 22.415 (+0.24 %); init-prelude 1.955 (−0.05 %), 2.124
+(−0.31 %); beta-ladder and let-ladder unchanged at j=1 and within +0.06 % at
+j=8.  No stream moved by more than 0.41 %.  No memo was needed.
+
+**Gates.**  `lake build` and `lake test` warning-free; `tests/arena.sh` exit 0
+under the RSS guard, e2e 507/507, arena tutorial 90/92 as before, selfcheck
+48 899 declarations, axioms pinned.  The whitepaper's and OVERVIEW's citations
+of changed lines were re-read and repointed; their prose stands, except that
+OVERVIEW's sentence on an outside class's firing data now cites `storedFire`.
+
+**Left for the later phases.**  `storedFormers` (`storedTele`, a `whnf` loop
+at the telescope), `blockCapsAt`'s `IndCaps` (`eta`, `sortZ` and the rest) and
+`storedGuards`/`storedTables` (the structures' field-sort inference) still
+compute at install; `etaRescueOk` reads those capabilities, and moving them to
+use changes its premises, not its call site.  `pinRecRuleFields` is now the
+identity, so `#stored_basis`'s stored and raw forms coincide; the basis phase
+collapses them.  Def-headed formers are real at Mathlib (38) and guards matter
+at a third of the structures, so both need measuring on a Mathlib prefix, not
+only on Init.

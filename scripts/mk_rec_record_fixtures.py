@@ -3,7 +3,8 @@
 
 The install reads a recursor's K flag, its rules and its firing data off
 the record; the block's job checks them.  Each stream is the smallest edit
-of a committed good stream.  Official 1, target 1 for all of them.
+of a committed good stream.  Target 1 for all of them; official 1 is
+inferred from ind_rec_k_bad, not run.
 
   rec_record_k_off_bad         <- restrict_a37_myeq_k
       `MyEq.rec`, a K recursor, declares `k := false`.

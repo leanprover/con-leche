@@ -323,11 +323,11 @@ def consBlockCtors (nP : Nat) : List (List (ConstantVal × Nat)) → Env → Env
 
 /-- The members' recursors consed with their rules, in block order.
 The rule-less stage's K flag (`false`) is all a proof about it reads. -/
-def consBlockRecs (p : BlockShape) (_nP : Nat) :
+def consBlockRecs (p : BlockShape) :
     Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
   | _, [], env => env
   | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, env =>
-    consBlockRecs p _nP (m + 1) rest
+    consBlockRecs p (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
         false (sumRules ctorsA rhss)
         :: env.consts, env.tables⟩

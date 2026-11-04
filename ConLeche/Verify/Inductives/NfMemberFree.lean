@@ -5,7 +5,6 @@ public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Knot
-import ConLeche.Verify.EnvPreds
 
 public section
 

@@ -376,7 +376,7 @@ Read from the outside in:
    model they are proved to be the folds over the snapshot's bytes cut
    as the reads cut them. At one worker the parse feeds every read of
    the stream to the pure streaming parse's step over a chunk
-   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L630)),
+   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L613)),
    on one thread
    ([function `parseFileS` in `ConLeche/Frontend/Stream.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Stream.lean#L309-L311)).
    With more workers the parse runs on as many owner threads and takes
@@ -449,7 +449,7 @@ Read from the outside in:
    (the installer checks, per constant it pushes, that the predicted slot
    holds that very constant, and hands that verdict over with its
    result), so an install at the view is the serial step
-   ([theorem `installStep_commit` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1462-L1468)):
+   ([theorem `installStep_commit` in `ConLeche/Verify/Cached/ViewCongr.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/ViewCongr.lean#L1456-L1462)):
    every install stage reads its index through the lookups alone (the
    constants' and the projection tables') and writes it by pushes
    alone, so at two indices with the same lookups it pushes the same
@@ -931,11 +931,11 @@ the `Nat` comparisons. It needs no pin; §6 says why.
 ### The installer
 
 The recogniser reads the block's shape
-([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L446)):
+([function `blockParts?` in `ConLeche/Kernel/Inductives/BlockParts.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockParts.lean#L449)):
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
-([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L455-L462)),
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L440-L447)),
 and each member's index count off what is left of its type former's
 telescope, as the official kernel reads them. Any number of parameters,
 indices, constructors and fields is supported; fields may be recursive,
@@ -946,7 +946,7 @@ then the constructors, then runs the positivity check and the
 official kernel's remaining checks — parameters applied uniformly,
 universe bound, elimination restriction, index occurrence — and
 finally the recursor check. The whole install is one entry
-([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L147)).
+([function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L148)).
 
 **The classes.** The recursors a block comes with eliminate one
 *class* each: a member of the block, or — in a nested block — another
@@ -976,7 +976,7 @@ weak head normal form erases from every field
 ([function `classSeeds` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L495)).
 Nothing is stated or cached about a container in its parameter. The
 normal forms the check records are the fields the model reads
-([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L290)).
+([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L289)).
 
 **The recursor check.** The recursors are generated in the official
 kernel's shape: each class's constructors are read off the positivity
@@ -1001,7 +1001,7 @@ generator's
 ([function `storedRecsCheck` in `ConLeche/Kernel/Inductives/StoredRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StoredRecs.lean#L187)).
 The rules of a recursor for an outside class fire at the instantiation
 read off its type
-([function `tgtStoredRules` in `ConLeche/Kernel/Inductives/RecCheck.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/RecCheck.lean#L607-L608)).
+([function `storedFire` in `ConLeche/Cached/StoredInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StoredInstall.lean#L185)).
 Members of the right shape additionally get primitive projections,
 structure η and unit-likeness (one constructor, no indices, not
 recursive) and K-like reduction (a proposition with one constructor
@@ -1191,7 +1191,7 @@ in the official kernel; they are there because the proof reads them:
   class matching its inductive hypothesis's.
 
 Where the steps live: the entry is
-[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L147);
+[function `checkBlock` in `ConLeche/Kernel/Inductives/BlockTail.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L148);
 steps 1–5 are
 [function `checkBlockPass` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockTail.lean#L63),
 the constructor check of step 3 is
