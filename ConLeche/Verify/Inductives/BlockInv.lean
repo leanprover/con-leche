@@ -374,12 +374,11 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
         q.p (blockNestedBit q.p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls block
           q.cvTas = .ok out ∧
       storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
-        (mkFEnv (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
-          q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out
+        (mkFEnv (consBlockRecsT q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out
         = .ok () ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape
         (q.p.members.zip (q.ctorsAs.zip q.sortsss))
-        (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape 0
+        (consBlockRecsT q.p.toBlockShape 0
           (storedOut q.p.recs out) (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
@@ -398,9 +397,13 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   | ok out =>
   rw [hRec] at h
   dsimp only at h
+  cases hK : storedKCheck (m := CheckM) q.p.toBlockShape q.p.recs out with
+  | error e => rw [hK] at h; exact nomatch h
+  | ok uK =>
+  rw [hK] at h
+  dsimp only at h
   cases hS : storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
-      (mkFEnv (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
-        q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out with
+      (mkFEnv (consBlockRecsT q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>
   cases u

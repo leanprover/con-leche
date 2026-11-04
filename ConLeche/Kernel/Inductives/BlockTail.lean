@@ -95,13 +95,13 @@ def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested : Bo
 recursor with its rules at ITS major (`tgtStoredRules`: the major's
 parameter count and constructors; `.nested` at an outside major).  At
 member majors it is `consBlockRecs`. -/
-def consBlockRecsT (find? : Name → Option ConstantInfo)
+def consBlockRecsT
     (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → Env → Env
   | _, [], env => env
   | m, (cv, M, rhss) :: rest, env =>
-    consBlockRecsT find? p (m + 1) rest
+    consBlockRecsT p (m + 1) rest
       ⟨.recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (tgtStoredRules find? cv (p.rulePrefixAt m) M rhss)
+        (recKExpected p M) (tgtStoredRules (p.rulePrefixAt m) M rhss)
         :: env.consts, env.tables⟩
 
 /-- **The projection table at every STRUCTURE-LIKE member** (one
@@ -135,9 +135,10 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
     q.tbl.toList q.rd q.cls block q.cvTas
   -- the stored recursors, against the generated ones at the generated
   -- install (task #431): what is installed
+  storedKCheck p.toBlockShape p.recs out
   storedRecsCheck ops .plain
-    (mkFEnv (consBlockRecsT env₂.find? p.toBlockShape 0 out env₂)) p.recs out
-  let env₃ := consBlockRecsT env₂.find? p.toBlockShape 0 (storedOut p.recs out) env₂
+    (mkFEnv (consBlockRecsT p.toBlockShape 0 out env₂)) p.recs out
+  let env₃ := consBlockRecsT p.toBlockShape 0 (storedOut p.recs out) env₂
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
 

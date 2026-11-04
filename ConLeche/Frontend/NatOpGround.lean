@@ -89,7 +89,7 @@ def _root_.ConLeche.Declaration.usedConsts : Declaration → Array Name
       fun (seen, acc) ci =>
         let (seen, acc) := usedConstsGo seen acc ci.toConstantVal.type
         match ci with
-        | .recInfo _ _ _ rules =>
+        | .recInfo _ _ _ _ rules =>
           rules.foldl (fun (seen, acc) r => usedConstsGo seen acc r.rhs) (seen, acc)
         | _ => (seen, acc)).2
   | .basisDecl _ | .quotDecl .. => #[]

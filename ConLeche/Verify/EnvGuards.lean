@@ -337,7 +337,7 @@ non-recursor entries survive verbatim (the recursor swap replaces its
 own provisional entries), and no new former appears. -/
 @[expose] def ExtEta (env env' : Env) : Prop :=
   (∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
-    (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
     env'.find? n = some ci) ∧
   (∀ (T : Name) (cvT : ConstantVal) (caps : IndCaps),
     env'.find? T = some (.indInfo cvT caps) →
@@ -352,7 +352,7 @@ theorem EtaFamiliesClosed.keep {env env' : Env}
     EtaFamiliesClosed env' := by
   intro T cvT caps hf he hr
   obtain ⟨cvC, hfC⟩ := hE T cvT caps (hx.2 T cvT caps hf) he hr
-  exact ⟨cvC, hx.1 _ _ hfC (fun _ _ _ _ hh => nomatch hh)⟩
+  exact ⟨cvC, hx.1 _ _ hfC (fun _ _ _ _ _ hh => nomatch hh)⟩
 
 /-! ## The guard, inverted -/
 

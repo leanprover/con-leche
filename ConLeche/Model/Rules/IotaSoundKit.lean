@@ -218,7 +218,7 @@ along the reduction's own `interp` equation. -/
 /-- The fired rule's right-hand side reads at every depth. -/
 theorem recRhs_depthK {m : EnvModel V env}
     {n : Name} {cv : ConstantVal} {mI rP : Nat}
-    {rules : List RecRule} (hf : env.find? n = some (.recInfo cv mI rP rules))
+    {rules : List RecRule} (hf : env.find? n = some (.recInfo cv mI rP isK rules))
     {rl : RecRule} (hmem : rl ∈ rules) {us : List Level} {Ra : Term}
     (hRa0 : denote m.acval env φ 0
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us)
@@ -232,7 +232,7 @@ theorem recRhs_depthK {m : EnvModel V env}
         us).looseBVarsBounded 0 = true := by
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
     m.wf.consts _ (ConLeche.Env.find?_mem hf)
-  obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP rules rfl rl hmem
+  obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP isK rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
       us).hasFvar = false := by
     rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hRnf

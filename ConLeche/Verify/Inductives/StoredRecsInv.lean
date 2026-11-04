@@ -77,12 +77,12 @@ theorem storedOut_map_name {recs : List RecShape}
 
 /-- A recursor cons at the same names finds the same names (the rule-less
 cons of any list carrying them). -/
-theorem isSome_consBlockRecsT_bare {f : Name → Option ConstantInfo} {q : BlockShape} :
+theorem isSome_consBlockRecsT_bare {q : BlockShape} :
     ∀ {m : Nat} {out : List (ConstantVal × TargetMajor × List Expr)}
       {l : List (ConstantVal × Nat)} {envA envB : Env},
       (∀ n, (envA.find? n).isSome = true → (envB.find? n).isSome = true) →
       out.map (·.1.name) = l.map (·.1.name) →
-      ∀ n, ((consBlockRecsT f q m out envA).find? n).isSome = true →
+      ∀ n, ((consBlockRecsT q m out envA).find? n).isSome = true →
         ((consBlockRecsBare q m l envB).find? n).isSome = true
   | _, [], [], _, _, hf, _, n, h => hf n h
   | _, [], _ :: _, _, _, _, hn, _, _ => by simp at hn
@@ -91,8 +91,8 @@ theorem isSome_consBlockRecsT_bare {f : Name → Option ConstantInfo} {q : Block
     simp only [List.map_cons, List.cons.injEq] at hn
     simp only [consBlockRecsT] at h
     simp only [consBlockRecsBare]
-    exact isSome_consBlockRecsT_bare (find?_cons_mono (c := .recInfo cv _ _ _)
-      (c' := .recInfo cvB _ _ []) hn.1 hf) hn.2 n h
+    exact isSome_consBlockRecsT_bare (find?_cons_mono (c := .recInfo cv _ _ _ _)
+      (c' := .recInfo cvB _ _ false []) hn.1 hf) hn.2 n h
 
 /-- Two rule-less recursor conses at the same names find the same names. -/
 theorem isSome_consBlockRecsBare_bare {q : BlockShape} :
@@ -107,8 +107,8 @@ theorem isSome_consBlockRecsBare_bare {q : BlockShape} :
   | m, (cv, k) :: rest, (cvB, kB) :: restB, envA, envB, hf, hn, n, h => by
     simp only [List.map_cons, List.cons.injEq] at hn
     simp only [consBlockRecsBare] at h ⊢
-    exact isSome_consBlockRecsBare_bare (find?_cons_mono (c := .recInfo cv _ _ [])
-      (c' := .recInfo cvB _ _ []) hn.1 hf) hn.2 n h
+    exact isSome_consBlockRecsBare_bare (find?_cons_mono (c := .recInfo cv _ _ _ [])
+      (c' := .recInfo cvB _ _ _ []) hn.1 hf) hn.2 n h
 
 /-- `storedNestedOk` at a `.nested` firing: the stored type's major domain
 is the container at the firing data. -/
@@ -334,40 +334,36 @@ end Inv
 
 /-- One installed rule: at a constructor of the major, with a
 right-hand side (`tgtStoredRules`, rule by rule). -/
-@[expose] def tgtRuleAt (find? : Name → Option ConstantInfo) (M : TargetMajor) (rP : Nat)
+@[expose] def tgtRuleAt (M : TargetMajor) (rP : Nat)
     (c : ConstantVal × Nat) (rhs : Expr) : RecRule :=
   match M.member with
   | none =>
-    { recRuleBits find?
-        { ctor := c.1.name, nfields := c.2, ctorParams := M.nPc, fire := .plain, rhs := rhs } with
-      fire := auxRuleFire M rP }
+    { ctor := c.1.name, nfields := c.2, fire := auxRuleFire M rP, rhs := rhs }
   | some _ =>
-    recRuleBits find?
-      { ctor := c.1.name, nfields := c.2, ctorParams := M.nPc, fire := .plain, rhs := rhs }
+    { ctor := c.1.name, nfields := c.2, fire := .plain, rhs := rhs }
 
-theorem sumRules_eq_map {find? : Name → Option ConstantInfo} {rec : Name} {nP : Nat} :
+theorem sumRules_eq_map :
     ∀ (cs : List (ConstantVal × Nat)) (rhss : List Expr),
-      sumRules find? rec nP cs rhss = (cs.zip rhss).map (fun p => recRuleBits find?
-        { ctor := p.1.1.name, nfields := p.1.2, ctorParams := nP, fire := .plain, rhs := p.2 })
+      sumRules cs rhss = (cs.zip rhss).map (fun p => { ctor := p.1.1.name, nfields := p.1.2, fire := .plain, rhs := p.2 })
   | [], _ => by simp [sumRules]
   | _ :: _, [] => by simp [sumRules]
   | c :: cs, r :: rs => by
     simp only [sumRules, List.zip_cons_cons, List.map_cons]
     rw [sumRules_eq_map cs rs]
 
-theorem tgtStoredRules_eq_map (find? : Name → Option ConstantInfo) (cv : ConstantVal) (rP : Nat)
+theorem tgtStoredRules_eq_map (rP : Nat)
     (M : TargetMajor) (rhss : List Expr) :
-    tgtStoredRules find? cv rP M rhss = (M.ctors.zip rhss).map (fun p => tgtRuleAt find? M rP p.1 p.2) := by
+    tgtStoredRules rP M rhss = (M.ctors.zip rhss).map (fun p => tgtRuleAt M rP p.1 p.2) := by
   unfold tgtStoredRules tgtRuleAt
   rw [sumRules_eq_map]
   cases M.member <;> simp [List.map_map, Function.comp_def]
 
 /-- A rule of the stored install is the generated rule at its
 position with the stored right-hand side. -/
-theorem storedRule_corr {find? : Name → Option ConstantInfo} {cvS cvG : ConstantVal} {rP : Nat}
+theorem storedRule_corr {rP : Nat}
     {M : TargetMajor} {rhssS rhssG : List Expr} (hlen : rhssS.length = rhssG.length) {r : RecRule}
-    (hr : r ∈ tgtStoredRules find? cvS rP M rhssS) :
-    ∃ (i : Nat) (rG : RecRule), rG ∈ tgtStoredRules find? cvG rP M rhssG ∧ rhssS[i]? = some r.rhs ∧
+    (hr : r ∈ tgtStoredRules rP M rhssS) :
+    ∃ (i : Nat) (rG : RecRule), rG ∈ tgtStoredRules rP M rhssG ∧ rhssS[i]? = some r.rhs ∧
       rhssG[i]? = some rG.rhs ∧ r = { rG with rhs := r.rhs } := by
   rw [tgtStoredRules_eq_map] at hr ⊢
   obtain ⟨⟨c, e⟩, hp, rfl⟩ := List.mem_map.mp hr
@@ -375,57 +371,56 @@ theorem storedRule_corr {find? : Name → Option ConstantInfo} {cvS cvG : Consta
   obtain ⟨hc, he⟩ := List.getElem?_zip_eq_some.mp hi
   have hil : i < rhssG.length := by
     have := (List.getElem?_eq_some_iff.mp he).1; omega
-  refine ⟨i, tgtRuleAt find? M rP c rhssG[i], List.mem_map.mpr ⟨(c, rhssG[i]),
+  refine ⟨i, tgtRuleAt M rP c rhssG[i], List.mem_map.mpr ⟨(c, rhssG[i]),
     List.mem_of_getElem? (List.getElem?_zip_eq_some.mpr ⟨hc, List.getElem?_eq_getElem hil⟩), rfl⟩,
     ?_, ?_, ?_⟩ <;> unfold tgtRuleAt <;> cases M.member <;> simp [he, List.getElem?_eq_getElem hil] <;> rfl
 
 /-- The generated recursor entry at block position `j`. -/
-@[expose] def recEntryG (find? : Name → Option ConstantInfo) (q : BlockShape) (j : Nat)
+@[expose] def recEntryG (q : BlockShape) (j : Nat)
     (g : ConstantVal × TargetMajor × List Expr) : ConstantInfo :=
   .recInfo g.1 (q.majorIdxAt j) (q.rulePrefixAt j)
-    (tgtStoredRules find? g.1 (q.rulePrefixAt j) g.2.1 g.2.2)
+    (recKExpected q g.2.1) (tgtStoredRules (q.rulePrefixAt j) g.2.1 g.2.2)
 
 /-- The stored recursor entry at block position `j`: the record's type
 and right-hand sides at the generated recursor. -/
-@[expose] def recEntryS (find? : Name → Option ConstantInfo) (q : BlockShape) (j : Nat)
+@[expose] def recEntryS (q : BlockShape) (j : Nat)
     (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) : ConstantInfo :=
   .recInfo { g.1 with type := rc.cvR.type } (q.majorIdxAt j) (q.rulePrefixAt j)
-    (tgtStoredRules find? { g.1 with type := rc.cvR.type } (q.rulePrefixAt j) g.2.1
-      (rc.rules.map (·.rhs)))
+    (recKExpected q g.2.1) (tgtStoredRules (q.rulePrefixAt j) g.2.1 (rc.rules.map (·.rhs)))
 
 /-- **The stored install against the generated one**: every lookup and
 every member of the first is the second's, or a stored entry whose
 generated entry the second holds at the same name (`Q` the positions'
 facts). -/
-@[expose] def StoredCorr (find? : Name → Option ConstantInfo) (q : BlockShape)
+@[expose] def StoredCorr (q : BlockShape)
     (Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop) (envS envG : Env) : Prop :=
   (∀ n ci, envS.find? n = some ci → envG.find? n = some ci ∨
-    ∃ j rc g, Q j rc g ∧ g.1.name = n ∧ envG.find? n = some (recEntryG find? q j g) ∧
-      ci = recEntryS find? q j rc g) ∧
+    ∃ j rc g, Q j rc g ∧ g.1.name = n ∧ envG.find? n = some (recEntryG q j g) ∧
+      ci = recEntryS q j rc g) ∧
   (∀ c ∈ envS.consts, c ∈ envG.consts ∨
-    ∃ j rc g, Q j rc g ∧ c = recEntryS find? q j rc g ∧ recEntryG find? q j g ∈ envG.consts)
+    ∃ j rc g, Q j rc g ∧ c = recEntryS q j rc g ∧ recEntryG q j g ∈ envG.consts)
 
-theorem StoredCorr.refl (find? : Name → Option ConstantInfo) (q : BlockShape)
+theorem StoredCorr.refl (q : BlockShape)
     (Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop) (env : Env) :
-    StoredCorr find? q Q env env :=
+    StoredCorr q Q env env :=
   ⟨fun _ _ h => Or.inl h, fun _ h => Or.inl h⟩
 
-theorem StoredCorr.cons {find? : Name → Option ConstantInfo} {q : BlockShape}
+theorem StoredCorr.cons {q : BlockShape}
     {Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop} {envS envG : Env}
-    (h : StoredCorr find? q Q envS envG) {j : Nat} {rc : RecShape}
+    (h : StoredCorr q Q envS envG) {j : Nat} {rc : RecShape}
     {g : ConstantVal × TargetMajor × List Expr} (hQ : Q j rc g) :
-    StoredCorr find? q Q ⟨recEntryS find? q j rc g :: envS.consts, envS.tables⟩
-      ⟨recEntryG find? q j g :: envG.consts, envG.tables⟩ := by
+    StoredCorr q Q ⟨recEntryS q j rc g :: envS.consts, envS.tables⟩
+      ⟨recEntryG q j g :: envG.consts, envG.tables⟩ := by
   obtain ⟨hf, hm⟩ := h
   refine ⟨fun n ci hci => ?_, fun c hc => ?_⟩
   · rw [Env.find?_cons] at hci
-    have hG : ∀ n', Env.find? ⟨recEntryG find? q j g :: envG.consts, envG.tables⟩ n'
-        = if g.1.name = n' then some (recEntryG find? q j g) else envG.find? n' := fun n' => by
+    have hG : ∀ n', Env.find? ⟨recEntryG q j g :: envG.consts, envG.tables⟩ n'
+        = if g.1.name = n' then some (recEntryG q j g) else envG.find? n' := fun n' => by
       rw [Env.find?_cons]; rfl
     by_cases hn : g.1.name = n
-    · rw [ite_eq_left (show (recEntryS find? q j rc g).name = n from hn)] at hci
+    · rw [ite_eq_left (show (recEntryS q j rc g).name = n from hn)] at hci
       exact Or.inr ⟨j, rc, g, hQ, hn, by rw [hG, ite_eq_left hn], (Option.some.inj hci).symm⟩
-    · rw [ite_eq_right (show ¬ (recEntryS find? q j rc g).name = n from hn)] at hci
+    · rw [ite_eq_right (show ¬ (recEntryS q j rc g).name = n from hn)] at hci
       rw [hG, ite_eq_right hn]
       exact hf n ci hci
   · rcases List.mem_cons.mp hc with rfl | hc
@@ -436,22 +431,22 @@ theorem StoredCorr.cons {find? : Name → Option ConstantInfo} {q : BlockShape}
 
 /-- **The recursors' conses keep the correspondence**, at the stored and
 the generated family. -/
-theorem StoredCorr.consBlockRecsT {find? : Name → Option ConstantInfo} {q : BlockShape}
+theorem StoredCorr.consBlockRecsT {q : BlockShape}
     {Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop} :
     ∀ {m : Nat} {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)}
       {envS envG : Env}, out.length = recs.length →
       (∀ i rc g, recs[i]? = some rc → out[i]? = some g → Q (m + i) rc g) →
-      StoredCorr find? q Q envS envG →
-      StoredCorr find? q Q (ConLeche.consBlockRecsT find? q m (storedOut recs out) envS)
-        (ConLeche.consBlockRecsT find? q m out envG)
+      StoredCorr q Q envS envG →
+      StoredCorr q Q (ConLeche.consBlockRecsT q m (storedOut recs out) envS)
+        (ConLeche.consBlockRecsT q m out envG)
   | _, [], [], _, _, _, _, h => h
   | _, [], _ :: _, _, _, hl, _, _ => by simp at hl
   | _, _ :: _, [], _, _, hl, _, _ => by simp at hl
   | m, rc :: recs, g :: out, envS, envG, hl, hQ, h => by
     simp only [storedOut, List.zipWith_cons_cons, ConLeche.consBlockRecsT]
     exact StoredCorr.consBlockRecsT (m := m + 1) (recs := recs) (out := out)
-      (envS := ⟨recEntryS find? q m rc g :: envS.consts, envS.tables⟩)
-      (envG := ⟨recEntryG find? q m g :: envG.consts, envG.tables⟩)
+      (envS := ⟨recEntryS q m rc g :: envS.consts, envS.tables⟩)
+      (envG := ⟨recEntryG q m g :: envG.consts, envG.tables⟩)
       (by simpa using hl)
       (fun i rc' g' hr hg => by
         have := hQ (i + 1) rc' g' (by simpa using hr) (by simpa using hg)

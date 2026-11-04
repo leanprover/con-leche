@@ -212,7 +212,7 @@ about a name the kernel fabricates:
     ci.toConstantVal.type.occDeep names = false) ∧
   (∀ n cv v hint, env.find? n = some (.defnInfo cv v hint) → n ∉ names →
     v.occDeep names = false) ∧
-  (∀ n cv mI rP rules, env.find? n = some (.recInfo cv mI rP rules) → n ∉ names →
+  (∀ n cv mI rP isK rules, env.find? n = some (.recInfo cv mI rP isK rules) → n ∉ names →
     ∀ r ∈ rules, r.rhs.occDeep names = false) ∧
   (∀ T i entry, env.findProj? T i = some entry → entry.body.occDeep names = false) ∧
   (∀ c cv nP nF, env.find? c = some (.ctorInfo cv nP nF) → c ∉ names) ∧
@@ -454,7 +454,7 @@ theorem unfoldDefinition_occDeep {env : Env} {names : List Name}
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
@@ -494,10 +494,10 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
       e.occDeep names = false → w.occDeep names = false)
     (hI : ∀ {e t : Expr}, inferTypeIO mode false env fuel d e = .ok t →
       e.occDeep names = false → t.occDeep names = false)
-    {recName : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    (_hrec : env.find? recName = some (.recInfo cv mI rP rules)) (_hrn : recName ∉ names)
+    {recName : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
+    (_hrec : env.find? recName = some (.recInfo cv mI rP isK rules)) (_hrn : recName ∉ names)
     {major major' : Expr}
-    (h : majorToCtorFueled mode false env fuel d recName rules major = .ok major')
+    (h : majorToCtorFueled mode false env fuel d recName isK rules major = .ok major')
     (hm : major.occDeep names = false) : major'.occDeep names = false := by
   rcases majorToCtor_inv h with rfl | ⟨-, -, -, rl, cvj, cnP, cnF, tmaj₀, tmaj, T, us₀, ust,
       cvT, caps, hrules, hfc, hpr, hfT, hinf, hwt, -, hcase⟩
@@ -609,7 +609,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
         rcases hcase with ⟨ty, body, rfl, hbeta⟩ | ⟨e'', hio, hwe''⟩ | rfl
         · simp only [Expr.occDeep, Bool.or_eq_false_iff] at hf'
           exact ihCore hbeta (Expr.occDeep_instantiate1 he.2 body 0 hf'.2)
-        · obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+        · obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
             cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj, hrule, hml, hlev, hpeq, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
@@ -626,7 +626,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
               (Expr.occDeep_getAppArgs happ _ (getD_mem (by omega)))
           refine ihCore hwe'' (Expr.occDeep_mkAppN ?_ ?_)
           · rw [Expr.occDeep_instantiateLevelParams]
-            exact hN.2.2.1 _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)
+            exact hN.2.2.1 _ _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)
           · intro x hx
             rcases List.mem_append.mp hx with hx | hx
             · exact Expr.occDeep_getAppArgs happ _ (List.mem_of_mem_take hx)
@@ -1324,9 +1324,9 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hnon n hn] at hf
     exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.1 cv v hint rfl).2.2.1
   · -- recursor rules
-    intro n cv mI rP rules hf hn r hr
+    intro n cv mI rP isK rules hf hn r hr
     rw [hnon n hn] at hf
-    exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP rules rfl r hr).2.2.1
+    exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP isK rules rfl r hr).2.2.1
   · -- projection-table bodies
     intro T i entry hfp
     obtain ⟨tbl, hft, hi, rfl⟩ := Env.findProj?_some hfp

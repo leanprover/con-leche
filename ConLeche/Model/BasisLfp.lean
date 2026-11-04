@@ -620,7 +620,7 @@ theorem eqLfp_caps {env : ConLeche.Env}
     LfpCaps env (eqLfp (V := V) nm cn lv) := by
   refine ⟨fun mm hmm => ?_, fun c hc j _ => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-    exact ⟨cv, caps, hf, fun ψ _ => hz ψ, fun _ => rfl⟩
+    exact ⟨cv, caps, hf, fun ψ _ => hz ψ⟩
   · obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
     exact hC
 
@@ -695,7 +695,6 @@ theorem lfp0_caps {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : ConLe
     {inj : Nat → List V → V} {n : Nat} {cn : Nat → Name} {flds : Nat → List Term}
     (hf : env.find? nm = some (.indInfo cv caps))
     (hz : ∀ ψ : Name → Nat, w ψ = 0 → caps.sortZ.holds ψ = true)
-    (hk : caps.ruleK = true → n = 1)
     (hC : ∀ j, j < n → ∃ cv' nPc nF, env.find? (cn j) = some (.ctorInfo cv' nPc nF) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)
@@ -704,7 +703,7 @@ theorem lfp0_caps {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : ConLe
     LfpCaps env (lfp0 (V := V) nm w F inj n cn flds) := by
   refine ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩
   · obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-    exact ⟨cv, caps, hf, hz, hk⟩
+    exact ⟨cv, caps, hf, hz⟩
   · obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
     exact hC j hj
 

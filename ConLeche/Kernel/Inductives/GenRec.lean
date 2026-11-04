@@ -585,7 +585,7 @@ def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Boo
 def blockRecInfosBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → List ConstantInfo
   | _, [] => []
   | m, (cvRa, _nIdx) :: rest =>
-    .recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: blockRecInfosBare p (m + 1) rest
+    .recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false [] :: blockRecInfosBare p (m + 1) rest
 
 /-- **`classFeR` as an overlay** (task #329): the rule-less generated
 recursors consed onto `fe` WITHOUT entering its index (`FEnv.overlay`,

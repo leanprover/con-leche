@@ -63,7 +63,7 @@ def quotLiftRaw : ConstantInfo :=
     pi "a" quotLiftH <|
     pi "a" (ap2 (cnst quotName [u]) (bv 4) (bv 3)) (bv 3)⟩
     5 5
-    [rule quotMkName 1 <|
+    false [rule quotMkName 1 <|
       lm "α" (srt u) <|
       lm "r" quotRel <|
       lm "β" (srt v) <|
@@ -92,7 +92,7 @@ def quotIndRaw : ConstantInfo :=
     pi "mk" quotIndMk <|
     pi "q" (ap2 (cnst quotName [u]) (bv 3) (bv 2)) (.app (bv 2) (bv 0))⟩
     4 4
-    [rule quotMkName 1 <|
+    false [rule quotMkName 1 <|
       lm "α" (srt u) <|
       lm "r" quotRel <|
       lm "β" quotIndMotive <|

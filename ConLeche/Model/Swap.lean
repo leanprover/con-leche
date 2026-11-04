@@ -176,7 +176,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     fun ψ d e => denote_swap hcg ψ d e
   -- an unchanged lookup, either way
   have hsame : ∀ (n : Name) (ci : ConstantInfo),
-      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       (env₃.find? n = some ci ↔ env₀.find? n = some ci) :=
     fun n ci hnr =>
       ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
@@ -185,7 +185,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
   have hpinUp : ∀ {c : Name} {ty : Expr}, ConLeche.natOpTyPinned env₀ c ty = true →
       ConLeche.natOpTyPinned env₃ c ty = true := fun h =>
     ConLeche.Verify.natOpTyPinned_of_find (fun ci hf => by
-      rcases hcorr ConLeche.boolName with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+      rcases hcorr ConLeche.boolName with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
       · exact ⟨ci, by rw [heq]; exact hf, rfl⟩
       · rw [h₀] at hf
         obtain rfl := Option.some.inj hf
@@ -195,7 +195,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
       c₀.toConstantVal = c₃.toConstantVal ∧ c₀.name = c₃.name := by
     intro c₃ hc₃
     obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw c₃ hc₃
-    rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
+    rcases hpair with rfl | ⟨cv, mI, rP, isK, rules, rfl, rfl⟩
     · exact ⟨c₀, hc₀, rfl, rfl⟩
     · exact ⟨_, hc₀, rfl, rfl⟩
   refine ⟨{ base2 :=
@@ -208,7 +208,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
                 acval_params := by
                   intro n ci hf ψ₁ ψ₂ hp
                   rcases hcorr n with heq |
-                    ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+                    ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
                   · exact mp.base2.acval_params n ci
                       (by rw [← heq]; exact hf) ψ₁ ψ₂ hp
                   · rw [h₃] at hf
@@ -230,7 +230,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
             -- the formers are never swapped, and keep their readings
             ind_strict := fun I cv caps hf ψ ab n hread =>
               mp.ind_strict I cv caps
-                ((hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+                ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
                 ψ ab n (by rw [hde]; exact hread)
             -- the recorded lfp clauses: the swap touches recursors only,
             -- and keeps every leaf
@@ -257,9 +257,9 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     intro c hc ψ ta hta ρ
     obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw c hc
     have hcv : c₀.toConstantVal = c.toConstantVal := by
-      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
+      rcases hpair with rfl | ⟨cv, mI, rP, isK, rules, rfl, rfl⟩ <;> rfl
     have hname : c₀.name = c.name := by
-      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩ <;> rfl
+      rcases hpair with rfl | ⟨cv, mI, rP, isK, rules, rfl, rfl⟩ <;> rfl
     rw [← hde, ← hcv] at hta
     have := mp.mem_type c₀ hc₀ ψ ta hta ρ
     rw [hname] at this
@@ -270,7 +270,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
         ConstantInfo.defnInfo cv value hint ∈ env₀.consts := by
       obtain ⟨hint, hd⟩ := hmem
       obtain ⟨c₀, hc₀, hpair⟩ := ConLeche.swapSh_mem_corr hsw _ hd
-      rcases hpair with rfl | ⟨cv2, mI, rP, rules, rfl, heq⟩
+      rcases hpair with rfl | ⟨cv2, mI, rP, isK, rules, rfl, heq⟩
       · exact ⟨hint, hc₀⟩
       · exact nomatch heq
     rw [← hde]
@@ -281,7 +281,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
   · -- `nat_ops`
     intro φ c hc cv value hint hf
     obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc cv value hint
-      ((hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
     refine ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, ?_⟩
     intro eq heq
     obtain ⟨L, R, hL, hR, hval⟩ := hlaw eq heq
@@ -290,13 +290,13 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
   · -- `div_mod`
     intro φ c hc cv value hint hf
     obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc cv value hint
-      ((hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
     exact ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, hlaw⟩
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
     intro hf
     exact mp.eq_law
       ((hsame eqName eqA
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
   · -- `caps_ok`
     obtain ⟨he, hu⟩ := mp.caps_ok
     have hfam : ∀ (T : Name) (caps : IndCaps),
@@ -305,28 +305,28 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
       intro T caps hst
       obtain ⟨h1, ⟨cvC, cnP, cnF, hC⟩, h3⟩ := hst
       exact ⟨h1, ⟨cvC, cnP, cnF, (hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hC⟩, h3⟩
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hC⟩, h3⟩
     refine ⟨?_, ?_⟩
     · intro T cvT caps hf hcap hres hfamS φ' us hus
       obtain ⟨TVa, hTVa, hokT, hlaw, hcoh⟩ :=
         he T cvT caps ((hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
+          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
           hres (hfam T caps hfamS) φ' us hus
       refine ⟨TVa, by rw [← hde]; exact hTVa, hokT, hlaw,
         hcoh.transport (fun cvC nPc nFc hf₂ => (hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
+          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
         (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
         (fun _ _ _ => rfl)⟩
     · intro T cvT caps hf hcap hres φ' us hus
       obtain ⟨TVa, hTVa, hokT, hlaw⟩ :=
         hu T cvT caps ((hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
+          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hcap
           hres φ' us hus
       exact ⟨TVa, by rw [← hde]; exact hTVa, hokT, hlaw⟩
   · -- `reduce_ops`
     intro c hc cv hf hpin
     obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv
-      ((hsame _ _ (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
       hpin
     exact ⟨by rw [← hcg.isSomeEq]; exact hs, hlaw⟩
   · -- `tower_ok` (task #175 wiring W5): a table entry, a former and a
@@ -338,9 +338,9 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
       hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
     refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
       hO5, cvC, (hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_, ?_⟩
     · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
       exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩,
@@ -349,10 +349,10 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
       -- by the swap, and the reading is `hde`
       intro cvT' capsT' hfT' us hus
       obtain ⟨TVa, hTVa, hok, hlaw', hcoh⟩ := hetaL cvT' capsT' ((hsame _ _
-        (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
+        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hfT') us hus
       exact ⟨TVa, by rw [← hde]; exact hTVa, hok, hlaw', fun he =>
         (hcoh he).transport (fun cvC nPc nFc hf₂ => (hsame _ _
-          (fun _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
+          (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf₂)
         (fun cvC nPc nFc TCa _ hTCa => by rw [← hde]; exact hTCa) rfl
         (fun _ _ _ => rfl)⟩
 

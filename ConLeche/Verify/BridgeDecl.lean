@@ -949,13 +949,24 @@ theorem storedRecsCheck_datF (fe : FEnv) (F : Nat) :
   | [], _ :: _ => by unfold storedRecsCheck; simp only [FueledM.atF_throw]
   | _ :: _, [] => by unfold storedRecsCheck; simp only [FueledM.atF_throw]
 
+theorem storedKCheck_datF (p : BlockShape) (F : Nat) :
+    ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)),
+      (storedKCheck (m := FueledM) p recs out).val F = storedKCheck (m := CheckM) p recs out
+  | [], _ => rfl
+  | _ :: _, [] => rfl
+  | rc :: rcs, g :: gs => by
+    unfold storedKCheck
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      storedKCheck_datF p F rcs gs]
+
 theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
     (F : Nat) :
     (checkBlockTail (fueledOpsM mode) block q).val F =
       checkBlockTail (fueledOps mode F) block q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockIdxSorts_datF, checkBlockRec_datF, storedRecsCheck_datF, checkBlockTables_datF]
+    checkBlockIdxSorts_datF, checkBlockRec_datF, storedKCheck_datF, storedRecsCheck_datF,
+    checkBlockTables_datF]
 
 
 /-- **The uniform install at fuel `F`, at k members**: the same program

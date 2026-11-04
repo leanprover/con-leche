@@ -335,18 +335,17 @@ theorem genRecCheckS_fresh (mode : CheckMode) (fe : FEnv)
   rw [hname]; exact hfr
 
 /-- The recursors' pushes at their majors: a fresh chain. -/
-theorem pushAll_blockRecInfosTF_push (find? : Name → Option ConstantInfo)
-    (q : BlockShape) {env : Env} :
+theorem pushAll_blockRecInfosTF_push (q : BlockShape) {env : Env} :
     ∀ {out : List (ConstantVal × TargetMajor × List Expr)} {m : Nat}
       {fe : FEnv}, PushChain env fe → FreshNames fe.env (out.map (·.1.name)) →
-      PushChain env (FEnv.pushAll (blockRecInfosTF find? q m out) fe)
+      PushChain env (FEnv.pushAll (blockRecInfosTF q m out) fe)
   | [], _, _, h, _ => h
   | (cv, M, rhss) :: rest, m, fe, h, hf => by
     have hfr : fe.find? cv.name = none := by
       rw [h.find?]; exact hf.2 _ (by simp)
     let ci : ConstantInfo := .recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
-      (tgtStoredRules find? cv (q.rulePrefixAt m) M rhss)
-    exact pushAll_blockRecInfosTF_push find? q (out := rest) (m := m + 1)
+      (recKExpected q M) (tgtStoredRules (q.rulePrefixAt m) M rhss)
+    exact pushAll_blockRecInfosTF_push q (out := rest) (m := m + 1)
       (h.push (ci := ci) hfr) (FreshNames.step (c := ci) hf)
 
 /-- The projection tables: every install is of a member, a structure the
@@ -400,8 +399,9 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
+  refine Yields.bind fun _ => ?_
   have hnm := storedOut_map_name (recs := p.recs) hrs.2.2.1
-  refine checkBlockTablesF_push _ _ (pushAll_blockRecInfosTF_push _ _ h₂ ⟨?_, ?_⟩)
+  refine checkBlockTablesF_push _ _ (pushAll_blockRecInfosTF_push _ h₂ ⟨?_, ?_⟩)
     (fun x hx => hmem x.1 (List.of_mem_zip hx).1)
   · rw [hnm]; exact hrs.1.1
   intro n hn

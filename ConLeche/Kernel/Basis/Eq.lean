@@ -24,7 +24,7 @@ def eqRaw : ConstantInfo :=
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
     pi "b" (bv 1) prop⟩
-    { ruleK := true, all := [eqName], nparams := 2, ctors := [eqReflName] }
+    { all := [eqName], nparams := 2, ctors := [eqReflName] }
 
 /-- `Eq.refl.{u} {α : Sort u} (a : α) : Eq α a a`. -/
 def eqReflRaw : ConstantInfo :=
@@ -52,7 +52,7 @@ def eqRecRaw : ConstantInfo :=
     pi "t" (ap3 (cnst eqName [u]) (bv 4) (bv 3) (bv 0)) <|
     ap2 (bv 3) (bv 1) (bv 0)⟩
     5 4
-    [rule eqReflName 0 <|
+    true [rule eqReflName 0 <|
       lmI "α" (srt u) <|
       lm "a" (bv 0) <|
       lm "motive" eqRecMotive <|

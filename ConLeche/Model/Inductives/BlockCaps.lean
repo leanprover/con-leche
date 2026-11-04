@@ -46,7 +46,6 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
           etaFields := c.2
           unitlike := (p₁.members.getD mi default).nIdx == 0 && c.2 == 0 && !isRec
           unitParams := p₁.nP
-          ruleK := p₁.k == 1 && c.2 == 0 && p₁.isProp
           sortZ := Level.zeronessOf p₁.resSort
           all := p₁.memberNames
           nparams := p₁.nP

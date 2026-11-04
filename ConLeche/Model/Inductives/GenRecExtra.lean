@@ -124,7 +124,7 @@ theorem iotaCtorNeverProp_inv {f : Name → Option ConstantInfo} {cvj : Constant
     match hfT : f T with
     | none => intro h; exact nomatch h
     | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-    | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+    | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
     | some (.indInfo cvT caps) =>
       intro h
       simp only [Bool.and_eq_true, beq_iff_eq] at h
@@ -1132,9 +1132,9 @@ theorem genMemExtra
     (hac : m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs) (φ : Name → Nat)
     {rl : ConLeche.RecRule} (hct : ConLeche.RecRule.ctor rl = cA.1.name)
     (hnf : ConLeche.RecRule.nfields rl = cA.2)
-    (hnp : ConLeche.RecRule.ctorParams rl = pp.nP)
+    (hnp : cnP = pp.nP)
     (hfire : ConLeche.RecRule.fire rl = .plain)
-    (hk : ConLeche.RecRule.k rl = ConLeche.recRuleKOf envC.find? cA.1.name) :
+    (hk : isK = ConLeche.recRuleKOf envC.find? cA.1.name) :
     RecRuleKWit m₃ φ r.1.name r.1 (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j) rl ∧
     RecRuleExtraNK m₃ φ r.1.name r.1 (pp.toBlockShape.majorIdxAt j)
       (pp.toBlockShape.rulePrefixAt j) rl := by
@@ -1148,7 +1148,7 @@ theorem genMemExtra
     rw [hct]; exact hkeep _ _ G.hcf.1
   have hstored : m₃.acval (ConLeche.RecRule.ctor rl) = mpC.base2.acval cA.1.name := by
     rw [hct]; exact blockRecAcv_stored h hac (by rw [G.hcf.1]; rfl)
-  have hnpd : ConLeche.RecRule.ctorParams rl = d.nP := by rw [hnp, G.hdnP]
+  have hnpd : cnP = d.nP := by rw [hnp, G.hdnP]
   -- the constructor's reading at the cons
   have hTVjaOf : ∀ usj : List Level,
       denote m₃.acval (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC) φ 0
@@ -1180,12 +1180,12 @@ theorem genMemExtra
     refine ⟨by rw [hnf, hnf0], fun us hus TVa hTVa ρ xs a restR hxl hfit => ?_⟩
     obtain rfl := blockRuleTVa_run mpC h hac hr φ us hTVa
     have hlv := blockRuleLevelAgree (φ := φ) (lps := cA.1.levelParams) (lpsR := r.1.levelParams)
-      (us := us) (usj := (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+      (us := us) (usj := (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
         (pp.toBlockShape.rulePrefixAt j)).1) (rP := pp.toBlockShape.rulePrefixAt j) hfire rfl
     obtain ⟨restR', restC, hfitR', hfitC, hpin, hval⟩ :=
       genMem_K h R hS G hr hm hnP hone hnf0 hlv ρ xs a restR hxl hfit
     refine Or.inr ⟨cA.1, d.nP, cA.2,
-      (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+      (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
         (pp.toBlockShape.rulePrefixAt j)).1, xs.take pp.nP, _, restR', restC,
       hfind3, ?_, ?_, rfl,
       fun _ => by rw [hnp]; exact hpin, hTVjaOf _, by rw [hstored]; exact hfitR',
@@ -1205,7 +1205,7 @@ theorem genMemExtra
     · -- (S), at the comparand levels
       have hlv := blockRuleLevelAgree (φ := φ) (lps := cA.1.levelParams)
         (lpsR := r.1.levelParams) (us := us)
-        (usj := (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+        (usj := (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
           (pp.toBlockShape.rulePrefixAt j)).1) (rP := pp.toBlockShape.rulePrefixAt j) hfire rfl
       exact genMem_S h R hS G hr hm hlv (hkeep _ _ G.hcaps) hlic ρ xs a restR hxl hfit
     · -- (T), at the comparand levels: the recursor's parameters, the same fields
@@ -1214,7 +1214,7 @@ theorem genMemExtra
       obtain rfl := Option.some.inj hTVja
       have hlv := blockRuleLevelAgree (φ := φ) (lps := cA.1.levelParams)
         (lpsR := r.1.levelParams) (us := us)
-        (usj := (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+        (usj := (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
           (pp.toBlockShape.rulePrefixAt j)).1) (rP := pp.toBlockShape.rulePrefixAt j) hfire rfl
       rw [hnp, hnf] at hyl
       obtain ⟨restC', hfitC', hval⟩ := genMem_T h R hS G hr hm hnP hlv
@@ -2582,9 +2582,9 @@ theorem genOutExtra
     (hac : m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs) (φ : Name → Nat)
     {rl : ConLeche.RecRule} (hct : ConLeche.RecRule.ctor rl = cA.1.name)
     (hnf : ConLeche.RecRule.nfields rl = cA.2)
-    (hnp : ConLeche.RecRule.ctorParams rl = (tgtMajor out j).nPc)
+    (hnp : cnP = (tgtMajor out j).nPc)
     (hfire : ConLeche.RecRule.fire rl = .nested lvls pins)
-    (hk : ConLeche.RecRule.k rl = ConLeche.recRuleKOf envC.find? cA.1.name)
+    (hk : isK = ConLeche.recRuleKOf envC.find? cA.1.name)
     (hpinsOk : RecRulePinsOk m₃ φ r.1 (pp.toBlockShape.rulePrefixAt j) rl)
     (hptZ : ∀ us : List Level, us.length = r.1.levelParams.length →
       Level.eval (Level.substFn φ r.1.levelParams us)
@@ -2643,7 +2643,7 @@ theorem genOutExtra
   -- the levels: the constructor's are the class's at the recursor's
   have hlvOf : ∀ (us usj : List Level),
       Level.substFn φ cA.1.levelParams usj = Level.substFn φ cA.1.levelParams
-        (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+        (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
           (pp.toBlockShape.rulePrefixAt j)).1 →
       ∀ p ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj p
         = tgtClsψ cvc out (Level.substFn φ r.1.levelParams us) j p := by
@@ -2738,7 +2738,7 @@ theorem genOutExtra
       refine Or.inr ?_
       obtain ⟨hlvls, -⟩ := genOutPinVal R h hr Rd hf φ us
       obtain ⟨ys, hyl, hysv, hgr⟩ := hpinSp us hus _ hTVa0 ρ xs a restR hxl hfit
-      let usj := (ConLeche.recFireComparands rl r.1.levelParams us cA.1.levelParams []
+      let usj := (ConLeche.recFireComparands rl cnP r.1.levelParams us cA.1.levelParams []
         (pp.toBlockShape.rulePrefixAt j)).1
       have hlv := hlvOf us usj rfl
       obtain ⟨restR', restC, hfitR', hfitC, heq, hne⟩ :=

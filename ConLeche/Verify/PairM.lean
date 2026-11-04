@@ -533,9 +533,9 @@ theorem structEtaCert_snd_proj (d : Nat) (a b : Expr) :
 -- tower), so the outer casing is peeled by hand and the macro closes
 -- each rescue branch separately.
 set_option maxHeartbeats 800000 in
-theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (majorToCtor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
-      majorToCtor mode r₁ env d c rules e := by
+theorem majorToCtor_fst_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (majorToCtor mode (pairFns r₁ r₂ h) env d c isK rules e).val.1 =
+      majorToCtor mode r₁ env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -558,7 +558,7 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : rl.k = true
+    by_cases hK : isK = true
     · rw [ite_eq_left hK, ite_eq_left hK]
       fst_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
@@ -573,9 +573,9 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     rfl
 
 set_option maxHeartbeats 800000 in
-theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (majorToCtor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
-      majorToCtor mode r₂ env d c rules e := by
+theorem majorToCtor_snd_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (majorToCtor mode (pairFns r₁ r₂ h) env d c isK rules e).val.2 =
+      majorToCtor mode r₂ env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -598,7 +598,7 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : rl.k = true
+    by_cases hK : isK = true
     · rw [ite_eq_left hK, ite_eq_left hK]
       snd_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
@@ -624,9 +624,9 @@ theorem litMajorToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold litMajorToCtor
   snd_tac2
 
-theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
-      prepareMajor mode r₁ env d c rules e := by
+theorem prepareMajor_fst_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c isK rules e).val.1 =
+      prepareMajor mode r₁ env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first
@@ -640,9 +640,9 @@ theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : E
       majorToCtor_fst_proj, litMajorToCtor_fst_proj]
     rfl
 
-theorem prepareMajor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
-      prepareMajor mode r₂ env d c rules e := by
+theorem prepareMajor_snd_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c isK rules e).val.2 =
+      prepareMajor mode r₂ env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first

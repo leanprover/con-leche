@@ -207,12 +207,11 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
       pinnedStructT c₀.name ψ = some t → (A ψ) = t
   /-- a head recursor's rules' constructors are stored and its K
   bit is the store's own verdict (`RecCtorsStored`'s head) -/
-  ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+  ctorsHead : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
     ∀ r ∈ rules,
       (∃ cvj cnP cnF,
         env.find? (ConLeche.RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF)) ∧
-      (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true)
+          = some (.ctorInfo cvj cnP cnF))
 
 /-- **The head obligations of a basis cons**: the head is the pinned
 declaration, its leaf is the direct pin, and (for a recursor) its rules'
@@ -224,12 +223,11 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
     (hpinned : c₀ = pinnedInfo c₀.name)
     (hleaf : ∀ (ψ : Name → Nat) (t : Term),
       pinnedStructT c₀.name ψ = some t → (A ψ) = t)
-    (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
           env.find? (ConLeche.RecRule.ctor r)
-            = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true)) :
+            = some (.ctorInfo cvj cnP cnF))) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩, hctors⟩
 
@@ -240,12 +238,11 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
     (hwf : EnvWF ⟨c₀ :: env.consts, env.tables⟩)
     (hvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
-    (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
           env.find? (ConLeche.RecRule.ctor r)
-            = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true)) :
+            = some (.ctorInfo cvj cnP cnF))) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),

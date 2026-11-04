@@ -80,8 +80,8 @@ def ConstantInfo.canon (ci : ConstantInfo) : ConstantInfo :=
   | .thmInfo _ => .thmInfo cv
   | .indInfo _ _ => .indInfo cv {}
   | .ctorInfo _ nP nF => .ctorInfo cv nP nF
-  | .recInfo _ mI rP rules => .recInfo cv mI rP
-      (rules.map fun r => { r with rhs := canonExpr m r.rhs })
+  | .recInfo _ mI rP isK rules => .recInfo cv mI rP
+      isK (rules.map fun r => { r with rhs := canonExpr m r.rhs })
 
 /-! ### Comparing canonical forms in lockstep (task #226)
 
@@ -237,8 +237,8 @@ def ConstantInfo.canonEqFast : ConstantInfo → ConstantInfo → Bool
   | .indInfo cv _, .indInfo cv' _ => ConstantVal.canonEqFast cv cv'
   | .ctorInfo cv nP nF, .ctorInfo cv' nP' nF' =>
       ConstantVal.canonEqFast cv cv' && nP == nP' && nF == nF'
-  | .recInfo cv mI rP rules, .recInfo cv' mI' rP' rules' =>
-      ConstantVal.canonEqFast cv cv' && mI == mI' && rP == rP' &&
+  | .recInfo cv mI rP isK rules, .recInfo cv' mI' rP' isK' rules' =>
+      ConstantVal.canonEqFast cv cv' && mI == mI' && rP == rP' && isK == isK' &&
         canonRulesEqFast (canonNameMap cv.levelParams)
           (canonNameMap cv'.levelParams) rules rules'
   | _, _ => false

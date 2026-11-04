@@ -82,13 +82,13 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     -- 7' the STORED recursors against the generated ones, at the generated
     --    install (task #431)
     storedRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F) .plain
-      (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+      (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () ∧
     -- 8  the install spine: the STORED recursors with their rules at their
     --    majors, then the tables
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
       (p.members.zip (ctorsAs.zip sortsss))
-      (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0
+      (consBlockRecsT p.toBlockShape 0
         (storedOut p.recs out) (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
 
 /-- **The uniform install's run**: the pass at official's `is_rec` and

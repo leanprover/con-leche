@@ -67,7 +67,7 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V env)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
     -- a basis *recursor* cons with rules establishes `rec_rules`
     -- bespoke; one with none transports
-    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+    (hnotrec : ∀ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules →
       rules = [])
     -- `caps_ok`: a reserved name, or a kind no stored family mentions
     (hcaps : ConLeche.reservedBasisNames.contains c₀.name = true ∨
@@ -199,7 +199,7 @@ theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V env)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
-    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+    (hnotrec : ∀ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules →
       rules = [])
     (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
     (hred : (∀ cv, c₀ ≠ .axiomInfo cv) ∨

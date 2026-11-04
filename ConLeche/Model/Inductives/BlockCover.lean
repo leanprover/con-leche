@@ -164,11 +164,11 @@ theorem consBlockInds_tables {p₁ : BlockShape} {isRec : Bool} :
   | [], _, _ => rfl
   | _ :: rest, i, _ => consBlockInds_tables (p₁ := p₁) (isRec := isRec) rest (i + 1) _
 
-theorem consBlockRecsT_tables {find? : Name → Option ConstantInfo} {q : BlockShape} :
+theorem consBlockRecsT_tables {q : BlockShape} :
     ∀ (m : Nat) (out : List (ConstantVal × ConLeche.TargetMajor × List Expr)) (env : Env),
-      (ConLeche.consBlockRecsT find? q m out env).tables = env.tables
+      (ConLeche.consBlockRecsT q m out env).tables = env.tables
   | _, [], _ => rfl
-  | m, _ :: rest, _ => consBlockRecsT_tables (find? := find?) (q := q) (m + 1) rest _
+  | m, _ :: rest, _ => consBlockRecsT_tables (q := q) (m + 1) rest _
 
 theorem consBlockCtors_consts (nP : Nat) :
     ∀ (L : List (List (ConstantVal × Nat))) (env : Env),
@@ -200,29 +200,28 @@ theorem consBlockInds_consts {p₁ : BlockShape} {isRec : Bool} :
 
 
 /-- The recursors' cons at the majors (`consBlockRecsT`), as a list. -/
-theorem consBlockRecsT_consts {find? : Name → Option ConstantInfo}
-    {q : BlockShape} :
+theorem consBlockRecsT_consts {q : BlockShape} :
     ∀ (m : Nat) (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
       (env : Env), ∃ new : List ConstantInfo,
-      (ConLeche.consBlockRecsT find? q m out env).consts = new ++ env.consts ∧
-      ∀ c ∈ new, ∃ o ∈ out, ∃ mI rP rules, c = .recInfo o.1 mI rP rules
+      (ConLeche.consBlockRecsT q m out env).consts = new ++ env.consts ∧
+      ∀ c ∈ new, ∃ o ∈ out, ∃ mI rP isK rules, c = .recInfo o.1 mI rP isK rules
   | _, [], _ => ⟨[], rfl, fun _ h => nomatch h⟩
   | m, o :: rest, env => by
     obtain ⟨cv, M, rhss⟩ := o
-    obtain ⟨new, hnew, hall⟩ := consBlockRecsT_consts (find? := find?) (q := q)
+    obtain ⟨new, hnew, hall⟩ := consBlockRecsT_consts (q := q)
       (m + 1) rest ⟨.recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ConLeche.tgtStoredRules find? cv (q.rulePrefixAt m) M rhss)
+        (ConLeche.recKExpected q M) (ConLeche.tgtStoredRules (q.rulePrefixAt m) M rhss)
           :: env.consts, env.tables⟩
     refine ⟨new ++ [.recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ConLeche.tgtStoredRules find? cv (q.rulePrefixAt m) M rhss)],
+        (ConLeche.recKExpected q M) (ConLeche.tgtStoredRules (q.rulePrefixAt m) M rhss)],
       ?_, fun c hc => ?_⟩
-    · show (ConLeche.consBlockRecsT find? q (m + 1) rest _).consts = _
+    · show (ConLeche.consBlockRecsT q (m + 1) rest _).consts = _
       rw [hnew]; simp
     · rcases List.mem_append.mp hc with h | h
       · obtain ⟨r', hr', rest'⟩ := hall c h
         exact ⟨r', List.mem_cons_of_mem _ hr', rest'⟩
       · rw [List.mem_singleton.mp h]
-        exact ⟨_, List.mem_cons_self, _, _, _, rfl⟩
+        exact ⟨_, List.mem_cons_self, _, _, _, _, rfl⟩
 
 /-! ## The block's own constructor ownership -/
 

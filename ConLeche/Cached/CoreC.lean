@@ -426,7 +426,7 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
 
 /-- Twin of `majorToCtor`. -/
 def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (_recName : Name) (rules : List RecRule) (major : Expr) :
+    (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
     CheckCM Expr := do
   if ← pure (isCtorAppC fe major) then pure major else
   match rules with
@@ -437,7 +437,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       | .const T _ =>
         match fe.find? T with
         | some (.indInfo cvT caps) =>
-          if rl.k = true then do
+          if isK = true then do
             let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match Expr.getAppFn tmaj with
@@ -556,23 +556,23 @@ constructor, only the literal conversion follows; if it failed, the
 major is left exactly as it is; elsewhere the structure rescues on the
 raw major first (lean4#15351, task #342 R2), and only if they produce
 no constructor whnf, literal, rescue).  The K flag is the single rule's
-stored bit, as in the spec (`recRuleK`). -/
+record's flag, as in the spec. -/
 def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (recName : Name) (rules : List RecRule) (major : Expr) :
+    (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
     CheckCM Expr := do
-  if recRuleK rules then do
-    let majorK ← majorToCtorI mode r fe depth recName rules major
+  if isK then do
+    let majorK ← majorToCtorI mode r fe depth recName isK rules major
     if isCtorAppC fe majorK then
       litMajorToCtorI r fe depth majorK
     else pure majorK
   else do
     let majorE ← if major.isStrLit then pure major
-      else majorToCtorI mode r fe depth recName rules major
+      else majorToCtorI mode r fe depth recName isK rules major
     if isCtorAppC fe majorE then pure majorE
     else do
       let major₀ ← r.whnf depth majorE
       let major₁ ← litMajorToCtorI r fe depth major₀
-      majorToCtorI mode r fe depth recName rules major₁
+      majorToCtorI mode r fe depth recName isK rules major₁
 
 /-- The nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
@@ -602,7 +602,7 @@ def iotaArityOk (fe : FEnv) (e : Expr) : Bool :=
   match Expr.getAppFn e with
   | .const c us =>
     match fe.find? c with
-    | some (.recInfo cv mI _ _) =>
+    | some (.recInfo cv mI _ _ _) =>
       iotaNumArgs e 0 == mI + 1 && us.length == cv.levelParams.length
     | _ => false
   | _ => false
@@ -614,23 +614,23 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
   | .const c us => do
     let cn ← pure c
     match fe.find? cn with
-    | some (.recInfo cv mI rP rules) => do
+    | some (.recInfo cv mI rP isK rules) => do
       let args ← pure (Expr.getAppArgsC e)
       -- checker change #9 (twin of `Core.lean`'s `iotaRec`): guard the
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
           (Expr.peelPis (mI + 1) cv.type).isSome = true then do
         let bvar0 ← pure (Expr.mkBvar 0)
-        let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
+        let major ← prepareMajorI mode r fe depth cn isK rules (args.getD mI bvar0)
         match Expr.getAppFn major with
         | .const cj usj => do
           let cjn ← pure cj
           match fe.find? cjn with
-          | some (.ctorInfo cvj _ _) =>
+          | some (.ctorInfo cvj cnP _) =>
             match rules.find? (fun r' => r'.ctor == cjn) with
             | some rl => do
               let margs ← pure (Expr.getAppArgsC major)
-              if margs.length = rl.ctorParams + rl.nfields then do
+              if margs.length = cnP + rl.nfields then do
                 -- (the ι batch: the two `stripPis` pins are gone — see
                 -- the spec's `iotaRec`)
                 --
@@ -656,18 +656,18 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                       | .plain =>
                         substLevelTreesM cv.levelParams us
                           (cvj.levelParams.map Level.param)
-                    if iotaCase3 fe.find? rl cvj cmpLvls then do
+                    if iotaCase3 fe.find? isK cvj cmpLvls then do
                       let oL ← isEquivListLM usj cmpLvls
                       if ← liftFueled "level comparison" oL then do
                         let cmpArgs : List Expr ←
                           match rl.fire with
                           | .nested _ pins =>
                             pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
-                          | .plain => pure (args.take rl.ctorParams)
-                        if ← defEqListI r fe depth (margs.take rl.ctorParams) cmpArgs then do
+                          | .plain => pure (args.take cnP)
+                        if ← defEqListI r fe depth (margs.take cnP) cmpArgs then do
                           let tyCtor ← constTyAtM fe cj cjn usj
                           if ← iotaCertsFullI r fe depth tyCtor margs then
-                            iotaIndexOkI r fe depth mI rP rl.ctorParams tyCtor
+                            iotaIndexOkI r fe depth mI rP cnP tyCtor
                               margs ((args.take mI).drop rP)
                           else pure false
                         else pure false
@@ -675,7 +675,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                     else pure true) then do
                   let rhs ← ruleRhsAtM fe c cj cn cjn us
                   let red ← mkAppNM rhs
-                    (args.take rP ++ margs.drop rl.ctorParams)
+                    (args.take rP ++ margs.drop cnP)
                   pure (some red)
                 else pure none
               else pure none

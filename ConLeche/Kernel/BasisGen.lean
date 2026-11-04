@@ -16,11 +16,9 @@ The pinned basis blocks are *stored* by the installation
 (`installBasisDecl`, `ConLeche/Kernel/Checker.lean`) verbatim, and the
 model proofs read the stored constants.  The stored forms differ from
 the raw pins (`ConLeche/Kernel/Basis/*`, which are what a stream's
-records are compared against) in one place only: a recursor's rules
-carry the fields the installation computes — `ctorParams` from the
-stored constructor and the K/η bits (`recRuleBits`).  They are not a second source of truth:
-`#stored_basis` computes them from the raw pins while the module
-elaborates (`pinRecRuleFields`) and defines the results with
+records are compared against) nowhere any more: a stored rule is what the
+record says.  `#stored_basis` still computes them from the raw pins while
+the module elaborates (`pinRecRuleFields`) and defines the results with
 `addDecl`/`compileDecl`, so the definition's value is a closed literal
 the `decide`/`rfl` consumers in `ConLeche/Model/*` read, re-derived on
 every build.
@@ -124,14 +122,13 @@ private def qRecRuleFire : ConLeche.RecRuleFire → Lean.Expr
 
 private def qRecRule (r : ConLeche.RecRule) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.RecRule.mk)
-    #[qName r.ctor, mkRawNatLit r.nfields, mkRawNatLit r.ctorParams,
-      qRecRuleFire r.fire, qExpr r.rhs, qBool r.k]
+    #[qName r.ctor, mkRawNatLit r.nfields, qRecRuleFire r.fire, qExpr r.rhs]
 
 private def qIndCaps (c : ConLeche.IndCaps) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.IndCaps.mk)
     #[qBool c.eta, qName c.etaCtor, mkRawNatLit c.etaParams,
       mkRawNatLit c.etaFields, qBool c.unitlike, mkRawNatLit c.unitParams,
-      qBool c.ruleK, qPropWhen c.sortZ, qNames c.all, mkRawNatLit c.nparams,
+      qPropWhen c.sortZ, qNames c.all, mkRawNatLit c.nparams,
       qNames c.ctors]
 
 private def qReducibilityHint : ConLeche.ReducibilityHint → Lean.Expr
@@ -151,27 +148,17 @@ private def qConstantInfo : ConLeche.ConstantInfo → CoreM Lean.Expr
   | .ctorInfo cv nP nF =>
     pure (mkApp3 (mkConst ``ConLeche.ConstantInfo.ctorInfo) (qConstantVal cv)
       (mkRawNatLit nP) (mkRawNatLit nF))
-  | .recInfo cv mI rP rules =>
+  | .recInfo cv mI rP isK rules =>
     pure (mkAppN (mkConst ``ConLeche.ConstantInfo.recInfo)
-      #[qConstantVal cv, mkRawNatLit mI, mkRawNatLit rP,
+      #[qConstantVal cv, mkRawNatLit mI, mkRawNatLit rP, qBool isK,
         qList recRuleTy (rules.map qRecRule)])
 
 /-! ## The recipe -/
 
-/-- The stored form of a raw pin over `env`: the pin itself, except
-that a recursor's rules carry the install-computed fields
-(`ctorParams` off the stored constructor, and `recRuleBits`; `fire`
-stays `.plain`, every basis recursor's major being a member), exactly as
-the basis install computes them. -/
-def pinRecRuleFields (env : ConLeche.Env) : ConLeche.ConstantInfo → ConLeche.ConstantInfo
-  | .recInfo cv mI rP rules =>
-    .recInfo cv mI rP (rules.map fun r =>
-      let cnP := match env.find? r.ctor with
-        | some (.ctorInfo _ nP _) => nP
-        | _ => 0
-      ConLeche.recRuleBits env.find?
-        { r with ctorParams := cnP })
-  | ci => ci
+/-- The stored form of a raw pin over `env`: the pin itself; a stored
+rule is what the record says. -/
+def pinRecRuleFields (_env : ConLeche.Env) (ci : ConLeche.ConstantInfo) : ConLeche.ConstantInfo :=
+  ci
 
 /-! ## Evaluating the raw pins
 

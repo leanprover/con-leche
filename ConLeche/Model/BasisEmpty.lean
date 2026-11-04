@@ -62,7 +62,7 @@ theorem extendEmpty (mp : EnvModelM V env)
     (hrdC := lfp0_ctorReads (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun ψ => ⟨_, by show denote _ _ _ 0 (.sort _) = _; rw [denote_sort]⟩) fun j hj => absurd hj (Nat.not_lt_zero j))
     (hcaps := lfp0_caps (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
-      (fun _ h => absurd h Nat.one_ne_zero) (fun h => absurd h (by decide))
+      (fun _ h => absurd h Nat.one_ne_zero)
       (fun j hj => absurd hj (Nat.not_lt_zero j)))
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := emptyName) (c := emptyA) rfl rfl
@@ -74,13 +74,13 @@ theorem extendEmpty (mp : EnvModelM V env)
     (A := fun _ => Term.const .empty [1]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => nomatch h)
+    (fun _ _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT emptyA.name ψ
           = some (Term.const .empty [1]) from rfl] at hp
-        rw [← Option.some.inj hp]) (fun _ _ _ _ h => nomatch h))
+        rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     (fun _ _ _ => rfl)
     (fun _ _ => trivial)
     (fun ψ => ⟨_, denote_emptyA_type ψ⟩) ?_ ?_
@@ -155,15 +155,16 @@ theorem extendEmptyRec (mp : EnvModelM V env)
     (A := fun ψ => Term.const .emptyRec [1, ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => by injection h with _ _ _ h4; exact h4 ▸ rfl)
+    (fun _ _ _ _ _ h => by injection h with _ _ _ _ h4; exact h4 ▸ rfl)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT emptyRecA.name ψ
           = some (Term.const .emptyRec [1, ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp])
-      (fun _ _ _ _ h => by injection h with _ _ _ h4
-                           intro r hr; rw [← h4] at hr; exact nomatch hr))
+      (fun _ _ _ _ _ h => by
+        injection h with _ _ _ _ h4
+        intro r hr; rw [← h4] at hr; exact nomatch hr))
     ?_
     (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -198,7 +199,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨emptyA :: env.consts, env.tables⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -212,8 +213,8 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
   have hwf2 : EnvWF ⟨emptyRecA :: emptyA :: env.consts, env.tables⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq),
-      (fun _ _ _ _ heq => by
-        injection heq with _ _ _ h4
+      (fun _ _ _ _ _ heq => by
+        injection heq with _ _ _ _ h4
         subst h4
         intro r hr; exact nomatch hr),
       (by first

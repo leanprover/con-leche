@@ -208,7 +208,7 @@ theorem extendEq (mp : EnvModelM V env)
   refine coverA_pend hfresh <| declStep_preserves_of_basis_cons_eqrow mp (A := eqValT) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => nomatch h) (by decide)
+    (fun _ _ _ _ _ h => nomatch h) (by decide)
     (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by exact eqValT_closed ψ)
@@ -216,7 +216,7 @@ theorem extendEq (mp : EnvModelM V env)
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqA.name ψ
           = none from rfl] at hp
-        exact nomatch hp) (fun _ _ _ _ h => nomatch h))
+        exact nomatch hp) (fun _ _ _ _ _ h => nomatch h))
     (fun ψ₁ ψ₂ hp => eqValT_congr
       (hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)))
     (fun ψ ρ => eqValT_wellDenoted ψ ρ)
@@ -255,7 +255,7 @@ theorem extendEqRefl (mp : EnvModelM V env)
     declStep_preserves_of_basis_cons mp (A := eqReflValT) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => nomatch h)
+    (fun _ _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf
       (fun ψ => by exact eqReflValT_closed ψ)
@@ -263,7 +263,7 @@ theorem extendEqRefl (mp : EnvModelM V env)
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT eqReflA.name ψ
           = none from rfl] at hp
-        exact nomatch hp) (fun _ _ _ _ h => nomatch h))
+        exact nomatch hp) (fun _ _ _ _ _ h => nomatch h))
     (fun ψ₁ ψ₂ hp => eqReflValT_congr
       (hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)))
     (fun ψ ρ => eqReflValT_wellDenoted ψ ρ)
@@ -842,7 +842,7 @@ theorem eqRecExtra {m : EnvModel V env}
     (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
     (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT)
     (φ : Name → Nat) :
-    RecRuleExtra m₂ φ eqRecA.name eqRecA.toConstantVal 5 4
+    RecRuleExtra m₂ φ eqRecA.name eqRecA.toConstantVal 5 4 true
       eqRecRule := by
   intro us _ TVa hTVa
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -922,9 +922,9 @@ theorem eqRecExtra {m : EnvModel V env}
       exact (WellDenoted_app_fibre h3.1 (hxsA x4 (by simp)) h3.2 f4
         (IsTy_of_mem_univ (eqRecMinorTy_data ρ f1 f2 f3).2.2)).1
   · rw [show RecRule.ctor eqRecRule = eqReflName from rfl, hR'] at hfj
-    obtain rfl : cvj = eqReflA.toConstantVal := by
-      injection Option.some.inj hfj with a1 _ _
-      exact a1.symm
+    obtain ⟨rfl, rfl⟩ : cvj = eqReflA.toConstantVal ∧ cnP = 2 := by
+      injection Option.some.inj hfj with a1 a2 _
+      exact ⟨a1.symm, a2.symm⟩
     exact ⟨rfl, fun h => (nomatch h)⟩
 
 set_option maxHeartbeats 1000000 in
@@ -940,7 +940,7 @@ theorem eqRecLaw {m : EnvModel V env}
     (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
     (hac : m₂.acval = acvalWith m.acval eqRecA.name eqRecValT)
     (φ : Name → Nat) :
-    RecRuleLaw m₂ φ eqRecA.name eqRecA.toConstantVal 5 4
+    RecRuleLaw m₂ φ eqRecA.name eqRecA.toConstantVal 5 4 true
       eqRecRule := by
   refine ⟨by decide, fun us hus => ?_,
     eqRecExtra (m := m) m₂ hE hR hEv hRv hac φ⟩
@@ -1188,11 +1188,11 @@ theorem extendEqRec (mp : EnvModelM V env)
         rw [show ConLeche.Verify.pinnedStructT eqRecA.name ψ
           = none from rfl] at hp
         exact nomatch hp)
-      (fun _ _ _ _ heq r hr => by
-        injection heq with _ _ _ h4
+      (fun _ _ _ _ _ heq r hr => by
+        injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨⟨_, _, _, hR⟩, fun _ => recRuleKOf_of hR rfl hE rfl⟩
+        · exact ⟨_, _, _, hR⟩
         · exact nomatch hr'))
     (fun ψ₁ ψ₂ hp => eqRecValT_congr
       (hp uN (by
@@ -1231,7 +1231,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   have hf1 : env.find? eqName = none := Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨eqA :: env.consts, env.tables⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1247,7 +1247,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts, env.tables⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -1368,8 +1368,8 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
                           (.bvar 4)) (.bvar 3)) (.bvar 0))
                         (.app (.app (.bvar 3) (.bvar 1)) (.bvar 0))))))) from rfl]
       simp [Expr.constsResolve, hfE, hfR]
-    · intro cv mI rP rules heq
-      injection heq with h1' _ _ h4'
+    · intro cv mI rP isK rules heq
+      injection heq with h1' _ _ _ h4'
       subst h1'; subst h4'
       intro r hr
       rcases List.mem_cons.mp hr with rfl | hr'

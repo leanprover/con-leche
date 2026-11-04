@@ -19,8 +19,8 @@ the literal shapes and their guards (`natLitToConstructor`,
 `rawNatLit?`), the certified `Nat` operations' names, recurrences,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
-(`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the install-time rule
-bits (`recRuleBits`, `recRuleK`, `etaRescueOk`, `recFireComparands`), the ι case split
+(`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the rule
+data (`etaRescueOk`, `recFireComparands`), the ι case split
 (`iotaCtorNeverProp`, `iotaCase3`) and the tower entry's readers
 (`ProjEntry.fireOk`, `ProjEntry.typeAt`).
 
@@ -99,9 +99,9 @@ comparands, the constructor telescope is certified at the full grade,
 and the indices are compared (task #342 L7's counterexample: at a
 `Prop` valuation nothing else ties the two spines), for a `.plain` and
 a `.nested` rule alike. -/
-def iotaCase3 (find? : Name → Option ConstantInfo) (rl : RecRule) (cvj : ConstantVal)
+def iotaCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
     (us : List Level) : Bool :=
-  !rl.k && !iotaCtorNeverProp find? cvj us
+  !isK && !iotaCtorNeverProp find? cvj us
 
 /-- Unfold the (application of a) definition at the head, one step.
 `none` when the head is not an unfoldable constant.  **Theorems are
@@ -813,23 +813,6 @@ def andRescueSlotsOf (findProj? : Name → Nat → Option ProjEntry)
 def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
   andRescueSlotsOf env.findProj? ctor nP ust
 
-/-- **The K bit at install** (`RecRule.k`): the rule's constructor has
-no fields and belongs to an inductive stored with the K capability (an
-inductive proposition).  Together with the recursor's rule list being
-a singleton — which the reader `recRuleK` and `majorToCtor` match on
-— this is the official kernel's `recursor_val::is_k()`.  Abstracted
-over the lookup so the interned twin (`FEnv.find?`) shares the body. -/
-def recRuleKOf (find? : Name → Option ConstantInfo) (ctor : Name) : Bool :=
-  match find? ctor with
-  | some (.ctorInfo cvj _ cnF) =>
-    match (cvj.type.piResult).getAppFn with
-    | .const T _ =>
-      match find? T with
-      | some (.indInfo _ caps) => caps.ruleK && cnF == 0
-      | _ => false
-    | _ => false
-  | _ => false
-
 /-- **The structure-η rescue's standing condition, at use**: the single
 rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
 family `cvT`, which has the η capability, and carries the family's level
@@ -848,54 +831,6 @@ theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
     caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
   simpa [etaRescueOk, Bool.and_eq_true, and_assoc] using h
 
-/-- **Stamp a rule's K bit at install** — the one place the K condition
-is decided.  Every rule is stored through this (the pinned basis blocks,
-the installer's generated rules, the projection functions):
-the reduction then reads `RecRule.k` and re-derives nothing, and the
-environment invariant `RecCtorsStored` records that a set bit is the
-lookup's own verdict. -/
-def recRuleBits (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : RecRule :=
-  { rl with k := recRuleKOf find? rl.ctor }
-
-@[simp] theorem recRuleBits_ctor (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).ctor
-      = rl.ctor := rfl
-
-@[simp] theorem recRuleBits_rhs (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).rhs
-      = rl.rhs := rfl
-
-@[simp] theorem recRuleBits_nfields (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).nfields
-      = rl.nfields := rfl
-
-@[simp] theorem recRuleBits_ctorParams (find? : Name → Option ConstantInfo)
-    (rl : RecRule) :
-    (recRuleBits find? rl).ctorParams = rl.ctorParams := rfl
-
-@[simp] theorem recRuleBits_fire (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).fire
-      = rl.fire := rfl
-
-@[simp] theorem recRuleBits_k (find? : Name → Option ConstantInfo)
-    (rl : RecRule) : (recRuleBits find? rl).k
-      = recRuleKOf find? rl.ctor := rfl
-
-@[simp] theorem map_ctor_recRuleBits (find? : Name → Option ConstantInfo)
-    (rs : List RecRule) :
-    (rs.map (recRuleBits find?)).map (·.ctor) = rs.map (·.ctor) := by
-  simp [List.map_map, Function.comp_def]
-
-/-- Is a recursor K-flagged?  The stored bit of its single rule
-(`RecRule.k`, computed at the block's install by `recRuleKOf`); the
-official kernel reads `recursor_val::is_k()` here in just the same
-way. -/
-def recRuleK (rules : List RecRule) : Bool :=
-  match rules with
-  | [rl] => rl.k
-  | _ => false
-
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:
 for a `.plain` rule the constructor's levels link to the recursor's by
@@ -905,7 +840,7 @@ auxiliary recursor's type was generated from, `auxRuleFire`), at the
 recursor's level instantiation and (for the parameters) instantiated at
 the recursor's leading-argument spine (the stored pins live in the
 `rP`-binder prefix context; index arguments never occur in them). -/
-def recFireComparands (rl : RecRule) (lps : List Name)
+def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr)
     (rP : Nat) : List Level × List Expr :=
   match rl.fire with
@@ -915,7 +850,7 @@ def recFireComparands (rl : RecRule) (lps : List Name)
        (p.instantiateLevelParams lps us))
   | .plain =>
     (cvjLps.map fun p => Level.subst lps us (.param p),
-     args.take rl.ctorParams)
+     args.take cnP)
 
 /-- **The type of a `.proj` node at a tower-backed entry** (task #175
 S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,

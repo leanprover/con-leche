@@ -132,7 +132,7 @@ theorem stripPis_isSome_of_le :
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
     value.looseBVarsBounded 0 = true) ∧
-  (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+  (∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
     ∀ r, r ∈ rules →
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
@@ -413,8 +413,8 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
       ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_, h9⟩
-    intro cv mI rP rules heq r hr
-    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
+    intro cv mI rP isK rules heq r hr
+    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP isK rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩
     intro lvls pins hfr
     obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr

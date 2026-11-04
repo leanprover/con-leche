@@ -406,8 +406,7 @@ theorem recStagePinsOk (mpC : EnvModelM V envC)
         (pp.toBlockShape.majorIdxAt j) (pp.toBlockShape.rulePrefixAt j)
         (ConLeche.tgtMajorsOf out j).nPc lvls pins) :
     RecRulePinsOk m₃ φ r.1 (pp.toBlockShape.rulePrefixAt j)
-      (ConLeche.recRuleBits envC.find?
-          { ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
+      ({ ctor := cA.1.name, nfields := cA.2, ctorParams := (ConLeche.tgtMajorsOf out j).nPc,
             fire := (ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out)) j r, rhs := rhs }) := by
   intro us hus lvls pins hf q hq

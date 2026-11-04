@@ -73,7 +73,6 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       etaFields := c.2
       unitlike := nIdx == 0 && c.2 == 0 && !isRec
       unitParams := p.nP
-      ruleK := p.k == 1 && c.2 == 0 && p.isProp
       sortZ := Level.zeronessOf p.resSort
       all := p.memberNames
       nparams := p.nP
@@ -323,15 +322,14 @@ def consBlockCtors (nP : Nat) : List (List (ConstantVal × Nat)) → Env → Env
   | ctorsA :: rest, env => consBlockCtors nP rest (consSumCtors nP ctorsA env)
 
 /-- The members' recursors consed with their rules, in block order.
-`find?` is the environment holding the block's constructors (the
-recursors' own records are not read by `recRuleBits`). -/
-def consBlockRecs (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat) :
+The rule-less stage's K flag (`false`) is all a proof about it reads. -/
+def consBlockRecs (p : BlockShape) (_nP : Nat) :
     Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
   | _, [], env => env
   | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, env =>
-    consBlockRecs find? p nP (m + 1) rest
+    consBlockRecs p _nP (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
-        (sumRules find? cvRa.name nP ctorsA rhss)
+        false (sumRules ctorsA rhss)
         :: env.consts, env.tables⟩
 
 /-! ### The recursor stage as CHECKING
@@ -349,6 +347,6 @@ def consBlockRecsBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → E
   | _, [], env => env
   | m, (cvRa, _nIdx) :: rest, env =>
     consBlockRecsBare p (m + 1) rest
-      ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: env.consts, env.tables⟩
+      ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false [] :: env.consts, env.tables⟩
 
 end ConLeche

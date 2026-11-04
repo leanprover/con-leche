@@ -256,8 +256,7 @@ abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V envC)
       List (ConstantVal × Nat)), rs[j]? = some r →
     ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-      P m₃ φ j r i cA rhs (ConLeche.recRuleBits envC.find?
-        { ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
+      P m₃ φ j r i cA rhs ({ ctor := cA.1.name, nfields := cA.2, ctorParams := nPc j,
           fire := fireOf j r, rhs := rhs })
 
 /-- **The recursor stage, at the run, at any rules of the shape**: the
@@ -276,7 +275,7 @@ theorem blockRecStaged_runR {envC : Env}
     {nPc : Nat → Nat}
     {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
       ConLeche.RecRuleFire}
-    (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
+    (hshape : ConLeche.RecRulesShape R rs fireOf)
     (hnest : NestedFiresOk envC p rs fireOf)
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))

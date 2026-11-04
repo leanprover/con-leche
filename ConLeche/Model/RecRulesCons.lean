@@ -105,16 +105,16 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule}
-    (hfE : env.find? n = some (.recInfo cv mI rP rules))
+    (hfE : env.find? n = some (.recInfo cv mI rP isK rules))
     {rl : RecRule} (hmem : rl ∈ rules) :
-    RecRuleExtra m₂ φ n cv mI rP rl := by
-  obtain ⟨-, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP rules hfE rl hmem
-  obtain ⟨⟨cvj', cnP', cnF', hst⟩, -⟩ :=
-    mp.base2.rec_ctors n cv mI rP rules hfE rl hmem
+    RecRuleExtra m₂ φ n cv mI rP isK rl := by
+  obtain ⟨-, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
+  obtain ⟨cvj', cnP', cnF', hst⟩ :=
+    mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
   have hsC : (env.find? (RecRule.ctor rl)).isSome = true := by rw [hst]; rfl
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
+  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   intro us hlen TVa hTVa
   obtain ⟨TVa', hTVa', -, -⟩ := mp.constType 0 n _ us hfE (by exact hlen)
   obtain rfl : TVa' = TVa := by
@@ -213,7 +213,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
       have hnested' : ∀ lvls pins, RecRule.fire rl = .nested lvls pins →
           interp V ρ (Term.mkAppN
             (mp.base2.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          ∀ i, i < RecRule.ctorParams rl →
+          ∀ i, i < cnP →
           ∀ vpa : Term,
             denote mp.base2.acval env φ rP
               (ConLeche.Verify.openRev 0 rP ((pins.getD i default).instantiateLevelParams
@@ -249,15 +249,15 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
     {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule}
-    (hfE : env.find? n = some (.recInfo cv mI rP rules))
+    (hfE : env.find? n = some (.recInfo cv mI rP isK rules))
     {rl : RecRule} (hmem : rl ∈ rules) :
-    RecRuleLaw m₂ φ n cv mI rP rl := by
-  obtain ⟨hrPle, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP rules hfE rl hmem
+    RecRuleLaw m₂ φ n cv mI rP isK rl := by
+  obtain ⟨hrPle, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
   refine ⟨hrPle, fun us hlen => ?_, recRuleExtra_ext mp hx φ hfE hmem⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
   obtain ⟨-, -, -, -, -, hrec', -⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
-  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP rules rfl rl hmem
+  obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩
   · exact hx.denote
       (constsBound_of_constsResolve _ (by
@@ -297,8 +297,8 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
       hψ hyWD hpin hTVa hTVja hfitR hfitC
     -- **the environment invariant, not the install's kind**: the rule's
     -- constructor is stored
-    obtain ⟨⟨cvj', cnP', cnF', hst⟩, -⟩ :=
-      mp.base2.rec_ctors n cv mI rP rules hfE rl hmem
+    obtain ⟨cvj', cnP', cnF', hst⟩ :=
+      mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
     have hfcjE : env.find? (RecRule.ctor rl)
         = some (.ctorInfo cvj cnP cnF) := hx.back (by rw [hst]; rfl) hfcj
     -- the two stored types: produced at the prefix, moved forward,
@@ -329,12 +329,12 @@ row, the freshness supplying the disequality. -/
 theorem recRules_cons_fresh (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
+    (hnotrec : ∀ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules →
       rules = [])
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat) : RecRules m₂ φ := by
-  intro n cv mI rP rules hf rl hmem
+  intro n cv mI rP isK rules hf rl hmem
   -- the recursor is stored in the prefix: either the cons is not a
   -- recursor at all (the value kinds' `noConfusion`), or it is one
   -- with no rules (a basis recursor whose block installs its ι
@@ -342,7 +342,7 @@ theorem recRules_cons_fresh (mp : EnvModelM V env)
   have hnN : n ≠ c₀.name := by
     intro hh
     subst hh
-    have hrl := hnotrec cv mI rP rules
+    have hrl := hnotrec cv mI rP isK rules
       (Option.some.inj ((ConLeche.Env.find?_cons_self c₀ env).symm.trans hf))
     rw [hrl] at hmem
     exact nomatch hmem
@@ -358,23 +358,23 @@ owe theirs (`Empty.rec` alone has no rules and goes through
 `recRules_cons_fresh`). -/
 theorem recRules_cons_rec (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
-    {cv₀ : ConstantVal} {mI₀ rP₀ : Nat} {rules₀ : List RecRule}
+    {cv₀ : ConstantVal} {mI₀ rP₀ : Nat} {isK₀ : Bool} {rules₀ : List RecRule}
     (hfresh : env.find? c₀.name = none)
-    (hkind : c₀ = .recInfo cv₀ mI₀ rP₀ rules₀)
+    (hkind : c₀ = .recInfo cv₀ mI₀ rP₀ isK₀ rules₀)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A)
     (φ : Name → Nat)
-    (hnew : ∀ rl ∈ rules₀, RecRuleLaw m₂ φ c₀.name cv₀ mI₀ rP₀ rl) :
+    (hnew : ∀ rl ∈ rules₀, RecRuleLaw m₂ φ c₀.name cv₀ mI₀ rP₀ isK₀ rl) :
     RecRules m₂ φ := by
-  intro n cv mI rP rules hf rl hmem
+  intro n cv mI rP isK rules hf rl hmem
   by_cases hnN : n = c₀.name
   · subst hnN
-    have hself : c₀ = .recInfo cv mI rP rules :=
+    have hself : c₀ = .recInfo cv mI rP isK rules :=
       Option.some.inj ((ConLeche.Env.find?_cons_self c₀ env).symm.trans hf)
-    have heq : ConstantInfo.recInfo cv₀ mI₀ rP₀ rules₀
-        = .recInfo cv mI rP rules := hkind.symm.trans hself
-    injection heq with h1 h2 h3 h4
-    subst h1; subst h2; subst h3; subst h4
+    have heq : ConstantInfo.recInfo cv₀ mI₀ rP₀ isK₀ rules₀
+        = .recInfo cv mI rP isK rules := hkind.symm.trans hself
+    injection heq with h1 h2 h3 h4 h5
+    subst h1; subst h2; subst h3; subst h4; subst h5
     exact hnew rl hmem
   · exact recRuleLaw_ext mp (ModelExt.consOf mp hfresh hac) φ
       (by rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnN hh.symm)] at hf

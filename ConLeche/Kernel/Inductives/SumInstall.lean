@@ -169,15 +169,10 @@ def consSumCtors (nP : Nat) : List (ConstantVal × Nat) → Env → Env
 
 /-- The stored rules: constructor `j`'s with the generated right-hand
 side `j`, `.plain` (the major is the family at the recursor's
-parameters), carrying the two rescue bits
-`recRuleBits` reads off the block's own store — the family and its
-constructors are installed before the recursor. -/
-def sumRules (find? : Name → Option ConstantInfo) (recName : Name) (nP : Nat) :
-    List (ConstantVal × Nat) → List Expr → List RecRule
+parameters). -/
+def sumRules : List (ConstantVal × Nat) → List Expr → List RecRule
   | c :: cs, rhs :: rhss =>
-    recRuleBits find?
-      { ctor := c.1.name, nfields := c.2, ctorParams := nP, fire := .plain, rhs := rhs }
-      :: sumRules find? recName nP cs rhss
+    { ctor := c.1.name, nfields := c.2, fire := .plain, rhs := rhs } :: sumRules cs rhss
   | _, _ => []
 
 end ConLeche

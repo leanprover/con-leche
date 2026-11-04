@@ -234,8 +234,7 @@ def indPiTeleLen : Expr → Nat
 
 /-- One recursor rule of an inductive record, resolved. -/
 @[specialize] def ruleOfF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (ru : RuleRec) : M RecRule := do
-  pure (RecRule.mk (← nm ru.ctor) ru.nfields 0 .plain
-    (← ex ru.rhs) false)
+  pure (RecRule.mk (← nm ru.ctor) ru.nfields .plain (← ex ru.rhs))
 
 /-- **An inductive record, validated** (tasks #217, #228, #271): the
 half of the record's processing that reads the state and changes
@@ -352,18 +351,6 @@ state need not look here at all. -/
   let nested := tys.any (·.numNested != 0)
   let nTypes := tys.length
   let nCtors := cts.length
-  -- official's `is_K_target`: the block is a `Prop`, has ONE type
-  -- with ONE constructor, and that constructor takes only the
-  -- parameters.  At a former whose declared type is not a syntactic
-  -- Π-telescope ending in a sort (task #195) the sort cannot be read
-  -- here and the flag is left to the install.
-  let kExpected? : Option Bool :=
-    match tyTypes, listed, cts with
-    | [ty], [[_]], [c] =>
-      match ty.piResult with
-      | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
-      | _ => none
-    | _, _, _ => some false
   for r in (if nested then [] else rcs) do
     let rn ← nm r.cv.name
     unless r.numParams == nPd do
@@ -375,10 +362,6 @@ state need not look here at all. -/
     unless r.numMinors == nCtors do
       return .inl (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
         the block has {nCtors} constructors")
-    if let some kE := kExpected? then
-      unless r.k == kE do
-        return .inl (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
-          recursor of this block is{if kE then "" else " not"} K-like")
     -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
     -- once the parameters are peeled; unreadable at a former declared
     -- at a definition, and then not checked
@@ -403,7 +386,7 @@ state need not look here at all. -/
     let rules ← r.rules.mapM (ruleOfF nm lv ex)
     pure (ConstantInfo.recInfo (← cvOfF nm lv ex r.cv)
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
-      (r.numParams + r.numMotives + r.numMinors) rules)
+      (r.numParams + r.numMotives + r.numMinors) r.k rules)
   let block := types ++ ctors ++ recs
   -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
   -- that used to stand here — a name pre-filter (task #215) and then

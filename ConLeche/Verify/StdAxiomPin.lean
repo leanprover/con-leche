@@ -32,8 +32,8 @@ theorem iff_shapes {env : Env} {cv : ConstantVal}
     (∃ cvIi, env.find? iffIntroName = some (.ctorInfo cvIi 2 2) ∧
       cvIi.levelParams = [] ∧
       cvIi.type = iffIntroA.toConstantVal.type) ∧
-    (∃ cvIr mI rP rules,
-      env.find? iffRecName = some (.recInfo cvIr mI rP rules) ∧
+    (∃ cvIr mI rP isK rules,
+      env.find? iffRecName = some (.recInfo cvIr mI rP isK rules) ∧
       cvIr.levelParams = iffRecA.toConstantVal.levelParams ∧
       cvIr.type = iffRecA.toConstantVal.type) ∧
     ConstantVal.matchesPin cv propextA = true := by
@@ -71,10 +71,10 @@ theorem iff_shapes {env : Env} {cv : ConstantVal}
     | some ci =>
       rw [hf] at hIr
       cases ci with
-      | recInfo cvIr mI rP rules =>
+      | recInfo cvIr mI rP isK rules =>
         match mI, rP, hIr with
         | 4, 4, hIr =>
-          refine ⟨cvIr, 4, 4, rules, rfl, (matchesPin_invT hIr).2, ?_⟩
+          refine ⟨cvIr, 4, 4, isK, rules, rfl, (matchesPin_invT hIr).2, ?_⟩
           simp only [ConstantVal.matchesPin, Bool.and_eq_true,
             beq_iff_eq] at hIr
           exact hIr.2
@@ -89,8 +89,8 @@ theorem nonempty_shapes {env : Env} {cv : ConstantVal}
     (∃ cvNi, env.find? nonemptyIntroName = some (.ctorInfo cvNi 1 1) ∧
       cvNi.levelParams = nonemptyIntroA.toConstantVal.levelParams ∧
       cvNi.type = nonemptyIntroA.toConstantVal.type) ∧
-    (∃ cvNr mI rP rules,
-      env.find? nonemptyRecName = some (.recInfo cvNr mI rP rules) ∧
+    (∃ cvNr mI rP isK rules,
+      env.find? nonemptyRecName = some (.recInfo cvNr mI rP isK rules) ∧
       cvNr.levelParams = nonemptyRecA.toConstantVal.levelParams ∧
       cvNr.type = nonemptyRecA.toConstantVal.type) ∧
     ConstantVal.matchesPin cv choiceA = true := by
@@ -127,10 +127,10 @@ theorem nonempty_shapes {env : Env} {cv : ConstantVal}
     | some ci =>
       rw [hf] at hNr
       cases ci with
-      | recInfo cvNr mI rP rules =>
+      | recInfo cvNr mI rP isK rules =>
         match mI, rP, hNr with
         | 3, 3, hNr =>
-          refine ⟨cvNr, 3, 3, rules, rfl, (matchesPin_invT hNr).2, ?_⟩
+          refine ⟨cvNr, 3, 3, isK, rules, rfl, (matchesPin_invT hNr).2, ?_⟩
           simp only [ConstantVal.matchesPin, Bool.and_eq_true,
             beq_iff_eq] at hNr
           exact hNr.2

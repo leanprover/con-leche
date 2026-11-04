@@ -160,12 +160,12 @@ univ 0` is `eqv_mem_univ` outright and no `univ_mono` residue
 arises. -/
 theorem iff_forces_eq (mp : EnvModelM V env)
     {cvI : ConstantVal} {caps : ConLeche.IndCaps} {cvIi cvIr : ConstantVal}
-    {mI rP : Nat} {rules : List ConLeche.RecRule}
+    {mI rP : Nat} {isK : Bool} {rules : List ConLeche.RecRule}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
     (hlpI : cvI.levelParams = [])
     (hfIi : env.find? iffIntroName = some (.ctorInfo cvIi 2 2))
     (hlpIi : cvIi.levelParams = [])
-    (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP rules))
+    (hfIr : env.find? iffRecName = some (.recInfo cvIr mI rP isK rules))
     (htyIr : cvIr.type
       = iffRecA.toConstantVal.type)
     (ψ : Name → Nat) (ρ : Nat → V) {A B w : V}
@@ -196,7 +196,7 @@ theorem iff_forces_eq (mp : EnvModelM V env)
         from rfl, hlpIi])
   -- the recursor's stored type, read at the zero assignment
   have hden : denote mp.base2.acval env (fun _ => 0) 0
-      (ConstantInfo.recInfo cvIr mI rP rules).toConstantVal.type
+      (ConstantInfo.recInfo cvIr mI rP isK rules).toConstantVal.type
       = some (.pi (.sort 0)
         (.pi (.sort 0)
           (.pi (.pi (.app (.app (mp.base2.acval iffName (fun _ => 0))
@@ -303,7 +303,7 @@ theorem propext_mem (mp : EnvModelM V env)
     (ρ : Nat → V) :
     interp V ρ (.const .propext []) ∈ˢ interp V ρ ta := by
   obtain ⟨hEq, ⟨cvI, caps, hfI, hlpI, htyI⟩, ⟨cvIi, hfIi, hlpIi, htyIi⟩,
-    ⟨cvIr, mI, rP, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
+    ⟨cvIr, mI, rP, isK, rules, hfIr, hlpIr, htyIr⟩, hApin⟩ :=
     iff_shapes hok hn
   have hApinT : cv.type
       = propextA.type := by
@@ -504,7 +504,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V env)
     (hlpNi : cvNi.levelParams
       = nonemptyIntroA.toConstantVal.levelParams)
     (hfNr : env.find? nonemptyRecName
-      = some (.recInfo cvNr mI rP rulesN))
+      = some (.recInfo cvNr mI rP isK rulesN))
     (htyNr : cvNr.type
       = nonemptyRecA.toConstantVal.type)
     (ψ : Name → Nat) (ρ : Nat → V) {A h : V} (hA : A ∈ˢ univ (ψ uN))
@@ -524,7 +524,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V env)
     fun e => denote_selfParam_constS hfNi (by
       show cvNi.levelParams = [uN]; rw [hlpNi]; rfl)
   have hden : denote mp.base2.acval env ψ 0
-      (ConstantInfo.recInfo cvNr mI rP rulesN).toConstantVal.type
+      (ConstantInfo.recInfo cvNr mI rP isK rulesN).toConstantVal.type
       = some (.pi (.sort (ψ uN))
         (.pi (.pi (.app (mp.base2.acval nonemptyName ψ) (.bvar 0)) (.sort 0))
           (.pi (.pi (.bvar 1)
@@ -596,7 +596,7 @@ theorem dneg_eq_nonempty (mp : EnvModelM V env)
     (htyNi : cvNi.type
       = nonemptyIntroA.toConstantVal.type)
     (hfNr : env.find? nonemptyRecName
-      = some (.recInfo cvNr mI rP rulesN))
+      = some (.recInfo cvNr mI rP isK rulesN))
     (htyNr : cvNr.type
       = nonemptyRecA.toConstantVal.type)
     (ψ : Name → Nat) (ρ : Nat → V) {A : V} (hA : A ∈ˢ univ (ψ uN)) :
@@ -640,7 +640,7 @@ theorem choice_mem (mp : EnvModelM V env)
     (ρ : Nat → V) :
     interp V ρ (.const .choice [ψ uN]) ∈ˢ interp V ρ ta := by
   obtain ⟨⟨cvN, capsN, hfN, hlpN, htyN⟩, ⟨cvNi, hfNi, hlpNi, htyNi⟩,
-    ⟨cvNr, mI, rP, rulesN, hfNr, hlpNr, htyNr⟩, hApin⟩ :=
+    ⟨cvNr, mI, rP, isK, rulesN, hfNr, hlpNr, htyNr⟩, hApin⟩ :=
     nonempty_shapes hok hn
   have hApinT : cv.type
       = choiceA.type := by

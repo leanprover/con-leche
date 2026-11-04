@@ -28,7 +28,7 @@ def emptyRecRaw : ConstantInfo :=
   .recInfo ⟨emptyName.str "rec", [uN],
     pi "motive" (pi "t" (cnst emptyName) (srt u)) <|
     pi "t" (cnst emptyName) (.app (bv 1) (bv 0))⟩
-    1 1 []
+    1 1 false []
 
 /-- The pinned `Empty` basis block, in install order. -/
 def emptyBasis : List ConstantInfo := [emptyRaw, emptyRecRaw]

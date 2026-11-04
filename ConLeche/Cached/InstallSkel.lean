@@ -59,7 +59,7 @@ def ciSkel : ConstantInfo → InstallSkel
   | .thmInfo cv => .thm cv.name
   | .indInfo cv _ => .ind cv.name
   | .ctorInfo cv nP nF => .ctor cv.name nP nF
-  | .recInfo cv mI rP _ => .recr cv.name mI rP
+  | .recInfo cv mI rP _ _ => .recr cv.name mI rP
 
 /-- The skeleton list of an environment (newest first, as `consts`). -/
 def envSkels (env : Env) : List InstallSkel := env.consts.map ciSkel

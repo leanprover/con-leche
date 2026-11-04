@@ -17,8 +17,8 @@ variable {mode : CheckMode} {env : Env}
 /-- The level comparand reads no arguments, in either fire branch. -/
 theorem recFireComparands_fst_nil (rl : RecRule) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
-    (recFireComparands rl lps us cvjLps args rP).1
-      = (recFireComparands rl lps us cvjLps [] rP).1 := by
+    (recFireComparands rl cnP lps us cvjLps args rP).1
+      = (recFireComparands rl cnP lps us cvjLps [] rP).1 := by
   unfold recFireComparands
   cases rl.fire <;> rfl
 

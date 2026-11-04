@@ -578,7 +578,7 @@ so `recFireComparands` copies the recursor's level arguments
 theorem blockRuleLevelAgree {φ : Name → Nat} {lps lpsR : List Name} {us usj : List Level}
     {rl : ConLeche.RecRule} {rP : Nat} (hplain : ConLeche.RecRule.fire rl = .plain)
     (hψ : Level.substFn φ lps usj
-      = Level.substFn φ lps (ConLeche.recFireComparands rl lpsR us lps [] rP).1) :
+      = Level.substFn φ lps (ConLeche.recFireComparands rl cnP lpsR us lps [] rP).1) :
     ∀ q ∈ lps, Level.substFn φ lps usj q = Level.substFn φ lpsR us q :=
   substFn_agree_of_comparand (by rw [hψ, recFireComparands_plain hplain])
 

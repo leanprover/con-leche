@@ -198,50 +198,50 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   carry no premise about the constructor application; case 3 carries
   all four. -/
   | iota {d : Nat} {e : Expr} {c : Name} {us : List Level} {cv : ConstantVal}
-      {mI rP : Nat} {rules : List RecRule} {major : Expr} {cj : Name}
+      {mI rP : Nat} {isK : Bool} {rules : List RecRule} {major : Expr} {cj : Name}
       {usj : List Level} {cvj : ConstantVal} {cnP cnF : Nat} {rl : RecRule}
       {residual : Expr} :
       e.getAppFn = .const c us →
-      env.find? c = some (.recInfo cv mI rP rules) →
+      env.find? c = some (.recInfo cv mI rP isK rules) →
       e.getAppArgs.length = mI + 1 →
       us.length = cv.levelParams.length →
       Red env d (e.getAppArgs.getD mI (.bvar 0)) major →
       major.getAppFn = .const cj usj →
       env.find? cj = some (.ctorInfo cvj cnP cnF) →
       rules.find? (fun r' => r'.ctor == cj) = some rl →
-      major.getAppArgs.length = rl.ctorParams + rl.nfields →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+      major.getAppArgs.length = cnP + rl.nfields →
+      (iotaCase3 env.find? isK cvj
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = true →
         Level.isEquivList usj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = some true) →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+      (iotaCase3 env.find? isK cvj
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = true →
-        DefEqList env d (major.getAppArgs.take rl.ctorParams)
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+        DefEqList env d (major.getAppArgs.take cnP)
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).2) →
       (Expr.peelPis e.getAppArgs.length
         (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+      (iotaCase3 env.find? isK cvj
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = true →
         CertsF env d (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs) →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+      (iotaCase3 env.find? isK cvj
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = true → mI ≠ rP →
         piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs = some residual) →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+      (iotaCase3 env.find? isK cvj
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = true → mI ≠ rP →
-        DefEqList env d (residual.getAppArgs.drop rl.ctorParams)
+        DefEqList env d (residual.getAppArgs.drop cnP)
           ((e.getAppArgs.take mI).drop rP)) →
       Red env d e
         (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
-          (e.getAppArgs.take rP ++ major.getAppArgs.drop rl.ctorParams))
+          (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP))
   /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
   official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
   parameters-only constructor application is fabricated from the
@@ -253,11 +253,11 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   major is a proof — the point at every valuation, about which a
   reduction claims nothing (task #342 L18). -/
   | rescueK {d : Nat} {major tm tmaj fab tf tp ttp : Expr} {v : Level} {recName : Name}
-      {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+      {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
-      env.find? recName = some (.recInfo cv mI rP [rl]) →
-      rl.k = true →
+      env.find? recName = some (.recInfo cv mI rP isK [rl]) →
+      isK = true →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const T tus →
       env.find? T = some (.indInfo cvT caps) →
@@ -283,10 +283,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   on: the two names not reserved, every field slot a projection-table
   entry. -/
   | rescueEta {d : Nat} {major tm tmaj fab : Expr} {recName : Name}
-      {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+      {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
-      env.find? recName = some (.recInfo cv mI rP [rl]) →
+      env.find? recName = some (.recInfo cv mI rP isK [rl]) →
       etaRescueOk rl.ctor cvj cvT caps = true →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const T tus →
@@ -310,10 +310,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   `h`, certified the K branch's way; the last four premises are the
   major's half of the `proofIrrel` run, as in the K branch. -/
   | rescueAnd {d : Nat} {major tm tmaj fab tf tp ttp : Expr} {v : Level} {recName : Name}
-      {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+      {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
-      env.find? recName = some (.recInfo cv mI rP [rl]) →
+      env.find? recName = some (.recInfo cv mI rP isK [rl]) →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const andName tus →
       env.find? andName = some (.indInfo cvT caps) →

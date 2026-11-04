@@ -199,7 +199,7 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
       intro _ h <;> exact nomatch h
   · refine fun m₂ hac φ => recRules_cons_fresh mp hfresh ?_ m₂ hac φ
     rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
-      intro _ _ _ _ h <;> exact nomatch h
+      intro _ _ _ _ _ h <;> exact nomatch h
 
 /-- **The P step at a *recursor* cons** — the block's recursors, stored
 as `recInfo`.  Only `caps_ok` and `rec_rules` stay open; both are the
@@ -208,7 +208,7 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
-    (hknd : ∃ cv mI rP rules, c₀ = .recInfo cv mI rP rules)
+    (hknd : ∃ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules)
     (hh : ConsHead env c₀ A)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -233,7 +233,7 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
       ∀ φ : Name → Nat, RecRules m₂ φ) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  obtain ⟨cv, mI, rP, rules, rfl⟩ := hknd
+  obtain ⟨cv, mI, rP, isK, rules, rfl⟩ := hknd
   exact declStep_preserves_of_ind_cons mp hfresh hnres
     (fun _ _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAparams hAok

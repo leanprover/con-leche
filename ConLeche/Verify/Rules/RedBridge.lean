@@ -158,7 +158,7 @@ certificate becomes the `DefEq fab major` premise through
 `proofIrrel_bridge`).
 
 **`hrec`**: the three `Red.rescue*` rules open with `env.find? recName
-= some (.recInfo cv mI rP [rl])` — the rule bit `rl.k` is
+= some (.recInfo cv mI rP isK [rl])` — the rule bit `isK` is
 honest only at a stored recursor, which is what the soundness lane
 reads them from.  `majorToCtor` itself ignores its `_recName` argument
 (`Core.lean:556`), so the inversion cannot supply the fact and the
@@ -166,9 +166,9 @@ caller must: `iotaRec_inv` hands it over at the one site that runs the
 chain (through `prepareMajor_bridge`, which passes it through). -/
 theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
     (hd : DefEqBridge .verified eager env fuel) (hio : InferIOBridge .verified eager env fuel)
-    {d : Nat} {recName : Name} {rules : List RecRule} {major major' : Expr}
-    (hrec : ∃ cv mI rP, env.find? recName = some (.recInfo cv mI rP rules))
-    (h : majorToCtorFueled .verified eager env fuel d recName rules major = .ok major') :
+    {d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {major major' : Expr}
+    (hrec : ∃ cv mI rP, env.find? recName = some (.recInfo cv mI rP isK rules))
+    (h : majorToCtorFueled .verified eager env fuel d recName isK rules major = .ok major') :
     Red env d major major' := by
   obtain ⟨cv, mI, rP, hfr⟩ := hrec
   rcases majorToCtor_inv h with rfl | ⟨hsc1, hsc2, hsc3, rl, cvj, cnP, cnF,
@@ -199,9 +199,9 @@ motive `Red env d a ·`: each of the three steps is a `Red.trans`).
 `hrec` is `majorToCtor_bridge`'s, passed through. -/
 theorem prepareMajor_bridge (hw : WhnfBridge .verified eager env fuel)
     (hd : DefEqBridge .verified eager env fuel) (hio : InferIOBridge .verified eager env fuel)
-    {d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
-    (hrec : ∃ cv mI rP, env.find? recName = some (.recInfo cv mI rP rules))
-    (h : prepareMajorFueled .verified eager env fuel d recName rules a = .ok m) :
+    {d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {a m : Expr}
+    (hrec : ∃ cv mI rP, env.find? recName = some (.recInfo cv mI rP isK rules))
+    (h : prepareMajorFueled .verified eager env fuel d recName isK rules a = .ok m) :
     Red env d a m :=
   prepareMajorFueled_ind h (Red env d a)
     (fun hwh hp => .trans hp (hw hwh))
@@ -231,7 +231,7 @@ theorem iotaRec_bridge (hw : WhnfBridge .verified eager env fuel)
     {d : Nat} {e e'' : Expr}
     (h : iotaRecFueled .verified eager env fuel d e = .ok (some e'')) :
     Red env d e e'' := by
-  obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP, cnF, rl,
+  obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP, cnF, rl,
     hfn, hfc, hlen, hlvl, hprep, hmfn, hfj, hrule, hml, h3, rfl⟩ := iotaRec_inv h
   have hmaj : Red env d (e.getAppArgs.getD mI (.bvar 0)) major :=
     prepareMajor_bridge hw hd hio ⟨cv, mI, rP, hfc⟩ hprep
@@ -241,8 +241,8 @@ theorem iotaRec_bridge (hw : WhnfBridge .verified eager env fuel)
       (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true := by
     rw [hlen]
     exact peelPis_isSome_instantiateLevelParams _ _ _ (iotaRec_arity h hfn hfc)
-  by_cases hc3 : iotaCase3 env.find? rl cvj
-      (recFireComparands rl cv.levelParams us cvj.levelParams e.getAppArgs rP).1 = true
+  by_cases hc3 : iotaCase3 env.find? isK cvj
+      (recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1 = true
   · obtain ⟨hlev, hpeq, hcerts, hidx⟩ := h3 rfl hc3
     by_cases hne : mI = rP
     · exact .iota (residual := .bvar 0) hfn hfc hlen hlvl hmaj hmfn hfj hrule hml

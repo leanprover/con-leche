@@ -143,7 +143,7 @@ def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → 
   | _, [], fe => fe
   | m, (cvRa, _nIdx) :: rest, fe =>
     consBlockRecsBareF p (m + 1) rest
-      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false []))
 
 /-!
 The recursor stage has NO `F` twin here: it is written once over the

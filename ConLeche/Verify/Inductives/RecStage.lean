@@ -348,10 +348,10 @@ position. -/
 
 /-- The install's rules function: each recursor's stored rules
 at its major `Ms m` (`tgtStoredRules`). -/
-@[expose] def tgtRulesR (find? : Name → Option ConstantInfo)
+@[expose] def tgtRulesR
     (q : BlockShape) (Ms : Nat → TargetMajor) :
-    Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List RecRule :=
-  fun m r => tgtStoredRules find? r.1 (q.rulePrefixAt m) (Ms m) r.2.1
+    Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List RecRule :=
+  fun m r => (recKExpected q (Ms m), tgtStoredRules (q.rulePrefixAt m) (Ms m) r.2.1)
 
 /-- The checked majors by absolute position. -/
 @[expose] def tgtMajorsOf (out : List (ConstantVal × TargetMajor × List Expr)) :
@@ -359,28 +359,26 @@ at its major `Ms m` (`tgtStoredRules`). -/
   fun m => (out.getD m default).2.1
 
 /-- `consBlockRecsT` is the generic cons at `tgtRulesR`, from any start. -/
-theorem consBlockRecsT_eq_R_gen (find? : Name → Option ConstantInfo)
-    (q : BlockShape) (Ms : Nat → TargetMajor) :
+theorem consBlockRecsT_eq_R_gen (q : BlockShape) (Ms : Nat → TargetMajor) :
     ∀ (m : Nat) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env),
       (∀ (i : Nat) (t : ConstantVal × TargetMajor × List Expr), out[i]? = some t →
         Ms (m + i) = t.2.1) →
-      consBlockRecsT find? q m out env
-        = consBlockRecsR (tgtRulesR find? q Ms) q m (tgtRs out) env
+      consBlockRecsT q m out env
+        = consBlockRecsR (tgtRulesR q Ms) q m (tgtRs out) env
   | _, [], _, _ => rfl
   | m, (cv, M, rhss) :: rest, env, hMs => by
     have h0 : Ms m = M := by simpa using hMs 0 _ rfl
     simp only [consBlockRecsT, tgtRs, List.map_cons, consBlockRecsR, tgtRulesR, h0]
-    exact consBlockRecsT_eq_R_gen find? q Ms (m + 1) rest _
+    exact consBlockRecsT_eq_R_gen q Ms (m + 1) rest _
       (fun i t ht => by
         have := hMs (i + 1) t (by simpa using ht)
         rwa [show m + (i + 1) = m + 1 + i by omega] at this)
 
 /-- **`consBlockRecsT` is the generic cons at `tgtRulesR`.** -/
-theorem consBlockRecsT_eq_R (find? : Name → Option ConstantInfo)
-    (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env) :
-    consBlockRecsT find? q 0 out env
-      = consBlockRecsR (tgtRulesR find? q (tgtMajorsOf out)) q 0 (tgtRs out) env :=
-  consBlockRecsT_eq_R_gen find? q _ 0 out env fun i t ht => by
+theorem consBlockRecsT_eq_R (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) (env : Env) :
+    consBlockRecsT q 0 out env
+      = consBlockRecsR (tgtRulesR q (tgtMajorsOf out)) q 0 (tgtRs out) env :=
+  consBlockRecsT_eq_R_gen q _ 0 out env fun i t ht => by
     simp [tgtMajorsOf, List.getD_eq_getElem?_getD, ht]
 
 /-- The install's firing at position `j` (the generic `fireOf` shape,
@@ -418,10 +416,10 @@ theorem tgtFireOf_of_out {q : BlockShape} {Ms : Nat → TargetMajor}
 
 /-- **The install's rules have the shape**, at each major's
 parameter count and `tgtFireOf`. -/
-theorem recRulesShape_tgt (find? : Name → Option ConstantInfo)
+theorem recRulesShape_tgt
     (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
-    RecRulesShape find? (tgtRulesR find? q (tgtMajorsOf out)) (tgtRs out)
-      (fun j => (tgtMajorsOf out j).nPc) (tgtFireOf q (tgtMajorsOf out)) := by
+    RecRulesShape (tgtRulesR q (tgtMajorsOf out)) (tgtRs out)
+      (tgtFireOf q (tgtMajorsOf out)) := by
   intro j r hr rl hrl
   obtain ⟨t, ht, rfl⟩ : ∃ t, out[j]? = some t ∧ r = (t.1, t.2.2, t.2.1.nIdx, t.2.1.ctors) := by
     simp only [tgtRs, List.getElem?_map] at hr

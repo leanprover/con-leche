@@ -454,34 +454,34 @@ theorem constValAtM_spec (hs : CSOK mode eager env s₀) (nI n : Name) (us : Lis
   exact ⟨hs', by rw [constValAt?, hf, hrel]⟩
 
 theorem CSOK.ruleRhs_hit {s : CState} {c j : Name} {us : List Level}
-    {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
-    (hfind : env.find? c = some (.recInfo cv mI rP rules))
+    {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule} {rl : RecRule}
+    (hfind : env.find? c = some (.recInfo cv mI rP isK rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) (hs : CSOK mode eager env s)
     (hne : s.ruleRhsAt[(c, j, us)]? ≠ none) :
     s.ruleRhsAt[(c, j, us)]? = some (rl.rhs.instantiateLevelParams cv.levelParams us) := by
   obtain ⟨i, hl⟩ := Option.ne_none_iff_exists'.mp hne
-  obtain ⟨cv', mI', rP', rules', rl', hfind', hrl', hrel⟩ := hs.ruleRhs c j us i hl
+  obtain ⟨cv', mI', rP', isK', rules', rl', hfind', hrl', hrel⟩ := hs.ruleRhs c j us i hl
   rw [hfind] at hfind'; cases hfind'; rw [hrl] at hrl'; cases hrl'; rw [hl, hrel.erase]
 
 theorem CSOK.ruleRhs_insert {s : CState} {c j : Name} {us : List Level}
-    {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule} {rl : RecRule}
-    (hfind : env.find? c = some (.recInfo cv mI rP rules))
+    {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule} {rl : RecRule}
+    (hfind : env.find? c = some (.recInfo cv mI rP isK rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) (hs : CSOK mode eager env s) :
     CSOK mode eager env { s with ruleRhsAt := (s.ruleRhsAt.insert (c, j, us)
       (rl.rhs.instantiateLevelParams cv.levelParams us)) } :=
   { hs with
     ruleRhs := fun c' j' us' => HashMap.insert_backed
-      (P := fun k i => ∃ cv mI rP rules rl, env.find? k.1 = some (.recInfo cv mI rP rules) ∧
+      (P := fun k i => ∃ cv mI rP isK rules rl, env.find? k.1 = some (.recInfo cv mI rP isK rules) ∧
         rules.find? (fun r' => r'.ctor == k.2.1) = some rl ∧
         RelC i (rl.rhs.instantiateLevelParams cv.levelParams k.2.2))
       (i := (c, j, us)) (fun k v => hs.ruleRhs k.1 k.2.1 k.2.2 v)
-      ⟨cv, mI, rP, rules, rl, hfind, hrl, RelC.refl _⟩ (c', j', us') }
+      ⟨cv, mI, rP, isK, rules, rl, hfind, hrl, RelC.refl _⟩ (c', j', us') }
 
 /-- `ruleRhsAtM` under the index of `env`. -/
 theorem ruleRhsAtM_spec_of_find (hs : CSOK mode eager env s₀) {cI jI c j : Name}
     {us : List Level} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule} {rl : RecRule}
-    (hfind : env.find? c = some (.recInfo cv mI rP rules))
+    (hfind : env.find? c = some (.recInfo cv mI rP isK rules))
     (hrl : rules.find? (fun r' => r'.ctor == j) = some rl) :
     ⦃fun s => s = s₀⦄ ruleRhsAtM (mkFEnv env) cI jI c j us
     ⦃fun i s' => CSOK mode eager env s' ∧ i = rl.rhs.instantiateLevelParams cv.levelParams us; ⊤⦄
@@ -498,7 +498,7 @@ named, so that two lookups at equal names are congruent). -/
 /-- A recursor's rule right-hand side for constructor `j` at levels `us`. -/
 @[expose] def ruleRhsOf (env : Env) (c j : Name) (us : List Level) : Option Expr :=
   match env.find? c with
-  | some (.recInfo cv _ _ rules) =>
+  | some (.recInfo cv _ _ _ rules) =>
     match findRule rules j with
     | some rl => some (rl.rhs.instantiateLevelParams cv.levelParams us)
     | none => none
@@ -513,7 +513,7 @@ theorem ruleRhsAtM_spec (hs : CSOK mode eager env s₀) (cI jI c j : Name)
   refine triple_iff_run.mpr fun t s' hr => ?_
   unfold ruleRhsOf at hfind ⊢
   split at hfind
-  · rename_i cv mI rP rules hc
+  · rename_i cv mI rP isK rules hc
     split at hfind
     · rename_i rl hrl
       obtain ⟨hs', h⟩ := triple_iff_run.mp (ruleRhsAtM_spec_of_find hs hc hrl) t s' hr

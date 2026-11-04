@@ -519,10 +519,10 @@ proof irrelevance likewise off at the trusted mode.  A
 major that fails a check stays put — sound, the reduction simply stays
 stuck. -/
 def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
-    (_recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
+    (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) : m Expr := do
   -- cheap syntactic gates before any inference: a rescue needs a
-  -- single-rule recursor whose rule carries the matching install-time
-  -- rescue bit (`RecRule.k`/`RecRule.eta`)
+  -- single-rule recursor, K-flagged (the record's `isK`) or at an η family
+  -- (`etaRescueOk`)
   if isCtorApp env major then pure major else
   match rules with
   | [rl] =>
@@ -532,7 +532,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
       | .const T _ =>
         match env.find? T with
         | some (.indInfo cvT caps) =>
-          if rl.k = true then
+          if isK = true then
             -- task #172 B4: io grade (lean4lean toCtorWhenK inferType)
             let tmaj ← r.whnf depth (← r.inferIO depth major)
             match tmaj.getAppFn with
@@ -742,7 +742,7 @@ TASK #333 record's audit). A K-like recursor application whose rescue
 fails is now simply stuck, sound either way.
 
 The rescues (K, structure-eta, `And`) live in one function
-(`majorToCtor`); the K branch is reachable exactly at `recRuleK`, the
+(`majorToCtor`); the K branch is reachable exactly at the record's K flag, the
 eta and `And` branches never are there (an inductive proposition fails
 the eta branch's provably-nonzero guard, and `And` is not K), so the
 split below dispatches each to its site.
@@ -757,22 +757,22 @@ theorem application — `Eq.ndrec … (Int.decEq._proof_1 a b h)` with
 official order fabricates `Eq.refl` from the type (`a ≡ b` by the
 `Nat` literal fast paths) and never opens either proof. -/
 def prepareMajor (r : CoreFns m) (env : Env) (depth : Nat)
-    (recName : Name) (rules : List RecRule) (major : Expr) : m Expr := do
-  if recRuleK rules then
-    let majorK ← majorToCtor mode r env depth recName rules major
+    (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) : m Expr := do
+  if isK then
+    let majorK ← majorToCtor mode r env depth recName isK rules major
     if isCtorApp env majorK then
       litMajorToCtor r env depth majorK
     else
       pure majorK
   else
     let majorE ← if major.isStrLit then pure major
-      else majorToCtor mode r env depth recName rules major
+      else majorToCtor mode r env depth recName isK rules major
     if isCtorApp env majorE then
       pure majorE
     else
       let major₀ ← r.whnf depth majorE
       let major₁ ← litMajorToCtor r env depth major₀
-      majorToCtor mode r env depth recName rules major₁
+      majorToCtor mode r env depth recName isK rules major₁
 
 /-- One iota step: the expression is a stored recursor applied to
 exactly its telescope (params, motives, minors, indices, major), the
@@ -796,7 +796,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
   match e.getAppFn with
   | .const c us =>
     match env.find? c with
-    | some (.recInfo cv mI rP rules) =>
+    | some (.recInfo cv mI rP isK rules) =>
       let args := e.getAppArgs
       -- checker change #9: the recursor's level arity, guarded as
       -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
@@ -813,19 +813,19 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
           (Expr.peelPis (mI + 1) cv.type).isSome = true then
         -- the major's preparation (K rescue / whnf / literal / eta) in
         -- the official order — `prepareMajor`'s docstring
-        let major ← prepareMajor mode r env depth c rules
+        let major ← prepareMajor mode r env depth c isK rules
           (args.getD mI (.bvar 0))
         match major.getAppFn with
         | .const cj usj =>
           match env.find? cj with
-          | some (.ctorInfo cvj _ _) =>
+          | some (.ctorInfo cvj cnP _) =>
             match rules.find? (fun r' => r'.ctor == cj) with
             | some rl =>
               let margs := major.getAppArgs
-              -- the constructor's counts are read off the stored rule
-              -- (install-computed); the defensive spine-length check
+              -- the parameter count is the stored constructor's, the
+              -- field count the rule's; the defensive spine-length check
               -- stays
-              if margs.length = rl.ctorParams + rl.nfields then
+              if margs.length = cnP + rl.nfields then
                 -- The ι batch (2026-09-05): the two `stripPis` arity
                 -- pins that stood here were an environment invariant
                 -- re-checked per fire (every install route establishes
@@ -836,7 +836,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- instantiation and leading arguments; nested: the stored
                 -- major-domain instantiations), from the firing mode
                 -- computed once at install (`sumRules` / `auxRuleFire`)
-                let cmp := recFireComparands rl cv.levelParams us cvj.levelParams args rP
+                let cmp := recFireComparands rl cnP cv.levelParams us cvj.levelParams args rP
                 -- **the ι case split** (task #342 L10, #349, S5c), decided at
                 -- the comparand levels: a K rule, or a family never `Prop`
                 -- there (`iotaCtorNeverProp`), fires with no check, as
@@ -849,13 +849,13 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- cached twin gates the whole case-3 decision through
                 -- `certAtI mode (do ...)` (`ConLeche/Cached/CoreC.lean`)
                 if ← (if mode.verifiedChecks then
-                    (if iotaCase3 env.find? rl cvj cmp.1 then do
+                    (if iotaCase3 env.find? isK cvj cmp.1 then do
                       if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
-                        if ← defEqList r env depth (margs.take rl.ctorParams) cmp.2 then
+                        if ← defEqList r env depth (margs.take cnP) cmp.2 then
                           if ← iotaCertsFull r env depth
                               (cvj.type.instantiateLevelParams cvj.levelParams usj)
                               margs then
-                            iotaIndexOk r env depth mI rP rl.ctorParams
+                            iotaIndexOk r env depth mI rP cnP
                               (cvj.type.instantiateLevelParams cvj.levelParams usj)
                               margs ((args.take mI).drop rP)
                           else pure false
@@ -865,7 +865,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                   else pure true) then
                   pure (some (Expr.mkAppN
                     (rl.rhs.instantiateLevelParams cv.levelParams us)
-                    (args.take rP ++ margs.drop rl.ctorParams)))
+                    (args.take rP ++ margs.drop cnP)))
                 else pure none
               else pure none
             | none => pure none

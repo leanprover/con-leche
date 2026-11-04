@@ -79,7 +79,7 @@ private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {r : CoreFnsI}
     | some ci =>
       rw [hf] at h
       cases ci with
-      | recInfo cv mI rP rules =>
+      | recInfo cv mI rP isK rules =>
         dsimp only at h ⊢
         rw [ite_eq_right]
         rintro ⟨hlen, hlvl, -⟩

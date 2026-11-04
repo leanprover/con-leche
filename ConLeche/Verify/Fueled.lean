@@ -266,9 +266,9 @@ theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
 -- Outer casing peeled by hand (as in `ConLeche/Verify/PairM.lean`): the
 -- body outgrew the split-driven macro.
 set_option maxHeartbeats 800000 in
-theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (F : Nat) :
-    (majorToCtor mode (fueledFns mode eager env) env d c rules e).val F =
-      majorToCtor mode (pureFns mode eager env F) env d c rules e := by
+theorem majorToCtor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) (F : Nat) :
+    (majorToCtor mode (fueledFns mode eager env) env d c isK rules e).val F =
+      majorToCtor mode (pureFns mode eager env F) env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -291,7 +291,7 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : rl.k = true
+    by_cases hK : isK = true
     · rw [ite_eq_left hK, ite_eq_left hK]
       atF_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
@@ -311,10 +311,10 @@ theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold litMajorToCtor
   atF_tac2
 
-theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
+theorem prepareMajor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr)
     (F : Nat) :
-    (prepareMajor mode (fueledFns mode eager env) env d c rules e).val F =
-      prepareMajor mode (pureFns mode eager env F) env d c rules e := by
+    (prepareMajor mode (fueledFns mode eager env) env d c isK rules e).val F =
+      prepareMajor mode (pureFns mode eager env F) env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first

@@ -26,31 +26,28 @@ stored-constructor facts for the new member (vacuous unless it is a
 recursor). -/
 theorem RecCtorsStored.cons {env : Env} {c₀ : ConstantInfo}
     (hold : RecCtorsStored env) (hfresh : env.find? c₀.name = none)
-    (hnew : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    (hnew : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
-          env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → recRuleKOf env.find? r.ctor = true)) :
+          env.find? (RecRule.ctor r) = some (.ctorInfo cvj cnP cnF))) :
     RecCtorsStored (⟨c₀ :: env.consts, env.tables⟩ : Env) := by
   have hkeep : ∀ (m : Name) (ci : ConstantInfo),
-      (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+      (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       env.find? m = some ci → (⟨c₀ :: env.consts, env.tables⟩ : Env).find? m = some ci := by
     intro m ci _ hf
     rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]
     exact hf
-  intro n cv mI rP rules hfp r hr
+  intro n cv mI rP isK rules hfp r hr
   rw [Env.find?_cons] at hfp
   split at hfp
   · next hn =>
     obtain hceq := Option.some.inj hfp
-    obtain ⟨⟨cvj, cnP, cnF, hf⟩, hk⟩ := hnew _ _ _ _ hceq r hr
-    exact ⟨⟨cvj, cnP, cnF, hkeep _ _
-        (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hf⟩,
-      fun hb => recRuleKOf_mono hkeep (hk hb)⟩
+    obtain ⟨cvj, cnP, cnF, hf⟩ := hnew _ _ _ _ _ hceq r hr
+    exact ⟨cvj, cnP, cnF, hkeep _ _
+        (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hf⟩
   · next hn =>
-    obtain ⟨⟨cvj, cnP, cnF, hf⟩, hk⟩ := hold n cv mI rP rules hfp r hr
-    exact ⟨⟨cvj, cnP, cnF, hkeep _ _
-        (fun _ _ _ _ hh => ConstantInfo.noConfusion hh) hf⟩,
-      fun hb => recRuleKOf_mono hkeep (hk hb)⟩
+    obtain ⟨cvj, cnP, cnF, hf⟩ := hold n cv mI rP isK rules hfp r hr
+    exact ⟨cvj, cnP, cnF, hkeep _ _
+        (fun _ _ _ _ _ hh => ConstantInfo.noConfusion hh) hf⟩
 
 end ConLeche

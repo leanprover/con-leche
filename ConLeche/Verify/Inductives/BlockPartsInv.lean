@@ -29,7 +29,7 @@ namespace ConLeche
 
 /-- The member-counts loop yields one count per member. -/
 theorem blockMemberCounts?_length {nPd k nC : Nat} {names : List Name}
-    {rs : List (ConstantVal × Nat × Nat × List RecRule)} :
+    {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)} :
     ∀ {cvTs : List ConstantVal} {m : Nat} {nIdxs : List Nat},
       blockMemberCounts? nPd k nC names rs m cvTs = some nIdxs →
       nIdxs.length = cvTs.length
@@ -145,7 +145,7 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
   (p.large = true → p.lps.contains p.elim = false) ∧
   (p.large = false → p.elim = Name.anonymous) ∧
   ∃ (cvTs : List ConstantVal) (cs : List (ConstantVal × Nat × Nat))
-    (rs : List (ConstantVal × Nat × Nat × List RecRule)) (nIdxs : List Nat),
+    (rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)) (nIdxs : List Nat),
     blockSplit block = some (cvTs, cs, rs) ∧
     cvTs.length = p.k ∧ rs.length = p.recs.length ∧ nIdxs.length = p.k ∧
     blockMemberCounts? nPd p.k cs.length p.memberNames rs 0 cvTs = some nIdxs ∧
@@ -156,7 +156,7 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
       (fun a => ⟨a.1.1, a.1.2, a.2⟩) ∧
     p.recs = rs.map (fun r =>
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf p.memberNames r.2.1 r.1.type,
-        r.2.2.2⟩)
+        r.2.2.2.2, r.2.2.2.1⟩)
 
 /-- The shared tail of `blockShape?_inv`: everything below the
 eliminator reading, which the two branches differ in only by `elim`
@@ -164,7 +164,7 @@ and `large`. -/
 private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     {p : BlockShape} {cvT0 : ConstantVal} {cvTs' : List ConstantVal}
     {cs : List (ConstantVal × Nat × Nat)}
-    {rs : List (ConstantVal × Nat × Nat × List RecRule)} {nIdxs : List Nat}
+    {rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)} {nIdxs : List Nat}
     (hsp : blockSplit block = some (cvT0 :: cvTs', cs, rs))
     (hmc : blockMemberCounts? nPd (cvT0 :: cvTs').length cs.length
       ((cvT0 :: cvTs').map (·.name)) rs 0 (cvT0 :: cvTs') = some nIdxs)
@@ -183,7 +183,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
       (fun a => ⟨a.1.1, a.1.2, a.2⟩))
     (hrecs : p.recs = rs.map fun r =>
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf ((cvT0 :: cvTs').map (·.name)) r.2.1 r.1.type,
-        r.2.2.2⟩) :
+        r.2.2.2.2, r.2.2.2.1⟩) :
     BlockShapeOk nPd block p := by
   have hlenN := blockMemberCounts?_length hmc
   obtain ⟨e1, e2, e3⟩ := blockMembers_proj (cvTs := cvT0 :: cvTs') (nIdxs := nIdxs)

@@ -61,7 +61,7 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
       value.allLevelParamsDefined cv.levelParams = true ∧
       value.constsResolve env = true ∧
       value.looseBVarsBounded 0 = true)
-    (h6 : ∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+    (h6 : ∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
       ∀ r, r ∈ rules →
         (RecRule.rhs r).hasFvar = false ∧
         (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
@@ -486,17 +486,16 @@ theorem envWF_consSumCtors {nP : Nat} :
     obtain ⟨htf, htp, htr, htb⟩ := hall c List.mem_cons_self
     refine envWF_consSumCtors ?_ ?_
     · exact EnvWF.cons henv (structConstWF htf htp (Expr.constsResolve_mono htr) htb
-        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq))
+        (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
     · intro c' hc'
       obtain ⟨h1, h2, h3, h4⟩ := hall c' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
 
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/
-theorem sumRules_mem {find? : Name → Option ConstantInfo} {recName : Name}
-    {nP : Nat} :
+theorem sumRules_mem :
     ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ sumRules find? recName nP ctorsA rhss →
+      r ∈ sumRules ctorsA rhss →
       r.rhs ∈ rhss ∧ ∀ lvls pins, r.fire ≠ .nested lvls pins
   | [], _, r, h => by simp [sumRules] at h
   | _ :: _, [], r, h => by simp [sumRules] at h

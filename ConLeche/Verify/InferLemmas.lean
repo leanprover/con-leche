@@ -612,22 +612,22 @@ the rescue did NOT already produce a constructor (`hca` below) — the
 alone connect `a` to `m` there.  Every consumer of the chain (scoping,
 bound variables, leaves, the P tier's readings and gradings) is an
 instance, so none of them names the order. -/
-theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
+theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     {rules : List RecRule} {a m : Expr}
-    (h : prepareMajorFueled mode eager env fuel d recName rules a = .ok m)
+    (h : prepareMajorFueled mode eager env fuel d recName isK rules a = .ok m)
     (P : Expr → Prop)
     (hwhnf : ∀ {e e' : Expr}, whnf mode eager env fuel d e = .ok e' → P e → P e')
     (hlit : ∀ {e e' : Expr},
       litMajorToCtorFueled mode eager env fuel d e = .ok e' → P e → P e')
     (hmaj : ∀ {e e' : Expr},
-      majorToCtorFueled mode eager env fuel d recName rules e = .ok e' → P e → P e')
+      majorToCtorFueled mode eager env fuel d recName isK rules e = .ok e' → P e → P e')
     (ha : P a) : P m := by
   dsimp only [prepareMajorFueled] at h
   simp only [prepareMajor, Bind.bind, Except.bind, whnf_def, majorToCtor_fold,
     litMajorToCtor_fold] at h
-  by_cases hk : recRuleK rules = true
+  by_cases hk : isK = true
   · rw [ite_eq_left hk] at h
-    cases h₁ : majorToCtorFueled mode eager env fuel d recName rules a with
+    cases h₁ : majorToCtorFueled mode eager env fuel d recName isK rules a with
     | error err => rw [h₁] at h; exact nomatch h
     | ok m₁ =>
       rw [h₁] at h
@@ -663,7 +663,7 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
             dsimp only at h
             exact hmaj h (hlit h₂ (hwhnf h₁ hE))
     · rw [ite_eq_right hs] at h
-      cases h₀ : majorToCtorFueled mode eager env fuel d recName rules a with
+      cases h₀ : majorToCtorFueled mode eager env fuel d recName isK rules a with
       | error err => rw [h₀] at h; exact nomatch h
       | ok mE =>
       rw [h₀] at h
@@ -689,10 +689,10 @@ theorem prepareMajorFueled_ind {env : Env} {fuel d : Nat} {recName : Name}
 /-- **The recursor's arity at a successful iota step** (task #342 L18):
 the stored type has the spine's number of syntactic ∀-binders. -/
 theorem iotaRec_arity {env : Env} {fuel d : Nat} {e eout : Expr} {c : Name}
-    {us : List Level} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
+    {us : List Level} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     (h : iotaRecFueled mode eager env fuel d e = .ok (some eout))
     (hfn : e.getAppFn = .const c us)
-    (hfc : env.find? c = some (.recInfo cv mI rP rules)) :
+    (hfc : env.find? c = some (.recInfo cv mI rP isK rules)) :
     (Expr.peelPis (mI + 1) cv.type).isSome = true := by
   dsimp only [iotaRecFueled] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
@@ -708,35 +708,35 @@ theorem iotaRec_arity {env : Env} {fuel d : Nat} {e eout : Expr} {c : Name}
 /-- Inversion of a successful iota step. -/
 theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     (h : iotaRecFueled mode eager env fuel d e = .ok (some eout)) :
-    ∃ c us cv mI rP rules major cj usj cvj cnP cnF r,
+    ∃ c us cv mI rP isK rules major cj usj cvj cnP cnF r,
       e.getAppFn = .const c us ∧
-      env.find? c = some (.recInfo cv mI rP rules) ∧
+      env.find? c = some (.recInfo cv mI rP isK rules) ∧
       e.getAppArgs.length = mI + 1 ∧
       us.length = cv.levelParams.length ∧
-      prepareMajorFueled mode eager env fuel d c rules (e.getAppArgs.getD mI (.bvar 0)) =
+      prepareMajorFueled mode eager env fuel d c isK rules (e.getAppArgs.getD mI (.bvar 0)) =
         .ok major ∧
       major.getAppFn = .const cj usj ∧
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
-      major.getAppArgs.length = r.ctorParams + r.nfields ∧
-      (mode.verifiedChecks = true → iotaCase3 env.find? r cvj
-          (recFireComparands r cv.levelParams us cvj.levelParams
+      major.getAppArgs.length = cnP + r.nfields ∧
+      (mode.verifiedChecks = true → iotaCase3 env.find? isK cvj
+          (recFireComparands r cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = true →
         Level.isEquivList usj
-          (recFireComparands r cv.levelParams us cvj.levelParams
+          (recFireComparands r cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = some true ∧
-        defEqListFueled mode eager env fuel d (major.getAppArgs.take r.ctorParams)
-          (recFireComparands r cv.levelParams us cvj.levelParams
+        defEqListFueled mode eager env fuel d (major.getAppArgs.take cnP)
+          (recFireComparands r cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).2 = .ok true ∧
         iotaCertsFullFueled mode eager env fuel d
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs = .ok true ∧
-        iotaIndexOkFueled mode eager env fuel d mI rP r.ctorParams
+        iotaIndexOkFueled mode eager env fuel d mI rP cnP
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true) ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take rP ++
-          major.getAppArgs.drop r.ctorParams) := by
+          major.getAppArgs.drop cnP) := by
   dsimp only [iotaRecFueled] at h
   simp only [iotaRec, Bind.bind, Except.bind] at h
   simp only [prepareMajor_fold, defEqList_fold,
@@ -763,7 +763,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo cv mI rP rules) => ?_
+  | some (.recInfo cv mI rP isK rules) => ?_
   intro h
   dsimp only at h
   by_cases hlen : e.getAppArgs.length = mI + 1 ∧
@@ -771,7 +771,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   case neg => rw [ite_eq_right hlen] at h; exact nomatch h
   rw [ite_eq_left hlen] at h
   try simp only [Bind.bind, Except.bind] at h
-  cases hprep : prepareMajorFueled mode eager env fuel d c rules
+  cases hprep : prepareMajorFueled mode eager env fuel d c isK rules
       (e.getAppArgs.getD mI (.bvar 0)) with
   | error err => rw [hprep] at h; exact nomatch h
   | ok major =>
@@ -798,7 +798,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvj cnP cnF) => ?_
   intro h
   dsimp only at h
@@ -808,7 +808,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   | some r =>
   intro h
   dsimp only at h
-  by_cases hml : major.getAppArgs.length = r.ctorParams + r.nfields
+  by_cases hml : major.getAppArgs.length = cnP + r.nfields
   case neg => rw [ite_eq_right hml] at h; exact nomatch h
   rw [ite_eq_left hml] at h
   try simp only [Bind.bind, Except.bind] at h
@@ -820,13 +820,13 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     rw [ite_eq_right hμ] at h
     simp only [pure, Except.pure, ↓reduceIte, Except.ok.injEq,
       Option.some.injEq] at h
-    exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
+    exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
       cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
       hml, fun hμ' => absurd hμ' hμ, h.symm⟩
   rw [ite_eq_left hμ] at h
-  generalize hcmp : recFireComparands r cv.levelParams us cvj.levelParams
+  generalize hcmp : recFireComparands r cnP cv.levelParams us cvj.levelParams
     e.getAppArgs rP = cmp at h
-  by_cases h3 : iotaCase3 env.find? r cvj cmp.1 = true
+  by_cases h3 : iotaCase3 env.find? isK cvj cmp.1 = true
   · rw [ite_eq_left h3] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hlev : Level.isEquivList usj cmp.1 with
@@ -840,7 +840,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     | true =>
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
-    cases hpeq : defEqListFueled mode eager env fuel d (major.getAppArgs.take r.ctorParams)
+    cases hpeq : defEqListFueled mode eager env fuel d (major.getAppArgs.take cnP)
         cmp.2 with
     | error err => rw [hpeq] at h; exact nomatch h
     | ok rp =>
@@ -864,7 +864,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     simp only [↓reduceIte] at h
     try simp only [Bind.bind, Except.bind] at h
     -- the index block (`iotaIndexOk`)
-    cases hidx : iotaIndexOkFueled mode eager env fuel d mI rP r.ctorParams
+    cases hidx : iotaIndexOkFueled mode eager env fuel d mI rP cnP
         (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs ((e.getAppArgs.take mI).drop rP) with
     | error err => rw [hidx] at h; exact nomatch h
@@ -876,13 +876,13 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
     | true =>
     simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq,
       Option.some.injEq] at h
-    exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
+    exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
       cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
       hml, fun _ _ => by rw [hcmp]; exact ⟨hlev, hpeq, hmcerts, hidx⟩, h.symm⟩
   · rw [ite_eq_right h3] at h
     simp only [pure, Except.pure, ↓reduceIte, Except.ok.injEq,
       Option.some.injEq] at h
-    exact ⟨c, us, cv, mI, rP, rules, major, cj, usj, cvj, cnP,
+    exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
       cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
       hml, fun _ h3' => absurd (hcmp ▸ h3') h3, h.symm⟩
 
@@ -907,9 +907,9 @@ unchanged, or a constructor application was fabricated — in the
 K branch certified by proof irrelevance, in the structure-eta branch
 guarded by the η law's keys (no certificate), in the `And` branch by proof irrelevance again — and its
 scoping was checked syntactically (the scope guard). -/
-theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
+theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     {rules : List RecRule} {major major' : Expr}
-    (h : majorToCtorFueled mode eager env fuel d recName rules major = .ok major') :
+    (h : majorToCtorFueled mode eager env fuel d recName isK rules major = .ok major') :
     major' = major ∨
     (major'.wscopedB d = true ∧ major'.looseBVarsBounded 0 = true ∧
      major'.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true ∧
@@ -921,7 +921,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
        inferTypeIO mode eager env fuel d major = .ok tmaj₀ ∧
        whnf mode eager env fuel d tmaj₀ = .ok tmaj ∧
        tmaj.getAppFn = .const T ust ∧
-       ((rl.k = true ∧
+       ((isK = true ∧
          cvj.levelParams.length = ust.length ∧
          cnP ≤ tmaj.getAppArgs.length ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
@@ -979,7 +979,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
   | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-  | some (.indInfo _ _) | some (.recInfo _ _ _ _) =>
+  | some (.indInfo _ _) | some (.recInfo _ _ _ _ _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
@@ -1003,14 +1003,14 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name}
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
   | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-  | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _) =>
+  | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _) =>
     intro h; dsimp only at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact Or.inl h.symm
   | some (.indInfo cvT caps) =>
   intro h
   dsimp only at h
-  by_cases hK : rl.k = true
+  by_cases hK : isK = true
   · rw [ite_eq_left hK] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hti : inferTypeIO mode eager env fuel d major with
@@ -1730,7 +1730,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.ctorInfo cvc cnP cnF) => ?_
   intro h
   dsimp only at h
@@ -1758,7 +1758,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
@@ -1874,7 +1874,7 @@ theorem structUnitCert_inv {env : Env} {fuel d : Nat} {a b : Expr}
   | some (.defnInfo _ _ _) => intro h; exact nomatch h
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
@@ -2499,7 +2499,7 @@ theorem unfoldDefinition_WScoped {env : Env} (henv : EnvWF env)
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
@@ -2574,7 +2574,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
         · simp only [WScoped] at hwf'
           exact ihCore hbeta (WScoped.instantiate1_gen hw.2 0 hwf'.2)
         · -- iota step
-          obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+          obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
             cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj,
             hrule,
@@ -2588,7 +2588,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
           have hrhs : WScoped d
               (r.rhs.instantiateLevelParams cv.levelParams us) := by
             obtain ⟨-, -, -, -, -, hrules, -⟩ := henv.consts _ (Env.find?_mem hfc)
-            obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP rules rfl r
+            obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl r
               (List.mem_of_find?_eq_some hrule)
             exact WScoped.of_not_hasFvar
               (by rw [hasFvar_instantiateLevelParams]; exact hrf)
@@ -2662,8 +2662,8 @@ theorem whnf_WScoped {env : Env} (henv : EnvWF env)
 /-- The major chain preserves well-scopedness (an instance of
 `prepareMajorFueled_ind`). -/
 theorem prepareMajorFueled_WScoped {env : Env} (henv : EnvWF env)
-    {fuel d : Nat} {recName : Name} {rules : List RecRule} {a m : Expr}
-    (h : prepareMajorFueled mode eager env fuel d recName rules a = .ok m)
+    {fuel d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {a m : Expr}
+    (h : prepareMajorFueled mode eager env fuel d recName isK rules a = .ok m)
     (hw : WScoped d a) : WScoped d m :=
   prepareMajorFueled_ind h (WScoped d)
     (fun hw' hwe => whnf_WScoped henv fuel hw' hwe)

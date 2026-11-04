@@ -555,13 +555,13 @@ recursor's levels:
 (P) and (U) are read only at case 3, so they take the level equation. -/
 @[expose] def RecRuleExtra {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
-    (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
+    (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rl : RecRule) : Prop :=
   ∀ us : List Level, us.length = cv.levelParams.length →
     ∀ TVa : Term,
       denote m.acval env φ 0
         (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
     -- K
-    (RecRule.k rl = true → RecRule.nfields rl = 0 ∧
+    (isK = true → RecRule.nfields rl = 0 ∧
       ∀ Ra : Term,
         denote m.acval env φ 0
           ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some Ra →
@@ -577,24 +577,24 @@ recursor's levels:
     ∀ (cvj : ConstantVal) (cnP cnF : Nat),
       env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
     -- the constructor's arity
-    (cvj.type.stripPis (RecRule.ctorParams rl + RecRule.nfields rl)).isSome = true ∧
-    (RecRule.k rl = false →
+    (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome = true ∧
+    (isK = false →
     -- (S)
     (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 = true →
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true →
       ∀ (ρ : Nat → V) (xs : List Term) (a restR : Term),
         xs.length = mI → TeleFitPA V ρ TVa (xs ++ [a]) restR →
         interp V ρ a ≠ pt) ∧
     -- (T)
     (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 = true →
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true →
       ∀ (usj : List Level), usj.length = cvj.levelParams.length →
       ∀ TVja : Term,
         denote m.acval env φ 0
           (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
       ∀ (ρ : Nat → V) (xs ys : List Term) (restR restC : Term),
         xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         TeleFitPA V ρ TVa
           (xs ++ [Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]) restR →
@@ -606,11 +606,11 @@ recursor's levels:
           usj'.length = cvj.levelParams.length ∧
           Level.substFn φ cvj.levelParams usj'
             = Level.substFn φ cvj.levelParams
-                (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 ∧
+                (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 ∧
           denote m.acval env φ 0
             (cvj.type.instantiateLevelParams cvj.levelParams usj') = some TVja' ∧
           ys'.length = ys.length ∧
-          ys'.drop (RecRule.ctorParams rl) = ys.drop (RecRule.ctorParams rl) ∧
+          ys'.drop cnP = ys.drop cnP ∧
           (∀ y ∈ ys', WellDenoted V ρ y) ∧
           TeleFitPA V ρ TVja' ys' restC' ∧
           interp V ρ (Term.mkAppN
@@ -620,7 +620,7 @@ recursor's levels:
     ∀ (usj : List Level), usj.length = cvj.levelParams.length →
       Level.substFn φ cvj.levelParams usj
         = Level.substFn φ cvj.levelParams
-            (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 →
+            (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
     ∀ TVja : Term,
       denote m.acval env φ 0
         (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
@@ -629,14 +629,14 @@ recursor's levels:
         xs.length = mI → TeleFitPA V ρ TVa (xs ++ [a]) restR →
         interp V ρ a = pt →
       ∀ (ys : List Term) (restC : Term), TeleFitPA V ρ TVja ys restC →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         (∀ y ∈ ys, WellDenoted V ρ y) →
         interp V ρ (Term.mkAppN
           (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt) ∧
     -- (U)
     (∀ (ρ : Nat → V) (xs ys : List Term) (restR restC : Term),
         xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         TeleFitPA V ρ TVa
           (xs ++ [Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]) restR →
@@ -645,13 +645,13 @@ recursor's levels:
         (RecRule.fire rl = .plain →
           interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          ∀ i, i < RecRule.ctorParams rl → i < mI →
+          ∀ i, i < cnP → i < mI →
             interp V ρ (ys.getD i default) ≠ pt → interp V ρ (xs.getD i default) ≠ pt →
             interp V ρ (ys.getD i default) = interp V ρ (xs.getD i default)) →
         (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
           interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          ∀ i, i < RecRule.ctorParams rl →
+          ∀ i, i < cnP →
           ∀ vpa : Term,
             denote m.acval env φ rP
               (ConLeche.Verify.openRev 0 rP
@@ -663,16 +663,16 @@ recursor's levels:
               = interp V ρ (Term.instRevChain (xs.take rP) vpa)) →
         (interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          IotaIndexPinC (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs) →
+          IotaIndexPinC (V := V) ρ restC cnP mI rP xs) →
         interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs))
+          IotaIndexPin (V := V) ρ restC cnP mI rP xs))
 
 /-- **One rule's fired modeled-iota contract at `interp`** (see the
 section note). -/
 @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
-    (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
+    (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rl : RecRule) :
     Prop :=
   rP ≤ mI ∧
   (∀ us : List Level, us.length = cv.levelParams.length →
@@ -690,7 +690,7 @@ section note). -/
       -- environment's `Sat` in closed form.  The consumer reads it to
       -- run the case-3 pin comparison's claim (`RecRuleExtra`'s (U)).
       (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
-        ∀ i, i < RecRule.ctorParams rl →
+        ∀ i, i < pins.length →
         ∃ vpa : Term,
           denote m.acval env φ rP
             (ConLeche.Verify.openRev 0 rP
@@ -710,11 +710,11 @@ section note). -/
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List Term)
         (TVa TVja restR restC : Term),
         xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         usj.length = cvj.levelParams.length →
         Level.substFn φ cvj.levelParams usj
           = Level.substFn φ cvj.levelParams
-              (ConLeche.recFireComparands rl cv.levelParams us
+              (ConLeche.recFireComparands rl cnP cv.levelParams us
                 cvj.levelParams [] rP).1 →
         -- the fired spine is graded (task #342 S5b: the constructor's own
         -- parameters are not compared outside case 3; its application is
@@ -726,7 +726,7 @@ section note). -/
         -- only at a `Prop` valuation)
         (interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs) →
+          IotaIndexPin (V := V) ρ restC cnP mI rP xs) →
         denote m.acval env φ 0
           (cv.type.instantiateLevelParams cv.levelParams us)
           = some TVa →
@@ -746,20 +746,20 @@ section note). -/
                   (Level.substFn φ cvj.levelParams usj)) ys]))
           = interp V ρ
               (Term.mkAppN Ra
-                (xs.take rP ++ ys.drop (RecRule.ctorParams rl))) ∧
+                (xs.take rP ++ ys.drop cnP)) ∧
         ((∀ a ∈ xs, WellDenoted V ρ a) → (∀ b ∈ ys, WellDenoted V ρ b) →
           WellDenoted V ρ
             (Term.mkAppN Ra
-              (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))))
-  ∧ RecRuleExtra m φ n cv mI rP rl
+              (xs.take rP ++ ys.drop cnP))))
+  ∧ RecRuleExtra m φ n cv mI rP isK rl
 
 /-- The fired modeled-iota contract, keyed on every stored recursor. -/
 @[expose] def RecRules {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool)
     (rules : List RecRule),
-    env.find? n = some (.recInfo cv mI rP rules) →
-    ∀ rl ∈ rules, RecRuleLaw m φ n cv mI rP rl
+    env.find? n = some (.recInfo cv mI rP isK rules) →
+    ∀ rl ∈ rules, RecRuleLaw m φ n cv mI rP isK rl
 
 /-! ## The tower projection law (task #175 wiring, W5)
 

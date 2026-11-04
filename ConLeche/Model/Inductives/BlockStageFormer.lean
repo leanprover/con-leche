@@ -259,7 +259,7 @@ theorem stageBlockFormer (mp : EnvModelM V env) {names : List Name}
   refine declStep_preserves_of_ind_member_cons mp (c₀ := .indInfo cvTa caps)
     (A := A) hfresh hnresI (Or.inl ⟨_, _, rfl⟩)
     (ConsHead.ofFresh hwfI hAbelow hnresI
-      (fun _ _ _ _ h => nomatch h))
+      (fun _ _ _ _ _ h => nomatch h))
     hAparams hAok (fun ψ => ⟨_, hreadI ψ⟩) ?_ ?_ ?_
     (hind := indStrictHead_cons hreadI fun ψ hn ρ vs hsp =>
       ((mem_strictU_pos hn).mp (hAstrict ψ ρ vs hsp)).2)

@@ -120,29 +120,18 @@ inductive RecRuleFire where
 /-- One iota rule of a recursor: applying the recursor (with its
 parameters, motives and minors) to a `ctor`-headed major premise reduces
 to `rhs` applied to the parameters, motives, minors and the constructor's
-`nfields` fields.  `ctorParams` (the constructor's parameter count) and
-`fire` (the plain/nested firing mode) and the K bit `k`
-are *computed at install* from the stored constructor,
-its inductive's capabilities and the recursor type — input rules carry
-the parse placeholders `0`/`.plain`/`false`; reduction reads only the
-installed values, never re-deriving them per fire. -/
+`nfields` fields: the record's three fields, as Lean's `RecursorRule`
+has them.  `fire` (the plain/nested firing mode) is read off the
+recursor's record, the group alone (`storedFire`); input rules carry the
+parse placeholder `.plain`.  The constructor's parameter count is the
+constructor's, looked up where the rule fires. -/
 structure RecRule where
   ctor : Name
   nfields : Nat
-  /-- The constructor's parameter count (install-computed; parse
-  placeholder `0`). -/
-  ctorParams : Nat
   /-- The firing mode (install-computed, parse placeholder `.plain`):
   `.plain` at a member major, `.nested` at an outside one. -/
   fire : RecRuleFire
   rhs : Expr
-  /-- **The K bit** (install-computed, parse placeholder `false`;
-  official `recursor_val::is_k`): this rule is its recursor's only
-  one, its constructor has no fields, and that constructor's
-  inductive is stored with the K capability — the standing condition
-  of `majorToCtor`'s K rescue, decided once at the block's install
-  instead of at every recursor application. -/
-  k : Bool := false
   deriving DecidableEq, Repr, Inhabited
 
 /-- Reducibility hint of a definition, mirroring Lean's
@@ -205,7 +194,6 @@ structure IndCaps where
   /-- The parameter count of the unit-like family (meaningful only
   when `unitlike`). -/
   unitParams : Nat := 0
-  ruleK : Bool := false
   /-- **The family's result-sort zero-ness datum** (install-computed
   from the stored type; the default `ifAllZero []` reads
   "zero at every valuation", which no rescue passes).  The structure-η
@@ -318,14 +306,16 @@ inductive ConstantInfo where
   | indInfo (val : ConstantVal) (caps : IndCaps)
   /-- A basis constructor (whnf-stuck; the iota target). -/
   | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-  /-- A basis recursor with its iota rules.  Only the two sums the
+  /-- A recursor with its iota rules and the record's K flag (official's
+  `recursor_val::is_k`, read off the stream's record; the block's job
+  checks it).  Only the two sums the
   firing path reads are stored: `majorIdx` (= numParams + numMotives +
   numMinors + numIndices, the major premise's argument position) and
   `rulePrefix` (= numParams + numMotives + numMinors, the length of the
   argument prefix a rule's rhs is applied to).  The individual counts
   are consumed at install time only and are not stored. -/
   | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-      (rules : List RecRule)
+      (isK : Bool) (rules : List RecRule)
   deriving DecidableEq, Repr, Inhabited
 
 /-- **Which of the four quotient constants a `#QUOT` record declares**
@@ -460,7 +450,7 @@ namespace ConstantInfo
 
 def toConstantVal : ConstantInfo → ConstantVal
   | .axiomInfo v | .defnInfo v _ _ | .thmInfo v => v
-  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ => v
+  | .indInfo v _ | .ctorInfo v _ _ | .recInfo v _ _ _ _ => v
 
 def name (c : ConstantInfo) : Name := c.toConstantVal.name
 

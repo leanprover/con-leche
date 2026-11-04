@@ -45,7 +45,7 @@ def falseRecRaw : ConstantInfo :=
   .recInfo ⟨falseName.str "rec", [uN],
     pi "motive" (pi "t" (cnst falseName) (srt u)) <|
     pi "t" (cnst falseName) (.app (bv 1) (bv 0))⟩
-    1 1 []
+    1 1 false []
 
 /-- The pinned `False` basis block, in install order. -/
 def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]

@@ -33,12 +33,8 @@ functions on the same inputs wherever one exists):
   `whnf` loop reads, as the checked install computes it (`storedTele`) —
   the binders the stored recursor shows; the sort is on no record;
 * the constructors as declared (`consSumCtorsF`'s records);
-* the recursors: each record at its stored type, its stored right-hand
-  sides, its rules' metadata by `tgtStoredRules` at the record's major —
-  a member's (the member's parameter count and constructors) or an
-  outside container's (`targetCtorsOf`, the firing data read off the
-  stored major domain opened at the recursor's prefix, as the
-  generator's class reading opens it);
+* the recursors: each record as it stands (type, K flag, rules), its
+  rules' firing mode read off the record alone (`storedFire`);
 * the projection tables: the bodies by substitution
   (`structProjBodiesC`), the guards (`ProjTable.guards`, the fields'
   sorts) inferred here, at install, from a fresh memo at the formers'
@@ -94,14 +90,13 @@ theorem RecRuleFire.eq_of_beqP {a b : RecRuleFire} (h : a.beqP b = true) : a = b
 
 /-- `RecRule` equality, the right-hand side by `Expr`'s `==`. -/
 def RecRule.beqP (a b : RecRule) : Bool :=
-  a.ctor == b.ctor && a.nfields == b.nfields && a.ctorParams == b.ctorParams &&
-    a.fire.beqP b.fire && a.rhs == b.rhs && a.k == b.k
+  a.ctor == b.ctor && a.nfields == b.nfields && a.fire.beqP b.fire && a.rhs == b.rhs
 
 theorem RecRule.eq_of_beqP {a b : RecRule} (h : a.beqP b = true) : a = b := by
-  obtain ⟨c, n, p, f, r, k⟩ := a
-  obtain ⟨c', n', p', f', r', k'⟩ := b
+  obtain ⟨c, n, f, r⟩ := a
+  obtain ⟨c', n', f', r'⟩ := b
   simp only [RecRule.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, hf⟩, rfl⟩, rfl⟩ := h
+  obtain ⟨⟨⟨rfl, rfl⟩, hf⟩, rfl⟩ := h
   rw [RecRuleFire.eq_of_beqP hf]
 
 /-- **`ConstantInfo` equality, pointer-first**: every `Expr` by its
@@ -112,8 +107,8 @@ def ConstantInfo.beqP : ConstantInfo → ConstantInfo → Bool
   | .thmInfo v, .thmInfo v' => v.beqP v'
   | .indInfo v c, .indInfo v' c' => v.beqP v' && decide (c = c')
   | .ctorInfo v a b, .ctorInfo v' a' b' => v.beqP v' && a == a' && b == b'
-  | .recInfo v a b rs, .recInfo v' a' b' rs' =>
-    v.beqP v' && a == a' && b == b' && listBeqBy RecRule.beqP rs rs'
+  | .recInfo v a b isK rs, .recInfo v' a' b' isK' rs' =>
+    v.beqP v' && a == a' && b == b' && isK == isK' && listBeqBy RecRule.beqP rs rs'
   | _, _ => false
 
 theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a = b := by
@@ -124,7 +119,7 @@ theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a =
   · rw [ConstantVal.eq_of_beqP h]
   · obtain ⟨hv, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
   · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
-  · obtain ⟨⟨⟨hv, rfl⟩, rfl⟩, hr⟩ := h
+  · obtain ⟨⟨⟨⟨hv, rfl⟩, rfl⟩, rfl⟩, hr⟩ := h
     rw [ConstantVal.eq_of_beqP hv, eq_of_listBeqBy (fun _ _ => RecRule.eq_of_beqP) hr]
 
 /-- **`ProjTable` equality, pointer-first**: the bodies by `Expr`'s
@@ -179,33 +174,33 @@ def storedFormers (W : FEnv) (p : BlockParts) : List ConstantVal × Level :=
     | some (_, some (_, s)) => s
     | _ => p.resSort)
 
-/-- A recursor record's major, as `tgtStoredRules` reads it: a member
-(its parameter count and constructors), or an outside container at the
-levels and parameters of the stored major domain opened at the
-recursor's prefix. -/
-def storedMajor (fe : FEnv) (p : BlockShape) (rc : RecShape) : Option TargetMajor :=
-  if h : rc.tgt < p.k then
-    let ms := p.members[rc.tgt]'(by simpa [BlockShape.k] using h)
-    some { ind := ms.cvT.name, lvls := [], ds := [], nPc := p.nP, nIdx := ms.nIdx,
-           ctors := ms.ctors, member := some rc.tgt }
+/-- **A recursor record's rules, read off the group alone**: its rules
+as declared (constructor, field count, right-hand side), firing `.plain`
+at a member major (`rc.tgt`, the recogniser's reading) and `.nested` at an
+outside one: the levels and the arguments of the major's domain, read off
+the record's type at its `mI` binders, the record's `mI - rP` trailing
+index variables dropped and the rest closed over the rule prefix.  No
+lookup: what is outside the block (the container's parameter count) is not
+needed, the index count being the record's. -/
+def storedFire (p : BlockShape) (rc : RecShape) : Option RecRuleFire :=
+  if rc.tgt < p.k then some .plain
   else do
     let (_, body) ← openPisAtFvars rc.mI rc.cvR.type 0
     let .forallE dom _ := body | none
-    let .const I us := dom.getAppFn | none
-    let (nPc, ctors) ← targetCtorsOf fe I
-    some { ind := I, lvls := us, ds := dom.getAppArgs.take nPc, nPc := nPc, nIdx := 0,
-           ctors := ctors, member := none }
+    let .const _ us := dom.getAppFn | none
+    let args := dom.getAppArgs
+    some (.nested us ((args.take (args.length - (rc.mI - rc.rP))).map (Expr.abstractPrefix rc.rP 0)))
 
 /-- The recursors' records, in the block's order; a recursor whose major
 cannot be read keeps its rules as declared (the checked install rejects
 the block there). -/
-def storedRecs (fe₂ : FEnv) (p : BlockShape) : Nat → List RecShape → List ConstantInfo
+def storedRecs (p : BlockShape) : Nat → List RecShape → List ConstantInfo
   | _, [] => []
   | r, rc :: rest =>
-    let rules := match storedMajor fe₂ p rc with
-      | some M => tgtStoredRules fe₂.find? rc.cvR (p.rulePrefixAt r) M (rc.rules.map (·.rhs))
+    let rules := match storedFire p rc with
+      | some f => rc.rules.map fun rl => { rl with fire := f }
       | none => rc.rules
-    .recInfo rc.cvR (p.majorIdxAt r) (p.rulePrefixAt r) rules :: storedRecs fe₂ p (r + 1) rest
+    .recInfo rc.cvR (p.majorIdxAt r) (p.rulePrefixAt r) rc.isK rules :: storedRecs p (r + 1) rest
 
 /-- **A structure's guard levels**: the fields'
 sorts at the formers' environment `fe₁`, from a fresh memo, by the
@@ -263,7 +258,6 @@ def storedInstall (W : FEnv) (block : List ConstantInfo) (nP : Nat) :
       let ctors := p.members.flatMap fun ms =>
         ms.ctors.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2
       let fe₁ := FEnv.pushAll formers W
-      let fe₂ := FEnv.pushAll ctors fe₁
-      (formers ++ ctors ++ storedRecs fe₂ p 0 p.recs, storedTables mode fe₁ p p.members)
+      (formers ++ ctors ++ storedRecs p 0 p.recs, storedTables mode fe₁ p p.members)
 
 end ConLeche.Cached

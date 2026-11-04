@@ -321,7 +321,7 @@ def ruleRhsAtM (fe : FEnv) (_cI _jI : Name) (c j : Name) (us : List Level) :
   | some i => pure i
   | none =>
     match fe.find? c with
-    | some (.recInfo cv _ _ rules) =>
+    | some (.recInfo cv _ _ _ rules) =>
       match rules.find? (fun r' => r'.ctor == j) with
       | some rl =>
         let i ← instLevelParamsM cv.levelParams us rl.rhs

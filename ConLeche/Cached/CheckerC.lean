@@ -170,11 +170,12 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
   -- constructors' index (read-only, sharing it), a flush entering and
   -- leaving that environment; the overlay is dead once the comparison
   -- returns, before the stored recursors are pushed
-  let feG := fe₂.overlay (blockRecInfosTF fe₂.find? p.toBlockShape 0 out).reverse
+  storedKCheck p.toBlockShape p.recs out
+  let feG := fe₂.overlay (blockRecInfosTF p.toBlockShape 0 out).reverse
   flushC
   storedRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
   flushC
-  let recs := blockRecInfosTF fe₂.find? p.toBlockShape 0 (storedOut p.recs out)
+  let recs := blockRecInfosTF p.toBlockShape 0 (storedOut p.recs out)
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
 

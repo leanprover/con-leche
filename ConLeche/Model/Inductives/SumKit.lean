@@ -1108,7 +1108,7 @@ theorem stageCtorGen {T : Name}
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
   have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ := by
     refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF ?_ ?_ (Expr.constsResolve_mono htr) ?_
-      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ heq => nomatch heq))
+      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
     · show cvCa.type.hasFvar = false; rw [hty]; exact htf'
     · show cvCa.type.allLevelParamsDefined cvCa.levelParams = true; rw [hty]; exact htp
     · show cvCa.type.looseBVarsBounded 0 = true; rw [hty]; exact hbt'
@@ -1134,7 +1134,7 @@ theorem stageCtorGen {T : Name}
   refine declStep_preserves_of_ind_member_cons mp (c₀ := .ctorInfo cvCa nP nF)
     (A := A) hfresh hnresC (Or.inr ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh hwfC (fun ψ => hAbelow ψ) hnresC
-      (fun _ _ _ _ h => nomatch h))
+      (fun _ _ _ _ _ h => nomatch h))
     ?_ ?_ ?_ ?_ ?_ ?_
   · intro ψ₁ ψ₂ hφ
     have hφT : ∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q := by rw [hlpsT, ← hlpsC]; exact hφ

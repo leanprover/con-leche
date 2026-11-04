@@ -160,12 +160,11 @@ fields, in its member at its own level parameters applied to the
 parameter variables and then the index expressions (official's
 `check_constructors`: the result's parameters are the parameters).  The
 ι case split's facts at an outside class read them: a container's
-capabilities decide its sort's zero-ness and its K rule, and its
+capabilities decide its sort's zero-ness, and its
 constructor's residual is the former at the constructor's parameters. -/
 @[expose] def LfpCaps {V : Type w} [SetTheory V] (env : Env) (D : LfpDatum V) : Prop :=
   (∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-    (∀ ψ : Name → Nat, D.w ψ = 0 → caps.sortZ.holds ψ = true) ∧
-    (caps.ruleK = true → D.nctors mm = 1)) ∧
+    (∀ ψ : Name → Nat, D.w ψ = 0 → caps.sortZ.holds ψ = true)) ∧
   ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
     env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
     ∃ (bs : List Expr) (es : List Expr),
@@ -411,12 +410,12 @@ def toEnvFacts {V : Type w} [SetTheory V]
     exact ⟨ta, hta⟩
   defn_eq := fun cv value hint hmem ψ =>
     (m.defn_reads ψ cv value ⟨hint, hmem⟩)
-  rec_rhs_denotes := fun n cv mI rP rules hf r hr us ψ hlen => by
-    obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP rules hf r hr
+  rec_rhs_denotes := fun n cv mI rP isK rules hf r hr us ψ hlen => by
+    obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP isK rules hf r hr
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen
     exact ⟨Ra, hRa⟩
-  rec_params_le := fun n cv mI rP rules hf r hr =>
-    (m.rec_rules (fun _ => 0) n cv mI rP rules hf r hr).1
+  rec_params_le := fun n cv mI rP isK rules hf r hr =>
+    (m.rec_rules (fun _ => 0) n cv mI rP isK rules hf r hr).1
   proj_ok := m.base2.proj_ok
   nat_op_guard := fun c hmem hst => by
     obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
@@ -454,7 +453,7 @@ field is vacuous — no constants, guards false. -/
     refine ⟨fun T cvT caps hf => ?_, fun T cvT caps hf => ?_⟩ <;>
       · rw [show Env.empty.find? T = none from rfl] at hf
         exact nomatch hf
-  rec_rules := fun _ n _ _ _ _ hf => by
+  rec_rules := fun _ n _ _ _ _ _ hf => by
     rw [show Env.empty.find? n = none from rfl] at hf
     exact nomatch hf
   reduce_ops := fun c _ cv hf => by
@@ -507,9 +506,9 @@ of a stored former's type — the transport every construction site of
 the invariant (the cons funnel, the rule-list swap) instantiates. -/
 theorem lfp_ok_transport (mp : EnvModelM V env) {env' : Env}
     {acval' : Name → (Name → Nat) → Term}
-    (hfind : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    (hfind : ∀ n ci, env.find? n = some ci → (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       env'.find? n = some ci)
-    (hag : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    (hag : ∀ n ci, env.find? n = some ci → (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       acval' n = mp.base2.acval n)
     (hread : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ∀ (ψ : Name → Nat)
       (ta : Term), denote mp.base2.acval env ψ 0 cv.type = some ta →
@@ -517,7 +516,7 @@ theorem lfp_ok_transport (mp : EnvModelM V env) {env' : Env}
     (hreadT : ∀ n cv nPc nF, env.find? n = some (.ctorInfo cv nPc nF) → ∀ (ψ : Name → Nat)
       (ta : Term), denote mp.base2.acval env ψ 0 cv.type = some ta →
       denote acval' env' ψ 0 cv.type = some ta)
-    (hreadC : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    (hreadC : ∀ n ci, env.find? n = some ci → (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       ∀ A, CanonOf ci.toConstantVal.type A →
       ∀ (ψ : Name → Nat) (d : Nat) (ta : Term),
       denote mp.base2.acval env ψ d A = some ta →
@@ -530,22 +529,22 @@ theorem lfp_ok_transport (mp : EnvModelM V env) {env' : Env}
     ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc j hj => ?_⟩,
     ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
+    exact hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
+    exact hag _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h
   · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
+    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
+    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h⟩
   · obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
-    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
+    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
     obtain ⟨ab, hta, h1⟩ := hab ψ
     exact ⟨ab, hread _ _ _ hf ψ _ hta, h1⟩
   · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
-    refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
+    refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
       fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
     · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
-      exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
+      exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
     · -- the new reading is the old one (the old one exists, and crosses)
       obtain ⟨ta, hta⟩ := mp.type_reads _ (List.mem_of_find?_eq_some hf) ψ
       change denote mp.base2.acval env ψ 0 cv.type = some ta at hta
@@ -554,15 +553,15 @@ theorem lfp_ok_transport (mp : EnvModelM V env) {env' : Env}
       obtain rfl := Option.some.inj hta'
       exact hpars ψ dsC bodyC hta hle
     · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, hreadC _ _ hf (fun _ _ _ _ h => ConstantInfo.noConfusion h) A
+      refine ⟨h1, h2, ab, Tys, hreadC _ _ hf (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) A
         (.inl ⟨_, _, _, hA⟩) ψ _ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
       obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
-      exact ⟨cvm, caps, ty, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hty,
-        hreadC _ _ hfm (fun _ _ _ _ h => ConstantInfo.noConfusion h) ty (.inr ⟨_, hty⟩) ψ _ _ hr⟩
-  · obtain ⟨cv, caps, hf, hz, hk⟩ := hcK mm hmm
-    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hz, hk⟩
+      exact ⟨cvm, caps, ty, hfind _ _ hfm fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hty,
+        hreadC _ _ hfm (fun _ _ _ _ _ h => ConstantInfo.noConfusion h) ty (.inr ⟨_, hty⟩) ψ _ _ hr⟩
+  · obtain ⟨cv, caps, hf, hz⟩ := hcK mm hmm
+    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hz⟩
   · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
-    exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
+    exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
 
 end EnvModelM
 

@@ -178,7 +178,7 @@ def storedRecCheck (ops : CheckerOps m) (w : StructWalkers)
     (fe : FEnv) (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) : m Unit := do
   storedRulesShape rc.cvR.name rc.rules g.2.1.ctors
   unless storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf g.2.1 rc.rP) do
-    throw (.internal s!"the recursor {rc.cvR.name}'s stored type does not apply its \
+    throw (.invalid s!"the recursor {rc.cvR.name}'s stored type does not apply its \
       major's container at the generated firing data")
   storedRecCompare ops w fe rc g
 
@@ -191,6 +191,19 @@ def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
     storedRecsCheck ops w fe rcs gs
   | [], [] => pure ()
   | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
+
+/-- **The records' K flags against the block**: each record's flag is the
+one the generated recursor has (`recKExpected`).  What the flag says is
+then a fact about the block, so nothing of the model reads the record for
+it; a difference is a real disagreement of the stream, exit 1. -/
+def storedKCheck (p : BlockShape) :
+    List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+  | rc :: rcs, g :: gs => do
+    unless rc.isK == recKExpected p g.2.1 do
+      throw (.invalid s!"recursor {rc.cvR.name} declares k := {rc.isK}; the generated recursor \
+        of this block is{if recKExpected p g.2.1 then "" else " not"} K-like")
+    storedKCheck p rcs gs
+  | _, _ => pure ()
 
 /-- **What is installed**: each generated recursor with the stored type
 and the stored right-hand sides, at the generated recursor's name, level

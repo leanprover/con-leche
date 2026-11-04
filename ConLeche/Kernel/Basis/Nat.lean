@@ -53,7 +53,7 @@ def natRecRaw : ConstantInfo :=
     pi "succ" natRecSucc <|
     pi "t" natT (.app (bv 3) (bv 0))⟩
     3 3
-    [rule natZeroName 0 <|
+    false [rule natZeroName 0 <|
       lm "motive" natRecMotive <|
       lm "zero" (.app (bv 0) (cnst natZeroName)) <|
       lm "succ" natRecSucc <|

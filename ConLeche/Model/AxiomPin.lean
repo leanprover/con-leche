@@ -172,7 +172,7 @@ theorem axiomStd
     refine ConLeche.EnvWF.cons mp.base2.wf
       ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
-    · intro cv2 mI rP rules heq; exact nomatch heq
+    · intro cv2 mI rP isK rules heq; exact nomatch heq
     · intro cv2 caps heq; exact nomatch heq
   by_cases hn : cv.name = propextName
   · refine harvestAxiom (V := V) mp hcv

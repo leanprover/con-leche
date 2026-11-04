@@ -22,8 +22,8 @@ namespace ConLeche
 /-- The type-and-rules swap pair. -/
 @[expose] def SwapPairTy (c₀ c₃ : ConstantInfo) : Prop :=
   c₀ = c₃ ∨
-  ∃ cv cv' mI rP rules rules',
-    c₀ = .recInfo cv mI rP rules ∧ c₃ = .recInfo cv' mI rP rules' ∧
+  ∃ cv cv' mI rP isK rules rules',
+    c₀ = .recInfo cv mI rP isK rules ∧ c₃ = .recInfo cv' mI rP isK rules' ∧
     cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧ reservedRecName cv.name = false
 
 /-- Pointwise type-and-rules swap of two constant lists. -/
@@ -39,7 +39,7 @@ theorem SwapTyList.of_eq : ∀ (l : List ConstantInfo), SwapTyList l l
 
 theorem SwapPairTy.name_eq {c₀ c₃ : ConstantInfo} (h : SwapPairTy c₀ c₃) :
     c₀.name = c₃.name := by
-  rcases h with rfl | ⟨cv, cv', mI, rP, rules, rules', rfl, rfl, hn, -, -⟩
+  rcases h with rfl | ⟨cv, cv', mI, rP, isK, rules, rules', rfl, rfl, hn, -, -⟩
   · rfl
   · exact hn.symm
 
@@ -49,9 +49,9 @@ theorem swapTy_find?_corr {ts : List ProjTable} :
     SwapTyList consts₀ consts₃ →
     ∀ n : Name,
     (Env.mk consts₃ ts).find? n = (Env.mk consts₀ ts).find? n ∨
-    ∃ cv cv' mI rP rules rules',
-      (Env.mk consts₀ ts).find? n = some (.recInfo cv mI rP rules) ∧
-      (Env.mk consts₃ ts).find? n = some (.recInfo cv' mI rP rules') ∧
+    ∃ cv cv' mI rP isK rules rules',
+      (Env.mk consts₀ ts).find? n = some (.recInfo cv mI rP isK rules) ∧
+      (Env.mk consts₃ ts).find? n = some (.recInfo cv' mI rP isK rules') ∧
       cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧ cv.name = n ∧
       reservedRecName cv.name = false := by
   intro consts₀ consts₃ hsw
@@ -67,9 +67,9 @@ theorem swapTy_find?_corr {ts : List ProjTable} :
       have h₀ : (Env.mk (c₀ :: rest₀) ts).find? n = some c₀ := by
         show (c₀ :: rest₀).find? (·.name == n) = some c₀
         rw [List.find?_cons_of_pos (by simp [hn₀])]
-      rcases hpair with rfl | ⟨cv, cv', mI, rP, rules, rules', rfl, rfl, hnm, hlp, hres⟩
+      rcases hpair with rfl | ⟨cv, cv', mI, rP, isK, rules, rules', rfl, rfl, hnm, hlp, hres⟩
       · exact Or.inl (h₃.trans h₀.symm)
-      · exact Or.inr ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, hnm, hlp, hn₀, hres⟩
+      · exact Or.inr ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, hnm, hlp, hn₀, hres⟩
     · have hn₀ : ¬c₀.name = n := by
         rw [SwapPairTy.name_eq hpair]
         exact hn
@@ -110,14 +110,14 @@ theorem SwapTyList.congr {consts₀ consts₃ : List ConstantInfo} {ts : List Pr
   have hchk : ∀ (chk : Option ConstantInfo → Bool) (n : Name), reservedRecName n = true →
       chk ((Env.mk consts₀ ts).find? n) = chk ((Env.mk consts₃ ts).find? n) := by
     intro chk n hn
-    rcases hcorr n with heq | ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, -, -, hname, hres⟩
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, -, hname, hres⟩
     · rw [heq]
     · rw [hname, hn] at hres
       exact absurd hres (by decide)
   have hfeq : ∀ n, reservedRecName n = true →
       (Env.mk consts₀ ts).find? n = (Env.mk consts₃ ts).find? n := by
     intro n hn
-    rcases hcorr n with heq | ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, -, -, hname, hres⟩
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, -, hname, hres⟩
     · rw [heq]
     · rw [hname, hn] at hres
       exact absurd hres (by decide)
@@ -127,11 +127,11 @@ theorem SwapTyList.congr {consts₀ consts₃ : List ConstantInfo} {ts : List Pr
     rw [hfeq natName (by decide), hfeq natZeroName (by decide), hfeq natSuccName (by decide)]
   refine ⟨?_, ?_, hnat, ?_, ?_, ?_, ?_, rfl⟩
   · intro n
-    rcases hcorr n with heq | ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, -, hlp⟩
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, hlp⟩
     · rw [heq]
     · rw [h₀, h₃]; simp [ConstantInfo.toConstantVal, hlp]
   · intro n
-    rcases hcorr n with heq | ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]; rfl
   · unfold strLitSupported
@@ -144,7 +144,7 @@ theorem SwapTyList.congr {consts₀ consts₃ : List ConstantInfo} {ts : List Pr
     congr 1
     · congr 1
       refine congrArg (List.all (natOpDeps c)) (funext fun n => ?_)
-      rcases hcorr n with heq | ⟨cv2, cv2', a, b, c2, c2', h₀, h₃, -⟩
+      rcases hcorr n with heq | ⟨cv2, cv2', a, b, kk, c2, c2', h₀, h₃, -⟩
       · rw [heq]
       · rw [h₀, h₃]
     · split
@@ -153,17 +153,17 @@ theorem SwapTyList.congr {consts₀ consts₃ : List ConstantInfo} {ts : List Pr
         · rw [hfeq boolFalseName (by decide)]
       · rfl
   · intro n ci hf hnr
-    rcases hcorr n with heq | ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -⟩
     · rw [← heq]; exact hf
     · rw [h₃] at hf
       obtain rfl := Option.some.inj hf
-      exact absurd rfl (hnr cv' mI rP rules')
+      exact absurd rfl (hnr cv' mI rP isK rules')
   · intro n ci hf hnr
-    rcases hcorr n with heq | ⟨cv, cv', mI, rP, rules, rules', h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -⟩
     · rw [heq]; exact hf
     · rw [h₀] at hf
       obtain rfl := Option.some.inj hf
-      exact absurd rfl (hnr cv mI rP rules)
+      exact absurd rfl (hnr cv mI rP isK rules)
 
 theorem SwapTyList.congrEnv {env₀ env₃ : Env} (hsw : SwapTyList env₀.consts env₃.consts)
     (ht : env₃.tables = env₀.tables) : SwapCongr env₀ env₃ := by
@@ -176,9 +176,9 @@ theorem SwapTyList.congrEnv {env₀ env₃ : Env} (hsw : SwapTyList env₀.const
 theorem swapTy_find?_corrEnv {env₀ env₃ : Env} (hsw : SwapTyList env₀.consts env₃.consts)
     (n : Name) :
     env₃.find? n = env₀.find? n ∨
-    ∃ cv cv' mI rP rules rules',
-      env₀.find? n = some (.recInfo cv mI rP rules) ∧
-      env₃.find? n = some (.recInfo cv' mI rP rules') ∧
+    ∃ cv cv' mI rP isK rules rules',
+      env₀.find? n = some (.recInfo cv mI rP isK rules) ∧
+      env₃.find? n = some (.recInfo cv' mI rP isK rules') ∧
       cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧ cv.name = n ∧
       reservedRecName cv.name = false :=
   swapTy_find?_corr (ts := []) hsw n

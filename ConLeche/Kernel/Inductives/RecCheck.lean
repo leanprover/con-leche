@@ -604,14 +604,24 @@ MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule
 fires `auxRuleFire` (`.nested` at the major's instantiation), at a
 member major as `sumRules` builds it. -/
-def tgtStoredRules (find? : Name → Option ConstantInfo)
-    (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-  let rules := sumRules find? cv.name M.nPc M.ctors rhss
+def tgtStoredRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+  let rules := sumRules M.ctors rhss
   match M.member with
   | none =>
     let fire := auxRuleFire M rP
     rules.map fun rl => { rl with fire := fire }
   | some _ => rules
+
+/-- **The K flag a recursor of this block has** (official's
+`is_K_target`, `inductive.cpp`): the block is a proposition with one
+member, and the recursor's major is that member, with one constructor
+and no fields.  An outside major's recursor is never K (official's
+`is_K_target` sees the auxiliary types as further members).  The job
+checks the record's flag against it. -/
+def recKExpected (p : BlockShape) (M : TargetMajor) : Bool :=
+  match M.member, M.ctors with
+  | some _, [c] => p.k == 1 && p.isProp && c.2 == 0
+  | _, _ => false
 
 /-- **The block's container bit** (official's `m_nested`):
 some field kind is not flat (the positivity function reached a
@@ -625,12 +635,12 @@ def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) :
 each recursor's rules at ITS major (`tgtStoredRules`).  The cached
 install pushes them (`FEnv.pushAll`, `checkBlockTailS`), every record
 built before the first push. -/
-def blockRecInfosTF (find? : Name → Option ConstantInfo)
+def blockRecInfosTF
     (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → List ConstantInfo
   | _, [] => []
   | m, (cv, M, rhss) :: rest =>
     .recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (tgtStoredRules find? cv (p.rulePrefixAt m) M rhss)
-      :: blockRecInfosTF find? p (m + 1) rest
+        (recKExpected p M) (tgtStoredRules (p.rulePrefixAt m) M rhss)
+      :: blockRecInfosTF p (m + 1) rest
 
 end ConLeche

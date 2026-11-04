@@ -167,13 +167,13 @@ theorem extendQuot (mp : EnvModelM V env)
     (A := fun ψ => Term.const .quot [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => nomatch h)
+    (fun _ _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotA.name ψ
           = some (Term.const .quot [ψ uN]) from rfl] at hp
-        rw [← Option.some.inj hp]) (fun _ _ _ _ h => nomatch h))
+        rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     ?_
     (fun _ _ => trivial)
     (fun ψ => ⟨_, denote_quotA_type ψ⟩) ?_ ?_
@@ -216,13 +216,13 @@ theorem extendQuotMk (mp : EnvModelM V env)
     (A := fun ψ => Term.const .quotMk [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => nomatch h)
+    (fun _ _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotMkA.name ψ
           = some (Term.const .quotMk [ψ uN]) from rfl] at hp
-        rw [← Option.some.inj hp]) (fun _ _ _ _ h => nomatch h))
+        rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     ?_
     (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -846,7 +846,7 @@ theorem quotIndExtra {m : EnvModel V env}
     (hac : m₂.acval = acvalWith m.acval quotIndA.name
       (fun ψ => Term.const .quotInd [ψ uN]))
     (φ : Name → Nat) :
-    RecRuleExtra m₂ φ quotIndA.name quotIndA.toConstantVal 4 4
+    RecRuleExtra m₂ φ quotIndA.name quotIndA.toConstantVal 4 4 false
       quotIndRule := by
   intro us _ TVa hTVa
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -877,7 +877,7 @@ theorem quotIndExtra {m : EnvModel V env}
   have hulevOf : ∀ usj : List Level,
       Level.substFn φ quotMkA.toConstantVal.levelParams usj
         = Level.substFn φ quotMkA.toConstantVal.levelParams
-            (ConLeche.recFireComparands quotIndRule quotIndA.toConstantVal.levelParams us
+            (ConLeche.recFireComparands quotIndRule 2 quotIndA.toConstantVal.levelParams us
               quotMkA.toConstantVal.levelParams [] 4).1 →
       Level.substFn φ quotMkA.toConstantVal.levelParams usj uN = ψ uN := by
     intro usj hlev
@@ -980,7 +980,7 @@ theorem quotIndLaw {m : EnvModel V env}
     (hac : m₂.acval = acvalWith m.acval quotIndA.name
       (fun ψ => Term.const .quotInd [ψ uN]))
     (φ : Name → Nat) :
-    RecRuleLaw m₂ φ quotIndA.name quotIndA.toConstantVal 4 4
+    RecRuleLaw m₂ φ quotIndA.name quotIndA.toConstantVal 4 4 false
       quotIndRule := by
   refine ⟨Nat.le_refl 4, fun us hus => ?_,
     quotIndExtra (m := m) m₂ hQ hM hac φ⟩
@@ -1084,11 +1084,11 @@ theorem extendQuotInd (mp : EnvModelM V env)
         rw [show ConLeche.Verify.pinnedStructT quotIndA.name ψ
           = some (Term.const .quotInd [ψ uN]) from rfl] at hp
         rw [← Option.some.inj hp])
-      (fun _ _ _ _ heq r hr => by
-        injection heq with _ _ _ h4
+      (fun _ _ _ _ _ heq r hr => by
+        injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨⟨_, _, _, hM⟩, fun hb => Bool.noConfusion hb⟩
+        · exact ⟨_, _, _, hM⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)
@@ -1451,13 +1451,13 @@ theorem extendQuotSound (mp : EnvModelM V env)
     (A := fun ψ => Term.const .quotSound [ψ uN]) hfresh
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
-    (fun _ _ _ _ h => nomatch h)
+    (fun _ _ _ _ _ h => nomatch h)
     (Or.inl (by decide)) (Or.inr (by decide))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotSoundA.name ψ
           = some (Term.const .quotSound [ψ uN]) from rfl] at hp
-        rw [← Option.some.inj hp]) (fun _ _ _ _ h => nomatch h))
+        rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     ?_
     (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
@@ -2106,7 +2106,7 @@ theorem quotLiftExtra {m : EnvModel V env}
     (hac : m₂.acval = acvalWith m.acval quotLiftA.name
       (fun ψ => Term.const .quotLift [ψ uN, ψ vN]))
     (φ : Name → Nat) :
-    RecRuleExtra m₂ φ quotLiftA.name quotLiftA.toConstantVal 5 5
+    RecRuleExtra m₂ φ quotLiftA.name quotLiftA.toConstantVal 5 5 false
       quotLiftRule := by
   intro us _ TVa hTVa
   obtain ⟨ψ, hψ⟩ : ∃ ψ : Name → Nat,
@@ -2139,7 +2139,7 @@ theorem quotLiftExtra {m : EnvModel V env}
   have hulevOf : ∀ usj : List Level,
       Level.substFn φ quotMkA.toConstantVal.levelParams usj
         = Level.substFn φ quotMkA.toConstantVal.levelParams
-            (ConLeche.recFireComparands quotLiftRule quotLiftA.toConstantVal.levelParams us
+            (ConLeche.recFireComparands quotLiftRule 2 quotLiftA.toConstantVal.levelParams us
               quotMkA.toConstantVal.levelParams [] 5).1 →
       Level.substFn φ quotMkA.toConstantVal.levelParams usj uN = ψ uN := by
     intro usj hlev
@@ -2247,7 +2247,7 @@ theorem quotLiftLaw {m : EnvModel V env}
     (hac : m₂.acval = acvalWith m.acval quotLiftA.name
       (fun ψ => Term.const .quotLift [ψ uN, ψ vN]))
     (φ : Name → Nat) :
-    RecRuleLaw m₂ φ quotLiftA.name quotLiftA.toConstantVal 5 5
+    RecRuleLaw m₂ φ quotLiftA.name quotLiftA.toConstantVal 5 5 false
       quotLiftRule := by
   refine ⟨Nat.le_refl 5, fun us hus => ?_,
     quotLiftExtra (m := m) m₂ hQ hM hE hac φ⟩
@@ -2447,11 +2447,11 @@ theorem extendQuotLift (mp : EnvModelM V env)
         rw [show ConLeche.Verify.pinnedStructT quotLiftA.name ψ
           = some (Term.const .quotLift [ψ uN, ψ vN]) from rfl] at hp
         rw [← Option.some.inj hp])
-      (fun _ _ _ _ heq r hr => by
-        injection heq with _ _ _ h4
+      (fun _ _ _ _ _ heq r hr => by
+        injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨⟨_, _, _, hM⟩, fun hb => Bool.noConfusion hb⟩
+        · exact ⟨_, _, _, hM⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)
@@ -2498,7 +2498,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨quotA :: env.consts, env.tables⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -2513,7 +2513,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨quotMkA :: quotA :: env.consts, env.tables⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
@@ -2581,8 +2581,8 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
                           (.bvar 4)) (.bvar 3))
                         (.bvar 3)))))) from rfl]
       simp [Expr.constsResolve, hfQ, hfE]
-    · intro cv mI rP rules heq
-      injection heq with h1' _ _ h4'
+    · intro cv mI rP isK rules heq
+      injection heq with h1' _ _ _ h4'
       subst h1'; subst h4'
       intro r hr
       rcases List.mem_cons.mp hr with rfl | hr'
@@ -2639,8 +2639,8 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
                         (.bvar 3)) (.bvar 2))
                       (.app (.bvar 2) (.bvar 0)))))) from rfl]
       simp [Expr.constsResolve, hfQ, hfM]
-    · intro cv mI rP rules heq
-      injection heq with h1' _ _ h4'
+    · intro cv mI rP isK rules heq
+      injection heq with h1' _ _ _ h4'
       subst h1'; subst h4'
       intro r hr
       rcases List.mem_cons.mp hr with rfl | hr'
@@ -2676,7 +2676,7 @@ theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
         :: quotA :: env.consts, env.tables⟩ : Env).find? eqName = some eqA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE4
     refine EnvWF.cons hwf4 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ heq => nomatch heq),
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
       (by first
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)

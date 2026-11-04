@@ -867,6 +867,29 @@ theorem storedRulesShapeS_spec {rec : Name} :
       sym only [conleche_grind, storedRulesShape] =>
         vcgen [storedRulesShape.eq_def, ih cs] <;> finish
 
+/-- The records' K flags: the check reads no state, at the cached
+driver as at the pure one. -/
+theorem storedKCheck_run {p : BlockShape} :
+    ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)}
+      {s s' : CState} {u : PUnit},
+      storedKCheck (m := CheckCM) p recs out s = .ok (u, s') →
+      s' = s ∧ storedKCheck (m := CheckM) p recs out = .ok ()
+  | [], _, _, _, _, h => by
+    simp only [storedKCheck, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    exact ⟨h.2.symm, rfl⟩
+  | _ :: _, [], _, _, _, h => by
+    simp only [storedKCheck, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    exact ⟨h.2.symm, rfl⟩
+  | rc :: rcs, g :: gs, s, s', u, h => by
+    unfold storedKCheck at h ⊢
+    by_cases hk : (rc.isK == recKExpected p g.2.1) = true
+    · simp only [hk, Bool.not_true, reduceIte, pure, StateT.pure, Except.pure, Bind.bind,
+        StateT.bind, Except.bind, Bool.false_eq_true, bind_pure_comp, pure_bind] at h ⊢
+      exact storedKCheck_run h
+    · simp only [Bool.not_eq_true] at hk
+      simp [hk, Bind.bind, StateT.bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
+        StateT.lift, liftM, monadLift, MonadLift.monadLift, instMonadExceptOfMonadExceptOf] at h
+
 /-- The stored recursors' checks, simulated. -/
 theorem storedRecCheckS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
@@ -1107,7 +1130,7 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
     (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (find? : Name → Option ConstantInfo) :
-    EnvWF (consBlockRecsT find? p 0 out env₂) :=
+    EnvWF (consBlockRecsT p 0 out env₂) :=
   envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
 
 /-- The stream's recursor constants, checked at the constructors'
@@ -1208,9 +1231,8 @@ theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) (f₀ : Name → Option ConstantInfo)
     (hS : storedRecsCheck (fueledOps mode F') .plain
-      (mkFEnv (consBlockRecsT f₀ p 0 out env₂)) p.recs out = .ok ())
-    (find? : Name → Option ConstantInfo) :
-    EnvWF (consBlockRecsT find? p 0 (storedOut p.recs out) env₂) := by
+      (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out = .ok ()) :
+    EnvWF (consBlockRecsT p 0 (storedOut p.recs out) env₂) := by
   obtain ⟨hF, hN⟩ := genRecCheck_outFacts h hpl hMs₀
   obtain ⟨hlenO, hcv⟩ := genRecCheck_outCv h
   obtain ⟨R⟩ := genRecCheck_run h
@@ -1219,7 +1241,7 @@ theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
   have hnames : (storedOut p.recs out).map (·.1.name) = out.map (·.1.name) :=
     storedOut_map_name hlenO
   -- resolution at the generated install transfers to the stored bare cons
-  have hres : ∀ e : Expr, e.constsResolve (consBlockRecsT f₀ p 0 out env₂) = true →
+  have hres : ∀ e : Expr, e.constsResolve (consBlockRecsT p 0 out env₂) = true →
       e.constsResolve (consBlockRecsBare p 0
         ((storedOut p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
     fun e he => Expr.constsResolve_of_find
@@ -1310,33 +1332,33 @@ theorem checkBlockTailS_run
   obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run henv₂ hMs₀ hT
     (flushC_csok hsS.residue) hrec
   have henv₃ := genRecCheck_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1)
-    (consBlockCtors p.nP ctorsAs env₁).find?
-  rw [show FEnv.find? (mkFEnv (consBlockCtors p.nP ctorsAs env₁))
-    = (consBlockCtors p.nP ctorsAs env₁).find? from mkFEnv_find?_fun _] at h
   rw [pushAll_blockRecInfosTF_mkFEnv, structWalkersC_eq_plain] at h
   -- the stored recursors' check, at the generated install (an overlay
   -- that answers as the pushed index)
   have hovl : (mkFEnv (consBlockCtors p.nP ctorsAs env₁)).ovl = [] := rfl
   have hf : ((mkFEnv (consBlockCtors p.nP ctorsAs env₁)).overlay
-      (blockRecInfosTF (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out).reverse).find?
-      = (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+      (blockRecInfosTF p.toBlockShape 0 out).reverse).find?
+      = (mkFEnv (consBlockRecsT p.toBlockShape 0 out
           (consBlockCtors p.nP ctorsAs env₁))).find? := by
     rw [find?_overlay_pushAll hovl, pushAll_blockRecInfosTF_mkFEnv]
   have htb : ((mkFEnv (consBlockCtors p.nP ctorsAs env₁)).overlay
-      (blockRecInfosTF (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out).reverse
+      (blockRecInfosTF p.toBlockShape 0 out).reverse
       ).findTable?
-      = (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+      = (mkFEnv (consBlockRecsT p.toBlockShape 0 out
           (consBlockCtors p.nP ctorsAs env₁))).findTable? := by
     rw [findTable?_overlay_pushAll hovl, pushAll_blockRecInfosTF_mkFEnv]
   have he : ((mkFEnv (consBlockCtors p.nP ctorsAs env₁)).overlay
-      (blockRecInfosTF (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out).reverse).env
-      = (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+      (blockRecInfosTF p.toBlockShape 0 out).reverse).env
+      = (mkFEnv (consBlockRecsT p.toBlockShape 0 out
           (consBlockCtors p.nP ctorsAs env₁))).env := by
     rw [env_overlay_pushAll _ hovl, pushAll_blockRecInfosTF_mkFEnv]
   rw [sharedOpsC_congr hf htb,
     storedRecsCheck_congr (w := StructWalkers.plain)
       (by funext e; exact constsResolveF_congr hf e) he] at h
-  obtain ⟨u3, s₃', hfl3, h⟩ := bindC_ok h
+  obtain ⟨uK, sK, hKrun, hK⟩ := bindC_ok h
+  obtain ⟨hsK, hKp⟩ := storedKCheck_run hKrun
+  rw [hsK] at hK
+  obtain ⟨u3, s₃', hfl3, h⟩ := bindC_ok hK
   rw [flushC_run] at hfl3
   injection hfl3 with hfl3
   obtain rfl : s₃.flushed = s₃' := congrArg Prod.snd hfl3
@@ -1349,17 +1371,16 @@ theorem checkBlockTailS_run
   obtain rfl : s₄'.flushed = s₄ := congrArg Prod.snd hfl4
   have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
   have hF₄' : storedRecsCheck (fueledOps .verified F₄) .plain
-      (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+      (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
     rw [← storedRecsCheck_datF]; cases u4; exact hF₄
   have henvS := storedRecs_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1) _ hF₄'
-    (consBlockCtors p.nP ctorsAs env₁).find?
   obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henvS hs₄ h
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
   have g₄ : storedRecsCheck (fueledOps .verified G) .plain
-      (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
+      (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
     rw [← storedRecsCheck_datF]; exact FueledM.up hle₄ (by rw [storedRecsCheck_datF]; exact hF₄')
   have g₀ : checkBlockIdxSorts (fueledOps .verified G) env₁ p.toBlockShape
@@ -1376,6 +1397,8 @@ theorem checkBlockTailS_run
   rw [g₀]
   simp only [Except.bind]
   rw [g₃]
+  simp only [Except.bind]
+  rw [hKp]
   simp only [Except.bind]
   rw [g₄]
   exact hT₆

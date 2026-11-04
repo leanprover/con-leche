@@ -368,8 +368,8 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
       denote mG.acval envG φ 0 (rlG.rhs.instantiateLevelParams cvG.levelParams us) = some RaG →
       ∃ RaS, denote mG.acval envG φ 0 (e.instantiateLevelParams cvG.levelParams us) = some RaS ∧
         ∀ ρ : Nat → V, WellDenoted V ρ RaS ∧ interp V ρ RaS = interp V ρ RaG)
-    (h : RecRuleLaw mG φ n cvG mI rP rlG) :
-    RecRuleLaw mS φ n { cvG with type := T } mI rP { rlG with rhs := e } := by
+    (h : RecRuleLaw mG φ n cvG mI rP isK rlG) :
+    RecRuleLaw mS φ n { cvG with type := T } mI rP isK { rlG with rhs := e } := by
   unfold RecRuleLaw RecRuleExtra at h ⊢
   simp only [hac, hde, hnp] at ⊢
   obtain ⟨hrPle, hmain, hextra⟩ := h

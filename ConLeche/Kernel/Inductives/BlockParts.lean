@@ -95,6 +95,9 @@ structure RecShape where
   placeholders), in the record's order: what the install stores once
   they agree with the generated ones (`storedRecsAgree`, task #431) -/
   rules : List RecRule
+  /-- the recursor record's K flag (official's `is_k`): what is installed;
+  the job checks it (`storedRecCheck`) -/
+  isK : Bool := false
   deriving Repr, Inhabited
 
 /-- The pieces of a recognised block at any number of members: the
@@ -230,15 +233,15 @@ block with any number of formers splits. -/
 
 /-- The closing recursors. -/
 def blockSplitRecs : List ConstantInfo →
-    Option (List (ConstantVal × Nat × Nat × List RecRule))
+    Option (List (ConstantVal × Nat × Nat × Bool × List RecRule))
   | [] => some []
-  | .recInfo cvR mI rP rules :: rest =>
-    (blockSplitRecs rest).map fun rs => (cvR, mI, rP, rules) :: rs
+  | .recInfo cvR mI rP isK rules :: rest =>
+    (blockSplitRecs rest).map fun rs => (cvR, mI, rP, isK, rules) :: rs
   | _ => none
 
 /-- The constructors, then the recursors. -/
 def blockSplitCtors : List ConstantInfo →
-    Option (List (ConstantVal × Nat × Nat) × List (ConstantVal × Nat × Nat × List RecRule))
+    Option (List (ConstantVal × Nat × Nat) × List (ConstantVal × Nat × Nat × Bool × List RecRule))
   | .ctorInfo cvC nP nF :: rest =>
     (blockSplitCtors rest).map fun q => ((cvC, nP, nF) :: q.1, q.2)
   | rest => (blockSplitRecs rest).map fun rs => ([], rs)
@@ -246,7 +249,7 @@ def blockSplitCtors : List ConstantInfo →
 /-- The type formers, the constructors and the recursors. -/
 def blockSplit : List ConstantInfo →
     Option (List ConstantVal × List (ConstantVal × Nat × Nat) ×
-      List (ConstantVal × Nat × Nat × List RecRule))
+      List (ConstantVal × Nat × Nat × Bool × List RecRule))
   | .indInfo cvT _ :: rest =>
     (blockSplit rest).map fun q => (cvT :: q.1, q.2)
   | rest => (blockSplitCtors rest).map fun q => ([], q.1, q.2)
@@ -372,7 +375,7 @@ the member's OWN former telescope — and, at a def-headed former (task
 #195) where there is no telescope to read, off the argument sums of a
 recursor whose MAJOR names that member. -/
 def blockMemberCounts? (nPd k nC : Nat) (names : List Name)
-    (rs : List (ConstantVal × Nat × Nat × List RecRule)) :
+    (rs : List (ConstantVal × Nat × Nat × Bool × List RecRule)) :
     Nat → List ConstantVal → Option (List Nat)
   | _, [] => some []
   | m, cvT :: ts =>
@@ -423,9 +426,9 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           -- **the recursors, in the stream's own order**, each with the
           -- member its MAJOR names (`recTargetOf`)
           let recsL := rs.map
-            fun (r : ConstantVal × Nat × Nat × List RecRule) =>
+            fun (r : ConstantVal × Nat × Nat × Bool × List RecRule) =>
               (⟨r.1, r.2.2.1, r.2.1, recTargetOf names r.2.1 r.1.type,
-                r.2.2.2⟩ : RecShape)
+                r.2.2.2.2, r.2.2.2.1⟩ : RecShape)
           -- WHICH ELIMINATOR the recursors are: the LARGE one carries a
           -- fresh elimination level parameter in front of the block's.
           -- Read off member 0's; the others are `blockRecLpsOk`'s, thrown

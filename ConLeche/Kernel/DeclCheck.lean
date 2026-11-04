@@ -242,7 +242,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? iffRecName with
-     | some (.recInfo cvIr 4 4 _) =>
+     | some (.recInfo cvIr 4 4 _ _) =>
        ConstantVal.matchesPin cvIr iffRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv propextA
@@ -256,7 +256,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? nonemptyRecName with
-     | some (.recInfo cvNr 3 3 _) =>
+     | some (.recInfo cvNr 3 3 _ _) =>
        ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv choiceA
