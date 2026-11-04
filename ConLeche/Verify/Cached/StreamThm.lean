@@ -121,7 +121,7 @@ environment would hold a constant of type `False` — and it cannot,
 because in the model of the main theorem that type denotes the empty
 set, which the constant would have to be a member of
 (`no_proof_of_False_cached`).  The main corollary
-(`main_no_False`, `ConLeche/MainTheorem.lean`) rests on this. -/
+(`no_False_declaration`, `ConLeche/MainTheorem.lean`) rests on this. -/
 theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     (ds : Array Declaration) (cv : ConstantVal) (v : Expr)
     (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :

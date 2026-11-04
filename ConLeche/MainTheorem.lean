@@ -16,13 +16,11 @@ public section
 /-!
 # The main theorem and the main corollary
 
-What the checker accepts has a model (`model_exists`); hence a file that
-declares a theorem of type `False` makes the binary's accept path fail
-(`no_False_declaration`, about the chunks), and no run of `main` on such
-a file exits 0 (`main_no_False`, THE MAIN COROLLARY, at the end, beside
-`main_model`, the main theorem over `main`) — the form a reader can check
-without knowing what an `Env` is.  Those are all this file holds.
-`no_False_declaration`'s hypothesis is the file: the chunks the binary
+What the checker accepts has a model; hence a file that declares a
+theorem of type `False` is rejected — the form a reader can check
+without knowing what an `Env` is.  Those two theorems, and the main
+corollary lifted to the driver (`main_no_False`, at the end), are all
+this file holds.  The corollary's hypothesis is the file: the chunks the binary
 read are the UTF-8 of `jsonWithTheoremFalse`'s template, ONE way of
 writing a theorem of type `False` into a JSON export.  Its conclusion
 is the binary's accept path itself, erroring: the three pure functions
@@ -106,9 +104,7 @@ theorem model_exists (V : Type w) [SetTheory V]
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in
-/-- **The statement about the checker's chain over the chunks**, which
-the main corollary `main_no_False` rests on and which the comparator pair
-certifies (`ConLeche/Challenge.lean`, `comparator.json`).  A file declaring a theorem of type `False`
+/-- **The main corollary.**  A file declaring a theorem of type `False`
 in the shape `jsonWithTheoremFalse` describes is rejected: the parse
 reads the template's four lines into a theorem record of type `False`,
 the preparation keeps the record, and a stream holding it is never
@@ -134,10 +130,10 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
 at `IO`, then the flush and the exit with the code `runArgs` returned;
 those few lines are read, not proved.  `runArgs` is generic in the IO
 class `CheckerIO`, the code computed outside its `liftIO` escape.  The
-two theorems below are about every outcome of `runArgs` in the model
+theorem below is about every outcome of `runArgs` in the model
 `ModelIO`, at the fixed arguments `-- <file>`: the default mode, which
 is `.verified`, the default worker count; nothing is said about
-`--help` or the other flags.  They are statements about the binary's
+`--help` or the other flags.  It is a statement about the binary's
 exit code under the assumption `ConLeche/Frontend/CheckerIO.lean`
 states and argues for: the binary's file operations give the model's
 answers on one snapshot, the actions passed to `CheckerIO.liftIO` do
@@ -145,22 +141,7 @@ not change what those see and do not end the process, and Lean's
 compiler and runtime run the code as written — so that the binary's run is one of the model's outcomes. -/
 
 open Frontend in
-/-- **An accepted file has a model.**  Every outcome of `runArgs` at the
-arguments `-- <file>` that is an exit 0 read the file's bytes `b` off
-the snapshot; they parse as one chunk to records `r`, the fold accepts
-`r`'s declarations prepared with the built-in prelude, and the
-environment it returns has a model in `V`. -/
-theorem main_model (V : Type w) [SetTheory V] {file : String} {fs : FS}
-    (h : (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-    ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-      parseChunks [b] = .ok r ∧
-      checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env ∧
-      Nonempty (Model V env) := by
-  obtain ⟨pre, b, r, env, hp, hb, hr, hc⟩ := Driver.runArgs_accept h
-  exact ⟨pre, b, r, env, hp, hb, hr, hc, model_exists V _ _ env hc⟩
-
-open Frontend in
-/-- **The main corollary.**  On a snapshot where the
+/-- **The main corollary, lifted to the driver.**  On a snapshot where the
 file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at
 the arguments `-- <file>` is an exit 0. -/
 theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}

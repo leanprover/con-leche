@@ -10,7 +10,7 @@ The binary's entry point, all plumbing: `main` is the abort variables
 (`enableAbortOnNonlinear`), then the generic `ConLeche.Driver.runArgs`
 (`ConLeche/Driver/Cli.lean`, all the real logic) at `IO`, then the flush
 and the exit.  These few lines are read, not proved: the theorems
-(`ConLeche.main_model`, `ConLeche.main_no_False`) cover `runArgs` in the
+(`Driver.runArgs_accept`, `ConLeche.main_no_False`) cover `runArgs` in the
 model, and the exit takes the code `runArgs` returned.
 -/
 

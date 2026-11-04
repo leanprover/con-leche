@@ -29,7 +29,7 @@ pools) — is an `IO` action handed to the class's one escape,
   is reasoned about, not executed.
 
 **What is proved, and what is trusted.**  The theorems
-(`Driver.runArgs_accept`, `ConLeche.main_model`, `ConLeche.main_no_False`)
+(`Driver.runArgs_accept`, `ConLeche.main_no_False`)
 say: every outcome of `Driver.runArgs` in the model that is the exit code
 0 implies the statement.  The binary's `main` is `enableAbortOnNonlinear`,
 then the same generic `runArgs` at `IO`, then the flush and the exit with

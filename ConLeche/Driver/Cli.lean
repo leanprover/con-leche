@@ -39,8 +39,8 @@ directory.
 
 **This file and `Main.lean` are the CLI**: argument parsing, I/O, exit
 codes; here everything generic in the IO class, `runArgs`, which the
-theorems over `main` (`ConLeche.main_model`, `ConLeche.main_no_False`)
-are about, in `Main.lean` the plumbing around it, followed by the exit.  The
+main corollary lifted to the driver (`ConLeche.main_no_False`) is about,
+in `Main.lean` the plumbing around it, followed by the exit.  The
 proof-carrying driver — the parallel parse, the install and check
 loops and the phase sequencing — lives in
 `ConLeche/Driver/*` (`OwnerParse.lean`, `StreamParse.lean`,
@@ -108,7 +108,7 @@ def usage : String := String.intercalate "\n" [
   "                    Internal inference is the official",
   "                    kernel's infer_only.  The theorem: a file that",
   "                    declares a theorem of type False is never",
-  "                    accepted in this mode (main_no_False,",
+  "                    accepted in this mode (no_False_declaration,",
   "                    ConLeche/MainTheorem.lean)",
   "  --trusted         the unverified mode: the SAME checker bodies as",
   "                    --verified, instantiated at the mode with the",

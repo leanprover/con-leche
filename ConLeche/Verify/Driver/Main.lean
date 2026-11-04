@@ -15,7 +15,7 @@ is `.verified` (`parseArgs_file`), the worker count the default (the
 hardware's, which the statement does not depend on).  At these fixed
 arguments nothing is said about `--help` or other flags.
 
-The corollaries are in `ConLeche/MainTheorem.lean`.
+The corollary is in `ConLeche/MainTheorem.lean`.
 -/
 
 public section

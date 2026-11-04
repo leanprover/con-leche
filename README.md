@@ -39,7 +39,7 @@ Depending on your background and your level of interest you may want to look at 
 
 ### The Main Corollary
 
-At the end of [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an export file containing a `theorem … : False := …` declaration (in JSON), with arbitrary declarations before and after, will not be accepted by `con-leche`:
+In [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean) we prove that an export file containing a `theorem … : False := …` declaration (in JSON), with arbitrary declarations before and after, will not be accepted by `con-leche`:
 
 ```lean
 open Frontend in
@@ -55,11 +55,9 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
 
 The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L50-L51) is hard-coded, so no tricks involving odd definitions for `False` will confuse the checker. This is a meaningful theorem if you assume that worrisome kernel implementation bugs or flaws in the theory are those that can be used to prove anything, in particular `False`.
 
-The program's actual [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L84) and [`run`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L389) function is of course more than this; in particular it performs IO (reading the input file in chunks, reporting progress, spawning threads). You are invited to follow the `main` function and convince yourself that the above theorem says something about the data flow through the actual driver.
-
 ### The Main Theorem
 
-The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L117-L124) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L113-L120) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
@@ -79,6 +77,31 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L157-L162)).
 * The definitions, theorem statements and axioms in the output of `checkDecls` are as they are in the input, up to dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L237-L242)).
+
+### The IO parts
+
+The theorems above talk about the pure checker code. That pure code is embedded in a driver: parsing arguments, reading files, parallelism, all in the `IO` monad. This is out of reach for a rigorous verification, but we can still do something that helps to rule out more implementation bugs.
+
+To that end the main function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L389) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L101) type class modelling two kinds of operations:
+
+* File access (existence, reading)
+* Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L123)
+
+We can then prove something about such generic code in an idealized (pure, nondeterministic) model, [`ModelIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L235). These proofs are meaningful under some assumptions, which are not enforced:
+
+* The files accessed are not changing under our nose. Later reads during the process see the same state of the file system.
+* The code run by `liftIO` has no side effects affecting the file reading operations and does not exit with code 0. We use this method for concurrency, diagnostic output and measuring time.
+
+In the model, we assume nothing about `liftIO a` or its return value, except of course its type. Using a subtype there allows us to run, say, parallel code and still know that the result is what we need for the proof (e.g. `checkDeclsIO` returning a subtype mentioning `checkDecls`).
+
+In this setting we can [lift the main corollary](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L147-L149) to cover the driver as well:
+
+```lean
+open Frontend in
+theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+    ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0)
+```
 
 ### Set theory assumption
 
@@ -128,17 +151,10 @@ This checker is usually faster than the official kernel, and competitive with ot
 
 This required pulling some low-level stunts that the kernel does in C++ in Lean, in particular around the memo tables (peeking at the RC to decide if something is worth caching, implementing whole expression traversals without touching the RC field and using pointer addresses for hashing). This is possible, to some extent, with functions like [`withPtrAddr`](https://leanprover-community.github.io/mathlib4_docs/Init/Util.html#withPtrAddr) that expose such runtime information to safe code, given a proof that this runtime information cannot affect the logical result of the function. This is also already anticipating that a safe `withExclusive` ([RFC #15235](https://github.com/leanprover/lean4/issues/15235)) will become part of the standard library; until then we have [this code here](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Exclusive.lean).
 
-## Next steps
-
-This project was published when it was barely usable – able to process mathlib within reasonable memory usage and not absurdly slow. Since then we have come a long way – significant perf improvements, a much simpler proof – but there is more to be done:
-
-* Make it even faster.
-* Use a verified bignum library for `Nat` handling.
-
 ## Acknowledgements
 
 Joachim would like to thank Mario Carneiro for all the groundwork this builds on, and Arthur Adjedj for helpful discussions to understand what I actually built here.
 
 ## Contributions
 
-Since I did not write the code, I am not interested in code contributions, because I cannot review them. Issues are welcome, and the more detailed and precise they are, the more likely is that I will let an agent work on them.
+Code contributions are likely not useful. Issues are welcome, and the more detailed and precise they are, the more likely is that I will let an agent work on them.

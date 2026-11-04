@@ -108644,11 +108644,9 @@ after the first attempt (below); this record states it as landed.
   (`getHardwareConcurrency`), which the statement does not depend on.
   Over `runArgs` (`MainTheorem.lean`), at these fixed arguments, so
   nothing is said about `--help` or other flags:
-  `main_model` (`(runArgs ["--", file] : ModelIO _) fs (.ok 0) → ∃ pre b r
-  env`, the chain and `Nonempty (Model V env)`) and `main_no_False`
+  `main_no_False`
   (`fs.file file = some b → jsonWithTheoremFalse [b] → ¬ (runArgs ["--",
-  file] : ModelIO _) fs (.ok 0)`, from `no_False_declaration`).  The
-  model theorem says nothing of `False`.  Both pinned in `Axioms.lean`
+  file] : ModelIO _) fs (.ok 0)`, from `no_False_declaration`).  Pinned in `Axioms.lean`
   at `propext`, `Classical.choice`, `Quot.sound`.
 * **The trust assumption** (the class's header, OVERVIEW §2 and §9):
   (i) the binary's file operations give the model's answers on one
@@ -108789,9 +108787,11 @@ gap between the theorems' `.ok 0` and the exit status.
 declares; the trust-surface gate pins that and the two exits) is the
 abort variables, `runArgs` at `IO`, the flush and the exit, read and not
 proved, and `runArgs` holds all the real logic, the catch of `IO` errors
-into exit 3 included, so that the model sees it.  `main_model` and
-`main_no_False` state `runArgs ["--", file]`, from `runArgs_accept`.  A
+into exit 3 included, so that the model sees it.  `main_no_False`
+states `runArgs ["--", file]`, from `runArgs_accept`.  A
 message failing after the abort variables failed no longer escapes as
 exit 1; a throwing flush in `main` still does, as before.
 
 **`--no-mark-persistent` removed (maintainer's ruling, 2026-11-04):** the flag and the `noMark` parameter are gone and the marks unconditional; older records mention them as history.
+
+**Naming as per README (maintainer's ruling, 2026-11-04, reversing this record's earlier one):** `no_False_declaration` is the main corollary, as on master, and `main_no_False` the main corollary lifted to the driver; statements above calling them otherwise are superseded.  `main_model` (this lane's, not the older theorem of that name) is dropped: `Driver.runArgs_accept` and `model_exists` give it.
