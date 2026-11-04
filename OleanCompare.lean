@@ -1,5 +1,6 @@
 import ConLeche.Frontend.Stream
 import ConLeche.Frontend.Olean
+import ConLeche.Driver.CheckMain
 /- NOT a `module`, like `PinDump.lean`: a development tool, not part of
 the checker.  As a `module` it would have to be a root of
 `tests/shake.sh`, whose `lake shake` loads every root into one
@@ -9,6 +10,7 @@ environment, and its `main` collides with `Main.lean`'s. -/
 # `olean-compare` — the olean reader against lean4export
 
     lake exe olean-compare EXPORT.ndjson SEARCHPATH MODULE...
+    lake exe olean-compare --views SEARCHPATH MODULE...
 
 Parses a lean4export stream of `MODULE...` with the stream reader and
 the same modules' import closure with the olean reader
@@ -21,6 +23,10 @@ block (sorted by name).  Prints the records present on one side only
 and the records that differ, and exits 1 if there are any, if either
 side has two records of one key, or if the two sides' record counts
 differ (so the maps' equality is equality record for record).
+
+`--views` reads every module of the closure at its home (`readAllViews`: all three
+views with one memo, checked against each other) and compares each view with
+`readView`'s; exit 0, or the first failure's exit code.
 
 A development tool, not a default target: the gate it gives
 (`tests/olean-compare.sh`, in the standard battery) is the statement "the
@@ -112,8 +118,35 @@ def toMap (ds : Array Declaration) : Std.HashMap Name Declaration × Nat :=
     let k := (d.names.head?).getD .anonymous
     if m.contains k then (m, dup + 1) else (m.insert k (normalize d), dup)) ({}, 0)
 
+/-- A view's constants by the checker's equality. -/
+def viewsEq (a b : Frontend.Olean.ModDecoded) : Bool :=
+  a.isModule == b.isModule && a.imports == b.imports && a.constants.size == b.constants.size &&
+    (a.constants.zip b.constants).all fun (x, y) => Frontend.Olean.entrySame x y
+
+open Frontend.Olean in
+/-- `--views`: every module of the closure. -/
+def runViews (sp : List System.FilePath) (roots : Array Name) : IO UInt32 := do
+  let order ← match ← (closureOrder sp roots : IO _) with
+    | .ok o => pure o
+    | .error e => IO.eprintln s!"closure: {e}"; return e.exitCode.toUInt32
+  for m in order do
+    let (v, _) ← match ← (readAllViews sp m : IO _) with
+      | .ok x => pure x
+      | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+    for level in [OLeanLevel.exported, .server, .private] do
+      let d ← match ← (readView sp m level : IO _) with
+        | .ok d => pure d
+        | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+      unless viewsEq d (v.at level) do
+        IO.eprintln s!"module {m}: the {repr level} view differs from the home's"
+        return 3
+  IO.println s!"{order.size} modules: every view read, one memo, agrees"
+  return 0
+
 def main (args : List String) : IO UInt32 := do
   match args with
+  | "--views" :: sp :: mods@(_ :: _) =>
+    runViews ((sp.splitOn ":").map System.FilePath.mk) (mods.toArray.filterMap Frontend.Olean.parseModName)
   | file :: sp :: mods@(_ :: _) =>
     let t0 ← IO.monoMsNow
     let js ← match ← (Frontend.parseFileS file : IO _) with

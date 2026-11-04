@@ -5,24 +5,10 @@ public import ConLeche.Frontend.Olean.Sparse
 @[expose] public section
 
 /-!
-# Reading `.olean` files: the reads of a part of a full parse
+# Reading `.olean` files: taking less of a region
 
-These take less of a region and root than the full parse (`parseFull`,
-`ConLeche/Frontend/Olean/Fast.lean`):
-
-| read | what it returns |
-|---|---|
-| `readNamePositions` | the header, and per constant its location, name, kind and whether the checker skips it |
-| `readEntry` | the constant at a location, with a memo of its own |
-| `readStmts` | the statements of the constants at some locations |
-
-Each is proved to be a projection of the full parse: **where the full parse
-succeeds, the read succeeds, and returns that**
-(`ConLeche/Verify/Frontend/Olean/Reads.lean`).  The converse does not hold, on
-purpose: a read looks only at what it needs, so it can succeed on a file whose
-full parse fails on an object the read never visits.  A reader may rely on a
-file only through a full parse of it (at the module's home); the reads then
-cannot fail or disagree.
+The reads of a part of a `ModuleData`, at a region and an address: what the
+interface's reads at a level (`ConLeche/Frontend/Olean/View.lean`) are made of.
 -/
 
 namespace ConLeche.Frontend.Olean
@@ -66,9 +52,9 @@ structure ModHeader where
   imports : Array ImportRec
   deriving Inhabited, BEq
 
-/-- What `readNamePositions` takes of one stored constant. -/
+/-- What `namePositionsAt` takes of one stored constant. -/
 structure NamePosition where
-  /-- its location in the region (`readEntry`) -/
+  /-- its location in the region (`entryAt`) -/
   loc : Nat
   name : Name
   /-- the constructor of its kind (`CKindF.tag`) -/
@@ -90,7 +76,7 @@ def namePosition (r : Region) (c : Nat) : Option NamePosition := do
 /-- **The name positions**: no expression of the module is read.  A name two
 constants bear fails it: `constNamesOk`'s rule, the part of the name table
 check this read can make. -/
-def readNamePositions (r : Region) (root : UInt64) : Option NamePositions := do
+def namePositionsAt (r : Region) (root : UInt64) : Option NamePositions := do
   let sk ← moduleSkel r root
   let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
   let cs ← sk.consts.mapM (namePosition r)
@@ -98,11 +84,11 @@ def readNamePositions (r : Region) (root : UInt64) : Option NamePositions := do
   pure ⟨⟨sk.isModule, imports.toArray⟩, cs.toArray⟩
 
 /-- **The constant at location `c`**, read with a memo of its own. -/
-def readEntry (r : Region) (c : Nat) : Option (CEntryF Name Expr) :=
+def entryAt (r : Region) (c : Nat) : Option (CEntryF Name Expr) :=
   constSkel r c >>= sparseEntry r
 
 /-- **The statements of the constants at some locations**, read together. -/
-def readStmts (r : Region) (cs : List Nat) : Option (List ConstantVal) :=
+def stmtsAt (r : Region) (cs : List Nat) : Option (List ConstantVal) :=
   cs.mapM (constSkel r) >>= stmtsFast r
 
 end ConLeche.Frontend.Olean

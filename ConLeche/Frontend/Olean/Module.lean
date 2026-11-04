@@ -1,65 +1,29 @@
 module
 
-public import ConLeche.Frontend.Olean.Header
-public import ConLeche.Frontend.Olean.Reads
+public import ConLeche.Frontend.Olean.View
 public import Std.Data.HashMap.Basic
 
 @[expose] public section
 
 /-!
-# Reading `.olean` files: one module's parts
+# Reading `.olean` files: a module's views against each other
 
-A module of the module system has three files, `M.olean` (the exported
-level), `M.olean.server` and `M.olean.private`, one address space
-(`Region.ofParts`); a classic module has its `M.olean` alone.
+`checkViews`: what a module's home can check of its three views, read together
+(`parseAllViews`).  A mismatch is malformed input (`.internal`, exit 3):
 
-**The exported part is read alone** (`parseExported`), in the region of
-that one file, as an importer reads it, and **the module's full read**
-(`parseModule`) starts from that, so that a home and an importer of one
-file take its exported constants from one function of its bytes.  Every
-check that the parts' redundant data agree is the full read's (a mismatch
-is malformed input, `.internal`, exit 3):
+* the server and private views are of a module of the module system (their
+  imports are the exported view's: every view's are those at the start of `M.olean`);
+* every constant of the exported view, and of the server view, is the private
+  view's constant of its name or that constant with its value hidden
+  (`expoOfParts`).
 
-* every part's name table lists its constants, each name once
-  (`constNamesOk`: the exported, server and private part);
-* the imports the prefix of the exported file holds are its root's
-  (`importsPre`);
-* the server and private parts' headers are the exported part's: a
-  module of the module system, the same imports with the same flags;
-* every constant of the exported part, and of the server part, is the
-  private part's constant of its name or that constant with its value
-  hidden (`expoOfParts`).
+A reader of one view (`parseView`) does not need any of this: Lean's own import
+at that level does not compare the files either.
 -/
 
 namespace ConLeche.Frontend.Olean
 
 open ConLeche
-
-/-- The module's files do not decode. -/
-def undecodable (m : Name) : CheckError :=
-  .internal s!"module {m}: malformed .olean data (an object of the wrong shape, or a \
-    pointer that does not point below its object)"
-
-/-- The malformed name table's error. -/
-def badConstNames (m : Name) (part : String) : CheckError :=
-  .internal s!"module {m}: the {part} part's name table (constNames) does not list its \
-    constants' names, each once"
-
-/-- `parseFull`, with the module's error. -/
-def parseFullE (m : Name) (part : String) (r : Region) (root : UInt64) :
-    Except CheckError ModDecoded :=
-  match parseFull r root with
-  | some d => .ok d
-  | none => .error (if constNamesOk r root then undecodable m else badConstNames m part)
-
-/-! ## The exported part -/
-
-/-- **A module's exported part, read in full and alone**: what an importer
-at the exported level sees of it. -/
-def parseExported (m : Name) (ex : Part) : Except CheckError ModDecoded := do
-  let d ← parseFullE m "exported" (Region.single ex) ex.root
-  unless importsPre ex.bytes == some d.imports do .error (undecodable m)
-  pure d
 
 /-! ## The levels of a module's constants -/
 
@@ -137,10 +101,10 @@ axiom of the same name, level parameters and type (by pointer, else
 decoded) where the private one is a definition, theorem or opaque
 constant.  `none` with the reason: an exported view that is not a
 refinement of the private one. -/
-def expoOfParts (r : Region) (privRoot expRoot : UInt64) (cs : Array (CEntryF Name Expr)) :
+def expoOfParts (r : Region) (privAddr expAddr : UInt64) (cs : Array (CEntryF Name Expr)) :
     Except String (Array Expo) := do
-  let some skP := moduleSkel r privRoot | throw "malformed private part"
-  let some skE := moduleSkel r expRoot | throw "malformed exported part"
+  let some skP := moduleSkel r privAddr | throw "malformed private part"
+  let some skE := moduleSkel r expAddr | throw "malformed exported part"
   let privLoc : Std.HashMap Nat Nat :=
     skP.consts.foldl (fun (m, i) c => (m.insert c i, i + 1)) ({}, 0) |>.1
   let privLocs := skP.consts.toArray
@@ -164,54 +128,34 @@ def expoOfParts (r : Region) (privRoot expRoot : UInt64) (cs : Array (CEntryF Na
       if hiddenKind && samePtrs then expo := expo.set! i .hidden
       else
         -- the fallback: decode the exported constant
-        let some e := readEntry r c | throw "malformed exported constant"
+        let some e := entryAt r c | throw "malformed exported constant"
         match expoOf cs[i]! e with
         | some x => expo := expo.set! i x
         | none => throw s!"the exported view of {en} is not a refinement of its private \
             constant ({kindWord cs[i]!.kind} / {kindWord e.kind})"
   return expo
 
-/-! ## The whole module -/
+/-! ## The views against each other -/
 
-/-- **One module, read in full**: its flag and imports, its constants at
-the private level and each one's exported level, and the exported part's
-constants as `parseExported` read them. -/
-structure ModRead where
-  name : Name
-  isModule : Bool
-  imports : Array ImportRec
-  constants : Array (CEntryF Name Expr)
-  expo : Array Expo
-  exported : Array (CEntryF Name Expr)
-
-/-- **A classic module, read in full**: its one part. -/
-def classicModule (m : Name) (er : ModDecoded) : ModRead :=
-  { name := m, isModule := false, imports := er.imports, constants := er.constants,
-    expo := er.constants.map fun _ => .same, exported := er.constants }
-
-/-- A server or private part, read in full: of a module of the module
-system, with the exported part's imports. -/
-def parsePart (m : Name) (er : ModDecoded) (part : String) (r : Region) (root : UInt64) :
-    Except CheckError ModDecoded := do
-  let d ← parseFullE m part r root
-  unless d.isModule do
-    .error (.internal s!"module {m}: the {part} part is not of a module of the module system, \
-      the exported part is")
-  unless d.imports == er.imports do
-    .error (.internal s!"module {m}: the {part} part's imports are not the exported part's")
-  pure d
-
-/-- **A module of the module system, read in full**: `er` its exported
-part's read (`parseExported`), `ex`, `s`, `p` its three files. -/
-def parseModule (m : Name) (er : ModDecoded) (ex s p : Part) : Except CheckError ModRead := do
-  let r ← Region.ofParts #[ex, s, p]
-  let _ ← parsePart m er "server" r s.root
-  let d ← parsePart m er "private" r p.root
-  match expoOfParts r p.root ex.root d.constants, expoOfParts r p.root s.root d.constants with
-  | .ok expo, .ok _ =>
-    pure { name := m, isModule := true, imports := er.imports, constants := d.constants, expo,
-           exported := er.constants }
-  | .error msg, _ => .error (.internal s!"module {m}: the exported part: {msg}")
-  | _, .error msg => .error (.internal s!"module {m}: the server part: {msg}")
+/-- **The views of a module against each other**: for each private constant, its
+exported level.  Every constant is `.same` in a classic module, whose views are
+one. -/
+def checkViews (m : Name) (f : ModFiles) (v : AllViews) : Except CheckError (Array Expo) := do
+  let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
+  match f.server, f.private with
+  | some s, some p =>
+    unless f.isModule do return v.private.constants.map fun _ => .same
+    let r ← Region.ofParts #[f.exported, s, p]
+    for (part, d) in [("server", v.server), ("private", v.private)] do
+      unless d.isModule do
+        .error (bad s!"the {part} part is not of a module of the module system, the exported \
+          part is")
+    let exp := f.exported.moduleDataAddr
+    match expoOfParts r p.moduleDataAddr exp v.private.constants,
+        expoOfParts r p.moduleDataAddr s.moduleDataAddr v.private.constants with
+    | .ok expo, .ok _ => pure expo
+    | .error msg, _ => .error (bad s!"the exported part: {msg}")
+    | _, .error msg => .error (bad s!"the server part: {msg}")
+  | _, _ => pure (v.private.constants.map fun _ => .same)
 
 end ConLeche.Frontend.Olean

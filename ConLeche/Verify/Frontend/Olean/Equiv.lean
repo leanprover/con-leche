@@ -8,9 +8,9 @@ public section
 /-!
 # The fast decoder is the specification (task #371)
 
-**`parseFull_eq_spec : parseFull r root = decodeModuleSpec r root`**:
-on every region, from every root pointer, the fast olean decoder
-(`ConLeche/Frontend/Olean/Fast.lean`) returns exactly what the
+**`parseMany_eq : parseMany r addrs = addrs.mapM (decodeAt r)`**:
+on every region, from every list of addresses, the fast olean decoder
+(`ConLeche/Frontend/Olean/Fast.lean`) with its one memo returns exactly what the
 specification (`ConLeche/Frontend/Olean/Spec.lean`) returns: the same
 module, or failure on the same inputs, so each succeeds exactly where the
 other does.  No hypothesis about the bytes: both sides define the reading.
@@ -231,26 +231,21 @@ theorem CEntryF.mapM_some {N E N' E' : Type} {fn : N → Option N'} {fe : E → 
 theorem isSome_iff_exists' {α : Type} {o : Option α} : o.isSome ↔ ∃ a, o = some a := by
   cases o <;> simp
 
-/-- The specification past the name table's check, its constants read
-skeletons first. -/
-theorem decodeModuleSpec_skels {r : Region} {root : UInt64} (hn : constNamesOk r root = true) :
-    decodeModuleSpec r root = (do
-      let sk ← moduleSkel r root
-      let skels ← sk.consts.mapM (constSkel r)
-      let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
-      let constants ← skels.mapM (CEntryF.mapM (nameP r) (exprP r))
-      pure ⟨sk.isModule, imports.toArray, constants.toArray⟩) := by
-  unfold decodeModuleSpec
+/-- `decodeAt`, past the name table's check, its constants read skeletons first. -/
+theorem decodeAt_skels (r : Region) (a : UInt64) (hn : constNamesOk r a = true) :
+    decodeAt r a = moduleSkel r a >>= fun sk =>
+      sk.consts.mapM (constSkel r) >>= fun cs => sk.read (nameP r) (exprP r) cs := by
+  unfold decodeAt
   rw [hn]
   show (do
-      let sk ← moduleSkel r root
+      let sk ← moduleSkel r a
       let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
       let constants ← sk.consts.mapM (constSpec r)
       pure (ModDecoded.mk sk.isModule imports.toArray constants.toArray)) = _
-  cases moduleSkel r root with
+  cases moduleSkel r a with
   | none => rfl
   | some sk =>
-    simp only [bind, Option.bind]
+    simp only [bind, Option.bind, ModSkel.read]
     have hc : sk.consts.mapM (constSpec r) =
         sk.consts.mapM (constSkel r) >>= fun skels =>
           skels.mapM (CEntryF.mapM (nameP r) (exprP r)) :=
@@ -263,89 +258,184 @@ theorem ImportF.mapM_congr {f g : UInt64 → Option Name} (i : ImportF UInt64)
     (h : f i.module = g i.module) : i.mapM f = i.mapM g := by
   simp only [ImportF.mapM, h]
 
-theorem decode_inner (r : Region) (sk : ModSkel) (skels : List (CEntryF UInt64 UInt64)) :
-    (do
-      let st ← runPasses r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names)
-        (skels.flatMap CEntryF.exprs)
-      let imports ← sk.imports.mapM (ImportF.mapM (st.nameOf r))
-      let constants ← skels.mapM (CEntryF.mapM (st.nameOf r) (st.exprOf r))
-      pure (ModDecoded.mk sk.isModule imports.toArray constants.toArray)) =
-    (do
-      let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
-      let constants ← skels.mapM (CEntryF.mapM (nameP r) (exprP r))
-      pure (ModDecoded.mk sk.isModule imports.toArray constants.toArray)) := by
-  have h := runPasses_spec r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names)
-    (skels.flatMap CEntryF.exprs)
-  cases hrp : runPasses r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names)
-      (skels.flatMap CEntryF.exprs) with
+/-- Two steps per element are two `mapM`s, the second over the pairs. -/
+theorem mapM_bind_zip {α β γ : Type} (f : α → Option β) (g : α → β → Option γ) :
+    ∀ xs : List α, xs.mapM (fun x => f x >>= g x) =
+      xs.mapM f >>= fun ys => (xs.zip ys).mapM fun p => g p.1 p.2
+  | [] => rfl
+  | x :: xs => by
+    simp only [List.mapM_cons, mapM_bind_zip f g xs]
+    cases f x with
+    | none => rfl
+    | some y =>
+      simp only [bind, Option.bind]
+      cases hg : g x y with
+      | none =>
+        cases xs.mapM f with
+        | none => rfl
+        | some ys => simp [hg, List.mapM_cons, bind, Option.bind]
+      | some z =>
+        cases xs.mapM f with
+        | none => rfl
+        | some ys => simp [hg, List.mapM_cons, bind, Option.bind]
+
+theorem mapM_bind_two {α β γ : Type} (f : α → Option β) (g : β → Option γ) (xs : List α) :
+    (xs.mapM f >>= fun ys => ys.mapM g) = xs.mapM (fun x => f x >>= g) :=
+  (mapM_bind f g xs).symm
+
+/-- What a module's value needs of the pointers read, on two readers. -/
+theorem ModSkel.read_congr {nm nm' : UInt64 → Option Name} {ex ex' : UInt64 → Option Expr}
+    (sk : ModSkel) (cs : List (CEntryF UInt64 UInt64))
+    (hi : ∀ i ∈ sk.imports, nm i.module = nm' i.module)
+    (hn : ∀ c ∈ cs, ∀ v ∈ c.names, nm v = nm' v) (he : ∀ c ∈ cs, ∀ v ∈ c.exprs, ex v = ex' v) :
+    sk.read nm ex cs = sk.read nm' ex' cs := by
+  have h1 : sk.imports.mapM (ImportF.mapM nm) = sk.imports.mapM (ImportF.mapM nm') :=
+    listMapM_congr _ fun i hm => ImportF.mapM_congr i (hi i hm)
+  have h2 : cs.mapM (CEntryF.mapM nm ex) = cs.mapM (CEntryF.mapM nm' ex') :=
+    listMapM_congr _ fun c hc => CEntryF.mapM_congr c (hn c hc) (he c hc)
+  simp only [ModSkel.read, h1, h2]
+
+/-- What a module's value read says of its pointers. -/
+theorem ModSkel.read_some {nm : UInt64 → Option Name} {ex : UInt64 → Option Expr} {sk : ModSkel}
+    {cs : List (CEntryF UInt64 UInt64)} {d : ModDecoded} (h : sk.read nm ex cs = some d) :
+    (∀ i ∈ sk.imports, (nm i.module).isSome) ∧ (∀ c ∈ cs, ∀ v ∈ c.names, (nm v).isSome) ∧
+      ∀ c ∈ cs, ∀ v ∈ c.exprs, (ex v).isSome := by
+  simp only [ModSkel.read] at h
+  obtain ⟨is, hi, h⟩ := bind_some_left h
+  obtain ⟨es, he, -⟩ := bind_some_left h
+  have hall := listMapM_some cs he
+  have hent : ∀ c ∈ cs, (∀ x ∈ c.names, (nm x).isSome) ∧ (∀ x ∈ c.exprs, (ex x).isSome) := by
+    intro c hc
+    obtain ⟨d, hd⟩ := isSome_iff_exists'.mp (hall c hc)
+    exact CEntryF.mapM_some c hd
+  refine ⟨fun i hm => ?_, fun c hc => (hent c hc).1, fun c hc => (hent c hc).2⟩
+  have := listMapM_some _ hi i hm
+  simp only [ImportF.mapM, bind, Option.bind] at this
+  cases hx : nm i.module <;> simp_all
+
+theorem mapM_length_eq {α β : Type} {f : α → Option β} :
+    ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys → xs.length = ys.length
+  | [], ys, h => by simp at h; subst h; rfl
+  | x :: xs, ys, h => by
+    rw [List.mapM_cons] at h
+    obtain ⟨y, -, h⟩ := bind_some_left h
+    obtain ⟨ys', hys, h⟩ := bind_some_left h
+    cases h
+    simp [mapM_length_eq hys]
+
+theorem mapM_zip_inner (r : Region) (sks : List ModSkel) (css : List (List (CEntryF UInt64 UInt64)))
+    (hz : sks.length = css.length) :
+    (runPasses r (sks.flatMap (fun sk => sk.imports.map (·.module)) ++ css.flatten.flatMap CEntryF.names)
+        (css.flatten.flatMap CEntryF.exprs) >>= fun st =>
+      (sks.zip css).mapM fun p => p.1.read (st.nameOf r) (st.exprOf r) p.2) =
+    (sks.zip css).mapM fun p => p.1.read (nameP r) (exprP r) p.2 := by
+  have h := runPasses_spec r (sks.flatMap (fun sk => sk.imports.map (·.module)) ++
+    css.flatten.flatMap CEntryF.names) (css.flatten.flatMap CEntryF.exprs)
+  cases hrp : runPasses r (sks.flatMap (fun sk => sk.imports.map (·.module)) ++
+      css.flatten.flatMap CEntryF.names) (css.flatten.flatMap CEntryF.exprs) with
   | some st =>
     rw [hrp] at h
     obtain ⟨hn, he⟩ := h
-    have hi : sk.imports.mapM (ImportF.mapM (st.nameOf r)) =
-        sk.imports.mapM (ImportF.mapM (nameP r)) :=
-      listMapM_congr _ fun i hi => ImportF.mapM_congr i
-        (hn _ (List.mem_append_left _ (List.mem_map_of_mem hi)))
-    have hc : skels.mapM (CEntryF.mapM (st.nameOf r) (st.exprOf r)) =
-        skels.mapM (CEntryF.mapM (nameP r) (exprP r)) :=
-      listMapM_congr _ fun c hc => CEntryF.mapM_congr c
-        (fun v hv => hn v (List.mem_append_right _ (List.mem_flatMap.mpr ⟨c, hc, hv⟩)))
-        (fun v hv => he v (List.mem_flatMap.mpr ⟨c, hc, hv⟩))
-    simp only [bind, Option.bind, hi, hc]
+    simp only [bind, Option.bind]
+    apply listMapM_congr
+    rintro ⟨sk, cs⟩ hp
+    have hsk : sk ∈ sks := (List.of_mem_zip hp).1
+    have hcs : cs ∈ css := (List.of_mem_zip hp).2
+    refine ModSkel.read_congr sk cs (fun i hi => hn _ (List.mem_append_left _ ?_))
+      (fun c hc v hv => hn _ (List.mem_append_right _ ?_)) (fun c hc v hv => he _ ?_)
+    · exact List.mem_flatMap.mpr ⟨sk, hsk, List.mem_map_of_mem hi⟩
+    · exact List.mem_flatMap.mpr ⟨c, List.mem_flatten.mpr ⟨cs, hcs, hc⟩, hv⟩
+    · exact List.mem_flatMap.mpr ⟨c, List.mem_flatten.mpr ⟨cs, hcs, hc⟩, hv⟩
   | none =>
     rw [hrp] at h
     simp only [bind, Option.bind]
-    cases hi : sk.imports.mapM (ImportF.mapM (nameP r)) with
+    symm
+    cases hm : (sks.zip css).mapM fun p => p.1.read (nameP r) (exprP r) p.2 with
     | none => rfl
-    | some is =>
-      cases hcs : skels.mapM (CEntryF.mapM (nameP r) (exprP r)) with
-      | none => rfl
-      | some cs =>
-        exfalso; apply h
-        have hall := listMapM_some skels hcs
-        have hent : ∀ c ∈ skels, (∀ x ∈ c.names, (nameP r x).isSome) ∧
-            (∀ x ∈ c.exprs, (exprP r x).isSome) := by
-          intro c hc
-          obtain ⟨d, hd⟩ := isSome_iff_exists'.mp (hall c hc)
-          exact CEntryF.mapM_some c hd
-        refine ⟨fun v hv => ?_, fun v hv => ?_⟩
-        · rcases List.mem_append.mp hv with hv | hv
-          · obtain ⟨i, hi', rfl⟩ := List.mem_map.mp hv
-            have := listMapM_some _ hi i hi'
-            simp only [ImportF.mapM, bind, Option.bind] at this
-            cases hm : nameP r i.module <;> simp_all
-          · obtain ⟨c, hc, hvc⟩ := List.mem_flatMap.mp hv
-            exact (hent c hc).1 v hvc
-        · obtain ⟨c, hc, hvc⟩ := List.mem_flatMap.mp hv
-          exact (hent c hc).2 v hvc
+    | some ds =>
+      exfalso
+      apply h
+      -- every member is read by the specification
+      have hmem : ∀ {sk : ModSkel} {cs}, (sk, cs) ∈ sks.zip css →
+          ((∀ i ∈ sk.imports, (nameP r i.module).isSome) ∧
+            (∀ c ∈ cs, ∀ v ∈ c.names, (nameP r v).isSome) ∧
+            ∀ c ∈ cs, ∀ v ∈ c.exprs, (exprP r v).isSome) := by
+        intro sk cs hp
+        obtain ⟨d, hd⟩ := isSome_iff_exists'.mp (listMapM_some _ hm (sk, cs) hp)
+        exact ModSkel.read_some hd
+      have hl : ∀ sk ∈ sks, ∃ cs, (sk, cs) ∈ sks.zip css := by
+        intro sk hsk
+        obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hsk
+        have hi' : i < (sks.zip css).length := by simp; omega
+        exact ⟨css[i]'(by omega), by simpa using List.getElem_mem hi'⟩
+      have hr : ∀ cs ∈ css, ∃ sk, (sk, cs) ∈ sks.zip css := by
+        intro cs hcs
+        obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hcs
+        have hi' : i < (sks.zip css).length := by simp; omega
+        exact ⟨sks[i]'(by omega), by simpa using List.getElem_mem hi'⟩
+      refine ⟨fun v hv => ?_, fun v hv => ?_⟩
+      · rcases List.mem_append.mp hv with hv | hv
+        · obtain ⟨sk, hsk, hv⟩ := List.mem_flatMap.mp hv
+          obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hv
+          obtain ⟨cs, hp⟩ := hl sk hsk
+          exact (hmem hp).1 i hi
+        · obtain ⟨c, hc, hv⟩ := List.mem_flatMap.mp hv
+          obtain ⟨cs, hcs, hc⟩ := List.mem_flatten.mp hc
+          obtain ⟨sk, hp⟩ := hr cs hcs
+          exact (hmem hp).2.1 c hc v hv
+      · obtain ⟨c, hc, hv⟩ := List.mem_flatMap.mp hv
+        obtain ⟨cs, hcs, hc⟩ := List.mem_flatten.mp hc
+        obtain ⟨sk, hp⟩ := hr cs hcs
+        exact (hmem hp).2.2 c hc v hv
 
-/-- **THE theorem: the full parse is the specification**, on every region and
-every root, so each succeeds exactly where the other does. -/
-theorem parseFull_eq_spec (r : Region) (root : UInt64) :
-    parseFull r root = decodeModuleSpec r root := by
-  cases hn : constNamesOk r root with
+/-- **The fast decoder is the specification**, on every region and every list of
+addresses, so each succeeds exactly where the other does. -/
+theorem parseMany_eq (r : Region) (addrs : List UInt64) :
+    parseMany r addrs = addrs.mapM (decodeAt r) := by
+  unfold parseMany
+  cases hall : addrs.all (constNamesOk r) with
   | false =>
-    unfold parseFull decodeModuleSpec
-    rw [hn]
-    rfl
-  | true =>
-    rw [decodeModuleSpec_skels hn]
-    unfold parseFull
-    rw [hn]
-    show (do
-      let sk ← moduleSkel r root
-      let skels ← sk.consts.mapM (constSkel r)
-      let st ← runPasses r (sk.imports.map (fun i : ImportF UInt64 => i.module) ++ skels.flatMap CEntryF.names)
-        (skels.flatMap CEntryF.exprs)
-      let imports ← sk.imports.mapM (ImportF.mapM (st.nameOf r))
-      let constants ← skels.mapM (CEntryF.mapM (st.nameOf r) (st.exprOf r))
-      pure (ModDecoded.mk sk.isModule imports.toArray constants.toArray)) = _
-    cases moduleSkel r root with
+    show none = _
+    symm
+    cases hm : addrs.mapM (decodeAt r) with
     | none => rfl
-    | some sk =>
-      simp only [bind, Option.bind]
-      cases sk.consts.mapM (constSkel r) with
+    | some ds =>
+      exfalso
+      have hn : ∀ a ∈ addrs, constNamesOk r a = true := by
+        intro a ha
+        obtain ⟨d, hd⟩ := isSome_iff_exists'.mp (listMapM_some _ hm a ha)
+        unfold decodeAt at hd
+        cases hc : constNamesOk r a with
+        | false => rw [hc] at hd; cases hd
+        | true => rfl
+      have : addrs.all (constNamesOk r) = true := List.all_eq_true.mpr hn
+      rw [hall] at this
+      cases this
+  | true =>
+    have hn : ∀ a ∈ addrs, constNamesOk r a = true := List.all_eq_true.mp hall
+    have h1 : addrs.mapM (decodeAt r) = addrs.mapM (fun a => moduleSkel r a >>= fun sk =>
+        sk.consts.mapM (constSkel r) >>= fun cs => sk.read (nameP r) (exprP r) cs) :=
+      listMapM_congr _ fun a ha => decodeAt_skels r a (hn a ha)
+    rw [h1, ← mapM_bind_two]
+    show (addrs.mapM (moduleSkel r) >>= _) = _
+    cases hs : addrs.mapM (moduleSkel r) with
+    | none => rfl
+    | some sks =>
+      show (sks.mapM (fun sk => sk.consts.mapM (constSkel r)) >>= _) =
+        sks.mapM (fun sk => sk.consts.mapM (constSkel r) >>= fun cs =>
+          sk.read (nameP r) (exprP r) cs)
+      rw [mapM_bind_zip (fun sk : ModSkel => sk.consts.mapM (constSkel r))
+        (fun sk cs => sk.read (nameP r) (exprP r) cs) sks]
+      cases hc : sks.mapM (fun sk => sk.consts.mapM (constSkel r)) with
       | none => rfl
-      | some skels => exact decode_inner r sk skels
+      | some css => exact mapM_zip_inner r sks css (mapM_length_eq hc)
+
+/-- **The `ModuleData` at one address**, fast, is the specification's. -/
+theorem parseAt_eq_spec (r : Region) (a : UInt64) : parseAt r a = decodeAt r a := by
+  unfold parseAt
+  rw [parseMany_eq]
+  simp only [List.mapM_cons, List.mapM_nil, bind, Option.bind, pure]
+  cases decodeAt r a <;> rfl
 
 /-! ## A few statements, from their roots -/
 

@@ -12,7 +12,7 @@ Where a module's files are on the search path, and each of the reads, as
 actions of the checker's IO class (`CheckerIO`,
 `ConLeche/Frontend/CheckerIO.lean`): the bytes come from the class's
 operations, and everything done with them is a pure function of them
-(`ConLeche/Frontend/Olean/Module.lean`), so that on one snapshot of the
+(`ConLeche/Frontend/Olean/View.lean`), so that on one snapshot of the
 files every read of a module sees one value
 (`ConLeche/Verify/Frontend/Olean/Files.lean`).
 -/
@@ -142,7 +142,7 @@ one location.  Malformed input (`.internal`, exit 3):
 * parts without an `.olean` beside them;
 * no file on the search path at all.
 
-Whether the parts the `.olean` needs are there is `readModule`'s check (it
+Whether the parts the `.olean` needs are there is `readFiles`'s check (it
 depends on the exported part's module-system flag). -/
 def findModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
     μ (Except CheckError Located) := do
@@ -195,19 +195,11 @@ def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Nam
   | .error e => pure (.error e)
   | .ok loc => readImportsAt loc m
 
-/-- **A module's exported file, validated**, located on the search path: what
-`parseExported` and the reads of a part of it work on. -/
-def readExportedPart {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Except CheckError Part) := do
-  match ← findModule sp m with
-  | .error e => pure (.error e)
-  | .ok loc => readPart (modFile loc.dir m "olean")
-
-/-- **Read one module in full**, located on the search path: the exported part
-alone, then the other parts.  A part beside a classic `.olean` is no part of it,
+/-- **The files of a module a view reads**, each validated, located on the search
+path (`ModFiles.viewRegion`).  A part beside a classic `.olean` is no part of it,
 and a module of the module system has all three. -/
-def readModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Except CheckError ModRead) := do
+def readFiles {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (level : OLeanLevel) :
+    μ (Except CheckError ModFiles) := do
   match ← findModule sp m with
   | .error e => pure (.error e)
   | .ok loc =>
@@ -215,22 +207,48 @@ def readModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) 
     match ← readPart (modFile loc.dir m "olean") with
     | .error e => pure (.error e)
     | .ok ex =>
-      match parseExported m ex with
+      if level == .exported then return .ok { exported := ex }
+      if !(ModFiles.isModule { exported := ex }) then
+        if loc.hasServer || loc.hasPrivate then
+          return .error (bad s!"a module outside the module system (its {m}.olean), with \
+            {if loc.hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
+            in {loc.dir}")
+        return .ok { exported := ex }
+      if !loc.hasServer then
+        return .error (bad s!"a module of the module system without its {m}.olean.server in {loc.dir}")
+      if !loc.hasPrivate then
+        return .error (bad s!"a module of the module system without its {m}.olean.private in {loc.dir}")
+      match ← readPart (modFile loc.dir m "olean.server") with
       | .error e => pure (.error e)
-      | .ok er =>
-        if !er.isModule then
-          if loc.hasServer || loc.hasPrivate then
-            return .error (bad s!"a module outside the module system (its {m}.olean), with \
-              {if loc.hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
-              in {loc.dir}")
-          return .ok (classicModule m er)
-        if !loc.hasServer then
-          return .error (bad s!"a module of the module system without its {m}.olean.server in {loc.dir}")
-        if !loc.hasPrivate then
-          return .error (bad s!"a module of the module system without its {m}.olean.private in {loc.dir}")
-        match ← readPart (modFile loc.dir m "olean.server"),
-            ← readPart (modFile loc.dir m "olean.private") with
-        | .ok s, .ok p => pure (parseModule m er ex s p)
-        | .error e, _ | _, .error e => pure (.error e)
+      | .ok s =>
+        if level == .server then return .ok { exported := ex, server := some s }
+        match ← readPart (modFile loc.dir m "olean.private") with
+        | .error e => pure (.error e)
+        | .ok p => pure (.ok { exported := ex, server := some s, «private» := some p })
+
+/-- **One view of a module**, located on the search path. -/
+def readView {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (level : OLeanLevel) :
+    μ (Except CheckError ModDecoded) := do
+  match ← readFiles sp m level with
+  | .error e => pure (.error e)
+  | .ok f =>
+    match parseView f level with
+    | some d => pure (.ok d)
+    | none => pure (.error (viewError m f level))
+
+/-- **All three views of a module, checked against each other**: its home's read. -/
+def readAllViews {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
+    μ (Except CheckError (AllViews × Array Expo)) := do
+  match ← readFiles sp m .private with
+  | .error e => pure (.error e)
+  | .ok f =>
+    match parseAllViews f with
+    | none =>
+      let level := ([OLeanLevel.exported, .server].find? fun l => (parseView f l).isNone).getD .private
+      pure (.error (viewError m f level))
+    | some v =>
+      match checkViews m f v with
+      | .ok expo => pure (.ok (v, expo))
+      | .error e => pure (.error e)
 
 end ConLeche.Frontend.Olean

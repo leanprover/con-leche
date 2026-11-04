@@ -1,33 +1,24 @@
 module
 
-public import ConLeche.Frontend.Olean.Module
+public import ConLeche.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Sparse
 import Std.Data.HashSet.Lemmas
 
 /-!
-# Every read of a part of a file is a projection of its full parse
+# Every read of a part of a `ModuleData` is a projection of it
 
-The full parse is `parseFull`, the specification by `parseFull_eq_spec`.
-**Where it succeeds, every other read succeeds, and returns its part of the
-result**:
-
-* `readNamePositions_of_full`: the header, and per stored constant its location, name,
-  kind and filter;
-* `readEntry_eq`, an equation on every region: the constant at a location is
-  `constSpec`'s, so `readEntry_of_full` is the full parse's entry;
-* `readStmts_of_full`: the statements of any of the module's constants;
-* `full_names_nodup`: the names of its constants are distinct, the check
-  `readNamePositions` repeats.
+At a region and an address: `parseAt` is the specification `decodeAt`
+(`parseAt_eq_spec`).  **Where it succeeds, every other read succeeds, and returns
+its part of the result** (`namePositionsAt_of_full`, `entryAt_of_full`,
+`stmtsAt_of_full`; `entryAt_eq` on every region).
 
 The prefix read of a file's imports is related to the whole file in both
 directions: `importsPre_extract` (a prefix's imports are the file's), and
-`importsPre_prefix` (a file's imports are those of every prefix the walk
-stops in).  `parseExported_full` and `parseModule_full` unfold the module
-reads into the full parses they are made of, so the theorems here apply at
-the regions and roots of a module's parts.
+`importsPre_prefix` (a file's imports are those of every prefix the walk stops in).
 
-The file-system level is `ConLeche/Verify/Frontend/Olean/Files.lean`.
+The interface's reads, at a level, are `ConLeche/Verify/Frontend/Olean/View.lean`;
+on a snapshot, `ConLeche/Verify/Frontend/Olean/Files.lean`.
 -/
 
 public section
@@ -306,13 +297,13 @@ theorem mapM_project_zip {α β γ : Type} {f : α → Option β} {g : α → Op
 /-! ## The full parse -/
 
 /-- **The parts of a full parse.** -/
-theorem parseFull_some {r : Region} {root : UInt64} {d : ModDecoded}
-    (h : parseFull r root = some d) :
+theorem parseAt_some {r : Region} {root : UInt64} {d : ModDecoded}
+    (h : parseAt r root = some d) :
     constNamesOk r root = true ∧ ∃ sk, moduleSkel r root = some sk ∧
       sk.imports.mapM (ImportF.mapM (nameP r)) = some d.imports.toList ∧
       sk.consts.mapM (constSpec r) = some d.constants.toList ∧ d.isModule = sk.isModule := by
-  rw [parseFull_eq_spec] at h
-  unfold decodeModuleSpec at h
+  rw [parseAt_eq_spec] at h
+  unfold decodeAt at h
   cases hn : constNamesOk r root with
   | false =>
     rw [hn] at h
@@ -356,8 +347,8 @@ theorem CEntryF.mapM_parts {fn : UInt64 → Option Name} {fe : UInt64 → Option
 
 /-- **A constant read with a memo of its own is the specification's**, on
 every region and at every location. -/
-theorem readEntry_eq (r : Region) (c : Nat) : readEntry r c = constSpec r c := by
-  simp only [readEntry, constSpec]
+theorem entryAt_eq (r : Region) (c : Nat) : entryAt r c = constSpec r c := by
+  simp only [entryAt, constSpec]
   cases constSkel r c with
   | none => rfl
   | some s => exact sparseEntry_eq r s
@@ -377,8 +368,8 @@ theorem stmtP_of_entry {r : Region} {s : CEntryF UInt64 UInt64} {e : CEntryF Nam
 /-- The names in a parsed module's name table are its constants', each
 once. -/
 theorem full_names_nodup {r : Region} {root : UInt64} {d : ModDecoded}
-    (h : parseFull r root = some d) : (d.constants.toList.map (·.name)).Nodup := by
-  obtain ⟨hn, sk, hs, -, hc, -⟩ := parseFull_some h
+    (h : parseAt r root = some d) : (d.constants.toList.map (·.name)).Nodup := by
+  obtain ⟨hn, sk, hs, -, hc, -⟩ := parseAt_some h
   obtain ⟨g, cs, hg, hcs, names, hl, hnd, hk⟩ := constNamesOk_spec hn
   rw [moduleSkel_consts hs hg hcs] at hc
   have hlen : d.constants.toList.length = cs.size := by simpa using mapM_length_opt hc
@@ -419,7 +410,7 @@ theorem distinctGo_iff {α : Type} [BEq α] [LawfulBEq α] [Hashable α] :
     · rintro ⟨⟨hm, hnd⟩, hx, hall⟩
       refine ⟨hx, hnd, fun y hy => ⟨fun he => hm (he ▸ hy), hall y hy⟩⟩
 
-/-- A stored constant as `readNamePositions` has it. -/
+/-- A stored constant as `namePositionsAt` has it. -/
 @[expose] def NamePosition.ofEntry (c : Nat) (e : CEntryF Name Expr) : NamePosition :=
   ⟨c, e.name, e.kind.tag, e.kind.skipped⟩
 
@@ -438,14 +429,31 @@ theorem namePositions_names {locs : List Nat} {es : List (CEntryF Name Expr)}
       (·.name) ∘ Prod.snd := rfl
   rw [this, ← List.map_map, List.map_snd_zip (by omega)]
 
+theorem namePositions_tags {locs : List Nat} {es : List (CEntryF Name Expr)}
+    (h : locs.length = es.length) :
+    ((locs.zip es).map fun p => NamePosition.ofEntry p.1 p.2).map (·.tag) = es.map (·.kind.tag) := by
+  simp only [List.map_map]
+  have : (NamePosition.tag ∘ fun p : Nat × CEntryF Name Expr => NamePosition.ofEntry p.1 p.2) =
+      (·.kind.tag) ∘ Prod.snd := rfl
+  rw [this, ← List.map_map, List.map_snd_zip (by omega)]
+
+theorem namePositions_skipped {locs : List Nat} {es : List (CEntryF Name Expr)}
+    (h : locs.length = es.length) :
+    ((locs.zip es).map fun p => NamePosition.ofEntry p.1 p.2).map (·.skipped) =
+      es.map (·.kind.skipped) := by
+  simp only [List.map_map]
+  have : (NamePosition.skipped ∘ fun p : Nat × CEntryF Name Expr => NamePosition.ofEntry p.1 p.2) =
+      (·.kind.skipped) ∘ Prod.snd := rfl
+  rw [this, ← List.map_map, List.map_snd_zip (by omega)]
+
 /-- **The name positions of a parsed module** is its full parse's: the header,
 and per stored constant its location (`moduleSkel`'s) with the name, kind
 and filter of the constant the full parse decoded there. -/
-theorem readNamePositions_of_full {r : Region} {root : UInt64} {d : ModDecoded} {sk : ModSkel}
-    (h : parseFull r root = some d) (hs : moduleSkel r root = some sk) :
-    readNamePositions r root = some ⟨⟨d.isModule, d.imports⟩,
+theorem namePositionsAt_of_full {r : Region} {root : UInt64} {d : ModDecoded} {sk : ModSkel}
+    (h : parseAt r root = some d) (hs : moduleSkel r root = some sk) :
+    namePositionsAt r root = some ⟨⟨d.isModule, d.imports⟩,
       ((sk.consts.zip d.constants.toList).map fun p => NamePosition.ofEntry p.1 p.2).toArray⟩ := by
-  obtain ⟨-, sk', hs', hi, hc, hm⟩ := parseFull_some h
+  obtain ⟨-, sk', hs', hi, hc, hm⟩ := parseAt_some h
   obtain rfl : sk = sk' := Option.some.inj (hs.symm.trans hs')
   have hl := mapM_project_zip (k := NamePosition.ofEntry) (fun _ _ hx => namePosition_of_spec hx) hc
   have hlen : sk.consts.length = d.constants.toList.length := (mapM_length_opt hc).symm
@@ -456,45 +464,45 @@ theorem readNamePositions_of_full {r : Region} {root : UInt64} {d : ModDecoded} 
         ((sk.consts.zip d.constants.toList).map fun p => NamePosition.ofEntry p.1 p.2).length) = true := by
     rw [distinctGo_iff, hnames]
     exact ⟨full_names_nodup h, fun x _ => by simp [Std.HashSet.contains_emptyWithCapacity]⟩
-  simp only [readNamePositions, hs, hi, hl, hm, bind, Option.bind, hd]
+  simp only [namePositionsAt, hs, hi, hl, hm, bind, Option.bind, hd]
   rfl
 
 /-- **The constant at the `i`-th location of a parsed module** is its full
 parse's `i`-th. -/
-theorem readEntry_of_full {r : Region} {root : UInt64} {d : ModDecoded} {sk : ModSkel} {i c : Nat}
-    (h : parseFull r root = some d) (hs : moduleSkel r root = some sk)
-    (hi : sk.consts[i]? = some c) : readEntry r c = d.constants[i]? := by
-  obtain ⟨-, sk', hs', -, hc, -⟩ := parseFull_some h
+theorem entryAt_of_full {r : Region} {root : UInt64} {d : ModDecoded} {sk : ModSkel} {i c : Nat}
+    (h : parseAt r root = some d) (hs : moduleSkel r root = some sk)
+    (hi : sk.consts[i]? = some c) : entryAt r c = d.constants[i]? := by
+  obtain ⟨-, sk', hs', -, hc, -⟩ := parseAt_some h
   obtain rfl : sk = sk' := Option.some.inj (hs.symm.trans hs')
   have := mapM_getElem? hc i
   rw [hi, Option.bind_some] at this
-  rw [readEntry_eq, ← this]
+  rw [entryAt_eq, ← this]
   simp
 
 /-- The statement read is the part of the constant read it reads. -/
-theorem readStmts_eq (r : Region) (cs : List Nat) :
-    readStmts r cs = cs.mapM fun c => constSkel r c >>= stmtP r := by
+theorem stmtsAt_eq (r : Region) (cs : List Nat) :
+    stmtsAt r cs = cs.mapM fun c => constSkel r c >>= stmtP r := by
   have hf : stmtsFast r = List.mapM (stmtP r) := funext (stmtsFast_eq r)
-  simp only [readStmts, hf]
+  simp only [stmtsAt, hf]
   exact (mapM_bind (constSkel r) (stmtP r) cs).symm
 
 /-- **The statements of any of a parsed module's constants** are those of
 the constants its full parse holds at those locations. -/
-theorem readStmts_of_full {r : Region} {root : UInt64} {d : ModDecoded} {sk : ModSkel}
-    {cs : List Nat} (h : parseFull r root = some d) (hs : moduleSkel r root = some sk)
+theorem stmtsAt_of_full {r : Region} {root : UInt64} {d : ModDecoded} {sk : ModSkel}
+    {cs : List Nat} (h : parseAt r root = some d) (hs : moduleSkel r root = some sk)
     (hsub : ∀ c ∈ cs, c ∈ sk.consts) :
-    ∃ es, cs.mapM (readEntry r) = some es ∧ readStmts r cs = some (es.map CEntryF.stmt) ∧
+    ∃ es, cs.mapM (entryAt r) = some es ∧ stmtsAt r cs = some (es.map CEntryF.stmt) ∧
       ∀ e ∈ es, e ∈ d.constants := by
-  obtain ⟨-, sk', hs', -, hc, -⟩ := parseFull_some h
+  obtain ⟨-, sk', hs', -, hc, -⟩ := parseAt_some h
   obtain rfl : sk = sk' := Option.some.inj (hs.symm.trans hs')
-  obtain ⟨es, hes, hin⟩ := mapM_of_forall (f := readEntry r) (P := (· ∈ d.constants)) (xs := cs)
+  obtain ⟨es, hes, hin⟩ := mapM_of_forall (f := entryAt r) (P := (· ∈ d.constants)) (xs := cs)
     fun c hm => by
       obtain ⟨e, he, hx⟩ := mapM_mem hc (hsub c hm)
-      exact ⟨e, by rw [readEntry_eq, hx], by simpa using he⟩
+      exact ⟨e, by rw [entryAt_eq, hx], by simpa using he⟩
   refine ⟨es, hes, ?_, hin⟩
-  rw [readStmts_eq]
-  refine mapM_project (f := readEntry r) (fun c e he => ?_) hes
-  rw [readEntry_eq] at he
+  rw [stmtsAt_eq]
+  refine mapM_project (f := entryAt r) (fun c e he => ?_) hes
+  rw [entryAt_eq] at he
   obtain ⟨s, hsk, hm⟩ := constSpec_parts he
   simp [hsk, stmtP_of_entry hm]
 
@@ -678,74 +686,5 @@ theorem Part.ofBytes_prefix {p : String} {b : ByteArray} {ex : Part} {k : Nat}
   simp only [bind, Except.bind, pure, Except.pure, throw, throwThe, MonadExceptOf.throw]
   rw [ite_eq_left hk, ite_eq_left h1, ite_eq_left h2, ite_eq_left h3, ite_eq_left h8',
     ite_eq_left h5']
-
-/-! ## The module reads -/
-
-/-- **A module's exported read** is the full parse of that file alone, whose
-imports the file's prefix holds. -/
-theorem parseExported_full {m : Name} {ex : Part} {d : ModDecoded}
-    (h : parseExported m ex = .ok d) :
-    parseFull (Region.single ex) ex.root = some d ∧ importsPre ex.bytes = some d.imports := by
-  unfold parseExported parseFullE at h
-  cases hf : parseFull (Region.single ex) ex.root with
-  | none => simp [hf, bind, Except.bind] at h
-  | some d' =>
-    simp only [hf, bind, Except.bind] at h
-    split at h
-    · simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      rename_i hb
-      exact ⟨rfl, by simpa using hb⟩
-    · cases h
-
-/-- A part of a module's read is its full parse, with the exported part's
-imports. -/
-theorem parsePart_ok {m : Name} {er : ModDecoded} {part : String} {r : Region} {root : UInt64}
-    {d : ModDecoded} (h : parsePart m er part r root = .ok d) :
-    parseFull r root = some d ∧ d.isModule = true ∧ d.imports = er.imports := by
-  unfold parsePart parseFullE at h
-  cases hp : parseFull r root with
-  | none => simp [hp, bind, Except.bind] at h
-  | some d' =>
-    simp only [hp, bind, Except.bind, pure, Except.pure] at h
-    by_cases hm : d'.isModule = true
-    · by_cases hi : (d'.imports == er.imports) = true
-      · simp only [hm, hi, ite_true] at h
-        cases h
-        exact ⟨rfl, hm, eq_of_beq hi⟩
-      · simp [hm, hi] at h
-    · simp [hm] at h
-
-/-- **A module's full read** is the full parses of its server and private
-parts in the region of its files; the read's imports are the exported
-part's and the parts' are the same, and its constants the private part's,
-its exported constants the exported read's. -/
-theorem parseModule_full {m : Name} {er : ModDecoded} {ex s p : Part} {mr : ModRead}
-    (h : parseModule m er ex s p = .ok mr) :
-    ∃ r ds dp, Region.ofParts #[ex, s, p] = .ok r ∧
-      parseFull r s.root = some ds ∧ parseFull r p.root = some dp ∧
-      ds.imports = er.imports ∧ dp.imports = er.imports ∧
-      mr.name = m ∧ mr.isModule = true ∧ mr.imports = er.imports ∧
-      mr.constants = dp.constants ∧ mr.exported = er.constants := by
-  unfold parseModule at h
-  cases hr : Region.ofParts #[ex, s, p] with
-  | error e => simp [hr, bind, Except.bind] at h
-  | ok r =>
-    simp only [hr, bind, Except.bind] at h
-    cases hs : parsePart m er "server" r s.root with
-    | error e => simp [hs] at h
-    | ok ds =>
-      simp only [hs] at h
-      cases hp : parsePart m er "private" r p.root with
-      | error e => simp [hp] at h
-      | ok dp =>
-        simp only [hp] at h
-        obtain ⟨hs1, -, hs3⟩ := parsePart_ok hs
-        obtain ⟨hp1, -, hp3⟩ := parsePart_ok hp
-        split at h
-        · cases h
-          exact ⟨r, ds, dp, rfl, hs1, hp1, hs3, hp3, rfl, rfl, rfl, rfl, rfl⟩
-        · cases h
-        · cases h
 
 end ConLeche.Frontend.Olean

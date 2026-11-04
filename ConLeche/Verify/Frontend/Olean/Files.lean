@@ -1,31 +1,34 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
-public import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.Frontend.Olean.View
+import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
+public import ConLeche.Verify.Frontend.ModelIO
 
 /-!
 # The `.olean` reads on a file system snapshot
 
-The reads of `ConLeche/Frontend/Olean/Files.lean` in the model `ModelIO`,
-where they use the file operations alone, so that a snapshot determines each
-(`ModelIO.Det`).
+The reads of `ConLeche/Frontend/Olean/Files.lean` in the model `ModelIO`, where they
+use the file operations alone, so that a snapshot determines each (`ModelIO.Det`).
 
-**A module's full read at its home settles its other reads** on the same
-snapshot, in one process or in two: where `readModule` has a value,
+**A module's home read settles its other reads** on the same snapshot, in one
+process or in two.  Where `readAllViews` has a value:
 
-* the exported file is the one it decoded (`readModule_ok`), so that the read of
-  that file (`readExportedPart_of_home`) and of the imports off its start
-  (`moduleImports_of_home`) cannot fail, and return what the home has;
-* the reads of a part of the module, pure functions of the region and the
-  root the full parses have run on, are `ConLeche/Verify/Frontend/Olean/Reads.lean`.
+* every view's read is determined and returns that view (`readView_of_all`), and the
+  files any view reads are the home's (`readFiles_of_all`), so that an importer's
+  read of the exported view, holding `M.olean` alone, is the home's;
+* where a view reads, the imports off the file's start are determined and are its
+  imports (`moduleImports_of_view`);
+* the reads of a part of a view are pure functions of those files:
+  `ConLeche/Verify/Frontend/Olean/View.lean`.
 
-`foldList_hdr` and `foldList_hdr_complete` are the two directions of the
-forward read of a file's start: what it finds is `importsPre` of the whole
-file, and it finds that wherever the file is valid and has such imports.
+`foldList_hdr` and `foldList_hdr_complete` are the two directions of the forward
+read of a file's start: what it finds is `importsPre` of the whole file, and it
+finds that wherever the file is valid and has such imports.
 
-`readOleans_ok`: the records of a run are made of modules each read by
-`readModule` on the snapshot.
+`readOleans_ok`: the records of a run are made of the private view of each module of
+the closure, each read by `readView` on the snapshot.
 -/
 
 public section
@@ -247,22 +250,23 @@ theorem readImportsAt_det {loc : Located} {m : Name} {fs : FS} {b : ByteArray} {
 
 /-! ## The home's full read -/
 
-/-- **A module's full read**, unfolded: its location is determined, its exported
-file read in full, and for a module of the module system, its other two files
-read with it. -/
-theorem readModule_ok {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ loc b ex er, (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) ∧
+/-- **The files of a view**, unfolded: the location is determined, `M.olean` read, and
+the rest as its flag and the level ask. -/
+theorem readFiles_ok {sp : SearchPath} {m : Name} {level : OLeanLevel} {fs : FS} {f : ModFiles}
+    (h : (readFiles sp m level : ModelIO _) fs (.ok (.ok f))) :
+    ∃ loc b ex, (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) ∧
       fs.file (modFile loc.dir m "olean") = some b ∧
-      Part.ofBytes (modFile loc.dir m "olean").toString b = .ok ex ∧
-      parseExported m ex = .ok er ∧
-      ((er.isModule = false ∧ r = classicModule m er) ∨
-        ∃ bs bp s p, fs.file (modFile loc.dir m "olean.server") = some bs ∧
+      Part.ofBytes (modFile loc.dir m "olean").toString b = .ok ex ∧ f.exported = ex ∧
+      (level = .private → ModFiles.isModule { exported := ex } = true →
+        ∃ bs bp s p, loc.hasServer = true ∧ loc.hasPrivate = true ∧
+          fs.file (modFile loc.dir m "olean.server") = some bs ∧
           fs.file (modFile loc.dir m "olean.private") = some bp ∧
           Part.ofBytes (modFile loc.dir m "olean.server").toString bs = .ok s ∧
           Part.ofBytes (modFile loc.dir m "olean.private").toString bp = .ok p ∧
-          er.isModule = true ∧ parseModule m er ex s p = .ok r) := by
-  simp only [readModule, ModelIO.bind_ok] at h
+          f = { exported := ex, server := some s, «private» := some p }) ∧
+      (level = .private → ModFiles.isModule { exported := ex } = false →
+        loc.hasServer = false ∧ loc.hasPrivate = false ∧ f = { exported := ex }) := by
+  simp only [readFiles, ModelIO.bind_ok] at h
   obtain ⟨y, hy, h⟩ := h
   rcases y with e | loc
   · simp at h
@@ -273,84 +277,184 @@ theorem readModule_ok {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
   | error e => simp [hp] at h
   | ok ex =>
     simp only [hp] at h
-    cases he : parseExported m ex with
-    | error e => simp [he] at h
-    | ok er =>
-      simp only [he] at h
-      refine ⟨loc, b, ex, er, findModule_ok hy, hb, hp, he, ?_⟩
-      cases hm : er.isModule with
+    cases level with
+    | exported =>
+      simp at h
+      subst h
+      exact ⟨loc, b, ex, findModule_ok hy, hb, hp, rfl, by simp, by simp⟩
+    | server =>
+      have hne : (OLeanLevel.server == .exported) = false := by decide
+      simp only [hne, Bool.false_eq_true, ite_false] at h
+      refine ⟨loc, b, ex, findModule_ok hy, hb, hp, ?_, by simp, by simp⟩
+      cases hm : ModFiles.isModule { exported := ex } with
       | false =>
-        refine .inl ⟨rfl, ?_⟩
         simp only [hm, Bool.not_false, ite_true] at h
-        split at h
-        · simp at h
-        · simpa [eq_comm] using h
+        by_cases hs1 : (loc.hasServer || loc.hasPrivate) = true
+        · simp [hs1] at h
+        · simp [hs1] at h
+          subst h
+          rfl
       | true =>
-        refine .inr ?_
         simp only [hm, Bool.not_true, Bool.false_eq_true, ite_false] at h
         by_cases hs : loc.hasServer = true
         · by_cases hq : loc.hasPrivate = true
-          · simp only [hs, hq, Bool.not_true, Bool.false_eq_true, ite_false, ModelIO.bind_ok] at h
-            obtain ⟨xs, hxs, xp, hxp, h⟩ := h
+          · have hsq : (OLeanLevel.server == .server) = true := by decide
+            simp only [hs, hq, Bool.not_true, Bool.false_eq_true, ite_false, hsq, ite_true,
+              ModelIO.bind_ok] at h
+            obtain ⟨xs, -, h⟩ := h
+            rcases xs with e | s
+            · simp at h
+            · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+              subst h
+              rfl
+          · simp [hs, hq] at h
+        · simp [hs] at h
+    | «private» =>
+      have hne : (OLeanLevel.private == .exported) = false := by decide
+      simp only [hne, Bool.false_eq_true, ite_false] at h
+      cases hm : ModFiles.isModule { exported := ex } with
+      | false =>
+        simp only [hm, Bool.not_false, ite_true] at h
+        by_cases hs1 : (loc.hasServer || loc.hasPrivate) = true
+        · simp [hs1] at h
+        · simp [hs1] at h
+          subst h
+          have hl : loc.hasServer = false ∧ loc.hasPrivate = false := by
+            simpa using hs1
+          exact ⟨loc, b, ex, findModule_ok hy, hb, hp, rfl,
+            fun _ h' => (by rw [hm] at h'; cases h'), fun _ _ => ⟨hl.1, hl.2, rfl⟩⟩
+      | true =>
+        simp only [hm, Bool.not_true, Bool.false_eq_true, ite_false] at h
+        by_cases hs : loc.hasServer = true
+        · by_cases hq : loc.hasPrivate = true
+          · have hsq : (OLeanLevel.private == .server) = false := by decide
+            simp only [hs, hq, Bool.not_true, Bool.false_eq_true, ite_false, hsq,
+              ModelIO.bind_ok] at h
+            obtain ⟨xs, hxs, h⟩ := h
             obtain ⟨bs, hbs, rfl⟩ := readPart_ok hxs
-            obtain ⟨bp, hbp, rfl⟩ := readPart_ok hxp
             cases ho : Part.ofBytes (modFile loc.dir m "olean.server").toString bs with
             | error e => simp [ho] at h
-            | ok s =>
+            | ok s' =>
+              simp only [ho, ModelIO.bind_ok] at h
+              obtain ⟨xp, hxp, h⟩ := h
+              obtain ⟨bp, hbp, rfl⟩ := readPart_ok hxp
               cases hr : Part.ofBytes (modFile loc.dir m "olean.private").toString bp with
-              | error e => simp [ho, hr] at h
-              | ok p =>
-                simp only [ho, hr, ModelIO.pure_iff, Except.ok.injEq] at h
-                exact ⟨bs, bp, s, p, hbs, hbp, ho, hr, rfl, h.symm⟩
+              | error e => simp [hr] at h
+              | ok p' =>
+                simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at h
+                subst h
+                exact ⟨loc, b, ex, findModule_ok hy, hb, hp, rfl,
+                  fun _ _ => ⟨bs, bp, s', p', hs, hq, hbs, hbp, ho, hr, rfl⟩,
+                  fun _ h' => by rw [hm] at h'; cases h'⟩
           · simp [hs, hq] at h
         · simp [hs] at h
 
-/-! ## What the home's read settles -/
-
-/-- **The home's read settles a module's exported part** on the snapshot: the
-location and the file are determined, the exported part is valid and its full
-read succeeds, with the home's imports and exported constants. -/
-theorem home_exported {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ loc b ex er, (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) ∧
-      fs.file (modFile loc.dir m "olean") = some b ∧
-      Part.ofBytes (modFile loc.dir m "olean").toString b = .ok ex ∧
-      parseExported m ex = .ok er ∧ r.exported = er.constants ∧ r.imports = er.imports := by
-  obtain ⟨loc, b, ex, er, hf, hb, hp, he, hc⟩ := readModule_ok h
-  refine ⟨loc, b, ex, er, hf, hb, hp, he, ?_⟩
-  rcases hc with ⟨-, rfl⟩ | ⟨_, _, s, p, _, _, _, _, _, hq⟩
-  · exact ⟨rfl, rfl⟩
-  · obtain ⟨_, _, _, _, _, _, _, _, _, _, hi, _, hx⟩ := parseModule_full hq
-    exact ⟨hx, hi⟩
-
-/-- **The exported part of a module with a home's read**: its file is determined,
-and `parseExported` of it succeeds with the home's constants and imports.  The
-reads of a part of it are `readNamePositions_of_full`, `readEntry_of_full` and
-`readStmts_of_full`, at `(Region.single ex, ex.root)` by `parseExported_full`. -/
-theorem readExportedPart_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ ex er, (readExportedPart sp m : ModelIO _) fs = ModelIO.answer (some (.ok ex)) ∧
-      parseExported m ex = .ok er ∧ r.exported = er.constants ∧ r.imports = er.imports := by
-  obtain ⟨loc, b, ex, er, hf, hb, hp, he, hc, hi⟩ := home_exported h
-  refine ⟨ex, er, ?_, he, hc, hi⟩
-  simp only [readExportedPart]
+/-- **The files a view reads, from a home's**: determined, those of the home's it
+reads. -/
+theorem readFiles_of_all {sp : SearchPath} {m : Name} {fs : FS} {f : ModFiles} (level : OLeanLevel)
+    (h : (readFiles sp m .private : ModelIO _) fs (.ok (.ok f))) :
+    (readFiles sp m level : ModelIO _) fs = ModelIO.answer (some (.ok (f.upTo level))) := by
+  obtain ⟨loc, b, ex, hf, hb, hp, rfl, hmod, hcl⟩ := readFiles_ok h
+  simp only [readFiles]
   rw [ModelIO.bind_det hf]
   simp only
-  rw [readPart_det hb, hp]
-
-/-- **A module's imports off its file's start, with a home's read**: determined,
-the home's imports. -/
-theorem moduleImports_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    (moduleImports sp m : ModelIO _) fs = ModelIO.answer (some (.ok r.imports)) := by
-  obtain ⟨loc, b, ex, er, hf, hb, hp, he, -, hi⟩ := home_exported h
-  have himp : importsPre b = some r.imports := by
-    have := (parseExported_full he).2
-    rwa [Part.ofBytes_bytes hp, ← hi] at this
-  simp only [moduleImports]
-  rw [ModelIO.bind_det hf]
+  rw [ModelIO.bind_det (readPart_det hb), hp]
   simp only
-  exact readImportsAt_det hb hp himp
+  cases level with
+  | exported => rfl
+  | server =>
+    have hne : (OLeanLevel.server == .exported) = false := by decide
+    simp only [hne, Bool.false_eq_true, ite_false]
+    cases hm : ModFiles.isModule { exported := f.exported } with
+    | false =>
+      obtain ⟨h1, h2, h3⟩ := hcl rfl hm
+      simp only [Bool.not_false, ite_true, h1, h2, Bool.or_self, Bool.false_eq_true, ite_false]
+      rw [h3]
+      rfl
+    | true =>
+      obtain ⟨bs, bp, s, p, h1, h2, hbs, hbp, ho, hr, h3⟩ := hmod rfl hm
+      have hsq : (OLeanLevel.server == .server) = true := by decide
+      simp only [Bool.not_true, Bool.false_eq_true, ite_false, h1, h2]
+      rw [ModelIO.bind_det (readPart_det hbs), ho]
+      simp only [hsq, ite_true]
+      rw [h3]
+      rfl
+  | «private» =>
+    have hne : (OLeanLevel.private == .exported) = false := by decide
+    simp only [hne, Bool.false_eq_true, ite_false]
+    cases hm : ModFiles.isModule { exported := f.exported } with
+    | false =>
+      obtain ⟨h1, h2, h3⟩ := hcl rfl hm
+      simp only [Bool.not_false, ite_true, h1, h2, Bool.or_self, Bool.false_eq_true, ite_false]
+      rw [h3]
+      rfl
+    | true =>
+      obtain ⟨bs, bp, s, p, h1, h2, hbs, hbp, ho, hr, h3⟩ := hmod rfl hm
+      have hsq : (OLeanLevel.private == .server) = false := by decide
+      simp only [Bool.not_true, Bool.false_eq_true, ite_false, h1, h2]
+      rw [ModelIO.bind_det (readPart_det hbs), ho]
+      simp only [hsq, Bool.false_eq_true, ite_false]
+      rw [ModelIO.bind_det (readPart_det hbp), hr, h3]
+      rfl
+
+/-- A view of a module's files is a view of those it reads. -/
+theorem decodeModuleSpec_upTo (f : ModFiles) (level : OLeanLevel) :
+    decodeModuleSpec (f.upTo level) level = decodeModuleSpec f level := by
+  cases level <;> rfl
+
+/-- **A home's read settles each view**: determined, the home's. -/
+theorem readView_of_all {sp : SearchPath} {m : Name} {fs : FS} {v : AllViews} {e : Array Expo}
+    (level : OLeanLevel) (h : (readAllViews sp m : ModelIO _) fs (.ok (.ok (v, e)))) :
+    (readView sp m level : ModelIO _) fs = ModelIO.answer (some (.ok (v.at level))) := by
+  simp only [readAllViews, ModelIO.bind_ok] at h
+  obtain ⟨y, hy, h⟩ := h
+  rcases y with x | f
+  · simp at h
+  cases hv : parseAllViews f with
+  | none => simp [hv] at h
+  | some v' =>
+    simp only [hv] at h
+    cases hc : checkViews m f v' with
+    | error x => simp [hc] at h
+    | ok expo =>
+      simp only [hc, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      have hp : parseView (f.upTo level) level = some (v.at level) := by
+        rw [parseView_eq_spec, decodeModuleSpec_upTo]
+        rw [parseAllViews_eq] at hv
+        obtain ⟨d1, h1, hv⟩ := bind_some_left hv
+        obtain ⟨d2, h2, hv⟩ := bind_some_left hv
+        obtain ⟨d3, h3, hv⟩ := bind_some_left hv
+        cases hv
+        cases level
+        · exact h1
+        · exact h2
+        · exact h3
+      simp only [readView]
+      rw [ModelIO.bind_det (readFiles_of_all level hy)]
+      simp only [hp]
+      rfl
+
+/-- **A view read says what the file's start holds**: the read of the imports is
+determined, and is the view's. -/
+theorem moduleImports_of_view {sp : SearchPath} {m : Name} {level : OLeanLevel} {fs : FS}
+    {d : ModDecoded} (h : (readView sp m level : ModelIO _) fs (.ok (.ok d))) :
+    (moduleImports sp m : ModelIO _) fs = ModelIO.answer (some (.ok d.imports)) := by
+  simp only [readView, ModelIO.bind_ok] at h
+  obtain ⟨y, hy, h⟩ := h
+  rcases y with x | f
+  · simp at h
+  cases hv : parseView f level with
+  | none => simp [hv] at h
+  | some d' =>
+    simp only [hv, ModelIO.pure_iff, Except.ok.injEq] at h
+    cases h
+    obtain ⟨loc, b, ex, hf, hb, hp, rfl, -, -⟩ := readFiles_ok hy
+    obtain ⟨-, -, -, -, himp⟩ := parseView_some hv
+    rw [Part.ofBytes_bytes hp] at himp
+    simp only [moduleImports]
+    rw [ModelIO.bind_det hf]
+    exact readImportsAt_det hb hp himp
 
 /-! ## The whole read -/
 
@@ -381,15 +485,15 @@ theorem mapExcept_ok {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs :
         exact ⟨h2, h4⟩
 
 /-- **The records of a run** are made of the import closure's modules, each
-read by `readModule` on the snapshot, whatever the job count. -/
+private view read by `readView` on the snapshot, whatever the job count. -/
 theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : FS}
     {ds : Array Declaration}
     (h : (readOleans sp roots jobs : ModelIO _) fs (.ok (.ok ds))) :
     ∃ (order : Array Name) (ls : List Loaded) (mg : Merged),
       (closureOrder sp roots : ModelIO _) fs (.ok (.ok order)) ∧
       ls.map (·.name) = order.toList ∧
-      (∀ l ∈ ls, ∃ r, (readModule sp l.name : ModelIO _) fs (.ok (.ok r)) ∧
-        l.constants = r.constants.map CEntry.ofRead) ∧
+      (∀ l ∈ ls, ∃ d, (readView sp l.name .private : ModelIO _) fs (.ok (.ok d)) ∧
+        l.constants = d.constants.map CEntry.ofRead) ∧
       mergeAll ls.toArray = .ok mg ∧ coverageOk mg (emitAll mg) = .ok () ∧
       declsOf (emitAll mg) = .ok ds := by
   simp only [readOleans, loadClosure, ModelIO.bind_ok] at h
@@ -414,9 +518,9 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : 
         | ok u =>
           simp only [hc, ModelIO.pure_iff, Except.ok.injEq] at h
           have hF : (mapExcept (loadModule sp) order.toList : ModelIO _) fs (.ok (.ok ls)) := hy
-          obtain ⟨h1, h2⟩ := mapExcept_ok (g := Loaded.name) (Q := fun l => ∃ r,
-              (readModule sp l.name : ModelIO _) fs (.ok (.ok r)) ∧
-                l.constants = r.constants.map CEntry.ofRead) (fun m l hl => by
+          obtain ⟨h1, h2⟩ := mapExcept_ok (g := Loaded.name) (Q := fun l => ∃ d,
+              (readView sp l.name .private : ModelIO _) fs (.ok (.ok d)) ∧
+                l.constants = d.constants.map CEntry.ofRead) (fun m l hl => by
             simp only [loadModule, ModelIO.bind_ok] at hl
             obtain ⟨z, hz, hl⟩ := hl
             rcases z with e | r

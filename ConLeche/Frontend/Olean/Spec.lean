@@ -17,9 +17,9 @@ object at an earlier location (`Region.down`), so the recursion is
 well-founded.  No memo, no sharing, no worklist; on a real module this
 is exponential in the sharing of its expressions, so everything that reads
 a `Level` or an `Expr` here is `noncomputable` (a `Name` is a chain, and
-`nameAt` is linear): the reader calls the fast decoder `parseFull`
+`nameAt` is linear): the reader calls the fast decoder `parseAt`
 (`ConLeche/Frontend/Olean/Fast.lean`), and the theorem
-`parseFull_eq_spec` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
+`parseAt_eq_spec` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
 the two are the same function, so each succeeds exactly where the other
 does.
 
@@ -56,7 +56,7 @@ fast decoder hands the same node functions its memo instead.  The
 constants and the module data are read in two layers: a *skeleton*
 (`constSkel`, `moduleSkel`) holds every field except the names and
 expressions, which stay pointers, and `CEntryF.mapM` reads those
-(`decodeModuleSpec`).
+(`decodeAt`).
 -/
 
 namespace ConLeche.Frontend.Olean
@@ -316,6 +316,7 @@ but its names and expressions, which stay pointers. -/
 def constSkel (r : Region) (c : Nat) : Option (CEntryF UInt64 UInt64) := do
   unless r.nobjs c == 1 && r.tag c ≤ 7 && r.fits c do none
   let x ← r.down c (r.fld c 0)
+  unless 1 ≤ r.nobjs x && r.fits x do none
   let cv ← r.down x (r.fld x 0)
   unless r.isCtor cv 0 3 do none
   let name ← r.ptrFld cv 0
@@ -461,9 +462,11 @@ def constNamesOk (r : Region) (root : UInt64) : Bool := Id.run do
     seen := seen.insert a
   return true
 
-/-- **THE SPECIFICATION: the module stored in a region from its root
-pointer**: its name table agrees with its constants, and all of them read. -/
-noncomputable def decodeModuleSpec (r : Region) (root : UInt64) : Option ModDecoded := do
+/-- **The `ModuleData` at an address of a region**: its name table agrees with
+its constants, and all of them read.  The views of a module's files are this at
+their regions and addresses (`decodeModuleSpec`,
+`ConLeche/Frontend/Olean/View.lean`). -/
+noncomputable def decodeAt (r : Region) (root : UInt64) : Option ModDecoded := do
   unless constNamesOk r root do none
   let sk ← moduleSkel r root
   let imports ← sk.imports.mapM (ImportF.mapM (nameP r))

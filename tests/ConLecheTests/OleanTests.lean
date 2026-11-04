@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Frontend.Olean
-public import ConLeche.Verify.Frontend.Olean.Equiv
-public import ConLeche.Verify.Frontend.Olean.Reads
 public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLecheTests.ScanTests
 /- The checks below are EVALUATED, so the constants they name have to be
@@ -36,60 +34,71 @@ open ConLeche ConLeche.Frontend.Olean
 -- `HintsRec`'s instance is `ScanTests`'s.
 deriving instance DecidableEq for CKindF, CEntryF
 
-def fastDecode (r : Region) (root : UInt64) : Option (Array ImportRec × Array (CEntryF Name Expr)) :=
-  (parseFull r root).map fun d => (d.imports, d.constants)
+/-- A view's imports and constants. -/
+def pairOf (d : ModDecoded) : Array ImportRec × Array (CEntryF Name Expr) :=
+  (d.imports, d.constants)
+
+def fastDecode (f : ModFiles) (level : OLeanLevel) :
+    Option (Array ImportRec × Array (CEntryF Name Expr)) :=
+  (parseView f level).map pairOf
 
 def readPartOrFail (p : String) : IO Part := do
   match Part.ofBytes p (← IO.FS.readBinFile p) with
   | .ok x => pure x
   | .error e => throw (IO.userError s!"{p}: {repr e}")
 
-/-- The full parse reads something, and every partial read, the sparse decoder
-among them, is its part. -/
-def agree (what : String) (r : Region) (root : UInt64) : IO Unit := do
-  let some (imps, cs) := fastDecode r root | throw (IO.userError s!"{what}: it does not read")
-  if cs.isEmpty then throw (IO.userError s!"{what}: no constants read")
-  let some sk := moduleSkel r root | throw (IO.userError s!"{what}: no skeleton")
-  let some l := readNamePositions r root | throw (IO.userError s!"{what}: the name positions read fails")
-  unless l.header.imports == imps && l.consts.map (·.name) == cs.map (·.name) &&
-      l.consts.map (·.loc) == sk.consts.toArray do
-    throw (IO.userError s!"{what}: the name positions read differs")
-  unless sk.consts.mapM (readEntry r) == some cs.toList do
+/-- A view reads something, and every read of a part of it is its part. -/
+def agree (what : String) (f : ModFiles) (level : OLeanLevel) : IO Unit := do
+  let some d := parseView f level | throw (IO.userError s!"{what}: it does not read")
+  if d.constants.isEmpty then throw (IO.userError s!"{what}: no constants read")
+  let some l := readNamePositions f level | throw (IO.userError s!"{what}: no name positions")
+  unless l.header.imports == d.imports && l.consts.map (·.name) == d.constants.map (·.name) do
+    throw (IO.userError s!"{what}: the name positions differ")
+  unless l.consts.toList.mapM (readEntry f level ·.loc) == some d.constants.toList do
     throw (IO.userError s!"{what}: the entry reads differ")
-  unless readStmts r sk.consts == some (cs.toList.map CEntryF.stmt) do
+  unless readStmts f level (l.consts.toList.map (·.loc)) == some (d.constants.toList.map CEntryF.stmt) do
     throw (IO.userError s!"{what}: the statements read differ")
+
+/-- A module's files. -/
+def filesOf (lib m : String) : IO ModFiles := do
+  let ex ← readPartOrFail s!"{lib}{m}.olean"
+  if ← System.FilePath.pathExists s!"{lib}{m}.olean.private" then
+    pure { exported := ex, server := some (← readPartOrFail s!"{lib}{m}.olean.server"),
+           «private» := some (← readPartOrFail s!"{lib}{m}.olean.private") }
+  else pure { exported := ex }
 
 #eval show IO Unit from do
   let lib := "tests/olean/lib/"
-  for m in ["Tiny", "TinyUse", "ClashA", "ClashB"] do
-    let ex ← readPartOrFail s!"{lib}{m}.olean"
-    let sv ← readPartOrFail s!"{lib}{m}.olean.server"
-    let pv ← readPartOrFail s!"{lib}{m}.olean.private"
-    let .ok r := Region.ofParts #[ex, sv, pv] | throw (IO.userError s!"{m}: region")
-    agree s!"{m} (private level)" r pv.root
-    agree s!"{m} (server level)" r sv.root
-    agree s!"{m} (exported level)" (Region.single ex) ex.root
-    let .ok er := parseExported (.str .anonymous m) ex | throw (IO.userError s!"{m}: exported")
-    let .ok mr := parseModule (.str .anonymous m) er ex sv pv | throw (IO.userError s!"{m}: module")
-    unless mr.isModule && mr.imports == er.imports && mr.exported.size == er.constants.size do
-      throw (IO.userError s!"{m}: the module read")
+  for m in ["Tiny", "TinyUse", "ClashA", "ClashB", "TinyClassic"] do
+    let f ← filesOf lib m
+    for level in [OLeanLevel.exported, .server, .private] do
+      agree s!"{m} ({repr level})" f level
+    let some v := parseAllViews f | throw (IO.userError s!"{m}: all views")
+    for level in [OLeanLevel.exported, .server, .private] do
+      unless fastDecode f level == some (pairOf (v.at level)) do
+        throw (IO.userError s!"{m} ({repr level}): differs from the one-memo read")
+    -- an importer holding M.olean alone reads the home's exported view
+    unless fastDecode { exported := f.exported } .exported == some (pairOf v.exported) do
+      throw (IO.userError s!"{m}: the exported file alone")
+    match checkViews (.str .anonymous m) f v with
+    | .ok _ => pure ()
+    | .error e => throw (IO.userError s!"{m}: {e}")
     -- the imports off every prefix the walk does not run off, up to the file
-    for k in [0:ex.bytes.size / 512 + 1] do
-      let pre := ex.bytes.extract 0 (k * 512)
+    let bytes := f.exported.bytes
+    for k in [0:bytes.size / 512 + 1] do
+      let pre := bytes.extract 0 (k * 512)
       if !(hdrWalk pre dataStart == .short) then
-        unless importsPre pre == some er.imports do
+        unless importsPre pre == some v.exported.imports do
           throw (IO.userError s!"{m}: the imports off a prefix of {k * 512} bytes")
-  let cl ← readPartOrFail s!"{lib}TinyClassic.olean"
-  agree "TinyClassic" (Region.single cl) cl.root
 
 /-! ## Facts from the sources  -/
 
 /-- A name from its dotted spelling. -/
 def nm (s : String) : Name := mkN (s.splitOn ".")
 
-def decodeAt (what : String) (r : Region) (root : UInt64) :
+def decodeOf (what : String) (f : ModFiles) (level : OLeanLevel) :
     IO (Array ImportRec × Array (CEntryF Name Expr)) := do
-  match fastDecode r root with
+  match fastDecode f level with
   | some x => pure x
   | none => throw (IO.userError s!"{what}: the full parse does not read it")
 
@@ -111,14 +120,11 @@ def sortN (xs : Array Name) : Array Name := xs.qsort fun a b => toString a < toS
 
 #eval show IO Unit from do
   let lib := "tests/olean/lib/"
-  let ex ← readPartOrFail s!"{lib}Tiny.olean"
-  let sv ← readPartOrFail s!"{lib}Tiny.olean.server"
-  let pv ← readPartOrFail s!"{lib}Tiny.olean.private"
-  let .ok r := Region.ofParts #[ex, sv, pv] | throw (IO.userError "Tiny: region")
+  let f ← filesOf lib "Tiny"
   -- Tiny.lean: `prelude`, no imports; `inductive T | a | b`,
   -- `def idT (x : T) : T := x`, `inductive Yes : Prop | intro`,
   -- `theorem yes : Yes := Yes.intro`, all in a public section
-  let (imps, cs) ← decodeAt "Tiny (private)" r pv.root
+  let (imps, cs) ← decodeOf "Tiny (private)" f .private
   expect "Tiny imports nothing" imps.isEmpty
   for n in ["T", "T.a", "T.b", "T.rec", "idT", "Yes", "Yes.intro", "Yes.rec", "yes"] do
     expect s!"Tiny stores {n}" (entry cs n).isSome
@@ -141,20 +147,15 @@ def sortN (xs : Array Name) : Array Name := xs.qsort fun a b => toString a < toS
   expect "Yes : Prop" ((entry cs "Yes").map (·.type) == some (.sort .zero))
   -- the exported level: the theorem and the unexposed definition as
   -- axioms of their statements, the inductive types as they are
-  let (impsE, csE) ← decodeAt "Tiny (exported)" (Region.single ex) ex.root
+  let (impsE, csE) ← decodeOf "Tiny (exported)" f .exported
   expect "Tiny's exported part imports nothing" impsE.isEmpty
   expect "yes is exported as an axiom" (kindIs csE "yes" fun | .ax false => true | _ => false)
   expect "idT is exported as an axiom of its type" <| (entry csE "idT").any fun c =>
     c.type == .forallE cT cT && c.kind matches .ax false
   expect "T is exported as it is" (kindIs csE "T" fun | .induct .. => true | _ => false)
-  expect "Tiny's name tables" (constNamesOk (Region.single ex) ex.root && constNamesOk r pv.root &&
-    constNamesOk r sv.root)
   -- TinyUse.lean: `public import Tiny`; `def twice (x : T) : T := idT (idT x)`
-  let ex ← readPartOrFail s!"{lib}TinyUse.olean"
-  let sv ← readPartOrFail s!"{lib}TinyUse.olean.server"
-  let pv ← readPartOrFail s!"{lib}TinyUse.olean.private"
-  let .ok r := Region.ofParts #[ex, sv, pv] | throw (IO.userError "TinyUse: region")
-  let (imps, cs) ← decodeAt "TinyUse (private)" r pv.root
+  let f ← filesOf lib "TinyUse"
+  let (imps, cs) ← decodeOf "TinyUse (private)" f .private
   expect "TinyUse imports Tiny" (imps.map (·.module) == #[nm "Tiny"])
   expect "…publicly" (imps.all (·.isExported))
   expect "TinyUse stores twice and yes'" (sortN (cs.map (·.name)) == #[nm "twice", nm "yes'"])
@@ -163,8 +164,8 @@ def sortN (xs : Array Name) : Array Name := xs.qsort fun a b => toString a < toS
     | .defn v _ _ => v == .lam cT (.app idT (.app idT (.bvar 0)))
     | _ => false
   -- TinyClassic.lean: no `module`; `inductive U | c`, `def idU (x : U) : U := x`
-  let cl ← readPartOrFail s!"{lib}TinyClassic.olean"
-  let (imps, cs) ← decodeAt "TinyClassic" (Region.single cl) cl.root
+  let f ← filesOf lib "TinyClassic"
+  let (imps, cs) ← decodeOf "TinyClassic" f .private
   expect "TinyClassic imports nothing" imps.isEmpty
   expect "TinyClassic stores U, U.c, U.rec, U.recOn, idU" (sortN (cs.map (·.name)) ==
     sortN #[nm "U", nm "U.c", nm "U.rec", nm "U.recOn", nm "idU"])
@@ -175,7 +176,6 @@ def sortN (xs : Array Name) : Array Name := xs.qsort fun a b => toString a < toS
   expect "idU := fun x => x" <| kindIs cs "idU" fun
     | .defn v _ _ => v == .lam cU (.bvar 0)
     | _ => false
-  expect "TinyClassic's name table" (constNamesOk (Region.single cl) cl.root)
 
 /-! ## The module emission's validation  -/
 
@@ -218,15 +218,14 @@ def onesBytes (n : Nat) : ByteArray := ⟨Array.replicate (8 * n) 255⟩
 
 -- The equality's footprint: the standard three, nothing else.
 /--
-info: 'ConLeche.Frontend.Olean.parseFull_eq_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.parseView_eq_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms parseFull_eq_spec
+#print axioms parseView_eq_spec
 
-/-! ### The reads of a parsed module, as statements -/
+/-! ### As statements -/
 
-example (r : Region) (c : Nat) : readEntry r c = constSpec r c := readEntry_eq r c
-example (r : Region) (root : UInt64) : parseFull r root = decodeModuleSpec r root :=
-  parseFull_eq_spec r root
+example (f : ModFiles) (level : OLeanLevel) : parseView f level = decodeModuleSpec f level :=
+  parseView_eq_spec f level
 
 end ConLecheTests

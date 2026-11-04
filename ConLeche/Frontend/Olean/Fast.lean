@@ -34,8 +34,8 @@ modules nothing is shared: each module's values are its own (a
 run-wide hash-consing of names and levels was dropped with this
 decoder; DESIGN.md, task #371).
 
-`parseFull` is the fast twin of `decodeModuleSpec`; the theorem
-`parseFull_eq_spec` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
+`parseAt` is the fast twin of `decodeAt`; the theorem
+`parseAt_eq_spec` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
 they are equal.  The reader calls this one by name.
 
 **The memo** is dense, by slot (a location divided by 8), and ends at
@@ -308,17 +308,30 @@ def CEntryF.exprs {N E : Type} (c : CEntryF N E) : List E :=
   | .recur _ _ _ _ _ rules .. => rules.map (·.2.2)
   | _ => []
 
-/-- **THE FULL PARSE** of the module at `root`: `decodeModuleSpec`, its name
-table checked, and each object read once. -/
-def parseFull (r : Region) (root : UInt64) : Option ModDecoded := do
-  unless constNamesOk r root do none
-  let sk ← moduleSkel r root
-  let skels ← sk.consts.mapM (constSkel r)
-  let st ← runPasses r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names)
-    (skels.flatMap CEntryF.exprs)
-  let imports ← sk.imports.mapM (ImportF.mapM (st.nameOf r))
-  let constants ← skels.mapM (CEntryF.mapM (st.nameOf r) (st.exprOf r))
+/-- A module's value from its skeletons, given what its pointers stand for. -/
+def ModSkel.read (nm : UInt64 → Option Name) (ex : UInt64 → Option Expr) (sk : ModSkel)
+    (cs : List (CEntryF UInt64 UInt64)) : Option ModDecoded := do
+  let imports ← sk.imports.mapM (ImportF.mapM nm)
+  let constants ← cs.mapM (CEntryF.mapM nm ex)
   pure ⟨sk.isModule, imports.toArray, constants.toArray⟩
+
+/-- **The `ModuleData`s at some addresses of a region, each object read once**,
+whichever of them reaches it: the name tables checked, both passes from all their
+names' and expressions' pointers, and one memo. -/
+def parseMany (r : Region) (addrs : List UInt64) : Option (List ModDecoded) := do
+  unless addrs.all (constNamesOk r) do none
+  let sks ← addrs.mapM (moduleSkel r)
+  let skels ← sks.mapM fun sk => sk.consts.mapM (constSkel r)
+  let st ← runPasses r
+    (sks.flatMap (fun sk => sk.imports.map (·.module)) ++ skels.flatten.flatMap CEntryF.names)
+    (skels.flatten.flatMap CEntryF.exprs)
+  (sks.zip skels).mapM fun p => p.1.read (st.nameOf r) (st.exprOf r) p.2
+
+/-- **The `ModuleData` at one address**, fast: `decodeAt`. -/
+def parseAt (r : Region) (addr : UInt64) : Option ModDecoded :=
+  match parseMany r [addr] with
+  | some [d] => some d
+  | _ => none
 
 /-- **The statements of some constants, read once**: both passes from the
 chosen constants' roots alone, their names, level parameters and types,

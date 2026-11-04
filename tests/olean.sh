@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# THE OLEAN GATE: `con-leche --olean` on the committed fixtures of
+# THE OLEAN GATE: `con-leche --olean`, and a home's read of all three views
+# (`olean-compare --views`), on the committed fixtures of
 # tests/olean/lib (compiled from tests/olean/src by tests/olean/build.sh
 # with the toolchain's own `lean`), and on corrupted copies of them made
 # here.  Every verdict is pinned below; the comment on a case names what
@@ -27,6 +28,18 @@ case_() { # <description> <expected-exit> <args...>
   if [ "$got" = "$want" ]; then ok=$((ok+1))
   else echo "OLEAN FAIL ($desc): expected exit $want, got $got"; fail=1; fi
 }
+CMP=${CMP:-.lake/build/bin/olean-compare}
+lake build olean-compare >/dev/null || exit 3
+views_() { # <description> <expected-exit> <pattern> <search path> <module>: a home's read
+  total=$((total+1))
+  timeout 60 "$CMP" --views "$4" "$5" >"$TMPDIR/olean-case.out" 2>&1
+  local got=$?
+  if [ "$got" != "$2" ]; then echo "OLEAN FAIL ($1): expected exit $2, got $got"; fail=1
+  elif ! grep -q -- "$3" "$TMPDIR/olean-case.out"; then
+    echo "OLEAN FAIL ($1): the output lacks \"$3\""; fail=1
+  else ok=$((ok+1)); fi
+}
+
 case_grep() { # <description> <expected-exit> <pattern the output must hold> <args...>
   local desc=$1 want=$2 pat=$3; shift 3
   case_ "$desc" "$want" "$@"
@@ -37,6 +50,7 @@ case_grep() { # <description> <expected-exit> <pattern the output must hold> <ar
 
 # --- well-formed closures ---------------------------------------------
 case_ "a module-system module" 0 --olean --search-path=$LIB Tiny
+views_ "a home's read: all three views agree with each view's read" 0 "agrees" "$LIB" TinyUse
 case_ "…at one worker" 0 --jobs=1 --olean --search-path=$LIB Tiny
 case_ "a module outside the module system (one .olean)" 0 --olean --search-path=$LIB TinyClassic
 case_ "a module and its import" 0 --olean --search-path=$LIB TinyUse
@@ -163,7 +177,16 @@ x, y = (struct.unpack_from('<Q', b, nt + 24 + 8 * i)[0] for i in (0, 1))
 struct.pack_into('<Q', b, nt + 24, y); struct.pack_into('<Q', b, nt + 32, x)"
 corrupt "a name table that names the constants differently (classic)" 3 TinyClassic.olean "$cswap" TinyClassic
 corrupt "a name table that names the constants differently (private part)" 3 Tiny.olean.private "$cswap"
-corrupt "a name table that names the constants differently (exported part)" 3 Tiny.olean "$cswap"
+# (a part the private view does not read as a ModuleData: `--olean` reads the private
+# view, as Lean's import outside the module system does; a home's read rejects it)
+home_rejects() { # <description> <pattern> <search path> <module>
+  case_ "$1 [--olean, the private view]" 0 --olean --search-path=$3 "$4"
+  views_ "$1 [a home's read]" 3 "$2" "$3" "$4"
+}
+d="$TMPDIR/con-leche-olean-home"
+rm -rf "$d"; cp -r "$LIB" "$d"; patch "$d/Tiny.olean" "$cswap"
+home_rejects "a name table that names the constants differently (exported part)" "name table" "$d" Tiny
+rm -rf "$d"
 corrupt "a name table shorter than the constants" 3 TinyClassic.olean "
 nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
 struct.pack_into('<Q', b, nt + 8, struct.unpack_from('<Q', b, nt + 8)[0] - 1)" TinyClassic
@@ -178,7 +201,10 @@ for a in (nt, cs):
 corrupt "one module storing a name twice" 3 TinyClassic.olean "$cdup" TinyClassic
 
 # the private part's header (task #383): its module-system flag cleared
-corrupt "a private part outside the module system" 3 Tiny.olean.private "b[ro + 48] = 0"
+d="$TMPDIR/con-leche-olean-home"
+rm -rf "$d"; cp -r "$LIB" "$d"; patch "$d/Tiny.olean.private" "b[ro + 48] = 0"
+home_rejects "a private part outside the module system" "not of a module of the module system" "$d" Tiny
+rm -rf "$d"
 xcorrupt0() { # <description> <expected-exit> <module> <expr> <args...>   (mode: $MOD)
   local desc=$1 want=$2 m=$3 expr=$4; shift 4
   local d="$TMPDIR/con-leche-olean-$total"
@@ -190,9 +216,13 @@ xcorrupt0() { # <description> <expected-exit> <module> <expr> <args...>   (mode:
 rcases() {
   # the exported axiom standing for the safe definition idT made unsafe:
   # not the private constant with its value hidden
-  xcorrupt0 "an exported constant that is not its private one" 3 Tiny "
+  local d="$TMPDIR/con-leche-olean-home"
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  xpatch "$d" Tiny "
 b, o = at(fld(consts('olean')['idT'], 0))
-b[o + 16] = 1" Tiny
+b[o + 16] = 1"
+  home_rejects "an exported constant that is not its private one" "not a refinement" "$d" Tiny
+  rm -rf "$d"
   # the stored recursor rules (Lean's kernel runs them on a loaded
   # .olean; con-leche installs the generated ones): T.rec's two rules in
   # the other order, and T.b's rule with T.a's right-hand side
@@ -220,7 +250,7 @@ sb[so + 32:so + 39] = b'HidUse\\0'" HidUse
   local d="$TMPDIR/con-leche-olean-$total"
   rm -rf "$d"; cp -r "$LIB" "$d"
   patch "$d/HidAll.olean.server" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
-  case_ "the server part's imports not the exported part's${MOD:+ [$MOD]}" 3 --olean $MOD --search-path=$d:$INIT HidAll
+  home_rejects "the server part's imports not the exported part's" "imports are not" "$d:$INIT" HidAll
   rm -rf "$d"
 }
 MOD=; rcases
@@ -347,7 +377,7 @@ for i in range(n):
         struct.pack_into('<Q', b, arr2 - base + 24 + 8 * i, c2)
 root2 = copy(root); setfld(root2, 2, arr2)
 struct.pack_into('<Q', b, 88, root2)"
-case_grep "an exported statement of 2^80 nodes as a tree" 3 "not a refinement" --olean --search-path=$d Tiny
+home_rejects "an exported statement of 2^80 nodes as a tree" "not a refinement" "$d" Tiny
 rm -rf "$d"
 
 # --- the imports at the start of the file --------------------------------

@@ -137,12 +137,12 @@ structure Loaded where
   name : Name
   constants : Array CEntry
 
-/-- **Load one module** for the merge: its full read, with every validation
-of its parts, its private-level constants kept. -/
+/-- **Load one module** for the merge: its private view, what Lean's own import
+outside the module system and lean4export load. -/
 def loadModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
     μ (Except CheckError Loaded) := do
-  match ← readModule sp m with
-  | .ok r => pure (.ok ⟨m, r.constants.map CEntry.ofRead⟩)
+  match ← readView sp m .private with
+  | .ok d => pure (.ok ⟨m, d.constants.map CEntry.ofRead⟩)
   | .error e => pure (.error e)
 
 /-- **The closure, loaded**: its modules in Lean's order, decoded.  The

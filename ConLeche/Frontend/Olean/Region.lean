@@ -118,8 +118,8 @@ def Part.ofBytes (path : String) (b : ByteArray) : Except CheckError Part := do
     throw (.internal s!"{path}: bad base address")
   pure ⟨base, b⟩
 
-/-- The root pointer of a file (the root slot after the header). -/
-def Part.root (p : @& Part) : UInt64 := rdU64 p.bytes headerSize
+/-- The address of a file's `ModuleData` (the slot after the header). -/
+def Part.moduleDataAddr (p : @& Part) : UInt64 := rdU64 p.bytes headerSize
 
 /-! ## The region -/
 
