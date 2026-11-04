@@ -149,4 +149,22 @@ def tamperedFails (path : System.FilePath) : IO Unit := do
 #eval sameReject "tests/e2e/nested_nonuniform_param.ndjson"
 #eval sameReject "tests/e2e/direct_fix_wtype_neg_bad.ndjson"
 
+/-- A pinned operation's job on its own: `natop_typepin_foreign`'s
+`Nat.gcd` declines (no pin variant matches, its type pins not
+definitionally equal), whatever fails before it in the fold. -/
+def natopForeignDeclines (path : System.FilePath) : IO Unit := do
+  let ds ← prepared path
+  match deferFold ds (0, mkFEnv Env.empty, #[]) #[] with
+  | .ok (_, D) =>
+    let some b := D.find? (fun b => b.label == "def Nat.gcd")
+      | throw <| IO.userError s!"{path}: no job for Nat.gcd"
+    match deferredCheck .verified natOpPinSets b with
+    | .error (.notImplemented m) =>
+      unless (m.splitOn "a type pin").length > 1 do
+        throw <| IO.userError s!"{path}: another decline: {m}"
+    | _ => throw <| IO.userError s!"{path}: Nat.gcd's job does not decline"
+  | .error _ => throw <| IO.userError s!"{path}: the install fails"
+
+#eval natopForeignDeclines "tests/e2e/natop_typepin_foreign.ndjson"
+
 end ConLecheTests.Defer

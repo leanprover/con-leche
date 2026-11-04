@@ -3086,8 +3086,13 @@
 # the stored type, so each fails by a boolean `false` before its
 # certificates are inferred (before the type pins, inferring them threw
 # "application type mismatch" and the variant-fallback combinator
-# caught it).  No variant matches: DECLINE, today and as the target.
-2 natop_typepin_foreign.ndjson
+# caught it).  No variant matches: that record's job declines, which
+# `natopForeignDeclines` (tests/ConLecheTests/DeferTests.lean) pins.  The
+# stream's verdict is an earlier failure since task #480: the theorem
+# `ite_self` (fold position 97) mentions the deleted constant, a reject its
+# check phase job reports first; the operation's decline at install used
+# to overtake it.  Target verdict: 1.
+1 natop_typepin_foreign.ndjson
 # --- task #431: the STORED recursor installed once it agrees with the
 # generated one up to definitional equality (the type binder by binder).
 # stored_rec_outparam: a class with an `outParam` parameter, a structure
