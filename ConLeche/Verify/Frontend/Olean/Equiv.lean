@@ -8,15 +8,14 @@ public section
 /-!
 # The fast decoder is the specification (task #371)
 
-**`decodeModuleSpec_eq_fast : @decodeModuleSpec = @decodeModuleFast`**:
+**`decodeModuleFast_eq : decodeModuleFast r root = decodeModuleSpec r root`**:
 on every region, from every root pointer, the fast olean decoder
 (`ConLeche/Frontend/Olean/Fast.lean`) returns exactly what the
-specification (`ConLeche/Frontend/Olean/Spec.lean`) returns — the same
-module, or failure on the same inputs.  No hypothesis about the bytes:
-both sides define the reading.  The theorem is `@[csimp]`: the driver
-(`ConLeche/Driver/Run.lean`) passes `decodeModuleSpec` to the reader,
-and the compiler substitutes the fast decoder on the strength of the
-equality.  Nothing is `implemented_by`.
+specification (`ConLeche/Frontend/Olean/Spec.lean`) returns: the same
+module, or failure on the same inputs, so each succeeds exactly where the
+other does.  No hypothesis about the bytes: both sides define the reading.
+The reader calls the fast decoder by name; nothing is `implemented_by` and
+nothing is `@[csimp]`.
 
 The proof: both read the same skeletons (`moduleSkel`, `constSkel`,
 shared code), and the fast decoder's memo answers every name and

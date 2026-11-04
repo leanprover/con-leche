@@ -5,7 +5,7 @@ public import ConLeche.Frontend.Olean.Fast
 @[expose] public section
 
 /-!
-# Reading `.olean` files: the sparse decoder (task #421)
+# Reading `.olean` files: the sparse decoder
 
 The fast decoder (`ConLeche/Frontend/Olean/Fast.lean`) sweeps the whole
 region, its memo dense (a mark byte and four value slots per slot of the

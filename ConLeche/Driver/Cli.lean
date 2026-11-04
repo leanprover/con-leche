@@ -451,6 +451,10 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName) a.mode a.progress jobs)
+      if !a.searchPath.isEmpty then
+        eprintln "con-leche: --search-path without --olean"
+        eprintln usage
+        return 3
       match a.files.toList with
       | [file] =>
         -- The checker runs IN THIS PROCESS: it spawns no copy of itself,

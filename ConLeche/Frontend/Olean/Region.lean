@@ -6,7 +6,7 @@ public import ConLeche.Kernel.Name
 @[expose] public section
 
 /-!
-# Reading `.olean` files: the byte region (tasks #369, #371)
+# Reading `.olean` files: the byte region
 
 An `.olean` file is a *compacted region*: the Lean runtime's object
 graph of the module's `ModuleData`, written by `CompactedRegion.save`
@@ -29,7 +29,7 @@ own values, then its own `Declaration` records, which the fold checks
 like any other — the main theorem `ConLeche.model_exists` is stated for
 every record array, so it holds whatever the files contain.
 
-The layout this file reads (v4.35.0, `olean_header` in
+The layout this file reads (format version 2, `olean_header` in
 `src/library/module.cpp`):
 
 * bytes `0..5` the marker `olean`, byte `5` the format version (`2`),

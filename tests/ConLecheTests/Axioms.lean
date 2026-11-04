@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
@@ -127,6 +128,30 @@ The other direction of the same relation between input and output:
 every record of the stream that declares a constant leaves that
 constant, under its own name, with its own level parameters and its
 own declared type, in the environment the fold returns. -/
+
+/--
+info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_oleans_no_False
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.readExportedLight_of_home' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readExportedLight_of_home
+
+/--
+info: 'ConLeche.Frontend.Olean.readImports_of_home' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readImports_of_home
 
 /--
 info: 'ConLeche.Cached.checkDecls_consts' depends on axioms: [propext, Classical.choice, Quot.sound]

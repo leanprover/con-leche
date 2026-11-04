@@ -217,6 +217,10 @@ if tests/challenge.sh; then :; else fail=1; fi
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
 
+# THE OLEAN GATE: `--olean` on the committed fixtures of tests/olean/lib and
+# on corrupted copies of them, every verdict pinned.
+if tests/olean.sh; then :; else fail=1; fi
+
 # THE SELF-CHECK (task #199; a sub-gate since task #342 R1).
 # `scripts/selfcheck.sh --fresh` exports this tree's own development
 # (every con-leche declaration and its dependency cone, ~0.7 GB of
@@ -231,6 +235,9 @@ if [ "$SELFCHECK" = on ]; then
     echo "SELFCHECK FAIL: see _tmp/selfcheck-gate.log"; tail -5 _tmp/selfcheck-gate.log
     fail=1
   fi
+  # THE OLEAN COMPARE: the records the olean reader makes of Init's closure
+  # are, record for record, lean4export's (the exporter the self-check built).
+  if tests/olean-compare.sh _tmp/selfcheck-gate/lean4export; then :; else fail=1; fi
 fi
 
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main

@@ -3,7 +3,7 @@ module
 public import ConLeche.Driver.Cli
 
 /-!
-# `runArgs`, in the model, at the arguments `-- <file>` (task #450)
+# `runArgs`, in the model
 
 `runArgs_accept`: on every snapshot `fs`, every outcome of `runArgs
 ["--", file]` — the argument parse, the request run and the catch of
@@ -15,7 +15,13 @@ is `.verified` (`parseArgs_file`), the worker count the default (the
 hardware's, which the statement does not depend on).  At these fixed
 arguments nothing is said about `--help` or other flags.
 
-The corollary is in `ConLeche/MainTheorem.lean`.
+`runArgs_oleans_accept`: at any arguments that ask for no help, parse without
+a usage error and ask for `--olean`, every outcome that is an exit 0 read
+records off the snapshot's `.olean` files (`Olean.readOleans`, whose values
+`Olean.readOleans_ok` unfolds) that `checkDecls` accepts prepared with the
+built-in prelude, at the arguments' mode.
+
+The corollaries are in `ConLeche/MainTheorem.lean`.
 -/
 
 public section

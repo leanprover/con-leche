@@ -7,7 +7,7 @@ public import ConLeche.Kernel.Env
 @[expose] public section
 
 /-!
-# Reading `.olean` files: the specification (task #371)
+# Reading `.olean` files: the specification
 
 **What the reader computes from a module's bytes**, written as plainly
 as possible: a value is read off the object it is stored as, field by
@@ -21,7 +21,7 @@ to be executed: the reader calls the fast decoder `decodeModuleFast`
 the two are the same function, so each succeeds exactly where the other
 does.
 
-What is read of each Lean type is its v4.35.0 runtime layout — the
+What is read of each Lean type is its runtime layout at this format version — the
 constructor tags in declaration order, the pointer fields in
 declaration order, then the scalar area (the computed hash/data words
 of `Name`, `Level` and `Expr` first, which are skipped, then the

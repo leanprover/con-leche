@@ -5,6 +5,7 @@ public import ConLeche.Frontend.ExportC
 public import ConLeche.Model.StreamConsts
 import ConLecheTests.PreludeTests
 import ConLecheTests.ScanTests
+import ConLecheTests.OleanTests
 import ConLecheTests.Axioms
 import ConLecheTests.FileTests
 import ConLecheTests.NestedTests

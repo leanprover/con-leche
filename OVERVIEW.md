@@ -10,12 +10,14 @@
 
 ## 0. Using the checker
 
-The binary reads a Lean export in `lean4export`'s NDJSON format and
-prints one verdict line:
+The binary reads a Lean export in `lean4export`'s NDJSON format, or a
+module with its import closure from its `.olean` files, and prints one
+verdict line:
 
 ```
 con-leche [--verified|--trusted] [--jobs=<n>]
           [--progress[=<stride>]] [--] FILE.ndjson
+con-leche [flags] --olean --search-path=DIR[:DIR...] [--] MODULE...
 con-leche --help
 ```
 
@@ -25,8 +27,10 @@ with the certification-only work switched off, is faster, and is
 outside the theorem; `--jobs=<n>` sets the check phase's worker count
 (below);
 `--progress[=<stride>]` turns on a heartbeat on stderr
-(below); `--` ends the options, every argument after it being a file,
-whatever it is called; `--help` before any `--` prints the usage text
+(below); `--olean` takes module names (`Init`, `Mathlib`) in place of the
+file, looked up in the directories `--search-path` lists (§2, the
+`.olean` reader); `--` ends the options, every argument after it being a
+file or a module, whatever it is called; `--help` before any `--` prints the usage text
 and exits 0
 ([the usage text in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L97)).
 Any other option is a usage error: the run reports it, prints the
@@ -574,6 +578,40 @@ The layering is enforced by a gate
 ([the import fence `tests/layering.sh`](https://github.com/leanprover/con-leche/blob/master/tests/layering.sh#L1-L3)):
 implementation modules never import theory modules, so the binary
 cannot depend on a proof.
+
+### The `.olean` reader
+
+`--olean` ends in the same records as the stream parse, so everything
+after it is the same checker: the import closure of the named modules is
+read, merged as Lean's own import merges it, emitted in `lean4export`'s
+order and handed to the same record builder
+(`ConLeche/Frontend/Olean/Records.lean`). `tests/olean-compare.sh`
+compares the two readers record for record on `Init`. Nothing in a file is
+trusted: every object is decoded and validated, an `.olean` of another
+format version is declined, and the toolchain a file's header names is not
+looked at.
+
+A module's full parse (`parseFull`) is the name table's check
+(`constNamesOk`) and the fast decoder, which is the specification
+(`decodeModuleSpec`, a plain recursion over the file's objects) on every
+input: each succeeds exactly where the other does. The other reads take less
+of a file: a module's header (`readHeader`), per stored constant its name and
+kind (`readLight`), one constant (`readEntry`), the statements of a few
+(`readStmts`) and the imports off the start of the file (`importsPre`, which
+reads only a prefix). They are projections of the full parse: where it
+succeeds, the read succeeds and returns its part
+(`ConLeche/Verify/Frontend/Olean/Reads.lean`). The converse does not hold,
+on purpose: a read looks only at what it needs. In the IO model the home's
+read of a module (`readModule`, which validates its three files against each
+other) settles the others on the same snapshot: where it has a value, an
+importer's read, a light read and the read of the imports are determined,
+and return what it has (`ConLeche/Verify/Frontend/Olean/Files.lean`).
+
+`runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
+every exit 0 read records off the snapshot's files that `checkDecls` accepts.
+`main_oleans_no_False` follows. Unlike the stream parse, the merge and the
+emission (`Merge.lean`, `Emit.lean`) have no theorem saying what the records
+mean relative to the files' constants.
 
 ## 3. The checker
 
@@ -1420,7 +1458,7 @@ declare it.)
   assumption needs, that
   `IO.Process.exit` appears only in `main`, which with
   `enableAbortOnNonlinear` is all `Main.lean` declares. Those few lines
-  are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>`; other flags and `--help` are not
+  are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>` and at `--olean` arguments; other flags and `--help` are not
   covered. The build file
   `lakefile.lean`, which compiles and links the C function, and the C
   function are pinned by content in the trust-surface gate.
@@ -1485,7 +1523,7 @@ and every such line carries its reason.
 | `ConLeche/Driver/` | The proof-carrying IO driver: the install (the prediction, the schedule, the commit loop; `ParInstall.lean`), phase B's sequential loop and worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockParts.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` with its install and check phases and the fully checked environment the driver assembles (`Installed.lean`); the install skeleton (`InstallSkel.lean`, which the parallel install predicts from and the trusted/verified agreement floor is stated over); the stored install of an inductive block, the parallel install's syntactic reading of its records, and the pointer-first equality its check job compares with (`StoredInstall.lean`). |
-| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file's positional reads (`CheckerIO.lean`), the positional read declared in C (`ReadRange.lean`, `native/read_range.c`, its own precompiled library); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it). |
+| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file's positional reads (`CheckerIO.lean`), the positional read declared in C (`ReadRange.lean`, `native/read_range.c`, its own precompiled library); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the full parse and the partial reads `Reads.lean`, a module's parts `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean` and the records `Records.lean`). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The term language the denotation targets and the interpretation reads, its substitution operations and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
@@ -1494,7 +1532,7 @@ and every such line carries its reason.
 | `ConLeche/Rules/` | The relational description of the core checker: seven mutually inductive relations over the checker's own `Expr` — reduction, definitional equality, type inference (checking and infer-only), and four certificate checks — with fuel, unfolding heuristics and dispatch order out of sight (`Rel.lean`), and the derived rules (`Derived.lean`). Imports the fuel-free helpers of the kernel and nothing else of it. |
 | `ConLeche/Verify/Rules/` | The bridge: an accepting run of a kernel function, at any fuel, yields a derivation (`Bridge.lean`, from one step theorem per entry point and the certificate bridges). |
 | `ConLeche/Model/` | The graded set model of the checker: the environment invariant and its laws (`Env/`), the facts about the stored-term reading `denote` that read the environment invariant (`Reading/`), the claims, the soundness of the rules tier's derivations (`Rules/`: the motives, the environment inputs, one lemma per rule over shared kits, the master induction, and the recomposition of the claims from the bridge), the run-stated remainder the declaration fold reads (`Tiers.lean`), the declaration step, the inductive installs (`Inductives/`, `Ind*`), the Nat-op certification, the final theorems (`Capstone.lean`), and the model read through the statement's relation (`Denotes.lean`). |
-| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports; and the parallel install's blocks, installed as stored, become the fold's steps once their checked installs pass, and push the same, as jobs of the check phase (`Defer.lean`, which `ConLeche/Driver/ParInstall.lean` and `CheckPool.lean` import)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`) and that the stream's reads in it put together are the file (`StreamModel.lean`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`). |
+| `ConLeche/Verify/` | Proofs about kernel functions that need no model: well-formedness, scoping, the stored-term reading `denote` and its metatheory (`Denote.lean`, `Denote/`: inversions, depth shift, instantiation, closedness, environment extension), the cached-to-pure simulation (`Cached/`: the core's congruence in the lookup (`KnotCongr.lean`), the block tail's in-place pushes (`BlockOverlay.lean`), every install stage's and the parallel install's commit step (`ViewCongr.lean`, `ParInstall.lean`), which `ConLeche/Driver/ParInstall.lean` imports; and the parallel install's blocks, installed as stored, become the fold's steps once their checked installs pass, and push the same, as jobs of the check phase (`Defer.lean`, which `ConLeche/Driver/ParInstall.lean` and `CheckPool.lean` import)), the inductive installer's kernel-side invariants (`Inductives/`), and the parser's (`Frontend/`: line locality, the parse as a line fold, chunk independence, what a line does to the parse state, the template's lines, the characterisation of the serial fold over a stream that binds in increasing order, good entries and the tables they make (`Good.lean`), and that the rounds keep good entries and a window is one more stretch of the serial parse (`RoundsWork.lean`, `Rounds.lean`), the runs of the IO model and the folds over a file's reads in it (`ModelIO.lean`), that the stream's reads in it put together are the file (`StreamModel.lean`), and the `.olean` reader's decoders and reads (`Olean/`)), and all of `main` in the IO model at the arguments `-- <file>` (`Driver/Main.lean`). |
 | `ConLeche/Accepts.lean` | The file-level vocabulary of the statement: `jsonWithTheoremFalse`, the whole-file template of one JSON file that declares a theorem of type `False`. |
 | `ConLeche/Denotes.lean` | The statement's semantics: what a term denotes (`Denotes`) and what a model of an environment is (`Model`); imports nothing from the proof tiers. |
 | `ConLeche/MainTheorem.lean`, `ConLeche/Challenge.lean` | The main theorem and the main corollary — about the environment the fold returns and about the chunks the binary reads — and the main corollary lifted to the driver; and the challenge module stating the first two with `sorry`, the statements the comparator pair certifies, kept as its own library and compared with the solution by `tests/challenge.sh`. |
@@ -1513,13 +1551,17 @@ rules tier of §4 has the pure implementation in the environment it
 elaborates in — its direct imports plus, transitively, their
 `public import`s, computed from source; the implementation modules
 that the base tiers' own re-exports still carry in are listed in the
-script and the list may only shrink), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the pin
+script and the list may only shrink; and the `.olean` reader imports only
+itself and a few base types, only `Files` and `Closure` reach the IO class,
+only `Records` the record builder), the trust-surface scan (`tests/trust-surface.sh`: no `unsafe`, `implemented_by`, `extern` or `native_decide` outside an allowlist, and, textually, no module written against the IO class reaching the runtime but through the class's file operations and the arguments of `liftIO`, and `IO.Process.exit` only in `main`; the build file and the native sources pinned by content), the pin
 dump freshness, the challenge comparison (`tests/challenge.sh`: the
 challenge module builds with its `sorry` warnings and nothing else,
 and every statement it makes is token-identical to the solution's),
 the arena tutorial tests, the end-to-end fixtures and the legacy
 binder-field fixtures with
-pinned verdicts, the display gate (three fixtures whose names and
+pinned verdicts, the `.olean` gate (`tests/olean.sh`: the committed
+fixtures and corrupted copies of them, each verdict pinned), the two readers
+compared on `Init` (`tests/olean-compare.sh`), the display gate (three fixtures whose names and
 `safety` field carry control sequences, run with `--progress=1`; no
 raw control, bidi or zero-width character and no line starting with
 `::` may reach the output), and the trusted-mode sweep. `lake test` builds the test library with the axiom pins. CI runs
