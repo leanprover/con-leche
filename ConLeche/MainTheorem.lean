@@ -154,4 +154,23 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
   simp [hp, hr, hc, bind, Except.bind] at he
 
+open Frontend in
+/-- **The main corollary, on `--olean` arguments.**  On a snapshot where every
+outcome of the reader on the named modules is records holding a theorem of
+type `False`, no outcome of `runArgs` at those arguments is an exit 0. -/
+theorem main_oleans_no_False (V : Type w) [SetTheory V] {args : List String} {fs : FS}
+    (hh : Driver.helpWanted args = false) (hb : (Driver.parseArgs args {}).bad = none)
+    (ho : (Driver.parseArgs args {}).olean = true)
+    (hm : (Driver.parseArgs args {}).mode = .verified)
+    (hF : ∀ ds, (Olean.readOleans (Driver.parseArgs args {}).searchPath
+        ((Driver.parseArgs args {}).files.filterMap Olean.parseModName) : ModelIO _) fs
+          (.ok (.ok ds)) →
+      ∃ cv vl, Declaration.thmDecl cv vl ∈ ds ∧ cv.type = .const falseName []) :
+    ¬ (Driver.runArgs args : ModelIO _) fs (.ok 0) := by
+  intro h
+  obtain ⟨pre, ds, env, -, hr, hc⟩ := Driver.runArgs_oleans_accept hh hb ho h
+  obtain ⟨cv, vl, hmem, hty⟩ := hF ds hr
+  rw [hm] at hc
+  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hc
+
 end ConLeche

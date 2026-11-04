@@ -381,7 +381,11 @@ structure ImportF (N : Type) where
   isExported : Bool
   /-- `meta import` (IR only; irrelevant to the kernel) -/
   isMeta : Bool
-  deriving Inhabited, Repr, BEq
+  deriving Inhabited, Repr
+
+instance {N : Type} [BEq N] : BEq (ImportF N) where
+  beq a b := a.module == b.module && a.importAll == b.importAll &&
+    a.isExported == b.isExported && a.isMeta == b.isMeta
 
 /-- An `import`, its name read. -/
 abbrev ImportRec := ImportF Name

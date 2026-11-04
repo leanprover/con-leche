@@ -189,26 +189,29 @@ def classicModule (m : Name) (er : ModDecoded) : ModRead :=
   { name := m, isModule := false, imports := er.imports, constants := er.constants,
     expo := er.constants.map fun _ => .same, exported := er.constants }
 
+/-- A server or private part, read in full: of a module of the module
+system, with the exported part's imports. -/
+def parsePart (m : Name) (er : ModDecoded) (part : String) (r : Region) (root : UInt64) :
+    Except CheckError ModDecoded := do
+  let d ← parseFullE m part r root
+  unless d.isModule do
+    .error (.internal s!"module {m}: the {part} part is not of a module of the module system, \
+      the exported part is")
+  unless d.imports == er.imports do
+    .error (.internal s!"module {m}: the {part} part's imports are not the exported part's")
+  pure d
+
 /-- **A module of the module system, read in full**: `er` its exported
 part's read (`parseExported`), `ex`, `s`, `p` its three files. -/
 def parseModule (m : Name) (er : ModDecoded) (ex s p : Part) : Except CheckError ModRead := do
-  let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
   let r ← Region.ofParts #[ex, s, p]
-  let check (part : String) (root : UInt64) : Except CheckError ModDecoded := do
-    let d ← parseFullE m part r root
-    unless d.isModule do
-      .error (bad s!"the {part} part is not of a module of the module system, the \
-        exported part is")
-    unless d.imports == er.imports do
-      .error (bad s!"the {part} part's imports are not the exported part's")
-    pure d
-  let _ ← check "server" s.root
-  let d ← check "private" p.root
+  let _ ← parsePart m er "server" r s.root
+  let d ← parsePart m er "private" r p.root
   match expoOfParts r p.root ex.root d.constants, expoOfParts r p.root s.root d.constants with
   | .ok expo, .ok _ =>
     pure { name := m, isModule := true, imports := er.imports, constants := d.constants, expo,
            exported := er.constants }
-  | .error msg, _ => .error (bad s!"the exported part: {msg}")
-  | _, .error msg => .error (bad s!"the server part: {msg}")
+  | .error msg, _ => .error (.internal s!"module {m}: the exported part: {msg}")
+  | _, .error msg => .error (.internal s!"module {m}: the server part: {msg}")
 
 end ConLeche.Frontend.Olean

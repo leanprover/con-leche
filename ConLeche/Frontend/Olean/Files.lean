@@ -74,21 +74,23 @@ structure Located where
 /-- The three files of a module, by extension. -/
 def partExts : List String := ["olean", "olean.server", "olean.private"]
 
+/-- The real paths of a module's three files in one directory, `none` where
+absent. -/
+def locateIn {μ : Type → Type} [CheckerIO μ] (m : Name) (d : System.FilePath) :
+    μ (System.FilePath × List (Option String)) := do
+  let fs ← partExts.mapM fun e => do
+    let p := modFile d m e
+    if ← CheckerIO.pathExists p then
+      return some (← CheckerIO.realPath p).toString
+    else return none
+  return (d, fs)
+
 /-- **The search path's directories holding any of module `m`'s files**
-(`locateModule`), in order: each with the real paths of the three files,
-`none` where absent. -/
+(`locateModule`), in order: each with the real paths of the three files. -/
 def locateHits {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
     μ (Array (System.FilePath × List (Option String))) := do
-  let mut hits : Array (System.FilePath × List (Option String)) := #[]
-  for d in sp do
-    let mut fs : List (Option String) := []
-    for e in partExts do
-      let p := modFile d m e
-      if ← CheckerIO.pathExists p then
-        fs := fs ++ [some (← CheckerIO.realPath p).toString]
-      else fs := fs ++ [none]
-    if fs.any (·.isSome) then hits := hits.push (d, fs)
-  return hits
+  let hs ← sp.mapM (locateIn m)
+  return (hs.filter fun h => h.2.any (·.isSome)).toArray
 
 /-- **The module's location from the directories holding its files**
 (`locateHits`), or why there is none (`locateModule`). -/
@@ -249,9 +251,10 @@ def readModuleAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) 
             {if loc.hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
             in {loc.dir}")
         return .ok (classicModule m er)
-      for (e, has) in [("olean.server", loc.hasServer), ("olean.private", loc.hasPrivate)] do
-        unless has do
-          return .error (bad s!"a module of the module system without its {m}.{e} in {loc.dir}")
+      if !loc.hasServer then
+        return .error (bad s!"a module of the module system without its {m}.olean.server in {loc.dir}")
+      if !loc.hasPrivate then
+        return .error (bad s!"a module of the module system without its {m}.olean.private in {loc.dir}")
       match ← readPart (modFile loc.dir m "olean.server"),
           ← readPart (modFile loc.dir m "olean.private") with
       | .ok s, .ok p => pure (parseModule m er ex s p)
