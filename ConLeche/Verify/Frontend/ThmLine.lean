@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Kernel.Basis.Names
 public import ConLeche.Frontend.ExportC
 import ConLeche.Verify.Frontend.ApplyLine
 import ConLeche.Verify.ExceptBind

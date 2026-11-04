@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Verify.Frontend.ModelIO
-public import ConLeche.Verify.Frontend.Olean.Reads
+import ConLeche.Verify.Frontend.Olean.Reads
 
 /-!
 # The `.olean` reads on a file system snapshot

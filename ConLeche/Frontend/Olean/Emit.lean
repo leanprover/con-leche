@@ -1,8 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Merge
-public import ConLeche.Frontend.Scan.Types
-public import Std.Data.HashSet.Lemmas
+import Std.Data.HashSet.Lemmas
 
 @[expose] public section
 

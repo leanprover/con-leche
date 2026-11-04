@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Module
-public import ConLeche.Verify.Frontend.Olean.Equiv
+import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Sparse
 import Std.Data.HashSet.Lemmas
 
