@@ -7,7 +7,7 @@ public import ConLeche.Driver.Cli
 
 `mainG_accept`: on every snapshot `fs`, every outcome of `mainG ["--",
 file]` — the argument parse, the abort variables, the request run, the
-flush and the join, everything `main` does but the exit, which takes
+flush, everything `main` does but the exit, which takes
 the code returned here — that is an exit 0 read the file's bytes off
 the snapshot, and they parse as one chunk to records `checkDecls
 .verified` accepts prepared with the built-in prelude.  No flag: the
@@ -35,9 +35,9 @@ theorem helpWanted_file (file : String) : helpWanted ["--", file] = false := by
 
 /-- **`runArgs` at `-- <file>`**: the stream's request at the default
 settings. -/
-theorem runArgs_file (file : String) (drain : Drain) (fs : FS) (P : UInt32 → Prop)
-    (h : ∀ jobs, ModelIO.AllOk (runReq drain (.stream file .verified 0 jobs false)) fs P) :
-    ModelIO.AllOk (runArgs ["--", file] drain) fs P := by
+theorem runArgs_file (file : String) (fs : FS) (P : UInt8 → Prop)
+    (h : ∀ jobs, ModelIO.AllOk (runReq (.stream file .verified 0 jobs false)) fs P) :
+    ModelIO.AllOk (runArgs ["--", file]) fs P := by
   simp only [runArgs, helpWanted_file, parseArgs_file]
   exact h _
 
@@ -54,10 +54,10 @@ theorem mainG_accept {file : String} {fs : FS}
         Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env) from
     H 0 h rfl
   simp only [mainG, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
-  intro drain code hrun _
+  intro code hrun _
   revert code
   -- the run: the code is the request's, or a handler's 3
-  have hreq := runArgs_file file drain fs
+  have hreq := runArgs_file file fs
     (fun c => c = 0 → ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       parseChunks [b] = .ok r ∧
       Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env)

@@ -11,7 +11,7 @@
     98  def usage : String := String.intercalate "\n" [
 
 == ConLeche/Driver/CheckMain.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt32
+    34  def ConLeche.CheckError.exitCode : CheckError → UInt8
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -133,8 +133,8 @@
     97  -/
     98  #guard_msgs in
 
-== ConLeche/Driver/Dispatch.lean#L31
-    31    | .stream file mode stride jobs noMark => checkMainG (.ndjson file) mode stride jobs noMark drain
+== ConLeche/Driver/Dispatch.lean#L29
+    29    | .stream file mode stride jobs noMark => checkMainG (.ndjson file) mode stride jobs noMark
 
 == ConLeche/Frontend/CheckerIO.lean#L91
     91    | some k =>
@@ -189,13 +189,13 @@
   1743        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L291-L296
-   291  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   292      {stride jobs : Nat} {noMark : Bool} {drain : Drain} {fs : FS}
-   293      (h : (checkMainG (.ndjson file) mode stride jobs noMark drain : ModelIO _) fs (.ok 0)) :
-   294      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   295        Frontend.parseChunks [b] = .ok r ∧
-   296        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Driver/CheckMain.lean#L290-L295
+   290  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+   291      {stride jobs : Nat} {noMark : Bool} {fs : FS}
+   292      (h : (checkMainG (.ndjson file) mode stride jobs noMark : ModelIO _) fs (.ok 0)) :
+   293      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   294        Frontend.parseChunks [b] = .ok r ∧
+   295        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Installed.lean#L144-L147
    144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -251,11 +251,11 @@
    307        (∀ i, i < b → ∀ h : i < D.size, D[i].Ok mode pins) →
    308        Except (CheckError × Nat) (PLift (AllOk mode pins fe pend D))
 
-== ConLeche/Driver/Run.lean#L82-L85
-    82  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    83      (noMark : Bool) (drain : Drain) (ds : Array ConLeche.Declaration) :
-    84      IO (Except (ConLeche.CheckError × Nat)
-    85        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L87-L90
+    87  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+    88      (noMark : Bool) (ds : Array ConLeche.Declaration) :
+    89      IO (Except (ConLeche.CheckError × Nat)
+    90        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L411-L413
    411  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -1310,11 +1310,11 @@
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== Main.lean#L47
-    47  def main (args : List String) : IO UInt32 := do
+== Main.lean#L49
+    49  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L417
-   417  def run {m : Type → Type} [CheckerIO m] (args : List String) (drain : Drain) : m UInt32 := do
+== ConLeche/Driver/Cli.lean#L415
+   415  def run {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
 
 == ConLeche/MainTheorem.lean#L117-L124
    117  theorem no_False_declaration (V : Type w) [SetTheory V]

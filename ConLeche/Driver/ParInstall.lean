@@ -822,11 +822,10 @@ the end the workers are stopped, also when the commit loop throws.  Its
 result is phase A of the fold, conditional on the block jobs.  Its timing
 report (performance-only) is left in `rep`: an action that collects the
 statistics of the workers that have returned when it runs, waiting for
-none.  The join of the stopped workers is left in `drain`, which the
-CLI runs after the verdict line is out and before the process exits
-(`Cli.lean`'s `mainG`). -/
+none.  The join of the workers is left in `join`, as soon as they are
+started, for `checkDeclsIO` to run at its end, on every path. -/
 def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : Nat)
-    (noMark : Bool) (rep : IO.Ref (IO PoolRep)) (drain : IO.Ref (IO Unit))
+    (noMark : Bool) (rep : IO.Ref (IO PoolRep)) (join : IO.Ref (BaseIO Unit))
     (ds : Array Declaration) :
     IO (Except (CheckError × Nat)
       (Cached.DeferredRun mode natOpPinSets ds.toList (0, mkFEnv Env.empty, #[]))) := do
@@ -973,8 +972,8 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   for w in [0:jobs] do
     tasks := tasks.push
       (← IO.asTask (prio := .dedicated) (ParInstall.workerLoop sh w {} none 0 0))
-  -- the join of the workers, for the process's exit (see the end)
-  drain.set do
+  -- the join of the workers, for the end of `checkDeclsIO` (see the end)
+  join.set do
     for t in tasks do
       let _ ← IO.wait t
   let cst ← IO.mkRef (Array.replicate 4 0)
@@ -987,7 +986,7 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   -- An IO exception on this thread (a failing heartbeat write) must not
   -- leave the workers running: one past the end of the stream would sleep
   -- on the scheduler's condition variable forever, one inside an install
-  -- on an unresolved slot, and the exit waits for them (`drain`).  So
+  -- on an unresolved slot, and `checkDeclsIO` joins them.  So
   -- they are stopped, every slot resolved, and the exception rethrown.
   let res ← try
       ParInstall.commitLoop err stride total t0
@@ -1007,7 +1006,7 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   -- commit, while a worker may still be inside an install past the
   -- rejected record (one the serial run never starts, and as long as the
   -- input makes it); a worker still running is left out of the report and
-  -- counted in its title, and the exit waits for it (`drain`).  (After an
+  -- counted in its title, and the end of `checkDeclsIO` joins it.  (After an
   -- accept the summary follows the check phase, and every worker has long
   -- returned.)
   rep.set do
@@ -1029,15 +1028,14 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   ParInstall.stopWorkers sh (res matches .error _)
   -- the workers are not joined here: once stopped they only exit, and
   -- a thread's exit (its allocator's teardown) took ~0.25 s on cslib —
-  -- nothing after the commit needs them, and the statistics (`rep`,
+  -- nothing in the check phase needs them, and the statistics (`rep`,
   -- above) count only the finished ones.  After a rejection a worker may
-  -- still be inside an install of a record past it; the verdict is
-  -- printed without it, and then, before the process ends with
-  -- `IO.Process.exit`, `mainG` waits for every worker (`drain`, set
-  -- above; maintainer's ruling, 2026-10-10): `exit()` runs the C
-  -- runtime's teardown, which must not meet a thread still inside an
-  -- install.  The rejection path need not be fast; after an accept every
-  -- worker has long returned and the wait is immediate.  That a stopped
+  -- still be inside an install of a record past it.  `checkDeclsIO` joins
+  -- every worker at its end (`join`, set above), before the verdict line:
+  -- `exit()` runs the C runtime's teardown, which must not meet a thread
+  -- still inside an install.  The rejection path need not be fast; after
+  -- the check phase every worker has long returned and the join is
+  -- immediate.  That a stopped
   -- worker does end rests on two facts no type enforces: an installer
   -- never throws between `tryTake` and resolving its slot (it runs only
   -- reference, clock, promise, mutex and condition-variable operations,

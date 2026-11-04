@@ -108607,22 +108607,19 @@ after the first attempt (below); this record states it as landed.
   driver needs a fact about a `liftIO` result, the result's type carries
   it: `checkDeclsIO` returns `{ env // checkDecls mode natOpPinSets ds =
   .ok env }`, a window `Option {g' // WinAdv g bs g'}`; so every outcome
-  the model allows carries it too.  `Driver.Drain` (`IO.Ref (IO Unit)`,
-  the install's join of its stopped workers) is a handle the generic
-  code passes through.
+  the model allows carries it too.
 * **The driver, generic**: `parseStreamG` (`StreamParse`), `checkMainG`
-  (`CheckMain`), `runReq drain` (`Dispatch`), and the new
+  (`CheckMain`), `runReq` (`Dispatch`), and the new
   `Driver/Cli.lean`: `parseArgs`, `helpWanted`, `runArgs`, `run`, `mainG`.
   They left `Main.lean` because the theorems over `main` must import them
   and an executable's root cannot be imported; `Main.lean` is the entry
-  point alone, `main args := do let code ← mainG args;
-  IO.Process.exit code.toUInt8`.  **The exit code is computed by the
-  generic code and returned outside `liftIO`**: `mainG` is the `liftIO`s
-  with unit results (the flush, the join of the install's stopped
-  workers) around `run`, and `return code`.  No `exit` in the class; a
-  code passing through `liftIO` would make the model allow exit 0 from
-  any run.  At `IO` the order is master's: the run, the flush, the join,
-  the exit.
+  point alone, `main args : IO Unit := do IO.Process.exit (← mainG args)`.
+  **The exit code is computed by the generic code and returned outside
+  `liftIO`**: `mainG` is `run`, a `liftIO` with a unit result (the
+  flush), and `return code`.  No `exit` in the class; a code passing
+  through `liftIO` would make the model allow exit 0 from any run.  At
+  `IO` the order is: the run (the install's workers joined at the end of
+  `checkDeclsIO`), the flush, the exit.
 * **The command line.**  `"--" :: rest` makes every remaining argument a
   file, so `con-leche -- <file>` is safe for any file name; `--help` is
   decided on the arguments before any `--` (`helpWanted`), so a file
@@ -108644,7 +108641,7 @@ after the first attempt (below); this record states it as landed.
   `checkDecls mode natOpPinSets (preparePrelude pre r.decls) = .ok env`.
   `mainG_accept` (`Verify/Driver/Main.lean`): the same at `.verified` for
   all of `mainG ["--", file]`, the argument parse, the abort variables,
-  both handlers (which return 3), the flush and the join included; the
+  both handlers (which return 3), the flush included; the
   worker count is what the default computes
   (`getHardwareConcurrency`), which the statement does not depend on.
   Over all of `main` (`MainTheorem.lean`), at these fixed arguments, so
@@ -108775,3 +108772,17 @@ selfcheck 49 018 declarations; axioms pinned at 22 theorems; tutorial
 90/92 as before; e2e 502/502; mode flags 16/16 (the `--` fixtures); the
 IO-exception gate 5/5 (the FIFO at both job counts); the trusted,
 `--jobs=1` and `--jobs=4` sweeps.  README: link repoints only.
+
+**Two rulings on the run's end (maintainer, 2026-11-04).**  The `Drain`
+plumbing is gone: `checkDeclsIO` joins its own install workers at its
+end, on every path (`try … finally`, the join in a local ref that
+`installPhase` sets once the workers are started), so nothing outside it
+sees them and `mainG` only flushes.  At the end of the check phase and
+not the install phase, so that an accept does not wait for the threads'
+exit (~0.25 s on cslib).  The one behaviour change: after a rejection at
+more than one worker the verdict line comes after the stragglers have
+finished.  And the exit code is `UInt8` throughout the generic code
+(`CheckError.exitCode`, `checkMainG`, `runReq`, `runArgs`, `run`,
+`mainG`), the type `IO.Process.exit` takes, and `main` is at `IO Unit`:
+with `UInt32` and `toUInt8`, a code of 256 would have truncated to 0, a
+gap between the theorems' `.ok 0` and the exit status.

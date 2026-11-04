@@ -380,7 +380,7 @@ def parseArgs : List String → Args → Args
 
 /-- The argument parse and the request run, whose exceptions `run`
 below turns into exit 3. -/
-def runArgs {m : Type → Type} [CheckerIO m] (args : List String) (drain : Drain) : m UInt32 := do
+def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
   if helpWanted args then
     CheckerIO.liftIO (IO.println usage)
     return 0
@@ -403,18 +403,16 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) (drain : Drai
     let jobs := a.jobs.getD
       (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
        if hw = 0 then 1 else hw)
-    runReq drain (.stream file a.mode a.progress jobs a.noMark)
+    runReq (.stream file a.mode a.progress jobs a.noMark)
   | _ =>
     eprintln usage
     return 3
 
 /-- The run of `main` up to computing the exit code.  Split out (task
 #336) so that `main` can wrap the whole thing in a flush-then-`exit`:
-see there for why.  `drain` is where the install leaves the join of its
-stopped workers, for `mainG` to run before the exit.  Generic in the IO
-class (task #450), as everything `main` runs; it reaches the runtime
-through `CheckerIO.liftIO`. -/
-def run {m : Type → Type} [CheckerIO m] (args : List String) (drain : Drain) : m UInt32 := do
+see there for why.  Generic in the IO class (task #450), as everything
+`main` runs; it reaches the runtime through `CheckerIO.liftIO`. -/
+def run {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
   -- **Linearity is enforced, in every run** (task #331).  The install
   -- environment's index is marked linear (`FEnv.markLinear`, on the
   -- serial install), and so are the parse's tables (`StateD.markLinear`,
@@ -447,7 +445,7 @@ def run {m : Type → Type} [CheckerIO m] (args : List String) (drain : Drain) :
       -- untouched.  The catch handler's own write can itself fail (that
       -- same closed stderr, say); that must not flip the exit code either,
       -- so it is best-effort and its own failure is swallowed.
-      tryCatchThe IO.Error (runArgs args drain) fun e => do
+      tryCatchThe IO.Error (runArgs args) fun e => do
         CheckerIO.liftIO
           (try IO.eprintln s!"con-leche: internal error: {e}" catch _ => pure ())
         return 3)
@@ -456,20 +454,12 @@ def run {m : Type → Type} [CheckerIO m] (args : List String) (drain : Drain) :
       return 3
 
 /-- **Everything `main` does but the exit** (tasks #336, #450): the run,
-then both streams flushed and the install's stopped workers joined, and
-the exit code, computed by the generic code and returned OUTSIDE
-`liftIO`: the actions under `liftIO` here have unit results, so that
-what the model says of the code is what the run computed.  The binary's
-`main` (`Main.lean`) is this at `IO`, followed by the exit.
-
-**Waiting for the install pool's workers** (maintainer's ruling,
-2026-10-10).  After a rejection at more than one worker, a stopped
-install worker may still be inside the install of a record past the
-rejected one (`ConLeche.Driver.installPhase`); `exit()`'s teardown must
-not run under it.  So after the flush, `drain` runs, the join of the
-install pool's workers that `installPhase` left there.  The verdict
-line is already out; the rejection path need not be fast, and after an
-accept every worker has long returned.
+then both streams flushed, and the exit code, computed by the generic
+code as the `UInt8` `IO.Process.exit` takes and returned OUTSIDE `liftIO`: the action under `liftIO` here has a
+unit result, so that what the model says of the code is what the run
+computed.  The binary's `main` (`Main.lean`) is this at `IO`, followed
+by the exit.  No worker is left running by then: `checkDeclsIO` joins
+the ones it started before it returns.
 
 **Flushing first**: `IO.Process.exit`'s own `exit()` call flushes the C
 streams if `IO.FS.Stream.stdout`/`stderr` are backed by them, but this
@@ -477,15 +467,11 @@ does not depend on that — `run`'s last action on every path is already
 the verdict/diagnostic print, so flushing both streams here, right
 before `exit`, is flushing exactly what that print just wrote and
 nothing more. -/
-def mainG {m : Type → Type} [CheckerIO m] (args : List String) : m UInt32 := do
-  let drain : Drain ← CheckerIO.liftIO (IO.mkRef (pure ()))
-  let code ← run args drain
+def mainG {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 := do
+  let code ← run args
   CheckerIO.liftIO do
     (← IO.getStdout).flush
     (← IO.getStderr).flush
-    -- the install's stopped workers, joined after the verdict is
-    -- out (see above); immediate unless a rejection left one in an install
-    try (← drain.get) catch _ => pure ()
   return code
 
 end ConLeche.Driver

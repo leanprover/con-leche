@@ -31,7 +31,7 @@ and the fold's two phases with their thread pools (`checkDeclsIO`,
 declarations accepted, 1 a declaration was rejected as invalid, 2 the
 checker declined (positively detected an unsupported feature), 3 bad
 usage, malformed input, or an internal failure of unclear cause. -/
-def ConLeche.CheckError.exitCode : CheckError → UInt32
+def ConLeche.CheckError.exitCode : CheckError → UInt8
   | .notImplemented _ => 2
   | .invalid _ => 1
   | .internal _ => 3
@@ -87,8 +87,7 @@ def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (jobs : Nat)
 
 /-- **The driver, generic in the IO class** (tasks #424, #450): what
 `main` runs in process (at `IO`) and what the theorem is about (at
-`ModelIO`).  `drain` is where the install leaves the join of its
-stopped workers (`checkDeclsIO`).  `mode` is the
+`ModelIO`).  `mode` is the
 checking mode, validated once by the caller and consumed here as
 configuration.
 
@@ -122,7 +121,7 @@ the verdict.  The three steps fail in ONE error type, the checker's
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : CheckMode)
-    (stride jobs : Nat) (noMark : Bool) (drain : Drain) : μ UInt32 := do
+    (stride jobs : Nat) (noMark : Bool) : μ UInt8 := do
     -- The opt-in progress heartbeat (`--progress[=<stride>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
@@ -227,7 +226,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
           t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
       let verdict ← CheckerIO.liftIO do
-        checkDeclsIO mode (← IO.getStderr) stride decls.size t0 tParse jobs noMark drain decls
+        checkDeclsIO mode (← IO.getStderr) stride decls.size t0 tParse jobs noMark decls
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record
@@ -289,13 +288,13 @@ the `liftIO` actions answered.  Under the assumptions of
 `ConLeche/Frontend/CheckerIO.lean` the binary's run is one of these
 outcomes. -/
 theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-    {stride jobs : Nat} {noMark : Bool} {drain : Drain} {fs : FS}
-    (h : (checkMainG (.ndjson file) mode stride jobs noMark drain : ModelIO _) fs (.ok 0)) :
+    {stride jobs : Nat} {noMark : Bool} {fs : FS}
+    (h : (checkMainG (.ndjson file) mode stride jobs noMark : ModelIO _) fs (.ok 0)) :
     ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       Frontend.parseChunks [b] = .ok r ∧
       Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode stride jobs noMark drain) fs
+  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode stride jobs noMark) fs
       (fun c => c = 0 → ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧
         fs.file file = some b ∧ Frontend.parseChunks [b] = .ok r ∧
         Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env) from
