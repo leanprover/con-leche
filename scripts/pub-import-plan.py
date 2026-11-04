@@ -809,7 +809,7 @@ files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().
                             'whitepaper/')) and f != 'lakefile.lean']
 mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
-UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
+UMBRELLA={'ConLeche.lean','ConLeche/Frontend/Olean.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
           'ConLeche/Model.lean','ConLeche/Verify/Cached.lean','ConLeche/Verify/Denote.lean',
           'ConLeche/Kernel/Basis.lean','ConLeche/Complete.lean'}
 # frozen: the umbrellas exist to re-export, the classic roots have no `public`

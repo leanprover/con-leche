@@ -108912,8 +108912,9 @@ that the reader does not import the core.
 * The toolchain allowlist is gone: only the format version and the GMP flag are
   checked (a decline otherwise), the header's version and githash not looked at.
   rc3's and v4.35.0's format sources are identical.  Read at both.
-* `decodeModuleSpec` has no `consts` flag and no decoder parameter: there is one
-  full parse per region and root (`parseFull`: name table, fast decoder).
+* `decodeModuleSpec` has no `consts` flag and no decoder parameter, and it includes
+  the name table's check (maintainer's ruling): the specification says what a
+  valid module is, `parseFull` is its fast twin, and there is one full parse.
 * `stmtSpec` is gone: `stmtsFast_eq` states against `sks.mapM (stmtP r)`.
 * `locateHits` and the part check are maps, not `for/mut` loops, which is what
   makes "the snapshot determines the action" (`ModelIO.Det`) short.
@@ -108921,20 +108922,20 @@ that the reader does not import the core.
 
 **The uniform theorems (the maintainer's question).**  One direction on
 purpose: a read looks only at what it needs, so it may succeed on a file whose
-full parse fails.  `decodeModuleFast_eq` is an equality, so the fast parser
+full parse fails.  `parseFull_eq_spec` is an equality, so the fast parser
 succeeds iff the specification does.
 * pure (`Verify/Frontend/Olean/Reads.lean`), for any region and root with
-  `parseFull r root = some d`: `readHeader_of_full`, `readLight_of_full`,
-  `readEntry_of_full`, `readStmts_of_full`; `readEntry_eq` holds unconditionally.
+  `parseFull r root = some d`: `readNamePositions_of_full`, `readEntry_of_full`,
+  `readStmts_of_full`; `readEntry_eq` holds unconditionally.
   `importsPre_extract` and `importsPre_prefix` relate the prefix read to the file
   in both directions; `parseExported_full`, `parseModule_full` give the full
   parses a module's reads are made of, at (single ex, ex.root) and at (combined,
   s.root / p.root).
 * on a snapshot (`Verify/Frontend/Olean/Files.lean`), from a value of the home's
-  `readModule`: `readExported_of_home`, `readExportedLight_of_home`,
-  `readImports_of_home` state that those reads are DETERMINED and return the
-  home's.  So a home's full read settles every fast read of the exported part,
-  on one snapshot, in one process or in two.  The prefix read needs
+  `readModule`: `readExportedPart_of_home`, `moduleImports_of_home` state that
+  those reads are DETERMINED and return the home's.  With the pure theorems at
+  (single ex, ex.root), a home's full read settles every fast read of the exported
+  part, on one snapshot, in one process or in two.  The prefix read needs
   `foldList_hdr_complete` (the forward read finds on a prefix what the file
   holds; a prefix validates because the chunks are whole words).
 * `checkMainG_oleans_accept`, `runArgs_oleans_accept`, `main_oleans_no_False`,
@@ -108964,3 +108965,21 @@ rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`) reads and is accepted.  A module-system
 module's exported part is decoded twice in a full read (alone, then in the
 combined region), the price of `parseExported` being a function of that file alone;
 the parse phase above includes it.
+
+**The review (Codex, then the maintainer's rulings, 2026-11-04).**  Run on the
+branch before landing.  The refinement check's fallback ran the unmemoized
+specification on untrusted data: a crafted exported statement of 2^80 nodes as a
+tree hung the reader (not in Codex's list; the fixture timed out before the fix).
+It reads with `readEntry`, and **everything that reads a `Level` or an `Expr` without
+a memo is `noncomputable`**, so that no executed path can (`nameAt` stays
+executable: a `Name` is a chain).  `«»` is refused.  The "every object" wording said
+more than the reader does.  Codex's dense-memo finding was overstated (the memo is
+linear in the file) and its deep-nesting one fails safe, no verdict; both stand.
+
+**The interface (maintainer's rulings).**  The entry points had grown with cfsg's
+layers.  Gone: `decodeModuleFast` (it is `parseFull`), `readHeader` (nothing wants the
+flag and imports without the names), `readImports`, `readExported`, `readExportedLight`
+(`readExportedPart` and a pure function of it), `readExpAt`, `readModuleAt`,
+`locateModule`.  `ConLeche/Frontend/Olean.lean` lists the interface; `tests/layering.sh`
+keeps the rest of the checker from importing past it.  `private` cannot express it:
+checker code is exposed, so what an exposed definition mentions must be public.

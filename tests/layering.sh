@@ -285,6 +285,11 @@ oleanv = [(a, b) for a in sorted(edges) if a.startswith(OLEAN_PFX) for b in edge
           if not b.startswith(OLEAN_PFX) and b not in OLEAN_BASE
           and b not in OLEAN_EXTRA.get(a, set())]
 OLEAN_V_PFX = 'ConLeche.Verify.Frontend.Olean.'
+# The interface: outside the tree and its proofs, only the umbrella
+# `ConLeche.Frontend.Olean`, whose header lists it.
+oleanout = [(a, b) for a in sorted(edges) for b in edges[a]
+            if b.startswith(OLEAN_PFX) and a != 'ConLeche.Frontend.Olean'
+            and not a.startswith((OLEAN_PFX, OLEAN_V_PFX))]
 oleanpv = [(a, b) for a in sorted(edges) if a.startswith(OLEAN_V_PFX) for b in edges[a]
            if not b.startswith((OLEAN_PFX, OLEAN_V_PFX)) and b not in OLEAN_BASE
            and b != 'ConLeche.Verify.Frontend.ModelIO']
@@ -302,6 +307,9 @@ def report(title, items, hint):
 report('the olean reader importing outside its fence', oleanv,
        'ConLeche/Frontend/Olean/* imports itself and the base types OLEAN_BASE lists; only '
        'Files and Closure reach the IO class, only Records the record builder.')
+report('a module importing past the olean interface', oleanout,
+       'Outside ConLeche/Frontend/Olean/* and its proofs, import ConLeche.Frontend.Olean, '
+       'whose header is the interface.')
 report('the olean proofs importing outside their fence', oleanpv,
        'ConLeche/Verify/Frontend/Olean/* imports itself, the reader, its base types and the '
        'IO model.')

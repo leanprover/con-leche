@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Verify.Frontend.ModelIO
-public import ConLeche.Verify.Frontend.Olean.Reads
+import ConLeche.Verify.Frontend.Olean.Reads
 
 /-!
 # The `.olean` reads on a file system snapshot
@@ -14,11 +14,9 @@ where they use the file operations alone, so that a snapshot determines each
 **A module's full read at its home settles its other reads** on the same
 snapshot, in one process or in two: where `readModule` has a value,
 
-* the exported file is the one it decoded (`readModule_ok`), so that an
-  importer's read (`readExported_of_home`), a light read
-  (`readExportedLight_of_home`) and the read of the imports off the file's
-  start (`readImports_of_home`, `moduleImports_of_home`) cannot fail, and
-  return what the home has;
+* the exported file is the one it decoded (`readModule_ok`), so that the read of
+  that file (`readExportedPart_of_home`) and of the imports off its start
+  (`moduleImports_of_home`) cannot fail, and return what the home has;
 * the reads of a part of the module, pure functions of the region and the
   root the full parses have run on, are `ConLeche/Verify/Frontend/Olean/Reads.lean`.
 
@@ -56,17 +54,17 @@ theorem locateHits_det (sp : SearchPath) (m : Name) (fs : FS) :
     (locateHits sp m : ModelIO _).Det fs :=
   ModelIO.det_bind (ModelIO.det_mapM fun d _ => locateIn_det m d fs) fun _ => ModelIO.det_pure _ _
 
-/-- A module located: the directories' answers were values. -/
-theorem locateModule_ok {sp : SearchPath} {m : Name} {fs : FS} {l : Option Located}
-    (h : (locateModule sp m : ModelIO _) fs (.ok (.ok l))) :
-    (locateModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok l)) := by
+/-- A module found: the snapshot determines the location. -/
+theorem findModule_ok {sp : SearchPath} {m : Name} {fs : FS} {loc : Located}
+    (h : (findModule sp m : ModelIO _) fs (.ok (.ok loc))) :
+    (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) := by
   have key : ∀ hits, (locateHits sp m : ModelIO _) fs = ModelIO.answer (some hits) →
-      (locateModule sp m : ModelIO _) fs = ModelIO.answer (some (locateOf m hits)) := by
+      (findModule sp m : ModelIO _) fs = ModelIO.answer (some (locateOf m hits)) := by
     intro hits hh
-    simp only [locateModule]
+    simp only [findModule]
     rw [ModelIO.bind_det (ModelIO.tryCatch_det (ModelIO.map_det hh))]
     rfl
-  simp only [locateModule, ModelIO.bind_ok, ModelIO.tryCatch_ok] at h
+  simp only [findModule, ModelIO.bind_ok, ModelIO.tryCatch_ok] at h
   obtain ⟨x, hx, hr⟩ := h
   rcases hx with hx | ⟨e, -, hx⟩
   · simp only [ModelIO.map_ok] at hx
@@ -74,31 +72,11 @@ theorem locateModule_ok {sp : SearchPath} {m : Name} {fs : FS} {l : Option Locat
     have hd := (locateHits_det sp m fs).of_ok hh
     rw [key hits hd]
     simp only at hr
-    have : locateOf m hits = .ok l := by simpa [eq_comm] using hr
+    have : locateOf m hits = .ok loc := by simpa [eq_comm] using hr
     rw [this]
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
     subst hx
     simp at hr
-
-/-- A module found: the snapshot determines the location. -/
-theorem findModule_locate {sp : SearchPath} {m : Name} {fs : FS} {loc : Located}
-    (h : (findModule sp m : ModelIO _) fs (.ok (.ok loc))) :
-    (locateModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok (some loc))) := by
-  simp only [findModule, ModelIO.bind_ok] at h
-  obtain ⟨x, hx, hr⟩ := h
-  rcases x with e | _ | l
-  · simp at hr
-  · simp at hr
-  · simp only [ModelIO.pure_iff, Except.ok.injEq] at hr
-    cases hr
-    exact locateModule_ok hx
-
-theorem findModule_ok {sp : SearchPath} {m : Name} {fs : FS} {loc : Located}
-    (h : (findModule sp m : ModelIO _) fs (.ok (.ok loc))) :
-    (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) := by
-  simp only [findModule]
-  rw [ModelIO.bind_det (findModule_locate h)]
-  rfl
 
 /-! ## A file -/
 
@@ -269,12 +247,13 @@ theorem readImportsAt_det {loc : Located} {m : Name} {fs : FS} {b : ByteArray} {
 
 /-! ## The home's full read -/
 
-/-- **A module's full read at its location**, unfolded: its exported file
-read in full, and for a module of the module system, its other two files
+/-- **A module's full read**, unfolded: its location is determined, its exported
+file read in full, and for a module of the module system, its other two files
 read with it. -/
-theorem readModuleAt_ok {loc : Located} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModuleAt loc m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ b ex er, fs.file (modFile loc.dir m "olean") = some b ∧
+theorem readModule_ok {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
+    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
+    ∃ loc b ex er, (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) ∧
+      fs.file (modFile loc.dir m "olean") = some b ∧
       Part.ofBytes (modFile loc.dir m "olean").toString b = .ok ex ∧
       parseExported m ex = .ok er ∧
       ((er.isModule = false ∧ r = classicModule m er) ∨
@@ -283,7 +262,11 @@ theorem readModuleAt_ok {loc : Located} {m : Name} {fs : FS} {r : ModRead}
           Part.ofBytes (modFile loc.dir m "olean.server").toString bs = .ok s ∧
           Part.ofBytes (modFile loc.dir m "olean.private").toString bp = .ok p ∧
           er.isModule = true ∧ parseModule m er ex s p = .ok r) := by
-  simp only [readModuleAt, readExpAt, ModelIO.bind_ok] at h
+  simp only [readModule, ModelIO.bind_ok] at h
+  obtain ⟨y, hy, h⟩ := h
+  rcases y with e | loc
+  · simp at h
+  simp only [ModelIO.bind_ok] at h
   obtain ⟨x, hx, h⟩ := h
   obtain ⟨b, hb, rfl⟩ := readPart_ok hx
   cases hp : Part.ofBytes (modFile loc.dir m "olean").toString b with
@@ -294,7 +277,7 @@ theorem readModuleAt_ok {loc : Located} {m : Name} {fs : FS} {r : ModRead}
     | error e => simp [he] at h
     | ok er =>
       simp only [he] at h
-      refine ⟨b, ex, er, hb, hp, he, ?_⟩
+      refine ⟨loc, b, ex, er, findModule_ok hy, hb, hp, he, ?_⟩
       cases hm : er.isModule with
       | false =>
         refine .inl ⟨rfl, ?_⟩
@@ -322,31 +305,9 @@ theorem readModuleAt_ok {loc : Located} {m : Name} {fs : FS} {r : ModRead}
           · simp [hs, hq] at h
         · simp [hs] at h
 
-/-- **A module's full read**, unfolded: its location is determined, and
-the read at it is `readModuleAt_ok`'s. -/
-theorem readModule_ok {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ loc, (findModule sp m : ModelIO _) fs = ModelIO.answer (some (.ok loc)) ∧
-      (readModuleAt loc m : ModelIO _) fs (.ok (.ok r)) := by
-  simp only [readModule, ModelIO.bind_ok] at h
-  obtain ⟨x, hx, h⟩ := h
-  rcases x with e | loc
-  · simp at h
-  · exact ⟨loc, findModule_ok hx, h⟩
-
-/-- What the home's read holds of the exported part. -/
-theorem readModuleAt_exported {m : Name} {er : ModDecoded} {r : ModRead}
-    (h : (er.isModule = false ∧ r = classicModule m er) ∨
-        ∃ ex s p, er.isModule = true ∧ parseModule m er ex s p = .ok r) :
-    r.exported = er.constants ∧ r.imports = er.imports := by
-  rcases h with ⟨-, rfl⟩ | ⟨ex, s, p, -, hm⟩
-  · exact ⟨rfl, rfl⟩
-  · obtain ⟨_, _, _, _, _, _, _, _, _, _, hi, _, he⟩ := parseModule_full hm
-    exact ⟨he, hi⟩
-
 /-! ## What the home's read settles -/
 
-/-- **The home's read settles its exported part** on the snapshot: the
+/-- **The home's read settles a module's exported part** on the snapshot: the
 location and the file are determined, the exported part is valid and its full
 read succeeds, with the home's imports and exported constants. -/
 theorem home_exported {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
@@ -355,51 +316,33 @@ theorem home_exported {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
       fs.file (modFile loc.dir m "olean") = some b ∧
       Part.ofBytes (modFile loc.dir m "olean").toString b = .ok ex ∧
       parseExported m ex = .ok er ∧ r.exported = er.constants ∧ r.imports = er.imports := by
-  obtain ⟨loc, hf, hr⟩ := readModule_ok h
-  obtain ⟨b, ex, er, hb, hp, he, hc⟩ := readModuleAt_ok hr
-  refine ⟨loc, b, ex, er, hf, hb, hp, he, readModuleAt_exported (m := m) ?_⟩
-  rcases hc with hc | ⟨_, _, s, p, _, _, _, _, hm, hq⟩
-  · exact .inl hc
-  · exact .inr ⟨ex, s, p, hm, hq⟩
+  obtain ⟨loc, b, ex, er, hf, hb, hp, he, hc⟩ := readModule_ok h
+  refine ⟨loc, b, ex, er, hf, hb, hp, he, ?_⟩
+  rcases hc with ⟨-, rfl⟩ | ⟨_, _, s, p, _, _, _, _, _, hq⟩
+  · exact ⟨rfl, rfl⟩
+  · obtain ⟨_, _, _, _, _, _, _, _, _, _, hi, _, hx⟩ := parseModule_full hq
+    exact ⟨hx, hi⟩
 
-/-- **An importer's read of a module with a home's read**: determined, the
-same constants. -/
-theorem readExported_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
+/-- **The exported part of a module with a home's read**: its file is determined,
+and `parseExported` of it succeeds with the home's constants and imports.  The
+reads of a part of it are `readNamePositions_of_full`, `readEntry_of_full` and
+`readStmts_of_full`, at `(Region.single ex, ex.root)` by `parseExported_full`. -/
+theorem readExportedPart_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
     (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ er, (readExported sp m : ModelIO _) fs = ModelIO.answer (some (.ok er)) ∧
-      r.exported = er.constants ∧ r.imports = er.imports := by
+    ∃ ex er, (readExportedPart sp m : ModelIO _) fs = ModelIO.answer (some (.ok ex)) ∧
+      parseExported m ex = .ok er ∧ r.exported = er.constants ∧ r.imports = er.imports := by
   obtain ⟨loc, b, ex, er, hf, hb, hp, he, hc, hi⟩ := home_exported h
-  refine ⟨er, ?_, hc, hi⟩
-  simp only [readExported]
+  refine ⟨ex, er, ?_, he, hc, hi⟩
+  simp only [readExportedPart]
   rw [ModelIO.bind_det hf]
-  simp only [readExpAt]
-  rw [ModelIO.bind_det (readPart_det hb), hp]
-  simp only [he]
-  rfl
-
-/-- **The read of a module's imports off its file's start, with a home's
-read**: determined, the home's imports. -/
-theorem readImports_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    (readImports sp m : ModelIO _) fs = ModelIO.answer (some (.ok (some r.imports))) := by
-  obtain ⟨loc, b, ex, er, hf, hb, hp, he, -, hi⟩ := home_exported h
-  have hl := findModule_locate (sp := sp) (m := m) (fs := fs) (loc := loc)
-    (by rw [hf]; exact (ModelIO.answer_ok _ _).2 rfl)
-  have himp : importsPre b = some r.imports := by
-    have := (parseExported_full he).2
-    rwa [Part.ofBytes_bytes hp, ← hi] at this
-  simp only [readImports]
-  rw [ModelIO.bind_det hl]
   simp only
-  rw [ModelIO.bind_det (readImportsAt_det hb hp himp)]
-  rfl
+  rw [readPart_det hb, hp]
 
-/-- **The closure's read of a module's imports, with a home's read**:
-determined, the names of the home's imports. -/
+/-- **A module's imports off its file's start, with a home's read**: determined,
+the home's imports. -/
 theorem moduleImports_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
     (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    (moduleImports sp m : ModelIO _) fs =
-      ModelIO.answer (some (.ok (r.imports.map (·.module)))) := by
+    (moduleImports sp m : ModelIO _) fs = ModelIO.answer (some (.ok r.imports)) := by
   obtain ⟨loc, b, ex, er, hf, hb, hp, he, -, hi⟩ := home_exported h
   have himp : importsPre b = some r.imports := by
     have := (parseExported_full he).2
@@ -407,30 +350,7 @@ theorem moduleImports_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRea
   simp only [moduleImports]
   rw [ModelIO.bind_det hf]
   simp only
-  rw [ModelIO.bind_det (readImportsAt_det hb hp himp)]
-  rfl
-
-/-- **A light read of a module with a home's read**: determined, the exported
-part's: its header, and per stored constant its location with the name, kind
-and filter of the constant the exported read holds there. -/
-theorem readExportedLight_of_home {sp : SearchPath} {m : Name} {fs : FS} {r : ModRead}
-    (h : (readModule sp m : ModelIO _) fs (.ok (.ok r))) :
-    ∃ ex er sk, parseExported m ex = .ok er ∧
-      moduleSkel (Region.single ex) ex.root = some sk ∧
-      (readExportedLight sp m : ModelIO _) fs = ModelIO.answer (some (.ok (ex,
-        ⟨⟨er.isModule, er.imports⟩,
-          ((sk.consts.zip er.constants.toList).map fun p => LightConst.ofEntry p.1 p.2).toArray⟩))) ∧
-      r.exported = er.constants ∧ r.imports = er.imports := by
-  obtain ⟨loc, b, ex, er, hf, hb, hp, he, hc, hi⟩ := home_exported h
-  have hfull := (parseExported_full he).1
-  obtain ⟨-, sk, hs, -, -, -⟩ := parseFull_some hfull
-  refine ⟨ex, er, sk, he, hs, ?_, hc, hi⟩
-  simp only [readExportedLight]
-  rw [ModelIO.bind_det hf]
-  simp only [readExpAt]
-  rw [ModelIO.bind_det (readPart_det hb), hp]
-  simp only [readLight_of_full hfull hs]
-  rfl
+  exact readImportsAt_det hb hp himp
 
 /-! ## The whole read -/
 

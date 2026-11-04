@@ -8,7 +8,7 @@ public section
 /-!
 # The fast decoder is the specification (task #371)
 
-**`decodeModuleFast_eq : decodeModuleFast r root = decodeModuleSpec r root`**:
+**`parseFull_eq_spec : parseFull r root = decodeModuleSpec r root`**:
 on every region, from every root pointer, the fast olean decoder
 (`ConLeche/Frontend/Olean/Fast.lean`) returns exactly what the
 specification (`ConLeche/Frontend/Olean/Spec.lean`) returns: the same
@@ -231,8 +231,9 @@ theorem CEntryF.mapM_some {N E N' E' : Type} {fn : N → Option N'} {fe : E → 
 theorem isSome_iff_exists' {α : Type} {o : Option α} : o.isSome ↔ ∃ a, o = some a := by
   cases o <;> simp
 
-/-- The specification, its constants read skeletons first. -/
-theorem decodeModuleSpec_skels (r : Region) (root : UInt64) :
+/-- The specification past the name table's check, its constants read
+skeletons first. -/
+theorem decodeModuleSpec_skels {r : Region} {root : UInt64} (hn : constNamesOk r root = true) :
     decodeModuleSpec r root = (do
       let sk ← moduleSkel r root
       let skels ← sk.consts.mapM (constSkel r)
@@ -240,6 +241,12 @@ theorem decodeModuleSpec_skels (r : Region) (root : UInt64) :
       let constants ← skels.mapM (CEntryF.mapM (nameP r) (exprP r))
       pure ⟨sk.isModule, imports.toArray, constants.toArray⟩) := by
   unfold decodeModuleSpec
+  rw [hn]
+  show (do
+      let sk ← moduleSkel r root
+      let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
+      let constants ← sk.consts.mapM (constSpec r)
+      pure (ModDecoded.mk sk.isModule imports.toArray constants.toArray)) = _
   cases moduleSkel r root with
   | none => rfl
   | some sk =>
@@ -311,19 +318,34 @@ theorem decode_inner (r : Region) (sk : ModSkel) (skels : List (CEntryF UInt64 U
         · obtain ⟨c, hc, hvc⟩ := List.mem_flatMap.mp hv
           exact (hent c hc).2 v hvc
 
-/-- **THE theorem: the fast decoder is the specification**, on every
-region and every root, so each succeeds exactly where the other does. -/
-theorem decodeModuleFast_eq (r : Region) (root : UInt64) :
-    decodeModuleFast r root = decodeModuleSpec r root := by
-  rw [decodeModuleSpec_skels]
-  unfold decodeModuleFast
-  cases moduleSkel r root with
-  | none => rfl
-  | some sk =>
-    simp only [bind, Option.bind]
-    cases sk.consts.mapM (constSkel r) with
+/-- **THE theorem: the full parse is the specification**, on every region and
+every root, so each succeeds exactly where the other does. -/
+theorem parseFull_eq_spec (r : Region) (root : UInt64) :
+    parseFull r root = decodeModuleSpec r root := by
+  cases hn : constNamesOk r root with
+  | false =>
+    unfold parseFull decodeModuleSpec
+    rw [hn]
+    rfl
+  | true =>
+    rw [decodeModuleSpec_skels hn]
+    unfold parseFull
+    rw [hn]
+    show (do
+      let sk ← moduleSkel r root
+      let skels ← sk.consts.mapM (constSkel r)
+      let st ← runPasses r (sk.imports.map (fun i : ImportF UInt64 => i.module) ++ skels.flatMap CEntryF.names)
+        (skels.flatMap CEntryF.exprs)
+      let imports ← sk.imports.mapM (ImportF.mapM (st.nameOf r))
+      let constants ← skels.mapM (CEntryF.mapM (st.nameOf r) (st.exprOf r))
+      pure (ModDecoded.mk sk.isModule imports.toArray constants.toArray)) = _
+    cases moduleSkel r root with
     | none => rfl
-    | some skels => exact decode_inner r sk skels
+    | some sk =>
+      simp only [bind, Option.bind]
+      cases sk.consts.mapM (constSkel r) with
+      | none => rfl
+      | some skels => exact decode_inner r sk skels
 
 /-! ## A few statements, from their roots -/
 

@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Olean.Region
 public import ConLeche.Frontend.Scan.Types
 public import ConLeche.Kernel.Env
+public import Std.Data.HashSet.Basic
 
 @[expose] public section
 
@@ -16,9 +17,9 @@ object at an earlier location (`Region.down`), so the recursion is
 well-founded.  No memo, no sharing, no worklist; on a real module this
 is exponential in the sharing of its expressions, so everything that reads
 a `Level` or an `Expr` here is `noncomputable` (a `Name` is a chain, and
-`nameAt` is linear): the reader calls the fast decoder `decodeModuleFast`
+`nameAt` is linear): the reader calls the fast decoder `parseFull`
 (`ConLeche/Frontend/Olean/Fast.lean`), and the theorem
-`decodeModuleFast_eq` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
+`parseFull_eq_spec` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
 the two are the same function, so each succeeds exactly where the other
 does.
 
@@ -432,9 +433,38 @@ noncomputable def constSpec (r : Region) (c : Nat) : Option (CEntryF Name Expr) 
   let s ← constSkel r c
   s.mapM (nameP r) (exprP r)
 
+/-- **A part's name table agrees with its constants** (task #383):
+`ModuleData.constNames`, the keys Lean's `finalizeImport` stores the
+constants under (it zips the two arrays, never comparing the two names), has as many entries as
+`ModuleData.constants`, entry `i` the name of constant `i` (the same
+object, or the same name decoded), and no name twice.  The decoder reads
+the constants alone, so a table that names them differently would make
+the checked constants differ from the ones Lean loads under those names;
+and a name stored twice in one part is disambiguated by Lean's loader
+(`subsumesInfo`, or "already contains") in a way no other tool need
+share. -/
+def constNamesOk (r : Region) (root : UInt64) : Bool := Id.run do
+  let some g := r.loc root | return false
+  unless r.isCtor g 0 5 do return false
+  let some ns := r.objArray g (r.fld g 1) | return false
+  let some cs := r.objArray g (r.fld g 2) | return false
+  unless ns.size == cs.size do return false
+  let mut seen : Std.HashSet Name := Std.HashSet.emptyWithCapacity ns.size
+  for h : i in [0:ns.size] do
+    let some sk := (cs[i]?).bind (constSkel r) | return false
+    let some a := nameAt r ns[i] | return false
+    unless r.loc sk.name == some ns[i] do
+      match nameP r sk.name with
+      | some b => unless a == b do return false
+      | none => return false
+    if seen.contains a then return false
+    seen := seen.insert a
+  return true
+
 /-- **THE SPECIFICATION: the module stored in a region from its root
-pointer.** -/
+pointer**: its name table agrees with its constants, and all of them read. -/
 noncomputable def decodeModuleSpec (r : Region) (root : UInt64) : Option ModDecoded := do
+  unless constNamesOk r root do none
   let sk ← moduleSkel r root
   let imports ← sk.imports.mapM (ImportF.mapM (nameP r))
   let constants ← sk.consts.mapM (constSpec r)

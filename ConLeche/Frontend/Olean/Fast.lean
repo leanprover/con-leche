@@ -34,8 +34,8 @@ modules nothing is shared: each module's values are its own (a
 run-wide hash-consing of names and levels was dropped with this
 decoder; DESIGN.md, task #371).
 
-`decodeModuleFast` is the fast twin of `decodeModuleSpec`; the theorem
-`decodeModuleFast_eq` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
+`parseFull` is the fast twin of `decodeModuleSpec`; the theorem
+`parseFull_eq_spec` (`ConLeche/Verify/Frontend/Olean/Equiv.lean`) says
 they are equal.  The reader calls this one by name.
 
 **The memo** is dense, by slot (a location divided by 8), and ends at
@@ -308,8 +308,10 @@ def CEntryF.exprs {N E : Type} (c : CEntryF N E) : List E :=
   | .recur _ _ _ _ _ rules .. => rules.map (·.2.2)
   | _ => []
 
-/-- **THE FAST DECODER**: `decodeModuleSpec`, reading each object once. -/
-def decodeModuleFast (r : Region) (root : UInt64) : Option ModDecoded := do
+/-- **THE FULL PARSE** of the module at `root`: `decodeModuleSpec`, its name
+table checked, and each object read once. -/
+def parseFull (r : Region) (root : UInt64) : Option ModDecoded := do
+  unless constNamesOk r root do none
   let sk ← moduleSkel r root
   let skels ← sk.consts.mapM (constSkel r)
   let st ← runPasses r (sk.imports.map (·.module) ++ skels.flatMap CEntryF.names)

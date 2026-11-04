@@ -1,5 +1,5 @@
 import ConLeche.Frontend.Stream
-import ConLeche.Frontend.Olean.Records
+import ConLeche.Frontend.Olean
 /- NOT a `module`, like `PinDump.lean`: a development tool, not part of
 the checker.  As a `module` it would have to be a root of
 `tests/shake.sh`, whose `lake shake` loads every root into one

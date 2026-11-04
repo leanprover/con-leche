@@ -93,13 +93,6 @@ def CEntry.ofRead (c : CEntryF Name Expr) : CEntry :=
 
 /-! ## The module order -/
 
-/-- A module's imports' names, off the start of its exported `.olean`. -/
-def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
-    μ (Except CheckError (Array Name)) := do
-  match ← findModule sp m with
-  | .error e => pure (.error e)
-  | .ok loc => pure ((← readImportsAt loc m).map (·.map (·.module)))
-
 /-- **The import closure, in Lean's module order**: a module after
 everything it imports, the roots and each module's imports in their
 order (a depth-first post-order, as `importModules` builds its module
@@ -122,6 +115,7 @@ def closureGo {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) :
       match ← moduleImports sp m with
       | .error e => pure (.error e)
       | .ok imps =>
+        let imps := imps.map (·.module)
         let seen := seen.insert m
         if let some c := imps.find? fun i => seen.contains i && !done.contains i then
           return .error (.internal s!"import cycle: {m} imports {c}")

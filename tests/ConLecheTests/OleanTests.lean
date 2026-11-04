@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Frontend.Olean
 public import ConLeche.Verify.Frontend.Olean.Equiv
 public import ConLeche.Verify.Frontend.Olean.Reads
 public import ConLeche.Verify.Frontend.Olean.Files
@@ -8,7 +8,7 @@ public import ConLecheTests.ScanTests
 /- The checks below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported
 twice. -/
-meta import ConLeche.Frontend.Olean.Records
+meta import ConLeche.Frontend.Olean
 meta import ConLecheTests.ScanTests
 
 public section
@@ -50,12 +50,10 @@ def agree (what : String) (r : Region) (root : UInt64) : IO Unit := do
   let some (imps, cs) := fastDecode r root | throw (IO.userError s!"{what}: it does not read")
   if cs.isEmpty then throw (IO.userError s!"{what}: no constants read")
   let some sk := moduleSkel r root | throw (IO.userError s!"{what}: no skeleton")
-  unless (readHeader r root).map (·.imports) == some imps do
-    throw (IO.userError s!"{what}: the header read differs")
-  let some l := readLight r root | throw (IO.userError s!"{what}: the light read fails")
+  let some l := readNamePositions r root | throw (IO.userError s!"{what}: the name positions read fails")
   unless l.header.imports == imps && l.consts.map (·.name) == cs.map (·.name) &&
       l.consts.map (·.loc) == sk.consts.toArray do
-    throw (IO.userError s!"{what}: the light read differs")
+    throw (IO.userError s!"{what}: the name positions read differs")
   unless sk.consts.mapM (readEntry r) == some cs.toList do
     throw (IO.userError s!"{what}: the entry reads differ")
   unless readStmts r sk.consts == some (cs.toList.map CEntryF.stmt) do
@@ -220,15 +218,15 @@ def onesBytes (n : Nat) : ByteArray := ⟨Array.replicate (8 * n) 255⟩
 
 -- The equality's footprint: the standard three, nothing else.
 /--
-info: 'ConLeche.Frontend.Olean.decodeModuleFast_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Frontend.Olean.parseFull_eq_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms decodeModuleFast_eq
+#print axioms parseFull_eq_spec
 
 /-! ### The reads of a parsed module, as statements -/
 
 example (r : Region) (c : Nat) : readEntry r c = constSpec r c := readEntry_eq r c
-example (r : Region) (root : UInt64) (d : ModDecoded) (h : parseFull r root = some d) :
-    readHeader r root = some ⟨d.isModule, d.imports⟩ := readHeader_of_full h
+example (r : Region) (root : UInt64) : parseFull r root = decodeModuleSpec r root :=
+  parseFull_eq_spec r root
 
 end ConLecheTests
