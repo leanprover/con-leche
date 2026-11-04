@@ -27,7 +27,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv Block
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **THE INDUCTION OVER THE RECURSOR CLASSES, at a call relation**
 `call` (`hind`): at every parameter tuple `xs`, the union of the classes'
@@ -58,7 +58,7 @@ calls (`GenClassInd`, `GenRecAssembly.lean`). -/
 
 section Rows
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {pp : BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {pp : BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)} {nested : Bool}
   {block : List ConstantInfo} {names : List Name} {d : BlockData V}

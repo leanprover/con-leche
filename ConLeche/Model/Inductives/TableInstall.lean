@@ -33,7 +33,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule ProjEntry
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The carrier at a table install**: the prefix's, with the table's
 well-formedness and head data added. -/
@@ -52,7 +52,7 @@ well-formedness and head data added. -/
 
 /-- `NatOps` across a table install: the stored operations, their
 guards and their equations' readings are the prefix's. -/
-theorem natOps_pushTable (mp : EnvModelM V μ env) {t : ProjTable}
+theorem natOps_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     {m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩} (hac : m₂.acval = mp.base2.acval)
     (φ : Name → Nat) : NatOps m₂ φ := by
@@ -76,7 +76,7 @@ theorem natOps_pushTable (mp : EnvModelM V μ env) {t : ProjTable}
 
 /-- `CapsOk` across a table install: the stored families, their readings
 and their leaves are the prefix's. -/
-theorem capsOk_pushTable (mp : EnvModelM V μ env) {t : ProjTable}
+theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     {m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩} (hac : m₂.acval = mp.base2.acval) :
     CapsOk m₂ := by
@@ -108,7 +108,7 @@ theorem capsOk_pushTable (mp : EnvModelM V μ env) {t : ProjTable}
 no table yet, the table is well formed and carries its head data at
 every field, and the fields' projection laws are supplied.  The leaf
 valuation is the prefix's; everything else transports. -/
-theorem declStep_preserves_of_pushTable (mp : EnvModelM V μ env) {t : ProjTable}
+theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     (hwf : ConLeche.EnvWF ⟨env.consts, t :: env.tables⟩)
     (hhead : ∀ i, i < t.numFields → ConLeche.TowerHead env (t.entry i))
@@ -116,7 +116,7 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V μ env) {t : ProjTable
       m₂.acval = mp.base2.acval →
       ∀ (φ : Name → Nat) (i : Nat), i < t.numFields →
         TowerEntryLaw m₂ φ t.structName i (t.entry i)) :
-    ∃ mp' : EnvModelM V μ ⟨env.consts, t :: env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨env.consts, t :: env.tables⟩,
       mp'.base2.acval = mp.base2.acval := by
   let m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩ := mp.base2.pushTable hwf hhead
   have hac : m₂.acval = mp.base2.acval := rfl

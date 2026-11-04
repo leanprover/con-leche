@@ -43,7 +43,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w'
 
-variable {V : Type w'} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w'} [SetTheory V] {env : Env}
 
 /-! ## Kit -/
 
@@ -75,13 +75,13 @@ theorem eval_le_idxUniv {ψ : Name → Nat} {isorts : List Level} {j : Nat} {s :
 
 /-- **The former's index telescope**, graded and bounded by the tuple
 universe at every parameter frame. -/
-theorem idxOk_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem idxOk_of (mp : EnvModelM V env)
     {F : Nat} {nP nIdx : Nat} {resSort : Level} {cvTa : ConstantVal} {T : Name}
     {caps : IndCaps} (hfT : env.find? T = some (.indInfo cvTa caps))
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars (nP + nIdx) cvTa.type 0 = some (tfvs, trest))
     {isorts : List Level}
-    (hsorts : ConLeche.checkStructFieldSortsI (ConLeche.fueledOps μ F) env true false resSort nP
+    (hsorts : ConLeche.checkStructFieldSortsI (ConLeche.fueledOps .verified F) env true false resSort nP
       (tfvs.drop nP) [] nIdx = .ok isorts)
     {ppsAll : (Name → Nat) → List Term}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
@@ -93,7 +93,7 @@ theorem idxOk_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
   have hT : Opened mp.base2 ψ (nP + nIdx) cvTa.type tfvs trest
       (((ppsAll ψ)).reverse) (.sort (resSort.eval ψ)) :=
     opened_of_peel hopT hTf hTb (hFD.read ψ) (hFD.len ψ) (hFD.okTy ψ)
-  have hc := claimsAt_of hμ mp ψ F
+  have hc := claimsAt_of mp ψ F
   obtain ⟨-, hrows⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
   have hlenT : tfvs.length = nP + nIdx := openPisAtFvars_length _ hopT
   have hΓ : (((ppsAll ψ)).reverse).length = nP + nIdx := by simp [hFD.len ψ]
@@ -185,7 +185,7 @@ theorem fixCtorDataList_getElem? (dsF : Nat → (Name → Nat) → List Term)
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## Boundness through openings -/
 
@@ -290,7 +290,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveSha
   RecRule)
 
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 set_option maxHeartbeats 6400000 in
 /-- **The constructors' conses, in order**, over an ABSTRACT η
@@ -300,10 +300,10 @@ that it refutes the head as another stored family's η constructor
 (`hEtaOther`, `capsOk_cons_native`'s `hother`).  At a block it is
 `ConLeche.BlockEtaInv` (`BlockCtorsLoop.lean`), since `checkBlockInds`
 leaves up to `k` families pending. -/
-theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
+theorem ctorsLoopEta
     {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI p.cvT.name
+    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) env₀ envI p.cvT.name
       p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
@@ -365,7 +365,7 @@ theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
               (consList (idxValsAt ρ (esF j ψ) bs) ρ)
               (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))
                 (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
-    ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V μ env),
+    ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
       EtaInv env →
       env.find? p.cvT.name = some (.indInfo cvTa caps) →
@@ -376,7 +376,7 @@ theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
       PendingAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
         idxF dsF esF srcsF ctorsA k →
       Inv mp.base2 →
-      ∃ mp' : EnvModelM V μ (ConLeche.consSumCtors p.nP rest env),
+      ∃ mp' : EnvModelM V (ConLeche.consSumCtors p.nP rest env),
         EtaInv (ConLeche.consSumCtors p.nP rest env) ∧
         (ConLeche.consSumCtors p.nP rest env).find? p.cvT.name
           = some (.indInfo cvTa caps) ∧
@@ -505,7 +505,7 @@ theorem ctorsLoopEta (hμ : μ.verifiedChecks = true)
       rwa [show k + (i + 1) = k + 1 + i from by omega] at this
     have hinv' : Inv mpC.base2 :=
       hInv mp.base2 cA _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
-    exact ctorsLoopEta hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+    exact ctorsLoopEta hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
       caps leafT hTlawsOf EtaInv hEtaCons hEtaOther hfold rest (k + 1) _ mpC hrest'
       (by simp at hk; omega) hE' hfT' hFD' hleafT' hcons' hpend' hinv'
 
@@ -1241,7 +1241,7 @@ set_option maxHeartbeats 3200000 in
 /-- **The P step at a projection table**, against the one-constructor
 fibre. -/
 
-theorem stageFixTable (mp : EnvModelM V μ env)
+theorem stageFixTable (mp : EnvModelM V env)
     {T : Name} {lps : List Name} {nP : Nat} {resSort : Level} {isProp : Bool}
     {cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
     {envOut : Env} {caps : IndCaps}
@@ -1292,7 +1292,7 @@ theorem stageFixTable (mp : EnvModelM V μ env)
           SpineFit ρ ((((ds ψ).drop nP)).take j) as →
           interp V (consList as ρ) ((((ds ψ).drop nP)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
-    ∃ (tbl : ProjTable) (mp' : EnvModelM V μ envOut),
+    ∃ (tbl : ProjTable) (mp' : EnvModelM V envOut),
       envOut = ⟨env.consts, tbl :: env.tables⟩ ∧ tbl.structName = T ∧
       env.findTable? T = none ∧
       mp'.base2.acval = mp.base2.acval := by
@@ -1598,7 +1598,7 @@ each domain, at the frame under the earlier ones, into `univ w`
 frame satisfying the earlier domains, the next domain's reading is
 graded and lies in `univ w` — the sort claim at the context opened by
 the earlier binders. -/
-theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) (ψ : Name → Nat)
+theorem teleBound_walk (mp : EnvModelM V env) (ψ : Name → Nat)
     {w : Nat} :
     ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr} {Δ : List Term}
       {tl : List Term},
@@ -1608,8 +1608,8 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       (∀ k a, fvs[k]? = some a →
         denote mp.base2.acval env ψ (d + k) a.fvarTypeD = some (tl.getD k default)) →
       (∀ k a, fvs[k]? = some a → ∃ (F : Nat) (t : Expr) (u : Level),
-        ConLeche.inferTypeCore μ false env F (d + k) a.fvarTypeD = .ok t ∧
-        ConLeche.ensureSortCore μ false env F (d + k) t = .ok u ∧ Level.eval ψ u ≤ w) →
+        ConLeche.inferTypeCore .verified false env F (d + k) a.fvarTypeD = .ok t ∧
+        ConLeche.ensureSortCore .verified false env F (d + k) t = .ok u ∧ Level.eval ψ u ≤ w) →
       ∀ k, k < n → ∀ ρ : Nat → V, Sat V (((tl.take k)).reverse ++ Δ) ρ →
         WellDenoted V ρ (tl.getD k default) ∧ interp V ρ (tl.getD k default) ∈ˢ (univ w : V)
   | 0, _, _, _, _, _, _, _, _, _, _, _, _, _, _, k, hk, _, _ => absurd hk (Nat.not_lt_zero k)
@@ -1643,7 +1643,7 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
         obtain ⟨F, t, u, hi, hens, hle⟩ := hinf 0 _ rfl
         simp only [Nat.add_zero, Expr.fvarTypeD] at hi hens
         have hCty := hC.forallE_ty
-        have hrow := (claimsAt_of hμ mp ψ F).sortRow hi hens hws2.1 hbty hLty hCty hread0
+        have hrow := (claimsAt_of mp ψ F).sortRow hi hens hws2.1 hbty hLty hCty hread0
         cases k with
         | zero =>
           simp only [List.take_zero, List.reverse_nil, List.nil_append] at hρ
@@ -1660,15 +1660,15 @@ theorem teleBound_walk (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
             have := hread (k + 1) a (by simpa using hk)
             rwa [show d + (k + 1) = d + 1 + k from by omega] at this
           have hinf' : ∀ k a, fvs'[k]? = some a → ∃ (F : Nat) (t : Expr) (u : Level),
-              ConLeche.inferTypeCore μ false env F (d + 1 + k) a.fvarTypeD = .ok t ∧
-              ConLeche.ensureSortCore μ false env F (d + 1 + k) t = .ok u ∧ Level.eval ψ u ≤ w := by
+              ConLeche.inferTypeCore .verified false env F (d + 1 + k) a.fvarTypeD = .ok t ∧
+              ConLeche.ensureSortCore .verified false env F (d + 1 + k) t = .ok u ∧ Level.eval ψ u ≤ w := by
             intro k a hk
             obtain ⟨F, t, u, h1, h2, h3⟩ := hinf (k + 1) a (by simpa using hk)
             rw [show d + (k + 1) = d + 1 + k from by omega] at h1 h2
             exact ⟨F, t, u, h1, h2, h3⟩
           have hρ' : Sat V (((tl'.take k)).reverse ++ (t0 :: Δ)) ρ := by
             simpa [List.take_succ_cons, List.reverse_cons, List.append_assoc] using hρ
-          have := teleBound_walk hμ mp ψ n hop' hlen' hC' hws' hb' hL' hread' hinf' k (by omega) ρ hρ'
+          have := teleBound_walk mp ψ n hop' hlen' hC' hws' hb' hL' hread' hinf' k (by omega) ρ hρ'
           simpa using this
       · exact nomatch hop
     | .bvar _, hop, _, _ | .fvar _ _, hop, _, _ | .sort _, hop, _, _

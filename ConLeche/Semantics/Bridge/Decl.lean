@@ -32,10 +32,10 @@ literal tier): the verdict is one `isDefEqCore` success per equation,
 and the recorded form is the checker's literal call —
 `fueledOps_isDefEq` at fuel `F`, depth `2`.  The P tier's
 `NatOps` establishment consumes these through `DefEqClaim`. -/
-theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
+theorem natEqsRun_of_certs {F : Nat} {env : Env} :
     ∀ (eqs : List (Expr × Expr)),
-      certifyNatEqs (m := CheckM) (fueledOps μ F) env eqs = .ok true →
-      NatEqsRun μ F env eqs := by
+      certifyNatEqs (m := CheckM) (fueledOps .verified F) env eqs = .ok true →
+      NatEqsRun F env eqs := by
   intro eqs
   induction eqs with
   | nil => intro _ eq heq; exact nomatch heq
@@ -43,7 +43,7 @@ theorem natEqsRun_of_certs {μ : CheckMode} {F : Nat} {env : Env} :
     intro h eq heq
     simp only [certifyNatEqs, fueledOps_isDefEq, Bind.bind,
       Except.bind] at h
-    cases hx : isDefEqCore μ false env F 2 e.1 e.2 with
+    cases hx : isDefEqCore .verified false env F 2 e.1 e.2 with
     | error err => rw [hx] at h; exact nomatch h
     | ok b =>
       cases b with
@@ -103,9 +103,9 @@ theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind}
     exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
 
 /-- **`basisDecl`, bridged.** -/
-theorem declBasisRun {μ : CheckMode} {F : Nat} {env env₂ : Env}
+theorem declBasisRun {F : Nat} {env env₂ : Env}
     {kind : BasisKind}
-    (h : checkDecl μ (fueledOps μ F) pins env (.basisDecl kind) = .ok env₂) :
+    (h : checkDecl .verified (fueledOps .verified F) pins env (.basisDecl kind) = .ok env₂) :
     DeclBasisRun env kind env₂ := declBasisRunOf h
 
 end ConLeche.Semantics

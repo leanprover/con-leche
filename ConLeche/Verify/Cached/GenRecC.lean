@@ -145,20 +145,20 @@ theorem classFormerTysS_spec {fe : FEnv} {cvTas : List ConstantVal} (Ms : List T
   rfl
 
 /-- `checkConstantValS_spec` at the index (`checkConstantValF`). -/
-theorem checkConstantValFS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {cv : ConstantVal} {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ checkConstantValF (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cv
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (checkConstantValF (fueledOpsM mode) (mkFEnv env) cv) v ∧ TyClosed cv; ⊤⦄ := by
+theorem checkConstantValFS_spec (henv : EnvWF env)
+    {cv : ConstantVal} {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkConstantValF (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) cv
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (checkConstantValF (fueledOpsM .verified) (mkFEnv env) cv) v ∧ TyClosed cv; ⊤⦄ := by
   rw [checkConstantValF_eq, checkConstantValF_eq]
-  exact checkConstantValS_spec hμ henv hs
+  exact checkConstantValS_spec henv hs
 
 /-- The stream's recursor constants, checked: each closed. -/
-theorem classStreamRecsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
-    ∀ (recs : List RecShape) {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ classStreamRecs (sharedOpsC mode (mkFEnv env)) (mkFEnv env) recs
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classStreamRecs (fueledOpsM mode) (mkFEnv env) recs) v ∧ ListAll TyClosed v; ⊤⦄ := by
+theorem classStreamRecsS_spec (henv : EnvWF env) :
+    ∀ (recs : List RecShape) {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ classStreamRecs (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) recs
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classStreamRecs (fueledOpsM .verified) (mkFEnv env) recs) v ∧ ListAll TyClosed v; ⊤⦄ := by
   intro recs
   induction recs with
   | nil =>
@@ -168,7 +168,7 @@ theorem classStreamRecsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF e
   | cons rc rcs ih =>
     intro _ hs
     sym only [conleche_grind, classStreamRecs.eq_2] =>
-      vcgen [classStreamRecs, checkConstantValFS_spec hμ henv, ih] <;> finish
+      vcgen [classStreamRecs, checkConstantValFS_spec henv, ih] <;> finish
 
 /-- **What a class checked as a major is** (`targetMajorOf` at the class
 application; the twin of `TargetRecC`'s shape lemma): a member at the
@@ -259,12 +259,12 @@ theorem pinsWS_of_classMajScoped {nP : Nat} {M : TargetMajor} (h : ClassMajScope
     PinsWS nP M := fun _ => h.2.2 ▸ h.1.2
 
 /-- `targetMajorPinsS_spec` at the index's environment. -/
-theorem targetMajorPinsS_specF (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rP : Nat}
-    {M : TargetMajor} (hds : PinsWS rP M) {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rP M
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (targetMajorPins (fueledOpsM mode) (mkFEnv env).env rP M) v; ⊤⦄ :=
-  targetMajorPinsS_spec hμ henv hds hs
+theorem targetMajorPinsS_specF (henv : EnvWF env) {rP : Nat}
+    {M : TargetMajor} (hds : PinsWS rP M) {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC .verified (mkFEnv env)) (mkFEnv env).env rP M
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetMajorPins (fueledOpsM .verified) (mkFEnv env).env rP M) v; ⊤⦄ :=
+  targetMajorPinsS_spec henv hds hs
 
 /-- `blockNestCtx` at the shared operations, its lookups the formers'
 environment `env₁`, the state the constructors' environment's: the same
@@ -283,14 +283,14 @@ theorem blockNestCtxS_spec₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p 
     vcgen [blockNestCtx, unwrapOr] <;> finish (ematch := 8)
 
 /-- **The classes, each checked as a major**: every class scoped. -/
-theorem classMajorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classMajorsS_spec (henv : EnvWF env)
     {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
     (hpl : pfvs.length = p.nP) (hp : AllWS p.nP pfvs) :
-    ∀ (keys : List ClassKey) {s₀ : CState}, CSOK mode false env s₀ → ListAll (KeyWS p.nP) keys →
+    ∀ (keys : List ClassKey) {s₀ : CState}, CSOK .verified false env s₀ → ListAll (KeyWS p.nP) keys →
       ⦃fun s => s = s₀⦄
-        classMajors (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p ctorsAs pfvs keys
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classMajors (fueledOpsM mode) (mkFEnv env) p ctorsAs pfvs keys) v ∧
+        classMajors (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p ctorsAs pfvs keys
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classMajors (fueledOpsM .verified) (mkFEnv env) p ctorsAs pfvs keys) v ∧
         ListAll (ClassMajScoped p.nP) v; ⊤⦄ := by
   intro keys
   induction keys with
@@ -302,7 +302,7 @@ theorem classMajorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     intro _ hs hk
     sym only [conleche_grind, classMajors.eq_2, mkFEnv_env, → classMajScoped_of_shape hpl hp,
         → pinsWS_of_classMajScoped] =>
-      vcgen [classMajors, classMajorOfS_spec (mode := mode), targetMajorPinsS_specF hμ henv,
+      vcgen [classMajors, classMajorOfS_spec (mode := .verified), targetMajorPinsS_specF henv,
         ih] <;> finish
 
 /-- **One class key made checkable**: its parameters scoped at
@@ -342,42 +342,42 @@ theorem classKeysLoopS_spec {nP : Nat} {params : List Expr} (hpl : params.length
 
 /-- **The classes, read and checked** (the pass's `checkBlockClasses`):
 every class scoped. -/
-theorem checkBlockClassesS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem checkBlockClassesS_spec (henv : EnvWF env)
     {p : BlockShape} {params : List Expr} (hpl : params.length = p.nP)
     (hp : AllWS p.nP params) {ctorsAs : List (List (ConstantVal × Nat))}
-    {s₀ : CState} (hs : CSOK mode false env s₀) :
+    {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      checkBlockClasses (sharedOpsC mode (mkFEnv env)) (mkFEnv env) p params ctorsAs
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (checkBlockClasses (fueledOpsM mode) (mkFEnv env) p params ctorsAs) v ∧
+      checkBlockClasses (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p params ctorsAs
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (checkBlockClasses (fueledOpsM .verified) (mkFEnv env) p params ctorsAs) v ∧
       ListAll (ClassMajScoped p.nP) v.2; ⊤⦄ := by
   -- `ematch`: the pure side's `mapM` meets the loop's answer one round after its unfolding
   sym only [conleche_grind, checkBlockClasses.eq_1, unwrapOr.eq_1, List.mapM.eq_1] =>
     vcgen [checkBlockClasses, unwrapOr, List.mapM,
-      classKeysLoopS_spec (mode := mode) (env := env) hpl hp,
-      classMajorsS_spec hμ henv hpl hp] <;> finish (ematch := 8)
+      classKeysLoopS_spec (mode := .verified) (env := env) hpl hp,
+      classMajorsS_spec henv hpl hp] <;> finish (ematch := 8)
 
 @[conleche_grind =] theorem TargetMajScoped.nfs_eq (M : TargetMajor) (es : List NestCtorNf) :
     TargetMajScoped { M with nfs := es } = TargetMajScoped M := rfl
 
 /-- `targetMajorNfsS_spec` at a scoped class. -/
-theorem classNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classNfsS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys) {M : TargetMajor}
-    (hM : TargetMajScoped M) (es : List NestCtorNf) {s₀ : CState} (hs : CSOK mode false env s₀) :
+    (hM : TargetMajScoped M) (es : List NestCtorNf) {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      targetMajorNfs (sharedOpsC mode (mkFEnv env)) env p formerTys M.pfvs M.lvls M.ds M.ctors es
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (targetMajorNfs (fueledOpsM mode) env p formerTys M.pfvs M.lvls M.ds M.ctors es) v;
+      targetMajorNfs (sharedOpsC .verified (mkFEnv env)) env p formerTys M.pfvs M.lvls M.ds M.ctors es
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetMajorNfs (fueledOpsM .verified) env p formerTys M.pfvs M.lvls M.ds M.ctors es) v;
       ⊤⦄ :=
-  targetMajorNfsS_spec hμ henv hformer hM.1 es hs
+  targetMajorNfsS_spec henv hformer hM.1 es hs
 
 /-- Every class's table entries: the classes stay scoped. -/
-theorem classesNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
+theorem classesNfsS_spec (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : AllWS 0 formerTys) {tbl : List NestCtorNf} :
-    ∀ (Ms : List TargetMajor) {s₀ : CState}, CSOK mode false env s₀ → ListAll TargetMajScoped Ms →
-      ⦃fun s => s = s₀⦄ classesNfs (sharedOpsC mode (mkFEnv env)) env p formerTys tbl Ms
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classesNfs (fueledOpsM mode) env p formerTys tbl Ms) v ∧
+    ∀ (Ms : List TargetMajor) {s₀ : CState}, CSOK .verified false env s₀ → ListAll TargetMajScoped Ms →
+      ⦃fun s => s = s₀⦄ classesNfs (sharedOpsC .verified (mkFEnv env)) env p formerTys tbl Ms
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classesNfs (fueledOpsM .verified) env p formerTys tbl Ms) v ∧
         ListAll TargetMajScoped v; ⊤⦄ := by
   intro Ms
   induction Ms with
@@ -388,18 +388,18 @@ theorem classesNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {
   | cons M Ms ih =>
     intro _ hs hsc
     sym only [conleche_grind, classesNfs.eq_2] =>
-      vcgen [classesNfs, classNfsS_spec hμ henv hformer, ih] <;> finish
+      vcgen [classesNfs, classNfsS_spec henv hformer, ih] <;> finish
 
 /-- Node agreement at one recursive field, at every entry. -/
-theorem classNodesAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classNodesAgreeS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys)
     {Mc : TargetMajor} (hMc : TargetMajScoped Mc) {tele : List Expr}
     {leaf : Expr} {fvs : List Expr} {i : Nat} {ctor : Name} :
-    ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄
-        classNodesAgree (sharedOpsC mode (mkFEnv env)) env p formerTys Mc tele leaf fvs i ctor es
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classNodesAgree (fueledOpsM mode) env p formerTys Mc tele leaf fvs i ctor es) v;
+        classNodesAgree (sharedOpsC .verified (mkFEnv env)) env p formerTys Mc tele leaf fvs i ctor es
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classNodesAgree (fueledOpsM .verified) env p formerTys Mc tele leaf fvs i ctor es) v;
         ⊤⦄ := by
   intro es
   induction es with
@@ -410,22 +410,22 @@ theorem classNodesAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF e
   | cons e es ih =>
     intro _ hs
     sym only [conleche_grind, classNodesAgree.eq_2] =>
-      vcgen [classNodesAgree, targetK53S_spec hμ henv hformer hMc, ih] <;> finish
+      vcgen [classNodesAgree, targetK53S_spec henv hformer hMc, ih] <;> finish
 
 theorem targetMajScoped_getD {l : List TargetMajor} (h : ListAll TargetMajScoped l) (i : Nat) :
     TargetMajScoped (l.getD i default) :=
   TargetMajScoped.getD h i
 
 /-- Node agreement at every recursive field of the datum. -/
-theorem classFieldsAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classFieldsAgreeS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys)
     {Ms : List TargetMajor} (hMs : ListAll TargetMajScoped Ms) {fvs : List Expr}
     {ctor : Name} {E : List NestCtorNf} :
-    ∀ (i : Nat) (ks : List ClassField) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (i : Nat) (ks : List ClassField) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄
-        classFieldsAgree (sharedOpsC mode (mkFEnv env)) env p formerTys Ms fvs ctor E i ks
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classFieldsAgree (fueledOpsM mode) env p formerTys Ms fvs ctor E i ks) v; ⊤⦄ := by
+        classFieldsAgree (sharedOpsC .verified (mkFEnv env)) env p formerTys Ms fvs ctor E i ks
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classFieldsAgree (fueledOpsM .verified) env p formerTys Ms fvs ctor E i ks) v; ⊤⦄ := by
   intro i ks
   induction ks generalizing i with
   | nil =>
@@ -442,31 +442,31 @@ theorem classFieldsAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF 
       intro _ hs
       sym only [conleche_grind, classFieldsAgree.eq_3, unwrapOr.eq_1] =>
         vcgen [classFieldsAgree, unwrapOr,
-          classNodesAgreeS_spec hμ henv hformer (targetMajScoped_getD hMs t),
+          classNodesAgreeS_spec henv hformer (targetMajScoped_getD hMs t),
           ih (i + 1)] <;> finish
 
 /-- One constructor of a class, read for the generator. -/
-theorem classCtorOfS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classCtorOfS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys)
     {rd : ClassRead} {Ms : List TargetMajor} (hMs : ListAll TargetMajScoped Ms) {c : Nat}
-    {cA : ConstantVal × Nat} {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ classCtorOf (sharedOpsC mode (mkFEnv env)) env p formerTys rd Ms c cA
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (classCtorOf (fueledOpsM mode) env p formerTys rd Ms c cA) v; ⊤⦄ := by
+    {cA : ConstantVal × Nat} {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ classCtorOf (sharedOpsC .verified (mkFEnv env)) env p formerTys rd Ms c cA
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (classCtorOf (fueledOpsM .verified) env p formerTys rd Ms c cA) v; ⊤⦄ := by
   -- `gen`: E-matching evaluates the pure side bind by bind (`Runs.pure_bind_eq`), one
   -- generation per bind, through seven binds
   sym only [conleche_grind, classCtorOf.eq_1, unwrapOr.eq_1] =>
-    vcgen [classCtorOf, unwrapOr, classMinorSlotS_spec (mode := mode) (env := env),
-      classFieldsOfS_spec (mode := mode) (env := env),
-      classFieldsAgreeS_spec hμ henv hformer hMs] <;> finish (gen := 12)
+    vcgen [classCtorOf, unwrapOr, classMinorSlotS_spec (mode := .verified) (env := env),
+      classFieldsOfS_spec (mode := .verified) (env := env),
+      classFieldsAgreeS_spec henv hformer hMs] <;> finish (gen := 12)
 
-theorem classCtorsOfS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classCtorsOfS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys)
     {rd : ClassRead} {Ms : List TargetMajor} (hMs : ListAll TargetMajScoped Ms) {c : Nat} :
-    ∀ (cs : List (ConstantVal × Nat)) {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ classCtorsOf (sharedOpsC mode (mkFEnv env)) env p formerTys rd Ms c cs
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classCtorsOf (fueledOpsM mode) env p formerTys rd Ms c cs) v; ⊤⦄ := by
+    ∀ (cs : List (ConstantVal × Nat)) {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ classCtorsOf (sharedOpsC .verified (mkFEnv env)) env p formerTys rd Ms c cs
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classCtorsOf (fueledOpsM .verified) env p formerTys rd Ms c cs) v; ⊤⦄ := by
   intro cs
   induction cs with
   | nil =>
@@ -476,15 +476,15 @@ theorem classCtorsOfS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
   | cons cA cs ih =>
     intro _ hs
     sym only [conleche_grind, classCtorsOf.eq_2] =>
-      vcgen [classCtorsOf, classCtorOfS_spec hμ henv hformer hMs, ih] <;> finish
+      vcgen [classCtorsOf, classCtorOfS_spec henv hformer hMs, ih] <;> finish
 
-theorem classesCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classesCtorsS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys)
     {rd : ClassRead} {Ms : List TargetMajor} (hMs : ListAll TargetMajScoped Ms) :
-    ∀ (c : Nat) (l : List TargetMajor) {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ classesCtors (sharedOpsC mode (mkFEnv env)) env p formerTys rd Ms c l
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classesCtors (fueledOpsM mode) env p formerTys rd Ms c l) v; ⊤⦄ := by
+    ∀ (c : Nat) (l : List TargetMajor) {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ classesCtors (sharedOpsC .verified (mkFEnv env)) env p formerTys rd Ms c l
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classesCtors (fueledOpsM .verified) env p formerTys rd Ms c l) v; ⊤⦄ := by
   intro c l
   induction l generalizing c with
   | nil =>
@@ -494,68 +494,68 @@ theorem classesCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
   | cons M rest ih =>
     intro _ hs
     sym only [conleche_grind, classesCtors.eq_2] =>
-      vcgen [classesCtors, classCtorsOfS_spec hμ henv hformer hMs, ih (c + 1)] <;> finish
+      vcgen [classesCtors, classCtorsOfS_spec henv hformer hMs, ih (c + 1)] <;> finish
 
 theorem tyClosed_of_not_hasFvar {cv : ConstantVal} (h : cv.type.hasFvar = false) :
     TyClosed cv :=
   WScoped.of_not_hasFvar h
 
 /-- `inferS_spec` at the index's environment. -/
-theorem inferS_specF (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
-    {e : Expr} {s₀ : CState} (hs : CSOK mode false env s₀) (hw : WScoped d e) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).inferType (mkFEnv env).env d e
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).inferType (mkFEnv env).env d e) v
+theorem inferS_specF (henv : EnvWF env) {d : Nat}
+    {e : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) (hw : WScoped d e) :
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).inferType (mkFEnv env).env d e
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).inferType (mkFEnv env).env d e) v
         ∧
       WScoped d v; ⊤⦄ :=
-  inferS_spec hμ henv hs hw
+  inferS_spec henv hs hw
 
 /-- `sortS_spec` at the index's environment. -/
-theorem sortS_specF (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
-    {e : Expr} {s₀ : CState} (hs : CSOK mode false env s₀) (hw : WScoped d e) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).ensureSort (mkFEnv env).env d e
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs ((fueledOpsM mode).ensureSort (mkFEnv env).env d e) v; ⊤⦄ :=
-  sortS_spec hμ henv hs hw
+theorem sortS_specF (henv : EnvWF env) {d : Nat}
+    {e : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) (hw : WScoped d e) :
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).ensureSort (mkFEnv env).env d e
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs ((fueledOpsM .verified).ensureSort (mkFEnv env).env d e) v; ⊤⦄ :=
+  sortS_spec henv hs hw
 
 /-- **A generated constant, checked** (`classConstOk`): the cached twin
 of `checkConstantValS_spec` for a generated constant — the checked
 constant's type is well-scoped. -/
-theorem classConstOkS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {cv : ConstantVal} {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ classConstOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cv
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (classConstOk (fueledOpsM mode) (mkFEnv env) cv) v ∧ TyClosed cv; ⊤⦄ := by
+theorem classConstOkS_spec (henv : EnvWF env)
+    {cv : ConstantVal} {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ classConstOk (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) cv
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (classConstOk (fueledOpsM .verified) (mkFEnv env) cv) v ∧ TyClosed cv; ⊤⦄ := by
   sym only [conleche_grind, classConstOk.eq_1, mkFEnv_env, → tyClosed_of_not_hasFvar] =>
-    vcgen [classConstOk, inferS_specF hμ henv, sortS_specF hμ henv] <;> finish
+    vcgen [classConstOk, inferS_specF henv, sortS_specF henv] <;> finish
 
 /-- `defeqS_spec` at the index's environment. -/
-theorem defeqS_specF (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) (hwa : WScoped d a) (hwb : WScoped d b) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).isDefEq (mkFEnv env).env d a b
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).isDefEq (mkFEnv env).env d a b) v;
+theorem defeqS_specF (henv : EnvWF env) {d : Nat} {a b : Expr}
+    {s₀ : CState} (hs : CSOK .verified false env s₀) (hwa : WScoped d a) (hwb : WScoped d b) :
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).isDefEq (mkFEnv env).env d a b
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).isDefEq (mkFEnv env).env d a b) v;
       ⊤⦄ :=
-  defeqS_spec hμ henv hs hwa hwb
+  defeqS_spec henv hs hwa hwb
 
 /-- **The check of a generated recursor type**: the checked constant is
 closed. -/
-theorem classRecTyCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {cvRi cvG : ConstantVal} (hRi : TyClosed cvRi) {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ classRecTyCheck (sharedOpsC mode (mkFEnv env)) (mkFEnv env) cvRi cvG
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (classRecTyCheck (fueledOpsM mode) (mkFEnv env) cvRi cvG) v ∧ TyClosed cvG; ⊤⦄ := by
+theorem classRecTyCheckS_spec (henv : EnvWF env)
+    {cvRi cvG : ConstantVal} (hRi : TyClosed cvRi) {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ classRecTyCheck (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) cvRi cvG
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (classRecTyCheck (fueledOpsM .verified) (mkFEnv env) cvRi cvG) v ∧ TyClosed cvG; ⊤⦄ := by
   sym only [conleche_grind, classRecTyCheck.eq_1, mkFEnv_env] =>
-    vcgen [classRecTyCheck, classConstOkS_spec hμ henv hs, defeqS_specF hμ henv] <;> finish
+    vcgen [classRecTyCheck, classConstOkS_spec henv hs, defeqS_specF henv] <;> finish
 
 /-- **One recursor's generated type, checked and compared**: the stored
 constant is closed. -/
-theorem classRecTyOkS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classRecTyOkS_spec (henv : EnvWF env)
     {g : ClassGen} {k : Nat} {rc : RecShape} {cvRi : ConstantVal} {c : Nat}
-    (hRi : TyClosed cvRi) {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ classRecTyOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) g k rc cvRi c
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (classRecTyOk (fueledOpsM mode) (mkFEnv env) g k rc cvRi c) v ∧ TyClosed v; ⊤⦄ := by
+    (hRi : TyClosed cvRi) {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ classRecTyOk (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) g k rc cvRi c
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (classRecTyOk (fueledOpsM .verified) (mkFEnv env) g k rc cvRi c) v ∧ TyClosed v; ⊤⦄ := by
   sym only [conleche_grind, classRecTyOk.eq_1, unwrapOr.eq_1, mkFEnv_env] =>
-    vcgen [classRecTyOk, unwrapOr, classRecTyCheckS_spec hμ henv hRi hs] <;> finish
+    vcgen [classRecTyOk, unwrapOr, classRecTyCheckS_spec henv hRi hs] <;> finish
 
 theorem classRecTysOk_nil_left {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
     (ops : CheckerOps m) (fe : FEnv) (g : ClassGen) (k : Nat) (cvs : List ConstantVal)
@@ -574,14 +574,14 @@ theorem classRecTysOk_short₂ {m : Type → Type} [Monad m] [MonadExceptOf Chec
     classRecTysOk ops fe g k (rc :: rcs) (cv :: cvs) [] =
       throw (.internal "generated recursor: recursor list") := rfl
 
-theorem classRecTysOkS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem classRecTysOkS_spec (henv : EnvWF env)
     {g : ClassGen} {k : Nat} :
     ∀ (recs : List RecShape) (cvs : List ConstantVal) (cls : List Nat) {s₀ : CState},
-      CSOK mode false env s₀ → ListAll TyClosed cvs →
+      CSOK .verified false env s₀ → ListAll TyClosed cvs →
       ⦃fun s => s = s₀⦄
-        classRecTysOk (sharedOpsC mode (mkFEnv env)) (mkFEnv env) g k recs cvs cls
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (classRecTysOk (fueledOpsM mode) (mkFEnv env) g k recs cvs cls) v; ⊤⦄ := by
+        classRecTysOk (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) g k recs cvs cls
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (classRecTysOk (fueledOpsM .verified) (mkFEnv env) g k recs cvs cls) v; ⊤⦄ := by
   intro recs
   induction recs with
   | nil =>
@@ -604,7 +604,7 @@ theorem classRecTysOkS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env
       | cons c cs =>
         intro _ hs hw
         sym only [conleche_grind, classRecTysOk.eq_1] =>
-          vcgen [classRecTysOk, classRecTyOkS_spec hμ henv, ih cvs cs] <;> finish
+          vcgen [classRecTysOk, classRecTyOkS_spec henv, ih cvs cs] <;> finish
 
 end Sims
 
@@ -630,15 +630,15 @@ theorem csokF_flushed {s : CState} (h : CSOKF s) : CSOKF s.flushed := h.flushed
 grind_pattern [conleche_grind] csokF_flushed => CSOKF s.flushed
 
 /-- The rule stage's `inferType` from a flushed state: it flushes last. -/
-theorem ruleR_infer_spec (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
-    {d : Nat} {e : Expr} (hw : WScoped d e) {s₀ : CState} (hs : CSOKAll mode s₀) :
-    ⦃fun s => s = s₀⦄ (sharedOpsRuleR mode (mkFEnv envR)).inferType (mkFEnv envR).env d e
-    ⦃fun v s' => CSOKAll mode s' ∧
-      Runs ((fueledOpsM mode).inferType (mkFEnv envR).env d e) v; ⊤⦄ :=
+theorem ruleR_infer_spec {envR : Env} (henvR : EnvWF envR)
+    {d : Nat} {e : Expr} (hw : WScoped d e) {s₀ : CState} (hs : CSOKAll .verified s₀) :
+    ⦃fun s => s = s₀⦄ (sharedOpsRuleR .verified (mkFEnv envR)).inferType (mkFEnv envR).env d e
+    ⦃fun v s' => CSOKAll .verified s' ∧
+      Runs ((fueledOpsM .verified).inferType (mkFEnv envR).env d e) v; ⊤⦄ :=
   triple_iff_run.mpr fun v' s' hr => by
-    obtain ⟨-, v, hv, F, hF⟩ := ruleR_infer_simG hμ henvR envR hw s₀ (hs envR) v' s' hr
+    obtain ⟨-, v, hv, F, hF⟩ := ruleR_infer_simG henvR envR hw s₀ (hs envR) v' s' hr
     obtain ⟨rfl, -⟩ := hv
-    exact ⟨fun env' => (ruleR_infer_simG hμ henvR env' hw s₀ (hs envR) v' s' hr).1, F, hF⟩
+    exact ⟨fun env' => (ruleR_infer_simG henvR env' hw s₀ (hs envR) v' s' hr).1, F, hF⟩
 
 /-- A closed term is well scoped. -/
 theorem wscoped_of_closed {gen : Expr}
@@ -649,41 +649,41 @@ theorem wscoped_of_closed {gen : Expr}
 the rule, closed by its own guard, typed at the rule-less recursors'
 environment `envR` (`sharedOpsRuleR`'s inference flushes last), its
 λ-telescope read syntactically. -/
-theorem classRuleCheckS_spec (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
+theorem classRuleCheckS_spec {envR : Env} (henvR : EnvWF envR)
     (envT : Env) {cvR : ConstantVal} {n : Nat} {gen : Expr} {s₀ : CState}
-    (hs : CSOKAll mode s₀) :
+    (hs : CSOKAll .verified s₀) :
     ⦃fun s => s = s₀⦄
-      classRuleCheck (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n
+      classRuleCheck (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n
         gen
-    ⦃fun v s' => CSOKAll mode s' ∧
-      Runs (classRuleCheck (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v;
+    ⦃fun v s' => CSOKAll .verified s' ∧
+      Runs (classRuleCheck (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v;
       ⊤⦄ := by
   sym only [conleche_grind, classRuleCheck.eq_1, unwrapOr.eq_1, → wscoped_of_closed] =>
-    vcgen [classRuleCheck, unwrapOr, ruleR_infer_spec hμ henvR] <;> finish
+    vcgen [classRuleCheck, unwrapOr, ruleR_infer_spec henvR] <;> finish
 
 /-- **One generated rule, simulated.**  From a flushed state: the rule,
 closed by the stage's own guard, stored as generated and typed at the
 rule-less recursors' environment `envR` (`sharedOpsRuleR`'s inference
 flushes last), its λ-telescope read syntactically. -/
-theorem classRuleOkS_spec (hμ : mode.verifiedChecks = true) {envR : Env} (henvR : EnvWF envR)
+theorem classRuleOkS_spec {envR : Env} (henvR : EnvWF envR)
     (envT : Env) {cvR : ConstantVal} {n : Nat} {gen : Expr} {s₀ : CState}
-    (hs : CSOKAll mode s₀) :
+    (hs : CSOKAll .verified s₀) :
     ⦃fun s => s = s₀⦄
-      classRuleOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen
-    ⦃fun v s' => CSOKAll mode s' ∧
-      Runs (classRuleOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v; ⊤⦄ := by
+      classRuleOk (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen
+    ⦃fun v s' => CSOKAll .verified s' ∧
+      Runs (classRuleOk (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) cvR n gen) v; ⊤⦄ := by
   sym only [conleche_grind, classRuleOk.eq_1] =>
-    vcgen [classRuleOk, classRuleCheckS_spec hμ henvR envT hs] <;> finish
+    vcgen [classRuleOk, classRuleCheckS_spec henvR envT hs] <;> finish
 
-theorem classRulesOkS_spec (hμ : mode.verifiedChecks = true) {envR envT : Env}
+theorem classRulesOkS_spec {envR envT : Env}
     (henvR : EnvWF envR) {g : ClassGen} {recOf : Nat → Option Name} {cvR : ConstantVal}
     {c : Nat} :
-    ∀ (xs : List ClassCtor) {s₀ : CState}, CSOKAll mode s₀ →
+    ∀ (xs : List ClassCtor) {s₀ : CState}, CSOKAll .verified s₀ →
       ⦃fun s => s = s₀⦄
-        classRulesOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) g
+        classRulesOk (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR) g
           recOf cvR c xs
-      ⦃fun v s' => CSOKAll mode s' ∧
-        Runs (classRulesOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvR c xs)
+      ⦃fun v s' => CSOKAll .verified s' ∧
+        Runs (classRulesOk (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvR c xs)
           v; ⊤⦄ := by
   intro xs
   induction xs with
@@ -694,16 +694,16 @@ theorem classRulesOkS_spec (hμ : mode.verifiedChecks = true) {envR envT : Env}
   | cons x xs ih =>
     intro _ hs
     sym only [conleche_grind, classRulesOk, unwrapOr.eq_1] =>
-      vcgen [classRulesOk.eq_def, unwrapOr, classRuleOkS_spec hμ henvR envT, ih] <;> finish
+      vcgen [classRulesOk.eq_def, unwrapOr, classRuleOkS_spec henvR envT, ih] <;> finish
 
-theorem classRecsRulesOkS_spec (hμ : mode.verifiedChecks = true) {envR envT : Env}
+theorem classRecsRulesOkS_spec {envR envT : Env}
     {g : ClassGen} {recOf : Nat → Option Name} :
-    ∀ (cvs : List ConstantVal) (cs : List Nat) {s₀ : CState}, EnvWF envR → CSOKAll mode s₀ →
+    ∀ (cvs : List ConstantVal) (cs : List Nat) {s₀ : CState}, EnvWF envR → CSOKAll .verified s₀ →
       ⦃fun s => s = s₀⦄
-        classRecsRulesOk (sharedOpsRuleR mode (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR)
+        classRecsRulesOk (sharedOpsRuleR .verified (mkFEnv envR)) .plain (mkFEnv envT) (mkFEnv envR)
           g recOf cvs cs
-      ⦃fun v s' => CSOKAll mode s' ∧
-        Runs (classRecsRulesOk (fueledOpsM mode) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvs
+      ⦃fun v s' => CSOKAll .verified s' ∧
+        Runs (classRecsRulesOk (fueledOpsM .verified) .plain (mkFEnv envT) (mkFEnv envR) g recOf cvs
           cs) v; ⊤⦄ := by
   intro cvs
   induction cvs with
@@ -721,7 +721,7 @@ theorem classRecsRulesOkS_spec (hμ : mode.verifiedChecks = true) {envR envT : E
     | cons c cs =>
       intro _ henvR hs
       sym only [conleche_grind, classRecsRulesOk] =>
-        vcgen [classRecsRulesOk.eq_def, classRulesOkS_spec (envT := envT) hμ henvR,
+        vcgen [classRecsRulesOk.eq_def, classRulesOkS_spec (envT := envT) henvR,
           ih cs] <;> finish
 
 /-! ### The stored recursors against the generated ones (task #431) -/
@@ -734,14 +734,14 @@ theorem wscoped_zero_of_hasFvar_false {e : Expr} (h : e.hasFvar = false) : WScop
 
 /-- **The stored type's domains against the generated one's**, simulated:
 both telescopes opened at their own locals. -/
-theorem recDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+theorem recDomsAtS_spec (henv : EnvWF env) {rec : Name}
     {sfvs gfvs : List Expr}
     (hcs : ∀ (i : Nat) (x : Expr), sfvs[i]? = some x → WScoped i (Expr.fvarTypeD x))
     (hcg : ∀ (i : Nat) (x : Expr), gfvs[i]? = some x → WScoped i (Expr.fvarTypeD x)) :
-    ∀ (k j : Nat) {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun st => st = s₀⦄ recDomsAt (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec sfvs gfvs j k
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (recDomsAt (fueledOpsM mode) (mkFEnv env).env rec sfvs gfvs j k) v; ⊤⦄ := by
+    ∀ (k j : Nat) {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun st => st = s₀⦄ recDomsAt (sharedOpsC .verified (mkFEnv env)) (mkFEnv env).env rec sfvs gfvs j k
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (recDomsAt (fueledOpsM .verified) (mkFEnv env).env rec sfvs gfvs j k) v; ⊤⦄ := by
   intro k
   induction k with
   | zero =>
@@ -750,17 +750,17 @@ theorem recDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {r
   | succ k ih =>
     intro j _ hs
     sym only [conleche_grind, recDomsAt.eq_2, unwrapOr] =>
-      vcgen [recDomsAt, unwrapOr, defeqS_specF hμ henv, ih] <;> finish
+      vcgen [recDomsAt, unwrapOr, defeqS_specF henv, ih] <;> finish
 
 /-- The two opened types, compared, simulated. -/
-theorem recTyOpenedS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
+theorem recTyOpenedS_spec (henv : EnvWF env) {rec : Name}
     {n : Nat} {s g : Expr} (hws : WScoped 0 s) (hwg : WScoped 0 g) {s₀ : CState}
-    (hs : CSOK mode false env s₀) :
+    (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      recTyOpened (sharedOpsC mode (mkFEnv env)) (mkFEnv env).env rec n (openPisAtFvars n s 0)
+      recTyOpened (sharedOpsC .verified (mkFEnv env)) (mkFEnv env).env rec n (openPisAtFvars n s 0)
         (openPisAtFvars n g 0)
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (recTyOpened (fueledOpsM mode) (mkFEnv env).env rec n (openPisAtFvars n s 0)
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (recTyOpened (fueledOpsM .verified) (mkFEnv env).env rec n (openPisAtFvars n s 0)
         (openPisAtFvars n g 0)) v; ⊤⦄ := by
   cases hos : openPisAtFvars n s 0 with
   | none =>
@@ -781,37 +781,37 @@ theorem recTyOpenedS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) 
       have hrg : WScoped n grest := by
         simpa using (ConLeche.openPisAtFvars_WScoped n g 0 hog hwg).2
       sym only [conleche_grind, recTyOpened] =>
-        vcgen [recTyOpened.eq_def, recDomsAtS_spec hμ henv hcs hcg, defeqS_specF hμ henv]
+        vcgen [recTyOpened.eq_def, recDomsAtS_spec henv hcs hcg, defeqS_specF henv]
           <;> finish
 
 /-- **The stored type's check**, simulated. -/
-theorem recTyCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rec : Name}
-    {lps : List Name} {n : Nat} {s g : Expr} {s₀ : CState} (hs : CSOK mode false env s₀) :
+theorem recTyCheckS_spec (henv : EnvWF env) {rec : Name}
+    {lps : List Name} {n : Nat} {s g : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      recTyCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps n s g
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (recTyCheck (fueledOpsM mode) .plain (mkFEnv env) rec lps n s g) v; ⊤⦄ := by
+      recTyCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps n s g
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (recTyCheck (fueledOpsM .verified) .plain (mkFEnv env) rec lps n s g) v; ⊤⦄ := by
   sym only [conleche_grind, recTyCheck.eq_1, → wscoped_zero_of_hasFvar_false] =>
-    vcgen [recTyCheck, inferS_specF hμ henv, sortS_specF hμ henv,
-      recTyOpenedS_spec hμ henv] <;> finish
+    vcgen [recTyCheck, inferS_specF henv, sortS_specF henv,
+      recTyOpenedS_spec henv] <;> finish
 
 /-- **One stored rule's check**, simulated. -/
-theorem ruleAgreeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
-    {rec ctor : Name} {lps : List Name} {s g : Expr} {s₀ : CState} (hs : CSOK mode false env s₀) :
+theorem ruleAgreeS_spec (henv : EnvWF env)
+    {rec ctor : Name} {lps : List Name} {s g : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      ruleAgree (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec ctor lps s g
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (ruleAgree (fueledOpsM mode) .plain (mkFEnv env) rec ctor lps s g) v; ⊤⦄ := by
+      ruleAgree (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec ctor lps s g
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (ruleAgree (fueledOpsM .verified) .plain (mkFEnv env) rec ctor lps s g) v; ⊤⦄ := by
   sym only [conleche_grind, ruleAgree.eq_1, → wscoped_zero_of_hasFvar_false] =>
-    vcgen [ruleAgree, inferS_specF hμ henv, defeqS_specF hμ henv] <;> finish
+    vcgen [ruleAgree, inferS_specF henv, defeqS_specF henv] <;> finish
 
-theorem storedRulesCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem storedRulesCheckS_spec (henv : EnvWF env)
     {rec : Name} {lps : List Name} :
-    ∀ (rs : List RecRule) (gs : List Expr) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (rs : List RecRule) (gs : List Expr) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        storedRulesCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps rs gs
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (storedRulesCheck (fueledOpsM mode) .plain (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
+        storedRulesCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps rs gs
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (storedRulesCheck (fueledOpsM .verified) .plain (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
   intro rs
   induction rs with
   | nil =>
@@ -829,18 +829,18 @@ theorem storedRulesCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF 
     | cons g gs =>
       intro _ hs
       sym only [conleche_grind, storedRulesCheck] =>
-        vcgen [storedRulesCheck.eq_def, ruleAgreeS_spec hμ henv, ih gs] <;> finish
+        vcgen [storedRulesCheck.eq_def, ruleAgreeS_spec henv, ih gs] <;> finish
 
 /-- The stored recursors' comparison, simulated. -/
-theorem storedRecCompareS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem storedRecCompareS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
-    (hs : CSOK mode false env s₀) :
+    (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      storedRecCompare (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (storedRecCompare (fueledOpsM mode) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+      storedRecCompare (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (storedRecCompare (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
   sym only [conleche_grind, storedRecCompare.eq_1] =>
-    vcgen [storedRecCompare, recTyCheckS_spec hμ henv, storedRulesCheckS_spec hμ henv] <;> finish
+    vcgen [storedRecCompare, recTyCheckS_spec henv, storedRulesCheckS_spec henv] <;> finish
 
 /-- The stored rules' shape (no operation), simulated. -/
 theorem storedRulesShapeS_spec {rec : Name} :
@@ -868,24 +868,24 @@ theorem storedRulesShapeS_spec {rec : Name} :
         vcgen [storedRulesShape.eq_def, ih cs] <;> finish
 
 /-- The stored recursors' checks, simulated. -/
-theorem storedRecCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem storedRecCheckS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
-    (hs : CSOK mode false env s₀) :
+    (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      storedRecCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (storedRecCheck (fueledOpsM mode) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+      storedRecCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (storedRecCheck (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
   sym only [conleche_grind, storedRecCheck.eq_1] =>
-    vcgen [storedRecCheck, storedRulesShapeS_spec (mode := mode) (env := env),
-      storedRecCompareS_spec hμ henv] <;> finish
+    vcgen [storedRecCheck, storedRulesShapeS_spec (mode := .verified) (env := env),
+      storedRecCompareS_spec henv] <;> finish
 
-theorem storedRecsCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
+theorem storedRecsCheckS_spec (henv : EnvWF env) :
     ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr))
-      {s₀ : CState}, CSOK mode false env s₀ →
+      {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        storedRecsCheck (sharedOpsC mode (mkFEnv env)) StructWalkers.plain (mkFEnv env) recs out
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (storedRecsCheck (fueledOpsM mode) .plain (mkFEnv env) recs out) v; ⊤⦄ := by
+        storedRecsCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) recs out
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (storedRecsCheck (fueledOpsM .verified) .plain (mkFEnv env) recs out) v; ⊤⦄ := by
   intro recs
   induction recs with
   | nil =>
@@ -902,7 +902,7 @@ theorem storedRecsCheckS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF e
     | cons g gs =>
       intro _ hs
       sym only [conleche_grind, storedRecsCheck] =>
-        vcgen [storedRecsCheck.eq_def, storedRecCheckS_spec hμ henv, ih gs] <;> finish
+        vcgen [storedRecsCheck.eq_def, storedRecCheckS_spec henv, ih gs] <;> finish
 
 /-! ## 3. The assembly -/
 
@@ -966,49 +966,49 @@ theorem allWS_types {cvTas : List ConstantVal} (hT : ListAll TyClosed cvTas) :
 /-- **The generated recursor stage at the cached driver, simulated**:
 from an invariant state of the constructors' environment to a residue,
 on the pass's classes (scoped, `ClassMajScoped`) and table. -/
-theorem genRecCheckS_spec (hμ : mode.verifiedChecks = true) {env₂ : Env}
+theorem genRecCheckS_spec {env₂ : Env}
     (henv₂ : EnvWF env₂) {p : BlockShape} {nestedBit : Bool} {params : List Expr}
     {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
     (hMs₀ : ListAll (ClassMajScoped p.nP) Ms₀)
     {cvTas : List ConstantVal} {block : List ConstantInfo}
-    (hT : ListAll TyClosed cvTas) {s₀ : CState} (hs : CSOK mode false env₂ s₀) :
+    (hT : ListAll TyClosed cvTas) {s₀ : CState} (hs : CSOK .verified false env₂ s₀) :
     ⦃fun s => s = s₀⦄
-      genRecCheck (shadowOpsC mode) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas block
+      genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas block
     ⦃fun v s' => CSOKF s' ∧
-      Runs (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) (mkFEnv env₂) p nestedBit params tbl
+      Runs (genRecCheck (ShadowOps.ofOps (fueledOpsM .verified)) (mkFEnv env₂) p nestedBit params tbl
         rd Ms₀ cvTas block) v; ⊤⦄ := by
   -- structural: the shadow operations' fields, and the cached rule stage at the overlay,
   -- which answers as the pushed rule-less recursors do
   unfold genRecCheck
   dsimp only [shadowOpsC, ShadowOps.ofOps]
-  simp only [classRecsRulesOk_classFeROvl mode (fe := mkFEnv env₂) rfl]
+  simp only [classRecsRulesOk_classFeROvl .verified (fe := mkFEnv env₂) rfl]
   simp only [structWalkersC_eq_plain, classFeR_mkFEnv, mkFEnv_env]
   -- `gen`: the pure side, evaluated bind by bind, through eleven binds and three guards
   sym only [conleche_grind, unwrapOr.eq_1, mkFEnv_env, listAll_targetMajScoped hMs₀,
       → csok_residue, → CSOKAll.residue] =>
-    vcgen [unwrapOr, flushC, targetRecPinsS_spec (mode := mode) (env := env₂),
-      classStreamRecsS_spec hμ henv₂, classesNfsS_spec hμ henv₂ (allWS_types hT),
-      classesCtorsS_spec hμ henv₂ (allWS_types hT),
-      classFormerTysS_spec (mode := mode) (env := env₂),
-      classRecTysOkS_spec hμ henv₂, classRecsRulesOkS_spec (envT := env₂) hμ] <;>
+    vcgen [unwrapOr, flushC, targetRecPinsS_spec (mode := .verified) (env := env₂),
+      classStreamRecsS_spec henv₂, classesNfsS_spec henv₂ (allWS_types hT),
+      classesCtorsS_spec henv₂ (allWS_types hT),
+      classFormerTysS_spec (mode := .verified) (env := env₂),
+      classRecTysOkS_spec henv₂, classRecsRulesOkS_spec (envT := env₂)] <;>
       finish (gen := 12)
 
 /-- **The generated recursor stage at the cached driver** is reproduced
 by the pure fueled stage. -/
-theorem genRecCheckS_run (hμ : mode.verifiedChecks = true) {env₂ : Env}
+theorem genRecCheckS_run {env₂ : Env}
     (henv₂ : EnvWF env₂) {p : BlockShape} {nestedBit : Bool} {params : List Expr}
     {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M)
     {cvTas : List ConstantVal} {block : List ConstantInfo}
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
-    {s₀ : CState} (hs : CSOK mode false env₂ s₀) {out : List (ConstantVal × TargetMajor × List
+    {s₀ : CState} (hs : CSOK .verified false env₂ s₀) {out : List (ConstantVal × TargetMajor × List
         Expr)}
     {s' : CState}
-    (h : genRecCheck (shadowOpsC mode) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas block
+    (h : genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas block
       s₀ = .ok (out, s')) :
-    CSOKF s' ∧ ∃ F, genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl
+    CSOKF s' ∧ ∃ F, genRecCheck (ShadowOps.fueled .verified F) (mkFEnv env₂) p nestedBit params tbl
       rd Ms₀ cvTas block = .ok out := by
-  obtain ⟨hs', F, hF⟩ := triple_iff_run.mp (genRecCheckS_spec hμ henv₂ hMs₀ hT hs) out s' h
+  obtain ⟨hs', F, hF⟩ := triple_iff_run.mp (genRecCheckS_spec henv₂ hMs₀ hT hs) out s' h
   exact ⟨hs', F, by rw [← genRecCheck_datF]; exact hF⟩
 
 /-! ## The install after the pass, at the cached driver -/
@@ -1276,7 +1276,7 @@ theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
 
 /-- **The install after the pass, at k members, at the cached driver**,
 is reproduced by the pure fueled `checkBlockTail`. -/
-theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
+theorem checkBlockTailS_run
     {env₁ : Env} (henv₁ : EnvWF env₁) {block : List ConstantInfo} {cvTas : List ConstantVal}
     {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
@@ -1285,12 +1285,12 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁))
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) (hpl : params.length = p.nP)
-    {s₀ : CState} (hs : CSOK mode false env₁ s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockTailS mode block
+    {s₀ : CState} (hs : CSOK .verified false env₁ s₀) {feOut : FEnv} {s' : CState}
+    (h : checkBlockTailS .verified block
       ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
       s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (checkBlockTail (fueledOpsM mode) block
+    ∃ F, (checkBlockTail (fueledOpsM .verified) block
       ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩).val F
         = .ok feOut.env := by
   unfold checkBlockTailS at h
@@ -1300,14 +1300,14 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   have hzT : ∀ x ∈ p.members.zip cvTas, WScoped 0 x.2.type :=
     fun x hx => hT x.2 (List.of_mem_zip hx).2
   obtain ⟨hsS, F₀, hF₀⟩ :=
-    triple_iff_run.mp (checkBlockIdxSortsS_spec hμ henv₁ hzT hs) isorts sS hsorts
+    triple_iff_run.mp (checkBlockIdxSortsS_spec henv₁ hzT hs) isorts sS hsorts
   rw [consBlockCtorsF_mkFEnv] at h
   obtain ⟨u2, sC, hfl2, h⟩ := bindC_ok h
   rw [flushC_run] at hfl2
   injection hfl2 with hfl2
   obtain rfl : sS.flushed = sC := congrArg Prod.snd hfl2
   obtain ⟨out, s₃, hrec, h⟩ := bindC_ok h
-  obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run hμ henv₂ hMs₀ hT
+  obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run henv₂ hMs₀ hT
     (flushC_csok hsS.residue) hrec
   have henv₃ := genRecCheck_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1)
     (consBlockCtors p.nP ctorsAs env₁).find?
@@ -1342,13 +1342,13 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   obtain rfl : s₃.flushed = s₃' := congrArg Prod.snd hfl3
   obtain ⟨u4, s₄', hst, h⟩ := bindC_ok h
   obtain ⟨hs₄', F₄, hF₄⟩ := triple_iff_run.mp
-    (storedRecsCheckS_spec hμ henv₃ p.recs out (flushC_csok hs₃)) u4 s₄' hst
+    (storedRecsCheckS_spec henv₃ p.recs out (flushC_csok hs₃)) u4 s₄' hst
   obtain ⟨u5, s₄, hfl4, h⟩ := bindC_ok h
   rw [flushC_run] at hfl4
   injection hfl4 with hfl4
   obtain rfl : s₄'.flushed = s₄ := congrArg Prod.snd hfl4
   have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
-  have hF₄' : storedRecsCheck (fueledOps mode F₄) .plain
+  have hF₄' : storedRecsCheck (fueledOps .verified F₄) .plain
       (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
     rw [← storedRecsCheck_datF]; cases u4; exact hF₄
@@ -1358,16 +1358,16 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
   refine ⟨hwfO, hfeO, G, ?_⟩
-  have g₄ : storedRecsCheck (fueledOps mode G) .plain
+  have g₄ : storedRecsCheck (fueledOps .verified G) .plain
       (mkFEnv (consBlockRecsT (consBlockCtors p.nP ctorsAs env₁).find? p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
     rw [← storedRecsCheck_datF]; exact FueledM.up hle₄ (by rw [storedRecsCheck_datF]; exact hF₄')
-  have g₀ : checkBlockIdxSorts (fueledOps mode G) env₁ p.toBlockShape
+  have g₀ : checkBlockIdxSorts (fueledOps .verified G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
-  have g₃ : checkBlockRec (fueledOps mode G) (consBlockCtors p.nP ctorsAs env₁) p
+  have g₃ : checkBlockRec (fueledOps .verified G) (consBlockCtors p.nP ctorsAs env₁) p
       (blockNestedBit p.toBlockShape kinds) params tbl.toList rd Ms₀ block cvTas = .ok out := by
-    show genRecCheck (ShadowOps.fueled mode G) _ _ _ _ _ _ _ _ _ = _
+    show genRecCheck (ShadowOps.fueled .verified G) _ _ _ _ _ _ _ _ _ = _
     rw [← genRecCheck_datF]
     exact FueledM.up hle₃ (by rw [genRecCheck_datF]; exact hF₃)
   rw [checkBlockTail_datF]
@@ -1384,26 +1384,26 @@ theorem checkBlockTailS_run (hμ : mode.verifiedChecks = true)
 the pure fueled `checkBlockPass`: the formers' environment is the index
 over the pure one, the memo state is an invariant state of it, the
 formers' and the constructors' types are fvar-free, the classes scoped. -/
-theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
-    {p₀ : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK mode false env s₀)
+theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
+    {p₀ : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK .verified false env s₀)
     {q : BlockPass FEnv} {s' : CState}
-    (h : checkBlockPassS mode (mkFEnv env) p₀ isRec s₀ = .ok (q, s')) :
-    ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK mode false env₁ s' ∧ EnvWF env₁ ∧
+    (h : checkBlockPassS .verified (mkFEnv env) p₀ isRec s₀ = .ok (q, s')) :
+    ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK .verified false env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.cvTas, WScoped 0 cv.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
       (∀ ctorsA ∈ q.ctorsAs, ∀ c ∈ ctorsA, env₁.find? c.1.name = none) ∧
       EnvWF (consBlockCtors q.p.nP q.ctorsAs env₁) ∧
       (∀ M ∈ q.cls, ClassMajScoped q.p.nP M) ∧ q.params.length = q.p.nP ∧
-      ∃ F, (checkBlockPass (fueledOpsM mode) env p₀ isRec).val F
+      ∃ F, (checkBlockPass (fueledOpsM .verified) env p₀ isRec).val F
         = .ok ⟨env₁, q.cvTas, q.p, q.ctorsAs, q.sortsss, q.kinds, q.nfs, q.params, q.rd, q.cls,
           q.tbl⟩ := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
   obtain ⟨r₁, s₁, hind, h⟩ := bindC_ok h
-  obtain ⟨hs₁, ⟨F₁, hF₁⟩, hwT⟩ := triple_iff_run.mp (checkBlockIndsS_spec hμ henv hs) r₁ s₁ hind
+  obtain ⟨hs₁, ⟨F₁, hF₁⟩, hwT⟩ := triple_iff_run.mp (checkBlockIndsS_spec henv hs) r₁ s₁ hind
   obtain ⟨env₁, cvTas, p₁⟩ := r₁
-  have hF₁p : checkBlockInds (fueledOps mode F₁) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
+  have hF₁p : checkBlockInds (fueledOps .verified F₁) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
     rw [← checkBlockInds_datF]; exact hF₁
   obtain ⟨henv₁, hTf⟩ := direct_block_inds_wf henv hF₁p
   try simp only at h
@@ -1417,9 +1417,9 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   have hzT : ∀ x ∈ (p₀.complete p₁).members.zip cvTas, x.2.type.hasFvar = false :=
     fun x hx => hTf x.2 (List.of_mem_zip hx).2
   obtain ⟨hs₂, F₂, hF₂⟩ :=
-    triple_iff_run.mp (checkBlockCtorsS_spec hμ henv₁ hzT (flushC_csok hs₁.residue)) q2 s₂ hct
+    triple_iff_run.mp (checkBlockCtorsS_spec henv₁ hzT (flushC_csok hs₁.residue)) q2 s₂ hct
   obtain ⟨ctorsAs, sortsss⟩ := q2
-  have hF₂p : checkBlockCtors (fueledOps mode F₂) env₁ env₁ (p₀.complete p₁).toBlockShape
+  have hF₂p : checkBlockCtors (fueledOps .verified F₂) env₁ env₁ (p₀.complete p₁).toBlockShape
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact hF₂
   try simp only at h
@@ -1434,13 +1434,13 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   obtain ⟨rcl, sL, hL, h⟩ := bindC_ok h
   have hpl : ctx.params.length = (p₀.complete p₁).toBlockShape.nP := by rw [hlen, hnP]
   obtain ⟨hsL, ⟨FL, hFL⟩, hMsc⟩ := triple_iff_run.mp
-    (checkBlockClassesS_spec hμ henv₁ hpl hpar hsX) rcl sL hL
+    (checkBlockClassesS_spec henv₁ hpl hpar hsX) rcl sL hL
   rcases rcl with ⟨rd, Ms⟩
   try simp only at h
   -- the positivity function on the stored constructors (the root frame)
   obtain ⟨⟨kinds, nfs, pos⟩, sK, hK, h⟩ := bindC_ok h
   obtain ⟨hsK, FK, hFK⟩ := triple_iff_run.mp
-    (checkBlockPositivityS_spec hμ henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
+    (checkBlockPositivityS_spec henv₁ (p₀.complete p₁) cvTas ctorsAs hwT
       (checkBlockCtors_types hF₂p) hsL) (kinds, nfs, pos) sK hK
   try simp only at h
   -- every outside class, walked from its state
@@ -1448,7 +1448,7 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
   have hpar' : ∀ x ∈ ctx.params, WScoped (ctx.hiAt 0) x := fun x hx =>
     WScoped.mono (by rw [← hnP]; simp [NestCtx.hiAt]) (hpar x hx)
   obtain ⟨hsT, FT, hFT⟩ := triple_iff_run.mp
-    (nestSeedsS_spec hμ henv₁ hctx _ pos hsK (fun k hk x hx => by
+    (nestSeedsS_spec henv₁ hctx _ pos hsK (fun k hk x hx => by
       obtain ⟨M, hM, hMn, rfl⟩ := mem_classSeeds hk
       exact (nestSeedOf_ds hh hlen (fun y hy => Expr.fvarB_le (by
         rw [hnP]; exact (((hMsc M hM).2.1 hMn).2 y hy).2)) x hx).2 (fun y hy => (hholes y hy).1)
@@ -1460,21 +1460,21 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
       by omega, by omega⟩
   refine ⟨env₁, rfl, hsT, henv₁, hwT, checkBlockCtors_types hF₂p, checkBlockCtors_fresh hF₂p,
     direct_block_ctors_wf henv₁ hF₂p, hMsc, hpl, G, ?_⟩
-  have g₁ : checkBlockInds (fueledOps mode G) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
+  have g₁ : checkBlockInds (fueledOps .verified G) env p₀ isRec = .ok (env₁, cvTas, p₁) := by
     rw [← checkBlockInds_datF]; exact FueledM.up hle₁ hF₁
-  have g₂ : checkBlockCtors (fueledOps mode G) env₁ env₁ (p₀.complete p₁).toBlockShape
+  have g₂ : checkBlockCtors (fueledOps .verified G) env₁ env₁ (p₀.complete p₁).toBlockShape
       ((p₀.complete p₁).members.zip cvTas) = .ok (ctorsAs, sortsss) := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
   have gX : blockNestCtx (m := CheckM) (p₀.complete p₁).toBlockShape cvTas env₁.find?
       = .ok (ctx, holes) := by
     rw [← blockNestCtx_datF (F := G)]; exact FueledM.up hleX hFX
-  have gL : checkBlockClasses (fueledOps mode G) (mkFEnv env₁)
+  have gL : checkBlockClasses (fueledOps .verified G) (mkFEnv env₁)
       (p₀.complete p₁).toBlockShape ctx.params ctorsAs = .ok (rd, Ms) := by
     rw [← checkBlockClasses_datF]; exact FueledM.up hleL hFL
-  have gK : checkBlockPositivity (fueledOps mode G) env₁ env₁.find?
+  have gK : checkBlockPositivity (fueledOps .verified G) env₁ env₁.find?
       (p₀.complete p₁) cvTas ctorsAs = .ok (kinds, nfs, pos) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
-  have gT : nestSeeds (fueledOps mode G) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st := by
+  have gT : nestSeeds (fueledOps .verified G) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st := by
     rw [← nestSeeds_datF]; exact FueledM.up hleT hFT
   rw [checkBlockPass_datF]
   unfold checkBlockPass
@@ -1494,12 +1494,12 @@ theorem checkBlockPassS_run (hμ : mode.verifiedChecks = true) {env : Env} (henv
 /-- **The uniform install at k members, at the recursor stage's CHECK,
 at the cached driver**, is reproduced by the pure fueled `checkBlock`:
 the pass at official's `is_rec` and the install after it. -/
-theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
+theorem checkBlockKS_run
     {env : Env} (henv : EnvWF env) {block : List ConstantInfo} {p₀ : BlockParts}
     {s₀ : CState} (hwf : CSOKF s₀) {feOut : FEnv} {s' : CState}
-    (h : checkBlockKS mode (mkFEnv env) block p₀ s₀ = .ok (feOut, s')) :
+    (h : checkBlockKS .verified (mkFEnv env) block p₀ s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkBlock (fueledOps mode F) env block p₀ = .ok feOut.env := by
+    ∃ F, checkBlock (fueledOps .verified F) env block p₀ = .ok feOut.env := by
   unfold checkBlockKS at h
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
   case neg => rw [ite_eq_right hnd] at h; exact absurd h throwC_bind_ok
@@ -1511,15 +1511,15 @@ theorem checkBlockKS_run (hμ : mode.verifiedChecks = true)
   obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
   obtain ⟨fe₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ := r
   obtain ⟨env₁, hq₁, hs₁, henv₁, hT, -, -, henv₂, hMs₀, hpl, F₁, hF₁⟩ :=
-    checkBlockPassS_run hμ henv (flushC_csok hwf) hP
+    checkBlockPassS_run henv (flushC_csok hwf) hP
   simp only at hq₁ hs₁ henv₁ hT henv₂ hMs₀ hpl hF₁
   subst hq₁
-  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run hμ henv₁ hT henv₂ hMs₀ hpl hs₁ h
+  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run henv₁ hT henv₂ hMs₀ hpl hs₁ h
   refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
-  have g₁ : checkBlockPass (fueledOps mode (max F₁ F₂)) env p₀ (blockRawRec p₀)
+  have g₁ : checkBlockPass (fueledOps .verified (max F₁ F₂)) env p₀ (blockRawRec p₀)
       = .ok ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ := by
     rw [← checkBlockPass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
-  have g₂ : checkBlockTail (fueledOps mode (max F₁ F₂)) block
+  have g₂ : checkBlockTail (fueledOps .verified (max F₁ F₂)) block
       ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
       = .ok feOut.env := by
     rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
@@ -1536,17 +1536,17 @@ variable {pins : List NatOpPinSet}
 block goes to `checkBlockKS`, every other one
 declines (`checkShapelessS`), and the pure fueled `checkDecl`
 reproduces the run. -/
-theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
     {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
     (hok : indParamsOk nP block = true)
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
     (h : (match blockParts? nP block with
-          | some p => checkBlockKS mode (mkFEnv env) block p
-          | none => checkShapelessS mode (mkFEnv env) block) s₀ =
+          | some p => checkBlockKS .verified (mkFEnv env) block p
+          | none => checkShapelessS .verified (mkFEnv env) block) s₀ =
       .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, checkDecl mode (fueledOps mode F) pins env (.indDecl block nP) =
+    ∃ F, checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) =
       .ok feOut.env := by
   -- the declared parameter count (task #228) is a pure guard shared by
   -- the two drivers: `hok` is the branch both take
@@ -1556,8 +1556,8 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
       | none =>
         if indParamsOk nP block = true then
           (match blockParts? nP block with
-            | some p => checkBlock (fueledOps mode F) env block p
-            | none => checkShapeless (fueledOps mode F) env block)
+            | some p => checkBlock (fueledOps .verified F) env block p
+            | none => checkShapeless (fueledOps .verified F) env block)
         else throw (CheckError.invalid "number of parameters mismatch")) = .ok feOut.env
   -- task #293: this block is not one of the five pinned ones (the
   -- recognition happened before the dispatch, on both sides)
@@ -1567,7 +1567,7 @@ theorem checkModeledOrNativeSF_run (hμ : mode.verifiedChecks = true) {env : Env
     rw [hfp] at h
     simp only at h
     -- the block install, at any number of members, nested included
-    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run hμ henv hwf h
+    obtain ⟨hres, hfe, F, hF⟩ := checkBlockKS_run henv hwf h
     exact ⟨hres, hfe, F, hF⟩
   | none =>
     rw [hfp] at h

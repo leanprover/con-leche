@@ -161,7 +161,7 @@ end NodesSem
 
 section Motive
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (ctx : NestCtx)
+variable (mp : EnvModelM V env) (φ : Name → Nat) (ctx : NestCtx)
   (F : Nat) (Δ0 : List Term)
 
 /-- **A frame's nodes**, read from the key's reading (`FrameMono`'s
@@ -225,7 +225,7 @@ variable {φ : Name → Nat}
 /-- **The whnf step, relation-free**: the reduct is framed, in the
 context, read and graded.  The subject walked here is always a TYPE
 (task #342, L12: "not pt" source (1)), so the step is `red_sound_ty`. -/
-theorem whnf_facts {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
+theorem whnf_facts {mp : EnvModelM V env}
     (hin : RulesInputs V mp.base2 φ) {F dep : Nat} {e w : Expr}
     (hw : (fueledOps .verified F).whnf env dep e = .ok w) (hfr : Frame dep e)
     {Δa : List Term} {ea : Term}
@@ -250,7 +250,7 @@ theorem drop_stack {m : EnvModel V env} {ctx : NestCtx} {Δ0 : List Term}
 
 /-- **A container key's frame premises** at a covered container: its
 recorded block, its level parameters and parameter count. -/
-theorem key_block {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem key_block (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {n : Name} {nPc : Nat} {L : List (ConstantVal × Nat)}
     (hq : ConLeche.nestContainer ctx n = some (nPc, L)) (hnm : ctx.names.contains n = false)
     (hquot : n ≠ ConLeche.quotName) :
@@ -275,7 +275,7 @@ theorem key_block {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : Nes
 /-- **A frame's nodes from its derivation**: the group well formed, the
 level parameters distinct, every walked constructor read in the stack
 context grown by the frame's holes. -/
-theorem frame_nodes {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem frame_nodes (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
     {Δ0 : List Term} (hΔ0 : Δ0.length = ctx.hiAt 0) {prog : List NestHole}
     {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
@@ -353,7 +353,7 @@ theorem frame_nodes {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
 /-- **A derived frame's nodes, from the key's reading alone**: the frame's
 head is a covered container (its recorded block, levels and parameter
 count read off the derivation's own checks). -/
-theorem frameNodes_of {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem frameNodes_of (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {F : Nat} {Δ0 : List Term} {prog : List NestHole}
     {us : List Level} {ds : List Expr} {grp : List (Name × Expr)} {ts : List PosTree}
     (hfrD : PosD (fueledOps .verified F) env ctx (.frame prog us ds grp) ts)
@@ -380,7 +380,7 @@ theorem frameNodes_of {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx :
 
 /-- **EVERY NODE OF A DERIVATION IS READ IN ITS STACK CONTEXT** (the
 node-semantics induction; see the module docstring). -/
-theorem posD_nodeSem {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem posD_nodeSem (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
     {Δ0 : List Term} (hΔ0 : Δ0.length = ctx.hiAt 0) :
     ∀ {j : PosJ} {ts : List PosTree}, PosD (fueledOps .verified F) env ctx j ts →

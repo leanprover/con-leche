@@ -57,7 +57,7 @@ theorem spineFit_of_sat_consList {Ds : List Term} {as : List V} {ρ : Nat → V}
 /-- **The key's arguments fit the container's former telescope** (the
 former's reading, M4, at the key's levels), at every valuation where the
 application is graded. -/
-theorem keyFit_of_wd {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem keyFit_of_wd (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level} {dep : Nat}
     {args : List Expr} {wa : Term}
@@ -104,7 +104,7 @@ satisfies the container's parameter telescope, the indices fit its index
 telescope there, and the instance is the carrier's component at the
 index tuple.  `ds` are scoped at `b ≤ dep` (the walk's hole bound) and
 read there as `dsa`. -/
-theorem keyLeaf {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem keyLeaf (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level} {dep b : Nat}
     (hbd : b ≤ dep) {ds is : List Expr} {wa : Term}
@@ -163,7 +163,7 @@ theorem keyLeaf {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatu
 /-- **A container instance grows along a relation** at whose pairs the
 application is graded and its indices are the same, as soon as the
 carrier grows at the two key frames. -/
-theorem monoOn_of_famLe {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem monoOn_of_famLe (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level} {dep b : Nat}
     (hbd : b ≤ dep) {ds is : List Expr} {wa : Term}
@@ -294,7 +294,7 @@ former's stored type reading.  (The key's VALUE cannot give it: a
 parameter prefix over an empty index set reads the point.)  The
 certificates' `DefEq`/`Red` claims are used only between types, never
 the point ("not pt" source (1), inside `certsF_sound`). -/
-theorem keyParamsFit {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem keyParamsFit (mp : EnvModelM V env)
     (hin : Rules.RulesInputs V mp.base2 φ) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level}

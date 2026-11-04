@@ -46,7 +46,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestC
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## A frame's constructors, derived and typed -/
 
@@ -188,8 +188,8 @@ stack valuation `σ` satisfying the node's stack context and every tuple
 at `(keyFrame σ, Y)` has each field in the reading of its walked normal
 form, at the walk valuation `σ` extended by the group's hole values of
 `Y` (which satisfies the frame's context). -/
-theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
-    {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
+theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
+    {mpC : EnvModelM V envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
     (H : DynCtx F mk mpC ctx d ns) {u : PosTree} (hu : u ∈ ns) (ψ : Name → Nat)
     {m j : Nat} (hm : m < (lfpSel mpC d.toLfp u.key.cname).k)
     (hj : j < (lfpSel mpC d.toLfp u.key.cname).nctors m) :
@@ -323,7 +323,7 @@ hole frame (which satisfies the hole context) extended by the earlier
 fields — the recorded fields and the walk's crest read alike
 (`BlockAbsRead`, `canonCrest_of_walk`), the crest and its normal form
 field by field (`posD_red`). -/
-theorem blk_ctorFit {env : Env} {μ' : ConLeche.CheckMode} (mk : EnvModelM V μ' env)
+theorem blk_ctorFit {env : Env} (mk : EnvModelM V env)
     (ψ : Name → Nat) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}

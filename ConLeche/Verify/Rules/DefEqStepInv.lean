@@ -86,28 +86,28 @@ private theorem binder_inv {d : Nat} {ty₁ bd₁ ty₂ bd₂ : Expr}
 
 /-- **The innermost level of the λ-telescope comparison, inverted**: the
 opened bodies compared, their full-grade types inferred and compared. -/
-theorem defeqLamsInner_inv (hμ : μ.verifiedChecks = true) {d : Nat} {b₁ b₂ : Expr}
-    (h : defeqLamsInnerFueled μ eager env fuel d b₁ b₂ = .ok true) :
-    isDefEqCore μ eager env fuel (d + 1) b₁ b₂ = .ok true ∧
-    ∃ t₁ t₂, inferTypeCore μ eager env fuel (d + 1) b₁ = .ok t₁ ∧
-      inferTypeCore μ eager env fuel (d + 1) b₂ = .ok t₂ ∧
-      isDefEqCore μ eager env fuel (d + 1) t₁ t₂ = .ok true := by
+theorem defeqLamsInner_inv {d : Nat} {b₁ b₂ : Expr}
+    (h : defeqLamsInnerFueled .verified eager env fuel d b₁ b₂ = .ok true) :
+    isDefEqCore .verified eager env fuel (d + 1) b₁ b₂ = .ok true ∧
+    ∃ t₁ t₂, inferTypeCore .verified eager env fuel (d + 1) b₁ = .ok t₁ ∧
+      inferTypeCore .verified eager env fuel (d + 1) b₂ = .ok t₂ ∧
+      isDefEqCore .verified eager env fuel (d + 1) t₁ t₂ = .ok true := by
   simp only [defeqLamsInnerFueled, defeqLamsInner, defeq_def, infer_def,
-    hμ] at h
-  cases hb : isDefEqCore μ eager env fuel (d + 1) b₁ b₂ with
+    CheckMode.verifiedChecks] at h
+  cases hb : isDefEqCore .verified eager env fuel (d + 1) b₁ b₂ with
   | error err => simp [hb, Bind.bind, Except.bind] at h
   | ok r =>
   cases r with
   | false => simp [hb, pure, Except.pure, Bind.bind, Except.bind] at h
   | true =>
   refine ⟨rfl, ?_⟩
-  cases h₁ : inferTypeCore μ eager env fuel (d + 1) b₁ with
+  cases h₁ : inferTypeCore .verified eager env fuel (d + 1) b₁ with
   | error err => simp [hb, h₁, Bind.bind, Except.bind] at h
   | ok t₁ =>
-  cases h₂ : inferTypeCore μ eager env fuel (d + 1) b₂ with
+  cases h₂ : inferTypeCore .verified eager env fuel (d + 1) b₂ with
   | error err => simp [hb, h₁, h₂, Bind.bind, Except.bind] at h
   | ok t₂ =>
-  cases ht : isDefEqCore μ eager env fuel (d + 1) t₁ t₂ with
+  cases ht : isDefEqCore .verified eager env fuel (d + 1) t₁ t₂ with
   | error err => simp [hb, h₁, h₂, ht, Bind.bind, Except.bind] at h
   | ok rt =>
   cases rt with

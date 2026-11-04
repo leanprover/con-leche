@@ -52,7 +52,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## The `k` recursors' names -/
 
@@ -96,7 +96,7 @@ index.  `hagree` is what ties it to the prefix's valuation off the
 `k` names. -/
 theorem envModelM_consBlockRecsBare {q : BlockShape}
     {acv : Name → (Name → Nat) → Term} :
-    ∀ {m : Nat} {ls : List (ConstantVal × Nat)} {env : Env} (mp : EnvModelM V μ env),
+    ∀ {m : Nat} {ls : List (ConstantVal × Nat)} {env : Env} (mp : EnvModelM V env),
       (ls.map (·.1.name)).Nodup →
       (∀ r ∈ ls, env.find? r.1.name = none) →
       (∀ r ∈ ls, ConLeche.reservedBasisNames.contains r.1.name = false) →
@@ -114,7 +114,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         denote mp.base2.acval env ψ 0 r.1.type = some ta ∧
         (∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
         (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta)) →
-      ∃ mp' : EnvModelM V μ (consBlockRecsBare q m ls env), mp'.base2.acval = acv
+      ∃ mp' : EnvModelM V (consBlockRecsBare q m ls env), mp'.base2.acval = acv
   | _, [], env, mp, _, _, _, _, hag, _, _, _, _ =>
     ⟨mp, by funext n; exact (hag n (fun _ h => nomatch h)).symm⟩
   | m, r0 :: rest, env, mp, hnd, hfr, hnres, hty, hag, hcl, hpar, hok, hrd => by
@@ -174,7 +174,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
             mp hfresh
             (fun _ _ _ _ heq => by injection heq with _ _ _ e4; exact e4.symm) m₂ hac φ)
     -- the tail
-    show ∃ mp' : EnvModelM V μ (consBlockRecsBare q (m + 1) rest
+    show ∃ mp' : EnvModelM V (consBlockRecsBare q (m + 1) rest
         ⟨.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) [] :: env.consts, env.tables⟩),
       mp'.base2.acval = acv
     refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
@@ -449,7 +449,7 @@ level-local and graded, inhabiting the types' readings. -/
 section Staged
 
 variable {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
-  {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V μ envC)
+  {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V envC)
   (hnd : (rs.map (·.1.name)).Nodup)
   (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
   (hnres : ∀ r ∈ rs, ConLeche.reservedBasisNames.contains r.1.name = false)
@@ -490,7 +490,7 @@ theorem envModelM_consBlockRecsR
           ConLeche.recRuleEtaOf (consBlockRecsBare q 0 (bareOf rs) envC).find? r.ctor = true))
     (hrecP : ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ) :
-    ∃ mp' : EnvModelM V μ (consBlockRecsR R q 0 rs envC),
+    ∃ mp' : EnvModelM V (consBlockRecsR R q 0 rs envC),
       mp'.base2.acval = acv := by
   -- phase 1: the `k` rule-less conses
   have hmemB : ∀ x ∈ bareOf rs, ∃ r ∈ rs, x.1 = r.1 := fun x hx => mem_bareOf hx
@@ -583,7 +583,7 @@ theorem blockRecStaged_of
     (hrecP : ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ)
     (hresRec : ∀ r ∈ rs, ConLeche.reservedRecName r.1.name = false) :
-    ∃ mp' : EnvModelM V μ (consBlockRecsR R q 0 rs envC),
+    ∃ mp' : EnvModelM V (consBlockRecsR R q 0 rs envC),
       (∀ n : Name, (envC.find? n).isSome = true →
         mp'.base2.acval n = mpC.base2.acval n) ∧
       (∀ (n : Name) (c : ConstantInfo), envC.find? n = some c →

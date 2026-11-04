@@ -342,9 +342,9 @@ theorem checkBlockTables_etaClosed {q : BlockShape} :
 
 /-- **The uniform install keeps the η-families closed, at k members**,
 from the run record alone, at every setting of both gates. -/
-theorem declBlockRun_etaClosed {μ : CheckMode} {F : Nat} {env env₂ : Env}
+theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
-    (h : DeclBlockRun μ F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
+    (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
     pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := h
   subst hp

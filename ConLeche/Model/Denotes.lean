@@ -326,9 +326,9 @@ theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
 /-! ### The model -/
 
 /-- **The model, read off the invariant**: `Model V env` from
-`EnvModelM V μ env`. -/
-noncomputable def Model.ofEnvModelM {μ : ConLeche.CheckMode} {env : Env}
-    (m : EnvModelM V μ env) : ConLeche.Model V env where
+`EnvModelM V env`. -/
+noncomputable def Model.ofEnvModelM {env : Env}
+    (m : EnvModelM V env) : ConLeche.Model V env where
   cval := cvalOf m.base2.acval
   mem := by
     intro c hc φ ρ

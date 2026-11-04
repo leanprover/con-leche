@@ -261,8 +261,8 @@ the list of `certAtI` sites **is** the
 list of what the trusted core omits beyond group A.  At `.verified`
 the mode function is `true`, so `certAtI .verified c` is `c` by `rfl`
 (`certAtI_verified`); the simulation tower
-(`ConLeche/Verify/Cached/*`), stated under `hμ : mode.verifiedChecks =
-true`, sees through the wrapper by `certAtI_verified` — the
+(`ConLeche/Verify/Cached/*`), stated at `.verified`, sees through the
+wrapper by `certAtI_verified` — the
 spec bodies (`ConLeche/Kernel/Core.lean`) gate the same sites directly
 (`if mode.verifiedChecks then … else pure true`, `majorToCtor`'s
 K/`And` proof-irrelevance checks and `iotaRec`'s case-3 decision), not
@@ -1572,8 +1572,9 @@ took a configuration record standing in for it).  `coreKnotI .verified`
 is the verified core the capstones are stated about, and
 `coreKnotI .trusted` is the trusted core `--trusted` runs — the same
 function at the other mode.  The mode-parametric simulation tower
-(`ConLeche/Verify/Cached/*`) is stated at `coreKnotI mode` under
-`hμ : mode.verifiedChecks = true`.
+(`ConLeche/Verify/Cached/*`) is general in the mode where it holds at
+both, and stated at `coreKnotI .verified` where it needs the
+certificate families.
 
 The flag is decided here, once, and each of the two knots has it as a
 literal (task #452): a level's closures, allocated on every

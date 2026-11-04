@@ -27,21 +27,22 @@ tower (task #353), at any fuel, yields a derivation.  The induction is
 over both flags at once: the full-grade application rule compares an
 `eagerReduce _ _` argument at `eager := true`. -/
 theorem bridgeAt (env : Env) :
-    ∀ (fuel : Nat) (μ : CheckMode), μ.verifiedChecks = true → ∀ eager : Bool,
-      WhnfCoreBridge μ eager env fuel ∧ WhnfBridge μ eager env fuel ∧ DefEqBridge μ eager env fuel ∧
-        InferBridge μ eager env fuel ∧ InferIOBridge μ eager env fuel := by
+    ∀ (fuel : Nat) (eager : Bool),
+      WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
+        DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
+          InferIOBridge .verified eager env fuel := by
   intro fuel
   induction fuel with
   | zero =>
-    intro μ _ _
+    intro _
     exact ⟨whnfCore_bridge_zero, whnf_bridge_zero, defeq_bridge_zero,
       infer_bridge_zero, inferIO_bridge_zero⟩
   | succ fuel ih =>
-    intro μ hμ eager
-    obtain ⟨hwc, hw, hd, hi, hio⟩ := ih μ hμ eager
-    have hdE : DefEqBridge μ true env fuel := (ih μ hμ true).2.2.1
-    exact ⟨whnfCore_bridge_succ hμ hwc hw hd hi hio, whnf_bridge_succ hwc hw,
-      defeq_bridge_succ hμ hwc hw hd hi hio, infer_bridge_succ hw hd hdE hi,
+    intro eager
+    obtain ⟨hwc, hw, hd, hi, hio⟩ := ih eager
+    have hdE : DefEqBridge .verified true env fuel := (ih true).2.2.1
+    exact ⟨whnfCore_bridge_succ hwc hw hd hi hio, whnf_bridge_succ hwc hw,
+      defeq_bridge_succ hwc hw hd hi hio, infer_bridge_succ hw hd hdE hi,
       inferIO_bridge_succ hw hio⟩
 
 /-- The bridge at the `--verified` mode. -/
@@ -49,7 +50,7 @@ theorem bridge (env : Env) (fuel : Nat) :
     WhnfCoreBridge .verified false env fuel ∧ WhnfBridge .verified false env fuel ∧
       DefEqBridge .verified false env fuel ∧ InferBridge .verified false env fuel ∧
         InferIOBridge .verified false env fuel :=
-  bridgeAt env fuel .verified rfl false
+  bridgeAt env fuel false
 
 theorem whnfCore_bridge {fuel d : Nat} {e e' : Expr}
     (h : whnfCore .verified false env fuel d e = .ok e') : Red env d e e' :=

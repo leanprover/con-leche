@@ -72,10 +72,10 @@ the subject's `WellDenoted` is a *premise* here, the run is the io
 lane's (Lean's `infer_only`), and the claim is the hereditary `IORel`
 (task #346; task #342 L18): an io-inferred type need not hold its
 term. -/
-@[expose] def InferClaimIO (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferClaimIO {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List Term},
-    inferTypeCoreIO μ false env fuel d e = .ok t →
+    inferTypeCoreIO .verified false env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ta : Term},

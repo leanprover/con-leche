@@ -53,7 +53,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockPart
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## A closed telescope, read -/
 
@@ -120,9 +120,9 @@ the slot), and `T` spelled out as built AT THE RULE PREFIX — the rule
 frame's declared fields `tgtFieldFvs`, one `ih` type per recursive field,
 the conclusion over the declared result `tgtCbody`. -/
 theorem genMinorSetup
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -522,10 +522,10 @@ the constructor applied.  The prefix's entry is the minor premise's type
 built at the slot, which IS the one built at the rule prefix
 (`genMinorSetup`); read at the rule prefix it is the Π-tower of exactly
 the rule frame's pieces. -/
-theorem genCls_minor (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+theorem genCls_minor
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -557,9 +557,9 @@ theorem genCls_minor (hμ : μ.verifiedChecks = true)
   have hmp : R.g.nP + s < R.g.pre.length := by omega
   -- the stored type's entry at the minor's slot
   obtain ⟨cls', ty', ifs', body', -, -, -, -, -, -, -, -, -, -, fvs0, o0, hop0, hE⟩ :=
-    genRun_binders hμ R hg h mpC ψ hc
+    genRun_binders R hg h mpC ψ hc
   obtain ⟨fvs1, concl1, hop1, -, hTyE, hlenRds, hdomsR, -, hwdTy⟩ :=
-    recStage_tyPis (V := V) hμ mpC h hr ψ
+    recStage_tyPis (V := V) mpC h hr ψ
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop1.symm.trans hop0))
   have hle := blockRecHrPle (p := pp) h hc
   have hlenF : fvs1.length = pp.toBlockShape.majorIdxAt c + 1 :=
@@ -571,7 +571,7 @@ theorem genCls_minor (hμ : μ.verifiedChecks = true)
   obtain ⟨pd, hpd, hrd⟩ := hdomsR _ y hy
   rw [denote_erasedEq hyE] at hrd
   -- the prefix's entry: the minor's value
-  have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h hr ψ
+  have hlenPd := blockRulePdomsAV_length (V := V) mpC h hr ψ
   have hPdget : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD
       (R.g.nP + s) default = pd := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_take,
@@ -772,10 +772,10 @@ the motive applied to the declared result's indices and the constructor
 application of a member of `∀ ı⃗ t, Sort 0` to its full arity, so a truth
 value (`mem_univZero_of_endsInSort`).  The index count is read off the
 class decoding (`hlenEs`) at the fitting field spines. -/
-theorem genMinor_pt (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+theorem genMinor_pt
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -797,9 +797,9 @@ theorem genMinor_pt (hμ : μ.verifiedChecks = true)
   have hmp : R.g.nP + s < R.g.pre.length := by omega
   -- the stored type's entry at the minor's slot
   obtain ⟨cls', ty', ifs', body', -, -, -, -, -, -, -, -, -, -, fvs0, o0, hop0, hE⟩ :=
-    genRun_binders hμ R hg h mpC ψ hc
+    genRun_binders R hg h mpC ψ hc
   obtain ⟨fvs1, concl1, hop1, -, hTyE, hlenRds, hdomsR, -, hwdTy⟩ :=
-    recStage_tyPis (V := V) hμ mpC h hr ψ
+    recStage_tyPis (V := V) mpC h hr ψ
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop1.symm.trans hop0))
   have hle := blockRecHrPle (p := pp) h hc
   have hlenF : fvs1.length = pp.toBlockShape.majorIdxAt c + 1 :=
@@ -811,7 +811,7 @@ theorem genMinor_pt (hμ : μ.verifiedChecks = true)
   obtain ⟨pd, hpd, hrd⟩ := hdomsR _ y hy
   rw [denote_erasedEq hyE] at hrd
   -- the prefix's entry: the minor's value
-  have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h hr ψ
+  have hlenPd := blockRulePdomsAV_length (V := V) mpC h hr ψ
   have hPdget : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD
       (R.g.nP + s) default = pd := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_take,
@@ -890,7 +890,7 @@ theorem genMinor_pt (hμ : μ.verifiedChecks = true)
   have hmemB : xs.getD (R.g.nP + s) pt ∈ˢ interp V (consList xs ρ) (mkPisAV bs b) := by
     rw [← hBE, interp_liftN, hsh]; exact hmem
   -- the minor's domain is a graded type
-  have hgr := blockRulePdomsAV_graded (V := V) hμ mpC h hr ψ (R.g.nP + s) (by omega) ρ
+  have hgr := blockRulePdomsAV_graded (V := V) mpC h hr ψ (R.g.nP + s) (by omega) ρ
     (xs.take (R.g.nP + s)) (spineFit_take hxs (i := R.g.nP + s) (by omega))
   rw [hPdget] at hgr
   have hwdB : WellDenotedTy V (consList xs ρ) (mkPisAV bs b) := by

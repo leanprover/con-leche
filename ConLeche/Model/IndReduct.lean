@@ -30,7 +30,7 @@ open ConLeche (CheckMode Env Expr Name Level isDefEqCore)
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → Term}
 
 /-- The forward direction of `denote_mkAppN_inv`. -/

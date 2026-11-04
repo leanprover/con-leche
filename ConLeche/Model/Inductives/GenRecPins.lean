@@ -34,7 +34,6 @@ import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Tiers
 import ConLeche.Model.WellDenotedTransport
 import ConLeche.Semantics.Tower.SumTower
-import ConLeche.Verify.Modes
 
 public section
 
@@ -144,7 +143,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockParts
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section Pins
 
@@ -185,8 +184,8 @@ over the prefix, in the prefix context**: inferred at the prefix depth
 spine's head and arguments; a term scoped at the prefix infers alike
 there), scoped, and in the prefix context — the prefix openers' readings
 are the prefix domains, graded types (see the module docstring). -/
-theorem storedMajorSub_ctx (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+theorem storedMajorSub_ctx (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
@@ -199,7 +198,6 @@ theorem storedMajorSub_ctx (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
       Rules.Frame (pp.toBlockShape.rulePrefixAt j) x ∧
       CtxOk mpC.base2 ψ (pp.toBlockShape.rulePrefixAt j)
         (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse x := by
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   generalize hmIdef : pp.toBlockShape.majorIdxAt j = mI at hop hmaj
   generalize hrPdef : pp.toBlockShape.rulePrefixAt j = rP at hlt ⊢
   obtain ⟨_, _, -, ⟨TE⟩⟩ := ConLeche.recStageG_tyGen h hr
@@ -226,7 +224,7 @@ theorem storedMajorSub_ctx (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
       obtain ⟨-, rfl⟩ := hA
       exact ConLeche.inferTypeCore_forallE_dom' hinfT
     | succ n =>
-      obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body rfl n hA hinfT
+      obtain ⟨bt, -, hbt, -⟩ := inferTypeCore_openPis_body n hA hinfT
       rw [Nat.zero_add] at hbt
       exact ConLeche.inferTypeCore_forallE_dom' hbt
   obtain ⟨tdom, htdom⟩ := hdomInf
@@ -276,7 +274,7 @@ theorem storedMajorSub_ctx (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
     leavesBounded_of_openers (fun y hy => hbFvs y (List.mem_of_mem_take hy)) hleafP
   -- the recursor type's reading: its prefix domains
   obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, hdomsR, -, hwdTy⟩ :=
-    recStage_tyPis (V := V) rfl mpC h hr ψ
+    recStage_tyPis (V := V) mpC h hr ψ
   rw [hmIdef] at hop' hlenRds
   obtain ⟨hff, -⟩ := Prod.mk.inj (Option.some.inj (hop'.symm.trans hop))
   rw [hff] at hdomsR
@@ -339,8 +337,8 @@ theorem storedMajorSub_ctx (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V �
 /-- **A stored major-domain argument, or a head of its application spine,
 over the prefix is graded at every prefix spine** (`storedMajorSub_ctx`,
 then the inference's soundness). -/
-theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+theorem storedMajorSub_graded (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
@@ -352,8 +350,7 @@ theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
       ∀ σ : Nat → V,
         Sat V (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse σ →
         WellDenoted V σ w := by
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
-  obtain ⟨⟨tx, htx⟩, hfr, hCE⟩ := storedMajorSub_ctx rfl mpC h hr ψ hop hmaj hxA hlt
+  obtain ⟨⟨tx, htx⟩, hfr, hCE⟩ := storedMajorSub_ctx mpC h hr ψ hop hmaj hxA hlt
   obtain ⟨wa, hwa⟩ := acceptedReads_of mpC.base2 ψ htx hfr.1 hfr.2.1 hfr.2.2
   obtain ⟨-, -, -, -, hgr, -⟩ :=
     Rules.InferSemFull.global
@@ -363,8 +360,8 @@ theorem storedMajorSub_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
 
 /-- **A stored major-domain argument over the prefix is graded at every
 prefix spine** (`storedMajorSub_graded` at an argument). -/
-theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+theorem storedMajorArg_graded (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.toBlockShape.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
@@ -375,7 +372,7 @@ theorem storedMajorArg_graded (hμ : μ.verifiedChecks = true) (mpC : EnvModelM 
       ∀ σ : Nat → V,
         Sat V (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ j).reverse σ →
         WellDenoted V σ w :=
-  storedMajorSub_graded hμ mpC h hr ψ hop hmaj (.inl hxA) hlt
+  storedMajorSub_graded mpC h hr ψ hop hmaj (.inl hxA) hlt
 
 end Pins
 
@@ -395,8 +392,8 @@ back at the prefix openers they are those parameters up to erasure
 stored type's own inference (`storedMajorArg_graded`); `nestedPinGrade`
 carries the grading to the chain of any graded fit of the recursor
 type. -/
-theorem recStagePinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-        (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+theorem recStagePinsOk (mpC : EnvModelM V envC)
+        (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC))
@@ -427,7 +424,7 @@ theorem recStagePinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ en
   -- the parameter's grading, at the rule prefix
   have hgradeAt := fun (ψ : Name → Nat) {x : Expr} (hxA : x ∈ TE.maj.fvarTypeD.getAppArgs)
       (hlt : ∀ l ∈ x.fvarLeaves, l.1 < pp.toBlockShape.rulePrefixAt j) =>
-    storedMajorArg_graded (V := V) hμ mpC h hr ψ hopen hmaj hxA hlt
+    storedMajorArg_graded (V := V) mpC h hr ψ hopen hmaj hxA hlt
   obtain ⟨rP, hRP⟩ : ∃ n, pp.toBlockShape.rulePrefixAt j = n := ⟨_, rfl⟩
   obtain ⟨mI, hMI⟩ : ∃ n, pp.toBlockShape.majorIdxAt j = n := ⟨_, rfl⟩
   rw [hRP, hMI] at hsyn
@@ -515,10 +512,10 @@ theorem recStagePinsOk (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ en
       denote_instLevels m₃.acval_params φ, ← hψ]
     exact blockRecDenote_cross h hac ψ rP _ (constsBound_openRev hcbP 0 rP) hvpden
   · intro ρ zs TVa restR hzslen hzsOk hTVa hfit
-    obtain rfl := blockRuleTVa_run hμ mpC h hac hr φ us hTVa
+    obtain rfl := blockRuleTVa_run mpC h hac hr φ us hTVa
     rw [← hψ] at hfit
     -- the recursor type's prefix telescope
-    obtain ⟨-, -, -, -, hTyE, hlenRds, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+    obtain ⟨-, -, -, -, hTyE, hlenRds, -, -, -⟩ := recStage_tyPis (V := V) mpC h hr ψ
     rw [hMI] at hlenRds
     have hPdE : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j
         = (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ j).take

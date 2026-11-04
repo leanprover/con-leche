@@ -2,7 +2,6 @@ module
 
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Semantics.Kit
-import ConLeche.Verify.Modes
 public import ConLeche.Model.Inductives.TargetIhData
 import ConLeche.Model.Inductives.TargetResidue
 public import ConLeche.Model.Inductives.TargetFrame
@@ -51,11 +50,11 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv Block
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section MemberHoles
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {pp : BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockParts}
   {cvTas : List ConstantVal}
 
 /-- **The holes' values at their formers' types**: each member former's

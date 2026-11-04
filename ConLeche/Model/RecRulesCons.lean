@@ -51,7 +51,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- The reverse opening introduces no constants, so it preserves
 prefix-boundedness (its opener annotations are `.sort .zero`). -/
@@ -101,7 +101,7 @@ the same way; the arity clause is syntactic, hence untouched; clause
 only at the constructor's result family — a name the constructor's
 (resolving) stored type names, hence itself stored, hence not the
 fresh one (`iotaCtorNeverProp_cons_of_isSome`). -/
-theorem recRuleExtra_ext (mp : EnvModelM V μ env) {env' : Env}
+theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule}
@@ -245,7 +245,7 @@ A recursor cons with rules still establishes its *own* rules bespoke —
 that is the firing-law work, not a transport.  A recursor cons with
 **no** rules (`Empty.rec`) transports here unchanged, which is why the
 premise is `rules = []` rather than "not a recursor". -/
-theorem recRuleLaw_ext (mp : EnvModelM V μ env) {env' : Env}
+theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
     {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule}
@@ -326,7 +326,7 @@ theorem recRuleLaw_ext (mp : EnvModelM V μ env) {env' : Env}
 /-- **The fired iota contract survives a fresh cons that is
 not itself a recursor** — `recRuleLaw_cons_prefix` at every stored
 row, the freshness supplying the disequality. -/
-theorem recRules_cons_fresh (mp : EnvModelM V μ env)
+theorem recRules_cons_fresh (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hnotrec : ∀ cv mI rP rules, c₀ = .recInfo cv mI rP rules →
@@ -356,7 +356,7 @@ constant's own rows are the block's bespoke firing work, taken here as
 a premise.  ENDGAME F's §3 established that all six basis recursors
 owe theirs (`Empty.rec` alone has no rules and goes through
 `recRules_cons_fresh`). -/
-theorem recRules_cons_rec (mp : EnvModelM V μ env)
+theorem recRules_cons_rec (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     {cv₀ : ConstantVal} {mI₀ rP₀ : Nat} {rules₀ : List RecRule}
     (hfresh : env.find? c₀.name = none)
@@ -396,7 +396,7 @@ The semantic clauses are then the prefix's verbatim. -/
 prefix's readings** (a constant's install or a table's): the entry, its
 former and its constructor are prefix lookups, their type readings
 cross, and the two leaves the laws read are the prefix's. -/
-theorem towerEntryLaw_ext (mp : EnvModelM V μ env) {env' : Env}
+theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
     (φ : Name → Nat) {T : Name} {i : Nat} {entry : ProjEntry}
     (hfP : env.findProj? T i = some entry) :
@@ -451,7 +451,7 @@ theorem towerEntryLaw_ext (mp : EnvModelM V μ env) {env' : Env}
 
 /-- **`TowerOk` at a fresh cons**: every stored entry is a prefix entry
 (a constant's install adds no table), and its law crosses. -/
-theorem towerOk_cons_fresh (mp : EnvModelM V μ env)
+theorem towerOk_cons_fresh (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)

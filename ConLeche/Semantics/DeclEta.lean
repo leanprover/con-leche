@@ -74,13 +74,13 @@ record.
 The inductive kind is `DeclRun`'s `Ind` parameter here, so the one
 premise is at whatever payload the caller instantiates
 (`DeclIndRunDispatchK` at the fold). -/
-theorem declEtaStepRun {μ : CheckMode} {F : Nat}
+theorem declEtaStepRun {F : Nat}
     {Ind : List ConstantInfo → Nat → Env → Prop}
     {env : Env} {d : Declaration} {env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {nP : Nat} {envI : Env},
       Ind block nP envI → EtaFamiliesClosed envI)
     (hE : EtaFamiliesClosed env)
-    (h : DeclRun μ F Ind env d env₂) : EtaFamiliesClosed env₂ := by
+    (h : DeclRun F Ind env d env₂) : EtaFamiliesClosed env₂ := by
   cases d with
   | defnDecl cv value hint =>
     obtain ⟨type', value', hcv, -, rfl, -, -⟩ := h

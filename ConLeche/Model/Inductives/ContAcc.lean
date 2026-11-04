@@ -133,7 +133,7 @@ parameters are read at `b` (the frame's depth), with hole-free indices,
 carries the point vacuously and is accessible along the enclosing relation with
 the frame's bound read `dep - b` positions down (it reads parameter
 positions only). -/
-theorem accConcl_of_frameAccOut {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem accConcl_of_frameAccOut (mp : EnvModelM V env)
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
     {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level}
     {dep b : Nat} (hbd : b ≤ dep) {ds is : List Expr} {wa : Term}
@@ -212,7 +212,7 @@ parameter count, the container's level parameters distinct, its level
 the walk's), along every frameless accessibility hole relation whose
 pairs satisfy the container's parameter telescope at the key frames, the
 container's carrier is accessible (`FrameAccOut`, at its own member). -/
-@[expose] def KeyAcc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat)
+@[expose] def KeyAcc (mp : EnvModelM V env) (φ : Name → Nat)
     (w : Nat) (ctx : NestCtx) (key : NestKey) : Prop :=
   ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = key.cname ∧
     ∀ cv caps, env.find? key.cname = some (.indInfo cv caps) →
@@ -230,7 +230,7 @@ container's carrier is accessible (`FrameAccOut`, at its own member). -/
 /-- **A cache hit** (a cached instantiation whose parameters lie below
 every frame hole): the cached accessibility, at the enclosing relation
 seen at the block's own depth, makes the instance accessible. -/
-theorem contHit_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
+theorem contHit_acc (mp : EnvModelM V env) {w : Nat}
     {ctx : NestCtx} (hfind : ∀ n, ctx.find? n = env.find? n) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {n : Name} {us : List Level} {ds is : List Expr}
     {wa : Term}

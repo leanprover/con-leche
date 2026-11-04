@@ -28,7 +28,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo openPisAtF
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## `BlockModelAt` from the stages' three records
 
@@ -50,7 +50,7 @@ theorem BlockCtorsStage.idxOkAt {envI : Env} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf) (hk0 : 0 < d.k) :
+    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf) (hk0 : 0 < d.k) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ) := by
   intro ψ ρp hs c hc
@@ -65,7 +65,7 @@ theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -97,7 +97,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -244,7 +244,7 @@ theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
@@ -284,7 +284,7 @@ theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d lps cvTas p₁ isRec A envI ctorsOf)
+    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
     (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)

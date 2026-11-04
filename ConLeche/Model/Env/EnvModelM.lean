@@ -226,7 +226,7 @@ end
 
 /-- **The P-tier environment invariant, at one mode** (see the module
 docstring). -/
-structure EnvModelM (μ : CheckMode) (env : Env) where
+structure EnvModelM (env : Env) where
   /-- the environment carrier, contained -/
   base2 : EnvModel V env
   /-- every stored type reads, at every ground assignment -/
@@ -315,13 +315,13 @@ structure EnvModelM (μ : CheckMode) (env : Env) where
 namespace EnvModelM
 
 variable {V}
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {env : Env} {φ : Name → Nat}
 
 /-- **The `const` residue, derived — the worked example of the
 bundle-supplying layer.**  The three type fields at the composed
 assignment `Level.substFn φ ks us`, carried to the instantiated form
 by `denotePInstLevels` (an equality: no arity premise, no fuel). -/
-theorem constType (m : EnvModelM V μ env) : ConstType m.base2 φ := by
+theorem constType (m : EnvModelM V env) : ConstType m.base2 φ := by
   intro d n ci us hf hlen
   have hmem := ConLeche.Env.find?_mem hf
   have hname := ConLeche.Env.find?_name hf
@@ -359,7 +359,7 @@ crossing), so a fitting spine fits the stored reading.  Where the sort
 is `0`, the former's membership in its graded type puts the
 application in `Sort 0` (`foldl_app_mem_mkPisAV`); elsewhere the
 `ind_strict` field gives a strict set. -/
-theorem indFibLaw (m : EnvModelM V μ env) (φ : Name → Nat) : IndFibLaw m.base2 φ := by
+theorem indFibLaw (m : EnvModelM V env) (φ : Name → Nat) : IndFibLaw m.base2 φ := by
   intro d I cv caps us hf _hlen ab n hread ρ vs hsp
   have hmem := ConLeche.Env.find?_mem hf
   have hname := ConLeche.Env.find?_name hf
@@ -399,8 +399,8 @@ projection:
 | `rec_rhs_denotes`, `rec_params_le` | `rec_rules`' `RecRuleLaw`, whose first two components are exactly those two facts |
 | `nat_op_guard` | `nat_ops`/`div_mod` through `natOpStored_inv` |
 -/
-def toEnvFacts {V : Type w} [SetTheory V] {μ : CheckMode}
-    {env : Env} (m : EnvModelM V μ env) : ConLeche.Semantics.EnvFacts env where
+def toEnvFacts {V : Type w} [SetTheory V]
+    {env : Env} (m : EnvModelM V env) : ConLeche.Semantics.EnvFacts env where
   cval := m.base2.acval
   cval_closed := m.base2.cval_closed
   wf := m.base2.wf
@@ -430,7 +430,7 @@ end EnvModelM
 case): the core is the mode-indexed empty's projection, and every P
 field is vacuous — no constants, guards false. -/
 @[expose] noncomputable def EnvModelM.empty (V : Type w) [SetTheory V]
-    (μ : CheckMode) : EnvModelM V μ Env.empty where
+    : EnvModelM V Env.empty where
   base2 := EnvModel.empty
   type_reads := fun c hc => nomatch hc
   type_wellDenotedTy := fun c hc => nomatch hc
@@ -474,17 +474,17 @@ field is vacuous — no constants, guards false. -/
 
 namespace EnvModelM
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **Record a block's lfp clause** — the block install's production
 step (`declBlock`, at the constructors' environment).  Everything but
 the recorded list is unchanged, so `(mp.addLfp …).base2 = mp.base2`
 definitionally. -/
-@[expose] def addLfp (mp : EnvModelM V μ env) (D : LfpDatum V)
+@[expose] def addLfp (mp : EnvModelM V env) (D : LfpDatum V)
     (hL : LfpClause mp.base2.acval D) (hst : LfpStored env D)
     (hrd : LfpReads mp.base2.acval env D) (hrdC : LfpCtorReads mp.base2.acval env D)
     (hcaps : LfpCaps env D) :
-    EnvModelM V μ env :=
+    EnvModelM V env :=
   { mp with
     lfpBlocks := D :: mp.lfpBlocks
     lfp_ok := fun D' hD' => by
@@ -493,11 +493,11 @@ definitionally. -/
       · exact mp.lfp_ok D' h }
 
 
-theorem mem_addLfp (mp : EnvModelM V μ env) (D : LfpDatum V) (hL) (hst) (hrd) (hrdC) (hcaps) :
+theorem mem_addLfp (mp : EnvModelM V env) (D : LfpDatum V) (hL) (hst) (hrd) (hrdC) (hcaps) :
     D ∈ (mp.addLfp D hL hst hrd hrdC hcaps).lfpBlocks := List.mem_cons_self
 
 /-- A recorded block's clause, read off the carrier. -/
-theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) :
+theorem lfpClause_of_mem (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) :
     LfpClause mp.base2.acval D :=
   (mp.lfp_ok D hD).1
 
@@ -505,7 +505,7 @@ theorem lfpClause_of_mem (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ 
 every stored inductive former and its leaf, and every successful reading
 of a stored former's type — the transport every construction site of
 the invariant (the cons funnel, the rule-list swap) instantiates. -/
-theorem lfp_ok_transport (mp : EnvModelM V μ env) {env' : Env}
+theorem lfp_ok_transport (mp : EnvModelM V env) {env' : Env}
     {acval' : Name → (Name → Nat) → Term}
     (hfind : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
       env'.find? n = some ci)
@@ -569,7 +569,7 @@ end EnvModelM
 /-! ## The `Nat`-op guard law -/
 
 section
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The install fold's `Nat`-op invariant, in the form the literal
 tier reads it**.  `reduceNat` tests `natOpStored` — one `Env.find?`;
@@ -584,7 +584,7 @@ guard off the environment. -/
     ConLeche.natOpStored env c = true → ConLeche.natOpGuard env c = true
 
 /-- `EnvModelM` supplies it, from `nat_ops` and `div_mod`. -/
-theorem natOpGuardLaw_of (mp : EnvModelM V μ env) : NatOpGuardLaw env := by
+theorem natOpGuardLaw_of (mp : EnvModelM V env) : NatOpGuardLaw env := by
   intro c hmem hst
   obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
   rcases hmem with hm | hm

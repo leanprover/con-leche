@@ -165,7 +165,7 @@ theorem idxOf_member {D : LfpDatum V} (hnd : D.names.Nodup) (hkN : D.names.lengt
   exact hnd.idxOf_getElem mm (by omega)
 
 /-- **A group member's facts** (N2 at the key, via `n2_link`). -/
-theorem grpMember {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem grpMember (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
     (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
@@ -239,7 +239,7 @@ theorem grpHoles_member {D : LfpDatum V} {grp : List (Name × Expr)} {hi : Nat}
 
 section FrameT
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)
@@ -558,7 +558,7 @@ end FrameT
 /-- **The hole frame's hole values satisfy the recorded reading's hole
 context**: the parameters at the key frame, then each member's hole value
 in its canonical hole type (`canonHoleTy_read`, `LfpDatum.holeVal_mem`). -/
-theorem frameVals_sat {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem frameVals_sat (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
     {nPc : Nat} (hnP : (D.params ψ).length = nPc) {Tys : List Term} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
@@ -587,7 +587,7 @@ theorem frameVals_sat {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : L
 
 section Frame
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
   (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
@@ -960,7 +960,7 @@ end Frame
 /-! ## The level parameters of a recorded block -/
 
 /-- The lps of a recorded block's constructor are its members'. -/
-theorem ctor_lps {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem ctor_lps (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {lps : List Name}
     (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)

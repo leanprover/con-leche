@@ -30,7 +30,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal PropWhen)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-! ## `Term` bookkeeping -/
 
@@ -394,12 +394,12 @@ theorem CtorDataI.cross {m : EnvModel V env} {T : Name} {lps : List Name} {cvC :
 
 /-- The constructor's data, from its stage run at the environment
 holding the former. -/
-theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem sumCtorData_of (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {bs : List Expr}
     {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
@@ -428,12 +428,12 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
   have hidx := openPisAtFvars_index nP cvCa.type 0 hopC
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   obtain ⟨F', tb, vb, hib, hensb, -⟩ :=
-    piBits_of_infer (hμ) (nP + nF) hopAll hst hens
+    piBits_of_infer (nP + nF) hopAll hst hens
   rw [Nat.zero_add] at hib hensb
   obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv (fvsP ++ idxArgs) hib
   obtain ⟨ci, hfci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv htf
   obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
-  have htfT : ConLeche.inferTypeCore μ false env F' (nP + nF)
+  have htfT : ConLeche.inferTypeCore .verified false env F' (nP + nF)
       (.const T (lps.map .param)) = .ok cvTa.type := by
     have := htf
     rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl,
@@ -450,7 +450,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       (∀ ρ : Nat → V, WellDenotedTy V ρ (mkPisAV ds (ctorBodyAVI mp.base2 T nP nF ψ Es))) ∧
       DomsBelow 0 ds ∧ (∀ E ∈ Es, Term.bvarsBelow (nP + nF) E) := by
     intro ψ
-    have hc := claimsAt_of hμ mp ψ F
+    have hc := claimsAt_of mp ψ F
     obtain ⟨Ta, hTa⟩ := acceptedReads_of mp.base2 ψ hst hw hbt' hL
     obtain ⟨-, -, hokT, -, -⟩ := hc.inferRow hst hw hbt' hL (CtxOk.nil hnil) hTa
     have hokT' : ∀ ρ : Nat → V, WellDenoted V ρ Ta := fun ρ =>
@@ -560,7 +560,7 @@ theorem sumCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
   · -- the unsourced fields are propositional at a large-eliminating
     -- family instantiated at `Prop`
     intro hl ψ hw0 ρ hρ
-    have hc := claimsAt_of hμ mp ψ F
+    have hc := claimsAt_of mp ψ F
     have hC : Opened mp.base2 ψ (nP + nF) cvCa.type (fvsP ++ xFvs)
         (Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs))
         (((Classical.choose (hper ψ))).reverse)
@@ -621,11 +621,11 @@ under the parameters the field chain graded (at the block's level),
 bounded when the family is not `Prop`, and the index
 expressions graded and fitting the former's index telescope at every
 fitting field spine. -/
-theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem ctorFramesGen (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
@@ -688,7 +688,7 @@ theorem ctorFramesGen (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
           interp V (consList as ρ) ((((ds ψ).drop nP)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) := by
     intro ψ
-    have hc := claimsAt_of hμ mp ψ F
+    have hc := claimsAt_of mp ψ F
     -- the former, opened at the parameters
     obtain ⟨Γt, Rt, hteleT, hT⟩ := opened_of hopT hTf hTb (hFD.read ψ) (hFD.okTy ψ)
     obtain ⟨pps', hst', hΓt⟩ := stripPisAV_of_piTeleAV hteleT
@@ -825,7 +825,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveSha
   RecRule)
 
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The constructors' data, positionally -/
 
@@ -1047,9 +1047,9 @@ theorem stageCtorGen {T : Name}
       ConLeche.reservedBasisNames.contains T' = false → caps'.eta = true →
       ConLeche.EtaFamilyStored ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ T' caps' →
       caps'.etaCtor ≠ cvCa.name)
-    (mp : EnvModelM V μ env)
+    (mp : EnvModelM V env)
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₀ env₁ T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env₁ T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there
@@ -1093,7 +1093,7 @@ theorem stageCtorGen {T : Name}
       Sat V (((ds ψ).take nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((ds ψ).drop nP)) bs →
         SpineFit ρ (((ppsAll ψ).drop nP)) (idxValsAt ρ (Es ψ) bs)) :
-    ∃ mp' : EnvModelM V μ ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP))
           (uChains (Fss ψ))) := by
@@ -1199,7 +1199,7 @@ theorem essOf_getElem? (cds : List CtorDatum) (j : Nat) :
   simp [essOf]
 
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## Distinct names -/
 

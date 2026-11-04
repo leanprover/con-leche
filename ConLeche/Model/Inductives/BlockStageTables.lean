@@ -37,15 +37,15 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **What a structure-like member's table needs** beyond the
 constructors' stage. -/
-structure BlockTablesStage (μ : CheckMode) (F : Nat) (d : BlockData V) (lps : List Name)
+structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
     (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
     (A : Nat → (Name → Nat) → Term)
     (envI : Env) (ctorsOf : Name → List Name) (sortsOf : Nat → List Level) : Prop
-    extends BlockCtorsStage μ F d lps cvTasAll p₁ isRec A envI ctorsOf where
+    extends BlockCtorsStage F d lps cvTasAll p₁ isRec A envI ctorsOf where
   /-- the η data a structure-like member's record carries -/
   etaData : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
     (ConLeche.blockCapsAt p₁ m isRec).eta = true →
@@ -177,11 +177,11 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     {A : Nat → (Name → Nat) → Term}
     {envI : Env} {ctorsOf : Name → List Name} {sortsOf : Nat → List Level}
     (hN : BlockNamesOk (V := V) d cvTasAll)
-    (hS : BlockTablesStage (V := V) μ F d lps cvTasAll p₁ isRec A envI ctorsOf sortsOf)
+    (hS : BlockTablesStage (V := V) F d lps cvTasAll p₁ isRec A envI ctorsOf sortsOf)
     (hqlps : q.lps = lps) (hqnP : q.nP = d.nP) (hqres : q.resSort = d.resSort)
     {ex : List Name} :
     ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (i : Nat)
-      (env env₂ : Env) (mp : EnvModelM V μ env),
+      (env env₂ : Env) (mp : EnvModelM V env),
       (∀ (c : Nat) (e : MemberShape × List (ConstantVal × Nat) × List (List Level)),
         l[c]? = some e → i + c < d.k ∧ e.1.cvT.name = d.memberName (i + c) ∧
           e.1.nIdx = d.nIdxAt (i + c) ∧ e.2.1 = d.ctorsM (i + c) ∧

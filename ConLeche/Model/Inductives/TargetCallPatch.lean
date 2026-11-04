@@ -39,8 +39,8 @@ variable {V : Type w} [SetTheory V]
 
 section Block
 
-variable {μ : ConLeche.CheckMode} {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
-  {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
+variable {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
+  {mpC : EnvModelM V envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
 
 /-- **The hole frame satisfies the hole context**: each member's hole
 value lies in the member's index family type (`holeVal_mem`). -/

@@ -127,7 +127,7 @@ reason as at `EqLaw`).
 
 **Establishment**: `reduceOps_install` (`Model/ReduceOps.lean`),
 at the opaque cons, from the *recorded* identity-certificate run
-(`isDefEqCore μ false env F 1 (.app valA (reduceCertVar c))
+(`isDefEqCore .verified false env F 1 (.app valA (reduceCertVar c))
 (reduceCertVar c) = .ok true`) through `DefEqClaim` at the
 one-entry element context.  **Preservation**: `reduceOps_cons_fresh`
 at every other fresh cons (the law mentions two stored leaves, so it

@@ -32,7 +32,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## An environment extended by a list of constants -/
 
@@ -58,8 +58,8 @@ on top of the environment, keeping every lookup, at a carrier that
 keeps every old name's leaf: the carrier rebuilt with the input's
 recorded list (the clauses re-read through the monotone crossing), and
 coverage carried to an exemption list that holds the new inductives. -/
-theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvModelM V μ env)
-    (mpX : EnvModelM V μ env') {ex ex' : List Name}
+theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvModelM V env)
+    (mpX : EnvModelM V env') {ex ex' : List Name}
     (henv : env'.consts = new ++ env.consts) (htab : env'.tables = env.tables)
     (hfwd : ∀ n ci, env.find? n = some ci → env'.find? n = some ci)
     (hag : ∀ n, (env.find? n).isSome = true → mpX.base2.acval n = mp.base2.acval n)
@@ -69,7 +69,7 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
     (hhead : ∀ c ∈ new, ∀ C, (ctorEntry C c).isSome = true →
       C ∈ ex ∨ env.find? C = none ∨
         ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = []) :
-    ∃ mk : EnvModelM V μ env', mk.base2 = mpX.base2 ∧ mk.lfpBlocks = mp.lfpBlocks ∧
+    ∃ mk : EnvModelM V env', mk.base2 = mpX.base2 ∧ mk.lfpBlocks = mp.lfpBlocks ∧
       (LfpCover mp ex → LfpCover mk ex') := by
   obtain ⟨cs, ts⟩ := env'
   simp only at henv htab
@@ -233,7 +233,7 @@ theorem getAppFn_mkAppN_const (n : Name) (us : List Level) (args : List Expr) :
 /-- A former's check leaves its level parameters distinct. -/
 theorem checkBlockTele_nodup {env : Env} {nP : Nat} {ms : ConLeche.MemberShape} {F : Nat}
     {r : ConstantVal × Level}
-    (h : ConLeche.checkBlockTele (ConLeche.fueledOps μ F) env nP ms = .ok r) :
+    (h : ConLeche.checkBlockTele (ConLeche.fueledOps .verified F) env nP ms = .ok r) :
     ms.cvT.levelParams.Nodup := by
   unfold ConLeche.checkBlockTele at h
   obtain ⟨cv, hcv, -⟩ := exceptBind_ok h

@@ -58,7 +58,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- A non-reserved name differs from every reserved one.  The
 inductive tier's workhorse: `blockShape?`'s name guard is the
@@ -89,7 +89,7 @@ theorem reserved_eqName : ConLeche.reservedBasisNames.contains eqName = true := 
 the *name* (non-reserved) and the *kind* (never a value kind, never an
 axiom); `caps_ok` and `rec_rules` stay open, because those are the two
 rows an inductive block genuinely establishes. -/
-theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     -- the name: `blockShape?`'s guard at a member
@@ -126,7 +126,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V μ env)
     (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
       ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh
     hAparams hAok htyReads htyOk hmemNew
@@ -160,7 +160,7 @@ with `rec_rules` discharged too.  A member is an `indInfo` or a
 vacuously: the cons is not a recursor at all, and `EnvModel.rec_ctors`
 carries the rest (ENDGAME D §3a).  `caps_ok` remains the member's one
 open row — the block's former *is* a family head. -/
-theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
@@ -188,7 +188,7 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V μ env)
     (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
       ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_ind_cons mp hfresh hnres ?_ ?_ hh
     hAparams hAok htyReads htyOk hmemNew
@@ -204,7 +204,7 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V μ env)
 /-- **The P step at a *recursor* cons** — the block's recursors, stored
 as `recInfo`.  Only `caps_ok` and `rec_rules` stay open; both are the
 install's to establish. -/
-theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
@@ -231,7 +231,7 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V μ env)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
       ∀ φ : Name → Nat, RecRules m₂ φ) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   obtain ⟨cv, mI, rP, rules, rfl⟩ := hknd
   exact declStep_preserves_of_ind_cons mp hfresh hnres

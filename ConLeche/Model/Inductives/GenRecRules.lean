@@ -1177,19 +1177,19 @@ theorem find?_range_extend {q : Nat → Bool} {n m r0 : Nat} (hnm : n ≤ m)
 
 section Callee
 
-variable {μ : CheckMode} {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts}
+variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts}
   {nb : Bool} {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {mpC : EnvModelM V μ envC}
+  {mpC : EnvModelM V envC}
 
 /-- **The callees' recursor constants read as their leaves**: the
 constant a generated rule calls at class `t` (`classRecOf`) is the
 family's recursor at position `genRecIdx rd t`, stored at the cons, read
 by the family's valuation as that position's leaf. -/
 theorem genHcallee
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block ctorsAs
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block ctorsAs
       out)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     (hnd : ((tgtRs out).map (·.1.name)).Nodup)
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
@@ -1285,7 +1285,7 @@ fields at the class's instantiation, as generated. -/
 /-- **`BlockRuleDataB`'s three DATA conjuncts** (the class side's rows:
 the frame's fit, the index readings, the fired spine) at one pair, under
 the contract's premises. -/
-@[expose] def BlockRuleRows3 {μ : CheckMode} {envC : Env} (mpC : EnvModelM V μ envC)
+@[expose] def BlockRuleRows3 {envC : Env} (mpC : EnvModelM V envC)
     (p : BlockParts) (nP : Nat)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (pdoms0 : (Name → Nat) → Nat → List Term)
@@ -1429,7 +1429,7 @@ end IhEq
 
 section Bridges
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts} {nb : Bool}
   {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -1476,7 +1476,7 @@ theorem readOpenedDoms_getElem {acval : Name → (Name → Nat) → Term} {env :
 /-- **The field bridge, under D1**: the stored rule's field λ-domains
 read as the target frame's field domains. -/
 theorem genRuleFieldRead
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g) (acval : Name → (Name → Nat) → Term) :
     GenRuleFieldRead acval envC pp.toBlockShape out := by
@@ -1518,11 +1518,11 @@ theorem genRuleFieldRead
 /-- **The prefix bridge, under D1**: the stored rule's prefix λ-domains
 read as the stored recursor type's prefix domains — both are the
 generated prefix `g.pre`, stored as generated. -/
-theorem genRulePrefRead (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+theorem genRulePrefRead (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) :
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) :
     GenRulePrefRead mpC.base2.acval envC pp.toBlockShape out := by
   intro j r hr i cA rhs hcA hrhs ψ bs body hop
   obtain ⟨cls, x, fvs0, res0, hc, hrP, -, -, -, -, hop0, -, -, -, hcx, hnF, hxmem, -, -, -,
@@ -1555,12 +1555,12 @@ theorem genRulePrefRead (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ e
   obtain ⟨xsT, restT, hopT, -, hdomsT⟩ := open_of_erasedEq_closeTelescope R.g.pre 0 _ r.1.type
     hpreB (ConLeche.closeTelescope_bounded _ _ _ hrestB hbody) hEq0
   have hrP' : pp.toBlockShape.rulePrefixAt j = R.g.pre.length := hrP
-  have hreads := blockRulePdomsAV_reads hμ mpC h hr ψ (by rw [hrP']; exact hopT)
+  have hreads := blockRulePdomsAV_reads mpC h hr ψ (by rw [hrP']; exact hopT)
   have hxT : xsT.length = R.g.pre.length := ConLeche.Verify.openPisAtFvars_length _ hopT
   have hbl : bs.length = R.g.pre.length + x.nF := openLamsM_length _ hop'
   rw [hrP']
   refine List.ext_getElem (by
-    rw [List.length_take, readLamBs_length, blockRulePdomsAV_length hμ mpC h hr,
+    rw [List.length_take, readLamBs_length, blockRulePdomsAV_length mpC h hr,
       hrP', hbl]; omega) fun k hk hk' => ?_
   have hkP : k < R.g.pre.length := by simp at hk; omega
   rw [List.getElem_take, readLamBs_getElem 0 bs k (by omega), Nat.zero_add]
@@ -1799,21 +1799,21 @@ end Free
 
 section Obligations
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts} {nb : Bool}
   {pos : ConLeche.NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {mpC : EnvModelM V μ envC}
+  {mpC : EnvModelM V envC}
 
 open ConLeche (ScB ClassGenScoped)
 
 /-- **`heqB`** (the skeleton's goal): every equation of the generated
 family is bound below the family. -/
-theorem genRecHeqB_R (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+theorem genRecHeqB_R
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) :
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) :
     ∀ (ψ : Name → Nat) (e : Term),
       e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
           (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
@@ -1823,11 +1823,11 @@ theorem genRecHeqB_R (hμ : μ.verifiedChecks = true)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd) ψ →
         Term.bvarsBelow (tgtRs out).length e :=
-  fun ψ e he => blockRecEqs_below_rows hμ h (genRowB mpC.base2 R hg) ψ e he
+  fun ψ e he => blockRecEqs_below_rows h (genRowB mpC.base2 R hg) ψ e he
 
 /-- **`htower`** (the skeleton's goal, at any environment's reading). -/
 theorem genRecHtower
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out) {env₃ : Env} :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r →
@@ -1846,10 +1846,10 @@ generated run: the constructor's declared type at the class's
 instantiation names only the recursor's level parameters).  The `ih`
 terms are parametric at the stored rule's footprint
 (`genIhsAV_params`, `ClassRuleRun.hlp`), the residue is ψ-free. -/
-theorem genRecHeqP_R (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+theorem genRecHeqP_R
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {s : (Name → Nat) → Nat}
     (hsP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[i]? = some r → ∀ (ψ₁ ψ₂ : Name → Nat),
@@ -1883,7 +1883,7 @@ theorem genRecHeqP_R (hμ : μ.verifiedChecks = true)
                 (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
                 (fun _ => genRbAV R.g R.rd) ψ₂ := by
   intro i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀
-  refine ⟨hsP i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀, blockRecEqs_params_rows hμ h ?_ i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀⟩
+  refine ⟨hsP i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀, blockRecEqs_params_rows h ?_ i₀ r₀ hr₀ ψ₁₀ ψ₂₀ hq₀⟩
   intro c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq
   obtain ⟨e1, e2, e3⟩ := hrowP c r hr j cA rhs hcA hrhs ψ₁ ψ₂ hq
   obtain ⟨_rc, _cls, _x, _gen, -, -, -, -, -, -, -, -, -, -, -, -, ⟨RR⟩⟩ :=
@@ -1907,9 +1907,9 @@ theorem genRecHeqP_R (hμ : μ.verifiedChecks = true)
 alike there and at the recursors' cons. -/
 theorem blockRecDenote_cross_CBNF {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal} {F : Nat}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    {mpC : EnvModelM V μ envC} {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
+    {mpC : EnvModelM V envC} {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     (ψ : Name → Nat) (d : Nat) (e : Expr) (hcb : CBNF envC e) :
     denote mpC.base2.acval envC ψ d e
       = denote (blockRecAcv mpC.base2.acval envC rs s eqs)
@@ -1930,11 +1930,11 @@ which, its callee's recursor constant read as the callee's leaf
 leaves' values; `hfind`: the stored constructors are installed (the `ih` pieces then name no recursor, `genIhFree_run`).  The family's
 leaf facts come from the equations' `heqB`/`heqP` and the family
 premise `hpre` (as at the target check, `tgtRecDataB`). -/
-theorem genRecHdataS (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+theorem genRecHdataS
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     (hndM : pp.toBlockShape.memberNames.Nodup)
     {s : (Name → Nat) → Nat}
     (heqB : ∀ (ψ : Name → Nat), ∀ e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
@@ -2011,8 +2011,8 @@ theorem genRecHdataS (hμ : μ.verifiedChecks = true)
             (fun ψ => blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) φ j i r cA rl rhs := by
   intro m₃ hac φ j r hr i cA rhs hcA hrhs
   have hnd := ConLeche.recStageG_nodup h hndM
-  have hleaf := blockRecLeafOk_of hμ mpC h heqB heqP hpre
-  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run hμ mpC h hnd hleaf m₃ hac r
+  have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
+  obtain ⟨hreadR, hokR⟩ := blockRuleRhs_read_run mpC h hnd hleaf m₃ hac r
     (List.mem_of_getElem? hr) rhs (List.mem_of_getElem? hrhs)
   intro us hus hℓ usj ρ xs ys restR restC hxl hyl husjl hψ hyWD hidx hfitR hfitC
   obtain ⟨h1, h2, h3⟩ := hrow3 φ j r hr i cA rhs hcA hrhs us hus hℓ usj ρ xs ys restR restC
@@ -2122,10 +2122,10 @@ theorem genRecHdataS (hμ : μ.verifiedChecks = true)
 /-- The equations at the skeleton's `ih` terms ARE the equations at the
 stored rule's (`genIhsAV_eq_R` at every stored pair). -/
 theorem genEqs_eq_R
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     (ψ : Name → Nat) :
     (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
           (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
@@ -2146,11 +2146,11 @@ theorem genEqs_eq_R
   exact ⟨rfl, rfl, genIhsAV_eq_R R hg (List.getElem?_eq_getElem hc) hcA hrhs _ _ _ ψ, rfl, rfl⟩
 
 /-- **`heqB`** (the skeleton's goal, at its `ih` terms). -/
-theorem genRecHeqB (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+theorem genRecHeqB
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) :
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) :
     ∀ (ψ : Name → Nat) (e : Term), e ∈ (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
           (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
           (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
@@ -2159,14 +2159,14 @@ theorem genRecHeqB (hμ : μ.verifiedChecks = true)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd)) ψ →
         Term.bvarsBelow (tgtRs out).length e := fun ψ e he =>
-  genRecHeqB_R (mpC := mpC) hμ R hg h ψ e (by rw [← genEqs_eq_R (mpC := mpC) R hg h ψ]; exact he)
+  genRecHeqB_R (mpC := mpC) R hg h ψ e (by rw [← genEqs_eq_R (mpC := mpC) R hg h ψ]; exact he)
 
 /-- **`heqP`** (the skeleton's goal, at its `ih` terms). -/
-theorem genRecHeqP (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+theorem genRecHeqP
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {s : (Name → Nat) → Nat}
     (hsP : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[i]? = some r → ∀ (ψ₁ ψ₂ : Name → Nat),
@@ -2198,7 +2198,7 @@ theorem genRecHeqP (hμ : μ.verifiedChecks = true)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd)) ψ₂ := by
   intro i r hr ψ₁ ψ₂ hq
-  obtain ⟨h1, h2⟩ := genRecHeqP_R (mpC := mpC) hμ R h hsP hrowP i r hr ψ₁ ψ₂ hq
+  obtain ⟨h1, h2⟩ := genRecHeqP_R (mpC := mpC) R h hsP hrowP i r hr ψ₁ ψ₂ hq
   refine ⟨h1, ?_⟩
   rw [genEqs_eq_R (mpC := mpC) R hg h ψ₁, genEqs_eq_R (mpC := mpC) R hg h ψ₂]
   exact h2

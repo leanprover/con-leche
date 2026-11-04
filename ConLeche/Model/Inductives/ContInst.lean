@@ -143,14 +143,14 @@ key's parameters, then each member applied to them. -/
 /-- **The instantiated constructor's substitution**: the parameters at
 their readings, every member its application's reading (the depth-`hi`
 readings of `instS`). -/
-@[expose] noncomputable def instTau {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+@[expose] noncomputable def instTau (mp : EnvModelM V env)
     (φ : Name → Nat) (D : LfpDatum V) (us : List Level) (hi : Nat) (ds : List Expr) :
     Nat → Term :=
   substTau (ds.length + D.k) hi fun q => (denote mp.base2.acval env φ hi (instS D us ds q)).getD .prf
 
 section Inst
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)

@@ -40,7 +40,7 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo RecRule BlockShape B
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## 4. The stored rules' typing run -/
 
@@ -52,9 +52,9 @@ environment**, stated at the list the model's bare cons is built over
 this file's public view): the rule record's `htyR`. -/
 theorem recStage_rhsInfer {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs) :
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs) :
     ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∃ tyR : Expr,
-      ConLeche.inferTypeCore μ false
+      ConLeche.inferTypeCore .verified false
           (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) envC) F 0 rhsA
         = .ok tyR := by
   obtain ⟨R⟩ := id h
@@ -153,7 +153,7 @@ at `univ (s ψ)`. -/
 the leaf is closed, level-parametric in each
 recursor's own parameters, graded, and the family premise
 `hpre` that grades it. -/
-structure BlockRecLeafOk {envC : Env} (mpC : EnvModelM V μ envC)
+structure BlockRecLeafOk {envC : Env} (mpC : EnvModelM V envC)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List Term) : Prop where
   closed : ∀ (ψ : Name → Nat) (i : Nat),
@@ -193,7 +193,7 @@ theorem blockRecAcv_at {acval : Name → (Name → Nat) → Term} {envC : Env}
   rfl
 
 /-- The leaf facts, at a stored recursor's name of the valuation. -/
-theorem BlockRecLeafOk.stored {envC : Env} {mpC : EnvModelM V μ envC}
+theorem BlockRecLeafOk.stored {envC : Env} {mpC : EnvModelM V envC}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     (hleaf : BlockRecLeafOk mpC rs s eqs) (hnd : (rs.map (·.1.name)).Nodup)
@@ -241,7 +241,7 @@ recursors' cons whose valuation is `blockRecAcv … s eqs`, every level
 valuation `φ`, and every stored pair (recursor `j` with data `r`,
 constructor `i` = `cA` with right-hand side `rhs`), and the pair's stored
 rule bits. -/
-abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V μ envC)
+abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V envC)
     (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule)
     (p : BlockParts) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List Term) (nPc : Nat → Nat)
@@ -266,11 +266,11 @@ rules have the SHAPE (`RecRulesShape`), the `.nested` firings' pins
 facts (`hnest`), the stage's record at any majors (`RecStageG`), the
 stored names distinct (`hnd`), the LEAF's facts with the family premise
 (`BlockRecLeafOk`) and the rule seam (`hnew`). -/
-theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : BlockParts} {cvTas : List ConstantVal}
+theorem blockRecStaged_runR {envC : Env}
+    (mpC : EnvModelM V envC) {p : BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     (hnd : (rs.map (·.1.name)).Nodup)
     {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
     {nPc : Nat → Nat}
@@ -284,7 +284,7 @@ theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
     (hnew : AtStoredRules mpC R p rs s eqs nPc fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleLaw m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
           (p.toBlockShape.rulePrefixAt j) rl) :
-    BlockRecStagedAt (V := V) μ envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)
+    BlockRecStagedAt (V := V) envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)
       mpC := by
   have hfacts := ConLeche.recStage_facts h
   have hcv := recStage_cvFacts h
@@ -298,8 +298,8 @@ theorem blockRecStaged_runR {envC : Env} (hμ : μ.verifiedChecks = true)
       (hfacts r hr).2.2.2.1⟩)
     hag (fun r hr => (hL r hr).1) (fun r hr => (hL r hr).2.1)
     (fun r hr => (hL r hr).2.2)
-    (hrd_of_pre hμ mpC h rfl
-      (fun i r hr ψ => by obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis hμ mpC h hr ψ; exact hread)
+    (hrd_of_pre mpC h rfl
+      (fun i r hr ψ => by obtain ⟨-, -, -, hread, -⟩ := recStage_tyPis mpC h hr ψ; exact hread)
       (fun i r hr ψ => blockRecAcv_at hnd hr ψ) hleaf.pre)
     (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
     hctorsIn hshape hnest

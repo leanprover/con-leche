@@ -50,7 +50,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## Level plumbing -/
 
@@ -514,7 +514,7 @@ A stored operation with a pinned type gets its head package from
 reading is graded — which is where the fibre facts come from). -/
 
 /-- **A stored pinned binary head.** -/
-theorem natBinHead_of_stored (mp : EnvModelM V μ env) {ψ : Name → Nat}
+theorem natBinHead_of_stored (mp : EnvModelM V env) {ψ : Name → Nat}
     {o : Name} {cvo : ConstantVal} {vo : Expr}
     {ho : ReducibilityHint}
     (hf : env.find? o = some (.defnInfo cvo vo ho))
@@ -548,7 +548,7 @@ theorem natBinHead_of_stored (mp : EnvModelM V μ env) {ψ : Name → Nat}
   rwa [show (ConstantInfo.defnInfo cvo vo ho).name = o from hnm] at h
 
 /-- **A stored pinned unary head.** -/
-theorem natUnHead_of_stored (mp : EnvModelM V μ env) {ψ : Name → Nat}
+theorem natUnHead_of_stored (mp : EnvModelM V env) {ψ : Name → Nat}
     {o : Name} {cvo : ConstantVal} {vo : Expr}
     {ho : ReducibilityHint}
     (hf : env.find? o = some (.defnInfo cvo vo ho))
@@ -611,14 +611,14 @@ come from the v1 fragment machinery, the gradings from the packages,
 the context from `ctxOk_natCtx2`.  Both sides are members of one type
 `S` (the stored `Nat`, or `Bool` for the comparisons), so the claim is
 used only away from the point. -/
-theorem natEqLaw_of_run (mp : EnvModelM V μ env) {ψ : Name → Nat}
-    {F : Nat} (hde : DefEqClaim μ mp.base2 ψ F)
+theorem natEqLaw_of_run (mp : EnvModelM V env) {ψ : Name → Nat}
+    {F : Nat} (hde : DefEqClaim mp.base2 ψ F)
     {ciN : ConstantInfo}
     (hfN : env.find? ConLeche.natName = some ciN)
     (hlpN : ciN.toConstantVal.levelParams = [])
     (hNty : ∀ ρ : Nat → V, IsTy (natLeafV mp.base2 ψ ρ))
     {lhs rhs : Expr} {la ra : Term}
-    (hrun : ConLeche.isDefEqCore μ false env F 2 lhs rhs = .ok true)
+    (hrun : ConLeche.isDefEqCore .verified false env F 2 lhs rhs = .ok true)
     (hwl : Expr.WScoped 2 lhs) (hbl : lhs.looseBVarsBounded 0 = true)
     (hLl : Expr.LeavesBounded lhs)
     (hll : ∀ l ∈ lhs.fvarLeaves, l.1 < 2 ∧
@@ -765,7 +765,7 @@ theorem NatArg.package (m : EnvModel V env) {ψ : Name → Nat}
 /-- A stored `Bool` constructor's package (the comparison right-hand
 sides): the natOp guard stores it at the type `Bool` itself, so its
 reading is a member of the stored `Bool`'s. -/
-theorem natBoolConst_package (mp : EnvModelM V μ env) {ψ : Name → Nat}
+theorem natBoolConst_package (mp : EnvModelM V env) {ψ : Name → Nat}
     {n : Name} {ci : ConstantInfo}
     (hf : env.find? n = some ci)
     (hlp : ci.toConstantVal.levelParams = [])
@@ -787,7 +787,7 @@ theorem natBoolConst_package (mp : EnvModelM V μ env) {ψ : Name → Nat}
   rwa [ConLeche.Env.find?_name hf] at h
 
 /-- The stored `Bool` is a type: a `Bool` constructor's stored type. -/
-theorem natBool_isTy (mp : EnvModelM V μ env) {ψ : Name → Nat}
+theorem natBool_isTy (mp : EnvModelM V env) {ψ : Name → Nat}
     {n : Name} {ci : ConstantInfo}
     (hf : env.find? n = some ci)
     (hty : ci.toConstantVal.type = .const ConLeche.boolName [])
@@ -894,7 +894,7 @@ theorem natOpEquations_frag_of_guard {c : Name}
 
 /-- **The per-operation crossing at a fresh cons**: an operation
 stored in the prefix keeps its `NatOps` entry at the extension. -/
-theorem natOps_entry_cons (mp : EnvModelM V μ env) {φ : Name → Nat}
+theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
     (hprev : NatOps mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
@@ -953,7 +953,7 @@ theorem natOps_entry_cons (mp : EnvModelM V μ env) {φ : Name → Nat}
 step except the operation's own install discharges its obligation
 here.  The disjunctive premise: either the cons is not a definition at
 all, or its name is not an operation name. -/
-theorem natOps_cons_fresh (mp : EnvModelM V μ env) {φ : Name → Nat}
+theorem natOps_cons_fresh (mp : EnvModelM V env) {φ : Name → Nat}
     (hprev : NatOps mp.base2 φ)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
@@ -976,7 +976,7 @@ harvest's facts: the stored value's reading, grading and membership
 at the declared type's reading, plus the type's pin.  Splits by the
 operation's arity and codomain, concluding both forms
 `natOps_install` takes. -/
-theorem natSelfHead_install (mp : EnvModelM V μ env) {φ : Name → Nat}
+theorem natSelfHead_install (mp : EnvModelM V env) {φ : Name → Nat}
     {c : Name} (hcmem : c ∈ ConLeche.natOpNames)
     {lps : List Name} {type' value' : Expr} {hint : ReducibilityHint}
     (hfresh : env.find? c = none)
@@ -1075,8 +1075,8 @@ substituted recurrences (`NatEqsRun`) become `interp` equalities
 through `DefEqClaim` at the pre-insertion environment, and the
 substitution crossing (`denote_substConst0`) restates them as the raw
 equations' readings at the extension. -/
-theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
-    {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
+theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+    {F : Nat} (hde : DefEqClaim mp.base2 φ F)
     (hprev : NatOps mp.base2 φ)
     {c : Name} {lps : List Name} {type' value' : Expr}
     {hint : ReducibilityHint}
@@ -1091,7 +1091,7 @@ theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
       (ConLeche.natOpStoredOk
         (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env))
       = true)
-    (hruns : NatEqsRun μ F env
+    (hruns : NatEqsRun F env
       ((ConLeche.natOpEquations 0 c).map fun eq =>
         (Expr.substConst0 c value' eq.1,
          Expr.substConst0 c value' eq.2)))

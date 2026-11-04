@@ -28,10 +28,10 @@ as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
 at any number of members, nested blocks included.  A block the
 recogniser does not read never installs (`checkShapeless` declines), so
 its arm is `False`. -/
-def DeclIndRunDispatchK (μ : CheckMode) (F : Nat) (env : Env)
+def DeclIndRunDispatchK (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockParts? nP block with
-  | some p => DeclBlockRun μ F env block p env₂
+  | some p => DeclBlockRun F env block p env₂
   | none => False
 
 /-- **A block the recogniser does not read never installs**:
@@ -47,10 +47,10 @@ uniform arm recorded as `DeclBlockRun` (`declBlockRun_of`).  The run
 relation records the recursor stage as one opaque conjunct
 (`checkBlockRec … = .ok rs`). -/
 theorem checkDeclRun_ofEnvFactsK
-    {μ : CheckMode} {F : Nat} {env env₂ : Env}
+    {F : Nat} {env env₂ : Env}
     {d : Declaration}
-    (h : checkDecl μ (fueledOps μ F) pins env d = .ok env₂) :
-    DeclRun μ F (DeclIndRunDispatchK μ F env) env d env₂ :=
+    (h : checkDecl .verified (fueledOps .verified F) pins env d = .ok env₂) :
+    DeclRun F (DeclIndRunDispatchK F env) env d env₂ :=
   checkDeclRun_of
     (fun {block nP} hpin hh => by
       -- task #293: the pinned-block recognition came first, and this
@@ -75,10 +75,10 @@ theorem checkDeclRun_ofEnvFactsK
 /-- **The `.indDecl` run dispatch keeps the η-families closed**, by the
 kernel's own case split — the uniform arm's
 `declBlockRun_etaClosed`; the other arm never runs. -/
-theorem declIndRunDispatchKEtaClosed {μ : CheckMode} {F : Nat}
+theorem declIndRunDispatchKEtaClosed {F : Nat}
     {env envI : Env} {block : List ConstantInfo} {nP : Nat}
     (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunDispatchK μ F env block nP envI) : EtaFamiliesClosed envI := by
+    (h : DeclIndRunDispatchK F env block nP envI) : EtaFamiliesClosed envI := by
   unfold DeclIndRunDispatchK at h
   split at h
   · exact declBlockRun_etaClosed hE h

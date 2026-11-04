@@ -352,58 +352,58 @@ end Wrappers
 /-! ## The knot induction -/
 
 private theorem ssimC_all (env : Env) (henv : EnvWF env) :
-    ∀ (f : Nat) (mode : CheckMode), mode.verifiedChecks = true → ∀ eager, SSimC mode eager env f
-  | 0, _, _, _ => ssimC_zero env
-  | f + 1, mode, hμ, eager =>
+    ∀ (f : Nat) (eager : Bool), SSimC .verified eager env f
+  | 0, _ => ssimC_zero env
+  | f + 1, eager =>
     { whnfCore := fun hs hden hw => by
         obtain rfl := hden
         exact SimC.of_triple relEC_diag (memoEI_whnfCore_spec henv
-          (whnfCoreBodyC_spec hμ (ssimC_all env henv f mode hμ eager) henv)
+          (whnfCoreBodyC_spec (ssimC_all env henv f eager) henv)
           hs hw)
       whnf := fun hs hden hw => by
         obtain rfl := hden
         exact SimC.of_triple relEC_diag (memoEI_whnf_spec henv
-          (whnfBodyC_spec (ssimC_all env henv f mode hμ eager) henv) hs hw)
+          (whnfBodyC_spec (ssimC_all env henv f eager) henv) hs hw)
       infer := fun hs hden hw => by
         obtain rfl := hden
         exact SimC.of_triple relEC_diag (memoEI_infer_spec henv
-          (inferBodyC_spec (ssimC_all env henv f mode hμ eager) henv) hs hw)
+          (inferBodyC_spec (ssimC_all env henv f eager) henv) hs hw)
       defeq := fun hs hdena hdenb hwa hwb => by
         obtain rfl := hdena
         obtain rfl := hdenb
         exact SimC.of_tripleVC (memoBI_defeq_spec henv
-          (fun hs hwa hwb => defeqBodyC_spec (ssimC_all env henv f mode hμ eager) henv hs hwa hwb)
+          (fun hs hwa hwb => defeqBodyC_spec (ssimC_all env henv f eager) henv hs hwa hwb)
           hs hwa hwb)
       -- the eager slot (task #353): the eager tower's memoized `defeq`
       -- on the eager tower's memos (task #361); its fueled side has the
       -- eager tower's runs (`defeqE_def`)
       defeqE := fun {s₀ d i j a b} hs hdena hdenb hwa hwb => by
-        refine SimC.congr_fueled (p := (fueledFns mode true env).defeq d a b)
+        refine SimC.congr_fueled (p := (fueledFns .verified true env).defeq d a b)
           (fun F => defeqE_def env F d a b) ?_
-        have hE : (coreKnotI mode eager (mkFEnv env) (f + 1)).defeqE d i j =
-            withEagerMemos eager ((coreKnotI mode true (mkFEnv env) (f + 1)).defeq d i j) := by
+        have hE : (coreKnotI .verified eager (mkFEnv env) (f + 1)).defeqE d i j =
+            withEagerMemos eager ((coreKnotI .verified true (mkFEnv env) (f + 1)).defeq d i j) := by
           cases eager <;> rfl
         rw [hE]
         obtain rfl := hdena
         obtain rfl := hdenb
         exact SimC.eagerMemos hs (fun hs₁ => SimC.of_tripleVC (memoBI_defeq_spec henv
           (fun hs hwa hwb =>
-            defeqBodyC_spec (ssimC_all env henv f mode hμ true) henv hs hwa hwb)
+            defeqBodyC_spec (ssimC_all env henv f true) henv hs hwa hwb)
           hs₁ hwa hwb))
       -- the io slot (task #172 B4): the io body at every mode, in both
       -- knots
       inferIO := fun hs hden hw => by
         obtain rfl := hden
         exact SimC.of_triple relEC_diag (memoEI_inferIO_spec henv
-          (inferBodyIOC_spec (ssimC_all env henv f mode hμ eager) henv) hs hw) }
+          (inferBodyIOC_spec (ssimC_all env henv f eager) henv) hs hw) }
 
 /-- The cached knot simulates the fueled families at
 every fuel.  The wrapper steps tie each entry point at `f + 1` to the
 body walks at `f`, which consume the simulation at `f` as their
 induction hypothesis — at the knot's flag and, for the eager slot, at
 `eager := true` (task #353), so the induction runs over both flags. -/
-theorem ssimC (hμ : mode.verifiedChecks = true) (env : Env) (henv : EnvWF env) (f : Nat) :
-    SSimC mode eager env f :=
-  ssimC_all env henv f mode hμ eager
+theorem ssimC (env : Env) (henv : EnvWF env) (f : Nat) :
+    SSimC .verified eager env f :=
+  ssimC_all env henv f eager
 
 end ConLeche.Cached

@@ -35,7 +35,7 @@ open ConLeche.Term ConLeche.Verify
 
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
   {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
 
 
@@ -54,7 +54,7 @@ well-formedness. -/
 section MembersRun
 
 variable {envC envI : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC} {F : Nat}
+  {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → Term}
 
   {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
@@ -65,7 +65,7 @@ run's own block data. -/
 theorem blockMembersRun_seam
     (hN : BlockNamesOk (V := V)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
-    (hS : BlockCtorsStage (V := V) μ F
+    (hS : BlockCtorsStage (V := V) F
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
@@ -108,10 +108,10 @@ with its four identifications `rfl` at the run's own block data, and
 `0 < k` off the counting pass's first clause. -/
 theorem blockModelAt_seam
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     (hN : BlockNamesOk (V := V)
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
-    (hS : BlockCtorsStage (V := V) μ F
+    (hS : BlockCtorsStage (V := V) F
       (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
       pp.toBlockShape isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
@@ -149,9 +149,9 @@ theorem domsBelow_of_getD :
 /-- **`heqB` from the rows** (any majors): every equation is bound below
 the family once every rule's components are bound by their frames; the
 prefix is the recursor type's (`blockRulePdomsAV_bounded`). -/
-theorem blockRecEqs_below_rows (hμ : μ.verifiedChecks = true)
+theorem blockRecEqs_below_rows
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → Term}
     (hrow : ∀ (ψ : Name → Nat) (c : Nat)
@@ -189,12 +189,12 @@ theorem blockRecEqs_below_rows (hμ : μ.verifiedChecks = true)
   · -- the prefix
     have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
     exact domsBelow_of_getD fun q hq => by
-      rw [Nat.zero_add]; exact blockRulePdomsAV_bounded hμ mpC h hr ψ q hq
+      rw [Nat.zero_add]; exact blockRulePdomsAV_bounded mpC h hr ψ q hq
   all_goals
     dsimp only
     obtain ⟨r, cA, rhs, hr, hcA, hrhs⟩ := hpair c hc j hj
     obtain ⟨hF, hE, hM, hI, hR⟩ := hrow ψ c r hr j cA rhs hcA hrhs
-    have hpl := blockRulePdomsAV_length hμ mpC h hr ψ
+    have hpl := blockRulePdomsAV_length mpC h hr ψ
   · rw [hpl]; exact hF
   · rw [hpl]; exact hE
   · rw [hpl]; exact hM
@@ -206,9 +206,9 @@ list reads alike at two level valuations agreeing on ANY recursor's
 parameters (the family shares them, `recStage_lps`) once every rule's
 five components do; the prefix is the recursor type's
 (`blockRulePdomsAV_params`). -/
-theorem blockRecEqs_params_rows (hμ : μ.verifiedChecks = true)
+theorem blockRecEqs_params_rows
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → Term}
     (hrow : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
@@ -228,7 +228,7 @@ theorem blockRecEqs_params_rows (hμ : μ.verifiedChecks = true)
   intro i₀ r₀ hr₀ ψ₁ ψ₂ hq₀
   show blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _
     = blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _
-  refine blockIotaEqsAV_congr (fun c hc => blockRulePdomsAV_params hμ mpC h hr₀ hq₀ hc)
+  refine blockIotaEqsAV_congr (fun c hc => blockRulePdomsAV_params mpC h hr₀ hq₀ hc)
     (fun c hc j hj => ?_)
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hjl : j < rs[c].2.2.2.length := by

@@ -38,7 +38,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## A former's data reads its sort's VALUE -/
 
@@ -63,7 +63,7 @@ every member's checked former with its name, level parameters,
 freshness and syntactic guards, its telescope stripped at its OWN
 result sort (`sOf`), its reading (`FormerData`, at the BLOCK's sort by
 `sEval`), and official's parameter agreement read semantically. -/
-structure BlockFormerFacts {env : Env} (mp : EnvModelM V μ env) (q : BlockShape)
+structure BlockFormerFacts {env : Env} (mp : EnvModelM V env) (q : BlockShape)
     (cvTas : List ConstantVal) (ppsOf : Nat → (Name → Nat) → List Term)
     (sOf : Nat → Level) : Prop where
   /-- one former per member -/
@@ -109,10 +109,10 @@ former is `cvTas[m]`, checked at the PRE-block environment (official
 stores none before all `k` are checked); `sOf m` is the sort its own
 telescope ends in, and `sEval` is official's `Level.isEquiv`
 agreement, read through the level semantics. -/
-theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI : Env}
+theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     {p₀ : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {q : BlockShape}
-    (mp : EnvModelM V μ env)
-    (h : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (mp : EnvModelM V env)
+    (h : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hlps : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps) :
     ∃ (ppsOf : Nat → (Name → Nat) → List Term) (sOf : Nat → Level),
@@ -139,7 +139,7 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
   have hrunAt : ∀ (m : Nat) (ms : MemberShape),
       (p₀.toBlockShape.withSort s0).members[m]? = some ms →
       ∃ r : ConstantVal × Level, cvsAll[m]? = some r ∧
-        ConLeche.checkBlockTele (ConLeche.fueledOps μ F) env p₀.nP ms = .ok r ∧
+        ConLeche.checkBlockTele (ConLeche.fueledOps .verified F) env p₀.nP ms = .ok r ∧
         ∀ ψ : Name → Nat, r.2.eval ψ = s0.eval ψ := by
     intro m ms hms
     rw [hmembers] at hms
@@ -187,7 +187,7 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
   -- a former, with its member's record entry and its own run
   have hpair : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
       ∃ ms : MemberShape, (p₀.toBlockShape.withSort s0).members[m]? = some ms ∧
-        ConLeche.checkBlockTele (ConLeche.fueledOps μ F) env p₀.nP ms = .ok (cvTa, sOf m) := by
+        ConLeche.checkBlockTele (ConLeche.fueledOps .verified F) env p₀.nP ms = .ok (cvTa, sOf m) := by
     intro m cvTa hm
     rw [hmap, List.getElem?_map] at hm
     obtain ⟨r, hr, rfl⟩ := Option.map_eq_some_iff.mp hm
@@ -228,7 +228,7 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     rw [← heq] at hfind hnres hlbt hitf hlpd htr hn hl
     have htf' := hitf
     have hbt' := hlbt
-    obtain ⟨pps, hFD⟩ := formerData_of hμ mp ⟨heq, hccv⟩ hst
+    obtain ⟨pps, hFD⟩ := formerData_of mp ⟨heq, hccv⟩ hst
     exact ⟨ms, bs, hms, hn, hl, hfind, hnres,
       htr, htf', hlpd, hbt', hst, pps, hFD⟩
   -- the members' telescope readings, chosen positionally
@@ -287,7 +287,7 @@ theorem blockFormerFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {env envI
     exact ⟨bs, by rw [show (p₀.toBlockShape.withSort s0).nIdxs.getD m 0 = ms.nIdx from
       hnIdxAt m ms hms]; exact hst⟩
   · -- official's parameter agreement, semantically
-    have := blockParamsIff hμ mp h
+    have := blockParamsIff mp h
       (nPOf := fun m => (p₀.toBlockShape.withSort s0).nP
         + (p₀.toBlockShape.withSort s0).nIdxs.getD m 0)
       (fun _ => Nat.le_add_right _ _) hfd
@@ -327,10 +327,10 @@ at whose carrier the constructors are read, and the REAL one at the
 fixpoint leaves those readings build.  The η invariant is threaded
 over the whole member list, because all `k` formers are stored before
 any constructor is. -/
-theorem blockFormerPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
+theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
     (hnd : q.memberNames.Nodup)
@@ -365,7 +365,7 @@ theorem blockFormerPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} 
       ∀ m₂ : EnvModel V ⟨.indInfo cvTa (ConLeche.blockCapsAt q j isRec) :: env'.consts, env'.tables⟩,
       m₂.acval = acvalWith m'.acval cvTa.name (A j) →
       CapsLawsAt m₂ cvTa.name cvTa (ConLeche.blockCapsAt q j isRec)) :
-    ∃ mp' : EnvModelM V μ envI,
+    ∃ mp' : EnvModelM V envI,
       ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
         FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
@@ -384,7 +384,7 @@ theorem blockFormerPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} 
     intro j cvTa hj hjq
     rw [hF.nameOf j cvTa hjq, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj]
     rfl
-  exact stageBlockFormers (V := V) (μ := μ) (p₁ := q) (isRec := isRec)
+  exact stageBlockFormers (V := V) (p₁ := q) (isRec := isRec)
     (names := q.memberNames) (cvTasAll := cvTas) (A := A)
     (nPOf := fun j => q.nP + q.nIdxs.getD j 0) (resSort := q.resSort) (ppsOf := ppsOf)
     (fun j cvTa hj => by
@@ -445,10 +445,10 @@ theorem blockCapsAt_unitlike_nIdx {q : BlockShape} {j : Nat} {isRec : Bool}
 chain lists.  This is the carrier at which the members' constructors' readings are taken:
 every member's leaf must exist before any real one is built, because a
 member's fixpoint leaf mentions every member's chains. -/
-theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
+theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
     (hnd : q.memberNames.Nodup)
@@ -459,7 +459,7 @@ theorem blockDummyPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {
     (hetaFresh : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       (ConLeche.blockCapsAt q j isRec).eta = true →
       env.find? (ConLeche.blockCapsAt q j isRec).etaCtor = none) :
-    ∃ mp' : EnvModelM V μ envI,
+    ∃ mp' : EnvModelM V envI,
       ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
         FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧
@@ -546,11 +546,11 @@ theorem zip_getElem? : ∀ {α β : Type} (l₁ : List α) (l₂ : List β) (i :
 /-- **Every member's index telescope is graded** at its own parameter
 frame, at the universe its index binders' sorts give (`idxOk_of` at `k`
 members, from conjunct 6). -/
-theorem blockIdxFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {envI : Env}
-    (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal}
+theorem blockIdxFacts_of {F : Nat} {envI : Env}
+    (mpI : EnvModelM V envI) {q : BlockShape} {cvTas : List ConstantVal}
     {isorts : List (List Level)} {isRec : Bool}
     {ppsOf : Nat → (Name → Nat) → List Term}
-    (hsorts : ConLeche.checkBlockIdxSorts (ConLeche.fueledOps μ F) envI q
+    (hsorts : ConLeche.checkBlockIdxSorts (ConLeche.fueledOps .verified F) envI q
       (q.members.zip cvTas) = .ok isorts)
     (hlenCv : cvTas.length = q.k)
     (hfind : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
@@ -585,7 +585,7 @@ theorem blockIdxFacts_of (hμ : μ.verifiedChecks = true) {F : Nat} {envI : Env}
     have hppsR : ppsOf j (restrictΨ q.lps ψ) = ppsOf j ψ :=
       (hFDj.params _ _ fun n hn =>
         restrictΨ_agree _ _ n (by rw [← hlps j cvTa hj]; exact hn)).1
-    have hok := idxOk_of hμ mpI (hfind j cvTa hj) hop hsortsj hFDj
+    have hok := idxOk_of mpI (hfind j cvTa hj) hop hsortsj hFDj
       (restrictΨ q.lps ψ) ρp (by rw [hppsR]; exact hρp)
     rw [hppsR] at hok
     show IdxOk (idxUniv (restrictΨ q.lps ψ) (isorts.getD j [])) ρp _
@@ -617,8 +617,8 @@ structure BlockMemberPick where
 /-- **The constructors' data functions at ONE member of a block**,
 stated the way `BlockData` reads them: `blockCtorFuns_of` at member
 `m`. -/
-theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat}
-    {envI : Env} (mpI : EnvModelM V μ envI) {q : BlockShape} {cvTas : List ConstantVal}
+theorem blockCtorFunsAt {F : Nat}
+    {envI : Env} (mpI : EnvModelM V envI) {q : BlockShape} {cvTas : List ConstantVal}
     {isRec : Bool} {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
     {sOf : Nat → Level}
     (hm : cvTas[m]? = some cvTa)
@@ -633,7 +633,7 @@ theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat}
       envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt q j isRec)))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) envI envI cvTa.name q.lps q.nP
+        ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ pk : BlockMemberPick,
       ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
@@ -643,7 +643,7 @@ theorem blockCtorFunsAt (hμ : μ.verifiedChecks = true) {F : Nat}
           (pk.fvsPF j) (pk.xFvsF j) (pk.xrestF j) := by
   obtain ⟨bs, hst⟩ := hstripOf m cvTa hm
   obtain ⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, hall⟩ :=
-    blockCtorFuns_of (V := V) hμ mpI (T := cvTa.name) (lps := q.lps) (nP := q.nP)
+    blockCtorFuns_of (V := V) mpI (T := cvTa.name) (lps := q.lps) (nP := q.nP)
       (nIdx := q.nIdxs.getD m 0) (resSort := q.resSort) (isProp := q.isProp) (large := q.large)
       (cvTa := cvTa) (env₁ := envI) (sT := sOf m)
       (hfindOf m cvTa hm) (hlpsOf m cvTa hm) hst hrunOf
@@ -660,11 +660,11 @@ turns into the leaf's hereditary premise, and the `blockTyG` capstones
 into its currency facts.  A unit-like
 member's law comes through its leaf's FOLD alone (`hfoldZ`), which is
 a statement about the leaf TERM and therefore crosses every cons. -/
-theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
+theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {q : BlockShape} {envI : Env}
     {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
     {uOf : Nat → (Name → Nat) → Nat} {Chs : (Name → Nat) → Nat → List (List Term)}
-    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) env p₀ isRec
+    (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, cvTas, q))
     (hF : BlockFormerFacts mp q cvTas ppsOf sOf)
     (hnd : q.memberNames.Nodup)
@@ -706,7 +706,7 @@ theorem blockRealPass (mp : EnvModelM V μ env) {F : Nat} {p₀ : BlockParts} {i
               (fun c => ((ppsOf c ψ).drop q.nP)) (Chs ψ) (ppsOf j ψ) j))
           = sumSet (q.resSort.eval ψ) (sumFibre (q.resSort.eval ψ) (consList ts ρ)
               [[] ++ [idxEqAV []]])) :
-    ∃ mp' : EnvModelM V μ envI,
+    ∃ mp' : EnvModelM V envI,
       ConLeche.EtaFamiliesClosedExceptL envI q.memberNames ∧
       (∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
         FormerData mp'.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j)) ∧

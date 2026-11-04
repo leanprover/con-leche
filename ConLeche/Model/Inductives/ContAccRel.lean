@@ -111,7 +111,7 @@ theorem grpNews_length (us : List Level) (ds : List Expr) (hi : Nat) (grp : List
 
 section Frame
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
   (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
@@ -284,7 +284,7 @@ stored type's binder count) is the recorded parameter and index count —
 the recorded reading ends in a sort, so the type's syntactic tail is no
 variable, and `nestInstType` saw a sort there (`instPis_count_of_read`'s
 pieces). -/
-theorem grp_arity {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem grp_arity (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
     {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) (ψ : Name → Nat) :

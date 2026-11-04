@@ -75,14 +75,14 @@ theorem targetOutsideInstS_spec {fe : FEnv} {I : Name} {us : List Level} {ds : L
 
 /-! ### The class match (`targetClassMatch`) and its three uses -/
 
-theorem targetParamsDefEqS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
+theorem targetParamsDefEqS_spec (henv : EnvWF env) {d : Nat}
     {absM : Expr → Expr} (habs : ∀ e, WScoped d e → WScoped d (absM e)) {pfvs : List Expr}
     (hp : ∀ x ∈ pfvs, WScoped d x) :
-    ∀ (as bs : List Expr) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (as bs : List Expr) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄
-        targetParamsDefEq (sharedOpsC mode (mkFEnv env)) env d absM pfvs as bs
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (targetParamsDefEq (fueledOpsM mode) env d absM pfvs as bs) v; ⊤⦄ := by
+        targetParamsDefEq (sharedOpsC .verified (mkFEnv env)) env d absM pfvs as bs
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (targetParamsDefEq (fueledOpsM .verified) env d absM pfvs as bs) v; ⊤⦄ := by
   intro as
   induction as with
   | nil =>
@@ -110,32 +110,32 @@ theorem targetParamsDefEqS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF
       sym only [conleche_grind, targetParamsDefEq.eq_2,
           fun a (h : a.fvarB ≤ pfvs.length) =>
             habs _ (targetCanonParams_WScoped hp a (fvarB_le h))] =>
-        vcgen [targetParamsDefEq, inferS_spec hμ henv, defeqS_spec hμ henv, ih bs] <;> finish
+        vcgen [targetParamsDefEq, inferS_spec henv, defeqS_spec henv, ih bs] <;> finish
 
 /-- The class match: the class's openers and parameters scoped by the
 block's parameters, the formers closed. -/
-theorem targetClassMatchS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem targetClassMatchS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds eds : List Expr} {us lvls : List Level}
-    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) {s₀ : CState} (hs : CSOK mode false env s₀) :
+    (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      targetClassMatch (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs us ds lvls eds
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (targetClassMatch (fueledOpsM mode) env p formerTys pfvs us ds lvls eds) v; ⊤⦄ := by
+      targetClassMatch (sharedOpsC .verified (mkFEnv env)) env p formerTys pfvs us ds lvls eds
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetClassMatch (fueledOpsM .verified) env p formerTys pfvs us ds lvls eds) v; ⊤⦄ := by
   sym only [conleche_grind, targetClassMatch.eq_1] =>
-    vcgen [targetClassMatch, targetParamsDefEqS_spec hμ henv
+    vcgen [targetClassMatch, targetParamsDefEqS_spec henv
       (targetAbs_WScoped (targetHoles_WScoped hformer pfvs.length))
       (fun x hx => (hp x hx).mono (by omega)) ds eds hs] <;> finish
 
-theorem targetMajorNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem targetMajorNfsS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t)
     {pfvs ds : List Expr} {us : List Level} {ctors : List (ConstantVal × Nat)}
     (hp : ∀ x ∈ pfvs, WScoped pfvs.length x) :
-    ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (es : List NestCtorNf) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄
-        targetMajorNfs (sharedOpsC mode (mkFEnv env)) env p formerTys pfvs us ds ctors es
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (targetMajorNfs (fueledOpsM mode) env p formerTys pfvs us ds ctors es) v; ⊤⦄ := by
+        targetMajorNfs (sharedOpsC .verified (mkFEnv env)) env p formerTys pfvs us ds ctors es
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (targetMajorNfs (fueledOpsM .verified) env p formerTys pfvs us ds ctors es) v; ⊤⦄ := by
   intro es
   induction es with
   | nil =>
@@ -144,7 +144,7 @@ theorem targetMajorNfsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF en
   | cons _ es ih =>
     intro _ hs
     sym only [conleche_grind, targetMajorNfs.eq_2] =>
-      vcgen [targetMajorNfs, ih hs, targetClassMatchS_spec hμ henv hformer hp] <;> finish
+      vcgen [targetMajorNfs, ih hs, targetClassMatchS_spec henv hformer hp] <;> finish
 
 theorem targetMajorOfS_spec {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
@@ -157,10 +157,10 @@ theorem targetMajorOfS_spec {p : BlockShape}
       liftFueledS_spec (mode := mode) (env := env)] <;> finish
 
 /-- The pin typing at the cached driver. -/
-theorem targetPinTysS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} :
-    ∀ {xs : List Expr}, AllWS d xs → ∀ {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ targetPinTys (sharedOpsC mode (mkFEnv env)) env d xs
-      ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetPinTys (fueledOpsM mode) env d xs) v; ⊤⦄ :=
+theorem targetPinTysS_spec (henv : EnvWF env) {d : Nat} :
+    ∀ {xs : List Expr}, AllWS d xs → ∀ {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ targetPinTys (sharedOpsC .verified (mkFEnv env)) env d xs
+      ⦃fun v s' => CSOK .verified false env s' ∧ Runs (targetPinTys (fueledOpsM .verified) env d xs) v; ⊤⦄ :=
           by
   intro xs
   induction xs with
@@ -170,19 +170,19 @@ theorem targetPinTysS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
   | cons _ xs ih =>
     intro _ _ _
     sym only [conleche_grind, targetPinTys.eq_2] =>
-      vcgen [targetPinTys, inferS_spec hμ henv, ih] <;>
+      vcgen [targetPinTys, inferS_spec henv, ih] <;>
         finish
 
 /-- `targetMajorPins` at the cached driver: nothing at a member, the
 pins and the instantiation typed at an outside major. -/
-theorem targetMajorPinsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {rP : Nat}
+theorem targetMajorPinsS_spec (henv : EnvWF env) {rP : Nat}
     {M : TargetMajor} (hds : M.member = none → AllWS rP M.ds) {s₀ : CState}
-    (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC mode (mkFEnv env)) env rP M
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetMajorPins (fueledOpsM mode) env rP M) v; ⊤⦄
+    (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC .verified (mkFEnv env)) env rP M
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (targetMajorPins (fueledOpsM .verified) env rP M) v; ⊤⦄
         := by
   sym only [conleche_grind, targetMajorPins.eq_1, Option.isNone_iff_eq_none] =>
-    vcgen [targetMajorPins, targetPinTysS_spec hμ henv, inferS_spec hμ henv] <;> finish
+    vcgen [targetMajorPins, targetPinTysS_spec henv, inferS_spec henv] <;> finish
 
 theorem targetRecPinsS_spec {p : BlockShape} {block : List ConstantInfo} {s₀ : CState}
     (hs : CSOK mode false env s₀) :
@@ -203,15 +203,15 @@ theorem TargetMajScoped.getD {l : List TargetMajor}
     refine ⟨fun x hx' => ?_, fun x hx' => ?_⟩ <;> exact nomatch hx'
   | some M => exact h M (List.mem_of_getElem? hx)
 
-theorem targetK53S_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {p : BlockShape}
+theorem targetK53S_spec (henv : EnvWF env) {p : BlockShape}
     {formerTys : List Expr} (hformer : ∀ t ∈ formerTys, WScoped 0 t) {Mc : TargetMajor}
     (hMc : TargetMajScoped Mc) {tele : List Expr} {majDom f : Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ targetK53 (sharedOpsC mode (mkFEnv env)) env p formerTys Mc tele majDom f
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (targetK53 (fueledOpsM mode) env p formerTys Mc tele majDom f) v; ⊤⦄ := by
+    {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ targetK53 (sharedOpsC .verified (mkFEnv env)) env p formerTys Mc tele majDom f
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetK53 (fueledOpsM .verified) env p formerTys Mc tele majDom f) v; ⊤⦄ := by
   sym only [conleche_grind, targetK53.eq_1] =>
-    vcgen [targetK53, targetClassMatchS_spec hμ henv hformer hMc.1 hs] <;> finish
+    vcgen [targetK53, targetClassMatchS_spec henv hformer hMc.1 hs] <;> finish
 
 end Sims
 

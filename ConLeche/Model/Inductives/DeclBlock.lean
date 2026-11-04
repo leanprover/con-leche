@@ -27,7 +27,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## The recursor stage's obligation -/
 
@@ -41,9 +41,9 @@ of `declBlock`, which `DeclBlockRun` leaves opaque): a carrier at the post-recur
   readings cross the conses).
 
 It is three cons-monotonicities and mentions no `BlockData`. -/
-@[expose] def BlockRecStagedAt (μ : CheckMode) {V : Type w} [SetTheory V]
-    (envC env₃ : Env) (mpC : EnvModelM V μ envC) : Prop :=
-  ∃ mp' : EnvModelM V μ env₃,
+@[expose] def BlockRecStagedAt {V : Type w} [SetTheory V]
+    (envC env₃ : Env) (mpC : EnvModelM V envC) : Prop :=
+  ∃ mp' : EnvModelM V env₃,
     (∀ n : Name, (envC.find? n).isSome = true → mp'.base2.acval n = mpC.base2.acval n) ∧
     (∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → env₃.find? n = some c) ∧
     (∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
@@ -84,11 +84,11 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
 `BlockRecStagedAt`'s three cons-monotonicities at
 `consBlockRecsT`, the family consed with each recursor's rules at ITS
 major (`.nested` at an outside one). -/
-@[expose] def BlockRecStagedT (μ : CheckMode) {V : Type w} [SetTheory V]
+@[expose] def BlockRecStagedT {V : Type w} [SetTheory V]
     (envC : Env) (p : ConLeche.BlockShape)
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
-    (mpC : EnvModelM V μ envC) : Prop :=
-  BlockRecStagedAt μ envC
+    (mpC : EnvModelM V envC) : Prop :=
+  BlockRecStagedAt envC
     (ConLeche.consBlockRecsT envC.find? p 0 out envC) mpC
 
 
@@ -112,9 +112,9 @@ environment `envI`) reads, tied to the recursor stage's carrier.  Every
 block `mpC` records is `mk`'s or the block's own `D0` (`FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
 from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
-    (mpC : EnvModelM V μ envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
+    (mpC : EnvModelM V envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
     (p : BlockShape) (isRec : Bool) : Prop :=
-  ∃ mk : EnvModelM V μ envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
+  ∃ mk : EnvModelM V envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
     (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) ∧
     (∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks) ∧
     -- the member constructors' hole contexts at the formers' model (the
@@ -129,21 +129,21 @@ from `mpC.lfpBlocks`). -/
 cons, the block's representation and model records, the block over the
 input environment.  The node route's facts that read no recursor run take
 this (`nodeListFacts_of`, `dynCtx_of`). -/
-@[expose] def RecCtxBase (V : Type w) [SetTheory V] (μ : CheckMode) (F : Nat)
+@[expose] def RecCtxBase (V : Type w) [SetTheory V] (F : Nat)
     (envC envI : Env) (pp : BlockParts)
     (cvTasR : List ConstantVal) (ctorsAsR : List (List (ConstantVal × Nat)))
-    (mpC : EnvModelM V μ envC) (dR : BlockData V) (isRecR : Bool)
+    (mpC : EnvModelM V envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → Term)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
     (posR : ConLeche.NestState) : Prop :=
-  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps μ F) envI
+  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
       envI.find? pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
   pp.toBlockShape.memberNames.Nodup ∧
   BlockNamesOk (V := V) dR cvTasR ∧
-  BlockCtorsStage (V := V) μ F dR pp.lps cvTasR pp.toBlockShape isRecR A envI pp.ctorNamesAt ∧
+  BlockCtorsStage (V := V) F dR pp.lps cvTasR pp.toBlockShape isRecR A envI pp.ctorNamesAt ∧
   BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k ∧
   (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) ∧
   (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)

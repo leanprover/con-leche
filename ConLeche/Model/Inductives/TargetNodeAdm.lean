@@ -42,7 +42,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestC
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## K.52 at a node: the key's parameters fit -/
 
@@ -87,7 +87,7 @@ parameter telescope — the key instance is typed at the node's depth
 (`posD_frame_kty`), graded there (`infer_sound`), and a graded instance
 reads its parameters in the telescope (`keyParamsFit`, from the key's
 inference). -/
-theorem nodeKeyFit {env : Env} (mk : EnvModelM V μ env) {φ : Name → Nat} {ctx : NestCtx} {F : Nat}
+theorem nodeKeyFit {env : Env} (mk : EnvModelM V env) {φ : Name → Nat} {ctx : NestCtx} {F : Nat}
     {Δ0 : List Term} (hΔ0 : Δ0.length = ctx.hiAt 0) {t : PosTree}
     (hok : PosNodeOk (fueledOps .verified F) env ctx t) (hsem : NodeSemAt mk.base2 φ ctx Δ0 t)
     (hfind : ∀ n, ctx.find? n = env.find? n)
@@ -131,7 +131,7 @@ theorem nodeKeyFit {env : Env} (mk : EnvModelM V μ env) {φ : Name → Nat} {ct
 
 section Adm
 
-variable {envI envC : Env} (mk : EnvModelM V μ envI) (mpC : EnvModelM V μ envC) (ctx : NestCtx)
+variable {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvModelM V envC) (ctx : NestCtx)
   (d : BlockData V) (ns : List PosTree) (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
 
 /-- **The true valuation of a frame stack**: the prefix's parameters, then

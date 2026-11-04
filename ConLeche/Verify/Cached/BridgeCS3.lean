@@ -81,14 +81,14 @@ section Walks3
 variable {env : Env} {s₀ : CState}
 
 /-- The per-frame binder-domain pins at the shared operations. -/
-theorem checkStructDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {off : Nat}
+theorem checkStructDomsAtS_spec (henv : EnvWF env) {off : Nat}
     {fvs doms : List Expr}
     (hc : ∀ (i : Nat) (x : Expr), fvs[i]? = some x → WScoped (off + i) (Expr.fvarTypeD x))
     (ht : ∀ (i : Nat) (x : Expr), doms[i]? = some x → WScoped (off + i) x) :
-    ∀ {j : Nat} {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ checkStructDomsAt (sharedOpsC mode (mkFEnv env)) env off fvs doms j
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (checkStructDomsAt (fueledOpsM mode) env off fvs doms j) v; ⊤⦄ := by
+    ∀ {j : Nat} {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ checkStructDomsAt (sharedOpsC .verified (mkFEnv env)) env off fvs doms j
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkStructDomsAt (fueledOpsM .verified) env off fvs doms j) v; ⊤⦄ := by
   intro j
   induction j with
   | zero =>
@@ -97,68 +97,68 @@ theorem checkStructDomsAtS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF
   | succ j ih =>
     intro _ _
     sym only [conleche_grind, checkStructDomsAt.eq_2, unwrapOr] =>
-      vcgen [checkStructDomsAt, unwrapOr, defeqS_spec hμ henv, ih] <;> finish
+      vcgen [checkStructDomsAt, unwrapOr, defeqS_spec henv, ih] <;> finish
 
 /-- Official's telescope loop (task #195) at the shared operations:
 every `whnf` is the shared one, on a well-scoped input at its depth
 (the opened body is well-scoped one deeper). -/
-theorem whnfTelescopeS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) :
-    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK mode false env s₀ → WScoped i e →
-      ⦃fun s => s = s₀⦄ whnfTelescope (sharedOpsC mode (mkFEnv env)) env i n e
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (whnfTelescope (fueledOpsM mode) env i n e) v; ⊤⦄ := by
+theorem whnfTelescopeS_spec (henv : EnvWF env) :
+    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK .verified false env s₀ → WScoped i e →
+      ⦃fun s => s = s₀⦄ whnfTelescope (sharedOpsC .verified (mkFEnv env)) env i n e
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (whnfTelescope (fueledOpsM .verified) env i n e) v; ⊤⦄ := by
   intro i n
   induction n generalizing i with
   | zero =>
     intro _ _ _ _
     sym only [conleche_grind, whnfTelescope.eq_1] =>
-      vcgen [whnfTelescope, whnfS_spec hμ henv] <;> finish
+      vcgen [whnfTelescope, whnfS_spec henv] <;> finish
   | succ n ih =>
     intro _ _ _ _
     sym only [conleche_grind, whnfTelescope.eq_2] =>
-      vcgen [whnfTelescope, whnfS_spec hμ henv, ih] <;>
+      vcgen [whnfTelescope, whnfS_spec henv, ih] <;>
         finish
 
 /-- The former's telescope stage (task #195) at the shared operations:
 the checked constant's type is well-scoped either way. -/
-theorem checkSumTeleS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem checkSumTeleS_spec (henv : EnvWF env)
     {cv : ConstantVal} {n : Nat} {cvTa₀ : ConstantVal}
-    (hs : CSOK mode false env s₀) (hTw : WScoped 0 cvTa₀.type) :
-    ⦃fun s => s = s₀⦄ checkSumTele (sharedOpsC mode (mkFEnv env)) env cv n cvTa₀
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkSumTele (fueledOpsM mode) env cv n cvTa₀) v ∧
+    (hs : CSOK .verified false env s₀) (hTw : WScoped 0 cvTa₀.type) :
+    ⦃fun s => s = s₀⦄ checkSumTele (sharedOpsC .verified (mkFEnv env)) env cv n cvTa₀
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumTele (fueledOpsM .verified) env cv n cvTa₀) v ∧
       WScoped 0 v.1.type; ⊤⦄ := by
   sym only [conleche_grind, checkSumTele.eq_1] =>
-    vcgen [checkSumTele, whnfTelescopeS_spec hμ henv, checkConstantValS_spec hμ henv] <;>
+    vcgen [checkSumTele, whnfTelescopeS_spec henv, checkConstantValS_spec henv] <;>
       finish
 
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/
-theorem checkSumCtorS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env}
+theorem checkSumCtorS_spec (henv : EnvWF env) {env₀ : Env}
     {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvC : ConstantVal} {nF : Nat} {cvTa : ConstantVal}
-    (hTf : cvTa.type.hasFvar = false) (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ checkSumCtor (sharedOpsC mode (mkFEnv env)) env₀ env T lps nP
+    (hTf : cvTa.type.hasFvar = false) (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkSumCtor (sharedOpsC .verified (mkFEnv env)) env₀ env T lps nP
         nIdx resSort isProp large cvC nF cvTa
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkSumCtor (fueledOpsM mode) env₀ env T lps nP
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumCtor (fueledOpsM .verified) env₀ env T lps nP
         nIdx resSort isProp large cvC nF cvTa) v; ⊤⦄ := by
   -- `gen := 13` (the default 8 fails): the fueled side is a chain of ten binds, each one
   -- E-matching generation deeper than the last
   sym only [conleche_grind, checkSumCtor.eq_1, unwrapOr, FvsWS,
       wscoped_of_hasFvar_false (d := 0) hTf] =>
-    vcgen [checkSumCtor, unwrapOr, checkConstantValS_spec hμ henv hs,
-      checkStructDomsAtS_spec hμ henv, checkStructFieldSortsIS_spec hμ henv] <;>
+    vcgen [checkSumCtor, unwrapOr, checkConstantValS_spec henv hs,
+      checkStructDomsAtS_spec henv, checkStructFieldSortsIS_spec henv] <;>
       finish (gen := 13)
 
 /-- Stage 2, the whole constructor list: every constructor is checked
 at the *same* environment (the one holding the type former alone), so
 the walk is a plain induction on the list. -/
-theorem checkSumCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {env₀ : Env}
+theorem checkSumCtorsS_spec (henv : EnvWF env) {env₀ : Env}
     {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level} {isProp large : Bool}
     {cvTa : ConstantVal} (hTf : cvTa.type.hasFvar = false) :
-    ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun s => s = s₀⦄ checkSumCtors (sharedOpsC mode (mkFEnv env)) env₀ env T lps
+    ∀ {cs : List (ConstantVal × Nat)} {s₀ : CState}, CSOK .verified false env s₀ →
+      ⦃fun s => s = s₀⦄ checkSumCtors (sharedOpsC .verified (mkFEnv env)) env₀ env T lps
           nP nIdx resSort isProp large cvTa cs
-      ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkSumCtors (fueledOpsM mode) env₀ env T lps
+      ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumCtors (fueledOpsM .verified) env₀ env T lps
           nP nIdx resSort isProp large cvTa cs) v; ⊤⦄ := by
   intro cs
   induction cs with
@@ -168,7 +168,7 @@ theorem checkSumCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env
   | cons _ cs ih =>
     intro _ _
     sym only [conleche_grind, checkSumCtors.eq_2] =>
-      vcgen [checkSumCtors, checkSumCtorS_spec hμ henv hTf, ih] <;> finish
+      vcgen [checkSumCtors, checkSumCtorS_spec henv hTf, ih] <;> finish
 
 /-! ### The recursor conformance check's generator (#188) -/
 
