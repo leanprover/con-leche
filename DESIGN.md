@@ -108891,3 +108891,43 @@ gate with `hμ` unfolds `CheckMode.verifiedChecks` instead (three
 `proofIrrelGate_of`, `iotaCertGate_of`, now plain equations at
 `.verified`); a call that passed `hμ` to a generic inversion passes
 `rfl`.
+
+## TASK #480 — the install reads the declaration group and nothing else (2026-11-04, agent/480-trivial-install)
+
+**Goal (maintainer).**  What is installed is a direct consequence of the
+declaration group in the stream (or in `Lean.Kernel.Environment`): no
+inference, no reduction, no lookup outside the group.  Two things hurt
+this week because install does more: running on `Lean.Kernel.Environment`
+directly, and the module system, where one inductive declaration appears
+in different contexts (private and exported view).  Data the install can
+no longer derive are computed where they are needed.  Revises #431 §13's
+ruling 3 (option (C)).
+
+**The result at use may differ from what the declaration's environment
+would give.**  That has to be proved fine, and it is proved at the use:
+a rescue or guard that fires has its premise as a derivation at the
+environment of use, whose meaning the rules tier's soundness gives there;
+nothing states that the value at use equals a value at install.  Where
+the model's family was built from the job's sort at the declaration's
+environment, `interp type = interp (Sort s_use)` and
+`= interp (Sort s_decl)` make the two levels agree at every valuation.
+Where the context knows less (a reduction stuck on something opaque),
+the check takes its conservative branch (no η rescue, ι's checked case
+3; a failed projection guard is a reject): completeness may be lost,
+never soundness.
+
+**Rulings (maintainer, 2026-11-04).**
+1. What cannot ALWAYS be read off the group is ALWAYS computed at use, for
+   consistency (`sortZ`, `eta`, `ruleK`): no syntactic fast path that is
+   right for most blocks and a slow path for the rest, unless there is
+   strong performance evidence for eager computation.
+2. Pure functions of the group alone are allowed at install (table bodies
+   by substitution, a nested rule's firing data read off the major domain).
+3. Measure before introducing a memo for the data computed at use.
+4. Pinned basis blocks: install the STREAM's constants; the comparison
+   with the pin moves to the checking phase (revises #431's "pins are not
+   touched").
+5. Pinned Nat operations' certificates and axioms' checks leave the
+   install too: they become jobs of the check phase.
+6. The order of the phases is the coordinator's.  Everything stops on this
+   branch for review before master.
