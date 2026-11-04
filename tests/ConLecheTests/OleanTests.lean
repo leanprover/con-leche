@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.Olean
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.View
 public import ConLecheTests.ScanTests
 /- The checks below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported

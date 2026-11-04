@@ -46,7 +46,9 @@ theorem loc_mod {r : Region} {a : UInt64} {c : Nat} (h : r.loc a = some c) : c %
   dsimp only at h
   split at h
   · cases h
-  · cases h; exact locGo_mod r a _
+  · split at h
+    · cases h
+    · cases h; exact locGo_mod r a _
 
 theorem down_mod {r : Region} {g c : Nat} {v : UInt64} (h : r.down g v = some c) : c % 8 = 0 := by
   unfold Region.down at h

@@ -47,7 +47,9 @@ theorem loc_eq {r : Region} {v : UInt64} {c : Nat} (h : r.loc v = some c) :
   dsimp only at h
   split at h
   · cases h
-  · cases h; rfl
+  · split at h
+    · cases h
+    · cases h; rfl
 
 /-- What marking the roots does. -/
 private theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : IsKind K) {nil : Bool}

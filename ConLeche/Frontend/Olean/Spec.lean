@@ -311,6 +311,63 @@ def CEntryF.mapM {m : Type → Type} [Monad m] {N E N' E' : Type} (fn : N → m 
 @[inline] def Region.nameList (r : Region) (g i : Nat) : Option (List UInt64) :=
   (r.list g (r.fld g i)).map (·.toList)
 
+/-- A definition's reducibility hints, the field `hv` of the object at `x`. -/
+def hintsSkel (r : Region) (x : Nat) (hv : UInt64) : Option HintsRec := do
+  if hv == 1 then pure HintsRec.«opaque»
+  else if hv == 3 then pure HintsRec.«abbrev»
+  else
+    let h ← r.down x hv
+    unless r.isCtor h 2 0 do none
+    pure (HintsRec.regular (← r.u32 h 0).toNat)
+
+/-- A recursor rule `v`, a cell of the recursor object at `x`. -/
+def ruleSkel (r : Region) (x : Nat) (v : UInt64) : Option (UInt64 × Nat × UInt64) := do
+  let y ← r.down x v
+  unless r.isCtor y 0 3 do none
+  pure ((← r.ptrFld y 0), (← r.natP y (r.fld y 1)), (← r.ptrFld y 2))
+
+/-- The kind of the `ConstantInfo` of tag `t`, its value object at `x`. -/
+def kindSkel (r : Region) (t x : Nat) : Option (CKindF UInt64 UInt64) :=
+  match t with
+  | 0 => do
+    unless r.isCtor x 0 1 do none
+    pure (CKindF.ax (← r.bool x 0))
+  | 1 => do
+    unless r.isCtor x 0 4 do none
+    let value ← r.ptrFld x 1
+    let hints ← hintsSkel r x (r.fld x 2)
+    let safety ← match ← r.u8 x 0 with
+      | 0 => pure "unsafe" | 1 => pure "safe" | 2 => pure "partial"
+      | _ => none
+    pure (CKindF.defn value hints safety)
+  | 2 => do
+    unless r.isCtor x 0 3 do none
+    pure (CKindF.thm (← r.ptrFld x 1) (← r.nameList x 2))
+  | 3 => do
+    unless r.isCtor x 0 3 do none
+    pure (CKindF.opaq (← r.ptrFld x 1) (← r.bool x 0))
+  | 4 => do
+    unless r.isCtor x 0 1 do none
+    let k ← match ← r.u8 x 0 with
+      | 0 => pure "type" | 1 => pure "ctor" | 2 => pure "lift" | 3 => pure "ind"
+      | _ => none
+    pure (CKindF.quot k)
+  | 5 => do
+    unless r.isCtor x 0 6 do none
+    pure (CKindF.induct (← r.natF x 1) (← r.natF x 2) (← r.nameList x 3)
+      (← r.nameList x 4) (← r.natF x 5) (← r.bool x 0) (← r.bool x 1) (← r.bool x 2))
+  | 6 => do
+    unless r.isCtor x 0 5 do none
+    pure (CKindF.ctor (← r.ptrFld x 1) (← r.natF x 2) (← r.natF x 3) (← r.natF x 4)
+      (← r.bool x 0))
+  | _ => do
+    unless r.isCtor x 0 7 do none
+    let all ← r.nameList x 1
+    let cells ← r.list x (r.fld x 6)
+    let rules ← cells.toList.mapM (ruleSkel r x)
+    pure (CKindF.recur all (← r.natF x 2) (← r.natF x 3) (← r.natF x 4) (← r.natF x 5) rules
+      (← r.bool x 0) (← r.bool x 1))
+
 /-- **The skeleton of the `ConstantInfo` at location `c`**: everything
 but its names and expressions, which stay pointers. -/
 def constSkel (r : Region) (c : Nat) : Option (CEntryF UInt64 UInt64) := do
@@ -322,54 +379,7 @@ def constSkel (r : Region) (c : Nat) : Option (CEntryF UInt64 UInt64) := do
   let name ← r.ptrFld cv 0
   let lps ← r.nameList cv 1
   let type ← r.ptrFld cv 2
-  let kind ← match r.tag c with
-    | 0 => do
-      unless r.isCtor x 0 1 do none
-      pure (CKindF.ax (← r.bool x 0))
-    | 1 => do
-      unless r.isCtor x 0 4 do none
-      let value ← r.ptrFld x 1
-      let hv := r.fld x 2
-      let hints ← if hv == 1 then pure HintsRec.«opaque»
-        else if hv == 3 then pure HintsRec.«abbrev»
-        else do
-          let h ← r.down x hv
-          unless r.isCtor h 2 0 do none
-          pure (HintsRec.regular (← r.u32 h 0).toNat)
-      let safety ← match ← r.u8 x 0 with
-        | 0 => pure "unsafe" | 1 => pure "safe" | 2 => pure "partial"
-        | _ => none
-      pure (CKindF.defn value hints safety)
-    | 2 => do
-      unless r.isCtor x 0 3 do none
-      pure (CKindF.thm (← r.ptrFld x 1) (← r.nameList x 2))
-    | 3 => do
-      unless r.isCtor x 0 3 do none
-      pure (CKindF.opaq (← r.ptrFld x 1) (← r.bool x 0))
-    | 4 => do
-      unless r.isCtor x 0 1 do none
-      let k ← match ← r.u8 x 0 with
-        | 0 => pure "type" | 1 => pure "ctor" | 2 => pure "lift" | 3 => pure "ind"
-        | _ => none
-      pure (CKindF.quot k)
-    | 5 => do
-      unless r.isCtor x 0 6 do none
-      pure (CKindF.induct (← r.natF x 1) (← r.natF x 2) (← r.nameList x 3)
-        (← r.nameList x 4) (← r.natF x 5) (← r.bool x 0) (← r.bool x 1) (← r.bool x 2))
-    | 6 => do
-      unless r.isCtor x 0 5 do none
-      pure (CKindF.ctor (← r.ptrFld x 1) (← r.natF x 2) (← r.natF x 3) (← r.natF x 4)
-        (← r.bool x 0))
-    | _ => do
-      unless r.isCtor x 0 7 do none
-      let all ← r.nameList x 1
-      let cells ← r.list x (r.fld x 6)
-      let rules ← cells.toList.mapM fun v => do
-        let y ← r.loc v
-        unless r.isCtor y 0 3 do none
-        pure ((← r.ptrFld y 0), (← r.natP y (r.fld y 1)), (← r.ptrFld y 2))
-      pure (CKindF.recur all (← r.natF x 2) (← r.natF x 3) (← r.natF x 4) (← r.natF x 5) rules
-        (← r.bool x 0) (← r.bool x 1))
+  let kind ← kindSkel r (r.tag c) x
   pure { name, levelParams := lps, type, kind }
 
 /-! ## The module data -/
@@ -434,6 +444,18 @@ noncomputable def constSpec (r : Region) (c : Nat) : Option (CEntryF Name Expr) 
   let s ← constSkel r c
   s.mapM (nameP r) (exprP r)
 
+/-- `constNamesOk`'s walk over the two arrays: `seen` the names before. -/
+def constNamesGo (r : Region) : List Nat → List Nat → Std.HashSet Name → Bool
+  | [], [], _ => true
+  | n :: ns, c :: cs, seen =>
+    match constSkel r c, nameAt r n with
+    | some sk, some a =>
+      (r.loc sk.name == some n || nameP r sk.name == some a) &&
+        (let (b, seen) := seen.containsThenInsert a
+         !b && constNamesGo r ns cs seen)
+    | _, _ => false
+  | _, _, _ => false
+
 /-- **A part's name table agrees with its constants** (task #383):
 `ModuleData.constNames`, the keys Lean's `finalizeImport` stores the
 constants under (it zips the two arrays, never comparing the two names), has as many entries as
@@ -444,23 +466,17 @@ the checked constants differ from the ones Lean loads under those names;
 and a name stored twice in one part is disambiguated by Lean's loader
 (`subsumesInfo`, or "already contains") in a way no other tool need
 share. -/
-def constNamesOk (r : Region) (root : UInt64) : Bool := Id.run do
-  let some g := r.loc root | return false
-  unless r.isCtor g 0 5 do return false
-  let some ns := r.objArray g (r.fld g 1) | return false
-  let some cs := r.objArray g (r.fld g 2) | return false
-  unless ns.size == cs.size do return false
-  let mut seen : Std.HashSet Name := Std.HashSet.emptyWithCapacity ns.size
-  for h : i in [0:ns.size] do
-    let some sk := (cs[i]?).bind (constSkel r) | return false
-    let some a := nameAt r ns[i] | return false
-    unless r.loc sk.name == some ns[i] do
-      match nameP r sk.name with
-      | some b => unless a == b do return false
-      | none => return false
-    if seen.contains a then return false
-    seen := seen.insert a
-  return true
+def constNamesOk (r : Region) (root : UInt64) : Bool :=
+  match r.loc root with
+  | none => false
+  | some g =>
+    if r.isCtor g 0 5 then
+      match r.objArray g (r.fld g 1), r.objArray g (r.fld g 2) with
+      | some ns, some cs =>
+        ns.size == cs.size &&
+          constNamesGo r ns.toList cs.toList (Std.HashSet.emptyWithCapacity ns.size)
+      | _, _ => false
+    else false
 
 /-- **The `ModuleData` at an address of a region**: its name table agrees with
 its constants, and all of them read.  The views of a module's files are this at

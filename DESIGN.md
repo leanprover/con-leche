@@ -108911,38 +108911,52 @@ that the reader does not import the core.
 **Questioned from cfsg, and changed.**
 * The toolchain allowlist is gone: only the format version and the GMP flag are
   checked (a decline otherwise), the header's version and githash not looked at.
-  rc3's and v4.35.0's format sources are identical.  Read at both.
-* `decodeModuleSpec` has no `consts` flag and no decoder parameter, and it includes
-  the name table's check (maintainer's ruling): the specification says what a
-  valid module is, `parseFull` is its fast twin, and there is one full parse.
-* `stmtSpec` is gone: `stmtsFast_eq` states against `sks.mapM (stmtP r)`.
-* `locateHits` and the part check are maps, not `for/mut` loops, which is what
-  makes "the snapshot determines the action" (`ModelIO.Det`) short.
-* `parsePart` is a named function; `parseModule` was its local closure.
+  rc3's and v4.35.0's format sources are identical.
+* **Views by level (maintainer's design).**  `decodeModuleSpec f level` is the
+  specification of one view, `noncomputable`; a view reads the files up to its own
+  (`ModFiles.viewRegion`), so `.exported` needs `M.olean` alone.  `parseView` is one
+  view, fast.  `parseAllViews` is all three with one memo, each object once
+  (`parseMany`, the one engine, `parseMany_eq`); it replaces a separate exported parse
+  and separate server and private parses, three passes over overlapping objects.
+  The interface is in levels; the address of a `ModuleData` (`moduleDataAddr`) is
+  internal.  Lean's names: `OLeanLevel`, `.exported`.
+* **`--olean` reads the private view only**, as Lean's import does outside the module
+  system (`Elab/Import.lean`: `.private`) and as lean4export does (`importModules`'s
+  default).  It needs all three files' bytes and decodes what the private view reaches.
+  The cross-part checks moved to `checkViews`, a home's read; `olean-compare --views` runs
+  it.  So `--olean` accepts a module whose exported or server part is bad: five pinned
+  verdicts in `tests/olean.sh` are now pinned both ways.  Every view's imports must be
+  those at the start of `M.olean` (`importsPre`), which is what the closure reads, so
+  that a prefix read follows from any full one.
+* The specification is stricter on a few reads, which honest files satisfy: a scalar is no
+  address (`Region.loc`), a recursor rule's object lies below its recursor's, the kind's
+  object is checked before its first field is read.  Needed: past a file's end the two
+  regions see different bytes.
+* `constNamesOk` is a recursion, not a `for` loop; `Region.ofParts`'s overlap check too.
+  `locateHits` and `readFiles`'s checks have no `for/mut`.
 
-**The uniform theorems (the maintainer's question).**  One direction on
-purpose: a read looks only at what it needs, so it may succeed on a file whose
-full parse fails.  `parseFull_eq_spec` is an equality, so the fast parser
-succeeds iff the specification does.
-* pure (`Verify/Frontend/Olean/Reads.lean`), for any region and root with
-  `parseFull r root = some d`: `readNamePositions_of_full`, `readEntry_of_full`,
-  `readStmts_of_full`; `readEntry_eq` holds unconditionally.
-  `importsPre_extract` and `importsPre_prefix` relate the prefix read to the file
-  in both directions; `parseExported_full`, `parseModule_full` give the full
-  parses a module's reads are made of, at (single ex, ex.root) and at (combined,
-  s.root / p.root).
-* on a snapshot (`Verify/Frontend/Olean/Files.lean`), from a value of the home's
-  `readModule`: `readExportedPart_of_home`, `moduleImports_of_home` state that
-  those reads are DETERMINED and return the home's.  With the pure theorems at
-  (single ex, ex.root), a home's full read settles every fast read of the exported
-  part, on one snapshot, in one process or in two.  The prefix read needs
-  `foldList_hdr_complete` (the forward read finds on a prefix what the file
-  holds; a prefix validates because the chunks are whole words).
+**The uniform theorems (the maintainer's question).**  One direction on purpose: a
+read looks only at what it needs, so it may succeed on a file whose full parse fails.
+`parseView_eq_spec` is an equality, so the fast parser succeeds iff the specification does.
+* `parseAllViews_eq`: all three, with one memo, are the three specifications, each in the
+  region of the files up to its view.  The proof is `Verify/Frontend/Olean/Prefix.lean`:
+  `Region.Sub P r n`, `P` the first `n` bytes of `r`; every object reader agrees below an
+  address `P` knows, because a pointer an object holds points below it.  Only a
+  `ModuleData`'s own address can leave its view, which `parseAllViews` checks.  So an
+  importer holding `M.olean` alone reads what the home read, a theorem and no longer a
+  separate parse.
+* at a level (`Verify/Frontend/Olean/View.lean`), where `parseView f level = some d`:
+  `readNamePositions_of_view`, `readEntry_of_view`, `readStmts_of_view`; on regions,
+  `entryAt_eq` holds unconditionally.  `importsPre_extract` and `importsPre_prefix` relate
+  the prefix read to the file in both directions.
+* on a snapshot (`Verify/Frontend/Olean/Files.lean`), from a value of `readAllViews`:
+  `readView_of_all` and `readFiles_of_all` state those reads are DETERMINED and the home's;
+  `moduleImports_of_view` from any view read.  One snapshot, in one process or in two.
 * `checkMainG_oleans_accept`, `runArgs_oleans_accept`, `main_oleans_no_False`,
-  `readOleans_ok`.  Not stated: what the merge and the emission mean relative to
-  the files' constants (`mergeAll`, `emitAll`, `declsOf` appear in `readOleans_ok`
-  as they are), nor that `closureOrder` covers the closure: `main_oleans_no_False`
-  takes its `False` theorem as a hypothesis on the reader's records.
+  `readOleans_ok`.  Not stated: what the merge and the emission mean relative to the
+  files' constants (`mergeAll`, `emitAll`, `declsOf` appear in `readOleans_ok` as they
+  are), nor that `closureOrder` covers the closure: `main_oleans_no_False` takes its
+  `False` theorem as a hypothesis on the reader's records.
 
 **Fence.**  `tests/layering.sh`: the reader imports itself and five base modules
 (`Kernel.{Error,Name,Expr,Env}`, `Frontend.Scan.Types`); only `Files` and
@@ -108950,11 +108964,11 @@ succeeds iff the specification does.
 the reader, those, `Verify.Frontend.ModelIO`.  `tests/trust-surface.sh`'s IO fence
 covers `Files`, `Closure`, `Records`, with `parShare` and `parMapIO` cut out.
 
-**Tests.**  `tests/olean.sh`: 95 cases, the merged and parts cases of cfsg's gate,
+**Tests.**  `tests/olean.sh`: 101 cases, the merged and parts cases of cfsg's gate,
 79 fixture sources (1.4 MB of oleans), upstream Lake and Comparator projects kept;
 `NpAx` is exit 2 here (master declines every other axiom; cfsg's reject is its
 #397, which is not on master).  `tests/ConLecheTests/OleanTests.lean` evaluates
-every partial read on the fixtures.  `tests/olean-compare.sh`, in the battery
+every partial read and `parseAllViews` on the fixtures.  `tests/olean-compare.sh`, in the battery
 after the self-check, whose exporter it uses.
 
 **Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
@@ -108962,10 +108976,7 @@ differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
 run, on the final tree): accepted 712 205 declarations, peak RSS 6.11 GiB, parse phase
 16.9 s, install 7.7 s, check 99.4 s, 7 772 G instructions:u, 3 888 G cycles:u.  A slice
 of CFSG's rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`, 113 593 declarations) read and was
-accepted before the interface rewrite; that checkout is gone.  A module-system
-module's exported part is decoded twice in a full read (alone, then in the
-combined region), the price of `parseExported` being a function of that file alone;
-the parse phase above includes it.
+accepted before the interface rewrite; that checkout is gone.
 
 **The review (Codex, then the maintainer's rulings, 2026-11-04).**  Run on the
 branch before landing.  The refinement check's fallback ran the unmemoized
@@ -108978,9 +108989,9 @@ more than the reader does.  Codex's dense-memo finding was overstated (the memo 
 linear in the file) and its deep-nesting one fails safe, no verdict; both stand.
 
 **The interface (maintainer's rulings).**  The entry points had grown with cfsg's
-layers.  Gone: `decodeModuleFast` (it is `parseFull`), `readHeader` (nothing wants the
-flag and imports without the names), `readImports`, `readExported`, `readExportedLight`
-(`readExportedPart` and a pure function of it), `readExpAt`, `readModuleAt`,
-`locateModule`.  `ConLeche/Frontend/Olean.lean` lists the interface; `tests/layering.sh`
-keeps the rest of the checker from importing past it.  `private` cannot express it:
-checker code is exposed, so what an exposed definition mentions must be public.
+layers.  Gone: `parseFull`, `decodeModuleFast`, `parseExported`, `parseModule`, `readHeader`
+(nothing wants the flag and imports without the names), `readImports`, `readExported`,
+`readExportedLight`, `readModule`, `readExpAt`, `locateModule`.  "Light" is now "name
+positions".  `ConLeche/Frontend/Olean.lean` lists the interface; `tests/layering.sh` keeps
+the rest of the checker from importing past it.  `private` cannot express it: checker code
+is exposed, so what an exposed definition mentions must be public.

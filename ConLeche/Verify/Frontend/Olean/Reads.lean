@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Frontend.Olean.View
+public import ConLeche.Frontend.Olean.Reads
+public import ConLeche.Frontend.Olean.Header
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Sparse
 import Std.Data.HashSet.Lemmas
@@ -41,118 +42,60 @@ instance : LawfulBEq (ImportF Name) where
 
 /-! ## The name table's check -/
 
-/-- A loop in `Id` over consecutive numbers: what holds at the start and is
-kept by every step that continues holds at the end, unless a step stops
-it. -/
-theorem forIn'_range'_id {β : Type} (I : Nat → β → Prop) :
-    ∀ (l : List Nat) (s : Nat), l = List.range' s l.length →
-      ∀ (f : (a : Nat) → a ∈ l → β → Id (ForInStep β)) (x : β), I s x →
-      (∀ a hm y y', I a y → f a hm y = ForInStep.yield y' → I (a + 1) y') →
-      I (s + l.length) (forIn' l x f).run ∨
-        ∃ a hm y, I a y ∧ f a hm y = ForInStep.done (forIn' l x f).run
-  | [], s, _, f, x, hx, _ => by simp only [List.forIn'_nil, List.length_nil, Nat.add_zero]; exact .inl hx
-  | a :: l, s, hl, f, x, hx, hf => by
-    simp only [List.length_cons, List.range'_succ, List.cons.injEq] at hl
-    obtain ⟨rfl, hl⟩ := hl
-    rw [List.forIn'_cons]
-    cases hfa : f a List.mem_cons_self x with
-    | done y => exact .inr ⟨a, _, x, hx, by rw [hfa]; rfl⟩
-    | yield y =>
-      have := forIn'_range'_id I l (a + 1) hl (fun b m y => f b (List.mem_cons_of_mem _ m) y) y
-        (hf a _ x y hx hfa) (fun b hm y y' hy => hf b _ y y' hy)
-      simp only [List.length_cons]
-      rw [show a + (l.length + 1) = a + 1 + l.length by omega]
-      rcases this with h | ⟨b, hm, z, hz, hb⟩
-      · exact .inl h
-      · exact .inr ⟨b, _, z, hz, hb⟩
-
-/-- No file holds an object at the address `1` (the boxed `Name.anonymous`):
-an object lies past a file's header. -/
-theorem locGo_one (r : Region) : ∀ n, r.locGo 1 n = 0
-  | 0 => rfl
-  | i + 1 => by
-    unfold Region.locGo
-    split
-    · rename_i hi
-      dsimp only
-      split
-      · rename_i hb
-        have hb' := Bool.and_eq_true _ _ ▸ hb
-        obtain ⟨h1, -⟩ := hb'
-        have : ((1 : UInt64) - r.segs[i].base).toNat ≤ 1 := by
-          have h1' : r.segs[i].base ≤ 1 := by simpa using h1
-          rw [UInt64.toNat_sub_of_le _ _ h1']
-          simp
-        have hd : ¬ dataStart ≤ ((1 : UInt64) - r.segs[i].base).toNat := by
-          unfold dataStart; omega
-        simp [hd]
-      · exact locGo_one r i
-    · rfl
-
-theorem loc_one (r : Region) : r.loc 1 = none := by
-  simp [Region.loc, locGo_one]
-
-/-- `constNamesOk`'s loop: where it does not stop with `false`, its
-invariant holds at the end. -/
-theorem cn_loop {β : Type} {l : List Nat}
-    {f : (a : Nat) → a ∈ l → Option Bool × β → Id (ForInStep (Option Bool × β))}
-    {x : Option Bool × β} (I : Nat → Option Bool × β → Prop) (hl : l = List.range' 0 l.length) (hx : I 0 x)
-    (hf : ∀ a hm y y', I a y → f a hm y = ForInStep.yield y' → I (a + 1) y')
-    (hd : ∀ a hm y y', I a y → f a hm y = ForInStep.done y' → y'.1 = some false)
-    {o : Option Bool} (hres : (forIn' l x f : Id _).1 = o) (h : o ≠ some false) :
-    I l.length (forIn' l x f : Id _) := by
-  subst hres
-  rcases forIn'_range'_id I l 0 hl f x hx hf with k | ⟨a, hm, y, hy, hda⟩
-  · simpa [Id.run] using k
-  · exact absurd (hd a hm y _ hy hda) h
-
-/-- The invariant of `constNamesOk`'s loop at index `a`. -/
-def CNInv (r : Region) (cs : Array Nat) (a : Nat) (s : Option Bool × Std.HashSet Name) : Prop :=
-  s.1 = none ∧ ∃ names : List Name, names.length = a ∧ names.Nodup ∧
-    (∀ x, s.2.contains x = true ↔ x ∈ names) ∧
-    ∀ k, k < a → ∃ sk, (cs[k]?).bind (constSkel r) = some sk ∧ nameP r sk.name = names[k]?
-
-/-- A pointer at a location stands for the name stored there. -/
-theorem nameP_of_loc {r : Region} {v : UInt64} {c : Nat} (h : r.loc v = some c) :
-    nameP r v = nameAt r c := by
-  unfold nameP
-  have : (v == 1) = false := by
-    cases hv : (v == 1)
-    · rfl
-    · have := beq_iff_eq.1 hv; subst this; rw [loc_one] at h; cases h
-  rw [this, h]; rfl
-
-/-- `constNamesOk`'s step that continues keeps its invariant. -/
-theorem cn_yield {r : Region} {cs : Array Nat} {a : Nat} {y : Option Bool × Std.HashSet Name}
-    {sk : CEntryF UInt64 UInt64} {a1 : Name} (hy : CNInv r cs a y)
-    (hsk : (cs[a]?).bind (constSkel r) = some sk) (hn : nameP r sk.name = some a1)
-    (hc : ¬ y.2.contains a1 = true) : CNInv r cs (a + 1) (none, y.2.insert a1) := by
-  obtain ⟨-, names, hl, hnd, hcon, hk⟩ := hy
-  refine ⟨rfl, names ++ [a1], by simp [hl], ?_, ?_, ?_⟩
-  · rw [List.nodup_append]
-    refine ⟨hnd, by simp, ?_⟩
-    intro x hx z hz
-    simp only [List.mem_singleton] at hz; subst hz
-    intro he; subst he
-    exact hc ((hcon _).2 hx)
-  · intro x
-    simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq, List.mem_append,
-      List.mem_singleton, hcon]
-    constructor
-    · rintro (h | h)
-      · exact .inr h.symm
-      · exact .inl h
-    · rintro (h | h)
-      · exact .inr h
-      · exact .inl h.symm
-  · intro k hk'
-    rcases Nat.lt_succ_iff_lt_or_eq.1 hk' with hk' | rfl
-    · obtain ⟨sk', h1, h2⟩ := hk k hk'
-      refine ⟨sk', h1, ?_⟩
-      rw [h2, List.getElem?_append_left (by omega)]
-    · refine ⟨sk, hsk, ?_⟩
-      rw [hn, List.getElem?_append_right (by omega), hl]
-      simp
+/-- `constNamesOk`'s walk: the names it saw are the constants', each once, and none
+of those seen before. -/
+theorem constNamesGo_spec {r : Region} :
+    ∀ {ns cs : List Nat} {seen : Std.HashSet Name}, constNamesGo r ns cs seen = true →
+      ∃ names : List Name, names.length = cs.length ∧ names.Nodup ∧
+        (∀ x ∈ names, seen.contains x = false) ∧
+        ∀ k, k < cs.length → ∃ sk, (cs[k]?).bind (constSkel r) = some sk ∧
+          nameP r sk.name = names[k]?
+  | [], [], seen, _ => ⟨[], rfl, List.nodup_nil, by simp, by simp⟩
+  | [], _ :: _, seen, h => by simp [constNamesGo] at h
+  | _ :: _, [], seen, h => by simp [constNamesGo] at h
+  | n :: ns, c :: cs, seen, h => by
+    unfold constNamesGo at h
+    split at h
+    · rename_i sk a hsk hna
+      simp only [Bool.and_eq_true, Bool.or_eq_true, Std.HashSet.containsThenInsert_fst,
+        Std.HashSet.containsThenInsert_snd, Bool.not_eq_true'] at h
+      obtain ⟨hnm, hb, ht⟩ := h
+      obtain ⟨names, hl, hnd, hseen, hk⟩ := constNamesGo_spec ht
+      have hname : nameP r sk.name = some a := by
+        rcases hnm with h1 | h1
+        · have h1' := beq_iff_eq.1 h1
+          unfold nameP
+          have hv : (sk.name == 1) = false := by
+            cases hv : (sk.name == 1)
+            · rfl
+            · exfalso
+              have h2 : sk.name = 1 := beq_iff_eq.1 hv
+              rw [h2] at h1'
+              revert h1'
+              simp [Region.loc, isScalar]
+          rw [hv]
+          simp only [Bool.false_eq_true, ite_false, h1']
+          exact hna
+        · exact beq_iff_eq.1 h1
+      refine ⟨a :: names, by simp [hl], ?_, ?_, ?_⟩
+      · rw [List.nodup_cons]
+        refine ⟨fun hm => ?_, hnd⟩
+        have := hseen a hm
+        simp [Std.HashSet.contains_insert] at this
+      · intro x hx
+        simp only [List.mem_cons] at hx
+        rcases hx with rfl | hx
+        · exact hb
+        · have := hseen x hx
+          simp only [Std.HashSet.contains_insert, Bool.or_eq_false_iff] at this
+          exact this.2
+      · intro k hk'
+        cases k with
+        | zero => exact ⟨sk, by simpa using hsk, by simpa using hname⟩
+        | succ k =>
+          obtain ⟨s, h1, h2⟩ := hk k (by simpa using hk')
+          exact ⟨s, by simpa using h1, by simpa using h2⟩
+    · cases h
 
 /-- **A name table that agrees names its constants, each once**
 (`constNamesOk`). -/
@@ -162,48 +105,20 @@ theorem constNamesOk_spec {r : Region} {root : UInt64} (h : constNamesOk r root 
         ∀ k, k < cs.size → ∃ sk, (cs[k]?).bind (constSkel r) = some sk ∧
           nameP r sk.name = names[k]? := by
   unfold constNamesOk at h
-  simp only [Id.run, bind, pure] at h
   split at h
-  case h_2 => cases h
+  · cases h
   rename_i g hg
   split at h
-  case isFalse => cases h
-  split at h
-  case h_2 => cases h
-  rename_i ns hns
-  split at h
-  case h_2 => cases h
-  rename_i cs hcs
-  split at h
-  case isFalse => cases h
-  rename_i hsz
-  have hsz' : ns.size = cs.size := by simpa using hsz
-  refine ⟨g, cs, hg, hcs, ?_⟩
-  rw [Std.Legacy.Range.forIn'_eq_forIn'_range'] at h
-  have h0 : CNInv r cs 0 (none, Std.HashSet.emptyWithCapacity ns.size) :=
-    ⟨rfl, [], rfl, List.nodup_nil, fun x => by simp [Std.HashSet.contains_emptyWithCapacity],
-      fun k hk => absurd hk (Nat.not_lt_zero _)⟩
-  split at h
-  all_goals rename_i heq
-  all_goals
-    have key := cn_loop (CNInv r cs) (by simp [Std.Legacy.Range.size]) h0 ?_ ?_ heq
-      (by first | (intro he; cases he; simp at h) | simp)
-  all_goals first
-    | (obtain ⟨-, names, hl, hnd, -, hk⟩ := key
-       simp only [Std.Legacy.Range.size, List.length_range', Nat.sub_zero,
-         Nat.add_sub_cancel, Nat.div_one] at hl hk
-       exact ⟨names, by omega, hnd, fun k hk' => hk k (by omega)⟩)
-    | (intro a hm y y' hy hf
-       try dsimp only at hf
-       repeat' split at hf
-       all_goals first
-         | (cases hf; done)
-         | (cases hf; rfl)
-         | (cases hf
-            refine cn_yield hy ‹_› ?_ ‹_›
-            first
-              | (rw [nameP_of_loc (by simpa using ‹(r.loc _ == some _) = true›)]; assumption)
-              | (rw [‹nameP r _ = some _›]; congr 1; exact (beq_iff_eq.1 ‹(_ == _) = true›).symm)))
+  · split at h
+    · rename_i ns cs hns hcs
+      simp only [Bool.and_eq_true] at h
+      obtain ⟨-, hgo⟩ := h
+      obtain ⟨names, hl, hnd, -, hk⟩ := constNamesGo_spec hgo
+      refine ⟨g, cs, hg, hcs, names, by simpa using hl, hnd, fun k hk' => ?_⟩
+      obtain ⟨s, h1, h2⟩ := hk k (by simpa using hk')
+      exact ⟨s, by simpa using h1, h2⟩
+    · cases h
+  · cases h
 
 /-- The module skeleton's constants are the root's constants array. -/
 theorem moduleSkel_consts {r : Region} {root : UInt64} {sk : ModSkel} {g : Nat} {cs : Array Nat}
@@ -256,6 +171,20 @@ theorem mapM_mem {α β : Type} {f : α → Option β} {xs : List α} {ys : List
   cases hf : f xs[i] with
   | none => rw [hf] at this; have := mapM_length_opt h; have := (List.getElem?_eq_none_iff.1 ‹_›); omega
   | some y => exact ⟨y, List.mem_of_getElem? (by rw [‹ys[i]? = _›, hf]), rfl⟩
+
+/-- An element of a `mapM`'s result comes from one of the list. -/
+theorem mapM_mem_inv {α β : Type} {f : α → Option β} :
+    ∀ {xs : List α} {ys : List β}, xs.mapM f = some ys → ∀ {y : β}, y ∈ ys → ∃ x ∈ xs, f x = some y
+  | [], ys, h, y, hy => by simp at h; subst h; simp at hy
+  | x :: xs, ys, h, y, hy => by
+    rw [List.mapM_cons] at h
+    obtain ⟨y', hy', h⟩ := bind_some_left h
+    obtain ⟨ys', hys, h⟩ := bind_some_left h
+    cases h
+    rcases List.mem_cons.mp hy with rfl | hm
+    · exact ⟨x, List.mem_cons_self, hy'⟩
+    · obtain ⟨x', hx', hf⟩ := mapM_mem_inv hys hm
+      exact ⟨x', List.mem_cons_of_mem _ hx', hf⟩
 
 /-- A `mapM` of a function defined on every element. -/
 theorem mapM_of_forall {α β : Type} {f : α → Option β} {P : β → Prop} :

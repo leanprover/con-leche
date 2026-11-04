@@ -139,14 +139,16 @@ structure Region where
 /-- The region of one file. -/
 def Region.single (p : Part) : Region := ⟨p.bytes, #[⟨p.base, 0, p.bytes.size⟩]⟩
 
+/-- The files do not overlap, in increasing address order. -/
+def partsOrdered : List Part → Bool
+  | a :: b :: t => decide (a.base.toNat + a.bytes.size ≤ b.base.toNat) && partsOrdered (b :: t)
+  | _ => true
+
 /-- The region of a module's files.  The files must not overlap and
 must come in increasing address order, as one compactor writes them. -/
 def Region.ofParts (ps : Array Part) : Except CheckError Region := do
-  for i in [1:ps.size] do
-    if h : i < ps.size then
-      let p := ps[i - 1]
-      unless p.base.toNat + p.bytes.size ≤ ps[i].base.toNat do
-        throw (.internal "the .olean files of a module overlap")
+  unless partsOrdered ps.toList do
+    throw (.internal "the .olean files of a module overlap")
   if h : ps.size = 1 then return Region.single ps[0]
   let total := ps.foldl (fun n p => n + p.bytes.size) 0
   let (bytes, segs) := ps.foldl (fun (b, ss) p =>
@@ -179,9 +181,10 @@ def Region.locGo (r : @& Region) (a : UInt64) : Nat → Nat
 /-- **The location of the object at an address**: the address must fall
 in one of the module's files, past its header, with room for the object
 header, at a location that is a multiple of 8 (every file's base address
-and size are, `Part.ofBytes`, so this is the address's alignment).
-Locations are never `0` (the header comes first). -/
+and size are, `Part.ofBytes`, so this is the address's alignment).  A scalar is
+no address.  Locations are never `0` (the header comes first). -/
 @[inline] def Region.loc (r : @& Region) (a : UInt64) : Option Nat :=
+  if isScalar a then none else
   let g := r.locGo a r.segs.size
   if g == 0 then none else some g
 

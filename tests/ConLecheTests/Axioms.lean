@@ -2,6 +2,7 @@ module
 
 public import ConLeche.MainTheorem
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.View
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
@@ -140,6 +141,12 @@ info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Class
 -/
 #guard_msgs in
 #print axioms ConLeche.Frontend.Olean.readOleans_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.parseAllViews_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.parseAllViews_eq
 
 /--
 info: 'ConLeche.Frontend.Olean.readView_of_all' depends on axioms: [propext, Classical.choice, Quot.sound]

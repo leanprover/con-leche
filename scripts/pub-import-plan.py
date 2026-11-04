@@ -66,7 +66,8 @@ FALLBACK = {
     # its other imports.
     ('ConLeche.Frontend.ExportC', 'ConLeche.Kernel.Env'),
     # (likewise `Region`, `ImportF`: unknown identifier, `Reads.lean:40`)
-    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Module'),
+    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Reads'),
+    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Header'),
     # task #329 (pinstall): the skeleton definitions moved to
     # `Cached/InstallSkel`; AgreeFloor's statements name them
     # (`InstallSkel`, `ciSkel`), which the census attributes elsewhere.
