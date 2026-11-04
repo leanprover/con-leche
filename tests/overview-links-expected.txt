@@ -118,12 +118,12 @@
    333    checkPendingList mode p.2.1 p.2.2.toList
    334    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L94-L98
-    94  /--
-    95  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    96  -/
-    97  #guard_msgs in
-    98  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L95-L99
+    95  /--
+    96  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    97  -/
+    98  #guard_msgs in
+    99  #print axioms ConLeche.model_exists
 
 == ConLeche/Driver/Dispatch.lean#L32
     32    | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs

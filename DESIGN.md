@@ -108973,8 +108973,10 @@ after the self-check, whose exporter it uses.
 
 **Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
 differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
-run, on the final tree): accepted 712 205 declarations, peak RSS 6.11 GiB, parse phase
-16.9 s, install 7.7 s, check 99.4 s, 7 772 G instructions:u, 3 888 G cycles:u.  A slice
+run, on the final tree, the private view): accepted 712 205 declarations, peak RSS 5.99
+GiB, 7 570 G instructions:u, against 7 772 G and 6.11 GiB when every module's three parts
+were parsed and compared (one run each, instructions the stable measure; wall time on this
+machine varied too much to compare).  A slice
 of CFSG's rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`, 113 593 declarations) read and was
 accepted before the interface rewrite; that checkout is gone.
 
