@@ -109057,3 +109057,87 @@ identity, so `#stored_basis`'s stored and raw forms coincide; the basis phase
 collapses them.  Def-headed formers are real at Mathlib (38) and guards matter
 at a third of the structures, so both need measuring on a Mathlib prefix, not
 only on Init.
+
+### Item 6: axioms' and pinned operations' checks are jobs (2026-11-05, agent/480-jobs)
+
+**What changed.**  The driver's install (`installStepG`,
+`Verify/Cached/Defer.lean`) runs a value record's guards and pushes
+anything else from the record alone: `deferredDecl` is every record but a
+definition, theorem or opaque that `valueStep` handles, so an axiom, a
+pinned `Nat` operation, a `reduce*` opaque, a basis record, a quotient
+record and an inductive block all take one path.  `storedStep` reads what
+to push: the record's own constant; nothing for `sorryAx` and `Quot.sound`;
+a pin's constants for a basis or quotient `type` record; `storedInstall`
+for a block.  The record's checked step `checkDeclStepC`, compared with
+those pushes, is a job (`DeferredCheck`, #411/#431's `BlockCheck`
+generalised; `deferredFailure`, `installStepG_deferred`,
+`installStepG_commit`).  `installStep` and its two commit theorems are gone:
+its `checkDeclStepC` arm no longer ran.
+
+**The spec fold is untouched.**  `installStepC` still runs `checkDeclStepC`
+in phase A: as #431 §13 says of a block, the fold's step is the meaning of
+an install, and the driver builds its run from the push and the job.  So no
+tier above `Verify/Cached/Defer.lean` moved and the model has nothing to
+repair.  If a later phase wants the fold's own step uniform, that is a change
+of the spec and of `Model/InstallRun.lean`, not needed for this ruling.
+
+**The environment a job checks at**: the install's worker view at the
+record's counter, i.e. exactly the constants before it in fold order
+(`Twin.ofViewAgrees`), with the record's own push only through
+`checkDeclC`'s overlay, as before.  That is why it is the serial step.
+
+**`Frontend/NatOpGround.lean` stays.**  A certificate is checked over the
+prefix before its operation, so its ground has to be in that prefix, and that
+is what the reordering does.  It could go only if a job checked at a later
+environment, which is a different statement: the fold's step would no longer
+be at the fold's position, and a certificate could mention a constant that
+depends on the very operation whose fast path it justifies (the model's
+step at a pinned operation reads an environment without it).  Not done; a
+design question if the Lean environment route needs it (there the order is
+the replay's).
+
+**The Nat fast path in the window.**  A later job may fire a pinned
+operation's fast path before the operation's job has run.  Accept needs every
+job (`DeferredRun.run` takes all of them), so a later job's verdict matters
+only if every earlier job passed, and then its environment is the serial
+fold's.  A wrong firing therefore changes nothing but which failure is computed
+last, and `collectJobs` reports the earliest.  A later job that does not
+terminate over a wrong operation keeps the pool from draining, as over a wrong
+definition's value: no verdict, never an accept.  Before this change the same
+stream was refused at install, so this is a case where an old reject can become
+a timeout.  None is known; `natop_perturbed_used_later` and
+`natop_perturbed_later_reject` pin the terminating cases at every `--jobs`.
+
+**A foreign declaration at a certified name**: on master that is exit 2 (no pin
+variant matches, `nat_land_perturbed`), now from its job.  The exit-1 ruling of
+2026-10-31 is #397's, on `cfsg`; it was not ported and this lane did not change
+the code.
+
+**Verdicts.**  The first failure in fold order now decides between an axiom or
+pinned operation and an earlier value check; until now the install-time verdict
+overtook every value check.  Accept versus not-accept is unchanged.
+* `defer_value_reject_then_axiom` (new): 2 at the base, 1 now, the target.
+* `natop_typepin_foreign`: 2 → 1.  Its stream deletes
+  `Decidable.falseTrueCases`, which the theorem `ite_self` (fold position 97) does
+  mention, despite the fixture's old comment; that reject now comes first.  Removing
+  the theorem cascades into the certificates' ground, so the fixture stays and
+  `natopForeignDeclines` (`tests/ConLecheTests/DeferTests.lean`) pins `Nat.gcd`'s
+  job's decline directly.
+* `defer_axiom_then_value_reject`, the two `natop_perturbed_*` (new): 2, unchanged.
+No other pinned verdict moved: e2e 506/506, the trusted, `--jobs=1` and `--jobs=4`
+sweeps without divergence.
+
+**Numbers** (`instructions:u`, `--verified`, one run each, against 13e9d0a05):
+
+| stream | `--jobs=1` base | Δ | `--jobs=8` base | Δ |
+|---|---|---|---|---|
+| init-full | 381.745 G | −0.02 % | 392.189 G | −0.04 % |
+| init-prelude | 1.9572 G | +0.08 % | 2.1312 G | −0.08 % |
+| grind-ring-5 | 15.298 G | +0.02 % | 15.681 G | +0.05 % |
+
+**For the later phases.**  `Defer.lean`'s `storedStep` is the one function the
+install's reading goes through, so ruling 4 (basis blocks as the stream's) changes
+its `.basisDecl`, `.quotDecl` and block-pin arms and the `declCSkels` prediction in
+step.  `pushesAgree` covers every deferred record until the reading is the checked
+step's own.  `tests/arena.sh`'s progress lane now states M = N: every record is a
+job.

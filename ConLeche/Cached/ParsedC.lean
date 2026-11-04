@@ -12,9 +12,10 @@ flushed per declaration, declarations consumed as `Declaration` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
-`checkDeclStepC` is the fold's step for every declaration kind that is
-checked as it is installed: axioms, inductive and basis blocks, the
-pinned `Nat`-operation definitions and `reduce*` opaques.  The
+`checkDeclStepC` is the fold's step for every declaration kind whose
+check decides what it pushes: axioms, inductive and basis blocks, the
+pinned `Nat`-operation definitions and `reduce*` opaques (the driver runs
+it as a job of the check phase, `ConLeche/Verify/Cached/Defer.lean`).  The
 declaration fold itself, `checkDecls` (`ConLeche/Cached/Installed.lean`),
 installs every record first (a separable value declaration — every
 theorem, every other definition and opaque — by its own install half,

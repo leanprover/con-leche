@@ -565,13 +565,13 @@ prog_check "the verdict line is unchanged by the flag" \
   "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
 prog_check "stride 1 prints one install line per fold record" \
   "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
-# the check phase: one `check` line per recorded check, the number the
-# `install done` line names (M, below N)
+# the check phase: one `check` line per job, the number the `install
+# done` line names (M); every record is a job since task #480, so M = N
 prog_lines_c=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: check [0-9]')
 prog_pending=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: .*, \([0-9]*\) checks pending.*/\1/p')
 prog_check "stride 1 prints one check line per recorded check" \
   "$([ -n "$prog_pending" ] && [ "$prog_lines_c" = "$prog_pending" ] && \
-     [ "$prog_pending" -gt 0 ] && [ "$prog_pending" -lt "$prog_decls" ] && echo ok)"
+     [ "$prog_pending" -gt 0 ] && [ "$prog_pending" = "$prog_decls" ] && echo ok)"
 # the bracket lines, in order: parse done, install done, check done,
 # the summary — and every install line before every check line
 prog_order=$(printf '%s\n' "$prog_err1" | sed -n \

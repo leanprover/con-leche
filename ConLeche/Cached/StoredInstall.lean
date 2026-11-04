@@ -14,7 +14,7 @@ walk, no recursor generation; the one inference is the structures'
 field sorts (their projection tables' guards), the one reduction a
 def-headed former's telescope.  The block's checked install runs
 later, as a job of the check phase
-(`BlockCheck`, `ConLeche/Verify/Cached/Defer.lean`), and compares what
+(`DeferredCheck`, `ConLeche/Verify/Cached/Defer.lean`), and compares what
 it pushes with what this install pushed, pointer-first
 (`ConstantInfo.beqP`, `ProjTable.beqP`); a difference is an internal
 error naming the block (exit 3: this reading is wrong, the stream is

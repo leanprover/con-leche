@@ -38,10 +38,9 @@ file sat in the `Cached` tier, because the then-implementation driver
 self-contained verification living with the implementation); the
 maintainer's 2026-10-08 ruling lets the driver (`ConLeche/Driver/*`,
 `Main.lean`) import `Verify/*`, so the file moved back to where a
-proof about kernel functions that needs no model belongs.  `installStep`
-(the install of one record at a view) and `pushPending` stay defined
-here too, next to the theorems they are about — the driver (now
-`ConLeche/Driver/ParInstall.lean`) runs them, which the ruling makes as
+proof about kernel functions that needs no model belongs.  `pushPending`
+stays defined here too, next to the theorems it is about — the driver (now
+`ConLeche/Driver/ParInstall.lean`) runs it, which the ruling makes as
 straightforward as running anything else this file exports.
 -/
 
@@ -1363,21 +1362,6 @@ section Commit
 
 variable {mode : CheckMode}
 
-/-- **A record's install at an index**: the constants it pushes, in push
-order, and the tables it installs, newest first, with its pending check
-for a value record — or its error.  At a worker view (no constants or
-tables of its own) the pushed constants are its environment's, reversed,
-and the tables its environment's. -/
-def installStep (mode : CheckMode) (pins : List NatOpPinSet) (W : FEnv) (pd : Declaration) :
-    Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
-  match valueStep W pd with
-  | some (.ok (ci, vg)) => .ok ([ci], [], some vg)
-  | some (.error e) => .error e
-  | none =>
-    match checkDeclStepC mode pins W pd {} with
-    | .ok (W', _) => .ok (W'.env.consts.reverse, W'.env.tables.reverse, none)
-    | .error e => .error e
-
 theorem pushAll_env_consts :
     ∀ (L : List ConstantInfo) (fe : FEnv),
       (FEnv.pushAll L fe).env.consts = L.reverse ++ fe.env.consts
@@ -1449,85 +1433,6 @@ record. -/
 @[expose] def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
   | some vg => pend.push ⟨vg, i, v⟩
   | none => pend
-
-/-- **The commit step of any record**: a record installed at the view
-whose lookups are the serial index's is the serial fold's step — the
-same constants pushed, the same pending check. -/
-theorem installStep_commit {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-    {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
-    {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe) (hidx : IdxBelow fe)
-    (hand : andPinOk pd = true)
-    (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
-    installDeclStep mode pins (i, fe, pend) pd =
-      .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
-  unfold installStep at h
-  split at h
-  · rename_i ci vg hv
-    simp only [Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl, rfl⟩ := h
-    exact valueStep_commit hag hand hv
-  · exact nomatch h
-  · rename_i hv
-    have hs := installStepC_of_valueStep_none (mode := mode) (pins := pins) (i := i) (fe := fe) (pend := pend) hv
-    have ht := Twin.ofViewAgrees hag hidx
-    split at h
-    · rename_i W' s' hW
-      simp only [Except.ok.injEq, Prod.mk.injEq] at h
-      obtain ⟨rfl, rfl, rfl⟩ := h
-      rcases checkDeclStepC_twin pins ht pd {} with
-        ⟨e, h₁, h₂⟩ | ⟨a₁, a₂, s'', h₁, h₂, L', Q', ha₁, ha₂⟩
-      · rw [h₂] at hW; exact nomatch hW
-      · rw [h₂] at hW
-        simp only [Except.ok.injEq, Prod.mk.injEq] at hW
-        obtain ⟨rfl, rfl⟩ := hW
-        have hL : (FEnv.pushDelta L' Q' (workerView B S fe.visibleBelow)).env.consts.reverse
-            = L' := by
-          rw [pushDelta_env]; simp [workerView]
-        have hQ : (FEnv.pushDelta L' Q' (workerView B S fe.visibleBelow)).env.tables.reverse
-            = Q' := by
-          rw [pushDelta_env]; simp [workerView]
-        rw [ha₂, hL, hQ]
-        unfold installDeclStep
-        simp only [hand, ↓reduceIte, hs]
-        show (match (checkDeclStepC mode pins fe pd {}).bind
-            (fun v => (pure (v.1, pend) : CheckCM _) v.2) with
-          | .ok ((fe', pend'), _) => Except.ok (i + 1, fe', pend')
-          | .error e => .error (e, i)) = _
-        rw [h₁, ha₁]
-        rfl
-    · exact nomatch h
-
-/-- A failing install is the serial step's failure. -/
-theorem installStep_commit_error {pins : List NatOpPinSet} {B : BaseIdx} {S : Slots} {i : Nat}
-    {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {e : CheckError}
-    (hag : ViewAgrees B S fe) (hidx : IdxBelow fe) (hand : andPinOk pd = true)
-    (h : installStep mode pins (workerView B S fe.visibleBelow) pd = .error e) :
-    installDeclStep mode pins (i, fe, pend) pd = .error (e, i) := by
-  unfold installStep at h
-  split at h
-  · exact nomatch h
-  · rename_i e' hv
-    cases h
-    exact valueStep_commit_error hag hand hv
-  · rename_i hv
-    have hs := installStepC_of_valueStep_none (mode := mode) (pins := pins) (i := i) (fe := fe) (pend := pend) hv
-    have ht := Twin.ofViewAgrees hag hidx
-    split at h
-    · exact nomatch h
-    · rename_i e' hW
-      cases h
-      rcases checkDeclStepC_twin pins ht pd {} with ⟨e'', h₁, h₂⟩ | ⟨a₁, a₂, s'', h₁, h₂, -⟩
-      · rw [h₂] at hW
-        cases hW
-        unfold installDeclStep
-        simp only [hand, ↓reduceIte, hs]
-        show (match (checkDeclStepC mode pins fe pd {}).bind
-            (fun v => (pure (v.1, pend) : CheckCM _) v.2) with
-          | .ok ((fe', pend'), _) => Except.ok (i + 1, fe', pend')
-          | .error e => .error (e, i)) = _
-        rw [h₁]
-        rfl
-      · rw [h₂] at hW; exact nomatch hW
 
 end Commit
 

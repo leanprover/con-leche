@@ -3086,8 +3086,13 @@
 # the stored type, so each fails by a boolean `false` before its
 # certificates are inferred (before the type pins, inferring them threw
 # "application type mismatch" and the variant-fallback combinator
-# caught it).  No variant matches: DECLINE, today and as the target.
-2 natop_typepin_foreign.ndjson
+# caught it).  No variant matches: that record's job declines, which
+# `natopForeignDeclines` (tests/ConLecheTests/DeferTests.lean) pins.  The
+# stream's verdict is an earlier failure since task #480: the theorem
+# `ite_self` (fold position 97) mentions the deleted constant, a reject its
+# check phase job reports first; the operation's decline at install used
+# to overtake it.  Target verdict: 1.
+1 natop_typepin_foreign.ndjson
 # --- task #431: the STORED recursor installed once it agrees with the
 # generated one up to definitional equality (the type binder by binder).
 # stored_rec_outparam: a class with an `outParam` parameter, a structure
@@ -3123,3 +3128,19 @@
 # in two `rfl`s; the firing data come off the record without looking `P2`
 # up.  Official 0, target 0.
 0 rec_nested_container_params.ndjson
+
+# Task #480: axioms' and pinned operations' checks are jobs of the check
+# phase, the first failure in fold order is the verdict
+# (scripts/mk_defer_order.py).
+#   defer_value_reject_then_axiom: a value reject before a non-standard
+#     axiom.  The reject: until #480 this was 2, the axiom's decline at
+#     install overtaking every value check.  Target verdict: 1.
+#   defer_axiom_then_value_reject: the same two records swapped.  Target: 2.
+#   natop_perturbed_used_later, natop_perturbed_later_reject: a perturbed
+#     pinned `Nat.land` and after it a theorem that may fire its literal
+#     fast path before its job has run, right or wrong by any reading of
+#     the operation.  The operation's decline, earlier in the fold.  Target: 2.
+1 defer_value_reject_then_axiom.ndjson
+2 defer_axiom_then_value_reject.ndjson
+2 natop_perturbed_used_later.ndjson
+2 natop_perturbed_later_reject.ndjson
