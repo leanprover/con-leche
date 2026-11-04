@@ -147,14 +147,14 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockParts
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section Ctors
 
 variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockParts} {nb : Bool}
   {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRec : Bool}
+  {mpC : EnvModelM V envC} {dR : BlockData V} {isRec : Bool}
   {A : Nat → (Name → Nat) → Term}
 
 /-- The `j`-th stored record, as `out`'s `j`-th entry. -/
@@ -175,7 +175,7 @@ class's parameter count** — a member class's by the constructors' core
 record, an outside class's by the carrier's coverage (`tgtOutCls_ofR` at
 the class's run as a major). -/
 theorem genRecCtor_find
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hN : BlockNamesOk (V := V) dR cvTas)
     (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTas pp.toBlockShape isRec A dR.k)
@@ -222,7 +222,7 @@ theorem genRecCtor_find
 /-- **`ctorsIn` at the generated stage**: every constructor a stored
 recursor carries is stored. -/
 theorem genRecCtor_in
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hN : BlockNamesOk (V := V) dR cvTas)
     (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTas pp.toBlockShape isRec A dR.k)
@@ -241,7 +241,7 @@ theorem genRecCtor_in
 /-- **`hctor` at the generated stage**: the carried constructors, stored
 at the class's parameter count, their types bound and read. -/
 theorem genRecCtor_seam
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp.toBlockShape nb pos cvTas block
       ctorsAs out)
     (hN : BlockNamesOk (V := V) dR cvTas)
     (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTas pp.toBlockShape isRec A dR.k)
@@ -266,7 +266,7 @@ end Ctors
 /-- An outside class's record reads only the major's inductive, its
 constructors and its parameter count: it survives the table entries'
 update. -/
-theorem TgtOutCls.withNfs {env : Env} {mp : EnvModelM V μ env} {M : TargetMajor}
+theorem TgtOutCls.withNfs {env : Env} {mp : EnvModelM V env} {M : TargetMajor}
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI)
     (nfs : List ConLeche.NestCtorNf) : TgtOutCls mp { M with nfs := nfs } D mm cvI :=
   ⟨h.hD, h.hmm, h.hmem, h.hfind, h.hnd, h.hnN, h.hkN, h.hlen, h.hctor⟩
@@ -278,8 +278,8 @@ as `cvc c` (`tgtOutCls_selR` at the class's run as a major). -/
 theorem genOutCls {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {p : BlockShape} {nb : Bool}
     {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
     {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    {mpC : EnvModelM V μ envC}
-    (R : GenRecRun μ F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos cvTas block ctorsAs out)
+    {mpC : EnvModelM V envC}
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos cvTas block ctorsAs out)
     (hcov : LfpCover mpC []) (D0 : LfpDatum V) :
     ∃ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
       (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →

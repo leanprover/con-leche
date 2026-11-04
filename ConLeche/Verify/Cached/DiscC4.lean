@@ -152,13 +152,13 @@ theorem betaPeelC_spec (r : CoreFnsI) {d : Nat} :
       vcgen [betaPeelI.eq_def, mkAppNM, instListM_spec hs, ihr] <;> finish
 
 /-- The bulk-beta argument loop simulates its pure mirror. -/
-theorem whnfAppC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
+theorem whnfAppC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) {d : Nat} :
-    ∀ {args : List Expr} {v : Expr} {s₀ : CState}, CSOK mode eager env s₀ →
+    ∀ {args : List Expr} {v : Expr} {s₀ : CState}, CSOK .verified eager env s₀ →
       Expr.WScoped d v → AllWS d args →
-      ⦃fun s => s = s₀⦄ whnfAppI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d v args
-      ⦃fun w s' => CSOK mode eager env s' ∧
-          Runs (whnfAppW mode (fueledFns mode eager env) env d v args) w ∧ StepWS d w; ⊤⦄ := by
+      ⦃fun s => s = s₀⦄ whnfAppI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d v args
+      ⦃fun w s' => CSOK .verified eager env s' ∧
+          Runs (whnfAppW .verified (fueledFns .verified eager env) env d v args) w ∧ StepWS d w; ⊤⦄ := by
   intro args
   induction args with
   | nil =>
@@ -169,20 +169,20 @@ theorem whnfAppC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager 
     intro _ _ _ _ _
     rw [whnfAppI.eq_def]; simp only [iotaArityOk_guard]
     sym only [conleche_grind, whnfAppW.eq_2, whnfAppW.eq_3] =>
-      vcgen [mkAppNM, iotaRecC_spec hμ ih henv,
-        betaPeelC_spec (coreKnotI mode eager (mkFEnv env) f), ihr] <;> finish
+      vcgen [mkAppNM, iotaRecC_spec ih henv,
+        betaPeelC_spec (coreKnotI .verified eager (mkFEnv env) f), ihr] <;> finish
 
 /-- One head-normalization step simulates its pure mirror. -/
-theorem whnfCoreStepC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
-    (henv : EnvWF env) {c : Bool} {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK mode eager env s₀)
+theorem whnfCoreStepC_spec (ih : SSimC .verified eager env f)
+    (henv : EnvWF env) {c : Bool} {d : Nat} {i : Expr} {s₀ : CState} (hs : CSOK .verified eager env s₀)
     (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
-      whnfCoreStepI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) c d i
-    ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (whnfCoreStepW mode (fueledFns mode eager env) env c d i) v ∧ StepWS d v; ⊤⦄ := by
+      whnfCoreStepI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) c d i
+    ⦃fun v s' => CSOK .verified eager env s' ∧
+      Runs (whnfCoreStepW .verified (fueledFns .verified eager env) env c d i) v ∧ StepWS d v; ⊤⦄ := by
   sym only [conleche_grind, whnfCoreStepW] =>
     vcgen [whnfCoreStepI, inst1M_spec hs, ih.whnfCore_spec, ih.whnf_spec,
-      reduceProjCoreC_spec ih, whnfAppC_spec hμ ih henv] <;> finish
+      reduceProjCoreC_spec ih, whnfAppC_spec ih henv] <;> finish
 
 /-- The mirror loop's answer is the chained body's
 (`whnfCoreLoop_sound_body`). -/
@@ -198,13 +198,13 @@ grind_pattern [conleche_grind] Runs.whnfCoreBody_of_loop =>
 /-- The head-normalization *loop* simulates its mirror, by induction on
 the shared step budget (task #106); a step's outcome is the same on
 both sides, and a continuation re-enters the loop (task #342 R2). -/
-theorem whnfCoreLoopC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
+theorem whnfCoreLoopC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) {c : Bool} {d : Nat} (n : Nat) :
-    ∀ {i : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d i →
+    ∀ {i : Expr} {s₀ : CState}, CSOK .verified eager env s₀ → Expr.WScoped d i →
       ⦃fun s => s = s₀⦄
-        whnfCoreLoopI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) c d n i
-      ⦃fun v s' => CSOK mode eager env s' ∧
-        Runs (whnfCoreLoopM mode (fueledFns mode eager env) env c d n i) v ∧
+        whnfCoreLoopI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) c d n i
+      ⦃fun v s' => CSOK .verified eager env s' ∧
+        Runs (whnfCoreLoopM .verified (fueledFns .verified eager env) env c d n i) v ∧
         Expr.WScoped d v; ⊤⦄ := by
   induction n with
   | zero =>
@@ -213,19 +213,19 @@ theorem whnfCoreLoopC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode e
   | succ n ihn =>
     intro i s₀ hs hw
     sym only [conleche_grind, whnfCoreLoopM] =>
-      vcgen [whnfCoreLoopI, whnfCoreStepC_spec hμ ih henv, ihn] <;> finish
+      vcgen [whnfCoreLoopI, whnfCoreStepC_spec ih henv, ihn] <;> finish
 
 /-- The cached head-normalization body simulates the chained
 specification body: the loop run is reproduced by `whnfCoreBody` at
 some knot fuel (`whnfCoreLoop_sound_body`). -/
-theorem whnfCoreBodyC_spec (hμ : mode.verifiedChecks = true) (ih : SSimC mode eager env f)
+theorem whnfCoreBodyC_spec (ih : SSimC .verified eager env f)
     (henv : EnvWF env) (c : Bool) :
-    BodySpec mode eager env (whnfCoreBodyI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env)
+    BodySpec .verified eager env (whnfCoreBodyI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env)
         c)
-      (whnfCoreBody mode (fueledFns mode eager env) env c) := by
+      (whnfCoreBody .verified (fueledFns .verified eager env) env c) := by
   intro s₀ d i hs hw
   sym only [conleche_grind] =>
-    vcgen [whnfCoreBodyI, whnfCoreLoopC_spec hμ ih henv] <;> finish
+    vcgen [whnfCoreBodyI, whnfCoreLoopC_spec ih henv] <;> finish
 
 end Walks
 

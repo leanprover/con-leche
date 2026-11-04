@@ -39,7 +39,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 section Eq
 
@@ -198,10 +198,10 @@ theorem eqReflTy_data (ψ : Name → Nat) (ρ : Nat → V) :
 
 /-- **`Eq`, installed at the P tier** — the tier's one `eq_law`
 bespoke cons. -/
-theorem extendEq (mp : EnvModelM V μ env)
+theorem extendEq (mp : EnvModelM V env)
     (hfresh : env.find? eqName = none)
     (hwf : EnvWF ⟨eqA :: env.consts, env.tables⟩) :
-    ∃ mp' : EnvModelM V μ ⟨eqA :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨eqA :: env.consts, env.tables⟩,
       mp'.base2.acval
         = acvalWith mp.base2.acval eqA.name eqValT ∧
       (LfpCover mp [] → LfpCover mp' [eqName]) := by
@@ -238,12 +238,12 @@ theorem extendEq (mp : EnvModelM V μ env)
     rw [hac, show eqName = eqA.name from rfl, acvalWith_self]
 
 /-- **`Eq.refl`, installed at the P tier.** -/
-theorem extendEqRefl (mp : EnvModelM V μ env)
+theorem extendEqRefl (mp : EnvModelM V env)
     (hE : env.find? eqName = some eqA)
     (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT ψ)
     (hfresh : env.find? eqReflA.name = none)
     (hwf : EnvWF ⟨eqReflA :: env.consts, env.tables⟩) :
-    ∃ mp' : EnvModelM V μ ⟨eqReflA :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨eqReflA :: env.consts, env.tables⟩,
       mp'.base2.acval
         = acvalWith mp.base2.acval eqReflA.name eqReflValT ∧
       (LfpCover mp [eqName] → LfpCover mp' [eqName]) := by
@@ -1162,7 +1162,7 @@ theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
     (fun _ _ => IsTy_piV), IsTy_piV⟩
 
 /-- **`Eq.rec`, installed at the P tier.** -/
-theorem extendEqRec (mp : EnvModelM V μ env)
+theorem extendEqRec (mp : EnvModelM V env)
     (hE : env.find? eqName = some eqA)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT ψ)
@@ -1170,7 +1170,7 @@ theorem extendEqRec (mp : EnvModelM V μ env)
       mp.base2.acval eqReflName ψ = eqReflValT ψ)
     (hfresh : env.find? eqRecA.name = none)
     (hwf : EnvWF ⟨eqRecA :: env.consts, env.tables⟩) {ex : List Name} :
-    ∃ mp' : EnvModelM V μ ⟨eqRecA :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨eqRecA :: env.consts, env.tables⟩,
       mp'.base2.acval
         = acvalWith mp.base2.acval eqRecA.name eqRecValT ∧
       (LfpCover mp ex → LfpCover mp' ex) := by
@@ -1221,7 +1221,7 @@ theorem extendEqRec (mp : EnvModelM V μ env)
 /-- **The `Eq` block, installed at the P tier.**  `BasisStepPB`'s
 `eqK` branch — the block whose chain reads its own earlier leaves, and
 so the one that consumes the install's exposed `acval`. -/
-theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V μ env)
+theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.eqK.declsA env₁) :
     CoverStep mp env₁ := by

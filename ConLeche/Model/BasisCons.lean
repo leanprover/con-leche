@@ -64,7 +64,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- **`nat_heads` at a cons that is none of the three literal
 heads.**  The guard reads `natName`, `natZeroName` and `natSuccName`
@@ -73,7 +73,7 @@ nor the three leaves — the basis blocks other than `Nat` discharge
 their obligation here, and so would any inductive-kind cons.  (The
 `Nat` block itself is where the guard *becomes* true; it supplies
 `nat_heads` bespoke, and no back-transfer exists.) -/
-theorem natHeads_cons_offNat (mp : EnvModelM V μ env)
+theorem natHeads_cons_offNat (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
@@ -141,7 +141,7 @@ reserved name (`BasisKind.declsA` ⊆ `reservedBasisNames`), and both
 `CapsOk` halves are premised on a *non*-reserved family, so no
 stored family can be completed here and the law's leaves are all
 prefix leaves. -/
-theorem capsOk_cons_basis (mp : EnvModelM V μ env)
+theorem capsOk_cons_basis (mp : EnvModelM V env)
     (hprev : CapsOk mp.base2)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)

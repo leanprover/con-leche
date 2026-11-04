@@ -42,11 +42,11 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv Block
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section MemberHoles
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {d : BlockData V} {pp : BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockParts}
   {cvTas : List ConstantVal}
 
 /-- **The member constants' own values lie in their formers' types**

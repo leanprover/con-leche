@@ -47,7 +47,7 @@ open ConLeche.Rules
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **The successor packing's semantic row**: `Nat.succ w` at a literal
 reading of `w` interprets as the packed literal, which reads and is
@@ -126,7 +126,7 @@ arguments because `natSuccRow_of`/`natOpRow_of`/`natOpHead_of` (`Model/NatStep.l
 sit above this file — `Model/Capstone.lean`'s `RulesInputs.ofSem`
 supplies them. -/
 theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
-    (mp : EnvModelM V μ env)
+    (mp : EnvModelM V env)
     (hsucc : NatSuccRow mp.base2 φ) (hop : NatOpRow mp.base2 φ)
     (hhead : NatOpHead mp.base2 φ) :
     RulesInputs V mp.base2 φ where

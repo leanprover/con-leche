@@ -131,9 +131,9 @@ theorem find?_of_mem_nodup {env : Env} (hnd : NodupNames env) {c : ConstantInfo}
 /-- **What one accepted declaration stores of what it declares.**  Every
 record kind that declares a constant stores it under its own name, with
 its own level parameters and its declared type. -/
-theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
+theorem checkDecl_declares {env env₂ : Env} {F : Nat}
     {pd : Declaration}
-    (h : checkDecl μ (fueledOps μ F) pins env pd = .ok env₂)
+    (h : checkDecl .verified (fueledOps .verified F) pins env pd = .ok env₂)
     {cv : ConstantVal} (hcv : Declaration.Declares pd cv) :
     ∃ c ∈ env₂.consts, c.name = cv.name ∧
       c.toConstantVal.levelParams = cv.levelParams ∧
@@ -190,19 +190,19 @@ theorem checkDecl_declares {μ : CheckMode} {env env₂ : Env} {F : Nat}
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **The walk**: along an accepting phase-A run whose start environment
 carries the model, every record's declared constant is stored — with its
 name, its level parameters and its type — and is still there at the
 end.  The hypotheses are `installRun_model`'s. -/
-theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declaration}
+theorem installRun_declares {ds : List Declaration}
     {p : Nat × FEnv × Array PendingCheck}
     {q : Nat × FEnv × Array PendingCheck}
-    (hrun : InstallRun μ pins ds p q) :
-    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V μ p.2.1.env →
+    (hrun : InstallRun .verified pins ds p q) :
+    p.2.1 = mkFEnv p.2.1.env → EnvModelOk V p.2.1.env →
     NodupNames q.2.1.env →
-    (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending μ q.2.1 pc {} = .ok ((), s'')) →
+    (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending .verified q.2.1 pc {} = .ok ((), s'')) →
     ∀ pd ∈ ds, ∀ cv : ConstantVal, Declaration.Declares pd cv →
       ∃ c ∈ q.2.1.env.consts, c.name = cv.name ∧
         c.toConstantVal.levelParams = cv.levelParams ∧
@@ -215,11 +215,11 @@ theorem installRun_declares (hμ : μ.verifiedChecks = true) {ds : List Declarat
     obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := installDeclStep_ok hstep
     simp only at hfe hstepC
     obtain ⟨hpush₁, -⟩ :=
-      installStepC_push μ i (PushChain.self hfe) pend pd {} (fe₁, pend₁) s₁ hstepC
+      installStepC_push .verified i (PushChain.self hfe) pend pd {} (fe₁, pend₁) s₁ hstepC
     have hfe₁ : fe₁ = mkFEnv fe₁.env := hpush₁.canon
-    obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace μ rest (PushChain.self hfe₁)
+    obtain ⟨hchainF, new₁, hpend₁⟩ := installRun_trace .verified rest (PushChain.self hfe₁)
     obtain ⟨hm₁, -, F, hF⟩ :=
-      installStepC_model (V := V) hμ hfe hfe₁ hm CSOKF.empty hstepC hchainF hpend₁ hnd hB
+      installStepC_model (V := V) hfe hfe₁ hm CSOKF.empty hstepC hchainF hpend₁ hnd hB
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hF hcv
       obtain ⟨new, hnew⟩ := hchainF.2.1
@@ -245,7 +245,7 @@ theorem checkDecls_consts (V : Type w) [SetTheory V]
   have hchain := installRun_trace _ run (PushChain.refl Env.empty)
   have hnd : NodupNames fc.1.fe.env := hchain.1.2.2.1 List.nodup_nil
   obtain ⟨c, hc, h1, h2, h3⟩ :=
-    installRun_declares (V := V) rfl run rfl
+    installRun_declares (V := V) run rfl
       EnvModelOk.empty
       hnd fc.records pd (Array.mem_toList_iff.mpr hmem) cv hcv
   exact ⟨c, h1 ▸ find?_of_mem_nodup hnd hc, h2, h3⟩

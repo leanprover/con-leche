@@ -24,7 +24,7 @@ open ConLeche.Term ConLeche.Verify
 
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 
 /-! ## The six components, ψ-congruent at a recursor's parameters -/
@@ -40,17 +40,17 @@ variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
 /-- **`pdoms`** — the recursor type's domains, off its reading
 (`recStage_tyPis`), which is ψ-congruent at any recursor's
 parameters (`blockRecTyAV_params_ext`). -/
-theorem blockRulePdomsAV_params (hμ : μ.verifiedChecks = true) (mpC : EnvModelM V μ envC)
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+theorem blockRulePdomsAV_params (mpC : EnvModelM V envC)
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q)
     {c : Nat} (hc : c < rs.length) :
     blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c
       = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ₂ c := by
   have hrc : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
-  obtain ⟨-, -, -, -, hM₁, hN₁, -⟩ := recStage_tyPis hμ mpC h hrc ψ₁
-  obtain ⟨-, -, -, -, hM₂, hN₂, -⟩ := recStage_tyPis hμ mpC h hrc ψ₂
-  have hT := blockRecTyAV_params_ext hμ mpC h hr hq hc
+  obtain ⟨-, -, -, -, hM₁, hN₁, -⟩ := recStage_tyPis mpC h hrc ψ₁
+  obtain ⟨-, -, -, -, hM₂, hN₂, -⟩ := recStage_tyPis mpC h hrc ψ₂
+  have hT := blockRecTyAV_params_ext mpC h hr hq hc
   have hs₁ := stripPisAV_mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c)
     (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c)
   have hs₂ := stripPisAV_mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ₂ c)

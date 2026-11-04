@@ -54,8 +54,8 @@ nothing else — the `Empty` statement lives with the letters, and the
 | theorem | file | what it says |
 |---|---|---|
 | `ConLeche.no_proof_of_False` | `ConLeche/MainTheorem.lean` | **THE MAIN THEOREM** — if the checker in its default `--verified` mode accepts a stream, the resulting environment holds no constant of type `False` (task #181: `False` is a pinned basis block, `ConLeche/Kernel/Basis/False.lean`, so the statement needs no hypothesis about how the stream declares it — a stream declaring the name any other way is rejected) |
-| `ConLeche.Cached.no_proof_of_{False,Empty}_cached` | `ConLeche/Verify/Cached/MainC.lean` | the shipped driver's letters, stated for every validating mode at once |
-| `ConLeche.Model.no_proof_of_{False,Empty}_pure` | `ConLeche/Model/Fold.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDeclsPure μ (fueledOps μ F)`, at every fuel |
+| `ConLeche.Cached.no_proof_of_{False,Empty}_cached` | `ConLeche/Verify/Cached/MainC.lean` | the shipped driver's letters, stated at `.verified`, the mode the model covers |
+| `ConLeche.Model.no_proof_of_{False,Empty}_pure` | `ConLeche/Model/Fold.lean` | **the pure letters** — the same conclusions for the pure fueled checker `checkDeclsPure .verified (fueledOps .verified F)`, at every fuel |
 | `ConLeche.Model.no_proof_of_Empty_pure_of` | `ConLeche/Model/Fold.lean` | its install-tier-conditional form, the shape the harvest closes |
 | `ConLeche.Cached.checkDecls_sound` | `ConLeche/Verify/Cached/MainC.lean` | the acceptance corollary under the driver's letter: an accepted cached run yields the model invariant `EnvModelM` at the final environment |
 | `ConLeche.Cached.fold_preserves` | `ConLeche/Verify/Cached/MainC.lean` | the fold that threads that invariant step by step (an assembly lemma: fold-state hypotheses) |
@@ -108843,6 +108843,54 @@ exit 1; a throwing flush in `main` still does, as before.
 **`--no-mark-persistent` removed (maintainer's ruling, 2026-11-04):** the flag and the `noMark` parameter are gone and the marks unconditional; older records mention them as history.
 
 **Naming as per README (maintainer's ruling, 2026-11-04, reversing this record's earlier one):** `no_False_declaration` is the main corollary, as on master, and `main_no_False` the main corollary lifted to the driver; statements above calling them otherwise are superseded.  `main_model` (this lane's, not the older theorem of that name) is dropped: `Driver.runArgs_accept` and `model_exists` give it.
+
+## TASK #453 — the mode variable and `hμ` leave the proofs (2026-11-04, agent/453-no-mu)
+
+Maintainer: with `CheckMode` just `verified | trusted` (task #452),
+`μ.verifiedChecks = true` says `μ = .verified`, so the variable and the
+hypothesis were noise in every statement about the verified checker.
+
+**Removed.**  The model tier and the Expr-facing semantics
+(`Model/*`, `Semantics/*`) are stated at `.verified`: `EnvModelM V env`,
+`EnvModelOk V env`, `InferReads`, `InferClaim`/`WhnfClaim`/
+`DefEqClaim`/`WhnfCoreClaim`, `ClaimsAt`, `BlockCtorsStage`,
+`BlockTablesStage`, `BlockRecStagedAt/T`, `RecCtxBase`, `GenRecCtx`,
+`TgtNodeDyn`, the `*Run` families of `Semantics/DeclRun`, `DeclRun`,
+`DeclBlockRun`, `DeclIndRunDispatchK`, `NatEqsRun` lost their mode
+argument; every `{μ : CheckMode}` binder (1680 mentions of `μ` in
+those two directories, one left: a pin) and every `hμ` hypothesis
+(331 binders, about 1000 mentions) is gone.  The capstones are now
+
+* `checkDecls_sound {ds env'} (h : checkDecls .verified pins ds = .ok env') : Nonempty (EnvModelM V env')`,
+* `no_proof_of_{Empty,False}_cached (V) {ds env'} (h : checkDecls .verified pins ds = .ok env') : …`,
+* `fullyChecked_sound (V) (fc : FullyChecked .verified pins ds) : Nonempty (EnvModelM V fc.env)`,
+  `no_proof_of_{False,Empty}_checked`,
+* `checkDeclsPure_sound_of`, `no_proof_of_{Empty,False}_pure` at
+  `checkDeclsPure .verified (fueledOps .verified F)`,
+
+and `model_exists`, `no_proof_of_False` (README's quotes) did not move.
+In `Verify/Cached/*` and `Verify/Rules/*` the theorems that held only
+under `hμ` (the `*_spec`/`*_run` walks of the install, the block and the
+bridge steps, `ssimC`, `bridgeAt`, `projCertAt_verified_inv`) are
+stated at `.verified`; `ssimC_all` and `bridgeAt` induct over `f`/`fuel`
+and `eager` only.  `CheckMode.eq_verified` and its 15 uses, and
+`Verify/Modes.lean` (its only content), are deleted.
+
+**Kept general in the mode** (true at both modes without a hypothesis):
+`Verify/CheckerSplit`, the `Verify/Rules/Defs` predicates and the
+bridge steps that read no certificate, the `SimC`/`DiscC*` lemmas below
+the certificate gates, the inversions that carry
+`mode.verifiedChecks = true → …` (`Verify/InferLemmas`, `Verify/Deep`:
+they case-split on the gate and hold at both modes), `checkDecls_fullyChecked μ h`, and everything
+in `Kernel/*`, `Cached/*`, `Frontend/*`, `Driver/*` (the binary has
+`--trusted`).  `CheckMode.verifiedChecks` stays: executed code reads it.
+
+**What a removed hypothesis left behind.**  A proof that rewrote the
+gate with `hμ` unfolds `CheckMode.verifiedChecks` instead (three
+`simp` calls, three `sym only` lists in `DiscC3` and the gate lemmas
+`proofIrrelGate_of`, `iotaCertGate_of`, now plain equations at
+`.verified`); a call that passed `hμ` to a generic inversion passes
+`rfl`.
 
 ## TASK #470 — the `.olean` reader on master, without modular checking (2026-11-04, agent/470-olean)
 

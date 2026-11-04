@@ -252,22 +252,22 @@ theorem wscoped_nestCrest {names : List Name} {us : List Level} {ds holes : List
   WScoped_nestCrest (by rw [Expr.hasFvar_instantiateLevelParams]; exact hcl) hlen
     (fun x hx => (List.mem_append.mp hx).elim (hds x) (hholes x)) h
 
-theorem nestCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem nestCtorsS_spec (henv : EnvWF env)
     {recC : Expr → List NestHole → Nat → Nat → Expr → NestState →
       CheckCM (NestFieldKind × Expr × NestState)}
     {recC' : Expr → List NestHole → Nat → Nat → Expr → NestState →
       FueledM (NestFieldKind × Expr × NestState)}
-    (hrec : ∀ x, RecSpec mode env (recC x) (recC' x)) (ctx : NestCtx)
+    (hrec : ∀ x, RecSpec .verified env (recC x) (recC' x)) (ctx : NestCtx)
     (prog : List NestHole)
     (hi : Nat) (us : List Level) (ds : List Expr) (names : List Name) (holes : List Expr)
     (hds : AllWS hi ds) (hholes : AllWS hi holes)
     (hlen : names.length ≤ holes.length) :
-    ∀ (cs : List (ConstantVal × Nat)) (st : NestState) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (cs : List (ConstantVal × Nat)) (st : NestState) {s₀ : CState}, CSOK .verified false env s₀ →
       ListAll CtorClosed cs →
       ⦃fun s => s = s₀⦄
-        nestCtors ctx (sharedOpsC mode (mkFEnv env)) env recC prog hi us ds names holes cs st
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (nestCtors ctx (fueledOpsM mode) env recC' prog hi us ds names holes cs st) v ∧
+        nestCtors ctx (sharedOpsC .verified (mkFEnv env)) env recC prog hi us ds names holes cs st
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (nestCtors ctx (fueledOpsM .verified) env recC' prog hi us ds names holes cs st) v ∧
         ListAll (OutWS hi) v.1; ⊤⦄ := by
   intro cs
   induction cs with
@@ -280,7 +280,7 @@ theorem nestCtorsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
     intro st _ hs₀ hcs
     sym only [conleche_grind, nestCtors.eq_2, unwrapOr.eq_1,
         → wscoped_nestCrest (hlen := hlen) (hds := hds) (hholes := hholes)] =>
-      vcgen [nestCtors, unwrapOr, inferS_spec hμ henv, sortS_spec hμ henv,
+      vcgen [nestCtors, unwrapOr, inferS_spec henv, sortS_spec henv,
         nestFieldsS_spec (hrec _), ih] <;> finish
 
 /-- A frame's holes: its group's entries at `hi, hi + 1, …`. -/
@@ -311,18 +311,18 @@ theorem nestFrame_eq {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] 
         (grp.map (·.1)) (frameHoles hi grp) ctors st
       pure st) := rfl
 
-theorem nestFrameS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) (hrec : RecSpec mode env rec rec')
+theorem nestFrameS_spec (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSpec .verified env rec rec')
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (hds : AllWS hi ds) (grp : List (Name × Expr)) (st : NestState) {s₀ : CState}
-    (hs : CSOK mode false env s₀) (hg : ListAll (GrpWS ds) grp) :
-    ⦃fun s => s = s₀⦄ nestFrame ctx (sharedOpsC mode (mkFEnv env)) env rec prog hi us ds nPc grp st
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (nestFrame ctx (fueledOpsM mode) env rec' prog hi us ds nPc grp st) v; ⊤⦄ := by
+    (hs : CSOK .verified false env s₀) (hg : ListAll (GrpWS ds) grp) :
+    ⦃fun s => s = s₀⦄ nestFrame ctx (sharedOpsC .verified (mkFEnv env)) env rec prog hi us ds nPc grp st
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (nestFrame ctx (fueledOpsM .verified) env rec' prog hi us ds nPc grp st) v; ⊤⦄ := by
   sym only [conleche_grind, nestFrame_eq] =>
-    vcgen [nestFrame_eq, inferS_spec hμ henv,
-      nestGroupCtorsS_spec (mode := mode) (env := env) hc nPc,
-      nestCtorsS_spec hμ henv (fun _ => hrec) ctx _ (hi + grp.length) us ds (grp.map Prod.fst)
+    vcgen [nestFrame_eq, inferS_spec henv,
+      nestGroupCtorsS_spec (mode := .verified) (env := env) hc nPc,
+      nestCtorsS_spec henv (fun _ => hrec) ctx _ (hi + grp.length) us ds (grp.map Prod.fst)
         (frameHoles hi grp) (AllWS.mono (Nat.le_add_right _ _) hds)
         (frameHoles_wscoped fun x hx => hg x hx hi hds) (by simp [frameHoles])] <;> finish
 
@@ -338,30 +338,30 @@ theorem allWS_nestWalkStack {ctx : NestCtx} {prog : List NestHole} {ds : List Ex
       (fvarB_le (by simpa using List.all_eq_true.mp hfree x hx))
   · exact hds
 
-theorem nestContNewS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) (hrec : RecSpec mode env rec rec')
+theorem nestContNewS_spec (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSpec .verified env rec rec')
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (hds : AllWS (ctx.hiAt prog.length) ds) (cty : Expr) (hni : InstWS ds cty)
-    (st : NestState) {s₀ : CState} (hs : CSOK mode false env s₀) :
+    (st : NestState) {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      nestContNew ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us ds nPc cty st
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (nestContNew ctx (fueledOpsM mode) env rec' prog kb n us ds nPc cty st) v; ⊤⦄ := by
+      nestContNew ctx (sharedOpsC .verified (mkFEnv env)) env rec prog kb n us ds nPc cty st
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (nestContNew ctx (fueledOpsM .verified) env rec' prog kb n us ds nPc cty st) v; ⊤⦄ := by
   sym only [conleche_grind, nestContNew.eq_1, allWS_nestWalkStack hds] =>
-    vcgen [nestContNew, nestGrowGroupS_spec (mode := mode) (env := env) hc, nestFrameS_spec hμ henv hc hrec _ _ us ds nPc
+    vcgen [nestContNew, nestGrowGroupS_spec (mode := .verified) (env := env) hc, nestFrameS_spec henv hc hrec _ _ us ds nPc
       (allWS_nestWalkStack hds)] <;> finish
 
-theorem nestContKeyS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) (hrec : RecSpec mode env rec rec')
+theorem nestContKeyS_spec (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSpec .verified env rec rec')
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
     (hds : AllWS (ctx.hiAt prog.length) ds) (cty : Expr) (hni : InstWS ds cty)
-    (st : NestState) {s₀ : CState} (hs : CSOK mode false env s₀) :
+    (st : NestState) {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      nestContKey ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us ds nPc cty st
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (nestContKey ctx (fueledOpsM mode) env rec' prog kb n us ds nPc cty st) v; ⊤⦄ := by
+      nestContKey ctx (sharedOpsC .verified (mkFEnv env)) env rec prog kb n us ds nPc cty st
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (nestContKey ctx (fueledOpsM .verified) env rec' prog kb n us ds nPc cty st) v; ⊤⦄ := by
   sym only [conleche_grind, nestContKey.eq_1] =>
-    vcgen [nestContKey, nestContNewS_spec hμ henv hc hrec prog kb n us ds nPc hds cty hni st hs]
+    vcgen [nestContKey, nestContNewS_spec henv hc hrec prog kb n us ds nPc hds cty hni st hs]
       <;> finish
 
 /-- An instantiation's parameters that pass the container case's guard
@@ -375,17 +375,17 @@ theorem allWS_take_guard {dep D n : Nat} {args : List Expr} (hargs : AllWS dep a
   simp only [Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at h1
   exact WScoped.of_fvarsBelow (hargs d (List.mem_of_mem_take hd)) (fvarB_le h1.2)
 
-theorem nestContS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
-    (hc : NestCtxOk ctx) (hrec : RecSpec mode env rec rec')
+theorem nestContS_spec (henv : EnvWF env) {ctx : NestCtx}
+    (hc : NestCtxOk ctx) (hrec : RecSpec .verified env rec rec')
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (args : List Expr)
     {dep : Nat} (hargs : AllWS dep args) (st : NestState) {s₀ : CState}
-    (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ nestCont ctx (sharedOpsC mode (mkFEnv env)) env rec prog kb n us args st
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (nestCont ctx (fueledOpsM mode) env rec' prog kb n us args st) v; ⊤⦄ := by
+    (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ nestCont ctx (sharedOpsC .verified (mkFEnv env)) env rec prog kb n us args st
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (nestCont ctx (fueledOpsM .verified) env rec' prog kb n us args st) v; ⊤⦄ := by
   sym only [conleche_grind, nestCont.eq_1, unwrapOr.eq_1, allWS_take_guard hargs] =>
-    vcgen [nestCont, unwrapOr, nestInstTypeS_spec (mode := mode) (env := env) hc,
-      nestContKeyS_spec hμ henv hc hrec prog kb n us] <;> finish
+    vcgen [nestCont, unwrapOr, nestInstTypeS_spec (mode := .verified) (env := env) hc,
+      nestContKeyS_spec henv hc hrec prog kb n us] <;> finish
 
 end Walk
 
@@ -397,10 +397,10 @@ variable {env : Env}
 
 /-- **`nestPos` at the shared operations**: every successful cached run
 is a fueled one, with the same result. -/
-theorem nestPosS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+theorem nestPosS_spec (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) :
-    ∀ fuel, RecSpec mode env (nestPos (sharedOpsC mode (mkFEnv env)) env ctx fuel)
-      (nestPos (fueledOpsM mode) env ctx fuel) := by
+    ∀ fuel, RecSpec .verified env (nestPos (sharedOpsC .verified (mkFEnv env)) env ctx fuel)
+      (nestPos (fueledOpsM .verified) env ctx fuel) := by
   intro fuel
   induction fuel with
   | zero =>
@@ -410,8 +410,8 @@ theorem nestPosS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx
   | succ fuel ih =>
     intro prog dep kb e st s₀ hs hw
     sym only [conleche_grind, nestPos.eq_2] =>
-      vcgen [nestPos, whnfS_spec hμ henv, ih.triple,
-        nestContS_spec hμ henv hc ih (dep := dep)] <;> finish
+      vcgen [nestPos, whnfS_spec henv, ih.triple,
+        nestContS_spec henv hc ih (dep := dep)] <;> finish
 
 /-- The member holes: scoped at the walk's depth, each a variable. -/
 @[expose] def HolesOk (d : Nat) (holes : List Expr) : Prop :=
@@ -421,14 +421,14 @@ theorem HolesOk.allWS {d : Nat} {holes : List Expr} (h : HolesOk d holes) : AllW
   fun x hx => (h x hx).1
 
 /-- **The root frame at the shared operations.** -/
-theorem nestRootS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+theorem nestRootS_spec (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) {holes : List Expr} (hholes : HolesOk (ctx.hiAt 0) holes)
     (hlen : ctx.names.length ≤ holes.length) (hpar : AllWS (ctx.hiAt 0) ctx.params) :
     ∀ (css : List (List (ConstantVal × Nat))) (st : NestState) {s₀ : CState},
-      CSOK mode false env s₀ → ListAll (ListAll CtorClosed) css →
-      ⦃fun s => s = s₀⦄ nestRoot (sharedOpsC mode (mkFEnv env)) env ctx holes css st
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (nestRoot (fueledOpsM mode) env ctx holes css st) v ∧
+      CSOK .verified false env s₀ → ListAll (ListAll CtorClosed) css →
+      ⦃fun s => s = s₀⦄ nestRoot (sharedOpsC .verified (mkFEnv env)) env ctx holes css st
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (nestRoot (fueledOpsM .verified) env ctx holes css st) v ∧
         ListAll (ListAll (OutWS (ctx.hiAt 0))) v.1; ⊤⦄ := by
   intro css
   induction css with
@@ -439,7 +439,7 @@ theorem nestRootS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ct
   | cons cs css ih =>
     intro st _ hs hcs
     sym only [conleche_grind, nestRoot.eq_2] =>
-      vcgen [nestRoot, nestCtorsS_spec hμ henv (fun x => nestPosS_spec hμ henv hc (whnfWalkFuel x))
+      vcgen [nestRoot, nestCtorsS_spec henv (fun x => nestPosS_spec henv hc (whnfWalkFuel x))
         ctx [] (ctx.hiAt 0) _ _ _ _ hpar hholes.allWS hlen,
         ih] <;> finish
 
@@ -464,14 +464,14 @@ theorem FvsWS.get {nP : Nat} {fvs : List Expr} (h : FvsWS nP fvs) {j : Nat} {x :
 /-- The per-field sort walk at the shared operations
 (#175: the large-eliminator escape admits a field that is
 one of the residual's index expressions). -/
-theorem checkStructFieldSortsIS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem checkStructFieldSortsIS_spec (henv : EnvWF env)
     {isProp large : Bool} {s : Level} {nP : Nat} {fvs idxArgs : List Expr}
     (hfvs : FvsWS nP fvs) :
-    ∀ {j : Nat} {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ {j : Nat} {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄
-        checkStructFieldSortsI (sharedOpsC mode (mkFEnv env)) env isProp large s nP fvs idxArgs j
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (checkStructFieldSortsI (fueledOpsM mode) env isProp large s nP fvs idxArgs j) v;
+        checkStructFieldSortsI (sharedOpsC .verified (mkFEnv env)) env isProp large s nP fvs idxArgs j
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkStructFieldSortsI (fueledOpsM .verified) env isProp large s nP fvs idxArgs j) v;
         ⊤⦄ := by
   intro j
   induction j with
@@ -483,8 +483,8 @@ theorem checkStructFieldSortsIS_spec (hμ : mode.verifiedChecks = true) (henv : 
     intro _ hs
     sym only [conleche_grind, checkStructFieldSortsI.eq_2, unwrapOr.eq_1, liftFueled.eq_1,
         → hfvs.get] =>
-      vcgen [checkStructFieldSortsI, unwrapOr, liftFueled, inferS_spec hμ henv,
-        sortS_spec hμ henv, ih] <;>
+      vcgen [checkStructFieldSortsI, unwrapOr, liftFueled, inferS_spec henv,
+        sortS_spec henv, ih] <;>
         finish
 
 /-- An abstracted constructor's fields, opened at the holes' depth. -/
@@ -497,13 +497,13 @@ theorem fvsWS_openPis {n d : Nat} {e : Expr} {fvs : List Expr} {body : Expr}
   exact hw'.2
 
 /-- The fields' universes at the holes, at the shared operations. -/
-theorem checkAbsCtorSortsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem checkAbsCtorSortsS_spec (henv : EnvWF env)
     {ctx : NestCtx} :
     ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)) {s₀ : CState},
-      CSOK mode false env s₀ → ListAll (OutWS (ctx.hiAt 0)) os →
-      ⦃fun s => s = s₀⦄ checkAbsCtorSorts (sharedOpsC mode (mkFEnv env)) env ctx cs os
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (checkAbsCtorSorts (fueledOpsM mode) env ctx cs os) v; ⊤⦄ := by
+      CSOK .verified false env s₀ → ListAll (OutWS (ctx.hiAt 0)) os →
+      ⦃fun s => s = s₀⦄ checkAbsCtorSorts (sharedOpsC .verified (mkFEnv env)) env ctx cs os
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkAbsCtorSorts (fueledOpsM .verified) env ctx cs os) v; ⊤⦄ := by
   intro cs
   induction cs with
   | nil =>
@@ -520,16 +520,16 @@ theorem checkAbsCtorSortsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF
     | cons o os =>
       intro _ hs hos
       sym only [conleche_grind, checkAbsCtorSorts.eq_1, unwrapOr.eq_1, → fvsWS_openPis] =>
-        vcgen [checkAbsCtorSorts, unwrapOr, checkStructFieldSortsIS_spec hμ henv,
+        vcgen [checkAbsCtorSorts, unwrapOr, checkStructFieldSortsIS_spec henv,
           ih os] <;> finish
 
-theorem checkAbsCtorSortsAllS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem checkAbsCtorSortsAllS_spec (henv : EnvWF env)
     {ctx : NestCtx} :
     ∀ (css : List (List (ConstantVal × Nat))) (oss : List (List (List NestFieldKind × Expr)))
-      {s₀ : CState}, CSOK mode false env s₀ → ListAll (ListAll (OutWS (ctx.hiAt 0))) oss →
-      ⦃fun s => s = s₀⦄ checkAbsCtorSortsAll (sharedOpsC mode (mkFEnv env)) env ctx css oss
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (checkAbsCtorSortsAll (fueledOpsM mode) env ctx css oss) v; ⊤⦄ := by
+      {s₀ : CState}, CSOK .verified false env s₀ → ListAll (ListAll (OutWS (ctx.hiAt 0))) oss →
+      ⦃fun s => s = s₀⦄ checkAbsCtorSortsAll (sharedOpsC .verified (mkFEnv env)) env ctx css oss
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkAbsCtorSortsAll (fueledOpsM .verified) env ctx css oss) v; ⊤⦄ := by
   intro css
   induction css with
   | nil =>
@@ -546,7 +546,7 @@ theorem checkAbsCtorSortsAllS_spec (hμ : mode.verifiedChecks = true) (henv : En
     | cons os oss =>
       intro _ hs hos
       sym only [conleche_grind, checkAbsCtorSortsAll.eq_1] =>
-        vcgen [checkAbsCtorSortsAll, checkAbsCtorSortsS_spec hμ henv cs os,
+        vcgen [checkAbsCtorSortsAll, checkAbsCtorSortsS_spec henv cs os,
           ih oss] <;> finish
 
 /-- A seed's parameters are scoped at `d`. -/
@@ -555,12 +555,12 @@ theorem checkAbsCtorSortsAllS_spec (hμ : mode.verifiedChecks = true) (henv : En
 @[conleche_grind =] theorem SeedWS.eq (d : Nat) (key : NestKey) (n : Nat) :
     SeedWS d (key, n) = AllWS d key.ds := rfl
 
-theorem nestSeedsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {ctx : NestCtx}
+theorem nestSeedsS_spec (henv : EnvWF env) {ctx : NestCtx}
     (hc : NestCtxOk ctx) :
-    ∀ (ks : List (NestKey × Nat)) (st : NestState) {s₀ : CState}, CSOK mode false env s₀ →
+    ∀ (ks : List (NestKey × Nat)) (st : NestState) {s₀ : CState}, CSOK .verified false env s₀ →
       ListAll (SeedWS (ctx.hiAt 0)) ks →
-      ⦃fun s => s = s₀⦄ nestSeeds (sharedOpsC mode (mkFEnv env)) env ctx ks st
-      ⦃fun v s' => CSOK mode false env s' ∧ Runs (nestSeeds (fueledOpsM mode) env ctx ks st) v; ⊤⦄
+      ⦃fun s => s = s₀⦄ nestSeeds (sharedOpsC .verified (mkFEnv env)) env ctx ks st
+      ⦃fun v s' => CSOK .verified false env s' ∧ Runs (nestSeeds (fueledOpsM .verified) env ctx ks st) v; ⊤⦄
           := by
   intro ks
   induction ks with
@@ -572,8 +572,8 @@ theorem nestSeedsS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {c
     obtain ⟨key, nPc⟩ := x
     intro st _ hs hw
     sym only [conleche_grind, nestSeeds.eq_2, List.length_nil] =>
-      vcgen [nestSeeds, nestInstTypeS_spec (mode := mode) (env := env) hc,
-        nestContKeyS_spec hμ henv hc (nestPosS_spec hμ henv hc _) [] 0 key.cname key.lvls key.ds,
+      vcgen [nestSeeds, nestInstTypeS_spec (mode := .verified) (env := env) hc,
+        nestContKeyS_spec henv hc (nestPosS_spec henv hc _) [] 0 key.cname key.lvls key.ds,
         ih] <;> finish
 
 /-- The pieces of the walk's context `blockNestCtx` builds. -/
@@ -626,19 +626,19 @@ theorem ctorsClosed {ctorsAs : List (List (ConstantVal × Nat))}
 
 /-- **The install's positivity stage at the shared operations**: every
 successful cached run is a fueled one. -/
-theorem checkBlockPositivityS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env)
+theorem checkBlockPositivityS_spec (henv : EnvWF env)
     (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
-    {s₀ : CState} (hs : CSOK mode false env s₀) :
+    {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      checkBlockPositivity (sharedOpsC mode (mkFEnv env)) env env.find? p cvTas ctorsAs
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (checkBlockPositivity (fueledOpsM mode) env env.find? p cvTas ctorsAs) v; ⊤⦄ := by
+      checkBlockPositivity (sharedOpsC .verified (mkFEnv env)) env env.find? p cvTas ctorsAs
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (checkBlockPositivity (fueledOpsM .verified) env env.find? p cvTas ctorsAs) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockPositivity.eq_1, nestHoles_length, ctorsClosed hct] =>
-    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := mode) henv p.toBlockShape cvTas hT,
-      nestUniformS_spec (mode := mode) (env := env) ctorsAs,
-      nestRootS_spec hμ henv, checkAbsCtorSortsAllS_spec hμ henv] <;> finish
+    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p.toBlockShape cvTas hT,
+      nestUniformS_spec (mode := .verified) (env := env) ctorsAs,
+      nestRootS_spec henv, checkAbsCtorSortsAllS_spec henv] <;> finish
 
 end Top
 

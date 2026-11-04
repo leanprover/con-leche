@@ -40,7 +40,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## The instantiated former type is prefix-bound
 
@@ -118,7 +118,7 @@ exactly the shape the premise excludes and the certificate accepts. -/
 `thmInfo` and `axiomInfo` harvest discharges its `caps_ok` obligation
 here.  (An `indInfo`/`ctorInfo` cons may *complete* a family
 and so genuinely owes the law; those installs supply it bespoke.) -/
-theorem capsOk_cons_fresh (mp : EnvModelM V μ env)
+theorem capsOk_cons_fresh (mp : EnvModelM V env)
     (hprev : CapsOk mp.base2)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)

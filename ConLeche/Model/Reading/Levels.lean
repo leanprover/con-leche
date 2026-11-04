@@ -30,7 +30,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo)
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {env : Env} {φ : Name → Nat}
 
 /-! ### The literal-support slot lemmas
 

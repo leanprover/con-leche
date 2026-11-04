@@ -45,7 +45,7 @@ open ConLeche (Env Expr Name Level ConstantVal CheckMode)
 
 universe uv
 
-variable {V : Type uv} [SetTheory V] {μ : CheckMode}
+variable {V : Type uv} [SetTheory V]
 
 /-! ## The residue's context, slot by slot -/
 

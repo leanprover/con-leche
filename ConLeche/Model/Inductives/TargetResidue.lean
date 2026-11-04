@@ -47,7 +47,7 @@ open ConLeche (Env Expr Name Level ConstantVal ConstantInfo CheckMode FEnv Block
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- The recomputed width `tgtB` at a stored rule. -/
 theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}

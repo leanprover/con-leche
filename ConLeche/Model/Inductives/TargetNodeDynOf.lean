@@ -49,7 +49,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestC
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## Readings -/
 
@@ -57,7 +57,7 @@ variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
 
 section True
 
-variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (ψ : Name → Nat) (ρ : Nat → V)
+variable {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx) (ψ : Name → Nat) (ρ : Nat → V)
   (xs : List V)
 
 /-- **The true valuation of a stack grown by holes on top**: the new
@@ -94,7 +94,7 @@ the formers' model `mk` covering the walk's context, its blocks among
 `mpC`'s (and `mpC`'s the block's or `mk`'s), its readings `mpC`'s; the
 list's nodes, owned, closed under kids and parents, read in their stack
 contexts; the class tie's node facts; the walk's context the block's. -/
-structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V μ envI) (mpC : EnvModelM V μ envC)
+structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvModelM V envC)
     (ctx : NestCtx) (d : BlockData V) (ns : List PosTree) : Prop where
   hcovC : LfpCover mpC []
   hd0 : d.toLfp ∈ mpC.lfpBlocks
@@ -147,8 +147,8 @@ theorem posD_frame_full {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Ne
 as its members, every member in the frame's group (N2), the group's
 head one of them, all at the head's level parameters (distinct), the
 key's parameters its parameter count, the group well formed. -/
-theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
-    {mpC : EnvModelM V μ envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
+theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
+    {mpC : EnvModelM V envC} {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
     (H : DynCtx F mk mpC ctx d ns) {t : PosTree} (ht : t ∈ ns) :
     lfpSel mpC d.toLfp t.key.cname ∈ mk.lfpBlocks ∧
     (lfpSel mpC d.toLfp t.key.cname).N = (lfpSel mpC d.toLfp t.key.cname).k ∧
@@ -255,7 +255,7 @@ theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI}
 
 section Pos
 
-variable {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (ψ : Name → Nat) (ρ : Nat → V)
+variable {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx) (ψ : Name → Nat) (ρ : Nat → V)
   (xs : List V)
 
 theorem trueVal_pos (prog : List NestHole) {k : Nat} (hk : k < ctx.names.length + prog.length)
@@ -338,7 +338,7 @@ end Pos
 
 section Frames
 
-variable {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+variable {F : Nat} {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
   {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
 
 /-- A listed node's key is read where its frame is derived: `nodeDsaI`. -/
@@ -1071,12 +1071,12 @@ end Frames
 node context). -/
 theorem dynCtx_of {F : Nat}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC}
+    {ctorsAsR : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
+    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    {mk : EnvModelM V envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
     (hsubC : ∀ D ∈ mpC.lfpBlocks, D = dR.toLfp ∨ D ∈ mk.lfpBlocks)

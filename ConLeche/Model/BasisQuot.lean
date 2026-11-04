@@ -43,7 +43,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 section Quot
 
@@ -159,7 +159,7 @@ theorem IsTy_relSpace (Aset : V) : IsTy (relSpace V Aset) := IsTy_piV
 /-! ### The first two installs -/
 
 /-- **`Quot`, installed at the P tier.** -/
-theorem extendQuot (mp : EnvModelM V μ env)
+theorem extendQuot (mp : EnvModelM V env)
     (hfresh : env.find? quotName = none)
     (hwf : EnvWF ⟨quotA :: env.consts, env.tables⟩) {ex : List Name} :
     CoverTo mp ex ⟨quotA :: env.consts, env.tables⟩ ex := by
@@ -202,7 +202,7 @@ theorem extendQuot (mp : EnvModelM V μ env)
     exact bval_mem_type V .quot [ψ uN] ρ
 
 /-- **`Quot.mk`, installed at the P tier.** -/
-theorem extendQuotMk (mp : EnvModelM V μ env)
+theorem extendQuotMk (mp : EnvModelM V env)
     (hQ : env.find? quotName = some quotA)
     (hfresh : env.find? quotMkName = none)
     (hwf : EnvWF ⟨quotMkA :: env.consts, env.tables⟩) {ex : List Name} :
@@ -1065,7 +1065,7 @@ theorem quotIndLaw {m : EnvModel V env}
     exact (WellDenoted_app_pt h4.1 h4.2 (hysA y3 (by simp)) g3).1
 
 /-- **`Quot.ind`, installed at the P tier.** -/
-theorem extendQuotInd (mp : EnvModelM V μ env)
+theorem extendQuotInd (mp : EnvModelM V env)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hfresh : env.find? quotIndA.name = none)
@@ -1438,7 +1438,7 @@ theorem quotSoundTy_mem {E : Term} {u : Nat} (ρ : Nat → V)
 /-- **`Quot.sound`, installed at the P tier** — the basis blocks' one
 stored axiom, and the one place the `reduce_ops` disjunct's second
 branch is taken. -/
-theorem extendQuotSound (mp : EnvModelM V μ env)
+theorem extendQuotSound (mp : EnvModelM V env)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA)
@@ -2404,7 +2404,7 @@ theorem quotLiftLaw {m : EnvModel V env}
 
 /-- The two `EqLaw` halves at the assignment `Quot.lift` reads the
 `Eq` former at — `v`, not the constant's own first parameter. -/
-theorem quotLift_eqLaws (mp : EnvModelM V μ env)
+theorem quotLift_eqLaws (mp : EnvModelM V env)
     (hE : env.find? eqName = some eqA) (ψ : Name → Nat) :
     (∀ (ρ : Nat → V) (T x y : V), T ∈ˢ (univ (ψ vN) : V) →
       x ∈ˢ T → y ∈ˢ T →
@@ -2428,7 +2428,7 @@ theorem quotLift_eqLaws (mp : EnvModelM V μ env)
   exact ⟨hval0, hgr0⟩
 
 /-- **`Quot.lift`, installed at the P tier.** -/
-theorem extendQuotLift (mp : EnvModelM V μ env)
+theorem extendQuotLift (mp : EnvModelM V env)
     (hQ : env.find? quotName = some quotA)
     (hM : env.find? quotMkName = some quotMkA)
     (hE : env.find? eqName = some eqA)
@@ -2487,7 +2487,7 @@ theorem extendQuotLift (mp : EnvModelM V μ env)
 `quotK` branch — the one branch whose `DeclBasisRun` premise is not
 vacuous: `Eq` must already be stored, and that is exactly what the
 `Eq` bridge consumes. -/
-theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V μ env)
+theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
     (hEq : env.find? eqName = some eqA)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.quotK.declsA env₁) :

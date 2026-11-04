@@ -141,14 +141,14 @@ theorem structUnitCert_bridge (hw : WhnfBridge μ eager env fuel)
 
 /-- `etaCert` ⇒ `DefEq.eta` (`etaCert_inv`): the λ's opened body's
 full-grade type against the ∀'s body is the checker's η check. -/
-theorem etaCert_bridge (hμ : μ.verifiedChecks = true) (hw : WhnfBridge μ eager env fuel)
-    (hd : DefEqBridge μ eager env fuel) (hi : InferBridge μ eager env fuel) (hio : InferIOBridge μ
+theorem etaCert_bridge (hw : WhnfBridge .verified eager env fuel)
+    (hd : DefEqBridge .verified eager env fuel) (hi : InferBridge .verified eager env fuel) (hio : InferIOBridge .verified
         eager env fuel)
     {d : Nat} {ty body b : Expr}
-    (h : etaCertFueled μ eager env fuel d ty body b = .ok true) :
+    (h : etaCertFueled .verified eager env fuel d ty body b = .ok true) :
     DefEq env d (.lam ty body) b := by
   obtain ⟨hneu, tb, ty₂, fb, htb, hwtb, hdty, hdbody, hT2⟩ := etaCert_inv h
-  obtain ⟨t₁, ht₁, hdt⟩ := hT2 hμ
+  obtain ⟨t₁, ht₁, hdt⟩ := hT2 rfl
   exact .eta hneu (inferTypeIO_bridge hio htb) (hw hwtb) (hd hdty) (hd hdbody)
     (hi ht₁) (hd hdt)
 

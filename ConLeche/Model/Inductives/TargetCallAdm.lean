@@ -34,11 +34,11 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestC
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section Land
 
-variable {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+variable {F : Nat} {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
   {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
 
 /-- **A call landing in a member hole of an admissible valuation**: the

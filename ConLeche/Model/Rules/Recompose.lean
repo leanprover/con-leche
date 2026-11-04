@@ -5,7 +5,6 @@ public import ConLeche.Model.ClaimsIO
 import ConLeche.Model.Rules.Sound
 import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Rules.Bridge
-import ConLeche.Verify.Modes
 
 public section
 
@@ -40,21 +39,20 @@ open ConLeche.Rules
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
   {φ : Name → Nat}
 
 /-- **The P soundness at one environment — the five claims at every
 fuel.**  Recomposed from the bridge and the rules soundness; the
 statement is the one the declaration fold and the install rows have
 always consumed. -/
-theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
+theorem checkSoundAtP5
     {m : EnvModel V env} (h : RulesInputs V m φ) :
     ∀ fuel : Nat,
-      WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
-        DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel ∧
-          InferClaimIO μ m φ fuel := by
+      WhnfCoreClaim m φ fuel ∧ WhnfClaim m φ fuel ∧
+        DefEqClaim m φ fuel ∧ InferClaim m φ fuel ∧
+          InferClaimIO m φ fuel := by
   have hin : RulesInputs V m φ := h
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   intro fuel
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · intro d e e' Δa hrun hws hb hLb ea ea' hC hea hea' hok
@@ -93,12 +91,12 @@ theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
 /-- The four sealed claims at every fuel — the joint recomposition's
 first four conjuncts, kept under the landed name so every consumer
 stands verbatim. -/
-theorem checkSoundAt (hμ : μ.verifiedChecks = true)
+theorem checkSoundAt
     {m : EnvModel V env} (h : RulesInputs V m φ) :
     ∀ fuel : Nat,
-      WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
-        DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel := fun fuel =>
-  ⟨(checkSoundAtP5 hμ h fuel).1, (checkSoundAtP5 hμ h fuel).2.1,
-    (checkSoundAtP5 hμ h fuel).2.2.1, (checkSoundAtP5 hμ h fuel).2.2.2.1⟩
+      WhnfCoreClaim m φ fuel ∧ WhnfClaim m φ fuel ∧
+        DefEqClaim m φ fuel ∧ InferClaim m φ fuel := fun fuel =>
+  ⟨(checkSoundAtP5 h fuel).1, (checkSoundAtP5 h fuel).2.1,
+    (checkSoundAtP5 h fuel).2.2.1, (checkSoundAtP5 h fuel).2.2.2.1⟩
 
 end ConLeche.Model.Rules

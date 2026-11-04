@@ -43,8 +43,8 @@ of the generated install transports to the install carrying the STORED
 recursors (other types, other right-hand sides, the same names, level
 parameters and kinds), with the *same* leaf valuation.  As the rule-list
 swap (`EnvModelM.swapP`), plus the stored types' three facts (`htyS`). -/
-theorem EnvModelM.swapTyP {μ : CheckMode} {env₀ env₃ : Env}
-    (mp : EnvModelM V μ env₀)
+theorem EnvModelM.swapTyP {env₀ env₃ : Env}
+    (mp : EnvModelM V env₀)
     (hsw : ConLeche.SwapTyList env₀.consts env₃.consts)
     (htab : env₃.tables = env₀.tables)
     -- the four syntactic environment facts at the swapped
@@ -65,7 +65,7 @@ theorem EnvModelM.swapTyP {μ : CheckMode} {env₀ env₃ : Env}
       (∀ (ψ : Name → Nat) (ta : Term),
         denote mp.base2.acval env₃ ψ 0 c.toConstantVal.type = some ta →
         ∀ ρ : Nat → V, interp V ρ (mp.base2.acval c.name ψ) ∈ˢ interp V ρ ta)) :
-    ∃ mp₃ : EnvModelM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
+    ∃ mp₃ : EnvModelM V env₃, mp₃.base2.acval = mp.base2.acval ∧
       mp₃.base2.acval = mp.base2.acval := by
   have hcg : ConLeche.SwapCongr env₀ env₃ := ConLeche.SwapTyList.congrEnv hsw htab
   have hcorr := ConLeche.swapTy_find?_corrEnv hsw
@@ -289,13 +289,13 @@ recursors (`recRuleLaw_stored`: fits at the stored type are fits at the
 generated one, `storedTy_sem`; the stored right-hand sides read as the
 generated ones, `storedRhs_sem`), and the stored types' readings,
 gradings and the recursors' leaves in them. -/
-theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC : Env}
+theorem storedSwap_sem {envC : Env}
     {f : Name → Option ConstantInfo} {q : ConLeche.BlockShape}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
-    (mpG : EnvModelM V μ (ConLeche.consBlockRecsT f q 0 out envC))
+    (mpG : EnvModelM V (ConLeche.consBlockRecsT f q 0 out envC))
     (hlen : out.length = q.recs.length)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
-    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps μ F) .plain
+    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps .verified F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) q.recs out = .ok ()) :
     ConLeche.RecCtorsStored (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC) ∧
     BasisPinnedTT (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)
@@ -353,7 +353,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC :
   obtain ⟨-, hallS⟩ := ConLeche.storedRecsCheck_inv hS
   let Q : Nat → ConLeche.RecShape → ConstantVal × ConLeche.TargetMajor × List Expr → Prop :=
     fun j rc g => q.recs[j]? = some rc ∧ out[j]? = some g ∧
-      ConLeche.storedRecCheck (ConLeche.fueledOps μ F) .plain
+      ConLeche.storedRecCheck (ConLeche.fueledOps .verified F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) rc g = .ok ()
   have hC : ConLeche.StoredCorr f q Q
       (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)
@@ -365,10 +365,10 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC :
   -- a stored position's facts
   have hposQ : ∀ {j rc g}, Q j rc g →
       q.majorIdxAt j = rc.mI ∧ (rc.rules.map (·.rhs)).length = g.2.2.length ∧
-      (rc.cvR.type = g.1.type ∨ ConLeche.recTyCheck (ConLeche.fueledOps μ F) .plain
+      (rc.cvR.type = g.1.type ∨ ConLeche.recTyCheck (ConLeche.fueledOps .verified F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) g.1.name g.1.levelParams
         (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-      ConLeche.storedRulesCheck (ConLeche.fueledOps μ F) .plain
+      ConLeche.storedRulesCheck (ConLeche.fueledOps .verified F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) g.1.name g.1.levelParams
         rc.rules g.2.2 = .ok () := by
     intro j rc g hQ
@@ -450,7 +450,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC :
         · rw [htyE] at hTS
           exact ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩
         · rw [denote_instLevels hp] at hTS ⊢
-          obtain ⟨TS', TG, hTS', hTG, -, hEq⟩ := storedTy_sem hμ mpG htyC hGb hGr hGw
+          obtain ⟨TS', TG, hTS', hTG, -, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw
             (Level.substFn φ g.1.levelParams us)
           obtain rfl := Option.some.inj (hTS.symm.trans hTS')
           refine ⟨TG, hTG, fun ρ xs rest hxl hfit => TEqAt.fit hfit (hEq ρ) ?_⟩
@@ -468,7 +468,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC :
           exact ⟨Ra, hRa, fun ρ => ⟨hw ρ, rfl⟩⟩
         · rw [← hr0e, denote_instLevels hp]
           rw [denote_instLevels hp] at hRaG
-          exact storedRhs_sem hμ mpG hag (hgb rG hrG) _ hRaG
+          exact storedRhs_sem mpG hag (hgb rG hrG) _ hRaG
   · -- the stored types' facts
     intro c hc hnot
     rcases hC.2 c hc with h | ⟨j, rc, g, hQ, rfl, hmG⟩
@@ -484,7 +484,7 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC :
       · rw [htyE]
         obtain ⟨TG, hTG⟩ := hGr ψ
         exact ⟨TG, hTG, hGw ψ TG hTG, hGm ψ TG hTG⟩
-      · obtain ⟨TS, TG, hTS, hTG, hw, hEq⟩ := storedTy_sem hμ mpG htyC hGb hGr hGw ψ
+      · obtain ⟨TS, TG, hTS, hTG, hw, hEq⟩ := storedTy_sem mpG htyC hGb hGr hGw ψ
         exact ⟨TS, hTS, hw, fun ρ => by rw [(hEq ρ).interp_eq]; exact hGm ψ TG hTG ρ⟩
     refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
     · obtain ⟨TS, hTS, -, -⟩ := key ψ
@@ -501,17 +501,17 @@ theorem storedSwap_sem {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC :
 /-- **The recursors' stage, at the STORED recursors** (task #431): the
 generated install's stage facts carried to the install of the stored
 recursors. -/
-theorem blockRecStagedAt_stored {μ : CheckMode} (hμ : μ.verifiedChecks = true) {envC : Env}
-    {mpC : EnvModelM V μ envC} {f : Name → Option ConstantInfo} {q : ConLeche.BlockShape}
+theorem blockRecStagedAt_stored {envC : Env}
+    {mpC : EnvModelM V envC} {f : Name → Option ConstantInfo} {q : ConLeche.BlockShape}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {F : Nat}
-    (hG : BlockRecStagedAt μ envC (ConLeche.consBlockRecsT f q 0 out envC) mpC)
+    (hG : BlockRecStagedAt envC (ConLeche.consBlockRecsT f q 0 out envC) mpC)
     (hlen : out.length = q.recs.length)
     (hfr : ∀ g ∈ out, envC.find? g.1.name = none)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
-    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps μ F) .plain
+    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps .verified F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT f q 0 out envC)) q.recs out = .ok ())
     (hwfS : EnvWF (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)) :
-    BlockRecStagedAt μ envC (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)
+    BlockRecStagedAt envC (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC)
       mpC := by
   obtain ⟨mpG, hag, -, hden⟩ := hG
   have hsw := swapTyList_storedOut (f := f) (q := q) (m := 0) (env₀ := envC) (env₃ := envC)
@@ -519,7 +519,7 @@ theorem blockRecStagedAt_stored {μ : CheckMode} (hμ : μ.verifiedChecks = true
   have htab : (ConLeche.consBlockRecsT f q 0 (ConLeche.storedOut q.recs out) envC).tables
       = (ConLeche.consBlockRecsT f q 0 out envC).tables := by
     rw [consBlockRecsT_tables 0, consBlockRecsT_tables 0]
-  obtain ⟨hctors, hbp, hproj, hrecP, htyS⟩ := storedSwap_sem hμ mpG hlen hnres hS
+  obtain ⟨hctors, hbp, hproj, hrecP, htyS⟩ := storedSwap_sem mpG hlen hnres hS
   obtain ⟨mpS, hac, -⟩ := EnvModelM.swapTyP mpG hsw htab hwfS hctors hbp hproj hrecP htyS
   have hcg := ConLeche.SwapTyList.congrEnv hsw htab
   have hnm : ∀ n, (envC.find? n).isSome = true → ∀ t ∈ ConLeche.storedOut q.recs out,

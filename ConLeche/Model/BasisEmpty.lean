@@ -35,7 +35,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## `Empty` -/
 
@@ -50,7 +50,7 @@ theorem denote_emptyA_type
   rfl
 
 /-- **`Empty`, installed at the P tier.** -/
-theorem extendEmpty (mp : EnvModelM V μ env)
+theorem extendEmpty (mp : EnvModelM V env)
     (hfresh : env.find? emptyName = none)
     (hwf : EnvWF ⟨emptyA :: env.consts, env.tables⟩) :
     CoverStep mp ⟨emptyA :: env.consts, env.tables⟩ := by
@@ -143,7 +143,7 @@ theorem emptyRecA_reading_eq (ψ : Name → Nat) :
       = BConst.typeAV .emptyRec [1, ψ uN] := rfl
 
 /-- **`Empty.rec`, installed at the P tier.** -/
-theorem extendEmptyRec (mp : EnvModelM V μ env)
+theorem extendEmptyRec (mp : EnvModelM V env)
     (hE : env.find? emptyName = some emptyA)
     (hfresh : env.find? emptyRecA.name = none)
     (hwf : EnvWF ⟨emptyRecA :: env.consts, env.tables⟩) {ex : List Name} :
@@ -187,7 +187,7 @@ theorem extendEmptyRec (mp : EnvModelM V μ env)
 
 /-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s
 `emptyK` branch. -/
-theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V μ env)
+theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.declsA env₂) :
     CoverStep mp env₂ := by
   rw [show ConLeche.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]

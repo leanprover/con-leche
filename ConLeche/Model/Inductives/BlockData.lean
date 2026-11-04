@@ -30,7 +30,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The constructor's data -/
 
@@ -66,7 +66,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w'
 
-variable {V : Type w'} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w'} [SetTheory V] {env : Env}
 
 /-- The parameter variables read to the parameter spine at depth `D`. -/
 theorem denoteSpine_params {acval : Name → (Name → Nat) → Term} {φ : Name → Nat}
@@ -166,12 +166,12 @@ theorem BlockCtorDataI.idxArgs_resolve {env : Env} {m : EnvModel V env} {T : Nam
 
 /-- **A block constructor's data**, from its stage run at the
 environment holding ALL the block's formers. -/
-theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem blockCtorData_of (mp : EnvModelM V env)
     {F : Nat} {T : Name}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
     {bs : List Expr} {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx resSort
+    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hlpsT : cvTa.levelParams = lps)
@@ -182,7 +182,7 @@ theorem blockCtorData_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
       BlockCtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large
         idxArgs ds Es srcs fvsP xFvs xrest := by
   obtain ⟨idxArgs, ds, Es, srcs, -, ⟨fvsP, crest, xFvs, xrest, hopP, hopX, hidxEq⟩, hCD⟩ :=
-    sumCtorData_of hμ mp hCtor hfT hlpsT hstripT
+    sumCtorData_of mp hCtor hfT hlpsT hstripT
   obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
   obtain ⟨hlenP, hidxP, -⟩ := opening_vars_at hopP
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX

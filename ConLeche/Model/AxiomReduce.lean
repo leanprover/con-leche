@@ -33,7 +33,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {F : Nat}
+variable {env : Env} {F : Nat}
 
 /-! ## The pinned telescope, inverted -/
 
@@ -99,7 +99,7 @@ reading.**  Three `pt_mem_piV_of`s (every fibre is an equality's truth
 value, so every function space is a truth value); the innermost fibre is
 where `ReduceOps` pays: the hypothesis spine's value is `eqv (op x) y`, the conclusion's
 is `eqv x y`, and the field says those are the same set. -/
-theorem ofReduce_mem (mp : EnvModelM V μ env)
+theorem ofReduce_mem (mp : EnvModelM V env)
     {cv : ConstantVal} (hok : ConLeche.ofReduceAxOk env cv = true)
     (hor : cv.name = ConLeche.ofReduceNatName ∨
       cv.name = ConLeche.ofReduceBoolName)
@@ -248,9 +248,9 @@ theorem ofReduce_mem (mp : EnvModelM V μ env)
 canonical proof, which is why every syntactic obligation is `rfl`
 or a `simp` on a leaf clause and the whole content is the
 membership. -/
-theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
-    (mp : EnvModelM V μ env) {cv : ConstantVal} {type' : Expr}
-    (hcv : ConstantValRun μ F env cv type')
+theorem axiomOfReduce
+    (mp : EnvModelM V env) {cv : ConstantVal} {type' : Expr}
+    (hcv : ConstantValRun F env cv type')
     (hor : cv.name = ConLeche.ofReduceNatName ∨
       cv.name = ConLeche.ofReduceBoolName)
     (hok : ConLeche.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
@@ -270,7 +270,7 @@ theorem axiomOfReduce (hμ : μ.verifiedChecks = true)
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP rules heq; exact nomatch heq
     · intro cv2 caps heq; exact nomatch heq
-  refine harvestAxiom (V := V) hμ mp hcv
+  refine harvestAxiom (V := V) mp hcv
     (A := fun _ => Term.prf) (fun _ => trivial)
     (fun _ _ _ => rfl) (fun _ _ => by simp) ?_
     (by rcases hor with h | h <;> rw [h] <;> decide)

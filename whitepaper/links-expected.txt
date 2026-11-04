@@ -2810,7 +2810,7 @@
    317        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
 
 == ConLeche/Model/Env/EnvModelM.lean#L229-L252
-   229  structure EnvModelM (μ : CheckMode) (env : Env) where
+   229  structure EnvModelM (env : Env) where
    230    /-- the environment carrier, contained -/
    231    base2 : EnvModel V env
    232    /-- every stored type reads, at every ground assignment -/
@@ -2902,7 +2902,7 @@
    350      ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
 
 == ConLeche/Model/Install.lean#L337-L340
-   337  theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
+   337  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
    338      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
    339      (hfresh : env.find? c₀.name = none)
    340      (hh : ConsHead env c₀ A)
@@ -3998,12 +3998,12 @@
    324      AccOn w Q R (fun _ => unitSet) (Term.mkAppN (.bvar h) es) := by
 
 == ConLeche/Model/Inductives/BlockAccRunCont.lean#L311-L316
-   311  /-- **The hole fit of a uniform block is accessible at every parameter
-   312  frame**, with a bound that is a set of the level at a `Type`-valued one
-   313  — whence the operator's accessibility, (W) and monotonicity: the block theorem with the
-   314  container rules read at the walk's carrier (coverage) and the walk
-   315  context's sort (the block's level). -/
-   316  theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+   311  frame**, with a bound that is a set of the level at a `Type`-valued one
+   312  — whence the operator's accessibility, (W) and monotonicity: the block theorem with the
+   313  container rules read at the walk's carrier (coverage) and the walk
+   314  context's sort (the block's level). -/
+   315  theorem blockAcc_of_run {F : Nat}
+   316      {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name}
 
 == ConLeche/SetModel/Access.lean#L56-L63
     56  /-- **`A`-accessibility** of an operator from `kI`-tuples over `IsI` to
@@ -5235,12 +5235,12 @@
    181    ⟨S.mInstall hpl hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
 
 == ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
-    72  theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+    72  theorem declBlock {F : Nat} {env env₂ : Env}
     73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    74      (mp : EnvModelM V μ env)
+    74      (mp : EnvModelM V env)
     75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    76      (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    77      ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+    76      (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L89-L98
     89  /-- **No closed term inhabits an empty inductive type.**  For a block
@@ -5262,19 +5262,19 @@
    138      hrec e
 
 == ConLeche/Model/Fold.lean#L268-L275
-   268  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   269      {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-   270      {ds : List Declaration} {env' : Env}
-   271      (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-   272      ∀ c ∈ env'.consts,
-   273        c.toConstantVal.type = .const falseName [] → False := by
-   274    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
-   275    exact fun c hc hty => no_constant_of_False mp c hc hty
+   268      {F : Nat}
+   269      {ds : List Declaration} {env' : Env}
+   270      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   271      ∀ c ∈ env'.consts,
+   272        c.toConstantVal.type = .const falseName [] → False := by
+   273    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   274    exact fun c hc hty => no_constant_of_False mp c hc hty
+   275  
 
 == ConLeche/Model/Fold.lean#L198-L200
-   198  theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
-   199      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   200        EnvModelOk V μ env →
+   198      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   199        EnvModelOk V env →
+   200        ds.foldlM (checkDecl .verified (fueledOps .verified F) pins) env = .ok env' →
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -6060,7 +6060,7 @@
 
 == ConLeche/Model/AxiomMem.lean#L297-L304
    297  /-- **`propext` inhabits its stored type's reading.** -/
-   298  theorem propext_mem (mp : EnvModelM V μ env)
+   298  theorem propext_mem (mp : EnvModelM V env)
    299      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
    300      (hn : cv.name = propextName)
    301      (ψ : Name → Nat) (ta : Term)
@@ -6308,8 +6308,8 @@
     21  certificates check enables the operation's fast path.  The hand-pinned certificate *statements* the proofs are checked against
 
 == ConLeche/Model/NatEqs.lean#L1078-L1082
-  1078  theorem natOps_install (mp : EnvModelM V μ env) {φ : Name → Nat}
-  1079      {F : Nat} (hde : DefEqClaim μ mp.base2 φ F)
+  1078  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+  1079      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
   1080      (hprev : NatOps mp.base2 φ)
   1081      {c : Name} {lps : List Name} {type' value' : Expr}
   1082      {hint : ReducibilityHint}
@@ -6329,7 +6329,7 @@
     67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
 
 == ConLeche/Model/BasisQuot.lean#L2431-L2435
-  2431  theorem extendQuotLift (mp : EnvModelM V μ env)
+  2431  theorem extendQuotLift (mp : EnvModelM V env)
   2432      (hQ : env.find? quotName = some quotA)
   2433      (hM : env.find? quotMkName = some quotMkA)
   2434      (hE : env.find? eqName = some eqA)
@@ -6369,7 +6369,7 @@
     15  pinning their types and the *shapes of the inductives they quantify
 
 == ConLeche/Model/AxiomMem.lean#L635-L641
-   635  theorem choice_mem (mp : EnvModelM V μ env)
+   635  theorem choice_mem (mp : EnvModelM V env)
    636      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
    637      (hn : cv.name = choiceName)
    638      (ψ : Name → Nat) (ta : Term)
@@ -6445,10 +6445,10 @@
    231  the first failing job in fold order, whatever the workers' timing. -/
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L40
-    37  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
-    38      {ds : Array Declaration} {env' : Env}
-    39      (h : checkDecls μ pins ds = .ok env') :
-    40      Nonempty (EnvModelM V μ env') := by
+    37  /-- **Acceptance**: what the fold accepts carries the model. -/
+    38  theorem checkDecls_sound
+    39      {ds : Array Declaration} {env' : Env}
+    40      (h : checkDecls .verified pins ds = .ok env') :
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where
@@ -6575,21 +6575,21 @@
 
 == ConLeche/Verify/Rules/Bridge.lean#L29-L32
     29  theorem bridgeAt (env : Env) :
-    30      ∀ (fuel : Nat) (μ : CheckMode), μ.verifiedChecks = true → ∀ eager : Bool,
-    31        WhnfCoreBridge μ eager env fuel ∧ WhnfBridge μ eager env fuel ∧ DefEqBridge μ eager env fuel ∧
-    32          InferBridge μ eager env fuel ∧ InferIOBridge μ eager env fuel := by
+    30      ∀ (fuel : Nat) (eager : Bool),
+    31        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
+    32          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
 
 == ConLeche/Model/Rules/Sound.lean#L49-L50
     49  theorem red_sound (hin : RulesInputs V m φ) :
     50      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
 
 == ConLeche/Model/Rules/Recompose.lean#L50-L55
-    50  theorem checkSoundAtP5 (hμ : μ.verifiedChecks = true)
-    51      {m : EnvModel V env} (h : RulesInputs V m φ) :
-    52      ∀ fuel : Nat,
-    53        WhnfCoreClaim μ m φ fuel ∧ WhnfClaim μ m φ fuel ∧
-    54          DefEqClaim μ m φ fuel ∧ InferClaim μ m φ fuel ∧
-    55            InferClaimIO μ m φ fuel := by
+    50      {m : EnvModel V env} (h : RulesInputs V m φ) :
+    51      ∀ fuel : Nat,
+    52        WhnfCoreClaim m φ fuel ∧ WhnfClaim m φ fuel ∧
+    53          DefEqClaim m φ fuel ∧ InferClaim m φ fuel ∧
+    54            InferClaimIO m φ fuel := by
+    55    have hin : RulesInputs V m φ := h
 
 == ConLeche/Denotes.lean#L121-L124
    121  /-- `Denotes cval env φ ρ e v`: the term `e` denotes the set `v`.  See
@@ -6644,10 +6644,10 @@
     15  equality.
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L40
-    37  theorem checkDecls_sound (hμ : μ.verifiedChecks = true)
-    38      {ds : Array Declaration} {env' : Env}
-    39      (h : checkDecls μ pins ds = .ok env') :
-    40      Nonempty (EnvModelM V μ env') := by
+    37  /-- **Acceptance**: what the fold accepts carries the model. -/
+    38  theorem checkDecls_sound
+    39      {ds : Array Declaration} {env' : Env}
+    40      (h : checkDecls .verified pins ds = .ok env') :
 
 == ConLeche/Frontend/Prepare.lean#L171-L172
    171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=

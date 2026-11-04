@@ -213,15 +213,14 @@ theorem wellDenoted_mkAppN_head_congr {ρ : Nat → V} :
 
 /-! ## The stored type -/
 
-variable {μ : CheckMode}
 
 /-- **The stored type, in the model** (`recTyCheck` at the generated
 install): at every level assignment the stored type reads, its reading
 is a graded type, and it agrees with the generated type's reading as an
 `n`-binder tower at every valuation. -/
-theorem storedTy_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+theorem storedTy_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
     {rec : Name} {lps : List Name} {n : Nat} {S G : Expr}
-    (hck : ConLeche.recTyCheck (ConLeche.fueledOps μ F) .plain (ConLeche.mkFEnv env) rec lps n
+    (hck : ConLeche.recTyCheck (ConLeche.fueledOps .verified F) .plain (ConLeche.mkFEnv env) rec lps n
       S G = .ok ())
     (hGb : G.looseBVarsBounded 0 = true)
     (hGr : ∀ φ : Name → Nat, ∃ TG, denote mp.base2.acval env φ 0 G = some TG)
@@ -232,13 +231,13 @@ theorem storedTy_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvModel
       (∀ ρ : Nat → V, WellDenotedTy V ρ TS) ∧ ∀ ρ : Nat → V, TEqAt n ρ TS TG := by
   obtain ⟨hSb, hSf, hGf, -, -, ⟨st, u, hinf, hens⟩, sfvs, srest, gfvs, grest, hopS, hopG,
     hdoms, hres⟩ := ConLeche.recTyCheck_inv hck
-  have hc := claimsAt_of (V := V) hμ mp φ F
+  have hc := claimsAt_of (V := V) mp φ F
   have hwS : Expr.WScoped 0 S := Expr.WScoped.of_not_hasFvar hSf
   have hnlS : S.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hSf
   have hLS : Expr.LeavesBounded S := fun l hl => by
     rw [hnlS] at hl; exact absurd hl List.not_mem_nil
-  have hinf' : inferTypeCore μ false env F 0 S = .ok st := hinf
-  have hens' : ConLeche.ensureSortCore μ false env F 0 st = .ok u := hens
+  have hinf' : inferTypeCore .verified false env F 0 S = .ok st := hinf
+  have hens' : ConLeche.ensureSortCore .verified false env F 0 st = .ok u := hens
   obtain ⟨TS, hTS⟩ := acceptedReads_of mp.base2 φ hinf' hwS hSb hLS
   have hsr := hc.sortRow hinf' hens' hwS hSb hLS (CtxOk.nil hnlS) hTS
   have hTSw : ∀ ρ : Nat → V, WellDenotedTy V ρ TS := fun ρ =>
@@ -286,16 +285,16 @@ theorem storedTy_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvModel
 generated install): at every level assignment where the generated side
 reads, the stored side reads, is graded, and reads as the generated
 one. -/
-theorem storedRhs_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+theorem storedRhs_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
     {rec ctor : Name} {lps : List Name} {s g : Expr}
-    (hck : ConLeche.ruleAgree (ConLeche.fueledOps μ F) .plain (ConLeche.mkFEnv env) rec ctor lps
+    (hck : ConLeche.ruleAgree (ConLeche.fueledOps .verified F) .plain (ConLeche.mkFEnv env) rec ctor lps
       s g = .ok ())
     (hgb : g.looseBVarsBounded 0 = true) (φ : Name → Nat) {Rg : Term}
     (hRg : denote mp.base2.acval env φ 0 g = some Rg) :
     ∃ Rs, denote mp.base2.acval env φ 0 s = some Rs ∧
       ∀ ρ : Nat → V, WellDenoted V ρ Rs ∧ interp V ρ Rs = interp V ρ Rg := by
   obtain ⟨hsb, hsf, hgf, -, -, ts, tg, hts, htg, hdt, hds⟩ := ConLeche.ruleAgree_inv hck
-  have hc := claimsAt_of (V := V) hμ mp φ F
+  have hc := claimsAt_of (V := V) mp φ F
   have hws : Expr.WScoped 0 s := Expr.WScoped.of_not_hasFvar hsf
   have hnls : s.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hsf
   have hLs : Expr.LeavesBounded s := fun l hl => by
@@ -304,8 +303,8 @@ theorem storedRhs_sem (hμ : μ.verifiedChecks = true) {env : Env} (mp : EnvMode
   have hnlg : g.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hgf
   have hLg : Expr.LeavesBounded g := fun l hl => by
     rw [hnlg] at hl; exact absurd hl List.not_mem_nil
-  have hts' : inferTypeCore μ false env F 0 s = .ok ts := hts
-  have htg' : inferTypeCore μ false env F 0 g = .ok tg := htg
+  have hts' : inferTypeCore .verified false env F 0 s = .ok ts := hts
+  have htg' : inferTypeCore .verified false env F 0 g = .ok tg := htg
   obtain ⟨Rs, hRs⟩ := acceptedReads_of mp.base2 φ hts' hws hsb hLs
   obtain ⟨tsa, htsa⟩ := hc.reads hts' hws hsb hLs (CtxOk.nil hnls) hRs
   obtain ⟨tga, htga⟩ := hc.reads htg' hwg hgb hLg (CtxOk.nil hnlg) hRg

@@ -83,7 +83,7 @@ theorem posD_ctors_nodup {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
 
 section Motive
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (ctx : NestCtx) (F : Nat)
+variable (mp : EnvModelM V env) (φ : Name → Nat) (ctx : NestCtx) (F : Nat)
 
 /-- **A frame's conclusion** (`frameIter`'s, and the group's well
 formedness), at every recorded block holding the frame's head. -/
@@ -168,7 +168,7 @@ theorem nestContainer_of_find {ctx : NestCtx} {C : Name} {cv : ConstantVal} {cap
 one of its members: off the member's first constructor's record, or — a
 member WITHOUT constructors — off the recorded former
 (`ContBlockOk.noCtors`). -/
-theorem contBlock_facts {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem contBlock_facts (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
     {cv : ConstantVal} {caps : IndCaps} (hfc : env.find? (D.member mm) = some (.indInfo cv caps))
     {nPc : Nat} {L : List (ConstantVal × Nat)}
@@ -226,7 +226,7 @@ theorem posD_frame_inv {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
 so it is enough to prove the reduct's reading monotone.  The subject
 walked here is always a TYPE (task #342, L12: "not pt" source (1)), so
 the step is `red_sound_ty`. -/
-theorem mono_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
+theorem mono_of_whnf {mp : EnvModelM V env}
     (hin : RulesInputs V mp.base2 φ) {F dep : Nat} {e w : Expr}
     (hw : (fueledOps .verified F).whnf env dep e = .ok w) (hfr : Frame dep e)
     {Δa : List Term} {ea : Term} {R : FrameRel V}
@@ -255,7 +255,7 @@ theorem posD_frame_ctors {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
 /-- **The level parameters of a frame's block are distinct**: the head's
 first constructor's check (a derived frame constructor), or — a head
 without constructors — the caller's. -/
-theorem frame_lps_nodup {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem frame_lps_nodup (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat}
     (hmm : mm < D.k) {lps : List Name}
     (hlps : ∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
@@ -289,7 +289,7 @@ theorem frame_lps_nodup {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
 `C.{us} ds` is typed at the frame's depth): at every valuation satisfying
 the enclosing context, the key's parameters fit the container's parameter
 telescope at the key frame, and their readings are graded. -/
-theorem frameKey_of_infer {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem frameKey_of_infer (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {F : Nat} {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
     {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level}
@@ -349,7 +349,7 @@ theorem frame_head_instPis {ctx : NestCtx} (hfind : ∀ n, ctx.find? n = env.fin
 /-- **A derived frame's group is well formed**: the head in the block, the
 rest its recorded block's other members (`hgrp`, N2-eager) — the whole
 recorded block. -/
-theorem frame_grpOk {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem frame_grpOk (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {hi : Nat} {us : List Level} {ds : List Expr}
     {grp : List (Name × Expr)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
     (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi
@@ -401,7 +401,7 @@ theorem frame_grpOk {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : N
 level parameters distinct (the head's first constructor's check, or its
 recorded former), the key graded (K.52, `frameKey_of_infer`), and
 `frameIter` along the walked constructors. -/
-theorem frame_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem frame_mono (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F : Nat} {prog : List NestHole}
     {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
@@ -447,7 +447,7 @@ theorem frame_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
 /-- **A container instance whose frame is derived HERE** (`contNew`): the
 frame's conclusion at the enclosing relation seen at the key's depth makes
 the instance grow (its leaf, `monoOn_of_famLe`). -/
-theorem contNew_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem contNew_mono (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat}
     (hmm : mm < D.k) {lps : List Name}
@@ -510,7 +510,7 @@ holding the key's container, along every frameless hole relation whose
 pairs satisfy the container's parameter telescope at the key frames, the
 container's carrier grows between them, and every member of the frame's
 group transfers its hole fits to the carrier (`frameIter`). -/
-@[expose] def KeyPos {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat)
+@[expose] def KeyPos (mp : EnvModelM V env) (φ : Name → Nat)
     (ctx : NestCtx) (key : NestKey) : Prop :=
   ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = key.cname ∧
     ∀ cv caps, env.find? key.cname = some (.indInfo cv caps) →
@@ -537,7 +537,7 @@ group transfers its hole fits to the carrier (`frameIter`). -/
 member `mm₀` of a recorded block `D`, the key's container is a member
 `mm` of the same block (in the frame's group), and the block's shared
 level parameters are duplicate-free. -/
-theorem frame_keyBlock {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem frame_keyBlock (mp : EnvModelM V env) {ctx : NestCtx}
     {F : Nat} (hcov : ContCover mp ctx) {key : NestKey} {prog' : List NestHole}
     {grp : List (Name × Expr)} (hmem : key.cname ∈ grp.map (·.1))
     {ts : List ConLeche.PosTree}
@@ -594,7 +594,7 @@ theorem frame_keyBlock {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx 
 its frame, derived under a well-scoped frame stack, read along the
 frameless relation extended by EMPTY frames for that stack, and back
 through the empty frames (`keyFrame_lift`). -/
-theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx}
+theorem keyPos_of_frame (mp : EnvModelM V env) {ctx : NestCtx}
     {F : Nat} (hcov : ContCover mp ctx) {key : NestKey} {prog' : List NestHole}
     {grp : List (Name × Expr)} (hsc : ProgScoped ctx prog') (hmem : key.cname ∈ grp.map (·.1))
     {ts : List ConLeche.PosTree}
@@ -638,7 +638,7 @@ theorem keyPos_of_frame {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx
 the key is positive at the block's own depth (`keyPos_of_frame`), read at
 the enclosing relation seen at that depth; its leaf makes the instance
 grow. -/
-theorem contHit_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : NestCtx} {F : Nat}
+theorem contHit_mono (mp : EnvModelM V env) {ctx : NestCtx} {F : Nat}
     (hcov : ContCover mp ctx) {prog prog' : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {n : Name} {us : List Level} {ds is : List Expr}
     {wa : Term}
@@ -693,7 +693,7 @@ theorem contHit_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {ctx : 
 /-- **THE DERIVATION IS MONOTONE** (charter items 2–4): every judgment of
 a positivity derivation reads monotonically in the holes, by induction
 on the derivation (see the module docstring). -/
-theorem posD_mono {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem posD_mono (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F : Nat} :
     ∀ {j : PosJ} {ts : List ConLeche.PosTree}, PosD (fueledOps .verified F) env ctx j ts →
       MonoJ mp φ ctx F j := by

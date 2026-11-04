@@ -33,7 +33,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## Fits of a Π-tower reading, from `SpineFit` -/
 

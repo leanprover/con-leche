@@ -5,7 +5,6 @@ import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.LfpCover
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Rules.Inputs
-import ConLeche.Verify.Modes
 
 public section
 
@@ -46,7 +45,7 @@ likewise, and its result indices alike at any two hole frames — the
 premises `LfpDatum.fitAcc_holeOp` asks of one constructor.  From the
 derivation (`memberCtorD_acc`, the container rules under `hcovk`), its
 U2 typing, the datum's reading facts and grading, and U4. -/
-theorem blockCtorAcc_of_walk {env : Env} {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
     {ψ : Name → Nat} (hin : Rules.RulesInputs V mp.base2 ψ) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
@@ -237,7 +236,7 @@ theorem nestCtx_sort_eval {d : BlockData V} {p : BlockParts} (hR : p.resSort = d
 /-- **The hole fit of a uniform block is accessible, with one bound
 (of the level at a `Type`-valued block)**, from the positivity stage's derivation of every member
 constructor (the container rules read `hcovk`). -/
-theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V .verified env) {F : Nat}
+theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
@@ -313,13 +312,13 @@ frame**, with a bound that is a set of the level at a `Type`-valued one
 — whence the operator's accessibility, (W) and monotonicity: the block theorem with the
 container rules read at the walk's carrier (coverage) and the walk
 context's sort (the block's level). -/
-theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
-    {env : Env} (mp : EnvModelM V μ env) {d : BlockData V} {lps : List Name}
+theorem blockAcc_of_run {F : Nat}
+    {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find?
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
     (hnIdxs : p.nIdxs = d.nIdxs) (hresS : p.resSort = d.resSort)
@@ -330,13 +329,12 @@ theorem blockAcc_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = tru
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     -- coverage at the walk's carrier (the containers' clauses are recorded)
-    (hcov : ∃ mk : EnvModelM V μ env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames)
+    (hcov : ∃ mk : EnvModelM V env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames)
     (ψ : Name → Nat) (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp)
     (hG : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨mk, hbk, hcovk⟩ := hcov
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
   exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hnP hnIdxs hk hinst hlenCA hctorsAs

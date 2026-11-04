@@ -49,10 +49,10 @@ theorem eq_of_IsTy_of_ne_pt {x y : V} (hx : IsTy x) (hy : IsTy y)
 /-- Head normalisation, dual success, P currency, conditional on the
 point (task #342, L9): the reduct is graded and equal where the subject
 is not the point. -/
-@[expose] def WhnfCoreClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def WhnfCoreClaim {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List Term},
-    whnfCore μ false env fuel d e = .ok e' →
+    whnfCore .verified false env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ea' : Term},
@@ -67,10 +67,10 @@ is not the point. -/
 
 /-- The reduction loop, dual success, P currency, conditional on the
 point (task #342, L9). -/
-@[expose] def WhnfClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def WhnfClaim {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e e' : Expr} {Δa : List Term},
-    whnf μ false env fuel d e = .ok e' →
+    whnf .verified false env fuel d e = .ok e' →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ea' : Term},
@@ -87,10 +87,10 @@ point (task #342, L9). -/
 #342, L9): two sides that are not the point are equal.  A consumer
 comparing two types or two members of one type closes with
 `eq_of_IsTy_of_ne_pt` / `IsTy.eq_of_ne_pt`. -/
-@[expose] def DefEqClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def DefEqClaim {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {a b : Expr} {Δa : List Term},
-    ConLeche.isDefEqCore μ false env fuel d a b = .ok true →
+    ConLeche.isDefEqCore .verified false env fuel d a b = .ok true →
     Expr.WScoped d a → a.looseBVarsBounded 0 = true →
     Expr.LeavesBounded a →
     Expr.WScoped d b → b.looseBVarsBounded 0 = true →
@@ -109,10 +109,10 @@ comparing two types or two members of one type closes with
 /-- Inference, dual success, P currency: the subject's and the
 type's truthfulness are *conclusions*, and
 the type denotes a type. -/
-@[expose] def InferClaim (μ : CheckMode) {env : Env} (m : EnvModel V env)
+@[expose] def InferClaim {env : Env} (m : EnvModel V env)
     (φ : Name → Nat) (fuel : Nat) : Prop :=
   ∀ {d : Nat} {e t : Expr} {Δa : List Term},
-    inferTypeCore μ false env fuel d e = .ok t →
+    inferTypeCore .verified false env fuel d e = .ok t →
     Expr.WScoped d e → e.looseBVarsBounded 0 = true →
     Expr.LeavesBounded e →
     ∀ {ea ta : Term},

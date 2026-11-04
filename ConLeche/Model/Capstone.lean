@@ -21,13 +21,13 @@ harvest layer builds toward them:
 * **the final statement, frozen** (checked against the goal's letter —
   consistency of the checker, hypothesis minimal, the #16 precedent):
 
-  `no_proof_of_Empty_pure : ∀ (V) [SetTheory V] {μ}, μ.verifiedChecks = true →
-   ∀ {F ds env'}, checkDeclsPure μ (fueledOps μ F) pins ds = .ok env' →
+  `no_proof_of_Empty_pure : ∀ (V) [SetTheory V],
+   ∀ {F ds env'}, checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env' →
    ∀ c ∈ env'.consts, c.toConstantVal.type = .const emptyName [] →
    False`
 
   Input-level hypotheses ONLY: the accepted run, the stored constant,
-  its type — plus the validating mode, which is part of the goal's
+  its type — at the validating mode, which is part of the goal's
   letter (the checker the model covers IS the verified mode;
   `--trusted` omits the certification-only work by design).  No
   residue hypotheses: the intermediate, install-tier-conditional form is a *milestone shape*,
@@ -53,7 +53,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo)
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## The Empty pin, at the core carrier -/
 
@@ -85,7 +85,7 @@ a reserved constant whose direct pin is `emptyT u` — the membership is
 the leaf by the constant clause, and the leaf's `interp` value is the
 empty set by `basis_pinned`.  The `Empty` and
 `False` capstones are its two instances. -/
-theorem no_constant_of_emptyPin (mp : EnvModelM V μ env) {n : Name} {u : Nat}
+theorem no_constant_of_emptyPin (mp : EnvModelM V env) {n : Name} {u : Nat}
     (hres : ConLeche.reservedBasisNames.contains n = true)
     (hpin : ∀ ψ : Name → Nat,
       ConLeche.Verify.pinnedStructT n ψ = some (emptyT u))
@@ -118,7 +118,7 @@ theorem no_constant_of_emptyPin (mp : EnvModelM V μ env) {n : Name} {u : Nat}
 invariant stores no constant of type `Empty` — the membership read
 entirely at the stored-term reading (`mem_type` over
 `denote`/`interp`). -/
-theorem no_constant_of_Empty (mp : EnvModelM V μ env)
+theorem no_constant_of_Empty (mp : EnvModelM V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False :=
   -- **the pin, discharged by the carrier itself** (task #161 S7):
@@ -134,7 +134,7 @@ theorem no_constant_of_Empty (mp : EnvModelM V μ env)
 environment carrying the P invariant stores no constant of type
 `False` — the pinned `False` block's leaf is `emptyT 0`, the empty set
 at `Prop`. -/
-theorem no_constant_of_False (mp : EnvModelM V μ env)
+theorem no_constant_of_False (mp : EnvModelM V env)
     (c : ConstantInfo) (hc : c ∈ env.consts)
     (hty : c.toConstantVal.type = .const falseName []) : False :=
   no_constant_of_emptyPin mp (u := 0) (by decide)
@@ -152,7 +152,7 @@ invariant**: the other fields are `EnvModelM` projections
 literal rows are this file's own imports — `natSuccRow_of`/
 `natOpRow_of`/`natOpHead_of` (`Model/NatStep.lean`), which stand on the
 numeral transports and so cannot be projections down there. -/
-theorem Rules.RulesInputs.ofSem (mp : EnvModelM V μ env) (φ : Name → Nat) :
+theorem Rules.RulesInputs.ofSem (mp : EnvModelM V env) (φ : Name → Nat) :
     Rules.RulesInputs V mp.base2 φ :=
   Rules.RulesInputs.ofEnvModelM mp (natSuccRow_of mp φ) (natOpRow_of mp φ)
     (natOpHead_of mp φ)

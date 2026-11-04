@@ -72,12 +72,12 @@ theorem eq_of_mem_mkPisAV_pos {B : Term} :
 
 section Former
 
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- **A recorded block's former, applied to the block's parameters at a
 satisfying parameter frame, is its hole value at the carrier** (see the
 module docstring). -/
-theorem former_app_eq (mp : EnvModelM V μ env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
+theorem former_app_eq (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
     {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat} {ρp : Nat → V}
     (hs : Sat V (D.params ψ).reverse ρp) (ρ : Nat → V) :
     (frameIdx (D.params ψ).length ρp).foldl app (interp V ρ (mp.base2.acval (D.member mm) ψ))

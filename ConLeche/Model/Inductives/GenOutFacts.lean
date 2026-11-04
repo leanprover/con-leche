@@ -39,10 +39,10 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape TargetMaj
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **An outside class's clause has the class's parameter count.** -/
-theorem genOutParamsLen {envC : Env} {mpC : EnvModelM V μ envC} (hcov : LfpCover mpC [])
+theorem genOutParamsLen {envC : Env} {mpC : EnvModelM V envC} (hcov : LfpCover mpC [])
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC M D mm cvI) {sI : Level}
     (_hinst : ConLeche.targetOutsideInst (m := ConLeche.CheckM) (mkFEnv envC) M.ind M.lvls M.ds
@@ -68,7 +68,7 @@ theorem genOutParamsLen {envC : Env} {mpC : EnvModelM V μ envC} (hcov : LfpCove
 
 /-- **An outside class's clause has the class's index count**
 (`tgtOutIdx_len`, from the class's own check). -/
-theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V μ envC}
+theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V envC}
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC M D mm cvI) {sI : Level}
     (hinst : ConLeche.targetOutsideInst (m := ConLeche.CheckM) (mkFEnv envC) M.ind M.lvls M.ds
@@ -95,7 +95,7 @@ theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V μ envC}
 
 /-- **A recorded class's former has a variable-free Π-tail** (its
 reading is a Π-tower ending in a sort, `tailOk_of_read`). -/
-theorem TgtOutCls.tailOk {envC : Env} {mpC : EnvModelM V μ envC}
+theorem TgtOutCls.tailOk {envC : Env} {mpC : EnvModelM V envC}
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC M D mm cvI) : TailOk cvI.type := by
   obtain ⟨caps, hfI⟩ := hcl.hfind

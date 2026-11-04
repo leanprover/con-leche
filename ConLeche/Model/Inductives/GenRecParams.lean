@@ -45,7 +45,6 @@ comparison, not by construction.
 namespace ConLeche
 open ConLeche.Term (Term)
 
-variable {μ : CheckMode}
 
 /-! ## Syntax -/
 
@@ -73,8 +72,8 @@ theorem SameDoms.mono :
 
 /-- A run on a `∀` carries a run on its domain. -/
 theorem inferTypeCore_forallE_dom {envK : Env} {F d : Nat} {ty bd s : Expr}
-    (h : inferTypeCore μ false envK F d (.forallE ty bd) = .ok s) :
-    ∃ F₀ tty, F = F₀ + 1 ∧ inferTypeCore μ false envK F₀ d ty = .ok tty := by
+    (h : inferTypeCore .verified false envK F d (.forallE ty bd) = .ok s) :
+    ∃ F₀ tty, F = F₀ + 1 ∧ inferTypeCore .verified false envK F₀ d ty = .ok tty := by
   cases F with
   | zero =>
     rw [inferTypeCore_zero] at h
@@ -90,11 +89,11 @@ argument `aₗ` (`l < m`) with the telescope's `l`-th domain at the
 earlier arguments. -/
 theorem inferTypeCore_spine_defeq {envK : Env} {F d : Nat} :
     ∀ (as : List Expr) {f tf t : Expr} {m : Nat}, m ≤ as.length → SameDoms m tf tf →
-      inferTypeCore μ false envK F d f = .ok tf →
-      inferTypeCore μ false envK F d (Expr.mkAppN f as) = .ok t →
+      inferTypeCore .verified false envK F d f = .ok tf →
+      inferTypeCore .verified false envK F d (Expr.mkAppN f as) = .ok t →
       ∀ l, l < m → ∃ D b ta, instPisWith (as.take l) tf = some (.forallE D b) ∧
-        inferTypeCore μ false envK F d (as.getD l default) = .ok ta ∧
-        isDefEqCore μ (argEager false (as.getD l default)) envK F d ta D = .ok true
+        inferTypeCore .verified false envK F d (as.getD l default) = .ok ta ∧
+        isDefEqCore .verified (argEager false (as.getD l default)) envK F d ta D = .ok true
   | [], _, _, _, m, hm, _, _, _, l, hl => absurd hl (by simp at hm; omega)
   | a :: as, f, tf, t, m, hm, hsd, hf, h, l, hl => by
     obtain ⟨tfa, hfa⟩ := Model.inferTypeCore_mkAppN_fn_inv as (f := .app f a) h
@@ -144,7 +143,6 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo openPisAtF
   ClassGen ClassGenScoped SameDoms classGenRecTy classBinder GenRecRun ClassRecTyRun
   FEnv mkFEnv NestState TargetMajor RecShape BlockShape BlockParts instPisWith)
 
-variable {μ : CheckMode}
 
 /-- A leaf of an argument is a leaf of the application spine. -/
 theorem fvarLeaves_mkAppN_arg {l : Nat × Expr} :
@@ -167,7 +165,7 @@ variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos 
 /-- **A member class, as the run checked it**: the member's own
 inductive, at the block's levels, over the canonical parameters. -/
 theorem genRec_memberClass
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {c t : Nat} (hm : (R.Ms.getD c default).member = some t) :
     p.toBlockShape.memberNames.findIdx? (· == (R.Ms.getD c default).ind) = some t ∧
@@ -202,18 +200,18 @@ member `T_t` infers its major domain `T_t p⃗ ı⃗` — over the prefix's own
 parameter variables — and the application rule compares each variable's
 type, the stored `l`-th prefix domain, with `T_t`'s `l`-th parameter
 domain at the earlier variables; moved to the prefix's depth. -/
-theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche.EnvWF envC)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genMemberRec_paramDefeq (hwf : ConLeche.EnvWF envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape} {cvG : ConstantVal}
     (hc : R.rd.recCls[i]? = some c)
-    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) (htgt : rc.tgt < p.k) :
+    (T : ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) (htgt : rc.tgt < p.k) :
     ∃ I, p.toBlockShape.memberNames.findIdx? (· == I) = some rc.tgt ∧
       ∀ (cvT : ConstantVal) caps, envC.find? I = some (.indInfo cvT caps) →
         cvT.levelParams = p.lps → cvT.type.hasFvar = false → SameDoms p.nP cvT.type cvT.type →
         ∃ (xs : List Expr) (o : Expr) (F' : Nat), openPisAtFvars p.nP cvG.type 0 = some (xs, o) ∧
           ∀ l, l < p.nP → ∃ D b, instPisWith (xs.take l) cvT.type = some (.forallE D b) ∧
-            ConLeche.isDefEqCore μ false envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
+            ConLeche.isDefEqCore .verified false envC F' p.nP ((xs.map Expr.fvarTypeD).getD l default) D
               = .ok true := by
   obtain ⟨-, -, -, -, hfv0, -, -, stype, u0, hinf, -⟩ :=
     ConLeche.classConstOk_inv T.hcv
@@ -327,7 +325,7 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
     exact hxN.2
   subst hdom
   obtain ⟨N₁, rfl⟩ : ∃ N₁, N = N₁ + 1 := ⟨N - 1, by omega⟩
-  obtain ⟨bt, u, hbt, -⟩ := inferTypeCore_openPis_body hμ N₁ hopN hinf
+  obtain ⟨bt, u, hbt, -⟩ := inferTypeCore_openPis_body N₁ hopN hinf
   rw [Nat.zero_add] at hbt
   obtain ⟨F₀, tty, rfl, htty⟩ := ConLeche.inferTypeCore_forallE_dom hbt
   rw [hMDe] at htty
@@ -400,11 +398,11 @@ theorem genMemberRec_paramDefeq (hμ : μ.verifiedChecks = true) (hwf : ConLeche
 generated type is a telescope over the same prefix (`SameDoms`), so its
 first `nP` opened variables are the same. -/
 theorem genRec_paramOpeners_eq
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) {c c' : Nat} {rc rc' : RecShape} {cvG cvG' : ConstantVal}
-    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG)
-    (T' : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc' c' cvG')
+    (T : ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG)
+    (T' : ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc' c' cvG')
     {xs xs' : List Expr} {o o' : Expr}
     (hop : openPisAtFvars p.nP cvG.type 0 = some (xs, o))
     (hop' : openPisAtFvars p.nP cvG'.type 0 = some (xs', o')) : xs = xs' := by
@@ -419,7 +417,7 @@ theorem genRec_paramOpeners_eq
 /-- **A member-targeting recursor exists** (the member recursors' name
 pins, at a block declaring a family). -/
 theorem genRec_memberRec_exists
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) :
     ∃ (i : Nat) (rc : RecShape), p.recs[i]? = some rc ∧ rc.tgt < p.k := by
   have hset := (ConLeche.targetRecPins_inv R.pins).nameSet
@@ -533,8 +531,8 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-variable {envT : Env} (hμ : μ.verifiedChecks = true)
-  (mp : EnvModelM V μ envT) {ψ : Name → Nat} {fuel rP : Nat}
+variable {envT : Env}
+  (mp : EnvModelM V envT) {ψ : Name → Nat} {fuel rP : Nat}
   {tyA : Expr} {fvsA : List Expr} {oA : Expr}
   (hopA : openPisAtFvars rP tyA 0 = some (fvsA, oA))
   (hwA : Expr.WScoped 0 tyA) (hbA : tyA.looseBVarsBounded 0 = true)
@@ -553,10 +551,10 @@ variable {envT : Env} (hμ : μ.verifiedChecks = true)
   (hokB : ∀ i, i < rP → ∀ (ρ : Nat → V) (ys : List V),
     SpineFit ρ (domsB.take i) ys → WellDenotedTy V (consList ys ρ) (domsB.getD i default))
   (hdeq : ∀ i, i < rP →
-    ConLeche.isDefEqCore μ false envT fuel rP ((fvsA.map Expr.fvarTypeD).getD i default)
+    ConLeche.isDefEqCore .verified false envT fuel rP ((fvsA.map Expr.fvarTypeD).getD i default)
         (bs.getD i default) = .ok true)
 
-include hμ hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB hokA hokB hdeq in
+include hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB hokA hokB hdeq in
 /-- **The certified hop's reading half, against terms over the first
 opening's variables** — `prefixDoms_agree` with the second telescope's
 `l`-th domain given as a term `bs l` whose variables are the FIRST
@@ -566,7 +564,7 @@ theorem prefixDoms_agree_inst :
     ∀ l, l < rP → ∀ (ρ₁ : Nat → V) (ys : List V), SpineFit ρ₁ domsA ys →
       interp V (consList (ys.take l) ρ₁) (domsA.getD l default)
         = interp V (consList (ys.take l) ρ₁) (domsB.getD l default) := by
-  obtain ⟨-, -, ihd, -⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) fuel
+  obtain ⟨-, -, ihd, -⟩ := checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) fuel
   have hlA : fvsA.length = rP := ConLeche.Verify.openPisAtFvars_length _ hopA
   have hlbA := (ConLeche.Verify.openPisAtFvars_bounded _ hopA hbA).2
   have hentA : ∀ i, i < rP → domsA.reverse[rP - 1 - i]? = some (domsA.getD i default) :=
@@ -662,14 +660,14 @@ theorem prefixDoms_agree_inst :
     -- "not pt" source (1): both are domains of graded telescopes, types
     exact eq_of_IsTy_of_ne_pt hTyA hTyB heq
 
-include hμ hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB hokA hokB hdeq in
+include hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB hokA hokB hdeq in
 /-- **The certified hop, against terms over the first opening's
 variables**: a fitting spine of the first opening's domains fits the
 terms'. -/
 theorem prefixDoms_spineFit_inst {ρ₀ : Nat → V} {xs : List V} (hfit : SpineFit ρ₀ domsA xs) :
     SpineFit ρ₀ domsB xs :=
   spineFit_congr_walk (by rw [hlenA, hlenB])
-    (fun l hl => prefixDoms_agree_inst hμ mp hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB
+    (fun l hl => prefixDoms_agree_inst mp hopA hwA hbA hlenA hlenB hdA hwbs hbbs hleafbs hdB
       hokA hokB hdeq l (by omega) ρ₀ xs hfit) hfit
 
 end PrefixDomsInst
@@ -687,14 +685,14 @@ set_option maxHeartbeats 1600000 in
 the members' run facts (`BlockMembersRun`): a spine fitting any stored
 recursor's rule prefix fits the block's parameters on its first `nP`
 values. -/
-theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC : Env}
+theorem genParams_fit_run {F : Nat} {envI envC : Env}
     {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
     {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} (mpC : EnvModelM V μ envC)
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+    {out : List (ConstantVal × TargetMajor × List Expr)} (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g)
-    (h : RecStageG μ F envC pp cvTas (ConLeche.tgtRs out))
+    (h : RecStageG .verified F envC pp cvTas (ConLeche.tgtRs out))
     {dR : BlockData V}
     (hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTas) :
     ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
@@ -715,7 +713,7 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
   -- a member recursor, and its comparison
   obtain ⟨i0, rc0, hrc0, htgt⟩ := genRec_memberRec_exists R
   obtain ⟨c0, cvG0, -, hc0, -, ⟨T0⟩, -, -, -⟩ := genRecRun_at R hrc0
-  obtain ⟨I, hfi, hall⟩ := genMemberRec_paramDefeq hμ mpC.base2.wf R hg hc0 T0 htgt
+  obtain ⟨I, hfi, hall⟩ := genMemberRec_paramDefeq mpC.base2.wf R hg hc0 T0 htgt
   -- its member's former
   have hkt : rc0.tgt < dR.k := by rw [hkq]; exact htgt
   obtain ⟨cvTP, hcvT⟩ : ∃ cv, cvTas[rc0.tgt]? = some cv :=
@@ -736,7 +734,7 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
     ConLeche.SameDoms.mono (by rw [← hnPq']; omega) (ConLeche.SameDoms.of_stripPis _ hstrip)
   obtain ⟨xs0, o0, F', hop0, hdeqs⟩ := hall cvTP caps hfindT hlpsT hfvT hsdT
   -- recursor `c`'s parameter openers are the same
-  obtain ⟨fvsL, conclL, hopL, -, -, hlenRds, hbind, -, -⟩ := recStage_tyPis hμ mpC h hr ψ
+  obtain ⟨fvsL, conclL, hopL, -, -, hlenRds, hbind, -, -⟩ := recStage_tyPis mpC h hr ψ
   have hle := blockRecHrPle (p := pp) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hrP, -⟩ := genRecTy_shape R hg T
   obtain ⟨-, -, hRc⟩ := ConLeche.recShape_at (q := pp.toBlockShape) hrc
@@ -749,7 +747,7 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
   rw [hxs] at hopc
   obtain ⟨hwA, hbA⟩ := recStage_tyClosed h hr
   -- the FIRST telescope: recursor `c`'s parameter domains
-  have hlenPd := blockRulePdomsAV_length hμ mpC h hr ψ
+  have hlenPd := blockRulePdomsAV_length mpC h hr ψ
   generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c
     = pdoms at hfit hlenPd
   have hlenA : (pdoms.take pp.nP).length = pp.nP := by
@@ -767,7 +765,7 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
     rw [hreadD, getD_take_of_lt hi, ← hPd, blockRulePdomsAV, List.getD_eq_getElem?_getD,
       List.getElem?_take, ite_eq_left (by omega), hpd]
     rfl
-  have hgrA := blockRulePdomsAV_graded hμ mpC h hr ψ
+  have hgrA := blockRulePdomsAV_graded mpC h hr ψ
   rw [hPd] at hgrA
   have hokA : ∀ i, i < pp.nP → ∀ (ρ' : Nat → V) (ys : List V),
       SpineFit ρ' ((pdoms.take pp.nP).take i) ys →
@@ -810,7 +808,7 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
     | _ => default
   have hDof : ∀ l, l < pp.nP → ∃ b, instPisWith (xs0.take l) cvTP.type
       = some (.forallE (Dof l) b) ∧
-      ConLeche.isDefEqCore μ false envC F' pp.nP ((xs0.map Expr.fvarTypeD).getD l default) (Dof l)
+      ConLeche.isDefEqCore .verified false envC F' pp.nP ((xs0.map Expr.fvarTypeD).getD l default) (Dof l)
         = .ok true := by
     intro l hl
     obtain ⟨D, b, hinst, hde⟩ := hdeqs l hl
@@ -828,7 +826,7 @@ theorem genParams_fit_run (hμ : μ.verifiedChecks = true) {F : Nat} {envI envC 
     exact instDom_facts hopc hwA hopT hfvT hbndT hl hinst
   have hfitA : SpineFit ρ (pdoms.take pp.nP) (xs.take pp.nP) :=
     spineFit_take hfit (by rw [hlenPd]; omega)
-  have hfitB := prefixDoms_spineFit_inst (V := V) (fuel := F') hμ mpC hopc hwA hbA hlenA hlenB hdA
+  have hfitB := prefixDoms_spineFit_inst (V := V) (fuel := F') mpC hopc hwA hbA hlenA hlenB hdA
     (bs := (List.range pp.nP).map Dof)
     (fun l hl => by rw [hbsget l hl]; exact (hfacts l hl).1)
     (fun l hl => by rw [hbsget l hl]; exact (hfacts l hl).2.1)

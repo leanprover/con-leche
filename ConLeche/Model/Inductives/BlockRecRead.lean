@@ -71,7 +71,7 @@ reading) for the grading. -/
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **A checked constant's type reads, the reading is graded, AND it
 lands in the universe the check's own `ensureSort` named.**
@@ -89,9 +89,9 @@ it as the stream's `checkConstantVal` does.
 **This is the `hlvl` route**: the level a recursor's type lives at is
 the check's INFERRED one, and it already accounts for the binders'
 levels. -/
-theorem constChecked_reads {env : Env} (hμ : μ.verifiedChecks = true)
-    (mp : EnvModelM V μ env) {F : Nat} {cv0 cv : ConstantVal}
-    (h : ConLeche.ConstChecked μ F env cv0 cv) :
+theorem constChecked_reads {env : Env}
+    (mp : EnvModelM V env) {F : Nat} {cv0 cv : ConstantVal}
+    (h : ConLeche.ConstChecked .verified F env cv0 cv) :
     ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : Term,
       denote mp.base2.acval env ψ 0 cv.type = some ta ∧
       (∀ ρ : Nat → V, WellDenoted V ρ ta) ∧
@@ -106,9 +106,9 @@ theorem constChecked_reads {env : Env} (hμ : μ.verifiedChecks = true)
     rw [hnlt] at hl
     exact absurd hl (List.not_mem_nil)
   obtain ⟨ta, hta⟩ := acceptedReads_of mp.base2 ψ hrun hwt hbt' hLt
-  obtain ⟨-, ihw, -, ihi⟩ := checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
+  obtain ⟨-, ihw, -, ihi⟩ := checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) F
   have hsem := sortSemAt_of_claims ihw ihi
-    (inferReads_of hμ (Rules.RulesInputs.ofSem mp ψ))
+    (inferReads_of (Rules.RulesInputs.ofSem mp ψ))
     (CtxOk.nil hnlt) hwt hbt' hLt hrun (ConLeche.ensureSortCore_inv hsort) hta
   exact ⟨ta, hta, fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).1,
     fun ρ => (hsem ρ (ConLeche.Semantics.Sat_nil V ρ)).2⟩
@@ -118,10 +118,10 @@ Every stored recursor's type reads at the constructors' environment
 and its reading is graded — from the stage's own
 type checks (`ConstChecked`), at the type record of each stored recursor
 (`RecStage.tyGenAt`, `Verify/Inductives/RecStage.lean`). -/
-theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+theorem recStage_tyReads {envC : Env}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs) :
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs) :
     ∀ r ∈ rs, ∃ u : Level, ∀ ψ : Name → Nat, ∃ ta : Term,
       denote mpC.base2.acval envC ψ 0 r.1.type = some ta ∧
       (∀ ρ : Nat → V, WellDenoted V ρ ta) ∧
@@ -130,17 +130,17 @@ theorem recStage_tyReads {envC : Env} (hμ : μ.verifiedChecks = true)
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
   obtain ⟨rc, u, -, -, ⟨E⟩⟩ := R.tyGenAt hi
-  exact constChecked_reads hμ mpC E.hcv
+  exact constChecked_reads mpC E.hcv
 
 /-- **`blockRecStaged_of`'s `hrd`, reduced to the MEMBERSHIP.**  The
 reading and its grading are the run's (`recStage_tyReads`); what
 is left is that the leaf inhabits the reading — the recursion theorem,
 which the recursor model delivers as `hmem` in this shape. -/
-theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+theorem hrd_of_mem {envC : Env}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → Term}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     (hmem : ∀ r ∈ rs, ∀ (ψ : Name → Nat) (ta : Term),
       denote mpC.base2.acval envC ψ 0 r.1.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) :
@@ -149,7 +149,7 @@ theorem hrd_of_mem {envC : Env} (hμ : μ.verifiedChecks = true)
       (∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
       (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta) := by
   intro r hr ψ
-  obtain ⟨_, hru⟩ := recStage_tyReads (V := V) hμ mpC h r hr
+  obtain ⟨_, hru⟩ := recStage_tyReads (V := V) mpC h r hr
   obtain ⟨ta, hta, hok, hsrt⟩ := hru ψ
   exact ⟨ta, hta, fun ρ => ⟨hok ρ, IsTy_of_mem_univ (hsrt ρ)⟩, hmem r hr ψ ta hta⟩
 

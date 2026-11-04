@@ -100,7 +100,7 @@ theorem model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
     (accepted : checkDecls .verified pins ds = .ok env) :
     Nonempty (Model V env) := by
-  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) rfl accepted
+  obtain ⟨m⟩ := Cached.checkDecls_sound (V := V) accepted
   exact ⟨Model.Model.ofEnvModelM m⟩
 
 open Frontend in

@@ -43,7 +43,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockPart
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **A graded Π-tower grades its binder domains** along any spine
 fitting the domains before them. -/
@@ -79,10 +79,10 @@ set_option maxHeartbeats 8000000 in
 /-- **The minor premise of `(c, j)`, read at the rule prefix**: a Π-tower
 whose first binder domains are the rule frame's declared field domains,
 graded at every prefix spine fitting the rule prefix. -/
-theorem genMinorTower (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+theorem genMinorTower
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -104,9 +104,9 @@ theorem genMinorTower (hμ : μ.verifiedChecks = true)
   have hmp : R.g.nP + s < R.g.pre.length := by omega
   -- the stored type's entry at the minor's slot
   obtain ⟨cls', ty', ifs', body', -, -, -, -, -, -, -, -, -, -, fvs0, o0, hop0, hE⟩ :=
-    genRun_binders hμ R hg h mpC ψ hc
+    genRun_binders R hg h mpC ψ hc
   obtain ⟨fvs1, concl1, hop1, -, hTyE, hlenRds, hdomsR, -, hwdTy⟩ :=
-    recStage_tyPis (V := V) hμ mpC h hr ψ
+    recStage_tyPis (V := V) mpC h hr ψ
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hop1.symm.trans hop0))
   have hle := blockRecHrPle (p := pp) h hc
   have hlenF : fvs1.length = pp.toBlockShape.majorIdxAt c + 1 :=
@@ -118,7 +118,7 @@ theorem genMinorTower (hμ : μ.verifiedChecks = true)
   obtain ⟨pd, hpd, hrd⟩ := hdomsR _ y hy
   rw [denote_erasedEq hyE] at hrd
   -- the prefix's entry: the minor's value, graded there
-  have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h hr ψ
+  have hlenPd := blockRulePdomsAV_length (V := V) mpC h hr ψ
   have hPdget : (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).getD
       (R.g.nP + s) default = pd := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD, List.getElem?_take,
@@ -210,7 +210,7 @@ theorem genMinorTower (hμ : μ.verifiedChecks = true)
         (n := R.g.pre.length - (R.g.nP + s)) (k := 0) rfl (by omega)
       rw [show xs.length - (R.g.pre.length - (R.g.nP + s)) = R.g.nP + s by omega] at this
       exact this
-    have hgr := blockRulePdomsAV_graded (V := V) hμ mpC h hr ψ (R.g.nP + s) (by omega) ρ
+    have hgr := blockRulePdomsAV_graded (V := V) mpC h hr ψ (R.g.nP + s) (by omega) ρ
       (xs.take (R.g.nP + s)) (by
         have := spineFit_take hxs (i := R.g.nP + s) (by omega)
         exact this)
@@ -222,10 +222,10 @@ set_option maxHeartbeats 1600000 in
 /-- **The rule frame is graded** along its own fitting spines: the prefix
 domains (the stored type's), then the declared field domains (the minor
 premise's, `genMinorTower`). -/
-theorem genCls_frameV (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+theorem genCls_frameV
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -248,15 +248,15 @@ theorem genCls_frameV (hμ : μ.verifiedChecks = true)
   rcases Nat.lt_or_ge l pdoms.length with hlp | hlp
   · rw [List.take_append_of_le_length (by omega)] at hys
     rw [List.getD_eq_getElem?_getD, List.getElem?_append_left hlp, ← List.getD_eq_getElem?_getD]
-    have hlenPd := blockRulePdomsAV_length (V := V) hμ mpC h hr ψ
+    have hlenPd := blockRulePdomsAV_length (V := V) mpC h hr ψ
     rw [hPd] at hlenPd
-    have := blockRulePdomsAV_graded (V := V) hμ mpC h hr ψ l (by omega) σ ys (by rw [hPd]; exact hys)
+    have := blockRulePdomsAV_graded (V := V) mpC h hr ψ l (by omega) σ ys (by rw [hPd]; exact hys)
     rwa [hPd] at this
   · obtain ⟨k, rfl⟩ : ∃ k, l = pdoms.length + k := ⟨l - pdoms.length, by omega⟩
     have hk : k < fdoms.length := by simp at hl; omega
     rw [List.take_append, List.take_of_length_le (by omega), Nat.add_sub_cancel_left] at hys
     obtain ⟨xs, zs, rfl, hxs, hzs⟩ := spineFit_append_inv hys
-    obtain ⟨bs, b, hbl, hbF, hwd⟩ := genMinorTower hμ R hg h mpC hfind ψ hc hj
+    obtain ⟨bs, b, hbl, hbF, hwd⟩ := genMinorTower R hg h mpC hfind ψ hc hj
     rw [hFd] at hbl hbF
     have hw := hwd σ xs (by rw [hPd]; exact hxs)
     have hkb : k < bs.length := by omega

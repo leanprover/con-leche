@@ -53,69 +53,69 @@ section Runners
 variable {env : Env} {s₀ : CState}
 
 /-- Shared `inferType` simulates the fueled family. -/
-theorem opE_infer_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
-    {e : Expr} (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ opE mode (mkFEnv env) (·.infer) d e
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).inferType env d e) v ∧
+theorem opE_infer_spec (henv : EnvWF env) {d : Nat}
+    {e : Expr} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ opE .verified (mkFEnv env) (·.infer) d e
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).inferType env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  ((ssimC hμ env henv checkFuel).infer hs rfl hw).triple relEC_inv
+  ((ssimC env henv checkFuel).infer hs rfl hw).triple relEC_inv
 
 /-- Shared `whnf` simulates the fueled family. -/
-theorem opE_whnf_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
-    {e : Expr} (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ opE mode (mkFEnv env) (·.whnf) d e
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).whnf env d e) v ∧
+theorem opE_whnf_spec (henv : EnvWF env) {d : Nat}
+    {e : Expr} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ opE .verified (mkFEnv env) (·.whnf) d e
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).whnf env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  ((ssimC hμ env henv checkFuel).whnf hs rfl hw).triple relEC_inv
+  ((ssimC env henv checkFuel).whnf hs rfl hw).triple relEC_inv
 
 /-- Shared `isDefEq` simulates the fueled family. -/
-theorem opB_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {a b : Expr}
-    (hs : CSOK mode false env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ opB mode (mkFEnv env) d a b
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).isDefEq env d a b) v; ⊤⦄ :=
-  ((ssimC hμ env henv checkFuel).defeq hs rfl rfl hwa hwb).tripleVC
+theorem opB_spec (henv : EnvWF env) {d : Nat} {a b : Expr}
+    (hs : CSOK .verified false env s₀) (hwa : Expr.WScoped d a) (hwb : Expr.WScoped d b) :
+    ⦃fun s => s = s₀⦄ opB .verified (mkFEnv env) d a b
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).isDefEq env d a b) v; ⊤⦄ :=
+  ((ssimC env henv checkFuel).defeq hs rfl rfl hwa hwb).tripleVC
 
 /-- Shared `ensureSort` simulates the fueled family: the body walk's
 answer at the fueled helper is the shared operation's (`ensureSort_def`). -/
-theorem opS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
-    (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ opS mode (mkFEnv env) d e
-    ⦃fun u s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).ensureSort env d e) u; ⊤⦄ :=
+theorem opS_spec (henv : EnvWF env) {d : Nat} {e : Expr}
+    (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ opS .verified (mkFEnv env) d e
+    ⦃fun u s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).ensureSort env d e) u; ⊤⦄ :=
   triple_iff_run.mpr fun u s' hr => by
     obtain ⟨hs', F, h⟩ :=
-      triple_iff_run.mp (ensureSortC_spec (ssimC hμ env henv checkFuel) hs hw) u s' hr
+      triple_iff_run.mp (ensureSortC_spec (ssimC env henv checkFuel) hs hw) u s' hr
     rw [ensureSort_atF, ensureSort_def] at h
     exact ⟨hs', F, h⟩
 
 /-! The shared operations as triples at the `sharedOpsC` projections, the
 form a walk calls them in (`vcgen` finds a spec by the program's head). -/
 
-theorem inferS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).inferType env d e
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).inferType env d e) v ∧
+theorem inferS_spec (henv : EnvWF env) {d : Nat} {e : Expr}
+    {s₀ : CState} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).inferType env d e
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).inferType env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  opE_infer_spec hμ henv hs hw
+  opE_infer_spec henv hs hw
 
-theorem whnfS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).whnf env d e
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).whnf env d e) v ∧
+theorem whnfS_spec (henv : EnvWF env) {d : Nat} {e : Expr}
+    {s₀ : CState} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).whnf env d e
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).whnf env d e) v ∧
       Expr.WScoped d v; ⊤⦄ :=
-  opE_whnf_spec hμ henv hs hw
+  opE_whnf_spec henv hs hw
 
-theorem defeqS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat}
-    {a b : Expr} {s₀ : CState} (hs : CSOK mode false env s₀) (hwa : Expr.WScoped d a)
+theorem defeqS_spec (henv : EnvWF env) {d : Nat}
+    {a b : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) (hwa : Expr.WScoped d a)
     (hwb : Expr.WScoped d b) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).isDefEq env d a b
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).isDefEq env d a b) v; ⊤⦄ :=
-  opB_spec hμ henv hs hwa hwb
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).isDefEq env d a b
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).isDefEq env d a b) v; ⊤⦄ :=
+  opB_spec henv hs hwa hwb
 
-theorem sortS_spec (hμ : mode.verifiedChecks = true) (henv : EnvWF env) {d : Nat} {e : Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) (hw : Expr.WScoped d e) :
-    ⦃fun s => s = s₀⦄ (sharedOpsC mode (mkFEnv env)).ensureSort env d e
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs ((fueledOpsM mode).ensureSort env d e) v; ⊤⦄ :=
-  opS_spec hμ henv hs hw
+theorem sortS_spec (henv : EnvWF env) {d : Nat} {e : Expr}
+    {s₀ : CState} (hs : CSOK .verified false env s₀) (hw : Expr.WScoped d e) :
+    ⦃fun s => s = s₀⦄ (sharedOpsC .verified (mkFEnv env)).ensureSort env d e
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs ((fueledOpsM .verified).ensureSort env d e) v; ⊤⦄ :=
+  opS_spec henv hs hw
 
 end Runners
 

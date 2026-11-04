@@ -45,7 +45,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal FEnv BlockShape Targ
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **An outside major's parameters, read at the rule prefix** — a
 function of the level valuation (the reading is unique,
@@ -66,7 +66,7 @@ theorem denoteSpine_eq_map {acval : Name → (Name → Nat) → Term} {env : Env
 
 section Rows
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {p : BlockShape}
+variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {p : BlockShape}
   {nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 

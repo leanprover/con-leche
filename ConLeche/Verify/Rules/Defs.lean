@@ -16,8 +16,8 @@ accepting run at `fuel` yields a derivation in the rules tier
 describes the verified checker, and the eager flag (task #353) changes
 which sound steps are taken, not which steps are sound — so one
 relation serves `.verified`, on and off the eager tower; the
-step theorems take `hμ : μ.verifiedChecks = true` where a certificate
-is read, and the recomposition (`Model/Rules/Recompose.lean`) uses
+step theorems are stated at `.verified` where a certificate is read
+(the others stay general in `μ`), and the recomposition (`Model/Rules/Recompose.lean`) uses
 them at `.verified`.
 
 The five are closed by one mutual fuel induction (`Verify/Rules/Bridge.lean`),

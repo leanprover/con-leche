@@ -74,8 +74,8 @@ reference kernel does not do it?  Two kinds of work read it:
   comparison and its case-3 telescope and index certificates.  The
   cached core reads them through `certAtI`
   (`ConLeche/Cached/CoreC.lean`); the simulation tower
-  (`ConLeche/Verify/Cached/*`), stated under
-  `hμ : mode.verifiedChecks = true`, sees through them.  The `.trusted`
+  (`ConLeche/Verify/Cached/*`), stated at `.verified`, sees through
+  them.  The `.trusted`
   instance of the cached-vs-spec simulation is false, deliberately: the
   trusted core skips what the spec runs. -/
 def CheckMode.verifiedChecks : CheckMode → Bool

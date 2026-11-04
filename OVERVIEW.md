@@ -549,7 +549,7 @@ Read from the outside in:
    and the statement about the fold
    ([theorem `no_proof_of_False_cached` in `ConLeche/Verify/Cached/MainC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L59-L65))
    is that model read through `checkDecls_fullyChecked`
-   ([theorem `checkDecls_sound` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L37-L42)).
+   ([theorem `checkDecls_sound` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/MainC.lean#L38-L43)).
 4. **The pure checker** (`ConLeche/Kernel/*`) is a fueled, memo-free
    presentation of the same algorithm: `whnfCore`, `whnf`, `inferType`,
    `isDefEq` (and inference at the infer-only grade) are defined by one mutual
@@ -558,7 +558,7 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1708-L1713)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L268-L275)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L267-L274)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment

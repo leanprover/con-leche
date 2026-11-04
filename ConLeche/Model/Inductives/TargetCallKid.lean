@@ -36,7 +36,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestC
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **A kid's hole owners** (`par b' = b`, an earlier position): below its
 parent's stack, the parent's owner; on the parent's group, the parent. -/
@@ -54,7 +54,7 @@ theorem holeOwner_kid {ns : List PosTree} {par : Nat → Nat} {b b' : Nat} (hpar
 
 section Kid
 
-variable {F : Nat} {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+variable {F : Nat} {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
   {ctx : NestCtx} {d : BlockData V} {ns : List PosTree}
 
 set_option maxHeartbeats 4000000 in

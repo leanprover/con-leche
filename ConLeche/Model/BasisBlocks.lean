@@ -41,7 +41,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## The leaf kit
 
@@ -257,7 +257,7 @@ at `Nat.succ` the guard becomes true and the row is the block's one
 bespoke non-firing obligation, two memberships. -/
 
 /-- **`Nat`, installed at the P tier.** -/
-theorem extendNat (mp : EnvModelM V μ env)
+theorem extendNat (mp : EnvModelM V env)
     (hfresh : env.find? natName = none)
     (hguard : ConLeche.natLitSupported ⟨natA :: env.consts, env.tables⟩ = false)
     (hwf : EnvWF ⟨natA :: env.consts, env.tables⟩) :
@@ -296,7 +296,7 @@ theorem extendNat (mp : EnvModelM V μ env)
       (fun _ _ _ _ h => nomatch h) m₂ hac φ
 
 /-- **`Nat.zero`, installed at the P tier.** -/
-theorem extendNatZero (mp : EnvModelM V μ env)
+theorem extendNatZero (mp : EnvModelM V env)
     (hN : env.find? natName = some natA)
     (hfresh : env.find? natZeroName = none)
     (hguard : ConLeche.natLitSupported ⟨natZeroA :: env.consts, env.tables⟩ = false)
@@ -336,7 +336,7 @@ theorem extendNatZero (mp : EnvModelM V μ env)
 /-- **`Nat.succ`, installed at the P tier** — the cons where the
 literal guard becomes true, so `nat_heads` is bespoke here and nowhere
 else.  Its content is `natzero_mem` and `natSuccV_mem`. -/
-theorem extendNatSucc (mp : EnvModelM V μ env)
+theorem extendNatSucc (mp : EnvModelM V env)
     (hN : env.find? natName = some natA)
     (hZ : env.find? natZeroName = some natZeroA)
     (hfresh : env.find? natSuccName = none)
@@ -1285,7 +1285,7 @@ theorem natRecSuccLaw {m : EnvModel V env}
       (hysA n (by simp))
 
 /-- **`Nat.rec`, installed at the P tier.** -/
-theorem extendNatRec (mp : EnvModelM V μ env)
+theorem extendNatRec (mp : EnvModelM V env)
     (hN : env.find? natName = some natA)
     (hZ : env.find? natZeroName = some natZeroA)
     (hS : env.find? natSuccName = some natSuccA)
@@ -1341,7 +1341,7 @@ theorem extendNatRec (mp : EnvModelM V μ env)
 
 /-- **The `Nat` block, installed at the P tier.**  `BasisStepPB`'s
 `natK` branch. -/
-theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V μ env)
+theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.natK.declsA env₁) :
     CoverStep mp env₁ := by

@@ -41,7 +41,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal FEnv BlockShape Targ
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- The target field domains, lifted past `K` chain binders. -/
 @[expose] def tgtFdomsK (K : Nat) (acval : Name → (Name → Nat) → Term) (envC : Env)
@@ -80,7 +80,7 @@ theorem chainFit_base {K : Nat} {a ρ : Nat → V} {pd fd : List Term}
 
 section Rows
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {F : Nat} {cvTas : List ConstantVal}
+variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {nested : Bool} {block : List ConstantInfo}
 

@@ -36,7 +36,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestH
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## A member constructor's crest, read in the hole context -/
 
@@ -101,7 +101,7 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
 /-- **Every node of a member constructor's derivation is read in its stack
 context**, at the formers' model: `posD_nodeSem` from the constructor's
 crest (`blockCtorCrest`). -/
-theorem memberCtor_nodesSem {μ : ConLeche.CheckMode} {env : Env} (mk : EnvModelM V μ env)
+theorem memberCtor_nodesSem {env : Env} (mk : EnvModelM V env)
     {F : Nat} {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
@@ -139,7 +139,7 @@ theorem memberCtor_nodesSem {μ : ConLeche.CheckMode} {env : Env} (mk : EnvModel
 /-- **Every node of a seed's derivation is read in its stack context**, at
 the formers' model: `posD_nodeSem` from the seed's parameters, in the hole
 context by their leaves (`blockHoleCtx_canon`). -/
-theorem seed_nodesSem {μ : ConLeche.CheckMode} {env : Env} (mk : EnvModelM V μ env)
+theorem seed_nodesSem {env : Env} (mk : EnvModelM V env)
     {F : Nat} {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)

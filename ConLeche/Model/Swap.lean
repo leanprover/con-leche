@@ -154,8 +154,8 @@ set_option maxHeartbeats 3200000 in
 provisional (rule-less) environment transports to the environment
 carrying the checked rule lists, with the *same* leaf
 valuation. -/
-theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
-    (mp : EnvModelM V μ env₀)
+theorem EnvModelM.swapP {env₀ env₃ : Env}
+    (mp : EnvModelM V env₀)
     (hsw : ConLeche.SwapShList env₀.consts env₃.consts)
     (htab : env₃.tables = env₀.tables)
     -- the four syntactic environment facts at the swapped
@@ -166,7 +166,7 @@ theorem EnvModelM.swapP {μ : CheckMode} {env₀ env₃ : Env}
     (hproj₃ : ProjOkT env₃)
     (hrecP : ∀ (m₃ : EnvModel V env₃), m₃.acval = mp.base2.acval →
       ∀ φ : Name → Nat, RecRules m₃ φ) :
-    ∃ mp₃ : EnvModelM V μ env₃, mp₃.base2.acval = mp.base2.acval ∧
+    ∃ mp₃ : EnvModelM V env₃, mp₃.base2.acval = mp.base2.acval ∧
       mp₃.base2.acval = mp.base2.acval := by
   have hcg : ConLeche.SwapCongr env₀ env₃ := ConLeche.SwapShList.congrEnv hsw htab
   have hcorr := ConLeche.swapSh_find?_corrEnv hsw

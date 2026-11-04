@@ -62,7 +62,7 @@ open ConLeche.Verify
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## 1. The PRE-EXISTING recursors' laws, across the cons
 
@@ -116,7 +116,7 @@ at `consBlockRecsR`: the crossing is `hmono` in place of
 guard agrees with the constructors' environment's for the same reason
 as there (`iotaCtorNeverProp_consBlockRecsR_of_isSome`). -/
 theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
-    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V μ envC)
+    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V envC)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
     (m₃ : EnvModel V (consBlockRecsR R q 0 rs envC))
@@ -252,7 +252,7 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → List RecRul
 
 /-- **A stored recursor's law crosses the recursors' cons.** -/
 theorem recRuleLaw_consBlockRecsR_prefix {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
-    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V μ envC)
+    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V envC)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
     (m₃ : EnvModel V (consBlockRecsR R q 0 rs envC))
@@ -351,7 +351,7 @@ per rule. -/
 `k` new ones' are the premise `hnew`, stated at the rule list the cons
 actually stores. -/
 theorem recRules_consBlockRecsR_of {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
-    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V μ envC)
+    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V envC)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
     (m₃ : EnvModel V (consBlockRecsR R q 0 rs envC))
@@ -397,11 +397,11 @@ theorem spineFit_of_teleFitPA {pds : List Term} {b : Term}
 
 /-- **The block recursor's own flip**, at the run: whatever fits the
 `i`-th stored recursor type's reading fits its domains. -/
-theorem spineFit_blockRecTy {envC : Env} (hμ : μ.verifiedChecks = true)
-    (mpC : EnvModelM V μ envC) {p : ConLeche.BlockParts}
+theorem spineFit_blockRecTy {envC : Env}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockParts}
     {cvTas : List ConstantVal}
     {rs : List RecDatum} {F : Nat}
-    (h : ConLeche.RecStageG μ F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : RecDatum} (hr : rs[i]? = some r) (ψ : Name → Nat)
     {ρ : Nat → V} {ws : List Term} {rest TVa : Term}
     (hTVa : denote mpC.base2.acval envC ψ 0 r.1.type = some TVa)
@@ -409,7 +409,7 @@ theorem spineFit_blockRecTy {envC : Env} (hμ : μ.verifiedChecks = true)
     (hfit : TeleFitPA V ρ TVa ws rest) :
     SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i))
       (ws.map (interp V ρ)) := by
-  obtain ⟨-, -, -, hread, hpis, hrdsLen, -, -⟩ := recStage_tyPis hμ mpC h hr ψ
+  obtain ⟨-, -, -, hread, hpis, hrdsLen, -, -⟩ := recStage_tyPis mpC h hr ψ
   obtain rfl : TVa = blockRecTyAV mpC.base2.acval envC rs ψ i :=
     Option.some.inj (hTVa.symm.trans hread)
   rw [hpis] at hfit
@@ -963,7 +963,7 @@ per anonymous rule. -/
 /-- **`hrecP`, at any rules of the shape**:
 per (recursor, constructor) pair, the rule the SHAPE names. -/
 theorem hrecP_ofR {R : Nat → RecDatum → List RecRule} {q : BlockShape} {rs : List RecDatum}
-    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V μ envC)
+    {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V envC)
     {nPc : Nat → Nat} {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape envC.find? R rs nPc fireOf)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)

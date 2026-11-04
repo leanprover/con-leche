@@ -38,8 +38,8 @@ the capstone, with input-level hypotheses only.
 The η half of the fold invariant is `declEtaStepRun`
 (`Semantics/DeclEta.lean`), model-free at every kind: no install
 obligation is consulted for it.  Every tier step is discharged
-(`axiomStepPB_of`, `basisStepPB_of`, `declBlock`); the only hypothesis
-is `hμ`.
+(`axiomStepPB_of`, `basisStepPB_of`, `declBlock`); the fold carries no
+hypothesis about the mode: the model tier is at `.verified`.
 -/
 
 namespace ConLeche.Model
@@ -54,16 +54,15 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode}
 variable {pins : List ConLeche.NatOpPinSet}
 
 /-- The axiom kind's whole step, discharged by `axiomStepPB_of` below. -/
-def AxiomStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
+def AxiomStepPB (V : Type w) [SetTheory V] : Prop :=
   -- the relation premise is the run projection (`DeclAxiomRun`), which
   -- names no valuation; the carrier is the invariant the branches consume
-  ∀ {F : Nat} {env : Env} (mp : EnvModelM V μ env)
+  ∀ {F : Nat} {env : Env} (mp : EnvModelM V env)
     {cv : ConstantVal} {env₂ : Env},
-    DeclAxiomRun μ F env cv env₂ →
+    DeclAxiomRun F env cv env₂ →
     CoverStep mp env₂
 
 /-- **`AxiomStepPB`, discharged.**  All four `DeclAxiomRun` branches:
@@ -71,7 +70,7 @@ the two standard axioms (`axiomStd`), `Lean.trustCompiler`
 (`axiomTrustCompiler`), `ofReduceNat`/`ofReduceBool` (`axiomOfReduce`,
 on the `ReduceOps` field), and the tolerated skip (`axiomSkip`, which
 stores nothing). -/
-theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
+theorem axiomStepPB_of : AxiomStepPB V := by
   intro _F _env mp _cv _env₂ hR
   -- the `Quot.sound` arm (task #293) installs nothing
   rcases hR with ⟨-, rfl⟩ | hR
@@ -79,14 +78,14 @@ theorem axiomStepPB_of (hμ : μ.verifiedChecks = true) : AxiomStepPB V μ := by
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · exact axiomStd hμ mp hcv hok
-  · exact axiomTrustCompiler hμ mp hcv hname hok
-  · exact axiomOfReduce hμ mp hcv hor hok
+  · exact axiomStd mp hcv hok
+  · exact axiomTrustCompiler mp hcv hname hok
+  · exact axiomOfReduce mp hcv hor hok
   · exact axiomSkip mp
 
 /-- The basis kind's whole step, routed (basis tier). -/
-def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
-  ∀ {env : Env} (mp : EnvModelM V μ env)
+def BasisStepPB (V : Type w) [SetTheory V] : Prop :=
+  ∀ {env : Env} (mp : EnvModelM V env)
     {kind : ConLeche.BasisKind} {env₂ : Env},
       DeclBasisRun env kind env₂ →
       CoverStep mp env₂
@@ -95,7 +94,7 @@ def BasisStepPB (V : Type w) [SetTheory V] (μ : CheckMode) : Prop :=
 the P tier.  `quotK` is the one branch whose
 `DeclBasisRun` guard is not vacuous: it needs `Eq` in the prefix, which
 is what the block's `Eq` bridge consumes. -/
-theorem basisStepPB_of : BasisStepPB V μ := by
+theorem basisStepPB_of : BasisStepPB V := by
   intro env mp kind env₂ h
   obtain ⟨hEq, hchain⟩ := h
   cases kind with
@@ -115,36 +114,36 @@ installs (`checkShapeless` declines), so there is no other inductive
 step and coverage is unconditional. -/
 
 /-- A step's carrier, covered, from a covered input. -/
-theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V μ env}
+theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V env}
     (h : CoverStep mp env') (hcov : LfpCover mp []) :
-    ∃ mp' : EnvModelM V μ env', LfpCover mp' [] :=
+    ∃ mp' : EnvModelM V env', LfpCover mp' [] :=
   h.elim fun mp' h' => ⟨mp', h' hcov⟩
 
 /-- **The P fold invariant**: a covered P carrier plus the η-family
 closure. -/
-@[expose] def EnvModelOk (V : Type w) [SetTheory V] (μ : CheckMode) (env : Env) :
+@[expose] def EnvModelOk (V : Type w) [SetTheory V] (env : Env) :
     Prop :=
-  (∃ mp : EnvModelM V μ env, LfpCover mp []) ∧ EtaFamiliesClosed env
+  (∃ mp : EnvModelM V env, LfpCover mp []) ∧ EtaFamiliesClosed env
 
 /-- The invariant's carrier. -/
-theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V μ env) :
-    Nonempty (EnvModelM V μ env) :=
+theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
+    Nonempty (EnvModelM V env) :=
   h.1.elim fun mp _ => ⟨mp⟩
 
 /-- The invariant at the empty environment. -/
-theorem EnvModelOk.empty : EnvModelOk V μ Env.empty :=
-  ⟨⟨EnvModelM.empty V μ, lfpCover_empty⟩, EtaFamiliesClosed.empty⟩
+theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
+  ⟨⟨EnvModelM.empty V, lfpCover_empty⟩, EtaFamiliesClosed.empty⟩
 
 /-- **The per-declaration P step, by dispatch.**  The premise is the
 RUN record (`DeclRun`, valuation-free; the `ind` kind arrives through
 its `Ind` parameter), so this step consumes exactly what it reads. -/
-theorem declStep_preserves (hμ : μ.verifiedChecks = true)
+theorem declStep_preserves
     {F : Nat} {env env₂ : Env} {d : Declaration}
-    (mp : EnvModelM V μ env) (hcov : LfpCover mp [])
+    (mp : EnvModelM V env) (hcov : LfpCover mp [])
     (hE : EtaFamiliesClosed env)
-    (hrun : DeclRun μ F (ConLeche.Semantics.DeclIndRunDispatchK μ F env)
+    (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
-    EnvModelOk V μ env₂ := by
+    EnvModelOk V env₂ := by
   -- the η half: `declEtaStepRun`, model-free at every kind; at `.indDecl`
   -- through the dispatch's own case split (`declIndRunDispatchKEtaClosed`)
   refine ⟨?_, ConLeche.Semantics.declEtaStepRun
@@ -154,19 +153,19 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true)
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact (harvestDefn hμ mp hrun).covered hcov
+    exact (harvestDefn mp hrun).covered hcov
   | thmDecl cv value =>
     have hsh := hrun
     -- the run record has no is-a-proposition derivation row
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact (harvestThm hμ mp hrun).covered hcov
+    exact (harvestThm mp hrun).covered hcov
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact (harvestOpaque hμ mp hrun).covered hcov
-  | axiomDecl cv => exact (axiomStepPB_of hμ mp hrun).covered hcov
+    exact (harvestOpaque mp hrun).covered hcov
+  | axiomDecl cv => exact (axiomStepPB_of mp hrun).covered hcov
   | basisDecl kind => exact (basisStepPB_of mp hrun).covered hcov
   | quotDecl k cv =>
     -- task #293: the quotient package's `type` record installs the
@@ -181,58 +180,58 @@ theorem declStep_preserves (hμ : μ.verifiedChecks = true)
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
     · exact (basisStepPB_of mp hrun).covered hcov
-    · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK μ F env block nP env₂ := hrun
+    · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
       cases hdf : ConLeche.blockParts? nP block with
       | some p =>
         rw [hdf] at hrun'
         -- the uniform install, at any number of members, nested blocks
         -- included (`declBlock`)
-        exact declBlock hμ mp hE hdf hrun' hcov
+        exact declBlock mp hE hdf hrun' hcov
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'
         exact hrun'.elim
 
 /-- **The P fold**: the declaration fold's recursion at the P invariant. -/
-theorem foldPM (hμ : μ.verifiedChecks = true) {F : Nat} :
+theorem foldPM {F : Nat} :
     ∀ (ds : List Declaration) (env : Env) {env' : Env},
-      EnvModelOk V μ env →
-      ds.foldlM (checkDecl μ (fueledOps μ F) pins) env = .ok env' →
-      EnvModelOk V μ env'
+      EnvModelOk V env →
+      ds.foldlM (checkDecl .verified (fueledOps .verified F) pins) env = .ok env' →
+      EnvModelOk V env'
   | [], _, _, hm, h => by
     simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
     exact h ▸ hm
   | d :: ds, env, _, hm, h => by
     simp only [List.foldlM, Bind.bind, Except.bind] at h
-    cases hd : checkDecl μ (fueledOps μ F) pins env d with
+    cases hd : checkDecl .verified (fueledOps .verified F) pins env d with
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
       obtain ⟨⟨mp, hcov⟩, hE⟩ := hm
-      exact foldPM hμ ds env1
-        (declStep_preserves hμ mp hcov hE
+      exact foldPM ds env1
+        (declStep_preserves mp hcov hE
           -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (`checkDeclRun_ofEnvFactsK`; the `ind` kind through
           -- `DeclIndRunDispatchK`)
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hd)) h
 
 /-- **The acceptance theorem, P route.** -/
-theorem checkDeclsPure_sound_of (hμ : μ.verifiedChecks = true)
+theorem checkDeclsPure_sound_of
     {F : Nat} {ds : List Declaration} {env' : Env}
-    (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
-    Nonempty (EnvModelM V μ env') :=
-  (foldPM hμ ds Env.empty EnvModelOk.empty h).nonempty
+    (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+    Nonempty (EnvModelM V env') :=
+  (foldPM ds Env.empty EnvModelOk.empty h).nonempty
 
 /-- **The capstone, carrier form**: no proof of `Empty` is ever
 accepted. -/
 theorem no_proof_of_Empty_pure_of (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {F : Nat}
     {ds : List Declaration} {env' : Env}
-    (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env')
+    (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env')
     (c : ConstantInfo) (hc : c ∈ env'.consts)
     (hty : c.toConstantVal.type = .const emptyName []) : False := by
-  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
   exact no_constant_of_Empty mp c hc hty
 
 /-- **THE CAPSTONE** (`Model/Capstone.lean`'s docstring): *the checker,
@@ -249,12 +248,12 @@ residue: every tier step is discharged (`axiomStepPB_of`, `basisStepPB_of`, `dec
 argument (project rule: consistency proofs stay parametric in the
 `SetTheory` interface), not a hypothesis about the input. -/
 theorem no_proof_of_Empty_pure (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {F : Nat}
     {ds : List Declaration} {env' : Env}
-    (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+    (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const emptyName [] → False :=
-  fun c hc hty => no_proof_of_Empty_pure_of V hμ h c hc hty
+  fun c hc hty => no_proof_of_Empty_pure_of V h c hc hty
 
 /-- **THE CAPSTONE ABOUT `False`** (task #181): *the checker, running
 in a validating mode, never accepts a declaration stream in which some
@@ -266,12 +265,12 @@ for `Empty` — the statement carries no hypothesis about how the stream
 declared `False`.  Hypotheses are input-level only: the validating
 mode, the accepted run, the stored constant, its type. -/
 theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-    {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+    {F : Nat}
     {ds : List Declaration} {env' : Env}
-    (h : checkDeclsPure μ (fueledOps μ F) pins ds = .ok env') :
+    (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
     ∀ c ∈ env'.consts,
       c.toConstantVal.type = .const falseName [] → False := by
-  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) hμ h
+  obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
   exact fun c hc hty => no_constant_of_False mp c hc hty
 
 end ConLeche.Model

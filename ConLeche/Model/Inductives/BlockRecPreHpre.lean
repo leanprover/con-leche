@@ -47,7 +47,7 @@ open ConLeche.Term ConLeche.Verify
 
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## 2. The equation list at the BASE prefix domains
 
@@ -85,7 +85,7 @@ theorem iotaEqsAV_congr {K : Nat} {nCt : Nat → Nat} {pdoms pdoms' : Nat → Li
   refine List.map_congr_left fun j hj => ?_
   rw [hp c hcK, hRb c hcK j (List.mem_range.mp hj)]
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V} {s : (Name → Nat) → Nat} {us : List Level}
@@ -123,7 +123,7 @@ theorem numCtorsOf_ge_of_mem {ms : ConLeche.MemberShape} :
 
 end SeamFacts
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {p : ConLeche.BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockParts}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {names : List Name} {d : BlockData V}
@@ -138,8 +138,8 @@ agree on the family's parameters restrict to the same one.  The typing
 themselves parametric (`blockRecTyAV_params_ext`: every recursor carries
 the family's one parameter list).  No level-footprint fact about the
 inferred sorts is needed. -/
-theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
-    (h : ConLeche.RecStageG μ F envC p cvTas rs) :
+theorem blockRecLevel_run
+    (h : ConLeche.RecStageG .verified F envC p cvTas rs) :
     ∃ s : (Name → Nat) → Nat,
       (∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
         rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat,
@@ -147,7 +147,7 @@ theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
       (∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < rs.length →
         interp V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c) ∈ˢ (univ (s ψ) : V) ∧
           WellDenoted V ρ (blockRecTyAV mpC.base2.acval envC rs ψ c)) := by
-  obtain ⟨us, hus⟩ := blockRecTy_univ_run (V := V) hμ mpC h
+  obtain ⟨us, hus⟩ := blockRecTy_univ_run (V := V) mpC h
   let lps := (rs.getD 0 default).1.levelParams
   let res : (Name → Nat) → Name → Nat := fun ψ q => if q ∈ lps then ψ q else 0
   refine ⟨fun ψ => maxLevelEval us (res ψ), fun i r hr ψ₁ ψ₂ hq => ?_, fun ψ ρ c hc => ?_⟩
@@ -167,7 +167,7 @@ theorem blockRecLevel_run (hμ : μ.verifiedChecks = true)
     rw [hres]
   · have hr0 : rs[0]? = some (rs.getD 0 default) := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-    have hext := blockRecTyAV_params_ext (V := V) hμ mpC h hr0 (ψ₁ := ψ) (ψ₂ := res ψ)
+    have hext := blockRecTyAV_params_ext (V := V) mpC h hr0 (ψ₁ := ψ) (ψ₂ := res ψ)
       (fun q hqm => by show ψ q = if q ∈ lps then ψ q else 0; rw [ite_eq_left hqm]) hc
     refine ⟨?_, (hus ψ c hc ρ).2⟩
     rw [hext]

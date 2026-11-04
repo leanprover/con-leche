@@ -43,7 +43,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps BlockShape)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-! ## The block leaf's two hereditary premises -/
 
@@ -135,11 +135,11 @@ section Agree
 block's parameter count, with the context the former's data read
 (`ctorFramesGen`'s opening of the former, at a TELESCOPE longer than the
 opening — a member's type has its own indices after the parameters). -/
-private theorem openedParams (mp : EnvModelM V μ env) {F : Nat}
+private theorem openedParams (mp : EnvModelM V env) {F : Nat}
     {cvT cvTa : ConstantVal} {nP nFull : Nat} {resSort : Level}
     {pps : (Name → Nat) → List Term}
     (hccv : cvTa = cvT ∧
-      ConLeche.checkConstantVal (ConLeche.fueledOps μ F) env cvT = .ok ())
+      ConLeche.checkConstantVal (ConLeche.fueledOps .verified F) env cvT = .ok ())
     (hFD : FormerData mp.base2 cvTa nFull resSort pps) (hle : nP ≤ nFull)
     {tfvs : List Expr} {trest : Expr}
     (hop : ConLeche.openPisAtFvars nP cvTa.type 0 = some (tfvs, trest))
@@ -164,10 +164,10 @@ are stated at a frame satisfying MEMBER `mm`'s parameter
 telescope, while `Idss c` for `c ≠ mm` is read off member `c`'s own
 type.  The producer is defeq soundness at the opened fvar frame
 (`paramFrames` at `nF = 0`, between two `nP`-binder openings). -/
-theorem blockParamsIff (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env) {F : Nat}
+theorem blockParamsIff (mp : EnvModelM V env) {F : Nat}
     {p : ConLeche.BlockParts} {isRec : Bool} {envI : Env} {cvTas : List ConstantVal}
     {p₁ : ConLeche.BlockShape}
-    (h : ConLeche.checkBlockInds (ConLeche.fueledOps μ F) env p isRec
+    (h : ConLeche.checkBlockInds (ConLeche.fueledOps .verified F) env p isRec
       = .ok (envI, cvTas, p₁))
     {nPOf : Nat → Nat} {resSort : Level}
     {ppsOf : Nat → (Name → Nat) → List Term}
@@ -204,14 +204,14 @@ theorem blockParamsIff (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env
       obtain ⟨R0, hO0⟩ := openedParams mp ⟨heq0, hccv0⟩ (hFD 0 cvTa0 (by simp)) (hle 0) hop0 ψ
       obtain ⟨Rq, hOq⟩ := openedParams mp ⟨heqq, hccvq⟩ (hFD (j + 1) _ hjc) (hle (j + 1)) hopq ψ
       have hpin : ∀ i, i < p.nP → ∃ a b, tfvs[i]? = some a ∧ tfvs0[i]? = some b ∧
-          ConLeche.isDefEqCore μ false env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b) = .ok true :=
+          ConLeche.isDefEqCore .verified false env F i (Expr.fvarTypeD a) (Expr.fvarTypeD b) = .ok true :=
               by
         intro i hi
         obtain ⟨a, b, ha, hb, hdeq⟩ := ConLeche.checkBlockDomsAt_inv hdoms i hi
         rw [List.getElem?_map] at hb
         obtain ⟨b', hb', rfl⟩ := Option.map_eq_some_iff.mp hb
         exact ⟨a, b', ha, hb', by rw [Nat.zero_add] at hdeq; exact hdeq⟩
-      have hpf := paramFrames (nF := 0) (claimsAt_of (V := V) hμ mp ψ F) hO0 hOq hpin
+      have hpf := paramFrames (nF := 0) (claimsAt_of (V := V) mp ψ F) hO0 hOq hpin
         p.nP (Nat.le_refl _)
       simpa using (hpf).1 ρ
   intro m₁ m₂ h₁ h₂ ψ ρ
@@ -227,7 +227,7 @@ EARLIER members' formers: the former's `checkConstantVal` run is
 replaced by the facts it yields (the run happened
 at the PRE-block environment, not at this one) and the η closure taken
 over the block's whole member list. -/
-theorem stageBlockFormer (mp : EnvModelM V μ env) {names : List Name}
+theorem stageBlockFormer (mp : EnvModelM V env) {names : List Name}
     (hE : ConLeche.EtaFamiliesClosedExceptL env names)
     {cvTa : ConstantVal} {caps : IndCaps} {A : (Name → Nat) → Term}
     {nP : Nat} {resSort : Level} {pps : (Name → Nat) → List Term}
@@ -247,7 +247,7 @@ theorem stageBlockFormer (mp : EnvModelM V μ env) {names : List Name}
     (hTlaws : ∀ m₂ : EnvModel V ⟨.indInfo cvTa caps :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval cvTa.name A →
       CapsLawsAt m₂ cvTa.name cvTa caps) :
-    ∃ mp' : EnvModelM V μ ⟨.indInfo cvTa caps :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨.indInfo cvTa caps :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval cvTa.name A := by
   have hreadI : ∀ ψ : Name → Nat,
       denote (acvalWith mp.base2.acval cvTa.name A)
@@ -344,7 +344,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       ∀ m₂ : EnvModel V ⟨.indInfo cvTa (ConLeche.blockCapsAt p₁ j isRec) :: env'.consts, env'.tables⟩,
       m₂.acval = acvalWith m'.acval cvTa.name (A j) →
       CapsLawsAt m₂ cvTa.name cvTa (ConLeche.blockCapsAt p₁ j isRec)) :
-    ∀ (rest : List ConstantVal) (i : Nat) (env : Env) (mp : EnvModelM V μ env),
+    ∀ (rest : List ConstantVal) (i : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ j, rest[j]? = cvTasAll[i + j]?) → i + rest.length = cvTasAll.length →
       ConLeche.EtaFamiliesClosedExceptL env names →
       (∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
@@ -359,7 +359,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       (∀ (j : Nat) (cvTa : ConstantVal), j < i → cvTasAll[j]? = some cvTa →
         env.find? cvTa.name = some (.indInfo cvTa (ConLeche.blockCapsAt p₁ j isRec)) ∧
         ∀ ψ, mp.base2.acval cvTa.name ψ = A j ψ) →
-      ∃ mp' : EnvModelM V μ (ConLeche.consBlockInds p₁ isRec rest i env),
+      ∃ mp' : EnvModelM V (ConLeche.consBlockInds p₁ isRec rest i env),
         ConLeche.EtaFamiliesClosedExceptL (ConLeche.consBlockInds p₁ isRec rest i env) names ∧
         (∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
           FormerData mp'.base2 cvTa (nPOf j) resSort (ppsOf j)) ∧

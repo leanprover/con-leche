@@ -38,7 +38,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## Elimination at a reading -/
 
@@ -109,7 +109,7 @@ Each is `mem_type` at the stored constant, its reading computed off
 the shape, and `app_mem_pi` once per argument. -/
 
 /-- The stored `Iff`, applied to two propositions, is a proposition. -/
-theorem iffVal_app₂_memP (mp : EnvModelM V μ env)
+theorem iffVal_app₂_memP (mp : EnvModelM V env)
     {cvI : ConstantVal} {caps : ConLeche.IndCaps}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
     (htyI : cvI.type
@@ -158,7 +158,7 @@ motive's β, `app_lamV`.  The level assignment
 is then free: this instantiates at `ψ0 uN = 0`, where `eqv A B ∈ˢ
 univ 0` is `eqv_mem_univ` outright and no `univ_mono` residue
 arises. -/
-theorem iff_forces_eq (mp : EnvModelM V μ env)
+theorem iff_forces_eq (mp : EnvModelM V env)
     {cvI : ConstantVal} {caps : ConLeche.IndCaps} {cvIi cvIr : ConstantVal}
     {mI rP : Nat} {rules : List ConLeche.RecRule}
     (hfI : env.find? iffName = some (.indInfo cvI caps))
@@ -295,7 +295,7 @@ value is `eq_law`'s (the field, at the pin's own level instantiation
 `u ↦ 1`), and `iff_forces_eq` supplies the equation. -/
 
 /-- **`propext` inhabits its stored type's reading.** -/
-theorem propext_mem (mp : EnvModelM V μ env)
+theorem propext_mem (mp : EnvModelM V env)
     {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
     (hn : cv.name = propextName)
     (ψ : Name → Nat) (ta : Term)
@@ -427,7 +427,7 @@ theorem denote_selfParam_constS {acval : Name → (Name → Nat) → Term}
     funext fun _ => Level.substFn_map_param] at h
 
 /-- The interpreted `Nonempty A` is a truth value. -/
-theorem nonemptyVal_app_mem (mp : EnvModelM V μ env)
+theorem nonemptyVal_app_mem (mp : EnvModelM V env)
     {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (htyN : cvN.type
@@ -448,7 +448,7 @@ theorem nonemptyVal_app_mem (mp : EnvModelM V μ env)
   rwa [interp_sort] at h1
 
 /-- The interpreted `Nonempty.intro A a` inhabits `Nonempty A`. -/
-theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V μ env)
+theorem nonemptyIntroVal_app₂_memP (mp : EnvModelM V env)
     {cvN : ConstantVal} {capsN : ConLeche.IndCaps} {cvNi : ConstantVal}
     (hfN : env.find? nonemptyName = some (.indInfo cvN capsN))
     (hlpN : cvN.levelParams = nonemptyA.toConstantVal.levelParams)
@@ -494,7 +494,7 @@ inhabited.**  The constantly-`∅` motive — and here the minor
 really *is* vacuous by the ambient contradiction hypothesis rather than
 by restructuring, because `Nonempty.rec`'s minor binds a plain element
 of `α`.  The motive's β is `app_lamV`. -/
-theorem nonemptyVal_forces (mp : EnvModelM V μ env)
+theorem nonemptyVal_forces (mp : EnvModelM V env)
     {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
     {cvNi cvNr : ConstantVal} {mI rP : Nat}
     {rulesN : List ConLeche.RecRule}
@@ -582,7 +582,7 @@ theorem nonemptyVal_forces (mp : EnvModelM V μ env)
 /-- **The two domains agree.**  The layer's `¬¬A` and the checker's
 stored `Nonempty A` are propositions with the same inhabitation, hence
 the same set. -/
-theorem dneg_eq_nonempty (mp : EnvModelM V μ env)
+theorem dneg_eq_nonempty (mp : EnvModelM V env)
     {cvN : ConstantVal} {capsN : ConLeche.IndCaps}
     {cvNi cvNr : ConstantVal} {mI rP : Nat}
     {rulesN : List ConLeche.RecRule}
@@ -632,7 +632,7 @@ theorem choice_shapeS {type' : Expr}
 leaf is the layer's own `choice` constant; `dneg_eq_nonempty`
 identifies the witness's double-negation domain with the checker's
 stored `Nonempty`. -/
-theorem choice_mem (mp : EnvModelM V μ env)
+theorem choice_mem (mp : EnvModelM V env)
     {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
     (hn : cv.name = choiceName)
     (ψ : Name → Nat) (ta : Term)

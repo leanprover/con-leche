@@ -29,7 +29,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {env : Env} {φ : Name → Nat}
 
 /-! ## The pieces the rows read -/
 
@@ -84,7 +84,7 @@ task #305 closing. -/
 the `Nat.succ` application *is* the packed numeral: the head reads to
 the `Nat.succ` leaf, the argument to the numeral spine, and
 `natLit_succ` is the packing. -/
-theorem natSuccRow_of (mp : EnvModelM V μ env) (φ : Name → Nat) :
+theorem natSuccRow_of (mp : EnvModelM V env) (φ : Name → Nat) :
     Rules.NatSuccRow mp.base2 φ := by
   intro d w n ea hnat hraw hea
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
@@ -109,7 +109,7 @@ at two literal readings: the head reads to the stored operation's
 leaf, the arguments to the numeral spines, and the operation's own
 recurrence law (`EnvModelM.nat_ops` / `EnvModelM.div_mod`, through the
 `natOpV_*` transports) computes the interpretation of `natOpResult`. -/
-theorem natOpRow_of (mp : EnvModelM V μ env) (φ : Name → Nat) :
+theorem natOpRow_of (mp : EnvModelM V env) (φ : Name → Nat) :
     Rules.NatOpRow mp.base2 φ := by
   intro d c wa wb r n₁ n₂ ea hc hstored hrawa hrawb hres hea
   have h14 : c = ConLeche.natAddName ∨ c = ConLeche.natSubName ∨
@@ -249,7 +249,7 @@ theorem natOpRow_of (mp : EnvModelM V μ env) (φ : Name → Nat) :
 its pinned type `Nat → Nat → cod` in its `EnvModelM.nat_ops`/`div_mod`
 entry; its leaf inhabits that type's reading (`mem_type`), a two-step
 function space over the `Nat` leaf, its regimes read off the values. -/
-theorem natOpHead_of (mp : EnvModelM V μ env) (φ : Name → Nat) :
+theorem natOpHead_of (mp : EnvModelM V env) (φ : Name → Nat) :
     Rules.NatOpHead mp.base2 φ := by
   intro c hc hst
   have h14 : c = ConLeche.natAddName ∨ c = ConLeche.natSubName ∨
