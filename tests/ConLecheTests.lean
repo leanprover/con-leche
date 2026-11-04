@@ -15,6 +15,7 @@ import ConLecheTests.CondCompare
 import ConLecheTests.LetDenotes
 import ConLecheTests.StreamTests
 import ConLecheTests.RoundsTests
+import ConLecheTests.CheckerIOTests
 import ConLecheTests.DisplayTests
 import ConLecheTests.DeferTests
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be

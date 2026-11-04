@@ -626,6 +626,163 @@ if nat_bad:
 print(f'build and native surface: {len(NATIVE)} files pinned '
       f'({", ".join(sorted(NATIVE))})')
 
+# ---------------------------------------- THE CHECKER-IO FENCE (task #450).
+# The modules written against the checker's IO class (`CheckerIO`,
+# `ConLeche/Frontend/CheckerIO.lean`) are run at `IO` by the binary and
+# reasoned about at the model `ModelIO` by the proofs.  The trust
+# assumption the class states needs these modules to reach the runtime
+# only through the class: its file operations (whose model is the
+# snapshot) and its escape `CheckerIO.liftIO` (whose model is every
+# outcome).  THIS IS A TEXTUAL CHECK, not a proof: over each module's
+# code (comments and string literals blanked, interpolations kept),
+# with the argument of every `CheckerIO.liftIO` cut out (the rest of
+# its line, any bracket it opens up to its close, and, when the line
+# ends in `do` or with the argument still to come, every following line
+# indented deeper than the line itself) and the named declarations of
+# the binary's instance cut out, no name of the runtime is left: `IO`
+# (but `IO.Error`, the class's error type), `BaseIO`, `EIO`, `ST`,
+# `EST`, `StateRefT`, `Task`, `dbgTrace`/`dbg_trace`, `initialize`, a
+# mutex/channel/condition variable, a file handle, `readRangeIO`, or a
+# runtime file operation by its name (`pathExists`, `realPath`,
+# `readBinFile`, `metadata`, `isDir`, …, except as the class's own
+# `CheckerIO.<op>`).  It does not follow imports or definitions: a
+# helper defined elsewhere that does IO under a pure type
+# (`unsafe`/`implemented_by`/`extern`, which the scan above confines to
+# its allowlist) or a value of a structure of `IO` functions passed in
+# would pass it, so what the fenced modules import is reviewed with
+# them; and it does not see through a notation that expands to a
+# runtime call.  A module joins the list when it is converted.
+IO_FENCE = {
+    # path: the declarations cut out whole (the instance and what only
+    # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
+    'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def readRangeOf',
+                                         'instance instCheckerIOIO',
+                                         # the model's instance: its fields are
+                                         # named as the operations are
+                                         'instance : CheckerIO ModelIO'),
+    'ConLeche/Frontend/Stream.lean': (),
+    'ConLeche/Driver/StreamParse.lean': (),
+    'ConLeche/Driver/CheckMain.lean': (),
+    'ConLeche/Driver/Dispatch.lean': (),
+    'ConLeche/Driver/Cli.lean': (),
+}
+IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'readRange', 'fileSize',
+          'metadata', 'isDir', 'readDir', 'walkDir', 'lines', 'writeFile', 'writeBinFile',
+          'removeFile', 'removeDirAll', 'createDir', 'createDirAll', 'rename',
+          'appDir', 'currentDir', 'getEnv', 'setEnvVar')
+IO_RX = re.compile(
+    r'\b(?:IO|BaseIO|EIO|ST|EST|StateRefT|Task|dbgTrace|dbg_trace|initialize|'
+    r'builtin_initialize|Mutex|Channel|Condvar|Handle|readRangeIO)\b(?!\.Error\b)'
+    r'|(?<!CheckerIO)\.(?:' + '|'.join(IO_OPS) + r')\b'
+    r'|(?<![\w.])(?:' + '|'.join(IO_OPS) + r')\b(?=\s)')
+LIFT = 'CheckerIO.liftIO'
+
+def indent_of(line):
+    return len(line) - len(line.lstrip(' '))
+
+def cut_lift_args(code):
+    """Blank the argument of every `CheckerIO.liftIO` (see above)."""
+    lines = code.split('\n')
+    k = 0
+    while k < len(lines):
+        line = lines[k]
+        at = line.find(LIFT)
+        if at < 0:
+            k += 1
+            continue
+        start = at + len(LIFT)
+        rest = line[start:]
+        # the rest of the line, and any bracket it leaves open
+        depth = sum(rest.count(c) for c in '([{') - sum(rest.count(c) for c in ')]}')
+        lines[k] = line[:at] + 'LIFTED' + ' ' * (len(line) - at - len('LIFTED')) \
+            if len(line) - at >= len('LIFTED') else line[:at] + 'LIFTED'
+        base = indent_of(line)
+        tail = rest.strip()
+        block = tail == '' or tail.endswith(' do') or tail == 'do' or tail.endswith('(')
+        m = k + 1
+        while m < len(lines) and (depth > 0 or (block and (lines[m].strip() == '' or
+                                                            indent_of(lines[m]) > base))):
+            depth += sum(lines[m].count(c) for c in '([{') - \
+                sum(lines[m].count(c) for c in ')]}')
+            lines[m] = ''
+            m += 1
+        k = m if m > k + 1 else k + 1
+    return '\n'.join(lines)
+
+def cut_decls(code, heads):
+    """Blank the named top-level declarations, each up to the next line
+    that starts in column 0."""
+    lines = code.split('\n')
+    k = 0
+    while k < len(lines):
+        if any(lines[k].startswith(h + ' ') or lines[k] == h for h in heads):
+            lines[k] = ''
+            k += 1
+            while k < len(lines) and (lines[k] == '' or lines[k][0] == ' '):
+                lines[k] = ''
+                k += 1
+        else:
+            k += 1
+    return '\n'.join(lines)
+
+# the fence's self-test: what it must see, and what it must not
+_fence_probe = '''def f [CheckerIO m] : m Unit := do
+  CheckerIO.liftIO do
+    IO.println "x"
+    let _ ← IO.monoMsNow
+  let _ ← CheckerIO.liftIO (IO.println
+    "y")
+  let _ ← CheckerIO.readBinFile p
+  let _ ← CheckerIO.liftIO IO.monoMsNow
+  IO.println "seen"
+  let _ ← p.pathExists
+def g : IO Unit := pure ()
+'''
+_fence_hits = [i for i, l in enumerate(cut_lift_args(cut_decls(code_only(_fence_probe),
+    ())).split('\n'), 1) if IO_RX.search(l)]
+if _fence_hits != [9, 10, 11]:
+    print(f'CHECKER-IO FENCE SELF-TEST FAIL: hits at {_fence_hits}, expected [9, 10, 11]')
+    sys.exit(1)
+
+io_bad = []
+for rel, heads in IO_FENCE.items():
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    code = cut_lift_args(cut_decls(code_only(raw, rel), heads))
+    for i, line in enumerate(code.split('\n'), 1):
+        if IO_RX.search(line):
+            io_bad.append((rel, i, line.strip()))
+if io_bad:
+    print(f'CHECKER-IO FENCE FAIL - a module written against CheckerIO reaches '
+          f'the runtime outside CheckerIO.liftIO ({len(io_bad)}):')
+    for rel, i, text in io_bad:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime only '
+      f'through CheckerIO')
+
+# ------------------------------------------ THE ONE EXIT (task #450).
+# The trust assumption of the IO class says the actions passed to
+# `CheckerIO.liftIO` do not themselves end the process with an exit code:
+# the exit code the theorems speak of is the one `mainG` returns, and
+# `main` exits with it.  TEXTUAL, over the code of every scanned file:
+# `IO.Process.exit` (under any spelling of its name) is in `Main.lean`,
+# once.  The C function is pinned above and calls no exit.
+EXIT_RX = re.compile(r'\bProcess\.exit\b|\blean_io_exit\b|\bopen\s+IO\.Process\b')
+exit_hits = []
+for rel in sources():
+    with open(rel, encoding='utf-8') as fh:
+        raw = fh.read()
+    for i, line in enumerate(code_only(raw, rel).split('\n'), 1):
+        if EXIT_RX.search(line):
+            exit_hits.append((rel, i, line.strip()))
+if [h[0] for h in exit_hits] != ['Main.lean']:
+    print(f'ONE-EXIT FAIL - IO.Process.exit must appear once, in Main.lean; found:')
+    for rel, i, text in exit_hits:
+        print(f'    {rel}:{i} {text}')
+    sys.exit(1)
+print('one exit (textual): IO.Process.exit once, in Main.lean')
+
 files = len({o[0] for o in occurrences})
 print(f'trust surface: {len(occurrences)} escapes in {files} allowlisted '
       f'files ({len(sources())} scanned); 0 outside the allowlist')
