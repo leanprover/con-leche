@@ -57,7 +57,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## The block step -/
 
@@ -69,12 +69,12 @@ the constructors consed by `stageBlockCtors` (conjunct ②'s install half),
 the recursors' stage `genRecStage` (conjunct ⑧), and the tables
 `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
 `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
-theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
+theorem declBlock {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    (mp : EnvModelM V μ env)
+    (mp : EnvModelM V env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    (hrun : ConLeche.Semantics.DeclBlockRun μ F env block p₀ env₂) (hcov : LfpCover mp []) :
-    ∃ mp' : EnvModelM V μ env₂, LfpCover mp' [] := by
+    (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
+    ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
   classical
   obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
@@ -92,7 +92,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hClps : ∀ c ∈ p₁.allCtors, c.1.levelParams = p₁.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false := by rw [hq]; exact hClps₀
   -- ## the formers' and the constructors' run, read positionally
-  obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of hμ mp hInd hlps₀
+  obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of mp hInd hlps₀
   obtain ⟨hlenCA, hlenSA, -⟩ := ConLeche.checkBlockCtors_inv hCtors
   have hkm : p₁.k = p₁.members.length := rfl
   have hlenCtorsAs : ctorsAs.length = p₁.k := by
@@ -148,7 +148,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     exact ⟨hm1, by rw [List.getElem?_zip_eq_some]; exact ⟨hc1, hs1⟩⟩
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
-    blockTablesStage_of hμ mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
+    blockTablesStage_of mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
       hPos rfl rfl rfl rfl rfl hcov
   have hlenN : p₁.memberNames.length = p₁.k := by
     show (p₁.members.map _).length = _; simp; rfl
@@ -159,7 +159,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     obtain ⟨m, hm⟩ := List.getElem?_of_mem hcvTb
     exact hF.freshOf m cvTb hm
   -- the formers' model: the input's clauses, the members exempt, `mpI`'s leaves
-  have hformers : ∃ mk : EnvModelM V μ env₁, mk.base2 = mpI.base2 ∧
+  have hformers : ∃ mk : EnvModelM V env₁, mk.base2 = mpI.base2 ∧
       mk.lfpBlocks = mp.lfpBlocks ∧ LfpCover mk p₁.memberNames :=
     lfpCover_formers mp hcons mpI hmemCv hagI (names := p₁.memberNames)
       (fun cvTb hcvTb => by
@@ -203,7 +203,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc]
     rfl
   obtain ⟨mpC₀', hEtaC, hcoreC', hagC⟩ :=
-    stageBlockCtors hμ hN hN.2.2 hS.toBlockCtorsStage hlenCtorsAs hctorsAs ctorsAs 0 env₁ mpI
+    stageBlockCtors hN hN.2.2 hS.toBlockCtorsStage hlenCtorsAs hctorsAs ctorsAs 0 env₁ mpI
       (fun c => by rw [Nat.zero_add]) (Nat.zero_add _) hEtaI hcore
       (fun c _ j cA hj => hfreshC c j cA hj)
   -- ## coverage across the formers' and the constructors' conses:
@@ -327,7 +327,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     (fun _ _ => rfl) (fun _ _ _ _ => rfl)
     -- the fields with holes are small at a `Type`-valued block (the grading)
     (fun ψ ρp hs _ X hX c hc j hj =>
-      ((blockHoleGrade_of_run hμ mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
+      ((blockHoleGrade_of_run mpI hN (hcore.holeCtx hlpsA hparsT) hPos rfl rfl rfl rfl rfl hkD rfl hctorsAt
         hlenCtorsAs hclosedC hnfs ψ hc hj).2 ρp hs X hX.toU).1)
   have hstC : LfpStored (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
       (blockDataOf V p₁ ctorsAs pk uOf ppsOf).toLfp := by
@@ -630,13 +630,13 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
     (by rw [show (mkFEnv env₁).find? = env₁.find? from funext (ConLeche.mkFEnv_find? env₁)]
         exact hctxR) hcls hst hRec
   have hG :=
-    genRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf)) hμ
+    genRecStage (mpC := mpC) (A := blockLeafH (blockDataOf V p₁ ctorsAs pk uOf ppsOf))
       ⟨hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hctorsAs c hc, ⟨pk, uOf, ppsOf, rfl⟩,
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC hcapsC, hcovMpC, hmkI, hover, hR, hheads⟩
   -- ## the STORED recursors (task #431): the generated install's stage
   -- carried to the install of the records' types and right-hand sides
-  have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled μ F)
+  have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
       (mkFEnv (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)) (p₀.complete p₁).toBlockShape
       (ConLeche.blockNestedBit (p₀.complete p₁).toBlockShape kinds) ctx.params st.ctorNfs.toList
       rd Ms cvTas block = .ok outR := hRec
@@ -661,7 +661,7 @@ theorem declBlock (hμ : μ.verifiedChecks = true) {F : Nat} {env env₂ : Env}
   have hwfS := ConLeche.Cached.storedRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ _ hSt
     (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
   obtain ⟨mpR₀, hag, hfindMono, hden⟩ :=
-    blockRecStagedAt_stored hμ hG (ConLeche.Cached.genRecCheck_outCv hRec').1
+    blockRecStagedAt_stored hG (ConLeche.Cached.genRecCheck_outCv hRec').1
       (ConLeche.genRecCheck_out_fresh hRec') (ConLeche.Cached.genRecCheck_out_unreserved hRec')
       hSt hwfS
   have hcoreT :=

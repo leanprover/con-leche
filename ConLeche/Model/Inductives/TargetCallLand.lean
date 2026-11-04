@@ -123,7 +123,7 @@ theorem holeVal_foldl_mem {D : LfpDatum V} {mm : Nat} {ψ : Name → Nat} {ρp Y
 /-- **An element of a recorded member's former applied at the block's
 parameters**: the index spine fits and the element is in the carrier's
 component there. -/
-theorem former_foldl_mem {env : Env} {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem former_foldl_mem {env : Env} (mp : EnvModelM V env)
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat}
     {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp) (ρ : Nat → V) {is : List V}
     (his : is.length = (D.ids mm ψ).length)

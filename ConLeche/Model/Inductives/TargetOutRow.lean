@@ -48,7 +48,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal FEnv BlockShape Targ
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **A read spine read deeper**: its readings lifted past the extra
 binders (`denote_lift`, argument by argument). -/
@@ -81,7 +81,7 @@ theorem tgtRs_ctors {out : List (ConstantVal × TargetMajor × List Expr)} {j : 
 the recorded result indices of `D`'s member `mm`'s constructor `i`,
 substituted by the instantiation's `instTau` (below the rule's `nF`
 field binders). -/
-@[expose] noncomputable def tgtOutEs {env : Env} (mp : EnvModelM V μ env) (D : LfpDatum V)
+@[expose] noncomputable def tgtOutEs {env : Env} (mp : EnvModelM V env) (D : LfpDatum V)
     (mm : Nat) (lps : List Name) (M : TargetMajor) (rP : Nat) (ψ : Name → Nat) (i : Nat) :
     List Term :=
   (D.resIdx (Level.substFn ψ lps M.lvls) mm i).map fun e =>

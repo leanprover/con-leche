@@ -8,7 +8,6 @@ import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Denote.ErasedEq
 public import ConLeche.Verify.Inductives.NfMemberFree
-import ConLeche.Verify.Modes
 public section
 
 /-!
@@ -84,7 +83,7 @@ frame of every tuple of the tuple space** (see the module docstring):
 hereditarily graded and — at a `Type`-valued family — bounded in the
 family's universe, and the result index readings graded under
 every fitting field spine.  From U2's run at the formers' environment. -/
-theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
+theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V env)
     {ψ : Name → Nat} {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
@@ -170,7 +169,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V .verified env)
     rw [← habLen, stripPisAV_mkPisAV] at hst
     obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj hst).symm
     have hlenX : xq.1.length = cA.2 := ConLeche.Verify.openPisAtFvars_length _ hxq'
-    have hTB := teleBound_walk (w := d.w ψ) rfl mp ψ cA.2 hxq' habLen hCP.toCtxOk hfr.1 hfr.2.1
+    have hTB := teleBound_walk (w := d.w ψ) mp ψ cA.2 hxq' habLen hCP.toCtxOk hfr.1 hfr.2.1
       hfr.2.2
       (fun k a hka => by
         obtain ⟨q, hq, hqd⟩ := hbind k a hka
@@ -205,14 +204,14 @@ at the hole frame of every tuple**, from the install's positivity stage
 (`DeclBlockRun` conjunct 3: `nestPos` and U2) at the formers'
 environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
-theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true) {env : Env}
-    (mp : EnvModelM V μ env) {F : Nat}
+theorem blockHoleGrade_of_run {env : Env}
+    (mp : EnvModelM V env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find?
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
@@ -231,7 +230,6 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
     FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j) ∧
     ∀ fs : List V, SpineFit (d.toLfp.frame ψ ρp X) (d.absF ψ c j) fs →
       ∀ e ∈ d.absE ψ c j, WellDenoted V (consList fs (d.toLfp.frame ψ ρp X)) e := by
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
@@ -256,7 +254,7 @@ theorem blockHoleGrade_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks
 /-- **The hole context is satisfied below the members' formers applied to
 the parameters**: a member's former, applied to the block's parameters at
 a satisfying parameter frame, inhabits its index tower (`formerApp_mem`). -/
-theorem blockHoleCtx_sat {μ : ConLeche.CheckMode} {env : Env} (mp : EnvModelM V μ env)
+theorem blockHoleCtx_sat {env : Env} (mp : EnvModelM V env)
     {d : BlockData V} {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas)
     (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
@@ -330,8 +328,7 @@ theorem occDeep_instPisWith {names : List Name} :
 
 section RunLink
 
-variable {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
-  {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+variable {env : Env} (mp : EnvModelM V env) {F : Nat}
   {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
   {isRec : Bool} (hN : BlockNamesOk (V := V) d cvTas)
   (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
@@ -339,7 +336,7 @@ variable {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
     FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
   {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
   {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-  (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find?
+  (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
     p cvTas ctorsAs = .ok posKs)
   (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
   (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
@@ -352,7 +349,7 @@ variable {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
   (hparsT : ∀ t, t < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
     Sat V (((d.ppsM t ψ).take d.nP)).reverse ρ)
 
-include hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT in
+include mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT in
 /-- **The positivity run at a stored constructor, read at a model**:
 the declared crest and the walk's normal form (the run's
 output entry) read as Π-towers with the datum's body, the fields reading
@@ -381,7 +378,6 @@ theorem blockRunLink (ψ : Name → Nat)
       FieldsEqOn V (d.holeCtx ψ).reverse (abD) (abN) ∧
       StoredFieldShapes V d.k d.nP (d.w ψ) d.nIdxAt (fun t => mp.base2.acval (d.memberName t) ψ)
         (d.params ψ).reverse (abN) ((d.Fss c ψ).getD j []) := by
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   have hkL : p.memberNames.length = d.k := by rw [hnames, hk]
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
@@ -486,7 +482,7 @@ theorem blockRunLink (ψ : Name → Nat)
   refine ⟨hcbN, hlpN', A, abD', abN', hA', hRD, hRN, hlD', hlN', hEq, ?_⟩
   exact hS.congr_leaf fun t _ => by rw [hnames]; rfl
 
-include hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT in
+include mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT in
 /-- **The reading fact at a uniform block's datum**, from the install's
 positivity stage (`blockRunLink`) — at a datum whose normal forms are the
 run's and whose fields with holes are the normal forms' readings at the
@@ -502,14 +498,14 @@ theorem blockAbsRead_of_run
     (habs : ∀ ψ, d.absF ψ c j
       = nfFieldsRead mp.base2.acval env (d.nP + d.k) cA.2 (d.nfFF c j) ψ) :
     BlockAbsRead mp.base2 d lps c j cA := by
-  obtain ⟨hcb, -⟩ := blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT (fun _ => 0)
+  obtain ⟨hcb, -⟩ := blockRunLink mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT (fun _ => 0)
     (hformers _) hc hcj hD
   refine ⟨by rw [hnf]; exact hcb, ?_⟩
-  obtain ⟨-, -, A, -, -, hA, -⟩ := blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd
+  obtain ⟨-, -, A, -, -, hA, -⟩ := blockRunLink mp hN hF hrun hnames hlps hnP hnIdxs hk hnd
     hctorsAs hlenCA hclosed hlpsA hparsT (fun _ => 0) (hformers _) hc hcj hD
   refine ⟨A, hA, fun ψ => ?_⟩
   obtain ⟨-, -, A', abD, abN, hA', hRD, hRN, hlD, hlN, hEq, -⟩ :=
-    blockRunLink hμ mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT
+    blockRunLink mp hN hF hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hlpsA hparsT
       ψ (hformers ψ) hc hcj hD
   rw [hA] at hA'
   obtain rfl := Option.some.inj hA'
@@ -520,7 +516,7 @@ theorem blockAbsRead_of_run
   rw [← habN]
   exact hEq
 
-include hμ mp hN hF hrun hnames hnP hnIdxs hk hctorsAs hlenCA hclosed hlpsA hlps in
+include mp hN hF hrun hnames hnP hnIdxs hk hctorsAs hlenCA hclosed hlpsA hlps in
 /-- **The walk's normal form names no member** (M2′, the premise of
 `nfFieldsRead_agree`): the run's output entry is `MemberCtorD`'s normal
 form, reduction introduces no member constant where the environment
@@ -533,7 +529,6 @@ theorem blockRunNf_nestOcc (hW : WhnfNamesFree env d.memberNames)
       cvTb.type.occDeep d.memberNames = false)
     {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA) :
     ((posKs.2.1.getD c []).getD j default).nestOcc d.memberNames 0 0 = false := by
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
   obtain ⟨kinds, nfs, nodes⟩ := posKs
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun
@@ -583,14 +578,14 @@ end RunLink
 install's positivity stage (`blockRunLink`): the normal form reads as the
 Π-tower over the datum's fields with holes (the datum's reading fact), so
 the producer's fields with holes ARE the datum's. -/
-theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChecks = true)
-    {env : Env} (mp : EnvModelM V μ env) {F : Nat}
+theorem blockStoredShapes_of_run
+    {env : Env} (mp : EnvModelM V env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps μ F) env env.find?
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
@@ -617,7 +612,7 @@ theorem blockStoredShapes_of_run {μ : ConLeche.CheckMode} (hμ : μ.verifiedChe
   obtain ⟨hCf, hCb⟩ := hclosed c j cA hcj
   have hD₀ : BlockCtorDataI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ := (hcore.2.1 c j cA hcj).1
   obtain ⟨-, -, A, abD, abN, -, -, hRN, -, hlN, -, hS⟩ :=
-    blockRunLink hμ mp hN hcore.1 hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hcore.2.2.1
+    blockRunLink mp hN hcore.1 hrun hnames hlps hnP hnIdxs hk hnd hctorsAs hlenCA hclosed hcore.2.2.1
       hcore.2.2.2 ψ hformers hck hcj
       (hD₀.storedCtorFacts hCf hCb)
   -- the datum's reading of the same normal form

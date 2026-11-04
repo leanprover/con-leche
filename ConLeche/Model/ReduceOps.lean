@@ -22,7 +22,7 @@ of).  This file is its supplier.
 `checkReducePin` runs the identity certificate and the install
 **records the run** (`checkReducePin_inv`):
 
-> `isDefEqCore μ false env F 1 (.app valA (reduceCertVar c)) (reduceCertVar c)
+> `isDefEqCore .verified false env F 1 (.app valA (reduceCertVar c)) (reduceCertVar c)
 > = .ok true`
 
 — `isDefEq` at depth `1`, applied side first, over the canonical
@@ -73,7 +73,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal)
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## The one-entry element context -/
 
@@ -152,8 +152,8 @@ recorded identity-certificate run, converted through `DefEqClaim` at
 the pre-insertion environment over the one-entry element context; every
 other stored reduce operation crosses by `reduceOps_entry_cons`.  See
 the module docstring for the route. -/
-theorem reduceOps_install (hμ : μ.verifiedChecks = true)
-    (mp : EnvModelM V μ env) {F : Nat}
+theorem reduceOps_install
+    (mp : EnvModelM V env) {F : Nat}
     {cv : ConstantVal} {value type' value' : Expr}
     {A Ta : (Name → Nat) → Term}
     (hfresh : env.find? cv.name = none)
@@ -170,7 +170,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     (hmemA : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (A ψ) ∈ˢ interp V ρ (Ta ψ))
     (hred : ConLeche.reduceOpNames.contains cv.name = true →
-      ReducePinRun μ F env
+      ReducePinRun F env
         ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩
         cv.name value)
     (m₂ : EnvModel V
@@ -318,7 +318,7 @@ theorem reduceOps_install (hμ : μ.verifiedChecks = true)
     rfl
   -- the claims at the prefix environment
   have hclaims := fun ψ =>
-    checkSoundAt (V := V) hμ (Rules.RulesInputs.ofSem mp ψ) F
+    checkSoundAt (V := V) (Rules.RulesInputs.ofSem mp ψ) F
   refine ⟨?_, fun ψ ρ x hx => ?_⟩
   · rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hneE h.symm), hfE]; rfl
   obtain ⟨-, -, ihd, -⟩ := hclaims ψ

@@ -437,7 +437,7 @@ relation with admissible enclosing items. -/
 
 section Frame
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
   (hfind : ∀ n, ctx.find? n = env.find? n) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧

@@ -37,7 +37,6 @@ public import ConLeche.Model.Inductives.GenCallData
 import ConLeche.Model.Inductives.GenOutFacts
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Verify.Inductives.ClassMatchRun
-import ConLeche.Verify.Modes
 
 public section
 
@@ -102,12 +101,12 @@ the container at the node leaf's levels `us'` and parameters `Pw` (matching
 
 /-- **A class's constructor count is its clause's** at the generated run
 (`tgtCls_hctM` and `TgtOutCls.hlen`). -/
-theorem genNCt {μ : CheckMode} {F : Nat} {envI envC : Env} {pp : BlockParts} {nested : Bool}
+theorem genNCt {F : Nat} {envI envC : Env} {pp : BlockParts} {nested : Bool}
     {posR : ConLeche.NestState} {cvTasR : List ConstantVal} {block : List ConstantInfo}
     {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V envC}
     {dR : BlockData V}
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
       block ctorsAsR out) (hg : ConLeche.ClassGenScoped R.g)
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
         (ppsOf : Nat → (Name → Nat) → List Term),
@@ -202,7 +201,7 @@ theorem genK53_entry {F : Nat} {envI envC : Env} {pp : BlockParts}
 
 /-- **A recorded clause's constructor has its stored field count** (the
 clause's constructor readings, `LfpCtorReads`). -/
-theorem lfpCtor_fieldsLen {μ : CheckMode} {env : Env} {mp : EnvModelM V μ env}
+theorem lfpCtor_fieldsLen {env : Env} {mp : EnvModelM V env}
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm j : Nat} (hmm : mm < D.k)
     (hj : j < D.nctors mm) {cv : ConstantVal} {nPc nF : Nat}
     (hf : env.find? (D.ctorName mm j) = some (.ctorInfo cv nPc nF)) (ψ : Name → Nat) :
@@ -216,7 +215,7 @@ theorem lfpCtor_fieldsLen {μ : CheckMode} {env : Env} {mp : EnvModelM V μ env}
 
 /-- **An outside class's constructor has the class's field count** at its
 recorded clause. -/
-theorem tgtOutCls_fieldsLen {μ : CheckMode} {env : Env} {mp : EnvModelM V μ env}
+theorem tgtOutCls_fieldsLen {env : Env} {mp : EnvModelM V env}
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mp M D mm cvI) {j : Nat} {cA : ConstantVal × Nat}
     (hcA : M.ctors[j]? = some cA) (ψ : Name → Nat) : (D.fields ψ mm j).length = cA.2 := by
@@ -229,13 +228,13 @@ theorem tgtOutCls_fieldsLen {μ : CheckMode} {env : Env} {mp : EnvModelM V μ en
 /-- **The member forests' parameters are the canonical ones**: the
 variables `0 ..< nP`, closed below `nP` (opened off the head former's
 closed type). -/
-theorem canonPars_of_forests {μ : CheckMode} {F : Nat} {envC envI : Env} {pp : BlockParts}
+theorem canonPars_of_forests {F : Nat} {envC envI : Env} {pp : BlockParts}
     {cvTasR : List ConstantVal} {ctorsAsR : List (List (ConstantVal × Nat))}
-    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
+    {mpC : EnvModelM V envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
     {fvsP : List Expr} {tbl : List ConLeche.NestCtorNf} {ns : List PosTree}
     (hmemF : MemberForests F envI pp cvTasR ctorsAsR nfsR fvsP tbl ns) :
     (fvsP.length = pp.nP ∧ ∀ (i : Nat) (x : Expr), fvsP[i]? = some x → ∃ ty, x = .fvar i ty) ∧
@@ -251,21 +250,21 @@ set_option maxHeartbeats 16000000 in
 /-- **THE GENERATED CALLS AT THE ADMISSIBLE FRAMES** (see the module docstring): at the
 generated stage's context, a related (class, node) pair and a true decoding, every generated
 call lands at a node related to its class (`NodeLands`). -/
-theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
+theorem genNodeCalls {F : Nat}
     {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)}
-    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
+    {mpC : EnvModelM V envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState} {nested : Bool}
-    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
+    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
       block ctorsAsR out)
-    (h : ConLeche.RecStageG μ F envC pp cvTasR (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTasR (tgtRs out))
     (hg : ConLeche.ClassGenScoped R.g)
     (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ConLeche.ScB pp.nP e.ty)
-    {mk : EnvModelM V μ envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
+    {mk : EnvModelM V envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
     (hsubC : ∀ D ∈ mpC.lfpBlocks, D = dR.toLfp ∨ D ∈ mk.lfpBlocks)
@@ -318,7 +317,6 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
             (nodeAdm mk mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs par) b
             (tgtClsM mc pp.toBlockShape out c) t j fs b' (tgtClsM mc pp.toBlockShape out c') t' y := by
   intro c b hc hR t j fs ht hHF c' t' y hc' ht' hy hcall
-  obtain rfl := CheckMode.eq_verified hμ
   have hctx' := hctx
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -, -⟩ := hctx'
   obtain ⟨hparF, hparS⟩ := canonPars_of_forests hctx hmemF
@@ -336,14 +334,14 @@ theorem genNodeCalls {μ : CheckMode} (hμ : μ.verifiedChecks = true) {F : Nat}
     exact hle
   have hpd : ∀ c, c < (tgtRs out).length →
       (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-        = tgtRP pp.toBlockShape c := fun c hc => blockRulePdomsAV_length hμ mpC h (hrs c hc) ψ
+        = tgtRP pp.toBlockShape c := fun c hc => blockRulePdomsAV_length mpC h (hrs c hc) ψ
   -- the rule side: the class's decoding, fitting the rule
   obtain ⟨hDeq, hψeq, hFreq⟩ := nlRel_tie (Dc := Dc) (mc := mc) (cvc := cvc) hcov hF hcls hsel
     hnPc hpd hfrT hc hR
   have hti : t ∈ˢ tgtClsIs dR Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c := by
     unfold tgtClsIs; rw [ite_eq_left hR.1, hDeq, hψeq, hFreq]; exact ht
   have hxl : xs.length = R.pre.length := by
-    rw [(tgtClsIs_pref hti).length_eq, blockRulePdomsAV_length hμ mpC h (hrs c hc) ψ]
+    rw [(tgtClsIs_pref hti).length_eq, blockRulePdomsAV_length mpC h (hrs c hc) ψ]
     exact (genRec_at R hg hc).2.1
   have hjM : j < (tgtMajor out c).ctors.length := by
     have hj0 := hHF.1

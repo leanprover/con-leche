@@ -38,7 +38,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-! ## `Empty` -/
 
@@ -53,7 +53,7 @@ theorem denote_falseA_type
   rfl
 
 /-- **`False`, installed at the P tier.** -/
-theorem extendFalse (mp : EnvModelM V μ env)
+theorem extendFalse (mp : EnvModelM V env)
     (hfresh : env.find? falseName = none)
     (hwf : EnvWF ⟨falseA :: env.consts, env.tables⟩) :
     CoverStep mp ⟨falseA :: env.consts, env.tables⟩ := by
@@ -145,7 +145,7 @@ theorem falseRecA_reading_eq (ψ : Name → Nat) :
       = BConst.typeAV .emptyRec [0, ψ uN] := rfl
 
 /-- **`False.rec`, installed at the P tier.** -/
-theorem extendFalseRec (mp : EnvModelM V μ env)
+theorem extendFalseRec (mp : EnvModelM V env)
     (hE : env.find? falseName = some falseA)
     (hfresh : env.find? falseRecA.name = none)
     (hwf : EnvWF ⟨falseRecA :: env.consts, env.tables⟩) {ex : List Name} :
@@ -190,7 +190,7 @@ The dispatch mirrors `declBasisPB_emptyK` link for link.
 
 /-- **The `False` block, installed at the P tier.**  `BasisStepPB`'s
 `falseK` branch. -/
-theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V μ env)
+theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.declsA env₂) :
     CoverStep mp env₂ := by
   rw [show ConLeche.BasisKind.falseK.declsA = [falseA, falseRecA] from rfl]

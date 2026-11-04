@@ -128,6 +128,6 @@ theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
     ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
   intro env accepted
   obtain ⟨c, hc, hcty⟩ := Cached.checkDecls_thmDecl_const hty hmem accepted
-  exact Cached.no_proof_of_False_cached V rfl accepted c hc hcty
+  exact Cached.no_proof_of_False_cached V accepted c hc hcty
 
 end ConLeche

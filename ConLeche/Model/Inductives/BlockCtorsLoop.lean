@@ -35,7 +35,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps InductiveSha
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- The one-family shape a member's scalars present to the sum route's
 loop: the loop reads a shape's name, level parameters, parameter and
@@ -54,13 +54,13 @@ def memberShapeI (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level)
   isProp := isProp
 
 /-- **The constructors' conses at a block member.** -/
-theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
+theorem blockCtorsLoop
     {F : Nat} {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {env₀ envI : Env} {cvTa : ConstantVal}
     {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
     {names : List Name} {ctorsOf : Name → List Name}
     (hout : ∀ cA ∈ ctorsA, ∀ T'' ∈ names, T'' ≠ T → cA.1.name ∉ ctorsOf T'')
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps μ F) env₀ envI T
+    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) env₀ envI T
       lps nP nIdx resSort isProp large cvTa ctors = .ok (ctorsA, sortss))
     (hnd : (ctorsA.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = lps)
@@ -110,7 +110,7 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
               (consList (idxValsAt ρ (esF j ψ) bs) ρ)
               (rChains nIdx nIdx (fssOf nP (ctorDataList dsF esF ψ ctorsA 0))
                 (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
-    ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V μ env),
+    ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
       ConLeche.BlockEtaInv env names ctorsOf →
       env.find? T = some (.indInfo cvTa caps) →
@@ -121,7 +121,7 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
       PendingAt mp.base2 T lps nP nIdx resSort isProp large
         idxF dsF esF srcsF ctorsA k →
       Inv mp.base2 →
-      ∃ mp' : EnvModelM V μ (ConLeche.consSumCtors nP rest env),
+      ∃ mp' : EnvModelM V (ConLeche.consSumCtors nP rest env),
         ConLeche.BlockEtaInv (ConLeche.consSumCtors nP rest env) names ctorsOf ∧
         (ConLeche.consSumCtors nP rest env).find? T
           = some (.indInfo cvTa caps) ∧
@@ -131,7 +131,7 @@ theorem blockCtorsLoop (hμ : μ.verifiedChecks = true)
           idxF dsF esF srcsF ctorsA ctorsA.length ∧
         Inv mp'.base2 :=
   ctorsLoopEta (p := memberShapeI T lps nP nIdx resSort isProp large)
-    hμ hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
+    hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
     caps leafT hTlawsOf (fun e => ConLeche.BlockEtaInv e names ctorsOf)
     (fun _ _ _ hfresh hE => hE.cons hfresh)
     (fun _ cA hcA hfresh hE _ _ _ hf hne hres hcape _ =>

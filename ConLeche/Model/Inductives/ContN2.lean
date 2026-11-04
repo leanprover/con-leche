@@ -307,7 +307,7 @@ theorem stripPis_isSome_of_instPisWith_fvars :
 instantiated at the canonical parameters (`instPisWith (canonParams n)`,
 the hole type `LfpCtorReads` records) reads at depth `n` as the recorded
 index telescope ending in the block's sort. -/
-theorem canonHoleTy_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem canonHoleTy_read (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cvm : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cvm caps)) {ψ : Name → Nat} {n : Nat}
     (hn : (D.pars mm ψ).length = n) {ty : Expr}
@@ -361,7 +361,7 @@ theorem canonHoleTy_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D 
 member `mm` at the levels `us` with its parameters instantiated at `ds`
 (depth `hi`) reads at `hi` as the recorded index telescope, substituted at
 the parameters' readings, ending in the recorded sort. -/
-theorem instFormer_readB {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem instFormer_readB (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {hi : Nat} {us : List Level}
     {ds : List Expr} {cvC : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
@@ -458,7 +458,7 @@ theorem instFormer_readB {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D 
 
 /-- **An instantiated container FORMER, read**: `instFormer_readB`'s
 index telescope. -/
-theorem instFormer_read {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem instFormer_read (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {hi : Nat} {us : List Level}
     {ds : List Expr} {cvC : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
@@ -485,7 +485,7 @@ the key's parameter frames of any two walk valuations agreeing off the
 holes (`TeleEq`).  So the container's index sets, the fit of an index
 spine, and a hole value applied to the key's parameters are the same at
 both sides of a hole relation. -/
-theorem n2_link {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem n2_link (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
     {nI : Nat} {cty : Expr}
@@ -589,7 +589,7 @@ theorem denote_piEndsSort {s : Level} :
 container instance checked by `nestInstType` lives at the block's sort —
 the recorded block's level at the key's levels is the value of the walk
 context's sort. -/
-theorem n2_sort {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem n2_sort (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
     {nI : Nat} {cty : Expr}

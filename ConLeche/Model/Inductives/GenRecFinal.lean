@@ -48,22 +48,22 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockPart
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 set_option maxHeartbeats 4000000 in
 /-- **THE GENERATED RECURSORS' STAGE**: the three cons-monotonicities at
 the cons at the classes (`BlockRecStagedT`). -/
-theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
+theorem genRecStage {F : Nat}
     {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    {mpC : EnvModelM V μ envC} {dR : BlockData V} {isRecR : Bool}
+    {mpC : EnvModelM V envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : GenRecCtx V μ F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
+    (hctx : GenRecCtx V F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       posR) :
-    BlockRecStagedT (V := V) μ envC pp.toBlockShape out mpC := by
+    BlockRecStagedT (V := V) envC pp.toBlockShape out mpC := by
   have hctx0 := hctx
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, hmk, hover,
     ⟨R⟩, hheads⟩ := hctx0
@@ -98,10 +98,10 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
   have hg : ConLeche.ClassGenScoped R.g :=
     ConLeche.genScoped_of_run R hwfI hwfC hT hTlen hct hpos
   have hTbl := ConLeche.genRun_tbl_scoped R hwfI hwfC hT hct hpos
-  have h : ConLeche.RecStageG μ F envC pp cvTasR (tgtRs out) :=
-    recStage_of_gen hμ R hg
+  have h : ConLeche.RecStageG .verified F envC pp cvTasR (tgtRs out) :=
+    recStage_of_gen R hg
   have hfind := genRecCtor_find (mpC := mpC) R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
-  obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) hμ h
+  obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) h
   obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov dR.toLfp
   -- the open class-side rows
   have hcallTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
@@ -116,7 +116,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         SpineFit ρ (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1)
           (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
             ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2])) :=
-    fun ψ ρ => genCallTy hμ R hg h mpC hfind ψ ρ
+    fun ψ ρ => genCallTy R hg h mpC hfind ψ ρ
   have hargs : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
@@ -124,7 +124,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
         WellDenoted V (consList ys ρ) e) ∧
       WellDenoted V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) :=
-    fun ψ ρ c hc j hj ys hys => genArgs_graded hμ R hg h mpC hfind ψ ρ hc hj ys hys
+    fun ψ ρ c hc j hj ys hys => genArgs_graded R hg h mpC hfind ψ ρ hc hj ys hys
   have hrhs : ∀ (ψ : Name → Nat) (ρ : Nat → V) (rs : List V), rs.length = (tgtRs out).length →
       (∀ c, c < (tgtRs out).length →
         rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
@@ -135,7 +135,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         WellDenoted V (consList ys (consList rs ρ)) v) ∧
       WellDenoted V (consList ((genIhsAV mpC.base2.acval envC (tgtRs out).length R.g R.rd ψ c j).map (interp V (consList ys (consList rs ρ)))) (consList ys ρ))
         (genRbAV R.g R.rd c j) :=
-    fun ψ ρ rs hrl hty => genRhs hμ R hg h mpC hfind ψ ρ rs hrl hty
+    fun ψ ρ rs hrl hty => genRhs R hg h mpC hfind ψ ρ rs hrl hty
   have hrowP : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs → ∀ (ψ₁ ψ₂ : Name → Nat),
@@ -146,19 +146,19 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
             = tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i ∧
           tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₁ j i
             = tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ₂ j i :=
-    genRowParams hμ R hg h mpC hfind
+    genRowParams R hg h mpC hfind
   -- the class side, both ways
   have hcsem : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       GenClsSplit pp out mpC dR Dc mc cvc ψ ρ ∧ GenClsBack pp out mpC dR Dc mc cvc ψ ρ ∧
       GenClsDec pp out mpC dR Dc mc cvc ψ ρ ∧ GenClsDecInv pp out mpC dR Dc mc cvc ψ ρ := by
     intro ψ ρ
     subst hdRe
-    exact genClsSem_run hμ R hg hcov h hN hS hcore hlfp hcls ψ ρ
+    exact genClsSem_run R hg hcov h hN hS hcore hlfp hcls ψ ρ
   have hrdAll : ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.toBlockShape.rulePrefixAt c ∧
       ∃ cvI, GenClsRd mpC dR Dc mc cvc pp out c cvI := by
     intro c hc
     subst hdRe
-    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all hμ R hg hcov h hN hS hcore hlfp hcls c hc
+    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all R hg hcov h hN hS hcore hlfp hcls c hc
     exact ⟨hnP, cvI, Rd⟩
   -- the class's index count, read off its decoding at a fitting rule frame
   have hlenEs : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →
@@ -194,7 +194,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     | none =>
       have hmb' : (ConLeche.tgtMajorsOf out j).member = none := hmb
       have hf := ConLeche.tgtFireOf_of_out (q := pp.toBlockShape) r hmb'
-      exact genRows3_out hμ R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) (fun ψ ρ => (hcsem ψ ρ).2.2.1)
+      exact genRows3_out R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) (fun ψ ρ => (hcsem ψ ρ).2.2.1)
         (fun ψ ρ => (hcsem ψ ρ).2.2.2) hr hmb hcA Rd (hcls j hj hmb) hnP hf
         (by rw [ConLeche.recRuleBits_fire]; exact hf)
     | some t =>
@@ -202,7 +202,7 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       have hplain : ConLeche.tgtFireOf pp.toBlockShape
           (ConLeche.tgtMajorsOf out) j r = .plain := by
         simp only [ConLeche.tgtFireOf, hmb']
-      exact genRows3_mem hμ R h hdRe hN hS hcore hlfp hnames (fun ψ ρ => (hcsem ψ ρ).1)
+      exact genRows3_mem R h hdRe hN hS hcore hlfp hnames (fun ψ ρ => (hcsem ψ ρ).1)
         (fun ψ ρ => (hcsem ψ ρ).2.2.1) (fun ψ ρ => (hcsem ψ ρ).2.2.2) hr hmb hcA
         (by rw [ConLeche.recRuleBits_fire]; exact hplain)
   -- the family premise
@@ -211,8 +211,8 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     intro ψ ρ
     have hS4 := hcsem ψ ρ
     exact ⟨hS4.1, hS4.2.1, hS4.2.2.1, hS4.2.2.2, hcallTy ψ ρ,
-      genCls_minor hμ R hg h mpC hfind ψ ρ,
-      genClassInd hμ hctx R hg hTbl hcls (fun c _ _ => hsel c) ψ ρ⟩
+      genCls_minor R hg h mpC hfind ψ ρ,
+      genClassInd hctx R hg hTbl hcls (fun c _ _ => hsel c) ψ ρ⟩
   have hframe : ∀ (ψ : Name → Nat), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
@@ -224,16 +224,16 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
           ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
             ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).getD l default) :=
     fun ψ c hc j hj l hl σ ys hys =>
-      genCls_frameV hμ R hg h mpC hfind ψ hc hj l hl σ ys hys
-  have hpre := genRecPre_run hμ R hg h hTy hdRe hlfp hN hS hcore hnames hcls hsem hframe hargs
+      genCls_frameV R hg h mpC hfind ψ hc hj l hl σ ys hys
+  have hpre := genRecPre_run R hg h hTy hdRe hlfp hN hS hcore hnames hcls hsem hframe hargs
     hrhs
-  have heqB := genRecHeqB (mpC := mpC) hμ R hg h
-  have heqP := genRecHeqP hμ R hg h hsP hrowP
-  have hdataS := genRecHdataS hμ R hg h hndM heqB heqP hpre hfind
-    (genRulePrefRead hμ mpC R hg h) (genRuleFieldRead R hg mpC.base2.acval) hrow3
+  have heqB := genRecHeqB (mpC := mpC) R hg h
+  have heqP := genRecHeqP R hg h hsP hrowP
+  have hdataS := genRecHdataS R hg h hndM heqB heqP hpre hfind
+    (genRulePrefRead mpC R hg h) (genRuleFieldRead R hg mpC.base2.acval) hrow3
   -- the ι case split's facts (task #342 L10)
   have hseam := genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
-  have hleaf := blockRecLeafOk_of hμ mpC h heqB heqP hpre
+  have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
   have hextra : ∀ (Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
         List ConLeche.RecRule)
       (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC)),
@@ -269,10 +269,10 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
       obtain ⟨-, cvI, Rd⟩ := hrdAll j hj
       have hmb' : (ConLeche.tgtMajorsOf out j).member = none := hmb
       have hf := ConLeche.tgtFireOf_of_out (q := pp.toBlockShape) r hmb'
-      refine genOutExtra hμ R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) hr hmb hcA Rd (hcls j hj hmb)
+      refine genOutExtra R hg hcov h (fun ψ ρ => (hcsem ψ ρ).1) hr hmb hcA Rd (hcls j hj hmb)
         hnP hf hctorCB hctorRd hac φ rfl rfl rfl
         (by rw [ConLeche.recRuleBits_fire]; exact hf) rfl
-        (recStagePinsOk hμ mpC h m₃ hac φ j r hr cA rhs
+        (recStagePinsOk mpC h m₃ hac φ j r hr cA rhs
           (fun _ _ hf' => R.fire_nestedRead hr hf')) ?_
       intro us hus hℓ
       refine ⟨fun ρ => ?_, fun Ra hRa ρ => ?_⟩
@@ -281,21 +281,21 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
         obtain ⟨hmem, heq, -⟩ := ha j hj
         show interp V ρ (ConLeche.Semantics.blockRecAV _ _ _ _ j) = pt
         rw [heq]
-        exact eq_pt_of_mem_univZero (genRecTyZ hμ R hg h mpC j hj _ ρ hℓ) hmem
+        exact eq_pt_of_mem_univZero (genRecTyZ R hg h mpC j hj _ ρ hℓ) hmem
       · rw [denote_instLevels m₃.acval_params φ, hac] at hRa
-        exact genRuleRaZ hμ R hg h mpC hfind hlenEs hr hcA hrhs hRa hℓ ρ
+        exact genRuleRaZ R hg h mpC hfind hlenEs hr hcA hrhs hRa hℓ ρ
     | some t =>
       have hmb' : (ConLeche.tgtMajorsOf out j).member = some t := hmb
       have hplain : ConLeche.tgtFireOf pp.toBlockShape
           (ConLeche.tgtMajorsOf out) j r = .plain := by
         simp only [ConLeche.tgtFireOf, hmb']
       obtain ⟨cvT, G⟩ := genMemAt_of R h hdRe hN hS hcore hlfp hnames hr hmb hcA
-      exact genMemExtra hμ h R (fun ψ ρ => (hcsem ψ ρ).1) G hr hmb hnP hctorCB hac φ rfl rfl
+      exact genMemExtra h R (fun ψ ρ => (hcsem ψ ρ).1) G hr hmb hnP hctorCB hac φ rfl rfl
         G.hnPc (by rw [ConLeche.recRuleBits_fire]; exact hplain) rfl
   unfold BlockRecStagedT
   rw [ConLeche.consBlockRecsT_eq_R]
   exact blockRecStaged_dataR (ctorTy := fun j i ψ =>
-      blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) hμ mpC h
+      blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) mpC h
     (ConLeche.recStageG_nodup h hndM)
     (ConLeche.recRulesShape_tgt envC.find? pp.toBlockShape out)
     (fun j r hr lvls pins hf => by
@@ -311,13 +311,13 @@ theorem genRecStage (hμ : μ.verifiedChecks = true) {F : Nat}
     (Rb0 := fun _ => genRbAV R.g R.rd) (s := s) (nCt := blockRecNCt (tgtRs out))
     heqB heqP hpre
     (fun j r hr => blockRecNCt_ge hr)
-    (fun ψ j r hr => blockRulePdomsAV_length hμ mpC h hr ψ)
+    (fun ψ j r hr => blockRulePdomsAV_length mpC h hr ψ)
     (genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov) (genRecHtower R)
-    (fun m₃ hac φ j r hr _ cA rhs _ _ => recStagePinsOk hμ mpC h m₃ hac φ j r hr cA rhs
+    (fun m₃ hac φ j r hr _ cA rhs _ _ => recStagePinsOk mpC h m₃ hac φ j r hr cA rhs
       (fun _ _ hf' => R.fire_nestedRead hr hf'))
     (fun m₃ hac => hextra _ m₃ hac) hdataS
-    (genRecTyZ hμ R hg h mpC)
+    (genRecTyZ R hg h mpC)
     (fun _ _ hr _ _ _ hcA hrhs _ _ hRa hℓ ρ =>
-      genRuleRaZ hμ R hg h mpC hfind hlenEs hr hcA hrhs hRa hℓ ρ)
+      genRuleRaZ R hg h mpC hfind hlenEs hr hcA hrhs hRa hℓ ρ)
 
 end ConLeche.Model

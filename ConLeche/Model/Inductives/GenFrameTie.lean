@@ -58,7 +58,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockPart
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **A reading over the parameters, lifted**: a term whose free
 variables lie below the openers `pfvs` (each at its own index, scoped)
@@ -89,17 +89,17 @@ theorem readParams_lift {acval : Name → (Name → Nat) → Term} {env : Env} {
   rw [hsplit, hdl, interp_liftN_consList]
 
 /-- **The frame tie at the generated stage** (see the module docstring). -/
-theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List ConstantInfo}
+theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : NestState} {nested : Bool}
-    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
+    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
       block ctorsAsR out)
-    (h : ConLeche.RecStageG μ F envC pp cvTasR (ConLeche.tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTasR (ConLeche.tgtRs out))
     (hparG : ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V)
       (xs : List V),
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
@@ -189,7 +189,7 @@ theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   -- the spine's length
   have hr : (ConLeche.tgtRs out)[c]? = some (ConLeche.tgtRs out)[c] := List.getElem?_eq_getElem hc
   have hxl : xs.length = tgtRP pp.toBlockShape c := by
-    rw [SpineFit.length_eq hsp, blockRulePdomsAV_length hμ mpC h hr ψ]; rfl
+    rw [SpineFit.length_eq hsp, blockRulePdomsAV_length mpC h hr ψ]; rfl
   have hnle : pp.nP ≤ xs.length := by
     have := SpineFit.length_eq hfit
     rw [List.length_take, hpl] at this; omega
@@ -215,10 +215,10 @@ theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   have hlv := (ConLeche.targetClassMatch_true hNM.2.2).1
   have hcl := hcls c hc hMo
   have hnPc : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
-    obtain ⟨-, -, -, -, -, -, -, -, -, hRP, -⟩ := genRun_binders hμ R hg h mpC (fun _ => 0) hc
+    obtain ⟨-, -, -, -, -, -, -, -, -, hRP, -⟩ := genRun_binders R hg h mpC (fun _ => 0) hc
     rw [hRP, (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1]
     exact Nat.le_add_right _ _
-  obtain ⟨Rd, -⟩ := genClsRd_out (d := dR) hμ R hg hcov h hc hMo hcl hnPc
+  obtain ⟨Rd, -⟩ := genClsRd_out (d := dR) R hg hcov h hc hMo hcl hnPc
   have hDe : tgtClsD dR Dc out c = Dc c := by simp [tgtClsD, hMo]
   generalize hψc : Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls = ψc
   -- the node: the same datum, at the same levels
@@ -284,7 +284,7 @@ theorem genNodeFrameTie (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
   have ha : (tgtMajor out c).ds[i]? = some ((tgtMajor out c).ds[i]) := List.getElem?_eq_getElem hiC
   have hb : eds[i]? = some eds[i] := List.getElem?_eq_getElem hiN
   have hm := hall i _ _ ha hb
-  have hr' := param_read_eq (μ := .verified) rfl hacl (Rules.RulesInputs.ofSem mpC ψ)
+  have hr' := param_read_eq hacl (Rules.RulesInputs.ofSem mpC ψ)
     (pfvs := fvsP) hFr hW' hvl hformer hnames hm
   have hA := readParams_lift (env := envC) (φ := ψ) hacl1 hp hpW hm.2.2.1 xs
     (by omega) ρ

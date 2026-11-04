@@ -70,7 +70,7 @@ open ConLeche.SetTheory.Tower
 
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo)
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
   {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → List ConLeche.RecRule}
 
 /-! ## 1. The frame transport: a ZERO chain is no chain -/
@@ -112,7 +112,7 @@ theorem spineFit_split {Fs : List Term} {ρ : Nat → V} {as : List V}
   rw [ht, hd]
   exact ⟨h1, h2⟩
 
-variable {envC : Env} {mpC : EnvModelM V μ envC} {names lps : List Name} {d : BlockData V}
+variable {envC : Env} {mpC : EnvModelM V envC} {names lps : List Name} {d : BlockData V}
 
 /-- **The constructor's parameter spine fits the BLOCK's parameter
 telescope**, and its field spine fits the field domains at its own
@@ -625,7 +625,7 @@ syntax discharged: `instLamsAt_index_WScoped`, `instLamsAt_leaves` and
 
 section TwoStage
 
-omit [SetTheory V] μ in
+omit [SetTheory V] in
 /-- A λ-tower at a fixed height determines its domains and body:
 `mkLamsAV` is injective on lists of equal length, so the `∀ lds A`
 binders the contract's residue and tower statements carry are TIED
@@ -657,7 +657,7 @@ Consumed by `BlockRecPreHpre.lean` (`hspF`'s field half) and
 section DomsBounded
 
 variable {envC : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V μ envC} {F : Nat}
+  {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → Term}
   {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List Term}

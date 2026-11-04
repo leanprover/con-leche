@@ -17,7 +17,6 @@ import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Shift
-import ConLeche.Verify.Modes
 
 public section
 
@@ -309,7 +308,7 @@ valued at the members' own values `hv` (values of the formers' types,
 passed (`ParamMatch`) has one reading at the prefix's valuation where
 neither reading is the point (the conditional `Rules.defeq_sound`; a
 syntactically equal pair, everywhere). -/
-theorem param_read_eq {μ : CheckMode} (hμ : μ.verifiedChecks = true)
+theorem param_read_eq
     (hacl : ∀ (n : Name) (ψ : Name → Nat) (m k : Nat), (mT.acval n ψ).liftN m k = mT.acval n ψ)
     (hin : Rules.RulesInputs V mT φ) {F D : Nat} {pfvs : List Expr}
     (hL : FvarList D pfvs.reverse) {σ : Nat → V} {Δ : List Term}
@@ -328,12 +327,11 @@ theorem param_read_eq {μ : CheckMode} (hμ : μ.verifiedChecks = true)
         ∀ σ : Nat → V, interp V σ (mT.acval n (Level.substFn φ ci.toConstantVal.levelParams lvls))
           = hv.getD t pt)
     {a b : Expr}
-    (hm : ConLeche.ParamMatch (ConLeche.fueledOps μ F) envT (D + formerTys.length)
+    (hm : ConLeche.ParamMatch (ConLeche.fueledOps .verified F) envT (D + formerTys.length)
       (ConLeche.targetAbs names lvls (ConLeche.targetHoles formerTys D)) pfvs a b) :
     ∀ x y : V, (denote mT.acval envT φ D a).map (interp V σ) = some x →
       (denote mT.acval envT φ D b).map (interp V σ) = some y → x ≠ pt → y ≠ pt →
         x = y := by
-  obtain rfl : μ = .verified := CheckMode.eq_verified hμ
   intro x y hx hy hxn hyn
   have hacl1 : ∀ (n : Name) (ψ : Name → Nat) (k : Nat), (mT.acval n ψ).liftN 1 k = mT.acval n ψ :=
     fun n ψ k => hacl n ψ 1 k

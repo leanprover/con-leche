@@ -21,7 +21,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env}
+variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- A block constructor's data, bundled for the choice. -/
 structure BlockCtorPick where
@@ -35,7 +35,7 @@ structure BlockCtorPick where
 
 /-- **The constructors' data functions at one member of a block**:
 every constructor's data, from its stage run. -/
-theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ env)
+theorem blockCtorFuns_of (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal}
     {env₁ : Env} {caps : IndCaps} {bs : List Expr}
@@ -45,7 +45,7 @@ theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps μ F) env₁ env T lps nP nIdx
+        ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx
           resSort isProp large c.1 cA.2 cvTa = .ok (cA.1, sorts)) :
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List Term)
       (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))
@@ -62,7 +62,7 @@ theorem blockCtorFuns_of (hμ : μ.verifiedChecks = true) (mp : EnvModelM V μ e
     | some cA =>
       obtain ⟨c, sorts, hCtor⟩ := hrunOf j cA hj
       obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, hD⟩ :=
-        blockCtorData_of hμ mp hCtor hfT hlpsT hstripT
+        blockCtorData_of mp hCtor hfT hlpsT hstripT
       refine ⟨⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest⟩, fun cA' h => ?_⟩
       obtain rfl := Option.some.inj h
       exact hD

@@ -37,7 +37,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal FEnv BlockShape Targ
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **The target check's constructor reading is coverage's.** -/
 theorem targetCtorsOf_mkFEnv (env : Env) (I : Name) :
@@ -60,7 +60,7 @@ theorem targetOutsideInst_find {fe : FEnv} {I : Name} {us : List Level} {ds : Li
 major `M` is member `mm` of the recorded block `D`, the inductive stored
 as `cvI`; `D`'s member `mm` has the major's constructors, one for one,
 at the major's parameter count. -/
-structure TgtOutCls {env : Env} (mp : EnvModelM V μ env) (M : TargetMajor) (D : LfpDatum V)
+structure TgtOutCls {env : Env} (mp : EnvModelM V env) (M : TargetMajor) (D : LfpDatum V)
     (mm : Nat) (cvI : ConstantVal) : Prop where
   hD : D ∈ mp.lfpBlocks
   hmm : mm < D.k
@@ -78,7 +78,7 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V μ env) (M : TargetMajor) (D :
 /-- An outside class's `i`-th constructor, read off the lfp clause: below
 `D`'s constructor count, stored at the major's parameter count, at the
 class's level parameters (every member's). -/
-theorem TgtOutCls.ctor_at {env : Env} {mp : EnvModelM V μ env} {M : TargetMajor}
+theorem TgtOutCls.ctor_at {env : Env} {mp : EnvModelM V env} {M : TargetMajor}
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mp M D mm cvI) {i : Nat}
     {cA : ConstantVal × Nat} (hcA : M.ctors[i]? = some cA) :
     i < D.nctors mm ∧ env.find? (D.ctorName mm i) = some (.ctorInfo cA.1 M.nPc cA.2) ∧
@@ -113,7 +113,7 @@ the list of a covered inductive is its stored `IndCaps.all`
 
 section Sel
 
-variable {env : Env} (mp : EnvModelM V μ env)
+variable {env : Env} (mp : EnvModelM V env)
 
 /-- The members' list of a recorded block holding `n` (`[]` if none). -/
 @[expose] noncomputable def lfpNamesOf (n : Name) : List Name :=
@@ -208,7 +208,7 @@ end Sel
 run (`TargetMajorRun.outside`) and coverage: the major's inductive is
 stored and not the block's, and the block owns its constructors — the
 ones `targetMajorOf` read. -/
-theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
+theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
     {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr}
     {mty : Expr} {M : TargetMajor}
     (Rm : ConLeche.TargetMajorRun (mkFEnv env) p ctorsAs pfvs fvs mty M)
@@ -229,7 +229,7 @@ theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp 
 /-- **The outside class, from the major's run and coverage**: the
 carrier's coverage records the major's (stored, not the block's)
 inductive as a member of some block, which owns its constructors. -/
-theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
+theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
     {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr}
     {mty : Expr} {M : TargetMajor}
     (Rm : ConLeche.TargetMajorRun (mkFEnv env) p ctorsAs pfvs fvs mty M)
@@ -244,7 +244,7 @@ theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp 
 
 /-- **The outside class at the SELECTED block** (`lfpSel`), from the
 major's run. -/
-theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V μ env} (hcov : LfpCover mp [])
+theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
     (D0 : LfpDatum V) {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
     {pfvs fvs : List Expr} {mty : Expr} {M : TargetMajor}
     (Rm : ConLeche.TargetMajorRun (mkFEnv env) p ctorsAs pfvs fvs mty M)

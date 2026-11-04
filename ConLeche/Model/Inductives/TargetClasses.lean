@@ -55,7 +55,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv Block
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## 1. The class data -/
 
@@ -192,7 +192,7 @@ end Cases
 /-- The stored rule at `(c, j)`, below the constructor count. -/
 theorem tgtRule_exists {envC : Env} {F : Nat} {pp : BlockParts} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG μ F envC pp cvTas rs) {c : Nat} (hc : c < rs.length)
+    (h : ConLeche.RecStageG .verified F envC pp cvTas rs) {c : Nat} (hc : c < rs.length)
     {j : Nat} (hj : j < blockRecNCt rs c) :
     ∃ cA rhs, rs[c].2.2.2[j]? = some cA ∧ rs[c].2.1[j]? = some rhs := by
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc

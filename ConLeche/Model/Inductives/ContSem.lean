@@ -66,7 +66,7 @@ structure ContBlockOk (env : Env) (ctx : NestCtx) (D : LfpDatum V) : Prop where
 environment, every stored inductive but `Quot` that is not a member of
 the block being checked is a member of a recorded block, and every
 recorded block is read as `ContBlockOk` says. -/
-structure ContCover {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (ctx : NestCtx) : Prop where
+structure ContCover (mp : EnvModelM V env) (ctx : NestCtx) : Prop where
   find : ∀ n, ctx.find? n = env.find? n
   cover : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ctx.names.contains n = false →
     n ≠ ConLeche.quotName → ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
@@ -86,7 +86,7 @@ theorem keyFrame_lift (dsa : List Term) (h : Nat) (vs : List V) (ρ : Nat → V)
     rw [show j + (h + vs.length) = (j + h) + vs.length by omega, consList_apply_add]
 
 /-- A recorded block's names and members, from its record. -/
-theorem lfp_namesLen {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+theorem lfp_namesLen (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) : D.names.length = D.k :=
   (mp.lfp_ok D hD).2.2.2.1.1
 

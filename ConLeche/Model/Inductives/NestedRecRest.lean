@@ -112,7 +112,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo BlockParts
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## `ctorsIn`, `ctor`: the carried constructors are stored at the major's parameter count
 
@@ -126,7 +126,7 @@ section Ctors
 variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
-  {mpC : EnvModelM V μ envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
+  {mpC : EnvModelM V envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
   {ppsOf : Nat → (Name → Nat) → List Term} {isRec : Bool}
   {A : Nat → (Name → Nat) → Term}
 
@@ -134,7 +134,7 @@ variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
 stored at the major's parameter count have their types bound (the
 environment's well-formedness) and read (`EnvModelM.type_reads`).  Any
 recursor stage whose carried constructors are stored has `ctor`. -/
-theorem tgtRecCtor_seam_of_find {envC : Env} {mpC : EnvModelM V μ envC}
+theorem tgtRecCtor_seam_of_find {envC : Env} {mpC : EnvModelM V envC}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hfind0 : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →

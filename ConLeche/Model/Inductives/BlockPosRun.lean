@@ -244,7 +244,7 @@ theorem formerHoleTy_at {env : Env} {m : EnvModel V env} {cvTb : ConstantVal} {n
 
 /-- **A member's former applied to the block's parameters** at a frame
 satisfying its own parameter telescope inhabits its index tower there. -/
-theorem formerApp_mem {μ : ConLeche.CheckMode} {env : Env} (mp : EnvModelM V μ env)
+theorem formerApp_mem {env : Env} (mp : EnvModelM V env)
     {cvTb : ConstantVal} {caps : ConLeche.IndCaps} {nP nI : Nat} {resSort : Level}
     {pps : (Name → Nat) → List Term}
     (hfind : env.find? cvTb.name = some (.indInfo cvTb caps))

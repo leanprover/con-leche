@@ -591,11 +591,10 @@ theorem whnf_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat} {e e' : E
 (`projCertAt`; parity mirrors official, 2026-09-06): the head is a
 stored constructor whose telescope has the spine's syntactic arity. -/
 theorem projCertAt_verified_inv {env : Env} {c : Name} {args : List Expr}
-    (hv : mode.verifiedChecks = true)
-    (h : projCertAt env mode.verifiedChecks c args = true) :
+    (h : projCertAt env CheckMode.verified.verifiedChecks c args = true) :
     ∃ cvC nP nF, env.find? c = some (.ctorInfo cvC nP nF) ∧
       teleArityOk cvC.type args = true := by
-  simp only [projCertAt, hv, ↓reduceIte, projCert] at h
+  simp only [projCertAt, CheckMode.verifiedChecks, ↓reduceIte, projCert] at h
   split at h
   · rename_i cvC nP nF hf
     exact ⟨cvC, nP, nF, hf, h⟩

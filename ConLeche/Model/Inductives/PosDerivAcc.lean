@@ -66,7 +66,7 @@ variable {V : Type w} [SetTheory V] {env : Env}
 
 section Motive
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) (φ : Name → Nat) (w : Nat)
+variable (mp : EnvModelM V env) (φ : Name → Nat) (w : Nat)
   (ctx : NestCtx) (F : Nat)
 
 /-- **What the container rules read**: coverage and the walk
@@ -144,7 +144,7 @@ so it is enough to prove the reduct's reading accessible (its output
 mentioning only the term's leaves).  The subject walked here is always a
 TYPE (task #342, L12: "not pt" source (1)), so the step is
 `red_sound_ty`. -/
-theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
+theorem acc_of_whnf {mp : EnvModelM V env}
     (hin : RulesInputs V mp.base2 φ) {F dep : Nat} {e wt : Expr}
     (hw : (fueledOps .verified F).whnf env dep e = .ok wt) (hfr : Frame dep e)
     {Δa : List Term} {ea : Term} {R : FrameRel V}
@@ -172,7 +172,7 @@ theorem acc_of_whnf {μ : ConLeche.CheckMode} {mp : EnvModelM V μ env}
 the level parameters distinct (`frame_lps_nodup`), the block at the walk
 context's level (`n2_sort` at the head), and `frameIterAcc` along the
 walked constructors. -/
-theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem frame_accD (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat}
     {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
@@ -223,7 +223,7 @@ theorem frame_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
 /-- **A container instance whose frame is derived HERE** (`contNew`): the
 frame's conclusion at the enclosing relation seen at the key's depth makes
 the instance accessible (the leaf, `accConcl_of_frameAccOut`). -/
-theorem contNew_accD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
+theorem contNew_accD (mp : EnvModelM V env) {w : Nat}
     {ctx : NestCtx} (hok : ContOk mp φ w ctx) {prog : List NestHole} {dep : Nat}
     (hhid : ctx.hiAt prog.length ≤ dep) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat}
     (hmm : mm < D.k) {lps : List Name}
@@ -283,7 +283,7 @@ depth** (`KeyAcc`, a cache hit's content): its frame, derived under a
 well-scoped frame stack, read along the frameless relation extended by
 EMPTY frames for that stack, and back through the empty frames
 (`frameAccOut_unextend`). -/
-theorem keyAcc_of_frameD {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {w : Nat}
+theorem keyAcc_of_frameD (mp : EnvModelM V env) {w : Nat}
     {ctx : NestCtx} (hok : ContOk mp φ w ctx) {F : Nat} {key : NestKey} {prog' : List NestHole}
     {grp : List (Name × Expr)} (hsc : ProgScoped ctx prog') (hmem : key.cname ∈ grp.map (·.1))
     {ts : List PosTree}
@@ -323,7 +323,7 @@ set_option maxHeartbeats 800000 in
 /-- **THE DERIVATION IS ACCESSIBLE** (charter items 2–4): every judgment of a positivity derivation reads
 accessibly in the holes, at every level (task #327), by induction on the
 derivation (see the module docstring). -/
-theorem posD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem posD_acc (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat} :
     ∀ {j : PosJ} {ts : List PosTree}, PosD (fueledOps .verified F) env ctx j ts →
       AccJ mp φ w ctx F j := by
@@ -586,7 +586,7 @@ derivation, at no frames): every field's reading accessible under the
 earlier ones along the accessibility hole relation, each bound reading only its field's output's non-hole positions,
 the result's indices hole-free — coverage needed only when some field's
 kind is not flat. -/
-theorem memberCtorD_acc {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env)
+theorem memberCtorD_acc (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F nF : Nat}
     {crest cur : Expr} {ks : List NestFieldKind} {nds : List Expr}
     {ts : List PosTree}

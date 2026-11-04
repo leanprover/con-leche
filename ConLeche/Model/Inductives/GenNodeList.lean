@@ -17,7 +17,6 @@ import ConLeche.Model.Cover
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Model.Inductives.TargetClass
 import ConLeche.Verify.Inductives.PosNodes
-import ConLeche.Verify.Modes
 
 public section
 
@@ -125,13 +124,13 @@ theorem _root_.ConLeche.ClassMajorRun.pfvs_eq {mode : CheckMode} {F : Nat} {fe :
 
 section Run
 
-variable {μ : CheckMode} {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool}
+variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool}
   {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- A stored recursor's class has a motive: it indexes the run's classes. -/
 theorem genRecCls_lt
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) {i c : Nat} (hc : R.rd.recCls[i]? = some c) :
     c < R.Ms.length ∧ R.Ms.length = R.Ms₀.length ∧ R.Ms₀.length = R.rd.classes.length := by
   obtain ⟨s, hs⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
@@ -146,16 +145,16 @@ theorem genRecCls_lt
 /-- **A stored recursor's major is its class's** (`genRecRun_at`), the
 class a checked major with its table entries. -/
 theorem genOut_cls
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) {i : Nat} (hi : i < out.length) :
     ∃ rc cls cvG rhss M₀ nfs, p.recs[i]? = some rc ∧ R.rd.recCls[i]? = some cls ∧
       cls < R.Ms.length ∧ R.Ms₀[cls]? = some M₀ ∧
       R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       out[i]? = some (cvG, { M₀ with nfs := nfs }, rhss) ∧
-      Nonempty (ConLeche.ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc cls cvG) ∧
-      Nonempty (ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
+      Nonempty (ConLeche.ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc cls cvG) ∧
+      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
         (R.keys.getD cls default) M₀) ∧
-      ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
+      ConLeche.targetMajorNfs (fueledOps .verified F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs := by
   have hlenO := (ConLeche.classRecsRulesOk_run R.hrules).1
   have hlenG := (ConLeche.classRecTysOk_run R.hcvGs).1
@@ -179,14 +178,14 @@ theorem genOut_cls
 
 /-- The same, at `tgtMajor`. -/
 theorem genTgtMajor
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) {i : Nat} (hi : i < (ConLeche.tgtRs out).length) :
     ∃ cls M₀ nfs, R.rd.recCls[i]? = some cls ∧ cls < R.Ms.length ∧ R.Ms₀[cls]? = some M₀ ∧
       R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out i = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
+      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
         (R.keys.getD cls default) M₀) ∧
-      ConLeche.targetMajorNfs (fueledOps μ F) envC p.toBlockShape (cvTas.map (·.type))
+      ConLeche.targetMajorNfs (fueledOps .verified F) envC p.toBlockShape (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs := by
   have hi' : i < out.length := by simpa [ConLeche.tgtRs] using hi
   obtain ⟨-, cls, cvG, rhss, M₀, nfs, -, hc, hlt, hM₀, hMs, ho, -, hMR, hnfs⟩ := genOut_cls R hi'
@@ -212,7 +211,7 @@ theorem _root_.ConLeche.ClassMajorRun.member_of {mode : CheckMode} {F : Nat} {fe
 /-- **A stored recursor's prefix, target and member class** at the
 generated run. -/
 theorem genRec_at
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ConLeche.ClassGenScoped R.g) {c : Nat}
     (hc : c < (ConLeche.tgtRs out).length) :
     tgtRP p.toBlockShape c = R.pre.length ∧ p.toBlockShape.rulePrefixAt c = R.pre.length ∧
@@ -248,7 +247,7 @@ theorem genRec_at
 
 /-- Every class's parameter openers are at most the block's parameters. -/
 theorem genMs_pfvs_len
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ConLeche.ClassGenScoped R.g) (t : Nat) :
     (R.Ms.getD t default).pfvs.length ≤ p.nP := by
   rw [List.getD_eq_getElem?_getD]
@@ -458,21 +457,21 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
 
 section Nodes
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **`nestedRecCtx_nodes` at the generated stage's context**: the node
 list over the generated run's table `R.st.ctorNfs` (the seeds' walk). -/
-theorem genRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List ConstantInfo}
+theorem genRecCtx_nodes {F : Nat} {block : List ConstantInfo}
     {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V μ envC}
+    {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState} {nested : Bool}
-    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
+    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
       block ctorsAsR out)
-    (mk : EnvModelM V μ envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
+    (mk : EnvModelM V envI) (hmkC : LfpCover mk pp.toBlockShape.memberNames)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR) :
     ∃ (fvsP : List Expr) (ns : List PosTree),
       R.ctx = pp.nestCtx fvsP envI.find? ∧
@@ -490,7 +489,6 @@ theorem genRecCtx_nodes (hμ : μ.verifiedChecks = true) {F : Nat} {block : List
           (pp.nestCtx fvsP envI.find?) (tgtMajor out c) t := by
   classical
   obtain ⟨hPos, henvC, -, -, hN, -, hcore, hctorsAs, hdR, -, -, -, -, hheads⟩ := hctx
-  obtain rfl := ConLeche.CheckMode.eq_verified hμ
   -- the formers' and the constructors' types are closed
   have hT0 : ∀ cvTa0, cvTasR.head? = some cvTa0 → cvTa0.type.hasFvar = false := by
     intro cvTa0 h0

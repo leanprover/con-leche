@@ -87,7 +87,7 @@ theorem lfpSClause_carrier_of {D : LfpDatum V} {ψ : Name → Nat} {ρp : Nat �
 
 section ParTail
 
-variable {μ : CheckMode} {envC : Env} (mpC : EnvModelM V μ envC) (ctx : NestCtx) (ψ : Name → Nat)
+variable {envC : Env} (mpC : EnvModelM V envC) (ctx : NestCtx) (ψ : Name → Nat)
   (ρ : Nat → V) (xs : List V)
 
 /-- The true valuation's parameters are the prefix's. -/

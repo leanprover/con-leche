@@ -36,7 +36,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode} {env : Env} {φ : Name → Nat}
+variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 /-- The parameter-variable spine of the constructor's opened body, in
 the reading's spelling. -/

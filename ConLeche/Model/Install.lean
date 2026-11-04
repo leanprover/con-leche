@@ -41,7 +41,7 @@ open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal
 universe w
 
 variable {V : Type w} [SetTheory V]
-variable {μ : CheckMode} {env : Env}
+variable {env : Env}
 
 /-- A fresh cons preserves every stored lookup. -/
 theorem findPreserved_cons {c₀ : ConstantInfo}
@@ -91,7 +91,7 @@ both installs share them. -/
 /-- **An extension keeping the prefix's readings**: stored names look up
 and read as before, and successful readings of prefix-bound subjects
 survive. -/
-structure ModelExt {μ : CheckMode} {env : Env} (mp : EnvModelM V μ env) (env' : Env)
+structure ModelExt {env : Env} (mp : EnvModelM V env) (env' : Env)
     (acval' : Name → (Name → Nat) → Term) : Prop where
   agree : ∀ n, (env.find? n).isSome = true → env'.find? n = env.find? n
   leaf : ∀ n, (env.find? n).isSome = true → acval' n = mp.base2.acval n
@@ -100,7 +100,7 @@ structure ModelExt {μ : CheckMode} {env : Env} (mp : EnvModelM V μ env) (env' 
 
 namespace ModelExt
 
-variable {mp : EnvModelM V μ env} {env' : Env} {acval' : Name → (Name → Nat) → Term}
+variable {mp : EnvModelM V env} {env' : Env} {acval' : Name → (Name → Nat) → Term}
 
 theorem find (hx : ModelExt mp env' acval') {n : Name} {ci : ConstantInfo}
     (hf : env.find? n = some ci) : env'.find? n = some ci := by
@@ -116,7 +116,7 @@ theorem leafOf (hx : ModelExt mp env' acval') {n : Name} {ci : ConstantInfo}
   hx.leaf n (by rw [hf]; rfl)
 
 /-- A fresh constant's install keeps the prefix's readings. -/
-theorem cons (mp : EnvModelM V μ env) {c₀ : ConstantInfo}
+theorem cons (mp : EnvModelM V env) {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) (A : (Name → Nat) → Term) :
     ModelExt mp ⟨c₀ :: env.consts, env.tables⟩ (acvalWith mp.base2.acval c₀.name A) :=
   ⟨fun _ hn => ConLeche.Env.find?_cons_of_isSome hfresh hn,
@@ -125,7 +125,7 @@ theorem cons (mp : EnvModelM V μ env) {c₀ : ConstantInfo}
 
 /-- A fresh constant's install, at any model whose valuation is the
 installed one. -/
-theorem consOf (mp : EnvModelM V μ env) {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
+theorem consOf (mp : EnvModelM V env) {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     {m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩}
     (hac : m₂.acval = acvalWith mp.base2.acval c₀.name A) :
@@ -154,7 +154,7 @@ theorem denote_pushTable_mono {acval : Name → (Name → Nat) → Term} {t : Co
   · exact hft
 
 /-- A table install keeps the prefix's readings, at the same valuation. -/
-theorem ModelExt.pushTable (mp : EnvModelM V μ env) {t : ConLeche.ProjTable}
+theorem ModelExt.pushTable (mp : EnvModelM V env) {t : ConLeche.ProjTable}
     (hT : env.findTable? t.structName = none) :
     ModelExt mp ⟨env.consts, t :: env.tables⟩ mp.base2.acval :=
   ⟨fun _ _ => rfl, fun _ _ => rfl, fun hcb h => denote_pushTable_mono hT _ _ hcb h⟩
@@ -334,7 +334,7 @@ theorem indStrictHead_cons_prop {acval : Name → (Name → Nat) → Term} {env 
 
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
-theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
+theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hh : ConsHead env c₀ A)
@@ -382,7 +382,7 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V μ env)
     (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
       ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
-    ∃ mp' : EnvModelM V μ ⟨c₀ :: env.consts, env.tables⟩,
+    ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   have hbound := envWF_constsBound mp.base2.wf
   have hne : ∀ c ∈ env.consts, c.name ≠ c₀.name := by

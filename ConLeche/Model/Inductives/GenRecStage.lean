@@ -87,7 +87,6 @@ open ConLeche.Verify
 open ConLeche (CheckMode Env Expr Name Level ConstantVal openPisAtFvars closeTelescope
   ClassGen ClassGenScoped SameDoms EndsInSort classGenRecTy classBinder)
 
-variable {μ : CheckMode}
 
 set_option maxHeartbeats 800000 in
 /-- **A telescope over a variable applied, its conclusion sorted**: the
@@ -96,20 +95,20 @@ telescope's own binders, its domain `∀ …, Sort u` with one binder per
 argument — opens at its binder count, and its conclusion infers to
 `Sort u`.  (`classGenRecTy_conclSort`'s argument, over any telescope: the
 head's opened variable carries its domain, which the inference types.) -/
-theorem genConclSort_core (hμ : μ.verifiedChecks = true) {envK : Env}
+theorem genConclSort_core {envK : Env}
     {nds : List Expr} {k : Nat} {T0 Tm : Expr}
     {as : List Expr} {u : Level} {F : Nat} {S : Expr}
     (hcl : ∀ p ∈ nds, p.looseBVarsBounded 0 = true)
     (hbb : (Expr.mkAppN (.fvar k T0) as).looseBVarsBounded 0 = true)
     (hk : nds[k]? = some Tm) (hTm : EndsInSort as.length u Tm)
     (hfv : (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as)).hasFvar = false)
-    (hinf : ConLeche.inferTypeCore μ false envK F 0 (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0)
+    (hinf : ConLeche.inferTypeCore .verified false envK F 0 (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0)
         as))
       = .ok S) :
     ∃ fvs o, openPisAtFvars nds.length (closeTelescope nds 0 (Expr.mkAppN (.fvar k T0) as)) 0
         = some (fvs, o) ∧
-      ConLeche.inferTypeCore μ false envK F nds.length o = .ok (.sort u) ∧
-      ConLeche.ensureSortCore μ false envK F nds.length (.sort u) = .ok u := by
+      ConLeche.inferTypeCore .verified false envK F nds.length o = .ok (.sort u) ∧
+      ConLeche.ensureSortCore .verified false envK F nds.length (.sort u) = .ok u := by
   have hklt : k < nds.length := (List.getElem?_eq_some_iff.mp hk).1
   generalize hbody : Expr.mkAppN (.fvar k T0) as = body at hbb hfv hinf ⊢
   -- the type opens
@@ -117,7 +116,7 @@ theorem genConclSort_core (hμ : μ.verifiedChecks = true) {envK : Env}
     (closeTelescope nds 0 body) hcl hbb (Expr.ErasedEq.rfl _)
   obtain ⟨n', hn'⟩ : ∃ n', nds.length = n' + 1 := ⟨nds.length - 1, by omega⟩
   rw [hn'] at hop
-  obtain ⟨bt, u', hbt, hu⟩ := inferTypeCore_openPis_body hμ n' hop hinf
+  obtain ⟨bt, u', hbt, hu⟩ := inferTypeCore_openPis_body n' hop hinf
   rw [← hn', Nat.zero_add] at hbt hu
   rw [← hn'] at hop
   -- the conclusion: the head variable, applied
@@ -161,17 +160,17 @@ theorem classGenRecTy_prefix_plain {g : ClassGen} (hg : ClassGenScoped g) {c : N
 set_option maxHeartbeats 800000 in
 /-- **The generated type opens and its conclusion is sorted at `Sort elim`**
 (`genConclSort_core` at the generated telescope). -/
-theorem classGenRecTy_conclSort_plain (hμ : μ.verifiedChecks = true)
+theorem classGenRecTy_conclSort_plain
     {envK : Env} {g : ClassGen} (hg : ClassGenScoped g) {c s : Nat}
     (hm : ConLeche.ClassRead.motiveSlot ⟨g.slots, []⟩ c = some s) {F : Nat}
     {gty S : Expr}
     (hgty : classGenRecTy g c = some gty) (hfv : gty.hasFvar = false)
-    (hinf : ConLeche.inferTypeCore μ false envK F 0 gty = .ok S) :
+    (hinf : ConLeche.inferTypeCore .verified false envK F 0 gty = .ok S) :
     ∃ fvs o, openPisAtFvars (g.pre.length + (g.cls.getD c default).nIdx + 1) gty 0
         = some (fvs, o) ∧
-      ConLeche.inferTypeCore μ false envK F (g.pre.length + (g.cls.getD c default).nIdx + 1) o
+      ConLeche.inferTypeCore .verified false envK F (g.pre.length + (g.cls.getD c default).nIdx + 1) o
         = .ok (.sort g.elim) ∧
-      ConLeche.ensureSortCore μ false envK F (g.pre.length + (g.cls.getD c default).nIdx + 1)
+      ConLeche.ensureSortCore .verified false envK F (g.pre.length + (g.cls.getD c default).nIdx + 1)
         (.sort g.elim) = .ok g.elim := by
   obtain ⟨ifs, maj, hmaj, hifl, rfl, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg hgty
   have hmv := ConLeche.ClassGen.motVar_eq hm
@@ -193,7 +192,7 @@ theorem classGenRecTy_conclSort_plain (hμ : μ.verifiedChecks = true)
   have hTmR : EndsInSort (ifs ++ [Expr.fvar (g.pre.length + ifs.length) maj]).length g.elim Tm := by
     rw [List.length_append, List.length_singleton, hifl]
     exact hTmS
-  obtain ⟨fvs, o, hop, hbt, hu⟩ := genConclSort_core hμ (nds := nds)
+  obtain ⟨fvs, o, hop, hbt, hu⟩ := genConclSort_core (nds := nds)
     (k := g.nP + s) (T0 := .sort .zero) hcl hbb hndk hTmR hfv hinf
   rw [hn] at hop hbt hu
   exact ⟨fvs, o, hop, hbt, hu⟩
@@ -201,7 +200,7 @@ theorem classGenRecTy_conclSort_plain (hμ : μ.verifiedChecks = true)
 /-- **Syntactically equal terms are definitionally equal at any positive
 fuel** (the defeq loop's syntactic fast path). -/
 theorem isDefEqCore_self {envK : Env} {F d : Nat} (a : Expr) :
-    ConLeche.isDefEqCore μ false envK (F + 1) d a a = .ok true := by
+    ConLeche.isDefEqCore .verified false envK (F + 1) d a a = .ok true := by
   rw [ConLeche.isDefEqCore_succ]
   simp only [ConLeche.defeqBody, beq_self_eq_true, ite_true]
   rfl
@@ -229,13 +228,13 @@ class's index count, the family's elimination level. -/
 /-- **The run at one recursor**: its class, its generated (stored)
 constant and type run, its stored entry and its rules' run. -/
 theorem genRecRun_at
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {i : Nat} {rc : RecShape} (hrc : p.recs[i]? = some rc) :
     ∃ c cvG rhss, R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
-      Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
+      Nonempty (ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) ∧
       out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
-      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
+      classRulesOk (fueledOps .verified F) .plain (mkFEnv envC)
         (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
         (classRecOf R.rd.recCls R.cvGs) cvG
         c (R.ctors.getD c []) = .ok rhss ∧
@@ -254,7 +253,7 @@ theorem genRecRun_at
 
 /-- The large-elimination guard of the run, read at the plain block. -/
 theorem genRecRun_small
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hL : p.large = true) : ConLeche.blockLargeElimAllowed p.toBlockShape false = true := by
   have h := R.helim
@@ -267,10 +266,10 @@ theorem genRecRun_small
 prefix is the shared prefix's length, and the stored type (the generated
 one, `classConstOk`) is a telescope over the shared prefix. -/
 theorem genRecTy_shape
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) {c : Nat} {rc : RecShape} {cvG : ConstantVal}
-    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) :
+    (T : ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) :
     rc.rP = R.pre.length ∧ ∃ Y B, cvG.type = closeTelescope (R.pre ++ Y) 0 B := by
   have htype : cvG.type = T.gty := T.type_eq
   have hpl : R.pre.length = p.nP + R.rd.slots.length :=
@@ -286,16 +285,16 @@ with the generated type under the record's name and level parameters
 (`ClassRecTyRun.hcvG`), checked as generated (`classConstOk`); it opens
 `mI + 1` binders, its conclusion is sorted at the family's elimination
 level, and it is a telescope over the shared prefix. -/
-theorem genRecTy_run (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRecTy_run
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape}
     {cvG : ConstantVal}
     (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
-    (T : ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) :
+    (T : ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) :
     rc.rP = R.pre.length ∧
     (∃ Y B, cvG.type = closeTelescope (R.pre ++ Y) 0 B) ∧
-    Nonempty (RecTyGen μ F envC p.toBlockShape false i rc cvG (R.Ms.getD c default).nIdx
+    Nonempty (RecTyGen .verified F envC p.toBlockShape false i rc cvG (R.Ms.getD c default).nIdx
       (structElimLevel p.elim p.large)) := by
   have hcv := ConLeche.classConstOk_checked T.hcv
   obtain ⟨-, -, -, -, hfv0, -, -, stype, u0, hinf, -⟩ := ConLeche.classConstOk_inv T.hcv
@@ -305,7 +304,7 @@ theorem genRecTy_run (hμ : μ.verifiedChecks = true)
   have hpl : R.pre.length = p.nP + R.rd.slots.length :=
     (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
   obtain ⟨s, hm⟩ := ConLeche.classRead_recCls_motive R.hrd c (List.mem_of_getElem? hc)
-  obtain ⟨fvs, o, hop, hbt, hu⟩ := classGenRecTy_conclSort_plain hμ hg hm T.hgty hfv0 hinf
+  obtain ⟨fvs, o, hop, hbt, hu⟩ := classGenRecTy_conclSort_plain hg hm T.hgty hfv0 hinf
   obtain ⟨-, hM, hR⟩ := ConLeche.recShape_at (q := p.toBlockShape) hrc
   have hrP : rc.rP = R.pre.length := by rw [T.hrP, hpl]; rfl
   have hmI : rc.mI = R.pre.length + (R.Ms.getD c default).nIdx := by rw [T.hmI, hrP]; rfl
@@ -338,7 +337,7 @@ record's name and level parameters, the elimination level
 `structElimLevel p.elim p.large` throughout, the rule prefix shared
 syntactically, every rule the generated one, stored as generated.
 
-* `hμ`: the verified modes — the conclusion's sort is read off the
+* the verified mode (the whole tier): the conclusion's sort is read off the
   inference of the generated type through its ∀ clauses
   (`inferTypeCore_openPis_body`);
 * `hg`: the generator's inputs scoped (`ClassGenScoped`: canonical
@@ -347,11 +346,11 @@ syntactically, every rule the generated one, stored as generated.
   motives, the stored prefix the generator's own) — what the ported
   generator lemmas take throughout (`classGenRecTy_spec`, the prefix's
   motive entry), a fact of the run's earlier binds (`genScoped_of_run`). -/
-theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem recStage_of_gen
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g) :
-    RecStageG μ F envC p cvTas (tgtRs out) := by
+    RecStageG .verified F envC p cvTas (tgtRs out) := by
   have hcvGs := R.hcvGs
   have hrules := R.hrules
   obtain ⟨hlenG, hallG⟩ := ConLeche.classRecTysOk_run hcvGs
@@ -372,9 +371,9 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
   -- the run at a stored index
   have hat : ∀ i, i < p.recs.length → ∃ rc c cvG rhss, p.recs[i]? = some rc ∧
       R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
-      Nonempty (ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc c cvG) ∧
+      Nonempty (ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) ∧
       out[i]? = some (cvG, R.Ms.getD c default, rhss) ∧
-      classRulesOk (fueledOps μ F) .plain (mkFEnv envC)
+      classRulesOk (fueledOps .verified F) .plain (mkFEnv envC)
         (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)) R.g
         (classRecOf R.rd.recCls R.cvGs) cvG
         c (R.ctors.getD c []) = .ok rhss ∧
@@ -419,7 +418,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     obtain ⟨rc, c, cvG, rhss, hrc, hc, hG, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
     rw [List.getElem?_map, hcu] at hcv
     obtain rfl : cvG = cv := Option.some.inj hcv
-    obtain ⟨hrP, hY, -⟩ := genRecTy_run hμ R hg hrc hc T
+    obtain ⟨hrP, hY, -⟩ := genRecTy_run R hg hrc hc T
     exact ⟨rc, hrc, hrP, hY⟩
   have hself : ∀ (Y : List Expr) (B : Expr),
       SameDoms R.pre.length (closeTelescope (R.pre ++ Y) 0 B)
@@ -472,7 +471,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
   · -- stage (b) at every recursor
     intro i hi
     obtain ⟨rc, c, cvG, rhss, hrc, hc, -, ⟨T⟩, -, -, hcu, -⟩ := hat i hi
-    obtain ⟨-, -, E⟩ := genRecTy_run hμ R hg hrc hc T
+    obtain ⟨-, -, E⟩ := genRecTy_run R hg hrc hc T
     rw [hEl] at E
     exact ⟨rc, cvG, _, _, hrc, hcu, E⟩
   · -- one stored rule per constructor
@@ -502,7 +501,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     rw [ht] at hr
     obtain rfl := Option.some.inj hr
     simp only at hrhs
-    obtain ⟨-, -, ⟨E⟩⟩ := genRecTy_run hμ R hg hrc hc T
+    obtain ⟨-, -, ⟨E⟩⟩ := genRecTy_run R hg hrc hc T
     obtain ⟨hl, hall⟩ := ConLeche.classRulesOk_run hrl
     have hiX : i < (R.ctors.getD cc []).length := by
       rw [← hl]; exact (List.getElem?_eq_some_iff.mp hrhs).1
@@ -511,7 +510,7 @@ theorem recStage_of_gen (hμ : μ.verifiedChecks = true)
     have hout := Q.hout
     subst hout
     have hres := Q.hres
-    obtain ⟨tyR, htyR⟩ : ∃ t, (fueledOps μ F).inferType
+    obtain ⟨tyR, htyR⟩ : ∃ t, (fueledOps .verified F).inferType
         (classFeR p.toBlockShape R.Ms R.cvGs R.rd.recCls (mkFEnv envC)).env 0 rhs' = .ok t :=
       ⟨_, Q.htyR⟩
     rw [hfeR] at hres

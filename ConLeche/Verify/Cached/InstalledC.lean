@@ -152,15 +152,15 @@ simulation is stated about.  A theorem's value arrives unchecked and
 its guards run here (`installValueGuardsC` at the view, `installValueGuardsC_congr`), so
 the well-scopedness premise on the value is asked only of the other two
 kinds. -/
-theorem checkPending_spec (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+theorem checkPending_spec {env : Env} (henv : EnvWF env)
     {feFinal : FEnv} {pc : PendingCheck}
     (hfind : ∀ n, (feFinal.restrictTo pc.vis).find? n = env.find? n)
     (htab : ∀ T, (feFinal.restrictTo pc.vis).findTable? T = env.findTable? T)
     (hwty : Expr.WScoped 0 pc.vg.cv.type)
     (hwv : pc.vg.kind ≠ .thm → Expr.WScoped 0 pc.vg.jv)
     {s₀ : CState} (hres : CSOKF s₀) :
-    ⦃fun s => s = s₀⦄ checkPending μ feFinal pc
-    ⦃fun v s' => CSOK μ false env s' ∧ Runs (checkValueGroup (fueledOpsM μ) env pc.vg) v; ⊤⦄ := by
+    ⦃fun s => s = s₀⦄ checkPending .verified feFinal pc
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkValueGroup (fueledOpsM .verified) env pc.vg) v; ⊤⦄ := by
   have hfe : (feFinal.restrictTo pc.vis).find? = (mkFEnv env).find? :=
     funext fun n => (hfind n).trans (mkFEnv_find? env n).symm
   have htb : (feFinal.restrictTo pc.vis).findTable? = (mkFEnv env).findTable? :=
@@ -171,22 +171,22 @@ theorem checkPending_spec (hμ : μ.verifiedChecks = true) {env : Env} (henv : E
     installValueGuardsC_congr hfe]
   clear hfind hfe htab htb
   sym only [conleche_grind, checkValueGroup.eq_1] =>
-    vcgen [flushC_spec (μ := μ) (env := env) hres, inferK_spec hμ henv, opSIxC_spec hμ henv,
-      liftFueled_spec (mode := μ) (eager := false) (env := env), installValueGuardsC_spec (μ := μ),
-      defeqK_spec hμ henv] <;> finish
+    vcgen [flushC_spec (μ := .verified) (env := env) hres, inferK_spec henv, opSIxC_spec henv,
+      liftFueled_spec (mode := .verified) (eager := false) (env := env), installValueGuardsC_spec (μ := .verified),
+      defeqK_spec henv] <;> finish
 
 /-- `checkPending_spec` on a run, at a fuel. -/
-theorem checkPending_run (hμ : μ.verifiedChecks = true) {env : Env} (henv : EnvWF env)
+theorem checkPending_run {env : Env} (henv : EnvWF env)
     {feFinal : FEnv} {pc : PendingCheck}
     (hfind : ∀ n, (feFinal.restrictTo pc.vis).find? n = env.find? n)
     (htab : ∀ T, (feFinal.restrictTo pc.vis).findTable? T = env.findTable? T)
     (hwty : Expr.WScoped 0 pc.vg.cv.type)
     (hwv : pc.vg.kind ≠ .thm → Expr.WScoped 0 pc.vg.jv)
     {s₀ s' : CState} (hres : CSOKF s₀)
-    (h : checkPending μ feFinal pc s₀ = .ok ((), s')) :
-    CSOKF s' ∧ ∃ F, checkValueGroup (fueledOps μ F) env pc.vg = .ok () := by
+    (h : checkPending .verified feFinal pc s₀ = .ok ((), s')) :
+    CSOKF s' ∧ ∃ F, checkValueGroup (fueledOps .verified F) env pc.vg = .ok () := by
   obtain ⟨hs', F, hF⟩ :=
-    triple_iff_run.mp (checkPending_spec hμ henv hfind htab hwty hwv hres) _ _ h
+    triple_iff_run.mp (checkPending_spec henv hfind htab hwty hwv hres) _ _ h
   exact ⟨hs'.residue, F, checkValueGroup_datF env pc.vg F ▸ hF⟩
 
 /-- The lookup at the prefix view of a canonical, name-unique index whose

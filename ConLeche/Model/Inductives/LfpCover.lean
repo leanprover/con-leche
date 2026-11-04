@@ -19,7 +19,7 @@ open ConLeche (Env Name ConstantInfo NestCtx)
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : ConLeche.CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-- **`ContCover` from coverage** — how coverage discharges `ContSem`'s
 premise at a block's positivity walk: the walk's context reads the environment
@@ -27,7 +27,7 @@ premise at a block's positivity walk: the walk's context reads the environment
 exemption list, and coverage carries each recorded block's constructor
 ownership (`LfpOwn`), which `nestContainer` at the walk's
 context reads as at the environment's (`nestContainer_ctx`). -/
-theorem contCover_of {env : Env} {mp : EnvModelM V μ env} {ctx : NestCtx}
+theorem contCover_of {env : Env} {mp : EnvModelM V env} {ctx : NestCtx}
     (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n) :
     ContCover mp ctx where
   find := hfind

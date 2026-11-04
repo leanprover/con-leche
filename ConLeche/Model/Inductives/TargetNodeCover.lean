@@ -35,7 +35,7 @@ open ConLeche (CheckMode Env Expr Name Level NestCtx PosTree TargetMajor Constan
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 /-! ## The node facts a `PosNodeOk` node carries -/
 
@@ -43,7 +43,7 @@ variable {V : Type w} [SetTheory V] {μ : CheckMode}
 the frame's head is a covered container (not a member, not `Quot`,
 stored), its block's names are `nestBlockOf` of the head, and the rest of
 the group lies there. -/
-theorem posNodeOk_blk {env : Env} {mk : EnvModelM V μ env} {ctx : NestCtx}
+theorem posNodeOk_blk {env : Env} {mk : EnvModelM V env} {ctx : NestCtx}
     {ops : ConLeche.CheckerOps ConLeche.CheckM} (hcov : ContCover mk ctx) {t : PosTree}
     (hok : PosNodeOk ops env ctx t) :
     ∀ n ∈ t.grp.map (·.1), ∃ D ∈ mk.lfpBlocks, t.key.cname ∈ D.names ∧ n ∈ D.names := by
@@ -96,7 +96,7 @@ theorem exists_member_of_mem_names {D : LfpDatum V} (hkN : D.names.length = D.k)
 environment**: every member is stored there as at `envI` (the
 constructors' conses add constructors only), all at one level-parameter
 list (`contBlock_facts`). -/
-theorem blk_lps_envC {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+theorem blk_lps_envC {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
     {ctx : NestCtx} (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     {nP : Nat} {ctorsAs : List (List (ConstantVal × Nat))}
     (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI) {D : LfpDatum V}
@@ -121,7 +121,7 @@ theorem blk_lps_envC {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvMode
 
 /-- **A node's group shares the container's level parameters** at the
 constructors' environment (`NodeListFacts.lps`). -/
-theorem posNodeOk_lps {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvModelM V μ envC}
+theorem posNodeOk_lps {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
     {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM} (hcov : ContCover mk ctx)
     (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}
     {ctorsAs : List (List (ConstantVal × Nat))}
@@ -144,7 +144,7 @@ theorem posNodeOk_lps {envI envC : Env} {mk : EnvModelM V μ envI} {mpC : EnvMod
 
 /-- **The block's own holes are read**: a member hole's read-back is the
 member at the block's levels applied to the canonical parameters. -/
-theorem nodeHolesRead_nil {envC : Env} {mpC : EnvModelM V μ envC} {ctx : NestCtx}
+theorem nodeHolesRead_nil {envC : Env} {mpC : EnvModelM V envC} {ctx : NestCtx}
     (hparF : ctx.params.length = ctx.nP ∧ ∀ (i : Nat) (x : Expr), ctx.params[i]? = some x →
       ∃ ty, x = .fvar i ty)
     (hparS : ∀ x ∈ ctx.params, ConLeche.ScB ctx.nP x)
@@ -202,7 +202,7 @@ theorem denoteSpine_lower {acval : Name → (Name → Nat) → Term} {env : Env}
 read-back is its container applied to the key read back, which reads where
 the key does (`readback_spine`, at the node's own stack, of which the
 frames' `anc` is a suffix). -/
-theorem nodeHolesRead_grp' {envI envC : Env} {mpC : EnvModelM V μ envC} {ctx : NestCtx}
+theorem nodeHolesRead_grp' {envI envC : Env} {mpC : EnvModelM V envC} {ctx : NestCtx}
     {ops : ConLeche.CheckerOps ConLeche.CheckM} {u : PosTree} (hok : PosNodeOk ops envI ctx u)
     (hrdA : NodeHolesRead mpC.base2.acval envC ctx u.anc)
     (hsp : ∀ ψ : Name → Nat, ∃ dsa, DenoteSpine mpC.base2.acval envC ψ
@@ -263,7 +263,7 @@ theorem nodeHolesRead_grp' {envI envC : Env} {mpC : EnvModelM V μ envC} {ctx : 
 along the parents, each node's stack is its parent's group on top of the
 parent's frames (`nodeHolesRead_grp'`), the block's own holes at the bottom
 (`nodeHolesRead_nil`). -/
-theorem nodeHolesRead_of {envI envC : Env} {mpC : EnvModelM V μ envC} {ctx : NestCtx}
+theorem nodeHolesRead_of {envI envC : Env} {mpC : EnvModelM V envC} {ctx : NestCtx}
     {ops : ConLeche.CheckerOps ConLeche.CheckM} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk ops envI ctx t)
     (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)
@@ -313,8 +313,8 @@ theorem nodeHolesRead_of {envI envC : Env} {mpC : EnvModelM V μ envC} {ctx : Ne
 /-- **A frame's group is stored at the frame's levels**: a group member is
 a member of the container's block, installed in `envC`, whose level count
 `nestInstType` checked against the key's (official's `infer_constant`). -/
-theorem grp_find_of {envI envC : Env} {mk : EnvModelM V μ envI}
-    {mpC : EnvModelM V μ envC} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM}
+theorem grp_find_of {envI envC : Env} {mk : EnvModelM V envI}
+    {mpC : EnvModelM V envC} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM}
     (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}
     {ctorsAs : List (List (ConstantVal × Nat))}
     (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI)
@@ -344,11 +344,11 @@ parameters (`posNodeOk_lps`), the stack's hole constants
 theorem nodeListFacts_of {F : Nat}
     {envC envI : Env} {pp : ConLeche.BlockParts} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
-    {mpC : EnvModelM V μ envC}
+    {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : RecCtxBase V μ F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)

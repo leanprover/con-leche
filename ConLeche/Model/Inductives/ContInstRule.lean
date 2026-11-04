@@ -33,7 +33,7 @@ variable {V : Type w} [SetTheory V] {env : Env} {φ : Name → Nat}
 
 section Inst
 
-variable {μ : ConLeche.CheckMode} (mp : EnvModelM V μ env) {D : LfpDatum V}
+variable (mp : EnvModelM V env) {D : LfpDatum V}
   (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {lps : List Name}
   (hlps : ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
       cv.levelParams = lps)

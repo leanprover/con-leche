@@ -34,7 +34,7 @@ open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockPart
 
 universe w
 
-variable {V : Type w} [SetTheory V] {μ : CheckMode}
+variable {V : Type w} [SetTheory V]
 
 section Run
 
@@ -45,7 +45,7 @@ variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos 
 
 /-- The pre-pass reads one class per recursor. -/
 theorem genRun_recCls_length
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) :
     R.rd.recCls.length = p.recs.length := by
   have hrd := R.hrd
@@ -63,7 +63,7 @@ theorem genRun_recCls_length
 /-- The stored family has one entry per recursor, as do the generated
 constants. -/
 theorem genRun_lengths
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) :
     out.length = p.recs.length ∧ R.cvGs.length = p.recs.length := by
   obtain ⟨hlenG, -⟩ := ConLeche.classRecTysOk_run R.hcvGs
@@ -77,11 +77,11 @@ theorem genRun_lengths
 /-- **The run at a stored recursor**, by its position in the stored
 family. -/
 theorem genRun_at
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {c : Nat} (hc : c < (tgtRs out).length) :
     ∃ rc cls cvG rhss, p.recs[c]? = some rc ∧ R.rd.recCls[c]? = some cls ∧
-      R.cvGs[c]? = some cvG ∧ Nonempty (ConLeche.ClassRecTyRun μ F (mkFEnv envC) R.g p.k rc cls cvG) ∧
+      R.cvGs[c]? = some cvG ∧ Nonempty (ConLeche.ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc cls cvG) ∧
       out[c]? = some (cvG, R.Ms.getD cls default, rhss) ∧
       tgtMajor out c = R.Ms.getD cls default ∧ genClsOf R.rd c = cls := by
   have hco : c < p.recs.length := by
@@ -94,30 +94,30 @@ theorem genRun_at
 
 /-- **`GenPreHyps.gpre`**: the shared prefix is every recursor's rule
 prefix. -/
-theorem genRun_gpre (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_gpre
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) :
     ∀ c, c < (tgtRs out).length → R.g.pre.length
       = (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).length := by
   intro c hc
   obtain ⟨rc, cls, cvG, rhss, hrc, hcls, -, ⟨T⟩, -, -, -⟩ := genRun_at R hc
-  rw [blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc) ψ]
+  rw [blockRulePdomsAV_length mpC h (List.getElem?_eq_getElem hc) ψ]
   have hrP := (genRecTy_shape R hg T).1
   show R.pre.length = (p.recs.getD c default).rP
   rw [List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
 
 /-- The prefix is the parameters and the slots. -/
 theorem genRun_pre_length
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) :
     R.pre.length = p.nP + R.rd.slots.length :=
   (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
 
 /-- A recursor's class has a motive slot. -/
 theorem genRun_motive
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {c : Nat} (hc : c < (tgtRs out).length) :
     ∃ s, ConLeche.ClassRead.motiveSlot ⟨R.rd.slots, []⟩ (genClsOf R.rd c) = some s ∧
@@ -128,16 +128,16 @@ theorem genRun_motive
   exact ⟨s, hs, ConLeche.ClassRead.motiveSlot_lt hs⟩
 
 /-- **`GenPreHyps.mot`**: a recursor's motive sits in its rule prefix. -/
-theorem genRun_mot (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_mot
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC) :
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC) :
     ∀ c, c < (tgtRs out).length →
       classMotPos R.g (genClsOf R.rd c) < p.toBlockShape.rulePrefixAt c := by
   intro c hc
   obtain ⟨s, hs, hsl⟩ := genRun_motive R hc
-  have hg' := genRun_gpre hμ R hg h mpC (fun _ => 0) c hc
-  rw [blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc)] at hg'
+  have hg' := genRun_gpre R hg h mpC (fun _ => 0) c hc
+  rw [blockRulePdomsAV_length mpC h (List.getElem?_eq_getElem hc)] at hg'
   rw [← hg']
   show R.g.nP + (ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ (genClsOf R.rd c)).getD 0 < _
   have hpl := genRun_pre_length R hg
@@ -148,16 +148,16 @@ theorem genRun_mot (hμ : μ.verifiedChecks = true)
   omega
 
 /-- **`GenPreHyps.min`**: a minor premise's slot sits in the rule prefix. -/
-theorem genRun_min (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_min
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC) :
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       R.g.nP + genMinorSlot R.g R.rd c j < p.toBlockShape.rulePrefixAt c := by
   intro c hc j _
   obtain ⟨s, -, hsl⟩ := genRun_motive R hc
-  have hg' := genRun_gpre hμ R hg h mpC (fun _ => 0) c hc
-  rw [blockRulePdomsAV_length hμ mpC h (List.getElem?_eq_getElem hc)] at hg'
+  have hg' := genRun_gpre R hg h mpC (fun _ => 0) c hc
+  rw [blockRulePdomsAV_length mpC h (List.getElem?_eq_getElem hc)] at hg'
   rw [← hg']
   have hpl := genRun_pre_length R hg
   have hlt : genMinorSlot R.g R.rd c j < R.rd.slots.length := by
@@ -174,7 +174,7 @@ theorem genRun_min (hμ : μ.verifiedChecks = true)
 /-- **`GenPreHyps.cal`**: every generated `ih` calls a recursor of the
 family (the first recursor at its class, `genRecIdx`). -/
 theorem genRun_cal
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (acval : Name → (Name → Nat) → Term) (env : Env)
     (ψ : Name → Nat) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -196,11 +196,11 @@ theorem genRun_cal
 /-- **A class of the run**, checked as a major (`ClassMajorRun`), with its
 table entries. -/
 theorem genRun_class
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {i : Nat} (hi : i < R.Ms.length) :
     ∃ key M₀ nfs, R.Ms[i]? = some { M₀ with nfs := nfs } ∧ R.Ms₀[i]? = some M₀ ∧
-      Nonempty (ConLeche.ClassMajorRun μ F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params key M₀) := by
+      Nonempty (ConLeche.ClassMajorRun .verified F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params key M₀) := by
   obtain ⟨hlN, hallN⟩ := ConLeche.classesNfs_run R.hMs
   obtain ⟨hlM, hallM⟩ := R.majors
   have hi0 : i < R.Ms₀.length := by omega
@@ -212,7 +212,7 @@ theorem genRun_class
 /-- **A member class**: the block's member `t`, its index count the
 member's. -/
 theorem genRun_member
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {cls t : Nat} (hm : (R.Ms.getD cls default).member = some t) :
     ∃ ms, p.members[t]? = some ms ∧ (R.Ms.getD cls default).nIdx = ms.nIdx ∧
@@ -239,7 +239,7 @@ variable {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : N
 
 /-- The member recursor's record names its class's member. -/
 theorem genRun_recTgt
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {c t : Nat} (hc : c < (tgtRs out).length) (hm : (tgtMajor out c).member = some t) :
     p.toBlockShape.recTgtAt c = t := by
@@ -252,7 +252,7 @@ theorem genRun_recTgt
 
 /-- **`GenPreHyps.nIdx`**: a class's index count is the stored one. -/
 theorem genRun_nIdx
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List Term}
@@ -273,8 +273,8 @@ theorem genRun_nIdx
     simp [ConLeche.BlockShape.nIdxs, List.getD_eq_getElem?_getD, hms]
 
 /-- **`GenPreHyps.mN`**: a class's component is below its clause's width. -/
-theorem genRun_mN (mpC : EnvModelM V μ envC)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_mN (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List Term}
@@ -302,7 +302,7 @@ theorem genRun_mN (mpC : EnvModelM V μ envC)
     omega
 
 /-- **`GenPreHyps.din`**: every class's clause is recorded. -/
-theorem genRun_din (mpC : EnvModelM V μ envC) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
+theorem genRun_din (mpC : EnvModelM V envC) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c)) :
     ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks := by
@@ -324,14 +324,14 @@ and constructor `j`, the class's constructor `cA`, the generator's
 constructor `x` (`genCtorAt`), its run (`ClassCtorRun`), the declared
 type at the class (`tgtCrest`) is `x.tyD`, and it opens at the rule
 prefix to the rule's field openers (the rule was generated). -/
-theorem genRun_frame (_hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_frame
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
     ∃ (cls : Nat) (cA : ConstantVal × Nat) (fvs : List Expr) (cb : Expr),
       genClsOf R.rd c = cls ∧ tgtMajor out c = R.Ms.getD cls default ∧
       (tgtMajor out c).ctors[j]? = some cA ∧ tgtCtorOf out c j = cA ∧
-      Nonempty (ConLeche.ClassCtorRun μ F envC p.toBlockShape (cvTas.map (·.type)) R.rd R.Ms cls cA
+      Nonempty (ConLeche.ClassCtorRun .verified F envC p.toBlockShape (cvTas.map (·.type)) R.rd R.Ms cls cA
         (genCtorAt R.g R.rd c j)) ∧
       (genCtorAt R.g R.rd c j).nF = cA.2 ∧
       tgtCrest out c j = (genCtorAt R.g R.rd c j).tyD ∧
@@ -392,14 +392,14 @@ theorem genRun_frame (_hμ : μ.verifiedChecks = true)
 
 /-- **`GenPreHyps.nF`**: the generator's constructor has the declared
 field count. -/
-theorem genRun_nF (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_nF
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g) (acval : Name → (Name → Nat) → Term)
     (ψ : Name → Nat) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       (genCtorAt R.g R.rd c j).nF = (tgtFdomsAV p.toBlockShape out acval envC ψ c j).length := by
   intro c hc j hj
-  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -, -, -⟩ := genRun_frame hμ R hg hc hj
+  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -, -, -⟩ := genRun_frame R hg hc hj
   rw [hnF, tgtFdomsAV, readOpenedDoms_length_eq, hfv, ConLeche.Verify.openPisAtFvars_length _ hop]
 
 /-- A reading of a scoped term (or the default reading, where the
@@ -430,10 +430,10 @@ theorem readOpenedDoms_below {env : Env} (m : EnvModel V env) {φ : Name → Nat
 set_option maxHeartbeats 800000 in
 /-- **`GenPreHyps.below`**: the generated `ih` data (read raw) are bounded
 at the rule frame's depth. -/
-theorem genRun_below (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_below
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ q ∈ genIhdAV mpC.base2.acval envC R.g R.rd ψ c j,
@@ -441,8 +441,8 @@ theorem genRun_below (hμ : μ.verifiedChecks = true)
           + (tgtFdomsAV p.toBlockShape out mpC.base2.acval envC ψ c j).length) q := by
   intro c hc j hj q hq
   obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, -, -, ⟨ws, hws⟩, hxmem⟩ :=
-    genRun_frame hμ R hg hc hj
-  rw [genRun_gpre hμ R hg h mpC ψ c hc |>.symm, ← genRun_nF hμ R hg mpC.base2.acval ψ c hc j hj]
+    genRun_frame R hg hc hj
+  rw [genRun_gpre R hg h mpC ψ c hc |>.symm, ← genRun_nF R hg mpC.base2.acval ψ c hc j hj]
   generalize hx : genCtorAt R.g R.rd c j = x at hnF hop hws hxmem
   have hpl := genRun_pre_length R hg
   obtain ⟨s, -, hsl⟩ := genRun_motive R hc
@@ -505,18 +505,18 @@ theorem genRun_below (hμ : μ.verifiedChecks = true)
 
 /-- **The declared field domains are bounded** at the rule frame (read
 off the scoped declared type). -/
-theorem genRun_fdomsBelow (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_fdomsBelow
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       DomsBelow (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).length
         (tgtFdomsAV p.toBlockShape out mpC.base2.acval envC ψ c j) := by
   intro c hc j hj
   obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, -, -, hRP, hop, hfv, -, -, hxmem⟩ :=
-    genRun_frame hμ R hg hc hj
-  rw [← genRun_gpre hμ R hg h mpC ψ c hc, tgtFdomsAV, hRP, hfv]
+    genRun_frame R hg hc hj
+  rw [← genRun_gpre R hg h mpC ψ c hc, tgtFdomsAV, hRP, hfv]
   obtain ⟨s, -, hsl⟩ := genRun_motive R hc
   have hpl := genRun_pre_length R hg
   have htyD : ConLeche.ScB R.pre.length (genCtorAt R.g R.rd c j).tyD :=
@@ -532,15 +532,15 @@ theorem genRun_fdomsBelow (hμ : μ.verifiedChecks = true)
 /-- **The stored type of recursor `c`**: the generated type of its class,
 stored as generated (`classConstOk`); its reading and its peel at the
 major index. -/
-theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_storedTy
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) {c : Nat} (hc : c < (tgtRs out).length) :
     ∃ (cls : Nat) (gty : Expr) (S : Expr),
       genClsOf R.rd c = cls ∧ tgtMajor out c = R.g.cls.getD cls default ∧
       ConLeche.classGenRecTy R.g cls = some gty ∧
-      ConLeche.inferTypeCore μ false envC F 0 gty = .ok S ∧
+      ConLeche.inferTypeCore .verified false envC F 0 gty = .ok S ∧
       denote mpC.base2.acval envC ψ 0 gty
         = some (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∧
       p.toBlockShape.majorIdxAt c + 1 = R.g.pre.length + (R.g.cls.getD cls default).nIdx + 1 ∧
@@ -557,7 +557,7 @@ theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
   have htype : cvG.type = T.gty := T.type_eq
   rw [T.hcvG] at hinf
   dsimp only at hinf
-  obtain ⟨-, -, -, hta, hTyE, hlenRds, -, -, -⟩ := recStage_tyPis (V := V) hμ mpC h hr ψ
+  obtain ⟨-, -, -, hta, hTyE, hlenRds, -, -, -⟩ := recStage_tyPis (V := V) mpC h hr ψ
   replace hta : denote mpC.base2.acval envC ψ 0 T.gty
       = some (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) := by rw [← htype]; exact hta
   have hrP := (genRecTy_shape R hg T).1
@@ -574,10 +574,10 @@ theorem genRun_storedTy (hμ : μ.verifiedChecks = true)
 spine of the prefix, an index spine and a major, is the class's motive
 variable applied to the index spine and the major (`classGenRecTy_concl`
 at the stored type). -/
-theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_conclMot
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out)) (mpC : EnvModelM V μ envC)
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ (xs zs : List V) (x : V),
       xs.length = p.toBlockShape.rulePrefixAt c → zs.length = (tgtMajor out c).nIdx →
@@ -586,7 +586,7 @@ theorem genRun_conclMot (hμ : μ.verifiedChecks = true)
         = (zs ++ [x]).foldl SetTheory.app (xs.getD (classMotPos R.g (genClsOf R.rd c)) pt) := by
   intro c hc xs zs x hxl hzl
   obtain ⟨cls, gty, S, hgc, hM, hgty, -, hread, -, hRP, hst⟩ :=
-    genRun_storedTy hμ R hg h mpC ψ hc
+    genRun_storedTy R hg h mpC ψ hc
   obtain ⟨-, cls', -, -, -, hcls, -, -, -, -, hgc'⟩ := genRun_at R hc
   have hcc : cls' = cls := hgc'.symm.trans hgc
   rw [hcc] at hcls
@@ -633,7 +633,7 @@ theorem motiveSlot_lt_classesR : ∀ (slots : List ConLeche.ClassSlot) (rc : Lis
 
 /-- A recursor's class is one of the run's classes. -/
 theorem genRun_cls_lt
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {c : Nat} (hc : c < (tgtRs out).length) : genClsOf R.rd c < R.Ms.length := by
   obtain ⟨-, cls, -, -, -, hcls, -, -, -, -, hgc⟩ := genRun_at R hc
@@ -646,8 +646,8 @@ theorem genRun_cls_lt
 /-- **An outside class's sort is the block's** at every level assignment
 (`TargetMajorRun.outside`'s `isEquiv sI resSort`, read through the
 recorded former). -/
-theorem genRun_outW (mpC : EnvModelM V μ envC)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_outW (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
@@ -692,15 +692,15 @@ class of sort zero is the block's one member (the elimination guard,
 `blockLargeElim_counting`: an outside class would force a never-zero sort,
 `genRun_outW`), with at most one constructor of the declared large shape,
 whose fields are a function of the index (`blockStoredFit_srcVals_zero`). -/
-theorem genRun_lic (mpC : EnvModelM V μ envC)
-    (R : GenRecRun μ F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+theorem genRun_lic (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
       block ctorsAs out)
-    (h : ConLeche.RecStageG μ F envC p cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out))
     {isRec : Bool} {A : Nat → (Name → Nat) → Term} {envI : Env}
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List Term}
     (hN : BlockNamesOk (V := V) (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
-    (hS : BlockCtorsStage (V := V) μ F (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
+    (hS : BlockCtorsStage (V := V) F (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
       p.lps cvTas p.toBlockShape isRec A envI p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf)
       p.lps cvTas p.toBlockShape isRec A (blockDataOf V p.toBlockShape ctorsAs pk uOfD ppsOf).k)
@@ -833,7 +833,7 @@ variable {F : Nat} {envI envC : Env} {pp : BlockParts} {nestedBit : Bool} {posR 
   {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
-  {mpC : EnvModelM V μ envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
+  {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal}
 
 variable (pp out mpC d Dc mc cvc) in
@@ -881,16 +881,16 @@ structure GenPreSem (g : ClassGen) (rd : ClassRead) (ψ : Name → Nat) (ρ : Na
 the `ih` data's bounds, the field counts, the index counts, the classes'
 clauses and components, the stored conclusion, and the elimination
 guard (`genRun_lic`). -/
-theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
+theorem genPreHyps_of_run
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List Term}
     (hd : d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
     {isRec : Bool} {A : Nat → (Name → Nat) → Term} {envI' : Env}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
+    (hS : BlockCtorsStage (V := V) F d pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
@@ -908,14 +908,14 @@ theorem genPreHyps_of_run (hμ : μ.verifiedChecks = true)
   lic := by
     subst hd
     exact genRun_lic mpC R h hN hS hcore hnames hcls ψ ρ
-  gpre := genRun_gpre hμ R hg h mpC ψ
-  nF := genRun_nF hμ R hg mpC.base2.acval ψ
-  mot := genRun_mot hμ R hg h mpC
-  min := genRun_min hμ R hg h mpC
+  gpre := genRun_gpre R hg h mpC ψ
+  nF := genRun_nF R hg mpC.base2.acval ψ
+  mot := genRun_mot R hg h mpC
+  min := genRun_min R hg h mpC
   cal := genRun_cal R mpC.base2.acval envC ψ
-  below := genRun_below hμ R hg h mpC ψ
+  below := genRun_below R hg h mpC ψ
   callTy := S.callTy
-  conclMot := genRun_conclMot hμ R hg h mpC ψ ρ
+  conclMot := genRun_conclMot R hg h mpC ψ ρ
   minor := S.minor
   ind := S.ind
 
@@ -929,10 +929,10 @@ premise's typing at the rule frame, the class induction), the rule
 frame's grading (`hframe`), the declared index expressions' and
 constructor application's grading (`hargs`), and the generated `ih`
 terms' and residue's grading at typed tuples (`hrhs`). -/
-theorem genRecPre_run (hμ : μ.verifiedChecks = true)
-    (R : GenRecRun μ F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
+theorem genRecPre_run
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit posR cvTas
       block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG μ F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {s : (Name → Nat) → Nat}
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →
       interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∈ˢ univ (s ψ) ∧
@@ -942,7 +942,7 @@ theorem genRecPre_run (hμ : μ.verifiedChecks = true)
     (hd : d = blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) (hlfp : d.toLfp ∈ mpC.lfpBlocks)
     {isRec : Bool} {A : Nat → (Name → Nat) → Term} {envI' : Env}
     (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) μ F d pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
+    (hS : BlockCtorsStage (V := V) F d pp.lps cvTas pp.toBlockShape isRec A envI' pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp.toBlockShape isRec A d.k)
     (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
@@ -985,10 +985,10 @@ theorem genRecPre_run (hμ : μ.verifiedChecks = true)
           (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun _ => genRbAV R.g R.rd) ψ)
         ρ :=
-  genRecPre hμ h hTy
-    (fun ψ ρ rs hl ht => genRecEqs_wd hμ h ψ ρ (hsem ψ ρ).back (hsem ψ ρ).dec
-      (genRun_fdomsBelow hμ R hg h mpC ψ) (hframe ψ) (hargs ψ ρ) (hrhs ψ ρ) rs hl ht)
-    (fun ψ ρ => genPreHyps_of_run hμ R hg h hd hlfp hN hS hcore hnames hcls ψ ρ (hsem ψ ρ))
+  genRecPre h hTy
+    (fun ψ ρ rs hl ht => genRecEqs_wd h ψ ρ (hsem ψ ρ).back (hsem ψ ρ).dec
+      (genRun_fdomsBelow R hg h mpC ψ) (hframe ψ) (hargs ψ ρ) (hrhs ψ ρ) rs hl ht)
+    (fun ψ ρ => genPreHyps_of_run R hg h hd hlfp hN hS hcore hnames hcls ψ ρ (hsem ψ ρ))
 
 end Hyps
 
