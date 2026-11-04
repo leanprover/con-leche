@@ -116,6 +116,33 @@
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
+#   ConLeche/Frontend/ReadRange.lean   extern
+#       `readRangeIO` (task #450) — THE ONE NATIVE FUNCTION the checker
+#       carries: the positional read `pread(2)` of a regular file, in C
+#       (`native/read_range.c`, a few dozen lines), because Lean's file
+#       handles have no positional read (maintainer's ruling: an
+#       `[extern]` for seek/pread is allowed, a memory map is not).  It
+#       is the binary's instance of the IO class's `readRange`
+#       (`ConLeche/Frontend/CheckerIO.lean`), whose model is the slice
+#       of the snapshot's bytes; that the C function returns that slice
+#       is part of the trust assumption the IO class states (the
+#       runtime's own file calls are in it already), and
+#       `tests/ConLecheTests/CheckerIOTests.lean` compares the two on
+#       the committed fixtures, at offsets inside, across and past the
+#       end of each file.
+#
+#   THE BUILD AND NATIVE SURFACE (task #450) — not Lean, so not scanned
+#   for tokens, but trusted all the same: the package's build file
+#   (`lakefile.lean`, Lean code that Lake runs to build the binary,
+#   compiling and linking the C below) and every native source in the
+#   tree (`*.c`, `*.h`, `*.cc`, `*.cpp`, `*.S`, `*.s`; today
+#   `native/read_range.c`, the positional read `readRangeIO`).  Each is
+#   PINNED by its SHA-256 in `NATIVE` below with its reason: a change to
+#   one, and a native source or a `lakefile.*` that is not listed, fails
+#   the gate until a reviewer re-pins it here (the failure prints the new
+#   digest).  The other projects' `lakefile.toml`s (`bridge/`,
+#   `pinners/`) build no part of the binary and are not listed.
+#
 #   ConLeche/Kernel/Exclusive.lean     unsafe, implemented_by
 #       `withExclusive` (tasks #314, #317) — THE ONE
 #       `unsafe`-implemented primitive of the substitution walks.  It
@@ -253,8 +280,8 @@
 #
 #       Run.lean took its escape over from `Main.lean` when the
 #       proof-carrying driver split out of it into `ConLeche/Driver/*`;
-#       `Main.lean` itself is CLI only (argument parsing, I/O, exit
-#       codes) and tolerates no escape.
+#       `Main.lean` itself is the entry point (`mainG`, then the exit)
+#       and tolerates no escape.
 #
 # WHAT IS DELIBERATELY *NOT* ALLOWLISTED, and used to be:
 # `ConLeche/SetTheory/Derive/*`.  Twenty `@[implemented_by …] … unsafeCast
@@ -304,6 +331,7 @@ ALLOW = {
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
+    'ConLeche/Frontend/ReadRange.lean': {'extern'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
@@ -562,6 +590,41 @@ stale = sorted((f, t) for f, ts in ALLOW.items() for t in ts
 for f, t in stale:
     print(f'note: allowlist entry {f} [{t}] has no occurrence left '
           f'(it may be dropped)')
+
+# ---------------------------------- THE BUILD AND NATIVE SURFACE (task #450).
+# Pinned by content: path -> (sha256, reason).  See the header.
+import hashlib
+NATIVE = {
+    'lakefile.lean': ('f5a0416b3ac7ba58cbdeb6074cf14239601386539c99c8f8ec04100c729bf171',
+        'the build: the targets, and the C compile and link of native/'),
+    'native/read_range.c': ('6ffff889161f74962d0633e2b906523bfc85b3d4ef68ab80da4160f3d0d7c821',
+        'readRangeIO, the positional read behind CheckerIO.readRange'),
+}
+NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')
+found = set(f for f in os.listdir('.') if f.startswith('lakefile.'))
+for dp, dirs, fs in os.walk('.'):
+    dirs[:] = [d for d in dirs if d not in ('.lake', '.git', '_tmp')]
+    for f in fs:
+        if f.endswith(NATIVE_EXT):
+            found.add(os.path.relpath(os.path.join(dp, f), '.'))
+nat_bad = []
+for rel in sorted(found | set(NATIVE)):
+    if not os.path.exists(rel):
+        nat_bad.append(f'{rel}: pinned but missing (drop its entry)')
+        continue
+    with open(rel, 'rb') as fh:
+        h = hashlib.sha256(fh.read()).hexdigest()
+    if rel not in NATIVE:
+        nat_bad.append(f'{rel}: not pinned (sha256 {h}); add it to NATIVE with its reason')
+    elif NATIVE[rel][0] != h:
+        nat_bad.append(f'{rel}: changed (sha256 {h}); review it, then re-pin it in NATIVE')
+if nat_bad:
+    print(f'TRUST-SURFACE FAIL - the build and native surface ({len(nat_bad)}):')
+    for b in nat_bad:
+        print(f'    {b}')
+    sys.exit(1)
+print(f'build and native surface: {len(NATIVE)} files pinned '
+      f'({", ".join(sorted(NATIVE))})')
 
 files = len({o[0] for o in occurrences})
 print(f'trust surface: {len(occurrences)} escapes in {files} allowlisted '

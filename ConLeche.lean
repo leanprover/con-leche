@@ -30,6 +30,7 @@ public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.GenRecScoped
 public import ConLeche.Verify.Frontend.Dense
 public import ConLeche.Verify.Frontend.Rounds
+public import ConLeche.Verify.Frontend.ModelIO
 public import ConLeche.Verify.Denote.Lemmas
 public import ConLeche.Verify.Denote.Depth
 public import ConLeche.Verify.Denote.Inst
