@@ -3,12 +3,14 @@ module
 import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
-public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+import ConLeche.Frontend.Prelude
+import ConLeche.Cached.Installed
 import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
+public import ConLeche.Driver.Cli
+import ConLeche.Verify.Driver.Main
 public section
 
 /-!
@@ -16,8 +18,10 @@ public section
 
 What the checker accepts has a model; hence a file that declares a
 theorem of type `False` is rejected — the form a reader can check
-without knowing what an `Env` is.  Those two theorems are all this file
-holds.  The corollary's hypothesis is the file: the chunks the binary
+without knowing what an `Env` is.  Those two theorems, and their
+statements over all of `main` in the IO model (`main_model`,
+`main_no_False`, at the end),
+are all this file holds.  The corollary's hypothesis is the file: the chunks the binary
 read are the UTF-8 of `jsonWithTheoremFalse`'s template, ONE way of
 writing a theorem of type `False` into a JSON export.  Its conclusion
 is the binary's accept path itself, erroring: the three pure functions
@@ -120,5 +124,48 @@ theorem no_False_declaration (V : Type w) [SetTheory V]
   obtain ⟨r, hparse, hcheck⟩ := exceptBind_ok hacc
   obtain ⟨cv, vl, hty, hmem⟩ := Frontend.parseChunks_jsonWithTheoremFalse h hparse
   exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hcheck
+
+/-! ## All of `main`, in the IO model (tasks #424, #450)
+
+`main` (`Main.lean`) is `Driver.mainG` at `IO`, followed by the exit
+with the code `mainG` returned; `mainG` is generic in the IO class
+`CheckerIO`, the code computed outside its `liftIO` escape.  The two
+theorems below are about every outcome of `mainG` in the model
+`ModelIO`, at the fixed arguments `-- <file>`: the default mode, which
+is `.verified`, the default worker count; nothing is said about
+`--help` or the other flags.  They are statements about the binary's
+exit code under the assumption `ConLeche/Frontend/CheckerIO.lean`
+states and argues for: the binary's file operations give the model's
+answers on one snapshot, the actions passed to `CheckerIO.liftIO` do
+not change what those see and do not end the process, and Lean's
+compiler and runtime run the code as written — so that the binary's run is one of the model's outcomes. -/
+
+open Frontend in
+/-- **An accepted file has a model.**  Every outcome of `main` at the
+arguments `-- <file>` that is an exit 0 read the file's bytes `b` off
+the snapshot; they parse as one chunk to records `r`, the fold accepts
+`r`'s declarations prepared with the built-in prelude, and the
+environment it returns has a model in `V`. -/
+theorem main_model (V : Type w) [SetTheory V] {file : String} {fs : FS}
+    (h : (Driver.mainG ["--", file] : ModelIO _) fs (.ok 0)) :
+    ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+      parseChunks [b] = .ok r ∧
+      checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env ∧
+      Nonempty (Model V env) := by
+  obtain ⟨pre, b, r, env, hp, hb, hr, hc⟩ := Driver.mainG_accept h
+  exact ⟨pre, b, r, env, hp, hb, hr, hc, model_exists V _ _ env hc⟩
+
+open Frontend in
+/-- **The main corollary over all of `main`.**  On a snapshot where the
+file's bytes are a `jsonWithTheoremFalse` file, no outcome of `main` at
+the arguments `-- <file>` is an exit 0. -/
+theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+    (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+    ¬ (Driver.mainG ["--", file] : ModelIO _) fs (.ok 0) := by
+  intro h
+  obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.mainG_accept h
+  obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
+  obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
+  simp [hp, hr, hc, bind, Except.bind] at he
 
 end ConLeche

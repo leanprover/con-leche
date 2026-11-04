@@ -10,10 +10,13 @@ import all Init.Util
 /-!
 # The rounds parse driver: owner threads (task #329)
 
-The parse at `--jobs` above one.  `jobs` dedicated OWNER threads; the
-stream is read forward in chunks of whole lines (each read cut at its
-last newline), and the chunks are taken a window at a time, one chunk
-per owner.  The owner of a chunk scans it ONCE into ordinary records
+The owner threads of the parse at `--jobs` above one
+(`RoundsOps`, below).  `jobs` dedicated
+OWNER threads; the stream is read forward in chunks of whole lines
+(each read cut at its last newline), and the chunks are taken a window
+at a time, one chunk per owner, by the IO class's fold over windows
+(`foldWindows`), whose step on a window is `windowStep` here.
+The owner of a chunk scans it ONCE into ordinary records
 (`scanChunk`), kept in its own loop and never handed to another thread,
 and computes the chunk's tables over them in rounds
 (`ConLeche/Frontend/RoundsWork.lean`): round 0 on its own, then its
@@ -46,19 +49,20 @@ an owner without the chunk), whose rounds meet anything unusual (an
 index below its table's counter — a stream that does not bind in
 increasing order — a line the serial parse would fail at, a round
 without progress), or whose records a builder does not yield, is
-handed to the serial parse from the state the windows before it reached
-(`GOK.reached`, the finished tables as a parse state): the window's
-chunks and every chunk read so far by `chunkStep`, the rest of the
-stream by the serial loop (`serialLoop`).  That is the serial verdict,
-at the serial line.  The bytes after the stream's last newline (a final
-line without one) are never a window's: the serial parse applies them
-from the state the last window reached (`serialRest`).
+handed back (`none`) after the owners are stopped; the fold's step
+then applies the window's chunks and every chunk after it by
+`chunkStep`, from the state the windows before it reached
+(`GOK.reached`, the finished tables as a parse state).  That is the
+serial verdict, at the serial line.  The bytes after the stream's last
+newline (a final line without one) are never a window's: the serial
+parse applies them from the state the last window reached (`winFin`).
 
 **Threads, and what crosses them.**  The main thread coordinates: it
 sends every owner its messages (a chunk, round 0, a later round, the
 window's finish) and waits for one promise per owner per step — the
-barrier between rounds.  A reader thread reads the next window's chunks
-while the current one is computed.  What crosses a thread is a chunk's
+barrier between rounds.  The next window's chunks are read on the
+main thread before the current one is computed (`foldWindows`), and
+sent to the owners to scan during its last step.  What crosses a thread is a chunk's
 raw bytes, finished table entries and records, and shallow containers
 of them (round arrays, pages, the window, the finished tables) with
 bookkeeping words (keys, counters).  A scan record never crosses, nor
@@ -88,6 +92,19 @@ skipped: marking an object other threads are counting is not safe.
 namespace ConLeche.Driver.OwnerParse
 
 open ConLeche ConLeche.Frontend
+
+/-- **The rounds parse's owners, started** (task #450): a window's rounds
+on the owner threads, and the owners' stop.  `window g bs nxt` is
+handed the next window (`nxt`, once read), which it gives the owners to
+scan while the window's last step runs; it returns the state after the
+window, with the proof that it advances the invariant over the window's
+chunks, or `none`: the window falls back (the owners have been
+stopped).  The generic stream parse calls both through
+`CheckerIO.liftIO` (`ConLeche/Driver/StreamParse.lean`). -/
+structure RoundsOps where
+  window : (g : GSt) → (bs : Array ByteArray) → (nxt : IO (Array ByteArray)) →
+    IO (Option {g' : GSt // WinAdv g bs.toList g'})
+  stop : IO Unit
 
 /-- A promise's value (an owner that dropped its promise is an internal
 error). -/
@@ -133,39 +150,6 @@ def markSlots {α : Type} (noMark : Bool) (d : Array α) (late : ByteArray) : IO
         match d[k]? with
         | some x => markOne x
         | none => pure ()
-
-/-! ## Reading -/
-
-/-- Read up to `m` chunks of about `csz` bytes, each cut at the last
-newline of its read (a read without one is carried whole into the
-next).  Returns the chunks, the bytes after the last newline read so
-far and whether the stream ended.  A chunk is put together here, on the
-reader: the bytes the owner scans and the proof speaks of are this
-array. -/
-partial def readWin (h : IO.FS.Handle) (csz : USize) (m : Nat) (acc : Array ByteArray)
-    (pending : ByteArray) (eof : Bool) : IO (Array ByteArray × ByteArray × Bool) := do
-  if eof || acc.size ≥ m then return (acc, pending, eof)
-  let buf0 ← h.read csz
-  if buf0.isEmpty then return (acc, pending, true)
-  else
-    match lastNewlineBelow buf0 buf0.size with
-    | none => readWin h csz m acc (pending ++ buf0) false
-    | some k =>
-      let b := if pending.isEmpty then buf0.extract 0 (k + 1)
-        else pending ++ buf0.extract 0 (k + 1)
-      readWin h csz m (acc.push b) (buf0.extract (k + 1) buf0.size) false
-
-/-- A window being read on the reader thread. -/
-abbrev RdT := Task (Except IO.Error (Array ByteArray × ByteArray × Bool))
-
-def spawnRead (h : IO.FS.Handle) (csz : USize) (m : Nat) (pending : ByteArray) (eof : Bool) :
-    IO RdT :=
-  IO.asTask (prio := .dedicated) (readWin h csz m #[] pending eof)
-
-def awaitRd (t : RdT) : IO (Array ByteArray × ByteArray × Bool) := do
-  match ← IO.wait t with
-  | .ok r => pure r
-  | .error e => throw e
 
 /-! ## Messages and results
 
@@ -405,8 +389,6 @@ partial def ownerLoop (bx : Box) (noMark : Bool) (cur : Option Cur) (nxt : Optio
 
 /-- The driver's settings and counters. -/
 structure Cfg where
-  /-- bytes per read (about a chunk) -/
-  csz : USize
   noMark : Bool
   /-- windows that fell back (for the tests) -/
   fallbacks : IO.Ref Nat
@@ -414,41 +396,9 @@ structure Cfg where
   windows : IO.Ref Nat
   rounds : IO.Ref Nat
 
-/-- Chunks applied by the serial parse, one after the other. -/
-def serialChunks (st : StateD) (carry : ByteArray) (lineNo total : Nat)
-    (hr : Reached st carry lineNo total) : List ByteArray →
-    Except ParseOutcome (Σ' (st : StateD) (carry : ByteArray) (lineNo total : Nat),
-      Reached st carry lineNo total)
-  | [] => .ok ⟨st, carry, lineNo, total, hr⟩
-  | x :: xs =>
-    match hs : chunkStep st carry lineNo total x with
-    | .error e => .error ⟨.error e, hr.error hs⟩
-    | .ok (st', carry', lineNo', total') =>
-      serialChunks st' carry' lineNo' total' (hr.step hs) xs
-
 /-- Stop every owner. -/
 def stopAll (bxs : Array Box) : IO Unit :=
   bxs.forM (·.send .stop)
-
-/-- **The serial parse from where the windows left off**: from the
-state the windows before reached (`GOK.reached`), the chunks given by
-the serial parse, then the rest of the stream by the serial loop. -/
-def serialRest (h : IO.FS.Handle) (g : GSt) (hg : GOK g) (xs : List ByteArray) :
-    IO ParseOutcome := do
-  let st := (g.P.toState g.c g.ds).markLinear
-  have hr : Reached st .empty g.lineNo g.total := by
-    simp only [st, StateD.markLinear_eq]; exact hg.reached
-  match serialChunks st .empty g.lineNo g.total hr xs with
-  | .error r => return r
-  | .ok ⟨st, carry, lineNo, total, hr⟩ => serialLoop h chunkSize st carry lineNo total hr
-
-/-- **The fallback**: the owners stopped, every chunk read so far and
-the bytes after them to the serial parse (`serialRest`). -/
-def fallback (h : IO.FS.Handle) (bxs : Array Box) (cfg : Cfg) (g : GSt) (hg : GOK g)
-    (xs : List ByteArray) (pending : ByteArray) : IO ParseOutcome := do
-  stopAll bxs
-  cfg.fallbacks.modify (· + 1)
-  serialRest h g hg (if pending.isEmpty then xs else xs ++ [pending])
 
 /-- One more value on a checked prefix. -/
 theorem gather_push {Q : Nat → ByteArray → β → Prop} {bs : Array ByteArray} {acc : Array β}
@@ -531,25 +481,27 @@ partial def roundsLoop (bxs : Array Box) (P : Prior) (bs : Array ByteArray) (W :
         simpa [rrs, RRQ] using this) (vs.map (·.2)) (r + 1)
     else return none
 
-/-- **The rounds parse of a stream**, window after window, carrying
-`GOK`.  `bs` is the window whose chunks the owners hold (scanned or
-being scanned), `rd` the read of the window after it. -/
-partial def streamLoop (bxs : Array Box) (h : IO.FS.Handle) (cfg : Cfg) (g : GSt) (hg : GOK g)
-    (bs : Array ByteArray) (rd : RdT) : IO ParseOutcome := do
+/-- **A window's rounds** (`RoundsOps.window`):
+round 0 on the owners, from the tables after the windows before, the
+later rounds until nothing is pending, then the pages and the records,
+a slice per owner; meanwhile the next window's chunks (`nxt`) go to
+their owners, to be scanned.  The state after the window comes with the
+proof that it advances the invariant over the window's chunks
+(`GOK.window`); on anything unusual the owners are stopped and the
+window falls back (`none`).  `primed` says whether the window before
+gave the owners this window's chunks already. -/
+def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
+    (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
+    IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
   let m := bs.size
-  if m == 0 then
-    -- the stream's end: the bytes after its last newline, if any, are
-    -- its final line, for the serial parse.  The read after an empty
-    -- window has no chunks (`readWin` returns fewer than asked only at
-    -- the stream's end); if it ever had, they go to the serial parse
-    -- too, never dropped.
-    let (nbs, pending, _) ← awaitRd rd
-    stopAll bxs
-    if nbs.isEmpty && pending.isEmpty then return ⟨.ok ⟨g.ds⟩, hg.finish⟩
-    else return ← serialRest h g hg (if pending.isEmpty then nbs.toList else nbs.toList ++ [pending])
   let fall := fun (_ : Unit) => do
-    let (nbs, pending, _) ← awaitRd rd
-    fallback h bxs cfg g hg (bs.toList ++ nbs.toList) pending
+    stopAll bxs
+    cfg.fallbacks.modify (· + 1)
+    return none
+  unless ← primed.get do
+    for i in [0:m] do
+      sendTo bxs i (.chunk bs[i]!)
+  primed.set false
   -- round 0 of this window, on the owners, from the tables after the window before
   let P := g.P
   let c0 := g.c
@@ -560,7 +512,7 @@ partial def streamLoop (bxs : Array Box) (h : IO.FS.Handle) (cfg : Cfg) (g : GSt
     r0s := r0s.push p
   let os ← r0s.mapM fun p => return some (← await p)
   let some ⟨vs, hsz, hq⟩ := gather bs os (fun _ => none) #[]
-      (fun _ h => absurd h (Nat.not_lt_zero _)) | return ← fall ()
+      (fun _ h => absurd h (Nat.not_lt_zero _)) | fall ()
   let os' := vs.map (·.1)
   have hos : ∀ c (h : c < bs.toList.length), os'[c]'(by simp [os'] at h ⊢; omega) =
       { round0 P c0 c (recsOf bs.toList[c]) with pend := #[] } := by
@@ -579,7 +531,7 @@ partial def streamLoop (bxs : Array Box) (h : IO.FS.Handle) (cfg : Cfg) (g : GSt
   let W := Win.ofRound0 c0 os'
   if ha : after0 W os' then
     have hW : WinInv P bs.toList W := winInv_ofRound0 (by simp [os', hsz]) hos ha
-    let some ⟨W, hW, nr⟩ ← roundsLoop bxs P bs W hW (vs.map (·.2.1)) 0 | return ← fall ()
+    let some ⟨W, hW, nr⟩ ← roundsLoop bxs P bs W hW (vs.map (·.2.1)) 0 | fall ()
     cfg.windows.modify (· + 1); cfg.rounds.modify (· + nr)
     -- the pages after the window, a slice per owner, and its records
     let mut fps : Array (IO.Promise (ORes FinPart (FinOK P W m))) := Array.mkEmpty m
@@ -587,58 +539,40 @@ partial def streamLoop (bxs : Array Box) (h : IO.FS.Handle) (cfg : Cfg) (g : GSt
       let p ← IO.Promise.new
       sendTo bxs j (.finish P W m j p)
       fps := fps.push p
-    -- meanwhile the next window's chunks go to their owners, and the
-    -- window after it is read
-    let (nbs, pending, eof) ← awaitRd rd
-    let rd' ← spawnRead h cfg.csz bxs.size pending eof
+    -- meanwhile the next window's chunks go to their owners
+    let nbs ← nxt
     for j in [0:nbs.size] do
       sendTo bxs j (.chunk nbs[j]!)
+    primed.set true
     let fs ← fps.mapM fun p => return some (← await p)
-    let fallN := fun (_ : Unit) => do
-      let (nbs', pending', _) ← awaitRd rd'
-      fallback h bxs cfg g hg (bs.toList ++ nbs.toList ++ nbs'.toList) pending'
     let some ⟨ps, hpsz, hpq⟩ := gather bs fs (fun _ => none) #[]
-        (fun _ h => absurd h (Nat.not_lt_zero _)) | fallN ()
+        (fun _ h => absurd h (Nat.not_lt_zero _)) | fall ()
     let tot := (bs.toList.map ByteArray.size).sum
     if hm : 0 < m ∧ W.c0 = g.c ∧ g.total + tot < USize.size then
       have hm' : ps.size = bs.toList.length := by simpa using hpsz
       have hps : ∀ c (h : c < ps.size) (hb : c < bs.toList.length),
           FinOK g.P W ps.size c bs.toList[c] ps[c] := by
         intro c h hb; rw [hpsz]; simpa using hpq c h (by simpa using hb)
-      have hg' := GOK.window hg hW hm.2.1 hm' (by simpa [m] using hm.1) hps hm.2.2
       let g' : GSt := ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd,
         g.ds ++ joinD ps, g.lineNo + nl, g.total + tot⟩
-      streamLoop bxs h cfg g' (by simp only [g', hnl, tot]; exact hg') nbs rd'
-    else fallN ()
+      return some ⟨g', fun done hg => by
+        simp only [g', hnl, tot]
+        exact GOK.window hg hW hm.2.1 hm' (by simpa [m] using hm.1) hps hm.2.2⟩
+    else fall ()
   else fall ()
 
-/-- **The rounds parse of a file** on `jobs` owners, chunks of about
-`csz` bytes; with the number of windows that fell back, the windows
-taken through the rounds and their later rounds. -/
-def parseExportStreamOInfo (path : System.FilePath) (jobs : Nat) (csz : USize)
-    (noMark : Bool) : IO (ParseOutcome × Nat × Nat × Nat) := do
-  let h ← IO.FS.Handle.mk path .read
-  let cfg : Cfg := ⟨csz, noMark, ← IO.mkRef 0, ← IO.mkRef 0, ← IO.mkRef 0⟩
+/-- **The rounds' owners**, `max 1 jobs` threads, started. -/
+def startRounds (cfg : Cfg) (jobs : Nat) : IO RoundsOps := do
   let mut bxs : Array Box := #[]
   for _ in [0:max 1 jobs] do
     let b ← Box.new
-    let _ ← IO.asTask (prio := .dedicated) (ownerLoop b noMark none none .none)
+    let _ ← IO.asTask (prio := .dedicated) (ownerLoop b cfg.noMark none none .none)
     bxs := bxs.push b
-  -- the owners are stopped however the parse ends: an IO error (a read
-  -- that fails, a dropped promise) propagates instead of leaving them
-  -- blocked, which would keep the process from exiting
-  let r ← tryFinally (do
-      let (bs, pending, eof) ← readWin h csz bxs.size #[] .empty false
-      for i in [0:bs.size] do
-        sendTo bxs i (.chunk bs[i]!)
-      let rd ← spawnRead h csz bxs.size pending eof
-      streamLoop bxs h cfg .init GOK.init bs rd)
-    (stopAll bxs)
-  return (r, ← cfg.fallbacks.get, ← cfg.windows.get, ← cfg.rounds.get)
+  let primed ← IO.mkRef false
+  return ⟨windowStep bxs cfg primed, stopAll bxs⟩
 
-/-- **The rounds parse of a file.** -/
-def parseExportStreamO (path : System.FilePath) (jobs : Nat) (csz : USize) (noMark : Bool) :
-    IO ParseOutcome :=
-  return (← parseExportStreamOInfo path jobs csz noMark).1
+/-- The rounds' settings, with fresh counters. -/
+def Cfg.new (noMark : Bool) : IO Cfg :=
+  return ⟨noMark, ← IO.mkRef 0, ← IO.mkRef 0, ← IO.mkRef 0⟩
 
 end ConLeche.Driver.OwnerParse

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.ExportC
+public import ConLeche.Frontend.CheckerIO
 
 @[expose] public section
 
@@ -25,14 +26,13 @@ its records, so the two are taken apart here:
   `chunkStepS_scanChunk` says that handed the chunk's own scan it is
   `chunkStep`.
 
-`Reached` is the streaming invariant: some list of chunks leads
-`parseChunks` to the state at hand.  The serial driver
-`parseExportStreamS` feeds every read to `chunkStep` on one thread and
-returns its result with the proof that `parseChunks` of some list of
-chunks returns it (`ParseOutcome`), as `checkDeclsIO`
-(`ConLeche/Driver/Run.lean`) returns its environment with the proof
-that the fold returns it.  It is the parse at `--jobs=1`, and the
-fallback of the rounds parse.
+`Reached done` is the streaming invariant: the chunks `done` lead
+`parseChunks` to the state at hand.  The serial parse `parseFileS`
+folds every read of the file by `chunkStep` through the checker's IO
+class (`CheckerIO.foldChunks`, `ConLeche/Frontend/CheckerIO.lean`); in
+the model of the files the fold is `parseChunks` of the file's reads.
+It is the parse at `--jobs=1`, and the rounds parse's fallback applies
+its step (`ConLeche/Driver/StreamParse.lean`).
 -/
 
 namespace ConLeche.Frontend
@@ -251,75 +251,63 @@ theorem chunkStepS_scanChunk (st : StateD) (carry : ByteArray) (lineNo total : N
 
 /-! ## The streaming invariant -/
 
-/-- The state the streaming parse has reached: some list of chunks
-leads `parseChunks` to it — whatever chunks follow, the parse of all
-of them is the parse of the rest from here. -/
-def Reached (st : StateD) (carry : ByteArray) (lineNo total : Nat) : Prop :=
-  ∃ done : List ByteArray, ∀ rest : List ByteArray,
-    parseChunks (done ++ rest) = parseChunks.go st carry lineNo total rest
+/-- The state the streaming parse has reached after the chunks `done`:
+whatever chunks follow, the parse of all of them is the parse of the
+rest from here. -/
+def Reached (done : List ByteArray) (st : StateD) (carry : ByteArray) (lineNo total : Nat) :
+    Prop :=
+  ∀ rest : List ByteArray, parseChunks (done ++ rest) = parseChunks.go st carry lineNo total rest
 
-theorem Reached.init : Reached .init .empty 0 0 := ⟨[], fun _ => rfl⟩
+theorem Reached.init : Reached [] .init .empty 0 0 := fun _ => rfl
 
-theorem Reached.step {st carry lineNo total} (h : Reached st carry lineNo total)
+theorem Reached.step {done st carry lineNo total} (h : Reached done st carry lineNo total)
     {c : ByteArray} {st' carry' lineNo' total'}
     (hs : chunkStep st carry lineNo total c = .ok (st', carry', lineNo', total')) :
-    Reached st' carry' lineNo' total' := by
-  obtain ⟨done, hd⟩ := h
-  refine ⟨done ++ [c], fun rest => ?_⟩
-  rw [List.append_assoc, List.singleton_append, hd, parseChunks.go, hs]
+    Reached (done ++ [c]) st' carry' lineNo' total' := by
+  intro rest
+  rw [List.append_assoc, List.singleton_append, h, parseChunks.go, hs]
 
-theorem Reached.error {st carry lineNo total} (h : Reached st carry lineNo total)
+theorem Reached.error {done st carry lineNo total} (h : Reached done st carry lineNo total)
     {c : ByteArray} {e} (hs : chunkStep st carry lineNo total c = .error e) :
-    ∃ cs, parseChunks cs = .error e := by
-  obtain ⟨done, hd⟩ := h
-  refine ⟨done ++ [c], ?_⟩
-  rw [hd, parseChunks.go, hs]
+    parseChunks (done ++ [c]) = .error e := by
+  rw [h, parseChunks.go, hs]
 
-theorem Reached.finish {st carry lineNo total} (h : Reached st carry lineNo total) :
-    ∃ cs, parseChunks cs = chunkFinish st carry lineNo := by
-  obtain ⟨done, hd⟩ := h
-  have := hd []
+theorem Reached.finish {done st carry lineNo total} (h : Reached done st carry lineNo total) :
+    parseChunks done = chunkFinish st carry lineNo := by
+  have := h []
   rw [List.append_nil] at this
-  exact ⟨done, this⟩
+  exact this
 
 /-! ## The serial streaming parse -/
 
-/-- The parse result with the evidence that `parseChunks` returns it. -/
-abbrev ParseOutcome := { r : Except (CheckError × Nat) ParseResultD // ∃ cs, parseChunks cs = r }
+/-- The serial parse's state between reads: the tables, the carried
+tail, the line and byte counts. -/
+abbrev SerSt := StateD × ByteArray × Nat × Nat
 
-instance : Nonempty ParseOutcome := ⟨⟨parseChunks [], [], rfl⟩⟩
+/-- The serial parse's step on one read: `chunkStep`, a failure ending
+the fold with its result. -/
+@[inline] def serStep : SerSt → ByteArray → Except (Except (CheckError × Nat) ParseResultD) SerSt
+  | (st, carry, lineNo, total), c =>
+    match chunkStep st carry lineNo total c with
+    | .error e => .error (.error e)
+    | .ok s => .ok s
 
-/-- The last newline of `b` below `i`. -/
-def lastNewlineBelow (b : @& ByteArray) : Nat → Option Nat
-  | 0 => none
-  | i + 1 => if b.get! i == 10 then some i else lastNewlineBelow b i
+/-- The serial parse's end: `chunkFinish`. -/
+@[inline] def serFin : SerSt → Except (CheckError × Nat) ParseResultD
+  | (st, carry, lineNo, _) => chunkFinish st carry lineNo
 
-/-- **The serial streaming parse, from a reached state**: each read of
-`chunk` bytes fed to `chunkStep` (the fused scan and apply: no record
-array is built, nothing crosses a thread), carrying `Reached`.  The
-handle is read strictly forward, never seeked or re-opened (the source
-may be a pipe; `Main.lean`).  The state is threaded as a plain argument,
-so that the tables stay uniquely referenced (task #78).  The rounds
-parse falls back to it (`ConLeche/Driver/OwnerParse.lean`). -/
-partial def serialLoop (h : IO.FS.Handle) (chunk : USize) (st : StateD) (carry : ByteArray)
-    (lineNo total : Nat) (hr : Reached st carry lineNo total) : IO ParseOutcome := do
-  let buf0 ← h.read chunk
-  if buf0.isEmpty then return ⟨chunkFinish st carry lineNo, hr.finish⟩
-  match hs : chunkStep st carry lineNo total buf0 with
-  | .error e => return ⟨.error e, hr.error hs⟩
-  | .ok (st', carry', lineNo', total') =>
-    serialLoop h chunk st' carry' lineNo' total' (hr.step hs)
-
-/-- **The serial streaming parse of a handle**: what `parseChunks`
-returns on the reads (`ParseOutcome`); which chunks those are is the
-reads' business, and `parseChunks_ok_parseBytes`
-(`ConLeche/Verify/Frontend/Chunks.lean`) says it does not matter. -/
-def parseExportHandleS (h : IO.FS.Handle) (chunk : USize := chunkSize) : IO ParseOutcome :=
-  serialLoop h chunk StateD.init.markLinear .empty 0 0 (StateD.markLinear_eq _ ▸ .init)
-
-/-- The serial streaming parse of a file. -/
-def parseExportStreamS (path : System.FilePath) (chunk : USize := chunkSize) :
-    IO ParseOutcome := do
-  parseExportHandleS (← IO.FS.Handle.mk path .read) chunk
+/-- **The serial streaming parse of a file** (task #424): the reads of
+`chunk` bytes folded by `chunkStep` (the fused scan and apply: no
+record array is built, nothing crosses a thread), through the class's
+`foldChunks`, which reads the file by positional reads in order, so
+the file must be a regular file (a pipe or FIFO has no positional read:
+the class's `fileSize` throws on one, and the run ends with exit 3).  The state is threaded as a plain value, so that the
+tables stay uniquely referenced (task #78).  In the model the fold is
+`parseChunks` of the file's reads (`ConLeche/Verify/Frontend/StreamModel.lean`),
+and `parseChunks_ok_parseBytes` (`ConLeche/Verify/Frontend/Chunks.lean`)
+says that the reads' boundaries do not matter. -/
+def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
+    (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
+  foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
 
 end ConLeche.Frontend

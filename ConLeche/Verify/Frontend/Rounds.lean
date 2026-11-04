@@ -1298,12 +1298,12 @@ theorem Pages.after_spec [Inhabited α] {P : Pages α} {s : Seg α} {lo hi : Nat
 
 /-! ## The invariant between windows -/
 
-/-- **The rounds parse's invariant**: some state the serial parse
-reaches after the lines so far, with nothing carried, holds the
+/-- **The rounds parse's invariant** after the chunks `done`: a state
+the serial parse reaches after them, with nothing carried, holds the
 finished tables cut at the counters, with the records so far; the
 finished tables keep their own invariant. -/
-def GOK (g : GSt) : Prop :=
-  ∃ st, Reached st .empty g.lineNo g.total ∧ Holds st g.P.tabs g.c ∧ st.decls = g.ds ∧
+def GOK (done : List ByteArray) (g : GSt) : Prop :=
+  ∃ st, Reached done st .empty g.lineNo g.total ∧ Holds st g.P.tabs g.c ∧ st.decls = g.ds ∧
     g.P.Inv g.c
 
 theorem Prior.init_inv : Prior.init.Inv GSt.init.c := by
@@ -1314,7 +1314,7 @@ theorem Prior.init_inv : Prior.init.Inv GSt.init.c := by
   · exact ⟨by simp [Prior.init], by simp [Prior.init, GSt.init]⟩
   · intro r hr; simp [Prior.init] at hr; subst hr; simp [Pages.atRank_eq, Prior.init]
 
-theorem GOK.init : GOK GSt.init := by
+theorem GOK.init : GOK [] GSt.init := by
   have hi := Prior.init_inv
   refine ⟨.init, Reached.init, ⟨fun j => ?_, fun j => ?_, fun j => ?_⟩, rfl, hi⟩
   · simp only [StateD.init, IdTable.get?_singleton, GSt.init, Prior.tabs,
@@ -1331,17 +1331,16 @@ theorem GOK.init : GOK GSt.init := by
 
 /-- The state a window that falls back continues the serial parse
 from. -/
-theorem GOK.reached {g : GSt} (h : GOK g) :
-    Reached (g.P.toState g.c g.ds) .empty g.lineNo g.total := by
+theorem GOK.reached {done : List ByteArray} {g : GSt} (h : GOK done g) :
+    Reached done (g.P.toState g.c g.ds) .empty g.lineNo g.total := by
   obtain ⟨st, hr, hh, hd, hi⟩ := h
   exact hr.equiv (Holds.equiv hh (Prior.toState_holds hi g.ds) (by rw [hd]; rfl))
 
 /-- The end of the stream: the records so far are the parse's. -/
-theorem GOK.finish {g : GSt} (h : GOK g) : ∃ cs, parseChunks cs = .ok ⟨g.ds⟩ := by
+theorem GOK.finish {done : List ByteArray} {g : GSt} (h : GOK done g) :
+    parseChunks done = .ok ⟨g.ds⟩ := by
   obtain ⟨st, hr, _, hd, -⟩ := h
-  obtain ⟨cs, hcs⟩ := hr.finish
-  refine ⟨cs, ?_⟩
-  rw [hcs, chunkFinish, ite_eq_left (show ByteArray.empty.isEmpty = true by rfl)]
+  rw [hr.finish, chunkFinish, ite_eq_left (show ByteArray.empty.isEmpty = true by rfl)]
   simp [ParseResultD.ofState, hd]
 
 /-! ## A window, applied -/
@@ -1734,12 +1733,13 @@ theorem WinInv.segOK {P : Prior} {bs : List ByteArray} {W : Win} (hW : WinInv P 
     exact TB.get_full hspec hL hfT hk
 
 /-- **A window is one more stretch of the serial parse.** -/
-theorem GOK.window {g : GSt} (hg : GOK g) {bs : List ByteArray} {W : Win}
+theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : List ByteArray}
+    {W : Win}
     (hW : WinInv g.P bs W) (hc0 : W.c0 = g.c)
     {ps : Array FinPart} (hm : ps.size = bs.length) (hb : 0 < bs.length)
     (hps : ∀ c (h : c < ps.size) (hb : c < bs.length), FinOK g.P W ps.size c bs[c] ps[c])
     (htot : g.total + (bs.map ByteArray.size).sum < USize.size) :
-    GOK ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd, g.ds ++ joinD ps,
+    GOK (done ++ bs) ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd, g.ds ++ joinD ps,
       g.lineNo + (bs.map fun b => (recsOf b).size).sum,
       g.total + (bs.map ByteArray.size).sum⟩ := by
   obtain ⟨st0, hr0, hh0, hd0, hcov⟩ := hg
@@ -1799,7 +1799,8 @@ theorem GOK.window {g : GSt} (hg : GOK g) {bs : List ByteArray} {W : Win}
     exact (chunkDecls_spec (hW.chunkCtx hc) (hV c hc) (hDs c hc)).1 q hq d hd
   have hAll := allOK_of_good hGT hD
   -- the window, chunk by chunk
-  have hchain : ∀ k, k ≤ bs.length → ∃ st, Reached st .empty (g.lineNo + chunkOff bs k)
+  have hchain : ∀ k, k ≤ bs.length → ∃ st, Reached (done ++ bs.take k) st .empty
+      (g.lineNo + chunkOff bs k)
       (g.total + byteOff bs k) ∧
       Holds st (g.P.setFrom W (joinN ps) (joinL ps) (joinE ps)).tabs
         ((winCtx g.P W.c0 bs).ctr (chunkOff bs k)) ∧
@@ -1841,7 +1842,8 @@ theorem GOK.window {g : GSt} (hg : GOK g) {bs : List ByteArray} {W : Win}
         have := byteOff_le bs (k + 1); rw [byteOff_succ bs hkl] at this; omega
       obtain ⟨st', hs, hh', hd'⟩ := chunkStep_of_allOK hh hok hend htot'
       refine ⟨st', ?_, ?_, ?_⟩
-      · rw [chunkOff_succ bs hkl, byteOff_succ bs hkl, ← Nat.add_assoc, ← Nat.add_assoc]
+      · rw [chunkOff_succ bs hkl, byteOff_succ bs hkl, ← Nat.add_assoc, ← Nat.add_assoc,
+          List.take_add_one, List.getElem?_eq_getElem hkl, Option.toList_some, ← List.append_assoc]
         exact hr.step hs
       · rw [winCtx_ctr_succ g.P W.c0 bs hkl]; exact hh'
       · rw [hd', declsAlong_acc, hd, joinD_take ps k (by omega),
@@ -1852,7 +1854,7 @@ theorem GOK.window {g : GSt} (hg : GOK g) {bs : List ByteArray} {W : Win}
   · have h1 : chunkOff bs bs.length = (bs.map fun b => (recsOf b).size).sum := by
       simp [chunkOff]
     have h2 : byteOff bs bs.length = (bs.map ByteArray.size).sum := by simp [byteOff]
-    rw [h1, h2] at hr; exact hr
+    rw [h1, h2, List.take_length] at hr; exact hr
   · show Holds st _ W.cEnd
     rw [hcE]
     have : (winCtx g.P W.c0 bs).ctr (chunkOff bs bs.length) = W.c0.stepAll (chunkRecs bs) := by
@@ -1863,5 +1865,12 @@ theorem GOK.window {g : GSt} (hg : GOK g) {bs : List ByteArray} {W : Win}
     refine Prior.Inv.ofSel fun {α} S => ?_
     rw [S.pages_setFrom]
     exact (hA S).1
+
+/-- **A window's advance**: from the state `g` to `g'` over the window's
+chunks `bs` — whatever chunks led to `g`, those and `bs` lead to `g'`.
+What the rounds' owners return a window's result with
+(`ConLeche/Driver/StreamParse.lean`). -/
+@[expose] def WinAdv (g : GSt) (bs : List ByteArray) (g' : GSt) : Prop :=
+  ∀ done, GOK done g → GOK (done ++ bs) g'
 
 end ConLeche.Frontend

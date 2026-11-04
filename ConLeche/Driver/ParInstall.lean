@@ -824,7 +824,7 @@ report (performance-only) is left in `rep`: an action that collects the
 statistics of the workers that have returned when it runs, waiting for
 none.  The join of the stopped workers is left in `drain`, which the
 CLI runs after the verdict line is out and before the process exits
-(`Main.lean`'s `main`). -/
+(`Cli.lean`'s `mainG`). -/
 def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs : Nat)
     (noMark : Bool) (rep : IO.Ref (IO PoolRep)) (drain : IO.Ref (IO Unit))
     (ds : Array Declaration) :
@@ -1033,7 +1033,7 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   -- above) count only the finished ones.  After a rejection a worker may
   -- still be inside an install of a record past it; the verdict is
   -- printed without it, and then, before the process ends with
-  -- `IO.Process.exit`, `main` waits for every worker (`drain`, set
+  -- `IO.Process.exit`, `mainG` waits for every worker (`drain`, set
   -- above; maintainer's ruling, 2026-10-10): `exit()` runs the C
   -- runtime's teardown, which must not meet a thread still inside an
   -- install.  The rejection path need not be fast; after an accept every

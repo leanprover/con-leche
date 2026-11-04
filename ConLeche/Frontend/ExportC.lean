@@ -620,7 +620,7 @@ incomplete tail is put in front of the new bytes, every complete line
 of the buffer is fed, and the new incomplete tail is cut off for the
 next chunk; `total` counts the bytes read before this chunk, for the
 size guard.  This is the step the streaming reader takes
-(`serialLoop`, `ConLeche/Frontend/Stream.lean`, and the rounds parse's
+(`parseFileS`, `ConLeche/Frontend/Stream.lean`, and the rounds parse's
 fallback; the rounds parse proves each of its windows one more stretch
 of these steps, `GOK.window`), pure, so that
 `parseChunks` below — the same step folded over a list of chunks — is
