@@ -847,9 +847,8 @@ theorem unfoldableHeadC_spec {env : Env} {e : Expr} :
 /-- **The `And`-rescue gate through the index is the spec's gate**:
 both sides are `andRescueSlotsOf` at a lookup, and the index's lookup
 is `Env.findProj?` (`mkFEnv_findProj?`). -/
-theorem andRescueSlotsF_spec {env : Env} {ctor : Name} {nP : Nat}
-    {ust : List Level} :
-    (mkFEnv env).andRescueSlotsF ctor nP ust = andRescueSlots env ctor nP ust := by
+theorem andRescueSlotsF_spec {env : Env} {ctor : Name} {nP : Nat} :
+    (mkFEnv env).andRescueSlotsF ctor nP = andRescueSlots env ctor nP := by
   unfold FEnv.andRescueSlotsF andRescueSlots
   have : (mkFEnv env).findProj? = env.findProj? := by
     funext T i; exact mkFEnv_findProj? env T i

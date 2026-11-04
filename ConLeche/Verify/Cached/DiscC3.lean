@@ -89,9 +89,8 @@ grind_pattern [conleche_grind] wscoped_of_wscopedB => e.wscopedB d
     (mkFEnv env).towerSlotsAllF T n = towerSlotsAll env T n :=
   towerSlotsAllF_mkFEnv env T n
 
-@[conleche_grind =] theorem andRescueSlotsF_eq (env : Env) (ctor : Name) (nP : Nat)
-    (ust : List Level) :
-    (mkFEnv env).andRescueSlotsF ctor nP ust = andRescueSlots env ctor nP ust :=
+@[conleche_grind =] theorem andRescueSlotsF_eq (env : Env) (ctor : Name) (nP : Nat) :
+    (mkFEnv env).andRescueSlotsF ctor nP = andRescueSlots env ctor nP :=
   andRescueSlotsF_spec
 
 /-- The proof-irrelevance certificate behind its mode gate. -/
@@ -169,7 +168,7 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
     let margs ← pure (Expr.getAppArgsC tmaj)
     if (← pure (T' == T)) ∧ margs.length = cnP ∧
         cvj.levelParams.length = ust.length ∧
-        fe.andRescueSlotsF rl.ctor cnP ust = true then do
+        fe.andRescueSlotsF rl.ctor cnP = true then do
       let TI ← pure T
       let projs ← projNodesI TI major [0, 1]
       let ctorI ← pure rl.ctor
@@ -275,7 +274,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   | .const T' ust =>
     if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
         cvj.levelParams.length = ust.length ∧
-        andRescueSlots env rl.ctor cnP ust = true then
+        andRescueSlots env rl.ctor cnP = true then
       if (Expr.mkAppN (.const rl.ctor ust)
             (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])).wscopedB depth &&
           (Expr.mkAppN (.const rl.ctor ust)

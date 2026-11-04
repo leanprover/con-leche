@@ -22,7 +22,7 @@ reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 (`etaProjs`, `etaFabArgsE`, `andRescueSlots`), the install-time rule
 bits (`recRuleBits`, `recRuleK`, `recFireComparands`), the ι case split
 (`iotaCtorNeverProp`, `iotaCase3`) and the tower entry's readers
-(`ProjEntry.fireOk`, `ProjEntry.typeAt`).
+(`projGuardRows`, `ProjEntry.typeAt`).
 
 Split out of `ConLeche/Kernel/Core.lean` at task #305 (prep): a
 relational description of the core's moves — a relation over `Expr`
@@ -767,51 +767,373 @@ point. -/
 def teleArityOk (ty : Expr) (args : List Expr) : Bool :=
   (Expr.peelPis args.length ty).isSome
 
-/-- **The tower-fire guard** (task #175 W4c/O4, restated at W6):
-`whnfCore` fires the structural rule `proj_i (ctor p⃗ x⃗) ↦ x_i` at a
-tower-backed entry under exactly the guard the tower infer branch
-types the node with — at a `Prop`-declared structure the field's guard
-level must be a proposition at this instantiation; at every other
-family the rule fires unconditionally.
+/-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
+(each fvar's type is the binder domain, instantiated with the earlier
+fvars).  Returns the fvars and the opened body. -/
+def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
+  | 0, e, _ => some ([], e)
+  | n + 1, .forallE dom body, i =>
+    let fv : Expr := .fvar i dom
+    match openPisAtFvars n (body.instantiate1 fv) (i + 1) with
+    | some (fvs, e) => some (fv :: fvs, e)
+    | none => none
+  | _ + 1, _, _ => none
 
-A guard "the structure's sort is provably nonzero at this
-instantiation" is *not* what the official kernel does (`reduce_proj`
-reduces every constructor redex): it rejects
-`PSigma'.fst (PSigma'.mk a b) ≡ a` at symbolic `u v`, where `max u v`
-is neither provably zero nor nonzero.  The model's justification: at a squash
-instance (the structure's
-sort is `0` at the valuation) the constructor application reads as
-the point, and so does the selected field — for a non-`Prop`-declared
-family every field's sort is bounded by the structure's (the O5 bound
-`checkStructFieldSortsI` checks), so at a zero instantiation every
-field is a proposition; for a `Prop`-declared family the guard says
-so of the projected field directly (`TowerEntryLaw`'s iota clause,
-`ConLeche/Model/Env/EnvModelM.lean`).  Ungated rules on a data field of a
-`Prop`-declared structure stay out: such a node is not even typed
-(`inferBody`'s guard). -/
-def ProjEntry.fireOk (entry : ProjEntry) (us : List Level) : Bool :=
-  !(Level.isEquiv entry.structSort .zero == some true) ||
-    (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-      == some true)
+/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
+innermost binder first.  Computes
+`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
+`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
+one `instantiateList` pass per domain instead of one whole-telescope
+`instantiate1` pass per binder. -/
+def openPisAtFvarsFGo (acc : List Expr) :
+    Nat → Expr → Nat → Option (List Expr × Expr)
+  | 0, e, _ => some ([], e.instantiateList acc)
+  | n + 1, .forallE dom body, i =>
+    let fv : Expr := .fvar i (dom.instantiateList acc)
+    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
+    | some (fvs, e) => some (fv :: fvs, e)
+    | none => none
+  | _ + 1, _, _ => none
+
+/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
+fallback covers telescopes whose binders only appear after
+substitution). -/
+def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
+    Option (List Expr × Expr) :=
+  match openPisAtFvarsFGo [] n e i with
+  | some r => some r
+  | none => openPisAtFvars n e i
+
+/-- Does `bvar i` occur loose in `e`?  (Not through fvar type
+annotations — the generated telescopes are fvar-free.) -/
+def Expr.hasLooseBVar : Nat → Expr → Bool
+  | i, .bvar j => i == j
+  | _, .fvar .. => false
+  | _, .sort _ => false
+  | _, .const .. => false
+  | _, .lit _ => false
+  | i, .app f a => hasLooseBVar i f || hasLooseBVar i a
+  | i, .lam ty b => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .forallE ty b => hasLooseBVar i ty || hasLooseBVar (i + 1) b
+  | i, .letE t v b =>
+    hasLooseBVar i t || hasLooseBVar i v || hasLooseBVar (i + 1) b
+  | i, .proj _ _ e => hasLooseBVar i e
+
+/-- `hasLooseBVar` with the packed bound's cutoff (task #214, P4): a
+node whose loose-bvar bound is at or below `i` has no `bvar i`, so the
+walk stops there without descending, so `structUsedLater` calls touch
+only the spine of a large telescope, never its shared instance towers.  Read as `hasLooseBVar`
+by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/Inductives/DirectGen.lean`). -/
+def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
+  if e.bvarB ≤ i then false else
+  match e with
+  | .bvar j => i == j
+  | .fvar .. => false
+  | .sort _ => false
+  | .const .. => false
+  | .lit _ => false
+  | .app f a => hasLooseBVarB i f || hasLooseBVarB i a
+  | .lam ty b => hasLooseBVarB i ty || hasLooseBVarB (i + 1) b
+  | .forallE ty b => hasLooseBVarB i ty || hasLooseBVarB (i + 1) b
+  | .letE t v b =>
+    hasLooseBVarB i t || hasLooseBVarB i v || hasLooseBVarB (i + 1) b
+  | .proj _ _ e => hasLooseBVarB i e
+
+/-! ### `hasLooseBVarB`, memoized (task #233)
+
+The cutoff above stops the walk where the variable **cannot** occur.
+It cannot stop it where a loose variable *above* `i` occurs but `i`
+itself does not: `bvarB` is the bound of the largest loose index, so a
+node holding `bvar 1` has `bvarB = 2` and the `bvarB ≤ 0` test fails at
+every node of a shared tower whose answer is `false` — and with no
+`true` to short-circuit the `||` on, each shared node is re-entered
+once per path.  A user's stream showed 99.5 % of a run inside this one
+function; the depth-60 fixture is `tests/e2e/tower_usedlater.ndjson`
+(a three-field structure whose last field's type is a tower over the
+FIRST field, asked about the SECOND).
+
+The cutoff and the memo are complementary — this keeps both.  As with
+`mentionsConst` below and `instantiate1` (`ConLeche/Kernel/ExprOps.lean`,
+task #215), the memoized walk is swapped in by `@[csimp]`:
+kernel-checked, no trust point, and the pure definition stays what
+every proof consumes (`Expr.hasLooseBVarB_eq`,
+`ConLeche/Verify/Inductives/DirectGen.lean`, is unchanged).  The memo
+is keyed by the *node and the index* — the index shifts under binders,
+so a node's answer is not a function of the node alone — and dropped
+after each call. -/
+
+/-- The memo's invariant: every recorded answer is the real one. -/
+def LooseBVarMemoInv (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
+  ∀ (k : Expr × Nat) (r : Bool), memo[k]? = some r → r = Expr.hasLooseBVarB k.2 k.1
+
+theorem LooseBVarMemoInv.empty : LooseBVarMemoInv {} := by
+  intro k r h; simp at h
+
+theorem LooseBVarMemoInv.insert {memo : Std.HashMap (Expr × Nat) Bool}
+    (hm : LooseBVarMemoInv memo) {e : Expr} {i : Nat} {r : Bool}
+    (heq : r = Expr.hasLooseBVarB i e) :
+    LooseBVarMemoInv (memo.insert (e, i) r) := by
+  intro k r' hk
+  rw [Std.HashMap.getElem?_insert] at hk
+  split at hk
+  · rename_i hbeq
+    cases hk
+    rw [← eq_of_beq hbeq]
+    exact heq
+  · exact hm k r' hk
+
+/-- Record one answer for `(e, i)` in the memo the walk hands back.
+Written with projections rather than a destructuring `let` so that the
+correctness proof can `split` the walk's own matches. -/
+@[inline] def Expr.hasLooseBVarBIns (e : Expr) (i : Nat)
+    (r : Bool × Std.HashMap (Expr × Nat) Bool) : Bool × Std.HashMap (Expr × Nat) Bool :=
+  (r.1, r.2.insert (e, i) r.1)
+
+/-- Memoized `hasLooseBVarB`. -/
+def Expr.hasLooseBVarBGo (memo : Std.HashMap (Expr × Nat) Bool) (i : Nat) (e : Expr) :
+    Bool × Std.HashMap (Expr × Nat) Bool :=
+  if e.bvarB ≤ i then (false, memo) else
+  match e with
+  | .bvar j => (i == j, memo)
+  | .fvar .. => (false, memo)
+  | .sort _ => (false, memo)
+  | .const .. => (false, memo)
+  | .lit _ => (false, memo)
+  | e =>
+    match memo[(e, i)]? with
+    | some r => (r, memo)
+    | none =>
+      Expr.hasLooseBVarBIns e i <|
+        match e with
+        | .app f a =>
+          match hasLooseBVarBGo memo i f with
+          | (true, memo) => (true, memo)
+          | (false, memo) => hasLooseBVarBGo memo i a
+        | .lam ty b =>
+          match hasLooseBVarBGo memo i ty with
+          | (true, memo) => (true, memo)
+          | (false, memo) => hasLooseBVarBGo memo (i + 1) b
+        | .forallE ty b =>
+          match hasLooseBVarBGo memo i ty with
+          | (true, memo) => (true, memo)
+          | (false, memo) => hasLooseBVarBGo memo (i + 1) b
+        | .letE t v b =>
+          match hasLooseBVarBGo memo i t with
+          | (true, memo) => (true, memo)
+          | (false, memo) =>
+            match hasLooseBVarBGo memo i v with
+            | (true, memo) => (true, memo)
+            | (false, memo) => hasLooseBVarBGo memo (i + 1) b
+        | .proj _ _ sub => hasLooseBVarBGo memo i sub
+        | _ => (false, memo)
+
+/-- **The memoized walk is `hasLooseBVarB`.** -/
+theorem Expr.hasLooseBVarBGo_spec :
+    ∀ (e : Expr) (i : Nat) (memo : Std.HashMap (Expr × Nat) Bool), LooseBVarMemoInv memo →
+      (hasLooseBVarBGo memo i e).1 = Expr.hasLooseBVarB i e ∧
+        LooseBVarMemoInv (hasLooseBVarBGo memo i e).2 := by
+  intro e
+  induction e with
+  | bvar j =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
+  | fvar idx ty _ =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
+  | sort u =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
+  | const n us =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
+  | lit l =>
+    intro i memo hm
+    rw [hasLooseBVarBGo, Expr.hasLooseBVarB]
+    split <;> exact ⟨rfl, hm⟩
+  | app f a ihf iha =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
+    · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.app f a)
+          = (Expr.hasLooseBVarB i f || Expr.hasLooseBVarB i a) := by
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ihf i memo hm
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := iha i memo₁ h2
+          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
+  | lam ty b iht ihb =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
+    · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.lam ty b)
+          = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht i memo hm
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := ihb (i + 1) memo₁ h2
+          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
+  | forallE ty b iht ihb =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
+    · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.forallE ty b)
+          = (Expr.hasLooseBVarB i ty || Expr.hasLooseBVarB (i + 1) b) := by
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht i memo hm
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := ihb (i + 1) memo₁ h2
+          exact ⟨by simp [hspec, ← h1, h3], h4.insert (by simp [hspec, ← h1, h3])⟩
+  | letE t v b iht ihv ihb =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
+    · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.letE t v b)
+          = (Expr.hasLooseBVarB i t || Expr.hasLooseBVarB i v
+              || Expr.hasLooseBVarB (i + 1) b) := by
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := iht i memo hm
+        simp only [hasLooseBVarBIns]
+        split
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          exact ⟨by simp [hspec, ← h1], h2.insert (by simp [hspec, ← h1])⟩
+        · rename_i memo₁ heq
+          rw [heq] at h1 h2
+          obtain ⟨h3, h4⟩ := ihv i memo₁ h2
+          split
+          · rename_i memo₂ heq₂
+            rw [heq₂] at h3 h4
+            exact ⟨by simp [hspec, ← h1, ← h3], h4.insert (by simp [hspec, ← h1, ← h3])⟩
+          · rename_i memo₂ heq₂
+            rw [heq₂] at h3 h4
+            obtain ⟨h5, h6⟩ := ihb (i + 1) memo₂ h4
+            exact ⟨by simp [hspec, ← h1, ← h3, h5],
+              h6.insert (by simp [hspec, ← h1, ← h3, h5])⟩
+  | proj s j sub ih =>
+    intro i memo hm
+    rw [hasLooseBVarBGo]
+    split
+    · rename_i hcut
+      exact ⟨by rw [Expr.hasLooseBVarB, ite_eq_left hcut], hm⟩
+    · rename_i hcut
+      have hspec : Expr.hasLooseBVarB i (.proj s j sub) = Expr.hasLooseBVarB i sub := by
+        rw [Expr.hasLooseBVarB, ite_eq_right hcut]
+      split
+      · rename_i r hhit
+        exact ⟨(hm _ _ hhit).symm ▸ rfl, hm⟩
+      · obtain ⟨h1, h2⟩ := ih i memo hm
+        simp only [hasLooseBVarBIns]
+        exact ⟨by simp [hspec, h1], h2.insert (by simp [hspec, h1])⟩
+
+/-- The executed `hasLooseBVarB` (one memoized DAG walk). -/
+def Expr.hasLooseBVarBFast (i : Nat) (e : Expr) : Bool :=
+  (Expr.hasLooseBVarBGo {} i e).1
+
+@[csimp] theorem Expr.hasLooseBVarB_eq_hasLooseBVarBFast :
+    @Expr.hasLooseBVarB = @Expr.hasLooseBVarBFast := by
+  funext i e
+  exact (hasLooseBVarBGo_spec e i {} LooseBVarMemoInv.empty).1.symm
+
+/-- **Field `j` is used by a later field** — the official
+`infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
+field's variable occurs in the constructor telescope's remainder after
+binder `j` (a later field's domain; the result never mentions a
+field). -/
+def structUsedLater (cty : Expr) (nP j : Nat) : Bool :=
+  match cty.stripPis (nP + j + 1) with
+  | some (_, rest) => rest.hasLooseBVarB 0
+  | none => false
+
+/-- The rows of `projGuardRows` read off an opened constructor telescope
+`fvs`: field `idx`, and every earlier field a later one uses. -/
+def projGuardRowsAt (cty : Expr) (nP idx : Nat) (fvs : List Expr) : List (Nat × Expr) :=
+  (List.range (idx + 1)).filterMap fun j =>
+    if j = idx ∨ structUsedLater cty nP j = true then
+      (fvs[nP + j]?).map fun x => (nP + j, x.fvarTypeD)
+    else none
+
+/-- **What a `.proj` use on a `Prop`-declared structure must show**
+(official `infer_proj`, task #480): the domains, at the use's level
+instantiation and at the constructor telescope's own variables, that
+must be propositions — the projected field's, and that of every earlier
+field a later field's type uses.  Each row is a depth and a term at that
+depth.  No row at a structure that is not literally `Prop`.  `none` where
+the stored constructor does not bind what the entry says (the use is a
+reject).  Computed where it is read; nothing about it is stored. -/
+def projGuardRows (find? : Name → Option ConstantInfo) (entry : ProjEntry)
+    (us : List Level) : Option (List (Nat × Expr)) :=
+  if Level.isEquiv entry.structSort .zero == some true then
+    match find? entry.ctor with
+    | some ci =>
+      let cv := ci.toConstantVal
+      match openPisAtFvars (entry.numParams + entry.idx + 1)
+          (cv.type.instantiateLevelParams cv.levelParams us) 0 with
+      | some (fvs, _) => some (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
+      | none => none
+    | none => none
+  else some []
 
 /-- **`And`'s projection slots, ready to fire**: the two
-tower entries of `And` are stored, name the rule's constructor at the
-major's parameter count, and their `Prop` guards pass at the levels
-`ust` (`ProjEntry.fireOk`: `And`'s fields are propositions, so a
-`.proj And j h` node is typed by the tower infer branch).  The gate of
-`majorToCtor`'s `And` branch; abstracted over the lookup so the
-indexed twin (`FEnv.andRescueSlotsF`) shares the body. -/
+tower entries of `And` are stored and name the rule's constructor at the
+major's parameter count.  The gate of `majorToCtor`'s `And` branch;
+abstracted over the lookup so the indexed twin
+(`FEnv.andRescueSlotsF`) shares the body. -/
 def andRescueSlotsOf (findProj? : Name → Nat → Option ProjEntry)
-    (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
+    (ctor : Name) (nP : Nat) : Bool :=
   (List.range 2).all fun j =>
     match findProj? andName j with
-    | some e => e.ctor == ctor && e.numParams == nP && e.numFields == 2 &&
-        e.fireOk ust
+    | some e => e.ctor == ctor && e.numParams == nP && e.numFields == 2
     | none => false
 
 /-- `andRescueSlotsOf` at the plain environment. -/
-def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
-  andRescueSlotsOf env.findProj? ctor nP ust
+def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) : Bool :=
+  andRescueSlotsOf env.findProj? ctor nP
 
 /-- **The K bit at install** (`RecRule.k`): the rule's constructor has
 no fields and belongs to an inductive stored with the K capability (an

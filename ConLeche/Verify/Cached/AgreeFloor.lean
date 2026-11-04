@@ -275,8 +275,8 @@ keeps the name). -/
 
 theorem checkStructProjTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List InstallSkel}
     (h : SkelIs fe sk) (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) :
-    Yields (checkStructProjTableF (m := CheckCM) w T C lps nP nF resSort guards cvCa fe)
+    (resSort : Level) (cvCa : ConstantVal) :
+    Yields (checkStructProjTableF (m := CheckCM) w T C lps nP nF resSort cvCa fe)
       (fun fe' => SkelIs fe' sk) := by
   unfold checkStructProjTableF
   yields
@@ -725,16 +725,16 @@ theorem checkBlockTablesF_skels {w : StructWalkers} (p : BlockShape) :
     unfold checkBlockTablesF
     have key : Yields
         (match ctorsA, sortss with
-         | [cA], [sorts] =>
+         | [cA], [_] =>
            if ms.nIdx == 0 then
              checkStructProjTableF (m := CheckCM) w ms.cvT.name cA.1.name p.lps p.nP cA.2
-               p.resSort (structProjGuards cA.1.type p.nP cA.2 sorts) cA.1 fe
+               p.resSort cA.1 fe
            else pure fe
          | _, _ => pure fe)
         (fun fe' => SkelIs fe' sk) := by
       split
       · split
-        · exact checkStructProjTableF_skels h _ _ _ _ _ _ _ _
+        · exact checkStructProjTableF_skels h _ _ _ _ _ _ _
         · exact Yields.pure h
       · exact Yields.pure h
     exact Yields.bind' key fun fe' h' => checkBlockTablesF_skels p rest h'

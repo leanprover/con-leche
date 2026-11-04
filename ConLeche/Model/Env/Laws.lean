@@ -843,63 +843,47 @@ an all-tower family. -/
           (fun _ ts x => ts ++ (List.range entry.numFields).map fun j =>
             ConLeche.SetTheory.Tower.projS (j + 1) x))
 
-/-- **The `Prop` guard at a use's valuation** (task #175 W4c/O4): if
-the structure is a proposition there, so is the field's guard level.
-The typing and iota laws of a tower entry hold under it — a data
-field of a `Prop`-declared structure has no projection law (its value
-is not the point).  Consumers discharge it from the kernel's syntactic
-guard (`inferTypeCore`'s tower branch, `ProjEntry.fireOk`) through
-`towerGuardAt_of`. -/
-@[expose] def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
-    Prop :=
-  Level.eval (Level.substFn φ entry.levelParams us) entry.structSort = 0 →
-    Level.eval (Level.substFn φ entry.levelParams us) entry.fieldSort = 0
+/-- **The rows of a projection's guard, read** (task #480): over a reading
+`ds` of the constructor's telescope, the projected field's domain and that
+of every earlier field a later one uses are propositions.  Term-level: what
+the use's own derivations (`projGuardRows`) establish, at the environment
+of the use. -/
+@[expose] def TowerRowsProp (V : Type w) [SetTheory V] (cty : Expr) (nP idx : Nat)
+    (ds : List Term) : Prop :=
+  ∀ j, j ≤ idx → (j = idx ∨ ConLeche.structUsedLater cty nP j = true) →
+    ∀ ρ : Nat → V, Sat V (ds.take (nP + j)).reverse ρ →
+      interp V ρ (ds.getD (nP + j) default) ∈ˢ (univ 0 : V)
 
-/-- **The O5 conjunct**: a non-`Prop` family's guard level is bounded
-by its result sort at every valuation (the field sorts are checked
-`≤` the result sort, `checkStructFieldSortsI`), so the guard holds
-wherever the structure happens to be a proposition. -/
-@[expose] def TowerO5 (entry : ProjEntry) : Prop :=
-  (Level.isEquiv entry.structSort .zero == some true) = false →
-    ∀ ψ : Name → Nat,
-      Level.eval ψ entry.structSort = 0 → Level.eval ψ entry.fieldSort = 0
+/-- **The typing law's premise at a use** (official `infer_proj`): at a
+structure that is literally `Prop`, the rows are propositions.  The law asks
+nothing at any other structure. -/
+@[expose] def TowerGuardAt {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (entry : ProjEntry) (us : List Level)
+    (cvC : ConstantVal) : Prop :=
+  (Level.isEquiv entry.structSort .zero == some true) = true →
+    ∀ (ds : List Term) (b : Term),
+      denote m.acval env φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
+        = some (mkPisAV ds b) →
+      entry.numParams + entry.idx < ds.length →
+      TowerRowsProp V cvC.type entry.numParams entry.idx ds
 
-/-- The guard at a valuation, from the kernel's syntactic guard and O5. -/
-theorem towerGuardAt_of {entry : ProjEntry} {us : List Level} {φ : Name → Nat}
-    (hO5 : TowerO5 entry)
-    (hg : (Level.isEquiv entry.structSort .zero == some true) = true →
-      (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-        == some true) = true) :
-    TowerGuardAt φ entry us := by
-  intro hs
-  by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-  · have h1 := Level.isEquiv_sound (beq_iff_eq.mp (hg hp)) φ
-    rw [Level.eval_subst] at h1
-    simpa [Level.eval] using h1
-  · exact hO5 (by simpa using hp) _ hs
-
-/-- **The guard at a valuation, from the fire guard** (task #175 W6):
-`whnfCore`'s tower fire (`ProjEntry.fireOk`) is the tower infer
-branch's own guard — a `Prop`-declared family fires only where the
-field's guard level is a proposition, any other family unconditionally
-— so with O5 it yields `TowerGuardAt` exactly as the infer branch
-does.  The squash regime is justified by the certified spine's fit,
-see `TowerEntryLaw`'s clause (B). -/
-theorem towerGuardAt_of_fireOk {entry : ProjEntry} {us : List Level}
-    {φ : Name → Nat} (hO5 : TowerO5 entry)
-    (hfire : entry.fireOk us = true) : TowerGuardAt φ entry us := by
-  unfold ProjEntry.fireOk at hfire
-  refine towerGuardAt_of hO5 (fun hp => ?_)
-  rw [hp] at hfire
-  simpa using hfire
+/-- The premise moves against a reading's transport. -/
+theorem TowerGuardAt.mono {V : Type w} [SetTheory V] {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂} {φ : Name → Nat} {entry : ProjEntry}
+    {us : List Level} {cvC : ConstantVal}
+    (hd : ∀ t, denote m₁.acval env₁ φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
+        = some t →
+      denote m₂.acval env₂ φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us) = some t)
+    (h : TowerGuardAt m₂ φ entry us cvC) : TowerGuardAt m₁ φ entry us cvC :=
+  fun hp ds b hr hl => h hp ds b (hd _ hr) hl
 
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and
 constructor (whose η capability is the entry's at a non-`Prop` family
-— task #175 W4c/O4), the O5 bound, and at every level instantiation
-the typing law and the iota law hold under the `Prop` guard at the
-entry's own body reading and the constructor's, and the family's
-structural-η law holds (clause (C), `TowerEtaLaw`).
+— task #175 W4c/O4), and at every level instantiation the typing law
+holds under the guard at the use (`TowerGuardAt`), the iota law where the
+redex is not the point, and the family's structural-η law holds (clause
+(C), `TowerEtaLaw`).
 
 Task #175 S1: the entry stores a *body* scoped at the parameters and
 the subject, not a type; the typing law is stated over the reading
@@ -925,7 +909,6 @@ dummy binders carry the reading only; the law never reads them. -/
       capsT.etaCtor = entry.ctor ∧
       capsT.etaParams = entry.numParams ∧
       capsT.etaFields = entry.numFields)) ∧
-  TowerO5 entry ∧
   ∃ cvC : ConstantVal,
     env.find? entry.ctor
       = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
@@ -936,7 +919,7 @@ dummy binders carry the reading only; the law never reads them. -/
         denote m.acval env φ 0
           (ConLeche.projTele (entry.numParams + 1)
             (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta ∧
-        (TowerGuardAt φ entry us →
+        (TowerGuardAt m φ entry us cvC →
         ∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
           vs.length = entry.numParams →
           WellDenoted V ρ (Term.mkAppN
@@ -951,21 +934,22 @@ dummy binders carry the reading only; the law never reads them. -/
           WellDenoted V ρ (projNV (i + 1) x) ∧ WellDenotedTy V ρ rest ∧
             interp V ρ (projNV (i + 1) x) ∈ˢ interp V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
-      -- application is the selected field, at every valuation under
-      -- the guard (task #175 W6).  Two premises: the application's
-      -- grading (its slot chain), and the spine's fit against the
-      -- constructor's own type reading (`projCert`'s arity check,
-      -- `teleArity_sound`), which places the selected field in its
-      -- domain where the application is the point.
+      -- application is the selected field, where it is not the point
+      -- (a reduction claims nothing of the point, and at a squash
+      -- instance the application is the point).  Two premises: the
+      -- application's grading (its slot chain), and the spine's fit
+      -- against the constructor's own type reading (`projCert`'s arity
+      -- check, `teleArity_sound`).
       (∃ TCa : Term,
         denote m.acval env φ 0
           (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
-        (TowerGuardAt φ entry us →
-        ∀ (ρ : Nat → V) (ys : List Term) (rest : V),
+        (∀ (ρ : Nat → V) (ys : List Term) (rest : V),
         ys.length = entry.numParams + entry.numFields →
         WellDenoted V ρ (Term.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
         TeleFit V ρ TCa (ys.map (interp V ρ)) rest →
+        interp V ρ (projNV (i + 1) (Term.mkAppN
+            (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys)) ≠ pt →
         interp V ρ (projNV (i + 1) (Term.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
           = interp V ρ (ys.getD (entry.numParams + i) default)))) ∧

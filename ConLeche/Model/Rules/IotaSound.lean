@@ -844,7 +844,7 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
     (hthead : tmaj.getAppFn = .const andName ust)
     (hlen : tmaj.getAppArgs.length = cnP)
     (hlv : cvj.levelParams.length = ust.length)
-    (hslots : ConLeche.andRescueSlots env rl.ctor cnP ust = true)
+    (hslots : ConLeche.andRescueSlots env rl.ctor cnP = true)
     (hfab : fab = Expr.mkAppN (.const rl.ctor ust)
       (tmaj.getAppArgs ++ [.proj andName 0 major, .proj andName 1 major]))
     (hws : fab.wscopedB d = true) (hb : fab.looseBVarsBounded 0 = true)
@@ -869,7 +869,7 @@ theorem Red.rescueAnd_sound (hin : RulesInputs V m φ) {d : Nat}
       denote m.acval env φ d (Expr.proj andName j major)
         = some (projNV (j + 1) ea) := by
     intro j hj
-    obtain ⟨entry, hfe, -, -, -, -⟩ := hslot j hj
+    obtain ⟨entry, hfe, -, -, -⟩ := hslot j hj
     exact denote_proj_tower hfe hea
   -- the fabrication reads
   have hheadCj : denote m.acval env φ d (.const rl.ctor ust)

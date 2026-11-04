@@ -161,10 +161,9 @@ def checkBlockTablesF (w : StructWalkers) (p : BlockShape) :
   | (ms, ctorsA, sortss) :: rest, fe => do
     let fe' ←
       (match ctorsA, sortss with
-       | [cA], [sorts] =>
+       | [cA], [_] =>
          if ms.nIdx == 0 then
-           checkStructProjTableF w ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort
-             (structProjGuards cA.1.type p.nP cA.2 sorts) cA.1 fe
+           checkStructProjTableF w ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort cA.1 fe
          else pure fe
        | _, _ => pure fe)
     checkBlockTablesF w p rest fe'

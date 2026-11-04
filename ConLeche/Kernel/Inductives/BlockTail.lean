@@ -113,10 +113,9 @@ def checkBlockTables (p : BlockShape) :
   | (ms, ctorsA, sortss) :: rest, env => do
     let env' ←
       (match ctorsA, sortss with
-       | [cA], [sorts] =>
+       | [cA], [_] =>
          if ms.nIdx == 0 then
-           checkStructProjTable ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort
-             (structProjGuards cA.1.type p.nP cA.2 sorts) cA.1 env
+           checkStructProjTable ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort cA.1 env
          else pure env
        | _, _ => pure env)
     checkBlockTables p rest env'

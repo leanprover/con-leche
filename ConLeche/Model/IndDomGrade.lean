@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Currency
+public import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Rules.RedSoundKit
 public section
 
@@ -27,18 +28,6 @@ variable {env : Env} {φ : Name → Nat}
 variable {acval : Name → (Name → Nat) → Term}
 
 /-! ## The `.pi` split, in the P currency -/
-
-/-- A `.pi` reading's domain is graded when the reading is. -/
-theorem WellDenoted_pi_dom {ρ : Nat → V} {A B : Term}
-    (h : WellDenoted V ρ (.pi A B)) : WellDenoted V ρ A :=
-  (cast (WellDenoted_pi V ρ A B) h).1
-
-/-- A `.pi` reading's body is graded at every extension by an element
-of the domain. -/
-theorem WellDenoted_pi_body {ρ : Nat → V} {A B : Term}
-    (h : WellDenoted V ρ (.pi A B)) {x : V}
-    (hx : x ∈ˢ interp V ρ A) : WellDenoted V (cons x ρ) B :=
-  (cast (WellDenoted_pi V ρ A B) h).2.2.1 x hx
 
 /-! ## Application spines, graded backwards -/
 

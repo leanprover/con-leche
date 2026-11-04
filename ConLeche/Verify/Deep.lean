@@ -1769,17 +1769,13 @@ private theorem infer_step (henv : EnvWF env)
       -- spine and the subject
       obtain ⟨-, hlen, -⟩ := hc
       have hsh := ProjEntry.typeAt_shiftFrom (p := p) henv hfp us₂ hlen pe
-      -- the Prop guard (task #175 W4c) is shift-independent: split it
-      -- on both sides, then the residual
-      by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
-      · rw [ite_eq_left hs, ite_eq_left hs]
-        by_cases hfs : ((Level.subst entry.levelParams us₂
-            entry.fieldSort).isEquiv Level.zero == some true) = true
-        · rw [ite_eq_left hfs, ite_eq_left hfs, ← hsh]
-          rfl
-        · rw [ite_eq_right hfs, ite_eq_right hfs]
-          rfl
-      · rw [ite_eq_right hs, ite_eq_right hs, ← hsh]
+      -- the guard reads the entry and the levels, not the subject or
+      -- the depth: one run on both sides, then the residual
+      generalize checkProjGuard (pureFns mode eager env fuel).inferIO (pureFns mode eager env fuel).whnf env entry us₂ = g
+      cases g with
+      | error _ => rfl
+      | ok _ =>
+        rw [← hsh]
         rfl
 
 /-- The io *lane* (the leaf knot, `inferTypeCoreIO`) commutes with the
@@ -1942,17 +1938,13 @@ private theorem inferIOCore_step (henv : EnvWF env)
       -- spine and the subject
       obtain ⟨-, hlen, -⟩ := hc
       have hsh := ProjEntry.typeAt_shiftFrom (p := p) henv hfp us₂ hlen pe
-      -- the Prop guard (task #175 W4c) is shift-independent: split it
-      -- on both sides, then the residual
-      by_cases hs : (entry.structSort.isEquiv Level.zero == some true) = true
-      · rw [ite_eq_left hs, ite_eq_left hs]
-        by_cases hfs : ((Level.subst entry.levelParams us₂
-            entry.fieldSort).isEquiv Level.zero == some true) = true
-        · rw [ite_eq_left hfs, ite_eq_left hfs, ← hsh]
-          rfl
-        · rw [ite_eq_right hfs, ite_eq_right hfs]
-          rfl
-      · rw [ite_eq_right hs, ite_eq_right hs, ← hsh]
+      -- the guard reads the entry and the levels, not the subject or
+      -- the depth: one run on both sides, then the residual
+      generalize checkProjGuard (pureFnsIO mode eager env fuel).infer (pureFnsIO mode eager env fuel).whnf env entry us₂ = g
+      cases g with
+      | error _ => rfl
+      | ok _ =>
+        rw [← hsh]
         rfl
 
 /-- The knot's io *slot* commutes with the shift, at `fuel + 1`

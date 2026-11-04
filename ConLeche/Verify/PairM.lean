@@ -406,6 +406,72 @@ theorem ensureSort_snd_proj (d : Nat) (e : Expr) :
   unfold ensureSort
   snd_tac
 
+theorem checkGuardRows_fst {inf wh : Nat → Expr → PairM rel Expr} {inf₁ wh₁ : Nat → Expr → M₁ Expr}
+    (hi : ∀ d e, (inf d e).val.1 = inf₁ d e) (hw : ∀ d e, (wh d e).val.1 = wh₁ d e) :
+    ∀ rows, (checkGuardRows inf wh rows).val.1 = checkGuardRows inf₁ wh₁ rows
+  | [] => rfl
+  | (d, dom) :: rest => by
+    unfold checkGuardRows
+    rw [PairM.fst_bind]
+    rw [hi d dom]; refine congrArg _ (funext fun t => ?_)
+    rw [PairM.fst_bind]
+    rw [hw d t]; refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    dsimp only []
+    have hk := checkGuardRows_fst hi hw rest
+    split
+    · exact hk
+    · rw [PairM.fst_bind, hk]; rfl
+
+theorem checkGuardRows_snd {inf wh : Nat → Expr → PairM rel Expr} {inf₂ wh₂ : Nat → Expr → M₂ Expr}
+    (hi : ∀ d e, (inf d e).val.2 = inf₂ d e) (hw : ∀ d e, (wh d e).val.2 = wh₂ d e) :
+    ∀ rows, (checkGuardRows inf wh rows).val.2 = checkGuardRows inf₂ wh₂ rows
+  | [] => rfl
+  | (d, dom) :: rest => by
+    unfold checkGuardRows
+    rw [PairM.snd_bind]
+    rw [hi d dom]; refine congrArg _ (funext fun t => ?_)
+    rw [PairM.snd_bind]
+    rw [hw d t]; refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    dsimp only []
+    have hk := checkGuardRows_snd hi hw rest
+    split
+    · exact hk
+    · rw [PairM.snd_bind, hk]; rfl
+
+theorem checkProjGuard_fst_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).inferIO (pairFns r₁ r₂ h).whnf env entry us).val.1 =
+      checkProjGuard r₁.inferIO r₁.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · exact checkGuardRows_fst (fun _ _ => rfl) (fun _ _ => rfl) _
+  · rfl
+
+theorem checkProjGuard_snd_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).inferIO (pairFns r₁ r₂ h).whnf env entry us).val.2 =
+      checkProjGuard r₂.inferIO r₂.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · exact checkGuardRows_snd (fun _ _ => rfl) (fun _ _ => rfl) _
+  · rfl
+
+theorem checkProjGuardI_fst_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).infer (pairFns r₁ r₂ h).whnf env entry us).val.1 =
+      checkProjGuard r₁.infer r₁.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · exact checkGuardRows_fst (fun _ _ => rfl) (fun _ _ => rfl) _
+  · rfl
+
+theorem checkProjGuardI_snd_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).infer (pairFns r₁ r₂ h).whnf env entry us).val.2 =
+      checkProjGuard r₂.infer r₂.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · exact checkGuardRows_snd (fun _ _ => rfl) (fun _ _ => rfl) _
+  · rfl
+
 theorem proofIrrel_fst_proj (d : Nat) (a b : Expr) :
     (proofIrrel (pairFns r₁ r₂ h) d a b).val.1 =
       proofIrrel r₁ d a b := by
@@ -887,6 +953,8 @@ macro "fst_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
     | $x:tactic
+    | (rw [checkProjGuard_fst_proj])
+    | (rw [checkProjGuardI_fst_proj])
     | (rw [liftFueled_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
@@ -943,6 +1011,8 @@ macro "snd_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
     | $x:tactic
+    | (rw [checkProjGuard_snd_proj])
+    | (rw [checkProjGuardI_snd_proj])
     | (rw [liftFueled_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])

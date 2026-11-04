@@ -634,7 +634,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
             | .const T' ust =>
               if T' = T ∧ tmaj.getAppArgs.length = cnP ∧
                   cvj.levelParams.length = ust.length ∧
-                  andRescueSlots env rl.ctor cnP ust = true then
+                  andRescueSlots env rl.ctor cnP = true then
                 let fab := Expr.mkAppN (.const rl.ctor ust)
                   (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major])
                 -- scope guard, as in the K branch
@@ -902,8 +902,7 @@ def projCertAt (env : Env) (verified : Bool) (c : Name) (args : List Expr) :
 /-- **The projection rule on a reduced scrutinee** (the official
 kernel's `reduce_proj_core`): `proj_i (ctor p⃗ x⃗) ↦ x_i`, driven by the
 projection table (never by basis names) — the table entry for
-(structName, i) supplies the constructor, the counts and the
-possibly-Prop level guard.  A string-literal scrutinee first expands to
+(structName, i) supplies the constructor and the counts.  A string-literal scrutinee first expands to
 its reduced constructor form (`projLitToCtor`, official: `whnf
 (string_lit_to_constructor c)`).  At the verified mode the fire is
 certified (`projCertAt`: the constructor spine against the
@@ -920,8 +919,7 @@ def reduceProjCore (r : CoreFns m) (env : Env) (depth : Nat) (sn : Name)
       let args := c.getAppArgs
       if k = entry.ctor ∧ i < entry.numFields ∧
           args.length = entry.numParams + entry.numFields ∧
-          us.length = entry.levelParams.length ∧
-          entry.fireOk us = true then
+          us.length = entry.levelParams.length then
         -- the certificate runs unconditionally at the verified mode;
         -- the trusted mode runs none (`projCertAt`).
         if projCertAt env mode.verifiedChecks k args then
@@ -1062,6 +1060,29 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
+/-- **The rows of a projection's guard** (`projGuardRows`, official
+`infer_proj`'s `is_prop` tests): each row's term is a proposition.
+`inf` is the io slot, as official's `infer_type` inside `is_prop`, in
+every body. -/
+def checkGuardRows (inf wh : Nat → Expr → m Expr) : List (Nat × Expr) → m Unit
+  | [] => pure ()
+  | (d, dom) :: rest => do
+    match ← wh d (← inf d dom) with
+    | .sort u =>
+      unless Level.isEquiv u .zero == some true do
+        throw (.invalid "projection from a propositional structure must be a proposition")
+      checkGuardRows inf wh rest
+    | _ => throw (.invalid "expected a sort")
+
+/-- **The official `infer_proj` restriction** at this use (task #480):
+computed here, at the environment of the use, from the stored constructor
+type; nothing about it is stored. -/
+def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+    (us : List Level) : m Unit :=
+  match projGuardRows env.find? entry us with
+  | some rows => checkGuardRows inf wh rows
+  | none => throw (.invalid "projection from a propositional structure must be a proposition")
+
 /-- **The argument check of a full-grade application** (task #353,
 official `infer_app`): the type of an `eagerReduce _ _` argument
 (`Expr.isEagerReduce`) is compared with the domain in the eager tower
@@ -1155,17 +1176,11 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- table on the node's name, the checker on the head's
           if T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- the official `infer_proj` restriction (task #175
-            -- W4c/O4): at a `Prop`-declared structure the field —
-            -- and every earlier field a later field uses — must be
-            -- a proposition at this instantiation; the entry's
-            -- guard level joins exactly those sorts
-            if Level.isEquiv entry.structSort .zero == some true then
-              unless Level.isEquiv
-                  (Level.subst entry.levelParams us entry.fieldSort) .zero
-                  == some true do
-                throw (.invalid
-                  "projection from a propositional structure must be a proposition")
+            -- the official `infer_proj` restriction: at a
+            -- `Prop`-declared structure the field — and every earlier
+            -- field a later field uses — must be a proposition at this
+            -- instantiation
+            checkProjGuard r.inferIO r.whnf env entry us
             -- the body at the subject type's arguments and the
             -- subject, one `instantiateList` (task #175 S1)
             pure (entry.typeAt us te.getAppArgs pe)
@@ -1254,14 +1269,8 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           -- table on the node's name, the checker on the head's
           if T = sn ∧ te.getAppArgs.length = entry.numParams ∧
               us.length = entry.levelParams.length then do
-            -- the official `infer_proj` restriction (task #175
-            -- W4c/O4), as in `inferBody`
-            if Level.isEquiv entry.structSort .zero == some true then
-              unless Level.isEquiv
-                  (Level.subst entry.levelParams us entry.fieldSort) .zero
-                  == some true do
-                throw (.invalid
-                  "projection from a propositional structure must be a proposition")
+            -- the official `infer_proj` restriction, as in `inferBody`
+            checkProjGuard r.infer r.whnf env entry us
             -- the body at the arguments and the subject, as in
             -- `inferBody` (task #175 S1)
             pure (entry.typeAt us te.getAppArgs pe)

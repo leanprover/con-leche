@@ -216,6 +216,13 @@ sort, at the hereditary clause's witness. -/
     ∀ (ρ : Nat → V) (v : V), Sat V Δa ρ → LeavesGr m φ d T ρ →
       IORel m φ d T ρ v → v = pt
 
+/-- **The guard rows' motive** (`GuardRows`): each row's io claim, its
+type's reduction to a sort, and that sort's being `Prop`. -/
+@[expose] def GuardRowsSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (rows : List (Nat × Expr)) : Prop :=
+  ∀ p ∈ rows, ∃ (t : Expr) (u : Level), InferSemIO m φ p.1 p.2 t ∧ RedSem m φ p.1 t (.sort u) ∧
+    Red env p.1 t (.sort u) ∧ Level.isEquiv u .zero = some true
+
 /-- The grade-dispatched inference motive. -/
 @[expose] def InferSem {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Grade → Nat → Expr → Expr → Prop

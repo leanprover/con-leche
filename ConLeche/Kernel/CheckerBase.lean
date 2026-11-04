@@ -120,43 +120,6 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Uni
   let stype ← ops.inferType env 0 cv.type
   let _u ← ops.ensureSort env 0 stype
 
-/-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
-(each fvar's type is the binder domain, instantiated with the earlier
-fvars).  Returns the fvars and the opened body. -/
-def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i dom
-    match openPisAtFvars n (body.instantiate1 fv) (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
-innermost binder first.  Computes
-`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
-`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
-one `instantiateList` pass per domain instead of one whole-telescope
-`instantiate1` pass per binder. -/
-def openPisAtFvarsFGo (acc : List Expr) :
-    Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e.instantiateList acc)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i (dom.instantiateList acc)
-    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
-fallback covers telescopes whose binders only appear after
-substitution). -/
-def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
-    Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo [] n e i with
-  | some r => some r
-  | none => openPisAtFvars n e i
-
 open Expr in
 theorem openPisAtFvarsFGo_sound :
     ∀ (n : Nat) (e : Expr) (i : Nat) (acc : List Expr)

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.IndTele
+public import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Denote.Inst
 public import ConLeche.Verify.Denote.TeleOpen
 public section
@@ -335,69 +336,5 @@ environment by exactly `k - i`, and the context clause reads the entry
 at `fun j => ρ (j + (k - 1 - i) + 1)` — the same function whenever
 `i < k`.  So the two sides agree pointwise before any satisfaction
 hypothesis is consulted, and `ctxOk_of_openers` never inspects `ρ`. -/
-
-/-- **`CtxOk` at the opened frame**: a context whose entries at the touched indices are the
-frame's own-depth annotation readings correlates with a kit expression;
-padding slots are never consulted. -/
-theorem ctxOk_of_openers {env : Env} {m : EnvModel V env}
-    {φ : Name → Nat}
-    (hacl : ∀ (n : Name) (ψ : Name → Nat) (k : Nat),
-      (m.acval n ψ).liftN 1 k = m.acval n ψ)
-    {k : Nat} {fvs : List Expr} {Aa : Nat → Term} {Δa : List Term}
-    (hΔlen : Δa.length = k)
-    (hshape : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      ∃ ty, x = Expr.fvar i ty)
-    (hws : ∀ x ∈ fvs, Expr.WScoped k x)
-    (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      denote m.acval env φ i (Expr.fvarTypeD x) = some (Aa i))
-    {e : Expr} {n : Nat}
-    (hleaf : ∀ l ∈ e.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs)
-    (hltE : ∀ l ∈ e.fvarLeaves, l.1 < n)
-    (hent : ∀ i, i < n → Δa[k - 1 - i]? = some (Aa i))
-    (hokA : ∀ i, i < n → ∀ ρ : Nat → V, Sat V Δa ρ →
-      WellDenotedTy V (fun j => ρ (j + (k - 1 - i) + 1)) (Aa i)) :
-    CtxOk m φ k Δa e := by
-  refine ⟨hΔlen, ?_⟩
-  intro l hl
-  have hmem := hleaf l hl
-  obtain ⟨pos, hpos⟩ := List.getElem?_of_mem hmem
-  obtain ⟨ty, hx⟩ := hshape pos _ hpos
-  obtain ⟨h1, h2⟩ : l.1 = pos ∧ l.2 = ty := by
-    injection hx with a b
-    exact ⟨a, b⟩
-  subst h1 h2
-  have hlt : l.1 < n := hltE l hl
-  have hw := hws _ (List.mem_of_getElem? hpos)
-  have hwty : l.1 < k ∧ Expr.WScoped l.1 l.2 := by
-    simpa [Expr.WScoped] using hw
-  refine ⟨hwty.1, hwty.2.fvarsBelow, (Aa l.1).liftN (k - l.1) 0, Aa l.1,
-    ?_, hent l.1 hlt, ?_, ?_⟩
-  · have hd1 := hdoms l.1 _ hpos
-    rw [show Expr.fvarTypeD (Expr.fvar l.1 l.2) = l.2 from rfl]
-      at hd1
-    rw [denote_lift hacl hwty.2 k (by omega), hd1]
-    rfl
-  · -- the equation: `interp_liftN`'s `shiftE` against the entry's own
-    -- context environment; both are `fun j => ρ (j + (k - l.1))`
-    intro ρ _
-    rw [interp_liftN]
-    congr 1
-    funext j
-    show (if j < 0 then ρ j else ρ (j + (k - l.1))) = ρ (j + (k - 1 - l.1) + 1)
-    rw [ite_eq_right (Nat.not_lt_zero j)]
-    congr 1
-    omega
-  · -- the grading: the entry's, transported across the same lift
-    intro ρ hρ
-    refine (WellDenotedTy_liftN (k - l.1) (Aa l.1) 0 ρ).mpr ?_
-    have h := hokA l.1 hlt ρ hρ
-    have henv : shiftE (k - l.1) 0 ρ = fun j => ρ (j + (k - 1 - l.1) + 1) := by
-      funext j
-      show (if j < 0 then ρ j else ρ (j + (k - l.1))) = _
-      rw [ite_eq_right (Nat.not_lt_zero j)]
-      congr 1
-      omega
-    rw [henv]
-    exact h
 
 end ConLeche.Model

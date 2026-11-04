@@ -264,8 +264,8 @@ def towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
   (List.range nF).all fun j => (fe.findProj? T j).isSome
 
 /-- `andRescueSlots` through the index. -/
-def andRescueSlotsF (fe : FEnv) (ctor : Name) (nP : Nat) (ust : List Level) : Bool :=
-  andRescueSlotsOf fe.findProj? ctor nP ust
+def andRescueSlotsF (fe : FEnv) (ctor : Name) (nP : Nat) : Bool :=
+  andRescueSlotsOf fe.findProj? ctor nP
 
 end FEnv
 

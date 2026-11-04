@@ -76,10 +76,10 @@ theorem checkSumTeleF_pushC (ops : CheckerOps CheckCM) (env : Env)
 
 /-- The projection table through the index (task #175 S1). -/
 theorem checkStructProjTableF_pushC (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
+    (nP nF : Nat) (rs : Level) (cvCa : ConstantVal)
     (env : Env) :
-    checkStructProjTableF (m := CheckCM) .plain T C lps nP nF rs guards cvCa (mkFEnv env)
-      = checkStructProjTable (m := CheckCM) T C lps nP nF rs guards cvCa env
+    checkStructProjTableF (m := CheckCM) .plain T C lps nP nF rs cvCa (mkFEnv env)
+      = checkStructProjTable (m := CheckCM) T C lps nP nF rs cvCa env
           >>= fun e => pure (mkFEnv e) := by
   unfold checkStructProjTableF checkStructProjTable
   simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?,
@@ -92,13 +92,13 @@ is the only projection route) -/
 #175 S1): operation-free, the state is unchanged, the environment is
 the pure stage's. -/
 theorem checkStructProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
-    {rs : Level} {guards : List Level} {cvCa : ConstantVal}
+    {rs : Level} {cvCa : ConstantVal}
     (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
     (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkStructProjTableF (m := CheckCM) .plain T C lps nP nF rs guards cvCa
+    (h : checkStructProjTableF (m := CheckCM) .plain T C lps nP nF rs cvCa
       (mkFEnv env) s₀ = .ok (fe', s')) :
     CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
-    ∃ F, (checkStructProjTable T C lps nP nF rs guards cvCa env : FueledM Env).val F
+    ∃ F, (checkStructProjTable T C lps nP nF rs cvCa env : FueledM Env).val F
       = .ok fe'.env := by
   rw [checkStructProjTableF_pushC] at h
   obtain ⟨e₁, s₁, hstep, h⟩ := bindC_ok h
@@ -106,7 +106,7 @@ theorem checkStructProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
   subst hfe
   -- the pure stage in the cached monad: state unchanged, the value the
   -- `CheckM` instantiation's
-  have hrun : s₀ = s₁ ∧ checkStructProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+  have hrun : s₀ = s₁ ∧ checkStructProjTable (m := CheckM) T C lps nP nF rs cvCa env
       = .ok e₁ := by
     unfold checkStructProjTable at hstep ⊢
     cases hb : structProjBodies T nP nF cvCa.type with

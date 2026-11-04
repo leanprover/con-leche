@@ -72,6 +72,48 @@ theorem inferTypeIO_bridge {fuel : Nat} (hio : InferIOBridge μ eager env fuel)
     (h : inferTypeIO μ eager env fuel d e = .ok t) : Infer env .io d e t :=
   hio (by rwa [inferTypeIO_on] at h)
 
+/-- A successful run of a projection guard's rows is the relation's
+walk. -/
+theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr}
+    (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
+    (hwh : ∀ d e t, wh d e = .ok t → Red env d e t) :
+    ∀ rows, checkGuardRows inf wh rows = .ok () → GuardRows env rows
+  | [], _ => .nil
+  | (d, dom) :: rest, h => by
+    unfold checkGuardRows at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hi : inf d dom with
+    | error err => rw [hi] at h; exact nomatch h
+    | ok t =>
+    rw [hi] at h
+    dsimp only at h
+    cases hw : wh d t with
+    | error err => rw [hw] at h; exact nomatch h
+    | ok w =>
+    rw [hw] at h
+    dsimp only at h
+    cases w with
+    | sort u =>
+      dsimp only at h
+      split at h
+      next hz =>
+        exact .row (hinf _ _ _ hi) (hwh _ _ _ hw) (by simpa using hz)
+          (checkGuardRows_bridge hinf hwh rest h)
+      next => exact nomatch h
+    | _ => exact nomatch h
+
+/-- A successful run of a projection's guard is its rows' walk. -/
+theorem checkProjGuard_bridge {inf wh : Nat → Expr → CheckM Expr}
+    (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
+    (hwh : ∀ d e t, wh d e = .ok t → Red env d e t)
+    {entry : ProjEntry} {us : List Level}
+    (h : checkProjGuard inf wh env entry us = .ok ()) :
+    ∃ rows, projGuardRows env.find? entry us = some rows ∧ GuardRows env rows := by
+  unfold checkProjGuard at h
+  split at h
+  next rows hr => exact ⟨rows, hr, checkGuardRows_bridge hinf hwh rows h⟩
+  next => exact nomatch h
+
 /-! ## The zero cases: every entry point throws at fuel `0` -/
 
 theorem whnfCore_bridge_zero : WhnfCoreBridge μ eager env 0 := by
