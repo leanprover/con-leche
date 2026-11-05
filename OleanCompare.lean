@@ -143,8 +143,8 @@ def runViews (sp : List System.FilePath) (roots : Array Name) : IO UInt32 := do
   IO.println s!"{order.size} modules: every view read, one memo, agrees"
   return 0
 
-/-- Lean's `Name.isInternal`: lean4export's default leaves out the constants so named, which
-the reader starts from too, so they may be extra records. -/
+/-- Lean's `Name.isInternal`: lean4export's default roots leave out the constants so named,
+which the reader starts from, so a record only the reader has must be so named. -/
 def internalName : Name → Bool
   | .str p s => s.front == '_' || internalName p
   | .num p _ => internalName p
@@ -189,16 +189,16 @@ def main (args : List String) : IO UInt32 := do
     let mut extra := 0
     for (k, _) in om do
       unless jm.contains k do
-        -- the export's default leaves out internal names as roots: extra records
-        -- are those, or what only they reach, which the check below counts
-        if constants.isNone then extra := extra + 1
+        -- the export's default roots are the names that are not internal, so a record
+        -- it does not have must be under an internal name
+        if constants.isNone && internalName k then extra := extra + 1
         else
           bad := bad + 1
           if shown < 40 then IO.println s!"only in the oleans: {k}"; shown := shown + 1
     -- record for record: a key two records share, or a
     -- different number of records, is a difference the maps hide
     let countDiff := if js.size + extra == os.size then 0 else 1
-    IO.println s!"{extra} records the export's default leaves out (internal names and their reach)"
+    IO.println s!"{extra} records under internal names, which the export's default leaves out"
     IO.println s!"{jm.size} stream keys, {om.size} olean keys, {bad} differences, \
       {jd + od} duplicate keys, {js.size} / {os.size} records"
     return if bad == 0 && jd == 0 && od == 0 && countDiff == 0 then 0 else 1
