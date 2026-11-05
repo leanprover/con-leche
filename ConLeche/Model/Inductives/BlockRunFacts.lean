@@ -29,23 +29,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 omit [SetTheory V] in
-theorem checkBlockTeles_formers {env : Env} {nP F : Nat} :
-    ∀ {mss : List MemberShape} {cvs : List (ConstantVal × Level)},
-      ConLeche.checkBlockTeles (fueledOps .verified F) env nP mss = .ok cvs →
-      cvs.map (·.1) = mss.map (·.cvT)
-  | [], cvs, h => by
-    simp only [ConLeche.checkBlockTeles, pure, Except.pure, Except.ok.injEq] at h
-    subst h; rfl
-  | ms :: rest, cvs, h => by
-    unfold ConLeche.checkBlockTeles at h
-    obtain ⟨r, hr, h⟩ := exceptBind_ok h
-    obtain ⟨rs, hrs, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    obtain ⟨cvTa, s⟩ := r
-    simp only [List.map_cons, ConLeche.checkBlockTele_former hr, checkBlockTeles_formers hrs]
-
-omit [SetTheory V] in
 /-- The tables' stage stores no constant. -/
 theorem checkBlockTables_consts {q : BlockShape} :
     ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))} {env env₂ : Env},

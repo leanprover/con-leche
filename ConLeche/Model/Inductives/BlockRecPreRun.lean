@@ -166,17 +166,6 @@ component of the block's least pre-fixed tuple. -/
   lfpTuple (d.w ψ) d.N (d.idx ψ (consList (xs.take d.nP) ρ))
     (d.Φ ψ (consList (xs.take d.nP) ρ)) (mem c)
 
-/-- A fitting spine's prefix fits the domains' prefix — `spineFit_take`
-without its length side condition (past the end both takes are the
-whole lists). -/
-theorem spineFit_take_any {Fs : List Term} {ρ : Nat → V} {as : List V}
-    (h : SpineFit ρ Fs as) (i : Nat) : SpineFit ρ (Fs.take i) (as.take i) := by
-  by_cases hi : i ≤ Fs.length
-  · exact spineFit_take h hi
-  · rw [List.take_of_length_le (Nat.le_of_not_le hi),
-      List.take_of_length_le (by rw [h.length_eq]; exact Nat.le_of_not_le hi)]
-    exact h
-
 end ClassData
 
 /-! ## 6. The rule count -/
@@ -656,30 +645,6 @@ theorem openPisAtFvars_prefix_getElem {n N : Nat} {e : Expr} {d : Nat}
 
 /-! ## B. A fitting spine transfers along the WALK's own readings -/
 
-/-- **A fit transfers at the walk's own frames**: the domains
-have to agree only at the frames the walk actually reaches — entry `l`
-under the spine's own first `l` values.  Agreement at all frames is
-the special case; this one is what a run-level agreement (proved at
-the opening's satisfying frames, never at all of them) can pay. -/
-theorem spineFit_congr_walk :
-    ∀ {Fs Gs : List Term} {ρ : Nat → V} {as : List V},
-      Fs.length = Gs.length →
-      (∀ l, l < Fs.length →
-        interp V (consList (as.take l) ρ) (Fs.getD l default)
-          = interp V (consList (as.take l) ρ) (Gs.getD l default)) →
-      SpineFit ρ Fs as → SpineFit ρ Gs as
-  | [], [], _, [], _, _, _ => trivial
-  | [], _ :: _, _, _, hl, _, _ => by simp at hl
-  | _ :: _, [], _, _, hl, _, _ => by simp at hl
-  | _ :: _, _ :: _, _, [], _, _, hf => hf.elim
-  | F :: Fs, G :: Gs, ρ, a :: as, hl, hag, hf => by
-    have h0 := hag 0 (by simp)
-    simp only [List.take_zero, consList_nil, List.getD_cons_zero] at h0
-    refine ⟨h0 ▸ hf.1, ?_⟩
-    refine spineFit_congr_walk (by simpa using hl) (fun l hll => ?_) hf.2
-    have h := hag (l + 1) (by simpa using hll)
-    simpa [List.take_succ_cons, consList_cons] using h
-
 /-! ## C. `CtxOk` at an opening whose entries only AGREE with the
 context's -/
 
@@ -739,102 +704,9 @@ theorem ctxOk_of_openers_congr {env : Env} {m : EnvModel V env} {φ : Name → N
 
 /-! ## D. Small list/frame helpers -/
 
-omit [SetTheory V] in
-/-- The frame `rP - j` slots up from a spine's own is the spine's first
-`j` values. -/
-theorem shiftE_consList_take {xs : List V} {ρ₀ : Nat → V} {rP : Nat} (j : Nat)
-    (hxlen : xs.length = rP) :
-    shiftE (rP - j) 0 (consList xs ρ₀) = consList (xs.take j) ρ₀ := by
-  have h1 : (xs.drop j).length = rP - j := by rw [List.length_drop, hxlen]
-  have h2 : consList xs ρ₀ = consList (xs.drop j) (consList (xs.take j) ρ₀) := by
-    rw [← consList_append, List.take_append_drop]
-  rw [h2, ← h1, shiftE_consList]
-
-omit [SetTheory V] in
-theorem getD_take_of_lt {L : List Term} {j i : Nat} (h : j < i) :
-    (L.take i).getD j default = L.getD j default := by
-  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD]
-  rw [List.getElem?_take, ite_eq_left h]
-
-omit [SetTheory V] in
-theorem getElem?_reverse_entry {L : List Term} {n i : Nat}
-    (hlen : L.length = n) (hi : i < n) :
-    L.reverse[n - 1 - i]? = some (L.getD i default) := by
-  rw [List.getElem?_reverse (by rw [hlen]; omega), hlen,
-    show n - 1 - (n - 1 - i) = i from by omega,
-    List.getElem?_eq_getElem (by rw [hlen]; exact hi),
-    List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hlen]; exact hi)]
-  rfl
-
 /-! ## E. `CtxOk` at one opener's annotation -/
 
-/-- An opener's annotation mentions only openers. -/
-theorem openerType_leaves {rP : Nat} {ty : Expr} {fvs : List Expr} {o : Expr}
-    (hop : openPisAtFvars rP ty 0 = some (fvs, o)) (hw0 : Expr.WScoped 0 ty)
-    {l : Nat} {x : Expr} (hx : fvs[l]? = some x) :
-    ∀ lf ∈ (Expr.fvarTypeD x).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ fvs := by
-  intro lf hlf
-  obtain ⟨ty', hty'⟩ := openPisAtFvars_index rP ty 0 hop l x hx
-  have hxx : lf ∈ x.fvarLeaves := by
-    rw [hty'] at hlf ⊢
-    simp only [Expr.fvarTypeD] at hlf
-    simp only [Expr.fvarLeaves]
-    exact List.mem_cons_of_mem _ hlf
-  rcases openPisAtFvars_leaves rP hop lf (Or.inr ⟨x, List.mem_of_getElem? hx, hxx⟩) with h | h
-  · exact absurd (Expr.fvarLeaves_lt_of_wscoped hw0 lf h) (Nat.not_lt_zero _)
-  · exact h
-
-/-- **An opener's annotation correlates with a context of the SAME
-length whose entries agree with the opening's own readings below the
-opener's index.**  The opener at `l` mentions only openers below `l`,
-so nothing above `l` is consulted — which is what lets the SECOND
-recursor's domain be read against the FIRST one's context while the
-agreement is still being proved position by position. -/
-theorem ctxOk_openerType {envT : Env} {m : EnvModel V envT} {φ : Name → Nat} {rP : Nat}
-    {ty : Expr} {fvs : List Expr} {o : Expr}
-    (hop : openPisAtFvars rP ty 0 = some (fvs, o))
-    (hwty : Expr.WScoped 0 ty)
-    {doms Δa : List Term} {Aa : Nat → Term}
-    (hΔlen : Δa.length = rP)
-    (hd : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      denote m.acval envT φ i (Expr.fvarTypeD x) = some (doms.getD i default))
-    (hent : ∀ i, i < rP → Δa[rP - 1 - i]? = some (Aa i))
-    {l : Nat} (hl : l < rP) {x : Expr} (hx : fvs[l]? = some x)
-    (hagree : ∀ i, i < l → ∀ ρ : Nat → V, Sat V Δa ρ →
-      interp V (shiftE (rP - i) 0 ρ) (doms.getD i default)
-        = interp V (shiftE (rP - i) 0 ρ) (Aa i))
-    (hok : ∀ i, i < l → ∀ ρ : Nat → V, Sat V Δa ρ →
-      WellDenotedTy V (shiftE (rP - i) 0 ρ) (doms.getD i default)) :
-    CtxOk m φ rP Δa (Expr.fvarTypeD x) := by
-  have hleaf := openerType_leaves hop hwty hx
-  have hltE : ∀ lf ∈ (Expr.fvarTypeD x).fvarLeaves, lf.1 < l := by
-    intro lf hlf
-    have hw := openPisAtFvars_typeWScoped rP hop hwty l x hx
-    rw [Nat.zero_add] at hw
-    exact Expr.fvarLeaves_lt_of_wscoped hw lf hlf
-  refine ctxOk_of_openers_congr m.acval_closed (Aa := Aa)
-    (Ba := fun i => doms.getD i default) hΔlen
-    (by simpa using openPisAtFvars_index rP ty 0 hop)
-    (by simpa using (openPisAtFvars_WScoped rP ty 0 hop hwty).1)
-    hd hleaf hltE (fun i hi => hent i (by omega))
-    (fun i hi _ ρ hρ => hagree i hi ρ hρ) (fun i hi _ ρ hρ => hok i hi ρ hρ)
-
 /-! ## F. The certified hop -/
-
-/-- Every frame satisfying a domain list's context IS a fitting
-spine's frame. -/
-theorem sat_reverse_cases {doms : List Term} {rP : Nat} (hlen : doms.length = rP)
-    {ρ : Nat → V} (h : Sat V doms.reverse ρ) :
-    ∃ (ρ₁ : Nat → V) (ys : List V),
-      ys.length = rP ∧ SpineFit ρ₁ doms ys ∧ ρ = consList ys ρ₁ := by
-  have h' : Sat V (doms.reverse ++ []) ρ := by simpa using h
-  have hsp := spineFit_of_sat (Ds := doms) (Δ₀ := []) h'
-  refine ⟨fun j => ρ (j + doms.length), (List.range doms.length).reverse.map ρ, ?_, hsp, ?_⟩
-  · simp [hlen]
-  · rw [← frameIdx_eq_reverse_map]
-    have := consList_frameIdx doms.length ρ
-    rw [shiftE_zero] at this
-    exact this.symm
 
 /-! ## G. The run's side -/
 

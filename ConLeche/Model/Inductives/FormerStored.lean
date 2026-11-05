@@ -125,15 +125,6 @@ theorem FormerStored.of_ext {envC envR : Env} {mC : EnvModel V envC} {mR : EnvMo
   · rw [hden ψ 0 _ (constsBound_of_constsResolve _ hD.resolve)]; exact h₁
   · rw [hden ψ 0 _ (constsBound_of_constsResolve _ hD.readResolve)]; exact h₂
 
-/-- The former under its block's level parameters reads as the model's family. -/
-theorem FormerStored.denote_self {env : Env} {m : EnvModel V env} {cvTa : ConstantVal}
-    {caps : IndCaps} (h : FormerStored m cvTa caps) (ψ : Name → Nat) (d : Nat) :
-    denote m.acval env ψ d (.const cvTa.name (cvTa.levelParams.map .param))
-      = some (m.acval cvTa.name ψ) := by
-  obtain ⟨cvS, hf, hD⟩ := h
-  rw [denote_const hf (by simp [ConstantInfo.toConstantVal, hD.lps])]
-  simp only [ConstantInfo.toConstantVal, hD.lps, ConLeche.Level.substFn_param_self]
-
 /-- The formers one pass stored, each against what the check read. -/
 theorem formerStored_of {envI : Env} {m : EnvModel V envI} {dcl cvTas : List ConstantVal}
     {caps : Nat → IndCaps} {L : Nat → ConstantVal → Prop} (hlen : dcl.length = cvTas.length)

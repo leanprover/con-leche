@@ -379,34 +379,6 @@ theorem inferTypeCore_app_inv' {env : Env} {fuel d : Nat}
       inferTypeCore_mono (Nat.le_succ _) h4,
       isDefEqCore_mono (Nat.le_succ _) h5⟩
 
-theorem inferTypeCore_const_inv {env : Env} {fuel d : Nat}
-    {n : Name} {us : List Level} {t : Expr}
-    (h : inferTypeCore mode eager env fuel d (.const n us) = .ok t) :
-    ∃ ci, env.find? n = some ci ∧
-      t = ci.toConstantVal.type.instantiateLevelParams
-        ci.toConstantVal.levelParams us := by
-  match fuel, h with
-  | 0, h => rw [inferTypeCore_zero] at h; exact nomatch h
-  | fuel + 1, h =>
-    rw [inferTypeCore_succ] at h
-    simp only [inferBody, pure, Except.pure, Bind.bind,
-      Except.bind] at h
-    revert h
-    cases hf : env.find? n with
-    | none =>
-      intro h
-      simp [throw, throwThe, MonadExceptOf.throw] at h
-    | some ci =>
-      intro h
-      dsimp only at h
-      revert h
-      split
-      · intro h
-        simp only [pure, Except.pure, Except.ok.injEq] at h
-        exact ⟨ci, rfl, h.symm⟩
-      · intro h
-        simp [throw, throwThe, MonadExceptOf.throw] at h
-
 /-! ## Application-spine helpers -/
 
 theorem getD_mem {α : Type _} {l : List α} {i : Nat} {dflt : α} (h : i < l.length) :

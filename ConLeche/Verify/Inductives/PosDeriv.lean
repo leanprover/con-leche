@@ -155,25 +155,6 @@ theorem nestHoleAt_of_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h 
   simp only [NestCtx.rootHoles, List.length_mapIdx]
   rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega]
 
-/-- A syntactic telescope of `n` binders ending in a sort has `n` binders. -/
-theorem stripPis_sort_piBinders_length :
-    ∀ (n : Nat) {e : Expr} {bs : List Expr} {s : Level},
-      e.stripPis n = some (bs, .sort s) → e.piBinders.1.length = n
-  | 0, e, bs, s, h => by
-    simp only [Expr.stripPis, Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨-, rfl⟩ := h
-    rfl
-  | n + 1, e, bs, s, h => by
-    cases e with
-    | forallE ty b =>
-      simp only [Expr.stripPis] at h
-      obtain ⟨⟨bs', e'⟩, hb, he⟩ := Option.map_eq_some_iff.mp h
-      simp only [Prod.mk.injEq] at he
-      obtain ⟨-, rfl⟩ := he
-      simp only [Expr.piBinders, List.length_cons]
-      rw [stripPis_sort_piBinders_length n hb]
-    | _ => simp [Expr.stripPis] at h
-
 /-- **The root frame reads as the members' own rule** (the premise the
 inversion reads a member hole's occurrence under): the canonical
 parameters are `nP` variables below `nP`. -/

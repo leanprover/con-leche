@@ -283,68 +283,6 @@ theorem genCls_inst_graded
   rw [denote_erasedEq hxE] at hw
   exact ⟨w, hw, hgr⟩
 
-/-- A spine's reading is its erasure-equal spine's. -/
-theorem DenoteSpine.of_erasedEqL {acval : Name → (Name → Nat) → Term} {env : Env}
-    {φ : Name → Nat} {d : Nat} :
-    ∀ {as bs : List Expr} {vs : List Term}, Expr.ErasedEqL as bs →
-      DenoteSpine acval env φ d as vs → DenoteSpine acval env φ d bs vs
-  | [], [], _, _, .nil => .nil
-  | _ :: _, _ :: _, _ :: _, ⟨hab, hl⟩, .cons ha h =>
-    .cons (by rw [← denote_erasedEq hab d]; exact ha) (DenoteSpine.of_erasedEqL hl h)
-  | [], _ :: _, _, h, _ => h.elim
-  | _ :: _, [], _, h, _ => h.elim
-
-set_option maxHeartbeats 2000000 in
-/-- **The class's instantiation `I lvls ds` is inferred at the prefix**,
-up to the erasure of its arguments' annotations, in the prefix context —
-a head of the stored major domain's application spine
-(`storedMajorSub_ctx`). -/
-theorem genCls_inst_ctx
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC p cvTas (tgtRs out)) (mpC : EnvModelM V envC)
-    (ψ : Name → Nat) {c : Nat} (hc : c < (tgtRs out).length)
-    (hds : ∀ x ∈ (tgtMajor out c).ds, ConLeche.ScB p.nP x)
-    (hnP : p.nP ≤ p.toBlockShape.rulePrefixAt c) :
-    ∃ ds' : List Expr, ds'.length = (tgtMajor out c).ds.length ∧
-      Expr.ErasedEq (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds')
-        (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) (tgtMajor out c).ds) ∧
-      (∃ tx, ConLeche.inferTypeCore .verified false envC F (p.toBlockShape.rulePrefixAt c)
-        (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds') = .ok tx) ∧
-      Rules.Frame (p.toBlockShape.rulePrefixAt c)
-        (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds') ∧
-      CtxOk mpC.base2 ψ (p.toBlockShape.rulePrefixAt c)
-        (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape (tgtRs out) ψ c).reverse
-        (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls) ds') := by
-  obtain ⟨cls, ty, ifs, body, -, -, -, -, hifl, hRP, hmI, -, -, -, fvs, o, hop, hE⟩ :=
-    genRun_binders R hg h mpC ψ hc
-  have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
-  have hlenF : fvs.length = p.toBlockShape.majorIdxAt c + 1 :=
-    ConLeche.Verify.openPisAtFvars_length _ hop
-  obtain ⟨maj, hmaj⟩ : ∃ maj, fvs[p.toBlockShape.majorIdxAt c]? = some maj :=
-    ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  have hmE := hE _ maj (Expr.mkAppN (.const (tgtMajor out c).ind (tgtMajor out c).lvls)
-    ((tgtMajor out c).ds ++ ifs)) hmaj (by
-    rw [List.getElem?_append_right (by simp; omega)]
-    simp [hifl, hmI, hRP])
-  rw [mkAppN_append'] at hmE
-  obtain ⟨x, args, hdE, hxE, -⟩ := erasedEq_mkAppN_inv ifs hmE
-  obtain ⟨hw0, -⟩ := recStage_tyClosed h hr
-  have hwsM : Expr.WScoped (p.toBlockShape.majorIdxAt c) maj.fvarTypeD := by
-    have := openPisAtFvars_typeWScoped _ hop hw0 _ maj hmaj
-    rwa [Nat.zero_add] at this
-  rw [hdE] at hwsM
-  have hwsX : Expr.WScoped (p.toBlockShape.rulePrefixAt c) x :=
-    WScoped.of_erasedEq x hxE (WScoped.mkAppN_head args hwsM)
-      (Expr.WScoped.mkAppN (by simp only [Expr.WScoped]) fun y hy => (hds y hy).1.mono hnP)
-  obtain ⟨hinf, hfr, hCE⟩ := storedMajorSub_ctx mpC h hr ψ hop hmaj (.inr ⟨args, hdE⟩)
-    (fun l hl => Expr.fvarLeaves_lt_of_wscoped hwsX l hl)
-  obtain ⟨f', ds', rfl, hf', hl⟩ := erasedEq_mkAppN_inv (tgtMajor out c).ds hxE
-  match f', hf' with
-  | .const n us', hf' =>
-    obtain ⟨rfl, rfl⟩ := hf'
-    exact ⟨ds', hl, hxE, hinf, hfr, hCE⟩
-
 end Binders
 
 /-! ## A class's reading facts

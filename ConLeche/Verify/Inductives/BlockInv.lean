@@ -82,28 +82,6 @@ theorem checkBlockTele_shape {env : Env} {nP : Nat} {ms : MemberShape}
   · rw [ite_eq_right hc] at h
     close_throw
 
-/-- A member's former stands as declared. -/
-theorem checkBlockTele_former {env : Env} {nP : Nat} {ms : MemberShape}
-    {cvTa : ConstantVal} {s : Level} {F : Nat}
-    (h : checkBlockTele (fueledOps mode F) env nP ms = .ok (cvTa, s)) : cvTa = ms.cvT := by
-  unfold checkBlockTele at h
-  obtain ⟨u₀, -, h⟩ := exceptBind_ok h
-  cases u₀
-  try simp only at h
-  obtain ⟨q, htele, h⟩ := exceptBind_ok h
-  obtain ⟨cvTa', s'⟩ := q
-  obtain ⟨rfl, -⟩ := checkSumTele_shape htele
-  try simp only at h
-  obtain ⟨r, hr, h⟩ := exceptBind_ok h
-  obtain ⟨bs, tbody⟩ := r
-  try simp only at h
-  by_cases hc : (tbody == Expr.sort s') = true
-  · rw [ite_eq_left hc] at h
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    exact h.1.symm
-  · rw [ite_eq_right hc] at h
-    close_throw
-
 /-- The members' formers, positionally. -/
 theorem checkBlockTeles_inv {env : Env} {nP : Nat} {F : Nat} :
     ∀ {mss : List MemberShape} {cvs : List (ConstantVal × Level)},
