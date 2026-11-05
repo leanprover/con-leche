@@ -346,13 +346,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1822-L1827
-  1822      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1823    | 0 =>
-  1824      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1825        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1826        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1827        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1815-L1820
+  1815      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1816    | 0 =>
+  1817      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1818        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1819        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1820        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L378-L385
    378  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -388,28 +388,28 @@
 == ConLeche/Kernel/Env.lean#L56
     56  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1168
-  1168  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
+== ConLeche/Kernel/Core.lean#L1161
+  1161  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
 
-== ConLeche/Kernel/Core.lean#L1103
-  1103  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
+== ConLeche/Kernel/Core.lean#L1096
+  1096  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1395
-  1395  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1388
+  1388  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1290
-  1290  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1283
+  1283  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1433
-  1433  def defeqLams (r : CoreFns m) :
+== ConLeche/Kernel/Core.lean#L1426
+  1426  def defeqLams (r : CoreFns m) :
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1278-L1280
   1278  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
   1279      {env : Env} (h : checkDecls mode pins ds = .ok env) :
   1280      envSkels env = streamSkels ds.toList := by
 
-== ConLeche/Kernel/Core.lean#L1870
-  1870  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1863
+  1863  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -965,14 +965,14 @@
    327      m Env := do
    328    unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
 
-== ConLeche/Verify/EnvExt.lean#L458-L460
-   458  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
-   459      ∀ (fuel : Nat) (eager : Bool),
-   460        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
+== ConLeche/Verify/EnvExt.lean#L457-L459
+   457  theorem knot_ext (mode : CheckMode) (hx : EnvExt env₁ env₂) :
+   458      ∀ (fuel : Nat) (eager : Bool),
+   459        KR env₁ (pureFns mode eager env₂ fuel) (pureFns mode eager env₁ fuel)
 
-== ConLeche/Verify/EnvExt/Reads.lean#L29-L30
-    29  structure StoredFacts (env : Env) : Prop where
-    30    wf : EnvWF env
+== ConLeche/Verify/EnvExt/Reads.lean#L28-L29
+    28  structure StoredFacts (env : Env) : Prop where
+    29    wf : EnvWF env
 
 == ConLeche/Model/Inductives/ViewedStep.lean#L1548-L1556
   1548  theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p₀ : BlockParts}
@@ -994,8 +994,8 @@
 == ConLeche/Kernel/Inductives/BlockTail.lean#L63
     63  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L106
-   106  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
+== ConLeche/Kernel/Inductives/SumInstall.lean#L105
+   105  def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L519
    519  def checkBlockClasses (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape)
@@ -1309,9 +1309,9 @@
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
 
-== ConLeche/Kernel/Core.lean#L1151-L1152
-  1151  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
-  1152      (us : List Level) : m Unit :=
+== ConLeche/Kernel/Core.lean#L1144-L1145
+  1144  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+  1145      (us : List Level) : m Unit :=
 
 >>> README.md
 

@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Extend.Recs
 public import ConLeche.Kernel.Inductives.BlockTail
 
 @[expose] public section

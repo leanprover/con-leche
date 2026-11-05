@@ -1285,18 +1285,18 @@
    795        Infer env Γ (b.inst v) B →
    796        Infer env Γ (letE T v b) B
 
-== ConLeche/Kernel/Core.lean#L1029-L1031
-  1029      | .letE _ v b =>
-  1030        -- Task #342 S0: ζ
-  1031        r.whnfCore cheap depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1022-L1024
+  1022      | .letE _ v b =>
+  1023        -- Task #342 S0: ζ
+  1024        r.whnfCore cheap depth (b.instantiate1 v)
 
-== ConLeche/Kernel/Core.lean#L1267-L1272
-  1267      | .letE ty v b => do
-  1268        -- Task #342 S0: official `infer_let`
-  1269        let _ ← ensureSort r env depth (← r.infer depth ty)
-  1270        unless ← r.defeq depth (← r.infer depth v) ty do
-  1271          throw (.invalid "let value type mismatch")
-  1272        r.infer depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1260-L1265
+  1260      | .letE ty v b => do
+  1261        -- Task #342 S0: official `infer_let`
+  1262        let _ ← ensureSort r env depth (← r.infer depth ty)
+  1263        unless ← r.defeq depth (← r.infer depth v) ty do
+  1264          throw (.invalid "let value type mismatch")
+  1265        r.infer depth (b.instantiate1 v)
 
 >>> whitepaper/sections/02b-model-proof.typ
 
@@ -2250,39 +2250,39 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1415-L1421
-  1415  /-- The innermost level of `defeqLams`: the opened bodies, and at the
-  1416  verified mode their FULL-grade types. -/
-  1417  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1418    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1419    if mode.verifiedChecks then
-  1420      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1421          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1408-L1414
+  1408  /-- The innermost level of `defeqLams`: the opened bodies, and at the
+  1409  verified mode their FULL-grade types. -/
+  1410  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1411    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1412    if mode.verifiedChecks then
+  1413      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1414          (← r.infer (depth + 1) b₂) do return false
 
-== ConLeche/Kernel/Core.lean#L483-L488
-   483        -- Task #342 S0: the λ/η tax (T2)
-   484        if mode.verifiedChecks then
-   485          unless ← r.defeq (depth + 1)
-   486              (← r.infer (depth + 1)
-   487                (body₁.instantiate1 (.fvar depth ty₁)))
-   488              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
+== ConLeche/Kernel/Core.lean#L476-L481
+   476        -- Task #342 S0: the λ/η tax (T2)
+   477        if mode.verifiedChecks then
+   478          unless ← r.defeq (depth + 1)
+   479              (← r.infer (depth + 1)
+   480                (body₁.instantiate1 (.fvar depth ty₁)))
+   481              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
 
-== ConLeche/Kernel/Core.lean#L851-L865
-   851      | some (.recInfo cv mI rP isK rules) =>
-   852        let args := e.getAppArgs
-   853        -- checker change #9: the recursor's level arity, guarded as
-   854        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
-   855        -- kernel tests this immediately before instantiating the rule's
-   856        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
-   857        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
-   858        -- nanoda's `subst_expr_levels` asserts it.  Without it
-   859        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
-   860        -- level parameter the subject never had.  Ungated: the reference has it
-   861        -- unconditionally, so a mode gate would break parity.
-   862        -- task #342 L18: the stored type's syntactic arity, which the
-   863        -- uncertified recursor spine is read against
-   864        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
-   865            (Expr.peelPis (mI + 1) cv.type).isSome = true then
+== ConLeche/Kernel/Core.lean#L844-L858
+   844      | some (.recInfo cv mI rP isK rules) =>
+   845        let args := e.getAppArgs
+   846        -- checker change #9: the recursor's level arity, guarded as
+   847        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
+   848        -- kernel tests this immediately before instantiating the rule's
+   849        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
+   850        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
+   851        -- nanoda's `subst_expr_levels` asserts it.  Without it
+   852        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
+   853        -- level parameter the subject never had.  Ungated: the reference has it
+   854        -- unconditionally, so a mode gate would break parity.
+   855        -- task #342 L18: the stored type's syntactic arity, which the
+   856        -- uncertified recursor spine is read against
+   857        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
+   858            (Expr.peelPis (mI + 1) cv.type).isSome = true then
 
 == whitepaper/Fragment/ValueReading.lean#L177-L184
    177  /-- **Untyped lambda congruence is unsound** in the value-driven model: the
@@ -2463,13 +2463,13 @@
    481      (hA : DefEqSem m φ Γ A₂ A₁)
    482      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (.app (b.liftN 1) (.bvar 0)))
 
-== ConLeche/Kernel/Core.lean#L1276-L1281
-  1276  /-- **The io inference body** (tasks #161, #170, #346): official's
-  1277  `infer_type_core` with `infer_only = true`.  It differs from
-  1278  `inferBody` at three clauses: an application's argument is not
-  1279  checked against the domain, a λ's domain is not checked to be a type,
-  1280  and a `let`'s type and value are not checked (the body is inferred at
-  1281  the value).  The computed types and the "function expected" rejection
+== ConLeche/Kernel/Core.lean#L1269-L1274
+  1269  /-- **The io inference body** (tasks #161, #170, #346): official's
+  1270  `infer_type_core` with `infer_only = true`.  It differs from
+  1271  `inferBody` at three clauses: an application's argument is not
+  1272  checked against the domain, a λ's domain is not checked to be a type,
+  1273  and a `let`'s type and value are not checked (the body is inferred at
+  1274  the value).  The computed types and the "function expected" rejection
 
 >>> whitepaper/sections/03-definitions.typ
 
@@ -2813,31 +2813,31 @@
    316        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
    317        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
 
-== ConLeche/Model/Env/EnvModelM.lean#L245-L268
-   245  structure EnvModelM (env : Env) where
-   246    /-- the environment carrier, contained -/
-   247    base2 : EnvModel V env
-   248    /-- every stored type reads, at every ground assignment -/
-   249    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
-   250      ∃ ta : Term,
-   251        denote base2.acval env ψ 0 c.toConstantVal.type = some ta
-   252    /-- the stored types' readings are graded types -/
-   253    type_wellDenotedTy : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : Term),
-   254      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
-   255      ∀ ρ : Nat → V, WellDenotedTy V ρ ta
-   256    /-- stored constants inhabit their types' readings (a projection
-   257    table's constant type is the closed dummy `Sort 1` and its leaf is
-   258    `Sort 0`, so the row holds of tables too; that a table is not a term
-   259    is `inferTypeCore`'s own rejection of a `.const` naming one) -/
-   260    mem_type : ∀ c ∈ env.consts,
-   261      ∀ (ψ : Name → Nat) (ta : Term),
-   262      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
-   263      ∀ ρ : Nat → V,
-   264        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
-   265    /-- stored definition and theorem values read, to the constant's own
-   266    leaf (existence) -/
-   267    defn_reads : AcvalDefnInst base2
-   268    /-- the two `Nat`-literal head facts, at every assignment -/
+== ConLeche/Model/Env/EnvModelM.lean#L244-L267
+   244  structure EnvModelM (env : Env) where
+   245    /-- the environment carrier, contained -/
+   246    base2 : EnvModel V env
+   247    /-- every stored type reads, at every ground assignment -/
+   248    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
+   249      ∃ ta : Term,
+   250        denote base2.acval env ψ 0 c.toConstantVal.type = some ta
+   251    /-- the stored types' readings are graded types -/
+   252    type_wellDenotedTy : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : Term),
+   253      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
+   254      ∀ ρ : Nat → V, WellDenotedTy V ρ ta
+   255    /-- stored constants inhabit their types' readings (a projection
+   256    table's constant type is the closed dummy `Sort 1` and its leaf is
+   257    `Sort 0`, so the row holds of tables too; that a table is not a term
+   258    is `inferTypeCore`'s own rejection of a `.const` naming one) -/
+   259    mem_type : ∀ c ∈ env.consts,
+   260      ∀ (ψ : Name → Nat) (ta : Term),
+   261      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
+   262      ∀ ρ : Nat → V,
+   263        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
+   264    /-- stored definition and theorem values read, to the constant's own
+   265    leaf (existence) -/
+   266    defn_reads : AcvalDefnInst base2
+   267    /-- the two `Nat`-literal head facts, at every assignment -/
 
 == whitepaper/Fragment/EnvModel.lean#L364-L373
    364  /-- The empty environment has a model: any assignment, vacuous laws. -/
@@ -2889,13 +2889,13 @@
    280    obtain ⟨hw, hT, hmem⟩ := m.type_ok c ci hfind φ ρ ls hls
    281    exact ⟨trivial, hw, hT, hmem⟩
 
-== ConLeche/Model/Rules/InferSound.lean#L211-L216
-   211  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
-   212      {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
-   213      (hf : env.find? n = some ci)
-   214      (hus : us.length = ci.toConstantVal.levelParams.length) :
-   215      InferSem m φ g d (.const n us)
-   216        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
+== ConLeche/Model/Rules/InferSound.lean#L210-L215
+   210  theorem Infer.const_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
+   211      {n : Name} {us : List Level} {ci : ConLeche.ConstantInfo}
+   212      (hf : env.find? n = some ci)
+   213      (hus : us.length = ci.toConstantVal.levelParams.length) :
+   214      InferSem m φ g d (.const n us)
+   215        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) := by
 
 == whitepaper/Fragment/InstallDef.lean#L345-L350
    345  /-- **Installing a definition preserves having a model.**  The new
@@ -3049,9 +3049,9 @@
    215  def ctorType (c : CtorSpec) : Expr :=
    216    mkPis (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L94-L95
-    94  /-- Stage 2, one constructor's type: the ordinary constant check (the
-    95  constructor is stored AS DECLARED), the result
+== ConLeche/Kernel/Inductives/SumInstall.lean#L93-L94
+    93  /-- Stage 2, one constructor's type: the ordinary constant check (the
+    94  constructor is stored AS DECLARED), the result
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L383-L405
    383  def classRecTyCheck (ops : CheckerOps m) (fe : FEnv) (cvRi cvG : ConstantVal) : m Unit := do
@@ -3208,22 +3208,22 @@
    561      throw (.invalid "generated recursor: large eliminator on a block whose sort may be Prop \
    562        (official: elim_only_at_universe_zero)")
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L77-L91
-    77  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
-    78      (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
-    79    | 0 => pure []
-    80    | j + 1 => do
-    81      let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
-    82      let ty ← ops.inferType env (nP + j) fv.fvarTypeD
-    83      let u ← ops.ensureSort env (nP + j) ty
-    84      if !isProp then
-    85        unless ← liftFueled "level comparison" (Level.leq u s) do
-    86          throw (.invalid "direct sum: field universe too large")
-    87      else if large then
-    88        unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
-    89          throw (.invalid "direct sum: large eliminator with a non-propositional \
-    90            field outside the indices")
-    91      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
+== ConLeche/Kernel/Inductives/SumInstall.lean#L76-L90
+    76  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
+    77      (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
+    78    | 0 => pure []
+    79    | j + 1 => do
+    80      let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
+    81      let ty ← ops.inferType env (nP + j) fv.fvarTypeD
+    82      let u ← ops.ensureSort env (nP + j) ty
+    83      if !isProp then
+    84        unless ← liftFueled "level comparison" (Level.leq u s) do
+    85          throw (.invalid "direct sum: field universe too large")
+    86      else if large then
+    87        unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
+    88          throw (.invalid "direct sum: large eliminator with a non-propositional \
+    89            field outside the indices")
+    90      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
 
 == whitepaper/Fragment/Decl.lean#L699-L704
    699  /-- The universe bound on a field of sort `v`: the family is a
@@ -4664,42 +4664,42 @@
    834        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
    835        TeleFit m.M φ ρ T xs
 
-== ConLeche/Model/Env/Laws.lean#L542-L576
-   542    · next T us hh => rw [h T us hh]
-   543    · rfl
-   544  
-   545  /-- A constructor's family is a stored inductive. -/
-   546  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
-   547      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
-   548      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
-   549    unfold ConLeche.ctorFamily at h
-   550    split at h
-   551    · next T us hh =>
-   552      split at h
-   553      · next hf =>
-   554        cases Option.some.inj h
-   555        exact ⟨T, us, hh, hf⟩
-   556      · exact nomatch h
-   557    · exact nomatch h
-   558  
-   559  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
-   560  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
-   561      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
-   562      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
-   563      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
-   564        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
-   565        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
-   566        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
-   567      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
-   568    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
-   569    rw [hfam] at hf
-   570    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
-   571    exact ht ta (hde cvT caps ta hf hta) ρ
-   572  
-   573  /-- **The ι case split's environment facts, one rule**.
-   574  `RecRuleLaw`'s main clause takes the levels, parameters and index
-   575  comparisons as equations; under the conditional claims the ι step has
-   576  them only where neither side is the point, and at a K rule or a family
+== ConLeche/Model/Env/Laws.lean#L541-L575
+   541    · next T us hh => rw [h T us hh]
+   542    · rfl
+   543  
+   544  /-- A constructor's family is a stored inductive. -/
+   545  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
+   546      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
+   547      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
+   548    unfold ConLeche.ctorFamily at h
+   549    split at h
+   550    · next T us hh =>
+   551      split at h
+   552      · next hf =>
+   553        cases Option.some.inj h
+   554        exact ⟨T, us, hh, hf⟩
+   555      · exact nomatch h
+   556    · exact nomatch h
+   557  
+   558  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
+   559  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
+   560      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
+   561      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
+   562      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
+   563        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+   564        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+   565        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
+   566      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
+   567    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
+   568    rw [hfam] at hf
+   569    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
+   570    exact ht ta (hde cvT caps ta hf hta) ρ
+   571  
+   572  /-- **The ι case split's environment facts, one rule**.
+   573  `RecRuleLaw`'s main clause takes the levels, parameters and index
+   574  comparisons as equations; under the conditional claims the ι step has
+   575  them only where neither side is the point, and at a K rule or a family
 
 == whitepaper/Fragment/EnvModel.lean#L119-L186
    119  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,

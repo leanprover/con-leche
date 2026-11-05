@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Model.Env.EnvModelM
+import ConLeche.Model.Env.EnvModelM
 public import ConLeche.Verify.Extend.Formers
 import ConLeche.Model.Swap
-import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.Denote.Install
 public import ConLeche.Model.Levels
 

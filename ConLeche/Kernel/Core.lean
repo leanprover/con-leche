@@ -382,11 +382,6 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
                 wtb.getAppArgs.length = caps.etaParams ∧
                 us'.length = cvT.levelParams.length ∧
                 cvc.levelParams = cvT.levelParams ∧
-                -- the former's telescope arity
-                -- `(cvT.type.stripPis caps.etaParams).isSome` is
-                -- `EnvWF`'s `IndCapsWF` clause: established at the
-                -- block's install, read by the η row from the
-                -- invariant
                 -- the slot discipline: every field slot has a
                 -- projection-table entry (a fieldless family trivially)
                 towerSlotsAll env T caps.etaFields = true then
@@ -448,8 +443,6 @@ def structUnitCert (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
       if caps.unitlike = true ∧
           reservedBasisNames.contains T = false ∧
           wta.getAppArgs.length = caps.unitParams ∧
-          -- `(cvT.type.stripPis caps.unitParams).isSome` is `EnvWF`'s
-          -- `IndCapsWF` clause, established at the block's install
           us'.length = cvT.levelParams.length then
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb

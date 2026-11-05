@@ -10,7 +10,6 @@ import ConLeche.Semantics.Frame
 import ConLeche.Semantics.LitStep
 import ConLeche.Semantics.Skeleton
 import ConLeche.Model.Rules.RedSoundKit
-import ConLeche.Model.Rules.GuardSound
 import ConLeche.Rules.Rigid
 
 public section

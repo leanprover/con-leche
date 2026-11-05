@@ -322,6 +322,22 @@ FALLBACK = {
     # `TargetIhSlot`'s `variable [SetTheory V]` binder resolves through
     # `TargetRecRead` (`Unknown identifier SetTheory`, `:47`), measured.
     ('ConLeche.Model.Inductives.TargetIhSlot', 'ConLeche.Model.Inductives.TargetRecRead'),
+    # task #480: re-exports the model calls demotable, each MEASURED by building
+    # with it demoted (public statements name what it carries).
+    ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Model.Inductives.FormerSwap'),
+    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.Installed'),
+    ('ConLeche.Verify.EnvExt.Reads', 'ConLeche.Verify.EnvWF'),
+    ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.GenRecRun'),
+    ('ConLeche.Verify.Rules.RedBridge', 'ConLeche.Verify.Rules.Defs'),
+    ('ConLeche.Verify.Cached.GenRecC', 'ConLeche.Verify.Cached.NestPosC'),
+    ('ConLeche.Verify.EnvExt.Reads', 'ConLeche.Verify.EnvPreds'),
+    ('ConLeche.Verify.Rules.RedBridge', 'ConLeche.Verify.Knot'),
+    ('ConLeche.Model.Inductives.StoredSwap', 'ConLeche.Verify.Extend.RecsTy'),
+    ('ConLeche.Model.Inductives.StoredSwap', 'ConLeche.Model.Inductives.DeclBlock'),
+    ('ConLeche.Model.Inductives.DeclBlockStep', 'ConLeche.Model.Inductives.DeclBlock'),
+    ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Verify.EnvExt'),
+    ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Model.Inductives.DeclBlockStep'),
+    ('ConLeche.Model.Fold', 'ConLeche.Semantics.Bridge.Sound'),
     # lane RECLIB session 5: the same `variable [SetTheory V]` binder
     # class, MEASURED by demoting each alone (`Unknown identifier
     # SetTheory`, `TargetCallCore.lean:67`, `TargetCallKit.lean:41`).

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.EnvExt.Whnf
 public import ConLeche.Kernel.Inductives.BlockTail
-public import ConLeche.Kernel.CheckerBase
 
 /-!
 # A run does not see an extension of the environment (task #480)

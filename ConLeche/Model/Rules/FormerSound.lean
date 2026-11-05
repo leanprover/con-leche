@@ -1,12 +1,9 @@
 module
 
 public import ConLeche.Model.Rules.Inputs
-import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.PropWhen
-import ConLeche.Model.OpenedCtx
 import ConLeche.Semantics.Frame
 import ConLeche.Model.CtxOkKit
-import ConLeche.Model.Rules.InferSoundKit
 import ConLeche.Model.Rules.IotaSoundKit
 
 /-!

@@ -16,7 +16,7 @@ import ConLeche.Verify.Leaves
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.TargetIhSlot
-public import ConLeche.Verify.Denote.ConstsBound
+import ConLeche.Verify.Denote.ConstsBound
 
 public section
 

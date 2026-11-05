@@ -109516,3 +109516,69 @@ memo.
 `declCSkels` predicts `quotPin k` and a block's pins at the record's names; the
 job's `pushesAgree` still compares.  `IndCaps.sortZ` is renamed in `atLps` and read
 by `withPinCaps`: caps at use (lane 4) removes both, the textual conflict is there.
+
+### Stage 3b: the knot theorem, the second path in the model, the state at review (#480, lane 4; 2026-11-05)
+
+Supersedes, of the two records above: the "injectivity along a fit" route, the prefix view
+(`Env.below`, `FEnv.restrictTo` in the job) and the shelf.  None of them is on the branch.
+
+**The knot theorem** (`Verify/EnvExt.lean`, `knot_ext`; `Verify/EnvExt/{Reads,Rel,Whnf}.lean`;
+2186 lines, no `sorry`).  `EnvExt env₁ env₂` is the stored constants and the stored structures'
+tables staying, plus `StoredFacts env₁`.  `KR` relates two knot records slot by slot on terms
+resolving in `env₁`: `Rel P x₂ x₁` says the two runs are one `Except` and what it returns has `P`.
+The theorem is `KR env₁ (pureFns mode eager env₂ F) (pureFns mode eager env₁ F)` at every fuel and
+both flags.  Equality and preservation of resolution are one induction, so no flow-sensitive
+`have`s are needed: each body's proof is a chain of `Rel.bind`s that reads like the body.  The pure
+head-symbol readers (`proofPW` and below) are lemmas of their own.  The census above held; what it
+did not list:
+
+* `StoredFacts` has five facts: `EnvWF`; `Nat`'s block all or nothing (any of the three names,
+  since `rawNatLit?` reads `Nat.zero`); `RecCtorsStored`; a table entry's constructor stored; the
+  `Bool` constructors below `Nat.beq`/`Nat.ble`.  All but the `Nat` one come off the carrier
+  (`EnvModelM.storedFacts`).  The `Nat` one is new fold-level data (`NatFacts`), since the arm in
+  `reduceNat` no longer asks `natLitSupported`.
+* `Nat.zero` as an operand reads as literal `0`, so the literal in the result needs the trio from
+  the operand's constant.
+
+`reducedFormer_ext`: a former's reduct at an extension is the reduct at the prefix, at the same
+fuel.
+
+**The model.**  `LfpDatum.shown`, `formerAt`: a recorded block's datum says which reduct it shows
+for a member; a reached container's group is flat (`containerFlat`, the kernel's guard), so the
+twenty consumers read `formerAt = cv`.  `declBlockViewed`: the carrier moves to the views (a view
+is the recorded former, by `reducedFormer_ext`), the ordinary `declBlockAt` runs there, the carrier
+moves back at the stored formers (`formerSwap`, whose answers agree but for the formers' types).
+`ShownFacts` and `NatFacts` are fold-level, not in `lfp_ok`, because inner stages swap recursors.
+
+**Not done as ruled: the guard.**  `projRowBound` still walks at the use's levels and bounds the
+rows by `Level.leq` where the walked sort may be zero.  The ruling was official's test alone.
+Official's test needs, at a use whose walked sort is not `Prop`, that the recorded former's sort is
+not always zero.  That is a functional fact about the walk.  The rule `ProjGuard` holds a `FormerSort`
+derivation, which is relational, and the rules tier may not import the knot, whose door list may
+only shrink.  The semantic way round reads two towers at one valuation and hits the empty domain,
+the problem the syntactic route was meant to remove.  The two ways I see: (a) a door, or a
+parameter on the rules tier's families, carrying the run; (b) leave it.  The walk at the use's
+levels would also move to the stored type, as the syntactic arm already reads it, so that
+reduct and walk coincide by the knot theorem.  What it costs today: a row whose level the use's
+inference shapes so that `Level.leq` answers no where official's `is_prop` is also no.  No such
+stream is known; `ind_defhead_sort_u` passes.
+
+**Verdicts, all new fixtures.**  `ind_defhead_chain` 0, `ind_defhead_prop_field` 0,
+`ind_defhead_prop_field_proj_bad` 1, `ind_defhead_sort_u` 0, official's run in each case agreeing.
+`ind_defhead_lit_family` 2, official 0: **a decline this lane adds** for a family literal
+arithmetic or the basis reads by name (`litGuardFamilies`), stored at a definition; the swap's
+answers would differ at the readers that compare that former's stored type.  Target 0.  No
+pinned verdict moved.  A nested occurrence with a def-headed group the syntactic closure does
+not show is rejected (`containerFlat`); official does not reduce to find containers either, but
+no fixture pins that.
+
+**Cost** (`instructions:u`, one run per stream, base `2b6b1d8e2`, jobs 1 / 8): init-full 380.349 →
+380.328 G / 390.939 → 390.574 G; Mathlib cut (53272 declarations, with def-headed formers) 337.241
+→ 337.019 G / 351.890 → 350.723 G; grind-ring-5 15.261 → 15.299 G / 15.642 → 15.685 G (+0.25 %,
++0.27 %); the other arena perf streams within +1.6 %, all under 0.3 G except app-lam (22.078 →
+22.078 G).  No memo was added: nothing measured asks for one.
+
+**Dead proof left, for a later commit.**  `EnvModelM.ind_strict` and `IndStrictOk` have no reader
+but their own transport and `ShownFacts` since `IndFibLaw` went; the chain reaches about thirty
+files in `Model/`.  `IndCapsWF`'s slot is read only by itself.  `BlockWF`'s `stripPis` conjunct
+(`hspi`) is unused.

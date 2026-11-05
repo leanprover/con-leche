@@ -144,7 +144,7 @@ the declared level parameters.
 
 #real[
   The real proof's model carries the same two laws among others
-  (#src("ConLeche/Model/Env/EnvModelM.lean", 245, 268)[the carrier's invariant]).
+  (#src("ConLeche/Model/Env/EnvModelM.lean", 244, 267)[the carrier's invariant]).
 ]
 
 The empty environment #src("whitepaper/Fragment/EnvModel.lean", 364, 373)[has a model
@@ -178,7 +178,7 @@ gains three cases, one per rule.
   $c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$: \
   The constant is
   well-denoted, and law 1 says its instantiated type is well-denoted,
-  a type, and #src("ConLeche/Model/Rules/InferSound.lean", 211, 216)[contains the constant's set].
+  a type, and #src("ConLeche/Model/Rules/InferSound.lean", 210, 215)[contains the constant's set].
 ]
 
 #theorem(name: "Installing a definition")[

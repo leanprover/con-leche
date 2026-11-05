@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Currency
-public import ConLeche.SetModel.Tower
 public import ConLeche.Semantics.DivModEval
 public import ConLeche.Verify.ProjTele
 public import ConLeche.Verify.Denote.OpenVars

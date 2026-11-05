@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Verify.Inductives.PosNodes

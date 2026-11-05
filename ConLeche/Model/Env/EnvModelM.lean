@@ -7,7 +7,6 @@ import ConLeche.Verify.Denote.Closed
 public import ConLeche.Semantics.EnvFacts
 public import ConLeche.Model.Env.BlockLfp
 public import ConLeche.Semantics.Inductives.FieldsEqOn
-import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.VClosed
 

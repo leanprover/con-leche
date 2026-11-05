@@ -6,7 +6,6 @@ import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Cached.Erase
 public import ConLeche.Verify.Level
 import ConLeche.Kernel.Inductives.SumInstall
-import ConLeche.Kernel.Inductives.FieldTele
 
 public section
 

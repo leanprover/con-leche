@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.EnvExt.Reads
-import ConLeche.Verify.InferLemmas
 
 /-!
 # A run does not see an extension of the environment: the reduction bodies (task #480)
