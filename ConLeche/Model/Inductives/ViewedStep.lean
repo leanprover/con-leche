@@ -279,7 +279,8 @@ theorem envExt_trans {env₁ env₂ env₃ : Env} (h₁ : EnvExt env₁ env₂)
 
 /-- **A shown former's facts across an extension.** -/
 theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V env'}
-    (hS : ShownFacts mp) (hx : EnvExt env env')
+    (hS : ShownFacts mp) (hfd : ∀ n ci, env.find? n = some ci → env'.find? n = some ci)
+    (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T)
     (hleaf : ∀ n, (env.find? n).isSome = true → m'.acval n = mp.base2.acval n)
     (hread : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr) (ta : Term), ConstsBound env e →
       denote mp.base2.acval env ψ d e = some ta → denote m'.acval env' ψ d e = some ta)
@@ -295,7 +296,7 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
       ∀ ρ : Nat → V, WellDenotedTy V ρ ta) := by
   obtain ⟨-, ⟨hst, -⟩, hrd, -⟩ := mp.lfp_ok D hD
   obtain ⟨cv₀, caps₀, hf₀⟩ := hst mm hmm
-  rw [hx.find _ _ hf₀] at hf
+  rw [hfd _ _ hf₀] at hf
   obtain ⟨rfl, rfl⟩ : cv₀ = cv ∧ caps₀ = caps := by simpa using hf
   obtain ⟨hrun, his, htv, hwd⟩ := hS D hD mm f hmm hs cv₀ caps₀ hf₀
   have hsm : (env.find? (D.member mm)).isSome = true := by rw [hf₀]; rfl
@@ -311,7 +312,7 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
       exact ⟨hb, fun ψ => (hm ψ).elim fun ta h => ⟨ta, h.elim fun _ h => h.1⟩⟩
   refine ⟨?_, ?_, ?_, ?_⟩
   · obtain ⟨envB, F, hwf, hxB, hr, hrn⟩ := hrun
-    exact ⟨envB, F, hwf, envExt_trans hxB hx.find hx.table, hr, hrn⟩
+    exact ⟨envB, F, hwf, envExt_trans hxB hfd htb, hr, hrn⟩
   · intro ψ ab n hta hn ρ vs hsp
     obtain ⟨ta, hta₀⟩ := hrf ψ
     have h₁ := hread ψ 0 _ _ hbf hta₀
@@ -321,7 +322,7 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
     exact his ψ ab n hta₀ hn ρ vs hsp
   · intro φ i entry s' hfp hs₁ hz us Ta hus hTa ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆
     have hfp₀ : env.findProj? (D.member mm) i = some entry := by
-      have := hx.table _ hsm
+      have := htb _ hsm
       unfold Env.findProj? at hfp ⊢
       rw [← this]; exact hfp
     obtain ⟨_, _, _, _, _, _, _, hlaw, _⟩ := mp.tower_ok φ _ i entry hfp₀
@@ -340,10 +341,12 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
 
 /-- **Shown formers across a step.** -/
 theorem ShownFacts.step {env env' : Env} {mp : EnvModelM V env} {mp' : EnvModelM V env'}
-    (hS : ShownFacts mp) (r : CoverRel mp mp') (hx : EnvExt env env') : ShownFacts mp' := by
+    (hS : ShownFacts mp) (r : CoverRel mp mp')
+    (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) :
+    ShownFacts mp' := by
   intro D hD mm f hmm hs cv caps hf
   rcases r.blocks D hD with h₀ | h₀
-  · exact shownFacts_keep hS hx r.leaf r.read h₀ hmm hs hf
+  · exact shownFacts_keep hS r.find htb r.leaf r.read h₀ hmm hs hf
   · rw [h₀] at hs; exact nomatch hs
 
 /-! ## To the views -/
@@ -678,8 +681,8 @@ former. -/
 theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) :
     ∃ new : List ConstantInfo, env₂.consts = new ++ env.consts ∧
-      ∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ ms ∈ p₀.members, cv = ms.cvT ∧
-        caps.nparams + caps.nIdx = p₀.nP + ms.nIdx := by
+      (∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ ms ∈ p₀.members, cv = ms.cvT ∧
+        caps.nparams + caps.nIdx = p₀.nP + ms.nIdx) := by
   obtain ⟨-, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, hTbl⟩ := hrun
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
@@ -717,6 +720,79 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
           rw [hmsj]; rfl
         rw [blockCapsAt_nparams, blockCapsAt_nIdx, hm', hq]
         rfl
+
+omit [SetTheory V] in
+/-- The tables' stage adds its members' tables. -/
+theorem checkBlockTables_tables {q : BlockShape} :
+    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))} {env env₂ : Env},
+      ConLeche.checkBlockTables (m := CheckM) q l env = .ok env₂ →
+      ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
+        ∀ t ∈ newQ, ∃ e ∈ l, t.structName = e.1.cvT.name
+  | [], env, env₂, h => by
+    simp only [ConLeche.checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
+    exact ⟨[], by rw [h]; rfl, fun _ h => nomatch h⟩
+  | (ms, ctorsA, sortss) :: rest, env, env₂, h => by
+    unfold ConLeche.checkBlockTables at h
+    obtain ⟨env', henv', h⟩ := exceptBind_ok h
+    obtain ⟨newQ, hQ, hall⟩ := checkBlockTables_tables h
+    have hlift : ∀ t ∈ newQ, ∃ e ∈ (ms, ctorsA, sortss) :: rest, t.structName = e.1.cvT.name :=
+      fun t ht => by
+        obtain ⟨e, he, hn⟩ := hall t ht
+        exact ⟨e, List.mem_cons_of_mem _ he, hn⟩
+    have hsame : env' = env → ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
+        ∀ t ∈ newQ, ∃ e ∈ (ms, ctorsA, sortss) :: rest, t.structName = e.1.cvT.name := fun he =>
+      ⟨newQ, by rw [hQ, he], hlift⟩
+    revert henv'
+    split
+    · split
+      · intro hh
+        obtain ⟨tbl, htn, rfl⟩ := ConLeche.Semantics.checkStructProjTable_shape hh
+        refine ⟨newQ ++ [tbl], by rw [hQ]; simp, fun t ht => ?_⟩
+        rcases List.mem_append.mp ht with ht | ht
+        · exact hlift t ht
+        · rw [List.mem_singleton.mp ht]
+          exact ⟨_, List.mem_cons_self, htn⟩
+      · intro hh
+        simp only [pure, Except.pure, Except.ok.injEq] at hh
+        exact hsame hh.symm
+    · intro hh
+      simp only [pure, Except.pure, Except.ok.injEq] at hh
+      exact hsame hh.symm
+
+omit [SetTheory V] in
+/-- **The ordinary install's tables and its fresh members.** -/
+theorem declBlockRun_tables {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
+    {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) :
+    (∀ ms ∈ p₀.members, env.find? ms.cvT.name = none) ∧
+    ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
+      ∀ t ∈ newQ, ∃ ms ∈ p₀.members, t.structName = ms.cvT.name := by
+  obtain ⟨-, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
+    nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, hTbl⟩ := hrun
+  obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
+    ConLeche.checkBlockInds_shape hInd
+  refine ⟨?_, ?_⟩
+  · intro ms hms
+    have hrun₁ : ∃ q, ConLeche.checkBlockTele (fueledOps .verified F) env p₀.nP ms = .ok q := by
+      rw [hmem0] at hms
+      rcases List.mem_cons.mp hms with rfl | hms'
+      · exact ⟨_, htele0⟩
+      · obtain ⟨i, hi⟩ := List.getElem?_of_mem hms'
+        obtain ⟨q, -, hq'⟩ := (ConLeche.checkBlockTeles_inv hteles).2 i ms hi
+        exact ⟨q, hq'⟩
+    obtain ⟨q, hq'⟩ := hrun₁
+    unfold ConLeche.checkBlockTele at hq'
+    obtain ⟨u, hc, -⟩ := exceptBind_ok hq'
+    cases u
+    exact (ConLeche.checkConstantVal_inv hc).1
+  · obtain ⟨newQ, hQ, hall⟩ := checkBlockTables_tables hTbl
+    refine ⟨newQ, ?_, fun t ht => ?_⟩
+    · rw [hQ, consBlockRecsT_tables 0, consBlockCtors_tables, hcons, consBlockInds_tables]
+    · obtain ⟨e, he, hn⟩ := hall t ht
+      have hm := (List.of_mem_zip he).1
+      subst hp
+      refine ⟨e.1, ?_, hn⟩
+      have : (p₀.complete p₁).toBlockShape.members = p₀.members := by rw [hq]; rfl
+      rw [← this]; exact hm
 
 /-! ## A member's reduct -/
 
@@ -1289,6 +1365,92 @@ theorem reduceMembers_lps {F : Nat} {env : Env} {nP : Nat} {p₀ : BlockParts} {
     simp only [List.head?_cons, Option.map_some, Option.getD_some]
     exact (reduceMember_inv hm').lps
 
+omit [SetTheory V] in
+/-- The classes as swapped formers. -/
+theorem restore_swapped {F : Nat} {p₀ : BlockParts} {env env₃ env₂ : Env} (henv : EnvWF env)
+    (hclass : ∀ n, env₂.find? n = env₃.find? n ∨
+      (∃ (m₀ m : MemberShape) (caps : IndCaps), MemberReduct F env p₀.nP m₀ m ∧
+        ConLeche.formerDefHeaded m₀.cvT = true ∧ caps.nparams + caps.nIdx = p₀.nP + m₀.nIdx ∧
+        m₀.cvT.name = n ∧ env₃.find? n = some (.indInfo m.cvT caps) ∧
+        env₂.find? n = some (.indInfo m₀.cvT caps)) ∨
+      (∃ (cv cvR : ConstantVal) (caps : IndCaps), ViewFacts env cv cvR caps ∧ cv.name = n ∧
+        env₃.find? n = some (.indInfo cvR caps) ∧ env₂.find? n = some (.indInfo cv caps))) :
+    ∀ n, env₂.find? n = env₃.find? n ∨ ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps := by
+  intro n
+  rcases hclass n with he | ⟨m₀, m, caps, hr, hd, hsum, hn, h3, h2⟩ | ⟨cv, cvR, caps, hF, hn, h3, h2⟩
+  · exact .inl he
+  · rcases hr.how with ⟨hd', -⟩ | ⟨-, hg, h₁, h₂, -, hrf⟩
+    · rw [hd] at hd'; exact nomatch hd'
+    · exact .inr ⟨m.cvT, m₀.cvT, caps, h3, h2, hn, hr.name.trans hn, hr.lps, hd, by rw [← hn]; exact hg,
+        (checkConstantVal_typeWF h₁).2.2.1, (checkConstantVal_typeWF h₂).2.2.1,
+        F, by rw [hsum]; exact hrf⟩
+  · have hsc := hF.closed
+    simp only [ConLeche.viewScoped, Bool.and_eq_true] at hsc
+    have hres₀ := (henv.consts _ (ConLeche.Env.find?_mem hF.find)).2.2.1
+    exact .inr ⟨cvR, cv, caps, h3, h2, hn, hF.name.trans hn, hF.lps, hF.headed, by rw [← hn]; exact hF.guard,
+      hres₀, hsc.1.2, hF.ran⟩
+
+omit [SetTheory V] in
+/-- What the stored environment has other than formers, the job's has. -/
+theorem restore_mem {F : Nat} {p₀ : BlockParts} {env env₃ env₂ : Env} {vs new : List ConstantInfo}
+    {ms : List MemberShape}
+    (hreq : env₂ = ⟨new.map (storedFormerOf p₀) ++ env.consts, env₃.tables⟩)
+    (hnew : env₃.consts = new ++ (vs ++ env.consts))
+    (_hnewI : ∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ m ∈ ms, cv = m.cvT ∧
+      caps.nparams + caps.nIdx = p₀.nP + m.nIdx)
+    (_hmr : ∀ m ∈ ms, ∃ m₀ ∈ p₀.members, MemberReduct F env p₀.nP m₀ m)
+    (_hnd : (p₀.members.map (·.cvT.name)).Nodup) :
+    ∀ c ∈ env₂.consts, (∀ cv caps, c ≠ .indInfo cv caps) → c ∈ env₃.consts := by
+  intro c hc hne
+  rw [hreq] at hc
+  rw [hnew]
+  rcases List.mem_append.mp hc with hc | hc
+  · obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+    by_cases hdi : ∃ cv caps, d = .indInfo cv caps
+    · obtain ⟨cv, caps, rfl⟩ := hdi
+      have hind : ∃ cv', storedFormerOf p₀ (.indInfo cv caps) = .indInfo cv' caps := by
+        simp only [storedFormerOf]
+        split
+        · exact ⟨_, rfl⟩
+        · exact ⟨_, rfl⟩
+      obtain ⟨cv', hc'⟩ := hind
+      exact absurd hc' (hne _ _)
+    · have hsame : storedFormerOf p₀ d = d := by
+        cases d <;> first | rfl | exact absurd ⟨_, _, rfl⟩ hdi
+      rw [hsame]
+      exact List.mem_append_left _ hd
+  · exact List.mem_append_right _ (List.mem_append_right _ hc)
+
+/-- **What a run needs of an environment to be read at its extensions.** -/
+structure NatFacts (env : Env) : Prop where
+  trio : (env.find? ConLeche.natName).isSome = true ∨ (env.find? ConLeche.natSuccName).isSome = true →
+    (env.find? ConLeche.natName).isSome = true ∧ (env.find? ConLeche.natZeroName).isSome = true ∧
+      (env.find? ConLeche.natSuccName).isSome = true
+  ops : ∀ c, ConLeche.natOpWfNames.contains c = true → (env.find? c).isSome = true →
+    (env.find? ConLeche.natName).isSome = true
+
+omit [SetTheory V] in
+/-- **The second path's η-families.** -/
+theorem blockViewedRun_etaClosed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
+    {p₀ : BlockParts} (henv : EnvWF env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hrun : ConLeche.Semantics.BlockViewedRun F env block p₀ env₂) :
+    ConLeche.EtaFamiliesClosed env₂ := by
+  obtain ⟨ms, vs, env₃, hms, hvs, hrun₃, rfl⟩ := hrun
+  have hv := blockViews_views hvs
+  have hsh := ConLeche.Semantics.reduceMembers_shape hms
+  have hmr := reduceMembers_mem hms
+  obtain ⟨new, hnew, hnewI⟩ := declBlockRun_consts hrun₃
+  have hnd : (p₀.members.map (·.cvT.name)).Nodup := by
+    obtain ⟨-, hndM, -⟩ := hrun₃
+    have : (ms.map (·.cvT.name)).Nodup := hndM
+    rwa [hsh.1] at this
+  have hclass := restore_find (F := F) (p₀ := p₀) (ms := ms) hnew hnewI hmr hnd hv
+  have hreq := restoreBlock_eq (p₀ := p₀) hnew
+  have h := formerSwap_of_swapped (restore_swapped (F := F) henv hclass)
+    (restore_mem (F := F) hreq hnew hnewI hmr hnd) (by rw [hreq])
+  exact EtaFamiliesClosed_formerSwap h (ConLeche.Semantics.declBlockRun_etaClosed
+    (EtaFamiliesClosed_formerSwap (formerSwap_views hv) hE) hrun₃)
+
 /-- **The block's second path, in the model.** -/
 theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p₀ : BlockParts}
     (mp : EnvModelM V env) (hS : ShownFacts mp) (hcov : LfpCover mp [])
@@ -1296,8 +1458,8 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
     (hClps₀ : ∀ c ∈ p₀.allCtors, c.1.levelParams = p₀.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false)
-    (hrun : ConLeche.Semantics.BlockViewedRun F env block p₀ env₂) (hx : EnvExt env env₂) :
-    ∃ mp₂ : EnvModelM V env₂, LfpCover mp₂ [] ∧ ShownFacts mp₂ := by
+    (hrun : ConLeche.Semantics.BlockViewedRun F env block p₀ env₂) (hN : NatFacts env) :
+    ∃ (mp₂ : EnvModelM V env₂), LfpCover mp₂ [] ∧ ShownFacts mp₂ := by
   obtain ⟨ms, vs, env₃, hms, hvs, hrun₃, rfl⟩ := hrun
   have hv := blockViews_views hvs
   obtain ⟨mpV, hacV, hlV, hcovV⟩ := mp.toViews hS hcov hv
@@ -1318,45 +1480,85 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     have : (ms.map (·.cvT.name)).Nodup := hndM
     rwa [hsh.1] at this
   have hclass := restore_find (F := F) (p₀ := p₀) (ms := ms) hnew hnewI hmr hnd hv
-  generalize henv₂ : restoreBlock p₀ vs.length env env₃ = env₂ at hx hclass
+  generalize henv₂ : restoreBlock p₀ vs.length env env₃ = env₂ at hclass
   have hreq := restoreBlock_eq (p₀ := p₀) hnew
   rw [henv₂] at hreq
-  -- the classes
-  have hcS : ∀ n, env₂.find? n = env₃.find? n ∨
-      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps := by
-    intro n
-    rcases hclass n with he | ⟨m₀, m, caps, hr, hd, hsum, hn, h3, h2⟩ | ⟨cv, cvR, caps, hF, hn, h3, h2⟩
-    · exact .inl he
-    · rcases hr.how with ⟨hd', -⟩ | ⟨-, hg, h₁, h₂, -, hrf⟩
-      · rw [hd] at hd'; exact nomatch hd'
-      · exact .inr ⟨m.cvT, m₀.cvT, caps, h3, h2, hn, hr.name.trans hn, hr.lps, hd, by rw [← hn]; exact hg,
-          (checkConstantVal_typeWF h₁).2.2.1, (checkConstantVal_typeWF h₂).2.2.1,
-          F, by rw [hsum]; exact hrf⟩
-    · have hsc := hF.closed
-      simp only [ConLeche.viewScoped, Bool.and_eq_true] at hsc
-      have hres₀ := (mp.base2.wf.consts _ (ConLeche.Env.find?_mem hF.find)).2.2.1
-      exact .inr ⟨cvR, cv, caps, h3, h2, hn, hF.name.trans hn, hF.lps, hF.headed, by rw [← hn]; exact hF.guard,
-        hres₀, hsc.1.2, hF.ran⟩
-  have hmem : ∀ c ∈ env₂.consts, (∀ cv caps, c ≠ .indInfo cv caps) → c ∈ env₃.consts := by
-    intro c hc hne
-    rw [hreq] at hc
-    rw [hnew]
-    rcases List.mem_append.mp hc with hc | hc
-    · obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
-      by_cases hdi : ∃ cv caps, d = .indInfo cv caps
+  -- the stored environment extends the input
+  obtain ⟨hfreshM, newQ, hQ, hQall⟩ := declBlockRun_tables hrun₃
+  have htab' : env₂.tables = env₃.tables := by rw [hreq]
+  have hfreshE : ∀ m ∈ ms, env.find? m.cvT.name = none := fun m hm => by
+    have h₁ := hfreshM m hm
+    cases hc : env.find? m.cvT.name with
+    | none => rfl
+    | some ci =>
+      have hs := (h₀.isSomeEq m.cvT.name)
+      rw [hc, h₁] at hs
+      exact nomatch hs
+  have hfd₂ : ∀ n ci, env.find? n = some ci → env₂.find? n = some ci := by
+    intro n ci hf
+    have hS₂ : env₂.find? n = ((new.find? (·.name == n)).map (storedFormerOf p₀)).or (env.find? n) := by
+      rw [hreq]
+      show (new.map (storedFormerOf p₀) ++ env.consts).find? (·.name == n) = _
+      rw [List.find?_append, List.find?_map]
+      have hcomp : ((fun x : ConstantInfo => x.name == n) ∘ storedFormerOf p₀)
+          = (fun x => x.name == n) := funext fun c => by
+        simp only [Function.comp, ConLeche.Cached.storedFormerOf_name]
+      rw [hcomp]; rfl
+    rw [hS₂]
+    cases hfn : new.find? (·.name == n) with
+    | none => simpa using hf
+    | some c =>
+      have hcm := List.mem_of_find?_eq_some hfn
+      have hcn : c.name = n := by simpa using List.find?_some hfn
+      obtain ⟨x, hx₁⟩ : ∃ x, (⟨vs ++ env.consts, env.tables⟩ : Env).find? n = some x := by
+        cases hc : (⟨vs ++ env.consts, env.tables⟩ : Env).find? n with
+        | some x => exact ⟨x, rfl⟩
+        | none =>
+          have hs := h₀.isSomeEq n
+          rw [hf, hc] at hs
+          exact nomatch hs
+      have h₃ : env₃.find? n = some c := by
+        show env₃.consts.find? (·.name == n) = _
+        rw [hnew, List.find?_append, hfn]; rfl
+      rw [r₃.find n x hx₁] at h₃
+      obtain rfl := Option.some.inj h₃
+      by_cases hdi : ∃ cv caps, x = .indInfo cv caps
       · obtain ⟨cv, caps, rfl⟩ := hdi
-        have hind : ∃ cv', storedFormerOf p₀ (.indInfo cv caps) = .indInfo cv' caps := by
-          simp only [storedFormerOf]
-          split
-          · exact ⟨_, rfl⟩
-          · exact ⟨_, rfl⟩
-        obtain ⟨cv', hc'⟩ := hind
-        exact absurd hc' (hne _ _)
-      · have hsame : storedFormerOf p₀ d = d := by
-          cases d <;> first | rfl | exact absurd ⟨_, _, rfl⟩ hdi
-        rw [hsame]
-        exact List.mem_append_left _ hd
-    · exact List.mem_append_right _ (List.mem_append_right _ hc)
+        obtain ⟨m, hm, rfl, -⟩ := hnewI _ hcm cv caps rfl
+        have hnm : m.cvT.name = n := hcn
+        have := hfreshM m hm
+        rw [hnm, hx₁] at this
+        exact nomatch this
+      · have hsame : storedFormerOf p₀ x = x := by
+          cases x <;> first | rfl | exact absurd ⟨_, _, rfl⟩ hdi
+        rcases find_views hv n with he | ⟨cvs, cvR, capsv, -, -, h₃'⟩
+        · rw [he, hf] at hx₁
+          obtain rfl := Option.some.inj hx₁
+          simp [hsame]
+        · rw [hx₁] at h₃'
+          exact absurd ⟨cvR, capsv, Option.some.inj h₃'⟩ hdi
+  have hx : EnvExt env env₂ := by
+    refine ⟨hfd₂, fun T hT => ?_, hN.trio, hN.ops⟩
+    have hne : ∀ t ∈ newQ, (t.structName == T) = false := by
+      intro t ht
+      obtain ⟨m, hm, hn⟩ := hQall t ht
+      have := hfreshE m hm
+      rw [beq_eq_false_iff_ne]
+      intro he
+      rw [← hn, he] at this
+      rw [this] at hT
+      exact nomatch hT
+    have hs₂ : (env₂.find? T).isSome = true := by
+      cases hc : env.find? T with
+      | none => rw [hc] at hT; exact nomatch hT
+      | some ci => rw [hfd₂ T ci hc]; rfl
+    unfold Env.findTable?
+    rw [hs₂, hT]
+    simp only [htab', hQ, List.find?_append]
+    rw [List.find?_eq_none.mpr (fun t ht => by simp [hne t ht])]
+    rfl
+  have hcS := restore_swapped (F := F) mp.base2.wf hclass
+  have hmem := restore_mem (F := F) hreq hnew hnewI hmr hnd
   have htab : env₂.tables = env₃.tables := by rw [hreq]
   have h := formerSwap_of_swapped hcS hmem htab
   -- the readings
@@ -1555,7 +1757,7 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
     by_cases hDm : D ∈ mp.lfpBlocks
     · rw [reshow_of_mem hDm] at hmm hs hf ⊢
-      exact shownFacts_keep hS hx (m' := mp₂.base2)
+      exact shownFacts_keep hS hx.find hx.table (m' := mp₂.base2)
         (fun n hn => by rw [hac₂]; exact hleaf₃ n hn)
         (fun ψ d e ta hb hta => by rw [hac₂, ← hde]; exact hup ψ d e ta hb hta) hDm hmm hs hf
     · rw [reshow_of_not_mem hDm] at hmm hs hf ⊢
