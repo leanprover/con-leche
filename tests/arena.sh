@@ -641,6 +641,13 @@ prog_lines() { printf '%s\n' "$1" | grep -c "$2"; }
 prog_errP=$(timeout 120 "$BIN" --jobs=1 --progress=50% "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_check "--progress=50%: two check lines" \
   "$([ "$(prog_lines "$prog_errP" '^con-leche: check [0-9]')" = 2 ] && echo ok)"
+prog_errN=$(timeout 120 "$BIN" --jobs=4 --progress=2 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=2: the check lines name no declaration, and no check this young" \
+  "$(printf '%s\n' "$prog_errN" | grep -q '^con-leche: check [0-9]* ([0-9]*%) t=.* busy=' && \
+     ! printf '%s\n' "$prog_errN" | grep '^con-leche: check [0-9]' | grep -q 'oldest' && echo ok)"
+prog_errT=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=1: a trace, every check line names its declaration" \
+  "$(printf '%s\n' "$prog_errT" | grep -q '^con-leche: check [0-9]* ([0-9]*%) [a-z]* .*, oldest ' && echo ok)"
 prog_errS=$(timeout 120 "$BIN" --jobs=1 --progress=1000s "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_check "--progress=1000s: no check line in a short run" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: check [0-9]')" = 0 ] && echo ok)"

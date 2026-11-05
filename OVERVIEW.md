@@ -114,14 +114,15 @@ record in fold order is the one reported. The flag
 of a phase, or at the first declaration done once `S` seconds have passed (so a long single check,
 or a step with no declarations, says nothing until it ends), with one line
 shape per phase — `install <i>/<N> <decl>` before a declaration is
-installed, `check <done> (<percent>%) <decl>` after a completed check — each phase saying when it starts
+installed, `check <done> (<percent>%)` after a completed check, with its name at `--progress=1` — each phase saying when it starts
 (`reading`, `checking`), bracketed by `parse done`, `install
 done` (preceded by an `install:` line with the install's own
 phases), `persistent mark`, `check done` and a
 `done:` summary with the three phase durations and the worker count
-(bare, the stride is 1); on more than one worker, each `install` and
+(bare, every declaration); on more than one worker, each `install` and
 `check` line ends with the number of busy workers and the oldest record
-one of them is on, with its age. With `--olean` the parse is preceded by
+one of them is on, with its age, in a `check` line only at `--progress=1` or once it has run for
+10 s. With `--olean` the parse is preceded by
 `read:` lines, each with the time and the resident set: the import closure traced, the modules
 loading, at the pace asked for (at a count of declarations, one line per twentieth of them), then the merge, the blocks and the emission, so that a run
 that does not get through the read says how far it got and at what size.

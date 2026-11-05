@@ -26,6 +26,12 @@ def Pace.on : Pace → Bool
   | .off => false
   | _ => true
 
+/-- Does the heartbeat speak at every item?  Then it is a trace, and a line names its item; at
+any other pace the item a line happens to fall on is an arbitrary one. -/
+def Pace.trace : Pace → Bool
+  | .every 1 => true
+  | _ => false
+
 /-- A plain stride over `total` items, for the install's loop: its first line says the phase has
 started, and at seconds, which it has no clock for, the only one. -/
 def Pace.strideFor (total : Nat) : Pace → Nat

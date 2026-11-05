@@ -107,9 +107,13 @@ def jobLabel (J : Jobs) (t : Nat) : String :=
     | none => s!"check {t}"
   | none => s!"check {t}"
 
+/-- How long a check runs before a heartbeat line names it, in nanoseconds: at a pace that does
+not name every check, the oldest in flight is news only once it is taking long. -/
+def oldestAge : Nat := 10_000_000_000
+
 /-- The check phase's heartbeat: when `pace` says a line is due, with `n`
-checks completed so far, job `t` the one just completed, one line
-naming it.  The counter is the number of COMPLETED checks, so in the
+checks completed so far, job `t` the one just completed, one line,
+naming it if every check gets one (`Pace.trace`).  The counter is the number of COMPLETED checks, so in the
 pool it is monotone whichever worker finished, and the line is printed
 after the check rather than before it: a check that is running is not
 on any line, the gap between two lines is where it sits.  In the pool
@@ -120,17 +124,17 @@ def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (J : Jobs)
   if ← pace.due last n J.order.size then
     let now ← IO.monoMsNow
     let extra ← match live with
-      | some lv => lv.report (jobLabel J)
+      | some lv => lv.report (jobLabel J) (if pace.trace then 0 else oldestAge)
       | none => pure ""
-    let l := match J.order[t]? with
+    let l := if !pace.trace then "" else match J.order[t]? with
       | some (false, k) => match J.pend[k]? with
-        | some p => s!"{p.vg.kind.word} {p.vg.cv.name}"
-        | none => s!"check {t}"
+        | some p => s!" {p.vg.kind.word} {p.vg.cv.name}"
+        | none => s!" check {t}"
       | some (true, k) => match J.D[k]? with
-        | some b => s!"inductive {b.name}"
-        | none => s!"check {t}"
-      | none => s!"check {t}"
-    err.putStr s!"con-leche: check {n} ({n * 100 / max 1 J.order.size}%) {l} \
+        | some b => s!" inductive {b.name}"
+        | none => s!" check {t}"
+      | none => s!" check {t}"
+    err.putStr s!"con-leche: check {n} ({n * 100 / max 1 J.order.size}%){l} \
       t={ConLeche.Cached.msSecs (now - t0)}s{extra}\n"
     err.flush
 

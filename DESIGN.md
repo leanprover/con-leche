@@ -109173,3 +109173,7 @@ The load's and the check's lines give a count and a percentage (`read: loaded 71
 `check 322101 (41%) <decl>`), the total being on the phase's first line just above: long numbers are hard
 to read (maintainer).  The install's lines keep `<i>/<N>`, that phase being another lane's to remove.
 
+A line of the check names its declaration only at `--progress=1`, a trace; at any other pace it is an
+arbitrary one.  The oldest check in flight is named there too, and elsewhere once it has run for 10 s,
+when it is news (maintainer: two long names per line are noise).
+
