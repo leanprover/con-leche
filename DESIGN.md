@@ -109074,9 +109074,11 @@ the numbers.
 |---|---|---|---|---|---|
 | master 7cb7a45cd | 6.26 GiB | 7 658 G | 3 898 G | 131 s | 16.1 / 8.0 / 107.1 s |
 | this branch | 3.99 GiB | 8 092 G | 3 759 G | 117 s | 9.7 / 7.0 / 99.8 s |
+| again, the battery running beside it | 4.00 GiB | 8 083 G | 3 863 G | 123 s | 10.0 / 6.8 / 105.6 s |
 
-So −36 % RSS, +5.7 % instructions, −3.6 % cycles.  Instructions go up (the decoding is done twice for
-what a value reaches beyond the frontier) while cycles go down.
+So −36 % RSS, +5.6 % instructions, cycles −1 to −4 %.  Instructions go up (the walk at the load, and
+the decoding of what a value reaches beyond the frontier) while cycles go down.  The stream path, on
+the pool it now shares (`mathlib-full.ndjson`, `--jobs=8`): 6 913.7 G and 6 914.2 G, 4.70 GiB both.
 
 **The shape.**  `ConLeche/Frontend/Olean/Lazy.lean`: `loadAt`, a value being `valueRef i g` in the
 records, an expression, so that the merge, the emission, the preparation and the install need no change
@@ -109107,11 +109109,12 @@ claims one job at a time, as before.
   against the specification, not against the old code.
 * The record ORDER rests on `usesGo`, as it did on `constsGo`, both without a theorem (it was `partial`
   too).  Checked instead: the 775 321 install lines of the old and new binaries on Mathlib hash the same
-  (sha256 367a3bb5…); `tests/olean-compare.sh`.  An order that was wrong would make a check fail, never pass.
+  (sha256 367a3bb5…); `tests/olean-compare.sh`: `Init` 0 differences.  An order that was wrong would make a check fail, never pass.
 * **A value no check reads is no longer decoded**: a theorem shadowed in the merge by another
   module's copy, or outside `--constant`'s cone.  The walk still goes over its expression objects' shapes
-  (`usesGo`), but a bad string or number in it no longer fails the run.  Such a value means nothing to
-  the run, so I kept this and did not add a decode; the reports says so for the maintainer to rule.
+  (`usesGo`), but a bad string or number in it no longer fails the run: pinned in `tests/olean.sh`
+  (`--constant` past a bad value, exit 0, 3 before).  Such a value means nothing to the run, so it is kept and no decode
+  added; open for the maintainer's ruling.
 * A malformed value now fails in its job, at its position, with the same exit 3, so an earlier
   record's reject can come first.
 * The hoist reads what a theorem mentions from the load (`OleanRead.thmUses`), a value's mentions
