@@ -109779,6 +109779,12 @@ apply a family.
 | init-prelude | 1.954 G | 2.123 G | +0.05 % / +0.05 % |
 | grind-ring-5 | 15.301 G | 15.685 G | −0.12 % / −0.22 % |
 
+Final tree, the rest of the measurement: Mathlib cut (first 7M lines) 338.216 G / 352.510 G, against
+337.019 / 350.723 G in lane 4's record (+0.36 %, +0.51 %); app-lam 22.072 / 22.440 G; the other arena perf
+streams each under 5 G, and none of them moved by more than the drift already recorded.  Battery on
+this tree, under the RSS guard: every gate green, e2e 541/541, arena tutorial 90/92 as before, selfcheck
+accepted, the trusted and `--jobs` sweeps with no divergence.
+
 **Proof delta** (lines in `ConLeche/`, added / removed).  The collapse, with its imports and renames: +1837 /
 −2083, net −246; Verify +391 net (`BlockPushes`, the fresh chain by names) against the floor's and the
 model's removals.  This stage: +583 / −257, net +326, of which Verify +240 (`EnvGuards`, `EnvWF`, the
