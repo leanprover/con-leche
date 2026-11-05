@@ -84,9 +84,8 @@ theorem RecPinsF.nodup {q : BlockShape} (h : RecPinsF q)
 positionally the records' (`recStageG_recNames`), which the pins make
 distinct (`RecPinsF.nodup`). -/
 theorem recStageG_nodup {mode : CheckMode} {F : Nat} {env : Env} {p : BlockShape}
-    {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : RecStageG mode F env p cvTas rs)
+    (h : RecStageG mode F env p rs)
     (hndM : p.memberNames.Nodup) : (rs.map (·.1.name)).Nodup := by
   obtain ⟨hpins, hlenR, hall⟩ := recStageG_recNames h
   have hmap : rs.map (·.1.name) = p.recs.map (·.cvR.name) := by
@@ -123,7 +122,7 @@ check read off the environment). -/
 
 section Ctors
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
+variable {F : Nat} {envC : Env} {pp : BlockShape}
   {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}

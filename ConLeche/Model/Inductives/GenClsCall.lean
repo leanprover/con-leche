@@ -151,9 +151,9 @@ set_option maxHeartbeats 16000000 in
 opened at the rule prefix are the tower's opened at the motive's slot,
 lifted past the prefix's later slots. -/
 theorem genMotRds
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) {c T t st : Nat} (hc : c < (tgtRs out).length) (hT : T < (tgtRs out).length)
     (hct : genClsOf R.rd T = t)
     (hst : ConLeche.ClassRead.motiveSlot ⟨R.g.slots, []⟩ t = some st) :
@@ -282,9 +282,7 @@ end Motive
 
 section Call
 
-variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState} {block : List ConstantInfo}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- A spine's `k`-th value lies in its domain at the spine's first `k`. -/
@@ -302,9 +300,9 @@ set_option maxHeartbeats 4000000 in
 /-- **All recursors share their prefix's reading**: each stored type's
 prefix openers are erasure-equal to the one generated prefix. -/
 theorem genPdoms_read
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) {c : Nat} (hc : c < (tgtRs out).length) :
     (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
         = R.g.pre.length ∧
@@ -331,9 +329,9 @@ theorem genPdoms_read
   rfl
 
 theorem genPdoms_eq
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (ψ : Name → Nat) {c T : Nat} (hc : c < (tgtRs out).length) (hT : T < (tgtRs out).length) :
     blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ T
       = blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c := by
@@ -352,9 +350,9 @@ telescope, fit the motive's Π-tower (the motive application is graded,
 `genIhFrame`), which is the callee's index and major telescope
 (`genMotRds`). -/
 theorem genIhMot
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -427,9 +425,9 @@ data — the prefix is shared, and the index arguments and applied field
 fit the callee's index and major domains, because they fit the motive's
 type (`genIhMot`). -/
 theorem genCallTy
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))

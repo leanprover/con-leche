@@ -703,20 +703,20 @@ form, and the stage's other checks (`checkBlockPositivity_inv_gen`: the
 crest typed, the normal form's level parameters and fields' sorts,
 M2′). -/
 theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
-    {p : BlockShape} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {pos : ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p cvTas ctorsAs = .ok (kinds, nfs, pos))
-    (hread : p.members.map (·.cvT) = cvTas)
-    (hT : ∀ cv ∈ cvTas, cv.type.hasFvar = false)
-    (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p = .ok (kinds, nfs, pos))
+    (hread : p.members.map (·.cvT) = p.formers)
+    (hT : ∀ cv ∈ p.formers, cv.type.hasFvar = false)
+    (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false)
-    (hlpsC : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+    (hlpsC : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
       ∀ cA ∈ cs, cA.1.levelParams = p.lps) :
-    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
+    ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP env.find?) = some holes ∧
-      (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+      (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
         ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
           ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
             cA.1.type = some crest ∧
@@ -738,7 +738,7 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
           ConLeche.TreeRec (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
             pos.ctorNfs.toList ts) ∧
       ConLeche.CtorsRecRoot (fueledOps .verified F) env (p.nestCtx fvsP env.find?) holes
-        pos.ctorNfs.toList ctorsAs := by
+        pos.ctorNfs.toList p.memberCtors := by
   obtain ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, h⟩ :=
     ConLeche.checkBlockPositivity_deriv (fun dep e w hw hws => ConLeche.whnf_WScoped hwf F hw hws)
       hrun

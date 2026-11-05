@@ -42,7 +42,7 @@ variable {envC : Env} {p : BlockShape} {cvTas : List ConstantVal}
 (`recStage_tyPis`), which is ψ-congruent at any recursor's
 parameters (`blockRecTyAV_params_ext`). -/
 theorem blockRulePdomsAV_params (mpC : EnvModelM V envC)
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q)
     {c : Nat} (hc : c < rs.length) :

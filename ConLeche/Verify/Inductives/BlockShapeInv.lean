@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Inductives.BlockParts
+public import ConLeche.Kernel.Inductives.BlockShape
 
 public section
 
@@ -8,8 +8,8 @@ public section
 # The k-ary block recogniser, inverted
 
 `blockShape?` reads a block into a `BlockShape` at ANY number of
-members and `blockParts?` adds the recursor records' structural pin
-(`ConLeche/Kernel/Inductives/BlockParts.lean`).  The inversions here
+members and `blockShape?` adds the recursor records' structural pin
+(`ConLeche/Kernel/Inductives/BlockShape.lean`).  The inversions here
 read back: the `isProp` pin, the block's level parameters carried by
 every member and every constructor, the reserved-name exclusions, the
 parameter count, and the MEMBERS themselves: the type formers zipped with their index counts, their
@@ -304,22 +304,11 @@ theorem blockShape?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
     · rw [← hp]
     · rw [← hp]
 
-/-- The recogniser is shape-only. -/
-theorem blockParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
-    (h : blockParts? nPd block = some p) :
-    blockShape? nPd block = some p.toBlockShape := by
-  unfold blockParts? at h
-  split at h
-  · next q hq =>
-    obtain rfl := Option.some.inj h
-    exact hq
-  · exact nomatch h
-
 /-- The recogniser's members stand at their declared formers. -/
-theorem blockParts?_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
-    (h : blockParts? nPd block = some p) : ∀ ms ∈ p.members, ms.declared = ms.cvT := by
+theorem blockShape?_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockShape}
+    (h : blockShape? nPd block = some p) : ∀ ms ∈ p.members, ms.declared = ms.cvT := by
   obtain ⟨-, -, -, -, -, -, -, -, _, _, _, _, -, -, -, -, -, -, hmem, -⟩ :=
-    blockShape?_inv (blockParts?_inv h)
+    blockShape?_inv h
   intro ms hms
   rw [show p.members = _ from hmem] at hms
   obtain ⟨a, -, rfl⟩ := List.mem_map.mp hms

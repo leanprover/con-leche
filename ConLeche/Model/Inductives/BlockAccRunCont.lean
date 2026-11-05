@@ -239,18 +239,17 @@ theorem nestCtx_sort_eval {d : BlockData V} {p : BlockShape} (hR : p.resSort = d
 (of the level at a `Type`-valued block)**, from the positivity stage's derivation of every member
 constructor (the container rules read `hcovk`). -/
 theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
-    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {d : BlockData V} {lps : List Name} {p₁ : BlockShape}
     {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {nodes : ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p cvTas ctorsAs = .ok (kinds, nfs, nodes))
+    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p = .ok (kinds, nfs, nodes))
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hread : p.members.map (·.cvT) = cvTas)
+    (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
-    (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hinst : d.nInst = 0) (hlenCA : p.memberCtors.length = d.k)
+    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -314,18 +313,16 @@ frame**, with a bound that is a set of the level at a `Type`-valued one
 container rules read at the walk's carrier (coverage) and the walk
 context's sort (the block's level). -/
 theorem blockAcc_of_run {F : Nat}
-    {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name}
-    {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockShape}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+    {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name} {p₁ : BlockShape} {isRec : Bool} {p : BlockShape}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
+    (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      p cvTas ctorsAs = .ok posKs)
+      p = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hread : p.members.map (·.cvT) = cvTas) (hnP : p.nP = d.nP)
+    (hread : p.members.map (·.cvT) = p.formers) (hnP : p.nP = d.nP)
     (hnIdxs : p.nIdxs = d.nIdxs) (hresS : p.resSort = d.resSort)
-    (hk : d.k = d.memberNames.length) (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hk : d.k = d.memberNames.length) (hinst : d.nInst = 0) (hlenCA : p.memberCtors.length = d.k)
+    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -339,7 +336,7 @@ theorem blockAcc_of_run {F : Nat}
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
   obtain ⟨mk, hbk, hcovk, hreads⟩ := hcov
-  have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
+  have hcore' : BlockHoleCtxFacts mk.base2 d lps p.formers p₁ isRec := by rw [hbk]; exact hcore
   exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hread hnP hnIdxs hk hinst hlenCA hctorsAs
     hclosed hnfs ψ ρp hs (fun fvsP => ⟨contCover_of hcovk (fun _ => rfl) hreads,
       nestCtx_sort_eval hresS fvsP env.find? ψ⟩) hG

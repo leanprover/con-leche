@@ -58,16 +58,14 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
       p₁.members = .ok sortsss ∧
     -- 3  the walk's context; the classes the stream's recursor family eliminates
     --    (read off its raw recursor types, each checked as a major)
-    blockNestCtx (m := ConLeche.CheckM) p₁ p₁.formers env₁.find?
+    blockNestCtx (m := ConLeche.CheckM) p₁ env₁.find?
       = .ok (ctx, holes) ∧
-    checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ ctx.params
-      p₁.memberCtors = .ok (rd, Ms) ∧
+    checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ ctx.params = .ok (rd, Ms) ∧
     -- 4  the positivity function on the stored constructors (the root frame), and
     --    their member-abstracted types typed at the holes' context; its field
     --    kinds are the block's `is_rec`, its normal forms the model's fields
     --    with holes; then every outside class walked from its state
-    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps .verified F) env₁ env₁.find? p₁
-      p₁.formers p₁.memberCtors = .ok (kinds, nfs, pos) ∧
+    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps .verified F) env₁ env₁.find? p₁ = .ok (kinds, nfs, pos) ∧
     nestSeeds (fueledOps .verified F) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st ∧
     -- 5  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockRawRec p₀ ∧
@@ -79,7 +77,7 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     --    container bit)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps .verified F)
       (consBlockCtors p₁.nP p₁.memberCtors env₁) p₁ (blockNestedBit p₁ kinds)
-      ctx.params st.ctorNfs.toList rd Ms block p₁.formers = .ok out ∧
+      ctx.params st.ctorNfs.toList rd Ms block = .ok out ∧
     -- 8  the stream's recursors against the generated ones: their K flags, then the
     --    rest at the environment holding the generated ones
     streamKCheck (m := ConLeche.CheckM) p₁ p₁.recs out = .ok () ∧

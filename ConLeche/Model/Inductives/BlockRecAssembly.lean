@@ -50,9 +50,9 @@ section RuleOut
 environment**, stated at the list the model's bare cons is built over
 (`bareOf rs`, spelled out — `BlockStageRec`'s abbreviation is not in
 this file's public view): the rule record's `htyR`. -/
-theorem recStage_rhsInfer {envC : Env} {p : BlockShape} {cvTas : List ConstantVal}
+theorem recStage_rhsInfer {envC : Env} {p : BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs) :
+    (h : ConLeche.RecStageG .verified F envC p rs) :
     ∀ r ∈ rs, ∀ rhsA ∈ r.2.1, ∃ tyR : Expr,
       ConLeche.inferTypeCore .verified false
           (consBlockRecsBare p 0 (rs.map fun r => (r.1, r.2.2.1)) envC) F 0 rhsA
@@ -264,10 +264,10 @@ facts (`hnest`), the stage's record at any majors (`RecStageG`), the
 stored names distinct (`hnd`), the LEAF's facts with the family premise
 (`BlockRecLeafOk`) and the rule seam (`hnew`). -/
 theorem blockRecStaged_runR {envC : Env}
-    (mpC : EnvModelM V envC) {p : BlockShape} {cvTas : List ConstantVal}
+    (mpC : EnvModelM V envC) {p : BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     (hnd : (rs.map (·.1.name)).Nodup)
     {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →

@@ -235,9 +235,9 @@ stored and not the block's, and the block owns its constructors — the
 ones `targetMajorOf` read. -/
 theorem tgtOutCls_atR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
     (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat}
-    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr}
+    {p : BlockShape} {pfvs fvs : List Expr}
     {mty : Expr} {M : TargetMajor}
-    (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p ctorsAs pfvs fvs mty M)
+    (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p pfvs fvs mty M)
     (hM : M.member = none) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
     (hmem : D.member mm = M.ind) :
     ∃ cvI, TgtOutCls mp M D mm cvI := by
@@ -261,9 +261,9 @@ carrier's coverage records the major's (stored, not the block's)
 inductive as a member of some block, which owns its constructors. -/
 theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
     (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat}
-    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr}
+    {p : BlockShape} {pfvs fvs : List Expr}
     {mty : Expr} {M : TargetMajor}
-    (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p ctorsAs pfvs fvs mty M)
+    (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p pfvs fvs mty M)
     (hM : M.member = none) :
     ∃ D mm cvI, TgtOutCls mp M D mm cvI := by
   obtain ⟨sI, -, -, hnq, -, -, -, -, hinst, -⟩ := Rm.outside_facts hM
@@ -276,9 +276,9 @@ theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
 /-- **The outside class at the SELECTED block** (`lfpSel`), from the
 major's run. -/
 theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
-    (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat} (D0 : LfpDatum V) {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
+    (hrd : ∀ F, FamilyRead mp F) {mode : CheckMode} {F : Nat} (D0 : LfpDatum V) {p : BlockShape}
     {pfvs fvs : List Expr} {mty : Expr} {M : TargetMajor}
-    (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p ctorsAs pfvs fvs mty M)
+    (Rm : ConLeche.TargetMajorRun (ConLeche.fueledOps mode F) (mkFEnv env) p pfvs fvs mty M)
     (hM : M.member = none) :
     ∃ mm cvI, TgtOutCls mp M (lfpSel mp D0 M.ind) mm cvI := by
   obtain ⟨sI, -, -, hnq, -, -, -, -, hinst, -⟩ := Rm.outside_facts hM

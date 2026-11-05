@@ -79,7 +79,7 @@ at any `ih` terms and residue): the prefix domains are closed
 (`blockRecPdomsK_run`), and the chain lifts keep the field domains'
 lengths. -/
 theorem genClsEqs_eq
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (ihs : (Name → Nat) → Nat → Nat → List Term)
     (Rb0 : (Name → Nat) → Nat → Nat → Term) (ψ : Name → Nat) :
     iotaEqsAV (tgtRs out).length (blockRecNCt (tgtRs out))
@@ -138,7 +138,7 @@ set_option maxHeartbeats 4000000 in
 /-- **The candidate of the generated family** — `BlockRecPre.hCand` at the
 generated components, from the producer's rows at the old class data. -/
 theorem genRecPre_hCand
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (ψ : Name → Nat) (ρ : Nat → V)
     (hsplit : ∀ c, c < (tgtRs out).length →
       ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
@@ -732,7 +732,7 @@ theorem isOfW_length (u n : Nat) (t : V) : (isOfW u n t).length = n := by
 
 /-- The major index of a stored recursor is its rule prefix plus its
 stored index count. -/
-theorem genRec_mI (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) {c : Nat}
+theorem genRec_mI (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) {c : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : (tgtRs out)[c]? = some r) :
     pp.majorIdxAt c = pp.rulePrefixAt c + r.2.2.1 := by
   obtain ⟨R⟩ := h
@@ -743,7 +743,7 @@ theorem genRec_mI (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
 /-- The stored domains' length: the rule prefix, the class's
 indices, the major. -/
 theorem genRds_length
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     {c : Nat} (hc : c < (tgtRs out).length) :
     (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
       = pp.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
@@ -756,7 +756,7 @@ theorem genRds_length
 
 /-- **Row `hsplit`**, from the class split. -/
 theorem genRow_hsplit
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ) :
     ∀ c, c < (tgtRs out).length →
       ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
@@ -780,7 +780,7 @@ theorem genRow_hsplit
 
 /-- **Row `hconcl`**, from the class split. -/
 theorem genRow_hconcl
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ) :
     ∀ c, c < (tgtRs out).length →
       ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
@@ -802,7 +802,7 @@ theorem genRow_hconcl
 (the stage record's inferred sort, `blockRecConcl_univ`, at the pinned
 elimination level). -/
 theorem genRec_conclTy
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ ys,
       SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
@@ -823,7 +823,7 @@ theorem genRec_conclTy
 
 /-- **Row `hconclTy`**, from the converse split. -/
 theorem genRow_hconclTy
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length →
       ∀ i, i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
@@ -839,7 +839,7 @@ theorem genRow_hconclTy
 base ones, and the lifted index expressions and constructor application
 read at the chain frame as the base ones at the base frame. -/
 theorem genRec_chainBase
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ a : Nat → V) {c j : Nat} (hc : c < (tgtRs out).length) {xs fs : List V}
     (hxl : xs.length
       = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length)
@@ -882,7 +882,7 @@ theorem genRec_chainBase
 
 /-- **Row `hdec`**, from the decoding at the rule frame. -/
 theorem genRow_hdec
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
     ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
@@ -909,7 +909,7 @@ theorem genRow_hdec
 /-- **Row `hrule`**, from the decoding at the rule frame and the converse
 split. -/
 theorem genRow_hrule
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
     (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
     ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -939,7 +939,7 @@ class fit is the clause's hole fit at the carrier and the injection the
 clause's, definitionally; at `ℓ = 0` the conclusion's typing; at a
 `Prop`-valued class under a nonzero elimination level, the elimination guard. -/
 theorem genRow_huniq
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
     (hDin : ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks)
     (hmN : ∀ c, c < (tgtRs out).length → tgtClsM mc pp out c < (tgtClsD d Dc out c).N)
@@ -1004,7 +1004,7 @@ set_option maxHeartbeats 2000000 in
 /-- **Row `hchain`**, from the `ih` calls' typing at the rule frame
 (`hcallTy`), the class split and the `ih` data's bounds. -/
 theorem genRow_hchain
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ)
     (hgpre : ∀ c, c < (tgtRs out).length → g.pre.length
       = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length)
@@ -1116,7 +1116,7 @@ set_option maxHeartbeats 2000000 in
 (`hminor`), the stored conclusion as the motive applied (`hconclMot`), the
 `ih` calls' typing, the class split and the decoding both ways. -/
 theorem genRow_hstep
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ)
     (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) (hDI : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ)
     (hnIdx : ∀ c, c < (tgtRs out).length →
@@ -1258,7 +1258,7 @@ fits it, `genRow_hrule`, its arguments graded, `hargs`), the right-hand
 side from the `ih` terms' and the residue's grading at typed tuples
 (`hrhs`). -/
 theorem genRecEqs_wd
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) {g : ClassGen}
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) {g : ClassGen}
     {rd : ClassRead} (ψ : Name → Nat) (ρ : Nat → V)
     (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ)
     (hfdB : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -1419,7 +1419,7 @@ end Rows
 
 section Assembly
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
+variable {F : Nat} {envC : Env} {pp : BlockShape}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal} {g : ClassGen} {rd : ClassRead}
@@ -1500,7 +1500,7 @@ structure GenPreHyps (ψ : Name → Nat) (ρ : Nat → V) : Prop where
 set_option maxHeartbeats 4000000 in
 /-- **The candidate, from `GenPreHyps`.** -/
 theorem genRecPre_hCandH
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (ψ : Name → Nat) (ρ : Nat → V) (H : GenPreHyps pp out mpC d Dc mc cvc g rd ψ ρ) :
     ∃ a : Nat → V, (∀ c, c < (tgtRs out).length →
         a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) ∧
@@ -1527,7 +1527,7 @@ goal, from the family's level (`hTy`, `blockRecLevel_run`), the equations'
 grading at typed tuples (`hEqWd`), and `GenPreHyps` at every level
 assignment and base frame. -/
 theorem genRecPre
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {s : (Name → Nat) → Nat}
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →
       interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∈ˢ univ (s ψ) ∧

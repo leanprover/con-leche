@@ -145,12 +145,11 @@ omit [SetTheory V] in
 stage's run** (official's uniform check `nestUniform`). -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok posKs)
+    (hrun : ConLeche.checkBlockPositivity ops env₁ find? p = .ok posKs)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
+    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
     (hlpsA : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.levelParams = lps) :
     ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →

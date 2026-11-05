@@ -93,16 +93,15 @@ theorem readParams_lift {acval : Name → (Name → Nat) → Term} {env : Env} {
 
 /-- **The frame tie at the generated stage** (see the module docstring). -/
 theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
-    {envC envI : Env} {pp : BlockShape} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
+    {envC envI : Env} {pp : BlockShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : NestState} {nested : Bool}
-    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nested posR cvTasR
-      block ctorsAsR out)
-    (h : ConLeche.RecStageG .verified F envC pp cvTasR (ConLeche.tgtRs out))
+    (hctx : RecCtxBase V F envC envI pp mpC dR isRecR A kindsR nfsR posR)
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nested posR
+      block out)
+    (h : ConLeche.RecStageG .verified F envC pp (ConLeche.tgtRs out))
     (hparG : ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V)
       (xs : List V),
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (ConLeche.tgtRs out) ψ c)
@@ -121,11 +120,11 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
       Sat V ((lfpSel mpC dR.toLfp t.key.cname).params (nodeψ envC ψ t)).reverse
         (nodeFr mpC.base2.acval envC (pp.nestCtx fvsP envI.find?) ψ ρ xs t)) :
     NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find?) pp out ns
-      ψ ρ xs envC F (cvTasR.map (·.type)) := by
+      ψ ρ xs envC F (pp.formers.map (·.type)) := by
   intro c hc t ht hNM hsp
   have hctx₀ := hctx
   obtain ⟨-, -, -, -, hN, hS, hcore, -, hdR, -, hcov, -⟩ := hctx
-  have hmr : BlockMembersRun mpC.base2 dR pp cvTasR := by
+  have hmr : BlockMembersRun mpC.base2 dR pp := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hnPq : dR.nP = pp.nP := hmr.1
   -- the canonical parameters: the head former's opened telescope
@@ -139,7 +138,7 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
   obtain ⟨-, hPD⟩ := ConLeche.targetClassMatch_true hNM.2.2
   rw [hpf] at hPD
   -- the head former's data
-  have hcv0 : cvTasR[0]? = some cvTa0 := by
+  have hcv0 : pp.formers[0]? = some cvTa0 := by
     rw [List.head?_eq_getElem?] at hcv; exact hcv
   obtain ⟨-, -, -, hfvT, hbndT, hFD⟩ := hmr.2.2.2.1 0 cvTa0 hcv0
   have hppsLen : (dR.ppsM 0 ψ).length = dR.nP + dR.nIdxAt 0 := hFD.len ψ
@@ -198,10 +197,10 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     have := SpineFit.length_eq hfit
     rw [List.length_take, hpl] at this; omega
   -- the members' holes
-  let hv : List V := (List.range cvTasR.length).map fun t =>
+  let hv : List V := (List.range pp.formers.length).map fun t =>
     interp V ρ (mpC.base2.acval (dR.memberName t) ψ)
-  have hvl : hv.length = (cvTasR.map (·.type)).length := by simp [hv]
-  have hvget : ∀ t, t < cvTasR.length →
+  have hvl : hv.length = (pp.formers.map (·.type)).length := by simp [hv]
+  have hvget : ∀ t, t < pp.formers.length →
       hv.getD t pt = interp V ρ (mpC.base2.acval (dR.memberName t) ψ) := by
     intro t ht; simp [hv, List.getD_eq_getElem?_getD, List.getElem?_range ht]
   have hnames := memberHoles_names (pp := pp) hN hmr ψ ρ (hvC := fun t => hv.getD t pt) hvget

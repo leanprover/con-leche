@@ -343,13 +343,12 @@ constructors' model (`hsp`): the group's block (`posNodeOk_blk`), its level
 parameters (`posNodeOk_lps`), the stack's hole constants
 (`nodeHolesRead_of`) and the key's scoping (`posNodeOk_ws`). -/
 theorem nodeListFacts_of {F : Nat}
-    {envC envI : Env} {pp : ConLeche.BlockShape} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
+    {envC envI : Env} {pp : ConLeche.BlockShape}
     {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (hctx : RecCtxBase V F envC envI pp mpC dR isRecR A kindsR nfsR posR)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids)
@@ -370,10 +369,10 @@ theorem nodeListFacts_of {F : Nat}
     change n ∈ pp.memberNames at hn
     obtain ⟨c, hc, rfl⟩ := List.getElem_of_mem hn
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-    have hck : c < (blockDataOf V pp ctorsAsR pk uOfD ppsOf).k := by
+    have hck : c < (blockDataOf V pp pk uOfD ppsOf).k := by
       change c < pp.members.length
       simpa [ConLeche.BlockShape.memberNames] using hc
-    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c]? = some cvTb :=
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, pp.formers[c]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
     have hname := hN.1 c cvTb hcvb
     have hlpsT := hS.lpsT c cvTb hck hcvb

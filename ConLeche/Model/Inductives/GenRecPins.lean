@@ -185,7 +185,7 @@ spine's head and arguments; a term scoped at the prefix infers alike
 there), scoped, and in the prefix context — the prefix openers' readings
 are the prefix domains, graded types (see the module docstring). -/
 theorem storedMajorSub_ctx (mpC : EnvModelM V envC)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
@@ -338,7 +338,7 @@ theorem storedMajorSub_ctx (mpC : EnvModelM V envC)
 over the prefix is graded at every prefix spine** (`storedMajorSub_ctx`,
 then the inference's soundness). -/
 theorem storedMajorSub_graded (mpC : EnvModelM V envC)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
@@ -361,7 +361,7 @@ theorem storedMajorSub_graded (mpC : EnvModelM V envC)
 /-- **A stored major-domain argument over the prefix is graded at every
 prefix spine** (`storedMajorSub_graded` at an argument). -/
 theorem storedMajorArg_graded (mpC : EnvModelM V envC)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[j]? = some r) (ψ : Name → Nat) {fvs : List Expr} {concl maj : Expr}
     (hop : openPisAtFvars (pp.majorIdxAt j + 1) r.1.type 0 = some (fvs, concl))
@@ -378,7 +378,7 @@ end Pins
 
 section StagePins
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
+variable {F : Nat} {envC : Env} {pp : BlockShape}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 2000000 in
@@ -393,7 +393,7 @@ stored type's own inference (`storedMajorArg_graded`); `nestedPinGrade`
 carries the grading to the chain of any graded fit of the recursor
 type. -/
 theorem recStagePinsOk (mpC : EnvModelM V envC)
-        (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+        (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC))

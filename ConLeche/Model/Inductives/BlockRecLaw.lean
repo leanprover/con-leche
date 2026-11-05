@@ -398,9 +398,8 @@ theorem spineFit_of_teleFitPA {pds : List Term} {b : Term}
 `i`-th stored recursor type's reading fits its domains. -/
 theorem spineFit_blockRecTy {envC : Env}
     (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
-    {cvTas : List ConstantVal}
     {rs : List RecDatum} {F : Nat}
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     {i : Nat} {r : RecDatum} (hr : rs[i]? = some r) (ψ : Name → Nat)
     {ρ : Nat → V} {ws : List Term} {rest TVa : Term}
     (hTVa : denote mpC.base2.acval envC ψ 0 r.1.type = some TVa)

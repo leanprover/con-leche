@@ -342,11 +342,11 @@ index (the generated constant's lookup and the record pins). -/
 theorem genRecCheck_recFresh (mode : CheckMode) (fe : FEnv)
     (p : BlockShape) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
-    (block : List ConstantInfo) (cvTas : List ConstantVal) :
-    Yields (genRecCheck (shadowOpsC mode) fe p nested params tbl rd Ms₀ cvTas block)
+    (block : List ConstantInfo) :
+    Yields (genRecCheck (shadowOpsC mode) fe p nested params tbl rd Ms₀ block)
       (fun _ => (p.recs.map (·.cvR.name)).Nodup ∧ ∀ rc ∈ p.recs, fe.find? rc.cvR.name = none) := by
   refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
-    p nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
+    p nested params tbl rd Ms₀ block) fun out hout => ?_
   obtain ⟨hnd, -, hall⟩ := hout
   refine ⟨hnd, fun rc hrc => ?_⟩
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hrc
@@ -425,7 +425,7 @@ theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q 
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
-  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block p.formers) fun _ hrs =>
+  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block) fun _ hrs =>
     Yields.const hrs
 
 /-- A block's install keeps the chain, its members' declared names standing where the

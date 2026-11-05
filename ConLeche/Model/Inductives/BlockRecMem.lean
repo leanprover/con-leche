@@ -111,9 +111,8 @@ the recursor model consumes: `hTyE` at `RecTy ψ c := blockRecTyAV …`,
 `rds`/`concl` at the two named spellings. -/
 theorem recStage_tyPis {envC : Env}
     (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
-    {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     ∃ (fvs : List Expr) (concl : Expr),
@@ -167,9 +166,8 @@ own per-index scoping facts hold
 `bvarsBelow l`. -/
 theorem recStage_tyBounds {envC : Env}
     (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
-    {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
     (∀ l, l < (blockRecRdsAV mpC.base2.acval envC p rs ψ i).length →
@@ -265,11 +263,10 @@ grading are the run's (`recStage_tyReads`), the membership is
 the family premise's (`hmem_of_pre`). -/
 theorem hrd_of_pre {envC : Env}
     (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
-    {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {acv : Name → (Name → Nat) → Term} {K : Nat} {s : (Name → Nat) → Nat}
     {RecTy : (Name → Nat) → Nat → Term} {eqs : (Name → Nat) → List Term}
-    (h : ConLeche.RecStageG .verified F envC p cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC p rs)
     (hK : rs.length = K)
     (hty : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ : Name → Nat,

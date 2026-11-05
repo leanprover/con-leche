@@ -392,8 +392,7 @@ def targetOutsideInst (ops : CheckerOps m) (fe : FEnv) (I : Name) (us : List Lev
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or — a nested block's container — any
 other stored inductive at one of the block's auxiliary types. -/
-def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
     (mty : Expr) : m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
@@ -402,12 +401,11 @@ def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
     | some t => do
       -- a MEMBER: at the block's levels and parameters
       let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
-      let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
       unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
         throw (.invalid "target rec: the recursor's major premise is not the member at its \
           parameters and its index binders")
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t, pfvs := pfvs : TargetMajor }
+             ctors := ms.ctors, member := some t, pfvs := pfvs : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then

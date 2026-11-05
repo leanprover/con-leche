@@ -525,9 +525,9 @@ the inductive hypotheses (their types erasure-equal to the generator's)
 and the conclusion; every opened domain and the conclusion inferred, all
 leaves among the openers. -/
 theorem genMinorOpen
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -795,9 +795,9 @@ set_option maxHeartbeats 8000000 in
 prefix openers, then the minor premise's field openers at the rule prefix
 (`genMinorOpen`'s data), over the rule frame's domains. -/
 theorem genFieldFrame
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -942,9 +942,9 @@ every spine fitting the rule frame (`hargs` of the family premise): each
 is erasure-equal to an argument of the
 minor premise's conclusion, which the stored type's inference infers. -/
 theorem genArgs_graded
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -1075,9 +1075,9 @@ frame of openers (its domains the `ih` datum's telescope), over which the
 `ih`'s index arguments, applied field, and its motive application are
 graded — all from the stored type's inference of the `ih` binder. -/
 theorem genIhFrame
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -1386,9 +1386,9 @@ name only the recursor's level parameters** (lane C's `hrowP`): they are
 erasure-equal to pieces of the stored recursor type, which is checked to
 name only its own level parameters. -/
 theorem genRowParams
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2)) :
@@ -1466,9 +1466,9 @@ source (1)), and the motive inhabits its slot's domain
 `∀ ı⃗ t, Sort elim` (`mem_univZero_of_endsInSort`); every fibre of the
 tower is then a truth value (`mkPisAV_mem_univZero`). -/
 theorem genRecTyZ
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC) :
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC) :
     ∀ c, c < (tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) = 0 →
       interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∈ˢ (univZero : V) := by
@@ -1543,9 +1543,9 @@ declared fields (`genRulePrefRead`, `genRuleFieldRead`), the minor premise
 is the point (`genMinor_pt`), so is every body value, and so is the tower
 (`mkLamsAV_eq_pt`). -/
 theorem genRuleRaZ
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))

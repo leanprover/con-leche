@@ -542,10 +542,9 @@ theorem targetMajorNfs_datF (env : Env) (p : BlockShape) (formerTys pfvs : List 
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, targetClassMatch_datF,
       targetMajorNfs_datF env p formerTys pfvs us ds ctors F es]
 
-theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) (F : Nat) :
-    (targetMajorOf (fueledOpsM mode) fe p ctorsAs pfvs fvs mty).val F =
-      targetMajorOf (fueledOps mode F) fe p ctorsAs pfvs fvs mty := by
+theorem targetMajorOf_datF (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr) (mty : Expr) (F : Nat) :
+    (targetMajorOf (fueledOpsM mode) fe p pfvs fvs mty).val F =
+      targetMajorOf (fueledOps mode F) fe p pfvs fvs mty := by
   unfold targetMajorOf
   repeat' (first
     | rfl
@@ -633,10 +632,10 @@ theorem nestSeeds_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
         (rec' := ConLeche.nestPos (fueledOps mode F) env ctx _) (nestPos_datF env ctx F _),
       nestSeeds_datF env ctx F ks]
 
-theorem blockNestCtx_datF (p : BlockShape) (cvTas : List ConstantVal)
+theorem blockNestCtx_datF (p : BlockShape)
     (find? : Name → Option ConstantInfo) (F : Nat) :
-    (blockNestCtx (m := FueledM) p cvTas find?).val F =
-      blockNestCtx (m := CheckM) p cvTas find? := by
+    (blockNestCtx (m := FueledM) p find?).val F =
+      blockNestCtx (m := CheckM) p find? := by
   unfold blockNestCtx
   simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF]
 
@@ -719,16 +718,15 @@ theorem classesCtors_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (
     simp only [FueledM.atF_bind, FueledM.atF_pure, classCtorsOf_datF,
       classesCtors_datF env p formerTys rd Ms F (c + 1) rest]
 
-theorem classMajors_datF (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs : List Expr) (F : Nat) :
+theorem classMajors_datF (fe : FEnv) (p : BlockShape) (pfvs : List Expr) (F : Nat) :
     ∀ (keys : List ClassKey),
-      (classMajors (fueledOpsM mode) fe p ctorsAs pfvs keys).val F =
-        classMajors (fueledOps mode F) fe p ctorsAs pfvs keys
+      (classMajors (fueledOpsM mode) fe p pfvs keys).val F =
+        classMajors (fueledOps mode F) fe p pfvs keys
   | [] => rfl
   | key :: keys => by
     unfold classMajors
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetMajorOf_datF, targetMajorPins_datF,
-      classMajors_datF fe p ctorsAs pfvs F keys]
+      classMajors_datF fe p pfvs F keys]
 
 theorem classesNfs_datF (env : Env) (p : BlockShape) (formerTys : List Expr)
     (tbl : List NestCtorNf) (F : Nat) :
@@ -775,10 +773,9 @@ theorem classKeyOf_datF (nP : Nat) (params : List Expr) (k : ClassKey)
   unfold classKeyOf
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite, mapM_atF]
 
-theorem checkBlockClasses_datF (fe₁ : FEnv) (p : BlockShape) (params : List Expr)
-    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockClasses (fueledOpsM mode) fe₁ p params ctorsAs).val F =
-      checkBlockClasses (fueledOps mode F) fe₁ p params ctorsAs := by
+theorem checkBlockClasses_datF (fe₁ : FEnv) (p : BlockShape) (params : List Expr) (F : Nat) :
+    (checkBlockClasses (fueledOpsM mode) fe₁ p params).val F =
+      checkBlockClasses (fueledOps mode F) fe₁ p params := by
   unfold checkBlockClasses
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     unwrapOr_atF, mapM_atF, classKeyOf_datF, classMajors_datF]
@@ -865,11 +862,11 @@ theorem classStreamRecs_datF (fe : FEnv) (F : Nat) :
 /-- **The generated recursor stage at fuel `F`**: the pure install's run
 (`ShadowOps.ofOps` at the fueled family) is the model's fueled run. -/
 theorem genRecCheck_datF (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (params : List Expr)
-    (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor) (cvTas : List ConstantVal)
+    (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
     (block : List ConstantInfo) (F : Nat) :
-    (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p nestedBit params tbl rd Ms cvTas
+    (genRecCheck (ShadowOps.ofOps (fueledOpsM mode)) fe p nestedBit params tbl rd Ms
         block).val F =
-      genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms cvTas block := by
+      genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms block := by
   unfold genRecCheck
   simp only [ShadowOps.ofOps, ShadowOps.fueled, FueledM.atF_bind, FueledM.atF_pure,
     FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF, targetRecPins_datF, classStreamRecs_datF,
@@ -877,18 +874,16 @@ theorem genRecCheck_datF (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (params
     classRecsRulesOk_datF]
 
 theorem checkBlockRec_datF (env : Env) (p : BlockShape) (nested : Bool) (params : List Expr)
-    (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor) (block : List ConstantInfo)
-    (cvTas : List ConstantVal) (F : Nat) :
-    (checkBlockRec (fueledOpsM mode) env p nested params tbl rd Ms block cvTas).val F =
-      checkBlockRec (fueledOps mode F) env p nested params tbl rd Ms block cvTas := by
+    (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor) (block : List ConstantInfo) (F : Nat) :
+    (checkBlockRec (fueledOpsM mode) env p nested params tbl rd Ms block).val F =
+      checkBlockRec (fueledOps mode F) env p nested params tbl rd Ms block := by
   unfold checkBlockRec
-  exact genRecCheck_datF _ _ _ _ _ _ _ _ _ F
+  exact genRecCheck_datF _ _ _ _ _ _ _ _ F
 
 theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (p : BlockShape) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
-    (checkBlockPositivity (fueledOpsM mode) env₁ find? p cvTas ctorsAs).val F
-      = checkBlockPositivity (fueledOps mode F) env₁ find? p cvTas ctorsAs := by
+    (p : BlockShape) (F : Nat) :
+    (checkBlockPositivity (fueledOpsM mode) env₁ find? p).val F
+      = checkBlockPositivity (fueledOps mode F) env₁ find? p := by
   unfold checkBlockPositivity
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     blockNestCtx_datF, nestUniform_datF, nestRoot_datF, checkAbsCtorSortsAll_datF]

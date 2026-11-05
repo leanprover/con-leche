@@ -1069,20 +1069,19 @@ invariant (the seeds continue from it, `checkBlockSeeds_deriv`), and
 every constructor's entry recorded (`CtorsRec` at the root key). -/
 theorem checkBlockPositivity_deriv {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hwsc : ∀ dep e w, ops.whnf env₁ dep e = .ok w → WScoped dep e → WScoped dep w)
-    (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
-    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
+    (h : checkBlockPositivity ops env₁ find? p = .ok (kinds, nfs, pos)) :
+    ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
       (NestCtxOk (p.nestCtx fvsP find?) →
         (∀ x ∈ fvsP, WScoped ((p.nestCtx fvsP find?).hiAt 0) x) →
-        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) →
-        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
           ∀ cA ∈ cs, cA.1.levelParams = p.lps) →
-        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
+        (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
           ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
             nestCrest (p.nestCtx fvsP find?).names (p.lps.map .param) fvsP holes cA.1.type
               = some crest ∧
@@ -1090,19 +1089,19 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
               ((nfs.getD c []).getD j default) ts ∧
             (kinds.getD c []).getD j [] = ks ∧
             TreeRec ops env₁ (p.nestCtx fvsP find?) pos.ctorNfs.toList ts) ∧
-        CtorsRecRoot ops env₁ (p.nestCtx fvsP find?) holes pos.ctorNfs.toList ctorsAs ∧
+        CtorsRecRoot ops env₁ (p.nestCtx fvsP find?) holes pos.ctorNfs.toList p.memberCtors ∧
         DerivCache ops env₁ (p.nestCtx fvsP find?) pos) := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, h1, h2, h3, hU, hr, -, rfl, rfl⟩ :=
     checkBlockPositivity_inv h
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun hctx hpar hcl hlps => ?_⟩
   have hroot := nestRootOk_of_open (ctx := p.nestCtx fvsP find?) h2
-  obtain ⟨hIM, -, hall⟩ := nestRoot_deriv hctx hroot hwsc h3 hpar ctorsAs {} outs pos hr
+  obtain ⟨hIM, -, hall⟩ := nestRoot_deriv hctx hroot hwsc h3 hpar p.memberCtors {} outs pos hr
     (fun cs hcs x hx => by
       obtain ⟨c, hc⟩ := List.getElem?_of_mem hcs
       obtain ⟨j, hj⟩ := List.getElem?_of_mem hx
       exact hcl c cs hc j x hj) derivCache_empty
   have hRR : CtorsRecRoot ops env₁ (p.nestCtx fvsP find?) holes pos.ctorNfs.toList
-      ctorsAs := fun c cs hc => by
+      p.memberCtors := fun c cs hc => by
     obtain ⟨os, ts, -, -, -, hcr, -⟩ := hall c cs hc
     exact hcr
   refine ⟨fun c cs hc j cA hj => ?_, hRR, hIM⟩

@@ -51,17 +51,16 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- **An outside class's parameters fit**, at every fitting prefix of its recursor. -/
-theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {cvTas : List ConstantVal}
-    {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {dR : BlockData V}
+theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {mpC : EnvModelM V envC} {dR : BlockData V}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
     {kinds : List (List (List ConLeche.NestFieldKind))} {nfs : List (List Expr)}
     {pos : ConLeche.NestState} {nb : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (hctx : RecCtxBase V F envC envI pp cvTas ctorsAs mpC dR isRec A kinds nfs pos)
-    (R : ConLeche.GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nb pos cvTas
-      block ctorsAs out)
+    (hctx : RecCtxBase V F envC envI pp mpC dR isRec A kinds nfs pos)
+    (R : ConLeche.GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nb pos
+      block out)
     (hg : ConLeche.ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
@@ -74,10 +73,10 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {cvTas : Lis
     ⟨mk, -, hreads, -, -, -, hsubC, hcoreK, htr⟩, -, -⟩ := hctx
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
-  have hnPq : (blockDataOf V pp ctorsAs pk uOfD ppsOf).nP = pp.nP := rfl
+  have hnPq : (blockDataOf V pp pk uOfD ppsOf).nP = pp.nP := rfl
   -- the recursor's prefix, on the block's parameters
   have hpf := genParams_fit_run mpC R hg h hmr c hc ψ ρ xs hfit
-  have hsat₀ : Sat V ((blockDataOf V pp ctorsAs pk uOfD ppsOf).params ψ).reverse
+  have hsat₀ : Sat V ((blockDataOf V pp pk uOfD ppsOf).params ψ).reverse
       (consList (xs.take pp.nP) ρ) := by
     have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hpf
     rwa [List.append_nil] at this
@@ -108,7 +107,7 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {cvTas : Lis
       have hmemN := hcl.hmem
       rw [hMe] at hmemN
       have hin : (M₀.ind) ∈ pp.memberNames := by
-        rw [← show (blockDataOf V pp ctorsAs pk uOfD ppsOf).toLfp.member mm = M₀.ind
+        rw [← show (blockDataOf V pp pk uOfD ppsOf).toLfp.member mm = M₀.ind
           from hmemN]
         show pp.memberNames.getD mm .anonymous ∈ _
         exact getD_mem _ (by
@@ -126,19 +125,19 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {cvTas : Lis
   have hcerts := checkSpineAt_certs hsp
   -- the block's parameters, opened at the formers' model
   obtain ⟨cvT0, rest, h0, hop, -, -⟩ := ConLeche.genRun_ctx R
-  have h0' : cvTas[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0
+  have h0' : pp.formers[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0
   obtain ⟨⟨_, -, hD0⟩, hFD0⟩ := hcoreK.1 0 cvT0 h0'
   have hlen0 := hFD0.len ψ
   have hread0 := hFD0.read ψ
-  rw [← List.take_append_drop pp.nP ((blockDataOf V pp ctorsAs pk uOfD ppsOf).ppsM 0 ψ),
+  rw [← List.take_append_drop pp.nP ((blockDataOf V pp pk uOfD ppsOf).ppsM 0 ψ),
     mkPisAV_append'] at hread0
   have hO := opened_of_peel (m := mk.base2) (φ := ψ) hop hD0.readFvar hD0.readBounded hread0
     (by rw [List.length_take, hlen0, hnPq]; omega) (fun ρ' => by
       have hok := hFD0.okTy ψ ρ'
       rwa [← List.take_append_drop pp.nP
-        ((blockDataOf V pp ctorsAs pk uOfD ppsOf).ppsM 0 ψ), mkPisAV_append'] at hok)
+        ((blockDataOf V pp pk uOfD ppsOf).ppsM 0 ψ), mkPisAV_append'] at hok)
   -- the key over them
-  have hTsc : ∀ cv ∈ cvTas, ConLeche.ScB 0 cv.type := fun cv hcv => by
+  have hTsc : ∀ cv ∈ pp.formers, ConLeche.ScB 0 cv.type := fun cv hcv => by
     obtain ⟨t, ht⟩ := List.getElem?_of_mem hcv
     obtain ⟨⟨_, -, hDt⟩, -⟩ := hcoreK.1 t cv ht
     exact ConLeche.ScB.of_closed hDt.readFvar hDt.readBounded 0
@@ -154,7 +153,7 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {cvTas : Lis
     rw [hMe]
     exact this
   have hC : ∀ x ∈ (tgtMajor out c).ds, CtxOk mk.base2 ψ pp.nP
-      ((blockDataOf V pp ctorsAs pk uOfD ppsOf).params ψ).reverse x := fun x hx => by
+      ((blockDataOf V pp pk uOfD ppsOf).params ψ).reverse x := fun x hx => by
     have := hO.ctx (Nat.le_refl _) (hds x hx).1 (hleaves x hx)
     rw [Nat.sub_self, List.drop_zero] at this
     exact this

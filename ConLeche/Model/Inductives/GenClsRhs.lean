@@ -77,9 +77,9 @@ a graded Π-tower at the spine's frame, whose domains the declared
 fields and the `ih` values fit (the rule frame's field domains, then the
 `ih` data's domains). -/
 theorem genMinorFit
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -328,9 +328,9 @@ telescope is graded; at every fitting spine its body — the callee's value
 applied to the prefix, the index arguments and the applied field — is
 graded and inhabits the `ih`'s motive application, which is a type. -/
 theorem genIhUnder
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -487,9 +487,9 @@ and a spine fitting the rule frame, the generated `ih` terms are graded
 their values — the minor premise applied to the fields and the `ih`
 values along its graded Π-tower (`genMinorFit`). -/
 theorem genRhs
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))

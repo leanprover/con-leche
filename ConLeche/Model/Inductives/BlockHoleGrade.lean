@@ -210,19 +210,18 @@ environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
 theorem blockHoleGrade_of_run {env : Env}
     (mp : EnvModelM V env) {F : Nat}
-    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {d : BlockData V} {lps : List Name} {p₁ : BlockShape}
     {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      p cvTas ctorsAs = .ok posKs)
+      p = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-  (hread : p.members.map (·.cvT) = cvTas)
+  (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
+    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c)) (hlenCA : p.memberCtors.length = d.k)
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -332,20 +331,19 @@ theorem occDeep_instPisWith {names : List Name} :
 section RunLink
 
 variable {env : Env} (mp : EnvModelM V env) {F : Nat}
-  {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
-  {isRec : Bool} (hN : BlockNamesOk (V := V) d cvTas)
-  (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
+  {d : BlockData V} {lps : List Name} {p₁ : BlockShape}
+  {isRec : Bool} {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers)
+  (hF : ∀ (c : Nat) (cvTb : ConstantVal), p.formers[c]? = some cvTb →
     FormerStored mp.base2 cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
     FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
-  {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
   {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
   (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-    p cvTas ctorsAs = .ok posKs)
+    p = .ok posKs)
   (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-  (hread : p.members.map (·.cvT) = cvTas)
+  (hread : p.members.map (·.cvT) = p.formers)
   (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
   (hk : d.k = d.memberNames.length) (hnd : d.memberNames.Nodup)
-  (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
+  (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c)) (hlenCA : p.memberCtors.length = d.k)
   (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
     cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
   (hlpsA : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -397,7 +395,7 @@ theorem blockRunLink (ψ : Name → Nat)
   have hCf : cA.1.type.hasFvar = false := hD.hasFvar
   have hCb : cA.1.type.looseBVarsBounded 0 = true := hD.bounded
   -- the walk context's facts
-  have hcv0' : cvTas[0]? = some cvTa0 := by rwa [List.head?_eq_getElem?] at hcv0
+  have hcv0' : p.formers[0]? = some cvTa0 := by rwa [List.head?_eq_getElem?] at hcv0
   have hT0f : cvTa0.type.hasFvar = false :=
     formers_closed hF _ (List.mem_of_getElem? hcv0')
   have hplen : fvsP.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hop0
@@ -526,7 +524,7 @@ check's member-free canonical crest with the canonical parameters and
 the holes put in — both built from the formers' types, which name no
 member (`hTy`). -/
 theorem blockRunNf_nestOcc (hW : WhnfNamesFree env d.memberNames)
-    (hTy : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
+    (hTy : ∀ (c : Nat) (cvTb : ConstantVal), p.formers[c]? = some cvTb →
       cvTb.type.occDeep d.memberNames = false)
     {c j : Nat} {cA : ConstantVal × Nat} (hc : c < d.k) (hcj : (d.ctorsM c)[j]? = some cA) :
     ((posKs.2.1.getD c []).getD j default).nestOcc d.memberNames 0 0 = false := by
@@ -543,7 +541,7 @@ theorem blockRunNf_nestOcc (hW : WhnfNamesFree env d.memberNames)
     hder c (d.ctorsM c) (hctorsAs c hc) j cA hcj
   have hnm : (p.nestCtx fvsP env.find?).names = d.memberNames := by
     simp only [ConLeche.BlockShape.nestCtx, hnames]
-  have hcv0' : cvTas[0]? = some cvTa0 := by rwa [List.head?_eq_getElem?] at hcv0
+  have hcv0' : p.formers[0]? = some cvTa0 := by rwa [List.head?_eq_getElem?] at hcv0
   have hplen : fvsP.length = p.nP := ConLeche.Verify.openPisAtFvars_length _ hop0
   have hds : ∀ x ∈ fvsP, x.occDeep d.memberNames = false :=
     occDeep_openPisAtFvars _ _ _ (hTy 0 cvTa0 hcv0') hop0
@@ -555,7 +553,7 @@ theorem blockRunNf_nestOcc (hW : WhnfNamesFree env d.memberNames)
     obtain ⟨cv, ty, hf, hty, hget⟩ := ConLeche.nestHoles_getElem? hholes ht
     rw [hget] at hx'
     obtain rfl := Option.some.inj hx'
-    have hcvb : cvTas[t]? = some cv := by
+    have hcvb : p.formers[t]? = some cv := by
       rw [← hread]; exact hf
     simp only [Expr.occDeep]
     exact occDeep_instPisWith _ _ _ hds (hTy t cv hcvb) hty
@@ -572,20 +570,19 @@ install's positivity stage (`blockRunLink`): the normal form reads as the
 the producer's fields with holes ARE the datum's. -/
 theorem blockStoredShapes_of_run
     {env : Env} (mp : EnvModelM V env) {F : Nat}
-    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {d : BlockData V} {lps : List Name} {p₁ : BlockShape}
     {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      p cvTas ctorsAs = .ok posKs)
+      p = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-  (hread : p.members.map (·.cvT) = cvTas)
+  (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
     (hk : d.k = d.memberNames.length)
     (hnd : d.memberNames.Nodup)
     (hinst : d.nInst = 0)
-    (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
+    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c)) (hlenCA : p.memberCtors.length = d.k)
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →

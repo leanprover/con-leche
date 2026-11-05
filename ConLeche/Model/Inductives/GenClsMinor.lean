@@ -121,9 +121,9 @@ the slot), and `T` spelled out as built AT THE RULE PREFIX — the rule
 frame's declared fields `tgtFieldFvs`, one `ih` type per recursive field,
 the conclusion over the declared result `tgtCbody`. -/
 theorem genMinorSetup
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -524,9 +524,9 @@ built at the slot, which IS the one built at the rule prefix
 (`genMinorSetup`); read at the rule prefix it is the Π-tower of exactly
 the rule frame's pieces. -/
 theorem genCls_minor
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
@@ -774,9 +774,9 @@ application of a member of `∀ ı⃗ t, Sort 0` to its full arity, so a truth
 value (`mem_univZero_of_endsInSort`).  The index count is read off the
 class decoding (`hlenEs`) at the fitting field spines. -/
 theorem genMinor_pt
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (mpC : EnvModelM V envC)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
         envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))

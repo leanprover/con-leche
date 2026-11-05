@@ -261,10 +261,9 @@ environment's lookup (the pure `Env`'s or the index's), with the
 members' holes (`nestHoles`).  Built by the positivity check and by the
 pass for the classes and their walk (`checkBlockPass`), from the same
 inputs. -/
-def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
-    (find? : Name → Option ConstantInfo) :
+def blockNestCtx (p : BlockShape) (find? : Name → Option ConstantInfo) :
     m (NestCtx × List Expr) := do
-  let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
+  let cvTa0 ← unwrapOr p.formers.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx := p.nestCtx pq.1 find?
@@ -280,15 +279,14 @@ the cache and the recorded constructor normal forms, which the walk of the
 other classes continues (`checkBlockPass`, `BlockTail.lean`); the walk's
 verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (p : BlockShape) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
+    (p : BlockShape) :
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
-  let (ctx, holes) ← blockNestCtx p cvTas find?
+  let (ctx, holes) ← blockNestCtx p find?
   -- official's `check_uniform_ind_occs`, before the walk
-  nestUniform ctx ctorsAs
+  nestUniform ctx p.memberCtors
   -- the root frame on the STORED (declared) constructors; their normal forms are output only
-  let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
-  checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs
+  let (outs, st) ← nestRoot ops env₁ ctx holes p.memberCtors {}
+  checkAbsCtorSortsAll ops env₁ ctx p.memberCtors outs
   pure (outs.map (·.map (·.1)), outs.map (·.map (·.2)), st)
 
 /-! ## Stage 2: the tail -/

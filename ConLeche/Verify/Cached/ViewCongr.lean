@@ -578,10 +578,9 @@ theorem nestSeeds_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
     simp only [nestContKey_env h ctx env, nestPos_env h env ctx, nestInstType_env h ctx env, ih]
 
 theorem checkBlockPositivity_env (h : EnvFree ops) (env : Env)
-    (find? : Name → Option ConstantInfo) (p : BlockShape) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    checkBlockPositivity ops env find? p cvTas ctorsAs =
-      checkBlockPositivity ops Env.empty find? p cvTas ctorsAs := by
+    (find? : Name → Option ConstantInfo) (p : BlockShape) :
+    checkBlockPositivity ops env find? p =
+      checkBlockPositivity ops Env.empty find? p := by
   unfold checkBlockPositivity
   simp only [nestRoot_env h env, checkAbsCtorSortsAll_env h env]
 
@@ -722,18 +721,18 @@ theorem targetOutsideInst_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe
   simp only [targetOutsideInst, hfe, familyTelescope_env h fe₁.env, familyTelescope_env h fe₂.env]
 
 theorem targetMajorOf_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+    (p : BlockShape) (pfvs fvs : List Expr)
     (mty : Expr) :
-    targetMajorOf ops fe₁ p ctorsAs pfvs fvs mty = targetMajorOf ops fe₂ p ctorsAs pfvs fvs mty := by
+    targetMajorOf ops fe₁ p pfvs fvs mty = targetMajorOf ops fe₂ p pfvs fvs mty := by
   unfold targetMajorOf
   simp only [targetCtorsOf_congr hfe, targetOutsideInst_congr h hfe]
 
 theorem classMajors_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs : List Expr) :
-    ∀ keys, classMajors ops fe₁ p ctorsAs pfvs keys = classMajors ops fe₂ p ctorsAs pfvs keys
+    (p : BlockShape) (pfvs : List Expr) :
+    ∀ keys, classMajors ops fe₁ p pfvs keys = classMajors ops fe₂ p pfvs keys
   | [] => rfl
   | key :: keys => by
-    have ih := classMajors_congr h hfe p ctorsAs pfvs keys
+    have ih := classMajors_congr h hfe p pfvs keys
     unfold classMajors
     simp only [targetMajorOf_congr h hfe, targetMajorPins_congr h hfe, ih]
 
@@ -743,10 +742,9 @@ theorem classNPcOf_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) 
   simp only [classNPcOf, hfe]
 
 theorem checkBlockClasses_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
-    (hfe : fe₁.find? = fe₂.find?) (p : BlockShape) (params : List Expr)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    checkBlockClasses ops fe₁ p params ctorsAs =
-      checkBlockClasses ops fe₂ p params ctorsAs := by
+    (hfe : fe₁.find? = fe₂.find?) (p : BlockShape) (params : List Expr) :
+    checkBlockClasses ops fe₁ p params =
+      checkBlockClasses ops fe₂ p params := by
   unfold checkBlockClasses
   simp only [classNPcOf_congr hfe, classMajors_congr h hfe]
 
@@ -1047,9 +1045,9 @@ theorem classFeROvl_findTable?_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
 /-- **The recursor stage at twin indices is the same stage.** -/
 theorem genRecCheck_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockShape)
     (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead)
-    (Ms : List TargetMajor) (cvTas : List ConstantVal) (block : List ConstantInfo) :
-    genRecCheck (shadowOpsC mode) fe₁ p nestedBit params tbl rd Ms cvTas block =
-      genRecCheck (shadowOpsC mode) fe₂ p nestedBit params tbl rd Ms cvTas block := by
+    (Ms : List TargetMajor) (block : List ConstantInfo) :
+    genRecCheck (shadowOpsC mode) fe₁ p nestedBit params tbl rd Ms block =
+      genRecCheck (shadowOpsC mode) fe₂ p nestedBit params tbl rd Ms block := by
   have hfe := ht.find
   have key : ∀ (Ms' : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat)
       (g : ClassGen) (recOf : Nat → Option Name) ,

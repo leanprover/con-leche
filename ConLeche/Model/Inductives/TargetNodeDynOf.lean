@@ -1070,12 +1070,11 @@ end Frames
 /-- **The dynamic part's context from the stage's** (`nestedClassNodes`'
 node context). -/
 theorem dynCtx_of {F : Nat}
-    {envC envI : Env} {pp : BlockShape} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC}
+    {envC envI : Env} {pp : BlockShape} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
+    (hctx : RecCtxBase V F envC envI pp mpC dR isRecR A kindsR nfsR posR)
     {mk : EnvModelM V envI} (hmkC : LfpCover mk pp.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
@@ -1083,7 +1082,7 @@ theorem dynCtx_of {F : Nat}
     (htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
       denote mk.base2.acval envI ψ dd e = some ea →
         denote mpC.base2.acval envC ψ dd e = some ea)
-    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp isRecR)
+    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps pp.formers pp isRecR)
     (hreads : ∀ F, FamilyRead mk F)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
@@ -1101,29 +1100,29 @@ theorem dynCtx_of {F : Nat}
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp
   refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl) hreads, hmk, hag, hsubC, htr,
-    ⟨pp.nP, ctorsAsR, henvC⟩, hok, hkids, hpar, hsem, hF, rfl, hparF, hparS, rfl,
+    ⟨pp.nP, pp.memberCtors, henvC⟩, hok, hkids, hpar, hsem, hF, rfl, hparF, hparS, rfl,
     fun ψ => ?_,
-    fun n hn => ?_, ⟨cvTasR, pp, isRecR, hN, hcoreK.1⟩⟩
+    fun n hn => ?_, ⟨pp.formers, pp, isRecR, hN, hcoreK.1⟩⟩
   · -- the hole context: the parameters, then one hole per member
-    have h0' : cvTasR[0]? = some cvTa0 := by rw [List.head?_eq_getElem?] at h0; exact h0
+    have h0' : pp.formers[0]? = some cvTa0 := by rw [List.head?_eq_getElem?] at h0; exact h0
     obtain ⟨-, hFD0⟩ := hcoreK.1 0 cvTa0 h0'
     rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
       List.length_range, BlockData.params, List.length_take, hFD0.len ψ]
     show min _ _ + _ = pp.nP + pp.memberNames.length + 0
-    have : (blockDataOf V pp ctorsAsR pk uOfD ppsOf).k = pp.memberNames.length := by
+    have : (blockDataOf V pp pk uOfD ppsOf).k = pp.memberNames.length := by
       simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
         ConLeche.BlockShape.memberNames]
     rw [this]
-    have : (blockDataOf V pp ctorsAsR pk uOfD ppsOf).nP = pp.nP := rfl
+    have : (blockDataOf V pp pk uOfD ppsOf).nP = pp.nP := rfl
     rw [this]
     omega
   · -- the members are stored at the block's level parameters
     change n ∈ pp.memberNames at hn
     obtain ⟨c, hc, rfl⟩ := List.getElem_of_mem hn
-    have hck : c < (blockDataOf V pp ctorsAsR pk uOfD ppsOf).k := by
+    have hck : c < (blockDataOf V pp pk uOfD ppsOf).k := by
       change c < pp.members.length
       simpa [ConLeche.BlockShape.memberNames] using hc
-    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c]? = some cvTb :=
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, pp.formers[c]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
     have hname := hN.1 c cvTb hcvb
     obtain ⟨⟨cvS, hf, hDS⟩, -⟩ := hcoreK.1 c cvTb hcvb

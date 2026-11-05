@@ -90,7 +90,7 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
       have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
           (mkFEnv (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁)) p₁
           (ConLeche.blockNestedBit p₁ kinds) ctx.params st.ctorNfs.toList
-          rd Ms p₁.formers block = .ok outR := hRec
+          rd Ms block = .ok outR := hRec
       have hr := ConLeche.Cached.genRecCheck_out_unreserved hRec' g hg
       have hn' : (ConstantInfo.recInfo o.1 mI rP isK rules).name = g.1.name := hn
       rw [hn']

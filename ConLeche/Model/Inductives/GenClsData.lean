@@ -152,8 +152,8 @@ parameter count, and at a prefix spine fitting the rule prefix the
 parameters' readings fit it, the residual being the rule frame's
 constructor (`tgtCrest`) as read at the prefix. -/
 theorem genOutCtorFit
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g) (hcov : LfpCover mpC [])
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
     {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
     (hMo : (tgtMajor out c).member = none) (hnP : pp.nP ≤ pp.rulePrefixAt c)
@@ -274,9 +274,9 @@ the pin is the class's `q`-th parameter closed over the prefix
 (`tgtFireOf_nested_eq`), so opened at the stored type's prefix openers
 it is that parameter up to erasure (`instSeq_abstractRange_open`). -/
 theorem genOutPinVal
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[c]? = some r)
     {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
@@ -392,9 +392,7 @@ end OutFit
 
 section Guard
 
-variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState} {block : List ConstantInfo}
   {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal}
@@ -414,8 +412,8 @@ runs at the container bit or'ed with its outside classes (`helim`), so at
 a non-zero elimination level with an outside class the block's sort is
 never `Prop`. -/
 theorem genOutNZ
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out)
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     {ψ : Name → Nat}
     (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) ≠ 0) :
@@ -437,8 +435,8 @@ theorem genOutNZ
 `Prop`-valued block, the eliminator is large and there is at most one
 constructor. -/
 theorem genCount
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out)
     {ψ : Name → Nat}
     (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) ≠ 0)
     (hw : Level.eval ψ pp.resSort = 0) :
@@ -451,8 +449,8 @@ theorem genCount
 /-- **An outside class's sort is the block's** (the class check's
 `Level.isEquiv sI p.resSort`). -/
 theorem genOutW
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out)
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
     (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI) (ψ : Name → Nat) :
@@ -482,9 +480,7 @@ end Guard
 
 section Crest
 
-variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState} {block : List ConstantInfo}
   {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal}
@@ -493,8 +489,8 @@ set_option maxHeartbeats 4000000 in
 /-- **The rule frame's constructor reads as a Π-tower over the field
 domains** (`genCls_open`'s field half, with the tower itself). -/
 theorem genCls_openCrest
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out) (hg : ClassGenScoped R.g)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out) (hg : ClassGenScoped R.g)
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c)
     {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out c cvI)
     (hnP : pp.nP ≤ pp.rulePrefixAt c) (ψ : Name → Nat)
@@ -584,7 +580,7 @@ variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos
 /-- **The recursor fit's values**, split at the rule prefix: the prefix
 fits the rule's prefix domains, the whole spine the stored binders. -/
 theorem genRow3_frame
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) (ψ : Name → Nat) {ρ : Nat → V} {xs : List Term}
     {maj restR : Term} (hxl : xs.length = pp.majorIdxAt j)
@@ -626,19 +622,19 @@ recursor's parameters and index tuple, so its fields hole-fit there
 the subsingleton criterion under the counting guard at a `Prop`-valued
 one) — `genRow3_core` does the rest. -/
 theorem genRows3_mem
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out)
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
+      block out)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
     {ppsOf : Nat → (Name → Nat) → List Term}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term} {envI' : Env}
-    (hdR : d = blockDataOf V pp ctorsAs pk uOfD ppsOf)
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hSt : BlockCtorsStage (V := V) F d pp.lps cvTas pp isRec A envI'
+    (hdR : d = blockDataOf V pp pk uOfD ppsOf)
+    (hN : BlockNamesOk (V := V) d pp.formers)
+    (hSt : BlockCtorsStage (V := V) F d pp.lps pp.formers pp isRec A envI'
       pp.ctorNamesAt)
-    (hcore : BlockCtorsCore mpC.base2 d pp.lps cvTas pp isRec A d.k)
+    (hcore : BlockCtorsCore mpC.base2 d pp.lps pp.formers pp isRec A d.k)
     (hlfp : d.toLfp ∈ mpC.lfpBlocks)
-    (hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+    (hnames : pp.memberCtors.map (·.map (fun cA => (cA.1.name, cA.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
     (hS : ∀ ψ ρ, GenClsSplit pp out mpC d Dc mc cvc ψ ρ)
     (hD : ∀ ψ ρ, GenClsDec pp out mpC d Dc mc cvc ψ ρ)
@@ -676,7 +672,7 @@ theorem genRows3_mem
   have hcAM : (tgtMajor out j).ctors[i]? = some cA := by rw [← tgtRs_ctors hr]; exact hcA
   -- the block datum's facts
   have hctM : d.ctorsM t = M₀.ctors := by
-    subst hdR; show ctorsAs.getD t [] = M₀.ctors
+    subst hdR; show pp.memberCtors.getD t [] = M₀.ctors
     rw [List.getD_eq_getElem?_getD, hctors]; rfl
   have hcj : (d.ctorsM t)[i]? = some cA := by
     rw [hctM]; rw [hMj] at hcAM; exact hcAM

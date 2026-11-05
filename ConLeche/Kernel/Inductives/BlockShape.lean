@@ -8,22 +8,21 @@ public import ConLeche.Kernel.Inductives.Positivity
 # The k-ary block: the record and the recogniser
 (read by the inductive installer)
 
-`BlockParts` is the shape the inductive installer reads a block into,
+`BlockShape` is the shape the inductive installer reads a block into,
 at ANY number `k` of mutually recursive members: the members with
 their own index counts, constructors and recursors, the shared
 parameter count, the shared elimination level and result sort.
 
 **The route takes every block the recogniser reads**, at any number
-of members, nested blocks included; a block `blockParts?` does not
+of members, nested blocks included; a block `blockShape?` does not
 read declines at the dispatch (`checkShapeless`).
 
 The three pieces:
 
-* **the record** (`MemberShape`/`BlockShape`/`BlockParts`) with the
+* **the record** (`MemberShape`/`BlockShape`/`BlockShape`) with the
   `complete`/`withSort` projections the proofs' `generalize` dance
   needs;
-* **the recogniser** (`blockSplit`, `blockCounts?`, `blockShape?`,
-  `blockParts?`) — official's `add_inductive` reads the type formers,
+* **the recogniser** (`blockSplit`, `blockCounts?`, `blockShape?`) — official's `add_inductive` reads the type formers,
   the constructors and the parameter count and GENERATES the recursors,
   so nothing the recursor records claim is a condition of recognition:
   the recursor stage pins them (`targetRecPins`) and stores the
@@ -212,33 +211,6 @@ def withSort (p : BlockShape) (s : Level) : BlockShape :=
     (p.withSort s).allCtors = p.allCtors := rfl
 
 end BlockShape
-
-/-- A recognised block: its shape.  (The recursor records' pins are the
-recursor check's, `targetRecPins`/`targetRulePins`.) -/
-structure BlockParts extends BlockShape where
-  deriving Repr, Inhabited
-
-/-- **The record completed by the formers' stage**: the shape the
-formers' run returned (its result sort read through `whnf`). -/
-def BlockParts.complete (_p₀ : BlockParts) (p₁ : BlockShape) : BlockParts :=
-  ⟨p₁⟩
-
-@[simp] theorem BlockParts.complete_toBlockShape (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).toBlockShape = p₁ := rfl
-@[simp] theorem BlockParts.complete_members (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).members = p₁.members := rfl
-@[simp] theorem BlockParts.complete_recs (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).recs = p₁.recs := rfl
-@[simp] theorem BlockParts.complete_nP (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).nP = p₁.nP := rfl
-@[simp] theorem BlockParts.complete_elim (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).elim = p₁.elim := rfl
-@[simp] theorem BlockParts.complete_resSort (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).resSort = p₁.resSort := rfl
-@[simp] theorem BlockParts.complete_large (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).large = p₁.large := rfl
-@[simp] theorem BlockParts.complete_isProp (p₀ : BlockParts) (p₁ : BlockShape) :
-    (p₀.complete p₁).isProp = p₁.isProp := rfl
 
 /-! ## Recognition
 
@@ -457,13 +429,6 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           | none => some ⟨members, recsL, nP, .anonymous, s, false, isProp⟩
         else none
     | _, _ => none
-  | none => none
-
-/-- Recognise a block for the inductive installer, at any number of
-members: its SHAPE (`blockShape?`). -/
-def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
-  match blockShape? nPd block with
-  | some p => some ⟨p⟩
   | none => none
 
 end ConLeche

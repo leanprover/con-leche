@@ -58,13 +58,11 @@ def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec :
     m (BlockPass Env) := do
   let (env₁, p₁) ← checkBlockInds ops env p₀ isRec
   let sortsss ← checkBlockCtors ops env₁ env₁ p₁ p₁.members
-  let (ctx, holes) ← blockNestCtx p₁ p₁.formers env₁.find?
+  let (ctx, holes) ← blockNestCtx p₁ env₁.find?
   -- the classes
   let (rd, Ms) ← checkBlockClasses ops (mkFEnv env₁) p₁ ctx.params
-    p₁.memberCtors
   -- positivity: every class from the empty stack, the members (the root frame) first
-  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? p₁ p₁.formers
-    p₁.memberCtors
+  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? p₁
   let st ← nestSeeds ops env₁ ctx (classSeeds ctx holes Ms) pos
   pure ⟨env₁, p₁, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
@@ -80,10 +78,9 @@ runs the SAME function at its own shadow operations (`checkBlockTailS`,
 `ConLeche/Cached/CheckerC.lean`). -/
 def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockShape) (nested : Bool)
     (params : List Expr) (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor)
-    (block : List ConstantInfo) (cvTas : List ConstantVal) :
+    (block : List ConstantInfo) :
     m (List (ConstantVal × TargetMajor × List Expr)) :=
-  genRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p nested params tbl rd Ms
-    cvTas block
+  genRecCheck (ShadowOps.ofOps ops) (mkFEnv env) p nested params tbl rd Ms block
 
 /-- **The checked family consed, at its majors**: each
 recursor with its rules at ITS major (`generatedRules`: the major's
@@ -117,7 +114,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
   let _isorts ← checkBlockIdxSorts ops q.env₁ p p.members
   let env₂ := consBlockCtors p.nP p.memberCtors q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p q.kinds) q.params
-    q.tbl.toList q.rd q.cls block p.formers
+    q.tbl.toList q.rd q.cls block
   streamKCheck p p.recs out
   streamRecsCheck ops .plain (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out
   checkBlockTables p env₂ p.members

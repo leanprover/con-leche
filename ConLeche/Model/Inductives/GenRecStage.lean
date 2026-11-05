@@ -207,7 +207,7 @@ theorem isDefEqCore_self {envK : Env} {F d : Nat} (a : Expr) :
 /-! ## The stage record from the run -/
 
 open ConLeche (BlockShape BlockShape RecShape GenRecRun ClassRecTyRun FEnv mkFEnv NestState
-  ConstantInfo TargetMajor RecStageG RecStage RecTyGen RecPrefixSame RuleOutOk tgtRs
+  ConstantInfo TargetMajor RecStageG RecStage RecPrefixSame tgtRs
   structElimLevel consBlockRecsBare consBlockRecsBareF classFeR classRecOf
   classRulesOk classRuleOk StructWalkers)
 
@@ -227,8 +227,8 @@ class's index count, the family's elimination level. -/
 /-- **The run at one recursor**: its class, its generated (stored)
 constant and type run, its stored entry and its rules' run. -/
 theorem genRecRun_at
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out)
     {i : Nat} {rc : RecShape} (hrc : p.recs[i]? = some rc) :
     ∃ c cvG rhss, R.rd.recCls[i]? = some c ∧ R.cvGs[i]? = some cvG ∧
       Nonempty (ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) ∧
@@ -252,8 +252,8 @@ theorem genRecRun_at
 
 /-- The large-elimination guard of the run, read at the plain block. -/
 theorem genRecRun_small
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out)
     (hL : p.large = true) : ConLeche.blockLargeElimAllowed p false = true := by
   have h := R.helim
   have hL' : p.large = true := hL
@@ -265,8 +265,8 @@ theorem genRecRun_small
 prefix is the shared prefix's length, and the stored type (the generated
 one, `classConstOk`) is a telescope over the shared prefix. -/
 theorem genRecTy_shape
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out)
     (hg : ClassGenScoped R.g) {c : Nat} {rc : RecShape} {cvG : ConstantVal}
     (T : ClassRecTyRun .verified F (mkFEnv envC) R.g p.k rc c cvG) :
     rc.rP = R.pre.length ∧ ∃ Y B, cvG.type = closeTelescope (R.pre ++ Y) 0 B := by
@@ -285,8 +285,8 @@ with the generated type under the record's name and level parameters
 `mI + 1` binders, its conclusion is sorted at the family's elimination
 level, and it is a telescope over the shared prefix. -/
 theorem genRecTy_run
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out)
     (hg : ClassGenScoped R.g) {i c : Nat} {rc : RecShape}
     {cvG : ConstantVal}
     (hrc : p.recs[i]? = some rc) (hc : R.rd.recCls[i]? = some c)
@@ -346,10 +346,10 @@ syntactically, every rule the generated one, stored as generated.
   generator lemmas take throughout (`classGenRecTy_spec`, the prefix's
   motive entry), a fact of the run's earlier binds (`genScoped_of_run`). -/
 theorem recStage_of_gen
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out)
     (hg : ClassGenScoped R.g) :
-    RecStageG .verified F envC p cvTas (tgtRs out) := by
+    RecStageG .verified F envC p (tgtRs out) := by
   have hcvGs := R.hcvGs
   have hrules := R.hrules
   obtain ⟨hlenG, hallG⟩ := ConLeche.classRecTysOk_run hcvGs

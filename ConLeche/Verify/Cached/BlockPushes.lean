@@ -178,12 +178,10 @@ theorem streamKCheck_inv {p : BlockShape} :
 /-- The generated stage ties each output to its record: the record's target is the class's member,
 and a class's member is a member of the block. -/
 theorem genRecCheck_outMajor {fe₁ fe : FEnv} {p : BlockShape} {nestedBit : Bool}
-    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (hcls : checkBlockClasses (fueledOps mode F) fe₁ p params ctorsAs = .ok (rd, Ms₀))
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+    (hcls : checkBlockClasses (fueledOps mode F) fe₁ p params = .ok (rd, Ms₀))
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out)
     {i : Nat} {rc : RecShape} {o : ConstantVal × TargetMajor × List Expr}
     (hrc : p.recs[i]? = some rc) (ho : out[i]? = some o) :
@@ -220,7 +218,7 @@ theorem genRecCheck_outMajor {fe₁ fe : FEnv} {p : BlockShape} {nestedBit : Boo
   generalize Ms₀[c] = M at major
   intro hm'
   cases major with
-  | member I t ms ctorsA hfn ht hms hctors hpar nfs =>
+  | member I t ms hfn ht hms hpar nfs =>
     obtain rfl : t = m := Option.some.inj hm'
     exact (List.getElem?_eq_some_iff.mp hms).1
   | outside => exact nomatch hm'
@@ -276,11 +274,11 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
     {nestedBit : Bool} {out : List (ConstantVal × TargetMajor × List Expr)} (Q : List ProjTable)
     (hInd : checkBlockInds (fueledOps .verified F) env p₀ (blockRawRec p₀) = .ok (env₁, p₁))
-    (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params p₁.memberCtors
+    (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params
       = .ok (rd, Ms₀))
     (hRec : genRecCheck (ShadowOps.fueled .verified F)
       (mkFEnv (consBlockCtors p₁.nP p₁.memberCtors env₁))
-      p₁ nestedBit params tbl rd Ms₀ p₁.formers block = .ok out)
+      p₁ nestedBit params tbl rd Ms₀ block = .ok out)
     (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
     {w : StructWalkers} {fe : FEnv}
     (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) w fe p₁.recs out = .ok ()) :

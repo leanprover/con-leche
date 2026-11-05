@@ -183,9 +183,8 @@ class's own, below the parameters. -/
     (M.member = none ∧ M.ds.length = M.nPc ∧
       ∀ x ∈ M.ds, x ∈ mty.getAppArgs ∧ x.bvarB = 0 ∧ x.fvarB ≤ p.nP))
 
-private theorem classMajorOf_shape (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) :
-    ∀ s M s', targetMajorOf ops fe p ctorsAs pfvs fvs mty s = .ok (M, s') →
+private theorem classMajorOf_shape (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr) (mty : Expr) :
+    ∀ s M s', targetMajorOf ops fe p pfvs fvs mty s = .ok (M, s') →
       ClassShape p pfvs fvs mty M := by
   show Yields _ _
   unfold targetMajorOf ClassShape
@@ -193,7 +192,6 @@ private theorem classMajorOf_shape (ops : CheckerOps CheckCM) (fe : FEnv) (p : B
   split
   · split
     · refine Yields.bind' Yields.unwrapOr fun ms _ => ?_
-      refine Yields.bind' Yields.unwrapOr fun ctorsA _ => ?_
       split
       · exact Yields.pure ⟨rfl, Or.inl ⟨_, rfl, rfl⟩⟩
       · exact Yields.ofThrowBind
@@ -212,16 +210,15 @@ private theorem classMajorOf_shape (ops : CheckerOps CheckCM) (fe : FEnv) (p : B
 
 /-- `targetMajorOfS_spec` with the class's shape. -/
 theorem classMajorOfS_spec (henv : EnvWF env) {p : BlockShape}
-    {ctorsAs : List (List (ConstantVal × Nat))}
     {pfvs : List Expr} {mty : Expr} {s₀ : CState} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorOf (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p ctorsAs pfvs
+    ⦃fun s => s = s₀⦄ targetMajorOf (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p pfvs
       pfvs mty
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (targetMajorOf (fueledOpsM .verified) (mkFEnv env) p ctorsAs pfvs pfvs mty) v ∧
+      Runs (targetMajorOf (fueledOpsM .verified) (mkFEnv env) p pfvs pfvs mty) v ∧
       ClassShape p pfvs pfvs mty v; ⊤⦄ :=
   triple_iff_run.mpr fun v' s' hr => by
     obtain ⟨hs', hR⟩ := triple_iff_run.mp (targetMajorOfS_spec henv hs) v' s' hr
-    exact ⟨hs', hR, classMajorOf_shape _ (mkFEnv env) p ctorsAs pfvs pfvs mty s₀ v' s' hr⟩
+    exact ⟨hs', hR, classMajorOf_shape _ (mkFEnv env) p pfvs pfvs mty s₀ v' s' hr⟩
 
 /-- A class checked as a major, scoped: its openers are the parameter
 openers `pfvs`, its parameters scoped by them, an outside class's below
@@ -274,12 +271,11 @@ theorem targetMajorPinsS_specF (henv : EnvWF env) {rP : Nat}
 /-- `blockNestCtx` at the shared operations, its lookups the formers'
 environment `env₁`, the state the constructors' environment's: the same
 value, the canonical parameters scoped at the parameter count. -/
-theorem blockNestCtxS_spec₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p : BlockShape)
-    (cvTas : List ConstantVal) (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState}
+theorem blockNestCtxS_spec₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p : BlockShape) (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
+    (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type) {s₀ : CState}
     (hs : CSOK mode false env₂ s₀) :
-    ⦃fun s => s = s₀⦄ blockNestCtx (m := CheckCM) p cvTas env₁.find?
-    ⦃fun v s' => CSOK mode false env₂ s' ∧ Runs (blockNestCtx (m := FueledM) p cvTas env₁.find?) v ∧
+    ⦃fun s => s = s₀⦄ blockNestCtx (m := CheckCM) p env₁.find?
+    ⦃fun v s' => CSOK mode false env₂ s' ∧ Runs (blockNestCtx (m := FueledM) p env₁.find?) v ∧
       NestCtxOk v.1 ∧ HolesOk (v.1.hiAt 0) v.2 ∧ AllWS p.nP v.1.params ∧
       v.1.params.length = v.1.nP ∧ nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP; ⊤⦄ := by
   -- `ematch`: one E-matching round per pure-side bind (`Runs.pure_bind_eq`), and the
@@ -290,13 +286,13 @@ theorem blockNestCtxS_spec₂ {env₁ env₂ : Env} (henv₁ : EnvWF env₁) (p 
 
 /-- **The classes, each checked as a major**: every class scoped. -/
 theorem classMajorsS_spec (henv : EnvWF env)
-    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
+    {p : BlockShape} {pfvs : List Expr}
     (hpl : pfvs.length = p.nP) (hp : AllWS p.nP pfvs) :
     ∀ (keys : List ClassKey) {s₀ : CState}, CSOK .verified false env s₀ → ListAll (KeyWS p.nP) keys →
       ⦃fun s => s = s₀⦄
-        classMajors (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p ctorsAs pfvs keys
+        classMajors (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p pfvs keys
       ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (classMajors (fueledOpsM .verified) (mkFEnv env) p ctorsAs pfvs keys) v ∧
+        Runs (classMajors (fueledOpsM .verified) (mkFEnv env) p pfvs keys) v ∧
         ListAll (ClassMajScoped p.nP) v; ⊤⦄ := by
   intro keys
   induction keys with
@@ -350,12 +346,12 @@ theorem classKeysLoopS_spec {nP : Nat} {params : List Expr} (hpl : params.length
 every class scoped. -/
 theorem checkBlockClassesS_spec (henv : EnvWF env)
     {p : BlockShape} {params : List Expr} (hpl : params.length = p.nP)
-    (hp : AllWS p.nP params) {ctorsAs : List (List (ConstantVal × Nat))}
+    (hp : AllWS p.nP params)
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      checkBlockClasses (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p params ctorsAs
+      checkBlockClasses (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p params
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (checkBlockClasses (fueledOpsM .verified) (mkFEnv env) p params ctorsAs) v ∧
+      Runs (checkBlockClasses (fueledOpsM .verified) (mkFEnv env) p params) v ∧
       ListAll (ClassMajScoped p.nP) v.2; ⊤⦄ := by
   -- `ematch`: the pure side's `mapM` meets the loop's answer one round after its unfolding
   sym only [conleche_grind, checkBlockClasses.eq_1, unwrapOr.eq_1, List.mapM.eq_1] =>
@@ -1005,14 +1001,13 @@ on the pass's classes (scoped, `ClassMajScoped`) and table. -/
 theorem genRecCheckS_spec {env₂ : Env}
     (henv₂ : EnvWF env₂) {p : BlockShape} {nestedBit : Bool} {params : List Expr}
     {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    (hMs₀ : ListAll (ClassMajScoped p.nP) Ms₀)
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
-    (hT : ListAll TyClosed cvTas) {s₀ : CState} (hs : CSOK .verified false env₂ s₀) :
+    (hMs₀ : ListAll (ClassMajScoped p.nP) Ms₀) {block : List ConstantInfo}
+    (hT : ListAll TyClosed p.formers) {s₀ : CState} (hs : CSOK .verified false env₂ s₀) :
     ⦃fun s => s = s₀⦄
-      genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas block
+      genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
     ⦃fun v s' => CSOKF s' ∧
       Runs (genRecCheck (ShadowOps.ofOps (fueledOpsM .verified)) (mkFEnv env₂) p nestedBit params tbl
-        rd Ms₀ cvTas block) v; ⊤⦄ := by
+        rd Ms₀ block) v; ⊤⦄ := by
   -- structural: the shadow operations' fields, and the cached rule stage at the overlay,
   -- which answers as the pushed rule-less recursors do
   unfold genRecCheck
@@ -1034,16 +1029,15 @@ by the pure fueled stage. -/
 theorem genRecCheckS_run {env₂ : Env}
     (henv₂ : EnvWF env₂) {p : BlockShape} {nestedBit : Bool} {params : List Expr}
     {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M)
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
+    (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) {block : List ConstantInfo}
+    (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type)
     {s₀ : CState} (hs : CSOK .verified false env₂ s₀) {out : List (ConstantVal × TargetMajor × List
         Expr)}
     {s' : CState}
-    (h : genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas block
+    (h : genRecCheck (shadowOpsC .verified) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ block
       s₀ = .ok (out, s')) :
     CSOKF s' ∧ ∃ F, genRecCheck (ShadowOps.fueled .verified F) (mkFEnv env₂) p nestedBit params tbl
-      rd Ms₀ cvTas block = .ok out := by
+      rd Ms₀ block = .ok out := by
   obtain ⟨hs', F, hF⟩ := triple_iff_run.mp (genRecCheckS_spec henv₂ hMs₀ hT hs) out s' h
   exact ⟨hs', F, by rw [← genRecCheck_datF]; exact hF⟩
 
@@ -1051,10 +1045,9 @@ theorem genRecCheckS_run {env₂ : Env}
 
 /-- Each generated recursor passed a constant's check. -/
 theorem genRecCheck_outShape {fe : FEnv} {env : Env} {p : BlockShape} {nestedBit : Bool}
-    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat} (hfe : fe = mkFEnv env)
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) : ∀ o ∈ out, LitShapeAt o.1 := by
   subst hfe
   obtain ⟨R⟩ := genRecCheck_run h
@@ -1080,9 +1073,9 @@ an outside class's `.nested` datum reads off the stored type
 classes' checked parameters). -/
 theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
-    {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
+    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
     (∀ t ∈ out, t.1.type.hasFvar = false ∧
@@ -1160,9 +1153,9 @@ theorem genRecCheck_outFacts {env₂ : Env} {p : BlockShape}
 
 theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
-    {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
+    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
     EnvWF (consBlockRecsT p 0 out env₂) :=
@@ -1193,10 +1186,9 @@ theorem classStreamRecs_typeWF {env : Env} {F : Nat} :
 /-- Each generated recursor is its record's constant at the generated
 type. -/
 theorem genRecCheck_outCv {fe : FEnv} {p : BlockShape} {nestedBit : Bool} {params : List Expr}
-    {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) :
     out.length = p.recs.length ∧
     ∀ (i : Nat) (rc : RecShape) (o : ConstantVal × TargetMajor × List Expr),
@@ -1238,10 +1230,9 @@ theorem targetRecPins_unreserved {p : BlockShape} {block : List ConstantInfo}
 
 /-- No generated recursor takes a reserved name. -/
 theorem genRecCheck_out_unreserved {fe : FEnv} {p : BlockShape} {nestedBit : Bool}
-    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ block
       = .ok out) :
     ∀ o ∈ out, reservedRecName o.1.name = false := by
   obtain ⟨R⟩ := genRecCheck_run h
@@ -1261,9 +1252,9 @@ passed `ruleAgree`'s guards; an auxiliary recursor's stored type reads
 its firing data (`streamNestedOk`). -/
 theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
-    {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F F' : Nat}
-    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
+    (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
     (hS : streamRecsCheck (fueledOps mode F') .plain
@@ -1432,8 +1423,8 @@ theorem checkBlockTailS_run
       p.members = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀
   have g₃ : checkBlockRec (fueledOps .verified G) (consBlockCtors p.nP p.memberCtors env₁) p
-      (blockNestedBit p kinds) params tbl.toList rd Ms₀ block p.formers = .ok out := by
-    show genRecCheck (ShadowOps.fueled .verified G) _ _ _ _ _ _ _ _ _ = _
+      (blockNestedBit p kinds) params tbl.toList rd Ms₀ block = .ok out := by
+    show genRecCheck (ShadowOps.fueled .verified G) _ _ _ _ _ _ _ _ = _
     rw [← genRecCheck_datF]
     exact FueledM.up hle₃ (by rw [genRecCheck_datF]; exact hF₃)
   rw [checkBlockTail_datF]
@@ -1499,7 +1490,7 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   -- the walk's context
   obtain ⟨rc, sX, hX, h⟩ := bindC_ok h
   obtain ⟨hsX, ⟨FX, hFX⟩, hctx, hholes, hpar, hlen, hh, hnP⟩ := triple_iff_run.mp
-    (blockNestCtxS_spec₂ henv₁ p₁ _ hMc hwT hs₂) rc sX hX
+    (blockNestCtxS_spec₂ henv₁ p₁ hMc hwT hs₂) rc sX hX
   rcases rc with ⟨ctx, holes⟩
   dsimp only at hctx hholes hpar hlen hh hnP h
   try simp only at h
@@ -1513,7 +1504,7 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   -- the positivity function on the stored constructors (the root frame)
   obtain ⟨⟨kinds, nfs, pos⟩, sK, hK, h⟩ := bindC_ok h
   obtain ⟨hsK, FK, hFK⟩ := triple_iff_run.mp
-    (checkBlockPositivityS_spec henv₁ p₁ _ _ hMc hwT
+    (checkBlockPositivityS_spec henv₁ p₁ hMc hwT
       (checkBlockCtors_types hF₂p) hsL) (kinds, nfs, pos) sK hK
   try simp only at h
   -- every outside class, walked from its state
@@ -1538,16 +1529,14 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   have g₂ : checkBlockCtors (fueledOps .verified G) env₁ env₁ p₁
       p₁.members = .ok sortsss := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
-  have gX : blockNestCtx (m := CheckM) p₁
-      p₁.formers env₁.find? = .ok (ctx, holes) := by
+  have gX : blockNestCtx (m := CheckM) p₁ env₁.find? = .ok (ctx, holes) := by
     rw [← blockNestCtx_datF (F := G)]; exact FueledM.up hleX hFX
   have gL : checkBlockClasses (fueledOps .verified G) (mkFEnv env₁)
-      p₁ ctx.params p₁.memberCtors
+      p₁ ctx.params
       = .ok (rd, Ms) := by
     rw [← checkBlockClasses_datF]; exact FueledM.up hleL hFL
   have gK : checkBlockPositivity (fueledOps .verified G) env₁ env₁.find?
-      p₁ p₁.formers
-      p₁.memberCtors = .ok (kinds, nfs, pos) := by
+      p₁ = .ok (kinds, nfs, pos) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   have gT : nestSeeds (fueledOps .verified G) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st := by
     rw [← nestSeeds_datF]; exact FueledM.up hleT hFT

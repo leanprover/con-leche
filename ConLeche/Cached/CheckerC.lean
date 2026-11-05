@@ -134,11 +134,9 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
   let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   flushC
   let sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
-  let (ctx, holes) ← blockNestCtx p₁ p₁.formers fe₁.find?
-  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁
-    ctx.params p₁.memberCtors
-  let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
-    p₁ p₁.formers p₁.memberCtors
+  let (ctx, holes) ← blockNestCtx p₁ fe₁.find?
+  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
+  let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
   pure ⟨fe₁, p₁, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
@@ -154,7 +152,7 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM U
   let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
   let out ← genRecCheck (shadowOpsC mode) fe₂ p
-    (blockNestedBit p kinds) params tbl.toList rd cls p.formers block
+    (blockNestedBit p kinds) params tbl.toList rd cls block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   streamKCheck p p.recs out

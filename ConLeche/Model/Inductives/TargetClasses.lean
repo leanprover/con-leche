@@ -190,9 +190,9 @@ end Cases
 /-! ## 3. The rows at every class -/
 
 /-- The stored rule at `(c, j)`, below the constructor count. -/
-theorem tgtRule_exists {envC : Env} {F : Nat} {pp : BlockShape} {cvTas : List ConstantVal}
+theorem tgtRule_exists {envC : Env} {F : Nat} {pp : BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs) {c : Nat} (hc : c < rs.length)
+    (h : ConLeche.RecStageG .verified F envC pp rs) {c : Nat} (hc : c < rs.length)
     {j : Nat} (hj : j < blockRecNCt rs c) :
     ∃ cA rhs, rs[c].2.2.2[j]? = some cA ∧ rs[c].2.1[j]? = some rhs := by
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc

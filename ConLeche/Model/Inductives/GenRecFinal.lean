@@ -55,14 +55,13 @@ set_option maxHeartbeats 4000000 in
 /-- **THE GENERATED RECURSORS' STAGE**: the three cons-monotonicities at
 the cons at the classes (`BlockRecStagedT`). -/
 theorem genRecStage {F : Nat}
-    {block : List ConstantInfo} {envC envI : Env} {pp : BlockShape} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))}
+    {block : List ConstantInfo} {envC envI : Env} {pp : BlockShape}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {mpC : EnvModelM V envC} {dR : BlockData V} {isRecR : Bool}
     {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : GenRecCtx V F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
+    (hctx : GenRecCtx V F block envC envI pp out mpC dR isRecR A kindsR nfsR
       posR) :
     BlockRecStagedT (V := V) envC pp out mpC := by
   have hctx0 := hctx
@@ -74,7 +73,7 @@ theorem genRecStage {F : Nat}
   have hwfI : ConLeche.EnvWF envI := by
     obtain ⟨mk, -⟩ := hmk
     exact mk.base2.wf
-  have hT : ∀ cv ∈ cvTasR, ConLeche.ScB 0 cv.type := by
+  have hT : ∀ cv ∈ pp.formers, ConLeche.ScB 0 cv.type := by
     intro cv hcv
     obtain ⟨c, hc⟩ := List.getElem?_of_mem hcv
     obtain ⟨⟨_, -, hD⟩, -⟩ := hcore.1 c cv hc
@@ -82,13 +81,13 @@ theorem genRecStage {F : Nat}
   have hrd : ∀ F, FamilyRead mpC F := by
     obtain ⟨_, -, -, h, -⟩ := hmk
     exact h
-  have hread : pp.members.map (·.cvT) = cvTasR := by
+  have hread : pp.members.map (·.cvT) = pp.formers := by
     rw [hdRe] at hN hS
     exact blockMembers_read hN hS.shownAt
-  have hct : ∀ ctorsA ∈ ctorsAsR, ∀ c ∈ ctorsA, ConLeche.ScB 0 c.1.type := by
+  have hct : ∀ ctorsA ∈ pp.memberCtors, ∀ c ∈ ctorsA, ConLeche.ScB 0 c.1.type := by
     intro ctorsA hA cA hcA
     obtain ⟨c, hc⟩ := List.getElem?_of_mem hA
-    have hcl : c < ctorsAsR.length := (List.getElem?_eq_some_iff.mp hc).1
+    have hcl : c < pp.memberCtors.length := (List.getElem?_eq_some_iff.mp hc).1
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
     have hj' : (dR.ctorsM c)[j]? = some cA := by
       rw [← Option.some.inj ((hctorsAs c hcl).symm.trans hc)] at hj; exact hj
@@ -99,14 +98,14 @@ theorem genRecStage {F : Nat}
   have hM : ∀ ms ∈ pp.members, ms.cvT.type.hasFvar = false := fun ms hms =>
     (hT _ (by rw [← hread]; exact List.mem_map_of_mem hms)).closed.1
   have hpos := ConLeche.checkBlockPositivity_nfScoped hwfI hM hT hct hPos
-  have hTlen : pp.memberNames.length ≤ cvTasR.length := by
+  have hTlen : pp.memberNames.length ≤ pp.formers.length := by
     rw [hN.2.2, hdRe]
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]
   have hg : ConLeche.ClassGenScoped R.g :=
     ConLeche.genScoped_of_run R hwfI hwfC hM hT hTlen hct hpos
   have hTbl := ConLeche.genRun_tbl_scoped R hwfI hwfC hM hT hct hpos
-  have h : ConLeche.RecStageG .verified F envC pp cvTasR (tgtRs out) :=
+  have h : ConLeche.RecStageG .verified F envC pp (tgtRs out) :=
     recStage_of_gen R hg
   have hfind := genRecCtor_find (mpC := mpC) R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) h

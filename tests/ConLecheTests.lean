@@ -398,7 +398,7 @@ private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
   let env₂ := consBlockCtors q.p.nP q.p.memberCtors q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls
-    block q.p.formers
+    block
   pure out.length
 
 -- The stage REJECTS the zero-motive recursor, whatever its rule.

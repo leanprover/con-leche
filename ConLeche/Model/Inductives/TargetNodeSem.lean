@@ -231,13 +231,13 @@ recorded normal form, typed at the hole context, whose forest is among the
 listed nodes `ns` — the calls' landing at node `0` reads a container
 field's node there — and whose entry (the root frame's, at the block's
 own levels and parameters) is recorded in the table `tbl`. -/
-@[expose] def MemberForests (F : Nat) (envI : Env) (pp : BlockShape) (cvTasR : List ConstantVal)
-    (ctorsAsR : List (List (ConstantVal × Nat))) (nfsR : List (List Expr)) (fvsP : List Expr)
+@[expose] def MemberForests (F : Nat) (envI : Env) (pp : BlockShape)
+    (nfsR : List (List Expr)) (fvsP : List Expr)
     (tbl : List ConLeche.NestCtorNf) (ns : List PosTree) : Prop :=
-  ∃ cvTa0 rest holes, cvTasR.head? = some cvTa0 ∧
+  ∃ cvTa0 rest holes, pp.formers.head? = some cvTa0 ∧
     ConLeche.openPisAtFvars pp.nP cvTa0.type 0 = some (fvsP, rest) ∧
     ConLeche.nestHoles (pp.nestCtx fvsP envI.find?) = some holes ∧
-    ∀ (m : Nat) (cs : List (ConstantVal × Nat)), ctorsAsR[m]? = some cs →
+    ∀ (m : Nat) (cs : List (ConstantVal × Nat)), pp.memberCtors[m]? = some cs →
       ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
         ConLeche.nestCrest (pp.nestCtx fvsP envI.find?).names (pp.lps.map .param) fvsP holes
           cA.1.type = some crest ∧

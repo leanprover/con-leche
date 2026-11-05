@@ -461,13 +461,11 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockShape} {isRec : Bool}
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.p) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ q.p
         q.p.members = .ok q.sortsss ∧
-      blockNestCtx (m := CheckM) q.p
-        q.p.formers q.env₁.find? = .ok (ctx, holes) ∧
+      blockNestCtx (m := CheckM) q.p q.env₁.find? = .ok (ctx, holes) ∧
       checkBlockClasses (fueledOps mode F) (mkFEnv q.env₁) q.p
-        ctx.params q.p.memberCtors = .ok (q.rd, q.cls) ∧
+        ctx.params = .ok (q.rd, q.cls) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find?
-        q.p q.p.formers
-        q.p.memberCtors = .ok (q.kinds, q.nfs, pos) ∧
+        q.p = .ok (q.kinds, q.nfs, pos) ∧
       nestSeeds (fueledOps mode F) q.env₁ ctx (classSeeds ctx holes q.cls) pos = .ok st ∧
       q.params = ctx.params ∧ q.tbl = st.ctorNfs := by
   unfold checkBlockPass at h
@@ -651,8 +649,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : 
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p
         q.p.members = .ok isorts ∧
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
-        q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block
-          q.p.formers = .ok out ∧
+        q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block = .ok out ∧
       streamKCheck (m := CheckM) q.p q.p.recs out = .ok () ∧
       streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
         (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out
@@ -669,8 +666,7 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : 
   dsimp only at h
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
       (consBlockCtors q.p.nP q.p.memberCtors q.env₁) q.p
-      (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block
-      q.p.formers with
+      (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>
   rw [hRec] at h

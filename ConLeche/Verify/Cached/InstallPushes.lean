@@ -494,9 +494,9 @@ per record, in order, under the record's name (fresh at the stage's
 index), the family's names distinct. -/
 theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
     (p : BlockShape) (nestedBit : Bool) (params : List Expr) (tbl : List NestCtorNf)
-    (rd : ClassRead) (Ms₀ : List TargetMajor) (cvTas : List ConstantVal)
+    (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) :
-    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ cvTas block)
+    Yields (genRecCheck so fe p nestedBit params tbl rd Ms₀ block)
       (fun out => (p.recs.map (·.cvR.name)).Nodup ∧ out.length = p.recs.length ∧
         ∀ (j : Nat) (rc : RecShape), p.recs[j]? = some rc →
           ∃ o, out[j]? = some o ∧ o.1.name = rc.cvR.name ∧ fe.find? rc.cvR.name = none) := by

@@ -108,12 +108,11 @@ major is the class `rd.recCls[j]` with its table entries
 (`classesNfs`), the class checked as a major (`ClassMajorRun`) at the
 class key. -/
 theorem genRecClassAt {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nb : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : GenRecRun mode F fe₁ env₁ fe p nb pos cvTas block ctorsAs out)
+    {nb : Bool} {pos : NestState} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : GenRecRun mode F fe₁ env₁ fe p nb pos block out)
     {j : Nat} {t : ConstantVal × TargetMajor × List Expr} (ho : out[j]? = some t) :
     ∃ key M₀ nfs, t.2.1 = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun mode F fe p ctorsAs R.ctx.params key M₀) := by
+      Nonempty (ClassMajorRun mode F fe p R.ctx.params key M₀) := by
   obtain ⟨hlenO, hallO⟩ := classRecsRulesOk_run R.hrules
   have hj : j < out.length := (List.getElem?_eq_some_iff.mp ho).1
   obtain ⟨cvG, hcvG⟩ : ∃ cvG, R.cvGs[j]? = some cvG :=
@@ -152,8 +151,7 @@ variable {V : Type w} [SetTheory V]
 section Ctors
 
 variable {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {pp : BlockShape} {nb : Bool}
-  {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {pos : NestState} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {dR : BlockData V} {isRec : Bool}
   {A : Nat → (Name → Nat) → Term}
 
@@ -175,14 +173,13 @@ class's parameter count** — a member class's by the constructors' core
 record, an outside class's by the carrier's coverage (`tgtOutCls_ofR` at
 the class's run as a major). -/
 theorem genRecCtor_find
-    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos cvTas block
-      ctorsAs out)
-    (hN : BlockNamesOk (V := V) dR cvTas)
-    (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTas pp isRec A dR.k)
-    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some (dR.ctorsM c))
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
+    (hN : BlockNamesOk (V := V) dR pp.formers)
+    (hcore : BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRec A dR.k)
+    (hctorsAs : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
-      dR = blockDataOf V pp ctorsAs pk uOfD ppsOf)
+      dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
@@ -199,11 +196,11 @@ theorem genRecCtor_find
   cases hm : M₀.member with
   | some t' =>
     obtain ⟨hctors, hnPc⟩ := Rc.major.member_facts hm
-    have hcl : t' < ctorsAs.length := (List.getElem?_eq_some_iff.mp hctors).1
-    have heq : M₀.ctors = (blockDataOf V pp ctorsAs pk uOfD ppsOf).ctorsM t' :=
+    have hcl : t' < pp.memberCtors.length := (List.getElem?_eq_some_iff.mp hctors).1
+    have heq : M₀.ctors = (blockDataOf V pp pk uOfD ppsOf).ctorsM t' :=
       Option.some.inj (hctors.symm.trans (hctorsAs _ hcl))
     rw [heq] at hcA
-    have hck : t' < (blockDataOf V pp ctorsAs pk uOfD ppsOf).k := by
+    have hck : t' < (blockDataOf V pp pk uOfD ppsOf).k := by
       rw [← hN.2.2]; exact hN.2.1 _ i cA hcA
     obtain ⟨hfind, -, -⟩ := hcore.2.2 _ hck i cA hcA
     rw [hnPc]
@@ -222,14 +219,13 @@ theorem genRecCtor_find
 /-- **`ctorsIn` at the generated stage**: every constructor a stored
 recursor carries is stored. -/
 theorem genRecCtor_in
-    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos cvTas block
-      ctorsAs out)
-    (hN : BlockNamesOk (V := V) dR cvTas)
-    (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTas pp isRec A dR.k)
-    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some (dR.ctorsM c))
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
+    (hN : BlockNamesOk (V := V) dR pp.formers)
+    (hcore : BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRec A dR.k)
+    (hctorsAs : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
-      dR = blockDataOf V pp ctorsAs pk uOfD ppsOf)
+      dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ r ∈ tgtRs out, ∀ cA ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF) := by
@@ -241,14 +237,13 @@ theorem genRecCtor_in
 /-- **`hctor` at the generated stage**: the carried constructors, stored
 at the class's parameter count, their types bound and read. -/
 theorem genRecCtor_seam
-    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos cvTas block
-      ctorsAs out)
-    (hN : BlockNamesOk (V := V) dR cvTas)
-    (hcore : BlockCtorsCore mpC.base2 dR pp.lps cvTas pp isRec A dR.k)
-    (hctorsAs : ∀ c, c < ctorsAs.length → ctorsAs[c]? = some (dR.ctorsM c))
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
+    (hN : BlockNamesOk (V := V) dR pp.formers)
+    (hcore : BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRec A dR.k)
+    (hctorsAs : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
-      dR = blockDataOf V pp ctorsAs pk uOfD ppsOf)
+      dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
@@ -276,10 +271,9 @@ every stored recursor whose class is outside, the class is member `mc c`
 of the SELECTED recorded block holding its inductive (`lfpSel`), stored
 as `cvc c` (`tgtOutCls_selR` at the class's run as a major). -/
 theorem genOutCls {F : Nat} {fe₁ : FEnv} {env₁ : Env} {envC : Env} {p : BlockShape} {nb : Bool}
-    {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+    {pos : NestState} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
     {mpC : EnvModelM V envC}
-    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos cvTas block ctorsAs out)
+    (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) p nb pos block out)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) (D0 : LfpDatum V) :
     ∃ (Dc : Nat → LfpDatum V) (mc : Nat → Nat) (cvc : Nat → ConstantVal),
       (∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →

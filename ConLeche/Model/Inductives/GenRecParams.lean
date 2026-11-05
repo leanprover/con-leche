@@ -66,8 +66,8 @@ variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool} {pos 
 /-- **A member class, as the run checked it**: the member's own
 inductive, at the block's levels, over the canonical parameters. -/
 theorem genRec_memberClass
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out)
     {c t : Nat} (hm : (R.Ms.getD c default).member = some t) :
     p.memberNames.findIdx? (· == (R.Ms.getD c default).ind) = some t ∧
     (R.Ms.getD c default).lvls = p.lps.map .param ∧
@@ -86,7 +86,7 @@ theorem genRec_memberClass
     rw [hget] at hm ⊢
     have hmaj := CM.major
     cases hmaj with
-    | member I t' ms ctorsA hfn ht hms hctors hpar nfs' =>
+    | member I t' ms hfn ht hms hpar nfs' =>
       simp only [Option.some.injEq] at hm
       subst hm
       exact ⟨ht, rfl, rfl⟩
@@ -122,15 +122,15 @@ the members' run facts (`BlockMembersRun`): a spine fitting any stored
 recursor's rule prefix fits the block's parameters on its first `nP`
 values. -/
 theorem genParams_fit_run {F : Nat} {envI envC : Env}
-    {pp : BlockShape} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
-    {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
+    {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
+    {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} (mpC : EnvModelM V envC)
-    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nestedBit pos cvTas
-      block ctorsAs out)
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nestedBit pos
+      block out)
     (hg : ClassGenScoped R.g)
-    (h : RecStageG .verified F envC pp cvTas (ConLeche.tgtRs out))
+    (h : RecStageG .verified F envC pp (ConLeche.tgtRs out))
     {dR : BlockData V}
-    (hmr : BlockMembersRun mpC.base2 dR pp cvTas) :
+    (hmr : BlockMembersRun mpC.base2 dR pp) :
     ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
       SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (ConLeche.tgtRs out) ψ c)
         xs →
@@ -171,7 +171,7 @@ theorem genParams_fit_run {F : Nat} {envI envC : Env}
     exact congrArg Prod.fst (Option.some.inj hopGP)
   -- the canonical parameters: the first member's telescope, opened
   obtain ⟨cvT0, rest0, h0, hop0, -, -⟩ := ConLeche.genRun_ctx R
-  have hcvT0 : cvTas[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0
+  have hcvT0 : pp.formers[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0
   obtain ⟨-, -, -, -, -, hFD0⟩ := hcvF _ _ hcvT0
   obtain ⟨ppsT, bT, hstT, -, hlenT0, hbindT⟩ :=
     denote_openPis (acval := mpC.base2.acval) (env := envC) (φ := ψ) pp.nP hop0 (hFD0.read ψ)

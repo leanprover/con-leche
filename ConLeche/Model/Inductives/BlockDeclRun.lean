@@ -64,21 +64,20 @@ variable {envC envI : Env} {pp : ConLeche.BlockShape} {cvTas : List ConstantVal}
 run's own block data. -/
 theorem blockMembersRun_seam
     (hN : BlockNamesOk (V := V)
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) cvTas)
+      (blockDataOf V pp pk uOfD ppsOf) pp.formers)
     (hS : BlockCtorsStage (V := V) F
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
       pp isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
       pp isRec A
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp pk uOfD ppsOf).k) :
     BlockMembersRun mpC.base2
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp
-      cvTas := by
+      (blockDataOf V pp pk uOfD ppsOf) pp := by
   obtain ⟨hname, -, hlen⟩ := hN
   refine ⟨rfl, rfl, hlen, ?_, ?_, ?_, ?_⟩
   · intro m cvTb hcv
-    have hm : m < (blockDataOf V pp ctorsAs pk uOfD ppsOf).k := by
+    have hm : m < (blockDataOf V pp pk uOfD ppsOf).k := by
       rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hcv).1
     obtain ⟨hfind, -, -, hFD⟩ := hcore.1 m cvTb hcv
     obtain ⟨cvS, -, hDS⟩ := id hfind
@@ -93,13 +92,13 @@ theorem blockMembersRun_seam
     · show pp.nIdxs.getD m 0 = ms.nIdx
       rw [blockNIdxs_getD hm, hg]
   · intro m ψ hm
-    obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[m]? = some cvTb :=
+    obtain ⟨cvTb, hcv⟩ : ∃ cvTb, pp.formers[m]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hlen]; exact hm)⟩
     obtain ⟨-, -, hleaf, -⟩ := hcore.1 m cvTb hcv
     rw [hname m cvTb hcv, hleaf ψ, hS.leaf m ψ]
     exact ⟨_, rfl⟩
   · intro m hm ψ ρ
-    have h0 : 0 < (blockDataOf V pp ctorsAs pk uOfD ppsOf).k :=
+    have h0 : 0 < (blockDataOf V pp pk uOfD ppsOf).k :=
       Nat.lt_of_le_of_lt (Nat.zero_le _) hm
     exact ⟨fun h => hS.paramsOf m hm ψ ρ h 0 h0, fun h => hS.paramsOf 0 h0 ψ ρ h m hm⟩
 
@@ -108,19 +107,19 @@ with its four identifications `rfl` at the run's own block data, and
 `0 < k` off the counting pass's first clause. -/
 theorem blockModelAt_seam
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     (hN : BlockNamesOk (V := V)
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) cvTas)
+      (blockDataOf V pp pk uOfD ppsOf) pp.formers)
     (hS : BlockCtorsStage (V := V) F
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
       pp isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      (blockDataOf V pp pk uOfD ppsOf) pp.lps pp.formers
       pp isRec A
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp pk uOfD ppsOf).k) :
     BlockModelAt mpC.base2
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf).memberNames
-      (blockDataOf V pp ctorsAs pk uOfD ppsOf) := by
+      (blockDataOf V pp pk uOfD ppsOf).memberNames
+      (blockDataOf V pp pk uOfD ppsOf) := by
   obtain ⟨R⟩ := id h
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
 
@@ -151,7 +150,7 @@ the family once every rule's components are bound by their frames; the
 prefix is the recursor type's (`blockRulePdomsAV_bounded`). -/
 theorem blockRecEqs_below_rows
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → Term}
     (hrow : ∀ (ψ : Name → Nat) (c : Nat)
@@ -208,7 +207,7 @@ five components do; the prefix is the recursor type's
 (`blockRulePdomsAV_params`). -/
 theorem blockRecEqs_params_rows
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
-    (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
+    (h : ConLeche.RecStageG .verified F envC pp rs)
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → Term}
     (hrow : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),

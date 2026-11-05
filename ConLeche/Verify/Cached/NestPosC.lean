@@ -682,11 +682,11 @@ theorem allWS_hiAt {ctx : NestCtx} {xs : List Expr} (h : AllWS ctx.nP xs) :
 operation run): the same value, a context whose stored constants are
 closed, its holes and canonical variables well scoped at its depth, one
 canonical variable per parameter. -/
-theorem blockNestCtxS_spec (henv : EnvWF env) (p : BlockShape) (cvTas : List ConstantVal)
+theorem blockNestCtxS_spec (henv : EnvWF env) (p : BlockShape)
     (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ blockNestCtx (m := CheckCM) p cvTas env.find?
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (blockNestCtx (m := FueledM) p cvTas env.find?) v ∧
+    (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type) {s₀ : CState} (hs : CSOK mode false env s₀) :
+    ⦃fun s => s = s₀⦄ blockNestCtx (m := CheckCM) p env.find?
+    ⦃fun v s' => CSOK mode false env s' ∧ Runs (blockNestCtx (m := FueledM) p env.find?) v ∧
       NestCtxOk v.1 ∧ HolesOk (v.1.hiAt 0) v.2 ∧ AllWS (v.1.hiAt 0) v.1.params ∧
       v.1.params.length = v.1.nP ∧ nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP; ⊤⦄ := by
   -- `ematch`: one E-matching round per pure-side bind (`Runs.pure_bind_eq`), and the
@@ -704,18 +704,18 @@ theorem ctorsClosed {ctorsAs : List (List (ConstantVal × Nat))}
 /-- **The install's positivity stage at the shared operations**: every
 successful cached run is a fueled one. -/
 theorem checkBlockPositivityS_spec (henv : EnvWF env)
-    (p : BlockShape) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
+    (p : BlockShape)
     (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
-    (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
+    (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type)
+    (hct : ∀ ctorsA ∈ p.memberCtors, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
-      checkBlockPositivity (sharedOpsC .verified (mkFEnv env)) env env.find? p cvTas ctorsAs
+      checkBlockPositivity (sharedOpsC .verified (mkFEnv env)) env env.find? p
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (checkBlockPositivity (fueledOpsM .verified) env env.find? p cvTas ctorsAs) v; ⊤⦄ := by
+      Runs (checkBlockPositivity (fueledOpsM .verified) env env.find? p) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockPositivity.eq_1, nestHoles_length, ctorsClosed hct] =>
-    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p cvTas hM hT,
-      nestUniformS_spec (mode := .verified) (env := env) ctorsAs,
+    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p hM hT,
+      nestUniformS_spec (mode := .verified) (env := env) p.memberCtors,
       nestRootS_spec henv, checkAbsCtorSortsAllS_spec henv] <;> finish
 
 end Top

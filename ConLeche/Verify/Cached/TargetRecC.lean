@@ -161,13 +161,12 @@ theorem targetMajorNfsS_spec (henv : EnvWF env)
     sym only [conleche_grind, targetMajorNfs.eq_2] =>
       vcgen [targetMajorNfs, ih hs, targetClassMatchS_spec henv hformer hp] <;> finish
 
-theorem targetMajorOfS_spec (henv : EnvWF env) {p : BlockShape}
-    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
+theorem targetMajorOfS_spec (henv : EnvWF env) {p : BlockShape} {pfvs fvs : List Expr} {mty : Expr}
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorOf (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p ctorsAs pfvs
+    ⦃fun s => s = s₀⦄ targetMajorOf (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p pfvs
       fvs mty
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (targetMajorOf (fueledOpsM .verified) (mkFEnv env) p ctorsAs pfvs fvs mty) v; ⊤⦄ := by
+      Runs (targetMajorOf (fueledOpsM .verified) (mkFEnv env) p pfvs fvs mty) v; ⊤⦄ := by
   sym only [conleche_grind, targetMajorOf.eq_1, unwrapOr] =>
     vcgen [targetMajorOf, unwrapOr, targetOutsideInstS_spec henv hs,
       liftFueledS_spec (mode := .verified) (env := env)] <;> finish

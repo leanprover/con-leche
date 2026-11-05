@@ -40,19 +40,19 @@ variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool}
 `j`-th constructor of recursor `c`'s class, its run, the rule generated
 for it. -/
 theorem genCtor_at
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
     (hj : j < (tgtMajor out c).ctors.length) :
     ∃ cls M₀ nfs cA x gen, R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p ctorsAs R.ctx.params
+      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p R.ctx.params
         (R.keys.getD cls default) M₀) ∧
-      ConLeche.targetMajorNfs (fueledOps .verified F) envC p (cvTas.map (·.type))
+      ConLeche.targetMajorNfs (fueledOps .verified F) envC p (p.formers.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
       M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
       genCtorAt R.g R.rd c j = x ∧
-      Nonempty (ClassCtorRun .verified F envC p (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
+      Nonempty (ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls cA x) ∧
       ConLeche.classGenRule R.g (ConLeche.classRecOf R.rd.recCls R.cvGs)
         ((out.getD c default).1.levelParams.map .param) cls x = some gen := by
   have hi' : c < out.length := by simpa [ConLeche.tgtRs] using hc
@@ -89,8 +89,8 @@ theorem genCtor_at
 
 /-- **A generated call, decoded** (see the module docstring). -/
 theorem genCall_data
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
-      block ctorsAs out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
+      block out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
     (hj : j < (tgtMajor out c).ctors.length)
     (acval : Name → (Name → Nat) → Term) (ψ : Name → Nat)
     (tup : Nat → List V → V) (ρ : Nat → V) {xs fs : List V} {v : V}
@@ -101,12 +101,12 @@ theorem genCall_data
       R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p ctorsAs R.ctx.params
+      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p R.ctx.params
         (R.keys.getD cls default) M₀) ∧
-      ConLeche.targetMajorNfs (fueledOps .verified F) envC p (cvTas.map (·.type))
+      ConLeche.targetMajorNfs (fueledOps .verified F) envC p (p.formers.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
       M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
-      Nonempty (ClassCtorRun .verified F envC p (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
+      Nonempty (ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls cA x) ∧
       i < x.nF ∧ x.kinds.getD i .ordinary = .recursive tt tele ∧
       openPisAtFvars x.nF x.tyD R.pre.length = some (fvsR, oR) ∧
       targetPiDomsWith fvsR x.tyN = some ws ∧
