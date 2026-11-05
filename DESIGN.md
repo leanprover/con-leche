@@ -108990,7 +108990,7 @@ after the self-check, whose exporter it uses.
 **Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
 differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
 run, on the final tree, the private view, every constant): accepted 775 321 declarations,
-peak RSS 6.27 GiB, 7 668 G instructions:u.  The private view alone took it from 7 772 G to
+peak RSS 5.35 GiB (6.27 GiB on the run before, on a busier machine), 7 652 G instructions:u.  The private view alone took it from 7 772 G to
 7 570 G; the 63 116 records the name filter left out cost 98 G more (+1.3 %), none of them
 rejected or declined.  One run each; wall time on this machine varied too much to compare.  A slice
 of CFSG's rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`, 113 593 declarations) read and was
