@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.BlockCtorsLoop
+public import ConLeche.Model.Inductives.FormerStored
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockRep
@@ -51,7 +52,7 @@ stored with their leaves. -/
     (A : Nat → (Name → Nat) → Term) (nc : Nat) : Prop :=
   -- the `k` formers
   (∀ (c : Nat) (cvTb : ConstantVal), cvTasAll[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored m' cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       cvTb.type.constsResolve env = true ∧
       (∀ ψ, m'.acval cvTb.name ψ = A c ψ) ∧
       FormerData m' cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
@@ -101,10 +102,11 @@ theorem BlockCtorsCore.cons {env : Env} {m' : EnvModel V env} {d : BlockData V}
   have hneOf : ∀ (c : Nat) (cvTb : ConstantVal), cvTasAll[c]? = some cvTb →
       cvTb.name ≠ cA.1.name := by
     intro c cvTb hc
-    exact hne _ (by rw [(hform c cvTb hc).1]; rfl)
+    obtain ⟨cvS, hfS, -⟩ := (hform c cvTb hc).1
+    exact hne _ (by rw [hfS]; rfl)
   refine ⟨fun c cvTb hc => ?_, fun c j cB hj => ?_, fun c hc j cB hj => ?_⟩
   · obtain ⟨hfind, hres, hleaf, hFD⟩ := hform c cvTb hc
-    refine ⟨ConLeche.Env.find?_cons_of_fresh hfresh hfind,
+    refine ⟨hfind.cross (c₀ := .ctorInfo cA.1 d.nP cA.2) hfresh mC hac,
       Expr.constsResolve_mono hres, fun ψ => ?_, ?_⟩
     · rw [hac]
       show acvalWith m'.acval cA.1.name B cvTb.name ψ = _
@@ -276,7 +278,7 @@ theorem stageBlockCtorsAt {F : Nat}
   obtain ⟨hnameOf, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, hdata, hconsed⟩ := hinv
   have hTname : d.memberName m = cvTa.name := hnameOf m cvTa hcvTa
-  obtain ⟨hfindT, hresT, hleafT, hFD⟩ := hform m cvTa hcvTa
+  obtain ⟨⟨cvSm, hfindT, hDm⟩, hresT, hleafT, hFD⟩ := hform m cvTa hcvTa
   -- ## the formers' leaves: closed, and the members' values at the carrier
   have hcvOf : ∀ c, c < d.k → ∃ cvTb, cvTasAll[c]? = some cvTb :=
     fun c hc => ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hc)⟩
@@ -336,13 +338,13 @@ theorem stageBlockCtorsAt {F : Nat}
       (∀ ψ, m'.acval cA.1.name ψ = sumMkAV (d.w ψ) kk (d.dsF m kk ψ)
         (((d.dsF m kk ψ).drop d.nP))
         (uChains (fssOf d.nP (ctorDataList (d.dsF m) (d.esF m) ψ (d.ctorsM m) 0)))) →
-      CapsLawsAt m' (d.memberName m) cvTa (ConLeche.blockCapsAt p₁ m isRec) := by
+      CapsLawsAt m' (d.memberName m) cvSm (ConLeche.blockCapsAt p₁ m isRec) := by
     intro env' m' kk cA hkk hinv' hcvC hFD' hleaf' hleafC'
     rw [hTname] at hleaf' ⊢
     by_cases hu : (ConLeche.blockCapsAt p₁ m isRec).unitlike = true
-    · refine hS.capsU m hm cvTa hcvTa m' kk cA hkk hu hcvC
+    · refine CapsLawsAt.of_lps (hS.capsU m hm cvTa hcvTa m' kk cA hkk hu hcvC
         (by rw [hlpsA cA (List.mem_of_getElem? hkk), hS.lpsT m cvTa hm hcvTa])
-        (hinv'.2.1 m kk cA hkk).2.2.1.read hFD' hleaf' (fun ψ => ?_)
+        (hinv'.2.1 m kk cA hkk).2.2.1.read hFD' hleaf' (fun ψ => ?_)) hDm.lps.symm
       rw [hleafC' ψ, hFssEq ψ]
     · have hU : (ConLeche.blockCapsAt p₁ m isRec).unitlike = false := by simpa using hu
       exact blockCapsLawsAt_vacuous m' hU
@@ -413,7 +415,7 @@ theorem stageBlockCtorsAt {F : Nat}
         hTlawsOf m' kk cA hkk hinv'.1 hcvC hFD' hleaf' hleafC')
       hfold
       (d.ctorsM m) 0 env mp (fun i => by rw [Nat.zero_add]) (Nat.zero_add _) hE
-      (by rw [hTname]; exact hfindT) hFD (fun ψ => by rw [hTname]; exact hleafT ψ)
+      (by rw [hTname]; exact hfindT) hresT hFD (fun ψ => by rw [hTname]; exact hleafT ψ)
       (fun i cA hi _ => absurd hi (Nat.not_lt_zero _))
       (fun i cA _ hi => ⟨hfreshC m (Nat.le_refl _) i cA hi, (hdata m i cA hi).1,
         (hdata m i cA hi).2.1, (hdata m i cA hi).2.2.1.toCtorDataI⟩)

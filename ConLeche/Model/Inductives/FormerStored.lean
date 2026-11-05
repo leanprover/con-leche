@@ -1,0 +1,114 @@
+module
+
+public import ConLeche.Model.Inductives.StructFrameKit
+
+@[expose] public section
+
+/-!
+# A member's former: what the environment holds, what the check read
+
+The environment holds the former the stream declared. The block's check reads its telescope,
+which is the declared type itself or, for a type headed by a definition, its reduct. The two
+are one family: this module states what ties them, for the model's proofs to read the telescope
+while the environment answers with the declared constant.
+-/
+
+namespace ConLeche.Model
+open ConLeche.Semantics
+open ConLeche.SetModel
+open ConLeche.Term ConLeche.Verify SetTheory
+
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps)
+
+universe w
+
+variable {V : Type w} [SetTheory V]
+
+/-- **A member's declared former against the telescope its check read**: the two name one
+family, each type is closed, and the two read as one value. -/
+structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVal) : Prop where
+  name : cvS.name = cvTa.name
+  lps : cvS.levelParams = cvTa.levelParams
+  fvar : cvS.type.hasFvar = false
+  defined : cvS.type.allLevelParamsDefined cvS.levelParams = true
+  bounded : cvS.type.looseBVarsBounded 0 = true
+  resolve : cvS.type.constsResolve env = true
+  read : ∀ ψ : Name → Nat, ∃ Ts Tr : Term, denote m.acval env ψ 0 cvS.type = some Ts ∧
+    denote m.acval env ψ 0 cvTa.type = some Tr ∧
+    ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr ∧ WellDenotedTy V ρ Ts
+  readFvar : cvTa.type.hasFvar = false
+  readDefined : cvTa.type.allLevelParamsDefined cvTa.levelParams = true
+  readBounded : cvTa.type.looseBVarsBounded 0 = true
+  readResolve : cvTa.type.constsResolve env = true
+  /-- a declared type that shows its telescope is what the check read -/
+  shows : ConLeche.formerDefHeaded cvS = true ∨ cvS = cvTa
+
+/-- A former that shows its telescope, against itself. -/
+theorem FormerDeclared.refl {env : Env} {m : EnvModel V env} {cv : ConstantVal} {nP : Nat}
+    {resSort : Level} {pps : (Name → Nat) → List Term} (hFD : FormerData m cv nP resSort pps)
+    (hf : cv.type.hasFvar = false) (hd : cv.type.allLevelParamsDefined cv.levelParams = true)
+    (hb : cv.type.looseBVarsBounded 0 = true) (hr : cv.type.constsResolve env = true) :
+    FormerDeclared m cv cv :=
+  ⟨rfl, rfl, hf, hd, hb, hr, fun ψ => ⟨_, _, hFD.read ψ, hFD.read ψ, fun ρ =>
+    ⟨rfl, hFD.okTy ψ ρ, IsTy_mkPisAV_sort _ _ _⟩⟩, hf, hd, hb, hr, .inr rfl⟩
+
+/-- A declared former's facts across a cons of a fresh constant. -/
+theorem FormerDeclared.cross {env : Env} {m : EnvModel V env} {cvS cvTa : ConstantVal}
+    (h : FormerDeclared m cvS cvTa) {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none) (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
+    {A : (Name → Nat) → Term} (hac : m₂.acval = acvalWith m.acval c₀.name A) :
+    FormerDeclared m₂ cvS cvTa := by
+  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, Expr.constsResolve_mono h.resolve,
+    fun ψ => ?_, h.readFvar, h.readDefined, h.readBounded, Expr.constsResolve_mono h.readResolve,
+    h.shows⟩
+  obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := h.read ψ
+  refine ⟨Ts, Tr, ?_, ?_, h₃⟩
+  · rw [hac]; exact denote_cons_mono hfresh ψ 0 (constsBound_of_constsResolve _ h.resolve) h₁
+  · rw [hac]; exact denote_cons_mono hfresh ψ 0 (constsBound_of_constsResolve _ h.readResolve) h₂
+
+/-- A family's capability laws read its former only through its level parameters. -/
+theorem CapsLawsAt.of_lps {env : Env} {m : EnvModel V env} {T : Name} {a b : ConstantVal}
+    {caps : IndCaps} (h : CapsLawsAt m T a caps) (hl : a.levelParams = b.levelParams) :
+    CapsLawsAt m T b caps := by
+  unfold CapsLawsAt EtaLaw UnitLaw at h ⊢
+  rwa [hl] at h
+
+/-- A declared former's facts across a pushed table. -/
+theorem FormerDeclared.pushTable {env : Env} {m : EnvModel V env} {cvS cvTa : ConstantVal}
+    (h : FormerDeclared m cvS cvTa) {t : ConLeche.ProjTable}
+    (hT : env.findTable? t.structName = none) (m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩)
+    (hac : m₂.acval = m.acval) : FormerDeclared m₂ cvS cvTa := by
+  have hres : ∀ {e : Expr}, e.constsResolve env = true →
+      e.constsResolve ⟨env.consts, t :: env.tables⟩ = true :=
+    Expr.constsResolve_of_find fun n hn => by rw [Env.find?_pushTable]; exact hn
+  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, hres h.resolve, fun ψ => ?_, h.readFvar,
+    h.readDefined, h.readBounded, hres h.readResolve, h.shows⟩
+  obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := h.read ψ
+  refine ⟨Ts, Tr, ?_, ?_, h₃⟩
+  · rw [hac]; exact denote_pushTable_mono hT ψ 0 (constsBound_of_constsResolve _ h.resolve) h₁
+  · rw [hac]; exact denote_pushTable_mono hT ψ 0 (constsBound_of_constsResolve _ h.readResolve) h₂
+
+/-- **A member's former as the environment holds it**, under the name of the telescope `cvTa`
+the check read. -/
+def FormerStored {env : Env} (m : EnvModel V env) (cvTa : ConstantVal) (caps : IndCaps) : Prop :=
+  ∃ cvS, env.find? cvTa.name = some (.indInfo cvS caps) ∧ FormerDeclared m cvS cvTa
+
+/-- A stored former across a cons of a fresh constant. -/
+theorem FormerStored.cross {env : Env} {m : EnvModel V env} {cvTa : ConstantVal} {caps : IndCaps}
+    (h : FormerStored m cvTa caps) {c₀ : ConstantInfo}
+    (hfresh : env.find? c₀.name = none) (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
+    {A : (Name → Nat) → Term} (hac : m₂.acval = acvalWith m.acval c₀.name A) :
+    FormerStored m₂ cvTa caps := by
+  obtain ⟨cvS, hf, hD⟩ := h
+  exact ⟨cvS, ConLeche.Env.find?_cons_of_fresh hfresh hf, hD.cross hfresh m₂ hac⟩
+
+/-- The former under its block's level parameters reads as the model's family. -/
+theorem FormerStored.denote_self {env : Env} {m : EnvModel V env} {cvTa : ConstantVal}
+    {caps : IndCaps} (h : FormerStored m cvTa caps) (ψ : Name → Nat) (d : Nat) :
+    denote m.acval env ψ d (.const cvTa.name (cvTa.levelParams.map .param))
+      = some (m.acval cvTa.name ψ) := by
+  obtain ⟨cvS, hf, hD⟩ := h
+  rw [denote_const hf (by simp [ConstantInfo.toConstantVal, hD.lps])]
+  simp only [ConstantInfo.toConstantVal, hD.lps, ConLeche.Level.substFn_param_self]
+
+end ConLeche.Model

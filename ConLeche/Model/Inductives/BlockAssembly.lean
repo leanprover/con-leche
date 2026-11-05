@@ -293,13 +293,13 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     obtain rfl : ms.cvT = cvTa := Option.some.inj hT'
     have hmem := List.mem_of_getElem? hms
     have hA := hAt ms hmem
-    rcases hA.how with ⟨-, he⟩ | ⟨-, -, h₁, hb, -⟩
-    · obtain ⟨-, -, -, -, -, -, -, htr, htf, hlpd, hbt, -⟩ := hsyn m ms.cvT hT
-      rw [← he]
+    obtain ⟨-, -, -, -, -, -, -, htr, htf, hlpd, hbt, -⟩ := hsyn m ms.cvT hT
+    rcases hA.how with ⟨hdh, he⟩ | ⟨hdh, -, h₁, hb, -⟩
+    · rw [← he]
       exact FormerDeclared.refl (hfd m ms.cvT hT) htf hlpd hbt htr
     · have h₂ := ConLeche.checkBlockInds_checked h ms hmem
       obtain ⟨g1, g2, g3, g4⟩ := ConLeche.checkConstantVal_typeWF h₁
-      refine ⟨hA.name.symm, hA.lps.symm, g1, g2, g4, g3, fun ψ => ?_⟩
+      refine ⟨hA.name.symm, hA.lps.symm, g1, g2, g4, g3, fun ψ => ?_, htf, hlpd, hbt, htr, .inl hdh⟩
       obtain ⟨Ts, Tr, a, b, hw₁, -, heq⟩ := storedFormer_sem mp h₁ h₂ hb ψ
       exact ⟨Ts, Tr, a, b, fun ρ => ⟨heq ρ, hw₁ ρ⟩⟩
   · intro m cvTa hm
@@ -601,7 +601,7 @@ theorem blockIdxFacts_of {F : Nat} {envI : Env}
       (q.members.zip cvTas) = .ok isorts)
     (hlenCv : cvTas.length = q.k)
     (hfind : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
-      envI.find? cvTa.name = some (.indInfo cvTa (ConLeche.blockCapsAt q j isRec)))
+      FormerStored mpI.base2 cvTa (ConLeche.blockCapsAt q j isRec))
     (hFD : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
       FormerData mpI.base2 cvTa (q.nP + q.nIdxs.getD j 0) q.resSort (ppsOf j))
     (hlps : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
@@ -632,7 +632,8 @@ theorem blockIdxFacts_of {F : Nat} {envI : Env}
     have hppsR : ppsOf j (restrictΨ q.lps ψ) = ppsOf j ψ :=
       (hFDj.params _ _ fun n hn =>
         restrictΨ_agree _ _ n (by rw [← hlps j cvTa hj]; exact hn)).1
-    have hok := idxOk_of mpI (hfind j cvTa hj) hop hsortsj hFDj
+    obtain ⟨cvS, -, hDj⟩ := hfind j cvTa hj
+    have hok := idxOk_of mpI hDj.readFvar hDj.readBounded hop hsortsj hFDj
       (restrictΨ q.lps ψ) ρp (by rw [hppsR]; exact hρp)
     rw [hppsR] at hok
     show IdxOk (idxUniv (restrictΨ q.lps ψ) (isorts.getD j [])) ρp _
@@ -673,11 +674,8 @@ theorem blockCtorFunsAt {F : Nat}
       cvTb.name = q.memberNames.getD j .anonymous)
     (hlpsOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       cvTb.levelParams = q.lps)
-    (hstripOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
-      ∃ bs : List Expr,
-        cvTb.type.stripPis (q.nP + q.nIdxs.getD j 0) = some (bs, .sort (sOf j)))
     (hfindOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
-      envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt q j isRec)))
+      FormerStored mpI.base2 cvTb (ConLeche.blockCapsAt q j isRec))
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
         ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
@@ -688,12 +686,12 @@ theorem blockCtorFunsAt {F : Nat}
           q.lps cA.1 q.nP cA.2 (q.nIdxs.getD m 0) q.resSort q.isProp q.large
           (pk.idxF j) (pk.dsF j) (pk.esF j) (pk.srcsF j)
           (pk.fvsPF j) (pk.xFvsF j) (pk.xrestF j) := by
-  obtain ⟨bs, hst⟩ := hstripOf m cvTa hm
+  obtain ⟨cvS, hfS, hDS⟩ := hfindOf m cvTa hm
   obtain ⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, hall⟩ :=
     blockCtorFuns_of (V := V) mpI (T := cvTa.name) (lps := q.lps) (nP := q.nP)
       (nIdx := q.nIdxs.getD m 0) (resSort := q.resSort) (isProp := q.isProp) (large := q.large)
-      (cvTa := cvTa) (env₁ := envI) (sT := sOf m)
-      (hfindOf m cvTa hm) (hlpsOf m cvTa hm) hst hrunOf
+      (cvTa := cvTa) (env₁ := envI)
+      hfS (hDS.lps.trans (hlpsOf m cvTa hm)) hrunOf
   refine ⟨⟨idxF, dsF, esF, srcsF, fvsPF, xFvsF, xrestF, fun _ _ => [], fun _ => .bvar 0⟩, fun j cA hj => ?_⟩
   rw [← hnameOf m cvTa hm]
   exact hall j cA hj

@@ -111,7 +111,7 @@ not an arbitrary term's. -/
     (lps : List Name) (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
     (A : Nat → (Name → Nat) → Term) : Prop :=
   (∀ (c : Nat) (cvTb : ConstantVal), cvTasAll[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored m' cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       cvTb.type.constsResolve env = true ∧
       (∀ ψ, m'.acval cvTb.name ψ = A c ψ) ∧
       FormerData m' cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
@@ -162,7 +162,8 @@ theorem BlockTablesCore.pushTable {env : Env} {m' : EnvModel V env} {d : BlockDa
   obtain ⟨hform, hctor⟩ := h
   refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_⟩
   · obtain ⟨hfind, hres, hleaf, hFD⟩ := hform c cvTb hc
-    refine ⟨hfind, Expr.constsResolve_of_find (env := env)
+    obtain ⟨cvS, hfS, hD⟩ := hfind
+    refine ⟨⟨cvS, hfS, hD.pushTable hT mC hac⟩, Expr.constsResolve_of_find (env := env)
       (env' := ⟨env.consts, tbl :: env.tables⟩) (fun _ h => h) hres,
       fun ψ => by rw [hac]; exact hleaf ψ,
       hFD.pushTable hT (constsBound_of_constsResolve _ hres) mC hac⟩
@@ -253,7 +254,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hik)⟩
     have hTn : ms.cvT.name = cvTb.name := by rw [hname, hnameOf i cvTb hcvTb]
     have hTn' : d.memberName i = cvTb.name := hnameOf i cvTb hcvTb
-    obtain ⟨hfT, hresTy, hleafT, hFD⟩ := hcore.1 i cvTb hcvTb
+    obtain ⟨⟨cvS, hfT, hD⟩, hresTy, hleafT, hFD⟩ := hcore.1 i cvTb hcvTb
     obtain ⟨hfC, hlpsC, -, hCDread, hleafC⟩ := hcore.2 i 0 cA hcA0
     have hlenP : ∀ ψ : Name → Nat, (d.ppsM i ψ).length = d.nP := by
       intro ψ; have := hFD.len ψ; rwa [hnIdx0, Nat.add_zero] at this
@@ -282,10 +283,13 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       stageFixTable (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
         (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) (d.ppsM i ψ) i)
-        mp hT hfT
+        mp hT hfT hD
         (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag
-        (fun hp s hs => hS.propZ hp i cvTb hcvTb s hs)
+        (fun hp s hs => by
+          rcases hD.shows with hdh | rfl
+          · simp [ConLeche.formerDefHeaded, hs] at hdh
+          · exact hS.propZ hp i _ hcvTb s hs)
         (by have := hS.capsTele i hik; rwa [hnIdx0, Nat.add_zero] at this)
         (by rw [← hTn']; exact hS.resT i hik)
         (by rw [← hTn']; exact hS.resR i hik)

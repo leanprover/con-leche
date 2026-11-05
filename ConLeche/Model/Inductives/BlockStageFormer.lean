@@ -1,6 +1,7 @@
 module
 
 import ConLeche.Model.OpenedCtx
+public import ConLeche.Model.Inductives.FormerStored
 public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.Inductives.BlockInv
@@ -222,40 +223,6 @@ end Agree
 
 /-! ## The k formers' conses -/
 
-/-- **A member's declared former against the telescope its check read**: the two name one
-family, the declared type is closed and resolves, and the two read as one value. -/
-structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVal) : Prop where
-  name : cvS.name = cvTa.name
-  lps : cvS.levelParams = cvTa.levelParams
-  fvar : cvS.type.hasFvar = false
-  defined : cvS.type.allLevelParamsDefined cvS.levelParams = true
-  bounded : cvS.type.looseBVarsBounded 0 = true
-  resolve : cvS.type.constsResolve env = true
-  read : ∀ ψ : Name → Nat, ∃ Ts Tr : Term, denote m.acval env ψ 0 cvS.type = some Ts ∧
-    denote m.acval env ψ 0 cvTa.type = some Tr ∧
-    ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr ∧ WellDenotedTy V ρ Ts
-
-/-- A former that shows its telescope, against itself. -/
-theorem FormerDeclared.refl {env : Env} {m : EnvModel V env} {cv : ConstantVal} {nP : Nat}
-    {resSort : Level} {pps : (Name → Nat) → List Term} (hFD : FormerData m cv nP resSort pps)
-    (hf : cv.type.hasFvar = false) (hd : cv.type.allLevelParamsDefined cv.levelParams = true)
-    (hb : cv.type.looseBVarsBounded 0 = true) (hr : cv.type.constsResolve env = true) :
-    FormerDeclared m cv cv :=
-  ⟨rfl, rfl, hf, hd, hb, hr, fun ψ => ⟨_, _, hFD.read ψ, hFD.read ψ, fun ρ =>
-    ⟨rfl, hFD.okTy ψ ρ, IsTy_mkPisAV_sort _ _ _⟩⟩⟩
-
-/-- A declared former's facts across a cons of a fresh constant. -/
-theorem FormerDeclared.cross {env : Env} {m : EnvModel V env} {cvS cvTa : ConstantVal}
-    (h : FormerDeclared m cvS cvTa) (hbR : ConstsBound env cvTa.type) {c₀ : ConstantInfo}
-    (hfresh : env.find? c₀.name = none) (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
-    {A : (Name → Nat) → Term} (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    FormerDeclared m₂ cvS cvTa := by
-  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, Expr.constsResolve_mono h.resolve, fun ψ => ?_⟩
-  obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := h.read ψ
-  refine ⟨Ts, Tr, ?_, ?_, h₃⟩
-  · rw [hac]; exact denote_cons_mono hfresh ψ 0 (constsBound_of_constsResolve _ h.resolve) h₁
-  · rw [hac]; exact denote_cons_mono hfresh ψ 0 hbR h₂
-
 /-- **The P step at one block member's former cons**: the leaf's five
 currency facts and the capability laws, at the environment holding the
 EARLIER members' formers: the former's `checkConstantVal` run is
@@ -466,7 +433,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
         hfresh (constsBound_of_constsResolve _ (hres j cvTb hj)) mpI.base2 hacI
     have hDS' : ∀ (j : Nat) (cvS' cvTb : ConstantVal), declAll[j]? = some cvS' →
         cvTasAll[j]? = some cvTb → FormerDeclared mpI.base2 cvS' cvTb := fun j cvS' cvTb hjS hj =>
-      (hDS j cvS' cvTb hjS hj).cross (constsBound_of_constsResolve _ (hres j cvTb hj))
+      (hDS j cvS' cvTb hjS hj).cross
         (c₀ := .indInfo cvS (ConLeche.blockCapsAt p₁ i isRec)) hfresh mpI.base2 hacI
     have hcons' : ∀ (j : Nat) (cvS' cvTb : ConstantVal), j < i + 1 → declAll[j]? = some cvS' →
         cvTasAll[j]? = some cvTb →

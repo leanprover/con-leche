@@ -260,7 +260,7 @@ theorem blockHoleCtx_sat {env : Env} (mp : EnvModelM V env)
     {d : BlockData V} {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas)
     (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored mp.base2 cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     (hparsT : ∀ t, t < d.k → ∀ (ψ : Name → Nat) (ρ : Nat → V), Sat V (d.params ψ).reverse ρ →
       Sat V (((d.ppsM t ψ).take d.nP)).reverse ρ) (ψ : Name → Nat) :
@@ -334,7 +334,7 @@ variable {env : Env} (mp : EnvModelM V env) {F : Nat}
   {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
   {isRec : Bool} (hN : BlockNamesOk (V := V) d cvTas)
   (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-    env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+    FormerStored mp.base2 cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
     FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
   {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
   {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}

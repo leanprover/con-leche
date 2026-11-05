@@ -37,12 +37,11 @@ structure BlockCtorPick where
 every constructor's data, from its stage run. -/
 theorem blockCtorFuns_of (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name}
-    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal}
-    {env₁ : Env} {caps : IndCaps} {bs : List Expr}
-    {ctorsA : List (ConstantVal × Nat)} {sT : Level}
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT))
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvS cvTa : ConstantVal}
+    {env₁ : Env} {caps : IndCaps}
+    {ctorsA : List (ConstantVal × Nat)}
+    (hfT : env.find? T = some (.indInfo cvS caps))
+    (hlpsT : cvS.levelParams = lps)
     (hrunOf : ∀ (j : Nat) (cA : ConstantVal × Nat), ctorsA[j]? = some cA →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
         ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx
@@ -62,7 +61,7 @@ theorem blockCtorFuns_of (mp : EnvModelM V env)
     | some cA =>
       obtain ⟨c, sorts, hCtor⟩ := hrunOf j cA hj
       obtain ⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest, hD⟩ :=
-        blockCtorData_of mp hCtor hfT hlpsT hstripT
+        blockCtorData_of mp hCtor hfT hlpsT
       refine ⟨⟨idxArgs, ds, Es, srcs, fvsP, xFvs, xrest⟩, fun cA' h => ?_⟩
       obtain rfl := Option.some.inj h
       exact hD

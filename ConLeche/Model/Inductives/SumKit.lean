@@ -398,14 +398,12 @@ theorem CtorDataI.cross {m : EnvModel V env} {T : Name} {lps : List Name} {cvC :
 holding the former. -/
 theorem sumCtorData_of (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
-    {bs : List Expr}
-    {sorts : List Level} {sT : Level}
+    {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {sorts : List Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT)) :
+    (hfT : env.find? T = some (.indInfo cvS caps))
+    (hlpsT : cvS.levelParams = lps) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List Term)
       (Es : (Name → Nat) → List Term) (srcs : List (Option Nat)),
       (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
@@ -429,20 +427,6 @@ theorem sumCtorData_of (mp : EnvModelM V env)
   have hopAll := openPisAtFvars_add nP hopC (by rw [Nat.zero_add]; exact hopX)
   have hidx := openPisAtFvars_index nP cvCa.type 0 hopC
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
-  obtain ⟨F', tb, vb, hib, hensb, -⟩ :=
-    piBits_of_infer (nP + nF) hopAll hst hens
-  rw [Nat.zero_add] at hib hensb
-  obtain ⟨tf, htf⟩ := inferTypeCore_mkAppN_fn_inv (fvsP ++ idxArgs) hib
-  obtain ⟨ci, hfci, -, rfl⟩ := ConLeche.inferTypeCore_const_inv htf
-  obtain rfl : ci = .indInfo cvTa caps := Option.some.inj (hfci.symm.trans hfT)
-  have htfT : ConLeche.inferTypeCore .verified false env F' (nP + nF)
-      (.const T (lps.map .param)) = .ok cvTa.type := by
-    have := htf
-    rw [show (ConstantInfo.indInfo cvTa caps).toConstantVal = cvTa from rfl,
-      hlpsT, Expr.instantiateLevelParams_self] at this
-    exact this
-  obtain rfl := inferTypeCore_mkAppN_sort (fvsP ++ idxArgs) htfT
-    (by rw [List.length_append, hlenP, hlenI]; exact hstripT) hib
   -- the per-assignment reading
   have hper : ∀ ψ : Name → Nat, ∃ (ds : List Term) (Es : List Term),
       denote mp.base2.acval env ψ 0 cvCa.type
@@ -467,12 +451,12 @@ theorem sumCtorData_of (mp : EnvModelM V env)
       have hconst := denote_const (acval := mp.base2.acval) (env := env) (φ := ψ)
         (d := nP + nF) hfT
         (show (lps.map Level.param).length
-          = (ConstantInfo.indInfo cvTa caps).toConstantVal.levelParams.length by
-          show (lps.map Level.param).length = cvTa.levelParams.length
+          = (ConstantInfo.indInfo cvS caps).toConstantVal.levelParams.length by
+          show (lps.map Level.param).length = cvS.levelParams.length
           rw [hlpsT, List.length_map])
-      have hsubst : Level.substFn ψ (ConstantInfo.indInfo cvTa caps).toConstantVal.levelParams
+      have hsubst : Level.substFn ψ (ConstantInfo.indInfo cvS caps).toConstantVal.levelParams
           (lps.map Level.param) = ψ := by
-        show Level.substFn ψ cvTa.levelParams (lps.map Level.param) = ψ
+        show Level.substFn ψ cvS.levelParams (lps.map Level.param) = ψ
         rw [hlpsT]
         exact Level.substFn_param_self ψ _
       rw [hconst, hsubst] at hfa
@@ -625,11 +609,11 @@ expressions graded and fitting the former's index telescope at every
 fitting field spine. -/
 theorem ctorFramesGen (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
+    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env}
     {sorts : List Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hTf : cvTa.type.hasFvar = false) (hTb : cvTa.type.looseBVarsBounded 0 = true)
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {ppsAll : (Name → Nat) → List Term}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
@@ -669,8 +653,6 @@ theorem ctorFramesGen (mp : EnvModelM V env)
   have hbt' := hlbt
   have hlenP : fvsP.length = nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add nP hopC (by rw [Nat.zero_add]; exact hopX)
-  obtain ⟨hTf, -, -, hTb, -⟩ := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfT)
-  simp only [ConstantInfo.toConstantVal] at hTf hTb
   obtain ⟨hlenS, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
   have hpins := ConLeche.checkStructDomsAt_inv hdoms
   have hlenX : xFvs.length = nF := openPisAtFvars_length _ hopX
@@ -1038,7 +1020,7 @@ theorem ctorWalksGen {m : EnvModel V env} {T : Name} {lps : List Name} {cvT cvC 
 /-- **The P step at a sum-shaped constructor's cons**, for a given fibre fold. -/
 theorem stageCtorGen {T : Name}
     {F : Nat} {lps : List Name} {nP nF nIdx j : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
+    {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₀ env₁ : Env} {caps : IndCaps}
     -- **the other stored families' η constructors are not this one**
     -- (`capsOk_cons_native`'s `hother`): at ONE family it is closure
     -- (`etaCtor_ne_of_closed`); at a BLOCK a still-pending member's η
@@ -1057,7 +1039,7 @@ theorem stageCtorGen {T : Name}
     -- resolves there
     (hfresh : env.find? cvCa.name = none)
     (htr : cvCa.type.constsResolve env = true)
-    (hfT : env.find? T = some (.indInfo cvTa caps))
+    (hfT : env.find? T = some (.indInfo cvS caps))
     (hlpsT : cvTa.levelParams = lps)
     (hlpsC : cvCa.levelParams = lps)
     {idxArgs : List Expr}
@@ -1071,7 +1053,7 @@ theorem stageCtorGen {T : Name}
       (∀ n, n ≠ cvCa.name → m₂.acval n = mp.base2.acval n) →
       (∀ ψ, m₂.acval cvCa.name ψ
         = sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP)) (uChains (Fss ψ))) →
-      CapsLawsAt m₂ T cvTa caps)
+      CapsLawsAt m₂ T cvS caps)
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (hCD : CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs)
     (hfold : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -1169,7 +1151,7 @@ theorem stageCtorGen {T : Name}
       exact hE T' cvT' caps' hf hne hres hcape hfam
     · intro cvT caps' hf _
       have hfT' : (⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ : Env).find? T
-          = some (.indInfo cvTa caps) := by
+          = some (.indInfo cvS caps) := by
         rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hTC h.symm)]
         exact hfT
       obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj (hfT'.symm.trans hf))

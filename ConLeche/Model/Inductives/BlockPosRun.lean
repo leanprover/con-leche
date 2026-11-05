@@ -87,7 +87,7 @@ carrier). -/
 @[expose] def BlockHoleCtxFacts {env : Env} (m : EnvModel V env) (d : BlockData V)
     (lps : List Name) (cvTas : List ConstantVal) (p₁ : BlockShape) (isRec : Bool) : Prop :=
   (∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored m cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
   (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       BlockCtorRead m d lps c j cA ∧ BlockAbsRead m d lps c j cA) ∧
@@ -144,7 +144,7 @@ theorem nestArityOk_of_formers {env : Env} {m : EnvModel V env} {d : BlockData V
     {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas)
     (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored m cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     {p : BlockParts} (hnames : p.memberNames = d.memberNames)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
@@ -308,7 +308,7 @@ theorem blockHoleCtx_canon {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas)
     (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored m cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     (hparsT : ∀ t, t < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
       Sat V (((d.ppsM t ψ).take d.nP)).reverse ρ)
@@ -560,7 +560,7 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas)
     (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      env.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p₁ c isRec)) ∧
+      FormerStored m cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     (hparsT : ∀ t, t < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
       Sat V (((d.ppsM t ψ).take d.nP)).reverse ρ)

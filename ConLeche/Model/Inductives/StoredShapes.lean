@@ -19,7 +19,7 @@ import ConLeche.Model.Env.LfpFormer
 import ConLeche.Model.IndPointKit
 import ConLeche.Verify.Denote.ErasedEq
 public import ConLeche.Verify.Denote.Inst
-import ConLeche.Verify.Inductives.NestScope
+public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.DirectGen
 import ConLeche.Verify.Denote.TeleOpen
 import ConLeche.Verify.Inductives.NfMemberFree
@@ -540,14 +540,13 @@ put back by one parallel substitution, at every parameter frame) and the
 link (at frames satisfying the walk's context, `hsatH`). -/
 theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : EnvModel V env)
     (ψ : Name → Nat) {F : Nat} {ctx : NestCtx} {holes : List Expr}
-    (hfind : ctx.find? = env.find?) (hholes : nestHoles ctx = some holes)
+    (hctxOk : ConLeche.NestCtxOk ctx) (hholes : nestHoles ctx = some holes)
     (hnd : ctx.names.Nodup) (hplen : ctx.params.length = ctx.nP)
     (hpar : ∀ (p : Nat) (x : Expr), ctx.params[p]? = some x → ∃ ty, x = .fvar p ty)
     (hparW : ∀ x ∈ ctx.params, Expr.WScoped ctx.nP x) {w : Nat}
-    (hformers : ∀ t, t < ctx.names.length → ∃ cv caps bs s,
+    (hformers : ∀ t, t < ctx.names.length → ∃ cv caps,
       env.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) ∧
-      cv.levelParams = ctx.lps ∧
-      cv.type.stripPis (ctx.nP + ctx.nIdxs.getD t 0) = some (bs, .sort s) ∧ s.eval ψ = w)
+      cv.levelParams = ctx.lps)
     {c nF : Nat} (hc : c < ctx.names.length) {cvC : ConstantVal} {fvsP xFvs : List Expr}
     {xrest : Expr} {idxArgs : List Expr} {ds : (Name → Nat) → List Term}
     {Es : (Name → Nat) → List Term}
@@ -582,17 +581,12 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
         (((ds ψ).drop ctx.nP)) := by
   classical
   -- ## the context
-  have henv : ConLeche.EnvWF env := m.wf
-  have hcl : ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false := by
-    intro n ci hf
-    rw [hfind] at hf
-    exact (henv.consts ci (List.mem_of_find?_eq_some hf)).1
   have hhi : ctx.hiAt 0 = ctx.nP + ctx.names.length := by simp [ConLeche.NestCtx.hiAt]
   have hlenH : holes.length = ctx.names.length := ConLeche.nestHoles_length hholes
   have hparW' : ∀ x ∈ ctx.params, Expr.WScoped (ctx.hiAt 0) x :=
     fun x hx => Expr.WScoped.mono (by rw [hhi]; omega) (hparW x hx)
   have hholesOk : ∀ x ∈ holes, Expr.WScoped (ctx.hiAt 0) x ∧ ∃ i ty, x = .fvar i ty :=
-    ConLeche.nestHoles_ok (fun n ci hf => hcl n ci hf) hparW hholes
+    ConLeche.nestHoles_ok hctxOk hparW hholes
   have hW : Expr.WScoped (ctx.hiAt 0) crest :=
     ConLeche.WScoped_nestCrest hD.hasFvar (by omega)
       (fun x hx => (List.mem_append.mp hx).elim (hparW' x) (fun h => (hholesOk x h).1)) hcrest
@@ -702,7 +696,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       (.const (ctx.names.getD t .anonymous) (ctx.lps.map .param))
         = some (m.acval (ctx.names.getD t .anonymous) ψ) := by
     intro t ht d
-    obtain ⟨cv, caps, bs, s', hf, hlps, -, -⟩ := hformers t ht
+    obtain ⟨cv, caps, hf, hlps⟩ := hformers t ht
     rw [denote_const hf (by simp [ConstantInfo.toConstantVal, hlps])]
     simp only [ConstantInfo.toConstantVal, hlps, ConLeche.Level.substFn_param_self]
   have hs : ∀ i, i < ctx.nP + ctx.names.length → Expr.WScoped ctx.nP (s i) ∧

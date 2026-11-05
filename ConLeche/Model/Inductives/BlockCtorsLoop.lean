@@ -57,7 +57,7 @@ def memberShapeI (T : Name) (lps : List Name) (nP nIdx : Nat) (resSort : Level)
 theorem blockCtorsLoop
     {F : Nat} {T : Name} {lps : List Name} {nP nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {env₀ envI : Env} {cvTa : ConstantVal}
-    {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)} {cvS : ConstantVal}
     {names : List Name} {ctorsOf : Name → List Name}
     (hout : ∀ cA ∈ ctorsA, ∀ T'' ∈ names, T'' ≠ T → cA.1.name ∉ ctorsOf T'')
     (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) env₀ envI T
@@ -100,7 +100,7 @@ theorem blockCtorsLoop
       (∀ ψ, m'.acval cA.1.name ψ
         = sumMkAV (resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop nP))
             (uChains (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)))) →
-      CapsLawsAt m' T cvTa caps)
+      CapsLawsAt m' T cvS caps)
     (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop nP)) bs →
@@ -113,7 +113,8 @@ theorem blockCtorsLoop
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
       ConLeche.BlockEtaInv env names ctorsOf →
-      env.find? T = some (.indInfo cvTa caps) →
+      env.find? T = some (.indInfo cvS caps) →
+      cvTa.type.constsResolve env = true →
       FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll →
       (∀ ψ, mp.base2.acval T ψ = leafT ψ) →
       ConsedAt mp.base2 T lps nP nIdx resSort isProp large
@@ -124,7 +125,7 @@ theorem blockCtorsLoop
       ∃ mp' : EnvModelM V (ConLeche.consSumCtors nP rest env),
         ConLeche.BlockEtaInv (ConLeche.consSumCtors nP rest env) names ctorsOf ∧
         (ConLeche.consSumCtors nP rest env).find? T
-          = some (.indInfo cvTa caps) ∧
+          = some (.indInfo cvS caps) ∧
         FormerData mp'.base2 cvTa (nP + nIdx) resSort ppsAll ∧
         (∀ ψ, mp'.base2.acval T ψ = leafT ψ) ∧
         ConsedAt mp'.base2 T lps nP nIdx resSort isProp large

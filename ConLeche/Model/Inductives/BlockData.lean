@@ -169,20 +169,19 @@ environment holding ALL the block's formers. -/
 theorem blockCtorData_of (mp : EnvModelM V env)
     {F : Nat} {T : Name}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
-    {bs : List Expr} {sorts : List Level} {sT : Level}
+    {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
+    {sorts : List Level}
     (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx resSort
       isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT)) :
+    (hfT : env.find? T = some (.indInfo cvS caps))
+    (hlpsT : cvS.levelParams = lps) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List Term)
       (Es : (Name → Nat) → List Term) (srcs : List (Option Nat))
       (fvsP xFvs : List Expr) (xrest : Expr),
       BlockCtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large
         idxArgs ds Es srcs fvsP xFvs xrest := by
   obtain ⟨idxArgs, ds, Es, srcs, -, ⟨fvsP, crest, xFvs, xrest, hopP, hopX, hidxEq⟩, hCD⟩ :=
-    sumCtorData_of mp hCtor hfT hlpsT hstripT
+    sumCtorData_of mp hCtor hfT hlpsT
   obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
   obtain ⟨hlenP, hidxP, -⟩ := opening_vars_at hopP
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
