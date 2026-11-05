@@ -230,7 +230,7 @@ structure MemberAt (F : Nat) (env : Env) (nP : Nat) (m : MemberShape) : Prop whe
   name : m.cvT.name = m.declared.name
   lps : m.cvT.levelParams = m.declared.levelParams
   how : (formerDefHeaded m.declared = false ∧ m.cvT = m.declared) ∨
-    (formerDefHeaded m.declared = true ∧ litGuardFamilies.contains m.declared.name = false ∧
+    (formerDefHeaded m.declared = true ∧ declinedAtDefinition.contains m.declared.name = false ∧
       checkConstantVal (fueledOps .verified F) env m.declared = .ok () ∧
       (fueledOps .verified F).isDefEq env 0 m.declared.type m.cvT.type = .ok true ∧
       reducedFormer (fueledOps .verified F) env m.declared (nP + m.nIdx) = .ok m.cvT)
@@ -243,7 +243,7 @@ theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
   unfold reduceMember at h
   by_cases hd : formerDefHeaded m₀.cvT = true
   · rw [ite_eq_left hd] at h
-    by_cases hg : litGuardFamilies.contains m₀.cvT.name = true
+    by_cases hg : declinedAtDefinition.contains m₀.cvT.name = true
     · rw [ite_eq_left hg] at h
       exact nomatch h
     rw [ite_eq_right hg] at h
@@ -262,7 +262,7 @@ theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
         rw [hd₀, hrf]
       · show cvR.levelParams = m₀.declared.levelParams
         rw [hd₀, hrf]
-      · show formerDefHeaded m₀.declared = true ∧ litGuardFamilies.contains m₀.declared.name = false ∧
+      · show formerDefHeaded m₀.declared = true ∧ declinedAtDefinition.contains m₀.declared.name = false ∧
           checkConstantVal (fueledOps .verified F) env m₀.declared = .ok () ∧
           (fueledOps .verified F).isDefEq env 0 m₀.declared.type cvR.type = .ok true ∧
           reducedFormer (fueledOps .verified F) env m₀.declared (nP + m₀.nIdx) = .ok cvR

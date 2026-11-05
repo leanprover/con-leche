@@ -44,7 +44,7 @@ structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVa
   readResolve : cvTa.type.constsResolve env = true
   /-- a declared type that shows its telescope is what the check read; one that does not is at
   no literal's family -/
-  shows : (ConLeche.formerDefHeaded cvS = true ∧ ConLeche.litGuardFamilies.contains cvS.name = false)
+  shows : (ConLeche.formerDefHeaded cvS = true ∧ ConLeche.declinedAtDefinition.contains cvS.name = false)
     ∨ cvS = cvTa
 
 /-- A former that shows its telescope, against itself. -/

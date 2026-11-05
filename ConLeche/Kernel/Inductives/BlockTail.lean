@@ -128,18 +128,20 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
 
 /-! ## The block's check -/
 
-/-- The families the literal guards read by name, whose stored type they compare. -/
-def litGuardFamilies : List Name :=
-  [natName, natZeroName, natSuccName, stringName, stringOfListName, listName, listNilName,
-   listConsName, charName, charOfNatName, boolName, boolTrueName, boolFalseName] ++
-    reservedBasisNames
+/-- **The families declined at a definition.**  The names a literal's constructor form applies: a
+former declared at one of them at a type that is not a telescope could pass `litShapeOk`
+(`String.ofList : List Char → String`, `String` a definition reducing to a sort), and a literal's
+constructor form would then apply a family.  And `Bool`: the frontend puts a stream's `Bool` at the
+front of the fold, ahead of the definition it would be declared at. -/
+def declinedAtDefinition : List Name :=
+  [stringOfListName, listNilName, listConsName, charOfNatName, boolName]
 
 /-- **A member's former at its telescope**, official's `whnf` loop where the declared type does
 not show it: the declared type checked, reduced, and the two compared. -/
 def reduceMember (ops : CheckerOps m) (env : Env) (ms : MemberShape) (nP : Nat) : m MemberShape :=
   if formerDefHeaded ms.cvT then do
-    if litGuardFamilies.contains ms.cvT.name then
-      throw (.notImplemented s!"a literal's family stored at a definition ({ms.cvT.name})")
+    if declinedAtDefinition.contains ms.cvT.name then
+      throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
       checkConstantVal ops env ms.cvT
       let cvR ← reducedFormer ops env ms.cvT (nP + ms.nIdx)

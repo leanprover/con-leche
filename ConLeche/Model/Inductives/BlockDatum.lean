@@ -826,7 +826,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
           have := (List.getElem?_eq_some_iff.mp ht).1; rwa [hF.lenCv] at this
         rw [← hh, hF.nameOf t cvTb ht]; exact hmemName t htk⟩
   have hfindMI : ∀ cvTb ∈ cvTas, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
-      (ConLeche.litGuardFamilies.contains cvTb.name = true →
+      (ConLeche.declinedAtDefinition.contains cvTb.name = true →
         ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)) := fun cvTb hcvTb => by
     obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
     obtain ⟨bs, hbs⟩ := hF.stripOf t cvTb ht

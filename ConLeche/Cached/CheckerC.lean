@@ -171,8 +171,8 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM U
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
   if formerDefHeaded ms.cvT then do
-    if litGuardFamilies.contains ms.cvT.name then
-      throw (.notImplemented s!"a literal's family stored at a definition ({ms.cvT.name})")
+    if declinedAtDefinition.contains ms.cvT.name then
+      throw (.notImplemented s!"this family stored at a definition ({ms.cvT.name})")
     else do
       checkConstantValF (sharedOpsC mode fe) fe ms.cvT
       let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)

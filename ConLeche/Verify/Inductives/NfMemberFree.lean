@@ -1273,7 +1273,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {cvTas : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
     (hfindM : ∀ cvTb ∈ cvTas, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
-      (litGuardFamilies.contains cvTb.name = true → ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
+      (declinedAtDefinition.contains cvTb.name = true → ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
     (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
     (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
@@ -1282,7 +1282,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     WhnfNamesFree envI names := by
   -- a member: an `indInfo` of `envI`, fresh in `env`, whose type ends in a sort at a guarded name
   have hmem : ∀ n ∈ names, ∃ cvS caps, envI.find? n = some (.indInfo cvS caps) ∧
-      (litGuardFamilies.contains n = true → ∃ s, cvS.type.piResult = .sort s) ∧
+      (declinedAtDefinition.contains n = true → ∃ s, cvS.type.piResult = .sort s) ∧
       env.find? n = none := by
     intro n hn
     obtain ⟨cvTb, hcv, rfl⟩ := (hnames n).mp hn
@@ -1300,7 +1300,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hmemE n hn] at hs
     exact nomatch hs
   -- a constant of `envI` at a guarded name whose type ends in no sort is no member
-  have hnotSort : ∀ n ci, litGuardFamilies.contains n = true → envI.find? n = some ci →
+  have hnotSort : ∀ n ci, declinedAtDefinition.contains n = true → envI.find? n = some ci →
       (∀ s, ci.toConstantVal.type.piResult ≠ .sort s) → n ∉ names := by
     intro n ci hg hf hs hn
     obtain ⟨cvTb, caps, hf', hsort, -⟩ := hmem n hn
@@ -1368,7 +1368,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hfO] at hO
     obtain ⟨l1, us1, htyO⟩ := stringOfListTyOk_inv hO
     have hO' : stringOfListName ∉ names :=
-      hnotSort _ _ (by simp [litGuardFamilies]) hfO (fun s => by rw [htyO]; simp [Expr.piResult])
+      hnotSort _ _ (by simp [declinedAtDefinition]) hfO (fun s => by rw [htyO]; simp [Expr.piResult])
     obtain ⟨ciC, hfC⟩ : ∃ ci, envI.find? charOfNatName = some ci := by
       cases h : envI.find? charOfNatName with
       | none => rw [h] at hCO; exact nomatch hCO
@@ -1376,15 +1376,15 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hfC] at hCO
     have htyC := charOfNatTyOk_inv hCO
     have hCO' : charOfNatName ∉ names :=
-      hnotSort _ _ (by simp [litGuardFamilies]) hfC (fun s => by rw [htyC]; simp [Expr.piResult])
+      hnotSort _ _ (by simp [declinedAtDefinition]) hfC (fun s => by rw [htyC]; simp [Expr.piResult])
     have hNil' : listNilName ∉ names := by
       cases h : envI.find? listNilName with
       | none => rw [h] at hNil; exact nomatch hNil
-      | some ci => rw [h] at hNil; exact hnotSort _ _ (by simp [litGuardFamilies]) h (listNilTyOk_piResult hNil)
+      | some ci => rw [h] at hNil; exact hnotSort _ _ (by simp [declinedAtDefinition]) h (listNilTyOk_piResult hNil)
     have hCons' : listConsName ∉ names := by
       cases h : envI.find? listConsName with
       | none => rw [h] at hCons; exact nomatch hCons
-      | some ci => rw [h] at hCons; exact hnotSort _ _ (by simp [litGuardFamilies]) h (listConsTyOk_piResult hCons)
+      | some ci => rw [h] at hCons; exact hnotSort _ _ (by simp [declinedAtDefinition]) h (listConsTyOk_piResult hCons)
     -- `String.ofList : List Char → String` is older than the block, and
     -- so are the `String` and `Char` it mentions
     rw [hnon _ hO'] at hfO

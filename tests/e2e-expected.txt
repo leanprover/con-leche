@@ -3168,8 +3168,8 @@
 # two definitions, with ι; official 0 (run).  ind_defhead_prop_field: a `Prop` family with a
 # data field stays accepted; official 0 (run).  ind_defhead_prop_field_proj_bad: projecting
 # that field; official 1 (run).  ind_defhead_sort_u: a projection at `Sort u`; official 0
-# (run).  ind_defhead_lit_family: a family literal arithmetic or the basis reads by name,
-# stored at a definition, declined; official 0 (run), target 0.
+# (run).  ind_defhead_lit_family: `Bool` stored at a definition, declined: the frontend puts a stream's
+# `Bool` ahead of the definition it is declared at; official 0 (run).
 0 ind_defhead_chain.ndjson
 0 ind_defhead_prop_field.ndjson
 1 ind_defhead_prop_field_proj_bad.ndjson
@@ -3234,7 +3234,12 @@
 # Target 0 by the rule "no reject beyond official"; a reject beyond official today.
 # ind_defhead_param_bad (`scripts/mk_defhead_param_fixture.py`, base ind_defhead_param_base): member
 # 0 stored at a definition holding its parameters.  Official 1 (run, the source's `mk_official`,
-# `get_params`, "incorrect number of parameters"); here 0.  Target 1; an accept beyond official today.
+# `get_params`, "incorrect number of parameters"); here 0, a deliberate accept beyond official.
 1 ind_nest_key_own_ctor.ndjson
 0 ind_defhead_param_base.ndjson
 0 ind_defhead_param_bad.ndjson
+# -- task #480: the shape a literal's meaning reads, checked at the declaration.  ind_lit_shape_char: a
+# `Char` of another shape; official 0 (run), here 2, a deliberate refusal.  ind_defhead_lit_char: a
+# `Char` at a definition, whose declared type is not that shape; official 0 (run), here 2.
+2 ind_lit_shape_char.ndjson
+2 ind_defhead_lit_char.ndjson

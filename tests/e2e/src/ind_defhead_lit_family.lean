@@ -1,9 +1,10 @@
 --#export Bool
 
-/- Task #480: a family that literal arithmetic or the basis reads by name, stored at
-   a definition: declined, since those readers compare the former's stored type.
-   TODO official: 0 (Lean elaborated and its kernel checked this); target 0.
-   con-leche: 2. -/
+/- `Bool` stored at a definition: declined.  The frontend puts a stream's `Bool` at the front of the
+   fold, ahead of the definition it is declared at, so past the decline it would be an unknown
+   constant, a reject official does not make.  Accepting it asks the frontend to hoist what the
+   record depends on.
+   official: 0 (run).  con-leche: 2. -/
 
 prelude
 
