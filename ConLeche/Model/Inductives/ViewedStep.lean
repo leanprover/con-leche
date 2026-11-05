@@ -126,7 +126,7 @@ laws the block proved at it stand: its fibres, its projections, its type's gradi
 @[expose] def ShownFacts {env : Env} (mp : EnvModelM V env) : Prop :=
   ∀ D ∈ mp.lfpBlocks, ∀ (mm : Nat) (f : ConstantVal), mm < D.k → D.shown mm = some f →
     ∀ (cv : ConstantVal) (caps : IndCaps), env.find? (D.member mm) = some (.indInfo cv caps) →
-    (∃ (envB : Env) (F : Nat), EnvWF envB ∧ EnvExt envB env ∧
+    (∃ (envB : Env) (F : Nat), EnvExt envB env ∧
       cv.type.constsResolve envB = true ∧
       reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f) ∧
     IndStrictAt (V := V) mp.base2.acval env (D.member mm) f ∧
@@ -196,8 +196,8 @@ theorem shown_of_view {env : Env} {mp : EnvModelM V env} (hS : ShownFacts mp) {D
   obtain ⟨rfl, rfl⟩ : cv' = cv ∧ caps' = caps := by simpa using hf
   rcases hsh with ⟨-, hfl⟩ | ⟨f, hs, -⟩
   · rw [hF.headed] at hfl; exact nomatch hfl
-  · obtain ⟨⟨envB, F, hwf, hx, hr, hrun⟩, -⟩ := hS D hD mm f hmm hs cv' caps' hf'
-    obtain ⟨F₁, h₁⟩ := reducedFormer_ext hwf hx hr hrun
+  · obtain ⟨⟨envB, F₁, hx, hr, hrun⟩, -⟩ := hS D hD mm f hmm hs cv' caps' hf'
+    have h₁ := reducedFormer_ext hx hr hrun
     obtain ⟨F₂, h₂⟩ := hF.ran
     have g₁ : reducedFormer (fueledOps .verified (max F₁ F₂)) env cv' (caps'.nparams + caps'.nIdx)
         = .ok f := by
@@ -275,7 +275,7 @@ theorem envExt_trans {env₁ env₂ env₃ : Env} (h₁ : EnvExt env₁ env₂)
       | none => rw [hc] at hT; exact nomatch hT
       | some ci => rw [h₁.find T ci hc]; rfl
     rw [ht T hs]; exact h₁.table T hT
-  natTrio := h₁.natTrio
+  facts := h₁.facts
 
 /-- **A shown former's facts across an extension.** -/
 theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V env'}
@@ -287,7 +287,7 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
     {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} {f : ConstantVal} (hmm : mm < D.k)
     (hs : D.shown mm = some f) {cv : ConstantVal} {caps : IndCaps}
     (hf : env'.find? (D.member mm) = some (.indInfo cv caps)) :
-    (∃ (envB : Env) (F : Nat), EnvWF envB ∧ EnvExt envB env' ∧
+    (∃ (envB : Env) (F : Nat), EnvExt envB env' ∧
       cv.type.constsResolve envB = true ∧
       reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f) ∧
     IndStrictAt (V := V) m'.acval env' (D.member mm) f ∧
@@ -311,8 +311,8 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
       obtain rfl := Option.some.inj hs'
       exact ⟨hb, fun ψ => (hm ψ).elim fun ta h => ⟨ta, h.elim fun _ h => h.1⟩⟩
   refine ⟨?_, ?_, ?_, ?_⟩
-  · obtain ⟨envB, F, hwf, hxB, hr, hrn⟩ := hrun
-    exact ⟨envB, F, hwf, envExt_trans hxB hfd htb, hr, hrn⟩
+  · obtain ⟨envB, F, hxB, hr, hrn⟩ := hrun
+    exact ⟨envB, F, envExt_trans hxB hfd htb, hr, hrn⟩
   · intro ψ ab n hta hn ρ vs hsp
     obtain ⟨ta, hta₀⟩ := hrf ψ
     have h₁ := hread ψ 0 _ _ hbf hta₀
@@ -1494,9 +1494,33 @@ theorem restore_mem {F : Nat} {p₀ : BlockParts} {env env₃ env₂ : Env} {vs 
 
 /-- **What a run needs of an environment to be read at its extensions.** -/
 structure NatFacts (env : Env) : Prop where
-  trio : (env.find? ConLeche.natName).isSome = true ∨ (env.find? ConLeche.natSuccName).isSome = true →
+  trio : (env.find? ConLeche.natName).isSome = true ∨ (env.find? ConLeche.natZeroName).isSome = true ∨
+      (env.find? ConLeche.natSuccName).isSome = true →
     (env.find? ConLeche.natName).isSome = true ∧ (env.find? ConLeche.natZeroName).isSome = true ∧
       (env.find? ConLeche.natSuccName).isSome = true
+
+/-- **What the knot reads of an environment past the term in hand**, off the carrier. -/
+theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts env) :
+    StoredFacts env where
+  wf := mp.base2.wf
+  natTrio := hN.trio
+  recCtors := mp.base2.rec_ctors
+  entryCtors := fun _ _ e hf => by
+    obtain ⟨-, -, -, -, -, cvC, hc, -⟩ := mp.base2.proj_ok.towerHead hf
+    rw [hc]; rfl
+  boolCtors := by
+    have hg : ∀ c, c ∈ ConLeche.natOpNames → (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →
+        ConLeche.natOpStored env c = true →
+        (env.find? ConLeche.boolTrueName).isSome = true ∧
+          (env.find? ConLeche.boolFalseName).isSome = true := by
+      intro c hmemc hc hs
+      obtain ⟨-, -, hb⟩ := ConLeche.natOpGuard_inv (natOpGuardLaw_of mp c (Or.inl hmemc) hs)
+      obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF', -⟩⟩ := hb (by rcases hc with h | h <;> simp [h])
+      rw [hT, hF']
+      exact ⟨rfl, rfl⟩
+    rintro (h | h)
+    · exact hg _ (by simp [ConLeche.natOpNames]) (Or.inl rfl) h
+    · exact hg _ (by simp [ConLeche.natOpNames]) (Or.inr rfl) h
 
 omit [SetTheory V] in
 /-- **The second path's η-families.** -/
@@ -1607,7 +1631,7 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
         · rw [hx₁] at h₃'
           exact absurd ⟨cvR, capsv, Option.some.inj h₃'⟩ hdi
   have hx : EnvExt env env₂ := by
-    refine ⟨hfd₂, fun T hT => ?_, hN.trio⟩
+    refine ⟨hfd₂, fun T hT => ?_, mp.storedFacts hN⟩
     have hne : ∀ t ∈ newQ, (t.structName == T) = false := by
       intro t ht
       obtain ⟨m, hm, hn⟩ := hQall t ht
@@ -1856,7 +1880,7 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
           · exact h₂
           · rw [hnew' hD hDm] at hs'; exact nomatch hs'
         obtain ⟨F', hrf⟩ := hSw.ran
-        refine ⟨⟨env, F', mp.base2.wf, hx, hSw.resolve, hrf⟩, ?_, fun φ => ?_, fun ψ ta hta ρ => ?_⟩
+        refine ⟨⟨env, F', hx, hSw.resolve, hrf⟩, ?_, fun φ => ?_, fun ψ ta hta ρ => ?_⟩
         · intro ψ ab n hread hn ρ vs' hsp
           rw [hac₂] at hread ⊢
           rw [← hde] at hread

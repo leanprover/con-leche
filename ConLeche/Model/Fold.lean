@@ -114,7 +114,7 @@ theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
 /-- The invariant at the empty environment. -/
 theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
   ⟨⟨EnvModelM.empty V, lfpCover_empty, fun _ hD => nomatch hD⟩, EtaFamiliesClosed.empty,
-    ⟨fun h => by rcases h with h | h <;> exact nomatch h⟩⟩
+    ⟨fun h => by rcases h with h | h | h <;> exact nomatch h⟩⟩
 
 /-- A step that adds constants, none of `Nat`'s block's, and no table. -/
 @[expose] def PlainStep (env env₂ : Env) : Prop :=
