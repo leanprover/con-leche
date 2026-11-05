@@ -356,7 +356,7 @@ theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
     (hr : ConLeche.natOpResult c n₁ n₂ = some r) :
     RedSem m φ d (.app (.app (.const c []) a) b) r := by
   intro hf Δa ea hC hea
-  have hst : ConLeche.natOpStored env c = true := by
+  have hst : ConLeche.isDefinitionAt env c = true := by
     obtain ⟨ga, ba, hga, hba, rfl⟩ := denote_app_inv hea
     obtain ⟨ca, aa, hca, haa, rfl⟩ := denote_app_inv hga
     refine hin.op_defn c ?_ ?_

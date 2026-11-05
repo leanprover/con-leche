@@ -442,7 +442,7 @@ theorem recRulesShape_tgt
     rw [hm] at hrl
     simp only [List.mem_map] at hrl
     obtain ⟨rl0, hrl0, rfl⟩ := hrl
-    obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := sumRules_getElem? hrl0
-    exact ⟨i, cA, rhs, hcA, hrhs, rfl⟩
+    obtain ⟨i, ctor, rhs, hctor, hrhs, rfl⟩ := sumRules_getElem? hrl0
+    exact ⟨i, ctor, rhs, hctor, hrhs, rfl⟩
 
 end ConLeche

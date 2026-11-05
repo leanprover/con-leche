@@ -67,8 +67,8 @@ At a `Type`-valued block (`w ψ ≠ 0`) the decomposition is UNIQUE
 
 /-- A fitting field spine is as long as the constructor's field
 list. -/
-theorem BlockData.StoredFit.length_eq {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V}
-    {t : V} {c j : Nat} {fs : List V} (h : d.StoredFit ψ ρp t c j fs) :
+theorem BlockData.DeclaredFit.length_eq {d : BlockData V} {ψ : Name → Nat} {ρp : Nat → V}
+    {t : V} {c j : Nat} {fs : List V} (h : d.DeclaredFit ψ ρp t c j fs) :
     fs.length = ((d.Fss c ψ).getD j []).length :=
   h.2.1.length_eq
 
@@ -82,7 +82,7 @@ theorem blockCarrier_case {env : Env} {mo : EnvModel V env} {names : List Name}
     (hsat : Sat V (d.params ψ).reverse ρp) {c : Nat} (hc : c < d.N) {t : V}
     (ht : t ∈ˢ d.idx ψ ρp c) {x : V}
     (hx : x ∈ˢ app (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp) c) t) :
-    ∃ j fs, d.StoredFit ψ ρp t c j fs ∧ x = d.inj ψ c j fs := by
+    ∃ j fs, d.DeclaredFit ψ ρp t c j fs ∧ x = d.inj ψ c j fs := by
   rw [← app_lfpTuple_eq (hM.closed hsat) (hM.mono hsat) (hM.maps ψ ρp hsat) hc ht] at hx
   obtain ⟨j, fs, hf, rfl⟩ := (hM.fibre ψ ρp hsat _ (lfpTuple_mem _ _ _ _) c hc t ht x).mp hx
   exact ⟨j, fs, (hM.carrier ψ ρp hsat c hc t ht j fs).mp hf, rfl⟩
@@ -712,8 +712,8 @@ theorem ctxOk_of_openers_congr {env : Env} {m : EnvModel V env} {φ : Name → N
 
 section Run
 
-variable {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {envC : Env} {p : ConLeche.BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
 /-- **A stored recursor type is CLOSED** — the two scoping facts
@@ -1403,7 +1403,7 @@ one bridge between them. -/
 lemmas below share: the recursor stage's run at a member recursor `c`
 (data `r`) and its target member's former (`cvTa`, read as
 `FormerData` with at least `nP` binders). -/
-variable {envC : Env} {p : ConLeche.BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
+variable {envC : Env} {p : ConLeche.BlockShape} {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   (mpC : EnvModelM V envC)
   (h : ConLeche.RecStageG .verified F envC p rs)

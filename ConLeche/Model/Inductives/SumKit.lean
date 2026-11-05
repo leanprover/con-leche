@@ -852,10 +852,10 @@ stored, at the block's level parameters, and its data. -/
     (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List Term)
     (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))
-    (j : Nat) (cA : ConstantVal × Nat) : Prop :=
-  env.find? cA.1.name = some (.ctorInfo cA.1 nP cA.2) ∧
-  cA.1.levelParams = lps ∧
-  CtorDataI m T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j) (srcsF j)
+    (j : Nat) (ctor : ConstantVal × Nat) : Prop :=
+  env.find? ctor.1.name = some (.ctorInfo ctor.1 nP ctor.2) ∧
+  ctor.1.levelParams = lps ∧
+  CtorDataI m T lps ctor.1 nP ctor.2 nIdx resSort isProp large (idxF j) (dsF j) (esF j) (srcsF j)
 
 
 /-! ## The sum former's walks -/
@@ -1192,16 +1192,16 @@ variable {V : Type w} [SetTheory V]
 /-! ## Distinct names -/
 
 /-- Distinct names, positionally. -/
-theorem names_ne_of_nodup {ctorsA : List (ConstantVal × Nat)}
-    (hnd : (ctorsA.map (·.1.name)).Nodup) {i j : Nat} {cAi cAj : ConstantVal × Nat}
-    (hi : ctorsA[i]? = some cAi) (hj : ctorsA[j]? = some cAj) (hne : i ≠ j) :
-    cAi.1.name ≠ cAj.1.name := by
-  have hil : i < ctorsA.length := (List.getElem?_eq_some_iff.mp hi).1
-  have hjl : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
+theorem names_ne_of_nodup {ctorList : List (ConstantVal × Nat)}
+    (hnd : (ctorList.map (·.1.name)).Nodup) {i j : Nat} {ctori cAj : ConstantVal × Nat}
+    (hi : ctorList[i]? = some ctori) (hj : ctorList[j]? = some cAj) (hne : i ≠ j) :
+    ctori.1.name ≠ cAj.1.name := by
+  have hil : i < ctorList.length := (List.getElem?_eq_some_iff.mp hi).1
+  have hjl : j < ctorList.length := (List.getElem?_eq_some_iff.mp hj).1
   have hp := List.pairwise_iff_getElem.mp hnd
-  have hi' : ctorsA[i] = cAi := by
+  have hi' : ctorList[i] = ctori := by
     have := List.getElem?_eq_getElem hil; rw [hi] at this; exact (Option.some.inj this).symm
-  have hj' : ctorsA[j] = cAj := by
+  have hj' : ctorList[j] = cAj := by
     have := List.getElem?_eq_getElem hjl; rw [hj] at this; exact (Option.some.inj this).symm
   rcases Nat.lt_or_gt_of_ne hne with hlt | hgt
   · have := hp i j (by simpa using hil) (by simpa using hjl) hlt
@@ -1218,23 +1218,23 @@ theorem names_ne_of_nodup {ctorsA : List (ConstantVal × Nat)}
     (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List Term)
     (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))
-    (ctorsA : List (ConstantVal × Nat)) (k : Nat) : Prop :=
-  ∀ i cA, k ≤ i → ctorsA[i]? = some cA →
-    env.find? cA.1.name = none ∧ cA.1.type.constsResolve env = true ∧
+    (ctorList : List (ConstantVal × Nat)) (k : Nat) : Prop :=
+  ∀ i ctor, k ≤ i → ctorList[i]? = some ctor →
+    env.find? ctor.1.name = none ∧ ctor.1.type.constsResolve env = true ∧
     (∀ e ∈ idxF i, e.constsResolve env = true) ∧
-    CtorDataI m T lps cA.1 nP cA.2 nIdx resSort isProp large (idxF i) (dsF i) (esF i) (srcsF i)
+    CtorDataI m T lps ctor.1 nP ctor.2 nIdx resSort isProp large (idxF i) (dsF i) (esF i) (srcsF i)
 
 /-- The facts about the consed constructors at an environment. -/
 @[expose] def ConsedAt {env : Env} (m : EnvModel V env) (T : Name) (lps : List Name) (nP nIdx : Nat)
     (resSort : Level) (isProp large : Bool) (idxF : Nat → List Expr)
     (dsF : Nat → (Name → Nat) → List Term)
     (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))
-    (ctorsA : List (ConstantVal × Nat)) (k : Nat) : Prop :=
-  ∀ i cA, i < k → ctorsA[i]? = some cA →
-    CtorFactsAt m T lps nP nIdx resSort isProp large idxF dsF esF srcsF i cA ∧
+    (ctorList : List (ConstantVal × Nat)) (k : Nat) : Prop :=
+  ∀ i ctor, i < k → ctorList[i]? = some ctor →
+    CtorFactsAt m T lps nP nIdx resSort isProp large idxF dsF esF srcsF i ctor ∧
     (∀ e ∈ idxF i, e.constsResolve env = true) ∧
-    ∀ ψ, m.acval cA.1.name ψ
+    ∀ ψ, m.acval ctor.1.name ψ
       = sumMkAV (resSort.eval ψ) i (dsF i ψ) (((dsF i ψ).drop nP))
-          (uChains (fssOf nP (ctorDataList dsF esF ψ ctorsA 0)))
+          (uChains (fssOf nP (ctorDataList dsF esF ψ ctorList 0)))
 
 end ConLeche.Model

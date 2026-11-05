@@ -565,19 +565,19 @@ theorem Level.isNeverZero_sound (φ : Name → Nat) :
 
 /-- A stored rule is constructor `j`'s rule at right-hand side `j`. -/
 theorem sumRules_getElem? :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ sumRules ctorsA rhss →
-      ∃ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-        ctorsA[j]? = some cA ∧ rhss[j]? = some rhs ∧
-        r = { ctor := cA.1.name, nfields := cA.2, fire := .plain, rhs := rhs }
+    ∀ {ctorList : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
+      r ∈ sumRules ctorList rhss →
+      ∃ (j : Nat) (ctor : ConstantVal × Nat) (rhs : Expr),
+        ctorList[j]? = some ctor ∧ rhss[j]? = some rhs ∧
+        r = { ctor := ctor.1.name, nfields := ctor.2, fire := .plain, rhs := rhs }
   | [], _, r, h => by simp [sumRules] at h
   | _ :: _, [], r, h => by simp [sumRules] at h
   | c :: cs, rhs :: rhss, r, h => by
     simp only [sumRules, List.mem_cons] at h
     rcases h with rfl | h
     · exact ⟨0, c, rhs, rfl, rfl, rfl⟩
-    · obtain ⟨j, cA, rhs', hc, hr, rfl⟩ := sumRules_getElem? h
-      exact ⟨j + 1, cA, rhs', by simpa using hc, by simpa using hr, rfl⟩
+    · obtain ⟨j, ctor, rhs', hc, hr, rfl⟩ := sumRules_getElem? h
+      exact ⟨j + 1, ctor, rhs', by simpa using hc, by simpa using hr, rfl⟩
 
 
 /-! ## Iterated variable shifts

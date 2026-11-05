@@ -489,10 +489,10 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
       by_cases hc : c = c₀.name
       · subst hc
         obtain ⟨cv, v, h, he⟩ := hop hn
-        rw [he, natOpStored]
+        rw [he, isDefinitionAt]
         simp [ConLeche.Env.find?_cons]
-      · have ha : natOpStored ⟨c₀ :: env.consts, env.tables⟩ c = natOpStored env c := by
-          unfold natOpStored
+      · have ha : isDefinitionAt ⟨c₀ :: env.consts, env.tables⟩ c = isDefinitionAt env c := by
+          unfold isDefinitionAt
           rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)]
         rw [ha]
         refine mp.op_defn c hn ?_

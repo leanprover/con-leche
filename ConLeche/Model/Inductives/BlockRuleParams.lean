@@ -34,8 +34,8 @@ section Components
 
 open ConLeche (BlockShape)
 
-variable {envC : Env} {p : BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {envC : Env} {p : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
 /-- **`pdoms`** — the recursor type's domains, off its reading

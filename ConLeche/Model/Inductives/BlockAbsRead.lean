@@ -7,7 +7,7 @@ import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.Reading.LpDefF
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.Install
-import ConLeche.Model.Inductives.StoredShapes
+import ConLeche.Model.Inductives.DeclaredShapes
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Verify.Inductives.PositivityInv
 
@@ -24,7 +24,7 @@ type with the members abstracted to the holes and the parameters
 instantiated, each field reduced by the walk), read at `nP + k`, its
 first `nF` domains (`nfFieldsRead`).  No field is classified: the flat
 shape, the applied holes and the override law of these fields are the
-stored field shape facts' (`StoredFieldShapes`), which the walk's run
+stored field shape facts' (`DeclaredFieldShapes`), which the walk's run
 produces.
 
 `BlockAbsRead` is the reading fact at a model: the normal form reads as
@@ -149,22 +149,22 @@ theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env�
     (hrun : ConLeche.checkBlockPositivity ops env₁ find? p = .ok posKs)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
-    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
-    (hlpsA : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      cA.1.levelParams = lps) :
-    ∀ c, c < d.k → ∀ (j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      ∃ A, ConLeche.nestCanonCrest d.memberNames (lps.map .param) d.nP cA.1.type = some A ∧
+    (hmemberCtors : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
+    (hlpsA : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
+      ctor.1.levelParams = lps) :
+    ∀ c, c < d.k → ∀ (j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
+      ∃ A, ConLeche.nestCanonCrest d.memberNames (lps.map .param) d.nP ctor.1.type = some A ∧
         A.nestOcc d.memberNames 0 0 = false := by
   obtain ⟨cvTa0, fvsP, rest, holes, -, -, -, hall⟩ := ConLeche.checkBlockPositivity_m2 hrun
-  intro c hc j cA hcj
-  obtain ⟨A, hA, hocc⟩ := hall c (d.ctorsM c) (hctorsAs c hc) j cA hcj
+  intro c hc j ctor hcj
+  obtain ⟨A, hA, hocc⟩ := hall c (d.ctorsM c) (hmemberCtors c hc) j ctor hcj
   unfold ConLeche.nestRootCanon at hA
   have hn : (p.nestCtx fvsP find?).names = d.memberNames := hnames
   have hl : (p.nestCtx fvsP find?).lps = lps := hlps
   have hP : (p.nestCtx fvsP find?).nP = d.nP := hnP
-  rw [hn, hl, hP, ← hlpsA c j cA hcj, Expr.instantiateLevelParams_self] at hA
+  rw [hn, hl, hP, ← hlpsA c j ctor hcj, Expr.instantiateLevelParams_self] at hA
   rw [hn] at hocc
-  exact ⟨A, by rw [hlpsA c j cA hcj] at hA; exact hA, hocc⟩
+  exact ⟨A, by rw [hlpsA c j ctor hcj] at hA; exact hA, hocc⟩
 
 /-! ## The reading fact at a model -/
 
@@ -203,28 +203,28 @@ member's index tower over the parameters, lifted past the earlier holes
 /-- **The datum's fields with holes are the normal form's reading** at
 the model, and the DECLARED constructor type's canonical crest reads as a
 Π-tower with the same body whose fields read like them at every frame
-satisfying the hole context: component `c`'s constructor `j` (`cA`). -/
+satisfying the hole context: component `c`'s constructor `j` (`ctor`). -/
 @[expose] def BlockAbsRead {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
-    (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
+    (c j : Nat) (ctor : ConstantVal × Nat) : Prop :=
   ConstsBound env (d.nfFF c j) ∧
-  ∃ A, ConLeche.nestCanonCrest d.memberNames (lps.map .param) d.nP cA.1.type = some A ∧
+  ∃ A, ConLeche.nestCanonCrest d.memberNames (lps.map .param) d.nP ctor.1.type = some A ∧
     ∀ ψ : Name → Nat, ∃ abD abN : List Term,
       denote m.acval env ψ (d.nP + d.k) A
-        = some (mkPisAV abD (Term.mkAppN (.bvar (cA.2 + (d.k - 1 - c))) (d.absE ψ c j))) ∧
+        = some (mkPisAV abD (Term.mkAppN (.bvar (ctor.2 + (d.k - 1 - c))) (d.absE ψ c j))) ∧
       denote m.acval env ψ (d.nP + d.k) (d.nfFF c j)
-        = some (mkPisAV abN (Term.mkAppN (.bvar (cA.2 + (d.k - 1 - c))) (d.absE ψ c j))) ∧
-      abD.length = cA.2 ∧ abN.length = cA.2 ∧
+        = some (mkPisAV abN (Term.mkAppN (.bvar (ctor.2 + (d.k - 1 - c))) (d.absE ψ c j))) ∧
+      abD.length = ctor.2 ∧ abN.length = ctor.2 ∧
       abN = d.absF ψ c j ∧
       FieldsEqOn V (d.holeCtx ψ).reverse abD (d.absF ψ c j)
 
 /-- **The reading fact crosses a cons** the stored type crosses. -/
 theorem BlockAbsRead.cross {env : Env} {m : EnvModel V env} {d : BlockData V} {lps : List Name}
-    {c j : Nat} {cA : ConstantVal × Nat} (h : BlockAbsRead m d lps c j cA)
+    {c j : Nat} {ctor : ConstantVal × Nat} (h : BlockAbsRead m d lps c j ctor)
     {c₀ : ConstantInfo} {B : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    (hcb : ConstsBound env cA.1.type)
+    (hcb : ConstsBound env ctor.1.type)
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩) (hac : m₂.acval = acvalWith m.acval c₀.name B) :
-    BlockAbsRead m₂ d lps c j cA := by
+    BlockAbsRead m₂ d lps c j ctor := by
   obtain ⟨hnb, A, hA, hr⟩ := h
   refine ⟨ConstsBound.mono_cons hnb, A, hA, fun ψ => ?_⟩
   obtain ⟨abD, abN, hab, habN, hl, hlN, habF, hEq⟩ := hr ψ

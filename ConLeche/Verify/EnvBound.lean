@@ -14,7 +14,7 @@ hides every entry whose counter is at or above the bound.  This file
 proves what that bound means:
 
 * `mkFEnv_find?` — with nothing hidden the index *is* `Env.find?`
-  (the pre-#108 statement, now with the counters in play);
+  (with the counters in play);
 * `mkFEnv_find?_visibleBelow` — the full equivalence
   `bounded find? = find? in the truncated environment`, under name
   uniqueness (the only thing the bounded lookup can miss is an *older*
@@ -215,8 +215,8 @@ theorem mkFEnv_find?_visibleBelow (env : Env) (k : Nat) (n : Name)
 
 /-! ## The `FEnv` index agrees with `Env.find?`
 
-(`mkFEnv_find?` itself, and the bounded-lookup theory it now sits in,
-are in `ConLeche/Verify/EnvBound.lean`.) -/
+(`mkFEnv_find?` itself, and the bounded-lookup theory it sits in, are in
+`ConLeche/Verify/EnvBound.lean`.) -/
 
 /-- The table map's specification: `List.find?` (the build inserts from
 the back, so the newest table of a name wins). -/

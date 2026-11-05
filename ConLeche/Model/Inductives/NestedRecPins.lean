@@ -159,8 +159,8 @@ variable {V : Type w} [SetTheory V]
 
 section Pins
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {nested : Bool}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {nested : Bool}
   {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 end Pins

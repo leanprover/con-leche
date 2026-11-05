@@ -47,7 +47,7 @@ variable {V : Type w} [SetTheory V]
 section MemberHoles
 
 variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockShape}
-  {cvTas : List ConstantVal}
+  {formers : List ConstantVal}
 
 /-- **The member constants' own values lie in their formers' types**
 (`EnvModelM.mem_type`): the holes' values `hv`, when they are the

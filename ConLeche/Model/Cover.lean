@@ -345,7 +345,7 @@ structure CoverRel {env env' : Env} (mp : EnvModelM V env) (mp' : EnvModelM V en
   leaf : ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n
   read : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr) (ta : Term), ConstsBound env e →
     denote mp.base2.acval env ψ d e = some ta → denote mp'.base2.acval env' ψ d e = some ta
-  blocks : ∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.shown mm = none
+  blocks : ∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none
 
 theorem CoverRel.refl {env : Env} (mp : EnvModelM V env) : CoverRel mp mp :=
   ⟨fun _ _ h => h, fun _ _ => rfl, fun _ _ _ _ _ h => h, fun _ h => .inl h⟩
@@ -366,7 +366,7 @@ theorem CoverRel.trans {env₁ env₂ env₃ : Env} {m₁ : EnvModelM V env₁} 
    fun D hD => (h₂.blocks D hD).elim (fun h => (h₁.blocks D h).imp id id) .inr⟩
 
 theorem CoverRel.addLfp {env env' : Env} {mp : EnvModelM V env} {mp' : EnvModelM V env'}
-    (h : CoverRel mp mp') (D : LfpDatum V) (hD0 : ∀ mm, D.shown mm = none) (a b c d e) :
+    (h : CoverRel mp mp') (D : LfpDatum V) (hD0 : ∀ mm, D.telescope mm = none) (a b c d e) :
     CoverRel mp (mp'.addLfp D a b c d e) :=
   ⟨h.find, h.leaf, h.read, fun D' hD' => by
     rcases List.mem_cons.mp hD' with rfl | h'
@@ -728,7 +728,7 @@ theorem coverTo_addLfp {env env' : Env} {mp : EnvModelM V env} {ex ex' ex'' : Li
     {acval : Name → (Name → Nat) → Term}
     (h : ∃ mp' : EnvModelM V env', mp'.base2.acval = acval ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' ex'))
-    (D : LfpDatum V) (hD0 : ∀ mm, D.shown mm = none := by intro _; rfl)
+    (D : LfpDatum V) (hD0 : ∀ mm, D.telescope mm = none := by intro _; rfl)
     (hL : LfpClause acval D) (hst : LfpStored env' D)
     (hrd : LfpReads acval env' D) (hrdC : LfpCtorReads acval env' D) (hcaps : LfpCaps env' D)
     (hnd : D.names.Nodup) (hlen : D.names.length = D.k)

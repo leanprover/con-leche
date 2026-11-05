@@ -147,8 +147,8 @@ variable {V : Type w} [SetTheory V]
 
 section Pins
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
 
 /-- An application spine's head is scoped where the spine is. -/
@@ -379,7 +379,7 @@ end Pins
 section StagePins
 
 variable {F : Nat} {envC : Env} {pp : BlockShape}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 2000000 in
 /-- **The `.nested` pins' law at every stored rule, of ANY recursor
@@ -399,14 +399,14 @@ theorem recStagePinsOk (mpC : EnvModelM V envC)
     (m₃ : EnvModel V (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC))
     (hac : m₃.acval = blockRecAcv mpC.base2.acval envC (tgtRs out) s eqs)
     (φ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat))
-    (hr : (tgtRs out)[j]? = some r) (cA : ConstantVal × Nat) (rhs : Expr)
+    (hr : (tgtRs out)[j]? = some r) (ctor : ConstantVal × Nat) (rhs : Expr)
     (hread : ∀ lvls pins,
       ConLeche.tgtFireOf pp (ConLeche.tgtMajorsOf out) j r = .nested lvls pins →
       ConLeche.NestedRead (·.constsResolve envC) r.1.levelParams r.1.type
         (pp.majorIdxAt j) (pp.rulePrefixAt j)
         (ConLeche.tgtMajorsOf out j).nPc lvls pins) :
     RecRulePinsOk m₃ φ r.1 (pp.rulePrefixAt j)
-      ({ ctor := cA.1.name, nfields := cA.2, fire := (ConLeche.tgtFireOf pp
+      ({ ctor := ctor.1.name, nfields := ctor.2, fire := (ConLeche.tgtFireOf pp
               (ConLeche.tgtMajorsOf out)) j r, rhs := rhs }) := by
   intro us hus lvls pins hf q hq
   have hsyn := hread lvls pins hf

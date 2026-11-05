@@ -391,20 +391,20 @@ theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
 the input and every entry is its constructor's run. -/
 theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat} :
-    ∀ {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)},
+    ∀ {cs ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)},
       checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-        cvTa cs = .ok (ctorsA, sortss) →
-      ctorsA.length = cs.length ∧ sortss.length = cs.length ∧
-      ∀ (j : Nat) (c cA : ConstantVal × Nat), cs[j]? = some c → ctorsA[j]? = some cA →
-        cA.2 = c.2 ∧
+        cvTa cs = .ok (ctorList, sortss) →
+      ctorList.length = cs.length ∧ sortss.length = cs.length ∧
+      ∀ (j : Nat) (c ctor : ConstantVal × Nat), cs[j]? = some c → ctorList[j]? = some ctor →
+        ctor.2 = c.2 ∧
         ∃ sorts, sortss[j]? = some sorts ∧
         checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-          c.1 c.2 cvTa = .ok (cA.1, sorts)
-  | [], ctorsA, sortss, h => by
+          c.1 c.2 cvTa = .ok (ctor.1, sorts)
+  | [], ctorList, sortss, h => by
     simp only [checkSumCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, rfl, fun j c cA hc _ => by simp at hc⟩
-  | c :: cs, ctorsA, sortss, h => by
+    exact ⟨rfl, rfl, fun j c ctor hc _ => by simp at hc⟩
+  | c :: cs, ctorList, sortss, h => by
     unfold checkSumCtors at h
     obtain ⟨q, hc, h⟩ := exceptBind_ok h
     obtain ⟨cvCa, sorts⟩ := q
@@ -415,15 +415,15 @@ theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
     obtain ⟨rfl, rfl⟩ := h
     obtain ⟨hlen, hlenS, hall⟩ := checkSumCtors_inv hrest
     refine ⟨by simp [hlen], by simp [hlenS], ?_⟩
-    intro j c' cA hc' hcA
+    intro j c' ctor hc' hctor
     cases j with
     | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc' hcA
-      subst hc'; subst hcA
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hc' hctor
+      subst hc'; subst hctor
       exact ⟨rfl, sorts, rfl, hc⟩
     | succ j =>
-      simp only [List.getElem?_cons_succ] at hc' hcA
-      exact hall j c' cA hc' hcA
+      simp only [List.getElem?_cons_succ] at hc' hctor
+      exact hall j c' ctor hc' hctor
 
 
 /-!
@@ -452,8 +452,8 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
 /-- A name fresh above the constructors' conses is fresh below them
 (#210). -/
 theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
-      (consSumCtors nP ctorsA env).find? n = none → env.find? n = none
+    ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
+      (consSumCtors nP ctorList env).find? n = none → env.find? n = none
   | [], _, h => h
   | c :: cs, env, h => by
     simp only [consSumCtors] at h
@@ -467,12 +467,12 @@ theorem consSumCtors_find?_none {nP : Nat} {n : Name} :
 constructor's type resolves at the environment it is consed onto
 (resolution is monotone along the conses). -/
 theorem envWF_consSumCtors {nP : Nat} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
+    ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
       EnvWF env →
-      (∀ c ∈ ctorsA, c.1.type.hasFvar = false ∧
+      (∀ c ∈ ctorList, c.1.type.hasFvar = false ∧
         c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
         c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt c.1) →
-      EnvWF (consSumCtors nP ctorsA env)
+      EnvWF (consSumCtors nP ctorList env)
   | [], _, henv, _ => henv
   | c :: cs, env, henv, hall => by
     simp only [consSumCtors]
@@ -487,8 +487,8 @@ theorem envWF_consSumCtors {nP : Nat} :
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/
 theorem sumRules_mem :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
-      r ∈ sumRules ctorsA rhss →
+    ∀ {ctorList : List (ConstantVal × Nat)} {rhss : List Expr} {r : RecRule},
+      r ∈ sumRules ctorList rhss →
       r.rhs ∈ rhss ∧ ∀ lvls pins, r.fire ≠ .nested lvls pins
   | [], _, r, h => by simp [sumRules] at h
   | _ :: _, [], r, h => by simp [sumRules] at h

@@ -123,7 +123,7 @@ check's. -/
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
       envI.find? pp = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
-  pp.memberCtors.map (·.map (fun cA => (cA.1.name, cA.2)))
+  pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
   pp.memberNames.Nodup ∧
   BlockNamesOk (V := V) dR pp.formers ∧

@@ -28,13 +28,8 @@ structure BlockPass (E : Type) where
   env₁ : E
   /-- the completed record: the sort read -/
   p : BlockShape
-  /-- the fields' sorts, per member, per constructor -/
-  sortsss : List (List (List Level))
   /-- the positivity function's field kinds, per member, per constructor -/
   kinds : List (List (List NestFieldKind))
-  /-- the positivity function's normal forms, per member, per constructor
-  (member-abstracted at the walk's context) -/
-  nfs : List (List Expr)
   /-- the block's canonical parameter variables (the walk's, the classes') -/
   params : List Expr
   /-- [UNVERIFIED] the pre-pass's reading of the stream's recursor types -/
@@ -47,7 +42,7 @@ structure BlockPass (E : Type) where
   tbl : Array NestCtorNf
 
 /-- **One pass over the formers, the constructors and the classes** at
-the block's `is_rec` verdict (`blockRawRec`, known before any constructor
+the block's `is_rec` verdict (`blockIsRec`, known before any constructor
 is looked at, as official's `declare_inductive_types` stores it): the
 formers, the constructors, the classes (`checkBlockClasses`: read off the
 stream's raw recursor types, each checked as a major), and the positivity
@@ -57,14 +52,14 @@ every outside class (`nestSeeds`: a cache hit, or its frame walked). -/
 def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
     m (BlockPass Env) := do
   let (env₁, p₁) ← checkBlockInds ops env p₀ isRec
-  let sortsss ← checkBlockCtors ops env₁ env₁ p₁ p₁.members
+  let _sortsss ← checkBlockCtors ops env₁ env₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtx p₁ env₁.find?
   -- the classes
   let (rd, Ms) ← checkBlockClasses ops (mkFEnv env₁) p₁ ctx.params
   -- positivity: every class from the empty stack, the members (the root frame) first
-  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? p₁
+  let (kinds, _nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? p₁
   let st ← nestSeeds ops env₁ ctx (classSeeds ctx holes Ms) pos
-  pure ⟨env₁, p₁, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨env₁, p₁, kinds, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **The installer's recursor stage** (charter item 5): the
 GENERATED recursor stage `genRecCheck` (`GenRec.lean`) at the
@@ -154,7 +149,7 @@ def reduceMembers (ops : CheckerOps m) (env : Env) (nP : Nat) :
 
 /-- Check an inductive block and install it (`blockConstants`, `blockTables`): the distinct names,
 each former reduced to its telescope once (official's `check_inductive_types`), the pass over the
-formers, the constructors and the classes at official's `is_rec` (`blockRawRec`), and the checks
+formers, the constructors and the classes at official's `is_rec` (`blockIsRec`), and the checks
 after it. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockShape) :
     m Env := do
@@ -163,7 +158,7 @@ def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p�
   unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let ms ← reduceMembers ops env p₀.nP p₀.members
-  let q ← checkBlockPass ops env { p₀ with members := ms } (blockRawRec p₀)
+  let q ← checkBlockPass ops env { p₀ with members := ms } (blockIsRec p₀)
   checkBlockTail ops block q
   pure (env.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members))
 

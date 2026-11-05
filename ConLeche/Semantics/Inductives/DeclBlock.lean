@@ -32,12 +32,12 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
   consBlockCtors consBlockRecs consBlockRecsT blockCapsAt
   blockConstants blockTables streamKCheck
-  blockNestedBit blockRawRec BlockPass TargetMajor NestKey NestState)
+  blockNestedBit blockIsRec BlockPass TargetMajor NestKey NestState)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
 of `checkBlock`.  `env` is the pre-block environment; `p₀` the
 recognised record; the one pass runs at official's `is_rec`
-(`blockRawRec`). -/
+(`blockIsRec`). -/
 def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     (p₀ : BlockShape) (env₂ : Env) : Prop :=
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
@@ -68,7 +68,7 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     checkBlockPositivity (m := ConLeche.CheckM) (fueledOps .verified F) env₁ env₁.find? p₁ = .ok (kinds, nfs, pos) ∧
     nestSeeds (fueledOps .verified F) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st ∧
     -- 5  the formers carry the record at official's `is_rec`, the syntactic one
-    isRec = blockRawRec p₀ ∧
+    isRec = blockIsRec p₀ ∧
     -- 6  every member's index binders' sorts
     checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps .verified F) env₁ p₁
       p₁.members = .ok isorts ∧
@@ -129,8 +129,8 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
     show (ms.map (·.ctors)).flatten = (p₀.members.map (·.ctors)).flatten
     rw [hctors]
   have hnm : ({ p₀ with members := ms } : BlockShape).memberNames = p₀.memberNames := hname
-  have hraw : blockRawRec ({ p₀ with members := ms } : BlockShape) = blockRawRec p₀ := by
-    unfold blockRawRec
+  have hraw : blockIsRec ({ p₀ with members := ms } : BlockShape) = blockIsRec p₀ := by
+    unfold blockIsRec
     show (ms.any _) = (p₀.members.any _)
     rw [hnm]
     have e : ∀ (l : List MemberShape) (g : List (ConstantVal × Nat) → Bool),
@@ -139,12 +139,12 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
     exact (e ms fun cs => cs.any fun c => ConLeche.Expr.piDomsMentionAny p₀.memberNames c.1.type).trans
       (by rw [hctors]; exact (e p₀.members _).symm)
   cases hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps .verified F) env
-      { p₀ with members := ms } (blockRawRec p₀) with
+      { p₀ with members := ms } (blockIsRec p₀) with
   | error e => rw [hP] at h; exact nomatch h
   | ok q =>
   rw [hP] at h
   dsimp only at h
-  obtain ⟨ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hP', hst, hpar, htbl⟩ :=
+  obtain ⟨sortsss, nfs, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hP', hst, hpar, htbl⟩ :=
     ConLeche.checkBlockPass_inv hP
   cases hTail : ConLeche.checkBlockTail (m := ConLeche.CheckM) (fueledOps .verified F) block q with
   | error e => rw [hTail] at h; exact nomatch h
@@ -154,8 +154,8 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   obtain ⟨isorts, rs, hsorts, hRec, hK, hS, hTbl⟩ := ConLeche.checkBlockTail_inv hTail
   rw [hpar, htbl] at hRec
-  refine ⟨ms, hms, hall, hdecl, ?_, ?_, ?_, blockRawRec p₀, q.env₁, q.p,
-    q.sortsss, ctx, holes, q.rd, q.cls, q.kinds, q.nfs, pos, st, isorts, rs, hInd, hCtors, hctx,
+  refine ⟨ms, hms, hall, hdecl, ?_, ?_, ?_, blockIsRec p₀, q.env₁, q.p,
+    sortsss, ctx, holes, q.rd, q.cls, q.kinds, nfs, pos, st, isorts, rs, hInd, hCtors, hctx,
     hcls, hP', hst, hraw.symm, hsorts, hRec, hK, hS, hTbl, ?_⟩
   · rw [hcs]; exact hnd.1
   · rw [hnm]; exact hnd.2

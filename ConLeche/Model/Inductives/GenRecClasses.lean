@@ -176,41 +176,41 @@ theorem genRecCtor_find
     (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
     (hN : BlockNamesOk (V := V) dR pp.formers)
     (hcore : BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRec A dR.k)
-    (hctorsAs : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
+    (hmemberCtors : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
       dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        envC.find? cA.1.name
-          = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2) := by
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name
+          = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2) := by
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-  intro j r hr i cA hcA
+  intro j r hr i ctor hctor
   obtain ⟨t, ho, rfl, hMj⟩ := tgtRs_getElem? hr
   obtain ⟨key, M₀, nfs, hM, ⟨Rc⟩⟩ := ConLeche.genRecClassAt R ho
   rw [hMj, hM]
-  simp only at hcA ⊢
-  rw [hM] at hcA
-  simp only at hcA
+  simp only at hctor ⊢
+  rw [hM] at hctor
+  simp only at hctor
   cases hm : M₀.member with
   | some t' =>
     obtain ⟨hctors, hnPc⟩ := Rc.major.member_facts hm
     have hcl : t' < pp.memberCtors.length := (List.getElem?_eq_some_iff.mp hctors).1
     have heq : M₀.ctors = (blockDataOf V pp pk uOfD ppsOf).ctorsM t' :=
-      Option.some.inj (hctors.symm.trans (hctorsAs _ hcl))
-    rw [heq] at hcA
+      Option.some.inj (hctors.symm.trans (hmemberCtors _ hcl))
+    rw [heq] at hctor
     have hck : t' < (blockDataOf V pp pk uOfD ppsOf).k := by
-      rw [← hN.2.2]; exact hN.2.1 _ i cA hcA
-    obtain ⟨hfind, -, -⟩ := hcore.2.2 _ hck i cA hcA
+      rw [← hN.2.2]; exact hN.2.1 _ i ctor hctor
+    obtain ⟨hfind, -, -⟩ := hcore.2.2 _ hck i ctor hctor
     rw [hnPc]
     exact hfind
   | none =>
     obtain ⟨D, mm, cvI, hD⟩ := tgtOutCls_ofR hcov hrd Rc.major hm
-    have hi : i < M₀.ctors.length := (List.getElem?_eq_some_iff.mp hcA).1
+    have hi : i < M₀.ctors.length := (List.getElem?_eq_some_iff.mp hctor).1
     have hc := hD.hctor i hi
-    have hcA' : M₀.ctors[i] = cA := (List.getElem?_eq_some_iff.mp hcA).2
-    rw [hcA'] at hc
+    have hctor' : M₀.ctors[i] = ctor := (List.getElem?_eq_some_iff.mp hctor).2
+    rw [hctor'] at hc
     have hname := ConLeche.Env.find?_name hc
     simp only [ConstantInfo.name, ConstantInfo.toConstantVal] at hname
     rw [hname]
@@ -222,17 +222,17 @@ theorem genRecCtor_in
     (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
     (hN : BlockNamesOk (V := V) dR pp.formers)
     (hcore : BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRec A dR.k)
-    (hctorsAs : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
+    (hmemberCtors : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
       dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
-    ∀ r ∈ tgtRs out, ∀ cA ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF) := by
-  intro r hr cA hcA
+    ∀ r ∈ tgtRs out, ∀ ctor ∈ r.2.2.2,
+      ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF) := by
+  intro r hr ctor hctor
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hr
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
-  exact ⟨_, _, _, genRecCtor_find R hN hcore hctorsAs hdR hcov hrd j r hj i cA hi⟩
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hctor
+  exact ⟨_, _, _, genRecCtor_find R hN hcore hmemberCtors hdR hcov hrd j r hj i ctor hi⟩
 
 /-- **`hctor` at the generated stage**: the carried constructors, stored
 at the class's parameter count, their types bound and read. -/
@@ -240,19 +240,19 @@ theorem genRecCtor_seam
     (R : GenRecRun .verified F fe₁ env₁ (ConLeche.mkFEnv envC) pp nb pos block out)
     (hN : BlockNamesOk (V := V) dR pp.formers)
     (hcore : BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRec A dR.k)
-    (hctorsAs : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
+    (hmemberCtors : ∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c))
     (hdR : ∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
       dR = blockDataOf V pp pk uOfD ppsOf)
     (hcov : LfpCover mpC []) (hrd : ∀ F, FamilyRead mpC F) :
     ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2) ∧
-        ConstsBound envC cA.1.type ∧
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2) ∧
+        ConstsBound envC ctor.1.type ∧
         ∀ ψ : Name → Nat,
-          denote mpC.base2.acval envC ψ 0 cA.1.type
+          denote mpC.base2.acval envC ψ 0 ctor.1.type
             = some (blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) :=
-  tgtRecCtor_seam_of_find (genRecCtor_find R hN hcore hctorsAs hdR hcov hrd)
+  tgtRecCtor_seam_of_find (genRecCtor_find R hN hcore hmemberCtors hdR hcov hrd)
 
 end Ctors
 

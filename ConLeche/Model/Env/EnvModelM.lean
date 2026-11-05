@@ -68,10 +68,10 @@ clause, whose `leaf` and `ctor` read the leaf valuation at those names
 
 /-- A member's former where the stored one does not show its telescope: closed, resolving, and
 inhabited by the member. -/
-@[expose] def LfpShown {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
+@[expose] def LfpTelescope {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
     (env : Env) (D : LfpDatum V) (mm : Nat) (cv : ConstantVal) : Prop :=
   (ConLeche.formerDefHeaded cv = false → D.formerAt mm cv = cv) ∧
-  ((D.shown mm = none ∧ ConLeche.formerDefHeaded cv = false) ∨ ∃ f, D.shown mm = some f ∧
+  ((D.telescope mm = none ∧ ConLeche.formerDefHeaded cv = false) ∨ ∃ f, D.telescope mm = some f ∧
     f.name = cv.name ∧ f.levelParams = cv.levelParams ∧
     f.type.hasFvar = false ∧ f.type.looseBVarsBounded 0 = true ∧ ConstsBound env f.type ∧
     f.type.allLevelParamsDefined f.levelParams = true ∧
@@ -91,7 +91,7 @@ with its hole value applied to the frame's parameters. -/
 @[expose] def LfpReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
     (env : Env) (D : LfpDatum V) : Prop :=
   ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-    LfpShown acval env D mm cv ∧
+    LfpTelescope acval env D mm cv ∧
     ∀ ψ : Name → Nat, ∃ ab : List Term,
       denote acval env ψ 0 (D.formerAt mm cv).type = some (mkPisAV ab (.sort (D.w ψ))) ∧
       ab = D.pars mm ψ ++ D.ids mm ψ
@@ -482,7 +482,7 @@ section
 variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The install fold's `Nat`-op invariant, in the form the literal
-tier reads it**.  `reduceNat` tests `natOpStored` — one `Env.find?`;
+tier reads it**.  `reduceNat` tests `isDefinitionAt` — one `Env.find?`;
 the guard is what
 the leaf analysis below needs (`natLitSupported` for the numeral
 shapes, the two `Bool` constructors for the comparison shapes), and it
@@ -491,7 +491,7 @@ as a `defnInfo` → guard ∧ the recurrences".  So the tier reads the
 guard off the environment. -/
 @[expose] def NatOpGuardLaw (env : Env) : Prop :=
   ∀ c, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
-    ConLeche.natOpStored env c = true → ConLeche.natOpGuard env c = true
+    ConLeche.isDefinitionAt env c = true → ConLeche.natOpGuard env c = true
 
 /-- `EnvModelM` supplies it, from `nat_ops` and `div_mod`. -/
 theorem natOpGuardLaw_of (mp : EnvModelM V env) : NatOpGuardLaw env := by

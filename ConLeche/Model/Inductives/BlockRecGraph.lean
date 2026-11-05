@@ -34,7 +34,7 @@ three ways.
 * **`huniq`** (§4): `ℓ = 0` — the bound is a truth value; `w ≠ 0` —
   `mkInj`; `w = 0, ℓ ≠ 0` — the counting guard leaves one constructor
   of one member and the subsingleton criterion makes its fields a
-  function of the index (`blockStoredFit_srcVals_zero`).
+  function of the index (`blockDeclaredFit_srcVals_zero`).
 -/
 
 namespace ConLeche.Model
@@ -59,12 +59,12 @@ section Data
 stated over a relation `fit xs c i j fs` — "the fields `fs` fit class
 `c`'s constructor `j` at the index tuple `i`, at the prefix spine
 `xs`, at the CARRIER".  The block's own instance is the STORED fit
-(`blockStoredFitRel`) — at the carrier the hole fit is the stored fit
+(`blockDeclaredFitRel`) — at the carrier the hole fit is the stored fit
 (`BlockModelAt.carrier`); the target check's is the lfp clause's HOLE
 fit (`Target*`). -/
-@[expose] def blockStoredFitRel (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
+@[expose] def blockDeclaredFitRel (d : BlockData V) (ψ : Name → Nat) (ρ : Nat → V)
     (mem : Nat → Nat) (xs : List V) (c : Nat) (i : V) (j : Nat) (fs : List V) : Prop :=
-  d.StoredFit ψ (consList (xs.take d.nP) ρ) i (mem c) j fs
+  d.DeclaredFit ψ (consList (xs.take d.nP) ρ) i (mem c) j fs
 
 /-- **A decoding at the prefix spine `xs`, over ANY classes**: class
 `c`'s index sets `Is xs c` and injections `injX c`

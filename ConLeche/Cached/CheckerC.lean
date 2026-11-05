@@ -133,12 +133,12 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
   let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   flushC
-  let sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
+  let _sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtx p₁ fe₁.find?
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
-  let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
+  let (kinds, _nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
-  pure ⟨fe₁, p₁, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨fe₁, p₁, kinds, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
@@ -147,7 +147,7 @@ them) and by the generated recursors, so both are overlays sharing it (`shadowOp
 array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
   match q with
-  | ⟨env₁, p, _sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
+  | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
   let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
@@ -193,7 +193,7 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let ms ← reduceMembersS mode fe p₀.nP p₀.members
   flushC
-  let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockRawRec p₀)
+  let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockIsRec p₀)
   checkBlockTailS mode block q
   pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) fe)
 

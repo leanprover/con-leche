@@ -89,7 +89,7 @@ producer. -/
   q.formers.length = d.k ∧
   (∀ (m : Nat) (cvTb : ConstantVal), q.formers[m]? = some cvTb →
     d.memberName m = cvTb.name ∧ cvTb.levelParams = q.lps ∧
-    (∃ caps, FormerStored mo cvTb caps) ∧
+    (∃ caps, FormerInEnv mo cvTb caps) ∧
     cvTb.type.hasFvar = false ∧ cvTb.type.looseBVarsBounded 0 = true ∧
     FormerData mo cvTb (d.nP + d.nIdxAt m) d.resSort (d.ppsM m)) ∧
   (∀ (m : Nat) (ms : ConLeche.MemberShape), q.members[m]? = some ms →
@@ -101,8 +101,8 @@ producer. -/
 
 section Run
 
-variable {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {envC : Env} {p : ConLeche.BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V}
 

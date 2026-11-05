@@ -68,7 +68,7 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     (hcarrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
         d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
-          d.StoredFit ψ ρp t c j fs)
+          d.DeclaredFit ψ ρp t c j fs)
     -- the members' leaves — the block operator at chains `Chs` graded at
     -- every parameter frame and agreeing with `d.Φ` on the tuple space (the
     -- hole chains, whose operator IS `d.Φ`) — and the members'
@@ -84,8 +84,8 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
     (hparams : ∀ (ψ : Name → Nat) (c : Nat), c < d.N → ∀ ρ : Nat → V,
       Sat V (d.params ψ).reverse ρ ↔ Sat V (((d.ppsM c ψ).take d.nP)).reverse ρ)
     -- the constructors' leaves and their parameter frames
-    (hctorLeaf : ∀ c, c < d.N → ∀ (j : Nat) (cA : ConstantVal × Nat),
-      (d.ctorsM c)[j]? = some cA → ∀ ψ : Name → Nat, mo.acval cA.1.name ψ
+    (hctorLeaf : ∀ c, c < d.N → ∀ (j : Nat) (ctor : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some ctor → ∀ ψ : Name → Nat, mo.acval ctor.1.name ψ
         = sumMkAV (d.w ψ) j (d.dsF c j ψ) (((d.dsF c j ψ).drop d.nP))
             (uChains (d.Fss c ψ)))
     (hFssD : ∀ (ψ : Name → Nat) (c j : Nat), j < (d.ctorsM c).length →
@@ -158,10 +158,10 @@ theorem blockModelAt_of_stages {env : Env} (mo : EnvModel V env) {names : List N
       (fun X hX m hm => (hChs ψ (consList as ρ) hsat).2 X hX m hm)
       (Nat.lt_of_lt_of_le hmm (Nat.le_add_right _ _))
   · -- ctor
-    intro c hc j cA hj ψ ρ as fs hsa hsf
+    intro c hc j ctor hj ψ ρ as fs hsa hsf
     have hjl : j < (d.ctorsM c).length := (List.getElem?_eq_some_iff.mp hj).1
     have hsat : Sat V (d.params ψ).reverse (consList as ρ) := d.satOfSpine hsa
-    rw [hctorLeaf c hc j cA hj ψ, hinj]
+    rw [hctorLeaf c hc j ctor hj ψ, hinj]
     by_cases hw : d.w ψ = 0
     · rw [ite_eq_left hw, hw, sumMkAV_zero, foldl_app_pt']
     · rw [ite_eq_right hw]

@@ -96,13 +96,13 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
       rw [hn']
       simp only [ConLeche.reservedRecName, Bool.or_eq_false_iff] at hr
       exact hr.1.1.1.1.1.1
-    · obtain ⟨cA, hcA, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
-      obtain ⟨ctorsA, hctorsA, hcAm⟩ := List.mem_flatten.mp hcA
-      obtain ⟨m, hm, rfl⟩ := List.mem_map.mp hctorsA
+    · obtain ⟨ctor, hctor, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
+      obtain ⟨ctorList, hctorList, hcAm⟩ := List.mem_flatten.mp hctor
+      obtain ⟨m, hm, rfl⟩ := List.mem_map.mp hctorList
       have hmm : m ∈ p₀.members := by
         have : p₁.members = p₀.members := by rw [hq]; rfl
         rw [← this]; exact hm
-      exact hCres cA (List.mem_flatten.mpr ⟨_, List.mem_map.mpr ⟨m, hmm, rfl⟩, hcAm⟩)
+      exact hCres ctor (List.mem_flatten.mpr ⟨_, List.mem_map.mpr ⟨m, hmm, rfl⟩, hcAm⟩)
     · obtain ⟨j, cv', hj, rfl⟩ := hnewIall c hc
       rw [List.getElem?_map] at hj
       cases hmsj : p₀.members[j]? with

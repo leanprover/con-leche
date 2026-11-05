@@ -689,9 +689,9 @@ theorem classFieldsAgree_datF (env : Env) (p : BlockShape) (formerTys : List Exp
       classFieldsAgree_datF env p formerTys Ms fvs ctor E F (i + 1) ks]
 
 theorem classCtorOf_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (rd : ClassRead)
-    (Ms : List TargetMajor) (c : Nat) (cA : ConstantVal × Nat) (F : Nat) :
-    (classCtorOf (fueledOpsM mode) env p formerTys rd Ms c cA).val F =
-      classCtorOf (fueledOps mode F) env p formerTys rd Ms c cA := by
+    (Ms : List TargetMajor) (c : Nat) (ctor : ConstantVal × Nat) (F : Nat) :
+    (classCtorOf (fueledOpsM mode) env p formerTys rd Ms c ctor).val F =
+      classCtorOf (fueledOps mode F) env p formerTys rd Ms c ctor := by
   unfold classCtorOf
   simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF, classMinorSlot_datF,
     classFieldsOf_datF, classFieldsAgree_datF]
@@ -702,7 +702,7 @@ theorem classCtorsOf_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (
       (classCtorsOf (fueledOpsM mode) env p formerTys rd Ms c cs).val F =
         classCtorsOf (fueledOps mode F) env p formerTys rd Ms c cs
   | [] => rfl
-  | cA :: cs => by
+  | ctor :: cs => by
     unfold classCtorsOf
     simp only [FueledM.atF_bind, FueledM.atF_pure, classCtorOf_datF,
       classCtorsOf_datF env p formerTys rd Ms c F cs]
@@ -739,9 +739,9 @@ theorem classesNfs_datF (env : Env) (p : BlockShape) (formerTys : List Expr)
     simp only [FueledM.atF_bind, FueledM.atF_pure, targetMajorNfs_datF,
       classesNfs_datF env p formerTys tbl F Ms]
 
-theorem classFormerTy_datF (fe : FEnv) (cvTas : List ConstantVal) (M : TargetMajor) (F : Nat) :
-    (classFormerTy (fueledOpsM mode) fe cvTas M).val F =
-      classFormerTy (fueledOps mode F) fe cvTas M := by
+theorem classFormerTy_datF (fe : FEnv) (formers : List ConstantVal) (M : TargetMajor) (F : Nat) :
+    (classFormerTy (fueledOpsM mode) fe formers M).val F =
+      classFormerTy (fueledOps mode F) fe formers M := by
   unfold classFormerTy
   repeat' split
   all_goals first
@@ -759,10 +759,10 @@ theorem mapM_atF {α β : Type} (f : α → FueledM β) (F : Nat) (l : List α) 
     (l.mapM f).val F = l.mapM (fun a => (f a).val F) :=
   mapMLoop_atF f F l []
 
-theorem classFormerTys_datF (fe : FEnv) (cvTas : List ConstantVal) (F : Nat)
+theorem classFormerTys_datF (fe : FEnv) (formers : List ConstantVal) (F : Nat)
     (Ms : List TargetMajor) :
-    (Ms.mapM (classFormerTy (fueledOpsM mode) fe cvTas)).val F =
-      Ms.mapM (classFormerTy (fueledOps mode F) fe cvTas) := by
+    (Ms.mapM (classFormerTy (fueledOpsM mode) fe formers)).val F =
+      Ms.mapM (classFormerTy (fueledOps mode F) fe formers) := by
   rw [mapM_atF]
   simp only [classFormerTy_datF]
 

@@ -652,8 +652,8 @@ theorem nestSeedsS_spec (henv : EnvWF env) {ctx : NestCtx}
 /-- The pieces of the walk's context `blockNestCtx` builds. -/
 theorem blockNestCtx_ok {env₁ : Env} (henv₁ : EnvWF env₁) {p : BlockShape}
     (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
-    {cvTas : List ConstantVal} (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {cv0 : ConstantVal}
-    (h0 : cvTas.head? = some cv0) {fvs : List Expr} {body : Expr}
+    {formers : List ConstantVal} (hT : ∀ cv ∈ formers, WScoped 0 cv.type) {cv0 : ConstantVal}
+    (h0 : formers.head? = some cv0) {fvs : List Expr} {body : Expr}
     (hpq : openPisAtFvars p.nP cv0.type 0 = some (fvs, body)) :
     NestCtxOk (p.nestCtx fvs env₁.find?) ∧ AllWS p.nP fvs ∧ fvs.length = p.nP := by
   have hw0 : WScoped 0 cv0.type := hT _ (List.mem_of_mem_head? h0)
@@ -696,9 +696,9 @@ theorem blockNestCtxS_spec (henv : EnvWF env) (p : BlockShape)
     vcgen [blockNestCtx, unwrapOr] <;> finish (ematch := 8)
 
 /-- Closed constructor types, as the root frame's precondition. -/
-theorem ctorsClosed {ctorsAs : List (List (ConstantVal × Nat))}
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type) :
-    ListAll (ListAll CtorClosed) ctorsAs :=
+theorem ctorsClosed {memberCtors : List (List (ConstantVal × Nat))}
+    (hct : ∀ ctorList ∈ memberCtors, ∀ c ∈ ctorList, WScoped 0 c.1.type) :
+    ListAll (ListAll CtorClosed) memberCtors :=
   fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
 
 /-- **The install's positivity stage at the shared operations**: every
@@ -707,7 +707,7 @@ theorem checkBlockPositivityS_spec (henv : EnvWF env)
     (p : BlockShape)
     (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type)
-    (hct : ∀ ctorsA ∈ p.memberCtors, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
+    (hct : ∀ ctorList ∈ p.memberCtors, ∀ c ∈ ctorList, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄
       checkBlockPositivity (sharedOpsC .verified (mkFEnv env)) env env.find? p

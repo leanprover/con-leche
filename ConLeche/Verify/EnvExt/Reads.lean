@@ -33,7 +33,7 @@ structure StoredFacts (env : Env) : Prop where
       (env.find? natSuccName).isSome = true
   recCtors : RecCtorsStored env
   entryCtors : ∀ T i e, env.findProj? T i = some e → (env.find? e.ctor).isSome = true
-  boolCtors : natOpStored env natBeqName = true ∨ natOpStored env natBleName = true →
+  boolCtors : isDefinitionAt env natBeqName = true ∨ isDefinitionAt env natBleName = true →
     (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true
   opDefn : OpDefn env
 

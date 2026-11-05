@@ -60,7 +60,7 @@ FALLBACK = {
     ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
-    ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.NestScope'),
+    ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),
     # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
     # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
@@ -242,8 +242,8 @@ FALLBACK = {
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.PositivityInv'),
     # lane POSDERIV s2: `storedFieldShapes_of_walk`'s public statement names
     # `MemberCtorD`/`PosTree`; MEASURED by demoting it (unknown
-    # identifier, `StoredShapes.lean:1049`).
-    ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
+    # identifier, `DeclaredShapes.lean:1049`).
+    ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane FLATACC: after the flat (W) witness went (LfpHoleWitness,
     # TupleContainer, Container, BlockHoleFlat deleted) the model stopped
     # attributing these re-exports; each MEASURED by demoting it alone
@@ -625,19 +625,19 @@ FALLBACK = {
     # through three of them (`consList_eq_chainFrame`,
     # `BlockDeclRun.lean:617`; `frameIdx_eq_reverse_map`,
     # `BlockStageCtors.lean:347`; `mkPisAV_below_of`,
-    # `BlockRecData.lean:356`); `StoredShapes` states `NoBVar` (it held
+    # `BlockRecData.lean:356`); `DeclaredShapes` states `NoBVar` (it held
     # `LfpHoleWitness`'s slot definitions after lane FLATACC deleted that file)
     # and `FixTeleBound`'s `variable [SetTheory V]` binder resolves
     # through `FixNoBVar` (`:36`).
     ('ConLeche.Model.Inductives.BlockRecGraph','ConLeche.Model.Inductives.BlockRecPreHpre'),
     ('ConLeche.Model.Inductives.FixKit','ConLeche.Semantics.Tower.FixTower'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Semantics.NoBVar'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Semantics.NoBVar'),
     ('ConLeche.Model.Inductives.FixKit','ConLeche.Model.Inductives.FixNoBVar'),
     # lane HOLE2 stage E2 (the gate after the proof refactor): ten more,
     # each MEASURED by demoting it alone.  The file's own public statements
     # name the re-export: `NoBVar` (`HoleSubst.lean:403`), `Expr.nestOcc`
     # (`NestPosOut.lean:45`), `Expr.ErasedEq` (`:45`), `EnvWF` (`:254`),
-    # `paramBvarsAt`/`BlockCtorDataI` (`StoredShapes.lean:784`), `holeP`
+    # `paramBvarsAt`/`BlockCtorDataI` (`DeclaredShapes.lean:784`), `holeP`
     # (`:348`), `HoleIn` (`:419`), the `ITerm`/`denoteMeta` of
     # `BlockHoleRead.lean:350`; downstream reaches through the other two
     # (`mkAppN_wellDenoted_of_pt`, `BlockRecData.lean:3549`; a `rw` over
@@ -646,9 +646,9 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Kernel.Inductives.Positivity'),
     ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.Subst'),
     ('ConLeche.Model.Inductives.NestPosOut','ConLeche.Verify.EnvWF'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.BlockData'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosMono'),
-    ('ConLeche.Model.Inductives.StoredShapes','ConLeche.Model.Inductives.NestPosOut'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Model.Inductives.BlockData'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Model.Inductives.NestPosMono'),
+    ('ConLeche.Model.Inductives.DeclaredShapes','ConLeche.Model.Inductives.NestPosOut'),
     # task #342 R3: `Reading/DenoteMeta` is gone (`denoteMeta` folded into
     # `denote`); the re-export moved to `TowerKit`.  MEASURED by demoting it
     # alone: unknown identifier `Term`, `BlockHoleRead.lean:396`.

@@ -81,13 +81,9 @@ theorem Yields.bind' {α β : Type} {m : CheckCM α} {f : α → CheckCM β}
     exact h v.1 (hm s v.1 v.2 hm') v.2 b s' hr
 
 /-- Do-notation elaborates its guards through *join points*
-(`have __do_jp := …`).  Until Lean v4.35 a `have` was the `letFun`
-application and the clause walker needed this rule to step past it.
-Since v4.35 (task #328) a `have` is a non-dependent `let`, which the
-walker's other rules see through by zeta at reducible transparency —
-and this rule, stated over that `let`, now unifies vacuously (its
-conclusion zeta-reduces to `?f ?v`), so the walker no longer tries it;
-it is kept for the explicit top-level steps that name it. -/
+(`have __do_jp := …`).  A `have` is a non-dependent `let`, which the clause walker's rules see
+through by zeta at reducible transparency; so the walker does not try this rule (stated over that `let`,
+its conclusion zeta-reduces to `?f ?v`), and only the explicit top-level steps name it. -/
 theorem Yields.letFun {α β : Type} {v : β} {f : β → CheckCM α}
     {P : α → Prop} (h : Yields (f v) P) : Yields (have x := v; f x) P := h
 
@@ -160,22 +156,22 @@ theorem Yields.foldlM_rel {α β γ : Type} {R : β → γ → Prop}
 
 /-! ## The install stages -/
 
-theorem installHeaderC_fresh (fe : FEnv)
+theorem headerGuardsC_fresh (fe : FEnv)
     (cv : ConstantVal) :
-    Yields (installHeaderC fe cv)
+    Yields (headerGuardsC fe cv)
       (fun _ => fe.find? cv.name = none) := by
-  unfold installHeaderC
+  unfold headerGuardsC
   yields
   all_goals exact Yields.pure (Option.not_isSome_iff_eq_none.mp (by assumption))
 
-theorem installGuardsC_fresh (fe : FEnv) (cv : ConstantVal)
+theorem valueDeclGuardsC_fresh (fe : FEnv) (cv : ConstantVal)
     (value : Expr) :
-    Yields (installGuardsC fe cv value)
+    Yields (valueDeclGuardsC fe cv value)
       (fun _ => fe.find? cv.name = none) := by
-  unfold installGuardsC
+  unfold valueDeclGuardsC
   ybind
-  refine Yields.bind' (installHeaderC_fresh fe cv) fun _ hp => ?_
-  unfold installValueGuardsC
+  refine Yields.bind' (headerGuardsC_fresh fe cv) fun _ hp => ?_
+  unfold valueGuardsC
   yields
   all_goals exact Yields.pure hp
 
@@ -371,10 +367,10 @@ theorem consSumCtorsF_append (nP : Nat) :
 /-- The members' constructors, consed member by member, are the
 whole block's constructors consed in block order. -/
 theorem consBlockCtorsF_flatten (nP : Nat) :
-    ∀ (ctorsAs : List (List (ConstantVal × Nat))) (fe : FEnv),
-      consBlockCtorsF nP ctorsAs fe = consSumCtorsF nP ctorsAs.flatten fe
+    ∀ (memberCtors : List (List (ConstantVal × Nat))) (fe : FEnv),
+      consBlockCtorsF nP memberCtors fe = consSumCtorsF nP memberCtors.flatten fe
   | [], _ => rfl
-  | ctorsA :: rest, fe => by
+  | ctorList :: rest, fe => by
     rw [consBlockCtorsF, List.flatten_cons, consSumCtorsF_append]
     exact consBlockCtorsF_flatten nP rest _
 
@@ -393,7 +389,7 @@ theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p :
         p.large ms.cvT ms.ctors)
       (checkSumCtorsF_fresh ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
         p.large ms.cvT ms.ctors)) fun q hq => ?_
-    obtain ⟨ctorsA, sortss⟩ := q
+    obtain ⟨ctorList, sortss⟩ := q
     obtain ⟨⟨hn, hlS⟩, -, hfr⟩ := hq
     refine Yields.bind' (checkBlockCtorsF_fresh ops fe₀ fe p rest) fun restS hr => ?_
     obtain ⟨hlS', hfr'⟩ := hr
@@ -402,7 +398,7 @@ theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p :
       exact ⟨hlS, hlS'⟩
     · intro ms' hms' c hc
       rcases List.mem_cons.mp hms' with rfl | hms'
-      · have hmem : c.1.name ∈ ctorsA.map (·.1.name) := by
+      · have hmem : c.1.name ∈ ctorList.map (·.1.name) := by
           have := congrArg (List.map Prod.fst) hn
           simp only [List.map_map, Function.comp_def] at this
           simp only [this]

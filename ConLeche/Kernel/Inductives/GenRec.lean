@@ -292,28 +292,28 @@ def classFieldsAgree (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTy
 premise's inductive hypotheses against the datum's recursive fields
 (`classFieldsOf`); node agreement at every entry (`classFieldsAgree`). -/
 def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
-    (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) (cA : ConstantVal × Nat) :
+    (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) (ctor : ConstantVal × Nat) :
     m ClassCtor := do
-  let E := (Ms.getD c default).nfs.filter (·.ctor == cA.1.name)
-  let e0 ← unwrapOr E.head? (.internal s!"generated recursor: the constructor {cA.1.name} of a \
+  let E := (Ms.getD c default).nfs.filter (·.ctor == ctor.1.name)
+  let e0 ← unwrapOr E.head? (.internal s!"generated recursor: the constructor {ctor.1.name} of a \
     class has no entry in the positivity check's table")
-  let (_, ihs) ← classMinorSlot rd c cA.1.name
-  let (fvs, _) ← unwrapOr (openPisAtFvars cA.2 e0.ty (p.nP + p.k))
+  let (_, ihs) ← classMinorSlot rd c ctor.1.name
+  let (fvs, _) ← unwrapOr (openPisAtFvars ctor.2 e0.ty (p.nP + p.k))
     (.internal "generated recursor: datum telescope")
-  let kinds ← classFieldsOf p cA.1.name ihs 0 fvs
-  classFieldsAgree ops env p formerTys Ms fvs cA.1.name E 0 kinds
+  let kinds ← classFieldsOf p ctor.1.name ihs 0 fvs
+  classFieldsAgree ops env p formerTys Ms fvs ctor.1.name E 0 kinds
   let M := Ms.getD c default
-  let tyD ← unwrapOr (instPisWith M.ds (targetCtorAt M cA.1))
+  let tyD ← unwrapOr (instPisWith M.ds (targetCtorAt M ctor.1))
     (.internal "generated recursor: constructor parameter telescope")
-  pure ⟨cA.1, cA.2, kinds, tyD, e0.ty⟩
+  pure ⟨ctor.1, ctor.2, kinds, tyD, e0.ty⟩
 
 /-- Every constructor of class `c` (`classCtorOf`). -/
 def classCtorsOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
     (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) :
     List (ConstantVal × Nat) → m (List ClassCtor)
   | [] => pure []
-  | cA :: cs => do
-    let x ← classCtorOf ops env p formerTys rd Ms c cA
+  | ctor :: cs => do
+    let x ← classCtorOf ops env p formerTys rd Ms c ctor
     let xs ← classCtorsOf ops env p formerTys rd Ms c cs
     pure (x :: xs)
 

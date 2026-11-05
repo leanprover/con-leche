@@ -278,7 +278,7 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
     (hlf : ∀ p ∈ L₀, ∀ cv mI rP isK rules, p = .recInfo cv mI rP isK rules →
       ∀ r ∈ rules, (pinnedInfo (RecRule.ctor r)).toConstantVal.levelParams = []) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval env env' ∧
-      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.shown mm = none) ∧
+      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   have h := R.ren
   have hfwd : ∀ n ci, env.find? n = some ci →
@@ -436,7 +436,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     (henv' : env' = ⟨eqRecA.atLps [p1, p] :: eqReflA.atLps [p] :: eqA.atLps [p] :: E.consts, E.tables⟩) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval
         ⟨eqRecA :: eqReflA :: eqA :: E.consts, E.tables⟩ env' ∧
-      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.shown mm = none) ∧
+      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   subst henv'
   have h := R.ren
@@ -861,7 +861,7 @@ theorem pinAgrees_cv {c c' : ConstantInfo} (h : ConLeche.pinAgrees c c' = true) 
 theorem CoverRel.ren {κ : Prop} {L₀ : List ConstantInfo} {E env env' : Env} {m₀ : EnvModelM V E}
     {m₁ : EnvModelM V env} {m' : EnvModelM V env'} (r : CoverRel m₀ m₁) (R : RenRel κ L₀ E env env')
     (hac : m'.base2.acval = renAcval m₁.base2.acval env env')
-    (hb : ∀ D ∈ m'.lfpBlocks, D ∈ m₁.lfpBlocks ∨ ∀ mm, D.shown mm = none) : CoverRel m₀ m' :=
+    (hb : ∀ D ∈ m'.lfpBlocks, D ∈ m₁.lfpBlocks ∨ ∀ mm, D.telescope mm = none) : CoverRel m₀ m' :=
   ⟨fun n ci hn => by
     have hs : (E.find? n).isSome = true := by rw [hn]; rfl
     rw [(R.stE n hs).2]; exact hn,
@@ -1006,7 +1006,7 @@ theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List C
     (hctor : ∀ cv a b, pin = .ctorInfo cv a b →
       pin = quotMkA ∧ ∃ q, E.find? quotName = some (quotA.atLps [q])) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval env env' ∧
-      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.shown mm = none) ∧
+      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   have h := R.ren
   have fh : env.find? pin.name = some pin := by

@@ -3,7 +3,7 @@ module
 public import ConLeche.Verify.Cached.InstalledC
 public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.PushChain
-import ConLeche.Verify.CheckerSplit
+import ConLeche.Verify.ValueCheck
 import ConLeche.Model.Capstone
 import ConLeche.Verify.Cached.BridgeC
 
@@ -14,16 +14,15 @@ public section
 
 The model-level half of the walk over phase A's accepting run
 (`InstallRun`, `ConLeche/Cached/Installed.lean`); the simulation lemmas
-it steps with — phase A's install halves and the record check at the
-prefix view — are model-free and live in
+it steps with (phase A's guards and the record check at the prefix view) are model-free and live in
 `ConLeche/Verify/Cached/InstalledC.lean`.
 
 * `installRun_model` — the walk: at each position the model supplies
   the well-formedness of the environment every bridge from the
   executable core takes; an ordinary step is a `checkDecl` run by
-  `checkDeclStepC_run`, a separable value declaration is the two halves
-  re-associated into a `checkDecl` run (`checkDecl_of_split_*`,
-  `ConLeche/Verify/CheckerSplit.lean`) with the record's check consumed
+  `checkDeclStepC_run`, a value declaration its guards and value check
+  assembled into a `checkDecl` run (`checkDecl_of_value_*`,
+  `ConLeche/Verify/ValueCheck.lean`) with the record's check consumed
   at the position that produced it; `declStep_preserves` carries the
   model across either.
 * `fullyChecked_sound` / `no_proof_of_False_checked` /
@@ -58,7 +57,7 @@ that wants to know WHAT was installed reads
 uses only the first two.
 
 The hypotheses about the run's final index (`q`) are the ones a
-separable value declaration needs: phase A installs its header and
+value declaration needs: phase A installs its header and
 records the value group, and the group's own check — run at the FINAL
 environment, from a fresh memo state — is what the model step consumes. -/
 theorem installStepC_model
@@ -75,7 +74,7 @@ theorem installStepC_model
       ∃ F, checkDecl .verified (fueledOps .verified F) pins fe.env pd = .ok fe₁.env := by
     obtain ⟨⟨mp, hcov, hS⟩, hE, hN⟩ := hm
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
-    -- the ordinary step: a declaration checked in full at its install
+    -- the ordinary step: a declaration's checked step
     have ordinary : ∀ (pd' : Declaration),
         (checkDeclOnly .verified pins fe pd' >>= fun _ =>
           pure (FEnv.pushDelta (declConstants pd') (declTables pd') fe,
@@ -97,7 +96,7 @@ theorem installStepC_model
       rw [← hfe] at hF
       exact ⟨declStep_preserves mp hcov hS hE hN
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
-    -- a separable value declaration: phase A's install (its facts
+    -- a value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
     have value : ∀ (kind : ValueKind) (mk : ConstantVal → Expr → ConstantInfo)
         (d : Declaration) (cv : ConstantVal) (jv : Expr),
@@ -159,17 +158,16 @@ theorem installStepC_model
         simp only [Prod.mk.injEq] at hv
         obtain ⟨rfl, rfl⟩ := hv
         rw [hfe] at hval
-        obtain ⟨hres₁, hwty, hwv, hI, hV⟩ := installGuardsC_run hresA hval
+        obtain ⟨hres₁, hwty, hwv, hI, hV⟩ := valueDeclGuardsC_run hresA hval
         refine value .defn (fun cv val => .defnInfo cv val hint)
           (.defnDecl cv val hint) cv val rfl
           hres₁ rfl rfl hwty (fun _ => hwv) ?_
         intro F hC
         have hnat' : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = false :=
           Bool.not_eq_true _ ▸ hnat
-        exact ⟨F, checkDecl_of_split_defn hnat' rfl rfl rfl hI hV hC⟩
+        exact ⟨F, checkDecl_of_value_defn hnat' rfl rfl rfl hI hV hC⟩
     | thmDecl cv val =>
-      -- phase A installed the header alone: the flush, the header's
-      -- install half, the push of the RAW value
+      -- phase A guarded the header alone: the flush, the header's guards, the push
       unfold installStepC at hstepC
       simp only [installGuards, bind_assoc] at hstepC
       obtain ⟨u₀, s₁', hflush, h⟩ := bindC_ok hstepC
@@ -180,7 +178,7 @@ theorem installStepC_model
       cases u₁
       rw [hfe] at hcv
       obtain ⟨hs₂, hwty, hI⟩ :=
-        installHeaderC_run (μ := .verified) (flushC_csok hresA) hcv
+        headerGuardsC_run (μ := .verified) (flushC_csok hresA) hcv
       obtain ⟨hv, rfl⟩ := pureC_ok h'
       simp only [Prod.mk.injEq] at hv
       obtain ⟨rfl, rfl⟩ := hv
@@ -188,7 +186,7 @@ theorem installStepC_model
         rfl
         hs₂.residue rfl rfl hwty (fun h => absurd rfl h) ?_
       intro F hC
-      exact ⟨F, checkDecl_of_split_thm rfl rfl rfl hI hC⟩
+      exact ⟨F, checkDecl_of_value_thm rfl rfl rfl hI hC⟩
     | opaqueDecl cv val =>
       unfold installStepC at hstepC
       simp only [installGuards] at hstepC
@@ -202,13 +200,13 @@ theorem installStepC_model
         simp only [Prod.mk.injEq] at hv
         obtain ⟨rfl, rfl⟩ := hv
         rw [hfe] at hval
-        obtain ⟨hres₁, hwty, hwv, hI, hV⟩ := installGuardsC_run hresA hval
+        obtain ⟨hres₁, hwty, hwv, hI, hV⟩ := valueDeclGuardsC_run hresA hval
         refine value .opaque (fun cv _ => .axiomInfo cv) (.opaqueDecl cv val)
           cv val rfl
           hres₁ rfl rfl hwty (fun _ => hwv) ?_
         intro F hC
         have hred' : reduceOpNames.contains cv.name = false := Bool.not_eq_true _ ▸ hred
-        exact ⟨F, checkDecl_of_split_opaque hred' rfl rfl rfl hI hV hC⟩
+        exact ⟨F, checkDecl_of_value_opaque hred' rfl rfl rfl hI hV hC⟩
     | axiomDecl cv => unfold installStepC at hstepC; exact ordinary _ hstepC
     | quotDecl k cv => unfold installStepC at hstepC; exact ordinary _ hstepC
     | indDecl block nP => unfold installStepC at hstepC; exact ordinary _ hstepC

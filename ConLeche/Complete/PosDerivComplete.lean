@@ -399,11 +399,11 @@ describes, succeeds with the judgment's outputs. -/
         n ≤ fuelOf crest) → ∀ st, RInv ctx st act →
       ∃ os st', nestCtors ctx ops env (fun crest => nestPos ops env ctx (fuelOf crest)) prog hi us
           ds names holes cs st = .ok (os, st') ∧ RInv ctx st' act ∧
-        ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some cA →
+        ∀ (j : Nat) (ctor : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some ctor →
           os[j]? = some o → ∃ crest m nds cur,
-            nestCrest names us ds holes (cA.1.type.instantiateLevelParams cA.1.levelParams us)
+            nestCrest names us ds holes (ctor.1.type.instantiateLevelParams ctor.1.levelParams us)
               = some crest ∧
-            PosDR ops env ctx m (.tele act prog hi cA.2 0 crest o.1 nds cur) ∧
+            PosDR ops env ctx m (.tele act prog hi ctor.2 0 crest o.1 nds cur) ∧
             o.2 = closeTelescope nds hi cur
   | .frame act prog us ds grp => ∀ fuel, n ≤ fuel →
       FrameRun ops env ctx (nestPos ops env ctx fuel) act prog us ds grp
@@ -547,7 +547,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
       (fun x hx c' hc' => by have := hf x (List.mem_cons_of_mem _ hx) c' hc'; omega)
       { st₁ with ctorNfs := st₁.ctorNfs.push (nestCtorNf ctx prog hi us ds cv nds cur) } hI₁
     simp only [h₂]
-    refine ⟨_, st', rfl, hI', fun j cA o hj ho => ?_⟩
+    refine ⟨_, st', rfl, hI', fun j ctor o hj ho => ?_⟩
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj ho
@@ -555,7 +555,7 @@ theorem posDR_run {n : Nat} {J : PosJR} (h : PosDR ops env ctx n J) :
       exact ⟨crest, m₁, nds, cur, hcrest, htele, rfl⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ho
-      exact hos j cA o hj ho
+      exact hos j ctor o hj ho
   | teleNil =>
     intro fuel _ st hI
     exact ⟨[], st, fun _ => rfl, rfl, hI⟩
@@ -582,12 +582,12 @@ theorem nestRoot_complete {holes : List Expr} :
       ∃ outs st', nestRoot ops env ctx holes css st = .ok (outs, st') ∧ RInv ctx st' [] ∧
         ∀ (c : Nat) (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),
           css[c]? = some cs → outs[c]? = some os →
-          ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr),
-            cs[j]? = some cA → os[j]? = some o → ∃ crest m nds cur,
+          ∀ (j : Nat) (ctor : ConstantVal × Nat) (o : List NestFieldKind × Expr),
+            cs[j]? = some ctor → os[j]? = some o → ∃ crest m nds cur,
               nestCrest ctx.names (ctx.lps.map .param) ctx.params holes
-                (cA.1.type.instantiateLevelParams cA.1.levelParams (ctx.lps.map .param))
+                (ctor.1.type.instantiateLevelParams ctor.1.levelParams (ctx.lps.map .param))
                 = some crest ∧
-              PosDR ops env ctx m (.tele [] [] (ctx.hiAt 0) cA.2 0 crest o.1 nds cur) ∧
+              PosDR ops env ctx m (.tele [] [] (ctx.hiAt 0) ctor.2 0 crest o.1 nds cur) ∧
               o.2 = closeTelescope nds (ctx.hiAt 0) cur
   | [], st, hI, _ => ⟨[], st, rfl, hI, fun _ _ _ hc => by simp at hc⟩
   | cs :: css, st, hI, hall => by
@@ -612,7 +612,7 @@ every member's constructor list derived (run-complete, at the root key)
 within the root's fuel, make `nestedBlockPositivity` succeed. -/
 theorem nestedBlockPositivity_complete {holes : List Expr}
     (hh : nestHoles ctx = some holes) {ctorss : List (List (ConstantVal × Nat))}
-    (hunif : ∀ cs ∈ ctorss, ∀ cA ∈ cs, nestUniformOk ctx cA.1 = true)
+    (hunif : ∀ cs ∈ ctorss, ∀ ctor ∈ cs, nestUniformOk ctx ctor.1 = true)
     (hall : ∀ cs ∈ ctorss, ∃ n, (∀ x ∈ cs, ∀ crest, nestCrest ctx.names (ctx.lps.map .param)
         ctx.params holes (x.1.type.instantiateLevelParams x.1.levelParams (ctx.lps.map .param))
           = some crest → n ≤ whnfWalkFuel crest) ∧
@@ -624,7 +624,7 @@ theorem nestedBlockPositivity_complete {holes : List Expr}
   have hU : nestUniform (m := CheckM) ctx ctorss = .ok () := by
     unfold nestUniform
     rw [(List.findSome?_eq_none_iff).mpr fun cs hcs =>
-      List.find?_eq_none.mpr fun cA hcA => by simp [hunif cs hcs cA hcA]]
+      List.find?_eq_none.mpr fun ctor hctor => by simp [hunif cs hcs ctor hctor]]
     rfl
   simp only [nestedBlockPositivity, bind, Except.bind, hh, unwrapOr, pure, Except.pure, hU, h]
   exact ⟨_, rfl⟩

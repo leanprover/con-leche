@@ -42,8 +42,7 @@ startup and threaded as configuration, never re-read at runtime.
 **The mode is the public interface** (task #185, 2026-09-06; task
 #452): what it carries is the function `verifiedChecks` below, a
 `match` on the two constructors, so each read reduces by `rfl` at
-either mode.  The configuration record that stood between the mode and
-the shipped cores from task #172 B2 to task #185 is gone.
+either mode.
 
 The two values are spelled `--verified` and `--trusted` on the command
 line, and they say what the modes are FOR rather than which artefact

@@ -63,11 +63,8 @@ structure StateD where
   decls : Array Declaration := #[]
 
 /-- **One parsed record, appended** (task #293): the decoder keeps the
-file's records in the file's order.  What used to sit here was the
-prelude dedupe — a basis block the prelude held dropped by kind, a
-record under a prelude name dropped when identical and DECLINING the
-stream when different — and it is `preparePrelude`'s and the fold's
-now (`ConLeche/Frontend/Prepare.lean`). -/
+file's records in the file's order; the prelude's records are `preparePrelude`'s and the fold's
+business (`ConLeche/Frontend/Prepare.lean`). -/
 def pushDecl (st : StateD) (d : Declaration) : StateD :=
   { st with decls := st.decls.push d }
 
@@ -98,10 +95,8 @@ builder's result depends on its lookups' answers alone, and that is
 what the proofs of the rounds parse use
 (`ConLeche/Verify/Frontend/Dense.lean`).
 
-The frontend tree-size budget that used to sit on the declaration-level
-expression lookup was **retired at task #215**: every consumer it
-bounded is now either name-selected (the basis-pin match) or a
-memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
+The declaration-level expression lookup has no tree-size budget: every consumer is either
+name-selected (the basis-pin match) or a memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
 `@[csimp]` in `ConLeche/Kernel/ExprOps.lean`), and the adversarial
 DAG-tower fixtures in `tests/e2e` are the standing gate in its place —
 a limit told a user "no", a fixture tells *us* which walker
@@ -405,8 +400,7 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
       return .inr (.declined "unsafe axiom")
     -- **`Quot.sound` is the FOLD's** (task #293): the axiom record is
     -- forwarded like any other, and the fold compares it with the
-    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm) — the
-    -- decline on a mismatch was the parser's and is not any more.
+    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm).
     return .inl (.axiomDecl cvp)
   | .defn cvr value hints safety =>
     let cvp ← cvOfF nm lv ex cvr

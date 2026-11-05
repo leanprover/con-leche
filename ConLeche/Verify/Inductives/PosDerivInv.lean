@@ -328,20 +328,20 @@ section Frame
 variable {rec : List NestHole → Nat → Nat → Expr → NestState → CheckM (NestFieldKind × Expr × NestState)}
 
 /-- **A constructor's walk, as the run output it**: the constructor
-`cA`, instantiated as the frame instantiates it (`crest`), has a derived
+`ctor`, instantiated as the frame instantiates it (`crest`), has a derived
 telescope whose kinds and normal form (closed over the fields) are the
 run's output `o`, U4 and the result's checks, and its nodes recorded in
 `tbl`. -/
 @[expose] def CtorOut (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx)
     (tbl : List NestCtorNf) (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr)
-    (names : List Name) (holes : List Expr) (cA : ConstantVal × Nat)
+    (names : List Name) (holes : List Expr) (ctor : ConstantVal × Nat)
     (o : List NestFieldKind × Expr) : Prop :=
   ∃ crest nds cur ts, nestCrest names us ds holes
-      (cA.1.type.instantiateLevelParams cA.1.levelParams us) = some crest ∧
+      (ctor.1.type.instantiateLevelParams ctor.1.levelParams us) = some crest ∧
     (∃ ty, ops.inferType env hi crest = .ok ty) ∧
-    PosD ops env ctx (.tele prog hi cA.2 0 crest o.1 nds cur) ts ∧
+    PosD ops env ctx (.tele prog hi ctor.2 0 crest o.1 nds cur) ts ∧
     o.2 = closeTelescope nds hi cur ∧
-    ((List.range cA.2).any fun i => o.1.getD i .ordinary != .ordinary &&
+    ((List.range ctor.2).any fun i => o.1.getD i .ordinary != .ordinary &&
       structUsedLater (closeTelescope nds hi cur) 0 i) = false ∧
     nestResHead cur = true ∧
     cur.getAppArgs.all (fun x => !x.nestOcc ctx.names ctx.nP hi) = true ∧
@@ -349,9 +349,9 @@ run's output `o`, U4 and the result's checks, and its nodes recorded in
 
 theorem CtorOut.mono {tbl tbl' : List NestCtorNf} (hs : ∀ e ∈ tbl, e ∈ tbl')
     {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
-    {names : List Name} {holes : List Expr} {cA : ConstantVal × Nat}
-    {o : List NestFieldKind × Expr} (h : CtorOut ops env ctx tbl prog hi us ds names holes cA o) :
-    CtorOut ops env ctx tbl' prog hi us ds names holes cA o := by
+    {names : List Name} {holes : List Expr} {ctor : ConstantVal × Nat}
+    {o : List NestFieldKind × Expr} (h : CtorOut ops env ctx tbl prog hi us ds names holes ctor o) :
+    CtorOut ops env ctx tbl' prog hi us ds names holes ctor o := by
   obtain ⟨crest, nds, cur, ts, h1, h2, h3, h4, h5, h6, h7, h8⟩ := h
   exact ⟨crest, nds, cur, ts, h1, h2, h3, h4, h5, h6, h7, h8.mono hs⟩
 
@@ -375,8 +375,8 @@ theorem nestCtors_deriv
         NodesIn ops env ctx st st' ts ∧
         CtorsRec ops env ctx st'.ctorNfs.toList prog hi us ds names holes cs ∧
         os.length = cs.length ∧
-        ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ o, os[j]? = some o ∧
-          CtorOut ops env ctx st'.ctorNfs.toList prog hi us ds names holes cA o := by
+        ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor → ∃ o, os[j]? = some o ∧
+          CtorOut ops env ctx st'.ctorNfs.toList prog hi us ds names holes ctor o := by
   intro cs
   induction cs with
   | nil =>
@@ -446,7 +446,7 @@ theorem nestCtors_deriv
         obtain ⟨⟨nc, hnc⟩, -⟩ := hn₂
         intro e he; rw [hnc]; exact List.mem_append_left _ he
       refine ⟨hI', ts₁ ++ ts₂, .ctorsCons hnd hcrest' hty hsv h₁ hu4' hok.1 hok.2 h₂,
-        hn₁'.trans hn₂, fun x hx => ?_, by simp [hlen₂], fun j cA hj => ?_⟩
+        hn₁'.trans hn₂, fun x hx => ?_, by simp [hlen₂], fun j ctor hj => ?_⟩
       · rcases List.mem_cons.mp hx with rfl | hx
         · intro crest'' ks'' nds'' cur'' ts'' hcr'' hd''
           rw [hcrest'] at hcr''
@@ -463,7 +463,7 @@ theorem nestCtors_deriv
           exact hn₁'.2.mono hsub₂
         | succ j =>
           simp only [List.getElem?_cons_succ] at hj ⊢
-          exact hout₂ j cA hj
+          exact hout₂ j ctor hj
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **A frame's constructor listing.** -/
@@ -884,9 +884,9 @@ theorem nestRoot_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
         TreeRec ops env ctx st'.ctorNfs.toList ts ∧
         CtorsRec ops env ctx st'.ctorNfs.toList [] (ctx.hiAt 0) (ctx.lps.map .param) ctx.params
           ctx.names holes cs ∧
-        ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ o, os[j]? = some o ∧
+        ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor → ∃ o, os[j]? = some o ∧
           CtorOut ops env ctx st'.ctorNfs.toList [] (ctx.hiAt 0) (ctx.lps.map .param) ctx.params
-            ctx.names holes cA o
+            ctx.names holes ctor o
   | [], st, outs, st', h, _, hI => by
     simp only [nestRoot, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
@@ -931,8 +931,8 @@ theorem nestRoot_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hc
       subst hc
       exact ⟨o, ts₁, rfl, hd₁, htr₁.mono hsub₂, hcr₁.mono hsub₂,
-        fun j cA hj => by
-          obtain ⟨o', ho', hco⟩ := hout₁ j cA hj
+        fun j ctor hj => by
+          obtain ⟨o', ho', hco⟩ := hout₁ j ctor hj
           exact ⟨o', ho', hco.mono hsub₂⟩⟩
     | succ c =>
       simp only [List.getElem?_cons_succ] at hc ⊢
@@ -1041,18 +1041,18 @@ and parameters, read back — in the table. -/
 theorem rootEntry_mem {holes : List Expr} {tbl : List NestCtorNf}
     {css : List (List (ConstantVal × Nat))} (hroot : NestRootOk ctx)
     (hrec : CtorsRecRoot ops env ctx holes tbl css) {c : Nat} {cs : List (ConstantVal × Nat)}
-    (hc : css[c]? = some cs) {cA : ConstantVal × Nat} (hcA : cA ∈ cs)
-    (hlps : cA.1.levelParams = ctx.lps) {crest : Expr}
-    (hcr : nestCrest ctx.names (ctx.lps.map .param) ctx.params holes cA.1.type = some crest)
+    (hc : css[c]? = some cs) {ctor : ConstantVal × Nat} (hctor : ctor ∈ cs)
+    (hlps : ctor.1.levelParams = ctx.lps) {crest : Expr}
+    (hcr : nestCrest ctx.names (ctx.lps.map .param) ctx.params holes ctor.1.type = some crest)
     {ks : List NestFieldKind} {tyN : Expr} {ts : List PosTree}
-    (hd : MemberCtorD ops env ctx cA.2 crest ks tyN ts) :
-    (⟨cA.1.name, ctx.lps.map .param, ctx.params, tyN.replaceFVars (nestHoleImg ctx [])⟩ :
+    (hd : MemberCtorD ops env ctx ctor.2 crest ks tyN ts) :
+    (⟨ctor.1.name, ctx.lps.map .param, ctx.params, tyN.replaceFVars (nestHoleImg ctx [])⟩ :
       NestCtorNf) ∈ tbl := by
   obtain ⟨nds, cur, htele, rfl, -⟩ := hd
   have hcr' : nestCrest ctx.names (ctx.lps.map .param) ctx.params holes
-      (cA.1.type.instantiateLevelParams cA.1.levelParams (ctx.lps.map .param)) = some crest := by
+      (ctor.1.type.instantiateLevelParams ctor.1.levelParams (ctx.lps.map .param)) = some crest := by
     rw [rootCrest_eq _ _ hlps]; exact hcr
-  have h := hrec c cs hc cA hcA crest ks nds cur ts hcr' htele
+  have h := hrec c cs hc ctor hctor crest ks nds cur ts hcr' htele
   unfold nestCtorNf at h
   rwa [params_readback hroot []] at h
 
@@ -1078,14 +1078,14 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
       (NestCtxOk (p.nestCtx fvsP find?) →
         (∀ x ∈ fvsP, WScoped ((p.nestCtx fvsP find?).hiAt 0) x) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
-          ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → cA.1.type.hasFvar = false) →
+          ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor → ctor.1.type.hasFvar = false) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
-          ∀ cA ∈ cs, cA.1.levelParams = p.lps) →
+          ∀ ctor ∈ cs, ctor.1.levelParams = p.lps) →
         (∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
-          ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA → ∃ crest ks ts,
-            nestCrest (p.nestCtx fvsP find?).names (p.lps.map .param) fvsP holes cA.1.type
+          ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor → ∃ crest ks ts,
+            nestCrest (p.nestCtx fvsP find?).names (p.lps.map .param) fvsP holes ctor.1.type
               = some crest ∧
-            MemberCtorD ops env₁ (p.nestCtx fvsP find?) cA.2 crest ks
+            MemberCtorD ops env₁ (p.nestCtx fvsP find?) ctor.2 crest ks
               ((nfs.getD c []).getD j default) ts ∧
             (kinds.getD c []).getD j [] = ks ∧
             TreeRec ops env₁ (p.nestCtx fvsP find?) pos.ctorNfs.toList ts) ∧
@@ -1104,10 +1104,10 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
       p.memberCtors := fun c cs hc => by
     obtain ⟨os, ts, -, -, -, hcr, -⟩ := hall c cs hc
     exact hcr
-  refine ⟨fun c cs hc j cA hj => ?_, hRR, hIM⟩
+  refine ⟨fun c cs hc j ctor hj => ?_, hRR, hIM⟩
   obtain ⟨os, ts, hoc, -, -, -, hout⟩ := hall c cs hc
-  obtain ⟨o, hoj, crest, nds, cur, ts', hcr, -, hd, ho2, hu4, hres, hidx, htr⟩ := hout j cA hj
-  rw [rootCrest_eq _ _ (hlps c cs hc cA (List.mem_of_getElem? hj))] at hcr
+  obtain ⟨o, hoj, crest, nds, cur, ts', hcr, -, hd, ho2, hu4, hres, hidx, htr⟩ := hout j ctor hj
+  rw [rootCrest_eq _ _ (hlps c cs hc ctor (List.mem_of_getElem? hj))] at hcr
   refine ⟨crest, o.1, ts', hcr, ⟨nds, cur, hd, ?_, ?_, hres, hidx⟩, ?_, htr⟩
   · rw [outs_getD hoc hoj default]; exact ho2
   · rw [outs_getD hoc hoj default, ho2]; exact hu4

@@ -168,8 +168,7 @@ private theorem boolEq_of_iff {a b : Bool} (h : a = true ↔ b = true) : a = b :
   cases a <;> cases b <;> simp_all
 
 /-- Two constants have the same canonical common data.  (`decide (· =
-·)` is what `==` unfolds to at these `DecidableEq` types, so this is
-the comparison the call sites used to spell inline.) -/
+·)` is what `==` unfolds to at these `DecidableEq` types.) -/
 def ConstantVal.canonEq (cv cv' : ConstantVal) : Bool :=
   decide (ConstantVal.canon cv = ConstantVal.canon cv')
 

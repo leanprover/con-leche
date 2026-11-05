@@ -33,8 +33,8 @@ variable {V : Type w} [SetTheory V]
 section Decode
 
 variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool}
-  {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {pos : NestState} {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- **A class's constructor, as the generated stage read it**: the
 `j`-th constructor of recursor `c`'s class, its run, the rule generated
@@ -43,16 +43,16 @@ theorem genCtor_at
     (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
       block out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
     (hj : j < (tgtMajor out c).ctors.length) :
-    ∃ cls M₀ nfs cA x gen, R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
+    ∃ cls M₀ nfs ctor x gen, R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
       Nonempty (ClassMajorRun .verified F (mkFEnv envC) p R.ctx.params
         (R.keys.getD cls default) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps .verified F) envC p (p.formers.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
-      M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
+      M₀.ctors[j]? = some ctor ∧ (R.ctors.getD cls [])[j]? = some x ∧
       genCtorAt R.g R.rd c j = x ∧
-      Nonempty (ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls cA x) ∧
+      Nonempty (ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls ctor x) ∧
       ConLeche.classGenRule R.g (ConLeche.classRecOf R.rd.recCls R.cvGs)
         ((out.getD c default).1.levelParams.map .param) cls x = some gen := by
   have hi' : c < out.length := by simpa [ConLeche.tgtRs] using hc
@@ -72,14 +72,14 @@ theorem genCtor_at
   obtain ⟨-, hallC⟩ := ConLeche.classesCtors_run R.hctors
   obtain ⟨xs', hxs', hco⟩ := hallC cls _ hMs
   obtain ⟨-, hallX⟩ := ConLeche.classCtorsOf_run hco
-  obtain ⟨cA, hcA⟩ : ∃ cA, M₀.ctors[j]? = some cA := ⟨_, List.getElem?_eq_getElem hj⟩
-  obtain ⟨x, hx, hRc⟩ := hallX j cA hcA
+  obtain ⟨ctor, hctor⟩ : ∃ ctor, M₀.ctors[j]? = some ctor := ⟨_, List.getElem?_eq_getElem hj⟩
+  obtain ⟨x, hx, hRc⟩ := hallX j ctor hctor
   have hgd : R.ctors.getD cls [] = xs' := by rw [List.getD_eq_getElem?_getD, hxs', Option.getD_some]
   rw [← hgd] at hx
   obtain ⟨gen, -, -, hgen, -⟩ := hallR j x hx
   have hcvG : (out.getD c default).1 = cvG := by
     rw [List.getD_eq_getElem?_getD, ho, Option.getD_some]
-  refine ⟨cls, M₀, nfs, cA, x, gen, hcl, hlt, hM₀, hMs, hMeq, hMR, hnfs, hcA, hx, ?_,
+  refine ⟨cls, M₀, nfs, ctor, x, gen, hcl, hlt, hM₀, hMs, hMeq, hMR, hnfs, hctor, hx, ?_,
     by rw [Nat.zero_add] at hRc; exact hRc, by rw [hcvG]; exact hgen⟩
   unfold genCtorAt genClsOf
   show (R.ctors.getD (R.rd.recCls.getD c 0) []).getD j default = x
@@ -95,7 +95,7 @@ theorem genCall_data
     (acval : Name → (Name → Nat) → Term) (ψ : Name → Nat)
     (tup : Nat → List V → V) (ρ : Nat → V) {xs fs : List V} {v : V}
     (hcall : genCallT tup ρ (fun c j => genIhdAV acval envC R.g R.rd ψ c j) xs c j fs v) :
-    ∃ (cls : Nat) (M₀ : TargetMajor) (nfs : List ConLeche.NestCtorNf) (cA : ConstantVal × Nat)
+    ∃ (cls : Nat) (M₀ : TargetMajor) (nfs : List ConLeche.NestCtorNf) (ctor : ConstantVal × Nat)
       (x : ClassCtor) (i tt tele : Nat) (fvsR : List Expr) (oR : Expr) (ws xsO : List Expr)
       (leafO : Expr) (bs : List V),
       R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
@@ -105,8 +105,8 @@ theorem genCall_data
         (R.keys.getD cls default) M₀) ∧
       ConLeche.targetMajorNfs (fueledOps .verified F) envC p (p.formers.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
-      M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
-      Nonempty (ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls cA x) ∧
+      M₀.ctors[j]? = some ctor ∧ (R.ctors.getD cls [])[j]? = some x ∧
+      Nonempty (ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls ctor x) ∧
       i < x.nF ∧ x.kinds.getD i .ordinary = .recursive tt tele ∧
       openPisAtFvars x.nF x.tyD R.pre.length = some (fvsR, oR) ∧
       targetPiDomsWith fvsR x.tyN = some ws ∧
@@ -121,7 +121,7 @@ theorem genCall_data
         (interp V (consList bs (consList (xs ++ fs) ρ))
           ((denote acval envC ψ (R.pre.length + x.nF + xsO.length)
             (Expr.mkAppN (fvsR.getD i default) xsO)).getD default)) := by
-  obtain ⟨cls, M₀, nfs, cA, x, gen, hcl, hlt, hM₀, hMs, hMeq, hMR, hnfs, hcA, hxj, hgx, hRc, hgen⟩ :=
+  obtain ⟨cls, M₀, nfs, ctor, x, gen, hcl, hlt, hM₀, hMs, hMeq, hMR, hnfs, hctor, hxj, hgx, hRc, hgen⟩ :=
     genCtor_at R hc hj
   obtain ⟨q, hq, bs, hbs, hv⟩ := hcall
   simp only [genIhdAV, hgx] at hq
@@ -149,8 +149,8 @@ theorem genCall_data
       have := (List.getElem?_eq_some_iff.mp hc0).1
       omega
   obtain ⟨hrr, hrl⟩ := genRecIdx_spec hrn hle
-  refine ⟨cls, M₀, nfs, cA, x, i, tt, tele, fvsR, oR, ws, xsO, leafO, bs, hcl, hlt, hM₀, hMs, hMeq,
-    hMR, hnfs, hcA, hxj, hRc, hi, hk, hop, hws, hopO, hrr, ?_, ?_, ?_⟩
+  refine ⟨cls, M₀, nfs, ctor, x, i, tt, tele, fvsR, oR, ws, xsO, leafO, bs, hcl, hlt, hM₀, hMs, hMeq,
+    hMR, hnfs, hctor, hxj, hRc, hi, hk, hop, hws, hopO, hrr, ?_, ?_, ?_⟩
   · simp only [ConLeche.tgtRs, List.length_map]; omega
   · simp only [hop, hws, hpre, Option.map_some, Option.getD_some, hih] at hbs
     simpa [List.map_map, Function.comp_def] using hbs

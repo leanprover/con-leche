@@ -137,7 +137,7 @@ structure LfpDatum (V : Type w) where
   k : Nat
   /-- member `m`'s former as the block's check read it, where the stored one does not show its
   telescope -/
-  shown : Nat → Option ConstantVal
+  telescope : Nat → Option ConstantVal
   /-- the operator's WIDTH (members, then instance components) -/
   N : Nat
   /-- the result sort's value, per level assignment -/
@@ -178,7 +178,7 @@ variable {V : Type w} [SetTheory V] (D : LfpDatum V)
 @[expose] def member (mm : Nat) : Name := D.names.getD mm .anonymous
 
 /-- Member `mm`'s former, stored as `cv`, as the block read it. -/
-@[expose] def formerAt (mm : Nat) (cv : ConstantVal) : ConstantVal := (D.shown mm).getD cv
+@[expose] def formerAt (mm : Nat) (cv : ConstantVal) : ConstantVal := (D.telescope mm).getD cv
 
 /-- The tuple of index-tuple sets at a parameter frame. -/
 @[expose] noncomputable def idx (ψ : Name → Nat) (ρp : Nat → V) : Nat → V :=

@@ -1070,9 +1070,9 @@ All the knot reads past the term is what a stored constant's record names, and a
 declaration boundary has it stored
 ([structure `StoredFacts` in `ConLeche/Verify/EnvExt/Reads.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/EnvExt/Reads.lean#L28-L29)).
 The model therefore keeps one reading of a family: a recorded block's datum says which
-reduct it shows for a member (`LfpDatum.shown`), and a member's model reads its declared
+reduct it shows for a member (`LfpDatum.telescope`), and a member's model reads its declared
 type and its reduct as one value at every valuation
-([structure `FormerDeclared` in `ConLeche/Model/Inductives/FormerStored.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/FormerStored.lean#L29)).
+([structure `FormerDeclared` in `ConLeche/Model/Inductives/FormerInEnv.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/FormerInEnv.lean#L29)).
 
 Three limits are verdicts. A declaration at a name a literal's meaning reads (`Nat`, `Nat.zero`,
 `Nat.succ`, `String`, `String.ofList`, `List`, `List.nil`, `List.cons`, `Char`, `Char.ofNat`) has the

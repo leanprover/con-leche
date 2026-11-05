@@ -47,10 +47,10 @@ the injections' identification stay premises (both `rfl` at
 /-- **The members' index telescopes are graded** at every parameter
 frame, from the constructors' stage. -/
 theorem BlockCtorsStage.idxOkAt {envI : Env} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
-    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf) (hk0 : 0 < d.k) :
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf) (hk0 : 0 < d.k) :
     ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → IdxOk (d.uM c ψ) ρp (d.IdsM c ψ) := by
   intro ψ ρp hs c hc
@@ -61,12 +61,12 @@ theorem BlockCtorsStage.idxOkAt {envI : Env} {d : BlockData V}
 the datum's operator is the hole operator (`hPhi`), whose fibre is the
 hole fit (`LfpDatum.holeOp_fibre`). -/
 theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
-    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hN : BlockNamesOk (V := V) d formers)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
@@ -93,12 +93,12 @@ theorem blockHoleFib_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
 
 /-- **The block's representation, from the stages' three records.** -/
 theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
-    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hN : BlockNamesOk (V := V) d formers)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),
@@ -114,17 +114,17 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     show (fssOfR _ _).length = _
     rw [fssOfR_length]
     exact fixCtorDataList_length _ _ _ _ _ _ _ _
-  have hFssD : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
-      (d.ctorsM c)[j]? = some cA →
+  have hFssD : ∀ (ψ : Name → Nat) (c j : Nat) (ctor : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some ctor →
       (d.Fss c ψ).getD j [] = ((d.dsF c j ψ).drop d.nP) :=
     fun _ _ _ _ hj => fssOfR_fixCtorDataList_getD hj
-  have hdsLenA : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
-      (d.ctorsM c)[j]? = some cA → (d.dsF c j ψ).length = d.nP + cA.2 :=
-    fun ψ c j cA hj => (hcore.2.1 c j cA hj).2.2.1.len ψ
-  have hnF : ∀ (ψ : Name → Nat) (c j : Nat) (cA : ConstantVal × Nat),
-      (d.ctorsM c)[j]? = some cA → ((d.Fss c ψ).getD j []).length = cA.2 := by
-    intro ψ c j cA hj
-    rw [hFssD ψ c j cA hj, List.length_drop, hdsLenA ψ c j cA hj]
+  have hdsLenA : ∀ (ψ : Name → Nat) (c j : Nat) (ctor : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some ctor → (d.dsF c j ψ).length = d.nP + ctor.2 :=
+    fun ψ c j ctor hj => (hcore.2.1 c j ctor hj).2.2.1.len ψ
+  have hnF : ∀ (ψ : Name → Nat) (c j : Nat) (ctor : ConstantVal × Nat),
+      (d.ctorsM c)[j]? = some ctor → ((d.Fss c ψ).getD j []).length = ctor.2 := by
+    intro ψ c j ctor hj
+    rw [hFssD ψ c j ctor hj, List.length_drop, hdsLenA ψ c j ctor hj]
     omega
   -- the parameter frame, at every component and every constructor
   have hlenPps : ∀ (ψ : Name → Nat) (c : Nat), c < d.N →
@@ -147,7 +147,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   have hidxOk := hS.idxOkAt hk0
   have hfib := blockHoleFib_of_records hN hS hcore hk0 hPhi hinj
   -- the formers' leaves: closed, and the members' values at the carrier
-  have hcvOf : ∀ c, c < d.k → ∃ cvTb, cvTas[c]? = some cvTb :=
+  have hcvOf : ∀ c, c < d.k → ∃ cvTb, formers[c]? = some cvTb :=
     fun c hc => ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hc)⟩
   have hacv : ∀ c, c < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName c) ψ = A c ψ := by
     intro c hc ψ
@@ -158,7 +158,7 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   have hcarrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
       ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
         d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
-          d.StoredFit ψ ρp t c j fs := by
+          d.DeclaredFit ψ ρp t c j fs := by
     intro ψ ρp hs c hc t _ j fs
     have hck : c < d.k := by rw [← hNk]; exact hc
     have hfam : lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)
@@ -191,8 +191,8 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
   -- the members' leaves: the block operator at the HOLE chains
   · intro mm hmm ψ
     obtain ⟨hnameOf, -, hlenCv⟩ := hN
-    have hmmlt : mm < cvTas.length := by rw [hlenCv]; exact hmm
-    have hcv : cvTas[mm]? = some cvTas[mm] := List.getElem?_eq_getElem hmmlt
+    have hmmlt : mm < formers.length := by rw [hlenCv]; exact hmm
+    have hcv : formers[mm]? = some formers[mm] := List.getElem?_eq_getElem hmmlt
     rw [hnameOf mm _ hcv, (hcore.1 mm _ hcv).2.2.1 ψ, hS.leaf mm ψ, hNk]
   -- the hole chains are graded, and their operator IS the datum's
   · intro ψ ρp hs
@@ -200,8 +200,8 @@ theorem blockModelAt_of_records {envC envI : Env} {mo : EnvModel V envC} {d : Bl
     rw [hPhi]
     rfl
   -- the constructors' leaves
-  · intro c hc j cA hj ψ
-    exact (hcore.2.2 c (by rw [← hNk]; exact hc) j cA hj).2.2 ψ
+  · intro c hc j ctor hj ψ
+    exact (hcore.2.2 c (by rw [← hNk]; exact hc) j ctor hj).2.2 ψ
   -- the field lists' lengths against the constructors' domains
   · intro ψ c j hj
     rw [hdsLenA ψ c j _ (hcAof c j hj), hnF ψ c j _ (hcAof c j hj)]
@@ -240,12 +240,12 @@ carrier is the least tuple of the hole chains, where the result index
 readings are the stored ones (`blockResIdxFit_lfp`), which the constructors' typing puts
 in the member's index telescope (`BlockModelAt.resIdxFit`). -/
 theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
-    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hN : BlockNamesOk (V := V) d formers)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hM : BlockModelAt mo d.memberNames d) :
@@ -255,7 +255,7 @@ theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
   have hidxOk := hS.idxOkAt hk0
   have hacv : ∀ c, c < d.k → ∀ ψ : Name → Nat, mo.acval (d.memberName c) ψ = A c ψ := by
     intro c hc ψ
-    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTas[c]? = some cvTb :=
+    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, formers[c]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hc)⟩
     rw [hN.1 c cvTb hcvTb]
     exact (hcore.1 c cvTb hcvTb).2.2.1 ψ
@@ -280,12 +280,12 @@ theorem blockResIdxFit_of_records {envC envI : Env} {mo : EnvModel V envC} {d : 
 
 /-- **The block's lfp clause, in hole form, from the stages' records.** -/
 theorem blockLfpClause_of_records {envC envI : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {lps : List Name} {cvTas : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
+    {lps : List Name} {formers : List ConstantVal} {p₁ : ConLeche.BlockShape} {isRec : Bool}
     {F : Nat} {A : Nat → (Name → Nat) → Term}
     {ctorsOf : Name → List Name}
-    (hN : BlockNamesOk (V := V) d cvTas)
-    (hS : BlockCtorsStage (V := V) F d lps cvTas p₁ isRec A envI ctorsOf)
-    (hcore : BlockCtorsCore mo d lps cvTas p₁ isRec A d.k)
+    (hN : BlockNamesOk (V := V) d formers)
+    (hS : BlockCtorsStage (V := V) F d lps formers p₁ isRec A envI ctorsOf)
+    (hcore : BlockCtorsCore mo d lps formers p₁ isRec A d.k)
     (hinst : d.nInst = 0) (hk0 : 0 < d.k)
     (hPhi : ∀ (ψ : Name → Nat) (ρp : Nat → V), d.Φ ψ ρp = d.toLfp.holeOp ψ ρp)
     (hinj : ∀ (ψ : Name → Nat) (c j : Nat) (fs : List V),

@@ -104,8 +104,8 @@ structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvM
   hsubC : ∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks
   htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
     denote mk.base2.acval envI ψ dd e = some ea → denote mpC.base2.acval envC ψ dd e = some ea
-  henvC : ∃ (nP : Nat) (ctorsAs : List (List (ConstantVal × Nat))),
-    envC = ConLeche.consBlockCtors nP ctorsAs envI
+  henvC : ∃ (nP : Nat) (memberCtors : List (List (ConstantVal × Nat))),
+    envC = ConLeche.consBlockCtors nP memberCtors envI
   hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI ctx t
   hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns
   hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids
@@ -120,10 +120,10 @@ structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvM
   hΔ0 : ∀ ψ, ((d.holeCtx ψ).reverse).length = ctx.hiAt 0
   hlpsM : ∀ n ∈ ctx.names, ∃ cv caps, envI.find? n = some (.indInfo cv caps) ∧
     cv.levelParams = ctx.lps
-  hformers : ∃ (cvTas : List ConstantVal) (p : BlockShape) (isRec : Bool),
-    BlockNamesOk (V := V) d cvTas ∧
-    ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      FormerStored mk.base2 cvTb (ConLeche.blockCapsAt p c isRec) ∧
+  hformers : ∃ (formers : List ConstantVal) (p : BlockShape) (isRec : Bool),
+    BlockNamesOk (V := V) d formers ∧
+    ∀ (c : Nat) (cvTb : ConstantVal), formers[c]? = some cvTb →
+      FormerInEnv mk.base2 cvTb (ConLeche.blockCapsAt p c isRec) ∧
       FormerData mk.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)
 
 /-! ## A listed node's recorded block -/
@@ -228,7 +228,7 @@ theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   rw [H.hcov.find, hp₀H, ← hmmH, hfc] at hfI
   obtain ⟨rfl, rfl⟩ : cv = cvI ∧ caps = capsI := by simpa using hfI
   -- the key's container's level parameters, at the constructors' environment
-  obtain ⟨nPc, ctorsAs, henvC⟩ := H.henvC
+  obtain ⟨nPc, memberCtors, henvC⟩ := H.henvC
   have hlpsC := posNodeOk_lps H.hcov H.hsub henvC hok _ hheadG
   obtain ⟨lps', hl'⟩ := blk_lps_envC H.hcov H.hsub henvC hD
   obtain ⟨cv', caps', hfC', hfI', hcl'⟩ := hl' mm hmm
@@ -540,7 +540,7 @@ theorem dyn_trueVal_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ :
   have hxs' : ctx.nP ≤ xs.length := by rw [H.hnP]; exact hxs
   have base : Sat V (stackCtx mk.base2 ψ ctx [] (d.holeCtx ψ).reverse)
       (trueVal mpC ctx ψ ρ xs []) := by
-    obtain ⟨cvTas, p, isRec, hN, hF⟩ := H.hformers
+    obtain ⟨formers, p, isRec, hN, hF⟩ := H.hformers
     have hkN : d.toLfp.names.length = d.k := lfp_namesLen mpC H.hd0
     obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok _ H.hd0
     rw [stackCtx_nil]

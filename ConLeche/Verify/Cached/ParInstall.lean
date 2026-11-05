@@ -73,30 +73,30 @@ variable {mode : CheckMode}
 
 /-! ## The install halves read the index only through `find?` -/
 
-/-- `installHeaderC` reads its index through `find?` alone (the
+/-- `headerGuardsC` reads its index through `find?` alone (the
 duplicate guard, the knot, `constsResolveFC`). -/
-theorem installHeaderC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
-    installHeaderC fe₁ = installHeaderC fe₂ := by
+theorem headerGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
+    headerGuardsC fe₁ = headerGuardsC fe₂ := by
   funext cv
-  unfold installHeaderC
+  unfold headerGuardsC
   simp only [constsResolveFC_congr hfe, hfe, strLitStoredF_congr hfe]
 
-/-- `installValueGuardsC` reads its index through `find?` alone (the knot and
+/-- `valueGuardsC` reads its index through `find?` alone (the knot and
 `constsResolveFC`), so it is congruent in the index: phase B's
 guards on a theorem's value at the prefix view are the guards at the
 environment the view names. -/
-theorem installValueGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
-    installValueGuardsC fe₁ = installValueGuardsC fe₂ := by
+theorem valueGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
+    valueGuardsC fe₁ = valueGuardsC fe₂ := by
   funext cv value
-  unfold installValueGuardsC
+  unfold valueGuardsC
   simp only [constsResolveFC_congr hfe, strLitStoredF_congr hfe]
 
 /-- Phase A's value install reads its index through `find?` alone. -/
-theorem installGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
-    installGuardsC fe₁ = installGuardsC fe₂ := by
+theorem valueDeclGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :
+    valueDeclGuardsC fe₁ = valueDeclGuardsC fe₂ := by
   funext cv value
-  unfold installGuardsC
-  simp only [installHeaderC_congr hfe, installValueGuardsC_congr hfe]
+  unfold valueDeclGuardsC
+  simp only [headerGuardsC_congr hfe, valueGuardsC_congr hfe]
 
 /-! ## The index below its counter -/
 
@@ -605,16 +605,16 @@ def valueStep (W : FEnv) : Declaration →
     Option (Except CheckError (ConstantInfo × ValueGroup))
   | .defnDecl cv value hint =>
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then none
-    else some (match installGuardsC W cv value {} with
+    else some (match valueDeclGuardsC W cv value {} with
       | .ok (_, _) => .ok (.defnInfo cv value hint, ⟨.defn, cv, value⟩)
       | .error e => .error e)
   | .thmDecl cv value =>
-    some (match installHeaderC W cv ({} : CState).flushed with
+    some (match headerGuardsC W cv ({} : CState).flushed with
       | .ok (_, _) => .ok (.thmInfo cv, ⟨.thm, cv, value⟩)
       | .error e => .error e)
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then none
-    else some (match installGuardsC W cv value {} with
+    else some (match valueDeclGuardsC W cv value {} with
       | .ok (_, _) => .ok (.axiomInfo cv, ⟨.opaque, cv, value⟩)
       | .error e => .error e)
   | _ => none
@@ -638,14 +638,14 @@ private theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : F
     · simp only [valueStep, hnat, Bool.false_eq_true, ↓reduceIte, Option.some.injEq] at h
       subst h
       simp only [installStepC, installGuards, valueGroup?, hnat, Bool.false_eq_true, ↓reduceIte,
-        installGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
-      cases installGuardsC fe cv value {} <;> rfl
+        valueDeclGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
+      cases valueDeclGuardsC fe cv value {} <;> rfl
   | thmDecl cv value =>
     simp only [valueStep, Option.some.injEq] at h
     subst h
-    simp only [installStepC, installGuards, valueGroup?, installHeaderC_congr hfe, bind,
+    simp only [installStepC, installGuards, valueGroup?, headerGuardsC_congr hfe, bind,
       StateT.bind, pure, StateT.pure, hflush, Except.bind]
-    cases installHeaderC fe cv ({} : CState).flushed <;> rfl
+    cases headerGuardsC fe cv ({} : CState).flushed <;> rfl
   | opaqueDecl cv value =>
     by_cases hred : reduceOpNames.contains cv.name = true
     · simp only [valueStep, hred, ↓reduceIte] at h
@@ -653,8 +653,8 @@ private theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : F
     · simp only [valueStep, hred, Bool.false_eq_true, ↓reduceIte, Option.some.injEq] at h
       subst h
       simp only [installStepC, installGuards, valueGroup?, hred, Bool.false_eq_true, ↓reduceIte,
-        installGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
-      cases installGuardsC fe cv value {} <;> rfl
+        valueDeclGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
+      cases valueDeclGuardsC fe cv value {} <;> rfl
   | axiomDecl _ => exact nomatch h
   | quotDecl _ _ => exact nomatch h
   | indDecl _ _ => exact nomatch h

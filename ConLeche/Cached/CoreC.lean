@@ -25,7 +25,7 @@ certificate families (every `certAtI` site), and
 nothing else (DESIGN.md, "CORET
 RETIRED").  Every read is a `match` on the two-constructor enum
 (`ConLeche/Kernel/Env.lean`), so at either literal mode it reduces by
-`rfl` and the branch is gone, not collapsed.
+`rfl`, with no branch left.
 -/
 
 namespace ConLeche.Cached
@@ -670,9 +670,6 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
             | some rl => do
               let margs ← pure (Expr.getAppArgsC major)
               if margs.length = cnP + rl.nfields then do
-                -- (the ι batch: the two `stripPis` pins are gone — see
-                -- the spec's `iotaRec`)
-                --
                 -- ONE certificate family (task #342 L10, S5c; official's
                 -- `inductive_reduce_rec` checks nothing of the major's
                 -- constructor), so the whole block is what `.trusted`
@@ -815,10 +812,8 @@ projection), returning the head normal form or the term to continue
 with; `cheap` is the official `cheap_proj` flag (see `whnfCoreBody`).
 Only the spine head's normalization stays a knot call (genuine
 nesting, bounded by the term's depth); every *reduction* step is
-iteration, so a chain no longer charges the shared recursion-depth
-budget one unit per step (task #106 — that is what made the
-`Nat.brecOn` grind of `Std.Time…toDays._proof_1` exhaust
-`checkFuel`).  `@[inline]` (a compiler attribute): inlined into
+iteration, so a chain does not charge the shared recursion-depth
+budget per step (task #106: a `Nat.brecOn` grind would exhaust `checkFuel`).  `@[inline]` (a compiler attribute): inlined into
 `whnfCoreLoopI`, whose continuation is then its own tail call. -/
 @[inline] def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (cheap : Bool) (depth : Nat)
     (e : Expr) : CheckCM WhnfStep := do
@@ -1575,10 +1570,9 @@ index pair (`@[inline]` as `memoEI`). -/
 tower's level below (`prevE`). -/
 @[inline] def knotLevelI (mode : CheckMode) (eager : Bool) (fe : FEnv)
     (prev prevE : Unit → CoreFnsI) : CoreFnsI :=
-  -- **NOT a `Thunk`** (task #179).  The previous fuel level used to be
-  -- `Thunk`-cached (perf-eng E1: built once per record rather than once
-  -- per cache-missing call), and that single word cost 13.8 % of
-  -- `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
+  -- **NOT a `Thunk`** (task #179): caching the previous fuel level in a
+  -- `Thunk` (built once per record rather than once per cache-missing call)
+  -- costs 13.8 % of `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
   -- **value** — the runtime's invariant is that a single-threaded object
   -- may not be reachable from a multi-threaded one, and a thunk may be
   -- forced from another thread — so forcing this thunk marked the whole

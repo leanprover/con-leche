@@ -714,7 +714,7 @@ theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hM : ∀ ms ∈ pp.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ pp.formers, ScB 0 cv.type)
-    (hct : ∀ ctorsA ∈ pp.memberCtors, ∀ c ∈ ctorsA, ScB 0 c.1.type)
+    (hct : ∀ ctorList ∈ pp.memberCtors, ∀ c ∈ ctorList, ScB 0 c.1.type)
     (h : checkBlockPositivity (fueledOps mode F) env₁ env₁.find? pp
       = .ok (kinds, nfs, pos)) :
     NfStScoped pp.nP pos := by

@@ -99,13 +99,13 @@ structure EnvFacts (env : Env) where
   literal fast path reads** (task #161 B3): a *stored* one of the
   sixteen accelerated operations is a *guarded* one.
 
-  `reduceNat` tests `natOpStored`, one lookup, instead of re-deriving
+  `reduceNat` tests `isDefinitionAt`, one lookup, instead of re-deriving
   `natOpGuard` at every literal hit.  This field turns that test back
   into the guard the literal rules name, and it is not new evidence:
   the model's `nat_ops`/`div_mod` state exactly this under their
   `defnInfo` hypothesis (they are what `checkDecl` establishes, by
   declining a stream that stores one of these names unguarded). -/
   nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
-    natOpStored env c = true → natOpGuard env c = true
+    isDefinitionAt env c = true → natOpGuard env c = true
 
 end ConLeche.Semantics

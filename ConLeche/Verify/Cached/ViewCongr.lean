@@ -32,16 +32,7 @@ Two kinds of lemma, bottom-up through the install code:
 Nothing here is about the model; it is the install code's own
 discipline — reads through `find?`, writes by `push` — made a theorem,
 and self-contained: it imports the cached checker, `KnotCongr` and
-`BlockOverlay`, and nothing from the theory.  During task #329 this
-file sat in the `Cached` tier, because the then-implementation driver
-(`Main.lean`) could not import `Verify/*` (CLAUDE.md's exception for a
-self-contained verification living with the implementation); the
-maintainer's 2026-10-08 ruling lets the driver (`ConLeche/Driver/*`,
-`Main.lean`) import `Verify/*`, so the file moved back to where a
-proof about kernel functions that needs no model belongs.  `pushPending`
-stays defined here too, next to the theorems it is about — the driver (now
-`ConLeche/Driver/ParInstall.lean`) runs it, which the ruling makes as
-straightforward as running anything else this file exports.
+`BlockOverlay`, and nothing from the theory.
 -/
 
 public section
@@ -676,8 +667,8 @@ theorem classFieldsAgree_env (h : EnvFree ops) (env : Env) (p : BlockShape)
     simp only [classNodesAgree_env h env, ih]
 
 theorem classCtorOf_env (h : EnvFree ops) (env : Env) (p : BlockShape) (formerTys : List Expr)
-    (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) (cA : ConstantVal × Nat) :
-    classCtorOf ops env p formerTys rd Ms c cA = classCtorOf ops Env.empty p formerTys rd Ms c cA := by
+    (rd : ClassRead) (Ms : List TargetMajor) (c : Nat) (ctor : ConstantVal × Nat) :
+    classCtorOf ops env p formerTys rd Ms c ctor = classCtorOf ops Env.empty p formerTys rd Ms c ctor := by
   unfold classCtorOf
   simp only [classFieldsAgree_env h env]
 
@@ -686,7 +677,7 @@ theorem classCtorsOf_env (h : EnvFree ops) (env : Env) (p : BlockShape) (formerT
     ∀ cs, classCtorsOf ops env p formerTys rd Ms c cs =
       classCtorsOf ops Env.empty p formerTys rd Ms c cs
   | [] => rfl
-  | cA :: cs => by
+  | ctor :: cs => by
     have ih := classCtorsOf_env h env p formerTys rd Ms c cs
     unfold classCtorsOf
     simp only [classCtorOf_env h env, ih]
@@ -749,14 +740,14 @@ theorem checkBlockClasses_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
   simp only [classNPcOf_congr hfe, classMajors_congr h hfe]
 
 theorem classFormerTy_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (cvTas : List ConstantVal) (M : TargetMajor) :
-    classFormerTy ops fe₁ cvTas M = classFormerTy ops fe₂ cvTas M := by
+    (formers : List ConstantVal) (M : TargetMajor) :
+    classFormerTy ops fe₁ formers M = classFormerTy ops fe₂ formers M := by
   simp only [classFormerTy, hfe, familyTelescope_env h fe₁.env, familyTelescope_env h fe₂.env]
 
 theorem classFormerTy_congr' (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (cvTas : List ConstantVal) :
-    (classFormerTy ops fe₁ cvTas : TargetMajor → m Expr) = classFormerTy ops fe₂ cvTas :=
-  funext (classFormerTy_congr h hfe cvTas)
+    (formers : List ConstantVal) :
+    (classFormerTy ops fe₁ formers : TargetMajor → m Expr) = classFormerTy ops fe₂ formers :=
+  funext (classFormerTy_congr h hfe formers)
 
 theorem classConstOk_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (cv : ConstantVal) : classConstOk ops fe₁ cv = classConstOk ops fe₂ cv := by
@@ -908,9 +899,9 @@ end FStages
 /-! ## The pushes, as lists -/
 
 theorem consBlockIndsF_eq_pushAll (p₁ : BlockShape) (isRec : Bool) :
-    ∀ (cvTas : List ConstantVal) (i : Nat) (fe : FEnv),
-      ∃ L, consBlockIndsF p₁ isRec cvTas i fe = FEnv.pushAll L fe ∧
-        ∀ fe', consBlockIndsF p₁ isRec cvTas i fe' = FEnv.pushAll L fe'
+    ∀ (formers : List ConstantVal) (i : Nat) (fe : FEnv),
+      ∃ L, consBlockIndsF p₁ isRec formers i fe = FEnv.pushAll L fe ∧
+        ∀ fe', consBlockIndsF p₁ isRec formers i fe' = FEnv.pushAll L fe'
   | [], _, _ => ⟨[], rfl, fun _ => rfl⟩
   | cvTa :: rest, i, fe => by
     obtain ⟨L, -, hL⟩ := consBlockIndsF_eq_pushAll p₁ isRec rest (i + 1)
@@ -1133,10 +1124,10 @@ def PassRel (fe₁ fe₂ : FEnv) (q₁ q₂ : BlockPass FEnv) : Prop :=
   ∃ (L : List ConstantInfo) (Q : List ProjTable),
     q₁ = { q₂ with env₁ := FEnv.pushDelta L Q fe₁ } ∧ q₂.env₁ = FEnv.pushDelta L Q fe₂
 
-theorem consBlockIndsF_pushed (p₁ : BlockShape) (isRec : Bool) (cvTas : List ConstantVal)
+theorem consBlockIndsF_pushed (p₁ : BlockShape) (isRec : Bool) (formers : List ConstantVal)
     (i : Nat) (fe₁ fe₂ : FEnv) :
-    PushedFrom fe₁ fe₂ (consBlockIndsF p₁ isRec cvTas i fe₁) (consBlockIndsF p₁ isRec cvTas i fe₂) := by
-  obtain ⟨L, hL, hL'⟩ := consBlockIndsF_eq_pushAll p₁ isRec cvTas i fe₁
+    PushedFrom fe₁ fe₂ (consBlockIndsF p₁ isRec formers i fe₁) (consBlockIndsF p₁ isRec formers i fe₂) := by
+  obtain ⟨L, hL, hL'⟩ := consBlockIndsF_eq_pushAll p₁ isRec formers i fe₁
   exact ⟨L, [], hL, hL' fe₂⟩
 
 theorem checkBlockIndsF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -1175,36 +1166,36 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) {q₁ q₂ : BlockPass FEnv} (hq : PassRel fe₁ fe₂ q₁ q₂) :
     RelRun Eq (checkBlockTailS mode block q₁) (checkBlockTailS mode block q₂) := by
   obtain ⟨L, Q, rfl, hq₂⟩ := hq
-  obtain ⟨env₁, p, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q₂
+  obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q₂
   simp only at hq₂
   subst hq₂
   unfold checkBlockTailS
   dsimp only
-  generalize p.memberCtors = ctorsAs
+  generalize p.memberCtors = memberCtors
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)
-  obtain ⟨L₂, hL₂⟩ := consBlockCtorsF_eq_pushAll p.nP ctorsAs
-  have ht₂ : Twin (consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁))
-      (consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)) := by
+  obtain ⟨L₂, hL₂⟩ := consBlockCtorsF_eq_pushAll p.nP memberCtors
+  have ht₂ : Twin (consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁))
+      (consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)) := by
     rw [hL₂, hL₂]; exact htL.pushAll L₂
   -- the stored recursors' check, at the generated recursors' overlays
   have hO : ∀ X : List ConstantInfo,
       streamRecsCheck
-          (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
+          (sharedOpsC mode ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay
             X.reverse)) structWalkersC
-          ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
+          ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
         = streamRecsCheck
-          (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
+          (sharedOpsC mode ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay
             X.reverse)) structWalkersC
-          ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
+          ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
     intro X
-    have hf : ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse).find?
-        = ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse).find? := by
+    have hf : ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse).find?
+        = ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay X.reverse).find? := by
       rw [find?_overlay_pushAll ht₂.idx₁.1, find?_overlay_pushAll ht₂.idx₂.1]
       exact (ht₂.pushAll X).find
-    have htb : ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
+    have htb : ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay
         X.reverse).findTable?
-        = ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
+        = ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay
           X.reverse).findTable? := by
       rw [findTable?_overlay_pushAll ht₂.idx₁.1, findTable?_overlay_pushAll ht₂.idx₂.1]
       exact (ht₂.pushAll X).findTable

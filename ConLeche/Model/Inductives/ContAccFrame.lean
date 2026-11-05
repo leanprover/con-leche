@@ -3,7 +3,7 @@ module
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.ContAccRel
 public import ConLeche.Model.Inductives.BlockAccRun
-import ConLeche.Model.Inductives.StoredShapes
+import ConLeche.Model.Inductives.DeclaredShapes
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Denote.Shift

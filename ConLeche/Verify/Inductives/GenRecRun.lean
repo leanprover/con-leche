@@ -302,27 +302,27 @@ slot `s` and `ih`s; the datum's opened fields; the generator's kinds
 (`classFieldsOf`); node agreement at every entry (`classFieldsAgree`). -/
 structure ClassCtorRun (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
     (formerTys : List Expr) (rd : ClassRead) (Ms : List TargetMajor) (c : Nat)
-    (cA : ConstantVal × Nat) (x : ClassCtor) : Type where
+    (ctor : ConstantVal × Nat) (x : ClassCtor) : Type where
   E : List NestCtorNf
   e0 : NestCtorNf
   s : Nat
   ihs : List (Nat × Nat)
   fvs : List Expr
   o : Expr
-  hE : E = (Ms.getD c default).nfs.filter (·.ctor == cA.1.name)
+  hE : E = (Ms.getD c default).nfs.filter (·.ctor == ctor.1.name)
   he0 : E.head? = some e0
-  hslot : classMinorSlot (m := CheckM) rd c cA.1.name = .ok (s, ihs)
-  hopen : openPisAtFvars cA.2 e0.ty (p.nP + p.k) = some (fvs, o)
-  hkinds : classFieldsOf (m := CheckM) p cA.1.name ihs 0 fvs = .ok x.kinds
-  hna : classFieldsAgree (fueledOps mode F) env p formerTys Ms fvs cA.1.name E 0 x.kinds = .ok ()
-  hD : instPisWith (Ms.getD c default).ds (targetCtorAt (Ms.getD c default) cA.1) = some x.tyD
-  hx : x = ⟨cA.1, cA.2, x.kinds, x.tyD, e0.ty⟩
+  hslot : classMinorSlot (m := CheckM) rd c ctor.1.name = .ok (s, ihs)
+  hopen : openPisAtFvars ctor.2 e0.ty (p.nP + p.k) = some (fvs, o)
+  hkinds : classFieldsOf (m := CheckM) p ctor.1.name ihs 0 fvs = .ok x.kinds
+  hna : classFieldsAgree (fueledOps mode F) env p formerTys Ms fvs ctor.1.name E 0 x.kinds = .ok ()
+  hD : instPisWith (Ms.getD c default).ds (targetCtorAt (Ms.getD c default) ctor.1) = some x.tyD
+  hx : x = ⟨ctor.1, ctor.2, x.kinds, x.tyD, e0.ty⟩
 
 /-- **`classCtorOf`, inverted.** -/
 theorem classCtorOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {rd : ClassRead}
-    {Ms : List TargetMajor} {c : Nat} {cA : ConstantVal × Nat} {x : ClassCtor} {F : Nat}
-    (h : classCtorOf (fueledOps mode F) env p formerTys rd Ms c cA = .ok x) :
-    Nonempty (ClassCtorRun mode F env p formerTys rd Ms c cA x) := by
+    {Ms : List TargetMajor} {c : Nat} {ctor : ConstantVal × Nat} {x : ClassCtor} {F : Nat}
+    (h : classCtorOf (fueledOps mode F) env p formerTys rd Ms c ctor = .ok x) :
+    Nonempty (ClassCtorRun mode F env p formerTys rd Ms c ctor x) := by
   unfold classCtorOf at h
   obtain ⟨e0, he0, h⟩ := exceptBind_ok h
   obtain ⟨⟨s, ihs⟩, hslot, h⟩ := exceptBind_ok h
@@ -345,25 +345,25 @@ theorem classCtorsOf_run {env : Env} {p : BlockShape} {formerTys : List Expr} {r
     ∀ {cs : List (ConstantVal × Nat)} {xs : List ClassCtor},
       classCtorsOf (fueledOps mode F) env p formerTys rd Ms c cs = .ok xs →
       xs.length = cs.length ∧
-      ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-        ∃ x, xs[j]? = some x ∧ Nonempty (ClassCtorRun mode F env p formerTys rd Ms c cA x)
+      ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor →
+        ∃ x, xs[j]? = some x ∧ Nonempty (ClassCtorRun mode F env p formerTys rd Ms c ctor x)
   | [], xs, h => by
     simp only [classCtorsOf, pure, Except.pure, Except.ok.injEq] at h
     subst h
-    exact ⟨rfl, fun j cA hj => nomatch hj⟩
-  | cA :: cs, xs, h => by
+    exact ⟨rfl, fun j ctor hj => nomatch hj⟩
+  | ctor :: cs, xs, h => by
     unfold classCtorsOf at h
     obtain ⟨x, hx, h⟩ := exceptBind_ok h
     obtain ⟨xs', hxs, h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
     obtain ⟨hlen, hall⟩ := classCtorsOf_run hxs
-    refine ⟨by simp [hlen], fun j cA' hj => ?_⟩
+    refine ⟨by simp [hlen], fun j ctor' hj => ?_⟩
     cases j with
     | zero =>
-      obtain rfl : cA = cA' := by simpa using hj
+      obtain rfl : ctor = ctor' := by simpa using hj
       exact ⟨x, rfl, classCtorOf_run hx⟩
-    | succ j => simpa using hall j cA' (by simpa using hj)
+    | succ j => simpa using hall j ctor' (by simpa using hj)
 
 /-- **`classesCtors`, inverted**: per class (from `c₀` on) its
 constructors, one run each. -/

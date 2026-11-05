@@ -211,11 +211,9 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
       match rawNatLit? (← r.whnf depth a) with
       | some n => pure (some (.lit (.natVal (n + 1))))
       | none => pure none
-    -- (the audit's S1: the `Nat.pred` and `Nat.log2` literal fast paths
-    -- are gone — official `reduce_nat` (`type_checker.cpp:639-668`) has
-    -- `Nat.succ` and the fourteen binary operations, nothing else.
-    -- `Nat.pred` stays a certified structural operation because
-    -- `Nat.sub`'s recurrence names it; `Nat.log2` is gone entirely)
+    -- (official `reduce_nat`, `type_checker.cpp:639-668`, has `Nat.succ` and the
+    -- fourteen binary operations, nothing else; `Nat.pred` is a certified
+    -- structural operation because `Nat.sub`'s recurrence names it)
     else pure none
   | .app (.app (.const c []) a) b =>
     if (c = natAddName ∨ c = natSubName ∨ c = natMulName ∨
@@ -283,9 +281,7 @@ must agree, past the `cnP` parameters, with the recursor's index
 arguments `idx` — the model's iota equation only speaks about the
 canonical indices.  At `mI = rP` there is nothing to compare (the law's
 `IotaIndexPin` is discharged by `Or.inl rfl`) and the block is
-skipped.  The residual-head test that once stood beside the comparison
-(`stripPis` + "the body's head is a constant") was consumed by nothing
-in the P lane and is gone. -/
+skipped. -/
 def iotaIndexOk (r : CoreFns m) (env : Env) (depth : Nat) (mI rP cnP : Nat)
     (tyCtor : Expr) (margs idx : List Expr) : m Bool :=
   if mI = rP then pure true
@@ -1032,10 +1028,8 @@ reproduces a loop run by the chained recursion *at some knot fuel*
 (`ConLeche/Verify/BetaSpine.lean`), so the specification and everything
 above it are unchanged.
 
-Task #330: a real 104.7 GB export (a `decide +kernel` proof,
-`CKLaneD.Structural.structural_paths._proof_1_1`) exhausted this budget
-on master, an internal error (exit 3) on a legitimate input, never an
-accept — raising it can't weaken the check, so the budget is now
+A real 104.7 GB export (a `decide +kernel` proof,
+task #330) needs far more than any smaller budget, and a budget cannot weaken the check, so it is
 effectively unbounded: `2^62`, the largest literal that still keeps the
 decrementing counter an unboxed scalar (`2^63` is a bignum on a 64-bit
 `Nat`/`LEAN_MAX_SMALL_NAT`).  A runaway input is left to an external

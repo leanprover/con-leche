@@ -11,20 +11,19 @@ import ConLeche.Verify.Cached.KnotCongr
 public section
 
 /-!
-# Phase A's steps simulate the pure install and check halves
+# Phase A's steps simulate the pure guards and value check
 
 `FullyChecked μ ds` (`ConLeche/Cached/Installed.lean`) is what the
 driver's two loops assemble: phase A's accepting run (`InstallRun`)
-installs a separable value declaration by the install half and records
-its datum, and every record was checked against the prefix view
+installs a value declaration by its guards and records its datum, and every record was checked against the prefix view
 `fe.restrictTo vis` from a fresh memo state (`GroupChecked`).  This
 module holds the model-free half of the walk over that run:
 
-* `installHeaderC_spec` / `installValueGuardsC_spec` / `installGuardsC_spec` —
-  phase A's install is the pure install halves
-  (`installHeader`, `installValueGuards`, `ConLeche/Kernel/CheckerSplit.lean`).
+* `headerGuardsC_spec` / `valueGuardsC_spec` / `valueDeclGuardsC_spec` —
+  phase A's guards are the pure ones
+  (`headerGuards`, `valueGuards`, `ConLeche/Kernel/ValueCheck.lean`).
 * `checkPending_spec` — the check at the prefix view simulates the pure
-  check half `checkValueGroup` at the truncated environment.  The view
+  value check `checkValueGroup` at the truncated environment.  The view
   and `mkFEnv` of the truncated environment have the same `find?`
   (`mkFEnv_find?_visibleBelow`, under the name uniqueness every driver
   step preserves — `PushChain`), so by `coreKnotI_congr` they run the
@@ -65,83 +64,83 @@ theorem flushC_spec {env : Env} {s₀ : CState} (hres : CSOKF s₀) :
 
 /-! ## The install halves at fuel `F` -/
 
-theorem installHeader_datF (env : Env) (cv : ConstantVal) (F : Nat) :
-    (installHeader (m := FueledM) env cv).val F = installHeader (m := CheckM) env cv := by
-  simp only [installHeader, FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure,
+theorem headerGuards_datF (env : Env) (cv : ConstantVal) (F : Nat) :
+    (headerGuards (m := FueledM) env cv).val F = headerGuards (m := CheckM) env cv := by
+  simp only [headerGuards, FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure,
     FueledM.atF_throw]
 
-theorem installValueGuards_datF (env : Env) (cv : ConstantVal) (value : Expr) (F : Nat) :
-    (installValueGuards (m := FueledM) env cv value).val F
-      = installValueGuards (m := CheckM) env cv value := by
-  simp only [installValueGuards, FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure,
+theorem valueGuards_datF (env : Env) (cv : ConstantVal) (value : Expr) (F : Nat) :
+    (valueGuards (m := FueledM) env cv value).val F
+      = valueGuards (m := CheckM) env cv value := by
+  simp only [valueGuards, FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure,
     FueledM.atF_throw]
 
 theorem checkValueGroup_datF (env : Env) (g : ValueGroup) (F : Nat) :
     (checkValueGroup (fueledOpsM μ) env g).val F = checkValueGroup (fueledOps μ F) env g := by
   simp only [checkValueGroup, FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure,
-    FueledM.atF_throw, installValueGuards_datF, liftFueled_atF, fueledOpsM_inferType_atF,
+    FueledM.atF_throw, valueGuards_datF, liftFueled_atF, fueledOpsM_inferType_atF,
     fueledOpsM_ensureSort_atF, fueledOpsM_isDefEq_atF]
 
 /-! ## The two-phase driver: phase A's install halves -/
 
 /-- Phase A's header install is the pure install half: from an
 invariant state at `mkFEnv env`, a successful run is the fueled
-`installHeader`'s, and the header's type is well scoped. -/
-theorem installHeaderC_spec {env : Env} {cv : ConstantVal} {s₀ : CState}
+`headerGuards`'s, and the header's type is well scoped. -/
+theorem headerGuardsC_spec {env : Env} {cv : ConstantVal} {s₀ : CState}
     (hs : CSOK μ false env s₀) :
-    ⦃fun s => s = s₀⦄ installHeaderC (mkFEnv env) cv
+    ⦃fun s => s = s₀⦄ headerGuardsC (mkFEnv env) cv
     ⦃fun v s' => CSOK μ false env s' ∧
-      Runs (installHeader (m := FueledM) env cv) v ∧ Expr.WScoped 0 cv.type; ⊤⦄ := by
-  sym only [conleche_grind, installHeader.eq_1, Expr.allLevelParamsDefinedC_spec,
+      Runs (headerGuards (m := FueledM) env cv) v ∧ Expr.WScoped 0 cv.type; ⊤⦄ := by
+  sym only [conleche_grind, headerGuards.eq_1, Expr.allLevelParamsDefinedC_spec,
       constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 cv.type] =>
-    vcgen [installHeaderC] <;> finish
+    vcgen [headerGuardsC] <;> finish
 
 /-- Phase A's value install is the pure install half. -/
-theorem installValueGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {s₀ : CState}
+theorem valueGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {s₀ : CState}
     (hs : CSOK μ false env s₀) :
-    ⦃fun s => s = s₀⦄ installValueGuardsC (mkFEnv env) cv value
+    ⦃fun s => s = s₀⦄ valueGuardsC (mkFEnv env) cv value
     ⦃fun v s' => CSOK μ false env s' ∧
-      Runs (installValueGuards (m := FueledM) env cv value) v ∧ Expr.WScoped 0 value; ⊤⦄ := by
-  sym only [conleche_grind, installValueGuards.eq_1, Expr.allLevelParamsDefinedC_spec,
+      Runs (valueGuards (m := FueledM) env cv value) v ∧ Expr.WScoped 0 value; ⊤⦄ := by
+  sym only [conleche_grind, valueGuards.eq_1, Expr.allLevelParamsDefinedC_spec,
       constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 value] =>
-    vcgen [installValueGuardsC] <;> finish
+    vcgen [valueGuardsC] <;> finish
 
-/-- `installHeaderC_spec` on a run, at the install half's `CheckM`
+/-- `headerGuardsC_spec` on a run, at the install half's `CheckM`
 instance (`ConLeche/Model/InstallRun.lean`). -/
-theorem installHeaderC_run {env : Env}
+theorem headerGuardsC_run {env : Env}
     {cv : ConstantVal} {s₀ s' : CState} (hs : CSOK μ false env s₀)
-    (h : installHeaderC (mkFEnv env) cv s₀ = .ok ((), s')) :
+    (h : headerGuardsC (mkFEnv env) cv s₀ = .ok ((), s')) :
     CSOK μ false env s' ∧ Expr.WScoped 0 cv.type ∧
-    installHeader (m := CheckM) env cv = .ok () := by
-  obtain ⟨hs', ⟨F, hF⟩, hw⟩ := triple_iff_run.mp (installHeaderC_spec hs) _ _ h
-  exact ⟨hs', hw, installHeader_datF env cv F ▸ hF⟩
+    headerGuards (m := CheckM) env cv = .ok () := by
+  obtain ⟨hs', ⟨F, hF⟩, hw⟩ := triple_iff_run.mp (headerGuardsC_spec hs) _ _ h
+  exact ⟨hs', hw, headerGuards_datF env cv F ▸ hF⟩
 
 /-- Phase A's value install: the flush, then the two install halves. -/
-theorem installGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {s₀ : CState}
+theorem valueDeclGuardsC_spec {env : Env} {cv : ConstantVal} {value : Expr} {s₀ : CState}
     (hres : CSOKF s₀) :
-    ⦃fun s => s = s₀⦄ installGuardsC (mkFEnv env) cv value
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (installHeader (m := FueledM) env cv) () ∧
-      Runs (installValueGuards (m := FueledM) env cv value) v ∧
+    ⦃fun s => s = s₀⦄ valueDeclGuardsC (mkFEnv env) cv value
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (headerGuards (m := FueledM) env cv) () ∧
+      Runs (valueGuards (m := FueledM) env cv value) v ∧
       Expr.WScoped 0 cv.type ∧ Expr.WScoped 0 value; ⊤⦄ := by
   sym only [conleche_grind] =>
-    vcgen [installGuardsC, flushC_spec (μ := .verified) (env := env) hres,
-      installHeaderC_spec (μ := .verified), installValueGuardsC_spec (μ := .verified)] <;>
+    vcgen [valueDeclGuardsC, flushC_spec (μ := .verified) (env := env) hres,
+      headerGuardsC_spec (μ := .verified), valueGuardsC_spec (μ := .verified)] <;>
       finish
 
 /-- Phase A's value install, run: the two install halves, the header
 and the value as declared and well scoped, the residue kept. -/
-theorem installGuardsC_run {env : Env}
+theorem valueDeclGuardsC_run {env : Env}
     {cv : ConstantVal} {value : Expr} {s₀ s' : CState}
     (hres : CSOKF s₀)
-    (h : installGuardsC (mkFEnv env) cv value s₀ = .ok ((), s')) :
+    (h : valueDeclGuardsC (mkFEnv env) cv value s₀ = .ok ((), s')) :
     CSOKF s' ∧
     Expr.WScoped 0 cv.type ∧ Expr.WScoped 0 value ∧
-    installHeader (m := CheckM) env cv = .ok () ∧
-    installValueGuards (m := CheckM) env cv value = .ok () := by
+    headerGuards (m := CheckM) env cv = .ok () ∧
+    valueGuards (m := CheckM) env cv value = .ok () := by
   obtain ⟨hs', ⟨F₁, hF₁⟩, ⟨F₂, hF₂⟩, hwty, hwv⟩ :=
-    triple_iff_run.mp (installGuardsC_spec hres) _ _ h
-  exact ⟨hs'.residue, hwty, hwv, installHeader_datF env cv F₁ ▸ hF₁,
-    installValueGuards_datF env cv value F₂ ▸ hF₂⟩
+    triple_iff_run.mp (valueDeclGuardsC_spec hres) _ _ h
+  exact ⟨hs'.residue, hwty, hwv, headerGuards_datF env cv F₁ ▸ hF₁,
+    valueGuards_datF env cv value F₂ ▸ hF₂⟩
 
 /-! ## The two-phase driver: phase B's check at the prefix view -/
 
@@ -149,7 +148,7 @@ theorem installGuardsC_run {env : Env}
 the environment the view names: the view and `mkFEnv env` have the same
 `find?`, so by `coreKnotI_congr` the check runs the core the
 simulation is stated about.  A theorem's value arrives unchecked and
-its guards run here (`installValueGuardsC` at the view, `installValueGuardsC_congr`), so
+its guards run here (`valueGuardsC` at the view, `valueGuardsC_congr`), so
 the well-scopedness premise on the value is asked only of the other two
 kinds. -/
 theorem checkPending_spec {env : Env} (henv : EnvWF env)
@@ -168,11 +167,11 @@ theorem checkPending_spec {env : Env} (henv : EnvWF env)
   -- the view runs the core at `mkFEnv env` (structural: the congruence
   -- is an equation of programs, ahead of the walk)
   simp only [checkPending, coreKnotI_congr hfe htb, opSIxC_congr hfe htb,
-    installValueGuardsC_congr hfe]
+    valueGuardsC_congr hfe]
   clear hfind hfe htab htb
   sym only [conleche_grind, checkValueGroup.eq_1] =>
     vcgen [flushC_spec (μ := .verified) (env := env) hres, inferK_spec henv, opSIxC_spec henv,
-      liftFueled_spec (mode := .verified) (eager := false) (env := env), installValueGuardsC_spec (μ := .verified),
+      liftFueled_spec (mode := .verified) (eager := false) (env := env), valueGuardsC_spec (μ := .verified),
       defeqK_spec henv] <;> finish
 
 /-- `checkPending_spec` on a run, at a fuel. -/

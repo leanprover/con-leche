@@ -80,8 +80,8 @@ theorem chainFit_base {K : Nat} {a ρ : Nat → V} {pd fd : List Term}
 
 section Rows
 
-variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {nested : Bool} {block : List ConstantInfo}
 
 end Rows

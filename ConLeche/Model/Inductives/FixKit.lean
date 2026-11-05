@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Model.OpenedCtx
-public import ConLeche.Model.Inductives.FormerStored
+public import ConLeche.Model.Inductives.FormerInEnv
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Semantics.Tower.FixTower
@@ -303,80 +303,80 @@ that it refutes the head as another stored family's η constructor
 leaves up to `k` families pending. -/
 theorem ctorsLoopEta
     {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvS cvTa : ConstantVal}
-    {ctors ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
+    {ctors ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)}
     (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) env₀ envI p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorsA, sortss))
-    (hnd : (ctorsA.map (·.1.name)).Nodup)
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorList, sortss))
+    (hnd : (ctorList.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
-    (hlpsA : ∀ cA ∈ ctorsA, cA.1.levelParams = p.cvT.levelParams)
+    (hlpsA : ∀ ctor ∈ ctorList, ctor.1.levelParams = p.cvT.levelParams)
     {ppsAll : (Name → Nat) → List Term}
     {idxF : Nat → List Expr} {dsF : Nat → (Name → Nat) → List Term}
     {esF : Nat → (Name → Nat) → List Term} {srcsF : Nat → List (Option Nat)}
     (hFssParams : ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ p.cvT.levelParams, ψ₁ q = ψ₂ q) →
-      fssOf p.nP (ctorDataList dsF esF ψ₁ ctorsA 0) = fssOf p.nP (ctorDataList dsF esF ψ₂ ctorsA 0))
-    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0),
+      fssOf p.nP (ctorDataList dsF esF ψ₁ ctorList 0) = fssOf p.nP (ctorDataList dsF esF ψ₂ ctorList 0))
+    (hFssBelow : ∀ ψ : Name → Nat, ∀ Fs ∈ fssOf p.nP (ctorDataList dsF esF ψ ctorList 0),
       DomsBelow p.nP Fs)
-    (hiff : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    (hiff : ∀ j ctor, ctorList[j]? = some ctor → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take p.nP)).reverse ρ ↔
         Sat V (((dsF j ψ).take p.nP)).reverse ρ)
     (hFssOkP : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take p.nP)).reverse ρ →
-      SumFieldsOkB (p.resSort.eval ψ) ρ (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))
-    (hIdx : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+      SumFieldsOkB (p.resSort.eval ψ) ρ (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0)))
+    (hIdx : ∀ j ctor, ctorList[j]? = some ctor → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((dsF j ψ).take p.nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP)) bs →
         SpineFit ρ (((ppsAll ψ).drop p.nP)) (idxValsAt ρ (esF j ψ) bs))
     (Inv : ∀ {env' : Env}, EnvModel V env' → Prop)
-    (hInv : ∀ {env' : Env} (m' : EnvModel V env') (cA : ConstantVal × Nat)
+    (hInv : ∀ {env' : Env} (m' : EnvModel V env') (ctor : ConstantVal × Nat)
       (A : (Name → Nat) → Term)
-      (mC : EnvModel V ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts, env'.tables⟩),
-      cA ∈ ctorsA → env'.find? cA.1.name = none →
-      mC.acval = acvalWith m'.acval cA.1.name A → Inv m' → Inv mC)
+      (mC : EnvModel V ⟨.ctorInfo ctor.1 p.nP ctor.2 :: env'.consts, env'.tables⟩),
+      ctor ∈ ctorList → env'.find? ctor.1.name = none →
+      mC.acval = acvalWith m'.acval ctor.1.name A → Inv m' → Inv mC)
     -- the block's capability record and its laws at every carrier the
     -- invariant reaches
 
     (caps : IndCaps)
     (leafT : (Name → Nat) → Term)
-    (hTlawsOf : ∀ {env' : Env} (m' : EnvModel V env') (k : Nat) (cA : ConstantVal × Nat),
-      ctorsA[k]? = some cA → Inv m' →
-      (∀ cvC nPc nFc, env'.find? cA.1.name = some (.ctorInfo cvC nPc nFc) → cvC = cA.1) →
+    (hTlawsOf : ∀ {env' : Env} (m' : EnvModel V env') (k : Nat) (ctor : ConstantVal × Nat),
+      ctorList[k]? = some ctor → Inv m' →
+      (∀ cvC nPc nFc, env'.find? ctor.1.name = some (.ctorInfo cvC nPc nFc) → cvC = ctor.1) →
       FormerData m' cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, m'.acval p.cvT.name ψ = leafT ψ) →
-      (∀ ψ, m'.acval cA.1.name ψ
+      (∀ ψ, m'.acval ctor.1.name ψ
         = sumMkAV (p.resSort.eval ψ) k (dsF k ψ) (((dsF k ψ).drop p.nP))
-            (uChains (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0)))) →
+            (uChains (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0)))) →
       CapsLawsAt m' p.cvT.name cvS caps)
     (EtaInv : Env → Prop)
-    (hEtaCons : ∀ (env' : Env) (cA : ConstantVal × Nat), cA ∈ ctorsA →
-      env'.find? cA.1.name = none → EtaInv env' →
-      EtaInv ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts, env'.tables⟩)
-    (hEtaOther : ∀ (env' : Env) (cA : ConstantVal × Nat), cA ∈ ctorsA →
-      env'.find? cA.1.name = none → EtaInv env' →
+    (hEtaCons : ∀ (env' : Env) (ctor : ConstantVal × Nat), ctor ∈ ctorList →
+      env'.find? ctor.1.name = none → EtaInv env' →
+      EtaInv ⟨.ctorInfo ctor.1 p.nP ctor.2 :: env'.consts, env'.tables⟩)
+    (hEtaOther : ∀ (env' : Env) (ctor : ConstantVal × Nat), ctor ∈ ctorList →
+      env'.find? ctor.1.name = none → EtaInv env' →
       ∀ (T' : Name) (cvT' : ConstantVal) (caps' : IndCaps),
         env'.find? T' = some (.indInfo cvT' caps') → T' ≠ p.cvT.name →
         ConLeche.reservedBasisNames.contains T' = false → caps'.eta = true →
-        ConLeche.EtaFamilyStored ⟨.ctorInfo cA.1 p.nP cA.2 :: env'.consts, env'.tables⟩ T' caps' →
-        caps'.etaCtor ≠ cA.1.name)
-    (hfold : ∀ j cA, ctorsA[j]? = some cA → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+        ConLeche.EtaFamilyStored ⟨.ctorInfo ctor.1 p.nP ctor.2 :: env'.consts, env'.tables⟩ T' caps' →
+        caps'.etaCtor ≠ ctor.1.name)
+    (hfold : ∀ j ctor, ctorList[j]? = some ctor → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsAll ψ).take p.nP)).reverse ρ →
       ∀ bs : List V, SpineFit ρ (((dsF j ψ).drop p.nP)) bs →
         interp V (consList bs ρ)
-            (Term.mkAppN (leafT ψ) (paramBvars p.nP cA.2 ++ esF j ψ))
+            (Term.mkAppN (leafT ψ) (paramBvars p.nP ctor.2 ++ esF j ψ))
           = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ)
               (consList (idxValsAt ρ (esF j ψ) bs) ρ)
-              (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))
-                (essOf (ctorDataList dsF esF ψ ctorsA 0))))) :
+              (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))
+                (essOf (ctorDataList dsF esF ψ ctorList 0))))) :
     ∀ (rest : List (ConstantVal × Nat)) (k : Nat) (env : Env) (mp : EnvModelM V env),
-      (∀ i, rest[i]? = ctorsA[k + i]?) → k + rest.length = ctorsA.length →
+      (∀ i, rest[i]? = ctorList[k + i]?) → k + rest.length = ctorList.length →
       EtaInv env →
       env.find? p.cvT.name = some (.indInfo cvS caps) →
       cvTa.type.constsResolve env = true →
       FormerData mp.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll →
       (∀ ψ, mp.base2.acval p.cvT.name ψ = leafT ψ) →
       ConsedAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
-        idxF dsF esF srcsF ctorsA k →
+        idxF dsF esF srcsF ctorList k →
       PendingAt mp.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
-        idxF dsF esF srcsF ctorsA k →
+        idxF dsF esF srcsF ctorList k →
       Inv mp.base2 →
       ∃ mp' : EnvModelM V (ConLeche.consSumCtors p.nP rest env),
         EtaInv (ConLeche.consSumCtors p.nP rest env) ∧
@@ -385,127 +385,127 @@ theorem ctorsLoopEta
         FormerData mp'.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll ∧
         (∀ ψ, mp'.base2.acval p.cvT.name ψ = leafT ψ) ∧
         ConsedAt mp'.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large
-          idxF dsF esF srcsF ctorsA ctorsA.length ∧
+          idxF dsF esF srcsF ctorList ctorList.length ∧
         Inv mp'.base2
   | [], k, env, mp, _, hk, hE, hfT, _, hFD, hleafT, hcons, _, hinv => by
     simp only [List.length_nil, Nat.add_zero] at hk
     subst hk
     exact ⟨mp, hE, hfT, hFD, hleafT, hcons, hinv⟩
-  | cA :: rest, k, env, mp, hrest, hk, hE, hfT, hrT, hFD, hleafT, hcons, hpend, hinv => by
-    have hcAk : ctorsA[k]? = some cA := by
+  | ctor :: rest, k, env, mp, hrest, hk, hE, hfT, hrT, hFD, hleafT, hcons, hpend, hinv => by
+    have hcAk : ctorList[k]? = some ctor := by
       have := hrest 0; simpa using this.symm
     obtain ⟨hlen, -, hall⟩ := ConLeche.checkSumCtors_inv hCtors
     have hkl : k < ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hcAk).1; omega
-    obtain ⟨hnF, _, -, hCtor⟩ := hall k (ctors[k]) cA (List.getElem?_eq_getElem hkl) hcAk
+    obtain ⟨hnF, _, -, hCtor⟩ := hall k (ctors[k]) ctor (List.getElem?_eq_getElem hkl) hcAk
     rw [← hnF] at hCtor
-    obtain ⟨hfresh, htr, hidxRes, hCD⟩ := hpend k cA (Nat.le_refl _) hcAk
-    have hlpsC : cA.1.levelParams = p.cvT.levelParams := hlpsA cA (List.mem_of_getElem? hcAk)
-    have hTC : p.cvT.name ≠ cA.1.name := by
+    obtain ⟨hfresh, htr, hidxRes, hCD⟩ := hpend k ctor (Nat.le_refl _) hcAk
+    have hlpsC : ctor.1.levelParams = p.cvT.levelParams := hlpsA ctor (List.mem_of_getElem? hcAk)
+    have hTC : p.cvT.name ≠ ctor.1.name := by
       intro h; rw [h, hfresh] at hfT; exact nomatch hfT
-    have hFsj : ∀ ψ, (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))[k]?
+    have hFsj : ∀ ψ, (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))[k]?
         = some (((dsF k ψ).drop p.nP)) := by
       intro ψ
       rw [fssOf_getElem?, ctorDataList_getElem?, hcAk, Nat.zero_add]; rfl
-    have hEsj : ∀ ψ, (essOf (ctorDataList dsF esF ψ ctorsA 0))[k]? = some (esF k ψ) := by
+    have hEsj : ∀ ψ, (essOf (ctorDataList dsF esF ψ ctorList 0))[k]? = some (esF k ψ) := by
       intro ψ
       rw [essOf_getElem?, ctorDataList_getElem?, hcAk, Nat.zero_add]; rfl
     -- the stage
     have hfoldC : ∀ (ψ : Name → Nat) (ρ : Nat → V),
         Sat V (((ppsAll ψ).take p.nP)).reverse ρ →
         ∀ bs : List V, SpineFit ρ (((dsF k ψ).drop p.nP)) bs →
-          interp V (consList bs ρ) (ctorBodyAVI mp.base2 p.cvT.name p.nP cA.2 ψ (esF k ψ))
+          interp V (consList bs ρ) (ctorBodyAVI mp.base2 p.cvT.name p.nP ctor.2 ψ (esF k ψ))
             = sumSet (p.resSort.eval ψ) (sumFibre (p.resSort.eval ψ)
                 (consList (idxValsAt ρ (esF k ψ) bs) ρ)
-                (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorsA 0))
-                  (essOf (ctorDataList dsF esF ψ ctorsA 0)))) := by
+                (rChains p.nIdx p.nIdx (fssOf p.nP (ctorDataList dsF esF ψ ctorList 0))
+                  (essOf (ctorDataList dsF esF ψ ctorList 0)))) := by
       intro ψ ρ hρ bs hsp
       unfold ctorBodyAVI
       rw [hleafT ψ]
-      exact hfold k cA hcAk ψ ρ hρ bs hsp
+      exact hfold k ctor hcAk ψ ρ hρ bs hsp
     have hcbT : ConstsBound env cvTa.type := constsBound_of_constsResolve _ hrT
     obtain ⟨mpC, hacC⟩ := stageCtorGen (j := k)
-      (hEtaOther env cA (List.mem_of_getElem? hcAk) hfresh hE) mp hCtor hfresh htr hfT hlpsT hlpsC
+      (hEtaOther env ctor (List.mem_of_getElem? hcAk) hfresh hE) mp hCtor hfresh htr hfT hlpsT hlpsC
       (fun m₂ hag hleafC₂ => by
-        have hac : m₂.acval = acvalWith mp.base2.acval cA.1.name
-            (fun ψ => m₂.acval cA.1.name ψ) := by
+        have hac : m₂.acval = acvalWith mp.base2.acval ctor.1.name
+            (fun ψ => m₂.acval ctor.1.name ψ) := by
           funext n ψ
-          by_cases hn : n = cA.1.name
+          by_cases hn : n = ctor.1.name
           · subst hn; exact (congrFun acvalWith_self ψ).symm
           · rw [hag n hn]; exact (congrFun (acvalWith_ne hn) ψ).symm
-        exact hTlawsOf m₂ k cA hcAk (hInv mp.base2 cA (fun ψ => m₂.acval cA.1.name ψ) m₂
+        exact hTlawsOf m₂ k ctor hcAk (hInv mp.base2 ctor (fun ψ => m₂.acval ctor.1.name ψ) m₂
             (List.mem_of_getElem? hcAk) hfresh hac hinv)
           (fun cvC nPc nFc h =>
             (ConstantInfo.ctorInfo.inj (Option.some.inj
-              ((ConLeche.Env.find?_cons_self (.ctorInfo cA.1 p.nP cA.2) env).symm.trans
+              ((ConLeche.Env.find?_cons_self (.ctorInfo ctor.1 p.nP ctor.2) env).symm.trans
                 h))).1.symm)
-          (hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hcbT m₂ hac)
+          (hFD.cross (c₀ := .ctorInfo ctor.1 p.nP ctor.2) hfresh hcbT m₂ hac)
           (fun ψ => by rw [hag _ hTC]; exact hleafT ψ) hleafC₂)
       hFD hCD
-      hfoldC hFsj hEsj hFssParams hFssBelow (hiff k cA hcAk)
-      (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k cA hcAk ψ ρ).mpr hρ)) (hIdx k cA hcAk)
+      hfoldC hFsj hEsj hFssParams hFssBelow (hiff k ctor hcAk)
+      (fun ψ ρ hρ => hFssOkP ψ ρ ((hiff k ctor hcAk ψ ρ).mpr hρ)) (hIdx k ctor hcAk)
     -- the invariants at the extension
-    have hcbC : ConstsBound env cA.1.type := constsBound_of_constsResolve _ htr
-    have hE' : EtaInv ⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts, env.tables⟩ :=
-      hEtaCons env cA (List.mem_of_getElem? hcAk) hfresh hE
-    have hfT' : (⟨.ctorInfo cA.1 p.nP cA.2 :: env.consts, env.tables⟩ : Env).find? p.cvT.name
+    have hcbC : ConstsBound env ctor.1.type := constsBound_of_constsResolve _ htr
+    have hE' : EtaInv ⟨.ctorInfo ctor.1 p.nP ctor.2 :: env.consts, env.tables⟩ :=
+      hEtaCons env ctor (List.mem_of_getElem? hcAk) hfresh hE
+    have hfT' : (⟨.ctorInfo ctor.1 p.nP ctor.2 :: env.consts, env.tables⟩ : Env).find? p.cvT.name
         = some (.indInfo cvS caps) := ConLeche.Env.find?_cons_of_fresh hfresh hfT
     have hFD' : FormerData mpC.base2 cvTa (p.nP + p.nIdx) p.resSort ppsAll :=
-      hFD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hcbT mpC.base2 hacC
+      hFD.cross (c₀ := .ctorInfo ctor.1 p.nP ctor.2) hfresh hcbT mpC.base2 hacC
     have hleafT' : ∀ ψ, mpC.base2.acval p.cvT.name ψ = leafT ψ := by
       intro ψ
       rw [hacC]
-      show acvalWith mp.base2.acval cA.1.name _ p.cvT.name ψ = _
+      show acvalWith mp.base2.acval ctor.1.name _ p.cvT.name ψ = _
       rw [acvalWith_ne hTC]
       exact hleafT ψ
     have hcons' : ConsedAt mpC.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ctorsA (k + 1) := by
-      intro i cAi hi hcAi
+        p.large idxF dsF esF srcsF ctorList (k + 1) := by
+      intro i ctori hi hcAi
       rcases Nat.lt_or_ge i k with hlt | hge
-      · obtain ⟨⟨hfi, hlpsi, hCDi⟩, hresi, hleaf⟩ := hcons i cAi hlt hcAi
-        have hne : cAi.1.name ≠ cA.1.name := names_ne_of_nodup hnd hcAi hcAk (by omega)
-        have hcbi : ConstsBound env cAi.1.type :=
+      · obtain ⟨⟨hfi, hlpsi, hCDi⟩, hresi, hleaf⟩ := hcons i ctori hlt hcAi
+        have hne : ctori.1.name ≠ ctor.1.name := names_ne_of_nodup hnd hcAi hcAk (by omega)
+        have hcbi : ConstsBound env ctori.1.type :=
           constsBound_of_constsResolve _
             (mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfi)).2.2.1
         refine ⟨⟨ConLeche.Env.find?_cons_of_fresh hfresh hfi, hlpsi,
-          hCDi.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcbi
+          hCDi.cross (c₀ := .ctorInfo ctor.1 p.nP ctor.2) hfresh hTC hcbi
             (fun e he => constsBound_of_constsResolve _ (hresi e he)) mpC.base2 hacC⟩,
           fun e he => Expr.constsResolve_mono (hresi e he), ?_⟩
         intro ψ
         rw [hacC]
-        show acvalWith mp.base2.acval cA.1.name _ cAi.1.name ψ = _
+        show acvalWith mp.base2.acval ctor.1.name _ ctori.1.name ψ = _
         rw [acvalWith_ne hne]
         exact hleaf ψ
       · have hik : i = k := by omega
         subst hik
         obtain rfl := Option.some.inj (hcAk.symm.trans hcAi)
-        refine ⟨⟨ConLeche.Env.find?_cons_self (.ctorInfo cA.1 p.nP cA.2) env, hlpsC,
-          hCD.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC hcbC
+        refine ⟨⟨ConLeche.Env.find?_cons_self (.ctorInfo ctor.1 p.nP ctor.2) env, hlpsC,
+          hCD.cross (c₀ := .ctorInfo ctor.1 p.nP ctor.2) hfresh hTC hcbC
             (fun e he => constsBound_of_constsResolve _ (hidxRes e he)) mpC.base2 hacC⟩,
           fun e he => Expr.constsResolve_mono (hidxRes e he), ?_⟩
         intro ψ
         rw [hacC]
-        show acvalWith mp.base2.acval cA.1.name _ cA.1.name ψ = _
+        show acvalWith mp.base2.acval ctor.1.name _ ctor.1.name ψ = _
         rw [acvalWith_self]
     have hpend' : PendingAt mpC.base2 p.cvT.name p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp
-        p.large idxF dsF esF srcsF ctorsA (k + 1) := by
-      intro i cAi hi hcAi
-      obtain ⟨hfreshi, htri, hresi, hCDi⟩ := hpend i cAi (by omega) hcAi
-      have hne : cA.1.name ≠ cAi.1.name := names_ne_of_nodup hnd hcAk hcAi (by omega)
+        p.large idxF dsF esF srcsF ctorList (k + 1) := by
+      intro i ctori hi hcAi
+      obtain ⟨hfreshi, htri, hresi, hCDi⟩ := hpend i ctori (by omega) hcAi
+      have hne : ctor.1.name ≠ ctori.1.name := names_ne_of_nodup hnd hcAk hcAi (by omega)
       refine ⟨?_, Expr.constsResolve_mono htri, fun e he => Expr.constsResolve_mono (hresi e he),
-        hCDi.cross (c₀ := .ctorInfo cA.1 p.nP cA.2) hfresh hTC
+        hCDi.cross (c₀ := .ctorInfo ctor.1 p.nP ctor.2) hfresh hTC
           (constsBound_of_constsResolve _ htri)
           (fun e he => constsBound_of_constsResolve _ (hresi e he)) mpC.base2 hacC⟩
       rw [ConLeche.Env.find?_cons]
       split
       · next h => exact absurd h hne
       · exact hfreshi
-    have hrest' : ∀ i, rest[i]? = ctorsA[k + 1 + i]? := by
+    have hrest' : ∀ i, rest[i]? = ctorList[k + 1 + i]? := by
       intro i
       have := hrest (i + 1)
       rwa [show k + (i + 1) = k + 1 + i from by omega] at this
     have hinv' : Inv mpC.base2 :=
-      hInv mp.base2 cA _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
+      hInv mp.base2 ctor _ mpC.base2 (List.mem_of_getElem? hcAk) hfresh hacC hinv
     exact ctorsLoopEta hCtors hnd hlpsT hlpsA hFssParams hFssBelow hiff hFssOkP hIdx Inv hInv
       caps leafT hTlawsOf EtaInv hEtaCons hEtaOther hfold rest (k + 1) _ mpC hrest'
       (by simp at hk; omega) hE' hfT' (Expr.constsResolve_mono hrT) hFD' hleafT' hcons' hpend' hinv'
@@ -683,7 +683,7 @@ theorem fssOfR_fixCtorDataList_getD {nP : Nat} {dsF : Nat → (Name → Nat) →
     {esF : Nat → (Name → Nat) → List Term} {ksF : Nat → List RecFieldKind}
     {eissF : Nat → (Name → Nat) → List (List Term)}
     {tssF : Nat → (Name → Nat) → List (List Term)} {ψ : Name → Nat}
-    {cs : List (ConstantVal × Nat)} {j : Nat} {cA : ConstantVal × Nat} (hj : cs[j]? = some cA) :
+    {cs : List (ConstantVal × Nat)} {j : Nat} {ctor : ConstantVal × Nat} (hj : cs[j]? = some ctor) :
     (fssOfR nP (fixCtorDataList dsF esF ksF eissF tssF ψ cs 0)).getD j []
       = ((dsF j ψ).drop nP) := by
   rw [List.getD_eq_getElem?_getD, fssOfR_getElem?, fixCtorDataList_getElem?, hj, Nat.zero_add]; rfl
@@ -693,7 +693,7 @@ theorem essOfR_fixCtorDataList_getD {dsF : Nat → (Name → Nat) → List Term}
     {esF : Nat → (Name → Nat) → List Term} {ksF : Nat → List RecFieldKind}
     {eissF : Nat → (Name → Nat) → List (List Term)}
     {tssF : Nat → (Name → Nat) → List (List Term)} {ψ : Name → Nat}
-    {cs : List (ConstantVal × Nat)} {j : Nat} {cA : ConstantVal × Nat} (hj : cs[j]? = some cA) :
+    {cs : List (ConstantVal × Nat)} {j : Nat} {ctor : ConstantVal × Nat} (hj : cs[j]? = some ctor) :
     (essOfR (fixCtorDataList dsF esF ksF eissF tssF ψ cs 0)).getD j [] = esF j ψ := by
   rw [List.getD_eq_getElem?_getD, essOfR_getElem?, fixCtorDataList_getElem?, hj, Nat.zero_add]; rfl
 

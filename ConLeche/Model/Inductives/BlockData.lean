@@ -16,7 +16,7 @@ fields at `nP ..< nP + nF`): every field's opened domain reads to its
 entry (`domRead`), and the opened residual is the member at the
 parameter variables and the index arguments (`resShape`).  No field is
 classified: what a field reading a member looks like is the stored
-field shape facts' (`StoredFieldShapes`).
+field shape facts' (`DeclaredFieldShapes`).
 -/
 
 namespace ConLeche.Model

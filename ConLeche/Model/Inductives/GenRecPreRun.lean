@@ -41,8 +41,8 @@ variable {V : Type w} [SetTheory V]
 section Run
 
 variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- The pre-pass reads one class per recursor. -/
@@ -322,7 +322,7 @@ theorem genRun_nCt {c : Nat} (hc : c < (tgtRs out).length) :
 
 set_option maxHeartbeats 800000 in
 /-- **The rule frame of a generated rule**: at recursor `c` (class `cls`)
-and constructor `j`, the class's constructor `cA`, the generator's
+and constructor `j`, the class's constructor `ctor`, the generator's
 constructor `x` (`genCtorAt`), its run (`ClassCtorRun`), the declared
 type at the class (`tgtCrest`) is `x.tyD`, and it opens at the rule
 prefix to the rule's field openers (the rule was generated). -/
@@ -330,21 +330,21 @@ theorem genRun_frame
     (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
       block out) (hg : ClassGenScoped R.g)
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
-    ∃ (cls : Nat) (cA : ConstantVal × Nat) (fvs : List Expr) (cb : Expr),
+    ∃ (cls : Nat) (ctor : ConstantVal × Nat) (fvs : List Expr) (cb : Expr),
       genClsOf R.rd c = cls ∧ tgtMajor out c = R.Ms.getD cls default ∧
-      (tgtMajor out c).ctors[j]? = some cA ∧ tgtCtorOf out c j = cA ∧
-      Nonempty (ConLeche.ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls cA
+      (tgtMajor out c).ctors[j]? = some ctor ∧ tgtCtorOf out c j = ctor ∧
+      Nonempty (ConLeche.ClassCtorRun .verified F envC p (p.formers.map (·.type)) R.rd R.Ms cls ctor
         (genCtorAt R.g R.rd c j)) ∧
-      (genCtorAt R.g R.rd c j).nF = cA.2 ∧
+      (genCtorAt R.g R.rd c j).nF = ctor.2 ∧
       tgtCrest out c j = (genCtorAt R.g R.rd c j).tyD ∧
       tgtRP p c = R.pre.length ∧
-      ConLeche.openPisAtFvars cA.2 (genCtorAt R.g R.rd c j).tyD R.pre.length = some (fvs, cb) ∧
+      ConLeche.openPisAtFvars ctor.2 (genCtorAt R.g R.rd c j).tyD R.pre.length = some (fvs, cb) ∧
       tgtFieldFvs p out c j = fvs ∧ tgtCbody p out c j = cb ∧
       (∃ ws, ConLeche.targetPiDomsWith fvs (genCtorAt R.g R.rd c j).tyN = some ws) ∧
       genCtorAt R.g R.rd c j ∈ R.g.ctors.getD cls [] := by
   obtain ⟨rc, cls, cvG, rhss, hrc, hcls, hG, ⟨T⟩, ho, hM, hgc⟩ := genRun_at R hc
   rw [genRun_nCt hc] at hj
-  obtain ⟨cA, hcA⟩ : ∃ cA, (tgtMajor out c).ctors[j]? = some cA :=
+  obtain ⟨ctor, hctorAt⟩ : ∃ ctor, (tgtMajor out c).ctors[j]? = some ctor :=
     ⟨_, List.getElem?_eq_getElem hj⟩
   have hclsL : cls < R.Ms.length := by
     rcases Nat.lt_or_ge cls R.Ms.length with hl | hl
@@ -357,13 +357,13 @@ theorem genRun_frame
     (by rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hclsL]; rfl)
   rw [Nat.zero_add] at hxsR
   obtain ⟨-, hallX⟩ := ConLeche.classCtorsOf_run hxsR
-  obtain ⟨x, hx, ⟨CR⟩⟩ := hallX j cA (by rw [← hM]; exact hcA)
+  obtain ⟨x, hx, ⟨CR⟩⟩ := hallX j ctor (by rw [← hM]; exact hctorAt)
   have hctorsCls : R.ctors.getD cls [] = xs := by
     rw [List.getD_eq_getElem?_getD, hxs, Option.getD_some]
   have hgx : genCtorAt R.g R.rd c j = x := by
     show ((R.ctors.getD (genClsOf R.rd c) []).getD j default) = x
     rw [hgc, hctorsCls, List.getD_eq_getElem?_getD, hx, Option.getD_some]
-  have hnF : x.nF = cA.2 := by rw [CR.hx]
+  have hnF : x.nF = ctor.2 := by rw [CR.hx]
   -- the rules' run at the recursor: the rule of `x` was generated
   obtain ⟨-, hallO⟩ := ConLeche.classRecsRulesOk_run R.hrules
   obtain ⟨rhss', ho', hrules⟩ := hallO c cvG cls hG hcls
@@ -378,13 +378,13 @@ theorem genRun_frame
   have hrP : rc.rP = R.pre.length := (genRecTy_shape R hg T).1
   have htRP : tgtRP p c = R.pre.length := by
     rw [tgtRP, List.getD_eq_getElem?_getD, hrc, Option.getD_some, hrP]
-  have hctor : tgtCtorOf out c j = cA := by
-    rw [tgtCtorOf, List.getD_eq_getElem?_getD, hcA, Option.getD_some]
+  have hctor : tgtCtorOf out c j = ctor := by
+    rw [tgtCtorOf, List.getD_eq_getElem?_getD, hctorAt, Option.getD_some]
   have hcrest : tgtCrest out c j = x.tyD := by
     rw [tgtCrest, hctor, hM, CR.hD, Option.getD_some]
-  have hop' : ConLeche.openPisAtFvars cA.2 x.tyD R.pre.length = some (fvs, cb) := by
+  have hop' : ConLeche.openPisAtFvars ctor.2 x.tyD R.pre.length = some (fvs, cb) := by
     rw [← hnF]; exact hop
-  refine ⟨cls, cA, fvs, cb, hgc, hM, hcA, hctor, by rw [hgx]; exact ⟨CR⟩, by rw [hgx, hnF],
+  refine ⟨cls, ctor, fvs, cb, hgc, hM, hctorAt, hctor, by rw [hgx]; exact ⟨CR⟩, by rw [hgx, hnF],
     by rw [hgx, hcrest], htRP, by rw [hgx]; exact hop', ?_, ?_, ⟨ws, by rw [hgx]; exact hws⟩, ?_⟩
   · rw [tgtFieldFvs, hctor, hcrest, htRP, hop']; rfl
   · rw [tgtCbody, hctor, hcrest, htRP, hop']; rfl
@@ -401,7 +401,7 @@ theorem genRun_nF
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       (genCtorAt R.g R.rd c j).nF = (tgtFdomsAV p out acval envC ψ c j).length := by
   intro c hc j hj
-  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -, -, -⟩ := genRun_frame R hg hc hj
+  obtain ⟨cls, ctor, fvs, cb, -, -, -, -, -, hnF, -, -, hop, hfv, -, -, -⟩ := genRun_frame R hg hc hj
   rw [hnF, tgtFdomsAV, readOpenedDoms_length_eq, hfv, ConLeche.Verify.openPisAtFvars_length _ hop]
 
 /-- A reading of a scoped term (or the default reading, where the
@@ -442,7 +442,7 @@ theorem genRun_below
         IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length
           + (tgtFdomsAV p out mpC.base2.acval envC ψ c j).length) q := by
   intro c hc j hj q hq
-  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, hnF, -, -, hop, -, -, ⟨ws, hws⟩, hxmem⟩ :=
+  obtain ⟨cls, ctor, fvs, cb, -, -, -, -, -, hnF, -, -, hop, -, -, ⟨ws, hws⟩, hxmem⟩ :=
     genRun_frame R hg hc hj
   rw [genRun_gpre R hg h mpC ψ c hc |>.symm, ← genRun_nF R hg mpC.base2.acval ψ c hc j hj]
   generalize hx : genCtorAt R.g R.rd c j = x at hnF hop hws hxmem
@@ -516,7 +516,7 @@ theorem genRun_fdomsBelow
       DomsBelow (blockRulePdomsAV mpC.base2.acval envC p (tgtRs out) ψ c).length
         (tgtFdomsAV p out mpC.base2.acval envC ψ c j) := by
   intro c hc j hj
-  obtain ⟨cls, cA, fvs, cb, -, -, -, -, -, -, -, hRP, hop, hfv, -, -, hxmem⟩ :=
+  obtain ⟨cls, ctor, fvs, cb, -, -, -, -, -, -, -, hRP, hop, hfv, -, -, hxmem⟩ :=
     genRun_frame R hg hc hj
   rw [← genRun_gpre R hg h mpC ψ c hc, tgtFdomsAV, hRP, hfv]
   obtain ⟨s, -, hsl⟩ := genRun_motive R hc
@@ -682,7 +682,7 @@ set_option maxHeartbeats 2000000 in
 class of sort zero is the block's one member (the elimination guard,
 `blockLargeElim_counting`: an outside class would force a never-zero sort,
 `genRun_outW`), with at most one constructor of the declared large shape,
-whose fields are a function of the index (`blockStoredFit_srcVals_zero`). -/
+whose fields are a function of the index (`blockDeclaredFit_srcVals_zero`). -/
 theorem genRun_lic (mpC : EnvModelM V envC)
     (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
       block out)
@@ -695,7 +695,7 @@ theorem genRun_lic (mpC : EnvModelM V envC)
       p.lps p.formers p isRec A envI p.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 (blockDataOf V p pk uOfD ppsOf)
       p.lps p.formers p isRec A (blockDataOf V p pk uOfD ppsOf).k)
-    (hnames : p.memberCtors.map (·.map (fun cA => (cA.1.name, cA.2)))
+    (hnames : p.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
       = p.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -761,7 +761,7 @@ theorem genRun_lic (mpC : EnvModelM V envC)
       rw [htm, htm0]; show 0 < p.k + 0; omega
     have hsf := (blockHoleFitRel_iff hModel hpar hmN htD).mp hf
     have hsf' := (blockHoleFitRel_iff hModel hpar hmN htD).mp hf'
-    unfold blockStoredFitRel at hsf hsf'
+    unfold blockDeclaredFitRel at hsf hsf'
     rw [htm, htm0] at hsf hsf' htD
     -- one constructor at most
     have hlen0 : ((blockDataOf V p pk uOfD ppsOf).ctorsM 0).length ≤ 1 := by
@@ -791,13 +791,13 @@ theorem genRun_lic (mpC : EnvModelM V envC)
     have hj'0 : j' = 0 := by have := hsf'.1; omega
     subst hj0 hj'0
     refine ⟨rfl, ?_⟩
-    obtain ⟨cA, hcj⟩ : ∃ cA,
-        ((blockDataOf V p pk uOfD ppsOf).ctorsM 0)[0]? = some cA :=
+    obtain ⟨ctor, hcj⟩ : ∃ ctor,
+        ((blockDataOf V p pk uOfD ppsOf).ctorsM 0)[0]? = some ctor :=
       ⟨_, List.getElem?_eq_getElem hsf.1⟩
-    obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2 0 hk0 0 cA hcj
-    obtain ⟨-, -, hcd, -⟩ := hcore.2.1 0 0 cA hcj
+    obtain ⟨hfindC, hlpsC, -⟩ := hcore.2.2 0 hk0 0 ctor hcj
+    obtain ⟨-, -, hcd, -⟩ := hcore.2.1 0 0 ctor hcj
     have hsrc : ∀ gs : List V,
-        (blockDataOf V p pk uOfD ppsOf).StoredFit ψ
+        (blockDataOf V p pk uOfD ppsOf).DeclaredFit ψ
           (consList (xs.take (blockDataOf V p pk uOfD ppsOf).nP) ρ)
           t 0 0 gs →
         gs = srcVals (isOfW ((blockDataOf V p pk uOfD ppsOf).uM
@@ -806,10 +806,10 @@ theorem genRun_lic (mpC : EnvModelM V envC)
             0 ψ).getD 0 [])
             (((blockDataOf V p pk uOfD ppsOf).Fss
               0 ψ).getD 0 []).length) := fun gs hgs =>
-      blockStoredFit_srcVals_zero hModel hcj ⟨hfindC, hlpsC, hcd⟩ hlarge hw
-        (fun σ => ⟨fun hσ => ((hS.frames 0 hk0 0 cA hcj).1 ψ σ).mp
+      blockDeclaredFit_srcVals_zero hModel hcj ⟨hfindC, hlpsC, hcd⟩ hlarge hw
+        (fun σ => ⟨fun hσ => ((hS.frames 0 hk0 0 ctor hcj).1 ψ σ).mp
             (hS.paramsOf 0 hk0 ψ σ hσ 0 hk0),
-          fun hσ => hS.paramsOf 0 hk0 ψ σ (((hS.frames 0 hk0 0 cA hcj).1 ψ σ).mpr hσ) 0 hk0⟩)
+          fun hσ => hS.paramsOf 0 hk0 ψ σ (((hS.frames 0 hk0 0 ctor hcj).1 ψ σ).mpr hσ) 0 hk0⟩)
         (blockMembers_IdsM_length hmr hk0 ψ) hpar
         (Nat.lt_of_lt_of_le hk0 (Nat.le_add_right _ _)) htD hgs
     rw [hsrc fs hsf, hsrc fs' hsf']
@@ -881,7 +881,7 @@ theorem genPreHyps_of_run
     (hN : BlockNamesOk (V := V) d pp.formers)
     (hS : BlockCtorsStage (V := V) F d pp.lps pp.formers pp isRec A envI' pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps pp.formers pp isRec A d.k)
-    (hnames : pp.memberCtors.map (·.map (fun cA => (cA.1.name, cA.2)))
+    (hnames : pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
@@ -933,7 +933,7 @@ theorem genRecPre_run
     (hN : BlockNamesOk (V := V) d pp.formers)
     (hS : BlockCtorsStage (V := V) F d pp.lps pp.formers pp isRec A envI' pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2 d pp.lps pp.formers pp isRec A d.k)
-    (hnames : pp.memberCtors.map (·.map (fun cA => (cA.1.name, cA.2)))
+    (hnames : pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
       = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))))
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))

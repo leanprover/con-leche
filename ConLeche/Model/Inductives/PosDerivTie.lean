@@ -213,30 +213,30 @@ constructors' environments**: the block's constructors conclude in its
 members (`hheads`), so none is a constructor of an inductive `I` that is
 no member, and none is named `I` (stored as an inductive there). -/
 theorem nestContainer_consBlockCtors {envI : Env} {nP : Nat}
-    {ctorsAs : List (List (ConstantVal × Nat))} {names : List Name}
-    (hheads : ∀ c ∈ ctorsAs.flatten, envI.find? c.1.name = none ∧
+    {memberCtors : List (List (ConstantVal × Nat))} {names : List Name}
+    (hheads : ∀ c ∈ memberCtors.flatten, envI.find? c.1.name = none ∧
       ∀ C, (ctorEntry C (.ctorInfo c.1 nP c.2)).isSome = true → C ∈ names)
     {I : Name} (hI : I ∉ names) {cv : ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : (ConLeche.consBlockCtors nP ctorsAs envI).find? I = some (.indInfo cv caps)) :
-    ConLeche.nestContainer (envCtx (ConLeche.consBlockCtors nP ctorsAs envI)) I
+    (hf : (ConLeche.consBlockCtors nP memberCtors envI).find? I = some (.indInfo cv caps)) :
+    ConLeche.nestContainer (envCtx (ConLeche.consBlockCtors nP memberCtors envI)) I
       = ConLeche.nestContainer (envCtx envI) I := by
-  have hcs := consBlockCtors_consts nP ctorsAs envI
-  have hnew : ∀ c ∈ (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse,
-      ∃ a ∈ ctorsAs.flatten, c = .ctorInfo a.1 nP a.2 := by
+  have hcs := consBlockCtors_consts nP memberCtors envI
+  have hnew : ∀ c ∈ (memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse,
+      ∃ a ∈ memberCtors.flatten, c = .ctorInfo a.1 nP a.2 := by
     intro c hc
     obtain ⟨a, ha, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
     exact ⟨a, ha, rfl⟩
-  have hEq : ConLeche.consBlockCtors nP ctorsAs envI
-      = ⟨(ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ envI.consts, envI.tables⟩ :=
+  have hEq : ConLeche.consBlockCtors nP memberCtors envI
+      = ⟨(memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ envI.consts, envI.tables⟩ :=
     by rw [← consBlockCtors_consts, ← consBlockCtors_tables]
   -- a lookup above the constructors: a new constructor (fresh below), or the old one
-  have hlook : ∀ n, (ConLeche.consBlockCtors nP ctorsAs envI).find? n
-      = ((ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
+  have hlook : ∀ n, (ConLeche.consBlockCtors nP memberCtors envI).find? n
+      = ((memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
           (·.name == n)).or (envI.find? n) := by
     intro n; rw [hEq, find?_append]
   have hfind : envI.find? I = some (.indInfo cv caps) := by
     rw [hlook] at hf
-    cases hn : (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
+    cases hn : (memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
         (·.name == I) with
     | none => rw [hn] at hf; exact hf
     | some c =>
@@ -246,7 +246,7 @@ theorem nestContainer_consBlockCtors {envI : Env} {nP : Nat}
   refine nestContainer_congr (by rw [hf, hfind]) fun n => ?_
   simp only [ctorLook]
   rw [hlook]
-  cases hn : (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
+  cases hn : (memberCtors.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
       (·.name == n) with
   | none => rfl
   | some c =>

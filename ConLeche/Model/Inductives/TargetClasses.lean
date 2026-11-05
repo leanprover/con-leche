@@ -194,7 +194,7 @@ theorem tgtRule_exists {envC : Env} {F : Nat} {pp : BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageG .verified F envC pp rs) {c : Nat} (hc : c < rs.length)
     {j : Nat} (hj : j < blockRecNCt rs c) :
-    ∃ cA rhs, rs[c].2.2.2[j]? = some cA ∧ rs[c].2.1[j]? = some rhs := by
+    ∃ ctor rhs, rs[c].2.2.2[j]? = some ctor ∧ rs[c].2.1[j]? = some rhs := by
   have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   have hjr : j < rs[c].2.2.2.length := by
     rw [blockRecNCt, List.getD_eq_getElem?_getD, hr, Option.getD_some] at hj; exact hj

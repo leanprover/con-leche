@@ -73,7 +73,7 @@ def blockTables (p : BlockShape) : List MemberShape → List ProjTable
 
 /-- The block's constants, in push order: the formers, the constructors, the recursors. -/
 def blockConstants (p : BlockShape) : List ConstantInfo :=
-  blockFormers p (blockRawRec p) ++ blockCtors p ++
+  blockFormers p (blockIsRec p) ++ blockCtors p ++
     blockRecs p p.recs
 
 /-- **The constants a declaration installs**, in push order.  A block with a pinned block's names

@@ -110,8 +110,8 @@ theorem denote_closeTelescope_read {acval : Name → (Name → Nat) → Term} {e
 section Setup
 
 variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 4000000 in
@@ -125,8 +125,8 @@ theorem genMinorSetup
       block out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
     {c j : Nat} (hc : c < (tgtRs out).length) (hj : j < blockRecNCt (tgtRs out) c) :
     ∃ (cls s : Nat) (x : ClassCtor) (T res : Expr) (ws : List Expr)
       (ihs : List Expr),
@@ -156,11 +156,11 @@ theorem genMinorSetup
           [Expr.mkAppN (.const x.cv.name (R.g.cls.getD cls default).lvls)
             ((R.g.cls.getD cls default).ds ++ tgtFieldFvs pp out c j)])) := by
   have hr : (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := List.getElem?_eq_getElem hc
-  obtain ⟨cA, rhs, hcA, hrhs⟩ := tgtRule_exists h hc hj
+  obtain ⟨ctor, rhs, hctor, hrhs⟩ := tgtRule_exists h hc hj
   obtain ⟨rc, cls2, x2, gen, -, hc2, -, -, hctors, hclsM, hx2, ⟨CR⟩, -, -, hxcv, hgen, -⟩ :=
-    genRuleAt R hr hcA hrhs
+    genRuleAt R hr hctor hrhs
   obtain ⟨cls, x, fvsR, resR, hcls, hrP, -, hMaj, hCt, -, hopR, hFF, hCB, -, hgx, hnF, hxmem,
-    -, -, -, -, -⟩ := genFrameAt R hg hr hcA hrhs
+    -, -, -, -, -⟩ := genFrameAt R hg hr hctor hrhs
   have hcc : cls2 = cls := Option.some.inj (hc2.symm.trans hcls)
   subst cls2
   have hgc : genClsOf R.rd c = cls := by simp [genClsOf, List.getD_eq_getElem?_getD, hcls]
@@ -199,19 +199,19 @@ theorem genMinorSetup
     have hmem := List.mem_of_find?_eq_some hfx
     have hname : x'.cv.name = x.cv.name := by simpa using List.find?_some hfx
     obtain ⟨i', hi', rfl⟩ := List.getElem_of_mem hmem
-    obtain ⟨cA', hcA', ⟨CR'⟩⟩ := genClassCtorAt R hclsM (List.getElem?_eq_getElem hi')
-    have hcA'r : ((tgtRs out)[c]'hc).2.2.2[i']? = some cA' := by
-      rw [hctors]; exact hcA'
-    have hf1 := hfind c _ hr i' cA' hcA'r
-    have hf2 := hfind c _ hr j cA hcA
-    have hn1 : cA'.1.name = cA.1.name := by
+    obtain ⟨ctor', hctor', ⟨CR'⟩⟩ := genClassCtorAt R hclsM (List.getElem?_eq_getElem hi')
+    have hctor'r : ((tgtRs out)[c]'hc).2.2.2[i']? = some ctor' := by
+      rw [hctors]; exact hctor'
+    have hf1 := hfind c _ hr i' ctor' hctor'r
+    have hf2 := hfind c _ hr j ctor hctor
+    have hn1 : ctor'.1.name = ctor.1.name := by
       have h1 := congrArg (fun y => y.cv.name) CR'.hx
       simp only at h1
       rw [← h1, hname, hxcv]
     rw [hn1, hf2] at hf1
     have hinj := Option.some.inj hf1
     injection hinj with h1 h2 h3
-    have hcAeq : cA' = cA := Prod.ext h1.symm h3.symm
+    have hcAeq : ctor' = ctor := Prod.ext h1.symm h3.symm
     subst hcAeq
     exact ConLeche.Model.classCtorRun_unique CR' CR
   subst x'
@@ -510,8 +510,8 @@ theorem mkLamsAV_eq_pt {C : Term} :
 section Minor
 
 variable {F : Nat} {env₁ envC : Env} {pp : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 set_option maxHeartbeats 8000000 in
@@ -528,8 +528,8 @@ theorem genCls_minor
       block out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
     (ψ : Name → Nat) (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
     SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
@@ -778,8 +778,8 @@ theorem genMinor_pt
       block out) (hg : ClassGenScoped R.g)
     (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (mpC : EnvModelM V envC)
     (hfind : ∀ (j : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      (tgtRs out)[j]? = some r → ∀ (i : Nat) (cA : ConstantVal × Nat), r.2.2.2[i]? = some cA →
-        envC.find? cA.1.name = some (.ctorInfo cA.1 (ConLeche.tgtMajorsOf out j).nPc cA.2))
+      (tgtRs out)[j]? = some r → ∀ (i : Nat) (ctor : ConstantVal × Nat), r.2.2.2[i]? = some ctor →
+        envC.find? ctor.1.name = some (.ctorInfo ctor.1 (ConLeche.tgtMajorsOf out j).nPc ctor.2))
     (ψ : Name → Nat) (ρ : Nat → V)
     (hℓ : Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) = 0) :
     ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,

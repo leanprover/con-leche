@@ -84,7 +84,7 @@ theorem natOpName_of_bin {c : Name}
     decide
 
 theorem res_natOpResult (hf : StoredFacts env₁) {c : Name} {a b : Nat} {x : Expr}
-    (hs : natOpStored env₁ c = true)
+    (hs : isDefinitionAt env₁ c = true)
     (hn : (env₁.find? natName).isSome = true ∨ (env₁.find? natZeroName).isSome = true ∨
       (env₁.find? natSuccName).isSome = true)
     (h : natOpResult c a b = some x) : Res env₁ x := by

@@ -210,7 +210,7 @@ section RunFacts
 
 variable {F : Nat} {fe : FEnv} {p : BlockShape} {nested : Bool}
   {block : List ConstantInfo}
-  {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- `instPisWith` is `instPisAt`'s residual. -/

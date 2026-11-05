@@ -83,8 +83,8 @@ theorem checkBlockAgreeF_eqC (env : Env) (nP : Nat) (cvTa0 : ConstantVal) (s0 : 
       checkBlockAgreeF_eqC env nP cvTa0 s0 rest]
 
 theorem consBlockIndsF_mkFEnv (p₁ : BlockShape) (isRec : Bool) :
-    ∀ (cvTas : List ConstantVal) (i : Nat) (env : Env),
-      consBlockIndsF p₁ isRec cvTas i (mkFEnv env) = mkFEnv (consBlockInds p₁ isRec cvTas i env)
+    ∀ (formers : List ConstantVal) (i : Nat) (env : Env),
+      consBlockIndsF p₁ isRec formers i (mkFEnv env) = mkFEnv (consBlockInds p₁ isRec formers i env)
   | [], _, _ => rfl
   | cvTa :: rest, i, env => by
     simp only [consBlockIndsF, consBlockInds, push_mkFEnv]
@@ -118,10 +118,10 @@ theorem checkBlockIdxSortsF_eqC (env : Env) (p : BlockShape) :
 end Mirrors
 
 theorem consBlockCtorsF_mkFEnv (nP : Nat) :
-    ∀ (ctorsAs : List (List (ConstantVal × Nat))) (env : Env),
-      consBlockCtorsF nP ctorsAs (mkFEnv env) = mkFEnv (consBlockCtors nP ctorsAs env)
+    ∀ (memberCtors : List (List (ConstantVal × Nat))) (env : Env),
+      consBlockCtorsF nP memberCtors (mkFEnv env) = mkFEnv (consBlockCtors nP memberCtors env)
   | [], _ => rfl
-  | ctorsA :: rest, env => by
+  | ctorList :: rest, env => by
     simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
     exact consBlockCtorsF_mkFEnv nP rest _
 
@@ -388,10 +388,10 @@ theorem checkBlockTablesS_run (p : BlockShape) (env : Env) :
 theorem checkBlockCtors_types {env₀ env : Env} {q : BlockShape} {F : Nat}
     {l : List MemberShape} {sortsss : List (List (List Level))}
     (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok sortsss) :
-    ∀ ctorsA ∈ l.map (·.ctors), ∀ c ∈ ctorsA, WScoped 0 c.1.type := by
+    ∀ ctorList ∈ l.map (·.ctors), ∀ c ∈ ctorList, WScoped 0 c.1.type := by
   obtain ⟨-, hall⟩ := checkBlockCtors_inv h
-  intro ctorsA hcA c hc
-  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcA
+  intro ctorList hctor c hc
+  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hctor
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
   obtain ⟨sortss, -, hcs⟩ := hall i ms hi
   obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs

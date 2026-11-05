@@ -59,8 +59,8 @@ open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo openPisAtF
 section GenRun
 
 variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- **A member class, as the run checked it**: the member's own

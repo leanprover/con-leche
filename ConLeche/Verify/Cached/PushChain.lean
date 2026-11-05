@@ -186,14 +186,14 @@ pigeonhole. -/
 
 /-- The formers' conses: a fresh chain. -/
 theorem consBlockIndsF_push (p₁ : BlockShape) (isRec : Bool) {env : Env} :
-    ∀ {cvTas : List ConstantVal} {i : Nat} {fe : FEnv}, PushChain env fe →
-      FreshNames fe.env (cvTas.map (·.name)) →
-      PushChain env (consBlockIndsF p₁ isRec cvTas i fe)
+    ∀ {formers : List ConstantVal} {i : Nat} {fe : FEnv}, PushChain env fe →
+      FreshNames fe.env (formers.map (·.name)) →
+      PushChain env (consBlockIndsF p₁ isRec formers i fe)
   | [], _, _, h, _ => h
   | cvTa :: rest, i, fe, h, hf => by
     have hfr : fe.find? cvTa.name = none := by
       rw [h.find?]; exact hf.2 _ (by simp)
-    exact consBlockIndsF_push p₁ isRec (cvTas := rest) (i := i + 1)
+    exact consBlockIndsF_push p₁ isRec (formers := rest) (i := i + 1)
       (h.push (ci := .indInfo cvTa (blockCapsAt p₁ i isRec)) hfr)
       (FreshNames.step (c := .indInfo cvTa (blockCapsAt p₁ i isRec)) hf)
 
@@ -393,7 +393,7 @@ theorem blockConstants_names (p : BlockShape) :
     | cons a l ih => exact congrArg (a.cvR.name :: ·) ih
   unfold blockConstants blockFormers blockCtors
   simp only [List.map_append]
-  rw [hF _ 0 (fun i => blockCapsAt p i (blockRawRec p)), hR]
+  rw [hF _ 0 (fun i => blockCapsAt p i (blockIsRec p)), hR]
   simp [List.map_map, Function.comp_def, BlockShape.allCtors]
   rfl
 
@@ -420,7 +420,7 @@ theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q 
     Yields (checkBlockTailS mode block q) (fun _ =>
       (q.p.recs.map (·.cvR.name)).Nodup ∧
       ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.memberCtors q.env₁).find? rc.cvR.name = none) := by
-  obtain ⟨env₁, p, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
+  obtain ⟨env₁, p, kinds, params, rd, cls, tbl⟩ := q
   unfold checkBlockTailS
   dsimp only
   refine Yields.bind fun _ => ?_
@@ -448,7 +448,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   have hCt : ({ p with members := ms } : BlockShape).allCtors = p.allCtors := by
     show (ms.map (·.ctors)).flatten = (p.members.map (·.ctors)).flatten
     rw [e₃]
-  refine Yields.bind' (checkBlockPassS_push mode h { p with members := ms } (blockRawRec p) e₂
+  refine Yields.bind' (checkBlockPassS_push mode h { p with members := ms } (blockIsRec p) e₂
     (by show (ms.map _).Nodup; rw [e₁]; exact hndM)) fun q hr => ?_
   obtain ⟨h₁, hm, hrec, hnp, hfrs₀, hfrMs, hmem⟩ := hr
   try simp only [] at h₁ hm hrec hnp hfrs₀ hfrMs hmem
@@ -646,14 +646,14 @@ theorem installStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     · rename_i hnat
       exact hord _ (by simp only [valueGroup?, hnat, ↓reduceIte])
     · rename_i hnat
-      refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
+      refine Yields.bind' (valueDeclGuardsC_fresh fe cv value) fun _ hfr => ?_
       simp only [valueGroup?, hnat, Bool.false_eq_true, ↓reduceIte]
       exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
   | thmDecl cv value =>
     simp only [installGuards]
     rw [bind_assoc]
     ybind
-    refine Yields.bind' (installHeaderC_fresh fe cv) fun _ hfr => ?_
+    refine Yields.bind' (headerGuardsC_fresh fe cv) fun _ hfr => ?_
     exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
   | opaqueDecl cv value =>
     simp only [installGuards]
@@ -661,7 +661,7 @@ theorem installStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     · rename_i hred
       exact hord _ (by simp only [valueGroup?, hred, ↓reduceIte])
     · rename_i hred
-      refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
+      refine Yields.bind' (valueDeclGuardsC_fresh fe cv value) fun _ hfr => ?_
       simp only [valueGroup?, hred, Bool.false_eq_true, ↓reduceIte]
       exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
   | axiomDecl cv => exact hord _ rfl

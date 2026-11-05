@@ -53,8 +53,8 @@ well-formedness. -/
 
 section MembersRun
 
-variable {envC envI : Env} {pp : ConLeche.BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {F : Nat}
+variable {envC envI : Env} {pp : ConLeche.BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → Term}
 
   {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}
@@ -155,8 +155,8 @@ theorem blockRecEqs_below_rows
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → Term}
     (hrow : ∀ (ψ : Name → Nat) (c : Nat)
       (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-      r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs →
+      rs[c]? = some r → ∀ (j : Nat) (ctor : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[j]? = some ctor → r.2.1[j]? = some rhs →
         DomsBelow (pp.rulePrefixAt c) (fdoms0 ψ c j) ∧
         (∀ e ∈ es0 ψ c j, Term.bvarsBelow
           (pp.rulePrefixAt c + (fdoms0 ψ c j).length) e) ∧
@@ -173,8 +173,8 @@ theorem blockRecEqs_below_rows
         Term.bvarsBelow rs.length e := by
   intro ψ
   have hpair : ∀ c, c < rs.length → ∀ j, j < blockRecNCt rs c →
-      ∃ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (cA : ConstantVal × Nat)
-        (rhs : Expr), rs[c]? = some r ∧ r.2.2.2[j]? = some cA ∧ r.2.1[j]? = some rhs := by
+      ∃ (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (ctor : ConstantVal × Nat)
+        (rhs : Expr), rs[c]? = some r ∧ r.2.2.2[j]? = some ctor ∧ r.2.1[j]? = some rhs := by
     intro c hc j hj
     have hr : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
     have hjl : j < rs[c].2.2.2.length := by
@@ -191,8 +191,8 @@ theorem blockRecEqs_below_rows
       rw [Nat.zero_add]; exact blockRulePdomsAV_bounded mpC h hr ψ q hq
   all_goals
     dsimp only
-    obtain ⟨r, cA, rhs, hr, hcA, hrhs⟩ := hpair c hc j hj
-    obtain ⟨hF, hE, hM, hI, hR⟩ := hrow ψ c r hr j cA rhs hcA hrhs
+    obtain ⟨r, ctor, rhs, hr, hctor, hrhs⟩ := hpair c hc j hj
+    obtain ⟨hF, hE, hM, hI, hR⟩ := hrow ψ c r hr j ctor rhs hctor hrhs
     have hpl := blockRulePdomsAV_length mpC h hr ψ
   · rw [hpl]; exact hF
   · rw [hpl]; exact hE
@@ -211,8 +211,8 @@ theorem blockRecEqs_params_rows
     {fdoms0 es0 ihs : (Name → Nat) → Nat → Nat → List Term}
     {mk0 Rb0 : (Name → Nat) → Nat → Nat → Term}
     (hrow : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
-      rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-      r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs → ∀ ψ₁ ψ₂ : Name → Nat,
+      rs[c]? = some r → ∀ (j : Nat) (ctor : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[j]? = some ctor → r.2.1[j]? = some rhs → ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
         fdoms0 ψ₁ c j = fdoms0 ψ₂ c j ∧ es0 ψ₁ c j = es0 ψ₂ c j ∧ ihs ψ₁ c j = ihs ψ₂ c j ∧
           mk0 ψ₁ c j = mk0 ψ₂ c j ∧ Rb0 ψ₁ c j = Rb0 ψ₂ c j) :

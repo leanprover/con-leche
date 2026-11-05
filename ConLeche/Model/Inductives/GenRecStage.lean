@@ -214,8 +214,8 @@ open ConLeche (BlockShape BlockShape RecShape GenRecRun ClassRecTyRun FEnv mkFEn
 section Stage
 
 variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool} {pos : NestState}
-  {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- The stage-(b) list of a generated run: each generated constant, its

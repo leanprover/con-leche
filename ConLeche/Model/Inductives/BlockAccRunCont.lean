@@ -48,24 +48,24 @@ derivation (`memberCtorD_acc`, the container rules under `hcovk`), its
 U2 typing, the datum's reading facts and grading, and U4. -/
 theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
     {ψ : Name → Nat} (hin : Rules.RulesInputs V mp.base2 ψ) {F : Nat}
-    {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
+    {d : BlockData V} {lps : List Name} {formers : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
-    (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
+    (hN : BlockNamesOk (V := V) d formers) (hcore : BlockHoleCtxFacts mp.base2 d lps formers p₁ isRec)
     {p : BlockShape} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
-    (hread : p.members.map (·.cvT) = cvTas)
+    (hread : p.members.map (·.cvT) = formers)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
-    (hcv0 : cvTas.head? = some cvTa0)
+    (hcv0 : formers.head? = some cvTa0)
     (hop0 : openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest))
     (hholes : nestHoles (p.nestCtx fvsP env.find?) = some holes)
-    {c j : Nat} {cA : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some cA)
-    (hCf : cA.1.type.hasFvar = false) (hCb : cA.1.type.looseBVarsBounded 0 = true)
+    {c j : Nat} {ctor : ConstantVal × Nat} (hcj : (d.ctorsM c)[j]? = some ctor)
+    (hCf : ctor.1.type.hasFvar = false) (hCb : ctor.1.type.looseBVarsBounded 0 = true)
     {crest : Expr}
     (hcrest : ConLeche.nestCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) fvsP holes
-      cA.1.type = some crest)
+      ctor.1.type = some crest)
     {tyN : Expr}
     {ksD : List NestFieldKind} {ts : List PosTree}
-    (hd : MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?) cA.2 crest
+    (hd : MemberCtorD (fueledOps .verified F) env (p.nestCtx fvsP env.find?) ctor.2 crest
       ksD tyN ts)
     (hcovk : (∃ k ∈ ksD, k.flat = false) →
       ContOk mp ψ (d.w ψ) (p.nestCtx fvsP env.find?))
@@ -101,7 +101,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
   -- the members' arities
   have har : ∀ t, t < d.k → (d.toLfp.ids t ψ).length = ctx.nIdxs.getD t 0 := by
     intro t ht
-    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, formers[t]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
     have hFDt := (hcore.1 t cvTb hcvb).2
     show (((d.ppsM t ψ).drop d.nP)).length = _
@@ -124,28 +124,28 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
     (holeQ_top_iff hhi hcNl hcP har) (Nat.le_refl _) hPi
   -- the syntax: the opened normal form, U4
   obtain ⟨xs, rest', hopN, hkl, hnl, hxs⟩ := memberCtorD_open mp.base2.wf hfr.2.1 hteleD htyN
-  have hU4' : ∀ i, i < cA.2 → (ksD.getD i .ordinary != .ordinary) = true →
+  have hU4' : ∀ i, i < ctor.2 → (ksD.getD i .ordinary != .ordinary) = true →
       ConLeche.structUsedLater tyN 0 i = false := by
     intro i hi hg
     cases hu : ConLeche.structUsedLater tyN 0 i
     · rfl
     · have := List.any_eq_false.mp hU4 i (List.mem_range.mpr hi)
       simp [hu, -List.getD_eq_getElem?_getD, hg] at this
-  obtain ⟨pps, b, hst, -, hppl, hdoms⟩ := denote_openPis cA.2 hopN hNr
+  obtain ⟨pps, b, hst, -, hppl, hdoms⟩ := denote_openPis ctor.2 hopN hNr
   rw [← hlabN, stripPisAV_mkPisAV] at hst
   obtain ⟨rfl, -⟩ := Prod.mk.inj (Option.some.inj hst).symm
-  have hxl : xs.length = cA.2 := ConLeche.Verify.openPisAtFvars_length cA.2 hopN
+  have hxl : xs.length = ctor.2 := ConLeche.Verify.openPisAtFvars_length ctor.2 hopN
   classical
   let ord : Nat → Bool := fun l => !(ksD.getD l .ordinary != .ordinary)
-  refine ⟨ord, fun l => if l < cA.2 then Af l else fun _ => empty, ?_, ?_, ?_, ?_⟩
+  refine ⟨ord, fun l => if l < ctor.2 then Af l else fun _ => empty, ?_, ?_, ?_, ?_⟩
   · -- the telescope
     rw [← hab]
     refine TeleAccP.congr _ 0 _ _ (fun l' _ hl' => ?_) htele
-    have : l' < cA.2 := by simpa [hlabN] using hl'
+    have : l' < ctor.2 := by simpa [hlabN] using hl'
     simp only [ite_eq_left this]
   · -- the fields' bounds read the agreeing positions
     intro l τ τ' hag
-    by_cases hl : l < cA.2
+    by_cases hl : l < ctor.2
     · simp only [ite_eq_left hl]
       obtain ⟨x, hx⟩ : ∃ x, xs[l]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
       obtain ⟨k, nd, hkk, hnd, hE, -, -⟩ := hxs l x hx
@@ -178,7 +178,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
   · -- the ordinary fields read the agreeing positions
     intro i G hGi hoi τ τ' hag
     rw [← hab] at hGi
-    have hi : i < cA.2 := by
+    have hi : i < ctor.2 := by
       have := (List.getElem?_eq_some_iff.mp hGi).1
       simpa [hlabN] using this
     obtain ⟨x, hx⟩ : ∃ x, xs[i]? = some x := ⟨_, List.getElem?_eq_getElem (by omega)⟩
@@ -191,7 +191,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
       have h' : (!(ksD.getD i .ordinary != .ordinary)) = true := hoi
       rw [hkD] at h'
       simpa using h'
-    have hwx := openPisAtFvars_typeWScoped cA.2 hopN hfrN.1 i x hx
+    have hwx := openPisAtFvars_typeWScoped ctor.2 hopN hfrN.1 i x hx
     have hholes' : NoBVar (holeP (ctx.hiAt 0 + i) ctx.nP (ctx.hiAt 0)) p' := by
       refine denote_noBVar_of_nestOcc (m := mp.base2) (names := ctx.names) _ _ hwx
         (by simp [NestCtx.hiAt]) ?_ hread
@@ -249,10 +249,10 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0) (hlenCA : p.memberCtors.length = d.k)
-    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
-    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
-    (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+    (hmemberCtors : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
+    (hclosed : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
+      ctor.1.type.hasFvar = false ∧ ctor.1.type.looseBVarsBounded 0 = true)
+    (hnfs : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
       d.nfFF c j = (nfs.getD c []).getD j default)
     (ψ : Name → Nat) (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp)
     (hcovk : ∀ fvsP, ContOk mp ψ (d.w ψ) (p.nestCtx fvsP env.find?))
@@ -262,12 +262,12 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
     checkBlockPositivity_derivM mp.base2.wf hrun hread (formers_closed hcore.1)
-      (fun c cs hc j cA hj => by
+      (fun c cs hc j ctor hj => by
         have hck : c < d.k := by rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hc).1
-        rw [hctorsAs c hck] at hc
+        rw [hmemberCtors c hck] at hc
         obtain rfl := Option.some.inj hc
-        exact (hclosed c j cA hj).1)
-      (hcore.ctorLps hlps hlenCA hctorsAs)
+        exact (hclosed c j ctor hj).1)
+      (hcore.ctorLps hlps hlenCA hmemberCtors)
   have hin := Rules.RulesInputs.ofSem mp ψ
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   -- every constructor's telescope, accessible
@@ -291,7 +291,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
         omega
       have hcj : (d.ctorsM c)[j]? = some (d.ctorsM c)[j] := List.getElem?_eq_getElem hj
       obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, u, hty, hsort⟩, -⟩ :=
-        hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
+        hder c (d.ctorsM c) (hmemberCtors c hck) j _ hcj
       obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
       obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hread hnP
         hnIdxs hk hcv0 hop0 hholes hcj hCf hCb hcrest hd (fun _ => hcovk fvsP) hty hsort
@@ -322,10 +322,10 @@ theorem blockAcc_of_run {F : Nat}
     (hread : p.members.map (·.cvT) = p.formers) (hnP : p.nP = d.nP)
     (hnIdxs : p.nIdxs = d.nIdxs) (hresS : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length) (hinst : d.nInst = 0) (hlenCA : p.memberCtors.length = d.k)
-    (hctorsAs : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
-    (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      cA.1.type.hasFvar = false ∧ cA.1.type.looseBVarsBounded 0 = true)
-    (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
+    (hmemberCtors : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))
+    (hclosed : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
+      ctor.1.type.hasFvar = false ∧ ctor.1.type.looseBVarsBounded 0 = true)
+    (hnfs : ∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
       d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     -- coverage at the walk's carrier (the containers' clauses are recorded)
     (hcov : ∃ mk : EnvModelM V env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames ∧
@@ -337,7 +337,7 @@ theorem blockAcc_of_run {F : Nat}
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
   obtain ⟨mk, hbk, hcovk, hreads⟩ := hcov
   have hcore' : BlockHoleCtxFacts mk.base2 d lps p.formers p₁ isRec := by rw [hbk]; exact hcore
-  exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hread hnP hnIdxs hk hinst hlenCA hctorsAs
+  exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hread hnP hnIdxs hk hinst hlenCA hmemberCtors
     hclosed hnfs ψ ρp hs (fun fvsP => ⟨contCover_of hcovk (fun _ => rfl) hreads,
       nestCtx_sort_eval hresS fvsP env.find? ψ⟩) hG
 

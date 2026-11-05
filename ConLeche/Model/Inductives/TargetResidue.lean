@@ -53,9 +53,9 @@ variable {V : Type w} [SetTheory V]
 theorem tgtB_at {p : BlockShape} {out : List (ConstantVal × TargetMajor × List Expr)}
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r)
-    {i : Nat} {cA : ConstantVal × Nat} (hcA : r.2.2.2[i]? = some cA) :
-    tgtB p out j i = p.rulePrefixAt j + cA.2 := by
-  rw [tgtB, tgtCtorOf_at hr hcA]; rfl
+    {i : Nat} {ctor : ConstantVal × Nat} (hctor : r.2.2.2[i]? = some ctor) :
+    tgtB p out j i = p.rulePrefixAt j + ctor.2 := by
+  rw [tgtB, tgtCtorOf_at hr hctor]; rfl
 
 /-! ## `heqP`'s target rows: the level footprint -/
 

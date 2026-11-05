@@ -47,7 +47,7 @@ operation `c`:
 
 1. **the pinned basis blocks** (`Eq`, `Nat`, …): already
    hand-pinned, installed from the pin whenever the stream's record
-   arrives — now installed *first*, unconditionally;
+   arrives, installed *first*, unconditionally;
 2. **prelude members**: order-sensitive constants that no
    stream-certified operation sits under — today exactly the `Bool`
    block.  They go into the built-in prelude as the toolchain's own

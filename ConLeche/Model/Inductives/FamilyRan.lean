@@ -83,7 +83,7 @@ theorem readTelescope_eq {env : Env} {cv : ConstantVal} {caps : IndCaps} {F : Na
 /-- **The reductions behind a carrier's recorded telescopes**: a member whose declared type does
 not show its telescope reduced to what its block read, at a prefix of the environment. -/
 @[expose] def FamilyRan {env : Env} (mp : EnvModelM V env) : Prop :=
-  ∀ D ∈ mp.lfpBlocks, ∀ (mm : Nat) (f : ConstantVal), mm < D.k → D.shown mm = some f →
+  ∀ D ∈ mp.lfpBlocks, ∀ (mm : Nat) (f : ConstantVal), mm < D.k → D.telescope mm = some f →
     ∀ (cv : ConstantVal) (caps : IndCaps), env.find? (D.member mm) = some (.indInfo cv caps) →
     ConLeche.formerDefHeaded cv = true →
     ∃ (envB : Env) (F : Nat), EnvExt envB env ∧ cv.type.constsResolve envB = true ∧
@@ -155,7 +155,7 @@ theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts 
     rw [hc]; rfl
   boolCtors := by
     have hg : ∀ c, c ∈ ConLeche.natOpNames → (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →
-        ConLeche.natOpStored env c = true →
+        ConLeche.isDefinitionAt env c = true →
         (env.find? ConLeche.boolTrueName).isSome = true ∧
           (env.find? ConLeche.boolFalseName).isSome = true := by
       intro c hmemc hc hs

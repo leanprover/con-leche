@@ -42,23 +42,23 @@ variable {V : Type w} [SetTheory V]
 /-- **What a structure-like member's table needs** beyond the
 constructors' stage. -/
 structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
-    (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
+    (formersAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
     (A : Nat → (Name → Nat) → Term)
     (envI : Env) (ctorsOf : Name → List Name) (sortsOf : Nat → List Level) : Prop
-    extends BlockCtorsStage F d lps cvTasAll p₁ isRec A envI ctorsOf where
+    extends BlockCtorsStage F d lps formersAll p₁ isRec A envI ctorsOf where
   /-- the η data a structure-like member's record carries -/
-  etaData : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
+  etaData : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
     (ConLeche.blockCapsAt p₁ m isRec).eta = true →
-    (ConLeche.blockCapsAt p₁ m isRec).etaCtor = cA.1.name ∧
+    (ConLeche.blockCapsAt p₁ m isRec).etaCtor = ctor.1.name ∧
     (ConLeche.blockCapsAt p₁ m isRec).etaParams = d.nP ∧
-    (ConLeche.blockCapsAt p₁ m isRec).etaFields = cA.2
+    (ConLeche.blockCapsAt p₁ m isRec).etaFields = ctor.2
   /-- the constructor's parameter-and-field telescope -/
-  stripC : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
-    (cA.1.type.stripPis (d.nP + cA.2)).isSome = true
+  stripC : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
+    (ctor.1.type.stripPis (d.nP + ctor.2)).isSome = true
   /-- the block's `Prop` flag is its sort's zeroness -/
   propFlag : d.isProp = (Level.isEquiv d.resSort .zero == some true)
   /-- a member's stored sort, where its type ends in one, is `Prop` with the block's -/
-  propZ : d.isProp = true → ∀ (m : Nat) (cvTa : ConstantVal), cvTasAll[m]? = some cvTa →
+  propZ : d.isProp = true → ∀ (m : Nat) (cvTa : ConstantVal), formersAll[m]? = some cvTa →
     ∀ s, ConLeche.formerResSort cvTa.type = some s → Level.isAlwaysZero s = true
   /-- a member's capability record counts its telescope -/
   capsTele : ∀ m, m < d.k → d.nP + d.nIdxAt m =
@@ -67,36 +67,36 @@ structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
   resT : ∀ m, m < d.k → ConLeche.reservedBasisNames.contains (d.memberName m) = false
   resR : ∀ m, m < d.k →
     ConLeche.reservedBasisNames.contains ((d.memberName m).str "rec") = false
-  resC : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
-    ConLeche.reservedBasisNames.contains cA.1.name = false
+  resC : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
+    ConLeche.reservedBasisNames.contains ctor.1.name = false
   /-- the fields' sorts, below the block's -/
-  leqF : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
-    ∀ i, i < cA.2 → d.isProp = false →
+  leqF : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
+    ∀ i, i < ctor.2 → d.isProp = false →
       Level.leq ((sortsOf m).getD i .zero) d.resSort = some true
   /-- the fields are bounded at a non-`Prop` block, and each inhabits its sort -/
-  boundF : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
+  boundF : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
     ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((d.dsF m 0 ψ).take d.nP)).reverse ρ → d.isProp = false →
       FieldsBound (d.w ψ) ρ (((d.dsF m 0 ψ).drop d.nP))
   /-- the constructors' telescope lengths and bounds -/
-  dsLen : ∀ (m j : Nat) (cA : ConstantVal × Nat), m < d.k → (d.ctorsM m)[j]? = some cA →
-    ∀ ψ, (d.dsF m j ψ).length = d.nP + cA.2
-  dsBelow : ∀ (m j : Nat) (cA : ConstantVal × Nat), m < d.k → (d.ctorsM m)[j]? = some cA →
+  dsLen : ∀ (m j : Nat) (ctor : ConstantVal × Nat), m < d.k → (d.ctorsM m)[j]? = some ctor →
+    ∀ ψ, (d.dsF m j ψ).length = d.nP + ctor.2
+  dsBelow : ∀ (m j : Nat) (ctor : ConstantVal × Nat), m < d.k → (d.ctorsM m)[j]? = some ctor →
     ∀ ψ, DomsBelow 0 (d.dsF m j ψ)
   /-- a structure-like member's leaf FOLDS to its one constructor's
   fibre (proved at the constructors' stage, where the member's data
   still crosses) -/
-  foldT : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
+  foldT : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
     d.nIdxAt m = 0 →
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
       SpineFit ρ ((d.ppsM m ψ)) ts →
       ts.foldl SetTheory.app (interp V ρ (A m ψ))
         = sumSet (d.w ψ) (sumFibre (d.w ψ) (consList ts ρ)
             [((d.dsF m 0 ψ).drop d.nP) ++ [idxEqAV []]])
-  sortsF : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
+  sortsF : ∀ (m : Nat) (ctor : ConstantVal × Nat), m < d.k → d.ctorsM m = [ctor] →
     ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((d.dsF m 0 ψ).take d.nP)).reverse ρ →
-      ∀ j, j < cA.2 → ∀ as : List V,
+      ∀ j, j < ctor.2 → ∀ as : List V,
         SpineFit ρ ((((d.dsF m 0 ψ).drop d.nP)).take j) as →
         interp V (consList as ρ) ((((d.dsF m 0 ψ).drop d.nP)).getD j default)
           ∈ˢ (univ (((sortsOf m).getD j .zero).eval ψ) : V)
@@ -108,42 +108,42 @@ what `BlockCtorsCore` gives (`blockTablesCore_of`) minus the
 constructors' full data — a table's cons crosses a TYPE's reading,
 not an arbitrary term's. -/
 @[expose] def BlockTablesCore {env : Env} (m' : EnvModel V env) (d : BlockData V)
-    (lps : List Name) (cvTasAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
+    (lps : List Name) (formersAll : List ConstantVal) (p₁ : BlockShape) (isRec : Bool)
     (A : Nat → (Name → Nat) → Term) : Prop :=
-  (∀ (c : Nat) (cvTb : ConstantVal), cvTasAll[c]? = some cvTb →
-      FormerStored m' cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
+  (∀ (c : Nat) (cvTb : ConstantVal), formersAll[c]? = some cvTb →
+      FormerInEnv m' cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
       cvTb.type.constsResolve env = true ∧
       (∀ ψ, m'.acval cvTb.name ψ = A c ψ) ∧
       FormerData m' cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)) ∧
-  (∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      env.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2) ∧ cA.1.levelParams = lps ∧
-      cA.1.type.constsResolve env = true ∧
-      (∀ ψ, denote m'.acval env ψ 0 cA.1.type
+  (∀ (c j : Nat) (ctor : ConstantVal × Nat), (d.ctorsM c)[j]? = some ctor →
+      env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2) ∧ ctor.1.levelParams = lps ∧
+      ctor.1.type.constsResolve env = true ∧
+      (∀ ψ, denote m'.acval env ψ 0 ctor.1.type
         = some (mkPisAV (d.dsF c j ψ)
-            (Term.mkAppN (A c ψ) (paramBvars d.nP cA.2 ++ d.esF c j ψ)))) ∧
-      (∀ ψ, m'.acval cA.1.name ψ = sumMkAV (d.w ψ) j (d.dsF c j ψ)
+            (Term.mkAppN (A c ψ) (paramBvars d.nP ctor.2 ++ d.esF c j ψ)))) ∧
+      (∀ ψ, m'.acval ctor.1.name ψ = sumMkAV (d.w ψ) j (d.dsF c j ψ)
         (((d.dsF c j ψ).drop d.nP)) (uChains (d.Fss c ψ))))
 
 /-- The constructors' stage's invariant, at the tables' stage. -/
 theorem blockTablesCore_of {env : Env} {m' : EnvModel V env} {d : BlockData V}
-    {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
+    {lps : List Name} {formersAll : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → Term}
-    (hN : BlockNamesOk (V := V) d cvTasAll)
-    (h : BlockCtorsCore m' d lps cvTasAll p₁ isRec A d.k) :
-    BlockTablesCore m' d lps cvTasAll p₁ isRec A := by
+    (hN : BlockNamesOk (V := V) d formersAll)
+    (h : BlockCtorsCore m' d lps formersAll p₁ isRec A d.k) :
+    BlockTablesCore m' d lps formersAll p₁ isRec A := by
   obtain ⟨hnameOf, hctorLt, hlenCv⟩ := hN
   obtain ⟨hform, hdata, hconsed⟩ := h
-  refine ⟨hform, fun c j cA hj => ?_⟩
+  refine ⟨hform, fun c j ctor hj => ?_⟩
   obtain ⟨hfind, hlps, hleafC⟩ := hconsed c (by
-    have := hctorLt c j cA hj
-    omega) j cA hj
-  have hlt : c < d.k := by have := hctorLt c j cA hj; omega
-  obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTasAll[c]? = some cvTb :=
+    have := hctorLt c j ctor hj
+    omega) j ctor hj
+  have hlt : c < d.k := by have := hctorLt c j ctor hj; omega
+  obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, formersAll[c]? = some cvTb :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hlt)⟩
-  refine ⟨hfind, hlps, (hdata c j cA hj).1, fun ψ => ?_, hleafC⟩
-  have hread := (hdata c j cA hj).2.2.1.read ψ
+  refine ⟨hfind, hlps, (hdata c j ctor hj).1, fun ψ => ?_, hleafC⟩
+  have hread := (hdata c j ctor hj).2.2.1.read ψ
   rw [hread]
-  show some (mkPisAV _ (ctorBodyAVI m' (d.memberName c) d.nP cA.2 ψ (d.esF c j ψ))) = _
+  show some (mkPisAV _ (ctorBodyAVI m' (d.memberName c) d.nP ctor.2 ψ (d.esF c j ψ))) = _
   unfold ctorBodyAVI
   rw [hnameOf c cvTb hcvTb, (hform c cvTb hcvTb).2.2.1 ψ]
 
@@ -152,22 +152,22 @@ theorem blockTablesCore_of {env : Env} {m' : EnvModel V env} {d : BlockData V}
 added and no leaf moves, and the table is of a structure that had
 none, so every stored lookup and every reading survives. -/
 theorem BlockTablesCore.pushTable {env : Env} {m' : EnvModel V env} {d : BlockData V}
-    {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
+    {lps : List Name} {formersAll : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → Term}
-    (h : BlockTablesCore m' d lps cvTasAll p₁ isRec A)
+    (h : BlockTablesCore m' d lps formersAll p₁ isRec A)
     {tbl : ProjTable} (hT : env.findTable? tbl.structName = none)
     (mC : EnvModel V ⟨env.consts, tbl :: env.tables⟩)
     (hac : mC.acval = m'.acval) :
-    BlockTablesCore mC d lps cvTasAll p₁ isRec A := by
+    BlockTablesCore mC d lps formersAll p₁ isRec A := by
   obtain ⟨hform, hctor⟩ := h
-  refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_⟩
+  refine ⟨fun c cvTb hc => ?_, fun c j ctor hj => ?_⟩
   · obtain ⟨hfind, hres, hleaf, hFD⟩ := hform c cvTb hc
     obtain ⟨cvS, hfS, hD⟩ := hfind
     refine ⟨⟨cvS, hfS, hD.pushTable hT mC hac⟩, Expr.constsResolve_of_find (env := env)
       (env' := ⟨env.consts, tbl :: env.tables⟩) (fun _ h => h) hres,
       fun ψ => by rw [hac]; exact hleaf ψ,
       hFD.pushTable hT (constsBound_of_constsResolve _ hres) mC hac⟩
-  · obtain ⟨hfind, hlps, hres, hread, hleaf⟩ := hctor c j cA hj
+  · obtain ⟨hfind, hlps, hres, hread, hleaf⟩ := hctor c j ctor hj
     refine ⟨hfind, hlps, Expr.constsResolve_of_find (env := env)
       (env' := ⟨env.consts, tbl :: env.tables⟩) (fun _ h => h) hres,
       fun ψ => ?_, fun ψ => by rw [hac]; exact hleaf ψ⟩
@@ -189,11 +189,11 @@ theorem findTable?_cons_ne {env : Env} {t : ProjTable} {T : Name} (hne : t.struc
 checks read from the environment they ran at (`E`), the tables' invariant threaded across the
 installs. -/
 theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
-    {cvTasAll : List ConstantVal} {p₁ q : BlockShape} {isRec : Bool}
+    {formersAll : List ConstantVal} {p₁ q : BlockShape} {isRec : Bool}
     {A : Nat → (Name → Nat) → Term}
     {envI : Env} {ctorsOf : Name → List Name} {sortsOf : Nat → List Level}
-    (hN : BlockNamesOk (V := V) d cvTasAll)
-    (hS : BlockTablesStage (V := V) F d lps cvTasAll p₁ isRec A envI ctorsOf sortsOf)
+    (hN : BlockNamesOk (V := V) d formersAll)
+    (hS : BlockTablesStage (V := V) F d lps formersAll p₁ isRec A envI ctorsOf sortsOf)
     (hqlps : q.lps = lps) (hqnP : q.nP = d.nP)
     {E : Env} {ex : List Name} :
     ∀ (l : List MemberShape) (i : Nat) (env : Env) (mp : EnvModelM V env),
@@ -205,7 +205,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       (∀ e ∈ l, ∀ c, e.structCtor? = some c →
         ConLeche.checkStructProjTable (m := ConLeche.CheckM) e.cvT.name q.lps q.nP c.2 c.1 E = .ok () ∧
           env.findTable? e.cvT.name = none) →
-      BlockTablesCore mp.base2 d lps cvTasAll p₁ isRec A →
+      BlockTablesCore mp.base2 d lps formersAll p₁ isRec A →
       CoverTo mp ex (env.pushDelta [] (ConLeche.blockTables q l)) ex
   | [], i, env, mp, _, _, _, _, _ => CoverTo.refl mp ex
   | ms :: rest, i, env, mp, hl, hnd, hfE, hchk, hcore => by
@@ -231,8 +231,8 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         simp only [ConLeche.blockTables, hsc]
       rw [ht]
       exact stageBlockTables hN hS hqlps hqnP rest (i + 1) env mp hl' hndR hfE hchkR hcore
-    | some cA =>
-    obtain ⟨hctorsMs, hidx⟩ : ms.ctors = [cA] ∧ ms.nIdx = 0 := by
+    | some ctor =>
+    obtain ⟨hctorsMs, hidx⟩ : ms.ctors = [ctor] ∧ ms.nIdx = 0 := by
       unfold MemberShape.structCtor? at hsc
       split at hsc
       · rename_i c hc
@@ -242,22 +242,22 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
           exact ⟨hc, beq_iff_eq.mp h0⟩
         · exact nomatch hsc
       · exact nomatch hsc
-    obtain ⟨hT₀, hTfresh⟩ := hchk ms List.mem_cons_self cA hsc
+    obtain ⟨hT₀, hTfresh⟩ := hchk ms List.mem_cons_self ctor hsc
     obtain ⟨bodies, hbodies, -, -, -⟩ := ConLeche.checkStructProjTable_inv hT₀
     have hTenv := ConLeche.checkStructProjTable_mono hfE hTfresh hT₀
     have ht : ConLeche.blockTables q (ms :: rest) =
-        ⟨ms.cvT.name, q.lps, q.nP, cA.1.name, cA.2, bodies⟩ :: ConLeche.blockTables q rest := by
+        ⟨ms.cvT.name, q.lps, q.nP, ctor.1.name, ctor.2, bodies⟩ :: ConLeche.blockTables q rest := by
       simp only [ConLeche.blockTables, hsc, hdecl, hbodies]
     rw [ht]
     have hnIdx0 : d.nIdxAt i = 0 := by rw [← hnIdx]; exact hidx
-    have hctorsEq : d.ctorsM i = [cA] := hctors.symm.trans hctorsMs
-    have hcA0 : (d.ctorsM i)[0]? = some cA := by rw [hctorsEq]; rfl
-    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTasAll[i]? = some cvTb :=
+    have hctorsEq : d.ctorsM i = [ctor] := hctors.symm.trans hctorsMs
+    have hcA0 : (d.ctorsM i)[0]? = some ctor := by rw [hctorsEq]; rfl
+    obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, formersAll[i]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hik)⟩
     have hTn : ms.cvT.name = cvTb.name := by rw [hname, hnameOf i cvTb hcvTb]
     have hTn' : d.memberName i = cvTb.name := hnameOf i cvTb hcvTb
     obtain ⟨⟨cvS, hfT, hD⟩, hresTy, hleafT, hFD⟩ := hcore.1 i cvTb hcvTb
-    obtain ⟨hfC, hlpsC, -, hCDread, hleafC⟩ := hcore.2 i 0 cA hcA0
+    obtain ⟨hfC, hlpsC, -, hCDread, hleafC⟩ := hcore.2 i 0 ctor hcA0
     have hlenP : ∀ ψ : Name → Nat, (d.ppsM i ψ).length = d.nP := by
       intro ψ; have := hFD.len ψ; rwa [hnIdx0, Nat.add_zero] at this
     have hFss1 : ∀ ψ : Name → Nat,
@@ -283,8 +283,8 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) (d.ppsM i ψ) i)
         mp hTenv hbodies hfT hD
-        (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
-        (hS.stripC i cA hik hctorsEq) hS.propFlag
+        (hS.etaData i ctor hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
+        (hS.stripC i ctor hik hctorsEq) hS.propFlag
         (fun hp s hs => by
           rcases hD.shows with ⟨hdh, -⟩ | rfl
           · simp [ConLeche.formerDefHeaded, hs] at hdh
@@ -292,39 +292,39 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (by have := hS.capsTele i hik; rwa [hnIdx0, Nat.add_zero] at this)
         (by rw [← hTn']; exact hS.resT i hik)
         (by rw [← hTn']; exact hS.resR i hik)
-        (hS.resC i cA hik hctorsEq)
+        (hS.resC i ctor hik hctorsEq)
         (by have := hFD; rwa [hnIdx0, Nat.add_zero] at this)
         (fun ψ => by
           rw [hCDread ψ]
-          show _ = some (mkPisAV _ (ctorBodyAVI mp.base2 cvTb.name d.nP cA.2 ψ (d.esF i 0 ψ)))
+          show _ = some (mkPisAV _ (ctorBodyAVI mp.base2 cvTb.name d.nP ctor.2 ψ (d.esF i 0 ψ)))
           unfold ctorBodyAVI
           rw [hleafT ψ])
-        (fun ψ => by rw [hS.dsLen i 0 cA hik hcA0 ψ])
-        (fun ψ => hS.dsBelow i 0 cA hik hcA0 ψ)
-        (hS.leqF i cA hik hctorsEq)
+        (fun ψ => by rw [hS.dsLen i 0 ctor hik hcA0 ψ])
+        (fun ψ => hS.dsBelow i 0 ctor hik hcA0 ψ)
+        (hS.leqF i ctor hik hctorsEq)
         (fun ψ => by rw [hleafT ψ, hS.leaf i ψ])
         (fun ψ => by rw [hleafC ψ, hFss1 ψ]; rfl)
         (fun _ => ⟨_, rfl⟩)
         (fun ψ ρ ts hsp => by
-          have hf := hS.foldT i cA hik hctorsEq hnIdx0 ψ ρ ts hsp
+          have hf := hS.foldT i ctor hik hctorsEq hnIdx0 ψ ρ ts hsp
           rw [hS.leaf i ψ] at hf
           exact hf)
         (fun ψ ρ => by
-          have := (hS.frames i hik 0 cA hcA0).1 ψ ρ
+          have := (hS.frames i hik 0 ctor hcA0).1 ψ ρ
           rwa [List.take_of_length_le (Nat.le_of_eq (hlenP ψ))] at this)
-        (fun ψ ρ hρ => ((hS.frames i hik 0 cA hcA0).2 ψ ρ hρ).1)
-        (hS.boundF i cA hik hctorsEq) (hS.sortsF i cA hik hctorsEq)
+        (fun ψ ρ hρ => ((hS.frames i hik 0 ctor hcA0).2 ψ ρ hρ).1)
+        (hS.boundF i ctor hik hctorsEq) (hS.sortsF i ctor hik hctorsEq)
     -- the invariant, across the table's install
-    let tbl : ProjTable := ⟨cvTb.name, lps, d.nP, cA.1.name, cA.2, bodies⟩
+    let tbl : ProjTable := ⟨cvTb.name, lps, d.nP, ctor.1.name, ctor.2, bodies⟩
     have hT' : env.findTable? tbl.structName = none := hT0
-    have hcore' : BlockTablesCore mp'.base2 d lps cvTasAll p₁ isRec A :=
+    have hcore' : BlockTablesCore mp'.base2 d lps formersAll p₁ isRec A :=
       hcore.pushTable hT' mp'.base2 hac
     -- coverage across the table's install: the carrier rebuilt with the
     -- input's recorded list
     obtain ⟨mk, hb, hL⟩ := EnvModelM.keepLfpOfTable hT' mp' hac
     rw [← hb] at hcore'
     have hEnv : env.pushDelta []
-        (⟨ms.cvT.name, q.lps, q.nP, cA.1.name, cA.2, bodies⟩ :: ConLeche.blockTables q rest) =
+        (⟨ms.cvT.name, q.lps, q.nP, ctor.1.name, ctor.2, bodies⟩ :: ConLeche.blockTables q rest) =
         (⟨env.consts, tbl :: env.tables⟩ : Env).pushDelta [] (ConLeche.blockTables q rest) := by
       rw [hqlps, hqnP, hTn]
       simp [Env.pushDelta, tbl]

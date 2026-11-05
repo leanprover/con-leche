@@ -55,7 +55,7 @@ variable {V : Type w} [SetTheory V]
 section MemberHoles
 
 variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockShape}
-  {cvTas : List ConstantVal}
+  {formers : List ConstantVal}
 
 /-- **The holes' values at their formers' types**: each member former's
 type is closed and read, graded at every valuation, and holds the hole's

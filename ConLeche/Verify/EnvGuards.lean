@@ -526,9 +526,9 @@ theorem natOpGuard_deps {env : Env} {c : Name}
 /-- A stored certified operation is a definition: the hypothesis `NatOps`/`DivMod` take before
 handing back `natOpGuard`. -/
 theorem natOpStored_inv {env : Env} {c : Name}
-    (h : natOpStored env c = true) :
+    (h : isDefinitionAt env c = true) :
     ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by
-  unfold natOpStored at h
+  unfold isDefinitionAt at h
   cases hx : env.find? c with
   | none => rw [hx] at h; exact nomatch h
   | some ci =>

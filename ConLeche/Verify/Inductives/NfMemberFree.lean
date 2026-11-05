@@ -1270,12 +1270,12 @@ fact about the pre-block environment is needed beyond `EnvWF`, an
 install-time invariant of the checker's environments: `hBool`: no member is
 named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path produces by name. -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
-    {cvTas : List ConstantVal} {names : List Name}
-    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
-    (hfindM : ∀ cvTb ∈ cvTas, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
+    {formers : List ConstantVal} {names : List Name}
+    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ formers, cvTb.name = n)
+    (hfindM : ∀ cvTb ∈ formers, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
       (declinedAtDefinition.contains cvTb.name = true → ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
-    (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
-    (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
+    (hfresh : ∀ cvTb ∈ formers, env.find? cvTb.name = none)
+    (hI : ∀ n, (∀ cvTb ∈ formers, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
     (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names)
     (hsh : ∀ n c, envI.find? n = some c → litShapeOk c = true) :

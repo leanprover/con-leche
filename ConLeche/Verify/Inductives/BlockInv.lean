@@ -427,7 +427,7 @@ theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
   | ms :: rest, sortsss, h => by
     unfold checkBlockCtors at h
     obtain ⟨r, hr, h⟩ := exceptBind_ok h
-    obtain ⟨ctorsA, sortss⟩ := r
+    obtain ⟨ctorList, sortss⟩ := r
     try simp only at h
     obtain ⟨restS, hr', h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -457,15 +457,16 @@ completed. -/
 theorem checkBlockPass_inv {env : Env} {p₀ : BlockShape} {isRec : Bool}
     {q : BlockPass Env} {F : Nat}
     (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok q) :
-    ∃ (ctx : NestCtx) (holes : List Expr) (pos st : NestState),
+    ∃ (sortsss : List (List (List Level))) (nfs : List (List Expr)) (ctx : NestCtx)
+      (holes : List Expr) (pos st : NestState),
       checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.p) ∧
       checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ q.p
-        q.p.members = .ok q.sortsss ∧
+        q.p.members = .ok sortsss ∧
       blockNestCtx (m := CheckM) q.p q.env₁.find? = .ok (ctx, holes) ∧
       checkBlockClasses (fueledOps mode F) (mkFEnv q.env₁) q.p
         ctx.params = .ok (q.rd, q.cls) ∧
       checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find?
-        q.p = .ok (q.kinds, q.nfs, pos) ∧
+        q.p = .ok (q.kinds, nfs, pos) ∧
       nestSeeds (fueledOps mode F) q.env₁ ctx (classSeeds ctx holes q.cls) pos = .ok st ∧
       q.params = ctx.params ∧ q.tbl = st.ctorNfs := by
   unfold checkBlockPass at h
@@ -483,7 +484,7 @@ theorem checkBlockPass_inv {env : Env} {p₀ : BlockShape} {isRec : Bool}
   obtain ⟨st, hst, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hK, hst, rfl, rfl⟩
+  exact ⟨sortsss, nfs, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hK, hst, rfl, rfl⟩
 
 /-! ## Stage 2: the tail -/
 
@@ -596,8 +597,8 @@ theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockShape} {ms : Lis
       (q := p₀) rfl hnm hctors hidx i r
   have hlen : ms.length = p₀.members.length := by
     simpa using congrArg List.length hdecl
-  have hrec : blockRawRec ({ p₀ with members := ms } : BlockShape) = blockRawRec p₀ := by
-    unfold blockRawRec
+  have hrec : blockIsRec ({ p₀ with members := ms } : BlockShape) = blockIsRec p₀ := by
+    unfold blockIsRec
     show (ms.any _) = (p₀.members.any _)
     rw [hnm]
     have e : ∀ (l : List MemberShape) (g : List (ConstantVal × Nat) → Bool),

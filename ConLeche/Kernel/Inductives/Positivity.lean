@@ -26,9 +26,9 @@ constructor field lives here, and nothing about it anywhere else:
 **The walk's run is the proofs' interface.**  The install runs it on
 the stored constructors (`checkBlockPositivity`,
 `ConLeche/Kernel/Inductives/BlockInstall.lean`), and the model inverts
-that run (`checkBlockPositivity_inv_gen`, `StoredFieldShapes`).  The
+that run (`checkBlockPositivity_inv_gen`, `DeclaredFieldShapes`).  The
 capability record's `is_rec` is NOT read off its kinds: official's is
-syntactic (`blockRawRec`).  There is no second classifier.
+syntactic (`blockIsRec`).  There is no second classifier.
 -/
 
 -- the `simp only` sets below are written for robustness against the

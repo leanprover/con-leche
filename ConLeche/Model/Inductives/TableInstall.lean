@@ -13,7 +13,7 @@ public section
 projection table.  A table is not a constant: its install adds no name
 and moves no leaf, so the leaf valuation stays the prefix's, and every
 stored name looks up as before.  The only thing it changes is that the
-structure's `.proj` nodes now read (`denote`'s `.proj` clause consults
+structure's `.proj` nodes read (`denote`'s `.proj` clause consults
 the table); a reading the prefix already had survives
 (`denote_pushTable_mono`: the new table is of a structure that had
 none), so every environment law transports along the extension

@@ -107,11 +107,11 @@ theorem classFieldsOfS_spec {p : BlockShape} {ctor : Name} {ihs : List (Nat × N
       vcgen [classFieldsOf, ih (i + 1)] <;> finish
 
 /-- `classFormerTy` at the cached operations simulates its fueled original. -/
-theorem classFormerTyS_spec (henv : EnvWF env) {cvTas : List ConstantVal} {M : TargetMajor}
+theorem classFormerTyS_spec (henv : EnvWF env) {formers : List ConstantVal} {M : TargetMajor}
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ classFormerTy (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) cvTas M
+    ⦃fun s => s = s₀⦄ classFormerTy (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) formers M
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (classFormerTy (fueledOpsM .verified) (mkFEnv env) cvTas M) v; ⊤⦄ := by
+      Runs (classFormerTy (fueledOpsM .verified) (mkFEnv env) formers M) v; ⊤⦄ := by
   sym only [conleche_grind, classFormerTy.eq_1, → find_closed henv] =>
     vcgen [classFormerTy, familyTelescopeF_spec henv] <;> finish
 
@@ -134,11 +134,11 @@ theorem mapMLoopS_spec {α β : Type} {f : α → CheckCM β} {g : α → Fueled
       vcgen [List.mapM.loop, hf a, ih] <;> finish
 
 /-- The classes' formers (`Ms.mapM classFormerTy`). -/
-theorem classFormerTysS_spec (henv : EnvWF env) {cvTas : List ConstantVal} (Ms : List TargetMajor)
+theorem classFormerTysS_spec (henv : EnvWF env) {formers : List ConstantVal} (Ms : List TargetMajor)
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ Ms.mapM (classFormerTy (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) cvTas)
+    ⦃fun s => s = s₀⦄ Ms.mapM (classFormerTy (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) formers)
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (Ms.mapM (classFormerTy (fueledOpsM .verified) (mkFEnv env) cvTas)) v; ⊤⦄ :=
+      Runs (Ms.mapM (classFormerTy (fueledOpsM .verified) (mkFEnv env) formers)) v; ⊤⦄ :=
   mapMLoopS_spec (fun _ _ hs => classFormerTyS_spec henv hs) Ms [] hs
 
 /-- A constant's type is closed. -/
@@ -451,10 +451,10 @@ theorem classFieldsAgreeS_spec (henv : EnvWF env)
 theorem classCtorOfS_spec (henv : EnvWF env)
     {p : BlockShape} {formerTys : List Expr} (hformer : AllWS 0 formerTys)
     {rd : ClassRead} {Ms : List TargetMajor} (hMs : ListAll TargetMajScoped Ms) {c : Nat}
-    {cA : ConstantVal × Nat} {s₀ : CState} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ classCtorOf (sharedOpsC .verified (mkFEnv env)) env p formerTys rd Ms c cA
+    {ctor : ConstantVal × Nat} {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ classCtorOf (sharedOpsC .verified (mkFEnv env)) env p formerTys rd Ms c ctor
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (classCtorOf (fueledOpsM .verified) env p formerTys rd Ms c cA) v; ⊤⦄ := by
+      Runs (classCtorOf (fueledOpsM .verified) env p formerTys rd Ms c ctor) v; ⊤⦄ := by
   -- `gen`: E-matching evaluates the pure side bind by bind (`Runs.pure_bind_eq`), one
   -- generation per bind, through seven binds
   sym only [conleche_grind, classCtorOf.eq_1, unwrapOr.eq_1] =>
@@ -475,7 +475,7 @@ theorem classCtorsOfS_spec (henv : EnvWF env)
     intro _ hs
     sym only [conleche_grind, classCtorsOf.eq_1] =>
       vcgen [classCtorsOf] <;> finish
-  | cons cA cs ih =>
+  | cons ctor cs ih =>
     intro _ hs
     sym only [conleche_grind, classCtorsOf.eq_2] =>
       vcgen [classCtorsOf, classCtorOfS_spec henv hformer hMs, ih] <;> finish
@@ -989,8 +989,8 @@ theorem listAll_targetMajScoped {nP : Nat} {Ms : List TargetMajor}
 
 /-- The formers' types are closed (stated eta-reduced, as the stage's
 unfolding leaves them). -/
-theorem allWS_types {cvTas : List ConstantVal} (hT : ListAll TyClosed cvTas) :
-    AllWS 0 (cvTas.map ConstantVal.type) := by
+theorem allWS_types {formers : List ConstantVal} (hT : ListAll TyClosed formers) :
+    AllWS 0 (formers.map ConstantVal.type) := by
   intro t ht
   obtain ⟨cv, hcv, rfl⟩ := List.mem_map.mp ht
   exact hT cv hcv
@@ -1338,19 +1338,19 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
 is reproduced by the pure fueled `checkBlockTail`. -/
 theorem checkBlockTailS_run
     {env₁ : Env} (henv₁ : EnvWF env₁) {block : List ConstantInfo}
-    {p : BlockShape} {sortsss : List (List (List Level))}
-    {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {params : List Expr}
+    {p : BlockShape}
+    {kinds : List (List (List NestFieldKind))} {params : List Expr}
     {rd : ClassRead} {Ms₀ : List TargetMajor} {tbl : Array NestCtorNf}
     (hT : ∀ cv ∈ p.formers, WScoped 0 cv.type)
     (henv₂ : EnvWF (consBlockCtors p.nP p.memberCtors env₁))
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) (hpl : params.length = p.nP)
     {s₀ : CState} (hs : CSOK .verified false env₁ s₀) {u : Unit} {s' : CState}
     (h : checkBlockTailS .verified block
-      ⟨mkFEnv env₁, p, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
+      ⟨mkFEnv env₁, p, kinds, params, rd, Ms₀, tbl⟩
       s₀ = .ok (u, s')) :
     CSOKF s' ∧
     ∃ F, (checkBlockTail (fueledOpsM .verified) block
-      ⟨env₁, p, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩).val F
+      ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩).val F
         = .ok () := by
   unfold checkBlockTailS at h
   dsimp only at h
@@ -1450,12 +1450,12 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
     (h : checkBlockPassS .verified (mkFEnv env) p₀ isRec s₀ = .ok (q, s')) :
     ∃ env₁ : Env, q.env₁ = mkFEnv env₁ ∧ CSOK .verified false env₁ s' ∧ EnvWF env₁ ∧
       (∀ cv ∈ q.p.formers, WScoped 0 cv.type) ∧
-      (∀ ctorsA ∈ q.p.memberCtors, ∀ c ∈ ctorsA, WScoped 0 c.1.type) ∧
-      (∀ ctorsA ∈ q.p.memberCtors, ∀ c ∈ ctorsA, env₁.find? c.1.name = none) ∧
+      (∀ ctorList ∈ q.p.memberCtors, ∀ c ∈ ctorList, WScoped 0 c.1.type) ∧
+      (∀ ctorList ∈ q.p.memberCtors, ∀ c ∈ ctorList, env₁.find? c.1.name = none) ∧
       EnvWF (consBlockCtors q.p.nP q.p.memberCtors env₁) ∧
       (∀ M ∈ q.cls, ClassMajScoped q.p.nP M) ∧ q.params.length = q.p.nP ∧
       ∃ F, (checkBlockPass (fueledOpsM .verified) env p₀ isRec).val F
-        = .ok ⟨env₁, q.p, q.sortsss, q.kinds, q.nfs, q.params, q.rd, q.cls, q.tbl⟩ := by
+        = .ok ⟨env₁, q.p, q.kinds, q.params, q.rd, q.cls, q.tbl⟩ := by
   unfold checkBlockPassS at h
   rw [checkBlockIndsF_eqC] at h
   simp only [bind_assoc, pure_bind] at h
@@ -1635,7 +1635,7 @@ theorem checkBlockKS_run
   injection hfl0 with hfl0
   obtain rfl : s₁.flushed = sA := congrArg Prod.snd hfl0
   obtain ⟨r, s₂, hP, h⟩ := bindC_ok h
-  obtain ⟨fe₁, p, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ := r
+  obtain ⟨fe₁, p, kinds, params, rd, Ms₀, tbl⟩ := r
   obtain ⟨env₁, hq₁, hs₂, henv₁, hT, -, -, henv₂, hMs₀, hpl, F₂, hF₂⟩ :=
     checkBlockPassS_run henv (fun m hm => (hAt m hm).declaredWF) (flushC_csok hs₁) hP
   simp only at hq₁ hs₂ henv₁ hT henv₂ hMs₀ hpl hF₂
@@ -1649,12 +1649,12 @@ theorem checkBlockKS_run
     rw [← reduceMembers_datF]
     exact FueledM.up (Nat.le_max_left _ _) (by rw [reduceMembers_datF]; exact hF₁)
   have g₂ : checkBlockPass (fueledOps .verified (max F₁ (max F₂ F₃))) env
-      { p₀ with members := ms } (blockRawRec p₀)
-      = .ok ⟨env₁, p, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ := by
+      { p₀ with members := ms } (blockIsRec p₀)
+      = .ok ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩ := by
     rw [← checkBlockPass_datF]
     exact FueledM.up (Nat.le_trans (Nat.le_max_left F₂ F₃) (Nat.le_max_right F₁ _)) hF₂
   have g₃ : checkBlockTail (fueledOps .verified (max F₁ (max F₂ F₃))) block
-      ⟨env₁, p, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
+      ⟨env₁, p, kinds, params, rd, Ms₀, tbl⟩
       = .ok () := by
     rw [← checkBlockTail_datF]
     exact FueledM.up (Nat.le_trans (Nat.le_max_right F₂ F₃) (Nat.le_max_right F₁ _)) hF₃

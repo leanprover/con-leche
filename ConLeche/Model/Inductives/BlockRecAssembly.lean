@@ -239,7 +239,7 @@ abbrev NestedFiresOk (envC : Env) (p : BlockShape)
 /-- **At every stored rule**: `P` holds at every model `m₃` of the
 recursors' cons whose valuation is `blockRecAcv … s eqs`, every level
 valuation `φ`, and every stored pair (recursor `j` with data `r`,
-constructor `i` = `cA` with right-hand side `rhs`), and the pair's stored
+constructor `i` = `ctor` with right-hand side `rhs`), and the pair's stored
 rule bits. -/
 abbrev AtStreamRules {envC : Env} (mpC : EnvModelM V envC)
     (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule)
@@ -253,9 +253,9 @@ abbrev AtStreamRules {envC : Env} (mpC : EnvModelM V envC)
     m₃.acval = blockRecAcv mpC.base2.acval envC rs s eqs →
     ∀ (φ : Name → Nat) (j : Nat) (r : ConstantVal × List Expr × Nat ×
       List (ConstantVal × Nat)), rs[j]? = some r →
-    ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-      r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
-      P m₃ φ j r i cA rhs ({ ctor := cA.1.name, nfields := cA.2, fire := fireOf j r, rhs := rhs })
+    ∀ (i : Nat) (ctor : ConstantVal × Nat) (rhs : Expr),
+      r.2.2.2[i]? = some ctor → r.2.1[i]? = some rhs →
+      P m₃ φ j r i ctor rhs ({ ctor := ctor.1.name, nfields := ctor.2, fire := fireOf j r, rhs := rhs })
 
 /-- **The recursor stage, at the run, at any rules of the shape**: the
 cons at a rules function `R` whose stored
@@ -274,8 +274,8 @@ theorem blockRecStaged_runR {envC : Env}
       ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape R rs fireOf)
     (hnest : NestedFiresOk envC p rs fireOf)
-    (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
+    (hctorsIn : ∀ r ∈ rs, ∀ ctor ∈ r.2.2.2,
+      ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF))
     (hleaf : BlockRecLeafOk mpC rs s eqs)
     (hnew : AtStreamRules mpC R p rs s eqs fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleLaw m₃ φ r.1.name r.1 (p.majorIdxAt j)

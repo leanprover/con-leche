@@ -98,8 +98,8 @@ constructors' conses add constructors only), all at one level-parameter
 list (`contBlock_facts`). -/
 theorem blk_lps_envC {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
     {ctx : NestCtx} (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
-    {nP : Nat} {ctorsAs : List (List (ConstantVal × Nat))}
-    (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI) {D : LfpDatum V}
+    {nP : Nat} {memberCtors : List (List (ConstantVal × Nat))}
+    (henvC : envC = ConLeche.consBlockCtors nP memberCtors envI) {D : LfpDatum V}
     (hD : D ∈ mk.lfpBlocks) :
     ∃ lps : List Name, ∀ i, i < D.k → ∃ cv caps,
       envC.find? (D.member i) = some (.indInfo cv caps) ∧
@@ -124,8 +124,8 @@ constructors' environment (`NodeListFacts.lps`). -/
 theorem posNodeOk_lps {envI envC : Env} {mk : EnvModelM V envI} {mpC : EnvModelM V envC}
     {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM} (hcov : ContCover mk ctx)
     (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI) {t : PosTree}
+    {memberCtors : List (List (ConstantVal × Nat))}
+    (henvC : envC = ConLeche.consBlockCtors nP memberCtors envI) {t : PosTree}
     (hok : PosNodeOk ops envI ctx t) :
     ∀ n ∈ t.grp.map (·.1), lpsOf envC t.key.cname = lpsOf envC n := by
   intro n hn
@@ -316,8 +316,8 @@ a member of the container's block, installed in `envC`, whose level count
 theorem grp_find_of {envI envC : Env} {mk : EnvModelM V envI}
     {mpC : EnvModelM V envC} {ctx : NestCtx} {ops : ConLeche.CheckerOps ConLeche.CheckM}
     (hcov : ContCover mk ctx) (hsub : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) {nP : Nat}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    (henvC : envC = ConLeche.consBlockCtors nP ctorsAs envI)
+    {memberCtors : List (List (ConstantVal × Nat))}
+    (henvC : envC = ConLeche.consBlockCtors nP memberCtors envI)
     {u : PosTree} (hu : PosNodeOk ops envI ctx u) :
     ∀ p ∈ u.grp, ∃ ci, envC.find? p.1 = some ci ∧
       u.key.lvls.length = ci.toConstantVal.levelParams.length := by

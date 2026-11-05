@@ -98,7 +98,7 @@ accept-superset, stream `whnfswap_unitcaps_bad`).  Known before any
 constructor is checked, so the formers are installed at it once.  The
 parameter domains are scanned too, as official does; they cannot hold a
 member on a stream official accepts (`check_uniform_ind_occs`). -/
-def blockRawRec (p : BlockShape) : Bool :=
+def blockIsRec (p : BlockShape) : Bool :=
   p.members.any fun ms => ms.ctors.any fun c => c.1.type.piDomsMentionAny p.memberNames
 
 /-! ## Stage 1: the formers -/
@@ -221,7 +221,7 @@ uniform-occurrence check (`nestUniform`: every member occurrence is
 `T.{lps} p⃗`); after it, the fields' universes at the holes
 (`checkAbsCtorSorts`).  The walk's kinds are the
 model's; the capability record's `is_rec` is official's syntactic one
-(`blockRawRec`), not read off them. -/
+(`blockIsRec`), not read off them. -/
 
 /-- **The fields' universes at the holes** (the root's line, U2's sort
 half): the fields of every constructor's positivity NORMAL FORM `tyN`
@@ -310,17 +310,17 @@ def checkBlockIdxSorts (ops : CheckerOps m) (env₁ : Env) (p : BlockShape) :
 order. -/
 def consBlockCtors (nP : Nat) : List (List (ConstantVal × Nat)) → Env → Env
   | [], env => env
-  | ctorsA :: rest, env => consBlockCtors nP rest (consSumCtors nP ctorsA env)
+  | ctorList :: rest, env => consBlockCtors nP rest (consSumCtors nP ctorList env)
 
 /-- The members' recursors consed with their rules, in block order.
 The rule-less stage's K flag (`false`) is all a proof about it reads. -/
 def consBlockRecs (p : BlockShape) :
     Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
   | _, [], env => env
-  | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, env =>
+  | m, (cvRa, rhss, _nIdx, ctorList) :: rest, env =>
     consBlockRecs p (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
-        false (sumRules ctorsA rhss)
+        false (sumRules ctorList rhss)
         :: env.consts, env.tables⟩
 
 /-! ### The recursor stage as CHECKING

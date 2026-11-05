@@ -143,7 +143,7 @@ and scoped at the parameters and the subject; there are exactly
     b.looseBVarsBounded (tbl.numParams + 1) = true
 
 /-- `c` is stored as a definition. -/
-@[expose] def natOpStored (env : Env) (c : Name) : Bool :=
+@[expose] def isDefinitionAt (env : Env) (c : Name) : Bool :=
   match env.find? c with
   | some (.defnInfo _ _ _) => true
   | _ => false
@@ -151,7 +151,7 @@ and scoped at the parameters and the subject; there are exactly
 /-- **A stored certified operation's name holds a definition.**  The fast path fires by name; every
 other kind of declaration is refused at such a name (`checkConstantVal`, `reservedRecName`). -/
 @[expose] def OpDefn (env : Env) : Prop :=
-  ∀ c, natOpName c = true → (env.find? c).isSome = true → natOpStored env c = true
+  ∀ c, natOpName c = true → (env.find? c).isSome = true → isDefinitionAt env c = true
 
 /-- A certified operation's name is not a pinned basis name. -/
 theorem natOpName_not_reserved {c : Name} (h : natOpName c = true) :
@@ -168,7 +168,7 @@ theorem OpDefn.of_same {env₀ env₃ : Env} (h : OpDefn env₀)
       env₃.find? n = some (.defnInfo cv v hh)) : OpDefn env₃ := by
   intro c hn hc
   have h₀ := h c hn (hs c hc)
-  unfold natOpStored at h₀ ⊢
+  unfold isDefinitionAt at h₀ ⊢
   cases hx : env₀.find? c with
   | none => rw [hx] at h₀; exact nomatch h₀
   | some ci =>

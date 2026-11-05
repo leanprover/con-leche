@@ -223,7 +223,7 @@ theorem swapShList_consBlockRecsR {R : Nat → RecDatum → Bool × List RecRule
       ConLeche.SwapShList (consBlockRecsBare q m (bareOf rs) envA).consts
         (consBlockRecsR R q m rs envB).consts
   | _, [], _, _, h => h
-  | m, (cvRa, rhss, nIdx, ctorsA) :: rest, envA, envB, h => by
+  | m, (cvRa, rhss, nIdx, ctorList) :: rest, envA, envB, h => by
     simp only [bareOf, List.map_cons, consBlockRecsBare, consBlockRecsR]
     exact swapShList_consBlockRecsR (R := R) (q := q)
       (rs := rest) (envA := ⟨_ :: envA.consts, envA.tables⟩) (envB := ⟨_ :: envB.consts, envB.tables⟩)
@@ -395,8 +395,8 @@ theorem recCtorsHead_consBlockRecsR {R : Nat → RecDatum → Bool × List RecRu
     {envC : Env} {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape R rs fireOf)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
-    (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF)) :
+    (hctorsIn : ∀ r ∈ rs, ∀ ctor ∈ r.2.2.2,
+      ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF)) :
     ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rules : List RecRule),
       (consBlockRecsR R q 0 rs envC).find? n
         = some (.recInfo cv mI rP isK rules) →
@@ -417,8 +417,8 @@ theorem recCtorsHead_consBlockRecsR {R : Nat → RecDatum → Bool × List RecRu
     exact nomatch hrl
   · obtain ⟨-, -, -, -, rfl⟩ := ConstantInfo.recInfo.inj hci
     rw [Nat.zero_add] at hrl
-    obtain ⟨i, cA, rhs, hi, -, rfl⟩ := hshape j r0 hr0 rl hrl
-    obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsIn r0 (List.mem_of_getElem? hr0) cA (List.mem_of_getElem? hi)
+    obtain ⟨i, ctor, rhs, hi, -, rfl⟩ := hshape j r0 hr0 rl hrl
+    obtain ⟨cvj, cnP, cnF, hfc⟩ := hctorsIn r0 (List.mem_of_getElem? hr0) ctor (List.mem_of_getElem? hi)
     exact ⟨cvj, cnP, cnF, hkeepB _ _ hfc⟩
 
 /-! ## The stage's cons, whole, and its proposition
@@ -540,8 +540,8 @@ theorem blockRecStaged_of
       rhs.allLevelParamsDefined r.1.levelParams = true ∧
       rhs.constsResolve (consBlockRecsBare q 0 (bareOf rs) envC) = true ∧
       rhs.looseBVarsBounded 0 = true)
-    (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
-      ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
+    (hctorsIn : ∀ r ∈ rs, ∀ ctor ∈ r.2.2.2,
+      ∃ cvj cnP cnF, envC.find? ctor.1.name = some (.ctorInfo cvj cnP cnF))
     {fireOf : Nat → RecDatum → ConLeche.RecRuleFire}
     (hshape : ConLeche.RecRulesShape R rs fireOf)
     -- a `.nested` firing's pins: `EnvWF`'s clause (vacuous at member
@@ -583,7 +583,7 @@ theorem blockRecStaged_of
         (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2.1,
           fun rhs hrhs' => hrhs r hr rhs hrhs'⟩)
         (fun j r hr rl hrl => by
-          obtain ⟨i, cA, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
+          obtain ⟨i, ctor, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
           refine ⟨List.mem_of_getElem? hrhs', fun lvls pins hf => ?_⟩
           obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩ := hnest j r hr lvls pins hf
           exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, rfl⟩)

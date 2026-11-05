@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.ParsedC
-public import ConLeche.Kernel.CheckerSplit
+public import ConLeche.Kernel.ValueCheck
 
 @[expose] public section
 
@@ -17,27 +17,17 @@ together with the proof that `checkDecls` returns it
 (`fullyChecked_checkDecls`).  The fold separates INSTALLING a
 declaration from CHECKING it:
 
-* **Phase A** folds `installDeclStep` over the parsed records: a
-  `defn`/`opaque` record is INSTALLED without its inference — the
-  syntactic guards of its type and value run, the constant is pushed —
-  and a `thm` record is installed BY STATEMENT: its header alone is
-  guarded and the constant pushed
-  with its statement only (a stored theorem carries no value: it is
-  opaque to reduction), so phase A never enters a theorem's body;
-  either way a `PendingCheck` records the datum the check needs
-  (`ValueGroup`, `ConLeche/Kernel/CheckerSplit.lean` — the value of
-  a definition or opaque, the raw value of a theorem) together
-  with the environment counter the declaration was installed at
-  (`fe.visibleBelow`, task #108).  Every other kind — axioms,
-  inductive and basis blocks, and the pinned `Nat`-operation and
-  `reduce*` branches, which push what they check — takes the ordinary
-  step `checkDeclStepC`.  Every step
-  runs from a FRESH memo state: nothing but the index crosses from one
-  record to the next, so a record's install is a function of the
-  index it sees and the record alone.  An accepting
-  phase A over `ds` IS an `InstalledEnv mode ds`: the index, the
-  records, and the chain of accepting steps (`InstallRun`) that produced
-  them.
+* **Phase A** folds `installDeclStep` over the parsed records.  What a record pushes is a function
+  of the record alone (`declConstants`, `declTables`, `ConLeche/Kernel/Install.lean`); the step runs
+  its guards (`installGuards`) and pushes that.  A `defn`/`opaque` is guarded syntactically, a `thm`
+  by its header (a stored theorem carries no value: it is opaque to reduction, so phase A never
+  enters a theorem's body), and each records a `PendingCheck`: the datum its check needs
+  (`ValueGroup`, `ConLeche/Kernel/ValueCheck.lean`) and the environment counter it was installed at
+  (`fe.visibleBelow`).  Every other kind (axioms, inductive and basis blocks, the pinned
+  `Nat`-operation and `reduce*` declarations) runs its checked step `checkDeclStepC`.  Every step
+  runs from a FRESH memo state: nothing but the index crosses from one record to the next.  An
+  accepting phase A over `ds` IS an `InstalledEnv mode ds`: the index, the records, and the chain of
+  accepting steps (`InstallRun`) that produced them.
 * **Phase B** checks each record against the PREFIX VIEW
   `fe.restrictTo vis` (`FEnv.restrictTo`: an `O(1)` field update whose
   `find?` is the lookup in the environment truncated to the first
@@ -65,20 +55,14 @@ the main theorem and the main corollary (`ConLeche/MainTheorem.lean`)
 are stated for EVERY list, because nothing the model tier consumes
 reads which list the matched variant came from.
 
-Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
-steps and carry their accepting runs as the proofs the subtypes ask
-for.  **The driver runs `checkDeclStepC` in the check phase** (tasks
-#411, #431, #480), at every job count: its install pushes such a record
-what the record installs (`declConstants`, `declTables`,
-`ConLeche/Kernel/Install.lean`) and records the record's checked step as
-a job of the check phase, so the run it carries is this fold's run
-CONDITIONAL on those jobs; the check phase discharges them, and the run
-is this fold's.  This fold is the meaning of those steps; it runs them
-in phase A, the driver does not.  A rejection carries the FOLD POSITION of the declaration it
-names (`installDeclStep` tags its error with the position, a phase-B
-failure with `PendingCheck.pos`), so the driver reports the
-declaration by indexing the record array it already holds, with no
-second pass.
+Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these steps and carry their
+accepting runs as the proofs the subtypes ask for.  **The driver runs `checkDeclStepC` in the check
+phase**, at every job count: its install pushes the record's `declConstants` and `declTables` and
+records the checked step as a job, so the run it carries is this fold's run conditional on those
+jobs; the check phase discharges them, and the run is this fold's.  A rejection carries the FOLD
+POSITION of the declaration it names (`installDeclStep` tags its error with the position, a phase-B
+failure with `PendingCheck.pos`), so the driver reports the declaration by indexing the record array
+it already holds, with no second pass.
 -/
 
 namespace ConLeche.Cached
@@ -89,18 +73,16 @@ variable (mode : CheckMode)
 
 /-! ## Phase A: install -/
 
-/-- A phase-A record awaiting its phase-B check: the datum that crosses
-the install/check seam, the fold position of the declaration (its
-error tag) and the environment counter at the install — `fe.visibleBelow`
-before the push, i.e. the number of constants installed before it. -/
+/-- A value declaration awaiting its check: its datum, its fold position (its error tag) and the
+environment counter at its install, `fe.visibleBelow` before the push: the number of constants
+installed before it. -/
 structure PendingCheck where
   vg : ValueGroup
   pos : Nat
   vis : Nat
 
-/-- `checkConstantValC` minus its inference: the header's syntactic
-guards — `installHeader`'s cached twin. -/
-def installHeaderC (fe : FEnv) (cv : ConstantVal) :
+/-- The header's syntactic guards: `headerGuards`'s cached twin. -/
+def headerGuardsC (fe : FEnv) (cv : ConstantVal) :
     CheckCM Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
@@ -121,9 +103,8 @@ def installHeaderC (fe : FEnv) (cv : ConstantVal) :
   unless constsResolveFC fe cv.type do
     throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
 
-/-- The value's syntactic guards (those of `checkDefnValCI`, without its
-inference) — `installValueGuards`'s cached twin. -/
-def installValueGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM Unit := do
+/-- The value's syntactic guards: `valueGuards`'s cached twin. -/
+def valueGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM Unit := do
   unless Expr.looseBVarsBounded 0 value do
     throw (.invalid s!"loose bound variable in value of {cv.name}")
   if value.hasFvar then
@@ -133,13 +114,13 @@ def installValueGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM 
   unless constsResolveFC fe value do
     throw (unresolvedConstsErrorL (strLitStoredF fe) s!"value of {cv.name}" value)
 
-/-- Phase A's guards of a separable value declaration: the
-per-declaration flush, then the header's and the value's guards. -/
-def installGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) :
+/-- Phase A's guards of a definition or opaque: the per-declaration flush, then the header's and the
+value's guards. -/
+def valueDeclGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) :
     CheckCM Unit := do
   flushC
-  installHeaderC fe cv
-  installValueGuardsC fe cv value
+  headerGuardsC fe cv
+  valueGuardsC fe cv value
 
 /-- A declaration's checked step, its result dropped: what it pushes is `declConstants`
 (`checkDeclStepC_pushes`). -/
@@ -147,22 +128,21 @@ def checkDeclOnly (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) : Che
   let _ ← checkDeclStepC mode pins fe pd
   pure ()
 
-/-- **What a declaration's install asks**: the guards of a value
-declaration, which leave its inference to phase B; for anything else
-its checked step in full (the driver runs that as a job of the check
-phase, `ConLeche/Verify/Cached/Defer.lean`). -/
+/-- **What a declaration's install asks**: the syntactic guards of a value declaration, whose
+inference is phase B's; for anything else its checked step (the driver runs that as a job of the
+check phase, `ConLeche/Verify/Cached/Defer.lean`). -/
 def installGuards (pins : List NatOpPinSet) (fe : FEnv) : Declaration → CheckCM Unit
   | .defnDecl cv value hint =>
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then
       checkDeclOnly mode pins fe (.defnDecl cv value hint)
-    else installGuardsC fe cv value
+    else valueDeclGuardsC fe cv value
   | .thmDecl cv _ => do
     flushC
-    installHeaderC fe cv
+    headerGuardsC fe cv
   | .opaqueDecl cv value =>
     if reduceOpNames.contains cv.name then
       checkDeclOnly mode pins fe (.opaqueDecl cv value)
-    else installGuardsC fe cv value
+    else valueDeclGuardsC fe cv value
   | pd => checkDeclOnly mode pins fe pd
 
 /-- The pending checks after a record: its check recorded, for a value
@@ -262,7 +242,7 @@ structure InstalledEnv (pins : List NatOpPinSet) (ds : List Declaration) where
 
 /-- Phase B's check of one record against the prefix view, from a
 flushed memo state: `checkValueGroup`'s inference and conversion calls
-(`ConLeche/Kernel/CheckerSplit.lean`) — those of `checkConstantValC` and
+(`ConLeche/Kernel/ValueCheck.lean`) — those of `checkConstantValC` and
 `check{Defn,Thm,Opaque}ValC`, in their order, with their messages — on
 the cached core at the view. -/
 def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
@@ -274,16 +254,15 @@ def checkPending (fe : FEnv) (pc : PendingCheck) : CheckCM Unit := do
       unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
         throw (.invalid s!"type of theorem {pc.vg.cv.name} is not a proposition")
       -- a theorem's value arrives raw: its guards run
-      -- here, at the view (`installValueGuardsC` — `installValueGuards`'s twin)
-      installValueGuardsC fe pc.vg.cv pc.vg.jv
+      -- here, at the view (`valueGuardsC` — `valueGuards`'s twin)
+      valueGuardsC fe pc.vg.cv pc.vg.jv
   let jvt ← (coreKnotI mode false fe checkFuel).infer 0 pc.vg.jv
   unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt pc.vg.cv.type do
     throw (.invalid s!"type mismatch in {pc.vg.kind.word} {pc.vg.cv.name}")
 
-/-- **In a properly installed environment, record `i` has been
-checked**: its check against the prefix view, from a fresh memo state,
-succeeded.  (A declaration without a record was checked in full at its
-install, inside `InstallRun`.) -/
+/-- **In a properly installed environment, record `i` has been checked**: its check against the
+prefix view, from a fresh memo state, succeeded.  (A declaration without a record ran its checked
+step inside `InstallRun`.) -/
 def GroupChecked {pins : List NatOpPinSet} {ds : List Declaration}
     (e : InstalledEnv mode pins ds) (i : Nat) : Prop :=
   match e.pend[i]? with

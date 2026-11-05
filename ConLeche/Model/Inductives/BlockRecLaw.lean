@@ -968,16 +968,16 @@ theorem hrecP_ofR {R : Nat → RecDatum → Bool × List RecRule} {q : BlockShap
     (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
     (hnew : ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC), m₃.acval = acv →
       ∀ (φ : Name → Nat) (j : Nat) (r : RecDatum), rs[j]? = some r →
-      ∀ (i : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
-        r.2.2.2[i]? = some cA → r.2.1[i]? = some rhs →
+      ∀ (i : Nat) (ctor : ConstantVal × Nat) (rhs : Expr),
+        r.2.2.2[i]? = some ctor → r.2.1[i]? = some rhs →
         RecRuleLaw m₃ φ r.1.name r.1 (q.majorIdxAt j) (q.rulePrefixAt j) (R j r).1
-          ({ ctor := cA.1.name, nfields := cA.2, fire := fireOf j r, rhs := rhs })) :
+          ({ ctor := ctor.1.name, nfields := ctor.2, fire := fireOf j r, rhs := rhs })) :
     ∀ m₃ : EnvModel V (consBlockRecsR R q 0 rs envC),
       m₃.acval = acv → ∀ φ : Name → Nat, RecRules m₃ φ := by
   intro m₃ hac φ
   refine recRules_consBlockRecsR_of mpC hfr hag m₃ hac φ ?_
   intro j r hr rl hrl
-  obtain ⟨i, cA, rhs, hcA, hrhs, rfl⟩ := hshape j r hr rl hrl
-  exact hnew m₃ hac φ j r hr i cA rhs hcA hrhs
+  obtain ⟨i, ctor, rhs, hctor, hrhs, rfl⟩ := hshape j r hr rl hrl
+  exact hnew m₃ hac φ j r hr i ctor rhs hctor hrhs
 
 end ConLeche.Model

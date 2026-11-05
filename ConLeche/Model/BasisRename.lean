@@ -978,7 +978,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
             op_defn := fun c hn hs => by
               have hr := natOpName_not_reserved hn
               have h₀ := mp.op_defn c hn (by rw [← h.find_nonres hr]; exact hs)
-              unfold natOpStored at h₀ ⊢
+              unfold isDefinitionAt at h₀ ⊢
               rw [h.find_nonres hr]
               exact h₀
             rec_rules := hrec

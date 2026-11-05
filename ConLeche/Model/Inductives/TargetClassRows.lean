@@ -59,7 +59,7 @@ calls (`GenClassInd`, `GenRecAssembly.lean`). -/
 section Rows
 
 variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {pp : BlockShape}
-  {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+  {formers : List ConstantVal} {memberCtors : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)} {nested : Bool}
   {block : List ConstantInfo} {names : List Name} {d : BlockData V}
   {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}

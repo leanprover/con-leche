@@ -273,7 +273,7 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     {p₁ : BlockShape}
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
     {nestedBit : Bool} {out : List (ConstantVal × TargetMajor × List Expr)} (Q : List ProjTable)
-    (hInd : checkBlockInds (fueledOps .verified F) env p₀ (blockRawRec p₀) = .ok (env₁, p₁))
+    (hInd : checkBlockInds (fueledOps .verified F) env p₀ (blockIsRec p₀) = .ok (env₁, p₁))
     (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params
       = .ok (rd, Ms₀))
     (hRec : genRecCheck (ShadowOps.fueled .verified F)
@@ -302,8 +302,8 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
       blockRecInfosTF (p₀.withSort s0) 0 (streamRecs p₀.recs out) := by
     rw [blockRecs_congr (p := p₀) (q := p₀.withSort s0) rfl]
     exact blockRecs_eq_infos _ _ _ 0 hlenR hAg
-  have hcaps : ∀ i, blockCapsAt (p₀.withSort s0) i (blockRawRec p₀)
-      = blockCapsAt p₀ i (blockRawRec p₀) := fun _ => rfl
+  have hcaps : ∀ i, blockCapsAt (p₀.withSort s0) i (blockIsRec p₀)
+      = blockCapsAt p₀ i (blockIsRec p₀) := fun _ => rfl
   rw [hrecsP, consBlockRecsT_eq_infos, consBlockCtors_eq, hcons, consBlockInds_consts']
   unfold Env.pushDelta blockConstants blockFormers blockCtors
   rw [hrecs, hctors]

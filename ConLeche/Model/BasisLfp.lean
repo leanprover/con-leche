@@ -65,7 +65,7 @@ fibre. -/
     (flds : Nat → List Term) : LfpDatum V where
   names := [nm]
   k := 1
-  shown := fun _ => none
+  telescope := fun _ => none
   N := 1
   w := w
   params := fun _ => []
@@ -440,7 +440,7 @@ collapses to the point, where `a` and `b` are the point too. -/
 @[expose] noncomputable def eqLfp (nm cn : Name) (lv : (Name → Nat) → Nat) : LfpDatum V where
   names := [nm]
   k := 1
-  shown := fun _ => none
+  telescope := fun _ => none
   N := 1
   w := fun _ => 0
   params := fun ψ => [.sort (lv ψ), .bvar 0]

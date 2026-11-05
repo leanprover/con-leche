@@ -20,7 +20,7 @@ survives to the end of the run.
 Three ingredients, one per step of the walk:
 
 * **the header is stored as declared.**  Phase A's header install
-  (`installHeaderC`) runs guards only; the stored header is the
+  (`headerGuardsC`) runs guards only; the stored header is the
   declared one, used directly.
 * **a theorem record is never dropped.**  `installStepC`'s `thmDecl` arm
   either throws or pushes `.thmInfo ⟨cv.name, cv.levelParams, jty⟩`

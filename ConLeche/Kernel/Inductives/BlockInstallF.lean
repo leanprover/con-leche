@@ -120,7 +120,7 @@ def checkBlockIdxSortsF (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape) :
 /-- `consBlockCtors` through the index. -/
 def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → FEnv
   | [], fe => fe
-  | ctorsA :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorsA fe)
+  | ctorList :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorList fe)
 
 /-- Push a list of records, head first. -/
 def FEnv.pushAll : List ConstantInfo → FEnv → FEnv

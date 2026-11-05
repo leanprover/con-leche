@@ -468,11 +468,9 @@ definition by definitional equality, and then checks the pinned
 (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
 installing them.  Presence in the store is therefore again the
 capability: a stored operation under one of these names has passed pin
-and certificates, or the install declined.  (The name is historic:
-the family started with `Nat.div`/`Nat.mod` and now covers every
-pin-certified WF-recursive kernel-accelerated `Nat` operation —
-`Nat.log2` left the list when its fast path did, official folding no
-unary operation but `Nat.succ`.) -/
+and certificates, or the install declined.  (The family: every pin-certified WF-recursive kernel-accelerated `Nat`
+operation, `Nat.div` and `Nat.mod` among them; official folds no unary
+operation but `Nat.succ`.) -/
 def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
    natXorName, natShiftLeftName, natShiftRightName]

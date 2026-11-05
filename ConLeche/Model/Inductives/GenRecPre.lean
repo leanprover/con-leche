@@ -70,8 +70,8 @@ end Ihv
 
 section Eqs
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC}
 
 /-- **The generated equation list, at the chain spelling** (`tgtClsEqs_eq`
@@ -129,8 +129,8 @@ stated exactly as the producer consumes it (§4 discharges them). -/
 
 section Cand
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal} {g : ClassGen} {rd : ClassRead}
 
@@ -631,8 +631,8 @@ base frame):
 
 section Rows
 
-variable {F : Nat} {envC : Env} {pp : BlockShape} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal}
 
@@ -1420,7 +1420,7 @@ end Rows
 section Assembly
 
 variable {F : Nat} {envC : Env} {pp : BlockShape}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal} {g : ClassGen} {rd : ClassRead}
 

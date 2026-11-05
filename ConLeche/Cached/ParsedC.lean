@@ -12,19 +12,14 @@ flushed per declaration, declarations consumed as `Declaration` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
-`checkDeclStepC` is the fold's step for every declaration kind whose
-check decides what it pushes: axioms, inductive and basis blocks, the
-pinned `Nat`-operation definitions and `reduce*` opaques (the driver runs
-it as a job of the check phase, `ConLeche/Verify/Cached/Defer.lean`).  The
-declaration fold itself, `checkDecls` (`ConLeche/Cached/Installed.lean`),
-installs every record first (a separable value declaration — every
-theorem, every other definition and opaque — by its own install half,
-pushed with its check recorded; everything else by this step) and
-checks the recorded declarations afterwards, so this step never sees a
-separable value declaration: it throws an internal error on one; the
-binary's driver (`ConLeche/Driver/*`) runs that fold with a heartbeat between
-the steps and returns its environment together with the proof that
-`checkDecls` returns it.  The fold runs at `.verified` and at
+`checkDeclStepC` is the checked step of every declaration kind other than a value declaration: axioms,
+inductive and basis blocks, the pinned `Nat`-operation definitions and `reduce*` opaques (the driver
+runs it as a job of the check phase, `ConLeche/Verify/Cached/Defer.lean`).  The declaration fold,
+`checkDecls` (`ConLeche/Cached/Installed.lean`), installs every record first and checks the recorded
+value declarations afterwards, so this step never sees a value declaration: it throws an internal
+error on one; the binary's driver (`ConLeche/Driver/*`) runs that fold with a heartbeat between the
+steps and returns its environment together with the proof that `checkDecls` returns it.  The fold
+runs at `.verified` and at
 `.trusted` alike (the trusted mode is the same fold at the other
 mode, and nothing else): acceptance at
 `.verified` is covered by the main corollary
@@ -162,11 +157,10 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     else throw (.invalid "number of parameters mismatch")
 
 /-- One converted declaration (inductive and basis blocks reuse the
-`Expr`-level drivers).  A separable value declaration (a theorem, a
+`Expr`-level drivers).  A value declaration (`valueGroup?`: a theorem, a
 definition other than a pinned `Nat` operation, an opaque other than a
-`reduce*` one) never reaches it — phase A installs it by its install
-half (`installStepC`, `ConLeche/Cached/Installed.lean`) — and is an
-internal error here.
+`reduce*` one) never reaches it (`installStepC`,
+`ConLeche/Cached/Installed.lean`) and is an internal error here.
 `pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
 tries (task #304), threaded from the fold.
 

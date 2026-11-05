@@ -67,8 +67,8 @@ theorem denoteSpine_eq_map {acval : Name → (Name → Nat) → Term} {env : Env
 section Rows
 
 variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {p : BlockShape}
-  {nested : Bool} {block : List ConstantInfo} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {nested : Bool} {block : List ConstantInfo} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- **`targetOutsideInst`, inverted**: the major's inductive is stored,
 its telescope instantiated at the levels and parameters ends in a sort,

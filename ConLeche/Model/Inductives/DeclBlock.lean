@@ -53,21 +53,21 @@ It is three cons-monotonicities and mentions no `BlockData`. -/
 /-- **The tables' invariant crosses the recursors' conses**, by the
 three facts of `BlockRecStagedAt` and nothing else. -/
 theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : EnvModel V envR}
-    {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape}
+    {d : BlockData V} {lps : List Name} {formersAll : List ConstantVal} {p₁ : ConLeche.BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
-    (h : BlockTablesCore mC d lps cvTasAll p₁ isRec A)
+    (h : BlockTablesCore mC d lps formersAll p₁ isRec A)
     (hag : ∀ n : Name, (envC.find? n).isSome = true → mR.acval n = mC.acval n)
     (hfind : ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → envR.find? n = some c)
     (hden : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
       denote mR.acval envR ψ dd e = denote mC.acval envC ψ dd e) :
-    BlockTablesCore mR d lps cvTasAll p₁ isRec A := by
+    BlockTablesCore mR d lps formersAll p₁ isRec A := by
   obtain ⟨hform, hctor⟩ := h
   have hsome : ∀ n : Name, (envC.find? n).isSome = true → (envR.find? n).isSome = true := by
     intro n hn
     cases hc : envC.find? n with
     | none => rw [hc] at hn; exact nomatch hn
     | some c => rw [hfind n c hc]; rfl
-  refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_⟩
+  refine ⟨fun c cvTb hc => ?_, fun c j ctor hj => ?_⟩
   · obtain ⟨hfindT, hres, hleaf, hFD⟩ := hform c cvTb hc
     refine ⟨hfindT.of_ext hfind hden, Expr.constsResolve_of_find hsome hres, fun ψ => ?_, ?_⟩
     · obtain ⟨cvS, hfS, -⟩ := hfindT
@@ -75,11 +75,11 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
     · exact ⟨fun ψ => by
         rw [hden ψ 0 cvTb.type (constsBound_of_constsResolve _ hres)]; exact hFD.read ψ,
       hFD.len, hFD.okTy, hFD.below, hFD.params, hFD.syn⟩
-  · obtain ⟨hfindC, hlps, hres, hread, hleaf⟩ := hctor c j cA hj
+  · obtain ⟨hfindC, hlps, hres, hread, hleaf⟩ := hctor c j ctor hj
     refine ⟨hfind _ _ hfindC, hlps, Expr.constsResolve_of_find hsome hres, fun ψ => ?_,
       fun ψ => ?_⟩
-    · rw [hden ψ 0 cA.1.type (constsBound_of_constsResolve _ hres)]; exact hread ψ
-    · rw [hag cA.1.name (by rw [hfindC]; rfl)]; exact hleaf ψ
+    · rw [hden ψ 0 ctor.1.type (constsBound_of_constsResolve _ hres)]; exact hread ψ
+    · rw [hag ctor.1.name (by rw [hfindC]; rfl)]; exact hleaf ψ
 
 /-- **The recursors' stage's obligation at the cons at the majors**:
 `BlockRecStagedAt`'s three cons-monotonicities at
@@ -113,7 +113,7 @@ environment `envI`) reads, tied to the recursor stage's carrier.  Every
 block `mpC` records is `mk`'s or the block's own `D0` (`FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
 from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
-    (mpC : EnvModelM V envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
+    (mpC : EnvModelM V envC) (d : BlockData V) (lps : List Name) (formers : List ConstantVal)
     (p : BlockShape) (isRec : Bool) : Prop :=
   ∃ mk : EnvModelM V envI, LfpCover mk names ∧ (∀ F, FamilyRead mk F) ∧
     (∀ F, FamilyRead mpC F) ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
@@ -121,7 +121,7 @@ from `mpC.lfpBlocks`). -/
     (∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks) ∧
     -- the member constructors' hole contexts at the formers' model (the
     -- node-semantics induction's root)
-    BlockHoleCtxFacts mk.base2 d lps cvTas p isRec ∧
+    BlockHoleCtxFacts mk.base2 d lps formers p isRec ∧
     -- a reading at the formers' environment is one at the constructors'
     ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
       denote mk.base2.acval envI ψ dd e = some ea → denote mpC.base2.acval envC ψ dd e = some ea
@@ -140,7 +140,7 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
   ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
       envI.find? pp = .ok (kindsR, nfsR, posR) ∧
   envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
-  pp.memberCtors.map (·.map (fun cA => (cA.1.name, cA.2)))
+  pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
   pp.memberNames.Nodup ∧
   BlockNamesOk (V := V) dR pp.formers ∧

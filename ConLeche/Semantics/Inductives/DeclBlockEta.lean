@@ -36,8 +36,8 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 /-- A name none of the consed constructors carries looks up below the
 conses. -/
 theorem consSumCtors_find?_of_not_mem {nP : Nat} {n : Name} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
-      n ∉ ctorsA.map (·.1.name) → (consSumCtors nP ctorsA env).find? n = env.find? n
+    ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
+      n ∉ ctorList.map (·.1.name) → (consSumCtors nP ctorList env).find? n = env.find? n
   | [], _, _ => rfl
   | c :: cs, env, hn => by
     simp only [consSumCtors]
@@ -78,9 +78,9 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo IndCaps
 /-- A name none of the consed formers carries reads through the
 formers' conses unchanged. -/
 theorem consBlockInds_find?_of_ne {p₁ : BlockShape} {isRec : Bool} {n : Name} :
-    ∀ {cvTas : List ConstantVal} {i : Nat} {env : Env},
-      (∀ cv ∈ cvTas, cv.name ≠ n) →
-      (consBlockInds p₁ isRec cvTas i env).find? n = env.find? n
+    ∀ {formers : List ConstantVal} {i : Nat} {env : Env},
+      (∀ cv ∈ formers, cv.name ≠ n) →
+      (consBlockInds p₁ isRec formers i env).find? n = env.find? n
   | [], _, _, _ => rfl
   | cv :: rest, i, env, hne => by
     simp only [consBlockInds]
@@ -91,20 +91,20 @@ theorem consBlockInds_find?_of_ne {p₁ : BlockShape} {isRec : Bool} {n : Name} 
 /-- A name none of the consed constructors carries reads through the
 constructors' conses unchanged. -/
 theorem consBlockCtors_find?_of_ne {nP : Nat} {n : Name} :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {env : Env},
-      (∀ ctorsA ∈ ctorsAs, n ∉ ctorsA.map (·.1.name)) →
-      (consBlockCtors nP ctorsAs env).find? n = env.find? n
+    ∀ {memberCtors : List (List (ConstantVal × Nat))} {env : Env},
+      (∀ ctorList ∈ memberCtors, n ∉ ctorList.map (·.1.name)) →
+      (consBlockCtors nP memberCtors env).find? n = env.find? n
   | [], _, _ => rfl
-  | ctorsA :: rest, env, hne => by
+  | ctorList :: rest, env, hne => by
     simp only [consBlockCtors]
     rw [consBlockCtors_find?_of_ne (fun c hc => hne c (List.mem_cons_of_mem _ hc)),
-      consSumCtors_find?_of_not_mem (hne ctorsA List.mem_cons_self)]
+      consSumCtors_find?_of_not_mem (hne ctorList List.mem_cons_self)]
 
 /-- The constructors' conses store no former: a `.indInfo` found above
 them was found below them. -/
 theorem consSumCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {caps : IndCaps} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env},
-      (consSumCtors nP ctorsA env).find? n = some (.indInfo cv caps) →
+    ∀ {ctorList : List (ConstantVal × Nat)} {env : Env},
+      (consSumCtors nP ctorList env).find? n = some (.indInfo cv caps) →
       env.find? n = some (.indInfo cv caps)
   | [], _, h => h
   | c :: cs, env, h => by
@@ -116,8 +116,8 @@ theorem consSumCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {cap
     · exact h'
 
 theorem consBlockCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {caps : IndCaps} :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {env : Env},
-      (consBlockCtors nP ctorsAs env).find? n = some (.indInfo cv caps) →
+    ∀ {memberCtors : List (List (ConstantVal × Nat))} {env : Env},
+      (consBlockCtors nP memberCtors env).find? n = some (.indInfo cv caps) →
       env.find? n = some (.indInfo cv caps)
   | [], _, h => h
   | _ :: _, _, h => by
@@ -127,11 +127,11 @@ theorem consBlockCtors_find?_indInfo {nP : Nat} {n : Name} {cv : ConstantVal} {c
 /-- **A consed constructor is found at its own record**, when the
 member's constructor names are distinct. -/
 theorem consSumCtors_find?_mem {nP : Nat} :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {cA : ConstantVal × Nat},
-      (ctorsA.map (·.1.name)).Nodup → cA ∈ ctorsA →
-      (consSumCtors nP ctorsA env).find? cA.1.name = some (.ctorInfo cA.1 nP cA.2)
+    ∀ {ctorList : List (ConstantVal × Nat)} {env : Env} {ctor : ConstantVal × Nat},
+      (ctorList.map (·.1.name)).Nodup → ctor ∈ ctorList →
+      (consSumCtors nP ctorList env).find? ctor.1.name = some (.ctorInfo ctor.1 nP ctor.2)
   | [], _, _, _, hc => nomatch hc
-  | c :: cs, env, cA, hnd, hc => by
+  | c :: cs, env, ctor, hnd, hc => by
     simp only [consSumCtors]
     simp only [List.map_cons, List.nodup_cons] at hnd
     rcases List.mem_cons.mp hc with rfl | hc'
@@ -142,12 +142,12 @@ theorem consSumCtors_find?_mem {nP : Nat} :
 /-- **A consed constructor is found at its own record** after all the
 members' conses, when the block's constructor names are distinct. -/
 theorem consBlockCtors_find?_mem {nP : Nat} :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {env : Env} {ctorsA : List (ConstantVal × Nat)}
-      {cA : ConstantVal × Nat},
-      ((ctorsAs.map (·.map (·.1.name))).flatten).Nodup → ctorsA ∈ ctorsAs → cA ∈ ctorsA →
-      (consBlockCtors nP ctorsAs env).find? cA.1.name = some (.ctorInfo cA.1 nP cA.2)
+    ∀ {memberCtors : List (List (ConstantVal × Nat))} {env : Env} {ctorList : List (ConstantVal × Nat)}
+      {ctor : ConstantVal × Nat},
+      ((memberCtors.map (·.map (·.1.name))).flatten).Nodup → ctorList ∈ memberCtors → ctor ∈ ctorList →
+      (consBlockCtors nP memberCtors env).find? ctor.1.name = some (.ctorInfo ctor.1 nP ctor.2)
   | [], _, _, _, _, hl, _ => nomatch hl
-  | A :: rest, env, ctorsA, cA, hnd, hl, hc => by
+  | A :: rest, env, ctorList, ctor, hnd, hl, hc => by
     simp only [consBlockCtors]
     simp only [List.map_cons, List.flatten_cons] at hnd
     obtain ⟨hndA, hndR, hcross⟩ := List.nodup_append.mp hnd
@@ -233,18 +233,18 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
   obtain ⟨_, _, _, _, _, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   -- the three freshness facts and the constructors' names
   have hfT := checkBlockInds_fresh hInd
-  have hfC : ∀ A ∈ p₁.memberCtors, ∀ cA ∈ A,
-      (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env).find? cA.1.name = none :=
+  have hfC : ∀ A ∈ p₁.memberCtors, ∀ ctor ∈ A,
+      (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env).find? ctor.1.name = none :=
     ConLeche.checkBlockCtors_fresh hCtors
-  generalize hcA : p₁.memberCtors = ctorsAs at hfin hfC
-  have hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
+  generalize hctor : p₁.memberCtors = memberCtors at hfin hfC
+  have hnames : memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
       = p₁.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) := by
-    rw [← hcA]
+    rw [← hctor]
     show (p₁.members.map (·.ctors)).map _ = _
     rw [List.map_map]
     rfl
-  have hndAll : ((ctorsAs.map (·.map (·.1.name))).flatten).Nodup := by
-    have hmap : ctorsAs.map (·.map (·.1.name))
+  have hndAll : ((memberCtors.map (·.map (·.1.name))).flatten).Nodup := by
+    have hmap : memberCtors.map (·.map (·.1.name))
         = p₁.members.map (fun ms => ms.ctors.map (·.1.name)) := by
       have := congrArg (List.map (List.map Prod.fst)) hnames
       simpa [List.map_map, Function.comp_def] using this
@@ -258,7 +258,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     rw [← this, hall]
     exact hndC
   -- ## the constructors' environment is closed
-  have hEC : EtaFamiliesClosed (consBlockCtors p₁.nP ctorsAs
+  have hEC : EtaFamiliesClosed (consBlockCtors p₁.nP memberCtors
       (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env)) := by
     intro T cvT caps hf he hr
     have hf₁ := consBlockCtors_find?_indInfo hf
@@ -273,24 +273,24 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
         exact this
       have hgetD : p₁.members.getD j default = p₁.members[j] := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl, Option.getD_some]
-      have hj' : (ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2))))[j]?
+      have hj' : (memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2))))[j]?
           = some (p₁.members[j].ctors.map (fun c => (c.1.name, c.2))) := by
         rw [hnames, List.getElem?_map, List.getElem?_eq_getElem hjl]; rfl
       rw [List.getElem?_map] at hj'
-      obtain ⟨ctorsA, hcA, hcAeq⟩ := Option.map_eq_some_iff.mp hj'
+      obtain ⟨ctorList, hctor, hcAeq⟩ := Option.map_eq_some_iff.mp hj'
       match hcs : p₁.members[j].ctors with
       | [c] =>
         rw [hcs] at hcAeq
-        match ctorsA, hcAeq with
-        | [cA], hcAeq =>
+        match ctorList, hcAeq with
+        | [ctor], hcAeq =>
           simp only [List.map_cons, List.map_nil, List.cons.injEq, Prod.mk.injEq,
             and_true] at hcAeq
-          refine ⟨cA.1, ?_⟩
+          refine ⟨ctor.1, ?_⟩
           rw [blockCapsAt, hgetD, hcs]
-          show (consBlockCtors p₁.nP ctorsAs (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env)).find? c.1.name
-            = some (.ctorInfo cA.1 p₁.nP c.2)
+          show (consBlockCtors p₁.nP memberCtors (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env)).find? c.1.name
+            = some (.ctorInfo ctor.1 p₁.nP c.2)
           rw [← hcAeq.1, ← hcAeq.2]
-          exact consBlockCtors_find?_mem hndAll (List.mem_of_getElem? hcA) List.mem_cons_self
+          exact consBlockCtors_find?_mem hndAll (List.mem_of_getElem? hctor) List.mem_cons_self
         | [], hcAeq => simp at hcAeq
         | _ :: _ :: _, hcAeq => simp at hcAeq
       | [] => rw [blockCapsAt, hgetD, hcs] at he; exact nomatch he
@@ -310,13 +310,13 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
       rw [consBlockCtors_find?_of_ne]
       · exact hf₁C
       · intro A hA hmem
-        obtain ⟨cA, hcA, hn⟩ := List.mem_map.mp hmem
-        have := hfC A hA cA hcA
+        obtain ⟨ctor, hctor, hn⟩ := List.mem_map.mp hmem
+        have := hfC A hA ctor hctor
         rw [hn, hf₁C] at this
         exact nomatch this
   -- ## the recursors (at their majors), then the tables
   have hfresh := ConLeche.genRecCheck_out_fresh hRec
-  rw [hcA] at hfresh
+  rw [hctor] at hfresh
   subst hfin
   -- the tables store no constant
   show EtaFamiliesClosed ⟨(consBlockRecsT _ _ _ _).consts, _⟩

@@ -117,12 +117,12 @@ the frame's holes. -/
 #guard kindsOf (runT (.app (.lam ty1 cT) cNat)) == some [.recursive 0]
 
 /-- Mutual containers `A α | mk : B α → A α` and `B α | mk : A α → B α`. -/
-@[expose] def cA : Expr := .const (nm "A") []
+@[expose] def ctor : Expr := .const (nm "A") []
 @[expose] def cB : Expr := .const (nm "B") []
 @[expose] def envM : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app ctor (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app ctor (.bvar 1)))⟩ 1 1,
   .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "B.mk"] },
   .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { all := [nm "A", nm "B"], ctors := [nm "A.mk"] }], []⟩
 @[expose] def ctxM : NestCtx :=
@@ -132,8 +132,8 @@ the frame's holes. -/
 
 -- `A T`: accepted; `A T`'s frame abstracts the whole block `[A, B]`, so
 -- both are walked in one frame
-#guard (runM (.app cA cT)) matches .ok _
-#guard keysOf (runM (.app cA cT)) == some [nm "A", nm "B"]
+#guard (runM (.app ctor cT)) matches .ok _
+#guard keysOf (runM (.app ctor cT)) == some [nm "A", nm "B"]
 
 /-- A container whose own constructor uses it at ANOTHER parameter
 (`W α | mk : W Nat → W α`, which no installed inductive has): a frame's
@@ -188,13 +188,13 @@ CONSTANT while it is in progress, and REJECTS (never on a checked
 environment). -/
 @[expose] def envM0 : Env := ⟨[
   .indInfo ⟨nm "T", [], ty1⟩ {},
-  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app cA (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
-  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app cA (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "B.mk", [], pi ty1 (pi (.app ctor (.bvar 0)) (.app cB (.bvar 1)))⟩ 1 1,
+  .ctorInfo ⟨nm "A.mk", [], pi ty1 (pi (.app cB (.bvar 0)) (.app ctor (.bvar 1)))⟩ 1 1,
   .indInfo ⟨nm "B", [], pi ty1 ty1⟩ { ctors := [nm "B.mk"] },
   .indInfo ⟨nm "A", [], pi ty1 ty1⟩ { ctors := [nm "A.mk"] }], []⟩
 #guard (nestedBlockPositivity (pureOps .verified) envM0
     ⟨[nm "T"], [], 0, [0], [], .succ .zero, envM0.find?, [⟨nm "T", [], ty1⟩]⟩
-    [[(⟨nm "T.mk", [], pi (.app cA cT) cT⟩, 1)]]) matches .error (.invalid _)
+    [[(⟨nm "T.mk", [], pi (.app ctor cT) cT⟩, 1)]]) matches .error (.invalid _)
 
 /-! ### N2-eager, and occurrences whnf erases
 

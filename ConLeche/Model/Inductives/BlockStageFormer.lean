@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Model.OpenedCtx
-import ConLeche.Model.Inductives.FormerStored
+import ConLeche.Model.Inductives.FormerInEnv
 public import ConLeche.Model.Inductives.BlockLeafOk
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Verify.Inductives.BlockInv
@@ -299,7 +299,7 @@ theorem stageBlockFormer (mp : EnvModelM V env) {names : List Name}
       exact hTlaws m₂ hac
 
 /-- **The `k` type formers' conses, in order** (`checkBlockInds`'s
-`consBlockInds`, of the declared formers `declAll`; `cvTasAll` the telescopes the check read).
+`consBlockInds`, of the declared formers `declAll`; `formersAll` the telescopes the check read).
 Abstract in the leaves, as `ctorsLoopEta` is abstract
 in `leafT`: the leaf's five currency facts (`hAbelowOf` … `hAmemOf`) and
 the member's capability laws (`hTlawsOf`) are the per-member inputs, and
@@ -307,43 +307,43 @@ the member's capability laws (`hTlawsOf`) are the per-member inputs, and
 fixpoint leaf.  The η invariant is threaded over the block's whole
 member list, because all `k` formers are stored before any constructor. -/
 theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
-    {declAll cvTasAll : List ConstantVal} {A : Nat → (Name → Nat) → Term}
+    {declAll formersAll : List ConstantVal} {A : Nat → (Name → Nat) → Term}
     {nPOf : Nat → Nat} {resSort : Level}
     {ppsOf : Nat → (Name → Nat) → List Term}
-    (hlenD : declAll.length = cvTasAll.length)
-    (hnames : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hlenD : declAll.length = formersAll.length)
+    (hnames : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       cvTa.name ∈ names)
-    (hndN : ∀ (j j' : Nat) (c c' : ConstantVal), cvTasAll[j]? = some c →
-      cvTasAll[j']? = some c' → j ≠ j' → c.name ≠ c'.name)
-    (hnresOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hndN : ∀ (j j' : Nat) (c c' : ConstantVal), formersAll[j]? = some c →
+      formersAll[j']? = some c' → j ≠ j' → c.name ≠ c'.name)
+    (hnresOf : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       ConLeche.reservedBasisNames.contains cvTa.name = false)
-    (hopOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hopOf : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       natOpName cvTa.name = false)
-    (hAbelowOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hAbelowOf : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       ∀ ψ : Name → Nat, Term.bvarsBelow 0 (A j ψ))
-    (hAparamsOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hAparamsOf : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ cvTa.levelParams, ψ₁ q = ψ₂ q) → A j ψ₁ = A j ψ₂)
-    (hAokOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hAokOf : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       ∀ (ψ : Name → Nat) (ρ : Nat → V), WellDenoted V ρ (A j ψ))
-    (hAmemOf : ∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+    (hAmemOf : ∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
       ∀ (ψ : Name → Nat) (ρ : Nat → V),
       interp V ρ (A j ψ) ∈ˢ interp V ρ (mkPisAV (ppsOf j ψ) (.sort (resSort.eval ψ))))
     -- no member's former is named by any member's η constructor (the
     -- constructors are checked at the environment holding ALL the
     -- formers, so a constructor's name is not a former's)
-    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), cvTasAll[j]? = some cvTa →
-      cvTasAll[j']? = some cvTb → (ConLeche.blockCapsAt p₁ j isRec).eta = true →
+    (hetaNe : ∀ (j j' : Nat) (cvTa cvTb : ConstantVal), formersAll[j]? = some cvTa →
+      formersAll[j']? = some cvTb → (ConLeche.blockCapsAt p₁ j isRec).eta = true →
       cvTb.name ≠ (ConLeche.blockCapsAt p₁ j isRec).etaCtor)
     -- **the member's capability laws**, at the loop's own carrier: its
     -- telescope reading, the former's freshness and its type's bound,
     -- and the η constructors' freshness (what makes the η claim
     -- vacuous before any constructor is stored)
     (hTlawsOf : ∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS →
-      cvTasAll[j]? = some cvTa →
+      formersAll[j]? = some cvTa →
       ∀ {env' : Env} (m' : EnvModel V env'),
       FormerData m' cvTa (nPOf j) resSort (ppsOf j) →
       env'.find? cvTa.name = none → ConstsBound env' cvTa.type →
-      (∀ (j' : Nat) (cvTb : ConstantVal), cvTasAll[j']? = some cvTb →
+      (∀ (j' : Nat) (cvTb : ConstantVal), formersAll[j']? = some cvTb →
         (ConLeche.blockCapsAt p₁ j' isRec).eta = true →
         env'.find? (ConLeche.blockCapsAt p₁ j' isRec).etaCtor = none) →
       ∀ m₂ : EnvModel V ⟨.indInfo cvS (ConLeche.blockCapsAt p₁ j isRec) :: env'.consts, env'.tables⟩,
@@ -352,28 +352,28 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
     ∀ (rest : List ConstantVal) (i : Nat) (env : Env) (mp : EnvModelM V env),
       (∀ j, rest[j]? = declAll[i + j]?) → i + rest.length = declAll.length →
       ConLeche.EtaFamiliesClosedExceptL env names →
-      (∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+      (∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
         cvTa.type.constsResolve env = true) →
-      (∀ (j : Nat) (cvTa : ConstantVal), i ≤ j → cvTasAll[j]? = some cvTa →
+      (∀ (j : Nat) (cvTa : ConstantVal), i ≤ j → formersAll[j]? = some cvTa →
         env.find? cvTa.name = none) →
-      (∀ (j : Nat) (cvTb : ConstantVal), cvTasAll[j]? = some cvTb →
+      (∀ (j : Nat) (cvTb : ConstantVal), formersAll[j]? = some cvTb →
         (ConLeche.blockCapsAt p₁ j isRec).eta = true →
         env.find? (ConLeche.blockCapsAt p₁ j isRec).etaCtor = none) →
-      (∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+      (∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
         FormerData mp.base2 cvTa (nPOf j) resSort (ppsOf j)) →
-      (∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS → cvTasAll[j]? = some cvTa →
+      (∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS → formersAll[j]? = some cvTa →
         FormerDeclared mp.base2 cvS cvTa) →
       (∀ (j : Nat) (cvS cvTa : ConstantVal), j < i → declAll[j]? = some cvS →
-        cvTasAll[j]? = some cvTa →
+        formersAll[j]? = some cvTa →
         env.find? cvTa.name = some (.indInfo cvS (ConLeche.blockCapsAt p₁ j isRec)) ∧
         ∀ ψ, mp.base2.acval cvTa.name ψ = A j ψ) →
       ∃ mp' : EnvModelM V (ConLeche.consBlockInds p₁ isRec rest i env),
         ConLeche.EtaFamiliesClosedExceptL (ConLeche.consBlockInds p₁ isRec rest i env) names ∧
-        (∀ (j : Nat) (cvTa : ConstantVal), cvTasAll[j]? = some cvTa →
+        (∀ (j : Nat) (cvTa : ConstantVal), formersAll[j]? = some cvTa →
           FormerData mp'.base2 cvTa (nPOf j) resSort (ppsOf j)) ∧
-        (∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS → cvTasAll[j]? = some cvTa →
+        (∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS → formersAll[j]? = some cvTa →
           FormerDeclared mp'.base2 cvS cvTa) ∧
-        (∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS → cvTasAll[j]? = some cvTa →
+        (∀ (j : Nat) (cvS cvTa : ConstantVal), declAll[j]? = some cvS → formersAll[j]? = some cvTa →
           (ConLeche.consBlockInds p₁ isRec rest i env).find? cvTa.name
             = some (.indInfo cvS (ConLeche.blockCapsAt p₁ j isRec)) ∧
           ∀ ψ, mp'.base2.acval cvTa.name ψ = A j ψ) ∧
@@ -388,7 +388,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
   | cvS :: rest, i, env, mp, hrest, hk, hE, hres, hfreshOf, hfreshC, hFD, hDS, hcons => by
     have hiS : declAll[i]? = some cvS := by
       have := hrest 0; simpa using this.symm
-    obtain ⟨cvTa, hi⟩ : ∃ cvTa, cvTasAll[i]? = some cvTa :=
+    obtain ⟨cvTa, hi⟩ : ∃ cvTa, formersAll[i]? = some cvTa :=
       ⟨_, List.getElem?_eq_getElem (by
         rw [← hlenD]; exact (List.getElem?_eq_some_iff.mp hiS).1)⟩
     have hD := hDS i cvS cvTa hiS hi
@@ -408,7 +408,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       (fun m₂ hac => hTlawsOf i cvS cvTa hiS hi mp.base2 (hFD i cvTa hi)
         (hfreshOf i cvTa (Nat.le_refl _) hi) hcb hfreshC m₂ hac)
     -- the invariants at the extension
-    have hne : ∀ (j : Nat) (cvTb : ConstantVal), cvTasAll[j]? = some cvTb → j ≠ i →
+    have hne : ∀ (j : Nat) (cvTb : ConstantVal), formersAll[j]? = some cvTb → j ≠ i →
         cvTb.name ≠ cvS.name := fun j cvTb hj hji => by
       rw [hD.name]; exact hndN j i cvTb cvTa hj hi hji
     have hE' : ConLeche.EtaFamiliesClosedExceptL
@@ -416,28 +416,28 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       hE.cons hfresh (fun _ _ heq _ => by
         obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj heq
         exact Or.inr (by show cvS.name ∈ names; rw [hD.name]; exact hnames i cvTa hi))
-    have hres' : ∀ (j : Nat) (cvTb : ConstantVal), cvTasAll[j]? = some cvTb →
+    have hres' : ∀ (j : Nat) (cvTb : ConstantVal), formersAll[j]? = some cvTb →
         cvTb.type.constsResolve
           (⟨.indInfo cvS (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ : Env) = true :=
       fun j cvTb hj => Expr.constsResolve_mono (hres j cvTb hj)
-    have hfreshOf' : ∀ (j : Nat) (cvTb : ConstantVal), i + 1 ≤ j → cvTasAll[j]? = some cvTb →
+    have hfreshOf' : ∀ (j : Nat) (cvTb : ConstantVal), i + 1 ≤ j → formersAll[j]? = some cvTb →
         (⟨.indInfo cvS (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ : Env).find?
           cvTb.name = none := by
       intro j cvTb hij hj
       rw [ConLeche.Env.find?_cons,
         ite_eq_right (fun hh => hne j cvTb hj (by omega) hh.symm)]
       exact hfreshOf j cvTb (by omega) hj
-    have hFD' : ∀ (j : Nat) (cvTb : ConstantVal), cvTasAll[j]? = some cvTb →
+    have hFD' : ∀ (j : Nat) (cvTb : ConstantVal), formersAll[j]? = some cvTb →
         FormerData mpI.base2 cvTb (nPOf j) resSort (ppsOf j) := by
       intro j cvTb hj
       exact (hFD j cvTb hj).cross (c₀ := .indInfo cvS (ConLeche.blockCapsAt p₁ i isRec))
         hfresh (constsBound_of_constsResolve _ (hres j cvTb hj)) mpI.base2 hacI
     have hDS' : ∀ (j : Nat) (cvS' cvTb : ConstantVal), declAll[j]? = some cvS' →
-        cvTasAll[j]? = some cvTb → FormerDeclared mpI.base2 cvS' cvTb := fun j cvS' cvTb hjS hj =>
+        formersAll[j]? = some cvTb → FormerDeclared mpI.base2 cvS' cvTb := fun j cvS' cvTb hjS hj =>
       (hDS j cvS' cvTb hjS hj).cross
         (c₀ := .indInfo cvS (ConLeche.blockCapsAt p₁ i isRec)) hfresh mpI.base2 hacI
     have hcons' : ∀ (j : Nat) (cvS' cvTb : ConstantVal), j < i + 1 → declAll[j]? = some cvS' →
-        cvTasAll[j]? = some cvTb →
+        formersAll[j]? = some cvTb →
         (⟨.indInfo cvS (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ : Env).find? cvTb.name
           = some (.indInfo cvS' (ConLeche.blockCapsAt p₁ j isRec)) ∧
         ∀ ψ, mpI.base2.acval cvTb.name ψ = A j ψ := by
@@ -461,7 +461,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       intro j
       have := hrest (j + 1)
       rwa [show i + (j + 1) = i + 1 + j from by omega] at this
-    have hfreshC' : ∀ (j : Nat) (cvTb : ConstantVal), cvTasAll[j]? = some cvTb →
+    have hfreshC' : ∀ (j : Nat) (cvTb : ConstantVal), formersAll[j]? = some cvTb →
         (ConLeche.blockCapsAt p₁ j isRec).eta = true →
         (⟨.indInfo cvS (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ : Env).find?
           (ConLeche.blockCapsAt p₁ j isRec).etaCtor = none := by
