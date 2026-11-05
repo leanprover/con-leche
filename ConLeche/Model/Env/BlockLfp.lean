@@ -135,7 +135,7 @@ structure LfpDatum (V : Type w) where
   names : List Name
   /-- the number of MEMBERS -/
   k : Nat
-  /-- member `m`'s former as the block's job read it, where the stored one does not show its
+  /-- member `m`'s former as the block's check read it, where the stored one does not show its
   telescope -/
   shown : Nat → Option ConstantVal
   /-- the operator's WIDTH (members, then instance components) -/

@@ -94,8 +94,8 @@ structure RecShape where
   tgt : Nat
   /-- the recursor's rules as exported (constructor, field count,
   right-hand side; the install-computed fields at their parse
-  placeholders), in the record's order: what the install stores once
-  they agree with the generated ones (`storedRecsAgree`, task #431) -/
+  placeholders), in the record's order: what the install stores, the checks having compared them
+  with the generated ones (`streamRecsCheck`) -/
   rules : List RecRule
   /-- the recursor record's K flag (official's `is_k`): what is installed;
   the job checks it (`streamRecCheck`) -/

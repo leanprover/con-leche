@@ -109694,3 +109694,49 @@ not, which is η for a structure or a unit-like type.  Every key mentions a memb
 domain, so official's block-wide `is_rec` is true and neither η applies to any member of a block with a
 key (ours reads the same `blockRawRec`).  Proof irrelevance reads the sort, which the free variable's
 type gives.  No difference found, none constructed; this is an argument from the code, not a proof.
+
+### One install function: what a declaration installs is read off it (#480, lane 6; 2026-11-05)
+
+**The state.**  `Kernel/Install.lean` holds what a declaration installs, as functions of the
+declaration: `declConstants`, `declTables`, and for a block `blockConstants`, `blockTables`,
+`recFire`.  Nothing there reads an environment, infers or reduces.  `checkBlock` ends with
+`pure (env.pushDelta (blockConstants p₀) (blockTables …))`; its stages return nothing that is
+installed.  `checkBlockTables` and `checkStructProjTable` are checks now (`m Unit`) and run at the
+constructors' environment, so the cached tail no longer pushes the recursors just to run them.  The
+parallel install pushes the same functions' output, and a job is only a verdict.  Gone: `pushesAgree`,
+`DeferredCheck.L`/`Q`, `storedStep`, `Cached/StoredInstall.lean`, `withPinCaps` (a pinned block
+installs `atBlock`), `Cached/InstallSkel.lean`, the skeletons and `SkelIs`, `ProjTable.beqP`.
+
+**What the proofs now say.**  `checkDeclC_pushes`, at every mode and every index: an accepting step's
+result is the declaration's pushes.  This replaces the agreement floor's skeleton induction with a
+stronger fact: `checkDecls_env` says an accepted stream's environment is a function of the stream, and
+`checkDecls_agree` that two modes that both accept end in the same environment (the floor said the
+same skeletons).  `blockInstall_of_checks` says the block's reading is what the checks were about:
+the formers and constructors the checks ran at, each recursor the generated one with the record's
+type and right-hand sides, its K flag and firing mode the generator's.  The model reads that form;
+`DeclBlockRun` records it as its last conjunct.  The firing mode's read is the one new piece of reader
+proof: the major's domain, the index variables dropped by instantiation (`Expr.dropVars`,
+`recFire_nested`).
+
+**Renames.**  The checks against the generated recursors are named for what they read: `streamRecsCheck`
+and its family, `generatedRules`, `generatedFire`, `Kernel/Inductives/StreamRecs.lean`.  `streamRecs`,
+which only the proofs read, moved to `Verify/Inductives/StreamRecsInv.lean`.
+
+**Not done, by choice.**  `installStepC` keeps its shape: the value arms push their constant, the
+others return `checkDeclStepC`'s result, which `installStepC_pushes` says is the same thing.  Spelling
+every arm as one `pushDelta` buys no reader anything and moves six proofs; say so if it should change.
+`BlockPass.cvTas` and `ctorsAs` are `members.map cvT` and `members.map ctors` by theorem, and still
+fields: they occur about 2000 times in the proofs, so removing them is its own lane.
+
+**Verdicts.**  No pinned verdict moved: 537 fixtures, 0 mismatches.
+
+**Cost** (`instructions:u`, one run per stream, jobs 1 / 8; baseline above in the #480 records):
+
+| stream | jobs 1 | jobs 8 |
+|---|---|---|
+| init-full | 380.841 G | 391.202 G |
+| init-prelude | 1.953 G | 2.122 G |
+| grind-ring-5 | 15.320 G | 15.720 G |
+
+**Proof delta.**  Computed for the whole lane at the end of #480; this stage removes more proof than it
+adds (the floor's stage-by-stage skeleton lemmas against one theorem per declaration kind).
