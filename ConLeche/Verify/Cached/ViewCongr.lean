@@ -1248,15 +1248,6 @@ theorem pushAll_env_tables :
   | [], _ => rfl
   | ci :: L, fe => pushAll_env_tables L (fe.push ci)
 
-theorem pushTables_env :
-    ∀ (Q : List ProjTable) (fe : FEnv),
-      (FEnv.pushTables Q fe).env = ⟨fe.env.consts, Q.reverse ++ fe.env.tables⟩
-  | [], _ => rfl
-  | t :: Q, fe => by
-    show (FEnv.pushTables Q (fe.pushTable t)).env = _
-    rw [pushTables_env Q (fe.pushTable t)]
-    simp [FEnv.pushTable]
-
 theorem pushDelta_env (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
     (FEnv.pushDelta L Q fe).env = ⟨L.reverse ++ fe.env.consts, Q.reverse ++ fe.env.tables⟩ := by
   unfold FEnv.pushDelta

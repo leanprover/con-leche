@@ -505,6 +505,15 @@ theorem pushAll_env (fe : FEnv) : ∀ L : List ConstantInfo,
     rw [pushAll_env (fe.push c) L]
     simp [FEnv.push]
 
+theorem pushTables_env :
+    ∀ (Q : List ProjTable) (fe : FEnv),
+      (FEnv.pushTables Q fe).env = ⟨fe.env.consts, Q.reverse ++ fe.env.tables⟩
+  | [], _ => rfl
+  | t :: Q, fe => by
+    show (FEnv.pushTables Q (fe.pushTable t)).env = _
+    rw [pushTables_env Q (fe.pushTable t)]
+    simp [FEnv.pushTable]
+
 theorem pushAll_canon : ∀ (L : List ConstantInfo) {fe : FEnv}, fe = mkFEnv fe.env →
     FEnv.pushAll L fe = mkFEnv (FEnv.pushAll L fe).env
   | [], _, h => h
@@ -562,6 +571,27 @@ theorem PushChain.replay {env : Env} {fe : FEnv} (h : PushChain env fe)
   · intro t ht
     rw [List.mem_reverse] at ht
     exact PushChain.find?_none h (hbelow _ (hQf t ht))
+
+/-- What the replay is: the block's pushes at `f`, over the input, with all of the chain's
+tables. -/
+theorem PushChain.replay_env {fe : FEnv} (vs : List ConstantInfo) {fe₃ : FEnv}
+    (h₃ : PushChain (FEnv.pushAll vs.reverse fe).env fe₃) (f : ConstantInfo → ConstantInfo) :
+    (FEnv.pushTables
+      (fe₃.env.tables.take (fe₃.env.tables.length - fe.env.tables.length)).reverse
+      (FEnv.pushAll
+        ((fe₃.env.consts.take (fe₃.env.consts.length - (vs.length + fe.env.consts.length))).map
+          f).reverse fe)).env =
+    ⟨(fe₃.env.consts.take (fe₃.env.consts.length - (vs.length + fe.env.consts.length))).map f
+        ++ fe.env.consts, fe₃.env.tables⟩ := by
+  obtain ⟨-, -, -, ⟨newQ, hQ, -⟩⟩ := h₃
+  rw [pushAll_env] at hQ
+  dsimp only at hQ
+  have hlenQ : fe₃.env.tables.length - fe.env.tables.length = newQ.length := by
+    rw [hQ]; simp
+  have htakeQ : fe₃.env.tables.take newQ.length = newQ := by
+    rw [hQ]; exact List.take_left' rfl
+  rw [pushTables_env, pushAll_env, hlenQ, htakeQ, List.reverse_reverse, List.reverse_reverse]
+  simp only [← hQ]
 
 theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts) :
