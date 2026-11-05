@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.BlockInv
-public import ConLeche.Verify.Inductives.StoredRecsInv
+public import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Verify.Cached.BlockPushes
 
 @[expose] public section
@@ -31,7 +31,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
   consBlockCtors consBlockRecs consBlockRecsT blockCapsAt
-  blockConstants blockTables storedKCheck
+  blockConstants blockTables streamKCheck
   blockNestedBit blockRawRec BlockPass TargetMajor NestKey NestState)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
@@ -83,15 +83,15 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
       ctx.params st.ctorNfs.toList rd Ms block cvTas = .ok out ∧
     -- 8  the stream's recursors against the generated ones: their K flags, then the
     --    rest at the environment holding the generated ones
-    storedKCheck (m := ConLeche.CheckM) p.toBlockShape p.recs out = .ok () ∧
-    storedRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F) .plain
+    streamKCheck (m := ConLeche.CheckM) p.toBlockShape p.recs out = .ok () ∧
+    streamRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F) .plain
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () ∧
     -- 9  the projection tables' checks
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape (consBlockCtors p.nP ctorsAs env₁)
       p.members = .ok () ∧
     -- 10 the install: the formers and constructors above, the stream's recursors, the tables
-    env₂ = (consBlockRecsT p.toBlockShape 0 (ConLeche.storedOut p.recs out)
+    env₂ = (consBlockRecsT p.toBlockShape 0 (ConLeche.streamRecs p.recs out)
       (consBlockCtors p.nP ctorsAs env₁)).pushDelta [] (blockTables p.toBlockShape p.members)
 
 /-- **The block's run**: each member at its telescope, then the stages at those members. -/

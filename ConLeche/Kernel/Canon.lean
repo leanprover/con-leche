@@ -358,18 +358,4 @@ theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a =
   · obtain ⟨⟨⟨⟨hv, rfl⟩, rfl⟩, rfl⟩, hr⟩ := h
     rw [ConstantVal.eq_of_beqP hv, eq_of_listBeqBy (fun _ _ => RecRule.eq_of_beqP) hr]
 
-/-- **`ProjTable` equality, pointer-first**: the bodies by `Expr`'s
-`==`, the rest by value. -/
-def ProjTable.beqP (a b : ProjTable) : Bool :=
-  a.structName == b.structName && a.levelParams == b.levelParams &&
-    a.numParams == b.numParams && a.ctor == b.ctor && a.numFields == b.numFields &&
-    a.bodies == b.bodies
-
-theorem ProjTable.eq_of_beqP {a b : ProjTable} (h : a.beqP b = true) : a = b := by
-  obtain ⟨_, _, _, _, _, _⟩ := a
-  obtain ⟨_, _, _, _, _, _⟩ := b
-  simp only [ProjTable.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
-  rfl
-
 end ConLeche

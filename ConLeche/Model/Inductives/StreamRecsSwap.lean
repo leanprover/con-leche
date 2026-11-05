@@ -5,24 +5,22 @@ import ConLeche.Verify.Denote
 import ConLeche.Model.Swap
 public import ConLeche.Verify.Extend.RecsTy
 public import ConLeche.Model.Inductives.DeclBlock
-import ConLeche.Verify.Inductives.StoredRecsInv
+import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Model.Inductives.BlockCover
-import ConLeche.Model.Inductives.StoredSem
+import ConLeche.Model.Inductives.StreamRecsSem
 import ConLeche.Model.Levels
 
 public section
 
 /-!
-# The stored recursors installed, P tier (task #431)
+# The stream's recursors, P tier
 
-The block install generates its recursors and installs the STORED ones
-— the records' types and right-hand sides — once they agree with the
-generated ones (`storedRecsCheck`).  The generated install carries the
-P invariant (`genRecStage`); `EnvModelM.swapTyP` carries it to the
-stored install with the same leaf valuation (the swap changes no name,
-no level parameter, no kind, so `denote` and every guard agree), given
-the stored types' facts and the ι contract at the stored recursors;
-`blockRecStagedAt_stored` is the stage's form.
+A block generates its recursors and installs the stream's — the records' types and right-hand
+sides — once they agree with the generated ones (`streamRecsCheck`).  The environment holding the
+generated ones carries the P invariant (`genRecStage`); `EnvModelM.swapTyP` carries it to the one
+holding the stream's with the same leaf valuation (the swap changes no name, no level parameter, no
+kind, so `denote` and every guard agree), given the records' types' facts and the ι contract at
+them; `blockRecStagedAt_stored` is the stage's form.
 -/
 
 namespace ConLeche.Model
@@ -248,22 +246,22 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
 
 /-! ## The stage -/
 
-/-- The generated and the stored install, entry by entry: the same
+/-- The generated recursors and the stream's, entry by entry: the same
 recursors but for their types and right-hand sides. -/
-theorem swapTyList_storedOut {q : ConLeche.BlockShape} :
+theorem swapTyList_streamRecs {q : ConLeche.BlockShape} :
     ∀ {m : Nat} {recs : List ConLeche.RecShape}
       {out : List (ConstantVal × ConLeche.TargetMajor × List Expr)} {env₀ env₃ : Env},
       out.length = recs.length →
       (∀ g ∈ out, ConLeche.reservedRecName g.1.name = false) →
       ConLeche.SwapTyList env₀.consts env₃.consts → env₃.tables = env₀.tables →
       ConLeche.SwapTyList (ConLeche.consBlockRecsT q m out env₀).consts
-        (ConLeche.consBlockRecsT q m (ConLeche.storedOut recs out) env₃).consts
+        (ConLeche.consBlockRecsT q m (ConLeche.streamRecs recs out) env₃).consts
   | _, [], [], _, _, _, _, h, _ => h
   | _, [], _ :: _, _, _, hl, _, _, _ => by simp at hl
   | _, _ :: _, [], _, _, hl, _, _, _ => by simp at hl
   | m, rc :: recs, g :: out, env₀, env₃, hl, hres, h, ht => by
-    simp only [ConLeche.storedOut, List.zipWith_cons_cons, ConLeche.consBlockRecsT]
-    refine swapTyList_storedOut (m := m + 1) (recs := recs) (out := out)
+    simp only [ConLeche.streamRecs, List.zipWith_cons_cons, ConLeche.consBlockRecsT]
+    refine swapTyList_streamRecs (m := m + 1) (recs := recs) (out := out)
       (env₀ := ⟨_ :: env₀.consts, env₀.tables⟩) (env₃ := ⟨_ :: env₃.consts, env₃.tables⟩)
       (by simpa using hl) (fun g' hg' => hres g' (List.mem_cons_of_mem _ hg'))
       (ConLeche.SwapTyList.cons (Or.inr ⟨_, _, _, _, _, _, _, rfl, rfl, rfl, rfl,
@@ -285,7 +283,7 @@ theorem find?_consBlockRecsT_of_not_mem {q : ConLeche.BlockShape} {n : Name} :
 stored install `envS` over the generated install `envG` (the same leaf
 valuation): the syntactic facts at `envS` other than its
 well-formedness (the rules' constructors, the pinned basis, the tables:
-unchanged by the swap, `StoredCorr`), the ι contract at the stored
+unchanged by the swap, `StreamCorr`), the ι contract at the stored
 recursors (`recRuleLaw_stored`: fits at the stored type are fits at the
 generated one, `storedTy_sem`; the stored right-hand sides read as the
 generated ones, `storedRhs_sem`), and the stored types' readings,
@@ -296,51 +294,51 @@ theorem storedSwap_sem {envC : Env}
     (mpG : EnvModelM V (ConLeche.consBlockRecsT q 0 out envC))
     (hlen : out.length = q.recs.length)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
-    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps .verified F) .plain
+    (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ()) :
-    ConLeche.RecCtorsStored (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC) ∧
-    BasisPinnedTT (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+    ConLeche.RecCtorsStored (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC) ∧
+    BasisPinnedTT (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
       mpG.base2.acval ∧
-    ProjOkT (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC) ∧
-    (∀ (m₃ : EnvModel V (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)),
+    ProjOkT (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC) ∧
+    (∀ (m₃ : EnvModel V (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)),
       m₃.acval = mpG.base2.acval → ∀ φ : Name → Nat, RecRules m₃ φ) ∧
-    (∀ c ∈ (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).consts,
+    (∀ c ∈ (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).consts,
       c ∉ (ConLeche.consBlockRecsT q 0 out envC).consts →
       (∀ ψ : Name → Nat, ∃ ta : Term,
-        denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+        denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
           ψ 0 c.toConstantVal.type = some ta) ∧
       (∀ (ψ : Name → Nat) (ta : Term),
-        denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+        denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
           ψ 0 c.toConstantVal.type = some ta →
         ∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
       (∀ (ψ : Name → Nat) (ta : Term),
-        denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+        denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
           ψ 0 c.toConstantVal.type = some ta →
         ∀ ρ : Nat → V, interp V ρ (mpG.base2.acval c.name ψ) ∈ˢ interp V ρ ta)) := by
-  have hsw := swapTyList_storedOut (q := q) (m := 0) (env₀ := envC) (env₃ := envC)
+  have hsw := swapTyList_streamRecs (q := q) (m := 0) (env₀ := envC) (env₃ := envC)
     hlen hnres (ConLeche.SwapTyList.of_eq _) rfl
-  have htab : (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).tables
+  have htab : (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).tables
       = (ConLeche.consBlockRecsT q 0 out envC).tables := by
     rw [consBlockRecsT_tables 0, consBlockRecsT_tables 0]
   have hcg := ConLeche.SwapTyList.congrEnv hsw htab
   have hcorr := ConLeche.swapTy_find?_corrEnv hsw
   have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
-      denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+      denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
         ψ d e = denote mpG.base2.acval (ConLeche.consBlockRecsT q 0 out envC) ψ d e :=
     fun ψ d e => (denote_swap hcg ψ d e).symm
   have hkeep : ∀ (n : Name) (ci : ConstantInfo),
       (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
       (ConLeche.consBlockRecsT q 0 out envC).find? n = some ci →
-      (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).find? n = some ci :=
+      (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).find? n = some ci :=
     fun n ci hnr h => hcg.findUp n ci h hnr
   have hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat),
-      (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).find? c
+      (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).find? c
         = some (.ctorInfo cvj cnP cnF) →
       (ConLeche.consBlockRecsT q 0 out envC).find? c = some (.ctorInfo cvj cnP cnF) :=
     fun c cvj cnP cnF h => hcg.findDown c _ h (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)
   have hfam : ∀ cvj : ConstantVal,
       ConLeche.ctorFamily
-          (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).find? cvj
+          (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).find? cvj
         = ConLeche.ctorFamily (ConLeche.consBlockRecsT q 0 out envC).find? cvj := by
     intro cvj
     unfold ConLeche.ctorFamily
@@ -351,33 +349,33 @@ theorem storedSwap_sem {envC : Env}
       · rw [heq]
       · rw [h₀, h₃]
     | _ => rfl
-  obtain ⟨-, hallS⟩ := ConLeche.storedRecsCheck_inv hS
+  obtain ⟨-, hallS⟩ := ConLeche.streamRecsCheck_inv hS
   let Q : Nat → ConLeche.RecShape → ConstantVal × ConLeche.TargetMajor × List Expr → Prop :=
     fun j rc g => q.recs[j]? = some rc ∧ out[j]? = some g ∧
-      ConLeche.storedRecCheck (ConLeche.fueledOps .verified F) .plain
+      ConLeche.streamRecCheck (ConLeche.fueledOps .verified F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) rc g = .ok ()
-  have hC : ConLeche.StoredCorr q Q
-      (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+  have hC : ConLeche.StreamCorr q Q
+      (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
       (ConLeche.consBlockRecsT q 0 out envC) :=
-    ConLeche.StoredCorr.consBlockRecsT (m := 0) hlen
+    ConLeche.StreamCorr.consBlockRecsT (m := 0) hlen
       (fun i rc g hr hg => by
         simp only [Nat.zero_add]; exact ⟨hr, hg, hallS i rc g hr hg⟩)
-      (ConLeche.StoredCorr.refl q Q envC)
+      (ConLeche.StreamCorr.refl q Q envC)
   -- a stored position's facts
   have hposQ : ∀ {j rc g}, Q j rc g →
       q.majorIdxAt j = rc.mI ∧ (rc.rules.map (·.rhs)).length = g.2.2.length ∧
       (rc.cvR.type = g.1.type ∨ ConLeche.recTyCheck (ConLeche.fueledOps .verified F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
         (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-      ConLeche.storedRulesCheck (ConLeche.fueledOps .verified F) .plain
+      ConLeche.streamRulesCheck (ConLeche.fueledOps .verified F) .plain
         (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) g.1.name g.1.levelParams
         rc.rules g.2.2 = .ok () := by
     intro j rc g hQ
     obtain ⟨hrc, -, hck⟩ := hQ
-    obtain ⟨-, -, hcmp⟩ := ConLeche.storedRecCheck_inv hck
-    obtain ⟨hty, hrules⟩ := ConLeche.storedRecCompare_inv hcmp
+    obtain ⟨-, -, hcmp⟩ := ConLeche.streamRecCheck_inv hck
+    obtain ⟨hty, hrules⟩ := ConLeche.streamRecCompare_inv hcmp
     refine ⟨by simp only [ConLeche.BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc,
-      Option.getD_some], by rw [List.length_map]; exact (ConLeche.storedRulesCheck_inv hrules).1,
+      Option.getD_some], by rw [List.length_map]; exact (ConLeche.streamRulesCheck_inv hrules).1,
       hty, hrules⟩
   -- a generated entry's facts
   have hgen : ∀ {j g}, ConLeche.recEntryG q j g ∈ (ConLeche.consBlockRecsT q 0 out envC).consts →
@@ -390,7 +388,7 @@ theorem storedSwap_sem {envC : Env}
       (∀ (ψ : Name → Nat) (TG : Term), denote mpG.base2.acval
         (ConLeche.consBlockRecsT q 0 out envC) ψ 0 g.1.type = some TG →
         ∀ ρ : Nat → V, interp V ρ (mpG.base2.acval g.1.name ψ) ∈ˢ interp V ρ TG) ∧
-      ∀ r ∈ ConLeche.tgtStoredRules (q.rulePrefixAt j) g.2.1 g.2.2,
+      ∀ r ∈ ConLeche.generatedRules (q.rulePrefixAt j) g.2.1 g.2.2,
         r.rhs.looseBVarsBounded 0 = true :=
     fun hm => ⟨(mpG.base2.wf.consts _ hm).2.2.2.1, mpG.type_reads _ hm,
       mpG.type_wellDenotedTy _ hm, mpG.mem_type _ hm,
@@ -404,7 +402,7 @@ theorem storedSwap_sem {envC : Env}
     · obtain ⟨e1, e2, e3, e5, e4⟩ := ConstantInfo.recInfo.inj hci
       subst e1 e2 e3 e5 e4
       obtain ⟨-, hl, -, -⟩ := hposQ hQ
-      obtain ⟨i, rG, hrG, -, -, hreq⟩ := ConLeche.storedRule_corr hl hr
+      obtain ⟨i, rG, hrG, -, -, hreq⟩ := ConLeche.streamRule_corr hl hr
       obtain ⟨cvj, cnP, cnF, hfc⟩ := mpG.base2.rec_ctors n g.1 _ _ _ _ hG rG hrG
       have hc : r.ctor = rG.ctor := by rw [hreq]
       rw [hc]
@@ -434,7 +432,7 @@ theorem storedSwap_sem {envC : Env}
     · obtain ⟨e1, e2, e3, e5, e4⟩ := ConstantInfo.recInfo.inj hci
       subst e1 e2 e3 e5 e4
       obtain ⟨hmI, hl, hty, hrules⟩ := hposQ hQ
-      obtain ⟨i, rG, hrG, hiS, hiG, hreq⟩ := ConLeche.storedRule_corr hl hrl
+      obtain ⟨i, rG, hrG, hiS, hiG, hreq⟩ := ConLeche.streamRule_corr hl hrl
       have hmG := ConLeche.Env.find?_mem hG
       obtain ⟨hGb, hGr, hGw, -, hgb⟩ := hgen hmG
       have h := mpG.rec_rules φ n g.1 _ _ _ _ hG rG hrG
@@ -457,7 +455,7 @@ theorem storedSwap_sem {envC : Env}
           cases h0 : rc.rules[i]? with
           | none => rw [h0] at hiS; exact nomatch hiS
           | some r0 => rw [h0] at hiS; exact ⟨r0, rfl, Option.some.inj hiS⟩
-        rcases (ConLeche.storedRulesCheck_inv hrules).2 i r0 rG.rhs hr0 hiG with heq | hag
+        rcases (ConLeche.streamRulesCheck_inv hrules).2 i r0 rG.rhs hr0 hiG with heq | hag
         · rw [← hr0e, heq]
           obtain ⟨Ra, hRa, hw, -⟩ := h.2.1 us hus
           obtain rfl := Option.some.inj (hRa.symm.trans hRaG)
@@ -504,24 +502,24 @@ theorem blockRecStagedAt_stored {envC : Env}
     (hlen : out.length = q.recs.length)
     (hfr : ∀ g ∈ out, envC.find? g.1.name = none)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
-    (hS : ConLeche.storedRecsCheck (ConLeche.fueledOps .verified F) .plain
+    (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ())
-    (hwfS : EnvWF (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)) :
-    BlockRecStagedAt envC (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC)
+    (hwfS : EnvWF (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)) :
+    BlockRecStagedAt envC (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)
       mpC := by
   obtain ⟨mpG, hag, -, hden⟩ := hG
-  have hsw := swapTyList_storedOut (q := q) (m := 0) (env₀ := envC) (env₃ := envC)
+  have hsw := swapTyList_streamRecs (q := q) (m := 0) (env₀ := envC) (env₃ := envC)
     hlen hnres (ConLeche.SwapTyList.of_eq _) rfl
-  have htab : (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).tables
+  have htab : (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).tables
       = (ConLeche.consBlockRecsT q 0 out envC).tables := by
     rw [consBlockRecsT_tables 0, consBlockRecsT_tables 0]
   obtain ⟨hctors, hbp, hproj, hrecP, htyS⟩ := storedSwap_sem mpG hlen hnres hS
   obtain ⟨mpS, hac, -⟩ := EnvModelM.swapTyP mpG hsw htab hwfS hctors hbp hproj hrecP htyS
   have hcg := ConLeche.SwapTyList.congrEnv hsw htab
-  have hnm : ∀ n, (envC.find? n).isSome = true → ∀ t ∈ ConLeche.storedOut q.recs out,
+  have hnm : ∀ n, (envC.find? n).isSome = true → ∀ t ∈ ConLeche.streamRecs q.recs out,
       t.1.name ≠ n := by
     intro n hn t ht he
-    obtain ⟨g, hg, hgn, -⟩ := ConLeche.mem_storedOut ht
+    obtain ⟨g, hg, hgn, -⟩ := ConLeche.mem_streamRecs ht
     rw [hgn] at he
     rw [← he, hfr g hg] at hn
     exact nomatch hn

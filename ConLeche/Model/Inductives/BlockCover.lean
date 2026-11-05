@@ -209,10 +209,10 @@ theorem consBlockRecsT_consts {q : BlockShape} :
     obtain ⟨cv, M, rhss⟩ := o
     obtain ⟨new, hnew, hall⟩ := consBlockRecsT_consts (q := q)
       (m + 1) rest ⟨.recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ConLeche.recKExpected q M) (ConLeche.tgtStoredRules (q.rulePrefixAt m) M rhss)
+        (ConLeche.recKExpected q M) (ConLeche.generatedRules (q.rulePrefixAt m) M rhss)
           :: env.consts, env.tables⟩
     refine ⟨new ++ [.recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
-        (ConLeche.recKExpected q M) (ConLeche.tgtStoredRules (q.rulePrefixAt m) M rhss)],
+        (ConLeche.recKExpected q M) (ConLeche.generatedRules (q.rulePrefixAt m) M rhss)],
       ?_, fun c hc => ?_⟩
     · show (ConLeche.consBlockRecsT q (m + 1) rest _).consts = _
       rw [hnew]; simp

@@ -937,8 +937,7 @@ def projCert (env : Env) (c : Name) (args : List Expr) : Bool :=
 2026-09-06): the verified core checks the constructor telescope's
 arity (`projCert`); the trusted core is the official kernel's, which
 reduces every constructor redex with no check.  The trusted lane stays
-an accept-superset of the verified lane, which is all the agreement
-floor (`Verify/Cached/AgreeFloor.lean`) asks of it. -/
+an accept-superset of the verified lane. -/
 def projCertAt (env : Env) (verified : Bool) (c : Name) (args : List Expr) :
     Bool :=
   if verified then projCert env c args else true

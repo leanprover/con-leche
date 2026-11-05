@@ -5,7 +5,7 @@ public import ConLeche.Verify.Inductives.BlockWF
 public import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.Inductives.BlockStageFormer
 import ConLeche.Model.Inductives.BlockCaps
-import ConLeche.Model.Inductives.StoredSem
+import ConLeche.Model.Inductives.StreamRecsSem
 import ConLeche.Model.Inductives.FixKit
 public import ConLeche.Verify.Inductives.BlockInv
 public section

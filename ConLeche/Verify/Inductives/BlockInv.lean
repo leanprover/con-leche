@@ -624,7 +624,7 @@ theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockParts} {ms : Lis
 constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
 stored recursors against the generated ones at the generated install
-(`storedRecsCheck`, task #431), the stored recursors consed
+(`streamRecsCheck`, task #431), the stored recursors consed
 with their rules at their majors, and the projection tables. -/
 theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : Nat}
     (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok ()) :
@@ -635,8 +635,8 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : 
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p (blockNestedBit q.p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls block
           q.cvTas = .ok out ∧
-      storedKCheck (m := CheckM) q.p.toBlockShape q.p.recs out = .ok () ∧
-      storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
+      streamKCheck (m := CheckM) q.p.toBlockShape q.p.recs out = .ok () ∧
+      streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
         (mkFEnv (consBlockRecsT q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out
         = .ok () ∧
       checkBlockTables (m := CheckM) q.p.toBlockShape (consBlockCtors q.p.nP q.ctorsAs q.env₁)
@@ -657,13 +657,13 @@ theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : 
   | ok out =>
   rw [hRec] at h
   dsimp only at h
-  cases hK : storedKCheck (m := CheckM) q.p.toBlockShape q.p.recs out with
+  cases hK : streamKCheck (m := CheckM) q.p.toBlockShape q.p.recs out with
   | error e => rw [hK] at h; exact nomatch h
   | ok uK =>
   cases uK
   rw [hK] at h
   dsimp only at h
-  cases hS : storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
+  cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
       (mkFEnv (consBlockRecsT q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>

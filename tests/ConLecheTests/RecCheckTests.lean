@@ -55,8 +55,8 @@ open ConLeche
   == "accept"
 -- a stream rule recursing on a CLOSED major (`U.rec motive h U.u`):
 -- the install compares the stream's rule with the generated one at the
--- generated install (`storedRecsCheck`,
--- `ConLeche/Kernel/Inductives/StoredRecs.lean`), where it ι-reduces to
+-- generated install (`streamRecsCheck`,
+-- `ConLeche/Kernel/Inductives/StreamRecs.lean`), where it ι-reduces to
 -- `h`: definitionally the generated rule, so the block is ACCEPTED with
 -- the stream's rule installed (official, comparing syntactically,
 -- rejects)

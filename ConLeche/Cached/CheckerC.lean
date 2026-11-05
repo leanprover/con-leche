@@ -161,10 +161,10 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM U
     (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
-  storedKCheck p.toBlockShape p.recs out
+  streamKCheck p.toBlockShape p.recs out
   let feG := fe₂.overlay (blockRecInfosTF p.toBlockShape 0 out).reverse
   flushC
-  storedRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
+  streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
   flushC
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape fe₂ p.members
 

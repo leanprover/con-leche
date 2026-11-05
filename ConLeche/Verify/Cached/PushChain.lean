@@ -3,7 +3,7 @@ module
 import ConLeche.Verify.Inductives.BlockPartsInv
 public import ConLeche.Verify.Cached.InstallPushes
 public import ConLeche.Verify.EnvBound
-import ConLeche.Verify.Inductives.StoredRecsInv
+import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
 
@@ -22,7 +22,7 @@ performs is guarded by a lookup — `checkConstantValC`'s duplicate
 guard, `installBasisDeclF`'s — and every table install by a lookup of
 its structure — so this file proves, once and OPERATIONALLY (no
 environment well-formedness, no simulation: the final-value discipline
-of `ConLeche/Verify/Cached/AgreeFloor.lean`), that an accepted step
+of `ConLeche/Verify/Cached/InstallPushes.lean`), that an accepted step
 returns `PushChain env fe'`: a canonical index whose constants extend
 `env` by fresh names, and whose tables extend `env`'s by tables of
 structures `env` does not store.  Chained from the empty environment, that is
@@ -174,26 +174,13 @@ theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
 
 /-! ## The constructors' conses -/
 
-/-- The constructors' conses: a fresh chain from the former's index. -/
-theorem consSumCtorsF_push (nP : Nat) :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {env : Env} {fe : FEnv},
-      PushChain env fe → FreshNames fe.env (ctorsA.map (·.1.name)) →
-      PushChain env (consSumCtorsF nP ctorsA fe)
-  | [], _, _, h, _ => h
-  | c :: cs, env, fe, h, hf => by
-    have hfr : fe.find? c.1.name = none := by
-      rw [h.find?]
-      exact hf.2 _ (by simp)
-    exact consSumCtorsF_push nP (ctorsA := cs) (h.push hfr)
-      (FreshNames.step (c := .ctorInfo c.1 nP c.2) hf)
-
 /-! ## The block install at k members
 
-The k-ary install pushes the k formers, then every member's
-constructors, then the k recursors, then a table per structure-like
-member.  Every push is fresh: the formers and the constructors by their
-own stages' lookups and the install's distinct-name guard, the
-recursors by the type stage's lookup (at the constructors' index) and —
+A block pushes its formers, then every member's constructors, then its
+recursors, then a table per structure-like member.  Every push is fresh:
+the formers and the constructors by their own stages' lookups and the
+block's distinct-name guard, the recursors by the type stage's lookup (at
+the constructors' index) and —
 for the k names among themselves — by the recursor NAME-SET check
 (`blockRecNameSetOk`), which with the members' own distinct names is a
 pigeonhole. -/

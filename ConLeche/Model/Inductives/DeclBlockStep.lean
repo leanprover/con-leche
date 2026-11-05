@@ -23,7 +23,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.FamilyRan
 public import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockRecPreHpre
-import ConLeche.Model.Inductives.StoredSwap
+import ConLeche.Model.Inductives.StreamRecsSwap
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Verify.Cached.GenRecC
 
@@ -780,7 +780,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       (mkFEnv (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)) (p₀.complete p₁).toBlockShape
       (ConLeche.blockNestedBit (p₀.complete p₁).toBlockShape kinds) ctx.params st.ctorNfs.toList
       rd Ms cvTas block = .ok outR := hRec
-  -- the stored install is well formed: the parameters' variables are one per
+  -- the stream's recursors are well formed: the parameters' variables are one per
   -- parameter, an outside class's parameters are the block's
   have hpl : ctx.params.length = (p₀.complete p₁).toBlockShape.nP := by
     obtain ⟨cvTa0, fvsP, rest, -, hop, rfl, -⟩ := ConLeche.blockNestCtx_inv hctxR
@@ -798,7 +798,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     cases R.major with
     | member => intro h; exact nomatch h
     | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc => exact fun _ => ⟨hdsLen, hdsSc⟩
-  have hwfS := ConLeche.Cached.storedRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ hSt
+  have hwfS := ConLeche.Cached.streamRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ hSt
   obtain ⟨mpR₀, hag, hfindMono, hden⟩ :=
     blockRecStagedAt_stored hG (ConLeche.Cached.genRecCheck_outCv hRec').1
       (ConLeche.genRecCheck_out_fresh hRec') (ConLeche.Cached.genRecCheck_out_unreserved hRec')
@@ -808,7 +808,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   -- ## coverage across the recursors' conses: only recursors
   -- are stored, every old name keeps its leaf
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
-    (q := (p₀.complete p₁).toBlockShape) 0 (ConLeche.storedOut (p₀.complete p₁).recs outR)
+    (q := (p₀.complete p₁).toBlockShape) 0 (ConLeche.streamRecs (p₀.complete p₁).recs outR)
     (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
   obtain ⟨mpR, hbR, hlR, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
     (consBlockRecsT_tables 0 _ _) hfindMono

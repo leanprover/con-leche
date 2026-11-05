@@ -49,16 +49,16 @@ theorem consBlockInds_indexed {p₁ : BlockShape} {isRec : Bool} :
 
 omit [SetTheory V] in
 /-- A stored recursor is named as the generated one. -/
-theorem storedOut_mem_name :
+theorem streamRecs_mem_name :
     ∀ (recs : List RecShape) (out : List (ConstantVal × ConLeche.TargetMajor × List Expr)),
-      ∀ o ∈ ConLeche.storedOut recs out, ∃ g ∈ out, o.1.name = g.1.name
-  | [], _, _, h => by simp [ConLeche.storedOut] at h
-  | _ :: _, [], _, h => by simp [ConLeche.storedOut] at h
+      ∀ o ∈ ConLeche.streamRecs recs out, ∃ g ∈ out, o.1.name = g.1.name
+  | [], _, _, h => by simp [ConLeche.streamRecs] at h
+  | _ :: _, [], _, h => by simp [ConLeche.streamRecs] at h
   | rc :: recs, g :: out, o, h => by
-    simp only [ConLeche.storedOut, List.zipWith_cons_cons, List.mem_cons] at h
+    simp only [ConLeche.streamRecs, List.zipWith_cons_cons, List.mem_cons] at h
     rcases h with rfl | h
     · exact ⟨g, List.mem_cons_self, rfl⟩
-    · obtain ⟨g', hg', hn⟩ := storedOut_mem_name recs out o h
+    · obtain ⟨g', hg', hn⟩ := streamRecs_mem_name recs out o h
       exact ⟨g', List.mem_cons_of_mem _ hg', hn⟩
 
 omit [SetTheory V] in
@@ -76,7 +76,7 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
   obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_indexed (p₁ := p₁) (isRec := isRec)
     (p₀.members.map (·.declared)) 0 env
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
-    (q := p.toBlockShape) 0 (ConLeche.storedOut p.recs outR)
+    (q := p.toBlockShape) 0 (ConLeche.streamRecs p.recs outR)
     (ConLeche.consBlockCtors p.nP ctorsAs env₁)
   have hctor := consBlockCtors_consts p.nP ctorsAs env₁
   refine ⟨newR ++ (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2).reverse ++ newI,
@@ -88,7 +88,7 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
   · simp only [List.mem_append] at hc
     rcases hc with (hc | hc) | hc
     · obtain ⟨o, ho, mI, rP, isK, rules, rfl⟩ := hnewRall c hc
-      obtain ⟨g, hg, hn⟩ := storedOut_mem_name _ _ o ho
+      obtain ⟨g, hg, hn⟩ := streamRecs_mem_name _ _ o ho
       subst hp
       have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
           (mkFEnv (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)) (p₀.complete p₁).toBlockShape

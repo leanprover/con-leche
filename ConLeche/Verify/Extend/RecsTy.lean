@@ -10,7 +10,7 @@ public section
 `SwapPairTy`/`SwapTyList`: a stored recursor replaced by one with the
 same name, level parameters, major index and rule prefix, and any type
 and rules — the step that installs the STORED recursors in place of the
-generated ones (`storedRecsCheck`).  Like the rule-list swap
+generated ones (`streamRecsCheck`).  Like the rule-list swap
 (`SwapShList`, `Recs.lean`) it changes no stored name, no level
 parameter and no kind, so it induces the same environment congruences
 (`SwapTyList.congr`): `denote` and the guards read the environment only

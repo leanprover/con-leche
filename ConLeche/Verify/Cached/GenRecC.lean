@@ -11,7 +11,7 @@ public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.InstallPushes
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.BlockOverlay
-public import ConLeche.Verify.Inductives.StoredRecsInv
+public import ConLeche.Verify.Inductives.StreamRecsInv
 public import ConLeche.Verify.Inductives.TargetAuxFire
 
 public section
@@ -812,127 +812,127 @@ theorem ruleAgreeS_spec (henv : EnvWF env)
   sym only [conleche_grind, ruleAgree.eq_1, → wscoped_zero_of_hasFvar_false] =>
     vcgen [ruleAgree, inferS_specF henv, defeqS_specF henv] <;> finish
 
-theorem storedRulesCheckS_spec (henv : EnvWF env)
+theorem streamRulesCheckS_spec (henv : EnvWF env)
     {rec : Name} {lps : List Name} :
     ∀ (rs : List RecRule) (gs : List Expr) {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        storedRulesCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps rs gs
+        streamRulesCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rec lps rs gs
       ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (storedRulesCheck (fueledOpsM .verified) .plain (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
+        Runs (streamRulesCheck (fueledOpsM .verified) .plain (mkFEnv env) rec lps rs gs) v; ⊤⦄ := by
   intro rs
   induction rs with
   | nil =>
     intro gs _ hs
     cases gs <;>
-    sym only [conleche_grind, storedRulesCheck] =>
-      vcgen [storedRulesCheck.eq_def] <;> finish
+    sym only [conleche_grind, streamRulesCheck] =>
+      vcgen [streamRulesCheck.eq_def] <;> finish
   | cons r rs ih =>
     intro gs
     cases gs with
     | nil =>
       intro _ hs
-      sym only [conleche_grind, storedRulesCheck] =>
-        vcgen [storedRulesCheck.eq_def] <;> finish
+      sym only [conleche_grind, streamRulesCheck] =>
+        vcgen [streamRulesCheck.eq_def] <;> finish
     | cons g gs =>
       intro _ hs
-      sym only [conleche_grind, storedRulesCheck] =>
-        vcgen [storedRulesCheck.eq_def, ruleAgreeS_spec henv, ih gs] <;> finish
+      sym only [conleche_grind, streamRulesCheck] =>
+        vcgen [streamRulesCheck.eq_def, ruleAgreeS_spec henv, ih gs] <;> finish
 
 /-- The stored recursors' comparison, simulated. -/
-theorem storedRecCompareS_spec (henv : EnvWF env)
+theorem streamRecCompareS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
     (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      storedRecCompare (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+      streamRecCompare (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (storedRecCompare (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
-  sym only [conleche_grind, storedRecCompare.eq_1] =>
-    vcgen [storedRecCompare, recTyCheckS_spec henv, storedRulesCheckS_spec henv] <;> finish
+      Runs (streamRecCompare (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+  sym only [conleche_grind, streamRecCompare.eq_1] =>
+    vcgen [streamRecCompare, recTyCheckS_spec henv, streamRulesCheckS_spec henv] <;> finish
 
 /-- The stored rules' shape (no operation), simulated. -/
-theorem storedRulesShapeS_spec {rec : Name} :
+theorem streamRulesShapeS_spec {rec : Name} :
     ∀ (rs : List RecRule) (cs : List (ConstantVal × Nat)) {s₀ : CState}, CSOK mode false env s₀ →
-      ⦃fun st => st = s₀⦄ storedRulesShape (m := CheckCM) rec rs cs
-      ⦃fun v s' => CSOK mode false env s' ∧ Runs (storedRulesShape (m := FueledM) rec rs cs) v; ⊤⦄
+      ⦃fun st => st = s₀⦄ streamRulesShape (m := CheckCM) rec rs cs
+      ⦃fun v s' => CSOK mode false env s' ∧ Runs (streamRulesShape (m := FueledM) rec rs cs) v; ⊤⦄
           := by
   intro rs
   induction rs with
   | nil =>
     intro cs _ hs
     cases cs <;>
-    sym only [conleche_grind, storedRulesShape] =>
-      vcgen [storedRulesShape.eq_def] <;> finish
+    sym only [conleche_grind, streamRulesShape] =>
+      vcgen [streamRulesShape.eq_def] <;> finish
   | cons r rs ih =>
     intro cs
     cases cs with
     | nil =>
       intro _ hs
-      sym only [conleche_grind, storedRulesShape] =>
-        vcgen [storedRulesShape.eq_def] <;> finish
+      sym only [conleche_grind, streamRulesShape] =>
+        vcgen [streamRulesShape.eq_def] <;> finish
     | cons c cs =>
       intro _ hs
-      sym only [conleche_grind, storedRulesShape] =>
-        vcgen [storedRulesShape.eq_def, ih cs] <;> finish
+      sym only [conleche_grind, streamRulesShape] =>
+        vcgen [streamRulesShape.eq_def, ih cs] <;> finish
 
 /-- The records' K flags: the check reads no state, at the cached
 driver as at the pure one. -/
-theorem storedKCheck_run {p : BlockShape} :
+theorem streamKCheck_run {p : BlockShape} :
     ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)}
       {s s' : CState} {u : PUnit},
-      storedKCheck (m := CheckCM) p recs out s = .ok (u, s') →
-      s' = s ∧ storedKCheck (m := CheckM) p recs out = .ok ()
+      streamKCheck (m := CheckCM) p recs out s = .ok (u, s') →
+      s' = s ∧ streamKCheck (m := CheckM) p recs out = .ok ()
   | [], _, _, _, _, h => by
-    simp only [storedKCheck, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    simp only [streamKCheck, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     exact ⟨h.2.symm, rfl⟩
   | _ :: _, [], _, _, _, h => by
-    simp only [storedKCheck, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+    simp only [streamKCheck, pure, StateT.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     exact ⟨h.2.symm, rfl⟩
   | rc :: rcs, g :: gs, s, s', u, h => by
-    unfold storedKCheck at h ⊢
+    unfold streamKCheck at h ⊢
     by_cases hk : (rc.isK == recKExpected p g.2.1) = true
     · simp only [hk, Bool.not_true, reduceIte, pure, StateT.pure, Except.pure, Bind.bind,
         StateT.bind, Except.bind, Bool.false_eq_true, bind_pure_comp, pure_bind] at h ⊢
-      exact storedKCheck_run h
+      exact streamKCheck_run h
     · simp only [Bool.not_eq_true] at hk
       simp [hk, Bind.bind, StateT.bind, Except.bind, throw, throwThe, MonadExceptOf.throw,
         StateT.lift, liftM, monadLift, MonadLift.monadLift, instMonadExceptOfMonadExceptOf] at h
 
 /-- The stored recursors' checks, simulated. -/
-theorem storedRecCheckS_spec (henv : EnvWF env)
+theorem streamRecCheckS_spec (henv : EnvWF env)
     {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr} {s₀ : CState}
     (hs : CSOK .verified false env s₀) :
     ⦃fun st => st = s₀⦄
-      storedRecCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
+      streamRecCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) rc g
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (storedRecCheck (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
-  sym only [conleche_grind, storedRecCheck.eq_1] =>
-    vcgen [storedRecCheck, storedRulesShapeS_spec (mode := .verified) (env := env),
-      storedRecCompareS_spec henv] <;> finish
+      Runs (streamRecCheck (fueledOpsM .verified) .plain (mkFEnv env) rc g) v; ⊤⦄ := by
+  sym only [conleche_grind, streamRecCheck.eq_1] =>
+    vcgen [streamRecCheck, streamRulesShapeS_spec (mode := .verified) (env := env),
+      streamRecCompareS_spec henv] <;> finish
 
-theorem storedRecsCheckS_spec (henv : EnvWF env) :
+theorem streamRecsCheckS_spec (henv : EnvWF env) :
     ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr))
       {s₀ : CState}, CSOK .verified false env s₀ →
       ⦃fun st => st = s₀⦄
-        storedRecsCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) recs out
+        streamRecsCheck (sharedOpsC .verified (mkFEnv env)) StructWalkers.plain (mkFEnv env) recs out
       ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (storedRecsCheck (fueledOpsM .verified) .plain (mkFEnv env) recs out) v; ⊤⦄ := by
+        Runs (streamRecsCheck (fueledOpsM .verified) .plain (mkFEnv env) recs out) v; ⊤⦄ := by
   intro recs
   induction recs with
   | nil =>
     intro out _ hs
-    sym only [conleche_grind, storedRecsCheck] =>
-      vcgen [storedRecsCheck.eq_def] <;> finish
+    sym only [conleche_grind, streamRecsCheck] =>
+      vcgen [streamRecsCheck.eq_def] <;> finish
   | cons rc rcs ih =>
     intro out
     cases out with
     | nil =>
       intro _ hs
-      sym only [conleche_grind, storedRecsCheck] =>
-        vcgen [storedRecsCheck.eq_def] <;> finish
+      sym only [conleche_grind, streamRecsCheck] =>
+        vcgen [streamRecsCheck.eq_def] <;> finish
     | cons g gs =>
       intro _ hs
-      sym only [conleche_grind, storedRecsCheck] =>
-        vcgen [storedRecsCheck.eq_def, storedRecCheckS_spec henv, ih gs] <;> finish
+      sym only [conleche_grind, streamRecsCheck] =>
+        vcgen [streamRecsCheck.eq_def, streamRecCheckS_spec henv, ih gs] <;> finish
 
 /-! ## 3. The assembly -/
 
@@ -1225,52 +1225,52 @@ theorem genRecCheck_out_unreserved {fe : FEnv} {p : BlockShape} {nestedBit : Boo
   rw [hcv i _ o hrc hi]
   exact targetRecPins_unreserved R.pins _ (List.getElem_mem hil)
 
-/-- **The stored install is well formed** (task #431): each stored type
+/-- **The stream's recursors are well formed**: each record's type
 is the record's, checked as a constant at the constructors' environment
 (`classStreamRecs`); each stored right-hand side is the generated one or
 passed `ruleAgree`'s guards; an auxiliary recursor's stored type reads
-its firing data (`storedNestedOk`). -/
-theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
+its firing data (`streamNestedOk`). -/
+theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape}
     {nestedBit : Bool} {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead}
     {Ms₀ : List TargetMajor} {cvTas : List ConstantVal} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F F' : Nat}
     (h : genRecCheck (ShadowOps.fueled mode F) (mkFEnv env₂) p nestedBit params tbl rd Ms₀ cvTas
       block = .ok out) (hpl : params.length = p.nP)
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
-    (hS : storedRecsCheck (fueledOps mode F') .plain
+    (hS : streamRecsCheck (fueledOps mode F') .plain
       (mkFEnv (consBlockRecsT p 0 out env₂)) p.recs out = .ok ()) :
-    EnvWF (consBlockRecsT p 0 (storedOut p.recs out) env₂) := by
+    EnvWF (consBlockRecsT p 0 (streamRecs p.recs out) env₂) := by
   obtain ⟨hF, hN⟩ := genRecCheck_outFacts h hpl hMs₀
   obtain ⟨hlenO, hcv⟩ := genRecCheck_outCv h
   obtain ⟨R⟩ := genRecCheck_run h
   have hstream := classStreamRecs_typeWF R.hcvRis
-  obtain ⟨-, hallS⟩ := storedRecsCheck_inv hS
-  have hnames : (storedOut p.recs out).map (·.1.name) = out.map (·.1.name) :=
-    storedOut_map_name hlenO
+  obtain ⟨-, hallS⟩ := streamRecsCheck_inv hS
+  have hnames : (streamRecs p.recs out).map (·.1.name) = out.map (·.1.name) :=
+    streamRecs_map_name hlenO
   -- resolution at the generated install transfers to the stored bare cons
   have hres : ∀ e : Expr, e.constsResolve (consBlockRecsT p 0 out env₂) = true →
       e.constsResolve (consBlockRecsBare p 0
-        ((storedOut p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
+        ((streamRecs p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
     fun e he => Expr.constsResolve_of_find
       (isSome_consBlockRecsT_bare (fun _ hn => hn)
         (by simp only [List.map_map, Function.comp_def]; exact hnames.symm)) he
   have hresG : ∀ e : Expr,
       e.constsResolve (consBlockRecsBare p 0 (out.map fun t => (t.1, t.2.1.nIdx)) env₂) = true →
       e.constsResolve (consBlockRecsBare p 0
-        ((storedOut p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
+        ((streamRecs p.recs out).map fun t => (t.1, t.2.1.nIdx)) env₂) = true :=
     fun e he => Expr.constsResolve_of_find
       (isSome_consBlockRecsBare_bare (fun _ hn => hn)
         (by simp only [List.map_map, Function.comp_def]; exact hnames.symm)) he
   refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_)
   · obtain ⟨i, hti⟩ := List.getElem?_of_mem ht
-    obtain ⟨rc, g, hrc, hg, rfl⟩ := storedOut_getElem? hti
+    obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? hti
     have hgcv := hcv i rc g hrc hg
     obtain ⟨g1, g2, g3, g4, grhs⟩ := hF g (List.mem_of_getElem? hg)
     obtain ⟨s1, s2, s3, s4⟩ := hstream rc (List.mem_of_getElem? hrc)
     have hlps : g.1.levelParams = rc.cvR.levelParams := by rw [hgcv]
-    obtain ⟨-, -, hcmp⟩ := storedRecCheck_inv (hallS i rc g hrc hg)
-    obtain ⟨-, hrules⟩ := storedRecCompare_inv hcmp
-    obtain ⟨hlenR, hallR⟩ := storedRulesCheck_inv hrules
+    obtain ⟨-, -, hcmp⟩ := streamRecCheck_inv (hallS i rc g hrc hg)
+    obtain ⟨-, hrules⟩ := streamRecCompare_inv hcmp
+    obtain ⟨hlenR, hallR⟩ := streamRulesCheck_inv hrules
     refine ⟨s1, by simp only; rw [hlps]; exact s2, s3, s4, fun rhs hrhs => ?_⟩
     obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hrhs
     obtain ⟨k, hk⟩ := List.getElem?_of_mem hr
@@ -1284,18 +1284,18 @@ theorem storedRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     · obtain ⟨a1, a2, -, a4, a5, -⟩ := ruleAgree_inv hag
       refine ⟨a2, a4, hres _ ?_, a1⟩
       simpa [StructWalkers.plain, constsResolveF_eq] using a5
-  · obtain ⟨rc, g, hrc, hg, rfl⟩ := storedOut_getElem? ht
+  · obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? ht
     have hgcv := hcv i rc g hrc hg
     obtain ⟨n1, n2, n3, -, -, -, -, -, -, -, n4⟩ := hN i g hg hm
-    obtain ⟨hn, -⟩ := (storedRecCheck_inv (hallS i rc g hrc hg)).2
+    obtain ⟨hn, -⟩ := (streamRecCheck_inv (hallS i rc g hrc hg)).2
     have hmI : p.majorIdxAt i = rc.mI := by
       simp only [BlockShape.majorIdxAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
     have hrP : p.rulePrefixAt i = rc.rP := by
       simp only [BlockShape.rulePrefixAt, List.getD_eq_getElem?_getD, hrc, Option.getD_some]
     simp only at hm
-    simp only [storedFireOf, auxRuleFire] at hn
+    simp only [generatedFire, auxRuleFire] at hn
     rw [hm] at hn
-    obtain ⟨pre, dom, body, D, e1, e2, e3⟩ := storedNestedOk_read hn
+    obtain ⟨pre, dom, body, D, e1, e2, e3⟩ := streamNestedOk_read hn
     have hlps : g.1.levelParams = rc.cvR.levelParams := by rw [hgcv]
     refine ⟨n1, ?_, ?_, pre, dom, body, D, ?_, e2, ?_, n4⟩
     · simp only; rw [hlps]; rw [hlps] at n2; exact n2
@@ -1360,10 +1360,10 @@ theorem checkBlockTailS_run
           (consBlockCtors p.nP ctorsAs env₁))).env := by
     rw [env_overlay_pushAll _ hovl, pushAll_blockRecInfosTF_mkFEnv]
   rw [sharedOpsC_congr hf htb,
-    storedRecsCheck_congr (w := StructWalkers.plain)
+    streamRecsCheck_congr (w := StructWalkers.plain)
       (by funext e; exact constsResolveF_congr hf e) he] at h
   obtain ⟨uK, sK, hKrun, hK⟩ := bindC_ok h
-  obtain ⟨hsK, hKp⟩ := storedKCheck_run hKrun
+  obtain ⟨hsK, hKp⟩ := streamKCheck_run hKrun
   rw [hsK] at hK
   obtain ⟨u3, s₃', hfl3, h⟩ := bindC_ok hK
   rw [flushC_run] at hfl3
@@ -1371,24 +1371,24 @@ theorem checkBlockTailS_run
   obtain rfl : s₃.flushed = s₃' := congrArg Prod.snd hfl3
   obtain ⟨u4, s₄', hst, h⟩ := bindC_ok h
   obtain ⟨hs₄', F₄, hF₄⟩ := triple_iff_run.mp
-    (storedRecsCheckS_spec henv₃ p.recs out (flushC_csok hs₃)) u4 s₄' hst
+    (streamRecsCheckS_spec henv₃ p.recs out (flushC_csok hs₃)) u4 s₄' hst
   obtain ⟨u5, s₄, hfl4, h⟩ := bindC_ok h
   rw [flushC_run] at hfl4
   injection hfl4 with hfl4
   obtain rfl : s₄'.flushed = s₄ := congrArg Prod.snd hfl4
   have hs₄ : CSOKF s₄'.flushed := hs₄'.residue.flushed
-  have hF₄' : storedRecsCheck (fueledOps .verified F₄) .plain
+  have hF₄' : streamRecsCheck (fueledOps .verified F₄) .plain
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
-    rw [← storedRecsCheck_datF]; cases u4; exact hF₄
+    rw [← streamRecsCheck_datF]; cases u4; exact hF₄
   obtain ⟨hs₅, hT₆⟩ := checkBlockTablesS_run _ _ _ h
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
   refine ⟨hs₅ ▸ hs₄, G, ?_⟩
-  have g₄ : storedRecsCheck (fueledOps .verified G) .plain
+  have g₄ : streamRecsCheck (fueledOps .verified G) .plain
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
-    rw [← storedRecsCheck_datF]; exact FueledM.up hle₄ (by rw [storedRecsCheck_datF]; exact hF₄')
+    rw [← streamRecsCheck_datF]; exact FueledM.up hle₄ (by rw [streamRecsCheck_datF]; exact hF₄')
   have g₀ : checkBlockIdxSorts (fueledOps .verified G) env₁ p.toBlockShape
       (p.members.zip cvTas) = .ok isorts := by
     rw [← checkBlockIdxSorts_datF]; exact FueledM.up hle₀ hF₀

@@ -23,7 +23,7 @@ record pins:
   `TargetMajor`) and an outside class's parameters typed
   (`targetMajorPins`);
 * the recursor records' pins (`targetRecPins`);
-* the stored family's formats (`tgtRs`, `tgtStoredRules`,
+* the stored family's formats (`tgtRs`, `generatedRules`,
   `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
 Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
@@ -604,7 +604,7 @@ MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule
 fires `auxRuleFire` (`.nested` at the major's instantiation), at a
 member major as `sumRules` builds it. -/
-def tgtStoredRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
   let rules := sumRules M.ctors rhss
   match M.member with
   | none =>
@@ -643,7 +643,7 @@ def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) :
   !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
 
 /-- **The checked family's records, at their majors**, in push order:
-each recursor's rules at ITS major (`tgtStoredRules`).  The cached
+each recursor's rules at ITS major (`generatedRules`).  The cached
 install pushes them (`FEnv.pushAll`, `checkBlockTailS`), every record
 built before the first push. -/
 def blockRecInfosTF
@@ -651,7 +651,7 @@ def blockRecInfosTF
   | _, [] => []
   | m, (cv, M, rhss) :: rest =>
     .recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (recKExpected p M) (tgtStoredRules (p.rulePrefixAt m) M rhss)
+        (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
       :: blockRecInfosTF p (m + 1) rest
 
 end ConLeche

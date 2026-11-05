@@ -140,13 +140,6 @@ record declares. -/
 def BasisKind.atBlock (kind : BasisKind) (block : List ConstantInfo) : List ConstantInfo :=
   List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) kind.decls block
 
-/-- A record with the capabilities its pin carries (a record has none):
-what the install pushes without looking at anything but the group. -/
-def withPinCaps (pin c : ConstantInfo) : ConstantInfo :=
-  match pin.atLps c.toConstantVal.levelParams, c with
-  | .indInfo _ caps, .indInfo cv _ => .indInfo cv caps
-  | _, _ => c
-
 /-- The pinned quotient package's constant at a slot. -/
 def quotPin (k : QuotKind) : ConstantInfo :=
   BasisKind.quotK.decls.getD k.slot (.axiomInfo default)

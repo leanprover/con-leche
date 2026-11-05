@@ -298,7 +298,7 @@ theorem mem_consBlockRecsT {q : BlockShape} :
       c ∈ (consBlockRecsT q m out env).consts →
       c ∈ env.consts ∨ ∃ i t, out[i]? = some t ∧
         c = .recInfo t.1 (q.majorIdxAt (m + i)) (q.rulePrefixAt (m + i))
-          (recKExpected q t.2.1) (tgtStoredRules (q.rulePrefixAt (m + i)) t.2.1 t.2.2)
+          (recKExpected q t.2.1) (generatedRules (q.rulePrefixAt (m + i)) t.2.1 t.2.2)
   | _, [], _, _, h => Or.inl h
   | m, t0 :: rest, env, c, h => by
     simp only [consBlockRecsT] at h
@@ -350,7 +350,7 @@ theorem envWF_consBlockRecsT {q : BlockShape}
     intro cvR' mI' rP' isK' rules' heq rl hrl
     injection heq with e1 e2 e3 e5 e4
     subst e1 e2 e3 e5 e4
-    unfold tgtStoredRules at hrl
+    unfold generatedRules at hrl
     dsimp only at hrl
     cases hM : t.2.1.member with
     | some _ =>

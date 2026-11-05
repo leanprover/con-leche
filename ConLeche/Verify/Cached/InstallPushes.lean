@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Cached.Installed
-import ConLeche.Verify.Inductives.StoredRecsInv
+import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Verify.Cached.BlockOverlay
 
 public section
@@ -159,21 +159,7 @@ theorem Yields.foldlM_rel {α β γ : Type} {R : β → γ → Prop}
       exact Yields.bind' (hf b a c h) fun b' hb' =>
         Yields.foldlM_rel hf l b' (g c a) hb'
 
-/-! ## The canonical index
-
-Both drivers thread the index by `FEnv.push` from `mkFEnv Env.empty`,
-so it is always `mkFEnv` of an environment — and then `FEnv.find?`
-*is* `Env.find?` (`mkFEnv_find?`), which is what turns the drivers'
-index guards into skeleton-level guards. -/
-
-/-! ## The shared install stages
-
-`checkConstantValF` and `installBasisDeclF` are the *generic* stages
-the driver calls (they
-take the engine as a `CheckerOps` record).  Their skeleton facts are
-proved once. -/
-
-/-! ## The cached certified driver's install stages -/
+/-! ## The install stages -/
 
 theorem installHeaderC_fresh (fe : FEnv)
     (cv : ConstantVal) :

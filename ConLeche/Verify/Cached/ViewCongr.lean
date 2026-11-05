@@ -992,14 +992,14 @@ theorem recTyOpened_envFree (h : EnvFree ops) (env₁ env₂ : Env) (rec : Name)
 
 /-- The stored recursors' check (task #431) reads its index through
 `resolve` alone, and through operations that ignore their environment. -/
-theorem storedRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
+theorem streamRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
     (hR : w.resolve fe₁ = w.resolve fe₂) :
-    ∀ recs out, storedRecsCheck ops w fe₁ recs out = storedRecsCheck ops w fe₂ recs out
+    ∀ recs out, streamRecsCheck ops w fe₁ recs out = streamRecsCheck ops w fe₂ recs out
   | [], [] => rfl
   | rc :: rcs, g :: gs => by
-    have ih := storedRecsCheck_twin h hR rcs gs
-    have hrules : ∀ lps rec rs gs', storedRulesCheck ops w fe₁ rec lps rs gs'
-        = storedRulesCheck ops w fe₂ rec lps rs gs' := by
+    have ih := streamRecsCheck_twin h hR rcs gs
+    have hrules : ∀ lps rec rs gs', streamRulesCheck ops w fe₁ rec lps rs gs'
+        = streamRulesCheck ops w fe₂ rec lps rs gs' := by
       intro lps rec rs
       induction rs with
       | nil => intro gs'; cases gs' <;> rfl
@@ -1008,9 +1008,9 @@ theorem storedRecsCheck_twin (h : EnvFree ops) {fe₁ fe₂ : FEnv}
         cases gs' with
         | nil => rfl
         | cons g' gs' =>
-          simp only [storedRulesCheck, ruleAgree, hR, h.inferType fe₁.env, h.inferType fe₂.env,
+          simp only [streamRulesCheck, ruleAgree, hR, h.inferType fe₁.env, h.inferType fe₂.env,
             h.isDefEq fe₁.env, h.isDefEq fe₂.env, ihr]
-    simp only [storedRecsCheck, storedRecCheck, storedRecCompare, recTyCheck, ih, hrules, hR,
+    simp only [streamRecsCheck, streamRecCheck, streamRecCompare, recTyCheck, ih, hrules, hR,
       h.inferType fe₁.env, h.inferType fe₂.env, h.ensureSort fe₁.env, h.ensureSort fe₂.env,
       recTyOpened_envFree h fe₁.env fe₂.env]
   | [], _ :: _ => rfl
@@ -1190,11 +1190,11 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     rw [hL₂, hL₂]; exact htL.pushAll L₂
   -- the stored recursors' check, at the generated recursors' overlays
   have hO : ∀ X : List ConstantInfo,
-      storedRecsCheck
+      streamRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay
             X.reverse)) structWalkersC
           ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₁)).overlay X.reverse)
-        = storedRecsCheck
+        = streamRecsCheck
           (sharedOpsC mode ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay
             X.reverse)) structWalkersC
           ((consBlockCtorsF p.nP ctorsAs (FEnv.pushDelta L Q fe₂)).overlay X.reverse) := by
@@ -1211,7 +1211,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
       exact (ht₂.pushAll X).findTable
     funext recs out
     rw [sharedOpsC_congr hf htb]
-    exact storedRecsCheck_twin (sharedOpsC_envFree mode _)
+    exact streamRecsCheck_twin (sharedOpsC_envFree mode _)
       (constsResolveFC_congr hf) recs out
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockIdxSortsF_congr h (FEnv.pushDelta L Q fe₁)
       (FEnv.pushDelta L Q fe₂), genRecCheck_twin ht₂, hO]

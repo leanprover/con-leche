@@ -1986,7 +1986,7 @@ theorem genRecHdataS
         (fun ψ => blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) φ j i r cA
         ({ ctor := cA.1.name, nfields := cA.2, fire := ConLeche.tgtFireOf pp.toBlockShape
               (ConLeche.tgtMajorsOf out) j r, rhs := rhs })) :
-    AtStoredRules mpC (ConLeche.tgtRulesR         pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp (tgtRs out) s (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
+    AtStreamRules mpC (ConLeche.tgtRulesR         pp.toBlockShape (ConLeche.tgtMajorsOf out)) pp (tgtRs out) s (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
           (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
           (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
           (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)

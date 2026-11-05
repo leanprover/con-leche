@@ -356,11 +356,11 @@ end Producer
 position. -/
 
 /-- The install's rules function: each recursor's stored rules
-at its major `Ms m` (`tgtStoredRules`). -/
+at its major `Ms m` (`generatedRules`). -/
 @[expose] def tgtRulesR
     (q : BlockShape) (Ms : Nat → TargetMajor) :
     Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List RecRule :=
-  fun m r => (recKExpected q (Ms m), tgtStoredRules (q.rulePrefixAt m) (Ms m) r.2.1)
+  fun m r => (recKExpected q (Ms m), generatedRules (q.rulePrefixAt m) (Ms m) r.2.1)
 
 /-- The checked majors by absolute position. -/
 @[expose] def tgtMajorsOf (out : List (ConstantVal × TargetMajor × List Expr)) :
@@ -437,7 +437,7 @@ theorem recRulesShape_tgt
     | some t => rw [ho] at hr; exact ⟨t, rfl, (Option.some.inj hr).symm⟩
   have hM : tgtMajorsOf out j = t.2.1 := by
     simp [tgtMajorsOf, List.getD_eq_getElem?_getD, ht]
-  simp only [tgtRulesR, tgtStoredRules, hM] at hrl
+  simp only [tgtRulesR, generatedRules, hM] at hrl
   simp only [tgtFireOf, hM]
   cases hm : t.2.1.member with
   | some _ =>

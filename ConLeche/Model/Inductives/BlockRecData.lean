@@ -944,18 +944,18 @@ theorem blockRecHnew_of {mpC : EnvModelM V envC} {cvTas : List ConstantVal} {F :
       rs[j]? = some r → r.2.2.2.length ≤ nCt j)
     {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
       ConLeche.RecRuleFire}
-    (hpins : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+    (hpins : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
         RecRulePinsOk m₃ φ r.1 (p.toBlockShape.rulePrefixAt j) rl)
-    (hextra : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+    (hextra : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleKWit m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j) (p.toBlockShape.rulePrefixAt j) (R j r).1 rl ∧
         RecRuleExtraNK m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
           (p.toBlockShape.rulePrefixAt j) (R j r).1 rl)
-    (hrhs : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r i _ _ rl =>
+    (hrhs : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r i _ _ rl =>
         BlockRuleRhsOk (V := V) (pdoms0 := pdoms0) (fdoms0 := fdoms0) (es0 := es0)
           (ihs := ihs) (mk0 := mk0) (Rb0 := Rb0)
           (blockRecLeafAV mpC.base2.acval envC rs s
             (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0)) m₃ φ j i r rl) :
-    AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+    AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleLaw m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
           (p.toBlockShape.rulePrefixAt j) (R j r).1 rl := by
   intro m₃ hac φ j r hr i cA rhs hcA hrh
@@ -1995,14 +1995,14 @@ theorem blockRecStaged_dataR {envC : Env}
         ∃ (lds : List Term) (A : Term), Ra = mkLamsAV lds A ∧
           lds.length = p.toBlockShape.rulePrefixAt j + cA.2)
     -- the `.nested` pins' law (vacuous at `.plain`)
-    (hpins : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+    (hpins : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
         RecRulePinsOk m₃ φ r.1 (p.toBlockShape.rulePrefixAt j) rl)
     -- the ι case split's facts (task #342 L10)
-    (hextra : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
+    (hextra : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleKWit m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j) (p.toBlockShape.rulePrefixAt j) (R j r).1 rl ∧
         RecRuleExtraNK m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
           (p.toBlockShape.rulePrefixAt j) (R j r).1 rl)
-    (hdataS : AtStoredRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun _ φ j r i cA rhs rl =>
+    (hdataS : AtStreamRules mpC R p rs s (blockRecEqs nCt rs pdoms0 fdoms0 es0 ihs mk0 Rb0) fireOf fun _ φ j r i cA rhs rl =>
         BlockRuleDataB (V := V) mpC p (nPc j)
           (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC) rs s nCt pdoms0 fdoms0 es0
           ihs mk0 Rb0 (ctorTy j i) φ j i r cA rl rhs)

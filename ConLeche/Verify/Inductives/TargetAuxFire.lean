@@ -17,7 +17,7 @@ public section
 /-!
 # The auxiliary recursors' `.nested` rules
 
-The install (`tgtStoredRules`) stores every rule of a recursor
+The install (`generatedRules`) stores every rule of a recursor
 whose major is OUTSIDE its block (a nested block's container) as
 `auxRuleFire`: `.nested lvls pins`, the class's levels and its
 parameters closed over the rule prefix (`Expr.abstractPrefix`).

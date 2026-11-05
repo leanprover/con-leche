@@ -25,8 +25,8 @@ and the job count only says how many threads besides the commit thread
 run it.
 
 * **The prediction.**  Before any record is installed, the names every
-  record will install are read off the records (`predictSlots`, the
-  install skeleton), and with them every constant's counter.  The
+  record will install are read off the records (`predictSlots`), and
+  with them every constant's counter.  The
   frozen base index maps each predicted name to its counter, its record
   and its position (`buildBase`, sharded by name hash).  Record `k`'s
   constants are its SLOT: a thunk over a promise that whoever installs
@@ -42,9 +42,9 @@ run it.
   constants it pushes and, for a definition, theorem or opaque, its
   pending check; every other record — an inductive block, an axiom, a
   pinned `Nat` operation, a `reduce*` opaque, a basis or quotient record —
-  is pushed as the record says (`storedStep`, nothing generated or
-  certified), and its checked step at the same view, compared with those
-  pushes, is a job of the check phase (tasks #411, #431, #480), so the
+  is pushed as the record says (`declConstants`, `declTables`, nothing
+  generated or certified), and its checked step at the same view is a
+  job of the check phase (tasks #411, #431, #480), so the
   records after it wait on that push only.  After publishing its slot the installer makes the
   commit's checks (`goodB`: the `And` pin, and every slot the constants
   fill holds that very constant — `slotsOk`, base probes and pointer
@@ -76,9 +76,8 @@ run it.
   (`deferredFailure`), the serial fold's verdict.  A
   misprediction — a counter or a slot that does not match — is an
   internal error (exit 3).  No input reaches it: every accepting step
-  installs exactly the predicted skeleton (`installStepC_skels`), and
-  a deferred record's install pushes the skeleton the prediction reads
-  off it.
+  pushes what the record says (`installStepC_pushes`), which is what the
+  prediction reads off it.
   Either way, and on an IO exception of the commit thread (a failing
   heartbeat write, rethrown), the workers are stopped, and every
   unresolved slot is resolved empty so that nobody stays waiting.
@@ -659,8 +658,8 @@ partial def waitDone (sh : Shared ds B S vis) (cst : IO.Ref (Array Nat)) (k : Na
     return some q
 
 /-- The internal error of a misprediction (exit 3): no input reaches it
-(every accepting step installs the predicted skeleton,
-`installStepC_skels`), so it is reported, not recovered from. -/
+(every accepting step pushes what the prediction reads,
+`installStepC_pushes`), so it is reported, not recovered from. -/
 def mispredicted (k i : Nat) (what : String) : Except (CheckError × Nat) α :=
   .error (.internal s!"install: {what} at record {k}", i)
 

@@ -10,8 +10,8 @@ public import ConLeche.Kernel.Inductives.BlockTail
 two environments is one run on `e`, at every entry point and every fuel, and what it returns
 resolves in `env₁` (`knot_ext`).  What the knot reads past the term in hand is `StoredFacts`:
 every read is of a constant of a resolved term, of a stored term, or of a name such a constant's
-record gives.  `reducedFormer_ext` is the consequence the block's second path reads: a former's
-reduct at an extension is the reduct at the prefix, syntactically.
+record gives.  `reducedFormer_ext` is the consequence for a former: its reduct at an extension is the reduct
+at the prefix, syntactically.
 -/
 
 @[expose] public section
@@ -501,8 +501,7 @@ theorem whnfTelescope_ext (hx : EnvExt env₁ env₂) (F : Nat) :
         rw [this]
       | _ => rfl
 
-/-- **A former's reduct at an extension is the one at the prefix**: the consequence the block's
-second path reads. -/
+/-- **A former's reduct at an extension is the one at the prefix.** -/
 theorem reducedFormer_ext {envB env : Env} (hx : EnvExt envB env)
     {cv : ConstantVal} {n F : Nat} {f : ConstantVal} (hr : cv.type.constsResolve envB = true)
     (h : reducedFormer (fueledOps .verified F) envB cv n = .ok f) :

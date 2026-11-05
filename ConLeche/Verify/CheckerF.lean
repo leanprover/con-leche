@@ -269,11 +269,6 @@ executing monad, in `ConLeche/Verify/Cached/BridgeCSDecl.lean`. -/
 theorem push_mkFEnv (env : Env) (ci : ConstantInfo) :
     (mkFEnv env).push ci = mkFEnv ⟨ci :: env.consts, env.tables⟩ := rfl
 
-/-- The index of a table install is `mkFEnv` of the installed
-environment (task #362), definitionally. -/
-theorem pushTable_mkFEnv (env : Env) (t : ProjTable) :
-    (mkFEnv env).pushTable t = mkFEnv ⟨env.consts, t :: env.tables⟩ := rfl
-
 /-- The direct sum's constructor conses through the index (task #175
 sum-types): the pushed index of the consed environment *is* `mkFEnv`
 of it. -/

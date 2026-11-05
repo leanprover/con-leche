@@ -10,7 +10,7 @@ public section
 /-!
 # The stored recursors' install list (task #431)
 
-`storedOut` — what the install conses once the stored recursors agree
+`streamRecs` — what the install conses once the stored recursors agree
 with the generated ones — keeps the generated family's names, level
 parameters, majors and length; only the types and the right-hand sides
 are the records'.
@@ -21,22 +21,22 @@ namespace ConLeche
 /-- **The stream's recursors at the generated ones' positions**: each generated recursor with the
 stream's type and right-hand sides (the generated constant is the record's with the generated type,
 `classRecTyOk`, so this is the record's constant). -/
-@[expose] def storedOut (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
+@[expose] def streamRecs (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
     List (ConstantVal × TargetMajor × List Expr) :=
   List.zipWith (fun rc g => ({ g.1 with type := rc.cvR.type }, g.2.1, rc.rules.map (·.rhs)))
     recs out
 
-theorem storedOut_length {recs : List RecShape}
+theorem streamRecs_length {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} (h : out.length = recs.length) :
-    (storedOut recs out).length = out.length := by
-  simp [storedOut, List.length_zipWith, h]
+    (streamRecs recs out).length = out.length := by
+  simp [streamRecs, List.length_zipWith, h]
 
-theorem storedOut_getElem? {recs : List RecShape}
+theorem streamRecs_getElem? {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {j : Nat}
-    {o : ConstantVal × TargetMajor × List Expr} (h : (storedOut recs out)[j]? = some o) :
+    {o : ConstantVal × TargetMajor × List Expr} (h : (streamRecs recs out)[j]? = some o) :
     ∃ rc g, recs[j]? = some rc ∧ out[j]? = some g ∧
       o = ({ g.1 with type := rc.cvR.type }, g.2.1, rc.rules.map (·.rhs)) := by
-  simp only [storedOut, List.getElem?_zipWith] at h
+  simp only [streamRecs, List.getElem?_zipWith] at h
   cases hr : recs[j]? with
   | none => rw [hr] at h; simp at h
   | some rc =>
@@ -46,39 +46,39 @@ theorem storedOut_getElem? {recs : List RecShape}
       rw [hr, hg] at h
       exact ⟨rc, g, rfl, rfl, (Option.some.inj h).symm⟩
 
-theorem storedOut_getElem?_of {recs : List RecShape}
+theorem streamRecs_getElem?_of {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} {j : Nat} {rc : RecShape}
     {g : ConstantVal × TargetMajor × List Expr} (hr : recs[j]? = some rc)
     (hg : out[j]? = some g) :
-    (storedOut recs out)[j]? = some ({ g.1 with type := rc.cvR.type }, g.2.1,
+    (streamRecs recs out)[j]? = some ({ g.1 with type := rc.cvR.type }, g.2.1,
       rc.rules.map (·.rhs)) := by
-  simp only [storedOut, List.getElem?_zipWith, hr, hg]
+  simp only [streamRecs, List.getElem?_zipWith, hr, hg]
 
-theorem mem_storedOut {recs : List RecShape}
+theorem mem_streamRecs {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    {t : ConstantVal × TargetMajor × List Expr} (h : t ∈ storedOut recs out) :
+    {t : ConstantVal × TargetMajor × List Expr} (h : t ∈ streamRecs recs out) :
     ∃ g ∈ out, t.1.name = g.1.name ∧ t.1.levelParams = g.1.levelParams ∧ t.2.1 = g.2.1 := by
   obtain ⟨j, hj⟩ := List.getElem?_of_mem h
-  obtain ⟨rc, g, -, hg, rfl⟩ := storedOut_getElem? hj
+  obtain ⟨rc, g, -, hg, rfl⟩ := streamRecs_getElem? hj
   exact ⟨g, List.mem_of_getElem? hg, rfl, rfl, rfl⟩
 
-theorem storedOut_map_name {recs : List RecShape}
+theorem streamRecs_map_name {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} (h : out.length = recs.length) :
-    (storedOut recs out).map (·.1.name) = out.map (·.1.name) := by
+    (streamRecs recs out).map (·.1.name) = out.map (·.1.name) := by
   apply List.ext_getElem?
   intro j
   simp only [List.getElem?_map]
   cases hg : out[j]? with
   | none =>
-    have : (storedOut recs out)[j]? = none := by
-      rw [List.getElem?_eq_none_iff, storedOut_length h]
+    have : (streamRecs recs out)[j]? = none := by
+      rw [List.getElem?_eq_none_iff, streamRecs_length h]
       exact List.getElem?_eq_none_iff.mp hg
     rw [this]
   | some g =>
     obtain ⟨rc, hr⟩ : ∃ rc, recs[j]? = some rc := by
       have hj := (List.getElem?_eq_some_iff.mp hg).1
       exact ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    rw [storedOut_getElem?_of hr hg]
+    rw [streamRecs_getElem?_of hr hg]
     rfl
 
 /-! ## Names, and the stored major's reading -/
@@ -118,10 +118,10 @@ theorem isSome_consBlockRecsBare_bare {q : BlockShape} :
     exact isSome_consBlockRecsBare_bare (find?_cons_mono (c := .recInfo cv _ _ _ [])
       (c' := .recInfo cvB _ _ _ []) hn.1 hf) hn.2 n h
 
-/-- `storedNestedOk` at a `.nested` firing: the stored type's major domain
+/-- `streamNestedOk` at a `.nested` firing: the stored type's major domain
 is the container at the firing data. -/
-theorem storedNestedOk_read {ty : Expr} {mI rP : Nat} {lvls : List Level} {pins : List Expr}
-    (h : storedNestedOk ty mI rP (.nested lvls pins) = true) :
+theorem streamNestedOk_read {ty : Expr} {mI rP : Nat} {lvls : List Level} {pins : List Expr}
+    (h : streamNestedOk ty mI rP (.nested lvls pins) = true) :
     ∃ pre dom body D,
       ty.stripPis mI = some (pre, .forallE dom body) ∧
       dom.getAppFn = .const D lvls ∧
@@ -129,18 +129,18 @@ theorem storedNestedOk_read {ty : Expr} {mI rP : Nat} {lvls : List Level} {pins 
         pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
           (List.range (mI - rP)).map (fun i => Expr.bvar (mI - rP - 1 - i)) := by
   cases hs : ty.stripPis mI with
-  | none => simp [storedNestedOk, hs] at h
+  | none => simp [streamNestedOk, hs] at h
   | some pr =>
     obtain ⟨pre, b⟩ := pr
     cases b with
     | forallE dom body =>
-      simp only [storedNestedOk, hs] at h
+      simp only [streamNestedOk, hs] at h
       cases hfn : dom.getAppFn with
       | const D us =>
         simp only [hfn, Bool.and_eq_true, beq_iff_eq] at h
         exact ⟨pre, dom, body, D, rfl, by rw [hfn, h.1], h.2⟩
       | _ => simp [hfn] at h
-    | _ => simp [storedNestedOk, hs] at h
+    | _ => simp [streamNestedOk, hs] at h
 
 
 /-! ## The stored check, inverted (at an `Except` run) -/
@@ -149,19 +149,19 @@ section Inv
 
 variable {ops : CheckerOps CheckM} {w : StructWalkers} {fe : FEnv}
 
-theorem storedRulesCheck_inv {rec : Name} {lps : List Name} :
+theorem streamRulesCheck_inv {rec : Name} {lps : List Name} :
     ∀ {rs : List RecRule} {gs : List Expr},
-      storedRulesCheck ops w fe rec lps rs gs = .ok () →
+      streamRulesCheck ops w fe rec lps rs gs = .ok () →
       rs.length = gs.length ∧ ∀ (i : Nat) (r : RecRule) (gi : Expr),
         rs[i]? = some r → gs[i]? = some gi →
         r.rhs = gi ∨ ruleAgree ops w fe rec r.ctor lps r.rhs gi = .ok ()
   | [], [], _ => ⟨rfl, fun i r gi h => by simp at h⟩
-  | [], _ :: _, h => by simp [storedRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
-  | _ :: _, [], h => by simp [storedRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
+  | [], _ :: _, h => by simp [streamRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
+  | _ :: _, [], h => by simp [streamRulesCheck, throw, throwThe, MonadExceptOf.throw] at h
   | r :: rs, g :: gs, h => by
-    unfold storedRulesCheck at h
+    unfold streamRulesCheck at h
     have key : (r.rhs = g ∨ ruleAgree ops w fe rec r.ctor lps r.rhs g = .ok ()) ∧
-        storedRulesCheck ops w fe rec lps rs gs = .ok () := by
+        streamRulesCheck ops w fe rec lps rs gs = .ok () := by
       by_cases he : (r.rhs == g) = true
       · simp only [he, ↓reduceIte] at h
         exact ⟨Or.inl (beq_iff_eq.mp he), by simpa [pure, Except.pure, bind, Except.bind] using h⟩
@@ -169,7 +169,7 @@ theorem storedRulesCheck_inv {rec : Name} {lps : List Name} :
         obtain ⟨u, hu, h⟩ := exceptBind_ok h
         exact ⟨Or.inr (by cases u; exact hu), h⟩
     obtain ⟨hhead, h⟩ := key
-    obtain ⟨hl, hall⟩ := storedRulesCheck_inv h
+    obtain ⟨hl, hall⟩ := streamRulesCheck_inv h
     refine ⟨by simp [hl], fun i r' gi hr hg => ?_⟩
     cases i with
     | zero =>
@@ -178,12 +178,12 @@ theorem storedRulesCheck_inv {rec : Name} {lps : List Name} :
       exact hhead
     | succ i => exact hall i r' gi (by simpa using hr) (by simpa using hg)
 
-theorem storedRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
-    (h : storedRecCompare ops w fe rc g = .ok ()) :
+theorem streamRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
+    (h : streamRecCompare ops w fe rc g = .ok ()) :
     (rc.cvR.type = g.1.type ∨
       recTyCheck ops w fe g.1.name g.1.levelParams (rc.mI + 1) rc.cvR.type g.1.type = .ok ()) ∧
-    storedRulesCheck ops w fe g.1.name g.1.levelParams rc.rules g.2.2 = .ok () := by
-  unfold storedRecCompare at h
+    streamRulesCheck ops w fe g.1.name g.1.levelParams rc.rules g.2.2 = .ok () := by
+  unfold streamRecCompare at h
   by_cases he : (rc.cvR.type == g.1.type) = true
   · simp only [he, ↓reduceIte] at h
     exact ⟨Or.inl (beq_iff_eq.mp he), by simpa [pure, Except.pure, bind, Except.bind] using h⟩
@@ -191,33 +191,33 @@ theorem storedRecCompare_inv {rc : RecShape} {g : ConstantVal × TargetMajor × 
     obtain ⟨u, hu, h⟩ := exceptBind_ok h
     exact ⟨Or.inr (by cases u; exact hu), h⟩
 
-theorem storedRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
-    (h : storedRecCheck ops w fe rc g = .ok ()) :
-    storedRulesShape (m := CheckM) rc.cvR.name rc.rules g.2.1.ctors = .ok () ∧
-    storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf g.2.1 rc.rP) = true ∧
-    storedRecCompare ops w fe rc g = .ok () := by
-  unfold storedRecCheck at h
+theorem streamRecCheck_inv {rc : RecShape} {g : ConstantVal × TargetMajor × List Expr}
+    (h : streamRecCheck ops w fe rc g = .ok ()) :
+    streamRulesShape (m := CheckM) rc.cvR.name rc.rules g.2.1.ctors = .ok () ∧
+    streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) = true ∧
+    streamRecCompare ops w fe rc g = .ok () := by
+  unfold streamRecCheck at h
   obtain ⟨u, hu, h⟩ := exceptBind_ok h
   cases u
-  by_cases hn : storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf g.2.1 rc.rP) = true
+  by_cases hn : streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire g.2.1 rc.rP) = true
   · simp only [hn, ↓reduceIte] at h
     exact ⟨hu, hn, by simpa [pure, Except.pure, bind, Except.bind] using h⟩
   · simp [hn, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
 
-theorem storedRecsCheck_inv :
+theorem streamRecsCheck_inv :
     ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)},
-      storedRecsCheck ops w fe recs out = .ok () →
+      streamRecsCheck ops w fe recs out = .ok () →
       recs.length = out.length ∧ ∀ (j : Nat) (rc : RecShape)
         (g : ConstantVal × TargetMajor × List Expr), recs[j]? = some rc → out[j]? = some g →
-        storedRecCheck ops w fe rc g = .ok ()
+        streamRecCheck ops w fe rc g = .ok ()
   | [], [], _ => ⟨rfl, fun j rc g h => by simp at h⟩
-  | [], _ :: _, h => by simp [storedRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
-  | _ :: _, [], h => by simp [storedRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
+  | [], _ :: _, h => by simp [streamRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
+  | _ :: _, [], h => by simp [streamRecsCheck, throw, throwThe, MonadExceptOf.throw] at h
   | rc :: rcs, g :: gs, h => by
-    unfold storedRecsCheck at h
+    unfold streamRecsCheck at h
     obtain ⟨u, hu, h⟩ := exceptBind_ok h
     cases u
-    obtain ⟨hl, hall⟩ := storedRecsCheck_inv h
+    obtain ⟨hl, hall⟩ := streamRecsCheck_inv h
     refine ⟨by simp [hl], fun j rc' g' hr hg => ?_⟩
     cases j with
     | zero =>
@@ -315,10 +315,10 @@ theorem ruleAgree_inv {rec ctor : Name} {lps : List Name} {s g : Expr}
   · simp [h1, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
 
 end Inv
-/-! ## The stored install against the generated one, entry by entry -/
+/-! ## The stream's recursors against the generated ones, entry by entry -/
 
 /-- One installed rule: at a constructor of the major, with a
-right-hand side (`tgtStoredRules`, rule by rule). -/
+right-hand side (`generatedRules`, rule by rule). -/
 @[expose] def tgtRuleAt (M : TargetMajor) (rP : Nat)
     (c : ConstantVal × Nat) (rhs : Expr) : RecRule :=
   match M.member with
@@ -336,21 +336,21 @@ theorem sumRules_eq_map :
     simp only [sumRules, List.zip_cons_cons, List.map_cons]
     rw [sumRules_eq_map cs rs]
 
-theorem tgtStoredRules_eq_map (rP : Nat)
+theorem generatedRules_eq_map (rP : Nat)
     (M : TargetMajor) (rhss : List Expr) :
-    tgtStoredRules rP M rhss = (M.ctors.zip rhss).map (fun p => tgtRuleAt M rP p.1 p.2) := by
-  unfold tgtStoredRules tgtRuleAt
+    generatedRules rP M rhss = (M.ctors.zip rhss).map (fun p => tgtRuleAt M rP p.1 p.2) := by
+  unfold generatedRules tgtRuleAt
   rw [sumRules_eq_map]
   cases M.member <;> simp [List.map_map, Function.comp_def]
 
-/-- A rule of the stored install is the generated rule at its
+/-- A rule of the stream's recursor is the generated rule at its
 position with the stored right-hand side. -/
-theorem storedRule_corr {rP : Nat}
+theorem streamRule_corr {rP : Nat}
     {M : TargetMajor} {rhssS rhssG : List Expr} (hlen : rhssS.length = rhssG.length) {r : RecRule}
-    (hr : r ∈ tgtStoredRules rP M rhssS) :
-    ∃ (i : Nat) (rG : RecRule), rG ∈ tgtStoredRules rP M rhssG ∧ rhssS[i]? = some r.rhs ∧
+    (hr : r ∈ generatedRules rP M rhssS) :
+    ∃ (i : Nat) (rG : RecRule), rG ∈ generatedRules rP M rhssG ∧ rhssS[i]? = some r.rhs ∧
       rhssG[i]? = some rG.rhs ∧ r = { rG with rhs := r.rhs } := by
-  rw [tgtStoredRules_eq_map] at hr ⊢
+  rw [generatedRules_eq_map] at hr ⊢
   obtain ⟨⟨c, e⟩, hp, rfl⟩ := List.mem_map.mp hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hp
   obtain ⟨hc, he⟩ := List.getElem?_zip_eq_some.mp hi
@@ -364,20 +364,20 @@ theorem storedRule_corr {rP : Nat}
 @[expose] def recEntryG (q : BlockShape) (j : Nat)
     (g : ConstantVal × TargetMajor × List Expr) : ConstantInfo :=
   .recInfo g.1 (q.majorIdxAt j) (q.rulePrefixAt j)
-    (recKExpected q g.2.1) (tgtStoredRules (q.rulePrefixAt j) g.2.1 g.2.2)
+    (recKExpected q g.2.1) (generatedRules (q.rulePrefixAt j) g.2.1 g.2.2)
 
 /-- The stored recursor entry at block position `j`: the record's type
 and right-hand sides at the generated recursor. -/
 @[expose] def recEntryS (q : BlockShape) (j : Nat)
     (rc : RecShape) (g : ConstantVal × TargetMajor × List Expr) : ConstantInfo :=
   .recInfo { g.1 with type := rc.cvR.type } (q.majorIdxAt j) (q.rulePrefixAt j)
-    (recKExpected q g.2.1) (tgtStoredRules (q.rulePrefixAt j) g.2.1 (rc.rules.map (·.rhs)))
+    (recKExpected q g.2.1) (generatedRules (q.rulePrefixAt j) g.2.1 (rc.rules.map (·.rhs)))
 
-/-- **The stored install against the generated one**: every lookup and
+/-- **The stream's recursors against the generated ones**: every lookup and
 every member of the first is the second's, or a stored entry whose
 generated entry the second holds at the same name (`Q` the positions'
 facts). -/
-@[expose] def StoredCorr (q : BlockShape)
+@[expose] def StreamCorr (q : BlockShape)
     (Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop) (envS envG : Env) : Prop :=
   (∀ n ci, envS.find? n = some ci → envG.find? n = some ci ∨
     ∃ j rc g, Q j rc g ∧ g.1.name = n ∧ envG.find? n = some (recEntryG q j g) ∧
@@ -385,16 +385,16 @@ facts). -/
   (∀ c ∈ envS.consts, c ∈ envG.consts ∨
     ∃ j rc g, Q j rc g ∧ c = recEntryS q j rc g ∧ recEntryG q j g ∈ envG.consts)
 
-theorem StoredCorr.refl (q : BlockShape)
+theorem StreamCorr.refl (q : BlockShape)
     (Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop) (env : Env) :
-    StoredCorr q Q env env :=
+    StreamCorr q Q env env :=
   ⟨fun _ _ h => Or.inl h, fun _ h => Or.inl h⟩
 
-theorem StoredCorr.cons {q : BlockShape}
+theorem StreamCorr.cons {q : BlockShape}
     {Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop} {envS envG : Env}
-    (h : StoredCorr q Q envS envG) {j : Nat} {rc : RecShape}
+    (h : StreamCorr q Q envS envG) {j : Nat} {rc : RecShape}
     {g : ConstantVal × TargetMajor × List Expr} (hQ : Q j rc g) :
-    StoredCorr q Q ⟨recEntryS q j rc g :: envS.consts, envS.tables⟩
+    StreamCorr q Q ⟨recEntryS q j rc g :: envS.consts, envS.tables⟩
       ⟨recEntryG q j g :: envG.consts, envG.tables⟩ := by
   obtain ⟨hf, hm⟩ := h
   refine ⟨fun n ci hci => ?_, fun c hc => ?_⟩
@@ -416,20 +416,20 @@ theorem StoredCorr.cons {q : BlockShape}
 
 /-- **The recursors' conses keep the correspondence**, at the stored and
 the generated family. -/
-theorem StoredCorr.consBlockRecsT {q : BlockShape}
+theorem StreamCorr.consBlockRecsT {q : BlockShape}
     {Q : Nat → RecShape → ConstantVal × TargetMajor × List Expr → Prop} :
     ∀ {m : Nat} {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)}
       {envS envG : Env}, out.length = recs.length →
       (∀ i rc g, recs[i]? = some rc → out[i]? = some g → Q (m + i) rc g) →
-      StoredCorr q Q envS envG →
-      StoredCorr q Q (ConLeche.consBlockRecsT q m (storedOut recs out) envS)
+      StreamCorr q Q envS envG →
+      StreamCorr q Q (ConLeche.consBlockRecsT q m (streamRecs recs out) envS)
         (ConLeche.consBlockRecsT q m out envG)
   | _, [], [], _, _, _, _, h => h
   | _, [], _ :: _, _, _, hl, _, _ => by simp at hl
   | _, _ :: _, [], _, _, hl, _, _ => by simp at hl
   | m, rc :: recs, g :: out, envS, envG, hl, hQ, h => by
-    simp only [storedOut, List.zipWith_cons_cons, ConLeche.consBlockRecsT]
-    exact StoredCorr.consBlockRecsT (m := m + 1) (recs := recs) (out := out)
+    simp only [streamRecs, List.zipWith_cons_cons, ConLeche.consBlockRecsT]
+    exact StreamCorr.consBlockRecsT (m := m + 1) (recs := recs) (out := out)
       (envS := ⟨recEntryS q m rc g :: envS.consts, envS.tables⟩)
       (envG := ⟨recEntryG q m g :: envG.consts, envG.tables⟩)
       (by simpa using hl)

@@ -241,7 +241,7 @@ recursors' cons whose valuation is `blockRecAcv … s eqs`, every level
 valuation `φ`, and every stored pair (recursor `j` with data `r`,
 constructor `i` = `cA` with right-hand side `rhs`), and the pair's stored
 rule bits. -/
-abbrev AtStoredRules {envC : Env} (mpC : EnvModelM V envC)
+abbrev AtStreamRules {envC : Env} (mpC : EnvModelM V envC)
     (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule)
     (p : BlockParts) (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)))
     (s : (Name → Nat) → Nat) (eqs : (Name → Nat) → List Term) (fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
@@ -277,7 +277,7 @@ theorem blockRecStaged_runR {envC : Env}
     (hctorsIn : ∀ r ∈ rs, ∀ cA ∈ r.2.2.2,
       ∃ cvj cnP cnF, envC.find? cA.1.name = some (.ctorInfo cvj cnP cnF))
     (hleaf : BlockRecLeafOk mpC rs s eqs)
-    (hnew : AtStoredRules mpC R p rs s eqs fireOf fun m₃ φ j r _ _ _ rl =>
+    (hnew : AtStreamRules mpC R p rs s eqs fireOf fun m₃ φ j r _ _ _ rl =>
         RecRuleLaw m₃ φ r.1.name r.1 (p.toBlockShape.majorIdxAt j)
           (p.toBlockShape.rulePrefixAt j) (R j r).1 rl) :
     BlockRecStagedAt (V := V) envC (ConLeche.consBlockRecsR R p.toBlockShape 0 rs envC)

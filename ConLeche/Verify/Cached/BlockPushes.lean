@@ -55,12 +55,12 @@ theorem Expr.dropVars_lift (e : Expr) : ∀ n, Expr.dropVars n (e.liftLooseBVars
         = e.liftLooseBVars n 0 from Expr.liftLooseBVars_succ_instantiate1]
     exact Expr.dropVars_lift e n
 
-/-- **An outside major's firing data, read off the record**: what `storedNestedOk` found in the
+/-- **An outside major's firing data, read off the record**: what `streamNestedOk` found in the
 major's domain is what `recFire` reads there. -/
 theorem recFire_nested {p : BlockShape} {rc : RecShape} {lvls : List Level} {pins : List Expr}
-    (ht : ¬ rc.tgt < p.k) (h : storedNestedOk rc.cvR.type rc.mI rc.rP (.nested lvls pins) = true) :
+    (ht : ¬ rc.tgt < p.k) (h : streamNestedOk rc.cvR.type rc.mI rc.rP (.nested lvls pins) = true) :
     recFire p rc = .nested lvls pins := by
-  obtain ⟨pre, dom, body, D, hs, hfn, hargs⟩ := storedNestedOk_read h
+  obtain ⟨pre, dom, body, D, hs, hfn, hargs⟩ := streamNestedOk_read h
   unfold recFire
   rw [ite_eq_right ht, hs]
   simp only [hfn, hargs]
@@ -79,13 +79,13 @@ theorem recFire_nested {p : BlockShape} {rc : RecShape} {lvls : List Level} {pin
 rules, firing `.plain`. -/
 theorem sumRules_of_shape {rec : Name} :
     ∀ {rs : List RecRule} {cs : List (ConstantVal × Nat)},
-      storedRulesShape (m := CheckM) rec rs cs = .ok () →
+      streamRulesShape (m := CheckM) rec rs cs = .ok () →
       sumRules cs (rs.map (·.rhs)) = rs.map ({ · with fire := .plain })
   | [], [], _ => rfl
-  | [], _ :: _, h => by simp [storedRulesShape, throw, throwThe, MonadExceptOf.throw] at h
-  | _ :: _, [], h => by simp [storedRulesShape, throw, throwThe, MonadExceptOf.throw] at h
+  | [], _ :: _, h => by simp [streamRulesShape, throw, throwThe, MonadExceptOf.throw] at h
+  | _ :: _, [], h => by simp [streamRulesShape, throw, throwThe, MonadExceptOf.throw] at h
   | r :: rs, c :: cs, h => by
-    unfold storedRulesShape at h
+    unfold streamRulesShape at h
     dsimp only at h
     by_cases hc : (r.ctor == c.1.name && r.nfields == c.2) = true
     · rw [ite_eq_left hc] at h
@@ -102,14 +102,14 @@ structure RecAgrees (p : BlockShape) (rc : RecShape) (o : ConstantVal × TargetM
   tgt : rc.tgt = o.2.1.member.getD p.k
   lt : ∀ m, o.2.1.member = some m → m < p.k
   isK : rc.isK = recKExpected p o.2.1
-  shape : storedRulesShape (m := CheckM) rc.cvR.name rc.rules o.2.1.ctors = .ok ()
-  nested : storedNestedOk rc.cvR.type rc.mI rc.rP (storedFireOf o.2.1 rc.rP) = true
+  shape : streamRulesShape (m := CheckM) rc.cvR.name rc.rules o.2.1.ctors = .ok ()
+  nested : streamNestedOk rc.cvR.type rc.mI rc.rP (generatedFire o.2.1 rc.rP) = true
 
 theorem RecAgrees.rules {p : BlockShape} {rc : RecShape} {o : ConstantVal × TargetMajor × List Expr}
     (h : RecAgrees p rc o) :
     rc.rules.map ({ · with fire := recFire p rc })
-      = tgtStoredRules rc.rP o.2.1 (rc.rules.map (·.rhs)) := by
-  unfold tgtStoredRules
+      = generatedRules rc.rP o.2.1 (rc.rules.map (·.rhs)) := by
+  unfold generatedRules
   rw [sumRules_of_shape h.shape]
   have hn := h.nested
   have ht := h.tgt
@@ -117,7 +117,7 @@ theorem RecAgrees.rules {p : BlockShape} {rc : RecShape} {o : ConstantVal × Tar
   cases hm : o.2.1.member with
   | none =>
     rw [hm] at ht
-    simp only [storedFireOf, hm] at hn
+    simp only [generatedFire, hm] at hn
     have hf : recFire p rc = auxRuleFire o.2.1 rc.rP :=
       recFire_nested (by simp [ht]) hn
     simp only [List.map_map, Function.comp_def, hf]
@@ -134,7 +134,7 @@ theorem blockRecs_eq_infos (p : BlockShape) :
       rs.length = os.length →
       (∀ i rc o, rs[i]? = some rc → os[i]? = some o →
         p.recs[m + i]? = some rc ∧ RecAgrees p rc o) →
-      blockRecs p rs = blockRecInfosTF p m (storedOut rs os)
+      blockRecs p rs = blockRecInfosTF p m (streamRecs rs os)
   | [], [], _, _, _ => rfl
   | [], _ :: _, _, h, _ => nomatch h
   | _ :: _, [], _, h, _ => nomatch h
@@ -149,21 +149,21 @@ theorem blockRecs_eq_infos (p : BlockShape) :
       rw [hA.cv]
     show ConstantInfo.recInfo _ _ _ _ _ :: blockRecs p rs =
       ConstantInfo.recInfo { o.1 with type := rc.cvR.type } (p.majorIdxAt m) (p.rulePrefixAt m)
-        (recKExpected p o.2.1) (tgtStoredRules (p.rulePrefixAt m) o.2.1 (rc.rules.map (·.rhs))) ::
-        blockRecInfosTF p (m + 1) (storedOut rs os)
+        (recKExpected p o.2.1) (generatedRules (p.rulePrefixAt m) o.2.1 (rc.rules.map (·.rhs))) ::
+        blockRecInfosTF p (m + 1) (streamRecs rs os)
     rw [hrest, hcv, BlockShape.majorIdxAt, BlockShape.rulePrefixAt, hgd, ← hA.isK, ← hA.rules]
 
 /-! ## The stage's runs -/
 
-theorem storedKCheck_inv {p : BlockShape} :
+theorem streamKCheck_inv {p : BlockShape} :
     ∀ {recs : List RecShape} {out : List (ConstantVal × TargetMajor × List Expr)},
-      storedKCheck (m := CheckM) p recs out = .ok () →
+      streamKCheck (m := CheckM) p recs out = .ok () →
       ∀ (i : Nat) (rc : RecShape) (o : ConstantVal × TargetMajor × List Expr),
         recs[i]? = some rc → out[i]? = some o → rc.isK = recKExpected p o.2.1
   | [], _, _, i, rc, o, h, _ => by simp at h
   | _ :: _, [], _, i, rc, o, _, h => by simp at h
   | rc :: rcs, g :: gs, h, i, rc', o, h₁, h₂ => by
-    unfold storedKCheck at h
+    unfold streamKCheck at h
     dsimp only at h
     by_cases hc : (rc.isK == recKExpected p g.2.1) = true
     · rw [ite_eq_left hc] at h
@@ -172,7 +172,7 @@ theorem storedKCheck_inv {p : BlockShape} :
         obtain rfl : rc = rc' := by simpa using h₁
         obtain rfl : g = o := by simpa using h₂
         exact beq_iff_eq.mp hc
-      | succ i => exact storedKCheck_inv h i rc' o (by simpa using h₁) (by simpa using h₂)
+      | succ i => exact streamKCheck_inv h i rc' o (by simpa using h₁) (by simpa using h₂)
     · rw [ite_eq_right hc] at h
       exact nomatch h
 
@@ -307,11 +307,11 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params ctorsAs = .ok (rd, Ms₀))
     (hRec : genRecCheck (ShadowOps.fueled .verified F) (mkFEnv (consBlockCtors p₁.nP ctorsAs env₁))
       p₁ nestedBit params tbl rd Ms₀ cvTas block = .ok out)
-    (hK : storedKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
+    (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
     {w : StructWalkers} {fe : FEnv}
-    (hS : storedRecsCheck (m := CheckM) (fueledOps .verified F) w fe p₁.recs out = .ok ()) :
+    (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) w fe p₁.recs out = .ok ()) :
     env.pushDelta (blockConstants p₀) Q =
-      (consBlockRecsT p₁ 0 (storedOut p₁.recs out) (consBlockCtors p₁.nP ctorsAs env₁)).pushDelta [] Q := by
+      (consBlockRecsT p₁ 0 (streamRecs p₁.recs out) (consBlockCtors p₁.nP ctorsAs env₁)).pushDelta [] Q := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, -, -, hq, hcons, -⟩ := checkBlockInds_shape hInd
   obtain ⟨hcvT, hmem⟩ := checkBlockInds_members hInd
   subst hq
@@ -322,18 +322,18 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
     rw [checkBlockCtors_declared hCtors]
     conv => rhs; rw [← hlenZ]
     simp [List.map_map, Function.comp_def]
-  obtain ⟨hlenR, hallS⟩ := storedRecsCheck_inv hS
+  obtain ⟨hlenR, hallS⟩ := streamRecsCheck_inv hS
   have hrecsP : (p₀.toBlockShape.withSort s0).recs = p₀.recs := rfl
   have hAg : ∀ i rc o, p₀.recs[i]? = some rc → out[i]? = some o →
       p₀.recs[0 + i]? = some rc ∧ RecAgrees (p₀.toBlockShape.withSort s0) rc o := by
     intro i rc o hrc ho
     refine ⟨by simpa using hrc, ?_⟩
-    obtain ⟨hshape, hnested, -⟩ := storedRecCheck_inv (hallS i rc o hrc ho)
+    obtain ⟨hshape, hnested, -⟩ := streamRecCheck_inv (hallS i rc o hrc ho)
     obtain ⟨ht, hl⟩ := genRecCheck_outMajor hcls hRec hrc ho
     exact { cv := (Cached.genRecCheck_outCv hRec).2 i rc o hrc ho, tgt := ht, lt := hl,
-            isK := storedKCheck_inv hK i rc o hrc ho, shape := hshape, nested := hnested }
+            isK := streamKCheck_inv hK i rc o hrc ho, shape := hshape, nested := hnested }
   have hrecs : blockRecs p₀.toBlockShape p₀.recs =
-      blockRecInfosTF (p₀.toBlockShape.withSort s0) 0 (storedOut p₀.recs out) := by
+      blockRecInfosTF (p₀.toBlockShape.withSort s0) 0 (streamRecs p₀.recs out) := by
     rw [blockRecs_congr (p := p₀.toBlockShape) (q := p₀.toBlockShape.withSort s0) rfl]
     exact blockRecs_eq_infos _ _ _ 0 hlenR hAg
   have hcaps : ∀ i, blockCapsAt (p₀.toBlockShape.withSort s0) i (blockRawRec p₀)

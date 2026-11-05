@@ -29,9 +29,9 @@ the steps and returns its environment together with the proof that
 mode, and nothing else): acceptance at
 `.verified` is covered by the main corollary
 `no_False_declaration` (`ConLeche/MainTheorem.lean`, through
-`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`), and the two
-modes agree on the install skeletons whenever both accept
-(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
+`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`), and two
+modes that both accept end in the same environment
+(`checkDecls_agree`, `ConLeche/Verify/Cached/InstallPushes.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185): the knot it
 ties (`coreKnotI mode`) and the install-time stages all take the same

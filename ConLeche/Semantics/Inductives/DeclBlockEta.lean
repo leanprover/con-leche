@@ -8,7 +8,7 @@ import ConLeche.Verify.ExceptBind
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.GenRecRun
-import ConLeche.Verify.Inductives.StoredRecsInv
+import ConLeche.Verify.Inductives.StreamRecsInv
 
 @[expose] public section
 
@@ -389,7 +389,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
   show EtaFamiliesClosed ⟨(consBlockRecsT _ _ _ _).consts, _⟩
   refine EtaFamiliesClosed.keep hEC (consBlockRecsT_extEta (ExtEta.refl _) fun r hr => ?_)
   obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hr
-  obtain ⟨g, hg, hn, -⟩ := ConLeche.mem_storedOut ho
+  obtain ⟨g, hg, hn, -⟩ := ConLeche.mem_streamRecs ho
   rw [hn]
   exact hfresh g hg
 

@@ -98,7 +98,7 @@ structure RecShape where
   they agree with the generated ones (`storedRecsAgree`, task #431) -/
   rules : List RecRule
   /-- the recursor record's K flag (official's `is_k`): what is installed;
-  the job checks it (`storedRecCheck`) -/
+  the job checks it (`streamRecCheck`) -/
   isK : Bool := false
   deriving Repr, Inhabited
 

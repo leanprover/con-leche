@@ -937,65 +937,65 @@ theorem ruleAgree_datF (fe : FEnv) (rec ctor : Name) (lps : List Name) (s g : Ex
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     fueledOpsM_inferType_atF, fueledOpsM_isDefEq_atF]
 
-theorem storedRulesShape_datF (rec : Name) (F : Nat) :
+theorem streamRulesShape_datF (rec : Name) (F : Nat) :
     ∀ (rs : List RecRule) (cs : List (ConstantVal × Nat)),
-      (storedRulesShape (m := FueledM) rec rs cs).val F = storedRulesShape (m := CheckM) rec rs cs
+      (streamRulesShape (m := FueledM) rec rs cs).val F = streamRulesShape (m := CheckM) rec rs cs
   | [], [] => rfl
   | r :: rs, c :: cs => by
-    unfold storedRulesShape
+    unfold streamRulesShape
     simp only [FueledM.atF_bind, FueledM.atF_throw, FueledM.atF_ite,
-      storedRulesShape_datF rec F rs cs]
-  | [], _ :: _ => by unfold storedRulesShape; simp only [FueledM.atF_throw]
-  | _ :: _, [] => by unfold storedRulesShape; simp only [FueledM.atF_throw]
+      streamRulesShape_datF rec F rs cs]
+  | [], _ :: _ => by unfold streamRulesShape; simp only [FueledM.atF_throw]
+  | _ :: _, [] => by unfold streamRulesShape; simp only [FueledM.atF_throw]
 
-theorem storedRulesCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (F : Nat) :
+theorem streamRulesCheck_datF (fe : FEnv) (rec : Name) (lps : List Name) (F : Nat) :
     ∀ (rs : List RecRule) (gs : List Expr),
-      (storedRulesCheck (fueledOpsM mode) .plain fe rec lps rs gs).val F =
-        storedRulesCheck (fueledOps mode F) .plain fe rec lps rs gs
-  | [], [] => by unfold storedRulesCheck; rfl
-  | [], _ :: _ => by unfold storedRulesCheck; simp only [FueledM.atF_throw]
-  | _ :: _, [] => by unfold storedRulesCheck; simp only [FueledM.atF_throw]
+      (streamRulesCheck (fueledOpsM mode) .plain fe rec lps rs gs).val F =
+        streamRulesCheck (fueledOps mode F) .plain fe rec lps rs gs
+  | [], [] => by unfold streamRulesCheck; rfl
+  | [], _ :: _ => by unfold streamRulesCheck; simp only [FueledM.atF_throw]
+  | _ :: _, [] => by unfold streamRulesCheck; simp only [FueledM.atF_throw]
   | r :: rs, g :: gs => by
-    unfold storedRulesCheck
+    unfold streamRulesCheck
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, ruleAgree_datF,
-      storedRulesCheck_datF fe rec lps F rs gs]
+      streamRulesCheck_datF fe rec lps F rs gs]
 
-theorem storedRecCompare_datF (fe : FEnv) (rc : RecShape)
+theorem streamRecCompare_datF (fe : FEnv) (rc : RecShape)
     (g : ConstantVal × TargetMajor × List Expr) (F : Nat) :
-    (storedRecCompare (fueledOpsM mode) .plain fe rc g).val F =
-      storedRecCompare (fueledOps mode F) .plain fe rc g := by
-  unfold storedRecCompare
+    (streamRecCompare (fueledOpsM mode) .plain fe rc g).val F =
+      streamRecCompare (fueledOps mode F) .plain fe rc g := by
+  unfold streamRecCompare
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_ite, recTyCheck_datF,
-    storedRulesCheck_datF]
+    streamRulesCheck_datF]
 
-theorem storedRecCheck_datF (fe : FEnv) (rc : RecShape)
+theorem streamRecCheck_datF (fe : FEnv) (rc : RecShape)
     (g : ConstantVal × TargetMajor × List Expr) (F : Nat) :
-    (storedRecCheck (fueledOpsM mode) .plain fe rc g).val F =
-      storedRecCheck (fueledOps mode F) .plain fe rc g := by
-  unfold storedRecCheck
+    (streamRecCheck (fueledOpsM mode) .plain fe rc g).val F =
+      streamRecCheck (fueledOps mode F) .plain fe rc g := by
+  unfold streamRecCheck
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    storedRulesShape_datF, storedRecCompare_datF]
+    streamRulesShape_datF, streamRecCompare_datF]
 
-theorem storedRecsCheck_datF (fe : FEnv) (F : Nat) :
+theorem streamRecsCheck_datF (fe : FEnv) (F : Nat) :
     ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)),
-      (storedRecsCheck (fueledOpsM mode) .plain fe recs out).val F =
-        storedRecsCheck (fueledOps mode F) .plain fe recs out
+      (streamRecsCheck (fueledOpsM mode) .plain fe recs out).val F =
+        streamRecsCheck (fueledOps mode F) .plain fe recs out
   | [], [] => rfl
   | rc :: rcs, g :: gs => by
-    unfold storedRecsCheck
-    simp only [FueledM.atF_bind, storedRecCheck_datF, storedRecsCheck_datF fe F rcs gs]
-  | [], _ :: _ => by unfold storedRecsCheck; simp only [FueledM.atF_throw]
-  | _ :: _, [] => by unfold storedRecsCheck; simp only [FueledM.atF_throw]
+    unfold streamRecsCheck
+    simp only [FueledM.atF_bind, streamRecCheck_datF, streamRecsCheck_datF fe F rcs gs]
+  | [], _ :: _ => by unfold streamRecsCheck; simp only [FueledM.atF_throw]
+  | _ :: _, [] => by unfold streamRecsCheck; simp only [FueledM.atF_throw]
 
-theorem storedKCheck_datF (p : BlockShape) (F : Nat) :
+theorem streamKCheck_datF (p : BlockShape) (F : Nat) :
     ∀ (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)),
-      (storedKCheck (m := FueledM) p recs out).val F = storedKCheck (m := CheckM) p recs out
+      (streamKCheck (m := FueledM) p recs out).val F = streamKCheck (m := CheckM) p recs out
   | [], _ => rfl
   | _ :: _, [] => rfl
   | rc :: rcs, g :: gs => by
-    unfold storedKCheck
+    unfold streamKCheck
     simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      storedKCheck_datF p F rcs gs]
+      streamKCheck_datF p F rcs gs]
 
 theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
     (F : Nat) :
@@ -1003,7 +1003,7 @@ theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
       checkBlockTail (fueledOps mode F) block q := by
   unfold checkBlockTail
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockIdxSorts_datF, checkBlockRec_datF, storedKCheck_datF, storedRecsCheck_datF,
+    checkBlockIdxSorts_datF, checkBlockRec_datF, streamKCheck_datF, streamRecsCheck_datF,
     checkBlockTables_datF]
 
 

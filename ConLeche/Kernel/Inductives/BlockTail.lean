@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.GenRec
-public import ConLeche.Kernel.Inductives.StoredRecs
+public import ConLeche.Kernel.Inductives.StreamRecs
 public import ConLeche.Kernel.Install
 
 @[expose] public section
@@ -90,7 +90,7 @@ def checkBlockRec (ops : CheckerOps m) (env : Env) (p : BlockParts) (nested : Bo
     cvTas block
 
 /-- **The checked family consed, at its majors**: each
-recursor with its rules at ITS major (`tgtStoredRules`: the major's
+recursor with its rules at ITS major (`generatedRules`: the major's
 parameter count and constructors; `.nested` at an outside major).  At
 member majors it is `consBlockRecs`. -/
 def consBlockRecsT
@@ -99,7 +99,7 @@ def consBlockRecsT
   | m, (cv, M, rhss) :: rest, env =>
     consBlockRecsT p (m + 1) rest
       ⟨.recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (recKExpected p M) (tgtStoredRules (p.rulePrefixAt m) M rhss)
+        (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
         :: env.consts, env.tables⟩
 
 /-- **The projection table's checks at every structure-like member**, at the environment holding
@@ -122,8 +122,8 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPa
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds) q.params
     q.tbl.toList q.rd q.cls block q.cvTas
-  storedKCheck p.toBlockShape p.recs out
-  storedRecsCheck ops .plain (mkFEnv (consBlockRecsT p.toBlockShape 0 out env₂)) p.recs out
+  streamKCheck p.toBlockShape p.recs out
+  streamRecsCheck ops .plain (mkFEnv (consBlockRecsT p.toBlockShape 0 out env₂)) p.recs out
   checkBlockTables p.toBlockShape env₂ p.members
 
 /-! ## The block's check -/

@@ -4,13 +4,13 @@ import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.IndTele
 import ConLeche.Model.Env.EnvModelM
-public import ConLeche.Kernel.Inductives.StoredRecs
+public import ConLeche.Kernel.Inductives.StreamRecs
 import ConLeche.Model.Env.Laws
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Model.CtxOkKit
 import ConLeche.Model.Tiers
 import ConLeche.Verify.Denote.Lemmas
-import ConLeche.Verify.Inductives.StoredRecsInv
+import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.TypeU
 
@@ -19,7 +19,7 @@ public section
 /-!
 # The stored recursors' semantics (task #431)
 
-What the stored check (`storedRecsCheck`) says in the model, at the
+What the stored check (`streamRecsCheck`) says in the model, at the
 generated install's carrier:
 
 * **the stored type** (`recTyCheck`): opened `n` binders deep beside
