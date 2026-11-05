@@ -10,8 +10,8 @@
 == ConLeche/Driver/Cli.lean#L97
     97  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/CheckMain.lean#L35
-    35  def ConLeche.CheckError.exitCode : CheckError → UInt8
+== ConLeche/Driver/CheckMain.lean#L36
+    36  def ConLeche.CheckError.exitCode : CheckError → UInt8
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -89,8 +89,8 @@
 == ConLeche/Verify/Frontend/FileFalse.lean#L173
    173  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
 
-== ConLeche/Verify/Frontend/Prepare.lean#L174
-   174  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
+== ConLeche/Verify/Frontend/Prepare.lean#L189
+   189  /-- `mem_prepareD`, at what a record's own expressions mention. -/
 
 == ConLeche/Model/StreamConsts.lean#L237-L242
    237  theorem checkDecls_consts (V : Type w) [SetTheory V]
@@ -118,28 +118,28 @@
    333    checkPendingList mode p.2.1 p.2.2.toList
    334    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L95-L99
-    95  
-    96  /--
-    97  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    98  -/
-    99  #guard_msgs in
+== tests/ConLecheTests/Axioms.lean#L96-L100
+    96  
+    97  /--
+    98  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    99  -/
+   100  #guard_msgs in
 
 == ConLeche/Driver/Dispatch.lean#L32
     32    | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs
 
-== ConLeche/Frontend/CheckerIO.lean#L120
-   120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L122
+   122  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L262
-   262  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L272
+   272  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L170-L174
-   170  theorem runArgs_accept {file : String} {fs : FS}
-   171      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-   172      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   173        parseChunks [b] = .ok r ∧
-   174        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L178-L182
+   178  theorem runArgs_accept {file : String} {fs : FS}
+   179      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   180      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   181        parseChunks [b] = .ok r ∧
+   182        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -181,13 +181,13 @@
   1743        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L298-L303
-   298  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   299      {stride jobs : Nat} {fs : FS}
-   300      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
-   301      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   302        Frontend.parseChunks [b] = .ok r ∧
-   303        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Driver/CheckMain.lean#L419-L424
+   419  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+   420      {stride jobs : Nat} {fs : FS}
+   421      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
+   422      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   423        Frontend.parseChunks [b] = .ok r ∧
+   424        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Installed.lean#L144-L147
    144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -230,11 +230,8 @@
    255  def runJob (fe : FEnv) (pend : Array PendingCheck) (D : Array BlockCheck) (j : Job) :
    256      JobResult mode pins fe pend D :=
 
-== ConLeche/Driver/CheckPool.lean#L158
-   158  def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs) :
-
-== ConLeche/Driver/CheckPool.lean#L242
-   242  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat) (J : Jobs) :
+== ConLeche/Driver/CheckPool.lean#L210
+   210  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat) (J : Jobs) :
 
 == ConLeche/Verify/Cached/Defer.lean#L304-L308
    304  def collectJobs (fe : FEnv) (pend : Array PendingCheck) (D : Array BlockCheck)
@@ -243,11 +240,11 @@
    307        (∀ i, i < b → ∀ h : i < D.size, D[i].Ok mode pins) →
    308        Except (CheckError × Nat) (PLift (AllOk mode pins fe pend D))
 
-== ConLeche/Driver/Run.lean#L87-L90
-    87  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
-    88      (ds : Array ConLeche.Declaration) :
-    89      IO (Except (ConLeche.CheckError × Nat)
-    90        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
+== ConLeche/Driver/Run.lean#L205-L208
+   205  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+   206      (ds : Array ConLeche.Declaration) :
+   207      IO (Except (ConLeche.CheckError × Nat)
+   208        { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
 
 == ConLeche/Cached/Installed.lean#L411-L413
    411  theorem fullyChecked_checkDecls {pins : List NatOpPinSet} {ds : Array Declaration}
@@ -386,6 +383,13 @@
      1  #!/usr/bin/env bash
      2  # tests/layering.sh — THE LAYERING GATE (task #161, S1; re-cut at the
      3  # SetR removal, 2026-09-05).
+
+== ConLeche/Frontend/Olean/Lazy.lean#L281
+   281  def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
+
+== ConLeche/Frontend/Olean/Records.lean#L148-L149
+   148  def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+   149      (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
 
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where
@@ -1137,15 +1141,15 @@
    667       | none => false)
    668    else e == .const natName []
 
-== ConLeche/Frontend/Prepare.lean#L165-L172
-   165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
-   166  the prelude's declarations first (the stream's own copies where it has
-   167  them), the rest of the stream after them, every pinned `Nat`
-   168  operation's stream-certified ground ahead of it.  Total, pure, and the
-   169  fold's input — an array in and an array out, the shape the parse
-   170  returns and the fold consumes. -/
-   171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   172    (prepareD pre ds).decls
+== ConLeche/Frontend/Prepare.lean#L168-L175
+   168  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
+   169  the prelude's declarations first (the stream's own copies where it has
+   170  them), the rest of the stream after them, every pinned `Nat`
+   171  operation's stream-certified ground ahead of it.  Total, pure, and the
+   172  fold's input — an array in and an array out, the shape the parse
+   173  returns and the fold consumes. -/
+   174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   175    (prepareD pre ds).decls
 
 == ConLeche/Frontend/NatOpGround.lean#L8-L25
      8  /-!
@@ -1167,13 +1171,13 @@
     24  
     25  They cannot go into the prelude: the structural operations are
 
-== ConLeche/Verify/Frontend/Prepare.lean#L157-L162
-   157  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
-   158  input plus additional declarations, but nothing missing"* — and the
-   159  additional declarations are the built-in prelude's own records. -/
-   160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
-   161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-   162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
+== ConLeche/Verify/Frontend/Prepare.lean#L171-L176
+   171  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
+   172  input plus additional declarations, but nothing missing"* — and the
+   173  additional declarations are the built-in prelude's own records. -/
+   174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+   175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+   176        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
 == ConLeche/SetTheory/Core.lean#L95-L156
     95  /-- A model of set theory of exactly the strength the checker needs:
@@ -1344,23 +1348,23 @@
    333    checkPendingList mode p.2.1 p.2.2.toList
    334    pure p.2.1.env
 
-== ConLeche/Frontend/Prepare.lean#L165-L172
-   165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
-   166  the prelude's declarations first (the stream's own copies where it has
-   167  them), the rest of the stream after them, every pinned `Nat`
-   168  operation's stream-certified ground ahead of it.  Total, pure, and the
-   169  fold's input — an array in and an array out, the shape the parse
-   170  returns and the fold consumes. -/
-   171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   172    (prepareD pre ds).decls
+== ConLeche/Frontend/Prepare.lean#L168-L175
+   168  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —
+   169  the prelude's declarations first (the stream's own copies where it has
+   170  them), the rest of the stream after them, every pinned `Nat`
+   171  operation's stream-certified ground ahead of it.  Total, pure, and the
+   172  fold's input — an array in and an array out, the shape the parse
+   173  returns and the fold consumes. -/
+   174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   175    (prepareD pre ds).decls
 
-== ConLeche/Verify/Frontend/Prepare.lean#L157-L162
-   157  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
-   158  input plus additional declarations, but nothing missing"* — and the
-   159  additional declarations are the built-in prelude's own records. -/
-   160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
-   161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-   162        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
+== ConLeche/Verify/Frontend/Prepare.lean#L171-L176
+   171  /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
+   172  input plus additional declarations, but nothing missing"* — and the
+   173  additional declarations are the built-in prelude's own records. -/
+   174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+   175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+   176        (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
 
 == ConLeche/Model/StreamConsts.lean#L237-L242
    237  theorem checkDecls_consts (V : Type w) [SetTheory V]
@@ -1373,17 +1377,17 @@
 == ConLeche/Driver/Cli.lean#L446
    446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
-== ConLeche/Frontend/CheckerIO.lean#L120
-   120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L122
+   122  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L142
-   142    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+== ConLeche/Frontend/CheckerIO.lean#L144
+   144    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
 
-== ConLeche/Frontend/CheckerIO.lean#L150
-   150    liftIO : {α : Type} → IO α → m α
+== ConLeche/Frontend/CheckerIO.lean#L160
+   160    liftIO : {α : Type} → IO α → m α
 
-== ConLeche/Frontend/CheckerIO.lean#L262
-   262  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L272
+   272  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
 == ConLeche/MainTheorem.lean#L149-L151
    149  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}

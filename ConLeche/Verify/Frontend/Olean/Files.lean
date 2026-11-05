@@ -3,12 +3,13 @@ module
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Verify.Frontend.Olean.Closure
 public import ConLeche.Verify.Frontend.Olean.Merge
-public import ConLeche.Verify.Frontend.Olean.Lazy
+public import ConLeche.Verify.Frontend.Olean.Sparse
+public import ConLeche.Verify.Frontend.ModelIO
+import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Emit
 import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
-public import ConLeche.Verify.Frontend.ModelIO
 
 /-!
 # The `.olean` reads on a file system snapshot
@@ -31,6 +32,8 @@ process or in two.  Where `readAllViews` has a value:
 read of a file's start: what it finds is `importsPre` of the whole file, and it
 finds that wherever the file is valid and has such imports.
 
+`readOleans_filled`: a theorem's record, with what its reference stands for on the snapshot
+(`ValueAt`) in place, is the constant the specification reads off that module's files.
 `readOleans_thm`: a theorem of the private view of a module of the closure (`InClosure`) is
 among a run's records, with its statement.  `readOleans_ok`: the records of a run are made of
 the private view of each module of the

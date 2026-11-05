@@ -644,7 +644,7 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
 # <n> threads (one worker per hardware thread without the flag;
-# --jobs=1 one worker, with no shared counter and no result table);
+# --jobs=1 one worker);
 # the results are
 # merged by record index and walked in fold order, so the verdict and
 # the declaration a rejection names are the same at every <n>.  The

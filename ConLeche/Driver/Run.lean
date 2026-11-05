@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Driver.ParInstall
 public import ConLeche.Driver.CheckPool
-public import ConLeche.Frontend.Olean
 
 /-!
 # The driver: `checkDeclsIO` and the phase sequencing
@@ -260,11 +259,15 @@ def OleanRun.install (run : OleanRun) (mode : ConLeche.CheckMode) (ds : Array Co
   installAndMark mode run.err run.stride run.total run.t0 run.tParse run.jobs run.instRepR
     run.joinWorkers ds (recordLabel ds)
 
-/-- The pool's heartbeat lane, and what every worker reads of the read marked persistent,
-as the install's result is (`installAndMark` says why). -/
-def OleanRun.pool (run : OleanRun) (workers : Nat) (values : Array Frontend.Olean.ModRef) :
+/-- What every worker reads of the read, marked persistent as the install's result is
+(`installAndMark` says why). -/
+def markShared {α : Type} (x : α) : IO Unit := do
+  let _ ← unsafe Runtime.markPersistent x
+
+/-- The pool's heartbeat lane, and what every worker reads of the read marked (`markShared`). -/
+def OleanRun.pool {α : Type} (run : OleanRun) (workers : Nat) (values : α) :
     IO (PoolLive × Nat) := do
-  let _ ← unsafe Runtime.markPersistent values
+  markShared values
   let pl ← PoolLive.new run.stride workers
   return (pl, ← IO.monoNanosNow)
 

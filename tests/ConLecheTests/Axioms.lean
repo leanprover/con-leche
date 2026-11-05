@@ -4,6 +4,7 @@ public import ConLeche.MainTheorem
 public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.Olean.View
 public import ConLeche.Verify.Frontend.Olean.Emit
+public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
@@ -166,6 +167,18 @@ info: 'ConLeche.Frontend.Olean.readOleans_thm' depends on axioms: [propext, Clas
 -/
 #guard_msgs in
 #print axioms ConLeche.Frontend.Olean.readOleans_thm
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_filled' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_filled
+
+/--
+info: 'ConLeche.Driver.checkMainG_oleans_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.checkMainG_oleans_accept
 
 /--
 info: 'ConLeche.Frontend.Olean.closureOrder_ok' depends on axioms: [propext, Classical.choice, Quot.sound]

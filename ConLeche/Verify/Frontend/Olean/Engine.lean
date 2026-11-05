@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Olean.Fast
-import ConLeche.Verify.Frontend.Olean.Mark
 public import ConLeche.Verify.Frontend.Olean.Build
 import ConLeche.Verify.Frontend.Olean.Nodes
 

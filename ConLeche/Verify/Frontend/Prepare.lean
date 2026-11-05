@@ -154,9 +154,8 @@ theorem hoistNatOpGround_perm (used : Declaration → Array Name) (ds : Array De
 
 /-! ## The prepared stream -/
 
-/-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
-input plus additional declarations, but nothing missing"* — and the
-additional declarations are the built-in prelude's own records. -/
+/-- `preparePrelude_perm`, at any `used`: what a record mentions moves records, and
+nothing else. -/
 theorem prepareD_perm (pre : PreludeIx) (ds : Array Declaration)
     (used : Declaration → Array Name) :
     ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
@@ -169,11 +168,13 @@ theorem prepareD_perm (pre : PreludeIx) (ds : Array Declaration)
   rw [Array.toList_append, h₁, h₂]
   simpa using hperm
 
-/-- **`preparePrelude`**, at what a record's own expressions mention. -/
+/-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
+input plus additional declarations, but nothing missing"* — and the
+additional declarations are the built-in prelude's own records. -/
 theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
     ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-      (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) :=
-  prepareD_perm pre ds _
+      (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
+  exact prepareD_perm pre ds _
 
 /-- **The pass-through**: every record of the file is a record of the
 fold's input, unchanged.  This is what a statement about the FILE

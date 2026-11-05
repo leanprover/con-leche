@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Emit
+public import ConLeche.Frontend.Olean.Closure
 public import ConLeche.Frontend.ExportC
 
 @[expose] public section
