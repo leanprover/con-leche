@@ -172,6 +172,7 @@ def reduceMember (ops : CheckerOps m) (env : Env) (nP : Nat) (ms : MemberShape) 
   if formerDefHeaded ms.cvT then do
     checkConstantVal ops env ms.cvT
     let cvR ← reducedFormer ops env ms.cvT (nP + ms.nIdx)
+    checkConstantVal ops env cvR
     unless ← ops.isDefEq env 0 ms.cvT.type cvR.type do
       throw (.invalid "direct sum: a type former's declared type and its reduct differ")
     pure { ms with cvT := cvR }
@@ -269,7 +270,9 @@ def blockViews (ops : CheckerOps m) (env : Env) :
     match env.find? c with
     | some (.indInfo cv caps) =>
       if formerDefHeaded cv then do
-        let cvR ← reducedFormer ops (env.below (caps.all.headD c)) cv (caps.nparams + caps.nIdx)
+        let envB := env.below (caps.all.headD c)
+        let cvR ← reducedFormer ops envB cv (caps.nparams + caps.nIdx)
+        checkConstantVal ops envB cvR
         pure (.indInfo cvR caps :: rest)
       else pure rest
     | _ => pure rest

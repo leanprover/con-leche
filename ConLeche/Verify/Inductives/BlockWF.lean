@@ -72,14 +72,13 @@ theorem envWF_cons_blockInd {p₁ : BlockShape} {isRec : Bool} {i : Nat} {env : 
     (h1 : cvTa.type.hasFvar = false)
     (h2 : cvTa.type.allLevelParamsDefined cvTa.levelParams = true)
     (h3 : cvTa.type.constsResolve env = true)
-    (h4 : cvTa.type.looseBVarsBounded 0 = true)
-    (h5 : (cvTa.type.stripPis p₁.nP).isSome = true) :
+    (h4 : cvTa.type.looseBVarsBounded 0 = true) :
     EnvWF ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ := by
   refine EnvWF.cons henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq) ?_)
   refine IndCapsWF.of_caps ?_ ?_
-  · intro hu; rw [(blockCapsAt_arity p₁ i isRec).1 hu]; exact h5
-  · intro he; rw [(blockCapsAt_arity p₁ i isRec).2 he]; exact h5
+  · intro hu; rw [(blockCapsAt_arity p₁ i isRec).1 hu]; unfold blockCapsAt; split <;> rfl
+  · intro he; rw [(blockCapsAt_arity p₁ i isRec).2 he]; unfold blockCapsAt; split <;> rfl
 
 /-- **The k formers' conses keep well-formedness.** -/
 theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :

@@ -93,13 +93,13 @@ the structure-η and unit-like rows
 per call ("invariants over runtime gates"). -/
 @[expose] def IndCapsWF (c : ConstantInfo) : Prop :=
   ∀ cv caps, c = .indInfo cv caps →
-    (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-    (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true)
+    (caps.unitlike = true → caps.unitParams = caps.nparams) ∧
+    (caps.eta = true → caps.etaParams = caps.nparams)
 
 /-- `IndCapsWF` at an inductive, from the two arity facts. -/
 theorem IndCapsWF.of_caps {cv : ConstantVal} {caps : IndCaps}
-    (hu : caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true)
-    (he : caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :
+    (hu : caps.unitlike = true → caps.unitParams = caps.nparams)
+    (he : caps.eta = true → caps.etaParams = caps.nparams) :
     IndCapsWF (.indInfo cv caps) := by
   intro cv' caps' heq
   obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj heq
@@ -179,14 +179,6 @@ theorem EnvWF.table {env : Env} (henv : EnvWF env) {T : Name} {tbl : ProjTable}
   henv.tables tbl (Env.findTable?_mem h).1
 
 
-
-/-- The capability arities of a stored inductive, off `EnvWF`. -/
-theorem EnvWF.indCaps {env : Env} (henv : EnvWF env) {T : Name}
-    {cv : ConstantVal} {caps : IndCaps}
-    (h : env.find? T = some (.indInfo cv caps)) :
-    (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-    (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :=
-  (henv.consts _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2 cv caps rfl
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {cs : List ConstantInfo} {ts : List ProjTable}

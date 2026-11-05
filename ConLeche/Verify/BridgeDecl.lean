@@ -1008,7 +1008,7 @@ theorem blockViews_datF (env : Env) (F : Nat) :
     refine congrArg _ (funext fun rest => ?_)
     split
     · split
-      · simp only [FueledM.atF_bind, FueledM.atF_pure, reducedFormer_datF]
+      · simp only [FueledM.atF_bind, FueledM.atF_pure, reducedFormer_datF, checkConstantVal_datF]
       · rfl
     · rfl
 

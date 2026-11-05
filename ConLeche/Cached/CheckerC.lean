@@ -190,6 +190,7 @@ def reduceMemberS (fe : FEnv) (nP : Nat) (ms : MemberShape) : CheckCM MemberShap
   if formerDefHeaded ms.cvT then do
     checkConstantValF (sharedOpsC mode fe) fe ms.cvT
     let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
+    checkConstantValF (sharedOpsC mode fe) fe cvR
     unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
       throw (.invalid "direct sum: a type former's declared type and its reduct differ")
     pure { ms with cvT := cvR }
@@ -216,6 +217,7 @@ def blockViewsS (fe : FEnv) : List Name → CheckCM (List ConstantInfo)
         | some W => do
           flushC
           let cvR ← reducedFormer (sharedOpsC mode W) W.env cv (caps.nparams + caps.nIdx)
+          checkConstantValF (sharedOpsC mode W) W cvR
           flushC
           pure (.indInfo cvR caps :: rest)
         | none => throw (.internal "a stored family's first member is not stored")

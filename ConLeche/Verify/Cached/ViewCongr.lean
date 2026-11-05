@@ -1389,7 +1389,7 @@ theorem blockViewsS_congr {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : Twi
           | some W₂ =>
             obtain ⟨hf, htb⟩ := hW W₁ W₂ h₁ h₂
             have h := sharedOpsC_envFree mode W₂
-            simp only [reducedFormer, sharedOpsC_congr hf htb,
+            simp only [reducedFormer, sharedOpsC_congr hf htb, checkConstantValF_congr h hf,
               whnfTelescope_env h W₁.env, whnfTelescope_env h W₂.env]
       · rfl
     · rfl
