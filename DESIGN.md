@@ -109121,6 +109121,22 @@ claims one job at a time, as before.
   not being in its record; no real input has reached this (`hoisted` is empty on Init and Mathlib),
   and a fixture would need a theorem in a Nat operation's ground.
 
+**The worker's state (maintainer's ruling).**  What it holds of a read is the module's region, the
+files' raw bytes.  Measured by reading the files for every theorem instead (Mathlib, `--jobs=8`, 5
+alternating runs, median): wall 119.1 s against 151.1 s, check 102.1 s against 132.8 s, sys 14.5 s
+against 146 s, instructions 8 088 G against 8 472 G, the same RSS.  A cache in the `IO` instance was
+considered, as the model already assumes one snapshot: it would drop `WorkerReach` and `CacheOK` but
+needs a concatenating read and the `Located` kept, and puts unverified state in the instance.  Ruled
+against: the worker map stays, a parallel combinator whose model makes the proof hold at every state a
+worker can reach.  What that gives is exit 0 implies the fact, at any assignment of elements to workers; no
+theorem says two assignments give one result, and that the threads meet the model is assumption (1).
+
+**The load on the worker map** (`parMapExcept`'s instance swapped for it, not kept; parse phase on
+Mathlib, 5 alternating runs, median, min-max): 8 jobs 10.6 s (9.8-11.6) static, 10.2 s (10.1-15.5) claimed;
+32 jobs 7.3 s (7.0-12.0), 7.7 s (7.3-12.0).  No measurable gain: the largest round-robin share by file
+bytes is 1.03 times the mean at 8 workers, 1.16 at 32, and the largest module 22 times the mean module.
+CFSG's closure not measured.
+
 **Follow-ups, not done.**  The stream reader (the maintainer's idea: line boundaries, then the roots).
 Workers read a module's files again each (61 000 reads for 11 000 modules on Mathlib, 2 % of the
-worker time); a shared one would save that.  CFSG is the maintainer's to run.
+worker time).  CFSG is the maintainer's to run.
