@@ -1092,7 +1092,12 @@ theorem genClsRd_out
     (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     (hcl : TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
-    (hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c) :
+    (hnP : pp.nP ≤ pp.toBlockShape.rulePrefixAt c)
+    (hkf : ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
+      ∀ dsa, DenoteSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape c) (tgtMajor out c).ds dsa →
+      Sat V ((Dc c).params (Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls)).reverse
+        (keyFrame dsa (tgtRP pp.toBlockShape c) (consList xs ρ))) :
     GenClsRd mpC d Dc mc cvc pp out c (cvc c) ∧
       R.g.formerTys.getD (genClsOf R.rd c) default
         = ((tgtClsD d Dc out c).formerAt (tgtClsM mc pp.toBlockShape out c) (cvc c)).type.instantiateLevelParams
@@ -1172,10 +1177,9 @@ theorem genClsRd_out
     hctor := fun j cA hcA => ?_
     hctorAt := fun cv _ => by simp [ConLeche.targetCtorAt, hMo]
     hnpc := hdsLen'.symm }, ?_⟩
-  · -- the parameters satisfy the class's telescope at the key frame: the
-    -- instantiation's inference at the prefix (`keyParamsFit`)
+  · -- the parameters satisfy the class's telescope at the key frame
     rw [hDe, hψe]
-    sorry
+    exact hkf ψ ρ xs hfit _ (hdsa ψ)
   · obtain ⟨hjD, hfc, hlpC, hlps⟩ := hcl.ctor_at hcA
     rw [hDe, hMe]
     refine ⟨hjD, by rw [hdsLen']; exact hfc, hlpC.symm, fun mm hmm => ?_⟩
@@ -1463,8 +1467,14 @@ variable
     (hlfp : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).toLfp ∈ mpC.lfpBlocks)
     (hcls : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
+    (hkf : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
+      ∀ dsa, DenoteSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape c) (tgtMajor out c).ds dsa →
+      Sat V ((Dc c).params (Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls)).reverse
+        (keyFrame dsa (tgtRP pp.toBlockShape c) (consList xs ρ)))
 
-include R hg hcov h hN hS hcore hlfp hcls in
+include R hg hcov h hN hS hcore hlfp hcls hkf in
 /-- **Every class's reading facts**, and the prefix room. -/
 theorem genClsRd_all :
     ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.toBlockShape.rulePrefixAt c ∧
@@ -1481,10 +1491,10 @@ theorem genClsRd_all :
     exact Nat.le_add_right _ _
   refine ⟨hnP, ?_⟩
   cases hmb : (tgtMajor out c).member with
-  | none => exact ⟨cvc c, genClsRd_out R hg hcov h hc hmb (hcls c hc hmb) hnP⟩
+  | none => exact ⟨cvc c, genClsRd_out R hg hcov h hc hmb (hcls c hc hmb) hnP (hkf c hc hmb)⟩
   | some t => exact genClsRd_mem R hg hcov h hN hS hcore hlfp hc hmb hnP
 
-include R hg hcov h hN hS hcore hlfp hcls in
+include R hg hcov h hN hS hcore hlfp hcls hkf in
 /-- **`GenPreSem.split`, `.back`, `.dec`, `.decInv` from the run** — the
 class split both ways and the decoding both ways, at every level
 assignment and base frame. -/
@@ -1494,7 +1504,7 @@ theorem genClsSem_run (ψ : Name → Nat) (ρ : Nat → V) :
     GenClsDec pp out mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc ψ ρ ∧
     GenClsDecInv pp out mpC (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) Dc mc cvc
       ψ ρ := by
-  have hall := genClsRd_all R hg hcov h hN hS hcore hlfp hcls
+  have hall := genClsRd_all R hg hcov h hN hS hcore hlfp hcls hkf
   refine ⟨fun c hc => ?_, fun c hc => ?_, fun c hc j hj => ?_, fun c hc j hj => ?_⟩
   · obtain ⟨hnP, cvI, Rd, hf⟩ := hall c hc
     exact genCls_split R hg h hc Rd hf hnP ψ ρ

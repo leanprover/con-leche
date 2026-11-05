@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.GenRecAssembly
 import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Model.Inductives.NestedRecRest
+import ConLeche.Model.Inductives.GenOutKeyFit
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockRecAssembly
@@ -110,6 +111,14 @@ theorem genRecStage {F : Nat}
   have hfind := genRecCtor_find (mpC := mpC) R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) h
   obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov hrd dR.toLfp
+  have hkf : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
+      ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
+      ∀ dsa, DenoteSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape c) (tgtMajor out c).ds dsa →
+      Sat V ((Dc c).params (Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls)).reverse
+        (keyFrame dsa (tgtRP pp.toBlockShape c) (consList xs ρ)) :=
+    fun c hc hMo ψ ρ xs hfit _ hdsa =>
+      genOut_keyFit hctx.base R hg h hc hMo (hcls c hc hMo) ψ ρ xs hfit hdsa
   -- the open class-side rows
   have hcallTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -160,12 +169,12 @@ theorem genRecStage {F : Nat}
       GenClsDec pp out mpC dR Dc mc cvc ψ ρ ∧ GenClsDecInv pp out mpC dR Dc mc cvc ψ ρ := by
     intro ψ ρ
     subst hdRe
-    exact genClsSem_run R hg hcov h hN hS hcore hlfp hcls ψ ρ
+    exact genClsSem_run R hg hcov h hN hS hcore hlfp hcls hkf ψ ρ
   have hrdAll : ∀ c, c < (tgtRs out).length → pp.nP ≤ pp.toBlockShape.rulePrefixAt c ∧
       ∃ cvI, GenClsRd mpC dR Dc mc cvc pp out c cvI := by
     intro c hc
     subst hdRe
-    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all R hg hcov h hN hS hcore hlfp hcls c hc
+    obtain ⟨hnP, cvI, Rd, -⟩ := genClsRd_all R hg hcov h hN hS hcore hlfp hcls hkf c hc
     exact ⟨hnP, cvI, Rd⟩
   -- the class's index count, read off its decoding at a fitting rule frame
   have hlenEs : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →

@@ -18,6 +18,7 @@ import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Verify.Denote.Inst
 import ConLeche.Model.Rules.Inputs
 import ConLeche.Model.Inductives.GenClsSem
+import ConLeche.Model.Inductives.GenOutKeyFit
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Semantics.Tower.TowerKit
@@ -122,6 +123,7 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find?) pp.toBlockShape out ns
       ψ ρ xs envC F (cvTasR.map (·.type)) := by
   intro c hc t ht hNM hsp
+  have hctx₀ := hctx
   obtain ⟨-, -, -, -, hN, hS, hcore, -, hdR, -, hcov, -⟩ := hctx
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
@@ -220,7 +222,8 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     obtain ⟨-, -, -, -, -, -, -, -, -, hRP, -⟩ := genRun_binders R hg h mpC (fun _ => 0) hc
     rw [hRP, (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1]
     exact Nat.le_add_right _ _
-  obtain ⟨Rd, -⟩ := genClsRd_out (d := dR) R hg hcov h hc hMo hcl hnPc
+  obtain ⟨Rd, -⟩ := genClsRd_out (d := dR) R hg hcov h hc hMo hcl hnPc fun ψ' ρ' xs' hfit' _ hdsa' =>
+    genOut_keyFit hctx₀ R hg h hc hMo hcl ψ' ρ' xs' hfit' hdsa'
   have hDe : tgtClsD dR Dc out c = Dc c := by simp [tgtClsD, hMo]
   generalize hψc : Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls = ψc
   -- the node: the same datum, at the same levels

@@ -13,6 +13,8 @@ import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Cached.GenRecC
+import ConLeche.Verify.Inductives.ReplaceApps
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
@@ -415,6 +417,40 @@ theorem genRun_keys_scoped
   exact replaceFVars_WScoped_of_below (fun i r hr => (hpar r (List.mem_of_getElem? hr)).1)
     (fun i hi => by simp [hlP, hi]) y0 (Expr.fvarB_le hyg.2)
 
+/-- **A class key's parameters are over the canonical parameters**: every variable of them is
+one. -/
+theorem genRun_keys_leaves
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
+    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) :
+    ∀ key ∈ R.keys, ∀ x ∈ key.ds, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.ctx.params := by
+  obtain ⟨hlP, -⟩ := genRun_params R hT
+  obtain ⟨cvTa0, rest, h0, hop, -, -⟩ := genRun_ctx R
+  have hT0 : cvTa0.type.hasFvar = false :=
+    (ScB.closed (hT _ (List.mem_of_getElem? (List.head?_eq_getElem?.symm.trans h0)))).1
+  have hkw := genRun_keys_scoped R hT
+  intro key hk x hx l hl
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hk
+  have hll := mapM_ok_length R.hkeys
+  have hil : i < R.rd.classes.length := by
+    rw [← hll]; exact (List.getElem?_eq_some_iff.mp hi).1
+  obtain ⟨key', hkey', hrun⟩ := mapM_ok_getElem? R.hkeys i _ (List.getElem?_eq_getElem hil)
+  rw [hi] at hkey'
+  obtain rfl := Option.some.inj hkey'
+  obtain ⟨rfl, -⟩ := classKeyOf_run hrun
+  have hw := hkw _ hk x hx
+  simp only [classKeyCanon, List.mem_map] at hx
+  obtain ⟨y, -, rfl⟩ := hx
+  rcases fvarLeaves_replaceFVars y l hl with ⟨j, ty, -, hg, -, hkept⟩ | ⟨j, a, hg, hl'⟩
+  · -- a variable past the parameters stays, and the key is scoped below them
+    exfalso
+    have hjs := Expr.fvarLeaves_lt_of_wscoped hw (j, ty) hkept
+    rw [List.getElem?_eq_none_iff] at hg
+    simp only at hjs
+    omega
+  · rcases ConLeche.Verify.openPisAtFvars_leaves _ hop l (.inr ⟨a, List.mem_of_getElem? hg, hl'⟩) with h | h
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hT0] at h; exact nomatch h
+    · exact h
+
 /-- **Every class checked as a major**, scoped: its parameters scoped over
 the canonical parameters (an outside class's below them), its
 constructors closed, a member's index a member. -/
@@ -488,6 +524,33 @@ theorem genRun_Ms
   rw [hM] at hMs
   obtain rfl := Option.some.inj hMs
   exact ⟨_, List.getElem?_eq_getElem hc, rfl, targetMajorNfs_sub hnfs⟩
+
+/-- **An outside class's parameters are over the canonical parameters.** -/
+theorem genRun_out_leaves
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
+    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) {c : Nat} {M : TargetMajor} (hM : R.Ms[c]? = some M)
+    (hMo : M.member = none) :
+    ∀ x ∈ M.ds, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.ctx.params := by
+  obtain ⟨-, hall⟩ := genRun_Ms R
+  obtain ⟨M₀, hM₀, hMe, -⟩ := hall c M hM
+  obtain ⟨hlen, hmaj⟩ := R.majors
+  have hkl : c < R.keys.length := by
+    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hM₀).1
+  obtain ⟨M', hM', ⟨C⟩⟩ := hmaj c _ (List.getElem?_eq_getElem hkl)
+  rw [hM₀] at hM'
+  obtain rfl := Option.some.inj hM'
+  have hkey : R.keys[c] ∈ R.keys := List.getElem_mem _
+  generalize R.keys[c] = key at hkey C
+  have hleaves := genRun_keys_leaves R hT key hkey
+  rw [hMe] at hMo ⊢
+  cases C.major with
+  | member I t ms ctorsA hfn ht hms hctors hpar' nfs => exact nomatch hMo
+  | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort nfs =>
+    intro x hx
+    have hxa := List.mem_of_mem_take hx
+    rw [Expr.getAppArgs_mkAppN] at hxa
+    simp only [Expr.getAppArgs, List.nil_append] at hxa
+    exact hleaves x hxa
 
 /-- **The positivity check's table after the seeds is scoped** over the
 parameters: every entry the generated stage reads a datum off

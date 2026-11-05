@@ -95,6 +95,38 @@ theorem classMajors_run {fe : FEnv} {p : BlockShape}
       exact ⟨M, rfl, ⟨⟨R, hM⟩⟩⟩
     | succ i => simpa using hall i key' (by simpa using hi)
 
+/-- **`classMajors`, inverted**: each class's pins ran. -/
+theorem classMajors_pins {fe : FEnv} {p : BlockShape} {ops : CheckerOps CheckM}
+    {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr} :
+    ∀ {keys : List ClassKey} {Ms : List TargetMajor},
+      classMajors ops fe p ctorsAs pfvs keys = .ok Ms →
+      ∀ M ∈ Ms, targetMajorPins ops fe p.nP M = .ok ()
+  | [], Ms, h => by
+    simp only [classMajors, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact fun _ hM => nomatch hM
+  | key :: keys, Ms, h => by
+    unfold classMajors at h
+    obtain ⟨M, -, h⟩ := exceptBind_ok h
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    obtain ⟨Ms', hMs, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    intro M' hM'
+    rcases List.mem_cons.mp hM' with rfl | hM'
+    · cases u; exact hu
+    · exact classMajors_pins hMs M' hM'
+
+/-- An outside class's pins: its key, typed against its telescope. -/
+theorem targetMajorPins_key {fe : FEnv} {ops : CheckerOps CheckM} {rP : Nat} {M : TargetMajor}
+    (h : targetMajorPins ops fe rP M = .ok ()) (hM : M.member = none) :
+    familyKeyCheck ops fe.env fe.find? rP M.ind M.lvls M.ds = .ok () := by
+  unfold targetMajorPins at h
+  rw [hM] at h
+  simp only [Option.isNone_none, ↓reduceIte] at h
+  obtain ⟨u, -, h⟩ := exceptBind_ok h
+  exact h
+
 /-- **The class check moves between environments** that agree on every
 stored inductive of the first: its lookup and its constructor reading
 (`targetMajorOf` reads the environment nowhere else). -/
