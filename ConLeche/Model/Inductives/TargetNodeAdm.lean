@@ -81,6 +81,16 @@ theorem posNode_instPis {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Ne
   have hh₀ : (t.grp.headD default).1 = p₀.1 := by rw [hp]; rfl
   exact frame_head_instPis hfind (hinst p₀ (by rw [hp]; exact List.mem_cons_self)) (hh₀ ▸ hf)
 
+theorem posNode_flat {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
+    (hfind : ∀ n, ctx.find? n = env.find? n) {t : PosTree} (hok : PosNodeOk ops env ctx t)
+    {cv : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (t.grp.headD default).1 = some (.indInfo cv caps)) :
+    ConLeche.formerDefHeaded cv = false := by
+  obtain ⟨hne, -, -, hinst, -⟩ := posD_frame_inv hok.1
+  obtain ⟨p₀, ps₀, hp⟩ := List.exists_cons_of_ne_nil hne
+  have hh₀ : (t.grp.headD default).1 = p₀.1 := by rw [hp]; rfl
+  exact frame_head_flat hfind (hinst p₀ (by rw [hp]; exact List.mem_cons_self)) (hh₀ ▸ hf)
+
 /-- **K.52 at a node** (`hfit` of `FrameMono`): at every valuation of the
 node's stack context, its key's parameters read in the container's
 parameter telescope — the key instance is typed at the node's depth
@@ -123,7 +133,8 @@ theorem nodeKeyFit {env : Env} (mk : EnvModelM V env) {φ : Name → Nat} {ctx :
   obtain ⟨r, hr⟩ := posNode_instPis hfind hok (hhead ▸ hf)
   have hΔ := stackCtx_length_hi (m := mk.base2) (φ := φ) hΔ0 t.anc
   intro σ hσ
-  exact keyParamsFit mk (Rules.RulesInputs.ofSem mk φ) hD hmm hf hul hty' hr hlenP hΔ
+  exact keyParamsFit mk (Rules.RulesInputs.ofSem mk φ) hD hmm hf
+    (posNode_flat hfind hok (hhead ▸ hf)) hul hty' hr hlenP hΔ
     (fun x hx => ⟨⟨(hws x hx).1, (hws x hx).2, hL x hx⟩, CtxOk.toS (hC x hx).toCtxOk⟩) hdsa σ hσ
     (fun x hx => CtxOk.leavesGr (hC x hx).toCtxOk hσ)
 

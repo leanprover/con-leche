@@ -80,9 +80,10 @@ theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V envC}
   rw [mkFEnv_find?, hfI] at hf'
   obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
   obtain ⟨hC, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hcl.hmm
+  obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
   rw [hcl.hmem, hfI] at hf₂
   obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  rw [hfa hcl.hflat] at hab
   generalize hψ : Level.substFn ψ cvI.levelParams M.lvls = ψ' at hlenP ⊢
   obtain ⟨ab, hta, hmap⟩ := hab ψ'
   have hc := instPis_count_of_read hta cvI.levelParams M.lvls hty hs
@@ -100,9 +101,10 @@ theorem TgtOutCls.tailOk {envC : Env} {mpC : EnvModelM V envC}
     (hcl : TgtOutCls mpC M D mm cvI) : TailOk cvI.type := by
   obtain ⟨caps, hfI⟩ := hcl.hfind
   obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hcl.hmm
+  obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
   rw [hcl.hmem, hfI] at hf₂
   obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  rw [hfa hcl.hflat] at hab
   obtain ⟨ab, hta, -⟩ := hab (fun _ => 0)
   exact tailOk_of_read _ _ rfl hta
 

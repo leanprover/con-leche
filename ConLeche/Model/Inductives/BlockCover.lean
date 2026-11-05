@@ -86,13 +86,12 @@ theorem lfpCover_append {env env' : Env} {new : List ConstantInfo} (mp : EnvMode
     exact h
   have hok := mp.lfp_ok_transport (acval' := mpX.base2.acval)
     (fun n ci hf _ => hfwd n ci hf) (fun n _ hf _ => hag n (by rw [hf]; rfl))
-    (fun _ _ _ hf ψ _ hta =>
-      hden ψ 0 _ (hbound _ (ConLeche.Env.find?_mem hf)).1 hta)
-    (fun _ _ _ _ hf ψ _ hta =>
-      hden ψ 0 _ (hbound _ (ConLeche.Env.find?_mem hf)).1 hta)
-    (fun _ _ hf _ _ hA ψ d _ hta =>
-      hden ψ d _ (canonOf_constsBound
-        (hbound _ (ConLeche.Env.find?_mem hf)).1 hA) hta)
+    (fun ψ d e _ hb hta => hden ψ d e hb hta)
+    (fun _ => ConstsBound.of_isSome (env₁ := ⟨new ++ env.consts, env.tables⟩)
+      fun n h => by
+        cases hf : env.find? n with
+        | none => rw [hf] at h; exact nomatch h
+        | some ci => rw [hfwd _ _ hf]; rfl)
   refine ⟨{ mpX with lfpBlocks := mp.lfpBlocks, lfp_ok := hok }, rfl, rfl, fun hc => ?_⟩
   refine hc.ext rfl hfwd ?_ hex' ?_
   · intro n cv caps hf hn _

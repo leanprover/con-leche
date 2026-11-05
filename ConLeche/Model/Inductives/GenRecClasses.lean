@@ -269,7 +269,7 @@ update. -/
 theorem TgtOutCls.withNfs {env : Env} {mp : EnvModelM V env} {M : TargetMajor}
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI)
     (nfs : List ConLeche.NestCtorNf) : TgtOutCls mp { M with nfs := nfs } D mm cvI :=
-  ⟨h.hD, h.hmm, h.hmem, h.hfind, h.hnd, h.hnN, h.hkN, h.hlen, h.hctor⟩
+  ⟨h.hD, h.hmm, h.hmem, h.hfind, h.hflat, h.hnd, h.hnN, h.hkN, h.hlen, h.hctor⟩
 
 /-- **The outside classes' recorded blocks, canonically selected**: at
 every stored recursor whose class is outside, the class is member `mc c`

@@ -293,11 +293,12 @@ theorem grp_arity (mp : EnvModelM V env) {D : LfpDatum V}
   intro p hp
   obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hg.2.2 p hp
   obtain ⟨cvC, caps, hfC, -, -, ty, s, hty, hs, -, -, -⟩ := ConLeche.nestInstType_inv hrun
-  obtain ⟨cv, caps', hf, hab⟩ := (mp.lfp_ok D hD).2.2.1 mm hmm
+  obtain ⟨cv, caps', hf, ⟨hfa, -⟩, hab⟩ := (mp.lfp_ok D hD).2.2.1 mm hmm
   have hfC' : env.find? (D.member mm) = some (.indInfo cvC caps) := by
     rw [← hfind, ← hpm]; exact hfC
   rw [hf] at hfC'
   obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps' = caps := by simpa using hfC'
+  rw [hfa (ConLeche.containerFlat_self (ConLeche.nestInstType_flat hrun) hfC)] at hab
   obtain ⟨ab, hread, hmap⟩ := hab ψ
   have hok := tailOk_of_read _ cv.type rfl hread
   obtain ⟨-, l2, l3⟩ := tail_instantiateLevelParams cv.levelParams us cv.type

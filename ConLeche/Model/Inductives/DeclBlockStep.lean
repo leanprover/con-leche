@@ -367,7 +367,7 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     refine ⟨cvTb, _, by
       show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
         ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName mm) = _
-      rw [hname]; exact hfind, fun ψ => ⟨_, hFD.read ψ, ?_⟩⟩
+      rw [hname]; exact hfind, ⟨fun _ => rfl, .inl rfl⟩, fun ψ => ⟨_, hFD.read ψ, ?_⟩⟩
     show _ = ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM mm ψ).take
         (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP ++
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM mm ψ).drop
@@ -404,6 +404,7 @@ theorem declBlock {F : Nat} {env env₂ : Env}
           ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName mm) = _
         rw [hname]; exact (hcoreC.1 mm cvTb hcv).1, fun ψ hw => ?_, fun ψ => ?_⟩
       · obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
+        show ConLeche.PropWhen.holds ψ (ConLeche.formerZ cvTb) = true
         rw [ConLeche.formerZ_of_stripPis hst, ConLeche.PropWhen.zeronessOf_sound, hF.sEval]
         have hw' : Level.eval ψ p₁.resSort = 0 := hw
         rw [hw']; rfl

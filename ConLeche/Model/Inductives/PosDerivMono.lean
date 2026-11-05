@@ -301,6 +301,7 @@ theorem frameKey_of_infer (mp : EnvModelM V env)
     (hlenP : (D.params (Level.substFn φ cv.levelParams us)).length = ds.length)
     (hkty : ∃ ty, ConLeche.inferTypeCore .verified false env F hi
       (Expr.mkAppN (.const (D.member mm) us) ds) = .ok ty)
+    (hflat : ConLeche.formerDefHeaded cv = false)
     (hpi : ∃ r, ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some r) :
     ∀ ρ, Sat V Δh ρ →
       Sat V (D.params (Level.substFn φ cv.levelParams us)).reverse (keyFrame dsa hi ρ) ∧
@@ -327,7 +328,7 @@ theorem frameKey_of_infer (mp : EnvModelM V env)
   have hwd := hgr ρ hρ
   refine ⟨?_, WellDenoted_mkAppN_args _ hwd⟩
   obtain ⟨r, hr⟩ := hpi
-  exact keyParamsFit mp hin hD hmm hf hul hty hr hlenP.symm hΔ
+  exact keyParamsFit mp hin hD hmm hf hflat hul hty hr hlenP.symm hΔ
     (fun x hx => ⟨⟨(hds x hx).1, (hds x hx).2, hLds x hx⟩, CtxOk.toS (hCds x hx).toCtxOk⟩) hdsa ρ hρ
     (fun x hx => CtxOk.leavesGr (hCds x hx).toCtxOk hρ)
 
@@ -335,6 +336,16 @@ theorem frameKey_of_infer (mp : EnvModelM V env)
 kernel's `nestInstType`, inverted): the former's stored type peels along
 them — the literal telescope `keyParamsFit` reads the key's inference
 against. -/
+theorem frame_head_flat {ctx : NestCtx} (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat}
+    {us : List Level} {ds : List Expr} {p : Name × Expr}
+    (hinst : ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2))
+    {cv : ConstantVal} {caps : IndCaps} (hf : env.find? p.1 = some (.indInfo cv caps)) :
+    ConLeche.formerDefHeaded cv = false := by
+  obtain ⟨nI, h⟩ := hinst
+  exact ConLeche.containerFlat_self (ConLeche.nestInstType_flat h) (by
+    show ctx.find? p.1 = _
+    rw [hfind]; exact hf)
+
 theorem frame_head_instPis {ctx : NestCtx} (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat}
     {us : List Level} {ds : List Expr} {p : Name × Expr}
     (hinst : ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2))
@@ -435,6 +446,7 @@ theorem frame_mono (mp : EnvModelM V env)
   -- the key, graded
   have hkey := frameKey_of_infer mp hin hD hmm hf₀ (by rw [hlp₀]; exact hul) hds hLds hΔ hCds
     hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
+    (frame_head_flat hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
     (frame_head_instPis hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
   rw [hlp₀] at hkey
   have hle := frameIter mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP hg.2 hin
@@ -558,7 +570,6 @@ theorem frame_keyBlock (mp : EnvModelM V env) {ctx : NestCtx}
   obtain ⟨cv₀, caps₀, hf₀c, -⟩ := ConLeche.nestInstType_inv hnI₀
   have hf₀ : env.find? p₀.1 = some (.indInfo cv₀ caps₀) := by rw [← hcov.find]; exact hf₀c
   obtain ⟨D, hD, mm₀, hmm₀, hn₀⟩ := hcov.cover p₀.1 cv₀ caps₀ hf₀ hhd.1 hhd.2
-    (famFlat_of_run hcov.find hf₀ (ConLeche.nestInstType_flat hnI₀))
   have hblkD := hcov.block D hD
   -- the key's container is a member of it
   obtain ⟨mm, hmm, hn⟩ : ∃ mm, mm < D.k ∧ D.member mm = key.cname := by
@@ -769,7 +780,6 @@ theorem posD_mono (mp : EnvModelM V env)
     obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
     rw [hcov.find] at hfc
     obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hquot
-      (famFlat_of_run hcov.find hfc (ConLeche.nestInstType_flat hnI))
     subst hn
     obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ := contBlock_facts mp hcov hD hmm hfc hq
     have hspine := Expr.mkAppN_getApp w

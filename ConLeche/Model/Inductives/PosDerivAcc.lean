@@ -214,6 +214,7 @@ theorem frame_accD (mp : EnvModelM V env)
   -- the key, graded
   have hkey := frameKey_of_infer mp hin hD hmm hf₀ (by rw [hlp₀]; exact hul) hds hLds hΔ hCds
     hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
+    (frame_head_flat hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
     (frame_head_instPis hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
   rw [hlp₀] at hkey
   exact ⟨hndl, hg, hwD, frameIterAcc mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP
@@ -459,7 +460,6 @@ theorem posD_acc (mp : EnvModelM V env)
     obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
     rw [hcov.find] at hfc
     obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hquot
-      (famFlat_of_run hcov.find hfc (ConLeche.nestInstType_flat hnI))
     subst hn
     obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ := contBlock_facts mp hcov hD hmm hfc hq
     have hwa0 := hwa

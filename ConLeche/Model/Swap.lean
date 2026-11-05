@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.Denote.EnvExt
 import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.Denote
@@ -238,9 +239,8 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
             lfp_ok := mp.lfp_ok_transport
               (fun n ci hf hnr => (hsame n ci hnr).mpr hf)
               (fun _ _ _ _ => rfl)
-              (fun _ _ _ _ ψ _ hta => by rw [← denote_swap hcg ψ 0]; exact hta)
-              (fun _ _ _ _ _ ψ _ hta => by rw [← denote_swap hcg ψ 0]; exact hta)
-              (fun _ _ _ _ _ _ ψ _ _ hta => by rw [← denote_swap hcg ψ _]; exact hta) },
+              (fun ψ d _ _ _ hta => by rw [← denote_swap hcg ψ d]; exact hta)
+              (fun _ => ConstsBound.of_isSome fun n h => by rw [← hcg.isSomeEq]; exact h) },
           rfl, rfl⟩
   · -- `type_reads`
     intro c hc ψ

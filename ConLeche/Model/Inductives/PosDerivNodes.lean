@@ -108,7 +108,7 @@ theorem stackCtx_frame (hfind : ∀ n, ctx.find? n = env.find? n) {D : LfpDatum 
   simp only [List.getElem_mapIdx, List.length_reverse]
   have hi : i < grp.length := by simpa [grpNews] using h1
   have hp : grp[i] ∈ grp := List.getElem_mem hi
-  obtain ⟨mm, -, hpm, cv, caps, hf, -, hp2⟩ := hgT.2.2 _ hp
+  obtain ⟨mm, -, hpm, cv, caps, hf, -, -, hp2⟩ := hgT.2.2 _ hp
   simp only [grpNews, List.getElem_map, nestHoleTy]
   rw [hfind, hpm, hf]
   dsimp only
@@ -253,7 +253,7 @@ recorded block, its level parameters and parameter count. -/
 theorem key_block (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {n : Name} {nPc : Nat} {L : List (ConstantVal × Nat)}
     (hq : ConLeche.nestContainer ctx n = some (nPc, L)) (hnm : ctx.names.contains n = false)
-    (hquot : n ≠ ConLeche.quotName) (hflat : ConLeche.containerFlat ctx.find? n = true) :
+    (hquot : n ≠ ConLeche.quotName) :
     ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n ∧ ∃ cv caps lps,
       env.find? n = some (.indInfo cv caps) ∧
       (∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
@@ -264,7 +264,6 @@ theorem key_block (mp : EnvModelM V env) {ctx : NestCtx}
   obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
   rw [hcov.find] at hfc
   obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hquot
-    (famFlat_of_run hcov.find hfc hflat)
   subst hn
   obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ := contBlock_facts mp hcov hD hmm hfc hq
   exact ⟨D, hD, mm, hmm, rfl, cv, caps, lps, hfc, hlps, hlenP0, hcvl,
@@ -312,6 +311,7 @@ theorem frame_nodes (mp : EnvModelM V env)
   -- the key, graded
   have hkey := frameKey_of_infer mp hin hD hmm hf₀ (by rw [hlp₀]; exact hul) hds hLds hΔ hCds
     hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
+    (frame_head_flat hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
     (frame_head_instPis hcov.find (hinst p₀ List.mem_cons_self) (hhead ▸ hf₀))
   rw [hlp₀] at hkey
   refine ih (by simp [grpNews, ConLeche.NestCtx.hiAt]; omega)
@@ -366,10 +366,7 @@ theorem frameNodes_of (mp : EnvModelM V env) {ctx : NestCtx}
     (hLds : ∀ x ∈ ds, Expr.LeavesBounded x) : NodesSem mp.base2 φ ctx Δ0 ts := by
   obtain ⟨hne, ⟨hnm, hquot⟩, ⟨L, hq⟩, hinst, -⟩ := posD_frame_inv hfrD
   obtain ⟨D, hD, mm, hmm, hmn, cv, caps, lps, hfc, hlps, hlenP0, hcvl, hnL⟩ :=
-    key_block mp hcov hq hnm hquot (by
-      obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
-      obtain ⟨nI, hnI⟩ := hinst p₀ List.mem_cons_self
-      exact ConLeche.nestInstType_flat hnI)
+    key_block mp hcov hq hnm hquot
   obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
   simp only [List.headD_cons] at hmn hfc
   obtain ⟨nI, hnI⟩ := hinst p₀ List.mem_cons_self

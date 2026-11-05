@@ -107,6 +107,20 @@ theorem nestInstType_flat {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} 
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
 
+theorem containerFlat_self {find? : Name → Option ConstantInfo} {c : Name} {cv : ConstantVal}
+    {caps : IndCaps} (h : containerFlat find? c = true)
+    (hf : find? c = some (.indInfo cv caps)) : formerDefHeaded cv = false := by
+  simp only [containerFlat, hf, Bool.and_eq_true, Bool.not_eq_true'] at h
+  exact h.1
+
+theorem containerFlat_mate {find? : Name → Option ConstantInfo} {c m : Name} {cv cvm : ConstantVal}
+    {caps capsm : IndCaps} (h : containerFlat find? c = true)
+    (hf : find? c = some (.indInfo cv caps)) (hm : m ∈ caps.all)
+    (hfm : find? m = some (.indInfo cvm capsm)) : formerDefHeaded cvm = false := by
+  simp only [containerFlat, hf, Bool.and_eq_true, famFlat, List.all_eq_true] at h
+  have := h.2 m hm
+  simpa [hfm] using this
+
 /-- **The container is applied at its own level count** (official's
 `infer_constant`). -/
 theorem nestInstType_lvls {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.Inductives.ContCtor
 public import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContFrame
@@ -216,6 +217,7 @@ states it directly, with no `nestInstType` run. -/
   (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
     ∀ p ∈ grp, ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧
+      ConLeche.formerDefHeaded cv = false ∧
       (cv.type.stripPis ds.length).isSome = true ∧
       instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some p.2
 
@@ -267,7 +269,7 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
         denote mp.base2.acval env φ hi p.2
           = some (mkPisAV (Term.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
               (abF.drop ds.length)) (.sort (D.w (Level.substFn φ lps us)))) := by
-  obtain ⟨mm, hmm, hpm, cv, caps, hf, hstrip, hp2⟩ := hgT.2.2 p hp
+  obtain ⟨mm, hmm, hpm, cv, caps, hf, hflat, hstrip, hp2⟩ := hgT.2.2 p hp
   obtain ⟨cv', caps', hf', hlp⟩ := hlps mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
@@ -285,7 +287,7 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
     · rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl] at hl'; exact nomatch hl'
     · exact hl'
   · obtain ⟨abF, h1, h2, h4, h5⟩ :=
-      instFormer_readB mp hD hmm hf hnd hul hlenP hds hdsa hstrip hp2
+      instFormer_readB mp hD hmm hf (mp.formerAt_flat hD hmm hf hflat) hnd hul hlenP hds hdsa hstrip hp2
     exact ⟨mm, cv, caps, hmm, hpm, hf, abF, h1, h2, h4, h5⟩
 
 omit hnN hkN in
@@ -438,7 +440,7 @@ theorem crest_readT {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Const
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List Term, Tys.length = D.k ∧
         (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
           denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
@@ -562,7 +564,7 @@ theorem frameVals_sat (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {ψ : Name → Nat} {ρp : Nat → V} (hs : Sat V (D.params ψ).reverse ρp)
     {nPc : Nat} (hnP : (D.params ψ).length = nPc) {Tys : List Term} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      instPisWith (canonParams nPc) cvm.type = some ty ∧
+      instPisWith (canonParams nPc) (D.formerAt mm cvm).type = some ty ∧
       denote mp.base2.acval env ψ (nPc + mm) ty = some (Tys.getD mm default))
     (X : Nat → V) (hX : InTupleSpace (D.w ψ) D.N (D.idx ψ ρp) X) :
     Sat V (D.params ψ ++ Tys).reverse (D.frame ψ ρp X) := by
@@ -684,7 +686,12 @@ theorem grpWf_ty : GrpTy env D us ds grp :=
   ⟨hg.1, hg.2.1, fun p hp => by
     obtain ⟨mm, hmm, hpm, -, cv, caps, hf, hlp, hstrip, hp2, -⟩ :=
       grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
-    exact ⟨mm, hmm, hpm, cv, caps, hf, hstrip, by rw [hlp]; exact hp2⟩⟩
+    obtain ⟨-, nI, hrun⟩ := hg.2.2 p hp
+    have hflat := ConLeche.containerFlat_self (ConLeche.nestInstType_flat hrun)
+      (cv := cv) (caps := caps) (by
+        show ctx.find? p.1 = _
+        rw [hfind, hpm]; exact hf)
+    exact ⟨mm, hmm, hpm, cv, caps, hf, hflat, hstrip, by rw [hlp]; exact hp2⟩⟩
 
 /-- **The group's hole values inhabit their context entries** (the
 members' formers instantiated at the key, read at the holes' depths). -/
@@ -801,7 +808,7 @@ theorem crest_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Consta
         (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List Term, Tys.length = D.k ∧
         (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
           denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)

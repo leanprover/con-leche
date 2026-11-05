@@ -69,8 +69,7 @@ recorded block is read as `ContBlockOk` says. -/
 structure ContCover (mp : EnvModelM V env) (ctx : NestCtx) : Prop where
   find : ∀ n, ctx.find? n = env.find? n
   cover : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ctx.names.contains n = false →
-    n ≠ ConLeche.quotName → ConLeche.famFlat env.find? caps = true →
-    ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
+    n ≠ ConLeche.quotName → ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
   block : ∀ D ∈ mp.lfpBlocks, ContBlockOk env ctx D
 
 /-! ## Pieces -/
@@ -107,16 +106,6 @@ where
     | y :: ys, f, h => by
       simp only [Expr.mkAppN]
       exact leaves_mkAppN_head (by simp [Expr.fvarLeaves, h])
-
-omit [SetTheory V] in
-/-- A walk's container: its group is flat at the environment the context reads. -/
-theorem famFlat_of_run {ctx : NestCtx} {env : Env} (hfind : ∀ n, ctx.find? n = env.find? n)
-    {n : Name} {cv : ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : env.find? n = some (.indInfo cv caps))
-    (h : ConLeche.containerFlat ctx.find? n = true) :
-    ConLeche.famFlat env.find? caps = true := by
-  have hfd : ctx.find? = env.find? := funext hfind
-  simpa [ConLeche.containerFlat, hf, hfd] using h
 
 theorem nestContainer_find {ctx : NestCtx} {C : Name} {q : Nat × List (ConstantVal × Nat)}
     (h : ConLeche.nestContainer ctx C = some q) :

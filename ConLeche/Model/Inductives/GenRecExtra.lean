@@ -96,14 +96,14 @@ theorem lfpW_congr {envC : Env} (mpC : EnvModelM V envC) {D : LfpDatum V}
     {caps : ConLeche.IndCaps} (hf : envC.find? (D.member mm) = some (.indInfo cv caps))
     {ψ₁ ψ₂ : Name → Nat} (hag : ∀ q ∈ cv.levelParams, ψ₁ q = ψ₂ q) : D.w ψ₁ = D.w ψ₂ := by
   obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hD
-  obtain ⟨cv', caps', hf', hab⟩ := hrd mm hmm
+  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, -⟩ : cv = cv' ∧ caps = caps' := by
     injection hf' with h'; injection h' with h1 h2; exact ⟨h1, h2⟩
   obtain ⟨ab₁, h₁, -⟩ := hab ψ₁
   obtain ⟨ab₂, h₂, -⟩ := hab ψ₂
-  have hwf := mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
-  rw [denote_params_ext mpC.base2 hag 0 cv.type hwf.2.1, h₂] at h₁
+  obtain ⟨-, -, -, -, hdl⟩ := mpC.formerAt_wf hD hmm hf
+  rw [denote_params_ext mpC.base2 hag 0 _ hdl, h₂] at h₁
   have h := (mkPisAV_sort_inj (Option.some.inj h₁)).2
   exact h.symm
 
@@ -291,11 +291,18 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
     rw [hfm] at hf'
     obtain ⟨rfl, -⟩ : cvT = cv ∧ caps = caps' := by
       injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
+    -- a former whose sort is not read is zero at every valuation, so the rescue did not pass
+    have hflat : ConLeche.formerDefHeaded cvT = false := by
+      cases hrs : ConLeche.formerResSort cvT.type with
+      | none =>
+        simp [ConLeche.formerZ, hrs, ConLeche.PropWhen.holds] at hfalse
+      | some s => simp [ConLeche.formerDefHeaded, hrs]
+    rw [mp.formerAt_flat hD hmm hfm hflat] at hz
     have hne : D.w (Level.substFn φ cvT.levelParams us) ≠ 0 :=
       fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
     rwa [lfpW_congr mp hD hmm hfm hlv] at hne
   · obtain ⟨cv, caps', hf', -, hlen⟩ := hcK mm hmm
-    obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hmm
+    obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmm
     rw [hfm] at hf' hf₂
     obtain ⟨rfl, rfl⟩ : cvT = cv ∧ caps = caps' := by
       injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
@@ -303,12 +310,16 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
       injection hf₂ with h'; injection h' with a b
     obtain ⟨ab, hta, hmap⟩ := hab ψ
     have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfm)
+    obtain ⟨ta₀, hta₀⟩ := mp.type_reads _ (ConLeche.Env.find?_mem hfm) ψ
+    change denote mp.base2.acval env ψ 0 cvT.type = some ta₀ at hta₀
     have hread : denote mp.base2.acval env φ 0
-        (cvT.type.instantiateLevelParams cvT.levelParams us)
-        = some (mkPisAV ab (.sort (D.w ψ))) := by
+        (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta₀ := by
       rw [denote_instLevels mp.base2.acval_params φ,
         denote_params_ext mp.base2 hlv 0 cvT.type hwf.2.1]
-      exact hta
+      exact hta₀
+    have hend := fun ρ' => by
+      have h := ht _ hread ρ'
+      rwa [mp.formerAt_interp hD hmm hfm hta₀ hta ρ'] at h
     subst hmap
     -- the parameters, then the indices
     have hpl := (hcl.parsLen mm hmm ψ)
@@ -318,7 +329,7 @@ theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
     have hfr : consList (frameIdx (D.pars mm ψ).length ρp) (shiftE (D.pars mm ψ).length 0 ρp)
         = ρp := consList_frameIdx _ ρp
     have hfit := SpineFit.append hfitP (hfr ▸ hids)
-    exact sort_ne_zero_of_walk hfit (by rw [hlen ψ]; exact ht _ hread _) hw'
+    exact sort_ne_zero_of_walk hfit (by rw [hlen ψ]; exact hend _) hw'
 
 /-- `FamNZ` at the recursors' stage is the constructors' stage's. -/
 theorem famNZ_of_recStage {envC : Env} (mpC : EnvModelM V envC)
@@ -1526,6 +1537,7 @@ theorem genOut_caps {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc
   rw [hf₀] at hf
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hf with h'; injection h' with a b; exact ⟨a, b⟩
+  rw [Rd.hfa] at hz
   obtain ⟨cv', nPc, nF, hf', bs, es, hst⟩ := hcC _ Rd.hmm i hiD
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).ds.length = nPc ∧ cA.2 = nF := by
@@ -1673,12 +1685,13 @@ theorem genOut_typed (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
   rw [interp_mkAppN_foldl ρ _ (mpC.base2.acval (tgtMajor out j).ind ψj)] at hin
   -- the container former's telescope
   obtain ⟨-, -, hrd, ⟨-, hrdC⟩, -⟩ := mpC.lfp_ok _ Rd.hD
-  obtain ⟨cv, caps, hfm, hab⟩ := hrd _ Rd.hmm
+  obtain ⟨cv, caps, hfm, -, hab⟩ := hrd _ Rd.hmm
   rw [Rd.hmem] at hfm
   obtain ⟨caps₀, hf₀⟩ := Rd.hfind
   rw [hf₀] at hfm
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hfm with h'; injection h' with a b; exact ⟨a, b⟩
+  rw [Rd.hfa] at hab
   obtain ⟨ab, hta, hmap⟩ := hab ψj
   have hconsI := List.mem_of_find?_eq_some hf₀
   have hmemI : interp V ρ (mpC.base2.acval (tgtMajor out j).ind ψj)
@@ -2355,12 +2368,13 @@ theorem genOut_pin (hcov : LfpCover mpC [])
     Nat.lt_of_lt_of_le Rd.hmm hC.kN
   -- the container former's telescope, at the two level assignments
   obtain ⟨hiD, hfc0, hlpC, -⟩ := Rd.hctor i cA hcAM
-  obtain ⟨cv, caps, hfm, hab⟩ := hrd _ Rd.hmm
+  obtain ⟨cv, caps, hfm, -, hab⟩ := hrd _ Rd.hmm
   rw [Rd.hmem] at hfm
   obtain ⟨caps₀, hf₀⟩ := Rd.hfind
   rw [hf₀] at hfm
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hfm with h'; injection h' with a b; exact ⟨a, b⟩
+  rw [Rd.hfa] at hab
   have hconsI := List.mem_of_find?_eq_some hf₀
   have hwfI := mpC.base2.wf.consts _ hconsI
   obtain ⟨ab, hta, hmap⟩ := hab ψj

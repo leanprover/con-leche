@@ -260,6 +260,7 @@ The clause is produced in `BlockLfpHoles.lean`. -/
 @[expose] def BlockData.toLfp (d : BlockData V) : LfpDatum V where
   names := d.memberNames
   k := d.k
+  shown := fun _ => none
   N := d.N
   w := d.w
   params := d.params

@@ -160,14 +160,7 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
       exact mp.ind_strict I cv caps hf ψ ab n (hreadT _ hm ψ _ hread) hn ρ vs hsp
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => hf) (fun _ _ _ _ => rfl)
-      (fun _ _ _ hf ψ _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hx.denote (hbound _ hm).1 hta)
-      (fun _ _ _ _ hf ψ _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hx.denote (hbound _ hm).1 hta)
-      (fun _ _ hf _ _ hA ψ d _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hx.denote (canonOf_constsBound (hbound _ hm).1 hA) hta) }, rfl⟩
+      (fun ψ d _ _ hb hta => hx.denote hb hta)
+      (fun _ => ConstsBound.of_isSome (env₀ := env) (env₁ := ⟨env.consts, t :: env.tables⟩) fun _ h => h) }, rfl⟩
 
 end ConLeche.Model

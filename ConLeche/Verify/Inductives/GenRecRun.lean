@@ -142,7 +142,7 @@ theorem targetMajorOf_transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassE
     have hinst' := (targetOutsideInst_congr hfind (by
       unfold containerFlat
       rw [hfind, hf]
-      exact hfl) us _).trans hinst
+      simp only [hfl]) us _).trans hinst
     unfold targetMajorOf at h ⊢
     rw [hfn] at h ⊢
     simp only [ht] at h ⊢

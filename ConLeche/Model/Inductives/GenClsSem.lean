@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.Env.CanonCrest
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenRecPreRun
@@ -365,6 +367,8 @@ variable (mpC : EnvModelM V envC) (d : BlockData V) (Dc : Nat → LfpDatum V) (m
 /-- **Class `c`'s reading facts** (`cvI` its inductive's stored former). -/
 structure GenClsRd (c : Nat) (cvI : ConstantVal) : Prop where
   hfind : ∃ caps, envC.find? (tgtMajor out c).ind = some (.indInfo cvI caps)
+  /-- the class's former is the one its block read -/
+  hfa : (tgtClsD d Dc out c).formerAt (tgtClsM mc pp.toBlockShape out c) cvI = cvI
   hmem : (tgtClsD d Dc out c).member (tgtClsM mc pp.toBlockShape out c) = (tgtMajor out c).ind
   hD : tgtClsD d Dc out c ∈ mpC.lfpBlocks
   hmm : tgtClsM mc pp.toBlockShape out c < (tgtClsD d Dc out c).k
@@ -466,14 +470,14 @@ theorem genCls_core
     genRun_binders R hg h mpC ψ hc
   rw [hgc] at hformer
   rw [hformer] at hty
-  obtain ⟨hfind, hmemR, hDin, hmmk, -, -, hndI, hulI, hψf, hdsS, hlenPf, hidsLf, -, hdsaf,
+  obtain ⟨hfind, hfa, hmemR, hDin, hmmk, -, -, hndI, hulI, hψf, hdsS, hlenPf, hidsLf, -, hdsaf,
     -, -, -, -, -, -⟩ := Rd
   have hψc := hψf ψ
   have hdsa := hdsaf ψ
   have hlenP' := hlenPf ψ
   have hidsLen := hidsLf ψ
-  generalize hD : tgtClsD d Dc out c = D at hmemR hDin hmmk hlenP' hidsLen ⊢
-  generalize hmm : tgtClsM mc pp.toBlockShape out c = mm at hmemR hmmk hidsLen ⊢
+  generalize hD : tgtClsD d Dc out c = D at hfa hmemR hDin hmmk hlenP' hidsLen ⊢
+  generalize hmm : tgtClsM mc pp.toBlockShape out c = mm at hfa hmemR hmmk hidsLen ⊢
   generalize hψD : tgtClsψ cvc out ψ c = ψc at hψc hlenP' hidsLen ⊢
   generalize hrP : pp.toBlockShape.rulePrefixAt c = rP at hxl hopI hidxR hmajR hlenR hnP ⊢
   have hRP : tgtRP pp.toBlockShape c = rP := hrP
@@ -485,9 +489,10 @@ theorem genCls_core
   have hfM : envC.find? (D.member mm) = some (.indInfo cvI caps) := by rw [hmemR]; exact hfI
   -- the former strips its parameters
   obtain ⟨hC, -, hrd, -⟩ := mpC.lfp_ok D hDin
-  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hmmk
+  obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmmk
   rw [hfM] at hf₂
   obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  rw [hfa] at hab
   obtain ⟨ab0, hta0, -⟩ := hab ψ
   have hstrip : (cvI.type.stripPis (tgtMajor out c).ds.length).isSome = true := by
     have hok := tailOk_of_read _ cvI.type rfl hta0
@@ -497,7 +502,7 @@ theorem genCls_core
   have hds' : ∀ x ∈ (tgtMajor out c).ds, Expr.WScoped rP x ∧ x.looseBVarsBounded 0 = true :=
     fun x hx => ⟨(hdsS x hx).1.mono hnP, (hdsS x hx).2⟩
   rw [hψc] at hlenP' hidsLen
-  obtain ⟨abR, hmapR, hread⟩ := instFormer_read mpC hDin hmmk hfM hndI hulI hlenP' hds'
+  obtain ⟨abR, hmapR, hread⟩ := instFormer_read mpC hDin hmmk hfM hfa hndI hulI hlenP' hds'
     hdsa hstrip hty
   generalize hτ : substTau (tgtMajor out c).ds.length rP (fun i => dsa.getD i default) = τ
     at hread
@@ -733,7 +738,7 @@ theorem genCls_open
       Tys.length = (tgtClsD d Dc out c).k ∧
       (∀ mm, mm < (tgtClsD d Dc out c).k → ∃ cvm caps ty,
         envC.find? ((tgtClsD d Dc out c).member mm) = some (.indInfo cvm caps) ∧
-        ConLeche.instPisWith (canonParams (tgtMajor out c).ds.length) cvm.type = some ty ∧
+        ConLeche.instPisWith (canonParams (tgtMajor out c).ds.length) ((tgtClsD d Dc out c).formerAt mm cvm).type = some ty ∧
         denote mpC.base2.acval envC (tgtClsψ cvc out ψ c) ((tgtMajor out c).ds.length + mm) ty
           = some (Tys.getD mm default)) ∧
       FieldsEqOn V ((tgtClsD d Dc out c).params (tgtClsψ cvc out ψ c) ++ Tys).reverse
@@ -1145,6 +1150,9 @@ theorem genClsRd_out
     blockRulePdomsAV_length (V := V) mpC h (List.getElem?_eq_getElem hc) ψ
   refine ⟨{
     hfind := ⟨caps, hfI⟩
+    hfa := by
+      rw [hDe, hMe]
+      exact mpC.formerAt_flat hcl.hD hcl.hmm (by rw [hcl.hmem]; exact hfI) hcl.hflat
     hmem := by rw [hDe, hMe]; exact hcl.hmem
     hD := by rw [hDe]; exact hcl.hD
     hmm := by rw [hDe, hMe]; exact hcl.hmm
@@ -1184,7 +1192,9 @@ theorem genClsRd_out
     have hLK := CtxOk.leavesGr hCK hsatP
     rw [← hcl.hmem] at htx
     exact keyParamsFit mpC (Rules.RulesInputs.ofSem mpC ψ) hcl.hD hcl.hmm
-      (by rw [hcl.hmem]; exact hfI) hul htx hpi' (by rw [hl']; exact (hlenP ψ).symm)
+      (by rw [hcl.hmem]; exact hfI)
+      (ConLeche.containerFlat_self (targetOutsideInst_flat hinst') (by
+        rw [ConLeche.mkFEnv_find?]; exact hfI)) hul htx hpi' (by rw [hl']; exact (hlenP ψ).symm)
       (by rw [List.length_reverse]; exact hlenPd ψ) hargs
       (DenoteSpine.of_erasedEqL hEL (hdsa ψ)) (consList xs ρ) hsatP
       fun x hx => hLK.of_subset fun l hl => fvarLeaves_mkAppN_arg ds' hx hl
@@ -1371,6 +1381,7 @@ theorem genClsRd_mem
     blockRulePdomsAV_length (V := V) mpC h (List.getElem?_eq_getElem hc) ψ
   refine ⟨{
     hfind := ⟨caps, hfI⟩
+    hfa := by rw [hDe]; rfl
     hmem := by rw [hDe, hMe, hind]; rfl
     hD := by rw [hDe]; exact hlfp
     hmm := by rw [hDe, hMe]; exact htd

@@ -476,9 +476,10 @@ theorem genOutW
   rw [mkFEnv_find?, hfI] at hf'
   obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
   obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hcl.hmm
+  obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
   rw [hcl.hmem, hfI] at hf₂
   obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  rw [hfa hcl.hflat] at hab
   obtain ⟨ab, hta, -⟩ := hab (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
   have hsI : s = sI := (congrArg Prod.snd hr').symm
   subst hsI

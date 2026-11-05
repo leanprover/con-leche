@@ -233,10 +233,18 @@ theorem lfp_keep {env env' : Env} (mp : EnvModelM V env) (h : RenEnv env env') {
     exact ⟨cv, caps, (hm mm hmm).trans hf⟩
   · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
     exact ⟨cv, a, b, (hC c hc j hj).trans hf⟩
-  · obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
-    refine ⟨cv, caps, (hm mm hmm).trans hf, fun ψ => ?_⟩
-    obtain ⟨ab, hta, h1⟩ := hab ψ
-    exact ⟨ab, by rw [hde]; exact hta, h1⟩
+  · obtain ⟨cv, caps, hf, ⟨hfl, hsh⟩, hab⟩ := hrd mm hmm
+    refine ⟨cv, caps, (hm mm hmm).trans hf, ⟨hfl, ?_⟩, fun ψ => ?_⟩
+    · rcases hsh with hs | ⟨f, hs, h1, h2, h3, h4, hb, hdl, hin⟩
+      · exact .inl hs
+      · refine .inr ⟨f, hs, h1, h2, h3, h4, ConstsBound.of_isSome (fun n hn => by
+          rw [h.isSome]; exact hn) hb, hdl, fun ψ => ?_⟩
+        obtain ⟨ta, ta₀, hta, hta₀, hmem⟩ := hin ψ
+        refine ⟨ta, ta₀, by rw [hde]; exact hta, by rw [hde]; exact hta₀, fun ρ => ?_⟩
+        rw [renAcval_same (hm mm hmm)]
+        exact hmem ρ
+    · obtain ⟨ab, hta, h1⟩ := hab ψ
+      exact ⟨ab, by rw [hde]; exact hta, h1⟩
   · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
     refine ⟨cv, nPc, nF, (hC' c hc j hj).trans hf, hcf, fun mm hmm => ?_,
       fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
@@ -391,10 +399,9 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
           · obtain ⟨_, _, he, -⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
             rw [he]; rfl
   exact {
-    cover := fun n cv caps hf hn hq hfl => by
+    cover := fun n cv caps hf hn hq => by
       rw [hbl]
       exact hc.cover n cv caps (hback _ _ hf (fun _ _ _ _ _ he => nomatch he)) hn hq
-        (famFlat_of_fwd (fun _ _ _ hg => .inl (hfwd _ _ hg fun _ _ _ _ _ he => nomatch he)) hfl)
     nodup := fun D hD => hc.nodup D (hbl ▸ hD)
     len := fun D hD => hc.len D (hbl ▸ hD)
     all := fun D hD mm hmm cv caps hf => by
@@ -733,7 +740,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
           | none => exact ⟨default, default, .inl ⟨by rw [ha.1, hf], by rw [ha.2, hf]⟩⟩
           | some d => exact ⟨d, d, .inr ⟨by rw [ha.1, hf], by rw [ha.2, hf], rfl⟩⟩
   exact {
-    cover := fun n cv caps hf hn hq hfl => by
+    cover := fun n cv caps hf hn hq => by
       rw [hbl]
       by_cases he1 : eqName = n
       · subst he1
@@ -745,20 +752,6 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
         have ha := haway he1 he2 he3
         have hf0 : env.find? n = some (.indInfo cv caps) := by rw [ha.1, ← ha.2]; exact hf
         obtain ⟨D, hD, mm, hmm, he⟩ := hcov.cover n cv caps hf0 hn hq
-          (famFlat_of_fwd (fun x cvx capsx hx => by
-            by_cases hx1 : eqName = x
-            · subst hx1
-              rw [f1] at hx
-              have hx' := Option.some.inj hx
-              simp only [ConLeche.eqA, ConstantInfo.indInfo.injEq] at hx'
-              obtain ⟨rfl, -⟩ := hx'
-              exact .inr rfl
-            · by_cases hx2 : eqReflName = x
-              · subst hx2; rw [f2] at hx; exact nomatch Option.some.inj hx
-              · by_cases hx3 : eqName.str "rec" = x
-                · subst hx3; rw [f3] at hx; exact nomatch Option.some.inj hx
-                · have hax := haway hx1 hx2 hx3
-                  exact .inl (by rw [hax.2, ← hax.1]; exact hx)) hfl)
         refine ⟨D, List.mem_cons_of_mem _ (List.mem_filter.mpr ⟨hD, ?_⟩), mm, hmm, he⟩
         have hnot : eqName ∉ D.names := fun hin => by
           have hnm := hnotE hD hin

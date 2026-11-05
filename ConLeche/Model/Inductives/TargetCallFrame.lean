@@ -242,6 +242,7 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hkey := frameKey_of_infer mk (Rules.RulesInputs.ofSem mk ψ) hD hmm hfc0 hul
     (fun x hx => hds x hx) hLds hΔ hCds hdsa (hlenP _)
     (by rw [hmmH]; exact posD_frame_kty hok.1)
+    (posNode_flat H.hcov.find hok (hmmH ▸ hfc0))
     (posNode_instPis H.hcov.find hok (hmmH ▸ hfc0))
   generalize nodeDsaI mk ctx ψ u = dsa at hdsa hkfit hkey ⊢
   generalize hDdef : lfpSel mpC d.toLfp u.key.cname = D at *

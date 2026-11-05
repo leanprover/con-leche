@@ -78,7 +78,7 @@ def famFlat (find? : Name → Option ConstantInfo) (caps : IndCaps) : Bool :=
 /-- `famFlat` at a stored family. -/
 def containerFlat (find? : Name → Option ConstantInfo) (c : Name) : Bool :=
   match find? c with
-  | some (.indInfo _ caps) => famFlat find? caps
+  | some (.indInfo cv caps) => !formerDefHeaded cv && famFlat find? caps
   | _ => true
 
 /-- **The family's result-sort zero-ness datum**, read off its type; where the

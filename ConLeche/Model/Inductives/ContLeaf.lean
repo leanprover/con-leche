@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.ContFrame
@@ -77,18 +78,15 @@ theorem keyFit_of_wd (mp : EnvModelM V env) {D : LfpDatum V}
   refine ⟨hul, vs, hsp, rfl, fun ρ hwd σ => ?_⟩
   generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlen hwd ⊢
   obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', hab⟩ := hrd mm hmm
+  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   obtain ⟨ab, hta, hmap⟩ := hab ψ
-  have hmem := ConLeche.Env.find?_mem hf
-  have hname := ConLeche.Env.find?_name hf
-  have hin := mp.mem_type _ hmem ψ _ hta ρ
-  rw [hname] at hin
-  have hwf := mp.base2.wf.consts _ hmem
+  have hin := mp.formerAt_mem hD hmm hf hta ρ
+  have hwf := mp.formerAt_wf hD hmm hf
   have hcl : Term.bvarsBelow 0 (mkPisAV ab (.sort (D.w ψ))) :=
     ConLeche.Verify.denote_bvarsBelow mp.base2.cval_closed 0 _
-      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.2.2.1
+      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.1
       hta
   rw [interp_closed V hcl ρ σ] at hin
   -- "not pt" source (1): the family instance is a type
@@ -298,7 +296,8 @@ the point ("not pt" source (1), inside `certsF_sound`). -/
 theorem keyParamsFit (mp : EnvModelM V env)
     (hin : Rules.RulesInputs V mp.base2 φ) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {us : List Level}
+    (hf : env.find? (D.member mm) = some (.indInfo cv caps))
+    (hflat : ConLeche.formerDefHeaded cv = false) {us : List Level}
     (hul : us.length = cv.levelParams.length) {d F : Nat} {ds : List Expr} {ty r : Expr}
     (hty : ConLeche.inferTypeCore .verified false env F d (Expr.mkAppN (.const (D.member mm) us) ds)
       = .ok ty)
@@ -334,9 +333,10 @@ theorem keyParamsFit (mp : EnvModelM V env)
   -- the reading is the former's telescope over the parameters and indices
   generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlenP ⊢
   obtain ⟨h, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', hab⟩ := hrd mm hmm
+  obtain ⟨cv', caps', hf', ⟨hfa, -⟩, hab⟩ := hrd mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+  rw [hfa hflat] at hab
   obtain ⟨ab, hta, hmap⟩ := hab ψ
   have hpl := h.parsLen mm hmm ψ
   have hT0 := hTaD 0
