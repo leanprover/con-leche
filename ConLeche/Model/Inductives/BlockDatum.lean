@@ -289,6 +289,26 @@ theorem consBlockInds_find?_isSome {p₁ : BlockShape} {isRec : Bool} :
       = true
     exact consBlockInds_find?_isSome rest (i + 1) j _ cvTa h
 
+/-- A declared former, found at the install of distinct names. -/
+theorem consBlockInds_find?_at {q : BlockShape} {isRec : Bool} :
+    ∀ (dcl : List ConstantVal) (i j : Nat) (env : Env) (cv : ConstantVal),
+      (dcl.map (·.name)).Nodup → dcl[j]? = some cv →
+      (ConLeche.consBlockInds q isRec dcl i env).find? cv.name
+        = some (.indInfo cv (ConLeche.blockCapsAt q (i + j) isRec))
+  | [], _, _, _, _, _, h => nomatch h
+  | c :: rest, i, 0, env, cv, hnd, h => by
+    obtain rfl : c = cv := by simpa using h
+    show (ConLeche.consBlockInds q isRec rest (i + 1) _).find? c.name = _
+    have hne : ∀ c' ∈ rest, c'.name ≠ c.name := fun c' hc' he =>
+      (List.nodup_cons.mp hnd).1 (List.mem_map.mpr ⟨c', hc', he⟩)
+    rw [ConLeche.Semantics.consBlockInds_find?_of_ne hne, Nat.add_zero]
+    exact ConLeche.Env.find?_cons_self (.indInfo c (ConLeche.blockCapsAt q i isRec)) env
+  | c :: rest, i, j + 1, env, cv, hnd, h => by
+    show (ConLeche.consBlockInds q isRec rest (i + 1) _).find? cv.name = _
+    rw [consBlockInds_find?_at rest (i + 1) j _ cv (List.nodup_cons.mp hnd).2 (by simpa using h)]
+    congr 3
+    omega
+
 /-- **The two former passes' η side conditions**, off the
 constructors' freshness at the environment holding all `k` formers: a
 member's η constructor is one of ITS OWN constructors, which is fresh
@@ -480,17 +500,8 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
   -- the formers' data
   obtain ⟨ppsOf, sOf, hF⟩ := blockFormerFacts_of mp hInd hlps₀ hAt
   -- the η side conditions of the two passes
-  have hdclOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
-      ∃ cvS, (p₀.members.map (·.declared))[j]? = some cvS ∧ cvS.name = cvTb.name := fun j cvTb hj => by
-    obtain ⟨cvS, hS⟩ : ∃ cvS, (p₀.members.map (·.declared))[j]? = some cvS :=
-      ⟨_, List.getElem?_eq_getElem (by rw [hF.lenDcl]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
-    exact ⟨cvS, hS, (hF.declOf j cvS cvTb hS hj).name⟩
-  have hofDcl : ∀ cvS ∈ p₀.members.map (·.declared), ∃ cvTb ∈ cvTas, cvS.name = cvTb.name := by
-    intro cvS hS
-    obtain ⟨j, hj⟩ := List.getElem?_of_mem hS
-    obtain ⟨cvTb, hb⟩ : ∃ cvTb, cvTas[j]? = some cvTb :=
-      ⟨_, List.getElem?_eq_getElem (by rw [← hF.lenDcl]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
-    exact ⟨cvTb, List.mem_of_getElem? hb, (hF.declOf j cvS cvTb hj hb).name⟩
+  have hdclOf := hF.dclAt
+  have hofDcl := hF.ofDcl
   obtain ⟨hetaNe, hetaFresh⟩ :=
     blockEtaSide_of hcons hdclOf hF.lenCv hF.nameOf hCtors hClps
   -- the constructors' lists, positionally
@@ -571,7 +582,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         obtain ⟨cvTb, hb, hn⟩ := hofDcl cvS hS
         rw [hn]; exact hmemNames cvTb hb)
       hnamesFresh hcovIn).imp
-      fun _ h => ⟨h.1, h.2.2, hRan.read hx fun D hD => by rw [← h.2.1]; exact hD⟩
+      fun _ h => ⟨h.1, h.2.2, hRan.read hx.find hx.table fun D hD => by rw [← h.2.1]; exact hD⟩
   -- ## the members' index telescopes, at the dummy carrier
   obtain ⟨uOf, hIdxOf, hUparams⟩ :=
     blockIdxFacts_of (isRec := isRec) mpD hsorts hF.lenCv

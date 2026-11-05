@@ -360,6 +360,26 @@ theorem nodup_getElem_ne : ∀ {α : Type} {L : List α}, L.Nodup →
       exact nodup_getElem_ne (List.nodup_cons.mp h).2 (by simpa using hi) (by simpa using hj)
         (fun hh => hne (by omega))
 
+/-- The declared former at a telescope's position. -/
+theorem BlockFormerFacts.dclAt {env : Env} {mp : EnvModelM V env} {q : BlockShape}
+    {dcl cvTas : List ConstantVal} {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
+    (hF : BlockFormerFacts mp q dcl cvTas ppsOf sOf) (j : Nat) (cvTb : ConstantVal)
+    (hj : cvTas[j]? = some cvTb) : ∃ cvS, dcl[j]? = some cvS ∧ cvS.name = cvTb.name := by
+  obtain ⟨cvS, hS⟩ : ∃ cvS, dcl[j]? = some cvS :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hF.lenDcl]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
+  exact ⟨cvS, hS, (hF.declOf j cvS cvTb hS hj).name⟩
+
+/-- A declared former's telescope. -/
+theorem BlockFormerFacts.ofDcl {env : Env} {mp : EnvModelM V env} {q : BlockShape}
+    {dcl cvTas : List ConstantVal} {ppsOf : Nat → (Name → Nat) → List Term} {sOf : Nat → Level}
+    (hF : BlockFormerFacts mp q dcl cvTas ppsOf sOf) :
+    ∀ cvS ∈ dcl, ∃ cvTb ∈ cvTas, cvS.name = cvTb.name := by
+  intro cvS hS
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hS
+  obtain ⟨cvTb, hb⟩ : ∃ cvTb, cvTas[j]? = some cvTb :=
+    ⟨_, List.getElem?_eq_getElem (by rw [← hF.lenDcl]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
+  exact ⟨cvTb, List.mem_of_getElem? hb, (hF.declOf j cvS cvTb hj hb).name⟩
+
 /-- **One former pass**: the `k` formers consed in block order with
 the leaves `A`, at the capability records the block owes.  BOTH passes
 of the assembly are this theorem — the DUMMY one at the empty chains,
