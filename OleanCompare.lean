@@ -165,7 +165,7 @@ def main (args : List String) : IO UInt32 := do
       | .error (e, l) => IO.eprintln s!"stream: {e} at line {l}"; return 3
     let t1 ← IO.monoMsNow
     let roots := mods.toArray.filterMap Frontend.Olean.parseModName
-    let os ← match ← Frontend.Olean.readOleans ((sp.splitOn ":").map System.FilePath.mk) roots constants (jobs := 8) with
+    let os ← match ← Frontend.Olean.readOleansFull ((sp.splitOn ":").map System.FilePath.mk) roots constants (jobs := 8) with
       | .ok ds => pure ds
       | .error (e, l) => IO.eprintln s!"oleans: {e} at record {l}"; return 3
     let t2 ← IO.monoMsNow

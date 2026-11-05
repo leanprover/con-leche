@@ -46,7 +46,9 @@ binary that exits 0 is one of the model's outcomes, with that code, if
    `native/read_range.c`), which must return the model's slice; and the
    parallel map's threads (`parMapIO`) must give the sequential map's
    answer, which holds when the elements' actions only read files and
-   compute, as `parMapIO`'s docstring argues;
+   compute, as `parMapIO`'s docstring argues; and the worker map's threads
+   (`parMapWorkersIO`) likewise, each thread's state going only through
+   its own elements' actions, which is all the model says of it;
 2. the actions passed to `liftIO` do not change what the file operations
    see (none of them writes a file: they print, read the clock and
    `/proc/self/status`, start and join threads, and compute), and do not
@@ -141,6 +143,14 @@ class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m wh
   nothing about it. -/
   parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
     m (Except ε (List β))
+  /-- **the parallel map with workers**: each worker has a state of its own, from `init`
+  and its index, that goes through its elements in the order it claims them; the result
+  is `mapExcept`'s, the first failure in the list's order the one returned, each element
+  acted on at a state some worker can reach (`WorkerReach`), and beside it the workers'
+  last states.  It claims one element at a time, so that a long element holds up one
+  worker only, and is an operation for `parMapExcept`'s reason. -/
+  parMapWorkers : {σ α β ε : Type} → (jobs : Nat) → (Nat → σ) →
+    (σ → α → m (σ × Except ε β)) → List α → m (List σ × Except ε (List β))
   /-- **the escape**: an `IO` action that performs none of the operations
   above — output, diagnostics, the clock, threads; in the model, any
   outcome at all.  An explicit method on purpose: there is no
@@ -275,6 +285,31 @@ def ModelIO.answer {α : Type} : Option α → Except IO.Error α → Prop
   | some a, o => o = .ok a
   | none, o => ∃ e, o = .error e
 
+/-- **The states a worker of the worker map can be in**: where it starts, and what an
+element's action leaves.  This is all the model says of them, so that what the map
+concludes of its elements holds at every state the threads can make. -/
+inductive WorkerReach {σ α β ε : Type} (init : Nat → σ) (f : σ → α → ModelIO (σ × Except ε β))
+    (fs : FS) : σ → Prop where
+  | init (w : Nat) : WorkerReach init f fs (init w)
+  | step {s s' : σ} {x : α} {r : Except ε β} : WorkerReach init f fs s →
+      f s x fs (.ok (s', r)) → WorkerReach init f fs s'
+
+/-- An element of the worker map: its action at a state some worker can reach. -/
+def workerElem {σ α β ε : Type} (init : Nat → σ) (f : σ → α → ModelIO (σ × Except ε β)) (x : α) :
+    ModelIO (Except ε β) := fun fs o =>
+  ∃ s, WorkerReach init f fs s ∧
+    match o with
+    | .ok r => ∃ s', f s x fs (.ok (s', r))
+    | .error e => f s x fs (.error e)
+
+/-- **The model of the worker map**: the sequential map of `workerElem`, and states some
+worker can reach. -/
+def workerMap {σ α β ε : Type} (init : Nat → σ) (f : σ → α → ModelIO (σ × Except ε β))
+    (xs : List α) : ModelIO (List σ × Except ε (List β)) := fun fs o =>
+  match o with
+  | .ok (ss, r) => (∀ s ∈ ss, WorkerReach init f fs s) ∧ mapExcept (workerElem init f) xs fs (.ok r)
+  | .error e => mapExcept (workerElem init f) xs fs (.error e)
+
 /-- **The model**: every file operation is determined by the snapshot; a
 positional read is the slice of the file's bytes from `off` to
 `off + len`, cut at the end of the file (`min (off + len) b.size`; the
@@ -288,6 +323,7 @@ instance : CheckerIO ModelIO where
     ModelIO.answer ((fs.file p).map fun b => b.extract off (min (off + len) b.size))
   fileSize p := fun fs => ModelIO.answer ((fs.file p).map (·.size))
   parMapExcept _ f xs := mapExcept f xs
+  parMapWorkers _ init f xs := workerMap init f xs
   liftIO _ := fun _ _ => True
 
 /-! ## The binary's instance -/
@@ -352,6 +388,65 @@ def parMapIO {α β ε : Type} (jobs : Nat) (f : α → IO (Except ε β)) (xs :
   | none =>
     return .ok ((List.range arr.size).filterMap fun i => (parts[i % w]?).bind (·[i / w]?))
 
+/-- The first failure of two, by index. -/
+def firstStop {ε : Type} : Option (Nat × Except IO.Error ε) → Nat × Except IO.Error ε →
+    Option (Nat × Except IO.Error ε)
+  | some (j, e'), (i, e) => if j < i then some (j, e') else some (i, e)
+  | none, x => some x
+
+/-- One worker of `parMapWorkersIO`: claim ONE element off the shared counter, act on it,
+repeat until the counter is past the elements or past a failure (`limit`, which a failure
+lowers to its index): every element below the first failure was claimed before it, by the
+worker that finishes it.  The fuel is exact: every claim advances the counter. -/
+def parWorker {σ α β ε : Type} (f : σ → α → IO (σ × Except ε β)) (xs : Array α)
+    (next limit : IO.Ref Nat) (init : σ) : Nat → σ → Array (Nat × β) →
+      Option (Nat × Except IO.Error ε) →
+      IO (σ × Array (Nat × β) × Option (Nat × Except IO.Error ε))
+  | 0, s, acc, stop => pure (s, acc, stop)
+  | fuel + 1, s, acc, stop => do
+    let i ← next.modifyGet fun a => (a, a + 1)
+    match xs[i]? with
+    | none => pure (s, acc, stop)
+    | some x =>
+      if i < (← limit.get) then
+        match ← (f s x).toBaseIO with
+        | .error ioe =>
+          limit.modify (min · i)
+          parWorker f xs next limit init fuel init acc (firstStop stop (i, .error ioe))
+        | .ok (s, .error e) =>
+          limit.modify (min · i)
+          parWorker f xs next limit init fuel s acc (firstStop stop (i, .ok e))
+        | .ok (s, .ok b) => parWorker f xs next limit init fuel s (acc.push (i, b)) stop
+      else pure (s, acc, stop)
+
+/-- **The worker map, on threads**: `max 1 (min jobs n)` dedicated threads, always a thread
+of its own for each, whatever the count (the elements' allocations come out of the
+running thread's heap).  The result is the sequential map's, by `parMapIO`'s argument: the
+first failure in the list's order is the least index any worker stopped at, and every
+element before it finished.  A thread's state goes through its own elements alone. -/
+def parMapWorkersIO {σ α β ε : Type} (jobs : Nat) (init : Nat → σ) (f : σ → α → IO (σ × Except ε β))
+    (xs : List α) : IO (List σ × Except ε (List β)) := do
+  let arr := xs.toArray
+  let w := max 1 (min jobs arr.size)
+  let next ← IO.mkRef 0
+  let limit ← IO.mkRef arr.size
+  let tasks ← (List.range w).toArray.mapM fun k =>
+    IO.asTask (prio := .dedicated)
+      (parWorker f arr next limit (init k) (arr.size + 1) (init k) #[] none)
+  let mut states : List σ := []
+  let mut tab : Array (Option β) := Array.replicate arr.size none
+  let mut first : Option (Nat × Except IO.Error ε) := none
+  for t in tasks do
+    let (s, bs, stop) ← IO.ofExcept (← IO.wait t)
+    states := s :: states
+    tab := bs.foldl (fun tab (k, b) => tab.set! k (some b)) tab
+    if let some x := stop then
+      first := firstStop first x
+  match first with
+  | some (_, .error ioe) => throw ioe
+  | some (_, .ok e) => return (states, .error e)
+  | none => return (states, .ok (tab.toList.filterMap id))
+
 /-- **The binary's instance**: the runtime's calls; `liftIO` the identity. -/
 instance instCheckerIOIO : CheckerIO IO where
   pathExists p := p.pathExists
@@ -363,6 +458,7 @@ instance instCheckerIOIO : CheckerIO IO where
     if md.type == .file then pure md.byteSize.toNat
     else throw (.inappropriateType (some p.toString) 21 "not a regular file")
   parMapExcept jobs f xs := parMapIO jobs f xs
+  parMapWorkers jobs init f xs := parMapWorkersIO jobs init f xs
   liftIO a := a
 
 end ConLeche

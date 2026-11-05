@@ -168,10 +168,11 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
     (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
     ¬ (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0) := by
   intro h
-  obtain ⟨pre, ds, env, -, hrd, hchk⟩ := Driver.runArgs_olean_accept h
+  obtain ⟨pre, rd, env, -, hrd, hchk⟩ := Driver.runArgs_olean_accept h
   have hroots : (#[root].filterMap Olean.parseModName) = #[r] := by simp [hr]
   rw [hroots] at hrd
   obtain ⟨v', hd⟩ := Olean.readOleans_thm hrd hcl hv hmem hk
-  exact no_False_theorem_accepted V _ _ v' (Frontend.mem_preparePrelude hd) hty env hchk
+  exact no_False_theorem_accepted V _ _ _
+    (Array.mem_map_of_mem (f := Cached.fillDecl _) (Frontend.mem_prepareD hd)) hty env hchk
 
 end ConLeche

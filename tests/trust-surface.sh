@@ -653,9 +653,12 @@ IO_FENCE = {
     # path: the declarations cut out whole (the instance and what only
     # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
     'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def readRangeOf',
-                                         # the parallel map behind the
-                                         # instance's `parMapExcept`
+                                         # the parallel maps behind the
+                                         # instance's `parMapExcept` and
+                                         # `parMapWorkers`
                                          'def parShare', 'def parMapIO',
+                                         'def firstStop', 'def parWorker',
+                                         'def parMapWorkersIO',
                                          'instance instCheckerIOIO',
                                          # the model's instance: its fields are
                                          # named as the operations are

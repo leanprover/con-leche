@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Verify.Frontend.Olean.Closure
 public import ConLeche.Verify.Frontend.Olean.Merge
+public import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Emit
 import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Olean.Equiv
@@ -504,20 +505,51 @@ theorem ClosedOrder.view_imports {sp : SearchPath} {fs : FS} {order : Array Name
   rw [this]
   exact h2
 
-/-- **The records of a run** are made of the import closure's modules, each
-private view read by `readView` on the snapshot, whatever the job count. -/
+/-- The sequential map's value, in terms of each element's: for each result, an element it
+comes from, and the results' `g` are the elements' `g'`. -/
+theorem mapExcept_ok₂ {α β ε γ : Type} {f : α → ModelIO (Except ε β)} {fs : FS} {g : β → γ}
+    {g' : α → γ} {Q : α → β → Prop} (hk : ∀ x y, f x fs (.ok (.ok y)) → g y = g' x ∧ Q x y) :
+    ∀ {xs : List α} {ys : List β}, (mapExcept f xs : ModelIO _) fs (.ok (.ok ys)) →
+      ys.map g = xs.map g' ∧ ∀ y ∈ ys, ∃ x ∈ xs, Q x y
+  | [], ys, h => by
+    simp only [mapExcept, ModelIO.pure_iff, Except.ok.injEq] at h
+    cases h
+    simp
+  | x :: xs, ys, h => by
+    simp only [mapExcept, ModelIO.bind_ok] at h
+    obtain ⟨a, ha, h⟩ := h
+    rcases a with e | b
+    · simp at h
+    · simp only [ModelIO.bind_ok] at h
+      obtain ⟨c, hc, h⟩ := h
+      rcases c with e | bs
+      · simp at h
+      · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+        cases h
+        obtain ⟨h1, h2⟩ := hk _ _ ha
+        obtain ⟨h3, h4⟩ := mapExcept_ok₂ hk hc
+        refine ⟨by simp [h1, h3], fun y hy => ?_⟩
+        rcases List.mem_cons.mp hy with rfl | hy
+        · exact ⟨x, by simp, h2⟩
+        · obtain ⟨x', hx', hq⟩ := h4 y hy
+          exact ⟨x', by simp [hx'], hq⟩
+
+/-- **The records of a run** are made of the import closure's modules, each private view
+loaded (`loadAt`) from the files on the snapshot, whatever the job count: what a theorem's
+check reads comes from those files too. -/
 theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
-    {jobs : Nat} {fs : FS} {ds : Array Declaration}
-    (h : (readOleans sp roots constants jobs : ModelIO _) fs (.ok (.ok ds))) :
+    {jobs : Nat} {fs : FS} {rd : OleanRead}
+    (h : (readOleans sp roots constants jobs : ModelIO _) fs (.ok (.ok rd))) :
     ∃ (order : Array Name) (ls : List Loaded) (mg : Merged) (rs : Array Name),
       (closureOrder sp roots : ModelIO _) fs (.ok (.ok order)) ∧
       ls.map (·.name) = order.toList ∧
-      (∀ l ∈ ls, ∃ d, (readView sp l.name .private : ModelIO _) fs (.ok (.ok d)) ∧
-        l.constants = d.constants.map CEntry.ofRead) ∧
+      (∀ l ∈ ls, ∃ i f, (l.name, i) ∈ order.toList.zipIdx ∧
+        (readFiles sp l.name .private : ModelIO _) fs (.ok (.ok f)) ∧ loadAt i l.name f = some l) ∧
       ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧
       (∀ l ∈ ls, ∀ c ∈ l.constants, ∃ c', mg.map[c.name]? = some c' ∧ Stands c' c) ∧
       mergeAll ls.toArray = .ok mg ∧ blocksOk mg = .ok () ∧ rootConstants mg constants = .ok rs ∧
-      declsOf (emitAll mg rs) = .ok ds := by
+      declsOf (emitAll mg rs) = .ok rd.decls ∧
+      rd.values = ls.toArray.map (fun l => ⟨l.name, l.frontier⟩) ∧ rd.merged = mg := by
   simp only [readOleans, loadClosure, ModelIO.bind_ok] at h
   obtain ⟨x, ⟨o, ho, hx⟩, h⟩ := h
   rcases o with e | order
@@ -542,22 +574,37 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
         cases hr : rootConstants mg constants with
         | error e => simp [hr] at h
         | ok rs =>
-          simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at h
-          have hF : (mapExcept (loadModule sp) order.toList : ModelIO _) fs (.ok (.ok ls)) := hy
-          obtain ⟨h1, h2⟩ := mapExcept_ok (g := Loaded.name) (Q := fun l => ∃ d,
-              (readView sp l.name .private : ModelIO _) fs (.ok (.ok d)) ∧
-                l.constants = d.constants.map CEntry.ofRead) (fun m l hl => by
+          simp only [hr] at h
+          cases hd : declsOf (emitAll mg rs) with
+          | error e => simp [hd] at h
+          | ok ds =>
+          simp only [hd, ModelIO.pure_iff, Except.ok.injEq] at h
+          have hF : (mapExcept (loadModule sp) order.toList.zipIdx : ModelIO _) fs (.ok (.ok ls)) := hy
+          obtain ⟨h1, h2⟩ := mapExcept_ok₂ (g := Loaded.name) (g' := Prod.fst)
+            (Q := fun x l => x.1 = l.name ∧ ∃ f, (readFiles sp x.1 .private : ModelIO _) fs (.ok (.ok f)) ∧
+                loadAt x.2 x.1 f = some l) (fun x l hl => by
             simp only [loadModule, ModelIO.bind_ok] at hl
             obtain ⟨z, hz, hl⟩ := hl
-            rcases z with e | r
+            rcases z with e | f
             · simp at hl
-            · simp only [ModelIO.pure_iff, Except.ok.injEq] at hl
-              subst hl
-              exact ⟨rfl, r, hz, rfl⟩) hF
+            · simp only [loadView, ModelIO.pure_iff, Except.ok.injEq] at hl
+              split at hl
+              · rename_i l' hl'
+                cases hl
+                have hn := (loadAt_spec hl').choose_spec.choose_spec.choose_spec.choose_spec.2.2.2.2.1
+                exact ⟨hn, hn.symm, f, hz, hl'⟩
+              · cases hl) hF
           obtain ⟨hk, -⟩ := mergeAll_ok hm
           obtain ⟨hc1, hc2⟩ := closureOrder_ok ho
-          exact ⟨order, ls, mg, rs, ho, h1, h2, hc1, hc2, fun l hl => hk l (by simpa using hl), hm,
-            by cases u; exact hc, hr, h.symm⟩
+          refine ⟨order, ls, mg, rs, ho, by simpa using h1, fun l hl => ?_, hc1, hc2,
+            fun l hl => hk l (by simpa using hl), hm, by cases u; exact hc, hr, ?_, ?_, ?_⟩
+          · obtain ⟨⟨m, i⟩, hx, hn, f, hf, ha⟩ := h2 l hl
+            simp only at hn hf ha
+            subst hn
+            exact ⟨i, f, hx, hf, ha⟩
+          · subst h; exact hd
+          · subst h; rfl
+          · subst h; rfl
 
 /-- **The private view of a module on a snapshot**, by the specification: the module's files
 on the search path, and what `decodeModuleSpec` says they hold at that level. -/
@@ -614,16 +661,40 @@ theorem readView_unique {sp : SearchPath} {m : Name} {fs : FS} {a b : ModDecoded
     simp only [hv, ModelIO.pure_iff, Except.ok.injEq] at ha hb
     exact ha.trans hb.symm
 
+/-- A module's files are the snapshot's. -/
+theorem readFiles_unique {sp : SearchPath} {m : Name} {fs : FS} {a b : ModFiles}
+    (ha : (readFiles sp m .private : ModelIO _) fs (.ok (.ok a)))
+    (hb : (readFiles sp m .private : ModelIO _) fs (.ok (.ok b))) : a = b := by
+  have hdet := readFiles_of_all .private ha
+  rw [hdet] at hb
+  have := (ModelIO.answer_ok _ _).1 hb
+  simpa [ModFiles.upTo] using this
+
+/-- The parts of a load, at the view it read, of a module whose view reads in full. -/
+theorem view_parts {f : ModFiles} {r : Region} {a : UInt64} {d : ModDecoded}
+    (hr : f.viewRegion .private = some (r, a)) (hd : decodeModuleSpec f .private = some d) :
+    ∃ sk, moduleSkel r a = some sk ∧ sk.consts.mapM (constSpec r) = some d.constants.toList := by
+  rw [← parseView_eq_spec] at hd
+  simp only [parseView, hr] at hd
+  obtain ⟨x, hx, hd⟩ := bind_some_left hd
+  cases hx
+  obtain ⟨d', hp, hd⟩ := bind_some_left hd
+  split at hd
+  · cases hd
+    obtain ⟨-, sk, h1, -, h2, -⟩ := parseAt_some hp
+    exact ⟨sk, h1, h2⟩
+  · cases hd
+
 /-- **A theorem of a module of the closure is among the records**, with its statement, whichever
 of the proofs Lean's rule keeps. -/
 theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : FS}
-    {ds : Array Declaration} {m : Name} {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
+    {rd : OleanRead} {m : Name} {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
     {all : List Name}
-    (h : (readOleans sp roots none jobs : ModelIO _) fs (.ok (.ok ds)))
+    (h : (readOleans sp roots none jobs : ModelIO _) fs (.ok (.ok rd)))
     (hcl : InClosure sp fs roots m) (hv : ViewOf sp fs m d)
     (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
-    ∃ v', Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v' ∈ ds := by
-  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hb, hr, hds⟩ := readOleans_ok h
+    ∃ v', Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v' ∈ rd.decls := by
+  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hb, hr, hds, -, -⟩ := readOleans_ok h
   have hrs : rs = mg.order := by
     simp only [rootConstants] at hr
     cases hr
@@ -634,19 +705,28 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
     rw [h1]
     simpa using hmo
   obtain ⟨l, hl, rfl⟩ := List.mem_map.mp this
-  obtain ⟨d', hv', hconst⟩ := h2 l hl
-  obtain rfl := readView_unique (readView_of_viewOf hv) hv'
-  have hcl' : CEntry.ofRead c ∈ l.constants := by
-    rw [hconst]
-    exact Array.mem_map.mpr ⟨c, hc, rfl⟩
-  obtain ⟨c', hc', hs⟩ := hstand l hl _ hcl'
+  obtain ⟨i, f, -, hf, hload⟩ := h2 l hl
+  obtain ⟨f', hf', hview⟩ := hv
+  obtain rfl := readFiles_unique hf hf'
+  obtain ⟨r, a, sk, skels, hreg, -, hsk, hskels, -, -, hlazy⟩ := loadAt_spec hload
+  obtain ⟨sk', hsk', hspec⟩ := view_parts hreg hview
+  rw [hsk] at hsk'
+  cases hsk'
+  obtain ⟨loc, hloc, hcs⟩ := mapM_mem_inv hspec (by simpa using hc)
+  obtain ⟨s, hs1, hs2⟩ := constSpec_parts hcs
+  obtain ⟨s', hs'mem, hs'⟩ := mapM_mem hskels hloc
+  rw [hs1] at hs'
+  cases hs'
+  obtain ⟨e, he, hent⟩ := hlazy.of_skel _ hs'mem
+  obtain ⟨hn, hlp, hty, hth⟩ := lazyEntry_of_spec hs2 hent
+  obtain ⟨_, g, _, _, hkind, _, _⟩ := hth v all hk
+  obtain ⟨c', hc', hs⟩ := hstand l hl e (by simpa using he)
   obtain ⟨hk1, hk2, hk3, hk4⟩ := mergeAll_ok hm
   have hN : ∀ (n : Name) (x : CEntry), mg.map[n]? = some x → x.name = n := fun n x hx => (hk2 n x hx).1
-  have hkind : (CEntry.ofRead c).kind = .thm v all := hk
-  have hst : ∃ v' all', c'.kind = .thm v' all' ∧ c'.name = c.name ∧ c'.levelParams = c.levelParams ∧
-      c'.type = c.type := by
+  have hst : ∃ v' all', c'.kind = .thm v' all' ∧ c'.name = e.name ∧ c'.levelParams = e.levelParams ∧
+      c'.type = e.type := by
     rcases hs with rfl | ⟨n1, t1, l1, k1⟩
-    · exact ⟨v, all, hkind, rfl, rfl, rfl⟩
+    · exact ⟨_, all, hkind, rfl, rfl, rfl⟩
     · rw [hkind] at k1
       cases hk' : c'.kind with
       | thm v' all' => exact ⟨v', all', rfl, n1, l1, t1⟩
@@ -657,9 +737,170 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
       | induct _ _ _ _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
       | ctor _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
       | recur _ _ _ _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
-  obtain ⟨v', all', hk5, hn, hlp, hty⟩ := hst
+  obtain ⟨v', all', hk5, hn', hlp', hty'⟩ := hst
   have := declsOf_thm hN hk3 hds hb ((hk3 _).2 (contains_of_getElem hc')) hc' hk5
-  rw [hn, hlp, hty] at this
+  rw [hn', hlp', hty', show e.name = c.name from hn, show e.levelParams = c.levelParams from hlp,
+    show e.type = c.type from hty] at this
   exact ⟨v', this⟩
+
+/-! ## A theorem's value on a snapshot -/
+
+/-- **What a reference's code stands for on a snapshot**: the value the specification reads at
+its location, in the files of its module. -/
+@[expose] def ValueAt (sp : SearchPath) (fs : FS) (values : Array ModRef) (code : Nat) (e : Expr) :
+    Prop :=
+  ∃ md f r a, values[refModule code]? = some md ∧
+    (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
+    f.viewRegion .private = some (r, a) ∧ exprAt r (refLoc code) = some e
+
+/-- A snapshot has one value at a reference. -/
+theorem ValueAt.unique {sp : SearchPath} {fs : FS} {values : Array ModRef} {code : Nat} {a b : Expr}
+    (ha : ValueAt sp fs values code a) (hb : ValueAt sp fs values code b) : a = b := by
+  obtain ⟨md, f, r, x, h1, h2, h3, h4⟩ := ha
+  obtain ⟨md', f', r', x', h1', h2', h3', h4'⟩ := hb
+  rw [h1] at h1'
+  cases h1'
+  obtain rfl := readFiles_unique h2 h2'
+  rw [h3] at h3'
+  cases h3'
+  rw [h4] at h4'
+  cases h4'
+  rfl
+
+/-- **Every module's frontier holds only the specification's values**, of the files on the
+snapshot. -/
+theorem readOleans_good {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
+    {jobs : Nat} {fs : FS} {rd : OleanRead}
+    (h : (readOleans sp roots constants jobs : ModelIO _) fs (.ok (.ok rd))) :
+    ∀ md ∈ rd.values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
+      f.viewRegion .private = some (r, a) ∧ md.frontier.Good r := by
+  obtain ⟨order, ls, mg, rs, -, -, h2, -, -, -, -, -, -, -, hv, -⟩ := readOleans_ok h
+  intro md hmd
+  rw [hv] at hmd
+  obtain ⟨l, hl, rfl⟩ := Array.mem_map.mp hmd
+  obtain ⟨i, f, -, hf, hload⟩ := h2 l (by simpa using hl)
+  obtain ⟨r, a, sk, skels, hreg, -, -, -, -, hgood, -⟩ := loadAt_spec hload
+  exact ⟨f, r, a, hf, hreg, hgood⟩
+
+/-- An inductive record is an `indDecl`. -/
+theorem indBlockOfF_ind {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
+    {tys : List IndTypeRec} {cts : List IndCtorRec} {rcs : List IndRecRec} {n : Nat} {d : Declaration}
+    (h : indBlockOfF nm lv ex tys cts rcs n = .ok d) : ∃ b, d = .indDecl b n := by
+  have ebind : ∀ {α β : Type} {x : M α} {f : α → M β} {y : β}, (x >>= f) = .ok y →
+      ∃ a, f a = .ok y := by
+    intro α β x f y hb
+    cases x with
+    | error e => cases hb
+    | ok a => exact ⟨a, hb⟩
+  unfold indBlockOfF at h
+  obtain ⟨_, h⟩ := ebind h
+  obtain ⟨_, h⟩ := ebind h
+  obtain ⟨_, h⟩ := ebind h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  exact ⟨_, h.symm⟩
+
+/-- An inductive record is no theorem's. -/
+theorem declOfF_ind_thm {nm : Nat → M Name} {lv : Nat → M Level} {ex : Nat → M Expr}
+    {tys : List IndTypeRec} {cts : List IndCtorRec} {rcs : List IndRecRec} {cv : ConstantVal} {v : Expr}
+    (h : declOfF nm lv ex (.ind tys cts rcs) = .ok (.inl (.thmDecl cv v))) : False := by
+  simp only [declOfF, bind, Except.bind, pure, Except.pure] at h
+  cases hv : validateIndF nm lv ex tys cts rcs with
+  | error e => simp only [hv] at h; cases h
+  | ok x =>
+    simp only [hv] at h
+    rcases x with x | ⟨c, n⟩
+    · simp at h
+    · simp only at h
+      cases hb : indBlockOfF nm lv ex tys c rcs n with
+      | error e => simp only [hb] at h; cases h
+      | ok d =>
+        simp only [hb, Except.ok.injEq, Sum.inl.injEq] at h
+        subst h
+        obtain ⟨b, hb'⟩ := indBlockOfF_ind hb
+        cases hb'
+
+/-- **A theorem's record, with its value in place, is the specification's constant**: the
+reference in a record of the run stands, on the snapshot, for the value of the theorem the
+specification reads off the files of the reference's module (`constSpec`), and the record's
+statement is that theorem's.  Whichever of a name's copies Lean's rule keeps, this is the
+kept one's: nothing is read from anywhere else. -/
+theorem readOleans_filled {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
+    {jobs : Nat} {fs : FS} {rd : OleanRead} {cv : ConstantVal} {code : Nat} {e : Expr}
+    (h : (readOleans sp roots constants jobs : ModelIO _) fs (.ok (.ok rd)))
+    (hd : Declaration.thmDecl cv (.bvar code) ∈ rd.decls)
+    (hv : ValueAt sp fs rd.values code e) :
+    ∃ md f r a sk loc c all, rd.values[refModule code]? = some md ∧
+      (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
+      f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧ loc ∈ sk.consts ∧
+      constSpec r loc = some c ∧ c.kind = .thm e all ∧ cv = ⟨c.name, c.levelParams, c.type⟩ := by
+  obtain ⟨order, ls, mg, rs, -, h1, h2, -, -, -, hm, -, -, hds, hvals, -⟩ := readOleans_ok h
+  obtain ⟨hk1, hk2, hk3, hk4⟩ := mergeAll_ok hm
+  have hN : ∀ (n : Name) (x : CEntry), mg.map[n]? = some x → x.name = n := fun n x hx => (hk2 n x hx).1
+  -- the record's constant
+  obtain ⟨E, hS, hE⟩ : ∃ E, Stored mg E ∧ entryDecl E = some (.thmDecl cv (.bvar code)) := by
+    rcases declsOf_from hN hds hd with h' | ⟨ts, cts, rcs, -, hb⟩
+    · exact h'
+    · exact (declOfF_ind_thm hb).elim
+  obtain ⟨all, hkE, hcv⟩ : ∃ all, E.kind = .thm (.bvar code) all ∧
+      cv = ⟨E.name, E.levelParams, E.type⟩ := by
+    unfold entryDecl at hE
+    cases hk : E.kind with
+    | thm v all =>
+      simp only [hk, Option.some.injEq, Declaration.thmDecl.injEq] at hE
+      obtain ⟨rfl, rfl⟩ := hE
+      exact ⟨all, rfl, rfl⟩
+    | ax u => simp [hk] at hE
+    | defn v h s =>
+      simp only [hk] at hE
+      split at hE <;> first | contradiction | simp at hE
+    | opaq v u => simp [hk] at hE
+    | quot k =>
+      simp only [hk] at hE
+      split at hE <;> first | contradiction | simp at hE
+    | induct _ _ _ _ _ _ _ _ => simp [hk] at hE
+    | ctor _ _ _ _ _ => simp [hk] at hE
+    | recur _ _ _ _ _ _ _ _ => simp [hk] at hE
+  -- its module and its skeleton
+  obtain ⟨-, l, hl, hEl⟩ := hk2 _ _ hS
+  have hl' : l ∈ ls := by simpa using hl
+  obtain ⟨i, f, hzip, hf, hload⟩ := h2 l hl'
+  obtain ⟨r, a, sk, skels, hreg, -, hsk, hskels, -, -, hlazy⟩ := loadAt_spec hload
+  obtain ⟨s, hs, hent⟩ := hlazy.to_skel E (by simpa using hEl)
+  obtain ⟨p, g, all₀, hsk1, hw, hloc, hi, hn, hlp, hty, hall⟩ := lazyEntry_thm hent hkE
+  obtain ⟨hm1, hm2⟩ := refParts (g := g) hi
+  have hcode : code = g * refBase + i := by
+    simp only [valueRef, Expr.bvar.injEq] at hw
+    exact hw
+  subst hcode
+  -- the module the reference names is this one
+  have hzi : order.toList[i]? = some l.name := List.mem_zipIdx_iff_getElem?.mp hzip
+  rw [← h1] at hzi
+  obtain ⟨md, f', r', a', hmd, hf', hreg', hval⟩ := hv
+  rw [hm1] at hmd
+  rw [hm2] at hval
+  have hname : md.name = l.name := by
+    rw [hvals] at hmd
+    simp only [List.getElem?_map, Option.map_eq_some_iff] at hzi
+    obtain ⟨y, hy, hyn⟩ := hzi
+    simp only [Array.getElem?_map, List.getElem?_toArray, hy, Option.map_some,
+      Option.some.injEq] at hmd
+    rw [← hmd]
+    exact hyn
+  rw [hname] at hf'
+  obtain rfl := readFiles_unique hf hf'
+  rw [hreg] at hreg'
+  cases hreg'
+  obtain ⟨loc, hlocm, hcs⟩ := mapM_mem_inv hskels hs
+  have hep : exprP r p = some e := by
+    simp only [exprP, hloc]
+    exact hval
+  have hspec : constSpec r loc = some ⟨E.name, E.levelParams, E.type, .thm e all⟩ := by
+    unfold constSpec
+    rcases s with ⟨sn, sl, st, sk'⟩
+    simp only at hsk1 hn hlp hty
+    subst hsk1
+    simp only [hcs, bind, Option.bind, CEntryF.mapM, CKindF.mapM, hn, hlp, hty, hep, hall, pure]
+  refine ⟨md, f, r, a, sk, loc, _, all, ?_, by rw [hname]; exact hf, hreg, hsk, hlocm, hspec, rfl, hcv⟩
+  rw [hm1, hmd]
 
 end ConLeche.Frontend.Olean

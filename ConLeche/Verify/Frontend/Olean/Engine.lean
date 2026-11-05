@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Frontend.Olean.Fast
 import ConLeche.Verify.Frontend.Olean.Mark
-import ConLeche.Verify.Frontend.Olean.Build
+public import ConLeche.Verify.Frontend.Olean.Build
 import ConLeche.Verify.Frontend.Olean.Nodes
 
 public section
@@ -131,13 +131,13 @@ private theorem rootsFold {r : Region} {A : Prop} {n : Nat} {K : UInt8} (hK : Is
 private theorem kName_kind : IsKind kName := Or.inl rfl
 private theorem kExpr_kind : IsKind kExpr := Or.inr (Or.inr (Or.inl rfl))
 
-/-- **Both passes, from the roots.** -/
-theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
-    match runPasses r names exprs with
+/-- **Both passes, from the roots**, and every object the marks hold has its value. -/
+theorem runMarked_spec (r : Region) (names exprs : List UInt64) :
+    match runMarked r names exprs with
     | none => ¬ RootsOK r names exprs
-    | some st => (∀ v ∈ names, st.nameOf r v = nameP r v) ∧
-        (∀ v ∈ exprs, st.exprOf r v = exprP r v) := by
-  unfold runPasses
+    | some (n, m, st) => (∀ v ∈ names, st.nameOf r v = nameP r v) ∧
+        (∀ v ∈ exprs, st.exprOf r v = exprP r v) ∧ Built r m st n := by
+  unfold runMarked
   generalize hn : maxLoc r exprs (maxLoc r names 0) / 8 + 1 = n
   have hbN : ∀ v ∈ names, r.locGo v r.segs.size / 8 < n := by
     intro v hv
@@ -211,7 +211,7 @@ theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
           obtain ⟨_, hb4⟩ := h4
           have hmark : ∀ k s, IsKind k → marked st2 k s = true → marked st3 k s = true :=
             fun k s hk h => hsub3 k s hk h
-          refine ⟨?_, ?_⟩
+          refine ⟨?_, ?_, hb4⟩
           · intro v hv
             by_cases e : v = 1
             · subst e; simp [DS.nameOf, nameP]
@@ -228,5 +228,20 @@ theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
             have hval := (hb4 (c / 8) hcn kExpr kExpr_kind hmc4).2.2.2 rfl
             rw [eight_div (loc_mod hl)] at hval
             simp only [DS.exprOf, exprP, hl, hval]
+
+/-- **Both passes, from the roots.** -/
+theorem runPasses_spec (r : Region) (names exprs : List UInt64) :
+    match runPasses r names exprs with
+    | none => ¬ RootsOK r names exprs
+    | some st => (∀ v ∈ names, st.nameOf r v = nameP r v) ∧
+        (∀ v ∈ exprs, st.exprOf r v = exprP r v) := by
+  have h := runMarked_spec r names exprs
+  unfold runPasses
+  cases e : runMarked r names exprs with
+  | none => rw [e] at h; exact h
+  | some x =>
+    obtain ⟨n, m, st⟩ := x
+    rw [e] at h
+    exact ⟨h.1, h.2.1⟩
 
 end ConLeche.Frontend.Olean

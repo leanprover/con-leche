@@ -3,12 +3,13 @@ module
 public import ConLeche.Verify.Cached.Defer
 public import Std.Sync.Mutex
 public import ConLeche.Driver.Stats
+public import ConLeche.Frontend.CheckerIO
 
 /-!
 # Phase B: the check pool
 
-Phase B's loops: `checkLoop`, the sequential loop at `--jobs=1`, and
-`checkPool`, the pool at `--jobs=<n>`, with the heartbeat they share.
+Phase B's pool: `checkPool`, with its heartbeat, over the worker map
+(`CheckerIO.parMapWorkers`).
 Part of the proof-carrying driver (`ConLeche/Driver/*`; the CLI is
 `Cli.lean`).
 
@@ -29,14 +30,13 @@ atomic claim off one shared counter: a cluster of heavy declarations is
 spread over the whole pool instead of serialising inside one claimed
 range, and the only item that can strand the pool is the single largest
 check.  The claim costs one `modifyGet` on an `IO.Ref` per job,
-which is below the third decimal of a run.  Each worker keeps
-its results in its own array (job index, `JRes`), which
-is what a job IS: its fact (the record's `PendOk`, the block's
+which is below the third decimal of a run.  A job's result (`JRes`) is
+its fact (the record's `PendOk`, the block's
 `BlockCheck.Ok`) or its tagged error (`ConLeche.Cached.runJob`).  The
-pool merges the arrays by index into one table and walks it in job
-order (`ConLeche.Cached.collectJobs`): the walk stops at the first
-failing job in FOLD order, so the verdict — and the declaration the
-rejection names — is the sequential walk's whatever the workers'
+worker map gives the results in job order, and the pool walks them
+(`ConLeche.Cached.collectJobs`): the first
+failing job in FOLD order is the verdict — and the declaration the
+rejection names — whatever the workers'
 timing.  **Determinism on a failure**: a worker
 that fails job `f` lowers the shared `limit` to `f`, and no worker
 starts a job at or above the limit — every job below `f` was
@@ -60,8 +60,7 @@ The runtime marks everything reachable from a task's closure — the
 installed index and the records — for multi-threaded reference
 counting once, on the first spawn (an object already marked is not
 walked again); every reference-count operation on those objects is
-atomic from then on, which is the pool's instruction overhead over
-the sequential loop.  A plain run pays, on top of that, one atomic
+atomic from then on, which is the pool's instruction overhead.  A plain run pays, on top of that, one atomic
 claim per job and two clock reads (the statistics, `WStats`, kept
 in the worker's own loop and merged at the end); the heartbeat lane (`--progress`) pays one lock of a
 mutex per completed job, for an exact completed-count.  The bump
@@ -140,39 +139,6 @@ def runAt (mode : ConLeche.CheckMode) (J : Jobs) (t : Nat) : JRes mode J :=
   | some j => ConLeche.Cached.runJob mode ConLeche.natOpPinSets J.fe J.pend J.D j
   | none => .error (.internal s!"check phase: no job {t}", 0)
 
-/-- **Phase B in one thread — the check pass at `--jobs=1`.**  The jobs
-in fold order, each from a fresh memo state (`ConLeche.Cached.runJob`),
-each result in its slot of the table, until the first failure; the
-table is then walked (`ConLeche.Cached.collectJobs`) into every record
-checked and every block check passed.  Nothing is shared with any other
-thread and no counter is claimed: this loop is the sequential baseline
-the pool below is measured against.  It runs on ONE DEDICATED WORKER
-THREAD all the same: the loop's cost is dominated by the per-check memo
-state, that state comes out of the running thread's own mimalloc heap,
-and the main thread's heap after the install phase is two gigabytes of
-live environment with the parse's and the install's freed temporaries
-scattered through it — allocating phase B out of that scatter costs a
-factor of two in wall time at Mathlib scale for the same instructions.
-With `--progress`, one line per `stride` completed checks.  `st` is
-the timing (`WStats`, performance-only), returned beside the result. -/
-def checkLoop (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs) :
-    (t : Nat) → Array (Option (JRes mode J)) → WStats →
-      IO (WStats × Array (Option (JRes mode J)))
-  | t, tab, st =>
-    if t < J.order.size then do
-      let ts ← IO.monoNanosNow
-      let r := runAt mode J t
-      let bad := r matches .error _
-      -- (read in a branch on `bad`, so the check is forced before the clock)
-      let te ← if bad then IO.monoNanosNow else IO.monoNanosNow
-      let tab := tab.set! t (some r)
-      if bad then return (st.add t ts te, tab)
-      checkHeartbeat err stride t0 J none (t + 1) t
-      checkLoop mode err stride t0 J (t + 1) tab (st.add t ts te)
-    else
-      return (st, tab)
-  termination_by t => J.order.size - t
-
 /-- The table walked into the check phase's facts. -/
 def collect (mode : ConLeche.CheckMode) (J : Jobs) (tab : Array (Option (JRes mode J))) :
     Except (ConLeche.CheckError × Nat) (PLift (JAll mode J)) :=
@@ -181,91 +147,84 @@ def collect (mode : ConLeche.CheckMode) (J : Jobs) (tab : Array (Option (JRes mo
 
 /-! ### The pool: phase B on `--jobs=<n>` threads -/
 
-/-- One claimed job of one worker: below the shared `limit` it is run
-and its result appended; a failure lowers the limit to its index; on
-the heartbeat lane the completed-count is bumped and its line printed
-under one lock, so the lines count up.  A job at or above the limit is
-skipped — it is above a known failure and the walk will never ask for
-it.  The job is timed into the worker's own `st`; on the heartbeat lane
-worker `w` also publishes the job it is on (`live`). -/
-def checkOne (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs)
-    (limit : IO.Ref Nat) (done : Std.Mutex Nat) (live : Live) (w : Nat) (t : Nat)
-    (acc : Array (Nat × JRes mode J)) (st : WStats) :
-    IO (Array (Nat × JRes mode J) × WStats) := do
-  if t < (← limit.get) then
-    let ts ← IO.monoNanosNow
-    if stride > 0 then live.begin w t ts
-    let r := runAt mode J t
-    let bad := r matches .error _
-    -- (read in a branch on `bad`, so the check is forced before the clock)
-    let te ← if bad then IO.monoNanosNow else IO.monoNanosNow
-    if bad then
-      limit.modify (min · t)
-    let acc := acc.push (t, r)
-    if stride > 0 then
-      live.idle w
-      done.atomically do
-        let n ← modifyGet fun d => (d + 1, d + 1)
-        checkHeartbeat err stride t0 J (some live) n t
-    return (acc, st.add t ts te)
-  else return (acc, st)
+/-- What a pool shares, for its heartbeat: the completed-count and the workers' current
+jobs. -/
+structure PoolLive where
+  done : Std.Mutex Nat
+  live : Option Live
 
-/-- One worker: claim ONE job off the shared counter, run it, repeat
-until the counter is past the jobs.  The fuel is exact: every claim
-advances the counter by exactly one, so `order.size + 1` claims see it
-past the end whatever the other workers do. -/
-def checkWorker (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs)
-    (next limit : IO.Ref Nat) (done : Std.Mutex Nat) (live : Live) (w : Nat) :
-    (fuel : Nat) → Array (Nat × JRes mode J) → WStats →
-      IO (Array (Nat × JRes mode J) × WStats)
-  | 0, acc, st => pure (acc, st)
-  | fuel + 1, acc, st => do
-    let t ← next.modifyGet fun a => (a, a + 1)
-    if t < J.order.size then
-      let (acc, st) ← checkOne mode err stride t0 J limit done live w t acc st
-      checkWorker mode err stride t0 J next limit done live w fuel acc st
-    else pure (acc, st)
+/-- The heartbeat's lane, for `workers` workers. -/
+def PoolLive.new (stride workers : Nat) : IO PoolLive := do
+  let done ← Std.Mutex.new 0
+  let live ← if workers > 1 then some <$> Live.new (if stride > 0 then workers else 0)
+    else pure none
+  return ⟨done, live⟩
 
-/-- The workers' arrays merged by job index into one table. -/
-def mergeResults {mode : ConLeche.CheckMode} {J : Jobs}
-    (tab : Array (Option (JRes mode J))) :
-    List (Array (Nat × JRes mode J)) → Array (Option (JRes mode J))
-  | [] => tab
-  | rs :: rest => mergeResults (rs.foldl (fun tab (k, r) => tab.set! k (some r)) tab) rest
+/-- A job starts on worker `w`: the clock, and on the heartbeat lane the job it is on. -/
+def jobBegin (pl : PoolLive) (stride w t : Nat) : IO Nat := do
+  let ts ← IO.monoNanosNow
+  if stride > 0 then
+    if let some lv := pl.live then lv.begin w t ts
+  return ts
 
-/-- **Phase B on a pool of `jobs` worker threads.**  Spawns
-`min jobs order.size` workers, waits for all of them, merges their
-results and walks the table in job order.  A worker that failed as an
-`IO` action (not a check failing — the pool's own machinery) is an
-internal error, exit 3, never a verdict on the input.  Beside the
-result, the pool's timing report (`PoolRep`, performance-only). -/
+/-- A job ended well on worker `w`: on the heartbeat lane the completed-count is bumped
+and its line printed under one lock, so the lines count up.  Its time, into the worker's
+statistics. -/
+def jobEnd (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs) (pl : PoolLive) (w t ts : Nat)
+    (st : WStats) : IO WStats := do
+  let te ← IO.monoNanosNow
+  if stride > 0 then
+    if let some lv := pl.live then lv.idle w
+    pl.done.atomically do
+      let n ← modifyGet fun d => (d + 1, d + 1)
+      checkHeartbeat err stride t0 J pl.live n t
+  return st.add t ts te
+
+/-- One job of the pool, on worker `s.1`: run and timed (the job is forced before the
+clock, by the branch on its result). -/
+def checkStep (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs)
+    (pl : PoolLive) (s : Nat × WStats) (t : Nat) : IO ((Nat × WStats) × JRes mode J) := do
+  let ts ← jobBegin pl stride s.1 t
+  let r := runAt mode J t
+  if r matches .error _ then
+    let te ← IO.monoNanosNow
+    return ((s.1, s.2.add t ts te), r)
+  else
+    let st ← jobEnd err stride t0 J pl s.1 t ts s.2
+    return ((s.1, st), r)
+
+/-- A pool's name in the statistics. -/
+def poolName (workers : Nat) : String :=
+  if workers ≤ 1 then "check (one worker)" else "check pool"
+
+/-- **Phase B on `jobs` worker threads** (`parMapWorkersIO`): one job per atomic claim, a
+worker that fails a job stops every job above it, and the result is the walk over the
+jobs in order, which stops at the first failure in FOLD order whatever the workers'
+timing.  It runs on a dedicated thread at every count, one included: the check's memo
+state comes out of the running thread's own heap, and the main thread's heap after the
+install is two gigabytes of live environment with the parse's and the install's freed
+temporaries scattered through it, which costs a factor of two in wall time at Mathlib
+scale for the same instructions.  A worker that fails as an `IO` action (not a check
+failing) is an internal error, exit 3, never a verdict.  Beside the result, the pool's
+timing report (`PoolRep`, performance-only). -/
 def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat) (J : Jobs) :
     IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
   let m := J.order.size
   let workers := max 1 (min jobs m)
-  let next ← IO.mkRef 0
-  let limit ← IO.mkRef m
-  let done ← Std.Mutex.new 0
-  let live ← Live.new (if stride > 0 then workers else 0)
+  let pl ← PoolLive.new stride workers
   let tStart ← IO.monoNanosNow
-  let mut tasks : Array (Task (Except IO.Error (Array (Nat × JRes mode J) × WStats))) := #[]
-  for w in [0:workers] do
-    tasks := tasks.push (← IO.asTask (prio := .dedicated)
-      (checkWorker mode err stride t0 J next limit done live w (m + 1) #[] {}))
-  let mut results : List (Array (Nat × JRes mode J)) := []
-  let mut stats : Array WStats := #[]
-  let mut failure : Option IO.Error := none
-  for t in tasks do
-    match ← IO.wait t with
-    | .ok (rs, st) =>
-      results := rs :: results
-      stats := stats.push st
-    | .error ioe => failure := some ioe
-  let tEnd ← IO.monoNanosNow
-  let rep : PoolRep := { name := "check pool", workers, tStart, tEnd, stats }
-  if let some ioe := failure then
+  try
+    let (ss, res) ← parMapWorkersIO jobs (fun w => (w, ({} : WStats)))
+      (checkStep mode err stride t0 J pl) (List.range m)
+    let tEnd ← IO.monoNanosNow
+    let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd,
+                           stats := (ss.map (·.2)).toArray }
+    match res with
+    | .error e => return (rep, .error e)
+    | .ok rs => return (rep, collect mode J (rs.toArray.map fun r => some (.ok r)))
+  catch ioe =>
+    let tEnd ← IO.monoNanosNow
+    let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd, stats := #[] }
     return (rep, .error (.internal s!"check phase: a worker failed: {ioe}", 0))
-  let tab := mergeResults (Array.replicate m none) results
-  return (rep, collect mode J tab)
 
 end ConLeche.Driver

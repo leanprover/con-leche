@@ -145,8 +145,8 @@ theorem applyHoist_perm (ds : Array Declaration) (target : Std.HashMap Nat Nat) 
 
 /-- **The hoist is a permutation**: it moves records, it never adds or
 drops one. -/
-theorem hoistNatOpGround_perm (ds : Array Declaration) :
-    (hoistNatOpGround ds).1.toList.Perm ds.toList := by
+theorem hoistNatOpGround_perm (used : Declaration → Array Name) (ds : Array Declaration) :
+    (hoistNatOpGround used ds).1.toList.Perm ds.toList := by
   simp only [hoistNatOpGround]
   split
   · exact List.Perm.refl _
@@ -157,24 +157,37 @@ theorem hoistNatOpGround_perm (ds : Array Declaration) :
 /-- **THE SPEC** (maintainer, task #293): *"it is a permutation of the
 input plus additional declarations, but nothing missing"* — and the
 additional declarations are the built-in prelude's own records. -/
-theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+theorem prepareD_perm (pre : PreludeIx) (ds : Array Declaration)
+    (used : Declaration → Array Name) :
     ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
-      (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) := by
+      (prepareD pre ds used).decls.toList.Perm (ds.toList ++ extra) := by
   obtain ⟨extra, hextra, hperm⟩ := frontSpec_perm pre.decls.toList ds.toList
   refine ⟨extra, hextra, ?_⟩
   obtain ⟨h₁, h₂⟩ := frontOf_toList pre.decls.toList #[] ds
-  simp only [preparePrelude, prepareD]
-  refine (hoistNatOpGround_perm _).trans ?_
+  simp only [prepareD]
+  refine (hoistNatOpGround_perm _ _).trans ?_
   rw [Array.toList_append, h₁, h₂]
   simpa using hperm
+
+/-- **`preparePrelude`**, at what a record's own expressions mention. -/
+theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+    ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+      (preparePrelude pre ds).toList.Perm (ds.toList ++ extra) :=
+  prepareD_perm pre ds _
 
 /-- **The pass-through**: every record of the file is a record of the
 fold's input, unchanged.  This is what a statement about the FILE
 composes with. -/
-theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
-    {pd : Declaration} (h : pd ∈ ds) : pd ∈ preparePrelude pre ds := by
-  obtain ⟨extra, -, hperm⟩ := preparePrelude_perm pre ds
+theorem mem_prepareD {pre : PreludeIx} {ds : Array Declaration}
+    {used : Declaration → Array Name} {pd : Declaration} (h : pd ∈ ds) :
+    pd ∈ (prepareD pre ds used).decls := by
+  obtain ⟨extra, -, hperm⟩ := prepareD_perm pre ds used
   exact Array.mem_toList_iff.mp
     (hperm.mem_iff.mpr (List.mem_append_left _ (Array.mem_toList_iff.mpr h)))
+
+/-- `mem_prepareD`, at what a record's own expressions mention. -/
+theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
+    {pd : Declaration} (h : pd ∈ ds) : pd ∈ preparePrelude pre ds :=
+  mem_prepareD h
 
 end ConLeche.Frontend
