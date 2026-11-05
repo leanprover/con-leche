@@ -19,6 +19,23 @@ and the instantiation's lookup.  The semantic side
 
 namespace ConLeche
 
+/-- A former's reduct is closed, and the former but for its type. -/
+theorem reducedFormer_closed {ops : CheckerOps CheckM} {env : Env} {cv cvR : ConstantVal} {n : Nat}
+    (h : reducedFormer ops env cv n = .ok cvR) :
+    cvR = { cv with type := cvR.type } ∧ cvR.type.hasFvar = false ∧
+      cvR.type.looseBVarsBounded 0 = true := by
+  unfold reducedFormer at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  split at h
+  · rename_i hc
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp only [Bool.and_eq_true, Bool.not_eq_true'] at hc
+    exact ⟨rfl, hc.1, hc.2⟩
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-- A family's telescope is its stored type, or a closed reduct of it. -/
 theorem familyTelescope_cases {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
     {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty) :
@@ -32,13 +49,10 @@ theorem familyTelescope_cases {ops : CheckerOps CheckM} {env : Env} {cv : Consta
     split at h
     · simp at h
     rename_i cvR hr
-    split at h
-    · rename_i hc
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      subst h
-      simp only [Bool.and_eq_true, Bool.not_eq_true'] at hc
-      exact .inr ⟨hd, hc.1, hc.2, cvR, hr, rfl⟩
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨-, h₁, h₂⟩ := reducedFormer_closed hr
+    exact .inr ⟨hd, h₁, h₂, cvR, hr, rfl⟩
   · rename_i hd
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact .inl ⟨by simpa using hd, h.symm⟩

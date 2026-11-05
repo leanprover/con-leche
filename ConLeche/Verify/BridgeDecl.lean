@@ -182,15 +182,15 @@ theorem reducedFormer_datF (env : Env) (cv : ConstantVal) (n F : Nat) :
     (reducedFormer (fueledOpsM mode) env cv n).val F =
       reducedFormer (fueledOps mode F) env cv n := by
   unfold reducedFormer
-  simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+    whnfTelescope_datF]
 
 theorem familyTelescope_datF (env : Env) (cv : ConstantVal) (caps : IndCaps) (F : Nat) :
     (familyTelescope (fueledOpsM mode) env cv caps).val F =
       familyTelescope (fueledOps mode F) env cv caps := by
   unfold familyTelescope
   split
-  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      reducedFormer_datF]
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, reducedFormer_datF]
   · rfl
 
 theorem nestInstType_datF (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) (F : Nat) :

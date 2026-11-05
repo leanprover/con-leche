@@ -115,7 +115,7 @@ theorem reducedFormerS_spec (henv : EnvWF env) {cv : ConstantVal} {n : Nat} {s�
     (hw : WScoped 0 cv.type) (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄ reducedFormer (sharedOpsC .verified (mkFEnv env)) env cv n
     ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (reducedFormer (fueledOpsM .verified) env cv n) v; ⊤⦄ := by
+      Runs (reducedFormer (fueledOpsM .verified) env cv n) v ∧ v.type.hasFvar = false; ⊤⦄ := by
   sym only [conleche_grind, reducedFormer] =>
     vcgen [reducedFormer, whnfTelescopeS_spec henv] <;> finish
 

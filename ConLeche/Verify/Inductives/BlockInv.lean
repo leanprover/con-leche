@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Kernel.Inductives.BlockTail
 
 public section
@@ -277,11 +278,7 @@ theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
     | true =>
       simp only [pure, Except.pure, Except.ok.injEq, ↓reduceIte] at h
       subst h
-      have hrf : cvR = { m₀.cvT with type := cvR.type } := by
-        simp only [reducedFormer, Bind.bind, Except.bind] at hR
-        split at hR
-        · exact nomatch hR
-        · cases hR; rfl
+      have hrf := (reducedFormer_closed hR).1
       refine ⟨⟨?_, ?_, .inr ?_⟩, rfl, rfl, rfl⟩
       · show cvR.name = m₀.declared.name
         rw [hd₀, hrf]

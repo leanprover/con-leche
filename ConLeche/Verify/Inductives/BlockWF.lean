@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
-import ConLeche.Verify.Inductives.BlockInv
+public import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 
 public section
@@ -82,13 +82,25 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
       obtain ⟨h1, h2, h3, h4⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
 
+/-- A member's declared former is the one its check reads, or checked apart. -/
+@[expose] def MemberDeclaredWF (env : Env) (ms : MemberShape) : Prop :=
+  ms.declared = ms.cvT ∨
+    (ms.declared.type.hasFvar = false ∧
+      ms.declared.type.allLevelParamsDefined ms.declared.levelParams = true ∧
+      ms.declared.type.constsResolve env = true ∧ ms.declared.type.looseBVarsBounded 0 = true)
+
+/-- A member under check meets `MemberDeclaredWF`. -/
+theorem MemberAt.declaredWF {F : Nat} {env : Env} {nP : Nat} {m : MemberShape}
+    (h : MemberAt F env nP m) : MemberDeclaredWF env m := by
+  rcases h.how with ⟨-, he⟩ | ⟨-, -, hc, -⟩
+  · exact .inl he.symm
+  · exact .inr (checkConstantVal_typeWF hc)
+
 /-- **Stage 1 at the run level**: the environment holding the k formers
 is well-formed, and every checked former's type is closed. -/
 theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
     {p : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
-    (hdecl : ∀ ms ∈ p.members, ms.declared.type.hasFvar = false ∧
-      ms.declared.type.allLevelParamsDefined ms.declared.levelParams = true ∧
-      ms.declared.type.constsResolve env = true ∧ ms.declared.type.looseBVarsBounded 0 = true)
+    (hdecl : ∀ ms ∈ p.members, MemberDeclaredWF env ms)
     (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
     EnvWF envI ∧ ∀ cvTa ∈ cvTas, cvTa.type.hasFvar = false := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, rfl, hq, hcvs, -⟩ :=
@@ -123,7 +135,12 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
       exact step rest[i] q.2 hte
   refine ⟨envWF_consBlockInds henv fun cv hcv => ?_, fun cvTa hcv => (key cvTa hcv).1⟩
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcv
-  exact hdecl ms hms
+  rcases hdecl ms hms with he | hw
+  · rw [he]
+    refine key _ ?_
+    rw [(checkBlockInds_members h).1]
+    exact List.mem_map_of_mem hms
+  · exact hw
 
 /-! ## Stage 1b: the constructors consed, member by member -/
 

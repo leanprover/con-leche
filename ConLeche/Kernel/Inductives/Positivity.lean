@@ -251,7 +251,10 @@ def whnfTelescope (ops : CheckerOps m) (env : Env) :
 def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :
     m ConstantVal := do
   let (bs, s) ← whnfTelescope ops env 0 n cv.type
-  pure { cv with type := closeTelescope bs 0 (.sort s) }
+  let ty := closeTelescope bs 0 (.sort s)
+  unless !ty.hasFvar && ty.looseBVarsBounded 0 do
+    throw (.internal "a family's reduced telescope is not closed")
+  pure { cv with type := ty }
 
 /-- **A stored family's type former, at its telescope**: its stored type where that shows one,
 else its reduct (official reads the type through `whnf`).  Every reader of a family's telescope
@@ -259,8 +262,6 @@ goes through this: what is stored is what the stream declares. -/
 def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
   if formerDefHeaded cv then do
     let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
-    unless !cvR.type.hasFvar && cvR.type.looseBVarsBounded 0 do
-      throw (.internal "a family's reduced telescope is not closed")
     pure cvR.type
   else pure cv.type
 

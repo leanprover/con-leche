@@ -343,6 +343,7 @@ theorem checkBlockTables_etaClosed {q : BlockShape} :
 from the run record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
+    (hdn : ∀ m ∈ p₀.members, m.cvT.name = m.declared.name)
     (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
     pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := h
@@ -377,7 +378,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     exact hndC
   -- ## the constructors' environment is closed
   have hEC : EtaFamiliesClosed (consBlockCtors p₁.nP ctorsAs
-      (consBlockInds p₁ isRec cvTas 0 env)) := by
+      (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env)) := by
     intro T cvT caps hf he hr
     have hf₁ := consBlockCtors_find?_indInfo hf
     rcases ConLeche.find?_consBlockInds_indInfo hf₁ with ⟨j, hj, -, hcaps⟩ | hf₀
@@ -385,7 +386,10 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
       subst hcaps
       rw [Nat.zero_add] at he ⊢
       have hjl : j < p₁.members.length := by
-        rw [← hlenCv]; exact (List.getElem?_eq_some_iff.mp hj).1
+        have := (List.getElem?_eq_some_iff.mp hj).1
+        rw [List.length_map] at this
+        rw [(ConLeche.checkBlockInds_members hInd).2]
+        exact this
       have hgetD : p₁.members.getD j default = p₁.members[j] := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl, Option.getD_some]
       have hj' : (ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2))))[j]?
@@ -402,7 +406,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
             and_true] at hcAeq
           refine ⟨cA.1, ?_⟩
           rw [blockCapsAt, hgetD, hcs]
-          show (consBlockCtors p₁.nP ctorsAs (consBlockInds p₁ isRec cvTas 0 env)).find? c.1.name
+          show (consBlockCtors p₁.nP ctorsAs (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env)).find? c.1.name
             = some (.ctorInfo cA.1 p₁.nP c.2)
           rw [← hcAeq.1, ← hcAeq.2]
           exact consBlockCtors_find?_mem hndAll (List.mem_of_getElem? hcA) List.mem_cons_self
@@ -413,13 +417,15 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     · -- a family stored before the block: its η constructor reads through
       obtain ⟨cvC, hfC₀⟩ := hE T cvT caps hf₀ he hr
       refine ⟨cvC, ?_⟩
-      have hf₁C : (consBlockInds p₁ isRec cvTas 0 env).find? caps.etaCtor
+      have hf₁C : (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env).find? caps.etaCtor
           = some (.ctorInfo cvC caps.etaParams caps.etaFields) := by
         rw [consBlockInds_find?_of_ne]
         · exact hfC₀
         · intro cv hcv hh
-          have := hfT cv hcv
-          rw [hh, hfC₀] at this
+          obtain ⟨m, hm, rfl⟩ := List.mem_map.mp hcv
+          have := hfT m.cvT (by
+            rw [(ConLeche.checkBlockInds_members hInd).1]; exact List.mem_map_of_mem hm)
+          rw [hdn m hm, hh, hfC₀] at this
           exact nomatch this
       rw [consBlockCtors_find?_of_ne]
       · exact hf₁C
@@ -436,5 +442,12 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
   obtain ⟨g, hg, hn, -⟩ := ConLeche.mem_storedOut ho
   rw [hn]
   exact hfresh g hg
+
+/-- **A block's run keeps the η-families closed.** -/
+theorem blockRun_etaClosed {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
+    (h : BlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
+  obtain ⟨ms, -, hAt, -, hR⟩ := h
+  exact declBlockRun_etaClosed hE (fun m hm => (hAt m hm).name) hR
 
 end ConLeche.Semantics
