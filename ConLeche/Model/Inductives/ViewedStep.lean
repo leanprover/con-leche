@@ -3,6 +3,8 @@ module
 public import ConLeche.Model.Inductives.DeclBlockStep
 public import ConLeche.Model.Inductives.FormerSwap
 public import ConLeche.Verify.EnvExt
+import ConLeche.Model.Inductives.BlockCover
+import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Verify.Cached.BridgeCS4
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.BridgeDecl
@@ -498,5 +500,87 @@ theorem EnvModelM.toViews {env : Env} (mp : EnvModelM V env) (hS : ShownFacts mp
       exact ⟨cv', caps, hf', by rw [hfa hD hmm hf hf']; exact hz, hlen⟩
     · obtain ⟨cv, nPc, nF, hf, hshape⟩ := hcC c hc' j hj
       exact ⟨cv, nPc, nF, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hf, hshape⟩
+
+/-! ## The block's install, against its input -/
+
+omit [SetTheory V] in
+theorem checkBlockTeles_formers {env : Env} {nP F : Nat} :
+    ∀ {mss : List MemberShape} {cvs : List (ConstantVal × Level)},
+      ConLeche.checkBlockTeles (fueledOps .verified F) env nP mss = .ok cvs →
+      cvs.map (·.1) = mss.map (·.cvT)
+  | [], cvs, h => by
+    simp only [ConLeche.checkBlockTeles, pure, Except.pure, Except.ok.injEq] at h
+    subst h; rfl
+  | ms :: rest, cvs, h => by
+    unfold ConLeche.checkBlockTeles at h
+    obtain ⟨r, hr, h⟩ := exceptBind_ok h
+    obtain ⟨rs, hrs, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    obtain ⟨cvTa, s⟩ := r
+    simp only [List.map_cons, ConLeche.checkBlockTele_former hr, checkBlockTeles_formers hrs]
+
+omit [SetTheory V] in
+/-- The tables' stage stores no constant. -/
+theorem checkBlockTables_consts {q : BlockShape} :
+    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))} {env env₂ : Env},
+      ConLeche.checkBlockTables (m := CheckM) q l env = .ok env₂ → env₂.consts = env.consts
+  | [], env, env₂, h => by
+    simp only [ConLeche.checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
+    rw [h]
+  | (ms, ctorsA, sortss) :: rest, env, env₂, h => by
+    unfold ConLeche.checkBlockTables at h
+    obtain ⟨env', henv', h⟩ := exceptBind_ok h
+    rw [checkBlockTables_consts h]
+    revert henv'
+    split
+    · split
+      · intro hh
+        obtain ⟨tbl, -, rfl⟩ := ConLeche.Semantics.checkStructProjTable_shape hh
+        rfl
+      · intro hh
+        simp only [pure, Except.pure, Except.ok.injEq] at hh
+        rw [hh]
+    · intro hh
+      simp only [pure, Except.pure, Except.ok.injEq] at hh
+      rw [hh]
+
+omit [SetTheory V] in
+/-- **What the ordinary install stores**: its members as the group has them, and no other
+former. -/
+theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
+    {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) :
+    ∃ new : List ConstantInfo, env₂.consts = new ++ env.consts ∧
+      ∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ ms ∈ p₀.members, cv = ms.cvT := by
+  obtain ⟨-, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
+    nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, hTbl⟩ := hrun
+  obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
+    ConLeche.checkBlockInds_shape hInd
+  have hcv : ∀ cv ∈ cvTas, ∃ ms ∈ p₀.members, cv = ms.cvT := by
+    intro cv hcvm
+    have hall : cvTas = p₀.members.map (·.cvT) := by
+      rw [hcvTas, hmem0, List.map_cons, checkBlockTeles_formers hteles,
+        ConLeche.checkBlockTele_former htele0]
+    rw [hall] at hcvm
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcvm
+    exact ⟨ms, hms, rfl⟩
+  obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_consts (p₁ := p₁) (isRec := isRec) cvTas 0 env
+  obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
+    (q := p.toBlockShape) 0 (ConLeche.storedOut p.recs outR)
+    (ConLeche.consBlockCtors p.nP ctorsAs env₁)
+  have hctor := consBlockCtors_consts p.nP ctorsAs env₁
+  refine ⟨newR ++ (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2).reverse ++ newI,
+    ?_, fun c hc cv caps he => ?_⟩
+  · rw [checkBlockTables_consts hTbl, hnewR, hctor, hcons, hnewI]
+    simp
+  · simp only [List.mem_append] at hc
+    rcases hc with (hc | hc) | hc
+    · obtain ⟨o, -, mI, rP, isK, rules, rfl⟩ := hnewRall c hc
+      exact nomatch he
+    · obtain ⟨cA, -, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
+      exact nomatch he
+    · obtain ⟨cv', hcv', j, rfl⟩ := hnewIall c hc
+      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj he
+      exact hcv _ hcv'
 
 end ConLeche.Model

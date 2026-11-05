@@ -70,10 +70,13 @@ the constructors consed by `stageBlockCtors` (conjunct ②'s install half),
 the recursors' stage `genRecStage` (conjunct ⑧), and the tables
 `stageBlockTables` (conjunct ⑨).  The invariant that crosses all of it is
 `BlockCtorsCore` → (at the recursors) `BlockTablesCore`. -/
-theorem declBlock {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+theorem declBlockAt {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {p₀ : BlockParts}
     (mp : EnvModelM V env)
-    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
+    (hClps₀ : ∀ c ∈ p₀.allCtors, c.1.levelParams = p₀.lps ∧
+      ConLeche.reservedBasisNames.contains c.1.name = false)
     (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
     ∃ mp' : EnvModelM V env₂, CoverRel mp mp' ∧ LfpCover mp' [] := by
   classical
@@ -82,12 +85,8 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     hSt, hTbl⟩ := hrun
   subst hp
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
-  have hshape := ConLeche.blockParts?_inv hdp
-  obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, -, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
-  have hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps :=
-    fun ms hms => (hmembersOk ms hms).1
   have hndM : p₁.memberNames.Nodup := by rw [hq]; exact hndM₀
   have hndC : (p₁.allCtors.map (·.1.name)).Nodup := by rw [hq]; exact hndC₀
   have hClps : ∀ c ∈ p₁.allCtors, c.1.levelParams = p₁.lps ∧
@@ -723,5 +722,16 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     have hss' : sortsss.getD c [] = [sorts] := hss
     rw [hss']
     rfl
+
+/-- **The uniform block step, at a recognised block.** -/
+theorem declBlock {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    (mp : EnvModelM V env)
+    (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
+    ∃ mp' : EnvModelM V env₂, CoverRel mp mp' ∧ LfpCover mp' [] := by
+  have hshape := ConLeche.blockParts?_inv hdp
+  obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
+  exact declBlockAt mp hE (fun ms hms => (hmembersOk ms hms).1) hClps₀ hrun hcov
 
 end ConLeche.Model
