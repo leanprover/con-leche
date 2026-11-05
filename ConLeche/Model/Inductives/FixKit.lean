@@ -846,6 +846,14 @@ theorem wellDenoted_projNV_succ_fibre {w i : Nat} {ρ' ρ : Nat → V} {Fs : Lis
 
 /-! ## (A) the typing law -/
 
+/-- A graded spine at a leaf that is a λ-tower fits the tower's binders. -/
+theorem spineFit_of_famFit {pps : List Term} {L B : Term} {ρ : Nat → V} {ts : List V}
+    (hL : L = mkLamsAV pps B) (hlen : ts.length = pps.length) (h : FamFit V ρ L ts) :
+    SpineFit ρ pps ts := by
+  obtain ⟨vs, rfl, hok, hne⟩ := h
+  exact spineFit_of_wellDenoted_mkAppN_lam (lds := pps) (b := B) (σ := ρ) hok hne (by rw [hL])
+    (by simpa using hlen)
+
 /-- **A member of a family whose sort is zero is the point**, read off the
 fibre at the parameters: the subject of a law at a squash instance. -/
 theorem fixEntry_zero_pt {nP : Nat} {pps ds : List Term} {L : Term}
@@ -1619,10 +1627,14 @@ theorem stageFixTable (mp : EnvModelM V env)
         = L (Level.substFn φ lps us) := by
       show m₂.acval T (Level.substFn φ lps us) = _
       rw [hacT, hleafT]
-    refine ⟨mkPisAV (pps (Level.substFn φ lps us))
-      (.sort (resSort.eval (Level.substFn φ lps us))), ?_, hFD.okTy _, ?_, ?_⟩
-    · rw [denotePInstLevels m₂ φ cvTa.levelParams us 0 cvTa.type, hlpsT]
-      exact hFD₂.read _
+    have hspOf : ∀ (ρ : Nat → V) (ts : List V), ts.length = (tbl.entry i).numParams →
+        FamFit V ρ (m₂.acval tbl.structName (Level.substFn φ (tbl.entry i).levelParams us)) ts →
+        SpineFit ρ (pps (Level.substFn φ lps us)) ts := by
+      intro ρ ts hl hf
+      rw [hacT'] at hf
+      obtain ⟨B, hB⟩ := hlam (Level.substFn φ lps us)
+      exact spineFit_of_famFit hB (hl.trans (hFD.len _).symm) hf
+    refine ⟨?_, ?_⟩
     rotate_left
     · -- (D) the coherence, at an η family: a subject that is not the point
       -- is no squash instance's
@@ -1633,14 +1645,14 @@ theorem stageFixTable (mp : EnvModelM V env)
       obtain ⟨rfl, -, -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfC'')
       refine ⟨mkPisAV (ds (Level.substFn φ lps us))
         (ctorBodyAVI m₂ T nP nF (Level.substFn φ lps us)
-          (Es (Level.substFn φ lps us))), ?_, fun ρ ts rest x hlents hfit hmem hxne => ?_⟩
+          (Es (Level.substFn φ lps us))), ?_, fun ρ ts x hlents hfit hmem hxne => ?_⟩
       · rw [denotePInstLevels m₂ φ cvCa.levelParams us 0 cvCa.type, hlpsC]
         exact hCDread₂ _
-      · have hsp := spineFit_of_teleFit (by rw [hFD.len]; exact hlents) hfit
+      · have hsp := hspOf ρ ts hlents hfit
         rw [hacT'] at hmem
         exact fixEntryEtaFitCore (hCDlen _) (hFD.len _) (hiff _) (hfold _) ts x hlents hsp hmem hxne
-    · intro ρ ts rest x hlents hfit hmem
-      have hsp := spineFit_of_teleFit (by rw [hFD.len]; exact hlents) hfit
+    · intro ρ ts x hlents hfit hmem
+      have hsp := hspOf ρ ts hlents hfit
       have hacC' : m₂.acval (tbl.entry i).ctor (Level.substFn φ (tbl.entry i).levelParams us)
           = sumMkAV (resSort.eval (Level.substFn φ lps us)) 0
             (ds (Level.substFn φ lps us))
@@ -1781,19 +1793,12 @@ theorem fixEmptyUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps}
     {w : (Name → Nat) → Nat} {pps : (Name → Nat) → List Term}
     (hleaf : ∀ ψ, m.acval T ψ = sumTyAV (w ψ) (pps ψ) [])
-    (hread : ∀ ψ, denote m.acval env ψ 0 cvT.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenoted V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
     (hpar : ∀ ψ, caps.unitParams = (pps ψ).length) :
     UnitLaw m φ' T cvT caps := by
   intro us _
-  refine ⟨mkPisAV (pps (Level.substFn φ' cvT.levelParams us))
-    (.sort (w (Level.substFn φ' cvT.levelParams us))), ?_, hokTy _, ?_⟩
-  · rw [denotePInstLevels m φ' cvT.levelParams us 0 cvT.type]
-    exact hread _
-  · intro ρ ts rest x y hlen hfit hx _
-    have hsp := spineFit_of_teleFit (by rw [hlen, hpar]) hfit
+  · intro ρ ts x y hlen hfit hx _
+    rw [hleaf] at hfit
+    have hsp := spineFit_of_famFit rfl (by rw [hlen, hpar]) hfit
     rw [hleaf, sumTyAV_fold hsp (fun _ h => absurd h List.not_mem_nil)] at hx
     exfalso
     by_cases hw : w (Level.substFn φ' cvT.levelParams us) = 0
@@ -1820,19 +1825,14 @@ theorem fibreUnitLaw {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
       SpineFit ρ ((pps ψ)) ts →
       ts.foldl SetTheory.app (interp V ρ (L ψ))
         = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
-    (hread : ∀ ψ, denote m.acval env ψ 0 cvT.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenoted V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
+    (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV (pps ψ) B)
     (hpar : ∀ ψ, caps.unitParams = (pps ψ).length) :
     UnitLaw m φ' T cvT caps := by
   intro us _
-  refine ⟨mkPisAV (pps (Level.substFn φ' cvT.levelParams us))
-    (.sort (w (Level.substFn φ' cvT.levelParams us))), ?_, hokTy _, ?_⟩
-  · rw [denotePInstLevels m φ' cvT.levelParams us 0 cvT.type]
-    exact hread _
-  · intro ρ ts rest x y hlen hfit hx hy
-    have hsp := spineFit_of_teleFit (by rw [hlen, hpar]) hfit
+  · intro ρ ts x y hlen hfit hx hy
+    rw [hleaf] at hfit
+    obtain ⟨B, hB⟩ := hlam (Level.substFn φ' cvT.levelParams us)
+    have hsp := spineFit_of_famFit hB (by rw [hlen, hpar]) hfit
     rw [hleaf, hfold _ ρ ts hsp] at hx hy
     by_cases hw : w (Level.substFn φ' cvT.levelParams us) = 0
     · rw [hw] at hx hy
@@ -1862,10 +1862,7 @@ theorem fibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
       ts.foldl SetTheory.app (interp V ρ (L ψ))
         = sumSet (w ψ) (sumFibre (w ψ) (consList ts ρ) [[] ++ [idxEqAV []]]))
     (hleafC : ∀ ψ, m.acval caps.etaCtor ψ = sumMkAV (w ψ) 0 (ds ψ) [] (uChains [[]]))
-    (hread : ∀ ψ, denote m.acval env ψ 0 cvT.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenoted V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
+    (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV (pps ψ) B)
     (hfit : ∀ (ψ : Name → Nat) (ρ : Nat → V) (as : List V),
       SpineFit ρ ((pps ψ)) as → SpineFit ρ ((ds ψ)) as)
     (hpar : ∀ ψ, caps.etaParams = (pps ψ).length)
@@ -1875,22 +1872,26 @@ theorem fibreEtaLaw0 {m : EnvModel V env} {φ' : Name → Nat} {T : Name}
         ∀ ψ, denote m.acval env ψ 0 cvC.type = some (mkPisAV (ds ψ) (B ψ))) :
     EtaLaw m φ' T cvT caps := by
   intro us _
-  refine ⟨mkPisAV (pps (Level.substFn φ' cvT.levelParams us))
-    (.sort (w (Level.substFn φ' cvT.levelParams us))), ?_, hokTy _, ?_, ?_⟩
-  · rw [denotePInstLevels m φ' cvT.levelParams us 0 cvT.type]
-    exact hread _
+  have hspOf : ∀ (ρ : Nat → V) (ts : List V), ts.length = caps.etaParams →
+      FamFit V ρ (m.acval T (Level.substFn φ' cvT.levelParams us)) ts →
+      SpineFit ρ (pps (Level.substFn φ' cvT.levelParams us)) ts := by
+    intro ρ ts hl hf
+    rw [hleaf] at hf
+    obtain ⟨B, hB⟩ := hlam (Level.substFn φ' cvT.levelParams us)
+    exact spineFit_of_famFit hB (by rw [hl, hpar]) hf
+  refine ⟨?_, ?_⟩
   rotate_left
   · -- the coherence: the parameters fit the constructor's telescope
     intro cvC nPc nFc hfC
     obtain ⟨hlpsC, B, hB⟩ := hreadC cvC nPc nFc hfC
     refine ⟨mkPisAV (ds (Level.substFn φ' cvT.levelParams us))
-      (B (Level.substFn φ' cvT.levelParams us)), ?_, fun ρ ts rest x hlen hfitT _ _ => ?_⟩
+      (B (Level.substFn φ' cvT.levelParams us)), ?_, fun ρ ts x hlen hfitT _ _ => ?_⟩
     · rw [denotePInstLevels m φ' cvC.levelParams us 0 cvC.type, hlpsC]
       exact hB _
-    · have hsp := spineFit_of_teleFit (by rw [hlen, hpar]) hfitT
+    · have hsp := hspOf ρ ts hlen hfitT
       exact ⟨_, teleFit_mkPisAV_of_spineFit (hfit _ ρ ts hsp)⟩
-  · intro ρ ts rest x hlen hfitT hx
-    have hsp := spineFit_of_teleFit (by rw [hlen, hpar]) hfitT
+  · intro ρ ts x hlen hfitT hx
+    have hsp := hspOf ρ ts hlen hfitT
     rw [hleaf, hfold _ ρ ts hsp] at hx
     rw [hleafC]
     by_cases hw : w (Level.substFn φ' cvT.levelParams us) = 0

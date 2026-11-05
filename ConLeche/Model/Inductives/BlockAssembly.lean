@@ -519,7 +519,7 @@ theorem blockDummyPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockParts} {isR
         exact hh)),
       hfreshC j cvTa hj he] at hfC
     exact nomatch hfC
-  · refine fixEmptyUnitLaw hleaf hFD₂.read hFD₂.okTy (fun ψ => ?_)
+  · refine fixEmptyUnitLaw hleaf (fun ψ => ?_)
     rw [(blockCapsAt_unitlike hu).2.2, hFD₂.len ψ,
       blockNIdxs_getD (q := q) (j := j) (by
         have := (List.getElem?_eq_some_iff.mp hj).1
@@ -793,7 +793,7 @@ theorem blockRealPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockParts} {isRe
         hfreshC j cvTa hj he] at hfC
       exact nomatch hfC
     · refine fibreUnitLaw hleaf (fun ψ ρ ts hsp => hfoldZ j cvTa hj hu ψ ρ ts hsp)
-        hFD₂.read hFD₂.okTy (fun ψ => ?_)
+        (fun _ => ⟨_, rfl⟩) (fun ψ => ?_)
       rw [(blockCapsAt_unitlike hu).2.2, hFD₂.len ψ,
         blockNIdxs_getD (q := q) (j := j) (by
           have := (List.getElem?_eq_some_iff.mp hj).1

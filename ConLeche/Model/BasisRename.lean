@@ -1007,9 +1007,9 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
       rw [h.find_nonres hres] at hf
       obtain ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ := hfam
       rw [h.find_nonres hC1] at hC2
-      obtain ⟨TVa, hTVa, hokT, hlaw, hcoh⟩ :=
+      obtain ⟨hlaw, hcoh⟩ :=
         he T cvT caps hf hcap hres ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ φ' us hus
-      refine ⟨TVa, by rw [hde']; exact hTVa, hokT, ?_, ?_⟩
+      refine ⟨?_, ?_⟩
       · rw [hnr hres, hnr hC1]; exact hlaw
       · exact hcoh.transport (m₂ := m')
           (fun _ _ _ hf₂ => by rw [h.find_nonres hC1] at hf₂; exact hf₂)
@@ -1017,8 +1017,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
           (congrFun (hnr hres) _) (fun _ _ _ => rfl)
     · intro T cvT caps hf hcap hres φ' us hus
       rw [h.find_nonres hres] at hf
-      obtain ⟨TVa, hTVa, hokT, hlaw⟩ := hu T cvT caps hf hcap hres φ' us hus
-      refine ⟨TVa, by rw [hde']; exact hTVa, hokT, ?_⟩
+      have hlaw := hu T cvT caps hf hcap hres φ' us hus
       rw [hnr hres]; exact hlaw
   · -- `reduce_ops`
     intro c hc cv hf hpin
@@ -1053,8 +1052,8 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
         exact hB
     · intro cvT' capsT' hfT' us hus
       rw [h.find_nonres hTr] at hfT'
-      obtain ⟨TVa, hTVa, hok, hlaw', hcoh⟩ := hetaL cvT' capsT' hfT' us hus
-      refine ⟨TVa, by rw [hde']; exact hTVa, hok, ?_, fun he => ?_⟩
+      obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT' us hus
+      refine ⟨?_, fun he => ?_⟩
       · rw [hnr hTr, hnr hr3]; exact hlaw'
       · exact (hcoh he).transport (m₂ := m')
           (fun _ _ _ hf₂ => by rw [h.find_nonres hr3] at hf₂; exact hf₂)

@@ -431,17 +431,14 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     intro cvT' capsT' hfT' us hus
     have hfT'' : env.find? T = some (.indInfo cvT' capsT') := by
       exact hx.back (by rw [hfT]; rfl) hfT'
-    obtain ⟨TVa, hTVa, hok, hlaw', hcoh⟩ := hetaL cvT' capsT' hfT'' us hus
-    refine ⟨TVa, ?_, hok, ?_, fun he => (hcoh he).transport
+    obtain ⟨hlaw', hcoh⟩ := hetaL cvT' capsT' hfT'' us hus
+    refine ⟨?_, fun he => (hcoh he).transport
       (fun cvC nPc nFc hf₂ => ?_) (fun cvC nPc nFc TCa hf hTCa => ?_)
       (by rw [hx.leafOf hfT]) (fun _ _ _ => rfl)⟩
-    · exact hx.denote
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfT'') us) hTVa
-    · intro ρ ts rest x hlen hfit hmem
-      rw [hx.leafOf hfT] at hmem
+    · intro ρ ts x hlen hfit hmem
+      rw [hx.leafOf hfT] at hmem hfit
       rw [hx.leafOf hfC]
-      exact hlaw' ρ ts rest x hlen hfit hmem
+      exact hlaw' ρ ts x hlen hfit hmem
     · exact hx.back (by rw [hfC]; rfl) hf₂
     · exact hx.denote
         (constsBound_instType mp.base2.wf

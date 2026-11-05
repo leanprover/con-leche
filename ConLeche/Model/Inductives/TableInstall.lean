@@ -82,12 +82,9 @@ theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
     CapsOk m₂ := by
   constructor
   · intro T cvT caps hf hcape hres hfam φ' us hlen
-    obtain ⟨TVa, hTVa, hokTVa, hlaw, hcoh⟩ :=
+    obtain ⟨hlaw, hcoh⟩ :=
       mp.caps_ok.1 T cvT caps hf hcape hres hfam φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_, ?_⟩
-    · rw [hac]
-      exact denote_pushTable_mono hT _ 0
-        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTVa
+    refine ⟨?_, ?_⟩
     · rw [hac]
       exact hlaw
     · refine hcoh.transport (fun cvC nPc nFc hf₂ => hf₂)
@@ -96,13 +93,9 @@ theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
       exact denote_pushTable_mono hT _ 0
         (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTCa
   · intro T cvT caps hf hcapu hres φ' us hlen
-    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ := mp.caps_ok.2 T cvT caps hf hcapu hres φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_⟩
-    · rw [hac]
-      exact denote_pushTable_mono hT _ 0
-        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTVa
-    · rw [hac]
-      exact hlaw
+    have hlaw := mp.caps_ok.2 T cvT caps hf hcapu hres φ' us hlen
+    rw [hac]
+    exact hlaw
 
 /-- **The P step at a projection table's install.**  The structure has
 no table yet, the table is well formed and carries its head data at

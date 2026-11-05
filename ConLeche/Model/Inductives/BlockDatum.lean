@@ -1382,7 +1382,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       refine blockCapsLawsAt m' (T := cvTa.name) (w := fun ψ => q.resSort.eval ψ)
         (pps := ppsOf m) (ds := (pk m).dsF 0) (L := fun ψ =>
           blockLeafH (blockDataOf V q ctorsAs pk uOf ppsOf) m ψ)
-        (fun ψ => (hlenP ψ).symm) hleaf' hFD'.read hFD'.okTy ?_ ?_ ?_ ?_
+        (fun ψ => (hlenP ψ).symm) hleaf' (fun _ => ⟨_, rfl⟩) ?_ ?_ ?_ ?_
       · -- the fold at the fieldless shape
         intro _ ψ ρ ts hsp
         unfold blockLeafH

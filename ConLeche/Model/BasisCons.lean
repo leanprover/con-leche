@@ -154,17 +154,13 @@ theorem capsOk_cons_basis (mp : EnvModelM V env)
     intro T cvT caps hf hcape hres hfam φ' us hlen
     obtain ⟨hfE, hfam₀, hnT, hnC⟩ :=
       etaFamilyStored_descend_reserved hres₀ hres hf hfam
-    obtain ⟨TVa, hTVa, hokTVa, hlaw, hcoh⟩ :=
+    obtain ⟨hlaw, hcoh⟩ :=
       hprev.1 T cvT caps hfE hcape hres hfam₀ φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_, ?_⟩
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfE) us) hTVa
-    · intro ρ ts rest x hlents hfit hmem
-      rw [hac, acvalWith_ne hnT] at hmem
+    refine ⟨?_, ?_⟩
+    · intro ρ ts x hlents hfit hmem
+      rw [hac, acvalWith_ne hnT] at hmem hfit
       rw [hac, acvalWith_ne hnC]
-      exact hlaw ρ ts rest x hlents hfit hmem
+      exact hlaw ρ ts x hlents hfit hmem
     · refine hcoh.transport (fun cvC nPc nFc hf₂ => ?_)
         (fun cvC nPc nFc TCa hf hTCa => ?_) (by rw [hac, acvalWith_ne hnT])
         (fun _ _ _ => rfl)
@@ -181,15 +177,10 @@ theorem capsOk_cons_basis (mp : EnvModelM V env)
     have hfE : env.find? T = some (.indInfo cvT caps) := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnT hh.symm)] at hf
       exact hf
-    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ :=
+    have hlaw :=
       hprev.2 T cvT caps hfE hcapu hres φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_⟩
-    · rw [hac]
-      exact denote_cons_mono hfresh _ 0
-        (constsBound_instType mp.base2.wf
-          (ConLeche.Env.find?_mem hfE) us) hTVa
-    · intro ρ ts rest x y hlents hfit hx hy
-      rw [hac, acvalWith_ne hnT] at hx hy
-      exact hlaw ρ ts rest x y hlents hfit hx hy
+    intro ρ ts x y hlents hfit hx hy
+    rw [hac, acvalWith_ne hnT] at hx hy hfit
+    exact hlaw ρ ts x y hlents hfit hx hy
 
 end ConLeche.Model

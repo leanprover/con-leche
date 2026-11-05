@@ -118,10 +118,7 @@ theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
     {L : (Name → Nat) → Term}
     (hpar : ∀ ψ, p₁.nP = (pps ψ).length)
     (hleaf : ∀ ψ, m'.acval T ψ = L ψ)
-    (hread : ∀ ψ, denote m'.acval env' ψ 0 cvTa.type
-      = some (mkPisAV (pps ψ) (.sort (w ψ))))
-    (hokTy : ∀ (ψ : Name → Nat) (ρ : Nat → V),
-      WellDenoted V ρ (mkPisAV (pps ψ) (.sort (w ψ))))
+    (hlam : ∀ ψ, ∃ B, L ψ = mkLamsAV (pps ψ) B)
     (hfoldZ : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true →
       ∀ (ψ : Name → Nat) (ρ : Nat → V) (ts : List V),
         SpineFit ρ ((pps ψ)) ts →
@@ -141,9 +138,9 @@ theorem blockCapsLawsAt {env' : Env} (m' : EnvModel V env')
     CapsLawsAt m' T cvTa (ConLeche.blockCapsAt p₁ mi isRec) := by
   by_cases hu : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = true
   · obtain ⟨-, hpE, hpU⟩ := blockCapsAt_unitlike hu
-    exact ⟨fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hread hokTy hfit
+    exact ⟨fun _ _ _ => fibreEtaLaw0 hleaf (hfoldZ hu) (hleafC hu) hlam hfit
         (fun ψ => by rw [hpE]; exact hpar ψ) (hreadC hu),
-      fun _ _ => fibreUnitLaw hleaf (hfoldZ hu) hread hokTy
+      fun _ _ => fibreUnitLaw hleaf (hfoldZ hu) hlam
         (fun ψ => by rw [hpU]; exact hpar ψ)⟩
   · have hU : (ConLeche.blockCapsAt p₁ mi isRec).unitlike = false := by simpa using hu
     exact blockCapsLawsAt_vacuous m' hU

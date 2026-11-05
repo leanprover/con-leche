@@ -344,14 +344,11 @@ theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
   case isTrue =>
   obtain rfl : vT = m.acval T (Level.substFn φ cvT.levelParams us') :=
     (Option.some.inj hvT).symm
-  have hstrip : (cvT.type.stripPis caps.unitParams).isSome = true :=
-    (m.wf.indCaps hind).1 hunit
-  obtain ⟨TVa, hTVa, -, hlaw⟩ :=
-    hin.caps_ok.2 T cvT caps hind hunit hresT φ us' hlv
-  -- the parameter spine fits the former's telescope: the reduct is a
-  -- type, not the point ("not pt" source (1))
-  obtain ⟨resta, hfitT⟩ := formerFit hin hind hlv hstrip htlen hspt hTVa ρ hokWA
-    (by rw [← heqWA]; exact hokTa.2.ne_pt)
+  have hlaw := hin.caps_ok.2 T cvT caps hind hunit hresT φ us' hlv
+  -- the parameter spine is graded: the reduct is a type, not the point
+  -- ("not pt" source (1))
+  have hfitT : FamFit V ρ _ (tsa.map (interp V ρ)) :=
+    ⟨tsa, rfl, hokWA, by rw [← heqWA]; exact hokTa.2.ne_pt⟩
   have hfold : ∀ (l : List Term) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x
         = (l.map (interp V ρ)).foldl SetTheory.app x := by
@@ -368,7 +365,7 @@ theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
     rwa [interp_mkAppN, hfold] at h
   have hlenTs : (tsa.map (interp V ρ)).length = caps.unitParams := by
     rw [List.length_map, ← hspt.length, htlen]
-  exact hlaw ρ (tsa.map (interp V ρ)) resta (interp V ρ aa)
+  exact hlaw ρ (tsa.map (interp V ρ)) (interp V ρ aa)
     (interp V ρ ba) hlenTs hfitT hmx hmy
 
 /-! ## λ-congruence and η at the value reading (task #342 S4)
