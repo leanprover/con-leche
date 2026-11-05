@@ -109113,8 +109113,8 @@ claims one job at a time, as before.
 * **A value no check reads is no longer decoded**: a theorem shadowed in the merge by another
   module's copy, or outside `--constant`'s cone.  The walk still goes over its expression objects' shapes
   (`usesGo`), but a bad string or number in it no longer fails the run: pinned in `tests/olean.sh`
-  (`--constant` past a bad value, exit 0, 3 before).  Such a value means nothing to the run, so it is kept and no decode
-  added; open for the maintainer's ruling.
+  (`--constant` past a bad value, exit 0, 3 before).  Such a value means nothing to the run, and no decode is added
+  (maintainer's ruling: a value that is not read is no concern here).
 * A malformed value now fails in its job, at its position, with the same exit 3, so an earlier
   record's reject can come first.
 * The hoist reads what a theorem mentions from the load (`OleanRead.thmUses`), a value's mentions
@@ -109136,6 +109136,7 @@ Mathlib, 5 alternating runs, median, min-max): 8 jobs 10.6 s (9.8-11.6) static, 
 32 jobs 7.3 s (7.0-12.0), 7.7 s (7.3-12.0).  No measurable gain: the largest round-robin share by file
 bytes is 1.03 times the mean at 8 workers, 1.16 at 32, and the largest module 22 times the mean module.
 CFSG's closure not measured.
+`parMapExcept` stays as it is for now (maintainer's ruling).
 
 **Follow-ups, not done.**  The stream reader (the maintainer's idea: line boundaries, then the roots).
 Workers read a module's files again each (61 000 reads for 11 000 modules on Mathlib, 2 % of the

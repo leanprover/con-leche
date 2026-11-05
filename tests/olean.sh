@@ -138,8 +138,7 @@ case_ "--constant without --olean" 3 --constant=two tests/mode/split_good.ndjson
 # (task #481) a bad index on a bound variable only a theorem's value holds, which nothing
 # but that theorem's check decodes: exit 3 there, at its place; and no verdict at all
 # where no check asks for the value.  Before, the load decoded every value, so the second
-# was 3 as well.  It means nothing to the run, so it is kept; a maintainer's ruling could
-# add a decode.
+# was 3 as well.  A value that is not read is no concern here (maintainer's ruling).
 d="$TMPDIR/con-leche-olean-lazy"
 case_ "a theorem's value read in its check" 0 --olean --search-path=$LIB LazyVal
 rm -rf "$d"; cp -r "$LIB" "$d"
