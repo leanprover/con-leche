@@ -109351,24 +109351,37 @@ fit is needed: over an empty domain a function space is the unit whatever its fi
 * Costs so far: init-full 380.314 G / 391.280 G (jobs 1 / 8), against 380.312 G / 390.526 G
   before; grind-ring-5 15.296 G against 15.257 G at the first checkpoint.  No memo.
 
-**What the last step needs, as designed and not yet done.**  The formers are still pushed
-reduced by the job and read off the block by the install.
+**What the last step needs, as designed and not yet done.**  The η and unit laws no longer
+read the former's type (`FamFit`).  The formers are still pushed reduced by the job and
+read off the block by the install.
 
-1. η and the unit law stop reading the former's type: `EtaLaw`, `UnitLaw`, `TowerEtaLaw`
-   and `EtaCoherent` take a graded spine at the family's leaf (the fit comes from
-   `spineFit_of_wellDenoted_mkAppN_lam`), `formerFit` and `EnvWF.indCaps` go.
-2. The check of a def-headed former gains what official does: the declared type
-   checked, and compared with the reduced one, in `checkSumTele`.
-3. Readers (`nestInstType`, `targetOutsideInst`, `classFormerTy`) read a block's containers
-   at their reduced telescope, computed in the job at the container's own prefix view, so
-   that it is the telescope the container's own job recorded (a pure function of one
-   environment, no monotonicity): reducing at the current environment cannot be compared
-   with the record, and the nested proofs read it syntactically in some twenty places.
-   The job's slow path is taken only where a block or a container of it is def-headed.
-4. The model shelves a def-headed block's record (`LfpDatum` strong reading at the reduced
-   record) and unshelves it for the job of a block nesting through it, swapping the type
-   both ways (`EnvModelM.swapTyP` extended to former pairs).
-5. `storedFormers`/`storedTele` go; `storedInstall` takes no view and no mode.
+1. The block's check gains a second path, taken only where a member or a container of the
+   block is def-headed; every other block runs what it runs today, on the same code:
+   reduce the group (official's `whnf` of each former, `whnfTelescope`, closed, the declared
+   type already checked, the two compared by `isDefEq`), read the block's containers at
+   their reduced telescope (below), run the ordinary check on the reduced group at that
+   environment (the reduced formers are syntactic, so nothing else moves and its proofs are
+   the ones there are), and restore: the pushes replayed at the input environment with each
+   member at its stored type and without the containers' views.  `checkSumTele`'s reducing
+   arm then goes.
+2. A container is read at its reduced telescope computed in the job at the container's own
+   prefix (`Env.below`, the environment before its block; `FEnv.restrictTo` in the cached
+   twin), pushed on top of the job's environment, shadowing the stored former.  A prefix
+   makes it the telescope the container's own job recorded, as a function of one
+   environment: no monotonicity.  Reducing at the current environment could not be compared
+   with the record, and the nested proofs read the record syntactically in some twenty
+   places.  Which containers: a worklist over the block's constructor types, the applications
+   of a stored inductive whose arguments mention the group, then the inductives in those
+   inductives' constructor types; only in a block that nests, and only a def-headed former
+   costs a reduction.
+3. The model keeps a def-headed block's record on a shelf, with its reduced formers: the
+   record's reading is strong at the reduced ones.  The job of a block nesting through it
+   takes it down, and the job's environment gets its model by `EnvModelM` at a shadowing cons
+   (an extension that adds a type already true of the leaf: `interp stored = interp reduced`
+   from `isDefEq`, the types being no point).  Restoring is `EnvModelM.swapTyP` extended to
+   former pairs, plus dropping the shadows.
+4. `storedFormers`/`storedTele` go; `storedInstall` takes no view and no mode, and
+   `IndCapsWF`'s `stripPis` clauses go (nothing reads them since the η laws changed).
 
 ### Pinned blocks at the stream's constants (#480, lane 5)
 
