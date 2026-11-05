@@ -6,6 +6,7 @@ import ConLeche.Model.Env.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Verify.Inductives.NfMemberFree
+import ConLeche.Verify.PropWhen
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockAccRunCont
@@ -58,6 +59,31 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-! ## The record -/
+
+/-- A former not literally `Prop`, whose sort has the value of `r` at every
+valuation: `r` is not literally `Prop` by the level comparison either. -/
+theorem isEquiv_zero_false_of_formerNotProp {cv : ConstantVal} {n : Nat} {bs : List Expr}
+    {s r : Level} (h : cv.type.stripPis n = some (bs, .sort s))
+    (hn : ConLeche.formerNotProp cv = true) (he : ∀ ψ, Level.eval ψ s = Level.eval ψ r) :
+    (Level.isEquiv r .zero == some true) = false := by
+  cases hr : (Level.isEquiv r .zero == some true) with
+  | false => rfl
+  | true =>
+    exfalso
+    have hr0 := ConLeche.Level.isEquiv_sound (beq_iff_eq.mp hr)
+    have hh : ∀ ψ, (Level.zeronessOf s).holds ψ = true := fun ψ => by
+      rw [ConLeche.PropWhen.zeronessOf_sound, he, hr0 ψ]; rfl
+    unfold ConLeche.formerNotProp at hn
+    rw [ConLeche.formerZ_of_stripPis h] at hn
+    generalize Level.zeronessOf s = pw at hn hh
+    cases pw with
+    | never => exact nomatch hh (fun _ => 0)
+    | ifAllZero ps =>
+      cases ps with
+      | nil => exact nomatch hn
+      | cons p ps =>
+        have := hh (fun _ => 1)
+        simp at this
 
 /-- **The block's representation record but for the operator and the
 injections**, at a chosen per-member constructor pick. -/
@@ -1524,20 +1550,19 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         foldT := ?_
         sortsF := ?_ }
     · -- etaData
-      intro m cA hm hcs he
+      intro m cA cvTa hm hcv hcs he
       have hcs' : ctorsAs.getD m [] = [cA] := hcs
       have hcA : (ctorsAs.getD m [])[0]? = some cA := by rw [hcs']; rfl
-      obtain ⟨cvTa, hcv⟩ := hcvOf m hm
+      obtain ⟨he, hnp⟩ := ConLeche.capsEta_inv he
       obtain ⟨c, hcsM, hcaps⟩ | hcaps := blockCapsAt_cases q m isRec
       case inr => rw [hcaps] at he; exact nomatch he
       obtain ⟨c', -, hc0, hname, hnF, -⟩ := (hfacts m cvTa hm hcv).2 0 cA hcA
       rw [hcsM] at hc0
       obtain rfl : c = c' := by simpa using hc0
-      rw [hcaps] at he ⊢
-      simp only [Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true] at he
+      rw [hcaps]
       refine ⟨?_, hname.symm, rfl, hnF.symm⟩
-      show (Level.isEquiv q.resSort .zero == some true) = false
-      rw [← hProp]; exact he.1.2
+      obtain ⟨bs, hst⟩ := hF.stripOf m cvTa hcv
+      exact isEquiv_zero_false_of_formerNotProp hst hnp (hF.sEval m)
     · -- stripC
       intro m cA hm hcs
       have hcs' : ctorsAs.getD m [] = [cA] := hcs

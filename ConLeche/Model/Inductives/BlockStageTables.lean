@@ -47,8 +47,9 @@ structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
     (envI : Env) (ctorsOf : Name → List Name) (sortsOf : Nat → List Level) : Prop
     extends BlockCtorsStage F d lps cvTasAll p₁ isRec A envI ctorsOf where
   /-- the η data a structure-like member's record carries -/
-  etaData : ∀ (m : Nat) (cA : ConstantVal × Nat), m < d.k → d.ctorsM m = [cA] →
-    (ConLeche.blockCapsAt p₁ m isRec).eta = true →
+  etaData : ∀ (m : Nat) (cA : ConstantVal × Nat) (cvTb : ConstantVal), m < d.k →
+    cvTasAll[m]? = some cvTb → d.ctorsM m = [cA] →
+    ConLeche.capsEta cvTb (ConLeche.blockCapsAt p₁ m isRec) = true →
     (Level.isEquiv d.resSort .zero == some true) = false ∧
     (ConLeche.blockCapsAt p₁ m isRec).etaCtor = cA.1.name ∧
     (ConLeche.blockCapsAt p₁ m isRec).etaParams = d.nP ∧
@@ -278,7 +279,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) (d.ppsM i ψ) i)
         mp hT hfT
-        (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
+        (hS.etaData i cA cvTb hik hcvTb hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag
         (by rw [← hTn']; exact hS.resT i hik)
         (by rw [← hTn']; exact hS.resR i hik)

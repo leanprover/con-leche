@@ -40,18 +40,17 @@ capability slots are filled only at EXACTLY ONE constructor. -/
 theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
     (∃ c : ConstantVal × Nat, (p₁.members.getD mi default).ctors = [c] ∧
       ConLeche.blockCapsAt p₁ mi isRec =
-        { eta := (p₁.members.getD mi default).nIdx == 0 && !p₁.isProp && !isRec
+        { eta := (p₁.members.getD mi default).nIdx == 0 && !isRec
           etaCtor := c.1.name
           etaParams := p₁.nP
           etaFields := c.2
           unitlike := (p₁.members.getD mi default).nIdx == 0 && c.2 == 0 && !isRec
           unitParams := p₁.nP
-          sortZ := Level.zeronessOf p₁.resSort
           all := p₁.memberNames
           nparams := p₁.nP
           ctors := [c.1.name] }) ∨
     ConLeche.blockCapsAt p₁ mi isRec =
-      { sortZ := Level.zeronessOf p₁.resSort
+      {
         all := p₁.memberNames
         nparams := p₁.nP
         ctors := (p₁.members.getD mi default).ctors.map fun c => c.1.name } := by
@@ -84,7 +83,7 @@ theorem blockCapsAt_etaFields_pos {p₁ : BlockShape} {mi : Nat} {isRec : Bool}
     simp only [Bool.and_eq_false_iff, beq_eq_false_iff_ne, ne_eq] at hU
     show 0 < c.2
     rcases hU with (hU | hU) | hU
-    · exact absurd he.1.1 hU
+    · exact absurd he.1 hU
     · omega
     · exact nomatch he.2.symm.trans hU
   · rw [h] at he; exact nomatch he

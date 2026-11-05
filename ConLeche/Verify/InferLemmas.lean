@@ -930,7 +930,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
          (mode.verifiedChecks = true →
            proofIrrelFueled mode eager env fuel d major' major = .ok true)) ∨
         (etaRescueOk rl.ctor cvj cvT caps = true ∧
-         capsNeverZero cvT.levelParams ust caps = true ∧
+         formerNeverZero cvT ust = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          major' = Expr.mkAppN (.const caps.etaCtor ust)
@@ -1343,7 +1343,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     dsimp only at h
     by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        capsNeverZero cvT.levelParams ust caps = true ∧
+        formerNeverZero cvT ust = true ∧
         reservedBasisNames.contains T = false ∧
         reservedBasisNames.contains caps.etaCtor = false ∧
         towerSlotsAll env T caps.etaFields = true
@@ -1693,7 +1693,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       a.getAppArgs.length = cnP + cnF ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
-      caps.eta = true ∧ caps.etaCtor = c ∧
+      capsEta cvT caps = true ∧ caps.etaCtor = c ∧
       reservedBasisNames.contains T = false ∧
       reservedBasisNames.contains c = false ∧
       wtb.getAppArgs.length = caps.etaParams ∧
@@ -1761,7 +1761,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
-  by_cases hcond : caps.eta = true ∧ caps.etaCtor = c ∧
+  by_cases hcond : capsEta cvT caps = true ∧ caps.etaCtor = c ∧
       reservedBasisNames.contains T = false ∧
       reservedBasisNames.contains c = false ∧
       wtb.getAppArgs.length = caps.etaParams ∧

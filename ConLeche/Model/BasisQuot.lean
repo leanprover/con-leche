@@ -713,13 +713,13 @@ theorem denote_quotInd_rhs (ψ : Name → Nat)
 /-! ### The ι facts, shared by both rows
 
 Both recursors fire `Quot.mk`, whose family `Quot.{u} α r : Sort u` is
-`Prop` exactly at `u = 0`: the stored `Quot` records `zeronessOf u`,
+`Prop` exactly at `u = 0`: the stored `Quot`'s type ends in `Sort u`,
 so a constructor level the case split exempts is never zero and the major's domain,
 `quotSet` above `Prop`, is strict; where the major is the point the
 level is `0`, and there `Quot.mk`'s value is the canonical proof. -/
 
 /-- **The ι case split at `Quot.mk`**: the constructor's level is not
-zero at any valuation (the stored `Quot`'s `sortZ` is `zeronessOf u`). -/
+zero at any valuation (the stored `Quot`'s zero-ness datum is `u`'s). -/
 theorem quotMk_neverProp_ne_zero {find? : Name → Option ConstantInfo}
     (hQ : find? quotName = some quotA) {usj : List Level}
     (h : ConLeche.iotaCtorNeverProp find? quotMkA.toConstantVal usj = true)
@@ -727,7 +727,7 @@ theorem quotMk_neverProp_ne_zero {find? : Name → Option ConstantInfo}
     Level.substFn φ quotMkA.toConstantVal.levelParams usj uN ≠ 0 := by
   obtain ⟨cvT, caps, hq, hlp, hz⟩ : ∃ cvT caps,
       quotA = .indInfo cvT caps ∧ cvT.levelParams = [uN] ∧
-        caps.sortZ = .ifAllZero [uN] := ⟨_, _, rfl, rfl, rfl⟩
+        ConLeche.formerZ cvT = .ifAllZero [uN] := ⟨_, _, rfl, rfl, rfl⟩
   have hfn : (quotMkA.toConstantVal.type.piResult).getAppFn
       = .const quotName [.param uN] := by rfl
   rw [hq] at hQ
@@ -735,7 +735,7 @@ theorem quotMk_neverProp_ne_zero {find? : Name → Option ConstantInfo}
   rw [hfn] at h
   simp only [hQ, Bool.and_eq_true] at h
   have hnv := h.2
-  unfold ConLeche.capsNeverZero at hnv
+  unfold ConLeche.formerNeverZero at hnv
   rw [hlp, hz] at hnv
   have hh : (Level.substPW [uN] usj (ConLeche.PropWhen.ifAllZero [uN])).holds φ = false := by
     generalize Level.substPW [uN] usj (ConLeche.PropWhen.ifAllZero [uN]) = pw at hnv ⊢

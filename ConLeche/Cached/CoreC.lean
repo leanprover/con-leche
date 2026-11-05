@@ -332,7 +332,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           match fe.find? Tn with
           | some (.indInfo cvT caps) => do
             let targs ← pure (Expr.getAppArgsC wtb)
-            if caps.eta = true ∧ caps.etaCtor = cn ∧
+            if capsEta cvT caps = true ∧ caps.etaCtor = cn ∧
                 reservedBasisNames.contains Tn = false ∧
                 reservedBasisNames.contains cn = false ∧
                 targs.length = caps.etaParams ∧
@@ -478,7 +478,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               -- and the η law's keys, as in the spec body
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  capsNeverZero cvT.levelParams ustL caps = true ∧
+                  formerNeverZero cvT ustL = true ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains caps.etaCtor = false ∧
                   fe.towerSlotsAllF T caps.etaFields = true then do

@@ -83,7 +83,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     {T : Name} {cvT : ConstantVal} {caps : IndCaps} {us' : List Level}
     {cvC : ConstantVal} {nPc nFc : Nat}
     {targs : List Expr} {b : Expr} {tsa : List Term} {ba : Term}
-    (hind : env.find? T = some (.indInfo cvT caps)) (heta : caps.eta = true)
+    (hind : env.find? T = some (.indInfo cvT caps)) (heta : ConLeche.capsEta cvT caps = true)
     (hresT : ConLeche.reservedBasisNames.contains T = false)
     (hresC : ConLeche.reservedBasisNames.contains caps.etaCtor = false)
     (hfC : env.find? caps.etaCtor = some (.ctorInfo cvC nPc nFc))
@@ -119,7 +119,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
               (Level.substFn φ cvT.levelParams us'))) ∧
           ∃ restC : V, TeleFit V ρ TCa ((tsa ++ ps).map (interp V ρ)) restC := by
   have hstrip : (cvT.type.stripPis caps.etaParams).isSome = true :=
-    (m.wf.indCaps hind).2 heta
+    (m.wf.indCaps hind).2 (ConLeche.capsEta_inv heta).1
   have hfold : ∀ (ρ : Nat → V) (l : List Term) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x
         = (l.map (interp V ρ)).foldl SetTheory.app x := by
@@ -185,7 +185,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
         rw [hind] at hfTj
         obtain ⟨hcvTj, hcapsTj⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfTj)
         rw [← hcvTj] at hlpsTj
-        rw [← hcapsTj] at himpj
+        rw [← hcapsTj, ← hcvTj] at himpj
         obtain ⟨hnpj, -, hparj, -⟩ := himpj heta
         have hgj : TowerGuardAt m φ entry us' cvCj :=
           fun hp => by rw [hp] at hnpj; exact nomatch hnpj
@@ -209,7 +209,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
       rw [etaProjs_eq, h0]; rfl
     have hfam : ConLeche.EtaFamilyStored env T caps := ⟨hresC, ⟨cvC, nPc, nFc, hfC⟩, h0⟩
     obtain ⟨TVa, hTVa, -, hlaw, hcoh⟩ :=
-      hin.caps_ok.1 T cvT caps hind heta hresT hfam φ us' hlv
+      hin.caps_ok.1 T cvT caps hind (ConLeche.capsEta_inv heta).1 hresT hfam φ us' hlv
     obtain ⟨TCa, hTCa, hfitC⟩ := hcoh cvC nPc nFc hfC
     refine ⟨[], ?_, ?_, TCa, hTCa, fun ρ _ _ _ hokW hneW _ hmemB => ?_⟩
     · rw [hetaP]; exact DenoteSpine.nil

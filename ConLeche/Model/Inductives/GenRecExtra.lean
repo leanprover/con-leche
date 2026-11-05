@@ -114,7 +114,7 @@ theorem iotaCtorNeverProp_inv {f : Name → Option ConstantInfo} {cvj : Constant
     ∃ (T : Name) (us₀ : List Level) (cvT : ConstantVal) (caps : ConLeche.IndCaps),
       (cvj.type.piResult).getAppFn = .const T us₀ ∧ f T = some (.indInfo cvT caps) ∧
       cvT.levelParams.length = usj.length ∧
-      ConLeche.capsNeverZero cvT.levelParams usj caps = true := by
+      ConLeche.formerNeverZero cvT usj = true := by
   revert h
   unfold ConLeche.iotaCtorNeverProp
   match hpr : (cvj.type.piResult).getAppFn with
@@ -172,11 +172,6 @@ theorem eval_ne_zero_of_isNever {lps : List Name} {us : List Level} {v : Level}
   intro h0
   rw [h0] at hh
   exact nomatch hh
-
-/-- Every member's record carries the block's sort zero-ness. -/
-theorem blockCapsAt_sortZ (p : BlockShape) (mi : Nat) (isRec : Bool) :
-    (ConLeche.blockCapsAt p mi isRec).sortZ = Level.zeronessOf p.resSort := by
-  rcases blockCapsAt_cases p mi isRec with ⟨c, -, h⟩ | h <;> rw [h]
 
 omit [SetTheory V] in
 theorem openFvars_getElem? : ∀ (k d q : Nat), q < k →
@@ -550,10 +545,18 @@ theorem genMem_w_of_lic {isRec : Bool} {cvT : ConstantVal} {j i t : Nat}
   rw [hfm] at hfT
   obtain ⟨rfl, rfl⟩ : cvT = cvT' ∧ ConLeche.blockCapsAt pp.toBlockShape t isRec = caps := by
     injection hfT with h'; injection h' with h1 h2; exact ⟨h1, h2⟩
-  unfold ConLeche.capsNeverZero at hnz
-  rw [blockCapsAt_sortZ] at hnz
-  have hne := eval_ne_zero_of_isNever hnz φ
-  rw [G.hlpsT, ← G.hwd] at hne
+  -- the member's sort is never zero at the constructor's levels (`LfpCaps`)
+  have hfalse := holds_false_of_isNever hnz φ
+  obtain ⟨-, -, -, -, hcK, -⟩ := mpC.lfp_ok _ G.hlfp
+  obtain ⟨cv, caps', hf, hz⟩ := hcK t G.htd
+  have hfc : envC.find? (d.memberName t)
+      = some (.indInfo cv caps') := hf
+  rw [G.hcaps] at hfc
+  obtain rfl : cvT = cv := by
+    injection hfc with h'; injection h' with a _
+  have hne : d.w (Level.substFn φ cvT.levelParams usj) ≠ 0 :=
+    fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
+  rw [G.hlpsT] at hne
   -- the member's sort at the recursor's levels
   have hc : d.w (Level.substFn φ cA.1.levelParams usj) = d.w ψ :=
     lfpW_congr mpC (D := d.toLfp) G.hlfp G.htd G.hcaps (fun q hq => by
@@ -1469,7 +1472,7 @@ sound (`LfpCaps`). -/
 theorem genOut_caps {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out j cvI)
     {i : Nat} {cA : ConstantVal × Nat} (hcAM : (tgtMajor out j).ctors[i]? = some cA) :
     ∃ caps, envC.find? (tgtMajor out j).ind = some (.indInfo cvI caps) ∧
-      (∀ ψ : Name → Nat, (tgtClsD d Dc out j).w ψ = 0 → caps.sortZ.holds ψ = true) ∧
+      (∀ ψ : Name → Nat, (tgtClsD d Dc out j).w ψ = 0 → (ConLeche.formerZ cvI).holds ψ = true) ∧
       ∃ (bs : List Expr) (es : List Expr),
         cA.1.type.stripPis ((tgtMajor out j).nPc + cA.2)
           = some (bs, Expr.mkAppN (.const (tgtMajor out j).ind (cA.1.levelParams.map .param))

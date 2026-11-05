@@ -67,21 +67,16 @@ official's `!is_rec` is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
-    { eta := nIdx == 0 && !p.isProp && !isRec
+    { eta := nIdx == 0 && !isRec
       etaCtor := c.1.name
       etaParams := p.nP
       etaFields := c.2
       unitlike := nIdx == 0 && c.2 == 0 && !isRec
       unitParams := p.nP
-      sortZ := Level.zeronessOf p.resSort
       all := p.memberNames
       nparams := p.nP
       ctors := [c.1.name] }
-  -- Task #349: the result sort's zero-ness is recorded for EVERY member,
-  -- not only single-constructor ones: the ι case split (`iotaCtorNeverProp`)
-  -- reads it at every redex (left at the default `ifAllZero []`, every
-  -- multi-constructor family read "always `Prop`" and fell into case 3)
-  | cs, _ => { sortZ := Level.zeronessOf p.resSort, all := p.memberNames, nparams := p.nP,
+  | cs, _ => { all := p.memberNames, nparams := p.nP,
                ctors := cs.map (·.1.name) }
 
 /-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`

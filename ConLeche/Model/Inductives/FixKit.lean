@@ -1215,7 +1215,7 @@ theorem stageFixTable (mp : EnvModelM V env)
     (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM) T cvCa.name
       lps nP nF resSort cvCa env = .ok envOut)
     (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hcaps : caps.eta = true → (Level.isEquiv resSort .zero == some true) = false ∧
+    (hcaps : ConLeche.capsEta cvTa caps = true → (Level.isEquiv resSort .zero == some true) = false ∧
       caps.etaCtor = cvCa.name ∧ caps.etaParams = nP ∧ caps.etaFields = nF)
     (hlpsT : cvTa.levelParams = lps)
     (hfC : env.find? cvCa.name = some (.ctorInfo cvCa nP nF))

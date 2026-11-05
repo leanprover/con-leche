@@ -663,7 +663,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     (_hlen : a.getAppArgs.length = cnP + cnF)
     (hthead : wtb.getAppFn = .const T us')
     (hind : env.find? T = some (.indInfo cvT caps))
-    (heta : caps.eta = true) (hetaCtor : caps.etaCtor = c)
+    (heta : ConLeche.capsEta cvT caps = true) (hetaCtor : caps.etaCtor = c)
     (hresT : ConLeche.reservedBasisNames.contains T = false)
     (hresc : ConLeche.reservedBasisNames.contains c = false)
     (htlen : wtb.getAppArgs.length = caps.etaParams)

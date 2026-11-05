@@ -24,7 +24,7 @@ def natT : Expr := cnst natName
 /-- `Nat : Type`. -/
 def natRaw : ConstantInfo :=
   .indInfo ⟨natName, [], type1⟩
-    { sortZ := Level.zeronessOf (Level.succ Level.zero), all := [natName], ctors := [natZeroName, natSuccName] }
+    { all := [natName], ctors := [natZeroName, natSuccName] }
 
 /-- `Nat.zero : Nat`. -/
 def natZeroRaw : ConstantInfo :=

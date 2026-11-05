@@ -376,7 +376,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
         | .const T us' =>
           match env.find? T with
           | some (.indInfo cvT caps) =>
-            if caps.eta = true ∧ caps.etaCtor = c ∧
+            if capsEta cvT caps = true ∧ caps.etaCtor = c ∧
                 reservedBasisNames.contains T = false ∧
                 reservedBasisNames.contains c = false ∧
                 wtb.getAppArgs.length = caps.etaParams ∧
@@ -589,7 +589,7 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- name, every field slot a projection-table entry
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  capsNeverZero cvT.levelParams ust caps = true ∧
+                  formerNeverZero cvT ust = true ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains caps.etaCtor = false ∧
                   towerSlotsAll env T caps.etaFields = true then

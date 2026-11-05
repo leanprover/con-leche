@@ -611,7 +611,7 @@ so its zero-ness datum must hold everywhere; it has one constructor. -/
 theorem eqLfp_caps {env : ConLeche.Env}
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
     (hf : env.find? nm = some (.indInfo cv caps))
-    (hz : ∀ ψ : Name → Nat, caps.sortZ.holds ψ = true)
+    (hz : ∀ ψ : Name → Nat, (ConLeche.formerZ cv).holds ψ = true)
     (hC : ∃ cv' nPc nF, env.find? cn = some (.ctorInfo cv' nPc nF) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)
@@ -694,7 +694,7 @@ theorem lfp0_caps {env : ConLeche.Env} {cv : ConLeche.ConstantVal} {caps : ConLe
     {nm : Name} {w : (Name → Nat) → Nat} {F : V → V}
     {inj : Nat → List V → V} {n : Nat} {cn : Nat → Name} {flds : Nat → List Term}
     (hf : env.find? nm = some (.indInfo cv caps))
-    (hz : ∀ ψ : Name → Nat, w ψ = 0 → caps.sortZ.holds ψ = true)
+    (hz : ∀ ψ : Name → Nat, w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true)
     (hC : ∀ j, j < n → ∃ cv' nPc nF, env.find? (cn j) = some (.ctorInfo cv' nPc nF) ∧
       ∃ (bs : List ConLeche.Expr) (es : List ConLeche.Expr),
         cv'.type.stripPis (nPc + nF)

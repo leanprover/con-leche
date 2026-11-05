@@ -85,11 +85,6 @@ private def qLevel : ConLeche.Level → Lean.Expr
 private def qLevels (us : List ConLeche.Level) : Lean.Expr :=
   qList levelTy (us.map qLevel)
 
-/-- The zero-ness datum. -/
-private def qPropWhen : ConLeche.PropWhen → Lean.Expr
-  | .never => mkConst ``ConLeche.PropWhen.never
-  | .ifAllZero ps => mkApp (mkConst ``ConLeche.PropWhen.ifAllZero) (qNames ps)
-
 private def qLiteral : ConLeche.Literal → Lean.Expr
   | .natVal n => mkApp (mkConst ``ConLeche.Literal.natVal) (mkRawNatLit n)
   | .strVal s => mkApp (mkConst ``ConLeche.Literal.strVal) (mkStrLit s)
@@ -128,7 +123,7 @@ private def qIndCaps (c : ConLeche.IndCaps) : Lean.Expr :=
   mkAppN (mkConst ``ConLeche.IndCaps.mk)
     #[qBool c.eta, qName c.etaCtor, mkRawNatLit c.etaParams,
       mkRawNatLit c.etaFields, qBool c.unitlike, mkRawNatLit c.unitParams,
-      qPropWhen c.sortZ, qNames c.all, mkRawNatLit c.nparams,
+      qNames c.all, mkRawNatLit c.nparams,
       qNames c.ctors]
 
 private def qReducibilityHint : ConLeche.ReducibilityHint → Lean.Expr

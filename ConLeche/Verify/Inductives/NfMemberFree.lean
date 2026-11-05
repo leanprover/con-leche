@@ -1177,6 +1177,13 @@ theorem piResult_of_stripPis_sort :
     | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _
     | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [Expr.stripPis])
 
+/-- A former whose type is a syntactic telescope ending in `Sort s` has `s`'s
+zero-ness datum. -/
+theorem formerZ_of_stripPis {cv : ConstantVal} {n : Nat} {bs : List Expr} {s : Level}
+    (h : cv.type.stripPis n = some (bs, .sort s)) :
+    formerZ cv = Level.zeronessOf s := by
+  simp only [formerZ, formerResSort, piResult_of_stripPis_sort n h]
+
 /-- A term whose constants all resolve before the block names no member. -/
 theorem Expr.occDeep_of_constsResolve {env : Env} {names : List Name}
     (hfresh : ∀ n ∈ names, env.find? n = none) :

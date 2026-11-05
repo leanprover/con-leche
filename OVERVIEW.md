@@ -943,7 +943,7 @@ The recogniser reads the block's shape
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
-([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L430-L437)),
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L428-L435)),
 and each member's index count off what is left of its type former's
 telescope, as the official kernel reads them. Any number of parameters,
 indices, constructors and fields is supported; fields may be recursive,
@@ -984,7 +984,7 @@ weak head normal form erases from every field
 ([function `classSeeds` in `ConLeche/Kernel/Inductives/GenRec.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/GenRec.lean#L495)).
 Nothing is stated or cached about a container in its parameter. The
 normal forms the check records are the fields the model reads
-([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L289)).
+([function `checkBlockPositivity` in `ConLeche/Kernel/Inductives/BlockInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/BlockInstall.lean#L284)).
 
 **The recursor check.** The recursors are generated in the official
 kernel's shape: each class's constructors are read off the positivity
@@ -1240,14 +1240,14 @@ instead of trusting the operation's name.
 
 * **Structural operations** (`Nat.add`, `sub`, `mul`, `pow`, `beq`,
   `ble`, and `pred` as a dependency;
-  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L440-L448)):
+  [the list `natOpNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L468-L476)):
   when a definition under one of these names arrives, its checked
   step certifies its defining recurrence equations by definitional
   equality, in the environment *before* the operation is stored, with
   the operation's self-references replaced by its definition value, so
   the not-yet-enabled fast path cannot discharge its own equations
   vacuously
-  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L375-L392),
+  ([the account of the certified fast path in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L403-L420),
   [function `certifyNatEqs` in `ConLeche/Kernel/Checker.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Checker.lean#L107-L114)).
   A nonstandard definition is rejected; presence in the store is the
   certificate, and `whnf` folds literals for stored operations only.
@@ -1257,7 +1257,7 @@ instead of trusting the operation's name.
   ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1078)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
-  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L450-L465))
+  [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L478-L493))
   are defined by well-founded recursion and have no recurrence the
   kernel can check directly. The binary embeds *pinned* copies of
   several supported toolchains' own definitions of each operation,
@@ -1288,8 +1288,8 @@ instead of trusting the operation's name.
   guarded by `Nat.ble`, so these operations install only once `Bool`
   and its two constructors are stored, with no universe parameters,
   the constructors at the type `Bool` itself, and with `Bool : Type`
-  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L604-L618),
-  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L661-L668)).
+  ([function `natOpGuard` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L632-L646),
+  [function `natOpCod` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L689-L696)).
   That is the only reason the checker knows the name. `Bool` is not
   pinned: it is the stream's own block, installed like any other, and
   nothing depends on what it denotes — the fast path's result is the
@@ -1555,9 +1555,8 @@ types.
 | Where | Field | Lean's counterpart, or how it is computed |
 |---|---|---|
 | `IndCaps` | `all`, `nparams`, `ctors` | `InductiveVal.all`, `numParams`, `ctors` |
-| `IndCaps` | `eta`, `etaCtor`, `etaParams`, `etaFields` | whether the family has structure η, and its constructor's name and counts; from the inductive and its single constructor |
+| `IndCaps` | `eta`, `etaCtor`, `etaParams`, `etaFields` | whether the family is structure-like (one constructor, no index, a block that is not recursive), and its constructor's name and counts; read off the block |
 | `IndCaps` | `unitlike`, `unitParams` | whether all inhabitants are definitionally equal; from the constructor types |
-| `IndCaps` | `sortZ` | the zero-ness of the family's result sort, read off its stored type |
 | `recInfo` | `majorIdx`, `rulePrefix` | sums of `RecursorVal.numParams`, `numMotives`, `numMinors`, `numIndices` |
 | `RecRule` | `fire` | `.plain` for a recursor whose major premise is a member of its own block; for an auxiliary recursor of a nested block, `.nested lvls pins`, the levels and the parameter arguments of the recursor's major domain, read off its stored type and closed over the rule prefix (no lookup: the trailing arguments are the record's index variables) |
 
@@ -1566,7 +1565,9 @@ right-hand side) and the firing mode above. A recursor's K flag is its
 record's (`RecursorVal.k`), which the block's check compares with the
 generated recursor's. The constructor's parameter count and the structure-η
 rescue's condition are read off the stored constructor and the family's
-capabilities where the rule fires.
+capabilities where the rule fires. The family's result sort is on no record
+that always has it: whether it is `Prop` or never zero is read off the former's
+type where the question is asked.
 
 **Projection tables.** For each structure `T` the installer stores one
 projection table (a `ProjTable`, keyed by `T`) in the environment's

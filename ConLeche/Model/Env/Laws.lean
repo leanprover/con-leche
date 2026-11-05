@@ -838,7 +838,7 @@ an all-tower family. -/
               ConLeche.SetTheory.Tower.projS (j + 1) x).foldl SetTheory.app
             (interp V ρ
               (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))) ∧
-      (capsT.eta = true →
+      (ConLeche.capsEta cvT capsT = true →
         EtaCoherent m φ T entry.ctor entry.levelParams us TVa entry.numParams
           (fun _ ts x => ts ++ (List.range entry.numFields).map fun j =>
             ConLeche.SetTheory.Tower.projS (j + 1) x))
@@ -904,7 +904,7 @@ dummy binders carry the reading only; the law never reads them. -/
     -- recursive structure-like stores a table but claims no η —
     -- official's `is_structure_like` has `!is_rec`): the family is
     -- not a proposition, and the record names this table's shape
-    (capsT.eta = true →
+    (ConLeche.capsEta cvT capsT = true →
       (Level.isEquiv entry.structSort .zero == some true) = false ∧
       capsT.etaCtor = entry.ctor ∧
       capsT.etaParams = entry.numParams ∧

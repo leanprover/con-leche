@@ -150,9 +150,10 @@ not a rule of its relations.
   Only if that does not give a constructor application is the major
   head-normalised, and the same expansion is tried once more on the
   result. Whether a type has the rule at all is decided once, when it
-  is installed, from its shape (one constructor, no index, not a
-  proposition, in a block where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 79)[recorded with the type]\;
+  is installed, from its shape (one constructor, no index, in a block
+  where no constructor is recursive), and
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 78)[recorded with the type],
+  and that it is not a proposition is read off its type at the use\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,

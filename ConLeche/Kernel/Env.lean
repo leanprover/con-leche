@@ -177,11 +177,17 @@ inductive BasisKind where
   | eqK | natK | emptyK | falseK | quotK
   deriving DecidableEq, Repr, Inhabited
 
-/-- Definitional capabilities of a stored inductive type, recorded at
-install: structural eta for its (single-constructor) values, unit-like
-collapse (all inhabitants definitionally equal), and rule K for its
-recursor.  The pinned basis blocks carry pinned capabilities. -/
+/-- Definitional capabilities of a stored inductive type that its block
+alone decides, read off the block's records at install: structure-likeness
+for its (single-constructor) values, unit-like collapse (all inhabitants
+definitionally equal), and the family's names and counts.  The family's
+result sort is on no record, so what depends on it is computed where it is
+read, from the former's type (`formerResSort`, `capsEta`, `formerNeverZero`).
+The pinned basis blocks carry pinned capabilities. -/
 structure IndCaps where
+  /-- Official's `is_structure_like`: one constructor, no index, a block that
+  is not recursive.  The η rules ask `capsEta` of the former, which adds that
+  the family is not literally `Prop`. -/
   eta : Bool := false
   /-- The single constructor the eta law reconstructs through
   (meaningful only when `eta`). -/
@@ -194,14 +200,6 @@ structure IndCaps where
   /-- The parameter count of the unit-like family (meaningful only
   when `unitlike`). -/
   unitParams : Nat := 0
-  /-- **The family's result-sort zero-ness datum** (install-computed
-  from the stored type; the default `ifAllZero []` reads
-  "zero at every valuation", which no rescue passes).  The structure-η
-  rescue fires only where the official kernel's `is_never_zero` holds
-  of the *instantiated* result sort, and this datum decides that at a
-  use by one level substitution (`capsNeverZero`) instead of a walk
-  down the family's type at every rescue. -/
-  sortZ : PropWhen := .ifAllZero []
   /-- **The block's members** (official's `all`): the formers installed
   together with this one, in block
   order, itself included.  Read by nested positivity alone — a container

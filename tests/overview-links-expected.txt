@@ -903,15 +903,15 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L449
    449  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L430-L437
-   430  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   431    block.all fun ci => match ci with
-   432      | .indInfo cvT _ =>
-   433        match cvT.type.piSortTeleLen? with
-   434        | some n => decide (nP ≤ n)
-   435        | none => true
-   436      | .ctorInfo _ nPc _ => nPc == nP
-   437      | _ => true
+== ConLeche/Kernel/Env.lean#L428-L435
+   428  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   429    block.all fun ci => match ci with
+   430      | .indInfo cvT _ =>
+   431        match cvT.type.piSortTeleLen? with
+   432        | some n => decide (nP ≤ n)
+   433        | none => true
+   434      | .ctorInfo _ nPc _ => nPc == nP
+   435      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L147
    147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
@@ -932,8 +932,8 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L495
    495  def classSeeds (ctx : NestCtx) (holes : List Expr) (Ms : List TargetMajor) :
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L289
-   289  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L284
+   284  def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L549
    549  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
@@ -1014,36 +1014,36 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L423
    423  def classRuleCheck (ops : CheckerOps m) (w : StructWalkers) (feT feR : FEnv)
 
-== ConLeche/Kernel/CoreDefs.lean#L440-L448
-   440  /-- The certified structural-`Nat` operations.  Six of them
-   441  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
-   442  here without one — it has no fast path (official's `reduce_nat` folds
-   443  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
-   444  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
-   445  must be certified for `sub`'s literal fold to be sound. -/
-   446  def natOpNames : List Name :=
-   447    [natPredName, natAddName, natSubName, natMulName, natPowName,
-   448     natBeqName, natBleName]
+== ConLeche/Kernel/CoreDefs.lean#L468-L476
+   468  /-- The certified structural-`Nat` operations.  Six of them
+   469  (`add sub mul pow beq ble`) carry a literal fast path; `Nat.pred` is
+   470  here without one — it has no fast path (official's `reduce_nat` folds
+   471  nothing unary but `Nat.succ`), but `Nat.sub`'s recurrence
+   472  `sub x (succ y) = pred (sub x y)` names it, so its own recurrences
+   473  must be certified for `sub`'s literal fold to be sound. -/
+   474  def natOpNames : List Name :=
+   475    [natPredName, natAddName, natSubName, natMulName, natPowName,
+   476     natBeqName, natBleName]
 
-== ConLeche/Kernel/CoreDefs.lean#L375-L392
-   375  /-! ## Structural-Nat literal acceleration
-   376  
-   377  The official kernel accelerates the structural `Nat` operations on
-   378  literals (GMP-backed there).  Here the fast path is *certified*: an
-   379  operation participates only when its defining recurrence equations
-   380  hold by definitional equality — checked once, at install: `checkDecl`
-   381  positively rejects a nonstandard definition under one of these names,
-   382  so *presence in the store is the certificate* (no runtime flag, no
-   383  re-checking; a reduction-time re-check would in fact livelock — the
-   384  certification's own `pred zero` equation re-enters the fast path).
-   385  
-   386  The certification runs in the environment *before* the operation is
-   387  stored, on the equations with the operation's self-references replaced
-   388  by its stored definition value (`Expr.substConst0`): running it
-   389  after insertion would let the operation's own just-enabled fast path
-   390  discharge its all-literal-argument equations (`pred zero ≡ zero`,
-   391  `beq zero zero ≡ true`) vacuously — accepting definitions that
-   392  disagree with the fast path on those points, which is unsound.  The
+== ConLeche/Kernel/CoreDefs.lean#L403-L420
+   403  /-! ## Structural-Nat literal acceleration
+   404  
+   405  The official kernel accelerates the structural `Nat` operations on
+   406  literals (GMP-backed there).  Here the fast path is *certified*: an
+   407  operation participates only when its defining recurrence equations
+   408  hold by definitional equality — checked once, at install: `checkDecl`
+   409  positively rejects a nonstandard definition under one of these names,
+   410  so *presence in the store is the certificate* (no runtime flag, no
+   411  re-checking; a reduction-time re-check would in fact livelock — the
+   412  certification's own `pred zero` equation re-enters the fast path).
+   413  
+   414  The certification runs in the environment *before* the operation is
+   415  stored, on the equations with the operation's self-references replaced
+   416  by its stored definition value (`Expr.substConst0`): running it
+   417  after insertion would let the operation's own just-enabled fast path
+   418  discharge its all-literal-argument equations (`pred zero ≡ zero`,
+   419  `beq zero zero ≡ true`) vacuously — accepting definitions that
+   420  disagree with the fast path on those points, which is unsound.  The
 
 == ConLeche/Kernel/Checker.lean#L107-L114
    107      List (Expr × Expr) → m Bool
@@ -1058,23 +1058,23 @@
 == ConLeche/Model/NatEqs.lean#L1078
   1078  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
 
-== ConLeche/Kernel/CoreDefs.lean#L450-L465
-   450  /-- The WF-recursive operations with a *pinned-declaration* certified
-   451  fast path: at install, `checkDecl` compares the stream's definition
-   452  against a vendored pin of the toolchain's own (helper-unfolded)
-   453  definition by definitional equality, and then checks the pinned
-   454  `Nat.ble`-guarded characterization certificates
-   455  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
-   456  installing them.  Presence in the store is therefore again the
-   457  capability: a stored operation under one of these names has passed pin
-   458  and certificates, or the install declined.  (The name is historic:
-   459  the family started with `Nat.div`/`Nat.mod` and now covers every
-   460  pin-certified WF-recursive kernel-accelerated `Nat` operation —
-   461  `Nat.log2` left the list when its fast path did, official folding no
-   462  unary operation but `Nat.succ`.) -/
-   463  def natDivModNames : List Name :=
-   464    [natDivName, natModName, natGcdName, natLandName, natLorName,
-   465     natXorName, natShiftLeftName, natShiftRightName]
+== ConLeche/Kernel/CoreDefs.lean#L478-L493
+   478  /-- The WF-recursive operations with a *pinned-declaration* certified
+   479  fast path: at install, `checkDecl` compares the stream's definition
+   480  against a vendored pin of the toolchain's own (helper-unfolded)
+   481  definition by definitional equality, and then checks the pinned
+   482  `Nat.ble`-guarded characterization certificates
+   483  (`ConLeche/Kernel/NatOpPins.lean`) like theorem declarations — without
+   484  installing them.  Presence in the store is therefore again the
+   485  capability: a stored operation under one of these names has passed pin
+   486  and certificates, or the install declined.  (The name is historic:
+   487  the family started with `Nat.div`/`Nat.mod` and now covers every
+   488  pin-certified WF-recursive kernel-accelerated `Nat` operation —
+   489  `Nat.log2` left the list when its fast path did, official folding no
+   490  unary operation but `Nat.succ`.) -/
+   491  def natDivModNames : List Name :=
+   492    [natDivName, natModName, natGcdName, natLandName, natLorName,
+   493     natXorName, natShiftLeftName, natShiftRightName]
 
 == ConLeche/Kernel/NatOpPins.lean#L1-L16
      1  module
@@ -1111,32 +1111,32 @@
 == ConLeche/Model/DivModCert.lean#L1976
   1976  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
-== ConLeche/Kernel/CoreDefs.lean#L604-L618
-   604  def natOpGuard (env : Env) (c : Name) : Bool :=
-   605    natLitSupported env &&
-   606    (natOpDeps c).all (fun n => match env.find? n with
-   607      | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
-   608      | _ => false) &&
-   609    (if c = natBeqName || c = natBleName || natDivModNames.contains c then
-   610      (match env.find? boolTrueName with
-   611        | some ci => ci.toConstantVal.levelParams.isEmpty &&
-   612            ci.toConstantVal.type == .const boolName []
-   613        | none => false) &&
-   614      (match env.find? boolFalseName with
-   615        | some ci => ci.toConstantVal.levelParams.isEmpty &&
-   616            ci.toConstantVal.type == .const boolName []
-   617        | none => false)
-   618     else true)
+== ConLeche/Kernel/CoreDefs.lean#L632-L646
+   632  def natOpGuard (env : Env) (c : Name) : Bool :=
+   633    natLitSupported env &&
+   634    (natOpDeps c).all (fun n => match env.find? n with
+   635      | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
+   636      | _ => false) &&
+   637    (if c = natBeqName || c = natBleName || natDivModNames.contains c then
+   638      (match env.find? boolTrueName with
+   639        | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   640            ci.toConstantVal.type == .const boolName []
+   641        | none => false) &&
+   642      (match env.find? boolFalseName with
+   643        | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   644            ci.toConstantVal.type == .const boolName []
+   645        | none => false)
+   646     else true)
 
-== ConLeche/Kernel/CoreDefs.lean#L661-L668
-   661  def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
-   662    if c = natBeqName || c = natBleName then
-   663      e == .const boolName [] &&
-   664      (match env.find? boolName with
-   665       | some ci => ci.toConstantVal.levelParams.isEmpty &&
-   666           ci.toConstantVal.type == .sort (.succ .zero)
-   667       | none => false)
-   668    else e == .const natName []
+== ConLeche/Kernel/CoreDefs.lean#L689-L696
+   689  def natOpCod (env : Env) (c : Name) (e : Expr) : Bool :=
+   690    if c = natBeqName || c = natBleName then
+   691      e == .const boolName [] &&
+   692      (match env.find? boolName with
+   693       | some ci => ci.toConstantVal.levelParams.isEmpty &&
+   694           ci.toConstantVal.type == .sort (.succ .zero)
+   695       | none => false)
+   696    else e == .const natName []
 
 == ConLeche/Frontend/Prepare.lean#L165-L172
    165  /-- **`preparePrelude`**: the parsed stream, prepared for the fold —

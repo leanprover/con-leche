@@ -141,7 +141,7 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
     let ustL ← pure ust
     if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        capsNeverZero cvT.levelParams ustL caps = true ∧
+        formerNeverZero cvT ustL = true ∧
         reservedBasisNames.contains T = false ∧
         reservedBasisNames.contains caps.etaCtor = false ∧
         fe.towerSlotsAllF T caps.etaFields = true then do
@@ -250,7 +250,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   | .const T' ust =>
     if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        capsNeverZero cvT.levelParams ust caps = true ∧
+        formerNeverZero cvT ust = true ∧
         reservedBasisNames.contains T = false ∧
         reservedBasisNames.contains caps.etaCtor = false ∧
         towerSlotsAll env T caps.etaFields = true then

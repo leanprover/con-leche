@@ -732,7 +732,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     (hthead : tmaj.getAppFn = .const T ust)
     (hlen : tmaj.getAppArgs.length = caps.etaParams)
     (hlv : ust.length = cvT.levelParams.length)
-    (_hnz : ConLeche.capsNeverZero cvT.levelParams ust caps = true)
+    (_hnz : ConLeche.formerNeverZero cvT ust = true)
     (hfab : fab = Expr.mkAppN (.const caps.etaCtor ust)
       (ConLeche.etaFabArgsE T tmaj.getAppArgs major caps.etaFields))
     (hws : fab.wscopedB d = true) (hb : fab.looseBVarsBounded 0 = true)

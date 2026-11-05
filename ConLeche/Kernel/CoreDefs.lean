@@ -57,17 +57,47 @@ def isCtorApp (env : Env) (e : Expr) : Bool :=
     | _ => false
   | _ => false
 
+/-- **A stored inductive's result sort, read where it is needed**: the sort
+its stored type ends in.  `none` where the type does not end in one.
+Nothing about it is stored. -/
+def formerResSort (ty : Expr) : Option Level :=
+  match ty.piResult with
+  | .sort s => some s
+  | _ => none
+
+/-- **The family's result-sort zero-ness datum**, read off its type; where the
+sort is not read, `ifAllZero []`, "zero at every valuation", which no rescue
+passes. -/
+def formerZ (cvT : ConstantVal) : PropWhen :=
+  match formerResSort cvT.type with
+  | some s => Level.zeronessOf s
+  | none => .ifAllZero []
+
 /-- Is a stored inductive's result sort, at the given level
 instantiation, provably nonzero (official `is_never_zero`)?  The
 official kernel's structure rescue (`to_cnstr_when_structure`)
 requires this of the major's type; `majorToCtor`'s structure-η
 rescue mirrors it (`Sort u` at a concrete level such as `Unit`'s `1` passes, the
-parameter `u` itself does not).  Read off the stored datum: the
-instantiated datum is unsatisfiable exactly where the instantiated
-sort is never zero. -/
-def capsNeverZero (lps : List Name) (us : List Level) (caps : IndCaps) :
-    Bool :=
-  (Level.substPW lps us caps.sortZ).isNever
+parameter `u` itself does not).  The instantiated zero-ness datum is
+unsatisfiable exactly where the instantiated sort is never zero. -/
+def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
+  (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
+
+/-- Is a stored inductive's result sort not literally `Prop`: not zero at every
+valuation?  The datum is exact, so this needs no level comparison.  Where the
+sort is not read the answer is the conservative one: no η. -/
+def formerNotProp (cvT : ConstantVal) : Bool :=
+  !(formerZ cvT).isProp
+
+/-- **The η capability, at use**: the block makes the family structure-like
+(`IndCaps.eta`) and the family is not literally `Prop`. -/
+def capsEta (cvT : ConstantVal) (caps : IndCaps) : Bool :=
+  caps.eta && formerNotProp cvT
+
+/-- What `capsEta` says. -/
+theorem capsEta_inv {cvT : ConstantVal} {caps : IndCaps} (h : capsEta cvT caps = true) :
+    caps.eta = true ∧ formerNotProp cvT = true := by
+  simpa [capsEta, Bool.and_eq_true] using h
 
 /-- **The ι case split's test** (task #342 L10, after task
 #349's prototype): is the constructor's family never `Prop` at the
@@ -79,16 +109,14 @@ constructor application: the family's fibres at the recursor's major
 domain are strict, so the major is not the point and its reduction is
 an equation, and the constructor application, being the major's value
 and not the point, is an injection of fields that fit the family's
-constructor there.  Read off the family's recorded sort zero-ness
-(`IndCaps.sortZ`, recorded for every block member and for the pinned
-`Nat`, `Empty` and `Quot`). -/
+constructor there.  Read off the family's stored type (`formerNeverZero`). -/
 def iotaCtorNeverProp (find? : Name → Option ConstantInfo) (cvj : ConstantVal)
     (us : List Level) : Bool :=
   match (cvj.type.piResult).getAppFn with
   | .const T _ =>
     match find? T with
-    | some (.indInfo cvT caps) =>
-      cvT.levelParams.length == us.length && capsNeverZero cvT.levelParams us caps
+    | some (.indInfo cvT _) =>
+      cvT.levelParams.length == us.length && formerNeverZero cvT us
     | _ => false
   | _ => false
 
@@ -1137,20 +1165,20 @@ def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) : Bool :=
 
 /-- **The structure-η rescue's standing condition, at use**: the single
 rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
-family `cvT`, which has the η capability, and carries the family's level
-parameters.  The rescue asks this where it has just looked all three up;
+family `cvT`, which has the η capability (`capsEta`), and carries the family's
+level parameters.  The rescue asks this where it has just looked all three up;
 nothing about it is stored.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
 the two lists per call. -/
 def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
-  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams
+  capsEta cvT caps && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams
 
 /-- What `etaRescueOk` says. -/
 theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
     (h : etaRescueOk ctor cvj cvT caps = true) :
-    caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
+    capsEta cvT caps = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
   simpa [etaRescueOk, Bool.and_eq_true, and_assoc] using h
 
 /-- The level and constructor-parameter comparands a firing rule's

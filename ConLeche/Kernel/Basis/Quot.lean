@@ -31,7 +31,7 @@ def quotRel : Expr := piA (bv 0) (piA (bv 1) prop)
 def quotRaw : ConstantInfo :=
   .indInfo ⟨quotName, [uN],
     piI "α" (srt u) <|
-    pi "r" quotRel (srt u)⟩ { sortZ := Level.zeronessOf u }
+    pi "r" quotRel (srt u)⟩ {}
 
 /-- `Quot.mk.{u} {α : Sort u} (r : α → α → Prop) (a : α) : Quot α r`. -/
 def quotMkRaw : ConstantInfo :=

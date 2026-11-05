@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L475
-   475  structure Env where
+== ConLeche/Kernel/Env.lean#L473
+   473  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2535,26 +2535,26 @@
     99    kind : ConstKind
    100    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L291-L309
-   291  inductive ConstantInfo where
-   292    | axiomInfo (val : ConstantVal)
-   293    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   294    | thmInfo (val : ConstantVal)
-   295    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   296    | indInfo (val : ConstantVal) (caps : IndCaps)
-   297    /-- A basis constructor (whnf-stuck; the iota target). -/
-   298    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-   299    /-- A recursor with its iota rules and the record's K flag (official's
-   300    `recursor_val::is_k`, read off the stream's record; the block's job
-   301    checks it).  Only the two sums the
-   302    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   303    numMinors + numIndices, the major premise's argument position) and
-   304    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   305    argument prefix a rule's rhs is applied to).  The individual counts
-   306    are consumed at install time only and are not stored. -/
-   307    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-   308        (isK : Bool) (rules : List RecRule)
-   309    deriving DecidableEq, Repr, Inhabited
+== ConLeche/Kernel/Env.lean#L289-L307
+   289  inductive ConstantInfo where
+   290    | axiomInfo (val : ConstantVal)
+   291    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   292    | thmInfo (val : ConstantVal)
+   293    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   294    | indInfo (val : ConstantVal) (caps : IndCaps)
+   295    /-- A basis constructor (whnf-stuck; the iota target). -/
+   296    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+   297    /-- A recursor with its iota rules and the record's K flag (official's
+   298    `recursor_val::is_k`, read off the stream's record; the block's job
+   299    checks it).  Only the two sums the
+   300    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   301    numMinors + numIndices, the major premise's argument position) and
+   302    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   303    argument prefix a rule's rhs is applied to).  The individual counts
+   304    are consumed at install time only and are not stored. -/
+   305    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   306        (isK : Bool) (rules : List RecRule)
+   307    deriving DecidableEq, Repr, Inhabited
 
 == whitepaper/Fragment/Syntax.lean#L35-L36
     35    /-- A constant of the environment at a level instantiation. -/
@@ -5162,21 +5162,21 @@
   1001      RecRuleLawK (S.M₃ m.M) S.recName S.recInfo (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
   1002        ⟨c.name, c.fields.length, S.ruleRhs c 0, none, S.isK⟩ := by
 
-== ConLeche/Kernel/CoreDefs.lean#L85-L93
-    85  def iotaCtorNeverProp (find? : Name → Option ConstantInfo) (cvj : ConstantVal)
-    86      (us : List Level) : Bool :=
-    87    match (cvj.type.piResult).getAppFn with
-    88    | .const T _ =>
-    89      match find? T with
-    90      | some (.indInfo cvT caps) =>
-    91        cvT.levelParams.length == us.length && capsNeverZero cvT.levelParams us caps
-    92      | _ => false
-    93    | _ => false
+== ConLeche/Kernel/CoreDefs.lean#L113-L121
+   113  def iotaCtorNeverProp (find? : Name → Option ConstantInfo) (cvj : ConstantVal)
+   114      (us : List Level) : Bool :=
+   115    match (cvj.type.piResult).getAppFn with
+   116    | .const T _ =>
+   117      match find? T with
+   118      | some (.indInfo cvT _) =>
+   119        cvT.levelParams.length == us.length && formerNeverZero cvT us
+   120      | _ => false
+   121    | _ => false
 
-== ConLeche/Kernel/CoreDefs.lean#L102-L104
-   102  def iotaCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
-   103      (us : List Level) : Bool :=
-   104    !isK && !iotaCtorNeverProp find? cvj us
+== ConLeche/Kernel/CoreDefs.lean#L130-L132
+   130  def iotaCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+   131      (us : List Level) : Bool :=
+   132    !isK && !iotaCtorNeverProp find? cvj us
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -5678,18 +5678,18 @@
    612      rules.map fun rl => { rl with fire := fire }
    613    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1165-L1175
-  1165  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
-  1166      (us : List Level) (cvjLps : List Name) (args : List Expr)
-  1167      (rP : Nat) : List Level × List Expr :=
-  1168    match rl.fire with
-  1169    | .nested lvls pins =>
-  1170      (lvls.map (Level.subst lps us),
-  1171       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-  1172         (p.instantiateLevelParams lps us))
-  1173    | .plain =>
-  1174      (cvjLps.map fun p => Level.subst lps us (.param p),
-  1175       args.take cnP)
+== ConLeche/Kernel/CoreDefs.lean#L1193-L1203
+  1193  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+  1194      (us : List Level) (cvjLps : List Name) (args : List Expr)
+  1195      (rP : Nat) : List Level × List Expr :=
+  1196    match rl.fire with
+  1197    | .nested lvls pins =>
+  1198      (lvls.map (Level.subst lps us),
+  1199       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+  1200         (p.instantiateLevelParams lps us))
+  1201    | .plain =>
+  1202      (cvjLps.map fun p => Level.subst lps us (.param p),
+  1203       args.take cnP)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        (iotaCase3 env.find? isK cvj
@@ -6164,20 +6164,19 @@
    721  theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
    722      {major tm tmaj fab : Expr} {recName : Name} {cv : ConstantVal}
 
-== ConLeche/Kernel/Inductives/BlockInstall.lean#L67-L79
+== ConLeche/Kernel/Inductives/BlockInstall.lean#L67-L78
     67  def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
     68    match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
     69    | [c], nIdx =>
-    70      { eta := nIdx == 0 && !p.isProp && !isRec
+    70      { eta := nIdx == 0 && !isRec
     71        etaCtor := c.1.name
     72        etaParams := p.nP
     73        etaFields := c.2
     74        unitlike := nIdx == 0 && c.2 == 0 && !isRec
     75        unitParams := p.nP
-    76        sortZ := Level.zeronessOf p.resSort
-    77        all := p.memberNames
-    78        nparams := p.nP
-    79        ctors := [c.1.name] }
+    76        all := p.memberNames
+    77        nparams := p.nP
+    78        ctors := [c.1.name] }
 
 == ConLeche/Model/Inductives/FixKit.lean#L721-L722
    721  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at

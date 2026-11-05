@@ -164,7 +164,7 @@ capabilities decide its sort's zero-ness, and its
 constructor's residual is the former at the constructor's parameters. -/
 @[expose] def LfpCaps {V : Type w} [SetTheory V] (env : Env) (D : LfpDatum V) : Prop :=
   (∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-    (∀ ψ : Name → Nat, D.w ψ = 0 → caps.sortZ.holds ψ = true)) ∧
+    (∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ cv).holds ψ = true)) ∧
   ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
     env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
     ∃ (bs : List Expr) (es : List Expr),

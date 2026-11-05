@@ -403,9 +403,8 @@ theorem declBlock {F : Nat} {env env₂ : Env}
         show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
           ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName mm) = _
         rw [hname]; exact (hcoreC.1 mm cvTb hcv).1, fun ψ hw => ?_⟩
-      · have hsz : (ConLeche.blockCapsAt p₁ mm isRec).sortZ = Level.zeronessOf p₁.resSort := by
-          rcases blockCapsAt_cases p₁ mm isRec with ⟨c, -, h⟩ | h <;> rw [h]
-        rw [hsz, ConLeche.PropWhen.zeronessOf_sound]
+      · obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
+        rw [ConLeche.formerZ_of_stripPis hst, ConLeche.PropWhen.zeronessOf_sound, hF.sEval]
         have hw' : Level.eval ψ p₁.resSort = 0 := hw
         rw [hw']; rfl
     · have hck : c < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := hc

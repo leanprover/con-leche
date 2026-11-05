@@ -109227,3 +109227,26 @@ The install's inference per structure went, and the guard is paid only by
 `proj_guard_past_used_data_bad` (1), `proj_guard_prop_after_data`,
 `proj_guard_unfold` (0): all five as the base binary and as official
 (`checkers/official-v4.33.0`).  No pinned verdict moved.
+
+### Caps at use, stage 3a: the sort off the former's type (#480, lane 4)
+
+`IndCaps.sortZ` is gone, and `IndCaps.eta` is the block's part alone (official's
+`is_structure_like`: one constructor, no index, not recursive).  What depends on
+the sort is read where it is asked (`Kernel/CoreDefs.lean`): `formerResSort`,
+`formerZ` (the zero-ness datum, with the same conservative default the field had),
+`formerNeverZero` (the ι case split, the η rescue), `formerNotProp`/`capsEta` (η).
+`formerNotProp` is `!(formerZ cv).isProp`: `zeronessOf` is exact, so this is
+"zero at every valuation", where `Level.isEquiv s .zero` is not known complete; the
+bridge to a member's sort is by value (`BlockFormerFacts.sEval`,
+`isEquiv_zero_false_of_formerNotProp`).  Until stage 3b every installed former is
+a syntactic telescope, so nothing reduces yet: this stage is the hot path's cost.
+
+**Measured before anything else** (ruling 3).  `iotaCtorNeverProp` reads the sort at
+every ι redex, by one `piResult` walk: `instructions:u`, one run each, against
+2b6b1d8e2: init-full +0.06 % / +0.11 %, grind-ring-5 +0.19 % / +0.18 %, app-lam
++0.00 % / −0.20 %, init-prelude +0.01 % / +0.01 %, the largest rise anywhere
+shared-subterm +0.42 % / +0.40 %; the Mathlib prefix (131 902 declarations, `--jobs=8`,
+546.477 G) −0.07 %.  No memo.
+
+No verdict moved: e2e 516/516, arena tutorial 90/92 as before, the sweeps without
+divergence, selfcheck 48 971.
