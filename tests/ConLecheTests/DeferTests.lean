@@ -15,18 +15,16 @@ meta import ConLeche.Verify.Cached.Defer
 public section
 
 /-!
-# Checked steps in the check phase (tasks #411, #431, #480)
+# Checked steps in the check phase
 
 The install with every record but a value record pushed from the record
-alone (`storedStep`) and its checked step deferred (the install's commit
-loop, here as a pure serial fold over the prepared stream, each record
-checked at a view of the index it was installed at), against the checked
-fold `installDeclStep`: on accepted streams the same environment, and
-every deferred check passes; on rejected streams with a faulty block the
-same verdict at the same fold position — the first failure among the
-fold's own errors and the deferred checks below it.  And a stored
-install that is not the checked one's (a tampered capability record)
-fails its job as an internal error.
+alone (`declConstants`, `declTables`) and its checked step deferred (the
+install's commit loop, here as a pure serial fold over the prepared
+stream, each record checked at a view of the index it was installed at),
+against the checked fold `installDeclStep`: on accepted streams the same
+environment, and every deferred check passes; on rejected streams with a
+faulty block the same verdict at the same fold position — the first
+failure among the fold's own errors and the deferred checks below it.
 -/
 
 namespace ConLecheTests.Defer
@@ -47,9 +45,8 @@ def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array
   | d :: ds, acc, D =>
     if deferredDecl d then
       let v := viewOf acc.2.1
-      let (L, Q) := storedStep d
-      deferFold ds (acc.1 + 1, FEnv.pushDelta L Q acc.2.1, acc.2.2)
-        (D.push ⟨v, d, acc.1, L, Q⟩)
+      deferFold ds (acc.1 + 1, FEnv.pushDelta (declConstants d) (declTables d) acc.2.1, acc.2.2)
+        (D.push ⟨v, d, acc.1⟩)
     else
       match installDeclStep .verified natOpPinSets acc d with
       | .ok acc' => deferFold ds acc' D
@@ -113,26 +110,6 @@ def sameReject (path : System.FilePath) : IO Unit := do
 #eval sameAccept "tests/e2e/ind_defhead_k.ndjson"
 #eval sameAccept "tests/e2e/ind_defhead_mutual.ndjson"
 #eval sameAccept "tests/e2e/ind_former_redex.ndjson"
-
-/-- A tampered stored install (the first block's first former's
-capability record with its unit-likeness flipped) fails its job, as an
-internal error. -/
-def tamperedFails (path : System.FilePath) : IO Unit := do
-  let ds ← prepared path
-  match deferFold ds (0, mkFEnv Env.empty, #[]) #[] with
-  | .ok (_, D) =>
-    let some b := D.find? (fun b => match b.pd with | .indDecl .. => true | _ => false)
-      | throw <| IO.userError s!"{path}: no block deferred"
-    let L' := match b.L with
-      | .indInfo cv caps :: rest => .indInfo cv { caps with unitlike := !caps.unitlike } :: rest
-      | L => L
-    match deferredCheck .verified natOpPinSets { b with L := L' } with
-    | .error (.internal _) => pure ()
-    | _ => throw <| IO.userError s!"{path}: the tampered install passed its job"
-  | .error _ => throw <| IO.userError s!"{path}: the fold rejects"
-
-#eval tamperedFails "tests/e2e/inmodel_mutual.ndjson"
-#eval tamperedFails "tests/e2e/mutual_struct_proj.ndjson"
 
 -- rejected at a block: a large eliminator out of a proposition, a bad
 -- index, a negative occurrence, a stub recursor, a stub's positivity,
