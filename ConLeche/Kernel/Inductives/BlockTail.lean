@@ -141,12 +141,7 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
   checkBlockTables p.toBlockShape
     (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
 
-/-! ## A def-headed former
-
-A former whose stored type reaches its telescope only by reduction (task #480).  The
-install pushes it as stored; the block's job reduces it, as official's `whnf` of the type
-does, and checks the block at the reduced form, which needs nothing new of the check.  A
-block nesting through such a family reads it reduced as well. -/
+/-! ## The block's check -/
 
 /-- The families the literal guards read by name, whose stored type they compare. -/
 def litGuardFamilies : List Name :=
@@ -154,190 +149,40 @@ def litGuardFamilies : List Name :=
    listConsName, charName, charOfNatName, boolName, boolTrueName, boolFalseName] ++
     reservedBasisNames
 
-/-- A former at its reduced telescope (official's `whnf` loop), closed. -/
-def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :
-    m ConstantVal := do
-  let (bs, s) ← whnfTelescope ops env 0 n cv.type
-  pure { cv with type := closeTelescope bs 0 (.sort s) }
-
-/-- **A member of the block, reduced where it is def-headed**: the declared type checked,
-reduced, and the two compared. -/
-def reduceMember (ops : CheckerOps m) (env : Env) (nP : Nat) (ms : MemberShape) :
-    m MemberShape :=
+/-- **A member's former at its telescope**, official's `whnf` loop where the declared type does
+not show it: the declared type checked, reduced, and the two compared. -/
+def reduceMember (ops : CheckerOps m) (env : Env) (ms : MemberShape) (nP : Nat) : m MemberShape :=
   if formerDefHeaded ms.cvT then do
     if litGuardFamilies.contains ms.cvT.name then
       throw (.notImplemented s!"a literal's family stored at a definition ({ms.cvT.name})")
     else do
       checkConstantVal ops env ms.cvT
       let cvR ← reducedFormer ops env ms.cvT (nP + ms.nIdx)
-      checkConstantVal ops env cvR
       unless ← ops.isDefEq env 0 ms.cvT.type cvR.type do
         throw (.invalid "direct sum: a type former's declared type and its reduct differ")
       pure { ms with cvT := cvR }
   else pure ms
 
-/-- The members, reduced. -/
+/-- The members, each at its telescope. -/
 def reduceMembers (ops : CheckerOps m) (env : Env) (nP : Nat) :
     List MemberShape → m (List MemberShape)
   | [] => pure []
   | ms :: rest => do
-    let ms' ← reduceMember ops env nP ms
+    let ms' ← reduceMember ops env ms nP
     let rest' ← reduceMembers ops env nP rest
     pure (ms' :: rest')
 
-/-- A reduced former is closed, over its level parameters and what is stored. -/
-def viewScoped (resolve : Expr → Bool) (cv : ConstantVal) : Bool :=
-  !cv.type.hasFvar && cv.type.allLevelParamsDefined cv.levelParams &&
-    resolve cv.type && cv.type.looseBVarsBounded 0
-
-/-- The heads of the applications in `e` with an argument mentioning `names`, and whether
-`e` mentions them; memoized on the shared term. -/
-def Expr.nestedHeadsGo (names : List Name) :
-    Expr → Std.HashMap Expr Bool × List Name → Bool × (Std.HashMap Expr Bool × List Name)
-  | e, st =>
-    match st.1[e]? with
-    | some b => (b, st)
-    | none =>
-      let (b, st') : Bool × (Std.HashMap Expr Bool × List Name) :=
-        match e with
-        | .bvar _ | .sort _ | .lit _ => (false, st)
-        | .const n _ => (names.contains n, st)
-        | .fvar _ ty => Expr.nestedHeadsGo names ty st
-        | .app f a =>
-          let (bf, st₁) := Expr.nestedHeadsGo names f st
-          let (ba, st₂) := Expr.nestedHeadsGo names a st₁
-          let st₃ := match ba, (Expr.app f a).getAppFn with
-            | true, .const I _ => (st₂.1, I :: st₂.2)
-            | _, _ => st₂
-          (bf || ba, st₃)
-        | .lam ty b | .forallE ty b =>
-          let (b₁, st₁) := Expr.nestedHeadsGo names ty st
-          let (b₂, st₂) := Expr.nestedHeadsGo names b st₁
-          (b₁ || b₂, st₂)
-        | .letE ty v b =>
-          let (b₁, st₁) := Expr.nestedHeadsGo names ty st
-          let (b₂, st₂) := Expr.nestedHeadsGo names v st₁
-          let (b₃, st₃) := Expr.nestedHeadsGo names b st₂
-          (b₁ || b₂ || b₃, st₃)
-        | .proj s _ x =>
-          let (b₁, st₁) := Expr.nestedHeadsGo names x st
-          (names.contains s || b₁, st₁)
-      (b, (st'.1.insert e b, st'.2))
-
-/-- The constants of `e`, memoized on the shared term. -/
-def Expr.constsGo : Expr → Std.HashSet Expr × List Name → Std.HashSet Expr × List Name
-  | e, st =>
-    if st.1.contains e then st else
-    let st := (st.1.insert e, st.2)
-    match e with
-    | .bvar _ | .sort _ | .lit _ => st
-    | .const n _ => (st.1, n :: st.2)
-    | .fvar _ ty => Expr.constsGo ty st
-    | .app f a => Expr.constsGo a (Expr.constsGo f st)
-    | .lam ty b | .forallE ty b => Expr.constsGo b (Expr.constsGo ty st)
-    | .letE ty v b => Expr.constsGo b (Expr.constsGo v (Expr.constsGo ty st))
-    | .proj _ _ x => Expr.constsGo x st
-
-/-- **The families a nested block reads**, as a worklist: from the heads of the applications
-that take the group as an argument, the inductives in those families' constructor types,
-each once. -/
-def containerClosure (find? : Name → Option ConstantInfo) :
-    Nat → List Name → List Name → List Name
-  | 0, _, seen => seen
-  | _ + 1, [], seen => seen
-  | n + 1, c :: work, seen =>
-    if seen.contains c then containerClosure find? n work seen else
-    match find? c with
-    | some (.indInfo _ caps) =>
-      let st := caps.ctors.foldl (fun st k =>
-        match find? k with
-        | some ci => Expr.constsGo ci.toConstantVal.type st
-        | none => st) (({} : Std.HashSet Expr), [])
-      containerClosure find? n (st.2 ++ caps.all ++ work) (c :: seen)
-    | _ => containerClosure find? n work seen
-
-/-- The stored families a block reads as containers, by name.  The fuel is for termination
-only, as `checkFuel`: the worklist takes one step per name it holds, and no run takes 2^62. -/
-def blockContainers (find? : Name → Option ConstantInfo) (p : BlockParts) : List Name :=
-  let st := p.allCtors.foldl (fun st c => (Expr.nestedHeadsGo p.memberNames c.1.type st).2)
-    (({} : Std.HashMap Expr Bool), [])
-  containerClosure find? (2 ^ 62) st.2 []
-
-/-- **The block's def-headed containers at their reduced telescopes**, at this environment:
-a run does not see an extension (`Verify/EnvExt.lean`), so this is what the family's own job
-read. -/
-def blockViews (ops : CheckerOps m) (env : Env) :
-    List Name → m (List ConstantInfo)
-  | [] => pure []
-  | c :: cs => do
-    let rest ← blockViews ops env cs
-    match env.find? c with
-    | some (.indInfo cv caps) =>
-      if formerDefHeaded cv then do
-        if litGuardFamilies.contains c then
-          throw (.notImplemented s!"a literal's family stored at a definition ({c})")
-        else do
-          let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
-          unless viewScoped (·.constsResolve env) cvR do
-            throw (.internal "a family's reduced telescope is not closed")
-          pure (.indInfo cvR caps :: rest)
-      else pure rest
-    | _ => pure rest
-
-/-- A member at its stored type again. -/
-def storedFormerOf (p₀ : BlockParts) : ConstantInfo → ConstantInfo
-  | .indInfo cv caps =>
-    match p₀.members.find? (·.cvT.name == cv.name) with
-    | some ms => .indInfo ms.cvT caps
-    | none => .indInfo cv caps
-  | c => c
-
-/-- **The job's environment back at what the group stores**: the block's pushes at the
-input environment, each member at its stored type, the containers' views gone. -/
-def restoreBlock (p₀ : BlockParts) (nViews : Nat) (env env₃ : Env) : Env :=
-  ⟨(env₃.consts.take (env₃.consts.length - (nViews + env.consts.length))).map (storedFormerOf p₀)
-      ++ env.consts, env₃.tables⟩
-
-/-- The block's check at an environment and a group that show every telescope it reads. -/
-def checkBlockAt (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
-    m Env := do
-  let q ← checkBlockPass ops env p₀ (blockRawRec p₀)
-  checkBlockTail ops block q
-
-/-- A former in a block's raw records at its reduced form. -/
-def reducedRecord (members : List MemberShape) : ConstantInfo → ConstantInfo
-  | .indInfo cv caps =>
-    match members.find? (·.cvT.name == cv.name) with
-    | some ms => .indInfo ms.cvT caps
-    | none => .indInfo cv caps
-  | c => c
-
-/-- Does the block's check need its second path: a member def-headed, or a container? -/
-def blockViewed (find? : Name → Option ConstantInfo) (cs : List Name) (p₀ : BlockParts) : Bool :=
-  p₀.members.any (formerDefHeaded ·.cvT) || cs.any fun c =>
-    match find? c with
-    | some (.indInfo cv _) => formerDefHeaded cv
-    | _ => false
-
-/-- Check and install an inductive block: the distinct names, the pass over the formers, the
-constructors and the classes at official's `is_rec` (`blockRawRec`), and the install after
-it.  A block that shows every telescope it reads is checked as it stands; otherwise at its
-reduced form and its containers' views, and restored (`restoreBlock`). -/
+/-- Check and install an inductive block: the distinct names, each former reduced to its
+telescope once (official's `check_inductive_types`), the pass over the formers, the constructors
+and the classes at official's `is_rec` (`blockRawRec`), and the install after it. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
     m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
   unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
     throw (.invalid "direct rec: a family at a `Bool` constructor's name")
-  let cs := blockContainers env.find? p₀
-  if blockViewed env.find? cs p₀ then do
-    let ms ← reduceMembers ops env p₀.nP p₀.members
-    let vs ← blockViews ops env cs
-    let pR : BlockParts := { p₀ with members := ms }
-    let env₃ ← checkBlockAt ops ⟨vs ++ env.consts, env.tables⟩
-      (block.map (reducedRecord ms)) pR
-    pure (restoreBlock p₀ vs.length env env₃)
-  else
-    checkBlockAt ops env block p₀
+  let ms ← reduceMembers ops env p₀.nP p₀.members
+  let q ← checkBlockPass ops env { p₀ with members := ms } (blockRawRec p₀)
+  checkBlockTail ops block q
 
 end ConLeche

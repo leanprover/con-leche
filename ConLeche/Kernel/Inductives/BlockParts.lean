@@ -60,8 +60,10 @@ number of them (zero included), and a recursor is assigned to its
 member by its MAJOR premise, not by its name — so the recursors are a
 list of their own (`RecShape`, `BlockShape.recs`). -/
 structure MemberShape where
-  /-- the member's type former -/
+  /-- the member's type former at its telescope, what the block's check reads (`reduceMember`) -/
   cvT : ConstantVal
+  /-- the member's type former as the stream declares it, what is installed -/
+  declared : ConstantVal
   /-- the member's index count -/
   nIdx : Nat
   /-- the member's constructors in block order, each with its field count -/
@@ -422,7 +424,7 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
           let groups := blockGroups names lps nP k ctors
           let members := ((cvTs.zip nIdxs).zip groups).map
             fun (a : (ConstantVal × Nat) × List (ConstantVal × Nat)) =>
-              (⟨a.1.1, a.1.2, a.2⟩ : MemberShape)
+              (⟨a.1.1, a.1.1, a.1.2, a.2⟩ : MemberShape)
           -- **the recursors, in the stream's own order**, each with the
           -- member its MAJOR names (`recTargetOf`)
           let recsL := rs.map

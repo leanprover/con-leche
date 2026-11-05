@@ -30,34 +30,8 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- **Official's telescope loop** (`check_inductive_types`,
-`inductive.cpp`; task #195): peel `n` Π binders off `e`, reducing the
-residual to weak head normal form before each binder and at the end,
-where it must be a sort.  Binder `i` is opened at the free variable
-`i` (its domain instantiated at the earlier ones, as `openPisAtFvars`
-does), so the returned binder domains and the sort are scoped at the
-free variables `0 ..< n`.  A residual that does not reduce to a Π, or
-finally to a sort, is INVALID input — official fails there too. -/
-def whnfTelescope (ops : CheckerOps m) (env : Env) :
-    Nat → Nat → Expr → m (List Expr × Level)
-  | i, 0, e => do
-    let e' ← ops.whnf env i e
-    match e' with
-    | .sort s => pure ([], s)
-    | _ => throw (.invalid "direct sum: type former does not reduce to a sort \
-        after its parameters and indices")
-  | i, n + 1, e => do
-    let e' ← ops.whnf env i e
-    match e' with
-    | .forallE dom body =>
-      let (bs, s) ← whnfTelescope ops env (i + 1) n (body.instantiate1 (.fvar i dom))
-      pure (dom :: bs, s)
-    | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
-        of its parameters and indices")
-
-/-- The type former's TELESCOPE: `n` Π binders ending in a sort, as it stands.  A block whose
-formers do not show theirs is checked at its reducts (`checkBlock`'s second path).  Returns the
-former and its sort. -/
+/-- The type former's TELESCOPE: `n` Π binders ending in a sort (`reduceMember` puts a former
+at its telescope).  Returns the former and its sort. -/
 def checkSumTele (n : Nat) (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
   match cvTa₀.type.stripPis n with
   | some (_, .sort s) => pure (cvTa₀, s)

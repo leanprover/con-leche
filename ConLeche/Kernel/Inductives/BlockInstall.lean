@@ -184,7 +184,7 @@ def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
     checkBlockAgree ops env p.nP cvTa0 s0 cvs
     let p₁ := p.toBlockShape.withSort s0
     let cvTas := cvTa0 :: cvs.map (·.1)
-    pure (consBlockInds p₁ isRec cvTas 0 env, cvTas, p₁)
+    pure (consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env, cvTas, p₁)
 
 /-! ## Stage 1b: the constructors -/
 
@@ -271,7 +271,7 @@ def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx := p.nestCtx pq.1 find?
-  let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
+  let holes ← unwrapOr (nestHoles ctx cvTas) (.internal "direct rec: a member is not a stored former")
   pure (ctx, holes)
 
 /-- **The block's positivity, on its stored constructors** (see the

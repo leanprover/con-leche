@@ -372,20 +372,18 @@ def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × N
 /-- The instantiated type former of an OUTSIDE major `I.{us} ds`: its
 index count and its result sort (a syntactic telescope, as
 `nestInstType` reads it). -/
-def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) :
-    m (Nat × Level) := do
-  let some (.indInfo cvI _) := fe.find? I
+def targetOutsideInst (ops : CheckerOps m) (fe : FEnv) (I : Name) (us : List Level)
+    (ds : List Expr) : m (Nat × Level) := do
+  let some (.indInfo cvI capsI) := fe.find? I
     | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-  let some ty := instPisWith ds (cvI.type.instantiateLevelParams cvI.levelParams us)
+  let tyI ← familyTelescope ops fe.env cvI capsI
+  let some ty := instPisWith ds (tyI.instantiateLevelParams cvI.levelParams us)
     | throw (.invalid "target rec: the major's type former does not bind its parameters \
         (official: ill-formed inductive type)")
   let (ibs, s) := ty.piBinders
   let .sort s := s
     | throw (.invalid "target rec: the major's type former is not a telescope ending in a \
         sort (official: type expected)")
-  unless containerFlat fe.find? I do
-    throw (.invalid "target rec: the major's family is not a telescope ending in a sort \
-      (official: type expected)")
   pure (ibs.length, s)
 
 /-! ## A recursor's class, resolved -/
@@ -394,7 +392,7 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or — a nested block's container — any
 other stored inductive at one of the block's auxiliary types. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape)
+def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
     (mty : Expr) : m TargetMajor := do
   let args := mty.getAppArgs
@@ -437,7 +435,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-      let (nIdx, sI) ← targetOutsideInst fe I us ds
+      let (nIdx, sI) ← targetOutsideInst ops fe I us ds
       -- **Q1**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
       -- Prop inductive, or the converse) is refused here: the

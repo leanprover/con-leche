@@ -333,7 +333,7 @@ def classMajors (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
     List ClassKey → m (List TargetMajor)
   | [] => pure []
   | key :: keys => do
-    let M ← targetMajorOf fe p ctorsAs pfvs pfvs (Expr.mkAppN (.const key.ind key.lvls) key.ds)
+    let M ← targetMajorOf ops fe p ctorsAs pfvs pfvs (Expr.mkAppN (.const key.ind key.lvls) key.ds)
     targetMajorPins ops fe.env p.nP M
     let Ms ← classMajors ops fe p ctorsAs pfvs keys
     pure (M :: Ms)
@@ -349,11 +349,14 @@ def classesNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : Li
 
 /-- A class's former type: a member's own, an outside class's stored
 former at the class's levels. -/
-def classFormerTy (fe : FEnv) (cvTas : List ConstantVal) (M : TargetMajor) : m Expr :=
+def classFormerTy (ops : CheckerOps m) (fe : FEnv) (cvTas : List ConstantVal) (M : TargetMajor) :
+    m Expr :=
   match M.member with
   | some t => pure (cvTas.getD t default).type
   | none => match fe.find? M.ind with
-    | some (.indInfo cv _) => pure (cv.type.instantiateLevelParams cv.levelParams M.lvls)
+    | some (.indInfo cv caps) => do
+      let ty ← familyTelescope ops fe.env cv caps
+      pure (ty.instantiateLevelParams cv.levelParams M.lvls)
     | _ => throw (.internal "generated recursor: a class's former vanished")
 
 /-- **A generated constant, checked** — `checkConstantValF`: the
@@ -568,7 +571,7 @@ def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Boo
     throw (.invalid "generated recursor: the recursors' prefix has a minor premise for no \
       constructor of a class (official: invalid recursor)")
   -- generation
-  let formerTysC ← Ms.mapM (classFormerTy fe cvTas)
+  let formerTysC ← Ms.mapM (classFormerTy ops fe cvTas)
   let elim := structElimLevel p.elim p.large
   let g0 : ClassGen := ⟨p.nP, params, Ms, formerTysC, rd.slots, ctors, elim, []⟩
   let pre ← unwrapOr g0.prefixBinders (.internal "generated recursor: recursor prefix")

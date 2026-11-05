@@ -218,6 +218,52 @@ def closeTelescope : List Expr → Nat → Expr → Expr
   | dom :: bs, i, body =>
     .forallE dom ((closeTelescope bs (i + 1) body).abstract1 i 0)
 
+section
+
+variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+
+/-- **Official's telescope loop** (`check_inductive_types`,
+`inductive.cpp`; task #195): peel `n` Π binders off `e`, reducing the
+residual to weak head normal form before each binder and at the end,
+where it must be a sort.  Binder `i` is opened at the free variable
+`i` (its domain instantiated at the earlier ones, as `openPisAtFvars`
+does), so the returned binder domains and the sort are scoped at the
+free variables `0 ..< n`.  A residual that does not reduce to a Π, or
+finally to a sort, is INVALID input — official fails there too. -/
+def whnfTelescope (ops : CheckerOps m) (env : Env) :
+    Nat → Nat → Expr → m (List Expr × Level)
+  | i, 0, e => do
+    let e' ← ops.whnf env i e
+    match e' with
+    | .sort s => pure ([], s)
+    | _ => throw (.invalid "direct sum: type former does not reduce to a sort \
+        after its parameters and indices")
+  | i, n + 1, e => do
+    let e' ← ops.whnf env i e
+    match e' with
+    | .forallE dom body =>
+      let (bs, s) ← whnfTelescope ops env (i + 1) n (body.instantiate1 (.fvar i dom))
+      pure (dom :: bs, s)
+    | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
+        of its parameters and indices")
+
+/-- A former at its reduced telescope (official's `whnf` loop), closed. -/
+def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :
+    m ConstantVal := do
+  let (bs, s) ← whnfTelescope ops env 0 n cv.type
+  pure { cv with type := closeTelescope bs 0 (.sort s) }
+
+/-- **A stored family's type former, at its telescope**: its stored type where that shows one,
+else its reduct (official reads the type through `whnf`).  Every reader of a family's telescope
+goes through this: what is stored is what the stream declares. -/
+def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
+  if formerDefHeaded cv then do
+    let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
+    pure cvR.type
+  else pure cv.type
+
+end
+
 /-! ## Positivity through containers — ONE function, GATED
 
 The charter (DESIGN.md, "THE CHARTER", items 3–4): there is ONE
@@ -1121,9 +1167,10 @@ auxiliary type BEFORE the block exists: (N2) its index telescope at
 constant"), (N3) its sort is `Level.isEquiv` the block's.  Returns the
 index count and the container's type instantiated at the key (the type
 of the frame's hole: a family over the container's indices). -/
-def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) := do
-  let cvC ← unwrapOr (match ctx.find? key.cname with
-      | some (.indInfo cv _) => some cv
+def nestInstType (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hi : Nat) (key : NestKey) :
+    m (Nat × Expr) := do
+  let (cvC, capsC) ← unwrapOr (match ctx.find? key.cname with
+      | some (.indInfo cv caps) => some (cv, caps)
       | _ => none)
     (.internal "nested positivity: container vanished")
   -- the container is applied at its own level count (official:
@@ -1137,11 +1184,12 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
   -- instantiation exists, so the N2 check below reads
   -- against the container's recorded index telescope; every stored
   -- inductive's parameters are binders of its type, as official checks)
-  unless (cvC.type.stripPis key.ds.length).isSome do
+  let tyC ← familyTelescope ops env cvC capsC
+  unless (tyC.stripPis key.ds.length).isSome do
     throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
       not bind its parameters (official: ill-formed inductive type)")
   let ty ← unwrapOr (instPisWith key.ds
-      (cvC.type.instantiateLevelParams cvC.levelParams key.lvls))
+      (tyC.instantiateLevelParams cvC.levelParams key.lvls))
     (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
       its parameters (official: ill-formed inductive type)")
   let s ← unwrapOr (match ty.piBinders.2 with
@@ -1155,11 +1203,6 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
   unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
     throw (.invalid "nested positivity: mutually inductive types must live in the \
       same universe")
-  -- a def-headed family a block nests through syntactically is shown at its reduct
-  -- (`blockViews`); official does not reduce to find a container
-  unless containerFlat ctx.find? key.cname do
-    throw (.invalid "nested positivity: invalid nested inductive datatype, its family's type \
-      is not a telescope ending in a sort (official: non valid occurrence)")
   pure (ty.piBinders.1.length, ty)
 
 /-- A constructor's result is headed by a variable (its member's hole,
@@ -1306,19 +1349,21 @@ no type).  The accessibility proof reads a frame hole's
 value only at its full arity: a partial application is a λ-graph of
 the container's family, which no support over the family's elements
 carries to another family. -/
-def nestArity (ctx : NestCtx) (C : Name) : Nat :=
+def nestArity (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (C : Name) : m Nat :=
   match ctx.find? C with
-  | some (.indInfo cv _) => cv.type.piBinders.1.length
-  | _ => 0
+  | some (.indInfo cv caps) => do
+    let ty ← familyTelescope ops env cv caps
+    pure ty.piBinders.1.length
+  | _ => pure 0
 
 /-- A frame's group grown by the named containers, each at the frame's
 instantiation, its hole typed by its instantiated former. -/
-def nestGrowGroup (ctx : NestCtx) (hi : Nat) (us : List Level) (ds : List Expr) :
-    List Name → List (Name × Expr) → m (List (Name × Expr))
+def nestGrowGroup (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hi : Nat) (us : List Level)
+    (ds : List Expr) : List Name → List (Name × Expr) → m (List (Name × Expr))
   | [], grp => pure grp
   | c :: cs, grp => do
-    let (_, cty) ← nestInstType ctx hi ⟨c, us, ds⟩
-    nestGrowGroup ctx hi us ds cs (grp ++ [(c, cty)])
+    let (_, cty) ← nestInstType ctx ops env hi ⟨c, us, ds⟩
+    nestGrowGroup ctx ops env hi us ds cs (grp ++ [(c, cty)])
 
 /-- A frame's group accepted with its instantiation: every member at the
 instantiation `(us, ds)` cached, those not cached yet. -/
@@ -1375,7 +1420,7 @@ def nestContNew (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   -- reads nothing of the frames it was met under, so every cached frame
   -- is derived at the root and a hit's subtree owns all its holes
   let wp := nestWalkStack ctx prog ds
-  let grp ← nestGrowGroup ctx (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, cty)]
+  let grp ← nestGrowGroup ctx ops env (ctx.hiAt wp.length) us ds (nestFrameMates ctx n) [(n, cty)]
   let act := st.active
   let st := { st with active := grp.map (fun p => ({ cname := p.1, lvls := us, ds := ds } : NestKey)) ++ act }
   let st ← nestFrame ctx ops env rec wp (ctx.hiAt wp.length) us ds nPc grp st
@@ -1438,7 +1483,7 @@ def nestCont (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
   -- compares the container's family at the index tuple, and a partial
   -- application is a function, whose graph does not grow with its values.
   -- A field's domain is a type, so a checked constructor never has one.
-  let ni ← nestInstType ctx (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
+  let ni ← nestInstType ctx ops env (ctx.hiAt prog.length) ⟨n, us, args.take q.1⟩
   unless args.length == q.1 + ni.1 do
     throw (.invalid "nested positivity: type expected (a container instance that is not \
       fully applied)")
@@ -1485,12 +1530,12 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         -- `is_valid_ind_app`, :338–341)
         match nestHoleAt ctx prog i with
         | some h =>
-          if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) &&
-              args.length + h.key.ds.length == nestArity ctx h.key.cname then
-            return (if i < ctx.hiAt 0 then
-                (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
-              else .inProgress, w, st)
-          else throw nestNonValid
+          unless args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) do throw nestNonValid
+          let arity ← nestArity ctx ops env h.key.cname
+          unless args.length + h.key.ds.length == arity do throw nestNonValid
+          return (if i < ctx.hiAt 0 then
+              (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+            else .inProgress, w, st)
         | none => throw nestNonValid
       | .const n us =>
         -- a member constant left after the abstraction (other levels)
@@ -1505,11 +1550,11 @@ its former's type instantiated at the canonical parameters — a family
 over the member's indices (the hole stands for `T_m p⃗`, so it is
 well-scoped anywhere above the parameters).  `none` when a member is not
 a stored former or its type does not bind the parameters. -/
-def nestHoles (ctx : NestCtx) : Option (List Expr) :=
+def nestHoles (ctx : NestCtx) (formers : List ConstantVal) : Option (List Expr) :=
   (List.range ctx.names.length).mapM fun mm =>
-    match ctx.find? (ctx.names.getD mm .anonymous) with
-    | some (.indInfo cv _) => (instPisWith ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
-    | _ => none
+    match formers[mm]? with
+    | some cv => (instPisWith ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
+    | none => none
 
 /-- **The root frame's canonical crest** of a member constructor `cv` (at
 the block's levels): its whole member applications abstracted
@@ -1652,7 +1697,7 @@ def nestSeeds (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
   | [], st => pure st
   | (key, nPc) :: ks, st => do
     let F := key.ds.foldl (fun a d => max a (whnfWalkFuel d)) fuelSlack
-    let (_, cty) ← nestInstType ctx (ctx.hiAt 0) key
+    let (_, cty) ← nestInstType ctx ops env (ctx.hiAt 0) key
     let (_, st) ← nestContKey ctx ops env (nestPos ops env ctx F) [] 0 key.cname key.lvls
       key.ds nPc cty st
     nestSeeds ops env ctx ks st
@@ -1664,8 +1709,9 @@ constructors AS STORED (not normalised: the function reduces itself).
 Returns the accepted instantiations, the kinds, every constructor's
 NORMALISED type and the recorded normal forms. -/
 def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
-    (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
-  let holes ← unwrapOr (nestHoles ctx)
+    (formers : List ConstantVal) (ctorss : List (List (ConstantVal × Nat))) :
+    m NestedPositivity := do
+  let holes ← unwrapOr (nestHoles ctx formers)
     (.internal "nested positivity: a member is not a stored former")
   nestUniform ctx ctorss
   let (outs, st) ← nestRoot ops env ctx holes ctorss {}

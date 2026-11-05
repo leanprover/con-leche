@@ -90,7 +90,7 @@ def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
     checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
     let p₁ := p.toBlockShape.withSort s0
     let cvTas := cvTa0 :: cvs.map (·.1)
-    pure (consBlockIndsF p₁ isRec cvTas 0 fe, cvTas, p₁)
+    pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0 fe, cvTas, p₁)
 
 /-! ## Stage 1b: the constructors -/
 

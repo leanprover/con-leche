@@ -68,19 +68,6 @@ def formerResSort (ty : Expr) : Option Level :=
 def formerDefHeaded (cv : ConstantVal) : Bool :=
   (formerResSort cv.type).isNone
 
-/-- Every stored former of the family's group ends in a sort as written. -/
-def famFlat (find? : Name → Option ConstantInfo) (caps : IndCaps) : Bool :=
-  caps.all.all fun m =>
-    match find? m with
-    | some (.indInfo cv _) => !formerDefHeaded cv
-    | _ => true
-
-/-- `famFlat` at a stored family. -/
-def containerFlat (find? : Name → Option ConstantInfo) (c : Name) : Bool :=
-  match find? c with
-  | some (.indInfo cv caps) => !formerDefHeaded cv && famFlat find? caps
-  | _ => true
-
 /-- **The family's result-sort zero-ness datum**, read off its type; where the
 sort is not read, `ifAllZero []`, "zero at every valuation", which no rescue
 passes. -/
