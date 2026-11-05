@@ -109234,12 +109234,19 @@ The install's inference per structure went, and the guard is paid only by
 `is_structure_like`: one constructor, no index, not recursive).  What depends on
 the sort is read where it is asked (`Kernel/CoreDefs.lean`): `formerResSort`,
 `formerZ` (the zero-ness datum, with the same conservative default the field had),
-`formerNeverZero` (the ι case split, the η rescue), `formerNotProp`/`capsEta` (η).
-`formerNotProp` is `!(formerZ cv).isProp`: `zeronessOf` is exact, so this is
-"zero at every valuation", where `Level.isEquiv s .zero` is not known complete; the
-bridge to a member's sort is by value (`BlockFormerFacts.sEval`,
-`isEquiv_zero_false_of_formerNotProp`).  Until stage 3b every installed former is
-a syntactic telescope, so nothing reduces yet: this stage is the hot path's cost.
+`formerNeverZero` (the ι case split, the η rescue).  Until stage 3b every installed
+former is a syntactic telescope, so nothing reduces yet: this stage is the hot path's
+cost.
+
+**η needs no sort.**  A first version of this stage kept "not literally `Prop`" at
+the use; it went.  `IndCaps.eta` is official's `is_non_rec_structure`, whose
+`try_eta_struct_core` has no such test either.  What the exclusion protected was
+the coherence's O5 bound, the fields of a squash instance being proofs, and the
+structural projection's guard; but both η uses have a subject that is not the
+point (`DefEqSem`'s `hneB`, a reduction's `hne`), and at a squash instance every
+member is the point (`fixEntry_zero_pt`).  So `EtaCoherent` takes `x ≠ pt` and the
+tower's typing law takes the guard or a subject that is not the point.  The rescue
+keeps its `formerNeverZero`, as official's `to_cnstr_when_structure` keeps its test.
 
 **Measured before anything else** (ruling 3).  `iotaCtorNeverProp` reads the sort at
 every ι redex, by one `piResult` walk: `instructions:u`, one run each, against

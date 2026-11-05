@@ -802,7 +802,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     rw [← heqTm]; exact hgT0.ne_pt
   have hLtmaj : LeavesGr m φ d tmaj ρ := (hL.of_subset hsubT0).of_subset hsubTm
   obtain ⟨-, hokps, hbη, restC, hfitC⟩ :=
-    hside ρ hρ hL (leavesGr_spine hLtmaj) hgTm hneW hg hmemMW
+    hside ρ hρ hL (leavesGr_spine hLtmaj) hgTm hneW hg hmemMW hne
   -- the fabrication is graded: its spine fits the constructor's
   -- telescope (the coherence law)
   have hpc : PiChain (tsa ++ ps).length TCa := by

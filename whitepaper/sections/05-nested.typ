@@ -273,13 +273,13 @@ takes the constructor's levels and parameters to be the recursor's
 own. At a container class they are not: $ListCons$ in the class
 $List thick (Tree thick alpha)$ has the parameter $Tree thick alpha$,
 not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
-#src("ConLeche/Kernel/Env.lean", 108, 114)[each rule of a recursor at a container class stores the instantiation],
+#src("ConLeche/Kernel/Env.lean", 107, 113)[each rule of a recursor at a container class stores the instantiation],
 that is, the class's levels and parameters as terms in the recursor's
 level parameters and parameters
 (#src("ConLeche/Kernel/Inductives/RecCheck.lean", 602, 613)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
-#src("ConLeche/Kernel/CoreDefs.lean", 1193, 1203)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+#src("ConLeche/Kernel/CoreDefs.lean", 1177, 1187)[the stored ones, instantiated at the recursor's levels and parameter arguments]
 (#src("ConLeche/Rules/Rel.lean", 212, 223)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields

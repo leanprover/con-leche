@@ -416,11 +416,11 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
       · refine constsBound_of_constsResolve _ ?_
         rw [ConLeche.projTele_constsResolve, ConLeche.Expr.constsResolve_instantiateLevelParams]
         exact (ConLeche.projEntry_body_wf mp.base2.wf hfP).2.2.1
-    · intro hg ρ vs x rest hlen hokT hneT hokx hmem hpeel
+    · intro ρ vs x rest hlen hokT hneT hokx hmem hpeel hg
       rw [hx.leafOf hfT] at hokT hneT hmem
-      exact hA (hg.mono fun _ h => hx.denote
-        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfC) us) h)
-        ρ vs x rest hlen hokT hneT hokx hmem hpeel
+      exact hA ρ vs x rest hlen hokT hneT hokx hmem hpeel
+        (hg.imp_left (·.mono fun _ h => hx.denote
+          (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfC) us) h))
     · -- the constructor type's reading crosses (task #175 W6): a
       -- prefix lookup's closed type
       exact hx.denote

@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L473
-   473  structure Env where
+== ConLeche/Kernel/Env.lean#L472
+   472  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2535,26 +2535,26 @@
     99    kind : ConstKind
    100    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L289-L307
-   289  inductive ConstantInfo where
-   290    | axiomInfo (val : ConstantVal)
-   291    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   292    | thmInfo (val : ConstantVal)
-   293    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   294    | indInfo (val : ConstantVal) (caps : IndCaps)
-   295    /-- A basis constructor (whnf-stuck; the iota target). -/
-   296    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-   297    /-- A recursor with its iota rules and the record's K flag (official's
-   298    `recursor_val::is_k`, read off the stream's record; the block's job
-   299    checks it).  Only the two sums the
-   300    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   301    numMinors + numIndices, the major premise's argument position) and
-   302    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   303    argument prefix a rule's rhs is applied to).  The individual counts
-   304    are consumed at install time only and are not stored. -/
-   305    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-   306        (isK : Bool) (rules : List RecRule)
-   307    deriving DecidableEq, Repr, Inhabited
+== ConLeche/Kernel/Env.lean#L288-L306
+   288  inductive ConstantInfo where
+   289    | axiomInfo (val : ConstantVal)
+   290    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   291    | thmInfo (val : ConstantVal)
+   292    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   293    | indInfo (val : ConstantVal) (caps : IndCaps)
+   294    /-- A basis constructor (whnf-stuck; the iota target). -/
+   295    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+   296    /-- A recursor with its iota rules and the record's K flag (official's
+   297    `recursor_val::is_k`, read off the stream's record; the block's job
+   298    checks it).  Only the two sums the
+   299    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   300    numMinors + numIndices, the major premise's argument position) and
+   301    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   302    argument prefix a rule's rhs is applied to).  The individual counts
+   303    are consumed at install time only and are not stored. -/
+   304    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   305        (isK : Bool) (rules : List RecRule)
+   306    deriving DecidableEq, Repr, Inhabited
 
 == whitepaper/Fragment/Syntax.lean#L35-L36
     35    /-- A constant of the environment at a level instantiation. -/
@@ -3386,16 +3386,16 @@
     79    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
     80    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L128-L136
-   128  structure RecRule where
-   129    ctor : Name
-   130    nfields : Nat
-   131    /-- The firing mode (install-computed, parse placeholder `.plain`):
-   132    `.plain` at a member major, `.nested` at an outside one. -/
-   133    fire : RecRuleFire
-   134    rhs : Expr
-   135    deriving DecidableEq, Repr, Inhabited
-   136  
+== ConLeche/Kernel/Env.lean#L127-L135
+   127  structure RecRule where
+   128    ctor : Name
+   129    nfields : Nat
+   130    /-- The firing mode (install-computed, parse placeholder `.plain`):
+   131    `.plain` at a member major, `.nested` at an outside one. -/
+   132    fire : RecRuleFire
+   133    rhs : Expr
+   134    deriving DecidableEq, Repr, Inhabited
+   135  
 
 == whitepaper/Fragment/Env.lean#L53-L60
     53    /-- **The K flag** (Lean's `RecursorVal.k`): the rule
@@ -4664,42 +4664,42 @@
    834        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
    835        TeleFit m.M φ ρ T xs
 
-== ConLeche/Model/Env/Laws.lean#L521-L555
-   521  /-- **The ι case split's environment facts, one rule**.
-   522  `RecRuleLaw`'s main clause takes the levels, parameters and index
-   523  comparisons as equations; under the conditional claims the ι step has
-   524  them only where neither side is the point, and at a K rule or a family
-   525  that is never `Prop` at the comparand levels it runs no check of the
-   526  constructor application at all.  What the step consumes instead, at the
-   527  recursor's levels:
-   528  
-   529  * **K** (the recursor's K flag): the rule's law at the recursor's own
-   530    parameters, for any major value in the major's domain (the
-   531    fragment's `RecRuleLawK`: inversion of the family's least
-   532    fixed point) — the reduct, the minor, does not mention the major;
-   533  * **the constructor's arity**: its stored type binds the spine
-   534    syntactically, so a graded application of it that is not the point
-   535    fits its telescope;
-   536  * **(S) case 2**: where the family is never `Prop` at the comparand
-   537    levels (`iotaCtorNeverProp`, the checker's test), the recursor's major
-   538    domain holds no point;
-   539  * **(T) case 2, the constructor's levels**: there a fired application
-   540    that is not the point, at the constructor's own levels and spine, is
-   541    also an application of the constructor at the comparand levels, to a
-   542    graded spine with the same fields that fits its telescope there —
-   543    the major's membership in the family at the comparands ties the
-   544    injection's fields (the same argument as for the parameters), so the
-   545    main law applies at the comparand levels;
-   546  * **(P) the slot at the point**: where the major domain holds the
-   547    point, every fitting constructor application is the point (the
-   548    family is `Prop` there; the fragment's slot law);
-   549  * **(U) coherence**: at a fired spine where the constructor application
-   550    is the point (case 3, where the step compares the levels and
-   551    parameters with the rule's comparands and the indices), the
-   552    conditional index comparison is an equation (read off the
-   553    parameters' conditional comparison).
-   554  
-   555  (P) and (U) are read only at case 3, so they take the level equation. -/
+== ConLeche/Model/Env/Laws.lean#L522-L556
+   522  /-- **The ι case split's environment facts, one rule**.
+   523  `RecRuleLaw`'s main clause takes the levels, parameters and index
+   524  comparisons as equations; under the conditional claims the ι step has
+   525  them only where neither side is the point, and at a K rule or a family
+   526  that is never `Prop` at the comparand levels it runs no check of the
+   527  constructor application at all.  What the step consumes instead, at the
+   528  recursor's levels:
+   529  
+   530  * **K** (the recursor's K flag): the rule's law at the recursor's own
+   531    parameters, for any major value in the major's domain (the
+   532    fragment's `RecRuleLawK`: inversion of the family's least
+   533    fixed point) — the reduct, the minor, does not mention the major;
+   534  * **the constructor's arity**: its stored type binds the spine
+   535    syntactically, so a graded application of it that is not the point
+   536    fits its telescope;
+   537  * **(S) case 2**: where the family is never `Prop` at the comparand
+   538    levels (`iotaCtorNeverProp`, the checker's test), the recursor's major
+   539    domain holds no point;
+   540  * **(T) case 2, the constructor's levels**: there a fired application
+   541    that is not the point, at the constructor's own levels and spine, is
+   542    also an application of the constructor at the comparand levels, to a
+   543    graded spine with the same fields that fits its telescope there —
+   544    the major's membership in the family at the comparands ties the
+   545    injection's fields (the same argument as for the parameters), so the
+   546    main law applies at the comparand levels;
+   547  * **(P) the slot at the point**: where the major domain holds the
+   548    point, every fitting constructor application is the point (the
+   549    family is `Prop` there; the fragment's slot law);
+   550  * **(U) coherence**: at a fired spine where the constructor application
+   551    is the point (case 3, where the step compares the levels and
+   552    parameters with the rule's comparands and the indices), the
+   553    conditional index comparison is an equation (read off the
+   554    parameters' conditional comparison).
+   555  
+   556  (P) and (U) are read only at case 3, so they take the level equation. -/
 
 == whitepaper/Fragment/EnvModel.lean#L119-L186
    119  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
@@ -5162,21 +5162,21 @@
   1001      RecRuleLawK (S.M₃ m.M) S.recName S.recInfo (S.nP + 1 + S.n) (S.nP + 1 + S.n + S.nI)
   1002        ⟨c.name, c.fields.length, S.ruleRhs c 0, none, S.isK⟩ := by
 
-== ConLeche/Kernel/CoreDefs.lean#L113-L121
-   113  def iotaCtorNeverProp (find? : Name → Option ConstantInfo) (cvj : ConstantVal)
-   114      (us : List Level) : Bool :=
-   115    match (cvj.type.piResult).getAppFn with
-   116    | .const T _ =>
-   117      match find? T with
-   118      | some (.indInfo cvT _) =>
-   119        cvT.levelParams.length == us.length && formerNeverZero cvT us
-   120      | _ => false
-   121    | _ => false
+== ConLeche/Kernel/CoreDefs.lean#L96-L104
+    96  def iotaCtorNeverProp (find? : Name → Option ConstantInfo) (cvj : ConstantVal)
+    97      (us : List Level) : Bool :=
+    98    match (cvj.type.piResult).getAppFn with
+    99    | .const T _ =>
+   100      match find? T with
+   101      | some (.indInfo cvT _) =>
+   102        cvT.levelParams.length == us.length && formerNeverZero cvT us
+   103      | _ => false
+   104    | _ => false
 
-== ConLeche/Kernel/CoreDefs.lean#L130-L132
-   130  def iotaCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
-   131      (us : List Level) : Bool :=
-   132    !isK && !iotaCtorNeverProp find? cvj us
+== ConLeche/Kernel/CoreDefs.lean#L113-L115
+   113  def iotaCase3 (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+   114      (us : List Level) : Bool :=
+   115    !isK && !iotaCtorNeverProp find? cvj us
 
 == whitepaper/Fragment/Consistency.lean#L36-L47
     36  /-- **The environments the checker accepts**: the empty environment,
@@ -5230,13 +5230,13 @@
    180      ∃ m' : EnvModel V (S.install env), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls :=
    181    ⟨S.mInstall hpl hs m hok, fun n hn ls => (S.agree_M₃ hok m.M n hn ls).symm⟩
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L73-L78
-    73  theorem declBlock {F : Nat} {env env₂ : Env}
-    74      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    75      (mp : EnvModelM V env)
-    76      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    77      (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
-    78      ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
+    72  theorem declBlock {F : Nat} {env env₂ : Env}
+    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    74      (mp : EnvModelM V env)
+    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    76      (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
+    77      ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
 
 == whitepaper/Fragment/Consistency.lean#L89-L98
     89  /-- **No closed term inhabits an empty inductive type.**  For a block
@@ -5655,14 +5655,14 @@
    206          (Expr.mkAppN (.const r rlvls) (pvars ++ idx ++ [Expr.mkAppN f xs]))))
    207    pure (closeLams (pre ++ fvs.map g.binder) 0 (Expr.mkAppN (g.slotVar s) (fvs ++ ihs)))
 
-== ConLeche/Kernel/Env.lean#L108-L114
-   108  * `.nested lvls pins` — an auxiliary recursor's rule at an outside
-   109    major (a nested block): the comparands are fixed instantiations,
-   110    the class's levels and parameters the generated recursor type's major
-   111    domain applies the container to (`auxRuleFire`) — `lvls` are levels
-   112    over the recursor's level parameters, `pins` expressions in the
-   113    recursor's rule-prefix context, instantiated at the redex's levels and
-   114    leading arguments. -/
+== ConLeche/Kernel/Env.lean#L107-L113
+   107  * `.nested lvls pins` — an auxiliary recursor's rule at an outside
+   108    major (a nested block): the comparands are fixed instantiations,
+   109    the class's levels and parameters the generated recursor type's major
+   110    domain applies the container to (`auxRuleFire`) — `lvls` are levels
+   111    over the recursor's level parameters, `pins` expressions in the
+   112    recursor's rule-prefix context, instantiated at the redex's levels and
+   113    leading arguments. -/
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L602-L613
    602  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
@@ -5678,18 +5678,18 @@
    612      rules.map fun rl => { rl with fire := fire }
    613    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1193-L1203
-  1193  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
-  1194      (us : List Level) (cvjLps : List Name) (args : List Expr)
-  1195      (rP : Nat) : List Level × List Expr :=
-  1196    match rl.fire with
-  1197    | .nested lvls pins =>
-  1198      (lvls.map (Level.subst lps us),
-  1199       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-  1200         (p.instantiateLevelParams lps us))
-  1201    | .plain =>
-  1202      (cvjLps.map fun p => Level.subst lps us (.param p),
-  1203       args.take cnP)
+== ConLeche/Kernel/CoreDefs.lean#L1177-L1187
+  1177  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+  1178      (us : List Level) (cvjLps : List Name) (args : List Expr)
+  1179      (rP : Nat) : List Level × List Expr :=
+  1180    match rl.fire with
+  1181    | .nested lvls pins =>
+  1182      (lvls.map (Level.subst lps us),
+  1183       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+  1184         (p.instantiateLevelParams lps us))
+  1185    | .plain =>
+  1186      (cvjLps.map fun p => Level.subst lps us (.param p),
+  1187       args.take cnP)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        (iotaCase3 env.find? isK cvj
@@ -6199,9 +6199,9 @@
    293  theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
    294      {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
 
-== ConLeche/Model/Inductives/FixKit.lean#L1767-L1768
-  1767  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
-  1768  fibre is the one tagged empty tuple (the point at a squash instance).
+== ConLeche/Model/Inductives/FixKit.lean#L1777-L1778
+  1777  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
+  1778  fibre is the one tagged empty tuple (the point at a squash instance).
 
 >>> whitepaper/sections/07-left-out.typ
 
@@ -6333,17 +6333,17 @@
     38  def falseRaw : ConstantInfo :=
     39    .indInfo ⟨falseName, [], prop⟩ { all := [falseName] }
 
-== ConLeche/Kernel/Basis/Builder.lean#L9-L18
-     9  # A tiny builder for the hand-written raw pins
-    10  
-    11  The pinned basis blocks, the standard-axiom prerequisite families and
-    12  the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what an
-    13  export carries for them, which is exactly the toolchain's own
-    14  `Init.Prelude` declaration — binder names and infos
-    15  are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
-    16  signature says `{…}`, for the reader) — with the recursor-rule firing mode at its parse placeholder
-    17  (`fire := .plain`).
-    18  
+== ConLeche/Kernel/Basis/Builder.lean#L8-L17
+     8  # A tiny builder for the hand-written raw pins
+     9  
+    10  The pinned basis blocks, the standard-axiom prerequisite families and
+    11  the compiler-trust pins are all *raw* `ConstantInfo`s: exactly what an
+    12  export carries for them, which is exactly the toolchain's own
+    13  `Init.Prelude` declaration — binder names and infos
+    14  are not part of an `Expr` (task #205; `piI`/`lmI` mark where the
+    15  signature says `{…}`, for the reader) — with the recursor-rule firing mode at its parse placeholder
+    16  (`fire := .plain`).
+    17  
 
 == ConLeche/Kernel/Basis.lean#L64-L67
     64  def basisPinHit (block : List ConstantInfo) : Option BasisKind :=

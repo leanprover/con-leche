@@ -152,8 +152,7 @@ not a rule of its relations.
   result. Whether a type has the rule at all is decided once, when it
   is installed, from its shape (one constructor, no index, in a block
   where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 78)[recorded with the type],
-  and that it is not a proposition is read off its type at the use\;
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 78)[recorded with the type]\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,
@@ -196,7 +195,7 @@ by the same argument.
   Unit-likeness is recorded at installation, like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1767, 1768)[the fibre is the one tagged empty tuple]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1777, 1778)[the fibre is the one tagged empty tuple]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]

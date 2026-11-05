@@ -472,7 +472,7 @@ inductive DefEq (env : Env) : Nat → Expr → Expr → Prop where
       a.getAppArgs.length = cnP + cnF →
       wtb.getAppFn = .const T us' →
       env.find? T = some (.indInfo cvT caps) →
-      capsEta cvT caps = true → caps.etaCtor = c →
+      caps.eta = true → caps.etaCtor = c →
       reservedBasisNames.contains T = false →
       reservedBasisNames.contains c = false →
       wtb.getAppArgs.length = caps.etaParams →

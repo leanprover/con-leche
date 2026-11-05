@@ -14,7 +14,6 @@ import ConLeche.Model.Inductives.BlockRuleGrading
 import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Model.Inductives.BlockDeclRun
 import ConLeche.Model.Inductives.BlockData
-import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.TargetClasses
 import ConLeche.Model.Inductives.TargetCallKit

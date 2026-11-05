@@ -332,7 +332,7 @@ def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
           match fe.find? Tn with
           | some (.indInfo cvT caps) => do
             let targs ← pure (Expr.getAppArgsC wtb)
-            if capsEta cvT caps = true ∧ caps.etaCtor = cn ∧
+            if caps.eta = true ∧ caps.etaCtor = cn ∧
                 reservedBasisNames.contains Tn = false ∧
                 reservedBasisNames.contains cn = false ∧
                 targs.length = caps.etaParams ∧

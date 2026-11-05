@@ -231,8 +231,9 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_, ?_⟩
     · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-      exact ⟨⟨Ta, by rw [← hde]; exact hTa, fun hg => hA (hg.mono fun _ h => by
-          rw [← hde]; exact h)⟩,
+      exact ⟨⟨Ta, by rw [← hde]; exact hTa, fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hg =>
+          hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (·.mono fun _ h => by
+            rw [← hde]; exact h))⟩,
         ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
     · -- (C) the η law (task #175 W4c): the former's lookup is unchanged
       -- by the swap, and the reading is `hde`

@@ -226,6 +226,7 @@ that has not stored it yet owes nothing. -/
         TeleFit V ρ TVa ts rest →
         x ∈ˢ ts.foldl SetTheory.app
           (interp V ρ (m.acval T (Level.substFn φ lps us))) →
+        x ≠ pt →
         ∃ restC : V, TeleFit V ρ TCa (fab ρ ts x) restC
 
 /-- **`EtaCoherent` crosses a change of environment** that keeps the
@@ -838,7 +839,7 @@ an all-tower family. -/
               ConLeche.SetTheory.Tower.projS (j + 1) x).foldl SetTheory.app
             (interp V ρ
               (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))) ∧
-      (ConLeche.capsEta cvT capsT = true →
+      (capsT.eta = true →
         EtaCoherent m φ T entry.ctor entry.levelParams us TVa entry.numParams
           (fun _ ts x => ts ++ (List.range entry.numFields).map fun j =>
             ConLeche.SetTheory.Tower.projS (j + 1) x))
@@ -904,8 +905,7 @@ dummy binders carry the reading only; the law never reads them. -/
     -- recursive structure-like stores a table but claims no η —
     -- official's `is_structure_like` has `!is_rec`): the family is
     -- not a proposition, and the record names this table's shape
-    (ConLeche.capsEta cvT capsT = true →
-      (Level.isEquiv entry.structSort .zero == some true) = false ∧
+    (capsT.eta = true →
       capsT.etaCtor = entry.ctor ∧
       capsT.etaParams = entry.numParams ∧
       capsT.etaFields = entry.numFields)) ∧
@@ -919,8 +919,7 @@ dummy binders carry the reading only; the law never reads them. -/
         denote m.acval env φ 0
           (ConLeche.projTele (entry.numParams + 1)
             (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta ∧
-        (TowerGuardAt m φ entry us cvC →
-        ∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
+        (∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
           vs.length = entry.numParams →
           WellDenoted V ρ (Term.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
@@ -931,6 +930,8 @@ dummy binders carry the reading only; the law never reads them. -/
           interp V ρ x ∈ˢ interp V ρ (Term.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
           Term.peelPis Ta (vs ++ [x]) = some rest →
+          -- the guard at the use, or a subject that is not the point
+          (TowerGuardAt m φ entry us cvC ∨ interp V ρ x ≠ pt) →
           WellDenoted V ρ (projNV (i + 1) x) ∧ WellDenotedTy V ρ rest ∧
             interp V ρ (projNV (i + 1) x) ∈ˢ interp V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor

@@ -83,7 +83,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     {T : Name} {cvT : ConstantVal} {caps : IndCaps} {us' : List Level}
     {cvC : ConstantVal} {nPc nFc : Nat}
     {targs : List Expr} {b : Expr} {tsa : List Term} {ba : Term}
-    (hind : env.find? T = some (.indInfo cvT caps)) (heta : ConLeche.capsEta cvT caps = true)
+    (hind : env.find? T = some (.indInfo cvT caps)) (heta : caps.eta = true)
     (hresT : ConLeche.reservedBasisNames.contains T = false)
     (hresC : ConLeche.reservedBasisNames.contains caps.etaCtor = false)
     (hfC : env.find? caps.etaCtor = some (.ctorInfo cvC nPc nFc))
@@ -111,6 +111,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
           WellDenoted V ρ ba →
           interp V ρ ba ∈ˢ interp V ρ (Term.mkAppN
             (m.acval T (Level.substFn φ cvT.levelParams us')) tsa) →
+          interp V ρ ba ≠ pt →
           (∀ x ∈ ConLeche.etaProjs T b caps.etaFields,
             LeavesGr m φ d x ρ) ∧
           (∀ x ∈ ps, WellDenoted V ρ x) ∧
@@ -119,7 +120,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
               (Level.substFn φ cvT.levelParams us'))) ∧
           ∃ restC : V, TeleFit V ρ TCa ((tsa ++ ps).map (interp V ρ)) restC := by
   have hstrip : (cvT.type.stripPis caps.etaParams).isSome = true :=
-    (m.wf.indCaps hind).2 (ConLeche.capsEta_inv heta).1
+    (m.wf.indCaps hind).2 heta
   have hfold : ∀ (ρ : Nat → V) (l : List Term) (x : V),
       l.foldl (fun r y => SetTheory.app r (interp V ρ y)) x
         = (l.map (interp V ρ)).foldl SetTheory.app x := by
@@ -135,7 +136,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     obtain ⟨rfl, rfl⟩ : cvT = cvT' ∧ caps = capsT' := by
       rw [hind] at hfT'
       exact ConstantInfo.indInfo.inj (Option.some.inj hfT')
-    obtain ⟨-, hctr', hpar', hfld'⟩ := himp' heta
+    obtain ⟨hctr', hpar', hfld'⟩ := himp' heta
     obtain ⟨TVa, hTVa, -, hlaw, hcoh⟩ :=
       hetaL cvT caps hind us' (by rw [← hlpsT']; exact hlv)
     obtain ⟨TCa, hTCa, hfitC⟩ :=
@@ -143,7 +144,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     have hslotE : ∀ j, j < caps.etaFields → ∃ entry : ProjEntry,
         env.findProj? T j = some entry := ConLeche.towerSlotsAll_slot htow
     refine ⟨(List.range caps.etaFields).map fun j => projNV (j + 1) ba,
-      ?_, ?_, TCa, hTCa, fun ρ hρ hLb hLt hokW hneW hokB hmemB => ?_⟩
+      ?_, ?_, TCa, hTCa, fun ρ hρ hLb hLt hokW hneW hokB hmemB hneB => ?_⟩
     · rw [etaProjs_eq]
       refine DenoteSpine.map_list _ fun j hj => ?_
       obtain ⟨entry, hfe⟩ := hslotE j (List.mem_range.mp hj)
@@ -166,7 +167,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
         rw [hlenTs, hpar']
       have hb := hlaw ρ (tsa.map (interp V ρ)) rest (interp V ρ ba) hlenP hfit hmemFam
       obtain ⟨restC, hfC'⟩ := hfitC ρ (tsa.map (interp V ρ)) rest (interp V ρ ba)
-        hlenP hfit hmemFam
+        hlenP hfit hmemFam hneB
       have hps : ((List.range caps.etaFields).map fun j => projNV (j + 1) ba).map
             (interp V ρ)
           = (List.range e0.numFields).map fun j =>
@@ -185,10 +186,8 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
         rw [hind] at hfTj
         obtain ⟨hcvTj, hcapsTj⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfTj)
         rw [← hcvTj] at hlpsTj
-        rw [← hcapsTj, ← hcvTj] at himpj
-        obtain ⟨hnpj, -, hparj, -⟩ := himpj heta
-        have hgj : TowerGuardAt m φ entry us' cvCj :=
-          fun hp => by rw [hp] at hnpj; exact nomatch hnpj
+        rw [← hcapsTj] at himpj
+        obtain ⟨-, hparj, -⟩ := himpj heta
         obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj us' (by rw [← hlpsTj]; exact hlv)
         obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
         have hlenVs : tsa.length = entry.numParams := by
@@ -199,7 +198,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
             (by rw [ConLeche.projTele_stripPis]; rfl) (hTad d)
         obtain ⟨restj, hpeel⟩ := peelPis_of_piChain _ hpc
         rw [← hlpsTj] at hA
-        exact (hA hgj ρ tsa ba restj hlenVs hokW hneW hokB hmemB hpeel).1
+        exact (hA ρ tsa ba restj hlenVs hokW hneW hokB hmemB hpeel (Or.inr hneB)).1
       · rw [hb, List.map_append, hps, hctr', hlpsT']
       · rw [List.map_append, hps]; exact hfC'
   · -- NO FIELD: `CapsOk`'s law
@@ -209,9 +208,9 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
       rw [etaProjs_eq, h0]; rfl
     have hfam : ConLeche.EtaFamilyStored env T caps := ⟨hresC, ⟨cvC, nPc, nFc, hfC⟩, h0⟩
     obtain ⟨TVa, hTVa, -, hlaw, hcoh⟩ :=
-      hin.caps_ok.1 T cvT caps hind (ConLeche.capsEta_inv heta).1 hresT hfam φ us' hlv
+      hin.caps_ok.1 T cvT caps hind heta hresT hfam φ us' hlv
     obtain ⟨TCa, hTCa, hfitC⟩ := hcoh cvC nPc nFc hfC
-    refine ⟨[], ?_, ?_, TCa, hTCa, fun ρ _ _ _ hokW hneW _ hmemB => ?_⟩
+    refine ⟨[], ?_, ?_, TCa, hTCa, fun ρ _ _ _ hokW hneW _ hmemB hneB => ?_⟩
     · rw [hetaP]; exact DenoteSpine.nil
     · intro x hx
       rw [hetaP] at hx
@@ -224,7 +223,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
         rwa [interp_mkAppN, hfold] at h
       have hb := hlaw ρ (tsa.map (interp V ρ)) rest (interp V ρ ba) (hlenTs ρ) hfit hmemFam
       obtain ⟨restC, hfC'⟩ := hfitC ρ (tsa.map (interp V ρ)) rest (interp V ρ ba)
-        (hlenTs ρ) hfit hmemFam
+        (hlenTs ρ) hfit hmemFam hneB
       refine ⟨fun x hx => ?_, fun x hx => absurd hx List.not_mem_nil, ?_, restC, ?_⟩
       · rw [hetaP] at hx
         exact absurd hx List.not_mem_nil

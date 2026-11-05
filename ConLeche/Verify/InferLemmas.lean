@@ -1693,7 +1693,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
       a.getAppArgs.length = cnP + cnF ∧
       wtb.getAppFn = .const T us' ∧
       env.find? T = some (.indInfo cvT caps) ∧
-      capsEta cvT caps = true ∧ caps.etaCtor = c ∧
+      caps.eta = true ∧ caps.etaCtor = c ∧
       reservedBasisNames.contains T = false ∧
       reservedBasisNames.contains c = false ∧
       wtb.getAppArgs.length = caps.etaParams ∧
@@ -1761,7 +1761,7 @@ theorem structEtaCertWith_inv {env : Env} {fuel d : Nat} {a b wtb : Expr}
   | some (.indInfo cvT caps) => ?_
   intro h
   dsimp only at h
-  by_cases hcond : capsEta cvT caps = true ∧ caps.etaCtor = c ∧
+  by_cases hcond : caps.eta = true ∧ caps.etaCtor = c ∧
       reservedBasisNames.contains T = false ∧
       reservedBasisNames.contains c = false ∧
       wtb.getAppArgs.length = caps.etaParams ∧

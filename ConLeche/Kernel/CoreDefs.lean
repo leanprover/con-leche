@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Kernel.Env
 public import ConLeche.Kernel.PropRead
 import ConLeche.Kernel.Level
 import ConLeche.Kernel.ExprOps
@@ -82,22 +81,6 @@ parameter `u` itself does not).  The instantiated zero-ness datum is
 unsatisfiable exactly where the instantiated sort is never zero. -/
 def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
   (Level.substPW cvT.levelParams us (formerZ cvT)).isNever
-
-/-- Is a stored inductive's result sort not literally `Prop`: not zero at every
-valuation?  The datum is exact, so this needs no level comparison.  Where the
-sort is not read the answer is the conservative one: no η. -/
-def formerNotProp (cvT : ConstantVal) : Bool :=
-  !(formerZ cvT).isProp
-
-/-- **The η capability, at use**: the block makes the family structure-like
-(`IndCaps.eta`) and the family is not literally `Prop`. -/
-def capsEta (cvT : ConstantVal) (caps : IndCaps) : Bool :=
-  caps.eta && formerNotProp cvT
-
-/-- What `capsEta` says. -/
-theorem capsEta_inv {cvT : ConstantVal} {caps : IndCaps} (h : capsEta cvT caps = true) :
-    caps.eta = true ∧ formerNotProp cvT = true := by
-  simpa [capsEta, Bool.and_eq_true] using h
 
 /-- **The ι case split's test** (task #342 L10, after task
 #349's prototype): is the constructor's family never `Prop` at the
@@ -1165,21 +1148,22 @@ def andRescueSlots (env : Env) (ctor : Name) (nP : Nat) : Bool :=
 
 /-- **The structure-η rescue's standing condition, at use**: the single
 rule's constructor `ctor` (stored as `cvj`) is the η constructor of its
-family `cvT`, which has the η capability (`capsEta`), and carries the family's
+family `cvT`, which is structure-like (`IndCaps.eta`), and carries the family's
 level parameters.  The rescue asks this where it has just looked all three up;
 nothing about it is stored.
 
 The level-parameter conjunct is what lets the rescue fabricate the
 constructor application at the major type's levels without comparing
-the two lists per call. -/
+the two lists per call.  `And.intro` is left to `And`'s own rescue. -/
 def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
-  capsEta cvT caps && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams
+  caps.eta && caps.etaCtor == ctor && cvj.levelParams == cvT.levelParams && ctor != andIntroName
 
 /-- What `etaRescueOk` says. -/
 theorem etaRescueOk_inv {ctor : Name} {cvj cvT : ConstantVal} {caps : IndCaps}
     (h : etaRescueOk ctor cvj cvT caps = true) :
-    capsEta cvT caps = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
-  simpa [etaRescueOk, Bool.and_eq_true, and_assoc] using h
+    caps.eta = true ∧ caps.etaCtor = ctor ∧ cvj.levelParams = cvT.levelParams := by
+  simp only [etaRescueOk, Bool.and_eq_true, beq_iff_eq] at h
+  exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
 
 /-- The level and constructor-parameter comparands a firing rule's
 checks compare the major's constructor levels and parameters against:

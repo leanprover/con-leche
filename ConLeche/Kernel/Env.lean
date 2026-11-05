@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Expr
-public import ConLeche.Kernel.PropWhen
 
 @[expose] public section
 
@@ -182,12 +181,12 @@ alone decides, read off the block's records at install: structure-likeness
 for its (single-constructor) values, unit-like collapse (all inhabitants
 definitionally equal), and the family's names and counts.  The family's
 result sort is on no record, so what depends on it is computed where it is
-read, from the former's type (`formerResSort`, `capsEta`, `formerNeverZero`).
+read, from the former's type (`formerResSort`, `formerNeverZero`).
 The pinned basis blocks carry pinned capabilities. -/
 structure IndCaps where
-  /-- Official's `is_structure_like`: one constructor, no index, a block that
-  is not recursive.  The η rules ask `capsEta` of the former, which adds that
-  the family is not literally `Prop`. -/
+  /-- Official's `is_non_rec_structure`: one constructor, no index, a block that
+  is not recursive.  A proposition may have it: a proof is the point, and the
+  η laws speak of what is not. -/
   eta : Bool := false
   /-- The single constructor the eta law reconstructs through
   (meaningful only when `eta`). -/

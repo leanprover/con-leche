@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 128, 136)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 127, 135)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);
@@ -782,7 +782,7 @@ uniqueness the two have one domain, which holds the argument.
   kernel. The law there is proved without the comparisons: when the
   redex is not the point, the major is a tagged tuple, which ties the
   constructor application to the recursor's levels and parameters
-  (#src("ConLeche/Model/Env/Laws.lean", 521, 555)[what the law
+  (#src("ConLeche/Model/Env/Laws.lean", 522, 556)[what the law
   provides instead]).
 ]
 
@@ -967,11 +967,11 @@ without a certificate, through the projections of the major.
 #real[
   The checker decides the case with one level test per redex: whether
   the constructor's family is
-  #src("ConLeche/Kernel/CoreDefs.lean", 113, 121)[never a proposition]
+  #src("ConLeche/Kernel/CoreDefs.lean", 96, 104)[never a proposition]
   at the levels the rule compares with, read off the family's type where
   the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 130, 132)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 113, 115)[other rule] is the
   certified case, as in the fragment.
 ]
 
@@ -1001,7 +1001,7 @@ assumed of the environment they extend.
 
 #real[
   The block step is one theorem,
-  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 73, 78)[the install of a block],
+  #src("ConLeche/Model/Inductives/DeclBlockStep.lean", 72, 77)[the install of a block],
   read off the checker's run stage by stage.
 ]
 

@@ -376,7 +376,7 @@ def structEtaCertWith (r : CoreFns m) (env : Env) (depth : Nat)
         | .const T us' =>
           match env.find? T with
           | some (.indInfo cvT caps) =>
-            if capsEta cvT caps = true ∧ caps.etaCtor = c ∧
+            if caps.eta = true ∧ caps.etaCtor = c ∧
                 reservedBasisNames.contains T = false ∧
                 reservedBasisNames.contains c = false ∧
                 wtb.getAppArgs.length = caps.etaParams ∧

@@ -663,7 +663,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     (_hlen : a.getAppArgs.length = cnP + cnF)
     (hthead : wtb.getAppFn = .const T us')
     (hind : env.find? T = some (.indInfo cvT caps))
-    (heta : ConLeche.capsEta cvT caps = true) (hetaCtor : caps.etaCtor = c)
+    (heta : caps.eta = true) (hetaCtor : caps.etaCtor = c)
     (hresT : ConLeche.reservedBasisNames.contains T = false)
     (hresc : ConLeche.reservedBasisNames.contains c = false)
     (htlen : wtb.getAppArgs.length = caps.etaParams)
@@ -723,7 +723,7 @@ theorem DefEq.structEta_sound (hin : RulesInputs V m φ) {d : Nat}
     (by rw [hetaCtor]; exact hresc) (by rw [hetaCtor]; exact hctor) hlv htlen htow
     hfb hCb hdb hspt
   obtain ⟨hLps, hokps, hb, restC, hfitC⟩ :=
-    hside ρ hρ hLb (leavesGr_spine hLrρ) hokW hneW hokB hmemB
+    hside ρ hρ hLb (leavesGr_spine hLrρ) hokW hneW hokB hmemB hneB
   obtain ⟨-, hoA⟩ := hoist_spineV asa hokA
   obtain ⟨-, hoT⟩ := hoist_spineV tsa hokW
   -- the constructor side fits the same telescope: its head inhabits

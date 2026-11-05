@@ -51,7 +51,7 @@ proposition the stream declares. The real checker installs `Eq`,
 `Nat`, `Empty`, `False` and the quotient `Quot` from hand-written
 copies of the toolchain's declarations
 (#src("ConLeche/Kernel/Basis/False.lean", 37, 39)[`False`, for instance],
-#src("ConLeche/Kernel/Basis/Builder.lean", 9, 18)[the builder]): a
+#src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]): a
 stream block that carries a pin's names and agrees with it up to
 renaming of universe parameters
 #src("ConLeche/Kernel/Basis.lean", 64, 67)[installs the pin], and one that

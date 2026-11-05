@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Verify.PropWhen
 import ConLeche.Model.Inductives.GenRecFinal
 import ConLeche.Verify.Inductives.GenRecRun

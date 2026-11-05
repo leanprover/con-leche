@@ -927,8 +927,8 @@ theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
   obtain ⟨hokTe, heqTe⟩ :=
     hredT σ hσ (hLpe'.of_subset htpesub) hokTpe.1 hokTpe.ne_pt
   -- the tower law's typing clause
-  exact hA hguard σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
-    (heqTe ▸ hmemPe) hpeel
+  exact hA σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
+    (heqTe ▸ hmemPe) hpeel (Or.inl hguard)
 
 /-- **A projection at the io grade** (the io claim's projection
 consumer): a projection of the point is the point (`projS_pt`); a
@@ -1030,8 +1030,8 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
     -- "not pt" source (1): the scrutinee's inferred type `tpea` is a type
     obtain ⟨hokTe, heqTe⟩ :=
       hredT σ hσ (hLpe'.of_subset htpesub) hokTpe.1 hokTpe.ne_pt
-    have hrow := hA hguard σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
-      (heqTe ▸ hmemPe) hpeel
+    have hrow := hA σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
+      (heqTe ▸ hmemPe) hpeel (Or.inl hguard)
     exact IORelN.of_mem hrest hrow.2.1 hrow.2.2
   · obtain ⟨_, _, rfl⟩ := h.forallE
     exact absurd (Red.rigid hter trivial ▸ hhead) (IsRigid.not_const (e := .forallE _ _) trivial)
