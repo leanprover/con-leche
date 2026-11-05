@@ -3,6 +3,7 @@ module
 public import ConLeche.Model.Inductives.DeclBlockStep
 public import ConLeche.Model.Inductives.FormerSwap
 public import ConLeche.Verify.EnvExt
+import ConLeche.Model.Inductives.StoredSem
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Verify.Cached.BridgeCS4
@@ -768,5 +769,34 @@ theorem restore_find {F : Nat} {p₀ : BlockParts} {env env₃ : Env} {vs new : 
     · exact .inl he.symm
     · refine .inr (.inr ⟨cv, cvR, caps, hF, hn, hV, ?_⟩)
       rw [← hn]; exact hF.find
+
+/-- **A former the stored environment has where the job's has its reduct.** -/
+structure Swapped (env env₃ env₂ : Env) (n : Name) (cvR cvS : ConstantVal) (caps : IndCaps) : Prop where
+  find₃ : env₃.find? n = some (.indInfo cvR caps)
+  find₂ : env₂.find? n = some (.indInfo cvS caps)
+  nameS : cvS.name = n
+  nameR : cvR.name = n
+  lps : cvR.levelParams = cvS.levelParams
+  headed : ConLeche.formerDefHeaded cvS = true
+  guard : ConLeche.litGuardFamilies.contains n = false
+  resolve : cvS.type.constsResolve env = true
+  boundR : cvR.type.constsResolve env = true
+  ran : ∃ F, reducedFormer (fueledOps .verified F) env cvS (caps.nparams + caps.nIdx) = .ok cvR
+
+/-- The two readings of a swapped former, at the input's carrier. -/
+theorem Swapped_read {env : Env} {mp : EnvModelM V env} (hS : ShownFacts mp) (hcov : LfpCover mp [])
+    {vs : List ConstantInfo} {F nP : Nat} {m₀ m : MemberShape}
+    (cases_ : (MemberReduct F env nP m₀ m ∧ ConLeche.formerDefHeaded m₀.cvT = true) ∨
+      ∃ caps, ViewFacts env m₀.cvT m.cvT caps) (ψ : Name → Nat) :
+    ∃ Ts Tr : Term, denote mp.base2.acval env ψ 0 m₀.cvT.type = some Ts ∧
+      denote mp.base2.acval env ψ 0 m.cvT.type = some Tr ∧
+      ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr := by
+  rcases cases_ with ⟨hr, hd⟩ | ⟨caps, hF⟩
+  · rcases hr.how with ⟨hd', -⟩ | ⟨-, -, h₁, h₂, hb, -⟩
+    · rw [hd] at hd'; exact nomatch hd'
+    · obtain ⟨Ts, Tr, h₃, h₄, -, -, heq⟩ := storedFormer_sem mp h₁ h₂ hb ψ
+      exact ⟨Ts, Tr, h₃, h₄, heq⟩
+  · obtain ⟨Tr, Ts, h₁, h₂, h₃⟩ := view_read hS hcov hF ψ
+    exact ⟨Ts, Tr, h₂, h₁, fun ρ => (h₃ ρ).1⟩
 
 end ConLeche.Model

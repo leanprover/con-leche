@@ -432,6 +432,32 @@ theorem ConstWF.of_find {env env' : Env} (h : env'.find? = env.find?) {c : Const
   simp only [Expr.constsResolve_eq_of_find h]
   exact hc
 
+theorem Expr.constsResolve_eq_of_isSome {env env' : Env}
+    (h : ∀ n, (env'.find? n).isSome = (env.find? n).isSome) (e : Expr) :
+    e.constsResolve env' = e.constsResolve env := by
+  cases h₂ : e.constsResolve env with
+  | true => exact Expr.constsResolve_of_find (fun n hn => by rw [h]; exact hn) h₂
+  | false =>
+    cases h₁ : e.constsResolve env' with
+    | true =>
+      have := Expr.constsResolve_of_find (env := env') (env' := env)
+        (fun n hn => by rw [← h]; exact hn) h₁
+      rw [this] at h₂; exact nomatch h₂
+    | false => rfl
+
+/-- A constant's well-formedness reads which names are stored. -/
+theorem ConstWF.of_isSome {env env' : Env} (h : ∀ n, (env'.find? n).isSome = (env.find? n).isSome)
+    {c : ConstantInfo} (hc : ConstWF env c) : ConstWF env' c := by
+  unfold ConstWF at hc ⊢
+  simp only [Expr.constsResolve_eq_of_isSome h]
+  exact hc
+
+theorem TableWF.of_isSome {env env' : Env} (h : ∀ n, (env'.find? n).isSome = (env.find? n).isSome)
+    {t : ProjTable} (ht : TableWF env t) : TableWF env' t := by
+  unfold TableWF at ht ⊢
+  simp only [Expr.constsResolve_eq_of_isSome h, h]
+  exact ht
+
 /-- A table's well-formedness reads the environment only through
 `find?`. -/
 theorem TableWF.of_find {env env' : Env} (h : env'.find? = env.find?) {t : ProjTable}
