@@ -69,8 +69,9 @@ theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : 
     | some c => rw [hfind n c hc]; rfl
   refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_⟩
   · obtain ⟨hfindT, hres, hleaf, hFD⟩ := hform c cvTb hc
-    refine ⟨hfind _ _ hfindT, Expr.constsResolve_of_find hsome hres, fun ψ => ?_, ?_⟩
-    · rw [hag cvTb.name (by rw [hfindT]; rfl)]; exact hleaf ψ
+    refine ⟨hfindT.of_ext hfind hden, Expr.constsResolve_of_find hsome hres, fun ψ => ?_, ?_⟩
+    · obtain ⟨cvS, hfS, -⟩ := hfindT
+      rw [hag cvTb.name (by rw [hfS]; rfl)]; exact hleaf ψ
     · exact ⟨fun ψ => by
         rw [hden ψ 0 cvTb.type (constsBound_of_constsResolve _ hres)]; exact hFD.read ψ,
       hFD.len, hFD.okTy, hFD.below, hFD.params, hFD.syn⟩

@@ -303,6 +303,32 @@ theorem checkSpineAt_certs {F d : Nat} :
           (checkSpineAt_certs h)
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
+/-- The arguments checked against a telescope are read. -/
+theorem checkSpineAt_reads (m : EnvModel V env) (φ : Name → Nat) {F d : Nat} :
+    ∀ {ds : List Expr} {T : Expr},
+      ConLeche.checkSpineAt (ConLeche.fueledOps .verified F) env d T ds = .ok () →
+      (∀ x ∈ ds, Expr.WScoped d x) → (∀ x ∈ ds, x.looseBVarsBounded 0 = true) →
+      (∀ x ∈ ds, Expr.LeavesBounded x) →
+      ∃ dsa, DenoteSpine m.acval env φ d ds dsa
+  | [], _, _, _, _, _ => ⟨[], .nil⟩
+  | a :: as, T, h, hw, hb, hL => by
+    unfold ConLeche.checkSpineAt at h
+    split at h
+    · obtain ⟨ta, hta, h⟩ := ConLeche.exceptBind_ok h
+      obtain ⟨b, -, h⟩ := ConLeche.exceptBind_ok h
+      cases b with
+      | false => simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
+      | true =>
+        simp only [↓reduceIte] at h
+        obtain ⟨ea, hea⟩ := acceptedReads_of m φ hta (hw a List.mem_cons_self)
+          (hb a List.mem_cons_self) (hL a List.mem_cons_self)
+        obtain ⟨vs, hvs⟩ := checkSpineAt_reads m φ h
+          (fun x hx => hw x (List.mem_cons_of_mem _ hx))
+          (fun x hx => hb x (List.mem_cons_of_mem _ hx))
+          (fun x hx => hL x (List.mem_cons_of_mem _ hx))
+        exact ⟨ea :: vs, .cons hea hvs⟩
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-- A family's key check, inverted. -/
 theorem familyKeyCheck_inv {find? : Name → Option ConstantInfo} {F d : Nat} {c : Name}
     {cv : ConstantVal} {caps : IndCaps} (hf : find? c = some (.indInfo cv caps)) {us : List Level}
@@ -322,6 +348,27 @@ theorem familyKeyCheck_inv {find? : Name → Option ConstantInfo} {F d : Nat} {c
     rename_i tyC hfam
     exact ⟨tyC, by simpa using hl, hfam, h⟩
   · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- The parameters of a checked key are read. -/
+theorem familyKey_reads (m : EnvModel V env) (φ : Name → Nat) {find? : Name → Option ConstantInfo}
+    {F d : Nat} {c : Name} {us : List Level} {ds : List Expr}
+    (h : ConLeche.familyKeyCheck (ConLeche.fueledOps .verified F) env find? d c us ds = .ok ())
+    (hw : ∀ x ∈ ds, Expr.WScoped d x) (hb : ∀ x ∈ ds, x.looseBVarsBounded 0 = true)
+    (hL : ∀ x ∈ ds, Expr.LeavesBounded x) : ∃ dsa, DenoteSpine m.acval env φ d ds dsa := by
+  cases hf : find? c with
+  | none =>
+    unfold ConLeche.familyKeyCheck at h
+    rw [hf] at h
+    simp [throw, throwThe, MonadExceptOf.throw] at h
+  | some ci =>
+    cases ci with
+    | indInfo cv caps =>
+      obtain ⟨_, -, -, hs⟩ := familyKeyCheck_inv hf h
+      exact checkSpineAt_reads m φ hs hw hb hL
+    | _ =>
+      unfold ConLeche.familyKeyCheck at h
+      rw [hf] at h
+      simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The key's parameters fit the container's parameter telescope**, at
 every valuation of the key's context: the key's arguments carry full-grade

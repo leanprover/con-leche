@@ -104,6 +104,27 @@ theorem FormerStored.cross {env : Env} {m : EnvModel V env} {cvTa : ConstantVal}
   obtain ⟨cvS, hf, hD⟩ := h
   exact ⟨cvS, ConLeche.Env.find?_cons_of_fresh hfresh hf, hD.cross hfresh m₂ hac⟩
 
+/-- A stored former at any extension that reads every bound term alike. -/
+theorem FormerStored.of_ext {envC envR : Env} {mC : EnvModel V envC} {mR : EnvModel V envR}
+    {cvTa : ConstantVal} {caps : IndCaps} (h : FormerStored mC cvTa caps)
+    (hfind : ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → envR.find? n = some c)
+    (hden : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
+      denote mR.acval envR ψ dd e = denote mC.acval envC ψ dd e) :
+    FormerStored mR cvTa caps := by
+  obtain ⟨cvS, hf, hD⟩ := h
+  have hsome : ∀ n : Name, (envC.find? n).isSome = true → (envR.find? n).isSome = true := by
+    intro n hn
+    cases hc : envC.find? n with
+    | none => rw [hc] at hn; exact nomatch hn
+    | some c => rw [hfind n c hc]; rfl
+  refine ⟨cvS, hfind _ _ hf, hD.name, hD.lps, hD.fvar, hD.defined, hD.bounded,
+    Expr.constsResolve_of_find hsome hD.resolve, fun ψ => ?_, hD.readFvar, hD.readDefined,
+    hD.readBounded, Expr.constsResolve_of_find hsome hD.readResolve, hD.shows⟩
+  obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := hD.read ψ
+  refine ⟨Ts, Tr, ?_, ?_, h₃⟩
+  · rw [hden ψ 0 _ (constsBound_of_constsResolve _ hD.resolve)]; exact h₁
+  · rw [hden ψ 0 _ (constsBound_of_constsResolve _ hD.readResolve)]; exact h₂
+
 /-- The former under its block's level parameters reads as the model's family. -/
 theorem FormerStored.denote_self {env : Env} {m : EnvModel V env} {cvTa : ConstantVal}
     {caps : IndCaps} (h : FormerStored m cvTa caps) (ψ : Name → Nat) (d : Nat) :

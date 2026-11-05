@@ -282,7 +282,7 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
           (∀ y ∈ w.getAppArgs.drop nPc,
             y.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
           ∃ nI cty, w.getAppArgs.length = nPc + nI ∧
-            ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
+            ConLeche.nestInstType (m := CheckM) ctx ops envW (ctx.hiAt prog.length)
               ⟨I, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty)) ) := by
   generalize hB : rP + fvsF.length = B at *
   have himgB : ∀ v r, nestHoleImg ctx prog v = some r → r.looseBVarsBounded 0 = true :=

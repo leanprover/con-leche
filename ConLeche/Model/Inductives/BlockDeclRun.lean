@@ -81,8 +81,8 @@ theorem blockMembersRun_seam
     have hm : m < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k := by
       rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hcv).1
     obtain ⟨hfind, -, -, hFD⟩ := hcore.1 m cvTb hcv
-    have hwf := mpC.base2.wf.consts _ (List.mem_of_find?_eq_some hfind)
-    exact ⟨hname m cvTb hcv, hS.lpsT m cvTb hm hcv, ⟨_, hfind⟩, hwf.1, hwf.2.2.2.1, hFD⟩
+    obtain ⟨cvS, -, hDS⟩ := id hfind
+    exact ⟨hname m cvTb hcv, hS.lpsT m cvTb hm hcv, ⟨_, hfind⟩, hDS.readFvar, hDS.readBounded, hFD⟩
   · intro m ms hms
     have hm : m < pp.toBlockShape.members.length := (List.getElem?_eq_some_iff.mp hms).1
     have hg : pp.toBlockShape.members.getD m default = ms := by

@@ -41,6 +41,44 @@ theorem envExt_trans {env₁ env₂ env₃ : Env} (h₁ : EnvExt env₁ env₂)
     rw [ht T hs]; exact h₁.table T hT
   facts := h₁.facts
 
+/-- A family's telescope is one, at every fuel a run has. -/
+theorem familyTelescope_unique {env : Env} {cv : ConstantVal} {caps : IndCaps} {F₁ F₂ : Nat}
+    {t₁ t₂ : Expr}
+    (h₁ : ConLeche.familyTelescope (fueledOps .verified F₁) env cv caps = .ok t₁)
+    (h₂ : ConLeche.familyTelescope (fueledOps .verified F₂) env cv caps = .ok t₂) : t₁ = t₂ := by
+  rcases ConLeche.familyTelescope_cases h₁ with ⟨hfl, rfl⟩ | ⟨hfl, -, -, r₁, hr₁, rfl⟩ <;>
+  rcases ConLeche.familyTelescope_cases h₂ with ⟨hfl', rfl⟩ | ⟨hfl', -, -, r₂, hr₂, rfl⟩
+  · rfl
+  · rw [hfl] at hfl'; exact nomatch hfl'
+  · rw [hfl] at hfl'; exact nomatch hfl'
+  · have g₁ : reducedFormer (fueledOps .verified (max F₁ F₂)) env cv (caps.nparams + caps.nIdx)
+        = .ok r₁ := by
+      rw [← reducedFormer_datF]
+      exact ConLeche.Cached.FueledM.up (Nat.le_max_left _ _) (by rw [reducedFormer_datF]; exact hr₁)
+    have g₂ : reducedFormer (fueledOps .verified (max F₁ F₂)) env cv (caps.nparams + caps.nIdx)
+        = .ok r₂ := by
+      rw [← reducedFormer_datF]
+      exact ConLeche.Cached.FueledM.up (Nat.le_max_right _ _) (by rw [reducedFormer_datF]; exact hr₂)
+    rw [g₁] at g₂
+    obtain rfl : r₁ = r₂ := by simpa using g₂
+    rfl
+
+open Classical in
+/-- **A family's telescope, as any run reads it** (its declared type where no run reaches one). -/
+noncomputable def readTelescope (env : Env) (cv : ConstantVal) (caps : IndCaps) : Expr :=
+  if h : ∃ F ty, ConLeche.familyTelescope (fueledOps .verified F) env cv caps = .ok ty then
+    h.choose_spec.choose
+  else cv.type
+
+theorem readTelescope_eq {env : Env} {cv : ConstantVal} {caps : IndCaps} {F : Nat} {ty : Expr}
+    (h : ConLeche.familyTelescope (fueledOps .verified F) env cv caps = .ok ty) :
+    readTelescope env cv caps = ty := by
+  have hx : ∃ F ty, ConLeche.familyTelescope (fueledOps .verified F) env cv caps = .ok ty :=
+    ⟨F, ty, h⟩
+  unfold readTelescope
+  rw [dif_pos hx]
+  exact familyTelescope_unique hx.choose_spec.choose_spec h
+
 /-- **The reductions behind a carrier's recorded telescopes**: a member whose declared type does
 not show its telescope reduced to what its block read, at a prefix of the environment. -/
 @[expose] def FamilyRan {env : Env} (mp : EnvModelM V env) : Prop :=

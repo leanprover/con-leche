@@ -89,7 +89,7 @@ producer. -/
   cvTas.length = d.k ∧
   (∀ (m : Nat) (cvTb : ConstantVal), cvTas[m]? = some cvTb →
     d.memberName m = cvTb.name ∧ cvTb.levelParams = q.lps ∧
-    (∃ caps, envC.find? cvTb.name = some (.indInfo cvTb caps)) ∧
+    (∃ caps, FormerStored mo cvTb caps) ∧
     cvTb.type.hasFvar = false ∧ cvTb.type.looseBVarsBounded 0 = true ∧
     FormerData mo cvTb (d.nP + d.nIdxAt m) d.resSort (d.ppsM m)) ∧
   (∀ (m : Nat) (ms : ConLeche.MemberShape), q.members[m]? = some ms →

@@ -92,11 +92,7 @@ theorem targetOutsideInst_inv {ops : ConLeche.CheckerOps ConLeche.CheckM} {fe : 
       simp only [pure, Except.pure] at h
       split at h
       · next s hs =>
-        split at h
-        · refine ⟨cvI, caps, tyI, ty, s, hf, hfam, hty, ?_, ?_⟩
-          · rw [← hs]
-          · exact (Except.ok.inj h).symm
-        · exact nomatch h
+        exact ⟨cvI, caps, tyI, ty, s, hf, hfam, hty, by rw [← hs], (Except.ok.inj h).symm⟩
       · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
     · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
