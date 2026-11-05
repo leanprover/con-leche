@@ -90,10 +90,10 @@ theorem][In the fragment the relations are the checker. The real
 checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 333, 338)[The fold] installs every
+#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 311, 316)[The fold] installs every
 declaration first and then checks the recorded declarations one by one,
 each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Verify/Cached/Defer.lean", 268, 276)[a pool of workers] whose results are reassembled in
+second phase on #src("ConLeche/Verify/Cached/Defer.lean", 261, 269)[a pool of workers] whose results are reassembled in
 fold order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time

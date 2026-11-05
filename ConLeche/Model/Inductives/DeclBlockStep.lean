@@ -1,13 +1,12 @@
 module
 
+import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.PropWhen
 import ConLeche.Model.Inductives.GenRecFinal
 import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.PosDerivTie
-import ConLeche.Verify.Cached.BlockRunC
-import ConLeche.Verify.Cached.BlockPushes
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockHoleGrade

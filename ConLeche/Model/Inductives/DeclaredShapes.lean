@@ -32,7 +32,7 @@ public section
 **The interface.**  A block constructor's fields with holes `F` (the
 member-abstracted stored field readings, the members' whole applications
 at the hole slots) and its concrete stored field readings `S` are related
-by a kind-free fact (`StoredFieldShapes`):
+by a kind-free fact (`DeclaredFieldShapes`):
 
 * `override`: `F` read with, at each hole slot, the member's value
   APPLIED TO THE PARAMETERS is `S` — "each hole := the application it
@@ -88,7 +88,7 @@ stored field readings `S` (see the module docstring); `leaf t` is member
 is stated at (the fields with holes are the walk's NORMAL FORM, which
 reads like the declared type only at frames satisfying the walk's
 context). -/
-structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : Nat → Nat)
+structure DeclaredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : Nat → Nat)
     (leaf : Nat → Term) (Δp : List Term) (F S : List Term) : Prop where
   len : F.length = S.length
   override : ∀ (ρ : Nat → V), Sat V Δp ρ → ∀ hs : List V, hs.length = k →
@@ -99,10 +99,10 @@ structure StoredFieldShapes (V : Type w) [SetTheory V] (k nP w : Nat) (nIdxOf : 
         = interp V (consList as ρ) (S.getD l default)
 
 /-- The facts read the members' leaves below `k` only. -/
-theorem StoredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
+theorem DeclaredFieldShapes.congr_leaf {V : Type w} [SetTheory V] {k nP w : Nat}
     {nIdxOf : Nat → Nat} {leaf leaf' : Nat → Term} {Δp F S : List Term}
-    (h : StoredFieldShapes V k nP w nIdxOf leaf Δp F S) (hl : ∀ t, t < k → leaf t = leaf' t) :
-    StoredFieldShapes V k nP w nIdxOf leaf' Δp F S :=
+    (h : DeclaredFieldShapes V k nP w nIdxOf leaf Δp F S) (hl : ∀ t, t < k → leaf t = leaf' t) :
+    DeclaredFieldShapes V k nP w nIdxOf leaf' Δp F S :=
   ⟨h.len, fun ρ hρ hs hhs hv => h.override ρ hρ hs hhs fun t ht => by rw [hl t ht]; exact hv t ht⟩
 
 /-! ## The walked term looks up no member
@@ -165,13 +165,13 @@ theorem Expr.readsAt_of_nestOcc {names : List Name} {lo hi : Nat} {env : Env}
 environment whose types end in a sort, fresh before it, and the block's
 environment agrees with the pre-block one off the members. -/
 theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
-    {cvTas : List ConstantVal} {names : List Name}
-    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
-    (hfindM : ∀ cvTb ∈ cvTas, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
+    {formers : List ConstantVal} {names : List Name}
+    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ formers, cvTb.name = n)
+    (hfindM : ∀ cvTb ∈ formers, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
       (ConLeche.declinedAtDefinition.contains cvTb.name = true →
         ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
-    (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
-    (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n) :
+    (hfresh : ∀ cvTb ∈ formers, env.find? cvTb.name = none)
+    (hI : ∀ n, (∀ cvTb ∈ formers, cvTb.name ≠ n) → envI.find? n = env.find? n) :
     (ConLeche.natLitSupported envI = true →
       ConLeche.natZeroName ∉ names ∧ ConLeche.natSuccName ∉ names) ∧
     (ConLeche.strLitSupported envI = true →
@@ -188,7 +188,7 @@ theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
     refine ⟨cvS, caps, hf, fun hg => ?_, hfresh cvTb hcv⟩
     obtain ⟨k, bs, s, h⟩ := hs hg
     exact ⟨s, piResult_of_stripPis_sort k h⟩
-  have hnm : ∀ n, n ∉ names → ∀ cvTb ∈ cvTas, cvTb.name ≠ n :=
+  have hnm : ∀ n, n ∉ names → ∀ cvTb ∈ formers, cvTb.name ≠ n :=
     fun n hn cvTb hcv h => hn ((hnames n).mpr ⟨cvTb, hcv, h⟩)
   refine ⟨fun hs => ?_, fun hs => ?_⟩
   · simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hs
@@ -542,7 +542,7 @@ frame satisfying the walk's context `Δh`): the crest reads, at the walk's
 depth, as a Π-tower over `abD` and the normal form over `abN`, both ending
 in the constructor's member hole applied to the result indices `E` (the
 stored result index readings lifted over the holes), and `abN`'s readings
-are the fields with holes of `StoredFieldShapes` against the stored field
+are the fields with holes of `DeclaredFieldShapes` against the stored field
 readings: the override through the declared crest (the whole applications
 put back by one parallel substitution, at every parameter frame) and the
 link (at frames satisfying the walk's context, `hsatH`). -/
@@ -584,7 +584,7 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
       denote m.acval env ψ (ctx.hiAt 0) tyN
         = some (mkPisAV abN (Term.mkAppN (.bvar (nF + (ctx.names.length - 1 - c))) E)) ∧
       abD.length = nF ∧ abN.length = nF ∧ E = (Es ψ).map (·.liftN ctx.names.length nF) ∧
-      StoredFieldShapes V ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
+      DeclaredFieldShapes V ctx.names.length ctx.nP w (fun t => ctx.nIdxs.getD t 0)
         (fun t => m.acval (ctx.names.getD t .anonymous) ψ) Δp (abN)
         (((ds ψ).drop ctx.nP)) := by
   classical

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.NestCallSyn
 public import ConLeche.Cached.CheckerC
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.Cached.Grind
@@ -7,7 +8,6 @@ import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Cached.SimCS
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.InstLevels
-public import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Inductives.NestContInv
 public import ConLeche.Verify.Inductives.NestScope
 public section

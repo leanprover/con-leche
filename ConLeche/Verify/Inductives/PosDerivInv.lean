@@ -1,9 +1,10 @@
 module
 
+public import ConLeche.Kernel.Inductives.BlockInstall
+import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.PosDerivFun
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestContInv
-public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.HoleImg
 import ConLeche.Kernel.Inductives.RecCheck
 import ConLeche.Verify.Cached.Erase

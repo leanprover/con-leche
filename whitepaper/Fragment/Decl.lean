@@ -26,7 +26,7 @@ derivations being in the empty context (`ScopeOfInfer.lean`).
 
 **Inductive blocks** (`IndOk`; con-leche's uniform block check,
 `ConLeche/Kernel/Inductives/BlockTail.lean`, with its recogniser
-`BlockParts.lean` and the generators of `GenRec.lean`).  A block
+`BlockShape.lean` and the generators of `GenRec.lean`).  A block
 is given by a **specification** (`IndSpec`): a type former with level
 parameters, a parameter telescope, an index telescope and a result
 sort, and constructors whose fields are *ordinary* (any domain not

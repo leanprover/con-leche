@@ -1,23 +1,18 @@
 module
 
-public import ConLeche.Kernel.CheckerSplit
+public import ConLeche.Kernel.ValueCheck
 public import ConLeche.Kernel.CheckDecl
 import ConLeche.Verify.Extend.Inversions
 
 public section
 
 /-!
-# The two halves are `checkDecl` (task #253)
+# A value declaration's guards and value check are `checkDecl`
 
-`installHeader`/`installValueGuards` and `checkValueGroup`
-(`ConLeche/Kernel/CheckerSplit.lean`) are the install and check halves
-of the declaration checker at a separable value kind.  This module
-inverts each half into the facts it establishes (`*_inv`), assembles
-each from those facts (`*_of_facts`), carries them up in fuel
-(`*_mono`), and — the point — assembles `checkDecl`'s own run from the
-two halves (`checkDecl_of_split_*`): a properly installed group whose
-check half succeeded was checked by `checkDecl`, which is what the
-model's declaration step consumes.
+This module inverts `headerGuards`, `valueGuards` and `checkValueGroup`
+(`ConLeche/Kernel/ValueCheck.lean`) into the facts they establish (`*_inv`), assembles each from those
+facts (`*_of_facts`), carries them up in fuel (`*_mono`), and assembles `checkDecl`'s own run from them
+(`checkDecl_of_value_*`), which is what the model's declaration step consumes.
 -/
 
 namespace ConLeche
@@ -25,15 +20,15 @@ namespace ConLeche
 variable {μ : CheckMode} {F : Nat} {env : Env}
 variable {pins : List NatOpPinSet}
 
-/-! ## The install half -/
+/-! ## The guards -/
 
 /-- The header's guards say the constant's shape at a literal's name. -/
-theorem installHeader_shape {cv : ConstantVal}
-    (h : installHeader (m := CheckM) env cv = .ok ()) : litShapeOk (.axiomInfo cv) = true := by
+theorem headerGuards_shape {cv : ConstantVal}
+    (h : headerGuards (m := CheckM) env cv = .ok ()) : litShapeOk (.axiomInfo cv) = true := by
   by_cases hs : litShapeOk (.axiomInfo cv) = true
   · exact hs
   exfalso
-  simp only [installHeader, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  simp only [headerGuards, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
   by_cases hfind : (env.find? cv.name).isSome = true
   · simp [hfind] at h
   simp only [hfind] at h
@@ -47,8 +42,8 @@ theorem installHeader_shape {cv : ConstantVal}
   simp only [hop] at h
   simp [hs] at h
 
-theorem installHeader_inv {cv : ConstantVal}
-    (h : installHeader (m := CheckM) env cv = .ok ()) :
+theorem headerGuards_inv {cv : ConstantVal}
+    (h : headerGuards (m := CheckM) env cv = .ok ()) :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
     Name.nodup cv.levelParams = true ∧
@@ -56,7 +51,7 @@ theorem installHeader_inv {cv : ConstantVal}
     cv.type.hasFvar = false ∧
     cv.type.allLevelParamsDefined cv.levelParams = true ∧
     cv.type.constsResolve env = true := by
-  simp only [installHeader, Bind.bind, Except.bind,
+  simp only [headerGuards, Bind.bind, Except.bind,
     Pure.pure, Except.pure] at h
   by_cases hfind : (env.find? cv.name).isSome = true
   case pos => simp [hfind] at h
@@ -96,13 +91,13 @@ theorem installHeader_inv {cv : ConstantVal}
   exact ⟨hfind0, by simpa using hres, hnd, hlb,
     by simpa using hif, htp, htr⟩
 
-theorem installValueGuards_inv {cv : ConstantVal} {value : Expr}
-    (h : installValueGuards (m := CheckM) env cv value = .ok ()) :
+theorem valueGuards_inv {cv : ConstantVal} {value : Expr}
+    (h : valueGuards (m := CheckM) env cv value = .ok ()) :
     value.looseBVarsBounded 0 = true ∧
     value.hasFvar = false ∧
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true := by
-  simp only [installValueGuards, Bind.bind, Except.bind,
+  simp only [valueGuards, Bind.bind, Except.bind,
     Pure.pure, Except.pure] at h
   by_cases hlb : value.looseBVarsBounded 0 = true
   case neg => simp [hlb] at h
@@ -119,7 +114,7 @@ theorem installValueGuards_inv {cv : ConstantVal} {value : Expr}
   simp only [Bool.false_eq_true, ↓reduceIte] at h
   exact ⟨hlb, by simpa using hif, hvp, hvr⟩
 
-/-! ## The check half -/
+/-! ## The value check -/
 
 theorem checkValueGroup_inv {vg : ValueGroup}
     (h : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
@@ -127,7 +122,7 @@ theorem checkValueGroup_inv {vg : ValueGroup}
       inferTypeCore μ false env F 0 vg.cv.type = .ok stype ∧
       ensureSortCore μ false env F 0 stype = .ok u ∧
       (vg.kind = .thm → Level.isEquiv u .zero = some true) ∧
-      (vg.kind = .thm → installValueGuards (m := CheckM) env vg.cv vg.jv = .ok ()) ∧
+      (vg.kind = .thm → valueGuards (m := CheckM) env vg.cv vg.jv = .ok ()) ∧
       ∃ vtype,
         inferTypeCore μ false env F 0 vg.jv = .ok vtype ∧
         isDefEqCore μ false env F 0 vtype vg.cv.type = .ok true := by
@@ -156,7 +151,7 @@ theorem checkValueGroup_inv {vg : ValueGroup}
     | false => simp at h
     | true =>
     simp only [↓reduceIte] at h
-    cases hiv : installValueGuards (m := CheckM) env vg.cv vg.jv with
+    cases hiv : valueGuards (m := CheckM) env vg.cv vg.jv with
     | error e => rw [hiv] at h; exact nomatch h
     | ok _ =>
     rw [hiv] at h
@@ -189,14 +184,14 @@ theorem checkValueGroup_inv {vg : ValueGroup}
       have hC : vg.kind = .thm → Level.isEquiv u .zero = some true :=
         fun hk' => absurd hk' hk
       have hD : vg.kind = .thm →
-          installValueGuards (m := CheckM) env vg.cv vg.jv = .ok () :=
+          valueGuards (m := CheckM) env vg.cv vg.jv = .ok () :=
         fun hk' => absurd hk' hk
       exact ⟨stype, u, rfl, hsort, hC, hD, vtype, rfl, hde⟩
 
 /-- The header refuses a certified operation's name. -/
-theorem installHeader_opName {cv : ConstantVal}
-    (h : installHeader (m := CheckM) env cv = .ok ()) : natOpName cv.name = false := by
-  simp only [installHeader, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+theorem headerGuards_opName {cv : ConstantVal}
+    (h : headerGuards (m := CheckM) env cv = .ok ()) : natOpName cv.name = false := by
+  simp only [headerGuards, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
   by_cases hfind : (env.find? cv.name).isSome = true
   · simp [hfind] at h
   simp only [hfind] at h
@@ -272,25 +267,25 @@ theorem checkOpaqueVal_of_facts {cv : ConstantVal} {value vtype : Expr}
     Bool.false_eq_true, ↓reduceIte]
 
 /-- **A definition's two halves are `checkDecl`.** -/
-theorem checkDecl_of_split_defn {cv : ConstantVal} {value : Expr}
+theorem checkDecl_of_value_defn {cv : ConstantVal} {value : Expr}
     {hint : ReducibilityHint} {vg : ValueGroup}
     (hnat : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = false)
     (_hk : vg.kind = .defn)
     (hcvA : vg.cv = cv) (hvgjv : vg.jv = value)
-    (hI : installHeader (m := CheckM) env cv = .ok ())
-    (hV : installValueGuards (m := CheckM) env vg.cv value = .ok ())
+    (hI : headerGuards (m := CheckM) env cv = .ok ())
+    (hV : valueGuards (m := CheckM) env vg.cv value = .ok ())
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     checkDecl μ (fueledOps μ F) pins env (.defnDecl cv value hint)
       = .ok ⟨.defnInfo vg.cv vg.jv hint :: env.consts, env.tables⟩ := by
   obtain ⟨hfind, hres, hnd, hlb, hif, htp, htr⟩ :=
-    installHeader_inv hI
+    headerGuards_inv hI
   rw [hcvA] at hV
-  obtain ⟨hlbv, hivf, hvp, hvr⟩ := installValueGuards_inv hV
+  obtain ⟨hlbv, hivf, hvp, hvr⟩ := valueGuards_inv hV
   obtain ⟨stype, u, hst, hsort, -, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC
   obtain ⟨h1, h2⟩ := Bool.or_eq_false_iff.mp hnat
   rw [hcvA] at hst hde ⊢
   rw [hvgjv] at hvt ⊢
-  have hcc := checkConstantVal_of_facts (a := true) (by simp) hfind hres (installHeader_shape hI) hnd hlb hif htp htr hst hsort
+  have hcc := checkConstantVal_of_facts (a := true) (by simp) hfind hres (headerGuards_shape hI) hnd hlb hif htp htr hst hsort
   have hdv := checkDefnVal_of_facts (cv := cv) (hint := hint)
     hlbv hivf hvp hvr hvt hde
   simp only [checkDecl, Bind.bind, Except.bind, Pure.pure, Except.pure, hcc, hdv, h1, h2,
@@ -299,46 +294,46 @@ theorem checkDecl_of_split_defn {cv : ConstantVal} {value : Expr}
 /-- **A theorem's two halves are `checkDecl`**: the header's install
 half, and the check half holding the RAW value (which it guards
 itself). -/
-theorem checkDecl_of_split_thm {cv : ConstantVal} {value : Expr} {vg : ValueGroup}
+theorem checkDecl_of_value_thm {cv : ConstantVal} {value : Expr} {vg : ValueGroup}
     (hk : vg.kind = .thm)
     (hcvA : vg.cv = cv) (hvgjv : vg.jv = value)
-    (hI : installHeader (m := CheckM) env cv = .ok ())
+    (hI : headerGuards (m := CheckM) env cv = .ok ())
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     checkDecl μ (fueledOps μ F) pins env (.thmDecl cv value)
       = .ok ⟨.thmInfo vg.cv :: env.consts, env.tables⟩ := by
   obtain ⟨hfind, hres, hnd, hlb, hif, htp, htr⟩ :=
-    installHeader_inv hI
+    headerGuards_inv hI
   obtain ⟨stype, u, hst, hsort, hthm, hiv, vtype, hvt, hde⟩ := checkValueGroup_inv hC
   have hV := hiv hk
   rw [hcvA, hvgjv] at hV
-  obtain ⟨hlbv, hivf, hvp, hvr⟩ := installValueGuards_inv hV
+  obtain ⟨hlbv, hivf, hvp, hvr⟩ := valueGuards_inv hV
   rw [hcvA] at hst hde ⊢
   rw [hvgjv] at hvt
   have hcc := checkConstantVal_of_facts (a := false)
-    (by simp [installHeader_opName hI]) hfind hres (installHeader_shape hI) hnd hlb hif htp htr hst hsort
+    (by simp [headerGuards_opName hI]) hfind hres (headerGuards_shape hI) hnd hlb hif htp htr hst hsort
   have htv := checkThmVal_of_facts (cv := cv) hst hsort (hthm hk)
     hlbv hivf hvp hvr hvt hde
   simp only [checkDecl, Bind.bind, Except.bind, hcc, htv]
 
 /-- **An opaque's two halves are `checkDecl`.** -/
-theorem checkDecl_of_split_opaque {cv : ConstantVal} {value : Expr} {vg : ValueGroup}
+theorem checkDecl_of_value_opaque {cv : ConstantVal} {value : Expr} {vg : ValueGroup}
     (hred : reduceOpNames.contains cv.name = false)
     (_hk : vg.kind = .opaque)
     (hcvA : vg.cv = cv) (hvgjv : vg.jv = value)
-    (hI : installHeader (m := CheckM) env cv = .ok ())
-    (hV : installValueGuards (m := CheckM) env vg.cv value = .ok ())
+    (hI : headerGuards (m := CheckM) env cv = .ok ())
+    (hV : valueGuards (m := CheckM) env vg.cv value = .ok ())
     (hC : checkValueGroup (fueledOps μ F) env vg = .ok ()) :
     checkDecl μ (fueledOps μ F) pins env (.opaqueDecl cv value)
       = .ok ⟨.axiomInfo vg.cv :: env.consts, env.tables⟩ := by
   obtain ⟨hfind, hres, hnd, hlb, hif, htp, htr⟩ :=
-    installHeader_inv hI
+    headerGuards_inv hI
   rw [hcvA] at hV
-  obtain ⟨hlbv, hivf, hvp, hvr⟩ := installValueGuards_inv hV
+  obtain ⟨hlbv, hivf, hvp, hvr⟩ := valueGuards_inv hV
   obtain ⟨stype, u, hst, hsort, -, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC
   rw [hcvA] at hst hde ⊢
   rw [hvgjv] at hvt
   have hcc := checkConstantVal_of_facts (a := false)
-    (by simp [installHeader_opName hI]) hfind hres (installHeader_shape hI) hnd hlb hif htp htr hst hsort
+    (by simp [headerGuards_opName hI]) hfind hres (headerGuards_shape hI) hnd hlb hif htp htr hst hsort
   have hov := checkOpaqueVal_of_facts (cv := cv)
     hlbv hivf hvp hvr hvt hde
   simp only [checkDecl, Bind.bind, Except.bind, Pure.pure, Except.pure, hcc, hov, hred,

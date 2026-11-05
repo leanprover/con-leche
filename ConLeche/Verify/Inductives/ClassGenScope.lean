@@ -8,7 +8,6 @@ import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestCallSyn
-import ConLeche.Verify.Cached.NestPosC
 
 public section
 

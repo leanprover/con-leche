@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.Denote.IndFrame
@@ -7,7 +8,6 @@ import ConLeche.Model.Env.BlockLfpTup
 import ConLeche.Semantics.Hoist
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Rules.Inputs
-public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.BlockHoleRead
 public import ConLeche.Model.Inductives.NestPosMono
 public import ConLeche.Model.Inductives.PosDerivMono

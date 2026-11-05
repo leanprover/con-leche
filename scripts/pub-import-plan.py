@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #480: `reducedFormer_cv` and its neighbours state `CheckerOps`, `reducedFormer` and `WScoped`.
+    # Measured: demoting either breaks the file (`NestContInv.lean:28`, unknown identifier).
+    ('ConLeche.Verify.Inductives.NestContInv', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Inductives.NestContInv', 'ConLeche.Verify.Shift'),
+    # task #480: `checkBlockPositivity_deriv` states `BlockShape` and `checkBlockPositivity`.  Measured.
+    ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Kernel.Inductives.BlockInstall'),
     # task #480: `OpenedCtx`'s `variable`s name `SetTheory` through it.
     # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
     # `OpenedCtx.lean:29`).

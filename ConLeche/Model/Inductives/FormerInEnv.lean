@@ -95,25 +95,25 @@ theorem FormerDeclared.pushTable {env : Env} {m : EnvModel V env} {cvS cvTa : Co
 
 /-- **A member's former as the environment holds it**, under the name of the telescope `cvTa`
 the check read. -/
-def FormerStored {env : Env} (m : EnvModel V env) (cvTa : ConstantVal) (caps : IndCaps) : Prop :=
+def FormerInEnv {env : Env} (m : EnvModel V env) (cvTa : ConstantVal) (caps : IndCaps) : Prop :=
   ∃ cvS, env.find? cvTa.name = some (.indInfo cvS caps) ∧ FormerDeclared m cvS cvTa
 
 /-- A stored former across a cons of a fresh constant. -/
-theorem FormerStored.cross {env : Env} {m : EnvModel V env} {cvTa : ConstantVal} {caps : IndCaps}
-    (h : FormerStored m cvTa caps) {c₀ : ConstantInfo}
+theorem FormerInEnv.cross {env : Env} {m : EnvModel V env} {cvTa : ConstantVal} {caps : IndCaps}
+    (h : FormerInEnv m cvTa caps) {c₀ : ConstantInfo}
     (hfresh : env.find? c₀.name = none) (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     {A : (Name → Nat) → Term} (hac : m₂.acval = acvalWith m.acval c₀.name A) :
-    FormerStored m₂ cvTa caps := by
+    FormerInEnv m₂ cvTa caps := by
   obtain ⟨cvS, hf, hD⟩ := h
   exact ⟨cvS, ConLeche.Env.find?_cons_of_fresh hfresh hf, hD.cross hfresh m₂ hac⟩
 
 /-- A stored former at any extension that reads every bound term alike. -/
-theorem FormerStored.of_ext {envC envR : Env} {mC : EnvModel V envC} {mR : EnvModel V envR}
-    {cvTa : ConstantVal} {caps : IndCaps} (h : FormerStored mC cvTa caps)
+theorem FormerInEnv.of_ext {envC envR : Env} {mC : EnvModel V envC} {mR : EnvModel V envR}
+    {cvTa : ConstantVal} {caps : IndCaps} (h : FormerInEnv mC cvTa caps)
     (hfind : ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → envR.find? n = some c)
     (hden : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
       denote mR.acval envR ψ dd e = denote mC.acval envC ψ dd e) :
-    FormerStored mR cvTa caps := by
+    FormerInEnv mR cvTa caps := by
   obtain ⟨cvS, hf, hD⟩ := h
   have hsome : ∀ n : Name, (envC.find? n).isSome = true → (envR.find? n).isSome = true := by
     intro n hn
@@ -129,33 +129,33 @@ theorem FormerStored.of_ext {envC envR : Env} {mC : EnvModel V envC} {mR : EnvMo
   · rw [hden ψ 0 _ (constsBound_of_constsResolve _ hD.readResolve)]; exact h₂
 
 /-- The formers one pass stored, each against what the check read. -/
-theorem formerStored_of {envI : Env} {m : EnvModel V envI} {dcl cvTas : List ConstantVal}
-    {caps : Nat → IndCaps} {L : Nat → ConstantVal → Prop} (hlen : dcl.length = cvTas.length)
-    (hD : ∀ (j : Nat) (cvS cvTa : ConstantVal), dcl[j]? = some cvS → cvTas[j]? = some cvTa →
+theorem formerInEnv_of {envI : Env} {m : EnvModel V envI} {dcl formers : List ConstantVal}
+    {caps : Nat → IndCaps} {L : Nat → ConstantVal → Prop} (hlen : dcl.length = formers.length)
+    (hD : ∀ (j : Nat) (cvS cvTa : ConstantVal), dcl[j]? = some cvS → formers[j]? = some cvTa →
       FormerDeclared m cvS cvTa)
-    (hf : ∀ (j : Nat) (cvS cvTa : ConstantVal), dcl[j]? = some cvS → cvTas[j]? = some cvTa →
+    (hf : ∀ (j : Nat) (cvS cvTa : ConstantVal), dcl[j]? = some cvS → formers[j]? = some cvTa →
       envI.find? cvTa.name = some (.indInfo cvS (caps j)) ∧ L j cvTa) :
-    ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
-      FormerStored m cvTa (caps j) ∧ L j cvTa := by
+    ∀ (j : Nat) (cvTa : ConstantVal), formers[j]? = some cvTa →
+      FormerInEnv m cvTa (caps j) ∧ L j cvTa := by
   intro j cvTa hj
   obtain ⟨cvS, hS⟩ : ∃ cvS, dcl[j]? = some cvS :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
   exact ⟨⟨cvS, (hf j cvS cvTa hS hj).1, hD j cvS cvTa hS hj⟩, (hf j cvS cvTa hS hj).2⟩
 
 /-- The telescopes the block's check read are closed. -/
-theorem formers_closed {env : Env} {m : EnvModel V env} {cvTas : List ConstantVal}
+theorem formers_closed {env : Env} {m : EnvModel V env} {formers : List ConstantVal}
     {caps : Nat → IndCaps} {X : Nat → ConstantVal → Prop}
-    (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      FormerStored m cvTb (caps c) ∧ X c cvTb) :
-    ∀ cv ∈ cvTas, cv.type.hasFvar = false := by
+    (hF : ∀ (c : Nat) (cvTb : ConstantVal), formers[c]? = some cvTb →
+      FormerInEnv m cvTb (caps c) ∧ X c cvTb) :
+    ∀ cv ∈ formers, cv.type.hasFvar = false := by
   intro cv h
   obtain ⟨j, hj⟩ := List.getElem?_of_mem h
   obtain ⟨⟨_, _, hD⟩, _⟩ := hF j cv hj
   exact hD.readFvar
 
 /-- The family inhabits the telescope the check read. -/
-theorem FormerStored.mem {env : Env} {mp : EnvModelM V env} {cvTa : ConstantVal} {caps : IndCaps}
-    (h : FormerStored mp.base2 cvTa caps) {ψ : Name → Nat} {T : Term}
+theorem FormerInEnv.mem {env : Env} {mp : EnvModelM V env} {cvTa : ConstantVal} {caps : IndCaps}
+    (h : FormerInEnv mp.base2 cvTa caps) {ψ : Name → Nat} {T : Term}
     (hT : denote mp.base2.acval env ψ 0 cvTa.type = some T) (ρ : Nat → V) :
     interp V ρ (mp.base2.acval cvTa.name ψ) ∈ˢ interp V ρ T := by
   obtain ⟨cvS, hf, hD⟩ := h

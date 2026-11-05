@@ -109780,8 +109780,8 @@ apply a family.
 | grind-ring-5 | 15.301 G | 15.685 G | −0.12 % / −0.22 % |
 
 Final tree, the rest of the measurement: Mathlib cut (first 7M lines) 338.216 G / 352.510 G, against
-337.019 / 350.723 G in lane 4's record (+0.36 %, +0.51 %); app-lam 22.072 / 22.440 G; the other arena perf
-streams each under 5 G, and none of them moved by more than the drift already recorded.  Battery on
+337.019 / 350.723 G in lane 4's record (+0.36 %, +0.51 %); app-lam 22.072 / 22.440 G; every other arena perf
+stream against the baseline table: "#480, lane 7" below.  Battery on
 this tree, under the RSS guard: every gate green, e2e 541/541, arena tutorial 90/92 as before, selfcheck
 accepted, the trusted and `--jobs` sweeps with no divergence.
 
@@ -109823,3 +109823,73 @@ scale of the block rewrite.
 **Recommendation: (B) now and (C) alongside, with (A) only if upstream says the accept is meant.**
 Not done: the coordinator's brief is to report a choice this size.  The fixture stays at 1 until then.
 
+### The install's leftovers: the guard, the arms, the copies, the names (#480, lane 7; 2026-11-05)
+
+Everything below is cleanup at the standard "as if written for this architecture"; no verdict moved.
+
+* **`reducedFormer` has no runtime guard.**  A family's reduct is closed by proof (`reducedFormer_hasFvar`,
+  `reducedFormer_looseBVars`, from `whnf_WScoped` and `whnf_looseBVars`).
+* **`installStepC` is the declaration's guards, then one `pushDelta`** of `declConstants` and `declTables`;
+  the per-kind arms live in `installGuards`, and only what the guards need.
+* **`BlockParts` is gone.**  It was an empty extension of `BlockShape`, and `p.complete q` an ignored argument
+  around `q`.  2383 `.toBlockShape` went with them; the recogniser is `blockShape?`.
+* **`BlockPass.cvTas`, `ctorsAs`, `sortsss`, `nfs` are gone**, and with them the list parameters of
+  `blockNestCtx`, `checkBlockPositivity`, `checkBlockClasses`, `classMajors`, `targetMajorOf`, `genRecCheck`,
+  `checkBlockRec`, and of the run records and statements over them.  The data is `BlockShape.formers` and
+  `BlockShape.memberCtors`.  `targetMajorOf` reads `ms.ctors` at the member.  `checkBlockCtors` and
+  `checkBlockPositivity` still compute the sorts and normal forms (a run returns them, proofs read them through
+  the inversions), the checker drops them.  The 2187 occurrences are 566; what remains is proof-local or
+  a parameter of a model lemma stated over an arbitrary list (`BlockCtorsCore`, `BlockNamesOk`,
+  `BlockFormerFacts`, `BlockTablesStage`, `classFormerTy`), now spelled `formers`/`memberCtors`.
+* **Names.**  `Kernel/ValueCheck` (`headerGuards`, `valueGuards`, `checkValueGroup`), `Verify/ValueCheck`
+  (`checkDecl_of_value_*`), `FormerInEnv`, `DeclaredShapes`, `DeclaredFit`, `LfpDatum.telescope`, `blockIsRec`,
+  `isDefinitionAt`, and `ctor`/`ctorList` for the annotated-copy `cA`/`ctorsA`.  The "install half", "check half"
+  and "separable" language is gone, as is narrated history in the docstrings of the files #480 touched.
+* **What stays.**  The driver keeps two job kinds, `PendingCheck` and `DeferredCheck`: unifying them needs a push
+  onto `restrictTo`, which copies the index, and `Driver/ParInstall.lean` was not to be restructured here.  The
+  names there were not polished: the install phase's machinery is to be removed next.
+
+**Cost** (`instructions:u`, one run per stream, verified, in G, against the baseline of "Phase 0"):
+
+| stream | baseline j=1 | now j=1 | delta | baseline j=8 | now j=8 | delta |
+|---|---|---|---|---|---|---|
+| init-full | 381.764 | 380.798 | -0.25 % | 392.661 | 391.758 | -0.23 % |
+| init-prelude | 1.956 | 1.954 | -0.08 % | 2.131 | 2.124 | -0.35 % |
+| app-lam | 22.080 | 22.071 | -0.04 % | 22.361 | 22.420 | +0.26 % |
+| args-before-unfold | 0.066 | 0.067 | +1.23 % | 0.081 | 0.082 | +0.98 % |
+| beta-ladder | 4.848 | 4.845 | -0.05 % | 4.917 | 4.917 | -0.01 % |
+| church-numerals | 0.297 | 0.297 | +0.14 % | 0.299 | 0.300 | +0.18 % |
+| discarded-argument-match | 0.200 | 0.197 | -1.33 % | 0.204 | 0.201 | -1.63 % |
+| discarded-argument | 0.067 | 0.067 | +0.43 % | 0.070 | 0.071 | +1.07 % |
+| folded-constant-first | 0.096 | 0.097 | +0.63 % | 0.111 | 0.112 | +0.82 % |
+| folded-constant-last | 0.096 | 0.097 | +0.69 % | 0.111 | 0.112 | +0.75 % |
+| grind-ring-5 | 15.296 | 15.302 | +0.04 % | 15.681 | 15.695 | +0.09 % |
+| identical-nesting | 0.020 | 0.020 | -0.43 % | 0.022 | 0.023 | +2.71 % |
+| irrelevance-before-evaluation | 0.022 | 0.022 | +0.24 % | 0.026 | 0.026 | -1.02 % |
+| let-ladder | 2.569 | 2.567 | -0.08 % | 2.646 | 2.650 | +0.14 % |
+| repeated-subproblem | 0.022 | 0.022 | -0.03 % | 0.025 | 0.025 | -1.25 % |
+| shared-subterm | 0.205 | 0.207 | +1.02 % | 0.219 | 0.222 | +1.36 % |
+| shift-cascade | 0.056 | 0.056 | -0.43 % | 0.070 | 0.070 | +0.34 % |
+| unroll-versus-evaluate | 0.028 | 0.028 | -0.88 % | 0.043 | 0.043 | +0.07 % |
+| Mathlib cut (lane 4's record) | 337.019 | 338.228 | +0.36 % | 350.723 | 352.621 | +0.54 % |
+
+So no arena perf stream moved by more than 2.71 %, and the largest relative moves are on the streams under 0.3 G
+(absolute moves there: at most 0.003 G).  The streams above 1 G moved by −0.35 % to +0.26 %.  The Mathlib cut's
+reference in the table is lane 4's record, not the baseline.
+
+**The Mathlib cut's +0.36 % / +0.54 %** is against lane 4's record (`f99761002`, rebuilt for this: 337.038 G by
+sampling, `--jobs=1`); against the campaign's base binary (339.147 G) the final tree is −0.28 %.  `perf record`
+at one sample per 3 M instructions, final against `f99761002`, `--jobs=1`, a net +1.16 G:
+
+* **It is not the install.**  `declConstants`, `blockShape?`, `predictSlots` and their helpers are each below the
+  sampling floor (under 0.01 G) in the final tree.  This
+  contradicts lane 6's suspicion that the prediction reading the install function pays for it.
+* **It is the check phase's allocation and memo growth.**  `lean_alloc_small_object_core` +2.36, `mi_free` +1.02,
+  `lean_del_core` +0.69, the memo maps' rehash (`AssocList.foldlM` +0.93, `lean_copy_expand_array` +0.41), against
+  `lean_dec_ref_cold` −2.97 and `lean_free_object` −2.90 (largely the same frees under different inlining);
+  the core's own loops are each up by 0.2–0.6 G (`Expr.app` +0.60, `inferSpineI` +0.41, `whnfCoreLoopI` +0.35,
+  `defeqBodyI` +0.31).
+
+What is not established: which declarations pay it, or which commit between `f99761002` and the final tree added
+it.  The likely source is more reduction at a use, the literal guards and the rest of lane 6's stage; this was
+not bisected.

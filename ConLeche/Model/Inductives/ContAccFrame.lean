@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.NestCallSyn
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.ContAccRel
 public import ConLeche.Model.Inductives.BlockAccRun
@@ -7,7 +8,6 @@ import ConLeche.Model.Inductives.DeclaredShapes
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Verify.Inductives.PosDerivInv
 import ConLeche.Verify.Denote.Shift
-import ConLeche.Verify.Cached.NestPosC
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.ContCtor
