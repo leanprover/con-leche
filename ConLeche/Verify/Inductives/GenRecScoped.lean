@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.RecCheckScope
@@ -457,7 +458,8 @@ theorem genRun_Ms₀
     · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?, []⟩ : NestCtx) ∧
           NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?, []⟩ : NestCtx) := by
         rw [mkFEnv_find?_fun]
-        exact ⟨fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).1,
+        exact ⟨⟨fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).1,
+          fun _ h => nomatch h⟩,
           fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩
       have h0 := nestContainer_scb hc.1 hc.2 hctors cA hcA
       simp only [targetCtorAt]
@@ -492,14 +494,15 @@ parameters: every entry the generated stage reads a datum off
 (`ClassCtor.tyN`) — lane B2's fact. -/
 theorem genRun_tbl_scoped
     (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (henv₁ : EnvWF env₁) (henvC : EnvWF envC) (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
+    (henv₁ : EnvWF env₁) (henvC : EnvWF envC) (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
+    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type) (hpos : NfStScoped p.nP pos) :
     ∀ e ∈ R.st.ctorNfs.toList, ScB p.nP e.ty := by
   obtain ⟨cvTa0, rest, h0, hop, hctx, hh⟩ := genRun_ctx R
   obtain ⟨hlP, -⟩ := genRun_params R hT
   have hMs₀ := genRun_Ms₀ R henvC hT hct
   have hcb : NestCtxOk R.ctx ∧ NestCtxB R.ctx := by
-    rw [hctx]; exact nestCtx_ok_of_envWF henv₁ p R.ctx.params
+    rw [hctx]; exact nestCtx_ok_of_envWF henv₁ p R.ctx.params hM
   have hnP : R.ctx.nP = p.nP := by rw [hctx]; rfl
   have hparH : ∀ x ∈ R.ctx.params, ScB (R.ctx.hiAt 0) x := by
     intro x hx
@@ -576,13 +579,13 @@ of the family premise, from the run and:
   (`checkBlockPositivity_nfScoped`). -/
 theorem genScoped_of_run
     (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (henv₁ : EnvWF env₁) (henvC : EnvWF envC)
+    (henv₁ : EnvWF env₁) (henvC : EnvWF envC) (hMc : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) (hTlen : p.memberNames.length ≤ cvTas.length)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type)
     (hpos : NfStScoped p.nP pos) :
     ClassGenScoped R.g := by
   obtain ⟨hlP, hP⟩ := genRun_params R hT
-  have htbl := genRun_tbl_scoped R henv₁ henvC hT hct hpos
+  have htbl := genRun_tbl_scoped R henv₁ henvC hMc hT hct hpos
   have hcls := fun {c} {M} (hM : R.Ms[c]? = some M) => genRun_cls R henvC hT hct hM
   refine ⟨hlP, hP, ?ds, ?former, ?tyN, ?tyD, ?order, ?pre⟩
   case ds =>
@@ -612,13 +615,18 @@ theorem genScoped_of_run
     · rename_i hn
       split at hrun
       · rename_i cv caps hf
+        simp only [bind, Except.bind] at hrun
+        split at hrun
+        · simp at hrun
+        rename_i ty hfam
         simp only [pure, Except.pure, Except.ok.injEq] at hrun
         subst hrun
         rw [mkFEnv_find?_fun] at hf
         have hw := henvC.consts _ (List.mem_of_find?_eq_some hf)
         refine ScB.of_closed ?_ ?_ 0
-        · rw [Expr.hasFvar_instantiateLevelParams]; exact hw.1
-        · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hw.2.2.2.1
+        · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar hfam hw.1
+        · rw [Expr.looseBVarsBounded_instantiateLevelParams]
+          exact familyTelescope_bounded hfam hw.2.2.2.1
       · simp [throw, throwThe, MonadExceptOf.throw] at hrun
   case tyN =>
     intro c x hx

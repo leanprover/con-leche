@@ -130,6 +130,45 @@ theorem familyTelescopeS_spec (henv : EnvWF env) {cv : ConstantVal} {caps : IndC
   sym only [conleche_grind, familyTelescope, reducedFormer] =>
     vcgen [familyTelescope, reducedFormerS_spec henv hw] <;> finish
 
+/-- The arguments against a telescope at the cached operations simulate their fueled original. -/
+theorem checkSpineAtS_spec (henv : EnvWF env) {d : Nat} :
+    ∀ (ds : List Expr) (T : Expr) {s₀ : CState}, CSOK .verified false env s₀ → AllWS d ds →
+      WScoped d T →
+      ⦃fun s => s = s₀⦄ checkSpineAt (sharedOpsC .verified (mkFEnv env)) env d T ds
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (checkSpineAt (fueledOpsM .verified) env d T ds) v; ⊤⦄ := by
+  intro ds
+  induction ds with
+  | nil =>
+    intro T _ hs _ _
+    sym only [conleche_grind, checkSpineAt.eq_1] =>
+      vcgen [checkSpineAt] <;> finish
+  | cons a as ih =>
+    intro T s₀ hs hds hT
+    cases T with
+    | forallE ty body =>
+      sym only [conleche_grind, checkSpineAt.eq_2] =>
+        vcgen [checkSpineAt, inferS_spec henv, defeqS_spec henv, ih] <;> finish
+    | _ =>
+      sym only [conleche_grind, checkSpineAt.eq_3] =>
+        vcgen [checkSpineAt] <;> finish
+
+/-- A family at a key, at the cached operations. -/
+theorem familyKeyCheckS_spec (henv : EnvWF env) {find? : Name → Option ConstantInfo}
+    (hfind : ∀ n ci, find? n = some ci → ci.toConstantVal.type.hasFvar = false) {d : Nat} {c : Name}
+    {us : List Level} {ds : List Expr} {s₀ : CState} (hs : CSOK .verified false env s₀)
+    (hds : AllWS d ds) :
+    ⦃fun s => s = s₀⦄ familyKeyCheck (sharedOpsC .verified (mkFEnv env)) env find? d c us ds
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (familyKeyCheck (fueledOpsM .verified) env find? d c us ds) v; ⊤⦄ := by
+  have hty : ∀ cv caps, find? c = some (.indInfo cv caps) → cv.type.hasFvar = false :=
+    fun cv caps h => hfind c _ h
+  have hws : ∀ {ty : Expr} {cv : ConstantVal}, ty.hasFvar = false →
+      WScoped d (ty.instantiateLevelParams cv.levelParams us) := fun h =>
+    WScoped.of_not_hasFvar (by rw [Expr.hasFvar_instantiateLevelParams]; exact h)
+  sym only [conleche_grind, familyKeyCheck.eq_1, → hty, → @hws] =>
+    vcgen [familyKeyCheck, familyTelescopeS_spec henv, checkSpineAtS_spec henv] <;> finish
+
 theorem nestInstTypeS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}
     (hs : CSOK .verified false env s₀) (hi : Nat) (key : NestKey) :
     ⦃fun s => s = s₀⦄ nestInstType ctx (sharedOpsC .verified (mkFEnv env)) env hi key
@@ -141,14 +180,6 @@ theorem nestInstTypeS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ct
   sym only [conleche_grind, nestInstType.eq_1, unwrapOr.eq_1, liftFueled.eq_1,
       → nestCtx_find_closed hc, → instWS_instPisWith] =>
     vcgen [nestInstType, unwrapOr, liftFueled, familyTelescopeS_spec henv] <;> finish (gen := 12)
-
-theorem nestArityS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}
-    (hs : CSOK .verified false env s₀) (C : Name) :
-    ⦃fun s => s = s₀⦄ nestArity ctx (sharedOpsC .verified (mkFEnv env)) env C
-    ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (nestArity ctx (fueledOpsM .verified) env C) v; ⊤⦄ := by
-  sym only [conleche_grind, nestArity, → nestCtx_find_closed hc] =>
-    vcgen [nestArity, familyTelescopeS_spec henv] <;> finish
 
 theorem nestGrowGroupS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) (hi : Nat)
     (us : List Level) (ds : List Expr) :
@@ -352,9 +383,9 @@ theorem nestFrame_eq {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] 
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) :
     nestFrame ctx ops env rec prog hi us ds nPc grp st = (do
-      let _ ← ops.inferType env hi (Expr.mkAppN (.const (grp.headD default).1 us) ds)
-      let prog' := (grp.mapIdx fun _ (c, _) =>
-        ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
+      familyKeyCheck ops env ctx.find? hi (grp.headD default).1 us ds
+      let prog' := (grp.mapIdx fun _ (c, ty) =>
+        ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
       let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
       let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds
         (grp.map (·.1)) (frameHoles hi grp) ctors st
@@ -369,7 +400,7 @@ theorem nestFrameS_spec (henv : EnvWF env) {ctx : NestCtx}
     ⦃fun v s' => CSOK .verified false env s' ∧
       Runs (nestFrame ctx (fueledOpsM .verified) env rec' prog hi us ds nPc grp st) v; ⊤⦄ := by
   sym only [conleche_grind, nestFrame_eq] =>
-    vcgen [nestFrame_eq, inferS_spec henv,
+    vcgen [nestFrame_eq, familyKeyCheckS_spec henv hc.1,
       nestGroupCtorsS_spec (mode := .verified) (env := env) hc nPc,
       nestCtorsS_spec henv (fun _ => hrec) ctx _ (hi + grp.length) us ds (grp.map Prod.fst)
         (frameHoles hi grp) (AllWS.mono (Nat.le_add_right _ _) hds)
@@ -459,7 +490,7 @@ theorem nestPosS_spec (henv : EnvWF env) {ctx : NestCtx}
   | succ fuel ih =>
     intro prog dep kb e st s₀ hs hw
     sym only [conleche_grind, nestPos.eq_2] =>
-      vcgen [nestPos, whnfS_spec henv, ih.triple, nestArityS_spec henv hc,
+      vcgen [nestPos, whnfS_spec henv, ih.triple,
         nestContS_spec henv hc ih (dep := dep)] <;> finish
 
 /-- The member holes: scoped at the walk's depth, each a variable. -/

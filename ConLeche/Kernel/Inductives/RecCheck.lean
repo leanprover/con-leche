@@ -479,11 +479,10 @@ application `I Ds` in the parameters' context (`inductive.cpp` v4.33.0
 :1223–1231, "the parametric arguments `Ds` do not appear in the auxiliary
 declaration, so they would otherwise escape type checking"); the `D⃗`
 mention only the parameter binders, below `rP`.  Nothing at a member. -/
-def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor) : m Unit :=
+def targetMajorPins (ops : CheckerOps m) (fe : FEnv) (rP : Nat) (M : TargetMajor) : m Unit :=
   if M.member.isNone then do
-    targetPinTys ops env rP M.ds
-    let _ ← ops.inferType env rP (Expr.mkAppN (.const M.ind M.lvls) M.ds)
-    pure ()
+    targetPinTys ops fe.env rP M.ds
+    familyKeyCheck ops fe.env fe.find? rP M.ind M.lvls M.ds
   else pure ()
 
 /-! ## The recursor records' pins -/

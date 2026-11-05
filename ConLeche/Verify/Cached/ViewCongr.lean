@@ -485,6 +485,25 @@ theorem nestCtors_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     simp only [h.inferType env, h.ensureSort env, nestCtors_env h ctx env rec prog hi us ds names
       holes cs]
 
+theorem familyTelescope_env (h : EnvFree ops) (env : Env) (cv : ConstantVal) (caps : IndCaps) :
+    familyTelescope ops env cv caps = familyTelescope ops Env.empty cv caps := by
+  simp only [familyTelescope, reducedFormer, whnfTelescope_env h env]
+
+theorem checkSpineAt_env (h : EnvFree ops) (env : Env) (d : Nat) :
+    ∀ T ds, checkSpineAt ops env d T ds = checkSpineAt ops Env.empty d T ds
+  | _, [] => rfl
+  | .forallE ty body, a :: as => by
+    unfold checkSpineAt
+    simp only [h.inferType env, h.isDefEq env, checkSpineAt_env h env d _ as]
+  | .bvar _, _ :: _ | .sort _, _ :: _ | .const _ _, _ :: _ | .fvar _ _, _ :: _ | .app _ _, _ :: _
+  | .lam _ _, _ :: _ | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+
+theorem familyKeyCheck_env (h : EnvFree ops) (env : Env) (find? : Name → Option ConstantInfo)
+    (d : Nat) (c : Name) (us : List Level) (ds : List Expr) :
+    familyKeyCheck ops env find? d c us ds = familyKeyCheck ops Env.empty find? d c us ds := by
+  unfold familyKeyCheck
+  simp only [familyTelescope_env h env, checkSpineAt_env h env]
+
 theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
@@ -492,20 +511,11 @@ theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     nestFrame ctx ops env rec prog hi us ds nPc grp st =
       nestFrame ctx ops Env.empty rec prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [h.inferType env, nestCtors_env h ctx env]
-
-theorem familyTelescope_env (h : EnvFree ops) (env : Env) (cv : ConstantVal) (caps : IndCaps) :
-    familyTelescope ops env cv caps = familyTelescope ops Env.empty cv caps := by
-  simp only [familyTelescope, reducedFormer, whnfTelescope_env h env]
+  simp only [familyKeyCheck_env h env, nestCtors_env h ctx env]
 
 theorem nestInstType_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) :
     nestInstType ctx ops env hi key = nestInstType ctx ops Env.empty hi key := by
   unfold nestInstType
-  simp only [familyTelescope_env h env]
-
-theorem nestArity_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (C : Name) :
-    nestArity ctx ops env C = nestArity ctx ops Env.empty C := by
-  unfold nestArity
   simp only [familyTelescope_env h env]
 
 theorem nestGrowGroup_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (us : List Level)
@@ -550,7 +560,7 @@ theorem nestPos_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
     have ih := nestPos_env h env ctx F
     funext prog dep kb e st
     unfold nestPos
-    simp only [h.whnf env, nestCont_env h ctx env, nestArity_env h ctx env, ih]
+    simp only [h.whnf env, nestCont_env h ctx env, ih]
 
 theorem nestRoot_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) (holes : List Expr) :
     ∀ css st, nestRoot ops env ctx holes css st = nestRoot ops Env.empty ctx holes css st
@@ -627,11 +637,12 @@ theorem targetPinTys_env (h : EnvFree ops) (env : Env) (d : Nat) :
     unfold targetPinTys
     simp only [h.inferType env, ih]
 
-omit [MonadExceptOf CheckError m] in
-theorem targetMajorPins_env (h : EnvFree ops) (env : Env) (rP : Nat) (M : TargetMajor) :
-    targetMajorPins ops env rP M = targetMajorPins ops Env.empty rP M := by
+theorem targetMajorPins_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (rP : Nat) (M : TargetMajor) :
+    targetMajorPins ops fe₁ rP M = targetMajorPins ops fe₂ rP M := by
   unfold targetMajorPins
-  simp only [targetPinTys_env h env, h.inferType env]
+  simp only [targetPinTys_env h fe₁.env, targetPinTys_env h fe₂.env, hfe,
+    familyKeyCheck_env h fe₁.env, familyKeyCheck_env h fe₂.env]
 
 omit [MonadExceptOf CheckError m] in
 theorem targetK53_env (h : EnvFree ops) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -725,8 +736,7 @@ theorem classMajors_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.fi
   | key :: keys => by
     have ih := classMajors_congr h hfe p ctorsAs pfvs keys
     unfold classMajors
-    simp only [targetMajorOf_congr h hfe, targetMajorPins_env h fe₁.env,
-      targetMajorPins_env h fe₂.env, ih]
+    simp only [targetMajorOf_congr h hfe, targetMajorPins_congr h hfe, ih]
 
 theorem classNPcOf_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) (p : BlockShape) :
     classNPcOf p fe₁ = classNPcOf p fe₂ := by

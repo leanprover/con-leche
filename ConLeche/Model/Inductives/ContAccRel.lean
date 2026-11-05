@@ -52,7 +52,7 @@ moved up. -/
 theorem holeQ_frame_iff {ctx : NestCtx} {prog news : List NestHole} {i n : Nat} :
     HoleQ ctx (news.reverse ++ prog) (ctx.hiAt prog.length + news.length) i n ↔
       (∃ (j : Nat) (hk : NestHole), news[j]? = some hk ∧ i = news.length - 1 - j ∧
-        n + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname) ∨
+        n = hk.nIdx) ∨
       (news.length ≤ i ∧ HoleQ ctx prog (ctx.hiAt prog.length) (i - news.length) n) := by
   constructor
   · rintro (⟨t, ht, hlt, rfl, hn⟩ | ⟨j, hk, hj, hlt, rfl, hn⟩)

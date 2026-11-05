@@ -194,11 +194,16 @@ pins and the instantiation typed at an outside major. -/
 theorem targetMajorPinsS_spec (henv : EnvWF env) {rP : Nat}
     {M : TargetMajor} (hds : M.member = none → AllWS rP M.ds) {s₀ : CState}
     (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC .verified (mkFEnv env)) env rP M
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (targetMajorPins (fueledOpsM .verified) env rP M) v; ⊤⦄
-        := by
-  sym only [conleche_grind, targetMajorPins.eq_1, Option.isNone_iff_eq_none] =>
-    vcgen [targetMajorPins, targetPinTysS_spec henv, inferS_spec henv] <;> finish
+    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) rP M
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetMajorPins (fueledOpsM .verified) (mkFEnv env) rP M) v; ⊤⦄ := by
+  have hfind : ∀ n ci, (mkFEnv env).find? n = some ci → ci.toConstantVal.type.hasFvar = false := by
+    intro n ci hf
+    rw [mkFEnv_find?] at hf
+    exact (henv.consts _ (Env.find?_mem hf)).1
+  simp only [targetMajorPins, mkFEnv_env]
+  sym only [conleche_grind, Option.isNone_iff_eq_none] =>
+    vcgen [targetPinTysS_spec henv, familyKeyCheckS_spec henv hfind] <;> finish
 
 theorem targetRecPinsS_spec {p : BlockShape} {block : List ConstantInfo} {s₀ : CState}
     (hs : CSOK mode false env s₀) :

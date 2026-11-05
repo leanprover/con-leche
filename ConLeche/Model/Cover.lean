@@ -81,6 +81,7 @@ container name `C` (its `filterMap` function, verbatim). -/
   params := []
   sort := .zero
   find? := env.find?
+  formers := []
 
 /-- `nestContainer`'s result from its constructor entries (in the
 recorded order). -/

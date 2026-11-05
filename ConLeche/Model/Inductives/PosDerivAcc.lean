@@ -177,7 +177,7 @@ theorem frame_accD (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat}
     {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
-    (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+    (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
       ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = (grp.headD default).1 :: ConLeche.nestFrameMates ctx (grp.headD default).1)
     (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
@@ -245,7 +245,7 @@ theorem contNew_accD (mp : EnvModelM V env) {w : Nat}
     (hgr : GradedTy V Δa wa) (hR : HoleRelA mp.base2 φ w ctx prog dep Δa R)
     (hisC : ∀ isa, DenoteSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     {nI : Nat} {cty : Expr}
-    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩
       = .ok (nI, cty))
     (hisl : is.length = nI) {grp : List (Name × Expr)} (hhead : D.member mm = (grp.headD default).1)
     (ihf : FrameAccJ mp φ w ctx prog us ds grp) :

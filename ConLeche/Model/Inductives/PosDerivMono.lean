@@ -213,7 +213,7 @@ theorem posD_frame_inv {ops : ConLeche.CheckerOps CheckM} {ctx : NestCtx} :
           (ctx.names.contains (grp.headD default).1 = false ∧
             (grp.headD default).1 ≠ ConLeche.quotName) ∧
           (∃ L, ConLeche.nestContainer ctx (grp.headD default).1 = some (ds.length, L)) ∧
-          (∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+          (∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
             ⟨p.1, us, ds⟩ = .ok (nI, p.2)) ∧
           ∀ p ∈ grp.tail, (ConLeche.nestBlockOf ctx (grp.headD default).1).contains p.1 = true
       | _ => True := by
@@ -416,7 +416,7 @@ theorem frame_mono (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {ctx : NestCtx} {F : Nat} {prog : List NestHole}
     {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ctors : List (ConstantVal × Nat)} (hne : grp ≠ []) (hnd : (grp.map (·.1)).Nodup)
-    (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+    (hinst : ∀ p ∈ grp, ∃ nI, ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
       ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = (grp.headD default).1 :: ConLeche.nestFrameMates ctx (grp.headD default).1)
     (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
@@ -479,7 +479,7 @@ theorem contNew_mono (mp : EnvModelM V env) {ctx : NestCtx}
     (hgr : GradedTy V Δa wa) (hR : HoleRel mp.base2 φ ctx prog dep Δa R)
     (hisC : ∀ isa, DenoteSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     {nI : Nat} {cty : Expr}
-    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length) ⟨D.member mm, us, ds⟩
       = .ok (nI, cty))
     (hisl : is.length = nI) {grp : List (Name × Expr)} (hhead : D.member mm = (grp.headD default).1)
     (ihf : FrameMono mp φ ctx prog us ds grp) : MonoOn R wa := by
@@ -662,7 +662,7 @@ theorem contHit_mono (mp : EnvModelM V env) {ctx : NestCtx} {F : Nat}
     (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
     (hfree : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) (hLds : ∀ x ∈ ds, Expr.LeavesBounded x)
     {nI : Nat} {cty : Expr}
-    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length) ⟨n, us, ds⟩
       = .ok (nI, cty))
     (hisl : is.length = nI) {grp : List (Name × Expr)}
     (hsc : ProgScoped ctx prog') (hmem : n ∈ grp.map (·.1))

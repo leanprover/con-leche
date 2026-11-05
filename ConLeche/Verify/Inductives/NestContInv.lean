@@ -73,18 +73,25 @@ theorem familyTelescope_bounded {ops : CheckerOps CheckM} {env : Env} {cv : Cons
   · exact hc
   · exact hb
 
+/-- **What `nestInstType` checks of a telescope**: the container is applied at its own level count,
+the telescope binds its parameters, its instantiation at the key is `cty`, a telescope ending in a
+sort, its index binders name no member and no hole below `hi`, and its sort is the block's. -/
+structure NestInstFacts (ctx : NestCtx) (hi : Nat) (key : NestKey) (lps : List Name) (tyC : Expr)
+    (nI : Nat) (cty : Expr) : Prop where
+  lvls : key.lvls.length = lps.length
+  strip : (tyC.stripPis key.ds.length).isSome = true
+  inst : instPisWith key.ds (tyC.instantiateLevelParams lps key.lvls) = some cty
+  sort : ∃ s, cty.piBinders.2 = .sort s ∧ Level.isEquiv s ctx.sort = some true
+  occ : (cty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false
+  count : nI = cty.piBinders.1.length
+
 /-- **The container's type former, inverted.** -/
 theorem nestInstType_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {hi : Nat}
     {key : NestKey} {nI : Nat} {cty : Expr}
     (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty)) :
     ∃ cvC caps tyC, ctx.find? key.cname = some (.indInfo cvC caps) ∧
       familyTelescope ops env cvC caps = .ok tyC ∧
-      key.lvls.length = cvC.levelParams.length ∧
-      (tyC.stripPis key.ds.length).isSome = true ∧
-      ∃ s, instPisWith key.ds (tyC.instantiateLevelParams cvC.levelParams key.lvls) = some cty ∧
-        cty.piBinders.2 = .sort s ∧
-        (cty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false ∧
-        nI = cty.piBinders.1.length ∧ Level.isEquiv s ctx.sort = some true := by
+      NestInstFacts ctx hi key cvC.levelParams tyC nI cty := by
   unfold nestInstType at h
   simp only [bind, Except.bind] at h
   split at h
@@ -129,8 +136,8 @@ theorem nestInstType_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {
           · simp [throw, throwThe, MonadExceptOf.throw] at hbl
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        refine ⟨cv, caps, tyC, hf, hfam, by simpa using hl, by simpa using hstrip, s,
-          unwrapOr_ok hty, ?_, by simpa using hocc, rfl, by simpa using hlev⟩
+        refine ⟨cv, caps, tyC, hf, hfam, by simpa using hl, by simpa using hstrip,
+          unwrapOr_ok hty, ⟨s, ?_, by simpa using hlev⟩, by simpa using hocc, rfl⟩
         split at hs'
         · rename_i s' he; rw [he]; simp only [Option.some.injEq] at hs'; rw [hs']
         · exact nomatch hs'
@@ -160,31 +167,34 @@ theorem Expr.nestOcc_mono_hi {names : List Name} {lo hi hi' : Nat} (hle : hi' �
 /-- **The container's type former, from its facts** (`nestInstType_inv`'s
 converse). -/
 theorem nestInstType_of {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {hi : Nat}
-    {key : NestKey} {cvC : ConstantVal} {caps : IndCaps} {tyC ty : Expr} {s : Level}
+    {key : NestKey} {cvC : ConstantVal} {caps : IndCaps} {tyC cty : Expr} {nI : Nat}
     (hf : ctx.find? key.cname = some (.indInfo cvC caps))
     (hfam : familyTelescope ops env cvC caps = .ok tyC)
-    (hl : key.lvls.length = cvC.levelParams.length)
-    (hstrip : (tyC.stripPis key.ds.length).isSome = true)
-    (hty : instPisWith key.ds (tyC.instantiateLevelParams cvC.levelParams key.lvls) = some ty)
-    (hs : ty.piBinders.2 = .sort s)
-    (hocc : (ty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false)
-    (hlev : Level.isEquiv s ctx.sort = some true) :
-    nestInstType (m := CheckM) ctx ops env hi key = .ok (ty.piBinders.1.length, ty) := by
+    (h : NestInstFacts ctx hi key cvC.levelParams tyC nI cty) :
+    nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty) := by
+  obtain ⟨hl, hstrip, hty, ⟨s, hs, hlev⟩, hocc, rfl⟩ := h
   unfold nestInstType
   simp [bind, Except.bind, hf, hfam, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, pure,
     Except.pure]
 
-/-- **The type former's checks hold at a smaller hole range**: only the
-index telescope's occurrence test (N2) reads `hi`, and it is monotone. -/
+/-- The checks of a telescope hold at a smaller hole range: only the index telescope's occurrence
+test (N2) reads `hi`, and it is monotone. -/
+theorem NestInstFacts.mono_hi {ctx : NestCtx} {hi hi' : Nat} (hle : hi' ≤ hi) {key : NestKey}
+    {lps : List Name} {tyC cty : Expr} {nI : Nat} (h : NestInstFacts ctx hi key lps tyC nI cty) :
+    NestInstFacts ctx hi' key lps tyC nI cty := by
+  obtain ⟨hl, hstrip, hty, hs, hocc, hc⟩ := h
+  refine ⟨hl, hstrip, hty, hs, ?_, hc⟩
+  rw [List.any_eq_false] at hocc ⊢
+  intro b hb hb'
+  exact hocc b hb (Expr.nestOcc_mono_hi hle _ hb')
+
+/-- **The type former's checks hold at a smaller hole range**. -/
 theorem nestInstType_mono_hi {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {hi hi' : Nat}
     (hle : hi' ≤ hi) {key : NestKey} {nI : Nat} {cty : Expr}
     (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty)) :
     nestInstType (m := CheckM) ctx ops env hi' key = .ok (nI, cty) := by
-  obtain ⟨cvC, caps, tyC, hf, hfam, hl, hstrip, s, hty, hs, hocc, rfl, hlev⟩ := nestInstType_inv h
-  refine nestInstType_of hf hfam hl hstrip hty hs ?_ hlev
-  rw [List.any_eq_false] at hocc ⊢
-  intro b hb hb'
-  exact hocc b hb (Expr.nestOcc_mono_hi hle _ hb')
+  obtain ⟨cvC, caps, tyC, hf, hfam, hF⟩ := nestInstType_inv h
+  exact nestInstType_of hf hfam (hF.mono_hi hle)
 
 end ConLeche
 

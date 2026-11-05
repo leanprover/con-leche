@@ -264,14 +264,6 @@ typing needs). -/
 theorem pinsWS_of_classMajScoped {nP : Nat} {M : TargetMajor} (h : ClassMajScoped nP M) :
     PinsWS nP M := fun _ => h.2.2 ▸ h.1.2
 
-/-- `targetMajorPinsS_spec` at the index's environment. -/
-theorem targetMajorPinsS_specF (henv : EnvWF env) {rP : Nat}
-    {M : TargetMajor} (hds : PinsWS rP M) {s₀ : CState} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorPins (sharedOpsC .verified (mkFEnv env)) (mkFEnv env).env rP M
-    ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (targetMajorPins (fueledOpsM .verified) (mkFEnv env).env rP M) v; ⊤⦄ :=
-  targetMajorPinsS_spec henv hds hs
-
 /-- `blockNestCtx` at the shared operations, its lookups the formers'
 environment `env₁`, the state the constructors' environment's: the same
 value, the canonical parameters scoped at the parameter count. -/
@@ -309,7 +301,7 @@ theorem classMajorsS_spec (henv : EnvWF env)
     intro _ hs hk
     sym only [conleche_grind, classMajors.eq_2, mkFEnv_env, → classMajScoped_of_shape hpl hp,
         → pinsWS_of_classMajScoped] =>
-      vcgen [classMajors, classMajorOfS_spec henv, targetMajorPinsS_specF henv,
+      vcgen [classMajors, classMajorOfS_spec henv, targetMajorPinsS_spec henv,
         ih] <;> finish
 
 /-- **One class key made checkable**: its parameters scoped at

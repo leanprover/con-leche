@@ -204,7 +204,7 @@ structure AdmVal (own : Nat → Nat) (G : Nat → Nat → V → V → Prop) (pro
       (∀ dsa, DenoteSpine mk.base2.acval envI ψ (ctx.hiAt prog.length) hk.key.ds dsa →
         keyFrame dsa (ctx.hiAt prog.length) (trueVal mpC ctx ψ ρ xs prog)
           = nlFr mpC ctx d ns ψ ρ xs (own i)) ∧
-      ∀ is : List V, is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
+      ∀ is : List V, is.length = hk.nIdx →
       ∀ y, y ∈ˢ is.foldl app (σ (ctx.hiAt prog.length - 1 - (ctx.hiAt 0 + i))) →
         (SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
             ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)

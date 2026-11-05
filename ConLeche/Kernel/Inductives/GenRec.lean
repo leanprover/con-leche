@@ -334,7 +334,7 @@ def classMajors (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
   | [] => pure []
   | key :: keys => do
     let M ← targetMajorOf ops fe p ctorsAs pfvs pfvs (Expr.mkAppN (.const key.ind key.lvls) key.ds)
-    targetMajorPins ops fe.env p.nP M
+    targetMajorPins ops fe p.nP M
     let Ms ← classMajors ops fe p ctorsAs pfvs keys
     pure (M :: Ms)
 

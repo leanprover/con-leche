@@ -105,8 +105,8 @@ theorem nestInstType_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {ops : Checker
     {env : Env} {hi d : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
     (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty))
     (hds : ∀ x ∈ key.ds, ScB d x) : ScB d cty := by
-  obtain ⟨cvC, caps, tyC, hf, hfam, -, -, -, hcty, -⟩ := nestInstType_inv h
-  refine ScB.of_instPisWith hcty (ScB.of_closed ?_ ?_ d) hds
+  obtain ⟨cvC, caps, tyC, hf, hfam, hF⟩ := nestInstType_inv h
+  refine ScB.of_instPisWith hF.inst (ScB.of_closed ?_ ?_ d) hds
   · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar hfam (hc.1 _ _ hf)
   · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact familyTelescope_bounded hfam (hb _ _ hf)
 
@@ -435,8 +435,8 @@ theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecN
   obtain ⟨os, st₂⟩ := v'
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  have hp' : ProgScB ctx ((grp.mapIdx fun _ (c, _) =>
-      ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog) :=
+  have hp' : ProgScB ctx ((grp.mapIdx fun _ (c, ty) =>
+      ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog) :=
     ProgScB.push hp (by subst hhi; exact hds) _ (fun h hh => by
       rw [List.mem_reverse] at hh
       obtain ⟨i, hi', rfl⟩ := List.mem_mapIdx.mp hh
@@ -567,13 +567,9 @@ theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
         · -- a variable head
           split at hrun
           · split at hrun
-            · split at hrun
-              · simp at hrun
-              split at hrun
-              · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
-                obtain ⟨rfl, rfl, rfl⟩ := hrun
-                exact ⟨hst, hwsw⟩
-              · simp [throw, throwThe, MonadExceptOf.throw] at hrun
+            · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
+              obtain ⟨rfl, rfl, rfl⟩ := hrun
+              exact ⟨hst, hwsw⟩
             · simp [throw, throwThe, MonadExceptOf.throw] at hrun
           · simp [throw, throwThe, MonadExceptOf.throw] at hrun
         · -- `contApp`

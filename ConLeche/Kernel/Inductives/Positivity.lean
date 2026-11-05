@@ -265,6 +265,30 @@ def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : 
     pure cvR.type
   else pure cv.type
 
+/-- **The arguments of an application against a telescope**: each argument's type definitionally
+equal to its binder's domain, the domains instantiated along the spine. -/
+def checkSpineAt (ops : CheckerOps m) (env : Env) (d : Nat) : Expr → List Expr → m Unit
+  | _, [] => pure ()
+  | .forallE ty body, a :: as => do
+    let ta ← ops.inferType env d a
+    unless ← ops.isDefEq env d ta ty do
+      throw (.invalid "application type mismatch at a family's parameters")
+    checkSpineAt ops env d (body.instantiate1 a) as
+  | _, _ :: _ => throw (.invalid "function expected at a family's parameters")
+
+/-- **A family at a key, typed** (official checks every replaced nested application,
+`tc.check(nested, …)`, `inductive.cpp` v4.34.0 :1320): the levels its own count, the arguments
+against its telescope. -/
+def familyKeyCheck (ops : CheckerOps m) (env : Env) (find? : Name → Option ConstantInfo) (d : Nat)
+    (c : Name) (us : List Level) (ds : List Expr) : m Unit :=
+  match find? c with
+  | some (.indInfo cv caps) => do
+    unless us.length = cv.levelParams.length do
+      throw (.invalid "incorrect number of universe levels at a family's key")
+    let ty ← familyTelescope ops env cv caps
+    checkSpineAt ops env d (ty.instantiateLevelParams cv.levelParams us) ds
+  | _ => throw (.invalid "a family's key is no stored family")
+
 end
 
 /-! ## Positivity through containers — ONE function, GATED
@@ -582,6 +606,8 @@ container's group it has reached). -/
 structure NestHole where
   key : NestKey
   base : Nat
+  /-- the instantiated former's index count: the arguments the hole takes -/
+  nIdx : Nat
   deriving DecidableEq, Repr, Inhabited
 
 /-! ### The input-derived fuel
@@ -775,7 +801,7 @@ def NestCtx.hiAt (ctx : NestCtx) (nf : Nat) : Nat := ctx.nP + ctx.names.length +
 frame — its key each member at the block's own levels and canonical
 parameters, its holes the member holes `nP + t` (base `nP`). -/
 def NestCtx.rootHoles (ctx : NestCtx) : List NestHole :=
-  ctx.names.map fun n => ⟨⟨n, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩
+  ctx.names.mapIdx fun t n => ⟨⟨n, ctx.lps.map .param, ctx.params⟩, ctx.nP, ctx.nIdxs.getD t 0⟩
 
 /-- **The hole `i`'s entry** under the frames `prog`: the walk's stack
 read root first — the root frame's entries (`NestCtx.rootHoles`), then
@@ -1343,24 +1369,6 @@ not; so does the frame. -/
 def nestFrameMates (ctx : NestCtx) (C : Name) : List Name :=
   (nestBlockOf ctx C).eraseDups.filter (· != C)
 
-/-- **A frame hole's full arity**: its container member's recorded type's
-binder count (parameters and indices; a stored inductive's type is a
-syntactic telescope ending in a sort).  Official applies every
-occurrence of a block member — the container's copied members among
-them — to exactly its parameters and indices (`is_valid_ind_app`,
-`inductive.cpp` v4.33.0 :341); a well-typed field's frame hole is
-fully applied anyway (a type former's partial or over-application is
-no type).  The accessibility proof reads a frame hole's
-value only at its full arity: a partial application is a λ-graph of
-the container's family, which no support over the family's elements
-carries to another family. -/
-def nestArity (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (C : Name) : m Nat :=
-  match ctx.find? C with
-  | some (.indInfo cv caps) => do
-    let ty ← familyTelescope ops env cv caps
-    pure ty.piBinders.1.length
-  | _ => pure 0
-
 /-- A frame's group grown by the named containers, each at the frame's
 instantiation, its hole typed by its instantiated former. -/
 def nestGrowGroup (ctx : NestCtx) (ops : CheckerOps m) (env : Env) (hi : Nat) (us : List Level)
@@ -1389,17 +1397,14 @@ def nestFrame (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (hi : Nat) (us : List Level) (ds : List Expr) (nPc : Nat)
     (grp : List (Name × Expr)) (st : NestState) : m NestState := do
-  -- K.52: the instantiation `C.{us} ds` is TYPED at the
-  -- frame's own depth (its holes typed by their containers' formers, as
-  -- the constants they stand for).  Official imposes it: after the nested
-  -- elimination, `add_inductive` type-checks every replaced nested
-  -- application `I Ds` (`tc.check(nested, …)` over `m_aux2nested`,
-  -- `inductive.cpp` v4.32.2 :1186–1189, v4.34.0 :1320–1323), and a reduct
-  -- of a typed term is typed.  The model grades the key's parameters in
-  -- the frame's stack context by it.
-  let _ ← ops.inferType env hi (Expr.mkAppN (.const (grp.headD default).1 us) ds)
-  let prog' := (grp.mapIdx fun _ (c, _) =>
-    ({ key := ⟨c, us, ds⟩, base := hi } : NestHole)).reverse ++ prog
+  -- K.52: the instantiation `C.{us} ds` is TYPED at the frame's own depth (its holes typed by
+  -- their containers' formers, as the constants they stand for).  Official imposes it: after the
+  -- nested elimination, `add_inductive` type-checks every replaced nested application, and a
+  -- reduct of a typed term is typed.  The model grades the key's parameters in the frame's stack
+  -- context by it.
+  familyKeyCheck ops env ctx.find? hi (grp.headD default).1 us ds
+  let prog' := (grp.mapIdx fun _ (c, ty) =>
+    ({ key := ⟨c, us, ds⟩, base := hi, nIdx := ty.piBinders.1.length } : NestHole)).reverse ++ prog
   let ctors ← nestGroupCtors ctx nPc (grp.map (·.1))
   let (_, st) ← nestCtors ctx ops env (fun _ => rec) prog' (hi + grp.length) us ds (grp.map (·.1))
     (grp.mapIdx fun i (_, ty) => Expr.fvar (hi + i) ty) ctors st
@@ -1535,12 +1540,11 @@ def nestPos (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         -- `is_valid_ind_app`, :338–341)
         match nestHoleAt ctx prog i with
         | some h =>
-          unless args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) do throw nestNonValid
-          let arity ← nestArity ctx ops env h.key.cname
-          unless args.length + h.key.ds.length == arity do throw nestNonValid
-          return (if i < ctx.hiAt 0 then
-              (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
-            else .inProgress, w, st)
+          if args.all (fun x => !x.nestOcc ctx.names ctx.nP hi) && args.length == h.nIdx then
+            return (if i < ctx.hiAt 0 then
+                (if kb == 0 then .recursive (i - ctx.nP) else .reflexive (i - ctx.nP))
+              else .inProgress, w, st)
+          else throw nestNonValid
         | none => throw nestNonValid
       | .const n us =>
         -- a member constant left after the abstraction (other levels)

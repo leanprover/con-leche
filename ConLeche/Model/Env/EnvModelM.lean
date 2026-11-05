@@ -78,7 +78,7 @@ inhabited by the member. -/
     ∀ ψ : Name → Nat, ∃ ta ta₀ : Term, denote acval env ψ 0 f.type = some ta ∧
       denote acval env ψ 0 cv.type = some ta₀ ∧
       ∀ ρ : Nat → V, interp V ρ ta₀ = interp V ρ ta ∧
-        interp V ρ (acval (D.member mm) ψ) ∈ˢ interp V ρ ta)
+        interp V ρ (acval (D.member mm) ψ) ∈ˢ interp V ρ ta ∧ WellDenotedTy V ρ ta)
 
 /-- **A recorded block's formers read as its hole telescopes** (M4):
 member `mm`'s stored type reads, at every level

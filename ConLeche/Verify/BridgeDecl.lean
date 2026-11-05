@@ -193,20 +193,33 @@ theorem familyTelescope_datF (env : Env) (cv : ConstantVal) (caps : IndCaps) (F 
   · simp only [FueledM.atF_bind, FueledM.atF_pure, reducedFormer_datF]
   · rfl
 
+theorem checkSpineAt_datF (env : Env) (d F : Nat) :
+    ∀ (T : Expr) (ds : List Expr), (checkSpineAt (fueledOpsM mode) env d T ds).val F =
+      checkSpineAt (fueledOps mode F) env d T ds
+  | _, [] => rfl
+  | .forallE ty body, a :: as => by
+    unfold checkSpineAt
+    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      fueledOpsM_inferType_atF, fueledOpsM_isDefEq_atF, checkSpineAt_datF env d F _ as]
+  | .bvar _, _ :: _ | .sort _, _ :: _ | .const _ _, _ :: _ | .fvar _ _, _ :: _ | .app _ _, _ :: _
+  | .lam _ _, _ :: _ | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+
+theorem familyKeyCheck_datF (env : Env) (find? : Name → Option ConstantInfo) (d : Nat) (c : Name)
+    (us : List Level) (ds : List Expr) (F : Nat) :
+    (familyKeyCheck (fueledOpsM mode) env find? d c us ds).val F =
+      familyKeyCheck (fueledOps mode F) env find? d c us ds := by
+  unfold familyKeyCheck
+  split
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      familyTelescope_datF, checkSpineAt_datF]
+  · rfl
+
 theorem nestInstType_datF (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) (F : Nat) :
     (nestInstType ctx (fueledOpsM mode) env hi key).val F =
       nestInstType ctx (fueledOps mode F) env hi key := by
   unfold nestInstType
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite, unwrapOr_atF,
     liftFueled_atF, familyTelescope_datF]
-
-theorem nestArity_datF (ctx : NestCtx) (env : Env) (C : Name) (F : Nat) :
-    (ConLeche.nestArity ctx (fueledOpsM mode) env C).val F =
-      ConLeche.nestArity ctx (fueledOps mode F) env C := by
-  unfold ConLeche.nestArity
-  split
-  · simp only [FueledM.atF_bind, FueledM.atF_pure, familyTelescope_datF]
-  · rfl
 
 theorem nestGrowGroup_datF (ctx : NestCtx) (env : Env) (hi : Nat) (us : List Level)
     (ds : List Expr) (F : Nat) :
@@ -274,7 +287,7 @@ theorem nestFrame_datF {F : Nat} (hrec : ∀ a b c d e, (rec a b c d e).val F = 
     (nestFrame ctx (fueledOpsM mode) env rec prog hi us ds nPc grp st).val F
       = nestFrame ctx (fueledOps mode F) env rec' prog hi us ds nPc grp st := by
   unfold nestFrame
-  simp only [FueledM.atF_bind, FueledM.atF_pure, fueledOpsM_inferType_atF, nestGroupCtors_datF]
+  simp only [FueledM.atF_bind, FueledM.atF_pure, familyKeyCheck_datF, nestGroupCtors_datF]
   congr 1
   funext _
   congr 1
@@ -333,8 +346,7 @@ theorem nestPos_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
       · simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind, FueledM.atF_pure, ih]
       · repeat' split
         all_goals (try simp only [FueledM.atF_ite, FueledM.atF_throw, FueledM.atF_bind,
-          FueledM.atF_pure, nestArity_datF,
-          nestCont_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
+          FueledM.atF_pure, nestCont_datF (rec := ConLeche.nestPos (fueledOpsM mode) env ctx fuel)
             (rec' := ConLeche.nestPos (fueledOps mode F) env ctx fuel) ih])
         all_goals (try rfl)
 
@@ -550,13 +562,13 @@ theorem targetPinTys_datF (env : Env) (d : Nat) (F : Nat) :
     unfold targetPinTys
     simp only [FueledM.atF_bind, fueledOpsM_inferType_atF, targetPinTys_datF env d F xs]
 
-theorem targetMajorPins_datF (env : Env) (rP : Nat) (M : TargetMajor) (F : Nat) :
-    (targetMajorPins (fueledOpsM mode) env rP M).val F
-      = targetMajorPins (fueledOps mode F) env rP M := by
+theorem targetMajorPins_datF (fe : FEnv) (rP : Nat) (M : TargetMajor) (F : Nat) :
+    (targetMajorPins (fueledOpsM mode) fe rP M).val F
+      = targetMajorPins (fueledOps mode F) fe rP M := by
   unfold targetMajorPins
   split
-  · simp only [FueledM.atF_bind, FueledM.atF_pure, fueledOpsM_inferType_atF,
-      targetPinTys_datF env rP F M.ds]
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, familyKeyCheck_datF,
+      targetPinTys_datF fe.env rP F M.ds]
   · rfl
 
 theorem targetRecPins_datF (p : BlockShape) (block : List ConstantInfo) (F : Nat) :

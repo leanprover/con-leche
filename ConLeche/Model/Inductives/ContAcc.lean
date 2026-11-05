@@ -241,7 +241,7 @@ theorem contHit_acc (mp : EnvModelM V env) {w : Nat}
     (hisC : ∀ isa, DenoteSpine mp.base2.acval env φ dep is isa → ∀ v ∈ isa, ConstOn R v)
     (hdsw : ∀ x ∈ ds, Expr.WScoped (ctx.hiAt prog.length) x ∧ x.looseBVarsBounded 0 = true)
     (hfree : ∀ x ∈ ds, x.fvarB ≤ ctx.hiAt 0) {nI : Nat} {cty : Expr}
-    (hnI : ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, ds⟩
+    (hnI : ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length) ⟨n, us, ds⟩
       = .ok (nI, cty))
     (hisl : is.length = nI) (hkp : KeyAcc mp φ w ctx ⟨n, us, ds⟩) :
     AccConcl w ctx prog dep (Expr.mkAppN (.const n us) (ds ++ is))

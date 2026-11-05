@@ -103,7 +103,9 @@ former instantiated at the key). -/
     (grp : List (Name × Expr)) : Prop :=
   (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
     ∀ p ∈ grp, (∃ mm, mm < D.k ∧ p.1 = D.member mm) ∧
-      ∃ nI, ConLeche.nestInstType (m := CheckM) ctx hi ⟨p.1, us, ds⟩ = .ok (nI, p.2)
+      ∃ mm cv caps nI, mm < D.k ∧ p.1 = D.member mm ∧
+        ctx.find? p.1 = some (.indInfo cv caps) ∧
+        ConLeche.NestInstFacts ctx hi ⟨p.1, us, ds⟩ cv.levelParams (D.formerAt mm cv).type nI p.2
 
 /-- **The frame's group is well formed**, nonempty. -/
 @[expose] def GrpOk (ctx : NestCtx) (D : LfpDatum V) (hi : Nat) (us : List Level) (ds : List Expr)
@@ -178,22 +180,21 @@ theorem grpMember (mp : EnvModelM V env) {D : LfpDatum V}
     {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) {p : Name × Expr} (hp : p ∈ grp) :
     ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ D.names.idxOf p.1 = mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧ cv.levelParams = lps ∧
-      (cv.type.stripPis ds.length).isSome = true ∧
-      instPisWith ds (cv.type.instantiateLevelParams lps us) = some p.2 ∧
+      ((D.formerAt mm cv).type.stripPis ds.length).isSome = true ∧
+      instPisWith ds ((D.formerAt mm cv).type.instantiateLevelParams lps us) = some p.2 ∧
       ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
         TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ lps us)) := by
   obtain ⟨-, -, hall⟩ := hg
-  obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hall p hp
-  obtain ⟨cv, caps, hf, hcl⟩ := hlps mm hmm
-  rw [hpm] at hrun
+  obtain ⟨-, mm, cv, caps, nI, hmm, hpm, hfc, hF⟩ := hall p hp
+  rw [hfind, hpm] at hfc
+  change env.find? (D.member mm) = _ at hfc
+  obtain ⟨cv', caps', hf, hcl⟩ := hlps mm hmm
+  rw [hf] at hfc
+  obtain ⟨rfl, rfl⟩ : cv' = cv ∧ caps' = caps := by simpa using hfc
   subst hcl
-  obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hrun hf hnd hul hlenP hds hdsa
-  obtain ⟨cv', caps', hf', hstrip, -⟩ := ConLeche.nestInstType_inv hrun
-  rw [hfind] at hf'
-  change env.find? (D.member mm) = _ at hf'
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv, caps, hf, rfl, hstrip,
+  rw [hpm] at hF
+  obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hf hF hnd hul hlenP hds hdsa
+  exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv', caps', hf, rfl, hF.strip,
     hcty, hte⟩
 
 /-- The substituted variables of a frame's constructor type: the key's
@@ -217,9 +218,8 @@ states it directly, with no `nestInstType` run. -/
   (grp.map (·.1)).Nodup ∧ (∀ c, c ∈ grp.map (·.1) ↔ c ∈ D.names) ∧
     ∀ p ∈ grp, ∃ mm, mm < D.k ∧ p.1 = D.member mm ∧ ∃ cv caps,
       env.find? (D.member mm) = some (.indInfo cv caps) ∧
-      ConLeche.formerDefHeaded cv = false ∧
-      (cv.type.stripPis ds.length).isSome = true ∧
-      instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some p.2
+      ((D.formerAt mm cv).type.stripPis ds.length).isSome = true ∧
+      instPisWith ds ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us) = some p.2
 
 omit [SetTheory V] in
 /-- The group's hole of member `mm`. -/
@@ -262,23 +262,24 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
     (∀ l ∈ p.2.fvarLeaves, ∃ x ∈ ds, l ∈ x.fvarLeaves) ∧
     ∃ mm cv caps, mm < D.k ∧ p.1 = D.member mm ∧
       env.find? (D.member mm) = some (.indInfo cv caps) ∧ ∃ abF : List Term,
-        denote mp.base2.acval env (Level.substFn φ lps us) 0 cv.type
+        denote mp.base2.acval env (Level.substFn φ lps us) 0 (D.formerAt mm cv).type
           = some (mkPisAV abF (.sort (D.w (Level.substFn φ lps us)))) ∧
         abF = D.pars mm (Level.substFn φ lps us) ++ D.ids mm (Level.substFn φ lps us) ∧
         (abF.drop ds.length) = D.ids mm (Level.substFn φ lps us) ∧
         denote mp.base2.acval env φ hi p.2
           = some (mkPisAV (Term.substTele (substTau ds.length hi fun i => dsa.getD i default) 0
               (abF.drop ds.length)) (.sort (D.w (Level.substFn φ lps us)))) := by
-  obtain ⟨mm, hmm, hpm, cv, caps, hf, hflat, hstrip, hp2⟩ := hgT.2.2 p hp
+  obtain ⟨mm, hmm, hpm, cv, caps, hf, hstrip, hp2⟩ := hgT.2.2 p hp
   obtain ⟨cv', caps', hf', hlp⟩ := hlps mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   subst hlp
-  have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
-  have hcl : (cv.type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
-    rw [Expr.hasFvar_instantiateLevelParams]; exact hwf.1
-  have hbb : (cv.type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0 = true := by
-    rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf.2.2.2.1
+  obtain ⟨hwf₁, hwf₂, -⟩ := mp.formerAt_wf hD hmm hf
+  have hcl : ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us).hasFvar = false := by
+    rw [Expr.hasFvar_instantiateLevelParams]; exact hwf₁
+  have hbb : ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us).looseBVarsBounded 0
+      = true := by
+    rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hwf₂
   refine ⟨ConLeche.wscoped_instPisWith (fun x hx => (hds x hx).1)
       (Expr.WScoped.of_not_hasFvar hcl) hp2,
     ConLeche.looseBVarsBounded_instPisWith (fun x hx => (hds x hx).2) hbb hp2,
@@ -287,7 +288,7 @@ theorem grp_typeT {p : Name × Expr} (hp : p ∈ grp) :
     · rw [ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hcl] at hl'; exact nomatch hl'
     · exact hl'
   · obtain ⟨abF, h1, h2, h4, h5⟩ :=
-      instFormer_readB mp hD hmm hf (mp.formerAt_flat hD hmm hf hflat) hnd hul hlenP hds hdsa hstrip hp2
+      instFormer_readB mp hD hmm hf hnd hul hlenP hds hdsa hstrip hp2
     exact ⟨mm, cv, caps, hmm, hpm, hf, abF, h1, h2, h4, h5⟩
 
 omit hnN hkN in
@@ -327,9 +328,7 @@ theorem grp_typeT_wd {p : Name × Expr} (hp : p ∈ grp) {ta : Term}
   refine (WellDenoted_substAV _ _ 0 ρ fun j => hτ j).mpr ?_
   rw [← keyFrame_eq_substE hdl]
   · -- the member's closed type, graded at every frame, past the parameters
-    have hmem := ConLeche.Env.find?_mem hf
-    have hwd := (mp.type_wellDenotedTy _ hmem ψ _ hread
-      (fun j => ρ (j + hi))).1
+    have hwd := (mp.formerAt_wellDenotedTy hD hmm hf hread (fun j => ρ (j + hi))).1
     have hsP := h.parsSat mm hmm ψ _ hs
     have hfit : SpineFit (fun j => ρ (j + hi)) ((abF.take ds.length))
         (dsa.map (interp V ρ)) := by
@@ -686,12 +685,7 @@ theorem grpWf_ty : GrpTy env D us ds grp :=
   ⟨hg.1, hg.2.1, fun p hp => by
     obtain ⟨mm, hmm, hpm, -, cv, caps, hf, hlp, hstrip, hp2, -⟩ :=
       grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hp
-    obtain ⟨-, nI, hrun⟩ := hg.2.2 p hp
-    have hflat := ConLeche.containerFlat_self (ConLeche.nestInstType_flat hrun)
-      (cv := cv) (caps := caps) (by
-        show ctx.find? p.1 = _
-        rw [hfind, hpm]; exact hf)
-    exact ⟨mm, hmm, hpm, cv, caps, hf, hflat, hstrip, by rw [hlp]; exact hp2⟩⟩
+    exact ⟨mm, hmm, hpm, cv, caps, hf, hstrip, by rw [hlp]; exact hp2⟩⟩
 
 /-- **The group's hole values inhabit their context entries** (the
 members' formers instantiated at the key, read at the holes' depths). -/

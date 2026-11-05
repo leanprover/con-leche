@@ -247,7 +247,29 @@ theorem EnvModelM.formerAt_mem {V : Type w} [SetTheory V] {env : Env} (mp : EnvM
     obtain ⟨ta', _, hta', _, hin⟩ := hm ψ
     rw [hta] at hta'
     obtain rfl := Option.some.inj hta'
-    exact (hin ρ).2
+    exact (hin ρ).2.1
+
+open SetTheory ConLeche.Term in
+/-- **A recorded member's former reads as a type.** -/
+theorem EnvModelM.formerAt_wellDenotedTy {V : Type w} [SetTheory V] {env : Env}
+    (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
+    {cv : ConstantVal} {caps : ConLeche.IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {ψ : Name → Nat}
+    {ta : ConLeche.Term.Term}
+    (hta : denote mp.base2.acval env ψ 0 (D.formerAt mm cv).type = some ta) (ρ : Nat → V) :
+    WellDenotedTy V ρ ta := by
+  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
+  obtain ⟨cv', caps', hf', ⟨-, hsh⟩, -⟩ := hrd mm hmm
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+  rcases hsh with hn | ⟨f, hs, -, -, -, -, -, -, hm⟩
+  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]] at hta
+    exact mp.type_wellDenotedTy _ (ConLeche.Env.find?_mem hf) ψ _ hta ρ
+  · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]] at hta
+    obtain ⟨ta', _, hta', _, hin⟩ := hm ψ
+    rw [hta] at hta'
+    obtain rfl := Option.some.inj hta'
+    exact (hin ρ).2.2
 
 open SetTheory ConLeche.Term in
 /-- **A stored former and the one its block read have one value.** -/

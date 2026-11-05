@@ -77,7 +77,7 @@ namespace ConLeche
 /-- The frame's new walk entries (one per group member, at the key). -/
 @[expose] def grpNews (us : List Level) (ds : List Expr) (hi : Nat) (grp : List (Name × Expr)) :
     List NestHole :=
-  grp.map fun p => { key := ⟨p.1, us, ds⟩, base := hi }
+  grp.map fun p => { key := ⟨p.1, us, ds⟩, base := hi, nIdx := p.2.piBinders.1.length }
 
 /-- The frame's holes (`nestFrame`'s): the group's members' variables
 `hi + i`, typed by their instantiated formers. -/
@@ -103,7 +103,7 @@ theorem nestHoleAt_some {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : Ne
   split at hh
   · rename_i h1
     have := (List.getElem?_eq_some_iff.mp hh).1
-    simp only [List.length_append, NestCtx.rootHoles, List.length_map,
+    simp only [List.length_append, NestCtx.rootHoles, List.length_mapIdx,
       List.length_reverse] at this
     exact ⟨h1, by simp only [NestCtx.hiAt]; omega⟩
   · exact nomatch hh
@@ -111,16 +111,18 @@ theorem nestHoleAt_some {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : Ne
 /-- A member hole's entry is the root frame's. -/
 theorem nestHoleAt_root {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
     (hh : nestHoleAt ctx prog i = some h) (hlt : i < ctx.hiAt 0) :
-    h = ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩ := by
+    h = ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP,
+      ctx.nIdxs.getD (i - ctx.nP) 0⟩ := by
   obtain ⟨h1, -⟩ := nestHoleAt_some hh
   unfold nestHoleAt at hh
   rw [ite_eq_left h1, List.getElem?_append_left (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hlt ⊢; omega)]
     at hh
-  simp only [NestCtx.rootHoles, List.getElem?_map] at hh
+  simp only [NestCtx.rootHoles, List.getElem?_mapIdx] at hh
   have hl : i - ctx.nP < ctx.names.length := by simp [NestCtx.hiAt] at hlt; omega
   rw [List.getElem?_eq_getElem hl] at hh
   simp only [Option.map_some, Option.some.injEq] at hh
-  rw [← hh, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl, Option.getD_some]
+  rw [← hh]
+  simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hl]
 
 /-- A frame hole's entry is its frame's. -/
 theorem nestHoleAt_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
@@ -130,17 +132,18 @@ theorem nestHoleAt_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : N
   unfold nestHoleAt at hh
   rw [ite_eq_left h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
     at hh
-  simp only [NestCtx.rootHoles, List.length_map] at hh
+  simp only [NestCtx.rootHoles, List.length_mapIdx] at hh
   rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega] at hh
 
 theorem nestHoleAt_of_root {ctx : NestCtx} (prog : List NestHole) {i : Nat} (h1 : ctx.nP ≤ i)
     (hlt : i < ctx.hiAt 0) :
     nestHoleAt ctx prog i
-      = some ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP⟩ := by
+      = some ⟨⟨ctx.names.getD (i - ctx.nP) .anonymous, ctx.lps.map .param, ctx.params⟩, ctx.nP,
+          ctx.nIdxs.getD (i - ctx.nP) 0⟩ := by
   have hl : i - ctx.nP < ctx.names.length := by simp [NestCtx.hiAt] at hlt; omega
   unfold nestHoleAt
   rw [ite_eq_left h1, List.getElem?_append_left (by simpa [NestCtx.rootHoles] using hl)]
-  simp only [NestCtx.rootHoles, List.getElem?_map, List.getElem?_eq_getElem hl, Option.map_some,
+  simp only [NestCtx.rootHoles, List.getElem?_mapIdx, List.getElem?_eq_getElem hl, Option.map_some,
     List.getD_eq_getElem?_getD, Option.getD_some]
 
 theorem nestHoleAt_of_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h : NestHole}
@@ -149,7 +152,7 @@ theorem nestHoleAt_of_frame {ctx : NestCtx} {prog : List NestHole} {i : Nat} {h 
   have h1 : ctx.nP ≤ i := by simp [NestCtx.hiAt] at hge; omega
   unfold nestHoleAt
   rw [ite_eq_left h1, List.getElem?_append_right (by simp [NestCtx.rootHoles, NestCtx.hiAt] at hge ⊢; omega)]
-  simp only [NestCtx.rootHoles, List.length_map]
+  simp only [NestCtx.rootHoles, List.length_mapIdx]
   rwa [show i - ctx.nP - ctx.names.length = i - ctx.hiAt 0 by simp [NestCtx.hiAt]; omega]
 
 /-- A syntactic telescope of `n` binders ending in a sort has `n` binders. -/
@@ -171,20 +174,11 @@ theorem stripPis_sort_piBinders_length :
       rw [stripPis_sort_piBinders_length n hb]
     | _ => simp [Expr.stripPis] at h
 
-/-- **Every member's stored former has the arity `nP + nIdx`**
-(`nestArity`, the frames' arity: its type is a syntactic telescope of
-the block's parameters and its indices). -/
-@[expose] def NestArityOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Prop :=
-  ∀ t, t < ctx.names.length →
-    nestArity ctx ops env (ctx.names.getD t .anonymous) = .ok (ctx.nP + ctx.nIdxs.getD t 0)
-
 /-- **The root frame reads as the members' own rule** (the premise the
 inversion reads a member hole's occurrence under): the canonical
-parameters are `nP` variables below `nP`, and every member's stored
-former has the arity `nP + nIdx` (`nestArity`, the frames' arity). -/
-@[expose] def NestRootOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Prop :=
-  ctx.params.length = ctx.nP ∧ (∀ x ∈ ctx.params, ∃ i ty, x = .fvar i ty ∧ i < ctx.nP) ∧
-  NestArityOk ops env ctx
+parameters are `nP` variables below `nP`. -/
+@[expose] def NestRootOk (ctx : NestCtx) : Prop :=
+  ctx.params.length = ctx.nP ∧ ∀ x ∈ ctx.params, ∃ i ty, x = .fvar i ty ∧ i < ctx.nP
 
 /-- **The frames are well scoped**: every frame's parameters are well
 scoped below the frames' holes. -/
@@ -263,7 +257,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hfn : w.getAppFn = .fvar i ty) (hlo : ctx.hiAt 0 ≤ i) (hhi : i < ctx.hiAt prog.length)
       (hk : prog.reverse[i - ctx.hiAt 0]? = some h)
       (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
-      (har : nestArity ctx ops env h.key.cname = .ok (w.getAppArgs.length + h.key.ds.length)) :
+      (har : w.getAppArgs.length = h.nIdx) :
       PosD ops env ctx (.field prog dep kb e .inProgress w) []
   /-- a container at a concrete instantiation, its frame derived here -/
   | contNew {prog : List NestHole} {dep kb : Nat} {e w : Expr} {n : Name} {us : List Level}
@@ -319,8 +313,8 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
       (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)
       (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-      (hkty : ∃ ty, ops.inferType env (ctx.hiAt prog.length)
-        (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty)
+      (hkty : familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) (grp.headD default).1 us ds
+        = .ok ())
       (hwalk : PosD ops env ctx (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
         (ctx.hiAt prog.length + grp.length) us ds (grp.map (·.1))
         (grpHoles (ctx.hiAt prog.length) grp) ctors) ts) :

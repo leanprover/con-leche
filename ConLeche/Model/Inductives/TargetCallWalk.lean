@@ -45,7 +45,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level NestCtx NestHole nestHoleImg extendF CheckM
-  PosD NestFieldKind PosTree nestArity nestContainer closeTelescope targetPiDomsWith)
+  PosD NestFieldKind PosTree nestContainer closeTelescope targetPiDomsWith)
 
 universe w
 
@@ -275,14 +275,14 @@ theorem callWalkSyn {ops : ConLeche.CheckerOps CheckM} {envW : Env}
           pre = h.key.ds.map (·.replaceFVars
             (nestHoleImg ctx (prog.drop (prog.length - (v - ctx.hiAt 0))))) ∧
           (∀ y ∈ w.getAppArgs, y.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
-          w.getAppArgs.length + h.key.ds.length = nestArity ctx h.key.cname) ∨
+          w.getAppArgs.length = h.nIdx) ∨
         (∃ u nPc L, pre = [] ∧ u ∈ tsi ∧ u.occ = prog ∧ w.getAppFn = .const I us ∧
           nestContainer ctx I = some (nPc, L) ∧ nPc ≤ w.getAppArgs.length ∧
           u.key = ⟨I, us, w.getAppArgs.take nPc⟩ ∧
           (∀ y ∈ w.getAppArgs.drop nPc,
             y.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
           ∃ nI cty, w.getAppArgs.length = nPc + nI ∧
-            ConLeche.nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+            ConLeche.nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
               ⟨I, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty)) ) := by
   generalize hB : rP + fvsF.length = B at *
   have himgB : ∀ v r, nestHoleImg ctx prog v = some r → r.looseBVarsBounded 0 = true :=

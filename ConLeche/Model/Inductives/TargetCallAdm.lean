@@ -113,7 +113,7 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
     {own : Nat → Nat} {G : Nat → Nat → V → V → Prop} {prog : List NestHole} {σ : Nat → V}
     (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) {i : Nat} {hk : NestHole}
     (hi : prog.reverse[i]? = some hk)
-    {is : List V} (his : is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname)
+    {is : List V} (his : is.length = hk.nIdx)
     (hext : is.length = ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
           (nlψ envC ns ψ (own i))).length →
       ∀ k, SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
