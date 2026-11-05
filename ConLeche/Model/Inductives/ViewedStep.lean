@@ -129,7 +129,6 @@ laws the block proved at it stand: its fibres, its projections, its type's gradi
     (∃ (envB : Env) (F : Nat), EnvExt envB env ∧
       cv.type.constsResolve envB = true ∧
       reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f) ∧
-    IndStrictAt (V := V) mp.base2.acval env (D.member mm) f ∧
     (∀ φ, TowerViewTyped mp.base2 φ (D.member mm) f) ∧
     (∀ (ψ : Name → Nat) (ta : Term), denote mp.base2.acval env ψ 0 f.type = some ta →
       ∀ ρ : Nat → V, WellDenotedTy V ρ ta)
@@ -290,7 +289,6 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
     (∃ (envB : Env) (F : Nat), EnvExt envB env' ∧
       cv.type.constsResolve envB = true ∧
       reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f) ∧
-    IndStrictAt (V := V) m'.acval env' (D.member mm) f ∧
     (∀ φ, TowerViewTyped m' φ (D.member mm) f) ∧
     (∀ (ψ : Name → Nat) (ta : Term), denote m'.acval env' ψ 0 f.type = some ta →
       ∀ ρ : Nat → V, WellDenotedTy V ρ ta) := by
@@ -298,7 +296,7 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
   obtain ⟨cv₀, caps₀, hf₀⟩ := hst mm hmm
   rw [hfd _ _ hf₀] at hf
   obtain ⟨rfl, rfl⟩ : cv₀ = cv ∧ caps₀ = caps := by simpa using hf
-  obtain ⟨hrun, his, htv, hwd⟩ := hS D hD mm f hmm hs cv₀ caps₀ hf₀
+  obtain ⟨hrun, htv, hwd⟩ := hS D hD mm f hmm hs cv₀ caps₀ hf₀
   have hsm : (env.find? (D.member mm)).isSome = true := by rw [hf₀]; rfl
   have hlf := hleaf _ hsm
   obtain ⟨cv₁, caps₁, hf₁, ⟨-, hsh⟩, -⟩ := hrd mm hmm
@@ -310,16 +308,9 @@ theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V
     · rw [hs] at hs'
       obtain rfl := Option.some.inj hs'
       exact ⟨hb, fun ψ => (hm ψ).elim fun ta h => ⟨ta, h.elim fun _ h => h.1⟩⟩
-  refine ⟨?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
   · obtain ⟨envB, F, hxB, hr, hrn⟩ := hrun
     exact ⟨envB, F, envExt_trans hxB hfd htb, hr, hrn⟩
-  · intro ψ ab n hta hn ρ vs hsp
-    obtain ⟨ta, hta₀⟩ := hrf ψ
-    have h₁ := hread ψ 0 _ _ hbf hta₀
-    rw [hta] at h₁
-    obtain rfl := Option.some.inj h₁
-    rw [hlf]
-    exact his ψ ab n hta₀ hn ρ vs hsp
   · intro φ i entry s' hfp hs₁ hz us Ta hus hTa ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆
     have hfp₀ : env.findProj? (D.member mm) i = some entry := by
       have := htb _ hsm
@@ -367,11 +358,8 @@ theorem envWF_ofViews {env : Env} (henv : EnvWF env) :
       induction vs with
       | nil => exact he
       | cons d vs ih => exact Expr.constsResolve_mono ih
-    have hcaps : ConLeche.IndCapsWF (.indInfo cvR caps) := by
-      obtain ⟨hu, he⟩ := (henv.consts _ (ConLeche.Env.find?_mem hF.find)).2.2.2.2.2.2 cv caps rfl
-      exact ConLeche.IndCapsWF.of_caps hu he
     exact ih.cons (ConLeche.structConstWF h1 h2 (Expr.constsResolve_mono (hres vs h3)) h4
-      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq) hcaps)
+      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
 
 set_option maxHeartbeats 1600000 in
 /-- **The carrier at the views**: the same leaves and records. -/
@@ -400,7 +388,7 @@ theorem EnvModelM.toViews {env : Env} (mp : EnvModelM V env) (hS : ShownFacts mp
       rfl
     · have hs := shown_of_view hS hD hmm hn hF
       simp [LfpDatum.formerAt, hs]
-  refine (mp.swapFormers h hwf ?_ ?_ ?_ ?_ ?_ ?_ mp.lfpBlocks ?_).imp fun mpV hV =>
+  refine (mp.swapFormers h hwf ?_ ?_ ?_ ?_ ?_ mp.lfpBlocks ?_).imp fun mpV hV =>
     ⟨hV.1, hV.2, LfpCover.formerSwap h hV.2 hcov⟩
   · -- the recursors' constructors
     intro n cv mI rP isK rules hf r hr
@@ -478,7 +466,7 @@ theorem EnvModelM.toViews {env : Env} (mp : EnvModelM V env) (hS : ShownFacts mp
         obtain ⟨D, hD, mm, hmm, hnm, hs'⟩ := view_member hS hcov hF
         have hfm : env.find? (D.member mm) = some (.indInfo cvs capsv) := by
           rw [hnm]; exact hF.find
-        obtain ⟨-, -, htv, -⟩ := hS D hD mm cvT hmm hs' cvs capsv hfm
+        obtain ⟨-, htv, -⟩ := hS D hD mm cvT hmm hs' cvs capsv hfm
         have hmT : D.member mm = T := by rw [hnm, hn, hsn]
         rw [hmT] at htv
         exact .inr (htv φ i entry s hf₀ hs hz us Ta hus hTa)
@@ -507,28 +495,13 @@ theorem EnvModelM.toViews {env : Env} (mp : EnvModelM V env) (hS : ShownFacts mp
         refine ht ta₁ ?_ ρ
         rw [hac, ← hde, denote_instLevels mp.base2.acval_params φ, hlp]
         exact h₁
-  · -- the fibres
-    intro m₃ hac I cv caps hf hfl ψ ab n hread hn ρ vs' hsp
-    rw [hac] at hread ⊢
-    rw [← hde] at hread
-    rcases find_views hv I with he | ⟨cvs, cvR, capsv, hnm, hF, h₃⟩
-    · exact mp.ind_strict I cv caps (by rw [← he]; exact hf) hfl ψ ab n hread hn ρ vs' hsp
-    · rw [hf] at h₃
-      obtain ⟨rfl, -⟩ : cv = cvR ∧ caps = capsv := by simpa using h₃
-      obtain ⟨D, hD, mm, hmm, hnm', hs'⟩ := view_member hS hcov hF
-      have hfm : env.find? (D.member mm) = some (.indInfo cvs capsv) := by
-        rw [hnm']; exact hF.find
-      obtain ⟨-, his, -⟩ := hS D hD mm cv hmm hs' cvs capsv hfm
-      have hmT : D.member mm = I := by rw [hnm', hnm]
-      rw [hmT] at his
-      exact his ψ ab n hread hn ρ vs' hsp
   · -- the views' types
     intro c hc hnot
     have hc' : c ∈ vs := (List.mem_append.mp hc).resolve_right hnot
     obtain ⟨cv, cvR, caps, rfl, hF⟩ := hv c hc'
     obtain ⟨D, hD, mm, hmm, hnm, hs'⟩ := view_member hS hcov hF
     have hfm : env.find? (D.member mm) = some (.indInfo cv caps) := by rw [hnm]; exact hF.find
-    obtain ⟨-, -, -, hwd⟩ := hS D hD mm cvR hmm hs' cv caps hfm
+    obtain ⟨-, -, hwd⟩ := hS D hD mm cvR hmm hs' cv caps hfm
     refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
     · obtain ⟨ta, -, h₁, -⟩ := view_read hS hcov hF ψ
       exact ⟨ta, by rw [← hde]; exact h₁⟩
@@ -1233,22 +1206,6 @@ theorem towerOk_back {m₃ : EnvModel V env₃} {m₂ : EnvModel V env₂} (hac 
       rw [hac, ← hde, denote_instLevels m₃.acval_params φ, hlp]
       exact h₁
 
-/-- **The fibres back**: a former that shows its telescope is not swapped. -/
-theorem indStrict_back {m₃ : EnvModel V env₃} {m₂ : EnvModel V env₂} (hac : m₂.acval = m₃.acval)
-    (h : FormerSwap env₃ env₂)
-    (hc : ∀ n, env₂.find? n = env₃.find? n ∨
-      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps)
-    (hI : IndStrictOk m₃) : IndStrictOk m₂ := by
-  intro I cv caps hf hfl ψ ab n hread hn ρ vs hsp
-  rw [hac] at hread ⊢
-  rw [← denote_formerSwap h] at hread
-  rcases hc I with he | ⟨cvR, cvS, caps', hS⟩
-  · exact hI I cv caps (by rw [← he]; exact hf) hfl ψ ab n hread hn ρ vs hsp
-  · rw [hS.find₂] at hf
-    obtain ⟨rfl, -⟩ : cvS = cv ∧ caps' = caps := by simpa using hf
-    rw [hS.headed] at hfl
-    exact nomatch hfl
-
 omit [SetTheory V] in
 theorem recCtors_back (h : FormerSwap env₃ env₂) (hr : ConLeche.RecCtorsStored env₃) :
     ConLeche.RecCtorsStored env₂ := by
@@ -1736,10 +1693,8 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
         rcases hr.how with ⟨hd', -⟩ | ⟨-, -, h₁, -, -, -⟩
         · rw [hd] at hd'; exact nomatch hd'
         · obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF h₁
-          obtain ⟨hu, he⟩ := (mp₃.base2.wf.consts _ hm).2.2.2.2.2.2 _ caps rfl
           refine ConLeche.structConstWF g1 g2 (Expr.constsResolve_of_find (fun n hn => ?_) g3) g4
             (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq)
-            (ConLeche.IndCapsWF.of_caps hu he)
           cases hfc : env.find? n with
           | none => rw [hfc] at hn; exact nomatch hn
           | some ci => rw [hx.find n ci hfc]; rfl
@@ -1799,7 +1754,7 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     (projOk_back h mp₃.base2.proj_ok)
     (fun _ hac φ => recRules_back hac h hcS hrd mp₃.rec_rules φ)
     (fun _ hac φ => towerOk_back hac h hcS hrd mp₃.tower_ok φ)
-    (fun _ hac => indStrict_back hac h hcS mp₃.ind_strict) htyS
+    htyS
     (mp₃.lfpBlocks.map (reshow mp env₃ env₂)) (fun D' hD' => by
       obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
       by_cases hDm : D ∈ mp.lfpBlocks
@@ -1858,8 +1813,7 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
       change env₂.find? (D.member mm) = _ at hf
       change shownAt env₃ env₂ D mm = some f at hs
       change mm < D.k at hmm
-      change _ ∧ IndStrictAt (V := V) mp₂.base2.acval env₂ (D.member mm) f ∧
-        (∀ φ, TowerViewTyped mp₂.base2 φ (D.member mm) f) ∧ _
+      change _ ∧ (∀ φ, TowerViewTyped mp₂.base2 φ (D.member mm) f) ∧ _
       rcases hcS (D.member mm) with he | ⟨cvR, cvS, caps', hSw⟩
       · have hf₃ : env₃.find? (D.member mm) = some (.indInfo cv caps) := by rw [← he]; exact hf
         rw [shownAt_same hf₃ hf] at hs
@@ -1872,20 +1826,8 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
           exact nomatch hs
         rw [shownAt_swapped hSw.find₃ hSw.find₂ hne] at hs
         obtain rfl := Option.some.inj hs
-        obtain ⟨-, -, hrd₃, -⟩ := mp₃.lfp_ok D hD
-        obtain ⟨cv₁, caps₁, hf₁, ⟨-, hsh⟩, -⟩ := hrd₃ mm hmm
-        rw [hSw.find₃] at hf₁
-        obtain ⟨rfl, rfl⟩ : cvR = cv₁ ∧ caps' = caps₁ := by simpa using hf₁
-        have hflat : ConLeche.formerDefHeaded cvR = false := by
-          rcases hsh with ⟨-, h₂⟩ | ⟨f', hs', -⟩
-          · exact h₂
-          · rw [hnew' hD hDm] at hs'; exact nomatch hs'
         obtain ⟨F', hrf⟩ := hSw.ran
-        refine ⟨⟨env, F', hx, hSw.resolve, hrf⟩, ?_, fun φ => ?_, fun ψ ta hta ρ => ?_⟩
-        · intro ψ ab n hread hn ρ vs' hsp
-          rw [hac₂] at hread ⊢
-          rw [← hde] at hread
-          exact mp₃.ind_strict _ cvR caps' hSw.find₃ hflat ψ ab n hread hn ρ vs' hsp
+        refine ⟨⟨env, F', hx, hSw.resolve, hrf⟩, fun φ => ?_, fun ψ ta hta ρ => ?_⟩
         · intro i entry s' hfp hs₁ hz us Ta hus hTa ρ vs' x rest g₁ g₂ g₃ g₄ g₅ g₆
           rw [hac₂] at hTa g₂ g₃ g₅
           rw [← hde] at hTa

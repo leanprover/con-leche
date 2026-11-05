@@ -340,15 +340,6 @@ theorem denote_holeHead {ctx : NestCtx} {t l : Nat} {e : Expr} {ea : Term}
   · obtain ⟨a, ha, hr⟩ := DenoteSpine.mem_vals hspine x hx
     exact noBVar_holeSlots_of_nestOcc (hwArgs a ha) (hfree a ha) hr
 
-/-- An application spine grows at the right. -/
-theorem _root_.ConLeche.Term.Term.mkAppN_snoc' :
-    ∀ (as : List Term) (f a : Term),
-      Term.mkAppN f (as ++ [a]) = .app (Term.mkAppN f as) a := by
-  intro as
-  induction as with
-  | nil => intro f a; rfl
-  | cons x xs ih => intro f a; exact ih (.app f x) a
-
 end Read
 
 /-! ## The producer's syntactic lemmas -/

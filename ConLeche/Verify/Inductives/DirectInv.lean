@@ -68,11 +68,8 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
         (RecRule.rhs r).constsResolve env = true ∧
         (RecRule.rhs r).looseBVarsBounded 0 = true ∧
         ∀ lvls pins, RecRule.fire r = .nested lvls pins →
-          NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins)
-    (h9 : IndCapsWF c := by
-        intro cv caps h
-        exact ConstantInfo.noConfusion h) :
-    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6, h9⟩
+          NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins) :
+    ConstWF env c := ⟨h1, h2, h3, h4, h5, h6⟩
 
 /-! ## The projection table (#175) -/
 

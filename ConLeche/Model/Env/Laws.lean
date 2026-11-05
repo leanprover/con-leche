@@ -347,36 +347,7 @@ as a Π-tower over its parameters and indices ending in `.sort n`, and
 `n` is the stored sort at the reading's assignment (a block member's
 `FormerData.read`: `.sort (resSort.eval ψ)`).
 
-* The **field** (`EnvModelM.ind_strict`, `IndStrictOk`) is the strict
-  half, per former and at the uninstantiated type, the form every
-  install proves.
 -/
-
-/-- **A stored former's fibres above a proposition are strict**: at every
-assignment where its type reads as a Π-tower ending in `.sort n` with
-`n ≠ 0`, the former applied to values fitting the tower's domains is
-strict (task #342 L7). -/
-@[expose] def IndStrictAt {V : Type w} [SetTheory V]
-    (acval : Name → (Name → Nat) → Term) (env : Env) (I : Name)
-    (cv : ConstantVal) : Prop :=
-  ∀ (ψ : Name → Nat) (ab : List Term) (n : Nat),
-    denote acval env ψ 0 cv.type = some (mkPisAV ab (.sort n)) → n ≠ 0 →
-    ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ ab vs →
-      Strict (vs.foldl SetTheory.app (interp V ρ (acval I ψ)))
-
-/-- `IndStrictAt` at a cons's head, if it is a former. -/
-@[expose] def IndStrictHead {V : Type w} [SetTheory V]
-    (acval : Name → (Name → Nat) → Term) (env : Env) (c₀ : ConstantInfo) : Prop :=
-  ∀ (cv : ConstantVal) (caps : IndCaps), c₀ = .indInfo cv caps →
-    IndStrictAt (V := V) acval env c₀.name cv
-
-/-- **Every stored former's fibres above a proposition are strict**
-(the `EnvModelM` field; established at the formers' installs). -/
-@[expose] def IndStrictOk {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvModel V env) : Prop :=
-  ∀ (I : Name) (cv : ConstantVal) (caps : IndCaps),
-    env.find? I = some (.indInfo cv caps) → ConLeche.formerDefHeaded cv = false →
-      IndStrictAt (V := V) m.acval env I cv
 
 /-- A Π-tower over a sort determines its domains and its sort. -/
 theorem mkPisAV_sort_inj :
@@ -391,22 +362,6 @@ theorem mkPisAV_sort_inj :
     obtain ⟨h1, h⟩ := h
     obtain ⟨h2, rfl⟩ := mkPisAV_sort_inj h
     exact ⟨by simp [h1, h2], rfl⟩
-
-/-- **The strict fibres of a former, at its cons** — from its one type
-reading: at every assignment the stored type reads as `mkPisAV (ab ψ)
-(.sort (s ψ))`, and where `s ψ ≠ 0` the leaf applied along a fitting
-spine is strict. -/
-theorem indStrictHead_of {acval : Name → (Name → Nat) → Term} {env : Env}
-    {cv : ConstantVal} {caps : IndCaps}
-    {ab : (Name → Nat) → List Term} {s : (Name → Nat) → Nat}
-    (hread : ∀ ψ, denote acval env ψ 0 cv.type = some (mkPisAV (ab ψ) (.sort (s ψ))))
-    (h : ∀ ψ, s ψ ≠ 0 → ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ (ab ψ) vs →
-      Strict (vs.foldl SetTheory.app (interp V ρ (acval cv.name ψ)))) :
-    IndStrictHead (V := V) acval env (.indInfo cv caps) := by
-  intro cv' caps' hc ψ ab' n hr hn ρ vs hsp
-  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj hc
-  obtain ⟨hab, rfl⟩ := mkPisAV_sort_inj (Option.some.inj ((hread ψ).symm.trans hr))
-  exact h ψ hn ρ vs (hab ▸ hsp)
 
 /-! ## The fired modeled-iota contract (task #161, iota tier)
 

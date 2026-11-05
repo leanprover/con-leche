@@ -1084,7 +1084,7 @@ theorem iotaRec_WScoped (henv : EnvWF env)
     fun x hx => hw.getAppArgs x hx
   have hrhs : WScoped d
       (r.rhs.instantiateLevelParams cv.levelParams us) := by
-    obtain ⟨-, -, -, -, -, hrules, -⟩ := henv.consts _ (Env.find?_mem hfc)
+    obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
     obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl r
       (List.mem_of_find?_eq_some hrule)
     exact WScoped.of_not_hasFvar
@@ -1363,7 +1363,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
             ∀ pin ∈ pins, pin.hasFvar = false := by
           intro lvls pins hf' pin hpin
           obtain ⟨-, -, -, -, g5⟩ :=
-            (henv.consts _ (Env.find?_mem hfc)).2.2.2.2.2.1 cv mI rP isK rules rfl rl
+            (henv.consts _ (Env.find?_mem hfc)).2.2.2.2.2 cv mI rP isK rules rfl rl
               (List.mem_of_find?_eq_some hrule)
           exact ((g5 lvls pins hf').2.2.1 pin hpin).1
         have h1 := defEqList_shift henv ih hpd
@@ -1423,7 +1423,7 @@ private theorem iotaRec_shift (henv : EnvWF env)
         refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
         have hrhs : (rl.rhs.instantiateLevelParams cv.levelParams
             us).hasFvar = false := by
-          obtain ⟨-, -, -, -, -, hrules, -⟩ := henv.consts _ (Env.find?_mem hfc)
+          obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
           obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl rl
             (List.mem_of_find?_eq_some hrule)
           rw [hasFvar_instantiateLevelParams]

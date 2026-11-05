@@ -1119,26 +1119,6 @@ theorem fixEntryEtaCore {w nP nF : Nat} {pps ds : List Term}
     rw [hprojs, hfold', heq]
 
 
-/-- A spine fitting a chain of truth values is all points. -/
-theorem spineFit_pts_of_univZero {ρ : Nat → V} :
-    ∀ {Fs : List Term} {fs : List V}, SpineFit ρ Fs fs →
-      (∀ j, j < Fs.length → ∀ as : List V, SpineFit ρ (Fs.take j) as →
-        interp V (consList as ρ) (Fs.getD j default) ∈ˢ (univZero : V)) →
-      fs = List.replicate fs.length pt
-  | [], [], _, _ => rfl
-  | [], _ :: _, h, _ => h.elim
-  | _ :: _, [], h, _ => h.elim
-  | F :: Fs, a :: as, h, hz => by
-    have h0 : interp V ρ F ∈ˢ (univZero : V) := by
-      simpa using hz 0 (by simp) [] trivial
-    have ha : a = pt := eq_pt_of_mem_univZero h0 h.1
-    have ih := spineFit_pts_of_univZero (ρ := cons a ρ) h.2 (fun j hj as' hsp' => by
-      have := hz (j + 1) (by simp; omega) (a :: as') ⟨h.1, hsp'⟩
-      simpa using this)
-    rw [List.length_cons, List.replicate_succ]
-    subst ha
-    exact congrArg _ ih
-
 /-- **(D) the η constructor's coherence** (task #342 L11b): a member's
 parameters, then its projections below the tag, fit the constructor's
 telescope — in the graph regime the projections are the tuple's fields

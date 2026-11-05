@@ -230,7 +230,7 @@ theorem recRhs_depthK {m : EnvModel V env}
         us).hasFvar = false ∧
       ((RecRule.rhs rl).instantiateLevelParams cv.levelParams
         us).looseBVarsBounded 0 = true := by
-  obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+  obtain ⟨-, -, -, -, -, hrec'⟩ :=
     m.wf.consts _ (ConLeche.Env.find?_mem hf)
   obtain ⟨hRnf, -, -, hRbd, -⟩ := hrec' cv mI rP isK rules rfl rl hmem
   have hnf : ((RecRule.rhs rl).instantiateLevelParams cv.levelParams

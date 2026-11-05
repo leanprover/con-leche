@@ -235,11 +235,6 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
             tower_ok := ?_
-            -- the formers are never swapped, and keep their readings
-            ind_strict := fun I cv caps hf hfl ψ ab n hread =>
-              mp.ind_strict I cv caps
-                ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hfl
-                ψ ab n (by rw [hde]; exact hread)
             -- the recorded lfp clauses: the swap touches recursors only,
             -- and keeps every leaf
             lfpBlocks := mp.lfpBlocks

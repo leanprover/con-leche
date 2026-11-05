@@ -84,12 +84,7 @@ theorem extendEmpty (mp : EnvModelM V env)
         rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     (fun _ _ _ => rfl)
     (fun _ _ => trivial)
-    (fun ψ => ⟨_, denote_emptyA_type ψ⟩) ?_ ?_
-    (hind := indStrictHead_cons (ab := fun _ => []) (s := fun _ => 1)
-      (fun ψ => denote_emptyA_type ψ) fun _ _ ρ vs hsp => by
-        cases vs with
-        | nil => exact strict_empty
-        | cons _ _ => exact hsp.elim))
+    (fun ψ => ⟨_, denote_emptyA_type ψ⟩) ?_ ?_)
   · intro ψ ta h ρ
     rw [denote_emptyA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -200,11 +195,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨emptyA :: env.consts, env.tables⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
-      (by first
-        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-            first | exact absurd h (by decide) | rfl)
-        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
   refine (extendEmpty mp hf1 hwf1).trans fun mp1 => ?_
   have hE : (⟨emptyA :: env.consts, env.tables⟩ : Env).find? emptyName
       = some emptyA := by
@@ -217,11 +208,7 @@ theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
       (fun _ _ _ _ _ heq => by
         injection heq with _ _ _ _ h4
         subst h4
-        intro r hr; exact nomatch hr),
-      (by first
-        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-            first | exact absurd h (by decide) | rfl)
-        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+        intro r hr; exact nomatch hr)⟩
     show Expr.constsResolve _ emptyRecA.toConstantVal.type = true
     simp only [show emptyRecA.toConstantVal.type
         = Expr.forallE

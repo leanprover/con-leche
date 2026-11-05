@@ -809,37 +809,6 @@ theorem blockLeafBodyG_facts {ρ : Nat → V} {m : Nat} (hm : m < k)
       exact famSpace_subset_lfpFamSpace V w _ _ hfam
     · rw [htv]; exact htmem
 
-/-- **The leaf's body is a fibre of the strict universe** (task #342
-L7): member `m`'s carrier at the frame's index tuple is a component of
-the least fixed tuple, whose fibres are in `strictU w` — a truth value
-at `w = 0`, a strict set (of tagged tuples, or `∅`) above. -/
-theorem blockLeafBodyG_strictU {ρ : Nat → V} {m : Nat} (hm : m < k)
-    (h : BlockBaseG k w ρ uf Idss Chs m) :
-    interp V ρ (.app (projNV m ((blockBodyG k w uf Idss Chs).liftN
-          (Idss m).length 0)) (mkTowerGo (uf m) (Idss m))) ∈ˢ (strictU w : V) := by
-  rw [(blockLeafBodyG_facts hm h).1]
-  exact famSpace_app (lfpTuple_mem w k _ _ m hm) (tupW_mem h.2.2)
-
-/-- **The leaf's fibres follow its sort** (task #342 L7): along a
-spine fitting the parameter and index telescope, the leaf applied is
-a member of `strictU w` — so a truth value at `w = 0` and strict above
-(`Fib_of_mem_strictU`). -/
-theorem blockTyG_fold_strictU {m : Nat} (hm : m < k) :
-    ∀ {pps : List Term} {ρ : Nat → V} {as : List V},
-      ParamsOkG k w ρ uf Idss Chs m pps → SpineFit ρ pps as →
-      as.foldl SetTheory.app (interp V ρ (blockTyG k w uf Idss Chs pps m))
-        ∈ˢ (strictU w : V)
-  | [], _, [], h, _ => blockLeafBodyG_strictU hm h
-  | [], _, _ :: _, _, hsp => hsp.elim
-  | _ :: _, _, [], _, hsp => hsp.elim
-  | d :: pps, ρ, a :: as, h, hsp => by
-    have ha : a ∈ˢ interp V ρ d := hsp.1
-    have happ : SetTheory.app (interp V ρ (blockTyG k w uf Idss Chs (d :: pps) m)) a
-        = interp V (cons a ρ) (blockTyG k w uf Idss Chs pps m) :=
-      app_lamV ha
-    rw [List.foldl_cons, happ]
-    exact blockTyG_fold_strictU hm (h.2.2 a ha) hsp.2
-
 /-- **The leaf inhabits its type's reading.** -/
 theorem blockTyG_mem {m : Nat} (hm : m < k) :
     ∀ {pps : List Term} {ρ : Nat → V},

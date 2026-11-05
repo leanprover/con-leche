@@ -235,9 +235,6 @@ theorem extendEq (mp : EnvModelM V env)
       (hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)))
     (fun ψ ρ => eqValT_wellDenoted ψ ρ)
     (fun ψ => ⟨_, denote_eqA_type ψ⟩) ?_ ?_ ?_
-    (hind := indStrictHead_cons_prop
-      (ab := fun ψ => [.sort (ψ uN), .bvar 0, .bvar 1])
-      fun ψ => denote_eqA_type ψ)
   · intro ψ ta h ρ
     rw [denote_eqA_type ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -1239,11 +1236,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   have hf1 : env.find? eqName = none := Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨eqA :: env.consts, env.tables⟩ :=
     EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
-      (by first
-        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-            first | exact absurd h (by decide) | rfl)
-        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
   obtain ⟨mp1, hac1, hr1, hc1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
       = eqValT ψ := by
@@ -1255,11 +1248,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts, env.tables⟩ := by
     refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
-      (by first
-        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-            first | exact absurd h (by decide) | rfl)
-        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+      (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
     have hf : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find? eqName
         = some eqA := by
@@ -1352,11 +1341,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         eqReflName = some eqReflA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR2
     refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
-      (fun _ _ _ heq => nomatch heq), ?_,
-      (by first
-        | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-            first | exact absurd h (by decide) | rfl)
-        | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+      (fun _ _ _ heq => nomatch heq), ?_⟩
     · show Expr.constsResolve _ eqRecA.toConstantVal.type = true
       rw [show eqRecA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))

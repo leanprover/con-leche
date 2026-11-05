@@ -2584,7 +2584,7 @@ theorem whnfPres_WScoped {env : Env} (henv : EnvWF env) :
             fun x hx => hwapp.getAppArgs x hx
           have hrhs : WScoped d
               (r.rhs.instantiateLevelParams cv.levelParams us) := by
-            obtain ⟨-, -, -, -, -, hrules, -⟩ := henv.consts _ (Env.find?_mem hfc)
+            obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
             obtain ⟨hrf, -, -, -, -⟩ := hrules cv mI rP isK rules rfl r
               (List.mem_of_find?_eq_some hrule)
             exact WScoped.of_not_hasFvar

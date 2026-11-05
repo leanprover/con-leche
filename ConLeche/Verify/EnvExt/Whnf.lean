@@ -453,7 +453,7 @@ theorem iotaRec_rel (mode : CheckMode) {e : Expr} (he : Res env₁ e) :
                 have hcmp := res_recFireComparands (rl := rl) (env₁ := env₁) (cnP := cnP) (rP := rP)
                   (lps := cv.levelParams) (us := us) (cvjLps := cvj.levelParams)
                   (fun lvls pins hfi p hp => by
-                    obtain ⟨-, -, hpins, -⟩ := ((hx.facts.wf.consts _ (Env.find?_mem hfc)).2.2.2.2.2.1
+                    obtain ⟨-, -, hpins, -⟩ := ((hx.facts.wf.consts _ (Env.find?_mem hfc)).2.2.2.2.2
                       cv mI rP isK rules rfl rl hrm).2.2.2.2 lvls pins hfi
                     exact (hpins p hp).2.2.1) hargs
                 have hres : Res env₁ (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)

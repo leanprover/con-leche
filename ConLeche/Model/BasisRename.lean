@@ -423,35 +423,6 @@ theorem _root_.ConLeche.Verify.PinCopy.ind {cv : ConstantVal} {caps : IndCaps}
     exact ⟨_, _, h2, rfl⟩
   | _ => exact nomatch h.kind
 
-omit [SetTheory V] in
-/-- An instantiation of its level parameters keeps where a type ends. -/
-theorem formerResSort_inst (ks : List Name) (us : List Level) :
-    ∀ e : Expr, (ConLeche.formerResSort (e.instantiateLevelParams ks us)).isNone
-      = (ConLeche.formerResSort e).isNone := by
-  intro e
-  unfold ConLeche.formerResSort
-  induction e with
-  | forallE d b _ ih => simpa [Expr.instantiateLevelParams, Expr.piResult] using ih
-  | sort _ => simp [Expr.instantiateLevelParams, Expr.piResult]
-  | _ => simp [Expr.instantiateLevelParams, Expr.piResult]
-
-omit [SetTheory V] in
-/-- Two copies of one pin end alike. -/
-theorem pinCopy_defHeaded {cv cv' : ConstantVal} {caps caps' : IndCaps}
-    (h : PinCopy (.indInfo cv caps) pin) (h' : PinCopy (.indInfo cv' caps') pin) :
-    ConLeche.formerDefHeaded cv = ConLeche.formerDefHeaded cv' := by
-  have h1 := h.1
-  have h2 := h'.1
-  cases pin with
-  | indInfo cvp cp =>
-    simp only [ConstantInfo.atLps, ConstantInfo.indInfo.injEq] at h1 h2
-    have e1 := congrArg ConstantVal.type h1.1
-    have e2 := congrArg ConstantVal.type h2.1
-    unfold ConLeche.formerDefHeaded
-    simp only [ConstantVal.atLps] at e1 e2
-    rw [e1, e2, formerResSort_inst, formerResSort_inst]
-  | _ => exact nomatch h.kind
-
 /-- What a recursor's copy has of the rules. -/
 theorem _root_.ConLeche.Verify.PinCopy.recr {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     (h : PinCopy (.recInfo cv mI rP isK rules) pin) (h' : PinCopy c' pin)
@@ -620,7 +591,7 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
     have hty := PinCopy.type_eq h1 h2 (pinnedInfo_wf hrs).1
     have hlen : c.toConstantVal.levelParams.length = c'.toConstantVal.levelParams.length := by
       rw [h1.2.2, h2.2.2]
-    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
     · rw [hty, Expr.hasFvar_instantiateLevelParams]; exact hwf.1
     · rw [hty]; exact expr_defined_ren hlen _ hdef
     · rw [hty, Expr.constsResolve_instantiateLevelParams, h.constsResolve]; exact hwf.2.2.1
@@ -637,7 +608,7 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
         subst e0; subst e1; subst e2; subst e3; subst e4
         intro r' hr'
         obtain ⟨rl, hrl0, -, -, hfire, hrhs⟩ := hrl r' hr'
-        obtain ⟨g1, g2, g3, g4, -⟩ := hwf.2.2.2.2.2.1 cv mI rP isK rules rfl rl hrl0
+        obtain ⟨g1, g2, g3, g4, -⟩ := hwf.2.2.2.2.2 cv mI rP isK rules rfl rl hrl0
         refine ⟨?_, ?_, ?_, ?_, ?_⟩
         · rw [hrhs, Expr.hasFvar_instantiateLevelParams]; exact g1
         · rw [hrhs]; exact expr_defined_ren hlen _ g2
@@ -645,15 +616,6 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
         · rw [hrhs, Expr.looseBVarsBounded_instantiateLevelParams]; exact g4
         · intro lvls pins hn
           rcases hfire with ⟨h₁, -⟩ | ⟨ls, -, h₁, -⟩ <;> · rw [h₁] at hn; exact nomatch hn
-      | _ => exact nomatch h1.kind.trans h2.kind.symm
-    · intro cv' caps' he
-      subst he
-      cases c with
-      | indInfo cv caps =>
-        obtain ⟨cv₂, caps₂, he, rfl⟩ := h1.ind h2
-        injection he with e0 e5
-        subst e0; subst e5
-        exact hwf.2.2.2.2.2.2 cv _ rfl
       | _ => exact nomatch h1.kind.trans h2.kind.symm
 
 theorem envWF_ren (m : EnvModel V env) (h : RenEnv env env') : EnvWF env' where
@@ -875,7 +837,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
           have hrpair : ConstRen (.recInfo cv mI rP isK rules) (.recInfo cv' mI rP isK rules') :=
             .inr ⟨hrs, h3, h4⟩
           have hlen : cv'.levelParams.length = cv.levelParams.length := hrpair.len
-          have hwfr := (mp.base2.wf.consts _ (Env.find?_mem h1)).2.2.2.2.2.1 cv mI rP isK rules rfl
+          have hwfr := (mp.base2.wf.consts _ (Env.find?_mem h1)).2.2.2.2.2 cv mI rP isK rules rfl
             rl hrl0
           have hnd' : cv'.levelParams.Nodup := h4.2.1
           -- what a rule reads of a constructor's parameters
@@ -1001,7 +963,6 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
             rec_rules := hrec
             reduce_ops := ?_
             tower_ok := ?_
-            ind_strict := ?_
             lfpBlocks := blocks
             lfp_ok := hlfp }, rfl, rfl⟩
   · -- `type_reads`
@@ -1132,25 +1093,6 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
           (fun _ _ _ hf₂ => by rw [h.find_nonres hr3] at hf₂; exact hf₂)
           (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
           (congrFun (hnr hTr) _) (fun _ _ _ => rfl)
-  · -- `ind_strict`
-    intro I cv' caps' hf' hfl ψ ab n hread hn ρ vs hsp
-    rcases h.find I with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
-    · rw [h2] at hf'; exact nomatch hf'
-    · rw [h2] at hf'
-      obtain rfl := Option.some.inj hf'
-      obtain ⟨cv, caps, rfl⟩ := hr.symm.ind
-      rw [hde'] at hread
-      have hread' := (denote_pair mp.base2 hr ψ 0).symm.trans hread
-      have hfl₀ : ConLeche.formerDefHeaded cv = false := by
-        rcases hr with he | ⟨-, hc, hc'⟩
-        · obtain ⟨rfl, -⟩ : cv = cv' ∧ caps = caps' := by simpa using he.symm
-          exact hfl
-        · rw [← hfl]
-          exact pinCopy_defHeaded hc hc'
-      have := mp.ind_strict I cv caps h1 hfl₀ _ ab n hread' hn ρ vs hsp
-      show Strict (vs.foldl SetTheory.app (interp V ρ (mp.base2.acval I (renTr env env' I ψ))))
-      rw [renTr_pair h1 h2]
-      exact this
 
 end Core
 

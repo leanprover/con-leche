@@ -141,29 +141,6 @@ section Inv
 
 variable {ops : CheckerOps CheckM} {w : StructWalkers} {fe : FEnv}
 
-theorem storedRulesShape_inv {rec : Name} :
-    ∀ {rs : List RecRule} {cs : List (ConstantVal × Nat)},
-      storedRulesShape (m := CheckM) rec rs cs = .ok () →
-      rs.length = cs.length ∧ ∀ (i : Nat) (r : RecRule) (c : ConstantVal × Nat),
-        rs[i]? = some r → cs[i]? = some c → r.ctor = c.1.name ∧ r.nfields = c.2
-  | [], [], _ => ⟨rfl, fun i r c h => by simp at h⟩
-  | [], _ :: _, h => by simp [storedRulesShape, throw, throwThe, MonadExceptOf.throw] at h
-  | _ :: _, [], h => by simp [storedRulesShape, throw, throwThe, MonadExceptOf.throw] at h
-  | r :: rs, c :: cs, h => by
-    unfold storedRulesShape at h
-    by_cases hc : (r.ctor == c.1.name && r.nfields == c.2) = true
-    · simp only [hc, ↓reduceIte] at h
-      obtain ⟨hl, hall⟩ := storedRulesShape_inv h
-      simp only [Bool.and_eq_true, beq_iff_eq] at hc
-      refine ⟨by simp [hl], fun i r' c' hr hc' => ?_⟩
-      cases i with
-      | zero =>
-        simp only [List.getElem?_cons_zero, Option.some.injEq] at hr hc'
-        subst hr hc'
-        exact hc
-      | succ i => exact hall i r' c' (by simpa using hr) (by simpa using hc')
-    · simp [hc, throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at h
-
 theorem storedRulesCheck_inv {rec : Name} {lps : List Name} :
     ∀ {rs : List RecRule} {gs : List Expr},
       storedRulesCheck ops w fe rec lps rs gs = .ok () →

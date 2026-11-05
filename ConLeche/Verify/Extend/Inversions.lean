@@ -120,10 +120,6 @@ theorem checkConstantVal_opName_false {env : Env} {cv : ConstantVal}
   | false => rfl
   | true => exact nomatch checkConstantVal_opName h hn
 
-/-- Reserved basis names are all `str`-shaped. -/
-theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
-    reservedBasisNames.contains (Name.num p k) = false := rfl
-
 /-- One pinned basis install, inverted (relocated from the TT lane,
 task #148 T6: both lanes' basis-block bridges invert the same fold). -/
 theorem installBasisDecl_inv {env env₁ : Env} {ci : ConstantInfo}

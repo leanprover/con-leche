@@ -602,7 +602,7 @@ theorem EnvWF.ctorTy_closed (henv : EnvWF env) {cj : Name} {cvj : ConstantVal} {
 theorem EnvWF.rules_ok (henv : EnvWF env) {c : Name} {cv : ConstantVal} {mI rP : Nat}
     {rules : List RecRule} (hfc : env.find? c = some (.recInfo cv mI rP isK rules)) :
     AllRulesOK rules := by
-  obtain ⟨-, -, -, -, -, hrules, -⟩ := henv.consts _ (Env.find?_mem hfc)
+  obtain ⟨-, -, -, -, -, hrules⟩ := henv.consts _ (Env.find?_mem hfc)
   intro rl hrl
   obtain ⟨hrf, -, -, -, g5⟩ := hrules cv mI rP isK rules rfl rl hrl
   refine ⟨hrf, ?_⟩

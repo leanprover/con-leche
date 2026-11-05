@@ -123,15 +123,12 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
       m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂)
     (hrec : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
       m₂.acval = acvalWith mp.base2.acval c₀.name A →
-      ∀ φ : Name → Nat, RecRules m₂ φ)
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
+      ∀ φ : Name → Nat, RecRules m₂ φ) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh (by intro hn; rw [hop] at hn; exact nomatch hn) hh
     hAparams hAok htyReads htyOk hmemNew
-    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
+    ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
   · -- `hvalReads`: an inductive cons is never a definition
     intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
@@ -186,15 +183,12 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
           ⟨c₀ :: env.consts, env.tables⟩ ψ 0 c₀.toConstantVal.type = some ta →
       ∀ ρ : Nat → V, interp V ρ (A ψ) ∈ˢ interp V ρ ta)
     (hcaps : ∀ m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩,
-      m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂)
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
+      m₂.acval = acvalWith mp.base2.acval c₀.name A → CapsOk m₂) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   refine declStep_preserves_of_ind_cons mp hfresh hnres hop ?_ ?_ hh
     hAparams hAok htyReads htyOk hmemNew
-    hcaps ?_ (hind := hind)
+    hcaps ?_
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
       intro _ _ _ h <;> exact nomatch h
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>

@@ -103,7 +103,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
   obtain ⟨cvj', cnP', cnF', hst⟩ :=
     mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem
   have hsC : (env.find? (RecRule.ctor rl)).isSome = true := by rw [hst]; rfl
-  obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+  obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   intro us hlen TVa hTVa
@@ -172,7 +172,7 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     have hlicE : ∀ lvs : List Level, FamNZ (V := V) m₂.acval env' φ cvj lvs →
         FamNZ (V := V) mp.base2.acval env φ cvj lvs := by
       intro lvs
-      obtain ⟨-, -, hresolve, -, -, -, -⟩ :=
+      obtain ⟨-, -, hresolve, -, -, -⟩ :=
         mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfcjE)
       dsimp only [ConLeche.ConstantInfo.toConstantVal] at hresolve
       have hTiso : ∀ T us', cvj.type.piResult.getAppFn = .const T us' →
@@ -247,7 +247,7 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
   obtain ⟨hrPle, hlaw0, hextra⟩ := mp.rec_rules φ n cv mI rP isK rules hfE rl hmem
   refine ⟨hrPle, fun us hlen => ?_, recRuleExtra_ext mp hx φ hfE hmem⟩
   obtain ⟨Ra, hRa0, hokRa, hpinsOk, hlaw⟩ := hlaw0 us hlen
-  obtain ⟨-, -, -, -, -, hrec', -⟩ :=
+  obtain ⟨-, -, -, -, -, hrec'⟩ :=
     mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfE)
   obtain ⟨-, -, hRres, -, hnest⟩ := hrec' cv mI rP isK rules rfl rl hmem
   refine ⟨Ra, ?_, hokRa, ?_, ?_⟩

@@ -82,29 +82,6 @@ theorem Env.findTable?_pushTable (env : Env) (t : ProjTable) (T : Name) :
     (tbl.entry i).numParams = tbl.numParams := rfl
 @[simp] theorem ProjTable.entry_body (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).body = tbl.bodies.getD i default := rfl
-/-- **The capability arities**: an inductive stored with the unit-like
-or the η capability has the `∀`-telescope its capability record's
-parameter count names.  A property of the stored declaration alone —
-established ONCE at the block's install (the install pins the
-former's telescope before storing it, `checkBlockTele`'s
-`stripPis (nP + nIdx)`; the basis blocks' types are literal) and consumed by
-the structure-η and unit-like rows
-(`ConLeche/Model/Caps.lean`) from the invariant rather than re-checked
-per call ("invariants over runtime gates"). -/
-@[expose] def IndCapsWF (c : ConstantInfo) : Prop :=
-  ∀ cv caps, c = .indInfo cv caps →
-    (caps.unitlike = true → caps.unitParams = caps.nparams) ∧
-    (caps.eta = true → caps.etaParams = caps.nparams)
-
-/-- `IndCapsWF` at an inductive, from the two arity facts. -/
-theorem IndCapsWF.of_caps {cv : ConstantVal} {caps : IndCaps}
-    (hu : caps.unitlike = true → caps.unitParams = caps.nparams)
-    (he : caps.eta = true → caps.etaParams = caps.nparams) :
-    IndCapsWF (.indInfo cv caps) := by
-  intro cv' caps' heq
-  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj heq
-  exact ⟨hu, he⟩
-
 /-- A `stripPis` at a larger count strips at a smaller one. -/
 theorem stripPis_isSome_of_le :
     ∀ {k n : Nat} {e : Expr}, k ≤ n → (e.stripPis n).isSome = true →
@@ -145,12 +122,10 @@ theorem stripPis_isSome_of_le :
       -- followed by the index variables; what the generated stage
       -- stores, `genStage_nestedRead`)
       ∀ lvls pins, RecRule.fire r = .nested lvls pins →
-        NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins) ∧
+        NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins)
   -- (a theorem's stored value carries NO clause: a theorem is opaque
   -- to reduction and stored by its statement — the value is the
   -- record's own, unread by the kernel and by the invariant)
-  -- the capability arities (environment-independent)
-  IndCapsWF c
 
 /-- **Syntactic well-formedness of one stored projection table** w.r.t.
 `env` (task #175 S1; task #362 for the first clause): its structure is
@@ -436,10 +411,10 @@ theorem EnvWF.cons {c : ConstantInfo} {env : Env}
   refine ⟨fun c' hc' => ?_, fun t ht => (henv.tables t ht).cons⟩
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h9⟩ := henv.consts c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv.consts c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_, h9⟩
+      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
     intro cv mI rP isK rules heq r hr
     obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP isK rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩

@@ -1325,7 +1325,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
   · -- recursor rules
     intro n cv mI rP isK rules hf hn r hr
     rw [hnon n hn] at hf
-    exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP isK rules rfl r hr).2.2.1
+    exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2 cv mI rP isK rules rfl r hr).2.2.1
   · -- projection-table bodies
     intro T i entry hfp
     obtain ⟨tbl, hft, hi, rfl⟩ := Env.findProj?_some hfp

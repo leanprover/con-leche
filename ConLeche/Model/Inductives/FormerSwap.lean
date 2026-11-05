@@ -37,7 +37,6 @@ theorem EnvModelM.swapFormers {env₀ env₃ : Env} (mp : EnvModelM V env₀)
     (hproj₃ : ProjOkT env₃)
     (hrec : ∀ (m₃ : EnvModel V env₃), m₃.acval = mp.base2.acval → ∀ φ, RecRules m₃ φ)
     (htower : ∀ (m₃ : EnvModel V env₃), m₃.acval = mp.base2.acval → ∀ φ, TowerOk m₃ φ)
-    (hstrict : ∀ (m₃ : EnvModel V env₃), m₃.acval = mp.base2.acval → IndStrictOk m₃)
     (htyS : ∀ c ∈ env₃.consts, c ∉ env₀.consts →
       (∀ ψ : Name → Nat, ∃ ta : Term,
         denote mp.base2.acval env₃ ψ 0 c.toConstantVal.type = some ta) ∧
@@ -97,7 +96,6 @@ theorem EnvModelM.swapFormers {env₀ env₃ : Env} (mp : EnvModelM V env₀)
             rec_rules := hrec _ rfl
             reduce_ops := ?_
             tower_ok := htower _ rfl
-            ind_strict := hstrict _ rfl
             lfpBlocks := L
             lfp_ok := hL }, rfl, rfl⟩
   · -- `type_reads`

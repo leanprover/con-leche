@@ -305,8 +305,7 @@ theorem harvestDefn
         (fun _ _ _ heq => by
           obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
           exact ⟨hvf', hvp, Expr.constsResolve_mono hvr, hbv'⟩),
-        (fun _ _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+        (fun _ _ _ _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
@@ -674,8 +673,7 @@ theorem harvestThm
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+        (fun _ _ _ _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres
@@ -860,8 +858,7 @@ theorem harvestAxiom
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+        (fun _ _ _ _ _ heq => nomatch heq)⟩)
       hAvclosed hnres
       (fun _ _ _ _ _ heq => nomatch heq))
     hAparams hAok ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_)
@@ -1110,8 +1107,7 @@ theorem harvestOpaque
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
-        (fun _ _ _ _ _ heq => nomatch heq),
-      (fun _ _ heq => nomatch heq)⟩)
+        (fun _ _ _ _ _ heq => nomatch heq)⟩)
       (fun ψ => denote_closed mp.base2.cval_closed hvf' hbv'
         (hA ψ))
       hnres

@@ -231,18 +231,7 @@ theorem extendQuot (mp : EnvModelM V env)
         rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     ?_
     (fun _ _ => trivial)
-    (fun ψ => ⟨_, denote_quotA_type ψ⟩) ?_ ?_
-    (hind := indStrictHead_cons
-      (ab := fun ψ => [.sort (ψ uN), quotRelTy])
-      (s := fun ψ => ψ uN) (fun ψ => denote_quotA_type ψ) fun ψ hu ρ vs hsp => by
-        match vs, hsp with
-        | [Aset, R], ⟨hA, hR, _⟩ =>
-          have hR' : R ∈ˢ relSpace V Aset := by
-            rw [quotRelTy_interp ρ Aset] at hR; exact hR
-          show Strict (SetTheory.app (SetTheory.app (quotV V (ψ uN)) Aset) R)
-          have hA' : Aset ∈ˢ (univ (ψ uN) : V) := hA
-          rw [quotV_app V hA' hR']
-          exact strict_quotSet hu Aset R))
+    (fun ψ => ⟨_, denote_quotA_type ψ⟩) ?_ ?_)
   · intro ψ₁ ψ₂ hp
     rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
   · intro ψ ta h ρ
@@ -2605,22 +2594,14 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
     have hf1 : env.find? quotA.name = none := Option.isNone_iff_eq_none.mp hfr
     have hwf1 : EnvWF ⟨quotA :: env.consts, env.tables⟩ :=
       EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
-        (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
-        (by first
-          | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-              first | exact absurd h (by decide) | rfl)
-          | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+        (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     exact extendQuot mp hf1 hwf1
   | ctor =>
     obtain ⟨q, hQ⟩ := quotStored_of mp hp
     have hf2 : env.find? quotMkA.name = none := Option.isNone_iff_eq_none.mp hfr
     have hwf2 : EnvWF ⟨quotMkA :: env.consts, env.tables⟩ := by
       refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
-        (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
-        (by first
-          | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-              first | exact absurd h (by decide) | rfl)
-          | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+        (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
       show Expr.constsResolve _ quotMkA.toConstantVal.type = true
       have hf : (⟨quotMkA :: env.consts, env.tables⟩ : Env).find? quotName = some (quotA.atLps [q]) :=
         hcons (by decide) hQ
@@ -2648,11 +2629,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
       have hfE : (⟨quotLiftA :: env.consts, env.tables⟩ : Env).find? eqName = some ciE :=
         hcons (by decide) hfE0
       refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
-        (fun _ _ _ heq => nomatch heq), ?_,
-        (by first
-          | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-              first | exact absurd h (by decide) | rfl)
-          | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+        (fun _ _ _ heq => nomatch heq), ?_⟩
       · show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
         rw [show quotLiftA.toConstantVal.type
             = Expr.forallE (.sort (.param uN))
@@ -2700,11 +2677,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
       have hfM : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotMkName = some (quotMkA.atLps [x]) :=
         hcons (by decide) hM
       refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
-        (fun _ _ _ heq => nomatch heq), ?_,
-        (by first
-          | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-              first | exact absurd h (by decide) | rfl)
-          | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+        (fun _ _ _ heq => nomatch heq), ?_⟩
       · show Expr.constsResolve _ quotIndA.toConstantVal.type = true
         rw [show quotIndA.toConstantVal.type
             = Expr.forallE (.sort (.param uN))
@@ -2753,11 +2726,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
       have hfE : (⟨quotSoundA :: env.consts, env.tables⟩ : Env).find? eqName = some ciE :=
         hcons (by decide) hfE0
       refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
-        (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq),
-        (by first
-          | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
-              first | exact absurd h (by decide) | rfl)
-          | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
+        (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
       show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
       rw [show quotSoundA.toConstantVal.type
           = Expr.forallE (.sort (.param uN))

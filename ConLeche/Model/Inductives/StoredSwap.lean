@@ -127,11 +127,6 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
             tower_ok := ?_
-            -- the formers are never swapped, and keep their readings
-            ind_strict := fun I cv caps hf hfl ψ ab n hread =>
-              mp.ind_strict I cv caps
-                ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf) hfl
-                ψ ab n (by rw [hde]; exact hread)
             -- the recorded lfp clauses: the swap touches recursors only,
             -- and keeps every leaf
             lfpBlocks := mp.lfpBlocks
@@ -399,7 +394,7 @@ theorem storedSwap_sem {envC : Env}
         r.rhs.looseBVarsBounded 0 = true :=
     fun hm => ⟨(mpG.base2.wf.consts _ hm).2.2.2.1, mpG.type_reads _ hm,
       mpG.type_wellDenotedTy _ hm, mpG.mem_type _ hm,
-      fun r hr => ((mpG.base2.wf.consts _ hm).2.2.2.2.2.1 _ _ _ _ _ rfl r hr).2.2.2.1⟩
+      fun r hr => ((mpG.base2.wf.consts _ hm).2.2.2.2.2 _ _ _ _ _ rfl r hr).2.2.2.1⟩
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · -- `RecCtorsStored`
     intro n cv mI rP isK rules hf r hr

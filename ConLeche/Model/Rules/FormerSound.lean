@@ -123,15 +123,4 @@ theorem IotaCase.walk_sound (hin : RulesInputs V m φ) {cvj cvT : ConstantVal}
   · exact eval_ne_zero_of_isNever hnv φ
   · exact formerSort_tower hin hT hlen.symm hsort ta hta ρ
 
-/-- A level that is zero everywhere evaluates to zero. -/
-theorem eval_of_isAlwaysZero {s : Level} (h : s.isAlwaysZero = true) (φ : Name → Nat) :
-    s.eval φ = 0 := by
-  have hsnd := ConLeche.PropWhen.zeronessOf_sound φ s
-  unfold Level.isAlwaysZero at h
-  split at h
-  · next hz =>
-    rw [hz] at hsnd
-    simpa using hsnd.symm
-  · exact nomatch h
-
 end ConLeche.Model.Rules

@@ -343,7 +343,7 @@ theorem famNZ_of_recStage {envC : Env} (mpC : EnvModelM V envC)
     (hfc : envC.find? c = some (.ctorInfo cvj a b)) {φ : Name → Nat} {us : List Level}
     (h : FamNZ (V := V) m₃.acval (ConLeche.consBlockRecsR Rr q 0 rs envC) φ cvj us) :
     FamNZ (V := V) mpC.base2.acval envC φ cvj us := by
-  obtain ⟨-, -, hresolve, -, -, -, -⟩ := mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfc)
+  obtain ⟨-, -, hresolve, -, -, -⟩ := mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfc)
   dsimp only [ConLeche.ConstantInfo.toConstantVal] at hresolve
   refine FamNZ.congr (V := V) (ctorFamily_consBlockRecsR_of_isSome hfr fun T us' heq' =>
     ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hresolve heq')

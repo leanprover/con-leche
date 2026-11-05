@@ -183,7 +183,7 @@ theorem StoredFacts.rhs {env : Env} (h : StoredFacts env) {n : Name} {cv : Const
     {mI rP : Nat} {isK : Bool} {rules : List RecRule} {r : RecRule}
     (hf : env.find? n = some (.recInfo cv mI rP isK rules)) (hr : r ∈ rules) :
     Res env (RecRule.rhs r) :=
-  ((h.wf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP isK rules rfl r hr).2.2.1
+  ((h.wf.consts _ (Env.find?_mem hf)).2.2.2.2.2 cv mI rP isK rules rfl r hr).2.2.1
 
 /-- The body of a table's entry. -/
 theorem StoredFacts.entryBody {env : Env} (h : StoredFacts env) {T : Name} {i : Nat}
@@ -235,11 +235,6 @@ theorem headHint_ext {e : Expr} (he : Res env₁ e) : headHint env₂ e = headHi
   cases hfn : e.getAppFn <;> try rfl
   dsimp only
   rw [hx.find_of_isSome (res_head he hfn)]
-
-theorem natOpStored_ext {c : Name} (hc : (env₁.find? c).isSome = true) :
-    natOpStored env₂ c = natOpStored env₁ c := by
-  unfold natOpStored
-  rw [hx.find_of_isSome hc]
 
 theorem towerSlotsAll_ext {T : Name} (hT : (env₁.find? T).isSome = true) (nF : Nat) :
     towerSlotsAll env₂ T nF = towerSlotsAll env₁ T nF := by

@@ -1699,11 +1699,7 @@ theorem envWF_views {env : Env} (henv : EnvWF env) :
       induction vs with
       | nil => exact he
       | cons d vs ih => exact Expr.constsResolve_mono ih
-    have hcaps : IndCapsWF (.indInfo cvR caps) := by
-      have := (henv.consts _ (Env.find?_mem hf)).2.2.2.2.2.2
-      obtain ⟨hu, he⟩ := this cv caps rfl
-      exact IndCapsWF.of_caps hu he
-    refine ih.cons (structConstWF h1 h2 (Expr.constsResolve_mono (hres vs h3)) h4 ?_ ?_ hcaps)
+    refine ih.cons (structConstWF h1 h2 (Expr.constsResolve_mono (hres vs h3)) h4 ?_ ?_)
     · intro _ _ _ heq; exact nomatch heq
     · intro _ _ _ _ _ heq; exact nomatch heq
 

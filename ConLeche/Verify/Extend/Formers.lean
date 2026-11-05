@@ -29,14 +29,6 @@ namespace FormerSwap
 
 variable {env₀ env₃ : Env}
 
-theorem symm_find (h : FormerSwap env₀ env₃) (n : Name) : env₀.find? n = env₃.find? n ∨
-    ∃ cv cv' caps, env₃.find? n = some (.indInfo cv caps) ∧ env₀.find? n = some (.indInfo cv' caps) ∧
-      cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧
-      litGuardFamilies.contains n = false := by
-  rcases h.find n with he | ⟨cv, cv', caps, h₀, h₃, hn, hl, hg⟩
-  · exact .inl he.symm
-  · exact .inr ⟨cv', cv, caps, h₃, h₀, hn.symm, hl.symm, hg⟩
-
 /-- A lookup other than a former's is the same on both sides. -/
 theorem find_of_ne (h : FormerSwap env₀ env₃) {n : Name} {ci : ConstantInfo}
     (hci : ∀ cv caps, ci ≠ .indInfo cv caps) :

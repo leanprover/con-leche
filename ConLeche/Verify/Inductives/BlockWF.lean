@@ -15,9 +15,7 @@ facts at k members:
 
 * **the k formers consed at once** (`envWF_consBlockInds`,
   `direct_block_inds_wf`), each with ITS capability record at the
-  block's `is_rec` verdict; the record names the parameter count as its
-  arity (`blockCapsAt_arity`), which is what makes
-  `IndCapsWF` hold at every former's cons;
+  block's `is_rec` verdict;
 * **the N constructors consed, member by member**
   (`envWF_consBlockCtors`, `direct_block_ctors_wf`);
 * **the k recursors consed at once, with their rules**
@@ -51,22 +49,10 @@ variable {mode : CheckMode}
 
 /-! ## The capability record's arity -/
 
-/-- **The block's capability record names the parameter count as its
-arity**: what establishes
-`IndCapsWF` at every former's cons. -/
-theorem blockCapsAt_arity (p : BlockShape) (mi : Nat) (isRec : Bool) :
-    ((blockCapsAt p mi isRec).unitlike = true → (blockCapsAt p mi isRec).unitParams = p.nP) ∧
-    ((blockCapsAt p mi isRec).eta = true → (blockCapsAt p mi isRec).etaParams = p.nP) := by
-  unfold blockCapsAt
-  split
-  · exact ⟨fun _ => rfl, fun _ => rfl⟩
-  · exact ⟨(fun h => nomatch h), (fun h => nomatch h)⟩
-
 /-! ## Stage 1: the k formers consed at once -/
 
 /-- **One former's cons keeps well-formedness**: the stored former is a
-checked constant whose telescope strips at the parameter count, which is
-the capability record's arity. -/
+checked constant. -/
 theorem envWF_cons_blockInd {p₁ : BlockShape} {isRec : Bool} {i : Nat} {env : Env}
     {cvTa : ConstantVal} (henv : EnvWF env)
     (h1 : cvTa.type.hasFvar = false)
@@ -75,10 +61,7 @@ theorem envWF_cons_blockInd {p₁ : BlockShape} {isRec : Bool} {i : Nat} {env : 
     (h4 : cvTa.type.looseBVarsBounded 0 = true) :
     EnvWF ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ := by
   refine EnvWF.cons henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
-    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq) ?_)
-  refine IndCapsWF.of_caps ?_ ?_
-  · intro hu; rw [(blockCapsAt_arity p₁ i isRec).1 hu]; unfold blockCapsAt; split <;> rfl
-  · intro he; rw [(blockCapsAt_arity p₁ i isRec).2 he]; unfold blockCapsAt; split <;> rfl
+    (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
 
 /-- **The k formers' conses keep well-formedness.** -/
 theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
@@ -87,18 +70,17 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
       (∀ cvTa ∈ cvTas, cvTa.type.hasFvar = false ∧
         cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
         cvTa.type.constsResolve env = true ∧
-        cvTa.type.looseBVarsBounded 0 = true ∧
-        (cvTa.type.stripPis p₁.nP).isSome = true) →
+        cvTa.type.looseBVarsBounded 0 = true) →
       EnvWF (consBlockInds p₁ isRec cvTas i env)
   | [], _, _, henv, _ => henv
   | cvTa :: rest, i, env, henv, hall => by
     simp only [consBlockInds]
     refine envWF_consBlockInds ?_ ?_
-    · obtain ⟨h1, h2, h3, h4, -⟩ := hall cvTa List.mem_cons_self
+    · obtain ⟨h1, h2, h3, h4⟩ := hall cvTa List.mem_cons_self
       exact envWF_cons_blockInd henv h1 h2 h3 h4
     · intro cvTa' hc'
-      obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
-      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
+      obtain ⟨h1, h2, h3, h4⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
+      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
 
 /-- **Stage 1 at the run level**: the environment holding the k formers
 is well-formed, and every checked former's type is closed. -/
@@ -112,23 +94,19 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
       cvTa.type.hasFvar = false ∧
       cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
       cvTa.type.constsResolve env = true ∧
-      cvTa.type.looseBVarsBounded 0 = true ∧
-      (cvTa.type.stripPis (p.toBlockShape.withSort s0).nP).isSome = true := by
+      cvTa.type.looseBVarsBounded 0 = true := by
     intro cvTa hcv
     have step : ∀ (ms : MemberShape) (s : Level),
         checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cvTa, s) →
         cvTa.type.hasFvar = false ∧
         cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
         cvTa.type.constsResolve env = true ∧
-        cvTa.type.looseBVarsBounded 0 = true ∧
-        (cvTa.type.stripPis (p.toBlockShape.withSort s0).nP).isSome = true := by
+        cvTa.type.looseBVarsBounded 0 = true := by
       intro ms s hte
       obtain ⟨cvT, -, -, heq, hccv, bs, hstrip⟩ := checkBlockTele_shape hte
       obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hccv
       rw [← heq] at g1 g2 g3 g4
-      refine ⟨g1, g2, g3, g4, ?_⟩
-      refine stripPis_isSome_of_le (n := p.nP + ms.nIdx) (Nat.le_add_right _ _) ?_
-      rw [hstrip]; rfl
+      exact ⟨g1, g2, g3, g4⟩
     simp only [List.mem_cons] at hcv
     rcases hcv with rfl | hcv
     · exact step ms0 s0 hq
@@ -218,10 +196,10 @@ through `constsResolve`, and the capability arities not at all. -/
 theorem ConstWF.mono {envA envB : Env}
     (hf : ∀ n, (envA.find? n).isSome = true → (envB.find? n).isSome = true)
     {c : ConstantInfo} (h : ConstWF envA c) : ConstWF envB c := by
-  obtain ⟨h1, h2, h3, h4, h5, h6, h9⟩ := h
+  obtain ⟨h1, h2, h3, h4, h5, h6⟩ := h
   refine ⟨h1, h2, Expr.constsResolve_of_find hf h3, h4, fun cv value hint heq =>
     let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-    ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4⟩, ?_, h9⟩
+    ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4⟩, ?_⟩
   intro cv mI rP isK rules heq r hr
   obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP isK rules heq r hr
   refine ⟨g1, g2, Expr.constsResolve_of_find hf g3, g4, ?_⟩

@@ -69,16 +69,6 @@ The pin comparison is plain equality, so each stored type is its pin,
 read off by unfolding — as `propext_shapeS` does, at three longer
 shapes. -/
 
-/-- The stored `Iff` former's shape. -/
-theorem iff_shapeS {ty : Expr}
-    (h : ty
-      = iffA.toConstantVal.type) :
-    ty = .forallE (.sort .zero)
-      (.forallE (.sort .zero) (.sort .zero)) := by
-  simp only [iffA, ConstantInfo.toConstantVal] at h
-  subst h
-  rfl
-
 /-- The stored `Iff.rec`'s shape.  Five telescope binders and four
 nested ones. -/
 theorem iffRec_shapeS {ty : Expr}
@@ -107,32 +97,6 @@ theorem iffRec_shapeS {ty : Expr}
 
 Each is `mem_type` at the stored constant, its reading computed off
 the shape, and `app_mem_pi` once per argument. -/
-
-/-- The stored `Iff`, applied to two propositions, is a proposition. -/
-theorem iffVal_app₂_memP (mp : EnvModelM V env)
-    {cvI : ConstantVal} {caps : ConLeche.IndCaps}
-    (hfI : env.find? iffName = some (.indInfo cvI caps))
-    (htyI : cvI.type
-      = iffA.toConstantVal.type)
-    (ψ : Name → Nat) (ρ : Nat → V) {A B : V}
-    (hA : A ∈ˢ (univ 0 : V)) (hB : B ∈ˢ (univ 0 : V)) :
-    SetTheory.app (SetTheory.app
-        (interp V ρ (mp.base2.acval iffName ψ)) A) B
-      ∈ˢ (univ 0 : V) := by
-  have hsh := iff_shapeS htyI
-  have hden : denote mp.base2.acval env ψ 0
-      (ConstantInfo.indInfo cvI caps).toConstantVal.type
-      = some (.pi (.sort 0)
-          (.pi (.sort 0) (.sort 0))) := by
-    show denote mp.base2.acval env ψ 0 cvI.type = _
-    rw [hsh]
-    simp [denote_forallE, denote_sort, Expr.instantiate1, Level.eval]
-  have hmem := mp.mem_type _ (Env.find?_mem hfI) ψ _ hden ρ
-  rw [Env.find?_name hfI] at hmem
-  have h1 := app_mem_pi hmem (by rw [interp_sort]; exact hA)
-  have h2 := app_mem_pi h1 (by rw [interp_sort]; exact hB)
-  rw [interp_sort] at h2
-  exact h2
 
 /-- **Two mutually inverse implications identify their propositions.** -/
 theorem eq_of_impls {A B f g : V} (hA : A ∈ˢ (univ 0 : V))
