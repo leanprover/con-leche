@@ -138,15 +138,15 @@ not a rule of its relations.
 
 #real[
   The checker has the rule as Lean has it,
-  #src("ConLeche/Rules/Rel.lean", 458, 469)[the constructor's fields compared with the projections of the other side],
+  #src("ConLeche/Rules/Rel.lean", 449, 460)[the constructor's fields compared with the projections of the other side],
   with
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 655, 657)[its soundness case].
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 652, 654)[its soundness case].
   It uses the same law when it prepares the major premise of a
   recursor on a structure that is never a proposition at the instance.
   The major is taken as found, before any head normalisation, and the
   constructor is applied to its projections, with no further check
-  (#src("ConLeche/Rules/Rel.lean", 274, 284)[the rule],
-  #src("ConLeche/Model/Rules/IotaSound.lean", 721, 722)[its soundness case]).
+  (#src("ConLeche/Rules/Rel.lean", 266, 276)[the rule],
+  #src("ConLeche/Model/Rules/IotaSound.lean", 704, 705)[its soundness case]).
   Only if that does not give a constructor application is the major
   head-normalised, and the same expansion is tried once more on the
   result. Whether a type has the rule at all is decided once, when it
@@ -189,13 +189,13 @@ by the same argument.
 
 #real[
   The checker has the rule for
-  #src("ConLeche/Rules/Rel.lean", 494, 499)[any stored unit-like family],
+  #src("ConLeche/Rules/Rel.lean", 485, 490)[any stored unit-like family],
   with
   #src("ConLeche/Model/Rules/DefEqSound.lean", 293, 294)[its soundness case].
   Unit-likeness is recorded at installation, like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1777, 1778)[the fibre is the one tagged empty tuple]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1813, 1814)[the fibre is the one tagged empty tuple]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]

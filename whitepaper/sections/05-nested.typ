@@ -86,7 +86,7 @@ with `Vec α n` the vectors of length `n`.
 
 @sec:ind-checks classifies each field by the shape of its domain as
 ordinary or reflexive. The checker does this with
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1496)[one walk over the constructors],
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1458, 1501)[one walk over the constructors],
 the same for every block, which also looks through containers. On a
 block of §4's shape only the first three cases below apply, and they
 give exactly §4's classification.
@@ -97,7 +97,7 @@ defined to the block's parameters, $I thick arrow(x)$, is replaced by a
 variable $X$, a _hole_, standing for that whole application (a family
 over the indices). For this to catch every occurrence, the walk is
 preceded by a
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1554, 1568)[uniformity check]:
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1559, 1573)[uniformity check]:
 the type being defined occurs in a constructor only applied to exactly
 the block's parameters, at the block's own levels, and in no
 parameter's domain. A _frame_ is one type whose constructors are being
@@ -114,17 +114,17 @@ being defined and every instantiation whose frame is open, each
 present as its hole.
 
 *The cases.* The walk first puts a field's domain in
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1458)[weak head normal form]
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1463)[weak head normal form]
 $w$, and every case reads $w$, never the domain's syntax, so a
 container reached only by unfolding a definition counts as one. Inside
 the current frame, the cases are these.
 
 + _Ordinary._ If $w$ mentions no type in progress, the field is
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1461, 1462)[_ordinary_].
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1466, 1467)[_ordinary_].
 + _A $forall$._ If $w$ is $forall (z : A). thin B$, the domain $A$ must
   not mention a type in progress, or the block is rejected as not
   positive, and
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1464, 1471)[the walk continues with $B$],
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1469, 1476)[the walk continues with $B$],
   $z$ a new variable. The binders passed form the field's telescope.
 + _A hole._ If $w$ is a hole applied to arguments, the arguments (the
   indices of the type the hole stands for) must all be present and
@@ -133,12 +133,12 @@ the current frame, the cases are these.
   $forall$ was passed). The hole of a container frame, this one or an
   enclosing one, stands for an instantiation in progress, such as the
   tail of a $ListCons$, and
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1475, 1489)[is accepted].
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1480, 1494)[is accepted].
 + _A container._ If $w$ is a stored inductive type $C$ at levels
   $arrow(u)$ applied to arguments, where $C$ is neither one of the
   block's types nor the quotient type, the first $k_C$ arguments ($C$'s
   parameter count) are its parameters $arrow(D)$, the rest its indices.
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1415, 1440)[It is required]
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1420, 1445)[It is required]
   that
   - the indices mention no type in progress (they may mention earlier
     fields, as the $n$ of $sans("Vec") thick (sans("TV") thick alpha) thick n$
@@ -154,7 +154,7 @@ the current frame, the cases are these.
   The parameters may mention the types in progress anywhere, as in
   $List thick (Nat -> Tree thick alpha)$; the frame decides whether
   that is positive. Then
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1395, 1404)[the instantiation $C.\{arrow(u)\} thick arrow(D)$ is looked up].
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1400, 1409)[the instantiation $C.\{arrow(u)\} thick arrow(D)$ is looked up].
   If it is in progress, it is rejected: its syntactic occurrences
   have become its hole, so meeting it as a type here means reduction
   produced it. Otherwise its frame is walked, as described next,
@@ -162,14 +162,14 @@ the current frame, the cases are these.
   then _nested_, under the $forall$s it passed.
 + _Anything else_, such as the type being defined at other levels, a
   variable that is not a hole, or a quotient, is
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1488, 1496)[rejected].
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1493, 1501)[rejected].
 
 *Walking a frame.* At an instantiation $C.\{arrow(u)\} thick arrow(D)$,
 the walk checks that $C.\{arrow(u)\} thick arrow(D)$ has a type, and
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1333, 1351)[introduces a hole for it]:
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1338, 1356)[introduces a hole for it]:
 a variable standing for the container's type former applied at this
 instantiation. It then
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1213, 1262)[takes each of $C$'s constructors in turn]:
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1218, 1267)[takes each of $C$'s constructors in turn]:
 
 - its stored type at $arrow(u)$, the frame's applications replaced by
   the holes and the parameters instantiated at $arrow(D)$, must be a
@@ -181,7 +181,7 @@ instantiation. It then
 - the constructor's walked type is recorded, every hole read back as
   the application it stands for, for the recursors below.
 
-#src("ConLeche/Kernel/Inductives/Positivity.lean", 1591, 1599)[The root frame]
+#src("ConLeche/Kernel/Inductives/Positivity.lean", 1596, 1604)[The root frame]
 is the same loop over the block's own constructors.
 
 On $Tree$, the field of type $List thick (Tree thick alpha)$ meets the container case at $List$ with the
@@ -276,10 +276,10 @@ not the recursor's $alpha$, and $List$'s level names, not $Tree$'s. So
 #src("ConLeche/Kernel/Env.lean", 107, 113)[each rule of a recursor at a container class stores the instantiation],
 that is, the class's levels and parameters as terms in the recursor's
 level parameters and parameters
-(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 602, 613)[the stored rules at a container class]).
+(#src("ConLeche/Kernel/Inductives/RecCheck.lean", 605, 616)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
-#src("ConLeche/Kernel/CoreDefs.lean", 1177, 1187)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+#src("ConLeche/Kernel/CoreDefs.lean", 1171, 1181)[the stored ones, instantiated at the recursor's levels and parameter arguments]
 (#src("ConLeche/Rules/Rel.lean", 212, 223)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields
@@ -298,8 +298,8 @@ nested block.
   #src("ConLeche/Kernel/Inductives/ClassRead.lean", 15, 32)[an unverified pre-pass],
   and each class is then checked: the type being defined at the
   block's levels and parameters, or
-  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 410, 447)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
-  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1645, 1653)[Every class other than the type being defined is walked]
+  #src("ConLeche/Kernel/Inductives/RecCheck.lean", 413, 450)[a stored inductive type, not the quotient, whose parameters mention the type being defined and nothing but the block's parameters, in the block's sort].
+  #src("ConLeche/Kernel/Inductives/Positivity.lean", 1650, 1658)[Every class other than the type being defined is walked]
   as a container met at the root, so every class is an instantiation
   the walk visited. A field landing at a class for which the stream
   gives #src("ConLeche/Kernel/Inductives/GenRec.lean", 451, 454)[no recursor]
@@ -394,4 +394,4 @@ $TreeRec1$ the major is a constructor of `List` applied; the
 recursor's fit puts its value in the class at the recursor's
 parameters, and `List`'s fixed-point equation there identifies the
 constructor and the fields with the rule's
-(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 876, 882)[the graph's equation, lifted to the law]).
+(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 873, 879)[the graph's equation, lifted to the law]).

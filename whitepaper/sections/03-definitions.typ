@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 451)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 452)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 288, 306)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 289, 307)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -45,14 +45,14 @@ $
 declared with level parameters $arrow(p)$ is taken at the levels
 $arrow(ell)$, replaces the parameters in sorts and in the level lists
 of constants
-(#src("ConLeche/Kernel/Level.lean", 218, 231)[as in con-leche]).
+(#src("ConLeche/Kernel/Level.lean", 225, 238)[as in con-leche]).
 
 *The rules for constants.* A constant
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 559, 565)[inference]
-and #src("ConLeche/Rules/Rel.lean", 380, 385)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 550, 556)[inference]
+and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
 
 #rules(
   rule(name: "const",
@@ -144,7 +144,7 @@ the declared level parameters.
 
 #real[
   The real proof's model carries the same two laws among others
-  (#src("ConLeche/Model/Env/EnvModelM.lean", 228, 251)[the carrier's invariant]).
+  (#src("ConLeche/Model/Env/EnvModelM.lean", 245, 268)[the carrier's invariant]).
 ]
 
 The empty environment #src("whitepaper/Fragment/EnvModel.lean", 364, 373)[has a model
