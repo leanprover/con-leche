@@ -100,6 +100,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
       (ls.map (·.1.name)).Nodup →
       (∀ r ∈ ls, env.find? r.1.name = none) →
       (∀ r ∈ ls, ConLeche.reservedBasisNames.contains r.1.name = false) →
+      (∀ r ∈ ls, natOpName r.1.name = false) →
       (∀ r ∈ ls,
         r.1.type.hasFvar = false ∧
         r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
@@ -115,9 +116,9 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         (∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
         (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta)) →
       ∃ mp' : EnvModelM V (consBlockRecsBare q m ls env), mp'.base2.acval = acv
-  | _, [], env, mp, _, _, _, _, hag, _, _, _, _ =>
+  | _, [], env, mp, _, _, _, _, _, hag, _, _, _, _ =>
     ⟨mp, by funext n; exact (hag n (fun _ h => nomatch h)).symm⟩
-  | m, r0 :: rest, env, mp, hnd, hfr, hnres, hty, hag, hcl, hpar, hok, hrd => by
+  | m, r0 :: rest, env, mp, hnd, hfr, hnres, hop, hty, hag, hcl, hpar, hok, hrd => by
     -- the head
     have hmem0 : r0 ∈ r0 :: rest := List.mem_cons_self
     have hfresh : env.find? r0.1.name = none := hfr r0 hmem0
@@ -139,7 +140,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     -- the cons
     obtain ⟨mp₁, hac₁⟩ :=
       declStep_preserves_of_ind_rec_cons (A := acv r0.1.name)
-        (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false []) mp hfresh (hnres r0 hmem0)
+        (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false []) mp hfresh (hnres r0 hmem0) (hop r0 hmem0)
         ⟨r0.1, q.majorIdxAt m, q.rulePrefixAt m, false, [], rfl⟩
         (ConsHead.ofFresh
           (ConLeche.EnvWF.cons mp.base2.wf
@@ -177,12 +178,13 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     show ∃ mp' : EnvModelM V (consBlockRecsBare q (m + 1) rest
         ⟨.recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false [] :: env.consts, env.tables⟩),
       mp'.base2.acval = acv
-    refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
+    refine envModelM_consBlockRecsBare mp₁ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_
     · exact hnd.2
     · intro r hr
       rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh => hnrr r hr hh.symm)]
       exact hfr r (List.mem_cons_of_mem _ hr)
     · exact fun r hr => hnres r (List.mem_cons_of_mem _ hr)
+    · exact fun r hr => hop r (List.mem_cons_of_mem _ hr)
     · intro r hr
       obtain ⟨g1, g2, g3, g4⟩ := hty r (List.mem_cons_of_mem _ hr)
       exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
@@ -434,6 +436,7 @@ variable {R : Nat → RecDatum → Bool × List RecRule} {q : BlockShape} {rs : 
   (hnd : (rs.map (·.1.name)).Nodup)
   (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
   (hnres : ∀ r ∈ rs, ConLeche.reservedBasisNames.contains r.1.name = false)
+  (hop : ∀ r ∈ rs, natOpName r.1.name = false)
   (hty : ∀ r ∈ rs,
     r.1.type.hasFvar = false ∧
     r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
@@ -449,7 +452,7 @@ variable {R : Nat → RecDatum → Bool × List RecRule} {q : BlockShape} {rs : 
     (∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
     (∀ ρ : Nat → V, interp V ρ (acv r.1.name ψ) ∈ˢ interp V ρ ta))
 
-include mpC hnd hfr hnres hty hag hcl hpar hok hrd
+include mpC hnd hfr hnres hop hty hag hcl hpar hok hrd
 
 /-- **The `k` recursors' cons with their rules, P tier.**  The two
 phases composed: the rule-less chain, then the rule-list swap.  The
@@ -476,6 +479,7 @@ theorem envModelM_consBlockRecsR
       (by rw [bareOf_map_name]; exact hnd)
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hfr r hr)
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hnres r hr)
+      (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hop r hr)
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hty r hr)
       (fun n hn => hag n (fun r hr => hn (r.1, r.2.2.1) (List.mem_map_of_mem hr)))
       (fun x hx => by obtain ⟨r, hr, he⟩ := hmemB x hx; rw [he]; exact hcl r hr)
@@ -574,7 +578,7 @@ theorem blockRecStaged_of
     rw [hh, hfr r hr] at hn
     exact nomatch hn
   obtain ⟨mp', hac'⟩ :=
-    envModelM_consBlockRecsR mpC hnd hfr hnres hty hag hcl hpar hok hrd
+    envModelM_consBlockRecsR mpC hnd hfr hnres hop hty hag hcl hpar hok hrd
       (ConLeche.envWF_consBlockRecsR mpC.base2.wf
         (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2,
           fun rhs hrhs' => hrhs r hr rhs hrhs'⟩)

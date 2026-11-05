@@ -67,6 +67,8 @@ def installHeader (env : Env) (cv : ConstantVal) :
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do

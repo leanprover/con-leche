@@ -138,6 +138,7 @@ def DeclDefnRun (F : Nat) (env : Env)
 /-- A `thmDecl`'s guards and runs. -/
 def DeclThmRun (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
+  natOpName cv.name = false ∧
   ∃ type' value',
     ConstantValRun F env cv type' ∧
     (∃ stype u, inferTypeCore .verified false env F 0 type' = .ok stype ∧
@@ -152,6 +153,7 @@ def DeclThmRun (F : Nat) (env : Env)
 /-- An `opaqueDecl`'s guards and runs. -/
 def DeclOpaqueRun (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
+  natOpName cv.name = false ∧
   ∃ type' value',
     ConstantValRun F env cv type' ∧
     ValueFrontRun F env cv value type' value' ∧
@@ -168,6 +170,7 @@ def DeclAxiomRun (F : Nat) (env : Env)
   -- name).  No `ConstantValRun`: the pin is what is stored.
   (cv.name = quotSoundName ∧ DeclQuotRun env .sound cv env₂) ∨
   ∃ type',
+    natOpName cv.name = false ∧
     ConstantValRun F env cv type' ∧
     (let cv : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
      (stdAxiomOk env cv = true ∧

@@ -167,6 +167,41 @@ and scoped at the parameters and the subject; there are exactly
     b.constsResolve env = true ∧
     b.looseBVarsBounded (tbl.numParams + 1) = true
 
+/-- `c` is stored as a definition. -/
+@[expose] def natOpStored (env : Env) (c : Name) : Bool :=
+  match env.find? c with
+  | some (.defnInfo _ _ _) => true
+  | _ => false
+
+/-- **A stored certified operation's name holds a definition.**  The fast path fires by name; every
+other kind of declaration is refused at such a name (`checkConstantVal`, `reservedRecName`). -/
+@[expose] def OpDefn (env : Env) : Prop :=
+  ∀ c, natOpName c = true → (env.find? c).isSome = true → natOpStored env c = true
+
+/-- A certified operation's name is not a pinned basis name. -/
+theorem natOpName_not_reserved {c : Name} (h : natOpName c = true) :
+    reservedBasisNames.contains c = false := by
+  simp only [natOpName, Bool.or_eq_true, List.contains_iff_mem] at h
+  rcases h with h | h
+  · exact (by decide : ∀ c ∈ natOpNames, reservedBasisNames.contains c = false) c h
+  · exact (by decide : ∀ c ∈ natDivModNames, reservedBasisNames.contains c = false) c h
+
+/-- `OpDefn` across a change that keeps which names are stored and every definition. -/
+theorem OpDefn.of_same {env₀ env₃ : Env} (h : OpDefn env₀)
+    (hs : ∀ n, (env₃.find? n).isSome = true → (env₀.find? n).isSome = true)
+    (hd : ∀ n cv v hh, env₀.find? n = some (.defnInfo cv v hh) →
+      env₃.find? n = some (.defnInfo cv v hh)) : OpDefn env₃ := by
+  intro c hn hc
+  have h₀ := h c hn (hs c hc)
+  unfold natOpStored at h₀ ⊢
+  cases hx : env₀.find? c with
+  | none => rw [hx] at h₀; exact nomatch h₀
+  | some ci =>
+    rw [hx] at h₀
+    cases ci with
+    | defnInfo cv v hh => rw [hd c cv v hh hx]
+    | _ => exact nomatch h₀
+
 /-- Every stored constant and every stored table is syntactically
 well-formed. -/
 structure EnvWF (env : Env) : Prop where

@@ -699,7 +699,7 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
         caps.nparams + caps.nIdx = p₀.nP + ms.nIdx) ∧
       ((∀ c ∈ p₀.allCtors, ConLeche.reservedBasisNames.contains c.1.name = false) →
         ∀ c ∈ new, ConLeche.reservedBasisNames.contains c.name = false) := by
-  obtain ⟨-, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
+  obtain ⟨-, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := hrun
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
@@ -838,7 +838,7 @@ theorem declBlockRun_tables {F : Nat} {env env₂ : Env} {block : List ConstantI
     (∀ ms ∈ p₀.members, env.find? ms.cvT.name = none) ∧
     ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
       ∀ t ∈ newQ, ∃ ms ∈ p₀.members, t.structName = ms.cvT.name := by
-  obtain ⟨-, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
+  obtain ⟨-, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, hTbl⟩ := hrun
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
@@ -1505,6 +1505,7 @@ theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts 
   wf := mp.base2.wf
   natTrio := hN.trio
   recCtors := mp.base2.rec_ctors
+  opDefn := mp.op_defn
   entryCtors := fun _ _ e hf => by
     obtain ⟨-, -, -, -, -, cvC, hc, -⟩ := mp.base2.proj_ok.towerHead hf
     rw [hc]; rfl

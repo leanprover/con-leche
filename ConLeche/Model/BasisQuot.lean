@@ -219,7 +219,7 @@ theorem extendQuot (mp : EnvModelM V env)
     (hwf : EnvWF ⟨quotA :: env.consts, env.tables⟩) {ex : List Name} :
     CoverTo mp ex ⟨quotA :: env.consts, env.tables⟩ ex := by
   refine coverTo_cons hfresh (fun _ _ _ => rfl) (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => Term.const .quot [ψ uN]) hfresh
+    (A := fun ψ => Term.const .quot [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
@@ -268,7 +268,7 @@ theorem extendQuotMk (mp : EnvModelM V env)
   refine coverTo_cons hfresh (fun _ _ h => nomatch h)
     (hhead := hhead_ctor (c₀ := quotMkA) rfl rfl rfl (Or.inr ⟨_, _, hQ, rfl⟩))
     (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => Term.const .quotMk [ψ uN]) hfresh
+    (A := fun ψ => Term.const .quotMk [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
@@ -1143,7 +1143,7 @@ theorem extendQuotInd (mp : EnvModelM V env)
     denote_quotIndA_type (m := mp.base2)
       (A := fun ψ => Term.const .quotInd [ψ uN]) ψ hQ hM
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
-    (A := fun ψ => Term.const .quotInd [ψ uN]) hfresh
+    (A := fun ψ => Term.const .quotInd [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))
@@ -1534,7 +1534,7 @@ theorem extendQuotSound (mp : EnvModelM V env)
     denote_quotSoundA_type (m := mp.base2)
       (A := fun ψ => Term.const .quotSound [ψ uN]) ψ hQ hM hE
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => Term.const .quotSound [ψ uN]) hfresh
+    (A := fun ψ => Term.const .quotSound [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
@@ -2523,7 +2523,7 @@ theorem extendQuotLift (mp : EnvModelM V env)
     denote_quotLiftA_type (m := mp.base2)
       (A := fun ψ => Term.const .quotLift [ψ uN, ψ vN]) ψ hQ hE
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
-    (A := fun ψ => Term.const .quotLift [ψ uN, ψ vN]) hfresh
+    (A := fun ψ => Term.const .quotLift [ψ uN, ψ vN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))

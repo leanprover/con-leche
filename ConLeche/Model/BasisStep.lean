@@ -60,6 +60,7 @@ type's reading. -/
 theorem declStep_preserves_of_basis_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     -- a basis cons is never a value kind
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     -- the two blocks that supply their row bespoke are excluded
@@ -100,7 +101,8 @@ theorem declStep_preserves_of_basis_cons (mp : EnvModelM V env)
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
   · -- `hvalReads`: a basis cons is never a definition
     intro _ψ cv2 value2 hmem
@@ -140,6 +142,7 @@ carrier. -/
 theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName) (hnEq : eqName ≠ c₀.name)
@@ -171,7 +174,8 @@ theorem declStep_preserves_of_basis_rec_cons (mp : EnvModelM V env)
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
   · intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
@@ -196,6 +200,7 @@ eight rows still collapse. -/
 theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnN : c₀.name ≠ natName) (hnZ : c₀.name ≠ natZeroName)
     (hnS : c₀.name ≠ natSuccName)
@@ -228,7 +233,8 @@ theorem declStep_preserves_of_basis_cons_eqrow (mp : EnvModelM V env)
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
   · intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem
@@ -252,6 +258,7 @@ rows still collapse. -/
 theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    (hop : natOpName c₀.name = false)
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnEq : eqName ≠ c₀.name)
     (hres : ConLeche.reservedBasisNames.contains c₀.name = true)
@@ -285,7 +292,8 @@ theorem declStep_preserves_of_basis_cons_gen (mp : EnvModelM V env)
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh hAparams hAok htyReads htyOk hmemNew
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh
+    (by intro hn; rw [hop] at hn; exact nomatch hn) hh hAparams hAok htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
   · intro _ψ cv2 value2 hmem
     obtain ⟨hint2, hdt⟩ := hmem

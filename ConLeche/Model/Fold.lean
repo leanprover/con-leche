@@ -76,12 +76,12 @@ theorem axiomStepPB_of : AxiomStepPB V := by
   -- the `Quot.sound` arm is a quotient record
   rcases hR with ⟨-, hq⟩ | hR
   · exact declQuotPB_at mp hq
-  obtain ⟨type', hcv, hbranch⟩ := hR
+  obtain ⟨type', hopn, hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · exact axiomStd mp hcv hok
-  · exact axiomTrustCompiler mp hcv hname hok
-  · exact axiomOfReduce mp hcv hor hok
+  · exact axiomStd mp hopn hcv hok
+  · exact axiomTrustCompiler mp hopn hcv hname hok
+  · exact axiomOfReduce mp hopn hcv hor hok
   · exact axiomSkip mp
 
 /-! ## Coverage through the fold
@@ -158,7 +158,7 @@ theorem plainStep_quot {env env₂ : Env} {k : ConLeche.QuotKind} {cv : Constant
 /-- An axiom record is a plain step. -/
 theorem plainStep_axiom {F : Nat} {env env₂ : Env} {cv : ConstantVal}
     (h : DeclAxiomRun F env cv env₂) : PlainStep env env₂ := by
-  rcases h with ⟨-, hq⟩ | ⟨type', hcv, hbranch⟩
+  rcases h with ⟨-, hq⟩ | ⟨type', -, hcv, hbranch⟩
   · exact plainStep_quot hq
   · have hres := hcv.2.1
     rcases hbranch with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -260,12 +260,12 @@ theorem declStep_preserves
   | thmDecl cv value =>
     have hsh := hrun
     -- the run record has no is-a-proposition derivation row
-    obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
+    obtain ⟨-, type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
     exact PlainStep.close (PlainStep.cons (by exact hcv.2.1)) (harvestThm mp hrun) hcov hS hN
   | opaqueDecl cv value =>
     have hsh := hrun
-    obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
+    obtain ⟨-, type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
     exact PlainStep.close (PlainStep.cons (by exact hcv.2.1)) (harvestOpaque mp hrun) hcov hS hN
   | axiomDecl cv => exact (plainStep_axiom hrun).close (axiomStepPB_of mp hrun) hcov hS hN

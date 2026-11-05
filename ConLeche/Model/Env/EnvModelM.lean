@@ -287,6 +287,8 @@ structure EnvModelM (env : Env) where
   by the structure-η and unit-like rules' soundness
   (`Model/Rules/DefEqSound.lean`, through `RulesInputs.caps_ok`) -/
   caps_ok : CapsOk base2
+  /-- a certified operation's name holds a definition: the fast path fires by name -/
+  op_defn : OpDefn env
   /-- the stored recursors' fired modeled-iota contracts (an
   *environment law* for the same reason `caps_ok` is — a
   recursor's rules are fixed by the inductive install and by nothing
@@ -439,6 +441,7 @@ field is vacuous — no constants, guards false. -/
   reduce_ops := fun c _ cv hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
+  op_defn := fun _ _ hs => nomatch hs
   tower_ok := fun _ T i entry hf => by
     have : Env.empty.findProj? T i = none := rfl
     rw [this] at hf

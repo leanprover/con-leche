@@ -267,7 +267,7 @@ theorem extendNat (mp : EnvModelM V env)
   -- the pinned block's lfp clause is recorded at its last constructor's
   -- cons (`extendNatSucc`: the clause's `ctor` reads the constructors' leaves)
   refine coverTo_pend hfresh (declStep_preserves_of_basis_cons_gen mp
-    (A := fun _ => Term.const .nat []) hfresh
+    (A := fun _ => Term.const .nat []) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
@@ -310,7 +310,7 @@ theorem extendNatZero (mp : EnvModelM V env)
   refine coverTo_cons hfresh (fun _ _ h => nomatch h)
     (hhead := hhead_ctor (c₀ := natZeroA) rfl rfl rfl (Or.inl hNex))
     (declStep_preserves_of_basis_cons_gen mp
-    (A := fun _ => Term.const .natZero []) hfresh
+    (A := fun _ => Term.const .natZero []) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
@@ -435,7 +435,7 @@ theorem extendNatSucc (mp : EnvModelM V env)
     (coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
       (hhead := hhead_ctor (c₀ := natSuccA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
       declStep_preserves_of_basis_cons_gen mp
-    (A := fun _ => Term.const .natSucc []) hfresh
+    (A := fun _ => Term.const .natSucc []) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (Or.inl (fun _ h => nomatch h))
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
@@ -1315,7 +1315,7 @@ theorem extendNatRec (mp : EnvModelM V env)
     denote_natRecA_type (m := mp.base2)
       (A := fun ψ => Term.const .natRec [ψ uN]) ψ hN hZ hS
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_rec_cons mp
-    (A := fun ψ => Term.const .natRec [ψ uN]) hfresh
+    (A := fun ψ => Term.const .natRec [ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))

@@ -256,12 +256,12 @@ def containerClosure (find? : Name → Option ConstantInfo) :
       containerClosure find? n (st.2 ++ caps.all ++ work) (c :: seen)
     | _ => containerClosure find? n work seen
 
-/-- The stored families a block reads as containers, by name.  The worklist's bound is a
-number no stream reaches: a family past it is read as stored. -/
+/-- The stored families a block reads as containers, by name.  The fuel is for termination
+only, as `checkFuel`: the worklist takes one step per name it holds, and no run takes 2^62. -/
 def blockContainers (find? : Name → Option ConstantInfo) (p : BlockParts) : List Name :=
   let st := p.allCtors.foldl (fun st c => (Expr.nestedHeadsGo p.memberNames c.1.type st).2)
     (({} : Std.HashMap Expr Bool), [])
-  containerClosure find? 1048576 st.2 []
+  containerClosure find? (2 ^ 62) st.2 []
 
 /-- **The block's def-headed containers at their reduced telescopes**, at this environment:
 a run does not see an extension (`Verify/EnvExt.lean`), so this is what the family's own job
@@ -327,6 +327,8 @@ def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p�
     m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
+  unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
+    throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let cs := blockContainers env.find? p₀
   if blockViewed env.find? cs p₀ then do
     let ms ← reduceMembers ops env p₀.nP p₀.members

@@ -219,7 +219,7 @@ theorem extendEq (mp : EnvModelM V env)
       mp'.base2.acval
         = acvalWith mp.base2.acval eqA.name eqValT ∧ CoverRel mp mp' ∧
       (LfpCover mp [] → LfpCover mp' [eqName]) := by
-  refine coverA_pend hfresh <| declStep_preserves_of_basis_cons_eqrow mp (A := eqValT) hfresh
+  refine coverA_pend hfresh <| declStep_preserves_of_basis_cons_eqrow mp (A := eqValT) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h) (by decide)
@@ -266,7 +266,7 @@ theorem extendEqRefl (mp : EnvModelM V env)
       ψ (by decide) hE hEv
   refine coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h)
     (hhead := hhead_ctor (c₀ := eqReflA) rfl rfl rfl (Or.inl List.mem_cons_self)) <|
-    declStep_preserves_of_basis_cons mp (A := eqReflValT) hfresh
+    declStep_preserves_of_basis_cons mp (A := eqReflValT) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
@@ -1182,7 +1182,7 @@ theorem extendEqRec (mp : EnvModelM V env)
   have hty := fun ψ =>
     denote_eqRecA_type (m := mp.base2) (A := eqRecValT) ψ hE hR hEv hRv
   refine coverA_cons hfresh (fun _ h => h) (fun _ _ h => nomatch h) <|
-    declStep_preserves_of_basis_rec_cons mp (A := eqRecValT) hfresh
+    declStep_preserves_of_basis_rec_cons mp (A := eqRecValT) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (by decide) (Or.inl (fun _ h => nomatch h))

@@ -90,6 +90,11 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
       · exact ⟨ci, by rw [heq]; exact hf, rfl⟩
       · rw [hname] at hres
         exact absurd hres (by decide)) h
+  have hsomeOp : ∀ n, (env₃.find? n).isSome = true → (env₀.find? n).isSome = true := by
+    intro n hn
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -⟩
+    · rw [← heq]; exact hn
+    · rw [h₀]; rfl
   refine ⟨{ base2 :=
               { wf := hwf₃
                 acval := mp.base2.acval
@@ -117,6 +122,8 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             div_mod := ?_
             eq_law := ?_
             caps_ok := ?_
+            op_defn := mp.op_defn.of_same hsomeOp
+              (fun n cv v hh hf => (hsame _ _ (fun _ _ _ _ _ he => ConstantInfo.noConfusion he)).mpr hf)
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
             tower_ok := ?_

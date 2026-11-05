@@ -298,7 +298,7 @@ theorem harvestDefn
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-    (A := A) hfresh
+    (A := A) hfresh (fun _ => ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -521,7 +521,7 @@ theorem harvestThm
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclThmRun F env cv value env₂) :
     CoverStep mp env₂ := by
-  obtain ⟨type', value', hcv, -, hvfr, rfl⟩ := hR
+  obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -669,7 +669,7 @@ theorem harvestThm
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh
+    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -777,6 +777,7 @@ the wrapper crosses it.
 theorem harvestAxiom
     (mp : EnvModelM V env)
     {cv : ConstantVal} {type' : Expr} {A : (Name → Nat) → Term}
+    (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
     (hAvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -854,7 +855,7 @@ theorem harvestAxiom
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh
+    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -952,7 +953,7 @@ theorem harvestOpaque
     {cv : ConstantVal} {value : Expr} {env₂ : Env}
     (hR : DeclOpaqueRun F env cv value env₂) :
     CoverStep mp env₂ := by
-  obtain ⟨type', value', hcv, hvfr, rfl, hred⟩ := hR
+  obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     hrunT⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
@@ -1104,7 +1105,7 @@ theorem harvestOpaque
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh
+    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
       (EnvWF.cons mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',

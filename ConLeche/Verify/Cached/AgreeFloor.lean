@@ -1031,8 +1031,11 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
     Yields (checkBlockKS mode fe block p) (fun fe' => SkelIs fe' (blockSkels p sk)) := by
   unfold checkBlockKS
   try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?main)
+  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?boolC)
   case dupBad => exact Yields.ofThrowBind
+  case boolC =>
+  refine Yields.ofDecCases (fun _ => ?boolBad) (fun _ => ?main)
+  case boolBad => exact Yields.ofThrowBind
   case main =>
   show Yields (if blockViewed fe.find? (blockContainers fe.find? p) p = true then _ else _) _
   split

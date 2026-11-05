@@ -393,7 +393,7 @@ variable {mode : CheckMode}
 
 theorem checkConstantValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?)
-    (cv : ConstantVal) : checkConstantValC mode fe₁ cv = checkConstantValC mode fe₂ cv := by
+    (cv : ConstantVal) {a : Bool} : checkConstantValC mode fe₁ cv a = checkConstantValC mode fe₂ cv a := by
   unfold checkConstantValC
   simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
     strLitSupportedF_congr hfe]

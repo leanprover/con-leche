@@ -250,6 +250,8 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
     CheckCM FEnv := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
+  unless boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames do
+    throw (.invalid "direct rec: a family at a `Bool` constructor's name")
   let cs := blockContainers fe.find? p₀
   -- decided before the check, so that the ordinary path consumes `fe`
   if blockViewed fe.find? cs p₀ then

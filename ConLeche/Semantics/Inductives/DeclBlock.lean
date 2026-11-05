@@ -40,6 +40,7 @@ recognised record; the one pass runs at official's `is_rec`
 def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     (p₀ : BlockParts) (env₂ : Env) : Prop :=
   (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup ∧
+  (boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames) ∧
   ∃ (isRec : Bool) (env₁ : Env) (cvTas : List ConstantVal) (p₁ : BlockShape) (p : BlockParts)
     (ctorsAs : List (List (ConstantVal × Nat))) (sortsss : List (List (List Level)))
     (ctx : NestCtx) (holes : List Expr) (rd : ClassRead) (Ms : List TargetMajor)
@@ -95,6 +96,7 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
 theorem declBlockRun_of {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts}
     (hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup)
+    (hbool : boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames)
     (h : checkBlockAt (m := ConLeche.CheckM) (fueledOps .verified F) env block p₀ = .ok env₂) :
     DeclBlockRun F env block p₀ env₂ := by
   rw [ConLeche.checkBlockAt] at h
@@ -108,7 +110,7 @@ theorem declBlockRun_of {F : Nat} {env env₂ : Env}
     ConLeche.checkBlockPass_inv hP
   obtain ⟨isorts, rs, hsorts, hRec, hS, hTbl⟩ := ConLeche.checkBlockTail_inv h
   rw [hpar, htbl] at hRec
-  refine ⟨hnd.1, hnd.2, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, ctx,
+  refine ⟨hnd.1, hnd.2, hbool, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs, q.sortsss, ctx,
     holes, q.rd, q.cls, q.kinds, q.nfs, pos, st, isorts, rs, hInd, hp, ?_, ?_, ?_, ?_, hst, rfl,
     hsorts, hRec, hS, hTbl⟩
   · rw [hp]; exact hCtors
@@ -200,6 +202,12 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
     exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   rw [ite_eq_left hnd] at h
   try simp only [bind, Except.bind] at h
+  by_cases hbool : boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames
+  case neg =>
+    rw [ite_eq_right hbool] at h
+    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+  rw [ite_eq_left hbool] at h
+  try simp only [bind, Except.bind] at h
   by_cases hv : blockViewed env.find? (blockContainers env.find? p₀) p₀ = true
   · rw [ite_eq_left hv] at h
     try simp only [bind, Except.bind] at h
@@ -227,8 +235,14 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
       have hs := reduceMembers_shape hms
       exact ⟨by rw [hs.2]; exact hnd.1, by
         show (ms.map _).Nodup; rw [hs.1]; exact hnd.2⟩
-    exact .inr ⟨ms, vs, env₃, hms, hvs, declBlockRun_of hnd' hA, rfl⟩
+    have hb' : boolTrueName ∉ ({ p₀ with members := ms } : BlockParts).memberNames ∧
+        boolFalseName ∉ ({ p₀ with members := ms } : BlockParts).memberNames := by
+      have hs := reduceMembers_shape hms
+      constructor
+      · show boolTrueName ∉ ms.map _; rw [hs.1]; exact hbool.1
+      · show boolFalseName ∉ ms.map _; rw [hs.1]; exact hbool.2
+    exact .inr ⟨ms, vs, env₃, hms, hvs, declBlockRun_of hnd' hb' hA, rfl⟩
   · rw [ite_eq_right hv] at h
-    exact .inl (declBlockRun_of hnd h)
+    exact .inl (declBlockRun_of hnd hbool h)
 
 end ConLeche.Semantics

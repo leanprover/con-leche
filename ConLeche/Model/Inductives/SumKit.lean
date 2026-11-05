@@ -1134,7 +1134,10 @@ theorem stageCtorGen {T : Name}
     show ConLeche.reservedBasisNames.contains cvCa.name = false
     rw [hCname]; exact hnres
   refine declStep_preserves_of_ind_member_cons mp (c₀ := .ctorInfo cvCa nP nF)
-    (A := A) hfresh hnresC (Or.inr ⟨_, _, _, rfl⟩)
+    (A := A) hfresh hnresC (by
+      show natOpName cvCa.name = false
+      rw [hCname]; exact ConLeche.checkConstantVal_opName_false hccv)
+    (Or.inr ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh hwfC (fun ψ => hAbelow ψ) hnresC
       (fun _ _ _ _ _ h => nomatch h))
     ?_ ?_ ?_ ?_ ?_ ?_

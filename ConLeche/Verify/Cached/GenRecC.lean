@@ -1720,6 +1720,9 @@ theorem checkBlockKS_run
   by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
   case neg => rw [ite_eq_right hnd] at h; exact absurd h throwC_bind_ok
   rw [ite_eq_left hnd] at h
+  by_cases hbool : boolTrueName ∉ p₀.memberNames ∧ boolFalseName ∉ p₀.memberNames
+  case neg => rw [ite_eq_right hbool] at h; exact absurd h throwC_bind_ok
+  rw [ite_eq_left hbool] at h
   have hfd : (mkFEnv env).find? = env.find? := funext (mkFEnv_find? env)
   simp only [hfd] at h
   by_cases hv : blockViewed env.find? (blockContainers env.find? p₀) p₀ = true
@@ -1760,7 +1763,7 @@ theorem checkBlockKS_run
       rw [← checkBlockAt_datF]
       exact FueledM.up (Nat.le_trans (Nat.le_max_right F₂ F₃) (Nat.le_max_right F₁ _)) (by rw [checkBlockAt_datF]; exact hF₃)
     unfold checkBlock
-    simp only [ite_eq_left hnd, hv, ↓reduceIte, Bind.bind, Except.bind, g₁, g₂, g₃, pure,
+    simp only [ite_eq_left hnd, ite_eq_left hbool, hv, ↓reduceIte, Bind.bind, Except.bind, g₁, g₂, g₃, pure,
       Except.pure, restoreBlock]
     rfl
   · have hv' : blockViewed env.find? (blockContainers env.find? p₀) p₀ = false := by simpa using hv
@@ -1768,7 +1771,7 @@ theorem checkBlockKS_run
     obtain ⟨hO, hfeO, F, hF⟩ := checkBlockAtS_run henv hwf h
     refine ⟨hO, hfeO, F, ?_⟩
     unfold checkBlock
-    simp only [ite_eq_left hnd, hv', Bool.false_eq_true, ↓reduceIte]
+    simp only [ite_eq_left hnd, ite_eq_left hbool, hv', Bool.false_eq_true, ↓reduceIte]
     exact hF
 
 variable {pins : List NatOpPinSet}

@@ -38,8 +38,8 @@ variable {pins : List NatOpPinSet}
 inversion, the two closedness facts beside it, and `ConstantValRun`.
 No `EnvFacts`, no valuation. -/
 theorem constantValRun_of {env : Env} {F : Nat}
-    {cv : ConstantVal}
-    (h : checkConstantVal (fueledOps .verified F) env cv = .ok ()) :
+    {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps .verified F) env cv a = .ok ()) :
     cv.type.hasFvar = false ∧ cv.type.looseBVarsBounded 0 = true ∧
       ConstantValRun F env cv cv.type := by
   obtain ⟨hfind, hres, hnd, hlbt, hitf, stype, u, htp,
@@ -158,7 +158,7 @@ theorem declThmRun_of {env env₂ : Env} {F : Nat}
   | false => exact nomatch h
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-  exact ⟨cv.type, value, hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
+  exact ⟨checkConstantVal_opName_false hccv, cv.type, value, hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
     valueFrontRun_of hlbv hivf' rfl hvp hvr hvt hde, h.symm⟩
 
 /-- **`axiomDecl`, run half.**  Nothing but stored-data guards happens
@@ -180,7 +180,7 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
   rw [hccv] at h
   try dsimp only at h
   obtain ⟨-, -, hcv⟩ := constantValRun_of hccv
-  refine ⟨cv.type, hcv, ?_⟩
+  refine ⟨cv.type, checkConstantVal_opName_false hccv, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := cv.type } = true
   · rw [ite_eq_left hstd] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -264,7 +264,7 @@ theorem declOpaqueRun_of {env env₂ : Env} {F : Nat}
   | false => exact nomatch h
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  refine ⟨cv.type, value, hcv,
+  refine ⟨checkConstantVal_opName_false hccv, cv.type, value, hcv,
     valueFrontRun_of hlbv hivf' rfl hvp hvr hvt hde, ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
     · rw [ite_eq_left hro] at h
@@ -301,7 +301,7 @@ theorem declDefnRun_of {env env₂ : Env} {F : Nat}
       = .ok env₂) :
     DeclDefnRun F env cv value hint env₂ := by
   simp only [checkDecl, checkDefnVal, fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps .verified F) env cv with
+  cases hccv : checkConstantVal (fueledOps .verified F) env cv true with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
   rw [hccv] at h

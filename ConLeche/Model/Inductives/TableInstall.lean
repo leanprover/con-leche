@@ -140,6 +140,7 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     div_mod := mp.div_mod
     eq_law := mp.eq_law
     caps_ok := capsOk_pushTable mp hT hac
+    op_defn := fun c hn hs => mp.op_defn c hn hs
     rec_rules := fun φ n cv mI rP isK rules hf rl hmem =>
       recRuleLaw_ext mp hx φ hf hmem
     reduce_ops := mp.reduce_ops

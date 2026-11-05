@@ -404,6 +404,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
     (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
     (hndM : q.memberNames.Nodup)
+    (hboolM : ConLeche.boolTrueName ∉ q.memberNames ∧ ConLeche.boolFalseName ∉ q.memberNames)
     (hndC : (q.allCtors.map (·.1.name)).Nodup)
     (hClps : ∀ c ∈ q.allCtors, c.1.levelParams = q.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false)
@@ -781,21 +782,8 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
   have hII : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n :=
     fun n hn => by rw [hcons]; exact consBlockInds_find?_of_ne hn
   have hWI : ConLeche.WhnfNamesFree envI q.memberNames := by
-    refine ConLeche.whnfNamesFree_formers mp.base2.wf hnamesIff hfindMI hfreshI hII
-      (by rw [hcons]; exact consBlockInds_tables cvTas 0 env) ?_
-    · -- `natOpGuard` at the operation's install
-      have hg : ∀ c, c ∈ ConLeche.natOpNames → (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →
-          ConLeche.natOpStored env c = true →
-          (env.find? ConLeche.boolTrueName).isSome = true ∧
-            (env.find? ConLeche.boolFalseName).isSome = true := by
-        intro c hmemc hc hs
-        obtain ⟨-, -, hb⟩ := ConLeche.natOpGuard_inv (natOpGuardLaw_of mp c (Or.inl hmemc) hs)
-        obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF', -⟩⟩ := hb (by rcases hc with h | h <;> simp [h])
-        rw [hT, hF']
-        exact ⟨rfl, rfl⟩
-      rintro (h | h)
-      · exact hg _ (by simp [ConLeche.natOpNames]) (Or.inl rfl) h
-      · exact hg _ (by simp [ConLeche.natOpNames]) (Or.inr rfl) h
+    exact ConLeche.whnfNamesFree_formers mp.base2.wf hnamesIff hfindMI hfreshI hII
+      (by rw [hcons]; exact consBlockInds_tables cvTas 0 env) hboolM
   -- the formers' types resolve before the block: they name no member
   have hTyI : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
       cvTb.type.occDeep q.memberNames = false := fun c cvTb hcv =>

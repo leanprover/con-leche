@@ -223,7 +223,6 @@ ConLeche/Verify/DivModInv.lean	public import ConLeche.Verify.Extend.Inversions	#
 ConLeche/Verify/DivModInv.lean	public import ConLeche.Verify.Fueled	# compensated: +public import ConLeche.Verify.InferLeaves in ConLeche/Semantics/DivModEval.lean; +import ConLeche.Verify.Extend.Inversions in ConLeche/Verify/DivModInv.lean (+1 more)
 ConLeche/Verify/EnvBound.lean	public import ConLeche.Kernel.DeclCheck	# compensated: +public import ConLeche.Kernel.FEnv in ConLeche/Verify/EnvBound.lean
 ConLeche/Verify/EnvGuards.lean	import ConLeche.Kernel.Checker	# compensated: +import ConLeche.Verify.EnvWF in ConLeche/Verify/EnvGuards.lean; +public import ConLeche.Kernel.Core in ConLeche/Verify/EnvGuards.lean
-ConLeche/Verify/EnvGuards.lean	public import ConLeche.Verify.EnvWF	# compensated: +import ConLeche.Verify.EnvWF in ConLeche/Verify/EnvGuards.lean; +public import ConLeche.Kernel.Core in ConLeche/Verify/EnvGuards.lean
 ConLeche/Verify/EnvPreds.lean	public import ConLeche.Verify.EnvWF	# compensated: +import ConLeche.Verify.EnvWF in ConLeche/Verify/EnvPreds.lean; +public import ConLeche.Kernel.ExprOps in ConLeche/Verify/EnvPreds.lean (+1 more)
 ConLeche/Verify/EnvWF.lean	public import ConLeche.Kernel.Core	# compensated: +public import ConLeche.Kernel.CoreDefs in ConLeche/Verify/EnvWF.lean (task #305 prep, as for FEnv.lean)
 ConLeche/Verify/Fueled.lean	public import ConLeche.Verify.Deep	# compensated: +public import ConLeche.Verify.InferLeaves in ConLeche/Semantics/DivModEval.lean; +public import ConLeche.Verify.EnvWF in ConLeche/Verify/BridgeDecl.lean (+17 more)

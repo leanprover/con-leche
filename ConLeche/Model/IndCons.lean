@@ -94,6 +94,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
     (hfresh : env.find? c₀.name = none)
     -- the name: `blockShape?`'s guard at a member
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
+    (hop : natOpName c₀.name = false)
     -- the kind: an inductive block installs no value kind and no axiom
     (hnotdefn : ∀ cv v hint, c₀ ≠ .defnInfo cv v hint)
     (hnotax : ∀ cv, c₀ ≠ .axiomInfo cv)
@@ -128,7 +129,7 @@ theorem declStep_preserves_of_ind_cons (mp : EnvModelM V env)
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh hh
+  refine declStep_preserves_of_cons mp (c₀ := c₀) (A := A) hfresh (by intro hn; rw [hop] at hn; exact nomatch hn) hh
     hAparams hAok htyReads htyOk hmemNew
     ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ ?_ (hind := hind)
   · -- `hvalReads`: an inductive cons is never a definition
@@ -164,6 +165,7 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
+    (hop : natOpName c₀.name = false)
     (hknd : (∃ cv caps, c₀ = .indInfo cv caps) ∨
       ∃ cv nP nF, c₀ = .ctorInfo cv nP nF)
     (hh : ConsHead env c₀ A)
@@ -190,7 +192,7 @@ theorem declStep_preserves_of_ind_member_cons (mp : EnvModelM V env)
       intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
-  refine declStep_preserves_of_ind_cons mp hfresh hnres ?_ ?_ hh
+  refine declStep_preserves_of_ind_cons mp hfresh hnres hop ?_ ?_ hh
     hAparams hAok htyReads htyOk hmemNew
     hcaps ?_ (hind := hind)
   · rcases hknd with ⟨cv, caps, rfl⟩ | ⟨cv, nP, nF, rfl⟩ <;>
@@ -208,6 +210,7 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
+    (hop : natOpName c₀.name = false)
     (hknd : ∃ cv mI rP isK rules, c₀ = .recInfo cv mI rP isK rules)
     (hh : ConsHead env c₀ A)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
@@ -234,7 +237,7 @@ theorem declStep_preserves_of_ind_rec_cons (mp : EnvModelM V env)
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   obtain ⟨cv, mI, rP, isK, rules, rfl⟩ := hknd
-  exact declStep_preserves_of_ind_cons mp hfresh hnres
+  exact declStep_preserves_of_ind_cons mp hfresh hnres hop
     (fun _ _ _ h => nomatch h)
     (fun _ h => nomatch h) hh hAparams hAok
     htyReads htyOk hmemNew hcaps hrec

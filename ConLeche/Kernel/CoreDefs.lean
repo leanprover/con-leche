@@ -471,6 +471,12 @@ def natDivModNames : List Name :=
   [natDivName, natModName, natGcdName, natLandName, natLorName,
    natXorName, natShiftLeftName, natShiftRightName]
 
+/-- **The certified operations' names**: the fast path fires on them by name, so only a
+definition may take one, and its job holds it to the pin; any other declaration at such a
+name is refused (`checkConstantVal`, `reservedRecName`). -/
+def natOpName (n : Name) : Bool :=
+  natOpNames.contains n || natDivModNames.contains n
+
 /-! ## The names the environment's own guards look up
 
 `natLitSupported` and `strLitSupported` decide whether a literal may
@@ -697,31 +703,6 @@ def natOpStoredOk (env : Env) (n : Name) : Bool :=
   match env.find? n with
   | some (.defnInfo cv _ _) =>
     cv.levelParams.isEmpty && natOpTyPinned env n cv.type
-  | _ => false
-
-/-- **The reduction-time test for a certified `Nat` operation** (task
-#161 de-gating round A+B+C, item B3; harvest site 37, list entry P7):
-is `c` stored as a definition at all?
-
-`reduceNat` used to re-derive the whole `natOpGuard` at every literal
-hit — `natLitSupported` (three `Env.find?`s), a `natOpDeps c` list
-build plus a lookup per dependency (up to seven), and two more lookups
-for the `Bool` constructors.  That conclusion is *carried by the
-install fold invariant*, for every one
-of the sixteen guarded names: `NatOps` (the seven structural
-ops, `natOpNames`) and `DivMod` (the nine WF-pinned ops,
-`natDivModNames`) both read
-
-  `env.find? c = some (.defnInfo cv v hint) → natOpGuard env c = true ∧ …`
-
-and `checkDecl` is what establishes them: it *declines* a stream that
-stores one of these names without `natOpGuard env₂ c` (Checker.lean's
-`.defnDecl` clause).  The converse is by computation — `c ∈ natOpDeps
-c` for all sixteen — so on every environment the checker builds the two
-tests agree, and the cheap one is a single `find?`. -/
-def natOpStored (env : Env) (c : Name) : Bool :=
-  match env.find? c with
-  | some (.defnInfo _ _ _) => true
   | _ => false
 
 /-- Peel a `∀`-telescope along an argument list (the residual type of

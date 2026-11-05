@@ -44,7 +44,7 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
     (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value hint => do
-    checkConstantVal ops env cv
+    checkConstantVal ops env cv true
     let env2 ← checkDefnVal ops env cv value hint
     -- Structural-Nat pins: the fast-path ops must be the standard
     -- structural recursions — their recurrence equations are checked

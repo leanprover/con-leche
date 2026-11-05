@@ -128,11 +128,6 @@ theorem strLitSupportedF_congr (hfe : fe₁.find? = fe₂.find?) :
     strLitSupportedF fe₁ = strLitSupportedF fe₂ := by
   unfold strLitSupportedF; simp only [hfe, natLitSupportedF_congr hfe]
 
-/-- `natOpStoredF` reads `fe` only through `find?`. -/
-theorem natOpStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
-    natOpStoredF fe₁ = natOpStoredF fe₂ := by
-  funext c; unfold natOpStoredF; simp only [hfe]
-
 /-! ## The cached guards and stored-constant reads
 (`ConLeche/Cached/StateC.lean`) -/
 
@@ -218,7 +213,7 @@ theorem litToCtorIfNatI_congr (hfe : fe₁.find? = fe₂.find?) :
 theorem reduceNatI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     reduceNatI r fe₁ = reduceNatI r fe₂ := by
   funext depth e; unfold reduceNatI
-  simp only [natLitSupportedF_congr hfe, natOpStoredF_congr hfe]
+  simp only [natLitSupportedF_congr hfe]
 
 /-- `iotaCertsFullIAux` only threads `fe`. -/
 theorem iotaCertsFullIAux_congr (_hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :

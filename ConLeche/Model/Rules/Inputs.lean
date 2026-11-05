@@ -115,6 +115,8 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
   nat_op : NatOpRow m φ
   /-- literal tier: the binary operations' heads, over `Nat` -/
   nat_op_head : NatOpHead m φ
+  /-- literal tier: an operation's name holds a definition -/
+  op_defn : OpDefn env
 
 /-- **The env-tier inputs, from the fold's invariant**: every field but
 the three literal rows is an `EnvModelM` projection; the rows stay
@@ -135,5 +137,6 @@ theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
   nat_succ := hsucc
   nat_op := hop
   nat_op_head := hhead
+  op_defn := mp.op_defn
 
 end ConLeche.Model.Rules

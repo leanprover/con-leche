@@ -138,8 +138,8 @@ section Monadic
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
-    (cv : ConstantVal) :
-    checkConstantValF ops (mkFEnv env) cv = checkConstantVal ops env cv := by
+    (cv : ConstantVal) {a : Bool} :
+    checkConstantValF ops (mkFEnv env) cv a = checkConstantVal ops env cv a := by
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
     constsResolveF_eq, strLitSupportedF_eq] <;> rfl
 

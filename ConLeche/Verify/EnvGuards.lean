@@ -474,17 +474,8 @@ theorem natOpGuard_deps {env : Env} {c : Name}
       exact ⟨cv, v, hh, rfl, by simpa [List.isEmpty_iff] using h⟩
     | _ => simp at h
 
-/-! ### The reduction-time test (#161)
-
-`reduceNat` tests `natOpStored` — one `Env.find?` — rather than
-re-deriving `natOpGuard`.  Both directions of the agreement are recorded
-here: the *cheap-to-full* direction is the environment invariant's
-(`NatOps`/`DivMod` take the `defnInfo` lookup as their hypothesis and hand back the guard), and the *full-to-cheap*
-direction is `natOpGuard_stored` below, by computation. -/
-
-/-- Inversion of the reduction-time test: the operation is stored as a
-definition.  This is exactly the hypothesis `NatOps`/`DivMod` take
-before handing back `natOpGuard`. -/
+/-- A stored certified operation is a definition: the hypothesis `NatOps`/`DivMod` take before
+handing back `natOpGuard`. -/
 theorem natOpStored_inv {env : Env} {c : Name}
     (h : natOpStored env c = true) :
     ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by

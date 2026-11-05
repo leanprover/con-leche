@@ -80,7 +80,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
     ∃ mp' : EnvModelM V env₂, CoverRel mp mp' ∧ LfpCover mp' [] := by
   classical
-  obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
+  obtain ⟨hndC₀, hndM₀, hbool₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
     hSt, hTbl⟩ := hrun
   subst hp
@@ -148,7 +148,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     exact ⟨hm1, by rw [List.getElem?_zip_eq_some]; exact ⟨hc1, hs1⟩⟩
   -- ## the formers' and the constructors' stage
   obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
-    blockTablesStage_of mp hE hlps₀ hndM hndC hClps hInd hCtors hsorts
+    blockTablesStage_of mp hE hlps₀ hndM (by rw [hq]; exact hbool₀) hndC hClps hInd hCtors hsorts
       hPos rfl rfl rfl rfl rfl hcov
   have hlenN : p₁.memberNames.length = p₁.k := by
     show (p₁.members.map _).length = _; simp; rfl

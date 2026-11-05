@@ -78,9 +78,9 @@ theorem opSIxC_spec (henv : EnvWF env) {d : Nat} {i : Expr}
 /-- `checkConstantValC` simulates the generic `checkConstantVal` at the
 fueled families; the checked type is well scoped. -/
 theorem checkConstantValC_spec (henv : EnvWF env)
-    {cv : ConstantVal} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ checkConstantValC .verified (mkFEnv env) cv
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkConstantVal (fueledOpsM .verified) env cv) v ∧
+    {cv : ConstantVal} {a : Bool} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkConstantValC .verified (mkFEnv env) cv a
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkConstantVal (fueledOpsM .verified) env cv a) v ∧
       Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, checkConstantVal.eq_1,
       Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec, constsResolveF_eq,

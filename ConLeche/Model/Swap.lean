@@ -199,6 +199,11 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     rcases hpair with rfl | ⟨cv, mI, rP, isK, rules, rfl, rfl⟩
     · exact ⟨c₀, hc₀, rfl, rfl⟩
     · exact ⟨_, hc₀, rfl, rfl⟩
+  have hsomeOp : ∀ n, (env₃.find? n).isSome = true → (env₀.find? n).isSome = true := by
+    intro n hn
+    rcases hcorr n with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
+    · rw [← heq]; exact hn
+    · rw [h₀]; rfl
   refine ⟨{ base2 :=
               { wf := hwf₃
                 acval := mp.base2.acval
@@ -225,6 +230,8 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
             div_mod := ?_
             eq_law := ?_
             caps_ok := ?_
+            op_defn := mp.op_defn.of_same hsomeOp
+              (fun n cv v hh hf => (hsame _ _ (fun _ _ _ _ _ he => ConstantInfo.noConfusion he)).mpr hf)
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
             tower_ok := ?_

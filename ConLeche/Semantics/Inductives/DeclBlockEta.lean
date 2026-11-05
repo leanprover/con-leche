@@ -344,7 +344,7 @@ from the run record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hndC, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
+  obtain ⟨hndC, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
     pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd

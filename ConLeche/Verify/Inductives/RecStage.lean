@@ -292,6 +292,15 @@ theorem recStage_cvFacts (h : RecStageG mode F env p cvTas rs) :
   have hname' : r.1.name = cv0.name := by rw [hname, hn0]
   refine ⟨by rw [hname']; exact hcv.fresh, by rw [hname']; exact hcv.unreserved⟩
 
+/-- A recursor takes no certified operation's name. -/
+theorem recStage_opName (h : RecStageG mode F env p cvTas rs) :
+    ∀ r ∈ rs, natOpName r.1.name = false := by
+  intro r hr
+  have hn := recStage_reserved h r hr
+  simp only [reservedRecName, Bool.or_eq_false_iff] at hn
+  simp only [natOpName, Bool.or_eq_false_iff]
+  exact ⟨hn.1.1.1.1.2, hn.1.1.1.2⟩
+
 end Base
 
 /-! ## The producer: the target check's run -/

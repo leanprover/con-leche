@@ -46,6 +46,11 @@ theorem installHeader_inv {cv : ConstantVal}
     rw [ite_eq_left hres] at h
     exact nomatch h
   simp only [hres] at h
+  by_cases hop : natOpName cv.name = true
+  case pos =>
+    rw [ite_eq_left hop] at h
+    exact nomatch h
+  simp only [hop] at h
   by_cases hnd : Name.nodup cv.levelParams = true
   case neg => simp [hnd] at h
   simp only [hnd] at h
@@ -165,11 +170,28 @@ theorem checkValueGroup_inv {vg : ValueGroup}
         fun hk' => absurd hk' hk
       exact ⟨stype, u, rfl, hsort, hC, hD, vtype, rfl, hde⟩
 
+/-- The header refuses a certified operation's name. -/
+theorem installHeader_opName {cv : ConstantVal}
+    (h : installHeader (m := CheckM) env cv = .ok ()) : natOpName cv.name = false := by
+  simp only [installHeader, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  by_cases hfind : (env.find? cv.name).isSome = true
+  · simp [hfind] at h
+  simp only [hfind] at h
+  by_cases hres : reservedBasisNames.contains cv.name = true
+  · rw [ite_eq_left hres] at h
+    exact nomatch h
+  simp only [hres] at h
+  by_cases hop : natOpName cv.name = true
+  · rw [ite_eq_left hop] at h
+    exact nomatch h
+  simpa using hop
+
 /-! ## Fuel -/
 
 /-! ## `checkDecl` from the two halves -/
 
-theorem checkConstantVal_of_facts {cv : ConstantVal} {stype : Expr} {u : Level}
+theorem checkConstantVal_of_facts {cv : ConstantVal} {stype : Expr} {u : Level} {a : Bool}
+    (hop : (natOpName cv.name && !a) = false)
     (hfind : env.find? cv.name = none)
     (hres : reservedBasisNames.contains cv.name = false)
     (hnd : Name.nodup cv.levelParams = true)
@@ -179,9 +201,9 @@ theorem checkConstantVal_of_facts {cv : ConstantVal} {stype : Expr} {u : Level}
     (htr : cv.type.constsResolve env = true)
     (hst : inferTypeCore μ false env F 0 cv.type = .ok stype)
     (hsort : ensureSortCore μ false env F 0 stype = .ok u) :
-    checkConstantVal (fueledOps μ F) env cv = .ok () := by
+    checkConstantVal (fueledOps μ F) env cv a = .ok () := by
   simp only [checkConstantVal, fueledOps_inferType,
-    fueledOps_ensureSort, Bind.bind, Except.bind, Pure.pure, Except.pure, hfind, hres,
+    fueledOps_ensureSort, Bind.bind, Except.bind, Pure.pure, Except.pure, hop, hfind, hres,
     hnd, hlb, hif, htp, htr, hst, hsort, Option.isSome_none,
     Bool.false_eq_true, ↓reduceIte]
 
@@ -244,7 +266,7 @@ theorem checkDecl_of_split_defn {cv : ConstantVal} {value : Expr}
   obtain ⟨h1, h2⟩ := Bool.or_eq_false_iff.mp hnat
   rw [hcvA] at hst hde ⊢
   rw [hvgjv] at hvt ⊢
-  have hcc := checkConstantVal_of_facts hfind hres hnd hlb hif htp htr hst hsort
+  have hcc := checkConstantVal_of_facts (a := true) (by simp) hfind hres hnd hlb hif htp htr hst hsort
   have hdv := checkDefnVal_of_facts (cv := cv) (hint := hint)
     hlbv hivf hvp hvr hvt hde
   simp only [checkDecl, Bind.bind, Except.bind, Pure.pure, Except.pure, hcc, hdv, h1, h2,
@@ -268,7 +290,8 @@ theorem checkDecl_of_split_thm {cv : ConstantVal} {value : Expr} {vg : ValueGrou
   obtain ⟨hlbv, hivf, hvp, hvr⟩ := installValueGuards_inv hV
   rw [hcvA] at hst hde ⊢
   rw [hvgjv] at hvt
-  have hcc := checkConstantVal_of_facts hfind hres hnd hlb hif htp htr hst hsort
+  have hcc := checkConstantVal_of_facts (a := false)
+    (by simp [installHeader_opName hI]) hfind hres hnd hlb hif htp htr hst hsort
   have htv := checkThmVal_of_facts (cv := cv) hst hsort (hthm hk)
     hlbv hivf hvp hvr hvt hde
   simp only [checkDecl, Bind.bind, Except.bind, hcc, htv]
@@ -290,7 +313,8 @@ theorem checkDecl_of_split_opaque {cv : ConstantVal} {value : Expr} {vg : ValueG
   obtain ⟨stype, u, hst, hsort, -, -, vtype, hvt, hde⟩ := checkValueGroup_inv hC
   rw [hcvA] at hst hde ⊢
   rw [hvgjv] at hvt
-  have hcc := checkConstantVal_of_facts hfind hres hnd hlb hif htp htr hst hsort
+  have hcc := checkConstantVal_of_facts (a := false)
+    (by simp [installHeader_opName hI]) hfind hres hnd hlb hif htp htr hst hsort
   have hov := checkOpaqueVal_of_facts (cv := cv)
     hlbv hivf hvp hvr hvt hde
   simp only [checkDecl, Bind.bind, Except.bind, Pure.pure, Except.pure, hcc, hov, hred,

@@ -158,10 +158,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Red env d a w → rawNatLit? w = some n →
       Red env d (.app (.const natSuccName []) a) (.lit (.natVal (n + 1)))
   /-- **Binary `Nat` acceleration** (`reduceNat`, `Kernel/Core.lean`):
-  a stored operation on two arguments that reduce to literal readings
+  an operation, by name, on two arguments that reduce to literal readings
   folds to `natOpResult`. -/
   | natOp {d : Nat} {c : Name} {a wa b wb r : Expr} {n₁ n₂ : Nat} :
-      c ∈ natBinOpNames → natOpStored env c = true →
+      c ∈ natBinOpNames →
       Red env d a wa → rawNatLit? wa = some n₁ →
       Red env d b wb → rawNatLit? wb = some n₂ →
       natOpResult c n₁ n₂ = some r →

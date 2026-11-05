@@ -79,6 +79,7 @@ structure BlockFormerFacts {env : Env} (mp : EnvModelM V env) (q : BlockShape)
     cvTa.type.constsResolve env = true
   nresOf : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
     ConLeche.reservedBasisNames.contains cvTa.name = false
+  opOf : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa → natOpName cvTa.name = false
   tyWFOf : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
     cvTa.type.hasFvar = false ∧
     cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
@@ -231,6 +232,14 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     obtain ⟨pps, hFD⟩ := formerData_of mp ⟨heq, hccv⟩ hst
     exact ⟨ms, bs, hms, hn, hl, hfind, hnres,
       htr, htf', hlpd, hbt', hst, pps, hFD⟩
+  have hopSyn : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
+      natOpName cvTa.name = false := by
+    intro m cvTa hm
+    obtain ⟨ms, hms, hrun⟩ := hpair m cvTa hm
+    obtain ⟨cvT, hn, hl, heq, hccv, bs, hst⟩ := ConLeche.checkBlockTele_shape hrun
+    have hop := ConLeche.checkConstantVal_opName_false hccv
+    rw [← heq] at hop
+    exact hop
   -- the members' telescope readings, chosen positionally
   have hfdEx : ∀ m : Nat, ∃ pps : (Name → Nat) → List Term,
       (∀ cvTa : ConstantVal, cvTas[m]? = some cvTa →
@@ -256,7 +265,7 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
         ((p₀.toBlockShape.withSort s0).nP + (p₀.toBlockShape.withSort s0).nIdxs.getD m 0)
         (p₀.toBlockShape.withSort s0).resSort (Classical.choose (hfdEx m)) :=
     fun m cvTa hm => (Classical.choose_spec (hfdEx m)).1 cvTa hm
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hsEval, hfd,
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, hsEval, hfd,
     fun m hm => (Classical.choose_spec (hfdEx m)).2 hm, ?_⟩
   · -- one former per member
     show cvTas.length = (p₀.toBlockShape.withSort s0).members.length
@@ -279,6 +288,7 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
   · intro m cvTa hm
     obtain ⟨-, -, -, -, -, -, hnres, -⟩ := hsyn m cvTa hm
     exact hnres
+  · exact hopSyn
   · intro m cvTa hm
     obtain ⟨-, -, -, -, -, -, -, -, htf, hlpd, hbt, -⟩ := hsyn m cvTa hm
     exact ⟨htf, hlpd, hbt⟩
@@ -399,7 +409,7 @@ theorem blockFormerPass (mp : EnvModelM V env) {F : Nat} {p₀ : BlockParts} {is
         rw [hlenNames]; exact (List.getElem?_eq_some_iff.mp hj').1
       rw [hnameG j c hjl hj, hnameG j' c' hjl' hj']
       exact nodup_getElem_ne hnd hjl hjl' hjj)
-    hF.nresOf
+    hF.nresOf hF.opOf
     (fun j cvTa hj => by
       obtain ⟨htf, hlpd, hbt⟩ := hF.tyWFOf j cvTa hj
       obtain ⟨bs, hst⟩ := hF.stripOf j cvTa hj

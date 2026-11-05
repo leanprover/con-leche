@@ -350,12 +350,20 @@ theorem Red.natSucc_sound (hin : RulesInputs V m φ) {d : Nat} {a w : Expr}
 /-- The binary row at the reduced arguments, at the conditional motive. -/
 theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
     {a wa b wb r : Expr} {n₁ n₂ : Nat}
-    (hc : c ∈ natBinOpNames) (hst : ConLeche.natOpStored env c = true)
+    (hc : c ∈ natBinOpNames)
     (hwa : RedSem m φ d a wa) (hn₁ : ConLeche.rawNatLit? wa = some n₁)
     (hwb : RedSem m φ d b wb) (hn₂ : ConLeche.rawNatLit? wb = some n₂)
     (hr : ConLeche.natOpResult c n₁ n₂ = some r) :
     RedSem m φ d (.app (.app (.const c []) a) b) r := by
   intro hf Δa ea hC hea
+  have hst : ConLeche.natOpStored env c = true := by
+    obtain ⟨ga, ba, hga, hba, rfl⟩ := denote_app_inv hea
+    obtain ⟨ca, aa, hca, haa, rfl⟩ := denote_app_inv hga
+    refine hin.op_defn c ?_ ?_
+    · exact (by decide : ∀ c ∈ natBinOpNames, ConLeche.natOpName c = true) c hc
+    · cases hfc : env.find? c with
+      | some _ => rfl
+      | none => rw [denote, hfc] at hca; exact nomatch hca
   obtain ⟨hsup, hhead⟩ := hin.nat_op_head hc hst
   obtain ⟨hws, hb, hLb⟩ := hf
   simp only [Expr.WScoped] at hws

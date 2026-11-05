@@ -92,6 +92,8 @@ theorem EnvModelM.swapFormers {env₀ env₃ : Env} (mp : EnvModelM V env₀)
             div_mod := ?_
             eq_law := ?_
             caps_ok := ?_
+            op_defn := mp.op_defn.of_same (fun n hs => by rw [h.isSomeEq]; exact hs)
+              (fun n cv v hh hf => (h.find_of_ne (fun _ _ he => ConstantInfo.noConfusion he)).mpr hf)
             rec_rules := hrec _ rfl
             reduce_ops := ?_
             tower_ok := htower _ rfl

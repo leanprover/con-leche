@@ -219,8 +219,7 @@ about a name the kernel fabricates:
   (strLitSupported env = true →
     stringName ∉ names ∧ stringOfListName ∉ names ∧ listNilName ∉ names ∧
       listConsName ∉ names ∧ charName ∉ names ∧ charOfNatName ∉ names) ∧
-  (natOpStored env natBeqName = true ∨ natOpStored env natBleName = true →
-    boolTrueName ∉ names ∧ boolFalseName ∉ names)
+  boolTrueName ∉ names ∧ boolFalseName ∉ names
 
 /-! ## Literals -/
 
@@ -316,12 +315,11 @@ theorem natOpResult_const {c : Name} {a b : Nat} {bn : Name}
   exact nomatch h
 
 /-- Literal acceleration's reducts, precisely: a literal, or a `Bool`
-constructor produced while `Nat.beq` or `Nat.ble` is stored. -/
+constructor. -/
 theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
     (h : reduceNatFueled mode false env fuel d e = .ok (some e₂)) :
     (∃ n, e₂ = .lit (.natVal n)) ∨
-    (∃ bn, e₂ = .const bn [] ∧ (bn = boolTrueName ∨ bn = boolFalseName) ∧
-      (natOpStored env natBeqName = true ∨ natOpStored env natBleName = true)) := by
+    (∃ bn, e₂ = .const bn [] ∧ (bn = boolTrueName ∨ bn = boolFalseName)) := by
   dsimp only [reduceNatFueled] at h
   revert h
   match e with
@@ -400,11 +398,8 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
             subst h
             rcases natOpResult_shape hres with hl | ⟨bn, rfl⟩
             · exact Or.inl hl
-            · obtain ⟨hc, hb⟩ := natOpResult_const hres
-              refine Or.inr ⟨bn, rfl, hb, ?_⟩
-              rcases hc with rfl | rfl
-              · exact Or.inl hcond.2
-              · exact Or.inr hcond.2
+            · obtain ⟨-, hb⟩ := natOpResult_const hres
+              exact Or.inr ⟨bn, rfl, hb⟩
         | none => intro h; simp [pure, Except.pure] at h
     · split
       · intro h
@@ -656,9 +651,9 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           have h1 := ihCore hwc he
           rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
           · refine ihN hcont ?_
-            rcases reduceNat_inv_bool hrn with ⟨k, rfl⟩ | ⟨bn, rfl, hbn, hst⟩
+            rcases reduceNat_inv_bool hrn with ⟨k, rfl⟩ | ⟨bn, rfl, hbn⟩
             · rfl
-            · obtain ⟨ht, hf⟩ := hN.2.2.2.2.2.2.2 hst
+            · obtain ⟨ht, hf⟩ := hN.2.2.2.2.2.2.2
               rcases hbn with rfl | rfl
               · exact Expr.occDeep_const ht
               · exact Expr.occDeep_const hf
@@ -1273,9 +1268,8 @@ are syntactic telescopes ending in a sort) consed onto a pre-block
 `env`: fresh there, and `envI` agrees with `env` off the members and in
 its tables.  One
 fact about the pre-block environment is needed beyond `EnvWF`, an
-install-time invariant of the checker's environments: `hBool`:
-`Nat.beq`/`Nat.ble` are stored only with the `Bool` constructors
-(`natOpGuard` at the operation's install). -/
+install-time invariant of the checker's environments: `hBool`: no member is
+named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path produces by name. -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {cvTas : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
@@ -1284,8 +1278,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
     (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
-    (hBool : natOpStored env natBeqName = true ∨ natOpStored env natBleName = true →
-      (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true) :
+    (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names) :
     WhnfNamesFree envI names := by
   -- a member: an `indInfo` of `envI` whose type ends in a sort, fresh in `env`
   have hmem : ∀ n ∈ names, ∃ cvTb caps s, envI.find? n = some (.indInfo cvTb caps) ∧
@@ -1392,24 +1385,6 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [htyO] at hrO
     simp only [Expr.constsResolve, Bool.and_eq_true] at hrO
     exact ⟨hold _ hrO.2, hO', hNil', hCons', hold _ hrO.1.2, hCO'⟩
-  · -- the `Bool` constructors
-    intro hst
-    have hE : natOpStored env natBeqName = true ∨ natOpStored env natBleName = true := by
-      have key : ∀ c, natOpStored envI c = true → natOpStored env c = true := by
-        intro c hc
-        unfold natOpStored at hc ⊢
-        cases h : envI.find? c with
-        | none => rw [h] at hc; exact nomatch hc
-        | some ci =>
-          rw [h] at hc
-          have hcn : c ∉ names := hnotInd _ _ h (fun cv caps he => by
-            subst he; exact nomatch hc)
-          rw [← hnon c hcn, h]
-          exact hc
-      rcases hst with h | h
-      · exact Or.inl (key _ h)
-      · exact Or.inr (key _ h)
-    obtain ⟨ht, hf⟩ := hBool hE
-    exact ⟨hold _ ht, hold _ hf⟩
+  · exact hBool
 
 end ConLeche

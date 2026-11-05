@@ -250,6 +250,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduce
     (mp : EnvModelM V env) {cv : ConstantVal} {type' : Expr}
+    (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
     (hor : cv.name = ConLeche.ofReduceNatName ∨
       cv.name = ConLeche.ofReduceBoolName)
@@ -270,7 +271,7 @@ theorem axiomOfReduce
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP isK rules heq; exact nomatch heq
     · intro cv2 caps heq; exact nomatch heq
-  refine harvestAxiom (V := V) mp hcv
+  refine harvestAxiom (V := V) mp hopn hcv
     (A := fun _ => Term.prf) (fun _ => trivial)
     (fun _ _ _ => rfl) (fun _ _ => by simp) ?_
     (by rcases hor with h | h <;> rw [h] <;> decide)

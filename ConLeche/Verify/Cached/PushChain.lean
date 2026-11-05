@@ -148,8 +148,8 @@ theorem FreshNames.step {env : Env} {c : ConstantInfo} {ns : List Name}
 /-! ## The generic stage helpers keep the name and record the guard -/
 
 theorem checkConstantValC_fresh (mode : CheckMode) (fe : FEnv)
-    (cv : ConstantVal) :
-    Yields (checkConstantValC mode fe cv)
+    (cv : ConstantVal) {a : Bool} :
+    Yields (checkConstantValC mode fe cv a)
       (fun _ => fe.find? cv.name = none) := by
   unfold checkConstantValC
   yields
@@ -598,7 +598,9 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
   unfold checkBlockKS
   try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?nb)
+  case nb =>
+  refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun _ => ?main)
   case main =>
   have hndC : (p.allCtors.map (·.1.name)).Nodup := hnd.1
   have hndM : (p.members.map (·.cvT.name)).Nodup := hnd.2

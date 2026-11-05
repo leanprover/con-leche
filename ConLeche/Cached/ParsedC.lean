@@ -53,12 +53,14 @@ def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
 /-- `checkConstantVal` on a parsed declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `Expr`
 DAG and the cached operations on its nodes. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
     CheckCM Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless Expr.looseBVarsBounded 0 cv.type do
@@ -179,7 +181,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
-    checkConstantValC mode fe cv
+    checkConstantValC mode fe cv true
     if natOpNames.contains cv.name || natDivModNames.contains cv.name then
       let ci ← checkDefnValCI mode fe cv value hint
       let fe2 := fe.overlay [ci]

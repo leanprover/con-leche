@@ -1420,6 +1420,7 @@ theorem blockRecBareModel_run {envC : Env}
   exact envModelM_consBlockRecsBare (q := p.toBlockShape) (m := 0) mpC
     (by rw [bareOf_map_name]; exact hnd)
     (hB fun r hr => (hcv r hr).1) (hB fun r hr => (hcv r hr).2)
+    (hB fun r hr => ConLeche.recStage_opName h r hr)
     (hB fun r hr =>
       ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1, (hfacts r hr).2.2.2.1⟩)
     (fun n hne => blockRecAcv_of_notin (fun r hr => hne (r.1, r.2.2.1)

@@ -56,8 +56,7 @@ theorem reduceNat_bridge (hw : WhnfBridge μ eager env fuel)
   | .app (.app (.const c []) a) b, h =>
     simp only [reduceNatFueled, reduceNat, Bind.bind, Except.bind, whnf_def] at h
     split at h
-    · next hcond =>
-      obtain ⟨hnames, hstored⟩ := hcond
+    · next hnames =>
       have hmem : c ∈ natBinOpNames := by
         rcases hnames with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
           rfl | rfl | rfl | rfl | rfl | rfl <;> decide
@@ -87,7 +86,7 @@ theorem reduceNat_bridge (hw : WhnfBridge μ eager env fuel)
           rw [hres] at h
           simp only [pure, Except.pure, Except.ok.injEq, Option.some.injEq] at h
           subst h
-          exact .natOp hmem hstored (hw hwa) hra (hw hwb) hrb hres
+          exact .natOp hmem (hw hwa) hra (hw hwb) hrb hres
     · split at h
       · cases hwa : whnf μ eager env fuel d a with
         | error err => rw [hwa] at h; exact nomatch h

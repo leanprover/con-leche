@@ -114,8 +114,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
               cn = natPowName ∨ cn = natBeqName ∨ cn = natBleName ∨
               cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
-              cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-              natOpStoredF fe cn = true then do
+              cn = natShiftLeftName ∨ cn = natShiftRightName) then do
             -- first argument first; the second only behind a literal
             -- (official `reduce_bin_nat_op`; the spec's D15 note)
             let w₁ ← r.whnf depth a

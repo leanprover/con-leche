@@ -3212,3 +3212,12 @@
 # `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
 # DECLINE, as a quotient record that disagrees with its pin always did.
 2 basis_quot_lift_type_bad.ndjson
+# -- task #480: the literal fast path fires on a certified operation's name, as official's.
+# Only a definition may take such a name (its job holds it to the pin): a theorem or a family
+# there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the
+# maintainer's ruling that a foreign declaration at a certified name is a reject.
+# bool_ctor_name_former: a family at a `Bool` constructor's name, which the comparisons' fast
+# path produces by name; official 0 (run), 1 here, a prelude-only corner.
+1 natop_foreign_thm.ndjson
+1 natop_foreign_former.ndjson
+1 bool_ctor_name_former.ndjson

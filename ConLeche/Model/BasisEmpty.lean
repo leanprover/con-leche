@@ -72,7 +72,7 @@ theorem extendEmpty (mp : EnvModelM V env)
     (hown := lfpOwn_former0 (c₀ := emptyA) rfl rfl rfl rfl rfl (by decide) fun _ => rfl)
     (hex := filter_not_mem_self _)
     (coverA_pend hfresh <| declStep_preserves_of_basis_cons mp
-    (A := fun _ => Term.const .empty [1]) hfresh
+    (A := fun _ => Term.const .empty [1]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
@@ -153,7 +153,7 @@ theorem extendEmptyRec (mp : EnvModelM V env)
     denote_emptyRecA_type (m := mp.base2)
       (A := fun ψ => Term.const .emptyRec [1, ψ uN]) ψ hE
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => Term.const .emptyRec [1, ψ uN]) hfresh
+    (A := fun ψ => Term.const .emptyRec [1, ψ uN]) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => by injection h with _ _ _ _ h4; exact h4 ▸ rfl)

@@ -222,8 +222,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         c = natPowName ∨ c = natBeqName ∨ c = natBleName ∨
         c = natDivName ∨ c = natModName ∨ c = natGcdName ∨
         c = natLandName ∨ c = natLorName ∨ c = natXorName ∨
-        c = natShiftLeftName ∨ c = natShiftRightName) ∧
-        natOpStored env c = true then
+        c = natShiftLeftName ∨ c = natShiftRightName) then
       -- Official `reduce_bin_nat_op` (`type_checker.cpp:606-614`):
       -- the FIRST argument is head-normalised and, unless it is a
       -- literal, the step fails WITHOUT touching the second.  The

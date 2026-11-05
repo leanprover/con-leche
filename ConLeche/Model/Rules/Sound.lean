@@ -63,8 +63,8 @@ theorem red_sound (hin : RulesInputs V m φ) :
   | _, _, _, .proj hent hhead hi hlen hus hctor hcerts =>
     Red.proj_sound hin hent hhead hi hlen hus hctor (teleArity_sound hcerts)
   | _, _, _, .natSucc hsup hw hn => Red.natSucc_sound hin hsup (red_sound hin hw) hn
-  | _, _, _, .natOp hc hst hwa hn₁ hwb hn₂ hr =>
-    Red.natOp_sound hin hc hst (red_sound hin hwa) hn₁ (red_sound hin hwb) hn₂ hr
+  | _, _, _, .natOp hc hwa hn₁ hwb hn₂ hr =>
+    Red.natOp_sound hin hc (red_sound hin hwa) hn₁ (red_sound hin hwb) hn₂ hr
   -- ι and the K/`And` rescues (task #342 L10): one lemma each, from the
   -- conditional claims of their premises
   | _, _, _, .iota hhead hrec hlen hus hmajor hmhead hctor hrule hmlen hcase hlv

@@ -360,11 +360,13 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- `checkConstantVal` through the index. -/
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
-    (cv : ConstantVal) : m Unit := do
+    (cv : ConstantVal) (allowOp : Bool := false) : m Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
