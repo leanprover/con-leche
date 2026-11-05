@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
-public import ConLeche.Kernel.Inductives.StructParts
 
 @[expose] public section
 

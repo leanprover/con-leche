@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Kernel.Inductives.FieldTele
+import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 

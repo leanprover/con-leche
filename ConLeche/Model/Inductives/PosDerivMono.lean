@@ -9,8 +9,6 @@ import ConLeche.Model.Rules.Sound
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Semantics.Frame
 import ConLeche.Model.Rules.IotaSoundKit
-import ConLeche.Verify.Inductives.ClassGenScope
-import ConLeche.Model.IndDomGrade
 import ConLeche.Verify.InferLeaves
 import ConLeche.Model.Inductives.TypeStep
 import ConLeche.Model.CtxOkKit

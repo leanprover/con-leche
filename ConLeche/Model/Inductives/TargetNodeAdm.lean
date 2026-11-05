@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Model.Inductives.PosDerivNodes
 public import ConLeche.Model.Inductives.TargetNodeList
-import ConLeche.Model.Rules.IotaSoundKit
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Cached.Erase
 

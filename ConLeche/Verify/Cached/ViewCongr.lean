@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Verify.Cached.ParInstall
 import ConLeche.Verify.Cached.KnotCongr
-import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.BlockOverlay
 

@@ -1,8 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.BlockCtorFuns
-public import ConLeche.Verify.Inductives.BlockWF
-public import ConLeche.Model.Inductives.BlockLeafOk
+import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.Inductives.BlockStageFormer
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.StreamRecsSem

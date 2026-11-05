@@ -1,7 +1,6 @@
 module
 
-public import ConLeche.Model.Inductives.BlockDatum
-public import ConLeche.Model.Inductives.DeclBlockStep
+import ConLeche.Model.Inductives.DeclBlockStep
 import ConLeche.Verify.Inductives.BlockPartsInv
 public import ConLeche.Model.Inductives.FamilyRan
 public import ConLeche.Semantics.Inductives.DeclBlock
@@ -9,7 +8,6 @@ import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.GenRecC
-import ConLeche.Model.Inductives.GenRecExtra
 
 public section
 

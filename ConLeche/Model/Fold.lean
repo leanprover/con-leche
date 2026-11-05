@@ -3,7 +3,6 @@ module
 import ConLeche.Model.AxiomReduce
 import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
-import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.BlockRunFacts
 import ConLeche.Kernel.Checker
@@ -18,7 +17,6 @@ import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Semantics.DeclEta
 import ConLeche.Semantics.Inductives.DeclBlockEta
-import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Denote.EnvExt
 import ConLeche.Verify.Denote
@@ -26,7 +24,6 @@ import ConLeche.Verify.EnvWF
 import ConLeche.Verify.Extend.Inversions
 import ConLeche.Verify.Inductives.NestedRead
 import ConLeche.Verify.Shift
-import ConLeche.Verify.Subst
 public section
 
 /-!

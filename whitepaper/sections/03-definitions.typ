@@ -45,7 +45,7 @@ $
 declared with level parameters $arrow(p)$ is taken at the levels
 $arrow(ell)$, replaces the parameters in sorts and in the level lists
 of constants
-(#src("ConLeche/Kernel/Level.lean", 225, 238)[as in con-leche]).
+(#src("ConLeche/Kernel/Level.lean", 234, 247)[as in con-leche]).
 
 *The rules for constants.* A constant
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
@@ -185,7 +185,7 @@ gains three cases, one per rule.
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 345, 350)[extended with $c$ has a model]
-  (#src("ConLeche/Model/Install.lean", 376, 379)[as in con-leche]).
+  (#src("ConLeche/Model/Install.lean", 353, 356)[as in con-leche]).
 ] <thm:install-def>
 
 #proof[

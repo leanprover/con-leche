@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Cached.Installed
-import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Verify.Cached.BlockOverlay
 
 public section

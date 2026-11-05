@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Inductives.ContSem
 public import ConLeche.Model.Cover
 

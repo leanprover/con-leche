@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Semantics.Inductives.DeclBlock

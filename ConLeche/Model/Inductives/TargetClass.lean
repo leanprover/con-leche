@@ -3,7 +3,6 @@ module
 public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Cover
 public import ConLeche.Verify.Inductives.RecCheckRun
-import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.EnvBound
 
 public section

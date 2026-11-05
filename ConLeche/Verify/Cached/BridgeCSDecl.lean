@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Cached.BridgeCS4
-import ConLeche.Verify.Inductives.DirectInv
 
 public section
 

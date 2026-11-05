@@ -20,7 +20,7 @@ the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 715, 720)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 714, 719)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -44,7 +44,7 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2515, 2521)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2504, 2510)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
@@ -61,7 +61,7 @@ can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
 exactly Lean's three standard axioms: `propext` and `Classical.choice`,
-each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 636, 642)[true in the
+each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 600, 606)[true in the
 model] (`propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic), and `Quot.sound` as
 part of the pinned `Quot` block above. Any other axiom record declines
@@ -90,10 +90,10 @@ theorem][In the fragment the relations are the checker. The real
 checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 331, 336)[The fold] installs every
+#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 333, 338)[The fold] installs every
 declaration first and then checks the recorded declarations one by one,
 each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Verify/Cached/Defer.lean", 315, 323)[a pool of workers] whose results are reassembled in
+second phase on #src("ConLeche/Verify/Cached/Defer.lean", 268, 276)[a pool of workers] whose results are reassembled in
 fold order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time
@@ -126,9 +126,9 @@ denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
 definitional equality and inference the real description has three
-more: #src("ConLeche/Rules/Rel.lean", 695, 704)[the certification of an argument spine against
+more: #src("ConLeche/Rules/Rel.lean", 696, 705)[the certification of an argument spine against
 a binder telescope] (the certified case of $iota$),
-#src("ConLeche/Rules/Rel.lean", 706, 711)[pairwise definitional equality], and
+#src("ConLeche/Rules/Rel.lean", 707, 712)[pairwise definitional equality], and
 #src("ConLeche/Rules/Rel.lean", 498, 537)[the congruence of two lambda telescopes]
 (@sec:tax). A rule with a premise about a list or a telescope needs a
 relation of its own in a mutual block; the paper inlines them into the

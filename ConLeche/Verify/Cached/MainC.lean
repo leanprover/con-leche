@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.InstallRun
+import ConLeche.Model.Capstone
 public section
 
 /-!

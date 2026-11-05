@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Model.Inductives.BlockCtorsLoop
-public import ConLeche.Model.Inductives.FormerStored
+import ConLeche.Model.Inductives.FormerStored
 import ConLeche.Model.Inductives.FixKit
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockRep

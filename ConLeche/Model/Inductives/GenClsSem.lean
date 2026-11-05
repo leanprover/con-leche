@@ -28,8 +28,6 @@ import ConLeche.Model.IndReduct
 import ConLeche.Semantics.Tower.BlockRecTower
 import ConLeche.Model.Inductives.GenRecPins
 import ConLeche.Model.Rules.IotaSoundKit
-import ConLeche.Model.Rules.RedSoundKit
-import ConLeche.Model.CtxOkKit
 import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.CheckerF

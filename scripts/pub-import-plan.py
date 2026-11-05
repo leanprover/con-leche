@@ -58,12 +58,9 @@ FALLBACK = {
     # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
     # `OpenedCtx.lean:29`).
     ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
-    # task #329 (pinstall): the skeleton definitions moved to
-    # `Cached/InstallSkel`; AgreeFloor's statements name them
-    # (`InstallSkel`, `ciSkel`), which the census attributes elsewhere.
-    # Measured: demoting it breaks the file (unknown identifier
-    # `InstallSkel`, `AgreeFloor.lean:192`).
-    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.InstallSkel'),
+    # task #480: each MEASURED by demoting it alone (the module stops building).
+    ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
+    ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.NestScope'),
     # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
     # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
     # `DefEqStepInv`); the census attributes them to its private `RedBridge`

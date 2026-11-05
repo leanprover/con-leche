@@ -14,13 +14,12 @@ import ConLeche.Model.Inductives.BlockHoleGrade
 import ConLeche.Model.Inductives.BlockCtorReads
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockStageRec
-import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Model.Inductives.BlockRecData
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Model.Inductives.BlockRecPreRun
-public import ConLeche.Model.Inductives.FamilyRan
+import ConLeche.Model.Inductives.FamilyRan
 public import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.StreamRecsSwap

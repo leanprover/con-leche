@@ -1,12 +1,11 @@
 module
 
-public import ConLeche.Model.Inductives.DeclBlock
+import ConLeche.Model.Inductives.DeclBlock
 public import ConLeche.Model.Inductives.TargetOutRow
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.ClassGenScope
 import ConLeche.Model.Inductives.GenNodeList
 import ConLeche.Semantics.Inductives.DeclBlockEta
-import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.TargetNodeSem
 import ConLeche.Verify.EnvBound

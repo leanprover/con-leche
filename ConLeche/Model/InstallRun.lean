@@ -4,6 +4,7 @@ public import ConLeche.Verify.Cached.InstalledC
 public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.CheckerSplit
+import ConLeche.Model.Capstone
 import ConLeche.Verify.Cached.BridgeC
 
 public section

@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Model.Inductives.ContAccFrame
-public import ConLeche.Model.Inductives.ContSem
+import ConLeche.Model.Inductives.ContSem
 import ConLeche.Model.Inductives.NestPosAccKit
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContN2

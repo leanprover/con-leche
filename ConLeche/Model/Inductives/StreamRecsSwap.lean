@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.Denote
 import ConLeche.Model.Swap
 public import ConLeche.Verify.Extend.RecsTy
