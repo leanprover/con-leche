@@ -203,9 +203,9 @@ theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold ensureSort
   atF_tac
 
-theorem checkGuardRows_atF (F : Nat) :
-    ∀ rows, (checkGuardRows (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf rows).val F =
-      checkGuardRows (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf rows
+theorem checkGuardRows_atF (bound : Level) (F : Nat) :
+    ∀ rows, (checkGuardRows (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf bound rows).val F =
+      checkGuardRows (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf bound rows
   | [] => rfl
   | (d, dom) :: rest => by
     unfold checkGuardRows
@@ -215,18 +215,10 @@ theorem checkGuardRows_atF (F : Nat) :
     refine congrArg _ (funext fun w => ?_)
     cases w <;> try rfl
     dsimp only []
-    have hk := checkGuardRows_atF F rest
+    have hk := checkGuardRows_atF bound F rest
     split
     · exact hk
     · rw [FueledM.atF_bind, hk]; rfl
-
-theorem checkProjGuard_atF (entry : ProjEntry) (us : List Level) (F : Nat) :
-    (checkProjGuard (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf env entry us).val F =
-      checkProjGuard (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf env entry us := by
-  unfold checkProjGuard
-  split
-  · exact checkGuardRows_atF F _
-  · rfl
 
 theorem formerSortLoop_atF (F : Nat) :
     ∀ (d n : Nat) (e : Expr),
@@ -266,6 +258,32 @@ theorem iotaCase3At_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : 
         rfl
       · rfl
     · rfl
+
+theorem projRowBound_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
+    (projRowBound (fueledFns mode eager env).whnf cvT caps us).val F =
+      projRowBound (pureFns mode eager env F).whnf cvT caps us := by
+  unfold projRowBound
+  split
+  · rfl
+  · rw [FueledM.atF_bind, formerSortLoop_atF]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem checkProjGuard_atF (entry : ProjEntry) (us : List Level) (F : Nat) :
+    (checkProjGuard (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf env entry us).val F =
+      checkProjGuard (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · rw [FueledM.atF_bind, projRowBound_atF]
+    refine congrArg _ (funext fun o => ?_)
+    cases o with
+    | none => rfl
+    | some bound =>
+      dsimp only
+      split
+      · exact checkGuardRows_atF bound F _
+      · rfl
+  · rfl
 
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
     (proofIrrel (fueledFns mode eager env) d a b).val F =

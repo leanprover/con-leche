@@ -441,7 +441,7 @@ theorem whnfBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
 theorem checkProjGuardI_congr (hfe : fe₁.find? = fe₂.find?)
     (inf wh : Nat → Expr → CheckCM Expr) :
     checkProjGuardI inf wh fe₁ = checkProjGuardI inf wh fe₂ := by
-  funext entry us; unfold checkProjGuardI
+  funext entry us; unfold checkProjGuardI checkProjRowsI
   simp only [hfe, constTyAtM_congr hfe]
 
 /-- `inferBodyI` reads `fe` only through `find?` and `findTable?`. -/

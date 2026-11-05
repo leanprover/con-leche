@@ -74,10 +74,10 @@ theorem inferTypeIO_bridge {fuel : Nat} (hio : InferIOBridge μ eager env fuel)
 
 /-- A successful run of a projection guard's rows is the relation's
 walk. -/
-theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr}
+theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr} {bound : Level}
     (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
     (hwh : ∀ d e t, wh d e = .ok t → Red env d e t) :
-    ∀ rows, checkGuardRows inf wh rows = .ok () → GuardRows env rows
+    ∀ rows, checkGuardRows inf wh bound rows = .ok () → GuardRows env bound rows
   | [], _ => .nil
   | (d, dom) :: rest, h => by
     unfold checkGuardRows at h
@@ -102,17 +102,78 @@ theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr}
       next => exact nomatch h
     | _ => exact nomatch h
 
-/-- A successful run of a projection's guard is its rows' walk. -/
+/-- The walk to a family's sort is `FormerSort`. -/
+theorem formerSortLoop_bridgeW {wh : Nat → Expr → CheckM Expr}
+    (hwh : ∀ d e t, wh d e = .ok t → Red env d e t) :
+    ∀ {n d : Nat} {e : Expr} {s : Level},
+      formerSortLoop wh d n e = .ok (some s) → FormerSort env d n e s
+  | 0, d, e, s, h => by
+    unfold formerSortLoop at h
+    cases hr : wh d e with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok w =>
+      rw [hr] at h
+      cases w with
+      | sort s' =>
+        cases Option.some.inj (Except.ok.inj h)
+        exact .sort (hwh _ _ _ hr)
+      | _ => exact nomatch h
+  | n + 1, d, e, s, h => by
+    unfold formerSortLoop at h
+    cases hr : wh d e with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok w =>
+      rw [hr] at h
+      cases w with
+      | forallE dom b => exact .pi (hwh _ _ _ hr) (formerSortLoop_bridgeW hwh h)
+      | _ => exact nomatch h
+
+/-- A successful run of a projection's guard is `ProjGuard`. -/
 theorem checkProjGuard_bridge {inf wh : Nat → Expr → CheckM Expr}
     (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
     (hwh : ∀ d e t, wh d e = .ok t → Red env d e t)
     {entry : ProjEntry} {us : List Level}
-    (h : checkProjGuard inf wh env entry us = .ok ()) :
-    ∃ rows, projGuardRows env.find? entry us = some rows ∧ GuardRows env rows := by
+    (h : checkProjGuard inf wh env entry us = .ok ()) : ProjGuard env entry us := by
   unfold checkProjGuard at h
   split at h
-  next rows hr => exact ⟨rows, hr, checkGuardRows_bridge hinf hwh rows h⟩
-  next => exact nomatch h
+  case h_2 => exact nomatch h
+  rename_i cvT caps hfT
+  cases hb : projRowBound wh cvT caps us with
+  | error err => rw [hb] at h; exact nomatch h
+  | ok o =>
+  rw [hb] at h
+  unfold projRowBound at hb
+  split at hb
+  · next s hs =>
+    cases hz : s.isAlwaysZero with
+    | false =>
+      simp only [hz, Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
+      exact .notProp hfT hs hz
+    | true =>
+      simp only [hz, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
+      subst hb
+      split at h
+      · next rows hr => exact .prop hfT hs hz hr (checkGuardRows_bridge hinf hwh rows h)
+      · exact nomatch h
+  · next hs =>
+    simp only [Bind.bind, Except.bind] at hb
+    cases hl : formerSortLoop wh 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) with
+    | error err => rw [hl] at hb; exact nomatch hb
+    | ok o' =>
+    rw [hl] at hb
+    cases o' with
+    | none => exact nomatch hb
+    | some s =>
+    have hfs := formerSortLoop_bridgeW hwh hl
+    cases hnv : (Level.zeronessOf s).isNever with
+    | true => exact .never hfT hs hfs hnv
+    | false =>
+      simp only [hnv, Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
+      subst hb
+      split at h
+      · next rows hr => exact .under hfT hs hfs hnv hr (checkGuardRows_bridge hinf hwh rows h)
+      · exact nomatch h
 
 /-! ## The zero cases: every entry point throws at fuel `0` -/
 

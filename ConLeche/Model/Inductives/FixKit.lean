@@ -1223,7 +1223,7 @@ theorem stageFixTable (mp : EnvModelM V env)
     {cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
     {envOut : Env} {caps : IndCaps}
     (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM) T cvCa.name
-      lps nP nF resSort cvCa env = .ok envOut)
+      lps nP nF cvCa env = .ok envOut)
     (hfT : env.find? T = some (.indInfo cvTa caps))
     (hcaps : caps.eta = true →
       caps.etaCtor = cvCa.name ∧ caps.etaParams = nP ∧ caps.etaFields = nF)
@@ -1232,6 +1232,8 @@ theorem stageFixTable (mp : EnvModelM V env)
     (hlpsC : cvCa.levelParams = lps)
     (hstripC : (cvCa.type.stripPis (nP + nF)).isSome = true)
     (hProp : isProp = (Level.isEquiv resSort .zero == some true))
+    (hZ : isProp = true → ∀ s, ConLeche.formerResSort cvTa.type = some s → Level.isAlwaysZero s = true)
+    (hkc : nP = caps.nparams + caps.nIdx)
     (hresT : ConLeche.reservedBasisNames.contains T = false)
     (hresR : ConLeche.reservedBasisNames.contains (T.str "rec") = false)
     (hresC : ConLeche.reservedBasisNames.contains cvCa.name = false)
@@ -1274,8 +1276,7 @@ theorem stageFixTable (mp : EnvModelM V env)
       mp'.base2.acval = mp.base2.acval := by
   have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
   obtain ⟨bodies, hbodies, -, hTs, hT0, rfl⟩ := ConLeche.checkStructProjTable_inv hTbl
-  let tbl : ProjTable := ⟨T, lps, nP, cvCa.name, nF, resSort,
-    bodies⟩
+  let tbl : ProjTable := ⟨T, lps, nP, cvCa.name, nF, bodies⟩
   -- the field-chain facts, in the frames' spelling
   have hbound : ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ds ψ).take nP)).reverse ρ → resSort.eval ψ ≠ 0 →
@@ -1458,19 +1459,49 @@ theorem stageFixTable (mp : EnvModelM V env)
       | true =>
         -- a literally `Prop` structure: the use's derivations say the rows
         -- are propositions; the other slots keep the block's sorts
-        have hlit : (Level.isEquiv (tbl.entry i).structSort .zero == some true) = true := by
-          show (Level.isEquiv resSort .zero == some true) = true
+        have hlit : (Level.isEquiv resSort .zero == some true) = true := by
           rw [← hProp]; exact hp
-        have hguardAt : TowerGuardAt m₂ φ (tbl.entry i) us cvCa := by
+        have h0 : resSort.eval (Level.substFn φ lps us) = 0 :=
+          ConLeche.Level.isEquiv_sound (beq_iff_eq.mp hlit) _
+        have hguardAt : RowsAt m₂ φ (tbl.entry i) us cvCa 0 := by
           rcases hor with hg | hxne
-          · exact hg
+          · rcases hg with ⟨cvT', caps', s, hT', hs, hz⟩ | hr | ⟨cvT', caps', u, hT', ht, hu⟩
+            · exfalso
+              have hT'' : (⟨env.consts, tbl :: env.tables⟩ : Env).find? T
+                  = some (.indInfo cvT' caps') := hT'
+              rw [hfT₂] at hT''
+              obtain ⟨rfl, rfl⟩ : cvTa = cvT' ∧ caps = caps' := by
+                injection hT'' with h'; injection h' with a b; exact ⟨a, b⟩
+              rw [hZ hp s hs] at hz
+              exact nomatch hz
+            · exact hr
+            · have hT'' : (⟨env.consts, tbl :: env.tables⟩ : Env).find? T
+                  = some (.indInfo cvT' caps') := hT'
+              rw [hfT₂] at hT''
+              obtain ⟨rfl, rfl⟩ : cvTa = cvT' ∧ caps = caps' := by
+                injection hT'' with h'; injection h' with a b; exact ⟨a, b⟩
+              -- the block's reading along the subject's fit: the walk's universe is `0`
+              have hsp : SpineFit ρ (pps (Level.substFn φ lps us)) (vs.map (interp V ρ)) := by
+                obtain ⟨B, hB⟩ := hlam (Level.substFn φ lps us)
+                exact spineFit_of_wellDenoted_mkAppN_lam (lds := pps _) (b := B) (σ := ρ)
+                  hokApp hneApp (by rw [hB]) (hlenVs.trans (hFD.len _).symm)
+              have hread : denote m₂.acval ⟨env.consts, tbl :: env.tables⟩ φ 0
+                  (cvTa.type.instantiateLevelParams cvTa.levelParams us)
+                  = some (mkPisAV (pps (Level.substFn φ lps us))
+                      (.sort (resSort.eval (Level.substFn φ lps us)))) := by
+                rw [hlpsT, denotePInstLevels m₂ φ lps us 0, hFD₂.read]
+              have htw := ht _ hread ρ
+              rw [← hkc, ← hFD.len (Level.substFn φ lps us), h0] at htw
+              rw [h0] at hread
+              have hu0 : u = 0 := (towerPath_of_spineFit hsp).eq_zero htw
+              rcases hu with hu | hr
+              · exact absurd hu0 hu
+              · rw [hu0] at hr; exact hr
           · exfalso
-            have h0 : resSort.eval (Level.substFn φ lps us) = 0 :=
-              ConLeche.Level.isEquiv_sound (beq_iff_eq.mp hlit) _
             have hf := hfold (Level.substFn φ lps us)
             rw [h0] at hf
             exact hxne (fixEntry_zero_pt (hFD.len _) (hlam _) hf hlenVs hokApp hneApp hmem)
-        have hrows := hguardAt hlit (ds (Level.substFn φ lps us))
+        have hrows := hguardAt (ds (Level.substFn φ lps us))
           (ctorBodyAVI m₂ T nP nF (Level.substFn φ lps us) (Es (Level.substFn φ lps us)))
           (by
             rw [denotePInstLevels m₂ φ cvCa.levelParams us 0 cvCa.type, hlpsC]

@@ -217,11 +217,21 @@ sort, at the hereditary clause's witness. -/
       IORel m φ d T ρ v → v = pt
 
 /-- **The guard rows' motive** (`GuardRows`): each row's io claim, its
-type's reduction to a sort, and that sort's being `Prop`. -/
+type's reduction to a sort, and that sort's being under the bound. -/
 @[expose] def GuardRowsSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
-    (rows : List (Nat × Expr)) : Prop :=
+    (bound : Level) (rows : List (Nat × Expr)) : Prop :=
   ∀ p ∈ rows, ∃ (t : Expr) (u : Level), InferSemIO m φ p.1 p.2 t ∧ RedSem m φ p.1 t (.sort u) ∧
-    Red env p.1 t (.sort u) ∧ Level.isEquiv u .zero = some true
+    Red env p.1 t (.sort u) ∧ Level.leq u bound = some true
+
+/-- **A projection's guard's motive** (`ProjGuard`): at a stored constructor, the
+typing law's premise. -/
+@[expose] def ProjGuardSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (entry : ProjEntry) (us : List Level) : Prop :=
+  ∀ (cvC : ConstantVal) (nP nF : Nat),
+    env.find? entry.ctor = some (.ctorInfo cvC nP nF) → us.length = cvC.levelParams.length →
+    (∀ cvT caps, env.find? entry.structName = some (.indInfo cvT caps) →
+      us.length = cvT.levelParams.length) →
+    TowerGuardAt m φ entry us cvC
 
 /-- **The walk to a sort's motive** (`FormerSort`): where the subject is graded its
 value is a tower of function spaces over the universe of the walk's sort, unless

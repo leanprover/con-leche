@@ -1093,21 +1093,19 @@ def projGuardRowsAt (cty : Expr) (nP idx : Nat) (fvs : List Expr) : List (Nat ×
 instantiation and at the constructor telescope's own variables, that
 must be propositions — the projected field's, and that of every earlier
 field a later field's type uses.  Each row is a depth and a term at that
-depth.  No row at a structure that is not literally `Prop`.  `none` where
-the stored constructor does not bind what the entry says (the use is a
-reject).  Computed where it is read; nothing about it is stored. -/
+depth.  `none` where the stored constructor does not bind what the entry
+says (the use is a reject).  Computed where it is read; nothing about it is
+stored. -/
 def projGuardRows (find? : Name → Option ConstantInfo) (entry : ProjEntry)
     (us : List Level) : Option (List (Nat × Expr)) :=
-  if Level.isEquiv entry.structSort .zero == some true then
-    match find? entry.ctor with
-    | some ci =>
-      let cv := ci.toConstantVal
-      match openPisAtFvars (entry.numParams + entry.idx + 1)
-          (cv.type.instantiateLevelParams cv.levelParams us) 0 with
-      | some (fvs, _) => some (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
-      | none => none
+  match find? entry.ctor with
+  | some ci =>
+    let cv := ci.toConstantVal
+    match openPisAtFvars (entry.numParams + entry.idx + 1)
+        (cv.type.instantiateLevelParams cv.levelParams us) 0 with
+    | some (fvs, _) => some (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
     | none => none
-  else some []
+  | none => none
 
 /-- **`And`'s projection slots, ready to fire**: the two
 tower entries of `And` are stored and name the rule's constructor at the

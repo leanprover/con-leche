@@ -56,6 +56,23 @@ end ConLeche.PropWhen
 
 namespace ConLeche.Level
 
+/-- A level zero at every valuation is seen to be: its zero-ness datum needs no
+parameter to vanish. -/
+theorem isAlwaysZero_of_eval {s : Level} (h : ∀ ψ : Name → Nat, Level.eval ψ s = 0) :
+    s.isAlwaysZero = true := by
+  have hh : ∀ ψ : Name → Nat, (Level.zeronessOf s).holds ψ = true := fun ψ => by
+    rw [PropWhen.zeronessOf_sound, h ψ]; rfl
+  unfold Level.isAlwaysZero
+  generalize Level.zeronessOf s = pw at hh
+  cases pw with
+  | never => exact nomatch hh (fun _ => 0)
+  | ifAllZero ps =>
+    cases ps with
+    | nil => rfl
+    | cons p ps =>
+      have := hh (fun _ => 1)
+      simp [PropWhen.holds] at this
+
 open ConLeche.PropWhen
 
 /-- The substitution pushforward, as a syntactic equation: reading

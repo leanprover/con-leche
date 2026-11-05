@@ -80,9 +80,9 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
 they pass the scoping guard, the structure is stored and has no table
 yet, and the output is the table installed. -/
 theorem checkStructProjTable_inv {env envOut : Env} {T C : Name}
-    {lps : List Name} {nP nF : Nat} {rs : Level}
+    {lps : List Name} {nP nF : Nat}
     {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T C lps nP nF rs cvCa env
+    (h : checkStructProjTable (m := CheckM) T C lps nP nF cvCa env
       = .ok envOut) :
     ∃ bodies : Array Expr,
       structProjBodies T nP nF cvCa.type = some bodies ∧
@@ -90,7 +90,7 @@ theorem checkStructProjTable_inv {env envOut : Env} {T C : Name}
         b.allLevelParamsDefined lps && b.constsResolve env &&
         b.looseBVarsBounded (nP + 1)) = true) ∧
       (env.find? T).isSome = true ∧ env.findTable? T = none ∧
-      envOut = ⟨env.consts, ⟨T, lps, nP, C, nF, rs, bodies⟩ :: env.tables⟩ := by
+      envOut = ⟨env.consts, ⟨T, lps, nP, C, nF, bodies⟩ :: env.tables⟩ := by
   unfold checkStructProjTable at h
   obtain ⟨bodies, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
@@ -108,9 +108,9 @@ theorem checkStructProjTable_inv {env envOut : Env} {T C : Name}
 environment it produces is well-formed — the structure is stored (the
 stage's own guard), and so is the bodies' scoping. -/
 theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
-    {T C : Name} {lps : List Name} {nP nF : Nat} {rs : Level}
+    {T C : Name} {lps : List Name} {nP nF : Nat}
     {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T C lps nP nF rs cvCa env
+    (h : checkStructProjTable (m := CheckM) T C lps nP nF cvCa env
       = .ok envOut) :
     EnvWF envOut := by
   obtain ⟨bodies, -, ⟨hsize, hall⟩, hT, -, rfl⟩ := checkStructProjTable_inv h

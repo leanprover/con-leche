@@ -411,8 +411,12 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     · intro ρ vs x rest hlen hokT hneT hokx hmem hpeel hg
       rw [hx.leafOf hfT] at hokT hneT hmem
       exact hA ρ vs x rest hlen hokT hneT hokx hmem hpeel
-        (hg.imp_left (·.mono fun _ h => hx.denote
-          (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfC) us) h))
+        (hg.imp_left (TowerGuardAt.mono
+          (by rw [hsn]; exact hx.agree _ (by rw [hfT]; rfl))
+          (fun _ _ _ hT h => hx.denote
+            (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hT) us) h)
+          fun _ h => hx.denote
+            (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfC) us) h))
     · -- the constructor type's reading crosses (task #175 W6): a
       -- prefix lookup's closed type
       exact hx.denote

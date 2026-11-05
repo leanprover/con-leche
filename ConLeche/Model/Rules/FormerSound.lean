@@ -84,6 +84,33 @@ theorem IotaCase.never_sound {cvj cvT : ConstantVal} {caps : ConLeche.IndCaps} {
     IotaCaseSem m φ false cvj us false :=
   fun _ _ => ⟨cvT, caps, hfam, hlen, .inl hnz⟩
 
+/-- A level whose zero-ness datum is never is not zero. -/
+theorem eval_ne_zero_of_isNever {s : Level} (hnv : (Level.zeronessOf s).isNever = true)
+    (φ : Name → Nat) : s.eval φ ≠ 0 := by
+  intro h0
+  have hsnd := ConLeche.PropWhen.zeronessOf_sound φ s
+  rw [h0] at hsnd
+  cases hz : Level.zeronessOf s with
+  | never => rw [hz] at hsnd; exact nomatch hsnd
+  | ifAllZero ps => rw [hz] at hnv; exact nomatch hnv
+
+/-- **The walk reaching a sort, at the use's levels**: its tower, closed. -/
+theorem formerSort_tower (hin : RulesInputs V m φ) {T : Name} {cvT : ConstantVal}
+    {caps : ConLeche.IndCaps} {us : List Level} {s : Level}
+    (hT : env.find? T = some (.indInfo cvT caps)) (hlen : us.length = cvT.levelParams.length)
+    (hsort : FormerSortSem m φ 0 (caps.nparams + caps.nIdx)
+      (cvT.type.instantiateLevelParams cvT.levelParams us) s) :
+    ∀ ta : Term, denote m.acval env φ 0
+        (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+      ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) (s.eval φ) := by
+  intro ta hta ρ
+  obtain ⟨ta', hta', hok, -, hnf, hbd⟩ := constTy_pkg hin.const_ty hT (show us.length = _ from hlen)
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hta' hok hnf hbd
+  obtain rfl : ta' = ta := Option.some.inj ((hta' 0).symm.trans hta)
+  obtain ⟨hf, hC⟩ := frame_of_not_hasFvar (m := m) (Δa := []) (d := 0) hnf hbd rfl
+  exact hsort hf hC hta ρ (Sat_nil V ρ)
+    (LeavesGr.of_fvarLeaves_nil (ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf)) (hok ρ)
+
 theorem IotaCase.walk_sound (hin : RulesInputs V m φ) {cvj cvT : ConstantVal}
     {caps : ConLeche.IndCaps} {us : List Level} {s : Level}
     (hfam : ConLeche.ctorFamily env.find? cvj = some (cvT, caps))
@@ -96,17 +123,18 @@ theorem IotaCase.walk_sound (hin : RulesInputs V m φ) {cvj cvT : ConstantVal}
   intro _ _
   obtain ⟨T, _, -, hT⟩ := ctorFamily_find hfam
   refine ⟨cvT, caps, hfam, hlen, .inr ⟨hnone, s.eval φ, ?_, fun ta hta ρ => ?_⟩⟩
-  · intro h0
-    have hsnd := ConLeche.PropWhen.zeronessOf_sound φ s
-    rw [h0] at hsnd
-    cases hz : Level.zeronessOf s with
-    | never => rw [hz] at hsnd; exact nomatch hsnd
-    | ifAllZero ps => rw [hz] at hnv; exact nomatch hnv
-  · obtain ⟨ta', hta', hok, -, hnf, hbd⟩ := constTy_pkg hin.const_ty hT (show us.length = _ from hlen.symm)
-    dsimp only [ConLeche.ConstantInfo.toConstantVal] at hta' hok hnf hbd
-    obtain rfl : ta' = ta := Option.some.inj ((hta' 0).symm.trans hta)
-    obtain ⟨hf, hC⟩ := frame_of_not_hasFvar (m := m) (Δa := []) (d := 0) hnf hbd rfl
-    exact hsort hf hC hta ρ (Sat_nil V ρ)
-      (LeavesGr.of_fvarLeaves_nil (ConLeche.Expr.fvarLeaves_eq_nil_of_not_hasFvar hnf)) (hok ρ)
+  · exact eval_ne_zero_of_isNever hnv φ
+  · exact formerSort_tower hin hT hlen.symm hsort ta hta ρ
+
+/-- A level that is zero everywhere evaluates to zero. -/
+theorem eval_of_isAlwaysZero {s : Level} (h : s.isAlwaysZero = true) (φ : Name → Nat) :
+    s.eval φ = 0 := by
+  have hsnd := ConLeche.PropWhen.zeronessOf_sound φ s
+  unfold Level.isAlwaysZero at h
+  split at h
+  · next hz =>
+    rw [hz] at hsnd
+    simpa using hsnd.symm
+  · exact nomatch h
 
 end ConLeche.Model.Rules

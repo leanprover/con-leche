@@ -153,9 +153,9 @@ theorem infer_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .app htf hw hta hd =>
     Infer.app_sound (infer_sound hin htf) (red_sound hin hw) (fun _ => hw)
       (fun hg => infer_sound hin (hta hg)) (fun hg => defeq_sound hin (hd hg))
-  | _, _, _, _, .proj htpe hte hhead hent hlen hus hrows hg =>
+  | _, _, _, _, .proj htpe hte hhead hent hlen hus hg =>
     Infer.proj_sound hin (infer_sound hin htpe) (red_sound hin hte) (fun _ => hte) hhead hent
-      hlen hus hrows (guardRows_sound hin hg)
+      hlen hus (projGuard_sound hin hg)
 
 /-- **Proof irrelevance at the io grade** (task #342 L18): a type whose
 io-inferred sort reduces to a sort evaluating to zero holds only the
@@ -186,7 +186,7 @@ theorem prop_pt_io (hin : RulesInputs V m φ) :
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
   | _, _, _, _, .app _ _ _ _, rfl, hsem, _, hr, hrs, hw0 =>
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
-  | _, _, _, _, .proj _ _ _ _ _ _ _ _, rfl, hsem, _, hr, hrs, hw0 =>
+  | _, _, _, _, .proj _ _ _ _ _ _ _, rfl, hsem, _, hr, hrs, hw0 =>
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
 
 theorem formerSort_sound (hin : RulesInputs V m φ) :
@@ -203,10 +203,25 @@ theorem iotaCase_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .walk hfam hlen hnone hs hnv =>
     IotaCase.walk_sound hin hfam hlen hnone (formerSort_sound hin hs) hnv
 
+theorem projGuard_sound (hin : RulesInputs V m φ) :
+    ∀ {entry : ProjEntry} {us : List Level}, ProjGuard env entry us → ProjGuardSem m φ entry us
+  | _, _, .notProp hT hs hz => fun _ _ _ _ _ _ => .inl ⟨_, _, _, hT, hs, hz⟩
+  | _, _, .prop _ _ _ hr hg => fun _ _ _ hfC hus _ =>
+    .inr (.inl (by
+      have := rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg)
+      simpa [Level.eval] using this))
+  | _, _, .never hT _ hs hnv => fun _ _ _ _ hus hl =>
+    .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
+      .inl (eval_ne_zero_of_isNever hnv φ)⟩)
+  | _, _, .under hT _ hs _ hr hg => fun _ _ _ hfC hus hl =>
+    .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
+      .inr (rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg))⟩)
+
 theorem guardRows_sound (hin : RulesInputs V m φ) :
-    ∀ {rows : List (Nat × Expr)}, GuardRows env rows → GuardRowsSem m φ rows
-  | _, .nil => GuardRows.nil_sound
-  | _, .row hi hr hz hrest =>
+    ∀ {bound : Level} {rows : List (Nat × Expr)}, GuardRows env bound rows →
+      GuardRowsSem m φ bound rows
+  | _, _, .nil => GuardRows.nil_sound
+  | _, _, .row hi hr hz hrest =>
     GuardRows.row_sound (infer_sound hin hi) (red_sound hin hr) hr hz (guardRows_sound hin hrest)
 
 theorem certsF_sound (hin : RulesInputs V m φ) :

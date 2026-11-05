@@ -112,10 +112,10 @@ theorem checkStructDomsAt_datF (env : Env) (off : Nat)
       checkStructDomsAt_datF env off fvs doms F j]
 
 theorem checkStructProjTable_datF (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (cvCa : ConstantVal)
+    (nP nF : Nat) (cvCa : ConstantVal)
     (env : Env) (F : Nat) :
-    (checkStructProjTable T C lps nP nF rs cvCa env : FueledM _).val F =
-      (checkStructProjTable T C lps nP nF rs cvCa env : CheckM _) := by
+    (checkStructProjTable T C lps nP nF cvCa env : FueledM _).val F =
+      (checkStructProjTable T C lps nP nF cvCa env : CheckM _) := by
   unfold checkStructProjTable
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF]

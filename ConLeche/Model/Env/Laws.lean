@@ -923,34 +923,55 @@ an all-tower family. -/
 of every earlier field a later one uses are propositions.  Term-level: what
 the use's own derivations (`projGuardRows`) establish, at the environment
 of the use. -/
-@[expose] def TowerRowsProp (V : Type w) [SetTheory V] (cty : Expr) (nP idx : Nat)
+@[expose] def TowerRowsAt (V : Type w) [SetTheory V] (w : Nat) (cty : Expr) (nP idx : Nat)
     (ds : List Term) : Prop :=
   ∀ j, j ≤ idx → (j = idx ∨ ConLeche.structUsedLater cty nP j = true) →
     ∀ ρ : Nat → V, Sat V (ds.take (nP + j)).reverse ρ →
-      interp V ρ (ds.getD (nP + j) default) ∈ˢ (univ 0 : V)
+      interp V ρ (ds.getD (nP + j) default) ∈ˢ (univ w : V)
 
-/-- **The typing law's premise at a use** (official `infer_proj`): at a
-structure that is literally `Prop`, the rows are propositions.  The law asks
-nothing at any other structure. -/
+/-- The rows at a use lie in the universe `w`, read off the constructor's type. -/
+@[expose] def RowsAt {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (entry : ProjEntry) (us : List Level)
+    (cvC : ConstantVal) (u : Nat) : Prop :=
+  ∀ (ds : List Term) (b : Term),
+    denote m.acval env φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
+      = some (mkPisAV ds b) →
+    entry.numParams + entry.idx < ds.length →
+    TowerRowsAt V u cvC.type entry.numParams entry.idx ds
+
+/-- **The typing law's premise at a use** (official `infer_proj`), what the guard
+establishes by the structure's stored type: a sort that is not `Prop`; the rows
+propositions; or, where the sort is walked to, a tower over `u` at every valuation,
+with `u` above `0` or the rows in `univ u`. -/
 @[expose] def TowerGuardAt {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) (entry : ProjEntry) (us : List Level)
     (cvC : ConstantVal) : Prop :=
-  (Level.isEquiv entry.structSort .zero == some true) = true →
-    ∀ (ds : List Term) (b : Term),
-      denote m.acval env φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
-        = some (mkPisAV ds b) →
-      entry.numParams + entry.idx < ds.length →
-      TowerRowsProp V cvC.type entry.numParams entry.idx ds
+  (∃ cvT caps s, env.find? entry.structName = some (.indInfo cvT caps) ∧
+    ConLeche.formerResSort cvT.type = some s ∧ s.isAlwaysZero = false) ∨
+  RowsAt m φ entry us cvC 0 ∨
+  ∃ cvT caps u, env.find? entry.structName = some (.indInfo cvT caps) ∧
+    (∀ ta : Term, denote m.acval env φ 0
+        (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+      ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) u) ∧
+    (u ≠ 0 ∨ RowsAt m φ entry us cvC u)
 
 /-- The premise moves against a reading's transport. -/
 theorem TowerGuardAt.mono {V : Type w} [SetTheory V] {env₁ env₂ : Env}
     {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂} {φ : Name → Nat} {entry : ProjEntry}
     {us : List Level} {cvC : ConstantVal}
+    (hf : env₂.find? entry.structName = env₁.find? entry.structName)
+    (hdT : ∀ cvT caps t, env₁.find? entry.structName = some (.indInfo cvT caps) →
+      denote m₁.acval env₁ φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some t →
+      denote m₂.acval env₂ φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some t)
     (hd : ∀ t, denote m₁.acval env₁ φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
         = some t →
       denote m₂.acval env₂ φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us) = some t)
-    (h : TowerGuardAt m₂ φ entry us cvC) : TowerGuardAt m₁ φ entry us cvC :=
-  fun hp ds b hr hl => h hp ds b (hd _ hr) hl
+    (h : TowerGuardAt m₂ φ entry us cvC) : TowerGuardAt m₁ φ entry us cvC := by
+  rcases h with ⟨cvT, caps, s, hT, hs, hz⟩ | hr | ⟨cvT, caps, u, hT, ht, hu⟩
+  · exact .inl ⟨cvT, caps, s, hf ▸ hT, hs, hz⟩
+  · exact .inr (.inl fun ds b hrd hl => hr ds b (hd _ hrd) hl)
+  · refine .inr (.inr ⟨cvT, caps, u, hf ▸ hT, fun ta hta ρ => ht ta (hdT _ _ _ (hf ▸ hT) hta) ρ,
+      hu.imp id fun hr ds b hrd hl => hr ds b (hd _ hrd) hl⟩)
 
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and

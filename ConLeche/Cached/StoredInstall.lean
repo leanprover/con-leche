@@ -124,7 +124,7 @@ def storedTables (p : BlockShape) : List MemberShape → List ProjTable
       if ms.nIdx == 0 then
         match structProjBodiesC ms.cvT.name p.nP c.2 c.1.type with
         | some bodies =>
-          ⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, p.resSort, bodies⟩ :: rs
+          ⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: rs
         | none => rs
       else rs
     | _ => rs

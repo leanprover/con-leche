@@ -57,6 +57,12 @@ structure BlockTablesStage (F : Nat) (d : BlockData V) (lps : List Name)
     (cA.1.type.stripPis (d.nP + cA.2)).isSome = true
   /-- the block's `Prop` flag is its sort's zeroness -/
   propFlag : d.isProp = (Level.isEquiv d.resSort .zero == some true)
+  /-- a member's stored sort, where its type ends in one, is `Prop` with the block's -/
+  propZ : d.isProp = true → ∀ (m : Nat) (cvTa : ConstantVal), cvTasAll[m]? = some cvTa →
+    ∀ s, ConLeche.formerResSort cvTa.type = some s → Level.isAlwaysZero s = true
+  /-- a member's capability record counts its telescope -/
+  capsTele : ∀ m, m < d.k → d.nP + d.nIdxAt m =
+    (ConLeche.blockCapsAt p₁ m isRec).nparams + (ConLeche.blockCapsAt p₁ m isRec).nIdx
   /-- no member's name, its recursor's or its constructor's is reserved -/
   resT : ∀ m, m < d.k → ConLeche.reservedBasisNames.contains (d.memberName m) = false
   resR : ∀ m, m < d.k →
@@ -267,11 +273,11 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       rw [h0]
     -- the table's cons
     cases hT : ConLeche.checkStructProjTable (m := ConLeche.CheckM) ms.cvT.name cA.1.name
-        q.lps q.nP cA.2 q.resSort cA.1 env with
+        q.lps q.nP cA.2 cA.1 env with
     | error er => rw [hT] at h; exact nomatch h
     | ok env' =>
     rw [hT] at h
-    rw [hqlps, hqnP, hqres, hTn] at hT
+    rw [hqlps, hqnP, hTn] at hT
     obtain ⟨tbl, mp', henv, hstructN, hT0, hac⟩ :=
       stageFixTable (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
         (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
@@ -279,6 +285,8 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         mp hT hfT
         (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag
+        (fun hp s hs => hS.propZ hp i cvTb hcvTb s hs)
+        (by have := hS.capsTele i hik; rwa [hnIdx0, Nat.add_zero] at this)
         (by rw [← hTn']; exact hS.resT i hik)
         (by rw [← hTn']; exact hS.resR i hik)
         (hS.resC i cA hik hctorsEq)

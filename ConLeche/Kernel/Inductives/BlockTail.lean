@@ -115,7 +115,7 @@ def checkBlockTables (p : BlockShape) :
       (match ctorsA, sortss with
        | [cA], [_] =>
          if ms.nIdx == 0 then
-           checkStructProjTable ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort cA.1 env
+           checkStructProjTable ms.cvT.name cA.1.name p.lps p.nP cA.2 cA.1 env
          else pure env
        | _, _ => pure env)
     checkBlockTables p rest env'

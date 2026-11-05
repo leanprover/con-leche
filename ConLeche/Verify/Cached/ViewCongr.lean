@@ -1084,11 +1084,11 @@ theorem RelRun.bind_push {β : Type} {R' : β → β → Prop} {fe₁ fe₂ : FE
   RelRun.bind hx fun _ _ ⟨L, Q, h₁, h₂⟩ => h₁ ▸ h₂ ▸ hk L Q (ht.pushDelta L Q)
 
 theorem checkStructProjTableF_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (T C : Name) (lps : List Name) (nP nF : Nat) (resSort : Level)
+    (T C : Name) (lps : List Name) (nP nF : Nat)
     (cvCa : ConstantVal) :
     RelRun (PushedFrom fe₁ fe₂)
-      (checkStructProjTableF (m := CheckCM) structWalkersC T C lps nP nF resSort cvCa fe₁)
-      (checkStructProjTableF (m := CheckCM) structWalkersC T C lps nP nF resSort cvCa fe₂) := by
+      (checkStructProjTableF (m := CheckCM) structWalkersC T C lps nP nF cvCa fe₁)
+      (checkStructProjTableF (m := CheckCM) structWalkersC T C lps nP nF cvCa fe₂) := by
   unfold checkStructProjTableF
   have hres : structWalkersC.resolve fe₁ = structWalkersC.resolve fe₂ :=
     constsResolveFC_congr ht.find
@@ -1110,19 +1110,19 @@ theorem checkBlockTablesF_twin (p : BlockShape) :
          | [cA], [_] =>
            if ms.nIdx == 0 then
              checkStructProjTableF (m := CheckCM) structWalkersC ms.cvT.name cA.1.name p.lps p.nP
-               cA.2 p.resSort cA.1 fe₁
+               cA.2 cA.1 fe₁
            else pure fe₁
          | _, _ => pure fe₁)
         (match ctorsA, sortss with
          | [cA], [_] =>
            if ms.nIdx == 0 then
              checkStructProjTableF (m := CheckCM) structWalkersC ms.cvT.name cA.1.name p.lps p.nP
-               cA.2 p.resSort cA.1 fe₂
+               cA.2 cA.1 fe₂
            else pure fe₂
          | _, _ => pure fe₂) := by
       split
       · split
-        · exact checkStructProjTableF_twin ht _ _ _ _ _ _ _
+        · exact checkStructProjTableF_twin ht _ _ _ _ _ _
         · exact RelRun.pure (PushedFrom.refl _ _)
       · exact RelRun.pure (PushedFrom.refl _ _)
     refine RelRun.bind_push ht hmid fun L Q htL => ?_

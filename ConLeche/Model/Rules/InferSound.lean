@@ -836,14 +836,13 @@ theorem Infer.app_sound {g : Grade} {d : Nat}
 /-- A projection at the full grade: the tower law's typing clause. -/
 theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
-    {entry : ProjEntry} {rows : List (Nat × Expr)}
+    {entry : ProjEntry}
     (htpe : InferSem m φ .full d pe tpe) (hte : RedSem m φ d tpe te)
     (hhead : te.getAppFn = .const sn us)
     (hent : env.findProj? sn i = some entry)
     (hlen : te.getAppArgs.length = entry.numParams)
     (hus : us.length = entry.levelParams.length)
-    (hrows : projGuardRows env.find? entry us = some rows)
-    (hg : GuardRowsSem m φ rows) :
+    (hg : ProjGuardSem m φ entry us) :
     InferSem m φ .full d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
   refine InferSem.of_uniform ?_
   intro Δa ea hfr hC hea
@@ -863,8 +862,13 @@ theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
   -- the tower law's typing clause
   obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw, -⟩ :=
     hin.tower_ok sn i entry hent
-  have hguard : TowerGuardAt m φ entry us cvC :=
-    towerGuardAt_of_rows hin hfC (by rw [hlpsC]; exact hus) hrows hg
+  have hguard : TowerGuardAt m φ entry us cvC := hg _ _ _ hfC (by rw [hlpsC]; exact hus)
+    (fun cvT' caps' hT' => by
+      obtain ⟨hsn₀, -⟩ := hin.tower_ok sn i entry hent
+      rw [hsn₀, hfT] at hT'
+      obtain rfl : cvT = cvT' := by
+        injection hT' with h'; injection h' with a b
+      rw [hlpsT]; exact hus)
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hus
   -- the reduced type's spine, at the former's leaf
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -937,15 +941,14 @@ clause; and the scrutinee's claim is not hereditary, its type reducing
 to the structure's application, which no ∀ does (`Red.rigid`). -/
 theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
-    {entry : ProjEntry} {rows : List (Nat × Expr)}
+    {entry : ProjEntry}
     (htpe : InferSemIO m φ d pe tpe) (hte : RedSem m φ d tpe te)
     (hter : Red env d tpe te)
     (hhead : te.getAppFn = .const sn us)
     (hent : env.findProj? sn i = some entry)
     (hlen : te.getAppArgs.length = entry.numParams)
     (hus : us.length = entry.levelParams.length)
-    (hrows : projGuardRows env.find? entry us = some rows)
-    (hg : GuardRowsSem m φ rows) :
+    (hg : ProjGuardSem m φ entry us) :
     InferSemIO m φ d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
   intro hfr Δa ea hC hea
   obtain ⟨hws, hb, hLb⟩ := hfr
@@ -964,8 +967,13 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
   -- the tower law's typing clause
   obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw, -⟩ :=
     hin.tower_ok sn i entry hent
-  have hguard : TowerGuardAt m φ entry us cvC :=
-    towerGuardAt_of_rows hin hfC (by rw [hlpsC]; exact hus) hrows hg
+  have hguard : TowerGuardAt m φ entry us cvC := hg _ _ _ hfC (by rw [hlpsC]; exact hus)
+    (fun cvT' caps' hT' => by
+      obtain ⟨hsn₀, -⟩ := hin.tower_ok sn i entry hent
+      rw [hsn₀, hfT] at hT'
+      obtain rfl : cvT = cvT' := by
+        injection hT' with h'; injection h' with a b
+      rw [hlpsT]; exact hus)
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hus
   -- the reduced type's spine, at the former's leaf
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -1039,18 +1047,17 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
 /-- A projection, at either grade. -/
 theorem Infer.proj_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
-    {entry : ProjEntry} {rows : List (Nat × Expr)}
+    {entry : ProjEntry}
     (htpe : InferSem m φ g d pe tpe) (hte : RedSem m φ d tpe te)
     (hter : g = .io → Red env d tpe te)
     (hhead : te.getAppFn = .const sn us)
     (hent : env.findProj? sn i = some entry)
     (hlen : te.getAppArgs.length = entry.numParams)
     (hus : us.length = entry.levelParams.length)
-    (hrows : projGuardRows env.find? entry us = some rows)
-    (hg : GuardRowsSem m φ rows) :
+    (hg : ProjGuardSem m φ entry us) :
     InferSem m φ g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
   cases g with
-  | full => exact Infer.proj_soundFull hin htpe hte hhead hent hlen hus hrows hg
-  | io => exact Infer.proj_soundIO hin htpe hte (hter rfl) hhead hent hlen hus hrows hg
+  | full => exact Infer.proj_soundFull hin htpe hte hhead hent hlen hus hg
+  | io => exact Infer.proj_soundIO hin htpe hte (hter rfl) hhead hent hlen hus hg
 
 end ConLeche.Model.Rules

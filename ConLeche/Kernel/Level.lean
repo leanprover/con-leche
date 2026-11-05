@@ -196,6 +196,13 @@ def zeronessOf : Level → PropWhen
   | .max a b => (zeronessOf a).inter (zeronessOf b)
   | .imax _ b => zeronessOf b
 
+/-- A level that is zero at every valuation (official's `is_zero` after
+normalising): its zero-ness datum needs no parameter to vanish. -/
+def isAlwaysZero (s : Level) : Bool :=
+  match zeronessOf s with
+  | .ifAllZero [] => true
+  | _ => false
+
 /-- Push a level-parameter substitution through a zero-ness datum
 (task #161): each parameter becomes its replacement's datum,
 intersected — `Z(subst ks vs l)` is exactly

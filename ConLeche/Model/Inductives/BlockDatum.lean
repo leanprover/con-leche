@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockStageTables
+import ConLeche.Verify.PropWhen
 import ConLeche.Model.Env.LfpHoleOp
 import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Model.Inductives.BlockHoleGrade
@@ -1514,6 +1515,24 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         etaData := ?_
         stripC := ?_
         propFlag := hProp
+        propZ := fun hp m cvTa hcv s hs => by
+          obtain ⟨bs, hst⟩ := hF.stripOf m cvTa hcv
+          have hsS : s = sOf m := by
+            unfold ConLeche.formerResSort at hs
+            rw [ConLeche.piResult_of_stripPis_sort _ hst] at hs
+            exact (Option.some.inj hs).symm
+          subst hsS
+          refine ConLeche.Level.isAlwaysZero_of_eval fun ψ => ?_
+          rw [hF.sEval m ψ]
+          have hp' : q.isProp = true := hp
+          rw [hProp] at hp'
+          exact ConLeche.Level.isEquiv_sound (beq_iff_eq.mp hp') ψ
+        capsTele := fun m hm => by
+          rw [blockCapsAt_telescope]
+          congr 1
+          show (q.members.map (·.nIdx)).getD m 0 = _
+          have hmk : m < q.members.length := hm
+          simp [List.getD_eq_getElem?_getD, hmk]
         resT := ?_
         resR := ?_
         resC := ?_

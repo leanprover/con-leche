@@ -260,8 +260,6 @@ structure ProjTable where
   ctor : Name
   /-- its field count -/
   numFields : Nat
-  /-- the parent's result sort -/
-  structSort : Level
   /-- per field, the projection's result-type body (see above) -/
   bodies : Array Expr
   deriving DecidableEq, Repr, Inhabited
@@ -279,14 +277,13 @@ structure ProjEntry where
   /-- the projection's result-type body, scoped at `numParams + 1`
   (see `ProjTable.bodies`) -/
   body : Expr
-  structSort : Level
   deriving DecidableEq, Repr, Inhabited
 
 /-- The per-field view of a table at field `i` (meaningful for `i <
 numFields`). -/
 def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
   ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
-    tbl.bodies.getD i default, tbl.structSort⟩
+    tbl.bodies.getD i default⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where

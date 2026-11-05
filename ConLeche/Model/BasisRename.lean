@@ -1046,7 +1046,9 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
       refine ⟨⟨Ta, by rw [hde']; exact hTa, ?_⟩, ⟨TCa, by rw [hde']; exact hTCa, ?_⟩⟩
       · rw [hnr hTr]
         exact fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hg =>
-          hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (·.mono fun _ ht => by rw [hde']; exact ht))
+          hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (hg.imp_left (TowerGuardAt.mono
+            (by rw [hsn]; exact h.find_nonres hTr)
+            (fun _ _ _ _ ht => by rw [hde']; exact ht) fun _ ht => by rw [hde']; exact ht))
       · rw [hnr hr3]
         exact hB
     · intro cvT' capsT' hfT' us hus

@@ -32,13 +32,14 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
 /-- The rows' relation's motive, its empty list. -/
-theorem GuardRows.nil_sound : GuardRowsSem m φ [] := fun _ h => nomatch h
+theorem GuardRows.nil_sound {bound : Level} : GuardRowsSem m φ bound [] := fun _ h => nomatch h
 
 /-- The rows' relation's motive, one more row. -/
-theorem GuardRows.row_sound {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)}
+theorem GuardRows.row_sound {bound : Level} {d : Nat} {dom t : Expr} {u : Level}
+    {rest : List (Nat × Expr)}
     (hi : InferSemIO m φ d dom t) (hr : RedSem m φ d t (.sort u)) (hrr : Red env d t (.sort u))
-    (hz : Level.isEquiv u .zero = some true) (hrest : GuardRowsSem m φ rest) :
-    GuardRowsSem m φ ((d, dom) :: rest) := by
+    (hz : Level.leq u bound = some true) (hrest : GuardRowsSem m φ bound rest) :
+    GuardRowsSem m φ bound ((d, dom) :: rest) := by
   intro p hp
   rcases List.mem_cons.mp hp with rfl | hp
   · exact ⟨t, u, hi, hr, hrr, hz⟩
@@ -52,14 +53,14 @@ theorem reverse_drop_eq {α : Type _} (l : List α) {k i : Nat} (hl : l.length =
   have h : (l.drop i).reverse.length = k - i := by simp [hl]
   rw [← h, List.drop_left]
 
-/-- **The typing law's premise, from the use's derivations.** -/
-theorem towerGuardAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us : List Level}
-    {rows : List (Nat × Expr)} {cvC : ConstantVal} {nP nF : Nat}
+/-- **The rows of the typing law's premise, from the use's derivations.** -/
+theorem rowsAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us : List Level}
+    {rows : List (Nat × Expr)} {cvC : ConstantVal} {nP nF : Nat} {bound : Level}
     (hfC : env.find? entry.ctor = some (.ctorInfo cvC nP nF))
     (hus : us.length = cvC.levelParams.length)
     (hrows : projGuardRows env.find? entry us = some rows)
-    (hg : GuardRowsSem m φ rows) : TowerGuardAt m φ entry us cvC := by
-  intro hp ds b hread hlt j hj hrow ρ hsat
+    (hg : GuardRowsSem m φ bound rows) : RowsAt m φ entry us cvC (bound.eval φ) := by
+  intro ds b hread hlt j hj hrow ρ hsat
   have hwfC := m.wf.consts _ (ConLeche.Env.find?_mem hfC)
   have hcl : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
     rw [ConLeche.Expr.hasFvar_instantiateLevelParams]; exact hwfC.1
@@ -67,7 +68,7 @@ theorem towerGuardAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us 
     rw [ConLeche.Expr.looseBVarsBounded_instantiateLevelParams]; exact hwfC.2.2.2.1
   -- the rows' shape
   unfold ConLeche.projGuardRows at hrows
-  rw [ite_eq_left hp, hfC] at hrows
+  rw [hfC] at hrows
   simp only [ConstantInfo.toConstantVal] at hrows
   split at hrows
   case h_2 => exact nomatch hrows
@@ -166,9 +167,6 @@ theorem towerGuardAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us 
   obtain rfl := Option.some.inj hsa
   obtain ⟨-, heq⟩ := hr ρ hsat (hLG.of_subset hsub) hokTy.1 hokTy.2.ne_pt
   rw [heq, interp_sort] at hmemTy
-  have h0 : u.eval φ = 0 := by
-    have := Level.isEquiv_sound hz φ
-    simpa [Level.eval] using this
-  rwa [h0] at hmemTy
+  exact univ_mono (Level.leq_sound hz φ) _ hmemTy
 
 end ConLeche.Model.Rules

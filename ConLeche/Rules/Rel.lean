@@ -616,13 +616,13 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
   restriction holds, and the type is the entry's body at the spine
   and the subject. -/
   | proj {g : Grade} {d : Nat} {sn : Name} {i : Nat} {pe tpe te : Expr}
-      {us : List Level} {entry : ProjEntry} {rows : List (Nat × Expr)} :
+      {us : List Level} {entry : ProjEntry} :
       Infer env g d pe tpe → Red env d tpe te →
       te.getAppFn = .const sn us →
       env.findProj? sn i = some entry →
       te.getAppArgs.length = entry.numParams →
       us.length = entry.levelParams.length →
-      projGuardRows env.find? entry us = some rows → GuardRows env rows →
+      ProjGuard env entry us →
       Infer env g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe)
 
 /-- **Official's walk to a family's sort** (`formerSortLoop`): the binders, each
@@ -657,13 +657,40 @@ inductive IotaCase (env : Env) : Bool → ConstantVal → List Level → Bool �
 
 /-- **The rows of a projection's guard** (`checkGuardRows`,
 `Kernel/Core.lean`; official `infer_proj`'s `is_prop`): each row's term
-has, at the io grade, a type reducing to a sort that is `Prop`. -/
-inductive GuardRows (env : Env) : List (Nat × Expr) → Prop where
-  | nil : GuardRows env []
-  | row {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)} :
+has, at the io grade, a type reducing to a sort under the bound. -/
+inductive GuardRows (env : Env) : Level → List (Nat × Expr) → Prop where
+  | nil {bound : Level} : GuardRows env bound []
+  | row {bound : Level} {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)} :
       Infer env .io d dom t → Red env d t (.sort u) →
-      Level.isEquiv u .zero = some true →
-      GuardRows env rest → GuardRows env ((d, dom) :: rest)
+      Level.leq u bound = some true →
+      GuardRows env bound rest → GuardRows env bound ((d, dom) :: rest)
+
+/-- **A projection's guard at a use** (`checkProjGuard`), by the structure's stored
+type: a sort that is not `Prop` asks nothing, `Prop` asks for propositions; a
+reduction to a sort asks nothing where it is never zero, else bounds the rows. -/
+inductive ProjGuard (env : Env) : ProjEntry → List Level → Prop where
+  | notProp {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = some s → s.isAlwaysZero = false → ProjGuard env entry us
+  | prop {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} {rows : List (Nat × Expr)} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = some s → s.isAlwaysZero = true →
+      projGuardRows env.find? entry us = some rows → GuardRows env .zero rows →
+      ProjGuard env entry us
+  | never {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = none →
+      FormerSort env 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) s →
+      (Level.zeronessOf s).isNever = true → ProjGuard env entry us
+  | under {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} {rows : List (Nat × Expr)} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = none →
+      FormerSort env 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) s →
+      (Level.zeronessOf s).isNever = false →
+      projGuardRows env.find? entry us = some rows → GuardRows env s rows →
+      ProjGuard env entry us
 
 /-- **The full-grade telescope certificate** (`iotaCertsFull`,
 `Kernel/Core.lean`; ι's case 3, task #342 L10): each argument's

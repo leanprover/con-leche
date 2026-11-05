@@ -61,7 +61,7 @@ fails that guard at every use (`invalid`, as official).  The body
 walk cannot fail on a constructor type `checkSumCtor` accepted
 (it peels exactly `nP + nF` binders), so its failure is internal. -/
 def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (cvCa : ConstantVal) (env : Env) :
+    (cvCa : ConstantVal) (env : Env) :
     m Env := do
   let bodies ← unwrapOr (structProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
@@ -80,6 +80,6 @@ def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.internal "direct structure: projection table before its structure")
   unless (env.findTable? T).isNone do
     throw (.invalid "projection table taken")
-  pure ⟨env.consts, ⟨T, lps, nP, C, nF, resSort, bodies⟩ :: env.tables⟩
+  pure ⟨env.consts, ⟨T, lps, nP, C, nF, bodies⟩ :: env.tables⟩
 
 end ConLeche

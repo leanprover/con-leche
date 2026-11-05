@@ -32,10 +32,10 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
 /-- The table stage's run: a table installed, the constants untouched
 (task #362). -/
 theorem checkStructProjTable_shape {T C : Name}
-    {lps : List Name} {nP nF : Nat} {resSort : Level}
+    {lps : List Name} {nP nF : Nat}
     {cvCa : ConstantVal} {env env' : Env}
     (h : checkStructProjTable (m := ConLeche.CheckM) T C lps nP nF
-      resSort cvCa env = .ok env') :
+      cvCa env = .ok env') :
     ∃ tbl : ConLeche.ProjTable,
       tbl.structName = T ∧ env' = ⟨env.consts, tbl :: env.tables⟩ := by
   obtain ⟨bodies, -, -, -, -, rfl⟩ := ConLeche.checkStructProjTable_inv h
@@ -45,10 +45,10 @@ theorem checkStructProjTable_shape {T C : Name}
 
 /-- The table stage keeps the η-families closed: it stores no constant. -/
 theorem checkStructProjTable_etaClosed {T C : Name}
-    {lps : List Name} {nP nF : Nat} {resSort : Level}
+    {lps : List Name} {nP nF : Nat}
     {cvCa : ConstantVal} {env env₂ : Env}
     (h : checkStructProjTable (m := ConLeche.CheckM) T C lps nP nF
-      resSort cvCa env = .ok env₂)
+      cvCa env = .ok env₂)
     (hE : EtaFamiliesClosed env) : EtaFamiliesClosed env₂ := by
   obtain ⟨tbl, -, rfl⟩ := checkStructProjTable_shape h
   exact hE

@@ -362,13 +362,13 @@ theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a =
 def ProjTable.beqP (a b : ProjTable) : Bool :=
   a.structName == b.structName && a.levelParams == b.levelParams &&
     a.numParams == b.numParams && a.ctor == b.ctor && a.numFields == b.numFields &&
-    a.structSort == b.structSort && a.bodies == b.bodies
+    a.bodies == b.bodies
 
 theorem ProjTable.eq_of_beqP {a b : ProjTable} (h : a.beqP b = true) : a = b := by
-  obtain ⟨_, _, _, _, _, _, _⟩ := a
-  obtain ⟨_, _, _, _, _, _, _⟩ := b
+  obtain ⟨_, _, _, _, _, _⟩ := a
+  obtain ⟨_, _, _, _, _, _⟩ := b
   simp only [ProjTable.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
+  obtain ⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
   rfl
 
 end ConLeche
