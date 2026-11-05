@@ -88,7 +88,7 @@ theorem installRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · -- the record is this step's: its constant is pushed here
       have hconsts := installStepC_thm_consts hty hstepC
-      obtain ⟨⟨_, ⟨new, hnew⟩, _⟩, _⟩ :=
+      obtain ⟨⟨_, ⟨new, hnew, -, -⟩, _⟩, _⟩ :=
         installRun_trace mode rest (PushChain.self hchain.canon)
       refine ⟨ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩, ?_, rfl⟩
       rw [hnew]

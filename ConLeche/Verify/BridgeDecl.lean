@@ -969,6 +969,49 @@ theorem checkBlockTail_datF (block : List ConstantInfo) (q : BlockPass Env)
     checkBlockTables_datF]
 
 
+theorem checkBlockAt_datF (env : Env) (block : List ConstantInfo) (p : BlockParts) (F : Nat) :
+    (checkBlockAt (fueledOpsM mode) env block p).val F =
+      checkBlockAt (fueledOps mode F) env block p := by
+  unfold checkBlockAt
+  simp only [FueledM.atF_bind, checkBlockPass_datF, checkBlockTail_datF]
+
+theorem reducedFormer_datF (env : Env) (cv : ConstantVal) (n F : Nat) :
+    (reducedFormer (fueledOpsM mode) env cv n).val F =
+      reducedFormer (fueledOps mode F) env cv n := by
+  unfold reducedFormer
+  simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF]
+
+theorem reduceMember_datF (env : Env) (nP : Nat) (ms : MemberShape) (F : Nat) :
+    (reduceMember (fueledOpsM mode) env nP ms).val F =
+      reduceMember (fueledOps mode F) env nP ms := by
+  unfold reduceMember
+  split
+  · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+      checkConstantVal_datF, reducedFormer_datF, fueledOpsM_isDefEq_atF]
+  · rfl
+
+theorem reduceMembers_datF (env : Env) (nP F : Nat) :
+    ∀ l : List MemberShape, (reduceMembers (fueledOpsM mode) env nP l).val F =
+      reduceMembers (fueledOps mode F) env nP l
+  | [] => rfl
+  | ms :: rest => by
+    unfold reduceMembers
+    simp only [FueledM.atF_bind, FueledM.atF_pure, reduceMember_datF, reduceMembers_datF env nP F rest]
+
+theorem blockViews_datF (env : Env) (F : Nat) :
+    ∀ l : List Name, (blockViews (fueledOpsM mode) env l).val F =
+      blockViews (fueledOps mode F) env l
+  | [] => rfl
+  | c :: cs => by
+    unfold blockViews
+    rw [FueledM.atF_bind, blockViews_datF env F cs]
+    refine congrArg _ (funext fun rest => ?_)
+    split
+    · split
+      · simp only [FueledM.atF_bind, FueledM.atF_pure, reducedFormer_datF]
+      · rfl
+    · rfl
+
 /-- **The uniform install at fuel `F`, at k members**: the same program
 at the two monads, stage by stage. -/
 theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockParts)
@@ -977,7 +1020,7 @@ theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockParts)
       checkBlock (fueledOps mode F) env block p := by
   unfold checkBlock
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-    checkBlockPass_datF, checkBlockTail_datF]
+    checkBlockAt_datF, reduceMembers_datF, blockViews_datF]
 
 theorem checkShapeless_datF (env : Env) (block : List ConstantInfo) (F : Nat) :
     (checkShapeless (fueledOpsM mode) env block).val F =

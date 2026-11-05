@@ -45,19 +45,21 @@ structures only): `fe'` is canonical, `env.consts` is a suffix of its
 constants and `env.tables` of its tables, and name uniqueness carries
 over. -/
 @[expose] def PushChain (env : Env) (fe' : FEnv) : Prop :=
-  fe' = mkFEnv fe'.env ∧ (∃ new, fe'.env.consts = new ++ env.consts) ∧
+  fe' = mkFEnv fe'.env ∧
+  (∃ new, fe'.env.consts = new ++ env.consts ∧ (new.map (·.name)).Nodup ∧
+    ∀ c ∈ new, env.find? c.name = none) ∧
   (NodupNames env → NodupNames fe'.env) ∧
   (∃ newQ, fe'.env.tables = newQ ++ env.tables ∧ ∀ t ∈ newQ, env.find? t.structName = none)
 
 theorem PushChain.refl (env : Env) : PushChain env (mkFEnv env) :=
-  ⟨rfl, ⟨[], rfl⟩, id, ⟨[], rfl, fun _ h => nomatch h⟩⟩
+  ⟨rfl, ⟨[], rfl, List.nodup_nil, fun _ h => nomatch h⟩, id, ⟨[], rfl, fun _ h => nomatch h⟩⟩
 
 theorem PushChain.canon {env : Env} {fe : FEnv} (h : PushChain env fe) :
     fe = mkFEnv fe.env := h.1
 
 /-- A canonical index is a chain from its own environment. -/
 theorem PushChain.self {fe : FEnv} (h : fe = mkFEnv fe.env) : PushChain fe.env fe :=
-  ⟨h, ⟨[], rfl⟩, id, ⟨[], rfl, fun _ h => nomatch h⟩⟩
+  ⟨h, ⟨[], rfl, List.nodup_nil, fun _ h => nomatch h⟩, id, ⟨[], rfl, fun _ h => nomatch h⟩⟩
 
 theorem PushChain.find? {env : Env} {fe : FEnv} (h : PushChain env fe)
     (n : Name) : fe.find? n = fe.env.find? n := by
@@ -73,34 +75,45 @@ theorem Env.find?_none_notin {env : Env} {n : Name} (h : env.find? n = none) :
   unfold Env.find? at h
   exact (List.find?_eq_none.mp h) c hc (beq_self_eq_true _)
 
-theorem PushChain.push {env : Env} {fe : FEnv} (h : PushChain env fe)
-    {ci : ConstantInfo} (hfresh : fe.find? ci.name = none) :
-    PushChain env (fe.push ci) := by
-  obtain ⟨hc, ⟨new, hnew⟩, hnd, hQ⟩ := h
-  refine ⟨?_, ⟨ci :: new, ?_⟩, ?_, hQ⟩
-  · calc fe.push ci = (mkFEnv fe.env).push ci := by rw [← hc]
-      _ = mkFEnv (fe.push ci).env := push_mkFEnv fe.env ci
-  · show ci :: fe.env.consts = _
-    rw [hnew]
-    rfl
-  · intro hnd₀
-    show ((ci :: fe.env.consts).map (·.name)).Nodup
-    rw [List.map_cons]
-    refine List.nodup_cons.mpr ⟨?_, hnd hnd₀⟩
-    rw [PushChain.find? ⟨hc, ⟨new, hnew⟩, hnd, hQ⟩] at hfresh
-    exact Env.find?_none_notin hfresh
-
 /-- A name the chain's end does not find, its start does not find
 either. -/
 theorem PushChain.find?_none {env : Env} {fe : FEnv} (h : PushChain env fe) {n : Name}
     (hn : fe.find? n = none) : env.find? n = none := by
-  obtain ⟨new, hnew⟩ := h.2.1
+  obtain ⟨new, hnew, -, -⟩ := h.2.1
   rw [h.find?] at hn
   unfold Env.find? at hn ⊢
   rw [hnew, List.find?_append] at hn
   cases h' : env.consts.find? (·.name == n) with
   | none => rfl
   | some c => rw [h'] at hn; cases new.find? (·.name == n) <;> simp at hn
+
+theorem PushChain.push {env : Env} {fe : FEnv} (h : PushChain env fe)
+    {ci : ConstantInfo} (hfresh : fe.find? ci.name = none) :
+    PushChain env (fe.push ci) := by
+  have hstart := PushChain.find?_none h hfresh
+  have hf := PushChain.find? h ci.name
+  obtain ⟨hc, ⟨new, hnew, hnn, hnf⟩, hnd, hQ⟩ := h
+  have hfresh' := hfresh
+  rw [hf] at hfresh'
+  have hnot := Env.find?_none_notin hfresh'
+  refine ⟨?_, ⟨ci :: new, ?_, ?_, ?_⟩, ?_, hQ⟩
+  · calc fe.push ci = (mkFEnv fe.env).push ci := by rw [← hc]
+      _ = mkFEnv (fe.push ci).env := push_mkFEnv fe.env ci
+  · show ci :: fe.env.consts = _
+    rw [hnew]
+    rfl
+  · rw [List.map_cons]
+    refine List.nodup_cons.mpr ⟨fun hm => hnot ?_, hnn⟩
+    rw [hnew, List.map_append]
+    exact List.mem_append_left _ hm
+  · intro c hc'
+    rcases List.mem_cons.mp hc' with rfl | hm
+    · exact hstart
+    · exact hnf c hm
+  · intro hnd₀
+    show ((ci :: fe.env.consts).map (·.name)).Nodup
+    rw [List.map_cons]
+    exact List.nodup_cons.mpr ⟨hnot, hnd hnd₀⟩
 
 /-- A table install of a structure not in the chain's start. -/
 theorem PushChain.pushTable {env : Env} {fe : FEnv} (h : PushChain env fe)
@@ -410,7 +423,146 @@ theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
   rw [← h₂.find?]
   exact hrs.1.2 r hr
 
+/-- A stored former keeps its name. -/
+theorem storedFormerOf_name (p : BlockParts) (c : ConstantInfo) :
+    (storedFormerOf p c).name = c.name := by
+  unfold storedFormerOf
+  split
+  · split
+    · next cv _ ms hms =>
+      have := List.find?_some hms
+      simp only [beq_iff_eq] at this
+      exact this
+    · rfl
+  · rfl
+
+/-- The reduced members have the members' names and constructors. -/
+theorem reduceMembersS_shape (mode : CheckMode) (fe : FEnv) (nP : Nat) (p : BlockParts) :
+    Yields (reduceMembersS mode fe nP p.members) (fun ms =>
+      (ms.map (·.cvT.name)) = p.members.map (·.cvT.name) ∧
+      ({ p with members := ms } : BlockParts).allCtors = p.allCtors) := by
+  refine Yields.mono (reduceMembersS_same mode fe nP p.members) fun ms h => ?_
+  have hN : ∀ {a b : List MemberShape}, SameMembers a b →
+      b.map (·.cvT.name) = a.map (·.cvT.name) := by
+    intro a b h
+    induction h with
+    | nil => rfl
+    | cons h₁ _ ih => simp only [List.map_cons, h₁.1, ih]
+  have hC : ∀ {a b : List MemberShape}, SameMembers a b →
+      b.map (·.ctors) = a.map (·.ctors) := by
+    intro a b h
+    induction h with
+    | nil => rfl
+    | cons h₁ _ ih => simp only [List.map_cons, h₁.2.2, ih]
+  refine ⟨hN h, ?_⟩
+  show (ms.map (·.ctors)).flatten = (p.members.map (·.ctors)).flatten
+  rw [hC h]
+
 /-- **The uniform install at k members keeps the chain**. -/
+theorem checkBlockAtS_push (mode : CheckMode) {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts)
+    (hndC : (p.allCtors.map (·.1.name)).Nodup) (hndM : (p.members.map (·.cvT.name)).Nodup) :
+    Yields (checkBlockAtS mode fe block p) (fun fe' => PushChain env fe') := by
+  unfold checkBlockAtS
+  ybind
+  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) hndM) fun q hr => ?_
+  obtain ⟨h₁, hm, hns, hfrs, hmem⟩ := hr
+  try simp only [] at h₁ hm hns hfrs hmem
+  try simp only []
+  exact checkBlockTailS_push mode h₁ (by rw [hns]; exact hndC) hfrs (hm ▸ hmem)
+
+/-- A list of constants, distinct and fresh, pushed onto a chain. -/
+theorem PushChain.pushAll {env : Env} {fe : FEnv} (h : PushChain env fe) :
+    ∀ {L : List ConstantInfo}, (L.map (·.name)).Nodup → (∀ c ∈ L, fe.find? c.name = none) →
+      PushChain env (FEnv.pushAll L fe)
+  | [], _, _ => h
+  | c :: L, hn, hf => by
+    show PushChain env (FEnv.pushAll L (fe.push c))
+    rw [List.map_cons] at hn
+    obtain ⟨hnot, hn'⟩ := List.nodup_cons.mp hn
+    have h' := h.push (hf c List.mem_cons_self)
+    refine PushChain.pushAll h' hn' fun d hd => ?_
+    rw [PushChain.find? h', show (fe.push c).env = ⟨c :: fe.env.consts, fe.env.tables⟩ from rfl,
+      ConLeche.Env.find?_cons, ite_eq_right fun he =>
+        hnot (by rw [he]; exact List.mem_map_of_mem hd), ← PushChain.find? h]
+    exact hf d (List.mem_cons_of_mem _ hd)
+
+/-- Tables whose structures the start does not hold, pushed onto a chain. -/
+theorem PushChain.pushTables {env : Env} :
+    ∀ {Q : List ProjTable} {fe : FEnv}, PushChain env fe →
+      (∀ t ∈ Q, env.find? t.structName = none) → PushChain env (FEnv.pushTables Q fe)
+  | [], _, h, _ => h
+  | t :: Q, fe, h, hf => by
+    show PushChain env (FEnv.pushTables Q (fe.pushTable t))
+    exact PushChain.pushTables (h.pushTable (hf t List.mem_cons_self))
+      fun u hu => hf u (List.mem_cons_of_mem _ hu)
+
+theorem pushAll_env (fe : FEnv) : ∀ L : List ConstantInfo,
+    (FEnv.pushAll L fe).env = ⟨L.reverse ++ fe.env.consts, fe.env.tables⟩
+  | [] => rfl
+  | c :: L => by
+    show (FEnv.pushAll L (fe.push c)).env = _
+    rw [pushAll_env (fe.push c) L]
+    simp [FEnv.push]
+
+theorem pushAll_canon : ∀ (L : List ConstantInfo) {fe : FEnv}, fe = mkFEnv fe.env →
+    FEnv.pushAll L fe = mkFEnv (FEnv.pushAll L fe).env
+  | [], _, h => h
+  | c :: L, fe, h => by
+    show FEnv.pushAll L (fe.push c) = mkFEnv (FEnv.pushAll L (fe.push c)).env
+    refine pushAll_canon L ?_
+    calc fe.push c = (mkFEnv fe.env).push c := by rw [← h]
+      _ = mkFEnv (fe.push c).env := push_mkFEnv fe.env c
+
+/-- **The block's pushes replayed at the input**: what a chain from the viewed environment
+pushed, at any constants of the same names, is a chain from the input. -/
+theorem PushChain.replay {env : Env} {fe : FEnv} (h : PushChain env fe)
+    (vs : List ConstantInfo) {fe₃ : FEnv}
+    (h₃ : PushChain (FEnv.pushAll vs.reverse fe).env fe₃)
+    (f : ConstantInfo → ConstantInfo) (hf : ∀ c, (f c).name = c.name) :
+    PushChain env (FEnv.pushTables
+      (fe₃.env.tables.take (fe₃.env.tables.length - fe.env.tables.length)).reverse
+      (FEnv.pushAll
+        ((fe₃.env.consts.take (fe₃.env.consts.length - (vs.length + fe.env.consts.length))).map
+          f).reverse fe)) := by
+  obtain ⟨-, ⟨new, hnew, hnn, hnf⟩, -, ⟨newQ, hQ, hQf⟩⟩ := h₃
+  rw [pushAll_env, List.reverse_reverse] at hnew hnf hQ hQf
+  dsimp only at hnew hQ
+  have hlen : fe₃.env.consts.length - (vs.length + fe.env.consts.length) = new.length := by
+    rw [hnew]; simp <;> omega
+  have htake : fe₃.env.consts.take new.length = new := by
+    rw [hnew]; exact List.take_left' rfl
+  have hlenQ : fe₃.env.tables.length - fe.env.tables.length = newQ.length := by
+    rw [hQ]; simp
+  have htakeQ : fe₃.env.tables.take newQ.length = newQ := by
+    rw [hQ]; exact List.take_left' rfl
+  rw [hlen, htake, hlenQ, htakeQ]
+  -- a name not in the viewed environment is not in `fe`'s
+  have hbelow : ∀ n, (⟨vs ++ fe.env.consts, fe.env.tables⟩ : Env).find? n = none →
+      fe.find? n = none := by
+    intro n hn
+    rw [PushChain.find? h]
+    unfold Env.find? at hn ⊢
+    simp only at hn ⊢
+    rw [List.find?_append] at hn
+    cases hv : vs.find? (·.name == n) with
+    | some c => rw [hv] at hn; exact nomatch hn
+    | none => rw [hv] at hn; exact hn
+  refine PushChain.pushTables (PushChain.pushAll h ?_ ?_) ?_
+  · rw [List.map_reverse, List.map_map]
+    have : (new.map ((·.name) ∘ f)) = new.map (·.name) :=
+      List.map_congr_left fun c _ => hf c
+    rw [show (fun x => x.name) ∘ f = (·.name) ∘ f from rfl, this]
+    exact List.pairwise_reverse.mpr (hnn.imp fun h he => h he.symm)
+  · intro c hc
+    rw [List.mem_reverse] at hc
+    obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+    rw [hf]
+    exact hbelow _ (hnf d hd)
+  · intro t ht
+    rw [List.mem_reverse] at ht
+    exact PushChain.find?_none h (hbelow _ (hQf t ht))
+
 theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts) :
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
@@ -418,14 +570,21 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   try apply Yields.letFun
   refine Yields.ofDecCases (fun _ => Yields.ofThrowBind) (fun hnd => ?main)
   case main =>
-  ybind
   have hndC : (p.allCtors.map (·.1.name)).Nodup := hnd.1
   have hndM : (p.members.map (·.cvT.name)).Nodup := hnd.2
-  refine Yields.bind' (checkBlockPassS_push mode h p (blockRawRec p) hndM) fun q hr => ?_
-  obtain ⟨h₁, hm, hns, hfrs, hmem⟩ := hr
-  try simp only [] at h₁ hm hns hfrs hmem
-  try simp only []
-  exact checkBlockTailS_push mode h₁ (by rw [hns]; exact hndC) hfrs (hm ▸ hmem)
+  show Yields (if blockViewed fe.find? (blockContainers fe.find? p) p = true then _ else _) _
+  split
+  · unfold checkBlockViewedS
+    refine Yields.bind' (Q := fun ms => (ms.map (·.cvT.name)) = p.members.map (·.cvT.name) ∧
+      ({ p with members := ms } : BlockParts).allCtors = p.allCtors)
+      (reduceMembersS_shape mode fe p.nP p) fun ms hms => ?_
+    refine Yields.bind fun vs => ?_
+    have hV : PushChain (FEnv.pushAll vs.reverse fe).env (FEnv.pushAll vs.reverse fe) :=
+      PushChain.self (pushAll_canon _ h.canon)
+    refine Yields.bind' (checkBlockAtS_push mode hV _ _ (by rw [hms.2]; exact hndC)
+      (by show (ms.map _).Nodup; rw [hms.1]; exact hndM)) fun fe₃ h₃ => ?_
+    exact Yields.pure (PushChain.replay h vs h₃ _ (storedFormerOf_name p))
+  · exact checkBlockAtS_push mode h block p hndC hndM
 
 /-! ## The declaration clause and the two drivers' steps -/
 

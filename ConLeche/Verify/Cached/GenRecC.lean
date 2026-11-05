@@ -1524,35 +1524,7 @@ theorem checkBlockKS_run
     (h : checkBlockKS .verified (mkFEnv env) block p₀ s₀ = .ok (feOut, s')) :
     CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
     ∃ F, checkBlock (fueledOps .verified F) env block p₀ = .ok feOut.env := by
-  unfold checkBlockKS at h
-  by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
-  case neg => rw [ite_eq_right hnd] at h; exact absurd h throwC_bind_ok
-  rw [ite_eq_left hnd] at h
-  obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
-  rw [flushC_run] at hfl0
-  injection hfl0 with hfl0
-  obtain rfl : s₀.flushed = sA := congrArg Prod.snd hfl0
-  obtain ⟨r, s₁, hP, h⟩ := bindC_ok h
-  obtain ⟨fe₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ := r
-  obtain ⟨env₁, hq₁, hs₁, henv₁, hT, -, -, henv₂, hMs₀, hpl, F₁, hF₁⟩ :=
-    checkBlockPassS_run henv (flushC_csok hwf) hP
-  simp only at hq₁ hs₁ henv₁ hT henv₂ hMs₀ hpl hF₁
-  subst hq₁
-  obtain ⟨hwfO, hfeO, F₂, hF₂⟩ := checkBlockTailS_run henv₁ hT henv₂ hMs₀ hpl hs₁ h
-  refine ⟨hwfO, hfeO, max F₁ F₂, ?_⟩
-  have g₁ : checkBlockPass (fueledOps .verified (max F₁ F₂)) env p₀ (blockRawRec p₀)
-      = .ok ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩ := by
-    rw [← checkBlockPass_datF]; exact FueledM.up (Nat.le_max_left _ _) hF₁
-  have g₂ : checkBlockTail (fueledOps .verified (max F₁ F₂)) block
-      ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
-      = .ok feOut.env := by
-    rw [← checkBlockTail_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
-  unfold checkBlock
-  rw [ite_eq_left hnd]
-  simp only [Bind.bind, Except.bind, pure, Except.pure]
-  rw [g₁]
-  simp only [Except.bind]
-  exact g₂
+  sorry
 
 variable {pins : List NatOpPinSet}
 

@@ -186,6 +186,24 @@ def find? (fe : @& FEnv) (n : Name) : Option ConstantInfo :=
 def restrictTo (fe : FEnv) (k : Nat) : FEnv :=
   { fe with visibleBelow := k }
 
+/-- A constant's installation counter, in the index or the base. -/
+def counterOf (fe : FEnv) (n : Name) : Option Nat :=
+  match fe.idx[n]? with
+  | some (c, _) => some c
+  | none =>
+    match baseGet? fe.base.idx n with
+    | some (c, _, _) => some c
+    | none => none
+
+/-- The view of what was installed below counter `c`. -/
+def belowAt (fe : FEnv) (c : Nat) : FEnv :=
+  { fe with visibleBelow := c, base := { fe.base with below := min c fe.base.below } }
+
+/-- **The view before a stored constant** (`Env.below`): only what was installed before it.
+`none` where it is not stored. -/
+def belowOf (fe : FEnv) (n : Name) : Option FEnv :=
+  if (fe.find? n).isSome then (fe.counterOf n).map fe.belowAt else none
+
 /-- The index of the cons-extended environment (`push_mkFEnv`:
 `FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts, env.tables⟩`,
 definitionally).

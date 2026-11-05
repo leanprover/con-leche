@@ -179,14 +179,76 @@ def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
   checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
     (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
 
+/-- The check at a group that shows every telescope it reads. -/
+def checkBlockAtS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) : CheckCM FEnv := do
+  flushC
+  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
+  checkBlockTailS mode block q
+
+/-- Twin of `reduceMember`. -/
+def reduceMemberS (fe : FEnv) (nP : Nat) (ms : MemberShape) : CheckCM MemberShape :=
+  if formerDefHeaded ms.cvT then do
+    checkConstantValF (sharedOpsC mode fe) fe ms.cvT
+    let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
+    unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
+      throw (.invalid "direct sum: a type former's declared type and its reduct differ")
+    pure { ms with cvT := cvR }
+  else pure ms
+
+/-- The members reduced, with the memos of the view. -/
+def reduceMembersS (fe : FEnv) (nP : Nat) : List MemberShape → CheckCM (List MemberShape)
+  | [] => pure []
+  | ms :: rest => do
+    flushC
+    let ms' ← reduceMemberS mode fe nP ms
+    let rest' ← reduceMembersS fe nP rest
+    pure (ms' :: rest')
+
+/-- Twin of `blockViews`: each family reduced at its own view. -/
+def blockViewsS (fe : FEnv) : List Name → CheckCM (List ConstantInfo)
+  | [] => pure []
+  | c :: cs => do
+    let rest ← blockViewsS fe cs
+    match fe.find? c with
+    | some (.indInfo cv caps) =>
+      if formerDefHeaded cv then
+        match fe.belowOf (caps.all.headD c) with
+        | some W => do
+          flushC
+          let cvR ← reducedFormer (sharedOpsC mode W) W.env cv (caps.nparams + caps.nIdx)
+          flushC
+          pure (.indInfo cvR caps :: rest)
+        | none => throw (.internal "a stored family's first member is not stored")
+      else pure rest
+    | _ => pure rest
+
+/-- The second path of `checkBlock`: the group reduced, the containers' views pushed on top,
+the ordinary check, and the block's pushes replayed at `fe` as stored. -/
+def checkBlockViewedS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) (cs : List Name) :
+    CheckCM FEnv := do
+  let ms ← reduceMembersS mode fe p₀.nP p₀.members
+  let vs ← blockViewsS mode fe cs
+  let pR : BlockParts := { p₀ with members := ms }
+  let fe₃ ← checkBlockAtS mode (FEnv.pushAll vs.reverse fe) (block.map (reducedRecord ms)) pR
+  let cs₃ := fe₃.env.consts
+  let ts₃ := fe₃.env.tables
+  pure (FEnv.pushTables
+      (ts₃.take (ts₃.length - fe.env.tables.length)).reverse
+      (FEnv.pushAll
+        ((cs₃.take (cs₃.length - (vs.length + fe.env.consts.length))).map
+          (storedFormerOf p₀)).reverse fe))
+
 /-- **`checkBlock` through the index**: the k-ary
 mirror, at any number of members. -/
 def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
     CheckCM FEnv := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
-  flushC
-  let q ← checkBlockPassS mode fe p₀ (blockRawRec p₀)
-  checkBlockTailS mode block q
+  let cs := blockContainers fe.find? p₀
+  -- decided before the check, so that the ordinary path consumes `fe`
+  if blockViewed fe.find? cs p₀ then
+    checkBlockViewedS mode fe block p₀ cs
+  else
+    checkBlockAtS mode fe block p₀
 
 end ConLeche.Cached

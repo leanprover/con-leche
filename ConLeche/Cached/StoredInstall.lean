@@ -10,8 +10,7 @@ public import ConLeche.Cached.CheckerC
 The install phase pushes an inductive block **as the input stores
 it**: every constant the checked install pushes is read off the block's
 records (`storedInstall`), and nothing is generated — no positivity
-walk, no recursor generation, no inference; the one reduction is a
-def-headed former's telescope.  The block's checked install runs
+walk, no recursor generation, no inference, no reduction.  The block's checked install runs
 later, as a job of the check phase
 (`DeferredCheck`, `ConLeche/Verify/Cached/Defer.lean`), and compares what
 it pushes with what this install pushed, pointer-first
@@ -25,12 +24,8 @@ block matching a basis pin as the pin's constants, a block the
 recogniser does not read as nothing, every other block by the reading
 below.  What is read, and from where (the checked install's own
 functions on the same inputs wherever one exists):
-* the formers: each at its telescope, with `blockCapsAt` at official's
-  `is_rec` (`blockRawRec`) and member 0's result sort.  The telescope is
-  the stored type where that is a syntactic telescope ending in a sort,
-  else (a def-headed former, #195) the reduced telescope official's
-  `whnf` loop reads, as the checked install computes it (`storedTele`) —
-  the binders the stored recursor shows; the sort is on no record;
+* the formers: each as declared, with `blockCapsAt` at official's
+  `is_rec` (`blockRawRec`);
 * the constructors as declared (`consSumCtorsF`'s records);
 * the recursors: each record as it stands (type, K flag, rules), its
   rules' firing mode read off the record alone (`storedFire`);
@@ -39,7 +34,7 @@ functions on the same inputs wherever one exists):
   checked install's.
 
 Where a part cannot be read, it is pushed at its record as declared
-(a former, a recursor's rules) or left out (a table): the block is one
+(a recursor's rules) or left out (a table): the block is one
 the checked install rejects, and its job reports it; the pushes keep the
 slots the prediction made for the block filled.
 -/
@@ -53,36 +48,6 @@ namespace ConLeche.Cached
 open ConLeche
 
 /-! ## The reading -/
-
-variable (mode : CheckMode)
-
-/-- **A former's telescope, as the checked install computes it** (task
-#195's `checkSumTeleF`, without its checks): the stored type where it
-is a syntactic telescope of `n` binders ending in a sort; else the
-telescope official's `whnf` loop reads (`whnfTelescope` at the view,
-from a fresh memo), closed — the reduced form the stored recursor's
-binders show.  `none` where the loop does not reach a sort (the checked
-install rejects the block there). -/
-def storedTele (W : FEnv) (cv : ConstantVal) (n : Nat) : Option (ConstantVal × Level) :=
-  match cv.type.stripPis n with
-  | some (_, .sort s) => some (cv, s)
-  | _ =>
-    let run : CheckCM (List Expr × Level) := do
-      flushC
-      whnfTelescope (sharedOpsC mode W) W.env 0 n cv.type
-    match run {} with
-    | .ok ((bs, s), _) => some ({ cv with type := closeTelescope bs 0 (.sort s) }, s)
-    | .error _ => none
-
-/-- The members' formers at their telescopes (`storedTele`), each at its
-record as declared where its telescope cannot be read, and member 0's
-result sort (the recogniser's placeholder where it cannot be read). -/
-def storedFormers (W : FEnv) (p : BlockParts) : List ConstantVal × Level :=
-  let ts := p.members.map fun ms => (ms.cvT, storedTele mode W ms.cvT (p.nP + ms.nIdx))
-  (ts.map fun (cv, t?) => (t?.map (·.1)).getD cv,
-    match ts.head? with
-    | some (_, some (_, s)) => s
-    | _ => p.resSort)
 
 /-- **A recursor record's rules, read off the group alone**: its rules
 as declared (constructor, field count, right-hand side), firing `.plain`
@@ -137,7 +102,7 @@ read pushes nothing (the checked install's pushes and the prediction's
 skeleton, `declCSkels`, in both cases), and every other block its
 reading, each part at its record as declared where the reading fails —
 the blocks the checked install rejects, which its job reports. -/
-def storedInstall (W : FEnv) (block : List ConstantInfo) (nP : Nat) :
+def storedInstall (block : List ConstantInfo) (nP : Nat) :
     List ConstantInfo × List ProjTable :=
   match basisNameHit block with
   | some kind => (List.zipWith withPinCaps kind.decls block, [])
@@ -145,10 +110,10 @@ def storedInstall (W : FEnv) (block : List ConstantInfo) (nP : Nat) :
     match blockParts? nP block with
     | none => ([], [])
     | some p₀ =>
-      let (cvTs, s0) := storedFormers mode W p₀
-      let p := p₀.toBlockShape.withSort s0
+      let p := p₀.toBlockShape
       let isRec := blockRawRec p₀
-      let formers := (cvTs.zipIdx).map fun (cv, i) => ConstantInfo.indInfo cv (blockCapsAt p i isRec)
+      let formers := ((p.members.map (·.cvT)).zipIdx).map fun (cv, i) =>
+        ConstantInfo.indInfo cv (blockCapsAt p i isRec)
       let ctors := p.members.flatMap fun ms =>
         ms.ctors.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2
       (formers ++ ctors ++ storedRecs p 0 p.recs, storedTables p p.members)
