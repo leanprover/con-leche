@@ -206,13 +206,4 @@ def storedKCheck (p : BlockShape) :
     storedKCheck p rcs gs
   | _, _ => pure ()
 
-/-- **What is installed**: each generated recursor with the stored type
-and the stored right-hand sides, at the generated recursor's name, level
-parameters and major (the generated constant is the record's with the
-generated type, `classRecTyOk`, so this is the record's constant). -/
-def storedOut (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
-    List (ConstantVal × TargetMajor × List Expr) :=
-  List.zipWith (fun rc g => ({ g.1 with type := rc.cvR.type }, g.2.1, rc.rules.map (·.rhs)))
-    recs out
-
 end ConLeche

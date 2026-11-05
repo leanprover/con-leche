@@ -2,21 +2,19 @@ module
 
 public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Kernel.Inductives.StoredRecs
+public import ConLeche.Kernel.Install
 
 @[expose] public section
 
 /-!
-# The inductive installer's pass and tail
+# The inductive block's check
 
-`checkBlock` (the installer's entry, dispatched from `checkDecl`):
-the pass (the formers and the constructors, `BlockInstall.lean`; the
-classes the stream's recursor family eliminates, `checkBlockClasses`;
-the positivity check walking every class), and the stages after it: the index sorts,
-the constructors consed, the recursor stage —
-the generated recursors (`genRecCheck`, `GenRec.lean`, charter item 5)
-— the recursors consed and the projection tables.  Its own module because the check is
-written over the index (`FEnv`), whose operations sit above the pure
-checker's stages.
+`checkBlock` (dispatched from `checkDecl`): the pass (the formers and the constructors,
+`BlockInstall.lean`; the classes the stream's recursor family eliminates, `checkBlockClasses`; the
+positivity check walking every class), the stages after it (the index sorts, the generated recursors
+of `GenRec.lean`, the stream's recursors against them, the projection tables), and finally the
+block's install, which is read off the block (`Kernel/Install.lean`).  Its own module because the
+check is written over the index (`FEnv`), whose operations sit above the pure checker's stages.
 -/
 
 namespace ConLeche
@@ -104,42 +102,29 @@ def consBlockRecsT
         (recKExpected p M) (tgtStoredRules (p.rulePrefixAt m) M rhss)
         :: env.consts, env.tables⟩
 
-/-- **The projection table at every STRUCTURE-LIKE member** (one
-constructor, no index): the member's table; nothing at any other
-member. -/
-def checkBlockTables (p : BlockShape) :
-    List (MemberShape × List (ConstantVal × Nat) × List (List Level)) → Env → m Env
-  | [], env => pure env
-  | (ms, ctorsA, sortss) :: rest, env => do
-    let env' ←
-      (match ctorsA, sortss with
-       | [cA], [_] =>
-         if ms.nIdx == 0 then
-           checkStructProjTable ms.cvT.name cA.1.name p.lps p.nP cA.2 cA.1 env
-         else pure env
-       | _, _ => pure env)
-    checkBlockTables p rest env'
+/-- **The projection table's checks at every structure-like member**, at the environment holding
+the formers and the constructors. -/
+def checkBlockTables (p : BlockShape) (env : Env) : List MemberShape → m Unit
+  | [] => pure ()
+  | ms :: rest => do
+    (match ms.structCtor? with
+     | some c => checkStructProjTable ms.cvT.name p.lps p.nP c.2 c.1 env
+     | none => pure ())
+    checkBlockTables p env rest
 
-/-- **The install after the pass**: the
-index binders' sorts, the constructors consed,
-the recursor stage, the STORED recursors against the generated ones
-(`storedRecsCheck`, at the generated install), the stored recursors
-consed at their majors, and the projection tables. -/
-def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
-    (q : BlockPass Env) : m Env := do
+/-- **The checks after the pass**: the index binders' sorts, the generated recursors (at the
+environment holding the constructors), the stream's recursors against them (at the environment
+holding the generated ones) and the projection tables. -/
+def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env) :
+    m Unit := do
   let p := q.p
   let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
   let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds) q.params
     q.tbl.toList q.rd q.cls block q.cvTas
-  -- the stored recursors, against the generated ones at the generated
-  -- install (task #431): what is installed
   storedKCheck p.toBlockShape p.recs out
-  storedRecsCheck ops .plain
-    (mkFEnv (consBlockRecsT p.toBlockShape 0 out env₂)) p.recs out
-  let env₃ := consBlockRecsT p.toBlockShape 0 (storedOut p.recs out) env₂
-  checkBlockTables p.toBlockShape
-    (p.members.zip (q.ctorsAs.zip q.sortsss)) env₃
+  storedRecsCheck ops .plain (mkFEnv (consBlockRecsT p.toBlockShape 0 out env₂)) p.recs out
+  checkBlockTables p.toBlockShape env₂ p.members
 
 /-! ## The block's check -/
 
@@ -172,9 +157,10 @@ def reduceMembers (ops : CheckerOps m) (env : Env) (nP : Nat) :
     let rest' ← reduceMembers ops env nP rest
     pure (ms' :: rest')
 
-/-- Check and install an inductive block: the distinct names, each former reduced to its
-telescope once (official's `check_inductive_types`), the pass over the formers, the constructors
-and the classes at official's `is_rec` (`blockRawRec`), and the install after it. -/
+/-- Check an inductive block and install it (`blockConstants`, `blockTables`): the distinct names,
+each former reduced to its telescope once (official's `check_inductive_types`), the pass over the
+formers, the constructors and the classes at official's `is_rec` (`blockRawRec`), and the checks
+after it. -/
 def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
     m Env := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
@@ -184,5 +170,6 @@ def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p�
   let ms ← reduceMembers ops env p₀.nP p₀.members
   let q ← checkBlockPass ops env { p₀ with members := ms } (blockRawRec p₀)
   checkBlockTail ops block q
+  pure (env.pushDelta (blockConstants p₀) (blockTables p₀.toBlockShape p₀.members))
 
 end ConLeche

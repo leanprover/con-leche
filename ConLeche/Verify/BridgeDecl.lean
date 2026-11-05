@@ -111,11 +111,11 @@ theorem checkStructDomsAt_datF (env : Env) (off : Nat)
       FueledM.atF_ite, fueledOpsM_isDefEq_atF, unwrapOr_atF,
       checkStructDomsAt_datF env off fvs doms F j]
 
-theorem checkStructProjTable_datF (T C : Name) (lps : List Name)
+theorem checkStructProjTable_datF (T : Name) (lps : List Name)
     (nP nF : Nat) (cvCa : ConstantVal)
     (env : Env) (F : Nat) :
-    (checkStructProjTable T C lps nP nF cvCa env : FueledM _).val F =
-      (checkStructProjTable T C lps nP nF cvCa env : CheckM _) := by
+    (checkStructProjTable T lps nP nF cvCa env : FueledM _).val F =
+      (checkStructProjTable T lps nP nF cvCa env : CheckM _) := by
   unfold checkStructProjTable
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw,
     FueledM.atF_ite, unwrapOr_atF]
@@ -584,22 +584,19 @@ theorem targetK53_datF (env : Env) (p : BlockShape) (formerTys : List Expr) (Mc 
   repeat' split
   all_goals first | rfl | exact targetClassMatch_datF _ _ _ _ _ _ _ _ _
 
-theorem checkBlockTables_datF (p : BlockShape) (F : Nat) :
-    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env),
-      (checkBlockTables (m := FueledM) p l env).val F =
-        checkBlockTables (m := CheckM) p l env
-  | [], _ => rfl
-  | (ms, ctorsA, sortss) :: rest, env => by
+theorem checkBlockTables_datF (p : BlockShape) (env : Env) (F : Nat) :
+    ∀ l : List MemberShape,
+      (checkBlockTables (m := FueledM) p env l).val F = checkBlockTables (m := CheckM) p env l
+  | [] => rfl
+  | ms :: rest => by
     unfold checkBlockTables
     rw [FueledM.atF_bind]
     split
-    · split
-      · rw [checkStructProjTable_datF]
-        congr 1
-        funext env'
-        exact checkBlockTables_datF p F rest env'
-      · exact checkBlockTables_datF p F rest env
-    · exact checkBlockTables_datF p F rest env
+    · rw [checkStructProjTable_datF]
+      congr 1
+      funext _
+      exact checkBlockTables_datF p env F rest
+    · exact checkBlockTables_datF p env F rest
 
 theorem checkAbsCtorSorts_datF (env : Env) (ctx : ConLeche.NestCtx) (F : Nat) :
     ∀ (cs : List (ConstantVal × Nat)) (os : List (List NestFieldKind × Expr)),

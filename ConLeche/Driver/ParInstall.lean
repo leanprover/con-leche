@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Cached.Defer
-public import ConLeche.Cached.InstallSkel
 public import Std.Sync.Mutex
 public import ConLeche.Driver.Stats
 public import Std.Data.TreeSet.Basic
@@ -748,7 +747,7 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                   have hg := installStepG_deferred (pins := natOpPinSets) (i := i) (pend := pend)
                     hag hidx hpd hG'.1 (hval.symm.trans hres)
                   have hvg : vg? = none := hg.1
-                  let b : DeferredCheck := ⟨workerView B S c, pd, i, L, Q⟩
+                  let b : DeferredCheck := ⟨workerView B S c, pd, i⟩
                   commitLoop err stride total t0 hB sh cst p₀ (k + 1)
                     (i + 1) (c + L.length) (FEnv.pushDelta L Q fe) (pushPending pend i c vg?)
                     (D.push b)

@@ -1250,34 +1250,6 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (PushedFrom.pushAll _ _ L₂)).trans (PushedFrom.pushAll _ _ _) |>.trans ⟨L₃, Q₃, rfl, rfl⟩
 
 
-theorem pushAll_env_consts :
-    ∀ (L : List ConstantInfo) (fe : FEnv),
-      (FEnv.pushAll L fe).env.consts = L.reverse ++ fe.env.consts
-  | [], _ => rfl
-  | ci :: L, fe => by
-    show (FEnv.pushAll L (fe.push ci)).env.consts = _
-    rw [pushAll_env_consts L (fe.push ci)]
-    simp [FEnv.push]
-
-theorem pushAll_env_tables :
-    ∀ (L : List ConstantInfo) (fe : FEnv), (FEnv.pushAll L fe).env.tables = fe.env.tables
-  | [], _ => rfl
-  | ci :: L, fe => pushAll_env_tables L (fe.push ci)
-
-theorem pushTables_env :
-    ∀ (Q : List ProjTable) (fe : FEnv),
-      (FEnv.pushTables Q fe).env = ⟨fe.env.consts, Q.reverse ++ fe.env.tables⟩
-  | [], _ => rfl
-  | t :: Q, fe => by
-    show (FEnv.pushTables Q (fe.pushTable t)).env = _
-    rw [pushTables_env Q (fe.pushTable t)]
-    simp [FEnv.pushTable]
-
-theorem pushDelta_env (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
-    (FEnv.pushDelta L Q fe).env = ⟨L.reverse ++ fe.env.consts, Q.reverse ++ fe.env.tables⟩ := by
-  unfold FEnv.pushDelta
-  rw [pushTables_env, pushAll_env_consts, pushAll_env_tables]
-
 /-- The reduced members read the index through its lookups alone. -/
 theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) (ms : MemberShape) :

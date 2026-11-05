@@ -60,9 +60,8 @@ instantiation (a used-later data field of a `Prop` structure) simply
 fails that guard at every use (`invalid`, as official).  The body
 walk cannot fail on a constructor type `checkSumCtor` accepted
 (it peels exactly `nP + nF` binders), so its failure is internal. -/
-def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
-    (cvCa : ConstantVal) (env : Env) :
-    m Env := do
+def checkStructProjTable (T : Name) (lps : List Name) (nP nF : Nat)
+    (cvCa : ConstantVal) (env : Env) : m Unit := do
   let bodies ← unwrapOr (structProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
   -- the bodies' scoping, validated once at insertion (the stage's own
@@ -80,6 +79,5 @@ def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
     throw (.internal "direct structure: projection table before its structure")
   unless (env.findTable? T).isNone do
     throw (.invalid "projection table taken")
-  pure ⟨env.consts, ⟨T, lps, nP, C, nF, bodies⟩ :: env.tables⟩
 
 end ConLeche

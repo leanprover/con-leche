@@ -510,15 +510,109 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 
 /-! ## The install after the pass -/
 
+/-! ## The install does not read the telescope a former was reduced to -/
+
+theorem getD_map_congr {α β : Type} [Inhabited α] {f : α → β} {l l' : List α} (h : l.map f = l'.map f)
+    (i : Nat) : f (l.getD i default) = f (l'.getD i default) := by
+  have hi := congrArg (·[i]?) h
+  simp only [List.getElem?_map] at hi
+  simp only [List.getD_eq_getElem?_getD]
+  cases h₁ : l[i]? <;> cases h₂ : l'[i]? <;> simp_all
+
+theorem blockCapsAt_congr {p q : BlockShape} (hnP : p.nP = q.nP)
+    (hnm : p.memberNames = q.memberNames)
+    (hc : p.members.map (·.ctors) = q.members.map (·.ctors))
+    (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx)) (mi : Nat) (isRec : Bool) :
+    blockCapsAt p mi isRec = blockCapsAt q mi isRec := by
+  unfold blockCapsAt
+  rw [getD_map_congr hc mi, getD_map_congr hi mi, hnP, hnm]
+
+theorem blockRecs_congr {p q : BlockShape} (hk : p.k = q.k) :
+    ∀ l : List RecShape, blockRecs p l = blockRecs q l
+  | [] => rfl
+  | rc :: rest => by
+    have hf : recFire p rc = recFire q rc := by
+      unfold recFire
+      rw [hk]
+    simp only [blockRecs, hf, blockRecs_congr hk rest]
+
+theorem blockTables_congr {p q : BlockShape} (hnP : p.nP = q.nP) (hlps : p.lps = q.lps) :
+    ∀ {l l' : List MemberShape}, l.map (·.declared) = l'.map (·.declared) →
+      l.map (·.ctors) = l'.map (·.ctors) → l.map (·.nIdx) = l'.map (·.nIdx) →
+      blockTables p l = blockTables q l'
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, h, _, _ => nomatch h
+  | _ :: _, [], h, _, _ => nomatch h
+  | a :: l, b :: l', hd, hc, hi => by
+    simp only [List.map_cons, List.cons.injEq] at hd hc hi
+    have hs : a.structCtor? = b.structCtor? := by
+      unfold MemberShape.structCtor?
+      rw [hc.1, hi.1]
+    simp only [blockTables, hs, hd.1, hnP, hlps, blockTables_congr hnP hlps hd.2 hc.2 hi.2]
+
+/-- **What a reduction of its formers leaves of a block's install**: nothing changes. -/
+theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockParts} {ms : List MemberShape}
+    (hd : ∀ m ∈ p₀.members, m.declared = m.cvT)
+    (h : reduceMembers (m := CheckM) (fueledOps .verified F) env p₀.nP p₀.members = .ok ms) :
+    blockConstants { p₀ with members := ms } = blockConstants p₀ ∧
+    blockTables ({ p₀ with members := ms } : BlockParts).toBlockShape ms
+      = blockTables p₀.toBlockShape p₀.members := by
+  obtain ⟨hAt, hdecl, hname, hidx, hctors⟩ := reduceMembers_inv hd h
+  have hnm : ({ p₀ with members := ms } : BlockParts).memberNames = p₀.memberNames := hname
+  have hcaps : ∀ i r, blockCapsAt ({ p₀ with members := ms } : BlockParts).toBlockShape i r
+      = blockCapsAt p₀.toBlockShape i r := fun i r =>
+    blockCapsAt_congr (p := ({ p₀ with members := ms } : BlockParts).toBlockShape)
+      (q := p₀.toBlockShape) rfl hnm hctors hidx i r
+  have hlen : ms.length = p₀.members.length := by
+    simpa using congrArg List.length hdecl
+  have hrec : blockRawRec ({ p₀ with members := ms } : BlockParts) = blockRawRec p₀ := by
+    unfold blockRawRec
+    show (ms.any _) = (p₀.members.any _)
+    rw [hnm]
+    have e : ∀ (l : List MemberShape) (g : List (ConstantVal × Nat) → Bool),
+        l.any (fun m => g m.ctors) = (l.map (·.ctors)).any g := by
+      intro l g; induction l <;> simp_all
+    exact (e ms fun cs => cs.any fun c => Expr.piDomsMentionAny p₀.memberNames c.1.type).trans
+      (by rw [hctors]; exact (e p₀.members _).symm)
+  have hall : ({ p₀ with members := ms } : BlockParts).toBlockShape.allCtors
+      = p₀.toBlockShape.allCtors := by
+    show (ms.map (·.ctors)).flatten = (p₀.members.map (·.ctors)).flatten
+    rw [hctors]
+  have hlps : ({ p₀ with members := ms } : BlockParts).toBlockShape.lps = p₀.toBlockShape.lps := by
+    show (ms.head?.map (·.cvT.levelParams)).getD [] = (p₀.members.head?.map (·.cvT.levelParams)).getD []
+    cases hm : ms with
+    | nil =>
+      rw [hm] at hlen
+      cases hp : p₀.members with
+      | nil => rfl
+      | cons _ _ => simp [hp] at hlen
+    | cons a as =>
+      cases hp : p₀.members with
+      | nil => simp [hm, hp] at hlen
+      | cons b bs =>
+        rw [hm, hp] at hdecl
+        simp only [List.map_cons, List.cons.injEq] at hdecl
+        show a.cvT.levelParams = b.cvT.levelParams
+        rw [(hAt a (by rw [hm]; exact List.mem_cons_self)).lps, hdecl.1,
+          hd b (by rw [hp]; exact List.mem_cons_self)]
+  refine ⟨?_, blockTables_congr (p := ({ p₀ with members := ms } : BlockParts).toBlockShape)
+    (q := p₀.toBlockShape) rfl hlps hdecl hctors hidx⟩
+  unfold blockConstants blockFormers blockCtors
+  simp only [hrec, hall, hcaps]
+  rw [blockRecs_congr (p := ({ p₀ with members := ms } : BlockParts).toBlockShape)
+    (q := p₀.toBlockShape) hlen]
+  show ((ms.map (·.declared)).zipIdx.map _) ++ _ ++ _ =
+    ((p₀.members.map (·.declared)).zipIdx.map _) ++ _ ++ _
+  rw [hdecl]
+
 /-- **The tail, inverted**: every member's index binders' sorts, the
 constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
 stored recursors against the generated ones at the generated install
 (`storedRecsCheck`, task #431), the stored recursors consed
 with their rules at their majors, and the projection tables. -/
-theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
-    {F : Nat}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
+theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : Nat}
+    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok ()) :
     ∃ (isorts : List (List Level))
       (out : List (ConstantVal × TargetMajor × List Expr)),
       checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
@@ -526,16 +620,14 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
       checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
         q.p (blockNestedBit q.p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls block
           q.cvTas = .ok out ∧
+      storedKCheck (m := CheckM) q.p.toBlockShape q.p.recs out = .ok () ∧
       storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
         (mkFEnv (consBlockRecsT q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out
         = .ok () ∧
-      checkBlockTables (m := CheckM) q.p.toBlockShape
-        (q.p.members.zip (q.ctorsAs.zip q.sortsss))
-        (consBlockRecsT q.p.toBlockShape 0
-          (storedOut q.p.recs out) (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
+      checkBlockTables (m := CheckM) q.p.toBlockShape (consBlockCtors q.p.nP q.ctorsAs q.env₁)
+        q.p.members = .ok () := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
-  try simp only [bind, Except.bind] at h
   cases hsorts : checkBlockIdxSorts (m := CheckM) (fueledOps mode F) q.env₁ q.p.toBlockShape
       (q.p.members.zip q.cvTas) with
   | error e => rw [hsorts] at h; exact nomatch h
@@ -553,6 +645,7 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   cases hK : storedKCheck (m := CheckM) q.p.toBlockShape q.p.recs out with
   | error e => rw [hK] at h; exact nomatch h
   | ok uK =>
+  cases uK
   rw [hK] at h
   dsimp only at h
   cases hS : storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
@@ -562,6 +655,6 @@ theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : Block
   cases u
   rw [hS] at h
   dsimp only at h
-  exact ⟨isorts, out, rfl, rfl, hS, h⟩
+  exact ⟨isorts, out, rfl, rfl, hK, hS, h⟩
 
 end ConLeche

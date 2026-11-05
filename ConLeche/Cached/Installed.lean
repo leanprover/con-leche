@@ -69,12 +69,12 @@ Nothing here is `IO`: the driver's loops in `ConLeche/Driver/*` run these
 steps and carry their accepting runs as the proofs the subtypes ask
 for.  **The driver runs `checkDeclStepC` in the check phase** (tasks
 #411, #431, #480), at every job count: its install pushes such a record
-from the record alone (`storedStep`, `ConLeche/Verify/Cached/Defer.lean`,
-an inductive block by `storedInstall`) and records the record's checked
-step, compared with those pushes, as a job of the check phase, so the
-run it carries is this fold's run CONDITIONAL on those jobs; the check
-phase discharges them, and the run is this fold's.  This fold is the
-meaning of those steps; it runs them in phase A, the driver does not.  A rejection carries the FOLD POSITION of the declaration it
+what the record installs (`declConstants`, `declTables`,
+`ConLeche/Kernel/Install.lean`) and records the record's checked step as
+a job of the check phase, so the run it carries is this fold's run
+CONDITIONAL on those jobs; the check phase discharges them, and the run
+is this fold's.  This fold is the meaning of those steps; it runs them
+in phase A, the driver does not.  A rejection carries the FOLD POSITION of the declaration it
 names (`installDeclStep` tags its error with the position, a phase-B
 failure with `PendingCheck.pos`), so the driver reports the
 declaration by indexing the record array it already holds, with no

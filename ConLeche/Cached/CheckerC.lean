@@ -145,39 +145,28 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
   pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
-/-- **`checkBlockTail` through the index**: one flush entering the
-recursors' environment, every push in place.  The constructors' index
-`fe₂` is needed across two conses: the rule-less recursors (the rule
-stage reads `fe₂` and them at once) and the stored recursors (whose
-records read `fe₂`).  A push onto `fe₂` while it is alive would copy the
-whole bucket array, once per inductive block, so the rule-less
-recursors are an overlay sharing the index (`shadowOpsC`'s `ruleEnv`,
-`classFeROvl`), the stored recursors' records are built before the
-first push (`blockRecInfosTF`), and the pass record is taken apart up
-front, so the index is unique at every push. -/
-def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) :
-    CheckCM FEnv :=
+/-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
+constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
+them) and by the generated recursors, so both are overlays sharing it (`shadowOpsC`'s `ruleEnv`,
+`classFeROvl`; `blockRecInfosTF`): a push onto `fe₂` while it is alive would copy the whole bucket
+array, once per inductive block. -/
+def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
   match q with
-  | ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
+  | ⟨env₁, cvTas, p, ctorsAs, _sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
   let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p.toBlockShape
     (p.members.zip cvTas)
   let fe₂ := consBlockCtorsF p.nP ctorsAs env₁
   flushC
   let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
     (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
-  -- the stored recursors against the generated ones (task #431): the
-  -- checks run at the generated recursors as an OVERLAY on the
-  -- constructors' index (read-only, sharing it), a flush entering and
-  -- leaving that environment; the overlay is dead once the comparison
-  -- returns, before the stored recursors are pushed
+  -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
+  -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   storedKCheck p.toBlockShape p.recs out
   let feG := fe₂.overlay (blockRecInfosTF p.toBlockShape 0 out).reverse
   flushC
   storedRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
   flushC
-  let recs := blockRecInfosTF p.toBlockShape 0 (storedOut p.recs out)
-  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape
-    (p.members.zip (ctorsAs.zip sortsss)) (FEnv.pushAll recs fe₂)
+  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape fe₂ p.members
 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
@@ -201,8 +190,7 @@ def reduceMembersS (fe : FEnv) (nP : Nat) : List MemberShape → CheckCM (List M
     let rest' ← reduceMembersS fe nP rest
     pure (ms' :: rest')
 
-/-- **`checkBlock` through the index**: the k-ary
-mirror, at any number of members. -/
+/-- **`checkBlock` through the index.** -/
 def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
     CheckCM FEnv := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
@@ -213,5 +201,6 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockRawRec p₀)
   checkBlockTailS mode block q
+  pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀.toBlockShape p₀.members) fe)
 
 end ConLeche.Cached

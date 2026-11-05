@@ -1,41 +1,22 @@
 module
 
 public import ConLeche.Cached.Installed
-public import ConLeche.Cached.InstallSkel
 import ConLeche.Verify.Inductives.StoredRecsInv
 import ConLeche.Verify.Cached.BlockOverlay
 
 public section
 
 /-!
-# The trusted↔P agreement floor (#172)
+# Every accepting step pushes what its declaration installs
 
-Whenever the cached driver (`ConLeche/Cached/ParsedC.lean`) at the
-trusted config and at the verified config both **accept** a stream, the
-two installed environments carry the same constants, in the same order,
-with the same install skeletons — and in particular the same names and
-the same count.
+The fold's step, at every mode, returns the environment with the declaration's constants and tables
+pushed (`checkDeclC_pushes`, `declConstants`, `declTables`), whatever the checks in between did.  So
+the environment an accepted stream ends in is a function of the stream (`checkDecls_env`), and two
+modes that both accept it end in the same one (`checkDecls_agree`).
 
-There is one driver, `checkDecls mode`, and the floor is the skeleton
-spec proved **once, for every `mode : CheckMode`** (`checkDecls_skels`);
-the agreement of two modes is its two instances glued by `Eq.trans`.
-The certification-only work the trusted mode omits (what
-`mode.verifiedChecks` gates) is invisible to the
-skeleton by construction — the spec forgets everything a core computes
-— which is exactly why the proof is mode-generic without a case
-split.
-
-Nothing here reasons about the cores.  The floor's whole content is
-that the fold is *the same fold* at every config; the inductive-block
-clause installs constants under **environment-dependent guards**, so
-the induction runs on the *install skeleton* — exactly the data those
-guards read, and nothing a core computes — and the names corollary
-falls out.  At `.axiomDecl` the push-or-not decision is a function of
-the header name alone — the `sorryAx` record installs nothing, and
-`stdAxiomOkF` is `false` off `propext`/`choice`, so every other
-accepted axiom installs exactly one `.axiomInfo`.
-
-Scope (DESIGN, "TASK #172 — BATCH B7"): accept verdicts only.
+Nothing here reasons about the cores: the proofs read only what an action returns (`Yields`).  The
+freshness facts the fresh-chain proof uses (`ConLeche/Verify/Cached/PushChain.lean`) are of the same
+kind and live here too.
 -/
 
 namespace ConLeche.Cached
@@ -181,51 +162,12 @@ so it is always `mkFEnv` of an environment — and then `FEnv.find?`
 *is* `Env.find?` (`mkFEnv_find?`), which is what turns the drivers'
 index guards into skeleton-level guards. -/
 
-/-- The index is `mkFEnv` of an environment. -/
-def Canon (fe : FEnv) : Prop := ∃ env, fe = mkFEnv env
-
-theorem canon_push {fe : FEnv} (h : Canon fe) (ci : ConstantInfo) :
-    Canon (fe.push ci) := by
-  obtain ⟨env, rfl⟩ := h
-  exact ⟨⟨ci :: env.consts, env.tables⟩, rfl⟩
-
-theorem canon_pushTable {fe : FEnv} (h : Canon fe) (t : ProjTable) :
-    Canon (fe.pushTable t) := by
-  obtain ⟨env, rfl⟩ := h
-  exact ⟨⟨env.consts, t :: env.tables⟩, rfl⟩
-
-/-- The floor's induction hypothesis: a canonical index whose
-environment has the given skeleton list. -/
-def SkelIs (fe : FEnv) (sk : List InstallSkel) : Prop :=
-  Canon fe ∧ envSkels fe.env = sk
-
-/-- A table install leaves the skeleton list alone: tables are not
-constants (task #362). -/
-theorem SkelIs.pushTable {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
-    (t : ProjTable) : SkelIs (fe.pushTable t) sk :=
-  ⟨canon_pushTable h.1 t, h.2⟩
-
-theorem SkelIs.push {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
-    (ci : ConstantInfo) : SkelIs (fe.push ci) (ciSkel ci :: sk) :=
-  ⟨canon_push h.1 ci, by
-    show (ci :: fe.env.consts).map ciSkel = _
-    rw [List.map_cons]
-    exact congrArg (ciSkel ci :: ·) h.2⟩
-
 /-! ## The shared install stages
 
 `checkConstantValF` and `installBasisDeclF` are the *generic* stages
 the driver calls (they
 take the engine as a `CheckerOps` record).  Their skeleton facts are
 proved once. -/
-
-theorem installBasisDeclF_skels {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (ci : ConstantInfo) :
-    Yields (installBasisDeclF (m := CheckCM) fe ci)
-      (fun fe' => SkelIs fe' (ciSkel ci :: sk)) := by
-  unfold installBasisDeclF
-  yields
-  all_goals (apply Yields.pure; exact h.push ci)
 
 /-! ## The cached certified driver's install stages -/
 
@@ -273,15 +215,6 @@ Every stage's install decision is the block's own or a freshness
 check; the stored constants' names are the block's (`checkConstantValF`
 keeps the name). -/
 
-theorem checkStructProjTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (T C : Name) (lps : List Name) (nP nF : Nat)
-    (cvCa : ConstantVal) :
-    Yields (checkStructProjTableF (m := CheckCM) w T C lps nP nF cvCa fe)
-      (fun fe' => SkelIs fe' sk) := by
-  unfold checkStructProjTableF
-  yields
-  all_goals (refine Yields.pure ?_; exact h.pushTable _)
-
 /-! ## The constructor list's skeleton
 
 The stored constructors' names and field counts are the block's
@@ -325,18 +258,6 @@ theorem checkSumCtorsF_names (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     obtain ⟨rest, srest⟩ := rest
     have hn' : cvCa.name = c.1.name := hn
     exact Yields.pure ⟨by simp [hn', hrest.1], by simpa using hrest.2⟩
-
-/-- The constructors' conses at the skeleton level. -/
-theorem consSumCtorsF_skels (nP : Nat) :
-    ∀ {ctorsA : List (ConstantVal × Nat)} {fe : FEnv} {sk : List InstallSkel},
-      SkelIs fe sk →
-      SkelIs (consSumCtorsF nP ctorsA fe)
-        (sumCtorSkels nP (ctorsA.map fun c => (c.1.name, c.2)) sk)
-  | [], _, _, h => h
-  | c :: cs, fe, sk, h => by
-    have hstep := consSumCtorsF_skels nP (ctorsA := cs)
-      (h.push (.ctorInfo c.1 nP c.2))
-    simpa [consSumCtorsF, sumCtorSkels, ciSkel] using hstep
 
 /-! ### Freshness of the stored names -/
 
@@ -454,16 +375,6 @@ theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockP
       · exact h0.2
       · exact hcvs.2 m hmm
 
-/-- The formers' conses at the skeleton level (member 0 deepest). -/
-theorem consBlockIndsF_skels (p₁ : BlockShape) (isRec : Bool) :
-    ∀ {mss : List MemberShape} {i : Nat} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
-      SkelIs (consBlockIndsF p₁ isRec (mss.map (·.declared)) i fe) (blockIndSkels mss sk)
-  | [], _, _, _, h => h
-  | ms :: mss, i, fe, sk, h => by
-    have hstep := consBlockIndsF_skels p₁ isRec (mss := mss) (i := i + 1)
-      (h.push (.indInfo ms.declared (blockCapsAt p₁ i isRec)))
-    simpa [consBlockIndsF, blockIndSkels, ciSkel] using hstep
-
 /-- `consSumCtorsF` is a left fold: over an append it is the two conses
 in turn. -/
 theorem consSumCtorsF_append (nP : Nat) :
@@ -481,24 +392,6 @@ theorem consBlockCtorsF_flatten (nP : Nat) :
   | ctorsA :: rest, fe => by
     rw [consBlockCtorsF, List.flatten_cons, consSumCtorsF_append]
     exact consBlockCtorsF_flatten nP rest _
-
-/-- The members' constructors at the skeleton level. -/
-theorem consBlockCtorsF_skels (nP : Nat) :
-    ∀ {ctorsAs : List (List (ConstantVal × Nat))} {mss : List MemberShape} {fe : FEnv}
-      {sk : List InstallSkel},
-      ctorsAs.map (List.map fun c => (c.1.name, c.2))
-          = mss.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2)) →
-      SkelIs fe sk →
-      SkelIs (consBlockCtorsF nP ctorsAs fe) (blockCtorSkels nP mss sk)
-  | [], [], _, _, _, h => h
-  | [], _ :: _, _, _, hn, _ => by simp at hn
-  | _ :: _, [], _, _, hn, _ => by simp at hn
-  | ctorsA :: rest, ms :: mss, fe, sk, hn, h => by
-    simp only [List.map_cons, List.cons.injEq] at hn
-    have h1 := consSumCtorsF_skels nP (ctorsA := ctorsA) h
-    rw [hn.1] at h1
-    rw [consBlockCtorsF, blockCtorSkels]
-    exact consBlockCtorsF_skels nP hn.2 h1
 
 /-- The constructors' stage: names and field counts per member, one
 field-sort list per constructor, and every stored name fresh at the
@@ -673,158 +566,6 @@ theorem genRecCheck_names (so : ShadowOps CheckCM) (fe : FEnv)
     Option.some.injEq] at this
   rw [this]; exact hname
 
-/-- The recursors' pushes AT THEIR MAJORS (`blockRecInfosTF`) at the
-skeleton level, from the recursor stage's output: each record's name. -/
-theorem pushAll_blockRecInfosTF_skelsT (p : BlockShape) :
-    ∀ (l : List RecShape) (ri : Nat)
-      (out : List (ConstantVal × TargetMajor × List Expr))
-      (fe : FEnv) (sk : List InstallSkel), l = p.recs.drop ri → out.length = l.length →
-      (∀ (j : Nat) o (rc : RecShape), out[j]? = some o → l[j]? = some rc →
-        o.1.name = rc.cvR.name) →
-      SkelIs fe sk →
-      SkelIs (FEnv.pushAll (blockRecInfosTF p ri out) fe) (blockRecSkels p ri l sk)
-  | [], _, [], _, _, _, _, _, h => h
-  | [], _, _ :: _, _, _, _, hlen, _, _ => by simp at hlen
-  | _ :: _, _, [], _, _, _, hlen, _, _ => by simp at hlen
-  | rc :: rest, ri, (cv, M, rhss) :: out, fe, sk, hl, hlen, hall, h => by
-    have hrest : rest = p.recs.drop (ri + 1) := by
-      rw [← List.drop_drop, ← hl]; rfl
-    have hname := hall 0 _ rc rfl rfl
-    dsimp only at hname
-    let ci : ConstantInfo := .recInfo cv (p.majorIdxAt ri) (p.rulePrefixAt ri)
-      (recKExpected p M) (tgtStoredRules (p.rulePrefixAt ri) M rhss)
-    have hci : ciSkel ci = .recr rc.cvR.name (p.majorIdxAt ri) (p.rulePrefixAt ri) := by
-      simp only [ci, ciSkel, hname]
-    have h' := pushAll_blockRecInfosTF_skelsT p rest (ri + 1) out
-      (fe.push ci) (ciSkel ci :: sk) hrest (by simpa using hlen)
-      (fun j r rc' hj hj' => hall (j + 1) r rc' (by simpa using hj) (by simpa using hj'))
-      (h.push ci)
-    rw [hci] at h'
-    exact h'
-
-/-- The projection tables install no constant: the skeleton list stays. -/
-theorem checkBlockTablesF_skels {w : StructWalkers} (p : BlockShape) :
-    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level)))
-      {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
-      Yields (checkBlockTablesF (m := CheckCM) w p l fe) (fun fe' => SkelIs fe' sk)
-  | [], _, _, h => Yields.pure h
-  | (ms, ctorsA, sortss) :: rest, fe, sk, h => by
-    unfold checkBlockTablesF
-    have key : Yields
-        (match ctorsA, sortss with
-         | [cA], [_] =>
-           if ms.nIdx == 0 then
-             checkStructProjTableF (m := CheckCM) w ms.cvT.name cA.1.name p.lps p.nP cA.2 cA.1 fe
-           else pure fe
-         | _, _ => pure fe)
-        (fun fe' => SkelIs fe' sk) := by
-      split
-      · split
-        · exact checkStructProjTableF_skels h _ _ _ _ _ _
-        · exact Yields.pure h
-      · exact Yields.pure h
-    exact Yields.bind' key fun fe' h' => checkBlockTablesF_skels p rest h'
-
-/-- The completed record's recursor skeleton is the recognised one's:
-the sort the formers read is not in it. -/
-theorem blockRecSkels_withSort (q : BlockShape) (s : Level) :
-    ∀ (r : Nat) (l : List RecShape) (sk : List InstallSkel),
-      blockRecSkels (q.withSort s) r l sk = blockRecSkels q r l sk
-  | _, [], _ => rfl
-  | r, rc :: rest, sk => by
-    simp only [blockRecSkels]
-    exact blockRecSkels_withSort q s (r + 1) rest _
-
-/-- The install after the pass: the k-ary skeleton of the completed
-record. -/
-theorem checkBlockTailS_skels (mode : CheckMode) {block : List ConstantInfo}
-    {sk : List InstallSkel} {q : BlockPass FEnv}
-    (h₁ : SkelIs q.env₁ (blockIndSkels q.p.members sk))
-    (hns : q.ctorsAs.map (List.map fun c => (c.1.name, c.2))
-      = q.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2))) :
-    Yields (checkBlockTailS mode block q) (fun fe' => SkelIs fe' (blockSkels q.p sk)) := by
-  obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
-  dsimp only at h₁ hns ⊢
-  unfold checkBlockTailS
-  dsimp only
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  have h₂ := consBlockCtorsF_skels p.nP hns h₁
-  refine Yields.bind' (genRecCheck_names (shadowOpsC mode) _ p.toBlockShape _ _ _ _ _ cvTas
-      block)
-    fun out hout => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  have hrs := pushAll_blockRecInfosTF_skelsT
-      p.toBlockShape
-      p.recs 0 (storedOut p.recs out) _ _ (List.drop_zero (l := p.recs)).symm
-      (by rw [storedOut_length hout.2.1]; exact hout.2.1)
-      (fun j o rc hoj hrc => by
-        obtain ⟨rc', g, hrc', hg, rfl⟩ := storedOut_getElem? hoj
-        obtain ⟨o', hoj', hname, -⟩ := hout.2.2 j rc hrc
-        rw [hg] at hoj'
-        obtain rfl := Option.some.inj hoj'
-        exact hname) h₂
-  exact checkBlockTablesF_skels p.toBlockShape _ hrs
-
-/-- One pass at k members (task #268): the formers' skeleton, the
-record's shape (the sort read), the constructors by name and field
-count, one field-sort list per constructor. -/
-theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (p₀ : BlockParts) (isRec : Bool) :
-    Yields (checkBlockPassS mode fe p₀ isRec)
-      (fun r => SkelIs r.env₁ (blockIndSkels p₀.members sk) ∧
-        (∃ s, r.p.toBlockShape = p₀.toBlockShape.withSort s) ∧
-        r.ctorsAs.map (List.map fun c => (c.1.name, c.2))
-          = r.p.members.map (fun ms => ms.ctors.map fun c => (c.1.name, c.2))) := by
-  unfold checkBlockPassS
-  refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTas, p₁⟩ := r₁
-  obtain ⟨⟨s, hps⟩, hfe₁, hn, -⟩ := h₁
-  try simp only [] at hps hfe₁ hn
-  subst hps
-  try simp only []
-  ybind
-  have hlen : (p₀.members.zip cvTas).map (fun x => x.1) = p₀.members := by
-    have := congrArg List.length hn
-    simp only [List.length_map] at this
-    rw [List.map_fst_zip (by omega)]
-  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun r hr => ?_
-  obtain ⟨ctorsAs, sortsss⟩ := r
-  obtain ⟨hns, -, -⟩ := hr
-  try simp only []
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun kinds => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.pure ⟨?_, ⟨s, rfl⟩, ?_⟩
-  · rw [hfe₁]
-    exact consBlockIndsF_skels _ isRec h
-  · simp only [BlockParts.complete_members,
-      BlockShape.withSort_members] at hns ⊢
-    rw [hns]
-    conv => rhs; rw [← hlen]
-    rw [List.map_map]
-    rfl
-
-/-- The completed record's skeleton is the recognised one's. -/
-theorem blockSkels_withSort {p q : BlockParts} {s : Level}
-    (hq : q.toBlockShape = p.toBlockShape.withSort s) (sk : List InstallSkel) :
-    blockSkels q sk = blockSkels p sk := by
-  have hm : q.members = p.members := by
-    show q.toBlockShape.members = p.toBlockShape.members
-    rw [hq]; rfl
-  have hr : q.recs = p.recs := by
-    show q.toBlockShape.recs = p.toBlockShape.recs
-    rw [hq]; rfl
-  have hn : q.nP = p.nP := by
-    show q.toBlockShape.nP = p.toBlockShape.nP
-    rw [hq]; rfl
-  unfold blockSkels
-  rw [hm, hr, hn, hq, blockRecSkels_withSort]
-
 /-- Two members alike but for the former their check reads. -/
 @[expose] def SameMember (a b : MemberShape) : Prop :=
   b.cvT.name = a.cvT.name ∧ b.declared = a.declared ∧ b.nIdx = a.nIdx ∧ b.ctors = a.ctors
@@ -875,66 +616,6 @@ theorem sameMembers_names : ∀ {a b : List MemberShape}, SameMembers a b →
     obtain ⟨n, d, -, c⟩ := h₁
     simp only [List.map_cons, e₁, e₂, e₃, n, d, c, hy, and_self]
 
-theorem blockIndSkels_same : ∀ {a b : List MemberShape}, SameMembers a b →
-    ∀ s, blockIndSkels b s = blockIndSkels a s
-  | _, _, .nil, _ => rfl
-  | _, _, .cons h hs, s => by
-    simp only [blockIndSkels]
-    rw [h.2.1]
-    exact blockIndSkels_same hs _
-
-theorem blockCtorSkels_same (nP : Nat) : ∀ {a b : List MemberShape}, SameMembers a b →
-    ∀ s, blockCtorSkels nP b s = blockCtorSkels nP a s
-  | _, _, .nil, _ => rfl
-  | _, _, .cons h hs, s => by
-    simp only [blockCtorSkels]
-    rw [h.2.2.2]
-    exact blockCtorSkels_same nP hs _
-
-theorem blockRecSkels_members (q q' : BlockShape) (hr : q'.recs = q.recs) :
-    ∀ (r : Nat) (l : List RecShape) (s : List InstallSkel),
-      blockRecSkels q' r l s = blockRecSkels q r l s
-  | _, [], _ => rfl
-  | r, rc :: rest, s => by
-    simp only [blockRecSkels, BlockShape.majorIdxAt, BlockShape.rulePrefixAt, hr]
-    exact blockRecSkels_members q q' hr (r + 1) rest _
-
-theorem blockSkels_same {p : BlockParts} {ms : List MemberShape}
-    (h : SameMembers p.members ms) (s : List InstallSkel) :
-    blockSkels { p with members := ms } s = blockSkels p s := by
-  show blockRecSkels { p with members := ms }.toBlockShape 0 p.recs
-      (blockCtorSkels p.nP ms (blockIndSkels ms s)) = _
-  refine (blockRecSkels_members p.toBlockShape { p with members := ms }.toBlockShape rfl 0 p.recs _).trans ?_
-  rw [blockIndSkels_same h, blockCtorSkels_same p.nP h]
-  rfl
-
-/-- **The uniform install at k members, at the skeleton level.** -/
-theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts) :
-    Yields (checkBlockKS mode fe block p) (fun fe' => SkelIs fe' (blockSkels p sk)) := by
-  unfold checkBlockKS
-  try apply Yields.letFun
-  refine Yields.ofDecCases (fun _ => ?dupBad) (fun _ => ?boolC)
-  case dupBad => exact Yields.ofThrowBind
-  case boolC =>
-  refine Yields.ofDecCases (fun _ => ?boolBad) (fun _ => ?main)
-  case boolBad => exact Yields.ofThrowBind
-  case main =>
-  refine Yields.bind' (reduceMembersS_same mode fe p.nP p.members) fun ms hms => ?_
-  ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h { p with members := ms } (blockRawRec p))
-    fun q hr => ?_
-  obtain ⟨h₁, ⟨s, hq⟩, hns⟩ := hr
-  try simp only [] at h₁ hq hns
-  try simp only []
-  have hm : q.p.members = ms := by
-    show q.p.toBlockShape.members = ({ p with members := ms } : BlockParts).toBlockShape.members
-    rw [hq]; rfl
-  refine Yields.mono (checkBlockTailS_skels mode (by rw [hm]; exact h₁) hns) ?_
-  intro fe' h'
-  rw [blockSkels_withSort hq, blockSkels_same hms] at h'
-  exact h'
-
 /-! ### The tolerated-axiom branch
 
 `sorryAx` is the one axiom the checker tolerates as a declaration, and
@@ -963,136 +644,6 @@ theorem tolerated_ne_std {n : Name}
 
 /-! ### The cached certified declaration clause -/
 
-/-- A constant at other level-parameter names has its skeleton. -/
-theorem ciSkel_atLps (ci : ConstantInfo) (ps : List Name) : ciSkel (ci.atLps ps) = ciSkel ci := by
-  cases ci <;> rfl
-
-/-- A pinned block's comparison passed: what it installs reads as the
-pin's skeletons. -/
-theorem atBlock_skels : ∀ {block pins : List ConstantInfo} (sk : List InstallSkel),
-    listBeqBy pinCopyOk block pins = true →
-    (List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) pins block).foldl
-        (fun acc ci => ciSkel ci :: acc) sk
-      = pins.foldl (fun acc ci => ciSkel ci :: acc) sk
-  | [], [], _, _ => rfl
-  | c :: cs, p :: ps, sk, h => by
-    simp only [listBeqBy, Bool.and_eq_true] at h
-    simp only [List.zipWith_cons_cons, List.foldl_cons, ciSkel_atLps]
-    exact atBlock_skels _ h.2
-  | [], _ :: _, _, h => by simp [listBeqBy] at h
-  | _ :: _, [], _, h => by simp [listBeqBy] at h
-
-/-- A pinned block's install's skeleton reading. -/
-theorem checkBasisBlockC_skels {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (kind : BasisKind) (block : List ConstantInfo) :
-    Yields (checkBasisBlockC fe kind block)
-      (fun fe' => SkelIs fe'
-        (kind.decls.foldl (fun acc ci => ciSkel ci :: acc) sk)) := by
-  have hfold : ∀ (fe' : FEnv) (sk' : List InstallSkel), SkelIs fe' sk' →
-      Yields ((kind.atBlock block).foldlM installBasisDeclF fe')
-        (fun x => SkelIs x
-          ((kind.atBlock block).foldl (fun acc ci => ciSkel ci :: acc) sk')) :=
-    fun fe' sk' h' =>
-      Yields.foldlM_rel (R := SkelIs) (g := fun acc ci => ciSkel ci :: acc)
-        (fun acc ci sk'' hacc => installBasisDeclF_skels hacc ci)
-        (kind.atBlock block) fe' sk' h'
-  unfold checkBasisBlockC
-  by_cases hok : pinListOk block kind.decls = true
-  · rw [ite_eq_left hok]
-    simp only [pinListOk, Bool.and_eq_true] at hok
-    have := hfold fe sk h
-    have e : (kind.atBlock block).foldl (fun acc ci => ciSkel ci :: acc) sk = _ := atBlock_skels sk hok.1
-    rw [e] at this
-    exact this
-  · rw [ite_eq_right hok]
-    exact Yields.ofThrowBind
-
-/-- A quotient record's install's skeleton reading. -/
-theorem checkQuotRecordC_skels {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
-    (k : QuotKind) (cv : ConstantVal) :
-    Yields (checkQuotRecordC fe k cv) (fun fe' => SkelIs fe' (ciSkel (quotAt k cv) :: sk)) := by
-  unfold checkQuotRecordC
-  yields
-  all_goals exact installBasisDeclF_skels h (quotAt k cv)
-
-theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
-    Yields (checkDeclC mode pins fe pd)
-      (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  unfold checkDeclC declCSkels
-  cases pd with
-  | defnDecl cv value hint =>
-    simp only []
-    ybind
-    split
-    · -- the pinned arm: certified against the overlay, pushed last
-      refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
-      obtain ⟨v, rfl⟩ := hci
-      have h2 : SkelIs (fe.push (.defnInfo cv v hint)) (.defn cv.name :: sk) := h.push _
-      yields
-      all_goals (apply Yields.pure; exact h2)
-    · exact Yields.ofThrow
-  | thmDecl cv value => exact Yields.ofThrow
-  | opaqueDecl cv value =>
-    simp only []
-    ybind
-    split
-    · -- the pinned arm: certified against the overlay, pushed last
-      refine Yields.bind' (checkOpaqueValCI_shape mode fe cv value) fun ci hci => ?_
-      subst hci
-      have h2 : SkelIs (fe.push (.axiomInfo cv)) (.ax cv.name :: sk) := h.push _
-      yields
-      all_goals (apply Yields.pure; exact h2)
-    · exact Yields.ofThrow
-  | axiomDecl cv =>
-    simp only []
-    by_cases hqs : cv.name = quotSoundName
-    · rw [ite_eq_left hqs, ite_eq_right (by rw [hqs]; decide)]
-      have := checkQuotRecordC_skels h .sound cv
-      rw [show ciSkel (quotAt .sound cv) = .ax cv.name by rw [hqs]; rfl] at this
-      exact this
-    · rw [ite_eq_right hqs]
-      ybind
-      by_cases ht : cv.name = sorryAxName
-      · rw [ite_eq_left ht,
-          ite_eq_right (by rw [tolerated_not_std fe cv ht]; exact Bool.false_ne_true),
-          ite_eq_right (tolerated_ne_trust ht), ite_eq_right (tolerated_ne_ofReduce ht),
-          ite_eq_right (tolerated_ne_std ht), ite_eq_left ht]
-        exact Yields.pure h
-      · rw [ite_eq_right ht]
-        yields
-        all_goals first
-          | (apply Yields.pure; exact h.push _)
-          | exact absurd (by assumption) ht
-  | quotDecl k cv => exact checkQuotRecordC_skels h k cv
-  | indDecl block nP =>
-    simp only []
-    unfold checkIndDeclC
-    -- a block with a pinned block's names is that block's; the declared
-    -- parameter count (task #228) below it is a guard whose `throw`
-    -- installs nothing
-    split
-    next kind hk => rw [hk]; exact checkBasisBlockC_skels h kind block
-    next hk =>
-      rw [hk]
-      split
-      · unfold indDeclSkels
-        cases hbp : blockParts? nP block with
-        | none => exact Yields.bind fun _ => Yields.ofThrow
-        | some p =>
-          -- the block install, at any number of members, nested
-          -- blocks included
-          exact checkBlockKS_skels mode h block p
-      · exact Yields.ofThrow
-
-theorem checkDeclStepC_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
-    Yields (checkDeclStepC mode pins fe pd)
-      (fun fe' => SkelIs fe' (declCSkels pd sk)) := by
-  unfold checkDeclStepC
-  ybind
-  exact checkDeclC_skels mode h pd
-
 /-! ## The floor
 
 The fold installs every record by `installStepC` (`checkDecls`,
@@ -1109,86 +660,226 @@ trusted config's purpose is to reject less, and the recorded
 trusted-mode divergences are decline/accept divergences, untouched
 here. -/
 
-theorem skelIs_empty : SkelIs (mkFEnv Env.empty) [] := ⟨⟨_, rfl⟩, rfl⟩
-
-/-- The declaration-stream specification: the skeletons a stream
-installs, newest first. -/
-def streamSkels (ds : List Declaration) : List InstallSkel :=
-  ds.foldl (fun sk pd => declCSkels pd sk) []
-
 /-! ### The direct-parse entry points (#171) -/
 
-/-- Phase A's step body installs the declaration's skeletons: the value
-kinds push the one constant the fold's value checkers push, everything
-else runs `checkDeclStepC`. -/
-theorem installStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (pend : Array PendingCheck) (pd : Declaration) :
-    Yields (installStepC mode pins i fe pend pd) (fun r => SkelIs r.1 (declCSkels pd sk)) := by
+/-! ## What a record pushes -/
+
+theorem pushAll_env_consts :
+    ∀ (L : List ConstantInfo) (fe : FEnv),
+      (FEnv.pushAll L fe).env.consts = L.reverse ++ fe.env.consts
+  | [], _ => rfl
+  | ci :: L, fe => by
+    show (FEnv.pushAll L (fe.push ci)).env.consts = _
+    rw [pushAll_env_consts L (fe.push ci)]
+    simp [FEnv.push]
+
+theorem pushAll_env_tables :
+    ∀ (L : List ConstantInfo) (fe : FEnv), (FEnv.pushAll L fe).env.tables = fe.env.tables
+  | [], _ => rfl
+  | ci :: L, fe => pushAll_env_tables L (fe.push ci)
+
+theorem pushTables_env :
+    ∀ (Q : List ProjTable) (fe : FEnv),
+      (FEnv.pushTables Q fe).env = ⟨fe.env.consts, Q.reverse ++ fe.env.tables⟩
+  | [], _ => rfl
+  | t :: Q, fe => by
+    show (FEnv.pushTables Q (fe.pushTable t)).env = _
+    rw [pushTables_env Q (fe.pushTable t)]
+    simp [FEnv.pushTable]
+
+theorem pushDelta_env (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
+    (FEnv.pushDelta L Q fe).env = fe.env.pushDelta L Q := by
+  unfold FEnv.pushDelta Env.pushDelta
+  rw [pushTables_env, pushAll_env_consts, pushAll_env_tables]
+
+/-- A canonical index stays canonical across a declaration's pushes. -/
+theorem pushDelta_mkFEnv (L : List ConstantInfo) (Q : List ProjTable) (env : Env) :
+    FEnv.pushDelta L Q (mkFEnv env) = mkFEnv (env.pushDelta L Q) := by
+  have hA : ∀ (L : List ConstantInfo) (env : Env),
+      FEnv.pushAll L (mkFEnv env) = mkFEnv ⟨L.reverse ++ env.consts, env.tables⟩ := by
+    intro L
+    induction L with
+    | nil => intro env; rfl
+    | cons ci L ih =>
+      intro env
+      show FEnv.pushAll L ((mkFEnv env).push ci) = _
+      rw [push_mkFEnv]
+      refine (ih _).trans ?_
+      simp [FEnv.push]
+  have hQ : ∀ (Q : List ProjTable) (env : Env),
+      FEnv.pushTables Q (mkFEnv env) = mkFEnv ⟨env.consts, Q.reverse ++ env.tables⟩ := by
+    intro Q
+    induction Q with
+    | nil => intro env; rfl
+    | cons t Q ih =>
+      intro env
+      show FEnv.pushTables Q ((mkFEnv env).pushTable t) = _
+      refine (ih ⟨env.consts, t :: env.tables⟩).trans ?_
+      simp
+  unfold FEnv.pushDelta Env.pushDelta
+  rw [hA, hQ]
+
+theorem installBasisDecls_pushes :
+    ∀ (l : List ConstantInfo) (fe : FEnv),
+      Yields (l.foldlM (installBasisDeclF (m := CheckCM)) fe) (· = FEnv.pushAll l fe)
+  | [], _ => Yields.pure rfl
+  | ci :: l, fe => by
+    simp only [List.foldlM_cons]
+    refine Yields.bind' (Q := (· = fe.push ci)) ?_ fun fe' h => ?_
+    · unfold installBasisDeclF
+      yields
+      all_goals exact Yields.pure rfl
+    · subst h
+      exact installBasisDecls_pushes l _
+
+theorem checkBasisBlockC_pushes (fe : FEnv) (kind : BasisKind) (block : List ConstantInfo) :
+    Yields (checkBasisBlockC fe kind block)
+      (· = FEnv.pushDelta (kind.atBlock block) [] fe) := by
+  unfold checkBasisBlockC
+  yields
+  all_goals exact installBasisDecls_pushes _ fe
+
+theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
+    Yields (checkQuotRecordC fe k cv) (· = fe.push (quotAt k cv)) := by
+  unfold checkQuotRecordC installBasisDeclF
+  yields
+  all_goals exact Yields.pure rfl
+
+theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List ConstantInfo)
+    (p : BlockParts) :
+    Yields (checkBlockKS mode fe block p)
+      (· = FEnv.pushDelta (blockConstants p) (blockTables p.toBlockShape p.members) fe) := by
+  unfold checkBlockKS
+  yields
+  all_goals exact Yields.pure rfl
+
+/-- **An accepting step pushes what the declaration installs**, at every mode. -/
+theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+    Yields (checkDeclC mode pins fe pd) (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+  unfold checkDeclC
+  cases pd with
+  | defnDecl cv value hint =>
+    simp only []
+    ybind
+    split
+    · refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
+      obtain ⟨v, hv, rfl⟩ := hci
+      subst hv
+      yields
+      all_goals exact Yields.pure rfl
+    · exact Yields.ofThrow
+  | thmDecl cv value => exact Yields.ofThrow
+  | opaqueDecl cv value =>
+    simp only []
+    ybind
+    split
+    · refine Yields.bind' (checkOpaqueValCI_shape mode fe cv value) fun ci hci => ?_
+      subst hci
+      yields
+      all_goals exact Yields.pure rfl
+    · exact Yields.ofThrow
+  | axiomDecl cv =>
+    simp only []
+    by_cases hqs : cv.name = quotSoundName
+    · rw [ite_eq_left hqs]
+      simp only [declConstants, ite_eq_left hqs, declTables]
+      exact checkQuotRecordC_pushes fe .sound cv
+    · rw [ite_eq_right hqs]
+      simp only [declConstants, ite_eq_right hqs, declTables]
+      ybind
+      by_cases ht : cv.name = sorryAxName
+      · rw [ite_eq_left ht,
+          ite_eq_right (by rw [tolerated_not_std fe cv ht]; exact Bool.false_ne_true),
+          ite_eq_right (tolerated_ne_trust ht), ite_eq_right (tolerated_ne_ofReduce ht),
+          ite_eq_right (tolerated_ne_std ht), ite_eq_left ht]
+        exact Yields.pure rfl
+      · rw [ite_eq_right ht]
+        yields
+        all_goals first
+          | exact Yields.pure rfl
+          | exact absurd (by assumption) ht
+  | quotDecl k cv => exact checkQuotRecordC_pushes fe k cv
+  | indDecl block nP =>
+    simp only [declConstants, declTables]
+    unfold checkIndDeclC
+    split
+    next kind hk =>
+      rw [hk]
+      exact checkBasisBlockC_pushes fe kind block
+    next hk =>
+      rw [hk]
+      split
+      · cases hbp : blockParts? nP block with
+        | none => exact Yields.bind fun _ => Yields.ofThrow
+        | some p => exact checkBlockKS_pushes mode fe block p
+      · exact Yields.ofThrow
+
+theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
+    Yields (checkDeclStepC mode pins fe pd)
+      (· = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
+  unfold checkDeclStepC
+  ybind
+  exact checkDeclC_pushes mode fe pd
+
+/-- Phase A's step pushes what the declaration installs. -/
+theorem installStepC_pushes (mode : CheckMode) (i : Nat) (fe : FEnv) (pend : Array PendingCheck)
+    (pd : Declaration) :
+    Yields (installStepC mode pins i fe pend pd)
+      (fun r => r.1 = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
   have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode pins fe pd', pend) :
-      CheckCM (FEnv × Array PendingCheck)) (fun r => SkelIs r.1 (declCSkels pd' sk)) :=
-    fun pd' => Yields.bind' (checkDeclStepC_skels mode h pd') fun fe' h' => Yields.pure h'
+      CheckCM (FEnv × Array PendingCheck))
+      (fun r => r.1 = FEnv.pushDelta (declConstants pd') (declTables pd') fe) :=
+    fun pd' => Yields.bind' (checkDeclStepC_pushes mode fe pd') fun fe' h' => Yields.pure h'
   unfold installStepC
   cases pd with
   | defnDecl cv value hint =>
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ _ => ?_
-      apply Yields.pure
-      show SkelIs (fe.push (.defnInfo cv value hint)) (.defn cv.name :: sk)
-      exact h.push _
+    · exact Yields.bind fun _ => Yields.pure rfl
   | thmDecl cv value =>
     simp only []
     ybind
-    refine Yields.bind' (installHeaderC_fresh fe cv) fun _ _ => ?_
-    apply Yields.pure
-    show SkelIs (fe.push (.thmInfo cv)) (.thm cv.name :: sk)
-    exact h.push _
+    exact Yields.bind fun _ => Yields.pure rfl
   | opaqueDecl cv value =>
     simp only []
     split
     · exact hord _
-    · refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ _ => ?_
-      apply Yields.pure
-      show SkelIs (fe.push (.axiomInfo cv)) (.ax cv.name :: sk)
-      exact h.push _
+    · exact Yields.bind fun _ => Yields.pure rfl
   | axiomDecl cv => exact hord _
   | quotDecl k cv => exact hord _
   | indDecl block nP => exact hord _
 
-/-- Phase A's accepting run installs the stream's skeletons. -/
-theorem installRun_skels (mode : CheckMode) {ds : List Declaration}
-    {p : Nat × FEnv × Array PendingCheck}
-    {q : Nat × FEnv × Array PendingCheck}
-    (h : InstallRun mode pins ds p q) {sk : List InstallSkel} (hp : SkelIs p.2.1 sk) :
-    SkelIs q.2.1 (ds.foldl (fun sk pd => declCSkels pd sk) sk) := by
-  induction h generalizing sk with
-  | nil p => exact hp
+/-! ## The environment of an accepted stream -/
+
+/-- **The environment a stream installs.** -/
+def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
+  ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
+
+theorem installRun_env (mode : CheckMode) {ds : List Declaration}
+    {p q : Nat × FEnv × Array PendingCheck} (h : InstallRun mode pins ds p q) :
+    q.2.1.env = streamEnv ds p.2.1.env := by
+  induction h with
+  | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
     obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := installDeclStep_ok hstep
-    rw [List.foldl_cons]
-    exact ih (installStepC_skels mode p.1 hp p.2.2 pd {} (fe₁, pend₁) s₁ hstepC)
+    have h₁ := installStepC_pushes mode p.1 p.2.1 p.2.2 pd {} (fe₁, pend₁) s₁ hstepC
+    rw [ih]
+    simp only at h₁
+    rw [h₁, pushDelta_env]
+    rfl
 
-/-- **The skeleton spec, at every mode.**  This is the floor's whole
-content: one fold, one proof. -/
-theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
-    {env : Env} (h : checkDecls mode pins ds = .ok env) :
-    envSkels env = streamSkels ds.toList := by
+/-- **An accepted stream's environment is a function of the stream**, at every mode. -/
+theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
+    (h : checkDecls mode pins ds = .ok env) : env = streamEnv ds.toList := by
   obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
   obtain ⟨n, r⟩ := fc.1.run
-  exact (installRun_skels mode r skelIs_empty).2
+  exact installRun_env mode r
 
-/-- **The floor, direct-parse route.**  Whenever the cached driver at
-two modes — in particular the trusted (`.trusted`) and the verified
-(`.verified`) mode the binary ships — both accept the same stream, the
-two installed environments carry the same install skeletons.  Stated
-for any two modes; the shipped pair is the instance
-`.trusted` / `.verified`. -/
-theorem trusted_agrees_skels_D {μP μT : CheckMode} {ds : Array Declaration}
-    {envP envN : Env}
-    (hP : checkDecls μP pins ds = .ok envP)
-    (hN : checkDecls μT pins ds = .ok envN) :
-    envSkels envN = envSkels envP :=
-  (checkDecls_skels hN).trans (checkDecls_skels hP).symm
+/-- **Two modes that both accept a stream end in the same environment.** -/
+theorem checkDecls_agree {μ₁ μ₂ : CheckMode} {ds : Array Declaration} {env₁ env₂ : Env}
+    (h₁ : checkDecls μ₁ pins ds = .ok env₁) (h₂ : checkDecls μ₂ pins ds = .ok env₂) :
+    env₁ = env₂ :=
+  (checkDecls_env h₁).trans (checkDecls_env h₂).symm
 
 end ConLeche.Cached

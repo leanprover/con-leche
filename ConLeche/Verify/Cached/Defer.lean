@@ -1,21 +1,22 @@
 module
 
 public import ConLeche.Verify.Cached.ViewCongr
-public import ConLeche.Cached.StoredInstall
+public import ConLeche.Verify.Cached.InstallPushes
 
 /-!
-# Every record's checked step in the check phase (tasks #411, #431, #480)
+# Every record's checked step in the check phase
 
 Phase A installs every record from the record alone.  A definition, a
 theorem or an opaque (a *value record*) is guarded and pushed with its
 check recorded (`valueStep`, `PendingCheck`).  Every other record — an
 inductive block, an axiom, a pinned `Nat` operation, a `reduce*` opaque,
 a basis or quotient record (`deferredDecl`) — is pushed as the record
-says (`storedStep`) and its checked step recorded as a job of the check
-phase (`DeferredCheck`): the checked step at a view that answers every
-lookup as the index the record was installed at does (`Twin`), and the
-comparison of what it pushes with what was pushed (`pushesAgree`,
-pointer-first).  The record's step in the serial fold's accepting run
+says (`declConstants`, `declTables`) and its checked step recorded as a
+job of the check phase (`DeferredCheck`): the checked step at a view that
+answers every lookup as the index the record was installed at does
+(`Twin`).  What the checked step pushes is what the record says at every
+view (`checkDeclStepC_pushes`), so the job's verdict is all that matters
+of it.  The record's step in the serial fold's accepting run
 (`InstallRun`) is then CONDITIONAL on that job: a driver's install loop
 carries `(∀ b ∈ D, b.Ok) → InstallRun …` for the jobs `D` it has recorded,
 and the check phase discharges the premise — the same Bool barrier as
@@ -23,9 +24,9 @@ for the recorded value checks: a run is accepted only if every job of
 the check phase passes.
 
 * `installDeclStep_defer` — where the checked step accepts the record
-  at an empty-environment twin of an index and pushes `L` and `Q`
-  there, the serial fold's step at the index pushes `L` and `Q`.  From
-  the twin lemma (`checkDeclStepC_twin`).
+  at an empty-environment twin of an index, the serial fold's step at the
+  index pushes what the record installs.  From the twin lemma
+  (`checkDeclStepC_twin`).
 * The view a deferred check runs at: the install's worker
   view at the record's counter (its twin is the serial index by
   `ViewAgrees`, `Twin.ofViewAgrees`; `installStepG_deferred`).  So a
@@ -42,7 +43,7 @@ Nothing the theorem reads: a later job sees a pinned operation pushed
 before its certificate job has run, and may fire its literal fast path.
 The accepted run needs every job, so a later job's verdict matters only
 if every earlier one passed, and then the environment it ran at is the
-serial fold's (the same as for a value record's unchecked value, #411).
+serial fold's (the same as for a value record's unchecked value).
 A wrong firing can therefore change nothing but which failure is
 computed last: the walk in fold order (`collectJobs`) reports the
 earliest.  A later job that does not terminate over a wrong operation
@@ -61,39 +62,19 @@ open ConLeche
 /-! ## The deferred check of a record -/
 
 /-- **A deferred check**: the record, the view its checked step runs at
-(the install's worker view at the record's counter, `workerView`), the
-record's fold position (its error tag), and what the install pushed: the
-constants `L` and the tables `Q`, in install order. -/
+(the install's worker view at the record's counter, `workerView`), and the
+record's fold position (its error tag). -/
 structure DeferredCheck where
   view : FEnv
   pd : Declaration
   pos : Nat
-  L : List ConstantInfo
-  Q : List ProjTable
-
-/-- The record's label, for the messages. -/
-def DeferredCheck.label (b : DeferredCheck) : String :=
-  declCLabel b.pd
-
-/-- **The checked step pushed `L` and `Q`** onto a view whose own
-environment is empty: its constants and tables, in install order,
-compared pointer-first. -/
-def pushesAgree (W' : FEnv) (L : List ConstantInfo) (Q : List ProjTable) : Bool :=
-  listBeqBy ConstantInfo.beqP W'.env.consts.reverse L &&
-    listBeqBy ProjTable.beqP W'.env.tables.reverse Q
 
 /-- **The record's job**: its checked step at the view, from a fresh
-memo state, and the comparison of its pushes with the install's.  A
-difference is an internal error naming the record: the install's reading
-(`storedStep`) is not the checked step's, a defect of the reader, not of
-the stream. -/
+memo state. -/
 def deferredCheck (mode : CheckMode) (pins : List NatOpPinSet) (b : DeferredCheck) :
     Except CheckError Unit :=
   match checkDeclStepC mode pins b.view b.pd {} with
-  | .ok (W', _) =>
-    if pushesAgree W' b.L b.Q then .ok ()
-    else .error (.internal s!"{b.label}: the install's constants or \
-      tables are not the checked step's")
+  | .ok _ => .ok ()
   | .error e => .error e
 
 /-- The deferred check passed. -/
@@ -101,18 +82,11 @@ def DeferredCheck.Ok (mode : CheckMode) (pins : List NatOpPinSet) (b : DeferredC
   deferredCheck mode pins b = .ok ()
 
 theorem deferredCheck_ok {mode : CheckMode} {pins : List NatOpPinSet} {b : DeferredCheck}
-    (h : b.Ok mode pins) :
-    ∃ W' s, checkDeclStepC mode pins b.view b.pd {} = .ok (W', s) ∧
-      W'.env.consts.reverse = b.L ∧ W'.env.tables.reverse = b.Q := by
+    (h : b.Ok mode pins) : ∃ W' s, checkDeclStepC mode pins b.view b.pd {} = .ok (W', s) := by
   unfold DeferredCheck.Ok deferredCheck at h
   split at h
-  · rename_i W' s hc
-    split at h
-    · rename_i ha
-      simp only [pushesAgree, Bool.and_eq_true] at ha
-      exact ⟨W', s, hc, eq_of_listBeqBy (fun _ _ => ConstantInfo.eq_of_beqP) ha.1,
-        eq_of_listBeqBy (fun _ _ => ProjTable.eq_of_beqP) ha.2⟩
-    · exact nomatch h
+  · rename_i r hc
+    exact ⟨r.1, r.2, hc⟩
   · exact nomatch h
 
 /-- **Is the record's check a job?**  Every record but a value record
@@ -161,60 +135,36 @@ theorem valueStep_of_not_deferred {pd : Declaration} (h : deferredDecl pd = fals
   | quotDecl _ _ => exact nomatch h
   | indDecl _ _ => exact nomatch h
 
-/-- **What a record pushes, read off the record**: the constants and
-tables its checked step pushes when it accepts — the record's own
-constant, a pinned block's constants, an inductive block as stored
-(`storedInstall`).  The names are the prediction's (`declCSkels`). -/
-def storedStep : Declaration → List ConstantInfo × List ProjTable
-  | .defnDecl cv value hint => ([.defnInfo cv value hint], [])
-  | .thmDecl cv _ => ([.thmInfo cv], [])
-  | .opaqueDecl cv _ => ([.axiomInfo cv], [])
-  | .axiomDecl cv =>
-    if cv.name = quotSoundName then ([quotAt .sound cv], [])
-    else if cv.name = sorryAxName then ([], [])
-    else ([.axiomInfo cv], [])
-  | .quotDecl k cv => ([quotAt k cv], [])
-  | .indDecl block nP => storedInstall block nP
-
 /-- **A record's install at a worker view**: a value record guarded, with
-its check recorded; any other record as `storedStep` reads it, whatever
-the record, so its verdict is always its job's. -/
+its check recorded; any other record as it says, so its verdict is always
+its job's. -/
 def installStepG (W : FEnv) (pd : Declaration) :
     Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match valueStep W pd with
   | some (.ok (ci, vg)) => .ok ([ci], [], some vg)
   | some (.error e) => .error e
-  | none =>
-    let r := storedStep pd
-    .ok (r.1, r.2, none)
+  | none => .ok (declConstants pd, declTables pd, none)
 
 /-! ## The step, conditional on its deferred check -/
 
 variable {mode : CheckMode} {pins : List NatOpPinSet}
 
 /-- **The serial fold's step on a deferred record**: where the checked
-step accepts the record at a twin `W` of `fe` whose own environment
-is empty, pushing `L` and `Q`, the fold's step at `fe` pushes `L` and
-`Q` and records nothing. -/
-theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hW : W.env = ⟨[], []⟩) {i : Nat}
+step accepts the record at a twin `W` of `fe`, the fold's step at `fe`
+pushes what the record installs and records nothing. -/
+theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) {i : Nat}
     {pend : Array PendingCheck} {pd : Declaration}
-    {L : List ConstantInfo} {Q : List ProjTable}
     (hd : deferredDecl pd = true) (hand : andPinOk pd = true)
-    (hok : ∃ W' s, checkDeclStepC mode pins W pd {} = .ok (W', s) ∧
-      W'.env.consts.reverse = L ∧ W'.env.tables.reverse = Q) :
+    (hok : ∃ W' s, checkDeclStepC mode pins W pd {} = .ok (W', s)) :
     installDeclStep mode pins (i, fe, pend) pd =
-      .ok (i + 1, FEnv.pushDelta L Q fe, pend) := by
-  obtain ⟨W', s, hW', hL, hQ⟩ := hok
+      .ok (i + 1, FEnv.pushDelta (declConstants pd) (declTables pd) fe, pend) := by
+  obtain ⟨W', s, hW'⟩ := hok
   have hs := installStepC_of_valueStep_none (mode := mode) (pins := pins) (i := i) (fe := fe)
     (pend := pend) (valueStep_of_deferred hd W)
   rcases checkDeclStepC_twin pins ht pd {} with
     ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
   · rw [h₂] at hW'; exact nomatch hW'
-  · rw [h₂] at hW'
-    obtain ⟨rfl, -⟩ := Prod.mk.inj (Except.ok.inj hW')
-    rw [pushDelta_env, hW] at hL hQ
-    simp only [List.append_nil, List.reverse_reverse] at hL hQ
-    subst hL hQ
+  · have hfe := checkDeclStepC_pushes (pins := pins) mode fe pd {} _ _ h₁
     unfold installDeclStep
     simp only [hand, ↓reduceIte, hs]
     show (match (checkDeclStepC mode pins fe pd {}).bind
@@ -222,11 +172,12 @@ theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hW : W.env = ⟨[]
       | .ok ((fe', pend'), _) => Except.ok (i + 1, fe', pend')
       | .error e => .error (e, i)) = _
     rw [h₁]
-    rfl
+    show Except.ok (i + 1, FEnv.pushDelta L' Q' fe, pend) = _
+    rw [hfe]
 
 /-- **A deferred record installed at a worker view**: no value check,
 and the serial fold's step pushes what it pushed, conditional on the
-record's checked step at the same view pushing it too. -/
+record's checked step at the same view accepting. -/
 theorem installStepG_deferred {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees B S fe)
     (hidx : IdxBelow fe) {i : Nat} {pend : Array PendingCheck} {pd : Declaration}
     {L : List ConstantInfo} {Q : List ProjTable} {vg? : Option ValueGroup}
@@ -234,8 +185,7 @@ theorem installStepG_deferred {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewA
     (hand : andPinOk pd = true)
     (h : installStepG (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
     vg? = none ∧
-      ((∃ W' s, checkDeclStepC mode pins (workerView B S fe.visibleBelow) pd {} = .ok (W', s) ∧
-          W'.env.consts.reverse = L ∧ W'.env.tables.reverse = Q) →
+      ((∃ W' s, checkDeclStepC mode pins (workerView B S fe.visibleBelow) pd {} = .ok (W', s)) →
         installDeclStep mode pins (i, fe, pend) pd =
           .ok (i + 1, FEnv.pushDelta L Q fe, pend)) := by
   have ht := Twin.ofViewAgrees hag hidx
@@ -243,7 +193,7 @@ theorem installStepG_deferred {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewA
   rw [valueStep_of_deferred hd] at h
   simp only [Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
-  exact ⟨rfl, fun hok => installDeclStep_defer ht rfl hd hand hok⟩
+  exact ⟨rfl, fun hok => installDeclStep_defer ht hd hand hok⟩
 
 /-- **The commit step of a value record**: installed at the view whose
 lookups are the serial index's, it is the serial fold's step — the same

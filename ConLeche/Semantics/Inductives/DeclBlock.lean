@@ -13,11 +13,9 @@ relation: the two distinct-name guards, the k type formers' run (constant check,
 official's telescope loop, the result sort, and — from member 1 on —
 official's two agreements), the constructors' runs per member at the
 environment holding ALL the formers, the kinds classified against the
-whole member list, the capability record the block owes, every member's index binders' sorts, the kinds
-re-checked on the stored constructors at the TARGET each carries, the
-recursor stage, and the install spine (the constructors consed, the
-recursors consed with their rules, a projection table per
-structure-like member).
+whole member list, every member's index binders' sorts, the recursor stage, the stream's recursors
+against the generated ones, the projection tables' checks, and the install (`blockConstants`,
+`blockTables`).
 
 **The recursor stage is one opaque conjunct** — `checkBlockRec … =
 .ok rs`, the generated recursor stage (`genRecCheck`, on the raw
@@ -31,6 +29,7 @@ open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   checkBlockInds checkBlockCtors checkBlockPositivity checkBlockIdxSorts
   checkBlockRec checkBlockTables checkBlockPass checkBlockTail checkBlock
   consBlockCtors consBlockRecs consBlockRecsT blockCapsAt
+  blockConstants blockTables storedKCheck
   blockNestedBit blockRawRec BlockPass TargetMajor NestKey NestState)
 
 /-- **The uniform inductive declaration, as checked**: the stage runs
@@ -80,17 +79,17 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     checkBlockRec (m := ConLeche.CheckM) (fueledOps .verified F)
       (consBlockCtors p.nP ctorsAs env₁) p (blockNestedBit p.toBlockShape kinds)
       ctx.params st.ctorNfs.toList rd Ms block cvTas = .ok out ∧
-    -- 7' the STORED recursors against the generated ones, at the generated
-    --    install (task #431)
+    -- 8  the stream's recursors against the generated ones: their K flags, then the
+    --    rest at the environment holding the generated ones
+    storedKCheck (m := ConLeche.CheckM) p.toBlockShape p.recs out = .ok () ∧
     storedRecsCheck (m := ConLeche.CheckM) (fueledOps .verified F) .plain
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () ∧
-    -- 8  the install spine: the STORED recursors with their rules at their
-    --    majors, then the tables
-    checkBlockTables (m := ConLeche.CheckM) p.toBlockShape
-      (p.members.zip (ctorsAs.zip sortsss))
-      (consBlockRecsT p.toBlockShape 0
-        (storedOut p.recs out) (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
+    -- 9  the projection tables' checks
+    checkBlockTables (m := ConLeche.CheckM) p.toBlockShape (consBlockCtors p.nP ctorsAs env₁)
+      p.members = .ok () ∧
+    -- 10 the install, read off the block
+    env₂ = env.pushDelta (blockConstants p₀) (blockTables p₀.toBlockShape p₀.members)
 
 /-- **The block's run**: each member at its telescope, then the stages at those members. -/
 def BlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
@@ -145,19 +144,30 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
   | ok q =>
   rw [hP] at h
   dsimp only at h
-  obtain ⟨p₁, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hK, hst, hpar, htbl, hp⟩ :=
+  obtain ⟨p₁, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hP', hst, hpar, htbl, hp⟩ :=
     ConLeche.checkBlockPass_inv hP
-  obtain ⟨isorts, rs, hsorts, hRec, hS, hTbl⟩ := ConLeche.checkBlockTail_inv h
+  cases hTail : ConLeche.checkBlockTail (m := ConLeche.CheckM) (fueledOps .verified F) block q with
+  | error e => rw [hTail] at h; exact nomatch h
+  | ok u =>
+  cases u
+  rw [hTail] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  obtain ⟨isorts, rs, hsorts, hRec, hK, hS, hTbl⟩ := ConLeche.checkBlockTail_inv hTail
   rw [hpar, htbl] at hRec
   refine ⟨ms, hms, hall, hdecl, ?_, ?_, ?_, blockRawRec p₀, q.env₁, q.cvTas, p₁, q.p, q.ctorsAs,
     q.sortsss, ctx, holes, q.rd, q.cls, q.kinds, q.nfs, pos, st, isorts, rs, hInd, hp, ?_, ?_, ?_,
-    ?_, hst, hraw.symm, hsorts, hRec, hS, hTbl⟩
+    ?_, hst, hraw.symm, hsorts, hRec, hK, hS, hTbl, ?_⟩
   · rw [hcs]; exact hnd.1
   · rw [hnm]; exact hnd.2
   · rw [hnm]; exact hbool
   · rw [hp]; exact hCtors
   · rw [hp]; exact hctx
   · rw [hp]; exact hcls
-  · rw [hp]; exact hK
+  · rw [hp]; exact hP'
+  · obtain ⟨e₁, e₂⟩ := ConLeche.blockInstall_reduced hd hms
+    rw [← h]
+    show _ = env.pushDelta (blockConstants { p₀ with members := ms })
+      (blockTables ({ p₀ with members := ms } : BlockParts).toBlockShape ms)
+    rw [e₁, e₂]
 
 end ConLeche.Semantics

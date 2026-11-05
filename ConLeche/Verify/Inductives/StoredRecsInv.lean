@@ -18,6 +18,14 @@ are the records'.
 
 namespace ConLeche
 
+/-- **The stream's recursors at the generated ones' positions**: each generated recursor with the
+stream's type and right-hand sides (the generated constant is the record's with the generated type,
+`classRecTyOk`, so this is the record's constant). -/
+@[expose] def storedOut (recs : List RecShape) (out : List (ConstantVal × TargetMajor × List Expr)) :
+    List (ConstantVal × TargetMajor × List Expr) :=
+  List.zipWith (fun rc g => ({ g.1 with type := rc.cvR.type }, g.2.1, rc.rules.map (·.rhs)))
+    recs out
+
 theorem storedOut_length {recs : List RecShape}
     {out : List (ConstantVal × TargetMajor × List Expr)} (h : out.length = recs.length) :
     (storedOut recs out).length = out.length := by

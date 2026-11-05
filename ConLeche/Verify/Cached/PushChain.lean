@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.BlockPartsInv
-public import ConLeche.Verify.Cached.AgreeFloor
+public import ConLeche.Verify.Cached.InstallPushes
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.Inductives.StoredRecsInv
 import ConLeche.Verify.EnvWF

@@ -102,6 +102,12 @@ structure RecShape where
   isK : Bool := false
   deriving Repr, Inhabited
 
+/-- A structure-like member's constructor: its only one, at no index. -/
+def MemberShape.structCtor? (ms : MemberShape) : Option (ConstantVal × Nat) :=
+  match ms.ctors with
+  | [c] => if ms.nIdx == 0 then some c else none
+  | _ => none
+
 /-- The pieces of a recognised block at any number of members: the
 members, the recursors, the SHARED parameter count, elimination level
 parameter and result sort (official requires the parameters to agree
