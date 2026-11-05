@@ -168,6 +168,20 @@ theorem checkDefnValCI_spec (henv : EnvWF env)
       constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 value] =>
     vcgen [checkDefnValCI, inferK_spec henv hs, defeqK_spec henv] <;> finish
 
+/-- `checkThmValCI` simulates the generic `checkThmVal`: the record it returns is the statement the
+fueled side conses. -/
+theorem checkThmValCI_spec (henv : EnvWF env)
+    {cv : ConstantVal} {value : Expr}
+    (htf : Expr.WScoped 0 cv.type) (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkThmValCI .verified (mkFEnv env) cv value
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (checkThmVal (fueledOpsM .verified) env cv value) ⟨v :: env.consts, env.tables⟩ ∧
+      v = .thmInfo cv; ⊤⦄ := by
+  sym only [conleche_grind, checkThmVal.eq_1, Expr.allLevelParamsDefinedC_spec,
+      constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 value] =>
+    vcgen [checkThmValCI, inferK_spec henv, opSIxC_spec henv,
+      liftFueled_spec (mode := .verified) (eager := false) (env := env), defeqK_spec henv] <;> finish
+
 /-- `checkOpaqueValCI` simulates the generic `checkOpaqueVal`: the
 record it returns is the axiom the fueled side conses, the value
 closed. -/
@@ -245,7 +259,8 @@ theorem checkDeclC_spec (henv : EnvWF env)
         push_mkFEnv, mkFEnv_env] =>
       vcgen [checkDeclC, checkConstantValC_spec henv hs, checkQuotRecordC_spec hs] <;> finish
   | thmDecl cv value =>
-    sym only [conleche_grind] => vcgen [checkDeclC] <;> finish
+    sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env] =>
+      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkThmValCI_spec henv] <;> finish
   | opaqueDecl cv value =>
     sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env] =>
       vcgen [checkDeclC, checkConstantValC_spec henv hs, checkOpaqueValCI_spec henv,

@@ -8,7 +8,7 @@ import ConLeche.Verify.Inductives.RecCheckScope
 import ConLeche.Verify.Cached.WalkersC
 public import ConLeche.Verify.Cached.NestPosC
 public import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Cached.InstallPushes
+import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Verify.Cached.BlockOverlay
 public import ConLeche.Verify.Inductives.StreamRecsInv
 public import ConLeche.Verify.Inductives.TargetAuxFire

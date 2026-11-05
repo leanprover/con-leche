@@ -24,7 +24,7 @@ twice (`public import` for the `example`s' statements, `meta import` for
 the evaluation). -/
 meta import ConLeche
 meta import ConLeche.Frontend.ExportC
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 meta import ConLeche.Model.StreamConsts
 
 public section

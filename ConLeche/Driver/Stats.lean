@@ -6,7 +6,7 @@ public import Init.System.IO
 # Run statistics on stderr (task #329)
 
 The end-of-run summary every run prints on stderr — the slowest
-installs and checks, each pool's utilisation and its tail, the peak
+checks, the check phase's utilisation and its tail, the peak
 resident set — and the `--progress` heartbeat's in-flight report (how
 many workers are busy, and the oldest record one of them is on).
 
@@ -59,14 +59,10 @@ def insertTop (top : Array (Nat × Nat)) (d k : Nat) : Array (Nat × Nat) :=
   { n := s.n + 1, busy := s.busy + d, top, lastK := k, lastStart := t0, lastEnd := t1 }
 
 /-- A pool's report: its window (nanoseconds), worker count and the
-workers' statistics (a commit thread that installs records itself is
-one more entry). -/
+workers' statistics. -/
 structure PoolRep where
   name : String
   workers : Nat
-  /-- a further thread that also runs records (the install's commit
-  thread), counted in the utilisation's denominator -/
-  helper : Option String := none
   tStart : Nat
   tEnd : Nat
   stats : Array WStats
@@ -97,18 +93,16 @@ def PoolRep.line (r : PoolRep) : String :=
   let wall := r.tEnd - r.tStart
   let busy := r.stats.foldl (· + ·.busy) 0
   let n := r.stats.foldl (· + ·.n) 0
-  let threads := r.workers + (if r.helper.isSome then 1 else 0)
   let base := s!"{r.name}: {nsSecs wall} wall, {r.workers} \
-    worker{if r.workers = 1 then "" else "s"}\
-    {match r.helper with | some h => s!" + {h}" | none => ""}, {n} records, \
-    busy {nsSecs busy} ({pct busy (threads * wall)})"
+    worker{if r.workers = 1 then "" else "s"}, {n} records, \
+    busy {nsSecs busy} ({pct busy (r.workers * wall)})"
   if r.workers ≤ 1 || n = 0 then base else
   let tc := r.stats.foldl (fun m s => if s.n > 0 then max m s.lastStart else m) r.tStart
   let live := r.stats.filter (fun s => s.n > 0 && s.lastEnd > tc)
   let inTail := live.foldl (fun a s => a + (s.lastEnd - tc)) 0
   let tail := r.tEnd - min r.tEnd tc
   s!"{base}; tail {nsSecs tail} after the last start, {live.size} busy then, \
-    {nsSecs inTail} worker-time in it ({pct inTail (threads * tail)})"
+    {nsSecs inTail} worker-time in it ({pct inTail (r.workers * tail)})"
 
 /-- The slowest-records line, `label k` naming record `k`. -/
 def PoolRep.topLine (r : PoolRep) (what : String) (label : Nat → String) : String :=

@@ -10,7 +10,7 @@
 # library is NOT in `defaultTargets`, and nothing in the tree imports
 # it — which is exactly why it can rot unnoticed: `lake build`, `lake
 # test` and every other gate leave it alone.  It did rot (task #257
-# moved `checkDecls` to `ConLeche.Cached.Installed` while the module
+# moved `checkDecls` to `ConLeche.Cached.Decls` while the module
 # still imported `ConLeche.Cached.ParsedC`), and Comparator only
 # compares statements it can build.  Hence this gate.
 #

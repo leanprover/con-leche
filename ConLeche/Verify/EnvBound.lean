@@ -95,7 +95,7 @@ theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
 
 /-- The empty base layer answers nothing. -/
 @[simp] theorem FBase.find?_empty (n : Name) : ({} : FBase).find? n = none := by
-  simp [FBase.find?, baseGet?]
+  simp [FBase.find?]
 
 /-- `mkFEnv` has the empty base layer. -/
 @[simp] theorem mkFEnv_base (env : Env) : (mkFEnv env).base = {} := rfl
@@ -230,7 +230,7 @@ theorem mkTblsGo_getElem? (T : Name) : ∀ ts : List ProjTable,
 
 /-- The empty base layer has no tables. -/
 @[simp] theorem FBase.findTable?_empty (T : Name) : ({} : FBase).findTable? T = none := by
-  simp [FBase.findTable?, baseGet?]
+  simp [FBase.findTable?]
 
 /-- The raw table lookup of `mkFEnv` is the table component's. -/
 theorem mkFEnv_rawTable? (env : Env) (T : Name) :

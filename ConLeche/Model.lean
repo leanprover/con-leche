@@ -135,7 +135,7 @@ public import ConLeche.Model.Swap
 public import ConLeche.Model.AxiomPin
 public import ConLeche.Model.Harvest
 public import ConLeche.Model.Fold
-public import ConLeche.Model.InstallRun
+public import ConLeche.Model.DeclsRun
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Verify.Denote

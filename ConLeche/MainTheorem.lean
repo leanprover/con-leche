@@ -4,7 +4,7 @@ import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
-import ConLeche.Cached.Installed
+import ConLeche.Cached.Decls
 import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
@@ -38,7 +38,7 @@ every name in them, are in `ConLeche/Challenge.lean`; the reading of
 terms and the notion of model — and `Denotes_functional`, which says a
 term has at most one denotation — in `ConLeche/Denotes.lean`.
 
-* `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
+* `checkDecls` (`ConLeche/Cached/Decls.lean`) is the declaration
   fold: it installs every parsed declaration, pushing what the
   declaration says after its guards (a definition, theorem or opaque
   with its check recorded, anything else after its checked step), and

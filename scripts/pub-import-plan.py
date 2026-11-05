@@ -329,7 +329,7 @@ FALLBACK = {
     # task #480: re-exports the model calls demotable, each MEASURED by building
     # with it demoted (public statements name what it carries).
     ('ConLeche.Model.Inductives.ViewedStep', 'ConLeche.Model.Inductives.FormerSwap'),
-    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.Installed'),
+    ('ConLeche.Verify.Cached.AgreeFloor', 'ConLeche.Cached.Decls'),
     ('ConLeche.Verify.EnvExt.Reads', 'ConLeche.Verify.EnvWF'),
     ('ConLeche.Verify.Inductives.TargetAuxFire', 'ConLeche.Verify.Inductives.GenRecRun'),
     ('ConLeche.Verify.Rules.RedBridge', 'ConLeche.Verify.Rules.Defs'),

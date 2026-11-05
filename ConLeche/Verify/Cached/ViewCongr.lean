@@ -1,37 +1,31 @@
 module
 
-public import ConLeche.Verify.Cached.ParInstall
+public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.BlockOverlay
 
 /-!
-# Every install step reads its index only through `find?` (task #329)
+# A record's check reads its index only through `find?`
 
-The parallel install's workers install every record — blocks, axioms,
-basis blocks and the pinned declarations too — at a WORKER VIEW
-(`workerView`, `ConLeche/Verify/Cached/ParInstall.lean`): an index with no
-constants of its own, answering from the frozen base layer, whose
-lookups are the serial index's (`ViewAgrees`).  For the commit thread
-to add the serial fold's step, the install at the view must BE the
-install at the serial index, push for push.  This file proves it:
-`checkDeclStepC_twin` — from two indices that answer alike, grow alike
-and hold nothing above their counters (`Twin`), the step fails alike
-or pushes the same constants onto each.
+A record's job runs at a view of the stream's index (`StreamIndex.view`,
+`ConLeche/Cached/StreamIndex.lean`): an index with no constants of its own, answering from the frozen
+base layer.  For the job's verdict to be the fold's step, the check at the view must BE the check at
+the fold's index, push for push.  This file proves it: `checkDeclStepC_twin`: from two indices that
+answer alike, grow alike and hold nothing above their counters (`Twin`), the step fails alike or
+pushes the same constants onto each.
 
-Two kinds of lemma, bottom-up through the install code:
+Two kinds of lemma, bottom-up through the code:
 
-* **Congruence**: a stage that only READS its index gives the same
-  result at two indices with the same `find?`.  The cached operations
-  (`sharedOpsC`) ignore the `Env` argument every operation call carries
-  (`EnvFree`), so the environments the stages pass along do not matter
-  either — every operation call is normalised to `Env.empty`.
-* **Pushes**: a stage that extends its index pushes the same list onto
-  both (`TwinOut`), and the indices stay twins.
+* **Congruence**: a stage that only READS its index gives the same result at two indices with the
+  same `find?`.  The cached operations (`sharedOpsC`) ignore the `Env` argument every operation call
+  carries (`EnvFree`), so the environments the stages pass along do not matter either: every
+  operation call is normalised to `Env.empty`.
+* **Pushes**: a stage that extends its index pushes the same list onto both (`TwinOut`), and the
+  indices stay twins.
 
-Nothing here is about the model; it is the install code's own
-discipline — reads through `find?`, writes by `push` — made a theorem,
-and self-contained: it imports the cached checker, `KnotCongr` and
+Nothing here is about the model; it is the checker's own discipline (reads through `find?`, writes
+by `push`) made a theorem, and self-contained: it imports the cached checker, `KnotCongr` and
 `BlockOverlay`, and nothing from the theory.
 -/
 
@@ -58,6 +52,70 @@ theorem sharedOpsC_envFree (mode : CheckMode) (fe : FEnv) : EnvFree (sharedOpsC 
 theorem sharedOpsRuleR_envFree (mode : CheckMode) (fe : FEnv) :
     EnvFree (sharedOpsRuleR mode fe) :=
   ⟨fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl⟩
+
+/-! ## The index below its counter -/
+
+/-- Every index entry was pushed below the counter: what makes a push's lookup the old lookup but
+for the pushed name. -/
+@[expose] def IdxBelow (fe : FEnv) : Prop :=
+  fe.ovl = [] ∧
+    ∀ (n : Name) (c : Nat) (ci : ConstantInfo), fe.idx[n]? = some (c, ci) → c < fe.visibleBelow
+
+theorem IdxBelow.mkFEnv_empty : IdxBelow (mkFEnv Env.empty) := by
+  unfold IdxBelow
+  refine ⟨rfl, ?_⟩
+  intro n c ci h
+  simp [mkFEnv, mkFEnvGo, Env.empty] at h
+
+theorem IdxBelow.push {fe : FEnv} (h : IdxBelow fe) (ci : ConstantInfo) :
+    IdxBelow (fe.push ci) := by
+  unfold IdxBelow at h ⊢
+  refine ⟨h.1, ?_⟩
+  intro n c ci' hl
+  simp only [FEnv.push, Std.HashMap.getElem?_insert] at hl ⊢
+  split at hl
+  · cases hl; omega
+  · exact Nat.lt_succ_of_lt (h.2 n c ci' hl)
+
+theorem IdxBelow.pushTable {fe : FEnv} (h : IdxBelow fe) (t : ProjTable) :
+    IdxBelow (fe.pushTable t) := h
+
+theorem IdxBelow.pushTables :
+    ∀ (Q : List ProjTable) {fe : FEnv}, IdxBelow fe → IdxBelow (FEnv.pushTables Q fe)
+  | [], _, h => h
+  | t :: Q, _, h => IdxBelow.pushTables Q (h.pushTable t)
+
+theorem IdxBelow.pushAll {fe : FEnv} (h : IdxBelow fe) :
+    ∀ L : List ConstantInfo, IdxBelow (FEnv.pushAll L fe)
+  | [] => h
+  | ci :: L => IdxBelow.pushAll (h.push ci) L
+
+theorem pushAll_visibleBelow : ∀ (L : List ConstantInfo) (fe : FEnv),
+    (FEnv.pushAll L fe).visibleBelow = fe.visibleBelow + L.length
+  | [], _ => rfl
+  | ci :: L, fe => by
+    show (FEnv.pushAll L (fe.push ci)).visibleBelow = _
+    rw [pushAll_visibleBelow L (fe.push ci)]
+    simp only [FEnv.push, List.length_cons]
+    omega
+
+/-- **A push answers the pushed name and leaves every other lookup
+alone** (below the counter nothing else changes). -/
+theorem IdxBelow.find?_push {fe : FEnv} (h : IdxBelow fe) (ci : ConstantInfo) (n : Name) :
+    (fe.push ci).find? n = if ci.name = n then some ci else fe.find? n := by
+  unfold IdxBelow at h
+  have hov : (fe.push ci).ovl = [] := h.1
+  simp only [FEnv.find?, hov, h.1]
+  simp only [FEnv.push, Std.HashMap.getElem?_insert, beq_iff_eq]
+  by_cases hn : ci.name = n
+  · simp [hn]
+  · simp only [hn, ↓reduceIte]
+    cases hl : fe.idx[n]? with
+    | none => rfl
+    | some p =>
+      obtain ⟨c, ci'⟩ := p
+      have hc := h.2 n c ci' hl
+      simp only [Nat.lt_succ_of_lt hc, hc, ↓reduceIte]
 
 /-! ## Twin indices -/
 
@@ -395,6 +453,15 @@ theorem checkDefnValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     checkDefnValCI mode fe₁ cv value hint = checkDefnValCI mode fe₂ cv value hint := by
   unfold checkDefnValCI
   simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
+
+/-- A theorem's value check reads its index only through `find?`. -/
+theorem checkThmValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) (cv : ConstantVal)
+    (value : Expr) :
+    checkThmValCI mode fe₁ cv value = checkThmValCI mode fe₂ cv value := by
+  unfold checkThmValCI
+  simp only [coreKnotI_congr hfe htb, opSIxC_congr hfe htb, constsResolveFC_congr hfe,
+    strLitStoredF_congr hfe]
 
 /-- An opaque's value check reads its index only through `find?`. -/
 theorem checkOpaqueValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -1304,40 +1371,37 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
     unfold checkDeclC
     simp only [checkConstantValC_congr hfe htb]
     refine RelRun.bind_same fun _ => ?_
-    split
-    · -- the pinned arm: the same record on both sides, certified against
-      -- overlays that answer as the twin pushes do, pushed last
-      rw [checkDefnValCI_congr hfe htb]
-      refine RelRun.bind_same fun ci => ?_
-      have hov : (fe₁.overlay [ci]).find? = (fe₂.overlay [ci]).find? := by
-        rw [find?_overlay_push ht.idx₁.1, find?_overlay_push ht.idx₂.1]
-        exact (ht.push ci).find
-      have h := sharedOpsC_envFree mode fe₂
-      simp only [natOpGuardF_congr hov, natOpStoredOkF_congr hov, hov,
-        sharedOpsC_congr hfe htb, certifyNatEqs_envFree h fe₁.env, certifyNatEqs_envFree h fe₂.env,
-        checkDivModPinF_congr h hfe hov]
-      relrun
-      all_goals exact RelRun.pure (PushedFrom.push _ _ _)
-    · exact RelRun.ofThrow
+    -- the same record on both sides, certified against overlays that answer as the twin pushes
+    -- do, pushed last
+    rw [checkDefnValCI_congr hfe htb]
+    refine RelRun.bind_same fun ci => ?_
+    have hov : (fe₁.overlay [ci]).find? = (fe₂.overlay [ci]).find? := by
+      rw [find?_overlay_push ht.idx₁.1, find?_overlay_push ht.idx₂.1]
+      exact (ht.push ci).find
+    have h := sharedOpsC_envFree mode fe₂
+    simp only [natOpGuardF_congr hov, natOpStoredOkF_congr hov, hov,
+      sharedOpsC_congr hfe htb, certifyNatEqs_envFree h fe₁.env, certifyNatEqs_envFree h fe₂.env,
+      checkDivModPinF_congr h hfe hov]
+    relrun
+    all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | thmDecl cv value =>
     unfold checkDeclC
-    exact RelRun.ofThrow
+    simp only [checkConstantValC_congr hfe htb, checkThmValCI_congr hfe htb]
+    refine RelRun.bind_same fun _ => RelRun.bind_same fun ci => ?_
+    exact RelRun.pure (PushedFrom.push _ _ _)
   | opaqueDecl cv value =>
     unfold checkDeclC
     simp only [checkConstantValC_congr hfe htb]
     refine RelRun.bind_same fun _ => ?_
-    split
-    · -- the pinned arm, as the definitions'
-      rw [checkOpaqueValCI_congr hfe htb]
-      refine RelRun.bind_same fun ci => ?_
-      have hov : (fe₁.overlay [ci]).find? = (fe₂.overlay [ci]).find? := by
-        rw [find?_overlay_push ht.idx₁.1, find?_overlay_push ht.idx₂.1]
-        exact (ht.push ci).find
-      have h := sharedOpsC_envFree mode fe₂
-      simp only [sharedOpsC_congr hfe htb, checkReducePinF_congr h hfe hov]
-      relrun
-      all_goals exact RelRun.pure (PushedFrom.push _ _ _)
-    · exact RelRun.ofThrow
+    rw [checkOpaqueValCI_congr hfe htb]
+    refine RelRun.bind_same fun ci => ?_
+    have hov : (fe₁.overlay [ci]).find? = (fe₂.overlay [ci]).find? := by
+      rw [find?_overlay_push ht.idx₁.1, find?_overlay_push ht.idx₂.1]
+      exact (ht.push ci).find
+    have h := sharedOpsC_envFree mode fe₂
+    simp only [sharedOpsC_congr hfe htb, checkReducePinF_congr h hfe hov]
+    relrun
+    all_goals exact RelRun.pure (PushedFrom.push _ _ _)
   | axiomDecl cv =>
     unfold checkDeclC
     simp only [checkConstantValC_congr hfe htb, stdAxiomOkF_congr hfe, trustCompilerOkF_congr hfe,
@@ -1363,60 +1427,5 @@ theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht :
   exact RelRun.bind_same fun _ => checkDeclC_twin pins ht pd
 
 end Decls
-
-/-! ## The commit of any record -/
-
-section Commit
-
-variable {mode : CheckMode}
-
-theorem IdxBelow.ofWorkerView (B : BaseIdx) (S : Slots) (v : Nat) :
-    IdxBelow (workerView B S v) :=
-  ⟨rfl, fun n c ci h => by simp [ConLeche.Cached.workerView] at h⟩
-
-theorem Twin.ofViewAgrees {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees B S fe)
-    (hidx : IdxBelow fe) : Twin fe (workerView B S fe.visibleBelow) :=
-  ⟨(funext hag.find).symm, (funext hag.raw).symm, rfl, hidx, IdxBelow.ofWorkerView B S _⟩
-
-/-- Where `valueStep` has no verdict, the record has no value group. -/
-theorem valueGroup?_of_valueStep_none {W : FEnv} {pd : Declaration} (h : valueStep W pd = none) :
-    valueGroup? pd = none := by
-  cases pd with
-  | defnDecl cv value hint =>
-    by_cases hnat : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = true
-    · simp only [valueGroup?, hnat, ↓reduceIte]
-    · simp only [valueStep, hnat, Bool.false_eq_true, ↓reduceIte] at h
-      exact nomatch h
-  | thmDecl cv value => exact nomatch h
-  | opaqueDecl cv value =>
-    by_cases hred : reduceOpNames.contains cv.name = true
-    · simp only [valueGroup?, hred, ↓reduceIte]
-    · simp only [valueStep, hred, Bool.false_eq_true, ↓reduceIte] at h
-      exact nomatch h
-  | axiomDecl _ => rfl
-  | quotDecl _ _ => rfl
-  | indDecl _ _ => rfl
-
-/-- Where `valueStep` has no verdict, phase A's step is the checked step, its result dropped. -/
-theorem installGuards_of_valueStep_none {pins : List NatOpPinSet} {fe W : FEnv}
-    {pd : Declaration} (h : valueStep W pd = none) :
-    installGuards mode pins fe pd = checkDeclOnly mode pins fe pd := by
-  cases pd with
-  | defnDecl cv value hint =>
-    by_cases hnat : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = true
-    · simp only [installGuards, hnat, ↓reduceIte]
-    · simp only [valueStep, hnat, Bool.false_eq_true, ↓reduceIte] at h
-      exact nomatch h
-  | thmDecl cv value => exact nomatch h
-  | opaqueDecl cv value =>
-    by_cases hred : reduceOpNames.contains cv.name = true
-    · simp only [installGuards, hred, ↓reduceIte]
-    · simp only [valueStep, hred, Bool.false_eq_true, ↓reduceIte] at h
-      exact nomatch h
-  | axiomDecl _ => rfl
-  | quotDecl _ _ => rfl
-  | indDecl _ _ => rfl
-
-end Commit
 
 end ConLeche.Cached

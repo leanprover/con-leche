@@ -13,9 +13,10 @@ the preparation, the fold, the verdict line and the exit code —
 written against `CheckerIO`.  The binary runs it at `IO` (`Cli.lean`
 runs it through `runReq`); the theorem below is about its run in the
 model `ModelIO` over a snapshot of the files.  The output, the clock
-and the fold's two phases with their thread pools (`checkDeclsIO`,
+the index build (`Jobs.build`, `ConLeche/Driver/CheckPool.lean`) and the
+check phase with its thread pool (`checkDeclsIO`,
 `ConLeche/Driver/Run.lean`) are `IO` actions handed to
-`CheckerIO.liftIO`; the fold's result carries its proof in its type.
+`CheckerIO.liftIO`; the check's result carries its proof in its type.
 
 * `checkMainG_ndjson_accept`: an exit 0 on a stream means the file's
   bytes in the snapshot, as one chunk, parse to records that
@@ -95,7 +96,7 @@ configuration.
 to `Expr` (`parseStreamG`) and checked by the one
 driver — `checkDeclsIO` in `ConLeche/Driver/Run.lean`, through `liftIO` — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
-environment with the proof that the fold `checkDecls` returns it, the
+proof that the fold `checkDecls` accepts the records, the
 fold the main theorem `ConLeche.model_exists`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design.
@@ -112,8 +113,8 @@ parse, established from the good entries its rounds built
 `Frontend.parseChunks` of the file's reads, and the chunk boundaries
 are proved invisible (`parseStreamG_model`: the file's bytes as one
 chunk).  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
-receipts printed below.  `checkDeclsIO` returns its environment with
-the evidence `checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
+receipts printed below.  `checkDeclsIO` returns the evidence
+`∃ env, checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
 IO — the heartbeat, the parallel check pool, the diagnostics that say
 which step failed and with what exit code — and none of it touches
 the verdict.  The three steps fail in ONE error type, the checker's
@@ -195,14 +196,11 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **One driver, and it returns its proof.**  `checkDeclsIO`
-      -- above runs the fold's two phases — phase A installs every
-      -- record and carries its accepting run, phase B checks every
-      -- recorded declaration against the prefix view of the installed
-      -- index and carries every check — and what comes out is the
-      -- environment with the proof that `ConLeche.Cached.checkDecls`
-      -- returns it, the fold the main theorem
-      -- `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`) is
-      -- about.  The success line below is printed from that value and
+      -- checks every record at the frozen index's view of its position
+      -- and carries every check, and what comes out is the proof that
+      -- `ConLeche.Cached.checkDecls` accepts the records, the fold the
+      -- main theorem `ConLeche.model_exists`
+      -- (`ConLeche/MainTheorem.lean`) is about.  The success line below is printed from that value and
       -- from nothing else.  Printing between the steps (`--progress`)
       -- changes nothing about the proof, so there is no second loop.
       --
@@ -214,10 +212,13 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       -- synthesises NONE of them and only moves the stream's own
       -- records to the front.)  The declaration NAME on the line is
       -- the portable handle.
+      -- The records' frozen index, the last step of the parse phase.
+      let tIndex ← clockMs
+      let J ← CheckerIO.liftIO (Jobs.build decls)
       -- The heartbeat's first line (`--progress`): the parse is done,
-      -- and the fold is about to start on this many records.  The
-      -- install and check phases print their own lines
-      -- (`checkDeclsIO`), and the summary closes the run.
+      -- and the check phase is about to start on this many records.  It
+      -- prints its own lines (`checkDeclsIO`), and the summary closes
+      -- the run.
       let tParse ← clockMs
       if stride > 0 then
         diagLine s!"con-leche: parse done: {decls.size} fold records — \
@@ -226,7 +227,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
           t={ConLeche.Cached.msSecs (tParse - t0)}s \
           (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
       let verdict ← CheckerIO.liftIO do
-        checkDeclsIO mode (← IO.getStderr) stride decls.size t0 tParse jobs decls
+        checkDeclsIO mode (← IO.getStderr) stride t0 tIndex tParse jobs J
       match verdict with
       | .ok _ =>
         -- **The headline number is the FILE's declaration-record
@@ -315,15 +316,15 @@ theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
     rotate_right
     · obtain ⟨b, hb, hpc⟩ := parseStreamG_model hx
       simp only [Except.map]
-      -- the tail after the parse: the receipts, the fold through
+      -- the tail after the parse: the receipts, the index, the check through
       -- `liftIO`, whose value carries its proof, and the verdict
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
-        intro _ <;>
+        intro _ _ _ <;>
         refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
         intro v <;>
-        rcases v with ⟨e, _⟩ | ⟨env, henv⟩ <;>
+        rcases v with ⟨e, _⟩ | ⟨⟨env, henv⟩⟩ <;>
         simp only [ModelIO.allOk_bind, ModelIO.allOk_pure, ModelIO.liftIO_iff, forall_const]
       -- a rejection's exit code is not 0; an accept carries its proof
       all_goals first

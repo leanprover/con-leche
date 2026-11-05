@@ -1,12 +1,12 @@
 module
 
 public import ConLeche.Frontend.Stream
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 /- The tests below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported
 twice. -/
 meta import ConLeche.Frontend.Stream
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 
 public section
 

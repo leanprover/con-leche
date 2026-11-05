@@ -65,30 +65,6 @@ theorem FEnv.rawTable?_pushTable (fe : FEnv) (t : ProjTable) (T : Name) :
     (fe.pushTable t).rawTable? T = if t.structName = T then some t else fe.rawTable? T := by
   simp only [FEnv.rawTable?, FEnv.pushTable, Std.HashMap.getElem?_insert, beq_iff_eq]
   by_cases hT : t.structName = T <;> simp [hT]
-
-/-- **Installing tables answers, for each name, the last one installed.** -/
-theorem FEnv.rawTable?_pushTables (T : Name) :
-    ∀ (Q : List ProjTable) (fe : FEnv), (FEnv.pushTables Q fe).rawTable? T =
-      match ProjTable.lastOf? T Q with
-      | some t => some t
-      | none => fe.rawTable? T
-  | [], _ => rfl
-  | t :: Q, fe => by
-    show (FEnv.pushTables Q (fe.pushTable t)).rawTable? T = _
-    rw [FEnv.rawTable?_pushTables T Q (fe.pushTable t), FEnv.rawTable?_pushTable]
-    show _ = (match (match ProjTable.lastOf? T Q with
-      | some r => some r
-      | none => if t.structName == T then some t else none) with
-      | some t => some t
-      | none => fe.rawTable? T)
-    cases ProjTable.lastOf? T Q with
-    | some r => rfl
-    | none =>
-      by_cases hT : t.structName = T
-      · simp [hT]
-      · have hb : (t.structName == T) = false := by simpa using hT
-        simp only [hT, hb, ↓reduceIte, Bool.false_eq_true]
-
 theorem FEnv.rawTable?_push (fe : FEnv) (ci : ConstantInfo) :
     (fe.push ci).rawTable? = fe.rawTable? := rfl
 

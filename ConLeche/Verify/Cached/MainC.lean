@@ -1,23 +1,18 @@
 module
 
-public import ConLeche.Model.InstallRun
+public import ConLeche.Model.DeclsRun
 import ConLeche.Model.Capstone
 public section
 
 /-!
 # The capstone letters of the fold `checkDecls`
 
-`checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration fold
-the binary runs — install every record, then check every recorded
-declaration — and the subject of the main theorem
-(`ConLeche.model_exists`, `ConLeche/MainTheorem.lean`).  Its letters
-are the letters on the fully checked environment the driver assembles
-(`ConLeche/Model/InstallRun.lean`) read through
-`checkDecls_fullyChecked`: an accept of the fold IS a fully checked
-environment, and a fully checked environment carries the graded model
-(`fullyChecked_sound`), so no constant of type `False` (or `Empty`) is
-stored in what the fold accepts.  The letters are stated at `.verified`,
-the mode the model covers.
+`checkDecls` (`ConLeche/Cached/Decls.lean`) is the declaration fold the binary's driver returns the
+accept of (`checkDecls_of_jobs`) and the subject of the main theorem (`ConLeche.model_exists`,
+`ConLeche/MainTheorem.lean`).  An accept of the fold is an accepting run, and the run carries the
+graded model (`declsRun_model`, `ConLeche/Model/DeclsRun.lean`), so no constant of type `False` (or
+`Empty`) is stored in what the fold accepts.  The letters are stated at `.verified`, the mode the model
+covers.
 
 **At every pin list** (task #304): the fold's pin-list parameter is
 free in all three letters below (`checkDecls .verified pins ds`), because
@@ -40,8 +35,8 @@ theorem checkDecls_sound
     {ds : Array Declaration} {env' : Env}
     (h : checkDecls .verified pins ds = .ok env') :
     Nonempty (EnvModelM V env') := by
-  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked .verified h
-  exact fullyChecked_sound V fc
+  obtain ⟨n, fe, r, rfl⟩ := checkDecls_run .verified h
+  exact (declsRun_model (V := V) r rfl ConLeche.Model.EnvModelOk.empty).nonempty
 
 /-- **The fold's letter about `Empty`**: the checker, running a
 validating mode, never accepts a stream in which some stored constant

@@ -1,7 +1,7 @@
 module
 
 import ConLeche.Verify.Inductives.BlockShapeInv
-public import ConLeche.Verify.Cached.InstallPushes
+public import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
 import ConLeche.Verify.CheckerF
@@ -11,7 +11,7 @@ public section
 /-!
 # Every accepted install is a chain of fresh pushes (task #253)
 
-The two-phase driver (`checkDecls`, `ConLeche/Cached/Installed.lean`)
+The two-phase driver (`checkDecls`, `ConLeche/Cached/Decls.lean`)
 checks each recorded value against a PREFIX VIEW of the final
 environment, `feFinal.restrictTo vis`, and the prefix view's `find?` is
 the truncated environment's only under name uniqueness
@@ -21,7 +21,7 @@ performs is guarded by a lookup — `checkConstantValC`'s duplicate
 guard, `installBasisDeclF`'s — and every table install by a lookup of
 its structure — so this file proves, once and OPERATIONALLY (no
 environment well-formedness, no simulation: the final-value discipline
-of `ConLeche/Verify/Cached/InstallPushes.lean`), that an accepted step
+of `ConLeche/Verify/Cached/DeclPushes.lean`), that an accepted step
 returns `PushChain env fe'`: a canonical index whose constants extend
 `env` by fresh names, and whose tables extend `env`'s by tables of
 structures `env` does not store.  Chained from the empty environment, that is
@@ -569,24 +569,24 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   | defnDecl cv value hint =>
     simp only []
     refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun _ hfr => ?_
-    split
-    · -- the pinned arm: certified against the overlay, pushed last
-      refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
-      subst hci
-      yields
-      all_goals (apply Yields.pure; exact h.push hfr)
-    · exact Yields.ofThrow
-  | thmDecl cv value => exact Yields.ofThrow
+    -- certified against the overlay, pushed last
+    refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
+    subst hci
+    yields
+    all_goals (apply Yields.pure; exact h.push hfr)
+  | thmDecl cv value =>
+    simp only []
+    refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun _ hfr => ?_
+    refine Yields.bind' (checkThmValCI_shape mode fe cv value) fun ci hci => ?_
+    subst hci
+    exact Yields.pure (h.push hfr)
   | opaqueDecl cv value =>
     simp only []
     refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun _ hfr => ?_
-    split
-    · -- the pinned arm: certified against the overlay, pushed last
-      refine Yields.bind' (checkOpaqueValCI_shape mode fe cv value) fun ci hci => ?_
-      subst hci
-      yields
-      all_goals (apply Yields.pure; exact h.push hfr)
-    · exact Yields.ofThrow
+    refine Yields.bind' (checkOpaqueValCI_shape mode fe cv value) fun ci hci => ?_
+    subst hci
+    yields
+    all_goals (apply Yields.pure; exact h.push hfr)
   | axiomDecl cv =>
     simp only []
     split
@@ -621,68 +621,14 @@ theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}
   ybind
   exact checkDeclC_push mode h pd
 
-/-- Phase A's step body: a fresh chain, and the pending records grow
-by at most the one it may push. -/
-theorem installStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (pend : Array PendingCheck) (pd : Declaration) :
-    Yields (installStepC mode pins i fe pend pd)
-      (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) := by
-  have hord : ∀ pd', valueGroup? pd' = none →
-      Yields (checkDeclOnly mode pins fe pd' >>= fun _ =>
-        pure (FEnv.pushDelta (declConstants pd') (declTables pd') fe,
-          pushPending pend i fe.visibleBelow (valueGroup? pd')))
-      (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) := fun pd' hv => by
-    rw [hv]
-    have hc := (checkDeclStepC_push (pins := pins) mode h pd').and
-      (checkDeclStepC_pushes (pins := pins) mode fe pd')
-    exact Yields.bind' (Yields.bind' hc fun fe' h' => Yields.pure (P := fun _ => PushChain env
-      (FEnv.pushDelta (declConstants pd') (declTables pd') fe)) (h'.2 ▸ h'.1))
-      fun _ h' => Yields.pure ⟨h', [], by simp [pushPending]⟩
-  unfold installStepC
-  cases pd with
-  | defnDecl cv value hint =>
-    simp only [installGuards]
-    split
-    · rename_i hnat
-      exact hord _ (by simp only [valueGroup?, hnat, ↓reduceIte])
-    · rename_i hnat
-      refine Yields.bind' (valueDeclGuardsC_fresh fe cv value) fun _ hfr => ?_
-      simp only [valueGroup?, hnat, Bool.false_eq_true, ↓reduceIte]
-      exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
-  | thmDecl cv value =>
-    simp only [installGuards]
-    rw [bind_assoc]
-    ybind
-    refine Yields.bind' (headerGuardsC_fresh fe cv) fun _ hfr => ?_
-    exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
-  | opaqueDecl cv value =>
-    simp only [installGuards]
-    split
-    · rename_i hred
-      exact hord _ (by simp only [valueGroup?, hred, ↓reduceIte])
-    · rename_i hred
-      refine Yields.bind' (valueDeclGuardsC_fresh fe cv value) fun _ hfr => ?_
-      simp only [valueGroup?, hred, Bool.false_eq_true, ↓reduceIte]
-      exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
-  | axiomDecl cv => exact hord _ rfl
-  | quotDecl k cv => exact hord _ rfl
-  | indDecl block nP => exact hord _ rfl
-
-/-- **Phase A is a fresh chain**: from a canonical index, an accepting
-run returns a canonical index whose constants extend the start by
-fresh names, and the pending records extend the start's. -/
-theorem installRun_trace (mode : CheckMode) {ds : List Declaration} {env : Env}
-    {p : Nat × FEnv × Array PendingCheck}
-    {q : Nat × FEnv × Array PendingCheck}
-    (h : InstallRun mode pins ds p q) (hp : PushChain env p.2.1) :
-    PushChain env q.2.1 ∧ ∃ new, q.2.2.toList = p.2.2.toList ++ new := by
+/-- **An accepting run is a fresh chain**: from a canonical index, it returns a canonical index
+whose constants extend the start by fresh names. -/
+theorem declsRun_chain (mode : CheckMode) {ds : List Declaration} {env : Env} {p q : Nat × FEnv}
+    (h : DeclsRun mode pins ds p q) (hp : PushChain env p.2) : PushChain env q.2 := by
   induction h with
-  | nil p => exact ⟨hp, [], by simp⟩
+  | nil p => exact hp
   | @cons pd ds p p₁ q hstep rest ih =>
-    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := installDeclStep_ok hstep
-    obtain ⟨h₁, new₁, hpend₁⟩ :=
-      installStepC_push mode p.1 hp p.2.2 _ {} (fe₁, pend₁) _ hstepC
-    obtain ⟨h₂, new₂, hpend₂⟩ := ih h₁
-    exact ⟨h₂, new₁ ++ new₂, by rw [hpend₂, hpend₁, List.append_assoc]⟩
+    obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
+    exact ih (checkDeclStepC_push mode hp pd {} fe₁ s₁ hstepC)
 
 end ConLeche.Cached

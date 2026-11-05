@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude

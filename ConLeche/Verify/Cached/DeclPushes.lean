@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 import ConLeche.Verify.Cached.BlockOverlay
 
 public section
@@ -156,25 +156,6 @@ theorem Yields.foldlM_rel {α β γ : Type} {R : β → γ → Prop}
 
 /-! ## The install stages -/
 
-theorem headerGuardsC_fresh (fe : FEnv)
-    (cv : ConstantVal) :
-    Yields (headerGuardsC fe cv)
-      (fun _ => fe.find? cv.name = none) := by
-  unfold headerGuardsC
-  yields
-  all_goals exact Yields.pure (Option.not_isSome_iff_eq_none.mp (by assumption))
-
-theorem valueDeclGuardsC_fresh (fe : FEnv) (cv : ConstantVal)
-    (value : Expr) :
-    Yields (valueDeclGuardsC fe cv value)
-      (fun _ => fe.find? cv.name = none) := by
-  unfold valueDeclGuardsC
-  ybind
-  refine Yields.bind' (headerGuardsC_fresh fe cv) fun _ hp => ?_
-  unfold valueGuardsC
-  yields
-  all_goals exact Yields.pure hp
-
 /-- The record a definition's value check returns is the definition
 itself, at the checked constant and hint. -/
 theorem checkDefnValCI_shape (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
@@ -182,6 +163,14 @@ theorem checkDefnValCI_shape (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
     Yields (checkDefnValCI mode fe cv value hint)
       (fun ci => ci = .defnInfo cv value hint) := by
   unfold checkDefnValCI
+  yields
+  all_goals exact Yields.pure rfl
+
+/-- The record a theorem's value check returns is its statement. -/
+theorem checkThmValCI_shape (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
+    (value : Expr) :
+    Yields (checkThmValCI mode fe cv value) (fun ci => ci = .thmInfo cv) := by
+  unfold checkThmValCI
   yields
   all_goals exact Yields.pure rfl
 
@@ -628,7 +617,7 @@ theorem tolerated_ne_std {n : Name}
 /-! ## The floor
 
 The fold installs every record by `installStepC` (`checkDecls`,
-`ConLeche/Cached/Installed.lean`), and its phase B pushes nothing, so
+`ConLeche/Cached/Decls.lean`), and its phase B pushes nothing, so
 `declConstants` computes the installed environment at *every* mode.  Hence: whenever two modes both
 **accept**, they installed the same constants, in the same order, with
 the same skeletons — and in particular the same names and the same
@@ -739,22 +728,23 @@ theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
   | defnDecl cv value hint =>
     simp only []
     ybind
-    split
-    · refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
-      subst hci
-      yields
-      all_goals exact Yields.pure rfl
-    · exact Yields.ofThrow
-  | thmDecl cv value => exact Yields.ofThrow
+    refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
+    subst hci
+    yields
+    all_goals exact Yields.pure rfl
+  | thmDecl cv value =>
+    simp only []
+    ybind
+    refine Yields.bind' (checkThmValCI_shape mode fe cv value) fun ci hci => ?_
+    subst hci
+    exact Yields.pure rfl
   | opaqueDecl cv value =>
     simp only []
     ybind
-    split
-    · refine Yields.bind' (checkOpaqueValCI_shape mode fe cv value) fun ci hci => ?_
-      subst hci
-      yields
-      all_goals exact Yields.pure rfl
-    · exact Yields.ofThrow
+    refine Yields.bind' (checkOpaqueValCI_shape mode fe cv value) fun ci hci => ?_
+    subst hci
+    yields
+    all_goals exact Yields.pure rfl
   | axiomDecl cv =>
     simp only []
     by_cases hqs : cv.name = quotSoundName
@@ -798,28 +788,20 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
   ybind
   exact checkDeclC_pushes mode fe pd
 
-/-- Phase A's step pushes what the declaration installs. -/
-theorem installStepC_pushes (mode : CheckMode) (i : Nat) (fe : FEnv) (pend : Array PendingCheck)
-    (pd : Declaration) :
-    Yields (installStepC mode pins i fe pend pd)
-      (fun r => r.1 = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
-  unfold installStepC
-  exact Yields.bind fun _ => Yields.pure rfl
-
 /-! ## The environment of an accepted stream -/
 
-/-- **The environment a stream installs.** -/
-def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
+/-- **The environment a stream denotes**: every record's constants and tables, in order. -/
+@[expose] def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
   ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
 
-theorem installRun_env (mode : CheckMode) {ds : List Declaration}
-    {p q : Nat × FEnv × Array PendingCheck} (h : InstallRun mode pins ds p q) :
-    q.2.1.env = streamEnv ds p.2.1.env := by
+theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    q.2.env = streamEnv ds p.2.env := by
   induction h with
   | nil p => rfl
   | @cons pd ds p p₁ q hstep rest ih =>
-    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := installDeclStep_ok hstep
-    have h₁ := installStepC_pushes mode p.1 p.2.1 p.2.2 pd {} (fe₁, pend₁) s₁ hstepC
+    obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
+    have h₁ := checkDeclStepC_pushes (pins := pins) mode p.2 pd {} fe₁ s₁ hstepC
     rw [ih]
     simp only at h₁
     rw [h₁, pushDelta_env]
@@ -828,9 +810,8 @@ theorem installRun_env (mode : CheckMode) {ds : List Declaration}
 /-- **An accepted stream's environment is a function of the stream**, at every mode. -/
 theorem checkDecls_env {mode : CheckMode} {ds : Array Declaration} {env : Env}
     (h : checkDecls mode pins ds = .ok env) : env = streamEnv ds.toList := by
-  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
-  obtain ⟨n, r⟩ := fc.1.run
-  exact installRun_env mode r
+  obtain ⟨n, fe, r, rfl⟩ := checkDecls_run mode h
+  exact declsRun_env mode r
 
 /-- **Two modes that both accept a stream end in the same environment.** -/
 theorem checkDecls_agree {μ₁ μ₂ : CheckMode} {ds : Array Declaration} {env₁ env₂ : Env}
