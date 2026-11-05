@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Denote.Lemmas
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Verify.BinderLoop
 import ConLeche.Model.Inductives.TableInstall
 public import ConLeche.Model.IndTowerRead
@@ -14,10 +14,7 @@ import ConLeche.Verify.Subst
 import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Denote.AcvalCongr
 import ConLeche.Verify.EnvWF
-import ConLeche.Model.IndFrame
-import ConLeche.Model.IndDomGrade
 import ConLeche.Verify.Leaves
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Tiers
 import ConLeche.Semantics.Tower.SumTower
@@ -543,61 +540,6 @@ theorem denote_agree_of_readsAt
 
 /-! ## The reading peel -/
 
-/-- **The peel.**  A Π-prefix opened at `fvar`s reads to a
-`stripPisAV`-strippable reading whose domains are the opened
-variables' annotation readings at their own depths, and whose residual is
-the opened body's reading at the full depth. -/
-theorem denote_openPis {acval : Name → (Name → Nat) → Term} {env : Env}
-    {φ : Name → Nat} :
-    ∀ (n : Nat) {d : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
-      {ea : Term},
-      openPisAtFvars n e d = some (fvs, o) →
-      denote acval env φ d e = some ea →
-      ∃ (pps : List Term) (b : Term),
-        stripPisAV n ea = some (pps, b) ∧
-        denote acval env φ (d + n) o = some b ∧
-        pps.length = n ∧
-        ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-          ∃ p, pps[i]? = some p ∧
-            denote acval env φ (d + i) x.fvarTypeD = some p
-  | 0, d, e, fvs, o, ea, hop, hden => by
-    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
-    obtain ⟨rfl, rfl⟩ := hop
-    exact ⟨[], ea, rfl, by simpa using hden, rfl,
-      fun i x hx => by simp at hx⟩
-  | n + 1, d, e, fvs, o, ea, hop, hden => by
-    match e, hop with
-    | .forallE dom body, hop =>
-      simp only [openPisAtFvars] at hop
-      split at hop
-      · next fvs' o' hop' =>
-        simp only [Option.some.injEq, Prod.mk.injEq] at hop
-        obtain ⟨rfl, rfl⟩ := hop
-        obtain ⟨ta, ba, hta, hba, rfl⟩ := denote_forallE_inv hden
-        obtain ⟨pps, b, hst, hb, hlen, hbind⟩ := denote_openPis n hop' hba
-        refine ⟨ta :: pps, b, ?_, ?_, ?_, ?_⟩
-        · simp only [stripPisAV, hst, Option.map_some]
-        · rw [show d + (n + 1) = d + 1 + n from by omega]; exact hb
-        · simp [hlen]
-        · intro i x hx
-          cases i with
-          | zero =>
-            simp only [List.getElem?_cons_zero, Option.some.injEq] at hx
-            subst hx
-            exact ⟨ta, rfl,
-              by rw [Nat.add_zero]; exact hta⟩
-          | succ i =>
-            simp only [List.getElem?_cons_succ] at hx
-            obtain ⟨p, hp, hpd⟩ := hbind i x hx
-            exact ⟨p, by simpa using hp,
-              by rw [show d + (i + 1) = d + 1 + i from by omega]; exact hpd⟩
-      · exact nomatch hop
-    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop
-    | .app _ _, hop | .lam _ _, hop | .letE _ _ _, hop | .lit _, hop
-    | .proj _ _ _, hop =>
-      simp [openPisAtFvars] at hop
-
-
 /-!
 ## The opened frames
 
@@ -635,17 +577,6 @@ open ConLeche ConLeche.Semantics ConLeche.Verify SetTheory ConLeche.SetModel
 variable {V : Type w} [SetTheory V]
 
 /-! ## `Sat` bookkeeping -/
-
-omit [SetTheory V] in
-theorem cons_eta (ρ : Nat → V) : cons (ρ 0) (fun j => ρ (j + 1)) = ρ := by
-  funext i
-  cases i <;> rfl
-
-theorem Sat_cons_inv {Δ : List Term} {A : Term} {ρ : Nat → V}
-    (h : Sat V (A :: Δ) ρ) :
-    ρ 0 ∈ˢ interp V (fun j => ρ (j + 1)) A ∧
-      Sat V Δ (fun j => ρ (j + 1)) :=
-  ⟨by have := h 0 A rfl; simpa using this, Sat_tail h⟩
 
 /-- **Context transfer**: a correspondence survives replacing the
 context by one with the same satisfying valuations whose entries
@@ -723,84 +654,6 @@ theorem piTeleAV_graded :
       exact ih2 ρ hρ
 
 /-! ## The opened context -/
-
-/-- **`CtxOk` at an opening's frame**: a term well-scoped at depth
-`i ≤ k` over the opening's variables correlates with the reading's
-context at that depth (`Γ.drop (k - i)` — the earlier domains,
-innermost first). -/
-theorem ctxOk_opened {env : Env} {m : EnvModel V env} {φ : Name → Nat}
-    {k : Nat} {e : Expr} {fvs : List Expr} {o : Expr}
-    (hop : openPisAtFvars k e 0 = some (fvs, o)) (hcl : e.hasFvar = false)
-    {Γ : List Term} (hΓ : Γ.length = k)
-    (hdoms : ∀ (i : Nat) (x : Expr), fvs[i]? = some x →
-      denote m.acval env φ i (Expr.fvarTypeD x)
-        = some (Γ.getD (k - 1 - i) default))
-    (hokΓ : ∀ i, i < k → ∀ ρ : Nat → V, Sat V (Γ.drop (k - i)) ρ →
-      WellDenotedTy V ρ (Γ.getD (k - 1 - i) default))
-    {i : Nat} (hik : i ≤ k) {x : Expr} (hwx : Expr.WScoped i x)
-    (hleaf : ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ fvs) :
-    CtxOk m φ i (Γ.drop (k - i)) x := by
-  have hidx := openPisAtFvars_index k e 0 hop
-  have hlenF : fvs.length = k := openPisAtFvars_length k hop
-  have hws := (openPisAtFvars_WScoped k e 0 hop
-    (Expr.WScoped.of_not_hasFvar hcl)).1
-  -- the positions of the variables a leaf can be
-  have hpos : ∀ l ∈ x.fvarLeaves, fvs[l.1]? = some (Expr.fvar l.1 l.2) := by
-    intro l hl
-    obtain ⟨p, hp⟩ := List.getElem?_of_mem (hleaf l hl)
-    obtain ⟨ty, hx⟩ := hidx p _ hp
-    rw [Nat.zero_add] at hx
-    obtain ⟨rfl, -⟩ : l.1 = p ∧ l.2 = ty := by
-      injection hx with a b
-      exact ⟨a, b⟩
-    exact hp
-  refine ctxOk_of_openers m.acval_closed (fvs := fvs.take i)
-    (Aa := fun j => Γ.getD (k - 1 - j) default) (Δa := Γ.drop (k - i))
-    (by rw [List.length_drop]; omega) ?_ ?_ ?_ (e := x) (n := i) ?_
-    (Expr.fvarLeaves_lt_of_wscoped hwx) ?_ ?_
-  · intro j y hy
-    have hj : j < i := by
-      have := (List.getElem?_eq_some_iff.mp hy).1
-      rw [List.length_take] at this
-      omega
-    rw [List.getElem?_take_of_lt hj] at hy
-    obtain ⟨ty, hx⟩ := hidx j y hy
-    exact ⟨ty, by rw [hx, Nat.zero_add]⟩
-  · intro y hy
-    obtain ⟨j, hj⟩ := List.getElem?_of_mem hy
-    have hji : j < i := by
-      have := (List.getElem?_eq_some_iff.mp hj).1
-      rw [List.length_take] at this
-      omega
-    rw [List.getElem?_take_of_lt hji] at hj
-    obtain ⟨ty, rfl⟩ := hidx j y hj
-    have hw := hws _ (List.mem_of_getElem? hj)
-    rw [Nat.zero_add] at hw ⊢
-    simp only [Expr.WScoped, Nat.zero_add] at hw ⊢
-    exact ⟨hji, hw.2⟩
-  · intro j y hy
-    have hj : j < i := by
-      have := (List.getElem?_eq_some_iff.mp hy).1
-      rw [List.length_take] at this
-      omega
-    rw [List.getElem?_take_of_lt hj] at hy
-    exact hdoms j y hy
-  · intro l hl
-    have hlt := Expr.fvarLeaves_lt_of_wscoped hwx l hl
-    exact List.mem_of_getElem? (by rw [List.getElem?_take_of_lt hlt]; exact hpos l hl)
-  · intro j hj
-    rw [List.getElem?_drop, show k - i + (i - 1 - j) = k - 1 - j from by omega]
-    have hjl : k - 1 - j < Γ.length := by omega
-    rw [List.getD, List.getElem?_eq_getElem hjl]
-    rfl
-  · intro j hj ρ hρ
-    have hd := Sat_drop hρ (i - j)
-    rw [List.drop_drop, show k - i + (i - j) = k - j from by omega] at hd
-    have e : (fun l => ρ (l + (i - 1 - j) + 1)) = fun l => ρ (l + (i - j)) := by
-      funext l; congr 1; omega
-    rw [e]
-    exact hokΓ j (by omega) _ hd
-
 
 /-!
 ## The stage runs, as rows
@@ -1057,15 +910,6 @@ theorem piTeleAV_of_stripPisAV :
   | k + 1, .fst _, _, _, h | k + 1, .snd _, _, _, h
   | k + 1, .prf, _, _, h => by
     simp [stripPisAV] at h
-
-/-- The peel's entries, read off the reversed context. -/
-theorem getD_reverse_of_peel {pps : List Term} {k : Nat}
-    (hlen : pps.length = k) {i : Nat} (hi : i < k) {p : Term}
-    (hp : pps[i]? = some p) :
-    (pps.reverse).getD (k - 1 - i) default = p := by
-  rw [List.getD, List.getElem?_reverse (by omega), hlen,
-    show k - 1 - (k - 1 - i) = i from by omega, hp]
-  rfl
 
 /-! ## The hereditary walk -/
 
@@ -1641,13 +1485,5 @@ theorem FormerData.pushTable {m : EnvModel V env} {cvT : ConstantVal}
   below := h.below
   params := h.params
   syn := h.syn
-
-theorem stripPisAV_mkPisAV :
-    ∀ (pps : List Term) (b : Term),
-      stripPisAV pps.length (mkPisAV pps b) = some (pps, b)
-  | [], _ => rfl
-  | d :: pps, b => by
-    simp only [List.length_cons, mkPisAV, stripPisAV, stripPisAV_mkPisAV pps b,
-      Option.map_some]
 
 end ConLeche.Model

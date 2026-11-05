@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.GenClsData
 import ConLeche.Verify.Inductives.TargetAuxFire
 import ConLeche.Model.Inductives.BlockRecLaw

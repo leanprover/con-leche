@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Semantics.Tower.SumTower
 public import ConLeche.Verify.Inductives.DirectInv

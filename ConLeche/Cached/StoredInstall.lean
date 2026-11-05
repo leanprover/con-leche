@@ -10,8 +10,7 @@ public import ConLeche.Cached.CheckerC
 The install phase pushes an inductive block **as the input stores
 it**: every constant the checked install pushes is read off the block's
 records (`storedInstall`), and nothing is generated — no positivity
-walk, no recursor generation; the one inference is the structures'
-field sorts (their projection tables' guards), the one reduction a
+walk, no recursor generation, no inference; the one reduction is a
 def-headed former's telescope.  The block's checked install runs
 later, as a job of the check phase
 (`DeferredCheck`, `ConLeche/Verify/Cached/Defer.lean`), and compares what
@@ -36,13 +35,8 @@ functions on the same inputs wherever one exists):
 * the recursors: each record as it stands (type, K flag, rules), its
   rules' firing mode read off the record alone (`storedFire`);
 * the projection tables: the bodies by substitution
-  (`structProjBodiesC`), the guards (`ProjTable.guards`, the fields'
-  sorts) inferred here, at install, from a fresh memo at the formers'
-  environment, by the checked install's constructor-stage walk
-  (`checkStructFieldSortsIFA`, `storedGuards`) — the one inference of
-  this install besides a def-headed former's telescope.  The table,
-  guards included, is a value in the environment's table map like the
-  checked install's; no part of it is deferred.
+  (`structProjBodiesC`), a value in the environment's table map like the
+  checked install's.
 
 Where a part cannot be read, it is pushed at its record as declared
 (a former, a recursor's rules) or left out (a table): the block is one
@@ -127,13 +121,13 @@ theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a =
 def ProjTable.beqP (a b : ProjTable) : Bool :=
   a.structName == b.structName && a.levelParams == b.levelParams &&
     a.numParams == b.numParams && a.ctor == b.ctor && a.numFields == b.numFields &&
-    a.structSort == b.structSort && a.bodies == b.bodies && a.guards == b.guards
+    a.structSort == b.structSort && a.bodies == b.bodies
 
 theorem ProjTable.eq_of_beqP {a b : ProjTable} (h : a.beqP b = true) : a = b := by
-  obtain ⟨_, _, _, _, _, _, _, g⟩ := a
-  obtain ⟨_, _, _, _, _, _, _, g'⟩ := b
+  obtain ⟨_, _, _, _, _, _, _⟩ := a
+  obtain ⟨_, _, _, _, _, _, _⟩ := b
   simp only [ProjTable.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
+  obtain ⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
   rfl
 
 end ConLeche
@@ -202,35 +196,19 @@ def storedRecs (p : BlockShape) : Nat → List RecShape → List ConstantInfo
       | none => rc.rules
     .recInfo rc.cvR (p.majorIdxAt r) (p.rulePrefixAt r) rc.isK rules :: storedRecs p (r + 1) rest
 
-/-- **A structure's guard levels**: the fields'
-sorts at the formers' environment `fe₁`, from a fresh memo, by the
-constructor stage's own walk; `[]` where the walk fails (the block's
-checked install then fails at the same walk, and the job reports it). -/
-def storedGuards (fe₁ : FEnv) (p : BlockShape) (c : ConstantVal × Nat) : List Level :=
-  let run : CheckCM (List Level) := do
-    flushC
-    let cq ← unwrapOr (openPisAtFvarsF p.nP c.1.type 0) (.internal "stored guards")
-    let xq ← unwrapOr (openPisAtFvarsF c.2 cq.2 p.nP) (.internal "stored guards")
-    checkStructFieldSortsIFA (sharedOpsC mode fe₁) fe₁ p.isProp p.large p.resSort p.nP
-      xq.1.toArray (xq.2.getAppArgs.drop p.nP) c.2
-  match run {} with
-  | .ok (sorts, _) => structProjGuards c.1.type p.nP c.2 sorts
-  | .error _ => []
-
 /-- The projection tables, member by member in block order, at every
 structure-like member (one constructor, no index); none where the
 bodies cannot be built (the checked install rejects the block there). -/
-def storedTables (fe₁ : FEnv) (p : BlockShape) : List MemberShape → List ProjTable
+def storedTables (p : BlockShape) : List MemberShape → List ProjTable
   | [] => []
   | ms :: rest =>
-    let rs := storedTables fe₁ p rest
+    let rs := storedTables p rest
     match ms.ctors with
     | [c] =>
       if ms.nIdx == 0 then
         match structProjBodiesC ms.cvT.name p.nP c.2 c.1.type with
         | some bodies =>
-          ⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, p.resSort, bodies,
-            storedGuards mode fe₁ p c⟩ :: rs
+          ⟨ms.cvT.name, p.lps, p.nP, c.1.name, c.2, p.resSort, bodies⟩ :: rs
         | none => rs
       else rs
     | _ => rs
@@ -257,7 +235,6 @@ def storedInstall (W : FEnv) (block : List ConstantInfo) (nP : Nat) :
       let formers := (cvTs.zipIdx).map fun (cv, i) => ConstantInfo.indInfo cv (blockCapsAt p i isRec)
       let ctors := p.members.flatMap fun ms =>
         ms.ctors.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2
-      let fe₁ := FEnv.pushAll formers W
-      (formers ++ ctors ++ storedRecs p 0 p.recs, storedTables mode fe₁ p p.members)
+      (formers ++ ctors ++ storedRecs p 0 p.recs, storedTables p p.members)
 
 end ConLeche.Cached

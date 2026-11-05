@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.BlockRep
 import ConLeche.Model.Env.EnvModelM
 import ConLeche.Model.Inductives.StructFrameKit

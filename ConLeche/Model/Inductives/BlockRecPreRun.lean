@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Model.Inductives.BlockRecTyping
 public import ConLeche.Semantics.Tower.BlockRecTower

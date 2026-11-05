@@ -159,8 +159,8 @@ theorem consSumCtorsF_push (nP : Nat) :
 
 theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
     (h : PushChain env fe) (T C : Name) (hT : env.find? T = none) (lps : List Name)
-    (nP nF : Nat) (resSort : Level) (guards : List Level) (cvCa : ConstantVal) :
-    Yields (checkStructProjTableF (m := CheckCM) w T C lps nP nF resSort guards cvCa fe)
+    (nP nF : Nat) (resSort : Level) (cvCa : ConstantVal) :
+    Yields (checkStructProjTableF (m := CheckCM) w T C lps nP nF resSort cvCa fe)
       (fun fe' => PushChain env fe') := by
   unfold checkStructProjTableF
   yields
@@ -359,15 +359,15 @@ theorem checkBlockTablesF_push {w : StructWalkers} (p : BlockShape) {env : Env} 
     unfold checkBlockTablesF
     have key : Yields
         (match ctorsA, sortss with
-         | [cA], [sorts] =>
+         | [cA], [_] =>
            if ms.nIdx == 0 then
              checkStructProjTableF (m := CheckCM) w ms.cvT.name cA.1.name p.lps p.nP cA.2
-               p.resSort (structProjGuards cA.1.type p.nP cA.2 sorts) cA.1 fe
+               p.resSort cA.1 fe
            else pure fe
          | _, _ => pure fe) (fun fe' => PushChain env fe') := by
       split
       · split
-        · exact checkStructProjTableF_push h _ _ (hl _ List.mem_cons_self) _ _ _ _ _ _
+        · exact checkStructProjTableF_push h _ _ (hl _ List.mem_cons_self) _ _ _ _ _
         · exact Yields.pure h
       · exact Yields.pure h
     exact Yields.bind' key fun fe' h' =>

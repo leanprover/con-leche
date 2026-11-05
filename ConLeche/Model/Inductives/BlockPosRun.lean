@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Env.BlockLfpTup
 import ConLeche.Semantics.Hoist
 public import ConLeche.Model.Inductives.BlockStageCtors

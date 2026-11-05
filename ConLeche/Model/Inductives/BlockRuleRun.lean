@@ -1,12 +1,12 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRuleFit
 import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.BlockRecOpenerRead
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Model.Rules.Recompose
-import ConLeche.Model.Tiers
 import ConLeche.Model.Inductives.BlockRecIdxConv
 
 public section

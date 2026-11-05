@@ -8,7 +8,6 @@ public import ConLeche.Model.IndDomGrade
 import ConLeche.Model.IndFrame
 public import ConLeche.Model.IndStageKit
 public import ConLeche.Verify.BridgeWfImp
-public import ConLeche.Verify.Denote.IndFrame
 public section
 
 /-!

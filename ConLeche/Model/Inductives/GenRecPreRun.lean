@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenRecPre
 public import ConLeche.Model.Inductives.GenRecStage
 import ConLeche.Verify.Inductives.NestScope

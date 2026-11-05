@@ -3,7 +3,6 @@ module
 public import ConLeche.Cached.CheckerC
 public import ConLeche.Verify.BridgeDecl
 public import ConLeche.Verify.Cached.Grind
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Cached.SimCS
 import ConLeche.Verify.Cached.Erase

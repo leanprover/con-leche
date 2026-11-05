@@ -268,11 +268,11 @@ theorem reduceProjCore_bridge (hw : WhnfBridge .verified eager env fuel)
     {d : Nat} {sn : Name} {i : Nat} {c m : Expr}
     (h : reduceProjCoreFueled .verified eager env fuel d sn i c = .ok (some m)) :
     Red env d (.proj sn i c) m := by
-  obtain ⟨e₃, us, entry, hlit, hfn, hfp, hi, hlen, hus, hfire, rfl, hcert⟩ :=
+  obtain ⟨e₃, us, entry, hlit, hfn, hfp, hi, hlen, hus, rfl, hcert⟩ :=
     reduceProjCore_inv h
   obtain ⟨cvC, nP, nF, hc, harity⟩ := projCertAt_verified_inv hcert
   exact .trans (.projArg (projLitToCtor_bridge hw hlit))
-    (.proj hfp hfn hi hlen hus hfire hc
+    (.proj hfp hfn hi hlen hus hc
       (peelPis_isSome_instantiateLevelParams _ _ _ harity))
 
 /-- **`whnfCore` at `fuel + 1`**: the eleven shapes (`whnf_app_inv`,

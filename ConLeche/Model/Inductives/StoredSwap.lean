@@ -223,15 +223,16 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
     intro φ T i entry hf
     have hfP : env₀.findProj? T i = some entry := by
       rw [hcg.projEq]; exact hf
-    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
+    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
       hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
     refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfT, hlpsT⟩,
-      hO5, cvC, (hsame _ _
+      cvC, (hsame _ _
         (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hfC, hlpsC,
       fun us hus => ?_, ?_⟩
     · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
-      exact ⟨⟨Ta, by rw [← hde]; exact hTa, hA⟩,
+      exact ⟨⟨Ta, by rw [← hde]; exact hTa, fun hg => hA (hg.mono fun _ h => by
+          rw [← hde]; exact h)⟩,
         ⟨TCa, by rw [← hde]; exact hTCa, hB⟩⟩
     · -- (C) the η law (task #175 W4c): the former's lookup is unchanged
       -- by the swap, and the reading is `hde`

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenClsFrame
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenClsSem

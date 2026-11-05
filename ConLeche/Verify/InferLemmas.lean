@@ -505,7 +505,6 @@ theorem reduceProjCore_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       i < entry.numFields ∧
       e₃.getAppArgs.length = entry.numParams + entry.numFields ∧
       us.length = entry.levelParams.length ∧
-      entry.fireOk us = true ∧
       m = e₃.getAppArgs.getD (entry.numParams + i) (.bvar 0) ∧
       projCertAt env mode.verifiedChecks entry.ctor e₃.getAppArgs = true := by
   simp only [reduceProjCoreFueled, reduceProjCore, Bind.bind, Except.bind,
@@ -526,12 +525,12 @@ theorem reduceProjCore_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     dsimp only at h
     split at h
     next hcond =>
-      obtain ⟨rfl, hi, hlen, hus, hfire⟩ := hcond
+      obtain ⟨rfl, hi, hlen, hus⟩ := hcond
       cases hcert : projCertAt env mode.verifiedChecks entry.ctor e₃.getAppArgs with
       | true =>
         simp only [hcert, ite_true, pure, Except.pure, Except.ok.injEq,
           Option.some.injEq] at h
-        exact ⟨e₃, us, entry, rfl, hfn, rfl, hi, hlen, hus, hfire, h.symm, hcert⟩
+        exact ⟨e₃, us, entry, rfl, hfn, rfl, hi, hlen, hus, h.symm, hcert⟩
       | false => simp [hcert, pure, Except.pure] at h
     next => simp [pure, Except.pure] at h
   | _ => rw [hfn] at h; simp [pure, Except.pure] at h
@@ -942,7 +941,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
         (T = andName ∧
          tmaj.getAppArgs.length = cnP ∧
          cvj.levelParams.length = ust.length ∧
-         andRescueSlots env rl.ctor cnP ust = true ∧
+         andRescueSlots env rl.ctor cnP = true ∧
          major' = Expr.mkAppN (.const rl.ctor ust)
            (tmaj.getAppArgs ++ [.proj T 0 major, .proj T 1 major]) ∧
          (∃ tfab, inferTypeIO mode eager env fuel d major' = .ok tfab ∧
@@ -1213,7 +1212,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       dsimp only at h
       by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = cnP ∧
           cvj.levelParams.length = ust.length ∧
-          andRescueSlots env rl.ctor cnP ust = true
+          andRescueSlots env rl.ctor cnP = true
       case neg =>
         rw [ite_eq_right hTl] at h
         simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -1667,11 +1666,11 @@ theorem towerSlotsAll_slot {env : Env} {T : Name} {nF : Nat}
 
 /-- `andRescueSlots`, unpacked: both of `And`'s slots are stored tower
 entries naming the rule's constructor at the major's parameter count,
-two fields, firing at `ust`. -/
-theorem andRescueSlots_inv {env : Env} {ctor : Name} {nP : Nat} {ust : List Level}
-    (h : andRescueSlots env ctor nP ust = true) :
+two fields. -/
+theorem andRescueSlots_inv {env : Env} {ctor : Name} {nP : Nat}
+    (h : andRescueSlots env ctor nP = true) :
     ∀ j, j < 2 → ∃ e : ProjEntry, env.findProj? andName j = some e ∧
-      e.ctor = ctor ∧ e.numParams = nP ∧ e.numFields = 2 ∧ e.fireOk ust = true := by
+      e.ctor = ctor ∧ e.numParams = nP ∧ e.numFields = 2 := by
   intro j hj
   have := List.all_eq_true.mp h j (List.mem_range.mpr hj)
   revert this
@@ -1680,7 +1679,7 @@ theorem andRescueSlots_inv {env : Env} {ctor : Name} {nP : Nat} {ust : List Leve
   | some e =>
     intro hb
     simp only [Bool.and_eq_true, beq_iff_eq] at hb
-    exact ⟨e, rfl, hb.1.1.1, hb.1.1.2, hb.1.2, hb.2⟩
+    exact ⟨e, rfl, hb.1.1, hb.1.2, hb.2⟩
 
 set_option maxHeartbeats 3200000 in
 /-- Inversion of a successful structural eta certification. -/
@@ -1991,12 +1990,9 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
       env.findProj? T i = some entry ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      -- the official `infer_proj` restriction (task #175 W4c/O4): at a
-      -- `Prop`-declared structure the entry's guard level instantiates
-      -- to `Prop`
-      ((Level.isEquiv entry.structSort .zero == some true) = true →
-        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true) ∧
+      -- the official `infer_proj` restriction, at this use
+      checkProjGuard (pureFns mode eager env fuel).inferIO (pureFns mode eager env fuel).whnf
+        env entry us = .ok () ∧
       -- task #175 S1: the returned type is the entry's body at the
       -- spine and the subject (`ProjEntry.typeAt`)
       (t = entry.typeAt us te.getAppArgs e ∧
@@ -2039,29 +2035,15 @@ theorem inferTypeCore_proj_inv {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hsn, hlen, hus⟩ := hcond
-    -- the Prop guard (task #175 W4c/O4), then the residual walk's
-    -- result
-    have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
-        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true := by
-      intro hp
-      rw [ite_eq_left hp] at h
-      by_cases hf : (Level.isEquiv
-          (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true
-      · exact hf
-      · rw [ite_eq_right hf] at h
-        exact absurd h (by
-          simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
-    have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
-      by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-      · rw [ite_eq_left hp, ite_eq_left (hg hp)] at h
-        exact h
-      · rw [ite_eq_right hp] at h
-        exact h
-    simp only [pure, Except.pure, Except.ok.injEq] at h'
-    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
-      hg, h'.symm, hsn⟩
+    -- the guard at this use, then the residual walk's result
+    cases hg : checkProjGuard (pureFns mode eager env fuel).inferIO
+        (pureFns mode eager env fuel).whnf env entry us with
+    | error err => rw [hg] at h; exact nomatch h
+    | ok _ =>
+      rw [hg] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
+        hg, h.symm, hsn⟩
 
 /-! ## The tower-entry helpers (task #175 wiring W2c)
 
@@ -2278,7 +2260,7 @@ theorem reduceProjCore_pres {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     (hstr : ∀ s, strLitSupported env = true → P (strLitToConstructor s))
     (h : reduceProjCoreFueled mode eager env fuel d sn i c = .ok (some m)) (hc : P c) :
     P m := by
-  obtain ⟨e₃, us, entry, hlit, -, -, hi, hlen, -, -, rfl, -⟩ := reduceProjCore_inv h
+  obtain ⟨e₃, us, entry, hlit, -, -, hi, hlen, -, rfl, -⟩ := reduceProjCore_inv h
   have h3 : P e₃ := by
     rcases projLitToCtorFueled_inv hlit with rfl | ⟨s, -, hs, hred⟩
     · exact hc

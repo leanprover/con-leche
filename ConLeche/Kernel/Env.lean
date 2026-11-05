@@ -239,8 +239,9 @@ loose `bvar`s, the subject at `bvar 0`, the earlier fields already
 spelled as projections of the subject), instantiated at a use by ONE
 `instantiateList` along the subject type's arguments and the subject
 (`ProjEntry.typeAt`); reduced by the generic structural rule `proj_i
-(ctor p⃗ x⃗) ↦ x_i`, guarded at possibly-Prop instances by the stored
-`guards[i]`/`structSort` levels.  The bodies are taken from the
+(ctor p⃗ x⃗) ↦ x_i`.  What official's `infer_proj` requires of a
+`Prop`-declared structure is checked at the use (`projGuardRows`,
+task #480): nothing about it is stored.  The bodies are taken from the
 stored constructor type by substitution alone (`structProjBodies`)
 — no inference, no pins: a slot with no legal instantiation
 simply fails the guard at every use.
@@ -262,20 +263,11 @@ structure ProjTable where
   structSort : Level
   /-- per field, the projection's result-type body (see above) -/
   bodies : Array Expr
-  /-- per field, **the projection's `Prop` guard level**: the
-  projected field's sort joined with the sorts of the earlier fields
-  that a later field's type uses — exactly the sorts the official
-  `infer_proj` requires to be `Prop` when projecting from a
-  propositional structure (task #175 W4c/O4, `structProjGuards`); the
-  infer branch checks it at every use of a `Prop`-declared
-  structure. -/
-  guards : List Level
   deriving DecidableEq, Repr, Inhabited
 
 /-- **One projection-table entry** — the per-field VIEW of a
 `ProjTable` (`ProjTable.entry`), what `Env.findProj? T i` returns:
-the table's data at field `idx`.  `body` is `bodies[idx]` and
-`fieldSort` is `guards[idx]`. -/
+the table's data at field `idx`.  `body` is `bodies[idx]`. -/
 structure ProjEntry where
   structName : Name
   idx : Nat
@@ -286,8 +278,6 @@ structure ProjEntry where
   /-- the projection's result-type body, scoped at `numParams + 1`
   (see `ProjTable.bodies`) -/
   body : Expr
-  /-- the projection's `Prop` guard level (see `ProjTable.guards`) -/
-  fieldSort : Level
   structSort : Level
   deriving DecidableEq, Repr, Inhabited
 
@@ -295,7 +285,7 @@ structure ProjEntry where
 numFields`). -/
 def ProjTable.entry (tbl : ProjTable) (i : Nat) : ProjEntry :=
   ⟨tbl.structName, i, tbl.levelParams, tbl.numParams, tbl.ctor, tbl.numFields,
-    tbl.bodies.getD i default, tbl.guards.getD i .zero, tbl.structSort⟩
+    tbl.bodies.getD i default, tbl.structSort⟩
 
 /-- Information stored about an accepted constant. -/
 inductive ConstantInfo where

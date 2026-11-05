@@ -131,7 +131,8 @@ theorem inferTypeCoreIO_bvar_inv {d i : Nat} {t : Expr}
 
 /-- **`inferTypeCore` at `fuel + 1`**, full grade. -/
 theorem infer_bridge_succ (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge μ eager env fuel)
-    (hdE : DefEqBridge μ true env fuel) (hi : InferBridge μ eager env fuel) :
+    (hdE : DefEqBridge μ true env fuel) (hi : InferBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) :
     InferBridge μ eager env (fuel + 1) := by
   intro d e t h
   match e, h with
@@ -173,8 +174,9 @@ theorem infer_bridge_succ (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge 
   | .proj sn i pe, h =>
     obtain ⟨tpe, te, T, us, entry, hpe, hwpe, hfn, hentry, hlen, hlvl, hprop,
       rfl, rfl⟩ := inferTypeCore_proj_inv h
-    simp only [beq_iff_eq] at hprop
-    exact .proj (hi hpe) (hw hwpe) hfn hentry hlen hlvl hprop
+    obtain ⟨rows, hrows, hg⟩ := checkProjGuard_bridge
+      (fun _ _ _ h => inferTypeIO_bridge hio h) (fun _ _ _ h => hw h) hprop
+    exact .proj (hi hpe) (hw hwpe) hfn hentry hlen hlvl hrows hg
   | .lam ty body, h =>
     obtain ⟨tty, u, bt, hty, hwt, hbt, rfl⟩ :=
       inferTypeCore_lam_inv h
@@ -218,8 +220,10 @@ theorem inferIO_bridge_succ (hw : WhnfBridge μ eager env fuel)
   | .proj sn i pe, h =>
     obtain ⟨tpe, te, T, us, entry, hpe, hwpe, hfn, hentry, hlen, hlvl, hprop,
       rfl, rfl⟩ := inferTypeCoreIO_proj_inv h
-    simp only [beq_iff_eq] at hprop
-    exact .proj (hio hpe) (hw hwpe) hfn hentry hlen hlvl hprop
+    obtain ⟨rows, hrows, hg⟩ := checkProjGuard_bridge
+      (inf := (pureFnsIO μ eager env fuel).infer) (wh := (pureFnsIO μ eager env fuel).whnf)
+      (fun _ _ _ h => hio h) (fun _ _ _ h => hw (by rwa [pureFnsIO_whnf] at h)) hprop
+    exact .proj (hio hpe) (hw hwpe) hfn hentry hlen hlvl hrows hg
   | .app f a, h =>
     obtain ⟨tf, ty', body', htf, hwf, rfl⟩ :=
       inferTypeCoreIO_app_inv h

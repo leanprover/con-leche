@@ -268,8 +268,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       rw [h0]
     -- the table's cons
     cases hT : ConLeche.checkStructProjTable (m := ConLeche.CheckM) ms.cvT.name cA.1.name
-        q.lps q.nP cA.2 q.resSort (ConLeche.structProjGuards cA.1.type q.nP cA.2 (sortsOf i))
-        cA.1 env with
+        q.lps q.nP cA.2 q.resSort cA.1 env with
     | error er => rw [hT] at h; exact nomatch h
     | ok env' =>
     rw [hT] at h

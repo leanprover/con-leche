@@ -10,6 +10,7 @@ import ConLeche.Semantics.Frame
 import ConLeche.Semantics.LitStep
 import ConLeche.Semantics.Skeleton
 import ConLeche.Model.Rules.RedSoundKit
+import ConLeche.Model.Rules.GuardSound
 import ConLeche.Rules.Rigid
 
 public section
@@ -835,15 +836,14 @@ theorem Infer.app_sound {g : Grade} {d : Nat}
 /-- A projection at the full grade: the tower law's typing clause. -/
 theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
-    {entry : ProjEntry}
+    {entry : ProjEntry} {rows : List (Nat × Expr)}
     (htpe : InferSem m φ .full d pe tpe) (hte : RedSem m φ d tpe te)
     (hhead : te.getAppFn = .const sn us)
     (hent : env.findProj? sn i = some entry)
     (hlen : te.getAppArgs.length = entry.numParams)
     (hus : us.length = entry.levelParams.length)
-    (hprop : Level.isEquiv entry.structSort .zero = some true →
-      Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-        = some true) :
+    (hrows : projGuardRows env.find? entry us = some rows)
+    (hg : GuardRowsSem m φ rows) :
     InferSem m φ .full d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
   refine InferSem.of_uniform ?_
   intro Δa ea hfr hC hea
@@ -861,8 +861,10 @@ theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
     hte htpef (hCpe.of_subset htpesub) htpea
   obtain ⟨hwte', hbte, hLte⟩ := htef
   -- the tower law's typing clause
-  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw, -⟩ :=
     hin.tower_ok sn i entry hent
+  have hguard : TowerGuardAt m φ entry us cvC :=
+    towerGuardAt_of_rows hin hfC (by rw [hlpsC]; exact hus) hrows hg
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hus
   -- the reduced type's spine, at the former's leaf
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -925,9 +927,7 @@ theorem Infer.proj_soundFull (hin : RulesInputs V m φ) {d : Nat}
   obtain ⟨hokTe, heqTe⟩ :=
     hredT σ hσ (hLpe'.of_subset htpesub) hokTpe.1 hokTpe.ne_pt
   -- the tower law's typing clause
-  exact hA (towerGuardAt_of hO5 (fun hp => by
-      simp only [beq_iff_eq] at hp ⊢
-      exact hprop hp)) σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
+  exact hA hguard σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
     (heqTe ▸ hmemPe) hpeel
 
 /-- **A projection at the io grade** (the io claim's projection
@@ -937,16 +937,15 @@ clause; and the scrutinee's claim is not hereditary, its type reducing
 to the structure's application, which no ∀ does (`Red.rigid`). -/
 theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
-    {entry : ProjEntry}
+    {entry : ProjEntry} {rows : List (Nat × Expr)}
     (htpe : InferSemIO m φ d pe tpe) (hte : RedSem m φ d tpe te)
     (hter : Red env d tpe te)
     (hhead : te.getAppFn = .const sn us)
     (hent : env.findProj? sn i = some entry)
     (hlen : te.getAppArgs.length = entry.numParams)
     (hus : us.length = entry.levelParams.length)
-    (hprop : Level.isEquiv entry.structSort .zero = some true →
-      Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-        = some true) :
+    (hrows : projGuardRows env.find? entry us = some rows)
+    (hg : GuardRowsSem m φ rows) :
     InferSemIO m φ d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
   intro hfr Δa ea hC hea
   obtain ⟨hws, hb, hLb⟩ := hfr
@@ -963,8 +962,10 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
     hte htpef (hCpe.of_subset htpesub) htpea
   obtain ⟨hwte', hbte, hLte⟩ := htef
   -- the tower law's typing clause
-  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, hO5, _, -, -, hlaw, -⟩ :=
+  obtain ⟨-, -, -, ⟨cvT, capsT, hfT, hlpsT, -⟩, cvC, hfC, hlpsC, hlaw, -⟩ :=
     hin.tower_ok sn i entry hent
+  have hguard : TowerGuardAt m φ entry us cvC :=
+    towerGuardAt_of_rows hin hfC (by rw [hlpsC]; exact hus) hrows hg
   obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlaw us hus
   -- the reduced type's spine, at the former's leaf
   rw [show te = Expr.mkAppN te.getAppFn te.getAppArgs from
@@ -1029,9 +1030,7 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
     -- "not pt" source (1): the scrutinee's inferred type `tpea` is a type
     obtain ⟨hokTe, heqTe⟩ :=
       hredT σ hσ (hLpe'.of_subset htpesub) hokTpe.1 hokTpe.ne_pt
-    have hrow := hA (towerGuardAt_of hO5 (fun hp => by
-        simp only [beq_iff_eq] at hp ⊢
-        exact hprop hp)) σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
+    have hrow := hA hguard σ vs vp restA hlenVs hokTe (heqTe ▸ hokTpe.ne_pt) hokPe
       (heqTe ▸ hmemPe) hpeel
     exact IORelN.of_mem hrest hrow.2.1 hrow.2.2
   · obtain ⟨_, _, rfl⟩ := h.forallE
@@ -1040,19 +1039,18 @@ theorem Infer.proj_soundIO (hin : RulesInputs V m φ) {d : Nat}
 /-- A projection, at either grade. -/
 theorem Infer.proj_sound (hin : RulesInputs V m φ) {g : Grade} {d : Nat}
     {sn : Name} {i : Nat} {pe tpe te : Expr} {us : List Level}
-    {entry : ProjEntry}
+    {entry : ProjEntry} {rows : List (Nat × Expr)}
     (htpe : InferSem m φ g d pe tpe) (hte : RedSem m φ d tpe te)
     (hter : g = .io → Red env d tpe te)
     (hhead : te.getAppFn = .const sn us)
     (hent : env.findProj? sn i = some entry)
     (hlen : te.getAppArgs.length = entry.numParams)
     (hus : us.length = entry.levelParams.length)
-    (hprop : Level.isEquiv entry.structSort .zero = some true →
-      Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-        = some true) :
+    (hrows : projGuardRows env.find? entry us = some rows)
+    (hg : GuardRowsSem m φ rows) :
     InferSem m φ g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe) := by
   cases g with
-  | full => exact Infer.proj_soundFull hin htpe hte hhead hent hlen hus hprop
-  | io => exact Infer.proj_soundIO hin htpe hte (hter rfl) hhead hent hlen hus hprop
+  | full => exact Infer.proj_soundFull hin htpe hte hhead hent hlen hus hrows hg
+  | io => exact Infer.proj_soundIO hin htpe hte (hter rfl) hhead hent hlen hus hrows hg
 
 end ConLeche.Model.Rules

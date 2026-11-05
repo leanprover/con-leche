@@ -70,7 +70,7 @@ def StructWalkers.plain : StructWalkers :=
 
 /-- `checkStructProjTable` through the index (task #175 S1). -/
 def checkStructProjTableF (w : StructWalkers) (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) (fe : FEnv) :
+    (resSort : Level) (cvCa : ConstantVal) (fe : FEnv) :
     m FEnv := do
   let bodies ← unwrapOr (w.projBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
@@ -89,6 +89,6 @@ def checkStructProjTableF (w : StructWalkers) (T C : Name) (lps : List Name) (nP
     throw (.internal "direct structure: projection table before its structure")
   unless (fe.findTable? T).isNone do
     throw (.invalid "projection table taken")
-  pure (fe.pushTable ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩)
+  pure (fe.pushTable ⟨T, lps, nP, C, nF, resSort, bodies⟩)
 
 end Mirrors

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.TargetNodeDynOf
 import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Model.Inductives.NestPosRed
@@ -9,7 +10,6 @@ import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Semantics.Tower.FixTower
 import ConLeche.Verify.Denote.ErasedEq
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Model.Inductives.PosFieldLeaf
 import ConLeche.Model.Inductives.PosDerivMono
 import ConLeche.Model.Inductives.TypeStep

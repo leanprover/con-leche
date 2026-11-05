@@ -402,9 +402,9 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
     (hfP : env.findProj? T i = some entry) :
     TowerEntryLaw m₂ φ T i entry := by
   obtain ⟨tbl, hfP0, hi, hentry⟩ := ConLeche.Env.findProj?_some hfP
-  obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, hO5, cvC, hfC, hlpsC,
+  obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC,
     hlaw, hetaL⟩ := mp.tower_ok φ T i entry hfP
-  refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, hO5, cvC, ?_, hlpsC,
+  refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, ?_, hlpsT⟩, cvC, ?_, hlpsC,
     fun us hus => ?_, ?_⟩
   · exact hx.find hfT
   · exact hx.find hfC
@@ -418,15 +418,17 @@ theorem towerEntryLaw_ext (mp : EnvModelM V env) {env' : Env}
         exact (ConLeche.projEntry_body_wf mp.base2.wf hfP).2.2.1
     · intro hg ρ vs x rest hlen hokT hneT hokx hmem hpeel
       rw [hx.leafOf hfT] at hokT hneT hmem
-      exact hA hg ρ vs x rest hlen hokT hneT hokx hmem hpeel
+      exact hA (hg.mono fun _ h => hx.denote
+        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfC) us) h)
+        ρ vs x rest hlen hokT hneT hokx hmem hpeel
     · -- the constructor type's reading crosses (task #175 W6): a
       -- prefix lookup's closed type
       exact hx.denote
         (constsBound_instType mp.base2.wf
           (ConLeche.Env.find?_mem hfC) us) hTCa
-    · intro hg ρ ys rest hlen hok hfit
-      rw [hx.leafOf hfC] at hok ⊢
-      exact hB hg ρ ys rest hlen hok hfit
+    · intro ρ ys rest hlen hok hfit hne
+      rw [hx.leafOf hfC] at hok hne ⊢
+      exact hB ρ ys rest hlen hok hfit hne
   · -- (C) the η law crosses (task #175 W4c): the former's lookup is a
     -- prefix lookup, its type reading is closed, the leaves are prefix
     -- leaves

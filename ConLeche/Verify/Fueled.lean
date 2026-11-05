@@ -203,6 +203,31 @@ theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold ensureSort
   atF_tac
 
+theorem checkGuardRows_atF (F : Nat) :
+    ∀ rows, (checkGuardRows (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf rows).val F =
+      checkGuardRows (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf rows
+  | [] => rfl
+  | (d, dom) :: rest => by
+    unfold checkGuardRows
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun t => ?_)
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    dsimp only []
+    have hk := checkGuardRows_atF F rest
+    split
+    · exact hk
+    · rw [FueledM.atF_bind, hk]; rfl
+
+theorem checkProjGuard_atF (entry : ProjEntry) (us : List Level) (F : Nat) :
+    (checkProjGuard (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf env entry us).val F =
+      checkProjGuard (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · exact checkGuardRows_atF F _
+  · rfl
+
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
     (proofIrrel (fueledFns mode eager env) d a b).val F =
       proofIrrel (pureFns mode eager env F) d a b := by
@@ -242,6 +267,7 @@ macro "atF_step2" : tactic =>
     | (rw [defEqList_atF])
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
+    | (rw [checkProjGuard_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
@@ -344,6 +370,7 @@ macro "atF_core3" x:tactic : tactic =>
     | (rw [defEqList_atF])
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
+    | (rw [checkProjGuard_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
@@ -481,6 +508,7 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [defEqList_atF])
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
+    | (rw [checkProjGuard_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])

@@ -11,7 +11,6 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Leaves
 import ConLeche.Verify.Knot
 import ConLeche.Verify.CheckerF

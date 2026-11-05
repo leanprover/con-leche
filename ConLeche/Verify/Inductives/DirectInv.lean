@@ -80,9 +80,9 @@ theorem structConstWF {env : Env} {c : ConstantInfo}
 they pass the scoping guard, the structure is stored and has no table
 yet, and the output is the table installed. -/
 theorem checkStructProjTable_inv {env envOut : Env} {T C : Name}
-    {lps : List Name} {nP nF : Nat} {rs : Level} {guards : List Level}
+    {lps : List Name} {nP nF : Nat} {rs : Level}
     {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+    (h : checkStructProjTable (m := CheckM) T C lps nP nF rs cvCa env
       = .ok envOut) :
     ∃ bodies : Array Expr,
       structProjBodies T nP nF cvCa.type = some bodies ∧
@@ -90,7 +90,7 @@ theorem checkStructProjTable_inv {env envOut : Env} {T C : Name}
         b.allLevelParamsDefined lps && b.constsResolve env &&
         b.looseBVarsBounded (nP + 1)) = true) ∧
       (env.find? T).isSome = true ∧ env.findTable? T = none ∧
-      envOut = ⟨env.consts, ⟨T, lps, nP, C, nF, rs, bodies, guards⟩ :: env.tables⟩ := by
+      envOut = ⟨env.consts, ⟨T, lps, nP, C, nF, rs, bodies⟩ :: env.tables⟩ := by
   unfold checkStructProjTable at h
   obtain ⟨bodies, hb, h⟩ := exceptBind_ok h
   have hb' := unwrapOr_ok hb
@@ -109,8 +109,8 @@ environment it produces is well-formed — the structure is stored (the
 stage's own guard), and so is the bodies' scoping. -/
 theorem direct_table_wf {env envOut : Env} (henv : EnvWF env)
     {T C : Name} {lps : List Name} {nP nF : Nat} {rs : Level}
-    {guards : List Level} {cvCa : ConstantVal}
-    (h : checkStructProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
+    {cvCa : ConstantVal}
+    (h : checkStructProjTable (m := CheckM) T C lps nP nF rs cvCa env
       = .ok envOut) :
     EnvWF envOut := by
   obtain ⟨bodies, -, ⟨hsize, hall⟩, hT, -, rfl⟩ := checkStructProjTable_inv h
@@ -151,20 +151,6 @@ theorem checkStructDomsAt_inv {env : Env} {F off : Nat} {fvs doms : List Expr} :
     · exact checkStructDomsAt_inv h i hij
     · obtain rfl : i = j := by omega
       exact ⟨a, b, ha', hb', hc'⟩
-
-
-/-! ## The projection guard's spelling at a slot -/
-
-theorem structProjGuards_getD (cty : Expr) (nP nF : Nat) (sorts : List Level) {i : Nat}
-    (hi : i < nF) :
-    (structProjGuards cty nP nF sorts).getD i .zero
-      = (List.range i).foldl
-          (fun acc j => if structUsedLater cty nP j then Level.max acc (sorts.getD j .zero)
-            else acc)
-          (sorts.getD i .zero) := by
-  unfold structProjGuards
-  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]
-  rfl
 
 
 /-!

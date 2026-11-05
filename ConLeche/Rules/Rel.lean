@@ -168,7 +168,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       Red env d (.app (.app (.const c []) a) b) r
   /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
   (`whnfCoreBody`'s `.proj` clause, `Kernel/Core.lean`), driven by
-  the projection table, fired under the entry's guard, with the
+  the projection table, with the
   constructor telescope's syntactic arity (`projCertAt`,
   `teleArityOk`). -/
   | proj {d : Nat} {sn : Name} {i : Nat} {e : Expr} {entry : ProjEntry}
@@ -178,7 +178,6 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       i < entry.numFields →
       e.getAppArgs.length = entry.numParams + entry.numFields →
       us.length = entry.levelParams.length →
-      entry.fireOk us = true →
       env.find? entry.ctor = some (.ctorInfo cvC nP nF) →
       (Expr.peelPis e.getAppArgs.length
         (cvC.type.instantiateLevelParams cvC.levelParams us)).isSome = true →
@@ -321,7 +320,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       tmaj.getAppFn = .const andName ust →
       tmaj.getAppArgs.length = cnP →
       cvj.levelParams.length = ust.length →
-      andRescueSlots env rl.ctor cnP ust = true →
+      andRescueSlots env rl.ctor cnP = true →
       fab = Expr.mkAppN (.const rl.ctor ust)
         (tmaj.getAppArgs ++ [.proj andName 0 major, .proj andName 1 major]) →
       fab.wscopedB d = true → fab.looseBVarsBounded 0 = true →
@@ -626,16 +625,24 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
   restriction holds, and the type is the entry's body at the spine
   and the subject. -/
   | proj {g : Grade} {d : Nat} {sn : Name} {i : Nat} {pe tpe te : Expr}
-      {us : List Level} {entry : ProjEntry} :
+      {us : List Level} {entry : ProjEntry} {rows : List (Nat × Expr)} :
       Infer env g d pe tpe → Red env d tpe te →
       te.getAppFn = .const sn us →
       env.findProj? sn i = some entry →
       te.getAppArgs.length = entry.numParams →
       us.length = entry.levelParams.length →
-      (Level.isEquiv entry.structSort .zero = some true →
-        Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          = some true) →
+      projGuardRows env.find? entry us = some rows → GuardRows env rows →
       Infer env g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe)
+
+/-- **The rows of a projection's guard** (`checkGuardRows`,
+`Kernel/Core.lean`; official `infer_proj`'s `is_prop`): each row's term
+has, at the io grade, a type reducing to a sort that is `Prop`. -/
+inductive GuardRows (env : Env) : List (Nat × Expr) → Prop where
+  | nil : GuardRows env []
+  | row {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)} :
+      Infer env .io d dom t → Red env d t (.sort u) →
+      Level.isEquiv u .zero = some true →
+      GuardRows env rest → GuardRows env ((d, dom) :: rest)
 
 /-- **The full-grade telescope certificate** (`iotaCertsFull`,
 `Kernel/Core.lean`; ι's case 3, task #342 L10): each argument's

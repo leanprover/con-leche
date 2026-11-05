@@ -371,7 +371,7 @@ theorem checkBlockTablesS_run (p : BlockShape) :
     exact ⟨hwf, rfl, henv, rfl⟩
   | (ms, ctorsA, sortss) :: rest, env, s₀, fe', s', henv, hwf, h => by
     match ctorsA, sortss with
-    | [cA], [sorts] =>
+    | [cA], [_] =>
       simp only [checkBlockTablesF] at h
       by_cases hi : (ms.nIdx == 0) = true
       · rw [ite_eq_left hi] at h

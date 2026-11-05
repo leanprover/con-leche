@@ -279,8 +279,8 @@ level parameters and parameters
 (#src("ConLeche/Kernel/Inductives/RecCheck.lean", 602, 613)[the stored rules at a container class]).
 In the certified case of $iota$ (@sec:iota-cases), the
 constructor application's levels and parameters are compared with
-#src("ConLeche/Kernel/CoreDefs.lean", 843, 853)[the stored ones, instantiated at the recursor's levels and parameter arguments]
-(#src("ConLeche/Rules/Rel.lean", 213, 224)[the levels by the level oracle, the parameters definitionally]),
+#src("ConLeche/Kernel/CoreDefs.lean", 1165, 1175)[the stored ones, instantiated at the recursor's levels and parameter arguments]
+(#src("ConLeche/Rules/Rel.lean", 212, 223)[the levels by the level oracle, the parameters definitionally]),
 and the index comparison is as before. In the other cases the rule
 fires comparing nothing, as for a simple block. The constructor's fields
 are what follows its own parameters.
@@ -394,4 +394,4 @@ $TreeRec1$ the major is a constructor of `List` applied; the
 recursor's fit puts its value in the class at the recursor's
 parameters, and `List`'s fixed-point equation there identifies the
 constructor and the fields with the rule's
-(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 875, 881)[the graph's equation, lifted to the law]).
+(#src("ConLeche/Model/Inductives/BlockRecLaw.lean", 876, 882)[the graph's equation, lifted to the law]).

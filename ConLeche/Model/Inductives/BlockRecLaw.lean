@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockStageRec
 public import ConLeche.Model.Inductives.BlockRecMem

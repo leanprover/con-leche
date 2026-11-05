@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.GenRecStage
 public import ConLeche.Model.Inductives.TargetNodeSem

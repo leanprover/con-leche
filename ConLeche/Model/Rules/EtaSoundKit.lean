@@ -131,7 +131,7 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
     obtain ⟨htow, h0⟩ := hkind
     obtain ⟨e0, hfe0⟩ := ConLeche.towerSlotsAll_slot htow 0 h0
     obtain ⟨-, -, -, ⟨cvT', capsT', hfT', hlpsT', himp'⟩,
-      -, -, -, -, -, hetaL⟩ := hin.tower_ok T 0 e0 hfe0
+      -, -, -, -, hetaL⟩ := hin.tower_ok T 0 e0 hfe0
     obtain ⟨rfl, rfl⟩ : cvT = cvT' ∧ caps = capsT' := by
       rw [hind] at hfT'
       exact ConstantInfo.indInfo.inj (Option.some.inj hfT')
@@ -180,15 +180,15 @@ theorem etaSide (hin : RulesInputs V m φ) {d : Nat} {Δa : List Term}
         exact fun l hl => hLb l (by simpa [Expr.fvarLeaves] using hl)
       · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hx
         obtain ⟨entry, hfe⟩ := hslotE j (List.mem_range.mp hj)
-        obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj, himpj⟩, hO5j, _,
+        obtain ⟨-, -, -, ⟨cvTj, capsTj, hfTj, hlpsTj, himpj⟩, cvCj,
           -, -, hlawj, -⟩ := hin.tower_ok T j entry hfe
         rw [hind] at hfTj
         obtain ⟨hcvTj, hcapsTj⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfTj)
         rw [← hcvTj] at hlpsTj
         rw [← hcapsTj] at himpj
         obtain ⟨hnpj, -, hparj, -⟩ := himpj heta
-        have hgj : TowerGuardAt φ entry us' :=
-          towerGuardAt_of hO5j (fun hp => by rw [hp] at hnpj; exact nomatch hnpj)
+        have hgj : TowerGuardAt m φ entry us' cvCj :=
+          fun hp => by rw [hp] at hnpj; exact nomatch hnpj
         obtain ⟨⟨Ta, hTa, hA⟩, -⟩ := hlawj us' (by rw [← hlpsTj]; exact hlv)
         obtain ⟨hTad, -⟩ := towerEntry_tele_at_depth hfe hTa
         have hlenVs : tsa.length = entry.numParams := by

@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.NestPosMono
 import ConLeche.Model.Env.EnvModelM
 import ConLeche.Semantics.SubstAV

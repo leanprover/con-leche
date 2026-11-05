@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Env.LfpHoleOp
 public import ConLeche.Semantics.NoBVar
 public import ConLeche.Model.Inductives.BlockData

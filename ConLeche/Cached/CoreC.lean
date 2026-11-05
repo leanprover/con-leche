@@ -504,7 +504,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               let margs ← pure (Expr.getAppArgsC tmaj)
               if (← pure (T' == T)) ∧ margs.length = cnP ∧
                   cvj.levelParams.length = ust.length ∧
-                  fe.andRescueSlotsF rl.ctor cnP ust = true then do
+                  fe.andRescueSlotsF rl.ctor cnP = true then do
                 let TI ← pure T
                 let projs ← projNodesI TI major [0, 1]
                 let ctorI ← pure rl.ctor
@@ -709,8 +709,7 @@ def reduceProjCoreI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
       let args ← pure (Expr.getAppArgsC e')
       if (← pure (k == entry.ctor)) ∧ i < entry.numFields ∧
           args.length = entry.numParams + entry.numFields ∧
-          us.length = entry.levelParams.length ∧
-          entry.fireOk us = true then do
+          us.length = entry.levelParams.length then do
         let bvar0 ← pure (Expr.mkBvar 0)
         let arg := args.getD (entry.numParams + i) bvar0
         -- task #100 de-gating / task #175 W6 / `projCertAt`: see the
@@ -916,6 +915,38 @@ def ensureSortI (r : CoreFnsI) (depth : Nat) (e : Expr) : CheckCM Level := do
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
+/-- Twin of `checkGuardRows`. -/
+def checkGuardRowsI (inf wh : Nat → Expr → CheckCM Expr) : List (Nat × Expr) → CheckCM Unit
+  | [] => pure ()
+  | (d, dom) :: rest => do
+    let t ← inf d dom
+    let w ← wh d t
+    match w with
+    | .sort u =>
+      unless Level.isEquiv u .zero == some true do
+        throw (.invalid "projection from a propositional structure must be a proposition")
+      checkGuardRowsI inf wh rest
+    | _ => throw (.invalid "expected a sort")
+
+/-- Twin of `checkProjGuard`: the constructor's type at the use's levels
+through the per-declaration memo (`constTyAtM`), opened in one pass
+(`openPisAtFvarsF`). -/
+def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
+    (us : List Level) : CheckCM Unit := do
+  if Level.isEquiv entry.structSort .zero == some true then
+    match fe.find? entry.ctor with
+    | some ci =>
+      let cv := ci.toConstantVal
+      let cty ← constTyAtM fe entry.ctor entry.ctor us
+      match openPisAtFvarsF (entry.numParams + entry.idx + 1) cty 0 with
+      | some (fvs, _) =>
+        checkGuardRowsI inf wh (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
+      | none =>
+        throw (.invalid "projection from a propositional structure must be a proposition")
+    | none =>
+      throw (.invalid "projection from a propositional structure must be a proposition")
+  else pure ()
+
 /-! ### Binder-telescope loops (task #72)
 
 The official-kernel discipline (lean4lean's `inferLambda`/`inferForall`
@@ -1107,14 +1138,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
           unless targs.length = entry.numParams do
             throw (.invalid "projection parameter mismatch")
           if us.length = entry.levelParams.length then do
-            -- the official `infer_proj` restriction (task #175
-            -- W4c/O4), as in the spec body
-            if Level.isEquiv entry.structSort .zero == some true then
-              unless Level.isEquiv
-                  (Level.subst entry.levelParams us entry.fieldSort) .zero
-                  == some true do
-                throw (.invalid
-                  "projection from a propositional structure must be a proposition")
+            -- the official `infer_proj` restriction, as in the spec body
+            checkProjGuardI r.inferIO r.whnf fe entry us
             -- the body at the arguments and the subject, as in the
             -- spec body (task #175 S1) — through the memoized,
             -- sharing-preserving `Expr` instantiations

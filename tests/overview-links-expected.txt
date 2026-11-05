@@ -292,10 +292,10 @@
    221      (∀ pc ∈ q.2.2.toList, ∃ s'', checkPending .verified q.2.1 pc {} = .ok ((), s'')) →
    222      EnvModelOk V q.2.1.env := by
 
-== ConLeche/Verify/Cached/KnotCongr.lean#L516-L518
-   516  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
-   517      (htb : fe₁.findTable? = fe₂.findTable?) :
-   518      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
+== ConLeche/Verify/Cached/KnotCongr.lean#L524-L526
+   524  theorem coreKnotI_congr (hfe : fe₁.find? = fe₂.find?)
+   525      (htb : fe₁.findTable? = fe₂.findTable?) :
+   526      ∀ F, coreKnotI mode eager fe₁ F = coreKnotI mode eager fe₂ F := by
 
 == ConLeche/Model/InstallRun.lean#L243-L245
    243  theorem fullyChecked_sound (V : Type w) [SetTheory V]
@@ -347,13 +347,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1736-L1741
-  1736      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1737    | 0 =>
-  1738      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1739        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1740        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1741        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1745-L1750
+  1745      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1746    | 0 =>
+  1747      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1748        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1749        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1750        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L267-L274
    267  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -389,28 +389,28 @@
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1070
-  1070  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
+== ConLeche/Kernel/Core.lean#L1091
+  1091  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
 
-== ConLeche/Kernel/Core.lean#L1053
-  1053  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
+== ConLeche/Kernel/Core.lean#L1051
+  1051  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1309
-  1309  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1318
+  1318  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1198
-  1198  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
+== ConLeche/Kernel/Core.lean#L1213
+  1213  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1347
-  1347  def defeqLams (r : CoreFns m) :
+== ConLeche/Kernel/Core.lean#L1356
+  1356  def defeqLams (r : CoreFns m) :
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1084-L1086
   1084  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
   1085      {env : Env} (h : checkDecls mode pins ds = .ok env) :
   1086      envSkels env = streamSkels ds.toList := by
 
-== ConLeche/Kernel/Core.lean#L1784
-  1784  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1793
+  1793  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -837,31 +837,31 @@
    100  chained. -/
    101  inductive Red (env : Env) : Nat → Expr → Expr → Prop where
 
-== ConLeche/Rules/Rel.lean#L334-L357
-   334  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
-   335  
-   336  **There is no `trans` rule, deliberately, and none can be added**
-   337  (task #309, the experiment recorded in DESIGN.md).  The relation is
-   338  not an equivalence on terms: it is the checker's verdict, and the
-   339  checker only ever compares terms that are well-formed *together* — a
-   340  fact the rules never state, because well-formedness (scoping, the
-   341  readability of the terms, the grading of the reading) is semantic
-   342  and may not enter this inductive.  Every rule respects one syntactic
-   343  discipline instead: **the subject of each `DefEq` premise is either a
-   344  subterm of the conclusion or is produced by an existence-form `Red` /
-   345  `Infer` premise** (a reduct, an inferred type), so the soundness proof
-   346  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
-   347  hand.  `trans` is the unique rule that would break it: its middle
-   348  term comes from nowhere, and with it two rules that are each sound
-   349  alone meet — `fvar` compares free variables by index only (their
-   350  types are not compared, as the checker does not), while
-   351  `proofFast` *reads* a head's stored data to decide "definitely a
-   352  proof" — and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for
-   353  every `i`, `i'`, which no model satisfies.  The recursive-structure rules
-   354  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
-   355  proof-engineering convenience but what keeps the relation sound; the
-   356  one chaining that is sound, "reduce, then continue", is `redL`, and
-   357  its right-hand and δ variants are derived in `Derived.lean`. -/
+== ConLeche/Rules/Rel.lean#L333-L356
+   333  /-- **Definitional equality**: the verdict `true` of `isDefEq`.
+   334  
+   335  **There is no `trans` rule, deliberately, and none can be added**
+   336  (task #309, the experiment recorded in DESIGN.md).  The relation is
+   337  not an equivalence on terms: it is the checker's verdict, and the
+   338  checker only ever compares terms that are well-formed *together* — a
+   339  fact the rules never state, because well-formedness (scoping, the
+   340  readability of the terms, the grading of the reading) is semantic
+   341  and may not enter this inductive.  Every rule respects one syntactic
+   342  discipline instead: **the subject of each `DefEq` premise is either a
+   343  subterm of the conclusion or is produced by an existence-form `Red` /
+   344  `Infer` premise** (a reduct, an inferred type), so the soundness proof
+   345  (`ConLeche/Model/Rules/Sound.lean`) always has the premise's terms in
+   346  hand.  `trans` is the unique rule that would break it: its middle
+   347  term comes from nowhere, and with it two rules that are each sound
+   348  alone meet — `fvar` compares free variables by index only (their
+   349  types are not compared, as the checker does not), while
+   350  `proofFast` *reads* a head's stored data to decide "definitely a
+   351  proof" — and derive `DefEq env d (.fvar i ty) (.fvar i' ty')` for
+   352  every `i`, `i'`, which no model satisfies.  The recursive-structure rules
+   353  (`redL`, `natSucc`, `eta`, `structUnit`) are therefore not a
+   354  proof-engineering convenience but what keeps the relation sound; the
+   355  one chaining that is sound, "reduce, then continue", is `redL`, and
+   356  its right-hand and δ variants are derived in `Derived.lean`. -/
 
 == ConLeche/Verify/Rules/Bridge.lean#L29-L32
     29  theorem bridgeAt (env : Env) :
@@ -869,11 +869,11 @@
     31        WhnfCoreBridge .verified eager env fuel ∧ WhnfBridge .verified eager env fuel ∧
     32          DefEqBridge .verified eager env fuel ∧ InferBridge .verified eager env fuel ∧
 
-== ConLeche/Model/Rules/Sound.lean#L47-L50
-    47  mutual
-    48  
-    49  theorem red_sound (hin : RulesInputs V m φ) :
-    50      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
+== ConLeche/Model/Rules/Sound.lean#L48-L51
+    48  mutual
+    49  
+    50  theorem red_sound (hin : RulesInputs V m φ) :
+    51      ∀ {d : Nat} {e e' : Expr}, Red env d e e' → RedSem m φ d e e'
 
 == ConLeche/Model/Rules/Recompose.lean#L50-L55
     50      {m : EnvModel V env} (h : RulesInputs V m φ) :
@@ -903,18 +903,18 @@
 == ConLeche/Kernel/Inductives/BlockParts.lean#L449
    449  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L440-L447
-   440  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   441    block.all fun ci => match ci with
-   442      | .indInfo cvT _ =>
-   443        match cvT.type.piSortTeleLen? with
-   444        | some n => decide (nP ≤ n)
-   445        | none => true
-   446      | .ctorInfo _ nPc _ => nPc == nP
-   447      | _ => true
+== ConLeche/Kernel/Env.lean#L430-L437
+   430  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   431    block.all fun ci => match ci with
+   432      | .indInfo cvT _ =>
+   433        match cvT.type.piSortTeleLen? with
+   434        | some n => decide (nP ≤ n)
+   435        | none => true
+   436      | .ctorInfo _ nPc _ => nPc == nP
+   437      | _ => true
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L148
-   148  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L147
+   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L394-L396
    394  def targetMajorOf (fe : FEnv) (p : BlockShape)
@@ -941,8 +941,8 @@
 == ConLeche/Kernel/Inductives/StoredRecs.lean#L187
    187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
 
-== ConLeche/Cached/StoredInstall.lean#L185
-   185  def storedFire (p : BlockShape) (rc : RecShape) : Option RecRuleFire :=
+== ConLeche/Cached/StoredInstall.lean#L179
+   179  def storedFire (p : BlockShape) (rc : RecShape) : Option RecRuleFire :=
 
 == ConLeche/SetModel/Value.lean#L387-L388
    387  /-- `I → Sort w`, the family space, as the value reading has it. -/
@@ -951,13 +951,13 @@
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/DeclBlockStep.lean#L72-L77
-    72  theorem declBlock {F : Nat} {env env₂ : Env}
-    73      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
-    74      (mp : EnvModelM V env)
-    75      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
-    76      (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
-    77      ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
+== ConLeche/Model/Inductives/DeclBlockStep.lean#L73-L78
+    73  theorem declBlock {F : Nat} {env env₂ : Env}
+    74      {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    75      (mp : EnvModelM V env)
+    76      (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
+    77      (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
+    78      ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
@@ -966,8 +966,8 @@
 == ConLeche/Kernel/Inductives/ClassRead.lean#L130
    130  def classRead (nP : Nat) (nPc : Name → Nat) (recs : List RecShape) : Option ClassRead := do
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L148
-   148  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
+== ConLeche/Kernel/Inductives/BlockTail.lean#L147
+   147  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L63
     63  def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
@@ -996,8 +996,8 @@
 == ConLeche/Kernel/Inductives/Positivity.lean#L1563
   1563  def nestUniform (ctx : NestCtx) (ctorss : List (List (ConstantVal × Nat))) : m Unit :=
 
-== ConLeche/Kernel/Inductives/BlockTail.lean#L129
-   129  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
+== ConLeche/Kernel/Inductives/BlockTail.lean#L128
+   128  def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L294
    294  def classCtorOf (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys : List Expr)
@@ -1286,6 +1286,10 @@
     36  `sorryAx` remains the only axiom tolerated as a *declaration*: its
     37  record installs nothing and any use of it declines
     38  (`sorryAxName`, `ConLeche/Kernel/Basis/Names.lean`).
+
+== ConLeche/Kernel/Core.lean#L1080-L1081
+  1080  def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjEntry)
+  1081      (us : List Level) : m Unit :=
 
 >>> README.md
 

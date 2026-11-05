@@ -109141,3 +109141,89 @@ its `.basisDecl`, `.quotDecl` and block-pin arms and the `declCSkels` prediction
 step.  `pushesAgree` covers every deferred record until the reading is the checked
 step's own.  `tests/arena.sh`'s progress lane now states M = N: every record is a
 job.
+
+### Projection guards at use (#480, lane 3)
+
+**What goes.**  `ProjTable.guards`, `ProjEntry.fieldSort`, `storedGuards`,
+`structProjGuards` and its fast form, `ProjEntry.fireOk`, `TowerO5`.  A table
+now holds the structure's name, level parameters, parameter count, constructor,
+field count, result sort and bodies, all read off the block's records, the
+bodies by substitution (ruling 2).  With this the install infers nothing; the
+reduction of a def-headed former's telescope is the one step left that is not a
+function of the group.
+
+**The guard at a use** (`checkProjGuard`, `Kernel/Core.lean`, cached twin
+`checkProjGuardI`).  `projGuardRows` (`Kernel/CoreDefs.lean`, pure): at a
+structure whose sort is literally zero, open the stored constructor type,
+instantiated at the use's levels, at its own variables, and list the domain of
+the projected field and of every earlier field a later one uses
+(`structUsedLater`, official's `has_loose_bvars(binding_body(r))`), each at its
+depth; no row at any other structure.  `checkGuardRows` requires of each row
+that its io-inferred type reduce to a sort equal to zero.
+
+**The design: the use's levels, the telescope's own variables.**  Official's
+`infer_proj` instantiates the telescope at the subject's actual arguments and at
+`.proj` nodes of the subject.  The levels are mirrored (`instantiate_type_lparams`,
+through the `constTyAtM` memo); the arguments are not, and the proof forces that.
+The typing law's squash case has a *fitting* spine of the fields to hand, not
+the projections of the point, and asks of each row that it be a proposition at
+every value of the earlier fields; official's test speaks about one instantiation,
+which is not what the law's case split can consume.  On verdicts the two agree
+wherever a field's sort is a function of the levels, which the block's own
+constructor stage requires of every field (a field whose sort is stuck at the
+telescope's variables is rejected there).  The rows run at the io grade, as
+official's `infer_type` inside `is_prop`.
+
+**The structural projection fires unguarded, as official's `reduce_proj`.**
+`fireOk` is gone from `reduceProjCore` and from `andRescueSlots`.  A reduction
+claims nothing of the point (`RedSem`), and at a squash instance a constructor
+application is the point and so is its projection (`fixEntryIotaZeroPt`), so the
+iota law needs no guard: its premise is now that the projection is not the point.
+A node that fires here on a data field of a `Prop` structure is one the inference
+rejects, so no verdict depends on it.
+
+**The proof.**  `Rules/Rel.lean`'s `Infer.proj` takes `projGuardRows env.find?
+entry us = some rows` and `GuardRows env rows`, a new mutual relation.  The tower
+typing law's premise is `TowerGuardAt`: at a literally `Prop` structure, over
+any reading `ds` of the constructor's telescope at the use's levels, the rows
+are propositions (`TowerRowsProp`), a Term-level statement.
+`towerGuardAt_of_rows` (`Model/Rules/GuardSound.lean`) establishes it at the
+use, from the rows' `InferSemIO` and `RedSem` at the environment of the use,
+through the opened telescope's context (`ctxOk_opened`).  As the #480 record
+says, no statement relates this to the install: the law's establishment in
+`stageFixTable` has the block's own sorts only for a structure not literally
+`Prop` (the former O5 bound, `hleq`), and at a literally `Prop` structure takes
+the rows as given, the other slots at the block's sorts.  The `.proj` arm of the
+cached simulation is `checkProjGuardC_spec` (`Verify/Cached/DiscC4.lean`).
+Lemmas that the rules tier needs moved below it: `Model/OpenedCtx.lean`
+(`denote_openPis`, `ctxOk_of_openers`, `ctxOk_opened`, `mkPisAV_doms_graded`),
+and `openPisAtFvars_index`/`_WScoped`/`_typeWScoped` to `Verify/Denote/IndFrame.lean`.
+
+**Left in place, deliberately.**  `checkBlockTables` still takes the constructor
+stage's `sortsss` and ignores them in a `[_]` pattern: the model's block stage
+reads the sorts through the pass (`DeclBlockStep`).  The job's comparison
+`pushesAgree` still compares tables; it no longer sees guards.
+
+**Numbers** (`instructions:u`, `--verified`, one run each, against ea33c0997).  No
+memo is warranted (ruling 3).
+
+| stream | `--jobs=1` base | Δ | `--jobs=8` base | Δ |
+|---|---|---|---|---|
+| init-full | 381.676 G | −0.35 % | 392.620 G | −0.48 % |
+| init-prelude | 1.9572 G | −0.47 % | 2.1306 G | −0.52 % |
+| grind-ring-5 | 15.298 G | −0.26 % | 15.685 G | −0.22 % |
+| app-lam | 22.079 G | −0.00 % | 22.415 G | +0.13 % |
+| beta-ladder | 4.8465 G | +0.33 % | 4.9177 G | −0.06 % |
+| let-ladder | 2.5668 G | −0.01 % | 2.6485 G | −0.19 % |
+| magma-list-deep-n36 | 200.817 G | −0.01 % | 200.984 G | −0.03 % |
+| magma-list-pair-n21 | 156.490 G | +0.01 % | 156.505 G | +0.01 % |
+| discarded-argument-match | 200.5 M | −2.06 % | 203.6 M | −1.71 % |
+| the other twelve perf streams | 19–332 M | −0.61 … +0.11 % | 22–365 M | −0.69 … +0.09 % |
+
+The install's inference per structure went, and the guard is paid only by
+`.proj` uses at a literally `Prop` structure.
+
+**Fixtures.**  `proj_guard_data_bad`, `proj_guard_used_data_bad`,
+`proj_guard_past_used_data_bad` (1), `proj_guard_prop_after_data`,
+`proj_guard_unfold` (0): all five as the base binary and as official
+(`checkers/official-v4.33.0`).  No pinned verdict moved.

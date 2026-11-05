@@ -115,7 +115,7 @@ theorem towerSlotsAllF_congr (hfe : fe₁.find? = fe₂.find?)
 theorem andRescueSlotsF_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) :
     fe₁.andRescueSlotsF = fe₂.andRescueSlotsF := by
-  funext ctor nP ust; unfold FEnv.andRescueSlotsF
+  funext ctor nP; unfold FEnv.andRescueSlotsF
   simp only [findProj?_congr hfe htb]
 
 /-- `natLitSupportedF` reads `fe` only through `find?`. -/
@@ -437,13 +437,21 @@ theorem whnfBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     whnfBodyI r fe₁ = whnfBodyI r fe₂ := by
   funext depth e; unfold whnfBodyI; rw [whnfLoopI_congr hfe]
 
+/-- `checkProjGuardI` reads `fe` only through `find?`. -/
+theorem checkProjGuardI_congr (hfe : fe₁.find? = fe₂.find?)
+    (inf wh : Nat → Expr → CheckCM Expr) :
+    checkProjGuardI inf wh fe₁ = checkProjGuardI inf wh fe₂ := by
+  funext entry us; unfold checkProjGuardI
+  simp only [hfe, constTyAtM_congr hfe]
+
 /-- `inferBodyI` reads `fe` only through `find?` and `findTable?`. -/
 theorem inferBodyI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     inferBodyI r fe₁ = inferBodyI r fe₂ := by
   funext depth e; unfold inferBodyI
   simp only [hfe, natLitSupportedF_congr hfe, strLitSupportedF_congr hfe,
-    constTyAtM_congr hfe, inferSpineI_congr hfe, findProj?_congr hfe htb, htb]
+    constTyAtM_congr hfe, inferSpineI_congr hfe, findProj?_congr hfe htb, htb,
+    checkProjGuardI_congr hfe]
 
 /-- `inferBodyIOI` reads `fe` only through `find?` and `findTable?`. -/
 theorem inferBodyIOI_congr (hfe : fe₁.find? = fe₂.find?)
