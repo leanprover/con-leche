@@ -149,36 +149,6 @@ theorem IdxBelow.find?_push {fe : FEnv} (h : IdxBelow fe) (ci : ConstantInfo) (n
       have hc := h.2 n c ci' hl
       simp only [Nat.lt_succ_of_lt hc, hc, ↓reduceIte]
 
-theorem counterOf_push {fe : FEnv} (ci : ConstantInfo) (n : Name) :
-    (fe.push ci).counterOf n =
-      if ci.name = n then some fe.visibleBelow else fe.counterOf n := by
-  unfold FEnv.counterOf
-  simp only [FEnv.push, Std.HashMap.getElem?_insert, beq_iff_eq]
-  by_cases h : ci.name = n <;> simp [h]
-
-theorem counterOf_pushTables (n : Name) : ∀ (Q : List ProjTable) (fe : FEnv),
-    (FEnv.pushTables Q fe).counterOf n = fe.counterOf n
-  | [], _ => rfl
-  | t :: Q, fe => by
-    show (FEnv.pushTables Q (fe.pushTable t)).counterOf n = _
-    rw [counterOf_pushTables n Q (fe.pushTable t)]
-    rfl
-
-theorem base_pushTables : ∀ (Q : List ProjTable) (fe : FEnv),
-    (FEnv.pushTables Q fe).base = fe.base
-  | [], _ => rfl
-  | t :: Q, fe => by
-    show (FEnv.pushTables Q (fe.pushTable t)).base = _
-    rw [base_pushTables Q (fe.pushTable t)]
-    rfl
-
-theorem base_pushAll : ∀ (L : List ConstantInfo) (fe : FEnv), (FEnv.pushAll L fe).base = fe.base
-  | [], _ => rfl
-  | c :: L, fe => by
-    show (FEnv.pushAll L (fe.push c)).base = _
-    rw [base_pushAll L (fe.push c)]
-    rfl
-
 /-! ## The base index, the worker view, and the invariant -/
 
 /-- The base index of a parallel install: each predicted name with its
@@ -221,10 +191,6 @@ constant lookup). -/
 structure ViewAgrees (B : BaseIdx) (S : Slots) (fe : FEnv) : Prop where
   find : ∀ n, (workerView B S fe.visibleBelow).find? n = fe.find? n
   raw : ∀ T, (workerView B S fe.visibleBelow).rawTable? T = fe.rawTable? T
-  /-- the serial index holds nothing in a base -/
-  base : fe.base.below = 0
-  /-- a visible constant has the counter the prediction gave it -/
-  ctr : ∀ n, (fe.find? n).isSome = true → fe.counterOf n = (workerView B S fe.visibleBelow).counterOf n
 
 /-- At the empty index nothing is visible on either side. -/
 theorem ViewAgrees.empty (B : BaseIdx) (S : Slots) : ViewAgrees B S (mkFEnv Env.empty) := by
@@ -239,9 +205,6 @@ theorem ViewAgrees.empty (B : BaseIdx) (S : Slots) : ViewAgrees B S (mkFEnv Env.
     simp only [FBase.findTable?, mkFEnv, mkFEnvGo, mkTblsGo, Env.empty, FEnv.rawTable?,
       Std.HashMap.getElem?_empty]
     split <;> simp [baseGet?]
-  · rfl
-  · intro n hn
-    simp [FBase.find?, mkFEnv, mkFEnvGo, Env.empty, FEnv.find?, baseGet?] at hn
 
 /-- The slot's constant: position `j` of record `k`'s task. -/
 def slotGet (S : Slots) (k j : Nat) : Option ConstantInfo :=
@@ -455,35 +418,6 @@ theorem lastOf?_eq_none {T : Name} :
       · simp [hT]
       · simpa [hT] using this
 
-/-- A worker view's counters are the base's, at any bound. -/
-theorem workerView_counterOf (B : BaseIdx) (S : Slots) (v : Nat) (n : Name) :
-    (workerView B S v).counterOf n =
-      match baseGet? B n with
-      | some (c, _, _) => some c
-      | none => none := by
-  simp [workerView, FEnv.counterOf]
-  rfl
-
-/-- Checked pushes keep the counters the prediction gave. -/
-theorem ViewAgrees.ctr_pushAll {B : BaseIdx} {S : Slots} {Q : List ProjTable} :
-    ∀ (L : List ConstantInfo) {fe : FEnv}, IdxBelow fe →
-      (∀ n, (fe.find? n).isSome = true → fe.counterOf n = (workerView B S 0).counterOf n) →
-      slotsOk B S Q fe.visibleBelow L = true →
-      ∀ n, ((FEnv.pushAll L fe).find? n).isSome = true →
-        (FEnv.pushAll L fe).counterOf n = (workerView B S 0).counterOf n
-  | [], _, _, h, _ => h
-  | ci :: L, fe, hidx, h, hok => by
-    simp only [slotsOk, Bool.and_eq_true] at hok
-    refine ViewAgrees.ctr_pushAll L (hidx.push ci) (fun n hn => ?_) hok.2
-    obtain ⟨k, j, hslot, -, -⟩ := slotOk_spec hok.1
-    rw [counterOf_push]
-    by_cases hc : ci.name = n
-    · subst hc
-      simp [workerView_counterOf, hslot]
-    · rw [hidx.find?_push] at hn
-      simp only [hc, ↓reduceIte] at hn ⊢
-      exact h n hn
-
 /-- **A checked commit keeps the invariant**: the record's constants
 pushed, then its tables. -/
 theorem ViewAgrees.commit {B : BaseIdx} {S : Slots} (hB : BaseInj B) {fe : FEnv}
@@ -496,7 +430,7 @@ theorem ViewAgrees.commit {B : BaseIdx} {S : Slots} (hB : BaseInj B) {fe : FEnv}
   have hvb : (FEnv.pushTables Q (FEnv.pushAll L fe)).visibleBelow =
       fe.visibleBelow + L.length := by
     rw [FEnv.visibleBelow_pushTables, pushAll_visibleBelow]
-  refine ⟨?_, ?_, by rw [base_pushTables, base_pushAll]; exact h.base, ?_⟩
+  constructor
   · intro n
     rw [FEnv.find?_pushTables, ← ViewAgrees.find_pushAll hB L hidx h.find hsl n,
       hvb, pushAll_visibleBelow]
@@ -547,12 +481,6 @@ theorem ViewAgrees.commit {B : BaseIdx} {S : Slots} (hB : BaseInj B) {fe : FEnv}
             cases hl
             omega
           simp [hQn, hc, hc']
-  · intro n hn
-    rw [counterOf_pushTables, workerView_counterOf, ← workerView_counterOf B S 0]
-    rw [FEnv.find?_pushTables] at hn
-    exact ViewAgrees.ctr_pushAll L hidx
-      (fun m hm => by
-        rw [h.ctr m hm, workerView_counterOf, workerView_counterOf]) hsl n hn
 
 /-! ## The base builder
 

@@ -205,22 +205,20 @@ def reduceMembersS (fe : FEnv) (nP : Nat) : List MemberShape → CheckCM (List M
     let rest' ← reduceMembersS fe nP rest
     pure (ms' :: rest')
 
-/-- Twin of `blockViews`: each family reduced at its own view. -/
+/-- Twin of `blockViews`. -/
 def blockViewsS (fe : FEnv) : List Name → CheckCM (List ConstantInfo)
   | [] => pure []
   | c :: cs => do
     let rest ← blockViewsS fe cs
     match fe.find? c with
     | some (.indInfo cv caps) =>
-      if formerDefHeaded cv then
-        match fe.belowOf (caps.all.headD c) with
-        | some W => do
-          flushC
-          let cvR ← reducedFormer (sharedOpsC mode W) W.env cv (caps.nparams + caps.nIdx)
-          checkConstantValF (sharedOpsC mode W) W cvR
-          flushC
-          pure (.indInfo cvR caps :: rest)
-        | none => throw (.internal "a stored family's first member is not stored")
+      if formerDefHeaded cv then do
+        flushC
+        let cvR ← reducedFormer (sharedOpsC mode fe) fe.env cv (caps.nparams + caps.nIdx)
+        flushC
+        unless viewScoped (Expr.constsResolveF fe) cvR do
+          throw (.internal "a family's reduced telescope is not closed")
+        pure (.indInfo cvR caps :: rest)
       else pure rest
     | _ => pure rest
 

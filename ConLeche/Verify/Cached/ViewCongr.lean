@@ -1262,34 +1262,6 @@ theorem pushDelta_env (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
   unfold FEnv.pushDelta
   rw [pushTables_env, pushAll_env_consts, pushAll_env_tables]
 
-/-- **Where a declaration's check starts**: a serial index with nothing in its base, and a
-worker's view with nothing of its own. -/
-structure TwinStart (fe₁ fe₂ : FEnv) : Prop where
-  base₁ : fe₁.base.below = 0
-  idx₂ : ∀ n : Name, fe₂.idx[n]? = none
-  tbls₂ : ∀ T : Name, fe₂.tbls[T]? = none
-  ctr : ∀ n : Name, (fe₁.find? n).isSome = true → fe₁.counterOf n = fe₂.counterOf n
-
-/-- The view below a counter, by what it hides. -/
-theorem belowAt_find? {fe : FEnv} (h : IdxBelow fe) (c : Nat) (m : Name) :
-    (fe.belowAt c).find? m =
-      if ((fe.counterOf m).any (· < c)) then fe.find? m else none := by
-  have hov : fe.ovl = [] := h.1
-  simp only [FEnv.find?, FEnv.belowAt, FEnv.counterOf, hov]
-  cases hi : fe.idx[m]? with
-  | some p =>
-    obtain ⟨c', ci⟩ := p
-    have hc := h.2 m c' ci hi
-    simp [hc]
-  | none =>
-    simp only [FBase.find?]
-    cases hb : baseGet? fe.base.idx m with
-    | none => simp
-    | some p =>
-      obtain ⟨c', k, j⟩ := p
-      by_cases h₁ : c' < c <;> by_cases h₂ : c' < fe.base.below <;>
-        simp [h₁, h₂, Nat.lt_min]
-
 /-- The reduced members read the index through its lookups alone. -/
 theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) (ms : MemberShape) :
@@ -1307,99 +1279,24 @@ theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     unfold reduceMembersS
     simp only [reduceMemberS_congr hfe htb, reduceMembersS_congr hfe htb nP rest]
 
-/-- **Twin views below one constant answer alike**, at a serial index with no base and a
-worker's view with nothing of its own. -/
-theorem Twin.belowOf {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : TwinStart fe₁ fe₂) (n : Name) :
-    (fe₁.belowOf n).isSome = (fe₂.belowOf n).isSome ∧
-    ∀ W₁ W₂, fe₁.belowOf n = some W₁ → fe₂.belowOf n = some W₂ →
-      W₁.find? = W₂.find? ∧ W₁.findTable? = W₂.findTable? := by
-  unfold FEnv.belowOf
-  rw [ht.find]
-  by_cases hv : (fe₂.find? n).isSome = true
-  case neg =>
-    simp only [hv]
-    exact ⟨rfl, fun _ _ h => nomatch h⟩
-  have hv₁ : (fe₁.find? n).isSome = true := by rw [ht.find]; exact hv
-  simp only [hv, ↓reduceIte]
-  rw [hS.ctr n hv₁]
-  cases hc : fe₂.counterOf n with
-  | none => exact ⟨rfl, fun _ _ h => nomatch h⟩
-  | some c =>
-  refine ⟨rfl, fun W₁ W₂ h₁ h₂ => ?_⟩
-  obtain rfl := Option.some.inj h₁
-  obtain rfl := Option.some.inj h₂
-  have hf : (fe₁.belowAt c).find? = (fe₂.belowAt c).find? := by
-    funext m
-    rw [belowAt_find? ht.idx₁, belowAt_find? ht.idx₂]
-    by_cases hm : (fe₁.find? m).isSome = true
-    · rw [hS.ctr m hm, ht.find]
-    · have hn : fe₁.find? m = none := by simpa using hm
-      have hn₂ : fe₂.find? m = none := by rw [← ht.find]; exact hn
-      rw [hn, hn₂]
-      simp
-  refine ⟨hf, ?_⟩
-  funext T
-  unfold FEnv.findTable?
-  rw [hf]
-  by_cases hT : ((fe₂.belowAt c).find? T).isSome = true
-  case neg => simp [hT]
-  simp only [hT, ↓reduceIte]
-  -- a visible table is what it was, on either side
-  have hraw₁ : (fe₁.belowAt c).rawTable? T = fe₁.rawTable? T := by
-    simp only [FEnv.rawTable?, FEnv.belowAt, FBase.findTable?, hS.base₁]
-    simp
-  have hraw₂ : (fe₂.belowAt c).rawTable? T = fe₂.rawTable? T := by
-    rw [belowAt_find? ht.idx₂] at hT
-    have hlt : ((fe₂.counterOf T).any (· < c)) = true := by
-      cases hx : (fe₂.counterOf T).any (· < c) with
-      | true => rfl
-      | false => rw [hx] at hT; simp at hT
-    simp only [FEnv.counterOf, hS.idx₂ T] at hlt
-    simp only [FEnv.rawTable?, FEnv.belowAt, FBase.findTable?, hS.tbls₂ T]
-    cases hb : baseGet? fe₂.base.idx T with
-    | none => rfl
-    | some p =>
-      obtain ⟨c', k, j⟩ := p
-      rw [hb] at hlt
-      have hc' : c' < c := by simpa using hlt
-      by_cases h₂ : c' < fe₂.base.below <;> simp [h₂, hc', Nat.lt_min] <;> rfl
-  rw [hraw₁, hraw₂, congrFun ht.raw T]
-
-theorem blockViewsS_congr {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : TwinStart fe₁ fe₂) :
+theorem blockViewsS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (htb : fe₁.findTable? = fe₂.findTable?) :
     ∀ cs, blockViewsS mode fe₁ cs = blockViewsS mode fe₂ cs
   | [] => rfl
   | c :: cs => by
+    have h := sharedOpsC_envFree mode fe₂
+    have hres : Expr.constsResolveF fe₁ = Expr.constsResolveF fe₂ :=
+      funext (constsResolveF_congr hfe)
     unfold blockViewsS
-    simp only [blockViewsS_congr ht hS cs, ht.find]
-    refine congrArg _ (funext fun rest => ?_)
-    split
-    · next cv caps _ =>
-      split
-      · obtain ⟨hs, hW⟩ := ht.belowOf hS (caps.all.headD c)
-        cases h₁ : fe₁.belowOf (caps.all.headD c) with
-        | none =>
-          rw [h₁] at hs
-          cases h₂ : fe₂.belowOf (caps.all.headD c) with
-          | none => rfl
-          | some W₂ => rw [h₂] at hs; exact nomatch hs
-        | some W₁ =>
-          rw [h₁] at hs
-          cases h₂ : fe₂.belowOf (caps.all.headD c) with
-          | none => rw [h₂] at hs; exact nomatch hs
-          | some W₂ =>
-            obtain ⟨hf, htb⟩ := hW W₁ W₂ h₁ h₂
-            have h := sharedOpsC_envFree mode W₂
-            simp only [reducedFormer, sharedOpsC_congr hf htb, checkConstantValF_congr h hf,
-              whnfTelescope_env h W₁.env, whnfTelescope_env h W₂.env]
-      · rfl
-    · rfl
+    simp only [blockViewsS_congr hfe htb cs, hfe, reducedFormer, sharedOpsC_congr hfe htb,
+      whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env, hres]
 
-theorem checkBlockViewedS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : TwinStart fe₁ fe₂)
+theorem checkBlockViewedS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (p₀ : BlockParts) (cs : List Name) :
     RelRun (PushedFrom fe₁ fe₂) (checkBlockViewedS mode fe₁ block p₀ cs)
       (checkBlockViewedS mode fe₂ block p₀ cs) := by
   unfold checkBlockViewedS
-  rw [reduceMembersS_congr (mode := mode) ht.find ht.findTable, blockViewsS_congr (mode := mode) ht hS]
+  rw [reduceMembersS_congr (mode := mode) ht.find ht.findTable, blockViewsS_congr (mode := mode) ht.find ht.findTable]
   refine RelRun.bind_same fun ms => RelRun.bind_same fun vs => ?_
   refine RelRun.bind (checkBlockAtS_twin (ht.pushAll vs.reverse) _ _) fun a₁ a₂ h => ?_
   obtain ⟨L, Q, rfl, rfl⟩ := h
@@ -1426,7 +1323,7 @@ theorem checkBlockViewedS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS 
   rw [hset fe₁, hset fe₂]
   exact ⟨_, _, rfl, rfl⟩
 
-theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : TwinStart fe₁ fe₂)
+theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (p₀ : BlockParts) :
     RelRun (PushedFrom fe₁ fe₂) (checkBlockKS mode fe₁ block p₀)
       (checkBlockKS mode fe₂ block p₀) := by
@@ -1435,7 +1332,7 @@ theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : Twi
   rw [hfe]
   relrun
   all_goals first
-    | exact checkBlockViewedS_twin ht hS block p₀ _
+    | exact checkBlockViewedS_twin ht block p₀ _
     | exact checkBlockAtS_twin ht block p₀
 
 end Blocks
@@ -1481,7 +1378,7 @@ theorem checkShapelessS_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
   relrun
 
 /-- The block install, push for push at twins. -/
-theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : TwinStart fe₁ fe₂)
+theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (nP : Nat) :
     RelRun (PushedFrom fe₁ fe₂) (checkIndDeclC mode fe₁ block nP)
       (checkIndDeclC mode fe₂ block nP) := by
@@ -1489,13 +1386,13 @@ theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (hS : Tw
   relrun
   all_goals first
     | exact checkBasisBlockC_twin ht _ block
-    | exact checkBlockKS_twin ht hS block _
+    | exact checkBlockKS_twin ht block _
     | exact checkShapelessS_twin ht.find ht.findTable block
 
 /-- **Every declaration step at twin indices pushes the same constants
 onto each, or fails alike.** -/
 theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (hS : TwinStart fe₁ fe₂)
+   
     (pd : Declaration) :
     RelRun (PushedFrom fe₁ fe₂) (checkDeclC mode pins fe₁ pd) (checkDeclC mode pins fe₂ pd) := by
   have hfe := ht.find
@@ -1550,18 +1447,18 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
       | exact RelRun.pure (PushedFrom.push _ _ _)
   | indDecl block nP =>
     unfold checkDeclC
-    exact checkIndDeclC_twin ht hS block nP
+    exact checkIndDeclC_twin ht block nP
   | quotDecl k cv =>
     unfold checkDeclC
     exact checkQuotRecordC_twin ht k cv
 
 theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (hS : TwinStart fe₁ fe₂)
+   
     (pd : Declaration) :
     RelRun (PushedFrom fe₁ fe₂) (checkDeclStepC mode pins fe₁ pd)
       (checkDeclStepC mode pins fe₂ pd) := by
   unfold checkDeclStepC
-  exact RelRun.bind_same fun _ => checkDeclC_twin pins ht hS pd
+  exact RelRun.bind_same fun _ => checkDeclC_twin pins ht pd
 
 end Decls
 
@@ -1574,10 +1471,6 @@ variable {mode : CheckMode}
 theorem IdxBelow.ofWorkerView (B : BaseIdx) (S : Slots) (v : Nat) :
     IdxBelow (workerView B S v) :=
   ⟨rfl, fun n c ci h => by simp [ConLeche.Cached.workerView] at h⟩
-
-theorem TwinStart.ofViewAgrees {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees B S fe) :
-    TwinStart fe (workerView B S fe.visibleBelow) :=
-  ⟨hag.base, fun _ => by simp [workerView], fun _ => by simp [workerView], hag.ctr⟩
 
 theorem Twin.ofViewAgrees {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgrees B S fe)
     (hidx : IdxBelow fe) : Twin fe (workerView B S fe.visibleBelow) :=

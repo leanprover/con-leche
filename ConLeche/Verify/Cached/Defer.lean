@@ -196,8 +196,7 @@ variable {mode : CheckMode} {pins : List NatOpPinSet}
 step accepts the record at a twin `W` of `fe` whose own environment
 is empty, pushing `L` and `Q`, the fold's step at `fe` pushes `L` and
 `Q` and records nothing. -/
-theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hS : TwinStart fe W)
-    (hW : W.env = ⟨[], []⟩) {i : Nat}
+theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hW : W.env = ⟨[], []⟩) {i : Nat}
     {pend : Array PendingCheck} {pd : Declaration}
     {L : List ConstantInfo} {Q : List ProjTable}
     (hd : deferredDecl pd = true) (hand : andPinOk pd = true)
@@ -208,7 +207,7 @@ theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) (hS : TwinStart fe 
   obtain ⟨W', s, hW', hL, hQ⟩ := hok
   have hs := installStepC_of_valueStep_none (mode := mode) (pins := pins) (i := i) (fe := fe)
     (pend := pend) (valueStep_of_deferred hd W)
-  rcases checkDeclStepC_twin pins ht hS pd {} with
+  rcases checkDeclStepC_twin pins ht pd {} with
     ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
   · rw [h₂] at hW'; exact nomatch hW'
   · rw [h₂] at hW'
@@ -244,7 +243,7 @@ theorem installStepG_deferred {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewA
   rw [valueStep_of_deferred hd] at h
   simp only [Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
-  exact ⟨rfl, fun hok => installDeclStep_defer ht (TwinStart.ofViewAgrees hag) rfl hd hand hok⟩
+  exact ⟨rfl, fun hok => installDeclStep_defer ht rfl hd hand hok⟩
 
 /-- **The commit step of a value record**: installed at the view whose
 lookups are the serial index's, it is the serial fold's step — the same

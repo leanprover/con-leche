@@ -146,18 +146,11 @@ def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo)
 A former whose stored type reaches its telescope only by reduction (task #480).  The
 install pushes it as stored; the block's job reduces it, as official's `whnf` of the type
 does, and checks the block at the reduced form, which needs nothing new of the check.  A
-block nesting through such a family reads it reduced as well, at the family's own prefix,
-so that it reads what that family's job read. -/
+block nesting through such a family reads it reduced as well. -/
 
 /-- A stored former that does not show its telescope. -/
 def formerDefHeaded (cv : ConstantVal) : Bool :=
   (formerResSort cv.type).isNone
-
-/-- **The environment a stored block was checked at**: what was installed before its first
-member, and the tables of those structures. -/
-def Env.below (env : Env) (n : Name) : Env :=
-  let cs := (env.consts.dropWhile (·.name != n)).drop 1
-  ⟨cs, env.tables.filter fun t => cs.any (·.name == t.structName)⟩
 
 /-- A former at its reduced telescope (official's `whnf` loop), closed. -/
 def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :
@@ -186,6 +179,11 @@ def reduceMembers (ops : CheckerOps m) (env : Env) (nP : Nat) :
     let ms' ← reduceMember ops env nP ms
     let rest' ← reduceMembers ops env nP rest
     pure (ms' :: rest')
+
+/-- A reduced former is closed, over its level parameters and what is stored. -/
+def viewScoped (resolve : Expr → Bool) (cv : ConstantVal) : Bool :=
+  !cv.type.hasFvar && cv.type.allLevelParamsDefined cv.levelParams &&
+    resolve cv.type && cv.type.looseBVarsBounded 0
 
 /-- The heads of the applications in `e` with an argument mentioning `names`, and whether
 `e` mentions them; memoized on the shared term. -/
@@ -260,8 +258,9 @@ def blockContainers (find? : Name → Option ConstantInfo) (p : BlockParts) : Li
     (({} : Std.HashMap Expr Bool), [])
   containerClosure find? 1048576 st.2 []
 
-/-- **The block's def-headed containers at their reduced telescopes**, each at its own
-block's prefix, where its job read it: `reducedFormer` is a function of that environment. -/
+/-- **The block's def-headed containers at their reduced telescopes**, at this environment:
+a run does not see an extension (`Verify/EnvExt.lean`), so this is what the family's own job
+read. -/
 def blockViews (ops : CheckerOps m) (env : Env) :
     List Name → m (List ConstantInfo)
   | [] => pure []
@@ -270,9 +269,9 @@ def blockViews (ops : CheckerOps m) (env : Env) :
     match env.find? c with
     | some (.indInfo cv caps) =>
       if formerDefHeaded cv then do
-        let envB := env.below (caps.all.headD c)
-        let cvR ← reducedFormer ops envB cv (caps.nparams + caps.nIdx)
-        checkConstantVal ops envB cvR
+        let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
+        unless viewScoped (·.constsResolve env) cvR do
+          throw (.internal "a family's reduced telescope is not closed")
         pure (.indInfo cvR caps :: rest)
       else pure rest
     | _ => pure rest
