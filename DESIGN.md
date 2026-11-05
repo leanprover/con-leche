@@ -109648,3 +109648,49 @@ complete, so the two tests differ only where the order runs out of fuel: `level_
 the fuel.  Official 0 (run), here 0; the former test read the exhausted comparison as a refusal
 (inferred from the code, not run).  This code is expected to go with the kernel logic renovation
 (lean4#15351), so nothing further is built on it.
+
+### K.52 read against official: what typing a key at the telescope changes (#480, lane 6; 2026-11-05)
+
+`familyKeyCheck` types a key `C.{us} ds` against `C`'s telescope (`familyTelescope`, the stored type
+where it shows one, else the reduct) with `checkSpineAt`, where official runs `tc.check(nested,
+lparams)` (`inductive.cpp` v4.35.0 :1322), that is `infer_constant` then `infer_app` in checking mode.
+The question put: can this accept or reject anything official would not?
+
+**The telescope itself: no difference on any stream official accepts.**  Official reads a container's
+parameters syntactically when it builds the auxiliary block: `instantiate_pi_params` (:1057) throws
+at a non-`is_pi`, for every member of the container's block.  So a key's container shows its first
+`nPc` binders on any stream official accepts.  `ensure_pi_core` is then the identity at each step of
+`infer_app`, and each argument is compared with the stored domain instantiated along the spine.
+`whnfTelescope` keeps a domain as written (it reduces only the residual head, and opening and closing
+restore the term), so `checkSpineAt` compares the same two terms.  This is from the code; there is no
+fixture because there is no difference to run.  Levels: official's `check_level` is covered by the
+constant check of the constructor type or the recursor type the key sits in, and the level count is
+checked in both.
+
+**Two differences found next to it, neither made by the telescope.**  Both are pinned at today's
+verdict, with the target in `tests/e2e-expected.txt`.
+
+* **A reject beyond official: `ind_nest_key_own_ctor`.**  `T.mk : K T T.base → T`, with `K`'s fields
+  not reading its second parameter.  Official 0 (run on v4.35.0, the kernel on): the parameters `Ds`
+  do not appear in the auxiliary block, so the check at :1322 is their only one and it runs in the
+  environment holding the block's constructors and recursors.  Here exit 1, "unknown constant in type
+  of T.mk": `checkSumCtor`'s constant check runs at the formers' environment, as official's own
+  constructor check does on the block with the keys replaced.  This predates #480.  Accepting it asks
+  the model for a key whose parameters mention a constructor of the block being defined, so the
+  block's operator would depend on one of its own values; nothing in the present proof has that
+  shape.  It is the maintainer's call: the elaborator does not produce this block (the source goes
+  through `addDecl`), and upstream has not been asked whether official means to accept it.
+* **An accept beyond official: `ind_defhead_param_bad`.**  Member 0 stored at a definition that holds
+  its parameters.  Official 1 (run: `get_params`, :1138, called at :1155 on every block, "incorrect
+  number of parameters").  Here 0.  Rejecting takes one syntactic test in `checkBlock` on member 0,
+  plus the same test on a container's members at a key for :1057.  With the second test
+  `familyKeyCheck` could type a key against the stored type directly, and the parameter fit stops
+  going through the telescope.  Not done here: it moves a verdict, so it waits for a ruling.
+
+**The holes.**  K.52 runs at the walk's frame, where a member applied to the parameters is a free
+variable, while official has the member as a constant in the finished environment.  A difference
+would need a defeq on terms of a member's type that the constant answers and the free variable does
+not, which is η for a structure or a unit-like type.  Every key mentions a member in a constructor's
+domain, so official's block-wide `is_rec` is true and neither η applies to any member of a block with a
+key (ours reads the same `blockRawRec`).  Proof irrelevance reads the sort, which the free variable's
+type gives.  No difference found, none constructed; this is an argument from the code, not a proof.

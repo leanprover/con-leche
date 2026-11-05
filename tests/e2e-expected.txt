@@ -3227,3 +3227,14 @@
 # read as a refusal.  Official 0 (run); the structure of `ind_defhead_sort_u` passes official's
 # block check, so its rows lie under its sort at every level.  `scripts/mk_level_fuel.py`.
 0 level_fuel_guard.ndjson
+# -- task #480, K.52 read against official.  ind_nest_key_own_ctor: a key `K T T.base` naming the
+# block's own constructor, in a parameter the container's fields do not read.  Official 0 (run on
+# v4.35.0, `tc.check(nested, …)` runs in the environment holding the whole block); here 1, "unknown
+# constant", from the constructor's constant check at the formers' environment, not from K.52.
+# Target 0 by the rule "no reject beyond official"; a reject beyond official today.
+# ind_defhead_param_bad (`scripts/mk_defhead_param_fixture.py`, base ind_defhead_param_base): member
+# 0 stored at a definition holding its parameters.  Official 1 (run, the source's `mk_official`,
+# `get_params`, "incorrect number of parameters"); here 0.  Target 1; an accept beyond official today.
+1 ind_nest_key_own_ctor.ndjson
+0 ind_defhead_param_base.ndjson
+0 ind_defhead_param_bad.ndjson
