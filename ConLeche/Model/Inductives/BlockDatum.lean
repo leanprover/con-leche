@@ -74,6 +74,7 @@ injections**, at a chosen per-member constructor pick. -/
   large := q.large
   memberNames := q.memberNames
   nIdxs := q.nIdxs
+  shown := fun m => q.members[m]?.map (·.cvT)
   ppsM := ppsOf
   uM := uOf
   ctorsM := fun c => ctorsAs.getD c []

@@ -74,6 +74,7 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
     {A : Nat → (Name → Nat) → Term}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockCtorsCore m d lps cvTas p₁ isRec A d.k)
     (hk : d.k = d.memberNames.length)
+    (hshown : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb → d.shown c = some cvTb)
     (hlpsT : ∀ (c : Nat) (cvTb : ConstantVal), c < d.k → cvTas[c]? = some cvTb →
       cvTb.levelParams = lps)
     (hclosed : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
@@ -112,8 +113,9 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
   · -- the members' formers, at the constructor's levels
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
-    obtain ⟨hfb, -, -, -⟩ := hcore.1 mm cvTb hcvb
-    refine ⟨cvTb, ConLeche.blockCapsAt p₁ mm isRec, ?_, by rw [hlpsC, hlpsT mm cvTb hmm hcvb]⟩
+    obtain ⟨⟨cvS, hfb, hDb⟩, -, -, -⟩ := hcore.1 mm cvTb hcvb
+    refine ⟨cvS, ConLeche.blockCapsAt p₁ mm isRec, ?_, by
+      rw [hlpsC, hDb.lps, hlpsT mm cvTb hmm hcvb]⟩
     show env.find? (d.memberNames.getD mm .anonymous) = _
     rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
     exact hfb
@@ -138,18 +140,20 @@ theorem blockCtorReads_of {env : Env} {m : EnvModel V env} {d : BlockData V} {lp
       by simp [BlockData.toLfp], fun mm hmm => ?_, hEq⟩
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hmm)⟩
-    obtain ⟨hfb, -, -, hFDt⟩ := hcore.1 mm cvTb hcvb
+    obtain ⟨⟨cvS, hfb, hDb⟩, -, -, hFDt⟩ := hcore.1 mm cvTb hcvb
     have hmm' : mm < d.k := hmm
-    have hcvbCl : cvTb.type.hasFvar = false :=
-      (m.wf.consts _ (List.mem_of_find?_eq_some hfb)).1
+    have hcvbCl : cvTb.type.hasFvar = false := hDb.readFvar
     obtain ⟨bs, s, hsyn⟩ := hFDt.syn
     obtain ⟨ty, hty, -, hread⟩ := formerHoleTy_read m.acval_closed (ψ := ψ) hcvbCl
       (stripPis_isSome_of_le (Nat.le_add_right d.nP _) (by rw [hsyn]; rfl))
       (by rw [hFDt.len ψ]; omega) (hFDt.read ψ)
-    refine ⟨cvTb, ConLeche.blockCapsAt p₁ mm isRec, ty, ?_, hty, ?_⟩
+    refine ⟨cvS, ConLeche.blockCapsAt p₁ mm isRec, ty, ?_, ?_, ?_⟩
     · show env.find? (d.memberNames.getD mm .anonymous) = _
       rw [show d.memberNames.getD mm .anonymous = cvTb.name from hN.1 mm cvTb hcvb]
       exact hfb
+    · show ConLeche.instPisWith _ ((d.shown mm).getD cvS).type = some ty
+      rw [hshown mm cvTb hcvb]
+      exact hty
     · rw [hread (d.nP + mm) (Nat.le_add_right _ _), List.getD_eq_getElem?_getD, List.getElem?_map,
         List.getElem?_range hmm', show d.nP + mm - d.nP = mm by omega]
       rfl

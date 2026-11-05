@@ -111,4 +111,28 @@ theorem FormerStored.denote_self {env : Env} {m : EnvModel V env} {cvTa : Consta
   rw [denote_const hf (by simp [ConstantInfo.toConstantVal, hD.lps])]
   simp only [ConstantInfo.toConstantVal, hD.lps, ConLeche.Level.substFn_param_self]
 
+/-- The telescopes the block's check read are closed. -/
+theorem formers_closed {env : Env} {m : EnvModel V env} {cvTas : List ConstantVal}
+    {caps : Nat → IndCaps} {X : Nat → ConstantVal → Prop}
+    (hF : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
+      FormerStored m cvTb (caps c) ∧ X c cvTb) :
+    ∀ cv ∈ cvTas, cv.type.hasFvar = false := by
+  intro cv h
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem h
+  obtain ⟨⟨_, _, hD⟩, _⟩ := hF j cv hj
+  exact hD.readFvar
+
+/-- The family inhabits the telescope the check read. -/
+theorem FormerStored.mem {env : Env} {mp : EnvModelM V env} {cvTa : ConstantVal} {caps : IndCaps}
+    (h : FormerStored mp.base2 cvTa caps) {ψ : Name → Nat} {T : Term}
+    (hT : denote mp.base2.acval env ψ 0 cvTa.type = some T) (ρ : Nat → V) :
+    interp V ρ (mp.base2.acval cvTa.name ψ) ∈ˢ interp V ρ T := by
+  obtain ⟨cvS, hf, hD⟩ := h
+  obtain ⟨Ts, Tr, hTs, hTr, hTeq⟩ := hD.read ψ
+  obtain rfl := Option.some.inj (hTr.symm.trans hT)
+  have hm := mp.mem_type _ (List.mem_of_find?_eq_some hf) ψ Ts hTs ρ
+  rw [(hTeq ρ).1] at hm
+  rw [← hD.name]
+  exact hm
+
 end ConLeche.Model

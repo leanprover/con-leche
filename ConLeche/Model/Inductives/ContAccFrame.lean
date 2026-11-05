@@ -617,16 +617,15 @@ theorem frame_item_fwd {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) 
     have hjk : (grp.getD (grp.length - 1 - (grp.length - 1 - j)) default) = grp[j] := by
       rw [show grp.length - 1 - (grp.length - 1 - j) = j by omega,
         List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl, Option.getD_some]
-    have hkey : hk.key.cname = grp[j].1 ∧ hk.key.ds = ds := by
+    have hkey : hk.nIdx = grp[j].2.piBinders.1.length := by
       simp only [grpNews, List.getElem?_map, List.getElem?_eq_getElem hjl, Option.map_some,
         Option.some.injEq] at hj
       rw [← hj]
-      exact ⟨rfl, rfl⟩
     have hmem : grp[j] ∈ grp := List.getElem_mem hjl
     obtain ⟨mm, hmm, -, hidx, -, -, -, -, -, -, hte⟩ :=
       grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hmem
     have har := grp_arity mp hD hnN hkN hfind hg (Level.substFn φ lps us) _ hmem
-    rw [hkey.1, hkey.2] at hn
+    rw [hkey] at hn
     rw [hidx, parsLen_dsa mp hD hdsa hlenP hmm, ← DenoteSpine.length_eq hdsa] at har
     unfold Holds at hH
     simp only at hH
@@ -635,14 +634,14 @@ theorem frame_item_fwd {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi) 
     simp only
     rw [hjk, hidx]
     rcases grp_hole_full (D := D) (lps := lps) (us := us) (φ := φ) (mm := mm) (keyFrame dsa hi ρ) Y
-        (vs := vs) (by rw [har] at hn; omega) with ⟨hfit, he⟩ | ⟨hnf, he⟩
+        (vs := vs) (by omega) with ⟨hfit, he⟩ | ⟨hnf, he⟩
     · refine Or.inl ⟨by omega, ?_, ?_⟩
       · have := grp_inGrp mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hmem
         rwa [hidx] at this
       rw [he] at hH
       exact ⟨⟨Nat.lt_of_lt_of_le hmm (mp.lfp_ok D hD).1.kN, tupW_mem hfit, hH⟩,
         fun ρ' hag => ((hte ρ ρ' hag).spineFit vs).mp hfit⟩
-    · exact Or.inr (Or.inr ⟨by omega, by rw [har] at hn; omega, hnf⟩)
+    · exact Or.inr (Or.inr ⟨by omega, by omega, hnf⟩)
   · exact Or.inr (Or.inl ⟨by rw [hnl] at hle; exact hle,
       by show HoleQ ctx prog hi (i - grp.length) vs.length; rw [hnl, hhi] at hQo; exact hQo,
       (holds_frameVal_ge (by rw [hnl] at hle; exact hle)).mp hH⟩)

@@ -100,6 +100,8 @@ structure BlockData (V : Type w) where
   memberNames : List Name
   /-- per member: its index count -/
   nIdxs : List Nat
+  /-- per member: its former as the block's check read it -/
+  shown : Nat → Option ConstantVal
   /-- per component: its parameter-and-index telescope reading -/
   ppsM : Nat → (Name → Nat) → List Term
   /-- per component: its index-tuple sort -/
@@ -260,7 +262,7 @@ The clause is produced in `BlockLfpHoles.lean`. -/
 @[expose] def BlockData.toLfp (d : BlockData V) : LfpDatum V where
   names := d.memberNames
   k := d.k
-  shown := fun _ => none
+  shown := d.shown
   N := d.N
   w := d.w
   params := d.params
