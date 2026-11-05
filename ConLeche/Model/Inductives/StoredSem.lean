@@ -280,6 +280,40 @@ theorem storedTy_sem {env : Env} (mp : EnvModelM V env) {F : Nat}
   rw [List.append_nil] at hσ
   exact (PF i (by omega)).2 hi σ (((PF i (by omega)).1 σ).mpr hσ)
 
+/-! ## A stored former and its reduct -/
+
+/-- **A declared former and its reduct, in the model**: both checked, and convertible at the
+empty context, they read at every level assignment as graded types of one value. -/
+theorem storedFormer_sem {env : Env} (mp : EnvModelM V env) {F : Nat} {a b : ConstantVal}
+    (h₁ : ConLeche.checkConstantVal (ConLeche.fueledOps .verified F) env a = .ok ())
+    (h₂ : ConLeche.checkConstantVal (ConLeche.fueledOps .verified F) env b = .ok ())
+    (hd : (ConLeche.fueledOps .verified F).isDefEq env 0 a.type b.type = .ok true)
+    (φ : Name → Nat) :
+    ∃ Ta Tb, denote mp.base2.acval env φ 0 a.type = some Ta ∧
+      denote mp.base2.acval env φ 0 b.type = some Tb ∧
+      (∀ ρ : Nat → V, WellDenotedTy V ρ Ta) ∧ (∀ ρ : Nat → V, WellDenotedTy V ρ Tb) ∧
+      ∀ ρ : Nat → V, interp V ρ Ta = interp V ρ Tb := by
+  have read : ∀ {c : ConstantVal},
+      ConLeche.checkConstantVal (ConLeche.fueledOps .verified F) env c = .ok () →
+      Expr.WScoped 0 c.type ∧ c.type.looseBVarsBounded 0 = true ∧ Expr.LeavesBounded c.type ∧
+      c.type.fvarLeaves = [] ∧ ∃ T, denote mp.base2.acval env φ 0 c.type = some T ∧
+        ∀ ρ : Nat → V, WellDenotedTy V ρ T := by
+    intro c hc
+    obtain ⟨-, -, -, hb, hf, st, u, -, -, hinf, hens⟩ := ConLeche.checkConstantVal_inv hc
+    have hw : Expr.WScoped 0 c.type := Expr.WScoped.of_not_hasFvar hf
+    have hnl : c.type.fvarLeaves = [] := Expr.fvarLeaves_eq_nil_of_not_hasFvar hf
+    have hL : Expr.LeavesBounded c.type := fun l hl => by
+      rw [hnl] at hl; exact absurd hl List.not_mem_nil
+    obtain ⟨T, hT⟩ := acceptedReads_of mp.base2 φ hinf hw hb hL
+    have hsr := (claimsAt_of (V := V) mp φ F).sortRow hinf hens hw hb hL (CtxOk.nil hnl) hT
+    exact ⟨hw, hb, hL, hnl, T, hT, fun ρ =>
+      ⟨(hsr ρ (Sat_nil V ρ)).1, IsTy_of_mem_univ (hsr ρ (Sat_nil V ρ)).2⟩⟩
+  obtain ⟨hwa, hba, hLa, hna, Ta, hTa, hwTa⟩ := read h₁
+  obtain ⟨hwb, hbb, hLb, hnb, Tb, hTb, hwTb⟩ := read h₂
+  have hres := (claimsAt_of (V := V) mp φ F).defEqRow hd hwa hba hLa hwb hbb hLb
+    (CtxOk.nil hna) (CtxOk.nil hnb) hTa hTb (fun ρ _ => hwTa ρ) (fun ρ _ => hwTb ρ)
+  exact ⟨Ta, Tb, hTa, hTb, hwTa, hwTb, fun ρ => hres ρ (Sat_nil V ρ)⟩
+
 /-! ## A stored right-hand side -/
 
 /-- **A stored right-hand side, in the model** (`ruleAgree` at the
