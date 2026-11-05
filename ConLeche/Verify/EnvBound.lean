@@ -272,11 +272,6 @@ theorem natLitSupportedF_eq (env : Env) :
     natLitSupportedF (mkFEnv env) = natLitSupported env := by
   simp only [natLitSupportedF, natLitSupported, mkFEnv_find?]
 
-theorem strLitSupportedF_eq (env : Env) :
-    strLitSupportedF (mkFEnv env) = strLitSupported env := by
-  simp only [strLitSupportedF, strLitSupported, mkFEnv_find?,
-    natLitSupportedF_eq]
-
 theorem natLitStoredF_eq (env : Env) :
     natLitStoredF (mkFEnv env) = natLitStored env := by
   simp only [natLitStoredF, natLitStored, mkFEnv_find?]

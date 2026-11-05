@@ -61,6 +61,7 @@ FALLBACK = {
     # task #480: each MEASURED by demoting it alone (the module stops building).
     ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
     ('ConLeche.Model.Inductives.StoredShapes', 'ConLeche.Verify.Inductives.NestScope'),
+    ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),
     # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
     # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
     # `DefEqStepInv`); the census attributes them to its private `RedBridge`

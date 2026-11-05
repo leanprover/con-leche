@@ -12,7 +12,7 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 107, 110)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 63, 72)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 169, 184)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 627, 635)[infers its type from

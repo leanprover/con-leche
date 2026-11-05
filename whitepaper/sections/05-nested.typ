@@ -148,7 +148,7 @@ the current frame, the cases are these.
     field;
   - $arrow(u)$ has $C$'s number of levels, and every index of $C$ is
     supplied;
-  - #src("ConLeche/Kernel/Inductives/Positivity.lean", 1124, 1158)[$C$'s index telescope at $arrow(D)$]
+  - #src("ConLeche/Kernel/Inductives/Positivity.lean", 1203, 1239)[$C$'s index telescope at $arrow(D)$]
     mentions no type in progress, and $C$'s sort is equivalent to the
     block's.
   The parameters may mention the types in progress anywhere, as in

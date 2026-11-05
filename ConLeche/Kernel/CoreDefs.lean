@@ -14,7 +14,7 @@ The definitions of the core checker that mention no monad, no
 `CoreFns` record and no fuel: the delta step and its readers
 (`unfoldDefinition`, `unfoldableHead`, `headHint`, `sameConstHeads`),
 the literal shapes and their guards (`natLitToConstructor`,
-`natLitSupported`, `strLitToConstructor`, `strLitSupported`,
+`natLitStored`, `strLitToConstructor`, `strLitStored`, `litShapeOk`,
 `rawNatLit?`), the certified `Nat` operations' names, recurrences,
 reducts and pins (`natOpNames`, `natDivModNames`, `natOpEquations`,
 `natOpResult`, `natOpStoredOk`, …), the structure-η fabrications
@@ -185,12 +185,9 @@ def natSuccOk : Option ConstantInfo → Bool
      | _ => false)
   | _ => false
 
-/-- Whether the environment supports `Nat` literals: `Nat`, `Nat.zero`
-and `Nat.succ` are stored with exactly the expected kinds, level
-parameters and types.  Every literal code path is guarded
-on this — the model interprets a literal by iterating the `Nat.succ`
-value on the `Nat.zero` value, and the soundness proofs read the
-declaration shapes off this guard. -/
+/-- `Nat`, `Nat.zero` and `Nat.succ` are stored with exactly the expected kinds, level parameters and
+types.  The model interprets a literal by iterating the `Nat.succ` value on the `Nat.zero` value and
+reads those shapes off this; a certified operation's check asks it of the environment it runs at. -/
 def natLitSupported (env : Env) : Bool :=
   natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&
     natSuccOk (env.find? natSuccName)
@@ -247,13 +244,12 @@ A string literal unfolds on demand to `String.ofList [c₁, …, cₙ]` with
 each character built by `Char.ofNat` from a `Nat` literal — the
 reference kernels' `strLitToConstructor` (lean4lean `Expr.lean`, nanoda
 `expr.rs`), mirrored exactly.  The names below are *pinned* like the
-`Nat` literal names: the guard `strLitSupported` checks that the stored
-declarations have exactly the expected types, which is what the
-model's interpretation of a string literal reads its meaning off.
-A string literal in the input while the guard fails is a positively
-detected unsupported feature: inference *declines* (exit 2), and so
-does the constant-resolution guard's error path
-(`unresolvedConstsErrorL`). -/
+`Nat` literal names: a declaration at one of them has exactly the expected
+type (`litShapeOk`, checked at the declaration), which is what the model's
+interpretation of a string literal reads its meaning off.  A string
+literal in the input without its constants is a positively detected
+unsupported feature: inference *declines* (exit 2), and so does the
+constant-resolution guard's error path (`unresolvedConstsErrorL`). -/
 
 /-- The constructor form of a `String` literal:
 `String.ofList (List.cons.{0} Char (Char.ofNat (lit c₁)) (… (List.nil.{0}
@@ -351,13 +347,9 @@ def stringOfListTyOk : Option ConstantInfo → Bool
        | _ => false)
   | none => false
 
-/-- Whether the environment supports `String` literals: the `Nat`
-literal guard plus `String`, `String.ofList`, `List`, `List.nil`,
-`List.cons`, `Char` and `Char.ofNat` stored with exactly the expected
-level parameters and types.  Every string-literal code path
-is guarded on this; the model interprets a string literal through the
-values of these constants, and the soundness proofs read the
-declaration shapes off this guard.  (The reference kernels only check
+/-- `natLitSupported` plus `String`, `String.ofList`, `List`, `List.nil`, `List.cons`, `Char` and
+`Char.ofNat` stored with exactly the expected level parameters and types.  The model interprets a
+string literal through the values of these constants and reads those shapes off this.  (The reference kernels only check
 *existence* of `Char.ofNat` and `String.ofList`; the type pins are what
 makes the interpretation well-defined, in the spirit of the `Nat`
 literal guard.) -/

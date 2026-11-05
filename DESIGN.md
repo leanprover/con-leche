@@ -109682,10 +109682,8 @@ verdict, with the target in `tests/e2e-expected.txt`.
   through `addDecl`), and upstream has not been asked whether official means to accept it.
 * **An accept beyond official: `ind_defhead_param_bad`.**  Member 0 stored at a definition that holds
   its parameters.  Official 1 (run: `get_params`, :1138, called at :1155 on every block, "incorrect
-  number of parameters").  Here 0.  Rejecting takes one syntactic test in `checkBlock` on member 0,
-  plus the same test on a container's members at a key for :1057.  With the second test
-  `familyKeyCheck` could type a key against the stored type directly, and the parameter fit stops
-  going through the telescope.  Not done here: it moves a verdict, so it waits for a ruling.
+  number of parameters").  Here 0.  Ruling (maintainer, 2026-11-05): this accept is fine and stays; the
+  fixture records it as deliberate.
 
 **The holes.**  K.52 runs at the walk's frame, where a member applied to the parameters is a free
 variable, while official has the member as a constant in the finished environment.  A difference
@@ -109740,3 +109738,82 @@ fields: they occur about 2000 times in the proofs, so removing them is its own l
 
 **Proof delta.**  Computed for the whole lane at the end of #480; this stage removes more proof than it
 adds (the floor's stage-by-stage skeleton lemmas against one theorem per declaration kind).
+
+### The literal guards at the declaration (#480, lane 6; 2026-11-05)
+
+**The state.**  What a literal's meaning reads of its ten constants is checked once, at the
+declaration at that name: `litShapeOk` in `checkConstantVal`, its install half and `classConstOk`.
+`EnvWF.shapes` records it, so a proof turns "the names are stored" into the old facts
+(`natLitSupported_of_stored`, `strLitSupported_of_stored`) wherever a model is in hand.  The rules
+and the core read `natLitStored`/`strLitStored`, which compare no type.  `natLitSupported` stays for
+`denote` and for a certified operation's own check.
+
+**One deviation from the brief, on purpose.**  A literal's use still reads that its names are stored,
+where official's `infer_lit` reads nothing.  Dropping that read needs every run to be over resolved
+terms, because a literal in an environment without `Nat` has no reading: the once-per-declaration
+resolution check rules it out, but the bridge from a run to the rules has no access to it, and threading
+resolution through the bridge is a change to all of it.  The read looks up ten names, compares nothing,
+and on the Lean environment is a lookup like any other.  No verdict depends on it past the resolution
+check.  It can go as its own task if the maintainer wants the core to match official to the letter.
+
+**Verdicts.**  One intended change, one kept decline, one new refusal, all with official runs on v4.35.0:
+
+| fixture | official | here | why |
+|---|---|---|---|
+| `ind_lit_shape_char` (`Char : Type 1`) | 0 | 2 | another shape at a literal's name: refused at the declaration, as the brief allows.  Before this stage it was accepted when no literal used it. |
+| `ind_defhead_lit_char` (`Char` at a definition) | 0 | 2 | its declared type is not the shape; reading the reduct would need the literal's proofs to read the family through its declared former |
+| `ind_defhead_lit_family` (`Bool` at a definition) | 0 | 2 | unchanged.  Target 0 not reached: the literal guards no longer need the decline, but the frontend puts a stream's `Bool` first, ahead of the definition, and past the decline this is an unknown constant, a reject official does not make.  The frontend would have to hoist what the record depends on. |
+
+The rest of the battery is unmoved: 539 fixtures, 0 mismatches.  `litGuardFamilies` became
+`declinedAtDefinition`: the four names a literal's constructor form applies, and `Bool`.  The Nat trio and
+reserved names need no entry (their own checks refuse them), nor do `String`, `List`, `Char` (the shape
+test does).  The four stay because a former declared `String.ofList : List Char → String`, with `String`
+a definition reducing to a sort, passes the shape test, and a literal's constructor form would then
+apply a family.
+
+**Cost** (`instructions:u`, one run per stream, jobs 1 / 8):
+
+| stream | jobs 1 | jobs 8 | against the collapse |
+|---|---|---|---|
+| init-full | 380.766 G | 391.977 G | −0.02 % / +0.20 % |
+| init-prelude | 1.954 G | 2.123 G | +0.05 % / +0.05 % |
+| grind-ring-5 | 15.301 G | 15.685 G | −0.12 % / −0.22 % |
+
+**Proof delta** (lines in `ConLeche/`, added / removed).  The collapse, with its imports and renames: +1837 /
+−2083, net −246; Verify +391 net (`BlockPushes`, the fresh chain by names) against the floor's and the
+model's removals.  This stage: +583 / −257, net +326, of which Verify +240 (`EnvGuards`, `EnvWF`, the
+well-formedness lemmas carrying `LitShapeAt`), Model +40, Kernel +41.  `knot_ext` and `StoredFacts` lose
+nothing: the knot still reads presence, through the same `natTrio`.
+
+### `ind_nest_key_own_ctor`: a design choice, not yet made (#480, lane 6; 2026-11-05)
+
+**Master rejects it too**: a binary from 2026-10-24 exits 1 with the same message, and `origin/master` at
+`7cb7a45cd` checks a constructor (`checkConstantVal`, `SumInstall.lean:117`) at the formers' environment
+the same way (read, not run).  So this is older than #480.
+
+**The kernel half is small.**  Official's constructor check sees the type with every key replaced; the
+key is checked at the end, at the environment holding the block.  The twin: resolve and infer a
+constructor type with its keys' parameters left out, and run `familyKeyCheck` and the type's check again
+once the block's constants are in.
+
+**The model half is the cost.**  A block's model reads a constructor's type syntactically
+(`denote … cvCa.type = some (mkPisAV ds …)`), and a constructor's leaf is built from those `ds`.  A key
+naming a constructor puts that constructor's leaf inside another's `ds`, and `T.a : K T T.b → T` with
+`T.b : K T T.a → T` makes the leaves circular.  So the leaves would have to be built from the hole readings
+instead, with the stored type equal to them only by `interp`.  That changes every reader of `hCD.read`, and
+it needs a new lemma: a container's fixed point does not depend on a parameter its constructors do not
+mention, since `K`'s reading takes `T.base`'s value in its spine.  I estimate this as its own lane, on the
+scale of the block rewrite.
+
+**Options.**
+* (A) Accept, by the above.  Matches official; large.
+* (B) Decline (exit 2) on a key naming the block's own constructor or recursor, from the failure path of
+  the resolution check, so it costs nothing on an accepted block.  No reject beyond official; no proof
+  change, since a decline is not an accept.
+* (C) Ask upstream first.  The comment at :1315 explains the late check as avoiding auxiliary declarations
+  in the environment, not as a way to let a constructor's type name the block's constructors, and the
+  elaborator cannot produce this block.  If official then rejects it, there is nothing to do here.
+
+**Recommendation: (B) now and (C) alongside, with (A) only if upstream says the accept is meant.**
+Not done: the coordinator's brief is to report a choice this size.  The fixture stays at 1 until then.
+

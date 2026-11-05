@@ -9,8 +9,8 @@ public import ConLeche.Kernel.Core
 
 The spec environment together with a name index whose lookup function
 agrees with `Env.find?`, built once per top-level entry call, plus the
-`Env`-guard twins that read through it (`natLitSupportedF`,
-`strLitSupportedF`, `natOpGuardF`).
+`Env`-guard twins that read through it (`natLitStoredF`,
+`strLitStoredF`, `natOpGuardF`).
 
 **Representation-free.**  Nothing here mentions an expression
 representation: `FEnv` indexes `ConstantInfo`s by `Name`, and the four
@@ -275,17 +275,6 @@ end FEnv
 def natLitSupportedF (fe : FEnv) : Bool :=
   natIndOk (fe.find? natName) && natZeroOk (fe.find? natZeroName) &&
     natSuccOk (fe.find? natSuccName)
-
-/-- `strLitSupported` through the index. -/
-def strLitSupportedF (fe : FEnv) : Bool :=
-  natLitSupportedF fe &&
-    stringTyOk (fe.find? stringName) &&
-    stringOfListTyOk (fe.find? stringOfListName) &&
-    listTyOk (fe.find? listName) &&
-    listNilTyOk (fe.find? listNilName) &&
-    listConsTyOk (fe.find? listConsName) &&
-    charTyOk (fe.find? charName) &&
-    charOfNatTyOk (fe.find? charOfNatName)
 
 /-- `natLitStored` through the index. -/
 def natLitStoredF (fe : FEnv) : Bool :=

@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.DeclCheck
 import ConLeche.Verify.Cached.BlockOverlay
-import ConLeche.Verify.Cached.KnotCongr
 
 public section
 

@@ -560,7 +560,7 @@ Read from the outside in:
    on exhaustion every operation throws
    ([the fuel recursion's base case in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1815-L1820)).
    Its declaration fold is what the model tier proves things about
-   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L357-L364)).
+   ([theorem `no_proof_of_False_pure` in `ConLeche/Model/Fold.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Fold.lean#L354-L361)).
 5. **The model tier** (`ConLeche/Model/*`, the set model of the checker)
    shows that each declaration step preserves an invariant on the
    environment
@@ -1074,9 +1074,13 @@ reduct it shows for a member (`LfpDatum.shown`), and a member's model reads its 
 type and its reduct as one value at every valuation
 ([structure `FormerDeclared` in `ConLeche/Model/Inductives/FormerStored.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/Inductives/FormerStored.lean#L29)).
 
-Two limits are verdicts. A family literal arithmetic or the basis reads by name
-(`Nat`, `String`, `List`, `Char`, `Bool` and their constructors and the reserved names),
-stored at a definition, is declined. A nested occurrence whose container, or a member of
+Three limits are verdicts. A declaration at a name a literal's meaning reads (`Nat`, `Nat.zero`,
+`Nat.succ`, `String`, `String.ofList`, `List`, `List.nil`, `List.cons`, `Char`, `Char.ofNat`) has the
+shape that meaning reads or is declined at the declaration, whether or not the stream uses a
+literal; what is checked there is read at a literal's use only as the names being stored
+([function `litShapeOk` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L375)).
+A `Bool` stored at a definition is declined, since the frontend puts a stream's `Bool` first.
+A nested occurrence whose container, or a member of
 the container's block, is def-headed and is not among the families the block's
 constructor types show syntactically is rejected.
 
@@ -1490,7 +1494,7 @@ listed here carries meaning**.
 |---|---|
 | `C` | the *cached* checker's twin of a pure definition (`checkDeclC`, `CoreC`, `Expr.instantiate1C`, `SimC`) — the implementation that ships; there is one `Expr` type and one `Declaration` type, so the marker is on the function, never on the type |
 | `I` | the variant that also handles an inductive family's index arguments (`checkStructFieldSortsI`) |
-| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitSupportedF`) |
+| `F` | stated over `FEnv`, the environment together with its lookup index (`natLitStoredF`) |
 | `D` | the direct parse and the functions over its output (`parseExportD`) |
 | `AV` | a `Term` spelled by the semantic and model tiers (`sumTyAV`, `mkPisAV`) |
 | `WF` | well-formedness (`EnvWF`, `BlockWF`) |
