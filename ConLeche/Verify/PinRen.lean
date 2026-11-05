@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Verify.Denote.Pinned
-public import ConLeche.Verify.EnvWF
-public import ConLeche.Verify.InstLevels
 
 public section
 

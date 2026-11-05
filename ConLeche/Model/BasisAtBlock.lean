@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Model.BasisRename
 public import ConLeche.Model.Cover
-public import ConLeche.Semantics.Decl
+import ConLeche.Semantics.Decl
 public import ConLeche.Semantics.EqTower
 import ConLeche.Model.BasisEq
 import ConLeche.Model.BasisBlocks

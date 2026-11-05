@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.Basis
+public import ConLeche.Kernel.Basis.Builder
 
 @[expose] public section
 

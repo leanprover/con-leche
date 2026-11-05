@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockParts
-public import ConLeche.Kernel.Basis
 
 /-!
 # The install skeleton of a record

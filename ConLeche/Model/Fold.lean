@@ -4,7 +4,6 @@ import ConLeche.Model.AxiomReduce
 import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.SumKit
-import ConLeche.Model.BasisFalse
 import ConLeche.Model.Cover
 public import ConLeche.Model.Inductives.DeclBlockStep
 import ConLeche.Kernel.Checker
@@ -13,7 +12,6 @@ import ConLeche.Model.Reading.Levels
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Capstone
 import ConLeche.Model.IndCons
-import ConLeche.Model.BasisEq
 import ConLeche.Model.BasisAtBlock
 import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun

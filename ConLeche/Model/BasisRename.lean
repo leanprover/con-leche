@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Model.Cover
 public import ConLeche.Verify.PinRen
 import ConLeche.Model.Reading.Levels
 public import ConLeche.Model.DivMod
