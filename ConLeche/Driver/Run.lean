@@ -160,7 +160,7 @@ def checkDone (err : IO.FS.Stream) (pace : Pace) (t0 tParse tCheck jobs : Nat) (
     beat err pace s!"check failed at fold position {e'.2} t={secs (now - t0)}s \
       (check {secs (now - tCheck)}s)"
   | none =>
-    beat err pace s!"check done: {J.order.size}/{J.order.size} t={secs (now - t0)}s \
+    beat err pace s!"check done: {J.order.size} jobs t={secs (now - t0)}s \
       (check {secs (now - tCheck)}s)"
   beat err pace s!"done: parse {secs (tParse - t0)}s, install {secs (tCheck - tParse)}s, \
     check {secs (now - tCheck)}s, {workers} worker{if workers = 1 then "" else "s"} \

@@ -51,6 +51,6 @@ def ReadNotes.moduleLoaded (n : ReadNotes) (total : Nat) : IO Unit := do
   if n.pace.on then
     let k ← n.loaded.modifyGet fun a => (a + 1, a + 1)
     if ← n.pace.coarse.due n.last k total then
-      n.say s!"loaded {k}/{total} modules"
+      n.say s!"loaded {k} modules ({k * 100 / total}%)"
 
 end ConLeche.Frontend.Olean

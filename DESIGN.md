@@ -109169,3 +109169,7 @@ it starts (`reading`, `read:`, the install's first line, `checking`).  Not in th
 another lane is removing: it takes a plain stride derived from the pace (`Pace.strideFor`), so at
 seconds it prints its first line alone.
 
+The load's and the check's lines give a count and a percentage (`read: loaded 71906 modules (30%)`,
+`check 322101 (41%) <decl>`), the total being on the phase's first line just above: long numbers are hard
+to read (maintainer).  The install's lines keep `<i>/<N>`, that phase being another lane's to remove.
+

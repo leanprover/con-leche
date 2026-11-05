@@ -167,7 +167,7 @@ case_ "…with --constant too" 3 --olean --constant=other --search-path=$d LazyV
 rm -rf "$d"
 
 # --- what --progress says of the read (task #484) ----------------------
-for line in "read: tracing the import closure" "read: loading 1 modules" "read: loaded 1/1 modules" \
+for line in "read: tracing the import closure" "read: loading 1 modules" "read: loaded 1 modules (100%)" \
     "read: merging the constants of 1 modules" "read: checking the blocks of" \
     "read: emitting records from"; do
   case_grep "--progress: $line" 0 "$line" --progress --olean --search-path=$LIB PrivUnused

@@ -538,7 +538,7 @@ echo "prelude counts: $prelude_ok/$prelude_total as expected"
 # the lane prints one line SHAPE per phase — `install <i>/<N> <decl>`
 # BEFORE every declaration at stride 1 (the localisation mode: a run
 # dying in the install phase names the declaration it died in on its
-# last line) and `check <done>/<M> <decl>` AFTER every completed check
+# last line) and `check <done> (<percent>%) <decl>` AFTER every completed check
 # (M = the recorded checks, below N) — bracketed in order by `parse
 # done`, `install done` (naming M), `check done` and the `done:`
 # summary (the three phase durations and the worker count); it prints
@@ -620,7 +620,7 @@ prog_check "--progress composes with --trusted in either order" \
 prog_errJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_outJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_codeJ=$?
-prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\)\/.*/\1/p' | tr '\n' ' ')
+prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\) (.*/\1/p' | tr '\n' ' ')
 prog_orderJ=$(printf '%s\n' "$prog_errJ" | sed -n \
   -e 's/^con-leche: parse done: .*/P/p' \
   -e 's/^con-leche: install done: .*/I/p' \

@@ -130,7 +130,7 @@ def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (J : Jobs)
         | some b => s!"inductive {b.name}"
         | none => s!"check {t}"
       | none => s!"check {t}"
-    err.putStr s!"con-leche: check {n}/{J.order.size} {l} \
+    err.putStr s!"con-leche: check {n} ({n * 100 / max 1 J.order.size}%) {l} \
       t={ConLeche.Cached.msSecs (now - t0)}s{extra}\n"
     err.flush
 

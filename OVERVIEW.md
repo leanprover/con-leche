@@ -114,7 +114,7 @@ record in fold order is the one reported. The flag
 of a phase, or at the first declaration done once `S` seconds have passed (so a long single check,
 or a step with no declarations, says nothing until it ends), with one line
 shape per phase — `install <i>/<N> <decl>` before a declaration is
-installed, `check <done>/<M> <decl>` after a completed check — each phase saying when it starts
+installed, `check <done> (<percent>%) <decl>` after a completed check — each phase saying when it starts
 (`reading`, `checking`), bracketed by `parse done`, `install
 done` (preceded by an `install:` line with the install's own
 phases), `persistent mark`, `check done` and a
