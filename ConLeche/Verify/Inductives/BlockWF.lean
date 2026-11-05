@@ -94,8 +94,8 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
   | cvTa :: rest, i, env, henv, hall => by
     simp only [consBlockInds]
     refine envWF_consBlockInds ?_ ?_
-    · obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa List.mem_cons_self
-      exact envWF_cons_blockInd henv h1 h2 h3 h4 h5
+    · obtain ⟨h1, h2, h3, h4, -⟩ := hall cvTa List.mem_cons_self
+      exact envWF_cons_blockInd henv h1 h2 h3 h4
     · intro cvTa' hc'
       obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
       exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
