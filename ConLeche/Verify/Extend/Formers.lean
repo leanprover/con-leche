@@ -49,6 +49,25 @@ theorem find_of_ne (h : FormerSwap env₀ env₃) {n : Name} {ci : ConstantInfo}
     · intro hx; exact absurd (Option.some.inj hx).symm (hci _ _)
     · intro hx; exact absurd (Option.some.inj hx).symm (hci _ _)
 
+/-- A former stays a former, at its capabilities and level parameters. -/
+theorem find_ind (h : FormerSwap env₀ env₃) {n : Name} {cv : ConstantVal} {caps : IndCaps}
+    (hf : env₀.find? n = some (.indInfo cv caps)) :
+    ∃ cv', env₃.find? n = some (.indInfo cv' caps) ∧ cv'.levelParams = cv.levelParams := by
+  rcases h.find n with he | ⟨c₀, c₃, caps', h₀, h₃, -, hl, -⟩
+  · exact ⟨cv, by rw [he]; exact hf, rfl⟩
+  · rw [hf] at h₀
+    obtain ⟨rfl, rfl⟩ : cv = c₀ ∧ caps = caps' := by simpa using h₀
+    exact ⟨c₃, h₃, hl⟩
+
+theorem find_ind_back (h : FormerSwap env₀ env₃) {n : Name} {cv : ConstantVal} {caps : IndCaps}
+    (hf : env₃.find? n = some (.indInfo cv caps)) :
+    ∃ cv', env₀.find? n = some (.indInfo cv' caps) ∧ cv.levelParams = cv'.levelParams := by
+  rcases h.find n with he | ⟨c₀, c₃, caps', h₀, h₃, -, hl, -⟩
+  · exact ⟨cv, by rw [← he]; exact hf, rfl⟩
+  · rw [hf] at h₃
+    obtain ⟨rfl, rfl⟩ : cv = c₃ ∧ caps = caps' := by simpa using h₃
+    exact ⟨c₀, h₀, hl⟩
+
 /-- A name the guards read is untouched. -/
 theorem find_guard (h : FormerSwap env₀ env₃) {n : Name} (hn : litGuardFamilies.contains n = true) :
     env₃.find? n = env₀.find? n := by

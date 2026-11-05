@@ -175,4 +175,12 @@ theorem mtcEtaCont_ext (hx : EnvExt env₁ env₂) (ih : ExtClaims mode eager en
     · rfl
   · rfl
 
+/-- **A former's reduct at an extension is the one at the prefix**: the consequence the block's
+second path reads. -/
+theorem reducedFormer_ext {envB env : Env} (hwf : EnvWF envB) (hx : EnvExt envB env)
+    {cv : ConstantVal} {n F : Nat} {f : ConstantVal} (hr : cv.type.constsResolve envB = true)
+    (h : reducedFormer (fueledOps .verified F) envB cv n = .ok f) :
+    ∃ F', reducedFormer (fueledOps .verified F') env cv n = .ok f := by
+  sorry
+
 end ConLeche.Verify
