@@ -5,6 +5,7 @@ public import ConLeche.Verify.Extend.Formers
 import ConLeche.Model.Swap
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.Denote.Install
+public import ConLeche.Model.Levels
 
 public section
 
@@ -176,5 +177,144 @@ theorem EnvModelM.swapFormers {env₀ env₃ : Env} (mp : EnvModelM V env₀)
     obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv
       ((hsame _ _ (fun _ _ he => ConstantInfo.noConfusion he)).mp hf) hpin
     exact ⟨by rw [← h.isSomeEq]; exact hs, hlaw⟩
+
+/-- **The walk's case split against a swap**: the premise moves against it.  A family at the
+same former reads alike; at a swapped one the value is the other side's (`hint`), and a case
+split that read a shown sort is the caller's (`hnzL`). -/
+theorem FamNZ.formerSwap {env₀ env₃ : Env} {acval : Name → (Name → Nat) → Term}
+    (h : FormerSwap env₀ env₃)
+    (hp : AcvalParamsAt env₀ acval)
+    (hnzL : ∀ (T : Name) (cv cv' : ConstantVal) (caps : IndCaps) (φ : Name → Nat) (us : List Level),
+      env₀.find? T = some (.indInfo cv caps) → env₃.find? T = some (.indInfo cv' caps) → cv' ≠ cv →
+      ConLeche.formerNeverZero cv' us = true →
+      ∃ w : Nat, w ≠ 0 ∧ ∀ ta : Term, denote acval env₀ φ 0
+          (cv.type.instantiateLevelParams cv.levelParams us) = some ta →
+        ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) w)
+    (hint : ∀ (T : Name) (cv cv' : ConstantVal) (caps : IndCaps) (ψ : Name → Nat) (ta ta' : Term),
+      env₀.find? T = some (.indInfo cv caps) → env₃.find? T = some (.indInfo cv' caps) →
+      denote acval env₀ ψ 0 cv.type = some ta → ∀ ρ : Nat → V,
+        ∃ ta' : Term, denote acval env₀ ψ 0 cv'.type = some ta' ∧ interp V ρ ta = interp V ρ ta')
+    {φ : Name → Nat} {cvj : ConstantVal} {us : List Level}
+    (hz : FamNZ (V := V) acval env₃ φ cvj us) : FamNZ (V := V) acval env₀ φ cvj us := by
+  obtain ⟨cv3, caps, hf3, hl, hc⟩ := hz
+  obtain ⟨T, us', hhd, hfT⟩ := ctorFamily_find hf3
+  rcases h.find T with he | ⟨cv, cv', caps', h₀, h₃, hn, hlp, hg⟩
+  · refine ⟨cv3, caps, ?_, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ =>
+      ⟨hn, w, hw, fun ta hta ρ => ht ta (by rw [← denote_formerSwap h]; exact hta) ρ⟩⟩
+    rw [← hf3]
+    exact ctorFamily_congr fun T' us'' hh => by
+      rw [hhd] at hh
+      obtain ⟨rfl, -⟩ := Expr.const.inj hh
+      exact he.symm
+  · rw [hfT] at h₃
+    obtain ⟨rfl, rfl⟩ : cv3 = cv' ∧ caps = caps' := by simpa using h₃
+    have hfam : ConLeche.ctorFamily env₀.find? cvj = some (cv, caps) := by
+      unfold ConLeche.ctorFamily
+      rw [hhd]
+      simp only [h₀]
+    have hres : ConLeche.reservedBasisNames.contains cv.name = false := by
+      have hnm : cv.name = T := ConLeche.Env.find?_name h₀
+      rw [hnm]
+      rw [ConLeche.litGuardFamilies, List.contains_append, Bool.or_eq_false_iff] at hg
+      exact hg.2
+    by_cases hcv : cv3 = cv
+    · subst hcv
+      exact ⟨cv3, caps, hfam, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ =>
+        ⟨hn, w, hw, fun ta hta ρ => ht ta (by rw [← denote_formerSwap h]; exact hta) ρ⟩⟩
+    refine ⟨cv, caps, hfam, hlp ▸ hl, .inr ⟨.inr hres, ?_⟩⟩
+    rcases hc with hnv | ⟨-, w, hw, ht⟩
+    · exact hnzL T cv cv3 caps φ us h₀ hfT hcv hnv
+    · refine ⟨w, hw, fun ta hta ρ => ?_⟩
+      rw [denote_instLevels hp φ] at hta
+      obtain ⟨ta', hta', hin⟩ := hint T cv cv3 caps _ ta ta h₀ hfT hta ρ
+      rw [hin]
+      refine ht ta' ?_ ρ
+      rw [← denote_formerSwap h, denote_instLevels hp φ, hlp]
+      exact hta'
+
+/-- **A recursor's law across a swap of formers.** -/
+theorem RecRuleLaw.formerSwap {env₀ env₃ : Env} (h : FormerSwap env₀ env₃)
+    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
+    (hnz : ∀ φ cvj us, FamNZ (V := V) m₀.acval env₃ φ cvj us → FamNZ (V := V) m₀.acval env₀ φ cvj us)
+    {φ : Name → Nat} {n : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule}
+    (hl : RecRuleLaw m₀ φ n cv mI rP isK rl) : RecRuleLaw m₃ φ n cv mI rP isK rl := by
+  have hden : denote m₀.acval env₃ = denote m₀.acval env₀ := by
+    funext ψ d e
+    exact (denote_formerSwap h ψ d e).symm
+  have hfc : ∀ cvj a b, (env₃.find? (RecRule.ctor rl) = some (.ctorInfo cvj a b)) =
+      (env₀.find? (RecRule.ctor rl) = some (.ctorInfo cvj a b)) := fun cvj a b =>
+    propext (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he)
+  unfold RecRuleLaw RecRuleExtra at *
+  rw [hac]
+  simp only [hden, hfc]
+  obtain ⟨hA₀, hA, hB⟩ := hl
+  refine ⟨hA₀, hA, fun us hus TVa hTa => ?_⟩
+  obtain ⟨hK, hC⟩ := hB us hus TVa hTa
+  refine ⟨hK, fun cvj a b hf => ?_⟩
+  obtain ⟨har, hS⟩ := hC cvj a b hf
+  refine ⟨har, fun hk => ?_⟩
+  obtain ⟨hS₁, hS₂, hrest⟩ := hS hk
+  exact ⟨fun hz => hS₁ (hnz _ _ _ hz), fun hz => hS₂ (hnz _ _ _ hz), hrest⟩
+
+/-- **A projection's law across a swap of formers**: its typing law's guard moves against the
+swap, or the former's own record types the projection (`hg`). -/
+theorem TowerEntryLaw.formerSwap {env₀ env₃ : Env} (h : FormerSwap env₀ env₃)
+    {m₀ : EnvModel V env₀} {m₃ : EnvModel V env₃} (hac : m₃.acval = m₀.acval)
+    {φ : Name → Nat} {T : Name} {i : Nat} {entry : ProjEntry}
+    (hg : ∀ (us : List Level) (cvC : ConstantVal) (Ta : Term),
+      us.length = entry.levelParams.length →
+      denote m₀.acval env₀ φ 0 (ConLeche.projTele (entry.numParams + 1)
+        (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta →
+      TowerGuardAt m₃ φ entry us cvC → TowerGuardAt m₀ φ entry us cvC ∨
+        ∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
+          vs.length = entry.numParams →
+          WellDenoted V ρ (Term.mkAppN
+            (m₀.acval T (Level.substFn φ entry.levelParams us)) vs) →
+          interp V ρ (Term.mkAppN
+            (m₀.acval T (Level.substFn φ entry.levelParams us)) vs) ≠ pt →
+          WellDenoted V ρ x →
+          interp V ρ x ∈ˢ interp V ρ (Term.mkAppN
+            (m₀.acval T (Level.substFn φ entry.levelParams us)) vs) →
+          Term.peelPis Ta (vs ++ [x]) = some rest →
+          WellDenoted V ρ (projNV (i + 1) x) ∧ WellDenotedTy V ρ rest ∧
+            interp V ρ (projNV (i + 1) x) ∈ˢ interp V ρ rest)
+    (hl : TowerEntryLaw m₀ φ T i entry) : TowerEntryLaw m₃ φ T i entry := by
+  have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote m₃.acval env₃ ψ d e = denote m₀.acval env₀ ψ d e := fun ψ d e => by
+    rw [hac]; exact (denote_formerSwap h ψ d e).symm
+  have hsame : ∀ (n : Name) (ci : ConstantInfo), (∀ cv caps, ci ≠ .indInfo cv caps) →
+      (env₃.find? n = some ci ↔ env₀.find? n = some ci) := fun n ci hci => h.find_of_ne hci
+  obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT, heta⟩, cvC, hfC, hlpsC, hlaw, hetaL⟩ := hl
+  have hfwd : ∃ cv₃, env₃.find? T = some (.indInfo cv₃ capsT) ∧ cv₃.levelParams = entry.levelParams := by
+    rcases h.find T with he | ⟨cv, cv', caps, h₀, h₃, -, hlp, -⟩
+    · exact ⟨cvT, by rw [he]; exact hfT, hlpsT⟩
+    · rw [hfT] at h₀
+      obtain ⟨rfl, rfl⟩ : cvT = cv ∧ capsT = caps := by simpa using h₀
+      exact ⟨cv', h₃, hlp.trans hlpsT⟩
+  obtain ⟨cv₃, hf₃, hl₃⟩ := hfwd
+  refine ⟨hsn, hidx, hlt, ⟨cv₃, capsT, hf₃, hl₃, heta⟩, cvC,
+    (hsame _ _ (fun _ _ he => ConstantInfo.noConfusion he)).mpr hfC, hlpsC, fun us hus => ?_, ?_⟩
+  · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+    refine ⟨⟨Ta, by rw [hde]; exact hTa, fun ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ hgd => ?_⟩,
+      ⟨TCa, by rw [hde]; exact hTCa, ?_⟩⟩
+    · rw [hac] at h₂ h₃ h₅
+      rcases hgd with hgd | hne
+      · rcases hg us cvC Ta hus hTa hgd with hg₀ | htyped
+        · exact hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (.inl hg₀)
+        · exact htyped ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆
+      · exact hA ρ vs x rest h₁ h₂ h₃ h₄ h₅ h₆ (.inr hne)
+    · rw [hac]; exact hB
+  · intro cvT' capsT' hfT' us hus
+    have hcaps : ∃ cv₀, env₀.find? T = some (.indInfo cv₀ capsT') := by
+      rcases h.find T with he | ⟨cv, cv', caps, h₀, h₃', -, -, -⟩
+      · exact ⟨cvT', by rw [← he]; exact hfT'⟩
+      · rw [hfT'] at h₃'
+        obtain ⟨-, rfl⟩ : cvT' = cv' ∧ capsT' = caps := by simpa using h₃'
+        exact ⟨cv, h₀⟩
+    obtain ⟨cv₀, hf₀⟩ := hcaps
+    obtain ⟨hlaw', hcoh⟩ := hetaL cv₀ capsT' hf₀ us hus
+    refine ⟨by rw [hac]; exact hlaw', fun he => (hcoh he).transport (fun cvC' nPc nFc hf₂ =>
+      (hsame _ _ (fun _ _ he => ConstantInfo.noConfusion he)).mp hf₂)
+      (fun cvC' nPc nFc TCa _ hTCa => by rw [hde]; exact hTCa) (by rw [hac]) (fun _ _ _ => rfl)⟩
 
 end ConLeche.Model
