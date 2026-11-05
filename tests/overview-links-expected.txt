@@ -1376,6 +1376,9 @@
 == ConLeche/Frontend/CheckerIO.lean#L120
    120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
+== ConLeche/Frontend/CheckerIO.lean#L142
+   142    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+
 == ConLeche/Frontend/CheckerIO.lean#L150
    150    liftIO : {α : Type} → IO α → m α
 
@@ -1444,4 +1447,7 @@
 
 == ConLeche/Driver/Cli.lean#L114
    114    "  --trusted         the unverified mode: the SAME checker bodies as",
+
+== ConLeche/Frontend/Olean/View.lean#L81
+    81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do
 

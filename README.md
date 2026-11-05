@@ -29,7 +29,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 
   The checker (at the moment) will reject any other axiom.
 * The checker processes files in three phases: *parsing* the input stream, *installing* all declarations into the environment and then *checking*. All stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L131).
-* The parser is a fast agentic-hand-written parser over the input bytes (verified with respect to a naive one, see below).
+* The JSON and olean parsers are fast agentic-hand-written parsers over the input bytes (verified with respect to naive ones, see below).
 
 ## Design of the checker proof
 
@@ -82,15 +82,16 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 The theorems above talk about the pure checker code. That pure code is embedded in a driver: parsing arguments, reading files, parallelism, all in the `IO` monad. This is out of reach for a rigorous verification, but we can still do something that helps to rule out more implementation bugs.
 
-To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L446) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L120) type class modelling two kinds of operations:
+To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L446) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L120) type class modelling three kinds of operations:
 
 * File access (existence, reading)
+* A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L142) operator for parallelism
 * Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L150)
 
 We can then prove something about such generic code in an idealized (pure, nondeterministic) model, [`ModelIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L262). These proofs are meaningful under some assumptions, which are not enforced:
 
 * The files accessed are not changing under our nose. Later reads during the process see the same state of the file system.
-* The code run by `liftIO` has no side effects affecting the file reading operations and does not exit with code 0. We use this method for concurrency, diagnostic output and measuring time.
+* The code run by `liftIO` has no side effects affecting the file reading operations and does not exit with code 0. We use this method for (otherwise pure) concurrency, diagnostic output and measuring time.
 
 In the model, we assume nothing about `liftIO a` or its return value, except of course its type. Using a subtype there allows us to run, say, parallel code and still know that the result is what we need for the proof (e.g. `checkDeclsIO` returning a subtype mentioning `checkDecls`).
 
@@ -143,9 +144,28 @@ The lean4lean project aims at something bigger: Produce a verified checker that 
 
 Additionally, this project relies on Mario Carneiro's thesis (*The Type Theory of Lean*, master's thesis, Carnegie Mellon University, 2019) for much of the set theoretical modelling.
 
-## The parser
+## The JSON parser
 
 The fast byte-wise parser is proven equivalent (`@[csimp]`) to a naive reference parser, and is covered by the Main Corollary mentioned above, which is stated in terms of the actual bytes entering the pipeline. (The Main Theorem does not cover the parser; it is not clear how to express the main theorem in terms of the raw input bytes.)
+
+## The `.olean` parser
+
+In addition to reading the official export format (`.ndjson`), `con-leche` can also read `.olean` files directly. This avoids the need to run `lean4export`. You can either check all modules reachable from a root module, or just the dependencies of a specific constant. See the usage section in [OVERVIEW.md](./OVERVIEW.md#0-using-the-checker) for how to use it.
+
+The main corollary from above can be stated about `--olean` as well, saying that if the module or any module it imports, transitively, declares in its private view a theorem of type `False`, the program will reject:
+
+```lean
+open Frontend in
+theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name} {fs : FS}
+    {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+    (hr : Olean.parseModName root = some r)
+    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
+    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
+    ¬ (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0)
+```
+
+The `.olean` “format” is not well-specified. We ship our own “naive” parser [`decodeModuleSpec`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/View.lean#L81) as a specification, and then prove that the actual parsers we use (which are optimized, and may read partial data as needed) are correct with regard to that one. We cannot prove that `decodeModuleSpec` matches how Lean interprets its data structures, only test it (using the [`olean-compare`](./OleanCompare.lean) tool).
 
 ## Performance
 
