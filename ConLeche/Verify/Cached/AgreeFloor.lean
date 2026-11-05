@@ -287,19 +287,13 @@ theorem checkStructProjTableF_skels {w : StructWalkers} {fe : FEnv} {sk : List I
 The stored constructors' names and field counts are the block's
 (`checkConstantValF` keeps the name, the stage keeps the count). -/
 
-/-- The former's telescope stage keeps the block's name (task #195):
-the checked constant is the input or a re-check at the block's own
-header. -/
-theorem checkSumTeleF_name (ops : CheckerOps CheckCM) (fe : FEnv)
-    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal) :
-    Yields (checkSumTeleF ops fe cv n cvTa₀)
-      (fun r => r.1.name = cvTa₀.name ∨ r.1.name = cv.name) := by
-  unfold checkSumTeleF
+/-- The former's telescope stage keeps the former. -/
+theorem checkSumTele_name (n : Nat) (cvTa₀ : ConstantVal) :
+    Yields (checkSumTele n cvTa₀) (fun r => r.1.name = cvTa₀.name) := by
+  unfold checkSumTele
   split
-  · exact Yields.pure (Or.inl rfl)
-  · ybind
-    ybind
-    exact Yields.pure (Or.inr rfl)
+  · exact Yields.pure rfl
+  · exact Yields.ofThrow
 
 theorem checkSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
@@ -410,10 +404,9 @@ theorem checkBlockTeleF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat)
       (fun r => r.1.name = ms.cvT.name ∧ fe.find? ms.cvT.name = none) := by
   unfold checkBlockTeleF
   refine Yields.bind' (checkConstantValF_fresh ops fe ms.cvT) fun _ hfr => ?_
-  refine Yields.bind' (checkSumTeleF_name ops fe ms.cvT _ ms.cvT) fun r hn => ?_
+  refine Yields.bind' (checkSumTele_name _ ms.cvT) fun r hn' => ?_
   obtain ⟨cvTa, s⟩ := r
-  have hn' : cvTa.name = ms.cvT.name := by
-    rcases hn with h1 | h1 <;> exact h1
+  change cvTa.name = ms.cvT.name at hn'
   yields
   all_goals exact Yields.pure ⟨hn', hfr⟩
 

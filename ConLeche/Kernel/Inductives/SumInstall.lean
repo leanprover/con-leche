@@ -56,21 +56,13 @@ def whnfTelescope (ops : CheckerOps m) (env : Env) :
     | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
         of its parameters and indices")
 
-/-- The type former's TELESCOPE (task #195): the checked declared type
-when it is already a syntactic telescope of `n` Π binders ending in a
-sort, else the declared type's whnf'd telescope (`whnfTelescope`),
-closed and checked as the former's type in its place —
-`checkConstantVal` from scratch, so nothing about the reduction is
-trusted: the stored type is the one this run inferred and sorted.  Returns the checked constant and the result sort. -/
-def checkSumTele (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
-    (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
+/-- The type former's TELESCOPE: `n` Π binders ending in a sort, as it stands.  A block whose
+formers do not show theirs is checked at its reducts (`checkBlock`'s second path).  Returns the
+former and its sort. -/
+def checkSumTele (n : Nat) (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
   match cvTa₀.type.stripPis n with
   | some (_, .sort s) => pure (cvTa₀, s)
-  | _ => do
-    let (bs, s) ← whnfTelescope ops env 0 n cvTa₀.type
-    let cvTa := { cv with type := closeTelescope bs 0 (.sort s) }
-    checkConstantVal ops env cvTa
-    pure (cvTa, s)
+  | _ => throw (.invalid "direct sum: type former does not reduce to a sort after its parameters and indices")
 
 /-- The fields' sorts over the opened constructor telescope, with the
 official per-field universe bound unless the family is

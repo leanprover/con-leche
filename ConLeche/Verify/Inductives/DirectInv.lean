@@ -180,32 +180,17 @@ theorem residual_shape {e f : Expr} {ps : List Expr} {nP nIdx : Nat}
 
 /-! ## Stage 1: the type former -/
 
-/-- `checkSumTele`, inverted (task #195): either the declared
-type was the telescope (the checked constant is the input, its type
-strips to the sort), or the whnf'd telescope was checked from scratch
-as the former's type at the block's name and level parameters — the
-run of `checkConstantVal` is all the later stages consume, whichever
-branch produced it. -/
-theorem checkSumTele_shape {env : Env} {cv : ConstantVal} {n : Nat}
-    {cvTa₀ cvTa : ConstantVal} {s : Level} {F : Nat}
-    (h : checkSumTele (fueledOps mode F) env cv n cvTa₀ = .ok (cvTa, s)) :
-    (cvTa = cvTa₀ ∧ ∃ bs, cvTa₀.type.stripPis n = some (bs, .sort s)) ∨
-    ∃ ty, cvTa = { cv with type := ty } ∧
-      checkConstantVal (fueledOps mode F) env { cv with type := ty } = .ok () := by
+/-- `checkSumTele`, inverted. -/
+theorem checkSumTele_shape {n : Nat} {cvTa₀ cvTa : ConstantVal} {s : Level}
+    (h : (checkSumTele n cvTa₀ : CheckM _) = .ok (cvTa, s)) :
+    cvTa = cvTa₀ ∧ ∃ bs, cvTa₀.type.stripPis n = some (bs, .sort s) := by
   unfold checkSumTele at h
   split at h
   · next bs s' hst =>
     simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
     obtain ⟨rfl, rfl⟩ := h
-    exact Or.inl ⟨rfl, bs, hst⟩
-  · obtain ⟨q, -, h⟩ := exceptBind_ok h
-    obtain ⟨bs, s'⟩ := q
-    dsimp only at h
-    obtain ⟨u, hccv, h⟩ := exceptBind_ok h
-    cases u
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact Or.inr ⟨_, rfl, hccv⟩
+    exact ⟨rfl, bs, hst⟩
+  · exact nomatch h
 
 /-! ## Stage 2: one constructor -/
 

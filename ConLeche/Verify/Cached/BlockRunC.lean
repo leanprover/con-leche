@@ -55,7 +55,7 @@ variable (ops : CheckerOps CheckCM)
 theorem checkBlockTeleF_eqC (env : Env) (nP : Nat) (ms : MemberShape) :
     checkBlockTeleF ops (mkFEnv env) nP ms = checkBlockTele ops env nP ms := by
   unfold checkBlockTeleF checkBlockTele
-  simp only [checkConstantValF_eq, checkSumTeleF_pushC]
+  simp only [checkConstantValF_eq]
 
 theorem checkBlockTelesF_eqC (env : Env) (nP : Nat) :
     ∀ mss : List MemberShape,
@@ -171,7 +171,7 @@ theorem checkBlockTeleS_spec (henv : EnvWF env) {nP : Nat}
       WScoped 0 v.1.type; ⊤⦄ := by
   sym only [conleche_grind, checkBlockTele.eq_1, unwrapOr] =>
     vcgen [checkBlockTele, unwrapOr, checkConstantValS_spec henv hs,
-      checkSumTeleS_spec henv] <;> finish
+      checkSumTeleS_spec (env := env)] <;> finish
 
 theorem checkBlockTelesS_spec (henv : EnvWF env) {nP : Nat} :
     ∀ {mss : List MemberShape} {s₀ : CState}, CSOK .verified false env s₀ →

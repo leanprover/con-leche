@@ -17,19 +17,6 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- `checkSumTele` through the index (task #195): the whnf loop
-runs at the index's environment through the shared operations, the
-re-check of the closed telescope is `checkConstantValF`. -/
-def checkSumTeleF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) (n : Nat)
-    (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
-  match cvTa₀.type.stripPis n with
-  | some (_, .sort s) => pure (cvTa₀, s)
-  | _ => do
-    let (bs, s) ← whnfTelescope ops fe.env 0 n cvTa₀.type
-    let cvTa := { cv with type := closeTelescope bs 0 (.sort s) }
-    checkConstantValF ops fe cvTa
-    pure (cvTa, s)
-
 /-- `checkStructFieldSortsI` through the index. -/
 def checkStructFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
     (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)

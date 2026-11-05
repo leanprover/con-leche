@@ -120,17 +120,14 @@ theorem whnfTelescopeS_spec (henv : EnvWF env) :
       vcgen [whnfTelescope, whnfS_spec henv, ih] <;>
         finish
 
-/-- The former's telescope stage (task #195) at the shared operations:
-the checked constant's type is well-scoped either way. -/
-theorem checkSumTeleS_spec (henv : EnvWF env)
-    {cv : ConstantVal} {n : Nat} {cvTa₀ : ConstantVal}
+/-- The former's telescope stage: the former, scoped. -/
+theorem checkSumTeleS_spec {n : Nat} {cvTa₀ : ConstantVal}
     (hs : CSOK .verified false env s₀) (hTw : WScoped 0 cvTa₀.type) :
-    ⦃fun s => s = s₀⦄ checkSumTele (sharedOpsC .verified (mkFEnv env)) env cv n cvTa₀
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumTele (fueledOpsM .verified) env cv n cvTa₀) v ∧
+    ⦃fun s => s = s₀⦄ (checkSumTele n cvTa₀ : CheckCM _)
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumTele n cvTa₀) v ∧
       WScoped 0 v.1.type; ⊤⦄ := by
   sym only [conleche_grind, checkSumTele.eq_1] =>
-    vcgen [checkSumTele, whnfTelescopeS_spec henv, checkConstantValS_spec henv] <;>
-      finish
+    vcgen [checkSumTele] <;> finish
 
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/

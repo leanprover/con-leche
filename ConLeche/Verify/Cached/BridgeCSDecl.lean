@@ -60,20 +60,6 @@ theorem installBasisFoldF_pushC :
 
 /-! ### The direct simple-structure path's extending stages (task #175) -/
 
-/-- The former's telescope stage through the index (task #195): the
-whnf loop reads the index's environment, the re-check is the indexed
-`checkConstantValF`. -/
-theorem checkSumTeleF_pushC (ops : CheckerOps CheckCM) (env : Env)
-    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal) :
-    checkSumTeleF ops (mkFEnv env) cv n cvTa₀
-      = checkSumTele ops env cv n cvTa₀ := by
-  unfold checkSumTeleF checkSumTele
-  cases hst : cvTa₀.type.stripPis n with
-  | none => simp only [checkConstantValF_eq, mkFEnv_env]
-  | some q =>
-    obtain ⟨bs, body⟩ := q
-    cases body <;> simp only [checkConstantValF_eq, mkFEnv_env]
-
 /-- The projection table through the index (task #175 S1). -/
 theorem checkStructProjTableF_pushC (T C : Name) (lps : List Name)
     (nP nF : Nat) (cvCa : ConstantVal)

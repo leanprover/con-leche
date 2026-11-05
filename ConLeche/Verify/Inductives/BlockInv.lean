@@ -76,9 +76,8 @@ theorem checkBlockTele_shape {env : Env} {nP : Nat} {ms : MemberShape}
     obtain ⟨rfl, rfl⟩ := h
     have hstrip : cvTa'.type.stripPis (nP + ms.nIdx) = some (bs, Expr.sort s') := by
       rw [hr', beq_iff_eq.mp hc]
-    rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, heq, hccv⟩
-    · exact ⟨ms.cvT, rfl, rfl, rfl, hccv₀, bs, hstrip⟩
-    · exact ⟨{ ms.cvT with type := ty }, rfl, rfl, heq, hccv, bs, hstrip⟩
+    obtain ⟨rfl, -⟩ := checkSumTele_shape htele
+    exact ⟨ms.cvT, rfl, rfl, rfl, hccv₀, bs, hstrip⟩
   · rw [ite_eq_right hc] at h
     close_throw
 

@@ -147,19 +147,13 @@ theorem whnfTelescope_datF (env : Env) (F : Nat) :
         whnfTelescope_datF env F (i + 1) n (body.instantiate1 (.fvar i dom))]
     · simp only [FueledM.atF_throw]
 
-/-- The former's telescope stage (task #195) at fuel `F`. -/
-theorem checkSumTele_datF (env : Env) (cv : ConstantVal) (n : Nat)
-    (cvTa₀ : ConstantVal) (F : Nat) :
-    (checkSumTele (fueledOpsM mode) env cv n cvTa₀).val F =
-      checkSumTele (fueledOps mode F) env cv n cvTa₀ := by
+/-- The former's telescope stage at fuel `F`. -/
+theorem checkSumTele_datF (n : Nat) (cvTa₀ : ConstantVal) (F : Nat) :
+    (checkSumTele n cvTa₀ : FueledM _).val F = checkSumTele n cvTa₀ := by
   unfold checkSumTele
-  cases hst : cvTa₀.type.stripPis n with
-  | none =>
-    simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF, checkConstantVal_datF]
-  | some q =>
-    obtain ⟨bs, body⟩ := q
-    cases body <;> simp only [FueledM.atF_bind, FueledM.atF_pure, whnfTelescope_datF,
-      checkConstantVal_datF]
+  split
+  · simp only [FueledM.atF_pure]
+  · simp only [FueledM.atF_throw]
 
 /-- `checkStructFieldSortsI` (task #175 indexed) at fuel `F`. -/
 theorem checkStructFieldSortsI_datF (env : Env) (isProp large : Bool)

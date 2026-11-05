@@ -812,18 +812,11 @@ theorem checkStructFieldSortsIFA_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (i
       h.ensureSort fe₂.env]
     rw [ih]
 
-theorem checkSumTeleF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal) :
-    checkSumTeleF ops fe₁ cv n cvTa₀ = checkSumTeleF ops fe₂ cv n cvTa₀ := by
-  unfold checkSumTeleF
-  simp only [whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env,
-    checkConstantValF_congr h hfe]
-
 theorem checkBlockTeleF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (nP : Nat) (ms : MemberShape) :
     checkBlockTeleF ops fe₁ nP ms = checkBlockTeleF ops fe₂ nP ms := by
   unfold checkBlockTeleF
-  simp only [checkConstantValF_congr h hfe, checkSumTeleF_congr h hfe]
+  simp only [checkConstantValF_congr h hfe]
 
 theorem checkBlockTelesF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (nP : Nat) : ∀ ms, checkBlockTelesF ops fe₁ nP ms = checkBlockTelesF ops fe₂ nP ms
