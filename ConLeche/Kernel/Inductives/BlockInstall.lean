@@ -194,7 +194,7 @@ environment's lookup: the members, their level parameters, the shared
 parameter count, the members' index counts and the block's sort. -/
 def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
     (find? : Name → Option ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?⟩
+  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, p.members.map (·.cvT)⟩
 
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as
@@ -271,7 +271,7 @@ def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx := p.nestCtx pq.1 find?
-  let holes ← unwrapOr (nestHoles ctx cvTas) (.internal "direct rec: a member is not a stored former")
+  let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   pure (ctx, holes)
 
 /-- **The block's positivity, on its stored constructors** (see the

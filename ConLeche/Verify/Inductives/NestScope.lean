@@ -61,7 +61,8 @@ theorem WScoped.of_fvarsBelow : ∀ {e : Expr} {d d' : Nat}, WScoped d e →
 
 /-- A context whose stored constants are closed. -/
 @[expose] def NestCtxOk (ctx : NestCtx) : Prop :=
-  ∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false
+  (∀ n ci, ctx.find? n = some ci → ci.toConstantVal.type.hasFvar = false) ∧
+    ∀ cv ∈ ctx.formers, cv.type.hasFvar = false
 
 /-- A constructor entry is its constructor record. -/
 theorem nestCtorEntry_some {C : Name} {ci : ConstantInfo} {y : ConstantVal × Nat × Nat}
@@ -143,12 +144,12 @@ theorem nestHoles_ok {ctx : NestCtx} (hc : NestCtxOk ctx)
   obtain ⟨mm, hmm, hf⟩ := option_mapM_mem h x hx
   have hmm' := List.mem_range.mp hmm
   split at hf
-  · next cv caps hfind =>
+  · next cv hfind =>
     obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp hf
     refine ⟨?_, _, _, rfl⟩
     simp only [WScoped, NestCtx.hiAt]
     refine ⟨by omega, WScoped.mono (by omega) (wscoped_instPisWith hpar
-      (WScoped.of_not_hasFvar (hc _ _ hfind)) hty)⟩
+      (WScoped.of_not_hasFvar (hc.2 _ (List.mem_of_getElem? hfind))) hty)⟩
   · exact nomatch hf
 
 /-! ## The abstracted, instantiated constructor type: leaves and bounds -/
@@ -199,13 +200,13 @@ theorem option_mapM_getElem? {α β : Type} {f : α → Option β} :
 stored type at the canonical parameters. -/
 theorem nestHoles_getElem? {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx = some holes)
     {t : Nat} (ht : t < ctx.names.length) :
-    ∃ cv caps ty, ctx.find? (ctx.names.getD t .anonymous) = some (.indInfo cv caps) ∧
+    ∃ cv ty, ctx.formers[t]? = some cv ∧
       instPisWith ctx.params cv.type = some ty ∧ holes[t]? = some (.fvar (ctx.nP + t) ty) := by
   obtain ⟨y, hy, hget⟩ := option_mapM_getElem? h t t (List.getElem?_range ht)
   split at hy
-  · next cv caps hfind =>
+  · next cv hfind =>
     obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp hy
-    exact ⟨cv, caps, ty, hfind, hty, hget⟩
+    exact ⟨cv, ty, hfind, hty, hget⟩
   · exact nomatch hy
 
 /-- An `Option` `mapM` keeps the length. -/
@@ -236,14 +237,14 @@ theorem nestHoles_length {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx 
 /-- Every hole is a member's variable, carrying the member's stored type
 at the canonical parameters. -/
 theorem nestHoles_mem {ctx : NestCtx} {holes : List Expr} (h : nestHoles ctx = some holes) :
-    ∀ x ∈ holes, ∃ i cv caps ty, ctx.find? (ctx.names.getD i .anonymous) = some (.indInfo cv caps) ∧
+    ∀ x ∈ holes, ∃ i cv ty, ctx.formers[i]? = some cv ∧
       instPisWith ctx.params cv.type = some ty ∧ x = .fvar (ctx.nP + i) ty := by
   intro x hx
   obtain ⟨mm, -, hf⟩ := option_mapM_mem h x hx
   split at hf
-  · next cv caps hfind =>
+  · next cv hfind =>
     obtain ⟨ty, hty, rfl⟩ := Option.map_eq_some_iff.mp hf
-    exact ⟨mm, cv, caps, ty, hfind, hty, rfl⟩
+    exact ⟨mm, cv, ty, hfind, hty, rfl⟩
   · exact nomatch hf
 
 /-! ## The seeds: their keys

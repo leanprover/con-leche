@@ -83,7 +83,7 @@ formers and one of the groups. -/
 theorem blockMembers_mem {cvTs : List ConstantVal} {nIdxs : List Nat}
     {groups : List (List (ConstantVal × Nat))} {ms : MemberShape}
     (h : ms ∈ ((cvTs.zip nIdxs).zip groups).map
-      (fun a => (⟨a.1.1, a.1.2, a.2⟩ : MemberShape))) :
+      (fun a => (⟨a.1.1, a.1.1, a.1.2, a.2⟩ : MemberShape))) :
     ms.cvT ∈ cvTs ∧ ms.ctors ∈ groups := by
   obtain ⟨a, ha, rfl⟩ := List.mem_map.mp h
   obtain ⟨⟨cvT, nIdx⟩, g⟩ := a
@@ -97,11 +97,11 @@ theorem blockMembers_proj {cvTs : List ConstantVal} :
     ∀ {nIdxs : List Nat} {groups : List (List (ConstantVal × Nat))},
       nIdxs.length = cvTs.length → groups.length = cvTs.length →
       (((cvTs.zip nIdxs).zip groups).map
-          (fun a => (⟨a.1.1, a.1.2, a.2⟩ : MemberShape))).map (·.cvT) = cvTs ∧
+          (fun a => (⟨a.1.1, a.1.1, a.1.2, a.2⟩ : MemberShape))).map (·.cvT) = cvTs ∧
       (((cvTs.zip nIdxs).zip groups).map
-          (fun a => (⟨a.1.1, a.1.2, a.2⟩ : MemberShape))).map (·.nIdx) = nIdxs ∧
+          (fun a => (⟨a.1.1, a.1.1, a.1.2, a.2⟩ : MemberShape))).map (·.nIdx) = nIdxs ∧
       (((cvTs.zip nIdxs).zip groups).map
-          (fun a => (⟨a.1.1, a.1.2, a.2⟩ : MemberShape))).map (·.ctors) = groups := by
+          (fun a => (⟨a.1.1, a.1.1, a.1.2, a.2⟩ : MemberShape))).map (·.ctors) = groups := by
   induction cvTs with
   | nil =>
     intro nIdxs groups h1 h2
@@ -153,7 +153,7 @@ abbrev BlockShapeOk (nPd : Nat) (block : List ConstantInfo) (p : BlockShape) : P
     p.members = ((cvTs.zip nIdxs).zip
         (blockGroups p.memberNames p.lps p.nP p.k
             (cs.map fun c => (c.1, c.2.2)))).map
-      (fun a => ⟨a.1.1, a.1.2, a.2⟩) ∧
+      (fun a => ⟨a.1.1, a.1.1, a.1.2, a.2⟩) ∧
     p.recs = rs.map (fun r =>
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf p.memberNames r.2.1 r.1.type,
         r.2.2.2.2, r.2.2.2.1⟩)
@@ -180,7 +180,7 @@ private theorem blockShape?_inv_aux {nPd : Nat} {block : List ConstantInfo}
     (hmembers : p.members = (((cvT0 :: cvTs').zip nIdxs).zip
         (blockGroups ((cvT0 :: cvTs').map (·.name)) cvT0.levelParams nPd
             (cvT0 :: cvTs').length (cs.map fun c => (c.1, c.2.2)))).map
-      (fun a => ⟨a.1.1, a.1.2, a.2⟩))
+      (fun a => ⟨a.1.1, a.1.1, a.1.2, a.2⟩))
     (hrecs : p.recs = rs.map fun r =>
       ⟨r.1, r.2.2.1, r.2.1, recTargetOf ((cvT0 :: cvTs').map (·.name)) r.2.1 r.1.type,
         r.2.2.2.2, r.2.2.2.1⟩) :

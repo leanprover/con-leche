@@ -19,30 +19,77 @@ and the instantiation's lookup.  The semantic side
 
 namespace ConLeche
 
+/-- A family's telescope is its stored type, or a closed reduct of it. -/
+theorem familyTelescope_cases {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
+    {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty) :
+    (formerDefHeaded cv = false ∧ ty = cv.type) ∨
+    (formerDefHeaded cv = true ∧ ty.hasFvar = false ∧ ty.looseBVarsBounded 0 = true ∧
+      ∃ cvR, reducedFormer ops env cv (caps.nparams + caps.nIdx) = .ok cvR ∧ ty = cvR.type) := by
+  unfold familyTelescope at h
+  split at h
+  · rename_i hd
+    simp only [bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i cvR hr
+    split at h
+    · rename_i hc
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      simp only [Bool.and_eq_true, Bool.not_eq_true'] at hc
+      exact .inr ⟨hd, hc.1, hc.2, cvR, hr, rfl⟩
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+  · rename_i hd
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    exact .inl ⟨by simpa using hd, h.symm⟩
+
+/-- A family's telescope is closed where its stored type is. -/
+theorem familyTelescope_hasFvar {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
+    {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty)
+    (hc : cv.type.hasFvar = false) : ty.hasFvar = false := by
+  rcases familyTelescope_cases h with ⟨-, rfl⟩ | ⟨-, hf, -⟩
+  · exact hc
+  · exact hf
+
+/-- A family's telescope is scoped where its stored type is. -/
+theorem familyTelescope_bounded {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
+    {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty)
+    (hc : cv.type.looseBVarsBounded 0 = true) : ty.looseBVarsBounded 0 = true := by
+  rcases familyTelescope_cases h with ⟨-, rfl⟩ | ⟨-, -, hb, -⟩
+  · exact hc
+  · exact hb
+
 /-- **The container's type former, inverted.** -/
-theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
-    (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
-    ∃ cvC caps, ctx.find? key.cname = some (.indInfo cvC caps) ∧
-      (cvC.type.stripPis key.ds.length).isSome = true ∧
-      instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
-        = some cty ∧
-      ∃ ty s, instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls)
-          = some ty ∧ ty.piBinders.2 = .sort s ∧
-        (ty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false ∧
-        nI = ty.piBinders.1.length ∧ Level.isEquiv s ctx.sort = some true := by
+theorem nestInstType_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {hi : Nat}
+    {key : NestKey} {nI : Nat} {cty : Expr}
+    (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty)) :
+    ∃ cvC caps tyC, ctx.find? key.cname = some (.indInfo cvC caps) ∧
+      familyTelescope ops env cvC caps = .ok tyC ∧
+      key.lvls.length = cvC.levelParams.length ∧
+      (tyC.stripPis key.ds.length).isSome = true ∧
+      ∃ s, instPisWith key.ds (tyC.instantiateLevelParams cvC.levelParams key.lvls) = some cty ∧
+        cty.piBinders.2 = .sort s ∧
+        (cty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false ∧
+        nI = cty.piBinders.1.length ∧ Level.isEquiv s ctx.sort = some true := by
   unfold nestInstType at h
   simp only [bind, Except.bind] at h
   split at h
   · simp at h
-  rename_i cvC hcv
-  have hcv' := unwrapOr_ok hcv
-  split at hcv'
+  rename_i q hq
+  obtain ⟨cvC, capsC⟩ := q
+  have hq' := unwrapOr_ok hq
+  split at hq'
   · rename_i cv caps hf
-    simp only [Option.some.injEq] at hcv'
-    subst hcv'
+    simp only [Option.some.injEq, Prod.mk.injEq] at hq'
+    obtain ⟨rfl, rfl⟩ := hq'
+    dsimp only at h
     split at h
     rotate_left
     · simp [throw, throwThe, MonadExceptOf.throw] at h
+    rename_i hl
+    split at h
+    · simp at h
+    rename_i tyC hfam
     split at h
     · rename_i hstrip
       split at h
@@ -60,9 +107,6 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       rename_i bl hbl
       split at h
       · rename_i hbt
-        split at h
-        rotate_left
-        · simp [throw, throwThe, MonadExceptOf.throw] at h
         have hlev : Level.isEquiv s ctx.sort = some true := by
           unfold liftFueled at hbl
           split at hbl
@@ -71,68 +115,14 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
           · simp [throw, throwThe, MonadExceptOf.throw] at hbl
         simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
         obtain ⟨rfl, rfl⟩ := h
-        refine ⟨cv, caps, hf, by simpa using hstrip, unwrapOr_ok hty, _, s, unwrapOr_ok hty, ?_,
-          by simpa using hocc, rfl, by simpa using hlev⟩
+        refine ⟨cv, caps, tyC, hf, hfam, by simpa using hl, by simpa using hstrip, s,
+          unwrapOr_ok hty, ?_, by simpa using hocc, rfl, by simpa using hlev⟩
         split at hs'
         · rename_i s' he; rw [he]; simp only [Option.some.injEq] at hs'; rw [hs']
         · exact nomatch hs'
       · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
-  · exact nomatch hcv'
-
-/-- A container a walk read has a flat group. -/
-theorem nestInstType_flat {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
-    (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
-    containerFlat ctx.find? key.cname = true := by
-  unfold nestInstType at h
-  simp only [bind, Except.bind] at h
-  split at h
-  · simp at h
-  split at h
-  rotate_left
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-  split at h
-  · split at h
-    · simp at h
-    split at h
-    · simp at h
-    split at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-    split at h
-    · simp at h
-    split at h
-    · split at h
-      · rename_i hfl; simpa using hfl
-      · simp [throw, throwThe, MonadExceptOf.throw] at h
-    · simp [throw, throwThe, MonadExceptOf.throw] at h
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
-
-theorem containerFlat_self {find? : Name → Option ConstantInfo} {c : Name} {cv : ConstantVal}
-    {caps : IndCaps} (h : containerFlat find? c = true)
-    (hf : find? c = some (.indInfo cv caps)) : formerDefHeaded cv = false := by
-  simp only [containerFlat, hf, Bool.and_eq_true, Bool.not_eq_true'] at h
-  exact h.1
-
-/-- **The container is applied at its own level count** (official's
-`infer_constant`). -/
-theorem nestInstType_lvls {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
-    (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
-    ∃ cvC caps, ctx.find? key.cname = some (.indInfo cvC caps) ∧
-      key.lvls.length = cvC.levelParams.length := by
-  obtain ⟨cvC, caps, hf, -⟩ := nestInstType_inv h
-  refine ⟨cvC, caps, hf, ?_⟩
-  unfold nestInstType at h
-  simp only [bind, Except.bind] at h
-  split at h
-  · simp at h
-  rename_i cv hcv
-  have hcv' := unwrapOr_ok hcv
-  rw [hf] at hcv'
-  simp only [Option.some.injEq] at hcv'
-  subst hcv'
-  split at h
-  · assumption
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  · exact nomatch hq'
 
 /-- The occurrence test is monotone in the hole range's upper end. -/
 theorem Expr.nestOcc_mono_hi {names : List Name} {lo hi hi' : Nat} (hle : hi' ≤ hi) :
@@ -155,32 +145,29 @@ theorem Expr.nestOcc_mono_hi {names : List Name} {lo hi hi' : Nat} (hle : hi' �
 
 /-- **The container's type former, from its facts** (`nestInstType_inv`'s
 converse). -/
-theorem nestInstType_of {ctx : NestCtx} {hi : Nat} {key : NestKey} {cvC : ConstantVal}
-    {caps : IndCaps} {ty : Expr} {s : Level}
+theorem nestInstType_of {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {hi : Nat}
+    {key : NestKey} {cvC : ConstantVal} {caps : IndCaps} {tyC ty : Expr} {s : Level}
     (hf : ctx.find? key.cname = some (.indInfo cvC caps))
+    (hfam : familyTelescope ops env cvC caps = .ok tyC)
     (hl : key.lvls.length = cvC.levelParams.length)
-    (hstrip : (cvC.type.stripPis key.ds.length).isSome = true)
-    (hty : instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls) = some ty)
+    (hstrip : (tyC.stripPis key.ds.length).isSome = true)
+    (hty : instPisWith key.ds (tyC.instantiateLevelParams cvC.levelParams key.lvls) = some ty)
     (hs : ty.piBinders.2 = .sort s)
     (hocc : (ty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false)
-    (hlev : Level.isEquiv s ctx.sort = some true)
-    (hflat : containerFlat ctx.find? key.cname = true) :
-    nestInstType (m := CheckM) ctx hi key = .ok (ty.piBinders.1.length, ty) := by
+    (hlev : Level.isEquiv s ctx.sort = some true) :
+    nestInstType (m := CheckM) ctx ops env hi key = .ok (ty.piBinders.1.length, ty) := by
   unfold nestInstType
-  simp [bind, Except.bind, hf, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, hflat, pure,
+  simp [bind, Except.bind, hf, hfam, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, pure,
     Except.pure]
 
 /-- **The type former's checks hold at a smaller hole range**: only the
 index telescope's occurrence test (N2) reads `hi`, and it is monotone. -/
-theorem nestInstType_mono_hi {ctx : NestCtx} {hi hi' : Nat} (hle : hi' ≤ hi) {key : NestKey}
-    {nI : Nat} {cty : Expr} (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
-    nestInstType (m := CheckM) ctx hi' key = .ok (nI, cty) := by
-  obtain ⟨cvC, caps, hf, hstrip, hcty, ty, s, hty, hs, hocc, rfl, hlev⟩ := nestInstType_inv h
-  obtain rfl : cty = ty := by simpa [hty] using hcty.symm
-  obtain ⟨cvC', caps', hf', hl⟩ := nestInstType_lvls h
-  rw [hf] at hf'
-  obtain ⟨rfl, rfl⟩ : cvC = cvC' ∧ caps = caps' := by simpa using hf'
-  refine nestInstType_of hf hl hstrip hty hs ?_ hlev (nestInstType_flat h)
+theorem nestInstType_mono_hi {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env} {hi hi' : Nat}
+    (hle : hi' ≤ hi) {key : NestKey} {nI : Nat} {cty : Expr}
+    (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty)) :
+    nestInstType (m := CheckM) ctx ops env hi' key = .ok (nI, cty) := by
+  obtain ⟨cvC, caps, tyC, hf, hfam, hl, hstrip, s, hty, hs, hocc, rfl, hlev⟩ := nestInstType_inv h
+  refine nestInstType_of hf hfam hl hstrip hty hs ?_ hlev
   rw [List.any_eq_false] at hocc ⊢
   intro b hb hb'
   exact hocc b hb (Expr.nestOcc_mono_hi hle _ hb')
@@ -200,7 +187,7 @@ theorem nestCont_inv {ctx : NestCtx} {ops : CheckerOps CheckM} {env : Env}
       n ≠ quotName ∧
       ((args.take nPc).all fun x => x.bvarB == 0 && decide (x.fvarB ≤ ctx.hiAt prog.length))
         = true ∧
-      ∃ nI cty, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
+      ∃ nI cty, nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length) ⟨n, us, args.take nPc⟩
           = .ok (nI, cty) ∧ args.length = nPc + nI ∧
         nestContKey ctx ops env rec prog kb n us (args.take nPc) nPc cty st
           = .ok (k, st') := by

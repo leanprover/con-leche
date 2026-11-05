@@ -454,8 +454,8 @@ theorem genRun_Ms₀
       have hw := hkeys key hkey x hxa
       exact ⟨WScoped.of_fvarsBelow hw (Expr.fvarB_le (hdsSc _ hx).2),
         Expr.bvarB_le (by rw [(hdsSc _ hx).1]; exact Nat.le_refl 0)⟩
-    · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?⟩ : NestCtx) ∧
-          NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?⟩ : NestCtx) := by
+    · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?, []⟩ : NestCtx) ∧
+          NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?, []⟩ : NestCtx) := by
         rw [mkFEnv_find?_fun]
         exact ⟨fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).1,
           fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩

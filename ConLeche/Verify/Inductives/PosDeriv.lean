@@ -174,17 +174,17 @@ theorem stripPis_sort_piBinders_length :
 /-- **Every member's stored former has the arity `nP + nIdx`**
 (`nestArity`, the frames' arity: its type is a syntactic telescope of
 the block's parameters and its indices). -/
-@[expose] def NestArityOk (ctx : NestCtx) : Prop :=
+@[expose] def NestArityOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Prop :=
   ∀ t, t < ctx.names.length →
-    nestArity ctx (ctx.names.getD t .anonymous) = ctx.nP + ctx.nIdxs.getD t 0
+    nestArity ctx ops env (ctx.names.getD t .anonymous) = .ok (ctx.nP + ctx.nIdxs.getD t 0)
 
 /-- **The root frame reads as the members' own rule** (the premise the
 inversion reads a member hole's occurrence under): the canonical
 parameters are `nP` variables below `nP`, and every member's stored
 former has the arity `nP + nIdx` (`nestArity`, the frames' arity). -/
-@[expose] def NestRootOk (ctx : NestCtx) : Prop :=
+@[expose] def NestRootOk (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) : Prop :=
   ctx.params.length = ctx.nP ∧ (∀ x ∈ ctx.params, ∃ i ty, x = .fvar i ty ∧ i < ctx.nP) ∧
-  NestArityOk ctx
+  NestArityOk ops env ctx
 
 /-- **The frames are well scoped**: every frame's parameters are well
 scoped below the frames' holes. -/
@@ -263,7 +263,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hfn : w.getAppFn = .fvar i ty) (hlo : ctx.hiAt 0 ≤ i) (hhi : i < ctx.hiAt prog.length)
       (hk : prog.reverse[i - ctx.hiAt 0]? = some h)
       (hfree : ∀ x ∈ w.getAppArgs, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false)
-      (har : w.getAppArgs.length + h.key.ds.length = nestArity ctx h.key.cname) :
+      (har : nestArity ctx ops env h.key.cname = .ok (w.getAppArgs.length + h.key.ds.length)) :
       PosD ops env ctx (.field prog dep kb e .inProgress w) []
   /-- a container at a concrete instantiation, its frame derived here -/
   | contNew {prog : List NestHole} {dep kb : Nat} {e w : Expr} {n : Name} {us : List Level}
@@ -279,7 +279,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt prog.length) x)
-      (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+      (hnI : nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hhead : grp.head? = some (n, cty)) (hsc : ProgScoped ctx prog)
       (hfr : PosD ops env ctx (.frame prog us (w.getAppArgs.take nPc) grp) ts) :
@@ -300,7 +300,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hds : ∀ x ∈ w.getAppArgs.take nPc,
         x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt 0)
       (hdsw : ∀ x ∈ w.getAppArgs.take nPc, Expr.WScoped (ctx.hiAt 0) x)
-      (hnI : nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+      (hnI : nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
         ⟨n, us, w.getAppArgs.take nPc⟩ = .ok (nI, cty))
       (hmem : n ∈ grp.map (·.1))
       (hfr : PosD ops env ctx (.frame [] us (w.getAppArgs.take nPc) grp) ts) :
@@ -314,7 +314,7 @@ inductive PosD (ops : CheckerOps CheckM) (env : Env) (ctx : NestCtx) :
       (hhd : ctx.names.contains (grp.headD default).1 = false ∧ (grp.headD default).1 ≠ quotName)
       (hhdC : ∃ L, nestContainer ctx (grp.headD default).1 = some (ds.length, L))
       (hnd : (grp.map (·.1)).Nodup)
-      (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx (ctx.hiAt prog.length)
+      (hinst : ∀ p ∈ grp, ∃ nI, nestInstType (m := CheckM) ctx ops env (ctx.hiAt prog.length)
         ⟨p.1, us, ds⟩ = .ok (nI, p.2))
       (hblk : ∀ p ∈ grp.tail, (nestBlockOf ctx (grp.headD default).1).contains p.1 = true)
       (hgrp : grp.map (·.1) = (grp.headD default).1 :: nestFrameMates ctx (grp.headD default).1)

@@ -259,6 +259,8 @@ goes through this: what is stored is what the stream declares. -/
 def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : IndCaps) : m Expr :=
   if formerDefHeaded cv then do
     let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
+    unless !cvR.type.hasFvar && cvR.type.looseBVarsBounded 0 do
+      throw (.internal "a family's reduced telescope is not closed")
     pure cvR.type
   else pure cv.type
 
@@ -698,6 +700,8 @@ structure NestCtx where
   params : List Expr
   sort : Level
   find? : Name → Option ConstantInfo
+  /-- the members' type formers at their telescopes -/
+  formers : List ConstantVal
 
 /-- The run's state: the accepted instantiations (the cache, keyed by the
 instantiation). -/
@@ -1550,9 +1554,9 @@ its former's type instantiated at the canonical parameters — a family
 over the member's indices (the hole stands for `T_m p⃗`, so it is
 well-scoped anywhere above the parameters).  `none` when a member is not
 a stored former or its type does not bind the parameters. -/
-def nestHoles (ctx : NestCtx) (formers : List ConstantVal) : Option (List Expr) :=
+def nestHoles (ctx : NestCtx) : Option (List Expr) :=
   (List.range ctx.names.length).mapM fun mm =>
-    match formers[mm]? with
+    match ctx.formers[mm]? with
     | some cv => (instPisWith ctx.params cv.type).map (.fvar (ctx.nP + mm) ·)
     | none => none
 
@@ -1709,9 +1713,8 @@ constructors AS STORED (not normalised: the function reduces itself).
 Returns the accepted instantiations, the kinds, every constructor's
 NORMALISED type and the recorded normal forms. -/
 def nestedBlockPositivity (ops : CheckerOps m) (env : Env) (ctx : NestCtx)
-    (formers : List ConstantVal) (ctorss : List (List (ConstantVal × Nat))) :
-    m NestedPositivity := do
-  let holes ← unwrapOr (nestHoles ctx formers)
+    (ctorss : List (List (ConstantVal × Nat))) : m NestedPositivity := do
+  let holes ← unwrapOr (nestHoles ctx)
     (.internal "nested positivity: a member is not a stored former")
   nestUniform ctx ctorss
   let (outs, st) ← nestRoot ops env ctx holes ctorss {}

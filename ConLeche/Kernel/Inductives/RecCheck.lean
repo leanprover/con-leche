@@ -367,7 +367,7 @@ def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys 
 looked up by the names its stored record lists (`nestContainer`'s
 reading). -/
 def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × Nat)) :=
-  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?⟩ I
+  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?, []⟩ I
 
 /-- The instantiated type former of an OUTSIDE major `I.{us} ds`: its
 index count and its result sort (a syntactic telescope, as
