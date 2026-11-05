@@ -109622,3 +109622,29 @@ merge of `agent/480-trivial-install`).
 | init-full | 379.877 G | +0.01 % | 392.372 G | −0.44 % |
 | init-prelude | 1.9444 G | +0.01 % | 2.1142 G | +0.03 % |
 | grind-ring-5 | 15.241 G | −0.01 % | 15.632 G | +0.04 % |
+
+### A projection's guard at a def-headed structure: zero-ness, no order (#480, lane 6; 2026-11-05)
+
+`checkGuardRows` no longer asks `Level.leq u s`.  It asks `Level.zeroWhereZero s u`: is the row's
+sort zero wherever the structure's sort is, read off the two zero-ness data (`qs ⊆ ps`).  That is
+the exact property the proof needs: a row must lie in `univ 0` where the structure is a
+proposition, and the law has nothing to say at the other valuations.  The rule stays self-contained:
+a certificate in `GuardRows.row`, with no claim relating `s` to the block's sort and no door or
+parameter.  `RowsAt` is now only ever at `0`.
+
+The structures whose stored type ends in a sort go through the same test at `s = zero`, which says
+the row's sort is always zero.  That is the semantic reading of what `Level.leq u .zero` answered.
+Official's own test on that path is `is_prop`, syntactic on the sort after `whnf`.
+
+**What rests outside the formal statement.**  "No reject beyond official" at a def-headed structure
+rests on `knot_ext` plus official's block check: official has checked the block's field sorts against
+its result sort, so at any levels a row's sort is under the structure's, and so zero wherever it is.
+Nothing in the capstone states this; the capstone is soundness.  A stream official's block check
+refuses is refused here by the job, before any use.
+
+**The fixture.**  A probe over 41 300 semantically ordered pairs of small levels found `Level.leq`
+complete, so the two tests differ only where the order runs out of fuel: `level_fuel_guard`
+(`scripts/mk_level_fuel.py`) projects `ind_defhead_sort_u`'s structure at a level chain deeper than
+the fuel.  Official 0 (run), here 0; the former test read the exhausted comparison as a refusal
+(inferred from the code, not run).  This code is expected to go with the kernel logic renovation
+(lean4#15351), so nothing further is built on it.

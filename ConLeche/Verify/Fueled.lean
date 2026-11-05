@@ -203,9 +203,9 @@ theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold ensureSort
   atF_tac
 
-theorem checkGuardRows_atF (bound : Level) (F : Nat) :
-    ∀ rows, (checkGuardRows (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf bound rows).val F =
-      checkGuardRows (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf bound rows
+theorem checkGuardRows_atF (guardSort : Level) (F : Nat) :
+    ∀ rows, (checkGuardRows (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf guardSort rows).val F =
+      checkGuardRows (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf guardSort rows
   | [] => rfl
   | (d, dom) :: rest => by
     unfold checkGuardRows
@@ -215,7 +215,7 @@ theorem checkGuardRows_atF (bound : Level) (F : Nat) :
     refine congrArg _ (funext fun w => ?_)
     cases w <;> try rfl
     dsimp only []
-    have hk := checkGuardRows_atF bound F rest
+    have hk := checkGuardRows_atF guardSort F rest
     split
     · exact hk
     · rw [FueledM.atF_bind, hk]; rfl
@@ -259,10 +259,10 @@ theorem iotaCase3At_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : 
       · rfl
     · rfl
 
-theorem projRowBound_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
-    (projRowBound (fueledFns mode eager env).whnf cvT caps us).val F =
-      projRowBound (pureFns mode eager env F).whnf cvT caps us := by
-  unfold projRowBound
+theorem projGuardSort_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
+    (projGuardSort (fueledFns mode eager env).whnf cvT caps us).val F =
+      projGuardSort (pureFns mode eager env F).whnf cvT caps us := by
+  unfold projGuardSort
   split
   · rfl
   · rw [FueledM.atF_bind, formerSortLoop_atF]
@@ -274,14 +274,14 @@ theorem checkProjGuard_atF (entry : ProjEntry) (us : List Level) (F : Nat) :
       checkProjGuard (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf env entry us := by
   unfold checkProjGuard
   split
-  · rw [FueledM.atF_bind, projRowBound_atF]
+  · rw [FueledM.atF_bind, projGuardSort_atF]
     refine congrArg _ (funext fun o => ?_)
     cases o with
     | none => rfl
-    | some bound =>
+    | some guardSort =>
       dsimp only
       split
-      · exact checkGuardRows_atF bound F _
+      · exact checkGuardRows_atF guardSort F _
       · rfl
   · rfl
 

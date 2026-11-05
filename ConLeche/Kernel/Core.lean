@@ -1105,29 +1105,30 @@ def ensureSort (r : CoreFns m) (_env : Env) (depth : Nat) (e : Expr) :
   | _ => throw (.invalid "expected a sort")
 
 /-- **The rows of a projection's guard** (`projGuardRows`, official
-`infer_proj`'s `is_prop` tests): each row's term is a proposition.
+`infer_proj`'s `is_prop` tests): each row's term has a sort that is zero
+wherever `guardSort` is, so a proposition wherever the structure is one.
 `inf` is the io slot, as official's `infer_type` inside `is_prop`, in
 every body. -/
-def checkGuardRows (inf wh : Nat → Expr → m Expr) (bound : Level) :
+def checkGuardRows (inf wh : Nat → Expr → m Expr) (guardSort : Level) :
     List (Nat × Expr) → m Unit
   | [] => pure ()
   | (d, dom) :: rest => do
     match ← wh d (← inf d dom) with
     | .sort u =>
-      unless Level.leq u bound == some true do
+      unless Level.zeroWhereZero guardSort u do
         throw (.invalid "projection from a propositional structure must be a proposition")
-      checkGuardRows inf wh bound rest
+      checkGuardRows inf wh guardSort rest
     | _ => throw (.invalid "expected a sort")
 
-/-- **What a projection's rows must lie under**, at this use: `none` where the
+/-- **The sort a projection's rows answer to**, at this use: `none` where the
 guard has nothing to ask.  A structure's stored type that ends in a sort answers
 at once: `Prop` asks for propositions, any other sort nothing, as official's
 `is_prop` on the structure's type.  Otherwise the sort is walked to (official's
 `whnf`), at the use's levels: never zero asks nothing, and a sort that may be zero
-bounds the rows' sorts, as the block's own check of its fields bounds them.  Where
-no sort is reached the use is rejected, as official's `infer_type` of the
-structure's type would throw. -/
-def projRowBound (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
+asks that each row be a proposition wherever the structure is one.  Where no sort
+is reached the use is rejected, as official's `infer_type` of the structure's
+type would throw. -/
+def projGuardSort (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
     (us : List Level) : m (Option Level) :=
   match formerResSort cvT.type with
   | some s => pure (if s.isAlwaysZero then some .zero else none)
@@ -1144,11 +1145,11 @@ def checkProjGuard (inf wh : Nat → Expr → m Expr) (env : Env) (entry : ProjE
     (us : List Level) : m Unit :=
   match env.find? entry.structName with
   | some (.indInfo cvT caps) => do
-    match ← projRowBound wh cvT caps us with
+    match ← projGuardSort wh cvT caps us with
     | none => pure ()
-    | some bound =>
+    | some guardSort =>
       match projGuardRows env.find? entry us with
-      | some rows => checkGuardRows inf wh bound rows
+      | some rows => checkGuardRows inf wh guardSort rows
       | none => throw (.invalid "projection from a propositional structure must be a proposition")
   | _ => throw (.invalid "projection from a propositional structure must be a proposition")
 

@@ -957,7 +957,7 @@ def ensureSortI (r : CoreFnsI) (depth : Nat) (e : Expr) : CheckCM Level := do
   | _ => throw (.invalid "expected a sort")
 
 /-- Twin of `checkGuardRows`. -/
-def checkGuardRowsI (inf wh : Nat → Expr → CheckCM Expr) (bound : Level) :
+def checkGuardRowsI (inf wh : Nat → Expr → CheckCM Expr) (guardSort : Level) :
     List (Nat × Expr) → CheckCM Unit
   | [] => pure ()
   | (d, dom) :: rest => do
@@ -965,13 +965,13 @@ def checkGuardRowsI (inf wh : Nat → Expr → CheckCM Expr) (bound : Level) :
     let w ← wh d t
     match w with
     | .sort u =>
-      unless Level.leq u bound == some true do
+      unless Level.zeroWhereZero guardSort u do
         throw (.invalid "projection from a propositional structure must be a proposition")
-      checkGuardRowsI inf wh bound rest
+      checkGuardRowsI inf wh guardSort rest
     | _ => throw (.invalid "expected a sort")
 
-/-- Twin of `projRowBound`. -/
-def projRowBoundI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (caps : IndCaps)
+/-- Twin of `projGuardSort`. -/
+def projGuardSortI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (caps : IndCaps)
     (us : List Level) : CheckCM (Option Level) :=
   match formerResSort cvT.type with
   | some s => pure (if s.isAlwaysZero then some .zero else none)
@@ -982,16 +982,16 @@ def projRowBoundI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (caps
     | some s => pure (if (Level.zeronessOf s).isNever then none else some s)
     | none => throw (.invalid "projection from a structure whose type reaches no sort")
 
-/-- The rows of a projection's guard at their bound. -/
+/-- The rows of a projection's guard, against the sort they answer to. -/
 def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
-    (us : List Level) (bound : Level) : CheckCM Unit :=
+    (us : List Level) (guardSort : Level) : CheckCM Unit :=
   match fe.find? entry.ctor with
   | some ci => do
     let cv := ci.toConstantVal
     let cty ← constTyAtM fe entry.ctor entry.ctor us
     match openPisAtFvarsF (entry.numParams + entry.idx + 1) cty 0 with
     | some (fvs, _) =>
-      checkGuardRowsI inf wh bound (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
+      checkGuardRowsI inf wh guardSort (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
     | none =>
       throw (.invalid "projection from a propositional structure must be a proposition")
   | none =>
@@ -1004,10 +1004,10 @@ def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry 
     (us : List Level) : CheckCM Unit := do
   match fe.find? entry.structName with
   | some (.indInfo cvT caps) => do
-    let b? ← projRowBoundI wh cvT caps us
+    let b? ← projGuardSortI wh cvT caps us
     match b? with
     | none => pure ()
-    | some bound => checkProjRowsI inf wh fe entry us bound
+    | some guardSort => checkProjRowsI inf wh fe entry us guardSort
   | _ => throw (.invalid "projection from a propositional structure must be a proposition")
 
 /-! ### Binder-telescope loops (task #72)

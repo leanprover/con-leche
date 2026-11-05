@@ -217,11 +217,11 @@ sort, at the hereditary clause's witness. -/
       IORel m φ d T ρ v → v = pt
 
 /-- **The guard rows' motive** (`GuardRows`): each row's io claim, its
-type's reduction to a sort, and that sort's being under the bound. -/
+type's reduction to a sort, and that sort's vanishing with `guardSort`. -/
 @[expose] def GuardRowsSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
-    (bound : Level) (rows : List (Nat × Expr)) : Prop :=
+    (guardSort : Level) (rows : List (Nat × Expr)) : Prop :=
   ∀ p ∈ rows, ∃ (t : Expr) (u : Level), InferSemIO m φ p.1 p.2 t ∧ RedSem m φ p.1 t (.sort u) ∧
-    Red env p.1 t (.sort u) ∧ Level.leq u bound = some true
+    Red env p.1 t (.sort u) ∧ Level.zeroWhereZero guardSort u = true
 
 /-- **A projection's guard's motive** (`ProjGuard`): at a stored constructor, the
 typing law's premise. -/

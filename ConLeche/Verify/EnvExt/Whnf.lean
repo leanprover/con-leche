@@ -573,9 +573,9 @@ theorem ensureSort_rel {e : Expr} (he : Res env₁ e) :
 end Bodies
 
 theorem checkGuardRows_rel (K : KR env₁ r₂ r₁) {inf₂ inf₁ : Nat → Expr → CheckM Expr}
-    (hinf : ∀ d {e}, Res env₁ e → Rel (Res env₁) (inf₂ d e) (inf₁ d e)) (bound : Level) :
+    (hinf : ∀ d {e}, Res env₁ e → Rel (Res env₁) (inf₂ d e) (inf₁ d e)) (guardSort : Level) :
     ∀ (rows : List (Nat × Expr)), (∀ row ∈ rows, Res env₁ row.2) →
-      Rel TT (checkGuardRows inf₂ r₂.whnf bound rows) (checkGuardRows inf₁ r₁.whnf bound rows)
+      Rel TT (checkGuardRows inf₂ r₂.whnf guardSort rows) (checkGuardRows inf₁ r₁.whnf guardSort rows)
   | [], _ => Rel.ok trivial
   | (d, dom) :: rest, h => by
     simp only [checkGuardRows]
@@ -584,15 +584,15 @@ theorem checkGuardRows_rel (K : KR env₁ r₂ r₁) {inf₂ inf₁ : Nat → Ex
     cases w with
     | sort u =>
       dsimp only
-      have hr := checkGuardRows_rel K hinf bound rest
+      have hr := checkGuardRows_rel K hinf guardSort rest
         (fun row hrow => h row (List.mem_cons_of_mem _ hrow))
       refine Rel.ite (fun _ => hr) fun _ => Rel.err _
     | _ => exact Rel.err _
 
-theorem projRowBound_rel (K : KR env₁ r₂ r₁) {cvT : ConstantVal} {caps : IndCaps} {us : List Level}
+theorem projGuardSort_rel (K : KR env₁ r₂ r₁) {cvT : ConstantVal} {caps : IndCaps} {us : List Level}
     (hT : Res env₁ cvT.type) :
-    Rel TT (projRowBound r₂.whnf cvT caps us) (projRowBound r₁.whnf cvT caps us) := by
-  unfold projRowBound
+    Rel TT (projGuardSort r₂.whnf cvT caps us) (projGuardSort r₁.whnf cvT caps us) := by
+  unfold projGuardSort
   split
   · exact Rel.ok trivial
   · refine Rel.bind (formerSortLoop_rel K _ 0 (res_inst _ _ hT)) fun w _ => ?_
@@ -616,14 +616,14 @@ theorem checkProjGuard_rel (K : KR env₁ r₂ r₁) (hx : EnvExt env₁ env₂)
     cases ci with
     | indInfo cvT caps =>
       dsimp only
-      refine Rel.bind (projRowBound_rel K (hx.facts.type hfs)) fun o _ => ?_
+      refine Rel.bind (projGuardSort_rel K (hx.facts.type hfs)) fun o _ => ?_
       cases o with
       | none => exact Rel.ok trivial
-      | some bound =>
+      | some guardSort =>
         dsimp only
         cases hr : projGuardRows env₁.find? entry us with
         | none => exact Rel.err _
-        | some rows => exact checkGuardRows_rel K hinf bound rows (res_projGuardRows hx.facts hr)
+        | some rows => exact checkGuardRows_rel K hinf guardSort rows (res_projGuardRows hx.facts hr)
     | _ => exact Rel.err _
 
 /-- A `.const` node's type. -/

@@ -3221,3 +3221,9 @@
 1 natop_foreign_thm.ndjson
 1 natop_foreign_former.ndjson
 1 bool_ctor_name_former.ndjson
+# -- task #480: a projection's guard at a def-headed structure asks each row to be zero
+# wherever the walked sort is, by zero-ness: exact, and it takes no fuel.  level_fuel_guard:
+# the row and the sort at a level chain deeper than `Level.leq`'s fuel, which the former test
+# read as a refusal.  Official 0 (run); the structure of `ind_defhead_sort_u` passes official's
+# block check, so its rows lie under its sort at every level.  `scripts/mk_level_fuel.py`.
+0 level_fuel_guard.ndjson

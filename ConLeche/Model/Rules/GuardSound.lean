@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.PropWhen
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.OpenedCtx
 import ConLeche.Model.CtxOkKit
@@ -32,14 +33,14 @@ universe w
 variable {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env} {φ : Name → Nat}
 
 /-- The rows' relation's motive, its empty list. -/
-theorem GuardRows.nil_sound {bound : Level} : GuardRowsSem m φ bound [] := fun _ h => nomatch h
+theorem GuardRows.nil_sound {guardSort : Level} : GuardRowsSem m φ guardSort [] := fun _ h => nomatch h
 
 /-- The rows' relation's motive, one more row. -/
-theorem GuardRows.row_sound {bound : Level} {d : Nat} {dom t : Expr} {u : Level}
+theorem GuardRows.row_sound {guardSort : Level} {d : Nat} {dom t : Expr} {u : Level}
     {rest : List (Nat × Expr)}
     (hi : InferSemIO m φ d dom t) (hr : RedSem m φ d t (.sort u)) (hrr : Red env d t (.sort u))
-    (hz : Level.leq u bound = some true) (hrest : GuardRowsSem m φ bound rest) :
-    GuardRowsSem m φ bound ((d, dom) :: rest) := by
+    (hz : Level.zeroWhereZero guardSort u = true) (hrest : GuardRowsSem m φ guardSort rest) :
+    GuardRowsSem m φ guardSort ((d, dom) :: rest) := by
   intro p hp
   rcases List.mem_cons.mp hp with rfl | hp
   · exact ⟨t, u, hi, hr, hrr, hz⟩
@@ -55,11 +56,12 @@ theorem reverse_drop_eq {α : Type _} (l : List α) {k i : Nat} (hl : l.length =
 
 /-- **The rows of the typing law's premise, from the use's derivations.** -/
 theorem rowsAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us : List Level}
-    {rows : List (Nat × Expr)} {cvC : ConstantVal} {nP nF : Nat} {bound : Level}
+    {rows : List (Nat × Expr)} {cvC : ConstantVal} {nP nF : Nat} {guardSort : Level}
     (hfC : env.find? entry.ctor = some (.ctorInfo cvC nP nF))
     (hus : us.length = cvC.levelParams.length)
     (hrows : projGuardRows env.find? entry us = some rows)
-    (hg : GuardRowsSem m φ bound rows) : RowsAt m φ entry us cvC (bound.eval φ) := by
+    (hg : GuardRowsSem m φ guardSort rows) (hzero : guardSort.eval φ = 0) :
+    RowsAt m φ entry us cvC 0 := by
   intro ds b hread hlt j hj hrow ρ hsat
   have hwfC := m.wf.consts _ (ConLeche.Env.find?_mem hfC)
   have hcl : (cvC.type.instantiateLevelParams cvC.levelParams us).hasFvar = false := by
@@ -167,6 +169,6 @@ theorem rowsAt_of_rows (hin : RulesInputs V m φ) {entry : ProjEntry} {us : List
   obtain rfl := Option.some.inj hsa
   obtain ⟨-, heq⟩ := hr ρ hsat (hLG.of_subset hsub) hokTy.1 hokTy.2.ne_pt
   rw [heq, interp_sort] at hmemTy
-  exact univ_mono (Level.leq_sound hz φ) _ hmemTy
+  rwa [ConLeche.Level.zeroWhereZero_sound hz φ hzero] at hmemTy
 
 end ConLeche.Model.Rules

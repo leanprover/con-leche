@@ -404,13 +404,13 @@ theorem inferLamsC_tail_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d
   (inferLamsC_tail_sim ih henv hs rfl rfl rfl hwty hwb).triple relEC_inv
 
 /-- The rows of a projection's guard simulate their fueled original. -/
-theorem checkGuardRowsC_spec (ih : SSimC mode eager env f) (bound : Level) :
+theorem checkGuardRowsC_spec (ih : SSimC mode eager env f) (guardSort : Level) :
     ∀ {rows : List (Nat × Expr)} {s₀ : CState}, CSOK mode eager env s₀ → GuardRowsWS rows →
       ⦃fun s => s = s₀⦄ checkGuardRowsI (coreKnotI mode eager (mkFEnv env) f).inferIO
-        (coreKnotI mode eager (mkFEnv env) f).whnf bound rows
+        (coreKnotI mode eager (mkFEnv env) f).whnf guardSort rows
       ⦃fun v s' => CSOK mode eager env s' ∧
         Runs (checkGuardRows (fueledFns mode eager env).inferIO
-          (fueledFns mode eager env).whnf bound rows) v; ⊤⦄ := by
+          (fueledFns mode eager env).whnf guardSort rows) v; ⊤⦄ := by
   intro rows
   induction rows with
   | nil =>
@@ -426,27 +426,27 @@ theorem checkGuardRowsC_spec (ih : SSimC mode eager env f) (bound : Level) :
       vcgen [checkGuardRowsI.eq_def, ih.inferIO_spec, ih.whnf_spec, ihr] <;> finish
 
 /-- What a projection's rows lie under simulates its fueled original. -/
-theorem projRowBoundC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {caps : IndCaps}
+theorem projGuardSortC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {caps : IndCaps}
     {us : List Level} {s₀ : CState} (hcl : cvT.type.hasFvar = false)
     (hs : CSOK mode eager env s₀) :
-    ⦃fun s => s = s₀⦄ projRowBoundI (coreKnotI mode eager (mkFEnv env) f).whnf cvT caps us
+    ⦃fun s => s = s₀⦄ projGuardSortI (coreKnotI mode eager (mkFEnv env) f).whnf cvT caps us
     ⦃fun v s' => CSOK mode eager env s' ∧
-      Runs (projRowBound (fueledFns mode eager env).whnf cvT caps us) v; ⊤⦄ := by
+      Runs (projGuardSort (fueledFns mode eager env).whnf cvT caps us) v; ⊤⦄ := by
   have hw : Expr.WScoped 0 (cvT.type.instantiateLevelParams cvT.levelParams us) :=
     Expr.WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact hcl)
-  sym only [conleche_grind, projRowBound] =>
-    vcgen [projRowBoundI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
+  sym only [conleche_grind, projGuardSort] =>
+    vcgen [projGuardSortI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
 
-/-- The rows at a bound simulate their fueled original. -/
+/-- The rows at a guardSort simulate their fueled original. -/
 theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
-    {entry : ProjEntry} {us : List Level} {bound : Level} {s₀ : CState}
+    {entry : ProjEntry} {us : List Level} {guardSort : Level} {s₀ : CState}
     (hs : CSOK mode eager env s₀) :
     ⦃fun s => s = s₀⦄ checkProjRowsI (coreKnotI mode eager (mkFEnv env) f).inferIO
-      (coreKnotI mode eager (mkFEnv env) f).whnf (mkFEnv env) entry us bound
+      (coreKnotI mode eager (mkFEnv env) f).whnf (mkFEnv env) entry us guardSort
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (match projGuardRows env.find? entry us with
         | some rows => checkGuardRows (fueledFns mode eager env).inferIO
-            (fueledFns mode eager env).whnf bound rows
+            (fueledFns mode eager env).whnf guardSort rows
         | none => throw (.invalid "projection from a propositional structure must be a proposition"))
         v; ⊤⦄ := by
   cases hc : env.find? entry.ctor with
@@ -491,7 +491,7 @@ theorem checkProjGuardC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
   · next cvT caps hT =>
     have hcl : cvT.type.hasFvar = false := (henv.consts _ (Env.find?_mem hT)).1
     sym only [conleche_grind] =>
-      vcgen [projRowBoundC_spec ih hcl, projRowsC_spec ih henv] <;> finish
+      vcgen [projGuardSortC_spec ih hcl, projRowsC_spec ih henv] <;> finish
   · sym only [conleche_grind] => vcgen <;> finish
 
 /-- `checkProjGuardC_spec` at the io views the io body runs it at. -/

@@ -657,17 +657,18 @@ inductive IotaCase (env : Env) : Bool → ConstantVal → List Level → Bool �
 
 /-- **The rows of a projection's guard** (`checkGuardRows`,
 `Kernel/Core.lean`; official `infer_proj`'s `is_prop`): each row's term
-has, at the io grade, a type reducing to a sort under the bound. -/
+has, at the io grade, a type reducing to a sort that is zero wherever `guardSort` is. -/
 inductive GuardRows (env : Env) : Level → List (Nat × Expr) → Prop where
-  | nil {bound : Level} : GuardRows env bound []
-  | row {bound : Level} {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)} :
+  | nil {guardSort : Level} : GuardRows env guardSort []
+  | row {guardSort : Level} {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)} :
       Infer env .io d dom t → Red env d t (.sort u) →
-      Level.leq u bound = some true →
-      GuardRows env bound rest → GuardRows env bound ((d, dom) :: rest)
+      Level.zeroWhereZero guardSort u = true →
+      GuardRows env guardSort rest → GuardRows env guardSort ((d, dom) :: rest)
 
 /-- **A projection's guard at a use** (`checkProjGuard`), by the structure's stored
 type: a sort that is not `Prop` asks nothing, `Prop` asks for propositions; a
-reduction to a sort asks nothing where it is never zero, else bounds the rows. -/
+reduction to a sort asks nothing where it is never zero, else asks each row to vanish
+with it. -/
 inductive ProjGuard (env : Env) : ProjEntry → List Level → Prop where
   | notProp {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} :
       env.find? entry.structName = some (.indInfo cvT caps) →
@@ -683,7 +684,7 @@ inductive ProjGuard (env : Env) : ProjEntry → List Level → Prop where
       FormerSort env 0 (caps.nparams + caps.nIdx)
         (cvT.type.instantiateLevelParams cvT.levelParams us) s →
       (Level.zeronessOf s).isNever = true → ProjGuard env entry us
-  | under {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} {rows : List (Nat × Expr)} :
+  | mayVanish {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} {rows : List (Nat × Expr)} :
       env.find? entry.structName = some (.indInfo cvT caps) →
       formerResSort cvT.type = none →
       FormerSort env 0 (caps.nparams + caps.nIdx)

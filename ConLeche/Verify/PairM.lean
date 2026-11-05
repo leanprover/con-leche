@@ -490,9 +490,9 @@ theorem ensureSort_snd_proj (d : Nat) (e : Expr) :
   unfold ensureSort
   snd_tac
 
-theorem checkGuardRows_fst (bound : Level) {inf wh : Nat → Expr → PairM rel Expr} {inf₁ wh₁ : Nat → Expr → M₁ Expr}
+theorem checkGuardRows_fst (guardSort : Level) {inf wh : Nat → Expr → PairM rel Expr} {inf₁ wh₁ : Nat → Expr → M₁ Expr}
     (hi : ∀ d e, (inf d e).val.1 = inf₁ d e) (hw : ∀ d e, (wh d e).val.1 = wh₁ d e) :
-    ∀ rows, (checkGuardRows inf wh bound rows).val.1 = checkGuardRows inf₁ wh₁ bound rows
+    ∀ rows, (checkGuardRows inf wh guardSort rows).val.1 = checkGuardRows inf₁ wh₁ guardSort rows
   | [] => rfl
   | (d, dom) :: rest => by
     unfold checkGuardRows
@@ -502,14 +502,14 @@ theorem checkGuardRows_fst (bound : Level) {inf wh : Nat → Expr → PairM rel 
     rw [hw d t]; refine congrArg _ (funext fun w => ?_)
     cases w <;> try rfl
     dsimp only []
-    have hk := checkGuardRows_fst bound hi hw rest
+    have hk := checkGuardRows_fst guardSort hi hw rest
     split
     · exact hk
     · rw [PairM.fst_bind, hk]; rfl
 
-theorem checkGuardRows_snd (bound : Level) {inf wh : Nat → Expr → PairM rel Expr} {inf₂ wh₂ : Nat → Expr → M₂ Expr}
+theorem checkGuardRows_snd (guardSort : Level) {inf wh : Nat → Expr → PairM rel Expr} {inf₂ wh₂ : Nat → Expr → M₂ Expr}
     (hi : ∀ d e, (inf d e).val.2 = inf₂ d e) (hw : ∀ d e, (wh d e).val.2 = wh₂ d e) :
-    ∀ rows, (checkGuardRows inf wh bound rows).val.2 = checkGuardRows inf₂ wh₂ bound rows
+    ∀ rows, (checkGuardRows inf wh guardSort rows).val.2 = checkGuardRows inf₂ wh₂ guardSort rows
   | [] => rfl
   | (d, dom) :: rest => by
     unfold checkGuardRows
@@ -519,15 +519,15 @@ theorem checkGuardRows_snd (bound : Level) {inf wh : Nat → Expr → PairM rel 
     rw [hw d t]; refine congrArg _ (funext fun w => ?_)
     cases w <;> try rfl
     dsimp only []
-    have hk := checkGuardRows_snd bound hi hw rest
+    have hk := checkGuardRows_snd guardSort hi hw rest
     split
     · exact hk
     · rw [PairM.snd_bind, hk]; rfl
 
-theorem projRowBound_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
-    (projRowBound (pairFns r₁ r₂ h).whnf cvT caps us).val.1 =
-      projRowBound r₁.whnf cvT caps us := by
-  unfold projRowBound
+theorem projGuardSort_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (projGuardSort (pairFns r₁ r₂ h).whnf cvT caps us).val.1 =
+      projGuardSort r₁.whnf cvT caps us := by
+  unfold projGuardSort
   split
   · rfl
   · rw [PairM.fst_bind, formerSortLoop_fst (fun _ _ => rfl)]
@@ -539,21 +539,21 @@ theorem checkProjGuard_fst_proj (entry : ProjEntry) (us : List Level) :
       checkProjGuard r₁.inferIO r₁.whnf env entry us := by
   unfold checkProjGuard
   split
-  · rw [PairM.fst_bind, projRowBound_fst_proj]
+  · rw [PairM.fst_bind, projGuardSort_fst_proj]
     refine congrArg _ (funext fun o => ?_)
     cases o with
     | none => rfl
-    | some bound =>
+    | some guardSort =>
       dsimp only
       split
-      · exact checkGuardRows_fst bound (fun _ _ => rfl) (fun _ _ => rfl) _
+      · exact checkGuardRows_fst guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
       · rfl
   · rfl
 
-theorem projRowBound_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
-    (projRowBound (pairFns r₁ r₂ h).whnf cvT caps us).val.2 =
-      projRowBound r₂.whnf cvT caps us := by
-  unfold projRowBound
+theorem projGuardSort_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (projGuardSort (pairFns r₁ r₂ h).whnf cvT caps us).val.2 =
+      projGuardSort r₂.whnf cvT caps us := by
+  unfold projGuardSort
   split
   · rfl
   · rw [PairM.snd_bind, formerSortLoop_snd (fun _ _ => rfl)]
@@ -565,14 +565,14 @@ theorem checkProjGuard_snd_proj (entry : ProjEntry) (us : List Level) :
       checkProjGuard r₂.inferIO r₂.whnf env entry us := by
   unfold checkProjGuard
   split
-  · rw [PairM.snd_bind, projRowBound_snd_proj]
+  · rw [PairM.snd_bind, projGuardSort_snd_proj]
     refine congrArg _ (funext fun o => ?_)
     cases o with
     | none => rfl
-    | some bound =>
+    | some guardSort =>
       dsimp only
       split
-      · exact checkGuardRows_snd bound (fun _ _ => rfl) (fun _ _ => rfl) _
+      · exact checkGuardRows_snd guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
       · rfl
   · rfl
 
@@ -581,14 +581,14 @@ theorem checkProjGuardI_fst_proj (entry : ProjEntry) (us : List Level) :
       checkProjGuard r₁.infer r₁.whnf env entry us := by
   unfold checkProjGuard
   split
-  · rw [PairM.fst_bind, projRowBound_fst_proj]
+  · rw [PairM.fst_bind, projGuardSort_fst_proj]
     refine congrArg _ (funext fun o => ?_)
     cases o with
     | none => rfl
-    | some bound =>
+    | some guardSort =>
       dsimp only
       split
-      · exact checkGuardRows_fst bound (fun _ _ => rfl) (fun _ _ => rfl) _
+      · exact checkGuardRows_fst guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
       · rfl
   · rfl
 
@@ -597,14 +597,14 @@ theorem checkProjGuardI_snd_proj (entry : ProjEntry) (us : List Level) :
       checkProjGuard r₂.infer r₂.whnf env entry us := by
   unfold checkProjGuard
   split
-  · rw [PairM.snd_bind, projRowBound_snd_proj]
+  · rw [PairM.snd_bind, projGuardSort_snd_proj]
     refine congrArg _ (funext fun o => ?_)
     cases o with
     | none => rfl
-    | some bound =>
+    | some guardSort =>
       dsimp only
       split
-      · exact checkGuardRows_snd bound (fun _ _ => rfl) (fun _ _ => rfl) _
+      · exact checkGuardRows_snd guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
       · rfl
   · rfl
 

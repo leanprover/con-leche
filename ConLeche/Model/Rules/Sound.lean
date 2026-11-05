@@ -207,19 +207,19 @@ theorem projGuard_sound (hin : RulesInputs V m φ) :
     ∀ {entry : ProjEntry} {us : List Level}, ProjGuard env entry us → ProjGuardSem m φ entry us
   | _, _, .notProp hT hs hz => fun _ _ _ _ _ _ => .inl ⟨_, _, _, hT, hs, hz⟩
   | _, _, .prop _ _ _ hr hg => fun _ _ _ hfC hus _ =>
-    .inr (.inl (by
-      have := rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg)
-      simpa [Level.eval] using this))
+    .inr (.inl (rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg) rfl))
   | _, _, .never hT _ hs hnv => fun _ _ _ _ hus hl =>
     .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
       .inl (eval_ne_zero_of_isNever hnv φ)⟩)
-  | _, _, .under hT _ hs _ hr hg => fun _ _ _ hfC hus hl =>
+  | _, _, .mayVanish hT _ hs _ hr hg => fun _ _ _ hfC hus hl =>
     .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
-      .inr (rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg))⟩)
+      if hz : Level.eval φ _ = 0 then
+        .inr (by rw [hz]; exact rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg) hz)
+      else .inl hz⟩)
 
 theorem guardRows_sound (hin : RulesInputs V m φ) :
-    ∀ {bound : Level} {rows : List (Nat × Expr)}, GuardRows env bound rows →
-      GuardRowsSem m φ bound rows
+    ∀ {guardSort : Level} {rows : List (Nat × Expr)}, GuardRows env guardSort rows →
+      GuardRowsSem m φ guardSort rows
   | _, _, .nil => GuardRows.nil_sound
   | _, _, .row hi hr hz hrest =>
     GuardRows.row_sound (infer_sound hin hi) (red_sound hin hr) hr hz (guardRows_sound hin hrest)

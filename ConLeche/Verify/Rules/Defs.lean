@@ -74,10 +74,10 @@ theorem inferTypeIO_bridge {fuel : Nat} (hio : InferIOBridge μ eager env fuel)
 
 /-- A successful run of a projection guard's rows is the relation's
 walk. -/
-theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr} {bound : Level}
+theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr} {guardSort : Level}
     (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
     (hwh : ∀ d e t, wh d e = .ok t → Red env d e t) :
-    ∀ rows, checkGuardRows inf wh bound rows = .ok () → GuardRows env bound rows
+    ∀ rows, checkGuardRows inf wh guardSort rows = .ok () → GuardRows env guardSort rows
   | [], _ => .nil
   | (d, dom) :: rest, h => by
     unfold checkGuardRows at h
@@ -138,11 +138,11 @@ theorem checkProjGuard_bridge {inf wh : Nat → Expr → CheckM Expr}
   split at h
   case h_2 => exact nomatch h
   rename_i cvT caps hfT
-  cases hb : projRowBound wh cvT caps us with
+  cases hb : projGuardSort wh cvT caps us with
   | error err => rw [hb] at h; exact nomatch h
   | ok o =>
   rw [hb] at h
-  unfold projRowBound at hb
+  unfold projGuardSort at hb
   split at hb
   · next s hs =>
     cases hz : s.isAlwaysZero with
@@ -172,7 +172,7 @@ theorem checkProjGuard_bridge {inf wh : Nat → Expr → CheckM Expr}
       simp only [hnv, Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
       subst hb
       split at h
-      · next rows hr => exact .under hfT hs hfs hnv hr (checkGuardRows_bridge hinf hwh rows h)
+      · next rows hr => exact .mayVanish hfT hs hfs hnv hr (checkGuardRows_bridge hinf hwh rows h)
       · exact nomatch h
 
 /-! ## The zero cases: every entry point throws at fuel `0` -/

@@ -203,6 +203,15 @@ def isAlwaysZero (s : Level) : Bool :=
   | .ifAllZero [] => true
   | _ => false
 
+/-- Is `u` zero at every valuation at which `s` is?  Exact: `s` is zero exactly where
+its datum's parameters are, and so is `u`, so the implication holds exactly when `u`'s
+parameters are among `s`'s, or `s` is never zero. -/
+def zeroWhereZero (s u : Level) : Bool :=
+  match zeronessOf s, zeronessOf u with
+  | .never, _ => true
+  | .ifAllZero _, .never => false
+  | .ifAllZero ps, .ifAllZero qs => qs.all ps.contains
+
 /-- Push a level-parameter substitution through a zero-ness datum
 (task #161): each parameter becomes its replacement's datum,
 intersected — `Z(subst ks vs l)` is exactly
