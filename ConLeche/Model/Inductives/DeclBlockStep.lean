@@ -32,7 +32,7 @@ public section
 
 `declBlock`: **the P carrier survives the UNIFORM install's run at `k`
 members**, nested blocks included — from a covered carrier, some covered
-carrier at the installed environment.  It is the fold's block step
+carrier at the block's environment.  It is the fold's block step
 (`declStep_preserves`, `Model/Fold.lean`).  One straight path, each stage
 read off its own run:
 

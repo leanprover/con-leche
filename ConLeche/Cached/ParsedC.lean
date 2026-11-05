@@ -23,7 +23,7 @@ acceptance at `.verified` is covered by the main corollary `no_False_declaration
 environment (`checkDecls_agree`, `ConLeche/Verify/Cached/DeclPushes.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185): the knot it
-ties (`coreKnotI mode`) and the install-time stages all take the same
+ties (`coreKnotI mode`) and the block's stages all take the same
 mode.
 -/
 

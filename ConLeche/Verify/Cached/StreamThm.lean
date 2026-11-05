@@ -14,21 +14,19 @@ public section
 The letters of the fold (`ConLeche/Verify/Cached/MainC.lean`) are about
 the environment `checkDecls` RETURNS.  This module carries one fact the
 other way, from the fold's INPUT: a `thmDecl` record whose declared type
-is a bare constant is installed, with that very type, and the constant
+is a bare constant is stored, with that very type, and the constant
 survives to the end of the run.
 
 Three ingredients, one per step of the walk:
 
-* **the header is stored as declared.**  Phase A's header install
-  (`headerGuardsC`) runs guards only; the stored header is the
-  declared one, used directly.
+* **the header is stored as declared.**  The check runs guards only;
+  the stored header is the declared one, used directly.
 * **a theorem record is never dropped.**  The check's `thmDecl` arm
-  either throws or pushes `.thmInfo ⟨cv.name, cv.levelParams, jty⟩`
-  with the declared type `jty`: `installStepC_thm_consts`.
-* **pushed constants persist.**  An accepting `InstallRun` only ever
-  extends the constants list (`installRun_trace`, `PushChain`), so what
-  the theorem's step pushed is still there at the end of phase A —
-  and phase B pushes nothing at all.
+  either throws or pushes `declConstants` of the record, the theorem at
+  its declared type: `checkDeclStepC_pushes`.
+* **pushed constants persist.**  An accepting `DeclsRun` only ever
+  extends the constants list, so what the theorem's step pushed is still
+  there at the end of the run.
 
 `checkDecls_thmDecl_const` is the three composed: the returned
 environment holds a constant of the record's declared type.  Nothing

@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Kernel.Core
+import Std.Data.HashMap.Lemmas
 
 @[expose] public section
 
@@ -94,23 +95,37 @@ def mkFEnv (env : Env) : FEnv :=
 
 namespace FEnv
 
+/-- The index, then the frozen layer.  A job's own index is empty until its record pushes, and the
+lookups are hot, so an empty index is not hashed into. -/
+@[inline] def lookup (fe : @& FEnv) (n : Name) : Option ConstantInfo :=
+  if fe.idx.isEmpty then fe.base.find? n
+  else
+    match fe.idx[n]? with
+    | some ci => some ci
+    | none => fe.base.find? n
+
+/-- The emptiness test changes no answer. -/
+theorem lookup_eq (fe : FEnv) (n : Name) :
+    fe.lookup n = match fe.idx[n]? with
+      | some ci => some ci
+      | none => fe.base.find? n := by
+  unfold lookup
+  split
+  · rename_i h
+    rw [Std.HashMap.getElem?_of_isEmpty h]
+  · rfl
+
 /-- Indexed lookup (`= Env.find?` for `mkFEnv`); an index miss falls through to the base layer (empty
 but in a view of a stream's index).  With an overlay, the overlay first -- exactly what pushing the
 overlay's constants would answer.  `fe` is borrowed: the overlay branch otherwise makes the compiler
 take it owned, reference-count traffic on every lookup. -/
 def find? (fe : @& FEnv) (n : Name) : Option ConstantInfo :=
   match fe.ovl with
-  | [] =>
-    match fe.idx[n]? with
-    | some ci => some ci
-    | none => fe.base.find? n
+  | [] => fe.lookup n
   | ovl@(_ :: _) =>
     match ovl.find? (·.name == n) with
     | some ci => some ci
-    | none =>
-      match fe.idx[n]? with
-      | some ci => some ci
-      | none => fe.base.find? n
+    | none => fe.lookup n
 
 /-- The index of the cons-extended environment (`push_mkFEnv`:
 `FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts, env.tables⟩`,

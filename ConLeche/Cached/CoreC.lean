@@ -240,11 +240,9 @@ def proofIrrelI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER** (the mode
-itself since task #185).  Every configured body below takes
+/- **THE BODY TEMPLATE'S PARAMETER** is the mode.  Every configured body below takes
 `mode : CheckMode` and is instantiated at the two named concrete cores
-at the end of this module (`…PC` at `.verified`, `…TC` at `.trusted`;
-the `…RC` half retired with the R core, 2026-09-05).  Every read below
+at the end of this module (`…PC` at `.verified`, `…TC` at `.trusted`).  Every read below
 is one of the `CheckMode` functions of `ConLeche/Kernel/Env.lean`, each
 a `match` on the enum.  The ι cone (`majorToCtorI` → `prepareMajorI`
 → `iotaRecI`) reads the mode through `certAtI`. -/
@@ -1533,7 +1531,7 @@ def defeqBodyI (eager : Bool) (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr
 
 /-- Memoize a unary entry point under its node (`O(1)` key).
 
-`@[inline]` (the retired twin's perf-eng E2, now the one knot's): after
+`@[inline]`: after
 inlining the getter/setter lambdas beta-reduce away and the memo probe
 compiles into the record field's own closure.  A compiler attribute
 only — the term the proofs unfold is unchanged. -/

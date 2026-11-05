@@ -59,7 +59,7 @@ theorem sharedOpsRuleR_envFree (mode : CheckMode) (fe : FEnv) :
 theorem find?_push {fe : FEnv} (h : fe.ovl = []) (ci : ConstantInfo) (n : Name) :
     (fe.push ci).find? n = if ci.name = n then some ci else fe.find? n := by
   have hov : (fe.push ci).ovl = [] := h
-  simp only [FEnv.find?, hov, h]
+  simp only [FEnv.find?, hov, h, FEnv.lookup_eq]
   simp only [FEnv.push, Std.HashMap.getElem?_insert, beq_iff_eq]
   by_cases hn : ci.name = n
   · simp [hn]

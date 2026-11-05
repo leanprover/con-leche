@@ -45,7 +45,7 @@ private theorem find?_of_ovl_nil {fe : FEnv} (h : fe.ovl = []) (n : Name) :
     fe.find? n = bnd fe.idx fe.base n := by
   obtain ⟨env, idx, base, ovl, tbls⟩ := fe
   subst h
-  rfl
+  exact FEnv.lookup_eq _ n
 
 private theorem find?_overlay_bnd {fe : FEnv} (h : fe.ovl = []) (new : List ConstantInfo)
     (n : Name) :
@@ -53,12 +53,12 @@ private theorem find?_overlay_bnd {fe : FEnv} (h : fe.ovl = []) (new : List Cons
   obtain ⟨env, idx, base, ovl, tbls⟩ := fe
   subst h
   cases new with
-  | nil => rfl
+  | nil => exact FEnv.lookup_eq _ n
   | cons ci rest =>
     show (match (ci :: rest ++ []).find? (·.name == n) with
         | some ci => some ci
-        | none => bnd idx base n) = _
-    rw [List.append_nil]
+        | none => FEnv.lookup ⟨_, idx, base, ci :: rest ++ [], tbls⟩ n) = _
+    rw [FEnv.lookup_eq, List.append_nil]
     cases (ci :: rest).find? (·.name == n) <;> rfl
 
 private theorem bnd_insert (idx : Std.HashMap Name ConstantInfo) (base : FBase)

@@ -5,11 +5,12 @@ public import ConLeche.Kernel.Inductives.BlockInstall
 @[expose] public section
 
 /-!
-# What a declaration installs
+# What a declaration adds
 
 A declaration's constants and projection tables are a direct consequence of the declaration: this
 file reads them off it, with no environment, no inference and no reduction.  The fold's step pushes
-exactly this once the declaration's checks pass, and the parallel install pushes it before them.
+exactly this once the declaration's checks pass, and the stream's index is built from it before any
+check runs.
 
 A block the checks reject may still read as something here (a recursor whose major is not a
 container reads as firing `.plain`, a structure whose constructor is too short has no table): what

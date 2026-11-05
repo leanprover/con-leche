@@ -363,7 +363,7 @@ def IdTable.bound (t : @& IdTable α) (i : Nat) : Bool :=
 (`IdTable.markLinear_eq`), which at run time sets the runtime's
 linearity bit on both arrays, so that a copy of either — a push while a
 second reference to the table is alive — panics instead of silently
-copying (`FEnv.markLinear`, `ConLeche/Kernel/FEnv.lean`).  To be
+copying.  To be
 applied where a table is created at run time, never on a closed term
 (the rounds parse marks its own arrays: `round0`, `roundR`). -/
 @[never_extract, noinline]

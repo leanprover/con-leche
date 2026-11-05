@@ -9,15 +9,12 @@ import ConLeche.Verify.CheckerF
 public section
 
 /-!
-# Every accepted install is a chain of fresh pushes (task #253)
+# Every accepted step is a chain of fresh pushes (task #253)
 
-The two-phase driver (`checkDecls`, `ConLeche/Cached/Decls.lean`)
-checks each recorded value against a PREFIX VIEW of the final
-environment, `feFinal.restrictTo vis`, and the prefix view's `find?` is
-the truncated environment's only under name uniqueness
-(`mkFEnv_find?_visibleBelow`, `ConLeche/Verify/EnvBound.lean`).  Name
-uniqueness is an install-time invariant: every push a driver step
-performs is guarded by a lookup — `checkConstantValC`'s duplicate
+A record's job reads the stream's index (`ConLeche/Cached/StreamIndex.lean`), where a name's first
+entry wins, and the fold's index, where its newest does; the two answer alike only under name
+uniqueness (`viewTwin`, `ConLeche/Verify/Cached/StreamIndex.lean`).  Name uniqueness holds along
+the fold: every push a step performs is guarded by a lookup — `checkConstantValC`'s duplicate
 guard, `installBasisDeclF`'s — and every table install by a lookup of
 its structure — so this file proves, once and OPERATIONALLY (no
 environment well-formedness, no simulation: the final-value discipline
@@ -25,8 +22,8 @@ of `ConLeche/Verify/Cached/DeclPushes.lean`), that an accepted step
 returns `PushChain env fe'`: a canonical index whose constants extend
 `env` by fresh names, and whose tables extend `env`'s by tables of
 structures `env` does not store.  Chained from the empty environment, that is
-`NodupNames` of every environment a driver ever holds, and the
-suffix relation between the environment a declaration was installed at
+`NodupNames` of every environment the fold ever holds, and the
+suffix relation between the environment a declaration was checked at
 and the final one.
 -/
 

@@ -181,7 +181,7 @@ not the pinned block is invalid input, as a basis redefinition is — so
 that in every accepted environment the name `And` is the toolchain's
 `And` and the stuck-proof rescue that serves it (`majorToCtor`'s `And`
 branch) is available.  The fold asks this of every record before its
-dispatch (`installDeclStep`, `ConLeche/Cached/Installed.lean`). -/
+check (`declStep`, `ConLeche/Cached/Decls.lean`). -/
 
 /-- **The `And` pin's test**: the record declares none of the pinned
 `And` block's names, or it IS that block — two parameters, and equal

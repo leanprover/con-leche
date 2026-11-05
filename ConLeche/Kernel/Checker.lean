@@ -53,10 +53,9 @@ is opaque to reduction (`unfoldDefinition` has no `thmInfo` arm), and
 the checked value is a *realizability witness*, checked against the
 statement and then discarded, exactly as an opaque's is: the result
 environment does not mention `value`, so nothing downstream can read a
-proof term.  This is what lets the driver install a theorem before its
-value is looked at at all (phase A pushes the statement; phase B
-checks the value from the pending record,
-`ConLeche/Cached/Installed.lean`). -/
+proof term.  This is what lets a later record's job read a theorem whose
+own job has not run: what it reads is the statement alone
+(`ConLeche/Cached/StreamIndex.lean`). -/
 def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     (value : Expr) : m Env := do
   -- the type of a theorem must be a proposition

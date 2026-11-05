@@ -43,13 +43,13 @@ other than what the record declares:
 
 Both are definitional equalities, not syntactic ones, so the claim would be
 false of them; a **constructor** is stored as declared, but it is
-installed with its block and is left out with it.
+stored with its block and is left out with it.
 
 ## How it is proved
 
-The walk has `installRun_model`'s hypotheses and threads the model
-beside the conclusion; `installStepC_model`
-(`ConLeche/Model/InstallRun.lean`) is the per-step lemma both walks
+The walk has `declsRun_model`'s hypotheses and threads the model
+beside the conclusion; `checkDeclStepC_model`
+(`ConLeche/Model/DeclsRun.lean`) is the per-step lemma both walks
 share, and its extra conjunct — the step IS a pure `checkDecl` run — is
 what lets the per-record reasoning happen entirely at the pure checker's
 own run relation (`Semantics.DeclRun`).
@@ -185,10 +185,10 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-/-- **The walk**: along an accepting phase-A run whose start environment
+/-- **The walk**: along an accepting run whose start environment
 carries the model, every record's declared constant is stored — with its
 name, its level parameters and its type — and is still there at the
-end.  The hypotheses are `installRun_model`'s. -/
+end.  The hypotheses are `declsRun_model`'s. -/
 theorem declsRun_declares {ds : List Declaration} {p q : Nat × FEnv}
     (hrun : DeclsRun .verified pins ds p q) :
     p.2 = mkFEnv p.2.env → EnvModelOk V p.2.env →

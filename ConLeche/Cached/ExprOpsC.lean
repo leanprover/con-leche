@@ -47,7 +47,7 @@ design, as landed:
   object — single-threaded, reference count 1.  An exclusive node
   cannot be reached twice, so it is rebuilt with the memo untouched:
   no key, no probe, no insert.  A shared node (count `> 1`,
-  multi-threaded, or persistent — the installed environment) is
+  multi-threaded, or persistent — the stream's index) is
   probed and, on a miss, recorded after the rebuild.  The table is
   created at the first shared compound node (`none` until then); the
   root is never probed (it cannot be reached again within its own

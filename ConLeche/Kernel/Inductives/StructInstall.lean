@@ -72,9 +72,8 @@ def checkStructProjTable (T : Name) (lps : List Name) (nP nF : Nat)
       b.allLevelParamsDefined lps && b.constsResolve env &&
       b.looseBVarsBounded (nP + 1)) do
     throw (.internal "direct structure: projection body scoping")
-  -- the table follows its structure (installed by the same block):
-  -- `EnvWF`'s table clause records it, and the prefix views hide the
-  -- table with the structure
+  -- the table follows its structure (declared by the same block):
+  -- `EnvWF`'s table clause records it
   unless (env.find? T).isSome do
     throw (.internal "direct structure: projection table before its structure")
   unless (env.findTable? T).isNone do

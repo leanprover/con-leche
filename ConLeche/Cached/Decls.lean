@@ -16,8 +16,8 @@ the next), and what the record adds to the index is a function of the record alo
 The binary's driver (`ConLeche/Driver/*`) builds the index of the whole stream first and runs the
 checks in any order, each at the view of its position (`ConLeche/Cached/StreamIndex.lean`); that
 every check passing is an accept of this fold is `checkDecls_of_jobs`
-(`ConLeche/Verify/Cached/StreamIndex.lean`), so the environment the driver returns comes with the
-proof that `checkDecls` returns it.
+(`ConLeche/Verify/Cached/StreamIndex.lean`), so the driver's accept comes with the proof that
+`checkDecls` accepts.
 
 **The pin list is a parameter.**  `checkDecls`, `declStep` and below them `checkDeclStepC` and the
 `Expr`-level `checkDecl` take the list of `Nat.div`/`Nat.mod` pin variants the gate tries, as their

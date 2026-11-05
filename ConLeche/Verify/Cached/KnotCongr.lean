@@ -15,22 +15,14 @@ file proves it, one congruence lemma per `fe`-taking function of
 `ConLeche/Kernel/FEnv.lean` and `ConLeche/Cached/*` reachable from the
 knot's bodies, bottom-up, landing on `coreKnotI_congr`.
 
-The consumers are the re-check at a task-#108 prefix view —
-`feFinal.restrictTo k` and `mkFEnv env` for the environment `env` of
-the first `k` constants have the same `find?` and `findTable?`, so
-`coreKnotI_congr` says they run the *same* core, and the simulation
-stated at `mkFEnv env` therefore covers a run at the prefix view — and
-the parallel install (task #329, `ConLeche/Verify/Cached/ParInstall.lean`):
-a worker installs a record at a view whose lookups are the serial
-index's, so its result is the serial step's.
+The consumer is the record's job (`ConLeche/Verify/Cached/ViewCongr.lean`): a job checks a record
+at a view of the stream's index whose lookups are the fold's index's, so `coreKnotI_congr` says they
+run the *same* core.
 
-**Why this is `Verify/Cached`, not `Cached`.**  The parallel install's
-driver (`ConLeche/Driver/ParInstall.lean`) carries the serial fold's
-accepting run, and the step it adds for a record a worker installed is
-this congruence; the driver (`ConLeche/Driver/*`) may import
-`Verify/*` (maintainer's ruling, 2026-10-08), so the file sits where a
-proof about kernel functions that needs no model belongs.  It imports
-only the cached checker — nothing from the theory — and opens a plain
+**Why this is `Verify/Cached`, not `Cached`.**  The driver (`ConLeche/Driver/*`) carries the proof
+that the jobs passing is an accept of the fold, and that proof rests on this congruence; the driver
+may import `Verify/*` (maintainer's ruling, 2026-10-08), so the file sits where a proof about kernel
+functions that needs no model belongs.  It imports only the cached checker — nothing from the theory — and opens a plain
 `public section` (it defines nothing for anyone to unfold).
 -/
 
@@ -40,12 +32,10 @@ variable {mode : CheckMode} {eager : Bool} {fe₁ fe₂ : FEnv}
 
 /-! ## The table component (task #362)
 
-A table install touches the table map alone, a constant push the
-constant index alone: what the congruences below and the parallel
-install's commit (`ConLeche/Verify/Cached/ParInstall.lean`) read off
-an install. -/
+A table push touches the table map alone, a constant push the
+constant index alone: what the congruences below read off a push. -/
 
-/-- A table install leaves the constant lookups alone. -/
+/-- A table push leaves the constant lookups alone. -/
 theorem FEnv.find?_pushTable (fe : FEnv) (t : ProjTable) :
     (fe.pushTable t).find? = fe.find? := rfl
 

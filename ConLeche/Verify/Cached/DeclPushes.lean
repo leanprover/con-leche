@@ -6,7 +6,7 @@ import ConLeche.Verify.Cached.BlockOverlay
 public section
 
 /-!
-# Every accepting step pushes what its declaration installs
+# Every accepting step pushes what its declaration says
 
 The fold's step, at every mode, returns the environment with the declaration's constants and tables
 pushed (`checkDeclC_pushes`, `declConstants`, `declTables`), whatever the checks in between did.  So
@@ -30,7 +30,7 @@ variable {pins : List NatOpPinSet}
 the *returned* environment, never the state, so the whole monadic
 discipline it needs is: "`P` holds of every value this action can
 return".  The bind rule then carries **no** hypothesis on the bound
-action — which is what makes the long `do` blocks of the drivers
+action — which is what makes the long `do` blocks of the checks
 collapse to their final `pure`. -/
 
 /-- `P` holds of every value the action can return. -/
@@ -616,10 +616,9 @@ theorem tolerated_ne_std {n : Name}
 
 /-! ## The floor
 
-The fold installs every record by `installStepC` (`checkDecls`,
-`ConLeche/Cached/Decls.lean`), and its phase B pushes nothing, so
-`declConstants` computes the installed environment at *every* mode.  Hence: whenever two modes both
-**accept**, they installed the same constants, in the same order, with
+The fold checks every record by `checkDeclStepC` (`checkDecls`, `ConLeche/Cached/Decls.lean`), so
+`declConstants` computes the environment at *every* mode.  Hence: whenever two modes both
+**accept**, they hold the same constants, in the same order, with
 the same skeletons — and in particular the same names and the same
 count.
 

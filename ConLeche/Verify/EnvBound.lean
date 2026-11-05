@@ -40,6 +40,8 @@ theorem mkIdxGo_getElem? (n : Name) : ∀ l : List ConstantInfo,
 /-- The per-entry-call name index computes `Env.find?`. -/
 theorem mkFEnv_find? (env : Env) (n : Name) :
     (mkFEnv env).find? n = env.find? n := by
+  show (mkFEnv env).lookup n = _
+  rw [FEnv.lookup_eq]
   show (match (mkIdxGo env.consts)[n]? with
         | some ci => some ci
         | none => ({} : FBase).find? n) = _

@@ -39,8 +39,8 @@ knot.
 The core's **fuel-free helpers** — everything a body reads that
 mentions no monad, no record and no fuel (`unfoldDefinition`, the
 literal guards, the certified `Nat` operations' tables, the η
-fabrications, the install-time rule bits, …) — live
-in `ConLeche/Kernel/CoreDefs.lean` since task #305 (prep) and are
+fabrications, the block's rule bits, …) — live
+in `ConLeche/Kernel/CoreDefs.lean` and are
 re-exported here, so that a relational description of the core's
 moves can name them without importing the bodies.
 -/
@@ -779,7 +779,7 @@ decision procedure — such as one that first normalizes the major —
 would find); on mathlib-full the `whnf` after a failed K rescue ran
 15 651 times (all `Eq.rec`) and reached a constructor 0 times (see the
 TASK #333 record's audit). A K-like recursor application whose rescue
-fails is now simply stuck, sound either way.
+fails is simply stuck, sound either way.
 
 The rescues (K, structure-eta, `And`) live in one function
 (`majorToCtor`); the K branch is reachable exactly at the record's K flag, the
@@ -1224,10 +1224,7 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
       -- A `.proj` node is typed by its projection-table entry: the
       -- stored body, level-instantiated at the subject type's levels
       -- and instantiated at its arguments and the subject (task #175
-      -- S1).  Only stored table entries type bare nodes (task #175
-      -- W6: the pinned pair entries and their computed two-member
-      -- fast path are retired; tower-flag: every stored table is a
-      -- real one).
+      -- S1).  Only stored table entries type bare nodes.
       let te ← r.whnf depth (← r.infer depth pe)
       match te.getAppFn with
       | .const T us =>
@@ -1758,7 +1755,7 @@ difference is a proof with no normal form (impredicative `Prop` +
 `propext` + K-like `Eq.rec`, `tests/e2e/src/omega_kloop.lean`), which
 the official order head-normalizes forever.  `quickDefEq` stays first
 because it only fires on sorts, literals and binders, which `whnfCore`
-leaves unchanged: on those pairs the old order's verdict is kept.
+leaves unchanged: on those pairs either order gives the same verdict.
 
 The restarts — after a literal acceleration in the loop and after the
 full `whnfCore` — are `defeq` calls, as official's are `is_def_eq_core`

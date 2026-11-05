@@ -373,7 +373,7 @@ theorem view_find {pre rest : List Declaration} {I : StreamIndex}
     (hI : IndexSpec (pre ++ rest) I) (n : Name) :
     (I.view pre.length).find? n = (firstOcc n 0 (recsConsts pre)).map (·.2) := by
   rw [view_eq hI]
-  simp only [FEnv.find?, Std.HashMap.getElem?_empty, FBase.find?]
+  simp only [FEnv.find?, FEnv.lookup_eq, Std.HashMap.getElem?_empty, FBase.find?]
   rw [hI.idx n]
   have hsplit : recsConsts (pre ++ rest) = recsConsts pre ++ recsConsts rest := by
     simp [recsConsts]
