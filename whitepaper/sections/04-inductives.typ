@@ -988,7 +988,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 99, 102)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 100, 103)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[

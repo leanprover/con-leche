@@ -57,7 +57,7 @@ The meaning of [`False`](https://github.com/leanprover/con-leche/blob/master/Con
 
 ### The Main Theorem
 
-The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L113-L120) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
+The theorem [`no_False_declaration`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L114-L121) is mostly a corollary of a stronger statement, namely that every accepted environment has a model in a suitable set theory. This theorem is also found in [`ConLeche/MainTheorem.lean`](./ConLeche/MainTheorem.lean):
 
 ```lean
 theorem model_exists (V : Type w) [SetTheory V]
@@ -94,7 +94,7 @@ We can then prove something about such generic code in an idealized (pure, nonde
 
 In the model, we assume nothing about `liftIO a` or its return value, except of course its type. Using a subtype there allows us to run, say, parallel code and still know that the result is what we need for the proof (e.g. `checkDeclsIO` returning a subtype mentioning `checkDecls`).
 
-In this setting we can [lift the main corollary](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L150) to cover the driver as well:
+In this setting we can [lift the main corollary](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L149-L151) to cover the driver as well:
 
 ```lean
 open Frontend in

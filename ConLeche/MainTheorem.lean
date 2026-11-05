@@ -10,6 +10,7 @@ import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
 public import ConLeche.Driver.Cli
+public import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
 public section
 
@@ -155,22 +156,26 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   simp [hp, hr, hc, bind, Except.bind] at he
 
 open Frontend in
-/-- **The main corollary, on `--olean` arguments.**  On a snapshot where every
-outcome of the reader on the named modules is records holding a theorem of
-type `False`, no outcome of `runArgs` at those arguments is an exit 0. -/
-theorem main_oleans_no_False (V : Type w) [SetTheory V] {args : List String} {fs : FS}
+/-- **The main corollary, on `--olean` arguments.**  On a snapshot where the private view of a
+module of the closure of the named modules holds a theorem of type `False`, no outcome of
+`runArgs` at those arguments is an exit 0.  Every constant is checked at these arguments:
+`--constant`, which restricts them, is not among them. -/
+theorem main_oleans_no_False (V : Type w) [SetTheory V] {args : List String} {fs : FS} {m : Name}
+    {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
     (hh : Driver.helpWanted args = false) (hb : (Driver.parseArgs args {}).bad = none)
     (ho : (Driver.parseArgs args {}).olean = true)
     (hm : (Driver.parseArgs args {}).mode = .verified)
-    (hF : ∀ ds, (Olean.readOleans (Driver.parseArgs args {}).searchPath
-        ((Driver.parseArgs args {}).files.filterMap Olean.parseModName)
-        (Driver.parseArgs args {}).rootConstants : ModelIO _) fs (.ok (.ok ds)) →
-      ∃ cv vl, Declaration.thmDecl cv vl ∈ ds ∧ cv.type = .const falseName []) :
+    (hc : (Driver.parseArgs args {}).rootConstants = none)
+    (hcl : Olean.InClosure (Driver.parseArgs args {}).searchPath fs
+      ((Driver.parseArgs args {}).files.filterMap Olean.parseModName) m)
+    (hv : (Olean.readView (Driver.parseArgs args {}).searchPath m .private : ModelIO _) fs (.ok (.ok d)))
+    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
     ¬ (Driver.runArgs args : ModelIO _) fs (.ok 0) := by
   intro h
-  obtain ⟨pre, ds, env, -, hr, hc⟩ := Driver.runArgs_oleans_accept hh hb ho h
-  obtain ⟨cv, vl, hmem, hty⟩ := hF ds hr
-  rw [hm] at hc
-  exact no_False_theorem_accepted V _ cv vl (Frontend.mem_preparePrelude hmem) hty env hc
+  obtain ⟨pre, ds, env, -, hr, hchk⟩ := Driver.runArgs_oleans_accept hh hb ho h
+  rw [hc] at hr
+  obtain ⟨v', hd⟩ := Olean.readOleans_thm hr hcl hv hmem hk
+  rw [hm] at hchk
+  exact no_False_theorem_accepted V _ _ v' (Frontend.mem_preparePrelude hd) hty env hchk
 
 end ConLeche

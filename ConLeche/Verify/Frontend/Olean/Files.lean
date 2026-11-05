@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Verify.Frontend.Olean.Closure
 public import ConLeche.Verify.Frontend.Olean.Merge
+import ConLeche.Verify.Frontend.Olean.Emit
 import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -29,10 +30,13 @@ process or in two.  Where `readAllViews` has a value:
 read of a file's start: what it finds is `importsPre` of the whole file, and it
 finds that wherever the file is valid and has such imports.
 
-`readOleans_ok`: the records of a run are made of the private view of each module of the
+`readOleans_thm`: a theorem of the private view of a module of the closure (`InClosure`) is
+among a run's records, with its statement.  `readOleans_ok`: the records of a run are made of
+the private view of each module of the
 closure, each read by `readView` on the snapshot: the order holds the roots and has every
 module after its imports (`closureOrder_ok`, `ClosedOrder.view_imports`), and every constant
-of those views stands in the merge (`mergeAll_ok`).
+of those views stands in the merge (`mergeAll_ok`); the emission is
+`ConLeche/Verify/Frontend/Olean/Emit.lean`.
 -/
 
 public section
@@ -554,5 +558,96 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
           obtain ⟨hc1, hc2⟩ := closureOrder_ok ho
           exact ⟨order, ls, mg, rs, ho, h1, h2, hc1, hc2, fun l hl => hk l (by simpa using hl), hm, hr,
             by cases u; exact hc, h.symm⟩
+
+/-- **The modules of the closure of some roots**, on a snapshot: a root, or an import of the
+private view of one. -/
+inductive InClosure (sp : SearchPath) (fs : FS) (roots : Array Name) : Name → Prop
+  | root {r : Name} : r ∈ roots → InClosure sp fs roots r
+  | step {m : Name} {d : ModDecoded} {i : ImportRec} : InClosure sp fs roots m →
+      (readView sp m .private : ModelIO _) fs (.ok (.ok d)) → i ∈ d.imports →
+      InClosure sp fs roots i.module
+
+/-- The order holds the closure. -/
+theorem InClosure.mem_order {sp : SearchPath} {fs : FS} {roots order : Array Name} {m : Name}
+    (hc : ClosedOrder sp fs order) (hr : ∀ r ∈ roots, r ∈ order) (h : InClosure sp fs roots m) :
+    m ∈ order := by
+  induction h with
+  | root hm => exact hr _ hm
+  | @step m d i _ hv hi ih =>
+    obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem ih
+    have := hc.view_imports hk hv i hi
+    exact Array.mem_toList_iff.mp (List.mem_of_mem_take this)
+
+/-- A private view read off a snapshot is the snapshot's. -/
+theorem readView_unique {sp : SearchPath} {m : Name} {fs : FS} {a b : ModDecoded}
+    (ha : (readView sp m .private : ModelIO _) fs (.ok (.ok a)))
+    (hb : (readView sp m .private : ModelIO _) fs (.ok (.ok b))) : a = b := by
+  simp only [readView, ModelIO.bind_ok] at ha hb
+  obtain ⟨y, hy, ha⟩ := ha
+  obtain ⟨y', hy', hb⟩ := hb
+  rcases y with x | f
+  · simp at ha
+  rcases y' with x | f'
+  · simp at hb
+  have hdet := readFiles_of_all .private hy
+  rw [hdet] at hy'
+  have hff : f = f' := by
+    have := (ModelIO.answer_ok _ _).1 hy'
+    simpa [ModFiles.upTo] using this
+  subst hff
+  cases hv : parseView f .private with
+  | none => simp [hv] at ha
+  | some x =>
+    simp only [hv, ModelIO.pure_iff, Except.ok.injEq] at ha hb
+    exact ha.trans hb.symm
+
+/-- **A theorem of a module of the closure is among the records**, with its statement, whichever
+of the proofs Lean's rule keeps. -/
+theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : FS}
+    {ds : Array Declaration} {m : Name} {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
+    {all : List Name}
+    (h : (readOleans sp roots none jobs : ModelIO _) fs (.ok (.ok ds)))
+    (hcl : InClosure sp fs roots m) (hv : (readView sp m .private : ModelIO _) fs (.ok (.ok d)))
+    (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
+    ∃ v', Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v' ∈ ds := by
+  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hr, hcov, hds⟩ := readOleans_ok h
+  have hrs : rs = mg.order := by
+    simp only [rootConstants] at hr
+    cases hr
+    rfl
+  subst hrs
+  have hmo := hcl.mem_order hco hcr
+  have : m ∈ ls.map (·.name) := by
+    rw [h1]
+    simpa using hmo
+  obtain ⟨l, hl, rfl⟩ := List.mem_map.mp this
+  obtain ⟨d', hv', hconst⟩ := h2 l hl
+  obtain rfl := readView_unique hv hv'
+  have hcl' : CEntry.ofRead c ∈ l.constants := by
+    rw [hconst]
+    exact Array.mem_map.mpr ⟨c, hc, rfl⟩
+  obtain ⟨c', hc', hs⟩ := hstand l hl _ hcl'
+  obtain ⟨hk1, hk2, hk3, hk4⟩ := mergeAll_ok hm
+  have hN : ∀ (n : Name) (x : CEntry), mg.map[n]? = some x → x.name = n := fun n x hx => (hk2 n x hx).1
+  have hord : (CEntry.ofRead c).name ∈ mg.order := (hk3 _).2 (contains_of_getElem hc')
+  have hkind : (CEntry.ofRead c).kind = .thm v all := hk
+  have hst : ∃ v' all', c'.kind = .thm v' all' ∧ c'.name = c.name ∧ c'.levelParams = c.levelParams ∧
+      c'.type = c.type := by
+    rcases hs with rfl | ⟨n1, t1, l1, k1⟩
+    · exact ⟨v, all, hkind, rfl, rfl, rfl⟩
+    · rw [hkind] at k1
+      cases hk' : c'.kind with
+      | thm v' all' => exact ⟨v', all', rfl, n1, l1, t1⟩
+      | ax _ => rw [hk'] at k1; exact k1.elim
+      | defn _ _ _ => rw [hk'] at k1; exact k1.elim
+      | opaq _ _ => rw [hk'] at k1; exact k1.elim
+      | quot _ => rw [hk'] at k1; exact k1.elim
+      | induct _ _ _ _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
+      | ctor _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
+      | recur _ _ _ _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
+  obtain ⟨v', all', hk5, hn, hlp, hty⟩ := hst
+  have := declsOf_thm hN hds hcov hord hord hc' hk5
+  rw [hn, hlp, hty] at this
+  exact ⟨v', this⟩
 
 end ConLeche.Frontend.Olean

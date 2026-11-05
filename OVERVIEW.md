@@ -145,7 +145,7 @@ The statement is two theorems: one about the declaration fold
 `checkDecls`, the function whose result the `con-leche` binary's
 driver returns for a parsed export stream, and one about the chunks
 the binary reads. The main theorem,
-[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L99-L102):
+[`model_exists` in `ConLeche/MainTheorem.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L100-L103):
 
 > For every model `V` of the `SetTheory` interface, every
 > `Nat.div`/`Nat.mod` pin list `pins` and every list of declarations
@@ -187,7 +187,7 @@ and a truth value with a member is `{pt}`. So the two sides of every
 accepted equation denote the same set.
 
 The main corollary,
-[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L113-L120):
+[`no_False_declaration` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L114-L121):
 
 > … if the chunks are a `jsonWithTheoremFalse` file — a name entry for
 > `False`, an expression entry for the constant `False`, a name entry
@@ -232,7 +232,7 @@ default mode, which is the verified one, and the default worker count;
 nothing is said about `--help` or the other flags. On a snapshot where
 the file's bytes are a `jsonWithTheoremFalse` file, no outcome of
 `runArgs` is an exit 0
-([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L148-L150)).
+([theorem `main_no_False` in the same file](https://github.com/leanprover/con-leche/blob/master/ConLeche/MainTheorem.lean#L149-L151)).
 This is a theorem about the outcomes of `runArgs` in the model; that a
 run of the binary that exits 0 is one of those outcomes is assumed, not
 proved, and §2 states what the assumption is.
@@ -624,12 +624,16 @@ rest of the checker imports.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
 every exit 0 read records off the snapshot's files that `checkDecls` accepts.
-`main_oleans_no_False` follows. `readOleans_ok` says what those records are made of: the
-order holds the named modules and has every module after its imports (`closureOrder_ok`),
-and every constant of their private views stands in the merge, itself or a constant of its
-name and statement that Lean's own import lets stand for it (`mergeAll_ok`). Unlike the stream
-parse, the emission (`Emit.lean`) has no theorem saying what the records mean relative to the
-merged constants; `olean-compare` compares them with lean4export's.
+`readOleans_ok` says what those records are made of: the order holds the named modules and
+has every module after its imports (`closureOrder_ok`), every constant of their private views
+stands in the merge, itself or a constant of its name and statement that Lean's own import lets
+stand for it (`mergeAll_ok`), and every declaration comes from stored constants (`declsOf_from`).
+A theorem of a module of the closure is among the records with its statement (`declsOf_thm`,
+`readOleans_thm`), so `main_oleans_no_False` holds of the files: if the private view of a module
+of the closure holds a theorem of type `False`, no run exits 0. An inductive block's record is
+known to be made of stored constants of the right kinds by their statements; its other fields and
+the recursor rules are `validateIndF`'s and the installer's to check. `olean-compare` compares the
+records with lean4export's.
 
 ## 3. The checker
 

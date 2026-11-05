@@ -108952,14 +108952,27 @@ read looks only at what it needs, so it may succeed on a file whose full parse f
 * on a snapshot (`Verify/Frontend/Olean/Files.lean`), from a value of `readAllViews`:
   `readView_of_all` and `readFiles_of_all` state those reads are DETERMINED and the home's;
   `moduleImports_of_view` from any view read.  One snapshot, in one process or in two.
-* `checkMainG_oleans_accept`, `runArgs_oleans_accept`, `main_oleans_no_False`,
-  `readOleans_ok`.  Not stated: what the emission means relative to the merged constants
-  (`emitAll`, `declsOf` appear in `readOleans_ok` as they are), so `main_oleans_no_False` takes
-  its `False` theorem as a hypothesis on the reader's records.
 * `closureOrder_ok` (the module walk holds the roots, each module after its imports),
   `mergeAll_ok` (every constant stands in the merge: `Stands`, `subsumesInfo`'s rule; every
-  entry is a module's under its own name).  Such theorems found nothing wrong, and pin down
-  what the code is for.
+  entry is a module's, under its own name), both about code that needed no change.
+* **The emission** (`Verify/Frontend/Olean/Emit.lean`).  `emitLoop_spec`: the tables only grow,
+  every record comes from stored constants (`RecFrom`), every root stored and not filtered out
+  is visited.  A crafted block can mark a constant visited with no record of its own (a block
+  whose `all` names a theorem), which is `coverageOk`'s to reject, and the theorem says so: it
+  takes `coverageOk` as a hypothesis, and `coverStep`'s first test gives "visited means
+  declared".  A declared name's record is then its own constant's (`rec_of_declares`), which
+  gives `declsOf_thm`: a theorem constant among the roots has its theorem record, with its own
+  statement and proof.  `declsOf_from`: nothing is added: every declaration is what a stored
+  constant stands for (`entryDecl`), or an inductive block's whose members, constructors and
+  recursors are stored constants of those kinds, by their statements.  Not stated: a block's other
+  fields and its recursor rules, which `validateIndF` and the installer check anyway.
+* **`main_oleans_no_False` is about the files**, as the stream corollary is: on a snapshot where
+  the private view of a module of the closure (`InClosure`) holds a theorem of type `False`, no
+  run exits 0, without `--constant`, which restricts what is checked.  It needs `Stands`: only a
+  theorem may stand for a theorem, of the same statement.
+* Pulling the walk's helpers out of `emitLoop` (`blockTys`, `Work.usesOf`, `Emit.ones`, ...)
+  removed the `attach`es the termination preprocessing had put in its body.  `coverageOk` and
+  `declsOf` are recursions over a step now.
 
 **Fence.**  `tests/layering.sh`: the reader imports itself and five base modules
 (`Kernel.{Error,Name,Expr,Env}`, `Frontend.Scan.Types`); only `Files` and

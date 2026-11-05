@@ -83,35 +83,52 @@ def Emit.one (st : Emit) (c : CEntry) : Emit :=
   | some d => st.push d
   | none => st
 
+/-- One inductive type of a block's record. -/
+def Emit.tyStep (x : Emit × Array IndTypeRec) (c : CEntry) : Emit × Array IndTypeRec :=
+  let (st, acc) := x
+  match c.kind with
+  | .induct np ni _ cs nn ir iu irf =>
+    let (st, cv) := st.cv c
+    let (st, cs) := st.names' cs
+    (st, acc.push { cv, ctors := cs, isRec := ir, isReflexive := irf, isUnsafe := iu,
+                    numIndices := ni, numNested := nn, numParams := np : IndTypeRec })
+  | _ => (st, acc)
+
+/-- One constructor of a block's record. -/
+def Emit.ctorStep (x : Emit × Array IndCtorRec) (c : CEntry) : Emit × Array IndCtorRec :=
+  let (st, acc) := x
+  match c.kind with
+  | .ctor ind cidx np nf iu =>
+    let (st, cv) := st.cv c
+    let (st, ii) := st.name ind
+    (st, acc.push { cv, isUnsafe := iu, numFields := nf, numParams := np,
+                    cidx := some cidx, induct := some ii : IndCtorRec })
+  | _ => (st, acc)
+
+/-- One rule of a recursor's record. -/
+def Emit.ruleStep (x : Emit × Array RuleRec) (r : Name × Nat × Expr) : Emit × Array RuleRec :=
+  let (st, acc) := x
+  let (cn, nf, rhs) := r
+  let (st, ci) := st.name cn
+  let (st, ri) := st.expr rhs
+  (st, acc.push ({ ctor := ci, nfields := nf, rhs := ri } : RuleRec))
+
+/-- One recursor of a block's record. -/
+def Emit.recStep (x : Emit × Array IndRecRec) (c : CEntry) : Emit × Array IndRecRec :=
+  let (st, acc) := x
+  match c.kind with
+  | .recur _ np ni nmo nmi rules k iu =>
+    let (st, cv) := st.cv c
+    let (st, rr) := rules.foldl Emit.ruleStep (st, #[])
+    (st, acc.push { cv, isUnsafe := iu, k, numIndices := ni, numMinors := nmi,
+                    numMotives := nmo, numParams := np, rules := rr.toList : IndRecRec })
+  | _ => (st, acc)
+
 /-- **An inductive block's record**: lean4export's `inductive` object. -/
 def Emit.block (st : Emit) (tys ctors recs : List CEntry) : Emit :=
-  let (st, ts) := tys.foldl (fun (st, acc) c =>
-    match c.kind with
-    | .induct np ni _ cs nn ir iu irf =>
-      let (st, cv) := st.cv c
-      let (st, cs) := st.names' cs
-      (st, acc.push { cv, ctors := cs, isRec := ir, isReflexive := irf, isUnsafe := iu,
-                      numIndices := ni, numNested := nn, numParams := np : IndTypeRec })
-    | _ => (st, acc)) (st, #[])
-  let (st, cts) := ctors.foldl (fun (st, acc) c =>
-    match c.kind with
-    | .ctor ind cidx np nf iu =>
-      let (st, cv) := st.cv c
-      let (st, ii) := st.name ind
-      (st, acc.push { cv, isUnsafe := iu, numFields := nf, numParams := np,
-                      cidx := some cidx, induct := some ii : IndCtorRec })
-    | _ => (st, acc)) (st, #[])
-  let (st, rs) := recs.foldl (fun (st, acc) c =>
-    match c.kind with
-    | .recur _ np ni nmo nmi rules k iu =>
-      let (st, cv) := st.cv c
-      let (st, rr) := rules.foldl (fun (st, acc) (cn, nf, rhs) =>
-        let (st, ci) := st.name cn
-        let (st, ri) := st.expr rhs
-        (st, acc.push ({ ctor := ci, nfields := nf, rhs := ri } : RuleRec))) (st, #[])
-      (st, acc.push { cv, isUnsafe := iu, k, numIndices := ni, numMinors := nmi,
-                      numMotives := nmo, numParams := np, rules := rr.toList : IndRecRec })
-    | _ => (st, acc)) (st, #[])
+  let (st, ts) := tys.foldl Emit.tyStep (st, #[])
+  let (st, cts) := ctors.foldl Emit.ctorStep (st, #[])
+  let (st, rs) := recs.foldl Emit.recStep (st, #[])
   st.push (.ind ts.toList cts.toList rs.toList)
 
 /-! ### The emission walk terminates (task #421)
@@ -153,12 +170,12 @@ theorem Emit.block_visited (st : Emit) (tys ctors recs : List CEntry) :
     (st.block tys ctors recs).visited = st.visited := by
   simp only [Emit.block, Emit.push_visited]
   rw [Emit.foldl_visited, Emit.foldl_visited, Emit.foldl_visited]
-  · intro s c; split <;> simp [Emit.cv_visited, Emit.names'_visited]
-  · intro s c; split <;> simp [Emit.cv_visited, Emit.name_visited]
-  · intro s c; split
+  · intro s c; unfold Emit.tyStep; split; split <;> simp [Emit.cv_visited, Emit.names'_visited]
+  · intro s c; unfold Emit.ctorStep; split; split <;> simp [Emit.cv_visited, Emit.name_visited]
+  · intro s c; unfold Emit.recStep; split; split
     · simp only
       rw [Emit.foldl_visited, Emit.cv_visited]
-      intro s r; simp [Emit.expr_visited, Emit.name_visited]
+      intro s r; simp [Emit.ruleStep, Emit.expr_visited, Emit.name_visited]
     · rfl
 
 theorem Emit.foldl_one_visited {α : Type} (g : α → CEntry) (cs : List α) (st : Emit) :
@@ -166,6 +183,9 @@ theorem Emit.foldl_one_visited {α : Type} (g : α → CEntry) (cs : List α) (s
   induction cs generalizing st with
   | nil => rfl
   | cons c cs ih => simp only [List.foldl_cons]; rw [ih, Emit.one_visited]
+
+theorem Emit.foldl_one_visited' (cs : List CEntry) (st : Emit) :
+    (cs.foldl Emit.one st).visited = st.visited := Emit.foldl_one_visited id cs st
 
 theorem Emit.mark_contains (st : Emit) (n k : Name) :
     (st.mark n).visited.contains k = (n == k || st.visited.contains k) := by
@@ -242,6 +262,32 @@ theorem Emit.lex_of_le {a a' b b' : Nat} (h1 : a' ≤ a) (h2 : b' < b) :
   · exact Prod.Lex.left _ _ h
   · exact Prod.Lex.right _ h2
 
+/-- The constants of an inductive block's members. -/
+def blockTys (mg : Merged) (all : List Name) : List CEntry := all.filterMap (mg.map[·]?)
+
+/-- The constructors of a block's members. -/
+def blockCtors (mg : Merged) (tys : List CEntry) : List CEntry :=
+  tys.flatMap fun t => match t.kind with
+    | .induct _ _ _ cs _ _ _ _ => cs.filterMap (mg.map[·]?)
+    | _ => []
+
+/-- The recursors of a block. -/
+def blockRecs (mg : Merged) (recMap : Std.HashMap Name (Array Name)) (n : Name) : List CEntry :=
+  ((recMap[n]?).getD #[]).toList.filterMap (mg.map[·]?)
+
+/-- The quotient package's constants. -/
+def quotConstants (mg : Merged) : List CEntry :=
+  [mkN ["Quot"], mkN ["Quot", "mk"], mkN ["Quot", "lift"], mkN ["Quot", "ind"]].filterMap (mg.map[·]?)
+
+/-- Visits of what some constants mention. -/
+def Work.usesOf (cs : List CEntry) : List Work := cs.flatMap fun c => c.uses.toList.map Work.visit
+
+/-- Visits of some names. -/
+def Work.visits (ns : List Name) : List Work := ns.map Work.visit
+
+/-- Some constants' records. -/
+def Emit.ones (st : Emit) (cs : List CEntry) : Emit := cs.foldl Emit.one st
+
 /-- **The emission walk** (lean4export's `dumpConstant`, iterative):
 `visit n` emits `n`'s record after its dependencies.  Well-founded on
 the names not yet visited, then the stack (`Emit.unvisited`). -/
@@ -250,7 +296,7 @@ def emitLoop (mg : Merged) (recMap : Std.HashMap Name (Array Name))
   match stack with
   | [] => st
   | .one c :: rest => emitLoop mg recMap rest (st.one c)
-  | .quot cs :: rest => emitLoop mg recMap rest (cs.foldl Emit.one st)
+  | .quot cs :: rest => emitLoop mg recMap rest (st.ones cs)
   | .block ts cs rs :: rest => emitLoop mg recMap rest (st.block ts cs rs)
   | .visit n :: rest =>
     if _hv : st.visited.contains n then emitLoop mg recMap rest st else
@@ -259,32 +305,28 @@ def emitLoop (mg : Merged) (recMap : Std.HashMap Name (Array Name))
     | some c =>
       if c.skipped then emitLoop mg recMap rest st else
       let st := st.mark n
-      let visits (cs : List CEntry) : List Work :=
-        cs.flatMap fun c => c.uses.toList.map Work.visit
       match c.kind with
       | .ax _ | .defn .. | .thm .. | .opaq .. =>
-        emitLoop mg recMap (visits [c] ++ Work.one c :: rest) st
+        emitLoop mg recMap (Work.usesOf [c] ++ Work.one c :: rest) st
       | .quot _ =>
-        let qs := [mkN ["Quot"], mkN ["Quot", "mk"], mkN ["Quot", "lift"], mkN ["Quot", "ind"]].filterMap (mg.map[·]?)
+        let qs := quotConstants mg
         let st := qs.foldl (fun st q => st.mark q.name) st
         emitLoop mg recMap (Work.visit (mkN ["Eq"]) :: Work.quot qs :: rest) st
       | .ctor ind .. => emitLoop mg recMap (Work.visit ind :: rest) st
-      | .recur all .. => emitLoop mg recMap (all.map Work.visit ++ rest) st
+      | .recur all .. => emitLoop mg recMap (Work.visits all ++ rest) st
       | .induct _ _ all _ _ _ _ _ =>
-        let tys : List CEntry := all.filterMap (mg.map[·]?)
-        let ctors := tys.flatMap fun t => match t.kind with
-          | .induct _ _ _ cs _ _ _ _ => cs.filterMap (mg.map[·]?)
-          | _ => []
-        let recs : List CEntry := ((recMap[n]?).getD #[]).toList.filterMap (mg.map[·]?)
-        let st := (tys ++ ctors ++ recs).foldl
-          (fun st x => st.mark x.name) st
-        emitLoop mg recMap (visits (tys ++ ctors ++ recs) ++ Work.block tys ctors recs :: rest) st
+        let tys := blockTys mg all
+        let ctors := blockCtors mg tys
+        let recs := blockRecs mg recMap n
+        let st := (tys ++ ctors ++ recs).foldl (fun st x => st.mark x.name) st
+        emitLoop mg recMap (Work.usesOf (tys ++ ctors ++ recs) ++ Work.block tys ctors recs :: rest) st
 termination_by (Emit.unvisited mg st, stack.length)
 decreasing_by
   all_goals first
     | exact Emit.lex_of_le (Nat.le_refl _) (by simp)
     | exact Emit.lex_of_le (Emit.unvisited_le fun k hk => by rwa [Emit.one_visited]) (by simp)
-    | exact Emit.lex_of_le (Emit.unvisited_le fun k hk => by rwa [Emit.foldl_one_visited]) (by simp)
+    | exact Emit.lex_of_le (Emit.unvisited_le fun k hk => by
+        simpa only [Emit.ones, Emit.foldl_one_visited' ] using hk) (by simp)
     | exact Emit.lex_of_le (Emit.unvisited_le fun k hk => by rwa [Emit.block_visited]) (by simp)
     | exact Prod.Lex.left _ _ (Emit.unvisited_lt _hc (by simpa using _hv) (Emit.mark_self _ _)
         fun k hk => Emit.mark_mono _ hk)
@@ -330,43 +372,46 @@ inductive type's block members and constructors must be stored, the
 members must agree on the block and the constructors name their type,
 and a recursor's block must be its first member's; a violation is
 malformed input. -/
-def coverageOk (mg : Merged) (em : Emit) : Except CheckError Unit := do
-  let decl := em.declared
-  for n in mg.order do
-    if let some c := mg.map[n]? then
-      if !c.skipped && em.visited.contains n then
-        unless decl.contains n do
-          throw (.internal s!"the constant {n} is in no emitted record (a constructor or \
-            recursor its inductive block does not have)")
-        -- the data that decides which constants form one block (task
-        -- #383), which a reader could take from `all`, from `ctors` or
-        -- from a constructor's `induct`: they must agree.  The other
-        -- fields are the record builder's (`validateIndF`) and the
-        -- installer's.
-        let bad (what : String) : CheckError := .internal s!"the inductive data of {n}: {what}"
-        match c.kind with
-        | .induct _ _ all cs _ _ _ _ =>
-          unless all.contains n do throw (bad "its block does not list it")
-          for x in all do
-            match ((mg.map[x]?).map (·.kind) : Option CKind) with
-            | some (.induct _ _ all' ..) =>
-              unless all' == all do throw (bad s!"its block member {x} names another block")
-            | some _ => throw (bad s!"its block member {x} is not an inductive type")
-            | none => throw (bad s!"its block member {x} is not stored")
-          for x in cs do
-            match ((mg.map[x]?).map (·.kind) : Option CKind) with
-            | some (.ctor ind ..) =>
-              unless ind == n do throw (bad s!"its constructor {x} names another type")
-            | some _ => throw (bad s!"its constructor {x} is not a constructor")
-            | none => throw (bad s!"its constructor {x} is not stored")
-        | .recur all .. =>
-          match all.head? with
-          | none => throw (bad "the recursor names no block")
-          | some t =>
-            match ((mg.map[t]?).map (·.kind) : Option CKind) with
-            | some (.induct _ _ all' ..) =>
-              unless all' == all do throw (bad s!"the recursor's block is not {t}'s")
-            | _ => throw (bad s!"the recursor's block member {t} is not a stored inductive type")
-        | _ => pure ()
+def coverStep (mg : Merged) (em : Emit) (decl : Std.HashSet Name) (n : Name) :
+    Except CheckError Unit := do
+  if let some c := mg.map[n]? then
+    if !c.skipped && em.visited.contains n then
+      unless decl.contains n do
+        throw (.internal s!"the constant {n} is in no emitted record (a constructor or \
+          recursor its inductive block does not have)")
+      -- the data that decides which constants form one block (task
+      -- #383), which a reader could take from `all`, from `ctors` or
+      -- from a constructor's `induct`: they must agree.  The other
+      -- fields are the record builder's (`validateIndF`) and the
+      -- installer's.
+      let bad (what : String) : CheckError := .internal s!"the inductive data of {n}: {what}"
+      match c.kind with
+      | .induct _ _ all cs _ _ _ _ =>
+        unless all.contains n do throw (bad "its block does not list it")
+        for x in all do
+          match ((mg.map[x]?).map (·.kind) : Option CKind) with
+          | some (.induct _ _ all' ..) =>
+            unless all' == all do throw (bad s!"its block member {x} names another block")
+          | some _ => throw (bad s!"its block member {x} is not an inductive type")
+          | none => throw (bad s!"its block member {x} is not stored")
+        for x in cs do
+          match ((mg.map[x]?).map (·.kind) : Option CKind) with
+          | some (.ctor ind ..) =>
+            unless ind == n do throw (bad s!"its constructor {x} names another type")
+          | some _ => throw (bad s!"its constructor {x} is not a constructor")
+          | none => throw (bad s!"its constructor {x} is not stored")
+      | .recur all .. =>
+        match all.head? with
+        | none => throw (bad "the recursor names no block")
+        | some t =>
+          match ((mg.map[t]?).map (·.kind) : Option CKind) with
+          | some (.induct _ _ all' ..) =>
+            unless all' == all do throw (bad s!"the recursor's block is not {t}'s")
+          | _ => throw (bad s!"the recursor's block member {t} is not a stored inductive type")
+      | _ => pure ()
+
+/-- `coverStep` for every constant of the order. -/
+def coverageOk (mg : Merged) (em : Emit) : Except CheckError Unit :=
+  mg.order.toList.forM (coverStep mg em em.declared)
 
 end ConLeche.Frontend.Olean

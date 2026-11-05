@@ -29,21 +29,36 @@ namespace ConLeche.Frontend.Olean
 
 open ConLeche
 
+/-- A name of the emitter's table, for the stream reader's builder. -/
+def Emit.nm (em : Emit) (i : Nat) : M Name :=
+  match em.names[i]? with
+  | some n => pure n
+  | none => throw s!"undefined name index {i}"
+
+/-- The emitter has no level table: its expressions are whole. -/
+def Emit.lv (_ : Emit) (_ : Nat) : M Level := throw "no level table"
+
+/-- An expression of the emitter's table, for the stream reader's builder. -/
+def Emit.ex (em : Emit) (i : Nat) : M Expr :=
+  match em.exprs[i]? with
+  | some e => pure e
+  | none => throw s!"undefined expr index {i}"
+
+/-- `declsOf`'s walk: `k` the position of the first of `rs`. -/
+def declsGo (em : Emit) (k : Nat) : List DeclRec → Array Declaration →
+    Except (CheckError × Nat) (Array Declaration)
+  | [], ds => .ok ds
+  | r :: rs, ds =>
+    match declOfF em.nm em.lv em.ex r with
+    | .ok (.inl d) => declsGo em (k + 1) rs (ds.push d)
+    | .ok (.inr v) => .error (v.toError, k)
+    | .error msg => .error (.internal msg, k)
+
 /-- **The `Declaration` records**, through the stream reader's builder.
 A record's verdict (a decline, a contradiction between its fields) is
 the stream path's, at the record's position. -/
 def declsOf (em : Emit) : Except (CheckError × Nat) (Array Declaration) :=
-  let nm (i : Nat) : M Name := match em.names[i]? with
-    | some n => pure n | none => throw s!"undefined name index {i}"
-  let lv (_ : Nat) : M Level := throw "no level table"
-  let ex (i : Nat) : M Expr := match em.exprs[i]? with
-    | some e => pure e | none => throw s!"undefined expr index {i}"
-  em.out.size.fold (init := .ok #[]) fun k _ acc => do
-    let ds ← acc
-    match declOfF nm lv ex em.out[k] with
-    | .ok (.inl d) => pure (ds.push d)
-    | .ok (.inr v) => throw (v.toError, k)
-    | .error msg => throw (.internal msg, k)
+  declsGo em 0 em.out.toList #[]
 
 /-- The constants the emission starts from: the named ones, each of which the closure
 must hold, or all of them. -/
