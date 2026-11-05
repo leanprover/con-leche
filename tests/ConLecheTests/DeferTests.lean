@@ -47,7 +47,7 @@ def deferFold : List Declaration → Nat × FEnv × Array PendingCheck → Array
   | d :: ds, acc, D =>
     if deferredDecl d then
       let v := viewOf acc.2.1
-      let (L, Q) := storedStep .verified v d
+      let (L, Q) := storedStep d
       deferFold ds (acc.1 + 1, FEnv.pushDelta L Q acc.2.1, acc.2.2)
         (D.push ⟨v, d, acc.1, L, Q⟩)
     else
