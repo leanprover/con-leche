@@ -96,11 +96,6 @@ def declConstants : Declaration → List ConstantInfo
       | some p => blockConstants p
       | none => []
 
-/-- The names a declaration installs, in push order: what the parallel install reserves slots at
-before any declaration is installed. -/
-def predictSlots (pd : Declaration) : Array Name :=
-  ((declConstants pd).map (·.name)).toArray
-
 /-- **The projection tables a declaration installs**: those of a recognised inductive block. -/
 def declTables : Declaration → List ProjTable
   | .indDecl block nP =>

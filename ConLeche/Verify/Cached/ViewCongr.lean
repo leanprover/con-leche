@@ -12,8 +12,8 @@ A record's job runs at a view of the stream's index (`StreamIndex.view`,
 `ConLeche/Cached/StreamIndex.lean`): an index with no constants of its own, answering from the frozen
 base layer.  For the job's verdict to be the fold's step, the check at the view must BE the check at
 the fold's index, push for push.  This file proves it: `checkDeclStepC_twin`: from two indices that
-answer alike, grow alike and hold nothing above their counters (`Twin`), the step fails alike or
-pushes the same constants onto each.
+answer alike and carry no overlay (`Twin`), the step fails alike or pushes the same constants onto
+each.
 
 Two kinds of lemma, bottom-up through the code:
 
@@ -53,82 +53,25 @@ theorem sharedOpsRuleR_envFree (mode : CheckMode) (fe : FEnv) :
     EnvFree (sharedOpsRuleR mode fe) :=
   ⟨fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl⟩
 
-/-! ## The index below its counter -/
+/-! ## Twin indices -/
 
-/-- Every index entry was pushed below the counter: what makes a push's lookup the old lookup but
-for the pushed name. -/
-@[expose] def IdxBelow (fe : FEnv) : Prop :=
-  fe.ovl = [] ∧
-    ∀ (n : Name) (c : Nat) (ci : ConstantInfo), fe.idx[n]? = some (c, ci) → c < fe.visibleBelow
-
-theorem IdxBelow.mkFEnv_empty : IdxBelow (mkFEnv Env.empty) := by
-  unfold IdxBelow
-  refine ⟨rfl, ?_⟩
-  intro n c ci h
-  simp [mkFEnv, mkFEnvGo, Env.empty] at h
-
-theorem IdxBelow.push {fe : FEnv} (h : IdxBelow fe) (ci : ConstantInfo) :
-    IdxBelow (fe.push ci) := by
-  unfold IdxBelow at h ⊢
-  refine ⟨h.1, ?_⟩
-  intro n c ci' hl
-  simp only [FEnv.push, Std.HashMap.getElem?_insert] at hl ⊢
-  split at hl
-  · cases hl; omega
-  · exact Nat.lt_succ_of_lt (h.2 n c ci' hl)
-
-theorem IdxBelow.pushTable {fe : FEnv} (h : IdxBelow fe) (t : ProjTable) :
-    IdxBelow (fe.pushTable t) := h
-
-theorem IdxBelow.pushTables :
-    ∀ (Q : List ProjTable) {fe : FEnv}, IdxBelow fe → IdxBelow (FEnv.pushTables Q fe)
-  | [], _, h => h
-  | t :: Q, _, h => IdxBelow.pushTables Q (h.pushTable t)
-
-theorem IdxBelow.pushAll {fe : FEnv} (h : IdxBelow fe) :
-    ∀ L : List ConstantInfo, IdxBelow (FEnv.pushAll L fe)
-  | [] => h
-  | ci :: L => IdxBelow.pushAll (h.push ci) L
-
-theorem pushAll_visibleBelow : ∀ (L : List ConstantInfo) (fe : FEnv),
-    (FEnv.pushAll L fe).visibleBelow = fe.visibleBelow + L.length
-  | [], _ => rfl
-  | ci :: L, fe => by
-    show (FEnv.pushAll L (fe.push ci)).visibleBelow = _
-    rw [pushAll_visibleBelow L (fe.push ci)]
-    simp only [FEnv.push, List.length_cons]
-    omega
-
-/-- **A push answers the pushed name and leaves every other lookup
-alone** (below the counter nothing else changes). -/
-theorem IdxBelow.find?_push {fe : FEnv} (h : IdxBelow fe) (ci : ConstantInfo) (n : Name) :
+/-- **A push answers the pushed name and leaves every other lookup alone.** -/
+theorem find?_push {fe : FEnv} (h : fe.ovl = []) (ci : ConstantInfo) (n : Name) :
     (fe.push ci).find? n = if ci.name = n then some ci else fe.find? n := by
-  unfold IdxBelow at h
-  have hov : (fe.push ci).ovl = [] := h.1
-  simp only [FEnv.find?, hov, h.1]
+  have hov : (fe.push ci).ovl = [] := h
+  simp only [FEnv.find?, hov, h]
   simp only [FEnv.push, Std.HashMap.getElem?_insert, beq_iff_eq]
   by_cases hn : ci.name = n
   · simp [hn]
   · simp only [hn, ↓reduceIte]
-    cases hl : fe.idx[n]? with
-    | none => rfl
-    | some p =>
-      obtain ⟨c, ci'⟩ := p
-      have hc := h.2 n c ci' hl
-      simp only [Nat.lt_succ_of_lt hc, hc, ↓reduceIte]
 
-/-! ## Twin indices -/
-
-/-- **Two indices that answer alike and grow alike**: the same
-lookups — of constants, and of tables before the constant gate
-(`FEnv.rawTable?`) — the same counter, every entry below it and no
-overlay. -/
+/-- **Two indices that answer alike and grow alike**: the same lookups -- of constants, and of tables
+before the constant gate (`FEnv.rawTable?`) -- and no overlay. -/
 structure Twin (fe₁ fe₂ : FEnv) : Prop where
   find : fe₁.find? = fe₂.find?
   raw : fe₁.rawTable? = fe₂.rawTable?
-  vis : fe₁.visibleBelow = fe₂.visibleBelow
-  idx₁ : IdxBelow fe₁
-  idx₂ : IdxBelow fe₂
+  ovl₁ : fe₁.ovl = []
+  ovl₂ : fe₂.ovl = []
 
 /-- Twins answer every table lookup alike. -/
 theorem Twin.findTable {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) :
@@ -139,15 +82,13 @@ theorem Twin.findTable {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) :
 
 theorem Twin.push {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) (ci : ConstantInfo) :
     Twin (fe₁.push ci) (fe₂.push ci) := by
-  refine ⟨?_, h.raw, ?_, h.idx₁.push ci, h.idx₂.push ci⟩
-  · funext n
-    rw [h.idx₁.find?_push, h.idx₂.find?_push, h.find]
-  · show fe₁.visibleBelow + 1 = fe₂.visibleBelow + 1
-    rw [h.vis]
+  refine ⟨?_, h.raw, h.ovl₁, h.ovl₂⟩
+  funext n
+  rw [find?_push h.ovl₁, find?_push h.ovl₂, h.find]
 
 theorem Twin.pushTable {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) (t : ProjTable) :
     Twin (fe₁.pushTable t) (fe₂.pushTable t) := by
-  refine ⟨h.find, ?_, h.vis, h.idx₁.pushTable t, h.idx₂.pushTable t⟩
+  refine ⟨h.find, ?_, h.ovl₁, h.ovl₂⟩
   funext T
   rw [FEnv.rawTable?_pushTable, FEnv.rawTable?_pushTable, h.raw]
 
@@ -195,15 +136,6 @@ theorem FEnv.pushDelta_append (L L' : List ConstantInfo) (Q Q' : List ProjTable)
     FEnv.pushDelta L' Q' (FEnv.pushDelta L Q fe) = FEnv.pushDelta (L ++ L') (Q ++ Q') fe := by
   unfold FEnv.pushDelta
   rw [FEnv.pushAll_pushTables, FEnv.pushAll_append, FEnv.pushTables_append]
-
-theorem IdxBelow.pushDelta {fe : FEnv} (h : IdxBelow fe) (L : List ConstantInfo)
-    (Q : List ProjTable) : IdxBelow (FEnv.pushDelta L Q fe) :=
-  IdxBelow.pushTables Q (h.pushAll L)
-
-theorem FEnv.visibleBelow_pushDelta (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
-    (FEnv.pushDelta L Q fe).visibleBelow = fe.visibleBelow + L.length := by
-  unfold FEnv.pushDelta
-  rw [FEnv.visibleBelow_pushTables, pushAll_visibleBelow]
 
 theorem Twin.pushDelta {fe₁ fe₂ : FEnv} (h : Twin fe₁ fe₂) (L : List ConstantInfo)
     (Q : List ProjTable) : Twin (FEnv.pushDelta L Q fe₁) (FEnv.pushDelta L Q fe₂) :=
@@ -1088,7 +1020,7 @@ theorem classFeR_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockSha
 theorem classFeROvl_find?_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : BlockShape)
     (Ms : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat) :
     (classFeROvl p Ms cvGs recCls fe₁).find? = (classFeROvl p Ms cvGs recCls fe₂).find? := by
-  rw [classFeROvl_find? ht.idx₁.1, classFeROvl_find? ht.idx₂.1]
+  rw [classFeROvl_find? ht.ovl₁, classFeROvl_find? ht.ovl₂]
   exact (classFeR_twin ht p Ms cvGs recCls).find
 
 /-- The rule-less recursors' overlays on twin indices answer the table
@@ -1097,7 +1029,7 @@ theorem classFeROvl_findTable?_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (Ms : List TargetMajor) (cvGs : List ConstantVal) (recCls : List Nat) :
     (classFeROvl p Ms cvGs recCls fe₁).findTable? =
       (classFeROvl p Ms cvGs recCls fe₂).findTable? := by
-  rw [classFeROvl_findTable? ht.idx₁.1, classFeROvl_findTable? ht.idx₂.1]
+  rw [classFeROvl_findTable? ht.ovl₁, classFeROvl_findTable? ht.ovl₂]
   exact (classFeR_twin ht p Ms cvGs recCls).findTable
 
 /-- **The recursor stage at twin indices is the same stage.** -/
@@ -1258,13 +1190,13 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     intro X
     have hf : ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay X.reverse).find?
         = ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay X.reverse).find? := by
-      rw [find?_overlay_pushAll ht₂.idx₁.1, find?_overlay_pushAll ht₂.idx₂.1]
+      rw [find?_overlay_pushAll ht₂.ovl₁, find?_overlay_pushAll ht₂.ovl₂]
       exact (ht₂.pushAll X).find
     have htb : ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₁)).overlay
         X.reverse).findTable?
         = ((consBlockCtorsF p.nP memberCtors (FEnv.pushDelta L Q fe₂)).overlay
           X.reverse).findTable? := by
-      rw [findTable?_overlay_pushAll ht₂.idx₁.1, findTable?_overlay_pushAll ht₂.idx₂.1]
+      rw [findTable?_overlay_pushAll ht₂.ovl₁, findTable?_overlay_pushAll ht₂.ovl₂]
       exact (ht₂.pushAll X).findTable
     funext recs out
     rw [sharedOpsC_congr hf htb]
@@ -1376,7 +1308,7 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
     rw [checkDefnValCI_congr hfe htb]
     refine RelRun.bind_same fun ci => ?_
     have hov : (fe₁.overlay [ci]).find? = (fe₂.overlay [ci]).find? := by
-      rw [find?_overlay_push ht.idx₁.1, find?_overlay_push ht.idx₂.1]
+      rw [find?_overlay_push ht.ovl₁, find?_overlay_push ht.ovl₂]
       exact (ht.push ci).find
     have h := sharedOpsC_envFree mode fe₂
     simp only [natOpGuardF_congr hov, natOpStoredOkF_congr hov, hov,
@@ -1396,7 +1328,7 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
     rw [checkOpaqueValCI_congr hfe htb]
     refine RelRun.bind_same fun ci => ?_
     have hov : (fe₁.overlay [ci]).find? = (fe₂.overlay [ci]).find? := by
-      rw [find?_overlay_push ht.idx₁.1, find?_overlay_push ht.idx₂.1]
+      rw [find?_overlay_push ht.ovl₁, find?_overlay_push ht.ovl₂]
       exact (ht.push ci).find
     have h := sharedOpsC_envFree mode fe₂
     simp only [sharedOpsC_congr hfe htb, checkReducePinF_congr h hfe hov]

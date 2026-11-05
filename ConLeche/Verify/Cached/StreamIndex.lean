@@ -238,11 +238,6 @@ theorem buildIndex_spec (ds : Array Declaration) : IndexSpec ds.toList (buildInd
 
 /-! ## The view of a position -/
 
-/-- The view holds nothing above its counter. -/
-theorem IdxBelow.view (I : StreamIndex) (k : Nat) : IdxBelow (I.view k) := by
-  unfold IdxBelow
-  exact ⟨rfl, fun n c ci h => by simp [StreamIndex.view] at h⟩
-
 /-- A list whose keys are distinct: the last with a key is the first. -/
 theorem find?_reverse_of_nodup {α : Type} (f : α → Name) (n : Name) :
     ∀ {L : List α}, (L.map f).Nodup → L.reverse.find? (f · == n) = L.find? (f · == n)
@@ -370,7 +365,7 @@ theorem view_counter {pre rest : List Declaration} {I : StreamIndex}
 
 theorem view_eq {pre rest : List Declaration} {I : StreamIndex}
     (hI : IndexSpec (pre ++ rest) I) :
-    I.view pre.length = ⟨⟨[], []⟩, {}, (recsConsts pre).length,
+    I.view pre.length = ⟨⟨[], []⟩, {},
       { I.base with below := (recsConsts pre).length, belowRec := pre.length }, [], {}⟩ := by
   simp only [StreamIndex.view, view_counter hI]
 
@@ -424,14 +419,14 @@ theorem view_rawTable {pre rest : List Declaration} {I : StreamIndex}
 /-- **The view of a position is a twin of the fold's index there**, the names so far being
 distinct. -/
 theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec (pre ++ rest) I)
-    {fe : FEnv} (hfe : fe = mkFEnv (streamEnv pre)) (hidx : IdxBelow fe)
+    {fe : FEnv} (hfe : fe = mkFEnv (streamEnv pre))
     (hnd : ((recsConsts pre).map (·.name)).Nodup) : Twin fe (I.view pre.length) := by
   have hcons : (streamEnv pre).consts = (recsConsts pre).reverse := by
     simpa [Env.empty] using streamEnv_consts pre Env.empty
   have htabs : (streamEnv pre).tables = (pre.flatMap declTables).reverse := by
     simpa [Env.empty] using streamEnv_tables pre Env.empty
   subst hfe
-  refine ⟨?_, ?_, ?_, hidx, IdxBelow.view I _⟩
+  refine ⟨?_, ?_, rfl, rfl⟩
   · funext n
     rw [mkFEnv_find?, view_find hI, firstOcc_map]
     unfold Env.find?
@@ -440,7 +435,6 @@ theorem viewTwin {pre rest : List Declaration} {I : StreamIndex} (hI : IndexSpec
   · funext T
     rw [mkFEnv_rawTable?, view_rawTable hI, firstTbl_map, recsTables_snd, htabs]
     exact find?_reverse_of_nodup (fun t : ProjTable => t.structName) T ((recsTables_sublist pre).nodup hnd)
-  · rw [mkFEnv_visibleBelow, view_eq hI, hcons, List.length_reverse]
 
 /-! ## The jobs and the fold -/
 
@@ -449,11 +443,10 @@ theorem jobs_run {ds : Array Declaration}
     (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
     ∀ k, k ≤ ds.size → ∃ fe,
       DeclsRun mode pins (ds.toList.take k) (0, mkFEnv Env.empty) (k, fe) ∧
-      PushChain Env.empty fe ∧ IdxBelow fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k))
-  | 0, _ => ⟨mkFEnv Env.empty, by simpa using DeclsRun.nil _, PushChain.refl _,
-      IdxBelow.mkFEnv_empty, rfl⟩
+      PushChain Env.empty fe ∧ fe = mkFEnv (streamEnv (ds.toList.take k))
+  | 0, _ => ⟨mkFEnv Env.empty, by simpa using DeclsRun.nil _, PushChain.refl _, rfl⟩
   | k + 1, hk => by
-    obtain ⟨fe, hrun, hchain, hidx, hfe⟩ := jobs_run h k (by omega)
+    obtain ⟨fe, hrun, hchain, hfe⟩ := jobs_run h k (by omega)
     have hk' : k < ds.size := by omega
     have hkl : (ds.toList.take k).length = k := by simp; omega
     have hsplit : ds.toList.take k ++ ds.toList.drop k = ds.toList := List.take_append_drop k _
@@ -468,7 +461,7 @@ theorem jobs_run {ds : Array Declaration}
       unfold NodupNames at hN
       rw [hc, List.map_reverse] at hN
       exact (List.reverse_perm _).nodup_iff.mp hN
-    have ht : Twin fe ((buildIndex ds).view k) := hkl ▸ viewTwin hI hfe hidx hnd
+    have ht : Twin fe ((buildIndex ds).view k) := hkl ▸ viewTwin hI hfe hnd
     have hjob := h k hk'
     unfold recordJob at hjob
     split at hjob
@@ -489,16 +482,14 @@ theorem jobs_run {ds : Array Declaration}
         rw [hpush, hfe, pushDelta_mkFEnv, hL]
         congr 1
         simp [streamEnv, List.foldl_append]
-      refine ⟨_, ?_, hchain', ?_, hfe'⟩
-      · rw [hL]; exact hrun.snoc mode hstep
-      · rw [hpush]
-        exact (hidx.pushAll _).pushTables _
+      refine ⟨_, ?_, hchain', hfe'⟩
+      rw [hL]; exact hrun.snoc mode hstep
 
 /-- **Every job passing is an accept of the fold**, at the environment the records denote. -/
 theorem checkDecls_of_jobs {ds : Array Declaration}
     (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
     checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
-  obtain ⟨fe, hrun, -, -, hfe⟩ := jobs_run h ds.size (Nat.le_refl _)
+  obtain ⟨fe, hrun, -, hfe⟩ := jobs_run h ds.size (Nat.le_refl _)
   rw [List.take_of_length_le (by simp)] at hrun hfe
   rw [checkDecls_of_run mode hrun, hfe]
   rfl

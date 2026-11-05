@@ -11,8 +11,7 @@ The driver's reads of the files are written against `CheckerIO m`, a
 monad with the few file operations the checker needs, instead of
 against `IO`; everything else the driver does at the runtime — output,
 diagnostics, the clock, the persistent mark,
-and every thread (the rounds parse's owners, the install and the check
-pools) — is an `IO` action handed to the class's one escape,
+and every thread (the rounds parse's owners, the check pool) — is an `IO` action handed to the class's one escape,
 `CheckerIO.liftIO`.  The same code runs at two instances:
 
 * **`IO`** (`instCheckerIOIO`): the binary.  Each file operation is the

@@ -54,11 +54,6 @@ theorem FEnv.find?_pushTables :
   | [], _ => rfl
   | t :: Q, fe => (FEnv.find?_pushTables Q (fe.pushTable t)).trans (FEnv.find?_pushTable fe t)
 
-theorem FEnv.visibleBelow_pushTables :
-    ∀ (Q : List ProjTable) (fe : FEnv), (FEnv.pushTables Q fe).visibleBelow = fe.visibleBelow
-  | [], _ => rfl
-  | t :: Q, fe => FEnv.visibleBelow_pushTables Q (fe.pushTable t)
-
 /-- A table install answers its structure's name in the raw table
 lookup, and leaves every other raw lookup alone. -/
 theorem FEnv.rawTable?_pushTable (fe : FEnv) (t : ProjTable) (T : Name) :

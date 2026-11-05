@@ -69,7 +69,7 @@ def buildIndex (ds : Array Declaration) : StreamIndex :=
 record's first counter and its position. -/
 def StreamIndex.view (I : StreamIndex) (k : Nat) : FEnv :=
   let c := I.firsts.getD k I.next
-  ⟨⟨[], []⟩, {}, c, { I.base with below := c, belowRec := k }, [], {}⟩
+  ⟨⟨[], []⟩, {}, { I.base with below := c, belowRec := k }, [], {}⟩
 
 /-- **Record `pd`'s job, at position `k`**: what the fold's step asks of it, at its view. -/
 def recordJob (mode : CheckMode) (pins : List NatOpPinSet) (I : StreamIndex) (k : Nat)

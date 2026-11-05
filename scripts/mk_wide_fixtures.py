@@ -1,30 +1,29 @@
 #!/usr/bin/env python3
-"""Generate the parallel install's end-to-end fixtures (task #329).
+"""Generate the wide streams' end-to-end fixtures.
 
-    scripts/mk_pinstall_fixtures.py OUTDIR
+    scripts/mk_wide_fixtures.py OUTDIR
 
 Three streams of N = 3000 definitions over `Sort`, wide enough that a
-pool of workers installs many of them at once.  Definition `c<i>` has
+pool of workers checks many of them at once.  Definition `c<i>` has
 type `Type` and value `c<i // 2>` (`c1`'s value is `Prop`), so every
 record depends on an earlier one and the dependency graph is a tree of
-depth log N — the install pool runs it in parallel, the commit thread in
-order.
+depth log N.
 
-* `pinstall_ok.ndjson` — accepted (exit 0), at every worker count.
-* `pinstall_reject_mid.ndjson` — record `c1500` has the type `nosuch`, a
-  constant nobody declares: the install rejects it (exit 1), and the
+* `wide_ok.ndjson` — accepted (exit 0), at every worker count.
+* `wide_reject_mid.ndjson` — record `c1500` has the type `nosuch`, a
+  constant nobody declares: its check rejects it (exit 1), and the
   verdict names `c1500` at every worker count, although records after it
-  may already be installed by the pool.
-* `pinstall_dup.ndjson` — `c2500` is declared a second time, under the
-  name `c7` (a duplicate of a record two thousand records earlier): the
-  install rejects it with `duplicate declaration c7` at every worker
-  count — the worker view sees `c7`'s first slot.
+  may already be checked by the pool.
+* `wide_dup.ndjson` — `c2500` is declared a second time, under the
+  name `c7` (a duplicate of a record two thousand records earlier): its
+  check rejects it with `duplicate declaration c7` at every worker
+  count — its view sees `c7`'s first entry.
 """
 import os
 import sys
 
 N = 3000
-HEADER = ('{"meta":{"exporter":{"name":"mk_pinstall_fixtures","version":"1"},'
+HEADER = ('{"meta":{"exporter":{"name":"mk_wide_fixtures","version":"1"},'
           '"format":{"version":"3.1.0"},'
           '"lean":{"githash":"0000000000000000000000000000000000000000",'
           '"version":"4.33.0"}}}\n')
@@ -63,9 +62,9 @@ def main() -> int:
         print(__doc__.strip(), file=sys.stderr)
         return 2
     out = sys.argv[1]
-    stream(os.path.join(out, "pinstall_ok.ndjson"))
-    stream(os.path.join(out, "pinstall_reject_mid.ndjson"), bad=1500)
-    stream(os.path.join(out, "pinstall_dup.ndjson"), dup=(2500, 7))
+    stream(os.path.join(out, "wide_ok.ndjson"))
+    stream(os.path.join(out, "wide_reject_mid.ndjson"), bad=1500)
+    stream(os.path.join(out, "wide_dup.ndjson"), dup=(2500, 7))
     return 0
 
 

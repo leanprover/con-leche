@@ -147,9 +147,8 @@ if _stale:
 
 # THE BASE-PURITY FENCE.  Lane GATEFIX (2026-09-26): from the SetR
 # removal until then this compared against the retired lane name `'P'`,
-# so it could not fire; `Verify/Cached/{InstalledC,StreamConsts}` had
-# grown two `Model/Fold` imports under it (their model halves now live in
-# `ConLeche/Model/{InstallRun,StreamConsts}.lean`).  The script now
+# so it could not fire, and two `Verify/Cached` modules had grown
+# `Model/Fold` imports under it.  The script now
 # refuses a lane name it does not assign (LANE_NAMES below).
 basev = sorted((a, b) for a in mods for b in edges[a]
                if LANE[a] == 'base' and LANE[b] == 'model')

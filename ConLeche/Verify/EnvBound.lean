@@ -5,93 +5,20 @@ public import ConLeche.Kernel.DeclCheck
 public section
 
 /-!
-# The index's installation counters and the prefix view (task #108)
+# The index answers as the environment
 
-`FEnv` (`ConLeche/Kernel/FEnv.lean`) stores, beside each indexed
-constant, the number of constants installed before it — its
-*installation counter* — and a bound `visibleBelow`; `FEnv.find?`
-hides every entry whose counter is at or above the bound.  This file
-proves what that bound means:
-
-* `mkFEnv_find?` — with nothing hidden the index *is* `Env.find?`
-  (with the counters in play);
-* `mkFEnv_find?_visibleBelow` — the full equivalence
-  `bounded find? = find? in the truncated environment`, under name
-  uniqueness (the only thing the bounded lookup can miss is an *older*
-  constant shadowed by a same-named newer one; the checker rejects
-  duplicate names at insertion, so this never happens on an accepted
-  stream, and its absence is the safe direction anyway).
+`FEnv` (`ConLeche/Kernel/FEnv.lean`) keeps a name index and a table map beside the environment; for
+`mkFEnv` they answer as `Env.find?` and `Env.findTable?` do (`mkFEnv_find?`, `mkFEnv_findTable?`), and
+the guard twins that read through them as the `Env` guards do.
 
 Spec-side only: nothing here is called by the checker.
 -/
 
 namespace ConLeche
 
-/-! ## The index's specification -/
-
-/-- What the name index holds: the newest constant of the given name
-together with its installation counter — the number of *older*
-constants, i.e. the length of the tail it heads (`consts` is
-newest-first). -/
-def idxSpec : List ConstantInfo → Name → Option (Nat × ConstantInfo)
-  | [], _ => none
-  | ci :: cs, n => if ci.name == n then some (cs.length, ci) else idxSpec cs n
-
-theorem mkFEnvGo_fst : ∀ l : List ConstantInfo, (mkFEnvGo l).1 = l.length
-  | [] => rfl
-  | ci :: cs => by
-    show (mkFEnvGo cs).1 + 1 = _
-    rw [mkFEnvGo_fst cs, List.length_cons]
-
-theorem mkFEnvGo_snd (n : Name) : ∀ l : List ConstantInfo,
-    (mkFEnvGo l).2[n]? = idxSpec l n
-  | [] => by simp [mkFEnvGo, idxSpec]
-  | ci :: cs => by
-    show ((mkFEnvGo cs).2.insert ci.name ((mkFEnvGo cs).1, ci))[n]? = _
-    rw [Std.HashMap.getElem?_insert, idxSpec]
-    by_cases hn : ci.name == n
-    · rw [ite_eq_left hn, ite_eq_left hn, mkFEnvGo_fst]
-    · rw [ite_eq_right hn, ite_eq_right hn, mkFEnvGo_snd n cs]
-
-/-- The index of `mkFEnv`, as the specification. -/
-theorem mkFEnv_idx (env : Env) (n : Name) :
-    (mkFEnv env).idx[n]? = idxSpec env.consts n :=
-  mkFEnvGo_snd n env.consts
-
-/-- `mkFEnv` hides nothing: its bound is the constant count. -/
-theorem mkFEnv_visibleBelow (env : Env) :
-    (mkFEnv env).visibleBelow = env.consts.length :=
-  mkFEnvGo_fst env.consts
-
-/-- Counters are positions from the bottom, so they are below the
-length. -/
-theorem idxSpec_lt {n : Name} : ∀ {l : List ConstantInfo} {c : Nat}
-    {ci : ConstantInfo}, idxSpec l n = some (c, ci) → c < l.length
-  | [], _, _, h => by simp [idxSpec] at h
-  | cj :: cs, c, ci, h => by
-    rw [idxSpec] at h
-    by_cases hn : cj.name == n
-    · rw [ite_eq_left hn] at h
-      injection h with h
-      injection h with h1 _
-      subst h1
-      simp
-    · rw [ite_eq_right hn] at h
-      have := idxSpec_lt h
-      simp only [List.length_cons]
-      omega
-
-/-- Forgetting the counter, the index's specification is `List.find?`. -/
-theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
-    (idxSpec l n).map (·.2) = l.find? (·.name == n)
-  | [] => rfl
-  | ci :: cs => by
-    rw [idxSpec]
-    by_cases hn : ci.name == n
-    · rw [ite_eq_left hn]
-      simp [hn]
-    · rw [ite_eq_right hn, idxSpec_snd n cs]
-      simp [Bool.of_not_eq_true hn]
+/-- Name uniqueness of an environment's constants: what the fold keeps
+(`ConLeche/Verify/Cached/PushChain.lean`), so that a stream's first entry of a name is its only one. -/
+@[expose] def NodupNames (env : Env) : Prop := (env.consts.map (·.name)).Nodup
 
 /-- The empty base layer answers nothing. -/
 @[simp] theorem FBase.find?_empty (n : Name) : ({} : FBase).find? n = none := by
@@ -100,123 +27,26 @@ theorem idxSpec_snd (n : Name) : ∀ l : List ConstantInfo,
 /-- `mkFEnv` has the empty base layer. -/
 @[simp] theorem mkFEnv_base (env : Env) : (mkFEnv env).base = {} := rfl
 
-/-- The per-entry-call name index computes `Env.find?` (nothing is
-hidden: `mkFEnv`'s bound is the constant count). -/
+/-- The index's specification: `List.find?` (the build inserts from the back, so the newest constant
+of a name wins). -/
+theorem mkIdxGo_getElem? (n : Name) : ∀ l : List ConstantInfo,
+    (mkIdxGo l)[n]? = l.find? (·.name == n)
+  | [] => by simp [mkIdxGo]
+  | ci :: cs => by
+    show ((mkIdxGo cs).insert ci.name ci)[n]? = _
+    rw [Std.HashMap.getElem?_insert, List.find?_cons, mkIdxGo_getElem? n cs]
+    by_cases hn : ci.name == n <;> simp [hn]
+
+/-- The per-entry-call name index computes `Env.find?`. -/
 theorem mkFEnv_find? (env : Env) (n : Name) :
     (mkFEnv env).find? n = env.find? n := by
-  show (match (mkFEnv env).idx[n]? with
-        | some (c, ci) => if c < (mkFEnv env).visibleBelow then some ci else none
-        | none => (mkFEnv env).base.find? n) = _
-  rw [mkFEnv_idx, mkFEnv_visibleBelow, Env.find?, ← idxSpec_snd n env.consts]
-  cases h : idxSpec env.consts n with
-  | none => rw [mkFEnv_base, FBase.find?_empty]; rfl
-  | some p =>
-    obtain ⟨c, ci⟩ := p
-    show (if c < env.consts.length then some ci else none) = some ci
-    rw [ite_eq_left (idxSpec_lt h)]
-
-/-! ## The prefix view -/
-
-/-- The environment truncated to its first `k` installed constants
-(`consts` is newest-first, so the prefix is the *tail*).  The tables
-stay: a table is visible exactly where its structure is
-(`Env.findTable?`), so the truncation hides the others. -/
-def Env.prefixTo (env : Env) (k : Nat) : Env :=
-  ⟨env.consts.drop (env.consts.length - k), env.tables⟩
-
-/-- The prefix keeps the tables. -/
-@[simp] theorem Env.prefixTo_tables (env : Env) (k : Nat) :
-    (env.prefixTo k).tables = env.tables := by rfl
-
-/-- The prefix at the length of a suffix environment has that
-environment's constants (task #253: the environment a declaration was
-installed at, read off the final one). -/
-theorem Env.prefixTo_consts_of_extends {env env' : Env} {new : List ConstantInfo}
-    (h : env'.consts = new ++ env.consts) :
-    (env'.prefixTo env.consts.length).consts = env.consts := by
-  unfold Env.prefixTo
-  rw [h, List.length_append, Nat.add_sub_cancel, List.drop_left]
-
-/-- Name uniqueness of an environment's constants — the hypothesis of
-`mkFEnv_find?_visibleBelow`, an install-time invariant of every driver
-(`ConLeche/Verify/Cached/PushChain.lean`). -/
-@[expose] def NodupNames (env : Env) : Prop := (env.consts.map (·.name)).Nodup
-
-/-- The bounded index lookup, on the specification. -/
-private def idxBelow (l : List ConstantInfo) (k : Nat) (n : Name) :
-    Option ConstantInfo :=
-  match idxSpec l n with
-  | some (c, ci) => if c < k then some ci else none
-  | none => none
-
-private theorem idxBelow_cons_pos {k : Nat} {n : Name} {cj : ConstantInfo}
-    {cs : List ConstantInfo} (hn : cj.name == n) :
-    idxBelow (cj :: cs) k n = if cs.length < k then some cj else none := by
-  rw [idxBelow, idxSpec, ite_eq_left hn]
-
-private theorem idxBelow_cons_neg {k : Nat} {n : Name} {cj : ConstantInfo}
-    {cs : List ConstantInfo} (hn : ¬ (cj.name == n)) :
-    idxBelow (cj :: cs) k n = idxBelow cs k n := by
-  rw [idxBelow, idxSpec, ite_eq_right hn, idxBelow]
-
-/-- **The bound is the prefix**: under name uniqueness the bounded
-lookup is exactly the lookup in the truncated list.  (Without it the
-bounded lookup can only return *less*: a name shadowed inside the
-prefix by a newer entry above the bound.) -/
-private theorem idxBelow_eq {k : Nat} {n : Name} :
-    ∀ {l : List ConstantInfo}, (l.map (·.name)).Nodup →
-      idxBelow l k n = (l.drop (l.length - k)).find? (·.name == n)
-  | [], _ => by simp [idxBelow, idxSpec]
-  | cj :: cs, hnd => by
-    rw [List.map_cons, List.nodup_cons] at hnd
-    obtain ⟨hmem, hnd⟩ := hnd
-    have ih := idxBelow_eq (k := k) (n := n) hnd
-    by_cases hk : cs.length < k
-    · rw [List.length_cons, Nat.sub_eq_zero_of_le hk, List.drop_zero,
-        List.find?_cons]
-      rw [Nat.sub_eq_zero_of_le (Nat.le_of_lt hk), List.drop_zero] at ih
-      by_cases hn : cj.name == n
-      · rw [idxBelow_cons_pos hn, ite_eq_left hk]
-        simp only [hn]
-      · rw [idxBelow_cons_neg hn, ih]
-        simp only [Bool.of_not_eq_true hn]
-    · rw [List.length_cons,
-        show cs.length + 1 - k = (cs.length - k) + 1 by omega,
-        List.drop_succ_cons]
-      by_cases hn : cj.name == n
-      · rw [idxBelow_cons_pos hn, ite_eq_right hk]
-        refine Eq.symm ((List.find?_eq_none).2 (fun x hx => ?_))
-        have hx' : x ∈ cs := List.mem_of_mem_drop hx
-        have hne : x.name ≠ cj.name := fun he =>
-          hmem (List.mem_map.2 ⟨x, hx', he⟩)
-        have hcj : cj.name = n := by simpa using hn
-        simp only [beq_iff_eq]
-        exact fun he => hne (he.trans hcj.symm)
-      · rw [idxBelow_cons_neg hn, ih]
-
-/-- The bounded index lookup on `mkFEnv` is the specification's. -/
-private theorem restrictTo_find?_eq (env : Env) (k : Nat) (n : Name) :
-    ((mkFEnv env).restrictTo k).find? n = idxBelow env.consts k n := by
-  show (match (mkFEnv env).idx[n]? with
-        | some (c, ci) => if c < k then some ci else none
+  show (match (mkIdxGo env.consts)[n]? with
+        | some ci => some ci
         | none => ({} : FBase).find? n) = _
-  rw [mkFEnv_idx, idxBelow, FBase.find?_empty]
+  rw [mkIdxGo_getElem?, FBase.find?_empty, Env.find?]
+  cases env.consts.find? (·.name == n) <;> rfl
 
-/-- **The bounded index is the prefix environment** (the load-bearing
-equivalence for the split driver): looking a name up in the full index
-with the bound `k` is looking it up in the environment truncated to its
-first `k` installed constants.  The hypothesis is name uniqueness, which
-the checker establishes at insertion (`checkConstantVal` rejects a
-duplicate name before any push). -/
-theorem mkFEnv_find?_visibleBelow (env : Env) (k : Nat) (n : Name)
-    (hnd : (env.consts.map (·.name)).Nodup) :
-    ((mkFEnv env).restrictTo k).find? n = (env.prefixTo k).find? n := by
-  rw [restrictTo_find?_eq, idxBelow_eq hnd, Env.prefixTo, Env.find?]
-
-/-! ## The `FEnv` index agrees with `Env.find?`
-
-(`mkFEnv_find?` itself, and the bounded-lookup theory it sits in, are in
-`ConLeche/Verify/EnvBound.lean`.) -/
+/-! ## The table map agrees with `Env.findTable?` -/
 
 /-- The table map's specification: `List.find?` (the build inserts from
 the back, so the newest table of a name wins). -/
@@ -253,18 +83,6 @@ theorem mkFEnv_findProj? (env : Env) (T : Name) (i : Nat) :
     (mkFEnv env).findProj? T i = env.findProj? T i := by
   rw [FEnv.findProj?, Env.findProj?, mkFEnv_findTable?]
   cases env.findTable? T <;> rfl
-
-/-- **The bounded table lookup is the prefix environment's** (task #362):
-both hide a table with its structure. -/
-theorem mkFEnv_findTable?_visibleBelow (env : Env) (k : Nat) (T : Name)
-    (hnd : (env.consts.map (·.name)).Nodup) :
-    ((mkFEnv env).restrictTo k).findTable? T = (env.prefixTo k).findTable? T := by
-  have hraw : ((mkFEnv env).restrictTo k).rawTable? T =
-      env.tables.find? (·.structName == T) :=
-    mkFEnv_rawTable? env T
-  unfold FEnv.findTable? Env.findTable?
-  rw [mkFEnv_find?_visibleBelow env k T hnd, hraw]
-  rfl
 
 /-! ## Guard twins agree with the `Env` versions -/
 

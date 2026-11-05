@@ -10,8 +10,8 @@
 # library is NOT in `defaultTargets`, and nothing in the tree imports
 # it — which is exactly why it can rot unnoticed: `lake build`, `lake
 # test` and every other gate leave it alone.  It did rot (task #257
-# moved `checkDecls` to `ConLeche.Cached.Decls` while the module
-# still imported `ConLeche.Cached.ParsedC`), and Comparator only
+# moved `checkDecls` to another module while this one still imported
+# `ConLeche.Cached.ParsedC`), and Comparator only
 # compares statements it can build.  Hence this gate.
 #
 # Two checks, both cheap once the tree is built:

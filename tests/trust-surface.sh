@@ -164,74 +164,25 @@
 #       records read the generated C for the trap the primitive exists
 #       to avoid (a hidden reference before the read).
 #
-#   ConLeche/Driver/Run.lean           unsafe
-#       THE PERSISTENT MARK AT THE PHASE BOUNDARY.  Two term-level
-#       `unsafe Runtime.markPersistent` calls in `checkDeclsIO`, taken
-#       once at the phase boundary at every worker count, on the
-#       installed `FEnv` and the pending-check array.  It is the same escape
+#   ConLeche/Driver/CheckPool.lean     unsafe
+#       THE PERSISTENT MARK BEFORE THE CHECK PHASE.  Two term-level
+#       `unsafe Runtime.markPersistent` calls in `Jobs.build`, taken
+#       once at every worker count, on the records and on the stream's
+#       index.  It is the same escape
 #       `Lean.Environment.finalizeImport` uses for the same call, and
 #       it is `unsafe` for one reason only: a marked closure is never
 #       freed, and this process exits right after.  Nothing else about
-#       it can be observed.  The graph is READ-ONLY from the boundary
-#       on — every recorded check reads a prefix view of it from a
-#       fresh memo state and writes nothing back — the call is the
-#       IDENTITY on the value, and its result is DISCARDED, so the
-#       `InstalledEnv` the driver goes on to use is the one it already
-#       had and no verdict, and no step of the proof that `checkDecls`
-#       returns that environment, can turn on whether the mark
-#       happened.  No `implemented_by` and no
-#       `computed_field` is tolerated in this file.
+#       it can be observed.  The graph is READ-ONLY from the mark
+#       on -- every job reads a view of it from a fresh memo state and
+#       writes nothing back -- the call is the IDENTITY on the value,
+#       and its result is DISCARDED, so no verdict, and no step of the
+#       proof that `checkDecls` accepts, can turn on whether the mark
+#       happened.  What the mark relies on: the marked graph reaches no
+#       object that is still counted by another thread (the parse's
+#       owners have finished, and the workers have not started).  No
+#       `implemented_by` and no `computed_field` is tolerated in this
+#       file.
 #
-#   ConLeche/Driver/ParInstall.lean    unsafe
-#       THE PARALLEL INSTALL'S OWN MARKS (task #329).  Six term-level
-#       `unsafe Runtime.markPersistent` calls, the same escape as
-#       above.  Two mark what lives to the end of the run: the records
-#       (`ds`), once, before the first prelude task is spawned, and —
-#       inside `installAndPublish`, by the installer before it
-#       publishes anything — an install's result and the array of
-#       constants it publishes into its slot (the constants end up in
-#       the installed environment).  The other four mark the install's
-#       own bookkeeping, which dies with the install and is leaked on
-#       purpose (measured, task #329's `ifix` record): the base shards
-#       (every lookup takes a reference on a shard entry, atomic and
-#       contended if the shard were multi-threaded), the dependency
-#       counts, the per-record states and the dependency edges (one
-#       call, in `depsChunk`), and the assembled dependents (freeing
-#       these cost the check phase more than it saved).
-#       What is read-only from the mark on: the records, the shards,
-#       the edges, the dependents and every published result.  The
-#       counts and states are `IO.Ref`s that every worker WRITES; a
-#       persistent ref is read and written through the runtime's atomic
-#       path exactly like a multi-threaded one, and what is stored in
-#       it is a scalar or (`RState.done`) a fresh wrapper around an
-#       already persistent result, so no write races a count.
-#       Results used: the records', the published result's, the slot
-#       array's and the dependents' marks discard theirs (the call is
-#       the identity on the value and marks the graph in place).  The
-#       shard's and `depsChunk`'s are returned as their task's value:
-#       logically an arbitrary inhabitant of the type, which is
-#       harmless — a shard is pinned by the `BuiltShard` subtype (it
-#       IS `buildShard` of some shard number, which is all
-#       `buildBase_inj` needs), and the counts, states and edges only
-#       schedule (a wrong one costs time or termination, never a
-#       verdict: what the commit takes from a state is a `WRes`, which
-#       carries its own evidence).  What every mark relies on: the marked graph reaches
-#       no object that is already multi-threaded and still counted by
-#       another thread (the mark would downgrade it to persistent under
-#       that thread's feet).  Precisely, every object a mark reaches is
-#       persistent already, or was built by the marking thread, or is
-#       multi-threaded but counted by no other running thread while the
-#       mark runs.  The third kind occurs twice: the dependents' mark
-#       reaches the per-chunk arrays `dependentsChunk` marked
-#       multi-threaded (their tasks have finished, and only the marking
-#       thread holds them); a base shard's mark reaches the projection
-#       tables' `Name`s `predictChunk` built, multi-threaded and shared
-#       with the prediction's `slots` array (their tasks have finished,
-#       the main thread holding `slots` is waiting for the shards, and
-#       the other shard tasks take references only on the names of their
-#       own shards: a name lies in one shard).  The results' mark
-#       reaches only the first two kinds (the warning sits at its
-#       call).
 #   ConLeche/Driver/OwnerParse.lean    unsafe
 #       THE ROUNDS PARSE'S MARKS (task #329).  One term-level
 #       `unsafe Runtime.markPersistent` call (`markOne`, through
@@ -311,8 +262,7 @@ TOKENS = {
 }
 
 ALLOW = {
-    'ConLeche/Driver/Run.lean':       {'unsafe'},
-    'ConLeche/Driver/ParInstall.lean': {'unsafe'},
+    'ConLeche/Driver/CheckPool.lean': {'unsafe'},
     'ConLeche/Driver/OwnerParse.lean': {'unsafe'},
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},

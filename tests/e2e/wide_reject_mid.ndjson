@@ -1,4 +1,4 @@
-{"meta":{"exporter":{"name":"mk_pinstall_fixtures","version":"1"},"format":{"version":"3.1.0"},"lean":{"githash":"0000000000000000000000000000000000000000","version":"4.33.0"}}}
+{"meta":{"exporter":{"name":"mk_wide_fixtures","version":"1"},"format":{"version":"3.1.0"},"lean":{"githash":"0000000000000000000000000000000000000000","version":"4.33.0"}}}
 {"il":1,"succ":0}
 {"ie":0,"sort":0}
 {"ie":1,"sort":1}
@@ -4502,7 +4502,7 @@
 {"def":{"all":[1499],"hints":{"regular":1},"levelParams":[],"name":1499,"safety":"safe","type":1,"value":751}}
 {"ie":1501,"const":{"name":1499,"us":[]}}
 {"in":1500,"str":{"pre":0,"str":"c1500"}}
-{"def":{"all":[1500],"hints":{"regular":1},"levelParams":[],"name":1500,"safety":"safe","type":1,"value":752}}
+{"def":{"all":[1500],"hints":{"regular":1},"levelParams":[],"name":1500,"safety":"safe","type":2,"value":752}}
 {"ie":1502,"const":{"name":1500,"us":[]}}
 {"in":1501,"str":{"pre":0,"str":"c1501"}}
 {"def":{"all":[1501],"hints":{"regular":1},"levelParams":[],"name":1501,"safety":"safe","type":1,"value":752}}

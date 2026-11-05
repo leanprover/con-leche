@@ -52,29 +52,14 @@ def FBase.findTable? (b : @& FBase) (T : Name) : Option ProjTable :=
 /-! ## The indexed environment -/
 
 /-- The spec environment together with a name index whose lookup function
-agrees with `Env.find?` (built once per top-level entry call).
-
-Every index entry carries its **installation counter** — the number of
-constants installed before it, i.e. its position counted from the bottom
-of `env.consts` — and the environment carries a **visibility bound**,
-`visibleBelow`: `find?` returns `none` for an entry whose counter is at
-or above the bound, so a single `FEnv` value answers lookups against any
-*prefix* of itself at `O(1)` (task #108; a field comparison on the entry
-— never a filtered copy or a second environment value).  `visibleBelow`
-doubles as the next counter to hand out, so on the ordinary
-install-and-check path it is exactly `env.consts.length` and nothing is
-ever hidden (`mkFEnv_find?`); lowering it to `k` is the prefix view of
-the first `k` installed constants (`mkFEnv_find?_visibleBelow`,
-`ConLeche/Verify/EnvBound.lean`). -/
+agrees with `Env.find?` (built once per top-level entry call), over the
+frozen layer of a stream's index (`base`). -/
 structure FEnv where
   env : Env
-  idx : Std.HashMap Name (Nat × ConstantInfo)
-  /-- Entries with counter `< visibleBelow` are visible; also the next
-  counter `push` hands out. -/
-  visibleBelow : Nat
+  idx : Std.HashMap Name ConstantInfo
   /-- The frozen lookup layer under the index (`FBase`): consulted on an
   index miss.  Empty everywhere except in a view of a stream's index;
-  `mkFEnv`, `push` and `restrictTo` leave it as it is. -/
+  `mkFEnv` and `push` leave it as it is. -/
   base : FBase
   /-- The **overlay**: constants consed onto `env` WITHOUT
   entering the index, newest first (`overlay`).  Empty on every
@@ -86,21 +71,16 @@ structure FEnv where
   ovl : List ConstantInfo
   /-- **The projection tables** (task #362), keyed on the structure's
   name: `env.tables` as a map (the newest table of a name wins, as
-  `List.find?` takes the first).  No counter: a table is visible
-  exactly where its structure is (`findTable?`), so a prefix view
-  needs nothing of its own for it. -/
+  `List.find?` takes the first). -/
   tbls : Std.HashMap Name ProjTable
 
 /-- The index build, from the back: the newest (front) constant is
 inserted last and wins, exactly as `List.find?` takes the first match —
 so the agreement with `Env.find?` is unconditional (no freshness
-assumption).  The `Nat` component is the running counter, so the build
-stays linear (the tail's length is returned, not recomputed). -/
-def mkFEnvGo : List ConstantInfo → Nat × Std.HashMap Name (Nat × ConstantInfo)
-  | [] => (0, ∅)
-  | ci :: cs =>
-    let p := mkFEnvGo cs
-    (p.1 + 1, p.2.insert ci.name (p.1, ci))
+assumption). -/
+def mkIdxGo : List ConstantInfo → Std.HashMap Name ConstantInfo
+  | [] => ∅
+  | ci :: cs => (mkIdxGo cs).insert ci.name ci
 
 /-- The table map's build, from the back: the newest (front) table is
 inserted last and wins, exactly as `List.find?` takes the first. -/
@@ -108,57 +88,42 @@ def mkTblsGo : List ProjTable → Std.HashMap Name ProjTable
   | [] => ∅
   | t :: ts => (mkTblsGo ts).insert t.structName t
 
-/-- Build the index of `env`, with nothing hidden (`visibleBelow` is the
-constant count). -/
+/-- Build the index of `env`. -/
 def mkFEnv (env : Env) : FEnv :=
-  let p := mkFEnvGo env.consts
-  ⟨env, p.2, p.1, {}, [], mkTblsGo env.tables⟩
+  ⟨env, mkIdxGo env.consts, {}, [], mkTblsGo env.tables⟩
 
 namespace FEnv
 
-/-- Indexed lookup, bounded by the visibility counter (`= Env.find?` for
-`mkFEnv`, which hides nothing); an index miss falls through to the base
-layer (empty but in a view of a stream's index).  With an overlay, the overlay
-first and the bound advanced past it — exactly what pushing the
-overlay's constants would answer.  `fe` is borrowed: the overlay branch
-otherwise makes the compiler take it owned, reference-count traffic on
-every lookup. -/
+/-- Indexed lookup (`= Env.find?` for `mkFEnv`); an index miss falls through to the base layer (empty
+but in a view of a stream's index).  With an overlay, the overlay first -- exactly what pushing the
+overlay's constants would answer.  `fe` is borrowed: the overlay branch otherwise makes the compiler
+take it owned, reference-count traffic on every lookup. -/
 def find? (fe : @& FEnv) (n : Name) : Option ConstantInfo :=
   match fe.ovl with
   | [] =>
     match fe.idx[n]? with
-    | some (c, ci) => if c < fe.visibleBelow then some ci else none
+    | some ci => some ci
     | none => fe.base.find? n
   | ovl@(_ :: _) =>
     match ovl.find? (·.name == n) with
     | some ci => some ci
     | none =>
       match fe.idx[n]? with
-      | some (c, ci) => if c < fe.visibleBelow + ovl.length then some ci else none
+      | some ci => some ci
       | none => fe.base.find? n
-
-/-- Restrict the view to the first `k` installed constants (task #108).
-`O(1)`: a field update on the single linearly-threaded index. -/
-def restrictTo (fe : FEnv) (k : Nat) : FEnv :=
-  { fe with visibleBelow := k }
 
 /-- The index of the cons-extended environment (`push_mkFEnv`:
 `FEnv.push (mkFEnv env) ci = mkFEnv ⟨ci :: env.consts, env.tables⟩`,
-definitionally).
-The new entry gets the next installation counter, and the visibility
-bound advances with it — so a push is visible to everything checked
-after it and to nothing checked before (task #108). -/
+definitionally). -/
 def push (fe : FEnv) (ci : ConstantInfo) : FEnv :=
-  ⟨⟨ci :: fe.env.consts, fe.env.tables⟩, fe.idx.insert ci.name (fe.visibleBelow, ci),
-   fe.visibleBelow + 1, fe.base, fe.ovl, fe.tbls⟩
+  ⟨⟨ci :: fe.env.consts, fe.env.tables⟩, fe.idx.insert ci.name ci, fe.base, fe.ovl, fe.tbls⟩
 
-/-- **Install a projection table** (task #362): the table component
+/-- **Push a projection table** (task #362): the table component
 extended, the constant index untouched (`pushTable_mkFEnv`:
 `FEnv.pushTable (mkFEnv env) t = mkFEnv ⟨env.consts, t :: env.tables⟩`,
 definitionally). -/
 def pushTable (fe : FEnv) (t : ProjTable) : FEnv :=
-  ⟨⟨fe.env.consts, t :: fe.env.tables⟩, fe.idx, fe.visibleBelow, fe.base, fe.ovl,
-   fe.tbls.insert t.structName t⟩
+  ⟨⟨fe.env.consts, t :: fe.env.tables⟩, fe.idx, fe.base, fe.ovl, fe.tbls.insert t.structName t⟩
 
 /-- Install a list of tables, head first (as `FEnv.pushAll` pushes
 constants): `(pushTables Q fe).env.tables = Q.reverse ++ fe.env.tables`.
@@ -167,14 +132,11 @@ def pushTables : List ProjTable → FEnv → FEnv
   | [], fe => fe
   | t :: Q, fe => pushTables Q (fe.pushTable t)
 
-/-- **Cons `new` (newest first) as an overlay** (task #329): the
-environment `new` pushed onto `fe` would be (`find?_overlay`, for an
-`fe` without an overlay), with the index SHARED, not mutated — two live
-environments, one bucket array.  Read-only: the install never pushes
-onto it. -/
+/-- **Cons `new` (newest first) as an overlay**: the environment `new` pushed onto `fe` would be
+(`find?_overlay`, for an `fe` without an overlay), with the index SHARED, not mutated -- two live
+environments, one bucket array.  Read-only: nothing pushes onto it. -/
 def overlay (fe : FEnv) (new : List ConstantInfo) : FEnv :=
-  ⟨⟨new ++ fe.env.consts, fe.env.tables⟩, fe.idx, fe.visibleBelow, fe.base, new ++ fe.ovl,
-   fe.tbls⟩
+  ⟨⟨new ++ fe.env.consts, fe.env.tables⟩, fe.idx, fe.base, new ++ fe.ovl, fe.tbls⟩
 
 /-- The table map's lookup, ungated: a miss in the map falls through to
 the base layer (empty but in a view of a stream's index). -/
@@ -184,8 +146,7 @@ def rawTable? (fe : FEnv) (T : Name) : Option ProjTable :=
   | none => fe.base.findTable? T
 
 /-- **The table lookup** (task #362): `T`'s table, visible exactly
-where the constant `T` is — the table map holds every installed table,
-and a view hides a table by hiding its structure (`= Env.findTable?` for `mkFEnv`,
+where the constant `T` is (`= Env.findTable?` for `mkFEnv`,
 `mkFEnv_findTable?`). -/
 def findTable? (fe : FEnv) (T : Name) : Option ProjTable :=
   if (fe.find? T).isSome then fe.rawTable? T else none

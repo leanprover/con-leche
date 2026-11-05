@@ -14,11 +14,10 @@ and the exit.  These few lines are read, not proved: the theorems
 model, and the exit takes the code `runArgs` returned.
 -/
 
-/-- **Linearity is enforced, in every run** (task #331).  The install
-environment's index is marked linear (`FEnv.markLinear`, on the serial
-install), and so are the parse's tables (`StateD.markLinear`, on the
-serial parse's state and on the state a rounds window falls back to; the
-rounds mark the arrays they push onto); with `LEAN_ABORT_ON_NONLINEAR`
+/-- **Linearity is enforced, in every run** (task #331).  The parse's
+tables are marked linear (`StateD.markLinear`, on the serial parse's state
+and on the state a rounds window falls back to; the rounds mark the arrays
+they push onto); with `LEAN_ABORT_ON_NONLINEAR`
 set, a copy of a marked array is a runtime panic instead of a silent
 copy of a million-slot array, and with `LEAN_ABORT_ON_PANIC` set every
 panic — that one, a Lean-level `panic!`, an out-of-bounds `get!`, the
@@ -33,7 +32,7 @@ def enableAbortOnNonlinear : IO Unit := do
 /-- **The CLI entry point (task #336).**  `runArgs` computes the exit
 code — the verdict line and the end-of-run summary (`--progress`) are
 the LAST things it prints on every path, and no worker is left running
-(`checkDeclsIO` joins the ones it starts); `main` flushes both streams and
+(`checkDeclsIO` waits for the ones it starts); `main` flushes both streams and
 ends the process right there
 with `IO.Process.exit`, instead of letting that code flow back out of
 `main` and returning normally.
@@ -61,8 +60,7 @@ threads: both pools' are joined, via `IO.wait`, before
 and then,
 as the `IO` value unwinds back through the `do` blocks to produce the
 exit code, the runtime drops every
-still-live local along the way — the parsed declaration array, the
-installed index's non-persistent parts, the pending-check table, the
+still-live local along the way — the check phase's result table, the
 parse's own tables — which on a 105 GB export is a multi-gigabyte
 object graph and measured 200-570 s of wall time *after* the verdict
 line was already on stdout (`DESIGN.md`, task #336).  `IO.Process.exit`
