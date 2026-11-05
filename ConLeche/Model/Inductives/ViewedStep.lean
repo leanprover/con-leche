@@ -1135,7 +1135,7 @@ theorem shownAt_swapped {D : LfpDatum V} {mm : Nat} {cvR cvS : ConstantVal} {cap
 
 /-- **A new block's record at the stored environment**: the same, each member read at the former
 the job read. -/
-theorem record_back (mp₃ : EnvModelM V env₃) (h : FormerSwap env₃ env₂) (hwf₂ : EnvWF env₂)
+theorem record_back (mp₃ : EnvModelM V env₃) (h : FormerSwap env₃ env₂)
     (hc : ∀ n, env₂.find? n = env₃.find? n ∨
       ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps)
     (hrd : ∀ n cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps → ∀ ψ, ∃ Ts Tr : Term,
@@ -1249,17 +1249,14 @@ theorem EtaFamiliesClosed_formerSwap {env₀ env₁ : Env} (h : FormerSwap env�
   obtain ⟨cvC, hC⟩ := hE T cv₀ caps hf₀ he hr
   exact ⟨cvC, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hC⟩
 
-omit [SetTheory V] in
 theorem reshow_of_mem {mp : EnvModelM V env} {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) :
     reshow mp env₃ env₂ D = D := by
   simp [reshow, hD]
 
-omit [SetTheory V] in
 theorem reshow_of_not_mem {mp : EnvModelM V env} {D : LfpDatum V} (hD : D ∉ mp.lfpBlocks) :
     reshow mp env₃ env₂ D = reshown env₃ env₂ D := by
   simp [reshow, hD]
 
-omit [SetTheory V] in
 /-- The fields a record's cover reads. -/
 theorem reshow_fields (mp : EnvModelM V env) (D : LfpDatum V) :
     (reshow mp env₃ env₂ D).names = D.names ∧ (reshow mp env₃ env₂ D).k = D.k ∧
@@ -1269,5 +1266,341 @@ theorem reshow_fields (mp : EnvModelM V env) (D : LfpDatum V) :
   · rw [reshow_of_not_mem hD]; exact ⟨rfl, rfl, rfl⟩
 
 end Back
+
+/-! ## The step -/
+
+omit [SetTheory V] in
+theorem reduceMembers_lps {F : Nat} {env : Env} {nP : Nat} {p₀ : BlockParts} {ms : List MemberShape}
+    (h : reduceMembers (m := CheckM) (fueledOps .verified F) env nP p₀.members = .ok ms) :
+    ({ p₀ with members := ms } : BlockParts).lps = p₀.lps := by
+  show (ms.head?.map (·.cvT.levelParams)).getD [] = (p₀.members.head?.map (·.cvT.levelParams)).getD []
+  cases hm : p₀.members with
+  | nil =>
+    rw [hm] at h
+    simp only [reduceMembers, pure, Except.pure, Except.ok.injEq] at h
+    subst h; rfl
+  | cons m₀ rest =>
+    rw [hm] at h
+    unfold reduceMembers at h
+    obtain ⟨m', hm', h⟩ := exceptBind_ok h
+    obtain ⟨r', -, h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp only [List.head?_cons, Option.map_some, Option.getD_some]
+    exact (reduceMember_inv hm').lps
+
+/-- **The block's second path, in the model.** -/
+theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {p₀ : BlockParts}
+    (mp : EnvModelM V env) (hS : ShownFacts mp) (hcov : LfpCover mp [])
+    (hE : ConLeche.EtaFamiliesClosed env)
+    (hlps₀ : ∀ ms ∈ p₀.members, ms.cvT.levelParams = p₀.lps)
+    (hClps₀ : ∀ c ∈ p₀.allCtors, c.1.levelParams = p₀.lps ∧
+      ConLeche.reservedBasisNames.contains c.1.name = false)
+    (hrun : ConLeche.Semantics.BlockViewedRun F env block p₀ env₂) (hx : EnvExt env env₂) :
+    ∃ mp₂ : EnvModelM V env₂, LfpCover mp₂ [] ∧ ShownFacts mp₂ := by
+  obtain ⟨ms, vs, env₃, hms, hvs, hrun₃, rfl⟩ := hrun
+  have hv := blockViews_views hvs
+  obtain ⟨mpV, hacV, hlV, hcovV⟩ := mp.toViews hS hcov hv
+  have h₀ := formerSwap_views hv
+  have hmr := reduceMembers_mem hms
+  have hsh := ConLeche.Semantics.reduceMembers_shape hms
+  have hlpsR := reduceMembers_lps hms
+  obtain ⟨mp₃, r₃, hc₃⟩ := declBlockAt mpV (EtaFamiliesClosed_formerSwap h₀ hE)
+    (fun m hm => by
+      obtain ⟨m₀, hm₀, hr⟩ := hmr m hm
+      rw [hr.lps, hlps₀ m₀ hm₀, hlpsR])
+    (fun c hc => by
+      rw [hlpsR]
+      exact hClps₀ c (by rw [← hsh.2]; exact hc)) hrun₃ hcovV
+  obtain ⟨new, hnew, hnewI⟩ := declBlockRun_consts hrun₃
+  have hnd : (p₀.members.map (·.cvT.name)).Nodup := by
+    obtain ⟨-, hndM, -⟩ := hrun₃
+    have : (ms.map (·.cvT.name)).Nodup := hndM
+    rwa [hsh.1] at this
+  have hclass := restore_find (F := F) (p₀ := p₀) (ms := ms) hnew hnewI hmr hnd hv
+  generalize henv₂ : restoreBlock p₀ vs.length env env₃ = env₂ at hx hclass
+  have hreq := restoreBlock_eq (p₀ := p₀) hnew
+  rw [henv₂] at hreq
+  -- the classes
+  have hcS : ∀ n, env₂.find? n = env₃.find? n ∨
+      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps := by
+    intro n
+    rcases hclass n with he | ⟨m₀, m, caps, hr, hd, hsum, hn, h3, h2⟩ | ⟨cv, cvR, caps, hF, hn, h3, h2⟩
+    · exact .inl he
+    · rcases hr.how with ⟨hd', -⟩ | ⟨-, hg, h₁, h₂, -, hrf⟩
+      · rw [hd] at hd'; exact nomatch hd'
+      · exact .inr ⟨m.cvT, m₀.cvT, caps, h3, h2, hn, hr.name.trans hn, hr.lps, hd, by rw [← hn]; exact hg,
+          (checkConstantVal_typeWF h₁).2.2.1, (checkConstantVal_typeWF h₂).2.2.1,
+          F, by rw [hsum]; exact hrf⟩
+    · have hsc := hF.closed
+      simp only [ConLeche.viewScoped, Bool.and_eq_true] at hsc
+      have hres₀ := (mp.base2.wf.consts _ (ConLeche.Env.find?_mem hF.find)).2.2.1
+      exact .inr ⟨cvR, cv, caps, h3, h2, hn, hF.name.trans hn, hF.lps, hF.headed, by rw [← hn]; exact hF.guard,
+        hres₀, hsc.1.2, hF.ran⟩
+  have hmem : ∀ c ∈ env₂.consts, (∀ cv caps, c ≠ .indInfo cv caps) → c ∈ env₃.consts := by
+    intro c hc hne
+    rw [hreq] at hc
+    rw [hnew]
+    rcases List.mem_append.mp hc with hc | hc
+    · obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+      by_cases hdi : ∃ cv caps, d = .indInfo cv caps
+      · obtain ⟨cv, caps, rfl⟩ := hdi
+        have hind : ∃ cv', storedFormerOf p₀ (.indInfo cv caps) = .indInfo cv' caps := by
+          simp only [storedFormerOf]
+          split
+          · exact ⟨_, rfl⟩
+          · exact ⟨_, rfl⟩
+        obtain ⟨cv', hc'⟩ := hind
+        exact absurd hc' (hne _ _)
+      · have hsame : storedFormerOf p₀ d = d := by
+          cases d <;> first | rfl | exact absurd ⟨_, _, rfl⟩ hdi
+        rw [hsame]
+        exact List.mem_append_left _ hd
+    · exact List.mem_append_right _ (List.mem_append_right _ hc)
+  have htab : env₂.tables = env₃.tables := by rw [hreq]
+  have h := formerSwap_of_swapped hcS hmem htab
+  -- the readings
+  have hde₀ : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote mp.base2.acval env ψ d e
+        = denote mp.base2.acval ⟨vs ++ env.consts, env.tables⟩ ψ d e :=
+    fun ψ d e => denote_formerSwap h₀ ψ d e
+  have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote mp₃.base2.acval env₃ ψ d e = denote mp₃.base2.acval env₂ ψ d e :=
+    fun ψ d e => denote_formerSwap h ψ d e
+  have hbd₀ : ∀ {e}, ConstsBound env e → ConstsBound ⟨vs ++ env.consts, env.tables⟩ e := fun hb =>
+    ConstsBound.of_isSome (fun n hn => by rw [← h₀.isSomeEq]; exact hn) hb
+  have hup : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr) (ta : Term), ConstsBound env e →
+      denote mp.base2.acval env ψ d e = some ta → denote mp₃.base2.acval env₃ ψ d e = some ta := by
+    intro ψ d e ta hb hta
+    refine r₃.read ψ d e ta (hbd₀ hb) ?_
+    rw [hacV, ← hde₀]; exact hta
+  have hleaf₃ : ∀ n, (env.find? n).isSome = true → mp₃.base2.acval n = mp.base2.acval n := by
+    intro n hn
+    rw [r₃.leaf n (by rw [← h₀.isSomeEq]; exact hn), hacV]
+  have hrd : ∀ n cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps → ∀ ψ, ∃ Ts Tr : Term,
+      denote mp₃.base2.acval env₃ ψ 0 cvS.type = some Ts ∧
+      denote mp₃.base2.acval env₃ ψ 0 cvR.type = some Tr ∧
+      ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr := by
+    intro n cvR cvS caps hSw ψ
+    have hbS := constsBound_of_constsResolve _ hSw.resolve
+    have hbR := constsBound_of_constsResolve _ hSw.boundR
+    rcases hclass n with he | ⟨m₀, m, caps', hr, hd, -, -, h3, h2⟩ | ⟨cv, cvR', caps', hF, -, h3, h2⟩
+    · rw [hSw.find₂, hSw.find₃] at he
+      obtain ⟨rfl, -⟩ : cvS = cvR ∧ caps = caps := by simpa using he
+      obtain ⟨ta, hta⟩ := mp₃.type_reads _ (ConLeche.Env.find?_mem hSw.find₃) ψ
+      exact ⟨ta, ta, hta, hta, fun _ => rfl⟩
+    · rw [hSw.find₃] at h3
+      rw [hSw.find₂] at h2
+      obtain ⟨rfl, rfl⟩ : cvR = m.cvT ∧ caps = caps' := by simpa using h3
+      obtain rfl : cvS = m₀.cvT := by
+        have := Option.some.inj h2
+        simpa using this
+      obtain ⟨Ts, Tr, h₁, h₂, heq⟩ := Swapped_read hS hcov (.inl ⟨hr, hd⟩) ψ
+      exact ⟨Ts, Tr, hup ψ 0 _ _ hbS h₁, hup ψ 0 _ _ hbR h₂, heq⟩
+    · rw [hSw.find₃] at h3
+      rw [hSw.find₂] at h2
+      obtain ⟨rfl, rfl⟩ : cvR = cvR' ∧ caps = caps' := by simpa using h3
+      obtain rfl : cvS = cv := by
+        have := Option.some.inj h2
+        simpa using this
+      obtain ⟨Tr, Ts, h₁, h₂, h₃'⟩ := view_read hS hcov hF ψ
+      exact ⟨Ts, Tr, hup ψ 0 _ _ hbS h₂, hup ψ 0 _ _ hbR h₁, fun ρ => (h₃' ρ).1⟩
+  -- what the stored environment holds and the job's does not
+  have hstored : ∀ c ∈ env₂.consts, c ∉ env₃.consts → ∃ (m₀ m : MemberShape) (caps : IndCaps),
+      c = .indInfo m₀.cvT caps ∧ MemberReduct F env p₀.nP m₀ m ∧
+      ConLeche.formerDefHeaded m₀.cvT = true ∧ ConstantInfo.indInfo m.cvT caps ∈ env₃.consts := by
+    intro c hc hnot
+    rw [hreq] at hc
+    rcases List.mem_append.mp hc with hc | hc
+    · obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+      have hd₃ : d ∈ env₃.consts := by rw [hnew]; exact List.mem_append_left _ hd
+      by_cases hdi : ∃ cv caps, d = .indInfo cv caps
+      · obtain ⟨cv, caps, rfl⟩ := hdi
+        obtain ⟨m, hm, rfl, -⟩ := hnewI _ hd _ caps rfl
+        obtain ⟨m₀, hm₀, hr⟩ := hmr m hm
+        have hfind : p₀.members.find? (·.cvT.name == m.cvT.name) = some m₀ := by
+          rw [hr.name]; exact find_member_of_nodup hnd hm₀
+        have hf : storedFormerOf p₀ (.indInfo m.cvT caps) = .indInfo m₀.cvT caps := by
+          simp only [storedFormerOf, hfind]
+        rw [hf] at hnot ⊢
+        rcases hr.how with ⟨-, rfl⟩ | ⟨hd', -⟩
+        · exact absurd hd₃ hnot
+        · exact ⟨m₀, m, caps, rfl, hr, hd', hd₃⟩
+      · have hsame : storedFormerOf p₀ d = d := by
+          cases d <;> first | rfl | exact absurd ⟨_, _, rfl⟩ hdi
+        rw [hsame] at hnot
+        exact absurd hd₃ hnot
+    · exact absurd (by rw [hnew]; exact List.mem_append_right _ (List.mem_append_right _ hc)) hnot
+  have hisS : ∀ n, (env₂.find? n).isSome = (env₃.find? n).isSome := fun n => (h.isSomeEq n).symm
+  have hwf₂ : EnvWF env₂ := by
+    refine ⟨fun c hc => ?_, fun t ht => ?_⟩
+    · by_cases hc₃ : c ∈ env₃.consts
+      · exact (mp₃.base2.wf.consts c hc₃).of_isSome hisS
+      · obtain ⟨m₀, m, caps, rfl, hr, hd, hm⟩ := hstored c hc hc₃
+        rcases hr.how with ⟨hd', -⟩ | ⟨-, -, h₁, -, -, -⟩
+        · rw [hd] at hd'; exact nomatch hd'
+        · obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF h₁
+          obtain ⟨hu, he⟩ := (mp₃.base2.wf.consts _ hm).2.2.2.2.2.2 _ caps rfl
+          refine ConLeche.structConstWF g1 g2 (Expr.constsResolve_of_find (fun n hn => ?_) g3) g4
+            (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq)
+            (ConLeche.IndCapsWF.of_caps hu he)
+          cases hfc : env.find? n with
+          | none => rw [hfc] at hn; exact nomatch hn
+          | some ci => rw [hx.find n ci hfc]; rfl
+    · exact (mp₃.base2.wf.tables t (htab ▸ ht)).of_isSome hisS
+  have htyS : ∀ c ∈ env₂.consts, c ∉ env₃.consts →
+      (∀ ψ : Name → Nat, ∃ ta : Term,
+        denote mp₃.base2.acval env₂ ψ 0 c.toConstantVal.type = some ta) ∧
+      (∀ (ψ : Name → Nat) (ta : Term),
+        denote mp₃.base2.acval env₂ ψ 0 c.toConstantVal.type = some ta →
+        ∀ ρ : Nat → V, WellDenotedTy V ρ ta) ∧
+      (∀ (ψ : Name → Nat) (ta : Term),
+        denote mp₃.base2.acval env₂ ψ 0 c.toConstantVal.type = some ta →
+        ∀ ρ : Nat → V, interp V ρ (mp₃.base2.acval c.name ψ) ∈ˢ interp V ρ ta) := by
+    intro c hc hc₃
+    obtain ⟨m₀, m, caps, rfl, hr, hd, hm⟩ := hstored c hc hc₃
+    rcases hr.how with ⟨hd', -⟩ | ⟨-, -, h₁, h₂, hb, -⟩
+    · rw [hd] at hd'; exact nomatch hd'
+    have hbS := constsBound_of_constsResolve _ (checkConstantVal_typeWF h₁).2.2.1
+    have hbR := constsBound_of_constsResolve _ (checkConstantVal_typeWF h₂).2.2.1
+    have key : ∀ ψ : Name → Nat, ∃ Ts Tr : Term,
+        denote mp₃.base2.acval env₂ ψ 0 m₀.cvT.type = some Ts ∧
+        denote mp₃.base2.acval env₃ ψ 0 m.cvT.type = some Tr ∧
+        (∀ ρ : Nat → V, WellDenotedTy V ρ Ts) ∧ ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr := by
+      intro ψ
+      obtain ⟨Ts, Tr, g₁, g₂, g₃, -, g₄⟩ := storedFormer_sem mp h₁ h₂ hb ψ
+      exact ⟨Ts, Tr, by rw [← hde]; exact hup ψ 0 _ _ hbS g₁, hup ψ 0 _ _ hbR g₂, g₃, g₄⟩
+    refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
+    · obtain ⟨Ts, -, g₁, -⟩ := key ψ
+      exact ⟨Ts, g₁⟩
+    · obtain ⟨Ts, Tr, g₁, -, g₃, -⟩ := key ψ
+      change denote mp₃.base2.acval env₂ ψ 0 m₀.cvT.type = some ta at hta
+      rw [g₁] at hta
+      obtain rfl := Option.some.inj hta
+      exact g₃ ρ
+    · obtain ⟨Ts, Tr, g₁, g₂, -, g₄⟩ := key ψ
+      change denote mp₃.base2.acval env₂ ψ 0 m₀.cvT.type = some ta at hta
+      rw [g₁] at hta
+      obtain rfl := Option.some.inj hta
+      have hin := mp₃.mem_type _ hm ψ Tr g₂ ρ
+      show interp V ρ (mp₃.base2.acval m₀.cvT.name ψ) ∈ˢ _
+      rw [g₄ ρ, ← hr.name]
+      exact hin
+  -- the records
+  have hold := mp.lfp_ok_transport (env' := env₂) (acval' := mp₃.base2.acval)
+    (fun n ci hf _ => hx.find n ci hf) (fun n ci hf _ => hleaf₃ n (by rw [hf]; rfl))
+    (fun ψ d e ta hb hta => by rw [← hde]; exact hup ψ d e ta hb hta)
+    (fun _ => ConstsBound.of_isSome fun n hn => by
+      cases hfc : env.find? n with
+      | none => rw [hfc] at hn; exact nomatch hn
+      | some ci => rw [hx.find n ci hfc]; rfl)
+  have hnew' : ∀ {D}, D ∈ mp₃.lfpBlocks → D ∉ mp.lfpBlocks → ∀ mm, D.shown mm = none := by
+    intro D hD hDm
+    rcases r₃.blocks D hD with hh | hn
+    · rw [hlV] at hh; exact absurd hh hDm
+    · exact hn
+  obtain ⟨mp₂, hac₂, hl₂⟩ := mp₃.swapFormers h hwf₂ (recCtors_back h mp₃.base2.rec_ctors)
+    (projOk_back h mp₃.base2.proj_ok)
+    (fun _ hac φ => recRules_back hac h hcS hrd mp₃.rec_rules φ)
+    (fun _ hac φ => towerOk_back hac h hcS hrd mp₃.tower_ok φ)
+    (fun _ hac => indStrict_back hac h hcS mp₃.ind_strict) htyS
+    (mp₃.lfpBlocks.map (reshow mp env₃ env₂)) (fun D' hD' => by
+      obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+      by_cases hDm : D ∈ mp.lfpBlocks
+      · rw [reshow_of_mem hDm]; exact hold D hDm
+      · rw [reshow_of_not_mem hDm]
+        exact record_back mp₃ h hcS hrd hD (hnew' hD hDm))
+  have hmemb : ∀ (D : LfpDatum V) mm, (reshow mp env₃ env₂ D).member mm = D.member mm := by
+    intro D mm
+    unfold LfpDatum.member
+    rw [(reshow_fields mp D).1]
+  refine ⟨mp₂, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩, ?_⟩
+  · -- cover
+    intro n cv caps hf hn hq
+    obtain ⟨cv₃, hf₃, -⟩ := h.find_ind_back hf
+    obtain ⟨D, hD, mm, hmm, he⟩ := hc₃.cover n cv₃ caps hf₃ hn hq
+    rw [hl₂]
+    refine ⟨_, List.mem_map.mpr ⟨D, hD, rfl⟩, mm, ?_, by rw [hmemb]; exact he⟩
+    rw [(reshow_fields mp D).2.1]; exact hmm
+  · intro D' hD'
+    rw [hl₂] at hD'
+    obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+    rw [(reshow_fields mp D).1]; exact hc₃.nodup D hD
+  · intro D' hD'
+    rw [hl₂] at hD'
+    obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+    rw [(reshow_fields mp D).1, (reshow_fields mp D).2.1]; exact hc₃.len D hD
+  · intro D' hD' mm hmm cv caps hf
+    rw [hl₂] at hD'
+    obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+    rw [hmemb] at hf
+    obtain ⟨cv₃, hf₃, -⟩ := h.find_ind_back hf
+    rw [(reshow_fields mp D).2.1] at hmm
+    rw [(reshow_fields mp D).1]
+    exact hc₃.all D hD mm hmm cv₃ caps hf₃
+  · exact fun _ _ _ _ hin => absurd hin List.not_mem_nil
+  · intro D' hD'
+    rw [hl₂] at hD'
+    obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+    by_cases hDm : D ∈ mp.lfpBlocks
+    · rw [reshow_of_mem hDm]; exact LfpOwn.formerSwap h (hc₃.own D hD)
+    · rw [reshow_of_not_mem hDm]; exact (LfpOwn.formerSwap h (hc₃.own D hD)).withShown _
+  · intro D' hD'
+    rw [hl₂] at hD'
+    obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+    rw [(reshow_fields mp D).2.1, (reshow_fields mp D).2.2]; exact hc₃.wid D hD
+  · -- the shown formers
+    intro D' hD' mm f hmm hs cv caps hf
+    rw [hl₂] at hD'
+    obtain ⟨D, hD, rfl⟩ := List.mem_map.mp hD'
+    by_cases hDm : D ∈ mp.lfpBlocks
+    · rw [reshow_of_mem hDm] at hmm hs hf ⊢
+      exact shownFacts_keep hS hx (m' := mp₂.base2)
+        (fun n hn => by rw [hac₂]; exact hleaf₃ n hn)
+        (fun ψ d e ta hb hta => by rw [hac₂, ← hde]; exact hup ψ d e ta hb hta) hDm hmm hs hf
+    · rw [reshow_of_not_mem hDm] at hmm hs hf ⊢
+      change env₂.find? (D.member mm) = _ at hf
+      change shownAt env₃ env₂ D mm = some f at hs
+      change mm < D.k at hmm
+      change _ ∧ IndStrictAt (V := V) mp₂.base2.acval env₂ (D.member mm) f ∧
+        (∀ φ, TowerViewTyped mp₂.base2 φ (D.member mm) f) ∧ _
+      rcases hcS (D.member mm) with he | ⟨cvR, cvS, caps', hSw⟩
+      · have hf₃ : env₃.find? (D.member mm) = some (.indInfo cv caps) := by rw [← he]; exact hf
+        rw [shownAt_same hf₃ hf] at hs
+        exact nomatch hs
+      · rw [hSw.find₂] at hf
+        obtain ⟨rfl, rfl⟩ : cvS = cv ∧ caps' = caps := by simpa using hf
+        by_cases hne : cvR = cvS
+        · subst hne
+          rw [shownAt_same hSw.find₃ hSw.find₂] at hs
+          exact nomatch hs
+        rw [shownAt_swapped hSw.find₃ hSw.find₂ hne] at hs
+        obtain rfl := Option.some.inj hs
+        obtain ⟨-, -, hrd₃, -⟩ := mp₃.lfp_ok D hD
+        obtain ⟨cv₁, caps₁, hf₁, ⟨-, hsh⟩, -⟩ := hrd₃ mm hmm
+        rw [hSw.find₃] at hf₁
+        obtain ⟨rfl, rfl⟩ : cvR = cv₁ ∧ caps' = caps₁ := by simpa using hf₁
+        have hflat : ConLeche.formerDefHeaded cvR = false := by
+          rcases hsh with ⟨-, h₂⟩ | ⟨f', hs', -⟩
+          · exact h₂
+          · rw [hnew' hD hDm] at hs'; exact nomatch hs'
+        obtain ⟨F', hrf⟩ := hSw.ran
+        refine ⟨⟨env, F', mp.base2.wf, hx, hSw.resolve, hrf⟩, ?_, fun φ => ?_, fun ψ ta hta ρ => ?_⟩
+        · intro ψ ab n hread hn ρ vs' hsp
+          rw [hac₂] at hread ⊢
+          rw [← hde] at hread
+          exact mp₃.ind_strict _ cvR caps' hSw.find₃ hflat ψ ab n hread hn ρ vs' hsp
+        · intro i entry s' hfp hs₁ hz us Ta hus hTa ρ vs' x rest g₁ g₂ g₃ g₄ g₅ g₆
+          rw [hac₂] at hTa g₂ g₃ g₅
+          rw [← hde] at hTa
+          have hfp₃ : env₃.findProj? (D.member mm) i = some entry := by rw [h.projEq]; exact hfp
+          obtain ⟨hsn, _, _, _, cvC, _, _, hlaw, _⟩ := mp₃.tower_ok φ _ i entry hfp₃
+          obtain ⟨⟨Ta₀, hTa₀, hA⟩, _⟩ := hlaw us hus
+          rw [hTa] at hTa₀
+          obtain rfl := Option.some.inj hTa₀
+          exact hA ρ vs' x rest g₁ g₂ g₃ g₄ g₅ g₆
+            (.inl (.inl ⟨cvR, caps', s', by rw [hsn]; exact hSw.find₃, hs₁, hz⟩))
+        · rw [hac₂, ← hde] at hta
+          exact mp₃.type_wellDenotedTy _ (ConLeche.Env.find?_mem hSw.find₃) ψ ta hta ρ
 
 end ConLeche.Model
