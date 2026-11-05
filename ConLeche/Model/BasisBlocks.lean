@@ -1328,9 +1328,9 @@ theorem extendNatRec (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hZ, rfl⟩
+        · exact ⟨_, _, _, hZ, fun _ => rfl⟩
         rcases List.mem_cons.mp hr' with rfl | hr''
-        · exact ⟨_, _, _, hS, rfl⟩
+        · exact ⟨_, _, _, hS, fun _ => rfl⟩
         · exact nomatch hr''))
     ?_
     (fun _ _ => trivial)

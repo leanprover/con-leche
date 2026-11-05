@@ -134,7 +134,7 @@ def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEn
       | _ => "quotient declaration mismatch"))
   unless quotPredsOk fe.find? k do
     throw (.notImplemented "quotient declaration before what it needs")
-  installBasisDeclF fe (quotPin k)
+  installBasisDeclF fe (quotAt k cv)
 
 /-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
 twin).

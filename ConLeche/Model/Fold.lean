@@ -39,7 +39,7 @@ the capstone, with input-level hypotheses only.
 The η half of the fold invariant is `declEtaStepRun`
 (`Semantics/DeclEta.lean`), model-free at every kind: no install
 obligation is consulted for it.  Every tier step is discharged
-(`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB`, `declBlock`); the fold carries no
+(`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB_at`, `declBlock`); the fold carries no
 hypothesis about the mode: the model tier is at `.verified`.
 -/
 
@@ -75,7 +75,7 @@ theorem axiomStepPB_of : AxiomStepPB V := by
   intro _F _env mp _cv _env₂ hR
   -- the `Quot.sound` arm is a quotient record
   rcases hR with ⟨-, hq⟩ | hR
-  · exact declQuotPB mp hq
+  · exact declQuotPB_at mp hq
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -152,7 +152,7 @@ theorem plainStep_quot {env env₂ : Env} {k : ConLeche.QuotKind} {cv : Constant
     (h : DeclQuotRun env k cv env₂) : PlainStep env env₂ := by
   obtain ⟨-, -, -, rfl⟩ := h
   refine ⟨[_], rfl, rfl, fun _ hc => ?_⟩
-  rw [List.mem_singleton.mp hc]
+  rw [List.mem_singleton.mp hc, show (quotAt k cv).name = (quotPin k).name from atLps_name _ _]
   cases k <;> decide
 
 /-- An axiom record is a plain step. -/
@@ -269,7 +269,7 @@ theorem declStep_preserves
     subst henv2
     exact PlainStep.close (PlainStep.cons (by exact hcv.2.1)) (harvestOpaque mp hrun) hcov hS hN
   | axiomDecl cv => exact (plainStep_axiom hrun).close (axiomStepPB_of mp hrun) hcov hS hN
-  | quotDecl k cv => exact (plainStep_quot hrun).close (declQuotPB mp hrun) hcov hS hN
+  | quotDecl k cv => exact (plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hS hN
   | indDecl block nP =>
     -- a block with a pinned block's names installs the pin at the record's
     -- names; everything else takes the `.indDecl` dispatch
@@ -352,7 +352,7 @@ Hypotheses are **input-level only** — the accepted run, the stored
 constant, its type, plus the validating mode, which is part of the
 goal's letter (the checker the model covers *is* the verified mode;
 `--trusted` omits the certification-only work by design).  No
-residue: every tier step is discharged (`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB`,
+residue: every tier step is discharged (`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB_at`,
 `declBlock`).
 
 `SetTheory V` is the standing parametricity of the consistency

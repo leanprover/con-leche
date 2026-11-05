@@ -26,7 +26,8 @@ namespace ConLeche.Model
 
 open ConLeche.Semantics ConLeche.SetModel ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule IndCaps
-  reservedBasisNames pinnedInfo uN eqName eqReflName eqA eqReflA eqRecA)
+  reservedBasisNames pinnedInfo uN eqName eqReflName eqA eqReflA eqRecA
+  quotA quotMkA quotName quotMkName quotAt quotPin)
 
 universe w
 
@@ -314,7 +315,7 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
   -- the links: an old recursor's by the prefix's, a new one's are level-free
   have hlink : ∀ n ci, env'.find? n = some ci → reservedBasisNames.contains n = true →
       PinLinked env' n ci := by
-    intro n ci hf hres cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us hus
+    intro n ci hf hres cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
     subst hci
     have hfc0 := hback _ _ hfc fun _ _ _ _ _ he => nomatch he
     rcases h.find n with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
@@ -337,7 +338,7 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
         obtain ⟨cv₂, rules₂, he, hrl₂⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
         injection he with e0 e1 e2 e3 e4
         subst e0; subst e1; subst e2; subst e3; subst e4
-        obtain ⟨rl₀, hrl0, hct, -⟩ := hrl₂ rl hrl
+        obtain ⟨rl₀, hrl0, hct, -, hfr, -⟩ := hrl₂ rl hrl
         by_cases hst : (E.find? n).isSome = true
         · -- the old recursor's own link: its copy is the prefix's
           have hEe := (R.stE n hst)
@@ -347,11 +348,15 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
           obtain ⟨cj, a, b, hcj⟩ := mpE.base2.rec_ctors n _ _ _ _ _ hci rl hrl
           have hfE : E.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) := by
             rw [← (R.stE _ (by rw [hcj]; rfl)).2]; exact hfc
-          exact hlkE cv mI rP isK rules rfl rl hrl cvj cnP cnF hfE us hus
+          exact hlkE cv mI rP isK rules rfl rl hrl hpl cvj cnP cnF hfE us hus
         · have hmem : ConstantInfo.recInfo cv₀ mI rP isK rules₀ ∈ L₀ :=
             R.blk n _ h1 (by simpa using hst)
           have hLF := hlf _ hmem cv₀ mI rP isK rules₀ rfl rl₀ hrl0
-          have hmap := hlk cv₀ mI rP isK rules₀ rfl rl₀ hrl0 cvj cnP cnF (hct ▸ hfc0) us
+          have hpl₀ : RecRule.fire rl₀ = .plain := by
+            rcases hfr with ⟨-, h₁⟩ | ⟨ls, -, h₁, -⟩
+            · exact h₁
+            · rw [h₁] at hpl; exact nomatch hpl
+          have hmap := hlk cv₀ mI rP isK rules₀ rfl rl₀ hrl0 hpl₀ cvj cnP cnF (hct ▸ hfc0) us
             (by rw [← hlen] at hus; exact hus)
           rw [hLF] at hmap
           have hnil : cvj.levelParams = [] := List.map_eq_nil_iff.mp hmap
@@ -498,7 +503,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
   -- the links
   have hlink : ∀ n ci, env'.find? n = some ci → reservedBasisNames.contains n = true →
       PinLinked env' n ci := by
-    intro n ci hf hres cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us hus
+    intro n ci hf hres cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
     subst hci
     by_cases he3 : eqName.str "rec" = n
     · subst he3
@@ -534,7 +539,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
           obtain ⟨-, hlkE, -⟩ := mpE.base2.basis_pinned n _ hE hres
           obtain ⟨cj, a, b, hcj⟩ := hold hE rl hrl
           have hst := R.stE (RecRule.ctor rl) (by rw [hcj]; rfl)
-          exact hlkE cv mI rP isK rules rfl rl hrl cvj cnP cnF (by rw [← hst.2]; exact hfc) us hus
+          exact hlkE cv mI rP isK rules rfl rl hrl hpl cvj cnP cnF (by rw [← hst.2]; exact hfc) us hus
   -- what a rule reads stays
   have hstable : ∀ n cv mI rP isK rules,
       env'.find? n = some (.recInfo cv mI rP isK rules) →
@@ -982,5 +987,246 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
       obtain ⟨-, -, -, henv₂⟩ := hrun'
       obtain ⟨mp', hac', hb', hc'⟩ := coverStep_eq hne mp mp₁ hEv hRv R henv₂
       exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
+
+/-! ## A quotient record -/
+
+/-- **One new constant at other names**: a quotient record's.  Nothing older
+reads the head's level-parameter names (a reference is positional, `denote_ren`),
+so only the head differs. -/
+theorem coverStep_head {E env env' : Env} {pin p' : ConstantInfo} {L₀ : List ConstantInfo}
+    (mpE : EnvModelM V E) (mp : EnvModelM V env) (R : RenRel False L₀ E env env')
+    (henv : env = ⟨pin :: E.consts, E.tables⟩) (henv' : env' = ⟨p' :: E.consts, E.tables⟩)
+    (hnm : p'.name = pin.name) (hrename : p' = pin.atLps p'.toConstantVal.levelParams)
+    (hfresh : E.find? pin.name = none)
+    -- a recursor's rules do not read a constructor's names
+    (hrules : ∀ cv mI rP isK rules, p' = .recInfo cv mI rP isK rules →
+      ∀ r ∈ rules, RecRule.fire r ≠ .plain)
+    -- the head is no recorded block's
+    (hind : ∀ cv caps, pin = .indInfo cv caps → pin = quotA)
+    (hctor : ∀ cv a b, pin = .ctorInfo cv a b →
+      pin = quotMkA ∧ ∃ q, E.find? quotName = some (quotA.atLps [q])) :
+    ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval env env' ∧
+      (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.shown mm = none) ∧
+      (LfpCover mp [] → LfpCover mp' []) := by
+  have h := R.ren
+  have fh : env.find? pin.name = some pin := by
+    subst henv
+    rw [Env.find?_cons]; exact ite_eq_left rfl
+  have fh' : env'.find? pin.name = some p' := by
+    subst henv'
+    rw [Env.find?_cons]; exact ite_eq_left hnm
+  have haway : ∀ {n : Name}, pin.name ≠ n →
+      env.find? n = E.find? n ∧ env'.find? n = E.find? n := by
+    intro n hn
+    constructor
+    · subst henv
+      rw [Env.find?_cons, ite_eq_right hn]
+    · subst henv'
+      rw [Env.find?_cons, ite_eq_right (by rw [hnm]; exact hn)]
+  have hsameN : ∀ {n : Name}, pin.name ≠ n → env'.find? n = env.find? n := fun hn => by
+    rw [(haway hn).1, (haway hn).2]
+  -- a prefix's constant's name is not the head's
+  have hstored : ∀ {n : Name}, (E.find? n).isSome = true → pin.name ≠ n := by
+    intro n hs he
+    rw [← he, hfresh] at hs
+    exact nomatch hs
+  have hold : ∀ {n : Name} {cv mI rP isK rules}, E.find? n = some (.recInfo cv mI rP isK rules) →
+      ∀ r ∈ rules, ∃ cvj a b, E.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) :=
+    fun hf r hr => mpE.base2.rec_ctors _ _ _ _ _ _ hf r hr
+  have hlink : ∀ n ci, env'.find? n = some ci → reservedBasisNames.contains n = true →
+      PinLinked env' n ci := by
+    intro n ci hf hres cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
+    subst hci
+    by_cases he : pin.name = n
+    · subst he
+      rw [fh'] at hf
+      exact absurd hpl (hrules _ _ _ _ _ (Option.some.inj hf) rl hrl)
+    · have ha := haway he
+      have hE : E.find? n = some (.recInfo cv mI rP isK rules) := by rw [← ha.2]; exact hf
+      obtain ⟨-, hlkE, -⟩ := mpE.base2.basis_pinned n _ hE hres
+      obtain ⟨cj, a, b, hcj⟩ := hold hE rl hrl
+      have hne := hstored (n := RecRule.ctor rl) (by rw [hcj]; rfl)
+      exact hlkE cv mI rP isK rules rfl rl hrl hpl cvj cnP cnF
+        (by rw [← (haway hne).2]; exact hfc) us hus
+  have hstable : ∀ n cv mI rP isK rules,
+      env'.find? n = some (.recInfo cv mI rP isK rules) →
+      (reservedBasisNames.contains n = false ∨ isK = false) →
+      ∀ r ∈ rules, env'.find? (RecRule.ctor r) = env.find? (RecRule.ctor r) ∧
+        ∀ cvj a b, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) →
+          ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj := by
+    intro n cv mI rP isK rules hf _ r hr
+    obtain ⟨cvj₀, a₀, b₀, hc₀⟩ := recCtors_ren mp.base2 h n cv mI rP isK rules hf r hr
+    have hne : pin.name ≠ RecRule.ctor r := by
+      intro he
+      rw [← he, fh'] at hc₀
+      have hp := Option.some.inj hc₀
+      by_cases hn : pin.name = n
+      · subst hn
+        rw [fh', hp] at hf
+        exact nomatch Option.some.inj hf
+      · have hE : E.find? n = some (.recInfo cv mI rP isK rules) := by
+          rw [← (haway hn).2]; exact hf
+        obtain ⟨_, _, _, hc⟩ := hold hE r hr
+        exact hstored (n := RecRule.ctor r) (by rw [hc]; rfl) he
+    refine ⟨hsameN hne, fun cvj a' b' hfj => ctorFamily_ind_congr fun T us' hT cvT capsT => ?_⟩
+    have hfE : E.find? (RecRule.ctor r) = some (.ctorInfo cvj a' b') := by
+      rw [← (haway hne).1]; exact hfj
+    have hres := (mpE.base2.wf.consts _ (Env.find?_mem hfE)).2.2.1
+    have hTs := Expr.find?_isSome_of_piResult_getAppFn_const hres hT
+    rw [hsameN (hstored hTs)]
+  rcases Classical.em (LfpCover mp []) with hcov | hcov
+  case inr =>
+    obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h R.mem hlink hstable [] (fun _ hD => nomatch hD)
+    exact ⟨mp', hacR, (fun D hD => by rw [hbl] at hD; exact nomatch hD), fun hc => absurd hc hcov⟩
+  -- no recorded block has the head among its names
+  have hmemb : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → ∀ mm, mm < D.k → D.member mm ≠ quotName := by
+    intro D hD mm hmm he
+    have hl : mm < D.names.length := by rw [hcov.len D hD]; exact hmm
+    obtain ⟨cv, caps, hf⟩ := LfpCover.member_find hD hmm
+    have hall := hcov.all D hD mm hmm cv caps hf
+    rw [he] at hf
+    -- a stored `Quot` records no block
+    have hc := (mp.base2.basis_pinned quotName _ hf (by decide)).1
+    have hk := hc.1
+    simp only [show pinnedInfo quotName = quotA from rfl, quotA, ConstantInfo.atLps] at hk
+    injection hk with _ hcaps
+    rw [hcaps] at hall
+    have hnil : D.names = [] := hall.symm
+    rw [hnil] at hl
+    exact absurd hl (Nat.not_lt_zero _)
+  have hkeepD : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks →
+      (∀ mm, mm < D.k → env'.find? (D.member mm) = env.find? (D.member mm)) ∧
+      (∀ c, c < D.N → ∀ j, j < D.nctors c →
+        env'.find? (D.ctorName c j) = env.find? (D.ctorName c j)) := by
+    intro D hD
+    obtain ⟨-, ⟨hst, hstC⟩, -⟩ := mp.lfp_ok D hD
+    have hkk := hcov.wid D hD
+    refine ⟨fun mm hmm => hsameN fun he => ?_, fun c hc j hj => hsameN fun he => ?_⟩
+    · obtain ⟨cv, caps, hf⟩ := hst mm hmm
+      rw [← he, fh] at hf
+      have hq := hind _ _ (Option.some.inj hf)
+      exact hmemb hD mm hmm (by
+        rw [← he, hq]; rfl)
+    · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
+      rw [← he, fh] at hf
+      obtain ⟨hpm, -⟩ := hctor _ _ _ (Option.some.inj hf)
+      have hck : c < D.k := hkk ▸ hc
+      obtain ⟨cv₀, nPc, nF, hf₀, bs, args, hs, -⟩ := (hcov.own D hD).ctorConcl c hck j hj
+      rw [← he, fh, hpm] at hf₀
+      have hc3 := Option.some.inj hf₀
+      change ConstantInfo.ctorInfo _ _ _ = _ at hc3
+      injection hc3 with e5 e6 e7
+      subst e5; subst e6; subst e7
+      change some (_, Expr.app (Expr.app (Expr.const quotName [Level.param uN]) _) _)
+        = _ at hs
+      have hb := Option.some.inj hs
+      have hx := congrArg (fun x : List Expr × Expr => x.2.getAppFn) hb
+      simp only [Expr.getAppFn_mkAppN, Expr.getAppFn] at hx
+      injection hx with e8 _
+      exact hmemb hD c hck e8.symm
+  obtain ⟨mp', hacR, hbl⟩ := mp.renameCore h R.mem hlink hstable mp.lfpBlocks (fun D hD =>
+    lfp_keep mp h hD (hkeepD hD).1 (hkeepD hD).2)
+  have hlook : ∀ {C : Name}, C ≠ quotName → ∀ n,
+      ctorLook env'.find? C n = ctorLook env.find? C n := by
+    intro C hC n
+    refine ctorLook_congr (fun y => ?_) n
+    by_cases he : pin.name = y
+    · subst he
+      refine ⟨_, _, .inr ⟨fh, fh', ?_⟩⟩
+      have hkind : conKind p' = conKind pin := by rw [hrename, conKind_atLps]
+      cases hp : pin with
+      | ctorInfo cv a b =>
+        obtain ⟨hpm, -⟩ := hctor _ _ _ hp
+        rw [hp] at hrename
+        rw [← hp, hpm] at hrename ⊢
+        have hb : (quotName == C) = false := by
+          rw [beq_eq_false_iff_ne]; exact hC.symm
+        rw [hrename]
+        show (if (quotName == C) = true then _ else _) = if (quotName == C) = true then _ else _
+        rw [hb]; rfl
+      | _ =>
+        rw [hp] at hkind
+        cases p' <;> first | rfl | exact nomatch hkind
+    · have ha := haway he
+      cases hf : E.find? y with
+      | none => exact ⟨default, default, .inl ⟨by rw [ha.1, hf], by rw [ha.2, hf]⟩⟩
+      | some d => exact ⟨d, d, .inr ⟨by rw [ha.1, hf], by rw [ha.2, hf], rfl⟩⟩
+  refine ⟨mp', hacR, fun D hD => .inl (hbl ▸ hD), fun _ => ?_⟩
+  exact {
+    cover := fun n cv caps hf hn hq => by
+      rw [hbl]
+      by_cases he : pin.name = n
+      · subst he
+        rw [fh'] at hf
+        have hkind : conKind p' = conKind pin := by rw [hrename, conKind_atLps]
+        rw [Option.some.inj hf] at hkind
+        cases hp : pin with
+        | indInfo cvp cp =>
+          exact absurd (show pin.name = quotName by rw [hind _ _ hp]; rfl) hq
+        | _ => rw [hp] at hkind; exact nomatch hkind
+      · have hf0 : env.find? n = some (.indInfo cv caps) := by
+          rw [← hsameN he]; exact hf
+        exact hcov.cover n cv caps hf0 hn hq
+    nodup := fun D hD => hcov.nodup D (hbl ▸ hD)
+    len := fun D hD => hcov.len D (hbl ▸ hD)
+    all := fun D hD mm hmm cv caps hf => by
+      rw [hbl] at hD
+      rw [(hkeepD hD).1 mm hmm] at hf
+      exact hcov.all D hD mm hmm cv caps hf
+    fresh := fun _ _ _ _ hin => absurd hin List.not_mem_nil
+    own := fun D hD => by
+      rw [hbl] at hD
+      have hkk := hcov.wid D hD
+      exact (hcov.own D hD).monoOn (hkeepD hD).1
+        (fun c hc' j hj => (hkeepD hD).2 c (hkk ▸ hc') j hj)
+        fun c hc' => nestContainer_congr ((hkeepD hD).1 c hc') (hlook (hmemb hD c hc'))
+    wid := fun D hD => hcov.wid D (hbl ▸ hD) }
+
+/-- **A quotient record, at its names, at the P tier.** -/
+theorem declQuotPB_at {E env₂ : Env} (mp : EnvModelM V E) {k : ConLeche.QuotKind} {cv : ConstantVal}
+    (h : DeclQuotRun E k cv env₂) : CoverStep mp env₂ := by
+  obtain ⟨hhit, hp, hfr, rfl⟩ := h
+  simp only [ConLeche.quotPinHit, Bool.and_eq_true, beq_iff_eq] at hhit
+  obtain ⟨⟨hnd, hlen⟩, hagree⟩ := hhit
+  have hname : (quotAt k cv).name = (quotPin k).name := atLps_name _ _
+  have hfr₀ : (E.find? (quotPin k).name).isNone = true := hname ▸ hfr
+  obtain ⟨mp₁, r₁, hc₁⟩ := declQuotPB mp hp hfr₀
+  have hres : reservedBasisNames.contains (quotPin k).name = true := by cases k <;> decide
+  have hpi : pinnedInfo (quotPin k).name = quotPin k := by cases k <;> rfl
+  have hlps : (quotAt k cv).toConstantVal.levelParams = cv.levelParams := by
+    unfold quotAt; rw [atLps_cv]; rfl
+  have hc : PinCopy (quotPin k) (pinnedInfo (quotPin k).name) := by
+    rw [hpi]; exact hpi ▸ pinCopy_self hres
+  have hc' : PinCopy (quotAt k cv) (pinnedInfo (quotPin k).name) := by
+    rw [hpi]
+    exact ⟨by rw [hlps]; rfl, by rw [hlps]; exact nodup_of_nameNodup hnd, by rw [hlps]; exact hlen⟩
+  have hfE : E.find? (quotPin k).name = none := Option.isNone_iff_eq_none.mp hfr₀
+  have R := (RenRel.refl False [quotPin k] E).cons hres hc hc' (fun hf => hf.elim)
+    List.mem_cons_self hfE
+  obtain ⟨mp', hac', hb', hc'₂⟩ := coverStep_head (p' := quotAt k cv) mp mp₁ R rfl rfl hname
+    (by rw [hlps]; rfl) hfE
+    (fun cv₂ mI rP isK rules he r hr hpl => by
+      -- the eliminators' rules carry their levels
+      cases k with
+      | type | ctor | sound => exact nomatch he
+      | lift | ind =>
+        have he' := he
+        change ConstantInfo.recInfo _ _ _ _ _ = _ at he'
+        injection he' with _ _ _ _ e4
+        subst e4
+        obtain ⟨rp, hrp, rfl⟩ := List.mem_map.mp hr
+        obtain rfl := List.mem_singleton.mp hrp
+        exact nomatch hpl)
+    (fun cv₂ caps he => by
+      cases k with
+      | type => rfl
+      | _ => exact nomatch he)
+    (fun cv₂ a b he => by
+      cases k with
+      | ctor =>
+        refine ⟨rfl, ?_⟩
+        exact quotStored_of mp hp
+      | _ => exact nomatch he)
+  exact ⟨mp', r₁.ren R hac' hb', hc'₂ ∘ hc₁⟩
 
 end ConLeche.Model

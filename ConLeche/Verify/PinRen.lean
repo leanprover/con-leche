@@ -262,12 +262,17 @@ theorem pinnedInfo_name {n : Name} (h : reservedBasisNames.contains n = true) :
   rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
     rfl | rfl | rfl <;> rfl
 
-/-- What the pins are made of: no definition, and every rule plain, at
-the pin's own parameters. -/
+/-- What the pins are made of: no definition, and every rule plain or at
+stored levels, one per parameter of its constructor, at the pin's own
+parameters. -/
 @[expose] def pinShapeOk : ConstantInfo → Bool
   | .recInfo cv _ _ _ rules => rules.all fun r =>
     (RecRule.rhs r).allLevelParamsDefined cv.levelParams &&
-      (match RecRule.fire r with | .plain => true | _ => false)
+      (match RecRule.fire r with
+        | .plain => true
+        | .levels ls => ls.all (·.allParamsDefined cv.levelParams) &&
+            ls.length == (pinnedInfo (RecRule.ctor r)).toConstantVal.levelParams.length
+        | _ => false)
   | .defnInfo .. => false
   | _ => true
 

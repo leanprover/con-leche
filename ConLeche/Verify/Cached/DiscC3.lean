@@ -532,6 +532,7 @@ theorem prepareMajorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
   | .nested lvls pins =>
     (lvls.map (Level.subst lps us), pins.map (pinInst lps us (args.take rP) (rP - 1)))
   | .plain => ((cvjLps.map Level.param).map (Level.subst lps us), args.take ctorParams)
+  | .levels lvls => (lvls.map (Level.subst lps us), args.take ctorParams)
 
 @[conleche_grind =] theorem recFireComparands_eq (rl : RecRule) (cnP : Nat) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
@@ -550,6 +551,11 @@ theorem prepareMajorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     fireCmp .plain n lps us cvjLps args rP =
       ((cvjLps.map Level.param).map (Level.subst lps us), args.take n) := rfl
 
+@[conleche_grind =] theorem fireCmp_levels (lvls : List Level) (n : Nat)
+    (lps : List Name) (us : List Level) (cvjLps : List Name) (args : List Expr) (rP : Nat) :
+    fireCmp (.levels lvls) n lps us cvjLps args rP =
+      (lvls.map (Level.subst lps us), args.take n) := rfl
+
 /-- Every element of the list is free of free variables. -/
 @[expose] def AllClosed (xs : List Expr) : Prop := ∀ x ∈ xs, x.hasFvar = false
 
@@ -566,6 +572,7 @@ grind_pattern [conleche_grind] allWS_pinInst => AllWS d (pins.map (pinInst lps u
 @[expose] def FireClosed : RecRuleFire → Prop
   | .plain => True
   | .nested _ pins => AllClosed pins
+  | .levels _ => True
 
 @[conleche_grind =] theorem FireClosed.nested_eq (lvls : List Level) (pins : List Expr) :
     FireClosed (.nested lvls pins) = AllClosed pins := rfl
@@ -602,6 +609,7 @@ theorem EnvWF.rules_ok (henv : EnvWF env) {c : Name} {cv : ConstantVal} {mI rP :
   cases hf : rl.fire with
   | plain => trivial
   | nested lvls pins => exact fun pin hpin => ((g5 lvls pins hf).2.2.1 pin hpin).1
+  | levels _ => trivial
 
 /-- The constructor record stored under `n`. -/
 @[expose] def ctorVal? (env : Env) (n : Name) : Option ConstantVal :=
@@ -643,6 +651,7 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
     | .plain =>
       substLevelTreesM cv.levelParams us
         (cvj.levelParams.map Level.param)
+    | .levels lvls => substLevelTreesM cv.levelParams us lvls
   if ← iotaCase3I r.whnf fe.find? isK cvj cmpLvls then do
     let oL ← isEquivListLM usj cmpLvls
     if ← liftFueled "level comparison" oL then do
@@ -651,6 +660,7 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
         | .nested _ pins =>
           pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
         | .plain => pure (args.take cnP)
+        | .levels _ => pure (args.take cnP)
       if ← defEqListI r fe depth (margs.take cnP) cmpArgs then do
         let tyCtor ← constTyAtM fe cj cjn usj
         if ← iotaCertsFullI r fe depth tyCtor margs then

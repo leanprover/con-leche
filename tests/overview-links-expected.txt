@@ -885,31 +885,31 @@
 == ConLeche/Kernel/Basis/False.lean#L51
     51  def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
-== ConLeche/Kernel/Basis.lean#L127-L129
-   127  def basisNameHit (block : List ConstantInfo) : Option BasisKind :=
-   128    [BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
-   129      k.decls.map (·.name) == block.map (·.name)
+== ConLeche/Kernel/Basis.lean#L134-L136
+   134  def basisNameHit (block : List ConstantInfo) : Option BasisKind :=
+   135    [BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
+   136      k.decls.map (·.name) == block.map (·.name)
 
-== ConLeche/Kernel/Basis.lean#L185-L190
-   185  def andPinOk : Declaration → Bool
-   186    | .indDecl block nP =>
-   187      !(block.any fun c => andPinNames.contains c.name) ||
-   188        (nP == 2 && canonEqList block andPin)
-   189    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
-   190    | .quotDecl _ cv => !andPinNames.contains cv.name
+== ConLeche/Kernel/Basis.lean#L196-L201
+   196  def andPinOk : Declaration → Bool
+   197    | .indDecl block nP =>
+   198      !(block.any fun c => andPinNames.contains c.name) ||
+   199        (nP == 2 && canonEqList block andPin)
+   200    | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv ..
+   201    | .quotDecl _ cv => !andPinNames.contains cv.name
 
 == ConLeche/Kernel/Inductives/BlockParts.lean#L449
    449  def blockParts? (nPd : Nat) (block : List ConstantInfo) : Option BlockParts :=
 
-== ConLeche/Kernel/Env.lean#L411-L418
-   411  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
-   412    block.all fun ci => match ci with
-   413      | .indInfo cvT _ =>
-   414        match cvT.type.piSortTeleLen? with
-   415        | some n => decide (nP ≤ n)
-   416        | none => true
-   417      | .ctorInfo _ nPc _ => nPc == nP
-   418      | _ => true
+== ConLeche/Kernel/Env.lean#L417-L424
+   417  def indParamsOk (nP : Nat) (block : List ConstantInfo) : Bool :=
+   418    block.all fun ci => match ci with
+   419      | .indInfo cvT _ =>
+   420        match cvT.type.piSortTeleLen? with
+   421        | some n => decide (nP ≤ n)
+   422        | none => true
+   423      | .ctorInfo _ nPc _ => nPc == nP
+   424      | _ => true
 
 == ConLeche/Kernel/Inductives/BlockTail.lean#L326
    326  def checkBlock (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) (p₀ : BlockParts) :
@@ -936,8 +936,8 @@
 == ConLeche/Kernel/Inductives/GenRec.lean#L549
    549  def genRecCheck (so : ShadowOps m) (fe : FEnv) (p : BlockShape) (nestedBit : Bool)
 
-== ConLeche/Kernel/Inductives/StoredRecs.lean#L187
-   187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
+== ConLeche/Kernel/Inductives/StoredRecs.lean#L188
+   188  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
 
 == ConLeche/Cached/StoredInstall.lean#L60
     60  def storedFire (p : BlockShape) (rc : RecShape) : Option RecRuleFire :=

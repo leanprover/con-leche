@@ -135,7 +135,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   once they agree with the generated ones: the type binder by binder up
   to the major premise, each rule up to definitional equality, at the
   generated recursor's firing data
-  (#src("ConLeche/Kernel/Inductives/StoredRecs.lean", 187, 193)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/StoredRecs.lean", 188, 194)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 127, 135)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 133, 141)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);

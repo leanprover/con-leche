@@ -161,6 +161,7 @@ theorem res_recFireComparands {rl : RecRule} (hrw : ∀ lvls pins, RecRule.fire 
     obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ha
     exact res_instSpine _ (res_inst _ _ (hrw lvls pins hf p hp)) (res_take hargs _)
   | plain => exact res_take hargs _
+  | levels lvls => exact res_take hargs _
 
 section Bodies
 

@@ -109582,3 +109582,43 @@ no fixture pins that.
 but their own transport and `ShownFacts` since `IndFibLaw` went; the chain reaches about thirty
 files in `Model/`.  `IndCapsWF`'s slot is read only by itself.  `BlockWF`'s `stripPis` conjunct
 (`hspi`) is unused.
+### Quotient records at the stream's names (#480, lane 5, ruling 2026-11-05)
+
+Maintainer: "Quot: Use the stream's name. This is what we need to be able to use
+Lean.Kernel.Environment eventually."  The deviation above is reversed: a quotient
+record is compared with its slot's pin up to its level-parameter names
+(`quotPinHit`) and stores the pin at them (`quotAt`).  What was left of the reason
+above was the transport's shape, not a need.
+
+**No rename of older constants.**  A level parameter is local to its constant and
+a reference is positional, so a term reads alike whatever names an older record
+used: the stages read `Quot` and `Quot.mk` at the names they were stored at
+(`quotLeafVal`, `quotMkLeafVal`: the leaf at `pinVal`), and only the new head goes
+from the pin's names to its own (`coverStep_head`, by `renameCore` with one
+pair).  `quotPredsOk` asks only that the slots are stored: a reserved name is
+stored as nothing but a copy of its pin.
+
+**The one thing that did read names: the eliminators' rules.**  `.plain`'s
+comparand reads the constructor's parameters by name at the recursor's
+(`recFireComparands`), which is the block's link (`blockLinksOk`), and official has
+no such link for the quotient: it reads no record.  `Quot.lift` and `Quot.ind` now
+fire `.levels [u]`: the comparand level stored, over the recursor's own parameters
+and renamed with it, the parameters as for `.plain` (`RecRuleFire`, `atLps`).  The
+rule's right-hand side is renamed with the recursor and refers to `Eq` positionally,
+as its type does.  Nothing else fires `.levels`, and `PinLinked` asks about
+`.plain` rules only.
+
+**Verdicts.**  No earlier pinned verdict moved.  `basis_quot_other_names` is back
+at 0; `quot_lift_iota` (exported) and `basis_quot_all_other_names` (each record at
+its own names, the reductions used) accept; `basis_quot_lift_type_bad` declines as
+such a record always did, where official, reading no record, accepts (run,
+`checkers/official-v4.33.0`, as for the three others).
+
+**Numbers** (`instructions:u`, `--verified`, one run each, against 78d4996ee, the
+merge of `agent/480-trivial-install`).
+
+| stream | `--jobs=1` base | Δ | `--jobs=8` base | Δ |
+|---|---|---|---|---|
+| init-full | 379.877 G | +0.01 % | 392.372 G | −0.44 % |
+| init-prelude | 1.9444 G | +0.01 % | 2.1142 G | +0.03 % |
+| grind-ring-5 | 15.241 G | −0.01 % | 15.632 G | +0.04 % |

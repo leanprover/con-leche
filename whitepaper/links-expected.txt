@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L452
-   452  structure Env where
+== ConLeche/Kernel/Env.lean#L458
+   458  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2535,26 +2535,26 @@
     99    kind : ConstKind
    100    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L289-L307
-   289  inductive ConstantInfo where
-   290    | axiomInfo (val : ConstantVal)
-   291    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
-   292    | thmInfo (val : ConstantVal)
-   293    /-- An inductive type former (whnf-stuck) with its capabilities. -/
-   294    | indInfo (val : ConstantVal) (caps : IndCaps)
-   295    /-- A basis constructor (whnf-stuck; the iota target). -/
-   296    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
-   297    /-- A recursor with its iota rules and the record's K flag (official's
-   298    `recursor_val::is_k`, read off the stream's record; the block's job
-   299    checks it).  Only the two sums the
-   300    firing path reads are stored: `majorIdx` (= numParams + numMotives +
-   301    numMinors + numIndices, the major premise's argument position) and
-   302    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
-   303    argument prefix a rule's rhs is applied to).  The individual counts
-   304    are consumed at install time only and are not stored. -/
-   305    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
-   306        (isK : Bool) (rules : List RecRule)
-   307    deriving DecidableEq, Repr, Inhabited
+== ConLeche/Kernel/Env.lean#L295-L313
+   295  inductive ConstantInfo where
+   296    | axiomInfo (val : ConstantVal)
+   297    | defnInfo (val : ConstantVal) (value : Expr) (hint : ReducibilityHint)
+   298    | thmInfo (val : ConstantVal)
+   299    /-- An inductive type former (whnf-stuck) with its capabilities. -/
+   300    | indInfo (val : ConstantVal) (caps : IndCaps)
+   301    /-- A basis constructor (whnf-stuck; the iota target). -/
+   302    | ctorInfo (val : ConstantVal) (numParams numFields : Nat)
+   303    /-- A recursor with its iota rules and the record's K flag (official's
+   304    `recursor_val::is_k`, read off the stream's record; the block's job
+   305    checks it).  Only the two sums the
+   306    firing path reads are stored: `majorIdx` (= numParams + numMotives +
+   307    numMinors + numIndices, the major premise's argument position) and
+   308    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
+   309    argument prefix a rule's rhs is applied to).  The individual counts
+   310    are consumed at install time only and are not stored. -/
+   311    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
+   312        (isK : Bool) (rules : List RecRule)
+   313    deriving DecidableEq, Repr, Inhabited
 
 == whitepaper/Fragment/Syntax.lean#L35-L36
     35    /-- A constant of the environment at a level instantiation. -/
@@ -2905,11 +2905,11 @@
    349      (m : EnvModel V env) (hok : DefOk env c ci) :
    350      ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
 
-== ConLeche/Model/Install.lean#L374-L377
-   374  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
-   375      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
-   376      (hfresh : env.find? c₀.name = none)
-   377      (hh : ConsHead env c₀ A)
+== ConLeche/Model/Install.lean#L376-L379
+   376  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
+   377      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
+   378      (hfresh : env.find? c₀.name = none)
+   379      (hh : ConsHead env c₀ A)
 
 == whitepaper/Fragment/InstallDef.lean#L158-L161
    158  
@@ -3089,14 +3089,14 @@
     31  anything read here: a wrong reading can only make the generated type
     32  differ from the stream's, i.e. reject.
 
-== ConLeche/Kernel/Inductives/StoredRecs.lean#L187-L193
-   187  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
-   188      (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
-   189    | rc :: rcs, g :: gs => do
-   190      storedRecCheck ops w fe rc g
-   191      storedRecsCheck ops w fe rcs gs
-   192    | [], [] => pure ()
-   193    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
+== ConLeche/Kernel/Inductives/StoredRecs.lean#L188-L194
+   188  def storedRecsCheck (ops : CheckerOps m) (w : StructWalkers)
+   189      (fe : FEnv) : List RecShape → List (ConstantVal × TargetMajor × List Expr) → m Unit
+   190    | rc :: rcs, g :: gs => do
+   191      storedRecCheck ops w fe rc g
+   192      storedRecsCheck ops w fe rcs gs
+   193    | [], [] => pure ()
+   194    | _, _ => throw (.internal "stored recursors: the generated family is not the records'")
 
 == whitepaper/Fragment/Decl.lean#L218-L220
    218  /-- The motive's type, under the parameters:
@@ -3386,16 +3386,16 @@
     79    | recursor (numParams numMotives numMinors numIndices : Nat) (rules : List RecRule)
     80    deriving DecidableEq
 
-== ConLeche/Kernel/Env.lean#L127-L135
-   127  structure RecRule where
-   128    ctor : Name
-   129    nfields : Nat
-   130    /-- The firing mode (install-computed, parse placeholder `.plain`):
-   131    `.plain` at a member major, `.nested` at an outside one. -/
-   132    fire : RecRuleFire
-   133    rhs : Expr
-   134    deriving DecidableEq, Repr, Inhabited
-   135  
+== ConLeche/Kernel/Env.lean#L133-L141
+   133  structure RecRule where
+   134    ctor : Name
+   135    nfields : Nat
+   136    /-- The firing mode (install-computed, parse placeholder `.plain`):
+   137    `.plain` at a member major, `.nested` at an outside one. -/
+   138    fire : RecRuleFire
+   139    rhs : Expr
+   140    deriving DecidableEq, Repr, Inhabited
+   141  
 
 == whitepaper/Fragment/Env.lean#L53-L60
     53    /-- **The K flag** (Lean's `RecursorVal.k`): the rule
@@ -5662,7 +5662,7 @@
    110    domain applies the container to (`auxRuleFire`) — `lvls` are levels
    111    over the recursor's level parameters, `pins` expressions in the
    112    recursor's rule-prefix context, instantiated at the redex's levels and
-   113    leading arguments. -/
+   113    leading arguments.
 
 == ConLeche/Kernel/Inductives/RecCheck.lean#L605-L616
    605  /-- **One checked recursor's stored rules, at its major**: `sumRules` at the
@@ -5678,18 +5678,20 @@
    615      rules.map fun rl => { rl with fire := fire }
    616    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1171-L1181
-  1171  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
-  1172      (us : List Level) (cvjLps : List Name) (args : List Expr)
-  1173      (rP : Nat) : List Level × List Expr :=
-  1174    match rl.fire with
-  1175    | .nested lvls pins =>
-  1176      (lvls.map (Level.subst lps us),
-  1177       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
-  1178         (p.instantiateLevelParams lps us))
-  1179    | .plain =>
-  1180      (cvjLps.map fun p => Level.subst lps us (.param p),
-  1181       args.take cnP)
+== ConLeche/Kernel/CoreDefs.lean#L1172-L1184
+  1172  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+  1173      (us : List Level) (cvjLps : List Name) (args : List Expr)
+  1174      (rP : Nat) : List Level × List Expr :=
+  1175    match rl.fire with
+  1176    | .nested lvls pins =>
+  1177      (lvls.map (Level.subst lps us),
+  1178       pins.map fun p => Expr.instSpine (args.take rP) (rP - 1)
+  1179         (p.instantiateLevelParams lps us))
+  1180    | .plain =>
+  1181      (cvjLps.map fun p => Level.subst lps us (.param p),
+  1182       args.take cnP)
+  1183    | .levels lvls =>
+  1184      (lvls.map (Level.subst lps us), args.take cnP)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -6321,12 +6323,14 @@
     66  noncomputable def quotSet (u : Nat) (A R : V) : V :=
     67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
 
-== ConLeche/Model/BasisQuot.lean#L2461-L2465
-  2461  theorem extendQuotLift (mp : EnvModelM V env)
-  2462      (hQ : env.find? quotName = some quotA)
-  2463      (hM : env.find? quotMkName = some quotMkA)
-  2464      (hE : EqStored env)
-  2465      (hfresh : env.find? quotLiftA.name = none)
+== ConLeche/Model/BasisQuot.lean#L2515-L2521
+  2515  theorem extendQuotLift (mp : EnvModelM V env)
+  2516      (hQ : env.find? quotName = some (quotA.atLps [q]))
+  2517      (hM : env.find? quotMkName = some (quotMkA.atLps [x]))
+  2518      (hE : EqStored env)
+  2519      (hfresh : env.find? quotLiftA.name = none)
+  2520      (hwf : EnvWF ⟨quotLiftA :: env.consts, env.tables⟩) {ex : List Name} :
+  2521      CoverTo mp ex ⟨quotLiftA :: env.consts, env.tables⟩ ex := by
 
 == ConLeche/Kernel/Basis/False.lean#L37-L39
     37  /-- `False : Prop`. -/
@@ -6345,9 +6349,9 @@
     16  (`fire := .plain`).
     17  
 
-== ConLeche/Kernel/Basis.lean#L133-L134
-   133  def BasisKind.atBlock (kind : BasisKind) (block : List ConstantInfo) : List ConstantInfo :=
-   134    List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) kind.decls block
+== ConLeche/Kernel/Basis.lean#L140-L141
+   140  def BasisKind.atBlock (kind : BasisKind) (block : List ConstantInfo) : List ConstantInfo :=
+   141    List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) kind.decls block
 
 == ConLeche/Kernel/StdAxioms.lean#L8-L15
      8  # Recognized standard axioms and their prerequisite shapes

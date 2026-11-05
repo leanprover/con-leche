@@ -882,16 +882,18 @@ kernel does and generates the block's recursors itself.
 `Eq`, `Nat`, `Empty` and `False` have built-in pins
 ([the `False` pin in `ConLeche/Kernel/Basis/False.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis/False.lean#L51)).
 The fold recognises a block by its members' names
-([the recogniser `basisNameHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L127-L129)),
+([the recogniser `basisNameHit` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L134-L136)),
 and what it stores is each pin at the level-parameter names the block's
 records declare. The comparison with the pin, up to those names, is the
 block's check, a job of the checking phase, and a block under one of those
 names that does not agree is rejected (the names are reserved).
 
 The quotient `Quot` with its soundness axiom, a kernel primitive rather than an
-inductive type, comes as five records: each stores its slot's pin, once the
-slots it mentions are stored, and a record that is not its pin, at the pin's own
-names, is declined.
+inductive type, comes as five records: each stores its slot's pin at the
+level-parameter names it declares, once the slots it mentions are stored, and a
+record that is not its pin up to those names is declined. Each record's names
+are its own: references between the constants are positional, and the
+eliminators' rules carry the level they compare the constructor's at.
 
 They are pinned so that there is no doubt about what they denote. The
 model does not read their denotations off whatever the stream declared,
@@ -922,7 +924,7 @@ Prop` with its one constructor `And.intro (left : a) (right : b)`. So
 the fold rejects any record that declares `And`, `And.intro` or
 `And.rec` and does not agree with the pin up to renaming of universe
 parameters
-([function `andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L185-L190)),
+([function `andPinOk` in `ConLeche/Kernel/Basis.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Basis.lean#L196-L201)),
 and the block that does agree goes through the installer below, which
 stores its projections as it does for any structure. A stream that does
 not declare `And` gets the toolchain's block from the built-in prelude
@@ -944,7 +946,7 @@ The recogniser reads the block's shape
 its parameter count as the stream declares it, checked against the
 type formers' telescopes and against every constructor record before
 anything else runs
-([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L411-L418)),
+([function `indParamsOk` in `ConLeche/Kernel/Env.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Env.lean#L417-L424)),
 and each member's index count off what is left of its type former's
 telescope, as the official kernel reads them. Any number of parameters,
 indices, constructors and fields is supported; fields may be recursive,
@@ -1007,7 +1009,7 @@ definitionally equal to the generated rule. The comparisons run at the
 generated install, and everything else of the installed recursor — its
 major premise's position, its K flag, each rule's firing mode — is the
 generator's
-([function `storedRecsCheck` in `ConLeche/Kernel/Inductives/StoredRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StoredRecs.lean#L187)).
+([function `storedRecsCheck` in `ConLeche/Kernel/Inductives/StoredRecs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Inductives/StoredRecs.lean#L188)).
 The rules of a recursor for an outside class fire at the instantiation
 read off its type
 ([function `storedFire` in `ConLeche/Cached/StoredInstall.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/StoredInstall.lean#L60)).

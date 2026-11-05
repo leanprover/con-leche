@@ -42,9 +42,9 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #src("ConLeche/Model/NatEqs.lean", 1078, 1082)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
-axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
+axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2461, 2465)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2515, 2521)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
 proposition the stream declares. The real checker has hand-written
@@ -53,9 +53,10 @@ copies of the toolchain's `Eq`, `Nat`, `Empty`, `False` and the quotient
 (#src("ConLeche/Kernel/Basis/False.lean", 37, 39)[`False`, for instance],
 #src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]): a
 stream block that carries a pin's names
-#src("ConLeche/Kernel/Basis.lean", 133, 134)[stores the pin at the universe parameters it declares],
+#src("ConLeche/Kernel/Basis.lean", 140, 141)[stores the pin at the universe parameters it declares],
 its check compares it with the pin up to those names, and one that
-disagrees is rejected. The pins are how the main theorem
+disagrees is rejected; a quotient record is stored and compared the same
+way, and one that disagrees is declined. The pins are how the main theorem
 can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts

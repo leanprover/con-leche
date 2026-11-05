@@ -24,8 +24,13 @@ a committed twin.
       the same, with every later declaration of the stream reading `Nat`: the
       names are installed and used before the block's job has reported.
   basis_quot_other_names          <- corner_pin_quot_free
-      `Quot.{w}`: official's kernel makes the quotient package itself, at
-      fixed names; a record at others is not the pin.
+      `Quot.{w}`, the others at the exporter's names.
+  basis_quot_all_other_names      <- quot_lift_iota
+      every quotient record at its own names (`Quot.{w}`, `Quot.mk.{x}`,
+      `Quot.lift.{y, z}`, `Quot.ind.{s}`), and the eliminators' reductions used.
+  basis_quot_lift_type_bad        <- quot_lift_iota
+      `Quot.lift.{y, z}` whose result is the major's own variable: not the pin
+      beyond its names.
 
 Usage: scripts/mk_basis_names_fixtures.py   (reads and writes under tests/e2e/)
 """
@@ -248,15 +253,49 @@ def nat_rule(out, keep_rest):
     dump(out, recs)
 
 
-def quot_names(out):
-    s = Stream(load("corner_pin_quot_free.ndjson"))
-    i = next(i for i, r in enumerate(s.recs) if "quot" in r and r["quot"].get("kind") == "type")
-    q = s.recs[i]["quot"]
-    u = q["levelParams"][0]
-    w = s.name_id("w")
-    q["type"] = s.expr_map(s.level_map({u: w}))(q["type"])
-    q["levelParams"] = [w]
-    dump(out, s.finish(i))
+def quot_rename(s, kinds, after=None):
+    """Each named quotient record at the given names, its new nodes just before
+    it; `after` may rewrite the record's type further."""
+    out = []
+    for r in s.recs:
+        if "quot" in r and r["quot"].get("kind") in kinds:
+            s.new = []
+            q = r["quot"]
+            ps = [s.name_id(x) for x in kinds[q["kind"]]]
+            q["type"] = s.expr_map(s.level_map(dict(zip(q["levelParams"], ps))))(q["type"])
+            q["levelParams"] = ps
+            if after is not None:
+                after(s, q)
+            out.extend(s.new)
+        out.append(r)
+    return out
+
+
+def quot_names(out, src, kinds):
+    dump(out, quot_rename(Stream(load(src)), kinds))
+
+
+def wrong_result(s, q):
+    """A type's innermost result at the wrong variable."""
+    path = []
+    ie = q["type"]
+    while "forallE" in s.E[ie]:
+        path.append(s.E[ie])
+        ie = s.E[ie]["forallE"]["body"]
+    assert s.E[ie]["bvar"] != 0
+    b = s.ne
+    s.ne += 1
+    s.new.append({"bvar": 0, "ie": b})
+    s.E[b] = s.new[-1]
+    for node in reversed(path):
+        n = s.ne
+        s.ne += 1
+        fa = dict(node["forallE"])
+        fa["body"] = b
+        s.new.append({"forallE": fa, "ie": n})
+        s.E[n] = s.new[-1]
+        b = n
+    q["type"] = b
 
 
 rename_eq("basis_eq_other_names.ndjson", ["w"], ["w"], ["u", "w"])
@@ -265,4 +304,8 @@ rename_eq("basis_eq_rec_swapped_names_bad.ndjson", ["w"], ["w"], ["w", "m"])
 rename_eq("basis_eq_refl_other_name_bad.ndjson", ["w"], ["v"], ["u", "w"])
 nat_rule("basis_nat_rule_bad.ndjson", False)
 nat_rule("basis_nat_rule_used_bad.ndjson", True)
-quot_names("basis_quot_other_names.ndjson")
+quot_names("basis_quot_other_names.ndjson", "corner_pin_quot_free.ndjson", {"type": ["w"]})
+quot_names("basis_quot_all_other_names.ndjson", "quot_lift_iota.ndjson",
+           {"type": ["w"], "ctor": ["x"], "lift": ["y", "z"], "ind": ["s"]})
+dump("basis_quot_lift_type_bad.ndjson", quot_rename(Stream(load("quot_lift_iota.ndjson")),
+     {"lift": ["y", "z"]}, wrong_result))

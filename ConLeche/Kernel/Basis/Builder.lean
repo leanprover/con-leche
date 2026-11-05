@@ -116,6 +116,10 @@ makes of an exporter's. -/
 def rule (ctor : Name) (nfields : Nat) (rhs : Expr) : RecRule :=
   ⟨ctor, nfields, .plain, rhs⟩
 
+/-- A quotient eliminator's iota rule: its comparand levels stored. -/
+def ruleAt (ctor : Name) (nfields : Nat) (lvls : List Level) (rhs : Expr) : RecRule :=
+  ⟨ctor, nfields, .levels lvls, rhs⟩
+
 end BasisDSL
 
 end ConLeche

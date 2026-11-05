@@ -696,6 +696,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                       | .plain =>
                         substLevelTreesM cv.levelParams us
                           (cvj.levelParams.map Level.param)
+                      | .levels lvls => substLevelTreesM cv.levelParams us lvls
                     if ← iotaCase3I r.whnf fe.find? isK cvj cmpLvls then do
                       let oL ← isEquivListLM usj cmpLvls
                       if ← liftFueled "level comparison" oL then do
@@ -704,6 +705,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                           | .nested _ pins =>
                             pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
                           | .plain => pure (args.take cnP)
+                          | .levels _ => pure (args.take cnP)
                         if ← defEqListI r fe depth (margs.take cnP) cmpArgs then do
                           let tyCtor ← constTyAtM fe cj cjn usj
                           if ← iotaCertsFullI r fe depth tyCtor margs then

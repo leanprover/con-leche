@@ -170,10 +170,10 @@ def storedStep : Declaration → List ConstantInfo × List ProjTable
   | .thmDecl cv _ => ([.thmInfo cv], [])
   | .opaqueDecl cv _ => ([.axiomInfo cv], [])
   | .axiomDecl cv =>
-    if cv.name = quotSoundName then ([quotPin .sound], [])
+    if cv.name = quotSoundName then ([quotAt .sound cv], [])
     else if cv.name = sorryAxName then ([], [])
     else ([.axiomInfo cv], [])
-  | .quotDecl k _ => ([quotPin k], [])
+  | .quotDecl k cv => ([quotAt k cv], [])
   | .indDecl block nP => storedInstall block nP
 
 /-- **A record's install at a worker view**: a value record guarded, with
