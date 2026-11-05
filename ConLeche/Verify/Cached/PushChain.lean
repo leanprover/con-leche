@@ -394,7 +394,7 @@ theorem PushChain.pushTables {env : Env} :
     ∀ {Q : List ProjTable} {fe : FEnv}, PushChain env fe →
       (∀ t ∈ Q, env.find? t.structName = none) → PushChain env (FEnv.pushTables Q fe)
   | [], _, h, _ => h
-  | t :: Q, fe, h, hQ =>
+  | t :: Q, _, h, hQ =>
     PushChain.pushTables (Q := Q) (h.pushTable (hQ t List.mem_cons_self))
       fun t' ht' => hQ t' (List.mem_cons_of_mem _ ht')
 

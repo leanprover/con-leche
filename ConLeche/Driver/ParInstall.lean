@@ -779,13 +779,13 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
                 return .error ((deferredFailure mode natOpPinSets D).getD (e, i))
             else if andPinOk pd then
               -- a slot that does not match the prediction.  For a deferred
-              -- record (which pushes the skeleton the prediction read off
-              -- it) one of its names is taken already: the verdict is its
+              -- record (which pushes what the prediction read off it) one
+              -- of its names is taken already: the verdict is its
               -- job, run now — it installs nothing, and a passing job is a
               -- misprediction; else a misprediction
               match r, deferredDecl pd with
-              | .ok (L, Q, _), true =>
-                match deferredCheck mode natOpPinSets ⟨workerView B S c, pd, i, L, Q⟩ with
+              | .ok _, true =>
+                match deferredCheck mode natOpPinSets ⟨workerView B S c, pd, i⟩ with
                 | .error e => return .error ((deferredFailure mode natOpPinSets D).getD (e, i))
                 | .ok () => return mispredicted k i "a predicted slot did not match"
               | _, _ => return mispredicted k i "a predicted slot did not match"

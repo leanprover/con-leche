@@ -7,6 +7,7 @@ import ConLeche.Verify.Inductives.GenRecRun
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.Inductives.PosDerivTie
 import ConLeche.Verify.Cached.BlockRunC
+import ConLeche.Verify.Cached.BlockPushes
 import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockModelRecords
 import ConLeche.Model.Inductives.BlockHoleGrade
@@ -86,7 +87,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   classical
   obtain ⟨hndC₀, hndM₀, hbool₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
-    hSt, hTbl⟩ := hrun
+    -, hSt, hTbl, hfin⟩ := hrun
   subst hp
   -- ## the recogniser's facts, moved to the shape the formers' stage completed
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, -, -⟩ :=
@@ -827,28 +828,44 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     · have hDC : D ∈ mpC.lfpBlocks := by rw [← hlR]; exact h₀
       exact hranAll (fun n ci h => hfw n ci (hfwdE n ci h)) htb hfw D hDC mm f hmm hs cv caps hf hdh
     · rw [h₀] at hs; exact nomatch hs
-  refine stageBlockTables hN hS rfl rfl rfl (p₁.members.zip (ctorsAs.zip sortsss)) 0 _ env₂
-    mpR ?_ hTbl hcoreT
-  intro c e hce
-  have hck : c < p₁.k := by
-    have h := (List.getElem?_eq_some_iff.mp hce).1
-    rw [List.length_zip, List.length_zip, hlenCtorsAs, hlenSortsss] at h
-    simp only [Nat.min_self] at h
-    rw [hkm]
-    omega
-  obtain rfl : e = (p₁.members.getD c default, ctorsAs.getD c [], sortsss.getD c []) :=
-    Option.some.inj (hce.symm.trans (hzipEntry c hck))
-  refine ⟨by rw [Nat.zero_add]; exact hck, ?_, ?_, ?_, ?_⟩
-  · rw [Nat.zero_add]; exact (hmnameEq c hck).symm
-  · rw [Nat.zero_add]
-    show (p₁.members.getD c default).nIdx = p₁.nIdxs.getD c 0
-    rw [blockNIdxs_getD (q := p₁) (j := c) (show c < p₁.members.length from hck)]
-  · rw [Nat.zero_add]; rfl
-  · intro sorts hss
-    rw [Nat.zero_add]
-    show sorts = (sortsss.getD c []).getD 0 []
-    have hss' : sortsss.getD c [] = [sorts] := hss
-    rw [hss']
-    rfl
+  have hmem₁ : p₁.members = p₀.members := by rw [hq]; rfl
+  have hctorsDecl : ctorsAs = p₁.members.map (·.ctors) := by
+    have hz : (p₁.members.zip cvTas).map (·.1) = p₁.members :=
+      List.map_fst_zip (by rw [hF.lenCv]; exact Nat.le_refl _)
+    have hd := ConLeche.checkBlockCtors_declared hCtors
+    rw [hd]
+    show (p₁.members.zip cvTas).map (fun x => x.1.ctors) = _
+    conv => rhs; rw [← hz]
+    simp [List.map_map, Function.comp_def]
+  rw [hfin]
+  refine stageBlockTables (E := ConLeche.consBlockCtors p₁.nP ctorsAs env₁) hN hS rfl rfl
+    p₁.members 0 _ mpR ?_ hndM hfindMono ?_ hcoreT
+  · intro c e hce
+    have hck : c < p₁.k := (List.getElem?_eq_some_iff.mp hce).1
+    obtain rfl : e = p₁.members.getD c default := by
+      rw [List.getD_eq_getElem?_getD, hce, Option.getD_some]
+    refine ⟨by rw [Nat.zero_add]; exact hck, ?_, ?_, ?_, ?_⟩
+    · rw [Nat.zero_add]; exact (hmnameEq c hck).symm
+    · have he : p₁.members.getD c default ∈ p₀.members := by
+        rw [← hmem₁, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hck, Option.getD_some]
+        exact List.getElem_mem hck
+      exact (hAt _ he).name.symm
+    · rw [Nat.zero_add]
+      show (p₁.members.getD c default).nIdx = p₁.nIdxs.getD c 0
+      rw [blockNIdxs_getD (q := p₁) (j := c) (show c < p₁.members.length from hck)]
+    · rw [Nat.zero_add, hctorsDecl]
+      show _ = (p₁.members.map (·.ctors)).getD c []
+      simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hck]
+  · intro e he c hc
+    have hchk := ConLeche.checkBlockTables_inv hTbl e he c hc
+    refine ⟨hchk, ?_⟩
+    obtain ⟨-, -, -, hTs, hT0⟩ := ConLeche.checkStructProjTable_inv hchk
+    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hTs
+    unfold Env.findTable? at hT0 ⊢
+    rw [hci] at hT0
+    rw [hfindMono _ _ hci]
+    simp only [Option.isSome_some, ↓reduceIte] at hT0 ⊢
+    rw [consBlockRecsT_tables 0]
+    exact hT0
 
 end ConLeche.Model

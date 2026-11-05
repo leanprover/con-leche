@@ -69,6 +69,10 @@ structure DeferredCheck where
   pd : Declaration
   pos : Nat
 
+/-- The record's label, for the messages. -/
+def DeferredCheck.label (b : DeferredCheck) : String :=
+  declCLabel b.pd
+
 /-- **The record's job**: its checked step at the view, from a fresh
 memo state. -/
 def deferredCheck (mode : CheckMode) (pins : List NatOpPinSet) (b : DeferredCheck) :

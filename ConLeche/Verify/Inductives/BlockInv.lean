@@ -510,6 +510,21 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 
 /-! ## The install after the pass -/
 
+/-- The tables' stage, inverted: each structure-like member's table checks passed. -/
+theorem checkBlockTables_inv {p : BlockShape} {env : Env} :
+    ∀ {l : List MemberShape}, checkBlockTables (m := CheckM) p env l = .ok () →
+      ∀ ms ∈ l, ∀ c, ms.structCtor? = some c →
+        checkStructProjTable (m := CheckM) ms.cvT.name p.lps p.nP c.2 c.1 env = .ok ()
+  | [], _, _, h, _, _ => nomatch h
+  | ms :: rest, h, m, hm, c, hc => by
+    unfold checkBlockTables at h
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    rcases List.mem_cons.mp hm with rfl | hm'
+    · rw [hc] at hu
+      cases u
+      exact hu
+    · exact checkBlockTables_inv h m hm' c hc
+
 /-! ## The install does not read the telescope a former was reduced to -/
 
 theorem getD_map_congr {α β : Type} [Inhabited α] {f : α → β} {l l' : List α} (h : l.map f = l'.map f)

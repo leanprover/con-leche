@@ -122,7 +122,7 @@ theorem checkStructProjTable_mono {env env' : Env} {T : Name} {lps : List Name} 
     rfl
   unfold checkStructProjTable
   simp only [hb, unwrapOr, pure, Except.pure, bind, Except.bind]
-  rw [if_pos ⟨hsize, hall'⟩, if_pos hTs', if_pos (by rw [hT]; rfl)]
+  rw [ite_eq_left ⟨hsize, hall'⟩, ite_eq_left hTs', ite_eq_left (by rw [hT]; rfl)]
 
 /-- A table the stage checked keeps an environment well-formed. -/
 theorem direct_table_wf {env : Env} (henv : EnvWF env)

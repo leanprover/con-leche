@@ -25,34 +25,7 @@ namespace ConLeche.Semantics
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo
   fueledOps checkConstantVal
-  checkStructProjTable EtaFamiliesClosed ProjEntry)
-
-/-! ## The stage shapes, with their freshness guards -/
-
-/-- The table stage's run: a table installed, the constants untouched
-(task #362). -/
-theorem checkStructProjTable_shape {T C : Name}
-    {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal} {env env' : Env}
-    (h : checkStructProjTable (m := ConLeche.CheckM) T C lps nP nF
-      cvCa env = .ok env') :
-    ∃ tbl : ConLeche.ProjTable,
-      tbl.structName = T ∧ env' = ⟨env.consts, tbl :: env.tables⟩ := by
-  obtain ⟨bodies, -, -, -, -, rfl⟩ := ConLeche.checkStructProjTable_inv h
-  exact ⟨_, rfl, rfl⟩
-
-/-! ## The table stage -/
-
-/-- The table stage keeps the η-families closed: it stores no constant. -/
-theorem checkStructProjTable_etaClosed {T C : Name}
-    {lps : List Name} {nP nF : Nat}
-    {cvCa : ConstantVal} {env env₂ : Env}
-    (h : checkStructProjTable (m := ConLeche.CheckM) T C lps nP nF
-      cvCa env = .ok env₂)
-    (hE : EtaFamiliesClosed env) : EtaFamiliesClosed env₂ := by
-  obtain ⟨tbl, -, rfl⟩ := checkStructProjTable_shape h
-  exact hE
-
+  EtaFamiliesClosed ProjEntry)
 
 /-! ## Lookups through the constructors' conses -/
 
@@ -92,13 +65,13 @@ BELOW it:
   conjunct 0), so no later constructor cons shadows it;
 * the recursors (`consBlockRecsT`) are fresh at the constructors'
   environment (`recStage_cvFacts`) and store no former (`ExtEta`);
-* the projection tables store no constant (`checkStructProjTable_etaClosed`).
+* the projection tables store no constant.
 -/
 
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo IndCaps
   BlockParts BlockShape MemberShape fueledOps EtaFamiliesClosed ExtEta exceptBind_ok
-  consBlockInds consBlockCtors consSumCtors consBlockRecs checkBlockTables
+  consBlockInds consBlockCtors consSumCtors consBlockRecs
   checkBlockCtors checkSumCtors blockCapsAt)
 
 /-! ## Lookups through the formers' and the constructors' conses -/
@@ -312,31 +285,6 @@ theorem consBlockRecsT_extEta {q : BlockShape} {envC : Env} :
     exact consBlockRecsT_extEta (extEta_snoc hx hfr'.1 (fun _ _ heq => nomatch heq))
       (fun r hr => hfr'.2 r hr)
 
-/-- **The tables' phase keeps the η-families closed**: at every
-structure-like member one fresh table cons, nothing at any other. -/
-theorem checkBlockTables_etaClosed {q : BlockShape} :
-    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))}
-      {env env₂ : Env},
-      EtaFamiliesClosed env → checkBlockTables (m := ConLeche.CheckM) q l env = .ok env₂ →
-      EtaFamiliesClosed env₂
-  | [], env, env₂, hE, h => by
-    simp only [checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
-    exact h ▸ hE
-  | (ms, ctorsA, sortss) :: rest, env, env₂, hE, h => by
-    unfold checkBlockTables at h
-    obtain ⟨env', henv', h⟩ := exceptBind_ok h
-    refine checkBlockTables_etaClosed ?_ h
-    revert henv'
-    split
-    · split
-      · intro hh; exact checkStructProjTable_etaClosed hh hE
-      · intro hh
-        simp only [pure, Except.pure, Except.ok.injEq] at hh
-        exact hh ▸ hE
-    · intro hh
-      simp only [pure, Except.pure, Except.ok.injEq] at hh
-      exact hh ▸ hE
-
 /-! ## The whole run -/
 
 /-- **The uniform install keeps the η-families closed, at k members**,
@@ -346,7 +294,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     (hdn : ∀ m ∈ p₀.members, m.cvT.name = m.declared.name)
     (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨hndC, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
-    pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := h
+    pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, -, -, hfin⟩ := h
   subst hp
   obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   have hlenCv : cvTas.length = p₁.members.length := by
@@ -436,7 +384,9 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
         exact nomatch this
   -- ## the recursors (at their majors), then the tables
   have hfresh := ConLeche.genRecCheck_out_fresh hRec
-  refine checkBlockTables_etaClosed ?_ hTbl
+  subst hfin
+  -- the tables store no constant
+  show EtaFamiliesClosed ⟨(consBlockRecsT _ _ _ _).consts, _⟩
   refine EtaFamiliesClosed.keep hEC (consBlockRecsT_extEta (ExtEta.refl _) fun r hr => ?_)
   obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hr
   obtain ⟨g, hg, hn, -⟩ := ConLeche.mem_storedOut ho

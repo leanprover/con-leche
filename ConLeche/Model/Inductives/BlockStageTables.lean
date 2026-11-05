@@ -175,8 +175,18 @@ theorem BlockTablesCore.pushTable {env : Env} {m' : EnvModel V env} {d : BlockDa
     exact denote_pushTable_mono hT ψ 0 (constsBound_of_constsResolve _ hres) (hread ψ)
 
 
-/-- **The block's projection tables**: `stageFixTable` at every
-structure-like member, the tables' invariant threaded across the
+/-- A table installed leaves every other structure's table where it was. -/
+theorem findTable?_cons_ne {env : Env} {t : ProjTable} {T : Name} (hne : t.structName ≠ T) :
+    (⟨env.consts, t :: env.tables⟩ : Env).findTable? T = env.findTable? T := by
+  unfold Env.findTable?
+  have hf : (⟨env.consts, t :: env.tables⟩ : Env).find? T = env.find? T := rfl
+  rw [hf]
+  split
+  · simp [hne]
+  · rfl
+
+/-- **The block's projection tables**: `stageFixTable` at every structure-like member, each table's
+checks read from the environment they ran at (`E`), the tables' invariant threaded across the
 installs. -/
 theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     {cvTasAll : List ConstantVal} {p₁ q : BlockShape} {isRec : Bool}
@@ -184,72 +194,64 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     {envI : Env} {ctorsOf : Name → List Name} {sortsOf : Nat → List Level}
     (hN : BlockNamesOk (V := V) d cvTasAll)
     (hS : BlockTablesStage (V := V) F d lps cvTasAll p₁ isRec A envI ctorsOf sortsOf)
-    (hqlps : q.lps = lps) (hqnP : q.nP = d.nP) (hqres : q.resSort = d.resSort)
-    {ex : List Name} :
-    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (i : Nat)
-      (env env₂ : Env) (mp : EnvModelM V env),
-      (∀ (c : Nat) (e : MemberShape × List (ConstantVal × Nat) × List (List Level)),
-        l[c]? = some e → i + c < d.k ∧ e.1.cvT.name = d.memberName (i + c) ∧
-          e.1.nIdx = d.nIdxAt (i + c) ∧ e.2.1 = d.ctorsM (i + c) ∧
-          ∀ sorts, e.2.2 = [sorts] → sorts = sortsOf (i + c)) →
-      ConLeche.checkBlockTables (m := ConLeche.CheckM) q l env = .ok env₂ →
+    (hqlps : q.lps = lps) (hqnP : q.nP = d.nP)
+    {E : Env} {ex : List Name} :
+    ∀ (l : List MemberShape) (i : Nat) (env : Env) (mp : EnvModelM V env),
+      (∀ (c : Nat) (e : MemberShape), l[c]? = some e →
+        i + c < d.k ∧ e.cvT.name = d.memberName (i + c) ∧ e.declared.name = e.cvT.name ∧
+          e.nIdx = d.nIdxAt (i + c) ∧ e.ctors = d.ctorsM (i + c)) →
+      (l.map (·.cvT.name)).Nodup →
+      (∀ n ci, E.find? n = some ci → env.find? n = some ci) →
+      (∀ e ∈ l, ∀ c, e.structCtor? = some c →
+        ConLeche.checkStructProjTable (m := ConLeche.CheckM) e.cvT.name q.lps q.nP c.2 c.1 E = .ok () ∧
+          env.findTable? e.cvT.name = none) →
       BlockTablesCore mp.base2 d lps cvTasAll p₁ isRec A →
-      CoverTo mp ex env₂ ex
-  | [], i, env, env₂, mp, _, h, _ => by
-    obtain rfl : env₂ = env := Except.ok.inj h.symm
-    exact CoverTo.refl mp ex
-  | e :: rest, i, env, env₂, mp, hl, h, hcore => by
+      CoverTo mp ex (env.pushDelta [] (ConLeche.blockTables q l)) ex
+  | [], i, env, mp, _, _, _, _, _ => CoverTo.refl mp ex
+  | ms :: rest, i, env, mp, hl, hnd, hfE, hchk, hcore => by
     have hnameOf := hN.1
     have hlenCv := hN.2.2
-    obtain ⟨hik, hname, hnIdx, hctors, hsorts⟩ := hl 0 e rfl
-    rw [Nat.add_zero] at hik hname hnIdx hctors hsorts
-    have hl' : ∀ (c : Nat) (e' : MemberShape × List (ConstantVal × Nat) × List (List Level)),
-        rest[c]? = some e' → i + 1 + c < d.k ∧ e'.1.cvT.name = d.memberName (i + 1 + c) ∧
-          e'.1.nIdx = d.nIdxAt (i + 1 + c) ∧ e'.2.1 = d.ctorsM (i + 1 + c) ∧
-          ∀ sorts, e'.2.2 = [sorts] → sorts = sortsOf (i + 1 + c) := by
+    obtain ⟨hik, hname, hdecl, hnIdx, hctors⟩ := hl 0 ms rfl
+    rw [Nat.add_zero] at hik hname hnIdx hctors
+    have hl' : ∀ (c : Nat) (e' : MemberShape), rest[c]? = some e' →
+        i + 1 + c < d.k ∧ e'.cvT.name = d.memberName (i + 1 + c) ∧ e'.declared.name = e'.cvT.name ∧
+          e'.nIdx = d.nIdxAt (i + 1 + c) ∧ e'.ctors = d.ctorsM (i + 1 + c) := by
       intro c e' hc
       have := hl (c + 1) e' (by simpa using hc)
       rwa [show i + (c + 1) = i + 1 + c from by omega] at this
-    obtain ⟨ms, ctorsA, sortss⟩ := e
-    simp only at hname hnIdx hctors hsorts
-    -- a table is consed only at a member with ONE constructor and no index
-    cases ctorsA with
-    | nil =>
-      rw [ConLeche.checkBlockTables] at h
-      · exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) env env₂ mp hl' h hcore
-      · simp
-    | cons cA ctl =>
-    cases ctl with
-    | cons c2 ctl2 =>
-      rw [ConLeche.checkBlockTables] at h
-      · exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) env env₂ mp hl' h hcore
-      · simp
-    | nil =>
-    cases sortss with
-    | nil =>
-      rw [ConLeche.checkBlockTables] at h
-      · exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) env env₂ mp hl' h hcore
-      · simp
-    | cons sorts stl =>
-    cases stl with
-    | cons s2 stl2 =>
-      rw [ConLeche.checkBlockTables] at h
-      · exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) env env₂ mp hl' h hcore
-      · simp
-    | nil =>
-    rw [ConLeche.checkBlockTables] at h
-    by_cases hidx : (ms.nIdx == 0) = true
-    case neg =>
-      rw [ite_eq_right hidx] at h
-      exact stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) env env₂ mp hl' h hcore
-    case pos =>
-    rw [ite_eq_left hidx] at h
-    -- the member is structure-like
-    have hnIdx0 : d.nIdxAt i = 0 := by rw [← hnIdx]; exact beq_iff_eq.mp hidx
-    have hctorsEq : d.ctorsM i = [cA] := hctors.symm
+    have hndR : (rest.map (·.cvT.name)).Nodup := (List.nodup_cons.mp hnd).2
+    have hchkR : ∀ e ∈ rest, ∀ c, e.structCtor? = some c →
+        ConLeche.checkStructProjTable (m := ConLeche.CheckM) e.cvT.name q.lps q.nP c.2 c.1 E = .ok () ∧
+          env.findTable? e.cvT.name = none :=
+      fun e he => hchk e (List.mem_cons_of_mem _ he)
+    -- a table is installed only at a member with ONE constructor and no index
+    cases hsc : ms.structCtor? with
+    | none =>
+      have ht : ConLeche.blockTables q (ms :: rest) = ConLeche.blockTables q rest := by
+        simp only [ConLeche.blockTables, hsc]
+      rw [ht]
+      exact stageBlockTables hN hS hqlps hqnP rest (i + 1) env mp hl' hndR hfE hchkR hcore
+    | some cA =>
+    obtain ⟨hctorsMs, hidx⟩ : ms.ctors = [cA] ∧ ms.nIdx = 0 := by
+      unfold MemberShape.structCtor? at hsc
+      split at hsc
+      · rename_i c hc
+        split at hsc
+        · rename_i h0
+          obtain rfl := Option.some.inj hsc
+          exact ⟨hc, beq_iff_eq.mp h0⟩
+        · exact nomatch hsc
+      · exact nomatch hsc
+    obtain ⟨hT₀, hTfresh⟩ := hchk ms List.mem_cons_self cA hsc
+    obtain ⟨bodies, hbodies, -, -, -⟩ := ConLeche.checkStructProjTable_inv hT₀
+    have hTenv := ConLeche.checkStructProjTable_mono hfE hTfresh hT₀
+    have ht : ConLeche.blockTables q (ms :: rest) =
+        ⟨ms.cvT.name, q.lps, q.nP, cA.1.name, cA.2, bodies⟩ :: ConLeche.blockTables q rest := by
+      simp only [ConLeche.blockTables, hsc, hdecl, hbodies]
+    rw [ht]
+    have hnIdx0 : d.nIdxAt i = 0 := by rw [← hnIdx]; exact hidx
+    have hctorsEq : d.ctorsM i = [cA] := hctors.symm.trans hctorsMs
     have hcA0 : (d.ctorsM i)[0]? = some cA := by rw [hctorsEq]; rfl
-    have hsortsEq : sorts = sortsOf i := hsorts sorts rfl
-    subst hsortsEq
     obtain ⟨cvTb, hcvTb⟩ : ∃ cvTb, cvTasAll[i]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hik)⟩
     have hTn : ms.cvT.name = cvTb.name := by rw [hname, hnameOf i cvTb hcvTb]
@@ -272,18 +274,15 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
       rw [hFs] at h0 ⊢
       simp only [List.getD_cons_zero] at h0
       rw [h0]
-    -- the table's cons
-    cases hT : ConLeche.checkStructProjTable (m := ConLeche.CheckM) ms.cvT.name cA.1.name
-        q.lps q.nP cA.2 cA.1 env with
-    | error er => rw [hT] at h; exact nomatch h
-    | ok env' =>
-    rw [hT] at h
-    rw [hqlps, hqnP, hTn] at hT
-    obtain ⟨tbl, mp', henv, hstructN, hT0, hac⟩ :=
+    -- the table's install
+    rw [hqlps, hqnP, hTn] at hTenv
+    rw [hTn] at hbodies
+    rw [hqnP] at hbodies
+    obtain ⟨mp', hT0, hac⟩ :=
       stageFixTable (pps := d.ppsM i) (ds := d.dsF i 0) (Es := d.esF i 0)
         (L := fun ψ => blockTyG d.k (d.w ψ) (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
           (d.toLfp.holeChains ψ) (d.ppsM i ψ) i)
-        mp hT hfT hD
+        mp hTenv hbodies hfT hD
         (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag
         (fun hp s hs => by
@@ -316,16 +315,32 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (fun ψ ρ hρ => ((hS.frames i hik 0 cA hcA0).2 ψ ρ hρ).1)
         (hS.boundF i cA hik hctorsEq) (hS.sortsF i cA hik hctorsEq)
     -- the invariant, across the table's install
-    subst henv
-    have hT' : env.findTable? tbl.structName = none := by rw [hstructN]; exact hT0
+    let tbl : ProjTable := ⟨cvTb.name, lps, d.nP, cA.1.name, cA.2, bodies⟩
+    have hT' : env.findTable? tbl.structName = none := hT0
     have hcore' : BlockTablesCore mp'.base2 d lps cvTasAll p₁ isRec A :=
       hcore.pushTable hT' mp'.base2 hac
     -- coverage across the table's install: the carrier rebuilt with the
     -- input's recorded list
     obtain ⟨mk, hb, hL⟩ := EnvModelM.keepLfpOfTable hT' mp' hac
     rw [← hb] at hcore'
+    have hEnv : env.pushDelta []
+        (⟨ms.cvT.name, q.lps, q.nP, cA.1.name, cA.2, bodies⟩ :: ConLeche.blockTables q rest) =
+        (⟨env.consts, tbl :: env.tables⟩ : Env).pushDelta [] (ConLeche.blockTables q rest) := by
+      rw [hqlps, hqnP, hTn]
+      simp [Env.pushDelta, tbl]
+    rw [hEnv]
+    have hne : ∀ e ∈ rest, tbl.structName ≠ e.cvT.name := by
+      intro e he hc
+      have hm : ms.cvT.name ∈ rest.map (·.cvT.name) := by
+        have : ms.cvT.name = e.cvT.name := hTn.trans hc
+        rw [this]
+        exact List.mem_map_of_mem he
+      exact (List.nodup_cons.mp hnd).1 hm
     obtain ⟨mpF, rF, hF⟩ :=
-      stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mk hl' h hcore'
+      stageBlockTables hN hS hqlps hqnP rest (i + 1) _ mk hl' hndR hfE
+        (fun e he c hc => ⟨(hchkR e he c hc).1, by
+          rw [findTable?_cons_ne (hne e he)]
+          exact (hchkR e he c hc).2⟩) hcore'
     have r₀ : CoverRel mp mk := ⟨fun _ _ hn => hn, fun n _ => by rw [hb, hac],
       fun ψ d e ta hbd hta => by
         rw [hb, hac]

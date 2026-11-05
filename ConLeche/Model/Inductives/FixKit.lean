@@ -1208,9 +1208,10 @@ fibre. -/
 theorem stageFixTable (mp : EnvModelM V env)
     {T : Name} {lps : List Name} {nP : Nat} {resSort : Level} {isProp : Bool}
     {cvS cvTa cvCa : ConstantVal} {nF : Nat} {sorts : List Level}
-    {envOut : Env} {caps : IndCaps}
-    (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM) T cvCa.name
-      lps nP nF cvCa env = .ok envOut)
+    {bodies : Array Expr} {caps : IndCaps}
+    (hTbl : ConLeche.checkStructProjTable (m := ConLeche.CheckM) T
+      lps nP nF cvCa env = .ok ())
+    (hb : ConLeche.structProjBodies T nP nF cvCa.type = some bodies)
     (hfT : env.find? T = some (.indInfo cvS caps))
     (hD : FormerDeclared mp.base2 cvS cvTa)
     (hcaps : caps.eta = true →
@@ -1258,12 +1259,11 @@ theorem stageFixTable (mp : EnvModelM V env)
           SpineFit ρ ((((ds ψ).drop nP)).take j) as →
           interp V (consList as ρ) ((((ds ψ).drop nP)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) :
-    ∃ (tbl : ProjTable) (mp' : EnvModelM V envOut),
-      envOut = ⟨env.consts, tbl :: env.tables⟩ ∧ tbl.structName = T ∧
-      env.findTable? T = none ∧
-      mp'.base2.acval = mp.base2.acval := by
-  have hwf' : ConLeche.EnvWF envOut := ConLeche.direct_table_wf mp.base2.wf hTbl
-  obtain ⟨bodies, hbodies, -, hTs, hT0, rfl⟩ := ConLeche.checkStructProjTable_inv hTbl
+    ∃ mp' : EnvModelM V ⟨env.consts, ⟨T, lps, nP, cvCa.name, nF, bodies⟩ :: env.tables⟩,
+      env.findTable? T = none ∧ mp'.base2.acval = mp.base2.acval := by
+  have hwf' := ConLeche.direct_table_wf mp.base2.wf hTbl hb cvCa.name
+  obtain ⟨bodies', hbodies, -, hTs, hT0⟩ := ConLeche.checkStructProjTable_inv hTbl
+  obtain rfl : bodies = bodies' := Option.some.inj (hb.symm.trans hbodies)
   let tbl : ProjTable := ⟨T, lps, nP, cvCa.name, nF, bodies⟩
   -- the field-chain facts, in the frames' spelling
   have hbound : ∀ (ψ : Name → Nat) (ρ : Nat → V),
@@ -1356,7 +1356,7 @@ theorem stageFixTable (mp : EnvModelM V env)
         TowerEntryLaw m₂ φ tbl.structName i (tbl.entry i) by
     obtain ⟨mp', hac'⟩ :=
       declStep_preserves_of_pushTable mp (t := tbl) hT0 hwf' hhead hlaw
-    exact ⟨tbl, mp', rfl, rfl, hT0, hac'⟩
+    exact ⟨mp', hT0, hac'⟩
   -- the fields' laws
   intro m₂ hac φ i hi
   replace hi : i < nF := hi

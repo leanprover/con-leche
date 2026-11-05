@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Verify.Inductives.BlockInv
+public import ConLeche.Verify.Inductives.StoredRecsInv
+import ConLeche.Verify.Cached.BlockPushes
 
 @[expose] public section
 
@@ -88,8 +90,9 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     -- 9  the projection tables' checks
     checkBlockTables (m := ConLeche.CheckM) p.toBlockShape (consBlockCtors p.nP ctorsAs env₁)
       p.members = .ok () ∧
-    -- 10 the install, read off the block
-    env₂ = env.pushDelta (blockConstants p₀) (blockTables p₀.toBlockShape p₀.members)
+    -- 10 the install: the formers and constructors above, the stream's recursors, the tables
+    env₂ = (consBlockRecsT p.toBlockShape 0 (ConLeche.storedOut p.recs out)
+      (consBlockCtors p.nP ctorsAs env₁)).pushDelta [] (blockTables p.toBlockShape p.members)
 
 /-- **The block's run**: each member at its telescope, then the stages at those members. -/
 def BlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
@@ -165,9 +168,26 @@ theorem blockRun_of {F : Nat} {env env₂ : Env}
   · rw [hp]; exact hcls
   · rw [hp]; exact hP'
   · obtain ⟨e₁, e₂⟩ := ConLeche.blockInstall_reduced hd hms
-    rw [← h]
-    show _ = env.pushDelta (blockConstants { p₀ with members := ms })
-      (blockTables ({ p₀ with members := ms } : BlockParts).toBlockShape ms)
-    rw [e₁, e₂]
+    have hInd' := hInd
+    rw [← hraw] at hInd'
+    obtain ⟨hmem⟩ : PLift (p₁.members = ms) := ⟨(ConLeche.checkBlockInds_members hInd').2⟩
+    have hlps : p₁.lps = ({ p₀ with members := ms } : BlockParts).toBlockShape.lps := by
+      obtain ⟨_, _, _, _, _, -, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
+      rw [hq]
+      rfl
+    have hnP : p₁.nP = ({ p₀ with members := ms } : BlockParts).toBlockShape.nP := by
+      obtain ⟨_, _, _, _, _, -, -, hq, -⟩ := ConLeche.checkBlockInds_shape hInd'
+      rw [hq]
+      rfl
+    have hQ : blockTables q.p.toBlockShape q.p.members = blockTables p₀.toBlockShape p₀.members := by
+      rw [← e₂, hp]
+      show blockTables p₁ p₁.members = _
+      rw [hmem]
+      exact ConLeche.blockTables_congr hnP hlps rfl rfl rfl
+    rw [hQ, ← h, ← e₁, hp]
+    rw [hp] at hRec hK hS
+    rw [BlockParts.complete_members, hmem] at hCtors
+    exact ConLeche.blockInstall_of_checks (Q := blockTables p₀.toBlockShape p₀.members)
+      hInd' hCtors hcls hRec hK hS
 
 end ConLeche.Semantics

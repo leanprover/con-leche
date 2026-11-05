@@ -29,31 +29,6 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 omit [SetTheory V] in
-/-- The tables' stage stores no constant. -/
-theorem checkBlockTables_consts {q : BlockShape} :
-    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))} {env env₂ : Env},
-      ConLeche.checkBlockTables (m := CheckM) q l env = .ok env₂ → env₂.consts = env.consts
-  | [], env, env₂, h => by
-    simp only [ConLeche.checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
-    rw [h]
-  | (ms, ctorsA, sortss) :: rest, env, env₂, h => by
-    unfold ConLeche.checkBlockTables at h
-    obtain ⟨env', henv', h⟩ := exceptBind_ok h
-    rw [checkBlockTables_consts h]
-    revert henv'
-    split
-    · split
-      · intro hh
-        obtain ⟨tbl, -, rfl⟩ := ConLeche.Semantics.checkStructProjTable_shape hh
-        rfl
-      · intro hh
-        simp only [pure, Except.pure, Except.ok.injEq] at hh
-        rw [hh]
-    · intro hh
-      simp only [pure, Except.pure, Except.ok.injEq] at hh
-      rw [hh]
-
-omit [SetTheory V] in
 theorem consBlockInds_indexed {p₁ : BlockShape} {isRec : Bool} :
     ∀ (cvs : List ConstantVal) (i : Nat) (env : Env), ∃ new : List ConstantInfo,
       (ConLeche.consBlockInds p₁ isRec cvs i env).consts = new ++ env.consts ∧
@@ -95,7 +70,7 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
       ((∀ c ∈ p₀.allCtors, ConLeche.reservedBasisNames.contains c.1.name = false) →
         ∀ c ∈ new, ConLeche.reservedBasisNames.contains c.name = false) := by
   obtain ⟨-, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
-    nfs, nodes, st, isorts, outR, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, hTbl⟩ := hrun
+    nfs, nodes, st, isorts, outR, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, -, -, hfin⟩ := hrun
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
   obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_indexed (p₁ := p₁) (isRec := isRec)
@@ -106,7 +81,9 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
   have hctor := consBlockCtors_consts p.nP ctorsAs env₁
   refine ⟨newR ++ (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 p.nP c.2).reverse ++ newI,
     ?_, fun hCres c hc => ?_⟩
-  · rw [checkBlockTables_consts hTbl, hnewR, hctor, hcons, hnewI]
+  · rw [hfin]
+    show (ConLeche.consBlockRecsT _ 0 _ _).consts = _
+    rw [hnewR, hctor, hcons, hnewI]
     simp
   · simp only [List.mem_append] at hc
     rcases hc with (hc | hc) | hc
@@ -168,52 +145,15 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
         exact (ConLeche.checkConstantVal_inv hc').2.1
 
 omit [SetTheory V] in
-/-- The tables' stage adds its members' tables. -/
-theorem checkBlockTables_tables {q : BlockShape} :
-    ∀ {l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))} {env env₂ : Env},
-      ConLeche.checkBlockTables (m := CheckM) q l env = .ok env₂ →
-      ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
-        ∀ t ∈ newQ, ∃ e ∈ l, t.structName = e.1.cvT.name
-  | [], env, env₂, h => by
-    simp only [ConLeche.checkBlockTables, pure, Except.pure, Except.ok.injEq] at h
-    exact ⟨[], by rw [h]; rfl, fun _ h => nomatch h⟩
-  | (ms, ctorsA, sortss) :: rest, env, env₂, h => by
-    unfold ConLeche.checkBlockTables at h
-    obtain ⟨env', henv', h⟩ := exceptBind_ok h
-    obtain ⟨newQ, hQ, hall⟩ := checkBlockTables_tables h
-    have hlift : ∀ t ∈ newQ, ∃ e ∈ (ms, ctorsA, sortss) :: rest, t.structName = e.1.cvT.name :=
-      fun t ht => by
-        obtain ⟨e, he, hn⟩ := hall t ht
-        exact ⟨e, List.mem_cons_of_mem _ he, hn⟩
-    have hsame : env' = env → ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
-        ∀ t ∈ newQ, ∃ e ∈ (ms, ctorsA, sortss) :: rest, t.structName = e.1.cvT.name := fun he =>
-      ⟨newQ, by rw [hQ, he], hlift⟩
-    revert henv'
-    split
-    · split
-      · intro hh
-        obtain ⟨tbl, htn, rfl⟩ := ConLeche.Semantics.checkStructProjTable_shape hh
-        refine ⟨newQ ++ [tbl], by rw [hQ]; simp, fun t ht => ?_⟩
-        rcases List.mem_append.mp ht with ht | ht
-        · exact hlift t ht
-        · rw [List.mem_singleton.mp ht]
-          exact ⟨_, List.mem_cons_self, htn⟩
-      · intro hh
-        simp only [pure, Except.pure, Except.ok.injEq] at hh
-        exact hsame hh.symm
-    · intro hh
-      simp only [pure, Except.pure, Except.ok.injEq] at hh
-      exact hsame hh.symm
-
-omit [SetTheory V] in
 /-- **The ordinary install's tables and its fresh members.** -/
 theorem declBlockRun_tables {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
-    {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) :
+    {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂)
+    (hdn : ∀ ms ∈ p₀.members, ms.declared.name = ms.cvT.name) :
     (∀ ms ∈ p₀.members, env.find? ms.cvT.name = none) ∧
     ∃ newQ : List ProjTable, env₂.tables = newQ ++ env.tables ∧
       ∀ t ∈ newQ, ∃ ms ∈ p₀.members, t.structName = ms.cvT.name := by
   obtain ⟨-, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
-    nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, hTbl⟩ := hrun
+    nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, -, -, hfin⟩ := hrun
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
   refine ⟨?_, ?_⟩
@@ -230,15 +170,16 @@ theorem declBlockRun_tables {F : Nat} {env env₂ : Env} {block : List ConstantI
     obtain ⟨u, hc, -⟩ := exceptBind_ok hq'
     cases u
     exact (ConLeche.checkConstantVal_inv hc).1
-  · obtain ⟨newQ, hQ, hall⟩ := checkBlockTables_tables hTbl
-    refine ⟨newQ, ?_, fun t ht => ?_⟩
-    · rw [hQ, consBlockRecsT_tables 0, consBlockCtors_tables, hcons, consBlockInds_tables]
-    · obtain ⟨e, he, hn⟩ := hall t ht
-      have hm := (List.of_mem_zip he).1
-      subst hp
-      refine ⟨e.1, ?_, hn⟩
-      have : (p₀.complete p₁).toBlockShape.members = p₀.members := by rw [hq]; rfl
-      rw [← this]; exact hm
+  · subst hp
+    have hmm : (p₀.complete p₁).toBlockShape.members = p₀.members := by rw [hq]; rfl
+    refine ⟨(ConLeche.blockTables (p₀.complete p₁).toBlockShape (p₀.complete p₁).members).reverse,
+      ?_, fun t ht => ?_⟩
+    · rw [hfin]
+      show _ ++ (ConLeche.consBlockRecsT _ 0 _ _).tables = _
+      rw [consBlockRecsT_tables 0, consBlockCtors_tables, hcons, consBlockInds_tables]
+    · obtain ⟨m, hm, hn⟩ := ConLeche.Cached.blockTables_names _ _ t (List.mem_reverse.mp ht)
+      have hm' : m ∈ p₀.members := hmm ▸ hm
+      exact ⟨m, hm', hn.trans (hdn m hm')⟩
 
 omit [SetTheory V] in
 /-- **`Nat`'s block is stored at once across the block's install.** -/
@@ -256,7 +197,7 @@ theorem declBlockRun_findTable {F : Nat} {env env₂ : Env} {block : List Consta
     {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂)
     (hdn : ∀ ms ∈ p₀.members, ms.declared.name = ms.cvT.name) (T : Name)
     (hT : (env.find? T).isSome = true) : env₂.findTable? T = env.findTable? T := by
-  obtain ⟨hfresh, newQ, hQ, hQall⟩ := declBlockRun_tables hrun
+  obtain ⟨hfresh, newQ, hQ, hQall⟩ := declBlockRun_tables hrun hdn
   obtain ⟨new, hnew, -⟩ := declBlockRun_consts hrun hdn
   have hne : ∀ t ∈ newQ, (t.structName == T) = false := by
     intro t ht
