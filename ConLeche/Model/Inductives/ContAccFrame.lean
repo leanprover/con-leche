@@ -150,7 +150,7 @@ theorem walkTele_acc {w : Nat} {ctx : NestCtx} {prog : List NestHole} {b : Nat}
   have hNn : N.length = nF := hNl.trans hnl'
   -- the closed normal form is scoped at the base
   have hW : Expr.WScoped b (ConLeche.closeTelescope nds b res) := by
-    refine ConLeche.Cached.closeTelescope_wscoped nds b res (fun k nd hk => ?_) ?_
+    refine ConLeche.closeTelescope_wscoped nds b res (fun k nd hk => ?_) ?_
     · obtain ⟨na, -, -, -, h4, -⟩ := hN k nd (by simp [hk])
       exact h4
     · rw [hnl]; exact hQf.2.2

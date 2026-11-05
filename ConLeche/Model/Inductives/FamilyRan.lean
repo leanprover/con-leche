@@ -47,8 +47,8 @@ theorem familyTelescope_unique {env : Env} {cv : ConstantVal} {caps : IndCaps} {
     {t₁ t₂ : Expr}
     (h₁ : ConLeche.familyTelescope (fueledOps .verified F₁) env cv caps = .ok t₁)
     (h₂ : ConLeche.familyTelescope (fueledOps .verified F₂) env cv caps = .ok t₂) : t₁ = t₂ := by
-  rcases ConLeche.familyTelescope_cases h₁ with ⟨hfl, rfl⟩ | ⟨hfl, -, -, r₁, hr₁, rfl⟩ <;>
-  rcases ConLeche.familyTelescope_cases h₂ with ⟨hfl', rfl⟩ | ⟨hfl', -, -, r₂, hr₂, rfl⟩
+  rcases ConLeche.familyTelescope_cases h₁ with ⟨hfl, rfl⟩ | ⟨hfl, r₁, hr₁, rfl⟩ <;>
+  rcases ConLeche.familyTelescope_cases h₂ with ⟨hfl', rfl⟩ | ⟨hfl', r₂, hr₂, rfl⟩
   · rfl
   · rw [hfl] at hfl'; exact nomatch hfl'
   · rw [hfl] at hfl'; exact nomatch hfl'
@@ -100,7 +100,7 @@ theorem FamilyRan.read {env env' : Env} {mp : EnvModelM V env} {mk : EnvModelM V
   obtain ⟨cv', caps', hf', ⟨hsame, hsh⟩, -⟩ := hrd mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  rcases ConLeche.familyTelescope_cases hfam with ⟨hfl, rfl⟩ | ⟨hfl, -, -, cvR, hrun, rfl⟩
+  rcases ConLeche.familyTelescope_cases hfam with ⟨hfl, rfl⟩ | ⟨hfl, cvR, hrun, rfl⟩
   · rw [hsame hfl]
   · rcases hsh with ⟨-, hn⟩ | ⟨f, hs, -⟩
     · rw [hfl] at hn; exact nomatch hn

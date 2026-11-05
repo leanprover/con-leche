@@ -256,7 +256,7 @@ theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
     | true =>
       simp only [pure, Except.pure, Except.ok.injEq, ↓reduceIte] at h
       subst h
-      have hrf := (reducedFormer_closed hR).1
+      have hrf := reducedFormer_cv hR
       refine ⟨⟨?_, ?_, .inr ?_⟩, rfl, rfl, rfl⟩
       · show cvR.name = m₀.declared.name
         rw [hd₀, hrf]

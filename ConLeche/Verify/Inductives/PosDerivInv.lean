@@ -169,13 +169,14 @@ theorem grpHoles_hole {hi : Nat} {grp : List (Name × Expr)} {x : Expr}
 /-- The container's type former at the key (its hole's type) is well
 scoped where the key's parameters are. -/
 theorem nestInstType_wscoped (hc : NestCtxOk ctx) {ops : CheckerOps CheckM} {env : Env}
+    (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w)
     {hi d : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
     (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty))
     (hds : ∀ x ∈ key.ds, WScoped d x) : WScoped d cty := by
   obtain ⟨cvC, caps, tyC, hf, hfam, hF⟩ := nestInstType_inv h
   refine wscoped_instPisWith hds (WScoped.of_not_hasFvar ?_) hF.inst
   rw [ConLeche.Expr.hasFvar_instantiateLevelParams]
-  exact familyTelescope_hasFvar hfam (hc.1 _ _ hf)
+  exact familyTelescope_hasFvar hwsc hfam (hc.1 _ _ hf)
 
 /-- The pure group listing's constructors come from its containers. -/
 theorem groupCtors_mem {nPc : Nat} :
@@ -507,7 +508,8 @@ theorem mem_nestFrameMates {C c : Name} (h : c ∈ nestFrameMates ctx C) :
 
 /-- **A container frame, derived**: the state invariant is kept and the
 frame is derived (the group's facts are the `frame` rule's). -/
-theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+theorem nestFrame_deriv (hctx : NestCtxOk ctx)
+    (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w) (hrec : RunDeriv ops env ctx rec)
     {prog : List NestHole} {hi : Nat} {us : List Level} {ds : List Expr}
     (hhi : ctx.hiAt prog.length = hi) (hsc : ProgScoped ctx prog)
     (hds : ∀ x ∈ ds, WScoped hi x) {grp : List (Name × Expr)} {st st' : NestState}
@@ -552,7 +554,7 @@ theorem nestFrame_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
     obtain ⟨i, hi', rfl⟩ := grpHoles_hole hx
     obtain ⟨nI, hnI⟩ := hinst _ (List.getElem_mem hi')
     simp only [WScoped]
-    exact ⟨by omega, WScoped.mono (by omega) (nestInstType_wscoped hctx hnI hds)⟩
+    exact ⟨by omega, WScoped.mono (by omega) (nestInstType_wscoped hctx hwsc hnI hds)⟩
   have hcl : ∀ x ∈ ctors, x.1.type.hasFvar = false := by
     intro x hx
     obtain ⟨c, -, nP', L, hL, hxL⟩ := groupCtors_mem hgc' x hx
@@ -588,7 +590,8 @@ theorem nestAcceptGroup_mem {us : List Level} {ds : List Expr} :
 /-- **A new (or re-walked) instantiation, derived**: its frame, under the
 current frames, the container at the frame's head, the container's
 whole recorded block its group. -/
-theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+theorem nestContNew_deriv (hctx : NestCtxOk ctx)
+    (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w) (hrec : RunDeriv ops env ctx rec)
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
     (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
@@ -635,7 +638,7 @@ theorem nestContNew_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
   rename_i st₁ hfr
   have hmap' : (((n, cty) :: ext).map (·.1)) = n :: nestFrameMates ctx n := by
     simp [hmap]
-  obtain ⟨hI₁, tsF, hframe, hnF, hfrec⟩ := nestFrame_deriv (grp := [(n, cty)] ++ ext) hctx hrec rfl hscw hdsw
+  obtain ⟨hI₁, tsF, hframe, hnF, hfrec⟩ := nestFrame_deriv (grp := [(n, cty)] ++ ext) hctx hwsc hrec rfl hscw hdsw
     (by simp) ⟨hnm, hquot⟩ hq (by simpa [hmap'] using nestFrameMates_nodup (ctx := ctx) n)
     (fun p hp => by
       rcases List.mem_cons.mp hp with rfl | hp
@@ -700,7 +703,8 @@ theorem contNew_split {prog : List NestHole} {n : Name} {us : List Level} {ds : 
 /-- **The instantiation met, derived**: in progress it rejects;
 otherwise the frame is derived here, or the key is a hit below every
 frame hole with a derived frame elsewhere. -/
-theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx rec)
+theorem nestContKey_deriv (hctx : NestCtxOk ctx)
+    (hwsc : ∀ dep e w, ops.whnf env dep e = .ok w → WScoped dep e → WScoped dep w) (hrec : RunDeriv ops env ctx rec)
     {prog : List NestHole} (hsc : ProgScoped ctx prog) {kb : Nat} {n : Name} {us : List Level}
     (hnm : ctx.names.contains n = false) (hquot : n ≠ quotName)
     {ds : List Expr} (hds : ∀ x ∈ ds, WScoped (ctx.hiAt prog.length) x) {nPc : Nat}
@@ -733,7 +737,7 @@ theorem nestContKey_deriv (hctx : NestCtxOk ctx) (hrec : RunDeriv ops env ctx re
       obtain ⟨grp, ts, hfr, hmem, hfrec, htrec⟩ := hI _ (Array.mem_toList_iff.mpr hmemK) hfree'
       exact ⟨hI, rfl, Or.inr ⟨hfree', grp, ts, hfr, hmem,
         NodesIn.hit (key := ⟨n, us, ds⟩) hfrec htrec⟩⟩
-    · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hrec hsc hnm hquot hds rfl hq hnI h hI
+    · obtain ⟨hI', hk, hr⟩ := nestContNew_deriv hctx hwsc hrec hsc hnm hquot hds rfl hq hnI h hI
       exact ⟨hI', hk, contNew_split hr⟩
 
 end Frame
@@ -840,7 +844,7 @@ theorem nestPos_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
             WScoped.of_fvarsBelow (Expr.WScoped.getAppArgs hwsw x (List.mem_of_mem_take hx))
               (Expr.fvarB_le (hdsok' x hx).2)
           have hdl : (w.getAppArgs.take nPc).length = nPc := by rw [List.length_take]; omega
-          obtain ⟨hI', hk, hcase⟩ := nestContKey_deriv hctx ih hsc (by simpa using hnm) hnq
+          obtain ⟨hI', hk, hcase⟩ := nestContKey_deriv hctx hwsc ih hsc (by simpa using hnm) hnq
             hdsw hdl ⟨L, hq⟩ hnI hkey hI
           refine ⟨hI', ?_⟩
           rw [hk]
@@ -974,7 +978,7 @@ theorem nestSeeds_deriv (hctx : NestCtxOk ctx) (hroot : NestRootOk ctx)
     rename_i r hr
     obtain ⟨k₁, st₁⟩ := r
     obtain ⟨hnm, hquot, ⟨L, hC⟩, hlen, hds, hchk'⟩ := hok (⟨n, us, ds⟩, nPc) List.mem_cons_self
-    obtain ⟨hI₁, -, hcase⟩ := nestContKey_deriv hctx (nestPos_deriv hctx hroot hwsc _) ProgScoped.nil
+    obtain ⟨hI₁, -, hcase⟩ := nestContKey_deriv hctx hwsc (nestPos_deriv hctx hroot hwsc _) ProgScoped.nil
       hnm hquot (fun x hx => (hds x hx).2) hlen ⟨L, hC⟩ hni hr hI
     have hC' : nestContainer ctx n = some (ds.length, L) := by rw [hlen]; exact hC
     have hseed : ∃ grp ts, PosD ops env ctx (.seed ⟨n, us, ds⟩) [.node [] [] ⟨n, us, ds⟩ grp ts] ∧

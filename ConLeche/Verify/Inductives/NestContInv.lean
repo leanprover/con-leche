@@ -2,6 +2,9 @@ module
 
 public import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.NestCallSyn
+import ConLeche.Verify.Abstract
+public import ConLeche.Verify.Shift
 
 public section
 
@@ -19,28 +22,138 @@ and the instantiation's lookup.  The semantic side
 
 namespace ConLeche
 
-/-- A former's reduct is closed, and the former but for its type. -/
-theorem reducedFormer_closed {ops : CheckerOps CheckM} {env : Env} {cv cvR : ConstantVal} {n : Nat}
-    (h : reducedFormer ops env cv n = .ok cvR) :
-    cvR = { cv with type := cvR.type } ∧ cvR.type.hasFvar = false ∧
-      cvR.type.looseBVarsBounded 0 = true := by
+open Expr
+
+/-- A former's reduct is the former but for its type. -/
+theorem reducedFormer_cv {ops : CheckerOps CheckM} {env : Env} {cv cvR : ConstantVal} {n : Nat}
+    (h : reducedFormer ops env cv n = .ok cvR) : cvR = { cv with type := cvR.type } := by
   unfold reducedFormer at h
   simp only [bind, Except.bind] at h
   split at h
   · simp at h
-  split at h
-  · rename_i hc
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    simp only [Bool.and_eq_true, Bool.not_eq_true'] at hc
-    exact ⟨rfl, hc.1, hc.2⟩
-  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  rfl
 
-/-- A family's telescope is its stored type, or a closed reduct of it. -/
+/-- The telescope's domains are scoped where its type is, at `ops` whose whnf keeps terms
+scoped. -/
+theorem whnfTelescope_wscoped {ops : CheckerOps CheckM} {env : Env}
+    (hw : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w) :
+    ∀ (n i : Nat) (e : Expr) (bs : List Expr) (s : Level),
+      whnfTelescope ops env i n e = .ok (bs, s) → WScoped i e →
+      ∀ (k : Nat) (nd : Expr), bs[k]? = some nd → WScoped (i + k) nd
+  | 0, i, e, bs, s, h, _, k, nd, hk => by
+    simp only [whnfTelescope, bind, Except.bind] at h
+    split at h
+    · simp at h
+    split at h
+    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      simp at hk
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+  | n + 1, i, e, bs, s, h, hws, k, nd, hk => by
+    simp only [whnfTelescope, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i w hwh
+    split at h
+    · rename_i dom body
+      split at h
+      · simp at h
+      rename_i q hq
+      obtain ⟨bs', s'⟩ := q
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      have hW := hw i e _ hwh hws
+      simp only [WScoped] at hW
+      cases k with
+      | zero =>
+        simp only [List.getElem?_cons_zero, Option.some.injEq] at hk
+        subst hk
+        exact hW.1
+      | succ k =>
+        rw [show i + (k + 1) = i + 1 + k by omega]
+        exact whnfTelescope_wscoped hw n (i + 1) _ bs' s' hq (WScoped.instantiate1 hW.1 0 hW.2) k nd
+          (by simpa using hk)
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- The telescope's domains have no loose bound variable where its type has none, at `ops` whose
+whnf keeps that. -/
+theorem whnfTelescope_bounded {ops : CheckerOps CheckM} {env : Env}
+    (hw : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true) :
+    ∀ (n i : Nat) (e : Expr) (bs : List Expr) (s : Level),
+      whnfTelescope ops env i n e = .ok (bs, s) → e.looseBVarsBounded 0 = true →
+      ∀ nd ∈ bs, nd.looseBVarsBounded 0 = true
+  | 0, i, e, bs, s, h, _, nd, hk => by
+    simp only [whnfTelescope, bind, Except.bind] at h
+    split at h
+    · simp at h
+    split at h
+    · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      simp at hk
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+  | n + 1, i, e, bs, s, h, hb, nd, hk => by
+    simp only [whnfTelescope, bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i w hwh
+    split at h
+    · rename_i dom body
+      split at h
+      · simp at h
+      rename_i q hq
+      obtain ⟨bs', s'⟩ := q
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, -⟩ := h
+      have hB := hw i e _ hwh hb
+      simp only [Expr.looseBVarsBounded, Bool.and_eq_true] at hB
+      rcases List.mem_cons.mp hk with rfl | hk
+      · exact hB.1
+      · exact whnfTelescope_bounded hw n (i + 1) _ bs' s' hq
+          (looseBVarsBounded_instantiate1 (d := i) (ty := dom) body 0 hB.2) nd hk
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+
+/-- A former's reduct has no free variable where its stored type has none. -/
+theorem reducedFormer_hasFvar {ops : CheckerOps CheckM} {env : Env} {cv cvR : ConstantVal} {n : Nat}
+    (hw : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (h : reducedFormer ops env cv n = .ok cvR) (hc : cv.type.hasFvar = false) :
+    cvR.type.hasFvar = false := by
+  unfold reducedFormer at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  rename_i q hq
+  obtain ⟨bs, s⟩ := q
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  refine not_hasFvar_of_fvarsBelow_zero (WScoped.fvarsBelow ?_)
+  exact closeTelescope_wscoped bs 0 _ (whnfTelescope_wscoped hw n 0 _ bs s hq
+    (WScoped.of_not_hasFvar hc)) (by simp [WScoped])
+
+/-- A former's reduct has no loose bound variable where its stored type has none. -/
+theorem reducedFormer_looseBVars {ops : CheckerOps CheckM} {env : Env} {cv cvR : ConstantVal}
+    {n : Nat}
+    (hw : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    (h : reducedFormer ops env cv n = .ok cvR) (hc : cv.type.looseBVarsBounded 0 = true) :
+    cvR.type.looseBVarsBounded 0 = true := by
+  unfold reducedFormer at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  rename_i q hq
+  obtain ⟨bs, s⟩ := q
+  simp only [pure, Except.pure, Except.ok.injEq] at h
+  subst h
+  exact closeTelescope_bounded bs 0 _ (whnfTelescope_bounded hw n 0 _ bs s hq hc) rfl
+
+/-- A family's telescope is its stored type, or its reduct. -/
 theorem familyTelescope_cases {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
     {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty) :
     (formerDefHeaded cv = false ∧ ty = cv.type) ∨
-    (formerDefHeaded cv = true ∧ ty.hasFvar = false ∧ ty.looseBVarsBounded 0 = true ∧
+    (formerDefHeaded cv = true ∧
       ∃ cvR, reducedFormer ops env cv (caps.nparams + caps.nIdx) = .ok cvR ∧ ty = cvR.type) := by
   unfold familyTelescope at h
   split at h
@@ -51,27 +164,31 @@ theorem familyTelescope_cases {ops : CheckerOps CheckM} {env : Env} {cv : Consta
     rename_i cvR hr
     simp only [pure, Except.pure, Except.ok.injEq] at h
     subst h
-    obtain ⟨-, h₁, h₂⟩ := reducedFormer_closed hr
-    exact .inr ⟨hd, h₁, h₂, cvR, hr, rfl⟩
+    exact .inr ⟨hd, cvR, hr, rfl⟩
   · rename_i hd
     simp only [pure, Except.pure, Except.ok.injEq] at h
     exact .inl ⟨by simpa using hd, h.symm⟩
 
 /-- A family's telescope is closed where its stored type is. -/
 theorem familyTelescope_hasFvar {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
-    {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty)
+    {caps : IndCaps} {ty : Expr}
+    (hw : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (h : familyTelescope ops env cv caps = .ok ty)
     (hc : cv.type.hasFvar = false) : ty.hasFvar = false := by
-  rcases familyTelescope_cases h with ⟨-, rfl⟩ | ⟨-, hf, -⟩
+  rcases familyTelescope_cases h with ⟨-, rfl⟩ | ⟨-, cvR, hr, rfl⟩
   · exact hc
-  · exact hf
+  · exact reducedFormer_hasFvar hw hr hc
 
 /-- A family's telescope is scoped where its stored type is. -/
 theorem familyTelescope_bounded {ops : CheckerOps CheckM} {env : Env} {cv : ConstantVal}
-    {caps : IndCaps} {ty : Expr} (h : familyTelescope ops env cv caps = .ok ty)
+    {caps : IndCaps} {ty : Expr}
+    (hw : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    (h : familyTelescope ops env cv caps = .ok ty)
     (hc : cv.type.looseBVarsBounded 0 = true) : ty.looseBVarsBounded 0 = true := by
-  rcases familyTelescope_cases h with ⟨-, rfl⟩ | ⟨-, -, hb, -⟩
+  rcases familyTelescope_cases h with ⟨-, rfl⟩ | ⟨-, cvR, hr, rfl⟩
   · exact hc
-  · exact hb
+  · exact reducedFormer_looseBVars hw hr hc
 
 /-- **What `nestInstType` checks of a telescope**: the container is applied at its own level count,
 the telescope binds its parameters, its instantiation at the key is `cty`, a telescope ending in a

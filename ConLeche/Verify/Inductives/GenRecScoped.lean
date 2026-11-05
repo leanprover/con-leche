@@ -687,9 +687,9 @@ theorem genScoped_of_run
         rw [mkFEnv_find?_fun] at hf
         have hw := henvC.consts _ (List.mem_of_find?_eq_some hf)
         refine ScB.of_closed ?_ ?_ 0
-        · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar hfam hw.1
+        · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar (fun _ _ _ hw he => whnf_WScoped henvC F hw he) hfam hw.1
         · rw [Expr.looseBVarsBounded_instantiateLevelParams]
-          exact familyTelescope_bounded hfam hw.2.2.2.1
+          exact familyTelescope_bounded (fun _ _ _ hw he => whnf_looseBVars henvC F hw he) hfam hw.2.2.2.1
       · simp [throw, throwThe, MonadExceptOf.throw] at hrun
   case tyN =>
     intro c x hx

@@ -102,16 +102,22 @@ theorem nestContainer_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {C : Name}
 /-- The container's type former at the key (its hole's type) is scoped
 where the key's parameters are. -/
 theorem nestInstType_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {ops : CheckerOps CheckM}
-    {env : Env} {hi d : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
+    {env : Env} (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    {hi d : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
     (h : nestInstType (m := CheckM) ctx ops env hi key = .ok (nI, cty))
     (hds : ∀ x ∈ key.ds, ScB d x) : ScB d cty := by
   obtain ⟨cvC, caps, tyC, hf, hfam, hF⟩ := nestInstType_inv h
   refine ScB.of_instPisWith hF.inst (ScB.of_closed ?_ ?_ d) hds
-  · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar hfam (hc.1 _ _ hf)
-  · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact familyTelescope_bounded hfam (hb _ _ hf)
+  · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar hwW hfam (hc.1 _ _ hf)
+  · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact familyTelescope_bounded hwB hfam (hb _ _ hf)
 
 theorem nestGrowGroup_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {ops : CheckerOps CheckM}
-    {env : Env} {hi d : Nat}
+    {env : Env} (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    {hi d : Nat}
     {us : List Level} {ds : List Expr} {cs : List Name} {grp grp' : List (Name × Expr)}
     (h : nestGrowGroup (m := CheckM) ctx ops env hi us ds cs grp = .ok grp')
     (hds : ∀ x ∈ ds, ScB d x)
@@ -121,7 +127,7 @@ theorem nestGrowGroup_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {ops : Checke
   rcases List.mem_append.mp hx with hx | hx
   · exact hg x hx
   · obtain ⟨nI, hnI⟩ := hext x hx
-    exact nestInstType_scb hc hb hnI hds
+    exact nestInstType_scb hc hb hwW hwB hnI hds
 
 theorem nestGroupCtors_scb (hc : NestCtxOk ctx) (hb : NestCtxB ctx) {nPc : Nat} :
     ∀ (cs : List Name) (ctors : List (ConstantVal × Nat)),
@@ -445,7 +451,11 @@ theorem nestFrame_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecN
     (frameHole_scb hg) (by simp) ctors st os st₂ hv' hcl hst).1
   subst hhi; simp [NestCtx.hiAt]; omega
 
-theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
+theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
+    (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    (hrec : RecNf ctx rec)
     (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
     {prog : List NestHole} (hp : ProgScB ctx prog) {kb : Nat} {n : Name} {us : List Level}
     {ds : List Expr} {nPc : Nat}
@@ -465,7 +475,7 @@ theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : Re
   split at h
   · simp at h
   rename_i grp hgrow
-  have hg := nestGrowGroup_scb hc hb hgrow hdsw (fun x hx => by
+  have hg := nestGrowGroup_scb hc hb hwW hwB hgrow hdsw (fun x hx => by
     simp only [List.mem_singleton] at hx; subst hx; exact hcty _ hdsw)
   have hpw : ProgScB ctx (nestWalkStack ctx prog ds) := by
     unfold nestWalkStack; split
@@ -479,7 +489,11 @@ theorem nestContNew_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : Re
   obtain ⟨-, rfl⟩ := h
   exact hst₁
 
-theorem nestContKey_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
+theorem nestContKey_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
+    (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    (hrec : RecNf ctx rec)
     (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
     {prog : List NestHole} (hp : ProgScB ctx prog) {kb : Nat} {n : Name} {us : List Level}
     {ds : List Expr} {nPc : Nat}
@@ -495,9 +509,13 @@ theorem nestContKey_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : Re
     · simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨-, rfl⟩ := h
       exact hst
-    · exact nestContNew_nfScoped hc hb hrec hpar hp hds hcty h hst
+    · exact nestContNew_nfScoped hc hb hwW hwB hrec hpar hp hds hcty h hst
 
-theorem nestCont_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf ctx rec)
+theorem nestCont_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
+    (hwW : ∀ d e w, ops.whnf env d e = .ok w → WScoped d e → WScoped d w)
+    (hwB : ∀ d e w, ops.whnf env d e = .ok w → e.looseBVarsBounded 0 = true →
+      w.looseBVarsBounded 0 = true)
+    (hrec : RecNf ctx rec)
     (hpar : ∀ x ∈ ctx.params, ScB ctx.nP x)
     {prog : List NestHole} (hp : ProgScB ctx prog) {kb : Nat} {n : Name} {us : List Level}
     {args : List Expr} {dep : Nat}
@@ -507,10 +525,10 @@ theorem nestCont_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx) (hrec : RecNf
   obtain ⟨nPc, L, -, -, -, -, hdsok, nI, cty, hnI, -, hkey⟩ := nestCont_inv h
   have hdsok' : ∀ x ∈ args.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ ctx.hiAt prog.length := by
     simpa using hdsok
-  exact nestContKey_nfScoped hc hb hrec hpar hp
+  exact nestContKey_nfScoped hc hb hwW hwB hrec hpar hp
     (fun x hx => ⟨WScoped.of_fvarsBelow (hargs x (List.mem_of_mem_take hx)).1
       (Expr.fvarB_le (hdsok' x hx).2), (hargs x (List.mem_of_mem_take hx)).2⟩)
-    (fun _ hd => nestInstType_scb hc hb hnI hd) hkey hst
+    (fun _ hd => nestInstType_scb hc hb hwW hwB hnI hd) hkey hst
 
 /-- **The walk keeps the state scoped** and its normal form scoped where
 its input is — at any fuel, under any `ops` whose whnf keeps terms scoped
@@ -581,7 +599,7 @@ theorem nestPos_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
           obtain ⟨k₁, st₁⟩ := v
           simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hrun
           obtain ⟨rfl, rfl, rfl⟩ := hrun
-          exact ⟨nestCont_nfScoped hc hb ih hpar hp (fun a ha => ScB.getAppArgs hwsw a ha) hv hst,
+          exact ⟨nestCont_nfScoped hc hb hwW hwB ih hpar hp (fun a ha => ScB.getAppArgs hwsw a ha) hv hst,
             hwsw⟩
         · simp [throw, throwThe, MonadExceptOf.throw] at hrun
 
@@ -650,9 +668,9 @@ theorem nestSeeds_nfScoped (hc : NestCtxOk ctx) (hb : NestCtxB ctx)
     · simp at h
     rename_i r hr
     obtain ⟨k₁, st₁⟩ := r
-    have hst₁ := nestContKey_nfScoped (prog := []) hc hb (nestPos_nfScoped hc hb hpar hwW hwB _)
+    have hst₁ := nestContKey_nfScoped (prog := []) hc hb hwW hwB (nestPos_nfScoped hc hb hpar hwW hwB _)
       hpar trivial (fun x hx => hks _ List.mem_cons_self x hx)
-      (fun _ hd => nestInstType_scb hc hb hni hd) hr hst
+      (fun _ hd => nestInstType_scb hc hb hwW hwB hni hd) hr hst
     exact nestSeeds_nfScoped hc hb hpar hwW hwB ks st₁ st' h
       (fun s hs => hks s (List.mem_cons_of_mem _ hs)) hst₁
 

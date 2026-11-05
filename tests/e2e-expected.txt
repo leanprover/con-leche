@@ -3231,7 +3231,8 @@
 # block's own constructor, in a parameter the container's fields do not read.  Official 0 (run on
 # v4.35.0, `tc.check(nested, …)` runs in the environment holding the whole block); here 1, "unknown
 # constant", from the constructor's constant check at the formers' environment, not from K.52.
-# Target 0 by the rule "no reject beyond official"; a reject beyond official today.
+# Master rejects it too, so it is no regression of #480; the target is open: such a block may not be
+# desirable at all, and the elaborator does not produce it.
 # ind_defhead_param_bad (`scripts/mk_defhead_param_fixture.py`, base ind_defhead_param_base): member
 # 0 stored at a definition holding its parameters.  Official 1 (run, the source's `mk_official`,
 # `get_params`, "incorrect number of parameters"); here 0, a deliberate accept beyond official.
