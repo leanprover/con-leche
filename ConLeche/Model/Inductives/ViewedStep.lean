@@ -6,6 +6,8 @@ public import ConLeche.Verify.EnvExt
 import ConLeche.Verify.Cached.BridgeCS4
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.BridgeDecl
+import ConLeche.Model.Inductives.GenRecExtra
+import ConLeche.Semantics.Tower.TowerKit
 
 public section
 
@@ -238,5 +240,263 @@ theorem view_read {env : Env} {mp : EnvModelM V env} (hS : ShownFacts mp)
     obtain rfl := Option.some.inj hs'
     rw [hn] at hm
     exact hm ψ
+
+/-! ## To the views -/
+
+/-- A stack of views over a well-formed environment is well formed. -/
+theorem envWF_ofViews {env : Env} (henv : EnvWF env) :
+    ∀ {vs : List ConstantInfo}, (∀ c ∈ vs, ViewOf env c) → EnvWF ⟨vs ++ env.consts, env.tables⟩
+  | [], _ => henv
+  | c :: vs, hv => by
+    have ih := envWF_ofViews henv (vs := vs) fun d hd => hv d (List.mem_cons_of_mem _ hd)
+    obtain ⟨cv, cvR, caps, rfl, hF⟩ := hv c List.mem_cons_self
+    have hsc := hF.closed
+    simp only [ConLeche.viewScoped, Bool.and_eq_true, Bool.not_eq_true'] at hsc
+    obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := hsc
+    have hres : ∀ (vs : List ConstantInfo) {e : Expr}, e.constsResolve env = true →
+        e.constsResolve ⟨vs ++ env.consts, env.tables⟩ = true := by
+      intro vs e he
+      induction vs with
+      | nil => exact he
+      | cons d vs ih => exact Expr.constsResolve_mono ih
+    have hcaps : ConLeche.IndCapsWF (.indInfo cvR caps) := by
+      obtain ⟨hu, he⟩ := (henv.consts _ (ConLeche.Env.find?_mem hF.find)).2.2.2.2.2.2 cv caps rfl
+      exact ConLeche.IndCapsWF.of_caps hu he
+    exact ih.cons (ConLeche.structConstWF h1 h2 (Expr.constsResolve_mono (hres vs h3)) h4
+      (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq) hcaps)
+
+set_option maxHeartbeats 1600000 in
+/-- **The carrier at the views**: the same leaves and records. -/
+theorem EnvModelM.toViews {env : Env} (mp : EnvModelM V env) (hS : ShownFacts mp)
+    (hcov : LfpCover mp []) {vs : List ConstantInfo} (hv : ∀ c ∈ vs, ViewOf env c) :
+    ∃ mpV : EnvModelM V ⟨vs ++ env.consts, env.tables⟩,
+      mpV.base2.acval = mp.base2.acval ∧ mpV.lfpBlocks = mp.lfpBlocks ∧ LfpCover mpV [] := by
+  have h := formerSwap_views hv
+  have hwf := envWF_ofViews mp.base2.wf hv
+  have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote mp.base2.acval env ψ d e
+        = denote mp.base2.acval ⟨vs ++ env.consts, env.tables⟩ ψ d e :=
+    fun ψ d e => denote_formerSwap h ψ d e
+  have hbd : ∀ e, ConstsBound env e → ConstsBound ⟨vs ++ env.consts, env.tables⟩ e := fun _ =>
+    ConstsBound.of_isSome fun n hn => by rw [← h.isSomeEq]; exact hn
+  -- a member's former as read, on the two sides
+  have hfa : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks → ∀ {mm : Nat}, mm < D.k →
+      ∀ {cv cv' : ConstantVal} {caps caps' : IndCaps},
+      env.find? (D.member mm) = some (.indInfo cv caps) →
+      (⟨vs ++ env.consts, env.tables⟩ : Env).find? (D.member mm) = some (.indInfo cv' caps') →
+      D.formerAt mm cv' = D.formerAt mm cv := by
+    intro D hD mm hmm cv cv' caps caps' hf hf'
+    rcases find_views hv (D.member mm) with he | ⟨cvs, cvR, capsv, hn, hF, h₃⟩
+    · rw [he, hf] at hf'
+      obtain ⟨rfl, -⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+      rfl
+    · have hs := shown_of_view hS hD hmm hn hF
+      simp [LfpDatum.formerAt, hs]
+  refine (mp.swapFormers h hwf ?_ ?_ ?_ ?_ ?_ ?_ mp.lfpBlocks ?_).imp fun mpV hV =>
+    ⟨hV.1, hV.2, LfpCover.formerSwap h hV.2 hcov⟩
+  · -- the recursors' constructors
+    intro n cv mI rP isK rules hf r hr
+    obtain ⟨cvj, cnP, cnF, hc⟩ := mp.base2.rec_ctors n cv mI rP isK rules
+      ((h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mp hf) r hr
+    exact ⟨cvj, cnP, cnF, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hc⟩
+  · -- the tables' discipline
+    intro T tbl hf i hi
+    have hf₀ : env.findTable? T = some tbl := by rw [h.tableEq]; exact hf
+    obtain ⟨h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hstrip⟩⟩ := mp.base2.proj_ok T tbl hf₀ i hi
+    obtain ⟨cvT', hT', hl'⟩ := h.find_ind hT
+    exact ⟨h2, h3, h4, h5, ⟨cvT', caps, hT', hl'.trans hlT⟩,
+      ⟨cvC, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hC, hlC, hstrip⟩⟩
+  · -- the recursors' laws
+    intro m₃ hac φ n cv mI rP isK rules hf rl hrl
+    have hl := mp.rec_rules φ n cv mI rP isK rules
+      ((h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mp hf) rl hrl
+    refine RecRuleLaw.formerSwap h hac (fun φ' cvj us hz => ?_) hl
+    refine FamNZ.formerSwap h mp.base2.acval_params ?_ ?_ hz
+    · intro T cv cv' caps φ'' us' h₀ h₃ hne hnv
+      rcases find_views hv T with he | ⟨cvs, cvR, capsv, hn, hF, h₃'⟩
+      · rw [he, h₀] at h₃
+        obtain rfl : cv = cv' := by simpa using h₃
+        exact absurd rfl hne
+      · have hfs := hF.find
+        rw [hn, h₀] at hfs
+        obtain ⟨rfl, rfl⟩ : cv = cvs ∧ caps = capsv := by simpa using hfs
+        rw [h₃] at h₃'
+        obtain rfl : cv' = cvR := by simpa using h₃'
+        obtain ⟨D, hD, mm, hmm, hnm, hs⟩ := view_member hS hcov hF
+        obtain ⟨-, -, hrd, -, hcK, -⟩ := mp.lfp_ok D hD
+        obtain ⟨cv₁, caps₁, hf₁, hz₁, hlen⟩ := hcK mm hmm
+        rw [hnm, hn, h₀] at hf₁
+        obtain ⟨rfl, rfl⟩ : cv = cv₁ ∧ caps = caps₁ := by simpa using hf₁
+        have hfm : env.find? (D.member mm) = some (.indInfo cv caps) := by rw [hnm, hn]; exact h₀
+        have hfaV : D.formerAt mm cv = cv' := by simp [LfpDatum.formerAt, hs]
+        rw [hfaV] at hz₁
+        generalize hψ : Level.substFn φ'' cv.levelParams us' = ψ
+        have hfalse := holds_false_of_isNever hnv φ''
+        rw [show cv'.levelParams = cv.levelParams from hF.lps, hψ] at hfalse
+        refine ⟨D.w ψ, (fun h0 => by rw [hz₁ ψ h0] at hfalse; exact nomatch hfalse),
+          fun ta hta ρ => ?_⟩
+        rw [denote_instLevels mp.base2.acval_params φ'', hψ] at hta
+        obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm hmm
+        rw [hfm] at hf₂
+        obtain ⟨rfl, rfl⟩ : cv = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+        obtain ⟨ab, hab₁, hmap⟩ := hab ψ
+        rw [mp.formerAt_interp hD hmm hfm hta hab₁ ρ, ← hlen ψ, ← hmap]
+        exact (towerEnds_mkPisAV ab ρ (D.w ψ)).toPt
+    · intro T cv cv' caps ψ ta _ h₀ h₃ hta ρ
+      rcases find_views hv T with he | ⟨cvs, cvR, capsv, hn, hF, h₃'⟩
+      · rw [he, h₀] at h₃
+        obtain rfl : cv = cv' := by simpa using h₃
+        exact ⟨ta, hta, rfl⟩
+      · have hfs := hF.find
+        rw [hn, h₀] at hfs
+        obtain ⟨rfl, rfl⟩ : cv = cvs ∧ caps = capsv := by simpa using hfs
+        rw [h₃] at h₃'
+        obtain rfl : cv' = cvR := by simpa using h₃'
+        obtain ⟨ta₁, ta₀, h₁, h₀', hin⟩ := view_read hS hcov hF ψ
+        rw [hta] at h₀'
+        obtain rfl := Option.some.inj h₀'
+        exact ⟨ta₁, h₁, (hin ρ).1⟩
+  · -- the projections' laws
+    intro m₃ hac φ T i entry hf
+    have hf₀ : env.findProj? T i = some entry := by rw [h.projEq]; exact hf
+    have hl := mp.tower_ok φ T i entry hf₀
+    refine TowerEntryLaw.formerSwap h hac (fun us cvC Ta hus hTa hgd => ?_) hl
+    have hsn : entry.structName = T := hl.1
+    rcases hgd with ⟨cvT, caps, s, hT, hs, hz⟩ | hr | ⟨cvT, caps, u, hT, ht, hu⟩
+    · rcases find_views hv entry.structName with he | ⟨cvs, cvR, capsv, hn, hF, h₃⟩
+      · exact .inl (.inl ⟨cvT, caps, s, by rw [← he]; exact hT, hs, hz⟩)
+      · rw [hT] at h₃
+        obtain ⟨rfl, -⟩ : cvT = cvR ∧ caps = capsv := by simpa using h₃
+        obtain ⟨D, hD, mm, hmm, hnm, hs'⟩ := view_member hS hcov hF
+        have hfm : env.find? (D.member mm) = some (.indInfo cvs capsv) := by
+          rw [hnm]; exact hF.find
+        obtain ⟨-, -, htv, -⟩ := hS D hD mm cvT hmm hs' cvs capsv hfm
+        have hmT : D.member mm = T := by rw [hnm, hn, hsn]
+        rw [hmT] at htv
+        exact .inr (htv φ i entry s hf₀ hs hz us Ta hus hTa)
+    · refine .inl (.inr (.inl fun ds b hrd hl' => hr ds b ?_ hl'))
+      rw [hac, ← hde]; exact hrd
+    · obtain ⟨cv₀, hT₀, hlp⟩ := h.find_ind_back hT
+      refine .inl (.inr (.inr ⟨cv₀, caps, u, hT₀, fun ta hta ρ => ?_, hu.imp id fun hr ds b hrd hl' =>
+        hr ds b (by rw [hac, ← hde]; exact hrd) hl'⟩))
+      rw [denote_instLevels mp.base2.acval_params φ] at hta
+      rcases find_views hv entry.structName with he | ⟨cvs, cvR, capsv, hn, hF, h₃⟩
+      · rw [he, hT₀] at hT
+        obtain rfl : cv₀ = cvT := by simpa using hT
+        refine ht ta ?_ ρ
+        rw [hac, ← hde, denote_instLevels mp.base2.acval_params φ]
+        exact hta
+      · have hfs := hF.find
+        rw [hn, hT₀] at hfs
+        obtain ⟨rfl, rfl⟩ : cv₀ = cvs ∧ caps = capsv := by simpa using hfs
+        rw [hT] at h₃
+        obtain rfl : cvT = cvR := by simpa using h₃
+        obtain ⟨ta₁, ta₀, h₁, h₀', hin⟩ := view_read hS hcov hF
+          (Level.substFn φ cv₀.levelParams us)
+        rw [hta] at h₀'
+        obtain rfl := Option.some.inj h₀'
+        rw [(hin ρ).1]
+        refine ht ta₁ ?_ ρ
+        rw [hac, ← hde, denote_instLevels mp.base2.acval_params φ, hlp]
+        exact h₁
+  · -- the fibres
+    intro m₃ hac I cv caps hf ψ ab n hread hn ρ vs' hsp
+    rw [hac] at hread ⊢
+    rw [← hde] at hread
+    rcases find_views hv I with he | ⟨cvs, cvR, capsv, hnm, hF, h₃⟩
+    · exact mp.ind_strict I cv caps (by rw [← he]; exact hf) ψ ab n hread hn ρ vs' hsp
+    · rw [hf] at h₃
+      obtain ⟨rfl, -⟩ : cv = cvR ∧ caps = capsv := by simpa using h₃
+      obtain ⟨D, hD, mm, hmm, hnm', hs'⟩ := view_member hS hcov hF
+      have hfm : env.find? (D.member mm) = some (.indInfo cvs capsv) := by
+        rw [hnm']; exact hF.find
+      obtain ⟨-, his, -⟩ := hS D hD mm cv hmm hs' cvs capsv hfm
+      have hmT : D.member mm = I := by rw [hnm', hnm]
+      rw [hmT] at his
+      exact his ψ ab n hread hn ρ vs' hsp
+  · -- the views' types
+    intro c hc hnot
+    have hc' : c ∈ vs := (List.mem_append.mp hc).resolve_right hnot
+    obtain ⟨cv, cvR, caps, rfl, hF⟩ := hv c hc'
+    obtain ⟨D, hD, mm, hmm, hnm, hs'⟩ := view_member hS hcov hF
+    have hfm : env.find? (D.member mm) = some (.indInfo cv caps) := by rw [hnm]; exact hF.find
+    obtain ⟨-, -, -, hwd⟩ := hS D hD mm cvR hmm hs' cv caps hfm
+    refine ⟨fun ψ => ?_, fun ψ ta hta ρ => ?_, fun ψ ta hta ρ => ?_⟩
+    · obtain ⟨ta, -, h₁, -⟩ := view_read hS hcov hF ψ
+      exact ⟨ta, by rw [← hde]; exact h₁⟩
+    · rw [← hde] at hta
+      exact hwd ψ ta hta ρ
+    · rw [← hde] at hta
+      change denote mp.base2.acval env ψ 0 cvR.type = some ta at hta
+      obtain ⟨ta₁, _, h₁, _, hin⟩ := view_read hS hcov hF ψ
+      rw [hta] at h₁
+      obtain rfl := Option.some.inj h₁
+      show interp V ρ (mp.base2.acval cvR.name ψ) ∈ˢ _
+      rw [hF.name]
+      exact (hin ρ).2
+  · -- the records
+    intro D hD
+    obtain ⟨hc, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := mp.lfp_ok D hD
+    refine ⟨hc, ⟨fun mm hmm => ?_, fun c hc' j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc' j hj => ?_⟩,
+      ⟨fun mm hmm => ?_, fun c hc' j hj => ?_⟩⟩
+    · obtain ⟨cv, caps, hf⟩ := hst mm hmm
+      obtain ⟨cv', hf', -⟩ := h.find_ind hf
+      exact ⟨cv', caps, hf'⟩
+    · obtain ⟨cv, a, b, hf⟩ := hstC c hc' j hj
+      exact ⟨cv, a, b, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hf⟩
+    · obtain ⟨cv, caps, hf, ⟨hfl, hsh⟩, hab⟩ := hrd mm hmm
+      obtain ⟨cv', hf', hl'⟩ := h.find_ind hf
+      have hq := hfa hD hmm hf hf'
+      refine ⟨cv', caps, hf', ⟨?_, ?_⟩, fun ψ => ?_⟩
+      · intro hfl'
+        rcases find_views hv (D.member mm) with he | ⟨cvs, cvR, capsv, hn, hF, h₃⟩
+        · rw [he, hf] at hf'
+          obtain rfl : cv = cv' := by simpa using hf'
+          exact hfl hfl'
+        · rw [hf'] at h₃
+          obtain ⟨rfl, -⟩ : cv' = cvR ∧ caps = capsv := by simpa using h₃
+          have hs := shown_of_view hS hD hmm hn hF
+          simp [LfpDatum.formerAt, hs]
+      · rcases find_views hv (D.member mm) with he | ⟨cvs, cvR, capsv, hn, hF, h₃⟩
+        · rw [he, hf] at hf'
+          obtain rfl : cv = cv' := by simpa using hf'
+          rcases hsh with ⟨h₁, h₂⟩ | ⟨f, hs, h₁, h₂, h₃', h₄, hb, hdl, hm⟩
+          · exact .inl ⟨h₁, h₂⟩
+          · refine .inr ⟨f, hs, h₁, h₂, h₃', h₄, hbd _ hb, hdl, fun ψ => ?_⟩
+            obtain ⟨ta, ta₀, hta, hta₀, hin⟩ := hm ψ
+            exact ⟨ta, ta₀, by rw [← hde]; exact hta, by rw [← hde]; exact hta₀, hin⟩
+        · rw [hf'] at h₃
+          obtain ⟨rfl, -⟩ : cv' = cvR ∧ caps = capsv := by simpa using h₃
+          have hs := shown_of_view hS hD hmm hn hF
+          rcases hsh with ⟨h₁, -⟩ | ⟨f, hs', h₁, h₂, h₃', h₄, hb, hdl, hm⟩
+          · rw [hs] at h₁; exact nomatch h₁
+          · rw [hs] at hs'
+            obtain rfl := Option.some.inj hs'
+            refine .inr ⟨cv', hs, rfl, rfl, h₃', h₄, hbd _ hb, hdl, fun ψ => ?_⟩
+            obtain ⟨ta, ta₀, hta, -, hin⟩ := hm ψ
+            exact ⟨ta, ta, by rw [← hde]; exact hta, by rw [← hde]; exact hta, fun ρ =>
+              ⟨rfl, (hin ρ).2⟩⟩
+      · rw [hq]
+        obtain ⟨ab, hta, hmap⟩ := hab ψ
+        exact ⟨ab, by rw [← hde]; exact hta, hmap⟩
+    · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc' j hj
+      refine ⟨cv, nPc, nF, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hf, hcf,
+        fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
+      · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
+        obtain ⟨cvm', hfm', hl'⟩ := h.find_ind hfm
+        exact ⟨cvm', caps, hfm', hl'.trans hl⟩
+      · rw [← hde] at hrd'
+        exact hpars ψ dsC bodyC hrd' hle
+      · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
+        refine ⟨h1, h2, ab, Tys, by rw [← hde]; exact hta, hlab, hlT, fun mm hmm => ?_, hab⟩
+        obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
+        obtain ⟨cvm', hfm', -⟩ := h.find_ind hfm
+        refine ⟨cvm', caps, ty, hfm', by rw [hfa hD hmm hfm hfm']; exact hty, ?_⟩
+        rw [← hde]; exact hr
+    · obtain ⟨cv, caps, hf, hz, hlen⟩ := hcK mm hmm
+      obtain ⟨cv', hf', -⟩ := h.find_ind hf
+      exact ⟨cv', caps, hf', by rw [hfa hD hmm hf hf']; exact hz, hlen⟩
+    · obtain ⟨cv, nPc, nF, hf, hshape⟩ := hcC c hc' j hj
+      exact ⟨cv, nPc, nF, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hf, hshape⟩
 
 end ConLeche.Model

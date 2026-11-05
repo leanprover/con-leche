@@ -40,6 +40,10 @@ def TowerEndsPt : Nat → V → Nat → Prop
   | 0, X, n => X = pt ∨ X = univ n
   | k + 1, X, n => X = pt ∨ ∃ (A : V) (B : V → V), X = piV A B ∧ ∀ a, a ∈ˢ A → TowerEndsPt k (B a) n
 
+theorem TowerEnds.toPt : ∀ {k : Nat} {X : V} {n : Nat}, TowerEnds k X n → TowerEndsPt k X n
+  | 0, _, _, h => .inr h
+  | _ + 1, _, _, ⟨A, B, hX, hB⟩ => .inr ⟨A, B, hX, fun a ha => (hB a ha).toPt⟩
+
 /-- A tower with one chain of arguments. -/
 inductive TowerPath : Nat → V → Nat → Prop where
   | zero {n : Nat} : TowerPath 0 (univ n) n
