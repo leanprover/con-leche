@@ -95,7 +95,7 @@ step and coverage is unconditional. -/
 theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V env}
     (h : CoverStep mp env') (hcov : LfpCover mp []) :
     ∃ mp' : EnvModelM V env', LfpCover mp' [] :=
-  h.elim fun mp' h' => ⟨mp', h' hcov⟩
+  h.elim fun mp' h' => ⟨mp', h'.2 hcov⟩
 
 /-- **The P fold invariant**: a covered P carrier plus the η-family
 closure. -/
@@ -164,7 +164,7 @@ theorem declStep_preserves
         -- the uniform install, at any number of members, nested blocks
         -- included (`declBlock`)
         rcases hrun' with hrun' | hrun'
-        · exact declBlock mp hE hdf hrun' hcov
+        · exact (declBlock mp hE hdf hrun' hcov).elim fun mp' h' => ⟨mp', h'.2⟩
         · sorry
       | none =>
         -- a block the recogniser does not read never installs

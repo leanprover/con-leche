@@ -320,7 +320,10 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
     -- input's recorded list
     obtain ⟨mk, hb, hL⟩ := EnvModelM.keepLfpOfTable hT' mp' hac
     rw [← hb] at hcore'
-    obtain ⟨mpF, hF⟩ := stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mk hl' h hcore'
-    exact ⟨mpF, fun hc => hF (hc.pushTable hL)⟩
+    obtain ⟨mpF, rF, hF⟩ :=
+      stageBlockTables hN hS hqlps hqnP hqres rest (i + 1) _ env₂ mk hl' h hcore'
+    have r₀ : CoverRel mp mk := ⟨fun _ hn => hn, fun n _ => by rw [hb, hac], fun D hD =>
+      .inl (hL ▸ hD)⟩
+    exact ⟨mpF, r₀.trans rF, fun hc => hF (hc.pushTable hL)⟩
 
 end ConLeche.Model

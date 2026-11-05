@@ -75,7 +75,7 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     (mp : EnvModelM V env)
     (hE : ConLeche.EtaFamiliesClosed env) (hdp : ConLeche.blockParts? nPd block = some p₀)
     (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp []) :
-    ∃ mp' : EnvModelM V env₂, LfpCover mp' [] := by
+    ∃ mp' : EnvModelM V env₂, CoverRel mp mp' ∧ LfpCover mp' [] := by
   classical
   obtain ⟨hndC₀, hndM₀, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
@@ -259,29 +259,32 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     refine ⟨m, cA, by rw [← hlenCtorsAs]; exact hm, ?_, rfl⟩
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm]
     exact hcAl
+  have hfwdE : ∀ n ci, env.find? n = some ci →
+      (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n = some ci := fun n ci hf => by
+    have hfr : ∀ c ∈ (ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse
+        ++ newI, env.find? c.name = none := by
+      intro c hc
+      rcases List.mem_append.mp hc with hc | hc
+      · obtain ⟨m, cA, hm, hcA, rfl⟩ := hnewC c hc
+        obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
+        exact consBlockInds_find?_none (hcons ▸ hfreshC m j cA hj)
+      · obtain ⟨cv, hcv, j, rfl⟩ := hnewIall c hc
+        exact hmemCv cv hcv
+    show List.find? _ _ = _
+    rw [consBlockCtors_consts, henv₁, ← List.append_assoc]
+    exact find?_append_of_fresh hfr hf
+  have hagE : ∀ n, (env.find? n).isSome = true → mpC₀'.base2.acval n = mp.base2.acval n := by
+    intro n hn
+    have hnI : (env₁.find? n).isSome = true := by
+      rw [hcons]; exact consBlockInds_find?_isSome_mono cvTas 0 env n hn
+    rw [hagC n hnI]
+    exact hagI n fun cvTb hcvTb h => by
+      rw [h, hmemCv cvTb hcvTb] at hn; exact nomatch hn
   obtain ⟨mpC₀, hbC, hlC, hcovC⟩ := lfpCover_append (ex := []) (ex' := cvTas.map (·.name)) mp mpC₀'
     (new := (ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse ++ newI)
     (by rw [consBlockCtors_consts, henv₁, List.append_assoc]; rfl)
     (by rw [consBlockCtors_tables, hcons]; exact consBlockInds_tables cvTas 0 env)
-    (fun n ci hf => by
-      have hfr : ∀ c ∈ (ctorsAs.flatten.map fun cA => ConstantInfo.ctorInfo cA.1 p₁.nP cA.2).reverse
-          ++ newI, env.find? c.name = none := by
-        intro c hc
-        rcases List.mem_append.mp hc with hc | hc
-        · obtain ⟨m, cA, hm, hcA, rfl⟩ := hnewC c hc
-          obtain ⟨j, hj⟩ := List.getElem?_of_mem hcA
-          exact consBlockInds_find?_none (hcons ▸ hfreshC m j cA hj)
-        · obtain ⟨cv, hcv, j, rfl⟩ := hnewIall c hc
-          exact hmemCv cv hcv
-      show List.find? _ _ = _
-      rw [consBlockCtors_consts, henv₁, ← List.append_assoc]
-      exact find?_append_of_fresh hfr hf)
-    (fun n hn => by
-      have hnI : (env₁.find? n).isSome = true := by
-        rw [hcons]; exact consBlockInds_find?_isSome_mono cvTas 0 env n hn
-      rw [hagC n hnI]
-      exact hagI n fun cvTb hcvTb h => by
-        rw [h, hmemCv cvTb hcvTb] at hn; exact nomatch hn)
+    hfwdE hagE
     (fun _ h => nomatch h)
     (fun n hn => by
       obtain ⟨cvTb, hcvTb, rfl⟩ := List.mem_map.mp hn
@@ -666,7 +669,7 @@ theorem declBlock {F : Nat} {env env₂ : Env}
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
     (q := (p₀.complete p₁).toBlockShape) 0 (ConLeche.storedOut (p₀.complete p₁).recs outR)
     (ConLeche.consBlockCtors p₁.nP ctorsAs env₁)
-  obtain ⟨mpR, hbR, -, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
+  obtain ⟨mpR, hbR, hlR, hcovR⟩ := lfpCover_append (ex := []) (ex' := []) mpC mpR₀ hnewR
     (consBlockRecsT_tables 0 _ _) hfindMono
     hag (fun _ h => h) (fun _ h => Or.inl h)
     (fun c hc cv caps h => by obtain ⟨r, -, mI, rP, isK, rules, rfl⟩ := hnewRall c hc; exact nomatch h)
@@ -676,8 +679,22 @@ theorem declBlock {F : Nat} {env env₂ : Env}
   rw [← hbR] at hcoreT
   -- ## the tables
   suffices hT : CoverTo mpR [] env₂ [] by
-    obtain ⟨mpF, hF'⟩ := hT
-    exact ⟨mpF, hF' (hcovR hcovMpC)⟩
+    obtain ⟨mpF, rF, hF'⟩ := hT
+    have r₀ : CoverRel mp mpC₀ := ⟨fun n hn => by
+        cases hf : env.find? n with
+        | none => rw [hf] at hn; exact nomatch hn
+        | some ci =>
+          exact (show ((ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n).isSome = true by
+            rw [hfwdE n ci hf]; rfl),
+      fun n hn => by rw [hbC]; exact hagE n hn, fun D hD => .inl (hlC ▸ hD)⟩
+    have r₁ : CoverRel mp mpC := r₀.addLfp _ (fun _ => rfl) _ _ _ _ _
+    have r₂ : CoverRel mpC mpR := ⟨fun n hn => by
+        have hn' : ((ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n).isSome = true := hn
+        cases hf : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n with
+        | none => rw [hf] at hn'; exact nomatch hn'
+        | some ci => rw [hfindMono n ci hf]; rfl,
+      fun n hn => by rw [hbR]; exact hag n hn, fun D hD => .inl (hlR ▸ hD)⟩
+    exact ⟨mpF, (r₁.trans r₂).trans rF, hF' (hcovR hcovMpC)⟩
   refine stageBlockTables hN hS rfl rfl rfl (p₁.members.zip (ctorsAs.zip sortsss)) 0 _ env₂
     mpR ?_ hTbl hcoreT
   intro c e hce

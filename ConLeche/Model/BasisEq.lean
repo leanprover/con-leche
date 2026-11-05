@@ -217,7 +217,7 @@ theorem extendEq (mp : EnvModelM V env)
     (hwf : EnvWF ⟨eqA :: env.consts, env.tables⟩) :
     ∃ mp' : EnvModelM V ⟨eqA :: env.consts, env.tables⟩,
       mp'.base2.acval
-        = acvalWith mp.base2.acval eqA.name eqValT ∧
+        = acvalWith mp.base2.acval eqA.name eqValT ∧ CoverRel mp mp' ∧
       (LfpCover mp [] → LfpCover mp' [eqName]) := by
   refine coverA_pend hfresh <| declStep_preserves_of_basis_cons_eqrow mp (A := eqValT) hfresh
     (fun _ _ _ h => nomatch h)
@@ -259,7 +259,7 @@ theorem extendEqRefl (mp : EnvModelM V env)
     (hwf : EnvWF ⟨eqReflA :: env.consts, env.tables⟩) :
     ∃ mp' : EnvModelM V ⟨eqReflA :: env.consts, env.tables⟩,
       mp'.base2.acval
-        = acvalWith mp.base2.acval eqReflA.name eqReflValT ∧
+        = acvalWith mp.base2.acval eqReflA.name eqReflValT ∧ CoverRel mp mp' ∧
       (LfpCover mp [eqName] → LfpCover mp' [eqName]) := by
   have hty := fun ψ =>
     denote_eqReflTy (m := mp.base2) (A := eqReflValT) (c₀ := eqReflA)
@@ -1177,7 +1177,7 @@ theorem extendEqRec (mp : EnvModelM V env)
     (hwf : EnvWF ⟨eqRecA :: env.consts, env.tables⟩) {ex : List Name} :
     ∃ mp' : EnvModelM V ⟨eqRecA :: env.consts, env.tables⟩,
       mp'.base2.acval
-        = acvalWith mp.base2.acval eqRecA.name eqRecValT ∧
+        = acvalWith mp.base2.acval eqRecA.name eqRecValT ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' ex) := by
   have hty := fun ψ =>
     denote_eqRecA_type (m := mp.base2) (A := eqRecValT) ψ hE hR hEv hRv
@@ -1229,7 +1229,7 @@ which the block at other names reads. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.eqK.decls env₁) :
-    ∃ mp' : EnvModelM V env₁, (LfpCover mp [] → LfpCover mp' []) ∧
+    ∃ mp' : EnvModelM V env₁, CoverRel mp mp' ∧ (LfpCover mp [] → LfpCover mp' []) ∧
       (∀ ψ : Name → Nat, mp'.base2.acval eqName ψ = eqValT ψ) ∧
       ∀ ψ : Name → Nat, mp'.base2.acval eqReflName ψ = eqReflValT ψ := by
   rw [show ConLeche.BasisKind.eqK.decls = [eqA, eqReflA, eqRecA]
@@ -1244,7 +1244,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         | (refine ConLeche.IndCapsWF.of_caps ?_ ?_ <;> intro h <;>
             first | exact absurd h (by decide) | rfl)
         | exact fun _ _ heq => ConstantInfo.noConfusion heq)⟩
-  obtain ⟨mp1, hac1, hc1⟩ := extendEq mp hf1 hwf1
+  obtain ⟨mp1, hac1, hr1, hc1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
       = eqValT ψ := by
     intro ψ
@@ -1270,7 +1270,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
               (.app (.app (.app (.const eqName [.param uN]) (.bvar 1))
                 (.bvar 0)) (.bvar 0))) from rfl]
     simp [Expr.constsResolve, hf]
-  obtain ⟨mp2, hac2, hc2⟩ := extendEqRefl mp1 hE1 hEv1 hf2 hwf2
+  obtain ⟨mp2, hac2, hr2, hc2⟩ := extendEqRefl mp1 hE1 hEv1 hf2 hwf2
   have hE2 : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find? eqName
       = some eqA := by
     rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE1
@@ -1387,10 +1387,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
           simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3, hac3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
+  obtain ⟨mp3, hac3, hr3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
   -- coverage: `Eq`'s former opened the exemption list, its record
   -- closes it
-  refine ⟨mp3, fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
+  refine ⟨mp3, (hr1.trans (hr2.addLfp _ (fun _ => rfl) _ _ _ _ _)).trans hr3,
+    fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))
     (lfpOwn_one (T := eqName) (cs := [(eqReflA.toConstantVal, 2, 0)]) rfl rfl hE2

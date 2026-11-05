@@ -337,6 +337,30 @@ theorem lfpOwn_former0 {env : Env} {c₀ : ConstantInfo}
       exact absurd hj (Nat.not_lt_zero j))
   rw [hcn]; rfl
 
+/-- **A step's carrier against the input's**: what is stored stays stored at its leaf, and a
+recorded block is the input's or shows every telescope its members read. -/
+structure CoverRel {env env' : Env} (mp : EnvModelM V env) (mp' : EnvModelM V env') : Prop where
+  stored : ∀ n, (env.find? n).isSome = true → (env'.find? n).isSome = true
+  leaf : ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n
+  blocks : ∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.shown mm = none
+
+theorem CoverRel.refl {env : Env} (mp : EnvModelM V env) : CoverRel mp mp :=
+  ⟨fun _ h => h, fun _ _ => rfl, fun _ h => .inl h⟩
+
+theorem CoverRel.trans {env₁ env₂ env₃ : Env} {m₁ : EnvModelM V env₁} {m₂ : EnvModelM V env₂}
+    {m₃ : EnvModelM V env₃} (h₁ : CoverRel m₁ m₂) (h₂ : CoverRel m₂ m₃) : CoverRel m₁ m₃ :=
+  ⟨fun n h => h₂.stored n (h₁.stored n h),
+   fun n h => (h₂.leaf n (h₁.stored n h)).trans (h₁.leaf n h),
+   fun D hD => (h₂.blocks D hD).elim (fun h => (h₁.blocks D h).imp id id) .inr⟩
+
+theorem CoverRel.addLfp {env env' : Env} {mp : EnvModelM V env} {mp' : EnvModelM V env'}
+    (h : CoverRel mp mp') (D : LfpDatum V) (hD0 : ∀ mm, D.shown mm = none) (a b c d e) :
+    CoverRel mp (mp'.addLfp D a b c d e) :=
+  ⟨h.stored, h.leaf, fun D' hD' => by
+    rcases List.mem_cons.mp hD' with rfl | h'
+    · exact .inr hD0
+    · exact h.blocks D' h'⟩
+
 /-- **Coverage**, except at the names `ex`; with constructor ownership. -/
 structure LfpCover {env : Env} (mp : EnvModelM V env) (ex : List Name) : Prop where
   cover : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → n ∉ ex →
@@ -536,21 +560,21 @@ theorem filter_not_mem_self (n : Name) : [n].filter (· ∉ [n]) = [] := by
 `ex` at `mp` to `ex'` at a carrier at `env'`. -/
 @[expose] def CoverTo {env : Env} (mp : EnvModelM V env) (ex : List Name) (env' : Env)
     (ex' : List Name) : Prop :=
-  ∃ mp' : EnvModelM V env', LfpCover mp ex → LfpCover mp' ex'
+  ∃ mp' : EnvModelM V env', CoverRel mp mp' ∧ (LfpCover mp ex → LfpCover mp' ex')
 
 /-- **The fold step's conclusion** (the module docstring). -/
 abbrev CoverStep {env : Env} (mp : EnvModelM V env) (env' : Env) : Prop :=
   CoverTo mp [] env' []
 
 theorem CoverTo.refl {env : Env} (mp : EnvModelM V env) (ex : List Name) :
-    CoverTo mp ex env ex := ⟨mp, id⟩
+    CoverTo mp ex env ex := ⟨mp, CoverRel.refl mp, id⟩
 
 theorem CoverTo.trans {env env₁ env₂ : Env} {mp : EnvModelM V env}
     {ex ex₁ ex₂ : List Name} (h₁ : CoverTo mp ex env₁ ex₁)
     (h₂ : ∀ mp₁ : EnvModelM V env₁, CoverTo mp₁ ex₁ env₂ ex₂) : CoverTo mp ex env₂ ex₂ := by
-  obtain ⟨mp₁, h₁⟩ := h₁
-  obtain ⟨mp₂, h₂⟩ := h₂ mp₁
-  exact ⟨mp₂, h₂ ∘ h₁⟩
+  obtain ⟨mp₁, r₁, h₁⟩ := h₁
+  obtain ⟨mp₂, r₂, h₂⟩ := h₂ mp₁
+  exact ⟨mp₂, r₁.trans r₂, h₂ ∘ h₁⟩
 
 /-- A step whose result is the input environment. -/
 theorem CoverTo.of_eq {env env' : Env} {mp : EnvModelM V env} {ex : List Name}
@@ -633,10 +657,14 @@ theorem coverA_cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
       C ∈ ex ∨ ∃ cv caps, env.find? C = some (.indInfo cv caps) ∧ caps.all = [] := by
       intro _ _ _ h; exact nomatch h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
-      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A ∧
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' ex') := by
   obtain ⟨mp', hac, hL⟩ := EnvModelM.keepLfp hfresh h
-  exact ⟨mp', hac, fun hc => hc.cons hfresh hL hex hni hex' hhead⟩
+  refine ⟨mp', hac, ⟨fun n hn => ?_, fun n hn => ?_, fun D hD => .inl (hL ▸ hD)⟩,
+    fun hc => hc.cons hfresh hL hex hni hex' hhead⟩
+  · rw [ConLeche.Env.find?_cons]; split <;> simp_all
+  · rw [hac]
+    exact acvalWith_ne fun he => by rw [he, hfresh] at hn; exact nomatch hn
 
 /-- **A fresh non-inductive cons** (or `Quot`'s), through the funnel:
 coverage at the same exemption list. -/
@@ -663,7 +691,7 @@ theorem coverA_pend {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A)
     (hnct : ∀ cv nPc nF, c₀ ≠ .ctorInfo cv nPc nF := by intro _ _ _ h; exact nomatch h) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
-      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A ∧
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name A ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' (c₀.name :: ex)) :=
   coverA_cons hfresh (fun _ h => List.mem_cons_of_mem _ h)
     (fun _ _ _ => Or.inr List.mem_cons_self) h
@@ -684,9 +712,10 @@ theorem coverTo_pend {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
 names leave the exemption list (`hex` names the result). -/
 theorem coverTo_addLfp {env env' : Env} {mp : EnvModelM V env} {ex ex' ex'' : List Name}
     {acval : Name → (Name → Nat) → Term}
-    (h : ∃ mp' : EnvModelM V env', mp'.base2.acval = acval ∧
+    (h : ∃ mp' : EnvModelM V env', mp'.base2.acval = acval ∧ CoverRel mp mp' ∧
       (LfpCover mp ex → LfpCover mp' ex'))
-    (D : LfpDatum V) (hL : LfpClause acval D) (hst : LfpStored env' D)
+    (D : LfpDatum V) (hD0 : ∀ mm, D.shown mm = none := by intro _; rfl)
+    (hL : LfpClause acval D) (hst : LfpStored env' D)
     (hrd : LfpReads acval env' D) (hrdC : LfpCtorReads acval env' D) (hcaps : LfpCaps env' D)
     (hnd : D.names.Nodup) (hlen : D.names.length = D.k)
     (hall : ∀ mm, mm < D.k → ∀ cv caps,
@@ -694,10 +723,13 @@ theorem coverTo_addLfp {env env' : Env} {mp : EnvModelM V env} {ex ex' ex'' : Li
     (hown : LfpOwn env' D)
     (hex : ex'.filter (· ∉ D.names) = ex'') (hwid : D.N = D.k := by rfl) :
     CoverTo mp ex env' ex'' := by
-  obtain ⟨mp', hac, hc⟩ := h
+  obtain ⟨mp', hac, hr, hc⟩ := h
   subst hac hex
-  exact ⟨mp'.addLfp D hL hst hrd hrdC hcaps,
+  refine ⟨mp'.addLfp D hL hst hrd hrdC hcaps, ⟨hr.stored, hr.leaf, fun D' hD' => ?_⟩,
     fun h0 => (hc h0).addLfp D _ _ _ _ _ hnd hlen hall hown hwid⟩
+  rcases List.mem_cons.mp hD' with rfl | h'
+  · exact .inr hD0
+  · exact hr.blocks D' h'
 
 /-- A one-member block's names are distinct. -/
 theorem nodup_one (n : Name) : [n].Nodup := by simp
