@@ -49,10 +49,10 @@ def DeclBasisRun (env : Env) (kind : BasisKind) (block : List ConstantInfo) (env
   pinListOk block kind.decls = true ∧ BasisInstallRun env (kind.atBlock block) env₂
 
 /-- A quotient record: the comparison with its slot's pin, the slots it
-needs stored, and the slot's constant stored at the record's names. -/
+needs stored, and the slot's constant stored. -/
 def DeclQuotRun (env : Env) (k : QuotKind) (cv : ConstantVal) (env₂ : Env) : Prop :=
-  quotPinHit k cv = true ∧ quotPredsOk env.find? k cv.levelParams = true ∧
-    (env.find? (quotAt k cv).name).isNone = true ∧
-    env₂ = ⟨quotAt k cv :: env.consts, env.tables⟩
+  quotPinHit k cv = true ∧ quotPredsOk env.find? k = true ∧
+    (env.find? (quotPin k).name).isNone = true ∧
+    env₂ = ⟨quotPin k :: env.consts, env.tables⟩
 
 end ConLeche.Semantics

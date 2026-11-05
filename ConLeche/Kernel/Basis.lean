@@ -143,33 +143,27 @@ def quotPin (k : QuotKind) : ConstantInfo :=
   BasisKind.quotK.decls.getD k.slot (.axiomInfo default)
 
 /-- **The quotient-pin match**: the record is the pinned package's
-constant at the slot it declares itself at, up to its level-parameter
-names. -/
+constant at the slot it declares itself at, names included (official's
+kernel generates this package, at these names). -/
 def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
-  let pin := (quotPin k).toConstantVal
-  Name.nodup cv.levelParams && cv.levelParams.length == pin.levelParams.length &&
-    cv.beqP (pin.atLps cv.levelParams)
+  cv.beqP (quotPin k).toConstantVal
 
 /-- **What a quotient record's slot needs stored before it**: the
-constants its type mentions; an eliminator's rule reads `Quot.mk`'s
-parameter by name, so it must carry the same one. -/
-def quotPredsOk (find? : Name → Option ConstantInfo) (k : QuotKind) (ps : List Name) : Bool :=
-  let has (n : Name) := (find? n).isSome
-  let linked := match find? quotMkName with
-    | some mk => mk.toConstantVal.levelParams == ps.take 1
+constants its type mentions; the package's own as their pins. -/
+def quotPredsOk (find? : Name → Option ConstantInfo) (k : QuotKind) : Bool :=
+  let hasEq := (find? eqName).isSome
+  let hasQ := match find? quotName with
+    | some c => c.beqP quotA
+    | none => false
+  let hasM := match find? quotMkName with
+    | some c => c.beqP quotMkA
     | none => false
   match k with
-  | .type => has eqName
-  | .ctor => has quotName
-  | .lift => has eqName && has quotName && linked
-  | .ind => has quotName && linked
-  | .sound => has eqName && has quotName && has quotMkName
-
-/-- **A quotient record's constant, read off the record**: the record's
-header at the slot's kind; the eliminators' rules are the pin's at the
-record's names. -/
-def quotAt (k : QuotKind) (cv : ConstantVal) : ConstantInfo :=
-  (quotPin k).atLps cv.levelParams
+  | .type => hasEq
+  | .ctor => hasQ
+  | .lift => hasEq && hasQ && hasM
+  | .ind => hasQ && hasM
+  | .sound => hasEq && hasQ && hasM
 
 /-! ## The pinned `And`
 

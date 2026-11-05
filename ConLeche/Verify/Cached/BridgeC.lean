@@ -206,9 +206,9 @@ theorem checkQuotRecordC_spec (hs : CSOK mode false env s₀) (k : QuotKind) (cv
   rw [mkFEnv_find_fun] at h
   by_cases h1 : quotPinHit k cv = true
   · rw [ite_eq_left h1] at h
-    by_cases h2 : quotPredsOk env.find? k cv.levelParams = true
+    by_cases h2 : quotPredsOk env.find? k = true
     · rw [ite_eq_left h2, installBasisDeclF_pushC] at h
-      by_cases h3 : (env.find? (quotAt k cv).name).isNone = true
+      by_cases h3 : (env.find? (quotPin k).name).isNone = true
       · simp only [installBasisDecl, Option.isNone_iff_eq_none.mp h3] at h
         obtain ⟨rfl, rfl⟩ := pureC_ok h
         refine ⟨hs, ⟨0, ?_⟩, by simp only [mkFEnv_env]⟩

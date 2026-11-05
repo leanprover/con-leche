@@ -479,8 +479,8 @@ def checkQuotRecord (env : Env) (k : QuotKind) (cv : ConstantVal) : m Env := do
     throw (.notImplemented (match k with
       | .sound => "quotient soundness axiom mismatch"
       | _ => "quotient declaration mismatch"))
-  unless quotPredsOk env.find? k cv.levelParams do
+  unless quotPredsOk env.find? k do
     throw (.notImplemented "quotient declaration before what it needs")
-  installBasisDecl env (quotAt k cv)
+  installBasisDecl env (quotPin k)
 
 end ConLeche

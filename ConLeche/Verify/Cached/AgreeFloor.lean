@@ -939,10 +939,7 @@ theorem checkQuotRecordC_skels {fe : FEnv} {sk : List InstallSkel} (h : SkelIs f
     Yields (checkQuotRecordC fe k cv) (fun fe' => SkelIs fe' (ciSkel (quotPin k) :: sk)) := by
   unfold checkQuotRecordC
   yields
-  all_goals
-    have := installBasisDeclF_skels h (quotAt k cv)
-    rw [show quotAt k cv = (quotPin k).atLps cv.levelParams from rfl, ciSkel_atLps] at this
-    exact this
+  all_goals exact installBasisDeclF_skels h (quotPin k)
 
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :

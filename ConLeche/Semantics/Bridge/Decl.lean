@@ -102,7 +102,7 @@ theorem declQuotRunOf {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
   unfold checkQuotRecord at h
   by_cases h1 : quotPinHit k cv = true
   · rw [ite_eq_left h1] at h
-    by_cases h2 : quotPredsOk env.find? k cv.levelParams = true
+    by_cases h2 : quotPredsOk env.find? k = true
     · rw [ite_eq_left h2] at h
       obtain ⟨hfresh, rfl⟩ := installBasisDecl_inv h
       exact ⟨h1, h2, Option.isNone_iff_eq_none.mpr hfresh, rfl⟩

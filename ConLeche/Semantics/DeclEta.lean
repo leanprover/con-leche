@@ -77,8 +77,8 @@ theorem basisIndOk_atBlock : ∀ (pins block : List ConstantInfo), basisIndOk pi
     cases p <;> first | exact h.1 | rfl
 
 /-- A quotient slot passes the former check. -/
-theorem basisIndOk_quotAt (k : QuotKind) (cv : ConstantVal) : basisIndOk [quotAt k cv] = true := by
-  cases k <;> rfl
+theorem basisIndOk_quotPin (k : QuotKind) : basisIndOk [quotPin k] = true := by
+  cases k <;> decide
 
 /-- **The declaration fold's η-closure half, on the run record** (#161).
 It reads `ConstantValRun`'s freshness guard and the kinds' cons shapes
@@ -126,7 +126,7 @@ theorem declEtaStepRun {F : Nat}
     · exact hE
   | quotDecl k cv =>
     obtain ⟨-, -, hf, rfl⟩ := h
-    exact basisInstallRun_etaClosed [quotAt k cv] ⟨hf, rfl⟩ (basisIndOk_quotAt k cv) hE
+    exact basisInstallRun_etaClosed [quotPin k] ⟨hf, rfl⟩ (basisIndOk_quotPin k) hE
   | indDecl block nP =>
     simp only [DeclRun] at h
     split at h

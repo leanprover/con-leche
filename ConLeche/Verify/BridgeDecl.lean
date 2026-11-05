@@ -1141,7 +1141,7 @@ theorem checkQuotRecord_datF (env : Env) (k : QuotKind) (cv : ConstantVal) (F : 
   unfold checkQuotRecord
   by_cases h : quotPinHit k cv = true
   · rw [ite_eq_left h, ite_eq_left h]
-    by_cases h2 : quotPredsOk env.find? k cv.levelParams = true
+    by_cases h2 : quotPredsOk env.find? k = true
     · rw [ite_eq_left h2, ite_eq_left h2]
       exact installBasisDecl_datF _ _ _
     · rw [ite_eq_right h2, ite_eq_right h2, FueledM.atF_bind]

@@ -132,9 +132,9 @@ def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEn
     throw (.notImplemented (match k with
       | .sound => "quotient soundness axiom mismatch"
       | _ => "quotient declaration mismatch"))
-  unless quotPredsOk fe.find? k cv.levelParams do
+  unless quotPredsOk fe.find? k do
     throw (.notImplemented "quotient declaration before what it needs")
-  installBasisDeclF fe (quotAt k cv)
+  installBasisDeclF fe (quotPin k)
 
 /-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
 twin).
