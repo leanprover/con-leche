@@ -109317,6 +109317,59 @@ def-headed ones are `ind_defhead_struct`, `_k`, `_mutual`, `_fix`, `_nested`,
 brief lists for 3b wait for the choice, since their verdicts depend on it.  What a
 stream cannot show at all on master: a reduction stuck at the use but not at the block,
 which needs a mode with opaque views.
+### Stage 3b: the ruling, the route, the state of the lane (#480, lane 4; 2026-11-05)
+
+**The ruling on the choice above.**  Option A's declines are out: "clearly we don't want
+to reject what official accepts".  No verdict moves: `ind_defhead_nested` stays 0, a
+def-headed `Prop` structure with a field that is no proposition stays accepted.  Every
+former at its stored type, the install takes no reduction and no view; the job's readers
+reduce, as official's `whnf` of the auxiliary type does in the checking phase; at use, one
+function walks the binders and reduces at a non-binder.  Memo only after a measurement.
+
+**The route for the use-time sort: injectivity along a fit, not monotonicity of
+reduction.**  Monotonicity (a run at an extended environment gives the same result) is
+false here: `natOpGuard`, `towerSlotsAll` and `andRescueSlots` read names that are not in
+the term, so a fast path can switch on at an extension, and it would need an invariant
+through the whole knot, a layer that has no runs in the rules tier.  What is true, and
+cheap, is `SetModel/Tower.lean`: a tower of function spaces with one chain of arguments
+(`TowerPath`) and a tower of the same value that the walk read, up to the point
+(`TowerEndsPt`), end in one universe.  A reduction claims nothing of the point, which is
+why the walk's tower may stop at it; the path's value is strict, so it never does.  The
+fit is needed: over an empty domain a function space is the unit whatever its fibres.
+
+**What is in on this branch, verdicts unmoved (e2e 524/524).**
+
+* Sort at use: `formerNeverZeroAt` (ι's split and η's rescue) and `projRowBound` (the
+  guard), twins `formerNeverZeroI`, `projRowBoundI`; `IndCaps.nIdx` off the recursor
+  record gives the walk's arity.  Relations `FormerSort`, `IotaCase`, `ProjGuard`,
+  motive `FormerSortSem`; laws `FamNZ`, `TowerGuardAt`.
+* The guard, by the structure's stored type: a sort that is not `Prop` asks nothing,
+  `Prop` asks for propositions, a walk that is never zero asks nothing, a walk that may
+  be zero bounds the rows (`Level.leq`, at `Prop` the same verdict as the comparison with
+  zero), no sort reached rejects, as official's `infer_type` of the structure's type would
+  throw.  `ProjTable.structSort` is gone.
+* Costs so far: init-full 380.314 G / 391.280 G (jobs 1 / 8), against 380.312 G / 390.526 G
+  before; grind-ring-5 15.296 G against 15.257 G at the first checkpoint.  No memo.
+
+**What the last step needs, as designed and not yet done.**  The formers are still pushed
+reduced by the job and read off the block by the install.
+
+1. η and the unit law stop reading the former's type: `EtaLaw`, `UnitLaw`, `TowerEtaLaw`
+   and `EtaCoherent` take a graded spine at the family's leaf (the fit comes from
+   `spineFit_of_wellDenoted_mkAppN_lam`), `formerFit` and `EnvWF.indCaps` go.
+2. The check of a def-headed former gains what official does: the declared type
+   checked, and compared with the reduced one, in `checkSumTele`.
+3. Readers (`nestInstType`, `targetOutsideInst`, `classFormerTy`) read a block's containers
+   at their reduced telescope, computed in the job at the container's own prefix view, so
+   that it is the telescope the container's own job recorded (a pure function of one
+   environment, no monotonicity): reducing at the current environment cannot be compared
+   with the record, and the nested proofs read it syntactically in some twenty places.
+   The job's slow path is taken only where a block or a container of it is def-headed.
+4. The model shelves a def-headed block's record (`LfpDatum` strong reading at the reduced
+   record) and unshelves it for the job of a block nesting through it, swapping the type
+   both ways (`EnvModelM.swapTyP` extended to former pairs).
+5. `storedFormers`/`storedTele` go; `storedInstall` takes no view and no mode.
+
 ### Pinned blocks at the stream's constants (#480, lane 5)
 
 Ruling 4: a pinned basis block is installed as the stream's constants, and the
