@@ -48,7 +48,8 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    (hread : p.members.map (·.cvT) = cvTas) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
@@ -95,7 +96,7 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
   have hca := hAr
   rw [← denote_erasedEq herased] at hca
   obtain ⟨-, -, -, hhi, -, -, -, -, hfr, hCP, hgr, -, -, -, -⟩ :=
-    blockWalkCtx hin hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h) hnames hnP hk hcv0 hop0
+    blockWalkCtx hin hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h) hnames hread hnP hk hcv0 hop0
       hholes hCf hCb hcrest hinf hsort hd hca
   exact ⟨_, hhi, hfr, hCP, hca, hgr⟩
 
@@ -106,7 +107,8 @@ theorem memberCtor_nodesSem {env : Env} (mk : EnvModelM V env)
     {F : Nat} {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    (hread : p.members.map (·.cvT) = cvTas) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
@@ -127,7 +129,7 @@ theorem memberCtor_nodesSem {env : Env} (mk : EnvModelM V env)
       cA.2 crest ksD tyN ts) (ψ : Name → Nat) :
     NodesSem mk.base2 ψ (p.nestCtx fvsP env.find?) (d.holeCtx ψ).reverse ts := by
   obtain ⟨ca, hhi, hfr, hCP, hca, hgr⟩ := blockCtorCrest (Rules.RulesInputs.ofSem mk ψ) hN hcore
-    hnames hlps hnP hk hcv0 hop0 hholes hcj hCf hCb hcrest hinf hsort hd
+    hnames hread hlps hnP hk hcv0 hop0 hholes hcj hCf hCb hcrest hinf hsort hd
   obtain ⟨nds, cur, hD, -⟩ := hd
   have hΔ0 : ((d.holeCtx ψ).reverse).length = (p.nestCtx fvsP env.find?).hiAt 0 := by
     rw [hhi]; exact hCP.1
@@ -145,6 +147,7 @@ theorem seed_nodesSem {env : Env} (mk : EnvModelM V env)
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
@@ -156,7 +159,7 @@ theorem seed_nodesSem {env : Env} (mk : EnvModelM V env)
       (.seed key) ts) (ψ : Name → Nat) :
     NodesSem mk.base2 ψ (p.nestCtx fvsP env.find?) (d.holeCtx ψ).reverse ts := by
   have hcanon := blockHoleCtx_canon (ψ := ψ) hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h)
-    hnames hnP hk hcv0 hop0 hholes
+    hnames hread hnP hk hcv0 hop0 hholes
   have hhi : (p.nestCtx fvsP env.find?).hiAt 0 = d.nP + d.k := by
     simp only [ConLeche.NestCtx.hiAt, ConLeche.BlockParts.nestCtx, hnames, hnP, hk, Nat.add_zero]
   have hΔ0 : ((d.holeCtx ψ).reverse).length = (p.nestCtx fvsP env.find?).hiAt 0 := by

@@ -391,6 +391,25 @@ theorem lfpCover_formers (mp : EnvModelM V env) {envI : Env} {q : BlockShape} {i
       simp [ctorEntry] at hC)
   exact ⟨mk, hbk, hlk, hcov h0⟩
 
+/-- The stage's telescopes are the block's members'. -/
+theorem blockMembers_read {V : Type w} [SetTheory V] {q : BlockShape}
+    {ctorsAs : List (List (ConstantVal × Nat))} {pk : Nat → BlockMemberPick}
+    {uOf : Nat → (Name → Nat) → Nat} {ppsOf : Nat → (Name → Nat) → List Term}
+    {cvTas : List ConstantVal}
+    (hN : BlockNamesOk (V := V) (blockDataOf V q ctorsAs pk uOf ppsOf) cvTas)
+    (hshown : ∀ (m : Nat) (cvTa : ConstantVal), cvTas[m]? = some cvTa →
+      (blockDataOf V q ctorsAs pk uOf ppsOf).shown m = some cvTa) :
+    q.members.map (·.cvT) = cvTas := by
+  have hlen : cvTas.length = q.members.length := hN.2.2
+  refine List.ext_getElem? fun i => ?_
+  cases hc : cvTas[i]? with
+  | some cvTa =>
+    rw [List.getElem?_map]
+    exact hshown i cvTa hc
+  | none =>
+    have hi : cvTas.length ≤ i := List.getElem?_eq_none_iff.mp hc
+    rw [List.getElem?_eq_none (by simp; omega)]
+
 /-! ## The constructors' stage, from the run -/
 
 set_option maxHeartbeats 1600000 in
@@ -1307,6 +1326,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         lenIds := fun m hm ψ => hIdsLen m ψ
         idxOk := ?_
         frames := ?_
+        shownAt := ?_
         capsU := ?_ }
     · -- nodup
       intro m hm
@@ -1354,6 +1374,10 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       exact ⟨(hframes m hm j cA hj).1, fun ψ ρ hρ =>
         ⟨((hframes m hm j cA hj).2 ψ ρ hρ).1,
           fun bs hbs => (((hframes m hm j cA hj).2 ψ ρ hρ).2.2 bs hbs).2⟩⟩
+    · -- the telescopes the check read
+      intro m cvTa hcv
+      show q.members[m]?.map (·.cvT) = some cvTa
+      rw [← List.getElem?_map, hqm, ← (ConLeche.checkBlockInds_members hInd).1, hcv]
     · -- capsU
       intro m hm cvTa hcv env' m' kk cA hkk hu hcvC hlpsCA hreadCA hFD' hleaf' hleafC'
       have hnIdx0 : q.nIdxs.getD m 0 = 0 := by

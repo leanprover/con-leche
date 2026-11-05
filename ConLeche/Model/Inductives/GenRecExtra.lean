@@ -485,12 +485,12 @@ theorem genMemAt_of
     exact Nat.min_eq_left (Nat.le_trans (Nat.le_add_right _ _) (Nat.le_of_eq hl.symm))
   obtain ⟨cvT, hcvT⟩ : ∃ cvT, cvTas[t]? = some cvT :=
     ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact htd)⟩
-  obtain ⟨hfT, -, -, -⟩ := hcore.1 t cvT hcvT
+  obtain ⟨⟨cvS, hfT, -⟩, -, -, -⟩ := hcore.1 t cvT hcvT
   have hcaps : envC.find? (d.memberName t)
-      = some (.indInfo cvT (ConLeche.blockCapsAt pp.toBlockShape t isRec)) := by
+      = some (.indInfo cvS (ConLeche.blockCapsAt pp.toBlockShape t isRec)) := by
     rw [hN.1 t cvT hcvT]; exact hfT
   have hctMj : d.ctorsM t = (tgtMajor out j).ctors := by rw [hctM, hMj]
-  refine ⟨cvT, hcj, htd, hmN, hjl, hM, hcf, hdnP, hnPc', hwd, hparamsC, hlenP, hctorRead,
+  refine ⟨cvS, hcj, htd, hmN, hjl, hM, hcf, hdnP, hnPc', hwd, hparamsC, hlenP, hctorRead,
     hcaps, hlfp, hSt.lenIds t htd, ?_, ?_, hctMj⟩
   rotate_left
   · have hc0 := congrArg (fun L => (L[t]?).map List.length) hnames
@@ -510,7 +510,7 @@ theorem genMemAt_of
   obtain ⟨cvm, capsm, hfm, hlm⟩ := hall t htd
   have hfm' : envC.find? (d.memberName t) = some (.indInfo cvm capsm) := hfm
   rw [hcaps] at hfm'
-  obtain rfl : cvT = cvm := by injection hfm' with h'; injection h' with h1
+  obtain rfl : cvS = cvm := by injection hfm' with h'; injection h' with h1
   exact hlm
 
 set_option maxHeartbeats 4000000 in
@@ -1537,12 +1537,11 @@ theorem genOut_caps {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc
   rw [hf₀] at hf
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hf with h'; injection h' with a b; exact ⟨a, b⟩
-  rw [Rd.hfa] at hz
   obtain ⟨cv', nPc, nF, hf', bs, es, hst⟩ := hcC _ Rd.hmm i hiD
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).ds.length = nPc ∧ cA.2 = nF := by
     injection hf' with h'; injection h' with a b c; exact ⟨a, b, c⟩
-  refine ⟨caps₀, hf₀, hz.1, bs, es, ?_⟩
+  refine ⟨caps₀, hf₀, mpC.formerZ_holds Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀) hz.1, bs, es, ?_⟩
   rw [Rd.hnpc, hst, Rd.hmem]
 
 /-- **(S) at an outside class**: the case split reads the container's
@@ -1691,15 +1690,12 @@ theorem genOut_typed (hcov : LfpCover mpC []) {j : Nat} {cvI : ConstantVal}
   rw [hf₀] at hfm
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hfm with h'; injection h' with a b; exact ⟨a, b⟩
-  rw [Rd.hfa] at hab
   obtain ⟨ab, hta, hmap⟩ := hab ψj
   have hconsI := List.mem_of_find?_eq_some hf₀
   have hmemI : interp V ρ (mpC.base2.acval (tgtMajor out j).ind ψj)
       ∈ˢ interp V ρ (mkPisAV ab (.sort ((tgtClsD d Dc out j).w ψj))) := by
-    have := mpC.mem_type _ hconsI ψj _ hta ρ
-    have hn : (ConstantInfo.indInfo cvI caps₀).name = (tgtMajor out j).ind :=
-      ConLeche.Env.find?_name hf₀
-    rw [hn] at this
+    have := mpC.formerAt_mem Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀) hta ρ
+    rw [Rd.hmem] at this
     exact this
   -- the parameter count
   obtain ⟨cv', nPc, nF, hf', -, -, -, A0, -, -, hrdA⟩ := hrdC _ Rd.hmm i hiD
@@ -2374,15 +2370,13 @@ theorem genOut_pin (hcov : LfpCover mpC [])
   rw [hf₀] at hfm
   obtain ⟨rfl, rfl⟩ : cvI = cv ∧ caps₀ = caps := by
     injection hfm with h'; injection h' with a b; exact ⟨a, b⟩
-  rw [Rd.hfa] at hab
-  have hconsI := List.mem_of_find?_eq_some hf₀
-  have hwfI := mpC.base2.wf.consts _ hconsI
+  obtain ⟨hwfF, hwfB, -, -, hwfD⟩ := mpC.formerAt_wf Rd.hD Rd.hmm (by rw [Rd.hmem]; exact hf₀)
   obtain ⟨ab, hta, hmap⟩ := hab ψj
   obtain ⟨ab', hta', hmap'⟩ := hab (tgtClsψ cvc out ψ j)
   rw [denote_params_ext mpC.base2 (φ₂ := tgtClsψ cvc out ψ j)
     (fun q hq => by
       change q ∈ cvI.levelParams at hq
-      rw [← hlpC] at hq; exact hlv q hq) 0 cvI.type hwfI.2.1, hta'] at hta
+      rw [← hlpC] at hq; exact hlv q hq) 0 _ hwfD, hta'] at hta
   obtain ⟨habm, hwab⟩ := mkPisAV_sort_inj (Option.some.inj hta).symm
   have hmap'' := habm.trans hmap'
   have hcl : Term.bvarsBelow 0
@@ -2390,8 +2384,7 @@ theorem genOut_pin (hcov : LfpCover mpC [])
     have heq := Option.some.inj hta
     rw [hwab] at heq
     rw [← heq]
-    exact bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hwfI.1)
-      hwfI.2.2.2.1 hta'
+    exact bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hwfF) hwfB hta'
   have hDB := (bvarsBelow_mkPisAV_inv hcl).1
   -- the parameter count
   obtain ⟨cv', nPc, nF, hf', -, -, -, A0, -, -, hrdA⟩ := hrdC _ Rd.hmm i hiD

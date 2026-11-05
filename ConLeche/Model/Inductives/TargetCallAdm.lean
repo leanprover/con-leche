@@ -164,7 +164,6 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
     simp only at his hfit hy' hext ⊢
     rw [hpm, idxOf_member hnN hkN hmm'] at harity hy' hfit hext
     have hisl : is.length = ((lfpSel mpC d.toLfp u.key.cname).ids mm' (nodeψ envC ψ u)).length := by
-      rw [hpm] at his
       omega
     -- the true value is not the point: every fitting prefix of the spine
     -- extends (`hext`), and the carrier's fibres are never the point

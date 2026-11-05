@@ -76,9 +76,14 @@ theorem genRecStage {F : Nat}
   have hT : ∀ cv ∈ cvTasR, ConLeche.ScB 0 cv.type := by
     intro cv hcv
     obtain ⟨c, hc⟩ := List.getElem?_of_mem hcv
-    have hf := (hcore.1 c cv hc).1
-    have hw := hwfC.consts _ (List.mem_of_find?_eq_some hf)
-    exact ConLeche.ScB.of_closed hw.1 hw.2.2.2.1 0
+    obtain ⟨⟨_, -, hD⟩, -⟩ := hcore.1 c cv hc
+    exact ConLeche.ScB.of_closed hD.readFvar hD.readBounded 0
+  have hrd : ∀ F, FamilyRead mpC F := by
+    obtain ⟨_, -, -, h, -⟩ := hmk
+    exact h
+  have hread : pp.members.map (·.cvT) = cvTasR := by
+    rw [hdRe] at hN hS
+    exact blockMembers_read hN hS.shownAt
   have hct : ∀ ctorsA ∈ ctorsAsR, ∀ c ∈ ctorsA, ConLeche.ScB 0 c.1.type := by
     intro ctorsA hA cA hcA
     obtain ⟨c, hc⟩ := List.getElem?_of_mem hA
@@ -90,19 +95,21 @@ theorem genRecStage {F : Nat}
     have hf := (hcore.2.2 c hck j cA hj').1
     have hw := hwfC.consts _ (List.mem_of_find?_eq_some hf)
     exact ConLeche.ScB.of_closed hw.1 hw.2.2.2.1 0
-  have hpos := ConLeche.checkBlockPositivity_nfScoped hwfI hT hct hPos
+  have hM : ∀ ms ∈ pp.members, ms.cvT.type.hasFvar = false := fun ms hms =>
+    (hT _ (by rw [← hread]; exact List.mem_map_of_mem hms)).closed.1
+  have hpos := ConLeche.checkBlockPositivity_nfScoped hwfI hM hT hct hPos
   have hTlen : pp.toBlockShape.memberNames.length ≤ cvTasR.length := by
     rw [hN.2.2, hdRe]
     simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
       ConLeche.BlockShape.memberNames]
   have hg : ConLeche.ClassGenScoped R.g :=
-    ConLeche.genScoped_of_run R hwfI hwfC hT hTlen hct hpos
-  have hTbl := ConLeche.genRun_tbl_scoped R hwfI hwfC hT hct hpos
+    ConLeche.genScoped_of_run R hwfI hwfC hM hT hTlen hct hpos
+  have hTbl := ConLeche.genRun_tbl_scoped R hwfI hwfC hM hT hct hpos
   have h : ConLeche.RecStageG .verified F envC pp cvTasR (tgtRs out) :=
     recStage_of_gen R hg
-  have hfind := genRecCtor_find (mpC := mpC) R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
+  have hfind := genRecCtor_find (mpC := mpC) R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) h
-  obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov dR.toLfp
+  obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov hrd dR.toLfp
   -- the open class-side rows
   have hcallTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -230,7 +237,7 @@ theorem genRecStage {F : Nat}
   have hdataS := genRecHdataS R hg h hndM heqB heqP hpre hfind
     (genRulePrefRead mpC R hg h) (genRuleFieldRead R hg mpC.base2.acval) hrow3
   -- the ι case split's facts (task #342 L10)
-  have hseam := genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
+  have hseam := genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
   have hextra : ∀ (Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
         Bool × List ConLeche.RecRule)
@@ -287,7 +294,7 @@ theorem genRecStage {F : Nat}
       have hread := R.fire_nestedRead hr hf
       obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, -⟩ := id hread
       exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩)
-    (genRecCtor_in R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov)
+    (genRecCtor_in R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd)
     (pdoms0 := fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
     (fdoms0 := fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
     (es0 := fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
@@ -297,7 +304,7 @@ theorem genRecStage {F : Nat}
     heqB heqP hpre
     (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length mpC h hr ψ)
-    (genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov) (genRecHtower R)
+    (genRecCtor_seam R hN hcore hctorsAs ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd) (genRecHtower R)
     (fun m₃ hac φ j r hr _ cA rhs _ _ => recStagePinsOk mpC h m₃ hac φ j r hr cA rhs
       (fun _ _ hf' => R.fire_nestedRead hr hf'))
     (fun m₃ hac => hextra _ m₃ hac) hdataS

@@ -132,8 +132,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
   have hA0 : ctx.hiAt 0 ≤ ctx.hiAt u.anc.length := by simp only [ConLeche.NestCtx.hiAt]; omega
   refine ⟨?_, ?_, ?_, ?_⟩
   · -- the stack context
-    rw [hanc, stackCtx_frame H.hcov.find
-      (grpWf_ty mk hD hnN hkN H.hcov.find hlps hndl hul hds hdsa (hlenP _) hg)]
+    rw [hanc, stackCtx_frame (posD_frame_inv (H.hok u hu).1).2.2.2.1]
     exact hsatN
   · -- off the holes: the parameters and the frame below
     intro p hp
@@ -206,7 +205,7 @@ theorem admVal_kid (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ : Nat 
         have := (List.getElem?_eq_some_iff.mp hi).1; rwa [hGl] at this
       have hpi : u.grp[i - u.anc.length] ∈ u.grp := List.getElem_mem _
       have hkeq : hk = NestHole.mk ⟨(u.grp[i - u.anc.length]).1, u.key.lvls, u.key.ds⟩
-          (ctx.hiAt u.anc.length) := by
+          (ctx.hiAt u.anc.length) (u.grp[i - u.anc.length]).2.piBinders.1.length := by
         simp only [ConLeche.grpNews, List.getElem?_map, List.getElem?_eq_getElem hil,
           Option.map_some, Option.some.injEq] at hi
         exact hi.symm

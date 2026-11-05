@@ -243,9 +243,8 @@ theorem canonPars_of_forests {F : Nat} {envC envI : Env} {pp : BlockParts}
   obtain ⟨cvTa0, rest0, holes0, hcv0, hop0, -, -⟩ := hmemF
   obtain ⟨-, -, -, -, -, -, hcore, -⟩ := hctx
   have h0' : cvTasR[0]? = some cvTa0 := by rw [List.head?_eq_getElem?] at hcv0; exact hcv0
-  obtain ⟨hf0, -⟩ := hcore.1 0 cvTa0 h0'
-  have hw0 := mpC.base2.wf.consts _ (List.mem_of_find?_eq_some hf0)
-  exact canonPars_of_open hop0 ⟨Expr.WScoped.of_not_hasFvar hw0.1, hw0.2.2.2.1⟩
+  obtain ⟨⟨_, -, hD0⟩, -⟩ := hcore.1 0 cvTa0 h0'
+  exact canonPars_of_open hop0 ⟨Expr.WScoped.of_not_hasFvar hD0.readFvar, hD0.readBounded⟩
 
 set_option maxHeartbeats 16000000 in
 /-- **THE GENERATED CALLS AT THE ADMISSIBLE FRAMES** (see the module docstring): at the
@@ -273,6 +272,7 @@ theorem genNodeCalls {F : Nat}
       denote mk.base2.acval envI ψ dd e = some ea →
         denote mpC.base2.acval envC ψ dd e = some ea)
     (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
+    (hreads : ∀ F, FamilyRead mk F)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
@@ -322,9 +322,11 @@ theorem genNodeCalls {F : Nat}
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hctorsAs, hdR, hlfp, hcov, -, -, -⟩ := hctx'
   obtain ⟨hparF, hparS⟩ := canonPars_of_forests hctx hmemF
   obtain ⟨cvTa0, rest0, holes0, hcv0, hop0, hholes0, hMF⟩ := hmemF
-  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hok hkids hpar hsem hF hparF hparS
+  have H := dynCtx_of hctx hmkC hmk hag hsubC htr hcoreK hreads hok hkids hpar hsem hF hparF hparS
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
+  have hreadP : pp.members.map (·.cvT) = cvTasR := by
+    obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembers_read hN hS.shownAt
   have hrs : ∀ c (hc : c < (tgtRs out).length),
       (tgtRs out)[c]? = some ((tgtRs out)[c]'hc) := fun c hc => List.getElem?_eq_getElem hc
   have hnPc : ∀ c, c < (tgtRs out).length →
@@ -492,7 +494,7 @@ theorem genNodeCalls {F : Nat}
       obtain ⟨crest, ks, ts, hcrest, hd, ⟨ty, u, hty, hsort⟩, hforest, he⟩ :=
         hMF m _ (by rw [hcsR, ← hctM]) j cA hcj
       obtain ⟨nds, cur, htele0, htyN, hndC, hnl, hcrC, hcurC, -, hsemB⟩ := blk_ctorFit mk ψ hN
-        hcoreK hnamesD rfl hnPD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hsort hd
+        hcoreK hnamesD hreadP rfl hnPD hkD hcv0 hop0 hholes0 hcj hw.1 hw.2.2.2.1 hcrest hty hsort hd
       -- the entry: the member constructor's recorded normal form (the root
       -- frame's, `MemberForests`), the class matching it (its parameters the
       -- canonical ones)
@@ -575,14 +577,14 @@ theorem genNodeCalls {F : Nat}
           ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
         have hname := hN.1 c0 cvTb hcvb
         have hlpsT := hS.lpsT c0 cvTb hck hcvb
-        obtain ⟨hf, -⟩ := hcore.1 c0 cvTb hcvb
+        obtain ⟨⟨cvS, hf, hDS⟩, -⟩ := hcore.1 c0 cvTb hcvb
         rw [← hname] at hf
         unfold BlockData.memberName at hf
         rw [← hnamesD, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc0,
           Option.getD_some] at hf
         refine ⟨_, hf, ?_⟩
-        show pp.lps.length = cvTb.levelParams.length
-        rw [hlpsT]
+        show pp.lps.length = cvS.levelParams.length
+        rw [hDS.lps, hlpsT]
       refine ⟨[], fun _ => 0, cA.2, crest, ks, nds, cur, ts, htele0, hcrC, hcurC, hndC, hnl, rfl,
         hK, hread, fun G ρ' hA Y hY hH => ?_, Or.inl rfl, fun u'' hu'' _ => ?_⟩
       · obtain ⟨σN, hAdm, hfsl, hmemN⟩ := hvisit G ρ' hA Y hY hH
@@ -893,7 +895,7 @@ theorem genNodeCalls {F : Nat}
       ConLeche.targetCtorsOf (mkFEnv envC) (tgtMajor out r).ind
         = some ((tgtMajor out r).nPc, (tgtMajor out r).ctors) ∧
       (tgtMajor out r).ds.length = (tgtMajor out r).nPc ∧
-      ConLeche.targetOutsideInst (m := CheckM) (mkFEnv envC) (tgtMajor out r).ind
+      ConLeche.targetOutsideInst (fueledOps .verified F) (mkFEnv envC) (tgtMajor out r).ind
         (tgtMajor out r).lvls (tgtMajor out r).ds = .ok ((tgtMajor out r).nIdx, sI) := by
     intro hMo'
     rw [hMtR] at hMo' ⊢
@@ -905,7 +907,7 @@ theorem genNodeCalls {F : Nat}
       (tgtMajor out r).ds.length = o.key.ds.length := by
     intro o ho hMo' hind
     obtain ⟨sI, -, hct, hdsLen, hinst⟩ := hOutR hMo'
-    have hlenP := genOutParamsLen hcov (hcls r hcal hMo') hinst hct hdsLen ψ
+    have hlenP := genOutParamsLen hcov (hcls r hcal hMo') hct hdsLen ψ
     rw [hsel r hcal hMo'] at hlenP
     obtain ⟨D, hD, h1, h2⟩ := posNodeOk_blk H.hcov (H.hok o ho) _ hind
     rw [lfpSel_eq_of_mem H.hcovC dR.toLfp (H.hsub D hD) h1 h2] at hlenP
@@ -1298,7 +1300,7 @@ theorem genNodeCalls {F : Nat}
     rw [hmapK] at hyA
     -- the container's clause
     obtain ⟨sI', -, hct', hdsLen', hinst'⟩ := hOutR hMo'
-    have hlenP := genOutParamsLen hcov hTO' hinst' hct' hdsLen' ψ
+    have hlenP := genOutParamsLen hcov hTO' hct' hdsLen' ψ
     have hψc : tgtClsψ cvc out ψ r
         = Level.substFn ψ (cvc r).levelParams (tgtMajor out r).lvls := by
       simp [tgtClsψ, hMo']
@@ -1321,14 +1323,19 @@ theorem genNodeCalls {F : Nat}
         have := hargsLen'; rw [hlenW, hPl'] at this; omega
       rw [e1]
       obtain ⟨caps', hfC⟩ := hTO'.hfind
-      refine nestInstType_count hnIW (by rw [hIM]; exact hinst')
-        ⟨cvc r, caps', ?_, ?_, hTO'.tailOk⟩ ?_
-      · show envI.find? I = _
-        rw [hIM]
+      have hfE : envI.find? (tgtMajor out r).ind = some (.indInfo (cvc r) caps') := by
         rw [henvC] at hfC
         exact ConLeche.Semantics.consBlockCtors_find?_indInfo hfC
-      · rw [ConLeche.mkFEnv_find?, hIM]; exact hfC
-      · rw [List.length_take, Nat.min_eq_left hnPcL, ← hPl', hPwLen]
+      have hDmk : Dc r ∈ mk.lfpBlocks := by
+        rw [← hDcb]
+        unfold nlDb
+        rw [ite_eq_right (by omega), hb''u]
+        exact (dyn_nodeBlock H hu''ns).1
+      have hFk := H.hcov.instFacts hDmk hTO'.hmm (by rw [hTO'.hmem]; exact hfE)
+        (by show I = _; rw [hTO'.hmem, hIMt]) hnIW
+      refine nestInstType_count hTO' hFk hinst' ?_
+      show (w.getAppArgs.take nPc).length = _
+      rw [List.length_take, Nat.min_eq_left hnPcL, ← hPl', hPwLen]
     have hhead : (mpC.base2.acval (tgtMajor out r).ind
         (Level.substFn ψ (cvc r).levelParams us'))
         = mpC.base2.acval ((Dc r).member (mc r))

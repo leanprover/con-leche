@@ -193,6 +193,8 @@ structure BlockCtorsStage (F : Nat) (d : BlockData V) (lps : List Name)
         FieldsOkB (d.w ψ) ρ (((d.dsF m j ψ).drop d.nP)) ∧
         (∀ bs : List V, SpineFit ρ (((d.dsF m j ψ).drop d.nP)) bs →
           SpineFit ρ (d.IdsM m ψ) (idxValsAt ρ (d.esF m j ψ) bs)))
+  /-- the datum records the telescopes the check read -/
+  shownAt : ∀ (m : Nat) (cvTa : ConstantVal), cvTasAll[m]? = some cvTa → d.shown m = some cvTa
   capsU : ∀ m, m < d.k → ∀ (cvTa : ConstantVal), cvTasAll[m]? = some cvTa →
     ∀ {env' : Env} (m' : EnvModel V env') (kk : Nat) (cA : ConstantVal × Nat),
     (d.ctorsM m)[kk]? = some cA →

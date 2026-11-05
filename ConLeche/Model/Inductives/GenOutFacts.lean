@@ -97,26 +97,19 @@ theorem TgtOutCls.tailOk {envC : Env} {mpC : EnvModelM V envC}
 check's.** -/
 theorem nestInstType_count {envC : Env} {mpC : EnvModelM V envC} {M : TargetMajor} {D : LfpDatum V}
     {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mpC M D mm cvI) {ctx : NestCtx}
-    (hfind : ctx.find? M.ind = envC.find? M.ind) {hi F₁ F₂ : Nat} {us : List Level}
-    {ds : List Expr} {nI : Nat} {cty : Expr}
-    (h1 : ConLeche.nestInstType (m := ConLeche.CheckM) ctx (ConLeche.fueledOps .verified F₁) envC hi
-      ⟨M.ind, us, ds⟩ = .ok (nI, cty))
+    {hi F : Nat} {key : ConLeche.NestKey} {nI : Nat} {cty : Expr}
+    (hF : ConLeche.NestInstFacts ctx hi key cvI.levelParams (D.formerAt mm cvI).type nI cty)
     {us' : List Level} {ds' : List Expr} {nIdx : Nat} {sI : Level}
-    (h2 : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F₂) (mkFEnv envC) M.ind us' ds'
+    (h2 : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv envC) M.ind us' ds'
       = .ok (nIdx, sI))
-    (hlen : ds.length = ds'.length) : nI = nIdx := by
+    (hlen : key.ds.length = ds'.length) : nI = nIdx := by
   have htl := hcl.tailOk
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  obtain ⟨cvC, capsC, tyC, hc', hfam, hF⟩ := ConLeche.nestInstType_inv h1
-  rw [hfind, hfI] at hc'
-  obtain ⟨rfl, rfl⟩ : cvI = cvC ∧ caps = capsC := by simpa using hc'
-  rw [hcl.family_eq hfI hfam] at hF
   obtain ⟨ty', s', hty', -, hr'⟩ := hcl.outsideInst h2
   have hn : nIdx = ty'.piBinders.1.length := congrArg Prod.fst hr'
   have hty := hF.inst
-  obtain ⟨a1, -, a3⟩ := tail_instantiateLevelParams cvI.levelParams us (D.formerAt mm cvI).type
+  obtain ⟨a1, -, a3⟩ := tail_instantiateLevelParams cvI.levelParams key.lvls (D.formerAt mm cvI).type
   obtain ⟨b1, -, b3⟩ := tail_instantiateLevelParams cvI.levelParams us' (D.formerAt mm cvI).type
-  obtain ⟨k1, -⟩ := tail_instPisWith ds (a3.mpr htl) hty
+  obtain ⟨k1, -⟩ := tail_instPisWith key.ds (a3.mpr htl) hty
   obtain ⟨k1', -⟩ := tail_instPisWith ds' (b3.mpr htl) hty'
   rw [hF.count, hn, ← piCount_eq_length, ← piCount_eq_length]
   omega

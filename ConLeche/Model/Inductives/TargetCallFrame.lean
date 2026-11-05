@@ -236,14 +236,12 @@ theorem dyn_ctorFit {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hds := posNodeOk_dsAnc hok
   have hdsa := dyn_dsaI H hu ψ
   have hsem := H.hsem u hu ψ
-  have hkfit := fun σ hσ => nodeKeyFit mk (H.hΔ0 ψ) hok hsem H.hcov.find hD hmm hmmH hfc0 (hlenP _).symm hdsa σ hσ
+  have hkfit := fun σ hσ => nodeKeyFit mk (H.hΔ0 ψ) hok hsem H.hcov hD hmm hmmH hfc0 (hlenP _).symm hdsa σ hσ
   have hΔ := stackCtx_length_hi (m := mk.base2) (φ := ψ) (H.hΔ0 ψ) u.anc
   obtain ⟨-, hCds, hLds⟩ := hsem
-  have hkey := frameKey_of_infer mk (Rules.RulesInputs.ofSem mk ψ) hD hmm hfc0 hul
+  have hkey := frameKey_of_check mk (Rules.RulesInputs.ofSem mk ψ) H.hcov hD hmm hfc0
     (fun x hx => hds x hx) hLds hΔ hCds hdsa (hlenP _)
     (by rw [hmmH]; exact posD_frame_kty hok.1)
-    (posNode_flat H.hcov.find hok (hmmH ▸ hfc0))
-    (posNode_instPis H.hcov.find hok (hmmH ▸ hfc0))
   generalize nodeDsaI mk ctx ψ u = dsa at hdsa hkfit hkey ⊢
   generalize hDdef : lfpSel mpC d.toLfp u.key.cname = D at *
   -- the frame's constructors
@@ -329,7 +327,8 @@ theorem blk_ctorFit {env : Env} (mk : EnvModelM V env)
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    (hread : p.members.map (·.cvT) = cvTas) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
@@ -388,7 +387,7 @@ theorem blk_ctorFit {env : Env} (mk : EnvModelM V env)
     (fun t x hx => by
       have ht : t < (p.nestCtx fvsP env.find?).names.length := by
         rw [← ConLeche.nestHoles_length hholes]; exact (List.getElem?_eq_some_iff.mp hx).1
-      obtain ⟨cv, caps, ty', -, -, hget⟩ := ConLeche.nestHoles_getElem? hholes ht
+      obtain ⟨cv, ty', -, -, hget⟩ := ConLeche.nestHoles_getElem? hholes ht
       rw [hget] at hx
       exact ⟨_, (Option.some.inj hx).symm⟩)
     hcrest
@@ -399,7 +398,7 @@ theorem blk_ctorFit {env : Env} (mk : EnvModelM V env)
           (d.absE ψ m j))) := by
     rw [denote_erasedEq herased]; exact hAr
   obtain ⟨abD, -, B, hhi, hcaE, -, hlD, -, hfr, hCP, hgr, -, -, -, -, -, -, hsatFrame⟩ :=
-    blockWalkCtx hin hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h) hnames hnP hk hcv0 hop0
+    blockWalkCtx hin hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h) hnames hread hnP hk hcv0 hop0
       hholes hCf hCb hcrest hinf hsort hd hca
   obtain ⟨-, rfl⟩ := mkPisAV_inj (hlab.trans hlD.symm) hcaE
   obtain ⟨nds, cur, htele, htyN, -⟩ := hd
