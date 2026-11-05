@@ -6,6 +6,7 @@ public import ConLeche.Verify.EnvExt
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Semantics.Inductives.DeclBlockEta
 import ConLeche.Verify.Cached.BridgeCS4
+import ConLeche.Verify.Cached.PushChain
 import ConLeche.Model.Env.CanonCrest
 import ConLeche.Verify.BridgeDecl
 import ConLeche.Model.Inductives.GenRecExtra
@@ -546,25 +547,45 @@ theorem checkBlockTables_consts {q : BlockShape} :
       rw [hh]
 
 omit [SetTheory V] in
+theorem blockCapsAt_nIdx (p : BlockShape) (mi : Nat) (isRec : Bool) :
+    (ConLeche.blockCapsAt p mi isRec).nIdx = (p.members.getD mi default).nIdx := by
+  unfold ConLeche.blockCapsAt; split <;> rfl
+
+omit [SetTheory V] in
+theorem consBlockInds_indexed {p₁ : BlockShape} {isRec : Bool} :
+    ∀ (cvs : List ConstantVal) (i : Nat) (env : Env), ∃ new : List ConstantInfo,
+      (ConLeche.consBlockInds p₁ isRec cvs i env).consts = new ++ env.consts ∧
+      ∀ c ∈ new, ∃ j cv, cvs[j]? = some cv ∧ c = .indInfo cv (ConLeche.blockCapsAt p₁ (i + j) isRec)
+  | [], _, _ => ⟨[], rfl, fun _ h => nomatch h⟩
+  | cv :: rest, i, env => by
+    obtain ⟨new, hnew, hall⟩ := consBlockInds_indexed (p₁ := p₁) (isRec := isRec) rest (i + 1)
+      ⟨.indInfo cv (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩
+    refine ⟨new ++ [.indInfo cv (ConLeche.blockCapsAt p₁ i isRec)], ?_, fun c hc => ?_⟩
+    · show (ConLeche.consBlockInds p₁ isRec rest (i + 1) _).consts = _
+      rw [hnew]; simp
+    · rcases List.mem_append.mp hc with h | h
+      · obtain ⟨j, cv', hj, rfl⟩ := hall c h
+        exact ⟨j + 1, cv', by simpa using hj, by
+          rw [show i + (j + 1) = i + 1 + j by omega]⟩
+      · rw [List.mem_singleton.mp h]
+        exact ⟨0, cv, rfl, rfl⟩
+
+omit [SetTheory V] in
 /-- **What the ordinary install stores**: its members as the group has them, and no other
 former. -/
 theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
     {p₀ : BlockParts} (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) :
     ∃ new : List ConstantInfo, env₂.consts = new ++ env.consts ∧
-      ∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ ms ∈ p₀.members, cv = ms.cvT := by
+      ∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ ms ∈ p₀.members, cv = ms.cvT ∧
+        caps.nparams + caps.nIdx = p₀.nP + ms.nIdx := by
   obtain ⟨-, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hp, -, -, -, -, -, -, -, -, -, hTbl⟩ := hrun
   obtain ⟨ms0, mrest, cvTa0, s0, cvs, hmem0, hcvTas, hq, hcons, htele0, hteles, -⟩ :=
     ConLeche.checkBlockInds_shape hInd
-  have hcv : ∀ cv ∈ cvTas, ∃ ms ∈ p₀.members, cv = ms.cvT := by
-    intro cv hcvm
-    have hall : cvTas = p₀.members.map (·.cvT) := by
-      rw [hcvTas, hmem0, List.map_cons, checkBlockTeles_formers hteles,
-        ConLeche.checkBlockTele_former htele0]
-    rw [hall] at hcvm
-    obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcvm
-    exact ⟨ms, hms, rfl⟩
-  obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_consts (p₁ := p₁) (isRec := isRec) cvTas 0 env
+  have hall : cvTas = p₀.members.map (·.cvT) := by
+    rw [hcvTas, hmem0, List.map_cons, checkBlockTeles_formers hteles,
+      ConLeche.checkBlockTele_former htele0]
+  obtain ⟨newI, hnewI, hnewIall⟩ := consBlockInds_indexed (p₁ := p₁) (isRec := isRec) cvTas 0 env
   obtain ⟨newR, hnewR, hnewRall⟩ := consBlockRecsT_consts
     (q := p.toBlockShape) 0 (ConLeche.storedOut p.recs outR)
     (ConLeche.consBlockCtors p.nP ctorsAs env₁)
@@ -579,8 +600,173 @@ theorem declBlockRun_consts {F : Nat} {env env₂ : Env} {block : List ConstantI
       exact nomatch he
     · obtain ⟨cA, -, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hc)
       exact nomatch he
-    · obtain ⟨cv', hcv', j, rfl⟩ := hnewIall c hc
-      obtain ⟨rfl, -⟩ := ConstantInfo.indInfo.inj he
-      exact hcv _ hcv'
+    · obtain ⟨j, cv', hj, rfl⟩ := hnewIall c hc
+      obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj he
+      rw [hall, List.getElem?_map] at hj
+      cases hmsj : p₀.members[j]? with
+      | none => rw [hmsj] at hj; exact nomatch hj
+      | some ms =>
+        rw [hmsj] at hj
+        obtain rfl : ms.cvT = cv' := by simpa using hj
+        refine ⟨ms, List.mem_of_getElem? hmsj, rfl, ?_⟩
+        have hm' : p₁.members.getD (0 + j) default = ms := by
+          rw [hq, Nat.zero_add, List.getD_eq_getElem?_getD]
+          show (p₀.members[j]?).getD default = ms
+          rw [hmsj]; rfl
+        rw [blockCapsAt_nparams, blockCapsAt_nIdx, hm', hq]
+        rfl
+
+/-! ## A member's reduct -/
+
+/-- A member against its reduction. -/
+structure MemberReduct (F : Nat) (env : Env) (nP : Nat) (m₀ m : MemberShape) : Prop where
+  name : m.cvT.name = m₀.cvT.name
+  lps : m.cvT.levelParams = m₀.cvT.levelParams
+  nIdx : m.nIdx = m₀.nIdx
+  ctors : m.ctors = m₀.ctors
+  how : (ConLeche.formerDefHeaded m₀.cvT = false ∧ m = m₀) ∨
+    (ConLeche.formerDefHeaded m₀.cvT = true ∧ ConLeche.litGuardFamilies.contains m₀.cvT.name = false ∧
+      ConLeche.checkConstantVal (fueledOps .verified F) env m₀.cvT = .ok () ∧
+      ConLeche.checkConstantVal (fueledOps .verified F) env m.cvT = .ok () ∧
+      (fueledOps .verified F).isDefEq env 0 m₀.cvT.type m.cvT.type = .ok true ∧
+      reducedFormer (fueledOps .verified F) env m₀.cvT (nP + m₀.nIdx) = .ok m.cvT)
+
+omit [SetTheory V] in
+theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
+    (h : reduceMember (m := CheckM) (fueledOps .verified F) env nP m₀ = .ok m) :
+    MemberReduct F env nP m₀ m := by
+  unfold reduceMember at h
+  by_cases hd : ConLeche.formerDefHeaded m₀.cvT = true
+  · rw [if_pos hd] at h
+    by_cases hg : ConLeche.litGuardFamilies.contains m₀.cvT.name = true
+    · rw [if_pos hg] at h
+      exact nomatch h
+    rw [if_neg hg] at h
+    obtain ⟨u₁, h₁, h⟩ := exceptBind_ok h
+    cases u₁
+    obtain ⟨cvR, hR, h⟩ := exceptBind_ok h
+    obtain ⟨u₂, h₂, h⟩ := exceptBind_ok h
+    cases u₂
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    cases b with
+    | false => simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
+    | true =>
+      simp only [pure, Except.pure, Except.ok.injEq, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+      subst h
+      have hrf : cvR = { m₀.cvT with type := cvR.type } := by
+        simp only [reducedFormer, Bind.bind, Except.bind] at hR
+        split at hR
+        · exact nomatch hR
+        · cases hR; rfl
+      refine ⟨by rw [hrf], by rw [hrf], rfl, rfl, .inr ⟨hd, by simpa using hg, h₁, h₂, hb, hR⟩⟩
+  · rw [if_neg hd] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, rfl, rfl, rfl, .inl ⟨by simpa using hd, rfl⟩⟩
+
+omit [SetTheory V] in
+theorem reduceMembers_mem {F : Nat} {env : Env} {nP : Nat} :
+    ∀ {l l' : List MemberShape},
+      reduceMembers (m := CheckM) (fueledOps .verified F) env nP l = .ok l' →
+      ∀ m ∈ l', ∃ m₀ ∈ l, MemberReduct F env nP m₀ m
+  | [], l', h, m, hm => by
+    simp only [reduceMembers, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact nomatch hm
+  | m₀ :: rest, l', h, m, hm => by
+    unfold reduceMembers at h
+    obtain ⟨m', hm', h⟩ := exceptBind_ok h
+    obtain ⟨r', hr', h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    rcases List.mem_cons.mp hm with rfl | hm
+    · exact ⟨m₀, List.mem_cons_self, reduceMember_inv hm'⟩
+    · obtain ⟨x, hx, hr⟩ := reduceMembers_mem hr' m hm
+      exact ⟨x, List.mem_cons_of_mem _ hx, hr⟩
+
+omit [SetTheory V] in
+theorem find_member_of_nodup : ∀ {l : List MemberShape} {x : MemberShape},
+    (l.map (·.cvT.name)).Nodup → x ∈ l → l.find? (·.cvT.name == x.cvT.name) = some x
+  | [], _, _, hx => nomatch hx
+  | y :: l, x, hn, hx => by
+    rcases List.mem_cons.mp hx with rfl | hx'
+    · simp
+    · have hne : y.cvT.name ≠ x.cvT.name := by
+        have := (List.nodup_cons.mp hn).1
+        intro he
+        exact this (List.mem_map.mpr ⟨x, hx', he.symm⟩)
+      rw [List.find?_cons_of_neg (by simpa using hne)]
+      exact find_member_of_nodup (List.nodup_cons.mp hn).2 hx'
+
+/-! ## Back to what the group stores -/
+
+omit [SetTheory V] in
+theorem restoreBlock_eq {p₀ : BlockParts} {env env₃ : Env} {vs new : List ConstantInfo}
+    (hnew : env₃.consts = new ++ (vs ++ env.consts)) :
+    restoreBlock p₀ vs.length env env₃ =
+      ⟨new.map (storedFormerOf p₀) ++ env.consts, env₃.tables⟩ := by
+  unfold restoreBlock
+  have hlen : env₃.consts.length - (vs.length + env.consts.length) = new.length := by
+    rw [hnew]; simp
+  have htake : env₃.consts.take new.length = new := by
+    rw [hnew]; exact List.take_left' rfl
+  rw [hlen, htake]
+
+omit [SetTheory V] in
+/-- **Where the stored environment differs from the job's**: at a member reduced, or a view. -/
+theorem restore_find {F : Nat} {p₀ : BlockParts} {env env₃ : Env} {vs new : List ConstantInfo}
+    {ms : List MemberShape} (hnew : env₃.consts = new ++ (vs ++ env.consts))
+    (hnewI : ∀ c ∈ new, ∀ cv caps, c = .indInfo cv caps → ∃ m ∈ ms, cv = m.cvT ∧
+      caps.nparams + caps.nIdx = p₀.nP + m.nIdx)
+    (hmr : ∀ m ∈ ms, ∃ m₀ ∈ p₀.members, MemberReduct F env p₀.nP m₀ m)
+    (hnd : (p₀.members.map (·.cvT.name)).Nodup)
+    (hv : ∀ c ∈ vs, ViewOf env c) (n : Name) :
+    (restoreBlock p₀ vs.length env env₃).find? n = env₃.find? n ∨
+    (∃ (m₀ m : MemberShape) (caps : IndCaps), MemberReduct F env p₀.nP m₀ m ∧
+      ConLeche.formerDefHeaded m₀.cvT = true ∧ caps.nparams + caps.nIdx = p₀.nP + m₀.nIdx ∧
+      m₀.cvT.name = n ∧ env₃.find? n = some (.indInfo m.cvT caps) ∧
+      (restoreBlock p₀ vs.length env env₃).find? n = some (.indInfo m₀.cvT caps)) ∨
+    (∃ (cv cvR : ConstantVal) (caps : IndCaps), ViewFacts env cv cvR caps ∧ cv.name = n ∧
+      env₃.find? n = some (.indInfo cvR caps) ∧
+      (restoreBlock p₀ vs.length env env₃).find? n = some (.indInfo cv caps)) := by
+  rw [restoreBlock_eq hnew]
+  have h₃ : env₃.find? n = (new.find? (·.name == n)).or
+      ((⟨vs ++ env.consts, env.tables⟩ : Env).find? n) := by
+    show env₃.consts.find? (·.name == n) = _
+    rw [hnew, List.find?_append]; rfl
+  have h₂ : (⟨new.map (storedFormerOf p₀) ++ env.consts, env₃.tables⟩ : Env).find? n =
+      ((new.find? (·.name == n)).map (storedFormerOf p₀)).or (env.find? n) := by
+    show (new.map (storedFormerOf p₀) ++ env.consts).find? (·.name == n) = _
+    rw [List.find?_append, List.find?_map]
+    have hcomp : ((fun x : ConstantInfo => x.name == n) ∘ storedFormerOf p₀)
+        = (fun x => x.name == n) := funext fun c => by
+      simp only [Function.comp, ConLeche.Cached.storedFormerOf_name]
+    rw [hcomp]; rfl
+  rw [h₂, h₃]
+  cases hfn : new.find? (·.name == n) with
+  | some c =>
+    simp only [Option.map_some, Option.or_some]
+    have hcm := List.mem_of_find?_eq_some hfn
+    have hcn : c.name = n := by simpa using List.find?_some hfn
+    cases c
+    case indInfo cv caps =>
+      obtain ⟨m, hm, rfl, hsum⟩ := hnewI _ hcm cv caps rfl
+      obtain ⟨m₀, hm₀, hr⟩ := hmr m hm
+      have hfind : p₀.members.find? (·.cvT.name == m.cvT.name) = some m₀ := by
+        rw [hr.name]; exact find_member_of_nodup hnd hm₀
+      have hf : storedFormerOf p₀ (.indInfo m.cvT caps) = .indInfo m₀.cvT caps := by
+        simp only [storedFormerOf, hfind]
+      rw [hf]
+      rcases hr.how with ⟨-, rfl⟩ | ⟨hd, -⟩
+      · exact .inl rfl
+      · refine .inr (.inl ⟨m₀, m, caps, hr, hd, by rw [hsum, hr.nIdx], ?_, rfl, rfl⟩)
+        rw [← hr.name]; exact hcn
+    all_goals
+      exact .inl rfl
+  | none =>
+    simp only [Option.map_none, Option.none_or]
+    rcases find_views hv n with he | ⟨cv, cvR, caps, hn, hF, hV⟩
+    · exact .inl he.symm
+    · refine .inr (.inr ⟨cv, cvR, caps, hF, hn, hV, ?_⟩)
+      rw [← hn]; exact hF.find
 
 end ConLeche.Model
