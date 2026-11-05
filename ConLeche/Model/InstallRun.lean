@@ -77,16 +77,24 @@ theorem installStepC_model
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
     -- the ordinary step: a declaration checked in full at its install
     have ordinary : ∀ (pd' : Declaration),
-        (checkDeclStepC .verified pins fe pd' >>= fun fe' => pure (fe', pend)) s = .ok ((fe₁, pend₁), s₁) →
+        (checkDeclOnly .verified pins fe pd' >>= fun _ =>
+          pure (FEnv.pushDelta (declConstants pd') (declTables pd') fe,
+            pushPending pend i fe.visibleBelow (valueGroup? pd'))) s = .ok ((fe₁, pend₁), s₁) →
         EnvModelOk V fe₁.env ∧ CSOKF s₁ ∧
           ∃ F, checkDecl .verified (fueledOps .verified F) pins fe.env pd' = .ok fe₁.env := by
       intro pd' hst
-      obtain ⟨fe₁', s₁', hstepC', hp⟩ := bindC_ok hst
+      obtain ⟨u, s₁', hd, hp⟩ := bindC_ok hst
+      cases u
       obtain ⟨hv, rfl⟩ := pureC_ok hp
       simp only [Prod.mk.injEq] at hv
-      obtain ⟨rfl, rfl⟩ := hv
+      obtain ⟨rfl, -⟩ := hv
+      obtain ⟨fe₁', s₁', hstepC', hp'⟩ := bindC_ok hd
+      obtain ⟨-, rfl⟩ := pureC_ok hp'
+      have hpush := checkDeclStepC_pushes (pins := pins) .verified fe pd' s _ _ hstepC'
+      subst hpush
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run henv hresA hstepC'
+      rw [← hfe] at hF
       exact ⟨declStep_preserves mp hcov hS hE hN
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
     -- a separable value declaration: phase A's install (its facts
@@ -140,10 +148,11 @@ theorem installStepC_model
     cases pd with
     | defnDecl cv val hint =>
       unfold installStepC at hstepC
-      simp only [] at hstepC
+      simp only [installGuards] at hstepC
       split at hstepC
       · exact ordinary _ hstepC
       · rename_i hnat
+        simp only [valueGroup?, hnat, Bool.false_eq_true, ↓reduceIte] at hstepC
         obtain ⟨u, s₁', hval, hp⟩ := bindC_ok hstepC
         cases u
         obtain ⟨hv, rfl⟩ := pureC_ok hp
@@ -162,7 +171,7 @@ theorem installStepC_model
       -- phase A installed the header alone: the flush, the header's
       -- install half, the push of the RAW value
       unfold installStepC at hstepC
-      simp only [] at hstepC
+      simp only [installGuards, bind_assoc] at hstepC
       obtain ⟨u₀, s₁', hflush, h⟩ := bindC_ok hstepC
       rw [flushC_run] at hflush
       injection hflush with hflush
@@ -182,10 +191,11 @@ theorem installStepC_model
       exact ⟨F, checkDecl_of_split_thm rfl rfl rfl hI hC⟩
     | opaqueDecl cv val =>
       unfold installStepC at hstepC
-      simp only [] at hstepC
+      simp only [installGuards] at hstepC
       split at hstepC
       · exact ordinary _ hstepC
       · rename_i hred
+        simp only [valueGroup?, hred, Bool.false_eq_true, ↓reduceIte] at hstepC
         obtain ⟨u, s₁', hval, hp⟩ := bindC_ok hstepC
         cases u
         obtain ⟨hv, rfl⟩ := pureC_ok hp

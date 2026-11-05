@@ -141,46 +141,45 @@ def installGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) :
   installHeaderC fe cv
   installValueGuardsC fe cv value
 
-/-- Phase A's step body in the fold (the driver's install is
-`installStepG`): guard-and-install for the three value
-kinds, the ordinary step `checkDeclStepC` for everything else.  `i` is
-the fold position the record is tagged with.  (The continuations read
-the install's result by projection, so that the statements about this
-function match it syntactically.) -/
-def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
-    (pend : Array PendingCheck) :
-    Declaration → CheckCM (FEnv × Array PendingCheck)
+/-- A declaration's checked step, its result dropped: what it pushes is `declConstants`
+(`checkDeclStepC_pushes`). -/
+def checkDeclOnly (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) : CheckCM Unit := do
+  let _ ← checkDeclStepC mode pins fe pd
+  pure ()
+
+/-- **What a declaration's install asks**: the guards of a value
+declaration, which leave its inference to phase B; for anything else
+its checked step in full (the driver runs that as a job of the check
+phase, `ConLeche/Verify/Cached/Defer.lean`). -/
+def installGuards (pins : List NatOpPinSet) (fe : FEnv) : Declaration → CheckCM Unit
   | .defnDecl cv value hint =>
-    if natOpNames.contains cv.name || natDivModNames.contains cv.name then do
-      pure (← checkDeclStepC mode pins fe (.defnDecl cv value hint), pend)
-    else do
-      installGuardsC fe cv value
-      -- RC linearity: the counter is read BEFORE the push, so that
-      -- `fe` reaches `push` unshared (read after it, the push copies
-      -- the whole index at every install)
-      let vis := fe.visibleBelow
-      pure (fe.push (.defnInfo cv value hint),
-        pend.push ⟨⟨.defn, cv, value⟩, i, vis⟩)
-  | .thmDecl cv value => do
-    -- a theorem installs BY STATEMENT: the header's install half
-    -- only; the value is recorded raw and never touched here (phase B
-    -- guards it, `checkPending`), so phase A never enters a
-    -- theorem's body
+    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
+      checkDeclOnly mode pins fe (.defnDecl cv value hint)
+    else installGuardsC fe cv value
+  | .thmDecl cv _ => do
     flushC
     installHeaderC fe cv
-    let vis := fe.visibleBelow
-    pure (fe.push (.thmInfo cv),
-      pend.push ⟨⟨.thm, cv, value⟩, i, vis⟩)
   | .opaqueDecl cv value =>
-    if reduceOpNames.contains cv.name then do
-      pure (← checkDeclStepC mode pins fe (.opaqueDecl cv value), pend)
-    else do
-      installGuardsC fe cv value
-      let vis := fe.visibleBelow
-      pure (fe.push (.axiomInfo cv),
-        pend.push ⟨⟨.opaque, cv, value⟩, i, vis⟩)
-  | pd => do
-    pure (← checkDeclStepC mode pins fe pd, pend)
+    if reduceOpNames.contains cv.name then
+      checkDeclOnly mode pins fe (.opaqueDecl cv value)
+    else installGuardsC fe cv value
+  | pd => checkDeclOnly mode pins fe pd
+
+/-- The pending checks after a record: its check recorded, for a value
+declaration. -/
+def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
+  | some vg => pend.push ⟨vg, i, v⟩
+  | none => pend
+
+/-- Phase A's step body: the declaration's guards, then what it
+installs (`declConstants`, `declTables`).  `i` is the fold position the
+record is tagged with. -/
+def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
+    (pend : Array PendingCheck) (pd : Declaration) :
+    CheckCM (FEnv × Array PendingCheck) := do
+  installGuards mode pins fe pd
+  let vis := fe.visibleBelow
+  pure (FEnv.pushDelta (declConstants pd) (declTables pd) fe, pushPending pend i vis (valueGroup? pd))
 
 /-- Phase A's step with the position carried and the error tagged: the
 accumulator is `(i, fe, pend)`, and a failing step reports the

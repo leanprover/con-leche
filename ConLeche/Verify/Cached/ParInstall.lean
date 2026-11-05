@@ -637,14 +637,14 @@ private theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : F
       exact nomatch h
     · simp only [valueStep, hnat, Bool.false_eq_true, ↓reduceIte, Option.some.injEq] at h
       subst h
-      simp only [installStepC, hnat, Bool.false_eq_true, ↓reduceIte,
+      simp only [installStepC, installGuards, valueGroup?, hnat, Bool.false_eq_true, ↓reduceIte,
         installGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
       cases installGuardsC fe cv value {} <;> rfl
   | thmDecl cv value =>
     simp only [valueStep, Option.some.injEq] at h
     subst h
-    simp only [installStepC, installHeaderC_congr hfe, bind, StateT.bind,
-      pure, StateT.pure, hflush, Except.bind]
+    simp only [installStepC, installGuards, valueGroup?, installHeaderC_congr hfe, bind,
+      StateT.bind, pure, StateT.pure, hflush, Except.bind]
     cases installHeaderC fe cv ({} : CState).flushed <;> rfl
   | opaqueDecl cv value =>
     by_cases hred : reduceOpNames.contains cv.name = true
@@ -652,7 +652,7 @@ private theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : F
       exact nomatch h
     · simp only [valueStep, hred, Bool.false_eq_true, ↓reduceIte, Option.some.injEq] at h
       subst h
-      simp only [installStepC, hred, Bool.false_eq_true, ↓reduceIte,
+      simp only [installStepC, installGuards, valueGroup?, hred, Bool.false_eq_true, ↓reduceIte,
         installGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
       cases installGuardsC fe cv value {} <;> rfl
   | axiomDecl _ => exact nomatch h

@@ -163,21 +163,14 @@ theorem installDeclStep_defer {fe W : FEnv} (ht : Twin fe W) {i : Nat}
     installDeclStep mode pins (i, fe, pend) pd =
       .ok (i + 1, FEnv.pushDelta (declConstants pd) (declTables pd) fe, pend) := by
   obtain ⟨W', s, hW'⟩ := hok
-  have hs := installStepC_of_valueStep_none (mode := mode) (pins := pins) (i := i) (fe := fe)
-    (pend := pend) (valueStep_of_deferred hd W)
+  have hnone := valueStep_of_deferred (pd := pd) hd W
   rcases checkDeclStepC_twin pins ht pd {} with
     ⟨e, -, h₂⟩ | ⟨a₁, a₂, s', h₁, h₂, L', Q', rfl, rfl⟩
   · rw [h₂] at hW'; exact nomatch hW'
-  · have hfe := checkDeclStepC_pushes (pins := pins) mode fe pd {} _ _ h₁
-    unfold installDeclStep
-    simp only [hand, ↓reduceIte, hs]
-    show (match (checkDeclStepC mode pins fe pd {}).bind
-        (fun v => (pure (v.1, pend) : CheckCM _) v.2) with
-      | .ok ((fe', pend'), _) => Except.ok (i + 1, fe', pend')
-      | .error e => .error (e, i)) = _
-    rw [h₁]
-    show Except.ok (i + 1, FEnv.pushDelta L' Q' fe, pend) = _
-    rw [hfe]
+  · unfold installDeclStep installStepC
+    simp only [hand, ↓reduceIte, installGuards_of_valueStep_none hnone,
+      valueGroup?_of_valueStep_none hnone, checkDeclOnly, bind, StateT.bind, pure, StateT.pure,
+      h₁, pushPending, Except.bind, Except.pure]
 
 /-- **A deferred record installed at a worker view**: no value check,
 and the serial fold's step pushes what it pushed, conditional on the

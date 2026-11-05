@@ -56,12 +56,7 @@ theorem installStepC_thm_consts {mode : CheckMode} {i : Nat} {fe : FEnv}
       ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩ ::
         fe.env.consts := by
   unfold installStepC at h
-  simp only [] at h
-  obtain ⟨_, s₁, hfl, h⟩ := bindC_ok h
-  rw [show (flushC : CheckCM Unit) s₀ = .ok ((), s₀.flushed) from rfl] at hfl
-  have hs₁ : s₀.flushed = s₁ := congrArg Prod.snd (Except.ok.inj hfl)
-  subst hs₁
-  obtain ⟨_, s₂, _hcv, h'⟩ := bindC_ok h
+  obtain ⟨_, _, _, h'⟩ := bindC_ok h
   obtain ⟨hv, _⟩ := pureC_ok h'
   obtain ⟨rfl, _⟩ := Prod.mk.injEq .. ▸ hv
   rw [← hty]

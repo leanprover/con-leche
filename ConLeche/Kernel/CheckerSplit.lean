@@ -57,6 +57,17 @@ structure ValueGroup where
   cv : ConstantVal
   jv : Expr
 
+/-- A declaration's value group: a definition, a theorem or an opaque, other than a pinned
+`Nat` operation or a `reduce*` opaque. -/
+def valueGroup? : Declaration → Option ValueGroup
+  | .defnDecl cv value _ =>
+    if natOpNames.contains cv.name || natDivModNames.contains cv.name then none
+    else some ⟨.defn, cv, value⟩
+  | .thmDecl cv value => some ⟨.thm, cv, value⟩
+  | .opaqueDecl cv value =>
+    if reduceOpNames.contains cv.name then none else some ⟨.opaque, cv, value⟩
+  | _ => none
+
 variable (mode : CheckMode)
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 

@@ -1387,40 +1387,44 @@ theorem Twin.ofViewAgrees {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewAgree
     (hidx : IdxBelow fe) : Twin fe (workerView B S fe.visibleBelow) :=
   ⟨(funext hag.find).symm, (funext hag.raw).symm, rfl, hidx, IdxBelow.ofWorkerView B S _⟩
 
-/-- Where `valueStep` has no verdict, phase A's step is the ordinary step. -/
-theorem installStepC_of_valueStep_none {pins : List NatOpPinSet} {i : Nat} {fe W : FEnv}
-    {pend : Array PendingCheck} {pd : Declaration} (h : valueStep W pd = none) :
-    installStepC mode pins i fe pend pd = (checkDeclStepC mode pins fe pd >>= fun fe' =>
-      pure (fe', pend)) := by
+/-- Where `valueStep` has no verdict, the record has no value group. -/
+theorem valueGroup?_of_valueStep_none {W : FEnv} {pd : Declaration} (h : valueStep W pd = none) :
+    valueGroup? pd = none := by
   cases pd with
   | defnDecl cv value hint =>
     by_cases hnat : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = true
-    · unfold installStepC
-      dsimp only
-      rw [ite_eq_left hnat]
-    · unfold valueStep at h
-      dsimp only at h
-      rw [ite_eq_right hnat] at h
+    · simp only [valueGroup?, hnat, ↓reduceIte]
+    · simp only [valueStep, hnat, Bool.false_eq_true, ↓reduceIte] at h
       exact nomatch h
   | thmDecl cv value => exact nomatch h
   | opaqueDecl cv value =>
     by_cases hred : reduceOpNames.contains cv.name = true
-    · unfold installStepC
-      dsimp only
-      rw [ite_eq_left hred]
-    · unfold valueStep at h
-      dsimp only at h
-      rw [ite_eq_right hred] at h
+    · simp only [valueGroup?, hred, ↓reduceIte]
+    · simp only [valueStep, hred, Bool.false_eq_true, ↓reduceIte] at h
       exact nomatch h
   | axiomDecl _ => rfl
   | quotDecl _ _ => rfl
   | indDecl _ _ => rfl
 
-/-- The pending checks after a record: its check recorded, for a value
-record. -/
-@[expose] def pushPending (pend : Array PendingCheck) (i v : Nat) : Option ValueGroup → Array PendingCheck
-  | some vg => pend.push ⟨vg, i, v⟩
-  | none => pend
+/-- Where `valueStep` has no verdict, phase A's step is the checked step, its result dropped. -/
+theorem installGuards_of_valueStep_none {pins : List NatOpPinSet} {fe W : FEnv}
+    {pd : Declaration} (h : valueStep W pd = none) :
+    installGuards mode pins fe pd = checkDeclOnly mode pins fe pd := by
+  cases pd with
+  | defnDecl cv value hint =>
+    by_cases hnat : (natOpNames.contains cv.name || natDivModNames.contains cv.name) = true
+    · simp only [installGuards, hnat, ↓reduceIte]
+    · simp only [valueStep, hnat, Bool.false_eq_true, ↓reduceIte] at h
+      exact nomatch h
+  | thmDecl cv value => exact nomatch h
+  | opaqueDecl cv value =>
+    by_cases hred : reduceOpNames.contains cv.name = true
+    · simp only [installGuards, hred, ↓reduceIte]
+    · simp only [valueStep, hred, Bool.false_eq_true, ↓reduceIte] at h
+      exact nomatch h
+  | axiomDecl _ => rfl
+  | quotDecl _ _ => rfl
+  | indDecl _ _ => rfl
 
 end Commit
 

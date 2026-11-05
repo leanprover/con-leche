@@ -635,10 +635,8 @@ theorem tolerated_ne_std {n : Name}
 /-! ## The floor
 
 The fold installs every record by `installStepC` (`checkDecls`,
-`ConLeche/Cached/Installed.lean`) — a separable value declaration by
-the install halves, everything else by `checkDeclStepC` — and its
-phase B pushes nothing, so the skeleton spec `declCSkels` computes the
-installed environment at *every* mode.  Hence: whenever two modes both
+`ConLeche/Cached/Installed.lean`), and its phase B pushes nothing, so
+`declConstants` computes the installed environment at *every* mode.  Hence: whenever two modes both
 **accept**, they installed the same constants, in the same order, with
 the same skeletons — and in particular the same names and the same
 count.
@@ -812,29 +810,8 @@ theorem installStepC_pushes (mode : CheckMode) (i : Nat) (fe : FEnv) (pend : Arr
     (pd : Declaration) :
     Yields (installStepC mode pins i fe pend pd)
       (fun r => r.1 = FEnv.pushDelta (declConstants pd) (declTables pd) fe) := by
-  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode pins fe pd', pend) :
-      CheckCM (FEnv × Array PendingCheck))
-      (fun r => r.1 = FEnv.pushDelta (declConstants pd') (declTables pd') fe) :=
-    fun pd' => Yields.bind' (checkDeclStepC_pushes mode fe pd') fun fe' h' => Yields.pure h'
   unfold installStepC
-  cases pd with
-  | defnDecl cv value hint =>
-    simp only []
-    split
-    · exact hord _
-    · exact Yields.bind fun _ => Yields.pure rfl
-  | thmDecl cv value =>
-    simp only []
-    ybind
-    exact Yields.bind fun _ => Yields.pure rfl
-  | opaqueDecl cv value =>
-    simp only []
-    split
-    · exact hord _
-    · exact Yields.bind fun _ => Yields.pure rfl
-  | axiomDecl cv => exact hord _
-  | quotDecl k cv => exact hord _
-  | indDecl block nP => exact hord _
+  exact Yields.bind fun _ => Yields.pure rfl
 
 /-! ## The environment of an accepted stream -/
 

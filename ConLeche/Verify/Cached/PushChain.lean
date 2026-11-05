@@ -631,33 +631,46 @@ theorem installStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pend : Array PendingCheck) (pd : Declaration) :
     Yields (installStepC mode pins i fe pend pd)
       (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) := by
-  have hord : ∀ pd', Yields (do pure (← checkDeclStepC mode pins fe pd', pend) :
-      CheckCM (FEnv × Array PendingCheck))
-      (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) :=
-    fun pd' => Yields.bind' (checkDeclStepC_push mode h pd') fun fe' h' =>
-      Yields.pure ⟨h', [], by simp⟩
+  have hord : ∀ pd', valueGroup? pd' = none →
+      Yields (checkDeclOnly mode pins fe pd' >>= fun _ =>
+        pure (FEnv.pushDelta (declConstants pd') (declTables pd') fe,
+          pushPending pend i fe.visibleBelow (valueGroup? pd')))
+      (fun r => PushChain env r.1 ∧ ∃ new, r.2.toList = pend.toList ++ new) := fun pd' hv => by
+    rw [hv]
+    have hc := (checkDeclStepC_push (pins := pins) mode h pd').and
+      (checkDeclStepC_pushes (pins := pins) mode fe pd')
+    exact Yields.bind' (Yields.bind' hc fun fe' h' => Yields.pure (P := fun _ => PushChain env
+      (FEnv.pushDelta (declConstants pd') (declTables pd') fe)) (h'.2 ▸ h'.1))
+      fun _ h' => Yields.pure ⟨h', [], by simp [pushPending]⟩
   unfold installStepC
   cases pd with
   | defnDecl cv value hint =>
-    simp only []
+    simp only [installGuards]
     split
-    · exact hord _
-    · refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
+    · rename_i hnat
+      exact hord _ (by simp only [valueGroup?, hnat, ↓reduceIte])
+    · rename_i hnat
+      refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
+      simp only [valueGroup?, hnat, Bool.false_eq_true, ↓reduceIte]
       exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
   | thmDecl cv value =>
-    simp only []
+    simp only [installGuards]
+    rw [bind_assoc]
     ybind
     refine Yields.bind' (installHeaderC_fresh fe cv) fun _ hfr => ?_
     exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
   | opaqueDecl cv value =>
-    simp only []
+    simp only [installGuards]
     split
-    · exact hord _
-    · refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
+    · rename_i hred
+      exact hord _ (by simp only [valueGroup?, hred, ↓reduceIte])
+    · rename_i hred
+      refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
+      simp only [valueGroup?, hred, Bool.false_eq_true, ↓reduceIte]
       exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
-  | axiomDecl cv => exact hord _
-  | quotDecl k cv => exact hord _
-  | indDecl block nP => exact hord _
+  | axiomDecl cv => exact hord _ rfl
+  | quotDecl k cv => exact hord _ rfl
+  | indDecl block nP => exact hord _ rfl
 
 /-- **Phase A is a fresh chain**: from a canonical index, an accepting
 run returns a canonical index whose constants extend the start by
