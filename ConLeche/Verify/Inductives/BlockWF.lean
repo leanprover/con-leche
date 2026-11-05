@@ -100,18 +100,19 @@ theorem MemberAt.declaredWF {F : Nat} {env : Env} {nP : Nat} {m : MemberShape}
 /-- **Stage 1 at the run level**: the environment holding the k formers
 is well-formed, and every checked former's type is closed. -/
 theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
-    {p : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
+    {p : BlockParts} {isRec : Bool} {p₁ : BlockShape} {F : Nat}
     (hdecl : ∀ ms ∈ p.members, MemberDeclaredWF env ms)
-    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
-    EnvWF envI ∧ ∀ cvTa ∈ cvTas, cvTa.type.hasFvar = false := by
-  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, rfl, hq, hcvs, -⟩ :=
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
+    EnvWF envI ∧ ∀ cvTa ∈ p.toBlockShape.formers, cvTa.type.hasFvar = false := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, hq, hcvs, -⟩ :=
     checkBlockInds_shape h
-  have key : ∀ cvTa ∈ cvTa0 :: cvs.map (·.1),
+  have key : ∀ cvTa ∈ p.toBlockShape.formers,
       cvTa.type.hasFvar = false ∧
       cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
       cvTa.type.constsResolve env = true ∧
       cvTa.type.looseBVarsBounded 0 = true ∧ LitShapeAt cvTa := by
     intro cvTa hcv
+    rw [← checkBlockInds_teles hm hq hcvs] at hcv
     have step : ∀ (ms : MemberShape) (s : Level),
         checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cvTa, s) →
         cvTa.type.hasFvar = false ∧
@@ -139,9 +140,7 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcv
   rcases hdecl ms hms with he | hw
   · rw [he]
-    refine key _ ?_
-    rw [(checkBlockInds_members h).1]
-    exact List.mem_map_of_mem hms
+    exact key _ (List.mem_map_of_mem hms)
   · exact hw
 
 /-! ## Stage 1b: the constructors consed, member by member -/
@@ -177,28 +176,39 @@ theorem envWF_consBlockCtors {nP : Nat} :
 /-- **Stage 1b at the run level**: the environment holding the k
 formers and all the constructors is well-formed. -/
 theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
-    {q : BlockShape} {l : List (MemberShape × ConstantVal)}
-    {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
+    {q : BlockShape} {l : List MemberShape} {sortsss : List (List (List Level))}
     {nP F : Nat}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q l = .ok (ctorsAs, sortsss)) :
-    EnvWF (consBlockCtors nP ctorsAs env₁) := by
-  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
+    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q l = .ok sortsss) :
+    EnvWF (consBlockCtors nP (l.map (·.ctors)) env₁) := by
+  obtain ⟨hlen, hall⟩ := checkBlockCtors_inv h
   refine envWF_consBlockCtors henv ?_
   intro ctorsA hcA c hc
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
-  have hil : i < l.length := by
-    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨ctorsA', sortss, hcA', -, hcs⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
-  obtain rfl := Option.some.inj (hi.symm.trans hcA')
+  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcA
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
+  obtain ⟨sortss, -, hcs⟩ := hall i ms hi
   obtain ⟨-, -, hallc⟩ := checkSumCtors_inv hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-  have hjl : j < ctorsA.length := (List.getElem?_eq_some_iff.mp hj).1
-  have hjl' : j < l[i].1.ctors.length := by
-    obtain ⟨hlc, -, -⟩ := checkSumCtors_inv hcs
-    omega
-  obtain ⟨-, sorts, -, hctor⟩ :=
-    hallc j l[i].1.ctors[j] c (List.getElem?_eq_getElem hjl') hj
+  obtain ⟨-, sorts, -, hctor⟩ := hallc j c c hj hj
   exact direct_sum_ctor_typeWF hctor
+
+/-- The constructors' stage stores constructors fresh in the
+environment they are checked at (`checkConstantVal` rejects a name
+already there). -/
+theorem checkBlockCtors_fresh {env₀ env : Env} {q : BlockShape} {F : Nat}
+    {l : List MemberShape} {sortsss : List (List (List Level))}
+    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok sortsss) :
+    ∀ ctorsA ∈ l.map (·.ctors), ∀ c ∈ ctorsA, env.find? c.1.name = none := by
+  obtain ⟨-, hall⟩ := checkBlockCtors_inv h
+  intro ctorsA hcA c hc
+  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcA
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
+  obtain ⟨sortss, -, hcs⟩ := hall i ms hi
+  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
+  obtain ⟨-, sorts, -, hrun⟩ := hallc j c c hj hj
+  obtain ⟨⟨heq, hccv⟩, -, -⟩ := checkSumCtor_shape hrun
+  rw [heq]
+  exact (checkConstantVal_inv hccv).1
 
 /-! ## The CHECK, inverted -/
 

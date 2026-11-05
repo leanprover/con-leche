@@ -452,21 +452,21 @@ theorem checkBlockInds_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat
 
 theorem checkBlockCtors_datF (env₀ env : Env) (p : BlockShape)
     (F : Nat) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       (checkBlockCtors (fueledOpsM mode) env₀ env p l).val F =
         checkBlockCtors (fueledOps mode F) env₀ env p l
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     unfold checkBlockCtors
     simp only [FueledM.atF_bind, FueledM.atF_pure, checkSumCtors_datF,
       checkBlockCtors_datF env₀ env p F rest]
 
 theorem checkBlockIdxSorts_datF (env₁ : Env) (p : BlockShape) (F : Nat) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       (checkBlockIdxSorts (fueledOpsM mode) env₁ p l).val F =
         checkBlockIdxSorts (fueledOps mode F) env₁ p l
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     unfold checkBlockIdxSorts
     simp only [FueledM.atF_bind, FueledM.atF_pure, unwrapOr_atF,
       checkStructFieldSortsI_datF, checkBlockIdxSorts_datF env₁ p F rest]

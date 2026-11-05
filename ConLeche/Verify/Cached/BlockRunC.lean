@@ -100,18 +100,18 @@ theorem checkBlockIndsF_eqC (env : Env) (p : BlockParts) (isRec : Bool) :
       pure_bind, consBlockIndsF_mkFEnv]
 
 theorem checkBlockCtorsF_eqC (env₀ env : Env) (p : BlockShape) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       checkBlockCtorsF ops (mkFEnv env₀) (mkFEnv env) p l = checkBlockCtors ops env₀ env p l
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     simp only [checkBlockCtorsF, checkBlockCtors, checkSumCtorsF_eq,
       checkBlockCtorsF_eqC env₀ env p rest]
 
 theorem checkBlockIdxSortsF_eqC (env : Env) (p : BlockShape) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       checkBlockIdxSortsF ops (mkFEnv env) p l = checkBlockIdxSorts ops env p l
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     simp only [checkBlockIdxSortsF, checkBlockIdxSorts, checkStructFieldSortsIF_eq,
       checkBlockIdxSortsF_eqC env p rest]
 
@@ -229,16 +229,15 @@ theorem checkBlockAgreeS_spec (henv : EnvWF env) {nP : Nat}
 theorem checkBlockIndsS_spec (henv : EnvWF env)
     {p : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄ checkBlockInds (sharedOpsC .verified (mkFEnv env)) env p isRec
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkBlockInds (fueledOpsM .verified) env p isRec) v ∧
-      CvsWS v.2.1; ⊤⦄ := by
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkBlockInds (fueledOpsM .verified) env p isRec) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockInds.eq_1] =>
     vcgen [checkBlockInds, checkBlockTeleS_spec henv hs, checkBlockTelesS_spec henv,
       checkBlockAgreeS_spec henv] <;> finish
 
 theorem checkBlockCtorsS_spec (henv : EnvWF env)
     {env₀ : Env} {p : BlockShape} :
-    ∀ {l : List (MemberShape × ConstantVal)} {s₀ : CState},
-      (∀ x ∈ l, x.2.type.hasFvar = false) → CSOK .verified false env s₀ →
+    ∀ {l : List MemberShape} {s₀ : CState},
+      (∀ x ∈ l, x.cvT.type.hasFvar = false) → CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄ checkBlockCtors (sharedOpsC .verified (mkFEnv env)) env₀ env p l
       ⦃fun v s' => CSOK .verified false env s' ∧
         Runs (checkBlockCtors (fueledOpsM .verified) env₀ env p l) v; ⊤⦄ := by
@@ -247,12 +246,11 @@ theorem checkBlockCtorsS_spec (henv : EnvWF env)
   | nil =>
     intro _ _ _
     sym only [conleche_grind, checkBlockCtors.eq_1] => vcgen [checkBlockCtors] <;> finish
-  | cons x rest ih =>
-    obtain ⟨ms, cvTa⟩ := x
+  | cons ms rest ih =>
     intro _ hl _
     sym only [conleche_grind, checkBlockCtors.eq_2] =>
       vcgen [checkBlockCtors, checkSumCtorsS_spec henv
-          (show cvTa.type.hasFvar = false from hl (ms, cvTa) List.mem_cons_self),
+          (show ms.cvT.type.hasFvar = false from hl ms List.mem_cons_self),
         ih (fun x hx => hl x (List.mem_cons_of_mem _ hx))] <;> finish
 
 /-- An opened telescope's variables past a prefix carry types scoped at
@@ -269,8 +267,8 @@ grind_pattern [conleche_grind] openers_drop_fvarTypeD_WScoped =>
 
 theorem checkBlockIdxSortsS_spec (henv : EnvWF env)
     {p : BlockShape} :
-    ∀ {l : List (MemberShape × ConstantVal)} {s₀ : CState},
-      (∀ x ∈ l, WScoped 0 x.2.type) → CSOK .verified false env s₀ →
+    ∀ {l : List MemberShape} {s₀ : CState},
+      (∀ x ∈ l, WScoped 0 x.cvT.type) → CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄ checkBlockIdxSorts (sharedOpsC .verified (mkFEnv env)) env p l
       ⦃fun v s' => CSOK .verified false env s' ∧
         Runs (checkBlockIdxSorts (fueledOpsM .verified) env p l) v; ⊤⦄ := by
@@ -279,11 +277,10 @@ theorem checkBlockIdxSortsS_spec (henv : EnvWF env)
   | nil =>
     intro _ _ _
     sym only [conleche_grind, checkBlockIdxSorts.eq_1] => vcgen [checkBlockIdxSorts] <;> finish
-  | cons x rest ih =>
-    obtain ⟨ms, cvTa⟩ := x
+  | cons ms rest ih =>
     intro _ hl _
     sym only [conleche_grind, checkBlockIdxSorts.eq_2, unwrapOr, FvsWS,
-        show WScoped 0 cvTa.type from hl (ms, cvTa) List.mem_cons_self] =>
+        show WScoped 0 ms.cvT.type from hl ms List.mem_cons_self] =>
       vcgen [checkBlockIdxSorts, unwrapOr, checkStructFieldSortsIS_spec henv,
         ih (fun x hx => hl x (List.mem_cons_of_mem _ hx))] <;> finish
 
@@ -389,46 +386,17 @@ theorem checkBlockTablesS_run (p : BlockShape) (env : Env) :
 
 /-- The constructors' stage stores fvar-free constructor types. -/
 theorem checkBlockCtors_types {env₀ env : Env} {q : BlockShape} {F : Nat}
-    {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-    {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss)) :
-    ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type := by
-  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
+    {l : List MemberShape} {sortsss : List (List (List Level))}
+    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok sortsss) :
+    ∀ ctorsA ∈ l.map (·.ctors), ∀ c ∈ ctorsA, WScoped 0 c.1.type := by
+  obtain ⟨-, hall⟩ := checkBlockCtors_inv h
   intro ctorsA hcA c hc
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
-  have hil : i < l.length := by
-    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨ctorsA', sortss, hcA', -, hcs⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
-  obtain rfl := Option.some.inj (hi.symm.trans hcA')
+  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcA
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
+  obtain ⟨sortss, -, hcs⟩ := hall i ms hi
   obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-  have hjl : j < l[i].1.ctors.length := by
-    rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨-, sorts, -, hrun⟩ := hallc j (l[i].1.ctors[j]) c (List.getElem?_eq_getElem hjl) hj
+  obtain ⟨-, sorts, -, hrun⟩ := hallc j c c hj hj
   exact WScoped.of_not_hasFvar (direct_sum_ctor_typeWF hrun).1
-
-/-- The constructors' stage stores constructors fresh in the
-environment they are checked at (`checkConstantVal` rejects a name
-already there). -/
-theorem checkBlockCtors_fresh {env₀ env : Env} {q : BlockShape} {F : Nat}
-    {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-    {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss)) :
-    ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env.find? c.1.name = none := by
-  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
-  intro ctorsA hcA c hc
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
-  have hil : i < l.length := by
-    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨ctorsA', sortss, hcA', -, hcs⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
-  obtain rfl := Option.some.inj (hi.symm.trans hcA')
-  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-  have hjl : j < l[i].1.ctors.length := by
-    rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨-, sorts, -, hrun⟩ := hallc j (l[i].1.ctors[j]) c (List.getElem?_eq_getElem hjl) hj
-  obtain ⟨⟨heq, hccv⟩, -, -⟩ := checkSumCtor_shape hrun
-  rw [heq]
-  exact (checkConstantVal_inv hccv).1
 
 end ConLeche.Cached

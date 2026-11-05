@@ -131,19 +131,17 @@ environment, the classes, and the positivity check walking every class
 (the members' root frame first). -/
 def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
-  let (fe₁, cvTas, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
+  let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   let pC := p₀.complete p₁
   flushC
-  let (ctorsAs, sortsss) ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁
-    pC.toBlockShape
-    (pC.members.zip cvTas)
-  let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas fe₁.find?
+  let sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape pC.members
+  let (ctx, holes) ← blockNestCtx pC.toBlockShape pC.toBlockShape.formers fe₁.find?
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ pC.toBlockShape
-    ctx.params ctorsAs
+    ctx.params pC.toBlockShape.memberCtors
   let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
-    pC cvTas ctorsAs
+    pC pC.toBlockShape.formers pC.toBlockShape.memberCtors
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
-  pure ⟨fe₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨fe₁, pC, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
@@ -152,13 +150,12 @@ them) and by the generated recursors, so both are overlays sharing it (`shadowOp
 array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
   match q with
-  | ⟨env₁, cvTas, p, ctorsAs, _sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
-  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p.toBlockShape
-    (p.members.zip cvTas)
-  let fe₂ := consBlockCtorsF p.nP ctorsAs env₁
+  | ⟨env₁, p, _sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
+  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p.toBlockShape p.members
+  let fe₂ := consBlockCtorsF p.nP p.toBlockShape.memberCtors env₁
   flushC
   let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
-    (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls cvTas block
+    (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls p.toBlockShape.formers block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
   streamKCheck p.toBlockShape p.recs out

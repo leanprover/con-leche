@@ -175,7 +175,7 @@ def consBlockInds (p₁ : BlockShape) (isRec : Bool) :
 official's `declare_inductive_types`, which puts every former in the
 environment before any constructor is looked at. -/
 def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
-    (isRec : Bool) : m (Env × List ConstantVal × BlockShape) :=
+    (isRec : Bool) : m (Env × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
@@ -183,8 +183,7 @@ def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
     let cvs ← checkBlockTeles ops env p.nP rest
     checkBlockAgree ops env p.nP cvTa0 s0 cvs
     let p₁ := p.toBlockShape.withSort s0
-    let cvTas := cvTa0 :: cvs.map (·.1)
-    pure (consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env, cvTas, p₁)
+    pure (consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env, p₁)
 
 /-! ## Stage 1b: the constructors -/
 
@@ -200,15 +199,13 @@ def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
 the formers (the resolution guard pointed at that same environment, as
 the one-member stage does), each stored as declared. -/
 def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env)
-    (p : BlockShape) :
-    List (MemberShape × ConstantVal) →
-      m (List (List (ConstantVal × Nat)) × List (List (List Level)))
-  | [] => pure ([], [])
-  | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtors ops env₀ env p rest
-    pure (ctorsA :: restC, sortss :: restS)
+    (p : BlockShape) : List MemberShape → m (List (List (List Level)))
+  | [] => pure []
+  | ms :: rest => do
+    let (_, sortss) ← checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
+      p.resSort p.isProp p.large ms.cvT ms.ctors
+    let restS ← checkBlockCtors ops env₀ env p rest
+    pure (sortss :: restS)
 
 /-! ## Positivity: the ONE function, on the stored constructors
 
@@ -301,10 +298,10 @@ index-tuple universe: the member's telescope opened at variables, each
 index domain's sort inferred (no bound is checked — the sorts are
 read, not compared). -/
 def checkBlockIdxSorts (ops : CheckerOps m) (env₁ : Env) (p : BlockShape) :
-    List (MemberShape × ConstantVal) → m (List (List Level))
+    List MemberShape → m (List (List Level))
   | [] => pure []
-  | (ms, cvTa) :: rest => do
-    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) cvTa.type 0)
+  | ms :: rest => do
+    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
     let isorts ← checkStructFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
       ms.nIdx

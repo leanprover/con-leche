@@ -227,30 +227,6 @@ theorem genRecCheck_outMajor {fe₁ fe : FEnv} {p : BlockShape} {nestedBit : Boo
 
 /-! ## The block -/
 
-theorem checkSumCtors_declared {env₀ env : Env} {T : Name} {lps : List Name}
-    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat}
-    {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (h : checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-      cvTa cs = .ok (ctorsA, sortss)) : ctorsA = cs := by
-  obtain ⟨hlen, -, hall⟩ := checkSumCtors_inv h
-  refine List.ext_getElem hlen fun j h₁ h₂ => ?_
-  obtain ⟨hn, sorts, -, hrun⟩ := hall j cs[j] ctorsA[j] (List.getElem?_eq_getElem h₂)
-    (List.getElem?_eq_getElem h₁)
-  exact Prod.ext (checkSumCtor_shape hrun).1.1 hn
-
-/-- The checked constructors are the declared ones. -/
-theorem checkBlockCtors_declared {env₀ env : Env} {q : BlockShape} {F : Nat}
-    {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-    {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss)) :
-    ctorsAs = l.map (·.1.ctors) := by
-  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
-  refine List.ext_getElem (by simpa using hlen) fun i h₁ h₂ => ?_
-  have hil : i < l.length := by simpa using h₂
-  obtain ⟨ctorsA, sortss, hA, -, hrun⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
-  obtain rfl : ctorsA = ctorsAs[i] := Option.some.inj (hA.symm.trans (List.getElem?_eq_getElem h₁))
-  simpa using checkSumCtors_declared hrun
-
 theorem consBlockInds_consts' (p₁ : BlockShape) (isRec : Bool) :
     ∀ (cvs : List ConstantVal) (i : Nat) (env : Env),
       consBlockInds p₁ isRec cvs i env =
@@ -296,31 +272,24 @@ theorem consBlockRecsT_eq_infos (q : BlockShape) :
 one holding the formers and constructors the checks ran at and the recursors the checks compared with
 the generated ones, with the tables on top. -/
 theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockParts}
-    {cvTas : List ConstantVal} {p₁ : BlockShape}
-    {ctorsAs : List (List (ConstantVal × Nat))} {sortsss : List (List (List Level))}
+    {p₁ : BlockShape}
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
     {nestedBit : Bool} {out : List (ConstantVal × TargetMajor × List Expr)} (Q : List ProjTable)
-    (hInd : checkBlockInds (fueledOps .verified F) env p₀ (blockRawRec p₀) = .ok (env₁, cvTas, p₁))
-    (hCtors : checkBlockCtors (fueledOps .verified F) env₁ env₁ p₁ (p₀.members.zip cvTas)
-      = .ok (ctorsAs, sortsss))
-    (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params ctorsAs = .ok (rd, Ms₀))
-    (hRec : genRecCheck (ShadowOps.fueled .verified F) (mkFEnv (consBlockCtors p₁.nP ctorsAs env₁))
-      p₁ nestedBit params tbl rd Ms₀ cvTas block = .ok out)
+    (hInd : checkBlockInds (fueledOps .verified F) env p₀ (blockRawRec p₀) = .ok (env₁, p₁))
+    (hcls : checkBlockClasses (fueledOps .verified F) (mkFEnv env₁) p₁ params p₁.memberCtors
+      = .ok (rd, Ms₀))
+    (hRec : genRecCheck (ShadowOps.fueled .verified F)
+      (mkFEnv (consBlockCtors p₁.nP p₁.memberCtors env₁))
+      p₁ nestedBit params tbl rd Ms₀ p₁.formers block = .ok out)
     (hK : streamKCheck (m := CheckM) p₁ p₁.recs out = .ok ())
     {w : StructWalkers} {fe : FEnv}
     (hS : streamRecsCheck (m := CheckM) (fueledOps .verified F) w fe p₁.recs out = .ok ()) :
     env.pushDelta (blockConstants p₀) Q =
-      (consBlockRecsT p₁ 0 (streamRecs p₁.recs out) (consBlockCtors p₁.nP ctorsAs env₁)).pushDelta [] Q := by
-  obtain ⟨ms0, rest, cvTa0, s0, cvs, -, -, hq, hcons, -⟩ := checkBlockInds_shape hInd
-  obtain ⟨hcvT, hmem⟩ := checkBlockInds_members hInd
+      (consBlockRecsT p₁ 0 (streamRecs p₁.recs out)
+        (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] Q := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, -, hq, hcons, -⟩ := checkBlockInds_shape hInd
   subst hq
-  have hlenZ : (p₀.members.zip cvTas).map (·.1) = p₀.members := by
-    rw [hcvT]
-    exact List.map_fst_zip (by simp)
-  have hctors : ctorsAs = p₀.members.map (·.ctors) := by
-    rw [checkBlockCtors_declared hCtors]
-    conv => rhs; rw [← hlenZ]
-    simp [List.map_map, Function.comp_def]
+  have hctors : (p₀.toBlockShape.withSort s0).memberCtors = p₀.members.map (·.ctors) := rfl
   obtain ⟨hlenR, hallS⟩ := streamRecsCheck_inv hS
   have hrecsP : (p₀.toBlockShape.withSort s0).recs = p₀.recs := rfl
   have hAg : ∀ i rc o, p₀.recs[i]? = some rc → out[i]? = some o →

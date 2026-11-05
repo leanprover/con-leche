@@ -892,7 +892,7 @@ theorem checkBlockCtorsF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ 
     (hfe₀ : fe₀₁.find? = fe₀₂.find?) (hfe : fe₁.find? = fe₂.find?) (p : BlockShape) :
     ∀ xs, checkBlockCtorsF ops fe₀₁ fe₁ p xs = checkBlockCtorsF ops fe₀₂ fe₂ p xs
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     have ih := checkBlockCtorsF_congr h hfe₀ hfe p rest
     unfold checkBlockCtorsF
     simp only [checkSumCtorsF_congr h hfe₀ hfe, ih]
@@ -900,7 +900,7 @@ theorem checkBlockCtorsF_congr (h : EnvFree ops) {fe₀₁ fe₀₂ fe₁ fe₂ 
 theorem checkBlockIdxSortsF_congr (h : EnvFree ops) (fe₁ fe₂ : FEnv) (p : BlockShape) :
     ∀ xs, checkBlockIdxSortsF ops fe₁ p xs = checkBlockIdxSortsF ops fe₂ p xs
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     have ih := checkBlockIdxSortsF_congr h fe₁ fe₂ p rest
     unfold checkBlockIdxSortsF
     simp only [checkStructFieldSortsIF_congr h fe₁ fe₂, ih]
@@ -1160,9 +1160,9 @@ theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
       (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
   refine RelRun.bind (checkBlockIndsF_twin ht.find ht.findTable p₀ isRec) ?_
-  rintro ⟨a₁, cvTas, p₁⟩ ⟨a₂, cvTas', p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
-  simp only [Prod.mk.injEq] at he
-  obtain ⟨rfl, rfl⟩ := he
+  rintro ⟨a₁, p₁⟩ ⟨a₂, p₁'⟩ ⟨⟨L, Q, rfl, rfl⟩, he⟩
+  simp only at he
+  subst he
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)
   simp only [sharedOpsC_congr htL.find htL.findTable, checkBlockCtorsF_congr h htL.find htL.find, htL.find,
@@ -1177,10 +1177,12 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) {q₁ q₂ : BlockPass FEnv} (hq : PassRel fe₁ fe₂ q₁ q₂) :
     RelRun Eq (checkBlockTailS mode block q₁) (checkBlockTailS mode block q₂) := by
   obtain ⟨L, Q, rfl, hq₂⟩ := hq
-  obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q₂
+  obtain ⟨env₁, p, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q₂
   simp only at hq₂
   subst hq₂
   unfold checkBlockTailS
+  dsimp only
+  generalize p.toBlockShape.memberCtors = ctorsAs
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)
   obtain ⟨L₂, hL₂⟩ := consBlockCtorsF_eq_pushAll p.nP ctorsAs

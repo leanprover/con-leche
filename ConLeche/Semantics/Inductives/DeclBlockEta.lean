@@ -159,79 +159,14 @@ theorem consBlockCtors_find?_mem {nP : Nat} :
           (List.mem_flatten.mpr ⟨_, List.mem_map_of_mem hB, hmem⟩) rfl
     · exact consBlockCtors_find?_mem hndR hl' hc
 
-/-! ## The constructors' stage: names, arities, freshness -/
-
-/-- **One member's constructor loop, read at the names**: the stored
-constructors carry the member's constructor names and field counts, in
-order, each fresh at the environment the loop checks at. -/
-theorem checkSumCtors_names {mode : CheckMode} {env₀ env : Env} {T : Name} {lps : List Name}
-    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat}
-    {cs ctorsA : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (h : ConLeche.checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-      cvTa cs = .ok (ctorsA, sortss)) :
-    ctorsA.map (fun cA => (cA.1.name, cA.2)) = cs.map (fun c => (c.1.name, c.2)) ∧
-    ∀ cA ∈ ctorsA, env.find? cA.1.name = none := by
-  obtain ⟨hlen, -, hall⟩ := ConLeche.checkSumCtors_inv h
-  have hpos : ∀ (j : Nat) (hj : j < ctorsA.length),
-      ctorsA[j].1.name = (cs[j]'(hlen ▸ hj)).1.name ∧ ctorsA[j].2 = (cs[j]'(hlen ▸ hj)).2 ∧
-      env.find? ctorsA[j].1.name = none := by
-    intro j hj
-    obtain ⟨hnF, _, -, hrun⟩ := hall j (cs[j]'(hlen ▸ hj)) (ctorsA[j])
-      (List.getElem?_eq_getElem _) (List.getElem?_eq_getElem hj)
-    obtain ⟨⟨heq, hccv⟩, -, -⟩ := ConLeche.checkSumCtor_shape hrun
-    obtain ⟨hfC, -, -, -, -, -, -, -, -, -, -⟩ :=
-      ConLeche.checkConstantVal_inv hccv
-    have hn : ctorsA[j].1.name = (cs[j]'(hlen ▸ hj)).1.name := by rw [heq]
-    exact ⟨hn, hnF, by rw [hn]; exact hfC⟩
-  refine ⟨?_, fun cA hcA => ?_⟩
-  · apply List.ext_getElem (by simp [hlen])
-    intro j h1 h2
-    simp only [List.getElem_map]
-    have hj : j < ctorsA.length := by simpa using h1
-    obtain ⟨e1, e2, -⟩ := hpos j hj
-    rw [e1, e2]
-  · obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hcA
-    exact (hpos j hj).2.2
-
-/-- **The members' constructor loops, read at the names**: member by
-member, the stored constructors carry the members' constructor names
-and field counts, each fresh at the environment the loops check at. -/
-theorem checkBlockCtors_names {mode : CheckMode} {env₀ env : Env} {q : BlockShape} {F : Nat} :
-    ∀ {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-      {sortsss : List (List (List Level))},
-      checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss) →
-      ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
-        = l.map (fun mc => mc.1.ctors.map (fun c => (c.1.name, c.2))) ∧
-      ∀ ctorsA ∈ ctorsAs, ∀ cA ∈ ctorsA, env.find? cA.1.name = none
-  | [], ctorsAs, sortsss, h => by
-    simp only [checkBlockCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, fun _ h => nomatch h⟩
-  | (ms, cvTa) :: rest, ctorsAs, sortsss, h => by
-    unfold checkBlockCtors at h
-    obtain ⟨r, hr, h⟩ := exceptBind_ok h
-    obtain ⟨ctorsA, sortss⟩ := r
-    try simp only at h
-    obtain ⟨r', hr', h⟩ := exceptBind_ok h
-    obtain ⟨restC, restS⟩ := r'
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    obtain ⟨hn1, hf1⟩ := checkSumCtors_names hr
-    obtain ⟨hn2, hf2⟩ := checkBlockCtors_names hr'
-    refine ⟨by simp only [List.map_cons, hn1, hn2], ?_⟩
-    intro A hA cA hcA
-    rcases List.mem_cons.mp hA with rfl | hA'
-    · exact hf1 cA hcA
-    · exact hf2 A hA' cA hcA
-
 /-! ## The formers' stage: freshness -/
 
 /-- **The k formers are consed at names fresh before the block.** -/
 theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts} {isRec : Bool}
-    {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
-    (h : ConLeche.checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
-    ∀ cv ∈ cvTas, env.find? cv.name = none := by
-  obtain ⟨ms0, rest, cvTa0, s0, cvs, -, rfl, -, -, h0, hcvs, -⟩ := ConLeche.checkBlockInds_shape h
+    {p₁ : BlockShape} {F : Nat}
+    (h : ConLeche.checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
+    ∀ cv ∈ p.toBlockShape.formers, env.find? cv.name = none := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, -, -, h0, hcvs, -⟩ := ConLeche.checkBlockInds_shape h
   have hone : ∀ {ms : MemberShape} {cv : ConstantVal} {s : Level},
       ConLeche.checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cv, s) →
       env.find? cv.name = none := by
@@ -240,6 +175,7 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts
     obtain ⟨hf, -, -, -, -, -, -, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hcv
     rw [heq]; exact hf
   intro cv hcv
+  rw [← ConLeche.checkBlockInds_teles hm h0 hcvs] at hcv
   rcases List.mem_cons.mp hcv with rfl | hcv'
   · exact hone h0
   · obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hcv'
@@ -292,23 +228,22 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
     (hdn : ∀ m ∈ p₀.members, m.cvT.name = m.declared.name)
     (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hndC, -, -, isRec, env₁, cvTas, p₁, p, ctorsAs, sortsss, ctx, holes, rd, Ms, kinds, nfs,
+  obtain ⟨hndC, -, -, isRec, env₁, p₁, p, sortsss, ctx, holes, rd, Ms, kinds, nfs,
     pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, -, -, hfin⟩ := h
   subst hp
-  obtain ⟨_, _, _, _, _, -, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
-  have hlenCv : cvTas.length = p₁.members.length := by
-    rw [ConLeche.checkBlockInds_length hInd, hp₁]; rfl
-  -- the three freshness facts and the stored constructors' names
+  obtain ⟨_, _, _, _, _, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
+  -- the three freshness facts and the constructors' names
   have hfT := checkBlockInds_fresh hInd
-  obtain ⟨hnames₀, hfC⟩ := checkBlockCtors_names hCtors
+  have hfC : ∀ A ∈ (p₀.complete p₁).toBlockShape.memberCtors, ∀ cA ∈ A,
+      (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env).find? cA.1.name = none :=
+    ConLeche.checkBlockCtors_fresh hCtors
+  generalize hcA : (p₀.complete p₁).toBlockShape.memberCtors = ctorsAs at hfin hfC
   have hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p₁.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) := by
-    have hz : (p₁.members.zip cvTas).map Prod.fst = p₁.members :=
-      List.map_fst_zip (Nat.le_of_eq hlenCv.symm)
-    calc _ = ((p₁.members.zip cvTas).map Prod.fst).map
-            (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) := by
-          rw [hnames₀, List.map_map]; rfl
-      _ = _ := by rw [hz]
+    rw [← hcA]
+    show (p₁.members.map (·.ctors)).map _ = _
+    rw [List.map_map]
+    rfl
   have hndAll : ((ctorsAs.map (·.map (·.1.name))).flatten).Nodup := by
     have hmap : ctorsAs.map (·.map (·.1.name))
         = p₁.members.map (fun ms => ms.ctors.map (·.1.name)) := by
@@ -335,7 +270,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
       have hjl : j < p₁.members.length := by
         have := (List.getElem?_eq_some_iff.mp hj).1
         rw [List.length_map] at this
-        rw [(ConLeche.checkBlockInds_members hInd).2]
+        rw [ConLeche.checkBlockInds_members hInd]
         exact this
       have hgetD : p₁.members.getD j default = p₁.members[j] := by
         rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hjl, Option.getD_some]
@@ -370,8 +305,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
         · exact hfC₀
         · intro cv hcv hh
           obtain ⟨m, hm, rfl⟩ := List.mem_map.mp hcv
-          have := hfT m.cvT (by
-            rw [(ConLeche.checkBlockInds_members hInd).1]; exact List.mem_map_of_mem hm)
+          have := hfT m.cvT (List.mem_map_of_mem hm)
           rw [hdn m hm, hh, hfC₀] at this
           exact nomatch this
       rw [consBlockCtors_find?_of_ne]
@@ -383,6 +317,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
         exact nomatch this
   -- ## the recursors (at their majors), then the tables
   have hfresh := ConLeche.genRecCheck_out_fresh hRec
+  rw [hcA] at hfresh
   subst hfin
   -- the tables store no constant
   show EtaFamiliesClosed ⟨(consBlockRecsT _ _ _ _).consts, _⟩

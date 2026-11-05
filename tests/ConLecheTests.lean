@@ -396,9 +396,9 @@ and the classes: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
   let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
-  let env₂ := consBlockCtors q.p.nP q.ctorsAs q.env₁
+  let env₂ := consBlockCtors q.p.nP q.p.toBlockShape.memberCtors q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls
-    block q.cvTas
+    block q.p.toBlockShape.formers
   pure out.length
 
 -- The stage REJECTS the zero-motive recursor, whatever its rule.

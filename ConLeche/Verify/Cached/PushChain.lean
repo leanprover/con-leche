@@ -241,15 +241,14 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     Yields (checkBlockPassS mode fe p₀ isRec)
       (fun r => PushChain env r.env₁ ∧ r.p.members = p₀.members ∧ r.p.recs = p₀.recs ∧
         r.p.nP = p₀.nP ∧
-        (r.ctorsAs.flatten.map (·.1.name)) = p₀.allCtors.map (·.1.name) ∧
-        (∀ c ∈ r.ctorsAs.flatten, r.env₁.find? c.1.name = none) ∧
+        (∀ c ∈ p₀.allCtors, r.env₁.find? c.1.name = none) ∧
         (∀ ms ∈ p₀.members, fe.find? ms.cvT.name = none) ∧
         ∀ n, r.env₁.find? n = none → n ∉ p₀.members.map (·.cvT.name) ∧ fe.find? n = none) := by
   unfold checkBlockPassS
   refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
-  obtain ⟨fe₁, cvTas, p₁⟩ := r₁
-  obtain ⟨⟨s, hps⟩, hfe₁, hn, hfr⟩ := h₁
-  try simp only [] at hps hfe₁ hn hfr
+  obtain ⟨fe₁, p₁⟩ := r₁
+  obtain ⟨⟨s, hps⟩, hfe₁, hfr⟩ := h₁
+  try simp only [] at hps hfe₁ hfr
   subst hps
   try simp only []
   have h₁ : PushChain env fe₁ := by
@@ -263,29 +262,18 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     rw [← h.find?]
     exact hfr ms hms
   ybind
-  have hlen : (p₀.members.zip cvTas).map (fun x => x.1) = p₀.members := by
-    have := congrArg List.length hn
-    simp only [List.length_map] at this
-    rw [List.map_fst_zip (by omega)]
-  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun r hr => ?_
-  obtain ⟨ctorsAs, sortsss⟩ := r
-  obtain ⟨hns, -, hfrs⟩ := hr
+  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun sortsss hr => ?_
+  obtain ⟨-, hfrs⟩ := hr
   try simp only []
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun kinds => ?_
   refine Yields.bind fun _ => ?_
-  refine Yields.pure ⟨h₁, rfl, rfl, rfl, ?_, ?_, hfr, fun n hn => ?_⟩
-  · simp only [BlockParts.complete_members, BlockShape.withSort_members] at hns
-    have := congrArg (fun l => (l.map (List.map Prod.fst)).flatten) hns
-    simp only [List.map_map, Function.comp_def] at this
-    simp only [List.map_flatten, BlockShape.allCtors]
-    rw [this]
-    conv => rhs; rw [← hlen]
-    simp only [List.map_map, Function.comp_def]
+  refine Yields.pure ⟨h₁, rfl, rfl, rfl, ?_, hfr, fun n hn => ?_⟩
   · intro c hc
     obtain ⟨cs, hcs, hc⟩ := List.mem_flatten.mp hc
-    exact hfrs cs hcs c hc
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcs
+    exact hfrs ms hms c hc
   · have hn' : (consBlockIndsF (p₀.toBlockShape.withSort s) isRec (p₀.members.map (·.declared)) 0
         fe).find? n = none := by rw [← hfe₁]; exact hn
     obtain ⟨hm₁, hm₂⟩ := consBlockIndsF_find?_none _ isRec h.canon hn'
@@ -431,13 +419,13 @@ index. -/
 theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q : BlockPass FEnv} :
     Yields (checkBlockTailS mode block q) (fun _ =>
       (q.p.recs.map (·.cvR.name)).Nodup ∧
-      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? rc.cvR.name = none) := by
-  obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
+      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.toBlockShape.memberCtors q.env₁).find? rc.cvR.name = none) := by
+  obtain ⟨env₁, p, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
   unfold checkBlockTailS
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
-  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block cvTas) fun _ hrs =>
+  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block p.toBlockShape.formers) fun _ hrs =>
     Yields.const hrs
 
 /-- A block's install keeps the chain, its members' declared names standing where the
@@ -462,9 +450,17 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     rw [e₃]
   refine Yields.bind' (checkBlockPassS_push mode h { p with members := ms } (blockRawRec p) e₂
     (by show (ms.map _).Nodup; rw [e₁]; exact hndM)) fun q hr => ?_
-  obtain ⟨h₁, hm, hrec, hnp, hns, hfrs, hfrMs, hmem⟩ := hr
-  try simp only [] at h₁ hm hrec hnp hns hfrs hfrMs hmem
+  obtain ⟨h₁, hm, hrec, hnp, hfrs₀, hfrMs, hmem⟩ := hr
+  try simp only [] at h₁ hm hrec hnp hfrs₀ hfrMs hmem
   try simp only []
+  have hflat : q.p.toBlockShape.memberCtors.flatten = ({ p with members := ms } : BlockParts).allCtors := by
+    show (q.p.members.map (·.ctors)).flatten = _
+    rw [hm]
+    rfl
+  have hns : q.p.toBlockShape.memberCtors.flatten.map (·.1.name) =
+      ({ p with members := ms } : BlockParts).allCtors.map (·.1.name) := by rw [hflat]
+  have hfrs : ∀ c ∈ q.p.toBlockShape.memberCtors.flatten, q.env₁.find? c.1.name = none := by
+    rw [hflat]; exact hfrs₀
   refine Yields.bind' (checkBlockTailS_fresh mode) fun _ hrs => Yields.pure ?_
   have hrecs : q.p.recs = p.recs := hrec
   have hnP : q.p.nP = p.nP := hnp
@@ -472,7 +468,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   obtain ⟨hndR, hfrR⟩ := hrs
   have hCan₁ : q.env₁ = mkFEnv q.env₁.env := h₁.canon
   -- what the constructors' index does not find
-  have hC : ∀ n, (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? n = none →
+  have hC : ∀ n, (consBlockCtorsF q.p.nP q.p.toBlockShape.memberCtors q.env₁).find? n = none →
       n ∉ p.allCtors.map (·.1.name) ∧ n ∉ p.members.map (·.cvT.name) ∧ fe.find? n = none := by
     intro n hn
     rw [consBlockCtorsF_flatten] at hn
@@ -491,7 +487,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     refine ⟨⟨hndM, hndC, fun a ha b hb => ?_⟩, hndR, fun a ha b hb => ?_⟩
     · rintro rfl
       obtain ⟨c, hc, hca⟩ := List.mem_map.mp hb
-      have hc' : a ∈ q.ctorsAs.flatten.map (·.1.name) := by rw [hns, hCt]; exact hb
+      have hc' : a ∈ q.p.toBlockShape.memberCtors.flatten.map (·.1.name) := by rw [hns, hCt]; exact hb
       obtain ⟨c', hc'm, hc'e⟩ := List.mem_map.mp hc'
       have := hfrs c' hc'm
       rw [hc'e] at this
@@ -517,7 +513,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
           obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'
           rw [← he]
           exact hfrMs m' hm'm
-        · have hc' : n ∈ q.ctorsAs.flatten.map (·.1.name) := by rw [hns, hCt]; exact hn
+        · have hc' : n ∈ q.p.toBlockShape.memberCtors.flatten.map (·.1.name) := by rw [hns, hCt]; exact hn
           obtain ⟨c', hc'm, rfl⟩ := List.mem_map.mp hc'
           exact (hmem _ (hfrs c' hc'm)).2
       · obtain ⟨rc, hrc, rfl⟩ := List.mem_map.mp hn

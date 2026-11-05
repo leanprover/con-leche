@@ -342,9 +342,8 @@ their freshness at the block's own index. -/
 theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockParts)
     (isRec : Bool) :
     Yields (checkBlockIndsF ops fe p isRec)
-      (fun r => (∃ s, r.2.2 = p.toBlockShape.withSort s) ∧
-        r.1 = consBlockIndsF r.2.2 isRec (p.members.map (·.declared)) 0 fe ∧
-        r.2.1.map (·.name) = p.members.map (·.cvT.name) ∧
+      (fun r => (∃ s, r.2 = p.toBlockShape.withSort s) ∧
+        r.1 = consBlockIndsF r.2 isRec (p.members.map (·.declared)) 0 fe ∧
         ∀ ms ∈ p.members, fe.find? ms.cvT.name = none) := by
   unfold checkBlockIndsF
   split
@@ -354,10 +353,7 @@ theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockP
     obtain ⟨cvTa0, s0⟩ := r0
     refine Yields.bind' (checkBlockTelesF_fresh ops fe p.nP rest) fun cvs hcvs => ?_
     refine Yields.bind fun _ => ?_
-    refine Yields.pure ⟨⟨s0, rfl⟩, rfl, ?_, ?_⟩
-    · rw [hm]
-      simp only [List.map_cons, List.map_map, List.cons.injEq]
-      exact ⟨h0.1, by rw [← hcvs.1]; rfl⟩
+    refine Yields.pure ⟨⟨s0, rfl⟩, rfl, ?_⟩
     · rw [hm]
       intro m hmm
       rcases List.mem_cons.mp hmm with rfl | hmm
@@ -382,38 +378,39 @@ theorem consBlockCtorsF_flatten (nP : Nat) :
     rw [consBlockCtorsF, List.flatten_cons, consSumCtorsF_append]
     exact consBlockCtorsF_flatten nP rest _
 
-/-- The constructors' stage: names and field counts per member, one
-field-sort list per constructor, and every stored name fresh at the
-environment the stage runs at. -/
+/-- The constructors' stage: one field-sort list per constructor, and every declared name fresh at
+the environment the stage runs at. -/
 theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p : BlockShape) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       Yields (checkBlockCtorsF ops fe₀ fe p l)
-        (fun r => r.1.map (List.map fun c => (c.1.name, c.2))
-            = l.map (fun x => x.1.ctors.map fun c => (c.1.name, c.2)) ∧
-          r.2.map List.length = l.map (fun x => x.1.ctors.length) ∧
-          ∀ cs ∈ r.1, ∀ c ∈ cs, fe.find? c.1.name = none)
-  | [] => Yields.pure ⟨rfl, rfl, fun _ h => nomatch h⟩
-  | (ms, cvTa) :: rest => by
+        (fun r => r.map List.length = l.map (fun x => x.ctors.length) ∧
+          ∀ ms ∈ l, ∀ c ∈ ms.ctors, fe.find? c.1.name = none)
+  | [] => Yields.pure ⟨rfl, fun _ h => nomatch h⟩
+  | ms :: rest => by
     unfold checkBlockCtorsF
     refine Yields.bind' (Yields.and
       (checkSumCtorsF_names ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
-        p.large cvTa ms.ctors)
+        p.large ms.cvT ms.ctors)
       (checkSumCtorsF_fresh ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
-        p.large cvTa ms.ctors)) fun q hq => ?_
+        p.large ms.cvT ms.ctors)) fun q hq => ?_
     obtain ⟨ctorsA, sortss⟩ := q
     obtain ⟨⟨hn, hlS⟩, -, hfr⟩ := hq
-    refine Yields.bind' (checkBlockCtorsF_fresh ops fe₀ fe p rest) fun r hr => ?_
-    obtain ⟨restC, restS⟩ := r
-    obtain ⟨hn', hlS', hfr'⟩ := hr
-    refine Yields.pure ⟨?_, ?_, ?_⟩
-    · simp only [List.map_cons, List.cons.injEq]
-      exact ⟨hn, hn'⟩
+    refine Yields.bind' (checkBlockCtorsF_fresh ops fe₀ fe p rest) fun restS hr => ?_
+    obtain ⟨hlS', hfr'⟩ := hr
+    refine Yields.pure ⟨?_, ?_⟩
     · simp only [List.map_cons, List.cons.injEq]
       exact ⟨hlS, hlS'⟩
-    · intro cs hcs
-      rcases List.mem_cons.mp hcs with rfl | hcs
-      · exact hfr
-      · exact hfr' cs hcs
+    · intro ms' hms' c hc
+      rcases List.mem_cons.mp hms' with rfl | hms'
+      · have hmem : c.1.name ∈ ctorsA.map (·.1.name) := by
+          have := congrArg (List.map Prod.fst) hn
+          simp only [List.map_map, Function.comp_def] at this
+          simp only [this]
+          exact List.mem_map_of_mem hc
+        obtain ⟨c', hc', he⟩ := List.mem_map.mp hmem
+        rw [← he]
+        exact hfr c' hc'
+      · exact hfr' ms' hms' c hc
 
 theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
     Yields (unwrapOr o e : CheckCM α) (fun a => o = some a) := by

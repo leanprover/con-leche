@@ -26,12 +26,8 @@ yields**. -/
 structure BlockPass (E : Type) where
   /-- the environment holding all k formers, at the record the pass ran at -/
   env₁ : E
-  /-- the checked formers, in block order -/
-  cvTas : List ConstantVal
   /-- the completed record: the sort read -/
   p : BlockParts
-  /-- the checked constructors, per member, AS DECLARED -/
-  ctorsAs : List (List (ConstantVal × Nat))
   /-- the fields' sorts, per member, per constructor -/
   sortsss : List (List (List Level))
   /-- the positivity function's field kinds, per member, per constructor -/
@@ -60,17 +56,18 @@ first (the ROOT frame, `checkBlockPositivity`, with its own lines), then
 every outside class (`nestSeeds`: a cache hit, or its frame walked). -/
 def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockParts) (isRec : Bool) :
     m (BlockPass Env) := do
-  let (env₁, cvTas, p₁) ← checkBlockInds ops env p₀ isRec
+  let (env₁, p₁) ← checkBlockInds ops env p₀ isRec
   let pC := p₀.complete p₁
-  let (ctorsAs, sortsss) ← checkBlockCtors ops env₁ env₁ pC.toBlockShape
-    (pC.members.zip cvTas)
-  let (ctx, holes) ← blockNestCtx pC.toBlockShape cvTas env₁.find?
+  let sortsss ← checkBlockCtors ops env₁ env₁ pC.toBlockShape pC.members
+  let (ctx, holes) ← blockNestCtx pC.toBlockShape pC.toBlockShape.formers env₁.find?
   -- the classes
-  let (rd, Ms) ← checkBlockClasses ops (mkFEnv env₁) pC.toBlockShape ctx.params ctorsAs
+  let (rd, Ms) ← checkBlockClasses ops (mkFEnv env₁) pC.toBlockShape ctx.params
+    pC.toBlockShape.memberCtors
   -- positivity: every class from the empty stack, the members (the root frame) first
-  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? pC cvTas ctorsAs
+  let (kinds, nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? pC pC.toBlockShape.formers
+    pC.toBlockShape.memberCtors
   let st ← nestSeeds ops env₁ ctx (classSeeds ctx holes Ms) pos
-  pure ⟨env₁, cvTas, pC, ctorsAs, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨env₁, pC, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **The installer's recursor stage** (charter item 5): the
 GENERATED recursor stage `genRecCheck` (`GenRec.lean`) at the
@@ -118,10 +115,10 @@ holding the generated ones) and the projection tables. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env) :
     m Unit := do
   let p := q.p
-  let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape (p.members.zip q.cvTas)
-  let env₂ := consBlockCtors p.nP q.ctorsAs q.env₁
+  let _isorts ← checkBlockIdxSorts ops q.env₁ p.toBlockShape p.members
+  let env₂ := consBlockCtors p.nP p.toBlockShape.memberCtors q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p.toBlockShape q.kinds) q.params
-    q.tbl.toList q.rd q.cls block q.cvTas
+    q.tbl.toList q.rd q.cls block p.toBlockShape.formers
   streamKCheck p.toBlockShape p.recs out
   streamRecsCheck ops .plain (mkFEnv (consBlockRecsT p.toBlockShape 0 out env₂)) p.recs out
   checkBlockTables p.toBlockShape env₂ p.members

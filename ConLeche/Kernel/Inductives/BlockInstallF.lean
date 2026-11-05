@@ -81,7 +81,7 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
 
 /-- `checkBlockInds` through the index. -/
 def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
-    (isRec : Bool) : m (FEnv × List ConstantVal × BlockShape) :=
+    (isRec : Bool) : m (FEnv × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
@@ -89,30 +89,28 @@ def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
     let cvs ← checkBlockTelesF ops fe p.nP rest
     checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
     let p₁ := p.toBlockShape.withSort s0
-    let cvTas := cvTa0 :: cvs.map (·.1)
-    pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0 fe, cvTas, p₁)
+    pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0 fe, p₁)
 
 /-! ## Stage 1b: the constructors -/
 
 /-- `checkBlockCtors` through the index. -/
 def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
-    List (MemberShape × ConstantVal) →
-      m (List (List (ConstantVal × Nat)) × List (List (List Level)))
-  | [] => pure ([], [])
-  | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p rest
-    pure (ctorsA :: restC, sortss :: restS)
+    List MemberShape → m (List (List (List Level)))
+  | [] => pure []
+  | ms :: rest => do
+    let (_, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
+      p.resSort p.isProp p.large ms.cvT ms.ctors
+    let restS ← checkBlockCtorsF ops fe₀ fe p rest
+    pure (sortss :: restS)
 
 /-! ## Stage 2: the tail -/
 
 /-- `checkBlockIdxSorts` through the index. -/
 def checkBlockIdxSortsF (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape) :
-    List (MemberShape × ConstantVal) → m (List (List Level))
+    List MemberShape → m (List (List Level))
   | [] => pure []
-  | (ms, cvTa) :: rest => do
-    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) cvTa.type 0)
+  | ms :: rest => do
+    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
     let isorts ← checkStructFieldSortsIF ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) []
       ms.nIdx

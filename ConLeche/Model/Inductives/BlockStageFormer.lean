@@ -167,20 +167,21 @@ telescope, while `Idss c` for `c ≠ mm` is read off member `c`'s own
 type.  The producer is defeq soundness at the opened fvar frame
 (`paramFrames` at `nF = 0`, between two `nP`-binder openings). -/
 theorem blockParamsIff (mp : EnvModelM V env) {F : Nat}
-    {p : ConLeche.BlockParts} {isRec : Bool} {envI : Env} {cvTas : List ConstantVal}
+    {p : ConLeche.BlockParts} {isRec : Bool} {envI : Env}
     {p₁ : ConLeche.BlockShape}
     (h : ConLeche.checkBlockInds (ConLeche.fueledOps .verified F) env p isRec
-      = .ok (envI, cvTas, p₁))
+      = .ok (envI, p₁))
     {nPOf : Nat → Nat} {resSort : Level}
     {ppsOf : Nat → (Name → Nat) → List Term}
     (hle : ∀ j, p.nP ≤ nPOf j)
-    (hFD : ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+    (hFD : ∀ (j : Nat) (cvTa : ConstantVal), p.toBlockShape.formers[j]? = some cvTa →
       FormerData mp.base2 cvTa (nPOf j) resSort (ppsOf j)) :
-    ∀ m₁ m₂, m₁ < cvTas.length → m₂ < cvTas.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
+    ∀ m₁ m₂, m₁ < p.toBlockShape.formers.length → m₂ < p.toBlockShape.formers.length → ∀ (ψ : Name → Nat) (ρ : Nat → V),
       Sat V (((ppsOf m₁ ψ).take p.nP)).reverse ρ ↔
         Sat V (((ppsOf m₂ ψ).take p.nP)).reverse ρ := by
-  obtain ⟨ms0, rest, cvTa0, s0, cvs, -, rfl, -, -, htele0, hteles, hagree⟩ :=
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, -, -, htele0, hteles, hagree⟩ :=
     ConLeche.checkBlockInds_shape h
+  rw [← ConLeche.checkBlockInds_teles hm htele0 hteles] at hFD ⊢
   obtain ⟨cvT0, -, -, heq0, hccv0, -⟩ := ConLeche.checkBlockTele_shape htele0
   obtain ⟨hlencvs, hteleAt⟩ := ConLeche.checkBlockTeles_inv hteles
   -- every member's frame is member 0's

@@ -133,6 +133,13 @@ structure BlockShape where
   isProp : Bool
   deriving Repr, Inhabited
 
+/-- The members' formers, at the telescopes the check reads, in block order. -/
+def BlockShape.formers (p : BlockShape) : List ConstantVal := p.members.map (·.cvT)
+
+/-- The members' constructors, per member, as declared. -/
+def BlockShape.memberCtors (p : BlockShape) : List (List (ConstantVal × Nat)) :=
+  p.members.map (·.ctors)
+
 /-- The constructors of a list of members, counted (a recursion, not a
 `foldl`, so that ONE member's count is `n + 0` and reduces). -/
 def numCtorsOf : List MemberShape → Nat
