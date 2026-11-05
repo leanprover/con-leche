@@ -11,7 +11,7 @@ public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Cached.InstallPushes
 import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.BlockOverlay
-import ConLeche.Verify.Inductives.StoredRecsInv
+public import ConLeche.Verify.Inductives.StoredRecsInv
 public import ConLeche.Verify.Inductives.TargetAuxFire
 
 public section
@@ -1314,14 +1314,14 @@ theorem checkBlockTailS_run
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (henv₂ : EnvWF (consBlockCtors p.nP ctorsAs env₁))
     (hMs₀ : ∀ M ∈ Ms₀, ClassMajScoped p.nP M) (hpl : params.length = p.nP)
-    {s₀ : CState} (hs : CSOK .verified false env₁ s₀) {feOut : FEnv} {s' : CState}
+    {s₀ : CState} (hs : CSOK .verified false env₁ s₀) {u : Unit} {s' : CState}
     (h : checkBlockTailS .verified block
       ⟨mkFEnv env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
-      s₀ = .ok (feOut, s')) :
-    CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
+      s₀ = .ok (u, s')) :
+    CSOKF s' ∧
     ∃ F, (checkBlockTail (fueledOpsM .verified) block
       ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩).val F
-        = .ok feOut.env := by
+        = .ok () := by
   unfold checkBlockTailS at h
   dsimp only at h
   rw [checkBlockIdxSortsF_eqC] at h
@@ -1339,7 +1339,7 @@ theorem checkBlockTailS_run
   obtain ⟨hs₃, F₃, hF₃⟩ := genRecCheckS_run henv₂ hMs₀ hT
     (flushC_csok hsS.residue) hrec
   have henv₃ := genRecCheck_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1)
-  rw [pushAll_blockRecInfosTF_mkFEnv, structWalkersC_eq_plain] at h
+  rw [structWalkersC_eq_plain] at h
   -- the stored recursors' check, at the generated install (an overlay
   -- that answers as the pushed index)
   have hovl : (mkFEnv (consBlockCtors p.nP ctorsAs env₁)).ovl = [] := rfl
@@ -1381,11 +1381,10 @@ theorem checkBlockTailS_run
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
     rw [← storedRecsCheck_datF]; cases u4; exact hF₄
-  have henvS := storedRecs_recsWF henv₂ hF₃ hpl (fun M hM => (hMs₀ M hM).2.1) hF₄'
-  obtain ⟨hwfO, hfeO, -, hT₆⟩ := checkBlockTablesS_run _ _ _ henvS hs₄ h
+  obtain ⟨hs₅, hT₆⟩ := checkBlockTablesS_run _ _ _ h
   obtain ⟨G, hle₀, hle₃, hle₄⟩ : ∃ G, F₀ ≤ G ∧ F₃ ≤ G ∧ F₄ ≤ G :=
     ⟨max F₀ (max F₃ F₄), by omega, by omega, by omega⟩
-  refine ⟨hwfO, hfeO, G, ?_⟩
+  refine ⟨hs₅ ▸ hs₄, G, ?_⟩
   have g₄ : storedRecsCheck (fueledOps .verified G) .plain
       (mkFEnv (consBlockRecsT p.toBlockShape 0 out
         (consBlockCtors p.nP ctorsAs env₁))) p.recs out = .ok () := by
@@ -1612,8 +1611,10 @@ theorem checkBlockKS_run
     checkBlockPassS_run henv (fun m hm => (hAt m hm).declaredWF) (flushC_csok hs₁) hP
   simp only at hq₁ hs₂ henv₁ hT henv₂ hMs₀ hpl hF₂
   subst hq₁
-  obtain ⟨hwfO, hfeO, F₃, hF₃⟩ := checkBlockTailS_run henv₁ hT henv₂ hMs₀ hpl hs₂ h
-  refine ⟨hwfO, hfeO, max F₁ (max F₂ F₃), ?_⟩
+  obtain ⟨u₃, s₃, hTail, h⟩ := bindC_ok h
+  obtain ⟨hwfO, F₃, hF₃⟩ := checkBlockTailS_run henv₁ hT henv₂ hMs₀ hpl hs₂ hTail
+  obtain ⟨rfl, rfl⟩ := pureC_ok h
+  refine ⟨hwfO, by rw [pushDelta_mkFEnv, mkFEnv_env], max F₁ (max F₂ F₃), ?_⟩
   have g₁ : reduceMembers (fueledOps .verified (max F₁ (max F₂ F₃))) env p₀.nP p₀.members
       = .ok ms := by
     rw [← reduceMembers_datF]
@@ -1625,11 +1626,13 @@ theorem checkBlockKS_run
     exact FueledM.up (Nat.le_trans (Nat.le_max_left F₂ F₃) (Nat.le_max_right F₁ _)) hF₂
   have g₃ : checkBlockTail (fueledOps .verified (max F₁ (max F₂ F₃))) block
       ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, Ms₀, tbl⟩
-      = .ok feOut.env := by
+      = .ok () := by
     rw [← checkBlockTail_datF]
     exact FueledM.up (Nat.le_trans (Nat.le_max_right F₂ F₃) (Nat.le_max_right F₁ _)) hF₃
   unfold checkBlock
   simp only [ite_eq_left hnd, ite_eq_left hbool, Bind.bind, Except.bind, g₁, g₂, g₃]
+  rw [pushDelta_mkFEnv, mkFEnv_env]
+  rfl
 
 variable {pins : List NatOpPinSet}
 

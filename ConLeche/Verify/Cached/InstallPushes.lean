@@ -48,6 +48,10 @@ theorem Yields.pure {α : Type} {a : α} {P : α → Prop} (h : P a) :
   simp only [Pure.pure, StateT.pure, Except.pure] at hr
   cases hr; exact h
 
+/-- A fact that does not read the value holds of every value. -/
+theorem Yields.const {α : Type} {m : CheckCM α} {Q : Prop} (h : Q) : Yields m (fun _ => Q) :=
+  fun _ _ _ _ => h
+
 theorem Yields.ofThrow {α : Type} {e : CheckError} {P : α → Prop} :
     Yields (throw e : CheckCM α) P := by
   intro s a s' hr; cases hr
@@ -195,10 +199,10 @@ itself, at the checked constant and hint. -/
 theorem checkDefnValCI_shape (mode : CheckMode) (fe : FEnv) (cv : ConstantVal)
     (value : Expr) (hint : ReducibilityHint) :
     Yields (checkDefnValCI mode fe cv value hint)
-      (fun ci => ∃ v, ci = .defnInfo cv v hint) := by
+      (fun ci => ci = .defnInfo cv value hint) := by
   unfold checkDefnValCI
   yields
-  all_goals exact Yields.pure ⟨_, rfl⟩
+  all_goals exact Yields.pure rfl
 
 /-- The record an opaque's value check returns is the axiom at the
 checked constant. -/
@@ -702,10 +706,9 @@ theorem pushDelta_mkFEnv (L : List ConstantInfo) (Q : List ProjTable) (env : Env
     | nil => intro env; rfl
     | cons ci L ih =>
       intro env
-      show FEnv.pushAll L ((mkFEnv env).push ci) = _
-      rw [push_mkFEnv]
+      show FEnv.pushAll L (mkFEnv ⟨ci :: env.consts, env.tables⟩) = _
       refine (ih _).trans ?_
-      simp [FEnv.push]
+      simp
   have hQ : ∀ (Q : List ProjTable) (env : Env),
       FEnv.pushTables Q (mkFEnv env) = mkFEnv ⟨env.consts, Q.reverse ++ env.tables⟩ := by
     intro Q
@@ -763,8 +766,7 @@ theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
     ybind
     split
     · refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
-      obtain ⟨v, hv, rfl⟩ := hci
-      subst hv
+      subst hci
       yields
       all_goals exact Yields.pure rfl
     · exact Yields.ofThrow

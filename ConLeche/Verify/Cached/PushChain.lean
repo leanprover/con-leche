@@ -116,6 +116,22 @@ theorem PushChain.push {env : Env} {fe : FEnv} (h : PushChain env fe)
     rw [List.map_cons]
     exact List.nodup_cons.mpr ⟨hnot, hnd hnd₀⟩
 
+/-- What a push onto a canonical index does not find, the index does not, and it is not the name
+pushed. -/
+theorem find?_none_push {fe : FEnv} {ci : ConstantInfo} {n : Name} (hc : fe = mkFEnv fe.env)
+    (h : (fe.push ci).find? n = none) : ci.name ≠ n ∧ fe.find? n = none := by
+  have hp : fe.push ci = mkFEnv ⟨ci :: fe.env.consts, fe.env.tables⟩ := by
+    conv => lhs; rw [hc]
+    exact push_mkFEnv _ _
+  rw [hp, mkFEnv_find?, Env.find?_cons] at h
+  by_cases he : ci.name = n
+  · rw [ite_eq_left he] at h
+    exact nomatch h
+  · rw [ite_eq_right he] at h
+    refine ⟨he, ?_⟩
+    rw [hc, mkFEnv_find?]
+    exact h
+
 /-- A table install of a structure not in the chain's start. -/
 theorem PushChain.pushTable {env : Env} {fe : FEnv} (h : PushChain env fe)
     {t : ProjTable} (hfresh : env.find? t.structName = none) :
@@ -171,15 +187,6 @@ theorem consSumCtorsF_push (nP : Nat) :
     exact consSumCtorsF_push nP (ctorsA := cs) (h.push hfr)
       (FreshNames.step (c := .ctorInfo c.1 nP c.2) hf)
 
-theorem checkStructProjTableF_push {w : StructWalkers} {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (T C : Name) (hT : env.find? T = none) (lps : List Name)
-    (nP nF : Nat) (cvCa : ConstantVal) :
-    Yields (checkStructProjTableF (m := CheckCM) w T C lps nP nF cvCa fe)
-      (fun fe' => PushChain env fe') := by
-  unfold checkStructProjTableF
-  yields
-  all_goals exact Yields.pure (h.pushTable hT)
-
 /-! ## The block install at k members
 
 The k-ary install pushes the k formers, then every member's
@@ -204,6 +211,40 @@ theorem consBlockIndsF_push (p₁ : BlockShape) (isRec : Bool) {env : Env} :
       (h.push (ci := .indInfo cvTa (blockCapsAt p₁ i isRec)) hfr)
       (FreshNames.step (c := .indInfo cvTa (blockCapsAt p₁ i isRec)) hf)
 
+/-- What the formers' environment does not find, its start does not, and it is no former. -/
+theorem consBlockIndsF_find?_none (p₁ : BlockShape) (isRec : Bool) {n : Name} :
+    ∀ {cvs : List ConstantVal} {i : Nat} {fe : FEnv}, fe = mkFEnv fe.env →
+      (consBlockIndsF p₁ isRec cvs i fe).find? n = none →
+      n ∉ cvs.map (·.name) ∧ fe.find? n = none
+  | [], _, _, _, h => ⟨by simp, h⟩
+  | cv :: rest, i, fe, hc, h => by
+    have hc' : fe.push (.indInfo cv (blockCapsAt p₁ i isRec)) =
+        mkFEnv (fe.push (.indInfo cv (blockCapsAt p₁ i isRec))).env := by
+      conv => lhs; rw [hc]
+      exact push_mkFEnv _ _
+    obtain ⟨h₁, h₂⟩ := consBlockIndsF_find?_none p₁ isRec (cvs := rest) hc' h
+    obtain ⟨hne, hfe⟩ := find?_none_push hc h₂
+    refine ⟨?_, hfe⟩
+    simp only [List.map_cons, List.mem_cons, not_or]
+    exact ⟨fun e => hne e.symm, h₁⟩
+
+/-- What the constructors' environment does not find, its start does not, and it is no
+constructor. -/
+theorem consSumCtorsF_find?_none (nP : Nat) {n : Name} :
+    ∀ {cs : List (ConstantVal × Nat)} {fe : FEnv}, fe = mkFEnv fe.env →
+      (consSumCtorsF nP cs fe).find? n = none →
+      n ∉ cs.map (·.1.name) ∧ fe.find? n = none
+  | [], _, _, h => ⟨by simp, h⟩
+  | c :: cs, fe, hc, h => by
+    have hc' : fe.push (.ctorInfo c.1 nP c.2) = mkFEnv (fe.push (.ctorInfo c.1 nP c.2)).env := by
+      conv => lhs; rw [hc]
+      exact push_mkFEnv _ _
+    obtain ⟨h₁, h₂⟩ := consSumCtorsF_find?_none nP (cs := cs) hc' h
+    obtain ⟨hne, hfe⟩ := find?_none_push hc h₂
+    refine ⟨?_, hfe⟩
+    simp only [List.map_cons, List.mem_cons, not_or]
+    exact ⟨fun e => hne e.symm, h₁⟩
+
 /-- One pass at k members: the formers' conses keep the chain, and the
 constructors are the block's by name, fresh at the formers'
 environment. -/
@@ -212,10 +253,12 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (hdn : p₀.members.map (·.declared.name) = p₀.members.map (·.cvT.name))
     (hnd : (p₀.members.map (·.cvT.name)).Nodup) :
     Yields (checkBlockPassS mode fe p₀ isRec)
-      (fun r => PushChain env r.env₁ ∧ r.p.members = p₀.members ∧
+      (fun r => PushChain env r.env₁ ∧ r.p.members = p₀.members ∧ r.p.recs = p₀.recs ∧
+        r.p.nP = p₀.nP ∧
         (r.ctorsAs.flatten.map (·.1.name)) = p₀.allCtors.map (·.1.name) ∧
         (∀ c ∈ r.ctorsAs.flatten, r.env₁.find? c.1.name = none) ∧
-        ∀ ms ∈ p₀.members, env.find? ms.cvT.name = none) := by
+        (∀ ms ∈ p₀.members, fe.find? ms.cvT.name = none) ∧
+        ∀ n, r.env₁.find? n = none → n ∉ p₀.members.map (·.cvT.name) ∧ fe.find? n = none) := by
   unfold checkBlockPassS
   refine Yields.bind' (checkBlockIndsF_fresh _ fe p₀ isRec) fun r₁ h₁ => ?_
   obtain ⟨fe₁, cvTas, p₁⟩ := r₁
@@ -246,7 +289,7 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun kinds => ?_
   refine Yields.bind fun _ => ?_
-  refine Yields.pure ⟨h₁, rfl, ?_, ?_, fun ms hms => h.find?_none (hfr ms hms)⟩
+  refine Yields.pure ⟨h₁, rfl, rfl, rfl, ?_, ?_, hfr, fun n hn => ?_⟩
   · simp only [BlockParts.complete_members, BlockShape.withSort_members] at hns
     have := congrArg (fun l => (l.map (List.map Prod.fst)).flatten) hns
     simp only [List.map_map, Function.comp_def] at this
@@ -257,6 +300,14 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   · intro c hc
     obtain ⟨cs, hcs, hc⟩ := List.mem_flatten.mp hc
     exact hfrs cs hcs c hc
+  · have hn' : (consBlockIndsF (p₀.toBlockShape.withSort s) isRec (p₀.members.map (·.declared)) 0
+        fe).find? n = none := by rw [← hfe₁]; exact hn
+    obtain ⟨hm₁, hm₂⟩ := consBlockIndsF_find?_none _ isRec h.canon hn'
+    refine ⟨?_, hm₂⟩
+    rw [List.map_map] at hm₁
+    show n ∉ p₀.members.map (·.cvT.name)
+    rw [← hdn]
+    exact hm₁
 
 /-- **The pigeonhole**: a list as long as a `Nodup` list it covers is
 itself `Nodup`. -/
@@ -312,120 +363,96 @@ theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true
   intro x hx
   exact List.elem_iff.mp (List.all_eq_true.mp hwant x hx)
 
-/-- The recursor stage stores fresh, distinct names: the generated stage
-stores one recursor per record, under the record's name, fresh at the
-constructors' index (the generated constant's lookup) and pairwise
-distinct (the record pins). -/
-theorem genRecCheckS_fresh (mode : CheckMode) (fe : FEnv)
+/-- The generated stage's run says the records' names are distinct and fresh at the constructors'
+index (the generated constant's lookup and the record pins). -/
+theorem genRecCheck_recFresh (mode : CheckMode) (fe : FEnv)
     (p : BlockParts) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) (cvTas : List ConstantVal) :
     Yields (genRecCheck (shadowOpsC mode) fe p.toBlockShape nested params tbl rd Ms₀ cvTas block)
-      (fun out => (out.map (·.1.name)).Nodup ∧ ∀ o ∈ out, fe.find? o.1.name = none) := by
+      (fun _ => (p.recs.map (·.cvR.name)).Nodup ∧ ∀ rc ∈ p.recs, fe.find? rc.cvR.name = none) := by
   refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
     p.toBlockShape nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
-  obtain ⟨hnd, hlen, hall⟩ := hout
-  have hnames : out.map (·.1.name) = p.recs.map (·.cvR.name) := by
-    apply List.ext_getElem?
-    intro j
-    simp only [List.getElem?_map]
-    cases hj : p.recs[j]? with
-    | none =>
-      have : out[j]? = none := by
-        rw [List.getElem?_eq_none_iff] at hj ⊢
-        have : p.toBlockShape.recs.length = p.recs.length := rfl
-        omega
-      simp [this]
-    | some rc =>
-      obtain ⟨o, hoj, hname, -⟩ := hall j rc hj
-      simp [hoj, hname]
-  refine ⟨by rw [hnames]; exact hnd, ?_⟩
-  intro o ho
-  obtain ⟨j, hoj⟩ := List.getElem?_of_mem ho
-  have hjl : j < p.recs.length := by
-    have := (List.getElem?_eq_some_iff.mp hoj).1
-    have h2 : p.toBlockShape.recs.length = p.recs.length := rfl
-    omega
-  obtain ⟨o', hoj', hname, hfr⟩ := hall j p.recs[j] (List.getElem?_eq_getElem hjl)
-  rw [hoj] at hoj'
-  obtain rfl := Option.some.inj hoj'
-  rw [hname]; exact hfr
+  obtain ⟨hnd, -, hall⟩ := hout
+  refine ⟨hnd, fun rc hrc => ?_⟩
+  obtain ⟨j, hj⟩ := List.getElem?_of_mem hrc
+  obtain ⟨-, -, -, hfr⟩ := hall j rc hj
+  exact hfr
 
-/-- The recursors' pushes at their majors: a fresh chain. -/
-theorem pushAll_blockRecInfosTF_push (q : BlockShape) {env : Env} :
-    ∀ {out : List (ConstantVal × TargetMajor × List Expr)} {m : Nat}
-      {fe : FEnv}, PushChain env fe → FreshNames fe.env (out.map (·.1.name)) →
-      PushChain env (FEnv.pushAll (blockRecInfosTF q m out) fe)
-  | [], _, _, h, _ => h
-  | (cv, M, rhss) :: rest, m, fe, h, hf => by
-    have hfr : fe.find? cv.name = none := by
+/-- Pushes of fresh, distinct names: a fresh chain. -/
+theorem PushChain.pushAll {env : Env} :
+    ∀ {L : List ConstantInfo} {fe : FEnv}, PushChain env fe → FreshNames fe.env (L.map (·.name)) →
+      PushChain env (FEnv.pushAll L fe)
+  | [], _, h, _ => h
+  | c :: L, fe, h, hf => by
+    have hfr : fe.find? c.name = none := by
       rw [h.find?]; exact hf.2 _ (by simp)
-    let ci : ConstantInfo := .recInfo cv (q.majorIdxAt m) (q.rulePrefixAt m)
-      (recKExpected q M) (tgtStoredRules (q.rulePrefixAt m) M rhss)
-    exact pushAll_blockRecInfosTF_push q (out := rest) (m := m + 1)
-      (h.push (ci := ci) hfr) (FreshNames.step (c := ci) hf)
+    exact PushChain.pushAll (L := L) (h.push hfr) (FreshNames.step (c := c) hf)
 
-/-- The projection tables: every install is of a member, a structure the
-block's own step pushed. -/
-theorem checkBlockTablesF_push {w : StructWalkers} (p : BlockShape) {env : Env} :
-    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) {fe : FEnv},
-      PushChain env fe → (∀ x ∈ l, env.find? x.1.cvT.name = none) →
-      Yields (checkBlockTablesF (m := CheckCM) w p l fe) (fun fe' => PushChain env fe')
-  | [], _, h, _ => Yields.pure h
-  | (ms, ctorsA, sortss) :: rest, fe, h, hl => by
-    unfold checkBlockTablesF
-    have key : Yields
-        (match ctorsA, sortss with
-         | [cA], [_] =>
-           if ms.nIdx == 0 then
-             checkStructProjTableF (m := CheckCM) w ms.cvT.name cA.1.name p.lps p.nP cA.2
-               cA.1 fe
-           else pure fe
-         | _, _ => pure fe) (fun fe' => PushChain env fe') := by
-      split
-      · split
-        · exact checkStructProjTableF_push h _ _ (hl _ List.mem_cons_self) _ _ _ _
-        · exact Yields.pure h
-      · exact Yields.pure h
-    exact Yields.bind' key fun fe' h' =>
-      checkBlockTablesF_push p rest h' fun x hx => hl x (List.mem_cons_of_mem _ hx)
+/-- Table installs of structures not in the chain's start: a fresh chain. -/
+theorem PushChain.pushTables {env : Env} :
+    ∀ {Q : List ProjTable} {fe : FEnv}, PushChain env fe →
+      (∀ t ∈ Q, env.find? t.structName = none) → PushChain env (FEnv.pushTables Q fe)
+  | [], _, h, _ => h
+  | t :: Q, fe, h, hQ =>
+    PushChain.pushTables (Q := Q) (h.pushTable (hQ t List.mem_cons_self))
+      fun t' ht' => hQ t' (List.mem_cons_of_mem _ ht')
 
-/-- The install after the pass keeps the chain. -/
-theorem checkBlockTailS_push (mode : CheckMode) {env : Env}
-    {block : List ConstantInfo} {q : BlockPass FEnv} (h₁ : PushChain env q.env₁)
-    (hndC : (q.ctorsAs.flatten.map (·.1.name)).Nodup)
-    (hfrs : ∀ c ∈ q.ctorsAs.flatten, q.env₁.find? c.1.name = none)
-    (hmem : ∀ ms ∈ q.p.members, env.find? ms.cvT.name = none) :
-    Yields (checkBlockTailS mode block q) (fun fe' => PushChain env fe') := by
+/-- The names of a block's constants. -/
+theorem blockConstants_names (p : BlockParts) :
+    (blockConstants p).map (·.name) =
+      p.members.map (·.declared.name) ++ p.allCtors.map (·.1.name) ++ p.recs.map (·.cvR.name) := by
+  have hF : ∀ (l : List ConstantVal) (i : Nat) (caps : Nat → IndCaps),
+      (l.zipIdx i |>.map fun (x : ConstantVal × Nat) =>
+        ConstantInfo.indInfo x.1 (caps x.2)).map (·.name) = l.map (·.name) := by
+    intro l
+    induction l with
+    | nil => intros; rfl
+    | cons a l ih =>
+      intro i caps
+      simp only [List.zipIdx_cons, List.map_cons]
+      exact congrArg (a.name :: ·) (ih (i + 1) caps)
+  have hR : ∀ l : List RecShape, (blockRecs p.toBlockShape l).map (·.name) = l.map (·.cvR.name) := by
+    intro l
+    induction l with
+    | nil => rfl
+    | cons a l ih => exact congrArg (a.cvR.name :: ·) ih
+  unfold blockConstants blockFormers blockCtors
+  simp only [List.map_append]
+  rw [hF _ 0 (fun i => blockCapsAt p.toBlockShape i (blockRawRec p)), hR]
+  simp [List.map_map, Function.comp_def, BlockShape.allCtors]
+  rfl
+
+/-- Every table of a block is at a member's declared name. -/
+theorem blockTables_names (p : BlockShape) :
+    ∀ (l : List MemberShape), ∀ t ∈ blockTables p l, ∃ ms ∈ l, t.structName = ms.declared.name
+  | [], _, h => nomatch h
+  | ms :: rest, t, h => by
+    have hrest : t ∈ blockTables p rest → ∃ m ∈ ms :: rest, t.structName = m.declared.name := fun hr => by
+      obtain ⟨m, hm, hn⟩ := blockTables_names p rest t hr
+      exact ⟨m, List.mem_cons_of_mem _ hm, hn⟩
+    simp only [blockTables] at h
+    split at h
+    · split at h
+      · rcases List.mem_cons.mp h with rfl | hr
+        · exact ⟨ms, List.mem_cons_self, rfl⟩
+        · exact hrest hr
+      · exact hrest h
+    · exact hrest h
+
+/-- The checks after the pass: the recursors' names are distinct and fresh at the constructors'
+index. -/
+theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q : BlockPass FEnv} :
+    Yields (checkBlockTailS mode block q) (fun _ =>
+      (q.p.recs.map (·.cvR.name)).Nodup ∧
+      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? rc.cvR.name = none) := by
   obtain ⟨env₁, cvTas, p, ctorsAs, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
-  dsimp only at h₁ hndC hfrs ⊢
   unfold checkBlockTailS
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
-  have h₂ : PushChain env (consBlockCtorsF p.nP ctorsAs env₁) := by
-    rw [consBlockCtorsF_flatten]
-    refine consSumCtorsF_push p.nP h₁ ⟨hndC, ?_⟩
-    intro n hn
-    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hn
-    rw [← h₁.find?]
-    exact hfrs c hc
-  refine Yields.bind' (Yields.and (genRecCheckS_fresh mode _ p _ _ _ _ _ block cvTas)
-      (genRecCheck_names (shadowOpsC mode) _ p.toBlockShape _ _ _ _ _ cvTas block))
-    fun out hrs => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  refine Yields.bind fun _ => ?_
-  have hnm := storedOut_map_name (recs := p.recs) hrs.2.2.1
-  refine checkBlockTablesF_push _ _ (pushAll_blockRecInfosTF_push _ h₂ ⟨?_, ?_⟩)
-    (fun x hx => hmem x.1 (List.of_mem_zip hx).1)
-  · rw [hnm]; exact hrs.1.1
-  intro n hn
-  rw [hnm] at hn
-  obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hn
-  rw [← h₂.find?]
-  exact hrs.1.2 r hr
+  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block cvTas) fun _ hrs =>
+    Yields.const hrs
 
 /-- A block's install keeps the chain, its members' declared names standing where the
 recogniser read them. -/
@@ -449,10 +476,74 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     rw [e₃]
   refine Yields.bind' (checkBlockPassS_push mode h { p with members := ms } (blockRawRec p) e₂
     (by show (ms.map _).Nodup; rw [e₁]; exact hndM)) fun q hr => ?_
-  obtain ⟨h₁, hm, hns, hfrs, hmem⟩ := hr
-  try simp only [] at h₁ hm hns hfrs hmem
+  obtain ⟨h₁, hm, hrec, hnp, hns, hfrs, hfrMs, hmem⟩ := hr
+  try simp only [] at h₁ hm hrec hnp hns hfrs hfrMs hmem
   try simp only []
-  exact checkBlockTailS_push mode h₁ (by rw [hns, hCt]; exact hndC) hfrs (hm ▸ hmem)
+  refine Yields.bind' (checkBlockTailS_fresh mode) fun _ hrs => Yields.pure ?_
+  have hrecs : q.p.recs = p.recs := hrec
+  have hnP : q.p.nP = p.nP := hnp
+  rw [hrecs] at hrs
+  obtain ⟨hndR, hfrR⟩ := hrs
+  have hCan₁ : q.env₁ = mkFEnv q.env₁.env := h₁.canon
+  -- what the constructors' index does not find
+  have hC : ∀ n, (consBlockCtorsF q.p.nP q.ctorsAs q.env₁).find? n = none →
+      n ∉ p.allCtors.map (·.1.name) ∧ n ∉ p.members.map (·.cvT.name) ∧ fe.find? n = none := by
+    intro n hn
+    rw [consBlockCtorsF_flatten] at hn
+    obtain ⟨h₃, h₄⟩ := consSumCtorsF_find?_none q.p.nP hCan₁ hn
+    obtain ⟨h₅, h₆⟩ := hmem n h₄
+    refine ⟨by rw [← hCt, ← hns]; exact h₃, ?_, h₆⟩
+    show n ∉ p.members.map _
+    rw [← e₁]
+    exact h₅
+  have hdnP : p.members.map (·.declared.name) = p.members.map (·.cvT.name) := by
+    refine List.map_congr_left fun m hm => ?_
+    rw [hd m hm]
+  unfold FEnv.pushDelta
+  refine PushChain.pushTables (PushChain.pushAll h ⟨?_, ?_⟩) fun t ht => ?_
+  · rw [blockConstants_names, hdnP, List.nodup_append, List.nodup_append]
+    refine ⟨⟨hndM, hndC, fun a ha b hb => ?_⟩, hndR, fun a ha b hb => ?_⟩
+    · rintro rfl
+      obtain ⟨c, hc, hca⟩ := List.mem_map.mp hb
+      have hc' : a ∈ q.ctorsAs.flatten.map (·.1.name) := by rw [hns, hCt]; exact hb
+      obtain ⟨c', hc'm, hc'e⟩ := List.mem_map.mp hc'
+      have := hfrs c' hc'm
+      rw [hc'e] at this
+      refine (hmem a this).1 ?_
+      show a ∈ ms.map _
+      rw [e₁]
+      exact ha
+    · rintro rfl
+      obtain ⟨rc, hrc, hn⟩ := List.mem_map.mp hb
+      have hf := hfrR rc hrc
+      rw [hn] at hf
+      obtain ⟨h₃, h₄, -⟩ := hC _ hf
+      rcases List.mem_append.mp ha with hm | hm
+      · exact h₄ hm
+      · exact h₃ hm
+  · intro n hn
+    have hfe : fe.find? n = none := by
+      rw [blockConstants_names, hdnP] at hn
+      rcases List.mem_append.mp hn with hn | hn
+      · rcases List.mem_append.mp hn with hn | hn
+        · obtain ⟨m, hm, rfl⟩ := List.mem_map.mp hn
+          have hm' : m.cvT.name ∈ ms.map (·.cvT.name) := by rw [e₁]; exact List.mem_map_of_mem hm
+          obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'
+          rw [← he]
+          exact hfrMs m' hm'm
+        · have hc' : n ∈ q.ctorsAs.flatten.map (·.1.name) := by rw [hns, hCt]; exact hn
+          obtain ⟨c', hc'm, rfl⟩ := List.mem_map.mp hc'
+          exact (hmem _ (hfrs c' hc'm)).2
+      · obtain ⟨rc, hrc, rfl⟩ := List.mem_map.mp hn
+        exact (hC _ (hfrR rc hrc)).2.2
+    rw [← h.find?]
+    exact hfe
+  · obtain ⟨m, hm, hn⟩ := blockTables_names _ _ t ht
+    rw [hn, hd m hm]
+    have hm' : m.cvT.name ∈ ms.map (·.cvT.name) := by rw [e₁]; exact List.mem_map_of_mem hm
+    obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'
+    rw [← he]
+    exact h.find?_none (hfrMs m' hm'm)
 
 /-! ## The declaration clause and the two drivers' steps -/
 
@@ -499,7 +590,7 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     split
     · -- the pinned arm: certified against the overlay, pushed last
       refine Yields.bind' (checkDefnValCI_shape mode fe cv value hint) fun ci hci => ?_
-      obtain ⟨v, rfl⟩ := hci
+      subst hci
       yields
       all_goals (apply Yields.pure; exact h.push hfr)
     · exact Yields.ofThrow
