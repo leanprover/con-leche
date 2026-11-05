@@ -108967,7 +108967,7 @@ read looks only at what it needs, so it may succeed on a file whose full parse f
 the reader, those, `Verify.Frontend.ModelIO`.  `tests/trust-surface.sh`'s IO fence
 covers `Files`, `Closure`, `Records`, with `parShare` and `parMapIO` cut out.
 
-**Tests.**  `tests/olean.sh`: 101 cases, the merged and parts cases of cfsg's gate,
+**Tests.**  `tests/olean.sh`: 109 cases, the merged and parts cases of cfsg's gate,
 79 fixture sources (1.4 MB of oleans), upstream Lake and Comparator projects kept;
 `NpAx` is exit 2 here (master declines every other axiom; cfsg's reject is its
 #397, which is not on master).  `tests/ConLecheTests/OleanTests.lean` evaluates
@@ -108976,10 +108976,10 @@ after the self-check, whose exporter it uses.
 
 **Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
 differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
-run, on the final tree, the private view): accepted 712 205 declarations, peak RSS 5.99
-GiB, 7 570 G instructions:u, against 7 772 G and 6.11 GiB when every module's three parts
-were parsed and compared (one run each, instructions the stable measure; wall time on this
-machine varied too much to compare).  A slice
+run, on the final tree, the private view, every constant): accepted 775 321 declarations,
+peak RSS 6.27 GiB, 7 668 G instructions:u.  The private view alone took it from 7 772 G to
+7 570 G; the 63 116 records the name filter left out cost 98 G more (+1.3 %), none of them
+rejected or declined.  One run each; wall time on this machine varied too much to compare.  A slice
 of CFSG's rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`, 113 593 declarations) read and was
 accepted before the interface rewrite; that checkout is gone.
 
