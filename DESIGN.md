@@ -109061,24 +109061,32 @@ Largest module 14.6 MB, so a worker keeping one module's bytes costs nothing.
 | the frontier and a dense memo per worker | 4.37 GiB | 8 448 G | 4 553 G | 152 s |
 
 The maintainer's second tier is what removes the slowdown: objects shared with the environment
-are persistent, pay no reference counting, and pointer equality still fires.  The surprise was that
-the check's worker time then falls below today's.  **The frontier** makes it cheap: a value enters
+are persistent, pay no reference counting, and pointer equality still fires.  (The spike's single runs
+suggested a check faster than today's; the alternating runs below do not: it is flat.)  **The frontier**
+makes it cheap: a value enters
 what the load read only at the objects a value-only object points to (6.0 M of 48.2 M), and everything
 below stays reachable through those, so nothing else of the memo is ever asked for.  Sorted arrays
 (keys and values per kind) rather than hash maps, and a table per module.  The dense memo is rejected on
 the numbers.
 
-**The shipped path** (the real binary, on the final tree, one run):
+**The shipped path** (the real binary against master 7cb7a45cd; `--verified --jobs=8`, 5 runs
+each, alternating, load average 7-30, median and min-max):
 
-| Mathlib, `--verified --jobs=8` | peak RSS | instr:u | cycles:u | wall | parse / install / check |
-|---|---|---|---|---|---|
-| master 7cb7a45cd | 6.26 GiB | 7 658 G | 3 898 G | 131 s | 16.1 / 8.0 / 107.1 s |
-| this branch | 3.99 GiB | 8 092 G | 3 759 G | 117 s | 9.7 / 7.0 / 99.8 s |
-| again, the battery running beside it | 4.00 GiB | 8 083 G | 3 863 G | 123 s | 10.0 / 6.8 / 105.6 s |
+| Mathlib | master | this branch | |
+|---|---|---|---|
+| peak RSS | 6.20 GiB (6.18-6.24) | 3.94 GiB (3.93-3.99) | -36 % |
+| instructions:u | 7 656 G (7 652-7 664) | 8 093 G (8 085-8 100) | +5.7 % |
+| cycles:u | 3 862 G (3 755-3 977) | 3 830 G (3 799-3 874) | flat |
+| user | 879 s (855-934) | 878 s (870-889) | flat |
+| wall | 131.4 s (123.5-142.0) | 123.6 s (121.3-125.9) | -6 %, the ranges overlap |
+| parse | 16.7 s (15.4-26.1) | 10.3 s (9.9-11.7) | -38 % |
+| install | 8.6 s (7.9-9.4) | 7.6 s (6.8-7.8) | -12 % |
+| check | 102.7 s (99.0-106.9) | 104.2 s (102.9-108.5) | flat |
 
-So −36 % RSS, +5.6 % instructions, cycles −1 to −4 %.  Instructions go up (the walk at the load, and
-the decoding of what a value reaches beyond the frontier) while cycles go down.  The stream path, on
-the pool it now shares (`mathlib-full.ndjson`, `--jobs=8`): 6 913.7 G and 6 914.2 G, 4.70 GiB both.
+So less memory at no real cost, and the wall gain is the parse's.  Instructions go up (the walk at the
+load, and the decoding of what a value reaches beyond the frontier) with cycles flat.  The stream path, on
+the pool it now shares (`mathlib-full.ndjson`, `--jobs=8`, one run each): 6 913.7 G and 6 914.2 G, 4.70
+GiB both.
 
 **The shape.**  `ConLeche/Frontend/Olean/Lazy.lean`: `loadAt`, a value being `valueRef i g` in the
 records, an expression, so that the merge, the emission, the preparation and the install need no change
