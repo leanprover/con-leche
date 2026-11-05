@@ -785,7 +785,7 @@ structure Swapped (env env₃ env₂ : Env) (n : Name) (cvR cvS : ConstantVal) (
 
 /-- The two readings of a swapped former, at the input's carrier. -/
 theorem Swapped_read {env : Env} {mp : EnvModelM V env} (hS : ShownFacts mp) (hcov : LfpCover mp [])
-    {vs : List ConstantInfo} {F nP : Nat} {m₀ m : MemberShape}
+    {F nP : Nat} {m₀ m : MemberShape}
     (cases_ : (MemberReduct F env nP m₀ m ∧ ConLeche.formerDefHeaded m₀.cvT = true) ∨
       ∃ caps, ViewFacts env m₀.cvT m.cvT caps) (ψ : Name → Nat) :
     ∃ Ts Tr : Term, denote mp.base2.acval env ψ 0 m₀.cvT.type = some Ts ∧
@@ -798,5 +798,220 @@ theorem Swapped_read {env : Env} {mp : EnvModelM V env} (hS : ShownFacts mp) (hc
       exact ⟨Ts, Tr, h₃, h₄, heq⟩
   · obtain ⟨Tr, Ts, h₁, h₂, h₃⟩ := view_read hS hcov hF ψ
     exact ⟨Ts, Tr, h₂, h₁, fun ρ => (h₃ ρ).1⟩
+
+omit [SetTheory V] in
+/-- What `blockViews` returns are views. -/
+theorem blockViews_views {F : Nat} {env : Env} :
+    ∀ {cs : List Name} {vs : List ConstantInfo},
+      blockViews (m := CheckM) (fueledOps .verified F) env cs = .ok vs → ∀ c ∈ vs, ViewOf env c
+  | [], vs, h, c, hc => by
+    simp only [blockViews, pure, Except.pure, Except.ok.injEq] at h
+    subst h; exact nomatch hc
+  | n :: cs, vs, h, c, hc => by
+    unfold blockViews at h
+    obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
+    have ih := blockViews_views hrest
+    split at h
+    · next cv caps hf =>
+      by_cases hd : ConLeche.formerDefHeaded cv = true
+      · rw [if_pos hd] at h
+        by_cases hg : ConLeche.litGuardFamilies.contains n = true
+        · rw [if_pos hg] at h
+          exact nomatch h
+        rw [if_neg hg] at h
+        obtain ⟨cvR, hR, h⟩ := exceptBind_ok h
+        by_cases hsc : ConLeche.viewScoped (·.constsResolve env) cvR = true
+        · simp only [hsc, Bool.not_true, Bool.false_eq_true, ↓reduceIte, pure, Except.pure,
+            Bind.bind, Except.bind, Except.ok.injEq] at h
+          subst h
+          rcases List.mem_cons.mp hc with rfl | hc'
+          · have hnm : cv.name = n := ConLeche.Env.find?_name hf
+            have hrf : cvR = { cv with type := cvR.type } := by
+              simp only [reducedFormer, Bind.bind, Except.bind] at hR
+              split at hR
+              · exact nomatch hR
+              · cases hR; rfl
+            refine ⟨cv, cvR, caps, rfl, ⟨by rw [hnm]; exact hf, by rw [hrf], by rw [hrf], hd,
+              by rw [hnm]; simpa using hg, hsc, F, hR⟩⟩
+          · exact ih c hc'
+        · simp [hsc, Bind.bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at h
+      · rw [if_neg hd] at h
+        simp only [pure, Except.pure, Except.ok.injEq] at h
+        subst h
+        exact ih c hc
+    · simp only [pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact ih c hc
+
+/-- A clause does not read which formers its block showed. -/
+theorem LfpClause.withShown {acval : Name → (Name → Nat) → Term} {D : LfpDatum V}
+    (h : LfpClause (V := V) acval D) (s : Nat → Option ConstantVal) :
+    LfpClause (V := V) acval { D with shown := s } where
+  kN := h.kN
+  idxOk := h.idxOk
+  maps := h.maps
+  fitAcc := h.fitAcc
+  fibre := h.fibre
+  leaf := h.leaf
+  mkZero := h.mkZero
+  mkInj := h.mkInj
+  ctor := h.ctor
+  parsLen := h.parsLen
+  parsSat := h.parsSat
+  parsSatInv := h.parsSatInv
+  resIdxFit := h.resIdxFit
+  injNePt := h.injNePt
+  injFrame := h.injFrame
+  fieldsOk := h.fieldsOk
+
+/-! ### Across the swap back -/
+
+section Back
+
+variable {env env₃ env₂ : Env}
+
+open Classical in
+/-- A block's record at the stored environment: where the stored former differs from the one the
+job read, the record shows that one. -/
+noncomputable def reshow (mp : EnvModelM V env) (env₃ env₂ : Env) (D : LfpDatum V) : LfpDatum V :=
+  if D ∈ mp.lfpBlocks then D else
+    { D with shown := fun mm =>
+        match env₃.find? (D.member mm), env₂.find? (D.member mm) with
+        | some (.indInfo c₃ _), some (.indInfo c₂ _) => if c₃ = c₂ then none else some c₃
+        | _, _ => none }
+
+omit [SetTheory V] in
+/-- **The job's environment against the stored one.** -/
+theorem formerSwap_of_swapped
+    (hc : ∀ n, env₂.find? n = env₃.find? n ∨
+      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps)
+    (hmem : ∀ c ∈ env₂.consts, (∀ cv caps, c ≠ .indInfo cv caps) → c ∈ env₃.consts)
+    (htab : env₂.tables = env₃.tables) : FormerSwap env₃ env₂ where
+  find := fun n => (hc n).imp id fun ⟨cvR, cvS, caps, h⟩ =>
+    ⟨cvR, cvS, caps, h.find₃, h.find₂, h.nameS.trans h.nameR.symm, h.lps.symm, h.guard⟩
+  mem := hmem
+  tables := htab
+
+/-- **The recursors' law back**: a stored former that does not show its telescope passes no
+rescue, and its value is the reduct's. -/
+theorem recRules_back {m₃ : EnvModel V env₃} {m₂ : EnvModel V env₂} (hac : m₂.acval = m₃.acval)
+    (h : FormerSwap env₃ env₂)
+    (hc : ∀ n, env₂.find? n = env₃.find? n ∨
+      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps)
+    (hrd : ∀ n cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps → ∀ ψ, ∃ Ts Tr : Term,
+      denote m₃.acval env₃ ψ 0 cvS.type = some Ts ∧ denote m₃.acval env₃ ψ 0 cvR.type = some Tr ∧
+      ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr)
+    (hR : ∀ φ, RecRules m₃ φ) (φ : Name → Nat) : RecRules m₂ φ := by
+  intro n cv mI rP isK rules hf rl hrl
+  have hl := hR φ n cv mI rP isK rules
+    ((h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mp hf) rl hrl
+  refine RecRuleLaw.formerSwap h hac (fun φ' cvj us hz => ?_) hl
+  refine FamNZ.formerSwap h m₃.acval_params ?_ ?_ hz
+  · intro T cv₃ cv₂ caps φ'' us' h₃ h₂ hne hnv
+    exfalso
+    rcases hc T with he | ⟨cvR, cvS, caps', hS⟩
+    · rw [he, h₃] at h₂
+      exact hne (by simpa using h₂.symm)
+    · rw [hS.find₂] at h₂
+      obtain ⟨rfl, -⟩ : cvS = cv₂ ∧ caps' = caps := by simpa using h₂
+      have hfalse := ConLeche.Model.holds_false_of_isNever hnv φ''
+      have hnone : ConLeche.formerResSort cvS.type = none := by
+        have := hS.headed
+        simpa [ConLeche.formerDefHeaded] using this
+      simp [ConLeche.formerZ, hnone, ConLeche.PropWhen.holds] at hfalse
+  · intro T cv₃ cv₂ caps ψ ta _ h₃ h₂ hta ρ
+    rcases hc T with he | ⟨cvR, cvS, caps', hS⟩
+    · rw [he, h₃] at h₂
+      obtain rfl : cv₃ = cv₂ := by simpa using h₂
+      exact ⟨ta, hta, rfl⟩
+    · rw [hS.find₂] at h₂
+      rw [hS.find₃] at h₃
+      obtain ⟨rfl, -⟩ : cvS = cv₂ ∧ caps' = caps := by simpa using h₂
+      obtain ⟨rfl, -⟩ : cvR = cv₃ ∧ caps' = caps := by simpa using h₃
+      obtain ⟨Ts, Tr, h₁', h₂', heq⟩ := hrd T cvR cvS caps' hS ψ
+      rw [hta] at h₂'
+      obtain rfl := Option.some.inj h₂'
+      exact ⟨Ts, h₁', (heq ρ).symm⟩
+
+/-- **The projections' law back.** -/
+theorem towerOk_back {m₃ : EnvModel V env₃} {m₂ : EnvModel V env₂} (hac : m₂.acval = m₃.acval)
+    (h : FormerSwap env₃ env₂)
+    (hc : ∀ n, env₂.find? n = env₃.find? n ∨
+      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps)
+    (hrd : ∀ n cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps → ∀ ψ, ∃ Ts Tr : Term,
+      denote m₃.acval env₃ ψ 0 cvS.type = some Ts ∧ denote m₃.acval env₃ ψ 0 cvR.type = some Tr ∧
+      ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr)
+    (hT : ∀ φ, TowerOk m₃ φ) (φ : Name → Nat) : TowerOk m₂ φ := by
+  have hde : ∀ (ψ : Name → Nat) (d : Nat) (e : Expr),
+      denote m₃.acval env₃ ψ d e = denote m₃.acval env₂ ψ d e :=
+    fun ψ d e => denote_formerSwap h ψ d e
+  intro T i entry hf
+  have hf₀ : env₃.findProj? T i = some entry := by rw [h.projEq]; exact hf
+  refine TowerEntryLaw.formerSwap h hac (fun us cvC Ta hus hTa hgd => .inl ?_) (hT φ T i entry hf₀)
+  rcases hgd with ⟨cvT, caps, s, hT', hs, hz⟩ | hr | ⟨cvT, caps, u, hT', ht, hu⟩
+  · rcases hc entry.structName with he | ⟨cvR, cvS, caps', hS⟩
+    · exact .inl ⟨cvT, caps, s, by rw [← he]; exact hT', hs, hz⟩
+    · rw [hS.find₂] at hT'
+      obtain ⟨rfl, -⟩ : cvS = cvT ∧ caps' = caps := by simpa using hT'
+      have := hS.headed
+      simp [ConLeche.formerDefHeaded, hs] at this
+  · refine .inr (.inl fun ds b hrd' hl' => hr ds b ?_ hl')
+    rw [hac, ← hde]; exact hrd'
+  · obtain ⟨cv₃, hf₃, hlp⟩ := h.find_ind_back hT'
+    refine .inr (.inr ⟨cv₃, caps, u, hf₃, fun ta hta ρ => ?_, hu.imp id fun hr ds b hrd' hl' =>
+      hr ds b (by rw [hac, ← hde]; exact hrd') hl'⟩)
+    rw [denote_instLevels m₃.acval_params φ] at hta
+    rcases hc entry.structName with he | ⟨cvR, cvS, caps', hS⟩
+    · rw [he, hf₃] at hT'
+      obtain rfl : cv₃ = cvT := by simpa using hT'
+      refine ht ta ?_ ρ
+      rw [hac, ← hde, denote_instLevels m₃.acval_params φ]
+      exact hta
+    · rw [hS.find₂] at hT'
+      rw [hS.find₃] at hf₃
+      obtain ⟨rfl, -⟩ : cvS = cvT ∧ caps' = caps := by simpa using hT'
+      obtain ⟨rfl, -⟩ : cvR = cv₃ ∧ caps' = caps := by simpa using hf₃
+      obtain ⟨Ts, Tr, h₁, h₂, heq⟩ := hrd _ _ _ _ hS (Level.substFn φ cvR.levelParams us)
+      rw [hta] at h₂
+      obtain rfl := Option.some.inj h₂
+      rw [← heq ρ]
+      refine ht Ts ?_ ρ
+      rw [hac, ← hde, denote_instLevels m₃.acval_params φ, hlp]
+      exact h₁
+
+/-- **The fibres back**: a former that shows its telescope is not swapped. -/
+theorem indStrict_back {m₃ : EnvModel V env₃} {m₂ : EnvModel V env₂} (hac : m₂.acval = m₃.acval)
+    (h : FormerSwap env₃ env₂)
+    (hc : ∀ n, env₂.find? n = env₃.find? n ∨
+      ∃ cvR cvS caps, Swapped env env₃ env₂ n cvR cvS caps)
+    (hI : IndStrictOk m₃) : IndStrictOk m₂ := by
+  intro I cv caps hf hfl ψ ab n hread hn ρ vs hsp
+  rw [hac] at hread ⊢
+  rw [← denote_formerSwap h] at hread
+  rcases hc I with he | ⟨cvR, cvS, caps', hS⟩
+  · exact hI I cv caps (by rw [← he]; exact hf) hfl ψ ab n hread hn ρ vs hsp
+  · rw [hS.find₂] at hf
+    obtain ⟨rfl, -⟩ : cvS = cv ∧ caps' = caps := by simpa using hf
+    rw [hS.headed] at hfl
+    exact nomatch hfl
+
+omit [SetTheory V] in
+theorem recCtors_back (h : FormerSwap env₃ env₂) (hr : ConLeche.RecCtorsStored env₃) :
+    ConLeche.RecCtorsStored env₂ := by
+  intro n cv mI rP isK rules hf r hrr
+  obtain ⟨cvj, cnP, cnF, hc⟩ := hr n cv mI rP isK rules
+    ((h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mp hf) r hrr
+  exact ⟨cvj, cnP, cnF, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hc⟩
+
+omit [SetTheory V] in
+theorem projOk_back (h : FormerSwap env₃ env₂) (hp : ProjOkT env₃) : ProjOkT env₂ := by
+  intro T tbl hf i hi
+  have hf₀ : env₃.findTable? T = some tbl := by rw [h.tableEq]; exact hf
+  obtain ⟨h2, h3, h4, h5, ⟨cvT, caps, hT, hlT⟩, ⟨cvC, hC, hlC, hstrip⟩⟩ := hp T tbl hf₀ i hi
+  obtain ⟨cvT', hT', hl'⟩ := h.find_ind hT
+  exact ⟨h2, h3, h4, h5, ⟨cvT', caps, hT', hl'.trans hlT⟩,
+    ⟨cvC, (h.find_of_ne fun _ _ he => ConstantInfo.noConfusion he).mpr hC, hlC, hstrip⟩⟩
+
+end Back
 
 end ConLeche.Model
