@@ -149,7 +149,7 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
       (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hf)).1
     have hcB : ConstsBound env (D.formerAt mm cv).type := by
       rcases hsh with hn | ⟨f, hs, -, -, -, -, hb, -⟩
-      · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn]]
+      · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]]
         exact hcS
       · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]]
         exact hb
@@ -186,7 +186,7 @@ theorem EnvModelM.lfp_ok_transport {V : Type w} [SetTheory V] {env : Env} (mp : 
       obtain ⟨rfl, rfl⟩ : cvm = cv' ∧ caps = caps' := by simpa using hf'
       have hcB : ConstsBound env (D.formerAt mm cvm).type := by
         rcases hsh with hn | ⟨f, hs, -, -, -, -, hb, -, -⟩
-        · rw [show D.formerAt mm cvm = cvm by simp [LfpDatum.formerAt, hn]]
+        · rw [show D.formerAt mm cvm = cvm by simp [LfpDatum.formerAt, hn.1]]
           exact (ConLeche.Verify.envWF_constsBound mp.base2.wf _ (ConLeche.Env.find?_mem hfm)).1
         · rw [show D.formerAt mm cvm = f by simp [LfpDatum.formerAt, hs]]
           exact hb
@@ -220,7 +220,7 @@ theorem EnvModelM.formerAt_wf {V : Type w} [SetTheory V] {env : Env} (mp : EnvMo
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   rcases hsh with hn | ⟨f, hs, -, h2, h3, h4, hb, hdl, -⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn]]
+  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]]
     have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hf)
     exact ⟨hwf.1, hwf.2.2.2.1, (ConLeche.Verify.envWF_constsBound mp.base2.wf _
       (ConLeche.Env.find?_mem hf)).1, rfl, hwf.2.1⟩
@@ -240,7 +240,7 @@ theorem EnvModelM.formerAt_mem {V : Type w} [SetTheory V] {env : Env} (mp : EnvM
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   rcases hsh with hn | ⟨f, hs, -, -, -, -, -, -, hm⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn]] at hta
+  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1]] at hta
     have := mp.mem_type _ (ConLeche.Env.find?_mem hf) ψ _ hta ρ
     rwa [ConLeche.Env.find?_name hf] at this
   · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]] at hta
@@ -263,7 +263,7 @@ theorem EnvModelM.formerAt_interp {V : Type w} [SetTheory V] {env : Env} (mp : E
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
   rcases hsh with hn | ⟨f, hs, -, -, -, -, -, -, hm⟩
-  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn], hta₀] at hta
+  · rw [show D.formerAt mm cv = cv by simp [LfpDatum.formerAt, hn.1], hta₀] at hta
     rw [Option.some.inj hta]
   · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]] at hta
     obtain ⟨ta', ta₀', hta', hta₀', hin⟩ := hm ψ

@@ -1294,7 +1294,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         rw [hEv2]; exact eqValT_app₃ ψ ρ A a b hA ha hb)
       (fun ψ ρ => by rw [hRv2]; exact eqReflValT_interp ψ ρ))
     (eqLfp_stored ⟨_, _, hE2⟩ ⟨_, _, _, hR2⟩)
-    (eqLfp_reads hE2 fun ψ => denote_eqA_type ψ)
+    (eqLfp_reads hE2 rfl fun ψ => denote_eqA_type ψ)
     ⟨rfl, fun c hc j hj => by
       obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
       obtain rfl : j = 0 := Nat.lt_one_iff.mp hj

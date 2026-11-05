@@ -548,7 +548,8 @@ unless a stage is the point. -/
   ∃ cvT caps, ConLeche.ctorFamily env.find? cvj = some (cvT, caps) ∧
     cvT.levelParams.length = us.length ∧
     (ConLeche.formerNeverZero cvT us = true ∨
-      ConLeche.formerResSort cvT.type = none ∧ ∃ w : Nat, w ≠ 0 ∧
+      (ConLeche.formerResSort cvT.type = none ∨
+        ConLeche.reservedBasisNames.contains cvT.name = false) ∧ ∃ w : Nat, w ≠ 0 ∧
         ∀ ta : Term, denote acval env φ 0
             (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
           ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) w)

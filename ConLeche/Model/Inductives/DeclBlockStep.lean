@@ -370,7 +370,10 @@ theorem declBlock {F : Nat} {env env₂ : Env}
     refine ⟨cvTb, _, by
       show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
         ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName mm) = _
-      rw [hname]; exact hfind, ⟨fun _ => rfl, .inl rfl⟩, fun ψ => ⟨_, hFD.read ψ, ?_⟩⟩
+      rw [hname]; exact hfind, ⟨fun _ => rfl, .inl ⟨rfl, by
+        obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
+        simp [ConLeche.formerDefHeaded, ConLeche.formerResSort,
+          ConLeche.piResult_of_stripPis_sort _ hst]⟩⟩, fun ψ => ⟨_, hFD.read ψ, ?_⟩⟩
     show _ = ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM mm ψ).take
         (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP ++
       ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ppsM mm ψ).drop

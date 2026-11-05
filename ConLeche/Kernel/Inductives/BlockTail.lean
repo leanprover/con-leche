@@ -151,7 +151,8 @@ block nesting through such a family reads it reduced as well. -/
 /-- The families the literal guards read by name, whose stored type they compare. -/
 def litGuardFamilies : List Name :=
   [natName, natZeroName, natSuccName, stringName, stringOfListName, listName, listNilName,
-   listConsName, charName, charOfNatName, boolName, boolTrueName, boolFalseName]
+   listConsName, charName, charOfNatName, boolName, boolTrueName, boolFalseName] ++
+    reservedBasisNames
 
 /-- A former at its reduced telescope (official's `whnf` loop), closed. -/
 def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :

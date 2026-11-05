@@ -22,7 +22,7 @@ structure FormerSwap (env₀ env₃ : Env) : Prop where
   find : ∀ n, env₃.find? n = env₀.find? n ∨
     ∃ cv cv' caps, env₀.find? n = some (.indInfo cv caps) ∧ env₃.find? n = some (.indInfo cv' caps) ∧
       cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧
-      reservedBasisNames.contains n = false ∧ litGuardFamilies.contains n = false
+      litGuardFamilies.contains n = false
   mem : ∀ c ∈ env₃.consts, (∀ cv caps, c ≠ .indInfo cv caps) → c ∈ env₀.consts
   tables : env₃.tables = env₀.tables
 
@@ -33,10 +33,10 @@ variable {env₀ env₃ : Env}
 theorem symm_find (h : FormerSwap env₀ env₃) (n : Name) : env₀.find? n = env₃.find? n ∨
     ∃ cv cv' caps, env₃.find? n = some (.indInfo cv caps) ∧ env₀.find? n = some (.indInfo cv' caps) ∧
       cv'.name = cv.name ∧ cv'.levelParams = cv.levelParams ∧
-      reservedBasisNames.contains n = false ∧ litGuardFamilies.contains n = false := by
-  rcases h.find n with he | ⟨cv, cv', caps, h₀, h₃, hn, hl, hr, hg⟩
+      litGuardFamilies.contains n = false := by
+  rcases h.find n with he | ⟨cv, cv', caps, h₀, h₃, hn, hl, hg⟩
   · exact .inl he.symm
-  · exact .inr ⟨cv', cv, caps, h₃, h₀, hn.symm, hl.symm, hr, hg⟩
+  · exact .inr ⟨cv', cv, caps, h₃, h₀, hn.symm, hl.symm, hg⟩
 
 /-- A lookup other than a former's is the same on both sides. -/
 theorem find_of_ne (h : FormerSwap env₀ env₃) {n : Name} {ci : ConstantInfo}
@@ -52,16 +52,15 @@ theorem find_of_ne (h : FormerSwap env₀ env₃) {n : Name} {ci : ConstantInfo}
 /-- A name the guards read is untouched. -/
 theorem find_guard (h : FormerSwap env₀ env₃) {n : Name} (hn : litGuardFamilies.contains n = true) :
     env₃.find? n = env₀.find? n := by
-  rcases h.find n with he | ⟨-, -, -, -, -, -, -, -, hg⟩
+  rcases h.find n with he | ⟨-, -, -, -, -, -, -, hg⟩
   · exact he
   · rw [hn] at hg; exact nomatch hg
 
 /-- A reserved name is untouched. -/
 theorem find_reserved (h : FormerSwap env₀ env₃) {n : Name}
-    (hn : reservedBasisNames.contains n = true) : env₃.find? n = env₀.find? n := by
-  rcases h.find n with he | ⟨-, -, -, -, -, -, -, hg, -⟩
-  · exact he
-  · rw [hn] at hg; exact nomatch hg
+    (hn : reservedBasisNames.contains n = true) : env₃.find? n = env₀.find? n :=
+  h.find_guard (by
+    rw [litGuardFamilies, List.contains_append, hn, Bool.or_true])
 
 theorem levelsEq (h : FormerSwap env₀ env₃) (n : Name) :
     (env₀.find? n).map (fun ci => ci.toConstantVal.levelParams)

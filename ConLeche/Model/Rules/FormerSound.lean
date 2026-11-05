@@ -122,7 +122,7 @@ theorem IotaCase.walk_sound (hin : RulesInputs V m φ) {cvj cvT : ConstantVal}
     IotaCaseSem m φ false cvj us false := by
   intro _ _
   obtain ⟨T, _, -, hT⟩ := ctorFamily_find hfam
-  refine ⟨cvT, caps, hfam, hlen, .inr ⟨hnone, s.eval φ, ?_, fun ta hta ρ => ?_⟩⟩
+  refine ⟨cvT, caps, hfam, hlen, .inr ⟨.inl hnone, s.eval φ, ?_, fun ta hta ρ => ?_⟩⟩
   · exact eval_ne_zero_of_isNever hnv φ
   · exact formerSort_tower hin hT hlen.symm hsort ta hta ρ
 

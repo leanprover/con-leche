@@ -600,12 +600,12 @@ theorem eqLfp_clause {acval : Name → (Name → Nat) → Term}
 /-- `Eq`'s former reads as its hole telescope (M4). -/
 theorem eqLfp_reads {acval : Name → (Name → Nat) → Term} {env : ConLeche.Env}
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
-    (hf : env.find? nm = some (.indInfo cv caps))
+    (hf : env.find? nm = some (.indInfo cv caps)) (hfl : ConLeche.formerDefHeaded cv = false)
     (hty : ∀ ψ, denote acval env ψ 0 cv.type = some
       (.pi (.sort (lv ψ)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0))))) :
     LfpReads acval env (eqLfp (V := V) nm cn lv) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl rfl⟩, fun ψ => ⟨[.sort (lv ψ), .bvar 0, .bvar 1],
+  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl ⟨rfl, hfl⟩⟩, fun ψ => ⟨[.sort (lv ψ), .bvar 0, .bvar 1],
     hty ψ, rfl⟩⟩
 
 /-- **`Eq`'s capability records** (`LfpCaps`): its sort is zero everywhere,
@@ -646,11 +646,11 @@ theorem lfp0_reads {acval : Name → (Name → Nat) → Term} {env : ConLeche.En
     {cv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps} {nm : Name} {w : (Name → Nat) → Nat}
     {F : V → V} {inj : Nat → List V → V} {n : Nat}
     {cn : Nat → Name} {flds : Nat → List Term}
-    (hf : env.find? nm = some (.indInfo cv caps))
+    (hf : env.find? nm = some (.indInfo cv caps)) (hfl : ConLeche.formerDefHeaded cv = false)
     (hty : ∀ ψ, denote acval env ψ 0 cv.type = some (.sort (w ψ))) :
     LfpReads acval env (lfp0 nm w F inj n cn flds) := fun mm hmm => by
   obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl rfl⟩, fun ψ => ⟨[], hty ψ, rfl⟩⟩
+  exact ⟨cv, caps, hf, ⟨fun _ => rfl, .inl ⟨rfl, hfl⟩⟩, fun ψ => ⟨[], hty ψ, rfl⟩⟩
 
 /-- **A one-member unparameterized unindexed block's constructors read as
 their hole telescopes** (M2): the canonical abstraction has no parameter,

@@ -658,7 +658,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
         rw [hEv']
         exact eqValT_app₃ _ ρ A a b (by rw [htr]; exact hA) ha hb)
       (fun ψ ρ => by rw [hRv']; exact eqReflValT_interp _ ρ)
-  have hreads : LfpReads (renAcval mp.base2.acval env env') env' eqD := eqLfp_reads f1' hty
+  have hreads : LfpReads (renAcval mp.base2.acval env env') env' eqD := eqLfp_reads f1' rfl hty
   have hcaps : LfpCaps env' eqD := eqLfp_caps f1'
     (fun ψ => by
       show ConLeche.PropWhen.holds ψ (ConLeche.PropWhen.ifAllZero []) = true

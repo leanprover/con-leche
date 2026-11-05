@@ -72,7 +72,7 @@ inhabited by the member. -/
 @[expose] def LfpShown {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
     (env : Env) (D : LfpDatum V) (mm : Nat) (cv : ConstantVal) : Prop :=
   (ConLeche.formerDefHeaded cv = false → D.formerAt mm cv = cv) ∧
-  (D.shown mm = none ∨ ∃ f, D.shown mm = some f ∧
+  ((D.shown mm = none ∧ ConLeche.formerDefHeaded cv = false) ∨ ∃ f, D.shown mm = some f ∧
     f.name = cv.name ∧ f.levelParams = cv.levelParams ∧
     f.type.hasFvar = false ∧ f.type.looseBVarsBounded 0 = true ∧ ConstsBound env f.type ∧
     f.type.allLevelParamsDefined f.levelParams = true ∧

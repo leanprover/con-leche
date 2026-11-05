@@ -747,7 +747,9 @@ theorem quotMk_neverProp_ne_zero {acval : Name → (Name → Nat) → Term} {env
   have hnv : ConLeche.formerNeverZero cvT usj = true := by
     refine hc.resolve_right fun ⟨hn, _⟩ => ?_
     cases hq
-    exact nomatch hn
+    rcases hn with hn | hn
+    · exact nomatch hn
+    · exact nomatch hn
   unfold ConLeche.formerNeverZero at hnv
   rw [hlp, hz] at hnv
   have hh : (Level.substPW [uN] usj (ConLeche.PropWhen.ifAllZero [uN])).holds φ = false := by
