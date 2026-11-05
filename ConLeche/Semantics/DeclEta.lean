@@ -13,7 +13,7 @@ At every non-inductive kind the η-closure follows from
 (`EtaFamiliesClosed.cons_nonind`; at a pinned basis block,
 `basisInstallRun_etaClosed`).  The inductive kind's is the one premise
 `hind`, at `DeclRun`'s `Ind` payload (discharged at the fold's
-`DeclIndRunDispatchK` by `declIndRunDispatchKEtaClosed`).
+`DeclIndRunDispatchK`, `Model/Fold.lean`).
 
 This module is model-free by construction: no `V`, no `SetTheory`.
 -/

@@ -190,7 +190,7 @@ theorem FamNZ.formerSwap {env₀ env₃ : Env} {acval : Name → (Name → Nat) 
       ∃ w : Nat, w ≠ 0 ∧ ∀ ta : Term, denote acval env₀ φ 0
           (cv.type.instantiateLevelParams cv.levelParams us) = some ta →
         ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) w)
-    (hint : ∀ (T : Name) (cv cv' : ConstantVal) (caps : IndCaps) (ψ : Name → Nat) (ta ta' : Term),
+    (hint : ∀ (T : Name) (cv cv' : ConstantVal) (caps : IndCaps) (ψ : Name → Nat) (ta _ta' : Term),
       env₀.find? T = some (.indInfo cv caps) → env₃.find? T = some (.indInfo cv' caps) →
       denote acval env₀ ψ 0 cv.type = some ta → ∀ ρ : Nat → V,
         ∃ ta' : Term, denote acval env₀ ψ 0 cv'.type = some ta' ∧ interp V ρ ta = interp V ρ ta')

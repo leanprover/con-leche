@@ -72,7 +72,7 @@ theorem installStepC_model
     (hB : ∀ pc ∈ q.2.2.toList, ∃ s'', checkPending .verified q.2.1 pc {} = .ok ((), s'')) :
     EnvModelOk V fe₁.env ∧ CSOKF s₁ ∧
       ∃ F, checkDecl .verified (fueledOps .verified F) pins fe.env pd = .ok fe₁.env := by
-    obtain ⟨⟨mp, hcov⟩, hE⟩ := hm
+    obtain ⟨⟨mp, hcov, hS⟩, hE, hN⟩ := hm
     have henv : EnvWF fe.env := mp.toEnvFacts.wf
     -- the ordinary step: a declaration checked in full at its install
     have ordinary : ∀ (pd' : Declaration),
@@ -86,7 +86,7 @@ theorem installStepC_model
       obtain ⟨rfl, rfl⟩ := hv
       rw [hfe] at hstepC'
       obtain ⟨hres₁, -, F, hF⟩ := checkDeclStepC_run henv hresA hstepC'
-      exact ⟨declStep_preserves mp hcov hE
+      exact ⟨declStep_preserves mp hcov hS hE hN
           (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF), hres₁, F, hF⟩
     -- a separable value declaration: phase A's install (its facts
     -- given), phase B's check at the prefix view
@@ -134,7 +134,7 @@ theorem installStepC_model
       -- the two halves are the declaration's check
       obtain ⟨F', hF⟩ := hsplit F₂ hC
       have hm₁ : EnvModelOk V (fe.push (mk cv jv)).env :=
-        declStep_preserves mp hcov hE (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
+        declStep_preserves mp hcov hS hE hN (ConLeche.Semantics.checkDeclRun_ofEnvFactsK hF)
       exact ⟨hm₁, hres₁, F', hdrel ▸ hF⟩
     cases pd with
     | defnDecl cv val hint =>

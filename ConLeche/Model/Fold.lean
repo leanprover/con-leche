@@ -5,7 +5,7 @@ import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Cover
-public import ConLeche.Model.Inductives.DeclBlockStep
+public import ConLeche.Model.Inductives.ViewedStep
 import ConLeche.Kernel.Checker
 import ConLeche.Kernel.CheckerBase
 import ConLeche.Model.Reading.Levels
@@ -17,6 +17,8 @@ import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts
 import ConLeche.Semantics.DeclEta
+import ConLeche.Semantics.Inductives.DeclBlockEta
+import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Verify.Abstract
 import ConLeche.Verify.Denote.EnvExt
 import ConLeche.Verify.Denote
@@ -93,15 +95,16 @@ step and coverage is unconditional. -/
 
 /-- A step's carrier, covered, from a covered input. -/
 theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V env}
-    (h : CoverStep mp env') (hcov : LfpCover mp []) :
-    ∃ mp' : EnvModelM V env', LfpCover mp' [] :=
-  h.elim fun mp' h' => ⟨mp', h'.2 hcov⟩
+    (h : CoverStep mp env') (hcov : LfpCover mp []) (hS : ShownFacts mp)
+    (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) :
+    ∃ mp' : EnvModelM V env', LfpCover mp' [] ∧ ShownFacts mp' :=
+  h.elim fun mp' h' => ⟨mp', h'.2 hcov, hS.step h'.1 htb⟩
 
 /-- **The P fold invariant**: a covered P carrier plus the η-family
 closure. -/
 @[expose] def EnvModelOk (V : Type w) [SetTheory V] (env : Env) :
     Prop :=
-  (∃ mp : EnvModelM V env, LfpCover mp []) ∧ EtaFamiliesClosed env
+  (∃ mp : EnvModelM V env, LfpCover mp [] ∧ ShownFacts mp) ∧ EtaFamiliesClosed env ∧ NatFacts env
 
 /-- The invariant's carrier. -/
 theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
@@ -110,41 +113,163 @@ theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
 
 /-- The invariant at the empty environment. -/
 theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
-  ⟨⟨EnvModelM.empty V, lfpCover_empty⟩, EtaFamiliesClosed.empty⟩
+  ⟨⟨EnvModelM.empty V, lfpCover_empty, fun _ hD => nomatch hD⟩, EtaFamiliesClosed.empty,
+    ⟨fun h => by rcases h with h | h <;> exact nomatch h⟩⟩
+
+/-- A step that adds constants, none of `Nat`'s block's, and no table. -/
+@[expose] def PlainStep (env env₂ : Env) : Prop :=
+  ∃ new : List ConstantInfo, env₂.consts = new ++ env.consts ∧ env₂.tables = env.tables ∧
+    ∀ c ∈ new, c.name ≠ ConLeche.natName ∧ c.name ≠ ConLeche.natZeroName ∧
+      c.name ≠ ConLeche.natSuccName
+
+/-- The tables on the old names across added constants and no table. -/
+theorem findTable_of_added {env env₂ : Env} {new : List ConstantInfo}
+    (hnew : env₂.consts = new ++ env.consts) (htab : env₂.tables = env.tables) (T : Name)
+    (hT : (env.find? T).isSome = true) : env₂.findTable? T = env.findTable? T := by
+  have hs₂ : (env₂.find? T).isSome = true := by
+    show (env₂.consts.find? (·.name == T)).isSome = true
+    rw [hnew, List.find?_append, Option.isSome_or]
+    exact Bool.or_eq_true_iff.mpr (Or.inr hT)
+  unfold Env.findTable?
+  rw [hs₂, hT, htab]
+
+/-- A plain step keeps the two fold-level facts. -/
+theorem PlainStep.close {env env₂ : Env} {mp : EnvModelM V env} (h : PlainStep env env₂)
+    (hstep : CoverStep mp env₂) (hcov : LfpCover mp []) (hS : ShownFacts mp) (hN : NatFacts env) :
+    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ ShownFacts mp') ∧ NatFacts env₂ := by
+  obtain ⟨new, hnew, htab, hres⟩ := h
+  exact ⟨hstep.covered hcov hS (findTable_of_added hnew htab), hN.append hnew hres⟩
+
+/-- A declaration's constant, stored under an unreserved name. -/
+theorem PlainStep.cons {env : Env} {c : ConstantInfo}
+    (h : ConLeche.reservedBasisNames.contains c.name = false) :
+    PlainStep env ⟨c :: env.consts, env.tables⟩ :=
+  ⟨[c], rfl, rfl, fun _ hc => by
+    rw [List.mem_singleton.mp hc]; exact nat_names_of_unreserved h⟩
+
+/-- A quotient record is a plain step. -/
+theorem plainStep_quot {env env₂ : Env} {k : ConLeche.QuotKind} {cv : ConstantVal}
+    (h : DeclQuotRun env k cv env₂) : PlainStep env env₂ := by
+  obtain ⟨-, -, -, rfl⟩ := h
+  refine ⟨[_], rfl, rfl, fun _ hc => ?_⟩
+  rw [List.mem_singleton.mp hc]
+  cases k <;> decide
+
+/-- An axiom record is a plain step. -/
+theorem plainStep_axiom {F : Nat} {env env₂ : Env} {cv : ConstantVal}
+    (h : DeclAxiomRun F env cv env₂) : PlainStep env env₂ := by
+  rcases h with ⟨-, hq⟩ | ⟨type', hcv, hbranch⟩
+  · exact plainStep_quot hq
+  · have hres := hcv.2.1
+    rcases hbranch with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
+    · exact PlainStep.cons hres
+    · exact PlainStep.cons hres
+    · exact PlainStep.cons hres
+    · exact ⟨[], rfl, rfl, fun _ hc => nomatch hc⟩
+
+/-- What a pinned block stores, as a prefix of the constants. -/
+theorem basisInstallRun_consts :
+    ∀ {L : List ConstantInfo} {env env₂ : Env}, BasisInstallRun env L env₂ →
+      env₂.consts = L.reverse ++ env.consts ∧ env₂.tables = env.tables
+  | [], _, _, h => by
+    obtain rfl := h
+    exact ⟨rfl, rfl⟩
+  | ci :: rest, _, _, h => by
+    obtain ⟨hc, ht⟩ := basisInstallRun_consts h.2
+    refine ⟨?_, ht⟩
+    rw [hc]
+    simp
+
+/-- A pinned block's stored names are the pin's. -/
+theorem atBlock_names :
+    ∀ (pins block : List ConstantInfo), pins.map (·.name) = block.map (·.name) →
+      (List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) pins block).map (·.name)
+        = pins.map (·.name)
+  | [], _, _ => rfl
+  | _ :: _, [], h => nomatch h
+  | p :: ps, b :: bs, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    simp only [List.zipWith_cons_cons, List.map_cons, atLps_name]
+    rw [atBlock_names ps bs h.2]
+
+/-- **A pinned block keeps `Nat`'s block whole.** -/
+theorem natFacts_basis {env env₂ : Env} {kind : ConLeche.BasisKind} {block : List ConstantInfo}
+    (hN : NatFacts env) (hk : ConLeche.basisNameHit block = some kind)
+    (h : BasisInstallRun env (kind.atBlock block) env₂) : NatFacts env₂ := by
+  obtain ⟨hc, -⟩ := basisInstallRun_consts h
+  have hn : kind.decls.map (·.name) = block.map (·.name) := by
+    have := List.find?_some hk
+    simpa using this
+  have hnames := atBlock_names kind.decls block hn
+  have hnames' : (kind.atBlock block).map (·.name) = kind.decls.map (·.name) := hnames
+  have hmem : ∀ c ∈ (kind.atBlock block).reverse, c.name ∈ kind.decls.map (·.name) := by
+    intro c hc'
+    rw [← hnames']
+    exact List.mem_map.mpr ⟨c, List.mem_reverse.mp hc', rfl⟩
+  have hfound : ∀ n, n ∈ kind.decls.map (·.name) → (env₂.find? n).isSome = true := by
+    intro n hn'
+    rw [← hnames'] at hn'
+    obtain ⟨c, hcm, rfl⟩ := List.mem_map.mp hn'
+    show (env₂.consts.find? (·.name == c.name)).isSome = true
+    rw [List.find?_isSome]
+    exact ⟨c, by rw [hc]; exact List.mem_append_left _ (List.mem_reverse.mpr hcm), by simp⟩
+  have hnew : ∀ c ∈ (kind.atBlock block).reverse, kind ≠ .natK →
+      c.name ≠ ConLeche.natName ∧ c.name ≠ ConLeche.natZeroName ∧ c.name ≠ ConLeche.natSuccName := by
+    intro c hc' hne
+    have hm := hmem c hc'
+    cases kind with
+    | natK => exact absurd rfl hne
+    | eqK | emptyK | falseK | quotK =>
+      revert hm
+      generalize c.name = n
+      intro hm
+      refine ⟨?_, ?_, ?_⟩ <;> (rintro rfl; revert hm; decide)
+  by_cases hnat : kind = .natK
+  · subst hnat
+    exact ⟨fun _ => ⟨hfound _ (by decide), hfound _ (by decide), hfound _ (by decide)⟩⟩
+  · exact hN.append hc fun c hc' => hnew c hc' hnat
+
 
 /-- **The per-declaration P step, by dispatch.**  The premise is the
 RUN record (`DeclRun`, valuation-free; the `ind` kind arrives through
 its `Ind` parameter), so this step consumes exactly what it reads. -/
 theorem declStep_preserves
     {F : Nat} {env env₂ : Env} {d : Declaration}
-    (mp : EnvModelM V env) (hcov : LfpCover mp [])
-    (hE : EtaFamiliesClosed env)
+    (mp : EnvModelM V env) (hcov : LfpCover mp []) (hS : ShownFacts mp)
+    (hE : EtaFamiliesClosed env) (hN : NatFacts env)
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
     EnvModelOk V env₂ := by
   -- the η half: `declEtaStepRun`, model-free at every kind; at `.indDecl`
-  -- through the dispatch's own case split (`declIndRunDispatchKEtaClosed`)
-  refine ⟨?_, ConLeche.Semantics.declEtaStepRun
-    (fun h' => ConLeche.Semantics.declIndRunDispatchKEtaClosed hE h') hE hrun⟩
+  -- through the dispatch's own case split
+  have hEta : EtaFamiliesClosed env₂ := ConLeche.Semantics.declEtaStepRun (fun h' => by
+    unfold ConLeche.Semantics.DeclIndRunDispatchK at h'
+    split at h'
+    · rcases h' with h' | h'
+      · exact ConLeche.Semantics.declBlockRun_etaClosed hE h'
+      · exact blockViewedRun_etaClosed mp.base2.wf hE h'
+    · exact h'.elim) hE hrun
+  suffices h : (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ ShownFacts mp') ∧ NatFacts env₂ from
+    ⟨h.1, hEta, h.2⟩
   cases d with
   | defnDecl cv value hint =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -, -⟩ := hsh
     subst henv2
-    exact (harvestDefn mp hrun).covered hcov
+    exact PlainStep.close (PlainStep.cons (by exact hcv.2.1)) (harvestDefn mp hrun) hcov hS hN
   | thmDecl cv value =>
     have hsh := hrun
     -- the run record has no is-a-proposition derivation row
     obtain ⟨type', value', hcv, -, -, henv2⟩ := hsh
     subst henv2
-    exact (harvestThm mp hrun).covered hcov
+    exact PlainStep.close (PlainStep.cons (by exact hcv.2.1)) (harvestThm mp hrun) hcov hS hN
   | opaqueDecl cv value =>
     have hsh := hrun
     obtain ⟨type', value', hcv, -, henv2, -⟩ := hsh
     subst henv2
-    exact (harvestOpaque mp hrun).covered hcov
-  | axiomDecl cv => exact (axiomStepPB_of mp hrun).covered hcov
-  | quotDecl k cv => exact (declQuotPB mp hrun).covered hcov
+    exact PlainStep.close (PlainStep.cons (by exact hcv.2.1)) (harvestOpaque mp hrun) hcov hS hN
+  | axiomDecl cv => exact (plainStep_axiom hrun).close (axiomStepPB_of mp hrun) hcov hS hN
+  | quotDecl k cv => exact (plainStep_quot hrun).close (declQuotPB mp hrun) hcov hS hN
   | indDecl block nP =>
     -- a block with a pinned block's names installs the pin at the record's
     -- names; everything else takes the `.indDecl` dispatch
@@ -155,17 +280,24 @@ theorem declStep_preserves
         rintro rfl
         have hm := List.mem_of_find?_eq_some hk
         simp at hm
-      exact (declBasisPB_at mp hnq hrun).covered hcov
+      obtain ⟨hc, htb⟩ := basisInstallRun_consts hrun.2
+      exact ⟨(declBasisPB_at mp hnq hrun).covered hcov hS (findTable_of_added hc htb),
+        natFacts_basis hN hk hrun.2⟩
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
       cases hdf : ConLeche.blockParts? nP block with
       | some p =>
         rw [hdf] at hrun'
+        have hshape := ConLeche.blockParts?_inv hdf
+        obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
+        have hres := fun c hc => (hClps₀ c hc).2
         -- the uniform install, at any number of members, nested blocks
-        -- included (`declBlock`)
+        -- included (`declBlock`), on either path
         rcases hrun' with hrun' | hrun'
-        · exact (declBlock mp hE hdf hrun' hcov).elim fun mp' h' => ⟨mp', h'.2⟩
-        · sorry
+        · obtain ⟨mp', r, hc⟩ := declBlock mp hE hdf hrun' hcov
+          exact ⟨⟨mp', hc, hS.step r (declBlockRun_findTable hrun')⟩, natFacts_block hN hres hrun'⟩
+        · exact ⟨declBlockViewed mp hS hcov hE (fun ms hms => (hmembersOk ms hms).1) hClps₀ hrun' hN,
+            natFacts_viewed hN hres hrun'⟩
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'
@@ -186,9 +318,9 @@ theorem foldPM {F : Nat} :
     | error e => rw [hd] at h; exact nomatch h
     | ok env1 =>
       rw [hd] at h
-      obtain ⟨⟨mp, hcov⟩, hE⟩ := hm
+      obtain ⟨⟨mp, hcov, hS⟩, hE, hN⟩ := hm
       exact foldPM ds env1
-        (declStep_preserves mp hcov hE
+        (declStep_preserves mp hcov hS hE hN
           -- **the RUN bridge, from the P carrier's own `EnvFacts`**
           -- (`checkDeclRun_ofEnvFactsK`; the `ind` kind through
           -- `DeclIndRunDispatchK`)

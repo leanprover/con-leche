@@ -72,18 +72,4 @@ theorem checkDeclRun_ofEnvFactsK
       · rw [ite_eq_right hok] at hh
         exact nomatch hh) h
 
-/-- **The `.indDecl` run dispatch keeps the η-families closed**, by the
-kernel's own case split — the uniform arm's
-`declBlockRun_etaClosed`; the other arm never runs. -/
-theorem declIndRunDispatchKEtaClosed {F : Nat}
-    {env envI : Env} {block : List ConstantInfo} {nP : Nat}
-    (hE : EtaFamiliesClosed env)
-    (h : DeclIndRunDispatchK F env block nP envI) : EtaFamiliesClosed envI := by
-  unfold DeclIndRunDispatchK at h
-  split at h
-  · rcases h with h | h
-    · exact declBlockRun_etaClosed hE h
-    · sorry
-  · exact h.elim
-
 end ConLeche.Semantics
