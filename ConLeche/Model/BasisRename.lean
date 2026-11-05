@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Cover
 public import ConLeche.Verify.PinRen
 import ConLeche.Model.Reading.Levels
-import ConLeche.Model.DivMod
+public import ConLeche.Model.DivMod
 
 public section
 
@@ -45,6 +45,7 @@ variable {env env' : Env} (h : RenEnv env env') {acval : Name → (Name → Nat)
 
 include h
 
+omit h in
 /-- **The new leaf at an instantiation is the old one**, parameter by
 parameter. -/
 theorem renAcval_inst (hparams : ∀ (n : Name) (ci : ConstantInfo), env.find? n = some ci →
@@ -114,7 +115,7 @@ theorem denote_ren (hparams : ∀ (n : Name) (ci : ConstantInfo), env.find? n = 
       rw [denote, h2, denote, h1]
       dsimp only
       rw [ite_eq_left (hl' ▸ hl), ite_eq_left hl]
-      exact congrArg some (renAcval_inst h hparams h1 h2 hr φ hl)
+      exact congrArg some (renAcval_inst hparams h1 h2 hr φ hl)
   | case4 d n us ci hf hl =>
     rcases h.find n with ⟨h1, -⟩ | ⟨c, c', h1, h2, hr⟩
     · rw [h1] at hf; exact nomatch hf
@@ -548,7 +549,7 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
     funext h.constsResolve
   rcases hr with rfl | ⟨hrs, h1, h2⟩
   · unfold ConstWF at hwf ⊢
-    simp only [h.constsResolve, hres]
+    simp only [h.constsResolve]
     exact hwf
   · have hshape := (pinnedInfo_wf hrs).2
     have hdef := hwf.2.1
@@ -709,5 +710,358 @@ theorem basisPinned_ren (m : EnvModel V env) (h : RenEnv env env')
   acval_wellDenoted := fun n _ ρ => m.acval_wellDenoted n _ ρ
 
 end Base
+
+/-! ## The invariant across the renaming -/
+
+section Core
+
+variable {env env' : Env}
+
+theorem natOpDeps_nonres : ∀ c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames,
+    ∀ n ∈ ConLeche.natOpDeps c, reservedBasisNames.contains n = false := by decide
+
+theorem natOpNames_nonres : ∀ c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames,
+    reservedBasisNames.contains c = false := by decide
+
+theorem dmValNames_noLps : ∀ c ∈ ConLeche.natDivModNames, ∀ n ∈ dmValNames c,
+    (pinnedInfo n).toConstantVal.levelParams = [] := by decide
+
+theorem natOpGuard_ren (h : RenEnv env env') {c : Name}
+    (hc : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames) :
+    ConLeche.natOpGuard env' c = ConLeche.natOpGuard env c := by
+  unfold ConLeche.natOpGuard
+  rw [h.natLit, h.find_nonres (n := ConLeche.boolTrueName) (by decide),
+    h.find_nonres (n := ConLeche.boolFalseName) (by decide)]
+  refine congrArg (· && _) (congrArg (_ && ·) ?_)
+  apply Bool.eq_iff_iff.mpr
+  simp only [List.all_eq_true]
+  exact forall₂_congr fun n hn => by rw [h.find_nonres (natOpDeps_nonres c hc n hn)]
+
+theorem natOpTyPinned_ren (h : RenEnv env env') {c : Name} {ty : Expr}
+    (hp : ConLeche.natOpTyPinned env c ty = true) : ConLeche.natOpTyPinned env' c ty = true :=
+  natOpTyPinned_of_find (fun ci hf =>
+    ⟨ci, by rw [h.find_nonres (n := ConLeche.boolName) (by decide)]; exact hf, rfl⟩) hp
+
+/-- **The transport**: an invariant of `env` is one of `env'`, at the renamed
+valuation, given what the renaming leaves stable and the recorded blocks'
+clauses at the new side. -/
+theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
+    (hmem : ∀ c' ∈ env'.consts, ∃ c ∈ env.consts,
+      (c' = c ∧ env'.find? c.name = env.find? c.name) ∨
+      (env.find? c.name = some c ∧ env'.find? c.name = some c' ∧
+        reservedBasisNames.contains c.name = true ∧
+        PinCopy c (pinnedInfo c.name) ∧ PinCopy c' (pinnedInfo c.name)))
+    (hlink : ∀ n ci, env'.find? n = some ci → reservedBasisNames.contains n = true →
+      PinLinked env' n ci)
+    (hstable : ∀ n cv mI rP isK rules,
+      env'.find? n = some (.recInfo cv mI rP isK rules) →
+      (reservedBasisNames.contains n = false ∨ isK = false) →
+      ∀ r ∈ rules, env'.find? (RecRule.ctor r) = env.find? (RecRule.ctor r) ∧
+        ∀ cvj a b, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) →
+          ∀ us, ConLeche.iotaCtorNeverProp env'.find? cvj us
+            = ConLeche.iotaCtorNeverProp env.find? cvj us)
+    (blocks : List (LfpDatum V))
+    (hlfp : ∀ D ∈ blocks, LfpClause (renAcval mp.base2.acval env env') D ∧ LfpStored env' D ∧
+      LfpReads (renAcval mp.base2.acval env env') env' D ∧
+      LfpCtorReads (renAcval mp.base2.acval env env') env' D ∧ LfpCaps env' D) :
+    ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval env env' ∧
+      mp'.lfpBlocks = blocks := by
+  have hparams := mp.base2.acval_params
+  have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
+      denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
+    fun φ d e => denote_ren h hparams φ d e
+  let m' := mp.base2.rename h hlink
+  have hac : m'.acval = renAcval mp.base2.acval env env' := rfl
+  have hsame : ∀ {n : Name}, env'.find? n = env.find? n → m'.acval n = mp.base2.acval n :=
+    fun he => renAcval_same he
+  have hnr : ∀ {n : Name}, reservedBasisNames.contains n = false → m'.acval n = mp.base2.acval n :=
+    fun hn => hsame (h.find_nonres hn)
+  have hnl : ∀ {n : Name}, (pinnedInfo n).toConstantVal.levelParams = [] →
+      m'.acval n = mp.base2.acval n := fun hn => hsame (h.find_noLps hn)
+  -- a stored constant, on both sides
+  have hT : ∀ c' ∈ env'.consts, ∃ c ∈ env.consts, ∃ tr : (Name → Nat) → Name → Nat,
+      (∀ ψ, denote m'.acval env' ψ 0 c'.toConstantVal.type
+        = denote mp.base2.acval env (tr ψ) 0 c.toConstantVal.type) ∧
+      ∀ ψ, m'.acval c'.name ψ = mp.base2.acval c.name (tr ψ) := by
+    intro c' hc'
+    obtain ⟨c, hc, hp⟩ := hmem c' hc'
+    refine ⟨c, hc, ?_⟩
+    rcases hp with ⟨rfl, he⟩ | ⟨h1, h2, hrs, h3, h4⟩
+    · exact ⟨id, fun ψ => hde ψ 0 _, fun ψ => congrFun (hsame he) ψ⟩
+    · refine ⟨fun ψ => Level.substFn ψ c.toConstantVal.levelParams
+        (c'.toConstantVal.levelParams.map Level.param), fun ψ => ?_, fun ψ => ?_⟩
+      · rw [hac, hde, denote_pair mp.base2 (.inr ⟨hrs, h3, h4⟩)]
+      · have hn : c'.name = c.name := by
+          rw [h4.name, pinnedInfo_name hrs]
+        rw [hn]
+        show mp.base2.acval c.name (renTr env env' c.name ψ) = _
+        rw [renTr_pair h1 h2]
+  -- a stored recursor's rules
+  have hrec : ∀ φ : Name → Nat, RecRules m' φ := by
+    intro φ n cv' mI rP isK rules' hf' rl' hrl'
+    rcases h.find n with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
+    · rw [h2] at hf'; exact nomatch hf'
+    · rw [h2] at hf'
+      obtain rfl := Option.some.inj hf'
+      have hnmc : c.name = n := by simpa using Env.find?_name h1
+      by_cases hrsv : reservedBasisNames.contains n = true
+      · have hrs : reservedBasisNames.contains c.name = true := hnmc ▸ hrsv
+        have h3 : PinCopy c (pinnedInfo c.name) := by
+          rw [hnmc]; exact (mp.base2.basis_pinned n c h1 hrsv).1
+        have h4 : PinCopy (.recInfo cv' mI rP isK rules') (pinnedInfo c.name) := by
+          rcases hr with rfl | ⟨-, -, h'⟩
+          · exact h3
+          · exact h'
+        cases c with
+        | recInfo cv mI0 rP0 isK0 rules =>
+          obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
+          injection he with e0 e1 e2 e3 e4
+          subst e0; subst e1; subst e2; subst e3; subst e4
+          obtain ⟨rl, hrl0, hct, hnf, hfr, hpl, hrhs⟩ := hrl rl' hrl'
+          refine recRuleLaw_ren ?_ (mp.rec_rules φ n cv mI rP isK rules h1 rl hrl0)
+          have hrpair : ConstRen (.recInfo cv mI rP isK rules) (.recInfo cv' mI rP isK rules') :=
+            .inr ⟨hrs, h3, h4⟩
+          have hlen : cv'.levelParams.length = cv.levelParams.length := hrpair.len
+          have hwfr := (mp.base2.wf.consts _ (Env.find?_mem h1)).2.2.2.2.2.1 cv mI rP isK rules rfl
+            rl hrl0
+          have hnd' : cv'.levelParams.Nodup := h4.2.1
+          have hnd : cv.levelParams.Nodup := h3.2.1
+          -- what a `.plain` rule reads of a constructor's parameters
+          have hlk := (mp.base2.basis_pinned n _ h1 hrsv).2.1
+          have hlk' := hlink n _ h2 hrsv
+          refine ⟨fun d e => hde φ d e, hlen, fun us hus => hrpair.inst hus, fun us hus => ?_,
+            hct, hnf, hfr, fun lvls pins hn => (by rw [hpl] at hn; exact nomatch hn),
+            fun us hus => renAcval_inst hparams h1 h2 hrpair φ hus, fun cvj' cnP cnF hfc => ?_⟩
+          · rw [hrhs]
+            exact inst_ren hnd' hlen.symm (hus.trans hlen.symm) _ hwfr.2.1
+          · rcases h.find (RecRule.ctor rl) with ⟨-, g2⟩ | ⟨cj, cj', g1, g2, hrj⟩
+            · rw [g2] at hfc; exact nomatch hfc
+            · rw [g2] at hfc
+              obtain rfl := Option.some.inj hfc
+              obtain ⟨cvj, rfl⟩ := hrj.symm.ctor
+              have hlj : cvj'.levelParams.length = cvj.levelParams.length := hrj.len
+              have hsp : (cvj'.type.stripPis (cnP + RecRule.nfields rl)).isSome
+                  = (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome := by
+                rcases hrj with he | ⟨hr2, h5, h6⟩
+                · injection he with e5 _ _
+                  rw [e5]
+                · have t1 : cvj'.type = _ := PinCopy.type_eq h5 h6 (pinnedInfo_wf hr2).1
+                  have t2 : cvj.type = _ := PinCopy.type_eq h6 h5 (pinnedInfo_wf hr2).1
+                  apply Bool.eq_iff_iff.mpr
+                  constructor
+                  · intro hx
+                    rw [t2]
+                    exact Expr.stripPis_instantiateLevelParams_isSome _ _ _ hx
+                  · intro hx
+                    rw [t1]
+                    exact Expr.stripPis_instantiateLevelParams_isSome _ _ _ hx
+              have hcL : ∀ us : List Level,
+                  (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1.length
+                    = cvj.levelParams.length := fun us => by
+                simp [ConLeche.recFireComparands, hpl]
+              refine ⟨cvj, g1, hlj, fun usj hl => hrj.inst hl,
+                fun usj hl => renAcval_inst hparams g1 g2 hrj φ hl, hsp, fun us hus => ?_,
+                fun us _ a ha => ?_, fun hk us => ?_⟩
+              · have A := hlk' cv' mI rP isK rules' rfl rl' hrl' cvj' cnP cnF (hct ▸ g2) us
+                  (hus.trans hlen.symm)
+                have B := hlk cv mI rP isK rules rfl rl hrl0 cvj cnP cnF g1 us hus
+                rw [hct] at A
+                simp only [ConLeche.recFireComparands, hfr, hpl]
+                exact A.trans B.symm
+              · rcases hrj with he | ⟨hr2, h5, h6⟩
+                · injection he with e5 _ _
+                  rw [e5]
+                · have nd : cvj.levelParams.Nodup := h5.2.1
+                  have nd' : cvj'.levelParams.Nodup := h6.2.1
+                  constructor
+                  · intro hx
+                    exact substFn_pos nd' nd hlj (ha.trans hlj.symm)
+                      ((hcL us).trans hlj.symm) (fun q _ => congrFun hx q)
+                  · intro hx
+                    exact substFn_pos nd nd' hlj.symm ha (hcL us) (fun q _ => congrFun hx q)
+              · have hst := hstable n cv' mI rP isK rules' h2 (.inr hk) rl' hrl'
+                rw [hct] at hst
+                have heq : some (ConstantInfo.ctorInfo cvj' cnP cnF)
+                    = some (ConstantInfo.ctorInfo cvj cnP cnF) := by
+                  rw [← g2, ← g1]; exact hst.1
+                have hcvj : cvj' = cvj := by
+                  injection heq with heq'
+                  injection heq'
+                rw [hcvj]
+                exact hst.2 cvj cnP cnF g1 us
+        | _ => exact nomatch h3.kind.trans h4.kind.symm
+      · have hrsf : reservedBasisNames.contains n = false := by simpa using hrsv
+        have he : ConstantInfo.recInfo cv' mI rP isK rules' = c := by
+          rcases hr with rfl | ⟨hx, -, -⟩
+          · rfl
+          · rw [hnmc, hrsf] at hx; exact nomatch hx
+        subst he
+        refine recRuleLaw_ren ?_ (mp.rec_rules φ n cv' mI rP isK rules' h1 rl' hrl')
+        have hst := hstable n cv' mI rP isK rules' h2 (.inl hrsf) rl' hrl'
+        refine ⟨fun d e => hde φ d e, rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, rfl, rfl,
+          fun _ _ _ => rfl, fun us _ => ?_, fun cvj' cnP cnF hfc => ?_⟩
+        · exact congrFun (hsame (h2.trans h1.symm)) _
+        · have hfc0 := hst.1 ▸ hfc
+          exact ⟨cvj', hfc0, rfl, fun _ _ => rfl, fun _ _ => congrFun (hsame hst.1) _, rfl,
+            fun _ _ => rfl, fun _ _ _ _ => Iff.rfl, fun _ us => hst.2 cvj' cnP cnF hfc0 us⟩
+  have hde' : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
+      denote m'.acval env' φ d e = denote mp.base2.acval env φ d e := hde
+  refine ⟨{ base2 := m'
+            type_reads := ?_
+            type_wellDenotedTy := ?_
+            mem_type := ?_
+            defn_reads := ?_
+            nat_heads := ?_
+            nat_ops := ?_
+            div_mod := ?_
+            eq_law := ?_
+            caps_ok := ?_
+            rec_rules := hrec
+            reduce_ops := ?_
+            tower_ok := ?_
+            ind_strict := ?_
+            lfpBlocks := blocks
+            lfp_ok := hlfp }, rfl, rfl⟩
+  · -- `type_reads`
+    intro c' hc' ψ
+    obtain ⟨c, hc, tr, h1, -⟩ := hT c' hc'
+    obtain ⟨ta, hta⟩ := mp.type_reads c hc (tr ψ)
+    exact ⟨ta, by rw [h1]; exact hta⟩
+  · -- `type_wellDenotedTy`
+    intro c' hc' ψ ta hta ρ
+    obtain ⟨c, hc, tr, h1, -⟩ := hT c' hc'
+    rw [h1] at hta
+    exact mp.type_wellDenotedTy c hc _ ta hta ρ
+  · -- `mem_type`
+    intro c' hc' ψ ta hta ρ
+    obtain ⟨c, hc, tr, h1, h2⟩ := hT c' hc'
+    rw [h1] at hta
+    rw [h2]
+    exact mp.mem_type c hc _ ta hta ρ
+  · -- `defn_reads`: no pin is a definition
+    intro ψ cv v ⟨hint, hd⟩
+    obtain ⟨c, hc, hp⟩ := hmem _ hd
+    rcases hp with ⟨he, hfe⟩ | ⟨-, -, hrs, -, h4⟩
+    · subst he
+      rw [hde']
+      have hl := mp.defn_reads ψ cv v ⟨hint, hc⟩
+      rw [hl, show m'.acval cv.name ψ = mp.base2.acval cv.name ψ from congrFun (hsame hfe) ψ]
+    · exact absurd rfl (h4.not_defn (pinnedInfo_wf hrs).2 cv v hint)
+  · -- `nat_heads`
+    intro φ hsup ρ
+    have e0 : m'.acval ConLeche.natZeroName = _ := hnl (n := ConLeche.natZeroName) rfl
+    have e1 : m'.acval ConLeche.natSuccName = _ := hnl (n := ConLeche.natSuccName) rfl
+    have e2 : m'.acval ConLeche.natName = _ := hnl (n := ConLeche.natName) rfl
+    rw [e0, e1, e2]
+    exact mp.nat_heads φ (h.natLit ▸ hsup) ρ
+  · -- `nat_ops`
+    intro φ c hc cv v hint hf
+    have hc2 : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames := List.mem_append_left _ hc
+    rw [h.find_nonres (natOpNames_nonres c hc2)] at hf
+    obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc cv v hint hf
+    refine ⟨by rw [natOpGuard_ren h hc2]; exact hgu, natOpTyPinned_ren h hpin, fun eq heq => ?_⟩
+    obtain ⟨L, R, hL, hR, hval⟩ := hlaw eq heq
+    have e2 : m'.acval ConLeche.natName = _ := hnl (n := ConLeche.natName) rfl
+    exact ⟨L, R, by rw [hde']; exact hL, by rw [hde']; exact hR, by rw [e2]; exact hval⟩
+  · -- `div_mod`
+    intro φ c hc cv v hint hf
+    have hc2 : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames := List.mem_append_right _ hc
+    rw [h.find_nonres (natOpNames_nonres c hc2)] at hf
+    obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc cv v hint hf
+    refine ⟨by rw [natOpGuard_ren h hc2]; exact hgu, natOpTyPinned_ren h hpin, fun ρ x y hx hy => ?_⟩
+    have e2 : m'.acval ConLeche.natName = _ := hnl (n := ConLeche.natName) rfl
+    rw [e2] at hx hy
+    exact (divModClausesV_congr hc fun n hn => by
+      show interp V ρ (mp.base2.acval n φ) = interp V ρ (m'.acval n φ)
+      rw [hnl (dmValNames_noLps c hc n hn)]).mp (hlaw ρ x y hx hy)
+  · -- `eq_law`
+    intro ci p' hf' hp' ψ
+    rcases h.find eqName with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
+    · rw [h2] at hf'; exact nomatch hf'
+    · rw [h2] at hf'
+      obtain rfl := Option.some.inj hf'
+      have hcopy := (mp.base2.basis_pinned eqName c h1 (by decide)).1
+      have hl1 : c.toConstantVal.levelParams.length = 1 := hcopy.2.2
+      obtain ⟨p, hp⟩ : ∃ p, c.toConstantVal.levelParams = [p] := by
+        match hq : c.toConstantVal.levelParams, hl1 with
+        | [p], _ => exact ⟨p, rfl⟩
+      have hv : renTr env env' eqName ψ p = ψ p' := by
+        rw [renTr_pair h1 h2, hp, hp']
+        simp [Level.substFn, Level.eval]
+      obtain ⟨g1, g2⟩ := mp.eq_law c p h1 hp (renTr env env' eqName ψ)
+      rw [hv] at g1 g2
+      exact ⟨g1, g2⟩
+  · -- `caps_ok`: a capability law is keyed on unreserved names
+    obtain ⟨he, hu⟩ := mp.caps_ok
+    refine ⟨?_, ?_⟩
+    · intro T cvT caps hf hcap hres hfam φ' us hus
+      rw [h.find_nonres hres] at hf
+      obtain ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ := hfam
+      rw [h.find_nonres hC1] at hC2
+      obtain ⟨TVa, hTVa, hokT, hlaw, hcoh⟩ :=
+        he T cvT caps hf hcap hres ⟨hC1, ⟨cvC, cnP, cnF, hC2⟩, hC3⟩ φ' us hus
+      refine ⟨TVa, by rw [hde']; exact hTVa, hokT, ?_, ?_⟩
+      · rw [hnr hres, hnr hC1]; exact hlaw
+      · exact hcoh.transport (m₂ := m')
+          (fun _ _ _ hf₂ => by rw [h.find_nonres hC1] at hf₂; exact hf₂)
+          (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
+          (congrFun (hnr hres) _) (fun _ _ _ => rfl)
+    · intro T cvT caps hf hcap hres φ' us hus
+      rw [h.find_nonres hres] at hf
+      obtain ⟨TVa, hTVa, hokT, hlaw⟩ := hu T cvT caps hf hcap hres φ' us hus
+      refine ⟨TVa, by rw [hde']; exact hTVa, hokT, ?_⟩
+      rw [hnr hres]; exact hlaw
+  · -- `reduce_ops`
+    intro c hc cv hf hpin
+    have hres : reservedBasisNames.contains c = false :=
+      (by decide : ∀ c ∈ ConLeche.reduceOpNames, reservedBasisNames.contains c = false) c hc
+    have hel : (pinnedInfo (ConLeche.reduceElemName c)).toConstantVal.levelParams = [] :=
+      (by decide : ∀ c ∈ ConLeche.reduceOpNames,
+        (pinnedInfo (ConLeche.reduceElemName c)).toConstantVal.levelParams = []) c hc
+    rw [h.find_nonres hres] at hf
+    obtain ⟨hs, hlaw⟩ := mp.reduce_ops c hc cv hf hpin
+    refine ⟨by rw [h.isSome]; exact hs, fun ψ ρ x hx => ?_⟩
+    rw [hnl hel] at hx
+    rw [hnr hres]
+    exact hlaw ψ ρ x hx
+  · -- `tower_ok`: a table's names are unreserved
+    intro φ T i entry hf
+    rw [h.findProj] at hf
+    obtain ⟨hr1, -, hr3, -⟩ := mp.base2.proj_ok.towerHead hf
+    obtain ⟨hsn, hidx, hlt, ⟨cvT, capsT, hfT, hlpsT⟩, cvC, hfC, hlpsC, hlaw, hetaL⟩ :=
+      mp.tower_ok φ T i entry hf
+    have hTr : reservedBasisNames.contains T = false := hsn ▸ hr1
+    refine ⟨hsn, hidx, hlt, ⟨cvT, capsT, (h.find_nonres hTr).trans hfT, hlpsT⟩,
+      cvC, (h.find_nonres hr3).trans hfC, hlpsC, fun us hus => ?_, ?_⟩
+    · obtain ⟨⟨Ta, hTa, hA⟩, ⟨TCa, hTCa, hB⟩⟩ := hlaw us hus
+      refine ⟨⟨Ta, by rw [hde']; exact hTa, fun hg => ?_⟩, ⟨TCa, by rw [hde']; exact hTCa, ?_⟩⟩
+      · rw [hnr hTr]
+        exact hA (hg.mono fun _ ht => by rw [hde']; exact ht)
+      · rw [hnr hr3]
+        exact hB
+    · intro cvT' capsT' hfT' us hus
+      rw [h.find_nonres hTr] at hfT'
+      obtain ⟨TVa, hTVa, hok, hlaw', hcoh⟩ := hetaL cvT' capsT' hfT' us hus
+      refine ⟨TVa, by rw [hde']; exact hTVa, hok, ?_, fun he => ?_⟩
+      · rw [hnr hTr, hnr hr3]; exact hlaw'
+      · exact (hcoh he).transport (m₂ := m')
+          (fun _ _ _ hf₂ => by rw [h.find_nonres hr3] at hf₂; exact hf₂)
+          (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
+          (congrFun (hnr hTr) _) (fun _ _ _ => rfl)
+  · -- `ind_strict`
+    intro I cv' caps' hf' ψ ab n hread hn ρ vs hsp
+    rcases h.find I with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
+    · rw [h2] at hf'; exact nomatch hf'
+    · rw [h2] at hf'
+      obtain rfl := Option.some.inj hf'
+      obtain ⟨cv, caps, rfl⟩ := hr.symm.ind
+      rw [hde'] at hread
+      have hread' := (denote_pair mp.base2 hr ψ 0).symm.trans hread
+      have := mp.ind_strict I cv caps h1 _ ab n hread' hn ρ vs hsp
+      show Strict (vs.foldl SetTheory.app (interp V ρ (mp.base2.acval I (renTr env env' I ψ))))
+      rw [renTr_pair h1 h2]
+      exact this
+
+end Core
 
 end ConLeche.Model

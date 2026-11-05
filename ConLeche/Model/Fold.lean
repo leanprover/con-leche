@@ -14,6 +14,7 @@ import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Capstone
 import ConLeche.Model.IndCons
 import ConLeche.Model.BasisEq
+import ConLeche.Model.BasisAtBlock
 import ConLeche.Model.Swap
 import ConLeche.Semantics.DeclRun
 import ConLeche.Semantics.EnvFacts
@@ -38,7 +39,7 @@ the capstone, with input-level hypotheses only.
 The η half of the fold invariant is `declEtaStepRun`
 (`Semantics/DeclEta.lean`), model-free at every kind: no install
 obligation is consulted for it.  Every tier step is discharged
-(`axiomStepPB_of`, `basisStepPB_of`, `declBlock`); the fold carries no
+(`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB`, `declBlock`); the fold carries no
 hypothesis about the mode: the model tier is at `.verified`.
 -/
 
@@ -72,9 +73,9 @@ on the `ReduceOps` field), and the tolerated skip (`axiomSkip`, which
 stores nothing). -/
 theorem axiomStepPB_of : AxiomStepPB V := by
   intro _F _env mp _cv _env₂ hR
-  -- the `Quot.sound` arm (task #293) installs nothing
-  rcases hR with ⟨-, rfl⟩ | hR
-  · exact CoverTo.refl mp []
+  -- the `Quot.sound` arm is a quotient record
+  rcases hR with ⟨-, hq⟩ | hR
+  · exact declQuotPB mp hq
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -82,27 +83,6 @@ theorem axiomStepPB_of : AxiomStepPB V := by
   · exact axiomTrustCompiler mp hcv hname hok
   · exact axiomOfReduce mp hcv hor hok
   · exact axiomSkip mp
-
-/-- The basis kind's whole step, routed (basis tier). -/
-def BasisStepPB (V : Type w) [SetTheory V] : Prop :=
-  ∀ {env : Env} (mp : EnvModelM V env)
-    {kind : ConLeche.BasisKind} {env₂ : Env},
-      DeclBasisRun env kind env₂ →
-      CoverStep mp env₂
-
-/-- **`BasisStepPB`, discharged**: all pinned basis blocks install at
-the P tier.  `quotK` is the one branch whose
-`DeclBasisRun` guard is not vacuous: it needs `Eq` in the prefix, which
-is what the block's `Eq` bridge consumes. -/
-theorem basisStepPB_of : BasisStepPB V := by
-  intro env mp kind env₂ h
-  obtain ⟨hEq, hchain⟩ := h
-  cases kind with
-  | eqK => exact declBasisPB_eqK mp hchain
-  | natK => exact declBasisPB_natK mp hchain
-  | emptyK => exact declBasisPB_emptyK mp hchain
-  | falseK => exact declBasisPB_falseK mp hchain
-  | quotK => exact declBasisPB_quotK mp (hEq rfl) hchain
 
 /-! ## Coverage through the fold
 
@@ -166,19 +146,18 @@ theorem declStep_preserves
     subst henv2
     exact (harvestOpaque mp hrun).covered hcov
   | axiomDecl cv => exact (axiomStepPB_of mp hrun).covered hcov
-  | quotDecl k cv =>
-    -- task #293: the quotient package's `type` record installs the
-    -- pinned block; its other records install nothing
-    cases k with
-    | type => exact (basisStepPB_of mp hrun).covered hcov
-    | _ => exact (CoverTo.of_eq (show env₂ = env from hrun)).covered hcov
+  | quotDecl k cv => exact (declQuotPB mp hrun).covered hcov
   | indDecl block nP =>
-    -- task #293: a block the fold recognises as one of the five pinned
-    -- ones installs the PIN; everything else takes the `.indDecl`
-    -- dispatch
+    -- a block with a pinned block's names installs the pin at the record's
+    -- names; everything else takes the `.indDecl` dispatch
     simp only [ConLeche.Semantics.DeclRun] at hrun
     split at hrun
-    · exact (basisStepPB_of mp hrun).covered hcov
+    · next kind hk =>
+      have hnq : kind ≠ .quotK := by
+        rintro rfl
+        have hm := List.mem_of_find?_eq_some hk
+        simp at hm
+      exact (declBasisPB_at mp hnq hrun).covered hcov
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
       cases hdf : ConLeche.blockParts? nP block with
@@ -241,7 +220,8 @@ Hypotheses are **input-level only** — the accepted run, the stored
 constant, its type, plus the validating mode, which is part of the
 goal's letter (the checker the model covers *is* the verified mode;
 `--trusted` omits the certification-only work by design).  No
-residue: every tier step is discharged (`axiomStepPB_of`, `basisStepPB_of`, `declBlock`).
+residue: every tier step is discharged (`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB`,
+`declBlock`).
 
 `SetTheory V` is the standing parametricity of the consistency
 argument (project rule: consistency proofs stay parametric in the

@@ -75,7 +75,7 @@ name (`recFireComparands`), is the pin's, at every instantiation. -/
   ∀ cv mI rP isK rules, ci = .recInfo cv mI rP isK rules →
     ∀ rl ∈ rules, ∀ cvj cnP cnF,
       env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
-      ∀ us : List Level,
+      ∀ us : List Level, us.length = cv.levelParams.length →
         cvj.levelParams.map (fun p => Level.subst cv.levelParams us (.param p)) =
           (pinnedInfo (RecRule.ctor rl)).toConstantVal.levelParams.map
             (fun p => Level.subst (pinnedInfo n).toConstantVal.levelParams us (.param p))
@@ -86,8 +86,8 @@ theorem PinLinked.mono {env env' : Env} {n : Name} {ci : ConstantInfo}
     (hc : ∀ x cvj cnP cnF, env'.find? x = some (.ctorInfo cvj cnP cnF) →
       env.find? x = some (.ctorInfo cvj cnP cnF)) :
     PinLinked env' n ci :=
-  fun cv mI rP isK rules hci rl hrl cvj cnP cnF hf us =>
-    h cv mI rP isK rules hci rl hrl cvj cnP cnF (hc _ _ _ _ hf) us
+  fun cv mI rP isK rules hci rl hrl cvj cnP cnF hf us hus =>
+    h cv mI rP isK rules hci rl hrl cvj cnP cnF (hc _ _ _ _ hf) us hus
 
 /-- Every stored reserved-basis constant is a copy of the pinned
 *declaration*, links its constructors as the pin does, and — where the

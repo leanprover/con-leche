@@ -255,7 +255,7 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
   ⟨hwf, hvclosed, fun hres =>
     have hself := pinCopy_self hres
     ⟨hpinned ▸ hself, by
-      intro cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us
+      intro cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us _
       obtain ⟨cvj', cnP', cnF', hf', hp⟩ := hctors cv mI rP isK rules hci rl hrl
       rw [ConLeche.Env.find?_cons] at hfc
       split at hfc

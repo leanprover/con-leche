@@ -104,6 +104,16 @@ theorem eqReflSpine_data {ψ : Name → Nat} {i j : Nat} {ρ : Nat → V}
 
 /-! ## `Eq` and `Eq.refl` -/
 
+/-- `Eq` at the pin's own parameter, at a later cons. -/
+theorem denote_eqPinLeaf {c₀ : ConstantInfo} {m : EnvModel V env} {A : (Name → Nat) → Term}
+    (ψ : Name → Nat) (hne : ¬ c₀.name = eqName) (hE : env.find? eqName = some eqA) (d : Nat) :
+    denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ d
+        (.const eqName [.param uN]) = some (m.acval eqName ψ) := by
+  have hf' : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? eqName = some eqA := by
+    rw [ConLeche.Env.find?_cons, ite_eq_right hne]; exact hE
+  rw [denote_const hf' rfl, acvalWith_ne (fun h => hne h.symm)]
+  exact congrArg (fun ψ' => some (m.acval eqName ψ')) (Level.substFn_param_self ψ [uN])
+
 /-- `Eq`'s type reading. -/
 @[expose] def eqTy (ψ : Name → Nat) : Term :=
   .pi (.sort (ψ uN)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))
@@ -154,10 +164,7 @@ theorem denote_eqReflTy {c₀ : ConstantInfo} (ψ : Name → Nat)
       denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ d
         (.const eqName [.param uN]) = some (eqValT ψ) := by
     intro d
-    rw [denote_eqLeaf (m := m) (A := A) ψ (Level.param uN) hne hE d,
-      show ([Level.param uN] : List Level)
-        = List.map Level.param [uN] from rfl,
-      Level.substFn_param_self ψ [uN], hEv]
+    rw [denote_eqPinLeaf (m := m) (A := A) ψ hne hE d, hEv]
   rw [show eqReflA.toConstantVal.type
       = Expr.forallE (.sort (.param uN))
           (Expr.forallE (.bvar 0)
@@ -610,11 +617,7 @@ theorem denote_eqRecA_type (ψ : Name → Nat)
         ⟨eqRecA :: env.consts, env.tables⟩ ψ d (.const eqName [.param uN])
         = some (eqValT ψ) := by
     intro d
-    rw [denote_eqLeaf (m := m) (A := A) ψ (Level.param uN)
-        (by decide) hE d,
-      show ([Level.param uN] : List Level)
-        = List.map Level.param [uN] from rfl,
-      Level.substFn_param_self ψ [uN], hEv]
+    rw [denote_eqPinLeaf (m := m) (A := A) ψ (by decide) hE d, hEv]
   have hRc : ∀ d : Nat,
       denote (acvalWith m.acval eqRecA.name A)
         ⟨eqRecA :: env.consts, env.tables⟩ ψ d (.const eqReflName [.param uN])
@@ -664,11 +667,7 @@ theorem denote_eqRec_rhs (ψ : Name → Nat)
         ⟨eqRecA :: env.consts, env.tables⟩ ψ d (.const eqName [.param uN])
         = some (eqValT ψ) := by
     intro d
-    rw [denote_eqLeaf (m := m) (A := A) ψ (Level.param uN)
-        (by decide) hE d,
-      show ([Level.param uN] : List Level)
-        = List.map Level.param [uN] from rfl,
-      Level.substFn_param_self ψ [uN], hEv]
+    rw [denote_eqPinLeaf (m := m) (A := A) ψ (by decide) hE d, hEv]
   have hRc : ∀ d : Nat,
       denote (acvalWith m.acval eqRecA.name A)
         ⟨eqRecA :: env.consts, env.tables⟩ ψ d (.const eqReflName [.param uN])
@@ -1223,13 +1222,16 @@ theorem extendEqRec (mp : EnvModelM V env)
     · exact eqRecLaw (m := mp.base2) m₂ hE hR hEv hRv hac φ
     · exact nomatch hr'
 
-/-- **The `Eq` block, installed at the P tier.**  `BasisStepPB`'s
-`eqK` branch — the block whose chain reads its own earlier leaves, and
-so the one that consumes the install's exposed `acval`. -/
+/-- **The `Eq` block, installed at the P tier**, at the pin's own names — the
+block whose chain reads its own earlier leaves, and so the one that consumes
+the install's exposed `acval`; with its former's and constructor's leaves,
+which the block at other names reads. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.eqK.decls env₁) :
-    CoverStep mp env₁ := by
+    ∃ mp' : EnvModelM V env₁, (LfpCover mp [] → LfpCover mp' []) ∧
+      (∀ ψ : Name → Nat, mp'.base2.acval eqName ψ = eqValT ψ) ∧
+      ∀ ψ : Name → Nat, mp'.base2.acval eqReflName ψ = eqReflValT ψ := by
   rw [show ConLeche.BasisKind.eqK.decls = [eqA, eqReflA, eqRecA]
     from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
@@ -1384,10 +1386,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
           simp [Expr.constsResolve, eqRecRule, hfE, hfR], rfl,
           fun lvls pins heqf => nomatch heqf⟩
       · exact nomatch hr'
-  obtain ⟨mp3, -, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
+  obtain ⟨mp3, hac3, hc3⟩ := extendEqRec mp2' hE2 hR2 hEv2 hRv2 hf3 hwf3 (ex := [])
   -- coverage: `Eq`'s former opened the exemption list, its record
   -- closes it
-  exact ⟨mp3, fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
+  refine ⟨mp3, fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
     (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))
     (lfpOwn_one (T := eqName) (cs := [(eqReflA.toConstantVal, 2, 0)]) rfl rfl hE2
@@ -1404,7 +1406,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         obtain ⟨rfl, rfl⟩ := h
         obtain rfl : j = 0 := by simp at hj; omega
         exact ⟨_, [.bvar 1, .bvar 0, .bvar 0], rfl, fun _ => rfl⟩))
-    (filter_not_mem_self _))⟩
+    (filter_not_mem_self _)), fun ψ => ?_, fun ψ => ?_⟩
+  · rw [hac3, acvalWith_ne (by decide)]
+    exact hEv2 ψ
+  · rw [hac3, acvalWith_ne (by decide)]
+    exact hRv2 ψ
 
 end Eq
 
