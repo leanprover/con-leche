@@ -2185,7 +2185,7 @@ and the result is the reduced constructor form. -/
 theorem litMajorToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
     (h : litMajorToCtorFueled mode eager env fuel d e = .ok e₁) :
     e₁ = litToCtorIfNat env e ∨
-    ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
+    ∃ s, e = .lit (.strVal s) ∧ strLitStored env = true ∧
       whnf mode eager env fuel d (strLitToConstructor s) = .ok e₁ := by
   match e with
   | .lit (.strVal s) =>
@@ -2214,7 +2214,7 @@ result is the reduced constructor form. -/
 theorem projLitToCtorFueled_inv {env : Env} {fuel d : Nat} {e e₁ : Expr}
     (h : projLitToCtorFueled mode eager env fuel d e = .ok e₁) :
     e₁ = e ∨
-    ∃ s, e = .lit (.strVal s) ∧ strLitSupported env = true ∧
+    ∃ s, e = .lit (.strVal s) ∧ strLitStored env = true ∧
       whnf mode eager env fuel d (strLitToConstructor s) = .ok e₁ := by
   match e with
   | .lit (.strVal s) =>
@@ -2244,7 +2244,7 @@ theorem reduceProjCore_pres {env : Env} {fuel d : Nat} {sn : Name} {i : Nat}
     {c m : Expr} (P : Expr → Prop)
     (hargs : ∀ {x : Expr}, P x → ∀ y ∈ x.getAppArgs, P y)
     (hW : ∀ {x y : Expr}, whnf mode eager env fuel d x = .ok y → P x → P y)
-    (hstr : ∀ s, strLitSupported env = true → P (strLitToConstructor s))
+    (hstr : ∀ s, strLitStored env = true → P (strLitToConstructor s))
     (h : reduceProjCoreFueled mode eager env fuel d sn i c = .ok (some m)) (hc : P c) :
     P m := by
   obtain ⟨e₃, us, entry, hlit, -, -, hi, hlen, -, rfl, -⟩ := reduceProjCore_inv h

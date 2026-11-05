@@ -57,9 +57,9 @@ theorem envWF_cons_blockInd {p₁ : BlockShape} {isRec : Bool} {i : Nat} {env : 
     (h1 : cvTa.type.hasFvar = false)
     (h2 : cvTa.type.allLevelParamsDefined cvTa.levelParams = true)
     (h3 : cvTa.type.constsResolve env = true)
-    (h4 : cvTa.type.looseBVarsBounded 0 = true) :
+    (h4 : cvTa.type.looseBVarsBounded 0 = true) (hs : LitShapeAt cvTa) :
     EnvWF ⟨.indInfo cvTa (blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ := by
-  refine EnvWF.cons henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
+  refine EnvWF.cons (hs _ rfl) henv (structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
     (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
 
 /-- **The k formers' conses keep well-formedness.** -/
@@ -69,31 +69,33 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
       (∀ cvTa ∈ cvTas, cvTa.type.hasFvar = false ∧
         cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
         cvTa.type.constsResolve env = true ∧
-        cvTa.type.looseBVarsBounded 0 = true) →
+        cvTa.type.looseBVarsBounded 0 = true ∧ LitShapeAt cvTa) →
       EnvWF (consBlockInds p₁ isRec cvTas i env)
   | [], _, _, henv, _ => henv
   | cvTa :: rest, i, env, henv, hall => by
     simp only [consBlockInds]
     refine envWF_consBlockInds ?_ ?_
-    · obtain ⟨h1, h2, h3, h4⟩ := hall cvTa List.mem_cons_self
-      exact envWF_cons_blockInd henv h1 h2 h3 h4
+    · obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa List.mem_cons_self
+      exact envWF_cons_blockInd henv h1 h2 h3 h4 h5
     · intro cvTa' hc'
-      obtain ⟨h1, h2, h3, h4⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
-      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
+      obtain ⟨h1, h2, h3, h4, h5⟩ := hall cvTa' (List.mem_cons_of_mem _ hc')
+      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
 
 /-- A member's declared former is the one its check reads, or checked apart. -/
 @[expose] def MemberDeclaredWF (env : Env) (ms : MemberShape) : Prop :=
   ms.declared = ms.cvT ∨
     (ms.declared.type.hasFvar = false ∧
       ms.declared.type.allLevelParamsDefined ms.declared.levelParams = true ∧
-      ms.declared.type.constsResolve env = true ∧ ms.declared.type.looseBVarsBounded 0 = true)
+      ms.declared.type.constsResolve env = true ∧ ms.declared.type.looseBVarsBounded 0 = true ∧
+      LitShapeAt ms.declared)
 
 /-- A member under check meets `MemberDeclaredWF`. -/
 theorem MemberAt.declaredWF {F : Nat} {env : Env} {nP : Nat} {m : MemberShape}
     (h : MemberAt F env nP m) : MemberDeclaredWF env m := by
   rcases h.how with ⟨-, he⟩ | ⟨-, -, hc, -⟩
   · exact .inl he.symm
-  · exact .inr (checkConstantVal_typeWF hc)
+  · obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hc
+    exact .inr ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hc⟩
 
 /-- **Stage 1 at the run level**: the environment holding the k formers
 is well-formed, and every checked former's type is closed. -/
@@ -108,19 +110,20 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
       cvTa.type.hasFvar = false ∧
       cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
       cvTa.type.constsResolve env = true ∧
-      cvTa.type.looseBVarsBounded 0 = true := by
+      cvTa.type.looseBVarsBounded 0 = true ∧ LitShapeAt cvTa := by
     intro cvTa hcv
     have step : ∀ (ms : MemberShape) (s : Level),
         checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cvTa, s) →
         cvTa.type.hasFvar = false ∧
         cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
         cvTa.type.constsResolve env = true ∧
-        cvTa.type.looseBVarsBounded 0 = true := by
+        cvTa.type.looseBVarsBounded 0 = true ∧ LitShapeAt cvTa := by
       intro ms s hte
       obtain ⟨cvT, -, -, heq, hccv, bs, hstrip⟩ := checkBlockTele_shape hte
       obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hccv
-      rw [← heq] at g1 g2 g3 g4
-      exact ⟨g1, g2, g3, g4⟩
+      have g5 := checkConstantVal_litShapeAt hccv
+      rw [← heq] at g1 g2 g3 g4 g5
+      exact ⟨g1, g2, g3, g4, g5⟩
     simp only [List.mem_cons] at hcv
     rcases hcv with rfl | hcv
     · exact step ms0 s0 hq
@@ -159,7 +162,8 @@ theorem envWF_consBlockCtors {nP : Nat} :
       EnvWF env →
       (∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, c.1.type.hasFvar = false ∧
         c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
-        c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true) →
+        c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true ∧
+        LitShapeAt c.1) →
       EnvWF (consBlockCtors nP ctorsAs env)
   | [], _, henv, _ => henv
   | ctorsA :: rest, env, henv, hall => by
@@ -167,8 +171,8 @@ theorem envWF_consBlockCtors {nP : Nat} :
     refine envWF_consBlockCtors
       (envWF_consSumCtors henv (hall ctorsA List.mem_cons_self)) ?_
     intro ctorsA' hc' c hc
-    obtain ⟨h1, h2, h3, h4⟩ := hall ctorsA' (List.mem_cons_of_mem _ hc') c hc
-    exact ⟨h1, h2, constsResolve_consSumCtors h3, h4⟩
+    obtain ⟨h1, h2, h3, h4, h5⟩ := hall ctorsA' (List.mem_cons_of_mem _ hc') c hc
+    exact ⟨h1, h2, constsResolve_consSumCtors h3, h4, h5⟩
 
 /-- **Stage 1b at the run level**: the environment holding the k
 formers and all the constructors is well-formed. -/
@@ -412,7 +416,8 @@ theorem envWF_consBlockRecsR
         rl.rhs ∈ r.2.1 ∧
         ∀ lvls pins, rl.fire = .nested lvls pins →
           NestedRead (·.constsResolve env) r.1.levelParams r.1.type (q.majorIdxAt j)
-            (q.rulePrefixAt j) pins.length lvls pins) :
+            (q.rulePrefixAt j) pins.length lvls pins)
+    (hlit : ∀ r ∈ rs, LitShapeAt r.1) :
     EnvWF (consBlockRecsR R q 0 rs env) := by
   have hdomEnv : ∀ n, (env.find? n).isSome = true →
       ((consBlockRecsR R q 0 rs env).find? n).isSome = true :=
@@ -421,8 +426,12 @@ theorem envWF_consBlockRecsR
       ((consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env).find? n).isSome = true →
       ((consBlockRecsR R q 0 rs env).find? n).isSome = true :=
     find?_consBlockRecsR_of_bare (fun _ hn => hn)
-  refine ⟨fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
     (henv.tables t (by rw [consBlockRecsR_tables] at ht; exact ht))⟩
+  rotate_left
+  · rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
+    · exact henv.shapes c hc'
+    · exact hlit r (List.mem_of_getElem? hr) _ rfl
   rcases mem_consBlockRecsR hc with hc' | ⟨j, r, hr, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]
@@ -454,10 +463,11 @@ theorem envWF_consBlockRecs {q : BlockShape}
       ∀ rhs ∈ r.2.1, rhs.hasFvar = false ∧
         rhs.allLevelParamsDefined r.1.levelParams = true ∧
         rhs.constsResolve (consBlockRecsBare q 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
-        rhs.looseBVarsBounded 0 = true) :
+        rhs.looseBVarsBounded 0 = true)
+    (hlit : ∀ r ∈ rs, LitShapeAt r.1) :
     EnvWF (consBlockRecs q 0 rs env) := by
   rw [consBlockRecs_eq_R]
-  refine envWF_consBlockRecsR henv hall fun j r _ rl hrl => ?_
+  refine envWF_consBlockRecsR henv hall (fun j r _ rl hrl => ?_) hlit
   obtain ⟨hmem, hfire⟩ := sumRules_mem hrl
   exact ⟨hmem, fun lvls pins hf => absurd hf (hfire lvls pins)⟩
 

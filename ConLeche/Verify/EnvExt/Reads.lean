@@ -243,23 +243,23 @@ theorem towerSlotsAll_ext {T : Name} (hT : (env₁.find? T).isSome = true) (nF :
 
 theorem natLit_ext (hn : (env₁.find? natName).isSome = true ∨
     (env₁.find? natZeroName).isSome = true ∨ (env₁.find? natSuccName).isSome = true) :
-    natLitSupported env₂ = natLitSupported env₁ := by
+    natLitStored env₂ = natLitStored env₁ := by
   obtain ⟨h₁, h₂, h₃⟩ := hx.facts.natTrio hn
-  unfold natLitSupported
+  unfold natLitStored
   rw [hx.find_of_isSome h₁, hx.find_of_isSome h₂, hx.find_of_isSome h₃]
 
 /-- A resolved `Nat` literal's support. -/
 theorem natLit_of_res {n : Nat} (h : Res env₁ (.lit (.natVal n))) :
-    natLitSupported env₂ = natLitSupported env₁ := by
+    natLitStored env₂ = natLitStored env₁ := by
   simp only [Res, Expr.constsResolve, Bool.and_eq_true] at h
   exact natLit_ext hx (.inl h.1.1)
 
 /-- A resolved `String` literal's support. -/
 theorem strLit_of_res {s : String} (h : Res env₁ (.lit (.strVal s))) :
-    strLitSupported env₂ = strLitSupported env₁ := by
+    strLitStored env₂ = strLitStored env₁ := by
   simp only [Res, Expr.constsResolve, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨h₁, h₂⟩, h₃⟩, h₄⟩, h₅⟩, h₆⟩, h₇⟩, h₈⟩, h₉⟩, h₁₀⟩ := h
-  unfold strLitSupported natLitSupported
+  unfold strLitStored natLitStored
   rw [hx.find_of_isSome h₁, hx.find_of_isSome h₂, hx.find_of_isSome h₃, hx.find_of_isSome h₄,
     hx.find_of_isSome h₅, hx.find_of_isSome h₆, hx.find_of_isSome h₇, hx.find_of_isSome h₈,
     hx.find_of_isSome h₉, hx.find_of_isSome h₁₀]

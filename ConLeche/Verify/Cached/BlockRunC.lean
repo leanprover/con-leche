@@ -348,14 +348,18 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
     (henv : EnvWF env)
     (hall : ∀ c ∈ cvRas, c.1.type.hasFvar = false ∧
       c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
-      c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true) :
+      c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true)
+    (hlit : ∀ c ∈ cvRas, LitShapeAt c.1) :
     EnvWF (consBlockRecsBare q 0 cvRas env) := by
   rw [consBlockRecsBare_eq_consBlockRecs q]
-  refine envWF_consBlockRecs henv ?_
-  intro r hr
-  obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
-  obtain ⟨h1, h2, h3, h4⟩ := hall c hc
-  exact ⟨h1, h2, h3, h4, fun _ h => nomatch h⟩
+  refine envWF_consBlockRecs henv ?_ ?_
+  · intro r hr
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
+    obtain ⟨h1, h2, h3, h4⟩ := hall c hc
+    exact ⟨h1, h2, h3, h4, fun _ h => nomatch h⟩
+  · intro r hr
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
+    exact hlit c hc
 
 /-- The projection tables' checks at the cached driver: operation-free, the state unchanged, the
 verdict the pure stage's. -/

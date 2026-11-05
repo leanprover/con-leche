@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Kernel.Checker
 
+public import ConLeche.Verify.EnvWF
 public section
 
 /-!
@@ -63,6 +64,9 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
     rw [ite_eq_left hop] at h
     exact nomatch h
   simp only [hop] at h
+  by_cases hshape : litShapeOk (.axiomInfo cv) = true
+  case neg => simp [hshape] at h
+  simp only [hshape] at h
   by_cases hnd : Name.nodup cv.levelParams = true
   case neg => simp [hnd] at h
   simp only [hnd] at h
@@ -93,6 +97,31 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
   exact ⟨hfind0, by simpa using hres, hnd, hlb,
     by simpa using hif,
     stype, u, htp, htr, by first | rfl | exact hst, by first | rfl | exact hsort⟩
+
+/-- A constant's check says its shape at a literal's name. -/
+theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) :
+    litShapeOk (.axiomInfo cv) = true := by
+  by_cases hs : litShapeOk (.axiomInfo cv) = true
+  · exact hs
+  exfalso
+  simp only [checkConstantVal, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  by_cases hfind : (env.find? cv.name).isSome = true
+  · simp [hfind] at h
+  simp only [hfind] at h
+  by_cases hres : reservedBasisNames.contains cv.name = true
+  · rw [ite_eq_left hres] at h
+    exact nomatch h
+  simp only [hres] at h
+  by_cases hop : (natOpName cv.name && !a) = true
+  · rw [ite_eq_left hop] at h
+    exact nomatch h
+  simp only [hop] at h
+  simp [hs] at h
+
+theorem checkConstantVal_litShapeAt {env : Env} {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) : LitShapeAt cv :=
+  litShapeAt_of_check (checkConstantVal_inv h).2.1 (checkConstantVal_shape h)
 
 /-- Only a definition takes a certified operation's name. -/
 theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a : Bool}

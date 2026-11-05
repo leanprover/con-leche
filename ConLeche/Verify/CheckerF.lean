@@ -141,7 +141,7 @@ theorem checkConstantValF_eq (ops : CheckerOps m) (env : Env)
     (cv : ConstantVal) {a : Bool} :
     checkConstantValF ops (mkFEnv env) cv a = checkConstantVal ops env cv a := by
   simp only [checkConstantValF, checkConstantVal, mkFEnv_find?,
-    constsResolveF_eq, strLitSupportedF_eq] <;> rfl
+    constsResolveF_eq, strLitStoredF_eq] <;> rfl
 
 /-! ### The direct simple-structure path (task #82) -/
 

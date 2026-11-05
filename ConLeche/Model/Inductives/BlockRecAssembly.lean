@@ -292,7 +292,7 @@ theorem blockRecStaged_runR {envC : Env}
     (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2)
     (fun r hr => ConLeche.recStage_opName h r hr)
     (fun r hr => ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1,
-      (hfacts r hr).2.2.2.1⟩)
+      (hfacts r hr).2.2.2.1, ConLeche.litShapeAt_of_reservedRec (ConLeche.recStage_reserved h r hr)⟩)
     hag (fun r hr => (hL r hr).1) (fun r hr => (hL r hr).2.1)
     (fun r hr => (hL r hr).2.2)
     (hrd_of_pre mpC h rfl

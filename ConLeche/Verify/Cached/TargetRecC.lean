@@ -329,7 +329,8 @@ theorem envWF_consBlockRecsT {q : BlockShape}
     (hread : ∀ i t, out[i]? = some t → t.2.1.member = none →
       NestedRead (·.constsResolve env) t.1.levelParams t.1.type (q.majorIdxAt i)
         (q.rulePrefixAt i) t.2.1.nPc t.2.1.lvls
-        (t.2.1.ds.map (Expr.abstractPrefix (q.rulePrefixAt i) 0))) :
+        (t.2.1.ds.map (Expr.abstractPrefix (q.rulePrefixAt i) 0)))
+    (hlit : ∀ t ∈ out, LitShapeAt t.1) :
     EnvWF (consBlockRecsT q 0 out env) := by
   have hdomEnv : ∀ n, (env.find? n).isSome = true →
       ((consBlockRecsT q 0 out env).find? n).isSome = true :=
@@ -339,8 +340,12 @@ theorem envWF_consBlockRecsT {q : BlockShape}
         = true →
       ((consBlockRecsT q 0 out env).find? n).isSome = true :=
     find?_consBlockRecsT_of_bare (fun _ hn => hn)
-  refine ⟨fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
+  refine ⟨fun c hc => ?_, fun c hc => ?_, fun t ht => TableWF.mono hdomEnv
     (henv.tables t (by rw [consBlockRecsT_tables] at ht; exact ht))⟩
+  rotate_left
+  · rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
+    · exact henv.shapes c hc'
+    · exact hlit t (List.mem_of_getElem? hti) _ rfl
   rcases mem_consBlockRecsT hc with hc' | ⟨i, t, hti, rfl⟩
   · exact ConstWF.mono hdomEnv (henv.consts c hc')
   · rw [Nat.zero_add]

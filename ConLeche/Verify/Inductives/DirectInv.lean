@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.BridgeWfImp
 public import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.FastOps
+import ConLeche.Verify.Extend.Inversions
 import ConLeche.Kernel.Inductives.SumInstall
 
 public section
@@ -442,9 +443,11 @@ theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
     (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
       cvC nF cvTa = .ok (cvCa, sorts)) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
-    cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true := by
+    cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true ∧
+    LitShapeAt cvCa := by
   obtain ⟨⟨rfl, hccv⟩, -, -⟩ := checkSumCtor_shape h
-  exact checkConstantVal_typeWF hccv
+  obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hccv
+  exact ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hccv⟩
 
 /-- A name fresh above the constructors' conses is fresh below them
 (#210). -/
@@ -468,18 +471,18 @@ theorem envWF_consSumCtors {nP : Nat} :
       EnvWF env →
       (∀ c ∈ ctorsA, c.1.type.hasFvar = false ∧
         c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
-        c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true) →
+        c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt c.1) →
       EnvWF (consSumCtors nP ctorsA env)
   | [], _, henv, _ => henv
   | c :: cs, env, henv, hall => by
     simp only [consSumCtors]
-    obtain ⟨htf, htp, htr, htb⟩ := hall c List.mem_cons_self
+    obtain ⟨htf, htp, htr, htb, hts⟩ := hall c List.mem_cons_self
     refine envWF_consSumCtors ?_ ?_
-    · exact EnvWF.cons henv (structConstWF htf htp (Expr.constsResolve_mono htr) htb
+    · exact EnvWF.cons (hts _ rfl) henv (structConstWF htf htp (Expr.constsResolve_mono htr) htb
         (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
     · intro c' hc'
-      obtain ⟨h1, h2, h3, h4⟩ := hall c' (List.mem_cons_of_mem _ hc')
-      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4⟩
+      obtain ⟨h1, h2, h3, h4, h5⟩ := hall c' (List.mem_cons_of_mem _ hc')
+      exact ⟨h1, h2, Expr.constsResolve_mono h3, h4, h5⟩
 
 /-- The stored rules carry the generated right-hand sides and are
 never `.nested`. -/

@@ -79,7 +79,7 @@ theorem installHeaderC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     installHeaderC fe₁ = installHeaderC fe₂ := by
   funext cv
   unfold installHeaderC
-  simp only [constsResolveFC_congr hfe, hfe, strLitSupportedF_congr hfe]
+  simp only [constsResolveFC_congr hfe, hfe, strLitStoredF_congr hfe]
 
 /-- `installValueGuardsC` reads its index through `find?` alone (the knot and
 `constsResolveFC`), so it is congruent in the index: phase B's
@@ -89,7 +89,7 @@ theorem installValueGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe�
     installValueGuardsC fe₁ = installValueGuardsC fe₂ := by
   funext cv value
   unfold installValueGuardsC
-  simp only [constsResolveFC_congr hfe, strLitSupportedF_congr hfe]
+  simp only [constsResolveFC_congr hfe, strLitStoredF_congr hfe]
 
 /-- Phase A's value install reads its index through `find?` alone. -/
 theorem installGuardsC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) :

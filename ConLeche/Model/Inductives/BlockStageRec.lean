@@ -105,7 +105,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         r.1.type.hasFvar = false ∧
         r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
         r.1.type.constsResolve env = true ∧
-        r.1.type.looseBVarsBounded 0 = true) →
+        r.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt r.1) →
       (∀ n : Name, (∀ r ∈ ls, n ≠ r.1.name) → acv n = mp.base2.acval n) →
       (∀ r ∈ ls, ∀ ψ : Name → Nat, Term.Closed (acv r.1.name ψ)) →
       (∀ r ∈ ls, ∀ ψ₁ ψ₂ : Name → Nat,
@@ -125,7 +125,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     rw [List.map_cons, List.nodup_cons] at hnd
     have hnrr : ∀ r ∈ rest, r.1.name ≠ r0.1.name := fun r hr hh =>
       hnd.1 (List.mem_map.mpr ⟨r, hr, hh⟩)
-    obtain ⟨h1, h2, h3, h4⟩ := hty r0 hmem0
+    obtain ⟨h1, h2, h3, h4, h5⟩ := hty r0 hmem0
     have hcb : ConstsBound env r0.1.type := constsBound_of_constsResolve _ h3
     have hreadUp : ∀ ψ : Name → Nat, ∃ ta : Term,
         denote (acvalWith mp.base2.acval r0.1.name (acv r0.1.name))
@@ -143,7 +143,7 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
         (c₀ := .recInfo r0.1 (q.majorIdxAt m) (q.rulePrefixAt m) false []) mp hfresh (hnres r0 hmem0) (hop r0 hmem0)
         ⟨r0.1, q.majorIdxAt m, q.rulePrefixAt m, false, [], rfl⟩
         (ConsHead.ofFresh
-          (ConLeche.EnvWF.cons mp.base2.wf
+          (ConLeche.EnvWF.cons (h5 _ rfl) mp.base2.wf
             (ConLeche.structConstWF h1 h2 (Expr.constsResolve_mono h3) h4
               (fun _ _ _ heq => nomatch heq)
               (fun _ _ _ _ rules heq r hr => by
@@ -186,8 +186,8 @@ theorem envModelM_consBlockRecsBare {q : BlockShape}
     · exact fun r hr => hnres r (List.mem_cons_of_mem _ hr)
     · exact fun r hr => hop r (List.mem_cons_of_mem _ hr)
     · intro r hr
-      obtain ⟨g1, g2, g3, g4⟩ := hty r (List.mem_cons_of_mem _ hr)
-      exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
+      obtain ⟨g1, g2, g3, g4, g5⟩ := hty r (List.mem_cons_of_mem _ hr)
+      exact ⟨g1, g2, Expr.constsResolve_mono g3, g4, g5⟩
     · intro n hn
       rw [hac₁]
       show acv n = acvalWith mp.base2.acval r0.1.name (acv r0.1.name) n
@@ -441,7 +441,7 @@ variable {R : Nat → RecDatum → Bool × List RecRule} {q : BlockShape} {rs : 
     r.1.type.hasFvar = false ∧
     r.1.type.allLevelParamsDefined r.1.levelParams = true ∧
     r.1.type.constsResolve envC = true ∧
-    r.1.type.looseBVarsBounded 0 = true)
+    r.1.type.looseBVarsBounded 0 = true ∧ LitShapeAt r.1)
   (hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) → acv n = mpC.base2.acval n)
   (hcl : ∀ r ∈ rs, ∀ ψ : Name → Nat, Term.Closed (acv r.1.name ψ))
   (hpar : ∀ r ∈ rs, ∀ ψ₁ ψ₂ : Name → Nat,
@@ -580,13 +580,14 @@ theorem blockRecStaged_of
   obtain ⟨mp', hac'⟩ :=
     envModelM_consBlockRecsR mpC hnd hfr hnres hop hty hag hcl hpar hok hrd
       (ConLeche.envWF_consBlockRecsR mpC.base2.wf
-        (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2,
+        (fun r hr => ⟨(hty r hr).1, (hty r hr).2.1, (hty r hr).2.2.1, (hty r hr).2.2.2.1,
           fun rhs hrhs' => hrhs r hr rhs hrhs'⟩)
         (fun j r hr rl hrl => by
           obtain ⟨i, cA, rhs, -, hrhs', rfl⟩ := hshape j r hr rl hrl
           refine ⟨List.mem_of_getElem? hrhs', fun lvls pins hf => ?_⟩
           obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩ := hnest j r hr lvls pins hf
-          exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, rfl⟩))
+          exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, rfl⟩)
+        (fun r hr => (hty r hr).2.2.2.2))
       (recCtorsHead_consBlockRecsR (R := R) hshape hfr hctorsIn) hrecP
   refine ⟨mp', fun n hn => by rw [hac']; exact hag n (hne n hn), hkeep, ?_⟩
   · -- the readings of the constructors' environment survive, verbatim

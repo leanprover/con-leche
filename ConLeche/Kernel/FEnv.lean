@@ -287,6 +287,17 @@ def strLitSupportedF (fe : FEnv) : Bool :=
     charTyOk (fe.find? charName) &&
     charOfNatTyOk (fe.find? charOfNatName)
 
+/-- `natLitStored` through the index. -/
+def natLitStoredF (fe : FEnv) : Bool :=
+  (fe.find? natName).isSome && (fe.find? natZeroName).isSome && (fe.find? natSuccName).isSome
+
+/-- `strLitStored` through the index. -/
+def strLitStoredF (fe : FEnv) : Bool :=
+  natLitStoredF fe && (fe.find? stringName).isSome && (fe.find? stringOfListName).isSome &&
+    (fe.find? listName).isSome && (fe.find? listNilName).isSome &&
+    (fe.find? listConsName).isSome && (fe.find? charName).isSome &&
+    (fe.find? charOfNatName).isSome
+
 /-- `natOpGuard` through the index. -/
 def natOpGuardF (fe : FEnv) (c : Name) : Bool :=
   natLitSupportedF fe &&

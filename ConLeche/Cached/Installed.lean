@@ -108,6 +108,8 @@ def installHeaderC (fe : FEnv) (cv : ConstantVal) :
     throw (.invalid s!"reserved basis name {cv.name}")
   if natOpName cv.name then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless Expr.looseBVarsBounded 0 cv.type do
@@ -117,7 +119,7 @@ def installHeaderC (fe : FEnv) (cv : ConstantVal) :
   unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
 
 /-- The value's syntactic guards (those of `checkDefnValCI`, without its
 inference) — `installValueGuards`'s cached twin. -/
@@ -129,7 +131,7 @@ def installValueGuardsC (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM 
   unless Expr.allLevelParamsDefinedC cv.levelParams value do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe value do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"value of {cv.name}" value)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"value of {cv.name}" value)
 
 /-- Phase A's guards of a separable value declaration: the
 per-declaration flush, then the header's and the value's guards. -/

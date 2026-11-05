@@ -753,7 +753,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     have hck := hctorLt c j cA hj
     obtain ⟨cvTa, hcv⟩ := hcvOf c hck
     obtain ⟨c', sorts, -, -, -, -, -, -, -, -, -, -, hCtor⟩ := (hfacts c cvTa hck hcv).2 j cA hj
-    obtain ⟨hf, -, -, hb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
+    obtain ⟨hf, -, -, hb, -⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
     exact ⟨hf, hb⟩
   have hlpsZ : ∀ (c j : Nat) (cA : ConstantVal × Nat), (dZ.ctorsM c)[j]? = some cA →
       cA.1.levelParams = q.lps := by
@@ -846,8 +846,18 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       rw [hnm]
       exact hn cvTb hb
   have hWI : ConLeche.WhnfNamesFree envI q.memberNames := by
-    exact ConLeche.whnfNamesFree_formers mp.base2.wf hnamesIff hfindMI hfreshI hII
-      (by rw [hcons]; exact consBlockInds_tables _ 0 env) hboolM
+    refine ConLeche.whnfNamesFree_formers mp.base2.wf hnamesIff hfindMI hfreshI hII
+      (by rw [hcons]; exact consBlockInds_tables _ 0 env) hboolM fun n c hc => ?_
+    by_cases hn : ∀ cvTb ∈ cvTas, cvTb.name ≠ n
+    · rw [hII n hn] at hc
+      exact mp.base2.wf.shapes c (ConLeche.Env.find?_mem hc)
+    · obtain ⟨cvTb, hcvTb, rfl⟩ : ∃ cvTb ∈ cvTas, cvTb.name = n := by
+        simpa using hn
+      obtain ⟨t, ht⟩ := List.getElem?_of_mem hcvTb
+      obtain ⟨cvS, hfS, hDS⟩ := (hfindD t cvTb ht).1
+      rw [hfS] at hc
+      obtain rfl := Option.some.inj hc
+      exact hDS.shape _ rfl
   -- the formers' types resolve before the block: they name no member
   have hTyI : ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
       cvTb.type.occDeep q.memberNames = false := fun c cvTb hcv =>

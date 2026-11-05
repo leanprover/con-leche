@@ -397,7 +397,7 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
       constsBound_of_constsResolve _ (hres i cvTa hi)
     have hwfI : ConLeche.EnvWF
         ⟨.indInfo cvS (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ :=
-      ConLeche.envWF_cons_blockInd mp.base2.wf hD.fvar hD.defined hD.resolve hD.bounded
+      ConLeche.envWF_cons_blockInd mp.base2.wf hD.fvar hD.defined hD.resolve hD.bounded hD.shape
     obtain ⟨mpI, hacI⟩ := stageBlockFormer mp (names := names) hE hfresh
       (by rw [hD.name]; exact hnresOf i cvTa hi) (by rw [hD.name]; exact hopOf i cvTa hi) hD hwfI
       (hFD i cvTa hi)

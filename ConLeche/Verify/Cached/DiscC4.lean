@@ -510,7 +510,7 @@ theorem inferBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
     BodySpec mode eager env (inferBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env))
       (inferBody (fueledFns mode eager env) env) := by
   intro s₀ d i hs hw
-  sym only [conleche_grind, inferBody, natLitSupportedF_eq, strLitSupportedF_eq,
+  sym only [conleche_grind, inferBody, natLitStoredF_eq, strLitStoredF_eq,
       mkFEnv_findProj?, constTyOf, ProjEntry.typeAtI_eq,
       toListRev_empty, Option.isSome_some, EnvWF.constTy_closed henv, wscoped_typeAt henv] =>
     vcgen [inferBodyI, peelFuelM, inst1M_spec (mode := mode) (eager := eager) (env := env),
@@ -549,7 +549,7 @@ theorem inferBodyIOC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
       (inferBodyIO (CoreFns.ioView (fueledFns mode eager env)) env) := by
   intro s₀ d i hs hw
   sym only [conleche_grind, inferBodyIO, CoreFns.ioView_infer, CoreFns.ioView_whnf,
-      natLitSupportedF_eq, strLitSupportedF_eq, mkFEnv_findProj?, constTyOf,
+      natLitStoredF_eq, strLitStoredF_eq, mkFEnv_findProj?, constTyOf,
       ProjEntry.typeAtI_eq, toListRev_empty, Option.isSome_some,
       abstract1C_spec, EnvWF.constTy_closed henv, wscoped_typeAt henv] =>
     vcgen [inferBodyIOI, inferBodyI, abstract1M, ensureSortIOC_spec ih,

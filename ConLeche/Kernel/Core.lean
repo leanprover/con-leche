@@ -203,7 +203,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
     m (Option Expr) := do
   match e with
   | .app (.const c []) a =>
-    if c = natSuccName ∧ natLitSupported env then
+    if c = natSuccName ∧ natLitStored env then
       -- the argument is reduced first (as for the operations below):
       -- literals reach `succ` wrapped in `OfNat`/instance towers, and a
       -- missed packing here defeats the binary fast paths downstream,
@@ -716,7 +716,7 @@ and unreachable for input inference accepted, which declines it). -/
 def litMajorToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     Expr → m Expr
   | .lit (.strVal s) =>
-    if strLitSupported env then r.whnf depth (strLitToConstructor s)
+    if strLitStored env then r.whnf depth (strLitToConstructor s)
     else pure (.lit (.strVal s))
   | e => pure (litToCtorIfNat env e)
 
@@ -732,7 +732,7 @@ inference accepted, which declines it). -/
 def projLitToCtor (r : CoreFns m) (env : Env) (depth : Nat) :
     Expr → m Expr
   | .lit (.strVal s) =>
-    if strLitSupported env then r.whnf depth (strLitToConstructor s)
+    if strLitStored env then r.whnf depth (strLitToConstructor s)
     else pure (.lit (.strVal s))
   | e => pure e
 
@@ -1188,13 +1188,13 @@ def inferBody (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           throw (.invalid s!"incorrect number of universe levels for {n}")
         pure (cv.type.instantiateLevelParams cv.levelParams us)
     | .lit (.natVal _) => do
-      if natLitSupported env then pure (.const natName [])
+      if natLitStored env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
       -- a string literal types as `String` (the reference kernels'
       -- `Literal.typeName`); without the pinned support declarations
       -- this is a positively detected unsupported feature: decline
-      if strLitSupported env then pure (.const stringName [])
+      if strLitStored env then pure (.const stringName [])
       else throw (.notImplemented
         "string literals before the String support declarations")
     | .forallE ty body => do
@@ -1295,10 +1295,10 @@ def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
           throw (.invalid s!"incorrect number of universe levels for {n}")
         pure (cv.type.instantiateLevelParams cv.levelParams us)
     | .lit (.natVal _) => do
-      if natLitSupported env then pure (.const natName [])
+      if natLitStored env then pure (.const natName [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
-      if strLitSupported env then pure (.const stringName [])
+      if strLitStored env then pure (.const stringName [])
       else throw (.notImplemented
         "string literals before the String support declarations")
     | .forallE ty body => do
@@ -1694,14 +1694,14 @@ def defeqStuck (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   | .lit l, .app f x =>
     match l, f with
     | .strVal st, .const cO usO =>
-      if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
+      if cO = stringOfListName ∧ usO = [] ∧ strLitStored env then
         r.defeq depth (strLitToConstructor st) (.app (.const cO usO) x)
       else stuckIrrel r env depth (.lit (.strVal st)) (.app (.const cO usO) x)
     | _, _ => stuckIrrel r env depth (.lit l) (.app f x)
   | .app f x, .lit l =>
     match l, f with
     | .strVal st, .const cO usO =>
-      if cO = stringOfListName ∧ usO = [] ∧ strLitSupported env then
+      if cO = stringOfListName ∧ usO = [] ∧ strLitStored env then
         r.defeq depth (.app (.const cO usO) x) (strLitToConstructor st)
       else stuckIrrel r env depth (.app (.const cO usO) x) (.lit (.strVal st))
     | _, _ => stuckIrrel r env depth (.app f x) (.lit l)

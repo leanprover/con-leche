@@ -45,6 +45,55 @@ record's: the law is stated at the record's counts. -/
   (∃ cvC cnP cnF, env.find? caps.etaCtor = some (.ctorInfo cvC cnP cnF)) ∧
   caps.etaFields = 0
 
+/-- **A literal's constants stored are at their shapes**: what the declarations' own check says. -/
+theorem natLitSupported_of_shapes {env : Env}
+    (hsh : ∀ n c, env.find? n = some c → litShapeOk c = true) (h : natLitStored env = true) :
+    natLitSupported env = true := by
+  simp only [natLitStored, Bool.and_eq_true, Option.isSome_iff_exists] at h
+  obtain ⟨⟨⟨a, ha⟩, ⟨b, hb⟩⟩, ⟨c, hc⟩⟩ := h
+  have sa := hsh _ _ ha
+  have sb := hsh _ _ hb
+  have sc := hsh _ _ hc
+  simp (decide := true) only [litShapeOk, Env.find?_name ha, ↓reduceIte] at sa
+  simp (decide := true) only [litShapeOk, Env.find?_name hb, ↓reduceIte] at sb
+  simp (decide := true) only [litShapeOk, Env.find?_name hc, ↓reduceIte] at sc
+  simp only [natLitSupported, ha, hb, hc, sa, sb, sc, Bool.and_self]
+
+theorem strLitSupported_of_shapes {env : Env}
+    (hsh : ∀ n c, env.find? n = some c → litShapeOk c = true) (h : strLitStored env = true) :
+    strLitSupported env = true := by
+  simp only [strLitStored, Bool.and_eq_true] at h
+  obtain ⟨⟨⟨⟨⟨⟨⟨hn, h₁⟩, h₂⟩, h₃⟩, h₄⟩, h₅⟩, h₆⟩, h₇⟩ := h
+  have hnat := natLitSupported_of_shapes hsh hn
+  have hs : ∀ {n : Name}, (env.find? n).isSome = true →
+      ∃ c, env.find? n = some c ∧ litShapeOk c = true ∧ c.name = n := fun hsome => by
+    obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hsome
+    exact ⟨c, hc, hsh _ _ hc, Env.find?_name hc⟩
+  obtain ⟨c₁, f₁, s₁, n₁⟩ := hs h₁
+  obtain ⟨c₂, f₂, s₂, n₂⟩ := hs h₂
+  obtain ⟨c₃, f₃, s₃, n₃⟩ := hs h₃
+  obtain ⟨c₄, f₄, s₄, n₄⟩ := hs h₄
+  obtain ⟨c₅, f₅, s₅, n₅⟩ := hs h₅
+  obtain ⟨c₆, f₆, s₆, n₆⟩ := hs h₆
+  obtain ⟨c₇, f₇, s₇, n₇⟩ := hs h₇
+  simp (decide := true) only [litShapeOk, n₁, ↓reduceIte] at s₁
+  simp (decide := true) only [litShapeOk, n₂, ↓reduceIte] at s₂
+  simp (decide := true) only [litShapeOk, n₃, ↓reduceIte] at s₃
+  simp (decide := true) only [litShapeOk, n₄, ↓reduceIte] at s₄
+  simp (decide := true) only [litShapeOk, n₅, ↓reduceIte] at s₅
+  simp (decide := true) only [litShapeOk, n₆, ↓reduceIte] at s₆
+  simp (decide := true) only [litShapeOk, n₇, ↓reduceIte] at s₇
+  simp only [strLitSupported, hnat, f₁, f₂, f₃, f₄, f₅, f₆, f₇, s₁, s₂, s₃, s₄, s₅, s₆, s₇,
+    Bool.and_self]
+
+theorem natLitSupported_of_stored {env : Env} (henv : EnvWF env) (h : natLitStored env = true) :
+    natLitSupported env = true :=
+  natLitSupported_of_shapes (fun _ _ hc => henv.shapes _ (Env.find?_mem hc)) h
+
+theorem strLitSupported_of_stored {env : Env} (henv : EnvWF env) (h : strLitStored env = true) :
+    strLitSupported env = true :=
+  strLitSupported_of_shapes (fun _ _ hc => henv.shapes _ (Env.find?_mem hc)) h
+
 /-- Everything `natLitSupported` checked, as separate facts. -/
 theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :
     ∃ cv caps cv0 i0 j0 cv1 i1 j1,

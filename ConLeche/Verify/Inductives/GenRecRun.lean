@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.EnvWF
 import ConLeche.Kernel.Inductives.BlockTail
 public import ConLeche.Verify.Inductives.RecCheckRun
 public import ConLeche.Verify.Inductives.BlockRecRun
@@ -423,6 +424,9 @@ theorem classConstOk_inv {env : Env} {cv : ConstantVal} {F : Nat}
   by_cases hres : reservedBasisNames.contains cv.name = true
   case pos => rw [ite_eq_left hres] at h; close_throw h
   rw [ite_eq_right hres] at h
+  by_cases hshape : litShapeOk (.axiomInfo cv) = true
+  case neg => rw [ite_eq_right (by simpa using hshape)] at h; close_throw h
+  rw [ite_eq_left (by simpa using hshape)] at h
   by_cases hnd : Name.nodup cv.levelParams = true
   case neg => rw [ite_eq_right (by simpa using hnd)] at h; close_throw h
   rw [ite_eq_left (by simpa using hnd)] at h
@@ -454,6 +458,24 @@ theorem classConstOk_typeWF {env : Env} {cv : ConstantVal} {F : Nat}
     cv.type.looseBVarsBounded 0 = true := by
   obtain ⟨-, -, -, hlb, hfv, hlp, hcr, -, -, -, -⟩ := classConstOk_inv h
   exact ⟨hfv, hlp, hcr, hlb⟩
+
+/-- A constant's check says its shape at a literal's name. -/
+theorem classConstOk_litShapeAt {env : Env} {cv : ConstantVal} {F : Nat}
+    (h : classConstOk (fueledOps mode F) (mkFEnv env) cv = .ok ()) : LitShapeAt cv := by
+  refine litShapeAt_of_check (classConstOk_inv h).2.1 ?_
+  by_cases hs : litShapeOk (.axiomInfo cv) = true
+  · exact hs
+  exfalso
+  unfold classConstOk at h
+  simp only [mkFEnv_find?] at h
+  by_cases hfind : (env.find? cv.name).isSome = true
+  · rw [ite_eq_left hfind] at h; close_throw h
+  rw [ite_eq_right hfind] at h
+  by_cases hres : reservedBasisNames.contains cv.name = true
+  · rw [ite_eq_left hres] at h; close_throw h
+  rw [ite_eq_right hres] at h
+  rw [ite_eq_right (by simpa using hs)] at h
+  close_throw h
 
 /-- **A `classConstOk` run's facts** (`ConstChecked`): the guards and the
 inference are the run's; the stored type is the checked one. -/

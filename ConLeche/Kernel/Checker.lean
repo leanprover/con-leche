@@ -40,7 +40,7 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" value)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" value)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
@@ -72,7 +72,7 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless jv.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless jv.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" jv)
   let vtype ← ops.inferType env 0 jv
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
@@ -96,7 +96,7 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" value)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" value)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")

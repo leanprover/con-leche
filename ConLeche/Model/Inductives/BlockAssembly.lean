@@ -296,9 +296,11 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     rcases hA.how with ⟨hdh, he⟩ | ⟨hdh, hgd, h₁, hb, -⟩
     · rw [← he]
       exact FormerDeclared.refl (hfd m ms.cvT hT) htf hlpd hbt htr
+        (ConLeche.checkConstantVal_litShapeAt (ConLeche.checkBlockInds_checked h ms hmem))
     · have h₂ := ConLeche.checkBlockInds_checked h ms hmem
       obtain ⟨g1, g2, g3, g4⟩ := ConLeche.checkConstantVal_typeWF h₁
-      refine ⟨hA.name.symm, hA.lps.symm, g1, g2, g4, g3, fun ψ => ?_, htf, hlpd, hbt, htr, .inl ⟨hdh, hgd⟩⟩
+      refine ⟨hA.name.symm, hA.lps.symm, g1, g2, g4, g3, ConLeche.checkConstantVal_litShapeAt h₁,
+        fun ψ => ?_, htf, hlpd, hbt, htr, .inl ⟨hdh, hgd⟩⟩
       obtain ⟨Ts, Tr, a, b, hw₁, -, heq⟩ := storedFormer_sem mp h₁ h₂ hb ψ
       exact ⟨Ts, Tr, a, b, fun ρ => ⟨heq ρ, hw₁ ρ⟩⟩
   · intro m cvTa hm

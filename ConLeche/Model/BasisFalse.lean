@@ -201,7 +201,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V env)
   have hf1 : env.find? falseA.name = none :=
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨falseA :: env.consts, env.tables⟩ :=
-    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
   refine (extendFalse mp hf1 hwf1).trans fun mp1 => ?_
   have hE : (⟨falseA :: env.consts, env.tables⟩ : Env).find? falseName
@@ -210,7 +210,7 @@ theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V env)
   have hf2 : (⟨falseA :: env.consts, env.tables⟩ : Env).find? falseRecA.name
       = none := Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨falseRecA :: falseA :: env.consts, env.tables⟩ := by
-    refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
+    refine EnvWF.cons (by decide) hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq),
       (fun _ _ _ _ _ heq => by
         injection heq with _ _ _ _ h4

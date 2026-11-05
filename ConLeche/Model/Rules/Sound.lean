@@ -58,11 +58,12 @@ theorem red_sound (hin : RulesInputs V m φ) :
   | _, _, _, .beta => Red.beta_sound
   | _, _, _, .zeta => Red.zeta_sound
   | _, _, _, .delta h => Red.delta_sound hin h
-  | _, _, _, .natLit h => Red.natLit_sound h
-  | _, _, _, .strLit h => Red.strLit_sound h
+  | _, _, _, .natLit h => Red.natLit_sound (ConLeche.natLitSupported_of_stored m.wf h)
+  | _, _, _, .strLit h => Red.strLit_sound (ConLeche.strLitSupported_of_stored m.wf h)
   | _, _, _, .proj hent hhead hi hlen hus hctor hcerts =>
     Red.proj_sound hin hent hhead hi hlen hus hctor (teleArity_sound hcerts)
-  | _, _, _, .natSucc hsup hw hn => Red.natSucc_sound hin hsup (red_sound hin hw) hn
+  | _, _, _, .natSucc hsup hw hn =>
+    Red.natSucc_sound hin (ConLeche.natLitSupported_of_stored m.wf hsup) (red_sound hin hw) hn
   | _, _, _, .natOp hc hwa hn₁ hwb hn₂ hr =>
     Red.natOp_sound hin hc (red_sound hin hwa) hn₁ (red_sound hin hwb) hn₂ hr
   -- ι and the K/`And` rescues (task #342 L10): one lemma each, from the
@@ -140,8 +141,8 @@ theorem infer_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .sort => Infer.sort_sound
   | _, _, _, _, .fvar h => Infer.fvar_sound h
   | _, _, _, _, .const hf hus => Infer.const_sound hin hf hus
-  | _, _, _, _, .natLit h => Infer.natLit_sound hin h
-  | _, _, _, _, .strLit h => Infer.strLit_sound hin h
+  | _, _, _, _, .natLit h => Infer.natLit_sound hin (ConLeche.natLitSupported_of_stored m.wf h)
+  | _, _, _, _, .strLit h => Infer.strLit_sound hin (ConLeche.strLitSupported_of_stored m.wf h)
   | _, _, _, _, .forallE hs hu hbs hv =>
     Infer.forallE_sound (infer_sound hin hs) (red_sound hin hu) (fun _ => hu)
       (infer_sound hin hbs) (red_sound hin hv) (fun _ => hv)

@@ -216,8 +216,8 @@ about a name the kernel fabricates:
     ∀ r ∈ rules, r.rhs.occDeep names = false) ∧
   (∀ T i entry, env.findProj? T i = some entry → entry.body.occDeep names = false) ∧
   (∀ c cv nP nF, env.find? c = some (.ctorInfo cv nP nF) → c ∉ names) ∧
-  (natLitSupported env = true → natName ∉ names) ∧
-  (strLitSupported env = true →
+  (natLitStored env = true → natName ∉ names ∧ natZeroName ∉ names ∧ natSuccName ∉ names) ∧
+  (strLitStored env = true →
     stringName ∉ names ∧ stringOfListName ∉ names ∧ listNilName ∉ names ∧
       listConsName ∉ names ∧ charName ∉ names ∧ charOfNatName ∉ names) ∧
   boolTrueName ∉ names ∧ boolFalseName ∉ names
@@ -232,7 +232,7 @@ theorem strLitList_occDeep {names : List Name} (hc : charName ∉ names)
     simp [strLitList, Expr.occDeep, hc, hk, ho, strLitList_occDeep hc hn hk ho cs]
 
 theorem strLitToConstructor_occDeep {env : Env} {names : List Name}
-    (hN : WhnfNamesFree env names) (hs : strLitSupported env = true) (s : String) :
+    (hN : WhnfNamesFree env names) (hs : strLitStored env = true) (s : String) :
     (strLitToConstructor s).occDeep names = false := by
   obtain ⟨-, hso, hn, hk, hc, ho⟩ := hN.2.2.2.2.2.2.1 hs
   rw [strLitToConstructor_eq]
@@ -247,9 +247,7 @@ theorem litToCtorIfNat_occDeep {env : Env} {names : List Name}
     rw [litToCtorIfNat]
     split
     · rename_i hs
-      obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, -, h0, h1, -⟩ := natLitSupported_inv hs
-      have hz := hN.2.2.2.2.1 _ _ _ _ h0
-      have hsu := hN.2.2.2.2.1 _ _ _ _ h1
+      obtain ⟨-, hz, hsu⟩ := hN.2.2.2.2.2.1 hs
       cases n <;> simp [natLitToConstructor, Expr.occDeep, hz, hsu]
     · exact he
   | .lit (.strVal _) => exact he
@@ -725,7 +723,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           intro h
           simp only [Except.ok.injEq] at h
           subst h
-          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs)
+          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs).1
     | forallE ty body =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ := inferTypeCore_forall_inv h
       rfl
@@ -817,7 +815,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           intro h
           simp only [Except.ok.injEq] at h
           subst h
-          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs)
+          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs).1
     | forallE ty body =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ := inferTypeCoreIO_forall_inv h
       rfl
@@ -1279,7 +1277,8 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
     (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
-    (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names) :
+    (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names)
+    (hsh : ∀ n c, envI.find? n = some c → litShapeOk c = true) :
     WhnfNamesFree envI names := by
   -- a member: an `indInfo` of `envI`, fresh in `env`, whose type ends in a sort at a guarded name
   have hmem : ∀ n ∈ names, ∃ cvS caps, envI.find? n = some (.indInfo cvS caps) ∧
@@ -1348,15 +1347,18 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     exact hnotInd c _ hf (fun cv' caps h => nomatch h)
   · -- `Nat`
     intro hs
-    obtain ⟨-, -, cv0, i0, j0, -, -, -, -, h0, -, -, -, -, -, hty0, -⟩ := natLitSupported_inv hs
+    obtain ⟨-, -, cv0, i0, j0, cv1, i1, j1, -, h0, hsc, -, -, -, -, hty0, -⟩ :=
+      natLitSupported_inv (natLitSupported_of_shapes hsh hs)
     have hz : natZeroName ∉ names := hnotInd _ _ h0 (fun cv caps h => nomatch h)
+    have hsu : natSuccName ∉ names := hnotInd _ _ hsc (fun cv caps h => nomatch h)
     rw [hnon _ hz] at h0
     have hr := (hwf.consts _ (Env.find?_mem h0)).2.2.1
     change cv0.type.constsResolve env = true at hr
     rw [hty0] at hr
-    exact hold _ (by simpa [Expr.constsResolve] using hr)
+    exact ⟨hold _ (by simpa [Expr.constsResolve] using hr), hz, hsu⟩
   · -- the string-support names
     intro hs
+    have hs := strLitSupported_of_shapes hsh hs
     simp only [strLitSupported, Bool.and_eq_true] at hs
     obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, hO⟩, -⟩, hNil⟩, hCons⟩, -⟩, hCO⟩ := hs
     obtain ⟨ciO, hfO⟩ : ∃ ci, envI.find? stringOfListName = some ci := by

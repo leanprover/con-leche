@@ -66,7 +66,8 @@ def ConstantValRun (F : Nat) (env : Env)
   type'.allLevelParamsDefined cv.levelParams = true ∧
   type'.constsResolve env = true ∧
   (∃ stype u, inferTypeCore .verified false env F 0 type' = .ok stype ∧
-    ensureSortCore .verified false env F 0 stype = .ok u)
+    ensureSortCore .verified false env F 0 stype = .ok u) ∧
+  LitShapeAt cv
 
 /-- The value front door's guards and runs. -/
 def ValueFrontRun (F : Nat) (env : Env)

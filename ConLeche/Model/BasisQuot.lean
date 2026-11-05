@@ -2593,14 +2593,14 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
   | type =>
     have hf1 : env.find? quotA.name = none := Option.isNone_iff_eq_none.mp hfr
     have hwf1 : EnvWF ⟨quotA :: env.consts, env.tables⟩ :=
-      EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
+      EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     exact extendQuot mp hf1 hwf1
   | ctor =>
     obtain ⟨q, hQ⟩ := quotStored_of mp hp
     have hf2 : env.find? quotMkA.name = none := Option.isNone_iff_eq_none.mp hfr
     have hwf2 : EnvWF ⟨quotMkA :: env.consts, env.tables⟩ := by
-      refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
+      refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
       show Expr.constsResolve _ quotMkA.toConstantVal.type = true
       have hf : (⟨quotMkA :: env.consts, env.tables⟩ : Env).find? quotName = some (quotA.atLps [q]) :=
@@ -2628,7 +2628,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
         hcons (by decide) hQ
       have hfE : (⟨quotLiftA :: env.consts, env.tables⟩ : Env).find? eqName = some ciE :=
         hcons (by decide) hfE0
-      refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
+      refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), ?_⟩
       · show Expr.constsResolve _ quotLiftA.toConstantVal.type = true
         rw [show quotLiftA.toConstantVal.type
@@ -2676,7 +2676,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
         hcons (by decide) hQ
       have hfM : (⟨quotIndA :: env.consts, env.tables⟩ : Env).find? quotMkName = some (quotMkA.atLps [x]) :=
         hcons (by decide) hM
-      refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
+      refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), ?_⟩
       · show Expr.constsResolve _ quotIndA.toConstantVal.type = true
         rw [show quotIndA.toConstantVal.type
@@ -2725,7 +2725,7 @@ theorem declQuotPB {k : ConLeche.QuotKind} (mp : EnvModelM V env)
         hcons (by decide) hM
       have hfE : (⟨quotSoundA :: env.consts, env.tables⟩ : Env).find? eqName = some ciE :=
         hcons (by decide) hfE0
-      refine EnvWF.cons mp.base2.wf ⟨rfl, rfl, ?_, rfl,
+      refine EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, ?_, rfl,
         (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
       show Expr.constsResolve _ quotSoundA.toConstantVal.type = true
       rw [show quotSoundA.toConstantVal.type

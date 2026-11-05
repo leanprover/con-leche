@@ -181,6 +181,8 @@ theorem OpDefn.of_same {env₀ env₃ : Env} (h : OpDefn env₀)
 well-formed. -/
 structure EnvWF (env : Env) : Prop where
   consts : ∀ c ∈ env.consts, ConstWF env c
+  /-- a constant at a literal's name has the shape a literal's meaning reads -/
+  shapes : ∀ c ∈ env.consts, litShapeOk c = true
   tables : ∀ t ∈ env.tables, TableWF env t
 
 /-- The table of a stored structure, off `EnvWF`. -/
@@ -189,6 +191,44 @@ theorem EnvWF.table {env : Env} (henv : EnvWF env) {T : Name} {tbl : ProjTable}
   henv.tables tbl (Env.findTable?_mem h).1
 
 
+
+/-- **A constant value's shape at a literal's name**, whatever kind of constant carries it. -/
+@[expose] def LitShapeAt (cv : ConstantVal) : Prop :=
+  ∀ c : ConstantInfo, c.toConstantVal = cv → litShapeOk c = true
+
+/-- Off the reserved names, a constant's shape reads only its name, level parameters and type. -/
+theorem litShapeAt_of_check {cv : ConstantVal} (hres : reservedBasisNames.contains cv.name = false)
+    (h : litShapeOk (.axiomInfo cv) = true) : LitShapeAt cv := by
+  intro c hc
+  subst hc
+  have hn : (ConstantInfo.axiomInfo c.toConstantVal).name = c.name := rfl
+  have hn' : c.toConstantVal.name = c.name := rfl
+  rw [hn'] at hres
+  have h₁ : c.name ≠ natName := fun e => by rw [e] at hres; exact absurd hres (by decide)
+  have h₂ : c.name ≠ natZeroName := fun e => by rw [e] at hres; exact absurd hres (by decide)
+  have h₃ : c.name ≠ natSuccName := fun e => by rw [e] at hres; exact absurd hres (by decide)
+  unfold litShapeOk at h ⊢
+  rw [hn] at h
+  simp only [h₁, h₂, h₃, ↓reduceIte] at h ⊢
+  cases c <;> exact h
+
+/-- A name off the ten has no shape to keep. -/
+theorem litShapeOk_of_not_lit {c : ConstantInfo} (hn : litGuardNames.contains c.name = false) :
+    litShapeOk c = true := by
+  simp only [litGuardNames, List.contains_cons, List.contains_nil, Bool.or_false, Bool.or_eq_false_iff,
+    beq_eq_false_iff_ne, ne_eq] at hn
+  obtain ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀⟩ := hn
+  unfold litShapeOk
+  simp only [h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, ↓reduceIte]
+
+/-- A recursor's name is off the ten, so it has no shape to keep. -/
+theorem litShapeAt_of_reservedRec {cv : ConstantVal} (h : reservedRecName cv.name = false) :
+    LitShapeAt cv := by
+  intro c hc
+  subst hc
+  refine litShapeOk_of_not_lit ?_
+  simp only [reservedRecName, Bool.or_eq_false_iff] at h
+  exact h.1.1.1.1.1.2
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {cs : List ConstantInfo} {ts : List ProjTable}
@@ -405,10 +445,13 @@ theorem TableWF.cons {c : ConstantInfo} {env : Env} {t : ProjTable} (h : TableWF
     exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
 
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
-theorem EnvWF.cons {c : ConstantInfo} {env : Env}
+theorem EnvWF.cons {c : ConstantInfo} {env : Env} (hs : litShapeOk c = true)
     (henv : EnvWF env)
-    (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c) : EnvWF ⟨c :: env.consts, env.tables⟩ := by
-  refine ⟨fun c' hc' => ?_, fun t ht => (henv.tables t ht).cons⟩
+    (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c) :
+    EnvWF ⟨c :: env.consts, env.tables⟩ := by
+  refine ⟨fun c' hc' => ?_,
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hs) (henv.shapes c'),
+    fun t ht => (henv.tables t ht).cons⟩
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
   · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv.consts c' hmem
@@ -481,7 +524,7 @@ constants read the environment only through `find?`, which a table
 install leaves alone. -/
 theorem EnvWF.pushTable {env : Env} {t : ProjTable} (henv : EnvWF env)
     (ht : TableWF env t) : EnvWF ⟨env.consts, t :: env.tables⟩ :=
-  ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), fun t' ht' => by
+  ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), henv.shapes, fun t' ht' => by
     rcases List.mem_cons.mp ht' with rfl | hmem
     · exact ht.of_find (Env.find?_pushTable env _)
     · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t)⟩

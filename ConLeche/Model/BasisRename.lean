@@ -618,8 +618,29 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
           rcases hfire with ⟨h₁, -⟩ | ⟨ls, -, h₁, -⟩ <;> · rw [h₁] at hn; exact nomatch hn
       | _ => exact nomatch h1.kind.trans h2.kind.symm
 
+/-- A copy of a pin keeps the pin's shape: a pin at a literal's name has no level parameters. -/
+theorem litShapeOk_pinCopy {n : Name} (hres : reservedBasisNames.contains n = true) {c : ConstantInfo}
+    (h : PinCopy c (pinnedInfo n)) : litShapeOk c = true := by
+  have hn : c.name = n := (PinCopy.name h).trans (pinnedInfo_name hres)
+  have hmem : n ∈ reservedBasisNames := by simpa using hres
+  simp only [reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
+  rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl
+  all_goals first
+    | exact litShapeOk_of_not_lit (by rw [hn]; decide)
+    | (have hl : c.toConstantVal.levelParams = [] := List.eq_nil_of_length_eq_zero h.2.2
+       have he := h.1
+       rw [hl] at he
+       rw [he]
+       decide)
+
 theorem envWF_ren (m : EnvModel V env) (h : RenEnv env env') : EnvWF env' where
   consts := fun _ hc => constWF_ren m h hc
+  shapes := fun c' hc => by
+    obtain ⟨c, hcm, hr⟩ := h.mem hc
+    rcases hr with rfl | ⟨hrs, -, h2⟩
+    · exact m.wf.shapes _ hcm
+    · exact litShapeOk_pinCopy hrs h2
   tables := fun t ht => by
     rw [h.tables] at ht
     obtain ⟨h1, h2, h3⟩ := m.wf.tables t ht

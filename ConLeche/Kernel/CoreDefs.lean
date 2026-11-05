@@ -195,6 +195,11 @@ def natLitSupported (env : Env) : Bool :=
   natIndOk (env.find? natName) && natZeroOk (env.find? natZeroName) &&
     natSuccOk (env.find? natSuccName)
 
+/-- Whether a `Nat` literal's constants are stored.  What they are is the declarations' own check
+(`litShapeOk`), so this reads no type: it says only that a literal may be read at all. -/
+def natLitStored (env : Env) : Bool :=
+  (env.find? natName).isSome && (env.find? natZeroName).isSome && (env.find? natSuccName).isSome
+
 /-- Do all constants referenced in `e` (including inside `fvar` type
 annotations) resolve in `env`?  A `Nat` literal implicitly references
 the `Nat` basis constants (and a `String` literal additionally the
@@ -226,7 +231,7 @@ def Expr.constsResolve (env : Env) : Expr → Bool
 layer; anything else passes through. -/
 def litToCtorIfNat (env : Env) : Expr → Expr
   | .lit (.natVal n) =>
-    if natLitSupported env then natLitToConstructor n else .lit (.natVal n)
+    if natLitStored env then natLitToConstructor n else .lit (.natVal n)
   | e => e
 
 /-- A `Nat` literal reading of a whnf'd expression: literals and the
@@ -366,6 +371,28 @@ def strLitSupported (env : Env) : Bool :=
     charTyOk (env.find? charName) &&
     charOfNatTyOk (env.find? charOfNatName)
 
+/-- Whether a `String` literal's constants are stored (`natLitStored`). -/
+def strLitStored (env : Env) : Bool :=
+  natLitStored env && (env.find? stringName).isSome && (env.find? stringOfListName).isSome &&
+    (env.find? listName).isSome && (env.find? listNilName).isSome &&
+    (env.find? listConsName).isSome && (env.find? charName).isSome &&
+    (env.find? charOfNatName).isSome
+
+/-- **The shape a declaration at a literal's name must have**: what a literal's meaning reads off
+it.  Checked at the declaration, once; nothing at a literal's use compares a stored type. -/
+def litShapeOk (c : ConstantInfo) : Bool :=
+  if c.name = natName then natIndOk (some c)
+  else if c.name = natZeroName then natZeroOk (some c)
+  else if c.name = natSuccName then natSuccOk (some c)
+  else if c.name = stringName then stringTyOk (some c)
+  else if c.name = stringOfListName then stringOfListTyOk (some c)
+  else if c.name = listName then listTyOk (some c)
+  else if c.name = listNilName then listNilTyOk (some c)
+  else if c.name = listConsName then listConsTyOk (some c)
+  else if c.name = charName then charTyOk (some c)
+  else if c.name = charOfNatName then charOfNatTyOk (some c)
+  else true
+
 /-! ## Structural-Nat literal acceleration
 
 The official kernel accelerates the structural `Nat` operations on
@@ -466,26 +493,19 @@ def natOpName (n : Name) : Bool :=
 
 /-! ## The names the environment's own guards look up
 
-`natLitSupported` and `strLitSupported` decide whether a literal may
-be READ, and they decide it by looking ten fixed names up in the
-store.  Three of them (`Nat`, `Nat.zero`, `Nat.succ`) are reserved
-basis names, so no stream declaration can ever fill or change them;
-the other seven — `String`, `String.ofList`, `List`, `List.nil`,
-`List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream declarations,
-and a stream is free to install them (it must: that is how a stream
-earns string literals).
+`natLitStored` and `strLitStored` decide whether a literal may be READ,
+by looking ten fixed names up in the store; `litShapeOk` says what a
+declaration at one of them is.  Three of them (`Nat`, `Nat.zero`,
+`Nat.succ`) are reserved basis names, so no stream declaration can ever
+fill or change them; the other seven — `String`, `String.ofList`, `List`,
+`List.nil`, `List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream
+declarations, and a stream is free to install them (it must: that is how
+a stream earns string literals).
 
-What must not happen is a *recursor* taking one of these names.  A
-recursor's name is the stream's business, so nothing else stops a block from
-declaring, say, a recursor called
-`List.cons` of `List.cons`'s type; consing it would flip
-`strLitSupported` from `false` to `true` and a string literal would
-read as one thing below the block's recursors and as another above
-them.  The block install therefore refuses such a name outright
-(`blockRecNamesUnreserved`, `ConLeche/Kernel/Inductives/BlockParts.lean`),
-which makes both guards CONGRUENT across the recursors' cons
-(`strLitSupported_consBlockRecsR`, `ConLeche/Verify/Inductives/BlockWF.lean`)
-— the equation the model's reading law needs. -/
+What must not happen is a *recursor* taking one of these names: it would
+never pass the shape test as what it is.  The block's check refuses such
+a name outright (`blockRecNamesUnreserved`,
+`ConLeche/Kernel/Inductives/BlockParts.lean`). -/
 
 /-- The ten names the two literal guards look up: the `Nat` guard's
 three and the `String` guard's seven. -/

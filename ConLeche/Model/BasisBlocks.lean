@@ -1364,7 +1364,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
   have hf1 : env.find? natA.name = none :=
     Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨natA :: env.consts, env.tables⟩ :=
-    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
   have hf2 : (⟨natA :: env.consts, env.tables⟩ : Env).find? natZeroA.name = none :=
     Option.isNone_iff_eq_none.mp h2
@@ -1376,7 +1376,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
       = some natA := by
     rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hwf2 : EnvWF ⟨natZeroA :: natA :: env.consts, env.tables⟩ := by
-    refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
+    refine EnvWF.cons (by decide) hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     show Expr.constsResolve _ natZeroA.toConstantVal.type = true
     have hf : (⟨natZeroA :: natA :: env.consts, env.tables⟩ : Env).find? natName
@@ -1398,7 +1398,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
       = some natZeroA := by
     rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hwf3 : EnvWF ⟨natSuccA :: natZeroA :: natA :: env.consts, env.tables⟩ := by
-    refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
+    refine EnvWF.cons (by decide) hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     show Expr.constsResolve _ natSuccA.toConstantVal.type = true
     have hf : (⟨natSuccA :: natZeroA :: natA :: env.consts, env.tables⟩
@@ -1432,7 +1432,7 @@ theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
     have hfS : (⟨natRecA :: natSuccA :: natZeroA :: natA
         :: env.consts, env.tables⟩ : Env).find? natSuccName = some natSuccA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hS3
-    refine EnvWF.cons hwf3 ⟨rfl, rfl, ?_, rfl,
+    refine EnvWF.cons (by decide) hwf3 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_⟩
     · show Expr.constsResolve _ natRecA.toConstantVal.type = true
       rw [show natRecA.toConstantVal.type

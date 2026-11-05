@@ -1091,7 +1091,8 @@ theorem stageCtorGen {T : Name}
   have hTC : T ≠ cvCa.name := by
     intro h; rw [h, hfresh] at hfT; exact nomatch hfT
   have hwfC : ConLeche.EnvWF ⟨.ctorInfo cvCa nP nF :: env.consts, env.tables⟩ := by
-    refine ConLeche.EnvWF.cons mp.base2.wf (ConLeche.structConstWF ?_ ?_ (Expr.constsResolve_mono htr) ?_
+    refine ConLeche.EnvWF.cons (ConLeche.checkConstantVal_litShapeAt (hty ▸ hccv) _ rfl) mp.base2.wf
+      (ConLeche.structConstWF ?_ ?_ (Expr.constsResolve_mono htr) ?_
       (fun _ _ _ heq => nomatch heq) (fun _ _ _ _ _ heq => nomatch heq))
     · show cvCa.type.hasFvar = false; rw [hty]; exact htf'
     · show cvCa.type.allLevelParamsDefined cvCa.levelParams = true; rw [hty]; exact htp

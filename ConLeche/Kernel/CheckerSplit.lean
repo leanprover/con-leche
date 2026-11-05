@@ -69,6 +69,8 @@ def installHeader (env : Env) (cv : ConstantVal) :
     throw (.invalid s!"reserved basis name {cv.name}")
   if natOpName cv.name then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -78,7 +80,7 @@ def installHeader (env : Env) (cv : ConstantVal) :
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"type of {cv.name}" cv.type)
 
 /-- The value half of `check{Defn,Thm,Opaque}Val` minus its inference:
 the guards. -/
@@ -91,7 +93,7 @@ def installValueGuards (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" value)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" value)
 
 /-- **The check half of a value declaration**, at the environment the
 constant was installed at: the type's sort, the theorem's

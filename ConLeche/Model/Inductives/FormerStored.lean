@@ -33,6 +33,8 @@ structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVa
   defined : cvS.type.allLevelParamsDefined cvS.levelParams = true
   bounded : cvS.type.looseBVarsBounded 0 = true
   resolve : cvS.type.constsResolve env = true
+  /-- the shape at a literal's name, off the constant's check -/
+  shape : LitShapeAt cvS
   read : ∀ ψ : Name → Nat, ∃ Ts Tr : Term, denote m.acval env ψ 0 cvS.type = some Ts ∧
     denote m.acval env ψ 0 cvTa.type = some Tr ∧
     ∀ ρ : Nat → V, interp V ρ Ts = interp V ρ Tr ∧ WellDenotedTy V ρ Ts
@@ -49,9 +51,10 @@ structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVa
 theorem FormerDeclared.refl {env : Env} {m : EnvModel V env} {cv : ConstantVal} {nP : Nat}
     {resSort : Level} {pps : (Name → Nat) → List Term} (hFD : FormerData m cv nP resSort pps)
     (hf : cv.type.hasFvar = false) (hd : cv.type.allLevelParamsDefined cv.levelParams = true)
-    (hb : cv.type.looseBVarsBounded 0 = true) (hr : cv.type.constsResolve env = true) :
+    (hb : cv.type.looseBVarsBounded 0 = true) (hr : cv.type.constsResolve env = true)
+    (hs : LitShapeAt cv) :
     FormerDeclared m cv cv :=
-  ⟨rfl, rfl, hf, hd, hb, hr, fun ψ => ⟨_, _, hFD.read ψ, hFD.read ψ, fun ρ =>
+  ⟨rfl, rfl, hf, hd, hb, hr, hs, fun ψ => ⟨_, _, hFD.read ψ, hFD.read ψ, fun ρ =>
     ⟨rfl, hFD.okTy ψ ρ, IsTy_mkPisAV_sort _ _ _⟩⟩, hf, hd, hb, hr, .inr rfl⟩
 
 /-- A declared former's facts across a cons of a fresh constant. -/
@@ -60,7 +63,7 @@ theorem FormerDeclared.cross {env : Env} {m : EnvModel V env} {cvS cvTa : Consta
     (hfresh : env.find? c₀.name = none) (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     {A : (Name → Nat) → Term} (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     FormerDeclared m₂ cvS cvTa := by
-  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, Expr.constsResolve_mono h.resolve,
+  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, Expr.constsResolve_mono h.resolve, h.shape,
     fun ψ => ?_, h.readFvar, h.readDefined, h.readBounded, Expr.constsResolve_mono h.readResolve,
     h.shows⟩
   obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := h.read ψ
@@ -83,7 +86,7 @@ theorem FormerDeclared.pushTable {env : Env} {m : EnvModel V env} {cvS cvTa : Co
   have hres : ∀ {e : Expr}, e.constsResolve env = true →
       e.constsResolve ⟨env.consts, t :: env.tables⟩ = true :=
     Expr.constsResolve_of_find fun n hn => by rw [Env.find?_pushTable]; exact hn
-  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, hres h.resolve, fun ψ => ?_, h.readFvar,
+  refine ⟨h.name, h.lps, h.fvar, h.defined, h.bounded, hres h.resolve, h.shape, fun ψ => ?_, h.readFvar,
     h.readDefined, h.readBounded, hres h.readResolve, h.shows⟩
   obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := h.read ψ
   refine ⟨Ts, Tr, ?_, ?_, h₃⟩
@@ -118,7 +121,7 @@ theorem FormerStored.of_ext {envC envR : Env} {mC : EnvModel V envC} {mR : EnvMo
     | none => rw [hc] at hn; exact nomatch hn
     | some c => rw [hfind n c hc]; rfl
   refine ⟨cvS, hfind _ _ hf, hD.name, hD.lps, hD.fvar, hD.defined, hD.bounded,
-    Expr.constsResolve_of_find hsome hD.resolve, fun ψ => ?_, hD.readFvar, hD.readDefined,
+    Expr.constsResolve_of_find hsome hD.resolve, hD.shape, fun ψ => ?_, hD.readFvar, hD.readDefined,
     hD.readBounded, Expr.constsResolve_of_find hsome hD.readResolve, hD.shows⟩
   obtain ⟨Ts, Tr, h₁, h₂, h₃⟩ := hD.read ψ
   refine ⟨Ts, Tr, ?_, ?_, h₃⟩

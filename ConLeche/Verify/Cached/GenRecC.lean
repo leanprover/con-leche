@@ -967,15 +967,22 @@ theorem envWF_ruleEnv {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShape} {
   obtain ⟨F, hF⟩ := h
   rw [classRecTysOk_datF] at hF
   obtain ⟨hlenG, hallG⟩ := classRecTysOk_run hF
-  refine envWF_consBlockRecsBare henv₂ fun c hc => ?_
-  obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hc
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem (List.of_mem_zip hx).1
-  have hil : i < p.recs.length := by
-    rw [← hlenG]; exact (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨c, cvG, -, hcvG, ⟨R⟩⟩ := hallG i _ (List.getElem?_eq_getElem hil)
-  rw [hi] at hcvG
-  obtain rfl := Option.some.inj hcvG
-  exact classConstOk_typeWF R.hcv
+  have key : ∀ c ∈ (cvGs.zip recCls).map (fun (x : ConstantVal × Nat) => (x.1, (Ms.getD x.2 default).nIdx)),
+      ∃ F', classConstOk (fueledOps mode F') (mkFEnv env₂) c.1 = .ok () := by
+    intro c hc
+    obtain ⟨x, hx, rfl⟩ := List.mem_map.mp hc
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem (List.of_mem_zip hx).1
+    have hil : i < p.recs.length := by
+      rw [← hlenG]; exact (List.getElem?_eq_some_iff.mp hi).1
+    obtain ⟨c, cvG, -, hcvG, ⟨R⟩⟩ := hallG i _ (List.getElem?_eq_getElem hil)
+    rw [hi] at hcvG
+    obtain rfl := Option.some.inj hcvG
+    exact ⟨F, R.hcv⟩
+  refine envWF_consBlockRecsBare henv₂ (fun c hc => ?_) (fun c hc => ?_)
+  · obtain ⟨_, hk⟩ := key c hc
+    exact classConstOk_typeWF hk
+  · obtain ⟨_, hk⟩ := key c hc
+    exact classConstOk_litShapeAt hk
 grind_pattern [conleche_grind] envWF_ruleEnv =>
   Runs (classRecTysOk (fueledOpsM mode) (mkFEnv env₂) g k p.recs cvRis cls) cvGs,
   ruleEnv p Ms cvGs recCls env₂
@@ -1041,6 +1048,28 @@ theorem genRecCheckS_run {env₂ : Env}
   exact ⟨hs', F, by rw [← genRecCheck_datF]; exact hF⟩
 
 /-! ## The install after the pass, at the cached driver -/
+
+/-- Each generated recursor passed a constant's check. -/
+theorem genRecCheck_outShape {fe : FEnv} {env : Env} {p : BlockShape} {nestedBit : Bool}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
+    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat} (hfe : fe = mkFEnv env)
+    (h : genRecCheck (ShadowOps.fueled mode F) fe p nestedBit params tbl rd Ms₀ cvTas block
+      = .ok out) : ∀ o ∈ out, LitShapeAt o.1 := by
+  subst hfe
+  obtain ⟨R⟩ := genRecCheck_run h
+  obtain ⟨hlenG, hallG⟩ := classRecTysOk_run R.hcvGs
+  obtain ⟨hlenO, hallO⟩ := classRecsRulesOk_run R.hrules
+  intro o ho
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem ho
+  have hil : i < out.length := (List.getElem?_eq_some_iff.mp hi).1
+  have hir : i < p.recs.length := by
+    rw [← hlenG]; omega
+  obtain ⟨c, cvG, hc, hG, ⟨T⟩⟩ := hallG i _ (List.getElem?_eq_getElem hir)
+  obtain ⟨rhss, hoi, -⟩ := hallO i cvG c hG hc
+  rw [hi] at hoi
+  obtain rfl := Option.some.inj hoi
+  exact classConstOk_litShapeAt T.hcv
 
 /-- **The stored family's environment is well-formed**: every stored
 recursor type is a checked generated constant's (`classConstOk`), every
@@ -1138,6 +1167,7 @@ theorem genRecCheck_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockSha
     (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M) :
     EnvWF (consBlockRecsT p 0 out env₂) :=
   envWF_consBlockRecsT henv₂ (genRecCheck_outFacts h hpl hMs₀).1 (genRecCheck_outFacts h hpl hMs₀).2
+    (genRecCheck_outShape rfl h)
 
 /-- The stream's recursor constants, checked at the constructors'
 environment: each type closed, at its level parameters, resolving. -/
@@ -1260,7 +1290,18 @@ theorem streamRecs_recsWF {env₂ : Env} (henv₂ : EnvWF env₂) {p : BlockShap
     fun e he => Expr.constsResolve_of_find
       (isSome_consBlockRecsBare_bare (fun _ hn => hn)
         (by simp only [List.map_map, Function.comp_def]; exact hnames.symm)) he
-  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_)
+  have hshS : ∀ t ∈ streamRecs p.recs out, LitShapeAt t.1 := by
+    intro t ht
+    obtain ⟨i, hti⟩ := List.getElem?_of_mem ht
+    obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? hti
+    have hgcv := hcv i rc g hrc hg
+    have hrcS : LitShapeAt rc.cvR :=
+      litShapeAt_of_reservedRec (targetRecPins_unreserved R.pins rc (List.mem_of_getElem? hrc))
+    have e : ({ g.1 with type := rc.cvR.type } : ConstantVal) = rc.cvR := by rw [hgcv]
+    show LitShapeAt ({ g.1 with type := rc.cvR.type } : ConstantVal)
+    rw [e]
+    exact hrcS
+  refine envWF_consBlockRecsT henv₂ (fun t ht => ?_) (fun i t ht hm => ?_) hshS
   · obtain ⟨i, hti⟩ := List.getElem?_of_mem ht
     obtain ⟨rc, g, hrc, hg, rfl⟩ := streamRecs_getElem? hti
     have hgcv := hcv i rc g hrc hg

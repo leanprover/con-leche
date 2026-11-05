@@ -1235,7 +1235,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   subst hnil
   have hf1 : env.find? eqName = none := Option.isNone_iff_eq_none.mp h1
   have hwf1 : EnvWF ⟨eqA :: env.consts, env.tables⟩ :=
-    EnvWF.cons mp.base2.wf ⟨rfl, rfl, rfl, rfl,
+    EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
   obtain ⟨mp1, hac1, hr1, hc1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
@@ -1247,7 +1247,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   have hf2 : (⟨eqA :: env.consts, env.tables⟩ : Env).find? eqReflA.name = none :=
     Option.isNone_iff_eq_none.mp h2
   have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts, env.tables⟩ := by
-    refine EnvWF.cons hwf1 ⟨rfl, rfl, ?_, rfl,
+    refine EnvWF.cons (by decide) hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
     have hf : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find? eqName
@@ -1340,7 +1340,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find?
         eqReflName = some eqReflA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR2
-    refine EnvWF.cons hwf2 ⟨rfl, rfl, ?_, rfl,
+    refine EnvWF.cons (by decide) hwf2 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), ?_⟩
     · show Expr.constsResolve _ eqRecA.toConstantVal.type = true
       rw [show eqRecA.toConstantVal.type

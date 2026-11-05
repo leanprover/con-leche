@@ -46,7 +46,7 @@ theorem constantValRun_of {env : Env} {F : Nat}
     htr, hst, hsort⟩ := checkConstantVal_inv h
   exact ⟨hitf, hlbt,
     Option.isNone_iff_eq_none.mpr hfind, hres, hnd, hlbt, hitf,
-    rfl, htp, htr, ⟨stype, u, hst, hsort⟩⟩
+    rfl, htp, htr, ⟨stype, u, hst, hsort⟩, checkConstantVal_litShapeAt h⟩
 
 /-- **The value front door, run half.**  The premises *are*
 `ValueFrontRun`'s conjuncts (task #161 P4 H1), so the run bridge is the

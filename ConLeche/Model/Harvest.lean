@@ -146,7 +146,7 @@ theorem harvestDefn
     CoverStep mp env₂ := by
   obtain ⟨type', value', hcv, hvfr, rfl, hnatc, hdmc⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := stored_syntax hannv hvhf hvlb
@@ -300,7 +300,7 @@ theorem harvestDefn
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
     (A := A) hfresh (fun _ => ⟨_, _, _, rfl⟩)
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => by
           obtain ⟨rfl, rfl, rfl⟩ := ConstantInfo.defnInfo.inj heq
@@ -522,7 +522,7 @@ theorem harvestThm
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, -, hvfr, rfl⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := stored_syntax hannv hvhf hvlb
@@ -670,7 +670,7 @@ theorem harvestThm
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ _ heq => nomatch heq)⟩)
@@ -793,7 +793,7 @@ theorem harvestAxiom
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
@@ -855,7 +855,7 @@ theorem harvestAxiom
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ _ heq => nomatch heq)⟩)
@@ -952,7 +952,7 @@ theorem harvestOpaque
     CoverStep mp env₂ := by
   obtain ⟨hopn, type', value', hcv, hvfr, rfl, hred⟩ := hR
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    hrunT⟩ := hcv
+    hrunT, hcvShape⟩ := hcv
   obtain ⟨hvlb, hvhf, hannv, hvp, hvr, ⟨vtype, hvrun, hvde⟩⟩ := hvfr
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   obtain ⟨hvf', hbv'⟩ := stored_syntax hannv hvhf hvlb
@@ -1104,7 +1104,7 @@ theorem harvestOpaque
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
     (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
     (ConsHead.ofFresh
-      (EnvWF.cons mp.base2.wf ⟨htf', htp,
+      (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
         (fun _ _ _ heq => nomatch heq),
         (fun _ _ _ _ _ heq => nomatch heq)⟩)

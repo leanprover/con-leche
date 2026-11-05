@@ -80,7 +80,7 @@ def unfoldDefinitionI (fe : FEnv) (e : Expr) : CheckCM (Option Expr) := do
 def litToCtorIfNatI (fe : FEnv) (e : Expr) : CheckCM Expr := do
   match e with
   | .lit (.natVal n) =>
-    if natLitSupportedF fe then pure (natLitToConstructor n)
+    if natLitStoredF fe then pure (natLitToConstructor n)
     else pure e
   | _ => pure e
 
@@ -95,7 +95,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
       | _ :: _ => pure none
       | [] => do
         let cn ← pure c
-        if cn = natSuccName ∧ natLitSupportedF fe then do
+        if cn = natSuccName ∧ natLitStoredF fe then do
           let w ← r.whnf depth b
           match ← pure (rawNatLitC? w) with
           | some n => do
@@ -572,7 +572,7 @@ def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
     CheckCM Expr := do
   match e with
   | .lit (.strVal s) =>
-    if strLitSupportedF fe then do
+    if strLitStoredF fe then do
       let x ← pure (strLitToConstructor s)
       r.whnf depth x
     else pure e
@@ -583,7 +583,7 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
     CheckCM Expr := do
   match e with
   | .lit (.strVal s) =>
-    if strLitSupportedF fe then do
+    if strLitStoredF fe then do
       let x ← pure (strLitToConstructor s)
       r.whnf depth x
     else pure e
@@ -1146,12 +1146,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
           throw (.invalid s!"incorrect number of universe levels for {nm}")
         constTyAtM fe n nm us
     | .lit (.natVal _) => do
-      if natLitSupportedF fe then do
+      if natLitStoredF fe then do
         let ni ← pure natName
         pure (Expr.const ni [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
-      if strLitSupportedF fe then do
+      if strLitStoredF fe then do
         let si ← pure stringName
         pure (Expr.const si [])
       else throw (.notImplemented
@@ -1462,7 +1462,7 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | .lit l, .app fO _x => do
     match l, fO with
     | .strVal s, .const cO usO =>
-      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitStoredF fe then do
         let sc ← pure (strLitToConstructor s)
         r.defeq depth sc b
       else stuckIrrelI r fe depth a b
@@ -1470,7 +1470,7 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | .app fO _x, .lit l => do
     match l, fO with
     | .strVal s, .const cO usO =>
-      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitStoredF fe then do
         let sc ← pure (strLitToConstructor s)
         r.defeq depth a sc
       else stuckIrrelI r fe depth a b

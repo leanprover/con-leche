@@ -142,19 +142,19 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   /-- A `Nat`-literal major converts to constructor form, one layer
   (`litMajorToCtor`'s `litToCtorIfNat` arm, `Core.lean:739`). -/
   | natLit {d : Nat} {n : Nat} :
-      natLitSupported env = true →
+      natLitStored env = true →
       Red env d (.lit (.natVal n)) (natLitToConstructor n)
   /-- A `String` literal expands to its constructor form
   (`litMajorToCtor`, `Kernel/Core.lean`; `projLitToCtor`, `:752-754`;
   `defeqStuck`'s string arms — one rule for the three
   sites; the sites that re-reduce chain a `Red` after it). -/
   | strLit {d : Nat} {s : String} :
-      strLitSupported env = true →
+      strLitStored env = true →
       Red env d (.lit (.strVal s)) (strLitToConstructor s)
   /-- **`Nat.succ` packing** (`reduceNat`, `Kernel/Core.lean`): the
   argument reduces to a literal reading. -/
   | natSucc {d : Nat} {a w : Expr} {n : Nat} :
-      natLitSupported env = true →
+      natLitStored env = true →
       Red env d a w → rawNatLit? w = some n →
       Red env d (.app (.const natSuccName []) a) (.lit (.natVal (n + 1)))
   /-- **Binary `Nat` acceleration** (`reduceNat`, `Kernel/Core.lean`):
@@ -556,11 +556,11 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
           ci.toConstantVal.levelParams us)
   /-- `Kernel/Core.lean` / `:1310-1312`. -/
   | natLit {g : Grade} {d n : Nat} :
-      natLitSupported env = true →
+      natLitStored env = true →
       Infer env g d (.lit (.natVal n)) (.const natName [])
   /-- `Kernel/Core.lean` / `:1313-1316`. -/
   | strLit {g : Grade} {d : Nat} {s : String} :
-      strLitSupported env = true →
+      strLitStored env = true →
       Infer env g d (.lit (.strVal s)) (.const stringName [])
   /-- **∀-formation** (`Kernel/Core.lean`): the domain's type reduces to
   a sort, the opened body's type reduces to a sort; Lean's own rule. -/

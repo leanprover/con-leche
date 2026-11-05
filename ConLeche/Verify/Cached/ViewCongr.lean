@@ -212,7 +212,7 @@ theorem checkConstantValF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
   unfold checkConstantValF
   simp only [h.inferType fe₁.env, h.inferType fe₂.env,
     h.ensureSort fe₁.env, h.ensureSort fe₂.env, hfe, constsResolveF_congr hfe,
-    strLitSupportedF_congr hfe]
+    strLitStoredF_congr hfe]
 
 omit [MonadExceptOf CheckError m] in
 theorem checkDivModCertsF_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
@@ -395,7 +395,7 @@ theorem checkConstantValC_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.
     (cv : ConstantVal) {a : Bool} : checkConstantValC mode fe₁ cv a = checkConstantValC mode fe₂ cv a := by
   unfold checkConstantValC
   simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, opSIxC_congr hfe htb, hfe,
-    strLitSupportedF_congr hfe]
+    strLitStoredF_congr hfe]
 
 /-- A definition's value check reads its index only through `find?`. -/
 theorem checkDefnValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -403,7 +403,7 @@ theorem checkDefnValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     (value : Expr) (hint : ReducibilityHint) :
     checkDefnValCI mode fe₁ cv value hint = checkDefnValCI mode fe₂ cv value hint := by
   unfold checkDefnValCI
-  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitSupportedF_congr hfe]
+  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
 
 /-- An opaque's value check reads its index only through `find?`. -/
 theorem checkOpaqueValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
@@ -411,7 +411,7 @@ theorem checkOpaqueValCI_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.f
     (value : Expr) :
     checkOpaqueValCI mode fe₁ cv value = checkOpaqueValCI mode fe₂ cv value := by
   unfold checkOpaqueValCI
-  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitSupportedF_congr hfe]
+  simp only [coreKnotI_congr hfe htb, constsResolveFC_congr hfe, strLitStoredF_congr hfe]
 
 theorem installBasisDeclF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (ci : ConstantInfo) :

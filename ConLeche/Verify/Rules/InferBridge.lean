@@ -100,10 +100,10 @@ theorem inferTypeCore_const_inv_full {d : Nat} {n : Name} {us : List Level}
 /-- The `Nat`-literal clause: the support guard and `Nat`. -/
 theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
     (h : inferTypeCore mode eager env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
-    natLitSupported env = true ∧ t = .const natName [] := by
+    natLitStored env = true ∧ t = .const natName [] := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
-  by_cases hg : natLitSupported env = true
+  by_cases hg : natLitStored env = true
   · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
@@ -113,10 +113,10 @@ theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
 /-- The string-literal clause: the support guard and `String`. -/
 theorem inferTypeCore_strLit_inv' {d : Nat} {s : String} {t : Expr}
     (h : inferTypeCore mode eager env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
-    strLitSupported env = true ∧ t = .const stringName [] := by
+    strLitStored env = true ∧ t = .const stringName [] := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
-  by_cases hg : strLitSupported env = true
+  by_cases hg : strLitStored env = true
   · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
