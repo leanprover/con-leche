@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Verify.Frontend.Olean.Closure
+public import ConLeche.Verify.Frontend.Olean.Merge
 import ConLeche.Verify.Frontend.Olean.View
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Reads
@@ -27,8 +29,10 @@ process or in two.  Where `readAllViews` has a value:
 read of a file's start: what it finds is `importsPre` of the whole file, and it
 finds that wherever the file is valid and has such imports.
 
-`readOleans_ok`: the records of a run are made of the private view of each module of
-the closure, each read by `readView` on the snapshot.
+`readOleans_ok`: the records of a run are made of the private view of each module of the
+closure, each read by `readView` on the snapshot: the order holds the roots and has every
+module after its imports (`closureOrder_ok`, `ClosedOrder.view_imports`), and every constant
+of those views stands in the merge (`mergeAll_ok`).
 -/
 
 public section
@@ -484,18 +488,32 @@ theorem mapExcept_ok {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs :
         simp only [List.map_cons, h1, h3, List.mem_cons, forall_eq_or_imp, true_and]
         exact ⟨h2, h4⟩
 
+/-- **A module of the order has its view's imports before it**: the imports the walk read
+off the file's start are its private view's. -/
+theorem ClosedOrder.view_imports {sp : SearchPath} {fs : FS} {order : Array Name}
+    (hc : ClosedOrder sp fs order) {k : Nat} (hk : k < order.size) {d : ModDecoded}
+    (hv : (readView sp order[k] .private : ModelIO _) fs (.ok (.ok d))) :
+    ∀ i ∈ d.imports, i.module ∈ order.toList.take k := by
+  obtain ⟨imps, h1, h2⟩ := hc k hk
+  rw [moduleImports_of_view hv] at h1
+  have : d.imports = imps := by simpa using (ModelIO.answer_ok _ _).1 h1
+  rw [this]
+  exact h2
+
 /-- **The records of a run** are made of the import closure's modules, each
 private view read by `readView` on the snapshot, whatever the job count. -/
-theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : FS}
-    {ds : Array Declaration}
-    (h : (readOleans sp roots jobs : ModelIO _) fs (.ok (.ok ds))) :
-    ∃ (order : Array Name) (ls : List Loaded) (mg : Merged),
+theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
+    {jobs : Nat} {fs : FS} {ds : Array Declaration}
+    (h : (readOleans sp roots constants jobs : ModelIO _) fs (.ok (.ok ds))) :
+    ∃ (order : Array Name) (ls : List Loaded) (mg : Merged) (rs : Array Name),
       (closureOrder sp roots : ModelIO _) fs (.ok (.ok order)) ∧
       ls.map (·.name) = order.toList ∧
       (∀ l ∈ ls, ∃ d, (readView sp l.name .private : ModelIO _) fs (.ok (.ok d)) ∧
         l.constants = d.constants.map CEntry.ofRead) ∧
-      mergeAll ls.toArray = .ok mg ∧ coverageOk mg (emitAll mg) = .ok () ∧
-      declsOf (emitAll mg) = .ok ds := by
+      ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧
+      (∀ l ∈ ls, ∀ c ∈ l.constants, ∃ c', mg.map[c.name]? = some c' ∧ Stands c' c) ∧
+      mergeAll ls.toArray = .ok mg ∧ rootConstants mg constants = .ok rs ∧
+      coverageOk mg (emitAll mg rs) = .ok () ∧ declsOf (emitAll mg rs) = .ok ds := by
   simp only [readOleans, loadClosure, ModelIO.bind_ok] at h
   obtain ⟨x, ⟨o, ho, hx⟩, h⟩ := h
   rcases o with e | order
@@ -513,7 +531,11 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : 
       | error e => simp [hm] at h
       | ok mg =>
         simp only [hm] at h
-        cases hc : coverageOk mg (emitAll mg) with
+        cases hr : rootConstants mg constants with
+        | error e => simp [hr] at h
+        | ok rs =>
+        simp only [hr] at h
+        cases hc : coverageOk mg (emitAll mg rs) with
         | error e => simp [hc] at h
         | ok u =>
           simp only [hc, ModelIO.pure_iff, Except.ok.injEq] at h
@@ -528,6 +550,9 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs : 
             · simp only [ModelIO.pure_iff, Except.ok.injEq] at hl
               subst hl
               exact ⟨rfl, r, hz, rfl⟩) hF
-          exact ⟨order, ls, mg, ho, h1, h2, hm, by cases u; exact hc, h.symm⟩
+          obtain ⟨hk, -⟩ := mergeAll_ok hm
+          obtain ⟨hc1, hc2⟩ := closureOrder_ok ho
+          exact ⟨order, ls, mg, rs, ho, h1, h2, hc1, hc2, fun l hl => hk l (by simpa using hl), hm, hr,
+            by cases u; exact hc, h.symm⟩
 
 end ConLeche.Frontend.Olean

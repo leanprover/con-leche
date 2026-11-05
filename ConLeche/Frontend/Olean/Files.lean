@@ -33,37 +33,46 @@ def modFile (dir : System.FilePath) (m : Name) (ext : String) : System.FilePath 
     | .num p n => comps p ++ [toString n]
   (comps m).foldl (· / ·) dir |>.addExtension ext
 
-/-- Where `parseModName`'s scan is. -/
-inductive ModNameScan where
+/-- Where the scan of a name is. -/
+inductive NameScan where
   | start | plain | esc | closed
 
-/-- **A module name as the command line spells it** (task #384): its
-components separated by dots, a component in `«»` taken literally, dots
-included (Lean's own spelling of a name, `String.toName`: Lake's module
-`Challenge.«12.34».«5»` is stored as `Challenge/12.34/5.olean`).  `none`
-for an empty component or an escape without its `»`.  Unlike
-`String.toName`, an unescaped component is never read as a number: a
-module name has string components only. -/
+/-- A component as written without an escape: at `nums`, one of digits alone is a
+number, as Lean's name literals read it. -/
+def Name.pushPlain (n : Name) (cur : String) (nums : Bool) : Name :=
+  if nums && !cur.isEmpty && cur.all Char.isDigit then n.num cur.toNat! else n.str cur
+
+/-- The scan of a name, one character at a time: `st` says where it is (at a component's
+start, in a plain or an escaped component, just after an escape's `»`), `cur` holds the
+component read so far. -/
+def scanName (nums : Bool) : List Char → Name → NameScan → String → Option Name
+  | [], n, .plain, cur => some (Name.pushPlain n cur nums)
+  | [], n, .closed, _ => some n
+  | [], _, _, _ => none
+  | c :: cs, n, .start, _ =>
+    if c == '«' then scanName nums cs n .esc ""
+    else if c == '.' then none
+    else scanName nums cs n .plain (String.singleton c)
+  | c :: cs, n, .plain, cur =>
+    if c == '.' then scanName nums cs (Name.pushPlain n cur nums) .start ""
+    else scanName nums cs n .plain (cur.push c)
+  | c :: cs, n, .esc, cur =>
+    if c == '»' then (if cur.isEmpty then none else scanName nums cs (n.str cur) .closed "")
+    else scanName nums cs n .esc (cur.push c)
+  | c :: cs, n, .closed, _ => if c == '.' then scanName nums cs n .start "" else none
+
+/-- **A module name as the command line spells it**: its components separated by dots,
+a component in `«»` taken literally, dots included (Lean's own spelling of a name:
+Lake's module `Challenge.«12.34».«5»` is stored as `Challenge/12.34/5.olean`).  `none`
+for an empty component or an escape without its `»`.  An unescaped component is never
+read as a number: a module name has string components only. -/
 def parseModName (s : String) : Option Name :=
-  go s.toList .anonymous .start ""
-where
-  /-- The scan, one character at a time: `st` says where it is (at a
-  component's start, in a plain or an escaped component, just after an
-  escape's `»`), `cur` holds the component read so far. -/
-  go : List Char → Name → ModNameScan → String → Option Name
-    | [], n, .plain, cur => some (n.str cur)
-    | [], n, .closed, _ => some n
-    | [], _, _, _ => none
-    | c :: cs, n, .start, _ =>
-      if c == '«' then go cs n .esc ""
-      else if c == '.' then none
-      else go cs n .plain (String.singleton c)
-    | c :: cs, n, .plain, cur =>
-      if c == '.' then go cs (n.str cur) .start "" else go cs n .plain (cur.push c)
-    | c :: cs, n, .esc, cur =>
-      if c == '»' then (if cur.isEmpty then none else go cs (n.str cur) .closed "")
-      else go cs n .esc (cur.push c)
-    | c :: cs, n, .closed, _ => if c == '.' then go cs n .start "" else none
+  scanName false s.toList .anonymous .start ""
+
+/-- **A constant's name as the command line spells it**: as `parseModName`, a component
+of digits being a number (`_private.M.0.foo`), as Lean's name literals read it. -/
+def parseConstName (s : String) : Option Name :=
+  scanName true s.toList .anonymous .start ""
 
 /-- **Where a module's files are** (task #392): the search-path directory
 holding them, and which of the two parts beside its `.olean` it holds. -/

@@ -9,7 +9,7 @@ environment, and its `main` collides with `Main.lean`'s. -/
 /-!
 # `olean-compare` — the olean reader against lean4export
 
-    lake exe olean-compare EXPORT.ndjson SEARCHPATH MODULE...
+    lake exe olean-compare [--constant=NAME]... EXPORT.ndjson SEARCHPATH MODULE...
     lake exe olean-compare --views SEARCHPATH MODULE...
 
 Parses a lean4export stream of `MODULE...` with the stream reader and
@@ -143,7 +143,18 @@ def runViews (sp : List System.FilePath) (roots : Array Name) : IO UInt32 := do
   IO.println s!"{order.size} modules: every view read, one memo, agrees"
   return 0
 
+/-- Lean's `Name.isInternal`: lean4export's default leaves out the constants so named, which
+the reader starts from too, so they may be extra records. -/
+def internalName : Name → Bool
+  | .str p s => s.front == '_' || internalName p
+  | .num p _ => internalName p
+  | .anonymous => false
+
 def main (args : List String) : IO UInt32 := do
+  let (flags, args) := args.partition (·.startsWith "--constant=")
+  let named := flags.toArray.filterMap fun s =>
+    Frontend.Olean.parseConstName (s.drop "--constant=".length).toString
+  let constants := if named.isEmpty then none else some named
   match args with
   | "--views" :: sp :: mods@(_ :: _) =>
     runViews ((sp.splitOn ":").map System.FilePath.mk) (mods.toArray.filterMap Frontend.Olean.parseModName)
@@ -154,7 +165,7 @@ def main (args : List String) : IO UInt32 := do
       | .error (e, l) => IO.eprintln s!"stream: {e} at line {l}"; return 3
     let t1 ← IO.monoMsNow
     let roots := mods.toArray.filterMap Frontend.Olean.parseModName
-    let os ← match ← Frontend.Olean.readOleans ((sp.splitOn ":").map System.FilePath.mk) roots (jobs := 8) with
+    let os ← match ← Frontend.Olean.readOleans ((sp.splitOn ":").map System.FilePath.mk) roots constants (jobs := 8) with
       | .ok ds => pure ds
       | .error (e, l) => IO.eprintln s!"oleans: {e} at record {l}"; return 3
     let t2 ← IO.monoMsNow
@@ -175,13 +186,19 @@ def main (args : List String) : IO UInt32 := do
           if shown < 20 then
             IO.println s!"differs: {k}\n  stream: {(repr d).pretty 200 |>.take 600}\n  oleans: {(repr d').pretty 200 |>.take 600}"
             shown := shown + 1
+    let mut extra := 0
     for (k, _) in om do
       unless jm.contains k do
-        bad := bad + 1
-        if shown < 40 then IO.println s!"only in the oleans: {k}"; shown := shown + 1
+        -- the export's default leaves out internal names as roots: extra records
+        -- are those, or what only they reach, which the check below counts
+        if constants.isNone then extra := extra + 1
+        else
+          bad := bad + 1
+          if shown < 40 then IO.println s!"only in the oleans: {k}"; shown := shown + 1
     -- record for record: a key two records share, or a
     -- different number of records, is a difference the maps hide
-    let countDiff := if js.size == os.size then 0 else 1
+    let countDiff := if js.size + extra == os.size then 0 else 1
+    IO.println s!"{extra} records the export's default leaves out (internal names and their reach)"
     IO.println s!"{jm.size} stream keys, {om.size} olean keys, {bad} differences, \
       {jd + od} duplicate keys, {js.size} / {os.size} records"
     return if bad == 0 && jd == 0 && od == 0 && countDiff == 0 then 0 else 1

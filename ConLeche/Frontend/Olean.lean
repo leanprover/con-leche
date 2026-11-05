@@ -11,7 +11,7 @@ public import ConLeche.Frontend.Olean.Records
 `ConLeche/Verify/Frontend/Olean/`, nothing imports the tree's other modules
 (`tests/layering.sh`).  The names below are the interface; everything else the
 tree declares (`moduleSkel`, `parseAt`, `runPasses`, `sGo`, `locateHits`, `findModule`,
-`readPart`, `readImportsAt`, `mergeAll`, `emitAll`, ...) is public only because checker code
+`readPart`, `readImportsAt`, `emitAll`, ...) is public only because checker code
 is exposed and its proofs unfold it: a definition an exposed definition mentions
 cannot be `private`.  It is not an interface, and may change at will.
 
@@ -51,11 +51,14 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 
 | name | theorem |
 |---|---|
-| `closureOrder sp roots : μ (Except CheckError (Array Name))` | none of its own |
-| `loadClosure sp roots jobs : μ (Except CheckError (Array Loaded))` | none of its own |
-| `readOleans sp roots jobs : μ (Except (CheckError × Nat) (Array Declaration))` | `readOleans_ok` |
+| `closureOrder sp roots : μ (Except CheckError (Array Name))` | `closureOrder_ok`: holds the roots, each module after its imports |
+| `loadClosure sp roots jobs : μ (Except CheckError (Array Loaded))` | through `readOleans_ok` |
+| `mergeAll ls : Except CheckError Merged` | `mergeAll_ok`: every constant stands in the merge |
+| `readOleans sp roots constants jobs : μ (Except (CheckError × Nat) (Array Declaration))` | `readOleans_ok` |
 
-Here `roots` are the modules the closure starts from.
+Here `roots` are the modules the closure starts from, and `constants` the constants the
+records start from (`none`: every constant of the closure), as lean4export's arguments after
+`--` do.  The emission from the merge to the records has no theorem yet.
 
 Where a view parses, the other reads succeed and return their part of it.  Not the
 converse, on purpose: a read looks only at what it needs, and a reader may rely on a

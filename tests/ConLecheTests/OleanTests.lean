@@ -194,7 +194,7 @@ def orphanMerged : Merged :=
   | .ok mg => mg
   | .error _ => {}
 
-#guard (coverageOk orphanMerged (emitAll orphanMerged)) matches .error (.internal _)
+#guard (coverageOk orphanMerged (emitAll orphanMerged orphanMerged.order)) matches .error (.internal _)
 
 -- Module names on the command line (upstream's
 -- challenge-numeric-namespace): `«»` escapes taken literally, dots
@@ -203,6 +203,9 @@ def orphanMerged : Merged :=
   some ((((Name.anonymous.str "Challenge").str "12.34").str "5"))
 #guard parseModName "Init.Data.Nat" == some (((Name.anonymous.str "Init").str "Data").str "Nat")
 #guard parseModName "«a.b»" == some (Name.anonymous.str "a.b")
+#guard parseConstName "_private.M.0.foo" ==
+  some ((((Name.anonymous.str "_private").str "M").num 0).str "foo")
+#guard parseConstName "«0».x" == some ((Name.anonymous.str "0").str "x")
 #guard parseModName "123" == some (Name.anonymous.str "123")
 #guard ["", "A.", ".A", "A..B", "«A", "«A»B", "A.«B", "«»", "A.«»"].all (parseModName · |>.isNone)
 #guard (modFile "d" ((((Name.anonymous.str "Challenge").str "12.34").str "5")) "olean").toString

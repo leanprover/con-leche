@@ -17,7 +17,7 @@ verdict line:
 ```
 con-leche [--verified|--trusted] [--jobs=<n>]
           [--progress[=<stride>]] [--] FILE.ndjson
-con-leche [flags] --olean --search-path=DIR[:DIR...] [--] MODULE...
+con-leche [flags] --olean --search-path=DIR[:DIR...] [--constant=NAME]... [--] MODULE...
 con-leche --help
 ```
 
@@ -28,7 +28,8 @@ outside the theorem; `--jobs=<n>` sets the check phase's worker count
 (below);
 `--progress[=<stride>]` turns on a heartbeat on stderr
 (below); `--olean` takes module names (`Init`, `Mathlib`) in place of the
-file, looked up in the directories `--search-path` lists (§2, the
+file, looked up in the directories `--search-path` lists, and checks every constant of their
+import closure, or with `--constant` only the named constants and what they mention (§2, the
 `.olean` reader); `--` ends the options, every argument after it being a
 file or a module, whatever it is called; `--help` before any `--` prints the usage text
 and exits 0
@@ -354,7 +355,7 @@ Read from the outside in:
    the escape, whose outcomes would otherwise allow any code. On every
    snapshot, every outcome of `runArgs` at the arguments `-- <file>` that
    is an exit 0 establishes the file's chain to the fold's accept
-   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L76-L80)),
+   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L82-L86)),
    whose corollary is `main_no_False` in
    `ConLeche/MainTheorem.lean` (§1). That a run of the binary that
    exits 0 is one of those outcomes is assumed, not proved, and the class's file states
@@ -422,7 +423,7 @@ Read from the outside in:
    threads answered, every outcome that is an exit 0 is one where the
    file's bytes in the snapshot, as one chunk, parse to records the fold
    accepts
-   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L297-L302)):
+   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L298-L303)):
    the hypothesis of the main corollary about the file itself, read at
    the binary under the assumptions of the class's file.
    What the parser makes of a record
@@ -583,8 +584,9 @@ cannot depend on a proof.
 
 `--olean` ends in the same records as the stream parse, so everything
 after it is the same checker: the import closure of the named modules is
-read, merged as Lean's own import merges it, emitted in `lean4export`'s
-order and handed to the same record builder
+read, merged as Lean's own import merges it, emitted as `lean4export` emits a constant and
+what it mentions, from every constant of the closure or the ones `--constant` names, and
+handed to the same record builder
 (`ConLeche/Frontend/Olean/Records.lean`). `tests/olean-compare.sh`
 compares the two readers record for record on `Init`. Nothing in a file is
 trusted: every object the imports and constants reach is decoded and
@@ -622,9 +624,12 @@ rest of the checker imports.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
 every exit 0 read records off the snapshot's files that `checkDecls` accepts.
-`main_oleans_no_False` follows. Unlike the stream parse, the merge and the
-emission (`Merge.lean`, `Emit.lean`) have no theorem saying what the records
-mean relative to the files' constants.
+`main_oleans_no_False` follows. `readOleans_ok` says what those records are made of: the
+order holds the named modules and has every module after its imports (`closureOrder_ok`),
+and every constant of their private views stands in the merge, itself or a constant of its
+name and statement that Lean's own import lets stand for it (`mergeAll_ok`). Unlike the stream
+parse, the emission (`Emit.lean`) has no theorem saying what the records mean relative to the
+merged constants; `olean-compare` compares them with lean4export's.
 
 ## 3. The checker
 

@@ -8,11 +8,10 @@ import Std.Data.HashSet.Lemmas
 /-!
 # Reading `.olean` files: the merged constants in lean4export's order
 
-lean4export's `dumpConstant` walk: every constant whose name is not internal
-is a root, every constant is emitted after the constants its type and value
-mention, an inductive block as one record with its constructors and
-recursors, the quotient package as its four records after `Eq`, unsafe and
-partial constants left out.  The walk is iterative (`Work` items on an
+lean4export's `dumpConstant` walk from the given roots: every constant is emitted
+after the constants its type and value mention, an inductive block as one record
+with its constructors and recursors, the quotient package as its four records after
+`Eq`, unsafe and partial constants left out.  The walk is iterative (`Work` items on an
 explicit stack).  Its output is the record stream in the stream reader's own
 syntax (`DeclRec`, `ConLeche/Frontend/Scan/Types.lean`).
 -/
@@ -20,12 +19,6 @@ syntax (`DeclRec`, `ConLeche/Frontend/Scan/Types.lean`).
 namespace ConLeche.Frontend.Olean
 
 open ConLeche
-
-/-- Lean's `Name.isInternal`: some component starts with `_`. -/
-def Name.isInternal : Name → Bool
-  | .str p s => s.front == '_' || Name.isInternal p
-  | .num p _ => Name.isInternal p
-  | .anonymous => false
 
 /-- One step of the emission walk. -/
 inductive Work where
@@ -299,8 +292,8 @@ decreasing_by
         (Emit.foldl_mark_mono _ _ _ _ (Emit.mark_self _ _))
         fun k hk => Emit.foldl_mark_mono _ _ _ _ (Emit.mark_mono _ hk))
 
-/-- **The record stream of the merged closure.** -/
-def emitAll (mg : Merged) : Emit :=
+/-- **The record stream of the merged closure**, from the given constants. -/
+def emitAll (mg : Merged) (roots : Array Name) : Emit :=
   let recMap := mg.order.foldl (fun (m : Std.HashMap Name (Array Name)) n =>
     match (mg.map[n]?).map (·.kind) with
     | some (CKindF.recur all ..) =>
@@ -308,7 +301,6 @@ def emitAll (mg : Merged) : Emit :=
         | none => some #[n]
         | some a => some (if a.contains n then a else a.push n)) m
     | _ => m) {}
-  let roots := mg.order.filter (!Name.isInternal ·)
   emitLoop mg recMap (roots.toList.map .visit) {}
 
 /-! ## The coverage of the emission -/

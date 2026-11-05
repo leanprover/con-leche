@@ -134,12 +134,12 @@
 == ConLeche/Frontend/CheckerIO.lean#L262
    262  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L76-L80
-    76  theorem runArgs_accept {file : String} {fs : FS}
-    77      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-    78      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-    79        parseChunks [b] = .ok r ∧
-    80        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L82-L86
+    82  theorem runArgs_accept {file : String} {fs : FS}
+    83      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+    84      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+    85        parseChunks [b] = .ok r ∧
+    86        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -181,13 +181,13 @@
   1743        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L297-L302
-   297  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   298      {stride jobs : Nat} {fs : FS}
-   299      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
-   300      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   301        Frontend.parseChunks [b] = .ok r ∧
-   302        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Driver/CheckMain.lean#L298-L303
+   298  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+   299      {stride jobs : Nat} {fs : FS}
+   300      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
+   301      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   302        Frontend.parseChunks [b] = .ok r ∧
+   303        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Installed.lean#L144-L147
    144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -1373,8 +1373,8 @@
    241        c.toConstantVal.levelParams = cv.levelParams ∧
    242        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L424
-   424  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L438
+   438  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == ConLeche/Frontend/CheckerIO.lean#L120
    120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1393,8 +1393,8 @@
 == Main.lean#L84
     84  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L424
-   424  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L438
+   438  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L29
     29  def enableAbortOnNonlinear : IO Unit := do

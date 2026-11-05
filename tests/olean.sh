@@ -98,7 +98,10 @@ def fld(a, i): b, o = at(a); return struct.unpack_from('<Q', b, o + 8 + 8 * i)[0
 def setfld(a, i, v): b, o = at(a); struct.pack_into('<Q', b, o + 8 + 8 * i, v)
 def name(a):
     if a == 1: return ''
-    pre = name(fld(a, 0)); b, s = at(fld(a, 1))
+    pre = name(fld(a, 0))
+    b0, o0 = at(a)
+    if b0[o0 + 7] == 2: return pre + '.' + str(fld(a, 1) >> 1)
+    b, s = at(fld(a, 1))
     sz = struct.unpack_from('<Q', b, s + 8)[0]
     return (pre + '.' if pre else '') + b[s + 32:s + 32 + sz - 1].decode()
 def consts(ext):
@@ -112,6 +115,25 @@ exec(expr)
 for ext, (base, b) in parts.items(): open(f'{d}/{m}.{ext}', 'wb').write(b)
 PY
 }
+# --- which constants ----------------------------------------------------
+# a private theorem nothing refers to is checked, whatever its name: its proof
+# replaced by a term of another type
+d="$TMPDIR/con-leche-olean-priv"
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" PrivUnused "
+cs = consts('olean.private')
+setfld(fld(cs['_private.tests.olean.src.PrivUnused.0.secret'], 0), 1, fld(fld(cs['two'], 0), 1))"
+case_ "an unreferenced private theorem is checked" 0 --olean --search-path=$LIB PrivUnused
+case_ "an unreferenced private theorem with a bad proof" 1 --olean --search-path=$d PrivUnused
+# --constant: that constant and what it mentions, as lean4export's -- does
+case_ "--constant leaves out what it does not reach" 0 --olean --constant=two --search-path=$d PrivUnused
+case_ "--constant of a number component" 1 --olean --constant=_private.tests.olean.src.PrivUnused.0.secret --search-path=$d PrivUnused
+case_ "--constant given twice" 1 --olean --constant=two --constant=_private.tests.olean.src.PrivUnused.0.secret --search-path=$d PrivUnused
+rm -rf "$d"
+case_grep "--constant the closure does not hold" 3 "not in the import closure" --olean --constant=noSuch --search-path=$LIB PrivUnused
+case_grep "--constant that is no name" 3 "not a constant's name" --olean --constant=a.. --search-path=$LIB PrivUnused
+case_ "--constant without --olean" 3 --constant=two tests/mode/split_good.ndjson
+
 # --- corrupted files ----------------------------------------------------
 # Each case copies the fixtures and changes bytes of Tiny's files.
 # patch <file> <python expression over b (bytearray), base, root>

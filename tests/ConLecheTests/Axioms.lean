@@ -143,6 +143,18 @@ info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Class
 #print axioms ConLeche.Frontend.Olean.readOleans_ok
 
 /--
+info: 'ConLeche.Frontend.Olean.closureOrder_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.closureOrder_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.mergeAll_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.mergeAll_ok
+
+/--
 info: 'ConLeche.Frontend.Olean.parseAllViews_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in

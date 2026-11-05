@@ -24,12 +24,12 @@ inductive Req where
   /-- a lean4export stream (`checkMainG` on `.ndjson`) -/
   | stream (file : String) (mode : CheckMode) (stride jobs : Nat)
   /-- the import closure of root modules (`checkMainG` on `.oleans`) -/
-  | oleans (searchPath : List System.FilePath) (roots : Array Name) (mode : CheckMode)
-      (stride jobs : Nat)
+  | oleans (searchPath : List System.FilePath) (roots : Array Name)
+      (constants : Option (Array Name)) (mode : CheckMode) (stride jobs : Nat)
 
 /-- **A request run** by its driver. -/
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs
-  | .oleans sp roots mode stride jobs => checkMainG (.oleans sp roots) mode stride jobs
+  | .oleans sp roots cs mode stride jobs => checkMainG (.oleans sp roots cs) mode stride jobs
 
 end ConLeche.Driver

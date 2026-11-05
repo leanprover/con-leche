@@ -108953,10 +108953,13 @@ read looks only at what it needs, so it may succeed on a file whose full parse f
   `readView_of_all` and `readFiles_of_all` state those reads are DETERMINED and the home's;
   `moduleImports_of_view` from any view read.  One snapshot, in one process or in two.
 * `checkMainG_oleans_accept`, `runArgs_oleans_accept`, `main_oleans_no_False`,
-  `readOleans_ok`.  Not stated: what the merge and the emission mean relative to the
-  files' constants (`mergeAll`, `emitAll`, `declsOf` appear in `readOleans_ok` as they
-  are), nor that `closureOrder` covers the closure: `main_oleans_no_False` takes its
-  `False` theorem as a hypothesis on the reader's records.
+  `readOleans_ok`.  Not stated: what the emission means relative to the merged constants
+  (`emitAll`, `declsOf` appear in `readOleans_ok` as they are), so `main_oleans_no_False` takes
+  its `False` theorem as a hypothesis on the reader's records.
+* `closureOrder_ok` (the module walk holds the roots, each module after its imports),
+  `mergeAll_ok` (every constant stands in the merge: `Stands`, `subsumesInfo`'s rule; every
+  entry is a module's under its own name).  Such theorems found nothing wrong, and pin down
+  what the code is for.
 
 **Fence.**  `tests/layering.sh`: the reader imports itself and five base modules
 (`Kernel.{Error,Name,Expr,Env}`, `Frontend.Scan.Types`); only `Files` and
@@ -108997,3 +109000,12 @@ layers.  Gone: `parseFull`, `decodeModuleFast`, `parseExported`, `parseModule`, 
 positions".  `ConLeche/Frontend/Olean.lean` lists the interface; `tests/layering.sh` keeps
 the rest of the checker from importing past it.  `private` cannot express it: checker code
 is exposed, so what an exposed definition mentions must be public.
+
+**Every constant is checked (maintainer's ruling).**  `Name.isInternal` came in with #369,
+copied from lean4export's `Main.lean`, the default of an export tool's command line and not a
+checker's concept: which constants are checked must not depend on how a name is spelled.  An
+unused `private theorem` was never type-checked, 6 018 of `Init`'s records were left out.  The
+roots are now every constant of the closure.  `--constant=NAME` restricts them, as lean4export's
+`--` does, so that the reader subsumes the exporter: `olean-compare` compares a constant's cone
+record for record, and a whole closure up to the records only internal names reach.  Unsafe and
+partial constants stay out: that filter is about the logic, and is `Export.lean`'s own.

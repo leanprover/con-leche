@@ -45,18 +45,33 @@ def declsOf (em : Emit) : Except (CheckError × Nat) (Array Declaration) :=
     | .ok (.inr v) => throw (v.toError, k)
     | .error msg => throw (.internal msg, k)
 
-/-- **The whole read**: load, merge, emit, build. -/
+/-- The constants the emission starts from: the named ones, each of which the closure
+must hold, or all of them. -/
+def rootConstants (mg : Merged) : Option (Array Name) → Except CheckError (Array Name)
+  | none => pure mg.order
+  | some cs =>
+    match cs.find? (!mg.map.contains ·) with
+    | some c => throw (.internal s!"the constant {c} is not in the import closure")
+    | none => pure cs
+
+/-- **The whole read**: load, merge, emit, build.  `constants` names the constants to
+start from, as lean4export's arguments after `--` do; `none` is every constant of the
+closure. -/
 def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
-    (roots : Array Name) (jobs : Nat := 1) : μ (Except (CheckError × Nat) (Array Declaration)) := do
+    (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1) :
+    μ (Except (CheckError × Nat) (Array Declaration)) := do
   match ← loadClosure sp roots jobs with
   | .error e => pure (.error (e, 0))
   | .ok ls =>
     match mergeAll ls with
     | .error e => pure (.error (e, 0))
     | .ok mg =>
-      let em := emitAll mg
-      match coverageOk mg em with
+      match rootConstants mg constants with
       | .error e => pure (.error (e, 0))
-      | .ok () => pure (declsOf em)
+      | .ok cs =>
+        let em := emitAll mg cs
+        match coverageOk mg em with
+        | .error e => pure (.error (e, 0))
+        | .ok () => pure (declsOf em)
 
 end ConLeche.Frontend.Olean

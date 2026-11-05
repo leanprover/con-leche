@@ -51,12 +51,14 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS}
     (h : (runArgs args : ModelIO _) fs (.ok 0)) :
     ∃ pre ds env, builtinPreludeE = .ok pre ∧
       (Olean.readOleans (parseArgs args {}).searchPath
-        ((parseArgs args {}).files.filterMap Olean.parseModName) : ModelIO _) fs (.ok (.ok ds)) ∧
+        ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants :
+          ModelIO _) fs (.ok (.ok ds)) ∧
       Cached.checkDecls (parseArgs args {}).mode natOpPinSets (preparePrelude pre ds) = .ok env := by
   suffices H : ModelIO.AllOk (runArgs args) fs
       (fun c => c = 0 → ∃ pre ds env, builtinPreludeE = .ok pre ∧
         (Olean.readOleans (parseArgs args {}).searchPath
-          ((parseArgs args {}).files.filterMap Olean.parseModName) : ModelIO _) fs (.ok (.ok ds)) ∧
+          ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants :
+          ModelIO _) fs (.ok (.ok ds)) ∧
         Cached.checkDecls (parseArgs args {}).mode natOpPinSets (preparePrelude pre ds) = .ok env) from
     H 0 h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
@@ -66,10 +68,14 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS}
     split at hc
     · simp [eprintln] at hc
     · cases hf : (parseArgs args {}).files.find? (fun f => (Olean.parseModName f).isNone) with
+      | some m => simp [hf, eprintln] at hc
       | none =>
         simp only [hf] at hc
-        exact checkMainG_oleans_accept hc
-      | some m => simp [hf, eprintln] at hc
+        cases hg : (parseArgs args {}).constants.find? (fun c => (Olean.parseConstName c).isNone) with
+        | some m => simp [hg, eprintln] at hc
+        | none =>
+          simp only [hg] at hc
+          exact checkMainG_oleans_accept hc
   · simp
 
 /-- **`runArgs`, in the model** (task #450). -/

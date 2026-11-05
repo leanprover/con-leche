@@ -239,7 +239,7 @@ def usage : String := String.intercalate "\n" [
   "                    lean4export stream: the arguments are root",
   "                    modules (Init, Std, Mathlib, ...; a component in",
   "                    «» is taken literally, as in Challenge.«12.34».«5»),",
-  "                    checked with their whole import closure.  The",
+  "                    checked with every constant of their import closure.  The",
   "                    closure is read at the private level (theorems",
   "                    with proofs, definitions with bodies), merged as",
   "                    Lean's own import merges it, and emitted as the",
@@ -248,6 +248,12 @@ def usage : String := String.intercalate "\n" [
   "                    constants reach is decoded and validated, nothing",
   "                    in the files is trusted.  A",
   "                    file of another .olean format version declines (2).",
+  "  --constant=NAME   with --olean: check only this constant and what it",
+  "                    mentions, not every constant of the closure, as",
+  "                    lean4export's arguments after -- do; a component of",
+  "                    digits is a number (_private.M.0.foo).  May be given",
+  "                    more than once.  A name the closure does not hold is",
+  "                    an error (3).",
   "  --search-path=DIR[:DIR...]",
   "                    the directories holding .olean trees, as",
   "                    LEAN_PATH lists them (the toolchain's lib/lean,",
@@ -352,6 +358,8 @@ structure Args where
   olean : Bool := false
   /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
   searchPath : List System.FilePath := []
+  /-- `--constant=NAME`: with `--olean`, the constants to start from. -/
+  constants : Array String := #[]
   files : Array String := #[]
   bad : Option String := none
 
@@ -388,6 +396,8 @@ def parseArgs : List String → Args → Args
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
           flag for one worker per hardware thread" }
+    else if s.startsWith "--constant=" then
+      parseArgs rest { a with constants := a.constants.push (s.drop "--constant=".length).toString }
     else if s.startsWith "--search-path=" then
       let dirs := ((s.drop "--search-path=".length).toString.splitOn ":").filter (· != "")
       parseArgs rest { a with searchPath := a.searchPath ++ dirs.map System.FilePath.mk }
@@ -398,6 +408,10 @@ def parseArgs : List String → Args → Args
 /-- An error line on stderr (`liftIO`). -/
 @[inline] def eprintln {m : Type → Type} [CheckerIO m] (s : String) : m Unit :=
   CheckerIO.liftIO (IO.eprintln s)
+
+/-- The constants `--constant=` names: `none` is every constant of the closure. -/
+def Args.rootConstants (a : Args) : Option (Array Name) :=
+  if a.constants.isEmpty then none else some (a.constants.filterMap Frontend.Olean.parseConstName)
 
 /-- **What `main` runs, generic in the IO class** (tasks #424, #450): the
 argument parse, `--help` and the usage errors, the request run, and the
@@ -448,12 +462,17 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           eprintln s!"con-leche: not a module name: {Display.str m}"
           eprintln usage
           return 3
+        if let some c := a.constants.find? (fun c => (Frontend.Olean.parseConstName c).isNone) then
+          eprintln s!"con-leche: not a constant's name: {Display.str c}"
+          eprintln usage
+          return 3
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
-        return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName) a.mode a.progress jobs)
-      if !a.searchPath.isEmpty then
-        eprintln "con-leche: --search-path without --olean"
+        return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
+          a.rootConstants a.mode a.progress jobs)
+      if !a.searchPath.isEmpty || !a.constants.isEmpty then
+        eprintln "con-leche: --search-path and --constant take --olean"
         eprintln usage
         return 3
       match a.files.toList with

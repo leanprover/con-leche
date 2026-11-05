@@ -58,11 +58,12 @@ those. -/
 inductive Input where
   | ndjson (file : String)
   | oleans (searchPath : List System.FilePath) (roots : Array ConLeche.Name)
+      (constants : Option (Array ConLeche.Name))
 
 /-- The input's name in a diagnostic. -/
 def Input.label : Input → String
   | .ndjson f => f
-  | .oleans _ rs => String.intercalate " " (rs.toList.map toString)
+  | .oleans _ rs _ => String.intercalate " " (rs.toList.map toString)
 
 /-- A line on stderr: a diagnostic (`liftIO`). -/
 @[inline] def diagLine {μ : Type → Type} [CheckerIO μ] (s : String) : μ Unit :=
@@ -90,7 +91,7 @@ def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (jobs : Nat) :
   match inp with
   | .ndjson file => do
     return (← parseStreamG file jobs).map (·.decls)
-  | .oleans sp roots => Frontend.Olean.readOleans sp roots jobs
+  | .oleans sp roots cs => Frontend.Olean.readOleans sp roots cs jobs
 
 /-- **The driver, generic in the IO class** (tasks #424, #450): what
 `main` runs in process (at `IO`) and what the theorem is about (at
@@ -345,14 +346,14 @@ that snapshot that is records `ds` (at one job: the parallel map's model is
 the sequential map), and `checkDecls` accepts those prepared with the
 prelude, whatever the `liftIO` actions answered. -/
 theorem checkMainG_oleans_accept {sp : List System.FilePath} {roots : Array ConLeche.Name}
-    {mode : CheckMode} {stride jobs : Nat} {fs : FS}
-    (h : (checkMainG (.oleans sp roots) mode stride jobs : ModelIO _) fs (.ok 0)) :
+    {cs : Option (Array ConLeche.Name)} {mode : CheckMode} {stride jobs : Nat} {fs : FS}
+    (h : (checkMainG (.oleans sp roots cs) mode stride jobs : ModelIO _) fs (.ok 0)) :
     ∃ pre ds env, Frontend.builtinPreludeE = .ok pre ∧
-      (Frontend.Olean.readOleans sp roots : ModelIO _) fs (.ok (.ok ds)) ∧
+      (Frontend.Olean.readOleans sp roots cs : ModelIO _) fs (.ok (.ok ds)) ∧
       Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre ds) = .ok env := by
-  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots) mode stride jobs) fs
+  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode stride jobs) fs
       (fun c => c = 0 → ∃ pre ds env, Frontend.builtinPreludeE = .ok pre ∧
-        (Frontend.Olean.readOleans sp roots : ModelIO _) fs (.ok (.ok ds)) ∧
+        (Frontend.Olean.readOleans sp roots cs : ModelIO _) fs (.ok (.ok ds)) ∧
         Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre ds) = .ok env) from
     H 0 h rfl
   cases hp : Frontend.builtinPreludeE with
@@ -367,7 +368,7 @@ theorem checkMainG_oleans_accept {sp : List System.FilePath} {roots : Array ConL
     cases hpre
     rcases x with ⟨_ | _ | _, _⟩ | ds
     rotate_right
-    · have hx' : (Frontend.Olean.readOleans sp roots : ModelIO _) fs (.ok (.ok ds)) := hx
+    · have hx' : (Frontend.Olean.readOleans sp roots cs : ModelIO _) fs (.ok (.ok ds)) := hx
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
         intro _ <;>

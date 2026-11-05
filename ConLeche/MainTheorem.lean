@@ -163,8 +163,8 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {args : List String} {fs
     (ho : (Driver.parseArgs args {}).olean = true)
     (hm : (Driver.parseArgs args {}).mode = .verified)
     (hF : ∀ ds, (Olean.readOleans (Driver.parseArgs args {}).searchPath
-        ((Driver.parseArgs args {}).files.filterMap Olean.parseModName) : ModelIO _) fs
-          (.ok (.ok ds)) →
+        ((Driver.parseArgs args {}).files.filterMap Olean.parseModName)
+        (Driver.parseArgs args {}).rootConstants : ModelIO _) fs (.ok (.ok ds)) →
       ∃ cv vl, Declaration.thmDecl cv vl ∈ ds ∧ cv.type = .const falseName []) :
     ¬ (Driver.runArgs args : ModelIO _) fs (.ok 0) := by
   intro h
