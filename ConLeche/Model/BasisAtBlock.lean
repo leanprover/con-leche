@@ -857,10 +857,15 @@ theorem CoverRel.ren {κ : Prop} {L₀ : List ConstantInfo} {E env env' : Env} {
     {m₁ : EnvModelM V env} {m' : EnvModelM V env'} (r : CoverRel m₀ m₁) (R : RenRel κ L₀ E env env')
     (hac : m'.base2.acval = renAcval m₁.base2.acval env env')
     (hb : ∀ D ∈ m'.lfpBlocks, D ∈ m₁.lfpBlocks ∨ ∀ mm, D.shown mm = none) : CoverRel m₀ m' :=
-  ⟨fun n hn => by rw [(R.stE n hn).2]; exact hn,
+  ⟨fun n ci hn => by
+    have hs : (E.find? n).isSome = true := by rw [hn]; rfl
+    rw [(R.stE n hs).2]; exact hn,
    fun n hn => by
     rw [hac, renAcval_same ((R.stE n hn).2.trans (R.stE n hn).1.symm)]
     exact r.leaf n hn,
+   fun ψ d e ta hb hta => by
+    rw [hac, denote_ren R.ren m₁.base2.acval_params ψ d e]
+    exact r.read ψ d e ta hb hta,
    fun D hD => (hb D hD).elim (fun h => r.blocks D h) .inr⟩
 
 /-- **A pinned block, at the record's names, at the P tier.** -/

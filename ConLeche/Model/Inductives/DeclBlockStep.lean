@@ -683,20 +683,22 @@ theorem declBlock {F : Nat} {env env₂ : Env}
   -- ## the tables
   suffices hT : CoverTo mpR [] env₂ [] by
     obtain ⟨mpF, rF, hF'⟩ := hT
-    have r₀ : CoverRel mp mpC₀ := ⟨fun n hn => by
-        cases hf : env.find? n with
-        | none => rw [hf] at hn; exact nomatch hn
-        | some ci =>
-          exact (show ((ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n).isSome = true by
-            rw [hfwdE n ci hf]; rfl),
-      fun n hn => by rw [hbC]; exact hagE n hn, fun D hD => .inl (hlC ▸ hD)⟩
+    have r₀ : CoverRel mp mpC₀ := ⟨hfwdE,
+      fun n hn => by rw [hbC]; exact hagE n hn,
+      fun ψ d e ta hb hta => by
+        have hT : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).tables = env.tables := by
+          rw [consBlockCtors_tables, hcons]; exact consBlockInds_tables cvTas 0 env
+        refine denote_envExtend_mono (env₀ := env) (fun hf => hfwdE _ _ hf)
+          ⟨natLitSupported_mono_of_keep hfwdE, strLitSupported_mono_of_keep hfwdE⟩
+          (findProj?_mono_of_tables (fun hf => hfwdE _ _ hf) hT) d e hb ?_
+        rw [hbC, denote_acval_congr (env := env) hagE]
+        exact hta,
+      fun D hD => .inl (hlC ▸ hD)⟩
     have r₁ : CoverRel mp mpC := r₀.addLfp _ (fun _ => rfl) _ _ _ _ _
-    have r₂ : CoverRel mpC mpR := ⟨fun n hn => by
-        have hn' : ((ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n).isSome = true := hn
-        cases hf : (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find? n with
-        | none => rw [hf] at hn'; exact nomatch hn'
-        | some ci => rw [hfindMono n ci hf]; rfl,
-      fun n hn => by rw [hbR]; exact hag n hn, fun D hD => .inl (hlR ▸ hD)⟩
+    have r₂ : CoverRel mpC mpR := ⟨hfindMono,
+      fun n hn => by rw [hbR]; exact hag n hn,
+      fun ψ d e ta hb hta => by rw [hbR, hden ψ d e hb]; exact hta,
+      fun D hD => .inl (hlR ▸ hD)⟩
     exact ⟨mpF, (r₁.trans r₂).trans rF, hF' (hcovR hcovMpC)⟩
   refine stageBlockTables hN hS rfl rfl rfl (p₁.members.zip (ctorsAs.zip sortsss)) 0 _ env₂
     mpR ?_ hTbl hcoreT
