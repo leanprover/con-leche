@@ -82,40 +82,34 @@ iterated form would need an `EnvModelM` at each intermediate
 environment, and the statement `hrecP` is posed at is about an
 arbitrary `EnvModel` of the final one. -/
 
-/-- **(S)'s `iotaCtorNeverProp` guard, across the `k` recursors' cons**:
-mirrors `iotaCtorNeverProp_cons_of_isSome` (`Model/RecRulesCons.lean`) —
-it reads `find?` only at the constructor's result family, and that
-name is stored below the new recursors (not one of the `k` fresh
-names) whenever the constructor's type resolves. -/
-theorem iotaCtorNeverProp_consBlockRecsR_of_isSome {R : Nat → RecDatum → Bool × List RecRule}
+/-- **(S)'s family, across the `k` recursors' cons**: it reads `find?` only at the
+constructor's result family, and that name is stored below the new recursors (not
+one of the `k` fresh names) whenever the constructor's type resolves. -/
+theorem ctorFamily_consBlockRecsR_of_isSome {R : Nat → RecDatum → Bool × List RecRule}
     {q : BlockShape} {rs : List RecDatum} {envC : Env}
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
-    {cvj : ConstantVal} {usj : List Level}
+    {cvj : ConstantVal}
     (hT : ∀ T us, cvj.type.piResult.getAppFn = .const T us →
       (envC.find? T).isSome = true) :
-    ConLeche.iotaCtorNeverProp (consBlockRecsR R q 0 rs envC).find? cvj usj
-      = ConLeche.iotaCtorNeverProp envC.find? cvj usj := by
-  unfold ConLeche.iotaCtorNeverProp
-  match hh : cvj.type.piResult.getAppFn with
-  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _
-  | .forallE _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ => rfl
-  | .const T us =>
-    dsimp only
-    have hiso := hT T us hh
-    obtain ⟨ciT, hciT⟩ : ∃ ciT, envC.find? T = some ciT := by
-      cases hfind : envC.find? T with
-      | none => rw [hfind] at hiso; exact absurd hiso (by decide)
-      | some ciT => exact ⟨ciT, rfl⟩
-    rw [find?_consBlockRecsR_keep hfr T ciT hciT, hciT]
+    ConLeche.ctorFamily (consBlockRecsR R q 0 rs envC).find? cvj
+      = ConLeche.ctorFamily envC.find? cvj := by
+  refine ctorFamily_congr fun T us hh => ?_
+  have hiso := hT T us hh
+  obtain ⟨ciT, hciT⟩ : ∃ ciT, envC.find? T = some ciT := by
+    cases hfind : envC.find? T with
+    | none => rw [hfind] at hiso; exact absurd hiso (by decide)
+    | some ciT => exact ⟨ciT, rfl⟩
+  rw [hciT]
+  exact find?_consBlockRecsR_keep hfr _ _ hciT
 
 /-- **`RecRuleExtra` survives the recursors' cons** —
 `recRuleLaw_consBlockRecsR_prefix`'s sibling for the `RecRuleExtra`
 conjunct, `recRuleExtra_cons_prefix`'s (`Model/RecRulesCons.lean`) twin
 at `consBlockRecsR`: the crossing is `hmono` in place of
 `denote_cons_mono` and the valuation's agreement off the new names
-(`hacvAt`) in place of `acvalWith_ne`.  Clause (S)'s `iotaCtorNeverProp`
+(`hacvAt`) in place of `acvalWith_ne`.  Clause (S)'s `FamNZ`
 guard agrees with the constructors' environment's for the same reason
-as there (`iotaCtorNeverProp_consBlockRecsR_of_isSome`). -/
+as there (`ctorFamily_consBlockRecsR_of_isSome`). -/
 theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × List RecRule} {q : BlockShape} {rs : List RecDatum}
     {envC : Env} {acv : Name → (Name → Nat) → Term} (mpC : EnvModelM V envC)
     (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
@@ -198,10 +192,10 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × Lis
         Option.some.inj ((hmono _ 0 _ (constsBound_instType mpC.base2.wf
           (ConLeche.Env.find?_mem hfcjE) usj) hTVja').symm.trans hTVja)
       exact hTVja'
-    -- (S)/(T)'s `iotaCtorNeverProp` guard is the prefix's
+    -- (S)/(T)'s premise is the prefix's
     have hlicE : ∀ lvs : List Level,
-        ConLeche.iotaCtorNeverProp (consBlockRecsR R q 0 rs envC).find? cvj lvs
-          = ConLeche.iotaCtorNeverProp envC.find? cvj lvs := by
+        FamNZ (V := V) m₃.acval (consBlockRecsR R q 0 rs envC) φ cvj lvs →
+        FamNZ (V := V) mpC.base2.acval envC φ cvj lvs := by
       intro lvs
       obtain ⟨-, -, hresolve, -, -, -, -⟩ :=
         mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfcjE)
@@ -210,11 +204,14 @@ theorem recRuleExtra_consBlockRecsR_prefix {R : Nat → RecDatum → Bool × Lis
           (envC.find? T).isSome = true :=
         fun T us' heq' =>
           ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hresolve heq'
-      exact iotaCtorNeverProp_consBlockRecsR_of_isSome hfr hTiso
+      refine FamNZ.congr (ctorFamily_consBlockRecsR_of_isSome hfr hTiso)
+        fun cvT caps ta hfam hta => ?_
+      obtain ⟨T, _, -, hfT⟩ := ctorFamily_find hfam
+      exact hmono _ 0 _ (constsBound_instType mpC.base2.wf (ConLeche.Env.find?_mem hfT) lvs) hta
     obtain ⟨hS, hT, hPU⟩ := hnk hk
-    refine ⟨fun hlic => hS (by rwa [hlicE] at hlic), ?_, ?_⟩
+    refine ⟨fun hlic => hS (hlicE _ hlic), ?_, ?_⟩
     · intro hlic usj husj TVja hTVja ρ xs ys restR restC hxl hyl hfitR hfitC hxwd hywd hne
-      rw [hlicE] at hlic
+      have hlic := hlicE _ hlic
       have hTVja0 := hTVjaOf usj husj TVja hTVja
       rw [hacvC] at hfitR hne
       obtain ⟨usj', ys', TVja', restC', h1, h2, h3, h4, h5, h6, h7, h8⟩ :=
@@ -714,14 +711,14 @@ arity, and for a rule that is not K the (S), (T), (P), (U) clauses
     (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome = true ∧
     (isK = false →
     -- (S)
-    (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true →
+    (FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
       ∀ (ρ : Nat → V) (xs : List Term) (a restR : Term),
         xs.length = mI → TeleFitPA V ρ TVa (xs ++ [a]) restR →
         interp V ρ a ≠ pt) ∧
     -- (T)
-    (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true →
+    (FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
       ∀ (usj : List Level), usj.length = cvj.levelParams.length →
       ∀ TVja : Term,
         denote m.acval env φ 0

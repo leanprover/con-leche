@@ -718,9 +718,9 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       env.find? cj = some (.ctorInfo cvj cnP cnF) ∧
       rules.find? (fun r' => r'.ctor == cj) = some r ∧
       major.getAppArgs.length = cnP + r.nfields ∧
-      (mode.verifiedChecks = true → iotaCase3 env.find? isK cvj
-          (recFireComparands r cnP cv.levelParams us cvj.levelParams
-            e.getAppArgs rP).1 = true →
+      (mode.verifiedChecks = true → ∃ c3, iotaCase3At (pureFns mode eager env fuel).whnf
+          env.find? isK cvj (recFireComparands r cnP cv.levelParams us cvj.levelParams
+            e.getAppArgs rP).1 = .ok c3 ∧ (c3 = true →
         Level.isEquivList usj
           (recFireComparands r cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = some true ∧
@@ -732,7 +732,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
           major.getAppArgs = .ok true ∧
         iotaIndexOkFueled mode eager env fuel d mI rP cnP
           (cvj.type.instantiateLevelParams cvj.levelParams usj)
-          major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true) ∧
+          major.getAppArgs ((e.getAppArgs.take mI).drop rP) = .ok true)) ∧
       eout = Expr.mkAppN (r.rhs.instantiateLevelParams cv.levelParams us)
         (e.getAppArgs.take rP ++
           major.getAppArgs.drop cnP) := by
@@ -813,7 +813,7 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   try simp only [Bind.bind, Except.bind] at h
   -- Task #342 (r1): the case-3 decision is a certificate family, gated
   -- off at the trusted mode — one `mode.verifiedChecks` split outside
-  -- the `iotaCase3` one.
+  -- the case split's.
   by_cases hμ : mode.verifiedChecks = true
   case neg =>
     rw [ite_eq_right hμ] at h
@@ -825,7 +825,12 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
   rw [ite_eq_left hμ] at h
   generalize hcmp : recFireComparands r cnP cv.levelParams us cvj.levelParams
     e.getAppArgs rP = cmp at h
-  by_cases h3 : iotaCase3 env.find? isK cvj cmp.1 = true
+  cases hc3 : iotaCase3At (pureFns mode eager env fuel).whnf env.find? isK cvj cmp.1 with
+  | error err => rw [hc3] at h; exact nomatch h
+  | ok c3 =>
+  rw [hc3] at h
+  dsimp only at h
+  by_cases h3 : c3 = true
   · rw [ite_eq_left h3] at h
     try simp only [Bind.bind, Except.bind] at h
     cases hlev : Level.isEquivList usj cmp.1 with
@@ -877,13 +882,14 @@ theorem iotaRec_inv {env : Env} {fuel d : Nat} {e eout : Expr}
       Option.some.injEq] at h
     exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
       cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
-      hml, fun _ _ => by rw [hcmp]; exact ⟨hlev, hpeq, hmcerts, hidx⟩, h.symm⟩
+      hml, fun _ => ⟨c3, by rw [hcmp]; exact hc3,
+        fun _ => by rw [hcmp]; exact ⟨hlev, hpeq, hmcerts, hidx⟩⟩, h.symm⟩
   · rw [ite_eq_right h3] at h
     simp only [pure, Except.pure, ↓reduceIte, Except.ok.injEq,
       Option.some.injEq] at h
     exact ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj, cvj, cnP,
       cnF, r, rfl, hfc, hlen.1, hlen.2.1, hprep, hmfn, hfj, hrule,
-      hml, fun _ h3' => absurd (hcmp ▸ h3') h3, h.symm⟩
+      hml, fun _ => ⟨c3, by rw [hcmp]; exact hc3, fun h3' => absurd h3' h3⟩, h.symm⟩
 
 /-- Inversion of the canonical-index comparison where the recursor has
 indices: the constructor telescope's residual exists and its index
@@ -930,7 +936,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
          (mode.verifiedChecks = true →
            proofIrrelFueled mode eager env fuel d major' major = .ok true)) ∨
         (etaRescueOk rl.ctor cvj cvT caps = true ∧
-         formerNeverZero cvT ust = true ∧
          tmaj.getAppArgs.length = caps.etaParams ∧
          ust.length = cvT.levelParams.length ∧
          major' = Expr.mkAppN (.const caps.etaCtor ust)
@@ -1343,7 +1348,6 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     dsimp only at h
     by_cases hTl : T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        formerNeverZero cvT ust = true ∧
         reservedBasisNames.contains T = false ∧
         reservedBasisNames.contains caps.etaCtor = false ∧
         towerSlotsAll env T caps.etaFields = true
@@ -1352,7 +1356,18 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
       simp only [pure, Except.pure, Except.ok.injEq] at h
       exact Or.inl h.symm
     rw [ite_eq_left hTl] at h
-    obtain ⟨rfl, hplen, hlvl, hnz, hG⟩ := hTl
+    obtain ⟨rfl, hplen, hlvl, hG⟩ := hTl
+    cases hnzr : formerNeverZeroAt (pureFns mode eager env fuel).whnf cvT caps ust with
+    | error err => rw [hnzr] at h; exact nomatch h
+    | ok nz =>
+    rw [hnzr] at h
+    dsimp only at h
+    cases nz with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+      exact Or.inl h.symm
+    | true =>
+    simp only [↓reduceIte] at h
     cases hguard : (Expr.mkAppN (.const caps.etaCtor ust)
           (etaFabArgsE T' tmaj.getAppArgs major
             caps.etaFields)).wscopedB d &&
@@ -1376,7 +1391,7 @@ theorem majorToCtor_inv {env : Env} {fuel d : Nat} {recName : Name} {isK : Bool}
     exact Or.inr ⟨hguard.1.1, hguard.1.2, hguard.2,
       rl, cvj, cnP, cnF, tmaj₀, tmaj, T', us₀, ust, cvT, caps,
       rfl, hfj, hpr, hfT, rfl, htw, hth,
-      Or.inr (Or.inl ⟨hE, hnz, hplen, hlvl, rfl, hG⟩)⟩
+      Or.inr (Or.inl ⟨hE, hplen, hlvl, rfl, hG⟩)⟩
 
 /-- Inversion of one pairwise-defeq step. -/
 theorem defEqList_step_inv {env : Env} {fuel d : Nat} {a b : Expr}

@@ -727,10 +727,9 @@ level is `0`, and there `Quot.mk`'s value is the canonical proof. -/
 
 /-- **The ι case split at `Quot.mk`**: the constructor's level is not
 zero at any valuation (the stored `Quot`'s zero-ness datum is `u`'s). -/
-theorem quotMk_neverProp_ne_zero {find? : Name → Option ConstantInfo}
-    (hQ : find? quotName = some quotA) {usj : List Level}
-    (h : ConLeche.iotaCtorNeverProp find? quotMkA.toConstantVal usj = true)
-    (φ : Name → Nat) :
+theorem quotMk_neverProp_ne_zero {acval : Name → (Name → Nat) → Term} {env : Env}
+    (hQ : env.find? quotName = some quotA) {usj : List Level} {φ : Name → Nat}
+    (h : FamNZ (V := V) acval env φ quotMkA.toConstantVal usj) :
     Level.substFn φ quotMkA.toConstantVal.levelParams usj uN ≠ 0 := by
   obtain ⟨cvT, caps, hq, hlp, hz⟩ : ∃ cvT caps,
       quotA = .indInfo cvT caps ∧ cvT.levelParams = [uN] ∧
@@ -738,10 +737,17 @@ theorem quotMk_neverProp_ne_zero {find? : Name → Option ConstantInfo}
   have hfn : (quotMkA.toConstantVal.type.piResult).getAppFn
       = .const quotName [.param uN] := by rfl
   rw [hq] at hQ
-  unfold ConLeche.iotaCtorNeverProp at h
-  rw [hfn] at h
-  simp only [hQ, Bool.and_eq_true] at h
-  have hnv := h.2
+  obtain ⟨cvT', caps', hfam, -, hc⟩ := h
+  obtain ⟨T, us', hhead, hfT⟩ := ctorFamily_find hfam
+  rw [hfn] at hhead
+  obtain ⟨rfl, -⟩ := Expr.const.inj hhead
+  rw [hQ] at hfT
+  obtain ⟨rfl, rfl⟩ : cvT = cvT' ∧ caps = caps' := by
+    injection hfT with h'; injection h' with a b; exact ⟨a, b⟩
+  have hnv : ConLeche.formerNeverZero cvT usj = true := by
+    refine hc.resolve_right fun ⟨hn, _⟩ => ?_
+    cases hq
+    exact nomatch hn
   unfold ConLeche.formerNeverZero at hnv
   rw [hlp, hz] at hnv
   have hh : (Level.substPW [uN] usj (ConLeche.PropWhen.ifAllZero [uN])).holds φ = false := by
@@ -766,20 +772,20 @@ theorem interp_quotMk_zero_spine (ρ : Nat → V) :
 /-- The ι facts of a `Quot.mk` rule, from the major's domain.
 `hmaj` reads the major of a fitting recursor spine into `quotSet` at
 the recursor's level `u`, which is the constructor's (`hulev`). -/
-theorem quotRuleExtra_of {find? : Name → Option ConstantInfo}
-    (hQ : find? quotName = some quotA)
+theorem quotRuleExtra_of {acval : Name → (Name → Nat) → Term} {env : Env}
+    (hQ : env.find? quotName = some quotA)
     {acv : Term} {u : Nat} {usj : List Level} {φ : Name → Nat}
     (hulev : Level.substFn φ quotMkA.toConstantVal.levelParams usj uN = u)
     (hctor : acv = Term.const .quotMk [u])
     {P : (Nat → V) → Term → Prop}
     (hmaj : ∀ ρ a, P ρ a → ∃ Aset R : V, interp V ρ a ∈ˢ quotSet u Aset R) :
-    (ConLeche.iotaCtorNeverProp find? quotMkA.toConstantVal usj = true →
+    (FamNZ (V := V) acval env φ quotMkA.toConstantVal usj →
       ∀ ρ a, P ρ a → interp V ρ a ≠ pt) ∧
     (∀ ρ a, P ρ a → interp V ρ a = pt →
       ∀ ys : List Term, interp V ρ (Term.mkAppN acv ys) = pt) := by
   refine ⟨fun hlic ρ a hP ha => ?_, fun ρ a hP ha ys => ?_⟩
   · obtain ⟨Aset, R, hm⟩ := hmaj ρ a hP
-    have hne := quotMk_neverProp_ne_zero hQ hlic φ
+    have hne := quotMk_neverProp_ne_zero hQ hlic
     rw [hulev] at hne
     rw [ha] at hm
     exact (strict_quotSet hne Aset R).2 hm
@@ -935,7 +941,7 @@ theorem quotIndExtra {m : EnvModel V env}
           (cons (interp V ρ x2) (cons (interp V ρ x1) ρ))))
         (by simp [cons]) (by simp [cons]) f1 f2).2] at f5
     exact ⟨x1, x2, by simp, by simp, f1, f2, f5⟩
-  have hext := fun usj hlev => quotRuleExtra_of (V := V) hQ' (hulevOf usj hlev)
+  have hext := fun usj hlev => quotRuleExtra_of (V := V) (acval := m₂.acval) hQ' (hulevOf usj hlev)
     ((hctorOf usj).trans (by rw [hulevOf usj hlev]))
     (P := fun ρ a => ∃ (xs : List Term) (restR : Term),
       xs.length = 4 ∧ TeleFitPA V ρ (quotIndTy (ψ uN)) (xs ++ [a]) restR)
@@ -947,7 +953,7 @@ theorem quotIndExtra {m : EnvModel V env}
   · -- (T): the fired `Quot.mk` at the recursor's level and parameters
     intro hlic usj _ TVja hTVja ρ xs ys restR restC hxl hyl hfitR hfitC hxwd hywd hne
     have hu : ψ uN ≠ 0 := by
-      have := quotMk_neverProp_ne_zero hQ' hlic φ
+      have := quotMk_neverProp_ne_zero hQ' hlic
       rwa [hulevOf _ rfl] at this
     obtain rfl : TVja = _ := (Option.some.inj ((hCtorRead usj).symm.trans hTVja)).symm
     obtain ⟨y1, y2, y3, rfl⟩ : ∃ p q r, ys = [p, q, r] := by
@@ -2219,7 +2225,7 @@ theorem quotLiftExtra {m : EnvModel V env}
             (cons (interp V ρ x1) ρ)))))
         (by simp [cons]) (by simp [cons]) f1 f2).2] at f6
     exact ⟨x1, x2, by simp, by simp, f1, f2, f6⟩
-  have hext := fun usj hlev => quotRuleExtra_of (V := V) hQ' (hulevOf usj hlev)
+  have hext := fun usj hlev => quotRuleExtra_of (V := V) (acval := m₂.acval) hQ' (hulevOf usj hlev)
     ((hctorOf usj).trans (by rw [hulevOf usj hlev]))
     (P := fun ρ a => ∃ (xs : List Term) (restR : Term),
       xs.length = 5 ∧ TeleFitPA V ρ (quotLiftTy
@@ -2233,7 +2239,7 @@ theorem quotLiftExtra {m : EnvModel V env}
   · -- (T): the fired `Quot.mk` at the recursor's level and parameters
     intro hlic usj _ TVja hTVja ρ xs ys restR restC hxl hyl hfitR hfitC hxwd hywd hne
     have hu : ψ uN ≠ 0 := by
-      have := quotMk_neverProp_ne_zero hQ' hlic φ
+      have := quotMk_neverProp_ne_zero hQ' hlic
       rwa [hulevOf _ rfl] at this
     obtain rfl : TVja = _ := (Option.some.inj ((hCtorRead usj).symm.trans hTVja)).symm
     obtain ⟨y1, y2, y3, rfl⟩ : ∃ p q r, ys = [p, q, r] := by

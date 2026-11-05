@@ -179,6 +179,16 @@ section Law
 variable {env env' : Env} {m : EnvModel V env} {m' : EnvModel V env'} {φ : Name → Nat}
   {n : Name} {cv cv' : ConstantVal} {mI rP : Nat} {isK : Bool} {rl rl' : RecRule}
 
+/-- `FamNZ` where the family's lookup agrees and the readings do. -/
+theorem famNZ_of_ctorFamily {acval acval' : Name → (Name → Nat) → Term} {env env' : Env}
+    {φ : Name → Nat} {cvj : ConstantVal} {us : List Level}
+    (hfam : ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj)
+    (hde : ∀ (d : Nat) (e : Expr), denote acval' env' φ d e = denote acval env φ d e) :
+    FamNZ (V := V) acval' env' φ cvj us = FamNZ (V := V) acval env φ cvj us :=
+  propext
+    ⟨FamNZ.congr hfam fun _ _ _ _ hta => by rw [hde]; exact hta,
+      FamNZ.congr hfam.symm fun _ _ _ _ hta => by rw [← hde]; exact hta⟩
+
 /-- What one rule's law reads, on both sides. -/
 structure RuleRen (m : EnvModel V env) (m' : EnvModel V env') (φ : Name → Nat) (n : Name)
     (cv cv' : ConstantVal) (mI rP : Nat) (isK : Bool) (rl rl' : RecRule) : Prop where
@@ -217,7 +227,7 @@ structure RuleRen (m : EnvModel V env) (m' : EnvModel V env') (φ : Name → Nat
           Level.substFn φ cvj.levelParams a = Level.substFn φ cvj.levelParams
             (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1)) ∧
       (isK = false → ∀ us : List Level,
-        ConLeche.iotaCtorNeverProp env'.find? cvj' us = ConLeche.iotaCtorNeverProp env.find? cvj us)
+        FamNZ (V := V) m'.acval env' φ cvj' us = FamNZ (V := V) m.acval env φ cvj us)
 
 theorem recRuleExtra_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     (hX : RecRuleExtra m φ n cv mI rP isK rl) : RecRuleExtra m' φ n cv' mI rP isK rl' := by
@@ -757,8 +767,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
       (reservedBasisNames.contains n = false ∨ isK = false) →
       ∀ r ∈ rules, env'.find? (RecRule.ctor r) = env.find? (RecRule.ctor r) ∧
         ∀ cvj a b, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) →
-          ∀ us, ConLeche.iotaCtorNeverProp env'.find? cvj us
-            = ConLeche.iotaCtorNeverProp env.find? cvj us)
+          ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj)
     (blocks : List (LfpDatum V))
     (hlfp : ∀ D ∈ blocks, LfpClause (renAcval mp.base2.acval env env') D ∧ LfpStored env' D ∧
       LfpReads (renAcval mp.base2.acval env env') env' D ∧
@@ -887,7 +896,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
                   injection heq with heq'
                   injection heq'
                 rw [hcvj]
-                exact hst.2 cvj cnP cnF g1 us
+                exact famNZ_of_ctorFamily (hst.2 cvj cnP cnF g1) (fun d e => hde φ d e)
         | _ => exact nomatch h3.kind.trans h4.kind.symm
       · have hrsf : reservedBasisNames.contains n = false := by simpa using hrsv
         have he : ConstantInfo.recInfo cv' mI rP isK rules' = c := by
@@ -902,7 +911,8 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
         · exact congrFun (hsame (h2.trans h1.symm)) _
         · have hfc0 := hst.1 ▸ hfc
           exact ⟨cvj', hfc0, rfl, fun _ _ => rfl, fun _ _ => congrFun (hsame hst.1) _, rfl,
-            fun _ _ => rfl, fun _ _ _ _ => Iff.rfl, fun _ us => hst.2 cvj' cnP cnF hfc0 us⟩
+            fun _ _ => rfl, fun _ _ _ _ => Iff.rfl,
+            fun _ us => famNZ_of_ctorFamily (hst.2 cvj' cnP cnF hfc0) (fun d e => hde φ d e)⟩
   have hde' : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote m'.acval env' φ d e = denote mp.base2.acval env φ d e := hde
   refine ⟨{ base2 := m'

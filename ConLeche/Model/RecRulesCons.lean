@@ -66,25 +66,17 @@ theorem constsBound_openRev {env₀ : Env} {e : Expr}
       (.fvar (d + n) (.sort .zero)) 0)
     exact ConstsBound.instantiate1 (by simp) _ 0 ih
 
-/-- **(S)'s `iotaCtorNeverProp` guard is the prefix's**: it reads
-`find?` only at the constructor's result family, and that name is
-stored whenever the constructor's type resolves — guaranteed here by
-`ConstWF` (`EnvModel.wf`) — so any lookup agreeing with the prefix's on
-stored names reads it alike. -/
-theorem iotaCtorNeverProp_of_agree {env env' : Env}
+/-- **(S)'s family is the prefix's**: it reads `find?` only at the constructor's
+result family, and that name is stored whenever the constructor's type resolves —
+guaranteed here by `ConstWF` (`EnvModel.wf`) — so any lookup agreeing with the
+prefix's on stored names reads it alike. -/
+theorem ctorFamily_of_agree {env env' : Env}
     (hag : ∀ n, (env.find? n).isSome = true → env'.find? n = env.find? n)
-    {cvj : ConstantVal} {usj : List Level}
+    {cvj : ConstantVal}
     (hT : ∀ T us, cvj.type.piResult.getAppFn = .const T us →
       (env.find? T).isSome = true) :
-    ConLeche.iotaCtorNeverProp env'.find? cvj usj
-      = ConLeche.iotaCtorNeverProp env.find? cvj usj := by
-  unfold ConLeche.iotaCtorNeverProp
-  match hh : cvj.type.piResult.getAppFn with
-  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _
-  | .forallE _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ => rfl
-  | .const T us =>
-    dsimp only
-    rw [hag T (hT T us hh)]
+    ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj :=
+  ctorFamily_congr fun T us hh => hag T (hT T us hh)
 
 /-- **`RecRuleExtra` survives a fresh cons that is not itself a
 recursor** (task #342 L10 cons sub-lane): `recRuleLaw_cons_prefix`'s
@@ -96,11 +88,10 @@ premise is produced at the prefix and moved FORWARD by
 (`acval n`, `acval rl.ctor`) are the prefix's by `acvalWith_ne`.  New
 here: the K clause's `∀ Ra` is identified with the main law's own `Ra`
 the same way; the arity clause is syntactic, hence untouched; clause
-(S)'s `iotaCtorNeverProp` guard, read at the extended environment's
-`find?`, agrees with the prefix's reading because it consults `find?`
-only at the constructor's result family — a name the constructor's
-(resolving) stored type names, hence itself stored, hence not the
-fresh one (`iotaCtorNeverProp_cons_of_isSome`). -/
+(S)'s `FamNZ` premise, read at the extended environment, gives the prefix's
+because it consults `find?` only at the constructor's result family — a name the
+constructor's (resolving) stored type names, hence itself stored, hence not the
+fresh one — and reads that family's closed type, moved forward. -/
 theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
     {m₂ : EnvModel V env'} (hx : ModelExt mp env' m₂.acval)
     (φ : Name → Nat) {n : Name} {cv : ConstantVal} {mI rP : Nat}
@@ -177,10 +168,9 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
       exact hx.denote
         (constsBound_instType mp.base2.wf
           (ConLeche.Env.find?_mem hfcjE) usj) hTVja
-    -- (S)/(T)'s `iotaCtorNeverProp` guard is the prefix's
-    have hlicE : ∀ lvs : List Level,
-        ConLeche.iotaCtorNeverProp env'.find? cvj lvs
-          = ConLeche.iotaCtorNeverProp env.find? cvj lvs := by
+    -- (S)/(T)'s premise is the prefix's
+    have hlicE : ∀ lvs : List Level, FamNZ (V := V) m₂.acval env' φ cvj lvs →
+        FamNZ (V := V) mp.base2.acval env φ cvj lvs := by
       intro lvs
       obtain ⟨-, -, hresolve, -, -, -, -⟩ :=
         mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfcjE)
@@ -189,11 +179,13 @@ theorem recRuleExtra_ext (mp : EnvModelM V env) {env' : Env}
           (env.find? T).isSome = true :=
         fun T us' heq' =>
           ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hresolve heq'
-      exact iotaCtorNeverProp_of_agree hx.agree hTiso
+      refine FamNZ.congr (ctorFamily_of_agree hx.agree hTiso) fun cvT caps ta hfam hta => ?_
+      obtain ⟨T, _, -, hfT⟩ := ctorFamily_find hfam
+      exact hx.denote (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hfT) lvs) hta
     obtain ⟨hS, hT, hPU⟩ := hnk hk
-    refine ⟨fun hlic => hS (by rwa [hlicE] at hlic), ?_, ?_⟩
+    refine ⟨fun hlic => hS (hlicE _ hlic), ?_, ?_⟩
     · intro hlic usj husj TVja hTVja ρ xs ys restR restC hxl hyl hfitR hfitC hxwd hywd hne
-      rw [hlicE] at hlic
+      have hlic := hlicE _ hlic
       have hTVja0 := hTVjaOf usj husj TVja hTVja
       rw [hx.leafOf hst] at hfitR hne
       obtain ⟨usj', ys', TVja', restC', h1, h2, h3, h4, h5, h6, h7, h8⟩ :=

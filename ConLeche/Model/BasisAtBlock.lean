@@ -183,13 +183,12 @@ theorem pinPairs_of_ok {κ : Prop} :
 
 /-! ## What the block does not touch -/
 
-/-- `iotaCtorNeverProp` reads the former's lookup. -/
-theorem iotaNeverProp_congr {find₁ find₂ : Name → Option ConstantInfo} {cvj : ConstantVal}
-    {us : List Level}
+/-- A constructor's family reads the former's lookup. -/
+theorem ctorFamily_ind_congr {find₁ find₂ : Name → Option ConstantInfo} {cvj : ConstantVal}
     (h : ∀ T us', cvj.type.piResult.getAppFn = .const T us' →
       ∀ cv caps, find₁ T = some (.indInfo cv caps) ↔ find₂ T = some (.indInfo cv caps)) :
-    ConLeche.iotaCtorNeverProp find₁ cvj us = ConLeche.iotaCtorNeverProp find₂ cvj us := by
-  unfold ConLeche.iotaCtorNeverProp
+    ConLeche.ctorFamily find₁ cvj = ConLeche.ctorFamily find₂ cvj := by
+  unfold ConLeche.ctorFamily
   split
   · next T us' heq =>
     have hT := h T us' heq
@@ -201,7 +200,7 @@ theorem iotaNeverProp_congr {find₁ find₂ : Name → Option ConstantInfo} {cv
         fun cv caps he => h1 cv caps ((hT cv caps).mpr he)
       generalize find₁ T = x at h1
       generalize find₂ T = y at h2
-      refine Eq.trans (b := false) ?_ (Eq.symm ?_)
+      refine Eq.trans (b := none) ?_ (Eq.symm ?_)
       · cases x with
         | none => rfl
         | some c => cases c <;> first | rfl | exact absurd rfl (h1 _ _)
@@ -354,11 +353,10 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
       (reservedBasisNames.contains n = false ∨ isK = false) →
       ∀ r ∈ rules, env'.find? (RecRule.ctor r) = env.find? (RecRule.ctor r) ∧
         ∀ cvj a b, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) →
-          ∀ us, ConLeche.iotaCtorNeverProp env'.find? cvj us
-            = ConLeche.iotaCtorNeverProp env.find? cvj us := by
+          ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj := by
     intro n cv mI rP isK rules hf _ r hr
     obtain ⟨cvj, a, b, hc⟩ := hctors n cv mI rP isK rules hf r hr
-    exact ⟨hsameN hc, fun _ _ _ _ us => iotaNeverProp_congr fun T _ _ cv caps => (hindB T cv caps).symm⟩
+    exact ⟨hsameN hc, fun _ _ _ _ => ctorFamily_ind_congr fun T _ _ cv caps => (hindB T cv caps).symm⟩
   have hkeepD : ∀ {D : LfpDatum V}, D ∈ mp.lfpBlocks →
       (∀ mm, mm < D.k → env'.find? (D.member mm) = env.find? (D.member mm)) ∧
       (∀ c, c < D.N → ∀ j, j < D.nctors c →
@@ -530,8 +528,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
       (reservedBasisNames.contains n = false ∨ isK = false) →
       ∀ r ∈ rules, env'.find? (RecRule.ctor r) = env.find? (RecRule.ctor r) ∧
         ∀ cvj a b, env.find? (RecRule.ctor r) = some (.ctorInfo cvj a b) →
-          ∀ us, ConLeche.iotaCtorNeverProp env'.find? cvj us
-            = ConLeche.iotaCtorNeverProp env.find? cvj us := by
+          ConLeche.ctorFamily env'.find? cvj = ConLeche.ctorFamily env.find? cvj := by
     intro n cv mI rP isK rules hf hprem r hr
     by_cases he3 : eqName.str "rec" = n
     · subst he3
@@ -554,7 +551,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
           have hE : E.find? n = some (.recInfo cv mI rP isK rules) := by rw [← ha.2]; exact hf
           obtain ⟨cj, a, b, hcj⟩ := hold hE r hr
           have hst := R.stE (RecRule.ctor r) (by rw [hcj]; rfl)
-          refine ⟨by rw [hst.1, hst.2], fun cvj a' b' hfj us => iotaNeverProp_congr
+          refine ⟨by rw [hst.1, hst.2], fun cvj a' b' hfj => ctorFamily_ind_congr
             fun T us' hT cvT capsT => ?_⟩
           have hfE : E.find? (RecRule.ctor r) = some (.ctorInfo cvj a' b') := by
             rw [← hst.1]; exact hfj
@@ -653,6 +650,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     (fun ψ => by
       show ConLeche.PropWhen.holds ψ (ConLeche.PropWhen.ifAllZero []) = true
       rw [ConLeche.PropWhen.holds_ifAllZero]; rfl)
+    rfl
     ⟨_, _, _, f2', _, [.bvar 0], rfl⟩
   have hctorReads : LfpCtorReads (renAcval mp.base2.acval env env') env' eqD := by
     refine ⟨rfl, fun c hc j hj => ?_⟩

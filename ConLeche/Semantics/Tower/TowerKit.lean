@@ -2,6 +2,7 @@ module
 
 import ConLeche.Semantics.WellDenoted
 public import ConLeche.Semantics.BasisOk
+public import ConLeche.SetModel.Tower
 
 @[expose] public section
 
@@ -539,6 +540,27 @@ def mkLamsAV : List Term → Term → Term
 def mkPisAV : List Term → Term → Term
   | [], b => b
   | d :: ds, b => .pi d (mkPisAV ds b)
+
+/-- A Π-tower over a sort is a tower of function spaces. -/
+theorem towerEnds_mkPisAV : ∀ (ab : List Term) (ρ : Nat → V) (w : Nat),
+    TowerEnds ab.length (interp V ρ (mkPisAV ab (.sort w))) w
+  | [], _, _ => rfl
+  | _ :: ab, ρ, w => ⟨_, _, rfl, fun a _ => towerEnds_mkPisAV ab (cons a ρ) w⟩
+
+/-- A fit of a Π-tower over a sort is a path through it. -/
+theorem towerPath_of_spineFit {w : Nat} : ∀ {ab : List Term} {ρ : Nat → V} {vs : List V},
+    SpineFit ρ ab vs → TowerPath ab.length (interp V ρ (mkPisAV ab (.sort w))) w
+  | [], _, [], _ => .zero
+  | _ :: ab, ρ, _ :: _, h =>
+    .succ (fun x _ => towerEnds_mkPisAV ab (cons x ρ) w) h.1 (towerPath_of_spineFit h.2)
+  | [], _, _ :: _, h => h.elim
+  | _ :: _, _, [], h => h.elim
+
+/-- A Π-tower over a sort that a walk reads above `0`, along a fit, is above `0`. -/
+theorem sort_ne_zero_of_walk {ab : List Term} {ρ : Nat → V} {vs : List V} {w w' : Nat}
+    (hfit : SpineFit ρ ab vs)
+    (ht : TowerEndsPt ab.length (interp V ρ (mkPisAV ab (.sort w))) w') (hw : w' ≠ 0) : w ≠ 0 :=
+  (towerPath_of_spineFit hfit).ne_zero ht hw
 
 /-- A Π-tower over a sort reads to a type: a function space, or the universe. -/
 theorem IsTy_mkPisAV_sort (ds : List Term) (w : Nat) (ρ : Nat → V) :

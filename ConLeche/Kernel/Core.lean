@@ -499,6 +499,57 @@ def stuckIrrel (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
   else if ← structUnitCert r env depth a b then pure true
   else proofIrrel r depth a b
 
+/-- **Official's walk to a family's sort** (the loop of `check_inductive_types`
+at the use): `n` binders down, each reached by head normalization, then a sort.
+`none` where the type does not get there at this environment. -/
+def formerSortLoop (wh : Nat → Expr → m Expr) : Nat → Nat → Expr → m (Option Level)
+  | d, 0, e => do
+    match ← wh d e with
+    | .sort s => pure (some s)
+    | _ => pure none
+  | d, n + 1, e => do
+    match ← wh d e with
+    | .forallE dom b => formerSortLoop wh (d + 1) n (b.instantiate1 (.fvar d dom))
+    | _ => pure none
+
+/-- **Is a family's sort never zero at the levels `us`** (official
+`is_never_zero`), computed where it is asked, at the environment of the use.  A
+stored type that ends in a sort needs no reduction and no opening; any other is
+walked by `formerSortLoop` at the use's levels.  Where the walk does not reach
+a sort the answer is the conservative one. -/
+def formerNeverZeroAt (wh : Nat → Expr → m Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : m Bool :=
+  match formerResSort cvT.type with
+  | some _ => pure (formerNeverZero cvT us)
+  | none => do
+    match ← formerSortLoop wh 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) with
+    | some s => pure (Level.zeronessOf s).isNever
+    | none => pure false
+
+/-- **Case 3 of the ι case split** (task #342 L10, S5c): a rule that is not
+K whose constructor's family may be `Prop` at the comparand levels `us`.
+There the constructor's levels and parameters are compared with the
+comparands, the constructor telescope is certified at the full grade,
+and the indices are compared (task #342 L7's counterexample: at a
+`Prop` valuation nothing else ties the two spines), for a `.plain` and
+a `.nested` rule alike.  Elsewhere (case 2) the ι step fires with no check of
+the constructor application: the family's fibres at the recursor's major domain
+are strict, so the major is not the point and its reduction is an equation, and
+the constructor application, being the major's value and not the point, is an
+injection of fields that fit the family's constructor there.  The ι step asks
+at the rule's comparand levels (`recFireComparands`), not at the constructor's,
+which it does not compare there. -/
+def iotaCase3At (wh : Nat → Expr → m Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) : m Bool :=
+  if isK then pure false else
+  match ctorFamily find? cvj with
+  | some (cvT, caps) =>
+    if cvT.levelParams.length == us.length then do
+      pure (!(← formerNeverZeroAt wh cvT caps us))
+    else pure true
+  | none => pure true
+
 /-- Stuck-major rescue (`to_cnstr_when_K` and `to_cnstr_when_structure`
 in the official kernel): a recursor's major premise that does not whnf
 to a constructor application may still be *replaced* by one.  For a
@@ -589,26 +640,27 @@ def majorToCtor (r : CoreFns m) (env : Env) (depth : Nat)
               -- name, every field slot a projection-table entry
               if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  formerNeverZero cvT ust = true ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains caps.etaCtor = false ∧
                   towerSlotsAll env T caps.etaFields = true then
-                -- no constructor-telescope arity pin, as in the K
-                -- branch, and no level-count pin: the η bit is set
-                -- only at a constructor stored with the former's own
-                -- level parameters (`RecCtorsStored`), which the
-                -- fabrication's levels are those of
-                let fab := Expr.mkAppN (.const caps.etaCtor ust)
-                    (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)
-                -- scope guard, as in the K branch.  No certificate on
-                -- the fabricated spine: the major is the fabrication by
-                -- the family's η law, and the fabrication fits the η
-                -- constructor's telescope by the coherence law (task
-                -- #342 L11b).
-                if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
-                    fab.fvarLeaves.all
-                      (fun l => major.fvarLeaves.contains l) then
-                  pure fab
+                if ← formerNeverZeroAt r.whnf cvT caps ust then
+                  -- no constructor-telescope arity pin, as in the K
+                  -- branch, and no level-count pin: the η bit is set
+                  -- only at a constructor stored with the former's own
+                  -- level parameters (`RecCtorsStored`), which the
+                  -- fabrication's levels are those of
+                  let fab := Expr.mkAppN (.const caps.etaCtor ust)
+                      (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)
+                  -- scope guard, as in the K branch.  No certificate on
+                  -- the fabricated spine: the major is the fabrication by
+                  -- the family's η law, and the fabrication fits the η
+                  -- constructor's telescope by the coherence law (task
+                  -- #342 L11b).
+                  if fab.wscopedB depth && fab.looseBVarsBounded 0 &&
+                      fab.fvarLeaves.all
+                        (fun l => major.fvarLeaves.contains l) then
+                    pure fab
+                  else pure major
                 else pure major
               else pure major
             | _ => pure major
@@ -783,9 +835,9 @@ stuck major may be rescued — see `majorToCtor`), and the recursor's
 stored type has the redex's arity.  The constructor side follows **the
 ι case split** (task #342 L10, S5c), decided at the rule's comparand levels (`recFireComparands`):
 a K rule, and a rule whose constructor's family is never `Prop` there
-(`iotaCtorNeverProp`), fire with no check of the constructor application
+(`iotaCase3At`), fire with no check of the constructor application
 — official's `inductive_reduce_rec` checks nothing of it either; every
-other rule (case 3, `iotaCase3`) compares the constructor's levels and
+other rule (case 3) compares the constructor's levels and
 parameters with the rule's comparands, certifies the constructor
 telescope at the full grade (`iotaCertsFull`) and compares the indices
 (`iotaIndexOk`).  The result is the rule's rhs applied to the non-index prefix and the
@@ -839,7 +891,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 let cmp := recFireComparands rl cnP cv.levelParams us cvj.levelParams args rP
                 -- **the ι case split** (task #342 L10, #349, S5c), decided at
                 -- the comparand levels: a K rule, or a family never `Prop`
-                -- there (`iotaCtorNeverProp`), fires with no check, as
+                -- there (`iotaCase3At`), fires with no check, as
                 -- official's `inductive_reduce_rec` (it compares nothing
                 -- of the major's constructor); case 3 compares the
                 -- constructor's levels and parameters with the comparands,
@@ -849,7 +901,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- cached twin gates the whole case-3 decision through
                 -- `certAtI mode (do ...)` (`ConLeche/Cached/CoreC.lean`)
                 if ← (if mode.verifiedChecks then
-                    (if iotaCase3 env.find? isK cvj cmp.1 then do
+                    (iotaCase3At r.whnf env.find? isK cvj cmp.1 >>= fun c3 => if c3 then do
                       if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
                         if ← defEqList r env depth (margs.take cnP) cmp.2 then
                           if ← iotaCertsFull r env depth

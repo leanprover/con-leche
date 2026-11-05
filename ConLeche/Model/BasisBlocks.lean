@@ -373,6 +373,7 @@ theorem extendNatSucc (mp : EnvModelM V env)
       (fun ψ => by show denote _ _ _ 0 (.sort _) = _; rw [denote_sort]; rfl))
     (hcaps := lfp0_caps (by rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hN)
       (fun _ h => absurd h Nat.one_ne_zero)
+      rfl
       (fun j hj => by
         rcases (show j = 0 ∨ j = 1 by omega) with rfl | rfl
         · exact ⟨_, _, _, by

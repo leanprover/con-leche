@@ -175,7 +175,7 @@ theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
     tmaj₀, tmaj, T, us₀, ust, cvT, caps, rfl, hfj, hpi, hfT, hinf, hwh, hfn, harm⟩
   · exact .refl
   rcases harm with ⟨hk, hlps, hle, rfl, ⟨tf, htf, hdq⟩, hpirr⟩ |
-    ⟨heta, hnz, hlen, hlps, rfl, hguards⟩ |
+    ⟨heta, hlen, hlps, rfl, hguards⟩ |
     ⟨rfl, hlen, hlps, hslots, rfl, ⟨tf, htf, hdq⟩, hpirr⟩
   · -- the major's half of the `proofIrrel (fab, major)` run: a proof
     obtain ⟨-, -, -, tb, stb, vT, -, -, -, -, htb, hstb, hwstb, hvT⟩ :=
@@ -186,7 +186,7 @@ theorem majorToCtor_bridge (hw : WhnfBridge .verified eager env fuel)
       (inferTypeIO_bridge hio hstb) (hw hwstb) hvT
   · obtain ⟨hresT, hresc, htow⟩ := hguards
     exact .rescueEta hfr heta hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh)
-      hfn hlen hlps hnz rfl hsc1 hsc2 hsc3 hresT hresc htow
+      hfn hlen hlps rfl hsc1 hsc2 hsc3 hresT hresc htow
   · obtain ⟨-, -, -, tb, stb, vT, -, -, -, -, htb, hstb, hwstb, hvT⟩ :=
       proofIrrel_inv (hpirr rfl)
     exact .rescueAnd hfr hfj hpi hfT (inferTypeIO_bridge hio hinf) (hw hwh) hfn
@@ -222,6 +222,87 @@ theorem peelPis_isSome_instantiateLevelParams (ks : List Name) (us : List Level)
   | _ + 1, .letE _ _ _, h | _ + 1, .lit _, h | _ + 1, .proj _ _ _, h => by
     simp [Expr.peelPis] at h
 
+/-- The walk to a family's sort is `FormerSort`. -/
+theorem formerSortLoop_bridge (hw : WhnfBridge .verified eager env fuel) :
+    ∀ {n d : Nat} {e : Expr} {s : Level},
+      formerSortLoop (pureFns .verified eager env fuel).whnf d n e = .ok (some s) →
+      FormerSort env d n e s
+  | 0, d, e, s, h => by
+    unfold formerSortLoop at h
+    cases hr : (pureFns .verified eager env fuel).whnf d e with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok w =>
+      rw [hr] at h
+      cases w with
+      | sort s' =>
+        cases Option.some.inj (Except.ok.inj h)
+        exact .sort (hw hr)
+      | _ => exact nomatch h
+  | n + 1, d, e, s, h => by
+    unfold formerSortLoop at h
+    cases hr : (pureFns .verified eager env fuel).whnf d e with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok w =>
+      rw [hr] at h
+      cases w with
+      | forallE dom b => exact .pi (hw hr) (formerSortLoop_bridge hw h)
+      | _ => exact nomatch h
+
+/-- A family's sort reached at a use: never zero, by the type's shape or by the
+walk. -/
+theorem formerNeverZeroAt_bridge (hw : WhnfBridge .verified eager env fuel)
+    {cvT : ConstantVal} {caps : IndCaps} {us : List Level}
+    (h : formerNeverZeroAt (pureFns .verified eager env fuel).whnf cvT caps us = .ok true) :
+    formerNeverZero cvT us = true ∨
+      formerResSort cvT.type = none ∧ ∃ s, FormerSort env 0 (caps.nparams + caps.nIdx)
+          (cvT.type.instantiateLevelParams cvT.levelParams us) s ∧
+        (Level.zeronessOf s).isNever = true := by
+  unfold formerNeverZeroAt at h
+  split at h
+  · exact .inl (Except.ok.inj h)
+  · next hnone =>
+    cases hr : formerSortLoop (pureFns .verified eager env fuel).whnf 0
+        (caps.nparams + caps.nIdx) (cvT.type.instantiateLevelParams cvT.levelParams us) with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok o =>
+      rw [hr] at h
+      cases o with
+      | none => exact nomatch h
+      | some s => exact .inr ⟨hnone, s, formerSortLoop_bridge hw hr, Except.ok.inj h⟩
+
+/-- The ι case split's verdict is `IotaCase`. -/
+theorem iotaCase3At_bridge (hw : WhnfBridge .verified eager env fuel)
+    {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool}
+    (h : iotaCase3At (pureFns .verified eager env fuel).whnf env.find? isK cvj us = .ok c3) :
+    IotaCase env isK cvj us c3 := by
+  cases c3 with
+  | true => exact .three
+  | false =>
+    unfold iotaCase3At at h
+    split at h
+    · next hk => rw [show isK = true from hk]; exact .k
+    · next hk =>
+      rw [show isK = false by simpa using hk]
+      split at h
+      · next cvT caps hfam =>
+        split at h
+        · next hlen =>
+          cases hr : formerNeverZeroAt (pureFns .verified eager env fuel).whnf cvT caps us with
+          | error err => rw [hr] at h; exact nomatch h
+          | ok nz =>
+            rw [hr] at h
+            have hnz : nz = true := by
+              cases nz with
+              | true => rfl
+              | false => exact nomatch h
+            subst hnz
+            have hlen' : cvT.levelParams.length = us.length := by simpa using hlen
+            rcases formerNeverZeroAt_bridge hw hr with h' | ⟨hnone, s, hs, hn⟩
+            · exact .never hfam hlen' h'
+            · exact .walk hfam hlen' hnone hs hn
+        · exact nomatch h
+      · exact nomatch h
+
 /-- `iotaRec` ⇒ `Red.iota` (`iotaRec_inv`, `prepareMajor_bridge`,
 `defEqList_bridge`, the arity-checked recursor spine, and at a case-3 redex
 `iotaCertsFull_bridge` and `iotaIndexOk_inv`). -/
@@ -241,26 +322,29 @@ theorem iotaRec_bridge (hw : WhnfBridge .verified eager env fuel)
       (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true := by
     rw [hlen]
     exact peelPis_isSome_instantiateLevelParams _ _ _ (iotaRec_arity h hfn hfc)
-  by_cases hc3 : iotaCase3 env.find? isK cvj
-      (recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1 = true
-  · obtain ⟨hlev, hpeq, hcerts, hidx⟩ := h3 rfl hc3
+  obtain ⟨c3, hrun, h3⟩ := h3 rfl
+  have hcase := iotaCase3At_bridge hw hrun
+  cases c3 with
+  | true =>
+    obtain ⟨hlev, hpeq, hcerts, hidx⟩ := h3 rfl
     by_cases hne : mI = rP
-    · exact .iota (residual := .bvar 0) hfn hfc hlen hlvl hmaj hmfn hfj hrule hml
+    · exact .iota (residual := .bvar 0) hfn hfc hlen hlvl hmaj hmfn hfj hrule hml hcase
         (fun _ => hlev) (fun _ => defEqList_bridge hd hpeq)
         harity
         (fun _ => iotaCertsFull_bridge hd hi hcerts)
         (fun _ hc => absurd hne hc) (fun _ hc => absurd hne hc)
     · obtain ⟨residual, hres, hdl⟩ := iotaIndexOk_inv hidx hne
-      exact .iota hfn hfc hlen hlvl hmaj hmfn hfj hrule hml
+      exact .iota hfn hfc hlen hlvl hmaj hmfn hfj hrule hml hcase
         (fun _ => hlev) (fun _ => defEqList_bridge hd hpeq)
         harity
         (fun _ => iotaCertsFull_bridge hd hi hcerts)
         (fun _ _ => hres) (fun _ _ => defEqList_bridge hd hdl)
-  · exact .iota (residual := .bvar 0) hfn hfc hlen hlvl hmaj hmfn hfj hrule hml
-      (fun hc => absurd hc hc3) (fun hc => absurd hc hc3)
+  | false =>
+    exact .iota (residual := .bvar 0) hfn hfc hlen hlvl hmaj hmfn hfj hrule hml hcase
+      (fun hc => nomatch hc) (fun hc => nomatch hc)
       harity
-      (fun hc => absurd hc hc3)
-      (fun hc => absurd hc hc3) (fun hc => absurd hc hc3)
+      (fun hc => nomatch hc)
+      (fun hc => nomatch hc) (fun hc => nomatch hc)
 
 /-- A firing projection rule (`reduceProjCore`) is a `Red` chain: the
 string-literal expansion, then `Red.proj` under its certificate. -/

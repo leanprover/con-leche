@@ -228,6 +228,45 @@ theorem checkProjGuard_atF (entry : ProjEntry) (us : List Level) (F : Nat) :
   · exact checkGuardRows_atF F _
   · rfl
 
+theorem formerSortLoop_atF (F : Nat) :
+    ∀ (d n : Nat) (e : Expr),
+      (formerSortLoop (fueledFns mode eager env).whnf d n e).val F =
+        formerSortLoop (pureFns mode eager env F).whnf d n e
+  | d, 0, e => by
+    unfold formerSortLoop
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> rfl
+  | d, n + 1, e => by
+    unfold formerSortLoop
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    exact formerSortLoop_atF F (d + 1) n _
+
+theorem formerNeverZeroAt_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
+    (formerNeverZeroAt (fueledFns mode eager env).whnf cvT caps us).val F =
+      formerNeverZeroAt (pureFns mode eager env F).whnf cvT caps us := by
+  unfold formerNeverZeroAt
+  split
+  · rfl
+  · rw [FueledM.atF_bind, formerSortLoop_atF]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem iotaCase3At_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : Nat) :
+    (iotaCase3At (fueledFns mode eager env).whnf env.find? isK cvj us).val F =
+      iotaCase3At (pureFns mode eager env F).whnf env.find? isK cvj us := by
+  unfold iotaCase3At
+  split
+  · rfl
+  · split
+    · split
+      · rw [FueledM.atF_bind, formerNeverZeroAt_atF]
+        rfl
+      · rfl
+    · rfl
+
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
     (proofIrrel (fueledFns mode eager env) d a b).val F =
       proofIrrel (pureFns mode eager env F) d a b := by
@@ -268,6 +307,8 @@ macro "atF_step2" : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [checkProjGuard_atF])
+    | (rw [iotaCase3At_atF])
+    | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
@@ -371,6 +412,8 @@ macro "atF_core3" x:tactic : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [checkProjGuard_atF])
+    | (rw [iotaCase3At_atF])
+    | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
@@ -509,6 +552,8 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
     | (rw [checkProjGuard_atF])
+    | (rw [iotaCase3At_atF])
+    | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])

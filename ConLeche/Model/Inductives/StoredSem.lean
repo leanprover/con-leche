@@ -355,8 +355,8 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
       denote mG.acval envS ψ d e = denote mG.acval envG ψ d e)
     (hctor : ∀ (c : Name) (cvj : ConstantVal) (cnP cnF : Nat),
       envS.find? c = some (.ctorInfo cvj cnP cnF) → envG.find? c = some (.ctorInfo cvj cnP cnF))
-    (hnp : ∀ (cvj : ConstantVal) (us : List Level),
-      ConLeche.iotaCtorNeverProp envS.find? cvj us = ConLeche.iotaCtorNeverProp envG.find? cvj us)
+    (hfam : ∀ cvj : ConstantVal,
+      ConLeche.ctorFamily envS.find? cvj = ConLeche.ctorFamily envG.find? cvj)
     {φ : Name → Nat} {n : Name} {cvG : ConstantVal} {T : Expr} {mI rP : Nat} {rlG : RecRule}
     {e : Expr}
     (hty : ∀ us : List Level, us.length = cvG.levelParams.length → ∀ TS : Term,
@@ -371,6 +371,11 @@ theorem recRuleLaw_stored {envG envS : Env} {mG : EnvModel V envG} {mS : EnvMode
         ∀ ρ : Nat → V, WellDenoted V ρ RaS ∧ interp V ρ RaS = interp V ρ RaG)
     (h : RecRuleLaw mG φ n cvG mI rP isK rlG) :
     RecRuleLaw mS φ n { cvG with type := T } mI rP isK { rlG with rhs := e } := by
+  have hnp : ∀ (cvj : ConstantVal) (us : List Level),
+      FamNZ (V := V) mG.acval envS φ cvj us = FamNZ (V := V) mG.acval envG φ cvj us :=
+    fun cvj us => propext
+      ⟨FamNZ.congr (hfam cvj) fun _ _ _ _ hta => by rw [hde]; exact hta,
+        FamNZ.congr (hfam cvj).symm fun _ _ _ _ hta => by rw [← hde]; exact hta⟩
   unfold RecRuleLaw RecRuleExtra at h ⊢
   simp only [hac, hde, hnp] at ⊢
   obtain ⟨hrPle, hmain, hextra⟩ := h

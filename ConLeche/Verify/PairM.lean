@@ -346,10 +346,92 @@ theorem liftFueled_snd_proj {α : Type} (what : String) (o : Option α) :
     (liftFueled what o : PairM rel α).val.2 = liftFueled what o := by
   cases o <;> rfl
 
+theorem formerSortLoop_fst {wh : Nat → Expr → PairM rel Expr} {wh' : Nat → Expr → M₁ Expr}
+    (hw : ∀ d e, (wh d e).val.1 = wh' d e) :
+    ∀ (d n : Nat) (e : Expr),
+      (formerSortLoop wh d n e).val.1 = formerSortLoop wh' d n e
+  | d, 0, e => by
+    unfold formerSortLoop
+    rw [PairM.fst_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> rfl
+  | d, n + 1, e => by
+    unfold formerSortLoop
+    rw [PairM.fst_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    exact formerSortLoop_fst hw (d + 1) n _
+
+theorem formerNeverZeroAt_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (formerNeverZeroAt (pairFns r₁ r₂ h).whnf cvT caps us).val.1 =
+      formerNeverZeroAt r₁.whnf cvT caps us := by
+  unfold formerNeverZeroAt
+  split
+  · rfl
+  · rw [PairM.fst_bind, formerSortLoop_fst (fun _ _ => rfl)]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem iotaCase3At_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+    (us : List Level) :
+    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK cvj us).val.1 =
+      iotaCase3At r₁.whnf find? isK cvj us := by
+  unfold iotaCase3At
+  split
+  · rfl
+  · split
+    · split
+      · rw [PairM.fst_bind, formerNeverZeroAt_fst_proj]
+        rfl
+      · rfl
+    · rfl
+
+theorem formerSortLoop_snd {wh : Nat → Expr → PairM rel Expr} {wh' : Nat → Expr → M₂ Expr}
+    (hw : ∀ d e, (wh d e).val.2 = wh' d e) :
+    ∀ (d n : Nat) (e : Expr),
+      (formerSortLoop wh d n e).val.2 = formerSortLoop wh' d n e
+  | d, 0, e => by
+    unfold formerSortLoop
+    rw [PairM.snd_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> rfl
+  | d, n + 1, e => by
+    unfold formerSortLoop
+    rw [PairM.snd_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    exact formerSortLoop_snd hw (d + 1) n _
+
+theorem formerNeverZeroAt_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (formerNeverZeroAt (pairFns r₁ r₂ h).whnf cvT caps us).val.2 =
+      formerNeverZeroAt r₂.whnf cvT caps us := by
+  unfold formerNeverZeroAt
+  split
+  · rfl
+  · rw [PairM.snd_bind, formerSortLoop_snd (fun _ _ => rfl)]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem iotaCase3At_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+    (us : List Level) :
+    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK cvj us).val.2 =
+      iotaCase3At r₂.whnf find? isK cvj us := by
+  unfold iotaCase3At
+  split
+  · rfl
+  · split
+    · split
+      · rw [PairM.snd_bind, formerNeverZeroAt_snd_proj]
+        rfl
+      · rfl
+    · rfl
+
 macro "fst_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -368,6 +450,8 @@ macro "snd_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])
@@ -536,6 +620,8 @@ macro "fst_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -561,6 +647,8 @@ macro "snd_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])
@@ -739,6 +827,8 @@ macro "fst_core3" x:tactic : tactic =>
     | rfl
     | $x:tactic
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -771,6 +861,8 @@ macro "snd_core3" x:tactic : tactic =>
     | rfl
     | $x:tactic
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])
@@ -956,6 +1048,8 @@ macro "fst_core4" x:tactic : tactic =>
     | (rw [checkProjGuard_fst_proj])
     | (rw [checkProjGuardI_fst_proj])
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -1014,6 +1108,8 @@ macro "snd_core4" x:tactic : tactic =>
     | (rw [checkProjGuard_snd_proj])
     | (rw [checkProjGuardI_snd_proj])
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])

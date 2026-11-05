@@ -68,6 +68,7 @@ theorem extendFalse (mp : EnvModelM V env)
       (fun ψ _ => by
         show ConLeche.PropWhen.holds ψ (ConLeche.PropWhen.ifAllZero []) = true
         rw [ConLeche.PropWhen.holds_ifAllZero]; rfl)
+      rfl
       (fun j hj => absurd hj (Nat.not_lt_zero j)))
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := falseName) (c := falseA) rfl rfl

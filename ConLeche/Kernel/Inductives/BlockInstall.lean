@@ -75,9 +75,10 @@ def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
       unitParams := p.nP
       all := p.memberNames
       nparams := p.nP
+      nIdx := nIdx
       ctors := [c.1.name] }
-  | cs, _ => { all := p.memberNames, nparams := p.nP,
-               ctors := cs.map (·.1.name) }
+  | cs, nIdx => { all := p.memberNames, nparams := p.nP, nIdx := nIdx,
+                  ctors := cs.map (·.1.name) }
 
 /-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`
 mention one of `names`?  No reduction: the walk stops at the first

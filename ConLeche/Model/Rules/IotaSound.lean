@@ -98,33 +98,26 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
     (hctor : env.find? cj = some (.ctorInfo cvj cnP cnF))
     (hrule : rules.find? (fun r' => r'.ctor == cj) = some rl)
     (hmlen : major.getAppArgs.length = cnP + rl.nfields)
-    (hlv : ConLeche.iotaCase3 env.find? isK cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).1 = true →
+    {c3 : Bool}
+    (hcase : IotaCaseSem m φ isK cvj
+      (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1 c3)
+    (hlv : c3 = true →
       Level.isEquivList usj
         (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
           e.getAppArgs rP).1 = some true)
-    (hparams : ConLeche.iotaCase3 env.find? isK cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).1 = true →
+    (hparams : c3 = true →
       DefEqListSem m φ d (major.getAppArgs.take cnP)
         (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
           e.getAppArgs rP).2)
     (hcertR : TeleAritySem m φ d (cv.type.instantiateLevelParams cv.levelParams us)
       e.getAppArgs)
-    (hcertC : ConLeche.iotaCase3 env.find? isK cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).1 = true →
+    (hcertC : c3 = true →
       CertsFSem m φ d (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs)
-    (hres : ConLeche.iotaCase3 env.find? isK cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).1 = true → mI ≠ rP →
+    (hres : c3 = true → mI ≠ rP →
       ConLeche.piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
         major.getAppArgs = some residual)
-    (hidx : ConLeche.iotaCase3 env.find? isK cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).1 = true → mI ≠ rP →
+    (hidx : c3 = true → mI ≠ rP →
       DefEqListSem m φ d (residual.getAppArgs.drop cnP)
         ((e.getAppArgs.take mI).drop rP)) :
     RedSem m φ d e
@@ -250,18 +243,13 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
     exact ⟨htrK hoX0, hsubj0.trans heqK⟩
   have hk' : isK = false := by simpa using hk
   obtain ⟨hS, hT, hPU⟩ := hextNK hk'
-  by_cases h2 : ConLeche.iotaCase3 env.find? isK cvj
-      (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1
-      = false
+  by_cases h2 : c3 = false
   · ---------------------------------------------------------------- case 2
     -- the case split at the comparand levels: the step compared nothing
-    have hlic : ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true := by
+    have hlic : FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 := by
       rw [← hcmpE]
-      cases hl : ConLeche.iotaCtorNeverProp env.find? cvj
-          (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1
-      · simp [ConLeche.iotaCase3, hk', hl] at h2
-      · rfl
+      exact hcase h2 hk'
     -- the major is not the point (S): its reduction is an equation, and
     -- the fired application, not the point either, fits its telescope
     have hapt : interp V ρ (xs.getD mI default) ≠ pt :=
@@ -295,9 +283,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
       rfl
     exact ⟨htrans hoX0 hoY', hsubj.trans heqLaw⟩
   ------------------------------------------------------------------ case 3
-  have h3 : ConLeche.iotaCase3 env.find? isK cvj
-      (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams e.getAppArgs rP).1
-      = true := by simpa using h2
+  have h3 : c3 = true := by simpa using h2
   -- the level comparison ran: the constructor's levels are the
   -- comparands' (currency-free: the comparand reads no arguments)
   have hψ : Level.substFn φ cvj.levelParams usj
@@ -336,10 +322,7 @@ theorem Red.iota_sound (hin : RulesInputs V m φ) {d : Nat} {e : Expr} {c : Name
   obtain ⟨heqA, hoY, restC, hfitC⟩ := hcase
   obtain ⟨restR', hfitR'⟩ := teleFitPA_snoc_congr (xs.take mI) hfitRVal heqA
   have hcase3_of_ptC : interp V ρ (Term.mkAppN
-      (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-      ConLeche.iotaCase3 env.find? isK cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams
-          e.getAppArgs rP).1 = true :=
+      (m.acval rl.ctor (Level.substFn φ cvj.levelParams usj)) ys) = pt → c3 = true :=
     fun _ => h3
   -- **the comparisons the step ran (case 3: where the fired
   -- application is the point), conditional**
@@ -732,8 +715,7 @@ theorem Red.rescueEta_sound (hin : RulesInputs V m φ) {d : Nat}
     (hthead : tmaj.getAppFn = .const T ust)
     (hlen : tmaj.getAppArgs.length = caps.etaParams)
     (hlv : ust.length = cvT.levelParams.length)
-    (_hnz : ConLeche.formerNeverZero cvT ust = true)
-    (hfab : fab = Expr.mkAppN (.const caps.etaCtor ust)
+        (hfab : fab = Expr.mkAppN (.const caps.etaCtor ust)
       (ConLeche.etaFabArgsE T tmaj.getAppArgs major caps.etaFields))
     (hws : fab.wscopedB d = true) (hb : fab.looseBVarsBounded 0 = true)
     (hlv' : fab.fvarLeaves.all (fun l => major.fvarLeaves.contains l) = true)

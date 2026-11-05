@@ -63,6 +63,7 @@ theorem extendEmpty (mp : EnvModelM V env)
       (fun ψ => ⟨_, by show denote _ _ _ 0 (.sort _) = _; rw [denote_sort]⟩) fun j hj => absurd hj (Nat.not_lt_zero j))
     (hcaps := lfp0_caps (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl)
       (fun _ h => absurd h Nat.one_ne_zero)
+      rfl
       (fun j hj => absurd hj (Nat.not_lt_zero j)))
     (hnd := nodup_one _) (hlen := rfl)
     (hall := lfpAll_one (n := emptyName) (c := emptyA) rfl rfl

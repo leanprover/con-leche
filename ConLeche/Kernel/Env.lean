@@ -213,6 +213,10 @@ structure IndCaps where
   container WITHOUT constructors (`nestContainer`), whose parameter count
   no constructor record carries. -/
   nparams : Nat := 0
+  /-- **The family's index count** (official's `inductive_val.nindices`), read
+  off the block's recursor record: how many binders past the parameters the
+  reading of the family's sort walks (`formerSortLoop`). -/
+  nIdx : Nat := 0
   /-- **The family's constructors, in declaration order** (official's
   `inductive_val.cnstrs`): recorded at install (uniform: the member's
   constructors; basis: the pin's).  Read by nested positivity alone

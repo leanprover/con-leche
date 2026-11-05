@@ -2,6 +2,7 @@ module
 
 public import ConLeche.SetModel.Ops
 public import ConLeche.SetModel.Value
+public import ConLeche.SetModel.Tower
 public import ConLeche.SetModel.TupleTower
 public import ConLeche.SetModel.UnionRec
 public import ConLeche.SetModel.GraphRec

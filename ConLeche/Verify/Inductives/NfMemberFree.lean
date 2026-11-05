@@ -504,7 +504,7 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
   have hctor : rl.ctor ∉ names := hN.2.2.2.2.1 _ _ _ _ hfc
   have htmaj : tmaj.occDeep names = false := hW hwt (hI hinf hm)
   have hargs := Expr.occDeep_getAppArgs htmaj
-  rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨heta, -, -, -, rfl, -⟩ | ⟨rfl, -, -, -, rfl, -⟩
+  rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨heta, -, -, rfl, -⟩ | ⟨rfl, -, -, -, rfl, -⟩
   · exact Expr.occDeep_mkAppN (Expr.occDeep_const hctor)
       (fun x hx => hargs x (List.mem_of_mem_take hx))
   · obtain ⟨-, hec, -⟩ := etaRescueOk_inv heta

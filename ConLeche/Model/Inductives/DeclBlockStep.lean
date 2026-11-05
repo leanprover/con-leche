@@ -22,6 +22,7 @@ import ConLeche.Model.Inductives.BlockRecPreRun
 public import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockRecPreHpre
 import ConLeche.Model.Inductives.StoredSwap
+import ConLeche.Model.Inductives.BlockCaps
 import ConLeche.Verify.Cached.GenRecC
 
 public section
@@ -401,11 +402,21 @@ theorem declBlock {F : Nat} {env env₂ : Env}
       refine ⟨cvTb, ConLeche.blockCapsAt p₁ mm isRec, by
         show (ConLeche.consBlockCtors p₁.nP ctorsAs env₁).find?
           ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).memberName mm) = _
-        rw [hname]; exact (hcoreC.1 mm cvTb hcv).1, fun ψ hw => ?_⟩
+        rw [hname]; exact (hcoreC.1 mm cvTb hcv).1, fun ψ hw => ?_, fun ψ => ?_⟩
       · obtain ⟨bs, hst⟩ := hF.stripOf mm cvTb hcv
         rw [ConLeche.formerZ_of_stripPis hst, ConLeche.PropWhen.zeronessOf_sound, hF.sEval]
         have hw' : Level.eval ψ p₁.resSort = 0 := hw
         rw [hw']; rfl
+      · have hlen := (hcoreC.1 mm cvTb hcv).2.2.2.len ψ
+        have hlen' : (ppsOf mm ψ).length
+            = p₁.nP + (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nIdxAt mm := hlen
+        show ((ppsOf mm ψ).take (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP ++
+          (ppsOf mm ψ).drop (blockDataOf V p₁ ctorsAs pk uOf ppsOf).nP).length = _
+        rw [List.take_append_drop, hlen', blockCapsAt_telescope]
+        have hmmk : mm < p₁.members.length := hmm
+        congr 1
+        show ((p₁.members.map (·.nIdx))).getD mm 0 = _
+        simp [List.getD_eq_getElem?_getD, hmmk]
     · have hck : c < (blockDataOf V p₁ ctorsAs pk uOf ppsOf).k := hc
       have hcj : ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j]?
           = some ((blockDataOf V p₁ ctorsAs pk uOf ppsOf).ctorsM c)[j] :=

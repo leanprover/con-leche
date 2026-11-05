@@ -424,6 +424,45 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   else if ← structUnitCertI r fe depth a b then pure true
   else proofIrrelI r depth a b
 
+/-- Twin of `formerSortLoop`, through the shared instantiation. -/
+def formerSortLoopI (wh : Nat → Expr → CheckCM Expr) : Nat → Nat → Expr → CheckCM (Option Level)
+  | d, 0, e => do
+    let w ← wh d e
+    match w with
+    | .sort s => pure (some s)
+    | _ => pure none
+  | d, n + 1, e => do
+    let w ← wh d e
+    match w with
+    | .forallE dom b => do
+      let b' ← inst1M b (.fvar d dom)
+      formerSortLoopI wh (d + 1) n b'
+    | _ => pure none
+
+/-- Twin of `formerNeverZeroAt`. -/
+def formerNeverZeroI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : CheckCM Bool :=
+  match formerResSort cvT.type with
+  | some _ => pure (formerNeverZero cvT us)
+  | none => do
+    let ty ← instLevelParamsM cvT.levelParams us cvT.type
+    let o ← formerSortLoopI wh 0 (caps.nparams + caps.nIdx) ty
+    match o with
+    | some s => pure (Level.zeronessOf s).isNever
+    | none => pure false
+
+/-- Twin of `iotaCase3At`. -/
+def iotaCase3I (wh : Nat → Expr → CheckCM Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) : CheckCM Bool :=
+  if isK then pure false else
+  match ctorFamily find? cvj with
+  | some (cvT, caps) =>
+    if cvT.levelParams.length == us.length then do
+      let nz ← formerNeverZeroI wh cvT caps us
+      pure !nz
+    else pure true
+  | none => pure true
+
 /-- Twin of `majorToCtor`. -/
 def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
     (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
@@ -478,20 +517,21 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               -- and the η law's keys, as in the spec body
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  formerNeverZero cvT ustL = true ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains caps.etaCtor = false ∧
                   fe.towerSlotsAllF T caps.etaFields = true then do
-                let TI ← pure T
-                let projs ← projNodesI TI major (List.range caps.etaFields)
-                let ctorI ← pure caps.etaCtor
-                let h ← pure (Expr.const ctorI ust)
-                let fab ← mkAppNM h (margs ++ projs)
-                -- no certificate on the fabricated spine (task #342 L11b)
-                if ← pure (Expr.wscopedBC depth fab &&
-                    Expr.looseBVarsBounded 0 fab &&
-                    Expr.leafGuard fab major) then
-                  pure fab
+                if ← formerNeverZeroI r.whnf cvT caps ustL then do
+                  let TI ← pure T
+                  let projs ← projNodesI TI major (List.range caps.etaFields)
+                  let ctorI ← pure caps.etaCtor
+                  let h ← pure (Expr.const ctorI ust)
+                  let fab ← mkAppNM h (margs ++ projs)
+                  -- no certificate on the fabricated spine (task #342 L11b)
+                  if ← pure (Expr.wscopedBC depth fab &&
+                      Expr.looseBVarsBounded 0 fab &&
+                      Expr.leafGuard fab major) then
+                    pure fab
+                  else pure major
                 else pure major
               else pure major
             | _ => pure major
@@ -656,7 +696,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                       | .plain =>
                         substLevelTreesM cv.levelParams us
                           (cvj.levelParams.map Level.param)
-                    if iotaCase3 fe.find? isK cvj cmpLvls then do
+                    if ← iotaCase3I r.whnf fe.find? isK cvj cmpLvls then do
                       let oL ← isEquivListLM usj cmpLvls
                       if ← liftFueled "level comparison" oL then do
                         let cmpArgs : List Expr ←

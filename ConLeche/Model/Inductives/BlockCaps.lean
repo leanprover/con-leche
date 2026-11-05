@@ -35,6 +35,13 @@ variable {V : Type w'} [SetTheory V] {env : Env}
 
 /-! ## Reading the record -/
 
+/-- A member's capability record counts its telescope. -/
+theorem blockCapsAt_telescope (p : BlockShape) (mi : Nat) (isRec : Bool) :
+    (blockCapsAt p mi isRec).nparams + (blockCapsAt p mi isRec).nIdx
+      = p.nP + (p.members.getD mi default).nIdx := by
+  unfold blockCapsAt
+  split <;> rfl
+
 /-- The record a member carries, by its constructor list: the
 capability slots are filled only at EXACTLY ONE constructor. -/
 theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
@@ -48,11 +55,13 @@ theorem blockCapsAt_cases (p₁ : BlockShape) (mi : Nat) (isRec : Bool) :
           unitParams := p₁.nP
           all := p₁.memberNames
           nparams := p₁.nP
+          nIdx := (p₁.members.getD mi default).nIdx
           ctors := [c.1.name] }) ∨
     ConLeche.blockCapsAt p₁ mi isRec =
       {
         all := p₁.memberNames
         nparams := p₁.nP
+        nIdx := (p₁.members.getD mi default).nIdx
         ctors := (p₁.members.getD mi default).ctors.map fun c => c.1.name } := by
   unfold ConLeche.blockCapsAt
   split

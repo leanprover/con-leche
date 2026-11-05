@@ -973,6 +973,9 @@ private theorem majorToCtor_shift (henv : EnvWF env)
               simp only [shiftFrom]
               rw [getAppArgs_shiftFrom, List.length_map]
               refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
+              -- the walk to the sort reads the closed former alone
+              refine bind_rel_eq _ rfl fun nz _ => ?_
+              refine ite_rel _ (fun _ => ?_) (fun _ => rfl)
               rw [etaFabArgsE_shift]
               have hfab : Expr.mkAppN (Expr.const caps.etaCtor ust)
                   (List.map (shiftFrom p)
@@ -1381,12 +1384,13 @@ private theorem iotaRec_shift (henv : EnvWF env)
         refine bind_rel_eq _ ?_ ?_
         · -- Task #342 (r1): the whole case-3 decision is now gated on
           -- `mode.verifiedChecks`, one `by_cases` outside the existing
-          -- `iotaCase3` one; at the trusted mode both sides are
+          -- case split's; at the trusted mode both sides are
           -- `pure true`, closed by the `rw` alone.
           by_cases hμ : mode.verifiedChecks = true
           · rw [ite_eq_left hμ, ite_eq_left hμ]
-            by_cases h3 : iotaCase3 env.find? isK cvj (recFireComparands rl cnP cv.levelParams us
-                cvj.levelParams e.getAppArgs rP).1 = true
+            -- the split reads the closed former alone
+            refine bind_congr_eq rfl fun c3 _ => ?_
+            by_cases h3 : c3 = true
             · rw [ite_eq_left h3, ite_eq_left h3]
               refine bind_congr_eq rfl ?_
               intro b₀ _

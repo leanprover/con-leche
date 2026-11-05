@@ -1340,6 +1340,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
       (fun ψ => by
         show ConLeche.PropWhen.holds ψ (ConLeche.PropWhen.ifAllZero []) = true
         rw [ConLeche.PropWhen.holds_ifAllZero]; rfl)
+      rfl
       ⟨_, _, _, hR2, _, [.bvar 0], rfl⟩)
   have hf3 : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find?
       eqRecA.name = none := Option.isNone_iff_eq_none.mp h3

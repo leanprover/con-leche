@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Currency
+public import ConLeche.SetModel.Tower
 public import ConLeche.Semantics.DivModEval
 public import ConLeche.Verify.ProjTele
 public import ConLeche.Verify.Denote.OpenVars
@@ -539,6 +540,59 @@ conditional claims. -/
       interp V ρ (cargsa.getD (cnP + i) default)
         = interp V ρ (xs.getD (rP + i) default)
 
+/-- **What the ι case split's `false` establishes** at a constructor and the
+comparand levels, with no K rule: the family a constructor concludes in is never
+`Prop` there.  Its stored type ends in a sort that is never zero, or it reaches
+one only by reduction, and then the use walked it (`FormerSort`): at every
+valuation its reading is a tower of function spaces over a universe above `0`,
+unless a stage is the point. -/
+@[expose] def FamNZ {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term) (env : Env)
+    (φ : Name → Nat) (cvj : ConstantVal) (us : List Level) : Prop :=
+  ∃ cvT caps, ConLeche.ctorFamily env.find? cvj = some (cvT, caps) ∧
+    cvT.levelParams.length = us.length ∧
+    (ConLeche.formerNeverZero cvT us = true ∨
+      ConLeche.formerResSort cvT.type = none ∧ ∃ w : Nat, w ≠ 0 ∧
+        ∀ ta : Term, denote acval env φ 0
+            (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+          ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) w)
+
+/-- A constructor's family reads the lookup at the name its type concludes in. -/
+theorem ctorFamily_congr {f g : Name → Option ConstantInfo} {cvj : ConstantVal}
+    (h : ∀ T us, cvj.type.piResult.getAppFn = .const T us → f T = g T) :
+    ConLeche.ctorFamily f cvj = ConLeche.ctorFamily g cvj := by
+  unfold ConLeche.ctorFamily
+  split
+  · next T us hh => rw [h T us hh]
+  · rfl
+
+/-- A constructor's family is a stored inductive. -/
+theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
+    {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
+    ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
+  unfold ConLeche.ctorFamily at h
+  split at h
+  · next T us hh =>
+    split at h
+    · next hf =>
+      cases Option.some.inj h
+      exact ⟨T, us, hh, hf⟩
+    · exact nomatch h
+  · exact nomatch h
+
+/-- `FamNZ` reads the family's lookup and the reading of its type. -/
+theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
+    {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
+    (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
+    (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
+      ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+      denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+      denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
+    (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
+  obtain ⟨cvT, caps, hf, hl, hc⟩ := h
+  rw [hfam] at hf
+  refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
+  exact ht ta (hde cvT caps ta hf hta) ρ
+
 /-- **The ι case split's environment facts, one rule**.
 `RecRuleLaw`'s main clause takes the levels, parameters and index
 comparisons as equations; under the conditional claims the ι step has
@@ -555,8 +609,8 @@ recursor's levels:
   syntactically, so a graded application of it that is not the point
   fits its telescope;
 * **(S) case 2**: where the family is never `Prop` at the comparand
-  levels (`iotaCtorNeverProp`, the checker's test), the recursor's major
-  domain holds no point;
+  levels (`FamNZ`, what the checker's test establishes), the recursor's
+  major domain holds no point;
 * **(T) case 2, the constructor's levels**: there a fired application
   that is not the point, at the constructor's own levels and spine, is
   also an application of the constructor at the comparand levels, to a
@@ -601,14 +655,14 @@ recursor's levels:
     (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome = true ∧
     (isK = false →
     -- (S)
-    (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true →
+    (FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
       ∀ (ρ : Nat → V) (xs : List Term) (a restR : Term),
         xs.length = mI → TeleFitPA V ρ TVa (xs ++ [a]) restR →
         interp V ρ a ≠ pt) ∧
     -- (T)
-    (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 = true →
+    (FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
       ∀ (usj : List Level), usj.length = cvj.levelParams.length →
       ∀ TVja : Term,
         denote m.acval env φ 0

@@ -107,29 +107,6 @@ theorem lfpW_congr {envC : Env} (mpC : EnvModelM V envC) {D : LfpDatum V}
   have h := (mkPisAV_sort_inj (Option.some.inj h₁)).2
   exact h.symm
 
-/-- **The ι case split, unfolded.** -/
-theorem iotaCtorNeverProp_inv {f : Name → Option ConstantInfo} {cvj : ConstantVal}
-    {usj : List Level} (h : ConLeche.iotaCtorNeverProp f cvj usj = true) :
-    ∃ (T : Name) (us₀ : List Level) (cvT : ConstantVal) (caps : ConLeche.IndCaps),
-      (cvj.type.piResult).getAppFn = .const T us₀ ∧ f T = some (.indInfo cvT caps) ∧
-      cvT.levelParams.length = usj.length ∧
-      ConLeche.formerNeverZero cvT usj = true := by
-  revert h
-  unfold ConLeche.iotaCtorNeverProp
-  match hpr : (cvj.type.piResult).getAppFn with
-  | .bvar _ | .fvar _ _ | .sort _ | .app _ _ | .lam _ _
-  | .forallE _ _ | .letE _ _ _ | .lit _ | .proj _ _ _ => intro h; exact nomatch h
-  | .const T us₀ =>
-    dsimp only
-    match hfT : f T with
-    | none => intro h; exact nomatch h
-    | some (.axiomInfo _) | some (.defnInfo _ _ _) | some (.thmInfo _)
-    | some (.ctorInfo _ _ _) | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
-    | some (.indInfo cvT caps) =>
-      intro h
-      simp only [Bool.and_eq_true, beq_iff_eq] at h
-      exact ⟨T, us₀, cvT, caps, rfl, hfT, h.1, h.2⟩
-
 /-- An application spine over a head that is not a `∀` is its own
 `piResult`. -/
 theorem piResult_mkAppN_of_ne : ∀ (args : List Expr) (f : Expr),
@@ -291,6 +268,78 @@ omit [SetTheory V] in
 theorem getD_append_right' {α : Type _} {l₁ l₂ : List α} {q : Nat} {x : α} :
     (l₁ ++ l₂).getD (l₁.length + q) x = l₂.getD q x := by
   simp [List.getD_eq_getElem?_getD, List.getElem?_append_right]
+
+/-- **Where the case split exempts a rule, a recorded member's sort is not zero**, at
+the levels and along a fit of its telescope: read off the record's zero-ness datum
+(`LfpCaps`), or, where the use walked the former, by comparing the walk's tower with
+the record's along the fit (`LfpReads`, `sort_ne_zero_of_walk`).  Over an empty domain
+a function space is the unit, whatever its fibres: the fit is needed. -/
+theorem famNZ_lfp_ne_zero {env : Env} (mp : EnvModelM V env) {D : LfpDatum V}
+    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat} {ρp : Nat → V}
+    {is : List V} (hs : Sat V (D.params ψ).reverse ρp) (hids : SpineFit ρp (D.ids mm ψ) is)
+    {cvj : ConstantVal} {φ : Name → Nat} {us : List Level}
+    (hfam : ∀ cvT caps, ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+      env.find? (D.member mm) = some (.indInfo cvT caps) ∧
+        ∀ q ∈ cvT.levelParams, Level.substFn φ cvT.levelParams us q = ψ q)
+    (h : FamNZ (V := V) mp.base2.acval env φ cvj us) : D.w ψ ≠ 0 := by
+  obtain ⟨cvT, caps, hf, -, hc⟩ := h
+  obtain ⟨hfm, hlv⟩ := hfam cvT caps hf
+  obtain ⟨hcl, -, hrd, -, hcK, -⟩ := mp.lfp_ok D hD
+  rcases hc with hnz | ⟨-, w', hw', ht⟩
+  · have hfalse := holds_false_of_isNever hnz φ
+    obtain ⟨cv, caps', hf', hz, -⟩ := hcK mm hmm
+    rw [hfm] at hf'
+    obtain ⟨rfl, -⟩ : cvT = cv ∧ caps = caps' := by
+      injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
+    have hne : D.w (Level.substFn φ cvT.levelParams us) ≠ 0 :=
+      fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
+    rwa [lfpW_congr mp hD hmm hfm hlv] at hne
+  · obtain ⟨cv, caps', hf', -, hlen⟩ := hcK mm hmm
+    obtain ⟨cv₂, caps₂, hf₂, hab⟩ := hrd mm hmm
+    rw [hfm] at hf' hf₂
+    obtain ⟨rfl, rfl⟩ : cvT = cv ∧ caps = caps' := by
+      injection hf' with h'; injection h' with a b; exact ⟨a, b⟩
+    obtain rfl : cvT = cv₂ := by
+      injection hf₂ with h'; injection h' with a b
+    obtain ⟨ab, hta, hmap⟩ := hab ψ
+    have hwf := mp.base2.wf.consts _ (ConLeche.Env.find?_mem hfm)
+    have hread : denote mp.base2.acval env φ 0
+        (cvT.type.instantiateLevelParams cvT.levelParams us)
+        = some (mkPisAV ab (.sort (D.w ψ))) := by
+      rw [denote_instLevels mp.base2.acval_params φ,
+        denote_params_ext mp.base2 hlv 0 cvT.type hwf.2.1]
+      exact hta
+    subst hmap
+    -- the parameters, then the indices
+    have hpl := (hcl.parsLen mm hmm ψ)
+    have hsP := hcl.parsSat mm hmm ψ ρp hs
+    have hfitP : SpineFit (shiftE (D.pars mm ψ).length 0 ρp) (D.pars mm ψ)
+        (frameIdx (D.pars mm ψ).length ρp) := spineFit_frameIdx_of_sat hsP
+    have hfr : consList (frameIdx (D.pars mm ψ).length ρp) (shiftE (D.pars mm ψ).length 0 ρp)
+        = ρp := consList_frameIdx _ ρp
+    have hfit := SpineFit.append hfitP (hfr ▸ hids)
+    exact sort_ne_zero_of_walk hfit (by rw [hlen ψ]; exact ht _ hread _) hw'
+
+/-- `FamNZ` at the recursors' stage is the constructors' stage's. -/
+theorem famNZ_of_recStage {envC : Env} (mpC : EnvModelM V envC)
+    {Rr : Nat → RecDatum → Bool × List RecRule} {q : BlockShape}
+    {rs : List RecDatum} {m₃ : EnvModel V (ConLeche.consBlockRecsR Rr q 0 rs envC)}
+    (hfr : ∀ r ∈ rs, envC.find? r.1.name = none)
+    (hcross : ∀ (ψ : Name → Nat) (e : Expr) (ta : Term), ConstsBound envC e →
+      denote mpC.base2.acval envC ψ 0 e = some ta →
+      denote m₃.acval (ConLeche.consBlockRecsR Rr q 0 rs envC) ψ 0 e = some ta)
+    {c : Name} {cvj : ConstantVal} {a b : Nat}
+    (hfc : envC.find? c = some (.ctorInfo cvj a b)) {φ : Name → Nat} {us : List Level}
+    (h : FamNZ (V := V) m₃.acval (ConLeche.consBlockRecsR Rr q 0 rs envC) φ cvj us) :
+    FamNZ (V := V) mpC.base2.acval envC φ cvj us := by
+  obtain ⟨-, -, hresolve, -, -, -, -⟩ := mpC.base2.wf.consts _ (ConLeche.Env.find?_mem hfc)
+  dsimp only [ConLeche.ConstantInfo.toConstantVal] at hresolve
+  refine FamNZ.congr (V := V) (ctorFamily_consBlockRecsR_of_isSome hfr fun T us' heq' =>
+    ConLeche.Expr.find?_isSome_of_piResult_getAppFn_const hresolve heq')
+    (fun cvT caps ta hfam hta => ?_) h
+  obtain ⟨T, _, -, hfT⟩ := ctorFamily_find hfam
+  exact hcross _ _ _ (constsBound_instType mpC.base2.wf (ConLeche.Env.find?_mem hfT) us) hta
+
 
 /-- **A fit extends across a peel** (`teleFit_peel'`'s converse): a
 fitting prefix spine followed by a fit of the peel's residual is a fit of
@@ -524,43 +573,30 @@ theorem genMem_ne_pt
   rw [heq]
   exact (mpC.lfp_ok _ G.hlfp).1.injNePt ψ hw t j' fs'
 
-/-- **The case split's sort fact at a member class**: where the member's
-sort is never zero at the constructor's levels (the case split reads the
-member's record, `blockCapsAt`, which carries the block's sort
-zero-ness), the member is not `Prop` at the recursor's levels. -/
+/-- **The case split's sort fact at a member class**: where the member's sort is
+never zero at the constructor's levels, along a fit of its telescope, the member is
+not `Prop` at the recursor's levels. -/
 theorem genMem_w_of_lic {isRec : Bool} {cvT : ConstantVal} {j i t : Nat}
     {cA : ConstantVal × Nat} (G : GenMemAt mpC d pp out isRec cvT j i t cA)
     {ψ : Name → Nat} {usj : List Level} {φ : Name → Nat}
     (hlv : ∀ q ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj q = ψ q)
-    {f : Name → Option ConstantInfo}
-    (hfm : f (d.memberName t) = some (.indInfo cvT (ConLeche.blockCapsAt pp.toBlockShape t isRec)))
-    (hlic : ConLeche.iotaCtorNeverProp f cA.1 usj = true) :
+    (hlic : FamNZ (V := V) mpC.base2.acval envC φ cA.1 usj)
+    {ρ : Nat → V} {ps is : List V} (hpar : SpineFit ρ (d.params ψ) ps)
+    (hsp : SpineFit (consList ps ρ) (d.IdsM t ψ) is) :
     d.w ψ ≠ 0 := by
-  obtain ⟨T, us₀, cvT', caps, hhead, hfT, -, hnz⟩ := iotaCtorNeverProp_inv hlic
-  -- the constructor's family is the member
+  refine famNZ_lfp_ne_zero mpC G.hlfp G.htd (d.satOfSpine hpar) hsp ?_ hlic
+  intro cvT' caps' hf
+  obtain ⟨T, us₀, hhead, hfT⟩ := ctorFamily_find hf
   obtain ⟨cbs, es, hres, -⟩ := G.hcf.2.2.resid
   rw [piResult_getAppFn_of_stripPis _ hres] at hhead
   obtain ⟨rfl, -⟩ := ConLeche.Expr.const.inj hhead
-  rw [hfm] at hfT
-  obtain ⟨rfl, rfl⟩ : cvT = cvT' ∧ ConLeche.blockCapsAt pp.toBlockShape t isRec = caps := by
-    injection hfT with h'; injection h' with h1 h2; exact ⟨h1, h2⟩
-  -- the member's sort is never zero at the constructor's levels (`LfpCaps`)
-  have hfalse := holds_false_of_isNever hnz φ
-  obtain ⟨-, -, -, -, hcK, -⟩ := mpC.lfp_ok _ G.hlfp
-  obtain ⟨cv, caps', hf, hz⟩ := hcK t G.htd
-  have hfc : envC.find? (d.memberName t)
-      = some (.indInfo cv caps') := hf
+  have hfc : envC.find? (d.memberName t) = some (.indInfo cvT' caps') := hfT
+  refine ⟨hfc, ?_⟩
   rw [G.hcaps] at hfc
-  obtain rfl : cvT = cv := by
+  obtain rfl : cvT = cvT' := by
     injection hfc with h'; injection h' with a _
-  have hne : d.w (Level.substFn φ cvT.levelParams usj) ≠ 0 :=
-    fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
-  rw [G.hlpsT] at hne
-  -- the member's sort at the recursor's levels
-  have hc : d.w (Level.substFn φ cA.1.levelParams usj) = d.w ψ :=
-    lfpW_congr mpC (D := d.toLfp) G.hlfp G.htd G.hcaps (fun q hq => by
-      rw [G.hlpsT] at hq; exact hlv q hq)
-  exact hc ▸ hne
+  rw [G.hlpsT]
+  exact hlv
 
 /-- **(S) at a member class**: where the case split exempts the rule, the member's
 carrier at the recursor's parameters is strict (`genMem_w_of_lic`), so
@@ -577,15 +613,14 @@ theorem genMem_S
     (hr : (tgtRs out)[j]? = some r) (hm : (tgtMajor out j).member = some t)
     {ψ : Name → Nat} {usj : List Level} {φ : Name → Nat}
     (hlv : ∀ q ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj q = ψ q)
-    {f : Name → Option ConstantInfo}
-    (hfm : f (d.memberName t) = some (.indInfo cvT (ConLeche.blockCapsAt pp.toBlockShape t isRec)))
-    (hlic : ConLeche.iotaCtorNeverProp f cA.1 usj = true)
+    (hlic : FamNZ (V := V) mpC.base2.acval envC φ cA.1 usj)
     (ρ : Nat → V) (xs : List Term) (a restR : Term)
     (hxl : xs.length = pp.toBlockShape.majorIdxAt j)
     (hfitR : TeleFitPA V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ j)
       (xs ++ [a]) restR) :
-    interp V ρ a ≠ pt :=
-  genMem_ne_pt h R hS G hr hm (genMem_w_of_lic G hlv hfm hlic) ρ xs a restR hxl hfitR
+    interp V ρ a ≠ pt := by
+  obtain ⟨hpar, hsp', -⟩ := genMem_major h R hS G hr hm ψ hxl hfitR
+  exact genMem_ne_pt h R hS G hr hm (genMem_w_of_lic G hlv hlic hpar hsp') ρ xs a restR hxl hfitR
 
 /-- **At a `Prop` valuation of a member, its constructor is the point**,
 and so is every application of it: every binder of the constructor's
@@ -1153,6 +1188,12 @@ theorem genMemExtra
   have hstored : m₃.acval (ConLeche.RecRule.ctor rl) = mpC.base2.acval cA.1.name := by
     rw [hct]; exact blockRecAcv_stored h hac (by rw [G.hcf.1]; rfl)
   have hnp : d.nP = pp.nP := G.hdnP
+  have hlicC : ∀ usj : List Level,
+      FamNZ (V := V) m₃.acval (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC)
+          φ cA.1 usj →
+        FamNZ (V := V) mpC.base2.acval envC φ cA.1 usj := fun _ =>
+    famNZ_of_recStage mpC (fun r' hr' => (hcv r' hr').1)
+      (fun ψ e ta hCB hta => blockRecDenote_cross h hac ψ 0 e hCB hta) G.hcf.1
   -- the constructor's reading at the cons
   have hTVjaOf : ∀ usj : List Level,
       denote m₃.acval (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC) φ 0
@@ -1203,7 +1244,7 @@ theorem genMemExtra
         (lpsR := r.1.levelParams) (us := us)
         (usj := (ConLeche.recFireComparands rl d.nP r.1.levelParams us cA.1.levelParams []
           (pp.toBlockShape.rulePrefixAt j)).1) (rP := pp.toBlockShape.rulePrefixAt j) hfire rfl
-      exact genMem_S h R hS G hr hm hlv (hkeep _ _ G.hcaps) hlic ρ xs a restR hxl hfit
+      exact genMem_S h R hS G hr hm hlv (hlicC _ hlic) ρ xs a restR hxl hfit
     · -- (T), at the comparand levels: the recursor's parameters, the same fields
       intro hlic usj _ TVja hTVja ρ xs ys restR restC hxl hyl hfitR hfitC hxsW hysW hne
       rw [hTVjaOf] at hTVja
@@ -1213,8 +1254,9 @@ theorem genMemExtra
         (usj := (ConLeche.recFireComparands rl d.nP r.1.levelParams us cA.1.levelParams []
           (pp.toBlockShape.rulePrefixAt j)).1) (rP := pp.toBlockShape.rulePrefixAt j) hfire rfl
       rw [hnp, hnf] at hyl
+      obtain ⟨hparT, hspT, -⟩ := genMem_major h R hS G hr hm _ hxl hfitR
       obtain ⟨restC', hfitC', hval⟩ := genMem_T h R hS G hr hm hnP hlv
-        (genMem_w_of_lic G hlv (hkeep _ _ G.hcaps) hlic) hxl hyl hfitR hfitC hne
+        (genMem_w_of_lic G hlv (hlicC _ hlic) hparT hspT) hxl hyl hfitR hfitC hne
       have hxlP : pp.nP ≤ xs.length := by rw [hxl]; have := hrPle; omega
       have hpl : (xs.take pp.nP).length = pp.nP := by rw [List.length_take]; omega
       refine ⟨_, xs.take pp.nP ++ ys.drop pp.nP, _, restC', ?_, rfl, hTVjaOf _, ?_,
@@ -1488,7 +1530,7 @@ theorem genOut_caps {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc
   rw [hfc0] at hf'
   obtain ⟨rfl, rfl, rfl⟩ : cA.1 = cv' ∧ (tgtMajor out j).ds.length = nPc ∧ cA.2 = nF := by
     injection hf' with h'; injection h' with a b c; exact ⟨a, b, c⟩
-  refine ⟨caps₀, hf₀, hz, bs, es, ?_⟩
+  refine ⟨caps₀, hf₀, hz.1, bs, es, ?_⟩
   rw [Rd.hnpc, hst, Rd.hmem]
 
 /-- **(S) at an outside class**: the case split reads the container's
@@ -1497,30 +1539,26 @@ levels, so the class's sort is not zero at the recursor's, and the
 carrier holds no point. -/
 theorem genOut_S {j : Nat} {cvI : ConstantVal} (Rd : GenClsRd mpC d Dc mc cvc pp out j cvI)
     {i : Nat} {cA : ConstantVal × Nat} (hcAM : (tgtMajor out j).ctors[i]? = some cA)
-    {f : Name → Option ConstantInfo}
-    (hf : ∀ caps, envC.find? (tgtMajor out j).ind = some (.indInfo cvI caps) →
-      f (tgtMajor out j).ind = some (.indInfo cvI caps))
     {φ : Name → Nat} {usj : List Level} {ψc : Name → Nat}
     (hlv : ∀ p ∈ cA.1.levelParams, Level.substFn φ cA.1.levelParams usj p = ψc p)
-    (hlic : ConLeche.iotaCtorNeverProp f cA.1 usj = true) :
+    (hlic : FamNZ (V := V) mpC.base2.acval envC φ cA.1 usj)
+    {ρp : Nat → V} {is : List V}
+    (hsat : Sat V ((tgtClsD d Dc out j).params ψc).reverse ρp)
+    (hsp : SpineFit ρp ((tgtClsD d Dc out j).ids (tgtClsM mc pp.toBlockShape out j) ψc) is) :
     (tgtClsD d Dc out j).w ψc ≠ 0 := by
   obtain ⟨-, -, hlpC, -⟩ := Rd.hctor i cA hcAM
-  obtain ⟨caps, hfc, hz, bs, es, hst⟩ := genOut_caps Rd hcAM
-  obtain ⟨T, us₀, cvT, caps', hhead, hfT, -, hnz⟩ := iotaCtorNeverProp_inv hlic
+  obtain ⟨caps, hfc, -, bs, es, hst⟩ := genOut_caps Rd hcAM
+  refine famNZ_lfp_ne_zero mpC Rd.hD Rd.hmm hsat hsp ?_ hlic
+  intro cvT caps' hf
+  obtain ⟨T, us₀, hhead, hfT⟩ := ctorFamily_find hf
   rw [piResult_getAppFn_of_stripPis _ hst] at hhead
   obtain ⟨rfl, -⟩ := ConLeche.Expr.const.inj hhead
-  rw [hf caps hfc] at hfT
+  rw [hfc] at hfT
   obtain ⟨rfl, rfl⟩ : cvI = cvT ∧ caps = caps' := by
     injection hfT with h'; injection h' with a b; exact ⟨a, b⟩
-  have hfalse := holds_false_of_isNever hnz φ
-  have hne : (tgtClsD d Dc out j).w (Level.substFn φ cvI.levelParams usj) ≠ 0 :=
-    fun h0 => by rw [hz _ h0] at hfalse; exact nomatch hfalse
-  obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok _ Rd.hD
-  have hfm : envC.find? ((tgtClsD d Dc out j).member (tgtClsM mc pp.toBlockShape out j))
-      = some (.indInfo cvI caps) := by rw [Rd.hmem]; exact hfc
-  rw [lfpW_congr mpC Rd.hD Rd.hmm hfm (ψ₂ := ψc) (fun q hq => by
-    rw [← hlpC] at hq ⊢; exact hlv q hq)] at hne
-  exact hne
+  refine ⟨by rw [Rd.hmem]; exact hfc, ?_⟩
+  rw [← hlpC]
+  exact hlv
 
 /-- A closed leaf is fixed by every instantiation sequence. -/
 theorem instSeq_acval {env : Env} (m : EnvModel V env) (n : Name) (ψ : Name → Nat) :
@@ -2478,6 +2516,12 @@ theorem genOutExtra
     rw [denote_instLevels m₃.acval_params φ]
     exact blockRecDenote_cross h hac _ 0 cA.1.type hctorCB (hctorRead _)
   have hnpd : (tgtMajor out j).nPc = (tgtMajor out j).ds.length := Rd.hnpc
+  have hlicC : ∀ usj : List Level,
+      FamNZ (V := V) m₃.acval (ConLeche.consBlockRecsR Rr pp.toBlockShape 0 (tgtRs out) envC)
+          φ cA.1 usj →
+        FamNZ (V := V) mpC.base2.acval envC φ cA.1 usj := fun _ =>
+    famNZ_of_recStage mpC (fun r' hr' => (hcv r' hr').1)
+      (fun ψ e ta hCB hta => blockRecDenote_cross h hac ψ 0 e hCB hta) hfindC
   -- the pins, read at the cons as at the constructors' environment
   obtain ⟨-, -, hpinsWf, -⟩ := R.fire_nestedRead hr hf
   have hplenP : pins.length = (tgtMajor out j).nPc := by
@@ -2577,8 +2621,7 @@ theorem genOutExtra
     · -- (S), at the comparand levels
       have hlv := hlvOf us _ rfl
       obtain ⟨-, hsat, hsp, hmaj⟩ := genOut_major h hS hr Rd _ hxl hfit
-      exact genOut_ne_pt Rd hsat hsp hmaj
-        (genOut_S Rd hcAM (fun caps hc => hkeep _ _ hc) hlv hlic)
+      exact genOut_ne_pt Rd hsat hsp hmaj (genOut_S Rd hcAM hlv (hlicC _ hlic) hsat hsp)
     · -- (T), at the class's levels and parameters (the pins' readings)
       intro hlic usj husj TVja hTVja ρ xs ys restR restC hxl hyl hfitR hfitC hWDx hWDy hne
       rw [hTVjaOf] at hTVja
@@ -2587,8 +2630,9 @@ theorem genOutExtra
       have hlv := hlvOf us _ rfl
       obtain ⟨hlvls, -⟩ := genOutPinVal R h hr Rd hf φ us
       obtain ⟨ys₀, hyl0, hysv, hgr⟩ := hpinSp us hus _ hTVa ρ xs _ restR hxl hfitR
+      obtain ⟨-, hsatT, hspT, -⟩ := genOut_major h hS hr Rd _ hxl hfitR
       obtain ⟨restC', hfit', hval⟩ := genOut_T R hg hcov h hS hr hMo hcA Rd hnP _ hlv
-        (genOut_S Rd hcAM (fun caps hc => hkeep _ _ hc) hlv hlic) (hctorRead _) hxl hyl hfitR
+        (genOut_S Rd hcAM hlv (hlicC _ hlic) hsatT hspT) (hctorRead _) hxl hyl hfitR
         hfitC hWDy hne hyl0 hysv
       refine ⟨_, ys₀ ++ ys.drop (tgtMajor out j).nPc, _, restC', ?_, rfl, hTVjaOf _, ?_,
         by rw [List.drop_left' hyl0], fun y hy => ?_, hfit', hval⟩

@@ -141,19 +141,20 @@ theorem proofIrrelGate_of {m : Type → Type} [Monad m] [MonadExceptOf CheckErro
     let ustL ← pure ust
     if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        formerNeverZero cvT ustL = true ∧
         reservedBasisNames.contains T = false ∧
         reservedBasisNames.contains caps.etaCtor = false ∧
         fe.towerSlotsAllF T caps.etaFields = true then do
-      let TI ← pure T
-      let projs ← projNodesI TI major (List.range caps.etaFields)
-      let ctorI ← pure caps.etaCtor
-      let h ← pure (Expr.const ctorI ust)
-      let fab ← mkAppNM h (margs ++ projs)
-      if ← pure (Expr.wscopedBC depth fab &&
-          Expr.looseBVarsBounded 0 fab &&
-          Expr.leafGuard fab major) then
-        pure fab
+      if ← formerNeverZeroI r.whnf cvT caps ustL then do
+        let TI ← pure T
+        let projs ← projNodesI TI major (List.range caps.etaFields)
+        let ctorI ← pure caps.etaCtor
+        let h ← pure (Expr.const ctorI ust)
+        let fab ← mkAppNM h (margs ++ projs)
+        if ← pure (Expr.wscopedBC depth fab &&
+            Expr.looseBVarsBounded 0 fab &&
+            Expr.leafGuard fab major) then
+          pure fab
+        else pure major
       else pure major
     else pure major
   | _ => pure major
@@ -244,24 +245,26 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
   | _ => pure major
 
 /-- The pure η rescue past the major's type. -/
-@[expose] def mtcEtaCont (env : Env) (depth : Nat) (major : Expr) (T : Name)
+@[expose] def mtcEtaCont (r : CoreFns m) (env : Env) (depth : Nat) (major : Expr) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) (tmaj : Expr) : m Expr :=
   match tmaj.getAppFn with
   | .const T' ust =>
     if T' = T ∧ tmaj.getAppArgs.length = caps.etaParams ∧
         ust.length = cvT.levelParams.length ∧
-        formerNeverZero cvT ust = true ∧
         reservedBasisNames.contains T = false ∧
         reservedBasisNames.contains caps.etaCtor = false ∧
         towerSlotsAll env T caps.etaFields = true then
-      if (Expr.mkAppN (.const caps.etaCtor ust)
-            (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)).wscopedB depth &&
-          (Expr.mkAppN (.const caps.etaCtor ust)
-            (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)).looseBVarsBounded 0 &&
-          leafGuardP (Expr.mkAppN (.const caps.etaCtor ust)
-            (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)) major then
-        pure (Expr.mkAppN (.const caps.etaCtor ust)
-          (etaFabArgsE T tmaj.getAppArgs major caps.etaFields))
+      formerNeverZeroAt r.whnf cvT caps ust >>= fun nz =>
+      if nz = true then
+        if (Expr.mkAppN (.const caps.etaCtor ust)
+              (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)).wscopedB depth &&
+            (Expr.mkAppN (.const caps.etaCtor ust)
+              (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)).looseBVarsBounded 0 &&
+            leafGuardP (Expr.mkAppN (.const caps.etaCtor ust)
+              (etaFabArgsE T tmaj.getAppArgs major caps.etaFields)) major then
+          pure (Expr.mkAppN (.const caps.etaCtor ust)
+            (etaFabArgsE T tmaj.getAppArgs major caps.etaFields))
+        else pure major
       else pure major
     else pure major
   | _ => pure major
@@ -306,7 +309,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m] {r : CoreFns
       mtcKCont mode r depth major rl cvj cnP T
   else if etaRescueOk rl.ctor cvj cvT caps = true then
     r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
-      mtcEtaCont env depth major T cvT caps
+      mtcEtaCont r env depth major T cvT caps
   else if T = andName then
     r.inferIO depth major >>= fun tm => r.whnf depth tm >>=
       mtcAndCont mode r env depth major rl cvj cnP T
@@ -412,17 +415,50 @@ theorem mtcKC_spec (ih : SSimC .verified eager env f) {d : Nat}
     vcgen [mtcKI, certAtI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
       ih.defeq_spec, proofIrrelC_spec ih] <;> finish
 
+/-- The walk to a family's sort simulates its fueled original. -/
+theorem formerSortLoopC_spec (ih : SSimC mode eager env f) :
+    ∀ {n d : Nat} {e : Expr} {s₀ : CState}, CSOK mode eager env s₀ → Expr.WScoped d e →
+      ⦃fun s => s = s₀⦄ formerSortLoopI (coreKnotI mode eager (mkFEnv env) f).whnf d n e
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (formerSortLoop (fueledFns mode eager env).whnf d n e) v; ⊤⦄ := by
+  intro n
+  induction n with
+  | zero =>
+    intro d e s₀ hs hw
+    sym only [conleche_grind, formerSortLoop] =>
+      vcgen [formerSortLoopI, ih.whnf_spec] <;> finish
+  | succ n ihn =>
+    intro d e s₀ hs hw
+    sym only [conleche_grind, formerSortLoop] =>
+      vcgen [formerSortLoopI, ih.whnf_spec, inst1M_spec (mode := mode) (eager := eager) (env := env), ihn] <;> finish
+
+/-- A family's sort at a use simulates its fueled original; the former is closed. -/
+theorem formerNeverZeroC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {caps : IndCaps}
+    {us : List Level} {s₀ : CState} (hcl : cvT.type.hasFvar = false)
+    (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ formerNeverZeroI (coreKnotI mode eager (mkFEnv env) f).whnf cvT caps us
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (formerNeverZeroAt (fueledFns mode eager env).whnf cvT caps us) v; ⊤⦄ := by
+  have hw : Expr.WScoped 0 (cvT.type.instantiateLevelParams cvT.levelParams us) :=
+    Expr.WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact hcl)
+  sym only [conleche_grind, formerNeverZeroAt] =>
+    vcgen [formerNeverZeroI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
+
+theorem EnvWF.indTy_closed (henv : EnvWF env) {T : Name} {cvT : ConstantVal} {caps : IndCaps}
+    (h : env.find? T = some (.indInfo cvT caps)) : cvT.type.hasFvar = false :=
+  (henv.consts _ (Env.find?_mem h)).1
+
 theorem mtcEtaC_spec (ih : SSimC mode eager env f) {d : Nat} {major : Expr} {T : Name}
     {cvT : ConstantVal} {caps : IndCaps} {s₀ : CState} (hs : CSOK mode eager env s₀)
-    (hw : Expr.WScoped d major) :
+    (hw : Expr.WScoped d major) (hcl : cvT.type.hasFvar = false) :
     ⦃fun s => s = s₀⦄ mtcEtaI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d major T cvT caps
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs ((fueledFns mode eager env).inferIO d major >>= fun tm => (fueledFns mode eager
           env).whnf d tm >>=
-        mtcEtaCont env d major T cvT caps) v ∧
+        mtcEtaCont (fueledFns mode eager env) env d major T cvT caps) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcEtaCont, etaFabArgsE] =>
-    vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec,
+    vcgen [mtcEtaI, mkAppNM, ih.inferIO_spec, ih.whnf_spec, formerNeverZeroC_spec ih hcl,
       projNodesC_spec (mode := mode) (eager := eager) (env := env)] <;> finish
 
 theorem mtcAndC_spec (ih : SSimC .verified eager env f) {d : Nat}
@@ -441,20 +477,21 @@ theorem mtcAndC_spec (ih : SSimC .verified eager env f) {d : Nat}
           env)] <;>
       finish
 
-theorem mtcBodyC_spec (ih : SSimC .verified eager env f) {d : Nat}
+theorem mtcBodyC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env) {d : Nat}
     {major : Expr} {isK : Bool} {rl : RecRule} {cvj : ConstantVal} {cnP : Nat} {T : Name} {cvT : ConstantVal}
-    {caps : IndCaps} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major) :
+    {caps : IndCaps} {s₀ : CState} (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d major)
+    (hfT : env.find? T = some (.indInfo cvT caps)) :
     ⦃fun s => s = s₀⦄
       mtcBodyI .verified (coreKnotI .verified eager (mkFEnv env) f) (mkFEnv env) d major isK rl cvj cnP T cvT caps
     ⦃fun v s' => CSOK .verified eager env s' ∧
       Runs (mtcBodyP .verified (fueledFns .verified eager env) env d major isK rl cvj cnP T cvT caps) v ∧
       Expr.WScoped d v; ⊤⦄ := by
   sym only [conleche_grind, mtcBodyP] =>
-    vcgen [mtcBodyI, mtcKC_spec ih hs hw, mtcEtaC_spec ih hs hw,
+    vcgen [mtcBodyI, mtcKC_spec ih hs hw, mtcEtaC_spec ih hs hw (EnvWF.indTy_closed henv hfT),
       mtcAndC_spec ih hs hw] <;> finish
 
 /-- `majorToCtorI` simulates its fueled original. -/
-theorem majorToCtorC_spec (ih : SSimC .verified eager env f)
+theorem majorToCtorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {i : Expr} {s₀ : CState}
     (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
@@ -463,12 +500,12 @@ theorem majorToCtorC_spec (ih : SSimC .verified eager env f)
       Runs (majorToCtor .verified (fueledFns .verified eager env) env d recName isK rules i) m ∧
       Expr.WScoped d m; ⊤⦄ := by
   sym only [conleche_grind, mtc_notSingle] =>
-    vcgen [majorToCtorI_eq, mtcBodyC_spec ih hs hw] <;> finish
+    vcgen [majorToCtorI_eq, mtcBodyC_spec ih henv hs hw] <;> finish
 
 /-- The major's preparation, in either order (the K flag is the single
 rule's stored bit, read identically on both sides; off K, the rescue on
 the raw major, then, failing a constructor, the whnf chain). -/
-theorem prepareMajorC_spec (ih : SSimC .verified eager env f)
+theorem prepareMajorC_spec (ih : SSimC .verified eager env f) (henv : EnvWF env)
     {d : Nat} {recName : Name} {isK : Bool} {rules : List RecRule} {i : Expr} {s₀ : CState}
     (hs : CSOK .verified eager env s₀) (hw : Expr.WScoped d i) :
     ⦃fun s => s = s₀⦄
@@ -477,7 +514,7 @@ theorem prepareMajorC_spec (ih : SSimC .verified eager env f)
       Runs (prepareMajor .verified (fueledFns .verified eager env) env d recName isK rules i) m ∧
       Expr.WScoped d m; ⊤⦄ := by
   sym only [conleche_grind, prepareMajor] =>
-    vcgen [prepareMajorI, majorToCtorC_spec (eager := eager) (env := env) ih,
+    vcgen [prepareMajorI, majorToCtorC_spec (eager := eager) (env := env) ih henv,
       litMajorToCtorC_spec (eager := eager) (env := env) ih, ih.whnf_spec] <;> finish
 
 /-! ### The ι step's named pieces -/
@@ -606,7 +643,7 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
     | .plain =>
       substLevelTreesM cv.levelParams us
         (cvj.levelParams.map Level.param)
-  if iotaCase3 fe.find? isK cvj cmpLvls then do
+  if ← iotaCase3I r.whnf fe.find? isK cvj cmpLvls then do
     let oL ← isEquivListLM usj cmpLvls
     if ← liftFueled "level comparison" oL then do
       let cmpArgs : List Expr ←
@@ -630,7 +667,7 @@ grind_pattern [conleche_grind] ruleRhsOf_some =>
     (us : List Level) (args : List Expr) (usj : List Level) (cvj : ConstantVal) (cnP : Nat)
     (rl : RecRule) (margs : List Expr) : m Bool := do
   let cmp := recFireComparands rl cnP cv.levelParams us cvj.levelParams args rP
-  if iotaCase3 env.find? isK cvj cmp.1 then do
+  if ← iotaCase3At r.whnf env.find? isK cvj cmp.1 then do
     if ← liftFueled "level comparison" (Level.isEquivList usj cmp.1) then
       if ← defEqList r env depth (margs.take cnP) cmp.2 then
         if ← iotaCertsFull r env depth
@@ -866,6 +903,33 @@ theorem iotaIndexOkC_spec (ih : SSimC mode eager env f) {d : Nat} {mI rP cnP : N
   sym only [conleche_grind, iotaIndexOk] =>
     vcgen [iotaIndexOkI, piResidualM_spec hs, defEqListC_spec ih] <;> finish
 
+/-- The ι case split simulates its fueled original. -/
+theorem iotaCase3C_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {isK : Bool}
+    {cvj : ConstantVal} {us : List Level} {s₀ : CState} (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ iotaCase3I (coreKnotI mode eager (mkFEnv env) f).whnf (mkFEnv env).find?
+      isK cvj us
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (iotaCase3At (fueledFns mode eager env).whnf env.find? isK cvj us) v; ⊤⦄ := by
+  rw [mkFEnv_find_fun]
+  unfold iotaCase3I iotaCase3At
+  split
+  · sym only [conleche_grind] => vcgen <;> finish
+  · split
+    · next cvT caps hfam =>
+      have hcl : cvT.type.hasFvar = false := by
+        unfold ctorFamily at hfam
+        split at hfam
+        · split at hfam
+          · cases Option.some.inj hfam
+            exact EnvWF.indTy_closed henv ‹_›
+          · exact nomatch hfam
+        · exact nomatch hfam
+      split
+      · sym only [conleche_grind] =>
+          vcgen [formerNeverZeroC_spec ih hcl] <;> finish
+      · sym only [conleche_grind] => vcgen <;> finish
+    · sym only [conleche_grind] => vcgen <;> finish
+
 /-- The case-3 certificate block simulates its fueled original. -/
 theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat} {s₀ : CState}
     (hs : CSOK mode eager env s₀) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (us : List Level)
@@ -881,7 +945,7 @@ theorem iotaCertC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d : Nat
   obtain ⟨_, nF, hfj⟩ := ctorVal?_some hfj
   sym only [conleche_grind, iotaCertP, constTyOf, ConstantInfo.toConstantVal,
       Option.isSome_some, EnvWF.ctorTy_closed henv hfj] =>
-    vcgen [iotaCertI, liftFueled, substLevelTreesM, isEquivListLM_spec hs,
+    vcgen [iotaCertI, liftFueled, substLevelTreesM, iotaCase3C_spec ih henv, isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       pinArgsC_spec (mode := mode) (eager := eager) (env := env),
       defEqListC_spec ih, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
       iotaCertsFullC_spec ih, iotaIndexOkC_spec ih] <;> finish
@@ -895,7 +959,7 @@ theorem iotaRecC_spec (ih : SSimC .verified eager env f)
       OptWS d o; ⊤⦄ := by
   sym only [conleche_grind, iotaRec_notconst, iotaRecK_notconst, Option.isSome_some,
       iotaCertGate_of, CheckMode.verifiedChecks, → EnvWF.rules_ok henv] =>
-    vcgen [iotaRecI_eq, certAtI, mkAppNM, prepareMajorC_spec ih,
+    vcgen [iotaRecI_eq, certAtI, mkAppNM, prepareMajorC_spec ih henv,
       iotaCertC_spec ih henv (mode := .verified) (eager := eager) (env := env),
       ruleRhsAtM_spec (mode := .verified) (eager := eager) (env := env)] <;> finish
 

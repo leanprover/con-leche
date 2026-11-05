@@ -337,12 +337,12 @@ theorem storedSwap_sem {envC : Env}
         = some (.ctorInfo cvj cnP cnF) →
       (ConLeche.consBlockRecsT q 0 out envC).find? c = some (.ctorInfo cvj cnP cnF) :=
     fun c cvj cnP cnF h => hcg.findDown c _ h (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)
-  have hnp : ∀ (cvj : ConstantVal) (us : List Level),
-      ConLeche.iotaCtorNeverProp
-          (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).find? cvj us
-        = ConLeche.iotaCtorNeverProp (ConLeche.consBlockRecsT q 0 out envC).find? cvj us := by
-    intro cvj us
-    unfold ConLeche.iotaCtorNeverProp
+  have hfam : ∀ cvj : ConstantVal,
+      ConLeche.ctorFamily
+          (ConLeche.consBlockRecsT q 0 (ConLeche.storedOut q.recs out) envC).find? cvj
+        = ConLeche.ctorFamily (ConLeche.consBlockRecsT q 0 out envC).find? cvj := by
+    intro cvj
+    unfold ConLeche.ctorFamily
     cases h : cvj.type.piResult.getAppFn with
     | const T _ =>
       dsimp only
@@ -424,7 +424,7 @@ theorem storedSwap_sem {envC : Env}
     intro m₃ hac φ n cv mI rP isK rules hf rl hrl
     rcases hC.1 n _ hf with hG | ⟨j, rc, g, hQ, -, hG, hci⟩
     · have h := mpG.rec_rules φ n cv mI rP isK rules hG rl hrl
-      exact recRuleLaw_stored (mG := mpG.base2) (mS := m₃) hac hde hctor hnp (T := cv.type)
+      exact recRuleLaw_stored (mG := mpG.base2) (mS := m₃) hac hde hctor hfam (T := cv.type)
         (e := rl.rhs) (fun us _ TS hTS => ⟨TS, hTS, fun ρ xs rest _ hfit => ⟨rest, hfit⟩⟩)
         (fun us hus RaG hRaG => by
           obtain ⟨Ra, hRa, hw, -⟩ := h.2.1 us hus
@@ -439,7 +439,7 @@ theorem storedSwap_sem {envC : Env}
       have h := mpG.rec_rules φ n g.1 _ _ _ _ hG rG hrG
       have hp := mpG.base2.acval_params
       rw [hreq]
-      refine recRuleLaw_stored (mG := mpG.base2) (mS := m₃) hac hde hctor hnp ?_ ?_ h
+      refine recRuleLaw_stored (mG := mpG.base2) (mS := m₃) hac hde hctor hfam ?_ ?_ h
       · intro us hus TS hTS
         rcases hty with htyE | htyC
         · rw [htyE] at hTS
