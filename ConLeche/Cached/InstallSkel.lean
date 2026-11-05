@@ -140,7 +140,7 @@ def declCSkels : Declaration → List InstallSkel → List InstallSkel
   | .axiomDecl cv, sk =>
     if cv.name = sorryAxName then sk
     else .ax cv.name :: sk
-  | .quotDecl k _, sk => ciSkel (quotPin k) :: sk
+  | .quotDecl k cv, sk => ciSkel (quotAt k cv) :: sk
   | .indDecl block nP, sk =>
     -- a block with a pinned block's names installs that block's constants
     match basisNameHit block with

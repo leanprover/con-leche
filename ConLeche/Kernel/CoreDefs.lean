@@ -1173,7 +1173,8 @@ name and its parameters are the recursor's leading arguments; for a
 auxiliary recursor's type was generated from, `auxRuleFire`), at the
 recursor's level instantiation and (for the parameters) instantiated at
 the recursor's leading-argument spine (the stored pins live in the
-`rP`-binder prefix context; index arguments never occur in them). -/
+`rP`-binder prefix context; index arguments never occur in them); a
+`.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
 def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args : List Expr)
     (rP : Nat) : List Level × List Expr :=
@@ -1185,6 +1186,8 @@ def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
   | .plain =>
     (cvjLps.map fun p => Level.subst lps us (.param p),
      args.take cnP)
+  | .levels lvls =>
+    (lvls.map (Level.subst lps us), args.take cnP)
 
 /-- **The type of a `.proj` node at a tower-backed entry** (task #175
 S1): the stored body `F_i[p⃗ ↦ bvars, f_j ↦ .proj T j (bvar 0)]`,

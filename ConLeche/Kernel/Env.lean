@@ -110,10 +110,16 @@ constructor's levels or parameters.
   domain applies the container to (`auxRuleFire`) — `lvls` are levels
   over the recursor's level parameters, `pins` expressions in the
   recursor's rule-prefix context, instantiated at the redex's levels and
-  leading arguments. -/
+  leading arguments.
+* `.levels lvls` — a quotient eliminator's rule: the comparands are `lvls`,
+  levels over the recursor's level parameters, and the recursor's leading
+  arguments.  A level parameter is local to its constant, so a stream's
+  `Quot.lift` and `Quot.mk` need not share names; this rule reads no name of
+  the constructor's. -/
 inductive RecRuleFire where
   | plain
   | nested (lvls : List Level) (pins : List Expr)
+  | levels (lvls : List Level)
   deriving DecidableEq, Repr, Inhabited
 
 /-- One iota rule of a recursor: applying the recursor (with its

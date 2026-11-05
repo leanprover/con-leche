@@ -37,7 +37,7 @@ the capstone, with input-level hypotheses only.
 The η half of the fold invariant is `declEtaStepRun`
 (`Semantics/DeclEta.lean`), model-free at every kind: no install
 obligation is consulted for it.  Every tier step is discharged
-(`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB`, `declBlock`); the fold carries no
+(`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB_at`, `declBlock`); the fold carries no
 hypothesis about the mode: the model tier is at `.verified`.
 -/
 
@@ -73,7 +73,7 @@ theorem axiomStepPB_of : AxiomStepPB V := by
   intro _F _env mp _cv _env₂ hR
   -- the `Quot.sound` arm is a quotient record
   rcases hR with ⟨-, hq⟩ | hR
-  · exact declQuotPB mp hq
+  · exact declQuotPB_at mp hq
   obtain ⟨type', hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
     ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
@@ -144,7 +144,7 @@ theorem declStep_preserves
     subst henv2
     exact (harvestOpaque mp hrun).covered hcov
   | axiomDecl cv => exact (axiomStepPB_of mp hrun).covered hcov
-  | quotDecl k cv => exact (declQuotPB mp hrun).covered hcov
+  | quotDecl k cv => exact (declQuotPB_at mp hrun).covered hcov
   | indDecl block nP =>
     -- a block with a pinned block's names installs the pin at the record's
     -- names; everything else takes the `.indDecl` dispatch
@@ -218,7 +218,7 @@ Hypotheses are **input-level only** — the accepted run, the stored
 constant, its type, plus the validating mode, which is part of the
 goal's letter (the checker the model covers *is* the verified mode;
 `--trusted` omits the certification-only work by design).  No
-residue: every tier step is discharged (`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB`,
+residue: every tier step is discharged (`axiomStepPB_of`, `declBasisPB_at`, `declQuotPB_at`,
 `declBlock`).
 
 `SetTheory V` is the standing parametricity of the consistency

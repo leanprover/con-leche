@@ -191,7 +191,7 @@ theorem basisPinnedTT_consFresh {cval cval' : (Name → (Name → Nat) → Term)
   · rw [ConLeche.Env.find?_cons, ite_eq_right hn] at hf
     obtain ⟨hcopy, hlink, hleaf⟩ := h n ci hf hres
     refine ⟨hcopy, ?_, fun t ψ hp => ?_⟩
-    · intro cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us
+    · intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
       rw [ConLeche.Env.find?_cons] at hfc
       obtain ⟨cvj₀, cnP₀, cnF₀, hstored⟩ := hrc n cv mI rP isK rules (hci ▸ hf) rl hrl
       have hne : c₀.name ≠ RecRule.ctor rl := by
@@ -199,7 +199,7 @@ theorem basisPinnedTT_consFresh {cval cval' : (Name → (Name → Nat) → Term)
         rw [← he, hfresh] at hstored
         exact nomatch hstored
       rw [ite_eq_right hne] at hfc
-      exact hlink cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us
+      exact hlink cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
     · rw [← hag n (fun hh => hn hh.symm)]
       exact hleaf t ψ hp
 
@@ -250,13 +250,15 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
           env.find? (ConLeche.RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
-          .ctorInfo cvj cnP cnF = pinnedInfo (ConLeche.RecRule.ctor r))) :
+          (ConLeche.RecRule.fire r = .plain →
+            .ctorInfo cvj cnP cnF = pinnedInfo (ConLeche.RecRule.ctor r)))) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed, fun hres =>
     have hself := pinCopy_self hres
     ⟨hpinned ▸ hself, by
-      intro cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us _
-      obtain ⟨cvj', cnP', cnF', hf', hp⟩ := hctors cv mI rP isK rules hci rl hrl
+      intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us _
+      obtain ⟨cvj', cnP', cnF', hf', hp₀⟩ := hctors cv mI rP isK rules hci rl hrl
+      have hp := hp₀ hpl
       rw [ConLeche.Env.find?_cons] at hfc
       split at hfc
       · rw [hci] at hfc

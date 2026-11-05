@@ -77,10 +77,10 @@ kind of record claims a name and a type for:
   and then dropped (there is no set model for it), and any later record
   that USES the name declines — **or the `Quot.sound` axiom record**
   (task #293), which is the pinned quotient block's own: it is compared
-  with the pin and the BLOCK installs the axiom, at the quotient record
+  with the pin and stores it at its names, as the quotient record
   that declares the type;
 * a `quotDecl` declares nothing of its own, for the same reason: what it
-  stores is its slot's pin;
+  stores is its slot's pin at its names;
 * an `indDecl` block's members are NOT covered here.  See the module
   docstring: the recursor's stored type is the generated one, and the
   installer may store a *whnf'd* type former telescope rather than the

@@ -14,9 +14,10 @@ synthetic rule each (applying the lift/ind slot to the packed
 element), and `Quot.sound` as a stored axiom (true in the set model).
 
 The pins below (`quotA`, …) match the exporter's `quot` records (and
-`Quot.sound`'s `axiom` record) verbatim, level-parameter names included: the
-kernel generates this package itself, at these names.  Each record stores its
-slot's pin (`ConLeche/Kernel/Basis.lean`).
+`Quot.sound`'s `axiom` record).  Each record stores its slot's pin at the
+level-parameter names it declares (`ConLeche/Kernel/Basis.lean`): references
+between the package's constants are positional, and the eliminators' rules
+carry their comparand level (`.levels`), so no record reads another's names.
 -/
 
 namespace ConLeche
@@ -63,7 +64,7 @@ def quotLiftA : ConstantInfo :=
     pi "a" quotLiftH <|
     pi "a" (ap2 (cnst quotName [u]) (bv 4) (bv 3)) (bv 3)⟩
     5 5
-    false [rule quotMkName 1 <|
+    false [ruleAt quotMkName 1 [u] <|
       lm "α" (srt u) <|
       lm "r" quotRel <|
       lm "β" (srt v) <|
@@ -92,7 +93,7 @@ def quotIndA : ConstantInfo :=
     pi "mk" quotIndMk <|
     pi "q" (ap2 (cnst quotName [u]) (bv 3) (bv 2)) (.app (bv 2) (bv 0))⟩
     4 4
-    false [rule quotMkName 1 <|
+    false [ruleAt quotMkName 1 [u] <|
       lm "α" (srt u) <|
       lm "r" quotRel <|
       lm "β" quotIndMotive <|

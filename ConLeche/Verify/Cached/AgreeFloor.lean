@@ -936,10 +936,10 @@ theorem checkBasisBlockC_skels {fe : FEnv}
 /-- A quotient record's install's skeleton reading. -/
 theorem checkQuotRecordC_skels {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
     (k : QuotKind) (cv : ConstantVal) :
-    Yields (checkQuotRecordC fe k cv) (fun fe' => SkelIs fe' (ciSkel (quotPin k) :: sk)) := by
+    Yields (checkQuotRecordC fe k cv) (fun fe' => SkelIs fe' (ciSkel (quotAt k cv) :: sk)) := by
   unfold checkQuotRecordC
   yields
-  all_goals exact installBasisDeclF_skels h (quotPin k)
+  all_goals exact installBasisDeclF_skels h (quotAt k cv)
 
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
@@ -975,7 +975,7 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     by_cases hqs : cv.name = quotSoundName
     · rw [ite_eq_left hqs, ite_eq_right (by rw [hqs]; decide)]
       have := checkQuotRecordC_skels h .sound cv
-      rw [show ciSkel (quotPin .sound) = .ax cv.name by rw [hqs]; rfl] at this
+      rw [show ciSkel (quotAt .sound cv) = .ax cv.name by rw [hqs]; rfl] at this
       exact this
     · rw [ite_eq_right hqs]
       ybind

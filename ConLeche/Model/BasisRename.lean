@@ -192,7 +192,8 @@ structure RuleRen (m : EnvModel V env) (m' : EnvModel V env') (φ : Name → Nat
       = (RecRule.rhs rl).instantiateLevelParams cv.levelParams us
   hctor : RecRule.ctor rl' = RecRule.ctor rl
   hnf : RecRule.nfields rl' = RecRule.nfields rl
-  hfire : RecRule.fire rl' = RecRule.fire rl
+  hfire : ∀ lvls pins, RecRule.fire rl' = .nested lvls pins ↔ RecRule.fire rl = .nested lvls pins
+  hplain : RecRule.fire rl' = .plain ↔ RecRule.fire rl = .plain
   hnest : ∀ lvls pins, RecRule.fire rl = .nested lvls pins → cv' = cv
   hleaf : ∀ us : List Level, us.length = cv.levelParams.length →
     m'.acval n (Level.substFn φ cv'.levelParams us) = m.acval n (Level.substFn φ cv.levelParams us)
@@ -254,14 +255,14 @@ theorem recRuleExtra_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     · have hlj0 : usj.length = cvj.levelParams.length := hlj'.trans hlj
       rw [r.hde, htj usj hlj0] at hTVja
       obtain ⟨hP, hU⟩ := hPU usj hlj0 ((hsub us hus0 usj hlj0).mp hsj) TVja hTVja
-      rw [hlfj usj hlj0, r.hfire]
+      rw [hlfj usj hlj0]
       refine ⟨hP, fun ρ xs ys restR restC hxs hys hfR hfC hwx hwy hA hB hD => ?_⟩
-      refine hU ρ xs ys restR restC hxs hys hfR hfC hwx hwy hA ?_ hD
+      refine hU ρ xs ys restR restC hxs hys hfR hfC hwx hwy (fun hp => hA (r.hplain.mpr hp)) ?_ hD
       intro lvls pins hfire
       have hcv := r.hnest lvls pins hfire
       subst hcv
       intro hpt i hi vpa hvpa
-      exact hB lvls pins hfire hpt i hi vpa (by rw [r.hde]; exact hvpa)
+      exact hB lvls pins ((r.hfire lvls pins).mpr hfire) hpt i hi vpa (by rw [r.hde]; exact hvpa)
 
 theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
     (hL : RecRuleLaw m φ n cv mI rP isK rl) : RecRuleLaw m' φ n cv' mI rP isK rl' := by
@@ -271,7 +272,7 @@ theorem recRuleLaw_ren (r : RuleRen m m' φ n cv cv' mI rP isK rl rl')
   obtain ⟨Ra, hRa, hok, hpins, hlaw⟩ := hmain us hus0
   refine ⟨Ra, by rw [r.hde, r.hrhs us hus0]; exact hRa, hok, fun lvls pins hfire i hi => ?_,
     fun cvj' cnP cnF hfc usj ρ xs ys TVa TVja restR restC hxs hys hlj' hsj hwy hpt hTVa hTVja hfR hfC => ?_⟩
-  · rw [r.hfire] at hfire
+  · replace hfire := (r.hfire lvls pins).mp hfire
     have hcv := r.hnest lvls pins hfire
     subst hcv
     obtain ⟨vpa, hvpa, hg⟩ := hpins lvls pins hfire i hi
@@ -419,7 +420,12 @@ theorem _root_.ConLeche.Verify.PinCopy.recr {cv : ConstantVal} {mI rP : Nat} {is
     (hs : pinShapeOk pin = true) :
     ∃ cv' rules', c' = .recInfo cv' mI rP isK rules' ∧ ∀ rl' ∈ rules', ∃ rl ∈ rules,
       RecRule.ctor rl' = RecRule.ctor rl ∧ RecRule.nfields rl' = RecRule.nfields rl ∧
-      RecRule.fire rl' = RecRule.fire rl ∧ RecRule.fire rl = .plain ∧
+      ((RecRule.fire rl' = .plain ∧ RecRule.fire rl = .plain) ∨
+        ∃ ls, RecRule.fire rl = .levels ls ∧
+          RecRule.fire rl' = .levels (ls.map (Level.subst cv.levelParams
+            (cv'.levelParams.map Level.param))) ∧
+          (∀ l ∈ ls, l.allParamsDefined cv.levelParams = true) ∧
+          ls.length = (pinnedInfo (RecRule.ctor rl)).toConstantVal.levelParams.length) ∧
       RecRule.rhs rl' = (RecRule.rhs rl).instantiateLevelParams cv.levelParams
         (cv'.levelParams.map Level.param) := by
   have hnd : cv.levelParams.Nodup := h.2.1
@@ -439,15 +445,36 @@ theorem _root_.ConLeche.Verify.PinCopy.recr {cv : ConstantVal} {mI rP : Nat} {is
     obtain ⟨rp, hrp, rfl⟩ := List.mem_map.mp hrl'
     simp only [pinShapeOk, List.all_eq_true, Bool.and_eq_true] at hs
     obtain ⟨hdef, hpl⟩ := hs rp hrp
-    have hplain : RecRule.fire rp = .plain := by
-      revert hpl
-      cases RecRule.fire rp <;> first | (intro; rfl) | (intro h; exact nomatch h)
-    refine ⟨_, List.mem_map_of_mem hrp, rfl, rfl, rfl, hplain, ?_⟩
-    show (RecRule.rhs rp).instantiateLevelParams cvp.levelParams (ps'.map Level.param) =
-      ((RecRule.rhs rp).instantiateLevelParams cvp.levelParams (cv.levelParams.map Level.param)).instantiateLevelParams
-        cv.levelParams (ps'.map Level.param)
-    exact (inst_ren (ks := cvp.levelParams) (ps := cv.levelParams) (us := ps'.map Level.param) hnd
-      hl.symm (by rw [List.length_map]; exact hl'.trans hl.symm) _ hdef).symm
+    have hlcv : cvp.levelParams.length = cv.levelParams.length := hl.symm
+    have hlps : ps'.length = cv.levelParams.length := hl'.trans hl.symm
+    refine ⟨_, List.mem_map_of_mem hrp, rfl, rfl, ?_, ?_⟩
+    · cases hf : RecRule.fire rp with
+      | plain =>
+        exact .inl ⟨rfl, rfl⟩
+      | nested l ps =>
+        rw [hf] at hpl
+        exact nomatch hpl
+      | levels ls =>
+        rw [hf] at hpl
+        simp only [Bool.and_eq_true, List.all_eq_true, beq_iff_eq] at hpl
+        obtain ⟨hdefs, hlen⟩ := hpl
+        refine .inr ⟨ls.map (Level.subst cvp.levelParams (cv.levelParams.map Level.param)), ?_, ?_, ?_, ?_⟩
+        · rfl
+        · show ConLeche.RecRuleFire.levels (ls.map (Level.subst cvp.levelParams (ps'.map Level.param))) = _
+          rw [List.map_map]
+          congr 1
+          refine List.map_congr_left fun l hl₀ => ?_
+          exact (level_subst_ren (ks := cvp.levelParams) (ps := cv.levelParams)
+            (us := ps'.map Level.param) hnd hlcv (by rw [List.length_map]; exact hlps) l (hdefs l hl₀)).symm
+        · intro l hl₀
+          obtain ⟨l₀, hl₁, rfl⟩ := List.mem_map.mp hl₀
+          exact level_defined_ren hlcv l₀ (hdefs l₀ hl₁)
+        · rw [List.length_map]; exact hlen
+    · show (RecRule.rhs rp).instantiateLevelParams cvp.levelParams (ps'.map Level.param) =
+        ((RecRule.rhs rp).instantiateLevelParams cvp.levelParams (cv.levelParams.map Level.param)).instantiateLevelParams
+          cv.levelParams (ps'.map Level.param)
+      exact (inst_ren (ks := cvp.levelParams) (ps := cv.levelParams) (us := ps'.map Level.param) hnd
+        hl.symm (by rw [List.length_map]; exact hlps) _ hdef).symm
   | _ => exact nomatch h.kind
 
 end Pair
@@ -571,7 +598,7 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
         injection he with e0 e1 e2 e3 e4
         subst e0; subst e1; subst e2; subst e3; subst e4
         intro r' hr'
-        obtain ⟨rl, hrl0, -, -, hfire, hplain, hrhs⟩ := hrl r' hr'
+        obtain ⟨rl, hrl0, -, -, hfire, hrhs⟩ := hrl r' hr'
         obtain ⟨g1, g2, g3, g4, -⟩ := hwf.2.2.2.2.2.1 cv mI rP isK rules rfl rl hrl0
         refine ⟨?_, ?_, ?_, ?_, ?_⟩
         · rw [hrhs, Expr.hasFvar_instantiateLevelParams]; exact g1
@@ -579,8 +606,7 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
         · rw [hrhs, Expr.constsResolve_instantiateLevelParams, h.constsResolve]; exact g3
         · rw [hrhs, Expr.looseBVarsBounded_instantiateLevelParams]; exact g4
         · intro lvls pins hn
-          rw [hfire, hplain] at hn
-          exact nomatch hn
+          rcases hfire with ⟨h₁, -⟩ | ⟨ls, -, h₁, -⟩ <;> · rw [h₁] at hn; exact nomatch hn
       | _ => exact nomatch h1.kind.trans h2.kind.symm
     · intro cv' caps' he
       subst he
@@ -816,7 +842,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
           obtain ⟨cv₂, rules₂, he, hrl⟩ := h3.recr h4 (pinnedInfo_wf hrs).2
           injection he with e0 e1 e2 e3 e4
           subst e0; subst e1; subst e2; subst e3; subst e4
-          obtain ⟨rl, hrl0, hct, hnf, hfr, hpl, hrhs⟩ := hrl rl' hrl'
+          obtain ⟨rl, hrl0, hct, hnf, hfr, hrhs⟩ := hrl rl' hrl'
           refine recRuleLaw_ren ?_ (mp.rec_rules φ n cv mI rP isK rules h1 rl hrl0)
           have hrpair : ConstRen (.recInfo cv mI rP isK rules) (.recInfo cv' mI rP isK rules') :=
             .inr ⟨hrs, h3, h4⟩
@@ -824,12 +850,22 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
           have hwfr := (mp.base2.wf.consts _ (Env.find?_mem h1)).2.2.2.2.2.1 cv mI rP isK rules rfl
             rl hrl0
           have hnd' : cv'.levelParams.Nodup := h4.2.1
-          have hnd : cv.levelParams.Nodup := h3.2.1
-          -- what a `.plain` rule reads of a constructor's parameters
+          -- what a rule reads of a constructor's parameters
           have hlk := (mp.base2.basis_pinned n _ h1 hrsv).2.1
           have hlk' := hlink n _ h2 hrsv
+          have hnone : ∀ lvls pins, RecRule.fire rl = .nested lvls pins → False := by
+            intro lvls pins hn
+            rcases hfr with ⟨-, h₁⟩ | ⟨ls, h₁, -⟩ <;> · rw [h₁] at hn; exact nomatch hn
+          have hnone' : ∀ lvls pins, RecRule.fire rl' = .nested lvls pins → False := by
+            intro lvls pins hn
+            rcases hfr with ⟨h₁, -⟩ | ⟨ls, -, h₁, -⟩ <;> · rw [h₁] at hn; exact nomatch hn
           refine ⟨fun d e => hde φ d e, hlen, fun us hus => hrpair.inst hus, fun us hus => ?_,
-            hct, hnf, hfr, fun lvls pins hn => (by rw [hpl] at hn; exact nomatch hn),
+            hct, hnf, fun lvls pins => ⟨fun h => (hnone' _ _ h).elim, fun h => (hnone _ _ h).elim⟩,
+            (by
+              rcases hfr with ⟨h₁, h₂⟩ | ⟨ls, h₂, h₁, -⟩
+              · exact ⟨fun _ => h₂, fun _ => h₁⟩
+              · rw [h₁, h₂]; exact ⟨fun h => (nomatch h), fun h => (nomatch h)⟩),
+            fun lvls pins hn => (hnone _ _ hn).elim,
             fun us hus => renAcval_inst hparams h1 h2 hrpair φ hus, fun cvj' cnP cnF hfc => ?_⟩
           · rw [hrhs]
             exact inst_ren hnd' hlen.symm (hus.trans hlen.symm) _ hwfr.2.1
@@ -854,30 +890,42 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
                   · intro hx
                     rw [t1]
                     exact Expr.stripPis_instantiateLevelParams_isSome _ _ _ hx
-              have hcL : ∀ us : List Level,
-                  (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1.length
-                    = cvj.levelParams.length := fun us => by
-                simp [ConLeche.recFireComparands, hpl]
+              have hnmj : (ConstantInfo.ctorInfo cvj cnP cnF).name = RecRule.ctor rl := by
+                simpa using Env.find?_name g1
               refine ⟨cvj, g1, hlj, fun usj hl => hrj.inst hl,
                 fun usj hl => renAcval_inst hparams g1 g2 hrj φ hl, hsp, fun us hus => ?_,
                 fun us _ a ha => ?_, fun hk us => ?_⟩
-              · have A := hlk' cv' mI rP isK rules' rfl rl' hrl' cvj' cnP cnF (hct ▸ g2) us
-                  (hus.trans hlen.symm)
-                have B := hlk cv mI rP isK rules rfl rl hrl0 cvj cnP cnF g1 us hus
-                rw [hct] at A
-                simp only [ConLeche.recFireComparands, hfr, hpl]
-                exact A.trans B.symm
+              · rcases hfr with ⟨hp', hp⟩ | ⟨ls, hp, hp', hdefs, -⟩
+                · have A := hlk' cv' mI rP isK rules' rfl rl' hrl' hp' cvj' cnP cnF (hct ▸ g2) us
+                    (hus.trans hlen.symm)
+                  have B := hlk cv mI rP isK rules rfl rl hrl0 hp cvj cnP cnF g1 us hus
+                  rw [hct] at A
+                  simp only [ConLeche.recFireComparands, hp, hp']
+                  exact A.trans B.symm
+                · simp only [ConLeche.recFireComparands, hp, hp', List.map_map]
+                  refine List.map_congr_left fun l hl₀ => ?_
+                  exact level_subst_ren hnd' hlen.symm (hus.trans hlen.symm) l (hdefs l hl₀)
               · rcases hrj with he | ⟨hr2, h5, h6⟩
                 · injection he with e5 _ _
                   rw [e5]
                 · have nd : cvj.levelParams.Nodup := h5.2.1
                   have nd' : cvj'.levelParams.Nodup := h6.2.1
+                  have hcL : (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1.length
+                      = cvj.levelParams.length := by
+                    rcases hfr with ⟨-, hp⟩ | ⟨ls, hp, -, -, hll⟩
+                    · simp [ConLeche.recFireComparands, hp]
+                    · have hl5 : cvj.levelParams.length
+                          = (pinnedInfo (RecRule.ctor rl)).toConstantVal.levelParams.length := by
+                        have := h5.2.2
+                        rw [hnmj] at this
+                        exact this
+                      simp [ConLeche.recFireComparands, hp, hll, hl5]
                   constructor
                   · intro hx
                     exact substFn_pos nd' nd hlj (ha.trans hlj.symm)
-                      ((hcL us).trans hlj.symm) (fun q _ => congrFun hx q)
+                      (hcL.trans hlj.symm) (fun q _ => congrFun hx q)
                   · intro hx
-                    exact substFn_pos nd nd' hlj.symm ha (hcL us) (fun q _ => congrFun hx q)
+                    exact substFn_pos nd nd' hlj.symm ha hcL (fun q _ => congrFun hx q)
               · have hst := hstable n cv' mI rP isK rules' h2 (.inr hk) rl' hrl'
                 rw [hct] at hst
                 have heq : some (ConstantInfo.ctorInfo cvj' cnP cnF)
@@ -897,8 +945,8 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
         subst he
         refine recRuleLaw_ren ?_ (mp.rec_rules φ n cv' mI rP isK rules' h1 rl' hrl')
         have hst := hstable n cv' mI rP isK rules' h2 (.inl hrsf) rl' hrl'
-        refine ⟨fun d e => hde φ d e, rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, rfl, rfl,
-          fun _ _ _ => rfl, fun us _ => ?_, fun cvj' cnP cnF hfc => ?_⟩
+        refine ⟨fun d e => hde φ d e, rfl, fun _ _ => rfl, fun _ _ => rfl, rfl, rfl,
+          fun _ _ => Iff.rfl, Iff.rfl, fun _ _ _ => rfl, fun us _ => ?_, fun cvj' cnP cnF hfc => ?_⟩
         · exact congrFun (hsame (h2.trans h1.symm)) _
         · have hfc0 := hst.1 ▸ hfc
           exact ⟨cvj', hfc0, rfl, fun _ _ => rfl, fun _ _ => congrFun (hsame hst.1) _, rfl,

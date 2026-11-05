@@ -55,7 +55,7 @@ theorem natRecA_eq :
 
 /-- `Quot.ind`'s single stored rule. -/
 def quotIndRule : RecRule :=
-  { ctor := quotMkName, nfields := 1, fire := .plain,
+  { ctor := quotMkName, nfields := 1, fire := .levels [.param uN],
     rhs := Expr.lam (.sort (.param uN))
       (Expr.lam
         (Expr.forallE (.bvar 0)
@@ -76,7 +76,7 @@ def quotIndRule : RecRule :=
 
 /-- `Quot.lift`'s single stored rule. -/
 def quotLiftRule : RecRule :=
-  { ctor := quotMkName, nfields := 1, fire := .plain,
+  { ctor := quotMkName, nfields := 1, fire := .levels [.param uN],
     rhs := Expr.lam (.sort (.param uN))
       (Expr.lam
         (Expr.forallE (.bvar 0)

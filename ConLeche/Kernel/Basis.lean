@@ -29,8 +29,8 @@ against the toolchain's `Init.Prelude` through the small builder in
 is installed at the level-parameter names its records declare
 (`ConstantInfo.atLps`), and the comparison with the pin (up to those
 names) is the block's check, in the check phase.  A quotient record is
-compared with its slot's pin at the pin's own names and stores that pin
-(`quotPinHit`).
+compared the same way with its slot's pin and stores that pin at its names
+(`quotPinHit`, `quotAt`).
 -/
 
 namespace ConLeche
@@ -54,6 +54,11 @@ pin with its parameters renamed positionally. -/
 def ConstantVal.atLps (cv : ConstantVal) (ps : List Name) : ConstantVal :=
   ⟨cv.name, ps, cv.type.instantiateLevelParams cv.levelParams (ps.map .param)⟩
 
+/-- A firing mode at other level-parameter names. -/
+def RecRuleFire.atLps (lps : List Name) (us : List Level) : RecRuleFire → RecRuleFire
+  | .levels lvls => .levels (lvls.map (Level.subst lps us))
+  | f => f
+
 /-- **A stored constant at other level-parameter names**: its type, its
 rules' right-hand sides renamed; nothing else. -/
 def ConstantInfo.atLps (ci : ConstantInfo) (ps : List Name) : ConstantInfo :=
@@ -68,7 +73,9 @@ def ConstantInfo.atLps (ci : ConstantInfo) (ps : List Name) : ConstantInfo :=
   | .ctorInfo cv nP nF => .ctorInfo (cv.atLps ps) nP nF
   | .recInfo cv mI rP isK rules =>
     .recInfo (cv.atLps ps) mI rP isK
-      (rules.map fun rl => { rl with rhs := rl.rhs.instantiateLevelParams lps us })
+      (rules.map fun rl => { rl with
+        rhs := rl.rhs.instantiateLevelParams lps us
+        fire := rl.fire.atLps lps us })
 
 /-- A record against the pin at the record's own names: what the record
 writes.  An inductive record has no capabilities to compare. -/
@@ -144,22 +151,26 @@ def withPinCaps (pin c : ConstantInfo) : ConstantInfo :=
 def quotPin (k : QuotKind) : ConstantInfo :=
   BasisKind.quotK.decls.getD k.slot (.axiomInfo default)
 
+/-- **What a quotient record stores**: its slot's pin at the names it
+declares. -/
+def quotAt (k : QuotKind) (cv : ConstantVal) : ConstantInfo :=
+  (quotPin k).atLps cv.levelParams
+
 /-- **The quotient-pin match**: the record is the pinned package's
-constant at the slot it declares itself at, names included (official's
-kernel generates this package, at these names). -/
+constant at the slot it declares itself at, up to its level-parameter
+names: distinct, as many as the pin's. -/
 def quotPinHit (k : QuotKind) (cv : ConstantVal) : Bool :=
-  cv.beqP (quotPin k).toConstantVal
+  Name.nodup cv.levelParams &&
+    cv.levelParams.length == (quotPin k).toConstantVal.levelParams.length &&
+    cv.beqP ((quotPin k).toConstantVal.atLps cv.levelParams)
 
 /-- **What a quotient record's slot needs stored before it**: the
-constants its type mentions; the package's own as their pins. -/
+constants its type mentions.  A reserved name is stored only as a copy of
+its pin, at whatever names, and references are positional. -/
 def quotPredsOk (find? : Name → Option ConstantInfo) (k : QuotKind) : Bool :=
   let hasEq := (find? eqName).isSome
-  let hasQ := match find? quotName with
-    | some c => c.beqP quotA
-    | none => false
-  let hasM := match find? quotMkName with
-    | some c => c.beqP quotMkA
-    | none => false
+  let hasQ := (find? quotName).isSome
+  let hasM := (find? quotMkName).isSome
   match k with
   | .type => hasEq
   | .ctor => hasQ

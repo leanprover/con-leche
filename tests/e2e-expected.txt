@@ -3189,7 +3189,14 @@
 # installed before the block's job can report, and the verdict is the job's, in
 # fold order.  Rejected, by official as well.
 1 basis_nat_rule_used_bad.ndjson
-# `Quot.{w}`: official's kernel makes the quotient package itself and reads no
-# record: it accepts.  DECLINE here: a quotient record is compared with its slot's
-# pin at the pin's own names (DESIGN #480, "Quot").
-2 basis_quot_other_names.ndjson
+# -- quotient records at the stream's names (ruling 2026-11-05).  Official's kernel
+# makes the package itself and reads no record: it accepts all of these (run).
+# `Quot.lift`'s and `Quot.ind`'s reductions at a universe-polymorphic `α`.
+0 quot_lift_iota.ndjson
+# `Quot.{w}`, the others at the exporter's names.
+0 basis_quot_other_names.ndjson
+# every record at its own names, the reductions used: no record reads another's.
+0 basis_quot_all_other_names.ndjson
+# `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
+# DECLINE, as a quotient record that disagrees with its pin always did.
+2 basis_quot_lift_type_bad.ndjson

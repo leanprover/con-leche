@@ -318,6 +318,7 @@ theorem ConstantVal.eq_of_beqP {a b : ConstantVal} (h : a.beqP b = true) : a = b
 def RecRuleFire.beqP : RecRuleFire → RecRuleFire → Bool
   | .plain, .plain => true
   | .nested l p, .nested l' p' => l == l' && p == p'
+  | .levels l, .levels l' => l == l'
   | _, _ => false
 
 theorem RecRuleFire.eq_of_beqP {a b : RecRuleFire} (h : a.beqP b = true) : a = b := by

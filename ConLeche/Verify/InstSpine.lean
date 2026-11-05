@@ -128,6 +128,8 @@ theorem recFireComparands_snd_shift {p : Nat} (rl : RecRule)
         exact hpins lvls pins hf pin hpin)]
   | plain =>
     simp only [recFireComparands, hf, List.map_take]
+  | levels lvls =>
+    simp only [recFireComparands, hf, List.map_take]
 
 /-- The parameter comparand's entries are well-scoped at the ambient
 depth (arguments well-scoped; a nested rule's stored instantiations
@@ -151,6 +153,10 @@ theorem recFireComparands_snd_WScoped {d : Nat} (rl : RecRule)
         exact hpins lvls pins hf pin hpin))
       (fun a ha => hargs a (List.mem_of_mem_take ha))
   | plain =>
+    intro x hx
+    simp only [recFireComparands, hf] at hx
+    exact hargs x (List.mem_of_mem_take hx)
+  | levels lvls =>
     intro x hx
     simp only [recFireComparands, hf] at hx
     exact hargs x (List.mem_of_mem_take hx)

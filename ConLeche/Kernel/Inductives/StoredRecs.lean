@@ -119,6 +119,7 @@ and the index variables — what `NestedRead` states of the generated
 type.  `true` at a member major (its rules fire `.plain`). -/
 def storedNestedOk (ty : Expr) (mI rP : Nat) : RecRuleFire → Bool
   | .plain => true
+  | .levels _ => true
   | .nested lvls pins =>
     match ty.stripPis mI with
     | some (_, .forallE dom _) =>
