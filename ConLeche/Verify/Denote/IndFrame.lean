@@ -301,4 +301,42 @@ theorem openPisAtFvars_WScoped :
     | proj s k e => exact nomatch h
 
 
+/-- Each opened variable's annotation is scoped at its own depth. -/
+theorem openPisAtFvars_typeWScoped :
+    ∀ (n : Nat) {e : Expr} {d : Nat} {fvs : List Expr} {o : Expr},
+      openPisAtFvars n e d = some (fvs, o) → Expr.WScoped d e →
+      ∀ (i : Nat) (x : Expr), fvs[i]? = some x → Expr.WScoped (d + i) (Expr.fvarTypeD x)
+  | 0, _, _, _, _, hop, _, i, x, hx => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at hop
+    obtain ⟨rfl, -⟩ := hop
+    exact nomatch hx
+  | n + 1, e, d, fvs, o, hop, hw, i, x, hx => by
+    match e, hop with
+    | .forallE dom body, hop =>
+      simp only [openPisAtFvars] at hop
+      split at hop
+      · next fvs' o' hop' =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at hop
+        obtain ⟨rfl, rfl⟩ := hop
+        have hw' : Expr.WScoped d dom ∧ Expr.WScoped d body := by
+          simpa only [Expr.WScoped] using hw
+        cases i with
+        | zero =>
+          obtain rfl : Expr.fvar d dom = x := by simpa using hx
+          show Expr.WScoped (d + 0) dom
+          rw [Nat.add_zero]; exact hw'.1
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hx
+          have hb : Expr.WScoped (d + 1) (body.instantiate1 (.fvar d dom)) :=
+            Expr.WScoped.instantiate1_gen (v := .fvar d dom) (d := d + 1)
+              (by simp only [Expr.WScoped]; exact ⟨by omega, hw'.1⟩) 0
+              (Expr.WScoped.mono (by omega) hw'.2)
+          have := openPisAtFvars_typeWScoped n hop' hb i x hx
+          rw [show d + (i + 1) = d + 1 + i from by omega]
+          exact this
+      · exact nomatch hop
+    | .bvar _, hop | .fvar _ _, hop | .sort _, hop | .const _ _, hop | .app _ _, hop
+    | .lam _ _, hop | .letE _ _ _, hop | .lit _, hop | .proj _ _ _, hop =>
+      simp [openPisAtFvars] at hop
+
 end ConLeche

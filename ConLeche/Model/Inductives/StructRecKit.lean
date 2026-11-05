@@ -1,6 +1,7 @@
 module
 
-public import ConLeche.Verify.ProjGuard
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Claims
 import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Model.Inductives.StructFrameKit

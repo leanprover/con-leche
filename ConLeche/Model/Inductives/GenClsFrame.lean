@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.GenClsRows
 import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.GenRecRules
@@ -20,7 +21,6 @@ import ConLeche.Model.Tiers
 import ConLeche.Model.Capstone
 import ConLeche.Verify.Rules.Bridge
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Deep
 import ConLeche.Verify.Rules.InferBridge
 import ConLeche.Verify.Inductives.ClassGenMinorSyn

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.BridgeDecl
-public import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.Inductives.NestedRead
 import ConLeche.Verify.Extend.Inversions
 

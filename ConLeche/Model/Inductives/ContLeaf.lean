@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.ContN2
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Rules.IotaSoundKit

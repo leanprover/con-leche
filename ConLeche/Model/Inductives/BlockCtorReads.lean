@@ -1,5 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.BlockStageCtors
 import ConLeche.Model.Inductives.BlockHoleRead
 import ConLeche.Verify.Denote.Inst

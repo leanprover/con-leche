@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Verify.Cached.BridgeCS1
 import ConLeche.Verify.Cached.NestPosC
 

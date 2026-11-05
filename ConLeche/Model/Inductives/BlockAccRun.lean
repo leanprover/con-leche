@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.NestPosAcc
 public import ConLeche.Model.Env.LfpAcc
 public import ConLeche.Model.Inductives.BlockPosRun

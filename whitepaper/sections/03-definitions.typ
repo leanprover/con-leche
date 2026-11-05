@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 500)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 490)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 318, 332)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 308, 322)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -51,8 +51,8 @@ of constants
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 560, 566)[inference]
-and #src("ConLeche/Rules/Rel.lean", 381, 386)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 559, 565)[inference]
+and #src("ConLeche/Rules/Rel.lean", 380, 385)[equality]).
 
 #rules(
   rule(name: "const",
@@ -178,7 +178,7 @@ gains three cases, one per rule.
   $c.\{arrow(ell)\} => T[arrow(p) := arrow(ell)]$: \
   The constant is
   well-denoted, and law 1 says its instantiated type is well-denoted,
-  a type, and #src("ConLeche/Model/Rules/InferSound.lean", 210, 215)[contains the constant's set].
+  a type, and #src("ConLeche/Model/Rules/InferSound.lean", 211, 216)[contains the constant's set].
 ]
 
 #theorem(name: "Installing a definition")[

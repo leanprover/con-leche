@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenClsMinor
 import ConLeche.Model.Inductives.NestPosOut
 import ConLeche.Model.Inductives.StructFrameKit

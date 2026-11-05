@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.PosDerivNodes
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Model.Inductives.ContFrame

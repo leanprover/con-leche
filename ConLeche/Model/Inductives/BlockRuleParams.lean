@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.BlockRecData
 
 public section

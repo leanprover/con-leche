@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.ContAccRel
 public import ConLeche.Model.Inductives.BlockAccRun
 import ConLeche.Model.Inductives.StoredShapes

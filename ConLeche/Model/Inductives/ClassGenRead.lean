@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenSyntax
 import ConLeche.Model.Inductives.NestPosOut

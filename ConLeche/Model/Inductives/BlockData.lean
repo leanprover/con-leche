@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.SumKit
 import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele

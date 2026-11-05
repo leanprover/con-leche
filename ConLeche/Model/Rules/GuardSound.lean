@@ -1,9 +1,9 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.OpenedCtx
+import ConLeche.Model.CtxOkKit
 public import ConLeche.Model.Rules.Inputs
-public import ConLeche.Model.OpenedCtx
-import ConLeche.Verify.ProjGuard
-import ConLeche.Verify.Denote.Lemmas
 
 public section
 

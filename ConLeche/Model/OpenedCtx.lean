@@ -1,10 +1,10 @@
 module
 
-public import ConLeche.Model.CtxOkKit
-public import ConLeche.Verify.Denote.IndFrame
+public import ConLeche.Model.Currency
+import ConLeche.Verify.Denote.IndFrame
+import ConLeche.Model.WellDenotedTransport
 import ConLeche.Verify.Denote.Inst
 import ConLeche.Verify.Denote.Lemmas
-import ConLeche.Verify.Denote.Depth
 
 public section
 

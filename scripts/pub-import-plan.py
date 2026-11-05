@@ -54,6 +54,10 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #480: `OpenedCtx`'s `variable`s name `SetTheory` through it.
+    # Measured: demoting it breaks the file (unknown identifier `SetTheory`,
+    # `OpenedCtx.lean:29`).
+    ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
     # task #329 (pinstall): the skeleton definitions moved to
     # `Cached/InstallSkel`; AgreeFloor's statements name them
     # (`InstallSkel`, `ciSkel`), which the census attributes elsewhere.

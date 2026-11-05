@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.PosDerivAcc
 import ConLeche.Model.Inductives.PosDerivShape
 import ConLeche.Model.Inductives.LfpCover

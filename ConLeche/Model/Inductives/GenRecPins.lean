@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.BlockRecAssembly
 import ConLeche.Model.Inductives.BlockRecLaw
 public import ConLeche.Model.Inductives.BlockRecData
@@ -14,7 +15,6 @@ import ConLeche.Verify.Inductives.ClassGenMinorSyn
 import ConLeche.Verify.InstSpine
 import ConLeche.Verify.Denote.OpenVars
 import ConLeche.Verify.Denote.IndFrame
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.BinderLoop

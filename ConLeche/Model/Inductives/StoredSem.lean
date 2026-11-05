@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.StructFrameKit
 public import ConLeche.Model.IndTele
 import ConLeche.Model.Env.EnvModelM

@@ -3,7 +3,6 @@ module
 public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Verify.Inductives.BlockInv
-import ConLeche.Verify.Shift
 import ConLeche.Verify.Extend.Inversions
 
 public section

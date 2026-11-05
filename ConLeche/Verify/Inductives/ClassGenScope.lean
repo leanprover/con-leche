@@ -3,7 +3,6 @@ module
 public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Verify.Shift
 import ConLeche.Verify.Abstract
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves

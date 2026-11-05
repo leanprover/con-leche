@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Denote.Lemmas
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Verify.BinderLoop
 import ConLeche.Model.Inductives.TableInstall
 public import ConLeche.Model.IndTowerRead
@@ -14,13 +14,9 @@ import ConLeche.Verify.Subst
 import ConLeche.Kernel.Inductives.StructParts
 import ConLeche.Verify.Denote.AcvalCongr
 import ConLeche.Verify.EnvWF
-import ConLeche.Model.IndFrame
-import ConLeche.Model.IndDomGrade
 import ConLeche.Verify.Leaves
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Model.Tiers
-public import ConLeche.Model.OpenedCtx
 import ConLeche.Semantics.Tower.SumTower
 import ConLeche.Model.Reading.Levels
 import ConLeche.Verify.Inductives.DirectInv

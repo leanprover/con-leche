@@ -1,8 +1,6 @@
 module
 
 public import ConLeche.Model.IndTele
-public import ConLeche.Model.OpenedCtx
-import ConLeche.Verify.Denote.Inst
 public import ConLeche.Verify.Denote.TeleOpen
 public section
 

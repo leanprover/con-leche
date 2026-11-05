@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenClsSem
 public import ConLeche.Model.Inductives.GenRecRules
 public import ConLeche.Verify.Inductives.GenDepth

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecMem

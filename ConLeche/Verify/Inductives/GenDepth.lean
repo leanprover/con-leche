@@ -1,10 +1,10 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.ClassGenMinorSyn
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Inductives.NestScope
 
 public section

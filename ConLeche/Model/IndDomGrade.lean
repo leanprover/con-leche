@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Currency
-public import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Rules.RedSoundKit
 public section
 

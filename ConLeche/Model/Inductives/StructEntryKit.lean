@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Verify.Inductives.DirectGen

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Model.Inductives.NestPosOut
 public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Semantics.Inductives.FieldsEqOn

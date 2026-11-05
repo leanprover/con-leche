@@ -3127,3 +3127,19 @@
 2 defer_axiom_then_value_reject.ndjson
 2 natop_perturbed_used_later.ndjson
 2 natop_perturbed_later_reject.ndjson
+# Task #480: the projection guard, computed at the use (`projGuardRows`,
+# official `infer_proj`).  proj_guard_* derive from prop_proj_raw
+# (scripts/mk_proj_guard_fixtures.py), all as official:
+#   proj_guard_data_bad: field 1, data.
+#   proj_guard_prop_after_data: field 2, a proposition; the data before it
+#     is used by no later field.
+#   proj_guard_used_data_bad: field 4, a proposition about field 3, data.
+#   proj_guard_past_used_data_bad: field 5, a proposition after field 3, data
+#     a later field uses.
+#   proj_guard_unfold (tests/e2e/src): a field whose type's sort is only
+#     visible after unfolding a definition; `whnf` at the use sees it.
+1 proj_guard_data_bad.ndjson
+0 proj_guard_prop_after_data.ndjson
+1 proj_guard_used_data_bad.ndjson
+1 proj_guard_past_used_data_bad.ndjson
+0 proj_guard_unfold.ndjson
