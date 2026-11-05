@@ -3160,3 +3160,6 @@
 1 proj_guard_used_data_bad.ndjson
 1 proj_guard_past_used_data_bad.ndjson
 0 proj_guard_unfold.ndjson
+# eta_prop_struct (tests/e2e/src, task #480): a `Prop` structure is structure-like,
+# as official's `is_non_rec_structure` has it.  Official 0 (Lean elaborated it), target 0.
+0 eta_prop_struct.ndjson

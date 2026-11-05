@@ -109257,3 +109257,63 @@ shared-subterm +0.42 % / +0.40 %; the Mathlib prefix (131 902 declarations, `--j
 
 No verdict moved: e2e 516/516, arena tutorial 90/92 as before, the sweeps without
 divergence, selfcheck 48 971.
+
+### Stage 3b, def-headed formers at their stored type: the design choice it needs (#480, lane 4)
+
+Not landed.  A first piece of the kernel (`formerSortLoop`, `formerNeverZeroAt`,
+`iotaCase3At`, `IndCaps.nIdx`) was written and put aside, because working out its
+proof showed a choice that is the maintainer's.
+
+**What stands in the way.**  What the proof needs of a def-headed family at a use is
+that the sort the use computes is the block's, and the use only knows the former's
+*stored* type, which is not a Π-tower.  `TeleFit` and `LfpReads` are stated on the
+`Term`'s structure, so the use and the block's recorded telescope can be related
+only through `interp`: reduction soundness gives `interp stored = interp reduced` at
+a valuation.  Getting a sort out of that equality takes a new lemma: **at a fit, a
+Π-tower ending in a sort determines its domains and its sort** (from `piR`'s graphs,
+each tower being inhabited, and regularity for `univ`'s injectivity).  It must be
+fit-conditional: over an empty domain `piV_of_empty` makes every tower the unit, and
+then nothing relates the two sorts, even though in reality the two reductions agree.
+No extension lemma could replace it: `whnf` reads `natLitSupported` and so on, and may
+legitimately differ between environments.
+
+**The three places the sort would be read, and what each needs.**
+
+| site | at a def-headed family | proof |
+|---|---|---|
+| η comparison | no sort at all (this lane's `eta`) | none |
+| η rescue | `whnf` at use; `RedSem` has `hne`, the test is not used by the proof (`_hnz`), so `Red.rescueEta` can lose the premise | the simulation only |
+| ι case split | either compute (`FormerSortR`, a mutual relation, and (S)/(T) restated over a fit) or stay in checked case 3 | the injectivity lemma, or none |
+| projection guard | either compute, or never need it (below) | the injectivity lemma, or none |
+| nested container's telescope | either compute in the job (`nestInstType`, `nestArity`, `targetOutsideInst`, `classFormerTy`), or decline | restating `ContN2`, `ContWalk`, `ContInst`, … over an `interp`-only relation, or none |
+
+**Option A (recommended).**  A def-headed family takes the conservative branch at each
+of these, and the install is what was asked for: every former at its stored type.
+* The ι split reads `formerZ` as now, which is `ifAllZero []` at a type not ending in a
+  sort: checked case 3.  Those checks hold on well-typed input, and 2252 of Mathlib's
+  families (all 38 def-headed ones among them, by the census's reading of them as
+  inductive predicates) are in case 3 already.
+* A def-headed `Prop` structure with a field that is not a proposition is declined by
+  its job (exit 2), so that for a def-headed structure the guard has no rows to check
+  and the law holds without one.  Official accepts the declaration.
+* A def-headed *container* of a nested block is declined by `nestInstType` (exit 2).
+  **`ind_defhead_nested` moves 0 → 2**, official 0.  Mathlib has none (no def-headed
+  block is nested).
+* The model records no `LfpDatum` for a block with a def-headed member: the swap of
+  the former (after the job's `isDefEq` of stored and reduced, as `storedSwap_sem`) drops
+  it, the cover is restated over syntactic formers, and §12's consumers do not change;
+  `EtaLaw`/`UnitLaw` drop `TVa` for the fit that `spineFit_of_wellDenoted_mkAppN_lam`
+  already gives.  Roughly three sessions.
+
+**Option B.**  Every verdict stays: the injectivity lemma, `FormerSortR` in the rules
+tier with its bridge and simulation, (S)/(T) over a fit at the member and outside
+classes, the job's readers monadic, `LfpReads` restated over `interp` and §12's twenty
+consumers repaired.  §12 estimated five to seven sessions before the fit condition was
+known; I would now say more.
+
+**Fixtures.**  `eta_prop_struct` (0, Lean elaborated it) covers this lane's η.  The
+def-headed ones are `ind_defhead_struct`, `_k`, `_mutual`, `_fix`, `_nested`,
+`_opaque_bad`, `ind_idx_defhead_sort`, `direct_idx_defhead`, all unmoved; the ones the
+brief lists for 3b wait for the choice, since their verdicts depend on it.  What a
+stream cannot show at all on master: a reduction stuck at the use but not at the block,
+which needs a mode with opaque views.
