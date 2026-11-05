@@ -108966,10 +108966,13 @@ read looks only at what it needs, so it may succeed on a file whose full parse f
   constant stands for (`entryDecl`), or an inductive block's whose members, constructors and
   recursors are stored constants of those kinds, by their statements.  Not stated: a block's other
   fields and its recursor rules, which `validateIndF` and the installer check anyway.
-* **`main_oleans_no_False` is about the files**, as the stream corollary is: on a snapshot where
-  the private view of a module of the closure (`InClosure`) holds a theorem of type `False`, no
-  run exits 0, without `--constant`, which restricts what is checked.  It needs `Stands`: only a
-  theorem may stand for a theorem, of the same statement.
+* **`main_oleans_no_False` is about the files**, as the stream corollary is, and at a concrete
+  argument list, `--olean --search-path=<dirs> -- <root>` (maintainer's ruling), so that it has no
+  hypothesis on the argument parser: `parseArgs_olean`.  On a snapshot where the private view of a
+  module of the closure holds a theorem of type `False`, no run exits 0.  The view is stated through
+  the specification (`ViewOf`: `readFiles` and `decodeModuleSpec`, and `InClosure` over it), not the
+  fast parser.  It needs `Stands`: only a theorem may stand for a theorem, of the same statement.
+  `flagValue` reads a flag's value through `toList`, to make that provable.
 * Pulling the walk's helpers out of `emitLoop` (`blockTys`, `Work.usesOf`, `Emit.ones`, ...)
   removed the `attach`es the termination preprocessing had put in its body.  `coverageOk` and
   `declsOf` are recursions over a step now.

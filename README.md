@@ -82,7 +82,7 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 The theorems above talk about the pure checker code. That pure code is embedded in a driver: parsing arguments, reading files, parallelism, all in the `IO` monad. This is out of reach for a rigorous verification, but we can still do something that helps to rule out more implementation bugs.
 
-To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L438) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L120) type class modelling two kinds of operations:
+To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L446) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L120) type class modelling two kinds of operations:
 
 * File access (existence, reading)
 * Running other `IO` with [`liftIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L150)
@@ -103,7 +103,7 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
     ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0)
 ```
 
-The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L84) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L438) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L29), flushing the output and exiting the process.
+The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L84) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L446) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L29), flushing the output and exiting the process.
 
 ### Set theory assumption
 

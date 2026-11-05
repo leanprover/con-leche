@@ -355,7 +355,7 @@ Read from the outside in:
    the escape, whose outcomes would otherwise allow any code. On every
    snapshot, every outcome of `runArgs` at the arguments `-- <file>` that
    is an exit 0 establishes the file's chain to the fold's accept
-   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L82-L86)),
+   ([theorem `runArgs_accept` in `ConLeche/Verify/Driver/Main.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Driver/Main.lean#L170-L174)),
    whose corollary is `main_no_False` in
    `ConLeche/MainTheorem.lean` (§1). That a run of the binary that
    exits 0 is one of those outcomes is assumed, not proved, and the class's file states
@@ -629,8 +629,9 @@ has every module after its imports (`closureOrder_ok`), every constant of their 
 stands in the merge, itself or a constant of its name and statement that Lean's own import lets
 stand for it (`mergeAll_ok`), and every declaration comes from stored constants (`declsOf_from`).
 A theorem of a module of the closure is among the records with its statement (`declsOf_thm`,
-`readOleans_thm`), so `main_oleans_no_False` holds of the files: if the private view of a module
-of the closure holds a theorem of type `False`, no run exits 0. An inductive block's record is
+`readOleans_thm`), so `main_oleans_no_False` holds of the files, at the arguments `--olean
+--search-path=<dirs> -- <root>`: if the private view of a module of the closure of `root`, by the
+specification (`ViewOf`, `decodeModuleSpec`), holds a theorem of type `False`, no run exits 0. An inductive block's record is
 known to be made of stored constants of the right kinds by their statements; its other fields and
 the recursor rules are `validateIndF`'s and the installer's to check. `olean-compare` compares the
 records with lean4export's.
@@ -1480,7 +1481,7 @@ declare it.)
   assumption needs, that
   `IO.Process.exit` appears only in `main`, which with
   `enableAbortOnNonlinear` is all `Main.lean` declares. Those few lines
-  are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>` and at `--olean` arguments; other flags and `--help` are not
+  are read, not proved; the theorems cover `runArgs`, at the arguments `-- <file>` and `--olean --search-path=<dirs> -- <root>`; other flags and `--help` are not
   covered. The build file
   `lakefile.lean`, which compiles and links the C function, and the C
   function are pinned by content in the trust-surface gate.

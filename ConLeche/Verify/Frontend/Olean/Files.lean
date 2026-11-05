@@ -559,13 +559,26 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
           exact ⟨order, ls, mg, rs, ho, h1, h2, hc1, hc2, fun l hl => hk l (by simpa using hl), hm, hr,
             by cases u; exact hc, h.symm⟩
 
+/-- **The private view of a module on a snapshot**, by the specification: the module's files
+on the search path, and what `decodeModuleSpec` says they hold at that level. -/
+@[expose] def ViewOf (sp : SearchPath) (fs : FS) (m : Name) (d : ModDecoded) : Prop :=
+  ∃ f, (readFiles sp m .private : ModelIO _) fs (.ok (.ok f)) ∧ decodeModuleSpec f .private = some d
+
+/-- **The read of a module's private view is the view.** -/
+theorem readView_of_viewOf {sp : SearchPath} {fs : FS} {m : Name} {d : ModDecoded}
+    (h : ViewOf sp fs m d) : (readView sp m .private : ModelIO _) fs (.ok (.ok d)) := by
+  obtain ⟨f, h1, h2⟩ := h
+  simp only [readView, ModelIO.bind_ok]
+  refine ⟨.ok f, h1, ?_⟩
+  simp only [parseView_eq_spec, h2]
+  exact rfl
+
 /-- **The modules of the closure of some roots**, on a snapshot: a root, or an import of the
 private view of one. -/
 inductive InClosure (sp : SearchPath) (fs : FS) (roots : Array Name) : Name → Prop
   | root {r : Name} : r ∈ roots → InClosure sp fs roots r
   | step {m : Name} {d : ModDecoded} {i : ImportRec} : InClosure sp fs roots m →
-      (readView sp m .private : ModelIO _) fs (.ok (.ok d)) → i ∈ d.imports →
-      InClosure sp fs roots i.module
+      ViewOf sp fs m d → i ∈ d.imports → InClosure sp fs roots i.module
 
 /-- The order holds the closure. -/
 theorem InClosure.mem_order {sp : SearchPath} {fs : FS} {roots order : Array Name} {m : Name}
@@ -575,7 +588,7 @@ theorem InClosure.mem_order {sp : SearchPath} {fs : FS} {roots order : Array Nam
   | root hm => exact hr _ hm
   | @step m d i _ hv hi ih =>
     obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem ih
-    have := hc.view_imports hk hv i hi
+    have := hc.view_imports hk (readView_of_viewOf hv) i hi
     exact Array.mem_toList_iff.mp (List.mem_of_mem_take this)
 
 /-- A private view read off a snapshot is the snapshot's. -/
@@ -607,7 +620,7 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
     {ds : Array Declaration} {m : Name} {d : ModDecoded} {c : CEntryF Name Expr} {v : Expr}
     {all : List Name}
     (h : (readOleans sp roots none jobs : ModelIO _) fs (.ok (.ok ds)))
-    (hcl : InClosure sp fs roots m) (hv : (readView sp m .private : ModelIO _) fs (.ok (.ok d)))
+    (hcl : InClosure sp fs roots m) (hv : ViewOf sp fs m d)
     (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
     ∃ v', Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v' ∈ ds := by
   obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hr, hcov, hds⟩ := readOleans_ok h
@@ -622,7 +635,7 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
     simpa using hmo
   obtain ⟨l, hl, rfl⟩ := List.mem_map.mp this
   obtain ⟨d', hv', hconst⟩ := h2 l hl
-  obtain rfl := readView_unique hv hv'
+  obtain rfl := readView_unique (readView_of_viewOf hv) hv'
   have hcl' : CEntry.ofRead c ∈ l.constants := by
     rw [hconst]
     exact Array.mem_map.mpr ⟨c, hc, rfl⟩

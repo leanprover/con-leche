@@ -134,12 +134,12 @@
 == ConLeche/Frontend/CheckerIO.lean#L262
    262  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L82-L86
-    82  theorem runArgs_accept {file : String} {fs : FS}
-    83      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-    84      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-    85        parseChunks [b] = .ok r ∧
-    86        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L170-L174
+   170  theorem runArgs_accept {file : String} {fs : FS}
+   171      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   172      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   173        parseChunks [b] = .ok r ∧
+   174        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -1373,8 +1373,8 @@
    241        c.toConstantVal.levelParams = cv.levelParams ∧
    242        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L438
-   438  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L446
+   446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == ConLeche/Frontend/CheckerIO.lean#L120
    120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1393,8 +1393,8 @@
 == Main.lean#L84
     84  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L438
-   438  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L446
+   446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L29
     29  def enableAbortOnNonlinear : IO Unit := do

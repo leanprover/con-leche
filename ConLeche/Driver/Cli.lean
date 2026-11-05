@@ -368,6 +368,15 @@ whatever it is called. -/
 def helpWanted (args : List String) : Bool :=
   (args.takeWhile (· != "--")).contains "--help"
 
+/-- The value of a flag spelled `<prefix><value>`, where `s` starts with the prefix. -/
+def flagValue (pre s : String) : Option String :=
+  if pre.toList.isPrefixOf s.toList then some (String.ofList (s.toList.drop pre.toList.length))
+  else none
+
+/-- A `--search-path=` value: the directories, separated by `:`. -/
+def searchPathOf (dirs : String) : List System.FilePath :=
+  ((dirs.splitOn ":").filter (· != "")).map System.FilePath.mk
+
 def parseArgs : List String → Args → Args
   | [], a => a
   -- The end of the options: every argument after it is a file, so
@@ -385,22 +394,21 @@ def parseArgs : List String → Args → Args
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | s :: rest, a =>
-    if s.startsWith "--progress=" then
-      match progressStride ((s.drop "--progress=".length).toString) with
+    if let some v := flagValue "--progress=" s then
+      match progressStride v with
       | .ok n => parseArgs rest { a with progress := n }
       | .error msg => { a with bad := some msg }
-    else if s.startsWith "--jobs=" then
-      match jobsCount ((s.drop "--jobs=".length).toString) with
+    else if let some v := flagValue "--jobs=" s then
+      match jobsCount v with
       | .ok n => parseArgs rest { a with jobs := some n }
       | .error msg => { a with bad := some msg }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
           flag for one worker per hardware thread" }
-    else if s.startsWith "--constant=" then
-      parseArgs rest { a with constants := a.constants.push (s.drop "--constant=".length).toString }
-    else if s.startsWith "--search-path=" then
-      let dirs := ((s.drop "--search-path=".length).toString.splitOn ":").filter (· != "")
-      parseArgs rest { a with searchPath := a.searchPath ++ dirs.map System.FilePath.mk }
+    else if let some v := flagValue "--constant=" s then
+      parseArgs rest { a with constants := a.constants.push v }
+    else if let some v := flagValue "--search-path=" s then
+      parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
     else if s.startsWith "-" then
       { a with bad := some s!"unknown option {Display.str s}" }
     else parseArgs rest { a with files := a.files.push s }
