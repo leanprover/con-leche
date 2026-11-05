@@ -4,7 +4,7 @@ public import ConLeche.Verify.Cached.Defer
 public import ConLeche.Cached.InstallSkel
 public import Std.Sync.Mutex
 public import ConLeche.Driver.Stats
-import Std.Data.TreeSet.Basic
+public import Std.Data.TreeSet.Basic
 import Std.Data.HashSet.Basic
 
 /-!
@@ -226,7 +226,6 @@ def declExprs : Declaration → List Expr × List Name
   | .opaqueDecl cv v => ([cv.type, v], [cv.name])
   | .axiomDecl cv => ([cv.type], [cv.name])
   | .quotDecl _ cv => ([cv.type], [cv.name])
-  | .basisDecl _ => ([], [])
   | .indDecl block _ => (block.map (·.toConstantVal.type), block.map (·.name))
 
 /-- Record `k`'s dependencies: the earlier records installing the names

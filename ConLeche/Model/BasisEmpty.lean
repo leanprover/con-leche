@@ -189,9 +189,9 @@ theorem extendEmptyRec (mp : EnvModelM V env)
 /-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s
 `emptyK` branch. -/
 theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
-    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.declsA env₂) :
+    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.decls env₂) :
     CoverStep mp env₂ := by
-  rw [show ConLeche.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
+  rw [show ConLeche.BasisKind.emptyK.decls = [emptyA, emptyRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
   subst hnil

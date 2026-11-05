@@ -22,16 +22,16 @@ open BasisDSL
 def natT : Expr := cnst natName
 
 /-- `Nat : Type`. -/
-def natRaw : ConstantInfo :=
+def natA : ConstantInfo :=
   .indInfo ⟨natName, [], type1⟩
     { sortZ := Level.zeronessOf (Level.succ Level.zero), all := [natName], ctors := [natZeroName, natSuccName] }
 
 /-- `Nat.zero : Nat`. -/
-def natZeroRaw : ConstantInfo :=
+def natZeroA : ConstantInfo :=
   .ctorInfo ⟨natZeroName, [], natT⟩ 0 0
 
 /-- `Nat.succ (n : Nat) : Nat`. -/
-def natSuccRaw : ConstantInfo :=
+def natSuccA : ConstantInfo :=
   .ctorInfo ⟨natSuccName, [], pi "n" natT natT⟩ 0 1
 
 /-- The motive of `Nat.rec`: `∀ (t : Nat), Sort u`. -/
@@ -46,7 +46,7 @@ def natRecSucc : Expr :=
 
 /-- `Nat.rec.{u} {motive : Nat → Sort u} (zero : motive Nat.zero)
 (succ : ∀ n, motive n → motive n.succ) (t : Nat) : motive t`. -/
-def natRecRaw : ConstantInfo :=
+def natRecA : ConstantInfo :=
   .recInfo ⟨natName.str "rec", [uN],
     piI "motive" natRecMotive <|
     pi "zero" (.app (bv 0) (cnst natZeroName)) <|
@@ -66,6 +66,6 @@ def natRecRaw : ConstantInfo :=
       ap2 (bv 1) (bv 0) (ap4 (cnst (natName.str "rec") [u]) (bv 3) (bv 2) (bv 1) (bv 0))]
 
 /-- The pinned `Nat` basis block, in install order. -/
-def natBasis : List ConstantInfo := [natRaw, natZeroRaw, natSuccRaw, natRecRaw]
+def natBasis : List ConstantInfo := [natA, natZeroA, natSuccA, natRecA]
 
 end ConLeche

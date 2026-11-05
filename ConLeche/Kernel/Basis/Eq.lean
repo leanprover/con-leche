@@ -19,7 +19,7 @@ namespace ConLeche
 open BasisDSL
 
 /-- `Eq.{u} {α : Sort u} : α → α → Prop`. -/
-def eqRaw : ConstantInfo :=
+def eqA : ConstantInfo :=
   .indInfo ⟨eqName, [uN],
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
@@ -27,7 +27,7 @@ def eqRaw : ConstantInfo :=
     { all := [eqName], nparams := 2, ctors := [eqReflName] }
 
 /-- `Eq.refl.{u} {α : Sort u} (a : α) : Eq α a a`. -/
-def eqReflRaw : ConstantInfo :=
+def eqReflA : ConstantInfo :=
   .ctorInfo ⟨eqReflName, [uN],
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
@@ -42,7 +42,7 @@ def eqRecMotive : Expr :=
 
 /-- `Eq.rec.{u_1, u} {α : Sort u} {a : α} {motive : ∀ b, Eq α a b → Sort u_1}
 (refl : motive a (Eq.refl α a)) {b : α} (t : Eq α a b) : motive b t`. -/
-def eqRecRaw : ConstantInfo :=
+def eqRecA : ConstantInfo :=
   .recInfo ⟨eqName.str "rec", [u1N, uN],
     piI "α" (srt u) <|
     piI "a" (bv 0) <|
@@ -60,6 +60,6 @@ def eqRecRaw : ConstantInfo :=
       bv 0]
 
 /-- The pinned `Eq` basis block, in install order. -/
-def eqBasis : List ConstantInfo := [eqRaw, eqReflRaw, eqRecRaw]
+def eqBasis : List ConstantInfo := [eqA, eqReflA, eqRecA]
 
 end ConLeche

@@ -192,9 +192,9 @@ The dispatch mirrors `declBasisPB_emptyK` link for link.
 /-- **The `False` block, installed at the P tier.**  `BasisStepPB`'s
 `falseK` branch. -/
 theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V env)
-    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.declsA env₂) :
+    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.decls env₂) :
     CoverStep mp env₂ := by
-  rw [show ConLeche.BasisKind.falseK.declsA = [falseA, falseRecA] from rfl]
+  rw [show ConLeche.BasisKind.falseK.decls = [falseA, falseRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
   subst hnil

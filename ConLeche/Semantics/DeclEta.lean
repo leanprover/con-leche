@@ -63,7 +63,7 @@ theorem basisInstallRun_etaClosed :
 
 /-- Every pinned basis block passes the former check, by computation. -/
 theorem basisIndOk_declsA (kind : BasisKind) :
-    basisIndOk kind.declsA = true := by
+    basisIndOk kind.decls = true := by
   cases kind <;> decide
 
 /-- **The declaration fold's η-closure half, on the run record** (#161).
@@ -110,9 +110,6 @@ theorem declEtaStepRun {F : Nat}
     · exact EtaFamiliesClosed.cons_nonind hE hfresh
         (fun _ _ heq => nomatch heq)
     · exact hE
-  | basisDecl kind =>
-    exact basisInstallRun_etaClosed kind.declsA h.2
-      (basisIndOk_declsA kind) hE
   | quotDecl k cv =>
     -- the quotient package's `type` record installs the pinned block;
     -- its other records install nothing (task #293)

@@ -457,7 +457,6 @@ theorem checkDeclRun_of {F : Nat}
   | thmDecl cv value => exact declThmRun_of h
   | opaqueDecl cv value => exact declOpaqueRun_of h
   | axiomDecl cv => exact declAxiomRun_of h
-  | basisDecl kind => exact declBasisRun h
   | quotDecl k cv =>
     -- task #293: the `type` record installs the pinned block, the other
     -- members install nothing

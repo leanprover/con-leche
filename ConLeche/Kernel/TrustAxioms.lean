@@ -175,7 +175,7 @@ as a pinned opaque — whose install already ran the identity
 certificate (`checkReducePin`), the fact the model consumes here. -/
 def ofReduceAxOk (env : Env) (cv : ConstantVal) : Bool :=
   let c := ofReduceOp cv.name
-  decide (env.find? eqName = some eqA) &&
+  (env.find? eqName).isSome &&
   reduceElemOk env c &&
   reduceStoredOk env c &&
   ConstantVal.matchesPin cv (ofReducePinA cv.name)

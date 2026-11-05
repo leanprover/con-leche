@@ -2486,9 +2486,9 @@ vacuous: `Eq` must already be stored, and that is exactly what the
 theorem declBasisPB_quotK {env₁ : Env} (mp : EnvModelM V env)
     (hEq : env.find? eqName = some eqA)
     (h : ConLeche.Semantics.BasisInstallRun env
-      ConLeche.BasisKind.quotK.declsA env₁) :
+      ConLeche.BasisKind.quotK.decls env₁) :
     CoverStep mp env₁ := by
-  rw [show ConLeche.BasisKind.quotK.declsA
+  rw [show ConLeche.BasisKind.quotK.decls
     = [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, h5, hnil⟩ := h
   subst hnil

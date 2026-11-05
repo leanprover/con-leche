@@ -1357,9 +1357,9 @@ theorem extendNatRec (mp : EnvModelM V env)
 `natK` branch. -/
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
-      ConLeche.BasisKind.natK.declsA env₁) :
+      ConLeche.BasisKind.natK.decls env₁) :
     CoverStep mp env₁ := by
-  rw [show ConLeche.BasisKind.natK.declsA
+  rw [show ConLeche.BasisKind.natK.decls
     = [natA, natZeroA, natSuccA, natRecA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, hnil⟩ := h
   subst hnil

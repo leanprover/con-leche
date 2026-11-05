@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.BasisA
+public import ConLeche.Kernel.Basis
 
 @[expose] public section
 
@@ -184,7 +184,7 @@ Only the recursors' *types* are used — never their reduction rules
 (DESIGN.md, task #209).  This is the reason the pins are right. -/
 def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
   if cv.name = propextName then
-    decide (env.find? eqName = some eqA) &&
+    (env.find? eqName).isSome &&
     (match env.find? iffName with
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&

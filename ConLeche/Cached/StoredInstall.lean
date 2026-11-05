@@ -46,90 +46,6 @@ slots the prediction made for the block filled.
 
 namespace ConLeche
 
-/-! ## Pointer-first equality of what an install pushes -/
-
-/-- Element-wise comparison of two lists by `f`. -/
-def listBeqBy {α : Type} (f : α → α → Bool) : List α → List α → Bool
-  | [], [] => true
-  | a :: as, b :: bs => f a b && listBeqBy f as bs
-  | _, _ => false
-
-theorem eq_of_listBeqBy {α : Type} {f : α → α → Bool} (hf : ∀ a b, f a b = true → a = b) :
-    ∀ {l l' : List α}, listBeqBy f l l' = true → l = l'
-  | [], [], _ => rfl
-  | a :: as, b :: bs, h => by
-    simp only [listBeqBy, Bool.and_eq_true] at h
-    rw [hf a b h.1, eq_of_listBeqBy hf h.2]
-  | [], _ :: _, h | _ :: _, [], h => by simp [listBeqBy] at h
-
-/-- `ConstantVal` equality, the type by `Expr`'s pointer-first `==`. -/
-def ConstantVal.beqP (a b : ConstantVal) : Bool :=
-  a.name == b.name && a.levelParams == b.levelParams && a.type == b.type
-
-theorem ConstantVal.eq_of_beqP {a b : ConstantVal} (h : a.beqP b = true) : a = b := by
-  obtain ⟨n, l, t⟩ := a
-  obtain ⟨n', l', t'⟩ := b
-  simp only [ConstantVal.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨rfl, rfl⟩, rfl⟩ := h
-  rfl
-
-/-- `RecRuleFire` equality, the pins by `Expr`'s `==`. -/
-def RecRuleFire.beqP : RecRuleFire → RecRuleFire → Bool
-  | .plain, .plain => true
-  | .nested l p, .nested l' p' => l == l' && p == p'
-  | _, _ => false
-
-theorem RecRuleFire.eq_of_beqP {a b : RecRuleFire} (h : a.beqP b = true) : a = b := by
-  cases a <;> cases b <;> simp_all [RecRuleFire.beqP]
-
-/-- `RecRule` equality, the right-hand side by `Expr`'s `==`. -/
-def RecRule.beqP (a b : RecRule) : Bool :=
-  a.ctor == b.ctor && a.nfields == b.nfields && a.fire.beqP b.fire && a.rhs == b.rhs
-
-theorem RecRule.eq_of_beqP {a b : RecRule} (h : a.beqP b = true) : a = b := by
-  obtain ⟨c, n, f, r⟩ := a
-  obtain ⟨c', n', f', r'⟩ := b
-  simp only [RecRule.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨rfl, rfl⟩, hf⟩, rfl⟩ := h
-  rw [RecRuleFire.eq_of_beqP hf]
-
-/-- **`ConstantInfo` equality, pointer-first**: every `Expr` by its
-memoised `==` (`Expr.beqMemo`), the rest by its decidable equality. -/
-def ConstantInfo.beqP : ConstantInfo → ConstantInfo → Bool
-  | .axiomInfo v, .axiomInfo v' => v.beqP v'
-  | .defnInfo v e h, .defnInfo v' e' h' => v.beqP v' && e == e' && decide (h = h')
-  | .thmInfo v, .thmInfo v' => v.beqP v'
-  | .indInfo v c, .indInfo v' c' => v.beqP v' && decide (c = c')
-  | .ctorInfo v a b, .ctorInfo v' a' b' => v.beqP v' && a == a' && b == b'
-  | .recInfo v a b isK rs, .recInfo v' a' b' isK' rs' =>
-    v.beqP v' && a == a' && b == b' && isK == isK' && listBeqBy RecRule.beqP rs rs'
-  | _, _ => false
-
-theorem ConstantInfo.eq_of_beqP {a b : ConstantInfo} (h : a.beqP b = true) : a = b := by
-  cases a <;> cases b <;> simp only [ConstantInfo.beqP, Bool.and_eq_true, beq_iff_eq,
-    decide_eq_true_eq, reduceCtorEq] at h
-  · rw [ConstantVal.eq_of_beqP h]
-  · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
-  · rw [ConstantVal.eq_of_beqP h]
-  · obtain ⟨hv, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
-  · obtain ⟨⟨hv, rfl⟩, rfl⟩ := h; rw [ConstantVal.eq_of_beqP hv]
-  · obtain ⟨⟨⟨⟨hv, rfl⟩, rfl⟩, rfl⟩, hr⟩ := h
-    rw [ConstantVal.eq_of_beqP hv, eq_of_listBeqBy (fun _ _ => RecRule.eq_of_beqP) hr]
-
-/-- **`ProjTable` equality, pointer-first**: the bodies by `Expr`'s
-`==`, the rest by value. -/
-def ProjTable.beqP (a b : ProjTable) : Bool :=
-  a.structName == b.structName && a.levelParams == b.levelParams &&
-    a.numParams == b.numParams && a.ctor == b.ctor && a.numFields == b.numFields &&
-    a.structSort == b.structSort && a.bodies == b.bodies
-
-theorem ProjTable.eq_of_beqP {a b : ProjTable} (h : a.beqP b = true) : a = b := by
-  obtain ⟨_, _, _, _, _, _, _⟩ := a
-  obtain ⟨_, _, _, _, _, _, _⟩ := b
-  simp only [ProjTable.beqP, Bool.and_eq_true, beq_iff_eq] at h
-  obtain ⟨⟨⟨⟨⟨⟨rfl, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩, rfl⟩ := h
-  rfl
-
 end ConLeche
 
 namespace ConLeche.Cached
@@ -223,8 +139,8 @@ reading, each part at its record as declared where the reading fails —
 the blocks the checked install rejects, which its job reports. -/
 def storedInstall (W : FEnv) (block : List ConstantInfo) (nP : Nat) :
     List ConstantInfo × List ProjTable :=
-  match basisPinHit block with
-  | some kind => (kind.declsA, [])
+  match basisNameHit block with
+  | some kind => (List.zipWith withPinCaps kind.decls block, [])
   | none =>
     match blockParts? nP block with
     | none => ([], [])

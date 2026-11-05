@@ -656,7 +656,6 @@ private theorem installStepC_value {pins : List NatOpPinSet} {i : Nat} {fe W : F
         installGuardsC_congr hfe, bind, StateT.bind, pure, StateT.pure]
       cases installGuardsC fe cv value {} <;> rfl
   | axiomDecl _ => exact nomatch h
-  | basisDecl _ => exact nomatch h
   | quotDecl _ _ => exact nomatch h
   | indDecl _ _ => exact nomatch h
 

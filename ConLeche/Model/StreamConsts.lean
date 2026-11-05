@@ -95,7 +95,6 @@ kind of record claims a name and a type for:
   | .thmDecl cv _, cv' => cv' = cv
   | .opaqueDecl cv _, cv' => cv' = cv
   | .axiomDecl cv, cv' => cv' = cv ∧ cv.name ≠ sorryAxName ∧ cv.name ≠ quotSoundName
-  | .basisDecl _, _ => False
   | .indDecl _ _, _ => False
   | .quotDecl _ _, _ => False
 
@@ -182,7 +181,6 @@ theorem checkDecl_declares {env env₂ : Env} {F : Nat}
     refine ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩, ?_, rfl, rfl, ?_⟩
     · rw [henv₂]; exact List.mem_cons_self
     · exact hann
-  | basisDecl kind => exact hcv.elim
   | quotDecl k cv₀ => exact hcv.elim
   | indDecl block nP => exact hcv.elim
 

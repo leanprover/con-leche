@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockParts
-public import ConLeche.Kernel.BasisA
+public import ConLeche.Kernel.Basis
 
 /-!
 # The install skeleton of a record
@@ -139,23 +139,13 @@ def declCSkels : Declaration → List InstallSkel → List InstallSkel
   | .thmDecl cv _, sk => .thm cv.name :: sk
   | .opaqueDecl cv _, sk => .ax cv.name :: sk
   | .axiomDecl cv, sk =>
-    -- task #293: `Quot.sound` is the pinned quotient block's own
-    -- record and installs nothing of its own, like `sorryAx`
-    if cv.name = sorryAxName ∨ cv.name = quotSoundName then sk
+    if cv.name = sorryAxName then sk
     else .ax cv.name :: sk
-  | .basisDecl kind, sk =>
-    kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
-  -- task #293: the quotient package's `type` record installs the
-  -- pinned block; its other records are members of that block
-  | .quotDecl k _, sk =>
-    match k with
-    | .type => BasisKind.quotK.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
-    | _ => sk
+  | .quotDecl k _, sk => ciSkel (quotPin k) :: sk
   | .indDecl block nP, sk =>
-    -- task #293: a block the fold recognises as a pinned one installs
-    -- the pin
-    match basisPinHit block with
-    | some kind => kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk
+    -- a block with a pinned block's names installs that block's constants
+    match basisNameHit block with
+    | some kind => kind.decls.foldl (fun acc ci => ciSkel ci :: acc) sk
     | none => indDeclSkels nP block sk
 
 /-- **The names a record installs, in push order** (oldest first): the

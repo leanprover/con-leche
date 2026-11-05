@@ -119,21 +119,28 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
     throw (.invalid s!"type mismatch in opaque {cv.name}")
   pure (.axiomInfo cv)
 
-/-- `checkBasisDecl`'s cached twin: the body the three records that
-install a pinned basis block share (task #293). -/
-def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
-  if kind = .quotK then
-    unless fe.find? eqName = some eqA do
-      throw (.notImplemented "quotient basis requires the pinned Eq basis")
-  kind.declsA.foldlM installBasisDeclF fe
+/-- `checkBasisBlock`'s cached twin. -/
+def checkBasisBlockC (fe : FEnv) (kind : BasisKind) (block : List ConstantInfo) :
+    CheckCM FEnv := do
+  unless pinListOk block kind.decls do
+    throw (.invalid "reserved basis name: the block is not the pinned one")
+  (kind.atBlock block).foldlM installBasisDeclF fe
+
+/-- `checkQuotRecord`'s cached twin. -/
+def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEnv := do
+  unless quotPinHit k cv do
+    throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
+  unless quotPredsOk fe.find? k cv.levelParams do
+    throw (.notImplemented "quotient declaration before what it needs")
+  installBasisDeclF fe (quotAt k cv)
 
 /-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
 twin).
 
-* **The pinned basis blocks** (task #293): the stream's own `Nat`
-  block, recognised here and installed as the pin; a block under a
-  pinned name that does not match falls through and the reserved-name
-  check rejects it.
+* **The pinned basis blocks**: a stream's own `Nat` block, recognised by
+  its names, compared with the pin and installed at its own names.
 * Task #228: the stream's DECLARED parameter count, checked before the
   dispatch.
 * ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
@@ -141,8 +148,8 @@ twin).
   any other declines (`checkShapelessS`). -/
 def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
-  match basisPinHit block with
-  | some kind => checkBasisDeclC fe kind
+  match basisNameHit block with
+  | some kind => checkBasisBlockC fe kind block
   | none =>
     if indParamsOk nP block then
       match blockParts? nP block with
@@ -210,14 +217,8 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     else
       throw (.internal s!"opaque {cv.name} reached the ordinary step")
   | .axiomDecl cv =>
-    -- `checkDecl`'s twin (task #293): `Quot.sound` is the pinned
-    -- quotient block's own record — compared with the pin, installing
-    -- nothing, declining on a mismatch.
     if cv.name = quotSoundName then
-      (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
-        pure fe
-      else
-        throw (.notImplemented "quotient soundness axiom mismatch"))
+      checkQuotRecordC fe .sound cv
     else do
       checkConstantValC mode fe cv
       if stdAxiomOkF fe cv then
@@ -238,19 +239,8 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
         pure fe
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
-  | .basisDecl kind => checkBasisDeclC fe kind
   | .indDecl block nP => checkIndDeclC mode fe block nP
-  | .quotDecl k cv =>
-    -- `checkDecl`'s twin (task #293): the `type` record installs the
-    -- pinned block whole, the other members install nothing, and a
-    -- record that does not match its pin is a positive decline.
-    if quotPinHit k cv then
-      (match k with
-       | .type => checkBasisDeclC fe .quotK
-       | _ => pure fe)
-    else throw (.notImplemented (match k with
-      | .sound => "quotient soundness axiom mismatch"
-      | _ => "quotient declaration mismatch"))
+  | .quotDecl k cv => checkQuotRecordC fe k cv
 
 /-! ## Names and durations for the driver's messages -/
 
@@ -267,7 +257,6 @@ def declCLabel : Declaration → String
   | .opaqueDecl cv _ => s!"opaque {cv.name}"
   | .axiomDecl cv => s!"axiom {cv.name}"
   | .indDecl b _ => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
-  | .basisDecl k => s!"basis block {repr k}"
   | .quotDecl _ cv => s!"quot {cv.name}"
 
 /-- One step of the converted-declaration fold: flush, then check. -/

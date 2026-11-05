@@ -340,16 +340,6 @@ inductive Declaration where
   official still unfolds theorems until
   https://github.com/leanprover/lean4/pull/14896.) -/
   | opaqueDecl (val : ConstantVal) (value : Expr)
-  /-- **The fold's own record for "install the pinned basis block"**
-  (task #293).  No frontend function produces one: the decoder emits
-  the file's records, `preparePrelude` reorders them, and it is
-  `checkDecl`'s `.indDecl` arm that RECOGNISES a block as one of the
-  five pinned ones (`basisPinHit`, up to `ConstantInfo.canon`) and its
-  `.quotDecl` arm that recognises the quotient package, both of which
-  install through this kind.  It stays a constructor of `Declaration`
-  because the install and every proof about it are written over the
-  kind. -/
-  | basisDecl (kind : BasisKind)
   /-- An inductive block: type formers, constructors and recursors,
   with **the parameter count the stream DECLARES** (task #228).
   Installed by the inductive installer (`checkBlock`).
@@ -370,14 +360,7 @@ inductive Declaration where
   one `quotDecl` per record: the constant the file declares and the
   slot it declares it at, and nothing else.  It mirrors official's
   `Declaration.quotDecl`, which is likewise the record's own kind and
-  not a basis decision.
-
-  What reaches the FOLD under this constructor is a quotient record
-  that is **not** the pinned package: `preparePrelude`
-  (`ConLeche/Frontend/Prepare.lean`) retags a record matching its pin
-  to `basisDecl .quotK`, so `checkDecl`'s arm here is the mismatch —
-  a positively detected unsupported feature, the decline the parser
-  used to issue. -/
+  not a basis decision. -/
   | quotDecl (kind : QuotKind) (val : ConstantVal)
   deriving DecidableEq, Repr, Inhabited
 
@@ -459,7 +442,6 @@ def names : Declaration → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
   | .quotDecl _ cv => [cv.name]
   | .indDecl block _ => block.map (·.name)
-  | .basisDecl _ => []
 
 end Declaration
 

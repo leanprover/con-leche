@@ -1122,26 +1122,35 @@ theorem checkReducePin_datF (env env2 : Env) (c : Name) (value : Expr)
     | rfl
     | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
 
-/-- The pinned-block install at a fuel datum.  Three of `checkDecl`'s
-arms share this body since task #293. -/
-theorem checkBasisDecl_datF (env : Env) (kind : BasisKind) (F : Nat) :
-    (checkBasisDecl (m := FueledM) env kind).val F =
-      checkBasisDecl (m := CheckM) env kind := by
-  unfold checkBasisDecl
-  dsimp only
-  by_cases hq : kind = .quotK
-  · rw [ite_eq_left hq, ite_eq_left hq]
-    by_cases he : env.find? eqName = some eqA
-    · rw [ite_eq_left he, ite_eq_left he, foldlM_atF]
-      simp only [installBasisDecl_datF]
-    · rw [ite_eq_right he, ite_eq_right he, FueledM.atF_bind]
-      simp only [FueledM.atF_throw]
-      congr 1
-      funext x
-      rw [foldlM_atF]
-      simp only [installBasisDecl_datF]
-  · rw [ite_eq_right hq, ite_eq_right hq, foldlM_atF]
+/-- A pinned block's check and install at a fuel datum. -/
+theorem checkBasisBlock_datF (env : Env) (kind : BasisKind) (block : List ConstantInfo) (F : Nat) :
+    (checkBasisBlock (m := FueledM) env kind block).val F =
+      checkBasisBlock (m := CheckM) env kind block := by
+  unfold checkBasisBlock
+  by_cases h : pinListOk block kind.decls = true
+  · rw [ite_eq_left h, ite_eq_left h, foldlM_atF]
     simp only [installBasisDecl_datF]
+  · rw [ite_eq_right h, ite_eq_right h, FueledM.atF_bind]
+    simp only [FueledM.atF_throw]
+    rfl
+
+/-- A quotient record's check and install at a fuel datum. -/
+theorem checkQuotRecord_datF (env : Env) (k : QuotKind) (cv : ConstantVal) (F : Nat) :
+    (checkQuotRecord (m := FueledM) env k cv).val F =
+      checkQuotRecord (m := CheckM) env k cv := by
+  unfold checkQuotRecord
+  by_cases h : quotPinHit k cv = true
+  · rw [ite_eq_left h, ite_eq_left h]
+    by_cases h2 : quotPredsOk env.find? k cv.levelParams = true
+    · rw [ite_eq_left h2, ite_eq_left h2]
+      exact installBasisDecl_datF _ _ _
+    · rw [ite_eq_right h2, ite_eq_right h2, FueledM.atF_bind]
+      simp only [FueledM.atF_throw]
+      rfl
+  · rw [ite_eq_right h, ite_eq_right h, FueledM.atF_bind]
+    simp only [FueledM.atF_throw]
+    rfl
+
 
 theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
     (checkDecl mode (fueledOpsM mode) pins env d).val F =
@@ -1186,33 +1195,22 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
       | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
   | axiomDecl cv =>
     dsimp only
-    -- the `Quot.sound` comparison (task #293) is a pure guard
     by_cases hqs : cv.name = quotSoundName
     · rw [ite_eq_left hqs, ite_eq_left hqs]
-      simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
+      exact checkQuotRecord_datF env .sound cv F
     · rw [ite_eq_right hqs, ite_eq_right hqs]
       rw [FueledM.atF_bind, checkConstantVal_datF]
       congr 1
       funext cv
       simp only [FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
-  | basisDecl kind => exact checkBasisDecl_datF env kind F
-  | quotDecl k cv =>
-    dsimp only
-    -- the pin comparison (task #293) is a pure guard
-    by_cases hp : quotPinHit k cv = true
-    · rw [ite_eq_left hp, ite_eq_left hp]
-      cases k
-      · exact checkBasisDecl_datF env .quotK F
-      all_goals simp only [FueledM.atF_pure]
-    · rw [ite_eq_right hp, ite_eq_right hp]
-      simp only [FueledM.atF_throw]
+  | quotDecl k cv => exact checkQuotRecord_datF env k cv F
   | indDecl block nP =>
     dsimp only
     -- the pinned-block recognition (task #293) and the declared
     -- parameter count (task #228) are pure guards: the two sides take
     -- the same branch, and the guards' `throw` is fuel-free
     split
-    · exact checkBasisDecl_datF env _ F
+    · exact checkBasisBlock_datF env _ block F
     · split
       · split
         · exact checkBlock_datF env block _ F

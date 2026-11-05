@@ -134,7 +134,6 @@ theorem valueStep_of_deferred {pd : Declaration} (h : deferredDecl pd = true) (W
     have h' : reduceOpNames.contains cv.name = true := h
     simp only [valueStep, h', ↓reduceIte]
   | axiomDecl _ => rfl
-  | basisDecl _ => rfl
   | quotDecl _ _ => rfl
   | indDecl _ _ => rfl
 
@@ -159,7 +158,6 @@ theorem valueStep_of_not_deferred {pd : Declaration} (h : deferredDecl pd = fals
     rw [ite_eq_right h']
     exact nofun
   | axiomDecl _ => exact nomatch h
-  | basisDecl _ => exact nomatch h
   | quotDecl _ _ => exact nomatch h
   | indDecl _ _ => exact nomatch h
 
@@ -172,13 +170,10 @@ def storedStep (mode : CheckMode) (W : FEnv) : Declaration → List ConstantInfo
   | .thmDecl cv _ => ([.thmInfo cv], [])
   | .opaqueDecl cv _ => ([.axiomInfo cv], [])
   | .axiomDecl cv =>
-    if cv.name = sorryAxName ∨ cv.name = quotSoundName then ([], [])
+    if cv.name = quotSoundName then ([quotAt .sound cv], [])
+    else if cv.name = sorryAxName then ([], [])
     else ([.axiomInfo cv], [])
-  | .basisDecl kind => (kind.declsA, [])
-  | .quotDecl k _ =>
-    match k with
-    | .type => (BasisKind.quotK.declsA, [])
-    | _ => ([], [])
+  | .quotDecl k cv => ([quotAt k cv], [])
   | .indDecl block nP => storedInstall mode W block nP
 
 /-- **A record's install at a worker view**: a value record guarded, with

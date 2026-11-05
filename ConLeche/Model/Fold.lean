@@ -166,7 +166,6 @@ theorem declStep_preserves
     subst henv2
     exact (harvestOpaque mp hrun).covered hcov
   | axiomDecl cv => exact (axiomStepPB_of mp hrun).covered hcov
-  | basisDecl kind => exact (basisStepPB_of mp hrun).covered hcov
   | quotDecl k cv =>
     -- task #293: the quotient package's `type` record installs the
     -- pinned block; its other records install nothing

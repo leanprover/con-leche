@@ -28,13 +28,13 @@ open BasisDSL
 def quotRel : Expr := piA (bv 0) (piA (bv 1) prop)
 
 /-- `Quot.{u} {α : Sort u} (r : α → α → Prop) : Sort u`. -/
-def quotRaw : ConstantInfo :=
+def quotA : ConstantInfo :=
   .indInfo ⟨quotName, [uN],
     piI "α" (srt u) <|
     pi "r" quotRel (srt u)⟩ { sortZ := Level.zeronessOf u }
 
 /-- `Quot.mk.{u} {α : Sort u} (r : α → α → Prop) (a : α) : Quot α r`. -/
-def quotMkRaw : ConstantInfo :=
+def quotMkA : ConstantInfo :=
   .ctorInfo ⟨quotMkName, [uN],
     piI "α" (srt u) <|
     pi "r" quotRel <|
@@ -54,7 +54,7 @@ def quotLiftH : Expr :=
 
 /-- `Quot.lift.{u, v} {α : Sort u} {r : α → α → Prop} {β : Sort v}
 (f : α → β) (h : ∀ a b, r a b → f a = f b) (q : Quot α r) : β`. -/
-def quotLiftRaw : ConstantInfo :=
+def quotLiftA : ConstantInfo :=
   .recInfo ⟨quotLiftName, [uN, vN],
     piI "α" (srt u) <|
     piI "r" quotRel <|
@@ -84,7 +84,7 @@ def quotIndMk : Expr :=
 
 /-- `Quot.ind.{u} {α : Sort u} {r : α → α → Prop} {β : Quot α r → Prop}
 (mk : ∀ a, β (Quot.mk α r a)) (q : Quot α r) : β q`. -/
-def quotIndRaw : ConstantInfo :=
+def quotIndA : ConstantInfo :=
   .recInfo ⟨quotIndName, [uN],
     piI "α" (srt u) <|
     piI "r" quotRel <|
@@ -101,7 +101,7 @@ def quotIndRaw : ConstantInfo :=
 
 /-- `Quot.sound.{u} {α : Sort u} {r : α → α → Prop} {a b : α} :
 r a b → Quot.mk α r a = Quot.mk α r b`. -/
-def quotSoundRaw : ConstantInfo :=
+def quotSoundA : ConstantInfo :=
   .axiomInfo ⟨quotSoundName, [uN],
     piI "α" (srt u) <|
     piI "r" quotRel <|
@@ -115,6 +115,6 @@ def quotSoundRaw : ConstantInfo :=
 
 /-- The pinned `Quot` basis block, in install order. -/
 def quotBasis : List ConstantInfo :=
-  [quotRaw, quotMkRaw, quotLiftRaw, quotIndRaw, quotSoundRaw]
+  [quotA, quotMkA, quotLiftA, quotIndA, quotSoundA]
 
 end ConLeche

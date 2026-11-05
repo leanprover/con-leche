@@ -1221,9 +1221,9 @@ theorem extendEqRec (mp : EnvModelM V env)
 so the one that consumes the install's exposed `acval`. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
-      ConLeche.BasisKind.eqK.declsA env₁) :
+      ConLeche.BasisKind.eqK.decls env₁) :
     CoverStep mp env₁ := by
-  rw [show ConLeche.BasisKind.eqK.declsA = [eqA, eqReflA, eqRecA]
+  rw [show ConLeche.BasisKind.eqK.decls = [eqA, eqReflA, eqRecA]
     from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
   subst hnil

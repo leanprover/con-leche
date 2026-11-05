@@ -18,19 +18,19 @@ namespace ConLeche
 open BasisDSL
 
 /-- `Empty : Type`. -/
-def emptyRaw : ConstantInfo :=
+def emptyA : ConstantInfo :=
   .indInfo ⟨emptyName, [], type1⟩ { sortZ := Level.zeronessOf (Level.succ Level.zero), all := [emptyName] }
 
 /-- `Empty.rec.{u} (motive : Empty → Sort u) (t : Empty) : motive t`.
 The exporter emits the motive as an *explicit* binder here (there is
 no major premise to infer it from). -/
-def emptyRecRaw : ConstantInfo :=
+def emptyRecA : ConstantInfo :=
   .recInfo ⟨emptyName.str "rec", [uN],
     pi "motive" (pi "t" (cnst emptyName) (srt u)) <|
     pi "t" (cnst emptyName) (.app (bv 1) (bv 0))⟩
     1 1 false []
 
 /-- The pinned `Empty` basis block, in install order. -/
-def emptyBasis : List ConstantInfo := [emptyRaw, emptyRecRaw]
+def emptyBasis : List ConstantInfo := [emptyA, emptyRecA]
 
 end ConLeche

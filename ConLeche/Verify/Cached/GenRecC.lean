@@ -1561,7 +1561,7 @@ block goes to `checkBlockKS`, every other one
 declines (`checkShapelessS`), and the pure fueled `checkDecl`
 reproduces the run. -/
 theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
-    {block : List ConstantInfo} {nP : Nat} (hpin : basisPinHit block = none)
+    {block : List ConstantInfo} {nP : Nat} (hpin : basisNameHit block = none)
     (hok : indParamsOk nP block = true)
     {s₀ : CState} (hwf : CSOKF s₀)
     {feOut : FEnv} {s' : CState}
@@ -1575,8 +1575,8 @@ theorem checkModeledOrNativeSF_run {env : Env} (henv : EnvWF env)
   -- the declared parameter count (task #228) is a pure guard shared by
   -- the two drivers: `hok` is the branch both take
   show CSOKF s' ∧ feOut = mkFEnv feOut.env ∧
-    ∃ F, (match basisPinHit block with
-      | some kind => checkBasisDecl (m := CheckM) env kind
+    ∃ F, (match basisNameHit block with
+      | some kind => checkBasisBlock (m := CheckM) env kind block
       | none =>
         if indParamsOk nP block = true then
           (match blockParts? nP block with

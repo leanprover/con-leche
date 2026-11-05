@@ -47,6 +47,6 @@ content is proved once in the model (`Model/Basis*.lean`), not by
 per-install premises. -/
 def DeclBasisRun (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
   (kind = .quotK → env.find? eqName = some eqA) ∧
-  BasisInstallRun env kind.declsA env₂
+  BasisInstallRun env kind.decls env₂
 
 end ConLeche.Semantics

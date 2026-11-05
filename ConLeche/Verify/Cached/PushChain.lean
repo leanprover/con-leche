@@ -437,22 +437,29 @@ theorem installBasisDeclF_push {env : Env} {fe : FEnv} (h : PushChain env fe)
   yields
   all_goals exact Yields.pure (h.push (Option.isNone_iff_eq_none.mp (by assumption)))
 
-/-- The pinned-block install pushes onto the chain (task #293: three of
-`checkDeclC`'s arms share this body). -/
-theorem checkBasisDeclC_push {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (kind : BasisKind) :
-    Yields (checkBasisDeclC fe kind) (fun fe' => PushChain env fe') := by
+/-- A pinned block's install pushes onto the chain. -/
+theorem checkBasisBlockC_push {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (kind : BasisKind) (block : List ConstantInfo) :
+    Yields (checkBasisBlockC fe kind block) (fun fe' => PushChain env fe') := by
   have hfold : ∀ (fe' : FEnv), PushChain env fe' →
-      Yields (kind.declsA.foldlM installBasisDeclF fe')
+      Yields ((kind.atBlock block).foldlM installBasisDeclF fe')
         (fun x => PushChain env x) :=
     fun fe' h' =>
       Yields.foldlM_rel (R := fun fe (_ : Unit) => PushChain env fe)
         (g := fun u _ => u)
         (fun acc ci _ hacc => installBasisDeclF_push hacc ci)
-        kind.declsA fe' () h'
-  unfold checkBasisDeclC
+        (kind.atBlock block) fe' () h'
+  unfold checkBasisBlockC
   yields
   all_goals exact hfold fe h
+
+/-- A quotient record's install pushes onto the chain. -/
+theorem checkQuotRecordC_push {env : Env} {fe : FEnv}
+    (h : PushChain env fe) (k : QuotKind) (cv : ConstantVal) :
+    Yields (checkQuotRecordC fe k cv) (fun fe' => PushChain env fe') := by
+  unfold checkQuotRecordC
+  yields
+  all_goals exact installBasisDeclF_push h _
 
 theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     (h : PushChain env fe) (pd : Declaration) :
@@ -499,24 +506,12 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
       all_goals first
         | (apply Yields.pure; exact h.push hfr)
         | exact absurd (by assumption) ht
-  | basisDecl kind => exact checkBasisDeclC_push h kind
-  | quotDecl k cv =>
-    -- task #293: the `type` record installs the pinned block, the other
-    -- members install nothing
-    simp only []
-    cases k <;>
-      (split
-       · first
-         | exact checkBasisDeclC_push h .quotK
-         | exact Yields.pure h
-       · exact Yields.ofThrow)
+  | quotDecl k cv => exact checkQuotRecordC_push h k cv
   | indDecl block nP =>
     simp only []
     unfold checkIndDeclC
-    -- task #293: a block the fold recognises as a pinned one installs
-    -- the pin
     split
-    · exact checkBasisDeclC_push h _
+    · exact checkBasisBlockC_push h _ _
     · split
       · cases hbp : blockParts? nP block with
         | none => exact Yields.bind fun _ => Yields.ofThrow
@@ -561,7 +556,6 @@ theorem installStepC_push (mode : CheckMode) (i : Nat) {env : Env} {fe : FEnv}
     · refine Yields.bind' (installGuardsC_fresh fe cv value) fun _ hfr => ?_
       exact Yields.pure ⟨h.push hfr, _, Array.toList_push⟩
   | axiomDecl cv => exact hord _
-  | basisDecl kind => exact hord _
   | quotDecl k cv => exact hord _
   | indDecl block nP => exact hord _
 

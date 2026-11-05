@@ -198,7 +198,6 @@ def DeclRun (F : Nat)
   | .thmDecl cv value, env₂ => DeclThmRun F env cv value env₂
   | .opaqueDecl cv value, env₂ => DeclOpaqueRun F env cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomRun F env cv env₂
-  | .basisDecl kind, env₂ => DeclBasisRun env kind env₂
   -- **The pinned blocks are recognised in the FOLD** (task #293): a
   -- stream block that IS one of the five pins installs the pin, and the
   -- quotient package's `type` record installs the sixth (its other

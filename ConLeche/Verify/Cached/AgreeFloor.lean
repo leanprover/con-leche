@@ -889,24 +889,60 @@ theorem tolerated_ne_std {n : Name}
 
 /-! ### The cached certified declaration clause -/
 
-/-- The pinned-block install's skeleton reading, shared by the three
-arms that install one (task #293). -/
-theorem checkBasisDeclC_skels {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (kind : BasisKind) :
-    Yields (checkBasisDeclC fe kind)
+/-- A constant at other level-parameter names has its skeleton. -/
+theorem ciSkel_atLps (ci : ConstantInfo) (ps : List Name) : ciSkel (ci.atLps ps) = ciSkel ci := by
+  cases ci <;> rfl
+
+/-- A pinned block's comparison passed: what it installs reads as the
+pin's skeletons. -/
+theorem atBlock_skels : ∀ {block pins : List ConstantInfo} (sk : List InstallSkel),
+    listBeqBy pinCopyOk block pins = true →
+    (List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) pins block).foldl
+        (fun acc ci => ciSkel ci :: acc) sk
+      = pins.foldl (fun acc ci => ciSkel ci :: acc) sk
+  | [], [], _, _ => rfl
+  | c :: cs, p :: ps, sk, h => by
+    simp only [listBeqBy, Bool.and_eq_true] at h
+    simp only [List.zipWith_cons_cons, List.foldl_cons, ciSkel_atLps]
+    exact atBlock_skels _ h.2
+  | [], _ :: _, _, h => by simp [listBeqBy] at h
+  | _ :: _, [], _, h => by simp [listBeqBy] at h
+
+/-- A pinned block's install's skeleton reading. -/
+theorem checkBasisBlockC_skels {fe : FEnv}
+    {sk : List InstallSkel} (h : SkelIs fe sk) (kind : BasisKind) (block : List ConstantInfo) :
+    Yields (checkBasisBlockC fe kind block)
       (fun fe' => SkelIs fe'
-        (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk)) := by
+        (kind.decls.foldl (fun acc ci => ciSkel ci :: acc) sk)) := by
   have hfold : ∀ (fe' : FEnv) (sk' : List InstallSkel), SkelIs fe' sk' →
-      Yields (kind.declsA.foldlM installBasisDeclF fe')
+      Yields ((kind.atBlock block).foldlM installBasisDeclF fe')
         (fun x => SkelIs x
-          (kind.declsA.foldl (fun acc ci => ciSkel ci :: acc) sk')) :=
+          ((kind.atBlock block).foldl (fun acc ci => ciSkel ci :: acc) sk')) :=
     fun fe' sk' h' =>
       Yields.foldlM_rel (R := SkelIs) (g := fun acc ci => ciSkel ci :: acc)
         (fun acc ci sk'' hacc => installBasisDeclF_skels hacc ci)
-        kind.declsA fe' sk' h'
-  unfold checkBasisDeclC
+        (kind.atBlock block) fe' sk' h'
+  unfold checkBasisBlockC
+  by_cases hok : pinListOk block kind.decls = true
+  · rw [ite_eq_left hok]
+    simp only [pinListOk, Bool.and_eq_true] at hok
+    have := hfold fe sk h
+    have e : (kind.atBlock block).foldl (fun acc ci => ciSkel ci :: acc) sk = _ := atBlock_skels sk hok.1
+    rw [e] at this
+    exact this
+  · rw [ite_eq_right hok]
+    exact Yields.ofThrowBind
+
+/-- A quotient record's install's skeleton reading. -/
+theorem checkQuotRecordC_skels {fe : FEnv} {sk : List InstallSkel} (h : SkelIs fe sk)
+    (k : QuotKind) (cv : ConstantVal) :
+    Yields (checkQuotRecordC fe k cv) (fun fe' => SkelIs fe' (ciSkel (quotPin k) :: sk)) := by
+  unfold checkQuotRecordC
   yields
-  all_goals exact hfold fe sk h
+  all_goals
+    have := installBasisDeclF_skels h (quotAt k cv)
+    rw [show quotAt k cv = (quotPin k).atLps cv.levelParams from rfl, ciSkel_atLps] at this
+    exact this
 
 theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (pd : Declaration) :
@@ -939,49 +975,33 @@ theorem checkDeclC_skels (mode : CheckMode) {fe : FEnv}
     · exact Yields.ofThrow
   | axiomDecl cv =>
     simp only []
-    -- task #293: `Quot.sound` is compared with the pin and installs
-    -- nothing of its own
     by_cases hqs : cv.name = quotSoundName
-    · rw [ite_eq_left hqs, ite_eq_left (Or.inr hqs)]
-      split
-      · exact Yields.pure h
-      · exact Yields.ofThrow
+    · rw [ite_eq_left hqs, ite_eq_right (by rw [hqs]; decide)]
+      have := checkQuotRecordC_skels h .sound cv
+      rw [show ciSkel (quotPin .sound) = .ax cv.name by rw [hqs]; rfl] at this
+      exact this
     · rw [ite_eq_right hqs]
       ybind
       by_cases ht : cv.name = sorryAxName
-      · rw [ite_eq_left (Or.inl ht),
+      · rw [ite_eq_left ht,
           ite_eq_right (by rw [tolerated_not_std fe cv ht]; exact Bool.false_ne_true),
           ite_eq_right (tolerated_ne_trust ht), ite_eq_right (tolerated_ne_ofReduce ht),
           ite_eq_right (tolerated_ne_std ht), ite_eq_left ht]
         exact Yields.pure h
-      · have hne : ¬(cv.name = sorryAxName ∨ cv.name = quotSoundName) := by
-          rintro (h' | h')
-          · exact ht h'
-          · exact hqs h'
-        rw [ite_eq_right hne]
+      · rw [ite_eq_right ht]
         yields
         all_goals first
           | (apply Yields.pure; exact h.push _)
           | exact absurd (by assumption) ht
-  | basisDecl kind => exact checkBasisDeclC_skels h kind
-  | quotDecl k cv =>
-    -- task #293: the `type` record installs the pinned block, the
-    -- other members install nothing, a mismatch throws
-    simp only []
-    cases k <;>
-      (split
-       · first
-         | exact checkBasisDeclC_skels h .quotK
-         | exact Yields.pure h
-       · exact Yields.ofThrow)
+  | quotDecl k cv => exact checkQuotRecordC_skels h k cv
   | indDecl block nP =>
     simp only []
     unfold checkIndDeclC
-    -- task #293: a block the fold recognises as a pinned one installs
-    -- the pin; the declared parameter count (task #228) below it is a
-    -- guard whose `throw` installs nothing
+    -- a block with a pinned block's names is that block's; the declared
+    -- parameter count (task #228) below it is a guard whose `throw`
+    -- installs nothing
     split
-    next kind hk => rw [hk]; exact checkBasisDeclC_skels h kind
+    next kind hk => rw [hk]; exact checkBasisBlockC_skels h kind block
     next hk =>
       rw [hk]
       split
@@ -1062,7 +1082,6 @@ theorem installStepC_skels (mode : CheckMode) (i : Nat) {fe : FEnv}
       show SkelIs (fe.push (.axiomInfo cv)) (.ax cv.name :: sk)
       exact h.push _
   | axiomDecl cv => exact hord _
-  | basisDecl kind => exact hord _
   | quotDecl k cv => exact hord _
   | indDecl block nP => exact hord _
 
