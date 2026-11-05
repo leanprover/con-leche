@@ -98,20 +98,24 @@ def OleanRead.thmUses (rd : OleanRead) : Declaration → Option (Array Name)
 start from, as lean4export's arguments after `--` do; `none` is every constant of the
 closure. -/
 def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
-    (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1) :
-    μ (Except (CheckError × Nat) OleanRead) := do
-  match ← loadClosure sp roots jobs with
+    (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1)
+    (stride : Nat := 0) : μ (Except (CheckError × Nat) OleanRead) := do
+  let n ← CheckerIO.liftIO (ReadNotes.new stride)
+  match ← loadClosure sp n roots jobs with
   | .error e => pure (.error (e, 0))
   | .ok ls =>
+    CheckerIO.liftIO (n.say s!"merging the constants of {ls.size} modules")
     match mergeAll ls with
     | .error e => pure (.error (e, 0))
     | .ok mg =>
+      CheckerIO.liftIO (n.say s!"checking the blocks of {mg.order.size} constants")
       match blocksOk mg with
       | .error e => pure (.error (e, 0))
       | .ok () =>
         match rootConstants mg constants with
         | .error e => pure (.error (e, 0))
         | .ok cs =>
+          CheckerIO.liftIO (n.say s!"emitting records from {cs.size} constants")
           match declsOf (emitAll mg cs) with
           | .error e => pure (.error e)
           | .ok ds =>

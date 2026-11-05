@@ -166,6 +166,17 @@ case_grep "a theorem's value of no expression's shape: found by the load" 3 "mal
 case_ "…with --constant too" 3 --olean --constant=other --search-path=$d LazyVal
 rm -rf "$d"
 
+# --- what --progress says of the read (task #484) ----------------------
+for line in "read: tracing the import closure" "read: loading 1 modules" "read: loaded 1/1 modules" \
+    "read: merging the constants of 1 modules" "read: checking the blocks of" \
+    "read: emitting records from"; do
+  case_grep "--progress: $line" 0 "$line" --progress --olean --search-path=$LIB PrivUnused
+done
+total=$((total+1))
+if timeout 60 "$BIN" --olean --search-path=$LIB PrivUnused 2>&1 | grep -q "read:"; then
+  echo "OLEAN FAIL (no --progress, no read: lines)"; fail=1
+else ok=$((ok+1)); fi
+
 # --- corrupted files ----------------------------------------------------
 # Each case copies the fixtures and changes bytes of Tiny's files.
 # patch <file> <python expression over b (bytearray), base, root>

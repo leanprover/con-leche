@@ -52,11 +52,11 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | name | theorem |
 |---|---|
 | `closureOrder sp roots : μ (Except CheckError (Array Name))` | `closureOrder_ok`: holds the roots, each module after its imports |
-| `loadClosure sp roots jobs : μ (Except CheckError (Array Loaded))`, a theorem's value left in the file | `loadAt_spec`, through `readOleans_ok` |
+| `loadClosure sp n roots jobs : μ (Except CheckError (Array Loaded))`, a theorem's value left in the file | `loadAt_spec`, through `readOleans_ok` |
 | `mergeAll ls : Except CheckError Merged` | `mergeAll_ok`: every constant stands in the merge |
 | `blocksOk mg : Except CheckError Unit` | `blocksOk_good`: the stored constants' blocks agree |
 | `emitAll mg rs : Emit`, `declsOf em` | `emitAll_spec`, `emitAll_covers` (visited means declared), `declsOf_thm`, `declsOf_from` |
-| `readOleans sp roots constants jobs : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleans_ok`, `readOleans_thm`, `readOleans_filled` |
+| `readOleans sp roots constants jobs stride : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleans_ok`, `readOleans_thm`, `readOleans_filled` |
 | `readValue sp values c code : μ (ValueCache × Except CheckError Expr)`, what a reference stands for | `readOleans_filled`, `checkMainG_oleans_accept` |
 | `readOleansFull sp roots constants jobs : μ (Except (CheckError × Nat) (Array Declaration))`, with every value read, for the tools that compare records | |
 

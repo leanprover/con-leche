@@ -119,7 +119,10 @@ phases), `persistent mark`, `check done` and a
 `done:` summary with the three phase durations and the worker count
 (bare, the stride is 1); on more than one worker, each `install` and
 `check` line ends with the number of busy workers and the oldest record
-one of them is on, with its age.
+one of them is on, with its age. With `--olean` the parse is preceded by
+`read:` lines, each with the time and the resident set: the import closure traced, the modules
+loading, one line per twentieth of them, then the merge, the blocks and the emission, so that a run
+that does not get through the read says how far it got and at what size.
 With or without the flag, every run closes its stderr with a few
 `stats:` lines: the phase times; per phase (the install pool or the
 one-thread install, the check pool or its one worker) the wall time,
@@ -628,7 +631,7 @@ value. So the load
 ([function `loadAt` in `ConLeche/Frontend/Olean/Lazy.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Lazy.lean#L281))
 reads everything of a module except those values, and a theorem's record holds a reference to
 where its value is stored. The check reads it
-([function `readValue` in `ConLeche/Frontend/Olean/Records.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Records.lean#L148-L149)),
+([function `readValue` in `ConLeche/Frontend/Olean/Records.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Records.lean#L152-L153)),
 with a memo of its own, and drops it at the end. A worker keeps the region of the module it
 read last, and the checks of one module are next to each other in the records. Two things the
 load keeps for this. What each constant mentions is read off the file without building

@@ -387,9 +387,9 @@
 == ConLeche/Frontend/Olean/Lazy.lean#L281
    281  def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
 
-== ConLeche/Frontend/Olean/Records.lean#L148-L149
-   148  def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
-   149      (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
+== ConLeche/Frontend/Olean/Records.lean#L152-L153
+   152  def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)
+   153      (c : ValueCache) (code : Nat) : μ (ValueCache × Except CheckError Expr) := do
 
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where

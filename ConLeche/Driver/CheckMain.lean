@@ -88,14 +88,14 @@ def Input.label : Input → String
 (`parseStreamG`), or the closure's, by the `.olean` reader
 (`Frontend.Olean.readOleans`), whose theorems hold references to their values, with what
 their checks need to read them. -/
-def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (jobs : Nat) :
+def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (stride jobs : Nat) :
     μ (Except (CheckError × Nat)
       (Array Declaration × Option (List System.FilePath × Frontend.Olean.OleanRead))) :=
   match inp with
   | .ndjson file => do
     return (← parseStreamG file jobs).map fun r => (r.decls, none)
   | .oleans sp roots cs => do
-    return (← Frontend.Olean.readOleans sp roots cs jobs).map fun rd => (rd.decls, some (sp, rd))
+    return (← Frontend.Olean.readOleans sp roots cs jobs stride).map fun rd => (rd.decls, some (sp, rd))
 
 /-- What a record mentions, for the preparation: the record's expressions say it, except a
 theorem's read from an `.olean`, whose load read it off the file. -/
@@ -314,7 +314,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match ← readInputG input jobs with
+    match ← readInputG input stride jobs with
     | .error (.notImplemented what, _) =>
       diagLine s!"con-leche: declined: {what} ({modeTag})"
       return 2
