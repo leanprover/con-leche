@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== ConLeche/Driver/Cli.lean#L97
-    97  def usage : String := String.intercalate "\n" [
+== ConLeche/Driver/Cli.lean#L107
+   107  def helpText : String := String.intercalate "\n" [
 
 == ConLeche/Driver/CheckMain.lean#L36
     36  def ConLeche.CheckError.exitCode : CheckError → UInt8
@@ -1296,8 +1296,8 @@
    236        else if cv.name = sorryAxName then
    237          pure fe
 
-== ConLeche/Driver/Cli.lean#L131
-   131    "  --jobs=<n>        the number of worker threads (default: the",
+== ConLeche/Driver/Cli.lean#L115
+   115    "  --jobs=N            Worker threads (default: one per hardware thread)",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
@@ -1374,8 +1374,8 @@
    241        c.toConstantVal.levelParams = cv.levelParams ∧
    242        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L446
-   446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L233
+   233  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == ConLeche/Frontend/CheckerIO.lean#L122
    122  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -1397,8 +1397,8 @@
 == Main.lean#L84
     84  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L446
-   446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L233
+   233  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L29
     29  def enableAbortOnNonlinear : IO Unit := do
@@ -1450,7 +1450,7 @@
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 == ConLeche/Driver/Cli.lean#L114
-   114    "  --trusted         the unverified mode: the SAME checker bodies as",
+   114    "  --trusted           Skip the checks only the proof needs; outside the theorem",
 
 == ConLeche/Frontend/Olean/View.lean#L81
     81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do

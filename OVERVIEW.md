@@ -31,12 +31,22 @@ outside the theorem; `--jobs=<n>` sets the check phase's worker count
 file, looked up in the directories `--search-path` lists, and checks every constant of their
 import closure, or with `--constant` only the named constants and what they mention (§2, the
 `.olean` reader); `--` ends the options, every argument after it being a
-file or a module, whatever it is called; `--help` before any `--` prints the usage text
+file or a module, whatever it is called; `--help` before any `--` prints a summary of all this
 and exits 0
-([the usage text in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L97)).
-Any other option is a usage error: the run reports it, prints the
-usage text and exits 3 without reading its input, so a verdict's
+([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L107)).
+Any other option is a usage error: the run reports it, points at
+`--help` and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
+
+A name's component in `«»` is taken literally
+(`Challenge.«12.34».«5»`); in a `--constant` name, an unescaped component of
+digits is a number (`_private.M.0.foo`). A `--constant` the closure does not hold is
+an error (exit 3). `--search-path` takes the directories as `LEAN_PATH` lists them
+and may be repeated; every module is looked up in all of them. Its files
+(`M.olean` and, for a module of the module system, exactly `M.olean.server`
+and `M.olean.private` beside it) must be in one directory, counted once
+however often it is reached; a module in two places or a missing, stray or
+split part is an error (exit 3).
 
 The exit code follows the lean kernel arena convention
 ([the exit-code mapping in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L36)):
@@ -52,7 +62,10 @@ The distinction between 1 and 2 is deliberate: a reject is a verdict
 about the input, a decline is a statement about the checker. A decline
 is never used for "something unexpectedly went wrong"; that is exit 3,
 which verification is meant to make rare. Only exit 0 carries the
-theorem's guarantee. An internal panic is not a verdict either, and
+theorem's guarantee. The count `N` is a property of the input: a prelude
+declaration counts only where the input has its own record of it. The official kernel's `Accepted N
+declarations` counts an inductive record as its members, so it is larger;
+`scripts/stream-census.py` derives both numbers from a stream. An internal panic is not a verdict either, and
 does not end with one of these codes: the binary sets
 `LEAN_ABORT_ON_PANIC` and `LEAN_ABORT_ON_NONLINEAR` for itself at
 start-up, so every panic — the runtime's `INTERNAL PANIC: out of

@@ -94,256 +94,43 @@ def jobsCount (v : String) : Except String Nat :=
       (a decimal numeral of at least 1), got {Display.str v}"
 
 
-def usage : String := String.intercalate "\n" [
-  "usage: con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] [--] FILE.ndjson",
-  "       con-leche [flags] --olean --search-path=DIR[:DIR...] [--] MODULE...",
-  "       con-leche --help",
-  "",
-  "  --verified        the default, and the mode the main theorem is",
-  "                    about.  Beyond the official kernel's checks it",
-  "                    runs the work the soundness proof consumes: the",
-  "                    bodies' types compared at the innermost level of",
-  "                    a lambda/lambda comparison and at the eta rule,",
-  "                    the projection certificate and the certificate",
-  "                    families (iota's case 3, the K and And rescues).",
-  "                    Internal inference is the official",
-  "                    kernel's infer_only.  The theorem: a file that",
-  "                    declares a theorem of type False is never",
-  "                    accepted in this mode (no_False_declaration,",
-  "                    ConLeche/MainTheorem.lean)",
-  "  --trusted         the unverified mode: the SAME checker bodies as",
-  "                    --verified, instantiated at the mode with the",
-  "                    certification-only work switched off (the",
-  "                    verifiedChecks mode function false):",
-  "                    the lambda/lambda and eta body-type comparisons,",
-  "                    the projection certificate and the certificate",
-  "                    families (at iota's case 3 the level, parameter",
-  "                    and index comparisons and the telescope",
-  "                    certificate; the K and And rescues' proof",
-  "                    checks) are",
-  "                    omitted; every official check stays.  Everything",
-  "                    believed necessary for SOUNDNESS stays, which is",
-  "                    not the same as necessary for the soundness proof",
-  "                    to go through: an accept in this mode is outside",
-  "                    the theorem.  The mode is never optimized on its",
-  "                    own — it is the verified mode with certain steps",
-  "                    omitted",
-  "  --jobs=<n>        the number of worker threads (default: the",
-  "                    machine's hardware thread count).",
-  "                    At <n> > 1 the PARSE runs on <n> owner threads,",
-  "                    a window of chunks of whole lines at a time;",
-  "                    its result is the one-thread parse's, and a",
-  "                    window it cannot take is parsed serially.",
-  "                    The run has two phases: the INSTALL phase",
-  "                    installs the records in stream order (a",
-  "                    definition or opaque passes the syntactic",
-  "                    guards of its type and value, a theorem those",
-  "                    of its type, and each is pushed with its check",
-  "                    recorded; everything else",
-  "                    is checked in full as it is installed).  At",
-  "                    <n> > 1 the records are installed on <n> worker",
-  "                    threads, each against a view of the records",
-  "                    before it, while the main thread commits them in",
-  "                    stream order (and installs any record it reaches",
-  "                    before a worker has): the installed environment",
-  "                    is the one-thread install's at every <n>.  The",
-  "                    CHECK phase checks every",
-  "                    recorded declaration against the prefix of the",
-  "                    installed environment it was installed at, from a",
-  "                    fresh memo state.  The recorded checks are",
-  "                    independent of one another, so the check phase",
-  "                    runs on <n> threads: long-lived workers claim",
-  "                    one record at a time off one shared counter, so",
-  "                    that a cluster of heavy declarations is spread",
-  "                    over the pool, and the results are merged by record",
-  "                    index and walked in record order, so the verdict",
-  "                    -- and the declaration a rejection names, the",
-  "                    first failing one in fold order -- is the same at",
-  "                    every <n>.  Without the flag <n> is the machine's",
-  "                    hardware thread count; --jobs=1 runs ONE worker",
-  "                    with no shared counter and no result table (the",
-  "                    sequential lane a measurement is made on), but",
-  "                    it is still a worker THREAD: the check phase",
-  "                    allocates its per-record memo state out of the",
-  "                    running thread's heap, and the main thread's",
-  "                    heap is the one parse and install have just",
-  "                    fragmented, which at Mathlib scale costs the",
-  "                    lane a factor of two in wall time at the same",
-  "                    instruction count.  0 or a non-numeral is a",
-  "                    usage error.",
-  "                    At --jobs=1 the parse and the install phase run",
-  "                    in the main thread alone.  ADDRESS",
-  "                    SPACE: each worker thread reserves about 1 GiB",
-  "                    of address space (its stack reservation, lazily",
-  "                    committed; the resident set grows by about",
-  "                    25 MB per worker), so a run under an address-",
-  "                    space limit (ulimit -v) must lower the count to",
-  "                    what the limit affords -- about ten workers",
-  "                    under 16 GB, four under 8 GB; past it the",
-  "                    runtime cannot create the thread and aborts",
-  "                    ('failed to create thread', exit 134).",
-  "                    The installed environment is marked PERSISTENT",
-  "                    once at the phase boundary, at every <n>: it is",
-  "                    read-only from there on, and the mark removes",
-  "                    the atomic reference counting the workers would",
-  "                    otherwise pay on every object of it -- worth",
-  "                    18-32 % of wall time on the pool, growing with",
-  "                    <n>, and 3.5 % at <n> = 1.",
-  "  --progress[=<stride>]",
-  "                    opt-in progress heartbeat on STDERR, one line",
-  "                    shape per phase:",
-  "                      con-leche: parse done: <N> fold records ... t=<s>s",
-  "                      con-leche: install <i>/<N> <decl> t=<s>s",
-  "                      con-leche: install done: <N>/<N> ..., <M> checks pending t=<s>s",
-  "                      con-leche: check <done>/<M> <decl> t=<s>s",
-  "                      con-leche: check done: <M>/<M> t=<s>s",
-  "                      con-leche: done: parse <p>s, install <i>s, check <c>s, <n> workers",
-  "                    An install line is printed BEFORE every",
-  "                    <stride>-th declaration is installed (<i> is its",
-  "                    FOLD position, which the stream's record index",
-  "                    sits near but not at a fixed offset above), so a",
-  "                    run that dies in the install phase names the",
-  "                    declaration it died in on its last line.  A check",
-  "                    line is printed AFTER every <stride>-th COMPLETED",
-  "                    check: <done> counts completed checks -- in the",
-  "                    pool, from whichever worker finished, monotone --",
-  "                    and <decl> is the one just completed; <M>, the",
-  "                    number of recorded checks, is below <N>.  t= is",
-  "                    the time since the run started, so a declaration",
-  "                    that sits for minutes is visible as a gap between",
-  "                    two lines.  On a failure the phase's closing line",
-  "                    says so ('install failed at', 'check failed at')",
-  "                    and the summary still prints.  Bare --progress is",
-  "                    stride 1 (every declaration announced, every",
-  "                    check reported).  Without the flag there is no",
-  "                    heartbeat; a stride that is not a decimal numeral,",
-  "                    or 0, is a usage error.  The flag may come before",
-  "                    or after the other flags.  On more than one",
-  "                    worker an install or check line ends with",
-  "                    'busy=<b>/<n>, oldest <decl> <age>s': how many",
-  "                    workers are on a record, and the one running",
-  "                    longest.",
-  "",
-  "                    The heartbeat is printed by the ONE driver: it",
-  "                    installs every record, then checks every recorded",
-  "                    declaration -- in one thread or on the pool --",
-  "                    and returns its environment with the proof that",
-  "                    checkDecls (the function the main theorem",
-  "                    ConLeche.model_exists is about) returns it;",
-  "                    what it prints in between does not touch that",
-  "                    type, so a run with the flag is covered exactly",
-  "                    as a run without it, and so is a run on the pool.",
-  "  --                the end of the options: every argument after it",
-  "                    is a file, whatever it is called.",
-  "  --olean           read the input from .olean files instead of a",
-  "                    lean4export stream: the arguments are root",
-  "                    modules (Init, Std, Mathlib, ...; a component in",
-  "                    «» is taken literally, as in Challenge.«12.34».«5»),",
-  "                    checked with every constant of their import closure.  The",
-  "                    closure is read at the private level (theorems",
-  "                    with proofs, definitions with bodies), merged as",
-  "                    Lean's own import merges it, and emitted as the",
-  "                    records lean4export would write, so the same",
-  "                    checker checks them.  Every object read is",
-  "                    validated, nothing in the files is trusted; a",
-  "                    theorem's proof is read when its check needs it.  A",
-  "                    file of another .olean format version declines (2).",
-  "  --constant=NAME   with --olean: check only this constant and what it",
-  "                    mentions, not every constant of the closure, as",
-  "                    lean4export's arguments after -- do; a component of",
-  "                    digits is a number (_private.M.0.foo).  May be given",
-  "                    more than once.  A name the closure does not hold is",
-  "                    an error (3).",
-  "  --search-path=DIR[:DIR...]",
-  "                    the directories holding .olean trees, as",
-  "                    LEAN_PATH lists them (the toolchain's lib/lean,",
-  "                    a package's .lake/build/lib/lean).  May be",
-  "                    given more than once.  Every module is looked",
-  "                    up in every directory: its files (M.olean and,",
-  "                    for a module of the module system, exactly",
-  "                    M.olean.server and M.olean.private beside it)",
-  "                    must be in one directory, counted once however",
-  "                    often it is reached (a repeated entry, a",
-  "                    symbolic link).  A module in two places, a",
-  "                    missing, stray or split part is an error (3).",
-  "  --help            print this text on STDOUT and exit 0, in any",
-  "                    argument position before a --; no input is read.",
-  "",
-  "STATISTICS.  Every run, flag or not, ends its STDERR with a few",
-  "'con-leche: stats:' lines: the phase times; for the install and the",
-  "check phase the wall time, workers, busy time and utilisation (busy /",
-  "(workers x wall)) and, on more than one worker, the tail after the",
-  "last record started; the five slowest installs and checks with their",
-  "fold positions (#<i>); the peak resident set.  They change neither",
-  "STDOUT nor the exit code.",
-  "",
-  "THE VERDICT LINE'S COUNT.  It counts the FILE's accepted",
-  "declaration RECORDS: one per def/theorem/opaque/axiom/inductive/quot",
-  "record the file declares.  The built-in prelude's own records are not",
-  "counted; a stream record dropped as an identical copy of a prelude",
-  "record IS counted (it is installed, from the prelude).  That count is",
-  "a property of the INPUT.  The",
-  "number of environment CONSTANTS is not: an inductive record installs",
-  "several constants (type former, constructors, recursor, projection",
-  "table), so it moves when the representation moves.  NB the official",
-  "kernel's 'Accepted N declarations' is a THIRD unit — its parsed",
-  "constMap, where an inductive record counts as its members — also a",
-  "function of the file, just a larger one; scripts/stream-census.py",
-  "derives every one of these numbers from a stream.",
-  "",
+/-- The invocation forms, printed on their own when there are no arguments. -/
+def synopsis : String := String.intercalate "\n" [
+  "Usage:",
+  "  con-leche [OPTIONS] [--] FILE.ndjson",
+  "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE..."]
 
-  "THE sorryAx AXIOM.  An export declares sorryAx whenever the module",
-  "it came from mentions sorry, whether or not anything uses it, so a",
-  "stream that merely DECLARES it is accepted: the record is checked",
-  "for well-formedness and installs NOTHING (there is no set model for",
-  "it).  Any USE of the name -- in a declaration's type or value, or in",
-  "an inductive member's -- DECLINES the run (exit 2) at the record",
-  "that uses it, naming the slot.  The fold owns that decision: the",
-  "parse forwards every record, sorryAx's included.  Every other",
-  "non-pinned axiom declines at its own record.",
-  "",
+/-- The line after a usage error. -/
+def tryHelp : String := "Try 'con-leche --help' for more information."
 
-  "THE BUILT-IN PRELUDE.  Every run installs, first and",
-  "unconditionally, the checker's own little prelude — the five pinned",
-  "basis blocks (Eq, Nat, Empty, False, Quot) and the toolchain's",
-  "Bool and And blocks (pins/<toolchain>.prelude.ndjson, embedded at",
-  "build time; ConLeche/Frontend/Prelude.lean) — so the pin-certified",
-  "Nat operations find their ground whatever order the export chose.  A",
-  "stream's own copy of a prelude declaration is dropped when it is the",
-  "same declaration, and the fold DECLINES the run (exit 2, naming it)",
-  "when it differs; a mismatching basis block still REJECTS (reserved",
-  "name), as before.  A pinned operation's stream-certified structural",
-  "ground (Nat.ble, Nat.sub, Nat.mul — spelled into the certificate",
-  "statements, not reachable from the operation's own value) is HOISTED",
-  "ahead of the operation when the stream declares it later",
-  "(ConLeche/Frontend/NatOpGround.lean): a dependency-closed reorder.",
-  "All of this is preparePrelude (ConLeche/Frontend/Prepare.lean), one",
-  "pure total function from the file's records to the fold's input; the",
-  "parse itself only decodes, and the main theorem is about the fold",
-  "over prelude ++ stream.",
+/-- The `--help` text. -/
+def helpText : String := String.intercalate "\n" [
+  "Check Lean declarations from a lean4export file or from .olean modules.",
   "",
-  "NO PREPROCESSOR, NO MODELS.  The input is a RAW lean4export",
-  "stream: there is no external tool, no dependency and no spawn.",
-  "Every inductive block -- structures, sums, indexed families,",
-  "recursive, reflexive, mutual and nested blocks -- is installed by",
-  "the ONE uniform installer (ConLeche/Kernel/Inductives/",
-  "BlockInstall.lean): it checks the type formers and constructors,",
-  "runs the positivity check, and GENERATES the block's recursors;",
-  "the stream's recursor records supply only their types, compared",
-  "with the generated ones up to definitional equality, and their",
-  "classes -- the rule bodies the stream carries are ignored.",
-  "No model is ever read from the input: a stream record whose name",
-  "carries a `_model` component is an ordinary declaration with no",
-  "effect on any block.  A block whose shape the installer does not",
-  "recognise declines (exit 2), naming it.",
+  synopsis,
   "",
-  "There is ONE core at two modes and one parse: the verified mode",
-  "(--verified, the default) and the unverified trusted mode",
-  "(--trusted).  The stream is read directly to the cached",
-  "representation and checked by the one driver, which returns its",
-  "environment together with the proof that the fold checkDecls — the",
-  "function the main theorem ConLeche.model_exists",
-  "(ConLeche/MainTheorem.lean) is stated on — returns it."]
+  "Options:",
+  "  --verified          Check in the mode the soundness theorem covers (default)",
+  "  --trusted           Skip the checks only the proof needs; outside the theorem",
+  "  --jobs=N            Worker threads (default: one per hardware thread)",
+  "  --progress[=N]      Report progress on stderr every N declarations (default 1)",
+  "  --help              Print this help and exit",
+  "  --                  End of options",
+  "",
+  ".olean input:",
+  "  --olean             Read modules and their import closure from .olean files",
+  "  --search-path=DIRS  Colon-separated .olean directories; repeatable",
+  "  --constant=NAME     Check only NAME and what it mentions; repeatable",
+  "",
+  "Exit status:",
+  "  0  accepted",
+  "  1  rejected: a declaration is invalid",
+  "  2  declined: an unsupported feature",
+  "  3  error: bad usage, malformed input or an internal failure",
+  "",
+  "Documentation:",
+  "  https://github.com/leanprover/con-leche/blob/master/README.md",
+  "  https://github.com/leanprover/con-leche/blob/master/OVERVIEW.md"]
 
 structure Args where
   mode : ConLeche.CheckMode := .verified
@@ -447,7 +234,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
   tryCatchThe IO.Error
     (do
       if helpWanted args then
-        CheckerIO.liftIO (IO.println usage)
+        CheckerIO.liftIO (IO.println helpText)
         return 0
       -- `--verified`/`--trusted`: the mode setting, validated here once
       -- and threaded as configuration — the graded verified core and the
@@ -455,7 +242,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
       let a := parseArgs args {}
       if let some msg := a.bad then
         eprintln s!"con-leche: {msg}"
-        eprintln usage
+        eprintln tryHelp
         return 3
       if a.olean then
         -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
@@ -463,16 +250,16 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         -- names as Lean spells them, `«»` escapes included.
         if a.files.isEmpty || a.searchPath.isEmpty then
           eprintln "con-leche: --olean takes one or more module names and a \
-            --search-path=DIR[:DIR…]"
-          eprintln usage
+            --search-path=DIRS"
+          eprintln tryHelp
           return 3
         if let some m := a.files.find? (fun f => (Frontend.Olean.parseModName f).isNone) then
           eprintln s!"con-leche: not a module name: {Display.str m}"
-          eprintln usage
+          eprintln tryHelp
           return 3
         if let some c := a.constants.find? (fun c => (Frontend.Olean.parseConstName c).isNone) then
           eprintln s!"con-leche: not a constant's name: {Display.str c}"
-          eprintln usage
+          eprintln tryHelp
           return 3
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
@@ -481,7 +268,7 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           a.rootConstants a.mode a.progress jobs)
       if !a.searchPath.isEmpty || !a.constants.isEmpty then
         eprintln "con-leche: --search-path and --constant take --olean"
-        eprintln usage
+        eprintln tryHelp
         return 3
       match a.files.toList with
       | [file] =>
@@ -495,8 +282,13 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
         runReq (.stream file a.mode a.progress jobs)
+      | [] =>
+        eprintln synopsis
+        eprintln tryHelp
+        return 3
       | _ =>
-        eprintln usage
+        eprintln "con-leche: takes one input file"
+        eprintln tryHelp
         return 3)
     fun e => do
       CheckerIO.liftIO

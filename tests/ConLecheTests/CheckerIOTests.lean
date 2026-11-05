@@ -157,6 +157,10 @@ example : (ConLeche.Driver.parseArgs ["--", "--help"] {}).files = #["--help"] :=
 #guard !ConLeche.Driver.helpWanted ["--", "--help"]
 #guard ConLeche.Driver.helpWanted ["--help", "--", "x"]
 #guard ConLeche.Driver.helpWanted ["x", "--help"]
+-- The help fits a terminal, and names every flag `parseArgs` takes.
+#guard (ConLeche.Driver.helpText.splitOn "\n").all (·.length ≤ 80)
+#guard ["--verified", "--trusted", "--jobs=", "--progress", "--help", "--olean",
+    "--search-path=", "--constant="].all (ConLeche.Driver.helpText.contains ·)
 /-- No flag: the verified mode. -/
 example : (ConLeche.Driver.parseArgs ["--", "x"] {}).mode = .verified := by
   simp [ConLeche.Driver.parseArgs]

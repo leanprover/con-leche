@@ -28,7 +28,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
   For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L236-L237) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
-* The checker processes files in three phases: *parsing* the input stream, *installing* all declarations into the environment and then *checking*. All stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L131).
+* The checker processes files in three phases: *parsing* the input stream, *installing* all declarations into the environment and then *checking*. All stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L115).
 * The JSON and olean parsers are fast agentic-hand-written parsers over the input bytes (verified with respect to naive ones, see below).
 
 ## Design of the checker proof
@@ -82,7 +82,7 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 The theorems above talk about the pure checker code. That pure code is embedded in a driver: parsing arguments, reading files, parallelism, all in the `IO` monad. This is out of reach for a rigorous verification, but we can still do something that helps to rule out more implementation bugs.
 
-To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L446) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L122) type class modelling three kinds of operations:
+To that end the driver function [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L233) runs in a generic monad with a [`CheckerIO`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L122) type class modelling three kinds of operations:
 
 * File access (existence, reading)
 * A [`parMapExcept`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/CheckerIO.lean#L144) operator for parallelism
@@ -104,7 +104,7 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
     ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0)
 ```
 
-The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L84) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L446) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L29), flushing the output and exiting the process.
+The real [`main`](https://github.com/leanprover/con-leche/blob/master/Main.lean#L84) calls the generic [`runArgs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L233) at the `IO` instance, and additionally takes care of [enabling the linearity protection](https://github.com/leanprover/con-leche/blob/master/Main.lean#L29), flushing the output and exiting the process.
 
 ### Set theory assumption
 

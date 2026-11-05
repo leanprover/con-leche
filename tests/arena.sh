@@ -417,6 +417,7 @@ dash_case 0 --help                                 # help, before any `--`
 dash_case 0 --help -- no-such-file                 # …help before `--`
 dash_case 3 -- no-such-file --help                 # two files after `--`: usage error
 dash_case 3 -- no-such-file                        # a file that is not there
+dash_case 3                                        # no arguments: usage error
 rm -rf "$DASHDIR"
 echo "mode flags: $mode_ok/$mode_total as expected"
 
