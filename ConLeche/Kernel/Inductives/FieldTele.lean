@@ -7,7 +7,7 @@ public import ConLeche.Kernel.ExprOps
 /-!
 # Constructor fields: their kinds and their telescopes
 
-The field-level vocabulary the uniform installer (`BlockParts`,
+The field-level vocabulary the uniform installer (`BlockShape`,
 `BlockRec`, `BlockInstall`) and the model share:
 
 * `RecFieldKind` — a field's kind: `.ordinary` (the domain does not

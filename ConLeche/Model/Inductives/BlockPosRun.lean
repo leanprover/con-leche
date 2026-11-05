@@ -52,7 +52,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestState
-  NestFieldKind BlockParts BlockShape instPisWith nestHoles
+  NestFieldKind BlockShape BlockShape instPisWith nestHoles
   openPisAtFvars fueledOps)
 
 universe w
@@ -116,7 +116,7 @@ omit [SetTheory V] in
 frame's key levels), positionally over the run's constructor list. -/
 theorem ctorLps_of {d : BlockData V} {lps : List Name}
     (hlpsA : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
-      cA.1.levelParams = lps) {p : BlockParts} (hlps : p.lps = lps)
+      cA.1.levelParams = lps) {p : BlockShape} (hlps : p.lps = lps)
     {ctorsAs : List (List (ConstantVal × Nat))} (hlenCA : ctorsAs.length = d.k)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) :
     ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -130,7 +130,7 @@ theorem ctorLps_of {d : BlockData V} {lps : List Name}
 
 theorem BlockHoleCtxFacts.ctorLps {env : Env} {m : EnvModel V env} {d : BlockData V}
     {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool}
-    (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec) {p : BlockParts} (hlps : p.lps = lps)
+    (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec) {p : BlockShape} (hlps : p.lps = lps)
     {ctorsAs : List (List (ConstantVal × Nat))} (hlenCA : ctorsAs.length = d.k)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) :
     ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
@@ -272,7 +272,7 @@ theorem blockHoleCtx_canon {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     (hparsT : ∀ t, t < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
       Sat V (((d.ppsM t ψ).take d.nP)).reverse ρ)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames)
     (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -518,7 +518,7 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
       FormerData m cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
     (hparsT : ∀ t, t < d.k → ∀ ρ : Nat → V, Sat V (d.params ψ).reverse ρ →
       Sat V (((d.ppsM t ψ).take d.nP)).reverse ρ)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames)
     (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -610,7 +610,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -703,7 +703,7 @@ form, and the stage's other checks (`checkBlockPositivity_inv_gen`: the
 crest typed, the normal form's level parameters and fields' sorts,
 M2′). -/
 theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : Nat}
-    {p : BlockParts} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape} {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {pos : ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p cvTas ctorsAs = .ok (kinds, nfs, pos))
@@ -759,9 +759,9 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     have hilt : i < p.nP := by
       rw [← ConLeche.Verify.openPisAtFvars_length _ h2]; exact (List.getElem?_eq_some_iff.mp hi).1
     simp only [Expr.WScoped] at hw ⊢
-    exact ⟨by simp only [NestCtx.hiAt, BlockParts.nestCtx]; omega, hw.2⟩
+    exact ⟨by simp only [NestCtx.hiAt, BlockShape.nestCtx]; omega, hw.2⟩
   obtain ⟨hmem, hroot, -⟩ := h
-    (ConLeche.nestCtx_ok_of_envWF hwf p.toBlockShape fvsP (fun ms hms => hT _ (by
+    (ConLeche.nestCtx_ok_of_envWF hwf p fvsP (fun ms hms => hT _ (by
       rw [← hread]; exact List.mem_map_of_mem hms))).1 hpar hcl hlpsC
   refine ⟨cvTa0, fvsP, rest, holes, h1, h2, h3, fun c cs hc j cA hj => ?_, hroot⟩
   obtain ⟨crest, ks, ts, hcr, hd, hks, htr⟩ := hmem c cs hc j cA hj

@@ -32,9 +32,9 @@ variable {V : Type w} [SetTheory V]
 
 section Components
 
-open ConLeche (BlockParts)
+open ConLeche (BlockShape)
 
-variable {envC : Env} {p : BlockParts} {cvTas : List ConstantVal}
+variable {envC : Env} {p : BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
@@ -46,19 +46,19 @@ theorem blockRulePdomsAV_params (mpC : EnvModelM V envC)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) {ψ₁ ψ₂ : Name → Nat} (hq : ∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q)
     {c : Nat} (hc : c < rs.length) :
-    blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c
-      = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ₂ c := by
+    blockRulePdomsAV mpC.base2.acval envC p rs ψ₁ c
+      = blockRulePdomsAV mpC.base2.acval envC p rs ψ₂ c := by
   have hrc : rs[c]? = some rs[c] := List.getElem?_eq_getElem hc
   obtain ⟨-, -, -, -, hM₁, hN₁, -⟩ := recStage_tyPis mpC h hrc ψ₁
   obtain ⟨-, -, -, -, hM₂, hN₂, -⟩ := recStage_tyPis mpC h hrc ψ₂
   have hT := blockRecTyAV_params_ext mpC h hr hq hc
-  have hs₁ := stripPisAV_mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c)
-    (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c)
-  have hs₂ := stripPisAV_mkPisAV (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ₂ c)
-    (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ₂ c)
+  have hs₁ := stripPisAV_mkPisAV (blockRecRdsAV mpC.base2.acval envC p rs ψ₁ c)
+    (blockRecConclAV mpC.base2.acval envC p rs ψ₁ c)
+  have hs₂ := stripPisAV_mkPisAV (blockRecRdsAV mpC.base2.acval envC p rs ψ₂ c)
+    (blockRecConclAV mpC.base2.acval envC p rs ψ₂ c)
   rw [← hM₁, hT, hM₂, hN₁, ← hN₂, hs₂] at hs₁
-  have hR : blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ₂ c
-      = blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ₁ c :=
+  have hR : blockRecRdsAV mpC.base2.acval envC p rs ψ₂ c
+      = blockRecRdsAV mpC.base2.acval envC p rs ψ₁ c :=
     congrArg Prod.fst (Option.some.inj hs₁)
   simp only [blockRulePdomsAV, hR]
 

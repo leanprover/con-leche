@@ -69,7 +69,7 @@ BELOW it:
 
 
 open ConLeche (Env Expr Name Level CheckMode ConstantVal ConstantInfo IndCaps
-  BlockParts BlockShape MemberShape fueledOps EtaFamiliesClosed ExtEta exceptBind_ok
+  BlockShape BlockShape MemberShape fueledOps EtaFamiliesClosed ExtEta exceptBind_ok
   consBlockInds consBlockCtors consSumCtors consBlockRecs
   checkBlockCtors checkSumCtors blockCapsAt)
 
@@ -162,10 +162,10 @@ theorem consBlockCtors_find?_mem {nP : Nat} :
 /-! ## The formers' stage: freshness -/
 
 /-- **The k formers are consed at names fresh before the block.** -/
-theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockParts} {isRec : Bool}
+theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockShape} {isRec : Bool}
     {p₁ : BlockShape} {F : Nat}
     (h : ConLeche.checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
-    ∀ cv ∈ p.toBlockShape.formers, env.find? cv.name = none := by
+    ∀ cv ∈ p.formers, env.find? cv.name = none := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, -, -, h0, hcvs, -⟩ := ConLeche.checkBlockInds_shape h
   have hone : ∀ {ms : MemberShape} {cv : ConstantVal} {s : Level},
       ConLeche.checkBlockTele (fueledOps mode F) env p.nP ms = .ok (cv, s) →
@@ -225,19 +225,18 @@ theorem consBlockRecsT_extEta {q : BlockShape} {envC : Env} :
 /-- **The uniform install keeps the η-families closed, at k members**,
 from the run record alone, at every setting of both gates. -/
 theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
+    {block : List ConstantInfo} {p₀ : BlockShape} (hE : EtaFamiliesClosed env)
     (hdn : ∀ m ∈ p₀.members, m.cvT.name = m.declared.name)
     (h : DeclBlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
-  obtain ⟨hndC, -, -, isRec, env₁, p₁, p, sortsss, ctx, holes, rd, Ms, kinds, nfs,
-    pos, st, isorts, rs, hInd, hp, hCtors, -, -, -, -, -, -, hRec, -, -, -, hfin⟩ := h
-  subst hp
+  obtain ⟨hndC, -, -, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds, nfs,
+    pos, st, isorts, rs, hInd, hCtors, -, -, -, -, -, -, hRec, -, -, -, hfin⟩ := h
   obtain ⟨_, _, _, _, _, -, hp₁, rfl, -, -, -⟩ := ConLeche.checkBlockInds_shape hInd
   -- the three freshness facts and the constructors' names
   have hfT := checkBlockInds_fresh hInd
-  have hfC : ∀ A ∈ (p₀.complete p₁).toBlockShape.memberCtors, ∀ cA ∈ A,
+  have hfC : ∀ A ∈ p₁.memberCtors, ∀ cA ∈ A,
       (consBlockInds p₁ isRec (p₀.members.map (·.declared)) 0 env).find? cA.1.name = none :=
     ConLeche.checkBlockCtors_fresh hCtors
-  generalize hcA : (p₀.complete p₁).toBlockShape.memberCtors = ctorsAs at hfin hfC
+  generalize hcA : p₁.memberCtors = ctorsAs at hfin hfC
   have hnames : ctorsAs.map (·.map (fun cA => (cA.1.name, cA.2)))
       = p₁.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) := by
     rw [← hcA]
@@ -329,7 +328,7 @@ theorem declBlockRun_etaClosed {F : Nat} {env env₂ : Env}
 
 /-- **A block's run keeps the η-families closed.** -/
 theorem blockRun_etaClosed {F : Nat} {env env₂ : Env}
-    {block : List ConstantInfo} {p₀ : BlockParts} (hE : EtaFamiliesClosed env)
+    {block : List ConstantInfo} {p₀ : BlockShape} (hE : EtaFamiliesClosed env)
     (h : BlockRun F env block p₀ env₂) : EtaFamiliesClosed env₂ := by
   obtain ⟨ms, -, hAt, -, hR⟩ := h
   exact declBlockRun_etaClosed hE (fun m hm => (hAt m hm).name) hR

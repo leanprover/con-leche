@@ -578,7 +578,7 @@ theorem nestSeeds_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
     simp only [nestContKey_env h ctx env, nestPos_env h env ctx, nestInstType_env h ctx env, ih]
 
 theorem checkBlockPositivity_env (h : EnvFree ops) (env : Env)
-    (find? : Name → Option ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
+    (find? : Name → Option ConstantInfo) (p : BlockShape) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     checkBlockPositivity ops env find? p cvTas ctorsAs =
       checkBlockPositivity ops Env.empty find? p cvTas ctorsAs := by
@@ -1142,7 +1142,7 @@ theorem consBlockIndsF_pushed (p₁ : BlockShape) (isRec : Bool) (cvTas : List C
   exact ⟨L, [], hL, hL' fe₂⟩
 
 theorem checkBlockIndsF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) (p : BlockParts)
+    (htb : fe₁.findTable? = fe₂.findTable?) (p : BlockShape)
     (isRec : Bool) :
     RelRun (fun a₁ a₂ => PushedFrom fe₁ fe₂ a₁.1 a₂.1 ∧ a₁.2 = a₂.2)
       (checkBlockIndsF (sharedOpsC mode fe₁) fe₁ p isRec)
@@ -1155,7 +1155,7 @@ theorem checkBlockIndsF_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
   all_goals exact RelRun.pure ⟨consBlockIndsF_pushed _ _ _ _ _ _, rfl⟩
 
 theorem checkBlockPassS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (p₀ : BlockParts) (isRec : Bool) :
+    (p₀ : BlockShape) (isRec : Bool) :
     RelRun (PassRel fe₁ fe₂) (checkBlockPassS mode fe₁ p₀ isRec)
       (checkBlockPassS mode fe₂ p₀ isRec) := by
   unfold checkBlockPassS
@@ -1182,7 +1182,7 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   subst hq₂
   unfold checkBlockTailS
   dsimp only
-  generalize p.toBlockShape.memberCtors = ctorsAs
+  generalize p.memberCtors = ctorsAs
   have htL := ht.pushDelta L Q
   have h := sharedOpsC_envFree mode (FEnv.pushDelta L Q fe₂)
   obtain ⟨L₂, hL₂⟩ := consBlockCtorsF_eq_pushAll p.nP ctorsAs
@@ -1238,7 +1238,7 @@ theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     simp only [reduceMemberS_congr hfe htb, reduceMembersS_congr hfe htb nP rest]
 
 theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (block : List ConstantInfo) (p₀ : BlockParts) :
+    (block : List ConstantInfo) (p₀ : BlockShape) :
     RelRun (PushedFrom fe₁ fe₂) (checkBlockKS mode fe₁ block p₀)
       (checkBlockKS mode fe₂ block p₀) := by
   unfold checkBlockKS

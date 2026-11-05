@@ -26,7 +26,7 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term ConLeche.Verify
 
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts BlockShape
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape BlockShape
   TargetMajor RecShape NestCtx NestHole nestHoleImg)
 
 universe w

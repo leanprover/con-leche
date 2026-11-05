@@ -101,7 +101,7 @@ producer. -/
 
 section Run
 
-variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+variable {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V}

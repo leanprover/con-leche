@@ -43,7 +43,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps BlockParts NestCtx
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps BlockShape NestCtx
   TargetMajor mkFEnv fueledOps tgtRs)
 
 universe w
@@ -51,33 +51,33 @@ universe w
 variable {V : Type w} [SetTheory V]
 
 /-- **An outside class's parameters fit**, at every fitting prefix of its recursor. -/
-theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockParts} {cvTas : List ConstantVal}
+theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockShape} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {dR : BlockData V}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
     {kinds : List (List (List ConLeche.NestFieldKind))} {nfs : List (List Expr)}
     {pos : ConLeche.NestState} {nb : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     (hctx : RecCtxBase V F envC envI pp cvTas ctorsAs mpC dR isRec A kinds nfs pos)
-    (R : ConLeche.GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nb pos cvTas
+    (R : ConLeche.GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nb pos cvTas
       block ctorsAs out)
     (hg : ConLeche.ClassGenScoped R.g)
     (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V)
-    (hfit : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs)
+    (hfit : SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs)
     {dsa : List Term}
-    (hdsa : DenoteSpine mpC.base2.acval envC ψ (tgtRP pp.toBlockShape c) (tgtMajor out c).ds dsa) :
+    (hdsa : DenoteSpine mpC.base2.acval envC ψ (tgtRP pp c) (tgtMajor out c).ds dsa) :
     Sat V (D.params (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)).reverse
-      (keyFrame dsa (tgtRP pp.toBlockShape c) (consList xs ρ)) := by
+      (keyFrame dsa (tgtRP pp c) (consList xs ρ)) := by
   obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, hcovC,
     ⟨mk, -, hreads, -, -, -, hsubC, hcoreK, htr⟩, -, -⟩ := hctx
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hmr := blockMembersRun_seam hN hS hcore
-  have hnPq : (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).nP = pp.nP := rfl
+  have hnPq : (blockDataOf V pp ctorsAs pk uOfD ppsOf).nP = pp.nP := rfl
   -- the recursor's prefix, on the block's parameters
   have hpf := genParams_fit_run mpC R hg h hmr c hc ψ ρ xs hfit
-  have hsat₀ : Sat V ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).params ψ).reverse
+  have hsat₀ : Sat V ((blockDataOf V pp ctorsAs pk uOfD ppsOf).params ψ).reverse
       (consList (xs.take pp.nP) ρ) := by
     have := sat_of_spineFit (Δ₀ := []) (Sat_nil V ρ) hpf
     rwa [List.append_nil] at this
@@ -107,10 +107,10 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockParts} {cvTas : Lis
     · exfalso
       have hmemN := hcl.hmem
       rw [hMe] at hmemN
-      have hin : (M₀.ind) ∈ pp.toBlockShape.memberNames := by
-        rw [← show (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).toLfp.member mm = M₀.ind
+      have hin : (M₀.ind) ∈ pp.memberNames := by
+        rw [← show (blockDataOf V pp ctorsAs pk uOfD ppsOf).toLfp.member mm = M₀.ind
           from hmemN]
-        show pp.toBlockShape.memberNames.getD mm .anonymous ∈ _
+        show pp.memberNames.getD mm .anonymous ∈ _
         exact getD_mem _ (by
           have := hcl.hmm
           simpa [BlockData.toLfp, blockDataOf, blockDataPre, BlockData.withPhi,
@@ -130,13 +130,13 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockParts} {cvTas : Lis
   obtain ⟨⟨_, -, hD0⟩, hFD0⟩ := hcoreK.1 0 cvT0 h0'
   have hlen0 := hFD0.len ψ
   have hread0 := hFD0.read ψ
-  rw [← List.take_append_drop pp.nP ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ppsM 0 ψ),
+  rw [← List.take_append_drop pp.nP ((blockDataOf V pp ctorsAs pk uOfD ppsOf).ppsM 0 ψ),
     mkPisAV_append'] at hread0
   have hO := opened_of_peel (m := mk.base2) (φ := ψ) hop hD0.readFvar hD0.readBounded hread0
     (by rw [List.length_take, hlen0, hnPq]; omega) (fun ρ' => by
       have hok := hFD0.okTy ψ ρ'
       rwa [← List.take_append_drop pp.nP
-        ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).ppsM 0 ψ), mkPisAV_append'] at hok)
+        ((blockDataOf V pp ctorsAs pk uOfD ppsOf).ppsM 0 ψ), mkPisAV_append'] at hok)
   -- the key over them
   have hTsc : ∀ cv ∈ cvTas, ConLeche.ScB 0 cv.type := fun cv hcv => by
     obtain ⟨t, ht⟩ := List.getElem?_of_mem hcv
@@ -154,7 +154,7 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockParts} {cvTas : Lis
     rw [hMe]
     exact this
   have hC : ∀ x ∈ (tgtMajor out c).ds, CtxOk mk.base2 ψ pp.nP
-      ((blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).params ψ).reverse x := fun x hx => by
+      ((blockDataOf V pp ctorsAs pk uOfD ppsOf).params ψ).reverse x := fun x hx => by
     have := hO.ctx (Nat.le_refl _) (hds x hx).1 (hleaves x hx)
     rw [Nat.sub_self, List.drop_zero] at this
     exact this
@@ -176,8 +176,8 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockParts} {cvTas : Lis
     (fun x hx => ⟨⟨(hds x hx).1, (hds x hx).2, hLds x hx⟩, CtxOk.toS (hC x hx)⟩) hdsa₀
     (consList (xs.take pp.nP) ρ) hsat₀ (fun x hx => CtxOk.leavesGr (hC x hx) hsat₀)).1
   -- the frame at the recursor's prefix is the frame at the block's parameters
-  have hnP : pp.nP ≤ tgtRP pp.toBlockShape c := by
-    show pp.nP ≤ pp.toBlockShape.rulePrefixAt c
+  have hnP : pp.nP ≤ tgtRP pp c := by
+    show pp.nP ≤ pp.rulePrefixAt c
     rw [hRP, (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1]
     exact Nat.le_add_right _ _
   obtain ⟨vs, hvs, rfl⟩ := DenoteSpine.unlift (m := mpC.base2) (φ := ψ) hnP
@@ -185,15 +185,15 @@ theorem genOut_keyFit {F : Nat} {envC envI : Env} {pp : BlockParts} {cvTas : Lis
   have hvs₀ : vs = dsa₀ :=
     DenoteSpine.unique hvs (DenoteSpine.transport (fun e _ he => htr ψ _ e he) hdsa₀)
   subst hvs₀
-  have hlenx : xs.length = tgtRP pp.toBlockShape c := by
+  have hlenx : xs.length = tgtRP pp c := by
     rw [hfit.length_eq, blockRulePdomsAV_length mpC h (List.getElem?_eq_getElem hc) ψ]; rfl
   have hsplit : consList xs ρ = consList (xs.drop pp.nP) (consList (xs.take pp.nP) ρ) := by
     conv => lhs; rw [← List.take_append_drop pp.nP xs]
     rw [consList_append]
   have hkl := keyFrame_lift vs pp.nP (xs.drop pp.nP) (consList (xs.take pp.nP) ρ)
-  have hdl : (xs.drop pp.nP).length = tgtRP pp.toBlockShape c - pp.nP := by
+  have hdl : (xs.drop pp.nP).length = tgtRP pp c - pp.nP := by
     rw [List.length_drop, hlenx]
-  rw [hdl, show pp.nP + (tgtRP pp.toBlockShape c - pp.nP) = tgtRP pp.toBlockShape c by omega,
+  rw [hdl, show pp.nP + (tgtRP pp c - pp.nP) = tgtRP pp c by omega,
     ← hsplit] at hkl
   rw [hkl]
   exact hfitK

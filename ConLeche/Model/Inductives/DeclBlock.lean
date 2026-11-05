@@ -23,7 +23,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
-  BlockShape BlockParts MemberShape RecRule)
+  BlockShape BlockShape MemberShape RecRule)
 
 universe w
 
@@ -132,7 +132,7 @@ cons, the block's representation and model records, the block over the
 input environment.  The node route's facts that read no recursor run take
 this (`nodeListFacts_of`, `dynCtx_of`). -/
 @[expose] def RecCtxBase (V : Type w) [SetTheory V] (F : Nat)
-    (envC envI : Env) (pp : BlockParts)
+    (envC envI : Env) (pp : BlockShape)
     (cvTasR : List ConstantVal) (ctorsAsR : List (List (ConstantVal × Nat)))
     (mpC : EnvModelM V envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → Term)
@@ -143,21 +143,21 @@ this (`nodeListFacts_of`, `dynCtx_of`). -/
   envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
   ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
-  pp.toBlockShape.memberNames.Nodup ∧
+  pp.memberNames.Nodup ∧
   BlockNamesOk (V := V) dR cvTasR ∧
-  BlockCtorsStage (V := V) F dR pp.lps cvTasR pp.toBlockShape isRecR A envI pp.ctorNamesAt ∧
-  BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k ∧
+  BlockCtorsStage (V := V) F dR pp.lps cvTasR pp isRecR A envI pp.ctorNamesAt ∧
+  BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp isRecR A dR.k ∧
   (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) ∧
   (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
-    dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ∧
+    dR = blockDataOf V pp ctorsAsR pk uOfD ppsOf) ∧
   dR.toLfp ∈ mpC.lfpBlocks ∧
   LfpCover mpC [] ∧
-  FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
-    pp.toBlockShape isRecR ∧
-  BlockOverEnv envC pp.toBlockShape.memberNames ∧
+  FormersModelAt (V := V) envI pp.memberNames mpC dR pp.lps cvTasR
+    pp isRecR ∧
+  BlockOverEnv envC pp.memberNames ∧
   (∀ c ∈ ctorsAsR.flatten, envI.find? c.1.name = none ∧
     ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-      C ∈ pp.toBlockShape.memberNames)
+      C ∈ pp.memberNames)
 
 end ConLeche.Model

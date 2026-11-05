@@ -30,7 +30,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestHole NestFieldKind BlockParts
+open ConLeche (Env Expr Name Level ConstantVal CheckM NestCtx NestHole NestFieldKind BlockShape
   BlockShape instPisWith nestHoles openPisAtFvars fueledOps MemberCtorD NestFieldKind PosTree)
 
 universe w
@@ -51,7 +51,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -227,7 +227,7 @@ omit [SetTheory V] in
 /-- **The walk context's sort is the block's level**: the caller's side
 of the container case's level link (`n2_sort`) — `NestCtx.sort` is the
 block's result sort. -/
-theorem nestCtx_sort_eval {d : BlockData V} {p : BlockParts} (hR : p.resSort = d.resSort)
+theorem nestCtx_sort_eval {d : BlockData V} {p : BlockShape} (hR : p.resSort = d.resSort)
     (fvsP : List Expr) (find? : Name → Option ConLeche.ConstantInfo) (ψ : Name → Nat) :
     (p.nestCtx fvsP find?).sort.eval ψ = d.w ψ := by
   show p.resSort.eval ψ = d.resSort.eval ψ
@@ -242,7 +242,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {nodes : ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p cvTas ctorsAs = .ok (kinds, nfs, nodes))
@@ -315,7 +315,7 @@ container rules read at the walk's carrier (coverage) and the walk
 context's sort (the block's level). -/
 theorem blockAcc_of_run {F : Nat}
     {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name}
-    {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockParts}
+    {cvTas : List ConstantVal} {p₁ : BlockShape} {isRec : Bool} {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)

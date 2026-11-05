@@ -710,7 +710,7 @@ theorem nestCtx_params_scb {p : BlockShape} {T rest : Expr} {fvsP : List Expr}
 normal form the install's positivity check records is scoped over the
 block's parameters. -/
 theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env}
-    (henv : EnvWF env₁) {pp : BlockParts} {cvTas : List ConstantVal}
+    (henv : EnvWF env₁) {pp : BlockShape} {cvTas : List ConstantVal}
     {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hM : ∀ ms ∈ pp.members, ms.cvT.type.hasFvar = false)
@@ -720,7 +720,7 @@ theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env
       = .ok (kinds, nfs, pos)) :
     NfStScoped pp.nP pos := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, h0, hop, hh, -, hroot, -⟩ := checkBlockPositivity_inv h
-  obtain ⟨hc, hb⟩ := nestCtx_ok_of_envWF henv pp.toBlockShape fvsP hM
+  obtain ⟨hc, hb⟩ := nestCtx_ok_of_envWF henv pp fvsP hM
   exact nestRoot_nfScoped hc hb (fun d e w hw he => whnf_WScoped henv F hw he)
     (fun d e w hw he => whnf_looseBVars henv F hw he) hh
     (nestCtx_params_scb (hT cvTa0 (List.mem_of_mem_head? h0)) hop) ctorsAs {} outs pos hroot

@@ -72,9 +72,9 @@ def blockTables (p : BlockShape) : List MemberShape → List ProjTable
     | none => blockTables p rest
 
 /-- The block's constants, in push order: the formers, the constructors, the recursors. -/
-def blockConstants (p : BlockParts) : List ConstantInfo :=
-  blockFormers p.toBlockShape (blockRawRec p) ++ blockCtors p.toBlockShape ++
-    blockRecs p.toBlockShape p.recs
+def blockConstants (p : BlockShape) : List ConstantInfo :=
+  blockFormers p (blockRawRec p) ++ blockCtors p ++
+    blockRecs p p.recs
 
 /-- **The constants a declaration installs**, in push order.  A block with a pinned block's names
 installs the pin at the names the record declares, a block the recogniser does not read nothing
@@ -92,7 +92,7 @@ def declConstants : Declaration → List ConstantInfo
     match basisNameHit block with
     | some kind => kind.atBlock block
     | none =>
-      match blockParts? nP block with
+      match blockShape? nP block with
       | some p => blockConstants p
       | none => []
 
@@ -107,8 +107,8 @@ def declTables : Declaration → List ProjTable
     match basisNameHit block with
     | some _ => []
     | none =>
-      match blockParts? nP block with
-      | some p => blockTables p.toBlockShape p.members
+      match blockShape? nP block with
+      | some p => blockTables p p.members
       | none => []
   | _ => []
 

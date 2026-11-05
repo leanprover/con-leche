@@ -394,11 +394,11 @@ private def zBlock (T : Name) (rhs : Expr) : List ConstantInfo :=
 a one-member block, after the pass over the formers, the constructors
 and the classes: the number of recursors it stores. -/
 private def zRecK (block : List ConstantInfo) : Except CheckError Nat := do
-  let some p₀ := blockParts? 0 block | throw (.internal "blockParts?")
+  let some p₀ := blockShape? 0 block | throw (.internal "blockShape?")
   let q ← checkBlockPass (pureOps .verified) Env.empty p₀ false
-  let env₂ := consBlockCtors q.p.nP q.p.toBlockShape.memberCtors q.env₁
+  let env₂ := consBlockCtors q.p.nP q.p.memberCtors q.env₁
   let out ← checkBlockRec (pureOps .verified) env₂ q.p false q.params q.tbl.toList q.rd q.cls
-    block q.p.toBlockShape.formers
+    block q.p.formers
   pure out.length
 
 -- The stage REJECTS the zero-motive recursor, whatever its rule.

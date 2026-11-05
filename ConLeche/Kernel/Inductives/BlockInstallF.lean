@@ -80,7 +80,7 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
 
 /-- `checkBlockInds` through the index. -/
-def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
+def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
     (isRec : Bool) : m (FEnv × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
@@ -88,7 +88,7 @@ def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
     let (cvTa0, s0) ← checkBlockTeleF ops fe p.nP ms0
     let cvs ← checkBlockTelesF ops fe p.nP rest
     checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
-    let p₁ := p.toBlockShape.withSort s0
+    let p₁ := p.withSort s0
     pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0 fe, p₁)
 
 /-! ## Stage 1b: the constructors -/

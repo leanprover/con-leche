@@ -32,7 +32,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestHole BlockParts
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal CheckM NestCtx NestHole BlockShape
   BlockShape instPisWith nestHoles openPisAtFvars fueledOps PosTree PosNodeOk)
 
 universe w
@@ -48,7 +48,7 @@ theorem blockCtorCrest {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts m d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames)
     (hread : p.members.map (·.cvT) = cvTas) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -107,7 +107,7 @@ theorem memberCtor_nodesSem {env : Env} (mk : EnvModelM V env)
     {F : Nat} {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames)
     (hread : p.members.map (·.cvT) = cvTas) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -146,7 +146,7 @@ theorem seed_nodesSem {env : Env} (mk : EnvModelM V env)
     {F : Nat} {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames)
     (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
@@ -161,7 +161,7 @@ theorem seed_nodesSem {env : Env} (mk : EnvModelM V env)
   have hcanon := blockHoleCtx_canon (ψ := ψ) hN hcore.1 (fun t ht ρ h => hcore.2.2.2 t ht ψ ρ h)
     hnames hread hnP hk hcv0 hop0 hholes
   have hhi : (p.nestCtx fvsP env.find?).hiAt 0 = d.nP + d.k := by
-    simp only [ConLeche.NestCtx.hiAt, ConLeche.BlockParts.nestCtx, hnames, hnP, hk, Nat.add_zero]
+    simp only [ConLeche.NestCtx.hiAt, ConLeche.BlockShape.nestCtx, hnames, hnP, hk, Nat.add_zero]
   have hΔ0 : ((d.holeCtx ψ).reverse).length = (p.nestCtx fvsP env.find?).hiAt 0 := by
     rw [hhi]; exact (hcanon (.sort .zero) (by simp [Expr.fvarLeaves])).1.1
   have hleaf := ConLeche.posD_seed_leaves hd
@@ -231,7 +231,7 @@ recorded normal form, typed at the hole context, whose forest is among the
 listed nodes `ns` — the calls' landing at node `0` reads a container
 field's node there — and whose entry (the root frame's, at the block's
 own levels and parameters) is recorded in the table `tbl`. -/
-@[expose] def MemberForests (F : Nat) (envI : Env) (pp : BlockParts) (cvTasR : List ConstantVal)
+@[expose] def MemberForests (F : Nat) (envI : Env) (pp : BlockShape) (cvTasR : List ConstantVal)
     (ctorsAsR : List (List (ConstantVal × Nat))) (nfsR : List (List Expr)) (fvsP : List Expr)
     (tbl : List ConLeche.NestCtorNf) (ns : List PosTree) : Prop :=
   ∃ cvTa0 rest holes, cvTasR.head? = some cvTa0 ∧

@@ -29,7 +29,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockParts TargetMajor
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockShape TargetMajor
   ClassGen ClassCtor ClassRead FEnv GenRecRun)
 
 universe w
@@ -38,7 +38,7 @@ variable {V : Type w} [SetTheory V]
 
 /-- The generated stage's context holds the shared one. -/
 theorem GenRecCtx.base {F : Nat} {block : List ConstantInfo} {envC envI : Env}
-    {pp : BlockParts} {cvTasR : List ConstantVal} {ctorsAsR : List (List (ConstantVal × Nat))}
+    {pp : BlockShape} {cvTasR : List ConstantVal} {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
@@ -56,7 +56,7 @@ positivity derivation's node list (`genRecCtx_nodes`), whose dynamic part
 is the admissible frames with the generated calls (`genNodeCalls`), and
 which covers every guarded class. -/
 theorem genClassNodes {F : Nat}
-    {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
+    {block : List ConstantInfo} {envC envI : Env} {pp : BlockShape} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {mpC : EnvModelM V envC} {dR : BlockData V} {isRecR : Bool}
@@ -65,8 +65,8 @@ theorem genClassNodes {F : Nat}
     {posR : ConLeche.NestState}
     (hctx : GenRecCtx V F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       posR)
-    (R : GenRecRun .verified F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp.toBlockShape
-      (ConLeche.blockNestedBit pp.toBlockShape kindsR) posR cvTasR block ctorsAsR out)
+    (R : GenRecRun .verified F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp
+      (ConLeche.blockNestedBit pp kindsR) posR cvTasR block ctorsAsR out)
     (hg : ConLeche.ClassGenScoped R.g)
     (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ConLeche.ScB pp.nP e.ty)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
@@ -75,8 +75,8 @@ theorem genClassNodes {F : Nat}
     (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind)
     (ψ : Name → Nat) (ρ : Nat → V) (xs : List V) :
-    ∃ P : TgtNodePres envC mpC.base2.acval pp.toBlockShape out dR Dc mc cvc ψ ρ xs
-      (genCallT (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ
+    ∃ P : TgtNodePres envC mpC.base2.acval pp out dR Dc mc cvc ψ ρ xs
+      (genCallT (tgtClsTup dR Dc mc cvc pp out ψ) ρ
         (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd ψ c j)),
       TgtNodeHex P := by
   have hbase := hctx.base
@@ -84,7 +84,7 @@ theorem genClassNodes {F : Nat}
   obtain ⟨-, -, -, hndM, hN, hS, hcore, -, hdR, hlfp, hcov,
     ⟨mk, hmkC, hreads, -, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hbase'
   have h := recStage_of_gen R hg
-  have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
+  have hmr : BlockMembersRun mpC.base2 dR pp cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hparG := genParams_fit_run mpC R hg h hmr
   -- the node list
@@ -98,7 +98,7 @@ theorem genClassNodes {F : Nat}
   obtain ⟨hparF, hparS⟩ := canonPars_of_forests hbase hmemF
   have hF := nodeListFacts_of hbase hok hpar hparF hparS hsp
   by_cases hgd : ∃ c, c < (tgtRs out).length ∧
-      tgtClsG dR mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
+      tgtClsG dR mpC.base2.acval envC pp out ψ ρ xs c
   case neg => exact ⟨TgtNodePres.empty, fun c hc hg => absurd ⟨c, hc, hg⟩ hgd⟩
   -- the dynamic part: the admissible frames and the calls
   have H := dynCtx_of hbase hmkC hmk hag hsubC htr hcoreK hreads hok hkids hpar hsem hF hparF hparS
@@ -138,9 +138,9 @@ theorem genClassNodes {F : Nat}
     simpa only [nlDb, nlψ, nlFr, Nat.add_one_ne_zero, ite_false, hget] using this
   -- the frame half of the class tie
   have hfrT := genNodeFrameTie hbase R h hparG hg hcls hsel hctxR ns hF ψ ρ xs hnodeSat
-  have Dy : TgtNodeDyn F mpC (pp.nestCtx fvsP envI.find?) dR pp.toBlockShape
+  have Dy : TgtNodeDyn F mpC (pp.nestCtx fvsP envI.find?) dR pp
       (cvTasR.map (·.type)) out Dc mc cvc ns ψ ρ xs
-      (genCallT (tgtClsTup dR Dc mc cvc pp.toBlockShape out ψ) ρ
+      (genCallT (tgtClsTup dR Dc mc cvc pp out ψ) ρ
         (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd ψ c j)) := {
     Adm := nodeAdm mk mpC (pp.nestCtx fvsP envI.find?) dR ns ψ ρ xs par
     hAdm := dyn_hAdm H ψ ρ xs hparams par
@@ -163,7 +163,7 @@ theorem genClassNodes {F : Nat}
     rw [hrt]
     have hmk : m < dR.toLfp.k := by
       have h1 := (List.findIdx?_eq_some_iff_getElem.mp hfi).1
-      have h2 : m < pp.toBlockShape.members.length := by
+      have h2 : m < pp.members.length := by
         simpa [ConLeche.BlockShape.memberNames] using h1
       obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
       exact h2
@@ -178,7 +178,7 @@ theorem genClassNodes {F : Nat}
 target): `GenClassInd` at every level assignment and context value, from
 the generated stage's context and run, the outside classes' data. -/
 theorem genClassInd {F : Nat}
-    {block : List ConstantInfo} {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
+    {block : List ConstantInfo} {envC envI : Env} {pp : BlockShape} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)}
     {mpC : EnvModelM V envC} {dR : BlockData V} {isRecR : Bool}
@@ -187,8 +187,8 @@ theorem genClassInd {F : Nat}
     {posR : ConLeche.NestState}
     (hctx : GenRecCtx V F block envC envI pp cvTasR ctorsAsR out mpC dR isRecR A kindsR nfsR
       posR)
-    (R : GenRecRun .verified F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp.toBlockShape
-      (ConLeche.blockNestedBit pp.toBlockShape kindsR) posR cvTasR block ctorsAsR out)
+    (R : GenRecRun .verified F (ConLeche.mkFEnv envI) envI (ConLeche.mkFEnv envC) pp
+      (ConLeche.blockNestedBit pp kindsR) posR cvTasR block ctorsAsR out)
     (hg : ConLeche.ClassGenScoped R.g)
     (hTbl : ∀ e ∈ R.st.ctorNfs.toList, ConLeche.ScB pp.nP e.ty)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
@@ -196,7 +196,7 @@ theorem genClassInd {F : Nat}
       TgtOutCls mpC (tgtMajor out c) (Dc c) (mc c) (cvc c))
     (hsel : ∀ c, c < (tgtRs out).length → (tgtMajor out c).member = none →
       Dc c = lfpSel mpC dR.toLfp (tgtMajor out c).ind) :
-    ∀ ψ ρ, GenClassInd mpC.base2.acval envC pp.toBlockShape out dR Dc mc cvc
+    ∀ ψ ρ, GenClassInd mpC.base2.acval envC pp out dR Dc mc cvc
       (fun c j => genIhdAV mpC.base2.acval envC R.g R.rd ψ c j) ψ ρ := by
   intro ψ ρ
   exact tgtClassInd_of_pres fun xs =>

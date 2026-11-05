@@ -119,16 +119,16 @@ structure RecFamFacts (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
 the constructors' environment, `rs` the stored family (install format).
 Every fact holds at every recursor, an auxiliary one (an outside
 major) included. -/
-structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
+structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
     (cvTas : List ConstantVal)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) : Type where
   /-- stage (b)'s list: the checked constant, its major's index count,
   its conclusion's sort -/
   cvRus : List (ConstantVal × Nat × Level)
   /-- (a) the records' pins -/
-  pins : RecPinsF p.toBlockShape
+  pins : RecPinsF p
   /-- (b') the family's agreements -/
-  fam : RecFamFacts mode F env p.toBlockShape cvTas cvRus
+  fam : RecFamFacts mode F env p cvTas cvRus
   lenT : cvRus.length = p.recs.length
   len : rs.length = p.recs.length
   /-- the stored records are stage (b)'s -/
@@ -136,7 +136,7 @@ structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
   /-- (b) every recursor's type, at any major -/
   tyGen : ∀ i, i < p.recs.length → ∃ rc cvRi nIdx u, p.recs[i]? = some rc ∧
     cvRus[i]? = some (cvRi, nIdx, u) ∧
-    Nonempty (RecTyGen mode F env p.toBlockShape false i rc cvRi nIdx u)
+    Nonempty (RecTyGen mode F env p false i rc cvRi nIdx u)
   /-- one stored rule per constructor -/
   rulesLenAt : ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
     rs[i]? = some r → r.2.1.length = r.2.2.2.length
@@ -144,18 +144,18 @@ structure RecStage (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
   ruleOut : ∀ (c : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) (i : Nat)
     (rhs : Expr), rs[c]? = some r → r.2.1[i]? = some rhs →
     ∃ rc, p.recs[c]? = some rc ∧
-      RuleOutOk mode F (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env)
+      RuleOutOk mode F (consBlockRecsBare p 0 (rs.map fun r => (r.1, r.2.2.1)) env)
         rc.cvR rhs
 
 /-- The stage's facts, as a proposition. -/
-@[expose] def RecStageG (mode : CheckMode) (F : Nat) (env : Env) (p : BlockParts)
+@[expose] def RecStageG (mode : CheckMode) (F : Nat) (env : Env) (p : BlockShape)
     (cvTas : List ConstantVal)
     (rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))) : Prop :=
   Nonempty (RecStage mode F env p cvTas rs)
 
 namespace RecStage
 
-variable {F : Nat} {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+variable {F : Nat} {env : Env} {p : BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
 
@@ -182,7 +182,7 @@ theorem rulesLen (R : RecStage mode F env p cvTas rs)
 theorem tyGenAt (R : RecStage mode F env p cvTas rs) {i : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : rs[i]? = some r) :
     ∃ rc u, p.recs[i]? = some rc ∧ R.cvRus[i]? = some (r.1, r.2.2.1, u) ∧
-      Nonempty (RecTyGen mode F env p.toBlockShape false i rc r.1 r.2.2.1 u) := by
+      Nonempty (RecTyGen mode F env p false i rc r.1 r.2.2.1 u) := by
   obtain ⟨u, hcu⟩ := R.stored_at hr
   have hil : i < p.recs.length := by rw [← R.len]; exact (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨rc, cvRi, nIdx, u', hrc, hcu', ⟨E⟩⟩ := R.tyGen i hil
@@ -197,7 +197,7 @@ theorem ruleOutOf (R : RecStage mode F env p cvTas rs)
     (hr : rs[c]? = some r) {rhs : Expr} (hrhs : rhs ∈ r.2.1) :
     ∃ (i : Nat) (rc : RecShape),
       r.2.1[i]? = some rhs ∧ p.recs[c]? = some rc ∧
-      RuleOutOk mode F (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env)
+      RuleOutOk mode F (consBlockRecsBare p 0 (rs.map fun r => (r.1, r.2.2.1)) env)
         rc.cvR rhs := by
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hrhs
   obtain ⟨rc, hrc, hQ⟩ := R.ruleOut c r i rhs hr hi
@@ -209,7 +209,7 @@ end RecStage
 
 section Base
 
-variable {F : Nat} {env : Env} {p : BlockParts} {cvTas : List ConstantVal}
+variable {F : Nat} {env : Env} {p : BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
 
@@ -218,7 +218,7 @@ theorem recStageG_tyGen (h : RecStageG mode F env p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) :
     ∃ rc u, p.recs[i]? = some rc ∧
-      Nonempty (RecTyGen mode F env p.toBlockShape false i rc r.1 r.2.2.1 u) := by
+      Nonempty (RecTyGen mode F env p false i rc r.1 r.2.2.1 u) := by
   obtain ⟨R⟩ := h
   obtain ⟨rc, u, hrc, -, E⟩ := R.tyGenAt hr
   exact ⟨rc, u, hrc, E⟩
@@ -235,7 +235,7 @@ theorem recStage_facts (h : RecStageG mode F env p cvTas rs) :
       ∀ rhs ∈ r.2.1, rhs.hasFvar = false ∧
         rhs.allLevelParamsDefined r.1.levelParams = true ∧
         rhs.constsResolve
-          (consBlockRecsBare p.toBlockShape 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
+          (consBlockRecsBare p 0 (rs.map fun r => (r.1, r.2.2.1)) env) = true ∧
         rhs.looseBVarsBounded 0 = true := by
   obtain ⟨R⟩ := h
   intro r hr
@@ -260,13 +260,13 @@ theorem recStage_reserved (h : RecStageG mode F env p cvTas rs) :
 /-- The stage's recursor names: the pins at the member-targeting
 records. -/
 theorem recStageG_recNames (h : RecStageG mode F env p cvTas rs) :
-    RecPinsF p.toBlockShape ∧ rs.length = p.recs.length ∧
+    RecPinsF p ∧ rs.length = p.recs.length ∧
     ∀ i, i < p.recs.length → ∃ rc r, p.recs[i]? = some rc ∧ rs[i]? = some r ∧
       r.1.name = rc.cvR.name ∧
       (∃ cv0, cv0.name = rc.cvR.name ∧ cv0.levelParams = rc.cvR.levelParams ∧
         ConstChecked mode F env cv0 r.1) ∧
-      p.nP ≤ p.toBlockShape.rulePrefixAt i ∧
-      ∃ nIdx, p.toBlockShape.majorIdxAt i = p.toBlockShape.rulePrefixAt i + nIdx := by
+      p.nP ≤ p.rulePrefixAt i ∧
+      ∃ nIdx, p.majorIdxAt i = p.rulePrefixAt i + nIdx := by
   obtain ⟨R⟩ := h
   refine ⟨R.pins, R.len, fun i hil => ?_⟩
   have hi' : i < rs.length := by rw [R.len]; exact hil
@@ -307,7 +307,7 @@ end Base
 
 section Producer
 
-variable {F : Nat} {env : Env} {p : BlockParts} {block : List ConstantInfo}
+variable {F : Nat} {env : Env} {p : BlockShape} {block : List ConstantInfo}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
 

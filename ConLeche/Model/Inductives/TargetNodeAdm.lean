@@ -37,7 +37,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
-  BlockParts BlockShape fueledOps PosTree PosNodeOk PosD)
+  BlockShape BlockShape fueledOps PosTree PosNodeOk PosD)
 
 universe w
 

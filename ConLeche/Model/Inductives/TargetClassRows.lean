@@ -22,7 +22,7 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche.SetTheory
 open ConLeche.SetTheory.Tower
 
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts BlockShape
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape BlockShape
   TargetMajor RecShape)
 
 universe w
@@ -58,7 +58,7 @@ calls (`GenClassInd`, `GenRecAssembly.lean`). -/
 
 section Rows
 
-variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {pp : BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {pp : BlockShape}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)} {nested : Bool}
   {block : List ConstantInfo} {names : List Name} {d : BlockData V}

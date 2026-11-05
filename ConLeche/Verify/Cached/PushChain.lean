@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Inductives.BlockPartsInv
+import ConLeche.Verify.Inductives.BlockShapeInv
 public import ConLeche.Verify.Cached.InstallPushes
 public import ConLeche.Verify.EnvBound
 import ConLeche.Verify.EnvWF
@@ -235,7 +235,7 @@ theorem consSumCtorsF_find?_none (nP : Nat) {n : Name} :
 constructors are the block's by name, fresh at the formers'
 environment. -/
 theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (p₀ : BlockParts) (isRec : Bool)
+    (h : PushChain env fe) (p₀ : BlockShape) (isRec : Bool)
     (hdn : p₀.members.map (·.declared.name) = p₀.members.map (·.cvT.name))
     (hnd : (p₀.members.map (·.cvT.name)).Nodup) :
     Yields (checkBlockPassS mode fe p₀ isRec)
@@ -274,7 +274,7 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     obtain ⟨cs, hcs, hc⟩ := List.mem_flatten.mp hc
     obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcs
     exact hfrs ms hms c hc
-  · have hn' : (consBlockIndsF (p₀.toBlockShape.withSort s) isRec (p₀.members.map (·.declared)) 0
+  · have hn' : (consBlockIndsF (p₀.withSort s) isRec (p₀.members.map (·.declared)) 0
         fe).find? n = none := by rw [← hfe₁]; exact hn
     obtain ⟨hm₁, hm₂⟩ := consBlockIndsF_find?_none _ isRec h.canon hn'
     refine ⟨?_, hm₂⟩
@@ -340,13 +340,13 @@ theorem blockRecNameSetOk_nodup {p : BlockShape} (h : blockRecNameSetOk p = true
 /-- The generated stage's run says the records' names are distinct and fresh at the constructors'
 index (the generated constant's lookup and the record pins). -/
 theorem genRecCheck_recFresh (mode : CheckMode) (fe : FEnv)
-    (p : BlockParts) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
+    (p : BlockShape) (nested : Bool) (params : List Expr) (tbl : List NestCtorNf)
     (rd : ClassRead) (Ms₀ : List TargetMajor)
     (block : List ConstantInfo) (cvTas : List ConstantVal) :
-    Yields (genRecCheck (shadowOpsC mode) fe p.toBlockShape nested params tbl rd Ms₀ cvTas block)
+    Yields (genRecCheck (shadowOpsC mode) fe p nested params tbl rd Ms₀ cvTas block)
       (fun _ => (p.recs.map (·.cvR.name)).Nodup ∧ ∀ rc ∈ p.recs, fe.find? rc.cvR.name = none) := by
   refine Yields.mono (genRecCheck_names (shadowOpsC mode) fe
-    p.toBlockShape nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
+    p nested params tbl rd Ms₀ cvTas block) fun out hout => ?_
   obtain ⟨hnd, -, hall⟩ := hout
   refine ⟨hnd, fun rc hrc => ?_⟩
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hrc
@@ -373,7 +373,7 @@ theorem PushChain.pushTables {env : Env} :
       fun t' ht' => hQ t' (List.mem_cons_of_mem _ ht')
 
 /-- The names of a block's constants. -/
-theorem blockConstants_names (p : BlockParts) :
+theorem blockConstants_names (p : BlockShape) :
     (blockConstants p).map (·.name) =
       p.members.map (·.declared.name) ++ p.allCtors.map (·.1.name) ++ p.recs.map (·.cvR.name) := by
   have hF : ∀ (l : List ConstantVal) (i : Nat) (caps : Nat → IndCaps),
@@ -386,14 +386,14 @@ theorem blockConstants_names (p : BlockParts) :
       intro i caps
       simp only [List.zipIdx_cons, List.map_cons]
       exact congrArg (a.name :: ·) (ih (i + 1) caps)
-  have hR : ∀ l : List RecShape, (blockRecs p.toBlockShape l).map (·.name) = l.map (·.cvR.name) := by
+  have hR : ∀ l : List RecShape, (blockRecs p l).map (·.name) = l.map (·.cvR.name) := by
     intro l
     induction l with
     | nil => rfl
     | cons a l ih => exact congrArg (a.cvR.name :: ·) ih
   unfold blockConstants blockFormers blockCtors
   simp only [List.map_append]
-  rw [hF _ 0 (fun i => blockCapsAt p.toBlockShape i (blockRawRec p)), hR]
+  rw [hF _ 0 (fun i => blockCapsAt p i (blockRawRec p)), hR]
   simp [List.map_map, Function.comp_def, BlockShape.allCtors]
   rfl
 
@@ -419,19 +419,19 @@ index. -/
 theorem checkBlockTailS_fresh (mode : CheckMode) {block : List ConstantInfo} {q : BlockPass FEnv} :
     Yields (checkBlockTailS mode block q) (fun _ =>
       (q.p.recs.map (·.cvR.name)).Nodup ∧
-      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.toBlockShape.memberCtors q.env₁).find? rc.cvR.name = none) := by
+      ∀ rc ∈ q.p.recs, (consBlockCtorsF q.p.nP q.p.memberCtors q.env₁).find? rc.cvR.name = none) := by
   obtain ⟨env₁, p, sortsss, kinds, nfs, params, rd, cls, tbl⟩ := q
   unfold checkBlockTailS
   dsimp only
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
-  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block p.toBlockShape.formers) fun _ hrs =>
+  exact Yields.bind' (genRecCheck_recFresh mode _ p _ _ _ _ _ block p.formers) fun _ hrs =>
     Yields.const hrs
 
 /-- A block's install keeps the chain, its members' declared names standing where the
 recogniser read them. -/
 theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
-    (h : PushChain env fe) (block : List ConstantInfo) (p : BlockParts)
+    (h : PushChain env fe) (block : List ConstantInfo) (p : BlockShape)
     (hd : ∀ ms ∈ p.members, ms.declared = ms.cvT) :
     Yields (checkBlockKS mode fe block p) (fun fe' => PushChain env fe') := by
   unfold checkBlockKS
@@ -445,7 +445,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   refine Yields.bind' (reduceMembersS_same mode fe p.nP p.members) fun ms hms => ?_
   ybind
   obtain ⟨e₁, e₂, e₃⟩ := sameMembers_names hms hd
-  have hCt : ({ p with members := ms } : BlockParts).allCtors = p.allCtors := by
+  have hCt : ({ p with members := ms } : BlockShape).allCtors = p.allCtors := by
     show (ms.map (·.ctors)).flatten = (p.members.map (·.ctors)).flatten
     rw [e₃]
   refine Yields.bind' (checkBlockPassS_push mode h { p with members := ms } (blockRawRec p) e₂
@@ -453,13 +453,13 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   obtain ⟨h₁, hm, hrec, hnp, hfrs₀, hfrMs, hmem⟩ := hr
   try simp only [] at h₁ hm hrec hnp hfrs₀ hfrMs hmem
   try simp only []
-  have hflat : q.p.toBlockShape.memberCtors.flatten = ({ p with members := ms } : BlockParts).allCtors := by
+  have hflat : q.p.memberCtors.flatten = ({ p with members := ms } : BlockShape).allCtors := by
     show (q.p.members.map (·.ctors)).flatten = _
     rw [hm]
     rfl
-  have hns : q.p.toBlockShape.memberCtors.flatten.map (·.1.name) =
-      ({ p with members := ms } : BlockParts).allCtors.map (·.1.name) := by rw [hflat]
-  have hfrs : ∀ c ∈ q.p.toBlockShape.memberCtors.flatten, q.env₁.find? c.1.name = none := by
+  have hns : q.p.memberCtors.flatten.map (·.1.name) =
+      ({ p with members := ms } : BlockShape).allCtors.map (·.1.name) := by rw [hflat]
+  have hfrs : ∀ c ∈ q.p.memberCtors.flatten, q.env₁.find? c.1.name = none := by
     rw [hflat]; exact hfrs₀
   refine Yields.bind' (checkBlockTailS_fresh mode) fun _ hrs => Yields.pure ?_
   have hrecs : q.p.recs = p.recs := hrec
@@ -468,7 +468,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
   obtain ⟨hndR, hfrR⟩ := hrs
   have hCan₁ : q.env₁ = mkFEnv q.env₁.env := h₁.canon
   -- what the constructors' index does not find
-  have hC : ∀ n, (consBlockCtorsF q.p.nP q.p.toBlockShape.memberCtors q.env₁).find? n = none →
+  have hC : ∀ n, (consBlockCtorsF q.p.nP q.p.memberCtors q.env₁).find? n = none →
       n ∉ p.allCtors.map (·.1.name) ∧ n ∉ p.members.map (·.cvT.name) ∧ fe.find? n = none := by
     intro n hn
     rw [consBlockCtorsF_flatten] at hn
@@ -487,7 +487,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     refine ⟨⟨hndM, hndC, fun a ha b hb => ?_⟩, hndR, fun a ha b hb => ?_⟩
     · rintro rfl
       obtain ⟨c, hc, hca⟩ := List.mem_map.mp hb
-      have hc' : a ∈ q.p.toBlockShape.memberCtors.flatten.map (·.1.name) := by rw [hns, hCt]; exact hb
+      have hc' : a ∈ q.p.memberCtors.flatten.map (·.1.name) := by rw [hns, hCt]; exact hb
       obtain ⟨c', hc'm, hc'e⟩ := List.mem_map.mp hc'
       have := hfrs c' hc'm
       rw [hc'e] at this
@@ -513,7 +513,7 @@ theorem checkBlockKS_push (mode : CheckMode) {env : Env} {fe : FEnv}
           obtain ⟨m', hm'm, he⟩ := List.mem_map.mp hm'
           rw [← he]
           exact hfrMs m' hm'm
-        · have hc' : n ∈ q.p.toBlockShape.memberCtors.flatten.map (·.1.name) := by rw [hns, hCt]; exact hn
+        · have hc' : n ∈ q.p.memberCtors.flatten.map (·.1.name) := by rw [hns, hCt]; exact hn
           obtain ⟨c', hc'm, rfl⟩ := List.mem_map.mp hc'
           exact (hmem _ (hfrs c' hc'm)).2
       · obtain ⟨rc, hrc, rfl⟩ := List.mem_map.mp hn
@@ -609,9 +609,9 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     split
     · exact checkBasisBlockC_push h _ _
     · split
-      · cases hbp : blockParts? nP block with
+      · cases hbp : blockShape? nP block with
         | none => exact Yields.bind fun _ => Yields.ofThrow
-        | some p => exact checkBlockKS_push mode h block p (ConLeche.blockParts?_declared (by assumption))
+        | some p => exact checkBlockKS_push mode h block p (ConLeche.blockShape?_declared (by assumption))
       · exact Yields.ofThrow
 
 theorem checkDeclStepC_push (mode : CheckMode) {env : Env} {fe : FEnv}

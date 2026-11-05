@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.DeclRun
-import ConLeche.Verify.Inductives.BlockPartsInv
+import ConLeche.Verify.Inductives.BlockShapeInv
 import ConLeche.Semantics.Bridge.DeclRun
 
 @[expose] public section
@@ -22,14 +22,14 @@ open ConLeche.Term ConLeche.Verify
 variable {pins : List NatOpPinSet}
 
 /-- **The `.indDecl` dispatch at the run level, at k members**: the
-kernel's own case split (`blockParts?`), with the uniform arm recorded
+kernel's own case split (`blockShape?`), with the uniform arm recorded
 as the k-ary run `DeclBlockRun` (`Semantics/Inductives/DeclBlock.lean`)
 at any number of members, nested blocks included.  A block the
 recogniser does not read never installs (`checkShapeless` declines), so
 its arm is `False`. -/
 def DeclIndRunDispatchK (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
-  match ConLeche.blockParts? nP block with
+  match ConLeche.blockShape? nP block with
   | some p => BlockRun F env block p env₂
   | none => False
 
@@ -61,10 +61,10 @@ theorem checkDeclRun_ofEnvFactsK
       by_cases hok : indParamsOk nP block = true
       · rw [ite_eq_left hok] at hh
         revert hh
-        cases hdf : blockParts? nP block with
+        cases hdf : blockShape? nP block with
         | some p =>
           intro hh
-          exact blockRun_of (ConLeche.blockParts?_declared hdf) hh
+          exact blockRun_of (ConLeche.blockShape?_declared hdf) hh
         | none =>
           intro hh
           exact checkShapeless_ne_ok hh

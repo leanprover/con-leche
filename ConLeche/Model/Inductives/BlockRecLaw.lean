@@ -397,16 +397,16 @@ theorem spineFit_of_teleFitPA {pds : List Term} {b : Term}
 /-- **The block recursor's own flip**, at the run: whatever fits the
 `i`-th stored recursor type's reading fits its domains. -/
 theorem spineFit_blockRecTy {envC : Env}
-    (mpC : EnvModelM V envC) {p : ConLeche.BlockParts}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockShape}
     {cvTas : List ConstantVal}
     {rs : List RecDatum} {F : Nat}
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : RecDatum} (hr : rs[i]? = some r) (ψ : Name → Nat)
     {ρ : Nat → V} {ws : List Term} {rest TVa : Term}
     (hTVa : denote mpC.base2.acval envC ψ 0 r.1.type = some TVa)
-    (hlen : ws.length = p.toBlockShape.majorIdxAt i + 1)
+    (hlen : ws.length = p.majorIdxAt i + 1)
     (hfit : TeleFitPA V ρ TVa ws rest) :
-    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i))
+    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC p rs ψ i))
       (ws.map (interp V ρ)) := by
   obtain ⟨-, -, -, hread, hpis, hrdsLen, -, -⟩ := recStage_tyPis mpC h hr ψ
   obtain rfl : TVa = blockRecTyAV mpC.base2.acval envC rs ψ i :=

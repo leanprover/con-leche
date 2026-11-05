@@ -1068,7 +1068,7 @@ nodes recorded in the walk's final state `pos`, which keeps the cache
 invariant (the seeds continue from it, `checkBlockSeeds_deriv`), and
 every constructor's entry recorded (`CtorsRec` at the root key). -/
 theorem checkBlockPositivity_deriv {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hwsc : ∀ dep e w, ops.whnf env₁ dep e = .ok w → WScoped dep e → WScoped dep w)

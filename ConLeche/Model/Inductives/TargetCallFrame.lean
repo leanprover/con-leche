@@ -41,7 +41,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
-  BlockParts BlockShape fueledOps PosTree PosNodeOk PosD NestFieldKind closeTelescope
+  BlockShape BlockShape fueledOps PosTree PosNodeOk PosD NestFieldKind closeTelescope
   openPisAtFvars instPisWith grpNews grpHoles)
 
 universe w
@@ -327,7 +327,7 @@ theorem blk_ctorFit {env : Env} (mk : EnvModelM V env)
     {d : BlockData V} {lps : List Name} {cvTas : List ConstantVal} {p₁ : BlockShape}
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec)
-    {p : BlockParts} (hnames : p.memberNames = d.memberNames)
+    {p : BlockShape} (hnames : p.memberNames = d.memberNames)
     (hread : p.members.map (·.cvT) = cvTas) (hlps : p.lps = lps)
     (hnP : p.nP = d.nP) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}

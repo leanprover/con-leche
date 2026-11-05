@@ -23,7 +23,7 @@ namespace ConLeche
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
-/-- **An inductive block the recogniser does not read** (`blockParts? =
+/-- **An inductive block the recogniser does not read** (`blockShape? =
 none`): its type formers are checked as constants — a reserved name, a
 duplicate, a malformed type are official's rejects and stay rejects —
 and what survives that is a POSITIVE decline, since the installer
@@ -178,7 +178,7 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
       -- dispatch is the RECOGNISER alone
       -- (task #219).  A block it does not read declines, once its
       -- formers have been checked as constants (`checkShapeless`).
-      match blockParts? nP block with
+      match blockShape? nP block with
       | some p => checkBlock ops env block p
       | none => checkShapeless ops env block
     else throw (.invalid "number of parameters mismatch")

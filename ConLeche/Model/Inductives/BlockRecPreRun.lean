@@ -349,7 +349,7 @@ level is the max of the `K` inferred sorts, each of them a `Level` the
 run fixed; every recursor type's reading lands in it by cumulativity,
 and its grading is the same run's. -/
 theorem blockRecTy_univ_run {envC : Env}
-    (mpC : EnvModelM V envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG .verified F envC p cvTas rs) :
     ∃ us : List Level, ∀ (ψ : Name → Nat) (c : Nat), c < rs.length → ∀ ρ : Nat → V,
@@ -497,14 +497,14 @@ theorem liftDomsK_eq_self_of_bounded {K : Nat} :
 `blockRulePdomsAV` — the `K` lift does nothing to a telescope read at
 its own depths — so the guard and the bridges are at the same data. -/
 theorem blockRecPdomsK_eq {envC : Env} {mpC : EnvModelM V envC} {K : Nat}
-    {p : ConLeche.BlockParts}
+    {p : ConLeche.BlockShape}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     {ψ : Name → Nat} {c : Nat}
-    (hb : ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).length →
+    (hb : ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p rs ψ c).length →
       Term.bvarsBelow l
-        (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c).getD l default))) :
-    blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ c
-      = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ c := by
+        (((blockRulePdomsAV mpC.base2.acval envC p rs ψ c).getD l default))) :
+    blockRecPdomsK K mpC.base2.acval envC p rs ψ c
+      = blockRulePdomsAV mpC.base2.acval envC p rs ψ c := by
   rw [blockRecPdomsK]
   exact liftDomsK_eq_self_of_bounded 0 _ (by simpa using hb)
 
@@ -712,7 +712,7 @@ theorem ctxOk_of_openers_congr {env : Env} {m : EnvModel V env} {φ : Name → N
 
 section Run
 
-variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+variable {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
@@ -737,14 +737,14 @@ theorem blockRulePdomsAV_reads (mpC : EnvModelM V envC)
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) {fvs : List Expr} {o : Expr}
-    (hop : openPisAtFvars (p.toBlockShape.rulePrefixAt i) r.1.type 0 = some (fvs, o)) :
+    (hop : openPisAtFvars (p.rulePrefixAt i) r.1.type 0 = some (fvs, o)) :
     ∀ (l : Nat) (x : Expr), fvs[l]? = some x →
       denote mpC.base2.acval envC ψ l (Expr.fvarTypeD x)
-        = some ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l default) := by
+        = some ((blockRulePdomsAV mpC.base2.acval envC p rs ψ i).getD l default) := by
   intro l x hx
-  have hlfvs : fvs.length = p.toBlockShape.rulePrefixAt i :=
+  have hlfvs : fvs.length = p.rulePrefixAt i :=
     ConLeche.Verify.openPisAtFvars_length _ hop
-  have hl : l < p.toBlockShape.rulePrefixAt i := by
+  have hl : l < p.rulePrefixAt i := by
     have := (List.getElem?_eq_some_iff.mp hx).1
     omega
   have hle := blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
@@ -796,15 +796,15 @@ theorem blockRulePdomsAV_graded (mpC : EnvModelM V envC)
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
-    ∀ l, l < p.toBlockShape.rulePrefixAt i → ∀ (ρ : Nat → V) (ys : List V),
-      SpineFit ρ ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).take l) ys →
+    ∀ l, l < p.rulePrefixAt i → ∀ (ρ : Nat → V) (ys : List V),
+      SpineFit ρ ((blockRulePdomsAV mpC.base2.acval envC p rs ψ i).take l) ys →
       WellDenotedTy V (consList ys ρ)
-        ((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l default) := by
+        ((blockRulePdomsAV mpC.base2.acval envC p rs ψ i).getD l default) := by
   intro l hl ρ ys hys
   have hle := blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨-, -, -, -, hmk, hlenRds, -, -, hwdTy⟩ := recStage_tyPis mpC h hr ψ
   refine prefixDoms_graded_of_tower (cc := blockRecConclAV mpC.base2.acval envC
-      p.toBlockShape rs ψ i) (by omega) (fun ρ' => by rw [← hmk]; exact hwdTy ρ') hl hys
+      p rs ψ i) (by omega) (fun ρ' => by rw [← hmk]; exact hwdTy ρ') hl hys
 
 /-- **§28's boundedness premise, at the run**: the rule prefix's
 domains are bounded at their own depths, so `blockRecPdomsK`'s `K`
@@ -814,20 +814,20 @@ theorem blockRulePdomsAV_bounded (mpC : EnvModelM V envC)
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) :
-    ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length →
+    ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC p rs ψ i).length →
       Term.bvarsBelow l
-        (((blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l default)) := by
+        (((blockRulePdomsAV mpC.base2.acval envC p rs ψ i).getD l default)) := by
   intro l hl
-  have hlp : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length
-      = p.toBlockShape.rulePrefixAt i := blockRulePdomsAV_length mpC h hr ψ
+  have hlp : (blockRulePdomsAV mpC.base2.acval envC p rs ψ i).length
+      = p.rulePrefixAt i := blockRulePdomsAV_length mpC h hr ψ
   have hle := blockRecHrPle (p := p) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨-, -, -, -, -, hlenRds, -, -, -⟩ := recStage_tyPis mpC h hr ψ
   obtain ⟨hbnd, -⟩ := recStage_tyBounds mpC h hr ψ
-  have hlk : l < (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i).length := by omega
-  obtain ⟨pd, hpd⟩ : ∃ pd, (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ i)[l]?
+  have hlk : l < (blockRecRdsAV mpC.base2.acval envC p rs ψ i).length := by omega
+  obtain ⟨pd, hpd⟩ : ∃ pd, (blockRecRdsAV mpC.base2.acval envC p rs ψ i)[l]?
       = some pd :=
     ⟨_, List.getElem?_eq_getElem hlk⟩
-  have heq : (blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i).getD l default
+  have heq : (blockRulePdomsAV mpC.base2.acval envC p rs ψ i).getD l default
       = pd := by
     rw [blockRulePdomsAV, List.getD_eq_getElem?_getD,
       List.getElem?_take, ite_eq_left (by omega), hpd]
@@ -843,8 +843,8 @@ theorem blockRecPdomsK_run (mpC : EnvModelM V envC)
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {i : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[i]? = some r) (ψ : Name → Nat) (K : Nat) :
-    blockRecPdomsK K mpC.base2.acval envC p.toBlockShape rs ψ i
-      = blockRulePdomsAV mpC.base2.acval envC p.toBlockShape rs ψ i :=
+    blockRecPdomsK K mpC.base2.acval envC p rs ψ i
+      = blockRulePdomsAV mpC.base2.acval envC p rs ψ i :=
   blockRecPdomsK_eq (blockRulePdomsAV_bounded mpC h hr ψ)
 
 end Run
@@ -970,15 +970,15 @@ end ElimRun
 
 /-- **The elimination level, FROM THE RUN** — the level stage (b)
 reads off recursor `c`'s CONCLUSION, with its two runs. -/
-theorem blockRecElimLevel_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+theorem blockRecElimLevel_run {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG .verified F envC p cvTas rs) :
     ∃ uOf : Nat → Level,
       ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
-        ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+        ConLeche.openPisAtFvars (p.majorIdxAt c + 1)
             (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) sty
+        ConLeche.inferTypeCore .verified false envC F (p.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore .verified false envC F (p.majorIdxAt c + 1) sty
           = .ok (uOf c) := by
   obtain ⟨R⟩ := id h
   have huOf : ∀ {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
@@ -993,7 +993,7 @@ theorem blockRecElimLevel_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : Li
     obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr
     have hrd : rs.getD c default = r := by rw [List.getD_eq_getElem?_getD, hr]; rfl
     refine ⟨E.fvs, E.concl, E.sty, by rw [hrd]; exact E.hopen, E.hsty, ?_⟩
-    show ConLeche.ensureSortCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) E.sty
+    show ConLeche.ensureSortCore .verified false envC F (p.majorIdxAt c + 1) E.sty
       = .ok ((R.cvRus.map (·.2.2)).getD c .zero)
     rw [huOf hcu]
     exact E.hu
@@ -1003,14 +1003,14 @@ recursor of the list: `blockRecElimLevel_run` hands the level back
 existentially, but its runs pin it — `inferTypeCore`/`ensureSortCore`
 are functions — so a fact about the KERNEL's level list is read at
 `uOf`. -/
-theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {uOf : Nat → Level} (R : ConLeche.RecStage .verified F envC p cvTas rs)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
-      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+      ConLeche.openPisAtFvars (p.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+        ConLeche.inferTypeCore .verified false envC F (p.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore .verified false envC F (p.majorIdxAt c + 1) sty = .ok (uOf c))
     {c : Nat} (hc : c < rs.length) : uOf c ∈ R.cvRus.map (·.2.2) := by
   obtain ⟨r0, hr0⟩ : ∃ r, rs[c]? = some r := ⟨rs[c]'hc, List.getElem?_eq_getElem hc⟩
   obtain ⟨rc, u, -, hcu, ⟨E⟩⟩ := R.tyGenAt hr0
@@ -1029,18 +1029,18 @@ theorem blockRecUOf_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List Con
 the CHECKED elimination level `structElimLevel p.elim p.large`, at
 every `ψ` — the elimination-level pin (`RecFamFacts.pin`) read at the
 package's `uOf`. -/
-theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+theorem blockRecElimPin_run {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {uOf : Nat → Level}
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     (hruns : ∀ c, c < rs.length → ∃ (fvs : List Expr) (conclE sty : Expr),
-      ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1)
+      ConLeche.openPisAtFvars (p.majorIdxAt c + 1)
           (rs.getD c default).1.type 0 = some (fvs, conclE) ∧
-        ConLeche.inferTypeCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) conclE = .ok sty ∧
-        ConLeche.ensureSortCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok (uOf c))
+        ConLeche.inferTypeCore .verified false envC F (p.majorIdxAt c + 1) conclE = .ok sty ∧
+        ConLeche.ensureSortCore .verified false envC F (p.majorIdxAt c + 1) sty = .ok (uOf c))
     (ψ : Name → Nat) {c : Nat} (hc : c < rs.length) :
     Level.eval ψ (uOf c)
-      = Level.eval ψ (ConLeche.structElimLevel p.toBlockShape.elim p.toBlockShape.large) := by
+      = Level.eval ψ (ConLeche.structElimLevel p.elim p.large) := by
   obtain ⟨R⟩ := id h
   exact ConLeche.Level.isEquiv_sound (R.fam.pin _ (blockRecUOf_run R hruns hc)) ψ
 
@@ -1403,7 +1403,7 @@ one bridge between them. -/
 lemmas below share: the recursor stage's run at a member recursor `c`
 (data `r`) and its target member's former (`cvTa`, read as
 `FormerData` with at least `nP` binders). -/
-variable {envC : Env} {p : ConLeche.BlockParts}
+variable {envC : Env} {p : ConLeche.BlockShape}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   (mpC : EnvModelM V envC)
@@ -1411,7 +1411,7 @@ variable {envC : Env} {p : ConLeche.BlockParts}
   {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
   (hr : rs[c]? = some r) (ψ : Name → Nat)
   {cvTa : ConstantVal} {caps : ConLeche.IndCaps}
-  (hcvTa : cvTas[p.toBlockShape.recTgtAt c]? = some cvTa)
+  (hcvTa : cvTas[p.recTgtAt c]? = some cvTa)
   (hfT : envC.find? cvTa.name = some (.indInfo cvTa caps))
   {nFull : Nat} {resSort : Level} {pps : (Name → Nat) → List Term}
   (hFD : FormerData mpC.base2 cvTa nFull resSort pps) (hle : p.nP ≤ nFull)
@@ -1548,20 +1548,20 @@ theorem piConcl_univ {envC : Env}
 conclusion reads into `univ (u.eval ψ)` at every frame satisfying the
 type's own domains. -/
 theorem blockRecConcl_univ {envC : Env}
-    (mpC : EnvModelM V envC) {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+    (mpC : EnvModelM V envC) {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     (h : ConLeche.RecStageG .verified F envC p cvTas rs)
     {c : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : rs[c]? = some r) (ψ : Name → Nat)
     {fvs : List Expr} {conclE sty : Expr} {u : Level}
-    (hop : ConLeche.openPisAtFvars (p.toBlockShape.majorIdxAt c + 1) r.1.type 0
+    (hop : ConLeche.openPisAtFvars (p.majorIdxAt c + 1) r.1.type 0
       = some (fvs, conclE))
-    (hinf : ConLeche.inferTypeCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) conclE
+    (hinf : ConLeche.inferTypeCore .verified false envC F (p.majorIdxAt c + 1) conclE
       = .ok sty)
-    (hens : ConLeche.ensureSortCore .verified false envC F (p.toBlockShape.majorIdxAt c + 1) sty = .ok u) :
+    (hens : ConLeche.ensureSortCore .verified false envC F (p.majorIdxAt c + 1) sty = .ok u) :
     ∀ ρ : Nat → V,
-      Sat V (blockRecRdsAV mpC.base2.acval envC p.toBlockShape rs ψ c).reverse ρ →
-      interp V ρ (blockRecConclAV mpC.base2.acval envC p.toBlockShape rs ψ c)
+      Sat V (blockRecRdsAV mpC.base2.acval envC p rs ψ c).reverse ρ →
+      interp V ρ (blockRecConclAV mpC.base2.acval envC p rs ψ c)
         ∈ˢ (univ (u.eval ψ) : V) := by
   obtain ⟨hw₁, hb₁⟩ := recStage_tyClosed h hr
   obtain ⟨fvs', concl', hop', -, hTyE, hlenRds, hdomsR, hconclRead, hwdTy⟩ :=

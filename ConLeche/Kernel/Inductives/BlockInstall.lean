@@ -9,7 +9,7 @@ public import ConLeche.Kernel.Inductives.BlockRec
 /-!
 # The uniform inductive install, at k members
 
-ONE installer over `BlockParts` (`ConLeche/Kernel/Inductives/BlockParts.lean`),
+ONE installer over `BlockShape` (`ConLeche/Kernel/Inductives/BlockShape.lean`),
 in official's order (`declare_inductive_types`, `check_constructors`,
 `declare_recursors`, `inductive.cpp`):
 
@@ -98,7 +98,7 @@ accept-superset, stream `whnfswap_unitcaps_bad`).  Known before any
 constructor is checked, so the formers are installed at it once.  The
 parameter domains are scanned too, as official does; they cannot hold a
 member on a stream official accepts (`check_uniform_ind_occs`). -/
-def blockRawRec (p : BlockParts) : Bool :=
+def blockRawRec (p : BlockShape) : Bool :=
   p.members.any fun ms => ms.ctors.any fun c => c.1.type.piDomsMentionAny p.memberNames
 
 /-! ## Stage 1: the formers -/
@@ -174,7 +174,7 @@ def consBlockInds (p₁ : BlockShape) (isRec : Bool) :
 /-- **Stage 1**: the k type formers, checked, agreed and consed —
 official's `declare_inductive_types`, which puts every former in the
 environment before any constructor is looked at. -/
-def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
+def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockShape)
     (isRec : Bool) : m (Env × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
@@ -182,7 +182,7 @@ def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
     let (cvTa0, s0) ← checkBlockTele ops env p.nP ms0
     let cvs ← checkBlockTeles ops env p.nP rest
     checkBlockAgree ops env p.nP cvTa0 s0 cvs
-    let p₁ := p.toBlockShape.withSort s0
+    let p₁ := p.withSort s0
     pure (consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env, p₁)
 
 /-! ## Stage 1b: the constructors -/
@@ -280,10 +280,10 @@ the cache and the recorded constructor normal forms, which the walk of the
 other classes continues (`checkBlockPass`, `BlockTail.lean`); the walk's
 verdict is the install's. -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (p : BlockParts) (cvTas : List ConstantVal)
+    (p : BlockShape) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) :
     m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
-  let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find?
+  let (ctx, holes) ← blockNestCtx p cvTas find?
   -- official's `check_uniform_ind_occs`, before the walk
   nestUniform ctx ctorsAs
   -- the root frame on the STORED (declared) constructors; their normal forms are output only

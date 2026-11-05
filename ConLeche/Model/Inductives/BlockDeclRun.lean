@@ -53,7 +53,7 @@ well-formedness. -/
 
 section MembersRun
 
-variable {envC envI : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
+variable {envC envI : Env} {pp : ConLeche.BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → Term}
 
@@ -64,33 +64,33 @@ variable {envC envI : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
 run's own block data. -/
 theorem blockMembersRun_seam
     (hN : BlockNamesOk (V := V)
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) F
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A envI pp.ctorNamesAt)
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      pp isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      pp isRec A
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf).k) :
     BlockMembersRun mpC.base2
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.toBlockShape
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp
       cvTas := by
   obtain ⟨hname, -, hlen⟩ := hN
   refine ⟨rfl, rfl, hlen, ?_, ?_, ?_, ?_⟩
   · intro m cvTb hcv
-    have hm : m < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k := by
+    have hm : m < (blockDataOf V pp ctorsAs pk uOfD ppsOf).k := by
       rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hcv).1
     obtain ⟨hfind, -, -, hFD⟩ := hcore.1 m cvTb hcv
     obtain ⟨cvS, -, hDS⟩ := id hfind
     exact ⟨hname m cvTb hcv, hS.lpsT m cvTb hm hcv, ⟨_, hfind⟩, hDS.readFvar, hDS.readBounded, hFD⟩
   · intro m ms hms
-    have hm : m < pp.toBlockShape.members.length := (List.getElem?_eq_some_iff.mp hms).1
-    have hg : pp.toBlockShape.members.getD m default = ms := by
+    have hm : m < pp.members.length := (List.getElem?_eq_some_iff.mp hms).1
+    have hg : pp.members.getD m default = ms := by
       rw [List.getD_eq_getElem?_getD, hms]; rfl
     refine ⟨?_, ?_⟩
-    · show (pp.toBlockShape.members.map (·.cvT.name)).getD m .anonymous = ms.cvT.name
+    · show (pp.members.map (·.cvT.name)).getD m .anonymous = ms.cvT.name
       rw [List.getD_eq_getElem?_getD, List.getElem?_map, hms]; rfl
-    · show pp.toBlockShape.nIdxs.getD m 0 = ms.nIdx
+    · show pp.nIdxs.getD m 0 = ms.nIdx
       rw [blockNIdxs_getD hm, hg]
   · intro m ψ hm
     obtain ⟨cvTb, hcv⟩ : ∃ cvTb, cvTas[m]? = some cvTb :=
@@ -99,7 +99,7 @@ theorem blockMembersRun_seam
     rw [hname m cvTb hcv, hleaf ψ, hS.leaf m ψ]
     exact ⟨_, rfl⟩
   · intro m hm ψ ρ
-    have h0 : 0 < (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k :=
+    have h0 : 0 < (blockDataOf V pp ctorsAs pk uOfD ppsOf).k :=
       Nat.lt_of_le_of_lt (Nat.zero_le _) hm
     exact ⟨fun h => hS.paramsOf m hm ψ ρ h 0 h0, fun h => hS.paramsOf 0 h0 ψ ρ h m hm⟩
 
@@ -110,17 +110,17 @@ theorem blockModelAt_seam
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))}
     (h : ConLeche.RecStageG .verified F envC pp cvTas rs)
     (hN : BlockNamesOk (V := V)
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) cvTas)
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) cvTas)
     (hS : BlockCtorsStage (V := V) F
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A envI pp.ctorNamesAt)
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      pp isRec A envI pp.ctorNamesAt)
     (hcore : BlockCtorsCore mpC.base2
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) pp.lps cvTas
-      pp.toBlockShape isRec A
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).k) :
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) pp.lps cvTas
+      pp isRec A
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf).k) :
     BlockModelAt mpC.base2
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf).memberNames
-      (blockDataOf V pp.toBlockShape ctorsAs pk uOfD ppsOf) := by
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf).memberNames
+      (blockDataOf V pp ctorsAs pk uOfD ppsOf) := by
   obtain ⟨R⟩ := id h
   exact blockModelAt_of_records hN hS hcore rfl R.fam.k_pos (fun _ _ => rfl) (fun _ _ _ _ => rfl)
 
@@ -158,18 +158,18 @@ theorem blockRecEqs_below_rows
       (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[c]? = some r → ∀ (j : Nat) (cA : ConstantVal × Nat) (rhs : Expr),
       r.2.2.2[j]? = some cA → r.2.1[j]? = some rhs →
-        DomsBelow (pp.toBlockShape.rulePrefixAt c) (fdoms0 ψ c j) ∧
+        DomsBelow (pp.rulePrefixAt c) (fdoms0 ψ c j) ∧
         (∀ e ∈ es0 ψ c j, Term.bvarsBelow
-          (pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length) e) ∧
-        Term.bvarsBelow (pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length)
+          (pp.rulePrefixAt c + (fdoms0 ψ c j).length) e) ∧
+        Term.bvarsBelow (pp.rulePrefixAt c + (fdoms0 ψ c j).length)
           (mk0 ψ c j) ∧
         (∀ v ∈ ihs ψ c j, Term.bvarsBelow
-          (rs.length + pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length) v) ∧
-        Term.bvarsBelow (pp.toBlockShape.rulePrefixAt c + (fdoms0 ψ c j).length
+          (rs.length + pp.rulePrefixAt c + (fdoms0 ψ c j).length) v) ∧
+        Term.bvarsBelow (pp.rulePrefixAt c + (fdoms0 ψ c j).length
           + (ihs ψ c j).length) (Rb0 ψ c j)) :
     ∀ ψ : Name → Nat,
       ∀ e ∈ blockRecEqs (blockRecNCt rs) rs
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp rs ψ')
           fdoms0 es0 ihs mk0 Rb0 ψ,
         Term.bvarsBelow rs.length e := by
   intro ψ
@@ -220,10 +220,10 @@ theorem blockRecEqs_params_rows
     ∀ (i : Nat) (r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)),
       rs[i]? = some r → ∀ ψ₁ ψ₂ : Name → Nat, (∀ q ∈ r.1.levelParams, ψ₁ q = ψ₂ q) →
         blockRecEqs (blockRecNCt rs) rs
-            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
+            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp rs ψ')
             fdoms0 es0 ihs mk0 Rb0 ψ₁
           = blockRecEqs (blockRecNCt rs) rs
-            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape rs ψ')
+            (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp rs ψ')
             fdoms0 es0 ihs mk0 Rb0 ψ₂ := by
   intro i₀ r₀ hr₀ ψ₁ ψ₂ hq₀
   show blockIotaEqsAV rs.length (blockRecNCt rs) _ _ _ _ _ _

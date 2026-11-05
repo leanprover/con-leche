@@ -156,7 +156,7 @@ def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
   | some kind => checkBasisBlockC fe kind block
   | none =>
     if indParamsOk nP block then
-      match blockParts? nP block with
+      match blockShape? nP block with
       | some p => checkBlockKS mode fe block p
       | none => checkShapelessS mode fe block
     else throw (.invalid "number of parameters mismatch")

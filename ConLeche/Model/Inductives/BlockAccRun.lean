@@ -33,7 +33,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level NestCtx NestHole ConstantVal BlockShape BlockParts)
+open ConLeche (Env Expr Name Level NestCtx NestHole ConstantVal BlockShape BlockShape)
 
 universe w
 

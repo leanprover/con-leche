@@ -56,7 +56,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockParts TargetMajor
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockShape TargetMajor
   GenRecRun fueledOps mkFEnv NestState)
 
 universe w
@@ -93,19 +93,19 @@ theorem readParams_lift {acval : Name → (Name → Nat) → Term} {env : Env} {
 
 /-- **The frame tie at the generated stage** (see the module docstring). -/
 theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
-    {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
+    {envC envI : Env} {pp : BlockShape} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : NestState} {nested : Bool}
     (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nested posR cvTasR
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nested posR cvTasR
       block ctorsAsR out)
     (h : ConLeche.RecStageG .verified F envC pp cvTasR (ConLeche.tgtRs out))
     (hparG : ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V)
       (xs : List V),
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (ConLeche.tgtRs out) ψ c)
         xs → SpineFit ρ (dR.params ψ) (xs.take dR.nP))
     (hg : ConLeche.ClassGenScoped R.g)
     {Dc : Nat → LfpDatum V} {mc : Nat → Nat} {cvc : Nat → ConstantVal}
@@ -120,12 +120,12 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     (hnodeSat : ∀ t ∈ ns,
       Sat V ((lfpSel mpC dR.toLfp t.key.cname).params (nodeψ envC ψ t)).reverse
         (nodeFr mpC.base2.acval envC (pp.nestCtx fvsP envI.find?) ψ ρ xs t)) :
-    NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find?) pp.toBlockShape out ns
+    NodeFrameTie mpC.base2.acval (pp.nestCtx fvsP envI.find?) pp out ns
       ψ ρ xs envC F (cvTasR.map (·.type)) := by
   intro c hc t ht hNM hsp
   have hctx₀ := hctx
   obtain ⟨-, -, -, -, hN, hS, hcore, -, hdR, -, hcov, -⟩ := hctx
-  have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
+  have hmr : BlockMembersRun mpC.base2 dR pp cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore
   have hnPq : dR.nP = pp.nP := hmr.1
   -- the canonical parameters: the head former's opened telescope
@@ -192,7 +192,7 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
       (dR.params ψ).reverse fvsP.reverse := by rw [hlenP]; simpa using hW
   -- the spine's length
   have hr : (ConLeche.tgtRs out)[c]? = some (ConLeche.tgtRs out)[c] := List.getElem?_eq_getElem hc
-  have hxl : xs.length = tgtRP pp.toBlockShape c := by
+  have hxl : xs.length = tgtRP pp c := by
     rw [SpineFit.length_eq hsp, blockRulePdomsAV_length mpC h hr ψ]; rfl
   have hnle : pp.nP ≤ xs.length := by
     have := SpineFit.length_eq hfit
@@ -218,7 +218,7 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
   have hMo : (tgtMajor out c).member = none := hNM.1
   have hlv := (ConLeche.targetClassMatch_true hNM.2.2).1
   have hcl := hcls c hc hMo
-  have hnPc : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
+  have hnPc : pp.nP ≤ pp.rulePrefixAt c := by
     obtain ⟨-, -, -, -, -, -, -, -, -, hRP, -⟩ := genRun_binders R hg h mpC (fun _ => 0) hc
     rw [hRP, (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1]
     exact Nat.le_add_right _ _
@@ -263,7 +263,7 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
     exact consList_apply_add xs ρ j
   -- pair by pair: the class match's soundness at the parameters, lifted
   obtain ⟨hl, hall⟩ := ConLeche.targetParamsDefEq_true hPD
-  have hnP' : (pp.nestCtx fvsP envI.find?).nP ≤ tgtRP pp.toBlockShape c := hnPc
+  have hnP' : (pp.nestCtx fvsP envI.find?).nP ≤ tgtRP pp c := hnPc
   obtain ⟨dsaK, hspK⟩ := hF.sp t ht ψ
   obtain ⟨ebs, hebs, -⟩ := readback_spine mpC.base2 ((hF.read t ht).hs ψ hnP') ρ (hF.ws t ht) hspK
   have hkfN := keyFrame_readback (V := V) mpC.base2 ((hF.read t ht).hs ψ hnP') (hF.ws t ht) hspK

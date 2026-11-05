@@ -235,7 +235,7 @@ FALLBACK = {
     # identifier, `Complete/PosDerivComplete.lean:57`).
     ('ConLeche.Complete.PosDerivComplete', 'ConLeche.Verify.Inductives.PosDeriv'),
     # lane POSDERIV: the positivity inversion's public statements name
-    # `NestCtxOk` (NestScope) and `BlockParts.nestCtx`/`checkBlockPositivity`
+    # `NestCtxOk` (NestScope) and `BlockShape.nestCtx`/`checkBlockPositivity`
     # (PositivityInv); MEASURED by demoting each (unknown identifier,
     # `PosDerivInv.lean:161` and `:930`).
     ('ConLeche.Verify.Inductives.PosDerivInv', 'ConLeche.Verify.Inductives.NestScope'),
@@ -368,12 +368,12 @@ FALLBACK = {
     # failures: `NestScope` without `Positivity` loses `NestCtx`
     # (`:121`), without `Shift` loses `WScoped` (`:27`); `NestPosC`
     # without `NestScope` loses `NestCtxOk` (`:47`); `PositivityInv`
-    # without `BlockInstall` loses `BlockParts`/`Expr` (`:26`);
+    # without `BlockInstall` loses `BlockShape`/`Expr` (`:26`);
     # `BlockPosRun` without `BlockLfpTup` loses `LfpDatum.CtorPos`
     # (`:185`), without `BlockHoleRead` `Expr.ErasedEqL` (`:114`),
     # without `BlockStageCtors` `BlockNamesOk` (`:165`), without
     # `NestPosMono` `PiPosThen` (`:77`), without `PositivityInv`
-    # `BlockParts.nestCtx` (`:172`).  (Its sixth, `Model.Rules.Inputs`,
+    # `BlockShape.nestCtx` (`:172`).  (Its sixth, `Model.Rules.Inputs`,
     # WAS demotable and is demoted.)
     # lane CONTSEM session 4: `ContN2`'s `keyFrame_eq_substE` states
     # `substTau` (`Reading.SubstFvars`); MEASURED by demoting it alone

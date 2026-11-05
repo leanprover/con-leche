@@ -24,11 +24,6 @@ which yields M2′ here, `UniformOcc.lean`), then the fields' universes at the h
 
 namespace ConLeche
 
-/-- The context `checkBlockPositivity` builds. -/
-@[expose] def BlockParts.nestCtx (p : BlockParts) (fvsP : List Expr)
-    (find? : Name → Option ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, p.members.map (·.cvT)⟩
-
 /-- **A frame's constructor list, run**: one output per constructor, and
 every constructor's instantiated type typed at the frame's depth. -/
 theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
@@ -208,7 +203,7 @@ walk's context, official's uniform check, the root frame's run (from the
 empty state), the fields' universes — and the outputs are its kinds and
 normal forms, its final state the stage's. -/
 theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
@@ -262,7 +257,7 @@ theorem outs_getD {α β : Type} [Inhabited β] {outs : List (List α)} {f : α 
 canonical crest (every whole member application `T_m.{lps} p⃗` replaced by
 its hole) mentions no member constant. -/
 theorem checkBlockPositivity_m2 {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
@@ -288,7 +283,7 @@ and level parameters, M2′ on the canonical crest.  The walk itself is
 read once, into its derivation (`checkBlockPositivity_deriv`,
 `PosDerivInv.lean`). -/
 theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos))

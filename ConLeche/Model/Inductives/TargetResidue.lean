@@ -42,7 +42,7 @@ open ConLeche.SetModel
 open SetTheory
 open ConLeche.Term
 
-open ConLeche (Env Expr Name Level ConstantVal ConstantInfo CheckMode FEnv BlockShape BlockParts
+open ConLeche (Env Expr Name Level ConstantVal ConstantInfo CheckMode FEnv BlockShape BlockShape
   TargetMajor RecShape)
 
 universe w

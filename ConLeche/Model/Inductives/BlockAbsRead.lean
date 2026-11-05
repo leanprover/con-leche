@@ -47,7 +47,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal instPisWith NestCtx
-  openPisAtFvars BlockParts)
+  openPisAtFvars BlockShape)
 
 universe w
 
@@ -144,7 +144,7 @@ omit [SetTheory V] in
 /-- **The canonical crest names no member constant, from the positivity
 stage's run** (official's uniform check `nestUniform`). -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok posKs)

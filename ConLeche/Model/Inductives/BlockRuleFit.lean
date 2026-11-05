@@ -204,7 +204,7 @@ theorem blockRuleStoredFit_run (hM : BlockModelAt mpC.base2 names d)
 
 /-! ## 3. The two conjuncts -/
 
-variable {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+variable {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
@@ -656,7 +656,7 @@ Consumed by `BlockRecPreHpre.lean` (`hspF`'s field half) and
 
 section DomsBounded
 
-variable {envC : Env} {pp : ConLeche.BlockParts} {cvTas : List ConstantVal}
+variable {envC : Env} {pp : ConLeche.BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC} {F : Nat}
   {isRec : Bool} {A : Nat → (Name → Nat) → Term}
   {pk : Nat → BlockMemberPick} {uOfD : Nat → (Name → Nat) → Nat}

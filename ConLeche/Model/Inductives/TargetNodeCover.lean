@@ -343,7 +343,7 @@ constructors' model (`hsp`): the group's block (`posNodeOk_blk`), its level
 parameters (`posNodeOk_lps`), the stack's hole constants
 (`nodeHolesRead_of`) and the key's scoping (`posNodeOk_ws`). -/
 theorem nodeListFacts_of {F : Nat}
-    {envC envI : Env} {pp : ConLeche.BlockParts} {cvTasR : List ConstantVal}
+    {envC envI : Env} {pp : ConLeche.BlockShape} {cvTasR : List ConstantVal}
     {ctorsAsR : List (List (ConstantVal × Nat))}
     {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
@@ -367,11 +367,11 @@ theorem nodeListFacts_of {F : Nat}
       (pp.nestCtx fvsP envI.find?).lps.length
         = ci.toConstantVal.levelParams.length := by
     intro n hn
-    change n ∈ pp.toBlockShape.memberNames at hn
+    change n ∈ pp.memberNames at hn
     obtain ⟨c, hc, rfl⟩ := List.getElem_of_mem hn
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
-    have hck : c < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k := by
-      change c < pp.toBlockShape.members.length
+    have hck : c < (blockDataOf V pp ctorsAsR pk uOfD ppsOf).k := by
+      change c < pp.members.length
       simpa [ConLeche.BlockShape.memberNames] using hc
     obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
@@ -380,7 +380,7 @@ theorem nodeListFacts_of {F : Nat}
     obtain ⟨⟨cvS, hf, hDS⟩, -⟩ := hcore.1 c cvTb hcvb
     rw [← hname] at hf
     unfold BlockData.memberName at hf
-    change envC.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
+    change envC.find? (pp.memberNames.getD c .anonymous) = _ at hf
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
     exact ⟨_, hf, by show pp.lps.length = cvS.levelParams.length; rw [hDS.lps, hlpsT]⟩
   refine ⟨fun t ht n hn => ?_, fun t ht => posNodeOk_lps hcc hmk henvC (hok t ht),

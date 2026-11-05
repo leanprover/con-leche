@@ -90,7 +90,7 @@ theorem consBlockIndsF_mkFEnv (p₁ : BlockShape) (isRec : Bool) :
     simp only [consBlockIndsF, consBlockInds, push_mkFEnv]
     exact consBlockIndsF_mkFEnv p₁ isRec rest (i + 1) _
 
-theorem checkBlockIndsF_eqC (env : Env) (p : BlockParts) (isRec : Bool) :
+theorem checkBlockIndsF_eqC (env : Env) (p : BlockShape) (isRec : Bool) :
     checkBlockIndsF ops (mkFEnv env) p isRec
       = checkBlockInds ops env p isRec >>= fun r => pure (mkFEnv r.1, r.2) := by
   unfold checkBlockIndsF checkBlockInds
@@ -227,7 +227,7 @@ theorem checkBlockAgreeS_spec (henv : EnvWF env) {nP : Nat}
         liftFueledS_spec (mode := .verified) (env := env), ih] <;> finish
 
 theorem checkBlockIndsS_spec (henv : EnvWF env)
-    {p : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    {p : BlockShape} {isRec : Bool} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄ checkBlockInds (sharedOpsC .verified (mkFEnv env)) env p isRec
     ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkBlockInds (fueledOpsM .verified) env p isRec) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockInds.eq_1] =>

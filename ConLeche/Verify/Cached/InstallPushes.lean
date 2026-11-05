@@ -339,10 +339,10 @@ theorem checkBlockTelesF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (nP : Nat)
 /-- The formers' stage: the record the shape completed (the sort read),
 the environment the formers' conses build, the formers' names, and
 their freshness at the block's own index. -/
-theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockParts)
+theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockShape)
     (isRec : Bool) :
     Yields (checkBlockIndsF ops fe p isRec)
-      (fun r => (∃ s, r.2 = p.toBlockShape.withSort s) ∧
+      (fun r => (∃ s, r.2 = p.withSort s) ∧
         r.1 = consBlockIndsF r.2 isRec (p.members.map (·.declared)) 0 fe ∧
         ∀ ms ∈ p.members, fe.find? ms.cvT.name = none) := by
   unfold checkBlockIndsF
@@ -728,9 +728,9 @@ theorem checkQuotRecordC_pushes (fe : FEnv) (k : QuotKind) (cv : ConstantVal) :
   all_goals exact Yields.pure rfl
 
 theorem checkBlockKS_pushes (mode : CheckMode) (fe : FEnv) (block : List ConstantInfo)
-    (p : BlockParts) :
+    (p : BlockShape) :
     Yields (checkBlockKS mode fe block p)
-      (· = FEnv.pushDelta (blockConstants p) (blockTables p.toBlockShape p.members) fe) := by
+      (· = FEnv.pushDelta (blockConstants p) (blockTables p p.members) fe) := by
   unfold checkBlockKS
   yields
   all_goals exact Yields.pure rfl
@@ -790,7 +790,7 @@ theorem checkDeclC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) :
     next hk =>
       rw [hk]
       split
-      · cases hbp : blockParts? nP block with
+      · cases hbp : blockShape? nP block with
         | none => exact Yields.bind fun _ => Yields.ofThrow
         | some p => exact checkBlockKS_pushes mode fe block p
       · exact Yields.ofThrow

@@ -497,7 +497,7 @@ a stream earns string literals).
 What must not happen is a *recursor* taking one of these names: it would
 never pass the shape test as what it is.  The block's check refuses such
 a name outright (`blockRecNamesUnreserved`,
-`ConLeche/Kernel/Inductives/BlockParts.lean`). -/
+`ConLeche/Kernel/Inductives/BlockShape.lean`). -/
 
 /-- The ten names the two literal guards look up: the `Nat` guard's
 three and the `String` guard's seven. -/

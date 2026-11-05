@@ -704,7 +704,7 @@ theorem ctorsClosed {ctorsAs : List (List (ConstantVal × Nat))}
 /-- **The install's positivity stage at the shared operations**: every
 successful cached run is a fueled one. -/
 theorem checkBlockPositivityS_spec (henv : EnvWF env)
-    (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
+    (p : BlockShape) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
     (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
@@ -714,7 +714,7 @@ theorem checkBlockPositivityS_spec (henv : EnvWF env)
     ⦃fun v s' => CSOK .verified false env s' ∧
       Runs (checkBlockPositivity (fueledOpsM .verified) env env.find? p cvTas ctorsAs) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockPositivity.eq_1, nestHoles_length, ctorsClosed hct] =>
-    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p.toBlockShape cvTas hM hT,
+    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p cvTas hM hT,
       nestUniformS_spec (mode := .verified) (env := env) ctorsAs,
       nestRootS_spec henv, checkAbsCtorSortsAllS_spec henv] <;> finish
 

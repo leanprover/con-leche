@@ -53,7 +53,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory ConLeche.SetTheory.Tower
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps
-  BlockShape BlockParts MemberShape RecRule)
+  BlockShape BlockShape MemberShape RecRule)
 
 universe w
 
@@ -438,7 +438,7 @@ stage's run (`hPos`, U2) at the dummy carrier; the record is
 `blockDataOf` at the REAL pick, which shares the dummy pick's fields
 with holes and normal forms. -/
 theorem blockTablesStage_of {F : Nat} {env envI : Env}
-    {p₀ : BlockParts} {isRec : Bool} {q : BlockShape}
+    {p₀ : BlockShape} {isRec : Bool} {q : BlockShape}
     {sortsss : List (List (List Level))}
     {isorts : List (List Level)}
     (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
@@ -456,7 +456,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI q
       q.members = .ok isorts)
     -- the positivity stage (`DeclBlockRun` 3): U2 grades the fields with holes
-    {pP : BlockParts}
+    {pP : BlockShape}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
       envI.find? pP q.formers q.memberCtors = .ok posKs)

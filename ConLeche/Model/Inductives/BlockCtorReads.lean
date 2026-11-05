@@ -29,7 +29,7 @@ namespace ConLeche.Model
 open ConLeche.Semantics
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockParts instPisWith)
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockShape instPisWith)
 
 universe w
 

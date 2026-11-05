@@ -292,7 +292,7 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
         | some kind => checkBasisBlockC (mkFEnv env) kind block
         | none =>
           if indParamsOk nP block = true then
-            (match blockParts? nP block with
+            (match blockShape? nP block with
               | some p => checkBlockKS .verified (mkFEnv env) block p
               | none => checkShapelessS .verified (mkFEnv env) block)
           else throw (CheckError.invalid "number of parameters mismatch"))

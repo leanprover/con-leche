@@ -269,7 +269,7 @@ theorem declStep_preserves
         natFacts_basis hN hk hrun.2⟩
     · have hrun' : ConLeche.Semantics.DeclIndRunDispatchK F env block nP env₂ := hrun
       unfold ConLeche.Semantics.DeclIndRunDispatchK at hrun'
-      cases hdf : ConLeche.blockParts? nP block with
+      cases hdf : ConLeche.blockShape? nP block with
       | some p =>
         rw [hdf] at hrun'
         -- the uniform install, at any number of members, nested blocks included

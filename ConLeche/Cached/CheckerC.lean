@@ -129,19 +129,18 @@ formers checked and consed — one flush entering the environment that
 holds them all — then the constructors per member at that
 environment, the classes, and the positivity check walking every class
 (the members' root frame first). -/
-def checkBlockPassS (fe : FEnv) (p₀ : BlockParts) (isRec : Bool) :
+def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
   let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
-  let pC := p₀.complete p₁
   flushC
-  let sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ pC.toBlockShape pC.members
-  let (ctx, holes) ← blockNestCtx pC.toBlockShape pC.toBlockShape.formers fe₁.find?
-  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ pC.toBlockShape
-    ctx.params pC.toBlockShape.memberCtors
+  let sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
+  let (ctx, holes) ← blockNestCtx p₁ p₁.formers fe₁.find?
+  let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁
+    ctx.params p₁.memberCtors
   let (kinds, nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find?
-    pC pC.toBlockShape.formers pC.toBlockShape.memberCtors
+    p₁ p₁.formers p₁.memberCtors
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
-  pure ⟨fe₁, pC, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨fe₁, p₁, sortsss, kinds, nfs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
@@ -151,19 +150,19 @@ array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
   match q with
   | ⟨env₁, p, _sortsss, kinds, _nfs, params, rd, cls, tbl⟩ => do
-  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p.toBlockShape p.members
-  let fe₂ := consBlockCtorsF p.nP p.toBlockShape.memberCtors env₁
+  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
+  let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
-  let out ← genRecCheck (shadowOpsC mode) fe₂ p.toBlockShape
-    (blockNestedBit p.toBlockShape kinds) params tbl.toList rd cls p.toBlockShape.formers block
+  let out ← genRecCheck (shadowOpsC mode) fe₂ p
+    (blockNestedBit p kinds) params tbl.toList rd cls p.formers block
   -- the stream's recursors against the generated ones, at the generated recursors as an OVERLAY on
   -- the constructors' index (read-only, sharing it), a flush entering and leaving that environment
-  streamKCheck p.toBlockShape p.recs out
-  let feG := fe₂.overlay (blockRecInfosTF p.toBlockShape 0 out).reverse
+  streamKCheck p p.recs out
+  let feG := fe₂.overlay (blockRecInfosTF p 0 out).reverse
   flushC
   streamRecsCheck (sharedOpsC mode feG) structWalkersC feG p.recs out
   flushC
-  checkBlockTablesF (m := CheckCM) structWalkersC p.toBlockShape fe₂ p.members
+  checkBlockTablesF (m := CheckCM) structWalkersC p fe₂ p.members
 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (ms : MemberShape) (nP : Nat) : CheckCM MemberShape :=
@@ -188,7 +187,7 @@ def reduceMembersS (fe : FEnv) (nP : Nat) : List MemberShape → CheckCM (List M
     pure (ms' :: rest')
 
 /-- **`checkBlock` through the index.** -/
-def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
+def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockShape) :
     CheckCM FEnv := do
   unless (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup do
     throw (.invalid "direct rec: duplicate constructor")
@@ -198,6 +197,6 @@ def checkBlockKS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) :
   flushC
   let q ← checkBlockPassS mode fe { p₀ with members := ms } (blockRawRec p₀)
   checkBlockTailS mode block q
-  pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀.toBlockShape p₀.members) fe)
+  pure (FEnv.pushDelta (blockConstants p₀) (blockTables p₀ p₀.members) fe)
 
 end ConLeche.Cached

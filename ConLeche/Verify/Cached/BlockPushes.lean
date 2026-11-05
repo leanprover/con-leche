@@ -271,7 +271,7 @@ theorem consBlockRecsT_eq_infos (q : BlockShape) :
 /-- **A block's install, at its checks.**  The environment with what the block reads as pushed is the
 one holding the formers and constructors the checks ran at and the recursors the checks compared with
 the generated ones, with the tables on top. -/
-theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockParts}
+theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List ConstantInfo} {p₀ : BlockShape}
     {p₁ : BlockShape}
     {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
     {nestedBit : Bool} {out : List (ConstantVal × TargetMajor × List Expr)} (Q : List ProjTable)
@@ -289,23 +289,23 @@ theorem blockInstall_of_checks {F : Nat} {env env₁ : Env} {block : List Consta
         (consBlockCtors p₁.nP p₁.memberCtors env₁)).pushDelta [] Q := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, -, hq, hcons, -⟩ := checkBlockInds_shape hInd
   subst hq
-  have hctors : (p₀.toBlockShape.withSort s0).memberCtors = p₀.members.map (·.ctors) := rfl
+  have hctors : (p₀.withSort s0).memberCtors = p₀.members.map (·.ctors) := rfl
   obtain ⟨hlenR, hallS⟩ := streamRecsCheck_inv hS
-  have hrecsP : (p₀.toBlockShape.withSort s0).recs = p₀.recs := rfl
+  have hrecsP : (p₀.withSort s0).recs = p₀.recs := rfl
   have hAg : ∀ i rc o, p₀.recs[i]? = some rc → out[i]? = some o →
-      p₀.recs[0 + i]? = some rc ∧ RecAgrees (p₀.toBlockShape.withSort s0) rc o := by
+      p₀.recs[0 + i]? = some rc ∧ RecAgrees (p₀.withSort s0) rc o := by
     intro i rc o hrc ho
     refine ⟨by simpa using hrc, ?_⟩
     obtain ⟨hshape, hnested, -⟩ := streamRecCheck_inv (hallS i rc o hrc ho)
     obtain ⟨ht, hl⟩ := genRecCheck_outMajor hcls hRec hrc ho
     exact { cv := (Cached.genRecCheck_outCv hRec).2 i rc o hrc ho, tgt := ht, lt := hl,
             isK := streamKCheck_inv hK i rc o hrc ho, shape := hshape, nested := hnested }
-  have hrecs : blockRecs p₀.toBlockShape p₀.recs =
-      blockRecInfosTF (p₀.toBlockShape.withSort s0) 0 (streamRecs p₀.recs out) := by
-    rw [blockRecs_congr (p := p₀.toBlockShape) (q := p₀.toBlockShape.withSort s0) rfl]
+  have hrecs : blockRecs p₀ p₀.recs =
+      blockRecInfosTF (p₀.withSort s0) 0 (streamRecs p₀.recs out) := by
+    rw [blockRecs_congr (p := p₀) (q := p₀.withSort s0) rfl]
     exact blockRecs_eq_infos _ _ _ 0 hlenR hAg
-  have hcaps : ∀ i, blockCapsAt (p₀.toBlockShape.withSort s0) i (blockRawRec p₀)
-      = blockCapsAt p₀.toBlockShape i (blockRawRec p₀) := fun _ => rfl
+  have hcaps : ∀ i, blockCapsAt (p₀.withSort s0) i (blockRawRec p₀)
+      = blockCapsAt p₀ i (blockRawRec p₀) := fun _ => rfl
   rw [hrecsP, consBlockRecsT_eq_infos, consBlockCtors_eq, hcons, consBlockInds_consts']
   unfold Env.pushDelta blockConstants blockFormers blockCtors
   rw [hrecs, hctors]

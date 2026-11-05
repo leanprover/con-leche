@@ -100,13 +100,13 @@ theorem MemberAt.declaredWF {F : Nat} {env : Env} {nP : Nat} {m : MemberShape}
 /-- **Stage 1 at the run level**: the environment holding the k formers
 is well-formed, and every checked former's type is closed. -/
 theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
-    {p : BlockParts} {isRec : Bool} {p₁ : BlockShape} {F : Nat}
+    {p : BlockShape} {isRec : Bool} {p₁ : BlockShape} {F : Nat}
     (hdecl : ∀ ms ∈ p.members, MemberDeclaredWF env ms)
     (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
-    EnvWF envI ∧ ∀ cvTa ∈ p.toBlockShape.formers, cvTa.type.hasFvar = false := by
+    EnvWF envI ∧ ∀ cvTa ∈ p.formers, cvTa.type.hasFvar = false := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, hq, hcvs, -⟩ :=
     checkBlockInds_shape h
-  have key : ∀ cvTa ∈ p.toBlockShape.formers,
+  have key : ∀ cvTa ∈ p.formers,
       cvTa.type.hasFvar = false ∧
       cvTa.type.allLevelParamsDefined cvTa.levelParams = true ∧
       cvTa.type.constsResolve env = true ∧

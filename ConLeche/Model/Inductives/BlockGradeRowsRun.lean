@@ -31,7 +31,7 @@ universe w
 
 variable {V : Type w} [SetTheory V]
 
-variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockShape}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {names : List Name} {d : BlockData V}

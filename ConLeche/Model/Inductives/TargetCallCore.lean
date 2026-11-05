@@ -46,7 +46,7 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche.SetTheory
 open ConLeche.SetTheory.Tower
 
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts TargetMajor)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor)
 
 universe w
 
@@ -54,14 +54,14 @@ variable {V : Type w} [SetTheory V]
 
 section MemberHoles
 
-variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockShape}
   {cvTas : List ConstantVal}
 
 /-- **The holes' values at their formers' types**: each member former's
 type is closed and read, graded at every valuation, and holds the hole's
 value `hv` — the formers' facts a call's typing (`targetCall_genW`) asks
 for, from the members' run and `hv`'s typing. -/
-theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp cvTas)
     (ψ : Name → Nat) (ρ : Nat → V) {hv : List V}
     (hvTy : ∀ t, t < cvTas.length → ∃ T : Term,
       denote mpC.base2.acval envC ψ 0 (cvTas.getD t default).type = some T ∧

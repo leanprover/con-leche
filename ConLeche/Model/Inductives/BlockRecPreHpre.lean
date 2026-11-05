@@ -85,7 +85,7 @@ theorem iotaEqsAV_congr {K : Nat} {nCt : Nat → Nat} {pdoms pdoms' : Nat → Li
   refine List.map_congr_left fun j hj => ?_
   rw [hp c hcK, hRb c hcK j (List.mem_range.mp hj)]
 
-variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockShape}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V} {s : (Name → Nat) → Nat} {us : List Level}
@@ -109,7 +109,7 @@ section Seam
 
 section SeamFacts
 
-variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
+variable {envC : Env} {p : ConLeche.BlockShape} {cvTas : List ConstantVal}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
 
@@ -123,7 +123,7 @@ theorem numCtorsOf_ge_of_mem {ms : ConLeche.MemberShape} :
 
 end SeamFacts
 
-variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockParts}
+variable {envC : Env} {mpC : EnvModelM V envC} {p : ConLeche.BlockShape}
   {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {names : List Name} {d : BlockData V}

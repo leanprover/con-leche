@@ -22,7 +22,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockParts TargetMajor
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockShape TargetMajor
   ClassGen ClassCtor ClassRead GenRecRun ClassMajorRun ClassCtorRun openPisAtFvars
   targetPiDomsWith fueledOps mkFEnv NestState)
 
@@ -32,7 +32,7 @@ variable {V : Type w} [SetTheory V]
 
 section Decode
 
-variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool}
+variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool}
   {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
@@ -40,19 +40,19 @@ variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool}
 `j`-th constructor of recursor `c`'s class, its run, the rule generated
 for it. -/
 theorem genCtor_at
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
       block ctorsAs out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
     (hj : j < (tgtMajor out c).ctors.length) :
     ∃ cls M₀ nfs cA x gen, R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
+      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p ctorsAs R.ctx.params
         (R.keys.getD cls default) M₀) ∧
-      ConLeche.targetMajorNfs (fueledOps .verified F) envC p.toBlockShape (cvTas.map (·.type))
+      ConLeche.targetMajorNfs (fueledOps .verified F) envC p (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
       M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
       genCtorAt R.g R.rd c j = x ∧
-      Nonempty (ClassCtorRun .verified F envC p.toBlockShape (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
+      Nonempty (ClassCtorRun .verified F envC p (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
       ConLeche.classGenRule R.g (ConLeche.classRecOf R.rd.recCls R.cvGs)
         ((out.getD c default).1.levelParams.map .param) cls x = some gen := by
   have hi' : c < out.length := by simpa [ConLeche.tgtRs] using hc
@@ -89,7 +89,7 @@ theorem genCtor_at
 
 /-- **A generated call, decoded** (see the module docstring). -/
 theorem genCall_data
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
       block ctorsAs out) {c : Nat} (hc : c < (ConLeche.tgtRs out).length) {j : Nat}
     (hj : j < (tgtMajor out c).ctors.length)
     (acval : Name → (Name → Nat) → Term) (ψ : Name → Nat)
@@ -101,12 +101,12 @@ theorem genCall_data
       R.rd.recCls[c]? = some cls ∧ cls < R.Ms.length ∧
       R.Ms₀[cls]? = some M₀ ∧ R.Ms[cls]? = some { M₀ with nfs := nfs } ∧
       tgtMajor out c = { M₀ with nfs := nfs } ∧
-      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p.toBlockShape ctorsAs R.ctx.params
+      Nonempty (ClassMajorRun .verified F (mkFEnv envC) p ctorsAs R.ctx.params
         (R.keys.getD cls default) M₀) ∧
-      ConLeche.targetMajorNfs (fueledOps .verified F) envC p.toBlockShape (cvTas.map (·.type))
+      ConLeche.targetMajorNfs (fueledOps .verified F) envC p (cvTas.map (·.type))
         M₀.pfvs M₀.lvls M₀.ds M₀.ctors R.st.ctorNfs.toList = .ok nfs ∧
       M₀.ctors[j]? = some cA ∧ (R.ctors.getD cls [])[j]? = some x ∧
-      Nonempty (ClassCtorRun .verified F envC p.toBlockShape (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
+      Nonempty (ClassCtorRun .verified F envC p (cvTas.map (·.type)) R.rd R.Ms cls cA x) ∧
       i < x.nF ∧ x.kinds.getD i .ordinary = .recursive tt tele ∧
       openPisAtFvars x.nF x.tyD R.pre.length = some (fvsR, oR) ∧
       targetPiDomsWith fvsR x.tyN = some ws ∧
@@ -141,10 +141,10 @@ theorem genCall_data
   have hle : R.cvGs.length ≤ R.rd.recCls.length := by
     obtain ⟨hlG, hallG⟩ := ConLeche.classRecTysOk_run R.hcvGs
     rw [hlG]
-    rcases Nat.eq_zero_or_pos p.toBlockShape.recs.length with h0 | hpos
+    rcases Nat.eq_zero_or_pos p.recs.length with h0 | hpos
     · omega
-    · obtain ⟨c0, -, hc0, -⟩ := hallG (p.toBlockShape.recs.length - 1) _
-        (List.getElem?_eq_getElem (show p.toBlockShape.recs.length - 1 < p.toBlockShape.recs.length
+    · obtain ⟨c0, -, hc0, -⟩ := hallG (p.recs.length - 1) _
+        (List.getElem?_eq_getElem (show p.recs.length - 1 < p.recs.length
           by omega))
       have := (List.getElem?_eq_some_iff.mp hc0).1
       omega

@@ -53,12 +53,12 @@ open ConLeche.Verify
 
 open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo openPisAtFvars closeTelescope
   ClassGen ClassGenScoped SameDoms classGenRecTy classBinder GenRecRun ClassRecTyRun
-  FEnv mkFEnv NestState TargetMajor RecShape BlockShape BlockParts instPisWith)
+  FEnv mkFEnv NestState TargetMajor RecShape BlockShape BlockShape instPisWith)
 
 
 section GenRun
 
-variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos : NestState}
+variable {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool} {pos : NestState}
   {cvTas : List ConstantVal} {block : List ConstantInfo}
   {ctorsAs : List (List (ConstantVal × Nat))}
   {out : List (ConstantVal × TargetMajor × List Expr)}
@@ -66,10 +66,10 @@ variable {F : Nat} {env₁ envC : Env} {p : BlockParts} {nestedBit : Bool} {pos 
 /-- **A member class, as the run checked it**: the member's own
 inductive, at the block's levels, over the canonical parameters. -/
 theorem genRec_memberClass
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas
       block ctorsAs out)
     {c t : Nat} (hm : (R.Ms.getD c default).member = some t) :
-    p.toBlockShape.memberNames.findIdx? (· == (R.Ms.getD c default).ind) = some t ∧
+    p.memberNames.findIdx? (· == (R.Ms.getD c default).ind) = some t ∧
     (R.Ms.getD c default).lvls = p.lps.map .param ∧
     (R.Ms.getD c default).ds = R.ctx.params.take p.nP := by
   by_cases hc : c < R.Ms.length
@@ -122,17 +122,17 @@ the members' run facts (`BlockMembersRun`): a spine fitting any stored
 recursor's rule prefix fits the block's parameters on its first `nP`
 values. -/
 theorem genParams_fit_run {F : Nat} {envI envC : Env}
-    {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
+    {pp : BlockShape} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
     {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
     {out : List (ConstantVal × TargetMajor × List Expr)} (mpC : EnvModelM V envC)
-    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp.toBlockShape nestedBit pos cvTas
+    (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nestedBit pos cvTas
       block ctorsAs out)
     (hg : ClassGenScoped R.g)
     (h : RecStageG .verified F envC pp cvTas (ConLeche.tgtRs out))
     {dR : BlockData V}
-    (hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTas) :
+    (hmr : BlockMembersRun mpC.base2 dR pp cvTas) :
     ∀ c, c < (ConLeche.tgtRs out).length → ∀ (ψ : Name → Nat) (ρ : Nat → V) (xs : List V),
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c)
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (ConLeche.tgtRs out) ψ c)
         xs →
       SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
   intro c hc ψ ρ xs hfit
@@ -149,10 +149,10 @@ theorem genParams_fit_run {F : Nat} {envI envC : Env}
   obtain ⟨fvsL, conclL, hopL, -, -, hlenRds, hbind, -, -⟩ := recStage_tyPis mpC h hr ψ
   have hle := blockRecHrPle (p := pp) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hrP, -⟩ := genRecTy_shape R hg T
-  obtain ⟨-, -, hRc⟩ := ConLeche.recShape_at (q := pp.toBlockShape) hrc
+  obtain ⟨-, -, hRc⟩ := ConLeche.recShape_at (q := pp) hrc
   have hpl : R.pre.length = pp.nP + R.rd.slots.length :=
     (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
-  have hroom : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
+  have hroom : pp.nP ≤ pp.rulePrefixAt c := by
     rw [hRc, hrP, hpl]; exact Nat.le_add_right _ _
   -- the generated type's binders: the canonical parameters first
   have htype : cvG.type = T.gty := T.type_eq
@@ -184,7 +184,7 @@ theorem genParams_fit_run {F : Nat} {envI envC : Env}
   have hplenC : R.ctx.params.length = pp.nP := hg.params_len
   -- the recursor's parameter domains are the first member's
   have hlenPd := blockRulePdomsAV_length mpC h hr ψ
-  generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c
+  generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp (ConLeche.tgtRs out) ψ c
     = pdoms at hfit hlenPd
   have heq : pdoms.take pp.nP = dR.params ψ := by
     show _ = (dR.ppsM 0 ψ).take dR.nP

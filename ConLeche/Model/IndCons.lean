@@ -16,7 +16,7 @@ row a basis cons routes by *kind* survives — and one that a basis cons
 had to supply bespoke (`nat_heads` at the `Nat` block) becomes free.
 
 **The name finding.**  Every block member passes `blockShape?`'s
-guard (`Kernel/Inductives/BlockParts.lean`), which checks
+guard (`Kernel/Inductives/BlockShape.lean`), which checks
 
 > `reservedBasisNames.contains cv.name = false`
 

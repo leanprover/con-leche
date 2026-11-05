@@ -441,7 +441,7 @@ theorem checkBlockAgree_datF (env : Env) (nP : Nat) (cvTa0 : ConstantVal) (s0 : 
       FueledM.atF_ite, unwrapOr_atF, checkBlockDomsAt_datF, liftFueled_atF,
       checkBlockAgree_datF env nP cvTa0 s0 F rest]
 
-theorem checkBlockInds_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
+theorem checkBlockInds_datF (env : Env) (p : BlockShape) (isRec : Bool) (F : Nat) :
     (checkBlockInds (fueledOpsM mode) env p isRec).val F =
       checkBlockInds (fueledOps mode F) env p isRec := by
   unfold checkBlockInds
@@ -876,7 +876,7 @@ theorem genRecCheck_datF (fe : FEnv) (p : BlockShape) (nestedBit : Bool) (params
     classesNfs_datF, classesCtors_datF, classFormerTys_datF, classRecTysOk_datF,
     classRecsRulesOk_datF]
 
-theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nested : Bool) (params : List Expr)
+theorem checkBlockRec_datF (env : Env) (p : BlockShape) (nested : Bool) (params : List Expr)
     (tbl : List NestCtorNf) (rd : ClassRead) (Ms : List TargetMajor) (block : List ConstantInfo)
     (cvTas : List ConstantVal) (F : Nat) :
     (checkBlockRec (fueledOpsM mode) env p nested params tbl rd Ms block cvTas).val F =
@@ -885,7 +885,7 @@ theorem checkBlockRec_datF (env : Env) (p : BlockParts) (nested : Bool) (params 
   exact genRecCheck_datF _ _ _ _ _ _ _ _ _ F
 
 theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (p : BlockParts) (cvTas : List ConstantVal)
+    (p : BlockShape) (cvTas : List ConstantVal)
     (ctorsAs : List (List (ConstantVal × Nat))) (F : Nat) :
     (checkBlockPositivity (fueledOpsM mode) env₁ find? p cvTas ctorsAs).val F
       = checkBlockPositivity (fueledOps mode F) env₁ find? p cvTas ctorsAs := by
@@ -893,7 +893,7 @@ theorem checkBlockPositivity_datF (env₁ : Env) (find? : Name → Option Consta
   simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
     blockNestCtx_datF, nestUniform_datF, nestRoot_datF, checkAbsCtorSortsAll_datF]
 
-theorem checkBlockPass_datF (env : Env) (p : BlockParts) (isRec : Bool) (F : Nat) :
+theorem checkBlockPass_datF (env : Env) (p : BlockShape) (isRec : Bool) (F : Nat) :
     (checkBlockPass (fueledOpsM mode) env p isRec).val F =
       checkBlockPass (fueledOps mode F) env p isRec := by
   unfold checkBlockPass
@@ -1026,7 +1026,7 @@ theorem reduceMembers_datF (env : Env) (nP F : Nat) :
 
 /-- **The uniform install at fuel `F`, at k members**: the same program
 at the two monads, stage by stage. -/
-theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockParts)
+theorem checkBlock_datF (env : Env) (block : List ConstantInfo) (p : BlockShape)
     (F : Nat) :
     (checkBlock (fueledOpsM mode) env block p).val F =
       checkBlock (fueledOps mode F) env block p := by
