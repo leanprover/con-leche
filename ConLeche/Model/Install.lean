@@ -501,7 +501,7 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
   -- the stored formers' strict fibres: the head's is `hind`; a prefix
   -- former keeps its leaf and its type's reading
   have hind' : IndStrictOk (V := V) (coreCons mp.base2 A hfresh hh hAparams hAok) := by
-    intro I cv caps hf ψ ab n hread hn ρ vs hsp
+    intro I cv caps hf hfl ψ ab n hread hn ρ vs hsp
     by_cases hI : I = c₀.name
     · subst hI
       rw [ConLeche.Env.find?_cons_self] at hf
@@ -520,7 +520,7 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
       show Strict (vs.foldl SetTheory.app
         (interp V ρ (acvalWith mp.base2.acval c₀.name A I ψ)))
       rw [acvalWith_ne hI]
-      exact mp.ind_strict I cv caps hfE ψ ab n hta hn ρ vs hsp
+      exact mp.ind_strict I cv caps hfE hfl ψ ab n hta hn ρ vs hsp
   exact ⟨{
     base2 := coreCons mp.base2 A hfresh hh hAparams hAok
     type_reads := htr

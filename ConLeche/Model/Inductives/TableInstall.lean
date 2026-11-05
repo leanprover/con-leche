@@ -155,9 +155,9 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
           rw [ConLeche.Env.findTable?_pushTable, ite_eq_right hh]
         rw [hP] at hf
         exact towerEntryLaw_ext mp hx φ hf
-    ind_strict := fun I cv caps hf ψ ab n hread hn ρ vs hsp => by
+    ind_strict := fun I cv caps hf hfl ψ ab n hread hn ρ vs hsp => by
       have hm := ConLeche.Env.find?_mem hf
-      exact mp.ind_strict I cv caps hf ψ ab n (hreadT _ hm ψ _ hread) hn ρ vs hsp
+      exact mp.ind_strict I cv caps hf hfl ψ ab n (hreadT _ hm ψ _ hread) hn ρ vs hsp
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => hf) (fun _ _ _ _ => rfl)
       (fun ψ d _ _ hb hta => hx.denote hb hta)

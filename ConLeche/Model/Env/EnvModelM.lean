@@ -311,8 +311,7 @@ structure EnvModelM (env : Env) where
   *environment law* for the same reason `caps_ok` is — a former's leaf
   is fixed by its install and by nothing else, so the supplier is the
   former's install: the block's fixpoint leaf, the pinned basis
-  formers; task #342 L7).  Consumed through `IndFibLaw`
-  (`EnvModelM.indFibLaw`) -/
+  formers; task #342 L7) -/
   ind_strict : IndStrictOk base2
   /-- **the recorded blocks**: the lfp data of the
   inductive blocks whose lfp clause this carrier records — a ghost
@@ -367,41 +366,6 @@ theorem constType (m : EnvModelM V env) : ConstType m.base2 φ := by
   · rw [hcross]; exact hdepth
   · have := m.mem_type ci hmem _ ta hta
     rwa [hname] at this
-
-/-- **The fibre law of the stored families, from the P invariant**
-(task #342 L7; `IndFibLaw`): at the use's levels the instantiated type
-reads as the stored type at the composed assignment (the `constType`
-crossing), so a fitting spine fits the stored reading.  Where the sort
-is `0`, the former's membership in its graded type puts the
-application in `Sort 0` (`foldl_app_mem_mkPisAV`); elsewhere the
-`ind_strict` field gives a strict set. -/
-theorem indFibLaw (m : EnvModelM V env) (φ : Name → Nat) : IndFibLaw m.base2 φ := by
-  intro d I cv caps us hf _hlen ab n hread ρ vs hsp
-  have hmem := ConLeche.Env.find?_mem hf
-  have hname := ConLeche.Env.find?_name hf
-  have hcv : (ConstantInfo.indInfo cv caps).toConstantVal = cv := rfl
-  have hwf := m.base2.wf.consts _ hmem
-  obtain ⟨ta, hta⟩ := m.type_reads _ hmem (Level.substFn φ cv.levelParams us)
-  rw [hcv] at hta
-  have hcl : ∀ k : Nat, ta.liftN 1 k = ta := fun k =>
-    denote_liftN_eq_self m.base2.cval_closed
-      hwf.1 hwf.2.2.2.1 hta 1 k
-  have hdepth : denote m.base2.acval env (Level.substFn φ cv.levelParams us) d cv.type
-      = some ta :=
-    denote_depth_of_closed m.base2.acval_closed hwf.1 hcl hta d
-  have hcross := denotePInstLevels m.base2 φ cv.levelParams us d cv.type
-  rw [hcross, hdepth] at hread
-  obtain rfl := Option.some.inj hread
-  have hnm : I = cv.name := hname.symm
-  subst hnm
-  by_cases hn : n = 0
-  · subst hn
-    have hin := m.mem_type _ hmem _ _ hta ρ
-    have h0 := foldl_app_mem_mkPisAV hsp hin
-    rw [interp_sort, univ_zero] at h0
-    exact h0
-  · simp only [hn, decide_false, Fib_false]
-    exact m.ind_strict cv.name cv caps hf _ ab n hta hn ρ vs hsp
 
 /-- **The bridge invariant, from the P invariant**.  Every field is a
 projection:

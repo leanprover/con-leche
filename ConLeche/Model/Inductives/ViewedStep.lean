@@ -402,11 +402,11 @@ theorem EnvModelM.toViews {env : Env} (mp : EnvModelM V env) (hS : ShownFacts mp
         rw [hac, ← hde, denote_instLevels mp.base2.acval_params φ, hlp]
         exact h₁
   · -- the fibres
-    intro m₃ hac I cv caps hf ψ ab n hread hn ρ vs' hsp
+    intro m₃ hac I cv caps hf hfl ψ ab n hread hn ρ vs' hsp
     rw [hac] at hread ⊢
     rw [← hde] at hread
     rcases find_views hv I with he | ⟨cvs, cvR, capsv, hnm, hF, h₃⟩
-    · exact mp.ind_strict I cv caps (by rw [← he]; exact hf) ψ ab n hread hn ρ vs' hsp
+    · exact mp.ind_strict I cv caps (by rw [← he]; exact hf) hfl ψ ab n hread hn ρ vs' hsp
     · rw [hf] at h₃
       obtain ⟨rfl, -⟩ : cv = cvR ∧ caps = capsv := by simpa using h₃
       obtain ⟨D, hD, mm, hmm, hnm', hs'⟩ := view_member hS hcov hF

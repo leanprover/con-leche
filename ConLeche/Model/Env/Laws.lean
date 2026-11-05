@@ -351,11 +351,7 @@ as a Π-tower over its parameters and indices ending in `.sort n`, and
 * The **field** (`EnvModelM.ind_strict`, `IndStrictOk`) is the strict
   half, per former and at the uninstantiated type, the form every
   install proves.
-* The **law** (`IndFibLaw`) is both halves at a use's instantiated
-  levels, the form the rules tier reads; it is derived
-  (`EnvModelM.indFibLaw`): the truth-value half from the stored
-  former's membership in its graded type, the strict half from the
-  field. -/
+-/
 
 /-- **A stored former's fibres above a proposition are strict**: at every
 assignment where its type reads as a Π-tower ending in `.sort n` with
@@ -380,25 +376,8 @@ strict (task #342 L7). -/
 @[expose] def IndStrictOk {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
   ∀ (I : Name) (cv : ConstantVal) (caps : IndCaps),
-    env.find? I = some (.indInfo cv caps) → IndStrictAt (V := V) m.acval env I cv
-
-/-- **The fibre law of the stored families** (task #342 L7; the
-fragment's `IndFibLaw`, task #342 F1): a stored former `I` at the
-use's levels `us`, whose instantiated type reads as a Π-tower ending
-in `.sort n`, applied to values fitting the tower's domains, is a
-truth value where `n = 0` and strict where `n ≠ 0` (`Fib`).  At any
-depth `d`: the type is closed. -/
-@[expose] def IndFibLaw {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ (d : Nat) (I : Name) (cv : ConstantVal) (caps : IndCaps) (us : List Level),
-    env.find? I = some (.indInfo cv caps) → us.length = cv.levelParams.length →
-    ∀ (ab : List Term) (n : Nat),
-      denote m.acval env φ d (cv.type.instantiateLevelParams cv.levelParams us)
-        = some (mkPisAV ab (.sort n)) →
-      ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ ab vs →
-        Fib (decide (n = 0))
-          (vs.foldl SetTheory.app
-            (interp V ρ (m.acval I (Level.substFn φ cv.levelParams us))))
+    env.find? I = some (.indInfo cv caps) → ConLeche.formerDefHeaded cv = false →
+      IndStrictAt (V := V) m.acval env I cv
 
 /-- A Π-tower over a sort determines its domains and its sort. -/
 theorem mkPisAV_sort_inj :

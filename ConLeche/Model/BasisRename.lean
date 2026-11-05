@@ -422,6 +422,35 @@ theorem _root_.ConLeche.Verify.PinCopy.ind {cv : ConstantVal} {caps : IndCaps}
     exact ⟨_, _, h2, rfl⟩
   | _ => exact nomatch h.kind
 
+omit [SetTheory V] in
+/-- An instantiation of its level parameters keeps where a type ends. -/
+theorem formerResSort_inst (ks : List Name) (us : List Level) :
+    ∀ e : Expr, (ConLeche.formerResSort (e.instantiateLevelParams ks us)).isNone
+      = (ConLeche.formerResSort e).isNone := by
+  intro e
+  unfold ConLeche.formerResSort
+  induction e with
+  | forallE d b _ ih => simpa [Expr.instantiateLevelParams, Expr.piResult] using ih
+  | sort _ => simp [Expr.instantiateLevelParams, Expr.piResult]
+  | _ => simp [Expr.instantiateLevelParams, Expr.piResult]
+
+omit [SetTheory V] in
+/-- Two copies of one pin end alike. -/
+theorem pinCopy_defHeaded {cv cv' : ConstantVal} {caps caps' : IndCaps}
+    (h : PinCopy (.indInfo cv caps) pin) (h' : PinCopy (.indInfo cv' caps') pin) :
+    ConLeche.formerDefHeaded cv = ConLeche.formerDefHeaded cv' := by
+  have h1 := h.1
+  have h2 := h'.1
+  cases pin with
+  | indInfo cvp cp =>
+    simp only [ConstantInfo.atLps, ConstantInfo.indInfo.injEq] at h1 h2
+    have e1 := congrArg ConstantVal.type h1.1
+    have e2 := congrArg ConstantVal.type h2.1
+    unfold ConLeche.formerDefHeaded
+    simp only [ConstantVal.atLps] at e1 e2
+    rw [e1, e2, formerResSort_inst, formerResSort_inst]
+  | _ => exact nomatch h.kind
+
 /-- What a recursor's copy has of the rules. -/
 theorem _root_.ConLeche.Verify.PinCopy.recr {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
     (h : PinCopy (.recInfo cv mI rP isK rules) pin) (h' : PinCopy c' pin)
@@ -1050,7 +1079,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
           (fun _ _ _ _ _ hTCa => by rw [hde']; exact hTCa)
           (congrFun (hnr hTr) _) (fun _ _ _ => rfl)
   · -- `ind_strict`
-    intro I cv' caps' hf' ψ ab n hread hn ρ vs hsp
+    intro I cv' caps' hf' hfl ψ ab n hread hn ρ vs hsp
     rcases h.find I with ⟨-, h2⟩ | ⟨c, c', h1, h2, hr⟩
     · rw [h2] at hf'; exact nomatch hf'
     · rw [h2] at hf'
@@ -1058,7 +1087,13 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
       obtain ⟨cv, caps, rfl⟩ := hr.symm.ind
       rw [hde'] at hread
       have hread' := (denote_pair mp.base2 hr ψ 0).symm.trans hread
-      have := mp.ind_strict I cv caps h1 _ ab n hread' hn ρ vs hsp
+      have hfl₀ : ConLeche.formerDefHeaded cv = false := by
+        rcases hr with he | ⟨-, hc, hc'⟩
+        · obtain ⟨rfl, -⟩ : cv = cv' ∧ caps = caps' := by simpa using he.symm
+          exact hfl
+        · rw [← hfl]
+          exact pinCopy_defHeaded hc hc'
+      have := mp.ind_strict I cv caps h1 hfl₀ _ ab n hread' hn ρ vs hsp
       show Strict (vs.foldl SetTheory.app (interp V ρ (mp.base2.acval I (renTr env env' I ψ))))
       rw [renTr_pair h1 h2]
       exact this
