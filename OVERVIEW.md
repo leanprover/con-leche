@@ -511,7 +511,7 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: a pool of them
-   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L213))
+   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L217))
    claims jobs one at a time off a shared counter, and the results,
    in job order, are walked
    ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L304-L308))
