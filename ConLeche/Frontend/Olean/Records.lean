@@ -99,8 +99,8 @@ start from, as lean4export's arguments after `--` do; `none` is every constant o
 closure. -/
 def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
     (roots : Array Name) (constants : Option (Array Name) := none) (jobs : Nat := 1)
-    (stride : Nat := 0) : μ (Except (CheckError × Nat) OleanRead) := do
-  let n ← CheckerIO.liftIO (ReadNotes.new stride)
+    (pace : Pace := .off) : μ (Except (CheckError × Nat) OleanRead) := do
+  let n ← CheckerIO.liftIO (ReadNotes.new pace)
   match ← loadClosure sp n roots jobs with
   | .error e => pure (.error (e, 0))
   | .ok ls =>

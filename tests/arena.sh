@@ -635,6 +635,25 @@ prog_check "--jobs=4 --progress=1 reports every check once, counting up" \
 prog_check "--jobs=4 --progress=1 brackets the run in order, naming the workers" \
   "$(printf '%s' "$prog_orderJ" | grep -q '^Pi*Ic*CD$' && echo ok)"
 # a bad stride is a USAGE error (exit 3), not a silently degraded run
+# the other paces (task #484): per percent of a phase, and by the clock; each phase says when
+# it starts at any pace
+prog_lines() { printf '%s\n' "$1" | grep -c "$2"; }
+prog_errP=$(timeout 120 "$BIN" --jobs=1 --progress=50% "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=50%: two check lines" \
+  "$([ "$(prog_lines "$prog_errP" '^con-leche: check [0-9]')" = 2 ] && echo ok)"
+prog_errS=$(timeout 120 "$BIN" --jobs=1 --progress=1000s "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=1000s: no check line in a short run" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: check [0-9]')" = 0 ] && echo ok)"
+prog_check "--progress=1000s: it says what it is reading" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: reading ')" = 1 ] && echo ok)"
+prog_check "--progress=1000s: the install says it has started" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: install 0/')" = 1 ] && echo ok)"
+prog_check "--progress=1000s: the check says it has started" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: checking: ')" = 1 ] && echo ok)"
+for v in 0% 101% x% 0s xs 1.5s; do
+  timeout 120 "$BIN" --progress=$v "$SPLIT_GOOD" >/dev/null 2>&1
+  prog_check "--progress=$v is a usage error (exit 3)" "$([ $? = 3 ] && echo ok)"
+done
 timeout 120 "$BIN" --progress=x "$SPLIT_GOOD" >/dev/null 2>&1; prog_codeX=$?
 timeout 120 "$BIN" --progress=0 "$SPLIT_GOOD" >/dev/null 2>&1; prog_code0=$?
 prog_check "--progress=x is a usage error (exit 3)" \

@@ -365,11 +365,11 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
         · exact mapExcept_each hc x hx
 
 /-- **The two phases of an `--olean` run accept the records with their values in place.** -/
-theorem checkOleansG_accept {mode : CheckMode} {stride total t0 tParse jobs : Nat}
+theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {total t0 tParse jobs : Nat}
     {ds : Array Declaration}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    (h : (checkOleansG mode stride total t0 tParse jobs sp values ds : ModelIO _) fs (.ok (.ok ()))) :
+    (h : (checkOleansG mode pace total t0 tParse jobs sp values ds : ModelIO _) fs (.ok (.ok ()))) :
     ∃ env, checkDecls mode natOpPinSets (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
   simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff, ModelIO.tryCatch_ok] at h
   obtain ⟨run, -, res, hres, _, -, h⟩ := h
@@ -434,14 +434,14 @@ reader has an outcome on that snapshot (at one job: the parallel map's model is 
 map), and `checkDecls` accepts its records prepared with the prelude, with the theorems' values
 in place (`fillOf`), whatever the `liftIO` actions answered. -/
 theorem checkMainG_oleans_accept {roots : Array Name}
-    {cs : Option (Array Name)} {mode : CheckMode} {stride jobs : Nat}
-    (h : (checkMainG (.oleans sp roots cs) mode stride jobs : ModelIO _) fs (.ok 0)) :
+    {cs : Option (Array Name)} {mode : CheckMode} {pace : Pace} {jobs : Nat}
+    (h : (checkMainG (.oleans sp roots cs) mode pace jobs : ModelIO _) fs (.ok 0)) :
     ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
       (readOleans sp roots cs : ModelIO _) fs (.ok (.ok rd)) ∧
       checkDecls mode natOpPinSets
         ((Frontend.prepareD pre rd.decls (usedOf (some (sp, rd)))).decls.map
           (fillDecl (fillOf sp fs rd.values))) = .ok env := by
-  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode stride jobs) fs
+  suffices H : ModelIO.AllOk (checkMainG (.oleans sp roots cs) mode pace jobs) fs
       (fun c => c = 0 → ∃ pre rd env, Frontend.builtinPreludeE = .ok pre ∧
         (readOleans sp roots cs : ModelIO _) fs (.ok (.ok rd)) ∧
         checkDecls mode natOpPinSets

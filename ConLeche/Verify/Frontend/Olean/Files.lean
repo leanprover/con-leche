@@ -541,8 +541,8 @@ theorem mapExcept_ok₂ {α β ε γ : Type} {f : α → ModelIO (Except ε β)}
 loaded (`loadAt`) from the files on the snapshot, whatever the job count: what a theorem's
 check reads comes from those files too. -/
 theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
-    {jobs stride : Nat} {fs : FS} {rd : OleanRead}
-    (h : (readOleans sp roots constants jobs stride : ModelIO _) fs (.ok (.ok rd))) :
+    {pace : Pace} {jobs : Nat} {fs : FS} {rd : OleanRead}
+    (h : (readOleans sp roots constants jobs pace : ModelIO _) fs (.ok (.ok rd))) :
     ∃ (order : Array Name) (ls : List Loaded) (mg : Merged) (rs : Array Name),
       (closureOrder sp roots : ModelIO _) fs (.ok (.ok order)) ∧
       ls.map (·.name) = order.toList ∧

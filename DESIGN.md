@@ -109162,3 +109162,10 @@ blocks' check, the emission.  `IO` actions through `liftIO`, so that `readOleans
 one model, and `readOleans_ok` needed only its peeling extended.  The walk over the imports itself has no
 line per module, as asked: its proof (`closureGo_ok`) would have to carry one for no gain.
 
+**The pace (maintainer).**  `--progress[=N|P%|Ss]`: `Pace` (`ConLeche/Frontend/Pace.lean`) in place of a
+stride.  Simple on purpose: a line comes when an item finishes, so `10s` is not strictly every ten
+seconds, and a long check or a step with no items is silent until it ends; for that every phase says when
+it starts (`reading`, `read:`, the install's first line, `checking`).  Not in the install's loop, which
+another lane is removing: it takes a plain stride derived from the pace (`Pace.strideFor`), so at
+seconds it prints its first line alone.
+

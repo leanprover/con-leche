@@ -33,7 +33,7 @@ import closure, or with `--constant` only the named constants and what they ment
 `.olean` reader); `--` ends the options, every argument after it being a
 file or a module, whatever it is called; `--help` before any `--` prints a summary of all this
 and exits 0
-([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L107)).
+([`helpText` in `ConLeche/Driver/Cli.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L117)).
 Any other option is a usage error: the run reports it, points at
 `--help` and exits 3 without reading its input, so a verdict's
 provenance can be read off the invocation.
@@ -110,10 +110,12 @@ to do (about 0.1 s on Mathlib). The
 verdict, and the declaration a rejection names, are the same at every
 `n`: the results are walked in record order, so the first failing
 record in fold order is the one reported. The flag
-`--progress[=<stride>]` prints a heartbeat on stderr with one line
-shape per phase — `install <i>/<N> <decl>` before every `stride`-th
-declaration is installed, `check <done>/<M> <decl>` after every
-`stride`-th completed check — bracketed by `parse done`, `install
+`--progress[=N|P%|Ss]` prints a heartbeat on stderr, a line every `N` declarations, per `P` percent
+of a phase, or at the first declaration done once `S` seconds have passed (so a long single check,
+or a step with no declarations, says nothing until it ends), with one line
+shape per phase — `install <i>/<N> <decl>` before a declaration is
+installed, `check <done>/<M> <decl>` after a completed check — each phase saying when it starts
+(`reading`, `checking`), bracketed by `parse done`, `install
 done` (preceded by an `install:` line with the install's own
 phases), `persistent mark`, `check done` and a
 `done:` summary with the three phase durations and the worker count
@@ -121,7 +123,7 @@ phases), `persistent mark`, `check done` and a
 `check` line ends with the number of busy workers and the oldest record
 one of them is on, with its age. With `--olean` the parse is preceded by
 `read:` lines, each with the time and the resident set: the import closure traced, the modules
-loading, one line per twentieth of them, then the merge, the blocks and the emission, so that a run
+loading, at the pace asked for (at a count of declarations, one line per twentieth of them), then the merge, the blocks and the emission, so that a run
 that does not get through the read says how far it got and at what size.
 With or without the flag, every run closes its stderr with a few
 `stats:` lines: the phase times; per phase (the install pool or the
@@ -438,7 +440,7 @@ Read from the outside in:
    threads answered, every outcome that is an exit 0 is one where the
    file's bytes in the snapshot, as one chunk, parse to records the fold
    accepts
-   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L419-L424)):
+   ([theorem `checkMainG_ndjson_accept` in `ConLeche/Driver/CheckMain.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckMain.lean#L420-L425)):
    the hypothesis of the main corollary about the file itself, read at
    the binary under the assumptions of the class's file.
    What the parser makes of a record
@@ -508,7 +510,7 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: a pool of them
-   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L210))
+   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L213))
    claims jobs one at a time off a shared counter, and the results,
    in job order, are walked
    ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L304-L308))
@@ -520,7 +522,7 @@ Read from the outside in:
    it is the identity on the value, its result is discarded, and the
    environment the driver goes on to use is the one it already had. The heartbeat is
    printed between the steps and touches neither type. The driver
-   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L205-L208))
+   ([function `checkDeclsIO` in `ConLeche/Driver/Run.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Run.lean#L211-L214))
    turns the fully checked environment into its environment with the
    proof that `checkDecls` returns it
    ([theorem `fullyChecked_checkDecls` in `ConLeche/Cached/Installed.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/Installed.lean#L411-L413)).

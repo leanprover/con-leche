@@ -56,7 +56,7 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `mergeAll ls : Except CheckError Merged` | `mergeAll_ok`: every constant stands in the merge |
 | `blocksOk mg : Except CheckError Unit` | `blocksOk_good`: the stored constants' blocks agree |
 | `emitAll mg rs : Emit`, `declsOf em` | `emitAll_spec`, `emitAll_covers` (visited means declared), `declsOf_thm`, `declsOf_from` |
-| `readOleans sp roots constants jobs stride : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleans_ok`, `readOleans_thm`, `readOleans_filled` |
+| `readOleans sp roots constants jobs pace : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleans_ok`, `readOleans_thm`, `readOleans_filled` |
 | `readValue sp values c code : μ (ValueCache × Except CheckError Expr)`, what a reference stands for | `readOleans_filled`, `checkMainG_oleans_accept` |
 | `readOleansFull sp roots constants jobs : μ (Except (CheckError × Nat) (Array Declaration))`, with every value read, for the tools that compare records | |
 

@@ -276,7 +276,7 @@ if '--list' in sys.argv[1:]:
 # proofs (`ConLeche/Verify/Frontend/Olean/*`) stand on it and the IO model.
 OLEAN_PFX = 'ConLeche.Frontend.Olean.'
 OLEAN_BASE = {'ConLeche.Kernel.Error', 'ConLeche.Kernel.Name', 'ConLeche.Kernel.Expr',
-              'ConLeche.Kernel.Env', 'ConLeche.Frontend.Scan.Types'}
+              'ConLeche.Kernel.Env', 'ConLeche.Frontend.Scan.Types', 'ConLeche.Frontend.Pace'}
 OLEAN_EXTRA = {'ConLeche.Frontend.Olean.Files': {'ConLeche.Frontend.CheckerIO'},
                'ConLeche.Frontend.Olean.Closure': {'ConLeche.Frontend.CheckerIO'},
                'ConLeche.Frontend.Olean.Records': {'ConLeche.Frontend.CheckerIO',

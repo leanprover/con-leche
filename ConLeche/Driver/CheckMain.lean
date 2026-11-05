@@ -88,14 +88,14 @@ def Input.label : Input → String
 (`parseStreamG`), or the closure's, by the `.olean` reader
 (`Frontend.Olean.readOleans`), whose theorems hold references to their values, with what
 their checks need to read them. -/
-def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (stride jobs : Nat) :
+def readInputG {μ : Type → Type} [CheckerIO μ] (inp : Input) (pace : Pace) (jobs : Nat) :
     μ (Except (CheckError × Nat)
       (Array Declaration × Option (List System.FilePath × Frontend.Olean.OleanRead))) :=
   match inp with
   | .ndjson file => do
     return (← parseStreamG file jobs).map fun r => (r.decls, none)
   | .oleans sp roots cs => do
-    return (← Frontend.Olean.readOleans sp roots cs jobs stride).map fun rd => (rd.decls, some (sp, rd))
+    return (← Frontend.Olean.readOleans sp roots cs jobs pace).map fun rd => (rd.decls, some (sp, rd))
 
 /-- What a record mentions, for the preparation: the record's expressions say it, except a
 theorem's read from an `.olean`, whose load read it off the file. -/
@@ -149,7 +149,7 @@ structure OleanWorker where
 def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : OleanRun) (pl : PoolLive)
     (J : Jobs) (sp : List System.FilePath) (values : Array Frontend.Olean.ModRef)
     (s : OleanWorker) (t : Nat) : μ (OleanWorker × Except (CheckError × Nat) Unit) := do
-  let ts ← CheckerIO.liftIO (jobBegin pl run.stride s.w t)
+  let ts ← CheckerIO.liftIO (jobBegin pl run.pace s.w t)
   let (c, r) ← oleanJobRun mode J sp values s.cache t
   let st ← CheckerIO.liftIO (run.jobEnded J pl s.w t ts s.st (r matches .ok _))
   pure ({ s with st, cache := c }, r)
@@ -159,10 +159,10 @@ def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : Olea
 order is the result, whatever the workers' timing.  The install's workers are joined on
 every path out, an exception's included (`checkDeclsIO` says why). -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
-    (stride total t0 tParse jobs : Nat) (sp : List System.FilePath)
+    (pace : Pace) (total t0 tParse jobs : Nat) (sp : List System.FilePath)
     (values : Array Frontend.Olean.ModRef) (ds : Array Declaration) :
     μ (Except (CheckError × Nat) Unit) := do
-  let run ← CheckerIO.liftIO (OleanRun.new stride total t0 tParse jobs)
+  let run ← CheckerIO.liftIO (OleanRun.new pace total t0 tParse jobs)
   let body : μ (Except (CheckError × Nat) Unit) := do
     match ← CheckerIO.liftIO (run.install mode ds) with
     | .error e => pure (.error e)
@@ -274,8 +274,8 @@ the verdict.  The three steps fail in ONE error type, the checker's
 chain is one `do` block up there and why the exit code below is
 `CheckError.exitCode` whichever step produced it. -/
 def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : CheckMode)
-    (stride jobs : Nat) : μ UInt8 := do
-    -- The opt-in progress heartbeat (`--progress[=<stride>]`):
+    (pace : Pace) (jobs : Nat) : μ UInt8 := do
+    -- The opt-in progress heartbeat (`--progress[=<pace>]`):
     -- validated by the argument parse, before any work is done, and
     -- handed down as configuration.  EVERY SWITCH THAT SHAPES A
     -- VERDICT IS A COMMAND-LINE FLAG, so a verdict's provenance is
@@ -314,7 +314,8 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
     -- Streaming frontend: the parse reads the file line by line, so
     -- neither a wholesale text buffer nor a scratch file exists in
     -- this process.
-    match ← readInputG input stride jobs with
+    CheckerIO.liftIO (readStarts pace input.label)
+    match ← readInputG input pace jobs with
     | .error (.notImplemented what, _) =>
       diagLine s!"con-leche: declined: {what} ({modeTag})"
       return 2
@@ -372,7 +373,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       -- install and check phases print their own lines
       -- (`checkDeclsIO`), and the summary closes the run.
       let tParse ← clockMs
-      if stride > 0 then
+      if pace.on then
         diagLine s!"con-leche: parse done: {decls.size} fold records — \
           the file's {parsed.size}, \
           {synthesised} built-in prelude records synthesised \
@@ -381,7 +382,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       match src with
       | none =>
         let verdict ← CheckerIO.liftIO do
-          checkDeclsIO mode (← IO.getStderr) stride decls.size t0 tParse jobs decls
+          checkDeclsIO mode (← IO.getStderr) pace decls.size t0 tParse jobs decls
         verdictG modeTag parsed.size t0 decls (match verdict with
           | .ok _ => .ok ()
           | .error e => .error e)
@@ -389,7 +390,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
         -- the theorems' values are read in their checks, and what the
         -- read kept of the merge is dropped here
         verdictG modeTag parsed.size t0 decls
-          (← checkOleansG mode stride decls.size t0 tParse jobs sp rd.values decls)
+          (← checkOleansG mode pace decls.size t0 tParse jobs sp rd.values decls)
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
 theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration}
@@ -417,13 +418,13 @@ the `liftIO` actions answered.  Under the assumptions of
 `ConLeche/Frontend/CheckerIO.lean` the binary's run is one of these
 outcomes. -/
 theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-    {stride jobs : Nat} {fs : FS}
-    (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
+    {pace : Pace} {jobs : Nat} {fs : FS}
+    (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
     ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       Frontend.parseChunks [b] = .ok r ∧
       Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode stride jobs) fs
+  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode pace jobs) fs
       (fun c => c = 0 → ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧
         fs.file file = some b ∧ Frontend.parseChunks [b] = .ok r ∧
         Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env) from
