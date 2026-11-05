@@ -41,12 +41,18 @@ def BasisInstallRun (env : Env) : List ConstantInfo → Env → Prop
     (env.find? ci.name).isNone = true ∧
     BasisInstallRun ⟨ci :: env.consts, env.tables⟩ rest env₂
 
-/-- A pinned basis block (design §1.5, `basis` row): side conditions
-only — the pinned declarations are stored as pinned, and their semantic
-content is proved once in the model (`Model/Basis*.lean`), not by
-per-install premises. -/
-def DeclBasisRun (env : Env) (kind : BasisKind) (env₂ : Env) : Prop :=
-  (kind = .quotK → env.find? eqName = some eqA) ∧
-  BasisInstallRun env kind.decls env₂
+/-- A pinned basis block (design §1.5, `basis` row): the comparison with
+the pin, and each pin stored at the names its record declares.  Their
+semantic content is proved once in the model (`Model/Basis*.lean`), not
+by per-install premises. -/
+def DeclBasisRun (env : Env) (kind : BasisKind) (block : List ConstantInfo) (env₂ : Env) : Prop :=
+  pinListOk block kind.decls = true ∧ BasisInstallRun env (kind.atBlock block) env₂
+
+/-- A quotient record: the comparison with its slot's pin, the slots it
+needs stored, and the slot's constant stored at the record's names. -/
+def DeclQuotRun (env : Env) (k : QuotKind) (cv : ConstantVal) (env₂ : Env) : Prop :=
+  quotPinHit k cv = true ∧ quotPredsOk env.find? k cv.levelParams = true ∧
+    (env.find? (quotAt k cv).name).isNone = true ∧
+    env₂ = ⟨quotAt k cv :: env.consts, env.tables⟩
 
 end ConLeche.Semantics

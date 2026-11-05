@@ -446,7 +446,7 @@ field is vacuous — no constants, guards false. -/
   div_mod := fun φ c _ cv v hint hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
-  eq_law := fun hf => by
+  eq_law := fun _ _ hf => by
     rw [show Env.empty.find? eqName = none from rfl] at hf
     exact nomatch hf
   caps_ok := by

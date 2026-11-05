@@ -43,6 +43,13 @@ variable {env : Env}
 
 section Eq
 
+/- The pins are written in the builder's vocabulary; the readings below walk
+them as plain `Expr` trees. -/
+attribute [local simp] ConLeche.BasisDSL.bv ConLeche.BasisDSL.srt ConLeche.BasisDSL.prop
+  ConLeche.BasisDSL.cnst ConLeche.BasisDSL.pi ConLeche.BasisDSL.piI ConLeche.BasisDSL.piA
+  ConLeche.BasisDSL.ap2 ConLeche.BasisDSL.ap3 ConLeche.BasisDSL.u ConLeche.BasisDSL.v
+  ConLeche.BasisDSL.uN ConLeche.BasisDSL.vN ConLeche.BasisDSL.u1N ConLeche.BasisDSL.bn ConLeche.eqRecMotive
+
 open ConLeche (eqA eqReflA eqRecA eqName eqReflName)
 
 variable {m : EnvModel V env} {A : (Name → Nat) → Term}
@@ -234,7 +241,7 @@ theorem extendEq (mp : EnvModelM V env)
     rw [eqTy_interp]
     exact eqValT_mem ψ ρ
   · intro m₂ hac
-    refine eqLaw_of_tower m₂ fun ψ => ?_
+    refine eqLaw_of_tower m₂ (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl) fun ψ => ?_
     rw [hac, show eqName = eqA.name from rfl, acvalWith_self]
 
 /-- **`Eq.refl`, installed at the P tier.** -/
@@ -1191,7 +1198,7 @@ theorem extendEqRec (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hR⟩
+        · exact ⟨_, _, _, hR, rfl⟩
         · exact nomatch hr'))
     (fun ψ₁ ψ₂ hp => eqRecValT_congr
       (hp uN (by

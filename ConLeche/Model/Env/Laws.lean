@@ -96,24 +96,44 @@ basis install (`BasisStepPB`).  See the task #161 LITERAL TIER
 seal III record. -/
 @[expose] def EqLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
-  env.find? eqName = some eqA →
+  ∀ (ci : ConstantInfo) (p : Name), env.find? eqName = some ci →
+  ci.toConstantVal.levelParams = [p] →
   ∀ ψ : Name → Nat,
     -- the spine's **value**: the truth set of the equation
     (∀ (ρ : Nat → V) (A a b : V),
-      A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
+      A ∈ˢ (univ (ψ p) : V) → a ∈ˢ A → b ∈ˢ A →
       SetTheory.app (SetTheory.app (SetTheory.app
           (interp V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
     -- the spine's **grading**, and that it is a proposition (the
     -- certificate frame reads exactly these)
     ∀ (ρ : Nat → V) (Aa la ra : Term),
       WellDenoted V ρ Aa → WellDenoted V ρ la → WellDenoted V ρ ra →
-      interp V ρ Aa ∈ˢ (univ (ψ uN) : V) →
+      interp V ρ Aa ∈ˢ (univ (ψ p) : V) →
       interp V ρ la ∈ˢ interp V ρ Aa →
       interp V ρ ra ∈ˢ interp V ρ Aa →
       WellDenoted V ρ
           (.app (.app (.app (m.acval eqName ψ) Aa) la) ra) ∧
         interp V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
           ∈ˢ (univZero : V)
+
+/-- `EqLaw` at the stored `Eq`'s parameter. -/
+theorem EqLaw.at {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
+    (h : EqLaw m) (hs : ConLeche.Verify.EqStored env) (ψ : Name → Nat) :
+    (∀ (ρ : Nat → V) (A a b : V),
+      A ∈ˢ (univ (ψ (ConLeche.Verify.eqLp env)) : V) → a ∈ˢ A → b ∈ˢ A →
+      SetTheory.app (SetTheory.app (SetTheory.app
+          (interp V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
+    ∀ (ρ : Nat → V) (Aa la ra : Term),
+      WellDenoted V ρ Aa → WellDenoted V ρ la → WellDenoted V ρ ra →
+      interp V ρ Aa ∈ˢ (univ (ψ (ConLeche.Verify.eqLp env)) : V) →
+      interp V ρ la ∈ˢ interp V ρ Aa →
+      interp V ρ ra ∈ˢ interp V ρ Aa →
+      WellDenoted V ρ
+          (.app (.app (.app (m.acval eqName ψ) Aa) la) ra) ∧
+        interp V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
+          ∈ˢ (univZero : V) :=
+  let ⟨ci, hf, hl⟩ := hs
+  h ci _ hf hl ψ
 
 /-- **The compiler-trust opaques are the identity, at `interp`**: the
 stored `Lean.reduceNat`/`Lean.reduceBool` leaf, applied to a member of

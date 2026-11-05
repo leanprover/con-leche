@@ -283,7 +283,11 @@ theorem recSwapFacts3 {envSelf env₃ : Env} {cval : (Name → (Name → Nat) �
           exact h₀
         · rw [hnr] at hres
           exact nomatch hres
-    exact hbpS n ci hf₀ hres
+    exact (let hp := hbpS n ci hf₀ hres
+     ⟨hp.1, hp.2.1.mono (fun x cvj cnP cnF hx => by
+        rcases hcorr x with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
+        · rw [← heq]; exact hx
+        · rw [h₃] at hx; exact nomatch hx), hp.2.2⟩)
   · -- `ProjOkT`: projection tables are untouched
     intro n tbl hf i hi
     exact ConLeche.TowerHead.mono (fun n ci hnr hf' => (hsame n ci hnr).mpr hf')

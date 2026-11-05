@@ -47,6 +47,13 @@ variable {env : Env}
 
 section Quot
 
+/- The pins are written in the builder's vocabulary; the readings below walk
+them as plain `Expr` trees. -/
+attribute [local simp] ConLeche.BasisDSL.bv ConLeche.BasisDSL.srt ConLeche.BasisDSL.prop
+  ConLeche.BasisDSL.cnst ConLeche.BasisDSL.pi ConLeche.BasisDSL.piI ConLeche.BasisDSL.piA
+  ConLeche.BasisDSL.ap2 ConLeche.BasisDSL.ap3 ConLeche.BasisDSL.u ConLeche.BasisDSL.v ConLeche.BasisDSL.uN ConLeche.BasisDSL.vN ConLeche.BasisDSL.bn
+  ConLeche.quotRel ConLeche.quotLiftF ConLeche.quotLiftH ConLeche.quotIndMotive ConLeche.quotIndMk
+
 open ConLeche (quotA quotMkA quotLiftA quotIndA quotSoundA quotName
   quotMkName quotLiftName quotIndName quotSoundName eqA eqName)
 
@@ -123,7 +130,7 @@ theorem denote_quotMkTy {c₀ : ConstantInfo} (ψ : Name → Nat)
       = some (quotMkTy (ψ uN)) := by
   have hQc : ∀ d : Nat,
       denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ d
-        (Expr.const (Name.str Name.anonymous "Quot")
+        (Expr.const quotName
           [Level.param (Name.str Name.anonymous "u")])
         = some (Term.const .quot
             [ψ (Name.str Name.anonymous "u")]) := by
@@ -1087,7 +1094,7 @@ theorem extendQuotInd (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hM⟩
+        · exact ⟨_, _, _, hM, rfl⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)
@@ -1465,13 +1472,13 @@ theorem extendQuotSound (mp : EnvModelM V env)
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
-    exact quotSoundTy_wellDenoted ρ (mp.eq_law hE ψ).2
+    exact quotSoundTy_wellDenoted ρ (mp.eq_law _ uN hE rfl ψ).2
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
     rw [interp_const]
     show (pt : V) ∈ˢ _
-    exact quotSoundTy_mem ρ (mp.eq_law hE ψ).1
+    exact quotSoundTy_mem ρ (mp.eq_law _ uN hE rfl ψ).1
 
 /-! ## `Quot.lift`
 
@@ -2256,7 +2263,7 @@ theorem quotLiftLaw {m : EnvModel V env}
   have hEuN : Level.substFn ψ [uN] [Level.param vN] uN = ψ vN := by
     simp [Level.substFn, Level.eval]
   obtain ⟨hval0, hgr0⟩ :=
-    heq hE (Level.substFn ψ [uN] [Level.param vN])
+    heq _ uN hE rfl (Level.substFn ψ [uN] [Level.param vN])
   rw [hEuN] at hval0 hgr0
   have hRa : denote m₂.acval ⟨quotLiftA :: env.consts, env.tables⟩ φ 0
       (quotLiftRule.rhs.instantiateLevelParams
@@ -2420,7 +2427,7 @@ theorem quotLift_eqLaws (mp : EnvModelM V env)
   have hEuN : Level.substFn ψ [uN] [Level.param vN] uN = ψ vN := by
     simp [Level.substFn, Level.eval]
   obtain ⟨hval0, hgr0⟩ :=
-    mp.eq_law hE (Level.substFn ψ [uN] [Level.param vN])
+    mp.eq_law _ uN hE rfl (Level.substFn ψ [uN] [Level.param vN])
   rw [hEuN] at hval0 hgr0
   exact ⟨hval0, hgr0⟩
 
@@ -2449,7 +2456,7 @@ theorem extendQuotLift (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hM⟩
+        · exact ⟨_, _, _, hM, rfl⟩
         · exact nomatch hr'))
     ?_
     (fun _ _ => trivial)

@@ -489,12 +489,8 @@ theorem checkDeclC_push (mode : CheckMode) {env : Env} {fe : FEnv}
     · exact Yields.ofThrow
   | axiomDecl cv =>
     simp only []
-    -- task #293: `Quot.sound` is compared with the pin and pushes
-    -- nothing
     split
-    · split
-      · exact Yields.pure h
-      · exact Yields.ofThrow
+    · exact checkQuotRecordC_push h .sound cv
     refine Yields.bind' (checkConstantValC_fresh mode fe cv) fun _ hfr => ?_
     by_cases ht : cv.name = sorryAxName
     · rw [ite_eq_right (by rw [tolerated_not_std fe cv ht]; exact Bool.false_ne_true),

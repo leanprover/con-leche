@@ -84,28 +84,31 @@ theorem foldlM_installBasisDecl_invR :
       exact ⟨Option.isNone_iff_eq_none.mpr hfresh,
         foldlM_installBasisDecl_invR l h⟩
 
-/-- **The pinned-block install, bridged.**  Stated over
-`checkBasisDecl` and not over `checkDecl`'s `.basisDecl` arm, because
-since task #293 three arms share that body: the fold's own
-`basisDecl` kind, a stream block `basisPinHit` recognises, and the
-first quotient record `quotPinHit` recognises. -/
-theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind}
-    (h : checkBasisDecl (m := CheckM) env kind = .ok env₂) :
-    DeclBasisRun env kind env₂ := by
-  simp only [checkBasisDecl, Bind.bind, Except.bind] at h
-  by_cases hk : kind = .quotK
-  · subst hk
-    by_cases hEq : env.find? eqName = some eqA
-    · simp only [hEq, ite_true] at h
-      exact ⟨fun _ => hEq, foldlM_installBasisDecl_invR _ h⟩
-    · simp [hEq] at h
-  · simp only [ite_eq_right hk] at h
-    exact ⟨fun hh => absurd hh hk, foldlM_installBasisDecl_invR _ h⟩
+/-- **A pinned block's check and install, bridged.** -/
+theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind} {block : List ConstantInfo}
+    (h : checkBasisBlock (m := CheckM) env kind block = .ok env₂) :
+    DeclBasisRun env kind block env₂ := by
+  unfold checkBasisBlock at h
+  by_cases hok : pinListOk block kind.decls = true
+  · rw [ite_eq_left hok] at h
+    exact ⟨hok, foldlM_installBasisDecl_invR _ h⟩
+  · rw [ite_eq_right hok] at h
+    exact nomatch h
 
-/-- **`basisDecl`, bridged.** -/
-theorem declBasisRun {F : Nat} {env env₂ : Env}
-    {kind : BasisKind}
-    (h : checkDecl .verified (fueledOps .verified F) pins env (.basisDecl kind) = .ok env₂) :
-    DeclBasisRun env kind env₂ := declBasisRunOf h
+/-- **A quotient record's check and install, bridged.** -/
+theorem declQuotRunOf {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}
+    (h : checkQuotRecord (m := CheckM) env k cv = .ok env₂) :
+    DeclQuotRun env k cv env₂ := by
+  unfold checkQuotRecord at h
+  by_cases h1 : quotPinHit k cv = true
+  · rw [ite_eq_left h1] at h
+    by_cases h2 : quotPredsOk env.find? k cv.levelParams = true
+    · rw [ite_eq_left h2] at h
+      obtain ⟨hfresh, rfl⟩ := installBasisDecl_inv h
+      exact ⟨h1, h2, Option.isNone_iff_eq_none.mpr hfresh, rfl⟩
+    · rw [ite_eq_right h2] at h
+      exact nomatch h
+  · rw [ite_eq_right h1] at h
+    exact nomatch h
 
 end ConLeche.Semantics

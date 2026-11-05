@@ -181,10 +181,9 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
       ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
     exact ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, hlaw⟩
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
-    intro hf
-    exact mp.eq_law
-      ((hsame eqName eqA
-        (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
+    intro ci p hf hp
+    exact mp.eq_law ci p ((hsame eqName ci
+      (eqCopy_not_rec (hbp₃ eqName ci hf (by decide)).1)).mp hf) hp
   · -- `caps_ok`
     obtain ⟨he, hu⟩ := mp.caps_ok
     have hfam : ∀ (T : Name) (caps : IndCaps),
@@ -411,7 +410,8 @@ theorem storedSwap_sem {envC : Env}
   · -- `BasisPinnedTT`: a stored recursor is never reserved
     intro n ci hf hres
     rcases hC.1 n ci hf with hG | ⟨j, rc, g, ⟨-, hg, -⟩, hn, -, -⟩
-    · exact mpG.base2.basis_pinned n ci hG hres
+    · have hp := mpG.base2.basis_pinned n ci hG hres
+      exact ⟨hp.1, hp.2.1.mono hctor, hp.2.2⟩
     · have := hnres g (List.mem_of_getElem? hg)
       rw [hn, ConLeche.reservedRecName, hres] at this
       simp only [Bool.true_or] at this

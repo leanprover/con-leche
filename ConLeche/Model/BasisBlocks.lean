@@ -61,13 +61,15 @@ theorem denote_pinned_const {m : EnvModel V env}
     {c : ConLeche.Term.BConst} {us : List Nat}
     (hpd : ConLeche.Verify.pinnedStructT n
       (Level.substFn ψ ci.toConstantVal.levelParams ls)
-        = some (Term.const c us)) (d : Nat) :
+        = some (Term.const c us)) (d : Nat)
+    (hl : (ConLeche.pinnedInfo n).toConstantVal.levelParams
+      = ci.toConstantVal.levelParams := by rfl) :
     denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ d
         (.const n ls) = some (Term.const c us) := by
   have hf' : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n = some ci := by
     rw [ConLeche.Env.find?_cons, ite_eq_right hne]; exact hf
   rw [denote_const hf' hlen, acvalWith_ne (fun h => hne h.symm),
-    EnvModel.acval_pinned m hf hres hpd]
+    EnvModel.acval_pinned m hf hres hpd hl]
 
 /-! ### Lift-then-instantiate absorption
 
@@ -1325,9 +1327,9 @@ theorem extendNatRec (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hZ⟩
+        · exact ⟨_, _, _, hZ, rfl⟩
         rcases List.mem_cons.mp hr' with rfl | hr''
-        · exact ⟨_, _, _, hS⟩
+        · exact ⟨_, _, _, hS, rfl⟩
         · exact nomatch hr''))
     ?_
     (fun _ _ => trivial)

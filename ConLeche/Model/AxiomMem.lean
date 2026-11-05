@@ -313,8 +313,9 @@ theorem propext_mem (mp : EnvModelM V env)
   have hsh := propext_shapeS hApinT
   rw [hsh] at hta
   -- the `Eq` former's one level parameter is pinned to `1`
-  have heqψ : Level.substFn ψ eqA.toConstantVal.levelParams
-      [Level.zero.succ] uN = 1 := rfl
+  have hEqS : ConLeche.Verify.EqStored env := mp.base2.basis_pinned.eqStored hEq
+  have heqψ : Level.substFn ψ [ConLeche.Verify.eqLp env]
+      [Level.zero.succ] (ConLeche.Verify.eqLp env) = 1 := by simp [Level.substFn, Level.eval]
   have hI : ∀ e, denote mp.base2.acval env ψ e (.const iffName [])
       = some (mp.base2.acval iffName ψ) :=
     fun e => denote_levelless_const hfI (by
@@ -323,8 +324,8 @@ theorem propext_mem (mp : EnvModelM V env)
   have hQ : ∀ e, denote mp.base2.acval env ψ e
       (.const eqName [Level.zero.succ])
       = some (mp.base2.acval eqName (Level.substFn ψ
-          eqA.toConstantVal.levelParams [Level.zero.succ])) :=
-    fun e => denote_const hEq rfl
+          [ConLeche.Verify.eqLp env] [Level.zero.succ])) :=
+    fun e => ConLeche.Verify.denote_eqConst hEqS ψ e _
   -- the stored type's reading
   have hden : denote mp.base2.acval env ψ 0
       (.forallE (.sort .zero)
@@ -336,7 +337,7 @@ theorem propext_mem (mp : EnvModelM V env)
       = some (.pi (.sort 0) (.pi (.sort 0)
           (.pi (.app (.app (mp.base2.acval iffName ψ) (.bvar 1)) (.bvar 0))
             (.app (.app (.app (mp.base2.acval eqName
-                (Level.substFn ψ eqA.toConstantVal.levelParams
+                (Level.substFn ψ [ConLeche.Verify.eqLp env]
                   [Level.zero.succ])) (.sort 0)) (.bvar 2))
               (.bvar 1))))) := by
     simp [denote_forallE, denote_sort, denote_app, denote_fvar,
@@ -356,7 +357,7 @@ theorem propext_mem (mp : EnvModelM V env)
      pt_mem_piV_of fun B hB =>
       ⟨piV_mem_univZero_of fun w hw => ?_, pt_mem_piV_of fun w hw => ⟨?_, ?_⟩⟩⟩
   all_goals
-    rw [(mp.eq_law hEq _).1 (cons w (cons B (cons A ρ)))
+    rw [(EqLaw.at mp.eq_law hEqS _).1 (cons w (cons B (cons A ρ)))
       (univ 0) A B (by rw [heqψ]; exact univ_mem_univ 0) hA hB]
   any_goals exact eqv_mem_univZero A B
   have hAB : A = B :=

@@ -159,28 +159,49 @@ theorem ModelExt.pushTable (mp : EnvModelM V env) {t : ConLeche.ProjTable}
     ModelExt mp ⟨env.consts, t :: env.tables⟩ mp.base2.acval :=
   ⟨fun _ _ => rfl, fun _ _ => rfl, fun hcb h => denote_pushTable_mono hT _ _ hcb h⟩
 
+/-- **A pin is a copy of itself.** -/
+theorem pinCopy_self {n : Name} (hres : ConLeche.reservedBasisNames.contains n = true) :
+    PinCopy (pinnedInfo n) (pinnedInfo n) := by
+  have hmem : n ∈ ConLeche.reservedBasisNames := by simpa using hres
+  simp only [ConLeche.reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
+  rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl <;> exact ⟨rfl, by decide, rfl⟩
+
 /-- The pinned-basis valuation survives any fresh cons that moves no
 other name (`BasisPinnedTT.cons` without the install record — its
 proof consults only freshness and agreement). -/
 theorem basisPinnedTT_consFresh {cval cval' : (Name → (Name → Nat) → Term)}
     {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
+    (hrc : ConLeche.RecCtorsStored env)
     (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hhead : ConLeche.reservedBasisNames.contains c₀.name = true →
-      c₀ = pinnedInfo c₀.name ∧
+      PinCopy c₀ (pinnedInfo c₀.name) ∧
+      PinLinked ⟨c₀ :: env.consts, env.tables⟩ c₀.name c₀ ∧
       ∀ (ψ : Name → Nat) (t : Term),
-        pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
+        pinnedStructT c₀.name (pinVal (pinnedInfo c₀.name).toConstantVal.levelParams
+          c₀.toConstantVal.levelParams ψ) = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts, env.tables⟩ cval' := by
   intro n ci hf hres
   by_cases hn : c₀.name = n
   · subst hn
     rw [ConLeche.Env.find?_cons, ite_eq_left rfl] at hf
     obtain rfl : ci = c₀ := (Option.some.inj hf).symm
-    exact ⟨(hhead hres).1, fun t ψ hp => (hhead hres).2 ψ t hp⟩
+    exact ⟨(hhead hres).1, (hhead hres).2.1, fun t ψ hp => (hhead hres).2.2 ψ t hp⟩
   · rw [ConLeche.Env.find?_cons, ite_eq_right hn] at hf
-    refine ⟨(h n ci hf hres).1, fun t ψ hp => ?_⟩
-    rw [← hag n (fun hh => hn hh.symm)]
-    exact (h n ci hf hres).2 t ψ hp
+    obtain ⟨hcopy, hlink, hleaf⟩ := h n ci hf hres
+    refine ⟨hcopy, ?_, fun t ψ hp => ?_⟩
+    · intro cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us
+      rw [ConLeche.Env.find?_cons] at hfc
+      obtain ⟨cvj₀, cnP₀, cnF₀, hstored⟩ := hrc n cv mI rP isK rules (hci ▸ hf) rl hrl
+      have hne : c₀.name ≠ RecRule.ctor rl := by
+        intro he
+        rw [← he, hfresh] at hstored
+        exact nomatch hstored
+      rw [ite_eq_right hne] at hfc
+      exact hlink cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us
+    · rw [← hag n (fun hh => hn hh.symm)]
+      exact hleaf t ψ hp
 
 /-! ## The core at a fresh cons, model-free (task #161 S7)
 
@@ -202,9 +223,11 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
   /-- if the head sits at a reserved basis name, it is the pinned
   declaration and its leaf erases to the direct pin -/
   pin : ConLeche.reservedBasisNames.contains c₀.name = true →
-    c₀ = pinnedInfo c₀.name ∧
+    PinCopy c₀ (pinnedInfo c₀.name) ∧
+    PinLinked ⟨c₀ :: env.consts, env.tables⟩ c₀.name c₀ ∧
     ∀ (ψ : Name → Nat) (t : Term),
-      pinnedStructT c₀.name ψ = some t → (A ψ) = t
+      pinnedStructT c₀.name (pinVal (pinnedInfo c₀.name).toConstantVal.levelParams
+        c₀.toConstantVal.levelParams ψ) = some t → (A ψ) = t
   /-- a head recursor's rules' constructors are stored and its K
   bit is the store's own verdict (`RecCtorsStored`'s head) -/
   ctorsHead : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
@@ -215,7 +238,7 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
 
 /-- **The head obligations of a basis cons**: the head is the pinned
 declaration, its leaf is the direct pin, and (for a recursor) its rules'
-constructors are stored. -/
+constructors are stored as their pins. -/
 theorem ConsHead.ofBasis {c₀ : ConstantInfo}
     {A : (Name → Nat) → Term}
     (hwf : EnvWF ⟨c₀ :: env.consts, env.tables⟩)
@@ -226,10 +249,33 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
     (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
-          env.find? (ConLeche.RecRule.ctor r)
-            = some (.ctorInfo cvj cnP cnF))) :
+          env.find? (ConLeche.RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
+          .ctorInfo cvj cnP cnF = pinnedInfo (ConLeche.RecRule.ctor r))) :
     ConsHead env c₀ A :=
-  ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩, hctors⟩
+  ⟨hwf, hvclosed, fun hres =>
+    have hself := pinCopy_self hres
+    ⟨hpinned ▸ hself, by
+      intro cv mI rP isK rules hci rl hrl cvj cnP cnF hfc us
+      obtain ⟨cvj', cnP', cnF', hf', hp⟩ := hctors cv mI rP isK rules hci rl hrl
+      rw [ConLeche.Env.find?_cons] at hfc
+      split at hfc
+      · rw [hci] at hfc
+        exact nomatch hfc
+      · rw [hf'] at hfc
+        injection hfc with hfc
+        injection hfc with h1 _ _
+        have hl : (pinnedInfo (ConLeche.RecRule.ctor rl)).toConstantVal = cvj' := by
+          rw [← hp]; rfl
+        have hr : (pinnedInfo c₀.name).toConstantVal = cv := by
+          rw [← hpinned, hci]; rfl
+        rw [hl, hr, ← h1], fun ψ t hp => by
+      have hl : (pinnedInfo c₀.name).toConstantVal.levelParams = c₀.toConstantVal.levelParams := by
+        rw [← hpinned]
+      rw [hl, pinVal, Level.substFn_param_self] at hp
+      exact hleaf ψ t hp⟩,
+    fun cvR mI rP isK rules hc r hr =>
+      let ⟨cvj, cnP, cnF, hf, _⟩ := hctors cvR mI rP isK rules hc r hr
+      ⟨cvj, cnP, cnF, hf⟩⟩
 
 /-- **The head obligations of an ordinary (non-reserved) cons**: the
 pin clause is vacuous. -/
@@ -288,13 +334,13 @@ head's obligation; nothing of the collapsed model is consulted. -/
         acvalWith_ne hn]
       exact m.cval_closed n ψ
   basis_pinned :=
-    basisPinnedTT_consFresh m.basis_pinned hfresh
+    basisPinnedTT_consFresh m.basis_pinned m.rec_ctors hfresh
       (fun n hn => funext fun ψ => by rw [acvalWith_ne hn])
-      (fun hres => ⟨(hh.pin hres).1, fun ψ t hp => by
+      (fun hres => ⟨(hh.pin hres).1, (hh.pin hres).2.1, fun ψ t hp => by
         show (acvalWith m.acval c₀.name A c₀.name ψ) = t
         rw [show acvalWith m.acval c₀.name A c₀.name = A from
           acvalWith_self]
-        exact (hh.pin hres).2 ψ t hp⟩)
+        exact (hh.pin hres).2.2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok m.wf hfresh
   rec_ctors := ConLeche.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_params := acvalWith_params m.acval_params hAparams

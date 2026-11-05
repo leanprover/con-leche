@@ -239,8 +239,8 @@ theorem eqLaw_cons_fresh {m : EnvModel V env}
     (m₂ : EnvModel V ⟨c₀ :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     EqLaw m₂ := by
-  intro hfind ψ
-  have hfE : env.find? eqName = some eqA := by
+  intro ci p hfind hp ψ
+  have hfE : env.find? eqName = some ci := by
     rw [ConLeche.Env.find?_cons] at hfind
     split at hfind
     · next heq => exact absurd heq.symm hne
@@ -248,7 +248,7 @@ theorem eqLaw_cons_fresh {m : EnvModel V env}
   have hmove : m₂.acval eqName = m.acval eqName := by
     rw [hac]; exact acvalWith_ne hne
   rw [hmove]
-  exact hprev hfE ψ
+  exact hprev ci p hfE hp ψ
 
 /-- **`EqLaw` at a value-kind cons.**  No freshness side condition is
 needed: `Eq`'s pin is an `indInfo`, so a `defn`/`thm`/`axiom`/`opaque`
@@ -261,10 +261,15 @@ theorem eqLaw_cons_valueKind {m : EnvModel V env}
     (hac : m₂.acval = acvalWith m.acval c₀.name A) :
     EqLaw m₂ := by
   by_cases hn : eqName = c₀.name
-  · intro hfind ψ
+  · intro ci _ hfind hp ψ
     exfalso
+    obtain ⟨-, -, -⟩ := (m₂.basis_pinned eqName ci hfind (by decide)).1
     rw [ConLeche.Env.find?_cons, ite_eq_left hn.symm] at hfind
-    exact hnotind _ _ (Option.some.inj hfind)
+    obtain rfl := Option.some.inj hfind
+    obtain ⟨hc, -, -⟩ := (m₂.basis_pinned eqName c₀
+      (by rw [ConLeche.Env.find?_cons, ite_eq_left hn.symm]) (by decide)).1
+    generalize hcp : c₀.toConstantVal.levelParams = ps at hc
+    exact hnotind _ _ hc
   · exact eqLaw_cons_fresh hprev hn m₂ hac
 
 /-! ## The compiler-trust identity law at a fresh cons
