@@ -5,7 +5,7 @@ import ConLeche.Model.Inductives.StructEntryKit
 public import ConLeche.Semantics.Bridge.Sound
 import ConLeche.Model.Inductives.SumKit
 import ConLeche.Model.Cover
-public import ConLeche.Model.Inductives.ViewedStep
+public import ConLeche.Model.Inductives.BlockRunFacts
 import ConLeche.Kernel.Checker
 import ConLeche.Kernel.CheckerBase
 import ConLeche.Model.Reading.Levels
@@ -95,16 +95,16 @@ step and coverage is unconditional. -/
 
 /-- A step's carrier, covered, from a covered input. -/
 theorem CoverTo.covered {env env' : Env} {mp : EnvModelM V env}
-    (h : CoverStep mp env') (hcov : LfpCover mp []) (hS : ShownFacts mp)
+    (h : CoverStep mp env') (hcov : LfpCover mp []) (hS : FamilyRan mp)
     (htb : ∀ T, (env.find? T).isSome = true → env'.findTable? T = env.findTable? T) :
-    ∃ mp' : EnvModelM V env', LfpCover mp' [] ∧ ShownFacts mp' :=
+    ∃ mp' : EnvModelM V env', LfpCover mp' [] ∧ FamilyRan mp' :=
   h.elim fun mp' h' => ⟨mp', h'.2 hcov, hS.step h'.1 htb⟩
 
 /-- **The P fold invariant**: a covered P carrier plus the η-family
 closure. -/
 @[expose] def EnvModelOk (V : Type w) [SetTheory V] (env : Env) :
     Prop :=
-  (∃ mp : EnvModelM V env, LfpCover mp [] ∧ ShownFacts mp) ∧ EtaFamiliesClosed env ∧ NatFacts env
+  (∃ mp : EnvModelM V env, LfpCover mp [] ∧ FamilyRan mp) ∧ EtaFamiliesClosed env ∧ NatFacts env
 
 /-- The invariant's carrier. -/
 theorem EnvModelOk.nonempty {env : Env} (h : EnvModelOk V env) :
@@ -122,21 +122,10 @@ theorem EnvModelOk.empty : EnvModelOk V Env.empty :=
     ∀ c ∈ new, c.name ≠ ConLeche.natName ∧ c.name ≠ ConLeche.natZeroName ∧
       c.name ≠ ConLeche.natSuccName
 
-/-- The tables on the old names across added constants and no table. -/
-theorem findTable_of_added {env env₂ : Env} {new : List ConstantInfo}
-    (hnew : env₂.consts = new ++ env.consts) (htab : env₂.tables = env.tables) (T : Name)
-    (hT : (env.find? T).isSome = true) : env₂.findTable? T = env.findTable? T := by
-  have hs₂ : (env₂.find? T).isSome = true := by
-    show (env₂.consts.find? (·.name == T)).isSome = true
-    rw [hnew, List.find?_append, Option.isSome_or]
-    exact Bool.or_eq_true_iff.mpr (Or.inr hT)
-  unfold Env.findTable?
-  rw [hs₂, hT, htab]
-
 /-- A plain step keeps the two fold-level facts. -/
 theorem PlainStep.close {env env₂ : Env} {mp : EnvModelM V env} (h : PlainStep env env₂)
-    (hstep : CoverStep mp env₂) (hcov : LfpCover mp []) (hS : ShownFacts mp) (hN : NatFacts env) :
-    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ ShownFacts mp') ∧ NatFacts env₂ := by
+    (hstep : CoverStep mp env₂) (hcov : LfpCover mp []) (hS : FamilyRan mp) (hN : NatFacts env) :
+    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
   obtain ⟨new, hnew, htab, hres⟩ := h
   exact ⟨hstep.covered hcov hS (findTable_of_added hnew htab), hN.append hnew hres⟩
 
@@ -235,7 +224,7 @@ RUN record (`DeclRun`, valuation-free; the `ind` kind arrives through
 its `Ind` parameter), so this step consumes exactly what it reads. -/
 theorem declStep_preserves
     {F : Nat} {env env₂ : Env} {d : Declaration}
-    (mp : EnvModelM V env) (hcov : LfpCover mp []) (hS : ShownFacts mp)
+    (mp : EnvModelM V env) (hcov : LfpCover mp []) (hS : FamilyRan mp)
     (hE : EtaFamiliesClosed env) (hN : NatFacts env)
     (hrun : DeclRun F (ConLeche.Semantics.DeclIndRunDispatchK F env)
       env d env₂) :
@@ -245,11 +234,9 @@ theorem declStep_preserves
   have hEta : EtaFamiliesClosed env₂ := ConLeche.Semantics.declEtaStepRun (fun h' => by
     unfold ConLeche.Semantics.DeclIndRunDispatchK at h'
     split at h'
-    · rcases h' with h' | h'
-      · exact ConLeche.Semantics.declBlockRun_etaClosed hE h'
-      · exact blockViewedRun_etaClosed mp.base2.wf hE h'
+    · exact ConLeche.Semantics.blockRun_etaClosed hE h'
     · exact h'.elim) hE hrun
-  suffices h : (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ ShownFacts mp') ∧ NatFacts env₂ from
+  suffices h : (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ from
     ⟨h.1, hEta, h.2⟩
   cases d with
   | defnDecl cv value hint =>
@@ -288,16 +275,8 @@ theorem declStep_preserves
       cases hdf : ConLeche.blockParts? nP block with
       | some p =>
         rw [hdf] at hrun'
-        have hshape := ConLeche.blockParts?_inv hdf
-        obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ := ConLeche.blockShape?_inv hshape
-        have hres := fun c hc => (hClps₀ c hc).2
-        -- the uniform install, at any number of members, nested blocks
-        -- included (`declBlock`), on either path
-        rcases hrun' with hrun' | hrun'
-        · obtain ⟨mp', r, hc⟩ := declBlock mp hE hdf hrun' hcov
-          exact ⟨⟨mp', hc, hS.step r (declBlockRun_findTable hrun')⟩, natFacts_block hN hres hrun'⟩
-        · exact ⟨declBlockViewed mp hS hcov hE (fun ms hms => (hmembersOk ms hms).1) hClps₀ hrun' hN,
-            natFacts_viewed hN hres hrun'⟩
+        -- the uniform install, at any number of members, nested blocks included
+        exact declBlock mp hE hdf hrun' hcov hS hN
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'

@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Model.Inductives.BlockDatum
+public import ConLeche.Model.Inductives.DeclBlockStep
+import ConLeche.Verify.Inductives.BlockPartsInv
 public import ConLeche.Model.Inductives.FamilyRan
 public import ConLeche.Semantics.Inductives.DeclBlock
 import ConLeche.Model.Inductives.BlockCover
@@ -291,5 +293,52 @@ theorem declBlockRun_findTable {F : Nat} {env env₂ : Env} {block : List Consta
   simp only [hQ, List.find?_append]
   rw [List.find?_eq_none.mpr (fun t ht => by simp [hne t ht])]
   rfl
+
+/-- **The uniform block step, at a recognised block.** -/
+theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockParts}
+    (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
+    (hdp : ConLeche.blockParts? nPd block = some p₀)
+    (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
+    (hRan : FamilyRan mp) (hNat : NatFacts env) :
+    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
+  obtain ⟨ms, hms, hAt, -, hR⟩ := hrun
+  obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ :=
+    ConLeche.blockShape?_inv (ConLeche.blockParts?_inv hdp)
+  have hd := ConLeche.blockParts?_declared hdp
+  obtain ⟨-, hdc, -, -, hct⟩ := ConLeche.reduceMembers_inv hd hms
+  have hlps : ∀ m ∈ ms, m.cvT.levelParams = p₀.lps := by
+    intro m hm
+    have hm' : m.declared ∈ p₀.members.map (·.declared) := by
+      rw [← hdc]; exact List.mem_map_of_mem hm
+    obtain ⟨m₀, hm₀, he⟩ := List.mem_map.mp hm'
+    rw [(hAt m hm).lps, ← he, hd m₀ hm₀]
+    exact (hmembersOk m₀ hm₀).1
+  have hlpsEq : ({ p₀ with members := ms } : BlockParts).lps = p₀.lps := by
+    show (ms.head?.map (·.cvT.levelParams)).getD [] = _
+    cases hh : ms with
+    | nil =>
+      have hl : p₀.members = [] := by
+        have := congrArg List.length hdc
+        rw [hh] at this
+        simpa using this.symm
+      show _ = (p₀.members.head?.map (·.cvT.levelParams)).getD []
+      rw [hl]
+    | cons m rest =>
+      show m.cvT.levelParams = _
+      exact hlps m (by rw [hh]; exact List.mem_cons_self)
+  have hctors : ∀ c, c ∈ ({ p₀ with members := ms } : BlockParts).allCtors → c ∈ p₀.allCtors := by
+    intro c hc
+    have he : ({ p₀ with members := ms } : BlockParts).allCtors = p₀.allCtors := by
+      show (ms.map (·.ctors)).flatten = (p₀.members.map (·.ctors)).flatten
+      rw [hct]
+    rwa [he] at hc
+  have hdn : ∀ m ∈ ({ p₀ with members := ms } : BlockParts).members,
+      m.declared.name = m.cvT.name := fun m hm => (hAt m hm).name.symm
+  refine ⟨declBlockAt (p₀ := { p₀ with members := ms }) mp hE
+    (fun m hm => (hlps m hm).trans hlpsEq.symm) hAt
+    (fun c hc => by rw [hlpsEq]; exact hClps₀ c (hctors c hc)) hR hcov hRan hNat
+    (declBlockRun_findTable hR hdn),
+    natFacts_block (p₀ := { p₀ with members := ms }) hNat
+      (fun c hc => (hClps₀ c (hctors c hc)).2) hR hdn⟩
 
 end ConLeche.Model
