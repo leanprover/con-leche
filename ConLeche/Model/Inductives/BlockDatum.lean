@@ -863,7 +863,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hlpsZ hparsTZ (fun _ => 0) hformersI hck hj
       ((hpk₀ c hck j cA hj).storedCtorFacts hCf hCb)
     rw [hnfZ c j cA hj]
-    exact ⟨blockRunNf_nestOcc mpD hNZ hFZ hPos hpN hpL hpM hpP hpI hlenN.symm
+    exact ⟨blockRunNf_nestOcc mpD hFZ hPos hpN hpL hpM
       (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hlpsZ hWI hTyI hck hj, hlp⟩
   have hctxZ : BlockHoleCtxFacts mpD.base2 dZ q.lps cvTas q isRec :=
     ⟨fun c cvTb hc => ⟨(hfindD c cvTb hc).1, hFDD c cvTb hc⟩,
@@ -886,7 +886,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
   -- U2's grading, per constructor
   have hGZ := fun (ψ : Name → Nat) (c : Nat) (hc : c < dZ.N) (j : Nat)
       (hj : j < (dZ.ctorsM c).length) =>
-    blockHoleGrade_of_run mpD hNZ hctxZ hPos hpN hpL hpM hpP hpI hpR hlenN.symm rfl
+    blockHoleGrade_of_run mpD hNZ hctxZ hPos hpN hpL hpM hpP hpR hlenN.symm rfl
       (fun c hc => hCA c hc) hlenCtorsAs hclosedZ hnfZ ψ hc hj
   -- the hole chains: graded and closed
   have hchZ := fun (ψ : Name → Nat) => blockHoleChains_facts hHZ ψ

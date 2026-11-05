@@ -298,7 +298,7 @@ theorem checkSpineAt_certs {F d : Nat} :
       cases b with
       | false => simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
       | true =>
-        simp only [↓reduceIte, pure, Except.pure, Bind.bind, Except.bind] at h
+        simp only [↓reduceIte] at h
         exact .cert (ConLeche.Rules.inferTypeCore_bridge hta) (ConLeche.Rules.isDefEqCore_bridge hb)
           (checkSpineAt_certs h)
     · simp [throw, throwThe, MonadExceptOf.throw] at h

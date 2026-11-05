@@ -219,7 +219,7 @@ theorem blockHoleGrade_of_run {env : Env}
       p cvTas ctorsAs = .ok posKs)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
   (hread : p.members.map (·.cvT) = cvTas)
-    (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hres : p.resSort = d.resSort)
+    (hnP : p.nP = d.nP) (hres : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c)) (hlenCA : ctorsAs.length = d.k)
@@ -517,7 +517,7 @@ theorem blockAbsRead_of_run
   rw [← habN]
   exact hEq
 
-include mp hN hF hrun hnames hread hnP hnIdxs hk hctorsAs hlenCA hclosed hlpsA hlps in
+include mp hF hrun hnames hread hctorsAs hlenCA hclosed hlpsA hlps in
 /-- **The walk's normal form names no member** (M2′, the premise of
 `nfFieldsRead_agree`): the run's output entry is `MemberCtorD`'s normal
 form, reduction introduces no member constant where the environment
