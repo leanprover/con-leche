@@ -61,17 +61,32 @@ section Sims
 
 variable {env : Env}
 
-/-! ### The operation-free outside instantiation -/
+/-! ### The outside instantiation -/
 
-/-- `targetOutsideInst` is operation-free: at the cached driver it
-leaves the state alone and computes the pure value. -/
-theorem targetOutsideInstS_spec {fe : FEnv} {I : Name} {us : List Level} {ds : List Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ targetOutsideInst (m := CheckCM) fe I us ds
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (targetOutsideInst (m := FueledM) fe I us ds) v; ⊤⦄
-        := by
-  sym only [conleche_grind, targetOutsideInst.eq_1] =>
-    vcgen [targetOutsideInst] <;> finish
+/-- `familyTelescopeS_spec` at an index's environment. -/
+theorem familyTelescopeF_spec (henv : EnvWF env) {cv : ConstantVal} {caps : IndCaps} {s₀ : CState}
+    (hcl : cv.type.hasFvar = false) (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ familyTelescope (sharedOpsC .verified (mkFEnv env)) (mkFEnv env).env cv caps
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (familyTelescope (fueledOpsM .verified) (mkFEnv env).env cv caps) v ∧
+      v.hasFvar = false; ⊤⦄ := by
+  rw [mkFEnv_env]
+  exact familyTelescopeS_spec henv hcl hs
+
+/-- A family an index holds is closed. -/
+theorem find_closed (henv : EnvWF env) {I : Name} {cv : ConstantVal} {caps : IndCaps}
+    (hf : (mkFEnv env).find? I = some (.indInfo cv caps)) : cv.type.hasFvar = false := by
+  rw [mkFEnv_find?] at hf
+  exact (henv.consts _ (Env.find?_mem hf)).1
+
+/-- `targetOutsideInst` at the cached driver simulates its fueled original. -/
+theorem targetOutsideInstS_spec (henv : EnvWF env) {I : Name} {us : List Level} {ds : List Expr}
+    {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ targetOutsideInst (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) I us ds
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetOutsideInst (fueledOpsM .verified) (mkFEnv env) I us ds) v; ⊤⦄ := by
+  sym only [conleche_grind, targetOutsideInst.eq_1, → find_closed henv] =>
+    vcgen [targetOutsideInst, familyTelescopeF_spec henv] <;> finish
 
 /-! ### The class match (`targetClassMatch`) and its three uses -/
 
@@ -146,15 +161,16 @@ theorem targetMajorNfsS_spec (henv : EnvWF env)
     sym only [conleche_grind, targetMajorNfs.eq_2] =>
       vcgen [targetMajorNfs, ih hs, targetClassMatchS_spec henv hformer hp] <;> finish
 
-theorem targetMajorOfS_spec {p : BlockShape}
+theorem targetMajorOfS_spec (henv : EnvWF env) {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
-    {s₀ : CState} (hs : CSOK mode false env s₀) :
-    ⦃fun s => s = s₀⦄ targetMajorOf (m := CheckCM) (mkFEnv env) p ctorsAs pfvs fvs mty
-    ⦃fun v s' => CSOK mode false env s' ∧
-      Runs (targetMajorOf (m := FueledM) (mkFEnv env) p ctorsAs pfvs fvs mty) v; ⊤⦄ := by
+    {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ targetMajorOf (sharedOpsC .verified (mkFEnv env)) (mkFEnv env) p ctorsAs pfvs
+      fvs mty
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (targetMajorOf (fueledOpsM .verified) (mkFEnv env) p ctorsAs pfvs fvs mty) v; ⊤⦄ := by
   sym only [conleche_grind, targetMajorOf.eq_1, unwrapOr] =>
-    vcgen [targetMajorOf, unwrapOr, targetOutsideInstS_spec hs,
-      liftFueledS_spec (mode := mode) (env := env)] <;> finish
+    vcgen [targetMajorOf, unwrapOr, targetOutsideInstS_spec henv hs,
+      liftFueledS_spec (mode := .verified) (env := env)] <;> finish
 
 /-- The pin typing at the cached driver. -/
 theorem targetPinTysS_spec (henv : EnvWF env) {d : Nat} :

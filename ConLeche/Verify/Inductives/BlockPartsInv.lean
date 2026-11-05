@@ -315,4 +315,14 @@ theorem blockParts?_inv {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
     exact hq
   · exact nomatch h
 
+/-- The recogniser's members stand at their declared formers. -/
+theorem blockParts?_declared {nPd : Nat} {block : List ConstantInfo} {p : BlockParts}
+    (h : blockParts? nPd block = some p) : ∀ ms ∈ p.members, ms.declared = ms.cvT := by
+  obtain ⟨-, -, -, -, -, -, -, -, _, _, _, _, -, -, -, -, -, -, hmem, -⟩ :=
+    blockShape?_inv (blockParts?_inv h)
+  intro ms hms
+  rw [show p.members = _ from hmem] at hms
+  obtain ⟨a, -, rfl⟩ := List.mem_map.mp hms
+  rfl
+
 end ConLeche

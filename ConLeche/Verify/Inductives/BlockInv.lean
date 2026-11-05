@@ -224,7 +224,7 @@ theorem checkBlockInds_shape {env envI : Env} {p : BlockParts} {isRec : Bool}
       p.members = ms0 :: rest ∧
       cvTas = cvTa0 :: cvs.map (·.1) ∧
       p₁ = p.toBlockShape.withSort s0 ∧
-      envI = consBlockInds p₁ isRec cvTas 0 env ∧
+      envI = consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env ∧
       checkBlockTele (fueledOps mode F) env p.nP ms0 = .ok (cvTa0, s0) ∧
       checkBlockTeles (fueledOps mode F) env p.nP rest = .ok cvs ∧
       checkBlockAgree (fueledOps mode F) env p.nP cvTa0 s0 cvs = .ok () := by
@@ -243,6 +243,129 @@ theorem checkBlockInds_shape {env envI : Env} {p : BlockParts} {isRec : Bool}
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
   obtain ⟨rfl, rfl, rfl⟩ := h
   exact ⟨ms0, rest, cvTa0, s0, cvs, rfl, rfl, rfl, rfl, hq, hcvs, by cases u; exact hagree⟩
+
+/-- **A member under check, against what the stream declares**: its former at its telescope is
+the declared one where that shows a telescope, else the declared one's reduct, the declared type
+checked and the two compared. -/
+structure MemberAt (F : Nat) (env : Env) (nP : Nat) (m : MemberShape) : Prop where
+  name : m.cvT.name = m.declared.name
+  lps : m.cvT.levelParams = m.declared.levelParams
+  how : (formerDefHeaded m.declared = false ∧ m.cvT = m.declared) ∨
+    (formerDefHeaded m.declared = true ∧ litGuardFamilies.contains m.declared.name = false ∧
+      checkConstantVal (fueledOps .verified F) env m.declared = .ok () ∧
+      (fueledOps .verified F).isDefEq env 0 m.declared.type m.cvT.type = .ok true ∧
+      reducedFormer (fueledOps .verified F) env m.declared (nP + m.nIdx) = .ok m.cvT)
+
+/-- A member's reduction, inverted: the recogniser's member, at its telescope. -/
+theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
+    (hd₀ : m₀.declared = m₀.cvT)
+    (h : reduceMember (m := CheckM) (fueledOps .verified F) env m₀ nP = .ok m) :
+    MemberAt F env nP m ∧ m.declared = m₀.declared ∧ m.nIdx = m₀.nIdx ∧ m.ctors = m₀.ctors := by
+  unfold reduceMember at h
+  by_cases hd : formerDefHeaded m₀.cvT = true
+  · rw [ite_eq_left hd] at h
+    by_cases hg : litGuardFamilies.contains m₀.cvT.name = true
+    · rw [ite_eq_left hg] at h
+      exact nomatch h
+    rw [ite_eq_right hg] at h
+    obtain ⟨u₁, h₁, h⟩ := exceptBind_ok h
+    cases u₁
+    obtain ⟨cvR, hR, h⟩ := exceptBind_ok h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    cases b with
+    | false => simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
+    | true =>
+      simp only [pure, Except.pure, Except.ok.injEq, ↓reduceIte] at h
+      subst h
+      have hrf : cvR = { m₀.cvT with type := cvR.type } := by
+        simp only [reducedFormer, Bind.bind, Except.bind] at hR
+        split at hR
+        · exact nomatch hR
+        · cases hR; rfl
+      refine ⟨⟨?_, ?_, .inr ?_⟩, rfl, rfl, rfl⟩
+      · show cvR.name = m₀.declared.name
+        rw [hd₀, hrf]
+      · show cvR.levelParams = m₀.declared.levelParams
+        rw [hd₀, hrf]
+      · show formerDefHeaded m₀.declared = true ∧ litGuardFamilies.contains m₀.declared.name = false ∧
+          checkConstantVal (fueledOps .verified F) env m₀.declared = .ok () ∧
+          (fueledOps .verified F).isDefEq env 0 m₀.declared.type cvR.type = .ok true ∧
+          reducedFormer (fueledOps .verified F) env m₀.declared (nP + m₀.nIdx) = .ok cvR
+        rw [hd₀]
+        exact ⟨hd, by simpa using hg, h₁, hb, hR⟩
+  · rw [ite_eq_right hd] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    refine ⟨⟨by rw [hd₀], by rw [hd₀], .inl ⟨?_, hd₀.symm⟩⟩, rfl, rfl, rfl⟩
+    rw [hd₀]; simpa using hd
+
+/-- The members' reduction, inverted. -/
+theorem reduceMembers_inv {F : Nat} {env : Env} {nP : Nat} :
+    ∀ {l l' : List MemberShape}, (∀ m ∈ l, m.declared = m.cvT) →
+      reduceMembers (m := CheckM) (fueledOps .verified F) env nP l = .ok l' →
+      (∀ m ∈ l', MemberAt F env nP m) ∧ l'.map (·.declared) = l.map (·.declared) ∧
+        l'.map (·.cvT.name) = l.map (·.cvT.name) ∧ l'.map (·.nIdx) = l.map (·.nIdx) ∧
+        l'.map (·.ctors) = l.map (·.ctors)
+  | [], l', _, h => by
+    simp only [reduceMembers, pure, Except.pure, Except.ok.injEq] at h
+    subst h; simp
+  | m₀ :: rest, l', hd, h => by
+    unfold reduceMembers at h
+    obtain ⟨m', hm', h⟩ := exceptBind_ok h
+    obtain ⟨r', hr', h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    have hd₀ := hd m₀ List.mem_cons_self
+    obtain ⟨ha, h₁, h₃, h₄⟩ := reduceMember_inv hd₀ hm'
+    obtain ⟨hall, e₁, e₂, e₃, e₄⟩ := reduceMembers_inv (fun m hm => hd m (List.mem_cons_of_mem _ hm)) hr'
+    refine ⟨fun m hm => ?_, by simp [h₁, e₁], ?_, by simp [h₃, e₃], by simp [h₄, e₄]⟩
+    · rcases List.mem_cons.mp hm with rfl | hm
+      · exact ha
+      · exact hall m hm
+    · simp only [List.map_cons, e₂, List.cons.injEq, and_true]
+      rw [ha.name, h₁, hd₀]
+
+/-- The checked formers are the members' telescopes, and the shape keeps the members. -/
+theorem checkBlockInds_members {env envI : Env} {p : BlockParts} {isRec : Bool}
+    {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
+    cvTas = p.members.map (·.cvT) ∧ p₁.members = p.members := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, -, hq, hcvs, -⟩ := checkBlockInds_shape h
+  have hone : ∀ {ms : MemberShape} {x : ConstantVal × Level},
+      checkBlockTele (fueledOps mode F) env p.nP ms = .ok x → x.1 = ms.cvT := by
+    intro ms x hx
+    obtain ⟨cv, s⟩ := x
+    unfold checkBlockTele at hx
+    obtain ⟨_, -, hx⟩ := exceptBind_ok hx
+    obtain ⟨q, htele, hx⟩ := exceptBind_ok hx
+    obtain ⟨cvTa', s'⟩ := q
+    obtain ⟨r, -, hx⟩ := exceptBind_ok hx
+    obtain ⟨rfl, -⟩ := checkSumTele_shape htele
+    obtain ⟨bs, tbody⟩ := r
+    try simp only at hx
+    by_cases hc : (tbody == Expr.sort s') = true
+    · rw [ite_eq_left hc] at hx
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hx
+      exact hx.1.symm
+    · rw [ite_eq_right hc] at hx
+      close_throw
+  have hall : ∀ {l : List MemberShape} {xs : List (ConstantVal × Level)},
+      checkBlockTeles (fueledOps mode F) env p.nP l = .ok xs → xs.map (·.1) = l.map (·.cvT) := by
+    intro l
+    induction l with
+    | nil => intro xs hx; simp only [checkBlockTeles, pure, Except.pure, Except.ok.injEq] at hx; subst hx; rfl
+    | cons ms l ih =>
+      intro xs hx
+      unfold checkBlockTeles at hx
+      obtain ⟨y, hy, hx⟩ := exceptBind_ok hx
+      obtain ⟨ys, hys, hx⟩ := exceptBind_ok hx
+      simp only [pure, Except.pure, Except.ok.injEq] at hx
+      subst hx
+      simp [hone hy, ih hys]
+  refine ⟨?_, rfl⟩
+  rw [hm]
+  have h0 : cvTa0 = ms0.cvT := hone hq
+  simp [h0, hall hcvs]
 
 /-- The checked formers are one per member. -/
 theorem checkBlockInds_length {env envI : Env} {p : BlockParts} {isRec : Bool}

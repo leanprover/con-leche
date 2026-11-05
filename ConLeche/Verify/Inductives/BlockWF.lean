@@ -86,6 +86,9 @@ theorem envWF_consBlockInds {p₁ : BlockShape} {isRec : Bool} :
 is well-formed, and every checked former's type is closed. -/
 theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
     {p : BlockParts} {isRec : Bool} {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
+    (hdecl : ∀ ms ∈ p.members, ms.declared.type.hasFvar = false ∧
+      ms.declared.type.allLevelParamsDefined ms.declared.levelParams = true ∧
+      ms.declared.type.constsResolve env = true ∧ ms.declared.type.looseBVarsBounded 0 = true)
     (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
     EnvWF envI ∧ ∀ cvTa ∈ cvTas, cvTa.type.hasFvar = false := by
   obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, rfl, rfl, hq, hcvs, -⟩ :=
@@ -118,7 +121,9 @@ theorem direct_block_inds_wf {env envI : Env} (henv : EnvWF env)
       obtain ⟨q', hq'', hte⟩ := hall i rest[i] (List.getElem?_eq_getElem hil)
       obtain rfl := Option.some.inj (hi.symm.trans hq'')
       exact step rest[i] q.2 hte
-  exact ⟨envWF_consBlockInds henv key, fun cvTa hcv => (key cvTa hcv).1⟩
+  refine ⟨envWF_consBlockInds henv fun cv hcv => ?_, fun cvTa hcv => (key cvTa hcv).1⟩
+  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcv
+  exact hdecl ms hms
 
 /-! ## Stage 1b: the constructors consed, member by member -/
 

@@ -27,7 +27,7 @@ namespace ConLeche
 /-- The context `checkBlockPositivity` builds. -/
 @[expose] def BlockParts.nestCtx (p : BlockParts) (fvsP : List Expr)
     (find? : Name → Option ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?⟩
+  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, p.members.map (·.cvT)⟩
 
 /-- **A frame's constructor list, run**: one output per constructor, and
 every constructor's instantiated type typed at the frame's depth. -/

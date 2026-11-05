@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Semantics.Inductives.DeclBlock
 public import ConLeche.Semantics.DeclRun
+import ConLeche.Verify.Inductives.BlockPartsInv
 import ConLeche.Semantics.Bridge.DeclRun
 
 @[expose] public section
@@ -63,7 +64,7 @@ theorem checkDeclRun_ofEnvFactsK
         cases hdf : blockParts? nP block with
         | some p =>
           intro hh
-          exact blockRun_of hh
+          exact blockRun_of (ConLeche.blockParts?_declared hdf) hh
         | none =>
           intro hh
           exact checkShapeless_ne_ok hh

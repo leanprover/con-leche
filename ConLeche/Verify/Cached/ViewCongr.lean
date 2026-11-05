@@ -494,6 +494,28 @@ theorem nestFrame_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
   unfold nestFrame
   simp only [h.inferType env, nestCtors_env h ctx env]
 
+theorem familyTelescope_env (h : EnvFree ops) (env : Env) (cv : ConstantVal) (caps : IndCaps) :
+    familyTelescope ops env cv caps = familyTelescope ops Env.empty cv caps := by
+  simp only [familyTelescope, reducedFormer, whnfTelescope_env h env]
+
+theorem nestInstType_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (key : NestKey) :
+    nestInstType ctx ops env hi key = nestInstType ctx ops Env.empty hi key := by
+  unfold nestInstType
+  simp only [familyTelescope_env h env]
+
+theorem nestArity_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (C : Name) :
+    nestArity ctx ops env C = nestArity ctx ops Env.empty C := by
+  unfold nestArity
+  simp only [familyTelescope_env h env]
+
+theorem nestGrowGroup_env (h : EnvFree ops) (ctx : NestCtx) (env : Env) (hi : Nat) (us : List Level)
+    (ds : List Expr) : ∀ cs grp,
+    nestGrowGroup ctx ops env hi us ds cs grp = nestGrowGroup ctx ops Env.empty hi us ds cs grp
+  | [], _ => rfl
+  | c :: cs, grp => by
+    unfold nestGrowGroup
+    simp only [nestInstType_env h ctx env, nestGrowGroup_env h ctx env hi us ds cs]
+
 theorem nestContNew_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
     (prog : List NestHole) (kb : Nat) (n : Name) (us : List Level) (ds : List Expr) (nPc : Nat)
@@ -501,7 +523,7 @@ theorem nestContNew_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     nestContNew ctx ops env rec prog kb n us ds nPc cty st =
       nestContNew ctx ops Env.empty rec prog kb n us ds nPc cty st := by
   unfold nestContNew
-  simp only [nestFrame_env h ctx env]
+  simp only [nestFrame_env h ctx env, nestGrowGroup_env h ctx env]
 
 theorem nestContKey_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     (rec : List NestHole → Nat → Nat → Expr → NestState → m (NestFieldKind × Expr × NestState))
@@ -519,7 +541,7 @@ theorem nestCont_env (h : EnvFree ops) (ctx : NestCtx) (env : Env)
     nestCont ctx ops env rec prog kb n us args st =
       nestCont ctx ops Env.empty rec prog kb n us args st := by
   unfold nestCont
-  simp only [nestContKey_env h ctx env]
+  simp only [nestContKey_env h ctx env, nestInstType_env h ctx env]
 
 theorem nestPos_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
     ∀ F, nestPos ops env ctx F = nestPos ops Env.empty ctx F
@@ -528,7 +550,7 @@ theorem nestPos_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
     have ih := nestPos_env h env ctx F
     funext prog dep kb e st
     unfold nestPos
-    simp only [h.whnf env, nestCont_env h ctx env, ih]
+    simp only [h.whnf env, nestCont_env h ctx env, nestArity_env h ctx env, ih]
 
 theorem nestRoot_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) (holes : List Expr) :
     ∀ css st, nestRoot ops env ctx holes css st = nestRoot ops Env.empty ctx holes css st
@@ -544,7 +566,7 @@ theorem nestSeeds_env (h : EnvFree ops) (env : Env) (ctx : NestCtx) :
   | (key, nPc) :: ks, st => by
     have ih := nestSeeds_env h env ctx ks
     unfold nestSeeds
-    simp only [nestContKey_env h ctx env, nestPos_env h env ctx, ih]
+    simp only [nestContKey_env h ctx env, nestPos_env h env ctx, nestInstType_env h ctx env, ih]
 
 theorem checkBlockPositivity_env (h : EnvFree ops) (env : Env)
     (find? : Name → Option ConstantInfo) (p : BlockParts) (cvTas : List ConstantVal)
@@ -684,17 +706,17 @@ theorem targetCtorsOf_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find
     targetCtorsOf fe₁ I = targetCtorsOf fe₂ I := by
   simp only [targetCtorsOf, hfe]
 
-theorem targetOutsideInst_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) (I : Name)
-    (us : List Level) (ds : List Expr) :
-    (targetOutsideInst fe₁ I us ds : m (Nat × Level)) = targetOutsideInst fe₂ I us ds := by
-  simp only [targetOutsideInst, hfe]
+theorem targetOutsideInst_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (I : Name) (us : List Level) (ds : List Expr) :
+    targetOutsideInst ops fe₁ I us ds = targetOutsideInst ops fe₂ I us ds := by
+  simp only [targetOutsideInst, hfe, familyTelescope_env h fe₁.env, familyTelescope_env h fe₂.env]
 
-theorem targetMajorOf_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) :
-    (targetMajorOf fe₁ p ctorsAs pfvs fvs mty : m TargetMajor) =
-      targetMajorOf fe₂ p ctorsAs pfvs fvs mty := by
+theorem targetMajorOf_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+    (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+    (mty : Expr) :
+    targetMajorOf ops fe₁ p ctorsAs pfvs fvs mty = targetMajorOf ops fe₂ p ctorsAs pfvs fvs mty := by
   unfold targetMajorOf
-  simp only [targetCtorsOf_congr hfe, targetOutsideInst_congr hfe]
+  simp only [targetCtorsOf_congr hfe, targetOutsideInst_congr h hfe]
 
 theorem classMajors_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (p : BlockShape) (ctorsAs : List (List (ConstantVal × Nat))) (pfvs : List Expr) :
@@ -703,7 +725,7 @@ theorem classMajors_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.fi
   | key :: keys => by
     have ih := classMajors_congr h hfe p ctorsAs pfvs keys
     unfold classMajors
-    simp only [targetMajorOf_congr hfe, targetMajorPins_env h fe₁.env,
+    simp only [targetMajorOf_congr h hfe, targetMajorPins_env h fe₁.env,
       targetMajorPins_env h fe₂.env, ih]
 
 theorem classNPcOf_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?) (p : BlockShape) :
@@ -719,15 +741,15 @@ theorem checkBlockClasses_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv}
   unfold checkBlockClasses
   simp only [classNPcOf_congr hfe, classMajors_congr h hfe]
 
-theorem classFormerTy_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+theorem classFormerTy_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (cvTas : List ConstantVal) (M : TargetMajor) :
-    (classFormerTy fe₁ cvTas M : m Expr) = classFormerTy fe₂ cvTas M := by
-  simp only [classFormerTy, hfe]
+    classFormerTy ops fe₁ cvTas M = classFormerTy ops fe₂ cvTas M := by
+  simp only [classFormerTy, hfe, familyTelescope_env h fe₁.env, familyTelescope_env h fe₂.env]
 
-theorem classFormerTy_congr' {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
+theorem classFormerTy_congr' (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (cvTas : List ConstantVal) :
-    (classFormerTy fe₁ cvTas : TargetMajor → m Expr) = classFormerTy fe₂ cvTas :=
-  funext (classFormerTy_congr hfe cvTas)
+    (classFormerTy ops fe₁ cvTas : TargetMajor → m Expr) = classFormerTy ops fe₂ cvTas :=
+  funext (classFormerTy_congr h hfe cvTas)
 
 theorem classConstOk_congr (h : EnvFree ops) {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (cv : ConstantVal) : classConstOk ops fe₁ cv = classConstOk ops fe₂ cv := by
@@ -1051,7 +1073,7 @@ theorem genRecCheck_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (p : Block
     classesNfs_env (sharedOpsC_envFree mode fe₂) fe₂.env,
     classesCtors_env (sharedOpsC_envFree mode fe₂) fe₁.env,
     classesCtors_env (sharedOpsC_envFree mode fe₂) fe₂.env,
-    classFormerTy_congr' hfe, classRecTysOk_congr (sharedOpsC_envFree mode fe₂) hfe]
+    classFormerTy_congr' (sharedOpsC_envFree mode fe₂) hfe, classRecTysOk_congr (sharedOpsC_envFree mode fe₂) hfe]
 
 end RecStageC
 
@@ -1218,16 +1240,6 @@ theorem checkBlockTailS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (PushedFrom.pushAll _ _ L₂)).trans (PushedFrom.pushAll _ _ _) |>.trans ⟨L₃, Q₃, rfl, rfl⟩
 
 
-theorem checkBlockAtS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (block : List ConstantInfo)
-    (p₀ : BlockParts) :
-    RelRun (PushedFrom fe₁ fe₂) (checkBlockAtS mode fe₁ block p₀)
-      (checkBlockAtS mode fe₂ block p₀) := by
-  unfold checkBlockAtS
-  relrun
-  all_goals
-    exact RelRun.bind (checkBlockPassS_twin ht p₀ _) fun _ _ hq =>
-      checkBlockTailS_twin ht block hq
-
 theorem pushAll_env_consts :
     ∀ (L : List ConstantInfo) (fe : FEnv),
       (FEnv.pushAll L fe).env.consts = L.reverse ++ fe.env.consts
@@ -1242,6 +1254,15 @@ theorem pushAll_env_tables :
   | [], _ => rfl
   | ci :: L, fe => pushAll_env_tables L (fe.push ci)
 
+theorem pushTables_env :
+    ∀ (Q : List ProjTable) (fe : FEnv),
+      (FEnv.pushTables Q fe).env = ⟨fe.env.consts, Q.reverse ++ fe.env.tables⟩
+  | [], _ => rfl
+  | t :: Q, fe => by
+    show (FEnv.pushTables Q (fe.pushTable t)).env = _
+    rw [pushTables_env Q (fe.pushTable t)]
+    simp [FEnv.pushTable]
+
 theorem pushDelta_env (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
     (FEnv.pushDelta L Q fe).env = ⟨L.reverse ++ fe.env.consts, Q.reverse ++ fe.env.tables⟩ := by
   unfold FEnv.pushDelta
@@ -1250,7 +1271,7 @@ theorem pushDelta_env (L : List ConstantInfo) (Q : List ProjTable) (fe : FEnv) :
 /-- The reduced members read the index through its lookups alone. -/
 theorem reduceMemberS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (nP : Nat) (ms : MemberShape) :
-    reduceMemberS mode fe₁ nP ms = reduceMemberS mode fe₂ nP ms := by
+    reduceMemberS mode fe₁ ms nP = reduceMemberS mode fe₂ ms nP := by
   have h := sharedOpsC_envFree mode fe₂
   unfold reduceMemberS reducedFormer
   simp only [sharedOpsC_congr hfe htb, checkConstantValF_congr h hfe,
@@ -1264,61 +1285,16 @@ theorem reduceMembersS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
     unfold reduceMembersS
     simp only [reduceMemberS_congr hfe htb, reduceMembersS_congr hfe htb nP rest]
 
-theorem blockViewsS_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
-    (htb : fe₁.findTable? = fe₂.findTable?) :
-    ∀ cs, blockViewsS mode fe₁ cs = blockViewsS mode fe₂ cs
-  | [] => rfl
-  | c :: cs => by
-    have h := sharedOpsC_envFree mode fe₂
-    have hres : Expr.constsResolveF fe₁ = Expr.constsResolveF fe₂ :=
-      funext (constsResolveF_congr hfe)
-    unfold blockViewsS
-    simp only [blockViewsS_congr hfe htb cs, hfe, reducedFormer, sharedOpsC_congr hfe htb,
-      whnfTelescope_env h fe₁.env, whnfTelescope_env h fe₂.env, hres]
-
-theorem checkBlockViewedS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
-    (block : List ConstantInfo) (p₀ : BlockParts) (cs : List Name) :
-    RelRun (PushedFrom fe₁ fe₂) (checkBlockViewedS mode fe₁ block p₀ cs)
-      (checkBlockViewedS mode fe₂ block p₀ cs) := by
-  unfold checkBlockViewedS
-  rw [reduceMembersS_congr (mode := mode) ht.find ht.findTable, blockViewsS_congr (mode := mode) ht.find ht.findTable]
-  refine RelRun.bind_same fun ms => RelRun.bind_same fun vs => ?_
-  refine RelRun.bind (checkBlockAtS_twin (ht.pushAll vs.reverse) _ _) fun a₁ a₂ h => ?_
-  obtain ⟨L, Q, rfl, rfl⟩ := h
-  refine RelRun.pure ?_
-  -- what the check pushed above the views, off either side's lists
-  have hset : ∀ fe : FEnv,
-      FEnv.pushTables
-        ((FEnv.pushDelta L Q (FEnv.pushAll vs.reverse fe)).env.tables.take
-          ((FEnv.pushDelta L Q (FEnv.pushAll vs.reverse fe)).env.tables.length
-            - fe.env.tables.length)).reverse
-        (FEnv.pushAll
-          (((FEnv.pushDelta L Q (FEnv.pushAll vs.reverse fe)).env.consts.take
-            ((FEnv.pushDelta L Q (FEnv.pushAll vs.reverse fe)).env.consts.length
-              - (vs.length + fe.env.consts.length))).map (storedFormerOf p₀)).reverse fe)
-      = FEnv.pushDelta (L.reverse.map (storedFormerOf p₀)).reverse Q fe := by
-    intro fe
-    simp only [pushDelta_env, pushAll_env_consts, pushAll_env_tables, List.reverse_reverse,
-      List.length_append, List.length_reverse]
-    have h₁ : (L.length + (vs.length + fe.env.consts.length)
-        - (vs.length + fe.env.consts.length)) = L.reverse.length := by simp
-    have h₂ : (Q.length + fe.env.tables.length - fe.env.tables.length) = Q.reverse.length := by simp
-    rw [h₁, h₂, List.take_left' rfl, List.take_left' rfl, List.reverse_reverse]
-    rfl
-  rw [hset fe₁, hset fe₂]
-  exact ⟨_, _, rfl, rfl⟩
-
 theorem checkBlockKS_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (block : List ConstantInfo) (p₀ : BlockParts) :
     RelRun (PushedFrom fe₁ fe₂) (checkBlockKS mode fe₁ block p₀)
       (checkBlockKS mode fe₂ block p₀) := by
-  have hfe := ht.find
   unfold checkBlockKS
-  rw [hfe]
+  rw [reduceMembersS_congr (mode := mode) ht.find ht.findTable]
   relrun
-  all_goals first
-    | exact checkBlockViewedS_twin ht block p₀ _
-    | exact checkBlockAtS_twin ht block p₀
+  all_goals
+    exact RelRun.bind (checkBlockPassS_twin ht _ _) fun _ _ hq =>
+      checkBlockTailS_twin ht block hq
 
 end Blocks
 

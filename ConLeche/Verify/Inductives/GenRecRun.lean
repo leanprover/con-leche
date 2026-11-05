@@ -63,8 +63,8 @@ class key's application. -/
 structure ClassMajorRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (pfvs : List Expr) (key : ClassKey)
     (M : TargetMajor) : Type where
-  major : TargetMajorRun fe p ctorsAs pfvs pfvs (Expr.mkAppN (.const key.ind key.lvls) key.ds) M
-  hmaj : targetMajorOf (m := CheckM) fe p ctorsAs pfvs pfvs
+  major : TargetMajorRun (fueledOps mode F) fe p ctorsAs pfvs pfvs (Expr.mkAppN (.const key.ind key.lvls) key.ds) M
+  hmaj : targetMajorOf (fueledOps mode F) fe p ctorsAs pfvs pfvs
     (Expr.mkAppN (.const key.ind key.lvls) key.ds) = .ok M
 
 /-- **`classMajors`, inverted**: one checked major per class key. -/
@@ -98,17 +98,10 @@ theorem classMajors_run {fe : FEnv} {p : BlockShape}
 /-- **The class check moves between environments** that agree on every
 stored inductive of the first: its lookup and its constructor reading
 (`targetMajorOf` reads the environment nowhere else). -/
-@[expose] def ClassEnvAgree (p : BlockShape) (fe₁ fe : FEnv) : Prop :=
+@[expose] def ClassEnvAgree (ops : CheckerOps CheckM) (p : BlockShape) (fe₁ fe : FEnv) : Prop :=
   ∀ I cv caps, I ∉ p.memberNames → fe₁.find? I = some (.indInfo cv caps) →
     fe.find? I = fe₁.find? I ∧ targetCtorsOf fe I = targetCtorsOf fe₁ I ∧
-      famFlat fe.find? caps = famFlat fe₁.find? caps
-
-theorem targetOutsideInst_congr {fe fe' : FEnv} {I : Name} (h : fe.find? I = fe'.find? I)
-    (hfl : containerFlat fe.find? I = containerFlat fe'.find? I)
-    (us : List Level) (ds : List Expr) :
-    targetOutsideInst (m := CheckM) fe I us ds = targetOutsideInst (m := CheckM) fe' I us ds := by
-  unfold targetOutsideInst
-  rw [h, hfl]
+      familyTelescope ops fe.env cv caps = familyTelescope ops fe₁.env cv caps
 
 theorem targetCtorsOf_indInfo {fe : FEnv} {I : Name} {q : Nat × List (ConstantVal × Nat)}
     (h : targetCtorsOf fe I = some q) : ∃ cv caps, fe.find? I = some (.indInfo cv caps) := by
@@ -120,11 +113,12 @@ theorem targetCtorsOf_indInfo {fe : FEnv} {I : Name} {q : Nat × List (ConstantV
   · exact nomatch h
 
 /-- **`targetMajorOf` moved between agreeing environments.** -/
-theorem targetMajorOf_transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassEnvAgree p fe₁ fe)
+theorem targetMajorOf_transport {ops : CheckerOps CheckM} {fe₁ fe : FEnv} {p : BlockShape}
+    (hag : ClassEnvAgree ops p fe₁ fe)
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
     {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe₁ p ctorsAs pfvs fvs mty = .ok M) :
-    targetMajorOf (m := CheckM) fe p ctorsAs pfvs fvs mty = .ok M := by
+    (h : targetMajorOf ops fe₁ p ctorsAs pfvs fvs mty = .ok M) :
+    targetMajorOf ops fe p ctorsAs pfvs fvs mty = .ok M := by
   obtain ⟨⟨R⟩, hpf⟩ := targetMajorOf_run h
   cases R with
   | member I t ms ctorsA hfn ht hms hctors hpar nfs =>
@@ -137,12 +131,14 @@ theorem targetMajorOf_transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassE
     have hI : I ∉ p.memberNames := fun hm => by
       have := List.findIdx?_eq_none_iff.mp ht I hm
       simp at this
-    obtain ⟨hfind, hctors, hfl⟩ := hag I cv caps hI hf
+    obtain ⟨hfind, hctors, hfam⟩ := hag I cv caps hI hf
     have hct' : targetCtorsOf fe I = some (nPc, ctors) := by rw [hctors, hct]
-    have hinst' := (targetOutsideInst_congr hfind (by
-      unfold containerFlat
+    have hinst' : targetOutsideInst ops fe I us (mty.getAppArgs.take nPc) = .ok (nIdx, sI) := by
+      rw [← hinst]
+      unfold targetOutsideInst
       rw [hfind, hf]
-      simp only [hfl]) us _).trans hinst
+      dsimp only
+      rw [hfam]
     unfold targetMajorOf at h ⊢
     rw [hfn] at h ⊢
     simp only [ht] at h ⊢
@@ -153,8 +149,8 @@ theorem targetMajorOf_transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassE
     exact h
 
 /-- A class checked as a major, moved between agreeing environments. -/
-theorem ClassMajorRun.transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassEnvAgree p fe₁ fe)
-    {F : Nat} {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
+theorem ClassMajorRun.transport {fe₁ fe : FEnv} {p : BlockShape} {F : Nat}
+    (hag : ClassEnvAgree (fueledOps mode F) p fe₁ fe) {ctorsAs : List (List (ConstantVal × Nat))} {pfvs : List Expr}
     {key : ClassKey} {M : TargetMajor} (C : ClassMajorRun mode F fe₁ p ctorsAs pfvs key M) :
     Nonempty (ClassMajorRun mode F fe p ctorsAs pfvs key M) := by
   have h := targetMajorOf_transport hag C.hmaj
@@ -676,7 +672,7 @@ structure GenStageRun (mode : CheckMode) (F : Nat) (fe : FEnv) (p : BlockShape)
   /-- no minor premise beyond the classes' constructors -/
   hminors : (rd.slots.filter ClassSlot.isMinor).length = (ctors.map List.length).sum
   /-- the classes' formers -/
-  hformer : Ms.mapM (classFormerTy (m := CheckM) fe cvTas) = .ok formerTysC
+  hformer : Ms.mapM (classFormerTy (fueledOps mode F) fe cvTas) = .ok formerTysC
   /-- the shared prefix -/
   hpre : ClassGen.prefixBinders (genRecGen p params Ms formerTysC rd ctors []) = some pre
   /-- the generated types -/
@@ -788,7 +784,7 @@ structure GenRecRun (mode : CheckMode) (F : Nat) (fe₁ : FEnv) (env₁ : Env) (
   /-- no minor premise beyond the classes' constructors -/
   hminors : (rd.slots.filter ClassSlot.isMinor).length = (ctors.map List.length).sum
   /-- the classes' formers -/
-  hformer : Ms.mapM (classFormerTy (m := CheckM) fe cvTas) = .ok formerTysC
+  hformer : Ms.mapM (classFormerTy (fueledOps mode F) fe cvTas) = .ok formerTysC
   /-- the shared prefix -/
   hpre : ClassGen.prefixBinders (genRecGen p ctx.params Ms formerTysC rd ctors []) = some pre
   /-- the generated types -/
@@ -812,9 +808,9 @@ and the walk of the outside classes are the pass's; the stage ran on the
 walk's table.  `hag`: the formers' and the constructors' environments
 agree on every stored inductive (the classes' check moves between them). -/
 theorem genRecRun_of {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    (hag : ClassEnvAgree p fe₁ fe) {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
+    {F : Nat} (hag : ClassEnvAgree (fueledOps mode F) p fe₁ fe) {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
     {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
-    {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
+    {out : List (ConstantVal × TargetMajor × List Expr)}
     {ctx : NestCtx} {holes : List Expr} {rd : ClassRead} {Ms₀ : List TargetMajor}
     {st : NestState}
     (hctx : blockNestCtx (m := CheckM) p cvTas fe₁.find? = .ok (ctx, holes))

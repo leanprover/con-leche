@@ -1555,16 +1555,6 @@ theorem reduceMemberS_eq (env : Env) (nP : Nat) (ms : MemberShape) :
       reduceMember (sharedOpsC .verified (mkFEnv env)) env nP ms := by
   simp only [reduceMemberS, reduceMember, checkConstantValF_eq, mkFEnv_env]
 
-/-- The reduced former of a closed type at the cached operations simulates its fueled
-original. -/
-theorem reducedFormerS_spec (henv : EnvWF env) {cv : ConstantVal} {n : Nat} {s₀ : CState}
-    (hw : WScoped 0 cv.type) (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ reducedFormer (sharedOpsC .verified (mkFEnv env)) env cv n
-    ⦃fun v s' => CSOK .verified false env s' ∧
-      Runs (reducedFormer (fueledOpsM .verified) env cv n) v; ⊤⦄ := by
-  sym only [conleche_grind, reducedFormer] =>
-    vcgen [reducedFormer, whnfTelescopeS_spec henv] <;> finish
-
 /-- A member's reduction at the cached operations simulates its fueled original. -/
 theorem reduceMemberS_spec (henv : EnvWF env) {nP : Nat} {ms : MemberShape} {s₀ : CState}
     (hs : CSOK .verified false env s₀) :

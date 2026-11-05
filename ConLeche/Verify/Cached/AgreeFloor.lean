@@ -433,7 +433,7 @@ theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockP
     (isRec : Bool) :
     Yields (checkBlockIndsF ops fe p isRec)
       (fun r => (∃ s, r.2.2 = p.toBlockShape.withSort s) ∧
-        r.1 = consBlockIndsF r.2.2 isRec r.2.1 0 fe ∧
+        r.1 = consBlockIndsF r.2.2 isRec (p.members.map (·.declared)) 0 fe ∧
         r.2.1.map (·.name) = p.members.map (·.cvT.name) ∧
         ∀ ms ∈ p.members, fe.find? ms.cvT.name = none) := by
   unfold checkBlockIndsF
@@ -456,18 +456,13 @@ theorem checkBlockIndsF_fresh (ops : CheckerOps CheckCM) (fe : FEnv) (p : BlockP
 
 /-- The formers' conses at the skeleton level (member 0 deepest). -/
 theorem consBlockIndsF_skels (p₁ : BlockShape) (isRec : Bool) :
-    ∀ {cvTas : List ConstantVal} {mss : List MemberShape} {i : Nat} {fe : FEnv}
-      {sk : List InstallSkel},
-      cvTas.map (·.name) = mss.map (·.cvT.name) → SkelIs fe sk →
-      SkelIs (consBlockIndsF p₁ isRec cvTas i fe) (blockIndSkels mss sk)
-  | [], [], _, _, _, _, h => h
-  | [], _ :: _, _, _, _, hn, _ => by simp at hn
-  | _ :: _, [], _, _, _, hn, _ => by simp at hn
-  | cvTa :: rest, ms :: mss, i, fe, sk, hn, h => by
-    simp only [List.map_cons, List.cons.injEq] at hn
-    have hstep := consBlockIndsF_skels p₁ isRec (i := i + 1) hn.2
-      (h.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
-    simpa [consBlockIndsF, blockIndSkels, ciSkel, hn.1] using hstep
+    ∀ {mss : List MemberShape} {i : Nat} {fe : FEnv} {sk : List InstallSkel}, SkelIs fe sk →
+      SkelIs (consBlockIndsF p₁ isRec (mss.map (·.declared)) i fe) (blockIndSkels mss sk)
+  | [], _, _, _, h => h
+  | ms :: mss, i, fe, sk, h => by
+    have hstep := consBlockIndsF_skels p₁ isRec (mss := mss) (i := i + 1)
+      (h.push (.indInfo ms.declared (blockCapsAt p₁ i isRec)))
+    simpa [consBlockIndsF, blockIndSkels, ciSkel] using hstep
 
 /-- `consSumCtorsF` is a left fold: over an append it is the two conses
 in turn. -/
@@ -806,7 +801,7 @@ theorem checkBlockPassS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallS
   refine Yields.bind fun _ => ?_
   refine Yields.pure ⟨?_, ⟨s, rfl⟩, ?_⟩
   · rw [hfe₁]
-    exact consBlockIndsF_skels _ isRec hn h
+    exact consBlockIndsF_skels _ isRec h
   · simp only [BlockParts.complete_members,
       BlockShape.withSort_members] at hns ⊢
     rw [hns]
@@ -830,37 +825,19 @@ theorem blockSkels_withSort {p q : BlockParts} {s : Level}
   unfold blockSkels
   rw [hm, hr, hn, hq, blockRecSkels_withSort]
 
-/-- The block's check at a group that shows its telescopes, at the skeleton level: the
-pass at official's `is_rec` and the install after it. -/
-theorem checkBlockAtS_skels (mode : CheckMode) {fe : FEnv}
-    {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts) :
-    Yields (checkBlockAtS mode fe block p) (fun fe' => SkelIs fe' (blockSkels p sk)) := by
-  unfold checkBlockAtS
-  ybind
-  refine Yields.bind' (checkBlockPassS_skels mode h p (blockRawRec p)) fun q hr => ?_
-  obtain ⟨h₁, ⟨s, hq⟩, hns⟩ := hr
-  try simp only [] at h₁ hq hns
-  try simp only []
-  have hm : q.p.members = p.members := by
-    show q.p.toBlockShape.members = p.toBlockShape.members
-    rw [hq]; rfl
-  refine Yields.mono (checkBlockTailS_skels mode (by rw [hm]; exact h₁) hns) ?_
-  intro fe' h'
-  rwa [blockSkels_withSort hq] at h'
-
-/-- Two members alike but for their former's type. -/
+/-- Two members alike but for the former their check reads. -/
 @[expose] def SameMember (a b : MemberShape) : Prop :=
-  b.cvT.name = a.cvT.name ∧ b.nIdx = a.nIdx ∧ b.ctors = a.ctors
+  b.cvT.name = a.cvT.name ∧ b.declared = a.declared ∧ b.nIdx = a.nIdx ∧ b.ctors = a.ctors
 
-/-- Two lists of members alike but for their formers' types. -/
+/-- Two lists of members alike but for the formers their check reads. -/
 inductive SameMembers : List MemberShape → List MemberShape → Prop where
   | nil : SameMembers [] []
   | cons {a b : MemberShape} {as bs : List MemberShape} :
       SameMember a b → SameMembers as bs → SameMembers (a :: as) (b :: bs)
 
-/-- A reduced member is the member at another type. -/
-theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (nP : Nat) (ms : MemberShape) :
-    Yields (reduceMemberS mode fe nP ms) (SameMember ms) := by
+/-- A reduced member is the member at another telescope. -/
+theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (ms : MemberShape) (nP : Nat) :
+    Yields (reduceMemberS mode fe ms nP) (SameMember ms) := by
   unfold reduceMemberS
   split
   · split
@@ -869,70 +846,39 @@ theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (nP : Nat) (ms : Membe
     refine Yields.bind' (Q := fun cvR => cvR.name = ms.cvT.name) ?_ fun cvR hc => ?_
     · unfold reducedFormer
       refine Yields.bind fun _ => Yields.pure rfl
-    · refine Yields.bind fun _ => Yields.bind fun _ => ?_
-      split <;> first | exact Yields.ofThrow | exact Yields.pure ⟨hc, rfl, rfl⟩
-  · exact Yields.pure ⟨rfl, rfl, rfl⟩
+    · refine Yields.bind fun _ => ?_
+      split <;> first | exact Yields.ofThrow | exact Yields.pure ⟨hc, rfl, rfl, rfl⟩
+  · exact Yields.pure ⟨rfl, rfl, rfl, rfl⟩
 
-/-- The reduced members are the members at other types. -/
+/-- The reduced members are the members at other telescopes. -/
 theorem reduceMembersS_same (mode : CheckMode) (fe : FEnv) (nP : Nat) :
     ∀ l : List MemberShape, Yields (reduceMembersS mode fe nP l) (SameMembers l)
   | [] => Yields.pure .nil
   | ms :: rest => by
     unfold reduceMembersS
     refine Yields.bind fun _ => ?_
-    refine Yields.bind' (reduceMemberS_same mode fe nP ms) fun ms' h₁ => ?_
+    refine Yields.bind' (reduceMemberS_same mode fe ms nP) fun ms' h₁ => ?_
     refine Yields.bind' (reduceMembersS_same mode fe nP rest) fun rest' h₂ => ?_
     exact Yields.pure (.cons h₁ h₂)
 
-theorem blockIndSkels_append : ∀ (l : List MemberShape) (s : List InstallSkel),
-    blockIndSkels l s = blockIndSkels l [] ++ s
-  | [], _ => rfl
-  | ms :: rest, s => by
-    simp only [blockIndSkels]
-    rw [blockIndSkels_append rest (.ind ms.cvT.name :: s),
-      blockIndSkels_append rest [.ind ms.cvT.name]]
-    simp
-
-theorem sumCtorSkels_append (nP : Nat) : ∀ (l : List (Name × Nat)) (s : List InstallSkel),
-    sumCtorSkels nP l s = sumCtorSkels nP l [] ++ s
-  | [], _ => rfl
-  | c :: rest, s => by
-    show sumCtorSkels nP rest (_ :: s) = sumCtorSkels nP rest [_] ++ s
-    rw [sumCtorSkels_append nP rest (_ :: s), sumCtorSkels_append nP rest [_]]
-    simp
-
-theorem blockCtorSkels_append (nP : Nat) : ∀ (l : List MemberShape) (s : List InstallSkel),
-    blockCtorSkels nP l s = blockCtorSkels nP l [] ++ s
-  | [], _ => rfl
-  | ms :: rest, s => by
-    simp only [blockCtorSkels]
-    rw [blockCtorSkels_append nP rest (sumCtorSkels nP _ s),
-      blockCtorSkels_append nP rest (sumCtorSkels nP _ []), sumCtorSkels_append nP _ s]
-    simp
-
-theorem blockRecSkels_append (q : BlockShape) : ∀ (r : Nat) (l : List RecShape)
-    (s : List InstallSkel), blockRecSkels q r l s = blockRecSkels q r l [] ++ s
-  | _, [], _ => rfl
-  | r, rc :: rest, s => by
-    simp only [blockRecSkels]
-    rw [blockRecSkels_append q (r + 1) rest (_ :: s), blockRecSkels_append q (r + 1) rest [_]]
-    simp
-
-theorem blockSkels_append (p : BlockParts) (s : List InstallSkel) :
-    blockSkels p s = blockSkels p [] ++ s := by
-  unfold blockSkels
-  rw [blockIndSkels_append p.members s, blockCtorSkels_append p.nP p.members (_ ++ s),
-    blockRecSkels_append _ 0 _ (_ ++ (_ ++ s)),
-    blockCtorSkels_append p.nP p.members (blockIndSkels _ []),
-    blockRecSkels_append _ 0 _ (blockCtorSkels _ _ [] ++ _)]
-  simp
+/-- What a reduction keeps of members the recogniser read at their declared formers. -/
+theorem sameMembers_names : ∀ {a b : List MemberShape}, SameMembers a b →
+    (∀ m ∈ a, m.declared = m.cvT) →
+    b.map (·.cvT.name) = a.map (·.cvT.name) ∧ b.map (·.declared.name) = b.map (·.cvT.name) ∧
+      b.map (·.ctors) = a.map (·.ctors)
+  | _, _, .nil, _ => ⟨rfl, rfl, rfl⟩
+  | _, _, .cons h₁ hs, hd => by
+    obtain ⟨e₁, e₂, e₃⟩ := sameMembers_names hs (fun m hm => hd m (List.mem_cons_of_mem _ hm))
+    have hy := hd _ List.mem_cons_self
+    obtain ⟨n, d, -, c⟩ := h₁
+    simp only [List.map_cons, e₁, e₂, e₃, n, d, c, hy, and_self]
 
 theorem blockIndSkels_same : ∀ {a b : List MemberShape}, SameMembers a b →
     ∀ s, blockIndSkels b s = blockIndSkels a s
   | _, _, .nil, _ => rfl
   | _, _, .cons h hs, s => by
     simp only [blockIndSkels]
-    rw [h.1]
+    rw [h.2.1]
     exact blockIndSkels_same hs _
 
 theorem blockCtorSkels_same (nP : Nat) : ∀ {a b : List MemberShape}, SameMembers a b →
@@ -940,7 +886,7 @@ theorem blockCtorSkels_same (nP : Nat) : ∀ {a b : List MemberShape}, SameMembe
   | _, _, .nil, _ => rfl
   | _, _, .cons h hs, s => by
     simp only [blockCtorSkels]
-    rw [h.2.2]
+    rw [h.2.2.2]
     exact blockCtorSkels_same nP hs _
 
 theorem blockRecSkels_members (q q' : BlockShape) (hr : q'.recs = q.recs) :
@@ -960,71 +906,6 @@ theorem blockSkels_same {p : BlockParts} {ms : List MemberShape}
   rw [blockIndSkels_same h, blockCtorSkels_same p.nP h]
   rfl
 
-theorem ciSkel_storedFormerOf (p : BlockParts) (c : ConstantInfo) :
-    ciSkel (storedFormerOf p c) = ciSkel c := by
-  unfold storedFormerOf
-  split
-  · split
-    · next ms hms =>
-      have := List.find?_some hms
-      simp only [beq_iff_eq] at this
-      simp [ciSkel, this]
-    · rfl
-  · rfl
-
-theorem SkelIs.pushAll : ∀ (L : List ConstantInfo) {fe : FEnv} {sk : List InstallSkel},
-    SkelIs fe sk → SkelIs (FEnv.pushAll L fe) (L.reverse.map ciSkel ++ sk)
-  | [], _, _, h => h
-  | c :: L, fe, sk, h => by
-    show SkelIs (FEnv.pushAll L (fe.push c)) _
-    have := SkelIs.pushAll L (h.push c)
-    simpa using this
-
-theorem SkelIs.pushTables : ∀ (Q : List ProjTable) {fe : FEnv} {sk : List InstallSkel},
-    SkelIs fe sk → SkelIs (FEnv.pushTables Q fe) sk
-  | [], _, _, h => h
-  | t :: Q, _, _, h => SkelIs.pushTables Q (h.pushTable t)
-
-/-- The second path at the skeleton level: the view's constants are pushed and dropped, the
-block's are the first path's. -/
-theorem checkBlockViewedS_skels (mode : CheckMode) {fe : FEnv} {sk : List InstallSkel}
-    (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts) (cs : List Name) :
-    Yields (checkBlockViewedS mode fe block p cs) (fun fe' => SkelIs fe' (blockSkels p sk)) := by
-  unfold checkBlockViewedS
-  refine Yields.bind' (reduceMembersS_same mode fe p.nP p.members) fun ms hms => ?_
-  refine Yields.bind fun vs => ?_
-  have hV := SkelIs.pushAll vs.reverse h
-  refine Yields.bind' (checkBlockAtS_skels mode hV _ _) fun fe₃ h₃ => ?_
-  obtain ⟨-, hsk₃⟩ := h₃
-  refine Yields.pure (SkelIs.pushTables _ ?_)
-  have hA := SkelIs.pushAll
-    ((fe₃.env.consts.take (fe₃.env.consts.length - (vs.length + fe.env.consts.length))).map
-      (storedFormerOf p)).reverse h
-  rw [List.reverse_reverse] at hA
-  -- the block's own pushes, off the viewed environment's skeleton
-  rw [blockSkels_same hms, blockSkels_append p, List.reverse_reverse] at hsk₃
-  have hlenS : fe.env.consts.length = sk.length := by
-    have := congrArg List.length h.2
-    simpa [envSkels] using this
-  have hcount := congrArg List.length hsk₃
-  simp only [envSkels, List.length_map, List.length_append] at hcount
-  have hk : fe₃.env.consts.length - (vs.length + fe.env.consts.length)
-      = (blockSkels p []).length := by omega
-  have hpre : ((fe₃.env.consts.take (blockSkels p []).length).map (storedFormerOf p)).map ciSkel
-      = blockSkels p [] := by
-    rw [List.map_map]
-    have hmap : (fe₃.env.consts.take (blockSkels p []).length).map (ciSkel ∘ storedFormerOf p)
-        = (fe₃.env.consts.take (blockSkels p []).length).map ciSkel :=
-      List.map_congr_left fun c _ => ciSkel_storedFormerOf p c
-    rw [hmap, List.map_take]
-    show (envSkels fe₃.env).take _ = _
-    rw [hsk₃]
-    exact List.take_left' rfl
-  rw [hk, hpre] at hA
-  rw [blockSkels_append p sk]
-  rw [hk]
-  exact hA
-
 /-- **The uniform install at k members, at the skeleton level.** -/
 theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
     {sk : List InstallSkel} (h : SkelIs fe sk) (block : List ConstantInfo) (p : BlockParts) :
@@ -1037,10 +918,20 @@ theorem checkBlockKS_skels (mode : CheckMode) {fe : FEnv}
   refine Yields.ofDecCases (fun _ => ?boolBad) (fun _ => ?main)
   case boolBad => exact Yields.ofThrowBind
   case main =>
-  show Yields (if blockViewed fe.find? (blockContainers fe.find? p) p = true then _ else _) _
-  split
-  · exact checkBlockViewedS_skels mode h block p _
-  · exact checkBlockAtS_skels mode h block p
+  refine Yields.bind' (reduceMembersS_same mode fe p.nP p.members) fun ms hms => ?_
+  ybind
+  refine Yields.bind' (checkBlockPassS_skels mode h { p with members := ms } (blockRawRec p))
+    fun q hr => ?_
+  obtain ⟨h₁, ⟨s, hq⟩, hns⟩ := hr
+  try simp only [] at h₁ hq hns
+  try simp only []
+  have hm : q.p.members = ms := by
+    show q.p.toBlockShape.members = ({ p with members := ms } : BlockParts).toBlockShape.members
+    rw [hq]; rfl
+  refine Yields.mono (checkBlockTailS_skels mode (by rw [hm]; exact h₁) hns) ?_
+  intro fe' h'
+  rw [blockSkels_withSort hq, blockSkels_same hms] at h'
+  exact h'
 
 /-! ### The tolerated-axiom branch
 

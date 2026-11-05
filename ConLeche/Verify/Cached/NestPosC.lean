@@ -61,7 +61,7 @@ theorem nestContainer_closed {ctx : NestCtx} (hc : NestCtxOk ctx) {C : Name} {n 
     ListAll CtorClosed L := by
   intro x hx
   obtain ⟨n, nPc, hf⟩ := nestContainer_mem h x hx
-  exact hc _ _ hf
+  exact hc.1 _ _ hf
 
 /-- A term scoped wherever the list `ds` is (an instantiated container
 type: closed, instantiated at `ds`). -/
@@ -75,7 +75,7 @@ type: closed, instantiated at `ds`). -/
 
 theorem nestCtx_find_closed {ctx : NestCtx} (hc : NestCtxOk ctx) {n : Name} {cv : ConstantVal}
     {caps : IndCaps} (h : ctx.find? n = some (.indInfo cv caps)) : cv.type.hasFvar = false :=
-  hc _ _ h
+  hc.1 _ _ h
 
 theorem instWS_instPisWith {ds : List Expr} {ty : Expr} {ks : List Name} {us : List Level}
     {r : Expr} (hcl : ty.hasFvar = false)
@@ -89,24 +89,75 @@ section Pure
 
 variable {env : Env}
 
-theorem nestInstTypeS_spec {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}
-    (hs : CSOK mode false env s₀) (hi : Nat) (key : NestKey) :
-    ⦃fun s => s = s₀⦄ nestInstType (m := CheckCM) ctx hi key
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (nestInstType (m := FueledM) ctx hi key) v ∧
+/-- Official's telescope loop (task #195) at the shared operations:
+every `whnf` is the shared one, on a well-scoped input at its depth
+(the opened body is well-scoped one deeper). -/
+theorem whnfTelescopeS_spec (henv : EnvWF env) :
+    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK .verified false env s₀ → WScoped i e →
+      ⦃fun s => s = s₀⦄ whnfTelescope (sharedOpsC .verified (mkFEnv env)) env i n e
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (whnfTelescope (fueledOpsM .verified) env i n e) v; ⊤⦄ := by
+  intro i n
+  induction n generalizing i with
+  | zero =>
+    intro _ _ _ _
+    sym only [conleche_grind, whnfTelescope.eq_1] =>
+      vcgen [whnfTelescope, whnfS_spec henv] <;> finish
+  | succ n ih =>
+    intro _ _ _ _
+    sym only [conleche_grind, whnfTelescope.eq_2] =>
+      vcgen [whnfTelescope, whnfS_spec henv, ih] <;>
+        finish
+
+/-- The reduced former of a closed type at the cached operations simulates its fueled
+original. -/
+theorem reducedFormerS_spec (henv : EnvWF env) {cv : ConstantVal} {n : Nat} {s₀ : CState}
+    (hw : WScoped 0 cv.type) (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ reducedFormer (sharedOpsC .verified (mkFEnv env)) env cv n
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (reducedFormer (fueledOpsM .verified) env cv n) v; ⊤⦄ := by
+  sym only [conleche_grind, reducedFormer] =>
+    vcgen [reducedFormer, whnfTelescopeS_spec henv] <;> finish
+
+/-- A family's telescope at the cached operations simulates its fueled original, and is closed
+where its stored type is. -/
+theorem familyTelescopeS_spec (henv : EnvWF env) {cv : ConstantVal} {caps : IndCaps} {s₀ : CState}
+    (hcl : cv.type.hasFvar = false) (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ familyTelescope (sharedOpsC .verified (mkFEnv env)) env cv caps
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (familyTelescope (fueledOpsM .verified) env cv caps) v ∧ v.hasFvar = false; ⊤⦄ := by
+  have hw : WScoped 0 cv.type := WScoped.of_not_hasFvar hcl
+  sym only [conleche_grind, familyTelescope, reducedFormer] =>
+    vcgen [familyTelescope, reducedFormerS_spec henv hw] <;> finish
+
+theorem nestInstTypeS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}
+    (hs : CSOK .verified false env s₀) (hi : Nat) (key : NestKey) :
+    ⦃fun s => s = s₀⦄ nestInstType ctx (sharedOpsC .verified (mkFEnv env)) env hi key
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (nestInstType ctx (fueledOpsM .verified) env hi key) v ∧
       InstWS key.ds v.2; ⊤⦄ := by
   -- `gen`: E-matching evaluates the pure side bind by bind (`Runs.pure_bind_eq`), one
-  -- generation per bind, through five binds and two guards
+  -- generation per bind, through six binds and two guards
   sym only [conleche_grind, nestInstType.eq_1, unwrapOr.eq_1, liftFueled.eq_1,
       → nestCtx_find_closed hc, → instWS_instPisWith] =>
-    vcgen [nestInstType, unwrapOr, liftFueled] <;> finish (gen := 12)
+    vcgen [nestInstType, unwrapOr, liftFueled, familyTelescopeS_spec henv] <;> finish (gen := 12)
 
-theorem nestGrowGroupS_spec {ctx : NestCtx} (hc : NestCtxOk ctx) (hi : Nat) (us : List Level)
-    (ds : List Expr) :
-    ∀ (cs : List Name) (grp : List (Name × Expr)) {s₀ : CState}, CSOK mode false env s₀ →
+theorem nestArityS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}
+    (hs : CSOK .verified false env s₀) (C : Name) :
+    ⦃fun s => s = s₀⦄ nestArity ctx (sharedOpsC .verified (mkFEnv env)) env C
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (nestArity ctx (fueledOpsM .verified) env C) v; ⊤⦄ := by
+  sym only [conleche_grind, nestArity, → nestCtx_find_closed hc] =>
+    vcgen [nestArity, familyTelescopeS_spec henv] <;> finish
+
+theorem nestGrowGroupS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) (hi : Nat)
+    (us : List Level) (ds : List Expr) :
+    ∀ (cs : List Name) (grp : List (Name × Expr)) {s₀ : CState}, CSOK .verified false env s₀ →
       ListAll (GrpWS ds) grp →
-      ⦃fun s => s = s₀⦄ nestGrowGroup (m := CheckCM) ctx hi us ds cs grp
-      ⦃fun v s' => CSOK mode false env s' ∧
-        Runs (nestGrowGroup (m := FueledM) ctx hi us ds cs grp) v ∧ ListAll (GrpWS ds) v; ⊤⦄ := by
+      ⦃fun s => s = s₀⦄ nestGrowGroup ctx (sharedOpsC .verified (mkFEnv env)) env hi us ds cs grp
+      ⦃fun v s' => CSOK .verified false env s' ∧
+        Runs (nestGrowGroup ctx (fueledOpsM .verified) env hi us ds cs grp) v ∧
+        ListAll (GrpWS ds) v; ⊤⦄ := by
   intro cs
   induction cs with
   | nil =>
@@ -116,8 +167,7 @@ theorem nestGrowGroupS_spec {ctx : NestCtx} (hc : NestCtxOk ctx) (hi : Nat) (us 
   | cons c cs ih =>
     intro grp _ hs hg
     sym only [conleche_grind, nestGrowGroup.eq_2] =>
-      vcgen [nestGrowGroup, nestInstTypeS_spec (mode := mode) (env := env) hc,
-        ih] <;> finish
+      vcgen [nestGrowGroup, nestInstTypeS_spec henv hc, ih] <;> finish
 
 theorem nestGroupCtorsS_spec {ctx : NestCtx} (hc : NestCtxOk ctx) (nPc : Nat) :
     ∀ (cs : List Name) {s₀ : CState}, CSOK mode false env s₀ →
@@ -347,7 +397,7 @@ theorem nestContNewS_spec (henv : EnvWF env) {ctx : NestCtx}
     ⦃fun v s' => CSOK .verified false env s' ∧
       Runs (nestContNew ctx (fueledOpsM .verified) env rec' prog kb n us ds nPc cty st) v; ⊤⦄ := by
   sym only [conleche_grind, nestContNew.eq_1, allWS_nestWalkStack hds] =>
-    vcgen [nestContNew, nestGrowGroupS_spec (mode := .verified) (env := env) hc, nestFrameS_spec henv hc hrec _ _ us ds nPc
+    vcgen [nestContNew, nestGrowGroupS_spec henv hc, nestFrameS_spec henv hc hrec _ _ us ds nPc
       (allWS_nestWalkStack hds)] <;> finish
 
 theorem nestContKeyS_spec (henv : EnvWF env) {ctx : NestCtx}
@@ -383,7 +433,7 @@ theorem nestContS_spec (henv : EnvWF env) {ctx : NestCtx}
     ⦃fun v s' => CSOK .verified false env s' ∧
       Runs (nestCont ctx (fueledOpsM .verified) env rec' prog kb n us args st) v; ⊤⦄ := by
   sym only [conleche_grind, nestCont.eq_1, unwrapOr.eq_1, allWS_take_guard hargs] =>
-    vcgen [nestCont, unwrapOr, nestInstTypeS_spec (mode := .verified) (env := env) hc,
+    vcgen [nestCont, unwrapOr, nestInstTypeS_spec henv hc,
       nestContKeyS_spec henv hc hrec prog kb n us] <;> finish
 
 end Walk
@@ -409,7 +459,7 @@ theorem nestPosS_spec (henv : EnvWF env) {ctx : NestCtx}
   | succ fuel ih =>
     intro prog dep kb e st s₀ hs hw
     sym only [conleche_grind, nestPos.eq_2] =>
-      vcgen [nestPos, whnfS_spec henv, ih.triple,
+      vcgen [nestPos, whnfS_spec henv, ih.triple, nestArityS_spec henv hc,
         nestContS_spec henv hc ih (dep := dep)] <;> finish
 
 /-- The member holes: scoped at the walk's depth, each a variable. -/
@@ -571,19 +621,22 @@ theorem nestSeedsS_spec (henv : EnvWF env) {ctx : NestCtx}
     obtain ⟨key, nPc⟩ := x
     intro st _ hs hw
     sym only [conleche_grind, nestSeeds.eq_2, List.length_nil] =>
-      vcgen [nestSeeds, nestInstTypeS_spec (mode := .verified) (env := env) hc,
+      vcgen [nestSeeds, nestInstTypeS_spec henv hc,
         nestContKeyS_spec henv hc (nestPosS_spec henv hc _) [] 0 key.cname key.lvls key.ds,
         ih] <;> finish
 
 /-- The pieces of the walk's context `blockNestCtx` builds. -/
 theorem blockNestCtx_ok {env₁ : Env} (henv₁ : EnvWF env₁) {p : BlockShape}
+    (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
     {cvTas : List ConstantVal} (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {cv0 : ConstantVal}
     (h0 : cvTas.head? = some cv0) {fvs : List Expr} {body : Expr}
     (hpq : openPisAtFvars p.nP cv0.type 0 = some (fvs, body)) :
     NestCtxOk (p.nestCtx fvs env₁.find?) ∧ AllWS p.nP fvs ∧ fvs.length = p.nP := by
   have hw0 : WScoped 0 cv0.type := hT _ (List.mem_of_mem_head? h0)
-  refine ⟨fun n ci hf => (henv₁.consts ci (List.mem_of_find?_eq_some hf)).1, fun x hx => ?_,
-    ConLeche.Verify.openPisAtFvars_length _ hpq⟩
+  refine ⟨⟨fun n ci hf => (henv₁.consts ci (List.mem_of_find?_eq_some hf)).1, fun cv hcv => ?_⟩,
+    fun x hx => ?_, ConLeche.Verify.openPisAtFvars_length _ hpq⟩
+  · obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hcv
+    exact hM ms hms
   have := (openPisAtFvars_WScoped p.nP cv0.type 0 hpq hw0).1 x hx
   rwa [Nat.zero_add] at this
 
@@ -606,6 +659,7 @@ operation run): the same value, a context whose stored constants are
 closed, its holes and canonical variables well scoped at its depth, one
 canonical variable per parameter. -/
 theorem blockNestCtxS_spec (henv : EnvWF env) (p : BlockShape) (cvTas : List ConstantVal)
+    (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type) {s₀ : CState} (hs : CSOK mode false env s₀) :
     ⦃fun s => s = s₀⦄ blockNestCtx (m := CheckCM) p cvTas env.find?
     ⦃fun v s' => CSOK mode false env s' ∧ Runs (blockNestCtx (m := FueledM) p cvTas env.find?) v ∧
@@ -613,7 +667,7 @@ theorem blockNestCtxS_spec (henv : EnvWF env) (p : BlockShape) (cvTas : List Con
       v.1.params.length = v.1.nP ∧ nestHoles v.1 = some v.2 ∧ v.1.nP = p.nP; ⊤⦄ := by
   -- `ematch`: one E-matching round per pure-side bind (`Runs.pure_bind_eq`), and the
   -- context's facts after the last one
-  sym only [conleche_grind, blockNestCtx.eq_1, unwrapOr.eq_1, → blockNestCtx_ok henv hT,
+  sym only [conleche_grind, blockNestCtx.eq_1, unwrapOr.eq_1, → blockNestCtx_ok henv hM hT,
       → holesOk_nestHoles, → allWS_hiAt] =>
     vcgen [blockNestCtx, unwrapOr] <;> finish (ematch := 8)
 
@@ -627,6 +681,7 @@ theorem ctorsClosed {ctorsAs : List (List (ConstantVal × Nat))}
 successful cached run is a fueled one. -/
 theorem checkBlockPositivityS_spec (henv : EnvWF env)
     (p : BlockParts) (cvTas : List ConstantVal) (ctorsAs : List (List (ConstantVal × Nat)))
+    (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ cvTas, WScoped 0 cv.type)
     (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type)
     {s₀ : CState} (hs : CSOK .verified false env s₀) :
@@ -635,7 +690,7 @@ theorem checkBlockPositivityS_spec (henv : EnvWF env)
     ⦃fun v s' => CSOK .verified false env s' ∧
       Runs (checkBlockPositivity (fueledOpsM .verified) env env.find? p cvTas ctorsAs) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockPositivity.eq_1, nestHoles_length, ctorsClosed hct] =>
-    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p.toBlockShape cvTas hT,
+    vcgen [checkBlockPositivity, blockNestCtxS_spec (mode := .verified) henv p.toBlockShape cvTas hM hT,
       nestUniformS_spec (mode := .verified) (env := env) ctorsAs,
       nestRootS_spec henv, checkAbsCtorSortsAllS_spec henv] <;> finish
 

@@ -40,7 +40,7 @@ local macro_rules
 /-- **The major's resolution, as run**: the arm `targetMajorOf` took.
 One constructor per arm: `member` and `outside` (a nested block's
 containers). -/
-inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
+inductive TargetMajorRun (ops : CheckerOps CheckM) (fe : FEnv) (p : BlockShape)
     (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr) (mty : Expr) :
     TargetMajor → Type where
   /-- a MEMBER of the block, at the block's levels and parameters -/
@@ -50,7 +50,7 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
       (hms : p.members[t]? = some ms)
       (hctors : ctorsAs[t]? = some ctorsA)
       (hpar : mty.getAppArgs.take p.nP = fvs.take p.nP) (nfs : List NestCtorNf) :
-      TargetMajorRun fe p ctorsAs pfvs fvs mty
+      TargetMajorRun ops fe p ctorsAs pfvs fvs mty
         { ind := I, lvls := p.lps.map .param, ds := fvs.take p.nP, nPc := p.nP,
           nIdx := ms.nIdx, ctors := ctorsA, member := some t, nfs := nfs, pfvs := pfvs }
   /-- an OUTSIDE inductive (a nested block's container), at its own
@@ -66,10 +66,10 @@ inductive TargetMajorRun (fe : FEnv) (p : BlockShape)
       (hdsLen : (mty.getAppArgs.take nPc).length = nPc)
       (hdsSc : ∀ x ∈ mty.getAppArgs.take nPc, x.bvarB = 0 ∧ x.fvarB ≤ p.nP)
       (hment : ∃ x ∈ mty.getAppArgs.take nPc, x.nestOcc p.memberNames 0 0 = true)
-      (hinst : targetOutsideInst (m := CheckM) fe I us (mty.getAppArgs.take nPc)
+      (hinst : targetOutsideInst ops fe I us (mty.getAppArgs.take nPc)
         = .ok (nIdx, sI))
       (hsort : Level.isEquiv sI p.resSort = some true) (nfs : List NestCtorNf) :
-      TargetMajorRun fe p ctorsAs pfvs fvs mty
+      TargetMajorRun ops fe p ctorsAs pfvs fvs mty
         { ind := I, lvls := us, ds := mty.getAppArgs.take nPc, nPc := nPc, nIdx := nIdx,
           ctors := ctors, member := none, nfs := nfs, pfvs := pfvs }
 
@@ -80,16 +80,16 @@ the parameter binders; its constructors and parameter count are the
 environment's; its instantiated type former has `nIdx` indices and ends
 in the block's universe.  (`TargetTyEntry.outside_of` at the entry's
 major; the generated stage's `ClassMajorRun.major` at a class.) -/
-theorem TargetMajorRun.outside_facts {fe : FEnv} {p : BlockShape}
+theorem TargetMajorRun.outside_facts {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
-    {M : TargetMajor} (R : TargetMajorRun fe p ctorsAs pfvs fvs mty M)
+    {M : TargetMajor} (R : TargetMajorRun ops fe p ctorsAs pfvs fvs mty M)
     (hM : M.member = none) :
     ∃ sI, mty.getAppFn = .const M.ind M.lvls ∧
       p.memberNames.findIdx? (· == M.ind) = none ∧ M.ind ≠ quotName ∧
       targetCtorsOf fe M.ind = some (M.nPc, M.ctors) ∧
       M.ds = mty.getAppArgs.take M.nPc ∧ M.ds.length = M.nPc ∧
       (∀ x ∈ M.ds, x.bvarB = 0 ∧ x.fvarB ≤ p.nP) ∧
-      targetOutsideInst (m := CheckM) fe M.ind M.lvls M.ds = .ok (M.nIdx, sI) ∧
+      targetOutsideInst ops fe M.ind M.lvls M.ds = .ok (M.nIdx, sI) ∧
       Level.isEquiv sI p.resSort = some true := by
   cases R with
   | member => exact nomatch hM
@@ -98,9 +98,9 @@ theorem TargetMajorRun.outside_facts {fe : FEnv} {p : BlockShape}
 
 /-- **A MEMBER major, at its run**: the member `t`, its shape and its
 stored constructors, at the block's parameter count. -/
-theorem TargetMajorRun.member_facts {fe : FEnv} {p : BlockShape}
+theorem TargetMajorRun.member_facts {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
-    {M : TargetMajor} (R : TargetMajorRun fe p ctorsAs pfvs fvs mty M) {t : Nat}
+    {M : TargetMajor} (R : TargetMajorRun ops fe p ctorsAs pfvs fvs mty M) {t : Nat}
     (hM : M.member = some t) :
     ctorsAs[t]? = some M.ctors ∧ M.nPc = p.nP := by
   cases R with
@@ -111,11 +111,11 @@ theorem TargetMajorRun.member_facts {fe : FEnv} {p : BlockShape}
 
 /-- **`targetMajorOf`, inverted**: the arm it took and the class's
 parameter openers. -/
-theorem targetMajorOf_run {fe : FEnv} {p : BlockShape}
+theorem targetMajorOf_run {ops : CheckerOps CheckM} {fe : FEnv} {p : BlockShape}
     {ctorsAs : List (List (ConstantVal × Nat))} {pfvs fvs : List Expr} {mty : Expr}
     {M : TargetMajor}
-    (h : targetMajorOf (m := CheckM) fe p ctorsAs pfvs fvs mty = .ok M) :
-    Nonempty (TargetMajorRun fe p ctorsAs pfvs fvs mty M) ∧ M.pfvs = pfvs := by
+    (h : targetMajorOf ops fe p ctorsAs pfvs fvs mty = .ok M) :
+    Nonempty (TargetMajorRun ops fe p ctorsAs pfvs fvs mty M) ∧ M.pfvs = pfvs := by
   unfold targetMajorOf at h
   simp only at h
   split at h

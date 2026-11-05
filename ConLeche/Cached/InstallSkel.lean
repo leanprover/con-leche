@@ -99,7 +99,7 @@ table travels in its structure's record's slot.) -/
 /-- The k type formers (member 0 deepest, as `consBlockInds`). -/
 def blockIndSkels : List MemberShape → List InstallSkel → List InstallSkel
   | [], sk => sk
-  | ms :: rest, sk => blockIndSkels rest (.ind ms.cvT.name :: sk)
+  | ms :: rest, sk => blockIndSkels rest (.ind ms.declared.name :: sk)
 
 /-- Every member's constructors, in block order. -/
 def blockCtorSkels (nP : Nat) : List MemberShape → List InstallSkel → List InstallSkel
