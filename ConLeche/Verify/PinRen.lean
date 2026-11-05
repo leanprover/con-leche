@@ -30,8 +30,8 @@ theorem subst_go_param_mem :
   | k :: ks, p :: ps, n, hl, hn => by
     simp only [Level.subst.go, List.map_cons]
     by_cases h : k = n
-    · exact ⟨p, List.mem_cons_self, by rw [if_pos h]⟩
-    · rw [if_neg h]
+    · exact ⟨p, List.mem_cons_self, by rw [ite_eq_left h]⟩
+    · rw [ite_eq_right h]
       have hn' : n ∈ ks := by
         rcases List.mem_cons.mp hn with rfl | h'
         · exact absurd rfl h
@@ -45,7 +45,7 @@ theorem subst_go_param_mem :
 theorem subst_go_cons_ne {p q : Name} (hne : p ≠ q) (ps : List Name) (u : Level) (us : List Level) :
     Level.subst.go (p :: ps) (u :: us) q = Level.subst.go ps us q := by
   simp only [Level.subst.go]
-  rw [if_neg hne]
+  rw [ite_eq_right hne]
 
 /-- **Renaming and then instantiating is instantiating**, at a parameter. -/
 theorem subst_go_ren :
@@ -55,9 +55,9 @@ theorem subst_go_ren :
   | k :: ks, p :: ps, u :: us, n, hnd, hl, hu, hn => by
     simp only [List.map_cons, Level.subst.go]
     by_cases h : k = n
-    · rw [if_pos h, if_pos h]
+    · rw [ite_eq_left h, ite_eq_left h]
       simp [Level.subst, Level.subst.go]
-    · rw [if_neg h, if_neg h]
+    · rw [ite_eq_right h, ite_eq_right h]
       have hn' : n ∈ ks := by
         rcases List.mem_cons.mp hn with rfl | h'
         · exact absurd rfl h
@@ -210,11 +210,11 @@ theorem substFn_ren :
   | k :: ks, p' :: ps, u :: us, ψ, X, hnd, hl, hu, hX, p, hp => by
     simp only [List.map_cons, Level.substFn]
     by_cases h : k = p
-    · rw [if_pos h, if_pos h]
+    · rw [ite_eq_left h, ite_eq_left h]
       show X p' = _
       rw [hX p' List.mem_cons_self]
       simp [Level.substFn]
-    · rw [if_neg h, if_neg h]
+    · rw [ite_eq_right h, ite_eq_right h]
       have hp' : p ∈ ks := by
         rcases List.mem_cons.mp hp with rfl | h'
         · exact absurd rfl h
@@ -224,7 +224,7 @@ theorem substFn_ren :
       rw [hX q (List.mem_cons_of_mem _ hq)]
       have hq' : p' ≠ q := fun h' => hne (h' ▸ hq)
       simp only [Level.substFn]
-      rw [if_neg hq']
+      rw [ite_eq_right hq']
   | [], _, _, _, _, _, _, _, _, _, hp => absurd hp List.not_mem_nil
   | _ :: _, [], _, _, _, _, hl, _, _, _, _ => nomatch hl
   | _ :: _, _ :: _, [], _, _, _, _, hu, _, _, _ => nomatch hu
