@@ -364,6 +364,40 @@ theorem checkBlockInds_members {env envI : Env} {p : BlockParts} {isRec : Bool}
   have h0 : cvTa0 = ms0.cvT := hone hq
   simp [h0, hall hcvs]
 
+/-- Every member's telescope was checked as a constant. -/
+theorem checkBlockInds_checked {env envI : Env} {p : BlockParts} {isRec : Bool}
+    {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
+    ∀ ms ∈ p.members, checkConstantVal (fueledOps mode F) env ms.cvT = .ok () := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, -, -, -, hq, hcvs, -⟩ := checkBlockInds_shape h
+  have hone : ∀ {ms : MemberShape} {x : ConstantVal × Level},
+      checkBlockTele (fueledOps mode F) env p.nP ms = .ok x →
+      checkConstantVal (fueledOps mode F) env ms.cvT = .ok () := by
+    intro ms x hx
+    unfold checkBlockTele at hx
+    obtain ⟨u, hu, -⟩ := exceptBind_ok hx
+    cases u
+    exact hu
+  have hall : ∀ {l : List MemberShape} {xs : List (ConstantVal × Level)},
+      checkBlockTeles (fueledOps mode F) env p.nP l = .ok xs →
+      ∀ ms ∈ l, checkConstantVal (fueledOps mode F) env ms.cvT = .ok () := by
+    intro l
+    induction l with
+    | nil => intro _ _ _ hm; exact nomatch hm
+    | cons ms l ih =>
+      intro xs hx m hm
+      unfold checkBlockTeles at hx
+      obtain ⟨y, hy, hx⟩ := exceptBind_ok hx
+      obtain ⟨ys, hys, -⟩ := exceptBind_ok hx
+      rcases List.mem_cons.mp hm with rfl | hm
+      · exact hone hy
+      · exact ih hys m hm
+  intro m hmm
+  rw [hm] at hmm
+  rcases List.mem_cons.mp hmm with rfl | hmm
+  · exact hone hq
+  · exact hall hcvs m hmm
+
 /-- The checked formers are one per member. -/
 theorem checkBlockInds_length {env envI : Env} {p : BlockParts} {isRec : Bool}
     {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
