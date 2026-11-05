@@ -131,7 +131,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                 | none => pure none
               | none => pure none
             | none => pure none
-          else if natOpWfNames.contains cn ∧ natLitSupportedF fe then do
+          else if natOpWfNames.contains cn then do
             let w₁ ← r.whnf depth a
             match ← pure (rawNatLitC? w₁) with
             | some _ => do

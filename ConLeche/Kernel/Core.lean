@@ -237,7 +237,7 @@ def reduceNat (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
         | some n₂ => pure (natOpResult c n₁ n₂)
         | none => pure none
       | none => pure none
-    else if natOpWfNames.contains c ∧ natLitSupported env then
+    else if natOpWfNames.contains c then
       match rawNatLit? (← r.whnf depth a) with
       | some _ =>
         match rawNatLit? (← r.whnf depth b) with

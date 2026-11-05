@@ -27,9 +27,6 @@ structure EnvExt (env₁ env₂ : Env) : Prop where
   natTrio : (env₁.find? natName).isSome = true ∨ (env₁.find? natSuccName).isSome = true →
     (env₁.find? natName).isSome = true ∧ (env₁.find? natZeroName).isSome = true ∧
       (env₁.find? natSuccName).isSome = true
-  /-- a stored `Nat` operation has `Nat` below it -/
-  natOps : ∀ c, natOpWfNames.contains c = true → (env₁.find? c).isSome = true →
-    (env₁.find? natName).isSome = true
 
 theorem EnvExt.find_of_isSome {env₁ env₂ : Env} (h : EnvExt env₁ env₂) {n : Name}
     (hn : (env₁.find? n).isSome = true) : env₂.find? n = env₁.find? n := by
@@ -102,11 +99,7 @@ theorem reduceNat_ext (hx : EnvExt env₁ env₂) (ih : ExtClaims mode eager env
           have hc : (env₁.find? c).isSome = true := by simpa [Expr.constsResolve] using hfa'.1
           have hw' : (pureFns mode eager env₂ fuel).whnf d a' =
               (pureFns mode eager env₁ fuel).whnf d a' := ih.whnf hfa'.2
-          have hl : (natOpWfNames.contains c = true ∧ natLitSupported env₂ = true) ↔
-              (natOpWfNames.contains c = true ∧ natLitSupported env₁ = true) :=
-            ⟨fun h => ⟨h.1, by rw [← hx.natLit (hx.natOps c h.1 hc)]; exact h.2⟩,
-              fun h => ⟨h.1, by rw [hx.natLit (hx.natOps c h.1 hc)]; exact h.2⟩⟩
-          simp only [reduceNat, hw, hw', hx.natOpStored hc, hl]
+          simp only [reduceNat, hw, hw', hx.natOpStored hc]
 
 /-- The walk to a sort, on a resolved term: what `whnf` returns on a resolved term resolves
 (`hres`), and opening a binder at a variable of a resolved domain keeps it so. -/

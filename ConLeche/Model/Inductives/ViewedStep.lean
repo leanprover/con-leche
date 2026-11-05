@@ -275,7 +275,6 @@ theorem envExt_trans {env₁ env₂ env₃ : Env} (h₁ : EnvExt env₁ env₂)
       | some ci => rw [h₁.find T ci hc]; rfl
     rw [ht T hs]; exact h₁.table T hT
   natTrio := h₁.natTrio
-  natOps := h₁.natOps
 
 /-- **A shown former's facts across an extension.** -/
 theorem shownFacts_keep {env env' : Env} {mp : EnvModelM V env} {m' : EnvModel V env'}
@@ -1426,8 +1425,6 @@ structure NatFacts (env : Env) : Prop where
   trio : (env.find? ConLeche.natName).isSome = true ∨ (env.find? ConLeche.natSuccName).isSome = true →
     (env.find? ConLeche.natName).isSome = true ∧ (env.find? ConLeche.natZeroName).isSome = true ∧
       (env.find? ConLeche.natSuccName).isSome = true
-  ops : ∀ c, ConLeche.natOpWfNames.contains c = true → (env.find? c).isSome = true →
-    (env.find? ConLeche.natName).isSome = true
 
 omit [SetTheory V] in
 /-- **The second path's η-families.** -/
@@ -1538,7 +1535,7 @@ theorem declBlockViewed {F : Nat} {env env₂ : Env} {block : List ConstantInfo}
         · rw [hx₁] at h₃'
           exact absurd ⟨cvR, capsv, Option.some.inj h₃'⟩ hdi
   have hx : EnvExt env env₂ := by
-    refine ⟨hfd₂, fun T hT => ?_, hN.trio, hN.ops⟩
+    refine ⟨hfd₂, fun T hT => ?_, hN.trio⟩
     have hne : ∀ t ∈ newQ, (t.structName == T) = false := by
       intro t ht
       obtain ⟨m, hm, hn⟩ := hQall t ht
