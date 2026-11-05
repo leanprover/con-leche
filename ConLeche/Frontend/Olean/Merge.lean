@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Frontend.Olean.Closure
+public import ConLeche.Frontend.Olean.Lazy
 
 @[expose] public section
 

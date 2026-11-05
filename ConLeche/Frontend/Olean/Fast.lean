@@ -268,15 +268,24 @@ termination_by n - p
 @[inline] def maxLoc (r : @& Region) (vs : List UInt64) (m : Nat) : Nat :=
   vs.foldl (fun m v => max m (r.locGo v r.segs.size)) m
 
-/-- **Both passes** from the given name and expression roots.  Every
-object they reach lies at or below the highest root, so the memo ends
-there. -/
-def runPasses (r : @& Region) (names exprs : List UInt64) : Option DS := do
+/-- **Both passes** from the given name and expression roots: how many slots
+the memo has, the marks and the memo.  Every object they reach lies at or
+below the highest root, so the memo ends there. -/
+def runMarked (r : @& Region) (names exprs : List UInt64) : Option (Nat × ByteArray × DS) := do
   let n := maxLoc r exprs (maxLoc r names 0) / 8 + 1
   let m ← names.foldlM (markRoot r kName true) (zeros n)
   let m ← exprs.foldlM (markRoot r kExpr false) m
   let m := markPass r m n
-  if failedM m then none else buildPass r m n (DS.fresh n) 0
+  if failedM m then none
+  else match buildPass r m n (DS.fresh n) 0 with
+    | some st => some (n, m, st)
+    | none => none
+
+/-- **Both passes**: the memo. -/
+def runPasses (r : @& Region) (names exprs : List UInt64) : Option DS :=
+  match runMarked r names exprs with
+  | some (_, _, st) => some st
+  | none => none
 
 /-- A root's value, from the memo. -/
 @[inline] def DS.nameOf (r : @& Region) (st : @& DS) (v : UInt64) : Option Name :=

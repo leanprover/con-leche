@@ -7,7 +7,7 @@ set -euo pipefail
 LEAN="$(elan which lean 2>/dev/null || command -v lean)"
 OUT=tests/olean/lib
 rm -rf "$OUT"; mkdir -p "$OUT"
-for m in Tiny TinyClassic TinyUse PrivUnused ClashA ClashB HidA HidAll HidUse WvA WvB WvM NlX NlY \
+for m in Tiny TinyClassic TinyUse PrivUnused LazyVal ClashA ClashB HidA HidAll HidUse WvA WvB WvM NlX NlY \
     NlB NlM NpAx RbH RbM UpComm UpCommSol UpCommAxSol UpCommMisSol UpDefHole UpDefHoleSol \
     UpDefHoleAxSol UpDefHoleKindSol UpDefHoleTy UpDefHoleTySol UpKindDef UpKindDefOpqSol \
     UpKindThm UpKindThmDefSol UpKindThmOpqSol UpHidDef UpHidDefSol UpNum/12.34/5 UpNumSol \

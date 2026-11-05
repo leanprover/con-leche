@@ -26,6 +26,8 @@ written down by hand from their sources (`tests/olean/src`): the imports,
 the names stored, and the kind, fields and values of a few constants at each
 level; and every part's name table (`constNamesOk`) lists its constants.
 The third checks the emission's input validation on a hand-made constant.
+The first also evaluates the load: with each theorem's value read over the
+module's frontier, it is the private view.
 -/
 
 namespace ConLecheTests
@@ -60,6 +62,32 @@ def agree (what : String) (f : ModFiles) (level : OLeanLevel) : IO Unit := do
   unless readStmts f level (l.consts.toList.map (·.loc)) == some (d.constants.toList.map CEntryF.stmt) do
     throw (IO.userError s!"{what}: the statements read differ")
 
+/-- **A module's load, each theorem's value read over its frontier, is the private view**:
+`loadAt_spec`, `lazyEntry_of_spec`, `frontierExpr_eq` on the fixtures.  What a constant
+mentions is compared with what the full parse says, as the walk over the file's objects has
+no theorem. -/
+def loadAgrees (what : String) (i : Nat) (f : ModFiles) : IO Unit := do
+  let some d := parseView f .private | throw (IO.userError s!"{what}: it does not read")
+  let some l := loadAt i (.str .anonymous what) f | throw (IO.userError s!"{what}: the load fails")
+  let some (r, _) := f.viewRegion .private | throw (IO.userError s!"{what}: no region")
+  unless l.constants.size == d.constants.size do
+    throw (IO.userError s!"{what}: a constant more or less")
+  for e in l.constants, c in d.constants do
+    match e.kind, c.kind with
+    | .thm (.bvar code) all, .thm v all' =>
+      unless refModule code == i && all == all' do
+        throw (IO.userError s!"{what}: {c.name}: the reference's module or the block")
+      unless frontierExpr r l.frontier (refLoc code) == some v do
+        throw (IO.userError s!"{what}: {c.name}: its value over the frontier")
+      unless frontierExpr r {} (refLoc code) == some v do
+        throw (IO.userError s!"{what}: {c.name}: its value with no frontier")
+      unless e.name == c.name && e.levelParams == c.levelParams && e.type == c.type do
+        throw (IO.userError s!"{what}: {c.name}: its statement")
+    | .thm .., _ | _, .thm .. => throw (IO.userError s!"{what}: {c.name}: its kind")
+    | _, _ =>
+      unless e.toCEntryF == c do
+        throw (IO.userError s!"{what}: {c.name} differs")
+
 /-- A module's files. -/
 def filesOf (lib m : String) : IO ModFiles := do
   let ex ← readPartOrFail s!"{lib}{m}.olean"
@@ -84,6 +112,7 @@ def filesOf (lib m : String) : IO ModFiles := do
     match checkViews (.str .anonymous m) f v with
     | .ok _ => pure ()
     | .error e => throw (IO.userError s!"{m}: {e}")
+    loadAgrees m 7 f
     -- the imports off every prefix the walk does not run off, up to the file
     let bytes := f.exported.bytes
     for k in [0:bytes.size / 512 + 1] do
@@ -183,14 +212,14 @@ def sortN (xs : Array Name) : Array Name := xs.qsort fun a b => toString a < toS
 def ty0 : Expr := .sort (.succ .zero)
 
 def ent (n : String) (type : Expr) (kind : CKind) : CEntry :=
-  { name := nm n, levelParams := [], type, kind, uses := constsOf [type] }
+  { name := nm n, levelParams := [], type, kind }
 
 -- A constructor its inductive type does not list is malformed input (it
 -- would be dropped without a word).
 def orphanMerged : Merged :=
   let cs := #[ent "I" ty0 (.induct 0 0 [nm "I"] [] 0 false false false),
     ent "I.c" (.const (nm "I") []) (.ctor (nm "I") 0 0 0 false)]
-  match mergeAll #[⟨nm "M", cs⟩] with
+  match mergeAll #[⟨nm "M", cs, {}⟩] with
   | .ok mg => mg
   | .error _ => {}
 
@@ -199,7 +228,7 @@ def orphanMerged : Merged :=
 /-- The merge of some constants; a merge that fails is the empty one, on which the guards below
 would fail. -/
 def mergedOf (cs : Array CEntry) : Merged :=
-  match mergeAll #[⟨nm "M", cs⟩] with
+  match mergeAll #[⟨nm "M", cs, {}⟩] with
   | .ok mg => mg
   | .error _ => {}
 

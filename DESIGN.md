@@ -109033,3 +109033,119 @@ roots are now every constant of the closure.  `--constant=NAME` restricts them, 
 `--` does, so that the reader subsumes the exporter: `olean-compare` compares a constant's cone
 record for record, and a whole closure up to the records only internal names reach.  Unsafe and
 partial constants stay out: that filter is about the logic, and is `Export.lean`'s own.
+
+## TASK #481 — a theorem's value stays in the file until its check (2026-11-05, agent/481-lazy-values)
+
+**The task (maintainer).**  Most of what an `.olean` holds is theorem values, only needed by
+that theorem's check, in parallel, and not afterwards.  Build the environment without
+decoding them, keep the memo for sharing (a two-tier table if need be), read a value in its
+check and drop it; verified equal to today; say what it does to Mathlib's RSS and to the rest
+of the performance, including the cost of re-decoding what many theorems share.
+
+**The census** (Mathlib's closure, 10 976 modules, 7.2 GB of files, 549 030 theorems).  Expression
+objects: 137.8 M in all, 44.4 M without the theorems' values.  All kinds: 143.8 M, 48.2 M.  Sum over
+the theorems of what each value reaches: 216 M, or 120 M outside what the load read.  So re-decoding
+per theorem costs at most 1.84 times the objects without any memo, 1.17 times with one.
+Largest module 14.6 MB, so a worker keeping one module's bytes costs nothing.
+
+**The variants** (`--jobs=8`, one run each, spike binary; wall is noisy on this machine):
+
+| | peak RSS | instr:u | cycles:u | wall |
+|---|---|---|---|---|
+| today | 6.26 GiB | 7 658 G | 3 898 G | 131 s |
+| no memo kept | 3.52 GiB | 8 357 G | 4 563 G | 153 s |
+| memo per worker, per module | 3.56 GiB | 8 486 G | 4 318 G | 139 s |
+| the load's whole memo kept, as hash maps | 6.29 GiB | 7 889 G | 3 997 G | 125 s |
+| **the frontier kept, memo per job** | **4.01 GiB** | 8 264 G | 4 036 G | 124 s |
+| the frontier and a memo per worker | 3.99 GiB | 8 379 G | 4 176 G | 130 s |
+| the frontier and a dense memo per worker | 4.37 GiB | 8 448 G | 4 553 G | 152 s |
+
+The maintainer's second tier is what removes the slowdown: objects shared with the environment
+are persistent, pay no reference counting, and pointer equality still fires.  (The spike's single runs
+suggested a check faster than today's; the alternating runs below do not: it is flat.)  **The frontier**
+makes it cheap: a value enters
+what the load read only at the objects a value-only object points to (6.0 M of 48.2 M), and everything
+below stays reachable through those, so nothing else of the memo is ever asked for.  Sorted arrays
+(keys and values per kind) rather than hash maps, and a table per module.  The dense memo is rejected on
+the numbers.
+
+**The shipped path** (the real binary against master 7cb7a45cd; `--verified --jobs=8`, 5 runs
+each, alternating, load average 7-30, median and min-max):
+
+| Mathlib | master | this branch | |
+|---|---|---|---|
+| peak RSS | 6.20 GiB (6.18-6.24) | 3.94 GiB (3.93-3.99) | -36 % |
+| instructions:u | 7 656 G (7 652-7 664) | 8 093 G (8 085-8 100) | +5.7 % |
+| cycles:u | 3 862 G (3 755-3 977) | 3 830 G (3 799-3 874) | flat |
+| user | 879 s (855-934) | 878 s (870-889) | flat |
+| wall | 131.4 s (123.5-142.0) | 123.6 s (121.3-125.9) | -6 %, the ranges overlap |
+| parse | 16.7 s (15.4-26.1) | 10.3 s (9.9-11.7) | -38 % |
+| install | 8.6 s (7.9-9.4) | 7.6 s (6.8-7.8) | -12 % |
+| check | 102.7 s (99.0-106.9) | 104.2 s (102.9-108.5) | flat |
+
+So less memory at no real cost, and the wall gain is the parse's.  Instructions go up (the walk at the
+load, and the decoding of what a value reaches beyond the frontier) with cycles flat.  The stream path, on
+the pool it now shares (`mathlib-full.ndjson`, `--jobs=8`, one run each): 6 913.7 G and 6 914.2 G, 4.70
+GiB both.
+
+**The shape.**  `ConLeche/Frontend/Olean/Lazy.lean`: `loadAt`, a value being `valueRef i g` in the
+records, an expression, so that the merge, the emission, the preparation and the install need no change
+(none of them reads it; the install's own comment already said so).  `readValue` in
+`Records.lean`: the module's region (`regionFor`, a worker's cache) and `frontierExpr` (the sparse
+decoder of task #421 over a frontier).  `CheckerIO.parMapWorkers` is the check phase's pool, in the class
+because the elements read files, used by the stream path too (`checkPool`, `checkLoop` gone).  A worker
+claims one job at a time, as before.
+
+**The proof.**
+* `frontierExpr_eq`: a read over any frontier holding only the specification's values is the
+  specification.  `frontierOf` takes only slots the passes' marks hold (`Built`), so a wrong walk
+  loses sharing and nothing else: `frontierWalk` is `partial` with no theorem.
+* `loadAt_spec`, `lazyEntry_of_spec`, `lazyEntry_thm`: the load's constants are the specification's,
+  up to a theorem's value, which is a reference to the location the skeleton's pointer stands for.
+* The model of the worker map is the sequential map at any state `WorkerReach` allows: where a
+  worker starts and what its own elements leave.  So a worker's cache is not a trusted
+  assumption: `oleanWorker_reach` proves every reachable state keeps its module's region of the snapshot.
+* `InstallRun.fill`: the install at any theorems' values is the same run.  `fillOf`, ghost, puts in each
+  reference what it stands for on the snapshot (`ValueAt`, unique).  `checkOleansG_accept`,
+  `checkMainG_oleans_accept`: exit 0 means `checkDecls` accepts the filled records.
+* **`readOleans_filled`**, what "verified equal" means: a theorem's record with its value in place is
+  the constant the specification reads off that module's files (`constSpec`), statement and proof.
+* `main_oleans_no_False`'s statement did not change.
+
+**What is not proved, and what differs from today.**
+* The old pipeline is gone rather than proved equal to this one (no reference copies), so the claim is
+  against the specification, not against the old code.
+* The record ORDER rests on `usesGo`, as it did on `constsGo`, both without a theorem (it was `partial`
+  too).  Checked instead: the 775 321 install lines of the old and new binaries on Mathlib hash the same
+  (sha256 367a3bb5…); `tests/olean-compare.sh`: `Init` 0 differences.  An order that was wrong would make a check fail, never pass.
+* **A value no check reads is no longer decoded**: a theorem shadowed in the merge by another
+  module's copy, or outside `--constant`'s cone.  The walk still goes over its expression objects' shapes
+  (`usesGo`), but a bad string or number in it no longer fails the run: pinned in `tests/olean.sh`
+  (`--constant` past a bad value, exit 0, 3 before).  Such a value means nothing to the run, and no decode is added
+  (maintainer's ruling: a value that is not read is no concern here).
+* A malformed value now fails in its job, at its position, with the same exit 3, so an earlier
+  record's reject can come first.
+* The hoist reads what a theorem mentions from the load (`OleanRead.thmUses`), a value's mentions
+  not being in its record; no real input has reached this (`hoisted` is empty on Init and Mathlib),
+  and a fixture would need a theorem in a Nat operation's ground.
+
+**The worker's state (maintainer's ruling).**  What it holds of a read is the module's region, the
+files' raw bytes.  Measured by reading the files for every theorem instead (Mathlib, `--jobs=8`, 5
+alternating runs, median): wall 119.1 s against 151.1 s, check 102.1 s against 132.8 s, sys 14.5 s
+against 146 s, instructions 8 088 G against 8 472 G, the same RSS.  A cache in the `IO` instance was
+considered, as the model already assumes one snapshot: it would drop `WorkerReach` and `CacheOK` but
+needs a concatenating read and the `Located` kept, and puts unverified state in the instance.  Ruled
+against: the worker map stays, a parallel combinator whose model makes the proof hold at every state a
+worker can reach.  What that gives is exit 0 implies the fact, at any assignment of elements to workers; no
+theorem says two assignments give one result, and that the threads meet the model is assumption (1).
+
+**The load on the worker map** (`parMapExcept`'s instance swapped for it, not kept; parse phase on
+Mathlib, 5 alternating runs, median, min-max): 8 jobs 10.6 s (9.8-11.6) static, 10.2 s (10.1-15.5) claimed;
+32 jobs 7.3 s (7.0-12.0), 7.7 s (7.3-12.0).  No measurable gain: the largest round-robin share by file
+bytes is 1.03 times the mean at 8 workers, 1.16 at 32, and the largest module 22 times the mean module.
+CFSG's closure not measured.
+`parMapExcept` stays as it is for now (maintainer's ruling).
+
+**Follow-ups, not done.**  The stream reader (the maintainer's idea: line boundaries, then the roots).
+Workers read a module's files again each (61 000 reads for 11 000 modules on Mathlib, 2 % of the
+worker time).  CFSG is the maintainer's to run.

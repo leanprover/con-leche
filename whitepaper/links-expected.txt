@@ -6649,13 +6649,13 @@
     39      {ds : Array Declaration} {env' : Env}
     40      (h : checkDecls .verified pins ds = .ok env') :
 
-== ConLeche/Frontend/Prepare.lean#L171-L172
-   171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   172    (prepareD pre ds).decls
+== ConLeche/Frontend/Prepare.lean#L174-L175
+   174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   175    (prepareD pre ds).decls
 
-== ConLeche/Verify/Frontend/Prepare.lean#L160-L161
-   160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
-   161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+== ConLeche/Verify/Frontend/Prepare.lean#L174-L175
+   174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+   175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
 
 >>> whitepaper/sections/08-related.typ
 

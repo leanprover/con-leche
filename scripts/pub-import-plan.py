@@ -61,6 +61,11 @@ FALLBACK = {
     # `Engine.lean:25`; `IsKind`, `Sparse.lean:104`).
     ('ConLeche.Verify.Frontend.Olean.Engine', 'ConLeche.Frontend.Olean.Fast'),
     ('ConLeche.Verify.Frontend.Olean.Sparse', 'ConLeche.Verify.Frontend.Olean.Kids'),
+    # task #481: the snapshot theorems' public statements name `ModelIO.Det`,
+    # `foldList`; the model finds the module's other public-interface miss first
+    # (`Verify.Frontend.Olean.Emit`), one token, so that this one adds nothing.
+    # Measured by demoting it (no field `Det`, `Files.lean:54`).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.ModelIO'),
     # `ExportC`'s public definitions name `Declaration`, `ConstantVal`
     # (unknown identifier, `ExportC.lean:65`); the census attributes them to
     # its other imports.

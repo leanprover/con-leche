@@ -134,6 +134,38 @@ case_grep "--constant the closure does not hold" 3 "not in the import closure" -
 case_grep "--constant that is no name" 3 "not a constant's name" --olean --constant=a.. --search-path=$LIB PrivUnused
 case_ "--constant without --olean" 3 --constant=two tests/mode/split_good.ndjson
 
+# --- a theorem's value stays in the file until its check ------------------
+# (task #481) a bad index on a bound variable only a theorem's value holds, which nothing
+# but that theorem's check decodes: exit 3 there, at its place; and no verdict at all
+# where no check asks for the value.  Before, the load decoded every value, so the second
+# was 3 as well.  A value that is not read is no concern here (maintainer's ruling).
+d="$TMPDIR/con-leche-olean-lazy"
+case_ "a theorem's value read in its check" 0 --olean --search-path=$LIB LazyVal
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" LazyVal "
+c = consts('olean.private')['lazyProof']
+tag = lambda a: at(a)[0][at(a)[1] + 7]
+f = fld(fld(c, 0), 1)
+while tag(f) == 5: f = fld(f, 0)
+while tag(f) == 6: f = fld(f, 2)
+assert tag(f) == 0
+setfld(f, 0, fld(fld(fld(c, 0), 0), 0))"
+case_grep "a bad value of a theorem: found by its check" 3 "malformed .olean data" \
+  --olean --search-path=$d LazyVal
+case_grep "…at one worker" 3 "malformed .olean data" --jobs=1 --olean --search-path=$d LazyVal
+case_ "…and read by no check where --constant leaves the theorem out" 0 \
+  --olean --constant=other --search-path=$d LazyVal
+# a value of no expression's shape: the load's walk over what it mentions finds that,
+# for every theorem of the closure, --constant or not
+rm -rf "$d"; cp -r "$LIB" "$d"
+xpatch "$d" LazyVal "
+t = fld(consts('olean.private')['lazyProof'], 0)
+setfld(t, 1, fld(t, 0))"
+case_grep "a theorem's value of no expression's shape: found by the load" 3 "malformed .olean data" \
+  --olean --search-path=$d LazyVal
+case_ "…with --constant too" 3 --olean --constant=other --search-path=$d LazyVal
+rm -rf "$d"
+
 # --- corrupted files ----------------------------------------------------
 # Each case copies the fixtures and changes bytes of Tiny's files.
 # patch <file> <python expression over b (bytearray), base, root>

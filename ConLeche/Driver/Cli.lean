@@ -244,9 +244,9 @@ def usage : String := String.intercalate "\n" [
   "                    with proofs, definitions with bodies), merged as",
   "                    Lean's own import merges it, and emitted as the",
   "                    records lean4export would write, so the same",
-  "                    checker checks them.  Every object the imports and",
-  "                    constants reach is decoded and validated, nothing",
-  "                    in the files is trusted.  A",
+  "                    checker checks them.  Every object read is",
+  "                    validated, nothing in the files is trusted; a",
+  "                    theorem's proof is read when its check needs it.  A",
   "                    file of another .olean format version declines (2).",
   "  --constant=NAME   with --olean: check only this constant and what it",
   "                    mentions, not every constant of the closure, as",
@@ -387,7 +387,7 @@ def parseArgs : List String → Args → Args
   -- The progress heartbeat: a FLAG, in either order with
   -- `--verified`/`--trusted`, and independent of them — it turns on
   -- the heartbeat the ONE driver prints between the steps of its two
-  -- phases (`installLoop`/`checkLoop`), which is the same driver, at
+  -- phases (`installLoop`/`checkPool`), which is the same driver, at
   -- the same mode, as a run without it.  Bare is stride 1;
   -- `--progress=<n>` is the general form (below, with the other
   -- `=`-carrying spellings).
