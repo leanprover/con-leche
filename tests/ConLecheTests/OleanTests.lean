@@ -186,7 +186,7 @@ def ent (n : String) (type : Expr) (kind : CKind) : CEntry :=
   { name := nm n, levelParams := [], type, kind, uses := constsOf [type] }
 
 -- A constructor its inductive type does not list is malformed input (it
--- would be dropped without a word): the merged closure's walk finds it.
+-- would be dropped without a word).
 def orphanMerged : Merged :=
   let cs := #[ent "I" ty0 (.induct 0 0 [nm "I"] [] 0 false false false),
     ent "I.c" (.const (nm "I") []) (.ctor (nm "I") 0 0 0 false)]
@@ -194,7 +194,67 @@ def orphanMerged : Merged :=
   | .ok mg => mg
   | .error _ => {}
 
-#guard (coverageOk orphanMerged (emitAll orphanMerged orphanMerged.order)) matches .error (.internal _)
+#guard (blocksOk orphanMerged) matches .error (.internal _)
+
+/-- The merge of some constants; a merge that fails is the empty one, on which the guards below
+would fail. -/
+def mergedOf (cs : Array CEntry) : Merged :=
+  match mergeAll #[⟨nm "M", cs⟩] with
+  | .ok mg => mg
+  | .error _ => {}
+
+def indI (all cs : List Name) (u : Bool := false) : CEntry :=
+  ent "I" ty0 (.induct 0 0 all cs 0 false u false)
+
+def ctorIc (ind : String := "I") (u : Bool := false) : CEntry :=
+  ent "I.c" (.const (nm "I") []) (.ctor (nm ind) 0 0 0 u)
+
+def recI (all : List Name) (u : Bool := false) : CEntry :=
+  ent "I.rec" ty0 (.recur all 0 0 0 0 [] false u)
+
+def isBlocksError (cs : Array CEntry) : Bool :=
+  (mergedOf cs).order.size == cs.size &&
+    match blocksOk (mergedOf cs) with
+    | .error (.internal _) => true
+    | _ => false
+
+-- A block in order.
+#guard (blocksOk (mergedOf #[indI [nm "I"] [nm "I.c"], ctorIc, recI [nm "I"]])) matches .ok ()
+-- The same block filtered out, as a whole.
+#guard (blocksOk (mergedOf #[indI [nm "I"] [nm "I.c"] true, ctorIc "I" true, recI [nm "I"] true]))
+  matches .ok ()
+-- A block's `all` that names a theorem: the walk would mark the theorem visited and the block's
+-- record would leave it out, so that it is never checked.
+#guard isBlocksError #[indI [nm "I", nm "bad"] [], ent "bad" ty0 (.thm (.sort .zero) [nm "bad"])]
+-- A block that does not list its own type, or names one that is not stored.
+#guard isBlocksError #[indI [] []]
+#guard isBlocksError #[indI [nm "I", nm "J"] []]
+-- Two types that disagree on the block.
+#guard isBlocksError #[indI [nm "I", nm "J"] [],
+  ent "J" ty0 (.induct 0 0 [nm "J"] [] 0 false false false)]
+-- A listed constructor that is not stored, is no constructor, or names another type.
+#guard isBlocksError #[indI [nm "I"] [nm "I.c"]]
+#guard isBlocksError #[indI [nm "I"] [nm "I.c"], ent "I.c" ty0 (.ax false)]
+#guard isBlocksError #[indI [nm "I"] [nm "I.c"], ctorIc "J",
+  ent "J" ty0 (.induct 0 0 [nm "J"] [nm "I.c"] 0 false false false)]
+-- A constructor whose type is not stored, or is no inductive type.
+#guard isBlocksError #[ctorIc]
+#guard isBlocksError #[ent "I" ty0 (.ax false), ctorIc]
+-- A recursor of no block, of a block not stored, of no inductive type, or not its member's.
+#guard isBlocksError #[recI []]
+#guard isBlocksError #[recI [nm "I"]]
+#guard isBlocksError #[ent "I" ty0 (.ax false), recI [nm "I"]]
+#guard isBlocksError #[indI [nm "I"] [], recI [nm "I", nm "J"]]
+-- Parts of a block of which some are filtered out: the walk would not reach the safe ones'
+-- record through the unsafe type.
+#guard isBlocksError #[indI [nm "I"] [nm "I.c"] true, ctorIc]
+#guard isBlocksError #[indI [nm "I"] [nm "I.c"], ctorIc "I" true]
+#guard isBlocksError #[indI [nm "I"] [] true, recI [nm "I"]]
+-- A quotient constant outside the package, and a package holding another kind.
+#guard isBlocksError #[ent "Q" ty0 (.quot "type")]
+#guard isBlocksError #[ent "Quot" ty0 (.quot "type"), ent "Quot.mk" ty0 (.ax false)]
+#guard (blocksOk (mergedOf #[ent "Quot" ty0 (.quot "type"), ent "Quot.mk" ty0 (.quot "ctor")]))
+  matches .ok ()
 
 -- Module names on the command line (upstream's
 -- challenge-numeric-namespace): `«»` escapes taken literally, dots

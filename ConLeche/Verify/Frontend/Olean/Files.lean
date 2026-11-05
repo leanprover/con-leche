@@ -516,8 +516,8 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
         l.constants = d.constants.map CEntry.ofRead) ∧
       ClosedOrder sp fs order ∧ (∀ r ∈ roots, r ∈ order) ∧
       (∀ l ∈ ls, ∀ c ∈ l.constants, ∃ c', mg.map[c.name]? = some c' ∧ Stands c' c) ∧
-      mergeAll ls.toArray = .ok mg ∧ rootConstants mg constants = .ok rs ∧
-      coverageOk mg (emitAll mg rs) = .ok () ∧ declsOf (emitAll mg rs) = .ok ds := by
+      mergeAll ls.toArray = .ok mg ∧ blocksOk mg = .ok () ∧ rootConstants mg constants = .ok rs ∧
+      declsOf (emitAll mg rs) = .ok ds := by
   simp only [readOleans, loadClosure, ModelIO.bind_ok] at h
   obtain ⟨x, ⟨o, ho, hx⟩, h⟩ := h
   rcases o with e | order
@@ -535,14 +535,14 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
       | error e => simp [hm] at h
       | ok mg =>
         simp only [hm] at h
+        cases hc : blocksOk mg with
+        | error e => simp [hc] at h
+        | ok u =>
+        simp only [hc] at h
         cases hr : rootConstants mg constants with
         | error e => simp [hr] at h
         | ok rs =>
-        simp only [hr] at h
-        cases hc : coverageOk mg (emitAll mg rs) with
-        | error e => simp [hc] at h
-        | ok u =>
-          simp only [hc, ModelIO.pure_iff, Except.ok.injEq] at h
+          simp only [hr, ModelIO.pure_iff, Except.ok.injEq] at h
           have hF : (mapExcept (loadModule sp) order.toList : ModelIO _) fs (.ok (.ok ls)) := hy
           obtain ⟨h1, h2⟩ := mapExcept_ok (g := Loaded.name) (Q := fun l => ∃ d,
               (readView sp l.name .private : ModelIO _) fs (.ok (.ok d)) ∧
@@ -556,8 +556,8 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
               exact ⟨rfl, r, hz, rfl⟩) hF
           obtain ⟨hk, -⟩ := mergeAll_ok hm
           obtain ⟨hc1, hc2⟩ := closureOrder_ok ho
-          exact ⟨order, ls, mg, rs, ho, h1, h2, hc1, hc2, fun l hl => hk l (by simpa using hl), hm, hr,
-            by cases u; exact hc, h.symm⟩
+          exact ⟨order, ls, mg, rs, ho, h1, h2, hc1, hc2, fun l hl => hk l (by simpa using hl), hm,
+            by cases u; exact hc, hr, h.symm⟩
 
 /-- **The private view of a module on a snapshot**, by the specification: the module's files
 on the search path, and what `decodeModuleSpec` says they hold at that level. -/
@@ -623,7 +623,7 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
     (hcl : InClosure sp fs roots m) (hv : ViewOf sp fs m d)
     (hc : c ∈ d.constants) (hk : c.kind = .thm v all) :
     ∃ v', Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v' ∈ ds := by
-  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hr, hcov, hds⟩ := readOleans_ok h
+  obtain ⟨order, ls, mg, rs, ho, h1, h2, hco, hcr, hstand, hm, hb, hr, hds⟩ := readOleans_ok h
   have hrs : rs = mg.order := by
     simp only [rootConstants] at hr
     cases hr
@@ -642,7 +642,6 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
   obtain ⟨c', hc', hs⟩ := hstand l hl _ hcl'
   obtain ⟨hk1, hk2, hk3, hk4⟩ := mergeAll_ok hm
   have hN : ∀ (n : Name) (x : CEntry), mg.map[n]? = some x → x.name = n := fun n x hx => (hk2 n x hx).1
-  have hord : (CEntry.ofRead c).name ∈ mg.order := (hk3 _).2 (contains_of_getElem hc')
   have hkind : (CEntry.ofRead c).kind = .thm v all := hk
   have hst : ∃ v' all', c'.kind = .thm v' all' ∧ c'.name = c.name ∧ c'.levelParams = c.levelParams ∧
       c'.type = c.type := by
@@ -659,7 +658,7 @@ theorem readOleans_thm {sp : SearchPath} {roots : Array Name} {jobs : Nat} {fs :
       | ctor _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
       | recur _ _ _ _ _ _ _ _ => rw [hk'] at k1; exact k1.elim
   obtain ⟨v', all', hk5, hn, hlp, hty⟩ := hst
-  have := declsOf_thm hN hds hcov hord hord hc' hk5
+  have := declsOf_thm hN hk3 hds hb ((hk3 _).2 (contains_of_getElem hc')) hc' hk5
   rw [hn, hlp, hty] at this
   exact ⟨v', this⟩
 

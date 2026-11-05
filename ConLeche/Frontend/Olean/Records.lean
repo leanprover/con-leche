@@ -81,12 +81,11 @@ def readOleans {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
     match mergeAll ls with
     | .error e => pure (.error (e, 0))
     | .ok mg =>
-      match rootConstants mg constants with
+      match blocksOk mg with
       | .error e => pure (.error (e, 0))
-      | .ok cs =>
-        let em := emitAll mg cs
-        match coverageOk mg em with
+      | .ok () =>
+        match rootConstants mg constants with
         | .error e => pure (.error (e, 0))
-        | .ok () => pure (declsOf em)
+        | .ok cs => pure (declsOf (emitAll mg cs))
 
 end ConLeche.Frontend.Olean

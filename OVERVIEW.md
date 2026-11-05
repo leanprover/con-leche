@@ -627,7 +627,9 @@ every exit 0 read records off the snapshot's files that `checkDecls` accepts.
 `readOleans_ok` says what those records are made of: the order holds the named modules and
 has every module after its imports (`closureOrder_ok`), every constant of their private views
 stands in the merge, itself or a constant of its name and statement that Lean's own import lets
-stand for it (`mergeAll_ok`), and every declaration comes from stored constants (`declsOf_from`).
+stand for it (`mergeAll_ok`), every constant the walk visits and does not filter out has its record,
+where the blocks of the merged constants agree, which `blocksOk` checks before the walk
+(`emitAll_covers`), and every declaration comes from stored constants (`declsOf_from`).
 A theorem of a module of the closure is among the records with its statement (`declsOf_thm`,
 `readOleans_thm`), so `main_oleans_no_False` holds of the files, at the arguments `--olean
 --search-path=<dirs> -- <root>`: if the private view of a module of the closure of `root`, by the

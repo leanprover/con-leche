@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
+import ConLeche.Verify.Frontend.Olean.Merge
 import Std.Data.HashSet.Lemmas
 
 /-!
@@ -11,9 +12,10 @@ import Std.Data.HashSet.Lemmas
 `emitLoop_spec`: every record comes from stored constants (`RecFrom`), each constant named by
 a `visit` that is stored and not filtered out ends visited.
 
-`coverageOk`, the emission's input check, then says a visited constant is declared by a
-record, and that record is its own: `declsOf_thm` (a theorem constant's record is its
-theorem), `declsOf_from` (every declaration comes from stored constants).
+`emitLoop_covers`: where the stored constants' blocks agree (`blocksOk`, the check before the
+walk), a visited constant that is not filtered out is declared by a record, and that record is
+its own: `declsOf_thm` (a theorem constant's record is its theorem), `declsOf_from` (every
+declaration comes from stored constants).
 -/
 
 public section
@@ -140,6 +142,30 @@ theorem Emit.cv_spec (st : Emit) (c : CEntry) :
 
 /-! ## The records -/
 
+/-- A record declares a name. -/
+@[expose] def Declares (em : Emit) (n : Name) : DeclRec → Prop
+  | .ax cv _ | .defn cv .. | .thm cv _ | .opaq cv .. | .quot cv _ => em.names[cv.name]? = some n
+  | .ind ts cs rs =>
+    (∃ t ∈ ts, em.names[t.cv.name]? = some n) ∨ (∃ t ∈ cs, em.names[t.cv.name]? = some n) ∨
+      ∃ t ∈ rs, em.names[t.cv.name]? = some n
+
+/-- A name some record declares. -/
+@[expose] def Has (em : Emit) (n : Name) : Prop := ∃ r ∈ em.out, Declares em n r
+
+theorem Declares.mono {a b : Emit} (h : Emit.Sub a b) {n : Name} :
+    ∀ {r : DeclRec}, Declares a n r → Declares b n r
+  | .ax _ _, h' => h.names _ _ h'
+  | .defn _ _ _ _, h' => h.names _ _ h'
+  | .thm _ _, h' => h.names _ _ h'
+  | .opaq _ _ _, h' => h.names _ _ h'
+  | .quot _ _, h' => h.names _ _ h'
+  | .ind _ _ _, .inl ⟨t, ht, h'⟩ => .inl ⟨t, ht, h.names _ _ h'⟩
+  | .ind _ _ _, .inr (.inl ⟨t, ht, h'⟩) => .inr (.inl ⟨t, ht, h.names _ _ h'⟩)
+  | .ind _ _ _, .inr (.inr ⟨t, ht, h'⟩) => .inr (.inr ⟨t, ht, h.names _ _ h'⟩)
+
+theorem Has.mono {a b : Emit} (h : Emit.Sub a b) {n : Name} : Has a n → Has b n
+  | ⟨r, hr, hd⟩ => ⟨r, h.out r hr, hd.mono h⟩
+
 /-- **A record that is one constant's**, by the tables. -/
 @[expose] def RecOf (em : Emit) (c : CEntry) : DeclRec → Prop
   | .ax cv u => CvOf em cv c ∧ c.kind = .ax u
@@ -185,10 +211,19 @@ theorem RecFrom.mono {mg : Merged} {a b : Emit} (h : Emit.Sub a b) :
     · obtain ⟨c, x, y, z⟩ := h3 t ht
       exact ⟨c, x, y.mono h, z⟩
 
+theorem RecOf.declares {em : Emit} {c : CEntry} : ∀ {r : DeclRec}, RecOf em c r → Declares em c.name r
+  | .ax _ _, h => h.1.1
+  | .defn _ _ _ _, h => h.1.1
+  | .thm _ _, h => h.1.1
+  | .opaq _ _ _, h => h.1.1
+  | .quot _ _, h => h.1.1
+  | .ind .., h => h.elim
+
 /-- **One constant's record.** -/
 theorem Emit.one_spec (st : Emit) (c : CEntry) :
     Emit.Sub st (st.one c) ∧ (st.one c).visited = st.visited ∧
-      ∀ r ∈ (st.one c).out, r ∈ st.out ∨ RecOf (st.one c) c r := by
+      (∀ r ∈ (st.one c).out, r ∈ st.out ∨ RecOf (st.one c) c r) ∧
+      (c.kind.tag < 5 → Has (st.one c) c.name) := by
   obtain ⟨h1, h2, h3, h4⟩ := Emit.cv_spec st c
   generalize hC : st.cv c = C at h1 h2 h3 h4
   have hone : st.one c = (let (st, d) : Emit × Option DeclRec := match c.kind with
@@ -204,13 +239,15 @@ theorem Emit.one_spec (st : Emit) (c : CEntry) :
     subst hC
     rfl
   rw [hone]
-  have pushed : ∀ (e : Emit) (d : DeclRec), Emit.Sub C.1 e → e.visited = st.visited →
+  have pushed : ∀ {t : Nat} (e : Emit) (d : DeclRec), Emit.Sub C.1 e → e.visited = st.visited →
       e.out = st.out → RecOf (e.push d) c d →
       Emit.Sub st (e.push d) ∧ (e.push d).visited = st.visited ∧
-        ∀ r ∈ (e.push d).out, r ∈ st.out ∨ RecOf (e.push d) c r := by
-    intro e d hs hv ho hr
+        (∀ r ∈ (e.push d).out, r ∈ st.out ∨ RecOf (e.push d) c r) ∧
+        (t < 5 → Has (e.push d) c.name) := by
+    intro t e d hs hv ho hr
     obtain ⟨p1, p2, p3⟩ := Emit.push_spec e d
-    refine ⟨(h1.trans hs).trans p1, p2.trans hv, fun r hm => ?_⟩
+    refine ⟨(h1.trans hs).trans p1, p2.trans hv, fun r hm => ?_,
+      fun _ => ⟨d, by rw [p3]; exact Array.mem_push.mpr (.inr rfl), hr.declares⟩⟩
     rw [p3, ho] at hm
     rcases Array.mem_push.mp hm with hm | rfl
     · exact .inl hm
@@ -219,38 +256,38 @@ theorem Emit.one_spec (st : Emit) (c : CEntry) :
   | ax u =>
     simp only
     obtain ⟨p1, -, -⟩ := Emit.push_spec C.1 (.ax C.2 u)
-    exact pushed C.1 _ (Emit.Sub.refl _) h3 h4 ⟨h2.mono p1, hk⟩
+    exact pushed C.1 (.ax C.2 u) (Emit.Sub.refl _) h3 h4 ⟨h2.mono p1, hk⟩
   | defn v h s =>
     simp only
     obtain ⟨e1, e2, e3, e4⟩ := Emit.expr_spec C.1 v
     obtain ⟨p1, -, -⟩ := Emit.push_spec (C.1.expr v).1 (.defn C.2 (C.1.expr v).2 h s)
-    exact pushed _ _ e1 (e3.trans h3) (e4.trans h4)
+    exact pushed _ (.defn C.2 (C.1.expr v).2 h s) e1 (e3.trans h3) (e4.trans h4)
       ⟨(h2.mono e1).mono p1, v, p1.exprs _ _ e2, hk⟩
   | thm v all =>
     simp only
     obtain ⟨e1, e2, e3, e4⟩ := Emit.expr_spec C.1 v
     obtain ⟨p1, -, -⟩ := Emit.push_spec (C.1.expr v).1 (.thm C.2 (C.1.expr v).2)
-    exact pushed _ _ e1 (e3.trans h3) (e4.trans h4)
+    exact pushed _ (.thm C.2 (C.1.expr v).2) e1 (e3.trans h3) (e4.trans h4)
       ⟨(h2.mono e1).mono p1, v, all, p1.exprs _ _ e2, hk⟩
   | opaq v u =>
     simp only
     obtain ⟨e1, e2, e3, e4⟩ := Emit.expr_spec C.1 v
     obtain ⟨p1, -, -⟩ := Emit.push_spec (C.1.expr v).1 (.opaq C.2 (C.1.expr v).2 u)
-    exact pushed _ _ e1 (e3.trans h3) (e4.trans h4)
+    exact pushed _ (.opaq C.2 (C.1.expr v).2 u) e1 (e3.trans h3) (e4.trans h4)
       ⟨(h2.mono e1).mono p1, v, p1.exprs _ _ e2, hk⟩
   | quot k =>
     simp only
     obtain ⟨p1, -, -⟩ := Emit.push_spec C.1 (.quot C.2 k)
-    exact pushed C.1 _ (Emit.Sub.refl _) h3 h4 ⟨h2.mono p1, hk⟩
+    exact pushed C.1 (.quot C.2 k) (Emit.Sub.refl _) h3 h4 ⟨h2.mono p1, hk⟩
   | induct _ _ _ _ _ _ _ _ =>
     simp only
-    exact ⟨h1, h3, fun r hm => .inl (h4 ▸ hm)⟩
+    exact ⟨h1, h3, fun r hm => .inl (h4 ▸ hm), by simp [CKindF.tag]⟩
   | ctor _ _ _ _ _ =>
     simp only
-    exact ⟨h1, h3, fun r hm => .inl (h4 ▸ hm)⟩
+    exact ⟨h1, h3, fun r hm => .inl (h4 ▸ hm), by simp [CKindF.tag]⟩
   | recur _ _ _ _ _ _ _ _ =>
     simp only
-    exact ⟨h1, h3, fun r hm => .inl (h4 ▸ hm)⟩
+    exact ⟨h1, h3, fun r hm => .inl (h4 ▸ hm), by simp [CKindF.tag]⟩
 
 /-- A fold that adds to the tables, gathering what it says of each constant. -/
 theorem block_fold {α : Type} {Q : Emit → α → Prop}
@@ -386,6 +423,117 @@ theorem Emit.block_spec (mg : Merged) (st : Emit) (tys ctors recs : List CEntry)
     · obtain ⟨c, x, y, z⟩ := c4 t (by simpa using ht')
       exact ⟨c, x, y.mono p1, z⟩
 
+/-- A fold that adds to the tables keeps what each step gathered. -/
+theorem fold_has {α : Type} {f : Emit × Array α → CEntry → Emit × Array α} (nameOf : α → Nat)
+    (P : CEntry → Prop)
+    (hf : ∀ st acc c, Emit.Sub st (f (st, acc) c).1 ∧ (∀ x ∈ acc, x ∈ (f (st, acc) c).2) ∧
+      (P c → ∃ x ∈ (f (st, acc) c).2, (f (st, acc) c).1.names[nameOf x]? = some c.name))
+    (l : List CEntry) (st : Emit) (acc : Array α) :
+    Emit.Sub st (l.foldl f (st, acc)).1 ∧ (∀ x ∈ acc, x ∈ (l.foldl f (st, acc)).2) ∧
+      ∀ c ∈ l, P c → ∃ x ∈ (l.foldl f (st, acc)).2, (l.foldl f (st, acc)).1.names[nameOf x]? = some c.name := by
+  induction l generalizing st acc with
+  | nil => exact ⟨Emit.Sub.refl _, fun _ h => h, by simp⟩
+  | cons c l ih =>
+    simp only [List.foldl_cons]
+    obtain ⟨h1, h2, h3⟩ := hf st acc c
+    generalize hx : f (st, acc) c = X at h1 h2 h3
+    obtain ⟨g1, g2, g3⟩ := ih X.1 X.2
+    refine ⟨h1.trans g1, fun x hx' => g2 x (h2 x hx'), fun d hd hp => ?_⟩
+    rcases List.mem_cons.mp hd with rfl | hd
+    · obtain ⟨x, hx1, hx2⟩ := h3 hp
+      exact ⟨x, g2 x hx1, g1.names _ _ hx2⟩
+    · exact g3 d hd hp
+
+theorem Emit.tyStep_has (st : Emit) (acc : Array IndTypeRec) (c : CEntry) :
+    Emit.Sub st (Emit.tyStep (st, acc) c).1 ∧ (∀ x ∈ acc, x ∈ (Emit.tyStep (st, acc) c).2) ∧
+      (c.kind.tag = 5 → ∃ x ∈ (Emit.tyStep (st, acc) c).2,
+        (Emit.tyStep (st, acc) c).1.names[x.cv.name]? = some c.name) := by
+  unfold Emit.tyStep
+  cases hk : c.kind with
+  | induct np ni all cs nn ir iu irf =>
+    obtain ⟨h1, h2, -, -⟩ := Emit.cv_spec st c
+    obtain ⟨g1, -, -⟩ := Emit.names'_spec (st.cv c).1 cs
+    exact ⟨h1.trans g1, fun x hx => Array.mem_push.mpr (.inl hx),
+      fun _ => ⟨_, Array.mem_push.mpr (.inr rfl), g1.names _ _ h2.1⟩⟩
+  | _ => exact ⟨Emit.Sub.refl _, fun _ h => h, by simp [CKindF.tag]⟩
+
+theorem Emit.ctorStep_has (st : Emit) (acc : Array IndCtorRec) (c : CEntry) :
+    Emit.Sub st (Emit.ctorStep (st, acc) c).1 ∧ (∀ x ∈ acc, x ∈ (Emit.ctorStep (st, acc) c).2) ∧
+      (c.kind.tag = 6 → ∃ x ∈ (Emit.ctorStep (st, acc) c).2,
+        (Emit.ctorStep (st, acc) c).1.names[x.cv.name]? = some c.name) := by
+  unfold Emit.ctorStep
+  cases hk : c.kind with
+  | ctor ind cidx np nf iu =>
+    obtain ⟨h1, h2, -, -⟩ := Emit.cv_spec st c
+    obtain ⟨g1, -, -, -⟩ := Emit.name_spec (st.cv c).1 ind
+    exact ⟨h1.trans g1, fun x hx => Array.mem_push.mpr (.inl hx),
+      fun _ => ⟨_, Array.mem_push.mpr (.inr rfl), g1.names _ _ h2.1⟩⟩
+  | _ => exact ⟨Emit.Sub.refl _, fun _ h => h, by simp [CKindF.tag]⟩
+
+theorem Emit.recStep_has (st : Emit) (acc : Array IndRecRec) (c : CEntry) :
+    Emit.Sub st (Emit.recStep (st, acc) c).1 ∧ (∀ x ∈ acc, x ∈ (Emit.recStep (st, acc) c).2) ∧
+      (c.kind.tag = 7 → ∃ x ∈ (Emit.recStep (st, acc) c).2,
+        (Emit.recStep (st, acc) c).1.names[x.cv.name]? = some c.name) := by
+  unfold Emit.recStep
+  cases hk : c.kind with
+  | recur all np ni nmo nmi rules k iu =>
+    obtain ⟨h1, h2, -, -⟩ := Emit.cv_spec st c
+    obtain ⟨g1, -, -⟩ := ruleStep_fold rules (st.cv c).1 #[]
+    exact ⟨h1.trans g1, fun x hx => Array.mem_push.mpr (.inl hx),
+      fun _ => ⟨_, Array.mem_push.mpr (.inr rfl), g1.names _ _ h2.1⟩⟩
+  | _ => exact ⟨Emit.Sub.refl _, fun _ h => h, by simp [CKindF.tag]⟩
+
+theorem Emit.block_sub (st : Emit) (tys ctors recs : List CEntry) :
+    Emit.Sub st (st.block tys ctors recs) := by
+  obtain ⟨a1, -, -⟩ := fold_has (fun x : IndTypeRec => x.cv.name) (fun _ => False) (by
+    intro st acc c
+    obtain ⟨h1, h2, -⟩ := Emit.tyStep_has st acc c
+    exact ⟨h1, h2, False.elim⟩) tys st #[]
+  generalize hF1 : tys.foldl Emit.tyStep (st, #[]) = X1 at a1
+  obtain ⟨b1, -, -⟩ := fold_has (fun x : IndCtorRec => x.cv.name) (fun _ => False) (by
+    intro st acc c
+    obtain ⟨h1, h2, -⟩ := Emit.ctorStep_has st acc c
+    exact ⟨h1, h2, False.elim⟩) ctors X1.1 #[]
+  generalize hF2 : ctors.foldl Emit.ctorStep (X1.1, #[]) = X2 at b1
+  obtain ⟨c1, -, -⟩ := fold_has (fun x : IndRecRec => x.cv.name) (fun _ => False) (by
+    intro st acc c
+    obtain ⟨h1, h2, -⟩ := Emit.recStep_has st acc c
+    exact ⟨h1, h2, False.elim⟩) recs X2.1 #[]
+  generalize hF3 : recs.foldl Emit.recStep (X2.1, #[]) = X3 at c1
+  have hb : st.block tys ctors recs = X3.1.push (.ind X1.2.toList X2.2.toList X3.2.toList) := by
+    subst hF3 hF2 hF1
+    rfl
+  rw [hb]
+  exact ((a1.trans b1).trans c1).trans (Emit.push_spec _ _).1
+
+/-- **A block's record declares its parts**, those of the right kind. -/
+theorem Emit.block_has (st : Emit) (tys ctors recs : List CEntry) :
+    (∀ c ∈ tys, c.kind.tag = 5 → Has (st.block tys ctors recs) c.name) ∧
+    (∀ c ∈ ctors, c.kind.tag = 6 → Has (st.block tys ctors recs) c.name) ∧
+    (∀ c ∈ recs, c.kind.tag = 7 → Has (st.block tys ctors recs) c.name) := by
+  obtain ⟨a1, -, a3⟩ := fold_has (fun x : IndTypeRec => x.cv.name) (fun c => c.kind.tag = 5) Emit.tyStep_has tys st #[]
+  generalize hF1 : tys.foldl Emit.tyStep (st, #[]) = X1 at a1 a3
+  obtain ⟨b1, -, b3⟩ := fold_has (fun x : IndCtorRec => x.cv.name) (fun c => c.kind.tag = 6) Emit.ctorStep_has ctors X1.1 #[]
+  generalize hF2 : ctors.foldl Emit.ctorStep (X1.1, #[]) = X2 at b1 b3
+  obtain ⟨c1, -, c3⟩ := fold_has (fun x : IndRecRec => x.cv.name) (fun c => c.kind.tag = 7) Emit.recStep_has recs X2.1 #[]
+  generalize hF3 : recs.foldl Emit.recStep (X2.1, #[]) = X3 at c1 c3
+  have hb : st.block tys ctors recs = X3.1.push (.ind X1.2.toList X2.2.toList X3.2.toList) := by
+    subst hF3 hF2 hF1
+    rfl
+  rw [hb]
+  obtain ⟨p1, -, p3⟩ := Emit.push_spec X3.1 (.ind X1.2.toList X2.2.toList X3.2.toList)
+  have hin : DeclRec.ind X1.2.toList X2.2.toList X3.2.toList ∈
+      (X3.1.push (.ind X1.2.toList X2.2.toList X3.2.toList)).out := by
+    rw [p3]
+    exact Array.mem_push.mpr (.inr rfl)
+  refine ⟨fun c hc ht => ?_, fun c hc ht => ?_, fun c hc ht => ?_⟩
+  · obtain ⟨x, hx, hn⟩ := a3 c hc ht
+    exact ⟨_, hin, .inl ⟨x, by simpa using hx, p1.names _ _ (c1.names _ _ (b1.names _ _ hn))⟩⟩
+  · obtain ⟨x, hx, hn⟩ := b3 c hc ht
+    exact ⟨_, hin, .inr (.inl ⟨x, by simpa using hx, p1.names _ _ (c1.names _ _ hn)⟩)⟩
+  · obtain ⟨x, hx, hn⟩ := c3 c hc ht
+    exact ⟨_, hin, .inr (.inr ⟨x, by simpa using hx, p1.names _ _ hn⟩)⟩
+
 /-! ## The walk -/
 
 /-- Stack items' constants are stored. -/
@@ -435,7 +583,7 @@ theorem Emit.ones_spec (mg : Merged) (cs : List CEntry) : ∀ st : Emit, (∀ c 
   | nil => intro st _ ho; exact ⟨Emit.Sub.refl _, rfl, ho⟩
   | cons c cs ih =>
     intro st hc ho
-    obtain ⟨h1, h2, h3⟩ := Emit.one_spec st c
+    obtain ⟨h1, h2, h3, -⟩ := Emit.one_spec st c
     obtain ⟨g1, g2, g3⟩ := ih (st.one c) (fun x hx => hc x (List.mem_cons_of_mem _ hx)) (fun r hr => by
       rcases h3 r hr with h4 | h4
       · exact RecFrom.mono h1 (ho r h4)
@@ -498,7 +646,7 @@ theorem emitLoop_spec (mg : Merged) (recMap : Std.HashMap Name (Array Name))
   all_goals intro hw ho
   case case1 st => exact ⟨Emit.Sub.refl _, fun _ h => h, ho, fun n hn => by simp at hn⟩
   case case2 st c rest ih =>
-    obtain ⟨h1, h2, h3⟩ := Emit.one_spec st c
+    obtain ⟨h1, h2, h3, -⟩ := Emit.one_spec st c
     have hc : Stored mg c := hw _ List.mem_cons_self
     obtain ⟨g1, g2, g3, g4⟩ := ih (fun w hm => hw w (List.mem_cons_of_mem _ hm)) (fun r hr => by
       rcases h3 r hr with h4 | h4
@@ -625,144 +773,684 @@ theorem emitAll_spec {mg : Merged} (hN : ∀ (n : Name) (c : CEntry), mg.map[n]?
       ∀ n ∈ rs, ∀ c, mg.map[n]? = some c → c.skipped = false →
         (emitAll mg rs).visited.contains n = true := by
   unfold emitAll
-  generalize Array.foldl _ _ mg.order = recMap
-  obtain ⟨-, -, h3, h4⟩ := emitLoop_spec mg recMap hN (rs.toList.map Work.visit) {}
+  obtain ⟨-, -, h3, h4⟩ := emitLoop_spec mg (recMapOf mg) hN (rs.toList.map Work.visit) {}
     (fun w hw => by
       obtain ⟨_, -, rfl⟩ := List.mem_map.mp hw
       trivial)
     (fun r hr => by simp at hr)
   exact ⟨h3, fun n hn c hc hsk => h4 n (List.mem_map.mpr ⟨n, by simpa using hn, rfl⟩) c hc hsk⟩
 
-/-! ## What a record declares -/
+/-! ## The blocks -/
 
-/-- A record declares a name. -/
-@[expose] def Declares (em : Emit) (n : Name) : DeclRec → Prop
-  | .ax cv _ | .defn cv .. | .thm cv _ | .opaq cv .. | .quot cv _ => em.names[cv.name]? = some n
-  | .ind ts cs rs =>
-    (∃ t ∈ ts, em.names[t.cv.name]? = some n) ∨ (∃ t ∈ cs, em.names[t.cv.name]? = some n) ∨
-      ∃ t ∈ rs, em.names[t.cv.name]? = some n
+/-- An inductive type of that block and those constructors. -/
+@[expose] def IsInd (c : CEntry) (all cs : List Name) : Prop :=
+  ∃ np ni nn ir iu irf, c.kind = .induct np ni all cs nn ir iu irf
 
-theorem declared_nm {em : Emit} {cv : CVRec} {s : Std.HashSet Name} {n : Name}
-    (h : (match em.names[cv.name]? with
-      | some m => s.insert m
-      | none => s).contains n = true) :
-    s.contains n = true ∨ em.names[cv.name]? = some n := by
+/-- A constructor of that type. -/
+@[expose] def IsCtor (c : CEntry) (ind : Name) : Prop :=
+  ∃ cidx np nf iu, c.kind = .ctor ind cidx np nf iu
+
+/-- A recursor of that block. -/
+@[expose] def IsRec (c : CEntry) (all : List Name) : Prop :=
+  ∃ np ni nmo nmi rules k iu, c.kind = .recur all np ni nmo nmi rules k iu
+
+/-- **The stored constants' blocks agree.** -/
+structure BlocksGood (mg : Merged) : Prop where
+  ind : ∀ {n : Name} {c : CEntry} {all cs : List Name}, mg.map[n]? = some c → IsInd c all cs → n ∈ all ∧
+    (∀ x ∈ all, ∃ m cs', mg.map[x]? = some m ∧ IsInd m all cs' ∧ m.skipped = c.skipped) ∧
+    (∀ x ∈ cs, ∃ m, mg.map[x]? = some m ∧ IsCtor m n ∧ m.skipped = c.skipped)
+  ctor : ∀ {n : Name} {c : CEntry} {ind : Name}, mg.map[n]? = some c → IsCtor c ind →
+    ∃ m all cs, mg.map[ind]? = some m ∧ IsInd m all cs ∧ n ∈ cs
+  recur : ∀ {n : Name} {c : CEntry} {all : List Name}, mg.map[n]? = some c → IsRec c all →
+    ∃ t rest m cs, all = t :: rest ∧ mg.map[t]? = some m ∧ IsInd m all cs ∧ m.skipped = c.skipped
+  quot : ∀ {n : Name} {c : CEntry} {k : String}, mg.map[n]? = some c → c.kind = .quot k →
+    c ∈ quotConstants mg ∧ ∀ q ∈ quotConstants mg, q.kind.tag = 4
+
+theorem IsInd.unique {c : CEntry} {a a' b b' : List Name} (h : IsInd c a b) (h' : IsInd c a' b') :
+    a = a' ∧ b = b' := by
+  obtain ⟨_, _, _, _, _, _, h1⟩ := h
+  obtain ⟨_, _, _, _, _, _, h2⟩ := h'
+  rw [h1] at h2
+  cases h2
+  exact ⟨rfl, rfl⟩
+
+/-- A `forM` that succeeds succeeds on each element. -/
+theorem forM_ok {f : Name → Except CheckError Unit} : ∀ {l : List Name}, l.forM f = .ok () →
+    ∀ x ∈ l, f x = .ok ()
+  | [], _, x, hx => by simp at hx
+  | y :: l, hl, x, hx => by
+    have hl' : (f y >>= fun _ => l.forM f) = Except.ok () := hl
+    cases hy : f y with
+    | error e => simp [hy, bind, Except.bind] at hl'
+    | ok u =>
+      rw [hy] at hl'
+      rcases List.mem_cons.mp hx with rfl | hx
+      · cases u; exact hy
+      · exact forM_ok hl' x hx
+
+theorem blockMemberOk_ok {mg : Merged} {n x : Name} {all : List Name} {sk : Bool}
+    (h : blockMemberOk mg n all sk x = .ok ()) :
+    ∃ m cs', mg.map[x]? = some m ∧ IsInd m all cs' ∧ m.skipped = sk := by
+  unfold blockMemberOk at h
   split at h
+  · cases h
   · rename_i m hm
-    simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at h
-    rcases h with rfl | h
-    · exact .inr hm
-    · exact .inl h
-  · exact .inl h
+    split at h
+    · rename_i all' cs _ _ _ _ hk
+      split at h
+      · rename_i h1
+        split at h
+        · rename_i h2
+          obtain rfl : all' = all := by simpa using h1
+          exact ⟨m, _, hm, ⟨_, _, _, _, _, _, hk⟩, by simpa using h2⟩
+        · cases h
+      · cases h
+    · cases h
 
-theorem declared_list {α : Type} {em : Emit} (cvOf : α → CVRec) {n : Name} (l : List α) :
-    ∀ s : Std.HashSet Name,
-      (l.foldl (fun s t => match em.names[(cvOf t).name]? with
-        | some m => s.insert m
-        | none => s) s).contains n = true →
-      s.contains n = true ∨ ∃ t ∈ l, em.names[(cvOf t).name]? = some n := by
-  induction l with
-  | nil => intro s h; exact .inl h
+theorem blockCtorOk_ok {mg : Merged} {n x : Name} {sk : Bool} (h : blockCtorOk mg n sk x = .ok ()) :
+    ∃ m, mg.map[x]? = some m ∧ IsCtor m n ∧ m.skipped = sk := by
+  unfold blockCtorOk at h
+  split at h
+  · cases h
+  · rename_i m hm
+    split at h
+    · rename_i ind _ _ _ _ hk
+      split at h
+      · rename_i h1
+        split at h
+        · rename_i h2
+          obtain rfl : ind = n := by simpa using h1
+          exact ⟨m, hm, ⟨_, _, _, _, hk⟩, by simpa using h2⟩
+        · cases h
+      · cases h
+    · cases h
+
+/-- **`blocksOk` says the blocks agree.** -/
+theorem blocksOk_good {mg : Merged} (h : blocksOk mg = .ok ())
+    (hO : ∀ n, n ∈ mg.order ↔ mg.map.contains n = true) : BlocksGood mg := by
+  have step : ∀ {n c}, mg.map[n]? = some c → blockStep mg n = .ok () := by
+    intro n c hc
+    refine forM_ok h n (by simpa using (hO n).2 (contains_of_getElem hc))
+  refine ⟨fun {n c all cs} hc hk => ?_, fun {n c ind} hc hk => ?_, fun {n c all} hc hk => ?_,
+    fun {n c k} hc hk => ?_⟩
+  · have hs := step hc
+    obtain ⟨_, _, _, _, _, _, hk⟩ := hk
+    simp only [blockStep, hc, hk] at hs
+    split at hs
+    · rename_i h1
+      split at hs
+      · cases hs
+      · rename_i h2
+        exact ⟨by simpa using h1, fun x hx => blockMemberOk_ok (forM_ok h2 x hx),
+          fun x hx => blockCtorOk_ok (forM_ok hs x hx)⟩
+    · cases hs
+  · have hs := step hc
+    obtain ⟨_, _, _, _, hk⟩ := hk
+    simp only [blockStep, hc, hk] at hs
+    split at hs
+    · cases hs
+    · rename_i t ht
+      split at hs
+      · rename_i all cs _ _ _ _ hk'
+        split at hs
+        · rename_i h1
+          exact ⟨t, all, cs, ht, ⟨_, _, _, _, _, _, hk'⟩, by simpa using h1⟩
+        · cases hs
+      · cases hs
+  · have hs := step hc
+    obtain ⟨_, _, _, _, _, _, _, hk⟩ := hk
+    simp only [blockStep, hc, hk] at hs
+    split at hs
+    · cases hs
+    · rename_i t rest
+      split at hs
+      · cases hs
+      · rename_i m hm
+        split at hs
+        · rename_i all' cs _ _ _ _ hk'
+          split at hs
+          · rename_i h1
+            split at hs
+            · rename_i h2
+              obtain rfl : all' = t :: rest := by simpa using h1
+              exact ⟨t, rest, m, cs, rfl, hm, ⟨_, _, _, _, _, _, hk'⟩, by simpa using h2⟩
+            · cases hs
+          · cases hs
+        · cases hs
+  · have hs := step hc
+    simp only [blockStep, hc, hk] at hs
+    split at hs
+    · rename_i h1
+      split at hs
+      · rename_i h2
+        refine ⟨?_, fun q hq => by simpa using List.all_eq_true.mp h2 q hq⟩
+        have hn : n ∈ quotNames := by simpa using h1
+        exact List.mem_filterMap.mpr ⟨n, hn, hc⟩
+      · cases hs
+    · cases hs
+
+/-! ## The recursors of a block -/
+
+theorem recMapAdd_mem (n i k r : Name) (m : Std.HashMap Name (Array Name)) :
+    r ∈ ((recMapAdd n m i)[k]?).getD #[] ↔ r ∈ (m[k]?).getD #[] ∨ (i = k ∧ r = n) := by
+  unfold recMapAdd
+  rw [Std.HashMap.getElem?_alter]
+  by_cases hik : i = k
+  · subst hik
+    simp only [beq_self_eq_true, ↓reduceIte]
+    cases hm : m[i]? with
+    | none => simp
+    | some a =>
+      simp only [Option.getD_some, true_and]
+      by_cases ha : a.contains n = true
+      · simp only [ha, ↓reduceIte]
+        refine ⟨.inl, ?_⟩
+        rintro (h | rfl)
+        · exact h
+        · simpa using ha
+      · have hn : ¬ n ∈ a := by simpa using ha
+        simp [hn, Array.mem_push]
+  · have : (i == k) = false := by simpa using hik
+    simp [this, hik]
+
+theorem recMapAdds_mem (n k r : Name) (all : List Name) : ∀ m : Std.HashMap Name (Array Name),
+    r ∈ ((all.foldl (recMapAdd n) m)[k]?).getD #[] ↔ r ∈ (m[k]?).getD #[] ∨ (k ∈ all ∧ r = n) := by
+  induction all with
+  | nil => intro m; simp
+  | cons i all ih =>
+    intro m
+    simp only [List.foldl_cons, ih, recMapAdd_mem, List.mem_cons]
+    constructor
+    · rintro ((h | ⟨rfl, rfl⟩) | ⟨h1, rfl⟩)
+      · exact .inl h
+      · exact .inr ⟨.inl rfl, rfl⟩
+      · exact .inr ⟨.inr h1, rfl⟩
+    · rintro (h | ⟨rfl | h1, rfl⟩)
+      · exact .inl (.inl h)
+      · exact .inl (.inr ⟨rfl, rfl⟩)
+      · exact .inr ⟨h1, rfl⟩
+
+theorem recMapOf_go (mg : Merged) (k r : Name) (l : List Name) (m : Std.HashMap Name (Array Name)) :
+    r ∈ ((l.foldl (recMapStep mg) m)[k]?).getD #[] ↔
+      r ∈ (m[k]?).getD #[] ∨ (r ∈ l ∧ ∃ c all, mg.map[r]? = some c ∧ IsRec c all ∧ k ∈ all) := by
+  induction l generalizing m with
+  | nil => simp
   | cons x l ih =>
-    intro s h
-    rcases ih _ h with h1 | ⟨t, ht, h1⟩
-    · rcases declared_nm h1 with h2 | h2
-      · exact .inl h2
-      · exact .inr ⟨x, List.mem_cons_self, h2⟩
-    · exact .inr ⟨t, List.mem_cons_of_mem _ ht, h1⟩
+    simp only [List.foldl_cons, ih, List.mem_cons]
+    have hstep : r ∈ ((recMapStep mg m x)[k]?).getD #[] ↔
+        r ∈ (m[k]?).getD #[] ∨ (r = x ∧ ∃ c all, mg.map[r]? = some c ∧ IsRec c all ∧ k ∈ all) := by
+      unfold recMapStep
+      split
+      · rename_i all _ _ _ _ _ _ _ hk
+        rw [recMapAdds_mem]
+        obtain ⟨c, hc, hck⟩ := Option.map_eq_some_iff.mp hk
+        constructor
+        · rintro (h | ⟨h1, rfl⟩)
+          · exact .inl h
+          · exact .inr ⟨rfl, c, all, hc, ⟨_, _, _, _, _, _, _, hck⟩, h1⟩
+        · rintro (h | ⟨rfl, c', all', hc', ⟨_, _, _, _, _, _, _, hk'⟩, h1⟩)
+          · exact .inl h
+          · rw [hc] at hc'
+            cases hc'
+            rw [hck] at hk'
+            cases hk'
+            exact .inr ⟨h1, rfl⟩
+      · rename_i hk
+        constructor
+        · exact .inl
+        · rintro (h | ⟨rfl, c', all', hc', ⟨a1, a2, a3, a4, a5, a6, a7, hk'⟩, h1⟩)
+          · exact h
+          · exact (hk all' a1 a2 a3 a4 a5 a6 a7 (by simp [hc', hk'])).elim
+    rw [hstep]
+    constructor
+    · rintro ((h | ⟨rfl, h⟩) | ⟨h1, h⟩)
+      · exact .inl h
+      · exact .inr ⟨.inl rfl, h⟩
+      · exact .inr ⟨.inr h1, h⟩
+    · rintro (h | ⟨rfl | h1, h⟩)
+      · exact .inl (.inl h)
+      · exact .inl (.inr ⟨rfl, h⟩)
+      · exact .inr ⟨h1, h⟩
 
-/-- **A declared name has its record.** -/
-theorem declared_rec {em : Emit} {n : Name} (h : em.declared.contains n = true) :
-    ∃ r ∈ em.out, Declares em n r := by
-  unfold Emit.declared at h
-  rw [← Array.foldl_toList] at h
-  have key : ∀ (l : List DeclRec) (s : Std.HashSet Name),
-      (l.foldl (fun s d => match d with
-        | .ax cv _ | .defn cv .. | .thm cv _ | .opaq cv .. | .quot cv _ =>
-          match em.names[cv.name]? with
-          | some m => s.insert m
-          | none => s
-        | .ind ts cs rs =>
-          let s := ts.foldl (fun s t => match em.names[t.cv.name]? with
-            | some m => s.insert m
-            | none => s) s
-          let s := cs.foldl (fun s c => match em.names[c.cv.name]? with
-            | some m => s.insert m
-            | none => s) s
-          rs.foldl (fun s r => match em.names[r.cv.name]? with
-            | some m => s.insert m
-            | none => s) s) s).contains n = true →
-      s.contains n = true ∨ ∃ r ∈ l, Declares em n r := by
-    intro l
-    induction l with
-    | nil => intro s h; exact .inl h
-    | cons d l ih =>
-      intro s h
-      rcases ih _ h with h1 | ⟨r, hr, h1⟩
-      · cases d with
-        | ax cv _ =>
-          rcases declared_nm h1 with h2 | h2
-          · exact .inl h2
-          · exact .inr ⟨_, List.mem_cons_self, h2⟩
-        | defn cv _ _ _ =>
-          rcases declared_nm h1 with h2 | h2
-          · exact .inl h2
-          · exact .inr ⟨_, List.mem_cons_self, h2⟩
-        | thm cv _ =>
-          rcases declared_nm h1 with h2 | h2
-          · exact .inl h2
-          · exact .inr ⟨_, List.mem_cons_self, h2⟩
-        | opaq cv _ _ =>
-          rcases declared_nm h1 with h2 | h2
-          · exact .inl h2
-          · exact .inr ⟨_, List.mem_cons_self, h2⟩
-        | quot cv _ =>
-          rcases declared_nm h1 with h2 | h2
-          · exact .inl h2
-          · exact .inr ⟨_, List.mem_cons_self, h2⟩
-        | ind ts cs rs =>
-          rcases declared_list IndRecRec.cv rs _ h1 with h2 | h2
-          · rcases declared_list IndCtorRec.cv cs _ h2 with h3 | h3
-            · rcases declared_list IndTypeRec.cv ts _ h3 with h4 | h4
-              · exact .inl h4
-              · exact .inr ⟨_, List.mem_cons_self, .inl h4⟩
-            · exact .inr ⟨_, List.mem_cons_self, .inr (.inl h3)⟩
-          · exact .inr ⟨_, List.mem_cons_self, .inr (.inr h2)⟩
-      · exact .inr ⟨r, List.mem_cons_of_mem _ hr, h1⟩
-  rcases key _ _ h with h1 | ⟨r, hr, h1⟩
-  · simp at h1
-  · exact ⟨r, by simpa using hr, h1⟩
+/-- **`recMapOf`**: under a name, the recursors of the order whose block lists it. -/
+theorem recMapOf_mem (mg : Merged) (k r : Name) :
+    r ∈ ((recMapOf mg)[k]?).getD #[] ↔
+      r ∈ mg.order ∧ ∃ c all, mg.map[r]? = some c ∧ IsRec c all ∧ k ∈ all := by
+  unfold recMapOf
+  rw [← Array.foldl_toList, recMapOf_go]
+  simp
 
-/-- **The emission's input check**: a constant of the order that was visited and is not
-filtered out is declared. -/
-theorem coverageOk_declared {mg : Merged} {em : Emit} {n : Name} {c : CEntry}
-    (h : coverageOk mg em = .ok ()) (hn : n ∈ mg.order) (hc : mg.map[n]? = some c)
-    (hsk : c.skipped = false) (hv : em.visited.contains n = true) :
-    em.declared.contains n = true := by
-  unfold coverageOk at h
-  have key : ∀ l : List Name, l.forM (coverStep mg em em.declared) = Except.ok () → ∀ x ∈ l,
-      coverStep mg em em.declared x = .ok () := by
-    intro l
-    induction l with
-    | nil => intro _ x hx; simp at hx
-    | cons y l ih =>
-      intro hl x hx
-      have hl' : (coverStep mg em em.declared y >>= fun _ =>
-          l.forM (coverStep mg em em.declared)) = Except.ok () := hl
-      cases hy : coverStep mg em em.declared y with
-      | error e => simp [hy, bind, Except.bind] at hl'
-      | ok u =>
-        rw [hy] at hl'
-        rcases List.mem_cons.mp hx with rfl | hx
-        · cases u; exact hy
-        · exact ih hl' x hx
-  have hs := key _ h n (by simpa using hn)
-  unfold coverStep at hs
-  rw [hc] at hs
-  simp only [hsk, hv, Bool.not_false, Bool.and_self, ↓reduceIte] at hs
-  by_cases hd : em.declared.contains n = true
-  · exact hd
-  · simp [hd, bind, Except.bind, throw, throwThe, MonadExceptOf.throw] at hs
+/-! ## Visited means declared -/
+
+/-- What a stack item will declare when it runs. -/
+@[expose] def Will (n : Name) : Work → Prop
+  | .visit _ => False
+  | .one c => c.name = n ∧ c.kind.tag < 5
+  | .quot cs => ∃ c ∈ cs, c.name = n ∧ c.kind.tag < 5
+  | .block ts cs rs => (∃ c ∈ ts, c.name = n ∧ c.kind.tag = 5) ∨ (∃ c ∈ cs, c.name = n ∧ c.kind.tag = 6) ∨
+      ∃ c ∈ rs, c.name = n ∧ c.kind.tag = 7
+
+/-- Declared, or will be. -/
+@[expose] def Done (st : Emit) (stack : List Work) (n : Name) : Prop :=
+  Has st n ∨ ∃ w ∈ stack, Will n w
+
+/-- `n` is a constructor or recursor of the inductive type `m`, which is not filtered out. -/
+@[expose] def BlockPart (mg : Merged) (n m : Name) : Prop :=
+  ∃ cm all cs c, mg.map[m]? = some cm ∧ IsInd cm all cs ∧ cm.skipped = false ∧ mg.map[n]? = some c ∧
+    (IsCtor c m ∨ IsRec c all)
+
+/-- **The walk's invariant**: a visited constant is declared, will be by the stack, or is part
+of an inductive type that is visited or to be visited; and all parts of a visited type are
+declared or will be. -/
+structure CoverInv (mg : Merged) (st : Emit) (stack : List Work) : Prop where
+  vis : ∀ n c, st.visited.contains n = true → mg.map[n]? = some c → c.skipped = false →
+    Done st stack n ∨ ∃ m, BlockPart mg n m ∧ (st.visited.contains m = true ∨ Work.visit m ∈ stack)
+  parts : ∀ m, st.visited.contains m = true → ∀ n, BlockPart mg n m → Done st stack n
+
+theorem Done.mono {st st' : Emit} {stack stack' : List Work} {n : Name} (hS : Emit.Sub st st')
+    (hs : ∀ w ∈ stack, w ∈ stack') (h : Done st stack n) : Done st' stack' n := by
+  rcases h with h | ⟨w, hw, h⟩
+  · exact .inl (h.mono hS)
+  · exact .inr ⟨w, hs w hw, h⟩
+
+/-- A stack item that is no `visit` ran. -/
+theorem CoverInv.pop {mg : Merged} {st st' : Emit} {w : Work} {rest : List Work}
+    (hi : CoverInv mg st (w :: rest)) (hS : Emit.Sub st st') (hv : st'.visited = st.visited)
+    (hw : ∀ n, Will n w → Has st' n) (hnv : ∀ m, w ≠ Work.visit m) : CoverInv mg st' rest := by
+  have done : ∀ {n}, Done st (w :: rest) n → Done st' rest n := by
+    rintro n (h | ⟨w', hm, h⟩)
+    · exact .inl (h.mono hS)
+    · rcases List.mem_cons.mp hm with rfl | hm
+      · exact .inl (hw n h)
+      · exact .inr ⟨w', hm, h⟩
+  refine ⟨fun n c hn hc hs => ?_, fun m hm n hp => ?_⟩
+  · rw [hv] at hn
+    rcases hi.vis n c hn hc hs with h | ⟨m, hp, h⟩
+    · exact .inl (done h)
+    · refine .inr ⟨m, hp, ?_⟩
+      rcases h with h | h
+      · exact .inl (hv ▸ h)
+      · rcases List.mem_cons.mp h with rfl | h
+        · exact absurd rfl (hnv m)
+        · exact .inr h
+  · rw [hv] at hm
+    exact done (hi.parts m hm n hp)
+
+/-- A `visit` that had nothing to do: of a type already visited, or of no type. -/
+theorem CoverInv.skip {mg : Merged} {st : Emit} {n : Name} {rest : List Work}
+    (hi : CoverInv mg st (Work.visit n :: rest))
+    (hn : st.visited.contains n = true ∨ ∀ x, ¬ BlockPart mg x n) : CoverInv mg st rest := by
+  have done : ∀ {k}, Done st (Work.visit n :: rest) k → Done st rest k := by
+    rintro k (h | ⟨w', hm, h⟩)
+    · exact .inl h
+    · rcases List.mem_cons.mp hm with rfl | hm
+      · exact h.elim
+      · exact .inr ⟨w', hm, h⟩
+  refine ⟨fun k c hk hc hs => ?_, fun m hm k hp => done (hi.parts m hm k hp)⟩
+  rcases hi.vis k c hk hc hs with h | ⟨m, hp, h⟩
+  · exact .inl (done h)
+  · refine .inr ⟨m, hp, ?_⟩
+    rcases h with h | h
+    · exact .inl h
+    · rcases List.mem_cons.mp h with he | h
+      · cases he
+        rcases hn with hn | hn
+        · exact .inl hn
+        · exact (hn _ hp).elim
+      · exact .inr h
+
+/-- A `visit` that marked and went on with what the stack has become. -/
+theorem CoverInv.step {mg : Merged} {st st' : Emit} {n : Name} {rest stack' : List Work}
+    (hi : CoverInv mg st (Work.visit n :: rest)) (hS : Emit.Sub st st')
+    (hrest : ∀ w ∈ rest, w ∈ stack')
+    (hmono : ∀ k, st.visited.contains k = true → st'.visited.contains k = true)
+    (hn : st'.visited.contains n = true)
+    (hnew : ∀ k c, st'.visited.contains k = true → st.visited.contains k = false →
+      mg.map[k]? = some c → c.skipped = false →
+      Done st' stack' k ∨ ∃ m, BlockPart mg k m ∧ (st'.visited.contains m = true ∨ Work.visit m ∈ stack'))
+    (hparts : ∀ m, st'.visited.contains m = true → st.visited.contains m = false →
+      ∀ x, BlockPart mg x m → Done st' stack' x) : CoverInv mg st' stack' := by
+  have done : ∀ {k}, Done st (Work.visit n :: rest) k → Done st' stack' k := by
+    rintro k (h | ⟨w', hm, h⟩)
+    · exact .inl (h.mono hS)
+    · rcases List.mem_cons.mp hm with rfl | hm
+      · exact h.elim
+      · exact .inr ⟨w', hrest _ hm, h⟩
+  refine ⟨fun k c hk hc hs => ?_, fun m hm k hp => ?_⟩
+  · cases hb : st.visited.contains k with
+    | false => exact hnew k c hk hb hc hs
+    | true =>
+      rcases hi.vis k c hb hc hs with h | ⟨m, hp, h⟩
+      · exact .inl (done h)
+      · refine .inr ⟨m, hp, ?_⟩
+        rcases h with h | h
+        · exact .inl (hmono _ h)
+        · rcases List.mem_cons.mp h with he | h
+          · cases he
+            exact .inl hn
+          · exact .inr (hrest _ h)
+  · cases hb : st.visited.contains m with
+    | false => exact hparts m hm hb k hp
+    | true => exact done (hi.parts m hb k hp)
+
+/-- Marked after some constants: marked before, or one of them. -/
+theorem Emit.marks_mem (cs : List CEntry) : ∀ (st : Emit) (k : Name),
+    (cs.foldl (fun st x => st.mark x.name) st).visited.contains k = true →
+      st.visited.contains k = true ∨ ∃ c ∈ cs, c.name = k := by
+  induction cs with
+  | nil => intro st k h; exact .inl h
+  | cons c cs ih =>
+    intro st k h
+    rcases ih _ k h with h | ⟨d, hd, h⟩
+    · rw [Emit.mark_contains] at h
+      simp only [Bool.or_eq_true, beq_iff_eq] at h
+      rcases h with rfl | h
+      · exact .inr ⟨c, List.mem_cons_self, rfl⟩
+      · exact .inl h
+    · exact .inr ⟨d, List.mem_cons_of_mem _ hd, h⟩
+
+/-- Every marked constant of the list is marked. -/
+theorem Emit.marks_self (cs : List CEntry) : ∀ (st : Emit), ∀ c ∈ cs,
+    (cs.foldl (fun st x => st.mark x.name) st).visited.contains c.name = true := by
+  induction cs with
+  | nil => intro st c hc; simp at hc
+  | cons d cs ih =>
+    intro st c hc
+    rcases List.mem_cons.mp hc with rfl | hc
+    · exact (Emit.marks_spec cs _).2.2 _ (Emit.mark_self _ _)
+    · exact ih _ c hc
+
+theorem Emit.ones_sub (cs : List CEntry) : ∀ st : Emit, Emit.Sub st (cs.foldl Emit.one st) := by
+  induction cs with
+  | nil => intro st; exact Emit.Sub.refl _
+  | cons c cs ih => intro st; exact (Emit.one_spec st c).1.trans (ih _)
+
+theorem Emit.ones_has (cs : List CEntry) : ∀ st : Emit, ∀ c ∈ cs, c.kind.tag < 5 →
+    Has (cs.foldl Emit.one st) c.name := by
+  induction cs with
+  | nil => intro st c hc; simp at hc
+  | cons d cs ih =>
+    intro st c hc ht
+    rcases List.mem_cons.mp hc with rfl | hc
+    · exact ((Emit.one_spec st c).2.2.2 ht).mono (Emit.ones_sub cs _)
+    · exact ih _ c hc ht
+
+/-- **Visited means declared**: where the stored constants' blocks agree, a constant the walk
+visited and that is not filtered out is declared by a record. -/
+theorem emitLoop_covers (mg : Merged) (hG : BlocksGood mg)
+    (hN : ∀ (n : Name) (c : CEntry), mg.map[n]? = some c → c.name = n)
+    (hO : ∀ n, n ∈ mg.order ↔ mg.map.contains n = true) (stack : List Work) (st : Emit) :
+    CoverInv mg st stack → ∀ n c, (emitLoop mg (recMapOf mg) stack st).visited.contains n = true →
+      mg.map[n]? = some c → c.skipped = false → Has (emitLoop mg (recMapOf mg) stack st) n := by
+  have notPart : ∀ {x m c}, mg.map[m]? = some c → c.kind.tag ≠ 5 → ¬ BlockPart mg x m := by
+    rintro x m c hc ht ⟨cm, all, cs, _, h1, ⟨_, _, _, _, _, _, h2⟩, -⟩
+    rw [hc] at h1
+    cases h1
+    simp [h2, CKindF.tag] at ht
+  have noPartNone : ∀ {x m}, mg.map[m]? = none → ¬ BlockPart mg x m := by
+    rintro x m hc ⟨cm, all, cs, _, h1, -⟩
+    rw [hc] at h1
+    cases h1
+  have noPartSkip : ∀ {x m c}, mg.map[m]? = some c → c.skipped = true → ¬ BlockPart mg x m := by
+    rintro x m c hc hs ⟨cm, all, cs, _, h1, -, h3, -⟩
+    rw [hc] at h1
+    cases h1
+    rw [hs] at h3
+    cases h3
+  -- a visit of a constant that is no inductive type and no block part: its record is pending
+  have plain : ∀ {s0 : Emit} {n : Name} {c : CEntry} {rest extra : List Work},
+      mg.map[n]? = some c → c.kind.tag < 5 → s0.visited.contains n = false →
+      CoverInv mg s0 (Work.visit n :: rest) →
+      CoverInv mg (s0.mark n) (extra ++ Work.one c :: rest) := by
+    intro s0 n c rest extra hc ht hv hi
+    obtain ⟨m1, -, m3, m4⟩ := Emit.mark_spec s0 n
+    have hnew : ∀ k, (s0.mark n).visited.contains k = true → s0.visited.contains k = false → k = n := by
+      intro k hk hb
+      rw [Emit.mark_contains, hb] at hk
+      exact (by simpa using hk : n = k).symm
+    refine hi.step m1 (fun w hw => List.mem_append_right _ (List.mem_cons_of_mem _ hw)) m3 m4 ?_ ?_
+    · intro k _ hk hb _ _
+      obtain rfl := hnew k hk hb
+      exact .inl (.inr ⟨_, List.mem_append_right _ List.mem_cons_self, hN _ _ hc, ht⟩)
+    · intro k hk hb x
+      obtain rfl := hnew k hk hb
+      exact notPart hc (by omega) |>.elim
+  fun_induction emitLoop mg (recMapOf mg) stack st
+  all_goals intro hi k d hk hd hs
+  case case1 st =>
+    rcases hi.vis k d hk hd hs with h | ⟨m, hp, h⟩
+    · rcases h with h | ⟨w, hw, -⟩
+      · exact h
+      · cases hw
+    · rcases h with h | h
+      · rcases hi.parts m h k hp with h | ⟨w, hw, -⟩
+        · exact h
+        · cases hw
+      · cases h
+  case case2 st c rest ih =>
+    obtain ⟨h1, h2, -, h4⟩ := Emit.one_spec st c
+    refine ih (hi.pop h1 h2 ?_ (by simp)) k d hk hd hs
+    rintro n ⟨rfl, ht⟩
+    exact h4 ht
+  case case3 st cs rest ih =>
+    have hv : (st.ones cs).visited = st.visited := Emit.foldl_one_visited' cs st
+    refine ih (hi.pop (Emit.ones_sub cs st) hv ?_ (by simp)) k d hk hd hs
+    rintro n ⟨c, hc, rfl, ht⟩
+    exact Emit.ones_has cs st c hc ht
+  case case4 st ts cs rs rest ih =>
+    obtain ⟨b1, b2, b3⟩ := Emit.block_has st ts cs rs
+    have hb := Emit.block_sub st ts cs rs
+    refine ih (hi.pop hb (Emit.block_visited _ _ _ _) ?_ (by simp)) k d hk hd hs
+    rintro n (⟨c, hc, rfl, ht⟩ | ⟨c, hc, rfl, ht⟩ | ⟨c, hc, rfl, ht⟩)
+    · exact b1 c hc ht
+    · exact b2 c hc ht
+    · exact b3 c hc ht
+  case case5 st n rest hv ih =>
+    exact ih (hi.skip (.inl hv)) k d hk hd hs
+  case case6 st n rest hv hc ih =>
+    exact ih (hi.skip (.inr fun x => noPartNone hc)) k d hk hd hs
+  case case7 st n rest hv c hc hsk ih =>
+    exact ih (hi.skip (.inr fun x => noPartSkip hc hsk)) k d hk hd hs
+  case case8 s0 n rest hv c hc hsk s1 _ hkind ih =>
+    exact ih (plain hc (by simp [hkind, CKindF.tag]) (by simpa using hv) hi) k d hk hd hs
+  case case9 s0 n rest hv c hc hsk s1 _ _ _ hkind ih =>
+    exact ih (plain hc (by simp [hkind, CKindF.tag]) (by simpa using hv) hi) k d hk hd hs
+  case case10 s0 n rest hv c hc hsk s1 _ _ hkind ih =>
+    exact ih (plain hc (by simp [hkind, CKindF.tag]) (by simpa using hv) hi) k d hk hd hs
+  case case11 s0 n rest hv c hc hsk s1 _ _ hkind ih =>
+    exact ih (plain hc (by simp [hkind, CKindF.tag]) (by simpa using hv) hi) k d hk hd hs
+  case case12 s0 n rest hv c hc hsk s1 q hkind qs s2 ih =>
+    obtain ⟨hqc, hqk⟩ := hG.quot hc hkind
+    obtain ⟨m1, -, m3, -⟩ := Emit.mark_spec s0 n
+    obtain ⟨q1, -, q3⟩ := Emit.marks_spec qs s1
+    have hn0 : s2.visited.contains n = true := by
+      have := Emit.marks_self qs s1 c hqc
+      rwa [hN _ _ hc] at this
+    have hnew : ∀ x, s2.visited.contains x = true → s0.visited.contains x = false →
+        ∃ q ∈ qs, q.name = x := by
+      intro x hx hb
+      rcases Emit.marks_mem qs s1 x hx with h | h
+      · rw [Emit.mark_contains, hb] at h
+        have : n = x := by simpa using h
+        subst this
+        exact ⟨c, hqc, hN _ _ hc⟩
+      · exact h
+    refine ih (hi.step (m1.trans q1) (fun w hw => List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hw))
+      (fun x hx => q3 x (m3 x hx)) hn0 ?_ ?_) k d hk hd hs
+    · intro x _ hx hb _ _
+      obtain ⟨y, hy, rfl⟩ := hnew x hx hb
+      refine .inl (.inr ⟨Work.quot qs, List.mem_cons_of_mem _ List.mem_cons_self, y, hy, rfl, ?_⟩)
+      rw [hqk y hy]
+      decide
+    · intro x hx hb z
+      obtain ⟨y, hy, rfl⟩ := hnew x hx hb
+      obtain ⟨w, -, hw⟩ := List.mem_filterMap.mp hy
+      have hyy : mg.map[y.name]? = some y := by
+        have := hN _ _ hw
+        subst this
+        exact hw
+      exact (notPart hyy (by rw [hqk y hy]; decide)).elim
+  case case13 s0 n rest hv c hc hsk s1 ind _ _ _ _ hkind ih =>
+    obtain ⟨m1, -, m3, m4⟩ := Emit.mark_spec s0 n
+    have hnew : ∀ x, (s0.mark n).visited.contains x = true → s0.visited.contains x = false → x = n := by
+      intro x hx hb
+      rw [Emit.mark_contains, hb] at hx
+      exact (by simpa using hx : n = x).symm
+    refine ih (hi.step m1 (fun w hw => List.mem_cons_of_mem _ hw) m3 m4 ?_ ?_) k d hk hd hs
+    · intro x y hx hb hy hsy
+      obtain rfl := hnew x hx hb
+      rw [hc] at hy
+      cases hy
+      have hC : IsCtor c ind := ⟨_, _, _, _, hkind⟩
+      obtain ⟨t, all, cs, ht, hI, hmem⟩ := hG.ctor hc hC
+      obtain ⟨-, -, h3⟩ := hG.ind ht hI
+      obtain ⟨c', hc', -, hsk'⟩ := h3 x hmem
+      rw [hc] at hc'
+      cases hc'
+      exact .inr ⟨ind, ⟨t, all, cs, c, ht, hI, by rw [← hsk', hsy], hc, .inl hC⟩,
+        .inr List.mem_cons_self⟩
+    · intro x hx hb z
+      obtain rfl := hnew x hx hb
+      exact (notPart hc (by simp [hkind, CKindF.tag])).elim
+  case case14 s0 n rest hv c hc hsk s1 all _ _ _ _ _ _ _ hkind ih =>
+    obtain ⟨m1, -, m3, m4⟩ := Emit.mark_spec s0 n
+    have hnew : ∀ x, (s0.mark n).visited.contains x = true → s0.visited.contains x = false → x = n := by
+      intro x hx hb
+      rw [Emit.mark_contains, hb] at hx
+      exact (by simpa using hx : n = x).symm
+    refine ih (hi.step m1 (fun w hw => List.mem_append_right _ hw) m3 m4 ?_ ?_) k d hk hd hs
+    · intro x y hx hb hy hsy
+      obtain rfl := hnew x hx hb
+      rw [hc] at hy
+      cases hy
+      have hR : IsRec c all := ⟨_, _, _, _, _, _, _, hkind⟩
+      obtain ⟨t, tl, m, cs, rfl, ht, hI, hsk'⟩ := hG.recur hc hR
+      refine .inr ⟨t, ⟨m, _, cs, c, ht, hI, by rw [hsk', hsy], hc, .inr hR⟩, .inr ?_⟩
+      exact List.mem_append_left _ (List.mem_map.mpr ⟨t, List.mem_cons_self, rfl⟩)
+    · intro x hx hb z
+      obtain rfl := hnew x hx hb
+      exact (notPart hc (by simp [hkind, CKindF.tag])).elim
+  case case15 s0 n rest hv c hc hsk s1 _ _ all cs _ _ _ _ hkind tys cts recs s2 ih =>
+    have hI : IsInd c all cs := ⟨_, _, _, _, _, _, hkind⟩
+    obtain ⟨hself, hmem, hctors⟩ := hG.ind hc hI
+    obtain ⟨m1, -, m3, -⟩ := Emit.mark_spec s0 n
+    obtain ⟨q1, -, q3⟩ := Emit.marks_spec (tys ++ cts ++ recs) s1
+    -- the block's parts, by kind
+    have hT : ∀ x ∈ tys, ∃ y cs', y ∈ all ∧ x.name = y ∧ mg.map[y]? = some x ∧ IsInd x all cs' := by
+      intro x hx
+      obtain ⟨y, hy, hxy⟩ := List.mem_filterMap.mp hx
+      obtain ⟨m, cs', hm, hI', -⟩ := hmem y hy
+      rw [hm] at hxy
+      cases hxy
+      exact ⟨y, cs', hy, hN _ _ hm, hm, hI'⟩
+    have hC : ∀ x ∈ cts, x.kind.tag = 6 := by
+      intro x hx
+      obtain ⟨t, ht, hx⟩ := List.mem_flatMap.mp hx
+      obtain ⟨y, cs', hy, -, hm, hI'⟩ := hT t ht
+      obtain ⟨_, _, _, _, _, _, hk'⟩ := hI'
+      simp only [hk'] at hx
+      obtain ⟨z, hz, hxz⟩ := List.mem_filterMap.mp hx
+      obtain ⟨-, -, h3⟩ := hG.ind hm ⟨_, _, _, _, _, _, hk'⟩
+      obtain ⟨m', hm', ⟨_, _, _, _, hk''⟩, -⟩ := h3 z hz
+      rw [hm'] at hxz
+      cases hxz
+      simp [hk'', CKindF.tag]
+    have hR : ∀ x ∈ recs, x.kind.tag = 7 := by
+      intro x hx
+      obtain ⟨y, hy, hxy⟩ := List.mem_filterMap.mp hx
+      obtain ⟨-, c', all', hc', ⟨_, _, _, _, _, _, _, hk'⟩, -⟩ := (recMapOf_mem mg n y).mp (by simpa using hy)
+      rw [hc'] at hxy
+      cases hxy
+      simp [hk', CKindF.tag]
+    have hc0 : c ∈ tys := List.mem_filterMap.mpr ⟨n, hself, hc⟩
+    have hnew : ∀ x, s2.visited.contains x = true → s0.visited.contains x = false →
+        ∃ y ∈ tys ++ cts ++ recs, y.name = x := by
+      intro x hx hb
+      rcases Emit.marks_mem _ s1 x hx with h | h
+      · rw [Emit.mark_contains, hb] at h
+        have : n = x := by simpa using h
+        subst this
+        exact ⟨c, by simp [hc0], hN _ _ hc⟩
+      · exact h
+    have hblock : ∀ y ∈ tys ++ cts ++ recs, Will y.name (Work.block tys cts recs) := by
+      intro y hy
+      simp only [List.mem_append] at hy
+      rcases hy with (hy | hy) | hy
+      · obtain ⟨_, _, -, -, -, _, _, _, _, _, _, hk'⟩ := hT y hy
+        exact .inl ⟨y, hy, rfl, by simp [hk', CKindF.tag]⟩
+      · exact .inr (.inl ⟨y, hy, rfl, hC y hy⟩)
+      · exact .inr (.inr ⟨y, hy, rfl, hR y hy⟩)
+    have hmemB : Work.block tys cts recs ∈ Work.usesOf (tys ++ cts ++ recs) ++ Work.block tys cts recs :: rest :=
+      List.mem_append_right _ List.mem_cons_self
+    have hn0 : s2.visited.contains n = true := by
+      have := Emit.marks_self _ s1 c (by simp [hc0] : c ∈ tys ++ cts ++ recs)
+      rwa [hN _ _ hc] at this
+    refine ih (hi.step (m1.trans q1)
+      (fun w hw => List.mem_append_right _ (List.mem_cons_of_mem _ hw))
+      (fun x hx => q3 x (m3 x hx)) hn0 ?_ ?_) k d hk hd hs
+    · intro x _ hx hb _ _
+      obtain ⟨y, hy, rfl⟩ := hnew x hx hb
+      exact .inl (.inr ⟨_, hmemB, hblock y hy⟩)
+    · rintro m hx hb z ⟨cm, all', cs', cz, hcm, hIm, -, hcz, hzk⟩
+      obtain ⟨y, hy, rfl⟩ := hnew m hx hb
+      -- the type `m` is a member of the block
+      have hyT : y ∈ tys := by
+        obtain ⟨_, _, _, _, _, _, hkm⟩ := hIm
+        simp only [List.mem_append] at hy
+        rcases hy with (hy | hy) | hy
+        · exact hy
+        · have htag := hC y hy
+          obtain ⟨t, ht, hx⟩ := List.mem_flatMap.mp hy
+          obtain ⟨_, _, _, _, _, _, _, _, _, _, _, hk'⟩ := hT t ht
+          simp only [hk'] at hx
+          obtain ⟨z', -, hxz⟩ := List.mem_filterMap.mp hx
+          obtain rfl := hN _ _ hxz
+          rw [hxz] at hcm
+          cases hcm
+          simp [hkm, CKindF.tag] at htag
+        · have htag := hR y hy
+          obtain ⟨y', -, hxy⟩ := List.mem_filterMap.mp hy
+          obtain rfl := hN _ _ hxy
+          rw [hxy] at hcm
+          cases hcm
+          simp [hkm, CKindF.tag] at htag
+      obtain ⟨u, csu, hu, hyu, hmu, hIu⟩ := hT y hyT
+      subst hyu
+      have hyc : y = cm := Option.some.inj (hmu.symm.trans hcm)
+      subst hyc
+      obtain ⟨rfl, rfl⟩ := IsInd.unique hIu hIm
+      rcases hzk with hzc | hzr
+      · -- a constructor of `m`: it is listed by `m`
+        obtain ⟨t, all2, cs2, ht, hI2, hl⟩ := hG.ctor hcz hzc
+        have hyt : y = t := Option.some.inj (hmu.symm.trans ht)
+        subst hyt
+        obtain ⟨-, rfl⟩ := IsInd.unique hIu hI2
+        obtain ⟨_, _, _, _, _, _, hk1⟩ := hIu
+        have hzcts : cz ∈ cts := List.mem_flatMap.mpr ⟨y, hyT, by
+          simp only [hk1]
+          exact List.mem_filterMap.mpr ⟨z, hl, hcz⟩⟩
+        have hzn := hN _ _ hcz
+        exact .inr ⟨_, hmemB, hzn ▸ hblock cz (by simp [hzcts])⟩
+      · -- a recursor of the block: found under `n`, a member
+        have hzo : z ∈ mg.order := (hO z).2 (contains_of_getElem hcz)
+        have hzm : z ∈ ((recMapOf mg)[n]?).getD #[] :=
+          (recMapOf_mem mg n z).mpr ⟨hzo, cz, all, hcz, hzr, hself⟩
+        have hzrecs : cz ∈ recs := List.mem_filterMap.mpr ⟨z, by simpa using hzm, hcz⟩
+        have hzn := hN _ _ hcz
+        exact .inr ⟨_, hmemB, hzn ▸ hblock cz (by simp [hzrecs])⟩
+
+/-- **The walk from its roots**: a constant it visited and that is not filtered out is
+declared by a record. -/
+theorem emitAll_covers {mg : Merged} (hG : BlocksGood mg)
+    (hN : ∀ (n : Name) (c : CEntry), mg.map[n]? = some c → c.name = n)
+    (hO : ∀ n, n ∈ mg.order ↔ mg.map.contains n = true) (rs : Array Name) {n : Name} {c : CEntry}
+    (hv : (emitAll mg rs).visited.contains n = true) (hc : mg.map[n]? = some c)
+    (hs : c.skipped = false) : Has (emitAll mg rs) n := by
+  refine emitLoop_covers mg hG hN hO _ {} ⟨?_, ?_⟩ n c hv hc hs
+  · intro k _ hk
+    simp at hk
+  · intro k hk
+    simp at hk
 
 /-! ## The declarations -/
 
@@ -874,12 +1562,13 @@ theorem rec_of_declares {mg : Merged} {em : Emit} {n : Name} {c : CEntry} {r : D
 roots, has its theorem record among the declarations, with its own statement and proof. -/
 theorem declsOf_thm {mg : Merged} {rs : Array Name} {ds : Array Declaration} {n : Name} {c : CEntry}
     {v : Expr} {all : List Name} (hN : ∀ (n : Name) (c : CEntry), mg.map[n]? = some c → c.name = n)
-    (hd : declsOf (emitAll mg rs) = .ok ds) (hcov : coverageOk mg (emitAll mg rs) = .ok ())
-    (hrs : n ∈ rs) (hord : n ∈ mg.order) (hc : mg.map[n]? = some c) (hk : c.kind = .thm v all) :
+    (hO : ∀ n, n ∈ mg.order ↔ mg.map.contains n = true)
+    (hd : declsOf (emitAll mg rs) = .ok ds) (hb : blocksOk mg = .ok ())
+    (hrs : n ∈ rs) (hc : mg.map[n]? = some c) (hk : c.kind = .thm v all) :
     Declaration.thmDecl ⟨c.name, c.levelParams, c.type⟩ v ∈ ds := by
   obtain ⟨h1, h2⟩ := emitAll_spec hN rs
   have hsk : c.skipped = false := by simp [CEntry.skipped, hk, CKindF.skipped]
-  obtain ⟨r, hr, hdc⟩ := declared_rec (coverageOk_declared hcov hord hc hsk (h2 n hrs c hc hsk))
+  obtain ⟨r, hr, hdc⟩ := emitAll_covers (blocksOk_good hb hO) hN hO rs (h2 n hrs c hc hsk) hc hsk
   have hR := rec_of_declares hc (h1 r hr) hdc
   obtain ⟨d, hd1, hd2⟩ := (declsOf_spec hd).1 r hr
   cases r with

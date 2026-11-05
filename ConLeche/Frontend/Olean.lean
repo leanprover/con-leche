@@ -54,7 +54,8 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `closureOrder sp roots : μ (Except CheckError (Array Name))` | `closureOrder_ok`: holds the roots, each module after its imports |
 | `loadClosure sp roots jobs : μ (Except CheckError (Array Loaded))` | through `readOleans_ok` |
 | `mergeAll ls : Except CheckError Merged` | `mergeAll_ok`: every constant stands in the merge |
-| `emitAll mg rs : Emit`, `declsOf em` | `emitAll_spec`, `declsOf_thm`, `declsOf_from` |
+| `blocksOk mg : Except CheckError Unit` | `blocksOk_good`: the stored constants' blocks agree |
+| `emitAll mg rs : Emit`, `declsOf em` | `emitAll_spec`, `emitAll_covers` (visited means declared), `declsOf_thm`, `declsOf_from` |
 | `readOleans sp roots constants jobs : μ (Except (CheckError × Nat) (Array Declaration))` | `readOleans_ok`, `readOleans_thm` |
 
 Here `roots` are the modules the closure starts from, and `constants` the constants the

@@ -275,9 +275,12 @@ def blockCtors (mg : Merged) (tys : List CEntry) : List CEntry :=
 def blockRecs (mg : Merged) (recMap : Std.HashMap Name (Array Name)) (n : Name) : List CEntry :=
   ((recMap[n]?).getD #[]).toList.filterMap (mg.map[·]?)
 
+/-- The quotient package's names. -/
+def quotNames : List Name :=
+  [mkN ["Quot"], mkN ["Quot", "mk"], mkN ["Quot", "lift"], mkN ["Quot", "ind"]]
+
 /-- The quotient package's constants. -/
-def quotConstants (mg : Merged) : List CEntry :=
-  [mkN ["Quot"], mkN ["Quot", "mk"], mkN ["Quot", "lift"], mkN ["Quot", "ind"]].filterMap (mg.map[·]?)
+def quotConstants (mg : Merged) : List CEntry := quotNames.filterMap (mg.map[·]?)
 
 /-- Visits of what some constants mention. -/
 def Work.usesOf (cs : List CEntry) : List Work := cs.flatMap fun c => c.uses.toList.map Work.visit
@@ -334,84 +337,107 @@ decreasing_by
         (Emit.foldl_mark_mono _ _ _ _ (Emit.mark_self _ _))
         fun k hk => Emit.foldl_mark_mono _ _ _ _ (Emit.mark_mono _ hk))
 
+/-- A recursor under one member of its block. -/
+def recMapAdd (n : Name) (m : Std.HashMap Name (Array Name)) (i : Name) :
+    Std.HashMap Name (Array Name) :=
+  m.alter i fun
+    | none => some #[n]
+    | some a => some (if a.contains n then a else a.push n)
+
+/-- A constant's name under each member of its block, if it is a recursor. -/
+def recMapStep (mg : Merged) (m : Std.HashMap Name (Array Name)) (n : Name) :
+    Std.HashMap Name (Array Name) :=
+  match (mg.map[n]?).map (·.kind) with
+  | some (CKindF.recur all ..) => all.foldl (recMapAdd n) m
+  | _ => m
+
+/-- The recursors of every member of a block. -/
+def recMapOf (mg : Merged) : Std.HashMap Name (Array Name) := mg.order.foldl (recMapStep mg) {}
+
 /-- **The record stream of the merged closure**, from the given constants. -/
 def emitAll (mg : Merged) (roots : Array Name) : Emit :=
-  let recMap := mg.order.foldl (fun (m : Std.HashMap Name (Array Name)) n =>
-    match (mg.map[n]?).map (·.kind) with
-    | some (CKindF.recur all ..) =>
-      all.foldl (fun m i => m.alter i fun
-        | none => some #[n]
-        | some a => some (if a.contains n then a else a.push n)) m
-    | _ => m) {}
-  emitLoop mg recMap (roots.toList.map .visit) {}
+  emitLoop mg (recMapOf mg) (roots.toList.map .visit) {}
 
-/-! ## The coverage of the emission -/
+/-! ## The blocks of the merged constants -/
 
-/-- The names an emitted record declares. -/
-def Emit.declared (em : Emit) : Std.HashSet Name :=
-  let nm (cv : CVRec) (s : Std.HashSet Name) : Std.HashSet Name :=
-    match em.names[cv.name]? with
-    | some n => s.insert n
-    | none => s
-  em.out.foldl (init := {}) fun s d => match d with
-    | .ax cv _ | .defn cv .. | .thm cv _ | .opaq cv .. | .quot cv _ => nm cv s
-    | .ind ts cs rs =>
-      let s := ts.foldl (fun s t => nm t.cv s) s
-      let s := cs.foldl (fun s c => nm c.cv s) s
-      rs.foldl (fun s r => nm r.cv s) s
+/-- A block member `x` of the inductive type `n`, whose block is `all`. -/
+def blockMemberOk (mg : Merged) (n : Name) (all : List Name) (sk : Bool) (x : Name) :
+    Except CheckError Unit :=
+  let bad (what : String) : Except CheckError Unit :=
+    .error (.internal s!"the inductive data of {n}: its block member {x} {what}")
+  match mg.map[x]? with
+  | none => bad "is not stored"
+  | some m =>
+    match m.kind with
+    | .induct _ _ all' .. =>
+      if all' == all then
+        if m.skipped == sk then .ok () else bad "is safe or unsafe where the type is not"
+      else bad "names another block"
+    | _ => bad "is not an inductive type"
 
-/-- **Every constant the walk reached is in an emitted record**
-(task #383): the walk's `visit` of a constructor or recursor emits its
-inductive block, and a block takes its members, constructors and
-recursors from the constants by name; a constructor its block does not
-list, a recursor no member of its block finds, or a block naming a
-member or constructor that is not stored would otherwise be dropped
-without a word.  Every constant the walk reached and did not skip
-(`CEntry.skipped`) must be declared by an emitted record, and every
-inductive type's block members and constructors must be stored, the
-members must agree on the block and the constructors name their type,
-and a recursor's block must be its first member's; a violation is
-malformed input. -/
-def coverStep (mg : Merged) (em : Emit) (decl : Std.HashSet Name) (n : Name) :
-    Except CheckError Unit := do
-  if let some c := mg.map[n]? then
-    if !c.skipped && em.visited.contains n then
-      unless decl.contains n do
-        throw (.internal s!"the constant {n} is in no emitted record (a constructor or \
-          recursor its inductive block does not have)")
-      -- the data that decides which constants form one block (task
-      -- #383), which a reader could take from `all`, from `ctors` or
-      -- from a constructor's `induct`: they must agree.  The other
-      -- fields are the record builder's (`validateIndF`) and the
-      -- installer's.
-      let bad (what : String) : CheckError := .internal s!"the inductive data of {n}: {what}"
-      match c.kind with
-      | .induct _ _ all cs _ _ _ _ =>
-        unless all.contains n do throw (bad "its block does not list it")
-        for x in all do
-          match ((mg.map[x]?).map (·.kind) : Option CKind) with
-          | some (.induct _ _ all' ..) =>
-            unless all' == all do throw (bad s!"its block member {x} names another block")
-          | some _ => throw (bad s!"its block member {x} is not an inductive type")
-          | none => throw (bad s!"its block member {x} is not stored")
-        for x in cs do
-          match ((mg.map[x]?).map (·.kind) : Option CKind) with
-          | some (.ctor ind ..) =>
-            unless ind == n do throw (bad s!"its constructor {x} names another type")
-          | some _ => throw (bad s!"its constructor {x} is not a constructor")
-          | none => throw (bad s!"its constructor {x} is not stored")
-      | .recur all .. =>
-        match all.head? with
-        | none => throw (bad "the recursor names no block")
-        | some t =>
-          match ((mg.map[t]?).map (·.kind) : Option CKind) with
-          | some (.induct _ _ all' ..) =>
-            unless all' == all do throw (bad s!"the recursor's block is not {t}'s")
-          | _ => throw (bad s!"the recursor's block member {t} is not a stored inductive type")
-      | _ => pure ()
+/-- A listed constructor `x` of the inductive type `n`. -/
+def blockCtorOk (mg : Merged) (n : Name) (sk : Bool) (x : Name) : Except CheckError Unit :=
+  let bad (what : String) : Except CheckError Unit :=
+    .error (.internal s!"the inductive data of {n}: its constructor {x} {what}")
+  match mg.map[x]? with
+  | none => bad "is not stored"
+  | some m =>
+    match m.kind with
+    | .ctor ind .. =>
+      if ind == n then
+        if m.skipped == sk then .ok () else bad "is safe or unsafe where the type is not"
+      else bad "names another type"
+    | _ => bad "is not a constructor"
 
-/-- `coverStep` for every constant of the order. -/
-def coverageOk (mg : Merged) (em : Emit) : Except CheckError Unit :=
-  mg.order.toList.forM (coverStep mg em em.declared)
+/-- **One stored constant's part in its block.**  The walk gives a block's parts one record:
+a block takes its members, constructors and recursors from the constants by name, and a reader
+could take which constants form one block from `all`, from `ctors` or from a constructor's
+`induct`.  They must agree, and all parts must be filtered out or none.  A quotient constant
+is one of the package, whose stored constants are all quotient constants.  The other fields
+are the record builder's (`validateIndF`) and the installer's. -/
+def blockStep (mg : Merged) (n : Name) : Except CheckError Unit :=
+  let bad (what : String) : Except CheckError Unit :=
+    .error (.internal s!"the inductive data of {n}: {what}")
+  match mg.map[n]? with
+  | none => .ok ()
+  | some c =>
+    match c.kind with
+    | .induct _ _ all cs .. =>
+      if all.contains n then
+        match all.forM (blockMemberOk mg n all c.skipped) with
+        | .error e => .error e
+        | .ok () => cs.forM (blockCtorOk mg n c.skipped)
+      else bad "its block does not list it"
+    | .ctor ind .. =>
+      match mg.map[ind]? with
+      | none => bad s!"its type {ind} is not stored"
+      | some t =>
+        match t.kind with
+        | .induct _ _ _ cs .. =>
+          if cs.contains n then .ok () else bad s!"its type {ind} does not list it"
+        | _ => bad s!"its type {ind} is not an inductive type"
+    | .recur all .. =>
+      match all with
+      | [] => bad "the recursor names no block"
+      | t :: _ =>
+        match mg.map[t]? with
+        | none => bad s!"the recursor's block member {t} is not stored"
+        | some m =>
+          match m.kind with
+          | .induct _ _ all' .. =>
+            if all' == all then
+              if m.skipped == c.skipped then .ok ()
+              else bad s!"the recursor is safe or unsafe where {t} is not"
+            else bad s!"the recursor's block is not {t}'s"
+          | _ => bad s!"the recursor's block member {t} is not an inductive type"
+    | .quot _ =>
+      if quotNames.contains n then
+        if (quotConstants mg).all (·.kind.tag == 4) then .ok ()
+        else bad "the quotient package holds a constant of another kind"
+      else bad "a quotient constant outside the quotient package"
+    | _ => .ok ()
+
+/-- `blockStep` for every stored constant, before the walk. -/
+def blocksOk (mg : Merged) : Except CheckError Unit := mg.order.toList.forM (blockStep mg)
 
 end ConLeche.Frontend.Olean

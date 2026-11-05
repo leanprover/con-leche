@@ -108957,10 +108957,18 @@ read looks only at what it needs, so it may succeed on a file whose full parse f
   entry is a module's, under its own name), both about code that needed no change.
 * **The emission** (`Verify/Frontend/Olean/Emit.lean`).  `emitLoop_spec`: the tables only grow,
   every record comes from stored constants (`RecFrom`), every root stored and not filtered out
-  is visited.  A crafted block can mark a constant visited with no record of its own (a block
-  whose `all` names a theorem), which is `coverageOk`'s to reject, and the theorem says so: it
-  takes `coverageOk` as a hypothesis, and `coverStep`'s first test gives "visited means
-  declared".  A declared name's record is then its own constant's (`rec_of_declares`), which
+  is visited.  A crafted block could mark a constant visited with no record of its own (a block
+  whose `all` names a theorem), so `readOleans` runs `blocksOk` on the merged constants before the
+  walk, on every stored constant, reached or not: an inductive type's block lists it, its members
+  are stored inductive types agreeing on the block, its constructors are stored and name it, a
+  constructor's type is stored and lists it, a recursor's block is its first member's, a block's
+  parts are filtered out together, and a quotient constant is one of the package, all of whose
+  stored constants are quotient constants.  `emitLoop_covers` then proves "visited means declared"
+  (no `Emit.declared`, no second pass over the output, maintainer's ruling), by the walk's
+  invariant `CoverInv`: a visited constant is declared, will be by a stack item (`Will`), or is a
+  part of a type visited or to be visited (`BlockPart`), and all parts of a visited type are
+  declared or will be.  A recursor is found through `recMapOf_mem`.
+  A declared name's record is then its own constant's (`rec_of_declares`), which
   gives `declsOf_thm`: a theorem constant among the roots has its theorem record, with its own
   statement and proof.  `declsOf_from`: nothing is added: every declaration is what a stored
   constant stands for (`entryDecl`), or an inductive block's whose members, constructors and
@@ -108974,8 +108982,8 @@ read looks only at what it needs, so it may succeed on a file whose full parse f
   fast parser.  It needs `Stands`: only a theorem may stand for a theorem, of the same statement.
   `flagValue` reads a flag's value through `toList`, to make that provable.
 * Pulling the walk's helpers out of `emitLoop` (`blockTys`, `Work.usesOf`, `Emit.ones`, ...)
-  removed the `attach`es the termination preprocessing had put in its body.  `coverageOk` and
-  `declsOf` are recursions over a step now.
+  removed the `attach`es the termination preprocessing had put in its body.  `blocksOk` and
+  `declsOf` are recursions over a step.
 
 **Fence.**  `tests/layering.sh`: the reader imports itself and five base modules
 (`Kernel.{Error,Name,Expr,Env}`, `Frontend.Scan.Types`); only `Files` and

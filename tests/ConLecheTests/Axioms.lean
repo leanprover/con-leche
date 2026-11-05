@@ -144,6 +144,12 @@ info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Class
 #print axioms ConLeche.Frontend.Olean.readOleans_ok
 
 /--
+info: 'ConLeche.Frontend.Olean.emitAll_covers' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.emitAll_covers
+
+/--
 info: 'ConLeche.Frontend.Olean.declsOf_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
