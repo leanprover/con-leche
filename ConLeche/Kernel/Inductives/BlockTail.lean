@@ -148,6 +148,11 @@ install pushes it as stored; the block's job reduces it, as official's `whnf` of
 does, and checks the block at the reduced form, which needs nothing new of the check.  A
 block nesting through such a family reads it reduced as well. -/
 
+/-- The families the literal guards read by name, whose stored type they compare. -/
+def litGuardFamilies : List Name :=
+  [natName, natZeroName, natSuccName, stringName, stringOfListName, listName, listNilName,
+   listConsName, charName, charOfNatName, boolName, boolTrueName, boolFalseName]
+
 /-- A former at its reduced telescope (official's `whnf` loop), closed. -/
 def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :
     m ConstantVal := do
@@ -159,12 +164,15 @@ reduced, and the two compared. -/
 def reduceMember (ops : CheckerOps m) (env : Env) (nP : Nat) (ms : MemberShape) :
     m MemberShape :=
   if formerDefHeaded ms.cvT then do
-    checkConstantVal ops env ms.cvT
-    let cvR ← reducedFormer ops env ms.cvT (nP + ms.nIdx)
-    checkConstantVal ops env cvR
-    unless ← ops.isDefEq env 0 ms.cvT.type cvR.type do
-      throw (.invalid "direct sum: a type former's declared type and its reduct differ")
-    pure { ms with cvT := cvR }
+    if litGuardFamilies.contains ms.cvT.name then
+      throw (.notImplemented s!"a literal's family stored at a definition ({ms.cvT.name})")
+    else do
+      checkConstantVal ops env ms.cvT
+      let cvR ← reducedFormer ops env ms.cvT (nP + ms.nIdx)
+      checkConstantVal ops env cvR
+      unless ← ops.isDefEq env 0 ms.cvT.type cvR.type do
+        throw (.invalid "direct sum: a type former's declared type and its reduct differ")
+      pure { ms with cvT := cvR }
   else pure ms
 
 /-- The members, reduced. -/
@@ -265,10 +273,13 @@ def blockViews (ops : CheckerOps m) (env : Env) :
     match env.find? c with
     | some (.indInfo cv caps) =>
       if formerDefHeaded cv then do
-        let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
-        unless viewScoped (·.constsResolve env) cvR do
-          throw (.internal "a family's reduced telescope is not closed")
-        pure (.indInfo cvR caps :: rest)
+        if litGuardFamilies.contains c then
+          throw (.notImplemented s!"a literal's family stored at a definition ({c})")
+        else do
+          let cvR ← reducedFormer ops env cv (caps.nparams + caps.nIdx)
+          unless viewScoped (·.constsResolve env) cvR do
+            throw (.internal "a family's reduced telescope is not closed")
+          pure (.indInfo cvR caps :: rest)
       else pure rest
     | _ => pure rest
 

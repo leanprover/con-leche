@@ -1632,6 +1632,10 @@ theorem blockViewsS_run (henv : EnvWF env) :
       simp only [hfc] at h
       by_cases hdh : formerDefHeaded cv = true
       · simp only [hdh, ↓reduceIte] at h
+        by_cases hlg : litGuardFamilies.contains c = true
+        · simp only [hlg, ↓reduceIte] at h
+          exact nomatch h
+        simp only [hlg, Bool.false_eq_true, ↓reduceIte] at h
         obtain ⟨u0, sA, hfl0, h⟩ := bindC_ok h
         rw [flushC_run] at hfl0
         injection hfl0 with hfl0
@@ -1663,8 +1667,8 @@ theorem blockViewsS_run (henv : EnvWF env) :
                 (caps.nparams + caps.nIdx) = .ok cvR := by
               rw [← reducedFormer_datF]; exact FueledM.up (Nat.le_max_right _ _) hF₂
             unfold blockViews
-            simp only [Bind.bind, Except.bind, g₁, hfc, hdh, ↓reduceIte, g₂, hsc, pure,
-              Except.pure]
+            simp only [Bind.bind, Except.bind, g₁, hfc, hdh, hlg, Bool.false_eq_true, ↓reduceIte,
+              g₂, hsc, pure, Except.pure]
         · simp only [hsc, ↓reduceIte] at h
           exact absurd h throwC_bind_ok
       · simp only [hdh, ↓reduceIte] at h

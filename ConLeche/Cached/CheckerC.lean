@@ -188,12 +188,15 @@ def checkBlockAtS (fe : FEnv) (block : List ConstantInfo) (p₀ : BlockParts) : 
 /-- Twin of `reduceMember`. -/
 def reduceMemberS (fe : FEnv) (nP : Nat) (ms : MemberShape) : CheckCM MemberShape :=
   if formerDefHeaded ms.cvT then do
-    checkConstantValF (sharedOpsC mode fe) fe ms.cvT
-    let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
-    checkConstantValF (sharedOpsC mode fe) fe cvR
-    unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
-      throw (.invalid "direct sum: a type former's declared type and its reduct differ")
-    pure { ms with cvT := cvR }
+    if litGuardFamilies.contains ms.cvT.name then
+      throw (.notImplemented s!"a literal's family stored at a definition ({ms.cvT.name})")
+    else do
+      checkConstantValF (sharedOpsC mode fe) fe ms.cvT
+      let cvR ← reducedFormer (sharedOpsC mode fe) fe.env ms.cvT (nP + ms.nIdx)
+      checkConstantValF (sharedOpsC mode fe) fe cvR
+      unless ← (sharedOpsC mode fe).isDefEq fe.env 0 ms.cvT.type cvR.type do
+        throw (.invalid "direct sum: a type former's declared type and its reduct differ")
+      pure { ms with cvT := cvR }
   else pure ms
 
 /-- The members reduced, with the memos of the view. -/
@@ -213,12 +216,15 @@ def blockViewsS (fe : FEnv) : List Name → CheckCM (List ConstantInfo)
     match fe.find? c with
     | some (.indInfo cv caps) =>
       if formerDefHeaded cv then do
-        flushC
-        let cvR ← reducedFormer (sharedOpsC mode fe) fe.env cv (caps.nparams + caps.nIdx)
-        flushC
-        unless viewScoped (Expr.constsResolveF fe) cvR do
-          throw (.internal "a family's reduced telescope is not closed")
-        pure (.indInfo cvR caps :: rest)
+        if litGuardFamilies.contains c then
+          throw (.notImplemented s!"a literal's family stored at a definition ({c})")
+        else do
+          flushC
+          let cvR ← reducedFormer (sharedOpsC mode fe) fe.env cv (caps.nparams + caps.nIdx)
+          flushC
+          unless viewScoped (Expr.constsResolveF fe) cvR do
+            throw (.internal "a family's reduced telescope is not closed")
+          pure (.indInfo cvR caps :: rest)
       else pure rest
     | _ => pure rest
 

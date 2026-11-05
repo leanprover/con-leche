@@ -870,7 +870,9 @@ theorem reduceMemberS_same (mode : CheckMode) (fe : FEnv) (nP : Nat) (ms : Membe
     Yields (reduceMemberS mode fe nP ms) (SameMember ms) := by
   unfold reduceMemberS
   split
-  · refine Yields.bind fun _ => ?_
+  · split
+    · exact Yields.ofThrow
+    refine Yields.bind fun _ => ?_
     refine Yields.bind' (Q := fun cvR => cvR.name = ms.cvT.name) ?_ fun cvR hc => ?_
     · unfold reducedFormer
       refine Yields.bind fun _ => Yields.pure rfl

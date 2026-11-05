@@ -145,7 +145,9 @@ theorem reduceMembers_shape {F : Nat} {env : Env} {nP : Nat} {p₀ : BlockParts}
       have hmm : m'.cvT.name = m.cvT.name ∧ m'.ctors = m.ctors := by
         simp only [reduceMember] at hm
         split at hm
-        · simp only [bind, Except.bind] at hm
+        · split at hm
+          · simp [throw, throwThe, MonadExceptOf.throw] at hm
+          simp only [bind, Except.bind] at hm
           split at hm
           · exact nomatch hm
           · split at hm
