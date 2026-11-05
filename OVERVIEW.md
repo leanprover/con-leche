@@ -645,15 +645,7 @@ Two modes exist, `--verified` (default) and `--trusted`
 Trusted mode is verified mode minus the certification-only steps —
 checks the official kernel does not make, which exist so that the proof
 can rely on their outcome; it is faster and is outside the theorem.
-Both use the same core. The core has one internal flag, the official
-kernel's `eagerReduce` flag, separate from the mode: the type of an application argument of
-the form `eagerReduce _ _` is compared with the function's domain with
-the flag set, for that comparison and everything it calls, where
-the lazy-delta `Nat`-literal fold and the `Bool.true` shortcut also fire
-on terms with free variables
-([function `defeqArg` in `ConLeche/Kernel/Core.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/Core.lean#L1042)).
-The eager comparisons run on memos of their own, kept for the whole
-declaration apart from the plain ones.
+Both use the same core.
 
 The checker is a Lean-kernel-style type checker in the shape of the
 official one: `whnfCore` does β/ι/projection/quotient reduction (with
@@ -1466,6 +1458,15 @@ declare it.)
   frontend does *not* establish is that the list it hands over means
   the same as the export: the decoder is written to be
   meaning-preserving, but that is a review claim, not a theorem.
+* What Lean makes of an `.olean` file. The theorem is about the files as
+  `decodeModuleSpec` reads them; that Lean's own loader reads them the
+  same way is tested (`tests/olean-compare.sh`, on `Init`), not proved.
+  `--olean` reads each module's private view and does not compare a
+  module's files with each other, so the theorem says nothing about the
+  exported view that a `module` importing it sees. Beyond the format
+  version and the GMP flag, nothing says which toolchain wrote a file.
+  With `--constant`, only the named constants and what they mention are
+  checked.
 * The runtime's IO. The binary is the driver's generic code at `IO`;
   the theorems are about its outcomes in the model of §2. Assumed: that
   the binary's file operations give the model's answers on one snapshot

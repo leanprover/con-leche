@@ -390,9 +390,6 @@
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1042
-  1042  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
-
 == ConLeche/Kernel/Core.lean#L1025
   1025  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
