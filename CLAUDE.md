@@ -185,7 +185,6 @@ arm or induction case). No custom tactic, macro or elab.
   the toolchain (`Init.Util`'s `withPtrEq`,
   `Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`);
   each site carries its reason.
-* Elaboration-time code (`Kernel/BasisGen`, `PinGen/*`, the pin and
-  basis splices) is `meta`: `meta section`, `public meta import`; a
+* Elaboration-time code (`PinGen/*`, the pin splices) is `meta`: `meta section`, `public meta import`; a
   module needed at both levels is imported twice (`public import X` +
   `meta import X`).

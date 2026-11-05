@@ -434,10 +434,7 @@ namespace Declaration
 /-- **The names a declaration record declares**: the hoist's name index
 and `preparePrelude`'s lookup of the stream's own copy of a prelude
 declaration read it (`ConLeche/Frontend/{NatOpGround,Prepare}.lean`).
-A quotient record declares the one constant it carries — the other
-three constants of the pinned block are other records' — and a
-`basisDecl`, which no frontend function produces (it is the fold's own
-record for "install the pinned block"), declares the pin's. -/
+A quotient record declares the one constant it carries. -/
 def names : Declaration → List Name
   | .axiomDecl cv | .defnDecl cv .. | .thmDecl cv .. | .opaqueDecl cv .. => [cv.name]
   | .quotDecl _ cv => [cv.name]

@@ -10,8 +10,8 @@ public import ConLeche.Kernel.Basis.Builder
 The raw pin — the `Nat` block exactly as an export carries it: the
 toolchain's `Init.Prelude` declaration as the parser reads it (the
 recursor rules' install-computed fields at their parse placeholders).
-The *stored* forms (`natA`, …) are computed from these at elaboration time; see
-`ConLeche/Kernel/BasisA.lean`.
+A block's check compares its records with these pins (`natA`, …), up to the
+records' level-parameter names (`ConLeche/Kernel/Basis.lean`).
 -/
 
 namespace ConLeche

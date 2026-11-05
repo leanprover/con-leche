@@ -76,8 +76,7 @@ theorem ofReduce_gatesS {cv : ConstantVal}
         (ConLeche.reduceOpCvA (ConLeche.ofReduceOp cv.name)) = true) ∧
     cv.type
       = (ConLeche.ofReducePinA cv.name).type := by
-  simp only [ConLeche.ofReduceAxOk, Bool.and_eq_true,
-    decide_eq_true_eq] at hok
+  simp only [ConLeche.ofReduceAxOk, Bool.and_eq_true] at hok
   obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok
   refine ⟨hEq, helem, ?_, ?_⟩
   · rw [ConLeche.reduceStoredOk] at hstored

@@ -164,14 +164,6 @@
 #       records read the generated C for the trap the primitive exists
 #       to avoid (a hidden reference before the read).
 #
-#   ConLeche/Kernel/BasisGen.lean      unsafe, implemented_by
-#       ELABORATOR-ONLY.  `#stored_basis` computes the stored basis
-#       pins (the recursors' install-computed rule fields) at
-#       elaboration time through `unsafe evalTerm` and splices the
-#       resulting literals.  Nothing
-#       here is in the binary; the spliced literals are ordinary data
-#       the proofs consume.
-#
 #   ConLeche/Driver/Run.lean           unsafe
 #       THE PERSISTENT MARK AT THE PHASE BOUNDARY.  Two term-level
 #       `unsafe Runtime.markPersistent` calls in `checkDeclsIO`, taken
@@ -325,7 +317,6 @@ ALLOW = {
     'ConLeche/Challenge.lean':       {'sorry'},
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
-    'ConLeche/Kernel/BasisGen.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Frontend/ReadRange.lean': {'extern'},
 }

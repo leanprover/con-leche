@@ -38,7 +38,7 @@ theorem iff_shapes {env : Env} {cv : ConstantVal}
       cvIr.type = iffRecA.toConstantVal.type) ∧
     ConstantVal.matchesPin cv propextA = true := by
   rw [stdAxiomOk, ite_eq_left hp] at h
-  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  simp only [Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨hEq, hI⟩, hIi⟩, hIr⟩, hA⟩ := h
   refine ⟨hEq, ?_, ?_, ?_, hA⟩
   · cases hf : env.find? iffName with

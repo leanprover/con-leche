@@ -25,7 +25,7 @@ There is an AI-written overview of the project in [OVERVIEW.md](./OVERVIEW.md).
 * Accelerated Nat operations are performed using Lean’s `Nat` type.
 * It accepts only the three standard Lean axioms in the input stream.
 
-  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L237-L238) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
+  For practicality reasons, it silently *ignores* the [`sorryAx`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Cached/ParsedC.lean#L238-L239) axiom declarations from the standard library, but will complain it is actually used. The (deprecated) `trustCompiler`, `ofReduceBool` and `ofReduceNat` axioms are replaced with simple definitions of the same type.
 
   The checker (at the moment) will reject any other axiom.
 * The checker processes files in three phases: *parsing* the input stream, *installing* all declarations into the environment and then *checking*. All stages can use parallelism with [`--jobs`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Cli.lean#L130).
@@ -76,7 +76,7 @@ This theorem only talks about [`checkDecls`](https://github.com/leanprover/con-l
 
 * The parser is faithful.
 * [`preparePrelude`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Prepare.lean#L165-L172) only reorders declarations and adds missing prelude declarations, but does not drop any (see [`theorem Frontend.preparePrelude_perm`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Prepare.lean#L157-L162)).
-* The definitions, theorem statements and axioms in the output of `checkDecls` are as they are in the input, up to dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L237-L242)).
+* The definitions, theorem statements and axioms in the output of `checkDecls` are as they are in the input, up to dropping the `sorryAx` declaration (see [`theorem checkDecls_consts`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/StreamConsts.lean#L230-L235)).
 
 ### The IO parts
 

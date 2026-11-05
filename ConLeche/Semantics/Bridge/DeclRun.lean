@@ -22,9 +22,8 @@ path.  `DeclRun`'s family is valuation-free outright, since
 parameter, supplied at the call site (`checkDeclRun_ofEnvFactsK`,
 `Bridge/Sound.lean`).
 
-**The `basisDecl` kind is `declBasisRun` verbatim** (`Bridge/Decl.lean`):
-that kind's record is guards-only and `DeclRun` re-uses `DeclBasisRun`
-as-is.
+**A pinned block and a quotient record are `DeclBasisRun` and `DeclQuotRun`
+verbatim** (`Bridge/Decl.lean`): their records are guards-only.
 -/
 
 namespace ConLeche.Semantics

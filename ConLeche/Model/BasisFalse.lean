@@ -189,8 +189,8 @@ The dispatch mirrors `declBasisPB_emptyK` link for link.
 `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `obtain` and two steps — there is no fold to invert. -/
 
-/-- **The `False` block, installed at the P tier.**  `BasisStepPB`'s
-`falseK` branch. -/
+/-- **The `False` block, installed at the P tier**, at the pin's own names
+(`declBasisPB_at` carries it to the record's). -/
 theorem declBasisPB_falseK {env₂ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.falseK.decls env₂) :
     CoverStep mp env₂ := by

@@ -3160,3 +3160,33 @@
 1 proj_guard_used_data_bad.ndjson
 1 proj_guard_past_used_data_bad.ndjson
 0 proj_guard_unfold.ndjson
+# -- task #480: a pinned block is the stream's constants, at the record's own
+# level-parameter names; the comparison with the pin (up to those names) is
+# the block's check, a job in fold order.  Forged by
+# `scripts/mk_basis_names_fixtures.py`; official's verdicts were run
+# (`checkers/official-v4.33.0`).
+# `Eq.{w}`, `Eq.refl.{w}`, `Eq.rec.{u, w}`: the pin up to its names.
+0 basis_eq_other_names.ndjson
+# `Eq.rec.{m, w}`: the motive's parameter at another name.  Official rejects
+# ("Invalid recursor Eq.rec": it compares the record with the recursor it
+# generates, names included).  ACCEPTED here, as the base did: the comparison is
+# up to the names, and the rule still reads `Eq.refl`'s parameter at `w`.
+0 basis_eq_rec_motive_name.ndjson
+# `Eq.rec.{w, m}`: the pin's positions, but the rule's by-name reading of
+# `Eq.refl`'s parameter is the motive's.  Rejected, by official as well ("Invalid
+# recursor Eq.rec").
+1 basis_eq_rec_swapped_names_bad.ndjson
+# `Eq.refl.{v}` under `Eq.{w}`.  Rejected, by official as well ("invalid reference
+# to undefined universe level parameter 'v'").
+1 basis_eq_refl_other_name_bad.ndjson
+# `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
+# block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
+1 basis_nat_rule_bad.ndjson
+# the same with the rest of the stream reading the name: every later record is
+# installed before the block's job can report, and the verdict is the job's, in
+# fold order.  Rejected, by official as well.
+1 basis_nat_rule_used_bad.ndjson
+# `Quot.{w}`: official's kernel makes the quotient package itself and reads no
+# record: it accepts.  DECLINE here: a quotient record is compared with its slot's
+# pin at the pin's own names (DESIGN #480, "Quot").
+2 basis_quot_other_names.ndjson

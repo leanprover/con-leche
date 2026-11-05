@@ -58,9 +58,9 @@ theorem natEqsRun_of_certs {F : Nat} {env : Env} :
         · exact hx
         · exact ih h eq heq'
 
-/-! ## `basisDecl`
+/-! ## A pinned block and a quotient record
 
-The simplest branch: a guard on the pinned `Eq` former, then a fold of
+The simplest branches: the comparison with the pin, then a fold of
 duplicate checks.  `BasisInstallRun` records exactly the fold's output —
 each constant fresh, then consed — so the inversion is one induction
 over `installBasisDecl_inv`. -/

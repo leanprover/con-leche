@@ -28,9 +28,7 @@ is equality.
 theorems and opaques declare their header; an axiom declares its header
 unless it is the `sorryAx` axiom record, which is checked for
 well-formedness and then installs NOTHING (there is no set model for
-it), so nothing is stored — and any USE of the name declines.  A
-`basisDecl` names one of the checker's pinned basis blocks and declares
-nothing of its own.
+it), so nothing is stored — and any USE of the name declines.
 
 **An `indDecl` block's members are outside the claim, and the reason is
 not laziness.**  Two of the block's constants may be stored as something
@@ -81,11 +79,8 @@ kind of record claims a name and a type for:
   (task #293), which is the pinned quotient block's own: it is compared
   with the pin and the BLOCK installs the axiom, at the quotient record
   that declares the type;
-* a `quotDecl` declares nothing of its own, for the same reason: the
-  pinned quotient block installs all five constants at once;
-* a `basisDecl` declares nothing of its own — it names one of the
-  checker's pinned basis blocks, and the constants installed are the
-  pins';
+* a `quotDecl` declares nothing of its own, for the same reason: what it
+  stores is its slot's pin;
 * an `indDecl` block's members are NOT covered here.  See the module
   docstring: the recursor's stored type is the generated one, and the
   installer may store a *whnf'd* type former telescope rather than the
@@ -230,7 +225,7 @@ theorem installRun_declares {ds : List Declaration}
 fold's input that declares a constant — a definition, a theorem, an
 opaque, or an axiom whose name is not tolerated — leaves in the returned
 environment a constant of that very name, with the record's own level
-parameters and the record's own type.  `basisDecl` records declare nothing, and an `indDecl`
+parameters and the record's own type.  An `indDecl`
 block's members are outside the claim (see the module docstring). -/
 theorem checkDecls_consts (V : Type w) [SetTheory V]
     {ds : Array Declaration} {env : Env} (accepted : checkDecls .verified pins ds = .ok env)

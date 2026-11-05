@@ -28,7 +28,9 @@ against the toolchain's `Init.Prelude` through the small builder in
 **The stream's constants are what the environment holds**: a pinned block
 is installed at the level-parameter names its records declare
 (`ConstantInfo.atLps`), and the comparison with the pin (up to those
-names) is the block's check, in the check phase.
+names) is the block's check, in the check phase.  A quotient record is
+compared with its slot's pin at the pin's own names and stores that pin
+(`quotPinHit`).
 -/
 
 namespace ConLeche

@@ -92,7 +92,7 @@ read).
 **This is an environment law**, a field and not a theorem, because
 the `Eq` leaf's value is fixed by the basis install (`eqValT` — the
 `.eqE` former η-expanded) and by nothing else; its supplier is the
-basis install (`BasisStepPB`).  See the task #161 LITERAL TIER
+basis install (`declBasisPB_at`).  See the task #161 LITERAL TIER
 seal III record. -/
 @[expose] def EqLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=

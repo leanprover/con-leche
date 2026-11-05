@@ -89,7 +89,7 @@ Two places ask "is this record the same declaration as that pinned
 one, up to level-parameter names?" — the `Quot.sound` axiom record and
 the four quotient records against the `quot` basis pin, and a block
 against one of the five basis pins.  Both are `checkDecl`'s since task
-#293 (`basisPinHit`, `quotPinHit`, `ConLeche/Kernel/Basis.lean`); a
+#293 (`pinCopyOk`, `quotPinHit`, `ConLeche/Kernel/Basis.lean`); a
 third, the built-in prelude's dedupe, went with that task.  Each used
 to build `ConstantInfo.canon` of BOTH sides and compare the results.
 That is `O(tree)` on the stream side, because `canonExpr` rebuilds

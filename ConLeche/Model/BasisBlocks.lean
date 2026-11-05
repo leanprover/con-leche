@@ -11,7 +11,7 @@ public section
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)
 
-`Model/BasisEmpty.lean` covers `BasisStepPB`'s `emptyK` branch; this
+`Model/BasisEmpty.lean` covers the `Empty` block; this
 file carries the same recipe across the other blocks in one file — the
 shared leaf-reading kit below is used at every one of them.
 
@@ -1355,8 +1355,8 @@ theorem extendNatRec (mp : EnvModelM V env)
       · exact natRecSuccLaw (m := mp.base2) m₂ hN hZ hS hac φ
       · exact nomatch hr''
 
-/-- **The `Nat` block, installed at the P tier.**  `BasisStepPB`'s
-`natK` branch. -/
+/-- **The `Nat` block, installed at the P tier**, at the pin's own names
+(`declBasisPB_at` carries it to the record's). -/
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
       ConLeche.BasisKind.natK.decls env₁) :

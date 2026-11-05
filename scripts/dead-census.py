@@ -27,15 +27,13 @@ the sources.
   certificates** (`ConLeche.PinGen.Certs`, read by
   name out of the built olean at pin-generation time — no static walk
   can see that) declare;
-* every raw pin a **`#stored_basis`** command names
-  (read by name at elaboration time, like the pin certificates);
 * every **`@[csimp]`** theorem (reached by nothing, and what makes a
   fast twin reachable at all) and, through the graph's own extra edges,
   the `@[implemented_by]` targets;
 * every **registered** declaration — `syntax`, `macro`, `elab`,
   `notation`, `instance`, `@[command_elab]`, `@[extern]` — and every
   declaration of a module that declares a **command elaborator**
-  (`Kernel/BasisGen.lean`, `PinGen.lean`, `PinGen/Dump.lean`): its
+  (`PinGen.lean`, `PinGen/Dump.lean`): its
   helpers are reached only through the command.  These are
   invoked by registration, never by name, so no dependency walk reaches
   them, and neither does one reach the private helpers under them.
@@ -250,30 +248,6 @@ def module_file(mod):
 def suffixes(name):
     parts = name.split(".")
     return [".".join(parts[i:]) for i in range(len(parts))]
-
-
-# `#stored_basis` (`Kernel/BasisGen.lean`) reads its
-# raw pins BY NAME at elaboration time (`| xA := xRaw`), like the pin
-# certificates: the olean records no edge, so every identifier the command
-# names (the raw pins, the `over` environment) is a seed, resolved in the
-# invoking module.
-STORED_BASIS_RE = re.compile(r"^#stored_basis[^\n]*(?:\n[ \t]+[^\n]*)*", re.M)
-ANNOTATE_RHS_RE = TOKEN_RE
-
-
-def annotate_seeds():
-    """(short name, module) for every raw pin a `#stored_basis` command names"""
-    out = set()
-    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, "ConLeche")):
-        for fn in filenames:
-            if not fn.endswith(".lean"):
-                continue
-            path = os.path.relpath(os.path.join(dirpath, fn), ROOT)
-            text = open(os.path.join(ROOT, path), errors="replace").read()
-            mod = path[:-len(".lean")].replace("/", ".")
-            for block in STORED_BASIS_RE.findall(text):
-                out |= {(n, mod) for n in ANNOTATE_RHS_RE.findall(block)}
-    return out
 
 
 def source_index():

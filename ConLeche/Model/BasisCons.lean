@@ -7,7 +7,7 @@ public section
 /-!
 # The basis-cons preservation kit (task #161)
 
-`BasisStepPB` conses *inductive-kind* heads — `indInfo`, `ctorInfo`,
+A basis block conses *inductive-kind* heads — `indInfo`, `ctorInfo`,
 `recInfo` — and the existing preservation lemmas are all keyed on the
 value kinds:
 

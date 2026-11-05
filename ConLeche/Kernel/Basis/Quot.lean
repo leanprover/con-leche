@@ -13,10 +13,10 @@ the eliminators `Quot.lift`/`Quot.ind` as stored recursors with one
 synthetic rule each (applying the lift/ind slot to the packed
 element), and `Quot.sound` as a stored axiom (true in the set model).
 
-The raw pins below match the exporter's `quot` records (and
-`Quot.sound`'s `axiom` record) verbatim; the *stored* forms
-(`quotA`, …) are computed from them at elaboration time; see
-`ConLeche/Kernel/BasisA.lean`.
+The pins below (`quotA`, …) match the exporter's `quot` records (and
+`Quot.sound`'s `axiom` record) verbatim, level-parameter names included: the
+kernel generates this package itself, at these names.  Each record stores its
+slot's pin (`ConLeche/Kernel/Basis.lean`).
 -/
 
 namespace ConLeche
