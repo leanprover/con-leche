@@ -52,6 +52,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
     {isRec : Bool}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     {p : BlockParts} (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     {cvTa0 : ConstantVal} {fvsP : List Expr} {rest : Expr} {holes : List Expr}
     (hcv0 : cvTas.head? = some cvTa0)
@@ -88,7 +89,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
           ∀ e ∈ d.absE ψ c j, interp V (consList fs (d.toLfp.frame ψ ρp X)) e
             = interp V (consList fs (d.toLfp.frame ψ ρp X')) e) := by
   obtain ⟨ab, abN, hhi, hca, hNr, hab, habLen, hlabN, hfr, hCP, hgr, hfrN, -, -, hEq,
-    hsatFrame⟩ := blockCtorHoleCtx hin hN hcore hnames hlps hnP hk hcv0 hop0 hholes hcj
+    hsatFrame⟩ := blockCtorHoleCtx hin hN hcore hnames hlps hread hnP hk hcv0 hop0 hholes hcj
       hCf hCb hcrest hinf hsort hd hnf
   generalize hL : d.holeCtx ψ = L at hCP hgr hEq hsatFrame
   have hcN : (p.nestCtx fvsP env.find?).names = d.memberNames := hnames
@@ -246,6 +247,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     {nodes : ConLeche.NestState}
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p cvTas ctorsAs = .ok (kinds, nfs, nodes))
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hread : p.members.map (·.cvT) = cvTas)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
     (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
@@ -260,15 +262,13 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
   obtain ⟨cvTa0, fvsP, rest, holes, hcv0, hop0, hholes, hder, -⟩ :=
-    checkBlockPositivity_derivM mp.base2.wf hrun
-      (fun cv h => (mp.base2.wf.consts _ (List.mem_of_find?_eq_some
-        (hcore.1 0 cv (by rwa [List.head?_eq_getElem?] at h)).1)).1)
+    checkBlockPositivity_derivM mp.base2.wf hrun hread (formers_closed hcore.1)
       (fun c cs hc j cA hj => by
         have hck : c < d.k := by rw [← hlenCA]; exact (List.getElem?_eq_some_iff.mp hc).1
         rw [hctorsAs c hck] at hc
         obtain rfl := Option.some.inj hc
         exact (hclosed c j cA hj).1)
-      (hcore.nestArity hN hnames hnP hnIdxs hk) (hcore.ctorLps hlps hlenCA hctorsAs)
+      (hcore.ctorLps hlps hlenCA hctorsAs)
   have hin := Rules.RulesInputs.ofSem mp ψ
   have hkN : d.toLfp.k ≤ d.toLfp.N := Nat.le_add_right _ _
   -- every constructor's telescope, accessible
@@ -294,7 +294,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
       obtain ⟨crest, ksr, tsr, hcrest, hd, -, ⟨ty, u, hty, hsort⟩, -⟩ :=
         hder c (d.ctorsM c) (hctorsAs c hck) j _ hcj
       obtain ⟨hCf, hCb⟩ := hclosed c j _ hcj
-      obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hnP
+      obtain ⟨ord, Af, h1, h2, h3, h4⟩ := blockCtorAcc_of_walk mp hin hN hcore hnames hlps hread hnP
         hnIdxs hk hcv0 hop0 hholes hcj hCf hCb hcrest hd (fun _ => hcovk fvsP) hty hsort
         (hnfs c j _ hcj) hs (hG c hc j hj)
       exact ⟨(ord, Af), fun _ _ => ⟨h1, h2, h3, h4⟩⟩
@@ -321,7 +321,8 @@ theorem blockAcc_of_run {F : Nat}
     (hN : BlockNamesOk (V := V) d cvTas) (hcore : BlockHoleCtxFacts mp.base2 d lps cvTas p₁ isRec)
     (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
       p cvTas ctorsAs = .ok posKs)
-    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
+    (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
+    (hread : p.members.map (·.cvT) = cvTas) (hnP : p.nP = d.nP)
     (hnIdxs : p.nIdxs = d.nIdxs) (hresS : p.resSort = d.resSort)
     (hk : d.k = d.memberNames.length) (hinst : d.nInst = 0) (hlenCA : ctorsAs.length = d.k)
     (hctorsAs : ∀ c, c < d.k → ctorsAs[c]? = some (d.ctorsM c))
@@ -330,16 +331,17 @@ theorem blockAcc_of_run {F : Nat}
     (hnfs : ∀ (c j : Nat) (cA : ConstantVal × Nat), (d.ctorsM c)[j]? = some cA →
       d.nfFF c j = (posKs.2.1.getD c []).getD j default)
     -- coverage at the walk's carrier (the containers' clauses are recorded)
-    (hcov : ∃ mk : EnvModelM V env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames)
+    (hcov : ∃ mk : EnvModelM V env, mk.base2 = mp.base2 ∧ LfpCover mk p.memberNames ∧
+      ∀ F, FamilyRead mk F)
     (ψ : Name → Nat) (ρp : Nat → V) (hs : Sat V (d.params ψ).reverse ρp)
     (hG : ∀ c, c < d.N → ∀ j, j < (d.ctorsM c).length →
       ∀ X, InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) X →
       FieldsOkB (d.w ψ) (d.toLfp.frame ψ ρp X) (d.absF ψ c j)) :
     ∃ A, (d.toLfp.w ψ ≠ 0 → A ∈ˢ (tg (d.toLfp.w ψ) : V)) ∧ d.toLfp.FitAcc ψ ρp A := by
-  obtain ⟨mk, hbk, hcovk⟩ := hcov
+  obtain ⟨mk, hbk, hcovk, hreads⟩ := hcov
   have hcore' : BlockHoleCtxFacts mk.base2 d lps cvTas p₁ isRec := by rw [hbk]; exact hcore
-  exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hnP hnIdxs hk hinst hlenCA hctorsAs
-    hclosed hnfs ψ ρp hs (fun fvsP => ⟨contCover_of hcovk (fun _ => rfl),
+  exact blockAccTuple_of_run mk hN hcore' hrun hnames hlps hread hnP hnIdxs hk hinst hlenCA hctorsAs
+    hclosed hnfs ψ ρp hs (fun fvsP => ⟨contCover_of hcovk (fun _ => rfl) hreads,
       nestCtx_sort_eval hresS fvsP env.find? ψ⟩) hG
 
 end ConLeche.Model

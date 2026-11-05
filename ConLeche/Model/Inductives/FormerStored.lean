@@ -40,8 +40,10 @@ structure FormerDeclared {env : Env} (m : EnvModel V env) (cvS cvTa : ConstantVa
   readDefined : cvTa.type.allLevelParamsDefined cvTa.levelParams = true
   readBounded : cvTa.type.looseBVarsBounded 0 = true
   readResolve : cvTa.type.constsResolve env = true
-  /-- a declared type that shows its telescope is what the check read -/
-  shows : ConLeche.formerDefHeaded cvS = true ∨ cvS = cvTa
+  /-- a declared type that shows its telescope is what the check read; one that does not is at
+  no literal's family -/
+  shows : (ConLeche.formerDefHeaded cvS = true ∧ ConLeche.litGuardFamilies.contains cvS.name = false)
+    ∨ cvS = cvTa
 
 /-- A former that shows its telescope, against itself. -/
 theorem FormerDeclared.refl {env : Env} {m : EnvModel V env} {cv : ConstantVal} {nP : Nat}
@@ -110,6 +112,20 @@ theorem FormerStored.denote_self {env : Env} {m : EnvModel V env} {cvTa : Consta
   obtain ⟨cvS, hf, hD⟩ := h
   rw [denote_const hf (by simp [ConstantInfo.toConstantVal, hD.lps])]
   simp only [ConstantInfo.toConstantVal, hD.lps, ConLeche.Level.substFn_param_self]
+
+/-- The formers one pass stored, each against what the check read. -/
+theorem formerStored_of {envI : Env} {m : EnvModel V envI} {dcl cvTas : List ConstantVal}
+    {caps : Nat → IndCaps} {L : Nat → ConstantVal → Prop} (hlen : dcl.length = cvTas.length)
+    (hD : ∀ (j : Nat) (cvS cvTa : ConstantVal), dcl[j]? = some cvS → cvTas[j]? = some cvTa →
+      FormerDeclared m cvS cvTa)
+    (hf : ∀ (j : Nat) (cvS cvTa : ConstantVal), dcl[j]? = some cvS → cvTas[j]? = some cvTa →
+      envI.find? cvTa.name = some (.indInfo cvS (caps j)) ∧ L j cvTa) :
+    ∀ (j : Nat) (cvTa : ConstantVal), cvTas[j]? = some cvTa →
+      FormerStored m cvTa (caps j) ∧ L j cvTa := by
+  intro j cvTa hj
+  obtain ⟨cvS, hS⟩ : ∃ cvS, dcl[j]? = some cvS :=
+    ⟨_, List.getElem?_eq_getElem (by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
+  exact ⟨⟨cvS, (hf j cvS cvTa hS hj).1, hD j cvS cvTa hS hj⟩, (hf j cvS cvTa hS hj).2⟩
 
 /-- The telescopes the block's check read are closed. -/
 theorem formers_closed {env : Env} {m : EnvModel V env} {cvTas : List ConstantVal}

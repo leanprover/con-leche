@@ -287,7 +287,7 @@ theorem stageBlockTables {F : Nat} {d : BlockData V} {lps : List Name}
         (hS.etaData i cA hik hctorsEq) (hS.lpsT i cvTb hik hcvTb) hfC hlpsC
         (hS.stripC i cA hik hctorsEq) hS.propFlag
         (fun hp s hs => by
-          rcases hD.shows with hdh | rfl
+          rcases hD.shows with ⟨hdh, -⟩ | rfl
           · simp [ConLeche.formerDefHeaded, hs] at hdh
           · exact hS.propZ hp i _ hcvTb s hs)
         (by have := hS.capsTele i hik; rwa [hnIdx0, Nat.add_zero] at this)

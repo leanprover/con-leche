@@ -463,7 +463,7 @@ theorem contNew_mono (mp : EnvModelM V env) {ctx : NestCtx}
     simp only [List.headD_cons] at hhead ⊢
     rw [hhead]
     exact List.mem_cons_self
-  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hcov.find hf (hcov.instFacts hD hmm hf rfl hnI)
+  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hf (hcov.instFacts hD hmm hf rfl hnI)
     (by rw [hcvl]; exact hnd)
     (by rw [hcvl]; exact hul) (by rw [hcvl, hlenP]) hdsw hdsa
   refine monoOn_of_famLe mp hD hmm hf hhid hwa (by rw [hcvl, hlenP]) (by rw [hids, hisl])
@@ -647,7 +647,7 @@ theorem contHit_mono (mp : EnvModelM V env) {ctx : NestCtx} {F : Nat}
   obtain ⟨dsa, hdsa, -⟩ := DenoteSpine.unlift (m := mp.base2) (φ := φ) hhid
     (fun x hx => (hdsw x hx).1) hsp₁
   -- the index count
-  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hcov.find hf (hcov.instFacts hD hmm hf rfl hnI) hnd hul
+  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hf (hcov.instFacts hD hmm hf rfl hnI) hnd hul
     hlenP hdsw hdsa
   -- the key's positivity at the enclosing relation seen at the block's depth
   have hR00 := hR.dropBase hhid

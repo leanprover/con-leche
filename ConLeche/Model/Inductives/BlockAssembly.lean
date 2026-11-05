@@ -294,12 +294,12 @@ theorem blockFormerFacts_of {F : Nat} {env envI : Env}
     have hmem := List.mem_of_getElem? hms
     have hA := hAt ms hmem
     obtain ⟨-, -, -, -, -, -, -, htr, htf, hlpd, hbt, -⟩ := hsyn m ms.cvT hT
-    rcases hA.how with ⟨hdh, he⟩ | ⟨hdh, -, h₁, hb, -⟩
+    rcases hA.how with ⟨hdh, he⟩ | ⟨hdh, hgd, h₁, hb, -⟩
     · rw [← he]
       exact FormerDeclared.refl (hfd m ms.cvT hT) htf hlpd hbt htr
     · have h₂ := ConLeche.checkBlockInds_checked h ms hmem
       obtain ⟨g1, g2, g3, g4⟩ := ConLeche.checkConstantVal_typeWF h₁
-      refine ⟨hA.name.symm, hA.lps.symm, g1, g2, g4, g3, fun ψ => ?_, htf, hlpd, hbt, htr, .inl hdh⟩
+      refine ⟨hA.name.symm, hA.lps.symm, g1, g2, g4, g3, fun ψ => ?_, htf, hlpd, hbt, htr, .inl ⟨hdh, hgd⟩⟩
       obtain ⟨Ts, Tr, a, b, hw₁, -, heq⟩ := storedFormer_sem mp h₁ h₂ hb ψ
       exact ⟨Ts, Tr, a, b, fun ρ => ⟨heq ρ, hw₁ ρ⟩⟩
   · intro m cvTa hm
@@ -668,7 +668,6 @@ stated the way `BlockData` reads them: `blockCtorFuns_of` at member
 theorem blockCtorFunsAt {F : Nat}
     {envI : Env} (mpI : EnvModelM V envI) {q : BlockShape} {cvTas : List ConstantVal}
     {isRec : Bool} {m : Nat} {cvTa : ConstantVal} {ctorsA : List (ConstantVal × Nat)}
-    {sOf : Nat → Level}
     (hm : cvTas[m]? = some cvTa)
     (hnameOf : ∀ (j : Nat) (cvTb : ConstantVal), cvTas[j]? = some cvTb →
       cvTb.name = q.memberNames.getD j .anonymous)

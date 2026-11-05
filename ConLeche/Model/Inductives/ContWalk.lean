@@ -193,7 +193,7 @@ theorem grpMember (mp : EnvModelM V env) {D : LfpDatum V}
   obtain ⟨rfl, rfl⟩ : cv' = cv ∧ caps' = caps := by simpa using hfc
   subst hcl
   rw [hpm] at hF
-  obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hfind hf hF hnd hul hlenP hds hdsa
+  obtain ⟨hcty, -, hte⟩ := n2_link mp hD hmm hf hF hnd hul hlenP hds hdsa
   exact ⟨mm, hmm, hpm, by rw [hpm]; exact idxOf_member hnN hkN hmm, cv', caps', hf, rfl, hF.strip,
     hcty, hte⟩
 

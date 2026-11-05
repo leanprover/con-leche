@@ -487,7 +487,7 @@ spine, and a hole value applied to the key's parameters are the same at
 both sides of a hole relation. -/
 theorem n2_link (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
+    {hi : Nat} {us : List Level} {ds : List Expr}
     {nI : Nat} {cty : Expr}
     {cvC : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
@@ -585,7 +585,7 @@ the recorded block's level at the key's levels is the value of the walk
 context's sort. -/
 theorem n2_sort (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
+    {hi : Nat} {us : List Level} {ds : List Expr}
     {nI : Nat} {cty : Expr}
     {cvC : ConstantVal} {caps : IndCaps}
     (hf : env.find? (D.member mm) = some (.indInfo cvC caps))

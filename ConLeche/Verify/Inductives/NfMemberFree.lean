@@ -5,6 +5,7 @@ public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Knot
+public import ConLeche.Kernel.Inductives.BlockTail
 
 public section
 
@@ -1273,22 +1274,25 @@ named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path p
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {cvTas : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
-    (hfindM : ∀ cvTb ∈ cvTas, (∃ caps, envI.find? cvTb.name = some (.indInfo cvTb caps)) ∧
-      ∃ k bs s, cvTb.type.stripPis k = some (bs, .sort s))
+    (hfindM : ∀ cvTb ∈ cvTas, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
+      (litGuardFamilies.contains cvTb.name = true → ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
     (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
     (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
     (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names) :
     WhnfNamesFree envI names := by
-  -- a member: an `indInfo` of `envI` whose type ends in a sort, fresh in `env`
-  have hmem : ∀ n ∈ names, ∃ cvTb caps s, envI.find? n = some (.indInfo cvTb caps) ∧
-      cvTb.type.piResult = .sort s ∧ env.find? n = none := by
+  -- a member: an `indInfo` of `envI`, fresh in `env`, whose type ends in a sort at a guarded name
+  have hmem : ∀ n ∈ names, ∃ cvS caps, envI.find? n = some (.indInfo cvS caps) ∧
+      (litGuardFamilies.contains n = true → ∃ s, cvS.type.piResult = .sort s) ∧
+      env.find? n = none := by
     intro n hn
     obtain ⟨cvTb, hcv, rfl⟩ := (hnames n).mp hn
-    obtain ⟨⟨caps, hf⟩, k, bs, s, hs⟩ := hfindM cvTb hcv
-    exact ⟨cvTb, caps, s, hf, piResult_of_stripPis_sort k hs, hfresh cvTb hcv⟩
+    obtain ⟨cvS, caps, hf, hs⟩ := hfindM cvTb hcv
+    refine ⟨cvS, caps, hf, fun hg => ?_, hfresh cvTb hcv⟩
+    obtain ⟨k, bs, s, h⟩ := hs hg
+    exact ⟨s, piResult_of_stripPis_sort k h⟩
   have hmemE : ∀ n ∈ names, env.find? n = none := fun n hn => by
-    obtain ⟨-, -, -, -, -, h⟩ := hmem n hn
+    obtain ⟨-, -, -, -, h⟩ := hmem n hn
     exact h
   have hnon : ∀ n, n ∉ names → envI.find? n = env.find? n := fun n hn =>
     hI n (fun cvTb hcv h => hn ((hnames n).mpr ⟨cvTb, hcv, h⟩))
@@ -1296,11 +1300,12 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     intro n hs hn
     rw [hmemE n hn] at hs
     exact nomatch hs
-  -- a constant of `envI` whose type ends in no sort is no member
-  have hnotSort : ∀ n ci, envI.find? n = some ci →
+  -- a constant of `envI` at a guarded name whose type ends in no sort is no member
+  have hnotSort : ∀ n ci, litGuardFamilies.contains n = true → envI.find? n = some ci →
       (∀ s, ci.toConstantVal.type.piResult ≠ .sort s) → n ∉ names := by
-    intro n ci hf hs hn
-    obtain ⟨cvTb, caps, s, hf', hsort, -⟩ := hmem n hn
+    intro n ci hg hf hs hn
+    obtain ⟨cvTb, caps, hf', hsort, -⟩ := hmem n hn
+    obtain ⟨s, hsort⟩ := hsort hg
     rw [hf] at hf'
     obtain rfl := Option.some.inj hf'
     exact hs s hsort
@@ -1308,7 +1313,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
   have hnotInd : ∀ n ci, envI.find? n = some ci → (∀ cv caps, ci ≠ .indInfo cv caps) →
       n ∉ names := by
     intro n ci hf hs hn
-    obtain ⟨cvTb, caps, s, hf', -, -⟩ := hmem n hn
+    obtain ⟨cvTb, caps, hf', -, -⟩ := hmem n hn
     rw [hf] at hf'
     exact hs _ _ (Option.some.inj hf')
   have hres : ∀ e : Expr, e.constsResolve env = true → e.occDeep names = false :=
@@ -1361,7 +1366,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hfO] at hO
     obtain ⟨l1, us1, htyO⟩ := stringOfListTyOk_inv hO
     have hO' : stringOfListName ∉ names :=
-      hnotSort _ _ hfO (fun s => by rw [htyO]; simp [Expr.piResult])
+      hnotSort _ _ (by simp [litGuardFamilies]) hfO (fun s => by rw [htyO]; simp [Expr.piResult])
     obtain ⟨ciC, hfC⟩ : ∃ ci, envI.find? charOfNatName = some ci := by
       cases h : envI.find? charOfNatName with
       | none => rw [h] at hCO; exact nomatch hCO
@@ -1369,15 +1374,15 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hfC] at hCO
     have htyC := charOfNatTyOk_inv hCO
     have hCO' : charOfNatName ∉ names :=
-      hnotSort _ _ hfC (fun s => by rw [htyC]; simp [Expr.piResult])
+      hnotSort _ _ (by simp [litGuardFamilies]) hfC (fun s => by rw [htyC]; simp [Expr.piResult])
     have hNil' : listNilName ∉ names := by
       cases h : envI.find? listNilName with
       | none => rw [h] at hNil; exact nomatch hNil
-      | some ci => rw [h] at hNil; exact hnotSort _ _ h (listNilTyOk_piResult hNil)
+      | some ci => rw [h] at hNil; exact hnotSort _ _ (by simp [litGuardFamilies]) h (listNilTyOk_piResult hNil)
     have hCons' : listConsName ∉ names := by
       cases h : envI.find? listConsName with
       | none => rw [h] at hCons; exact nomatch hCons
-      | some ci => rw [h] at hCons; exact hnotSort _ _ h (listConsTyOk_piResult hCons)
+      | some ci => rw [h] at hCons; exact hnotSort _ _ (by simp [litGuardFamilies]) h (listConsTyOk_piResult hCons)
     -- `String.ofList : List Char → String` is older than the block, and
     -- so are the `String` and `Char` it mentions
     rw [hnon _ hO'] at hfO

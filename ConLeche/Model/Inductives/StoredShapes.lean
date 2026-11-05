@@ -167,8 +167,9 @@ environment agrees with the pre-block one off the members. -/
 theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
     {cvTas : List ConstantVal} {names : List Name}
     (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
-    (hfindM : ∀ cvTb ∈ cvTas, (∃ caps, envI.find? cvTb.name = some (.indInfo cvTb caps)) ∧
-      ∃ k bs s, cvTb.type.stripPis k = some (bs, .sort s))
+    (hfindM : ∀ cvTb ∈ cvTas, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
+      (ConLeche.litGuardFamilies.contains cvTb.name = true →
+        ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
     (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
     (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n) :
     (ConLeche.natLitSupported envI = true →
@@ -178,29 +179,33 @@ theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
         ConLeche.listConsName ∉ names ∧ ConLeche.charName ∉ names ∧
         ConLeche.charOfNatName ∉ names) := by
   -- a member: an `indInfo` whose type ends in a sort, fresh before the block
-  have hmem : ∀ n ∈ names, ∃ cvTb caps s, envI.find? n = some (.indInfo cvTb caps) ∧
-      cvTb.type.piResult = .sort s ∧ env.find? n = none := by
+  have hmem : ∀ n ∈ names, ∃ cvS caps, envI.find? n = some (.indInfo cvS caps) ∧
+      (ConLeche.litGuardFamilies.contains n = true → ∃ s, cvS.type.piResult = .sort s) ∧
+      env.find? n = none := by
     intro n hn
     obtain ⟨cvTb, hcv, rfl⟩ := (hnames n).mp hn
-    obtain ⟨⟨caps, hf⟩, k, bs, s, hs⟩ := hfindM cvTb hcv
-    exact ⟨cvTb, caps, s, hf, piResult_of_stripPis_sort k hs, hfresh cvTb hcv⟩
+    obtain ⟨cvS, caps, hf, hs⟩ := hfindM cvTb hcv
+    refine ⟨cvS, caps, hf, fun hg => ?_, hfresh cvTb hcv⟩
+    obtain ⟨k, bs, s, h⟩ := hs hg
+    exact ⟨s, piResult_of_stripPis_sort k h⟩
   have hnm : ∀ n, n ∉ names → ∀ cvTb ∈ cvTas, cvTb.name ≠ n :=
     fun n hn cvTb hcv h => hn ((hnames n).mpr ⟨cvTb, hcv, h⟩)
   refine ⟨fun hs => ?_, fun hs => ?_⟩
   · simp only [ConLeche.natLitSupported, Bool.and_eq_true] at hs
     obtain ⟨⟨-, hZ⟩, hS⟩ := hs
     refine ⟨fun hn => ?_, fun hn => ?_⟩
-    · obtain ⟨cvTb, caps, s, hf, -, -⟩ := hmem _ hn
+    · obtain ⟨cvTb, caps, hf, -, -⟩ := hmem _ hn
       rw [hf] at hZ
       simp [ConLeche.natZeroOk] at hZ
-    · obtain ⟨cvTb, caps, s, hf, -, -⟩ := hmem _ hn
+    · obtain ⟨cvTb, caps, hf, -, -⟩ := hmem _ hn
       rw [hf] at hS
       simp [ConLeche.natSuccOk] at hS
   · simp only [ConLeche.strLitSupported, Bool.and_eq_true] at hs
     obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, hO⟩, -⟩, hNil⟩, hCons⟩, -⟩, hCO⟩ := hs
     have hO' : ConLeche.stringOfListName ∉ names := by
       intro hn
-      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨cvTb, caps, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨s, hsort⟩ := hsort (by simp [ConLeche.litGuardFamilies])
       rw [hf] at hO
       simp only [ConLeche.stringOfListTyOk, Bool.and_eq_true] at hO
       obtain ⟨-, hO⟩ := hO
@@ -216,7 +221,8 @@ theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
       · exact nomatch hO
     have hNil' : ConLeche.listNilName ∉ names := by
       intro hn
-      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨cvTb, caps, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨s, hsort⟩ := hsort (by simp [ConLeche.litGuardFamilies])
       rw [hf] at hNil
       simp only [ConLeche.listNilTyOk] at hNil
       split at hNil
@@ -229,7 +235,8 @@ theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
       · exact nomatch hNil
     have hCons' : ConLeche.listConsName ∉ names := by
       intro hn
-      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨cvTb, caps, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨s, hsort⟩ := hsort (by simp [ConLeche.litGuardFamilies])
       rw [hf] at hCons
       simp only [ConLeche.listConsTyOk] at hCons
       split at hCons
@@ -257,7 +264,8 @@ theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
       · exact nomatch hCO
     have hCO' : ConLeche.charOfNatName ∉ names := by
       intro hn
-      obtain ⟨cvTb, caps, s, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨cvTb, caps, hf, hsort, -⟩ := hmem _ hn
+      obtain ⟨s, hsort⟩ := hsort (by simp [ConLeche.litGuardFamilies])
       rw [hf] at hci
       obtain rfl := Option.some.inj hci
       change cvTb.type = _ at hty
@@ -271,7 +279,7 @@ theorem blockMembers_notLit {env envI : Env} (hwf : ConLeche.EnvWF env)
     simp only [ConLeche.Expr.constsResolve, Bool.and_eq_true] at hres
     have hChar' : ConLeche.charName ∉ names := by
       intro hn
-      obtain ⟨-, -, -, -, -, hfr⟩ := hmem _ hn
+      obtain ⟨-, -, -, -, hfr⟩ := hmem _ hn
       rw [hfr] at hres
       exact nomatch hres.2
     exact ⟨hO', hNil', hCons', hChar', hCO'⟩
