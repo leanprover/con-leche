@@ -82,7 +82,7 @@ theorem genClassNodes {F : Nat}
   have hbase := hctx.base
   have hbase' := hbase
   obtain ⟨-, -, -, hndM, hN, hS, hcore, -, hdR, hlfp, hcov,
-    ⟨mk, hmkC, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hbase'
+    ⟨mk, hmkC, hreads, -, hmk, hag, hsubC, hcoreK, htr⟩, -⟩ := hbase'
   have h := recStage_of_gen R hg
   have hmr : BlockMembersRun mpC.base2 dR pp.toBlockShape cvTasR := by
     obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR; exact blockMembersRun_seam hN hS hcore

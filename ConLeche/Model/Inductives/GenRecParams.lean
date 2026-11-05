@@ -7,6 +7,7 @@ public import ConLeche.Model.Inductives.BlockRecData
 public import ConLeche.Model.Inductives.BlockRecTyShapeRun
 import ConLeche.Model.Inductives.ClassGenRead
 import ConLeche.Verify.Denote.ErasedEq
+import ConLeche.Verify.Inductives.GenRecScoped
 import ConLeche.Verify.Rules.InferBridge
 
 public section
@@ -687,6 +688,18 @@ set_option maxHeartbeats 1600000 in
 the members' run facts (`BlockMembersRun`): a spine fitting any stored
 recursor's rule prefix fits the block's parameters on its first `nP`
 values. -/
+theorem ClassGen_pre_param {g : ConLeche.ClassGen} (hg : ConLeche.ClassGenScoped g) {i : Nat}
+    {x : Expr} (h : g.params[i]? = some x) : g.pre[i]? = some (g.binder x) := by
+  have hp := hg.pre
+  unfold ConLeche.ClassGen.prefixBinders at hp
+  simp only [bind, Option.bind] at hp
+  split at hp
+  · simp at hp
+  · have hpe := Option.some.inj hp
+    rw [← hpe, List.getElem?_append_left (by
+      simpa using (List.getElem?_eq_some_iff.mp h).1), List.getElem?_map, h]
+    rfl
+
 theorem genParams_fit_run {F : Nat} {envI envC : Env}
     {pp : BlockParts} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
     {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
@@ -702,7 +715,7 @@ theorem genParams_fit_run {F : Nat} {envI envC : Env}
         xs →
       SpineFit ρ (dR.params ψ) (xs.take dR.nP) := by
   intro c hc ψ ρ xs hfit
-  obtain ⟨hnPq, hkq, hlenCv, hcvF, hmsF, -, hparIff⟩ := hmr
+  obtain ⟨hnPq, hkq, hlenCv, hcvF, -, -, -⟩ := hmr
   have hnPq' : dR.nP = pp.nP := hnPq
   -- recursor `c`
   have hlenT : (ConLeche.tgtRs out).length = pp.recs.length := by
@@ -712,30 +725,6 @@ theorem genParams_fit_run {F : Nat} {envI envC : Env}
   have hr : (ConLeche.tgtRs out)[c]? = some (cvG, rhss, (R.Ms.getD cc default).nIdx,
       (R.Ms.getD cc default).ctors) := by
     simp [ConLeche.tgtRs, List.getElem?_map, ho]
-  -- a member recursor, and its comparison
-  obtain ⟨i0, rc0, hrc0, htgt⟩ := genRec_memberRec_exists R
-  obtain ⟨c0, cvG0, -, hc0, -, ⟨T0⟩, -, -, -⟩ := genRecRun_at R hrc0
-  obtain ⟨I, hfi, hall⟩ := genMemberRec_paramDefeq mpC.base2.wf R hg hc0 T0 htgt
-  -- its member's former
-  have hkt : rc0.tgt < dR.k := by rw [hkq]; exact htgt
-  obtain ⟨cvTP, hcvT⟩ : ∃ cv, cvTas[rc0.tgt]? = some cv :=
-    ⟨_, List.getElem?_eq_getElem (by omega)⟩
-  obtain ⟨hnm, hlpsT, ⟨caps, hfindT⟩, hfvT, hbndT, hFD⟩ := hcvF _ _ hcvT
-  have hI : I = cvTP.name := by
-    obtain ⟨hlt, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hfi
-    have hmem : pp.toBlockShape.members[rc0.tgt]? = some (pp.toBlockShape.members[rc0.tgt]'(by
-      simpa [ConLeche.BlockShape.memberNames] using hlt)) := List.getElem?_eq_getElem _
-    obtain ⟨hnm', -⟩ := hmsF _ _ hmem
-    have hI' : pp.toBlockShape.memberNames[rc0.tgt] = I := by simpa using hbeq
-    rw [← hI', ← hnm]
-    simp only [ConLeche.BlockShape.memberNames, List.getElem_map]
-    exact hnm'.symm
-  subst hI
-  obtain ⟨bsT, sT, hstrip⟩ := hFD.syn
-  have hsdT : SameDoms pp.nP cvTP.type cvTP.type :=
-    ConLeche.SameDoms.mono (by rw [← hnPq']; omega) (ConLeche.SameDoms.of_stripPis _ hstrip)
-  obtain ⟨xs0, o0, F', hop0, hdeqs⟩ := hall cvTP caps hfindT hlpsT hfvT hsdT
-  -- recursor `c`'s parameter openers are the same
   obtain ⟨fvsL, conclL, hopL, -, -, hlenRds, hbind, -, -⟩ := recStage_tyPis mpC h hr ψ
   have hle := blockRecHrPle (p := pp) h (List.getElem?_eq_some_iff.mp hr).1
   obtain ⟨hrP, -⟩ := genRecTy_shape R hg T
@@ -744,115 +733,76 @@ theorem genParams_fit_run {F : Nat} {envI envC : Env}
     (ConLeche.ClassGen.prefixBinders_scoped hg hg.pre).1
   have hroom : pp.nP ≤ pp.toBlockShape.rulePrefixAt c := by
     rw [hRc, hrP, hpl]; exact Nat.le_add_right _ _
+  -- the generated type's binders: the canonical parameters first
+  have htype : cvG.type = T.gty := T.type_eq
+  obtain ⟨ifs, maj, -, -, hgty, hcl, hbb⟩ := ConLeche.classGenRecTy_spec hg T.hgty
+  simp only [List.append_assoc] at hgty hcl
+  generalize hB : Expr.mkAppN (R.g.motVar cc) _ = B at hgty hbb
+  obtain ⟨xsG, restG, hopG, -, hxsG⟩ := open_of_erasedEq_closeTelescope _ 0 B cvG.type hcl hbb
+    (by rw [htype, hgty]; exact Expr.ErasedEq.rfl _)
+  have hlenPre : pp.nP ≤ (R.g.pre ++ (ifs.map R.g.binder ++ [maj])).length := by
+    have : R.g.pre.length = R.pre.length := rfl
+    simp only [List.length_append]; omega
+  obtain ⟨oG, hopGP⟩ := ConLeche.openPisAtFvars_prefix pp.nP _ cvG.type 0 hlenPre hopG
   obtain ⟨oc, hopc⟩ := ConLeche.openPisAtFvars_prefix pp.nP _ cvG.type 0 (by omega) hopL
-  have hxs : fvsL.take pp.nP = xs0 := genRec_paramOpeners_eq R hg T T0 hopc hop0
-  rw [hxs] at hopc
-  obtain ⟨hwA, hbA⟩ := recStage_tyClosed h hr
-  -- the FIRST telescope: recursor `c`'s parameter domains
+  have hsame : fvsL.take pp.nP = xsG.take pp.nP := by
+    rw [hopc] at hopGP
+    exact congrArg Prod.fst (Option.some.inj hopGP)
+  -- the canonical parameters: the first member's telescope, opened
+  obtain ⟨cvT0, rest0, h0, hop0, -, -⟩ := ConLeche.genRun_ctx R
+  have hcvT0 : cvTas[0]? = some cvT0 := by rwa [List.head?_eq_getElem?] at h0
+  obtain ⟨-, -, -, -, -, hFD0⟩ := hcvF _ _ hcvT0
+  obtain ⟨ppsT, bT, hstT, -, hlenT0, hbindT⟩ :=
+    denote_openPis (acval := mpC.base2.acval) (env := envC) (φ := ψ) pp.nP hop0 (hFD0.read ψ)
+  have hlenP0 : (dR.ppsM 0 ψ).length = dR.nP + dR.nIdxAt 0 := hFD0.len ψ
+  have hppsT : ppsT = (dR.ppsM 0 ψ).take pp.nP := by
+    have := stripPisAV_mkPisAV_take pp.nP (dR.ppsM 0 ψ)
+      (.sort (dR.resSort.eval ψ)) (by rw [hlenP0, hnPq']; omega)
+    rw [this] at hstT
+    exact congrArg Prod.fst (Option.some.inj hstT.symm)
+  have hplenC : R.ctx.params.length = pp.nP := hg.params_len
+  -- the recursor's parameter domains are the first member's
   have hlenPd := blockRulePdomsAV_length mpC h hr ψ
   generalize hPd : blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (ConLeche.tgtRs out) ψ c
     = pdoms at hfit hlenPd
-  have hlenA : (pdoms.take pp.nP).length = pp.nP := by
-    rw [List.length_take, hlenPd]; omega
-  have hdA : ∀ (i : Nat) (x : Expr), xs0[i]? = some x →
-      denote mpC.base2.acval envC ψ i (Expr.fvarTypeD x)
-        = some ((pdoms.take pp.nP).getD i default) := by
-    intro i x hx
-    have hi : i < pp.nP := by
-      have := (List.getElem?_eq_some_iff.mp hx).1
-      rw [← hxs, List.length_take] at this; omega
-    have hx' : fvsL[i]? = some x := by
-      rw [← hxs, List.getElem?_take, ite_eq_left hi] at hx; exact hx
-    obtain ⟨pd, hpd, hreadD⟩ := hbind i x hx'
-    rw [hreadD, getD_take_of_lt hi, ← hPd, blockRulePdomsAV, List.getD_eq_getElem?_getD,
-      List.getElem?_take, ite_eq_left (by omega), hpd]
-    rfl
-  have hgrA := blockRulePdomsAV_graded mpC h hr ψ
-  rw [hPd] at hgrA
-  have hokA : ∀ i, i < pp.nP → ∀ (ρ' : Nat → V) (ys : List V),
-      SpineFit ρ' ((pdoms.take pp.nP).take i) ys →
-      WellDenotedTy V (consList ys ρ') ((pdoms.take pp.nP).getD i default) := by
-    intro i hi ρ' ys hys
-    rw [List.take_take, Nat.min_eq_left (by omega)] at hys
-    rw [getD_take_of_lt hi]
-    exact hgrA i (by omega) ρ' ys hys
-  -- the SECOND telescope: the member's parameter domains
-  have hppsLen : (dR.ppsM rc0.tgt ψ).length = dR.nP + dR.nIdxAt rc0.tgt := hFD.len ψ
-  obtain ⟨tfvs, trest, hopT⟩ := ConLeche.SameDoms.open_isSome pp.nP (d := 0) hsdT
-  obtain ⟨ppsT, bT, hstT, -, -, hbindT⟩ :=
-    denote_openPis (acval := mpC.base2.acval) (env := envC) (φ := ψ) pp.nP hopT (hFD.read ψ)
-  have hppsT : ppsT = (dR.ppsM rc0.tgt ψ).take pp.nP := by
-    have := stripPisAV_mkPisAV_take pp.nP (dR.ppsM rc0.tgt ψ)
-      (.sort (dR.resSort.eval ψ)) (by rw [hppsLen, hnPq']; omega)
-    rw [this] at hstT
-    exact congrArg Prod.fst (Option.some.inj hstT.symm)
-  have hdBT : ∀ (i : Nat) (x : Expr), tfvs[i]? = some x →
-      denote mpC.base2.acval envC ψ i (Expr.fvarTypeD x)
-        = some (((dR.ppsM rc0.tgt ψ).take dR.nP).getD i default) := by
-    intro i x hx
-    obtain ⟨pd, hpd, hreadD⟩ := hbindT i x hx
-    rw [Nat.zero_add] at hreadD
-    rw [hreadD, hnPq', ← hppsT, List.getD_eq_getElem?_getD, hpd]
-    rfl
-  have hlenB : ((dR.ppsM rc0.tgt ψ).take dR.nP).length = pp.nP := by
-    rw [List.length_take, hppsLen]; omega
-  have hokB : ∀ i, i < pp.nP → ∀ (ρ' : Nat → V) (ys : List V),
-      SpineFit ρ' (((dR.ppsM rc0.tgt ψ).take dR.nP).take i) ys →
-      WellDenotedTy V (consList ys ρ') (((dR.ppsM rc0.tgt ψ).take dR.nP).getD i
-        default) := by
-    intro i hi ρ' ys hys
-    exact prefixDoms_graded_of_tower (V := V) (cc := .sort (dR.resSort.eval ψ))
-      (by rw [hppsLen]; omega) (fun ρ'' => hFD.okTy ψ ρ'') (by omega) hys
-  -- the compared terms
-  let Dof : Nat → Expr := fun l =>
-    match instPisWith (xs0.take l) cvTP.type with
-    | some (.forallE D _) => D
-    | _ => default
-  have hDof : ∀ l, l < pp.nP → ∃ b, instPisWith (xs0.take l) cvTP.type
-      = some (.forallE (Dof l) b) ∧
-      ConLeche.isDefEqCore .verified false envC F' pp.nP ((xs0.map Expr.fvarTypeD).getD l default) (Dof l)
-        = .ok true := by
-    intro l hl
-    obtain ⟨D, b, hinst, hde⟩ := hdeqs l hl
-    have hD : Dof l = D := by simp only [Dof, hinst]
-    rw [hD]
-    exact ⟨b, hinst, hde⟩
-  have hbsget : ∀ l, l < pp.nP → ((List.range pp.nP).map Dof).getD l default = Dof l := by
-    intro l hl
-    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hl]; rfl
-  have hfacts : ∀ l, l < pp.nP → Expr.WScoped l (Dof l) ∧ (Dof l).looseBVarsBounded 0 = true ∧
-      (∀ lf ∈ (Dof l).fvarLeaves, Expr.fvar lf.1 lf.2 ∈ xs0) ∧
-      ∃ x, tfvs[l]? = some x ∧ Expr.ErasedEq x.fvarTypeD (Dof l) := by
-    intro l hl
-    obtain ⟨b, hinst, -⟩ := hDof l hl
-    exact instDom_facts hopc hwA hopT hfvT hbndT hl hinst
-  have hfitA : SpineFit ρ (pdoms.take pp.nP) (xs.take pp.nP) :=
-    spineFit_take hfit (by rw [hlenPd]; omega)
-  have hfitB := prefixDoms_spineFit_inst (V := V) (fuel := F') mpC hopc hwA hbA hlenA hlenB hdA
-    (bs := (List.range pp.nP).map Dof)
-    (fun l hl => by rw [hbsget l hl]; exact (hfacts l hl).1)
-    (fun l hl => by rw [hbsget l hl]; exact (hfacts l hl).2.1)
-    (fun l hl => by rw [hbsget l hl]; exact (hfacts l hl).2.2.1)
-    (fun l hl => by
-      rw [hbsget l hl]
-      obtain ⟨x, hx, hE⟩ := (hfacts l hl).2.2.2
-      rw [← denote_erasedEq hE, hdBT l x hx])
-    hokA hokB (fun l hl => by
-      rw [hbsget l hl]
-      obtain ⟨_, -, hde⟩ := hDof l hl
-      exact hde) hfitA
-  -- the members' parameter agreement
-  have hlenPD : (dR.params ψ).length = dR.nP := by
-    obtain ⟨cvT0, hcvT0⟩ : ∃ cvT0, cvTas[0]? = some cvT0 :=
-      ⟨_, List.getElem?_eq_getElem (by omega)⟩
-    obtain ⟨-, -, -, -, -, hFD0⟩ := hcvF _ _ hcvT0
-    rw [BlockData.params, List.length_take, hFD0.len ψ]; omega
-  have hsat : Sat V (((dR.ppsM rc0.tgt ψ).take dR.nP).reverse)
-      (consList (xs.take pp.nP) ρ) := by
-    simpa using sat_of_spineFit (Sat_nil V ρ) hfitB
-  rw [hnPq']
-  exact spineFit_of_sat_consList (by rw [hfitB.length_eq, hlenB, hlenPD, hnPq'])
-    ((hparIff _ hkt ψ _).mp hsat)
+  have heq : pdoms.take pp.nP = dR.params ψ := by
+    show _ = (dR.ppsM 0 ψ).take dR.nP
+    rw [hnPq', ← hppsT]
+    refine List.ext_getElem? fun i => ?_
+    by_cases hi : i < pp.nP
+    · obtain ⟨x, hx⟩ : ∃ x, fvsL[i]? = some x := ⟨_, List.getElem?_eq_getElem (by
+        have := ConLeche.Verify.openPisAtFvars_length _ hopL; omega)⟩
+      obtain ⟨pd, hpd, hreadD⟩ := hbind i x hx
+      obtain ⟨xg, hxg⟩ : ∃ xg, xsG[i]? = some xg := by
+        have h' : (xsG.take pp.nP)[i]? = some x := by
+          rw [← hsame, List.getElem?_take, ite_eq_left hi]; exact hx
+        rw [List.getElem?_take, ite_eq_left hi] at h'
+        exact ⟨x, h'⟩
+      have hxx : xg = x := by
+        have h' : (xsG.take pp.nP)[i]? = some x := by
+          rw [← hsame, List.getElem?_take, ite_eq_left hi]; exact hx
+        rw [List.getElem?_take, ite_eq_left hi, hxg] at h'
+        exact Option.some.inj h'
+      subst hxx
+      obtain ⟨pi, hpi⟩ : ∃ pi, R.ctx.params[i]? = some pi :=
+        ⟨_, List.getElem?_eq_getElem (by omega)⟩
+      obtain ⟨p', hp', hreadT⟩ := hbindT i pi hpi
+      rw [Nat.zero_add] at hreadT
+      have hnd : (R.g.pre ++ (ifs.map R.g.binder ++ [maj]))[i]? = some (R.g.binder pi) := by
+        rw [List.getElem?_append_left (by have : R.g.pre.length = R.pre.length := rfl; omega)]
+        exact ClassGen_pre_param hg hpi
+      have hE := hxsG i xg _ hxg hnd
+      have hval : pd = p' := by
+        have h1 : denote mpC.base2.acval envC ψ i xg.fvarTypeD
+            = denote mpC.base2.acval envC ψ i pi.fvarTypeD := denote_erasedEq hE i
+        rw [hreadD, hreadT] at h1
+        exact Option.some.inj h1
+      rw [List.getElem?_take, ite_eq_left hi, hp', ← hPd, blockRulePdomsAV, List.getElem?_take,
+        ite_eq_left (by omega), hpd, hval]
+    · rw [List.getElem?_eq_none (by rw [List.length_take]; omega),
+        List.getElem?_eq_none (by omega)]
+  rw [hnPq', ← heq]
+  exact spineFit_take hfit (by rw [hlenPd]; omega)
 
 end Fit
 

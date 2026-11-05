@@ -46,13 +46,13 @@ variable {V : Type w} [SetTheory V]
 
 /-! ## K.52 at a node: the key's parameters fit -/
 
-/-- **K.52, inverted**: a derived frame's key instance is typed at the
-frame's depth. -/
+/-- **K.52, inverted**: a derived frame's key is typed against its telescope at the frame's
+depth. -/
 theorem posD_frame_kty {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     {prog : List NestHole} {us : List Level} {ds : List Expr} {grp : List (Name × Expr)}
     {ts : List PosTree} (h : PosD ops env ctx (.frame prog us ds grp) ts) :
-    ∃ ty, ops.inferType env (ctx.hiAt prog.length)
-      (Expr.mkAppN (.const (grp.headD default).1 us) ds) = .ok ty := by
+    ConLeche.familyKeyCheck ops env ctx.find? (ctx.hiAt prog.length) (grp.headD default).1 us ds
+      = .ok () := by
   cases h with
   | frame _ _ _ _ _ _ _ _ hkty _ => exact hkty
 
@@ -68,39 +68,14 @@ theorem posNodeOk_dsAnc {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : Ne
   · rw [hao]; exact (hws x hx).1
   · rw [han]; exact (hds x hx).2
 
-/-- **A node's head former peels along its key** (`frame_head_instPis`
-at the node's frame derivation). -/
-theorem posNode_instPis {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) {t : PosTree} (hok : PosNodeOk ops env ctx t)
-    {cv : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (t.grp.headD default).1 = some (.indInfo cv caps)) :
-    ∃ r, ConLeche.instPisWith t.key.ds
-      (cv.type.instantiateLevelParams cv.levelParams t.key.lvls) = some r := by
-  obtain ⟨hne, -, -, hinst, -⟩ := posD_frame_inv hok.1
-  obtain ⟨p₀, ps₀, hp⟩ := List.exists_cons_of_ne_nil hne
-  have hh₀ : (t.grp.headD default).1 = p₀.1 := by rw [hp]; rfl
-  exact frame_head_instPis hfind (hinst p₀ (by rw [hp]; exact List.mem_cons_self)) (hh₀ ▸ hf)
-
-theorem posNode_flat {ops : ConLeche.CheckerOps CheckM} {env : Env} {ctx : NestCtx}
-    (hfind : ∀ n, ctx.find? n = env.find? n) {t : PosTree} (hok : PosNodeOk ops env ctx t)
-    {cv : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (t.grp.headD default).1 = some (.indInfo cv caps)) :
-    ConLeche.formerDefHeaded cv = false := by
-  obtain ⟨hne, -, -, hinst, -⟩ := posD_frame_inv hok.1
-  obtain ⟨p₀, ps₀, hp⟩ := List.exists_cons_of_ne_nil hne
-  have hh₀ : (t.grp.headD default).1 = p₀.1 := by rw [hp]; rfl
-  exact frame_head_flat hfind (hinst p₀ (by rw [hp]; exact List.mem_cons_self)) (hh₀ ▸ hf)
-
 /-- **K.52 at a node** (`hfit` of `FrameMono`): at every valuation of the
 node's stack context, its key's parameters read in the container's
-parameter telescope — the key instance is typed at the node's depth
-(`posD_frame_kty`), graded there (`infer_sound`), and a graded instance
-reads its parameters in the telescope (`keyParamsFit`, from the key's
-inference). -/
+parameter telescope: the key is typed against that telescope at the node's depth
+(`posD_frame_kty`), and `keyParamsFit` reads the certificates. -/
 theorem nodeKeyFit {env : Env} (mk : EnvModelM V env) {φ : Name → Nat} {ctx : NestCtx} {F : Nat}
     {Δ0 : List Term} (hΔ0 : Δ0.length = ctx.hiAt 0) {t : PosTree}
     (hok : PosNodeOk (fueledOps .verified F) env ctx t) (hsem : NodeSemAt mk.base2 φ ctx Δ0 t)
-    (hfind : ∀ n, ctx.find? n = env.find? n)
+    (hcov : ContCover mk ctx)
     {D : LfpDatum V} (hD : D ∈ mk.lfpBlocks) {mm : Nat} (hmm : mm < D.k)
     (hhead : D.member mm = (t.grp.headD default).1)
     {cv : ConstantVal} {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps))
@@ -110,33 +85,16 @@ theorem nodeKeyFit {env : Env} (mk : EnvModelM V env) {φ : Name → Nat} {ctx :
     ∀ σ : Nat → V, Sat V (stackCtx mk.base2 φ ctx t.anc Δ0) σ →
       Sat V (D.params (Level.substFn φ cv.levelParams t.key.lvls)).reverse
         (keyFrame dsa (ctx.hiAt t.anc.length) σ) := by
-  obtain ⟨ty, hty⟩ := posD_frame_kty hok.1
-  rw [← hhead] at hty
-  have hty' : ConLeche.inferTypeCore .verified false env F (ctx.hiAt t.anc.length)
-      (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds) = .ok ty := hty
+  have hk := posD_frame_kty hok.1
+  rw [← hhead] at hk
+  obtain ⟨-, hcerts⟩ := hcov.keyCerts hD hmm hf hk
   have hws := posNodeOk_dsAnc hok
   obtain ⟨-, hC, hL⟩ := hsem
-  have hwsE : Expr.WScoped (ctx.hiAt t.anc.length)
-      (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds) :=
-    Expr.WScoped.mkAppN (by simp [Expr.WScoped]) fun x hx => (hws x hx).1
-  have hbE : (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds).looseBVarsBounded 0 = true :=
-    ConLeche.looseBVarsBounded_mkAppN (by simp [Expr.looseBVarsBounded]) fun x hx => (hws x hx).2
-  have hLE : Expr.LeavesBounded (Expr.mkAppN (.const (D.member mm) t.key.lvls) t.key.ds) := by
-    intro l hl
-    rcases ConLeche.fvarLeaves_mkAppN hl with h0 | ⟨x, hx, hlx⟩
-    · simp [Expr.fvarLeaves] at h0
-    · exact hL x hx l hlx
-  obtain ⟨wa, hwa⟩ := acceptedReads_of mk.base2 φ hty' hwsE hbE hLE
-  obtain ⟨fa, vs, hfa, -, -⟩ := denote_mkAppN_inv hwa
-  obtain ⟨hul, -⟩ := Rules.denote_const_arityK hf hfa
-  -- the former's telescope peels along the key (`nestInstType` at the head)
-  obtain ⟨r, hr⟩ := posNode_instPis hfind hok (hhead ▸ hf)
   have hΔ := stackCtx_length_hi (m := mk.base2) (φ := φ) hΔ0 t.anc
   intro σ hσ
-  exact keyParamsFit mk (Rules.RulesInputs.ofSem mk φ) hD hmm hf
-    (posNode_flat hfind hok (hhead ▸ hf)) hul hty' hr hlenP hΔ
+  exact (keyParamsFit mk (Rules.RulesInputs.ofSem mk φ) hD hmm hf hcerts hlenP hΔ
     (fun x hx => ⟨⟨(hws x hx).1, (hws x hx).2, hL x hx⟩, CtxOk.toS (hC x hx).toCtxOk⟩) hdsa σ hσ
-    (fun x hx => CtxOk.leavesGr (hC x hx).toCtxOk hσ)
+    (fun x hx => CtxOk.leavesGr (hC x hx).toCtxOk hσ)).1
 
 /-! ## Admissible valuations -/
 

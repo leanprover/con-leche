@@ -97,6 +97,20 @@ theorem targetOutsideInst_inv {ops : ConLeche.CheckerOps ConLeche.CheckM} {fe : 
     · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
 
+/-- **`targetOutsideInst` at a recorded class**, at the telescope the class's block read. -/
+theorem TgtOutCls.outsideInst {env : Env} {mp : EnvModelM V env} {M : TargetMajor} {D : LfpDatum V}
+    {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mp M D mm cvI) {F : Nat} {us : List Level}
+    {ds : List Expr} {r : Nat × Level}
+    (h : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv env) M.ind us ds = .ok r) :
+    ∃ ty s, ConLeche.instPisWith ds ((D.formerAt mm cvI).type.instantiateLevelParams cvI.levelParams us)
+        = some ty ∧ ty.piBinders.2 = .sort s ∧ r = (ty.piBinders.1.length, s) := by
+  obtain ⟨cvI', caps', tyI, ty, s, hf', hfam, hty, hs, hr⟩ := targetOutsideInst_inv h
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  rw [mkFEnv_find?, hfI] at hf'
+  obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
+  rw [hcl.family_eq hfI hfam] at hty
+  exact ⟨ty, s, hty, hs, hr⟩
+
 end Rows
 
 end ConLeche.Model

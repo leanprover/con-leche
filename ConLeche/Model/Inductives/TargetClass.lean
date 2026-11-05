@@ -81,6 +81,26 @@ structure TgtOutCls {env : Env} (mp : EnvModelM V env) (M : TargetMajor) (D : Lf
     env.find? (D.ctorName mm j) = some (.ctorInfo M.ctors[j].1 M.nPc M.ctors[j].2)
 
 
+/-- An outside class's telescope, as a run reads it. -/
+theorem TgtOutCls.family_eq {env : Env} {mp : EnvModelM V env} {M : TargetMajor} {D : LfpDatum V}
+    {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI) {F : Nat} {caps : IndCaps}
+    {ty : Expr} (hf : env.find? M.ind = some (.indInfo cvI caps))
+    (hfam : ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cvI caps = .ok ty) :
+    ty = (D.formerAt mm cvI).type :=
+  h.hread F caps ty hf hfam
+
+/-- An outside class's former reads as its block's telescope. -/
+theorem TgtOutCls.read {env : Env} {mp : EnvModelM V env} {M : TargetMajor} {D : LfpDatum V}
+    {mm : Nat} {cvI : ConstantVal} (h : TgtOutCls mp M D mm cvI) (ψ : Name → Nat) :
+    ∃ ab : List ConLeche.Term.Term, denote mp.base2.acval env ψ 0 (D.formerAt mm cvI).type
+        = some (mkPisAV ab (.sort (D.w ψ))) ∧ ab = D.pars mm ψ ++ D.ids mm ψ := by
+  obtain ⟨caps, hfI⟩ := h.hfind
+  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D h.hD
+  obtain ⟨cv₂, caps₂, hf₂, -, hab⟩ := hrd mm h.hmm
+  rw [h.hmem, hfI] at hf₂
+  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
+  exact hab ψ
+
 /-- An outside class's `i`-th constructor, read off the lfp clause: below
 `D`'s constructor count, stored at the major's parameter count, at the
 class's level parameters (every member's). -/

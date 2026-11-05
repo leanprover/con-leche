@@ -468,19 +468,11 @@ theorem genOutW
   rw [hget] at hM
   have hMo₀ : M₀.member = none := by rw [hM] at hMo; exact hMo
   obtain ⟨sI, -, -, -, -, -, -, -, hinst, hequiv⟩ := CR.major.outside_facts hMo₀
-  have hinst' : ConLeche.targetOutsideInst (m := ConLeche.CheckM) (mkFEnv envC)
+  have hinst' : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv envC)
       (tgtMajor out c).ind (tgtMajor out c).lvls (tgtMajor out c).ds
       = .ok ((tgtMajor out c).nIdx, sI) := by rw [hM]; exact hinst
-  obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst'
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  rw [mkFEnv_find?, hfI] at hf'
-  obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
-  obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
-  rw [hcl.hmem, hfI] at hf₂
-  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-  rw [hfa hcl.hflat] at hab
-  obtain ⟨ab, hta, -⟩ := hab (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
+  obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst'
+  obtain ⟨ab, hta, -⟩ := hcl.read (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
   have hsI : s = sI := (congrArg Prod.snd hr').symm
   subst hsI
   rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out c).lvls hta hty hs]

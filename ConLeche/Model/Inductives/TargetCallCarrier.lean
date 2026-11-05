@@ -65,10 +65,8 @@ theorem memberHoles_ty (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
   have hgc : cvTas.getD t default = cv := by rw [List.getD_eq_getElem?_getD, hcv]; rfl
   rw [hgc, hvget t ht]
   refine ⟨_, hFD.read ψ, ?_⟩
-  have hm := mpC.mem_type (.indInfo cv caps) (List.mem_of_find?_eq_some hfind) ψ _
-    (hFD.read ψ) ρ
   rw [hname]
-  exact hm
+  exact hfind.mem (hFD.read ψ) ρ
 
 /-- **The member constants: found, at the block's levels, valued by
 `hvC`** — `targetAbs_read`'s name premise at the members' own values. -/
@@ -90,16 +88,17 @@ theorem memberHoles_names (hN : BlockNamesOk (V := V) d cvTas)
     simpa [ConLeche.BlockShape.memberNames] using htl
   have htc : t < cvTas.length := by rw [hN.2.2, hmr.2.1]; exact htl'
   obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem htc⟩
-  obtain ⟨hname, hlps, ⟨caps, hfind⟩, -, -, -⟩ := hmr.2.2.2.1 t cv hcv
+  obtain ⟨hname, hlps, ⟨caps, cvS, hfind, hDS⟩, -, -, -⟩ := hmr.2.2.2.1 t cv hcv
   obtain ⟨hnameMs, -⟩ := hmr.2.2.2.2.1 t _ (List.getElem?_eq_getElem htl')
   have hn : n = cv.name := by
     rw [← hmn, ← hname, hnameMs]
     simp [ConLeche.BlockShape.memberNames]
   subst hn
-  refine ⟨by simpa using htc, .indInfo cv caps, hfind,
-    by show _ = cv.levelParams.length; rw [hlps]; simp, fun σ => ?_⟩
-  show interp V σ (mpC.base2.acval cv.name (Level.substFn ψ cv.levelParams
+  refine ⟨by simpa using htc, .indInfo cvS caps, hfind,
+    by show _ = cvS.levelParams.length; rw [hDS.lps, hlps]; simp, fun σ => ?_⟩
+  show interp V σ (mpC.base2.acval cv.name (Level.substFn ψ cvS.levelParams
     (pp.toBlockShape.lps.map Level.param))) = _
+  rw [hDS.lps]
   rw [hlps, Level.substFn_param_self, ← hname, hvget t htc]
   exact acval_interp_closed mpC.base2 _ ψ σ ρ
 

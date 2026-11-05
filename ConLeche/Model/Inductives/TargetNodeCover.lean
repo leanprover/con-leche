@@ -53,7 +53,7 @@ theorem posNodeOk_blk {env : Env} {mk : EnvModelM V env} {ctx : NestCtx}
   rw [hgrp] at hinst hblk hhdN hhdQ
   simp only [List.headD_cons, List.tail_cons] at hinst hblk hhdN hhdQ
   obtain ⟨nI, hrun⟩ := hinst p₀ List.mem_cons_self
-  obtain ⟨cvC, caps, hfC, -⟩ := ConLeche.nestInstType_inv hrun
+  obtain ⟨cvC, caps, _, hfC, -⟩ := ConLeche.nestInstType_inv hrun
   have hfC' : env.find? p₀.1 = some (.indInfo cvC caps) := by rw [← hcov.find]; exact hfC
   obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover p₀.1 cvC caps hfC' hhdN hhdQ
   have hblkD := hcov.block D hD
@@ -324,7 +324,8 @@ theorem grp_find_of {envI envC : Env} {mk : EnvModelM V envI}
   intro p hp
   obtain ⟨-, -, -, hinst, -⟩ := posD_frame_inv hu.1
   obtain ⟨nI, hrun⟩ := hinst p hp
-  obtain ⟨cvC, capsC, hfC, hlv⟩ := ConLeche.nestInstType_lvls hrun
+  obtain ⟨cvC, capsC, _, hfC, -, hFC⟩ := ConLeche.nestInstType_inv hrun
+  have hlv := hFC.lvls
   obtain ⟨D, hD, -, h2⟩ := posNodeOk_blk hcov hu p.1 (List.mem_map_of_mem hp)
   obtain ⟨lps, hl⟩ := blk_lps_envC hcov hsub henvC hD
   obtain ⟨i, hi, hpi⟩ := exists_member_of_mem_names (lfp_namesLen mk hD) h2
@@ -358,9 +359,9 @@ theorem nodeListFacts_of {F : Nat}
     (hsp : ∀ t ∈ ns, ∀ ψ : Name → Nat, ∃ dsa, DenoteSpine mpC.base2.acval envC ψ
         ((pp.nestCtx fvsP envI.find?).hiAt t.occ.length) t.key.ds dsa) :
     NodeListFacts mpC (pp.nestCtx fvsP envI.find?) ns := by
-  obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hmk, -, -, -, -⟩, -⟩ := hctx
+  obtain ⟨-, henvC, -, -, hN, hS, hcore, -, hdR, -, -, ⟨mk, hmkC, hreads, -, hmk, -, -, -, -⟩, -⟩ := hctx
   have hcc : ContCover mk (pp.nestCtx fvsP envI.find?) :=
-    contCover_of hmkC (fun _ => rfl)
+    contCover_of hmkC (fun _ => rfl) hreads
   -- the members are stored at the block's level parameters
   have hmem : ∀ n ∈ (pp.nestCtx fvsP envI.find?).names, ∃ ci, envC.find? n = some ci ∧
       (pp.nestCtx fvsP envI.find?).lps.length
@@ -376,12 +377,12 @@ theorem nodeListFacts_of {F : Nat}
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
     have hname := hN.1 c cvTb hcvb
     have hlpsT := hS.lpsT c cvTb hck hcvb
-    obtain ⟨hf, -⟩ := hcore.1 c cvTb hcvb
+    obtain ⟨⟨cvS, hf, hDS⟩, -⟩ := hcore.1 c cvTb hcvb
     rw [← hname] at hf
     unfold BlockData.memberName at hf
     change envC.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
-    exact ⟨_, hf, by show pp.lps.length = cvTb.levelParams.length; rw [hlpsT]⟩
+    exact ⟨_, hf, by show pp.lps.length = cvS.levelParams.length; rw [hDS.lps, hlpsT]⟩
   refine ⟨fun t ht n hn => ?_, fun t ht => posNodeOk_lps hcc hmk henvC (hok t ht),
     nodeHolesRead_of hok hpar (nodeHolesRead_nil hparF hparS hmem) hsp
       (fun t ht => grp_find_of hcc hmk henvC (hok t ht)),

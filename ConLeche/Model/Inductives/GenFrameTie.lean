@@ -237,17 +237,16 @@ theorem genNodeFrameTie {F : Nat} {block : List ConstantInfo}
   -- the shared telescope: the class's own former's parameter binders, a
   -- telescope of types (the stored type's reading is a graded Π-tower)
   obtain ⟨hC, -, hrd, -⟩ := mpC.lfp_ok (Dc c) hcl.hD
-  obtain ⟨cvm, capsm, hfm, ⟨hfa, -⟩, hab⟩ := hrd (mc c) hcl.hmm
+  obtain ⟨cvm, capsm, hfm, -, hab⟩ := hrd (mc c) hcl.hmm
   have hcvm : cvm = cvc c := by
     obtain ⟨caps', hf'⟩ := hcl.hfind
     rw [hcl.hmem, hf'] at hfm
     have h' := Option.some.inj hfm
     simp only [ConstantInfo.indInfo.injEq] at h'
     exact h'.1.symm
-  rw [hfa (by rw [hcvm]; exact hcl.hflat)] at hab
   obtain ⟨ab, hta, hmap⟩ := hab ψc
   have hTy : SpineTy ρ ((Dc c).pars (mc c) ψc) := by
-    have hwd := (mpC.type_wellDenotedTy _ (ConLeche.Env.find?_mem hfm) ψc _ hta ρ).1
+    have hwd := (mpC.formerAt_wellDenotedTy hcl.hD hcl.hmm hfm hta ρ).1
     have := (spineTy_of_wellDenoted_mkPisAV hwd).take ((Dc c).pars (mc c) ψc).length
     rwa [hmap, List.take_left] at this
   have hparsL := hC.parsLen (mc c) hcl.hmm ψc

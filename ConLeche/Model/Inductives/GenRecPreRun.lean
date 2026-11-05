@@ -669,20 +669,8 @@ theorem genRun_outW (mpC : EnvModelM V envC)
   | member => exact nomatch hMo
   | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc hment hinst hsort nfs' =>
     refine ⟨?_, List.any_eq_true.mpr ⟨_, List.mem_of_getElem? hMs₀, rfl⟩⟩
-    obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
-    obtain ⟨caps, hfI⟩ := hcl.hfind
-    rw [mkFEnv_find?] at hf'
-    change envC.find? I = _ at hfI
-    rw [hfI] at hf'
-    obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
-    obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-    obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
-    rw [hcl.hmem] at hf₂
-    change envC.find? I = _ at hf₂
-    rw [hfI] at hf₂
-    obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-    rw [hfa hcl.hflat] at hab
-    obtain ⟨ab, hta, -⟩ := hab (Level.substFn ψ cvI.levelParams us)
+    obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst
+    obtain ⟨ab, hta, -⟩ := hcl.read (Level.substFn ψ cvI.levelParams us)
     have hsI : s = sI := (congrArg Prod.snd hr').symm
     subst hsI
     show D.w (Level.substFn ψ cvI.levelParams us) = _

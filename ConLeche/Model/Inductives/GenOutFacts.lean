@@ -44,9 +44,7 @@ variable {V : Type w} [SetTheory V]
 /-- **An outside class's clause has the class's parameter count.** -/
 theorem genOutParamsLen {envC : Env} {mpC : EnvModelM V envC} (hcov : LfpCover mpC [])
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC M D mm cvI) {sI : Level}
-    (_hinst : ConLeche.targetOutsideInst (m := ConLeche.CheckM) (mkFEnv envC) M.ind M.lvls M.ds
-      = .ok (M.nIdx, sI))
+    (hcl : TgtOutCls mpC M D mm cvI)
     (hct : ConLeche.targetCtorsOf (mkFEnv envC) M.ind = some (M.nPc, M.ctors))
     (hdsLen : M.ds.length = M.nPc) (ψ : Name → Nat) :
     (D.params (Level.substFn ψ cvI.levelParams M.lvls)).length = M.ds.length := by
@@ -70,22 +68,15 @@ theorem genOutParamsLen {envC : Env} {mpC : EnvModelM V envC} (hcov : LfpCover m
 (`tgtOutIdx_len`, from the class's own check). -/
 theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V envC}
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC M D mm cvI) {sI : Level}
-    (hinst : ConLeche.targetOutsideInst (m := ConLeche.CheckM) (mkFEnv envC) M.ind M.lvls M.ds
+    (hcl : TgtOutCls mpC M D mm cvI) {F : Nat} {sI : Level}
+    (hinst : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv envC) M.ind M.lvls M.ds
       = .ok (M.nIdx, sI)) (ψ : Name → Nat)
     (hlenP : (D.params (Level.substFn ψ cvI.levelParams M.lvls)).length = M.ds.length) :
     (D.ids mm (Level.substFn ψ cvI.levelParams M.lvls)).length = M.nIdx := by
-  obtain ⟨cvI', caps', ty, s, hf', hty, hs, hr'⟩ := targetOutsideInst_inv hinst
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  rw [mkFEnv_find?, hfI] at hf'
-  obtain ⟨rfl, rfl⟩ : cvI = cvI' ∧ caps = caps' := by simpa using hf'
-  obtain ⟨hC, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
-  rw [hcl.hmem, hfI] at hf₂
-  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-  rw [hfa hcl.hflat] at hab
+  obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst
+  obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok D hcl.hD
   generalize hψ : Level.substFn ψ cvI.levelParams M.lvls = ψ' at hlenP ⊢
-  obtain ⟨ab, hta, hmap⟩ := hab ψ'
+  obtain ⟨ab, hta, hmap⟩ := hcl.read ψ'
   have hc := instPis_count_of_read hta cvI.levelParams M.lvls hty hs
   have hpl := hC.parsLen mm hcl.hmm ψ'
   have habl : ab.length = (D.pars mm ψ').length + (D.ids mm ψ').length := by
@@ -94,43 +85,40 @@ theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V envC}
   have hn : M.nIdx = ty.piBinders.1.length := congrArg Prod.fst hr'
   omega
 
-/-- **A recorded class's former has a variable-free Π-tail** (its
+/-- **A recorded class's telescope has a variable-free Π-tail** (its
 reading is a Π-tower ending in a sort, `tailOk_of_read`). -/
 theorem TgtOutCls.tailOk {envC : Env} {mpC : EnvModelM V envC}
     {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC M D mm cvI) : TailOk cvI.type := by
-  obtain ⟨caps, hfI⟩ := hcl.hfind
-  obtain ⟨-, -, hrd, -⟩ := mpC.lfp_ok D hcl.hD
-  obtain ⟨cv₂, caps₂, hf₂, ⟨hfa, -⟩, hab⟩ := hrd mm hcl.hmm
-  rw [hcl.hmem, hfI] at hf₂
-  obtain ⟨rfl, rfl⟩ : cvI = cv₂ ∧ caps = caps₂ := by simpa using hf₂
-  rw [hfa hcl.hflat] at hab
-  obtain ⟨ab, hta, -⟩ := hab (fun _ => 0)
+    (hcl : TgtOutCls mpC M D mm cvI) : TailOk (D.formerAt mm cvI).type := by
+  obtain ⟨ab, hta, -⟩ := hcl.read (fun _ => 0)
   exact tailOk_of_read _ _ rfl hta
 
 /-- **The walk's index count of a container instance is the class
 check's.** -/
-theorem nestInstType_count {ctx : NestCtx} {hi : Nat} {I : Name} {us : List Level}
+theorem nestInstType_count {envC : Env} {mpC : EnvModelM V envC} {M : TargetMajor} {D : LfpDatum V}
+    {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mpC M D mm cvI) {ctx : NestCtx}
+    (hfind : ctx.find? M.ind = envC.find? M.ind) {hi F₁ F₂ : Nat} {us : List Level}
     {ds : List Expr} {nI : Nat} {cty : Expr}
-    (h1 : ConLeche.nestInstType (m := ConLeche.CheckM) ctx hi ⟨I, us, ds⟩ = .ok (nI, cty))
-    {fe : FEnv} {us' : List Level} {ds' : List Expr} {nIdx : Nat} {sI : Level}
-    (h2 : ConLeche.targetOutsideInst (m := ConLeche.CheckM) fe I us' ds' = .ok (nIdx, sI))
-    (hfind : ∃ cv caps, ctx.find? I = some (.indInfo cv caps) ∧
-      fe.find? I = some (.indInfo cv caps) ∧ TailOk cv.type)
+    (h1 : ConLeche.nestInstType (m := ConLeche.CheckM) ctx (ConLeche.fueledOps .verified F₁) envC hi
+      ⟨M.ind, us, ds⟩ = .ok (nI, cty))
+    {us' : List Level} {ds' : List Expr} {nIdx : Nat} {sI : Level}
+    (h2 : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F₂) (mkFEnv envC) M.ind us' ds'
+      = .ok (nIdx, sI))
     (hlen : ds.length = ds'.length) : nI = nIdx := by
-  obtain ⟨cv, caps, hc, hf, htl⟩ := hfind
-  obtain ⟨cvC, capsC, hc', -, -, ty, s, hty, hs, -, rfl, -⟩ := ConLeche.nestInstType_inv h1
-  obtain ⟨cvI, capsI, ty', s', hf', hty', hs', hr'⟩ := targetOutsideInst_inv h2
-  simp only [hc, Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at hc'
-  obtain ⟨rfl, rfl⟩ := hc'
-  simp only [hf, Option.some.injEq, ConLeche.ConstantInfo.indInfo.injEq] at hf'
-  obtain ⟨rfl, rfl⟩ := hf'
+  have htl := hcl.tailOk
+  obtain ⟨caps, hfI⟩ := hcl.hfind
+  obtain ⟨cvC, capsC, tyC, hc', hfam, hF⟩ := ConLeche.nestInstType_inv h1
+  rw [hfind, hfI] at hc'
+  obtain ⟨rfl, rfl⟩ : cvI = cvC ∧ caps = capsC := by simpa using hc'
+  rw [hcl.family_eq hfI hfam] at hF
+  obtain ⟨ty', s', hty', -, hr'⟩ := hcl.outsideInst h2
   have hn : nIdx = ty'.piBinders.1.length := congrArg Prod.fst hr'
-  obtain ⟨a1, -, a3⟩ := tail_instantiateLevelParams cv.levelParams us cv.type
-  obtain ⟨b1, -, b3⟩ := tail_instantiateLevelParams cv.levelParams us' cv.type
+  have hty := hF.inst
+  obtain ⟨a1, -, a3⟩ := tail_instantiateLevelParams cvI.levelParams us (D.formerAt mm cvI).type
+  obtain ⟨b1, -, b3⟩ := tail_instantiateLevelParams cvI.levelParams us' (D.formerAt mm cvI).type
   obtain ⟨k1, -⟩ := tail_instPisWith ds (a3.mpr htl) hty
   obtain ⟨k1', -⟩ := tail_instPisWith ds' (b3.mpr htl) hty'
-  rw [hn, ← piCount_eq_length, ← piCount_eq_length]
+  rw [hF.count, hn, ← piCount_eq_length, ← piCount_eq_length]
   omega
 
 end ConLeche.Model

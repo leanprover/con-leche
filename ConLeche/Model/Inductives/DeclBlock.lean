@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Semantics.Inductives.DeclBlock
@@ -115,7 +116,8 @@ from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
     (mpC : EnvModelM V envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
     (p : BlockShape) (isRec : Bool) : Prop :=
-  ∃ mk : EnvModelM V envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
+  ∃ mk : EnvModelM V envI, LfpCover mk names ∧ (∀ F, FamilyRead mk F) ∧
+    (∀ F, FamilyRead mpC F) ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
     (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) ∧
     (∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks) ∧
     -- the member constructors' hole contexts at the formers' model (the

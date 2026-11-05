@@ -77,10 +77,9 @@ theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape c
   intro t' ht'
   have ht'' : t' < cvTas.length := by simpa using ht'
   obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t']? = some cv := ⟨_, List.getElem?_eq_getElem ht''⟩
-  obtain ⟨-, -, ⟨caps, hfind⟩, hfv, hbv, hFD'⟩ := hmr.2.2.2.1 t' cv hcv
+  obtain ⟨-, -, ⟨caps, _, -, hDS⟩, hfv, hbv, hFD'⟩ := hmr.2.2.2.1 t' cv hcv
   have hg : (cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default = cv.type := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcv]; rfl
-  have hwf := mpC.base2.wf.consts _ (List.mem_of_find?_eq_some hfind)
   obtain ⟨T', hT', hmemT'⟩ := hvTy t' ht''
   have hgc : (cvTas.getD t' default).type = cv.type := by
     rw [List.getD_eq_getElem?_getD, hcv]; rfl
@@ -89,7 +88,7 @@ theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape c
   have hcl := bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hfv) hbv
     (hFD'.read ψ)
   rw [hg]
-  exact ⟨hfv, hbv, constsBound_of_constsResolve _ hwf.2.2.1, _, hFD'.read ψ,
+  exact ⟨hfv, hbv, constsBound_of_constsResolve _ hDS.readResolve, _, hFD'.read ψ,
     fun σ => ⟨hFD'.okTy ψ σ, IsTy_mkPisAV_sort _ _ _⟩,
     fun σ => by rw [interp_closed V hcl σ ρ]; exact hmemT'⟩
 
