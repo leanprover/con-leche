@@ -142,16 +142,11 @@ theorem checkSpineAtS_spec (henv : EnvWF env) {d : Nat} :
   | nil =>
     intro T _ hs _ _
     sym only [conleche_grind, checkSpineAt.eq_1] =>
-      vcgen [checkSpineAt] <;> finish
+      vcgen [checkSpineAt.eq_def] <;> finish
   | cons a as ih =>
     intro T s₀ hs hds hT
-    cases T with
-    | forallE ty body =>
-      sym only [conleche_grind, checkSpineAt.eq_2] =>
-        vcgen [checkSpineAt, inferS_spec henv, defeqS_spec henv, ih] <;> finish
-    | _ =>
-      sym only [conleche_grind, checkSpineAt.eq_3] =>
-        vcgen [checkSpineAt] <;> finish
+    sym only [conleche_grind, checkSpineAt.eq_2] =>
+      vcgen [checkSpineAt.eq_def, inferS_spec henv, defeqS_spec henv, ih] <;> finish
 
 /-- A family at a key, at the cached operations. -/
 theorem familyKeyCheckS_spec (henv : EnvWF env) {find? : Name → Option ConstantInfo}
@@ -163,10 +158,7 @@ theorem familyKeyCheckS_spec (henv : EnvWF env) {find? : Name → Option Constan
       Runs (familyKeyCheck (fueledOpsM .verified) env find? d c us ds) v; ⊤⦄ := by
   have hty : ∀ cv caps, find? c = some (.indInfo cv caps) → cv.type.hasFvar = false :=
     fun cv caps h => hfind c _ h
-  have hws : ∀ {ty : Expr} {cv : ConstantVal}, ty.hasFvar = false →
-      WScoped d (ty.instantiateLevelParams cv.levelParams us) := fun h =>
-    WScoped.of_not_hasFvar (by rw [Expr.hasFvar_instantiateLevelParams]; exact h)
-  sym only [conleche_grind, familyKeyCheck.eq_1, → hty, → @hws] =>
+  sym only [conleche_grind, familyKeyCheck.eq_1] =>
     vcgen [familyKeyCheck, familyTelescopeS_spec henv, checkSpineAtS_spec henv] <;> finish
 
 theorem nestInstTypeS_spec (henv : EnvWF env) {ctx : NestCtx} (hc : NestCtxOk ctx) {s₀ : CState}

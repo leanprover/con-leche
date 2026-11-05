@@ -180,7 +180,7 @@ theorem seed_readback {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
         simp only at hmc hv
         subst hv
         obtain ⟨args, rfl, hlenA, hvar⟩ := Expr.phApp?_spine ctx.nP hp
-        obtain ⟨cv, caps, ty, -, -, hget⟩ := nestHoles_getElem? hh hm
+        obtain ⟨cv, ty, -, -, hget⟩ := nestHoles_getElem? hh hm
         refine ⟨m, _, ty, Expr.mkAppN (.const (ctx.names.getD (ctx.nP + m - ctx.nP) .anonymous)
           (ctx.lps.map .param)) ctx.params, rfl, hm, ?_, ?_, ?_⟩
         · simp only [nestKeyMap, hlen, show ¬ ctx.nP + m < ctx.nP by omega, ite_false,
@@ -207,37 +207,6 @@ theorem seed_readback {ctx : NestCtx} {holes : List Expr} (hh : nestHoles ctx = 
   exact (key x (hds x hx)).2
 
 /-! ## Outside classes at the two environments -/
-
-/-- The constructors' install shows no new former, so a group's flatness stays. -/
-theorem famFlat_consBlockCtors {envI : Env} {nP : Nat}
-    {ctorsAs : List (List (ConstantVal × Nat))}
-    (hfr : ∀ c ∈ ctorsAs.flatten, envI.find? c.1.name = none) (caps : ConLeche.IndCaps) :
-    ConLeche.famFlat (ConLeche.consBlockCtors nP ctorsAs envI).find? caps
-      = ConLeche.famFlat envI.find? caps := by
-  have hEq : ConLeche.consBlockCtors nP ctorsAs envI
-      = ⟨(ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse ++ envI.consts, envI.tables⟩ :=
-    by rw [← consBlockCtors_consts, ← consBlockCtors_tables]
-  have hpt : ∀ m, (match (ConLeche.consBlockCtors nP ctorsAs envI).find? m with
-        | some (.indInfo cv _) => !ConLeche.formerDefHeaded cv
-        | _ => true) =
-      (match envI.find? m with
-        | some (.indInfo cv _) => !ConLeche.formerDefHeaded cv
-        | _ => true) := by
-    intro m
-    rw [hEq, find?_append]
-    cases hn : (ctorsAs.flatten.map fun c => ConstantInfo.ctorInfo c.1 nP c.2).reverse.find?
-        (·.name == m) with
-    | none => rfl
-    | some c =>
-      have hm := List.mem_of_find?_eq_some hn
-      obtain ⟨a, ha, rfl⟩ := List.mem_map.mp (List.mem_reverse.mp hm)
-      have hna : a.1.name = m := (by simpa using List.find?_some hn : (ConstantInfo.ctorInfo a.1 nP a.2).name = m)
-      have := hfr a ha
-      rw [hna] at this
-      rw [this]
-      rfl
-  unfold ConLeche.famFlat
-  exact congrArg (caps.all.all ·) (funext hpt)
 
 /-- **An outside inductive reads alike at the formers' and the
 constructors' environments**: the block's constructors conclude in its

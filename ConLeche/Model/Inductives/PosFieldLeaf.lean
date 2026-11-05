@@ -117,7 +117,7 @@ theorem posD_field_leaf
         ∃ (tele : List Expr) (leafC w : Expr), nd = Expr.mkPisOf tele leafC ∧
           (∀ x ∈ tele, x.nestOcc ctx.names ctx.nP (ctx.hiAt prog.length) = false) ∧
           (∀ os, LocList dep tele.length os → Expr.ErasedEq (leafC.instantiateList os 0) w) ∧
-          FieldLeaf ctx prog w ts
+          FieldLeaf ops env ctx prog w ts
       | _ => True := by
   intro J ts h
   induction h with

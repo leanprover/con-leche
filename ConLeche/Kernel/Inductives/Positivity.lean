@@ -269,12 +269,14 @@ def familyTelescope (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (caps : 
 equal to its binder's domain, the domains instantiated along the spine. -/
 def checkSpineAt (ops : CheckerOps m) (env : Env) (d : Nat) : Expr → List Expr → m Unit
   | _, [] => pure ()
-  | .forallE ty body, a :: as => do
-    let ta ← ops.inferType env d a
-    unless ← ops.isDefEq env d ta ty do
-      throw (.invalid "application type mismatch at a family's parameters")
-    checkSpineAt ops env d (body.instantiate1 a) as
-  | _, _ :: _ => throw (.invalid "function expected at a family's parameters")
+  | t, a :: as =>
+    match t with
+    | .forallE ty body => do
+      let ta ← ops.inferType env d a
+      unless ← ops.isDefEq env d ta ty do
+        throw (.invalid "application type mismatch at a family's parameters")
+      checkSpineAt ops env d (body.instantiate1 a) as
+    | _ => throw (.invalid "function expected at a family's parameters")
 
 /-- **A family at a key, typed** (official checks every replaced nested application,
 `tc.check(nested, …)`, `inductive.cpp` v4.34.0 :1320): the levels its own count, the arguments

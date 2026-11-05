@@ -194,15 +194,15 @@ theorem familyTelescope_datF (env : Env) (cv : ConstantVal) (caps : IndCaps) (F 
   · rfl
 
 theorem checkSpineAt_datF (env : Env) (d F : Nat) :
-    ∀ (T : Expr) (ds : List Expr), (checkSpineAt (fueledOpsM mode) env d T ds).val F =
+    ∀ (ds : List Expr) (T : Expr), (checkSpineAt (fueledOpsM mode) env d T ds).val F =
       checkSpineAt (fueledOps mode F) env d T ds
-  | _, [] => rfl
-  | .forallE ty body, a :: as => by
+  | [], _ => rfl
+  | a :: as, T => by
     unfold checkSpineAt
-    simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
-      fueledOpsM_inferType_atF, fueledOpsM_isDefEq_atF, checkSpineAt_datF env d F _ as]
-  | .bvar _, _ :: _ | .sort _, _ :: _ | .const _ _, _ :: _ | .fvar _ _, _ :: _ | .app _ _, _ :: _
-  | .lam _ _, _ :: _ | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+    split
+    · simp only [FueledM.atF_bind, FueledM.atF_pure, FueledM.atF_throw, FueledM.atF_ite,
+        fueledOpsM_inferType_atF, fueledOpsM_isDefEq_atF, checkSpineAt_datF env d F as]
+    · rfl
 
 theorem familyKeyCheck_datF (env : Env) (find? : Name → Option ConstantInfo) (d : Nat) (c : Name)
     (us : List Level) (ds : List Expr) (F : Nat) :

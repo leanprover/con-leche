@@ -633,13 +633,13 @@ theorem storedFieldShapes_of_walk {V : Type w} [SetTheory V] {env : Env} (m : En
         split at ha
         · obtain ⟨ty, rfl⟩ := hpar i a ha
           exact ⟨ty, rfl⟩
-        · obtain ⟨j, cv, caps, ty, -, -, rfl⟩ := ConLeche.nestHoles_mem hholes a
+        · obtain ⟨j, cv, ty, -, -, rfl⟩ := ConLeche.nestHoles_mem hholes a
             (List.mem_of_getElem? ha)
           have hj : j = i - ctx.params.length := by
             have := ConLeche.nestHoles_getElem? hholes
               (show i - ctx.params.length < ctx.names.length by
                 have := (List.getElem?_eq_some_iff.mp ha).1; omega)
-            obtain ⟨cv', caps', ty', -, -, h'⟩ := this
+            obtain ⟨cv', ty', -, -, h'⟩ := this
             rw [ha] at h'
             simp only [Option.some.injEq, Expr.fvar.injEq] at h'
             omega

@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Inductives.ContSem
 public import ConLeche.Model.Cover
 
@@ -28,9 +29,11 @@ exemption list, and coverage carries each recorded block's constructor
 ownership (`LfpOwn`), which `nestContainer` at the walk's
 context reads as at the environment's (`nestContainer_ctx`). -/
 theorem contCover_of {env : Env} {mp : EnvModelM V env} {ctx : NestCtx}
-    (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n) :
+    (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n)
+    (hread : ∀ F, FamilyRead mp F) :
     ContCover mp ctx where
   find := hfind
+  reads := hread
   cover := fun n cv caps hf hn hq =>
     h.cover n cv caps hf (by simpa using hn) hq
   block := fun D hD =>

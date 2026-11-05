@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Model.Env.CanonCrest
 public import ConLeche.Model.Inductives.ContWalk
 import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContFrame
@@ -64,13 +65,42 @@ structure ContBlockOk (env : Env) (ctx : NestCtx) (D : LfpDatum V) : Prop where
 
 /-- **Coverage**: the walk's context reads the
 environment, every stored inductive but `Quot` that is not a member of
-the block being checked is a member of a recorded block, and every
-recorded block is read as `ContBlockOk` says. -/
+the block being checked is a member of a recorded block, every
+recorded block is read as `ContBlockOk` says, and a run reads its families' telescopes. -/
 structure ContCover (mp : EnvModelM V env) (ctx : NestCtx) : Prop where
   find : ∀ n, ctx.find? n = env.find? n
   cover : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ctx.names.contains n = false →
     n ≠ ConLeche.quotName → ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
   block : ∀ D ∈ mp.lfpBlocks, ContBlockOk env ctx D
+  reads : ∀ F, FamilyRead mp F
+
+/-- A walk's instantiation of a recorded family reads the telescope its block read. -/
+theorem ContCover.instFacts {mp : EnvModelM V env} {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
+    {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {hi : Nat}
+    {key : ConLeche.NestKey} (hk : key.cname = D.member mm) {nI : Nat} {cty : Expr}
+    (h : ConLeche.nestInstType (m := CheckM) ctx (ConLeche.fueledOps .verified F) env hi key
+      = .ok (nI, cty)) :
+    ConLeche.NestInstFacts ctx hi key cv.levelParams (D.formerAt mm cv).type nI cty := by
+  obtain ⟨cvC, capsC, tyC, hfC, hfam, hF⟩ := ConLeche.nestInstType_inv h
+  rw [hcov.find, hk, hf] at hfC
+  obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
+  rw [← hcov.reads F D hD mm cv caps tyC hmm hf hfam]
+  exact hF
+
+/-- A family's key typed against its telescope: its arguments' certificates at the telescope its
+block read. -/
+theorem ContCover.keyCerts {mp : EnvModelM V env} {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
+    {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {d : Nat}
+    {us : List Level} {ds : List Expr}
+    (h : ConLeche.familyKeyCheck (ConLeche.fueledOps .verified F) env ctx.find? d (D.member mm) us ds
+      = .ok ()) :
+    us.length = cv.levelParams.length ∧ ConLeche.Rules.CertsF env d
+      ((D.formerAt mm cv).type.instantiateLevelParams cv.levelParams us) ds := by
+  obtain ⟨tyC, hl, hfam, hsp⟩ := familyKeyCheck_inv (by rw [hcov.find]; exact hf) h
+  rw [hcov.reads F D hD mm cv caps tyC hmm hf hfam] at hsp
+  exact ⟨hl, checkSpineAt_certs hsp⟩
 
 /-! ## Pieces -/
 

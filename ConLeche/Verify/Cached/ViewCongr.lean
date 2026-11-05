@@ -490,13 +490,13 @@ theorem familyTelescope_env (h : EnvFree ops) (env : Env) (cv : ConstantVal) (ca
   simp only [familyTelescope, reducedFormer, whnfTelescope_env h env]
 
 theorem checkSpineAt_env (h : EnvFree ops) (env : Env) (d : Nat) :
-    ∀ T ds, checkSpineAt ops env d T ds = checkSpineAt ops Env.empty d T ds
-  | _, [] => rfl
-  | .forallE ty body, a :: as => by
+    ∀ ds T, checkSpineAt ops env d T ds = checkSpineAt ops Env.empty d T ds
+  | [], _ => rfl
+  | a :: as, T => by
     unfold checkSpineAt
-    simp only [h.inferType env, h.isDefEq env, checkSpineAt_env h env d _ as]
-  | .bvar _, _ :: _ | .sort _, _ :: _ | .const _ _, _ :: _ | .fvar _ _, _ :: _ | .app _ _, _ :: _
-  | .lam _ _, _ :: _ | .letE _ _ _, _ :: _ | .lit _, _ :: _ | .proj _ _ _, _ :: _ => rfl
+    split
+    · simp only [h.inferType env, h.isDefEq env, checkSpineAt_env h env d as]
+    · rfl
 
 theorem familyKeyCheck_env (h : EnvFree ops) (env : Env) (find? : Name → Option ConstantInfo)
     (d : Nat) (c : Name) (us : List Level) (ds : List Expr) :

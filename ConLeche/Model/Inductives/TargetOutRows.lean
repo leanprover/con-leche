@@ -71,24 +71,29 @@ variable {envC : Env} {mpC : EnvModelM V envC} {F : Nat} {p : BlockShape}
   {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- **`targetOutsideInst`, inverted**: the major's inductive is stored,
-its type instantiated at the levels and parameters is a telescope ending
-in a sort, and the index count is that telescope's. -/
-theorem targetOutsideInst_inv {fe : FEnv} {I : Name} {us : List Level} {ds : List Expr}
-    {r : Nat × Level}
-    (h : ConLeche.targetOutsideInst (m := ConLeche.CheckM) fe I us ds = .ok r) :
-    ∃ cvI caps ty s, fe.find? I = some (.indInfo cvI caps) ∧
-      ConLeche.instPisWith ds (cvI.type.instantiateLevelParams cvI.levelParams us) = some ty ∧
+its telescope instantiated at the levels and parameters ends in a sort,
+and the index count is that telescope's. -/
+theorem targetOutsideInst_inv {ops : ConLeche.CheckerOps ConLeche.CheckM} {fe : FEnv} {I : Name}
+    {us : List Level} {ds : List Expr} {r : Nat × Level}
+    (h : ConLeche.targetOutsideInst ops fe I us ds = .ok r) :
+    ∃ cvI caps tyI ty s, fe.find? I = some (.indInfo cvI caps) ∧
+      ConLeche.familyTelescope ops fe.env cvI caps = .ok tyI ∧
+      ConLeche.instPisWith ds (tyI.instantiateLevelParams cvI.levelParams us) = some ty ∧
       ty.piBinders.2 = .sort s ∧ r = (ty.piBinders.1.length, s) := by
   unfold ConLeche.targetOutsideInst at h
   split at h
   · next cvI caps hf =>
+    simp only [Bind.bind, Except.bind] at h
+    split at h
+    · simp at h
+    rename_i tyI hfam
     split at h
     · next ty hty =>
       simp only [pure, Except.pure] at h
       split at h
       · next s hs =>
         split at h
-        · refine ⟨cvI, caps, ty, s, hf, hty, ?_, ?_⟩
+        · refine ⟨cvI, caps, tyI, ty, s, hf, hfam, hty, ?_, ?_⟩
           · rw [← hs]
           · exact (Except.ok.inj h).symm
         · exact nomatch h

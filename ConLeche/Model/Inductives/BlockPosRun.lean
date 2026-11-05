@@ -615,7 +615,7 @@ theorem blockWalkCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     · obtain ⟨i, hi⟩ := List.getElem?_of_mem hx
       obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index _ _ _ hop0 i x hi
       exact ⟨_, _, rfl⟩
-    · obtain ⟨i, cv, caps, ty, -, -, rfl⟩ := nestHoles_mem hholes x hx
+    · obtain ⟨i, cv, ty, -, -, rfl⟩ := nestHoles_mem hholes x hx
       exact ⟨_, _, rfl⟩
   have hW : Expr.WScoped (d.nP + d.k) crest :=
     Expr.WScoped_of_leaves crest fun l hl => ⟨(hCP.2 l hl).1, (hCP.2 l hl).2.1⟩
@@ -714,7 +714,7 @@ theorem blockCtorHoleCtx {env : Env} {m : EnvModel V env} {ψ : Name → Nat}
     (fun t x hx => by
       have ht : t < (p.nestCtx fvsP env.find?).names.length := by
         rw [← nestHoles_length hholes]; exact (List.getElem?_eq_some_iff.mp hx).1
-      obtain ⟨cv, caps, ty', -, -, hget⟩ := nestHoles_getElem? hholes ht
+      obtain ⟨cv, ty', -, -, hget⟩ := nestHoles_getElem? hholes ht
       rw [hget] at hx
       exact ⟨_, (Option.some.inj hx).symm⟩)
     hcrest

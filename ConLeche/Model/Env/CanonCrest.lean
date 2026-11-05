@@ -227,6 +227,14 @@ theorem EnvModelM.formerAt_wf {V : Type w} [SetTheory V] {env : Env} (mp : EnvMo
   · rw [show D.formerAt mm cv = f by simp [LfpDatum.formerAt, hs]]
     exact ⟨h3, h4, hb, h2, h2 ▸ hdl⟩
 
+/-- **What a run reads of a recorded family's telescope is what its block read.** -/
+@[expose] def FamilyRead {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env) (F : Nat) :
+    Prop :=
+  ∀ D ∈ mp.lfpBlocks, ∀ (mm : Nat) (cv : ConstantVal) (caps : ConLeche.IndCaps) (ty : Expr), mm < D.k →
+    env.find? (D.member mm) = some (.indInfo cv caps) →
+    ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cv caps = .ok ty →
+    ty = (D.formerAt mm cv).type
+
 open SetTheory ConLeche.Term in
 /-- **A recorded member inhabits its former as read.** -/
 theorem EnvModelM.formerAt_mem {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
