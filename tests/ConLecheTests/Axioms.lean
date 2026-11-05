@@ -1,6 +1,9 @@
 module
 
 public import ConLeche.MainTheorem
+public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Frontend.Olean.View
+public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
@@ -127,6 +130,72 @@ The other direction of the same relation between input and output:
 every record of the stream that declares a constant leaves that
 constant, under its own name, with its own level parameters and its
 own declared type, in the environment the fold returns. -/
+
+/--
+info: 'ConLeche.main_oleans_no_False' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.main_oleans_no_False
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.emitAll_covers' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.emitAll_covers
+
+/--
+info: 'ConLeche.Frontend.Olean.declsOf_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.declsOf_thm
+
+/--
+info: 'ConLeche.Frontend.Olean.declsOf_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.declsOf_from
+
+/--
+info: 'ConLeche.Frontend.Olean.readOleans_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readOleans_thm
+
+/--
+info: 'ConLeche.Frontend.Olean.closureOrder_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.closureOrder_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.mergeAll_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.mergeAll_ok
+
+/--
+info: 'ConLeche.Frontend.Olean.parseAllViews_eq' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.parseAllViews_eq
+
+/--
+info: 'ConLeche.Frontend.Olean.readView_of_all' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.readView_of_all
+
+/--
+info: 'ConLeche.Frontend.Olean.moduleImports_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.moduleImports_of_view
 
 /--
 info: 'ConLeche.Cached.checkDecls_consts' depends on axioms: [propext, Classical.choice, Quot.sound]

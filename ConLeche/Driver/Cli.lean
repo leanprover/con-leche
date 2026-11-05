@@ -96,6 +96,7 @@ def jobsCount (v : String) : Except String Nat :=
 
 def usage : String := String.intercalate "\n" [
   "usage: con-leche [--verified|--trusted] [--jobs=<n>] [--progress[=<stride>]] [--] FILE.ndjson",
+  "       con-leche [flags] --olean --search-path=DIR[:DIR...] [--] MODULE...",
   "       con-leche --help",
   "",
   "  --verified        the default, and the mode the main theorem is",
@@ -234,6 +235,37 @@ def usage : String := String.intercalate "\n" [
   "                    as a run without it, and so is a run on the pool.",
   "  --                the end of the options: every argument after it",
   "                    is a file, whatever it is called.",
+  "  --olean           read the input from .olean files instead of a",
+  "                    lean4export stream: the arguments are root",
+  "                    modules (Init, Std, Mathlib, ...; a component in",
+  "                    «» is taken literally, as in Challenge.«12.34».«5»),",
+  "                    checked with every constant of their import closure.  The",
+  "                    closure is read at the private level (theorems",
+  "                    with proofs, definitions with bodies), merged as",
+  "                    Lean's own import merges it, and emitted as the",
+  "                    records lean4export would write, so the same",
+  "                    checker checks them.  Every object the imports and",
+  "                    constants reach is decoded and validated, nothing",
+  "                    in the files is trusted.  A",
+  "                    file of another .olean format version declines (2).",
+  "  --constant=NAME   with --olean: check only this constant and what it",
+  "                    mentions, not every constant of the closure, as",
+  "                    lean4export's arguments after -- do; a component of",
+  "                    digits is a number (_private.M.0.foo).  May be given",
+  "                    more than once.  A name the closure does not hold is",
+  "                    an error (3).",
+  "  --search-path=DIR[:DIR...]",
+  "                    the directories holding .olean trees, as",
+  "                    LEAN_PATH lists them (the toolchain's lib/lean,",
+  "                    a package's .lake/build/lib/lean).  May be",
+  "                    given more than once.  Every module is looked",
+  "                    up in every directory: its files (M.olean and,",
+  "                    for a module of the module system, exactly",
+  "                    M.olean.server and M.olean.private beside it)",
+  "                    must be in one directory, counted once however",
+  "                    often it is reached (a repeated entry, a",
+  "                    symbolic link).  A module in two places, a",
+  "                    missing, stray or split part is an error (3).",
   "  --help            print this text on STDOUT and exit 0, in any",
   "                    argument position before a --; no input is read.",
   "",
@@ -321,6 +353,13 @@ structure Args where
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
   jobs : Option Nat := none
+  /-- `--olean`: the positional arguments are root module names, read
+  with their import closure from `.olean` files. -/
+  olean : Bool := false
+  /-- `--search-path=DIR:DIR…`: where `--olean` looks for the files. -/
+  searchPath : List System.FilePath := []
+  /-- `--constant=NAME`: with `--olean`, the constants to start from. -/
+  constants : Array String := #[]
   files : Array String := #[]
   bad : Option String := none
 
@@ -328,6 +367,15 @@ structure Args where
 whatever it is called. -/
 def helpWanted (args : List String) : Bool :=
   (args.takeWhile (· != "--")).contains "--help"
+
+/-- The value of a flag spelled `<prefix><value>`, where `s` starts with the prefix. -/
+def flagValue (pre s : String) : Option String :=
+  if pre.toList.isPrefixOf s.toList then some (String.ofList (s.toList.drop pre.toList.length))
+  else none
+
+/-- A `--search-path=` value: the directories, separated by `:`. -/
+def searchPathOf (dirs : String) : List System.FilePath :=
+  ((dirs.splitOn ":").filter (· != "")).map System.FilePath.mk
 
 def parseArgs : List String → Args → Args
   | [], a => a
@@ -344,18 +392,23 @@ def parseArgs : List String → Args → Args
   -- `--progress=<n>` is the general form (below, with the other
   -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
+  | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | s :: rest, a =>
-    if s.startsWith "--progress=" then
-      match progressStride ((s.drop "--progress=".length).toString) with
+    if let some v := flagValue "--progress=" s then
+      match progressStride v with
       | .ok n => parseArgs rest { a with progress := n }
       | .error msg => { a with bad := some msg }
-    else if s.startsWith "--jobs=" then
-      match jobsCount ((s.drop "--jobs=".length).toString) with
+    else if let some v := flagValue "--jobs=" s then
+      match jobsCount v with
       | .ok n => parseArgs rest { a with jobs := some n }
       | .error msg => { a with bad := some msg }
     else if s == "--jobs" then
       { a with bad := some "--jobs takes a worker count: --jobs=<n>; omit the \
           flag for one worker per hardware thread" }
+    else if let some v := flagValue "--constant=" s then
+      parseArgs rest { a with constants := a.constants.push v }
+    else if let some v := flagValue "--search-path=" s then
+      parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
     else if s.startsWith "-" then
       { a with bad := some s!"unknown option {Display.str s}" }
     else parseArgs rest { a with files := a.files.push s }
@@ -363,6 +416,10 @@ def parseArgs : List String → Args → Args
 /-- An error line on stderr (`liftIO`). -/
 @[inline] def eprintln {m : Type → Type} [CheckerIO m] (s : String) : m Unit :=
   CheckerIO.liftIO (IO.eprintln s)
+
+/-- The constants `--constant=` names: `none` is every constant of the closure. -/
+def Args.rootConstants (a : Args) : Option (Array Name) :=
+  if a.constants.isEmpty then none else some (a.constants.filterMap Frontend.Olean.parseConstName)
 
 /-- **What `main` runs, generic in the IO class** (tasks #424, #450): the
 argument parse, `--help` and the usage errors, the request run, and the
@@ -398,6 +455,32 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
       let a := parseArgs args {}
       if let some msg := a.bad then
         eprintln s!"con-leche: {msg}"
+        eprintln usage
+        return 3
+      if a.olean then
+        -- `--olean`: the arguments are root modules (`Init`, `Mathlib`),
+        -- read with their import closure along the search path, module
+        -- names as Lean spells them, `«»` escapes included.
+        if a.files.isEmpty || a.searchPath.isEmpty then
+          eprintln "con-leche: --olean takes one or more module names and a \
+            --search-path=DIR[:DIR…]"
+          eprintln usage
+          return 3
+        if let some m := a.files.find? (fun f => (Frontend.Olean.parseModName f).isNone) then
+          eprintln s!"con-leche: not a module name: {Display.str m}"
+          eprintln usage
+          return 3
+        if let some c := a.constants.find? (fun c => (Frontend.Olean.parseConstName c).isNone) then
+          eprintln s!"con-leche: not a constant's name: {Display.str c}"
+          eprintln usage
+          return 3
+        let jobs := a.jobs.getD
+          (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
+           if hw = 0 then 1 else hw)
+        return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
+          a.rootConstants a.mode a.progress jobs)
+      if !a.searchPath.isEmpty || !a.constants.isEmpty then
+        eprintln "con-leche: --search-path and --constant take --olean"
         eprintln usage
         return 3
       match a.files.toList with

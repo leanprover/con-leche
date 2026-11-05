@@ -12,6 +12,8 @@ monad, the equations the proofs peel `do` blocks with (an outcome that
 is a value came from values all along: `bind_ok`, `tryCatch_ok`), the
 determined operations, and the folds over a file's reads in the model.
 
+* **Determined actions** (`ModelIO.Det`): an action built from the file
+  operations alone has one answer on a snapshot.
 * **The folds over a file's reads** (`foldReads`, `foldChunks`,
   `foldWindows`): a file's reads are `readsFrom` (`foldReads_model`),
   the serial fold is `foldList` over them (`foldChunks_model`), and the
@@ -162,6 +164,62 @@ theorem ModelIO.allOk_ite {α : Type} {c : Prop} [Decidable c] {t e : ModelIO α
   · simp only [hc, ↓reduceIte]; exact ht hc
   · simp only [hc, ↓reduceIte]; exact he hc
 
+/-! ## Determined actions -/
+
+/-- **The snapshot determines the action**: its outcome is a value, or
+every exception (the model does not say which).  What every action built
+from the file operations alone is, and `liftIO` is not. -/
+@[expose] def ModelIO.Det {α : Type} (x : ModelIO α) (fs : FS) : Prop :=
+  ∃ a, x fs = ModelIO.answer a
+
+theorem ModelIO.Det.of_ok {α : Type} {x : ModelIO α} {fs : FS} {v : α} (hd : x.Det fs)
+    (h : x fs (.ok v)) : x fs = ModelIO.answer (some v) := by
+  obtain ⟨a, ha⟩ := hd
+  rw [ha] at h ⊢
+  rw [(ModelIO.answer_ok a v).1 h]
+
+theorem ModelIO.pure_eq_answer {α : Type} (a : α) (fs : FS) :
+    (pure a : ModelIO α) fs = ModelIO.answer (some a) := rfl
+
+theorem ModelIO.det_pure {α : Type} (a : α) (fs : FS) : (pure a : ModelIO α).Det fs :=
+  ⟨some a, rfl⟩
+
+theorem ModelIO.det_bind {α β : Type} {x : ModelIO α} {f : α → ModelIO β} {fs : FS}
+    (hx : x.Det fs) (hf : ∀ a, (f a).Det fs) : (x >>= f).Det fs := by
+  obtain ⟨a, ha⟩ := hx
+  cases a with
+  | some v => rw [ModelIO.Det, ModelIO.bind_det ha]; exact hf v
+  | none =>
+    refine ⟨none, ?_⟩
+    funext o
+    show ((∃ a', x fs (.ok a') ∧ f a' fs o) ∨ (∃ e, o = .error e ∧ x fs (.error e))) = _
+    rw [ha]
+    simp [ModelIO.answer]
+
+theorem ModelIO.det_mapM {α β : Type} {f : α → ModelIO β} {fs : FS} :
+    ∀ {xs : List α}, (∀ a ∈ xs, (f a).Det fs) → (xs.mapM f).Det fs
+  | [], _ => ModelIO.det_pure _ _
+  | x :: xs, h => by
+    rw [List.mapM_cons]
+    refine ModelIO.det_bind (h x List.mem_cons_self) fun _ => ?_
+    refine ModelIO.det_bind (ModelIO.det_mapM fun a ha => h a (List.mem_cons_of_mem _ ha))
+      fun _ => ModelIO.det_pure _ _
+
+/-- A determined action, caught: its value, the handler never asked. -/
+theorem ModelIO.tryCatch_det {α : Type} {x : ModelIO α} {h : IO.Error → ModelIO α} {fs : FS}
+    {a : α} (hx : x fs = ModelIO.answer (some a)) :
+    (tryCatchThe IO.Error x h : ModelIO α) fs = ModelIO.answer (some a) := by
+  funext o
+  show ((∃ a', o = .ok a' ∧ x fs (.ok a')) ∨ (∃ e, x fs (.error e) ∧ h e fs o)) = _
+  rw [hx]
+  simp [ModelIO.answer]
+
+/-- A determined action, mapped. -/
+theorem ModelIO.map_det {α β : Type} {x : ModelIO α} {g : α → β} {fs : FS} {a : α}
+    (hx : x fs = ModelIO.answer (some a)) : (g <$> x : ModelIO β) fs = ModelIO.answer (some (g a)) := by
+  rw [map_eq_pure_bind, ModelIO.bind_det hx]
+  rfl
+
 /-! ## The folds over a file's reads, in the model -/
 
 /-- **A file's reads in the model**: `csz` bytes at a time from `off`,
@@ -286,6 +344,20 @@ theorem foldChunks_model {σ ρ : Type} {p : System.FilePath} {csz : USize} {ini
   refine ⟨b, hb, ?_⟩
   rw [foldReads_model p csz.toNat hb, foldListM_pure] at h
   simpa [eq_comm] using h
+
+/-- **The serial fold on a file the snapshot holds**: determined, `foldList`
+over the file's reads. -/
+theorem foldChunks_det {σ ρ : Type} {p : System.FilePath} (csz : USize) (init : σ)
+    (step : σ → ByteArray → Except ρ σ) (fin : σ → ρ) {fs : FS} {b : ByteArray}
+    (hb : fs.file p = some b) :
+    (foldChunks p csz init step fin : ModelIO ρ) fs =
+      ModelIO.answer (some (foldList step fin init (readsFrom csz.toNat b 0))) := by
+  have hs : (CheckerIO.fileSize p : ModelIO Nat) fs = ModelIO.answer (some b.size) := by
+    show ModelIO.answer ((fs.file p).map (·.size)) = _
+    rw [hb]; rfl
+  simp only [foldChunks]
+  rw [ModelIO.bind_det hs, foldReads_model p csz.toNat hb, foldListM_pure]
+  rfl
 
 /-- The last chunks gathered, stepped as the last window: the fold over
 the windows they are. -/

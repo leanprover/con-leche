@@ -65,7 +65,8 @@
 # in trailing `EXPECT:` comment markers, exactly the lines the gate must
 # report; `--selftest` runs that check alone.
 #
-# NOT SCANNED: `tests/e2e/src/*.lean` and `tests/trust-surface/*.lean`.
+# NOT SCANNED: `tests/e2e/src/*.lean`, `tests/olean/src/*.lean` and
+# `tests/trust-surface/*.lean`.
 # The former are fixture *inputs* — the Lean sources that get exported
 # into the streams the checker must REJECT — so they deliberately
 # contain the very constructs this gate hunts
@@ -332,7 +333,7 @@ ALLOW = {
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
 # contain what the checker must reject, and the lexer's own fixture.
-SKIP_DIRS = ('tests/e2e/src/', 'tests/trust-surface/')
+SKIP_DIRS = ('tests/e2e/src/', 'tests/olean/src/', 'tests/trust-surface/')
 
 ROOTS = ('Main.lean', 'ConLeche.lean', 'PinDump.lean')
 
@@ -591,7 +592,7 @@ for f, t in stale:
 # Pinned by content: path -> (sha256, reason).  See the header.
 import hashlib
 NATIVE = {
-    'lakefile.lean': ('f5a0416b3ac7ba58cbdeb6074cf14239601386539c99c8f8ec04100c729bf171',
+    'lakefile.lean': ('b060b01cc19ae658d369f84626c270a13e414831ffda5ec311a20d26b055e244',
         'the build: the targets, and the C compile and link of native/'),
     'native/read_range.c': ('6ffff889161f74962d0633e2b906523bfc85b3d4ef68ab80da4160f3d0d7c821',
         'readRangeIO, the positional read behind CheckerIO.readRange'),
@@ -652,6 +653,9 @@ IO_FENCE = {
     # path: the declarations cut out whole (the instance and what only
     # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
     'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def readRangeOf',
+                                         # the parallel map behind the
+                                         # instance's `parMapExcept`
+                                         'def parShare', 'def parMapIO',
                                          'instance instCheckerIOIO',
                                          # the model's instance: its fields are
                                          # named as the operations are
@@ -661,6 +665,9 @@ IO_FENCE = {
     'ConLeche/Driver/CheckMain.lean': (),
     'ConLeche/Driver/Dispatch.lean': (),
     'ConLeche/Driver/Cli.lean': (),
+    'ConLeche/Frontend/Olean/Files.lean': (),
+    'ConLeche/Frontend/Olean/Closure.lean': (),
+    'ConLeche/Frontend/Olean/Records.lean': (),
 }
 IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'readRange', 'fileSize',
           'metadata', 'isDir', 'readDir', 'walkDir', 'lines', 'writeFile', 'writeBinFile',

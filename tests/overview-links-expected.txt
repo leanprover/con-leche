@@ -10,17 +10,17 @@
 == ConLeche/Driver/Cli.lean#L97
     97  def usage : String := String.intercalate "\n" [
 
-== ConLeche/Driver/CheckMain.lean#L34
-    34  def ConLeche.CheckError.exitCode : CheckError → UInt8
+== ConLeche/Driver/CheckMain.lean#L35
+    35  def ConLeche.CheckError.exitCode : CheckError → UInt8
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
 
-== ConLeche/MainTheorem.lean#L99-L102
-    99  theorem model_exists (V : Type w) [SetTheory V]
-   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   101      (accepted : checkDecls .verified pins ds = .ok env) :
-   102      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L100-L103
+   100  theorem model_exists (V : Type w) [SetTheory V]
+   101      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   102      (accepted : checkDecls .verified pins ds = .ok env) :
+   103      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L123-L124
    123  inductive Denotes (cval : Name → (LevelParam → Nat) → V) (env : Env) (φ : LevelParam → Nat) :
@@ -49,15 +49,15 @@
    267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    268      app (app (app E A) a) b = eqv a b
 
-== ConLeche/MainTheorem.lean#L113-L120
-   113  theorem no_False_declaration (V : Type w) [SetTheory V]
-   114      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   115      (h : jsonWithTheoremFalse chunks) :
-   116      ∃ e, (do
-   117        let pre ← builtinPreludeE
-   118        let r ← parseChunks chunks
-   119        let ds := preparePrelude pre r.decls
-   120        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L114-L121
+   114  theorem no_False_declaration (V : Type w) [SetTheory V]
+   115      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   116      (h : jsonWithTheoremFalse chunks) :
+   117      ∃ e, (do
+   118        let pre ← builtinPreludeE
+   119        let r ← parseChunks chunks
+   120        let ds := preparePrelude pre r.decls
+   121        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Accepts.lean#L62-L72
     62  def jsonWithTheoremFalse (chunks : List ByteArray) : Prop :=
@@ -72,10 +72,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L148-L150
-   148  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   149      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   150      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+== ConLeche/MainTheorem.lean#L149-L151
+   149  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   150      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   151      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L125-L128
    125  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -118,28 +118,28 @@
    333    checkPendingList mode p.2.1 p.2.2.toList
    334    pure p.2.1.env
 
-== tests/ConLecheTests/Axioms.lean#L93-L97
-    93  /--
-    94  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-    95  -/
-    96  #guard_msgs in
-    97  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L95-L99
+    95  
+    96  /--
+    97  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+    98  -/
+    99  #guard_msgs in
 
-== ConLeche/Driver/Dispatch.lean#L29
-    29    | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs
+== ConLeche/Driver/Dispatch.lean#L32
+    32    | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs
 
-== ConLeche/Frontend/CheckerIO.lean#L101
-   101  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L120
+   120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L235
-   235  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L262
+   262  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L37-L41
-    37  theorem runArgs_accept {file : String} {fs : FS}
-    38      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-    39      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-    40        parseChunks [b] = .ok r ∧
-    41        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L170-L174
+   170  theorem runArgs_accept {file : String} {fs : FS}
+   171      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   172      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   173        parseChunks [b] = .ok r ∧
+   174        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -148,8 +148,8 @@
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L630
-   630  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+== ConLeche/Frontend/ExportC.lean#L632
+   632  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == ConLeche/Frontend/Stream.lean#L309-L311
    309  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
@@ -181,13 +181,13 @@
   1743        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L290-L295
-   290  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   291      {stride jobs : Nat} {fs : FS}
-   292      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
-   293      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   294        Frontend.parseChunks [b] = .ok r ∧
-   295        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Driver/CheckMain.lean#L298-L303
+   298  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+   299      {stride jobs : Nat} {fs : FS}
+   300      (h : (checkMainG (.ndjson file) mode stride jobs : ModelIO _) fs (.ok 0)) :
+   301      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   302        Frontend.parseChunks [b] = .ok r ∧
+   303        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Installed.lean#L144-L147
    144  def installStepC (pins : List NatOpPinSet) (i : Nat) (fe : FEnv)
@@ -348,13 +348,13 @@
     53  def ensureSortCore (env : Env) (fuel depth : Nat) (e : Expr) : CheckM Level :=
     54    ensureSort (pureFns mode eager env fuel) env depth e
 
-== ConLeche/Kernel/Core.lean#L1736-L1741
-  1736      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
-  1737    | 0 =>
-  1738      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
-  1739        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
-  1740        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
-  1741        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
+== ConLeche/Kernel/Core.lean#L1708-L1713
+  1708      (wrap : CoreFns m → CoreFns m) : Nat → CoreFns m
+  1709    | 0 =>
+  1710      { whnfCore := fun _ _ _ => throw (.internal "fuel exhausted: whnfCore")
+  1711        whnf := fun _ _ => throw (.internal "fuel exhausted: whnf")
+  1712        infer := fun _ _ => throw (.internal "fuel exhausted: infer")
+  1713        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
 == ConLeche/Model/Fold.lean#L267-L274
    267  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
@@ -390,28 +390,25 @@
 == ConLeche/Kernel/Env.lean#L57
     57  inductive CheckMode where
 
-== ConLeche/Kernel/Core.lean#L1070
-  1070  def defeqArg (r : CoreFns m) (depth : Nat) (a ta ty : Expr) : m Bool :=
+== ConLeche/Kernel/Core.lean#L1025
+  1025  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
 
-== ConLeche/Kernel/Core.lean#L1053
-  1053  /-- The reduction loop's body: run `whnfLoop` at its own step budget. -/
+== ConLeche/Kernel/Core.lean#L1281
+  1281  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
 
-== ConLeche/Kernel/Core.lean#L1309
-  1309  def defeqSpine (r : CoreFns m) (env : Env) (depth : Nat) (a b : Expr) :
+== ConLeche/Kernel/Core.lean#L1170
+  1170  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
 
-== ConLeche/Kernel/Core.lean#L1198
-  1198  def inferBodyIO (r : CoreFns m) (env : Env) : Nat → Expr → m Expr :=
-
-== ConLeche/Kernel/Core.lean#L1347
-  1347  def defeqLams (r : CoreFns m) :
+== ConLeche/Kernel/Core.lean#L1319
+  1319  def defeqLams (r : CoreFns m) :
 
 == ConLeche/Verify/Cached/AgreeFloor.lean#L1084-L1086
   1084  theorem checkDecls_skels {mode : CheckMode} {ds : Array Declaration}
   1085      {env : Env} (h : checkDecls mode pins ds = .ok env) :
   1086      envSkels env = streamSkels ds.toList := by
 
-== ConLeche/Kernel/Core.lean#L1784
-  1784  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
+== ConLeche/Kernel/Core.lean#L1756
+  1756  @[irreducible, noinline] def checkFuel : Nat := 4611686018427387904  -- 2^62
 
 == ConLeche/Kernel/Exclusive.lean#L6-L42
      6  # `withExclusive`: the reference-count read behind the walk memo
@@ -1295,22 +1292,22 @@
    236        else if cv.name = sorryAxName then
    237          pure fe
 
-== ConLeche/Driver/Cli.lean#L130
-   130    "  --jobs=<n>        the number of worker threads (default: the",
+== ConLeche/Driver/Cli.lean#L131
+   131    "  --jobs=<n>        the number of worker threads (default: the",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
     51  def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
 
-== ConLeche/MainTheorem.lean#L113-L120
-   113  theorem no_False_declaration (V : Type w) [SetTheory V]
-   114      (pins : List NatOpPinSet) (chunks : List ByteArray)
-   115      (h : jsonWithTheoremFalse chunks) :
-   116      ∃ e, (do
-   117        let pre ← builtinPreludeE
-   118        let r ← parseChunks chunks
-   119        let ds := preparePrelude pre r.decls
-   120        checkDecls .verified pins ds) = .error e := by
+== ConLeche/MainTheorem.lean#L114-L121
+   114  theorem no_False_declaration (V : Type w) [SetTheory V]
+   115      (pins : List NatOpPinSet) (chunks : List ByteArray)
+   116      (h : jsonWithTheoremFalse chunks) :
+   117      ∃ e, (do
+   118        let pre ← builtinPreludeE
+   119        let r ← parseChunks chunks
+   120        let ds := preparePrelude pre r.decls
+   121        checkDecls .verified pins ds) = .error e := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1373,28 +1370,31 @@
    241        c.toConstantVal.levelParams = cv.levelParams ∧
    242        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L389
-   389  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L446
+   446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
-== ConLeche/Frontend/CheckerIO.lean#L101
-   101  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L120
+   120  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L123
-   123    liftIO : {α : Type} → IO α → m α
+== ConLeche/Frontend/CheckerIO.lean#L142
+   142    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
 
-== ConLeche/Frontend/CheckerIO.lean#L235
-   235  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L150
+   150    liftIO : {α : Type} → IO α → m α
 
-== ConLeche/MainTheorem.lean#L148-L150
-   148  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   149      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   150      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+== ConLeche/Frontend/CheckerIO.lean#L262
+   262  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+
+== ConLeche/MainTheorem.lean#L149-L151
+   149  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   150      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   151      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
 
 == Main.lean#L84
     84  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L389
-   389  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L446
+   446  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L29
     29  def enableAbortOnNonlinear : IO Unit := do
@@ -1445,6 +1445,9 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== ConLeche/Driver/Cli.lean#L113
-   113    "  --trusted         the unverified mode: the SAME checker bodies as",
+== ConLeche/Driver/Cli.lean#L114
+   114    "  --trusted         the unverified mode: the SAME checker bodies as",
+
+== ConLeche/Frontend/Olean/View.lean#L81
+    81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do
 
