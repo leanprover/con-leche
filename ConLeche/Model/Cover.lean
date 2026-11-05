@@ -193,6 +193,30 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
       ∀ ψ, args.length = nPc + (D.ids c ψ).length
 
 omit [SetTheory V] in
+/-- Ownership across a change of environment that keeps its members' and
+constructors' lookups, and every member's constructor list. -/
+theorem LfpOwn.monoOn {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)
+    (hm : ∀ c, c < D.k → env'.find? (D.member c) = env.find? (D.member c))
+    (hC : ∀ c, c < D.k → ∀ j, j < D.nctors c → env'.find? (D.ctorName c j) = env.find? (D.ctorName c j))
+    (hnc : ∀ c, c < D.k → ConLeche.nestContainer (envCtx env') (D.member c)
+      = ConLeche.nestContainer (envCtx env) (D.member c)) : LfpOwn env' D where
+  ctors := fun c hc => by
+    obtain ⟨nP', L, hL, hlen, hj⟩ := h.ctors c hc
+    exact ⟨nP', L, (hnc c hc).trans hL, hlen, fun j hjl =>
+      (hC c hc j (hlen ▸ hjl)).trans (hj j hjl)⟩
+  noCtors := fun c hc nP' hL => by
+    obtain ⟨cv, caps, hf, hnd, hlen, hall⟩ := h.noCtors c hc nP' ((hnc c hc).symm.trans hL)
+    refine ⟨cv, caps, (hm c hc).trans hf, hnd, hlen, fun mm hmm => ?_⟩
+    obtain ⟨cvm, capsm, hfm, hl⟩ := hall mm hmm
+    exact ⟨cvm, capsm, (hm mm hmm).trans hfm, hl⟩
+  lvlNodup := fun c hc => by
+    obtain ⟨cv, caps, hf, hnd⟩ := h.lvlNodup c hc
+    exact ⟨cv, caps, (hm c hc).trans hf, hnd⟩
+  ctorConcl := fun c hc j hj => by
+    obtain ⟨cv, nPc, nF, hf, hsh⟩ := h.ctorConcl c hc j hj
+    exact ⟨cv, nPc, nF, (hC c hc j hj).trans hf, hsh⟩
+
+omit [SetTheory V] in
 /-- Ownership across an extension that keeps every lookup and every
 recorded member's constructor list. -/
 theorem LfpOwn.mono {env env' : Env} {D : LfpDatum V} (h : LfpOwn env D)

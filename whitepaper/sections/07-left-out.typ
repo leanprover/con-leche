@@ -42,25 +42,25 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #src("ConLeche/Model/NatEqs.lean", 1078, 1082)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
-axiom `Quot.sound` are installed from #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
+axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2428, 2432)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2453, 2457)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
-proposition the stream declares. The real checker installs `Eq`,
-`Nat`, `Empty`, `False` and the quotient `Quot` from hand-written
-copies of the toolchain's declarations
+proposition the stream declares. The real checker has hand-written
+copies of the toolchain's `Eq`, `Nat`, `Empty`, `False` and the quotient
+`Quot`
 (#src("ConLeche/Kernel/Basis/False.lean", 37, 39)[`False`, for instance],
 #src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]): a
-stream block that carries a pin's names and agrees with it up to
-renaming of universe parameters
-#src("ConLeche/Kernel/Basis.lean", 64, 67)[installs the pin], and one that
+stream block that carries a pin's names
+#src("ConLeche/Kernel/Basis.lean", 133, 134)[stores the pin at the universe parameters it declares],
+its check compares it with the pin up to those names, and one that
 disagrees is rejected. The pins are how the main theorem
 can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
 exactly Lean's three standard axioms: `propext` and `Classical.choice`,
-each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 635, 641)[true in the
+each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 636, 642)[true in the
 model] (`propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic), and `Quot.sound` as
 part of the pinned `Quot` block above. Any other axiom record declines
@@ -92,7 +92,7 @@ checker is a program, connected to the relations by further theorems
 #left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 331, 336)[The fold] installs every
 declaration first and then checks the recorded declarations one by one,
 each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Verify/Cached/Defer.lean", 320, 328)[a pool of workers] whose results are reassembled in
+second phase on #src("ConLeche/Verify/Cached/Defer.lean", 315, 323)[a pool of workers] whose results are reassembled in
 fold order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
 accept of the fold] as an environment in which every declaration was
 checked where it was installed, which is what the one-declaration-at-a-time

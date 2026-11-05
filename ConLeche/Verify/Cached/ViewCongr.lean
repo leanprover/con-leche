@@ -1253,12 +1253,21 @@ theorem RelRun.foldlM_push {α : Type} {f : FEnv → α → CheckCM FEnv}
     exact RelRun.mono (RelRun.foldlM_push hf l htL) fun _ _ h =>
       PushedFrom.trans ⟨L, Q, rfl, rfl⟩ h
 
-theorem checkBasisDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (kind : BasisKind) :
-    RelRun (PushedFrom fe₁ fe₂) (checkBasisDeclC fe₁ kind) (checkBasisDeclC fe₂ kind) := by
-  unfold checkBasisDeclC
-  simp only [ht.find]
+theorem checkBasisBlockC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (kind : BasisKind)
+    (block : List ConstantInfo) :
+    RelRun (PushedFrom fe₁ fe₂) (checkBasisBlockC fe₁ kind block)
+      (checkBasisBlockC fe₂ kind block) := by
+  unfold checkBasisBlockC
   relrun
   all_goals exact RelRun.foldlM_push (fun _ _ ht' ci => installBasisDeclF_twin ht'.find ci) _ ht
+
+theorem checkQuotRecordC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂) (k : QuotKind)
+    (cv : ConstantVal) :
+    RelRun (PushedFrom fe₁ fe₂) (checkQuotRecordC fe₁ k cv) (checkQuotRecordC fe₂ k cv) := by
+  unfold checkQuotRecordC
+  simp only [ht.find]
+  relrun
+  all_goals exact installBasisDeclF_twin ht.find _
 
 theorem checkShapelessS_twin {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (block : List ConstantInfo) :
@@ -1275,7 +1284,7 @@ theorem checkIndDeclC_twin {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
   unfold checkIndDeclC
   relrun
   all_goals first
-    | exact checkBasisDeclC_twin ht _
+    | exact checkBasisBlockC_twin ht _ block
     | exact checkBlockKS_twin ht block _
     | exact checkShapelessS_twin ht.find ht.findTable block
 
@@ -1331,21 +1340,15 @@ theorem checkDeclC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twi
       ofReduceAxOkF_congr hfe]
     relrun
     all_goals first
+      | exact checkQuotRecordC_twin ht _ _
       | exact RelRun.pure (PushedFrom.refl _ _)
       | exact RelRun.pure (PushedFrom.push _ _ _)
-  | basisDecl kind =>
-    unfold checkDeclC
-    exact checkBasisDeclC_twin ht kind
   | indDecl block nP =>
     unfold checkDeclC
     exact checkIndDeclC_twin ht block nP
   | quotDecl k cv =>
     unfold checkDeclC
-    dsimp only
-    relrun
-    all_goals first
-      | exact checkBasisDeclC_twin ht _
-      | exact RelRun.pure (PushedFrom.refl _ _)
+    exact checkQuotRecordC_twin ht k cv
 
 theorem checkDeclStepC_twin (pins : List NatOpPinSet) {fe₁ fe₂ : FEnv} (ht : Twin fe₁ fe₂)
     (pd : Declaration) :
@@ -1424,7 +1427,6 @@ theorem installStepC_of_valueStep_none {pins : List NatOpPinSet} {i : Nat} {fe W
       rw [ite_eq_right hred] at h
       exact nomatch h
   | axiomDecl _ => rfl
-  | basisDecl _ => rfl
   | quotDecl _ _ => rfl
   | indDecl _ _ => rfl
 

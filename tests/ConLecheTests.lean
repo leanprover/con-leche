@@ -218,7 +218,6 @@ private def declCName : ConLeche.Declaration → Name
   | .axiomDecl cv | .defnDecl cv _ _ | .thmDecl cv _ | .opaqueDecl cv _ =>
     cv.name
   | .quotDecl _ cv => cv.name
-  | .basisDecl _ => .anonymous
   | .indDecl b _ => (b.head?.map (·.name)).getD .anonymous
 
 private def eqModelName : Name := Name.anonymous |>.str "Eq" |>.str "_model"

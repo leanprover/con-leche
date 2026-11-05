@@ -119,20 +119,12 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
     -- `ConLeche/Kernel/CheckerBase.lean`).  Any other axiom
     -- is a positive decline at its own record; a *pinned name* with a
     -- non-pinned shape likewise (the pin would otherwise shadow).
-    -- **`Quot.sound` is the pinned quotient BLOCK's own record**
-    -- (task #293): the export writes it as an ordinary axiom record
-    -- beside the four `#QUOT` ones, so it arrives here — compared with
-    -- the pin and installing NOTHING of its own (the pinned block
-    -- installs the axiom together with its three other constants, at
-    -- the first quotient record that matches), and DECLINING when it
-    -- does not match.  The comparison precedes the common checks
-    -- because the name is a reserved basis name: this record IS the
-    -- pinned block's, not a redeclaration of it.
+    -- **`Quot.sound` is the pinned quotient package's own record**: the
+    -- export writes it as an ordinary axiom record beside the four
+    -- `#QUOT` ones.  The name is a reserved basis name: this record IS
+    -- the package's, not a redeclaration of it.
     if cv.name = quotSoundName then
-      (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
-        pure env
-      else
-        throw (.notImplemented "quotient soundness axiom mismatch"))
+      checkQuotRecord env .sound cv
     else do
       checkConstantVal ops env cv
       if stdAxiomOk env cv then
@@ -163,20 +155,12 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
         pure env
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
-  | .basisDecl kind => checkBasisDecl env kind
   | .indDecl block nP =>
-    -- **THE PINNED BASIS BLOCKS** (task #293).  A stream's `Nat` block
-    -- arrives as an ordinary `indDecl` — the decoder emits the file's
-    -- records and nothing else — and it is recognised HERE: a block
-    -- whose members are named as one of the five pins' and which
-    -- matches it up to `ConstantInfo.canon` installs the PIN (the
-    -- model-proved literals `installBasisDecl` puts in the
-    -- environment verbatim).  A block under a pinned name that does not
-    -- match falls through to the ordinary route, where
-    -- `checkConstantVal`'s reserved-name check REJECTS it: a basis
-    -- redefinition is invalid input (task #181's ruling).
-    match basisPinHit block with
-    | some kind => checkBasisDecl env kind
+    -- **THE PINNED BASIS BLOCKS**: a stream's `Nat` block arrives as an
+    -- ordinary `indDecl` (the decoder emits the file's records and nothing
+    -- else); its members' names say it is the pinned block's record.
+    match basisNameHit block with
+    | some kind => checkBasisBlock env kind block
     | none =>
     -- TASK #228 — THE DECLARED PARAMETER COUNT, first.  Official reads
     -- `nparams` off the declaration and checks
@@ -198,20 +182,7 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
       | some p => checkBlock ops env block p
       | none => checkShapeless ops env block
     else throw (.invalid "number of parameters mismatch")
-  | .quotDecl k cv =>
-    -- **THE QUOTIENT PACKAGE** (task #293).  The export writes it as
-    -- four records; each one is compared with the pinned block's
-    -- constant at its own kind, and the FIRST that matches installs the
-    -- pinned block whole (the other three then find it installed and
-    -- add nothing — they are the same declaration).  A record that does
-    -- not match is a quotient this checker positively does not support.
-    if quotPinHit k cv then
-      (match k with
-       | .type => checkBasisDecl env .quotK
-       | _ => pure env)
-    else throw (.notImplemented (match k with
-      | .sound => "quotient soundness axiom mismatch"
-      | _ => "quotient declaration mismatch"))
+  | .quotDecl k cv => checkQuotRecord env k cv
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

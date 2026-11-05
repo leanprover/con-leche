@@ -22,7 +22,7 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 472)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 451)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
 term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 288, 306)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
@@ -185,7 +185,7 @@ gains three cases, one per rule.
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 345, 350)[extended with $c$ has a model]
-  (#src("ConLeche/Model/Install.lean", 328, 331)[as in con-leche]).
+  (#src("ConLeche/Model/Install.lean", 374, 377)[as in con-leche]).
 ] <thm:install-def>
 
 #proof[

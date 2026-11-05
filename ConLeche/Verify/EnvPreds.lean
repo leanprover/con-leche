@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Kernel.BasisA
 public import ConLeche.Verify.EnvWF
 
 public section

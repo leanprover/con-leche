@@ -186,12 +186,12 @@ theorem extendEmptyRec (mp : EnvModelM V env)
 `BasisInstallRun` is a right-nested `∧` chain, so the walk is an
 `obtain` and two steps — there is no fold to invert. -/
 
-/-- **The `Empty` block, installed at the P tier.**  `BasisStepPB`'s
-`emptyK` branch. -/
+/-- **The `Empty` block, installed at the P tier**, at the pin's own names
+(`declBasisPB_at` carries it to the record's). -/
 theorem declBasisPB_emptyK {env₂ : Env} (mp : EnvModelM V env)
-    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.declsA env₂) :
+    (h : ConLeche.Semantics.BasisInstallRun env ConLeche.BasisKind.emptyK.decls env₂) :
     CoverStep mp env₂ := by
-  rw [show ConLeche.BasisKind.emptyK.declsA = [emptyA, emptyRecA] from rfl]
+  rw [show ConLeche.BasisKind.emptyK.decls = [emptyA, emptyRecA] from rfl]
     at h
   obtain ⟨h1, h2, hnil⟩ := h
   subst hnil

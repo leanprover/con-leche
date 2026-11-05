@@ -25,7 +25,7 @@ variable {mode : CheckMode}
 /-- The pinned `Iff` family, extracted. -/
 theorem iff_shapes {env : Env} {cv : ConstantVal}
     (h : stdAxiomOk env cv = true) (hp : cv.name = propextName) :
-    env.find? eqName = some eqA ∧
+    (env.find? eqName).isSome = true ∧
     (∃ cvI caps, env.find? iffName = some (.indInfo cvI caps) ∧
       cvI.levelParams = [] ∧
       cvI.type = iffA.toConstantVal.type) ∧
@@ -38,7 +38,7 @@ theorem iff_shapes {env : Env} {cv : ConstantVal}
       cvIr.type = iffRecA.toConstantVal.type) ∧
     ConstantVal.matchesPin cv propextA = true := by
   rw [stdAxiomOk, ite_eq_left hp] at h
-  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  simp only [Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨hEq, hI⟩, hIi⟩, hIr⟩, hA⟩ := h
   refine ⟨hEq, ?_, ?_, ?_, hA⟩
   · cases hf : env.find? iffName with

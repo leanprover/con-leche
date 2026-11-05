@@ -7,7 +7,7 @@ public section
 /-!
 # The basis-cons preservation kit (task #161)
 
-`BasisStepPB` conses *inductive-kind* heads — `indInfo`, `ctorInfo`,
+A basis block conses *inductive-kind* heads — `indInfo`, `ctorInfo`,
 `recInfo` — and the existing preservation lemmas are all keyed on the
 value kinds:
 
@@ -137,7 +137,7 @@ theorem etaFamilyStored_descend_reserved {c₀ : ConstantInfo} {T : Name}
 
 /-- **`CapsOk` at a fresh cons whose name is reserved** —
 `capsOk_cons_fresh`'s basis twin.  Every basis block's constant is a
-reserved name (`BasisKind.declsA` ⊆ `reservedBasisNames`), and both
+reserved name (`BasisKind.decls` ⊆ `reservedBasisNames`), and both
 `CapsOk` halves are premised on a *non*-reserved family, so no
 stored family can be completed here and the law's leaves are all
 prefix leaves. -/

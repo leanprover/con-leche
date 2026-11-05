@@ -2492,8 +2492,8 @@
    124  /-- Store one more constant. -/
    125  def add (env : Env) (n : Name) (ci : ConstInfo) : Env := ⟨(n, ci) :: env.consts⟩
 
-== ConLeche/Kernel/Env.lean#L472
-   472  structure Env where
+== ConLeche/Kernel/Env.lean#L451
+   451  structure Env where
 
 == whitepaper/Fragment/Env.lean#L63-L100
     63  /-- What kind of constant a name is stored as. -/
@@ -2905,11 +2905,11 @@
    349      (m : EnvModel V env) (hok : DefOk env c ci) :
    350      ∃ m' : EnvModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
 
-== ConLeche/Model/Install.lean#L328-L331
-   328  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
-   329      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
-   330      (hfresh : env.find? c₀.name = none)
-   331      (hh : ConsHead env c₀ A)
+== ConLeche/Model/Install.lean#L374-L377
+   374  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
+   375      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
+   376      (hfresh : env.find? c₀.name = none)
+   377      (hh : ConsHead env c₀ A)
 
 == whitepaper/Fragment/InstallDef.lean#L158-L161
    158  
@@ -4664,42 +4664,42 @@
    834        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
    835        TeleFit m.M φ ρ T xs
 
-== ConLeche/Model/Env/Laws.lean#L522-L556
-   522  /-- **The ι case split's environment facts, one rule**.
-   523  `RecRuleLaw`'s main clause takes the levels, parameters and index
-   524  comparisons as equations; under the conditional claims the ι step has
-   525  them only where neither side is the point, and at a K rule or a family
-   526  that is never `Prop` at the comparand levels it runs no check of the
-   527  constructor application at all.  What the step consumes instead, at the
-   528  recursor's levels:
-   529  
-   530  * **K** (the recursor's K flag): the rule's law at the recursor's own
-   531    parameters, for any major value in the major's domain (the
-   532    fragment's `RecRuleLawK`: inversion of the family's least
-   533    fixed point) — the reduct, the minor, does not mention the major;
-   534  * **the constructor's arity**: its stored type binds the spine
-   535    syntactically, so a graded application of it that is not the point
-   536    fits its telescope;
-   537  * **(S) case 2**: where the family is never `Prop` at the comparand
-   538    levels (`iotaCtorNeverProp`, the checker's test), the recursor's major
-   539    domain holds no point;
-   540  * **(T) case 2, the constructor's levels**: there a fired application
-   541    that is not the point, at the constructor's own levels and spine, is
-   542    also an application of the constructor at the comparand levels, to a
-   543    graded spine with the same fields that fits its telescope there —
-   544    the major's membership in the family at the comparands ties the
-   545    injection's fields (the same argument as for the parameters), so the
-   546    main law applies at the comparand levels;
-   547  * **(P) the slot at the point**: where the major domain holds the
-   548    point, every fitting constructor application is the point (the
-   549    family is `Prop` there; the fragment's slot law);
-   550  * **(U) coherence**: at a fired spine where the constructor application
-   551    is the point (case 3, where the step compares the levels and
-   552    parameters with the rule's comparands and the indices), the
-   553    conditional index comparison is an equation (read off the
-   554    parameters' conditional comparison).
-   555  
-   556  (P) and (U) are read only at case 3, so they take the level equation. -/
+== ConLeche/Model/Env/Laws.lean#L542-L576
+   542  /-- **The ι case split's environment facts, one rule**.
+   543  `RecRuleLaw`'s main clause takes the levels, parameters and index
+   544  comparisons as equations; under the conditional claims the ι step has
+   545  them only where neither side is the point, and at a K rule or a family
+   546  that is never `Prop` at the comparand levels it runs no check of the
+   547  constructor application at all.  What the step consumes instead, at the
+   548  recursor's levels:
+   549  
+   550  * **K** (the recursor's K flag): the rule's law at the recursor's own
+   551    parameters, for any major value in the major's domain (the
+   552    fragment's `RecRuleLawK`: inversion of the family's least
+   553    fixed point) — the reduct, the minor, does not mention the major;
+   554  * **the constructor's arity**: its stored type binds the spine
+   555    syntactically, so a graded application of it that is not the point
+   556    fits its telescope;
+   557  * **(S) case 2**: where the family is never `Prop` at the comparand
+   558    levels (`iotaCtorNeverProp`, the checker's test), the recursor's major
+   559    domain holds no point;
+   560  * **(T) case 2, the constructor's levels**: there a fired application
+   561    that is not the point, at the constructor's own levels and spine, is
+   562    also an application of the constructor at the comparand levels, to a
+   563    graded spine with the same fields that fits its telescope there —
+   564    the major's membership in the family at the comparands ties the
+   565    injection's fields (the same argument as for the parameters), so the
+   566    main law applies at the comparand levels;
+   567  * **(P) the slot at the point**: where the major domain holds the
+   568    point, every fitting constructor application is the point (the
+   569    family is `Prop` there; the fragment's slot law);
+   570  * **(U) coherence**: at a fired spine where the constructor application
+   571    is the point (case 3, where the step compares the levels and
+   572    parameters with the rule's comparands and the indices), the
+   573    conditional index comparison is an equation (read off the
+   574    parameters' conditional comparison).
+   575  
+   576  (P) and (U) are read only at case 3, so they take the level equation. -/
 
 == whitepaper/Fragment/EnvModel.lean#L119-L186
    119  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
@@ -5257,20 +5257,20 @@
    137    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    138      hrec e
 
-== ConLeche/Model/Fold.lean#L268-L275
-   268      {F : Nat}
-   269      {ds : List Declaration} {env' : Env}
-   270      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   271      ∀ c ∈ env'.consts,
-   272        c.toConstantVal.type = .const falseName [] → False := by
-   273    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   274    exact fun c hc hty => no_constant_of_False mp c hc hty
-   275  
+== ConLeche/Model/Fold.lean#L245-L252
+   245      {F : Nat}
+   246      {ds : List Declaration} {env' : Env}
+   247      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   248      ∀ c ∈ env'.consts,
+   249        c.toConstantVal.type = .const falseName [] → False := by
+   250    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   251    exact fun c hc hty => no_constant_of_False mp c hc hty
+   252  
 
-== ConLeche/Model/Fold.lean#L198-L200
-   198      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   199        EnvModelOk V env →
-   200        ds.foldlM (checkDecl .verified (fueledOps .verified F) pins) env = .ok env' →
+== ConLeche/Model/Fold.lean#L174-L176
+   174      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   175        EnvModelOk V env →
+   176        ds.foldlM (checkDecl .verified (fueledOps .verified F) pins) env = .ok env' →
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -6321,16 +6321,16 @@
     66  noncomputable def quotSet (u : Nat) (A R : V) : V :=
     67    if u = 0 then image (fun _ => pt) A else image (fun a => kpair empty (qclass A R a)) A
 
-== ConLeche/Model/BasisQuot.lean#L2428-L2432
-  2428  theorem extendQuotLift (mp : EnvModelM V env)
-  2429      (hQ : env.find? quotName = some quotA)
-  2430      (hM : env.find? quotMkName = some quotMkA)
-  2431      (hE : env.find? eqName = some eqA)
-  2432      (hfresh : env.find? quotLiftA.name = none)
+== ConLeche/Model/BasisQuot.lean#L2453-L2457
+  2453  theorem extendQuotLift (mp : EnvModelM V env)
+  2454      (hQ : env.find? quotName = some quotA)
+  2455      (hM : env.find? quotMkName = some quotMkA)
+  2456      (hE : EqStored env)
+  2457      (hfresh : env.find? quotLiftA.name = none)
 
 == ConLeche/Kernel/Basis/False.lean#L37-L39
     37  /-- `False : Prop`. -/
-    38  def falseRaw : ConstantInfo :=
+    38  def falseA : ConstantInfo :=
     39    .indInfo ⟨falseName, [], prop⟩ { all := [falseName] }
 
 == ConLeche/Kernel/Basis/Builder.lean#L8-L17
@@ -6345,11 +6345,9 @@
     16  (`fire := .plain`).
     17  
 
-== ConLeche/Kernel/Basis.lean#L64-L67
-    64  def basisPinHit (block : List ConstantInfo) : Option BasisKind :=
-    65    ([BasisKind.eqK, .natK, .emptyK, .falseK].find? fun k =>
-    66        k.decls.map (·.name) == block.map (·.name)).filter fun k =>
-    67      canonEqList block k.decls
+== ConLeche/Kernel/Basis.lean#L133-L134
+   133  def BasisKind.atBlock (kind : BasisKind) (block : List ConstantInfo) : List ConstantInfo :=
+   134    List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) kind.decls block
 
 == ConLeche/Kernel/StdAxioms.lean#L8-L15
      8  # Recognized standard axioms and their prerequisite shapes
@@ -6361,14 +6359,14 @@
     14  recursor) — so the checker accepts exactly these two axioms, after
     15  pinning their types and the *shapes of the inductives they quantify
 
-== ConLeche/Model/AxiomMem.lean#L635-L641
-   635  theorem choice_mem (mp : EnvModelM V env)
-   636      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
-   637      (hn : cv.name = choiceName)
-   638      (ψ : Name → Nat) (ta : Term)
-   639      (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
-   640      (ρ : Nat → V) :
-   641      interp V ρ (.const .choice [ψ uN]) ∈ˢ interp V ρ ta := by
+== ConLeche/Model/AxiomMem.lean#L636-L642
+   636  theorem choice_mem (mp : EnvModelM V env)
+   637      {cv : ConstantVal} (hok : ConLeche.stdAxiomOk env cv = true)
+   638      (hn : cv.name = choiceName)
+   639      (ψ : Name → Nat) (ta : Term)
+   640      (hta : denote mp.base2.acval env ψ 0 cv.type = some ta)
+   641      (ρ : Nat → V) :
+   642      interp V ρ (.const .choice [ψ uN]) ∈ˢ interp V ρ ta := by
 
 == ConLeche/Rules/Rel.lean#L138-L141
    138    `lazyDeltaStep`): one definition unfolded
@@ -6426,16 +6424,16 @@
    335    checkPendingList mode p.2.1 p.2.2.toList
    336    pure p.2.1.env
 
-== ConLeche/Verify/Cached/Defer.lean#L320-L328
-   320  /-! ## The check phase's jobs
-   321  
-   322  The check phase runs two kinds of job: a recorded value check
-   323  (`checkPending`, the record's `GroupChecked` fact) and a deferred check
-   324  (`deferredCheck`, the record's `DeferredCheck.Ok`).  The jobs are put in
-   325  FOLD ORDER (`jobOrder`, the two position-sorted arrays merged), run by
-   326  any number of workers in any order, and assembled by a walk in job
-   327  order that stops at the first failure (`collectJobs`): the verdict is
-   328  the first failing job in fold order, whatever the workers' timing. -/
+== ConLeche/Verify/Cached/Defer.lean#L315-L323
+   315  /-! ## The check phase's jobs
+   316  
+   317  The check phase runs two kinds of job: a recorded value check
+   318  (`checkPending`, the record's `GroupChecked` fact) and a deferred check
+   319  (`deferredCheck`, the record's `DeferredCheck.Ok`).  The jobs are put in
+   320  FOLD ORDER (`jobOrder`, the two position-sorted arrays merged), run by
+   321  any number of workers in any order, and assembled by a walk in job
+   322  order that stops at the first failure (`collectJobs`): the verdict is
+   323  the first failing job in fold order, whatever the workers' timing. -/
 
 == ConLeche/Verify/Cached/MainC.lean#L37-L40
     37  /-- **Acceptance**: what the fold accepts carries the model. -/

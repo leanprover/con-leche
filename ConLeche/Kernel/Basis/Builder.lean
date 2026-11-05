@@ -23,9 +23,8 @@ one-to-one, non-abbreviating renaming of those constructors, so a reader can lin
 new notion: every one of them is a `def` whose body is a single `Expr`
 constructor application.
 
-The stored forms are NOT written here: they are computed from these
-raw pins at elaboration time (`#stored_basis`,
-`ConLeche/Kernel/BasisGen.lean`).
+The pins of the block files are what the environment holds at the pin's own
+names (`ConstantInfo.atLps` renames them, `ConLeche/Kernel/Basis.lean`).
 -/
 
 namespace ConLeche
@@ -112,8 +111,8 @@ def ap3 (f a b c : Expr) : Expr := .app (.app (.app f a) b) c
 /-- Quaternary application. -/
 def ap4 (f a b c d : Expr) : Expr := .app (.app (.app (.app f a) b) c) d
 
-/-- A raw iota rule: the firing mode at its parse placeholder, which
-is what the exporter emits and what `#stored_basis` recomputes. -/
+/-- An iota rule: a pin's rule fires plainly, which is what the parser
+makes of an exporter's. -/
 def rule (ctor : Name) (nfields : Nat) (rhs : Expr) : RecRule :=
   ⟨ctor, nfields, .plain, rhs⟩
 

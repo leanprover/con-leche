@@ -128,7 +128,7 @@ def ownersOf (env : Environment) (s : NameSet) : NameSet :=
 /-! ## The basis and the operations, as the generator sees them -/
 
 /-- The pinned basis blocks' record heads, in the checker's install
-order (`ConLeche/Kernel/BasisA.lean`); `Quot.sound` rides with `Quot`. -/
+order (`ConLeche/Kernel/Basis.lean`); `Quot.sound` rides with `Quot`. -/
 def basisHeads : List Lean.Name :=
   [`Eq, `Nat, `Empty, `False, `Quot]
 

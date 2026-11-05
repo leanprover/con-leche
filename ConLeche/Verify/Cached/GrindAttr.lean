@@ -1,6 +1,7 @@
 module
 
 public meta import Lean.Meta.Tactic.Grind.Attr
+public import Std.Tactic.Do.Syntax
 import Lean.Meta.Tactic.Grind.RegisterCommand
 
 public section

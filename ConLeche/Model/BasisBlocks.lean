@@ -11,7 +11,7 @@ public section
 /-!
 # The remaining basis blocks, P tier (task #161, ENDGAME G)
 
-`Model/BasisEmpty.lean` covers `BasisStepPB`'s `emptyK` branch; this
+`Model/BasisEmpty.lean` covers the `Empty` block; this
 file carries the same recipe across the other blocks in one file — the
 shared leaf-reading kit below is used at every one of them.
 
@@ -61,13 +61,15 @@ theorem denote_pinned_const {m : EnvModel V env}
     {c : ConLeche.Term.BConst} {us : List Nat}
     (hpd : ConLeche.Verify.pinnedStructT n
       (Level.substFn ψ ci.toConstantVal.levelParams ls)
-        = some (Term.const c us)) (d : Nat) :
+        = some (Term.const c us)) (d : Nat)
+    (hl : (ConLeche.pinnedInfo n).toConstantVal.levelParams
+      = ci.toConstantVal.levelParams := by rfl) :
     denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ d
         (.const n ls) = some (Term.const c us) := by
   have hf' : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? n = some ci := by
     rw [ConLeche.Env.find?_cons, ite_eq_right hne]; exact hf
   rw [denote_const hf' hlen, acvalWith_ne (fun h => hne h.symm),
-    EnvModel.acval_pinned m hf hres hpd]
+    EnvModel.acval_pinned m hf hres hpd hl]
 
 /-! ### Lift-then-instantiate absorption
 
@@ -1325,9 +1327,9 @@ theorem extendNatRec (mp : EnvModelM V env)
         injection heq with _ _ _ _ h4
         rw [← h4] at hr
         rcases List.mem_cons.mp hr with rfl | hr'
-        · exact ⟨_, _, _, hZ⟩
+        · exact ⟨_, _, _, hZ, rfl⟩
         rcases List.mem_cons.mp hr' with rfl | hr''
-        · exact ⟨_, _, _, hS⟩
+        · exact ⟨_, _, _, hS, rfl⟩
         · exact nomatch hr''))
     ?_
     (fun _ _ => trivial)
@@ -1353,13 +1355,13 @@ theorem extendNatRec (mp : EnvModelM V env)
       · exact natRecSuccLaw (m := mp.base2) m₂ hN hZ hS hac φ
       · exact nomatch hr''
 
-/-- **The `Nat` block, installed at the P tier.**  `BasisStepPB`'s
-`natK` branch. -/
+/-- **The `Nat` block, installed at the P tier**, at the pin's own names
+(`declBasisPB_at` carries it to the record's). -/
 theorem declBasisPB_natK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
-      ConLeche.BasisKind.natK.declsA env₁) :
+      ConLeche.BasisKind.natK.decls env₁) :
     CoverStep mp env₁ := by
-  rw [show ConLeche.BasisKind.natK.declsA
+  rw [show ConLeche.BasisKind.natK.decls
     = [natA, natZeroA, natSuccA, natRecA] from rfl] at h
   obtain ⟨h1, h2, h3, h4, hnil⟩ := h
   subst hnil

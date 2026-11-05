@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Verify.InstLevels
-import ConLeche.Verify.Denote
 public import ConLeche.Model.Env.EnvModel
 
 public section

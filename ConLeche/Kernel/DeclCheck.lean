@@ -233,7 +233,7 @@ def natOpStoredOkF (fe : FEnv) (n : Name) : Bool :=
 /-- `stdAxiomOk` through the index. -/
 def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   if cv.name = propextName then
-    decide (fe.find? eqName = some eqA) &&
+    (fe.find? eqName).isSome &&
     (match fe.find? iffName with
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&
@@ -289,7 +289,7 @@ def reduceElemOkF (fe : FEnv) (c : Name) : Bool :=
 /-- `ofReduceAxOk` through the index. -/
 def ofReduceAxOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   let c := ofReduceOp cv.name
-  decide (fe.find? eqName = some eqA) &&
+  (fe.find? eqName).isSome &&
   reduceElemOkF fe c &&
   reduceStoredOkF fe c &&
   ConstantVal.matchesPin cv (ofReducePinA cv.name)
@@ -303,7 +303,7 @@ def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
 /-- `divModEnvGuard` through the index. -/
 def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
   natOpGuardF fe2 c && (natOpDeps c).all (natOpStoredOkF fe2) &&
-  fe2.find? eqName == some eqA &&
+  (fe2.find? eqName).isSome &&
   (match fe2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []
     | none => false) &&

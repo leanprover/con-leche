@@ -300,7 +300,7 @@ certificate statements are equations in the pinned equality), and the
 `true`/`false` must inhabit the `Bool` value semantically). -/
 def divModEnvGuard (env2 : Env) (c : Name) : Bool :=
   natOpGuard env2 c && (natOpDeps c).all (natOpStoredOk env2) &&
-  env2.find? eqName == some eqA &&
+  (env2.find? eqName).isSome &&
   (match env2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []
     | none => false) &&
@@ -461,16 +461,26 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
   else throw (.notImplemented
     s!"unsupported compiler-trust opaque declaration ({c})")
 
-/-- **Install the pinned basis block.**  The three
-records that install one — the fold's own `basisDecl` kind, a stream
-block `basisPinHit` recognises and a quotient record `quotPinHit`
-recognises — share this body, so what is proved of one is proved of
-all three.  The quotient block's types mention the pinned equality
-former. -/
-def checkBasisDecl (env : Env) (kind : BasisKind) : m Env := do
-  if kind = .quotK then
-    unless env.find? eqName = some eqA do
-      throw (.notImplemented "quotient basis requires the pinned Eq basis")
-  kind.declsA.foldlM installBasisDecl env
+/-- **A pinned block's check and install**: the records compared with
+the pin, and each pin installed at the names its record declares.  A
+block with a pinned block's names that is not the pin is invalid input
+(a basis redefinition). -/
+def checkBasisBlock (env : Env) (kind : BasisKind) (block : List ConstantInfo) : m Env := do
+  unless pinListOk block kind.decls do
+    throw (.invalid "reserved basis name: the block is not the pinned one")
+  (kind.atBlock block).foldlM installBasisDecl env
+
+/-- **A quotient record's check and install**: compared with its slot's
+pin, the slots it needs stored, and installed at its own names.  A record
+that does not match is a quotient this checker positively does not
+support. -/
+def checkQuotRecord (env : Env) (k : QuotKind) (cv : ConstantVal) : m Env := do
+  unless quotPinHit k cv do
+    throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
+  unless quotPredsOk env.find? k do
+    throw (.notImplemented "quotient declaration before what it needs")
+  installBasisDecl env (quotPin k)
 
 end ConLeche

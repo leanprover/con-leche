@@ -26,8 +26,8 @@ the accepted environment alone, exactly as for `Empty`.  The *value*
 is the empty set in both cases; `False`'s lives in `Prop`, where the
 empty set is the false proposition.
 
-The *stored* forms (`falseA`, `falseRecA`) are computed from these at
-elaboration time; see `ConLeche/Kernel/BasisA.lean`.
+A block's check compares its records with these pins (`falseA`, `falseRecA`),
+up to the records' level-parameter names (`ConLeche/Kernel/Basis.lean`).
 -/
 
 namespace ConLeche
@@ -35,19 +35,19 @@ namespace ConLeche
 open BasisDSL
 
 /-- `False : Prop`. -/
-def falseRaw : ConstantInfo :=
+def falseA : ConstantInfo :=
   .indInfo ⟨falseName, [], prop⟩ { all := [falseName] }
 
 /-- `False.rec.{u} (motive : False → Sort u) (t : False) : motive t`.
 The exporter emits the motive as an *explicit* binder here (there is
 no major premise to infer it from), as for `Empty.rec`. -/
-def falseRecRaw : ConstantInfo :=
+def falseRecA : ConstantInfo :=
   .recInfo ⟨falseName.str "rec", [uN],
     pi "motive" (pi "t" (cnst falseName) (srt u)) <|
     pi "t" (cnst falseName) (.app (bv 1) (bv 0))⟩
     1 1 false []
 
 /-- The pinned `False` basis block, in install order. -/
-def falseBasis : List ConstantInfo := [falseRaw, falseRecRaw]
+def falseBasis : List ConstantInfo := [falseA, falseRecA]
 
 end ConLeche

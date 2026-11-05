@@ -262,7 +262,7 @@ structure EnvModelM (env : Env) where
   /-- the pinned `Eq` spine's value and grading (an *environment law*:
   the `Eq` leaf is fixed by the basis install and
   by nothing else, so the supplier is the P basis install —
-  `BasisStepPB`, routed.  Consumed by the WF operations' certificate
+  `declBasisPB_at`.  Consumed by the WF operations' certificate
   frame) -/
   eq_law : EqLaw base2
   /-- the stored families' fired capability laws (an *environment law* for the same reason `eq_law` is — an
@@ -446,7 +446,7 @@ field is vacuous — no constants, guards false. -/
   div_mod := fun φ c _ cv v hint hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
-  eq_law := fun hf => by
+  eq_law := fun _ _ hf => by
     rw [show Env.empty.find? eqName = none from rfl] at hf
     exact nomatch hf
   caps_ok := by

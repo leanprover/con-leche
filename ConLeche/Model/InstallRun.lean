@@ -199,7 +199,6 @@ theorem installStepC_model
         have hred' : reduceOpNames.contains cv.name = false := Bool.not_eq_true _ ▸ hred
         exact ⟨F, checkDecl_of_split_opaque hred' rfl rfl rfl hI hV hC⟩
     | axiomDecl cv => unfold installStepC at hstepC; exact ordinary _ hstepC
-    | basisDecl kind => unfold installStepC at hstepC; exact ordinary _ hstepC
     | quotDecl k cv => unfold installStepC at hstepC; exact ordinary _ hstepC
     | indDecl block nP => unfold installStepC at hstepC; exact ordinary _ hstepC
 

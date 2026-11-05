@@ -109317,3 +109317,99 @@ def-headed ones are `ind_defhead_struct`, `_k`, `_mutual`, `_fix`, `_nested`,
 brief lists for 3b wait for the choice, since their verdicts depend on it.  What a
 stream cannot show at all on master: a reduction stuck at the use but not at the block,
 which needs a mode with opaque views.
+### Pinned blocks at the stream's constants (#480, lane 5)
+
+Ruling 4: a pinned basis block is installed as the stream's constants, and the
+comparison with the pin moves to the checking phase.  Branch `agent/480-basis`.
+
+**What the install stores.**  The names decide (`basisNameHit`): a block with
+the names of `Eq`, `Nat`, `Empty` or `False` pushes each pin at the
+level-parameter names its record declares (`ConstantInfo.atLps`, positional
+`instantiateLevelParams`; `withPinCaps` in the stored install, whose record has
+no capabilities).  The block's job (`checkBasisBlock`) runs `pinListOk`: each
+record equal to the pin at the record's names, distinct names, as many as the
+pin's (`pinCopyOk`), and the names linked (`blockLinksOk`): a constructor at
+its former's names, a recursor's rules reading the constructor's parameters at
+the positions the pin's do (`.plain`'s `recFireComparands` reads them by name).
+A mismatch is `.invalid`, at the block's fold position, as the reserved-name
+route was.
+
+**Quot.**  Five records, one stage each (`checkQuotRecord`, `declQuotPB`): each
+stores its slot's pin (`quotPin k`) once the slots it mentions are stored
+(`quotPredsOk`).  The pins' `Quot.lift` and `Quot.ind` stay recursors with one
+synthetic rule, stored from the pin; the reading is a function of the record
+only in that a record equal to its pin stores what it says.  **Deviation from
+the ruling, for review:** a quotient record at other level-parameter names
+declines (`quotPinHit` compares at the pin's own names, exit 2, was accepted):
+`basis_quot_other_names`, official accepts it because it reads no record.  The
+exporter only ever writes the kernel's `u`, `v`.  The reason is the proof:
+renaming a block right after its install (below) renames only constants nothing
+older reads, while five separate quotient records would need a rename of
+constants the earlier records' rules and types mention, and with it an invariant
+about plain rules' constructors.  The other option, if the maintainer wants the
+stream's names here too: rename the package's prefix at each record (the
+transport below takes any `ConstRen`, the stage needs its hypotheses per record).
+
+**What is left of the frontend's manufacture.**  `Declaration.basisDecl` is gone,
+with `Kernel/BasisA` and `Kernel/BasisGen`: the pins are the block files'
+definitions, `decls` the install order.  The decoder emits the file's records;
+`preparePrelude` reorders them and synthesises the prelude's records a stream
+lacks, and those go through the same arms.  `QuotKind` stays: it is the record's
+own kind.  `reservedBasisNames` and `reservedRecName` keep their meaning (a
+name-keyed "this is a pinned name"); the fast paths' `Eq` guards became
+`(find? eqName).isSome`, the former's level names being the stream's now.
+
+**The model.**  The stages stay at the pins' own names; `EnvModelM.renameCore`
+(`Model/BasisRename.lean`) carries an invariant to an environment with other
+copies of the pins.  `renAcval` reads a constant at the assignment that gives the
+old parameter `ks[i]` the new parameter `ps[i]`'s value, and every term reads
+alike on both sides (`denote_ren`, `Verify/PinRen.lean`).  `BasisPinnedTT` is at
+the relation now: `PinCopy` (the pin at the constant's names), `PinLinked` (the
+link, for instantiations of the right length) and the leaf at `pinVal`.
+`EqLaw` is at the stored `Eq`'s own parameter.  `declBasisPB_at`
+(`Model/BasisAtBlock.lean`) is the fold's step: the stage at the pins, then the
+rename.  Blocks but `Eq`'s store non-recursors unchanged (their pins are
+level-free), so their recorded lfp clauses transport at once; `Eq`'s is re-recorded
+at the stream's parameter (`coverStep_eq`) and the others are kept by name
+(`lfp_keep`).  The model forces no canonical parameter name.
+
+**Verdicts.**  No pinned verdict moved: 516 rows as before.  New, official run on
+each (`checkers/official-v4.33.0`):
+
+| fixture | here | base | official |
+|---|---|---|---|
+| `basis_eq_other_names` | 0 | 0 | 0 |
+| `basis_eq_rec_motive_name` | 0 | 0 | 1 |
+| `basis_eq_rec_swapped_names_bad` | 1 | 0 | 1 |
+| `basis_eq_refl_other_name_bad` | 1 | 0 | 1 |
+| `basis_nat_rule_bad` | 1 | 1 | 1 |
+| `basis_nat_rule_used_bad` | 1 | 1 | 1 |
+| `basis_quot_other_names` | 2 | 0 | 0 |
+
+The base accepted the two unlinked `Eq` streams because it stored the pin whatever
+the names said.  `basis_eq_rec_motive_name`: official compares the record with the
+recursor it generates, names included (the motive's parameter is `u`), and the
+comparison here is up to names; it is an accept of a stream official rejects, and
+harmless (the constants are the pin's), left as it was.
+
+**Numbers** (`instructions:u`, `--verified`, one run each, against 2b6b1d8e2).  No
+memo.
+
+| stream | `--jobs=1` base | Δ | `--jobs=8` base | Δ |
+|---|---|---|---|---|
+| init-full | 380.312 G | −0.18 % | 390.526 G | +0.01 % |
+| init-prelude | 1.9470 G | −0.15 % | 2.1198 G | −0.05 % |
+| grind-ring-5 | 15.257 G | −0.30 % | 15.639 G | −0.25 % |
+| app-lam | 22.080 G | −0.01 % | 22.415 G | −0.25 % |
+| beta-ladder | 4.8624 G | −0.02 % | 4.9181 G | −0.07 % |
+| let-ladder | 2.5667 G | −0.00 % | 2.6472 G | +0.13 % |
+| magma-list-deep-n36 | 200.868 G | −0.36 % | 200.913 G | −0.35 % |
+| magma-list-deep-n21 | 17.099 G | −0.36 % | 17.173 G | −0.41 % |
+| magma-list-pair-n21 | 156.542 G | −0.23 % | 156.478 G | −0.19 % |
+| magma-list-pair-n7 | 14.106 G | −0.29 % | 14.158 G | −0.37 % |
+| the other thirteen perf streams | 20–330 M | −0.25 … +0.02 % | 22–362 M | −0.62 … +0.07 % |
+
+**For the collapse.**  `storedInstall` still has the name hit and `withPinCaps`;
+`declCSkels` predicts `quotPin k` and a block's pins at the record's names; the
+job's `pushesAgree` still compares.  `IndCaps.sortZ` is renamed in `atLps` and read
+by `withPinCaps`: caps at use (lane 4) removes both, the textual conflict is there.

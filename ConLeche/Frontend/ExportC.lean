@@ -388,14 +388,9 @@ state need not look here at all. -/
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
       (r.numParams + r.numMotives + r.numMinors) r.k rules)
   let block := types ++ ctors ++ recs
-  -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
-  -- that used to stand here — a name pre-filter (task #215) and then
-  -- `canonEqList` against the five pinned blocks — is
-  -- `preparePrelude`'s (`ConLeche/Frontend/Prepare.lean`), which
-  -- retags a matching block to its `basisDecl` kind before the fold
-  -- sees it.  A block under a pinned name that does NOT match keeps
-  -- its `indDecl` form and is rejected by the fold's reserved-name
-  -- check, exactly as before.
+  -- **EVERY BLOCK IS AN `indDecl`**: the fold recognises a pinned block by
+  -- its members' names (`basisNameHit`) and its check compares it with the
+  -- pin.
   return .indDecl block nPd
 
 /-- The record's own semantics: the declaration kinds, producing
@@ -438,10 +433,8 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
     -- **ONE RECORD PER `#QUOT` LINE** (task #293): the file declares
     -- the quotient package as four records, and the decoder emits four
     -- — the constant as the file declares it, at the kind the file
-    -- declares it at.  The comparison with the pinned block
-    -- (`preparePrelude`, which retags a matching record to
-    -- `basisDecl .quotK`) and the decline on a mismatch (the fold's
-    -- `.quotDecl` arm) are not the parser's any more.
+    -- declares it at.  The comparison with the slot's pin and the decline
+    -- on a mismatch are the fold's (`checkQuotRecord`).
     let cv ← cvOfF nm lv ex cvr
     let qk ← match kind with
       | "type" => pure QuotKind.type

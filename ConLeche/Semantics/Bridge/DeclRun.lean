@@ -22,9 +22,8 @@ path.  `DeclRun`'s family is valuation-free outright, since
 parameter, supplied at the call site (`checkDeclRun_ofEnvFactsK`,
 `Bridge/Sound.lean`).
 
-**The `basisDecl` kind is `declBasisRun` verbatim** (`Bridge/Decl.lean`):
-that kind's record is guards-only and `DeclRun` re-uses `DeclBasisRun`
-as-is.
+**A pinned block and a quotient record are `DeclBasisRun` and `DeclQuotRun`
+verbatim** (`Bridge/Decl.lean`): their records are guards-only.
 -/
 
 namespace ConLeche.Semantics
@@ -169,16 +168,10 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
     (h : checkDecl .verified (fueledOps .verified F) pins env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomRun F env cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
-  -- **`Quot.sound`** (task #293): compared with the pin before the
-  -- common checks, installing nothing.
+  -- **`Quot.sound`**: compared with the pin before the common checks.
   by_cases hqs : cv.name = quotSoundName
   · rw [ite_eq_left hqs] at h
-    by_cases hpin : ConstantInfo.canonEq (.axiomInfo cv)
-        (quotBasis.getD 4 (.axiomInfo default)) = true
-    · rw [ite_eq_left hpin] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inl ⟨hqs, h.symm⟩
-    · rw [ite_eq_right hpin] at h; exact nomatch h
+    exact Or.inl ⟨hqs, declQuotRunOf h⟩
   rw [ite_eq_right hqs] at h
   refine Or.inr ?_
   cases hccv : checkConstantVal (fueledOps .verified F) env cv with
@@ -446,7 +439,7 @@ through `Ind`. -/
 theorem checkDeclRun_of {F : Nat}
     {Ind : List ConstantInfo → Nat → Env → Prop} {env env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {nP : Nat},
-      basisPinHit block = none →
+      basisNameHit block = none →
       checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) = .ok env₂ →
       Ind block nP env₂)
     {d : Declaration}
@@ -457,26 +450,16 @@ theorem checkDeclRun_of {F : Nat}
   | thmDecl cv value => exact declThmRun_of h
   | opaqueDecl cv value => exact declOpaqueRun_of h
   | axiomDecl cv => exact declAxiomRun_of h
-  | basisDecl kind => exact declBasisRun h
-  | quotDecl k cv =>
-    -- task #293: the `type` record installs the pinned block, the other
-    -- members install nothing
-    simp only [checkDecl] at h
-    cases k <;> simp only [DeclRun] <;> split at h
-    case type.isTrue => exact declBasisRunOf h
-    case type.isFalse => exact nomatch h
-    all_goals first
-      | (simp only [pure, Except.pure, Except.ok.injEq] at h; exact h.symm)
-      | exact nomatch h
+  | quotDecl k cv => exact declQuotRunOf h
   | indDecl block nP =>
-    -- task #293: a block the fold recognises as a pinned one installs
-    -- the pin; everything else is the caller's `Ind`
-    show (match basisPinHit block with
-      | some kind => DeclBasisRun env kind env₂
+    -- a block with a pinned block's names is that block's; everything
+    -- else is the caller's `Ind`
+    show (match basisNameHit block with
+      | some kind => DeclBasisRun env kind block env₂
       | none => Ind block nP env₂)
     have h' := h
     simp only [checkDecl] at h'
-    cases hpin : basisPinHit block with
+    cases hpin : basisNameHit block with
     | some kind =>
       rw [hpin] at h'
       exact declBasisRunOf h'
