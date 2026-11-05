@@ -109383,6 +109383,43 @@ read off the block by the install.
 4. `storedFormers`/`storedTele` go; `storedInstall` takes no view and no mode, and
    `IndCapsWF`'s `stripPis` clauses go (nothing reads them since the η laws changed).
 
+### Stage 3b: a run does not see an extension (#480, lane 4; 2026-11-05)
+
+The maintainer's correction: reduction reads only what is reachable from the term, so no
+ordinary extension of the environment changes a run.  My rejection of monotonicity above was
+too strong, and the prefix view is withdrawn: it has no counterpart on `Lean.Kernel.Environment`
+or in a module view.
+
+**The statement** (`Verify/EnvExt.lean`).  `EnvExt env₁ env₂`: stored constants stay, a stored
+structure's table stays, the `Nat` block is installed at once, a stored `Nat` operation has `Nat`
+below it.  For `e.constsResolve env₁` (whose literal clause already names the literal guards'
+constants), the knot at `env₂` and at `env₁` is the same `Except`, fuel for fuel.
+
+**The census of the knot's reads, by grep over `Core.lean` and `CoreDefs.lean` and the sites opened; not yet a proof.**
+
+| Read | Why it is stable |
+|---|---|
+| `find?` of a term's constant, `.proj`'s structure | stored, by `constsResolve` |
+| a stored constant's value, type, rule right-hand side, table body | resolve, by `EnvWF`, so the run stays on resolved terms |
+| `rl.ctor`, `caps.etaCtor`, `T` off a constructor's result | a rule's constructor is stored (`RecCtorsStored`), a family's in the same block |
+| `findTable?`, `findProj?`, `towerSlotsAll`, `andRescueSlots` | a table arrives with its structure, so a stored structure's table stays |
+| `natLitSupported` at a `Nat` literal | the literal's clause stores the three names |
+| `strLitSupported`, every site (`Core.lean:727,743,1205,1309,1705,1712`) | fires only at a string literal, whose clause stores the ten names |
+| `natLitSupported` at `Nat.succ` or a certified operation | the head is stored, and the `Nat` block with it |
+| `natOpStored c` | reads `c` alone |
+| `Bool`, `Bool.true`, `Bool.false` in a comparison's result | reached through the operation's type |
+
+No read was found that a stored name cannot pin, and no counterexample stream.  Unlike a name a
+block is checking, this holds at declaration boundaries: mid-block a structure has no table yet.
+The errors agree too: the knot has no `try`, so a run's failure is not caught and read.
+
+**Not an extension:** a module view where a definition is opaque.  There the statement says
+nothing; a run may stick, and the use takes its conservative answer (master has no such mode).
+
+**The pilot:** `reduceNat_ext`, `formerSortLoop_ext`, `formerNeverZeroAt_ext`, `mtcEtaCont_ext`,
+over the claims at one fuel.  Each is shorter than its `Verify/Deep.lean` twin, since no shift
+is rewritten.  What is left is the other arms, the induction, and `constsResolve` preserved by a run.
+
 ### Pinned blocks at the stream's constants (#480, lane 5)
 
 Ruling 4: a pinned basis block is installed as the stream's constants, and the
