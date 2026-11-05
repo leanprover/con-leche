@@ -408,8 +408,7 @@ theorem _root_.ConLeche.Verify.PinCopy.ctor {cv : ConstantVal} {nP nF : Nat}
 /-- A copy of an inductive's pin is an inductive. -/
 theorem _root_.ConLeche.Verify.PinCopy.ind {cv : ConstantVal} {caps : IndCaps}
     (h : PinCopy (.indInfo cv caps) pin) (h' : PinCopy c' pin) :
-    ∃ cv' caps', c' = .indInfo cv' caps' ∧ caps'.unitlike = caps.unitlike ∧
-      caps'.unitParams = caps.unitParams ∧ caps'.eta = caps.eta ∧ caps'.etaParams = caps.etaParams := by
+    ∃ cv' caps', c' = .indInfo cv' caps' ∧ caps' = caps := by
   have h1 := h.1
   have h2 := h'.1
   generalize c'.toConstantVal.levelParams = ps' at h2
@@ -420,7 +419,7 @@ theorem _root_.ConLeche.Verify.PinCopy.ind {cv : ConstantVal} {caps : IndCaps}
     simp only [ConstantInfo.atLps] at h1 h2
     injection h1 with _ e2
     subst e2
-    exact ⟨_, _, h2, rfl, rfl, rfl, rfl⟩
+    exact ⟨_, _, h2, rfl⟩
   | _ => exact nomatch h.kind
 
 /-- What a recursor's copy has of the rules. -/
@@ -596,19 +595,10 @@ theorem constWF_ren (m : EnvModel V env) (h : RenEnv env env') {c' : ConstantInf
       subst he
       cases c with
       | indInfo cv caps =>
-        obtain ⟨cv₂, caps₂, he, e1, e2, e3, e4⟩ := h1.ind h2
+        obtain ⟨cv₂, caps₂, he, rfl⟩ := h1.ind h2
         injection he with e0 e5
         subst e0; subst e5
-        obtain ⟨hu, he'⟩ := hwf.2.2.2.2.2.2 cv caps rfl
-        refine ⟨fun hx => ?_, fun hx => ?_⟩
-        · rw [e2, show cv'.type = cv.type.instantiateLevelParams cv.levelParams
-            (cv'.levelParams.map Level.param) from hty]
-          exact Expr.stripPis_instantiateLevelParams_isSome cv.levelParams
-            (cv'.levelParams.map Level.param) caps.unitParams (hu (by rw [← e1]; exact hx))
-        · rw [e4, show cv'.type = cv.type.instantiateLevelParams cv.levelParams
-            (cv'.levelParams.map Level.param) from hty]
-          exact Expr.stripPis_instantiateLevelParams_isSome cv.levelParams
-            (cv'.levelParams.map Level.param) caps.etaParams (he' (by rw [← e3]; exact hx))
+        exact hwf.2.2.2.2.2.2 cv _ rfl
       | _ => exact nomatch h1.kind.trans h2.kind.symm
 
 theorem envWF_ren (m : EnvModel V env) (h : RenEnv env env') : EnvWF env' where

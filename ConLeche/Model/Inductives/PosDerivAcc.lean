@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.ContAcc
 import ConLeche.Verify.Inductives.PosNodes
@@ -458,6 +459,7 @@ theorem posD_acc (mp : EnvModelM V env)
     obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
     rw [hcov.find] at hfc
     obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hquot
+      (famFlat_of_run hcov.find hfc (ConLeche.nestInstType_flat hnI))
     subst hn
     obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ := contBlock_facts mp hcov hD hmm hfc hq
     have hwa0 := hwa

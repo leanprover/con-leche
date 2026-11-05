@@ -91,20 +91,14 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
       (consBlockRecsT p.toBlockShape 0
         (storedOut p.recs out) (consBlockCtors p.nP ctorsAs env₁)) = .ok env₂
 
-/-- **The uniform install's run**: the pass at official's `is_rec` and
-the install after it. -/
+/-- **The ordinary path's run**: the pass at official's `is_rec` and the install after it. -/
 theorem declBlockRun_of {F : Nat} {env env₂ : Env}
     {block : List ConstantInfo} {p₀ : BlockParts}
-    (h : checkBlock (m := ConLeche.CheckM) (fueledOps .verified F) env block p₀ = .ok env₂) :
+    (hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup)
+    (h : checkBlockAt (m := ConLeche.CheckM) (fueledOps .verified F) env block p₀ = .ok env₂) :
     DeclBlockRun F env block p₀ env₂ := by
-  rw [ConLeche.checkBlock] at h
+  rw [ConLeche.checkBlockAt] at h
   simp only [bind, Except.bind] at h
-  by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
-  case neg =>
-    rw [ite_eq_right hnd] at h
-    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
-  rw [ite_eq_left hnd] at h
-  try simp only [bind, Except.bind] at h
   cases hP : checkBlockPass (m := ConLeche.CheckM) (fueledOps .verified F) env p₀ (blockRawRec p₀) with
   | error e => rw [hP] at h; exact nomatch h
   | ok q =>
@@ -121,5 +115,118 @@ theorem declBlockRun_of {F : Nat} {env env₂ : Env}
   · rw [hp]; exact hctx
   · rw [hp]; exact hcls
   · rw [hp]; exact hK
+
+/-- The members' reduction keeps their names and constructors. -/
+theorem reduceMembers_shape {F : Nat} {env : Env} {nP : Nat} {p₀ : BlockParts}
+    {ms : List MemberShape}
+    (h : reduceMembers (m := ConLeche.CheckM) (fueledOps .verified F) env nP p₀.members = .ok ms) :
+    ms.map (·.cvT.name) = p₀.members.map (·.cvT.name) ∧
+      ({ p₀ with members := ms } : BlockParts).allCtors = p₀.allCtors := by
+  have hgo : ∀ {l l' : List MemberShape},
+      reduceMembers (m := ConLeche.CheckM) (fueledOps .verified F) env nP l = .ok l' →
+      l'.map (·.cvT.name) = l.map (·.cvT.name) ∧ l'.map (·.ctors) = l.map (·.ctors) := by
+    intro l
+    induction l with
+    | nil => intro l' h; cases h; exact ⟨rfl, rfl⟩
+    | cons m rest ih =>
+      intro l' h
+      simp only [reduceMembers, bind, Except.bind] at h
+      cases hm : reduceMember (m := ConLeche.CheckM) (fueledOps .verified F) env nP m with
+      | error e => rw [hm] at h; exact nomatch h
+      | ok m' =>
+      rw [hm] at h
+      simp only at h
+      cases hr : reduceMembers (m := ConLeche.CheckM) (fueledOps .verified F) env nP rest with
+      | error e => rw [hr] at h; exact nomatch h
+      | ok r' =>
+      rw [hr] at h
+      obtain rfl : m' :: r' = l' := by simpa [pure, Except.pure] using h
+      obtain ⟨h₁, h₂⟩ := ih hr
+      have hmm : m'.cvT.name = m.cvT.name ∧ m'.ctors = m.ctors := by
+        simp only [reduceMember] at hm
+        split at hm
+        · simp only [bind, Except.bind] at hm
+          split at hm
+          · exact nomatch hm
+          · split at hm
+            · exact nomatch hm
+            · rename_i hrf
+              simp only [reducedFormer, bind, Except.bind] at hrf
+              split at hrf
+              · exact nomatch hrf
+              · cases hrf
+                split at hm
+                · exact nomatch hm
+                · split at hm
+                  · exact nomatch hm
+                  · split at hm
+                    · cases hm; exact ⟨rfl, rfl⟩
+                    · simp [throw, throwThe, MonadExceptOf.throw] at hm
+        · cases hm; exact ⟨rfl, rfl⟩
+      simp [h₁, h₂, hmm.1, hmm.2]
+  obtain ⟨h₁, h₂⟩ := hgo h
+  refine ⟨h₁, ?_⟩
+  show (ms.map (·.ctors)).flatten = (p₀.members.map (·.ctors)).flatten
+  rw [h₂]
+
+/-- **The second path's run**: the group reduced, the containers' views on top, the ordinary run
+there, and the block's constants restored at their stored formers. -/
+def BlockViewedRun (F : Nat) (env : Env) (block : List ConstantInfo)
+    (p₀ : BlockParts) (env₂ : Env) : Prop :=
+  ∃ (ms : List MemberShape) (vs : List ConstantInfo) (env₃ : Env),
+    reduceMembers (m := ConLeche.CheckM) (fueledOps .verified F) env p₀.nP p₀.members = .ok ms ∧
+    blockViews (m := ConLeche.CheckM) (fueledOps .verified F) env
+      (blockContainers env.find? p₀) = .ok vs ∧
+    DeclBlockRun F ⟨vs ++ env.consts, env.tables⟩ (block.map (reducedRecord ms))
+      { p₀ with members := ms } env₃ ∧
+    env₂ = restoreBlock p₀ vs.length env env₃
+
+/-- **The block's run**, on either path. -/
+def BlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
+    (p₀ : BlockParts) (env₂ : Env) : Prop :=
+  DeclBlockRun F env block p₀ env₂ ∨ BlockViewedRun F env block p₀ env₂
+
+theorem blockRun_of {F : Nat} {env env₂ : Env}
+    {block : List ConstantInfo} {p₀ : BlockParts}
+    (h : checkBlock (m := ConLeche.CheckM) (fueledOps .verified F) env block p₀ = .ok env₂) :
+    BlockRun F env block p₀ env₂ := by
+  rw [ConLeche.checkBlock] at h
+  simp only [bind, Except.bind] at h
+  by_cases hnd : (p₀.allCtors.map (·.1.name)).Nodup ∧ p₀.memberNames.Nodup
+  case neg =>
+    rw [ite_eq_right hnd] at h
+    exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
+  rw [ite_eq_left hnd] at h
+  try simp only [bind, Except.bind] at h
+  by_cases hv : blockViewed env.find? (blockContainers env.find? p₀) p₀ = true
+  · rw [ite_eq_left hv] at h
+    try simp only [bind, Except.bind] at h
+    cases hms : reduceMembers (m := ConLeche.CheckM) (fueledOps .verified F) env p₀.nP p₀.members with
+    | error e => rw [hms] at h; exact nomatch h
+    | ok ms =>
+    rw [hms] at h
+    simp only at h
+    cases hvs : blockViews (m := ConLeche.CheckM) (fueledOps .verified F) env
+        (blockContainers env.find? p₀) with
+    | error e => rw [hvs] at h; exact nomatch h
+    | ok vs =>
+    rw [hvs] at h
+    simp only at h
+    cases hA : checkBlockAt (m := ConLeche.CheckM) (fueledOps .verified F)
+        ⟨vs ++ env.consts, env.tables⟩ (block.map (reducedRecord ms))
+        { p₀ with members := ms } with
+    | error e => rw [hA] at h; exact nomatch h
+    | ok env₃ =>
+    rw [hA] at h
+    obtain rfl : restoreBlock p₀ vs.length env env₃ = env₂ := by
+      simpa [pure, Except.pure] using h
+    have hnd' : (({ p₀ with members := ms } : BlockParts).allCtors.map (·.1.name)).Nodup ∧
+        ({ p₀ with members := ms } : BlockParts).memberNames.Nodup := by
+      have hs := reduceMembers_shape hms
+      exact ⟨by rw [hs.2]; exact hnd.1, by
+        show (ms.map _).Nodup; rw [hs.1]; exact hnd.2⟩
+    exact .inr ⟨ms, vs, env₃, hms, hvs, declBlockRun_of hnd' hA, rfl⟩
+  · rw [ite_eq_right hv] at h
+    exact .inl (declBlockRun_of hnd h)
 
 end ConLeche.Semantics

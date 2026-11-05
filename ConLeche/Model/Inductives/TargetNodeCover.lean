@@ -56,6 +56,7 @@ theorem posNodeOk_blk {env : Env} {mk : EnvModelM V env} {ctx : NestCtx}
   obtain ⟨cvC, caps, hfC, -⟩ := ConLeche.nestInstType_inv hrun
   have hfC' : env.find? p₀.1 = some (.indInfo cvC caps) := by rw [← hcov.find]; exact hfC
   obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover p₀.1 cvC caps hfC' hhdN hhdQ
+    (famFlat_of_run hcov.find hfC' (ConLeche.nestInstType_flat hrun))
   have hblkD := hcov.block D hD
   have hkN := lfp_namesLen mk hD
   have hall : ConLeche.nestBlockOf ctx p₀.1 = D.names := by

@@ -558,6 +558,7 @@ theorem frame_keyBlock (mp : EnvModelM V env) {ctx : NestCtx}
   obtain ⟨cv₀, caps₀, hf₀c, -⟩ := ConLeche.nestInstType_inv hnI₀
   have hf₀ : env.find? p₀.1 = some (.indInfo cv₀ caps₀) := by rw [← hcov.find]; exact hf₀c
   obtain ⟨D, hD, mm₀, hmm₀, hn₀⟩ := hcov.cover p₀.1 cv₀ caps₀ hf₀ hhd.1 hhd.2
+    (famFlat_of_run hcov.find hf₀ (ConLeche.nestInstType_flat hnI₀))
   have hblkD := hcov.block D hD
   -- the key's container is a member of it
   obtain ⟨mm, hmm, hn⟩ : ∃ mm, mm < D.k ∧ D.member mm = key.cname := by
@@ -768,6 +769,7 @@ theorem posD_mono (mp : EnvModelM V env)
     obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
     rw [hcov.find] at hfc
     obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hquot
+      (famFlat_of_run hcov.find hfc (ConLeche.nestInstType_flat hnI))
     subst hn
     obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ := contBlock_facts mp hcov hD hmm hfc hq
     have hspine := Expr.mkAppN_getApp w

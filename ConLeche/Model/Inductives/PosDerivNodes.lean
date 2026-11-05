@@ -253,7 +253,7 @@ recorded block, its level parameters and parameter count. -/
 theorem key_block (mp : EnvModelM V env) {ctx : NestCtx}
     (hcov : ContCover mp ctx) {n : Name} {nPc : Nat} {L : List (ConstantVal × Nat)}
     (hq : ConLeche.nestContainer ctx n = some (nPc, L)) (hnm : ctx.names.contains n = false)
-    (hquot : n ≠ ConLeche.quotName) :
+    (hquot : n ≠ ConLeche.quotName) (hflat : ConLeche.containerFlat ctx.find? n = true) :
     ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n ∧ ∃ cv caps lps,
       env.find? n = some (.indInfo cv caps) ∧
       (∀ mm', mm' < D.k → ∃ cv caps, env.find? (D.member mm') = some (.indInfo cv caps) ∧
@@ -264,6 +264,7 @@ theorem key_block (mp : EnvModelM V env) {ctx : NestCtx}
   obtain ⟨cv, caps, hfc⟩ := nestContainer_find hq
   rw [hcov.find] at hfc
   obtain ⟨D, hD, mm, hmm, hn⟩ := hcov.cover n cv caps hfc hnm hquot
+    (famFlat_of_run hcov.find hfc hflat)
   subst hn
   obtain ⟨lps, hlps, hlenP0, hcvl, hnL0⟩ := contBlock_facts mp hcov hD hmm hfc hq
   exact ⟨D, hD, mm, hmm, rfl, cv, caps, lps, hfc, hlps, hlenP0, hcvl,
@@ -365,7 +366,10 @@ theorem frameNodes_of (mp : EnvModelM V env) {ctx : NestCtx}
     (hLds : ∀ x ∈ ds, Expr.LeavesBounded x) : NodesSem mp.base2 φ ctx Δ0 ts := by
   obtain ⟨hne, ⟨hnm, hquot⟩, ⟨L, hq⟩, hinst, -⟩ := posD_frame_inv hfrD
   obtain ⟨D, hD, mm, hmm, hmn, cv, caps, lps, hfc, hlps, hlenP0, hcvl, hnL⟩ :=
-    key_block mp hcov hq hnm hquot
+    key_block mp hcov hq hnm hquot (by
+      obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
+      obtain ⟨nI, hnI⟩ := hinst p₀ List.mem_cons_self
+      exact ConLeche.nestInstType_flat hnI)
   obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
   simp only [List.headD_cons] at hmn hfc
   obtain ⟨nI, hnI⟩ := hinst p₀ List.mem_cons_self

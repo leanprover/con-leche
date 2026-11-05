@@ -148,10 +148,6 @@ install pushes it as stored; the block's job reduces it, as official's `whnf` of
 does, and checks the block at the reduced form, which needs nothing new of the check.  A
 block nesting through such a family reads it reduced as well. -/
 
-/-- A stored former that does not show its telescope. -/
-def formerDefHeaded (cv : ConstantVal) : Bool :=
-  (formerResSort cv.type).isNone
-
 /-- A former at its reduced telescope (official's `whnf` loop), closed. -/
 def reducedFormer (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat) :
     m ConstantVal := do
@@ -248,7 +244,7 @@ def containerClosure (find? : Name → Option ConstantInfo) :
         match find? k with
         | some ci => Expr.constsGo ci.toConstantVal.type st
         | none => st) (({} : Std.HashSet Expr), [])
-      containerClosure find? n (st.2 ++ work) (c :: seen)
+      containerClosure find? n (st.2 ++ caps.all ++ work) (c :: seen)
     | _ => containerClosure find? n work seen
 
 /-- The stored families a block reads as containers, by name.  The worklist's bound is a

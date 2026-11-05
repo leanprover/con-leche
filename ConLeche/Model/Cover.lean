@@ -337,10 +337,33 @@ theorem lfpOwn_former0 {env : Env} {c₀ : ConstantInfo}
       exact absurd hj (Nat.not_lt_zero j))
   rw [hcn]; rfl
 
+omit [SetTheory V] in
+/-- A group flat at an environment is flat at any environment whose formers it keeps. -/
+theorem famFlat_of_fwd {env env' : Env} {caps : ConLeche.IndCaps}
+    (hfwd : ∀ n cv caps, env.find? n = some (.indInfo cv caps) →
+      env'.find? n = some (.indInfo cv caps) ∨ ConLeche.formerDefHeaded cv = false)
+    (h : ConLeche.famFlat env'.find? caps = true) : ConLeche.famFlat env.find? caps = true := by
+  unfold ConLeche.famFlat at h ⊢
+  rw [List.all_eq_true] at h ⊢
+  intro m hm
+  have := h m hm
+  cases hf : env.find? m with
+  | none => rfl
+  | some ci =>
+    cases ci with
+    | indInfo cv caps' =>
+      rcases hfwd _ _ _ hf with hg | hg
+      · rw [hg] at this
+        exact this
+      · show (!ConLeche.formerDefHeaded cv) = true
+        rw [hg]; rfl
+    | _ => rfl
+
 /-- **Coverage**, except at the names `ex`; with constructor ownership. -/
 structure LfpCover {env : Env} (mp : EnvModelM V env) (ex : List Name) : Prop where
   cover : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → n ∉ ex →
-    n ≠ ConLeche.quotName → ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
+    n ≠ ConLeche.quotName → ConLeche.famFlat env.find? caps = true →
+    ∃ D ∈ mp.lfpBlocks, ∃ mm, mm < D.k ∧ D.member mm = n
   nodup : ∀ D ∈ mp.lfpBlocks, D.names.Nodup
   len : ∀ D ∈ mp.lfpBlocks, D.names.length = D.k
   all : ∀ D ∈ mp.lfpBlocks, ∀ mm, mm < D.k → ∀ cv caps,
@@ -399,9 +422,9 @@ theorem LfpCover.ext {env env' : Env} {mp : EnvModelM V env}
       (∀ cv caps, env.find? C = some (.indInfo cv caps) → caps.all ≠ []) →
       ConLeche.nestContainer (envCtx env') C = ConLeche.nestContainer (envCtx env) C) :
     LfpCover mp' ex' where
-  cover := fun n cv caps hf hn hq => by
+  cover := fun n cv caps hf hn hq hfl => by
     obtain ⟨hf0, hn0⟩ := hback n cv caps hf hn hq
-    rw [hL]; exact h.cover n cv caps hf0 hn0 hq
+    rw [hL]; exact h.cover n cv caps hf0 hn0 hq (famFlat_of_fwd (fun _ _ _ hg => .inl (hfwd _ _ hg)) hfl)
   nodup := fun D hD => h.nodup D (hL ▸ hD)
   len := fun D hD => h.len D (hL ▸ hD)
   all := fun D hD mm hmm cv caps hf => by
@@ -477,13 +500,13 @@ theorem LfpCover.addLfp {env : Env} {mp : EnvModelM V env} {ex : List Name}
       env.find? (D.member mm) = some (.indInfo cv caps) → caps.all = D.names)
     (hown : LfpOwn env D) (hwid : D.N = D.k := by rfl) :
     LfpCover (mp.addLfp D hL hst hrd hrdC hcaps) (ex.filter (· ∉ D.names)) where
-  cover := fun n cv caps hf hn hq => by
+  cover := fun n cv caps hf hn hq hfl => by
     by_cases hD : n ∈ D.names
     · obtain ⟨mm, hmm, rfl⟩ := List.getElem_of_mem hD
       refine ⟨D, EnvModelM.mem_addLfp mp D hL hst hrd hrdC hcaps, mm, hlen ▸ hmm, ?_⟩
       simp [LfpDatum.member, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hmm]
     · have hn0 : n ∉ ex := fun h' => hn (List.mem_filter.mpr ⟨h', by simpa using hD⟩)
-      obtain ⟨D', hD', rest⟩ := h.cover n cv caps hf hn0 hq
+      obtain ⟨D', hD', rest⟩ := h.cover n cv caps hf hn0 hq hfl
       exact ⟨D', List.mem_cons_of_mem _ hD', rest⟩
   nodup := fun D' hD' => by
     rcases List.mem_cons.mp hD' with rfl | h'

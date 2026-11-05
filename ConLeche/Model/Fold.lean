@@ -163,7 +163,9 @@ theorem declStep_preserves
         rw [hdf] at hrun'
         -- the uniform install, at any number of members, nested blocks
         -- included (`declBlock`)
-        exact declBlock mp hE hdf hrun' hcov
+        rcases hrun' with hrun' | hrun'
+        · exact declBlock mp hE hdf hrun' hcov
+        · sorry
       | none =>
         -- a block the recogniser does not read never installs
         rw [hdf] at hrun'

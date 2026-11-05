@@ -125,10 +125,10 @@ open ConLeche ConLeche.Cached
 /-- What the install of record `k` computes: `installStepG` at the view of
 the record's predicted counter (anything but a value record read off the
 record, its checked step deferred to the check phase). -/
-def workerRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
+def workerRes (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) (k : Nat) : Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match ds[k]?, vis[k]? with
-  | some pd, some v => installStepG mode (workerView B S v) pd
+  | some pd, some v => installStepG (workerView B S v) pd
   | _, _ => .error (.internal "install: no such record")
 
 /-- The constants and the tables an install result publishes. -/
@@ -172,10 +172,10 @@ theorem goodB_spec {ds : Array Declaration} {B : BaseIdx} {S : Slots} {vis : Arr
 /-- An install result for a record, with its evidence: it is `workerRes`
 of that record, and when `good` the commit's checks hold (`GoodAt`) —
 erased proofs at run time. -/
-def WRes (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
+def WRes (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) : Type :=
   { q : Nat × Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) × Bool //
-      q.2.1 = workerRes mode ds B S vis q.1 ∧
+      q.2.1 = workerRes ds B S vis q.1 ∧
         (q.2.2 = true → GoodAt ds B S vis q.1 q.2.1) }
 
 /-- A record's state, for the workers and the commit thread: not yet
@@ -498,13 +498,13 @@ variable {mode : CheckMode} {ds : Array Declaration} {B : BaseIdx} {S : Slots}
   {vis : Array Nat}
 
 /-- The state the commit thread and the workers share. -/
-structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : Slots)
+structure Shared (ds : Array Declaration) (B : BaseIdx) (S : Slots)
     (vis : Array Nat) where
   /-- record `k`'s published constants (`S` reads them): the one
   promise per record, so that a lookup (pure code) can wait on it -/
   slotP : Array (IO.Promise (Array ConstantInfo × List ProjTable))
   /-- record `k`'s state, with its install result once done -/
-  state : Array (IO.Ref (RState (WRes mode ds B S vis)))
+  state : Array (IO.Ref (RState (WRes ds B S vis)))
   sched : Sched
   /-- `k + 1` while the commit thread sleeps waiting for record `k`,
   else `0` -/
@@ -518,7 +518,7 @@ structure Shared (mode : CheckMode) (ds : Array Declaration) (B : BaseIdx) (S : 
   live : Live
 
 /-- Claim record `k` for installing: `true` for exactly one caller. -/
-@[inline] def tryTake (sh : Shared mode ds B S vis) (k : Nat) : IO Bool := do
+@[inline] def tryTake (sh : Shared ds B S vis) (k : Nat) : IO Bool := do
   match sh.state[k]? with
   | some r => r.modifyGet fun
     | .free => (true, .taken)
@@ -531,9 +531,9 @@ may wait on it), the commit's checks (`goodB`), the result in the
 record's state (waking the commit thread if it waits for it), and the dependents
 released (the lowest newly ready dependent is returned, for the
 caller to install next). -/
-def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
-    IO (WRes mode ds B S vis × Option Nat) := do
-  let r := workerRes mode ds B S vis k
+def installAndPublish (sh : Shared ds B S vis) (k : Nat) :
+    IO (WRes ds B S vis × Option Nat) := do
+  let r := workerRes ds B S vis k
   let cs := slotOfRes r
   -- The result is marked persistent although other threads may read it
   -- concurrently later (the slot's readers, the commit thread).  That is
@@ -553,7 +553,7 @@ def installAndPublish (sh : Shared mode ds B S vis) (k : Nat) :
   | none => pure ()
   -- the commit's checks, here: the slot is resolved, its thunk reads it
   let good := goodB ds B S vis k r
-  let q : WRes mode ds B S vis := ⟨(k, r, good), rfl, goodB_spec⟩
+  let q : WRes ds B S vis := ⟨(k, r, good), rfl, goodB_spec⟩
   match sh.state[k]? with
   | some st => st.set (.done q)
   | none => pure ()
@@ -585,8 +585,8 @@ def deferRecord (sc : Sched) (k : Nat) : IO Unit := do
 /-- Install and publish record `k` as worker `w`, timed into `st`
 (performance-only; on the heartbeat lane the worker also publishes the
 record it is on). -/
-@[inline] def installTimed (sh : Shared mode ds B S vis) (w k : Nat) (st : WStats) :
-    IO (WRes mode ds B S vis × Option Nat × WStats) := do
+@[inline] def installTimed (sh : Shared ds B S vis) (w k : Nat) (st : WStats) :
+    IO (WRes ds B S vis × Option Nat × WStats) := do
   let ts ← IO.monoNanosNow
   let lv := sh.live.cur.size > 0
   if lv then sh.live.begin w k ts
@@ -598,7 +598,7 @@ record it is on). -/
 /-- One worker (number `w`): install the record its last install made
 ready, else the next ready one, repeat until stopped; returns its
 timing.  `lo hi` is its claimed block (`nextReady`). -/
-partial def workerLoop (sh : Shared mode ds B S vis) (w : Nat) (st : WStats)
+partial def workerLoop (sh : Shared ds B S vis) (w : Nat) (st : WStats)
     (cont : Option Nat) (lo hi : Nat) : IO WStats := do
   let (k?, lo, hi) ← match cont with
     | some k => pure (some k, lo, hi)
@@ -616,7 +616,7 @@ partial def workerLoop (sh : Shared mode ds B S vis) (w : Nat) (st : WStats)
 (`resolveAll`) — every slot not resolved yet resolved empty, so that
 nobody stays waiting on it.  After a complete commit every slot is
 resolved already, and the walk over a million cold promises is skipped. -/
-def stopWorkers (sh : Shared mode ds B S vis) (resolveAll : Bool) : IO Unit := do
+def stopWorkers (sh : Shared ds B S vis) (resolveAll : Bool) : IO Unit := do
   sh.sched.stop.set true
   sh.sched.lock.lock
   sh.sched.lock.unlock
@@ -626,8 +626,8 @@ def stopWorkers (sh : Shared mode ds B S vis) (resolveAll : Bool) : IO Unit := d
       p.resolve (#[], [])
 
 /-- Record `k`'s install result, if it is done (one read of its state). -/
-@[inline] def peekDone (sh : Shared mode ds B S vis) (k : Nat) :
-    IO (Option (WRes mode ds B S vis)) := do
+@[inline] def peekDone (sh : Shared ds B S vis) (k : Nat) :
+    IO (Option (WRes ds B S vis)) := do
   match sh.state[k]? with
   | some st =>
     if let .done q ← st.get then return some q
@@ -639,8 +639,8 @@ result once the record is done.  If it is not done yet, the thread
 SLEEPS on its own condition variable (`Shared.commitWait` tells the
 installer to signal it) — never spins, and never waits on the runtime's
 task manager.  `cst[0]`/`cst[1]` count the sleeps and their time. -/
-partial def waitDone (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat)) (k : Nat) :
-    IO (Option (WRes mode ds B S vis)) := do
+partial def waitDone (sh : Shared ds B S vis) (cst : IO.Ref (Array Nat)) (k : Nat) :
+    IO (Option (WRes ds B S vis)) := do
   match sh.state[k]? with
   | none => return none
   | some st =>
@@ -648,7 +648,7 @@ partial def waitDone (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat)) (k
     let t0 ← IO.monoNanosNow
     sh.commitWait.set (k + 1)
     sh.commitLock.lock
-    let rec sleep : IO (WRes mode ds B S vis) := do
+    let rec sleep : IO (WRes ds B S vis) := do
       if let .done q ← st.get then return q
       sh.commitCv.wait sh.commitLock
       sleep
@@ -688,7 +688,7 @@ not the stream's record index: the prepare step prepends the built-in
 prelude and drops the stream's identical copies of its records.
 Calibrate by NAME. -/
 def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
-    (hB : BaseInj B) (sh : Shared mode ds B S vis) (cst : IO.Ref (Array Nat))
+    (hB : BaseInj B) (sh : Shared ds B S vis) (cst : IO.Ref (Array Nat))
     (p₀ : Nat × FEnv × Array PendingCheck) :
     (k i c : Nat) → (fe : FEnv) → (pend : Array PendingCheck) → (D : Array DeferredCheck) →
     fe.visibleBelow = c →
@@ -716,7 +716,7 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
         -- the record's install: the installer's if it is done (read
         -- first: the common case, and no claim attempt then), here if
         -- nobody took it, else the installer's, slept for (never spun)
-        let q? : Option (WRes mode ds B S vis) ← do
+        let q? : Option (WRes ds B S vis) ← do
           if let some q ← peekDone sh k then pure (some q)
           else if ← tryTake sh k then
             let tf0 ← IO.monoNanosNow
@@ -734,8 +734,8 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
             if hgood : good = true then
               have hG : GoodAt ds B S vis k r := hk' ▸ hg hgood
               have hG' := hG pd c (Array.getElem?_eq_getElem hk) hv
-              have hval : r = installStepG mode (workerView B S fe.visibleBelow) pd := by
-                have hr' : r = workerRes mode ds B S vis k := hk' ▸ hr
+              have hval : r = installStepG (workerView B S fe.visibleBelow) pd := by
+                have hr' : r = workerRes ds B S vis k := hk' ▸ hr
                 rw [hr', hc]
                 simp only [workerRes, Array.getElem?_eq_getElem hk, hv, pd]
               match hres : r with
@@ -913,16 +913,16 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
   let mut depTasks := #[]
   for _ in [0:parts] do
     depTasks := depTasks.push (← ParInstall.spawn (jobs > 0)
-      (ParInstall.depsWorker (α := ParInstall.WRes mode ds B S vis) B ds (jobs > 0)
+      (ParInstall.depsWorker (α := ParInstall.WRes ds B S vis) B ds (jobs > 0)
         gate n parts fine nextFine #[]))
   let mut fineRes : Array (Option (Array (IO.Ref Nat) ×
-      Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) ×
+      Array (IO.Ref (ParInstall.RState (ParInstall.WRes ds B S vis))) ×
       Array (Array (Nat × Array Nat)))) := Array.replicate fine.size none
   for t in depTasks do
     for (c, r) in ← IO.ofExcept (← IO.wait t) do
       fineRes := fineRes.set! c (some r)
   let mut counts : Array (IO.Ref Nat) := Array.mkEmpty n
-  let mut state : Array (IO.Ref (ParInstall.RState (ParInstall.WRes mode ds B S vis))) :=
+  let mut state : Array (IO.Ref (ParInstall.RState (ParInstall.WRes ds B S vis))) :=
     Array.mkEmpty n
   let mut edges : Array (Array (Array (Nat × Array Nat))) := Array.mkEmpty fine.size
   for r? in fineRes do
@@ -950,7 +950,7 @@ def installPhase (mode : CheckMode) (err : IO.FS.Stream) (stride total t0 jobs :
       deferred := ← IO.mkRef ∅, deferredN := ← IO.mkRef 0,
       stop := ← IO.mkRef false, lock := ← Std.BaseMutex.new, cv := ← Std.Condvar.new }
   let selfStats ← IO.mkRef ({} : WStats)
-  let sh : ParInstall.Shared mode ds B S vis :=
+  let sh : ParInstall.Shared ds B S vis :=
     { slotP, state, sched, commitWait := ← IO.mkRef 0,
       commitLock := ← Std.BaseMutex.new, commitCv := ← Std.Condvar.new,
       selfStats, live := ← Live.new (if stride > 0 then jobs + 1 else 0) }

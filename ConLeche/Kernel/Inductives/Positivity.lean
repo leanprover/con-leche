@@ -1155,6 +1155,11 @@ def nestInstType (ctx : NestCtx) (hi : Nat) (key : NestKey) : m (Nat × Expr) :=
   unless ← liftFueled "level comparison" (Level.isEquiv s ctx.sort) do
     throw (.invalid "nested positivity: mutually inductive types must live in the \
       same universe")
+  -- a def-headed family a block nests through syntactically is shown at its reduct
+  -- (`blockViews`); official does not reduce to find a container
+  unless containerFlat ctx.find? key.cname do
+    throw (.invalid "nested positivity: invalid nested inductive datatype, its family's type \
+      is not a telescope ending in a sort (official: non valid occurrence)")
   pure (ty.piBinders.1.length, ty)
 
 /-- A constructor's result is headed by a variable (its member's hole,

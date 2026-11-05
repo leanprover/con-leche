@@ -87,9 +87,11 @@ theorem targetOutsideInst_inv {fe : FEnv} {I : Name} {us : List Level} {ds : Lis
       simp only [pure, Except.pure] at h
       split at h
       · next s hs =>
-        refine ⟨cvI, caps, ty, s, hf, hty, ?_, ?_⟩
-        · rw [← hs]
-        · exact (Except.ok.inj h).symm
+        split at h
+        · refine ⟨cvI, caps, ty, s, hf, hty, ?_, ?_⟩
+          · rw [← hs]
+          · exact (Except.ok.inj h).symm
+        · exact nomatch h
       · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
     · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
   · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])

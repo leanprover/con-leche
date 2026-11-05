@@ -179,7 +179,7 @@ def storedStep : Declaration → List ConstantInfo × List ProjTable
 /-- **A record's install at a worker view**: a value record guarded, with
 its check recorded; any other record as `storedStep` reads it, whatever
 the record, so its verdict is always its job's. -/
-def installStepG (mode : CheckMode) (W : FEnv) (pd : Declaration) :
+def installStepG (W : FEnv) (pd : Declaration) :
     Except CheckError (List ConstantInfo × List ProjTable × Option ValueGroup) :=
   match valueStep W pd with
   | some (.ok (ci, vg)) => .ok ([ci], [], some vg)
@@ -232,7 +232,7 @@ theorem installStepG_deferred {B : BaseIdx} {S : Slots} {fe : FEnv} (hag : ViewA
     {L : List ConstantInfo} {Q : List ProjTable} {vg? : Option ValueGroup}
     (hd : deferredDecl pd = true)
     (hand : andPinOk pd = true)
-    (h : installStepG mode (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+    (h : installStepG (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
     vg? = none ∧
       ((∃ W' s, checkDeclStepC mode pins (workerView B S fe.visibleBelow) pd {} = .ok (W', s) ∧
           W'.env.consts.reverse = L ∧ W'.env.tables.reverse = Q) →
@@ -252,7 +252,7 @@ theorem installStepG_commit {B : BaseIdx} {S : Slots} {i : Nat}
     {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {L : List ConstantInfo}
     {Q : List ProjTable} {vg? : Option ValueGroup} (hag : ViewAgrees B S fe)
     (hd : deferredDecl pd = false) (hand : andPinOk pd = true)
-    (h : installStepG mode (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
+    (h : installStepG (workerView B S fe.visibleBelow) pd = .ok (L, Q, vg?)) :
     installDeclStep mode pins (i, fe, pend) pd =
       .ok (i + 1, FEnv.pushDelta L Q fe, pushPending pend i fe.visibleBelow vg?) := by
   unfold installStepG at h
@@ -270,7 +270,7 @@ failure. -/
 theorem installStepG_commit_error {B : BaseIdx} {S : Slots} {i : Nat}
     {fe : FEnv} {pend : Array PendingCheck} {pd : Declaration} {e : CheckError}
     (hag : ViewAgrees B S fe) (hand : andPinOk pd = true)
-    (h : installStepG mode (workerView B S fe.visibleBelow) pd = .error e) :
+    (h : installStepG (workerView B S fe.visibleBelow) pd = .error e) :
     installDeclStep mode pins (i, fe, pend) pd = .error (e, i) := by
   unfold installStepG at h
   split at h

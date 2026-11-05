@@ -615,8 +615,12 @@ theorem declBlock {F : Nat} {env env₂ : Env}
         = some (.indInfo cv caps) := by
       rw [ConLeche.Semantics.consBlockCtors_find?_of_ne hne]; exact hf
     refine ⟨by rw [ConLeche.mkFEnv_find?, ConLeche.mkFEnv_find?, hfC, hf], ?_⟩
-    rw [targetCtorsOf_mkFEnv, targetCtorsOf_mkFEnv]
-    exact nestContainer_consBlockCtors hheads hI hfC
+    refine ⟨?_, ?_⟩
+    · rw [targetCtorsOf_mkFEnv, targetCtorsOf_mkFEnv]
+      exact nestContainer_consBlockCtors hheads hI hfC
+    · have hfds : ∀ e : Env, (mkFEnv e).find? = e.find? := fun e => funext (ConLeche.mkFEnv_find? e)
+      rw [hfds, hfds]
+      exact famFlat_consBlockCtors (fun c hc => (hheads c hc).1) caps
   have hR := ConLeche.genRecRun_of hagC
     (by rw [show (mkFEnv env₁).find? = env₁.find? from funext (ConLeche.mkFEnv_find? env₁)]
         exact hctxR) hcls hst hRec

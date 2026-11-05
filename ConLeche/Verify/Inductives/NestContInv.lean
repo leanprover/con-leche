@@ -60,6 +60,9 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       rename_i bl hbl
       split at h
       · rename_i hbt
+        split at h
+        rotate_left
+        · simp [throw, throwThe, MonadExceptOf.throw] at h
         have hlev : Level.isEquiv s ctx.sort = some true := by
           unfold liftFueled at hbl
           split at hbl
@@ -76,6 +79,33 @@ theorem nestInstType_inv {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {
       · simp [throw, throwThe, MonadExceptOf.throw] at h
     · simp [throw, throwThe, MonadExceptOf.throw] at h
   · exact nomatch hcv'
+
+/-- A container a walk read has a flat group. -/
+theorem nestInstType_flat {ctx : NestCtx} {hi : Nat} {key : NestKey} {nI : Nat} {cty : Expr}
+    (h : nestInstType (m := CheckM) ctx hi key = .ok (nI, cty)) :
+    containerFlat ctx.find? key.cname = true := by
+  unfold nestInstType at h
+  simp only [bind, Except.bind] at h
+  split at h
+  · simp at h
+  split at h
+  rotate_left
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  split at h
+  · split at h
+    · simp at h
+    split at h
+    · simp at h
+    split at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+    split at h
+    · simp at h
+    split at h
+    · split at h
+      · rename_i hfl; simpa using hfl
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The container is applied at its own level count** (official's
 `infer_constant`). -/
@@ -127,10 +157,11 @@ theorem nestInstType_of {ctx : NestCtx} {hi : Nat} {key : NestKey} {cvC : Consta
     (hty : instPisWith key.ds (cvC.type.instantiateLevelParams cvC.levelParams key.lvls) = some ty)
     (hs : ty.piBinders.2 = .sort s)
     (hocc : (ty.piBinders.1.any fun b => b.nestOcc ctx.names ctx.nP hi) = false)
-    (hlev : Level.isEquiv s ctx.sort = some true) :
+    (hlev : Level.isEquiv s ctx.sort = some true)
+    (hflat : containerFlat ctx.find? key.cname = true) :
     nestInstType (m := CheckM) ctx hi key = .ok (ty.piBinders.1.length, ty) := by
   unfold nestInstType
-  simp [bind, Except.bind, hf, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, pure,
+  simp [bind, Except.bind, hf, unwrapOr, hl, hstrip, hty, hs, hocc, liftFueled, hlev, hflat, pure,
     Except.pure]
 
 /-- **The type former's checks hold at a smaller hole range**: only the
@@ -143,7 +174,7 @@ theorem nestInstType_mono_hi {ctx : NestCtx} {hi hi' : Nat} (hle : hi' ≤ hi) {
   obtain ⟨cvC', caps', hf', hl⟩ := nestInstType_lvls h
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cvC = cvC' ∧ caps = caps' := by simpa using hf'
-  refine nestInstType_of hf hl hstrip hty hs ?_ hlev
+  refine nestInstType_of hf hl hstrip hty hs ?_ hlev (nestInstType_flat h)
   rw [List.any_eq_false] at hocc ⊢
   intro b hb hb'
   exact hocc b hb (Expr.nestOcc_mono_hi hle _ hb')

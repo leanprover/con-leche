@@ -100,13 +100,15 @@ stored inductive of the first: its lookup and its constructor reading
 (`targetMajorOf` reads the environment nowhere else). -/
 @[expose] def ClassEnvAgree (p : BlockShape) (fe₁ fe : FEnv) : Prop :=
   ∀ I cv caps, I ∉ p.memberNames → fe₁.find? I = some (.indInfo cv caps) →
-    fe.find? I = fe₁.find? I ∧ targetCtorsOf fe I = targetCtorsOf fe₁ I
+    fe.find? I = fe₁.find? I ∧ targetCtorsOf fe I = targetCtorsOf fe₁ I ∧
+      famFlat fe.find? caps = famFlat fe₁.find? caps
 
 theorem targetOutsideInst_congr {fe fe' : FEnv} {I : Name} (h : fe.find? I = fe'.find? I)
+    (hfl : containerFlat fe.find? I = containerFlat fe'.find? I)
     (us : List Level) (ds : List Expr) :
     targetOutsideInst (m := CheckM) fe I us ds = targetOutsideInst (m := CheckM) fe' I us ds := by
   unfold targetOutsideInst
-  rw [h]
+  rw [h, hfl]
 
 theorem targetCtorsOf_indInfo {fe : FEnv} {I : Name} {q : Nat × List (ConstantVal × Nat)}
     (h : targetCtorsOf fe I = some q) : ∃ cv caps, fe.find? I = some (.indInfo cv caps) := by
@@ -135,9 +137,12 @@ theorem targetMajorOf_transport {fe₁ fe : FEnv} {p : BlockShape} (hag : ClassE
     have hI : I ∉ p.memberNames := fun hm => by
       have := List.findIdx?_eq_none_iff.mp ht I hm
       simp at this
-    obtain ⟨hfind, hctors⟩ := hag I cv caps hI hf
+    obtain ⟨hfind, hctors, hfl⟩ := hag I cv caps hI hf
     have hct' : targetCtorsOf fe I = some (nPc, ctors) := by rw [hctors, hct]
-    have hinst' := (targetOutsideInst_congr hfind us _).trans hinst
+    have hinst' := (targetOutsideInst_congr hfind (by
+      unfold containerFlat
+      rw [hfind, hf]
+      exact hfl) us _).trans hinst
     unfold targetMajorOf at h ⊢
     rw [hfn] at h ⊢
     simp only [ht] at h ⊢

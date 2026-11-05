@@ -56,6 +56,32 @@ theorem targetOutsideInst_find {fe : FEnv} {I : Name} {us : List Level} {ds : Li
   · next cvI caps hf => exact ⟨cvI, caps, hf⟩
   · exact absurd h (by simp [throw, throwThe, MonadExceptOf.throw])
 
+omit [SetTheory V] in
+/-- A flat container's group, at the environment. -/
+theorem famFlat_of_mkFEnv {env : Env} {I : Name} {cv : ConstantVal} {caps : ConLeche.IndCaps}
+    (hf : (mkFEnv env).find? I = some (.indInfo cv caps))
+    (h : ConLeche.containerFlat (mkFEnv env).find? I = true) :
+    ConLeche.famFlat env.find? caps = true := by
+  have hfd : (mkFEnv env).find? = env.find? := funext (mkFEnv_find? env)
+  simpa [ConLeche.containerFlat, hf, hfd] using h
+
+/-- An outside major's family is flat. -/
+theorem targetOutsideInst_flat {fe : FEnv} {I : Name} {us : List Level} {ds : List Expr}
+    {r : Nat × Level}
+    (h : ConLeche.targetOutsideInst (m := ConLeche.CheckM) fe I us ds = .ok r) :
+    ConLeche.containerFlat fe.find? I = true := by
+  unfold ConLeche.targetOutsideInst at h
+  split at h
+  · split at h
+    · simp only [pure, Except.pure] at h
+      split at h
+      · split at h
+        · rename_i hfl; simpa using hfl
+        · exact nomatch h
+      · simp [throw, throwThe, MonadExceptOf.throw] at h
+    · simp [throw, throwThe, MonadExceptOf.throw] at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+
 /-- **An outside class's record**: the recursor's
 major `M` is member `mm` of the recorded block `D`, the inductive stored
 as `cvI`; `D`'s member `mm` has the major's constructors, one for one,
@@ -162,8 +188,9 @@ theorem lfpNamesOf_of_mem {ex : List Name} (hcov : LfpCover mp ex) {D : LfpDatum
 /-- A covered inductive is held by a recorded block. -/
 theorem lfp_cover_mem {ex : List Name} (hcov : LfpCover mp ex) {n : Name} {cv : ConstantVal}
     {caps : ConLeche.IndCaps} (hf : env.find? n = some (.indInfo cv caps)) (hn : n ∉ ex)
-    (hq : n ≠ ConLeche.quotName) : ∃ D ∈ mp.lfpBlocks, n ∈ D.names := by
-  obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover n cv caps hf hn hq
+    (hq : n ≠ ConLeche.quotName) (hfl : ConLeche.famFlat env.find? caps = true) :
+    ∃ D ∈ mp.lfpBlocks, n ∈ D.names := by
+  obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover n cv caps hf hn hq hfl
   refine ⟨D, hD, ?_⟩
   rw [← hmem]; unfold LfpDatum.member
   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hcov.len D hD]; exact hmm),
@@ -237,8 +264,9 @@ theorem tgtOutCls_ofR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp [])
     ∃ D mm cvI, TgtOutCls mp M D mm cvI := by
   obtain ⟨sI, -, -, hnq, -, -, -, -, hinst, -⟩ := Rm.outside_facts hM
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
+  have hflt := famFlat_of_mkFEnv hf (targetOutsideInst_flat hinst)
   rw [mkFEnv_find?] at hf
-  obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover M.ind cvI caps hf (by simp) hnq
+  obtain ⟨D, hD, mm, hmm, hmem⟩ := hcov.cover M.ind cvI caps hf (by simp) hnq hflt
   obtain ⟨cv, h⟩ := tgtOutCls_atR hcov Rm hM hD hmm hmem
   exact ⟨D, mm, cv, h⟩
 
@@ -252,8 +280,9 @@ theorem tgtOutCls_selR {env : Env} {mp : EnvModelM V env} (hcov : LfpCover mp []
     ∃ mm cvI, TgtOutCls mp M (lfpSel mp D0 M.ind) mm cvI := by
   obtain ⟨sI, -, -, hnq, -, -, -, -, hinst, -⟩ := Rm.outside_facts hM
   obtain ⟨cvI, caps, hf⟩ := targetOutsideInst_find hinst
+  have hflt := famFlat_of_mkFEnv hf (targetOutsideInst_flat hinst)
   rw [mkFEnv_find?] at hf
-  obtain ⟨D, hD, hnD⟩ := lfp_cover_mem hcov hf (by simp) hnq
+  obtain ⟨D, hD, hnD⟩ := lfp_cover_mem hcov hf (by simp) hnq hflt
   obtain ⟨hS, -, hnS⟩ := lfpSel_spec hcov D0 hD hnD hf
   obtain ⟨mm, hmm, hmem⟩ := lfp_mem_names hcov hS hnS
   obtain ⟨cv, h⟩ := tgtOutCls_atR hcov Rm hM hS hmm hmem

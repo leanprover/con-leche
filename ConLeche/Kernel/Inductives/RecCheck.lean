@@ -383,6 +383,9 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
   let .sort s := s
     | throw (.invalid "target rec: the major's type former is not a telescope ending in a \
         sort (official: type expected)")
+  unless containerFlat fe.find? I do
+    throw (.invalid "target rec: the major's family is not a telescope ending in a sort \
+      (official: type expected)")
   pure (ibs.length, s)
 
 /-! ## A recursor's class, resolved -/

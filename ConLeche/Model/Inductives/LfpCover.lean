@@ -31,8 +31,8 @@ theorem contCover_of {env : Env} {mp : EnvModelM V env} {ctx : NestCtx}
     (h : LfpCover mp ctx.names) (hfind : ∀ n, ctx.find? n = env.find? n) :
     ContCover mp ctx where
   find := hfind
-  cover := fun n cv caps hf hn hq =>
-    h.cover n cv caps hf (by simpa using hn) hq
+  cover := fun n cv caps hf hn hq hfl =>
+    h.cover n cv caps hf (by simpa using hn) hq hfl
   block := fun D hD =>
     { nodup := h.nodup D hD
       all := h.all D hD

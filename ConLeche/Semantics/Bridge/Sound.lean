@@ -31,7 +31,7 @@ its arm is `False`. -/
 def DeclIndRunDispatchK (F : Nat) (env : Env)
     (block : List ConstantInfo) (nP : Nat) (env₂ : Env) : Prop :=
   match ConLeche.blockParts? nP block with
-  | some p => DeclBlockRun F env block p env₂
+  | some p => BlockRun F env block p env₂
   | none => False
 
 /-- **A block the recogniser does not read never installs**:
@@ -43,7 +43,7 @@ theorem checkShapeless_ne_ok {ops : CheckerOps CheckM} {env env₂ : Env}
   split <;> simp [throw, throwThe, MonadExceptOf.throw]
 
 /-- **The RUN bridge**: `checkDecl` → `DeclRun`, with the
-uniform arm recorded as `DeclBlockRun` (`declBlockRun_of`).  The run
+uniform arm recorded as `BlockRun` (`blockRun_of`).  The run
 relation records the recursor stage as one opaque conjunct
 (`checkBlockRec … = .ok rs`). -/
 theorem checkDeclRun_ofEnvFactsK
@@ -65,7 +65,7 @@ theorem checkDeclRun_ofEnvFactsK
         cases hdf : blockParts? nP block with
         | some p =>
           intro hh
-          exact declBlockRun_of hh
+          exact blockRun_of hh
         | none =>
           intro hh
           exact checkShapeless_ne_ok hh
@@ -81,7 +81,9 @@ theorem declIndRunDispatchKEtaClosed {F : Nat}
     (h : DeclIndRunDispatchK F env block nP envI) : EtaFamiliesClosed envI := by
   unfold DeclIndRunDispatchK at h
   split at h
-  · exact declBlockRun_etaClosed hE h
+  · rcases h with h | h
+    · exact declBlockRun_etaClosed hE h
+    · sorry
   · exact h.elim
 
 end ConLeche.Semantics

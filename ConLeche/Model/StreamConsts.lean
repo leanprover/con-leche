@@ -215,7 +215,7 @@ theorem installRun_declares {ds : List Declaration}
       installStepC_model (V := V) hfe hfe₁ hm CSOKF.empty hstepC hchainF hpend₁ hnd hB
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · obtain ⟨c, hc, h1, h2, h3⟩ := checkDecl_declares hF hcv
-      obtain ⟨new, hnew⟩ := hchainF.2.1
+      obtain ⟨new, hnew, -⟩ := hchainF.2.1
       exact ⟨c, by rw [hnew]; exact List.mem_append_right _ hc, h1, h2, h3⟩
     · exact ih hfe₁ hm₁ hnd hB pd' hmem' cv hcv
 

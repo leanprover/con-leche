@@ -382,10 +382,10 @@ theorem stageBlockFormers {p₁ : BlockShape} {isRec : Bool} {names : List Name}
     have hfresh : env.find? cvTa.name = none := hfreshOf i cvTa (Nat.le_refl _) hi
     have hcb : ConstsBound env cvTa.type :=
       constsBound_of_constsResolve _ (hres i cvTa hi)
-    obtain ⟨hhf, hlp, hlb, hspi⟩ := htyWF i cvTa hi
+    obtain ⟨hhf, hlp, hlb, -⟩ := htyWF i cvTa hi
     have hwfI : ConLeche.EnvWF
         ⟨.indInfo cvTa (ConLeche.blockCapsAt p₁ i isRec) :: env.consts, env.tables⟩ :=
-      ConLeche.envWF_cons_blockInd mp.base2.wf hhf hlp (hres i cvTa hi) hlb hspi
+      ConLeche.envWF_cons_blockInd mp.base2.wf hhf hlp (hres i cvTa hi) hlb
     obtain ⟨mpI, hacI⟩ := stageBlockFormer mp (names := names) hE hfresh
       (hnresOf i cvTa hi) hcb hwfI (hFD i cvTa hi)
       (hAbelowOf i cvTa hi) (hAparamsOf i cvTa hi) (hAokOf i cvTa hi)

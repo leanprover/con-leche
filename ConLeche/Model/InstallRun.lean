@@ -112,12 +112,12 @@ theorem installStepC_model
       have hvis : fe.visibleBelow = fe.env.consts.length := by
         rw [hfe]; exact mkFEnv_visibleBelow _
       have hfind : ∀ n, (q.2.1.restrictTo fe.env.consts.length).find? n = fe.env.find? n := by
-        obtain ⟨newF, hnewF⟩ := hchainF.2.1
+        obtain ⟨newF, hnewF, -⟩ := hchainF.2.1
         exact restrictTo_find?_of_extends hchainF.canon hnd
           (new := newF ++ [mk cv jv]) (by rw [hnewF, List.append_assoc]; rfl)
       have htab : ∀ T, (q.2.1.restrictTo fe.env.consts.length).findTable? T
           = fe.env.findTable? T := by
-        obtain ⟨newF, hnewF⟩ := hchainF.2.1
+        obtain ⟨newF, hnewF, -⟩ := hchainF.2.1
         obtain ⟨newQ, hQ, hQf⟩ := hchainF.2.2.2
         refine restrictTo_findTable?_of_extends hchainF.canon hnd
           (new := newF ++ [mk cv jv]) (by rw [hnewF, List.append_assoc]; rfl)
