@@ -8,6 +8,7 @@ public import InLeanProof.Range
 public import InLeanProof.KnotI
 public import InLeanProof.StateOpsI
 public import InLeanProof.WalksWhnf
+public import InLeanProof.WalksIota
 public import InLeanProof.SquarePilot
 
 /-!
@@ -477,3 +478,50 @@ info: 'InLeanProof.reduceNatI_specI' depends on axioms: [propext, Classical.choi
 -/
 #guard_msgs in
 #print axioms InLeanProof.reduceNatI_specI
+
+/-! ## The body walks, part 2 (lane P2-whnf, `InLeanProof/WalksIota.lean`): interning and
+instantiation read cached fields, hence the stop-gap axioms. -/
+
+/--
+info: 'InLeanProof.formerSortLoopI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.formerSortLoopI_specI
+
+/--
+info: 'InLeanProof.formerNeverZeroI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.formerNeverZeroI_specI
+
+/--
+info: 'InLeanProof.iotaCase3I_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.iotaCase3I_specI
+
+/--
+info: 'InLeanProof.iotaIndexOkI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.iotaIndexOkI_specI
