@@ -110319,3 +110319,154 @@ master's parse 13.1 s, install 7.3 s, check 138.3 s.
 tutorial 90/92 as before, selfcheck 52 671 declarations, the trusted, `--jobs=1` and `--jobs=4`
 sweeps without divergence.  One verdict moved: the olean gate's NpAx (an axiom at `Nat.div`'s name)
 is 1 where master declined it (2), the reject its fixture describes.
+
+## TASK #451 — restart on master: InLean, con-leche's checker on `Lean.Expr` (2026-11-06, agent/451-inlean2)
+
+**Question and rulings.**  InLean is con-leche's checker working on `Lean.Expr`,
+`Lean.Level`, `Lean.Name`, `Lean.ConstantInfo` and `Lean.Kernel.Environment`
+directly, so that its code can be copied into Lean core as the kernel, with a
+simulation proof onto con-leche's cached checker (maintainer, 2026-11-06: "The
+twin should work on Lean.Expr directly, and you have a (hopefully mechanical)
+simulation proof connecting it to the cached twin that con-leche runs").  No
+conversion to con-leche's `Expr` happens at runtime; `toCL` exists only in the
+proof tier.  The earlier experiment (`agent/451-twin`, its records there) was
+built on master as of #431; after #480 (the install reads the declaration group
+and nothing else) the checker is re-ported from master.  Also ruled: "consider
+which bits (caps for example) are so cheap that we can just read them off the
+Lean.Environment entry directly on use.  Maybe we can avoid the per decl memo
+completely", and InLean imports only what core has, enforced as an allowlist.
+Standing from the earlier rounds: fuel, InLean's own expression operations and
+equality (no core opaque externs; cached `Expr.data` fields under the stop-gap
+axioms), free variables as interned (depth, type), unsafe/partial/mutual as the
+official kernel, the core axiom policy and the Nat-operation stopgap as flags,
+errors as `Kernel.Exception.other`.
+
+**Shape.**  The core is master's `Cached/CoreC` function by function, in its
+shape: `CheckCM := StateT CState CheckM`, the record of closures `CoreFnsI`,
+`knotLevelI`/`knotPlainI`/`knotEagerI`, `memoEI`/`memoBI`, every function a
+twin named in its docstring.  What differs is only what Lean's data forces:
+
+* A free variable is an id `fvRoot.d.n`: the depth `d` is read off the id, so
+  scope checks and abstraction stay pure, and con-leche's level tests are id
+  reads; `n` numbers the (depth, type) pair, whose type is `CState.fvTys[n]`.
+  Abstraction is by depth, exactly master's `abstractRangeC` (`EO.abstractDepths`),
+  whatever the type — the earlier round abstracted by id (its obligation O3).
+  Two variables are compared by depth (`defeqStuckI`), as con-leche compares levels.
+* `mdata` is looked through (whnf, inference, the head readers).
+* A constant's safety is checked at inference (official `infer_constant`).
+* The official kernel's numeral guards (`natOpRefusal`) are kept.
+
+**Install data, read at use (no per-declaration memo).**  Every piece of
+master's install data is read off Lean's entry where a check reads it
+(`InLean/FEnv.lean`):
+
+| master's datum | InLean's source | cost at use |
+|---|---|---|
+| `IndCaps` (`blockCapsAt`): `eta`, `etaCtor`, `etaParams`, `etaFields`, `unitlike`, `unitParams`, `all`, `nparams`, `nIdx`, `ctors` | `InductiveVal` (`numIndices`, `isRec` = official's `is_rec` = `blockIsRec`, `numParams`, `all`, `ctors`) and the one constructor's `numFields` | one lookup, a small record |
+| `ctorInfo cv nP nF` | `ConstructorVal.numParams`/`numFields` | field reads |
+| `recInfo cv mI rP isK rules` | `RecursorVal` counts (sums), `k`, `rules` | field reads |
+| `RecRule.fire` (`recFire`: `.plain`/`.nested`/`.levels`) | the recursor type's major domain, computed only inside ι's case-3 certificate (`recFireAt`) | a telescope walk, verified mode only |
+| projection table existence, entry counts (`blockTables`) | one constructor, no index, the constructor type binds parameters and fields (a binder count: substitution makes and removes no binder) | a binder count |
+| projection body | `projBodyAt`, only in inference (`.proj`), one field's substitution | per distinct `.proj` node (the inference memo) |
+| the quotient package (`quotAt`) | Lean's own types (the record's check compares them with the pins) and the pins' rules | field reads |
+
+`towerSlotsAllF` is one table lookup and one binder count (`tableFields?`), not
+one per field (the same answer).  **Memo decision**: no per-declaration memo is
+kept: the readers together are about 0.4 % of Init's instructions (`perf
+record`): `recFireAt` 0.21 % (only in the verified mode's ι case-3
+certificate), `indView?` 0.05 %, `recAt?`, `recArity?`, `ctorView?` 0.03 % each,
+`findProj?` 0.02 %, `capsOf` 0.01 %, `projBodyAt` below 0.01 %.  None earns a memo.
+The block check makes the read-at-use data the install's: the generated
+entries' `all`, counts, constructors and `isRec` are compared with what the
+recogniser and `blockIsRec` read (`genEntriesAgree`), and each recursor's `k`
+with the regenerated recursor's (`streamKCheck`, #480).
+
+**Declarations** (`InLean/CheckerC.lean`, twin of `ParsedC.checkDeclC` with
+`CheckerBase.checkConstantVal` and the `DeclCheck` guards): #480's gates (a
+certified operation's name only for a definition, `litShapeOk`), the certified
+`Nat` operations, the compiler-trust pins, the pinned axioms, the quotient
+package (Lean's one `quotDecl` for con-leche's four records).  **Inductives**:
+the unverified generator (`IndGen`, the official construction) and con-leche's
+job on its output (`IndCheck/*`), in the inductive monad `IndMonad.M` (the core's
+`CheckCM` under the declaration's context); the job is the #431-era port adapted
+to this core, with #480's K check (`streamKCheck`) and the `Bool`-constructor
+refusal added.  Not yet re-ported from master's current job: `reduceMembers` as
+its own stage (def-headed formers are reduced inside the telescope check),
+`checkBlockIdxSortsF`'s and the positivity walk's #480 reshaping, `StreamRecs`'
+restructuring; their verdicts agree on Init, Std and Lean.
+
+**The fence** (`tests/layering.sh`): `InLean/*` and `InLean.lean` import only
+`Init`, `Init.*`, `Std`, `Std.*`, `Lean`, `Lean.*`, `InLean.*` (every import form);
+`InLeanReplay.lean` also `InLean`; `InLeanProof/*` is outside.  A self-test runs
+the check on fixture sources it must refuse and pass; a temporary violating file
+`InLean/ZzFenceProbe.lean` (`public meta import ConLeche.Kernel.Expr`, `import
+all Mathlib`) failed the gate with both lines, and passed again once removed.
+
+**Proof tier** (`InLeanProof/*`).  `toCL` reads a Lean declaration group as
+con-leche's record of it (`toDecl`: the export's shape, `indInfo` without
+capabilities, rules `.plain`); `Presents E L` says `L` is master's install
+(`Env.pushDelta (declConstants d) (declTables d)`, folded: `installAll`) of
+records reading `E`'s groups, and every safe constant of `E` reads as one of
+`L`'s.  `AddDeclSound` is restated against master's invariant (`EnvModelOk V L`,
+no mode since #453); `no_false_of_addDeclSound` is proved from it.  The three
+pilot lemmas (`mapOff_spec`, `toExpr_liftLooseBVars`, `toExpr_instantiate`) hold
+unchanged (the walks did not change); the axiom pins pass.
+
+**Obligations (fresh estimate, lines)**:
+
+| # | obligation | estimate |
+|---|---|---|
+| O1 | the expression operations against con-leche's (`abstractDepths` now by depth, lower, level instantiation, `stripMData`; `RangeOk` through the cutoffs) | 1–2.5 k |
+| O2 | the two equalities (`beqMemo` = `decide`; `alphaEq` where con-leche's is name-free) | 0.5 k |
+| O3 | the interning invariant (number `n` ↦ `.fvar d (toCL fvTys[n])`) | 0.5–1 k |
+| O4 | the at-use readers equal master's install of `toDecl` (given `genEntriesAgree`, `streamKCheck`) | 1–1.5 k |
+| O5 | the core knot: a port of `Verify/Cached`'s simulation, now against a core in the same shape | 6–9 k |
+| O6 | the declaration step | 1–1.5 k |
+| O7 | the inductive job (after re-porting it to master's current structure) | 3–5 k |
+| O8 | assembly: `installAll`/`Presents` against the fold, `EnvLaws` | 0.5–1 k |
+| O9 | range preservation | 0.5–1 k |
+
+Total about 14–23 k lines (the earlier round's 20–30 k): O3 and O4 shrank with
+the depth-carrying ids and #480's install, O5 with the core's shape.
+
+**Findings.**
+* The memo maps of InLean's own walks (`EO.mapOff`, `beqGoX`) start from a
+  closed `{}` the compiler hoists to a shared constant, so each walk's first
+  insert copies the bucket array (`lean_copy_expand_array` 12.9 % of Init; gdb
+  backtraces at the copy, after `addDecl` is entered).  Not a lost-linearity
+  holder; the price of memoising every node (lane E's design, as con-leche has
+  no `unsafe` exclusivity read here).  A walk that allocates its memo at the
+  first compound node would avoid it; it touches `mapOff_spec`, so it is left
+  for a later lane.
+* The opaque-surface audit (`scripts/inlean_opaque_audit.lean`, run with
+  `lean --run`) reaches the stop-gap axioms' `mkData`/`mkAppData`/`Level.mkData`,
+  the pin JSON parse, `PersistentHashMap.findAux`/`insertAux` (`EnvLaws`), and
+  message formatting; the `implemented_by` list is core's own (array loops with
+  reference bodies, constructor overrides, `update!`).
+
+**Validation.**  `inlean-replay --kernel=inlean --compare` (every constant InLean
+adds against the official one, `Expr.equal`): Init 65 972 constants, 64 530
+declarations accepted; Std 112 803 / 110 064; Lean 207 958 / 199 645; no reject,
+0 exact and 0 cosmetic mismatches.  `scripts/inlean_negtest.lean`: the eight
+verdicts agree with the official kernel (the "wrong return type" reject is still
+the generator's internal error).  Builds warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh` (`lakefile.lean` re-pinned for the two libraries and
+the driver), `tests/no-local-paths.sh` pass.
+
+**Cost** (`instructions:u`, one run each, the replay driver's gross count; the
+driver's own work is the same for both kernels):
+
+| closure | import only | official | InLean verified | InLean trusted |
+|---|---|---|---|---|
+| Init | 0.51 G | 509.1 G | 878.0 G | 866.8 G |
+| Lean | 0.95 G | 2 898.3 G | 3 649.1 G | — |
+
+InLean costs 368.9 G more than the official kernel on Init and 750.8 G more on
+Lean.  Against the earlier round's net figures (official 287.0 G and 561.7 G),
+that is about +129 % and +134 %, against lane G's +103 % and +109 %.  The
+install data read at use is not the difference (0.4 % of Init).  Not separated
+by measurement; the candidates are the core's `StateT`-over-`Except` threading
+(master's `CheckCM`, an allocation per bind where the earlier round's `EStateM`
+had none — allocation and freeing are about 30 % of the profile) and the
+inductive job's flushes at every environment transition (master's discipline,
+which the earlier round did not follow).

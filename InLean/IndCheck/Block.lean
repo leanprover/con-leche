@@ -64,6 +64,29 @@ def checkShapeless (j : Job) (env : Kernel.Environment) (block : List SCI) : M U
     if let .ind cv := c then j.checkConstantVal env cv
   throwDeclined s!"inductive block {(block.head?.map (·.name)).getD .anonymous}: shape not recognised"
 
+/-- **The generated entries carry what con-leche's install computes** from
+the block (`blockCapsAt`, `blockFormers`, `blockCtors`): every former's
+`all`, parameter and index counts, constructors and `isRec` (official's
+`is_rec`, con-leche's `blockIsRec`), every constructor's counts.  InLean
+reads these off the entries at use (`InLean/FEnv.lean`), so they must be the
+block's. -/
+def genEntriesAgree (j : Job) (p : BlockShape) : M Unit := do
+  let isRec ← blockRawRec p
+  let names := p.memberNames
+  for ms in p.members do
+    match j.gen[ms.cvT.name]? with
+    | some (.inductInfo v) =>
+      unless v.all == names && v.numParams == p.nP && v.numIndices == ms.nIdx &&
+          v.ctors == ms.ctors.map (·.1.name) && v.isRec == isRec do
+        throwInternal s!"inductive generator: {ms.cvT.name}'s entry is not the block's"
+    | _ => throwInternal s!"inductive generator: no former {ms.cvT.name}"
+    for (c, nF) in ms.ctors do
+      match j.gen[c.name]? with
+      | some (.ctorInfo v) =>
+        unless v.numParams == p.nP && v.numFields == nF && v.induct == ms.cvT.name do
+          throwInternal s!"inductive generator: {c.name}'s entry is not the block's"
+      | _ => throwInternal s!"inductive generator: no constructor {c.name}"
+
 /-- A generated constant's terms are in range (`EO.inRange`). -/
 def constInRange : ConstantInfo → Bool
   | .recInfo v => EO.inRange v.type && v.rules.all fun r => EO.inRange r.rhs
@@ -106,7 +129,9 @@ def checkInductiveDecl (μ : CheckMode) (addConst : Kernel.Environment → Const
     return gen
   unless indParamsOk nparams block do throwInvalid "number of parameters mismatch"
   match blockParts? nparams block with
-  | some p => checkBlock j env block p
+  | some p =>
+    genEntriesAgree j p
+    checkBlock j env block p
   | none => checkShapeless j env block
   return gen
 
