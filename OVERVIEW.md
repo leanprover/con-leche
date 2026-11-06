@@ -313,7 +313,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L96-L100)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L98-L102)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -630,6 +630,32 @@ those of Lean's own `importModules`. `groupRecord` builds one inductive group's 
 part's constants as the emission does, validated for that group as `blocksOk` validates a merged
 block (`groupRecord_from`: the record is made of stored constants of the group's kinds); read
 from an exported part, it lists the recursors in the part's (sorted) order.
+
+**A module's context** (`ConLeche/Driver/Reach.lean`). `reach` builds the records a module's own
+records are checked against, from the names they read (their theorems' values included), by a
+worklist over the name index. A name the index holds is read at its copy's part, with one memo
+per part (`entryWith`, `stmtWith`, `ConLeche/Frontend/Olean/Present.lean`), and presented as a
+record: a definition the part holds with its value keeps it, every other definition, theorem
+and opaque constant is the axiom of its statement (an imported theorem's value and a hidden
+definition's are never read), an inductive group is presented whole. What a record reads
+(`recordReads`: its constants' and tables' names, `RecordScoped`'s) is pushed. A name the index
+lacks is located in its reader's home's view by headers and name tables (the home's own private
+part, then the parts its header fixpoint loads, the first copy) and read from its module's
+private part as its statement; a name located nowhere is a reject. Every read of a record is
+checked against its reader's home: the context's copy stands for the home's when the home's
+public-import closure holds its module and the name is in that module's exported part, otherwise
+the copy the home's view locates must have the same key (one module, or two proofs of one
+statement), else the module is rejected (name capture). A copy is a proof if it is a theorem,
+its home declares a theorem at an exported axiom, or it is a definition or opaque constant whose
+type the kernel infers to be a proposition at the context; every name two loaded modules hold
+must have one key so. The context's records are validated as untrusted input (`recordOk`). At
+every accepting outcome of `reach` in the IO model, every name a context record reads is a
+context record's, so each is `RecordScoped` in the context, and the context is `EnvWF`
+(`reach_ok`, `ConLeche/Verify/Driver/Reach.lean`); a copy read is the full parse's constant at
+its position (`entryWith_of_view`, `stmtWith_of_view`). On `Mathlib.GroupTheory.Coxeter.Basic`
+the context is 2 874 constants (276 groups) from 151 of the 2 479 loaded modules, with no
+completion; on `Mathlib.Analysis.SpecialFunctions.Gamma.Basic`, 7 973 constants (694 groups)
+from 581 of 4 092 modules, with one completion.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
 every exit 0 read records off the snapshot's files that `checkDecls` accepts, with each
@@ -1612,7 +1638,7 @@ and every such line carries its reason.
 | Directory | Contents |
 |---|---|
 | `Main.lean` | The binary's entry point: the plumbing around `runArgs` at `IO`, followed by the exit. |
-| `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
+| `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), a module's context for checking it on its own (`Reach.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` and its accepting runs (`Decls.lean`), the index of a stream and a record's job (`StreamIndex.lean`). |
 | `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file's positional reads (`CheckerIO.lean`), the positional read declared in C (`ReadRange.lean`, `native/read_range.c`, its own precompiled library); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean.lean`, the interface, over `Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the reads of a part of a region `Reads.lean`, a module's views `View.lean` and their checks against each other `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean`, the records `Records.lean`, the header fixpoint `Levels.lean`, the loaded names and the clash rule `Index.lean`, and one group's record `Group.lean`). |

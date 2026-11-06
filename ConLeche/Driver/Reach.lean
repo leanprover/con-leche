@@ -1,13 +1,13 @@
 module
 
-public import ConLeche.Frontend.Olean.Present
-public import ConLeche.Frontend.Olean.Index
-public import ConLeche.Cached.ParsedC
+public import ConLeche.Frontend.Olean
+public import ConLeche.Modular
+import ConLeche.Cached.ParsedC
 
 @[expose] public section
 
 /-!
-# Reading `.olean` files: the reach of a module, its completion, the capture check
+# A worker's context: the reach of a module, its completion, the capture check
 
 Phase 4 and 6 of a worker at module `M` (DESIGN #460 §3): the context `M`'s own records are
 checked against, as a list of records, and its validation.
@@ -41,17 +41,158 @@ checked against, as a list of records, and its validation.
   validated).  Every name two loaded modules hold (`WorkerReads.clashes`) must have one key
   so (`clashKeys`); a clash whose flag is inferred has its name reached, so that its
   statement's names are in the context.
+* **What a record reads** (`recordReads`): the names its constants' laws and its tables
+  ask stored, `RecordScoped`'s (`ConLeche/Modular.lean`): every constant of a type, of a
+  definition's value, of a recursor's rules and nested pins, a literal's and a
+  projection's names, a type former's block members and η constructor, a table's
+  structure, constructor and bodies, and `pinFootprint` at a pinned name; one memoized
+  walk of each expression's DAG (`needsGo`).
 * **The validation** (`validateCtx`): every context record validated as untrusted input
-  (`recordOk`); with the reach's closure, the context is `EnvWF`
-  (`ConLeche/Verify/Frontend/Olean/Reach.lean`, `reach_envWF`).
+  (`recordOk`: closed, every loose bound variable bound, every level parameter declared, a
+  nested rule's datum read off its recursor's type, a literal's name's shape, a table's
+  bodies likewise); with the reach's closure, the context is `EnvWF`
+  (`ConLeche/Verify/Driver/Reach.lean`, `reach_ok`).
 
 **Termination** is by a fuel: every pushed name is new, out of the index plus the located
 names, and each step pops one.
 -/
 
-namespace ConLeche.Frontend.Olean
+namespace ConLeche.Driver
 
-open ConLeche ConLeche.Modular ConLeche.Cached
+open ConLeche ConLeche.Modular ConLeche.Cached ConLeche.Frontend.Olean
+
+/-! ## What a record reads -/
+
+/-- The names a literal reads (`Expr.constsResolve`'s): the `Nat` basis, and for a string
+the string-support constants. -/
+def litNeeds : Literal → List Name
+  | .natVal _ => [natName, natZeroName, natSuccName]
+  | .strVal _ => [natName, natZeroName, natSuccName, stringName, stringOfListName, listName,
+      listNilName, listConsName, charName, charOfNatName]
+
+/-- **The names `Expr.constsResolve` asks stored**: the specification of `needsGo`. -/
+def _root_.ConLeche.Expr.needs : Expr → List Name
+  | .bvar _ | .sort _ => []
+  | .lit l => litNeeds l
+  | .const n _ => [n]
+  | .fvar _ ty => ty.needs
+  | .app f a => f.needs ++ a.needs
+  | .lam ty b | .forallE ty b => ty.needs ++ b.needs
+  | .letE ty v b => ty.needs ++ v.needs ++ b.needs
+  | .proj s _ e => s :: e.needs
+
+/-- **`Expr.needs`, one memoized walk of the DAG**: `seen` the compound subterms walked,
+`acc` the names so far.  A subterm is recorded after its children. -/
+def needsGo (seen : Std.HashSet Expr) (acc : Array Name) : Expr → Std.HashSet Expr × Array Name
+  | .bvar _ => (seen, acc)
+  | .sort _ => (seen, acc)
+  | .lit l => (seen, acc ++ litNeeds l)
+  | .const n _ => (seen, acc.push n)
+  | e =>
+    if seen.contains e then (seen, acc) else
+      let (seen, acc) : Std.HashSet Expr × Array Name :=
+        match e with
+        | .fvar _ ty => needsGo seen acc ty
+        | .app f a =>
+          let (seen, acc) := needsGo seen acc f
+          needsGo seen acc a
+        | .lam ty b =>
+          let (seen, acc) := needsGo seen acc ty
+          needsGo seen acc b
+        | .forallE ty b =>
+          let (seen, acc) := needsGo seen acc ty
+          needsGo seen acc b
+        | .letE ty v b =>
+          let (seen, acc) := needsGo seen acc ty
+          let (seen, acc) := needsGo seen acc v
+          needsGo seen acc b
+        | .proj s _ x => needsGo seen (acc.push s) x
+        | _ => (seen, acc)
+      (seen.insert e, acc)
+
+/-- The walk's state through several expressions. -/
+abbrev NeedsSt := Std.HashSet Expr × Array Name
+
+/-- One more expression's names. -/
+def NeedsSt.expr (x : NeedsSt) (e : Expr) : NeedsSt := needsGo x.1 x.2 e
+
+/-- Some names. -/
+def NeedsSt.names (x : NeedsSt) (ns : List Name) : NeedsSt := (x.1, x.2 ++ ns)
+
+/-- What a recursor rule reads: its right-hand side, its constructor, a nested datum's pins. -/
+def NeedsSt.rule (x : NeedsSt) (r : RecRule) : NeedsSt :=
+  let x := (x.expr r.rhs).names [r.ctor]
+  match r.fire with
+  | .nested _ pins => pins.foldl NeedsSt.expr x
+  | _ => x
+
+/-- **What a constant's laws read** (`EntryScoped`'s names). -/
+def NeedsSt.const (x : NeedsSt) (ci : ConstantInfo) : NeedsSt :=
+  let x := x.expr ci.toConstantVal.type
+  let x := match ci with
+    | .defnInfo _ v _ => x.expr v
+    | .recInfo _ _ _ _ rules => rules.foldl NeedsSt.rule x
+    | .indInfo _ caps => x.names (caps.all ++ if caps.eta then [caps.etaCtor] else [])
+    | _ => x
+  x.names (pinFootprint ci.toConstantVal.name)
+
+/-- What a table reads: its structure, its constructor, its bodies. -/
+def NeedsSt.table (x : NeedsSt) (t : ProjTable) : NeedsSt :=
+  t.bodies.toList.foldl NeedsSt.expr (x.names [t.structName, t.ctor])
+
+/-- **What a record reads**: its constants' laws' names and its tables', each expression's
+DAG walked once (`RecordScoped`'s names, `recordReads_scoped`). -/
+def recordReads (d : Declaration) : Array Name :=
+  ((declTables d).foldl NeedsSt.table ((declConstants d).foldl NeedsSt.const ({}, #[]))).2
+
+/-! ## The validation of a record -/
+
+/-- **An expression's syntactic clauses**: no free variable, no loose bound variable at or
+past `k`, every level parameter among `lps`. -/
+def exprOk (lps : List Name) (k : Nat) (e : Expr) : Bool :=
+  !e.hasFvar && e.looseBVarsBounded k && Expr.allLevelParamsDefinedC lps e
+
+/-- **A nested rule's datum reads off its recursor's type** (`NestedRead`'s clauses, the
+pins' resolution aside): the major's domain is the class's inductive at the rule's levels,
+applied to the pins lifted past the index binders and then to the index variables. -/
+def nestedOk (lps : List Name) (ty : Expr) (mI rP : Nat) (lvls : List Level)
+    (pins : List Expr) : Bool :=
+  decide (rP ≤ mI) && lvls.all (·.allParamsDefined lps) && pins.all (exprOk lps rP) &&
+    match ty.stripPis mI with
+    | some (_, .forallE dom _) =>
+      match dom.getAppFn with
+      | .const _ ls =>
+        ls == lvls && dom.getAppArgs == pins.map (Expr.liftLooseBVars (mI - rP) 0) ++
+          (List.range (mI - rP)).map fun i => Expr.bvar (mI - rP - 1 - i)
+      | _ => false
+    | _ => false
+
+/-- A recursor rule's clauses: its right-hand side, and its datum if nested. -/
+def ruleOk (lps : List Name) (ty : Expr) (mI rP : Nat) (r : RecRule) : Bool :=
+  exprOk lps 0 r.rhs &&
+    match r.fire with
+    | .nested lvls pins => nestedOk lps ty mI rP lvls pins
+    | _ => true
+
+/-- **A constant's syntactic clauses** (`ConstWF`'s, the names' resolution aside): its type;
+a definition's value; a recursor's rules. -/
+def constOk : ConstantInfo → Bool
+  | .defnInfo cv v _ => exprOk cv.levelParams 0 cv.type && exprOk cv.levelParams 0 v
+  | .recInfo cv mI rP _ rules =>
+    exprOk cv.levelParams 0 cv.type && rules.all (ruleOk cv.levelParams cv.type mI rP)
+  | c => exprOk c.toConstantVal.levelParams 0 c.toConstantVal.type
+
+/-- **A table's syntactic clauses** (`TableWF`'s, its structure's presence aside): one body
+per field, each scoped at the parameters and the subject. -/
+def tableOk (t : ProjTable) : Bool :=
+  t.bodies.size == t.numFields && t.bodies.all (exprOk t.levelParams (t.numParams + 1))
+
+/-- **A record validated**: every constant it installs and every table, with the shape a
+literal's name asks. -/
+def recordOk (d : Declaration) : Bool :=
+  (declConstants d).all (fun c => constOk c && litShapeOk c) && (declTables d).all tableOk
+
+/-! ## The reach's reads -/
 
 deriving instance Hashable for OLeanLevel
 
@@ -187,7 +328,8 @@ def privSpot (env : ReachEnv) (c : ReachCache) (s : Spot) :
 
 /-- The names of some parts into a view, the first copy kept. -/
 def viewAdd (env : ReachEnv) :
-    ReachCache → Std.HashMap Name Spot → List PartKey → μ (ReachCache × Except CheckError (Std.HashMap Name Spot))
+    ReachCache → Std.HashMap Name Spot → List PartKey →
+      μ (ReachCache × Except CheckError (Std.HashMap Name Spot))
   | c, v, [] => pure (c, .ok v)
   | c, v, k :: ks => do
     match ← tableOf env c k with
@@ -289,7 +431,8 @@ def keyCheck (env : ReachEnv) (c : ReachCache) (h y : Name) (s₁ s₂ : Spot) :
 
 /-- **The clash rule's keys** (ruling 3 of #460): every name two loaded modules hold must
 have one key; the names whose flags are inferred, to be reached. -/
-def clashKeys (env : ReachEnv) : ReachCache → List Clash → Array Name → μ (ReachCache × Except CheckError (Array Name))
+def clashKeys (env : ReachEnv) :
+    ReachCache → List Clash → Array Name → μ (ReachCache × Except CheckError (Array Name))
   | c, [], acc => pure (c, .ok acc)
   | c, cl :: cls, acc => do
     let ld := env.wr.loads
@@ -305,7 +448,8 @@ def clashKeys (env : ReachEnv) : ReachCache → List Clash → Array Name → μ
       else if ps.contains .infer then
         match spots with
         | (_, cv, _) :: _ =>
-          clashKeys env { c with pending := c.pending.push (s!"two loaded modules store {cl.name}", cl.name, cv) }
+          let why := s!"two loaded modules store {cl.name}"
+          clashKeys env { c with pending := c.pending.push (why, cl.name, cv) }
             cls (acc.push cl.name)
         | [] => clashKeys env c cls acc
       else clashKeys env c cls acc
@@ -374,7 +518,8 @@ def captureOne (env : ReachEnv) (c : ReachCache) (h y : Name) :
                          completed := c.completed.push (y, h) }, .ok ())
 
 /-- The capture check of every read of a record. -/
-def captureAll (env : ReachEnv) (h : Name) : ReachCache → List Name → μ (ReachCache × Except CheckError Unit)
+def captureAll (env : ReachEnv) (h : Name) :
+    ReachCache → List Name → μ (ReachCache × Except CheckError Unit)
   | c, [] => pure (c, .ok ())
   | c, y :: ys => do
     match ← captureOne env c h y with
@@ -473,12 +618,14 @@ def readRecord (env : ReachEnv) (c : ReachCache) (x : Name) :
       | (c, .ok none) =>
         let pk : PartKey := ⟨h, .private⟩
         if s.part.level == .private then
-          return (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a constructor"))
+          return (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a \
+            constructor"))
         match ← groupAt env c pk n with
         | (c, .error e) => pure (c, .error e)
         | (c, .ok (some d)) => pure (c, .ok (d, h))
         | (c, .ok none) =>
-          pure (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a constructor"))
+          pure (c, .error (.invalid s!"module {h}: the group of {n} lacks a member or a \
+            constructor"))
     | none =>
       match k with
       | .defn .. =>
@@ -632,4 +779,4 @@ def reach {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (wr :
             pure (.ok { ctx := L.ctx, homes := L.homes, completed := c.completed,
                         searches := c.searches, inferred := c.pending.size })
 
-end ConLeche.Frontend.Olean
+end ConLeche.Driver

@@ -4,7 +4,6 @@ public import ConLeche.Frontend.Olean.Reads
 public import ConLeche.Frontend.Olean.Header
 import ConLeche.Verify.Frontend.Olean.Equiv
 public import ConLeche.Verify.Frontend.Olean.Sparse
-public import ConLeche.Verify.Frontend.Olean.Memo
 import Std.Data.HashSet.Lemmas
 
 /-!

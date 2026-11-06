@@ -1,6 +1,7 @@
 import ConLeche.Frontend.Stream
 import ConLeche.Frontend.Olean
 import ConLeche.Driver.CheckMain
+import ConLeche.Driver.Reach
 /- NOT a `module`, like `PinDump.lean`: a development tool, not part of
 the checker.  As a `module` it would have to be a root of
 `tests/shake.sh`, whose `lake shake` loads every root into one
@@ -202,7 +203,7 @@ def runReads (sp : List System.FilePath) (m : Name) (jobs : Nat) (dump levelsOnl
       public-import closure {pubAvg} modules on average"
     return 0
 
-open Frontend.Olean in
+open Frontend.Olean Driver in
 /-- `--reach`: a worker's context at one module. -/
 def runReach (sp : List System.FilePath) (m : Name) (jobs : Nat) (list : Bool) : IO UInt32 := do
   let fail (e : CheckError) : IO UInt32 := do IO.eprintln s!"{e}"; return e.exitCode.toUInt32
