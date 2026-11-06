@@ -20,9 +20,10 @@ reads as that module does (stored in both, under one key: `ConLeche.Modular.read
 statement of a definition or theorem); what the copy's laws read lies in `R n` (`scope`, over a
 predicate: `EntryScopedP`); a name read alike has alike copies in the context and the source
 (`Alike`: the same constant, or two statements of one statement), with the same table; and an
-inductive group arrives whole, so what a group member read alike reads is read alike too (`group`,
-`ctors`, `deep`).  `CtxModel` (`Model/Modular/Restrict.lean`) builds the context's model from its sources'
-models, every law of a context constant read off its source's law.
+inductive group arrives whole, so what a group member read alike reads is read alike too (`ctors`,
+`deep`); a compiler-trust name is never presented as a statement (`reduce`).  `CtxModel`
+(`Model/Modular/Restrict.lean`) builds the context's model from its sources' models, every law of
+a context constant read off its source's law.
 -/
 
 namespace ConLeche.Model.Modular
@@ -166,14 +167,6 @@ theorem EntryScopedP.mono {p q : Name → Prop} {C : Env} {n : Name} {ci : Const
 
 /-! ## The reading -/
 
-/-- The names an environment installs by one inductive group: the members of a stored former's
-block, the constructors whose result is one of them, and the recursors whose major is one of
-them.  Stated by what the context stores: a name of `C` is a **group-mate** of `d` when both are
-inductive kinds installed by one record. -/
-@[expose] def GroupMates (C : Env) (d d' : Name) : Prop :=
-  ∃ e : Declaration, d ∈ (declConstants e).map (·.name) ∧ d' ∈ (declConstants e).map (·.name) ∧
-    ∀ ci ∈ declConstants e, ci ∈ C.consts
-
 /-- **A context, read from its sources** (see the module docstring): per stored name `n`, the
 source environment `E n` and the part `R n` of it the context reads as the source does. -/
 structure CtxRead (C : Env) (E R : Name → Env) : Prop where
@@ -194,10 +187,6 @@ structure CtxRead (C : Env) (E R : Name → Env) : Prop where
   /-- what a stored constant's laws read is read alike -/
   scope : ∀ n ci, C.find? n = some ci →
     EntryScopedP (fun d => ((R n).find? d).isSome = true) C n ci
-  /-- an inductive kind read alike arrives with its group, read alike -/
-  group : ∀ n d d', (C.find? n).isSome = true → ((R n).find? d).isSome = true →
-    (∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) → GroupMates C d d' →
-    ((R n).find? d').isSome = true
   /-- a former read alike has its constructors read alike (they arrive in its record) -/
   ctors : ∀ n d cv caps, (C.find? n).isSome = true → ((R n).find? d).isSome = true →
     C.find? d = some (.indInfo cv caps) → ∀ x ∈ caps.ctors, ((R n).find? x).isSome = true
@@ -205,6 +194,9 @@ structure CtxRead (C : Env) (E R : Name → Env) : Prop where
   deep : ∀ n d ci, (C.find? n).isSome = true → ((R n).find? d).isSome = true →
     C.find? d = some ci → ci.isIndKind = true →
     EntryScopedP (fun d' => ((R n).find? d').isSome = true) C d ci
+  /-- a constant at a compiler-trust name is its source's (such a record is presented only as
+  itself) -/
+  reduce : ∀ n ci, C.find? n = some ci → n ∈ reduceOpNames → (E n).find? n = some ci
   /-- every context table is its structure's, and its structure a stored former -/
   tables_mem : ∀ t ∈ C.tables, C.findTable? t.structName = some t ∧
     ∃ cv caps, C.find? t.structName = some (.indInfo cv caps)

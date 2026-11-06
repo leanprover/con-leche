@@ -117,19 +117,16 @@ structure CtxSrc (V : Type w) [SetTheory V] (C : Env) (E R : Name → Env)
   cover : ∀ n, LfpCover (m n) []
   eta : ∀ n, EtaFamiliesClosed (E n)
   nat : ∀ n, NatFacts (E n)
-  /-- the context's `Nat` facts -/
-  natC : NatFacts C
-  /-- a stored compiler-trust name is its source's constant (never a statement of something
-  else) -/
-  red : ∀ n ci, C.find? n = some ci → n ∈ reduceOpNames → (E n).find? n = some ci
-  /-- a recorded member whose stored type does not show its telescope: the telescope its block
-  read is read alike, and its reduction runs at a part of the context -/
-  defh : ∀ n, (C.find? n).isSome = true → ∀ D ∈ (m n).lfpBlocks, ∀ mm f, mm < D.k →
-    D.telescope mm = some f → ∀ cv caps, C.find? (D.member mm) = some (.indInfo cv caps) →
-    formerDefHeaded cv = true →
-    f.type.constsResolve (R n) = true ∧
-    ∃ envB F, EnvExt envB C ∧ cv.type.constsResolve envB = true ∧
-      reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f
+  /-- the sources' recorded telescopes were reduced at a part of them -/
+  ran : ∀ n, FamilyRan (m n)
+  /-- **a former read alike whose stored type does not show its telescope reduces at the
+  context as at its source**, and the reduct is read alike.  Explicit: the refinement
+  monotonicity of reduction (task #469) is to discharge it -/
+  defh : ∀ n T cv caps, (C.find? n).isSome = true → ((R n).find? T).isSome = true →
+    C.find? T = some (.indInfo cv caps) → formerDefHeaded cv = true →
+    ∀ F f, reducedFormer (fueledOps .verified F) (E n) cv (caps.nparams + caps.nIdx) = .ok f →
+      f.type.constsResolve (R n) = true ∧
+      ∃ F', reducedFormer (fueledOps .verified F') C cv (caps.nparams + caps.nIdx) = .ok f
   /-- the context's leaf at a name read alike is its source's -/
   leaf : ∀ n, (C.find? n).isSome = true → ∀ d, ((R n).find? d).isSome = true →
     aC d = (m n).base2.acval d
