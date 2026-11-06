@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Frontend.Olean.Records
+public import ConLeche.Frontend.Olean.Index
+public import ConLeche.Frontend.Olean.Group
 
 @[expose] public section
 
@@ -26,7 +28,7 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `decodeModuleSpec f level : Option ModDecoded`, not executable | the definition of a valid view |
 | `parseView f level : Option ModDecoded` | `parseView_eq_spec` |
 | `parseAllViews f : Option AllViews`, each object once | `parseAllViews_eq` |
-| `checkViews m f v : Except CheckError (Array Expo)` | the views against each other, a home's check |
+| `checkViews m f l : Except CheckError (Array Expo)`, over the load `l` | the parts against each other, a home's check (a mismatch exit 1) |
 
 **Reads of a part of a view.**
 
@@ -35,6 +37,8 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `readNamePositions f level : Option NamePositions` | `readNamePositions_of_view` |
 | `readEntry f level c : Option (CEntryF Name Expr)` | `readEntry_of_view` |
 | `readStmts f level cs : Option (List ConstantVal)` | `readStmts_of_view` |
+| `readEntries f level cs : Option (List (CEntryF Name Expr))`, one memo | `readEntries_of_view`; `readEntries_eq` (each `readEntry`, on every input) |
+| `readKinds f level cs : Option (List (CKindF Name Unit))`, no expression | |
 | `importsPre bytes : Option (Array ImportRec)`, on a prefix of `M.olean` | `importsPre_extract`, `importsPre_prefix` |
 
 **Through the IO class** (`CheckerIO`), by module name along a search path.
@@ -44,7 +48,8 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `parseModName string : Option Name` | |
 | `readFiles sp m level : μ (Except CheckError ModFiles)` | `readFiles_ok`, `readFiles_of_all` |
 | `readView sp m level : μ (Except CheckError ModDecoded)` | `readView_of_all` |
-| `readAllViews sp m : μ (Except CheckError (AllViews × Array Expo))` | |
+| `readHome sp m : μ (Except CheckError (Loaded × Array Expo))`: `loadAt`, then `checkViews` | |
+| `readAllViews sp m : μ (Except CheckError (AllViews × Array Expo))`, for the tools | `readView_of_all` |
 | `moduleImports sp m : μ (Except CheckError (Array ImportRec))` | `moduleImports_of_view` |
 
 **The import closure.**
@@ -59,6 +64,15 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | `readOleans sp roots constants jobs pace : μ (Except (CheckError × Nat) OleanRead)`, a theorem's value a reference | `readOleans_ok`, `readOleans_thm`, `readOleans_filled` |
 | `readValue sp values c code : μ (ValueCache × Except CheckError Expr)`, what a reference stands for | `readOleans_filled`, `checkMainG_oleans_accept` |
 | `readOleansFull sp roots constants jobs : μ (Except (CheckError × Nat) (Array Declaration))`, with every value read, for the tools that compare records | |
+
+**A worker's reads** (one module `M`, against what Lean loads for it).
+
+| name | theorem |
+|---|---|
+| `headerFixpoint sp isModule imports : μ (Except CheckError Loads)`: every module Lean's `importModulesCore` loads for a header, in its order, with the part (`LoadFlags.level`) | none needed: a presentation decides only whether a verdict is Lean's |
+| `pubClosures ld : Array ModSet`: each loaded module's public-import closure | |
+| `workerReads sp m jobs : μ (Except CheckError WorkerReads)`: the fixpoint, the name index of the loaded parts (`nameIndexOf`), Lean's clash rule (`clashOk`, by `subsumesF`) over every loaded name and freshness (`freshOk`), each a reject | |
+| `groupRecord mg n : Except CheckError Declaration`: one inductive group's record, validated as `blocksOk` validates a block; `readGroup` gathers it from one part | `groupRecord_from`, `groupRecord_valid` |
 
 Here `roots` are the modules the closure starts from, and `constants` the constants the
 records start from (`none`: every constant of the closure), as lean4export's arguments after

@@ -159,6 +159,20 @@ def readStmts (f : ModFiles) (level : OLeanLevel) (cs : List Nat) : Option (List
   let (r, _) ← f.viewRegion level
   stmtsAt r cs
 
+/-- **The constants at some positions of a view, read with one memo** (`entriesAt`): what
+they share is read once. -/
+def readEntries (f : ModFiles) (level : OLeanLevel) (cs : List Nat) :
+    Option (List (CEntryF Name Expr)) := do
+  let (r, _) ← f.viewRegion level
+  entriesAt r cs
+
+/-- **The kinds of the constants at some positions of a view**, expressions left out
+(`kindNamesAt`). -/
+def readKinds (f : ModFiles) (level : OLeanLevel) (cs : List Nat) :
+    Option (List (CKindF Name Unit)) := do
+  let (r, _) ← f.viewRegion level
+  cs.mapM (kindNamesAt r)
+
 /-! ## The errors -/
 
 /-- The module's files do not decode. -/

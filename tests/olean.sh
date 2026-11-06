@@ -30,9 +30,13 @@ case_() { # <description> <expected-exit> <args...>
 }
 CMP=${CMP:-.lake/build/bin/olean-compare}
 lake build olean-compare >/dev/null || exit 3
-views_() { # <description> <expected-exit> <pattern> <search path> <module>: a home's read
+views_() { # <description> <expected-exit> <pattern> <search path> <module>: all views parsed whole
+  cmp_ --views "$@"
+}
+cmp_() { # <mode> <description> <expected-exit> <pattern> <search path> <module>
+  local mode=$1; shift
   total=$((total+1))
-  timeout 60 "$CMP" --views "$4" "$5" >"$TMPDIR/olean-case.out" 2>&1
+  timeout 60 "$CMP" $mode "$4" "$5" >"$TMPDIR/olean-case.out" 2>&1
   local got=$?
   if [ "$got" != "$2" ]; then echo "OLEAN FAIL ($1): expected exit $2, got $got"; fail=1
   elif ! grep -q -- "$3" "$TMPDIR/olean-case.out"; then
@@ -50,7 +54,8 @@ case_grep() { # <description> <expected-exit> <pattern the output must hold> <ar
 
 # --- well-formed closures ---------------------------------------------
 case_ "a module-system module" 0 --olean --search-path=$LIB Tiny
-views_ "a home's read: all three views agree with each view's read" 0 "agrees" "$LIB" TinyUse
+views_ "all three views agree with each view's read" 0 "agrees" "$LIB" TinyUse
+cmp_ --home "a home's read: the load and its parts' check" 0 "hidden" "$LIB" TinyUse
 case_ "…at one worker" 0 --jobs=1 --olean --search-path=$LIB Tiny
 case_ "a module outside the module system (one .olean)" 0 --olean --search-path=$LIB TinyClassic
 case_ "a module and its import" 0 --olean --search-path=$LIB TinyUse
@@ -245,13 +250,16 @@ corrupt "a name table that names the constants differently (classic)" 3 TinyClas
 corrupt "a name table that names the constants differently (private part)" 3 Tiny.olean.private "$cswap"
 # (a part the private view does not read as a ModuleData: `--olean` reads the private
 # view, as Lean's import outside the module system does; a home's read rejects it)
-home_rejects() { # <description> <pattern> <search path> <module>
+# (the home's check of its parts, `checkViews`, rejects a mismatch, exit 1; reading all
+# three views whole first, as `--views` does, finds a part that is not a view, exit 3)
+home_rejects() { # <description> <pattern> <search path> <module> <exit of --views>
   case_ "$1 [--olean, the private view]" 0 --olean --search-path=$3 "$4"
-  views_ "$1 [a home's read]" 3 "$2" "$3" "$4"
+  views_ "$1 [all views parsed]" "$5" "$2" "$3" "$4"
+  cmp_ --home "$1 [a home's read]" 1 "$2" "$3" "$4"
 }
 d="$TMPDIR/con-leche-olean-home"
 rm -rf "$d"; cp -r "$LIB" "$d"; patch "$d/Tiny.olean" "$cswap"
-home_rejects "a name table that names the constants differently (exported part)" "name table" "$d" Tiny
+home_rejects "a name table that names the constants differently (exported part)" "name table" "$d" Tiny 3
 rm -rf "$d"
 corrupt "a name table shorter than the constants" 3 TinyClassic.olean "
 nt = struct.unpack_from('<Q', b, ro + 16)[0] - base
@@ -269,7 +277,7 @@ corrupt "one module storing a name twice" 3 TinyClassic.olean "$cdup" TinyClassi
 # the private part's header (task #383): its module-system flag cleared
 d="$TMPDIR/con-leche-olean-home"
 rm -rf "$d"; cp -r "$LIB" "$d"; patch "$d/Tiny.olean.private" "b[ro + 48] = 0"
-home_rejects "a private part outside the module system" "not of a module of the module system" "$d" Tiny
+home_rejects "a private part outside the module system" "not of a module of the module system" "$d" Tiny 1
 rm -rf "$d"
 xcorrupt0() { # <description> <expected-exit> <module> <expr> <args...>   (mode: $MOD)
   local desc=$1 want=$2 m=$3 expr=$4; shift 4
@@ -287,7 +295,7 @@ rcases() {
   xpatch "$d" Tiny "
 b, o = at(fld(consts('olean')['idT'], 0))
 b[o + 16] = 1"
-  home_rejects "an exported constant that is not its private one" "not a refinement" "$d" Tiny
+  home_rejects "an exported constant that is not its private one" "not a refinement" "$d" Tiny 1
   rm -rf "$d"
   # the stored recursor rules (Lean's kernel runs them on a loaded
   # .olean; con-leche installs the generated ones): T.rec's two rules in
@@ -316,7 +324,7 @@ sb[so + 32:so + 39] = b'HidUse\\0'" HidUse
   local d="$TMPDIR/con-leche-olean-$total"
   rm -rf "$d"; cp -r "$LIB" "$d"
   patch "$d/HidAll.olean.server" "struct.pack_into('<Q', b, ro + 8, struct.unpack_from('<Q', b, ro + 32)[0])"
-  home_rejects "the server part's imports not the exported part's" "imports are not" "$d:$INIT" HidAll
+  home_rejects "the server part's imports not the exported part's" "imports are not" "$d:$INIT" HidAll 3
   rm -rf "$d"
 }
 MOD=; rcases
@@ -443,7 +451,7 @@ for i in range(n):
         struct.pack_into('<Q', b, arr2 - base + 24 + 8 * i, c2)
 root2 = copy(root); setfld(root2, 2, arr2)
 struct.pack_into('<Q', b, 88, root2)"
-home_rejects "an exported statement of 2^80 nodes as a tree" "not a refinement" "$d" Tiny
+home_rejects "an exported statement of 2^80 nodes as a tree" "not a refinement" "$d" Tiny 1
 rm -rf "$d"
 
 # --- the imports at the start of the file --------------------------------
@@ -458,6 +466,33 @@ root = struct.unpack_from('<Q', b, 88)[0]
 setfld(root, 0, fld(root, 2))"
 case_grep "a root that disagrees with the header prefix" 3 "malformed .olean data" --olean --search-path=$g/root TinyClassic
 rm -rf "$g"
+
+# --- a worker's reads: the header fixpoint, the name index, the clash rule, freshness ---
+# (task #464, `olean-compare --reads`; the levels and the loaded names are Lean's own
+# `importModules`', compared by hand on every fixture and on two Mathlib modules)
+reads_() { cmp_ --reads "$@"; }
+reads_ "an import all of a module with a plain import: LvA whole, LvB exported, LvC not loaded" 0 \
+  "loads 2 modules (1 private, 1 exported)" "$LIB" LvM
+reads_ "a public import and an import all: LvA exported, LvB and LvC whole" 0 \
+  "loads 3 modules (2 private, 1 exported)" "$LIB" LvN
+reads_ "a private import of an import is not loaded: NlX's nl never meets NlY's" 0 \
+  "0 names held twice" "$MSP" NlM
+reads_ "two proofs of one statement, both loaded: merged" 0 "83 names held twice" "$MSP" TeqBoth
+swap_() { # <dir> <stand-in module> <module whose files take its place>
+  rm -f "$1/$2".olean*
+  for f in "$LIB/$3".olean*; do cp "$f" "$1/$2${f#$LIB/$3}"; done
+}
+d="$TMPDIR/con-leche-olean-reads"
+rm -rf "$d"; cp -r "$LIB" "$d"
+swap_ "$d" ClashX ClashB
+reads_ "two different constants of one name loaded together" 1 "ClashA and ClashX store different constants named clash" "$d" ClashM
+swap_ "$d" TeqX TeqQ2
+reads_ "two theorems of one name and two statements loaded together" 1 "store different constants named teq" "$d:$INIT" TeqBad
+swap_ "$d" FrX FrY
+reads_ "a module declaring a loaded name" 1 "declares fresh, which the module FrX" "$d" FrM
+swap_ "$d" MoX TinyClassic
+reads_ "a module importing one outside the module system" 1 "imports MoX, which is not" "$d" MoM
+rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"
 echo "olean gate: $ok/$total as expected"
