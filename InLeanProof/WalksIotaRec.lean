@@ -623,6 +623,132 @@ theorem mtcAndIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelS
     · rename_i c us' h'; exact absurd h' (hn c us')
     · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
 
+/-- A stored record's type is closed (`EnvWF`'s). -/
+theorem stored_closed (henv : ConLeche.EnvWF env) {n : ConLeche.Name} {ci : ConLeche.ConstantInfo}
+    (h : env.find? n = some ci) :
+    ci.toConstantVal.type.hasFvar = false ∧ ci.toConstantVal.type.looseBVarsBounded 0 = true := by
+  have hw := henv.consts _ (ConLeche.Env.find?_mem h)
+  exact ⟨hw.1, hw.2.2.2.1⟩
+
+theorem mtcBodyIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
+    {d : Nat} {major : Expr} {isK : Bool} {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat}
+    {T : Name} {cvT : Lean.ConstantVal} {caps : InLean.IndCaps} {crl : ConLeche.RecRule}
+    {ccvj ccvT : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
+    (hcvT : CVRel cvT ccvT) (hfT : env.find? (toName T) = some (.indInfo ccvT (toCaps caps)))
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
+    (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ mtcBodyIL .verified r fe d major isK rl cvj cnP T cvT caps
+    ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
+      Runs (mtcBodyP .verified (ConLeche.fueledFns .verified eager env) env d (TrS s₀ major) isK
+        crl ccvj cnP (toName T) ccvT (toCaps caps)) (TrS s' m) ∧
+      ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+  unfold mtcBodyIL mtcBodyP
+  cases isK with
+  | true => exact mtcKIL_specI ih hpi hlg hrl hcvj hs hok hw hc
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    rw [hrl, etaRescueOk_CV hcvj hcvT]
+    by_cases he : InLean.etaRescueOk rl.ctor cvj cvT caps = true
+    · simp only [he, ↓reduceIte]
+      obtain ⟨hcl, hlbb⟩ := stored_closed henv hfT
+      exact mtcEtaIL_specI ih hlg hv hcvT hcl hlbb hs hok hw hc
+    · simp only [he, Bool.false_eq_true, ↓reduceIte]
+      have hand : (toName T = ConLeche.andName) ↔ (T == InLean.andName) = true := by
+        rw [cl_andName, toName_eq_iff, beq_iff_eq]
+      by_cases ha : (T == InLean.andName) = true
+      · have hT := hand.2 ha
+        simp only [ha, hT, ↓reduceIte]
+        rw [← hT]
+        exact mtcAndIL_specI ih hpi hlg hv hrl hcvj hs hok hw hc
+      · simp only [ha, mt hand.1 ha, Bool.false_eq_true, ↓reduceIte]
+        refine tripleI_iff_run.2 fun m s' hr => ?_
+        obtain ⟨rfl, rfl⟩ := pure_run hr
+        exact post_of hs (TabLe.refl _) hok hw hc (Runs.pure _)
+
+/-- **The stuck-major rescue** (`majorToCtorC_spec`'s twin). -/
+theorem majorToCtorI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env)
+    {d : Nat} {recName : ConLeche.Name} {isK : Bool} {fire : InLean.RecRuleFire}
+    {rules : List RecursorRule} {crules : List ConLeche.RecRule}
+    (hrules : LRel (RuleRel fire) rules crules)
+    {i : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.majorToCtorI .verified r fe d isK rules i
+    ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
+      Runs (ConLeche.majorToCtor .verified (ConLeche.fueledFns .verified eager env) env d recName
+        isK crules (TrS s₀ i)) (TrS s' m) ∧
+      ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+  rw [majorToCtorI_eq]
+  have hpost : ∀ {P : ConLeche.FueledM ConLeche.Expr}, P = pure (TrS s₀ i) →
+      ⦃fun s => s = s₀⦄ (pure i : InLean.CheckCM Expr)
+      ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
+        Runs P (TrS s' m) ∧
+        ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+    intro P hP
+    refine tripleI_iff_run.2 fun m s' hr => ?_
+    obtain ⟨rfl, rfl⟩ := pure_run hr
+    exact post_of hs (TabLe.refl _) hok hw hc (by rw [hP]; exact Runs.pure _)
+  rw [isCtorAppC_TrS hv s₀]
+  by_cases hct : ConLeche.isCtorApp env (TrS s₀ i) = true
+  · simp only [hct, ↓reduceIte]
+    exact hpost (mtc_isCtor hct)
+  · have hct' : ConLeche.isCtorApp env (TrS s₀ i) = false := by simpa using hct
+    simp only [hct', Bool.false_eq_true, ↓reduceIte]
+    cases hrules with
+    | nil => exact hpost (mtc_notSingle hct' (fun _ h => nomatch h))
+    | @cons rl crl rules' crules' hrl hrest =>
+      cases hrest with
+      | cons _ _ => exact hpost (mtc_notSingle hct' (fun _ h => by simp at h))
+      | nil =>
+        dsimp only
+        cases hcv : fe.ctorView? rl.ctor with
+        | none =>
+          dsimp only
+          exact hpost (mtc_notCtor hct' rfl (fun cvj nP nF h => by
+            rw [hrl.1] at h; exact hv.ctorNone _ hcv _ _ _ h))
+        | some p =>
+          obtain ⟨cvj, cnP, nF⟩ := p
+          obtain ⟨ccvj, hcvj, hfj⟩ := hv.ctor _ cvj cnP nF hcv
+          rw [← hrl.1] at hfj
+          dsimp only
+          have hty : ccvj.type = TrS s₀ cvj.type := (hcvj.2.2.trS s₀).symm
+          have hhead : (ccvj.type.piResult).getAppFn =
+              TrS s₀ (EO.stripTop ((InLean.piResult cvj.type).getAppFnT)) := by
+            rw [stripTop_getAppFnT, TrS_getAppFnT, TrS_piResult, hty]
+          generalize hx : EO.stripTop ((InLean.piResult cvj.type).getAppFnT) = x at hhead
+          cases x with
+          | const T lus =>
+            dsimp only
+            rw [TrS_const] at hhead
+            cases hind : fe.indView? T with
+            | none =>
+              dsimp only
+              exact hpost (mtc_notInd hct' rfl hfj hhead (fun cvT caps h =>
+                hv.indNone T hind cvT caps h))
+            | some q =>
+              obtain ⟨cvT, caps⟩ := q
+              obtain ⟨ccvT, hcvT, hfT⟩ := hv.ind T cvT caps hind
+              dsimp only
+              rw [mtc_body hct' rfl hfj hhead hfT]
+              exact mtcBodyIL_specI ih hpi hlg henv hv hrl.1 hcvj hcvT hfT hs hok hw hc
+          | fvar id =>
+            have hnc : ∀ T lus, (ccvj.type.piResult).getAppFn ≠ .const T lus := by
+              intro T lus h
+              rw [hhead] at h
+              simp only [TrS, trE] at h
+              cases hf : FVarTable.trans (tableOf s₀) id with
+              | none => simp [hf] at h
+              | some c =>
+                obtain ⟨d', ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c hf
+                simp [hf] at h
+            exact hpost (mtc_notConst hct' rfl hfj hnc)
+          | mdata _ y => exact (stripTop_ne_mdata hx).elim
+          | _ =>
+            exact hpost (mtc_notConst hct' rfl hfj (fun T lus h => by
+              rw [hhead] at h; simp [TrS, trE] at h))
+
 end Walks
 
 end InLeanProof
