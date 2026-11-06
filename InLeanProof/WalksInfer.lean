@@ -230,4 +230,57 @@ theorem inferLamsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) 
         mkFVarM_specI (mode := mode) (eager := eager) (env := env), ihFuel,
         inferLamsLeafI_spec ih] <;> finish
 
+/-! ## The infer-∀ loop walks
+
+The ∀-loop's answer is a sort at an `imax` chain InLean builds; its
+translation is the mirror's, but nothing bounds its depth (`okLv`), so
+these posts state no reading of the answer: see the lane's record
+(DESIGN.md, task #451, lane P2-infer). -/
+
+/-- The `imax` fold is the mirror's, through the level translation. -/
+theorem inferPisOut_trL :
+    ∀ (stk : List Level) (v : Level),
+      ConLeche.inferPisOut (m := ConLeche.FueledM) (stk.map trL) (trL v) =
+        pure (trL (inferPisOutI stk v))
+  | [], v => rfl
+  | u :: rest, v => by
+    rw [List.map_cons, ConLeche.inferPisOut, InLean.inferPisOutI]
+    exact inferPisOut_trL rest (.imax u v)
+
+theorem inferPisLeafI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
+    {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : InLean.CState}
+    (hs : CSOKI mode eager env s₀) (ht : OkS s₀ t = true) (hfv : OkSL s₀ fvs.toList = true)
+    (hfc : AllClosed (TrSL s₀ fvs.toList) = true)
+    (hw : ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse))
+    (hc : ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ inferPisLeafI r d t k fvs stk
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.inferPisLeaf (ConLeche.fueledFns mode eager env) d (TrS s₀ t) k
+        (TrSL s₀ fvs.toList).reverse (stk.map trL)) (TrS s' v); ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.inferPisLeaf.eq_1, inferPisOut_trL] =>
+    vcgen [InLean.inferPisLeafI, instListRevM_specI hs, ih.infer, ih.whnf] <;> finish
+
+theorem inferPisI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat} :
+    ∀ (fuel : Nat) {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : InLean.CState},
+      CSOKI mode eager env s₀ → OkS s₀ t = true → OkSL s₀ fvs.toList = true →
+      AllClosed (TrSL s₀ fvs.toList) = true →
+      ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse) →
+      ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true →
+      ⦃fun s => s = s₀⦄ inferPisI r d fuel t k fvs stk
+      ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.inferPis (ConLeche.fueledFns mode eager env) d fuel (TrS s₀ t) k
+          (TrSL s₀ fvs.toList).reverse (stk.map trL)) (TrS s' v); ⊤⦄ := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro _ _ _ _ _ hs _ _ _ _ _
+    sym only [conleche_grind, ConLeche.inferPis.eq_3] =>
+      vcgen [InLean.inferPisI, inferPisLeafI_spec ih] <;> finish
+  | succ fuel ihFuel =>
+    intro _ _ _ _ _ hs _ _ _ _ _
+    sym only [conleche_grind, ConLeche.inferPis.eq_1, ConLeche.inferPis.eq_2, List.map_cons] =>
+      vcgen [InLean.inferPisI.eq_def, instListRevM_specI hs, ih.infer, ih.whnf,
+        mkFVarM_specI (mode := mode) (eager := eager) (env := env), ihFuel,
+        inferPisLeafI_spec ih] <;> finish
+
 end InLeanProof
