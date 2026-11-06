@@ -261,8 +261,21 @@ theorem btypeR {n d : Name} (hn : (C.find? n).isSome = true) (h : BlockName C E 
     ci.toConstantVal.type.constsResolve (R n) = true :=
   S.deepType hn h.1 (bfwd h hf) hk
 
+/-- **A recorded member whose stored type does not show its telescope**: the source reduced it at
+a part of itself (`FamilyRan`), so at itself (`reducedFormer_ext`), so the context reduces it alike
+and the reduct is read alike (the bundle's `defh`). -/
+theorem defhRun {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
+    (hD : D ∈ (S.m n).lfpBlocks) {mm : Nat} (hmm : mm < D.k) (hb : BlockName C E R n (D.member mm))
+    {f : ConstantVal} (ht : D.telescope mm = some f)
+    {cv : ConstantVal} {caps : IndCaps} (hf : (E n).find? (D.member mm) = some (.indInfo cv caps))
+    (hfl : ConLeche.formerDefHeaded cv = true) :
+    f.type.constsResolve (R n) = true ∧
+      ∃ F', reducedFormer (fueledOps .verified F') C cv (caps.nparams + caps.nIdx) = .ok f := by
+  obtain ⟨envB, F, hx, hr, hrun⟩ := S.ran n D hD mm f hmm ht cv caps hf hfl
+  exact S.defh n _ cv caps hn hb.1 (bfwd hb hf) hfl F f (reducedFormer_ext hx hr hrun)
+
 /-- **A recorded member's telescope is read alike**: its stored type where that shows its
-telescope, the bundle's `defh` where it does not. -/
+telescope, `defhRun` where it does not. -/
 theorem telR {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
     (hD : D ∈ (S.m n).lfpBlocks) {mm : Nat} (hmm : mm < D.k) (hb : BlockName C E R n (D.member mm))
     {cv : ConstantVal} {caps : IndCaps} (hf : (E n).find? (D.member mm) = some (.indInfo cv caps))
@@ -276,7 +289,7 @@ theorem telR {n : Name} (hn : (C.find? n).isSome = true) {D : LfpDatum V}
     | none => simp only [LfpDatum.formerAt, ht, Option.getD_none]; exact hty
     | some f =>
       simp only [LfpDatum.formerAt, ht, Option.getD_some]
-      exact (S.defh n hn D hD mm f hmm ht cv caps (bfwd hb hf) hfl).1
+      exact (S.defhRun hn hD hmm hb ht hf hfl).1
 
 /-- **A recorded block's clauses hold at the context.** -/
 theorem lfp_ok : ∀ D ∈ S.lfpList, LfpClause aC D ∧ LfpStored C D ∧ LfpReads aC C D ∧

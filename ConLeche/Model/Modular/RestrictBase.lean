@@ -330,7 +330,7 @@ theorem eq_law : EqLaw S.base := by
 
 theorem reduce_ops : ReduceOps S.base := by
   intro c hc cv hf hpin
-  have hE := S.red c _ hf hc
+  have hE := S.read.reduce c _ hf hc
   obtain ⟨hel, hlaw⟩ := (S.m c).reduce_ops c hc cv hE hpin
   have helR : ((R c).find? (reduceElemName c)).isSome = true :=
     (S.scopeR hf).2.2.2.2 _ (by
@@ -364,6 +364,56 @@ theorem caps_ok : CapsOk S.base := by
     intro ρ ts x y hlen hfit hx hy
     rw [base_acval, S.leafSelf hf] at hfit hx hy
     exact hlaw ρ ts x y hlen hfit hx hy
+
+omit [SetTheory V] S in
+theorem pinnedInfo_nat : pinnedInfo natName = natA := by simp (decide := true)
+
+/-- **The context stores `Nat`'s three names together**: a constructor of the trio is at its
+literal shape, whose type reads `Nat`; and `Nat` is at its pin, whose constructors are read alike
+with it. -/
+theorem natFacts : NatFacts C := by
+  refine ⟨fun h => ?_⟩
+  have hN : (C.find? natName).isSome = true := by
+    rcases h with h | h | h
+    · exact h
+    · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h
+      have hs := S.wf.shapes ci (Env.find?_mem hci)
+      have hty := (S.scopeR hci).1
+      unfold litShapeOk at hs
+      rw [Env.find?_name hci] at hs
+      simp (decide := true) only [↓reduceIte] at hs
+      cases ci <;> simp only [natZeroOk, Bool.false_eq_true] at hs
+      rename_i cv _ _
+      simp only [Bool.and_eq_true, beq_iff_eq] at hs
+      have : Expr.constsAll (fun d => ((R natZeroName).find? d).isSome = true) cv.type := hty
+      rw [hs.2] at this
+      exact S.storedC this
+    · obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp h
+      have hs := S.wf.shapes ci (Env.find?_mem hci)
+      have hty := (S.scopeR hci).1
+      unfold litShapeOk at hs
+      rw [Env.find?_name hci] at hs
+      simp (decide := true) only [↓reduceIte] at hs
+      cases ci <;> simp only [natSuccOk, Bool.false_eq_true] at hs
+      rename_i cv _ _
+      simp only [Bool.and_eq_true] at hs
+      obtain ⟨-, hm⟩ := hs
+      split at hm
+      · next c1 c2 heq =>
+        simp only [Bool.and_eq_true, beq_iff_eq] at hm
+        have : Expr.constsAll (fun d => ((R natSuccName).find? d).isSome = true) cv.type := hty
+        rw [heq] at this
+        simp only [Expr.constsAll] at this
+        rw [← hm.1]; exact S.storedC this.1
+      · exact nomatch hm
+  obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hN
+  have hpin := (S.basis_pinned natName ci hci (by decide)).1.1
+  rw [pinnedInfo_nat] at hpin
+  have hci' : C.find? natName = some (.indInfo (natA.toConstantVal.atLps ci.toConstantVal.levelParams)
+      { all := [natName], ctors := [natZeroName, natSuccName] }) := by
+    rw [hci, hpin]; rfl
+  have hc := S.read.ctors natName natName _ _ hN (S.selfR hci) hci'
+  exact ⟨hN, S.storedC (hc _ (by simp)), S.storedC (hc _ (by simp))⟩
 
 /-- **The context's η families are closed.** -/
 theorem etaClosed : EtaFamiliesClosed C := by

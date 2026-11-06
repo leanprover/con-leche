@@ -15,12 +15,10 @@ on every name read alike, has a model (`CtxModel`): every law of a context const
 its source's law (`Model/Modular/Restrict{Agree,Base,Nat,Rules,Lfp}.lean`), and the context
 records its sources' blocks.
 
-Three facts come as hypotheses beyond `CtxRead` and the sources' models: the context's `Nat`
-facts (`hnatC`); that a compiler-trust opaque's name is stored as its source's constant (`hred`:
-a definition at such a name presented as its statement would carry no identity law); and, for a
-recorded member whose stored type does not show its telescope, that the telescope its block read
-is read alike and that its reduction runs at a part of the context (`hdh`; the source's run is at
-a part of the source).
+One fact comes as a hypothesis beyond `CtxRead` and the sources' models (`hdh`): a former read
+alike whose stored type does not show its telescope reduces at the context as at its source, and
+the reduct is read alike.  It stays explicit: the refinement monotonicity of reduction (task #469)
+is to discharge it.
 -/
 
 namespace ConLeche.Model.Modular
@@ -76,36 +74,39 @@ theorem model_cover : LfpCover S.model [] where
   wid := fun D hD => by
     obtain ⟨n, -, -, -, hDn, -⟩ := S.mem_lfpList hD; exact (S.cover n).wid D hDn
 
-/-- **The context's recorded telescopes were reduced at a part of it.** -/
+/-- **The context's recorded telescopes were reduced at it.** -/
 theorem model_ran : FamilyRan S.model := by
   intro D hD mm f hmm ht cv caps hf hfl
-  obtain ⟨n, _, _, hfn, hDn, -⟩ := S.mem_lfpList hD
-  exact (S.defh n (isSome_of hfn) D hDn mm f hmm ht cv caps hf hfl).2
+  obtain ⟨n, cvn, capsn, hfn, hDn, hmem⟩ := S.mem_lfpList hD
+  have hb := (S.blockNames hfn hDn hmem).1 mm hmm
+  have hfE : (E n).find? (D.member mm) = some (.indInfo cv caps) := by rw [← hb.2]; exact hf
+  obtain ⟨-, F, hrun⟩ := S.defhRun (isSome_of hfn) hDn hmm hb ht hfE hfl
+  have hx : EnvExt C C :=
+    ⟨fun _ _ h => h, fun _ _ => rfl, S.model.storedFacts S.natFacts⟩
+  exact ⟨C, F, hx, (S.wf.consts _ (Env.find?_mem hf)).2.2.1, hrun⟩
 
 end CtxSrc
 
 /-- **THE CONTEXT'S MODEL**: a context read from its sources' covered models has a covered model
-at the leaves `aC` (see the module docstring for the three further hypotheses). -/
+at the leaves `aC` (see the module docstring for the further hypothesis `hdh`). -/
 theorem ctxModel {V : Type w} [SetTheory V] {C : Env} {E R : Name → Env}
     {aC : Name → (Name → Nat) → Term}
     (hread : CtxRead C E R)
     (m : (n : Name) → EnvModelM V (E n)) (hcov : ∀ n, LfpCover (m n) [])
     (heta : ∀ n, EtaFamiliesClosed (E n)) (hnat : ∀ n, NatFacts (E n))
-    (hnatC : NatFacts C)
-    (hred : ∀ n ci, C.find? n = some ci → n ∈ reduceOpNames → (E n).find? n = some ci)
-    (hdh : ∀ n, (C.find? n).isSome = true → ∀ D ∈ (m n).lfpBlocks, ∀ mm f, mm < D.k →
-      D.telescope mm = some f → ∀ cv caps, C.find? (D.member mm) = some (.indInfo cv caps) →
-      formerDefHeaded cv = true →
-      f.type.constsResolve (R n) = true ∧
-      ∃ envB F, EnvExt envB C ∧ cv.type.constsResolve envB = true ∧
-        reducedFormer (fueledOps .verified F) envB cv (caps.nparams + caps.nIdx) = .ok f)
+    (hran : ∀ n, FamilyRan (m n))
+    (hdh : ∀ n T cv caps, (C.find? n).isSome = true → ((R n).find? T).isSome = true →
+      C.find? T = some (.indInfo cv caps) → formerDefHeaded cv = true →
+      ∀ F f, reducedFormer (fueledOps .verified F) (E n) cv (caps.nparams + caps.nIdx) = .ok f →
+        f.type.constsResolve (R n) = true ∧
+        ∃ F', reducedFormer (fueledOps .verified F') C cv (caps.nparams + caps.nIdx) = .ok f)
     (hleaf : ∀ n, (C.find? n).isSome = true → ∀ d, ((R n).find? d).isSome = true →
       aC d = (m n).base2.acval d)
     (hclosed : ∀ n ψ, Term.Closed (aC n ψ)) (hwd : ∀ n ψ (ρ : Nat → V), WellDenoted V ρ (aC n ψ)) :
     CtxModel V C aC := by
   let S : CtxSrc V C E R aC :=
-    ⟨hread, m, hcov, heta, hnat, hnatC, hred, hdh, hleaf, hclosed, hwd⟩
-  exact ⟨S.model, S.model_cover, S.model_ran, S.etaClosed, hnatC, fun _ _ => by
+    ⟨hread, m, hcov, heta, hnat, hran, hdh, hleaf, hclosed, hwd⟩
+  exact ⟨S.model, S.model_cover, S.model_ran, S.etaClosed, S.natFacts, fun _ _ => by
     rw [S.model_acval]⟩
 
 end ConLeche.Model.Modular
