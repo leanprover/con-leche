@@ -60,6 +60,13 @@ binary that exits 0 is one of the model's outcomes, with that code, if
    cannot be set; and
 3. Lean's compiler and runtime run the code as written.
 
+**Several processes.**  A statement about several runs of the binary (the import graph check,
+`--check-graph`, and the per-module checks of the modules it numbers) is about each run's
+outcomes on ONE snapshot: it assumes (1) to (3) of every run, with one snapshot for all of them,
+that is, the files the runs read do not change between the first run's start and the last run's
+end.  Nothing more is assumed of how the runs are started or scheduled: the statement is a
+composition of what each run's exit 0 says, and no run reads another's result.
+
 The argument is then plain: the generic code is the same at both
 instances; at every file operation the binary's answer is, by (1) and
 (2), the model's; at every `liftIO` the binary's answer is SOME value or
