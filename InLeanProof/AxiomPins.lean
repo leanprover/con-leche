@@ -7,6 +7,8 @@ public import InLeanProof.FVar
 public import InLeanProof.Range
 public import InLeanProof.KnotI
 public import InLeanProof.StateOpsI
+public import InLeanProof.WalksInfer
+public import InLeanProof.KnotAssembly
 public import InLeanProof.SquarePilot
 
 /-!
@@ -396,3 +398,209 @@ info: 'InLeanProof.isEquivListLM_specI' depends on axioms: [propext, Classical.c
 -/
 #guard_msgs in
 #print axioms InLeanProof.isEquivListLM_specI
+
+/--
+info: 'InLeanProof.inferLamsOutI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferLamsOutI_spec
+
+/--
+info: 'InLeanProof.inferLamsLeafI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferLamsLeafI_spec
+
+/--
+info: 'InLeanProof.inferLamsI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferLamsI_spec
+
+/--
+info: 'InLeanProof.inferPisOut_trL' does not depend on any axioms
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferPisOut_trL
+
+/--
+info: 'InLeanProof.inferPisLeafI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferPisLeafI_spec
+
+/--
+info: 'InLeanProof.inferPisI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferPisI_spec
+
+/--
+info: 'InLeanProof.inferSpinePiI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferSpinePiI_spec
+
+/--
+info: 'InLeanProof.inferSpineWhnfI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferSpineWhnfI_spec
+
+/--
+info: 'InLeanProof.inferSpineI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferSpineI_spec
+
+/--
+info: 'InLeanProof.inferSpineIOWhnfI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferSpineIOWhnfI_spec
+
+/--
+info: 'InLeanProof.inferSpineIOI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.inferSpineIOI_spec
+
+/--
+info: 'InLeanProof.zeroWhereZero_trL' depends on axioms: [propext, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.zeroWhereZero_trL
+
+/--
+info: 'InLeanProof.checkGuardRowsI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkGuardRowsI_spec
+
+/--
+info: 'InLeanProof.stripTop_of_TrS_lam' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.stripTop_of_TrS_lam
+
+/--
+info: 'InLeanProof.stripTop_of_TrS_forallE' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.stripTop_of_TrS_forallE
+
+/--
+info: 'InLeanProof.mkFVarM_tys' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.mkFVarM_tys
+
+/--
+info: 'InLeanProof.memoEI_infer_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.memoEI_infer_specI
+
+/--
+info: 'InLeanProof.memoEI_whnfCore_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.memoEI_whnfCore_specI
+
+/--
+info: 'InLeanProof.memoEI_whnf_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.memoEI_whnf_specI
+
+/--
+info: 'InLeanProof.memoEI_inferIO_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.memoEI_inferIO_specI
+
+/--
+info: 'InLeanProof.memoBI_defeq_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.memoBI_defeq_specI
+
+/--
+info: 'InLeanProof.defeqE_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defeqE_specI
+
+/--
+info: 'InLeanProof.CSOKI.enterEager' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.CSOKI.enterEager
+
+/--
+info: 'InLeanProof.CSOKI.leaveEager' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.CSOKI.leaveEager
+
+/--
+info: 'InLeanProof.ssimI_succ' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.ssimI_succ
+
+/--
+info: 'InLeanProof.ssimI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.ssimI

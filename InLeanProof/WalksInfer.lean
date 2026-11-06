@@ -3,6 +3,24 @@ module
 public import InLeanProof.StateOpsI
 public import ConLeche.Verify.Cached.DiscC4
 
+/-!
+# The inference walks (task #451, lane P2-infer)
+
+The twins of `Verify/Cached/BinderLoopC.lean` (the binder-telescope loops)
+and of the inference half of `DiscC4.lean` (the spine loops, the guard's
+rows), each a triple under `KnotSpecI` of its callback record, proved by its
+twin's `sym only [conleche_grind, …] => vcgen […] <;> finish` script.  The
+vocabulary added here: lists and the accumulator arrays along the run,
+closedness one constructor at a time and through the walks' operations
+(InLean's instantiation lifts, con-leche's does not: values stay closed),
+the fall-through refutation for a binder (`stripTop_of_TrS_lam`/`_forallE`),
+the zero-ness test through the level translation.
+
+Callees owned by P2-whnf are named hypotheses (`DefeqArgSpecI`).  The
+∀-loops state no reading of their answer: InLean builds an `imax` chain
+nothing bounds (DESIGN.md, task #451, lane P2-infer).
+-/
+
 set_option experimental.vcgen true
 
 public section
@@ -159,15 +177,6 @@ hypothesis refutes. -/
   | .lam _ _ _ bi | .forallE _ _ _ bi => bi
   | _ => .default
 
-theorem trans_getD_ne_binder (s : InLean.CState) (id : FVarId) :
-    (∀ a b, (FVarTable.trans (tableOf s) id).getD (.bvar 0) ≠ .lam a b) ∧
-      (∀ a b, (FVarTable.trans (tableOf s) id).getD (.bvar 0) ≠ .forallE a b) := by
-  cases h : FVarTable.trans (tableOf s) id with
-  | none => exact ⟨fun _ _ h => (nomatch h), fun _ _ h => (nomatch h)⟩
-  | some c =>
-    obtain ⟨d, ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c h
-    exact ⟨fun _ _ h => (nomatch h), fun _ _ h => (nomatch h)⟩
-
 /-- The translation is a lambda (a test the fall-through refutation reads). -/
 @[expose] def isLamC : ConLeche.Expr → Bool
   | .lam .. => true
@@ -182,9 +191,11 @@ theorem trans_getD_ne_binder (s : InLean.CState) (id : FVarId) :
 @[conleche_grind =] theorem isForallC_forallE (a b : ConLeche.Expr) :
     isForallC (.forallE a b) = true := rfl
 
-/-- Keyed by the translation alone, guarded by the Boolean test: the
-stripped node is a lambda only where the translation is one (a pattern on
-the translation's binder would pair every translation with every binder). -/
+/-- Guarded by the Boolean test and keyed by the stripped node and the
+translation (a pattern on the translation's binder would pair every
+translation with every binder; one on the translation alone would create a
+`stripTop` of every translated term, and so on without end): the stripped
+node is a lambda where the translation is one. -/
 theorem stripTop_of_TrS_lam {s : InLean.CState} {e : Expr} (h : isLamC (TrS s e) = true) :
     EO.stripTop e = .lam (binderNameOf (EO.stripTop e)) (binderDomOf (EO.stripTop e))
       (binderBodyOf (EO.stripTop e)) (binderInfoOf (EO.stripTop e)) := by
@@ -576,5 +587,112 @@ theorem inferSpineIOI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env 
     sym only [conleche_grind, ConLeche.inferSpineIO_pi, ConLeche.inferSpineIO_ne_pi,
         ConLeche.inferSpineIOPi] =>
       vcgen [inferSpineIOI_cons, ihr.triple, inferSpineIOWhnfI_spec ih ihr hs] <;> finish
+
+/-! ## A projection's guard (`DiscC4.lean`'s guard walks)
+
+The rows and the zero-ness test, through the translation. -/
+
+/-- The zero-ness datum, translated. -/
+@[expose] def trPW : InLean.PropWhen → ConLeche.PropWhen
+  | .never => .never
+  | .ifAllZero ps => .ifAllZero (ps.map toName)
+
+theorem trPW_inter (a b : InLean.PropWhen) : trPW (a.inter b) = (trPW a).inter (trPW b) := by
+  cases a <;> cases b <;> simp [trPW, InLean.PropWhen.inter, ConLeche.PropWhen.inter]
+
+theorem zeronessOf_trL : ∀ {u : Level}, okL u = true →
+    ConLeche.Level.zeronessOf (trL u) = trPW (Lvl.zeronessOf u)
+  | .zero, _ => rfl
+  | .param _, _ => rfl
+  | .mvar _, h => by simp [okL] at h
+  | .succ _, _ => rfl
+  | .max u v, h => by
+    simp only [okL, Bool.and_eq_true] at h
+    simp only [trL, ConLeche.Level.zeronessOf, Lvl.zeronessOf, trPW_inter,
+      zeronessOf_trL h.1, zeronessOf_trL h.2]
+  | .imax u v, h => by
+    simp only [okL, Bool.and_eq_true] at h
+    simp only [trL, ConLeche.Level.zeronessOf, Lvl.zeronessOf, zeronessOf_trL h.2]
+
+theorem contains_map_toName (ps : List Name) (q : Name) :
+    (ps.map toName).contains (toName q) = ps.contains q := by
+  induction ps with
+  | nil => rfl
+  | cons p ps ih =>
+    simp only [List.map_cons, List.contains_cons, ih, name_beq_eq_decide q p]
+    congr 1
+
+/-- The guard's zero-ness test commutes with the translation. -/
+theorem zeroWhereZero_trL {g u : Level} (hg : okL g = true) (hu : okL u = true) :
+    ConLeche.Level.zeroWhereZero (trL g) (trL u) = Lvl.zeroWhereZero g u := by
+  simp only [ConLeche.Level.zeroWhereZero, Lvl.zeroWhereZero, zeronessOf_trL hg, zeronessOf_trL hu]
+  cases Lvl.zeronessOf g <;> cases Lvl.zeronessOf u <;> simp only [trPW, List.all_map]
+  congr 1
+  funext q
+  exact contains_map_toName _ q
+grind_pattern [conleche_grind] zeroWhereZero_trL => Lvl.zeroWhereZero g u, trL g, trL u
+
+@[conleche_grind =] theorem okLv_okL (u : Level) : okLv u = (okL u && decide (depthS u ≤ maxLevelDepth)) :=
+  rfl
+
+/-- A row list, translated. -/
+@[expose] def TrRows (s : InLean.CState) (rows : List (Nat × Expr)) : List (Nat × ConLeche.Expr) :=
+  rows.map fun p => (p.1, TrS s p.2)
+
+/-- Every row has a reading and is closed. -/
+@[expose] def OkRows (s : InLean.CState) (rows : List (Nat × Expr)) : Bool :=
+  rows.all fun p => OkS s p.2 && (TrS s p.2).looseBVarsBounded 0
+
+@[conleche_grind =] theorem TrRows_nil (s : InLean.CState) : TrRows s [] = [] := rfl
+@[conleche_grind =] theorem TrRows_cons (s : InLean.CState) (d : Nat) (e : Expr)
+    (rows : List (Nat × Expr)) : TrRows s ((d, e) :: rows) = (d, TrS s e) :: TrRows s rows := rfl
+@[conleche_grind =] theorem OkRows_nil (s : InLean.CState) : OkRows s [] = true := rfl
+@[conleche_grind =] theorem OkRows_cons (s : InLean.CState) (d : Nat) (e : Expr)
+    (rows : List (Nat × Expr)) :
+    OkRows s ((d, e) :: rows) = (OkS s e && (TrS s e).looseBVarsBounded 0 && OkRows s rows) := by
+  simp [OkRows, Bool.and_assoc]
+
+theorem okRows_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
+    ∀ {rows : List (Nat × Expr)}, OkRows s₀ rows = true → OkRows s₁ rows = true
+  | [], _ => rfl
+  | (d, e) :: rows, hr => by
+    simp only [OkRows_cons, Bool.and_eq_true] at hr ⊢
+    exact ⟨⟨okS_of_tabLe h hr.1.1, by rw [TrS_of_tabLe h hr.1.1]; exact hr.1.2⟩,
+      okRows_of_tabLe h hr.2⟩
+grind_pattern [conleche_grind] okRows_of_tabLe => TabLe s₀ s₁, OkRows s₁ rows
+
+theorem TrRows_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) :
+    ∀ {rows : List (Nat × Expr)}, OkRows s₀ rows = true → TrRows s₁ rows = TrRows s₀ rows
+  | [], _ => rfl
+  | (d, e) :: rows, hr => by
+    simp only [OkRows_cons, Bool.and_eq_true] at hr
+    simp only [TrRows_cons, TrS_of_tabLe h hr.1.1, TrRows_of_tabLe h hr.2]
+grind_pattern [conleche_grind] TrRows_of_tabLe => TabLe s₀ s₁, TrRows s₁ rows
+
+theorem GuardRowsWS.cons_eq (d : Nat) (e : ConLeche.Expr) (rows : List (Nat × ConLeche.Expr)) :
+    ConLeche.GuardRowsWS ((d, e) :: rows) = (ConLeche.Expr.WScoped d e ∧ ConLeche.GuardRowsWS rows) := by
+  simp only [ConLeche.GuardRowsWS, List.mem_cons, forall_eq_or_imp]
+attribute [conleche_grind =] GuardRowsWS.cons_eq
+
+/-- The rows of a projection's guard simulate their pure original. -/
+theorem checkGuardRowsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r)
+    (guardSort : Level) (hg : okL guardSort = true) :
+    ∀ {rows : List (Nat × Expr)} {s₀ : InLean.CState}, CSOKI mode eager env s₀ →
+      OkRows s₀ rows = true → ConLeche.GuardRowsWS (TrRows s₀ rows) →
+      ⦃fun s => s = s₀⦄ checkGuardRowsI r.inferIO r.whnf guardSort rows
+      ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.checkGuardRows (ConLeche.fueledFns mode eager env).inferIO
+          (ConLeche.fueledFns mode eager env).whnf (trL guardSort) (TrRows s₀ rows)) v; ⊤⦄ := by
+  intro rows
+  induction rows with
+  | nil =>
+    intro _ _ _ _
+    sym only [conleche_grind, ConLeche.checkGuardRows] =>
+      vcgen [InLean.checkGuardRowsI] <;> finish
+  | cons p rest ihr =>
+    obtain ⟨d, dom⟩ := p
+    intro s₀ hs _ _
+    sym only [conleche_grind, ConLeche.checkGuardRows] =>
+      vcgen [InLean.checkGuardRowsI.eq_def, ih.inferIO, ih.whnf, ihr] <;> finish
 
 end InLeanProof

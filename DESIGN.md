@@ -110991,3 +110991,79 @@ by `vcgen`: they are the walks' callee specs, not walks.
   default discharger does not discharge the side conditions of a local
   `∀`-hypothesis here ("failed to assign proof"), so the level proofs
   rewrite with `rw` and close side goals separately.
+
+### Lane P2-infer: the inference walks, the knot assembly, two false statements (2026-11-07)
+
+`InLeanProof/WalksInfer.lean` and `InLeanProof/KnotAssembly.lean`, every
+theorem without `sorry`, axioms pinned in `AxiomPins.lean`.
+
+**Finding 1: `SSimI` was false as stated, the invariant was too weak
+(fixed, foundation change).**  `CSOKI` did not exclude an interned type that
+reads as a non-closed term: at such a state (one number at depth 0 of type
+`.bvar 0`; the table's invariant holds, every memo empty), the knot's `infer`
+at that free variable answers the type, `.bvar 0`, and `KnotSpecI`'s post
+demands a closed answer.  So `CSOKI` gains `fvClosed` (every interned type
+reads closed) and `mkFVarM_specI` takes the type's closedness, which every
+call site has (an opened domain of a closed term).  Separately, a unary memo
+clause (`UnaryOK`) now states its value closed: a hit must answer closed,
+and the pure `inferTypeIO` has no closedness theorem to read it off (the
+cached tier never needed one); the body's post supplies it at the insert.
+Repaired in `StateOpsI.lean` (`CSOKI.of_tabLe` takes the new table's
+closedness; `mkFVarM_tys`: interning keeps the type table or pushes the
+type).  Other lanes: `mkFVarM_specI` has one more premise.
+
+**Finding 2: the inference of a sort or a Π-type is false as stated, the
+code builds levels past C's depth bound (not fixed; InLean's code).**
+`inferBodyI`'s sort arm answers `.sort (.succ u)`, its Π-arms `.sort` of an
+`imax` chain (`inferPisOutI`, `inferBodyIOI`'s ∀ arm).  At an input
+`.sort u` with `depthS u = maxLevelDepth` (2^24 − 1; `OkS` admits it) the
+answer's level is one deeper: `okLv` fails, so `KnotSpecI.infer`'s post
+`OkS s' v` is false, and `BodySpecI` of `inferBodyI` cannot be proved.  C's
+`lean_level_mk_data` panics there, so the binary never returns such a term,
+but the logic's `Level.succ` does.  The same remedy as P2-0's level-depth
+check would do: a cached-depth test before building `succ`/`imax` (the two
+arms and `inferPisLeafI`), an internal error past the bound.  To be ruled.
+The ∀-loop walks are proved without a reading of their answer (`Runs` and
+the invariant only), so they stand under either remedy.
+
+**Proved** (`WalksInfer.lean`; the twins' scripts, each one
+`sym … => vcgen … <;> finish` per arm or induction case):
+* `BinderLoopC`'s twins: `inferLamsOutI_spec`, `inferLamsLeafI_spec`,
+  `inferLamsI_spec`; `inferPisOut_trL`, `inferPisLeafI_spec`, `inferPisI_spec`.
+* `DiscC4`'s inference half: `inferSpineI_spec` (its two arms named,
+  `inferSpinePiI`/`inferSpineWhnfI`, `rfl` restatements, twins of the pure
+  `inferSpinePi`/`inferSpineWhnf`), `inferSpineIOI_spec`
+  (`inferSpineIOWhnfI`), `checkGuardRowsI_spec` (with `zeroWhereZero_trL`).
+* Vocabulary: lists and accumulator arrays along the run (`TrSL_of_tabLe`,
+  `TrSL_push_rev`, …), closedness one constructor at a time and through
+  opening (`lbb_open_binder`, `lbb_abstract1`), the binder fall-through
+  (`stripTop_of_TrS_lam`/`_forallE`: guarded by a Boolean test of the
+  translation and keyed by the stripped node *and* the translation; keyed by
+  the translation's binder it pairs every translation with every binder,
+  keyed by the translation alone it builds a `stripTop` of every translated
+  term without end; both hung `finish`).  A callee spec passed to `vcgen` as
+  an `abbrev`-ed `∀`-triple hypothesis hangs `finish` (grind E-matches the
+  unfolded `∀`): `DefeqArgSpecI` is a `def` with a `.triple` restatement.
+
+**Proved** (`KnotAssembly.lean`, `KnotC.lean`'s twin): the memo wrappers in
+triple form, one `vcgen` line each (`memoEI_whnfCore_specI`,
+`memoEI_whnf_specI`, `memoEI_infer_specI`, `memoEI_inferIO_specI`,
+`memoBI_defeq_specI`), with each clause's hit and insert lemma (an insert
+lemma reads its query at the run's initial state, the answer at the
+insert's); the eager slot `defeqE_specI` (`CSOKI.enterEager`,
+`CSOKI.leaveEager`, `withEagerMemos_run`); **`ssimI_succ`** (from `BodiesI`,
+the five bodies' specs at the knot's flag and at `eager := true`) and
+**`ssimI`** (`∀ f, SSimI eager env fe f` from `∀ b f, SSimI b env fe f →
+BodiesI b env fe f`, which is what the three body lanes prove).
+
+**Not done** (this lane's scope): `ensureSortIO` (immediate from
+`ensureSortI_spec` at the io view), `projGuardSortI`, `checkProjRowsI`,
+`checkProjGuardI` (they read the environment through `FEnv.indView?`,
+`find?`, `openPisAtFvarsM`, `projGuardRowsAtM`: O4's relation, beyond
+`EnvRelI`; `formerSortLoopI` is P2-whnf's), the binder loops' tail
+compositions against `inferBody`'s chained clauses (`inferLams_sound`,
+`inferPis_sound`), and `inferBodyI`/`inferBodyIOI` as `BodySpecI`, blocked
+at their sort and Π arms by finding 2.
+
+**Foundation changes**: `Sim.lean` (`UnaryOK`'s closed value, `CSOKI.fvClosed`),
+`StateOpsI.lean` (repairs; `mkFVarM_specI`'s premise; `mkFVarM_tys`).
