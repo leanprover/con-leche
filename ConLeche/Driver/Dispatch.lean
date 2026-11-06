@@ -3,6 +3,7 @@ module
 public import ConLeche.Driver.Graph
 public import ConLeche.Driver.Worker
 public import ConLeche.Driver.Modular
+public import ConLeche.Driver.Schedule
 
 /-!
 # What a run does, by its request, generic in the IO class (task #424)
@@ -35,6 +36,9 @@ inductive Req where
   /-- every module of a closure, each against its context, in one process (`checkModularG`) -/
   | modular (searchPath : List System.FilePath) (root : Name) (mode : CheckMode) (pace : Pace)
       (jobs : Nat)
+  /-- every module of a closure, one worker process each (`scheduleG`, outside the theorem) -/
+  | schedule (searchPath : List System.FilePath) (root : Name) (opts : List String)
+      (mode : CheckMode) (jobs : Nat)
   /-- one module against its context (`checkModuleG`) -/
   | module (searchPath : List System.FilePath) (m : Name) (mode : CheckMode) (pace : Pace)
       (jobs : Nat)
@@ -45,6 +49,7 @@ def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
   | .graph sp roots jobs => Graph.checkGraphG sp roots jobs
   | .modular sp root mode pace jobs => checkModularG sp root mode pace jobs
+  | .schedule sp root opts mode jobs => scheduleG sp root opts mode jobs
   | .module sp m mode pace jobs => checkModuleG (.ofPath sp) sp m mode pace jobs
 
 end ConLeche.Driver

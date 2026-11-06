@@ -80,6 +80,8 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
         parseArgs rest { a with constants := a.constants.push v }
       else if let some v := flagValue "--search-path=" s then
         parseArgs rest { a with searchPath := a.searchPath ++ searchPathOf v }
+      else if let some v := flagValue "--schedule" s then
+        parseArgs rest { a with schedule := a.schedule.push v, scheduled := true }
       else if s.startsWith "-" then
         { a with bad := some s!"unknown option {Display.str s}" }
       else parseArgs rest { a with files := a.files.push s } := by
@@ -120,6 +122,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
     (ho : (parseArgs args {}).olean = true) (hcg : (parseArgs args {}).checkGraph = false)
     (hm : (parseArgs args {}).module = false) (hmd : (parseArgs args {}).modular = false)
+    (hs : (parseArgs args {}).scheduled = false)
     (h : (runArgs args : ModelIO _) fs (.ok 0)) :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
       (Olean.readOleans (parseArgs args {}).searchPath
@@ -138,7 +141,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS}
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
     H 0 h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
-  · simp only [hh, hb, ho, hcg, hm, hmd, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [hh, hb, ho, hcg, hm, hmd, hs, Bool.false_eq_true, ite_false, ite_true]
     intro c hc h0
     subst h0
     split at hc
@@ -174,7 +177,7 @@ theorem runArgs_olean_accept {dirs root : String} {fs : FS}
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
   have hp := parseArgs_olean dirs root
   obtain ⟨pre, rd, env, h1, h2, h3⟩ := runArgs_oleans_accept (helpWanted_olean dirs root)
-    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) h
+    (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) (by rw [hp]) h
   rw [hp] at h2 h3
   exact ⟨pre, rd, env, h1, h2, h3⟩
 
