@@ -111052,95 +111052,301 @@ stored.  Four of its `CoreDefs.lean` anchors in that section (the fast-path acco
 they now cite the definitions.  `divModEnvGuard`'s own `Bool` constructor type tests repeat
 `natOpGuard`'s for the WF names; left as they are.
 
-## TASK #463 — the model's instance: stages landed, the capstone open (2026-11-06, agent/463-modular-model)
+## TASK #464 — the worker's reads: what a module loads, its names, one group's record (2026-11-06, agent/464-worker-reads)
 
-The third lane of #460's plan.  **Not complete**: `modular_model_exists` is not proved; the
-stages below are proved, warning-free, without `sorry`; one design question (§4) stands between
-them and the capstone.
+#460's lane #464, on `modular`.  Phases 1 and 2 of #460 §3, the pieces of phase 4 that are reads,
+and the home's `checkViews` over the lazy load.  No CLI flag of the checker; the gates' hooks are
+`olean-compare --home` and `--reads` (a development tool).
+
+**1. The header fixpoint** (`Frontend/Olean/Levels.lean`).  `headerFixpoint sp isModule imports`
+is `importModulesCore.go` as a worklist (`levelsGo`, explicit stack, `fuel` = `closureFuel`; each
+module's imports are expanded at most three times since its two flags only grow, so the steps are
+at most three per import edge and two per module).  State per module: `importAll` (private part
+loaded) and `isExported` (root's public scope); an import is followed when the importer is
+`importAll` or the import is public (`needsData`); a module met again with larger flags has its
+imports re-expanded at the join (Lean's "bump"); a module met while its own imports are expanded is
+an import cycle (`.internal`, as `closureGo`).  The root starts at `importAll`, `isExported` iff it
+is of the module system; a classic root makes every module `importAll` (global level `.private`).
+`meta` adds IR only, which holds no constants (`mkIRData`: `constants := default`), so data flags
+are exact without simulating IR.  `pubClosures`: each loaded module's public-import closure as a
+bitset over the load order, one pass in order (a public import is always placed before its
+importer).
+
+*Checked against Lean itself* (a throwaway, `_tmp/464/xcheck/Loads.lean`: `importModules` of the
+stored header at the module's global level, `env.header.modules` with `hasData`, and the kernel
+map's size): on the 96 fixture modules of `tests/olean/lib` (all but `UpNum.«12.34».«5»`) and on
+`Mathlib.GroupTheory.Coxeter.Basic` and `Mathlib.Analysis.SpecialFunctions.Gamma.Basic`, **the set
+of loaded modules, each one's two flags, and the number of loaded names are Lean's exactly**
+(Coxeter 2 479 modules / 196 897 names, Gamma 4 092 / 317 101; the names are #460 §6's context
+sizes).  So #460's premise holds: the levels are read off headers alone.  **The order is not
+always Lean's**: on the 31 fixtures of the module system that import `Init` (and both Mathlib
+modules) some modules sit elsewhere; on the classic ones (every module whole, IR loaded with the
+data) and the `prelude` ones it is Lean's.  Cause: `HeaderSyntax.imports` adds `meta import Init` beside `import Init`, and
+Lean pushes a module to `moduleNames` when first met, also when met for its IR only (through a
+private import under `needsIRTrans`, data loaded later by a bump).  Simulating that needs the
+existence of `M.ir.sig` (`readIRPartsOfMod`; `mainModule?` of a data-less module is its IR part),
+and under Lake the IR parts come from the build's artifacts (`arts`), so the order Lean compiled
+with is not a function of the files.  Not simulated; the prelude fixtures, which have no `meta`
+import, match Lean's order exactly (`LvN`: LvA, LvC, LvB).  What the order decides here: which copy
+of a name is first in the index, and the clash rule's fold order (below).
+
+**2. The name index, the clash rule, freshness** (`Frontend/Olean/Index.lean`).  `workerReads sp m
+jobs`: `M`'s own private part's name positions and header; the fixpoint; every loaded part's
+`readNamePositions f level` (in parallel, `parMapExcept`; the files are dropped after each read);
+`nameIndexOf` (name → first copy, the later copies in order); then
+* Lean's refusal of a classic import from a module (`importsModulesOk`, exit 1);
+* **the clash rule over every loaded name** (`clashOk`): the copies of each doubly held name in
+  load order, folded as `finalizeImport` does (the next replaces the kept one where it subsumes it,
+  the kept one stays where it subsumes the next, a reject otherwise, exit 1 naming both modules).
+  `subsumesInfo` is now `subsumesF` (`Merge.lean`), over a statement and a kind with any
+  expressions, so the merge's `subsumes` and the index share it (`subsumes_stands` repaired).  The
+  doubly held names' statements (`readStmts`) and kinds without expressions (`readKinds`, new) are
+  read per module, and kept in `WorkerReads.clashes` for #465's key check;
+* **freshness** (`freshOk`): no constant of `M`'s private part bears a loaded name (exit 1).
+
+Two deviations from Lean, neither a new reject: `isPropCheap` (the axiom/axiom arm) looks the head
+up in the whole index where Lean looks among the constants loaded so far (a pair whose head is
+loaded later is merged here, refused by Lean; both are propositions then, so merging is sound); and
+with three or more copies the fold's verdict can depend on the order, which is Lean's up to the IR
+case above (an edge: two axioms `isPropCheap` does not recognise and a theorem).  On real data
+the rule is busy: `Init`'s closure alone holds 82 names twice (194 copies), all merged.
+
+**3. One group's record** (`Frontend/Olean/Group.lean`).  `groupRecord mg n`: `n`'s group as the
+emission takes it (`blockTys`, `blockCtors`, `blockRecs` over `recMapOf mg`), after `blockStep` of
+`n` and of each of the group's constants, then `Emit.block` and the stream reader's builder.
+`readGroup f level look recs n` gathers the group from one part: members and constructors by name,
+recursors among the part's recursor constants by their block (`readKinds`), all with one memo.
+Theorems (`Verify/Frontend/Olean/Group.lean`): `groupRecord_from` (the record is `declOfF` of one
+`inductive` record whose types, constructors and recursors are stored constants of kinds 5, 6, 7,
+`RecFrom`, as `declsOf_from` for the emission; via the new `Emit.block_out`), `groupRecord_valid`
+(each of the group's names passed `blockStep`), `mergedOfList_names`.  *Found:* read from an
+exported part, the record lists its recursors in that part's order, which is sorted by name
+(`mkModuleData` re-sorts the exported constants), where the home's emission from the private part
+lists them in declaration order (`GrN`'s nested `Tr`: `Tr.rec`, `Tr.rec_1`).  Types and
+constructors follow `all` and `ctors`, the same at both levels.  The test compares up to recursor
+order, as `olean-compare` does; #466's "a presented record is its source's" must compare so too, or
+the home must present in sorted order.
+
+**4. `readEntries`** (`Reads.lean`'s `entriesAt`, `View.lean`).  Every root of every constant into
+one shared `SM` memo by `sGo` (a root that fails leaves the memo; `memoAdd`), then each constant
+built by memo lookups falling back to `sparseNameP`/`sparseExprP`.  `entriesAt_eq`: equal to
+`cs.mapM (entryAt r)` on every region (the memo stays `SM.Good` by `sGo_spec`, and a good memo's
+lookup with the fallback is `nameP`/`exprP` extensionally); hence `readEntries_eq` (every input,
+where the files have the view's region) and `readEntries_of_view` (where the view parses, one
+constant per position, the full parse's at that position's index).  `SM.Good` and `SGoSpec` got
+`@[expose]` for that.  A theorem's value is read too (the reach does not want it; #465 may want a
+statement-only variant, a change of the roots read).
+
+**5. `checkViews` over the load** (`Module.lean`).  It takes the `Loaded` of `loadAt` (theorem
+values left in the file).  `.same` by position, `.hidden` by statement as before; only in the
+decode fallback, where the private constant is a theorem, is it read whole (`entryAt`).  Since it no
+longer runs after `parseAllViews`, it checks itself what that gave: the server and private parts'
+module flags, the server part's imports against `importsPre`, and the exported and server parts'
+name tables (`constNamesOk`).  Every mismatch is `.invalid` (exit 1, ruling 10).  `readHome sp m`
+(Files.lean): `readFiles` private, `loadView`, `checkViews`.  `readAllViews` (for `olean-compare
+--views`) parses the three views whole, then loads and checks; `readView_of_all` repaired.  Pinned
+verdicts that moved: `--views` on a private part outside the module system, an exported constant
+that does not refine, and the 2^80-node exported statement, 3 → 1; the name-table and server-import
+cases stay 3 under `--views` (the whole parse fails first) and are 1 under `--home`.
+
+**Fixtures** (`tests/olean/src`, built by `build.sh`; verdicts in `tests/olean.sh`, facts in
+`OleanTests.lean`).  `LvC`/`LvB`/`LvA`/`LvM`/`LvN` (the fixpoint's rules, exact loads and order
+pinned); `ClashM`+`ClashX` (ClashB's files swapped in: two `clash`, exit 1); `FrM`+`FrX`+`FrY`
+(freshness, exit 1); `TeqBoth` (two proofs of one statement loaded, merged, exit 0); `TeqBad`+`TeqX`
+(TeqQ2's files swapped in: exit 1); `MoM`+`MoX` (TinyClassic's file swapped in: exit 1); `GrN`
+(nested and mutual groups: `groupRecord` of every inductive type at both levels against the merged
+emission).  The swaps stand in for modules Lean refuses to compile.  `NlM` pinned at 0 copies held
+twice (NlX is behind a private import of an import).  `OleanTests`: `readEntries` against the full
+parse on the existing fixtures, in order and reversed; `checkViews` over `loadAt`; `groupRecord`'s
+validation on hand-made constants.  Olean gate: 136/136.
+
+**Numbers** (`perf stat -e instructions:u`, `olean-compare --reads --jobs=1`, one run each, under
+the guard; v4.35.0 Mathlib at `_tmp/ref/mathlib4-v4.35.0`):
+
+| module | loaded modules | names | held twice (copies) | fixpoint + public closures | whole reads |
+|---|---|---|---|---|---|
+| Mathlib.GroupTheory.Coxeter.Basic | 2 479 | 196 897 | 132 (311) | 1.483 G | 5.628 G |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 4 092 | 317 101 | 204 (498) | 2.512 G | 12.171 G |
+
+Gamma's loaded exported parts are 0.85 GB of files; peak VmHWM about 230 MB.  The name index is
+the larger part (about 30 k instructions per loaded name): a profile shows freeing and allocation
+(constant skeletons with boxed fields, the per-module `distinctGo` set), name decoding with UTF-8
+validation, and path handling in `findModule` (10 search-path directories, three extensions).
+Not optimised in this lane.
+
+**Not done / for the next lanes.**  No theorem about the fixpoint or the index (none needed, #460
+§3).  `readKinds` has no `_of_view` theorem (it feeds only the clash rule and `readGroup`'s
+selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.  The
+order's IR case of 1.
+
+## TASK #469 — reduction at a refinement: the runs differ, the derivations carry over (2026-11-06, agent/469-whnf-refine)
+
+**The question (maintainer).**  `env₁` refines `env₂` in the modular sense: every constant of
+`env₁` is `env₂`'s constant of its name or its statement (`stmtOf`: a definition, theorem or opaque
+as the axiom of its level parameters and type).  Do the pure fuelled kernel functions at `env₁`
+either fail or give the result they give at `env₂`, as `knot_ext` says for an extension?  And does
+that give what #463's `FamilyRead` needs (a successful `familyTelescope` of a recorded defn-headed
+member, at a context refining (an extension of) its home's environment, is the recorded
+telescope)?
+
+**Answer: no, not even with `false` counted as a failure.**  At a statement the kernel does not
+fail: it takes another path, and a successful run can end at a different term.  Read off
+`Kernel/Core.lean`:
+* `whnfStep`: `unfoldDefinition` answers `none` at a statement, so `whnf` returns the stuck term (a
+  result, not an error).  `whnf two` is `two` at `env₁`, `2` at `env₂`.
+* `isDefEq`: a side that does not unfold is compared as it is; `two =?= 2` is `false` at `env₁`,
+  `true` at `env₂`.  (The lazy-delta order also reads the hints, which a statement lacks; no claim
+  is made, and none proved, that a `true` at `env₁` is a `true` at `env₂`: the algorithm is not
+  complete.)
+* **Sub-reductions that are inspected and then discarded make a successful run diverge.**
+  `reduceNat`'s binary arm head-normalises its first argument and, finding no literal, gives up,
+  so the operation unfolds instead of folding.  On `Foo : T (two + 1)` (`T` an exposed definition
+  by `Nat.rec`, `T 0 = Type`, `T (k+1) = P k → Type`; `two := 2` unexposed): at `env₂` the major
+  `Nat.add two 1` folds to `3`, whose constructor form binds `k := 2`, telescope `P 2 → Type`; at
+  `env₁` `Nat.add` unfolds by its recursion on `1` to `Nat.succ (Nat.rec two … 0)`, which binds
+  that recursor application, telescope `P (Nat.rec two … 0) → Type`.  Both `reducedFormer` runs
+  succeed; the telescopes differ.  Pinned in `tests/ConLecheTests/RefineTests.lean` (with the two
+  bullets above), on the pure ops at hand-built environments.  The same shape arises wherever a
+  rescue reads a sub-reduction: `prepareMajor`'s structure-η rescue fabricates projections of a
+  major stuck at a statement where `env₂` reduces it to a constructor (not pinned).
+  `inferType` inherits it through the `whnf` of a function's type.
+* No `false` occurs in the counterexample, so "fail or same" is false for `whnf`, `whnfTelescope`,
+  `reducedFormer`, `familyTelescope` and `inferType`, and `FamilyRead` does not follow from any
+  refinement statement about results.
+
+**What holds, proved: the derivation carries over.**  The rules tier reads the environment only
+positively: a constant stored as a given kind (a definition to unfold, a recursor, a constructor,
+a family), a constant's stored type (which a statement keeps), a table entry, a literal's
+constants stored.  `isProofFast`'s identity-wrapper walk (`unwrapIdDefs`) looks through
+definitions without unfolding them; at a statement it stops earlier and answers only where
+`env₂`'s walk gives the same answer.
+* `ConLeche/Rules/Refine.lean`: `FindRefines`, `EnvRefines` (constants: `env₂`'s or
+  `.axiomInfo` of its constant value; tables: `env₂`'s; `env₂` may store more); the readers'
+  lemmas (`EnvRefines.unfoldDefinition`, `.natLitStored`, `.strLitStored`, `.findProj`,
+  `.towerSlotsAll`, `.andRescueSlots`, `.ctorFamily`, `.projGuardRows`, `.isProofFast` over
+  `proofPW_refine`); and one mutual structural recursion, `Red.refine`, `DefEq.refine`,
+  `DefEqLams.refine`, `Infer.refine`, `FormerSort.refine`, `IotaCase.refine`, `GuardRows.refine`,
+  `ProjGuard.refine`, `CertsF.refine`, `DefEqList.refine`: **every derivation at `env₁` is one
+  at `env₂`.**
+* `ConLeche/Verify/Rules/Refine.lean`, composed with the bridge: `whnf_refine`,
+  `isDefEqCore_refine` (a `true`), `inferTypeCore_refine`, `inferTypeCoreIO_refine`: an accepting
+  run at `env₁` is a derivation at `env₂`, so it is sound in every model of `env₂`
+  (`Model/Rules/Sound.lean`).  For formers: `TeleRed` (a telescope of reductions),
+  `whnfTelescope_teleRed`, and **`reducedFormer_refine`**: a former's reduct at `env₁` is
+  `closeTelescope bs 0 (.sort s)` with `TeleRed env₂ 0 n cv.type bs s`.
+
+**What this means for #463's `hdh`.**  `FamilyRead` at a context `C` with the home's recorded
+telescope `f` is false in general (the counterexample, with `Foo` a context former), and so is
+`hdh`'s first conjunct (`f` read alike): `f` comes from unfolding at the home and can mention a
+name `C` lacks (an unexposed definition whose value mentions a private constant).  So `hdh` is
+not derivable from the specification by any refinement lemma, and the context's datum must not
+carry the home's telescope at such a member.  The route the lemma above opens:
+1. The context's datum at a defn-headed context member records **the telescope a run at `C`
+   reads**, `readTelescope C cv caps` (`Model/Inductives/FamilyRan.lean` on #463's branch), where a
+   run at `C` succeeds.  `FamilyRan` then holds at `envB := C` by that run, and `FamilyRead` at `C`
+   and its extensions by `FamilyRan.read` unchanged.  The worker computes nothing new: the run is
+   an existential of the model.
+2. `LfpTelescope`'s semantic clause for that telescope (`denote f' = denote cv.type`, the member
+   inhabits it) from `reducedFormer_refine`: take `C'` the part of `C` read alike from the
+   member's source `n` (`EnvExt C' C` with `StoredFacts C'`, `cv.type` resolving in `C'`, so the
+   run at `C` is the run at `C'` by `knot_ext`), `EnvRefines C' (E n)` by `CtxRead`'s `Refines`
+   and `table`; the `TeleRed` at `E n` is sound in the source's model (`red_sound`), and the
+   reading crosses to `C` by the leaves' agreement on names read alike.  `LfpReads`' Π-tower
+   reading of the former then is the source datum's, since both telescopes read as `cv.type`.
+3. **Open: where no run at `C` succeeds.**  `FamilyRead` is vacuous there (a failure at `C` is a
+   failure at every extension, `knot_ext`), but the datum still needs a telescope satisfying
+   `LfpTelescope`/`LfpReads` at `C`, and the home's `f` may not resolve in `C`.  Two ways, a
+   ruling for #463: (i) the defn-headed clause of `LfpTelescope` asks for a telescope only where
+   a run at the environment succeeds (sound if every reader of the datum's telescope reads it
+   through `FamilyRead`, which #463 would have to check); or (ii) the worker runs `reducedFormer` at its context on every
+   reached defn-headed context member and declines where it fails (positively detected: the
+   member's type does not reduce to its telescope at the context Lean loads; Lean's own kernel
+   would not read it there either).  (ii) needs no model change and is cheap (such members are
+   rare); (i) accepts more.
+
+**Gates.**  `lake build` and `lake test` warning-free (the new test module included); layering
+(the rules closure unchanged: `Rules/Refine.lean` imports `Rules/Rel.lean` only), trust surface,
+overview links, quote gate, no-local-paths, challenge, shake (one public import demoted to
+plain, a `public import ConLeche.Kernel.CoreIO` for the statements), whitepaper links.  No
+executed code changed (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`, `Main.lean`), so
+`tests/arena.sh` was not run; verdicts and counts are `modular`'s.  #463 had not landed on
+`modular`, so nothing is wired into `hdh`.
+
+## TASK #463 — the model's instance and the modular theorem (2026-11-06, agent/463-modular-model)
+
+The third lane of #460's plan.  `modular_model_exists` and `modular_no_False` are proved
+(`ConLeche/MainTheorem.lean`), with **one explicit hypothesis beyond the local checks,
+`FormerRuns`** (below); stated in the Challenge, listed in `comparator.json`, pinned in
+`tests/ConLecheTests/Axioms.lean` (`propext`, `Classical.choice`, `Quot.sound`).
 
 **1. Every proof's leaf is the canonical proof** (`Model/Harvest.lean`, `Model/Fold.lean`).  The
-modular theorem's values are leaves (terms), so two proofs of one statement in two modules must
-have one leaf.  A theorem's leaf is now `.prf` (its prop check, `propTypeRun_mem_univZero`, makes
-the value's reading the point, so `.prf` inhabits the statement); a definition or opaque constant
-whose type the checker finds to be a proposition (`PropTypeRun`), at a name with no fast path,
-gets `.prf` too.  `AcvalDefnInst` becomes `∃ t, denote … value = some t ∧ LeafReads V leaf t`
-(the reading, or a graded point where the leaf is `.prf`); the δ rule's soundness carries grading
-and interpretation across the head swap (`wd_interp_mkAppN`, `denote_unfoldDefinition`).
-`EnvFacts.defn_eq`, read by nothing, went.  The step is `declStep_agrees` (`CoveredRel`: the
-result's carrier keeps every stored name's leaf; `DeclProofLeaf`: the leaf of a proof it adds);
-`declStep_preserves` is its corollary; `declBlockAt` records that it keeps leaves.  Ported from
-`cfsg`'s #370 commit, adapted.
+instance's values are leaves (terms), so two proofs of one statement in two modules must have one
+leaf.  A theorem's leaf is `.prf` (its prop check makes the value's reading the point,
+`propTypeRun_mem_univZero`); a definition or opaque whose type the checker finds to be a
+proposition (`PropTypeRun`), at a name with no fast path, gets `.prf` too.  `AcvalDefnInst` is
+`∃ t, denote … value = some t ∧ LeafReads V leaf t`; the δ rule's soundness carries grading and
+interpretation across the head swap (`wd_interp_mkAppN`).  `EnvFacts.defn_eq` (unread) went.  The
+step is `declStep_agrees` (`CoveredRel`: every stored name keeps its leaf; `DeclProofLeaf`), with
+`declStep_preserves` its corollary; `declBlockAt` records that it keeps leaves.  From `cfsg`'s
+#370 commit, adapted.
 
-**2. The step from a context** (`Model/Modular/Step.lean`): `declsRun_flags` — a `DeclsRun` from
-the canonical index of a context carries a covered model of the context (with `FamilyRan`, the
-η closure, `NatFacts`) to one of the own environment that keeps every context leaf and gives
-every name a record installs and the module flags (`FlagsOk`) the leaf `.prf`.
+**2. The `Nat`-operation law at the name, whatever its kind** (sub-lane).  `NatOps`/`DivMod` are
+keyed on the name being stored (`natOpPinnedOk`, the kind-free pin); `op_defn`/`OpDefn`,
+`isDefinitionAt`, `natOpStored_inv`, `StoredFacts.opDefn`, `EnvFacts.nat_op_guard` (unread) are
+gone; `StoredFacts.boolCtors` is keyed on storedness.  One invariant for the stream and modular
+paths; the kernel is unchanged (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`,
+`Main.lean`), so no verdict moves.  29 files, +466/−607.
 
-**3. The `Nat`-operation law at the name, whatever its kind** (sub-lane, `ea63f4d5c`).  `NatOps`
-and `DivMod` are keyed on the name being stored (`∀ ci, env.find? c = some ci → natOpGuard env c ∧
-(natOpDeps c).all (natOpPinnedOk env) ∧ …`, `natOpPinnedOk` the kind-free pin); `op_defn`/`OpDefn`,
-`isDefinitionAt`, `natOpStored_inv`, `StoredFacts.opDefn` and `EnvFacts.nat_op_guard` (unread)
-are gone; `StoredFacts.boolCtors` is keyed on storedness; `Red.natOp_sound` reads storedness off
-the denotation.  Kernel unchanged (no diff under Kernel/Cached/Frontend/Driver).  29 files,
-+466/−607.  This is what lets a context present `Nat.gcd` & co. as statements.
+**3. The step from a context** (`Model/Modular/Step.lean`, `declsRun_flags`): a `DeclsRun` from a
+context's canonical index carries every covered model of the context to one of the own
+environment keeping every context leaf, every flagged name (`FlagsOk`) at `.prf`.
 
 **4. The context's model** (`Model/Modular/Read.lean`, `Restrict*.lean`, sub-lane).  `CtxRead C E R`
-states, without modules, a context read from its sources (per stored name its source's own
-environment `E n` and the part read alike `R n`: copies refine (`Refines`), names read alike have
-alike copies (`Alike`) and one table, reads read alike (`scope`, `deep`, `ctors`), tables).
-`ctxModel` builds the context's `EnvModelM` (every field), `LfpCover`, `FamilyRan`, η closure from
-the sources' models, every law read off the source's law across the agreement.  It takes three
-hypotheses beyond `CtxRead`:
-* `hnatC : NatFacts C` — derivable at the instance (a trio name's record is an unreserved-checked
-  inductive record installing all three); not yet derived.
-* `hred` — a context constant at a `reduce*` name is its source's.  **This was a hole in the
-  specification**: a home may accept `def Lean.reduceNat (n : Nat) : Nat := 0`; presented as its
-  statement, it lets an importer's `ofReduceNat` axiom (accepted by the stored name's pinned
-  statement) mean something false.  **Specification change**: `Presents`' statement arm excludes
-  records at `reduce*` names.  Derived (`reading_reduce`).
-* `hdh` — **the open design question.**  A context former whose type is headed by a definition
-  (`inductive Foo : MyType`, `MyType` a definition): its block recorded the reduced telescope, and
-  `FamilyRan`/`LfpTelescope` ask that reduction to run at a part of the environment and the
-  telescope's names to be read alike.  When the context holds `MyType` only as its statement,
-  neither holds, and the importer's own checks do read a context former's telescope (nested
-  containers: `FamilyRead`).  Not derivable from the specification; nothing in Lean's import
-  promises the heading definitions' values.  Options: (a) the importer's worker re-runs the
-  telescope reduction of every reached defn-headed former at its context and the specification
-  asks for that run (`hdh`'s second conjunct at `envB := C`) with the reduct's names read alike —
-  needs a whnf restriction lemma (a run moves to a sub-environment holding what it reads) to tie
-  the importer's run to the home's recorded telescope, or a recorded telescope taken from the
-  importer's run instead; (b) the reach follows the heading definitions' values and the
-  specification asks every definition a defn-headed former's type unfolds to be read alike with
-  its value; (c) decline a context former that is defn-headed whose heading definitions are not
-  presented with values.  Recommendation: (c) now (rare; positively detected), (a) later.  **Ruling
-  needed.**
+states, without modules, a context read from its sources: per stored name its source's own
+environment `E n` and the part read alike `R n`; copies refine (`Refines`), names read alike have
+alike copies (`Alike`) and one table, what a context constant reads is read alike (`scope`), and
+an inductive kind read alike brings its reads and constructors (`deep`, `ctors`); a `reduce*`
+name's copy is its source's (`reduce`); tables are their formers'.  `ctxModel` builds the
+context's `EnvModelM` (every field), `LfpCover`, `FamilyRan`, η closure and `NatFacts` from the
+sources' models, every law read off the source's law across the agreement, given `FormerRunsX`.
 
-**5. The reading from the local checks** (`Model/Modular/Valid.lean`).  Every environment is a
-stream of records; a stored name is one record's, with that record's table
-(`streamEnv_findTable?`); an accepting run's records are fresh and unreserved where they are
-value kinds (`checkDeclStepC_unreserved`).  The **owner**: a context name is read from the module
-that declared it among its own records (`owner`, `ownerOf`), so two copies under one key are alike
-with one table (`copies_alike`).  Derived: `CtxRead`'s `nodup`, `entry`, `R_sub`, `self`, `alike`,
-`table` (`reading_basic`), `scope` (`reading_scope`) and `hred`.  Not yet derived: `deep`, `ctors`
-(the context record of an inductive copy is its owner's record, whole), `tables_mem`, `tables_src`
-(a table's structure is its record's former), `hnatC`.  `GroupMates`/`group` are unused and should
-go.
+**5. The reading from the local checks** (`Model/Modular/Valid.lean`, `reading`).  Every
+environment is a stream of records; a stored name is one record's, with its table.  The
+**owner**: a context name is read from the module that declared it among its own records, so two
+copies under one key are alike with one table (`copies_alike`); an inductive copy arrives with its
+owner's record whole (`indRecord`, `indReadAlike`).  Every field of `CtxRead` is derived.
 
-**Remaining after the ruling** (the next lane's steps): the remaining derivations above; the
-instance (`ModularSemantics`: environments with exposed names, a model a leaf assignment with a
-covered `EnvModelM` reading it, a source's view its own environment exposing what the importer
-reads alike, `Assembled` the self case or a `CtxRead`, `amalgamate` by `ctxModel`, the step by
-`declsRun_flags`); `LocalOk ⇒ Valid` (`OneCopy` holds by the views' exposure, `NewNames` by
-`key_own` and `FlagsOk`); `modular_model_exists`/`modular_no_False` in `MainTheorem.lean`, the
-Challenge and the axiom pins.
+**6. The instance and the theorem** (`Model/Modular/Instance.lean`, `Main.lean`).  Environments
+carry the names they expose; a model (`MMod`) is a leaf assignment with a covered `EnvModelM`
+reading it; a source's view is its own environment exposing what the importer reads alike; one
+copy then holds by the exposure.  Assembly is the self case or a `CtxRead`; amalgamation gives
+each name its source's leaf and calls `ctxModel`; the step is `declsRun_flags`.  `toDev_valid`:
+`LocalOk` and `FormerRuns` give the generic `Valid`; `Development.modular` gives the family.
 
-**Gates.**  `lake build`, `lake test` warning-free; overview links (three `Fold.lean`/
-`BlockRunFacts.lean` anchors repointed after the step's restatement), quote gate, layering, trust
-surface, challenge, no-local-paths and shake pass (the `Model/Modular/*` files rooted in
-`ConLeche/Model.lean`; six import lines measured needed and allowlisted, three demotions
-measured to break their files and recorded as fallbacks; four removals shake proposed after
-#462/#463 applied).  `tests/arena.sh` not run: the lane is not complete and no executed code
-changed (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`, `Main.lean`).
+**Specification changes** (`ConLeche/Modular.lean`), each minimal:
+* `ProofDecl` excludes an opaque at a `reduce*` name (its leaf is the pinned identity, never the
+  canonical proof).
+* `Presents`' statement arm excludes `reduce*` names: a home may accept
+  `def Lean.reduceNat (n : Nat) : Nat := 0`; presented as its statement it would make an importer's
+  `ofReduceNat` (accepted by the name's pinned statement) false in the model.  Pinned by
+  `tests/ConLecheTests/ModularTests.lean`.
+* `ImportOk.one_src`: a context record's names have one source.  Without it a context could take
+  a former from one home and its constructor from another home's identical record, two models
+  that need not fit.
+* `FormerRuns dev j` (new, a hypothesis of the theorem, not a local check): a definition-headed
+  former read alike reduces at the importer's context to the telescope it reduces to at its
+  source, whose names are read alike.  **#469 has since shown it is not derivable from any
+  refinement statement about results** (a run at a refinement can succeed with another
+  telescope); its record lays out the route: the context's datum records the telescope a run at
+  the context reads, its semantic clause from `reducedFormer_refine`, and a ruling for where no
+  run at the context succeeds (decline in the worker, or weaken `LfpTelescope`).  That is the next
+  step that removes `FormerRuns`.
 
-**Sizes.**  `Model/Modular/`: `Step` 127, `Read` 222, `Restrict*` 1 671, `Valid` 611 lines; the
-leaf change +276/−112, the `Nat` law change +466/−607.
+**Gates.**  After merging `modular` (#464, #469): `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard (below); overview links, quote gate, shake (measured
+import lines allowlisted, measured demotions recorded as fallbacks), challenge, layering, trust
+surface (`lakefile.lean` re-pinned: `ConLeche.Modular` leaves the capstone lib's roots, since
+`MainTheorem` imports it).
+
+**Sizes.**  `Model/Modular/`: `Step` 127, `Read` ~210, `Restrict*` ~1 700, `Valid` ~1 080,
+`Instance` ~230, `Main` ~130 lines.

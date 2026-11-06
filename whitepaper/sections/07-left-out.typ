@@ -39,7 +39,7 @@ constructor form when reduction needs it
 binary `Nat` operations] on literals with machine arithmetic. The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a pinned copy] and the model
-#src("ConLeche/Model/NatEqs.lean", 1080, 1084)[establishes the operations' recurrences] from that comparison.]
+#src("ConLeche/Model/NatEqs.lean", 1053, 1057)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
@@ -147,7 +147,7 @@ applies the soundness, and hands the result to the declaration fold.
 
 *The statement over `Denotes`.* The main theorem is stated over #src("ConLeche/Denotes.lean", 121, 124)[`Denotes`], a relation on the checker's
 own terms with one rule per syntax form, written to be read in one
-sitting, and over the structure #src("ConLeche/Denotes.lean", 248, 268)[`Model`] built on it. #src("ConLeche/Model/Denotes.lean", 192, 198)[A theorem]
+sitting, and over the structure #src("ConLeche/Denotes.lean", 248, 268)[`Model`] built on it. #src("ConLeche/Model/Denotes.lean", 202, 208)[A theorem]
 connects the two: wherever the reading `denote` exists, its
 interpretation is a `Denotes`-denotation of the term. The paper's theorem is
 the model side directly.
@@ -164,12 +164,16 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 what declared its names are given, and the local checks of
 @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 211, 214)[the same checks] over its own
+#src("ConLeche/Modular.lean", 243, 246)[the same checks] over its own
 records, a context being a list of the records its imports present, and
 carries #src("ConLeche/Modular/Generic.lean", 305, 306)[the theorem]
-over the interface of @sec:mod-iface. Computing a module's context from
-the `.olean` files, and the instance of that interface for con-leche's
-models, are not part of con-leche today.
+over the interface of @sec:mod-iface, and its instance for con-leche's
+models gives #src("ConLeche/MainTheorem.lean", 191, 200)[the modular
+theorem] with one hypothesis beyond the local checks: a type former
+whose declared type is headed by a definition reduces at an importer's
+context to the telescope it reduces to at its source. Computing a
+module's context from the `.olean` files is not part of con-leche
+today.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

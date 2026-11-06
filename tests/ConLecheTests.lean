@@ -20,6 +20,7 @@ import ConLecheTests.CheckerIOTests
 import ConLecheTests.DisplayTests
 import ConLecheTests.JobsTests
 import ConLecheTests.ModularTests
+import ConLecheTests.RefineTests
 /- The suite's `#guard`s are EVALUATED, so every constant they name must be
 reachable from meta code too; a module needed at both levels is imported
 twice (`public import` for the `example`s' statements, `meta import` for

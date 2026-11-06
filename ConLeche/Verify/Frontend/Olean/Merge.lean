@@ -49,7 +49,7 @@ theorem Stands.trans {a b c : CEntry} (h1 : Stands a b) (h2 : Stands b c) : Stan
 
 theorem subsumes_stands {m : Std.HashMap Name CEntry} {a b : CEntry} (h : subsumes m a b = true) :
     Stands a b := by
-  simp only [subsumes, Bool.and_eq_true, beq_iff_eq] at h
+  simp only [subsumes, subsumesF, CEntryF.stmt, Bool.and_eq_true, beq_iff_eq] at h
   obtain ⟨⟨⟨hn, ht⟩, hl⟩, hk⟩ := h
   refine .inr ⟨hn, ht, hl, ?_⟩
   revert hk

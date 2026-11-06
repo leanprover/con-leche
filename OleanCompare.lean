@@ -11,6 +11,8 @@ environment, and its `main` collides with `Main.lean`'s. -/
 
     lake exe olean-compare [--constant=NAME]... EXPORT.ndjson SEARCHPATH MODULE...
     lake exe olean-compare --views SEARCHPATH MODULE...
+    lake exe olean-compare --home SEARCHPATH MODULE...
+    lake exe olean-compare --reads [--jobs=N] [--loads] [--levels] SEARCHPATH MODULE
 
 Parses a lean4export stream of `MODULE...` with the stream reader and
 the same modules' import closure with the olean reader
@@ -27,6 +29,15 @@ differ (so the maps' equality is equality record for record).
 `--views` reads every module of the closure at its home (`readAllViews`: all three
 views with one memo, checked against each other) and compares each view with
 `readView`'s; exit 0, or the first failure's exit code.
+
+`--home` is each module's home read alone (`readHome`: the private view loaded, its
+three parts checked against each other); exit 0, or the first failure's exit code.
+
+`--reads` is a worker's reads at one module (`workerReads`: the header fixpoint, the
+name index of the loaded parts, Lean's clash rule and freshness), with their counts;
+`--loads` prints each loaded module with its flags, in the order, for comparing with
+Lean's own `importModules`; `--levels` stops after the header fixpoint and the
+public-import closures.  Exit 0, or the failure's exit code.
 
 A development tool, not a default target: the gate it gives
 (`tests/olean-compare.sh`, in the standard battery) is the statement "the
@@ -140,6 +151,50 @@ def runViews (sp : List System.FilePath) (roots : Array Name) : IO UInt32 := do
   IO.println s!"{order.size} modules: every view read, one memo, agrees"
   return 0
 
+open Frontend.Olean in
+/-- `--home`: each module's home read. -/
+def runHome (sp : List System.FilePath) (mods : Array Name) : IO UInt32 := do
+  for m in mods do
+    match ← (readHome sp m : IO _) with
+    | .ok (l, expo) =>
+      let n (x : Expo) := (expo.filter (· == x)).size
+      IO.println s!"{m}: {l.constants.size} constants, exported {n .same} same, {n .hidden} hidden, \
+        {n .absent} absent"
+    | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+  return 0
+
+open Frontend.Olean in
+/-- `--reads`: a worker's reads at one module. -/
+def runReads (sp : List System.FilePath) (m : Name) (jobs : Nat) (dump levelsOnly : Bool) :
+    IO UInt32 := do
+  if levelsOnly then
+    match ← (readPartNames sp (m, .private) : IO _) with
+    | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+    | .ok own =>
+      match ← (headerFixpoint sp own.header.isModule own.header.imports : IO _) with
+      | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+      | .ok ld =>
+        let pub := pubClosures ld
+        IO.println s!"{m}: loads {ld.order.size} modules; {pub.size} public-import closures"
+        return 0
+  match ← (workerReads sp m jobs : IO _) with
+  | .error e => IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+  | .ok w =>
+    let ld := w.loads
+    if dump then
+      for (n, fl) in ld.order.zip ld.flags do
+        IO.println s!"load {n} {fl.importAll} {fl.isExported}"
+    let priv := (ld.flags.filter (·.importAll)).size
+    let names := w.index.first.size
+    let pubAvg := if ld.order.isEmpty then 0 else
+      (w.pub.foldl (fun n s => n + s.card) 0) / ld.order.size
+    let merged := w.clashes.foldl (fun n c => n + c.copies.size) 0
+    IO.println s!"{m}: own {w.own.consts.size} constants; loads {ld.order.size} modules \
+      ({priv} private, {ld.order.size - priv} exported); {names} names, \
+      {w.index.more.size} later copies; {w.clashes.size} names held twice ({merged} copies), merged; \
+      public-import closure {pubAvg} modules on average"
+    return 0
+
 /-- Lean's `Name.isInternal`: lean4export's default roots leave out the constants so named,
 which the reader starts from, so a record only the reader has must be so named. -/
 def internalName : Name → Bool
@@ -153,6 +208,19 @@ def main (args : List String) : IO UInt32 := do
     Frontend.Olean.parseConstName (s.drop "--constant=".length).toString
   let constants := if named.isEmpty then none else some named
   match args with
+  | "--home" :: sp :: mods@(_ :: _) =>
+    runHome ((sp.splitOn ":").map System.FilePath.mk) (mods.toArray.filterMap Frontend.Olean.parseModName)
+  | "--reads" :: rest =>
+    let (opts, rest) := rest.partition (·.startsWith "--")
+    let jobs := (opts.findSome? fun o => (o.dropPrefix? "--jobs=").bind (·.toString.toNat?)).getD 1
+    match rest with
+    | [sp, m] =>
+      match Frontend.Olean.parseModName m with
+      | some m =>
+        runReads ((sp.splitOn ":").map System.FilePath.mk) m jobs (opts.contains "--loads")
+          (opts.contains "--levels")
+      | none => IO.eprintln s!"not a module name: {m}"; return 3
+    | _ => IO.eprintln "usage: olean-compare --reads [--jobs=N] [--loads] [--levels] SEARCHPATH MODULE"; return 3
   | "--views" :: sp :: mods@(_ :: _) =>
     runViews ((sp.splitOn ":").map System.FilePath.mk) (mods.toArray.filterMap Frontend.Olean.parseModName)
   | file :: sp :: mods@(_ :: _) =>
