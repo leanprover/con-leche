@@ -111711,7 +111711,7 @@ or derived from the importer's `typeIsPropC` at a context where the statement is
 lemma: inference is stable under extension, `knot_ext`).  This lane's theorem fixes no `proofs`;
 with `proofs` = the theorem records, `FlagsOk` is immediate.
 
-**5. Fixtures** (`tests/olean.sh`, the gate 249/249).  Every fixture module of `tests/olean/src`
+**5. Fixtures** (`tests/olean.sh`, the gate 264/264 after the merge).  Every fixture module of `tests/olean/src`
 but the `Up*` ones runs as a worker on `tests/olean/lib` plus the toolchain's `Init`: 0 (Lean
 compiled each, so Lean accepts each), including `NlM` (NlX's and NlY's `nl` never loaded
 together; the merged read rejects the pair, 1), `DgColM` and `TeqDM` (merged: 1), `WvM` (0, "1
@@ -111719,7 +111719,10 @@ completed", **no override**), `PdM` (0, "1 flags inferred"), `GrN`, `Ns*`, `Hi*`
 `Teq*`, `Ldg*`, `Ldv*`, `Lv*`, `Clash*`, `Fr*`, `Mo*`.  Not 0: `DgCapM` 1 (capture; Lean accepts
 and proves `False` there: the target verdict), `NpAx` 1 (at its record, "a certified Nat
 operation's name, not a definition", as on the merged read; Lean accepts it; ruling of #397).  The
-modules Lean refuses, files swapped in as for `--reads`: `ClashM`, `TeqBad`, `FrM`, `MoM` 1.  The
+modules Lean refuses, files swapped in as for `--reads`: `ClashM`, `TeqBad`, `FrM`, `MoM` 1.  #444's `Ax*` (after
+merging `modular`): `AxM`, `AxIM` 0 "1 flags inferred", `AxA`, `AxB`, `AxIT`, `AxNM` 0, and the
+homes of user axioms `AxI`, `AxNA`, `AxNB`, `AxNX` 2 at their records ("non-standard axiom", as on
+the merged read; Lean accepts them).  The
 patched headers of `LdgN`/`LdvN`: private 0 "1 completed", dropped 1.  `home_rejects` runs the
 worker on every corrupted home (1).  Usage: two modules, `--constant`, no `--olean`: 3.
 

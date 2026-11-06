@@ -607,6 +607,16 @@ work_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" Dg
 # record is rejected, as on the merged read (the fast path's names it reads are
 # left to that record's check)
 work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.div" "$LIB" NpAx
+# two axioms of one propositional statement, and an axiom of a proposition and a
+# theorem, meet: the flag inferred, as Lean merges them
+work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
+work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
+for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
+# a module declaring a user axiom: declined at its record, as on the merged read
+# (Lean accepts it)
+for m in AxI AxNA AxNB AxNX; do
+  work_ "a user axiom at its home ($m)" 2 "non-standard axiom" "$MSP" $m
+done
 # the modules Lean refuses to compile, their files swapped in (as for --reads)
 d="$TMPDIR/con-leche-olean-worker"
 rm -rf "$d"; cp -r "$LIB" "$d"
