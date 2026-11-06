@@ -377,17 +377,19 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
 theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration}
-    {r : Except (CheckError × Nat) Unit} {fs : FS} {c : UInt8}
-    (h : (verdictG modeTag size t0 decls r : ModelIO _) fs (.ok c)) (h0 : c = 0) : r = .ok () := by
-  suffices H : ModelIO.AllOk (verdictG modeTag size t0 decls r) fs (fun c => c = 0 → r = .ok ()) from
-    H c h h0
+    {r : Except (CheckError × Nat) Unit} {fs : FS} {hs : HS} {c : UInt8} {hs' : HS}
+    (h : (verdictG modeTag size t0 decls r : ModelIO _) fs hs (.ok c) hs') (h0 : c = 0) :
+    r = .ok () := by
+  suffices H : ModelIO.AllOk (verdictG modeTag size t0 decls r) fs hs
+      (fun c => c = 0 → r = .ok ()) from
+    H c hs' h h0
   cases r with
-  | ok u => exact fun _ _ _ => rfl
+  | ok u => exact fun _ _ _ _ => rfl
   | error x =>
     obtain ⟨e, i⟩ := x
-    simp only [verdictG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const,
+    simp only [verdictG, clockMs, diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq,
       ModelIO.allOk_pure]
-    intro h0
+    intro _ _ h0
     exact absurd h0 (CheckError.exitCode_ne_zero _)
 
 /-- **An accepted stream run, in the model** (tasks #424, #450): every
@@ -401,29 +403,29 @@ the `liftIO` actions answered.  Under the assumptions of
 `ConLeche/Frontend/CheckerIO.lean` the binary's run is one of these
 outcomes. -/
 theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-    {pace : Pace} {jobs : Nat} {fs : FS}
-    (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
+    {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
+    (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       Frontend.parseChunks [b] = .ok r ∧
       Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode pace jobs) fs
+  suffices H : ModelIO.AllOk (checkMainG (.ndjson file) mode pace jobs) fs hs
       (fun c => c = 0 → ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧
         fs.file file = some b ∧ Frontend.parseChunks [b] = .ok r ∧
         Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env) from
-    H 0 h rfl
+    H 0 hs' h rfl
   cases hp : Frontend.builtinPreludeE with
   | error x =>
     rcases x with ⟨_ | _ | _, _⟩ <;>
       simp [checkMainG, hp, clockMs, diagLine]
   | ok pre =>
     simp only [checkMainG, hp, readInputG, clockMs, diagLine, ModelIO.allOk_bind,
-      ModelIO.liftIO_iff, forall_const]
-    intro _ pre' hpre x hx
+      ModelIO.liftIO_iff, forall_eq]
+    intro _ pre' _ hpre _ x _ hx
     simp only [ModelIO.pure_iff, Except.ok.injEq] at hpre
-    cases hpre
+    obtain ⟨rfl, rfl⟩ := hpre
     simp only [ModelIO.bind_ok, ModelIO.pure_iff, Except.ok.injEq] at hx
-    obtain ⟨x, hx, rfl⟩ := hx
+    obtain ⟨x, _, hx, rfl, rfl⟩ := hx
     rcases x with ⟨_ | _ | _, _⟩ | r
     rotate_right
     · obtain ⟨b, hb, hpc⟩ := parseStreamG_model hx
@@ -431,16 +433,16 @@ theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
       -- the tail after the parse: the receipts, the index, the check through
       -- `liftIO`, whose value carries its proof, and the verdict
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
-        simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
-        intro _ _ _ <;>
+        simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq, forall_const] <;>
+        intros <;>
         refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
-        simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
+        simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_eq, forall_const] <;>
         intro v <;>
-        intro c hc h0 <;>
+        intro c _ hc h0 <;>
         rcases v with ⟨e, _⟩ | ⟨⟨env, henv⟩⟩
       -- a rejection's exit code is not 0; an accept carries its proof
       all_goals first
-        | exact ⟨pre, b, r, env, rfl, hb, hpc, henv⟩
+        | exact ⟨_, b, r, env, rfl, hb, hpc, henv⟩
         | exact absurd (verdictG_ok hc h0) (by simp)
     all_goals simp [Except.map]
 

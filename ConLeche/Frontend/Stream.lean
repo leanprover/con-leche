@@ -299,9 +299,10 @@ the fold with its result. -/
 /-- **The serial streaming parse of a file** (task #424): the reads of
 `chunk` bytes folded by `chunkStep` (the fused scan and apply: no
 record array is built, nothing crosses a thread), through the class's
-`foldChunks`, which reads the file by positional reads in order, so
-the file must be a regular file (a pipe or FIFO has no positional read:
-the class's `fileSize` throws on one, and the run ends with exit 3).  The state is threaded as a plain value, so that the
+`foldChunks`, which reads the file through a handle in order up to its
+size, so the file must be a regular file (a pipe or FIFO has no size
+before it is read: the class's `fileSize` throws on one, and the run
+ends with exit 3).  The state is threaded as a plain value, so that the
 tables stay uniquely referenced (task #78).  In the model the fold is
 `parseChunks` of the file's reads (`ConLeche/Verify/Frontend/StreamModel.lean`),
 and `parseChunks_ok_parseBytes` (`ConLeche/Verify/Frontend/Chunks.lean`)

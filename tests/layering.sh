@@ -41,7 +41,7 @@
 # which `lean_lib` roots it (today `ConLeche.Model.*` imports
 # `ConLeche.Kernel.*` across exactly such a boundary, and builds).  A hard
 # build error would need the lanes to become separate Lake *packages*.
-# The lib split in `lakefile.lean` is therefore the LAYOUT; this gate is
+# The lib split in `lakefile.toml` is therefore the LAYOUT; this gate is
 # the FENCE.  It runs in the standard battery (`tests/arena.sh`), so the
 # battery fails if the boundary rots.
 #

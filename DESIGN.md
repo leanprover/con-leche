@@ -110412,3 +110412,80 @@ where a buffered write fails.  Reproduced by hand with an `LD_PRELOAD` shim that
 `fflush(stdout)` report `EIO`: exit 1 before, 3 after, on an accepted file, a usage error and a
 malformed file.  No gate runs it (maintainer: too much machinery for the corner case).
 
+
+## TASK #491 — the file reads through a handle, and no C (2026-11-06, agent/handles)
+
+**The question** (maintainer): the C positional read (`pread(2)`, `native/read_range.c`, task
+#450) is used much less than expected; is custom C justified for it?  It was not: every call of
+`readRange` came from `foldReads`, at the offsets `0, csz, 2·csz, …` from the file's start, in
+order.  Nothing read at an offset of its choosing.  Its two users were the stream parse
+(`foldChunks` at one job, `foldWindows` above, over streams of gigabytes) and the header read of
+an `.olean` (`readImportsAt`: `foldChunks` in 4096-byte reads, stopping once the walk to the
+imports is inside what it read).  A prefix read alone serves the second and not the first.
+
+**Ruling** (maintainer): expose a file handle through the class — the runtime's handle at `IO`,
+and in the model the handles' state carried through the monad, so that a handle is mutable at
+both instances and an old handle value has no meaning of its own (the alternative, an immutable
+model handle with the binary checking that a read is at the position it names, was discussed and
+not taken).
+
+**What changed.**
+
+* **The class** (`ConLeche/Frontend/CheckerIO.lean`): `readRange` is gone; `Handle : Type`,
+  `openRead : FilePath → m Handle` (a regular file, at its start; throws where the path names
+  none) and `read : Handle → USize → m ByteArray` (the next `n` bytes, fewer at the end) are its
+  file reading.  At `IO`: `openReadIO` (the metadata says a regular file — a directory opens and
+  fails only at its first read — then `IO.FS.Handle.mk`) and `IO.FS.Handle.read`, the C
+  library's `fread`, which reads until it has the bytes or the file ends.  The file closes when
+  its handle's last reference drops.
+* **The folds**: `foldReads` takes the read as an action, done once for each of
+  `0, csz, 2·csz, …` below the size; `foldChunks` and `foldWindows` read the size, open the file
+  and fold `CheckerIO.read h csz`.  The handle stays inside the fold.
+* **The model**: `ModelIO α = FS → HS → Except IO.Error α → HS → Prop`, with `HS` the open
+  handles (`Array (ByteArray × Nat)`: a file's bytes and the position of its next read, a handle
+  its index).  `openRead` pushes `(bytes, 0)`; `read h n` is the slice from the position, cut at
+  the end, and moves the position past it; the other file operations leave the handles;
+  `liftIO` has any outcome and leaves them; the parallel maps are the sequential maps threading
+  the handles (the binary's threads each read only the handles they opened, which the trust
+  assumption now says).
+* **The calculus** (`ConLeche/Verify/Frontend/ModelIO.lean`): the outcome lemmas with the handles
+  (`bind_ok`, `AllOk x fs hs P`, `allOk_liftIO_bind`, …); `Det` (one answer from any handles),
+  `Gives x fs v` (determined, the value `v`) and `CanGive x fs v` (a value outcome from some
+  handles to some), which the `.olean` specifications now use (`ClosedOrder`, `WalkGood`,
+  `ViewOf`, `ValueAt`, `CacheOK`, `readOleans_ok`'s parts); `NoHandles` (an action whose
+  outcomes are its outcomes from no handles and that leaves them: `pure`, `liftIO`, closed under
+  bind).  The windows' step (`winStep`, the owners through `liftIO`) is `NoHandles`, which is what
+  `foldWindows_model` needs; `foldReads_pure` (pure steps: determined) and `foldReads_model`
+  carry the reads of a handle to `readsFrom` as before.
+* **The capstones** say that the run cannot give the exit code 0:
+  `¬ ModelIO.CanGive (Driver.runArgs …) fs 0`, no outcome from any open handles to any
+  (maintainer's suggestion, over spelling out `hs` and `hs'`).  `runArgs_accept`,
+  `runArgs_olean_accept`, `runArgs_oleans_accept` and `checkMainG_*_accept` take an outcome
+  between given handles.  The capstones' axioms are unchanged.  The README's two quoted statements are re-synced and its links
+  repointed; its prose is unchanged.
+* **Removed**: `native/read_range.c`, `ConLeche/Frontend/ReadRange.lean`, the library
+  `ConLecheNative` (the one `precompileModules`) and the `cc` target; the
+  build needs no system C compiler.  `tests/trust-surface.sh`: the `extern` allowlist entry and
+  the C file's pin are gone, the build file is pinned as `lakefile.toml`, the checker-IO fence cuts
+  `openReadIO` instead of `readRangeOf`; the CI cache keys drop `native/**`.  The package is
+  `lakefile.toml` again (maintainer's ruling): nothing needs code in the build file, and a
+  declarative one is less to trust; it is #450's predecessor with the `olean-compare`
+  executable added since.
+* **Tests** (`tests/ConLecheTests/CheckerIOTests.lean`): the model's answers restated as data and
+  checked by `rfl`, `openRead` and `read` by `ModelIO.openRead_at`/`read_at`; the binary's handle
+  reads, in sequences of sizes that end inside, at and past the end and read on after it, against
+  the model's slices on the committed fixtures, a directory and a missing path; the folds as
+  before.
+
+**Measurements** (`perf stat -e instructions:u`, one run each; master 2bd1a1d69 against the lane):
+
+| run | master | lane | Δ |
+|---|---|---|---|
+| `--olean --constant=Nat.add_comm --jobs=1 -- Init` | 30 857 702 944 | 30 860 005 143 | +0.007 % |
+| `--olean --jobs=8 -- Init` | 437 284 169 512 | 437 603 124 664 | +0.07 % |
+| init-full `--jobs=1` | 382 243 201 733 | 382 282 098 222 | +0.010 % |
+| init-full `--jobs=8` | 388 302 761 210 | 388 181 968 619 | −0.031 % |
+
+The same verdicts everywhere (63 937 declarations of the `Init` closure, 57 977 declarations of init-full).
+
+**Gates**: `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 551/551, olean gate 122/122, axioms pinned, the sweeps without divergence), and on its own each of the gates it runs.

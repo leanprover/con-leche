@@ -1,7 +1,5 @@
 module
 
-public import ConLeche.Frontend.ReadRange
-
 @[expose] public section
 
 /-!
@@ -16,15 +14,19 @@ and every thread (the rounds parse's owners, the check pool) — is an `IO` acti
 
 * **`IO`** (`instCheckerIOIO`): the binary.  Each file operation is the
   runtime's own call (`System.FilePath.pathExists`, `IO.FS.realPath`,
-  `IO.FS.readBinFile`, a file's metadata, and the positional read
-  `readRangeIO`, `pread(2)` in C), and `liftIO` is the identity.
+  `IO.FS.readBinFile`, a file's metadata, and a file handle,
+  `IO.FS.Handle.mk` and `IO.FS.Handle.read`), and `liftIO` is the
+  identity.
 * **`ModelIO`**: a model, a NON-DETERMINISM monad over a file system
   snapshot `FS` (a real path for every path that names something, bytes
-  for every regular file by its real path): an action is the set of its
-  possible outcomes, a value or an exception, on the snapshot.  The file
-  operations' outcomes are determined by the snapshot (an exception
-  where it has no such file, its value not specified); `liftIO a` may
-  have EVERY outcome, any value of its type or any exception.  The model
+  for every regular file by its real path) and the open handles `HS`
+  (each a file's bytes and the position of its next read): an action is
+  the set of its possible outcomes, a value or an exception and the
+  handles after it, from the snapshot and the handles before it.  The
+  file operations' outcomes are determined by the snapshot and the
+  handles (an exception where the snapshot has no such file, its value
+  not specified); `liftIO a` may have EVERY outcome, any value of its
+  type or any exception, and leaves the handles as they were.  The model
   is reasoned about, not executed.
 
 **What is proved, and what is trusted.**  The theorems
@@ -41,11 +43,14 @@ binary that exits 0 is one of the model's outcomes, with that code, if
 1. the binary's file operations give the model's answers on one
    snapshot of the files during the run — the same value where the
    model has one, an exception where the model's outcome is one —
-   including the C function behind `readRange` (`readRangeIO`,
-   `native/read_range.c`), which must return the model's slice; and the
-   parallel map's threads (`parMapIO`) must give the sequential map's
-   answer, which holds when the elements' actions only read files and
-   compute, as `parMapIO`'s docstring argues; and the worker map's threads
+   including a handle's reads, which must return the model's slices: a
+   read of `n` bytes is the next `n` bytes of the file, fewer only at its
+   end (`IO.FS.Handle.read` is the C library's `fread`, which reads until
+   it has them or the file ends); and the parallel map's threads
+   (`parMapIO`) must give the sequential map's answer, which holds when
+   the elements' actions only read files and compute, as `parMapIO`'s
+   docstring argues, each reading only the handles it opened itself (the
+   folds below open theirs and let none out); and the worker map's threads
    (`parMapWorkersIO`) likewise, each thread's state going only through
    its own elements' actions, which is all the model says of it;
 2. the actions passed to `liftIO` do not change what the file operations
@@ -71,7 +76,7 @@ it (`{ env // checkDecls … = .ok env }`), so every outcome the model
 allows carries it too.
 
 **Reading a file in pieces** is ordinary code over the class, not an
-operation of it: `foldReads` steps through a file's positional reads in
+operation of it: `foldReads` steps through the reads of a handle in
 order, `foldChunks` (the serial parse) and `foldWindows` (the rounds
 parse: the reads cut at their last newlines, taken a window at a time)
 are folds over it.  In the model they are folds over the snapshot's
@@ -126,11 +131,14 @@ class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m wh
   realPath : System.FilePath → m System.FilePath
   /-- a regular file's bytes; throws where there is none -/
   readBinFile : System.FilePath → m ByteArray
-  /-- **a positional read** of a regular file: the bytes from `off` up to
-  `off + len` or the end of the file, whichever comes first (a read at or
-  past the end is empty); throws where the path names no regular file.
-  It keeps no state: every read names its file and its offset. -/
-  readRange : System.FilePath → (off len : Nat) → m ByteArray
+  /-- an open file: what `openRead` gives and `read` takes -/
+  Handle : Type
+  /-- **a regular file, opened for reading** at its start; throws where
+  the path names none -/
+  openRead : System.FilePath → m Handle
+  /-- **the next bytes of an open file**: `n` of them, fewer at the end of
+  the file (none there) -/
+  read : Handle → (n : USize) → m ByteArray
   /-- the size of a regular file in bytes; throws where the path names
   none -/
   fileSize : System.FilePath → m Nat
@@ -160,16 +168,17 @@ class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m wh
 
 /-! ## Reading a file in pieces: ordinary code over the class -/
 
-/-- **The reads of a file, in order**: `rd off` for `off = 0, csz, 2·csz, …`
-below `size`, each read handed to `step` with the state, up to the first
-`.error`, which is the result; after the last read, `fin` of the state.
-No read at `csz = 0`.  The state is a plain argument, so that it stays
-uniquely referenced across the step (task #78). -/
-@[specialize] def foldReads {m : Type → Type} [Monad m] {σ ρ : Type} (rd : Nat → m ByteArray)
+/-- **The reads of a file, in order**: `rd` once for each of
+`off = 0, csz, 2·csz, …` below `size`, each read handed to `step` with
+the state, up to the first `.error`, which is the result; after the last
+read, `fin` of the state.  No read at `csz = 0`.  The state is a plain
+argument, so that it stays uniquely referenced across the step
+(task #78). -/
+@[specialize] def foldReads {m : Type → Type} [Monad m] {σ ρ : Type} (rd : m ByteArray)
     (csz size : Nat) (step : σ → ByteArray → m (Except ρ σ)) (fin : σ → m ρ)
     (off : Nat) (s : σ) : m ρ :=
   if _h : 0 < csz ∧ off < size then do
-    match ← step s (← rd off) with
+    match ← step s (← rd) with
     | .error r => pure r
     | .ok s => foldReads rd csz size step fin (min (off + csz) size) s
   else fin s
@@ -179,11 +188,13 @@ decreasing_by omega
 /-- **The serial fold over a file's bytes**: `step` on every read of
 `csz` bytes in order, from `init`, up to its first `.error`, which is
 the result; at the end of the file, `fin` of the state.  The file's
-size is read first: a path that names no regular file fails there. -/
+size is read first: a path that names no regular file fails there.  The
+file is opened here and read by no one else. -/
 @[inline] def foldChunks {m : Type → Type} [CheckerIO m] {σ ρ : Type} (p : System.FilePath)
     (csz : USize) (init : σ) (step : σ → ByteArray → Except ρ σ) (fin : σ → ρ) : m ρ := do
   let size ← CheckerIO.fileSize p
-  foldReads (fun off => CheckerIO.readRange p off csz.toNat) csz.toNat size
+  let h ← CheckerIO.openRead p
+  foldReads (CheckerIO.read h csz) csz.toNat size
     (fun s c => pure (step s c)) (fun s => pure (fin s)) 0 init
 
 /-- The windows' fold state: the caller's state, the last full window
@@ -240,14 +251,16 @@ lines taken `w` at a time; `step` on every window in order, handed
 besides the next window to come (an empty array after the last), up to
 its first `.error`; at the end, `fin` of the state and the bytes after
 the file's last newline.  Sequential: a window is stepped once the next
-one has been read.  No window at `w = 0`. -/
+one has been read.  No window at `w = 0`.  The file is opened here and
+read by no one else. -/
 @[inline] def foldWindows {m : Type → Type} [CheckerIO m] {σ ρ : Type} (p : System.FilePath)
     (csz : USize) (w : Nat) (init : σ)
     (step : σ → Array ByteArray → m (Array ByteArray) → m (Except ρ σ))
     (fin : σ → ByteArray → ρ) : m ρ := do
   let size ← CheckerIO.fileSize p
   if w = 0 then return fin init .empty
-  foldReads (fun off => CheckerIO.readRange p off csz.toNat) csz.toNat size
+  let h ← CheckerIO.openRead p
+  foldReads (CheckerIO.read h csz) csz.toNat size
     (winRead w step) (winEnd step fin) 0 (init, none, #[], .empty)
 
 /-! ## The model -/
@@ -264,19 +277,25 @@ structure FS where
 /-- A regular file's bytes by any path to it. -/
 def FS.file (fs : FS) (p : System.FilePath) : Option ByteArray := (fs.real p).bind fs.bytes
 
+/-- **The model's open handles**: each a file's bytes and the position of
+its next read; a handle is its index. -/
+abbrev HS := Array (ByteArray × Nat)
+
 /-- **The model's monad**: an action is the set of its possible
-outcomes on a snapshot — a value, or an exception.  A run that does not
-end has no outcome (no loop of the driver needs one: they all
-terminate). -/
-def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+outcomes on a snapshot from the open handles before it — a value or an
+exception, and the open handles after it.  A run that does not end has
+no outcome (no loop of the driver needs one: they all terminate). -/
+def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
 instance : Monad ModelIO where
-  pure a := fun _ o => o = .ok a
-  bind x f := fun fs o => (∃ a, x fs (.ok a) ∧ f a fs o) ∨ (∃ e, o = .error e ∧ x fs (.error e))
+  pure a := fun _ hs o hs' => o = .ok a ∧ hs' = hs
+  bind x f := fun fs hs o hs'' => (∃ a hs', x fs hs (.ok a) hs' ∧ f a fs hs' o hs'') ∨
+    (∃ e, o = .error e ∧ x fs hs (.error e) hs'')
 
 instance : MonadExceptOf IO.Error ModelIO where
-  throw e := fun _ o => o = .error e
-  tryCatch x h := fun fs o => (∃ a, o = .ok a ∧ x fs (.ok a)) ∨ (∃ e, x fs (.error e) ∧ h e fs o)
+  throw e := fun _ hs o hs' => o = .error e ∧ hs' = hs
+  tryCatch x h := fun fs hs o hs' => (∃ a, o = .ok a ∧ x fs hs (.ok a) hs') ∨
+    (∃ e hs₁, x fs hs (.error e) hs₁ ∧ h e fs hs₁ o hs')
 
 /-- An outcome determined by a snapshot's answer: the value where there
 is one, some exception where there is none. -/
@@ -284,61 +303,78 @@ def ModelIO.answer {α : Type} : Option α → Except IO.Error α → Prop
   | some a, o => o = .ok a
   | none, o => ∃ e, o = .error e
 
+/-- A determined outcome: the answer, and the open handles `hs₁` after
+it. -/
+def ModelIO.ret {α : Type} (a : Option α) (hs₁ : HS) : Except IO.Error α → HS → Prop :=
+  fun o hs' => ModelIO.answer a o ∧ hs' = hs₁
+
 /-- **The states a worker of the worker map can be in**: where it starts, and what an
 element's action leaves.  This is all the model says of them, so that what the map
 concludes of its elements holds at every state the threads can make. -/
 inductive WorkerReach {σ α β ε : Type} (init : Nat → σ) (f : σ → α → ModelIO (σ × Except ε β))
     (fs : FS) : σ → Prop where
   | init (w : Nat) : WorkerReach init f fs (init w)
-  | step {s s' : σ} {x : α} {r : Except ε β} : WorkerReach init f fs s →
-      f s x fs (.ok (s', r)) → WorkerReach init f fs s'
+  | step {s s' : σ} {x : α} {r : Except ε β} {hs hs' : HS} : WorkerReach init f fs s →
+      f s x fs hs (.ok (s', r)) hs' → WorkerReach init f fs s'
 
 /-- An element of the worker map: its action at a state some worker can reach. -/
 def workerElem {σ α β ε : Type} (init : Nat → σ) (f : σ → α → ModelIO (σ × Except ε β)) (x : α) :
-    ModelIO (Except ε β) := fun fs o =>
+    ModelIO (Except ε β) := fun fs hs o hs' =>
   ∃ s, WorkerReach init f fs s ∧
     match o with
-    | .ok r => ∃ s', f s x fs (.ok (s', r))
-    | .error e => f s x fs (.error e)
+    | .ok r => ∃ s', f s x fs hs (.ok (s', r)) hs'
+    | .error e => f s x fs hs (.error e) hs'
 
 /-- **The model of the worker map**: the sequential map of `workerElem`, and states some
 worker can reach. -/
 def workerMap {σ α β ε : Type} (init : Nat → σ) (f : σ → α → ModelIO (σ × Except ε β))
-    (xs : List α) : ModelIO (List σ × Except ε (List β)) := fun fs o =>
+    (xs : List α) : ModelIO (List σ × Except ε (List β)) := fun fs hs o hs' =>
   match o with
-  | .ok (ss, r) => (∀ s ∈ ss, WorkerReach init f fs s) ∧ mapExcept (workerElem init f) xs fs (.ok r)
-  | .error e => mapExcept (workerElem init f) xs fs (.error e)
+  | .ok (ss, r) => (∀ s ∈ ss, WorkerReach init f fs s) ∧
+      mapExcept (workerElem init f) xs fs hs (.ok r) hs'
+  | .error e => mapExcept (workerElem init f) xs fs hs (.error e) hs'
 
-/-- **The model**: every file operation is determined by the snapshot; a
-positional read is the slice of the file's bytes from `off` to
-`off + len`, cut at the end of the file (`min (off + len) b.size`; the
-slice is defined at every `Nat` offset and length, empty where the
-start is not below the end); `liftIO` may have any outcome. -/
+/-- The model's open: a new handle, at the file's start. -/
+def ModelIO.openRead (p : System.FilePath) : ModelIO Nat := fun fs hs =>
+  match fs.file p with
+  | some b => ModelIO.ret (some hs.size) (hs.push (b, 0))
+  | none => ModelIO.ret none hs
+
+/-- The model's read: the slice of the file from the handle's position,
+`n` bytes long or up to the end of the file, and the position moved past
+it. -/
+def ModelIO.read (h : Nat) (n : USize) : ModelIO ByteArray := fun _ hs =>
+  match hs[h]? with
+  | some (b, pos) =>
+    ModelIO.ret (some (b.extract pos (min (pos + n.toNat) b.size)))
+      (hs.set! h (b, min (pos + n.toNat) b.size))
+  | none => ModelIO.ret none hs
+
+/-- **The model**: every file operation is determined by the snapshot and
+the open handles; a read is the slice of the file's bytes from the
+handle's position, cut at the end of the file (`min (pos + n) b.size`);
+`liftIO` may have any outcome and leaves the handles as they were. -/
 instance : CheckerIO ModelIO where
-  pathExists p := fun fs o => o = .ok (fs.real p).isSome
-  realPath p := fun fs => ModelIO.answer (fs.real p)
-  readBinFile p := fun fs => ModelIO.answer (fs.file p)
-  readRange p off len := fun fs =>
-    ModelIO.answer ((fs.file p).map fun b => b.extract off (min (off + len) b.size))
-  fileSize p := fun fs => ModelIO.answer ((fs.file p).map (·.size))
+  pathExists p := fun fs hs => ModelIO.ret (some (fs.real p).isSome) hs
+  realPath p := fun fs hs => ModelIO.ret (fs.real p) hs
+  readBinFile p := fun fs hs => ModelIO.ret (fs.file p) hs
+  Handle := Nat
+  openRead p := ModelIO.openRead p
+  read h n := ModelIO.read h n
+  fileSize p := fun fs hs => ModelIO.ret ((fs.file p).map (·.size)) hs
   parMapExcept _ f xs := mapExcept f xs
   parMapWorkers _ init f xs := workerMap init f xs
-  liftIO _ := fun _ _ => True
+  liftIO _ := fun _ hs _ hs' => hs' = hs
 
 /-! ## The binary's instance -/
 
-/-- **A positional read at `IO`**: `readRangeIO` (`pread(2)`).  A regular
-file has fewer than `2^63` bytes (its size is an `off_t`), so a read at
-an offset of `2^63` or more is past its end and empty, and no read
-returns more than `2^63 - 1` bytes: the arguments the C function takes
-as 64-bit words are those, and the slice is the model's. -/
-def readRangeOf (p : System.FilePath) (off len : Nat) : IO ByteArray :=
-  if off < 2 ^ 63 then readRangeIO p.toString off.toUInt64 (min len (2 ^ 63 - 1)).toUInt64
-  else do
-    -- past the end of any regular file: the read is empty, once the
-    -- path is known to name one (the C function's checks)
-    let _ ← readRangeIO p.toString 0 0
-    pure .empty
+/-- **A regular file, opened for reading, at `IO`**: the metadata says it
+is one (a directory opens, and fails only at its first read), then the
+runtime's handle. -/
+def openReadIO (p : System.FilePath) : IO IO.FS.Handle := do
+  let md ← System.FilePath.metadata p
+  if md.type == .file then IO.FS.Handle.mk p .read
+  else throw (.inappropriateType (some p.toString) 21 "not a regular file")
 
 /-- One share of `parMapIO`: the elements at the given indices in order,
 up to the first failure, which is returned with its index (`.error`: an
@@ -451,7 +487,9 @@ instance instCheckerIOIO : CheckerIO IO where
   pathExists p := p.pathExists
   realPath p := IO.FS.realPath p
   readBinFile p := IO.FS.readBinFile p
-  readRange p off len := readRangeOf p off len
+  Handle := IO.FS.Handle
+  openRead p := openReadIO p
+  read h n := h.read n
   fileSize p := do
     let md ← System.FilePath.metadata p
     if md.type == .file then pure md.byteSize.toNat

@@ -72,10 +72,10 @@
     71  \{\"thm\":\{\"all\":[{k}],\"levelParams\":[],\"name\":{k},\"type\":{j},\"value\":{v}}}
     72  {after}").toUTF8
 
-== ConLeche/MainTheorem.lean#L147-L149
-   147  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   148      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   149      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+== ConLeche/MainTheorem.lean#L148-L150
+   148  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   149      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   150      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == ConLeche/Verify/Cached/StreamThm.lean#L103-L106
    103  theorem no_False_theorem_accepted (V : Type w) [SetTheory V]
@@ -123,15 +123,15 @@
 == ConLeche/Driver/Dispatch.lean#L31
     31  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
 
-== ConLeche/Frontend/CheckerIO.lean#L121
-   121  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L126
+   126  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L271
-   271  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L288
+   288  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
 == ConLeche/Verify/Driver/Main.lean#L178-L182
-   178  theorem runArgs_accept {file : String} {fs : FS}
-   179      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   178  theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+   179      (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
    180      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
    181        parseChunks [b] = .ok r ∧
    182        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
@@ -146,10 +146,10 @@
 == ConLeche/Frontend/ExportC.lean#L625
    625  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
-== ConLeche/Frontend/Stream.lean#L309-L311
-   309  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
-   310      (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
-   311    foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
+== ConLeche/Frontend/Stream.lean#L310-L312
+   310  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
+   311      (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
+   312    foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
 
 == ConLeche/Driver/OwnerParse.lean#L492-L494
    492  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
@@ -178,13 +178,13 @@
   1748        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1749        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L404-L409
-   404      {pace : Pace} {jobs : Nat} {fs : FS}
-   405      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
-   406      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   407        Frontend.parseChunks [b] = .ok r ∧
-   408        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
-   409    -- every value outcome `c` of the run: `c = 0` gives the chain
+== ConLeche/Driver/CheckMain.lean#L405-L410
+   405  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
+   406      {pace : Pace} {jobs : Nat} {fs : FS} {hs hs' : HS}
+   407      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs hs (.ok 0) hs') :
+   408      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   409        Frontend.parseChunks [b] = .ok r ∧
+   410        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Cached/Decls.lean#L46-L47
     46  def declStep (pins : List NatOpPinSet) (p : Nat × FEnv) (pd : Declaration) :
@@ -1344,22 +1344,22 @@
 == ConLeche/Driver/Cli.lean#L241
    241  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
-== ConLeche/Frontend/CheckerIO.lean#L121
-   121  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L126
+   126  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L143
-   143    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+== ConLeche/Frontend/CheckerIO.lean#L151
+   151    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
 
-== ConLeche/Frontend/CheckerIO.lean#L159
-   159    liftIO : {α : Type} → IO α → m α
+== ConLeche/Frontend/CheckerIO.lean#L167
+   167    liftIO : {α : Type} → IO α → m α
 
-== ConLeche/Frontend/CheckerIO.lean#L271
-   271  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L288
+   288  def ModelIO (α : Type) : Type := FS → HS → Except IO.Error α → HS → Prop
 
-== ConLeche/MainTheorem.lean#L147-L149
-   147  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
-   148      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-   149      ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
+== ConLeche/MainTheorem.lean#L148-L150
+   148  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
+   149      (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
+   150      ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
 
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do

@@ -220,9 +220,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .lake
-          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.lean', 'native/**', 'lake-manifest.json') }}-${{ github.sha }}
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
           restore-keys: |
-            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.lean', 'native/**', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
             lake-${{ runner.os }}-
 
       - name: lake build con-leche
@@ -347,9 +347,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .lake
-          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.lean', 'native/**', 'lake-manifest.json') }}-${{ github.sha }}
+          key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
           restore-keys: |
-            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.lean', 'native/**', 'lake-manifest.json') }}-
+            lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
             lake-${{ runner.os }}-
 
       - name: Download the binary

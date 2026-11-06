@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Frontend.Olean.Closure
-import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.Frontend.ModelIO
 import Std.Data.HashSet.Lemmas
 
 /-!
@@ -27,7 +27,7 @@ open ConLeche
 /-- **The module order of a closure**: each module, in the model, has imports, all of them
 before it. -/
 @[expose] def ClosedOrder (sp : SearchPath) (fs : FS) (out : Array Name) : Prop :=
-  ∀ k (hk : k < out.size), ∃ imps, (moduleImports sp out[k] : ModelIO _) fs (.ok (.ok imps)) ∧
+  ∀ k (hk : k < out.size), ∃ imps, ModelIO.CanGive (moduleImports sp out[k]) fs (.ok imps) ∧
     ∀ i ∈ imps, i.module ∈ out.toList.take k
 
 /-- A module done, or still on the stack above. -/
@@ -39,7 +39,7 @@ def WalkGood (sp : SearchPath) (fs : FS) (done seen : Std.HashSet Name) :
     List (Name × Bool) → List (Name × Bool) → Prop
   | _, [] => True
   | above, (m, true) :: rest =>
-    (∃ imps, (moduleImports sp m : ModelIO _) fs (.ok (.ok imps)) ∧
+    (∃ imps, ModelIO.CanGive (moduleImports sp m) fs (.ok imps) ∧
       ∀ i ∈ imps, Cover done above i.module) ∧ WalkGood sp fs done seen ((m, true) :: above) rest
   | above, (k, false) :: rest =>
     (seen.contains k = true → done.contains k = true ∨ (k, true) ∈ above) ∧
@@ -86,7 +86,7 @@ structure WalkInv (sp : SearchPath) (fs : FS) (R : Array Name) (stack : List (Na
 /-- A module whose imports are done goes last. -/
 theorem ClosedOrder.push {sp : SearchPath} {fs : FS} {out : Array Name} {m : Name}
     {imps : Array ImportRec} (hc : ClosedOrder sp fs out)
-    (hm : (moduleImports sp m : ModelIO _) fs (.ok (.ok imps))) (hi : ∀ i ∈ imps, i.module ∈ out) :
+    (hm : ModelIO.CanGive (moduleImports sp m) fs (.ok imps)) (hi : ∀ i ∈ imps, i.module ∈ out) :
     ClosedOrder sp fs (out.push m) := by
   intro k hk
   rw [Array.size_push] at hk
@@ -103,17 +103,19 @@ theorem ClosedOrder.push {sp : SearchPath} {fs : FS} {out : Array Name} {m : Nam
 
 /-- **The walk's value.** -/
 theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
-    ∀ (fuel : Nat) (stack : List (Name × Bool)) (seen done : Std.HashSet Name) (out res : Array Name),
+    ∀ (fuel : Nat) (stack : List (Name × Bool)) (seen done : Std.HashSet Name) (out res : Array Name)
+      {hs hs' : HS},
       WalkInv sp fs R stack seen done out →
-      (closureGo sp fuel stack seen done out : ModelIO _) fs (.ok (.ok res)) →
+      (closureGo sp fuel stack seen done out : ModelIO _) fs hs (.ok (.ok res)) hs' →
       ClosedOrder sp fs res ∧ ∀ r ∈ R, r ∈ res := by
   intro fuel
   induction fuel with
   | zero =>
-    intro stack seen done out res hi h
+    intro stack seen done out res hs hs' hi h
     cases stack with
     | nil =>
       simp only [closureGo, ModelIO.pure_iff, Except.ok.injEq] at h
+      obtain ⟨h, -⟩ := h
       cases h
       refine ⟨hi.closed, fun r hr => (hi.outDone r).2 ?_⟩
       rcases hi.roots r hr with h | h | h
@@ -123,10 +125,11 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
     | cons x t =>
       simp [closureGo] at h
   | succ fuel ih =>
-    intro stack seen done out res hi h
+    intro stack seen done out res hs hs' hi h
     match stack, hi, h with
     | [], hi, h =>
       simp only [closureGo, ModelIO.pure_iff, Except.ok.injEq] at h
+      obtain ⟨h, -⟩ := h
       cases h
       refine ⟨hi.closed, fun r hr => (hi.outDone r).2 ?_⟩
       rcases hi.roots r hr with h | h | h
@@ -226,7 +229,7 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
             · exact .inr (.inr hc)
       · rename_i hseen
         simp only [ModelIO.bind_ok] at h
-        obtain ⟨y, hy, h⟩ := h
+        obtain ⟨y, _, hy, h⟩ := h
         rcases y with e | imps
         · simp at h
         · simp only at h
@@ -252,7 +255,7 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
               simp
             refine ih _ (seen.insert m) done out res ⟨hi.outDone, hi.closed, ?_, ?_⟩ h
             · refine WalkGood.kids ks [] _ hk ?_
-              refine ⟨⟨imps, hy, fun i hm' => ?_⟩, ?_⟩
+              refine ⟨⟨imps, ⟨_, _, hy⟩, fun i hm' => ?_⟩, ?_⟩
               · by_cases hs : (seen.insert m).contains i.module = true
                 · exact .inl (hno i hm' hs)
                 · refine .inr (.inl ?_)
@@ -300,8 +303,8 @@ theorem closureGo_ok {sp : SearchPath} {fs : FS} {R : Array Name} :
 
 /-- **The closure's order**: where the walk has a value, it holds every root, and every
 module in it comes after all of that module's imports. -/
-theorem closureOrder_ok {sp : SearchPath} {roots order : Array Name} {fs : FS}
-    (h : (closureOrder sp roots : ModelIO _) fs (.ok (.ok order))) :
+theorem closureOrder_ok {sp : SearchPath} {roots order : Array Name} {fs : FS} {hs hs' : HS}
+    (h : (closureOrder sp roots : ModelIO _) fs hs (.ok (.ok order)) hs') :
     ClosedOrder sp fs order ∧ ∀ r ∈ roots, r ∈ order := by
   refine closureGo_ok closureFuel _ {} {} #[] order ⟨?_, ?_, ?_, ?_⟩ h
   · intro m

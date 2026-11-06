@@ -13,7 +13,7 @@ windows (`foldWindows`, chunks of whole lines, one per owner), each
 window's rounds on the owner threads (`RoundsOps`,
 `ConLeche/Driver/OwnerParse.lean`), started, called and stopped
 through `CheckerIO.liftIO`.  Both folds are ordinary code over the
-class's positional read (`CheckerIO.readRange`).
+class's file handle (`CheckerIO.openRead`, `CheckerIO.read`).
 
 **The step over a window** (`winStep`).  Between windows the state is
 the rounds parse's (`GSt`), or, once a window fell back, the serial
@@ -205,54 +205,68 @@ theorem winFin_ok {done : List ByteArray} {s : WSt} {tail : ByteArray} {r : Pars
     · exact serialEnd_ok (fallSt_inv h) hs
   | serial s => exact serialEnd_ok h hs
 
+/-- The windows' step uses no handle: the owners are called through
+`liftIO`. -/
+theorem winStep_noHandles (R : OwnerParse.RoundsOps) : WinStepNoHandles (winStep (μ := ModelIO) R) := by
+  intro s w ws
+  cases s with
+  | serial s =>
+    simp only [winStep]
+    exact ModelIO.noHandles_pure _
+  | rounds g =>
+    simp only [winStep]
+    exact ModelIO.noHandles_bind (ModelIO.noHandles_pure _) fun _ =>
+      ModelIO.noHandles_bind (ModelIO.noHandles_liftIO _) fun a => by
+        rcases a with _ | ⟨g', _⟩ <;> exact ModelIO.noHandles_pure _
+
 /-- **The windows' fold in the model**: an outcome that is records `r`,
 from a state the chunks `done` reached, means `parseChunks` of those,
 the windows' chunks and the bytes after the last newline returns `r`,
 whatever the owners answered (every answer carries its proof). -/
 theorem foldWins_winStep (R : OwnerParse.RoundsOps) (tail : ByteArray) (fs : FS)
     (ws : List (Array ByteArray)) :
-    ∀ {done : List ByteArray} {s : WSt} {r : ParseResultD}, WInv done s →
-    (ModelIO.foldWins (winStep R) winFin tail s ws) fs (.ok (.ok r)) →
+    ∀ {done : List ByteArray} {s : WSt} {r : ParseResultD} {hs hs' : HS}, WInv done s →
+    (ModelIO.foldWins (winStep R) winFin tail s ws) fs hs (.ok (.ok r)) hs' →
     parseChunks (done ++ winChunks ws ++ tailL tail) = .ok r := by
   induction ws with
   | nil =>
-    intro done s r h hr
+    intro done s r hs hs' h hr
     simp only [ModelIO.foldWins, ModelIO.pure_iff, Except.ok.injEq] at hr
-    simpa [winChunks] using winFin_ok h hr.symm
+    simpa [winChunks] using winFin_ok h hr.1.symm
   | cons w ws ih =>
-    intro done s r h hr
-    have key : ∀ {s' : WSt}, WInv (done ++ w.toList) s' →
-        (ModelIO.foldWins (winStep R) winFin tail s' ws) fs (.ok (.ok r)) →
+    intro done s r hs hs' h hr
+    have key : ∀ {s' : WSt} {hs₁ : HS}, WInv (done ++ w.toList) s' →
+        (ModelIO.foldWins (winStep R) winFin tail s' ws) fs hs₁ (.ok (.ok r)) hs' →
         parseChunks (done ++ winChunks (w :: ws) ++ tailL tail) = .ok r := by
-      intro s' h' hr'
+      intro s' hs₁ h' hr'
       have := ih h' hr'
       simpa [winChunks, List.append_assoc] using this
     simp only [ModelIO.foldWins, ModelIO.bind_ok] at hr
-    obtain ⟨x, hx, hr⟩ := hr
+    obtain ⟨x, hs₁, hx, hr⟩ := hr
     cases s with
     | serial s =>
       simp only [winStep, ModelIO.pure_iff, Except.ok.injEq] at hx
-      subst hx
+      obtain ⟨rfl, -⟩ := hx
       rcases hsw : serialWin s w with y | s'
       · rw [hsw] at hr
         simp only [ModelIO.pure_iff, Except.ok.injEq] at hr
-        subst hr; exact absurd hsw (serialWin_ne _ _ _)
+        obtain ⟨rfl, -⟩ := hr; exact absurd hsw (serialWin_ne _ _ _)
       · rw [hsw] at hr
         exact key (serialWin_ok h hsw) hr
     | rounds g =>
       simp only [winStep, ModelIO.bind_ok] at hx
-      obtain ⟨n, -, a, -, hx⟩ := hx
+      obtain ⟨n, _, -, a, _, -, hx⟩ := hx
       rcases a with _ | ⟨g', hadv⟩
       · simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
-        subst hx
+        obtain ⟨rfl, -⟩ := hx
         rcases hsw : serialWin (fallSt g) w with y | s'
         · rw [hsw] at hr
           simp only [ModelIO.pure_iff, Except.ok.injEq] at hr
-          subst hr; exact absurd hsw (serialWin_ne _ _ _)
+          obtain ⟨rfl, -⟩ := hr; exact absurd hsw (serialWin_ne _ _ _)
         · rw [hsw] at hr
           exact key (serialWin_ok (fallSt_inv h) hsw) hr
       · simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
-        subst hx
+        obtain ⟨rfl, -⟩ := hx
         exact key (s' := .rounds g') (hadv done h) hr
 
 theorem chunkSize_pos : 0 < chunkSize.toNat := by
@@ -272,9 +286,9 @@ that is records `r` on a snapshot `fs` means the file has bytes `b`
 there and `parseChunks [b] = .ok r` — the file's own bytes parse, as one
 chunk, to the records the driver goes on with, whatever the owner
 threads (`liftIO`) answered. -/
-theorem parseStreamG_model {file : String} {jobs : Nat} {fs : FS}
-    {r : ParseResultD}
-    (h : (parseStreamG file jobs : ModelIO _) fs (.ok (.ok r))) :
+theorem parseStreamG_model {file : String} {jobs : Nat} {fs : FS} {hs : HS}
+    {r : ParseResultD} {hs' : HS}
+    (h : (parseStreamG file jobs : ModelIO _) fs hs (.ok (.ok r)) hs') :
     ∃ b, fs.file file = some b ∧ parseChunks [b] = .ok r := by
   unfold parseStreamG at h
   split at h
@@ -287,21 +301,19 @@ theorem parseStreamG_model {file : String} {jobs : Nat} {fs : FS}
   · -- the windows' fold
     rename_i hj
     simp only [ModelIO.bind_ok] at h
-    obtain ⟨size, -, R, -, h⟩ := h
+    obtain ⟨size, _, -, R, _, -, h⟩ := h
     simp only [parseFileW, ModelIO.bind_ok, ModelIO.tryCatch_ok] at h
-    obtain ⟨v, hv, -, -, hr⟩ := h
+    obtain ⟨v, _, hv, _, _, -, hr⟩ := h
     simp only [ModelIO.pure_iff, Except.ok.injEq] at hr
-    subst hr
-    rcases hv with hf | ⟨e, -, he⟩
-    · obtain ⟨b, hb, hf⟩ := foldWindows_model hf
+    obtain ⟨rfl, -⟩ := hr
+    rcases hv with hf | ⟨e, _, -, he⟩
+    · obtain ⟨b, hb, hf⟩ := foldWindows_model (winStep_noHandles R) hf
       refine ⟨b, hb, ?_⟩
       have := foldWins_winStep R _ fs _ (done := []) (s := .rounds .init) GOK.init hf
       rw [List.nil_append] at this
       exact parseChunks_single_of_concat
         (concatBytes_windowsOf (toNat_roundsChunk size jobs) (by omega) b) this
-    · simp only [ModelIO.throw_ok] at he
-      -- (the handler stops the owners, then rethrows: no value)
-      obtain ⟨_, _, he⟩ := he
-      exact he.elim
+    · -- (the handler stops the owners, then rethrows: no value)
+      simp [ModelIO.throw_ok] at he
 
 end ConLeche.Driver

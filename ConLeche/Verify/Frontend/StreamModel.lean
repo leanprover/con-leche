@@ -8,7 +8,7 @@ import ConLeche.Verify.Frontend.Chunks
 # A stream's reads in the IO model (task #424)
 
 The stream parse reads its file through the checker's IO class, by a
-fold over the file's positional reads (`foldChunks`, `foldWindows`,
+fold over the reads of a handle on the file (`foldChunks`, `foldWindows`,
 `ConLeche/Frontend/CheckerIO.lean`).  In the model the folds run over
 the file's bytes cut as the binary's reads cut them
 (`ConLeche/Verify/Frontend/ModelIO.lean`): `readsFrom`, reads

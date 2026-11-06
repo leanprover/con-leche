@@ -117,27 +117,11 @@
 #       `sorryAx` it introduces.  A `sorry` anywhere else still fails
 #       this gate.
 #
-#   ConLeche/Frontend/ReadRange.lean   extern
-#       `readRangeIO` (task #450) — THE ONE NATIVE FUNCTION the checker
-#       carries: the positional read `pread(2)` of a regular file, in C
-#       (`native/read_range.c`, a few dozen lines), because Lean's file
-#       handles have no positional read (maintainer's ruling: an
-#       `[extern]` for seek/pread is allowed, a memory map is not).  It
-#       is the binary's instance of the IO class's `readRange`
-#       (`ConLeche/Frontend/CheckerIO.lean`), whose model is the slice
-#       of the snapshot's bytes; that the C function returns that slice
-#       is part of the trust assumption the IO class states (the
-#       runtime's own file calls are in it already), and
-#       `tests/ConLecheTests/CheckerIOTests.lean` compares the two on
-#       the committed fixtures, at offsets inside, across and past the
-#       end of each file.
-#
 #   THE BUILD AND NATIVE SURFACE (task #450) — not Lean, so not scanned
 #   for tokens, but trusted all the same: the package's build file
-#   (`lakefile.lean`, Lean code that Lake runs to build the binary,
-#   compiling and linking the C below) and every native source in the
-#   tree (`*.c`, `*.h`, `*.cc`, `*.cpp`, `*.S`, `*.s`; today
-#   `native/read_range.c`, the positional read `readRangeIO`).  Each is
+#   (`lakefile.toml`, the targets Lake builds the binary from) and
+#   every native source in the tree (`*.c`, `*.h`, `*.cc`, `*.cpp`,
+#   `*.S`, `*.s`; today there is none: the checker carries no C).  Each is
 #   PINNED by its SHA-256 in `NATIVE` below with its reason: a change to
 #   one, and a native source or a `lakefile.*` that is not listed, fails
 #   the gate until a reviewer re-pins it here (the failure prints the new
@@ -271,7 +255,6 @@ ALLOW = {
     'ConLeche/Kernel/Expr.lean':     {'computed_field'},
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
-    'ConLeche/Frontend/ReadRange.lean': {'extern'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
@@ -535,10 +518,8 @@ for f, t in stale:
 # Pinned by content: path -> (sha256, reason).  See the header.
 import hashlib
 NATIVE = {
-    'lakefile.lean': ('fdd9f09414278ac4edfe445512ec6ca6ed4476954c3d123728a162d88eb60804',
-        'the build: the targets, and the C compile and link of native/'),
-    'native/read_range.c': ('6ffff889161f74962d0633e2b906523bfc85b3d4ef68ab80da4160f3d0d7c821',
-        'readRangeIO, the positional read behind CheckerIO.readRange'),
+    'lakefile.toml': ('316e698828d8b5f2e2c3b6108c067fac14f7c4de4270b41018e063c57146e473',
+        'the build: the targets'),
 }
 NATIVE_EXT = ('.c', '.h', '.cc', '.cpp', '.S', '.s')
 found = set(f for f in os.listdir('.') if f.startswith('lakefile.'))
@@ -582,7 +563,7 @@ print(f'build and native surface: {len(NATIVE)} files pinned '
 # the binary's instance cut out, no name of the runtime is left: `IO`
 # (but `IO.Error`, the class's error type), `BaseIO`, `EIO`, `ST`,
 # `EST`, `StateRefT`, `Task`, `dbgTrace`/`dbg_trace`, `initialize`, a
-# mutex/channel/condition variable, a file handle, `readRangeIO`, or a
+# mutex/channel/condition variable, a file handle, or a
 # runtime file operation by its name (`pathExists`, `realPath`,
 # `readBinFile`, `metadata`, `isDir`, …, except as the class's own
 # `CheckerIO.<op>`).  It does not follow imports or definitions: a
@@ -595,7 +576,7 @@ print(f'build and native surface: {len(NATIVE)} files pinned '
 IO_FENCE = {
     # path: the declarations cut out whole (the instance and what only
     # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
-    'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def readRangeOf',
+    'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def openReadIO',
                                          # the parallel maps behind the
                                          # instance's `parMapExcept` and
                                          # `parMapWorkers`
@@ -615,13 +596,13 @@ IO_FENCE = {
     'ConLeche/Frontend/Olean/Closure.lean': (),
     'ConLeche/Frontend/Olean/Records.lean': (),
 }
-IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'readRange', 'fileSize',
+IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'fileSize',
           'metadata', 'isDir', 'readDir', 'walkDir', 'lines', 'writeFile', 'writeBinFile',
           'removeFile', 'removeDirAll', 'createDir', 'createDirAll', 'rename',
           'appDir', 'currentDir', 'getEnv', 'setEnvVar')
 IO_RX = re.compile(
     r'\b(?:IO|BaseIO|EIO|ST|EST|StateRefT|Task|dbgTrace|dbg_trace|initialize|'
-    r'builtin_initialize|Mutex|Channel|Condvar|Handle|readRangeIO)\b(?!\.Error\b)'
+    r'builtin_initialize|Mutex|Channel|Condvar|Handle)\b(?!\.Error\b)'
     r'|(?<!CheckerIO)\.(?:' + '|'.join(IO_OPS) + r')\b'
     r'|(?<![\w.])(?:' + '|'.join(IO_OPS) + r')\b(?=\s)')
 LIFT = 'CheckerIO.liftIO'

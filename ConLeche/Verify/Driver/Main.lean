@@ -113,29 +113,29 @@ every outcome that is an exit 0 read records off the snapshot's `.olean`
 files of the roots the arguments name, along the search path they name, and
 `checkDecls` at the arguments' mode accepts them prepared with the built-in
 prelude and with the theorems' values in place. -/
-theorem runArgs_oleans_accept {args : List String} {fs : FS}
+theorem runArgs_oleans_accept {args : List String} {fs : FS} {hs hs' : HS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
     (ho : (parseArgs args {}).olean = true)
-    (h : (runArgs args : ModelIO _) fs (.ok 0)) :
+    (h : (runArgs args : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
-      (Olean.readOleans (parseArgs args {}).searchPath
-        ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants :
-          ModelIO _) fs (.ok (.ok rd)) ∧
+      ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
+        ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
+          fs (.ok rd) ∧
       Cached.checkDecls (parseArgs args {}).mode natOpPinSets
         ((prepareD pre rd.decls (usedOf (some ((parseArgs args {}).searchPath, rd)))).decls.map
           (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env := by
-  suffices H : ModelIO.AllOk (runArgs args) fs
+  suffices H : ModelIO.AllOk (runArgs args) fs hs
       (fun c => c = 0 → ∃ pre rd env, builtinPreludeE = .ok pre ∧
-        (Olean.readOleans (parseArgs args {}).searchPath
-          ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants :
-          ModelIO _) fs (.ok (.ok rd)) ∧
+        ModelIO.CanGive (Olean.readOleans (parseArgs args {}).searchPath
+          ((parseArgs args {}).files.filterMap Olean.parseModName) (parseArgs args {}).rootConstants)
+          fs (.ok rd) ∧
         Cached.checkDecls (parseArgs args {}).mode natOpPinSets
           ((prepareD pre rd.decls (usedOf (some ((parseArgs args {}).searchPath, rd)))).decls.map
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
-    H 0 h rfl
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+    H 0 hs' h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [hh, hb, ho, Bool.false_eq_true, ite_false, ite_true]
-    intro c hc h0
+    intro c _ hc h0
     subst h0
     split at hc
     · simp [eprintln] at hc
@@ -160,11 +160,11 @@ theorem helpWanted_olean (dirs root : String) :
 /-- **`runArgs` on `--olean --search-path=<dirs> -- <root>`, in the model**: every outcome that
 is an exit 0 read records of that root's closure, every constant of it, that `checkDecls
 .verified` accepts prepared with the built-in prelude and with the theorems' values in place. -/
-theorem runArgs_olean_accept {dirs root : String} {fs : FS}
-    (h : (runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0)) :
+theorem runArgs_olean_accept {dirs root : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
-      (Olean.readOleans (searchPathOf dirs) (#[root].filterMap Olean.parseModName) none : ModelIO _)
-        fs (.ok (.ok rd)) ∧
+      ModelIO.CanGive (Olean.readOleans (searchPathOf dirs) (#[root].filterMap Olean.parseModName)
+        none) fs (.ok rd) ∧
       Cached.checkDecls .verified natOpPinSets
         ((prepareD pre rd.decls (usedOf (some (searchPathOf dirs, rd)))).decls.map
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
@@ -175,21 +175,22 @@ theorem runArgs_olean_accept {dirs root : String} {fs : FS}
   exact ⟨pre, rd, env, h1, h2, h3⟩
 
 /-- **`runArgs`, in the model** (task #450). -/
-theorem runArgs_accept {file : String} {fs : FS}
-    (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+theorem runArgs_accept {file : String} {fs : FS} {hs hs' : HS}
+    (h : (runArgs ["--", file] : ModelIO _) fs hs (.ok 0) hs') :
     ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
       parseChunks [b] = .ok r ∧
       Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
   -- every value outcome `c` of the run: `c = 0` gives the chain
-  suffices H : ModelIO.AllOk (runArgs ["--", file]) fs
+  suffices H : ModelIO.AllOk (runArgs ["--", file]) fs hs
       (fun c => c = 0 → ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
         parseChunks [b] = .ok r ∧
         Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env) from
-    H 0 h rfl
+    H 0 hs' h rfl
   -- the code is the request's, or the handler's 3
-  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ _ => ?_
   · simp only [helpWanted_file, parseArgs_file]
-    exact fun c hc _ => checkMainG_ndjson_accept (by subst_vars; exact hc)
+    exact fun c hs₁ hc _ =>
+      checkMainG_ndjson_accept (hs := hs) (hs' := hs₁) (by subst_vars; exact hc)
   · simp
 
 end ConLeche.Driver
