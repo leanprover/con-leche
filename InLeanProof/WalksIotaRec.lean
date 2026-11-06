@@ -404,6 +404,151 @@ theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpe
     · rename_i c us' h'; exact absurd h' (hn c us')
     · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
 
+/-- The fabricated projections through the translation. -/
+theorem projNodesI_facts (s : InLean.CState) (T : Name) {b : Expr} {d : Nat} (hb : OkS s b = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s b)) (hc : (TrS s b).looseBVarsBounded 0 = true) :
+    ∀ js : List Nat, OkSL s (InLean.projNodesI T b js) = true ∧
+      TrSL s (InLean.projNodesI T b js) = js.map (fun j => ConLeche.Expr.proj (toName T) j (TrS s b)) ∧
+      AllWS d (TrSL s (InLean.projNodesI T b js)) ∧
+      AllClosed (TrSL s (InLean.projNodesI T b js)) = true
+  | [] => ⟨rfl, rfl, by intro x hx; simp [InLean.projNodesI, TrSL] at hx, rfl⟩
+  | j :: js => by
+    obtain ⟨h1, h2, h3, h4⟩ := projNodesI_facts s T hb hw hc js
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · simp only [InLean.projNodesI, OkSL_cons, OkS_proj, hb, h1, Bool.and_self]
+    · rw [InLean.projNodesI, TrSL_cons, h2, TrS_proj, List.map_cons]
+    · rw [InLean.projNodesI, TrSL_cons, TrS_proj]
+      intro x hx
+      rcases List.mem_cons.1 hx with rfl | hx
+      · simpa [ConLeche.Expr.WScoped] using hw
+      · exact h3 x hx
+    · rw [InLean.projNodesI, TrSL_cons, AllClosed_cons, h4, TrS_proj, lbb_proj, hc]; rfl
+
+theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSpecI .verified eager env)
+    (hgb : GuardBridges) (hv : EnvViewI fe env) {d : Nat} {major : Expr} {T : Name}
+    {cvT : Lean.ConstantVal} {ccvT : ConLeche.ConstantVal} (hcvT : CVRel cvT ccvT)
+    (hcl : ccvT.type.hasFvar = false) (hlbb : ccvT.type.looseBVarsBounded 0 = true)
+    {caps : InLean.IndCaps}
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
+    (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ mtcEtaIL r fe d major T cvT caps
+    ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
+      Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ major) >>= fun tm =>
+        (ConLeche.fueledFns .verified eager env).whnf d tm >>=
+          mtcEtaCont (ConLeche.fueledFns .verified eager env) env d (TrS s₀ major) (toName T) ccvT
+            (toCaps caps)) (TrS s' m) ∧
+      ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+  refine tripleI_iff_run.2 fun m s' hr => ?_
+  unfold mtcEtaIL at hr
+  obtain ⟨tm, s₁, h1, hr⟩ := bind_run hr
+  obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1 (ih.inferIO hs hok hw hc) tm s₁ h1
+  obtain ⟨tmaj, s₂, h2, hr⟩ := bind_run hr
+  obtain ⟨hs₂, ht₂, hok₂, hrun₂, hw₂, hc₂⟩ :=
+    tripleI_iff_run.1 (ih.whnf hs₁ hok₁ hw₁ hc₁) tmaj s₂ h2
+  have ht02 := ht₁.trans ht₂
+  rw [Runs.bind_eq _ hrun₁, Runs.bind_eq _ hrun₂]
+  unfold mtcEtaCont
+  dsimp only at hr
+  by_cases hconst : ∃ T' ust, Expr.getAppFnT tmaj = .const T' ust
+  · obtain ⟨T', ust, hfn⟩ := hconst
+    rw [hfn] at hr
+    dsimp only at hr
+    rw [TrS_getAppFn_const s₂ hfn]
+    dsimp only
+    have hust := okLv_of_getAppFnT hok₂ hfn
+    have hlen : (appArgs tmaj).length = (TrS s₂ tmaj).getAppArgs.length := by
+      rw [← TrSL_appArgs, TrSL_length]
+    have hiff : ((T' == T) = true ∧ (appArgs tmaj).length = caps.etaParams ∧
+        ust.length = cvT.levelParams.length ∧
+        InLean.reservedBasisNames.contains T = false ∧
+        InLean.reservedBasisNames.contains caps.etaCtor = false ∧
+        fe.towerSlotsAllF T caps.etaFields = true) ↔
+        (toName T' = toName T ∧ (TrS s₂ tmaj).getAppArgs.length = (toCaps caps).etaParams ∧
+        (ust.map trL).length = ccvT.levelParams.length ∧
+        ConLeche.reservedBasisNames.contains (toName T) = false ∧
+        ConLeche.reservedBasisNames.contains (toCaps caps).etaCtor = false ∧
+        ConLeche.towerSlotsAll env (toName T) (toCaps caps).etaFields = true) := by
+      simp only [toCaps, reserved_contains, ← towerSlotsAllF_V hv, hcvT.2.1, List.length_map,
+        ← hlen, toName_eq_iff, beq_iff_eq]
+    by_cases hcond : (T' == T) = true ∧ (appArgs tmaj).length = caps.etaParams ∧
+        ust.length = cvT.levelParams.length ∧
+        InLean.reservedBasisNames.contains T = false ∧
+        InLean.reservedBasisNames.contains caps.etaCtor = false ∧
+        fe.towerSlotsAllF T caps.etaFields = true
+    · have hcond' := hiff.1 hcond
+      simp only [hcond, hcond', and_self, ↓reduceIte] at hr ⊢
+      obtain ⟨nz, s₃, h3, hr⟩ := bind_run hr
+      obtain ⟨hs₃, ht₃, hrun₃⟩ := tripleI_iff_run.1
+        (formerNeverZeroI_specI ih hcvT hcl hlbb caps hust hs₂) nz s₃ h3
+      rw [Runs.bind_eq _ hrun₃]
+      have ht03 := ht02.trans ht₃
+      cases nz with
+      | false =>
+        simp only [Bool.false_eq_true, ↓reduceIte] at hr ⊢
+        obtain ⟨rfl, rfl⟩ := pure_run hr
+        exact post_of hs₃ ht03 hok hw hc (Runs.pure _)
+      | true =>
+        simp only [↓reduceIte] at hr ⊢
+        obtain ⟨fab, s₄, h4, hr⟩ := bind_run hr
+        obtain ⟨rfl, rfl⟩ := pure_run h4
+        have hok₃ := okS_of_tabLe ht₃ hok₂
+        have htt₃ := TrS_of_tabLe ht₃ hok₂
+        have hokm := okS_of_tabLe ht03 hok
+        have htm := TrS_of_tabLe ht03 hok
+        obtain ⟨hp1, hp2, hp3, hp4⟩ := projNodesI_facts s₃ T hokm (htm ▸ hw) (htm ▸ hc)
+          (List.range caps.etaFields)
+        have hxs : OkSL s₃ (appArgs tmaj ++ InLean.projNodesI T major (List.range caps.etaFields))
+            = true := OkSL_append s₃ (OkSL_appArgs s₃ hok₃) hp1
+        have hTx : TrSL s₃ (appArgs tmaj ++ InLean.projNodesI T major (List.range caps.etaFields))
+            = ConLeche.etaFabArgsE (toName T) (TrS s₂ tmaj).getAppArgs (TrS s₀ major)
+                (toCaps caps).etaFields := by
+          rw [TrSL_append, TrSL_appArgs, hp2, htt₃, htm]; rfl
+        have hws1 : AllWS d (TrSL s₃ (appArgs tmaj)) := by
+          rw [TrSL_appArgs, htt₃]; exact allWS_getAppArgs hw₂
+        have hcl1 : AllClosed (TrSL s₃ (appArgs tmaj)) = true := by
+          rw [TrSL_appArgs, htt₃]; exact allClosed_getAppArgs hc₂
+        obtain ⟨hokf, htrf, hwf, hcf⟩ := fab_facts (c := caps.etaCtor) hust hxs
+          (by rw [TrSL_append]; exact AllWS.append hws1 hp3)
+          (by rw [TrSL_append]; exact AllClosed_append hcl1 hp4)
+        obtain ⟨g, s₅, h5, hr⟩ := bind_run hr
+        obtain ⟨hst, rfl⟩ := tripleI_iff_run.1 (hlg hs₃ hokf hokm) g s₅ h5
+        rw [hst] at hr
+        rw [hgb.1 hokf hwf, hgb.2 hokf hcf, Bool.true_and, Bool.true_and] at hr
+        have hwf' := hwf
+        have hcf' := hcf
+        rw [htrf, hTx] at hwf' hcf'
+        have hec : (toCaps caps).etaCtor = toName caps.etaCtor := rfl
+        rw [hec, hwf'.to_wscopedB, hcf', Bool.true_and, Bool.true_and]
+        rw [htrf, hTx, htm] at hr
+        by_cases hl : leafGuardP (ConLeche.Expr.mkAppN
+            (.const (toName caps.etaCtor) (ust.map trL))
+            (ConLeche.etaFabArgsE (toName T) (TrS s₂ tmaj).getAppArgs (TrS s₀ major)
+              (toCaps caps).etaFields)) (TrS s₀ major) = true
+        · simp only [hl, ↓reduceIte] at hr ⊢
+          obtain ⟨rfl, rfl⟩ := pure_run hr
+          refine ⟨hs₃, ht03, hokf, ?_, hwf, hcf⟩
+          rw [htrf, hTx]; exact Runs.pure _
+        · simp only [hl, Bool.false_eq_true, ↓reduceIte] at hr ⊢
+          obtain ⟨rfl, rfl⟩ := pure_run hr
+          exact post_of hs₃ ht03 hok hw hc (Runs.pure _)
+    · have hcond' := mt hiff.2 hcond
+      simp only [hcond, hcond', ↓reduceIte] at hr ⊢
+      obtain ⟨rfl, rfl⟩ := pure_run hr
+      exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
+  · have hfn : ∀ n us, Expr.getAppFnT tmaj ≠ .const n us := fun n us h => hconst ⟨n, us, h⟩
+    have hn := TrS_getAppFn_notConst s₂ hfn
+    have hr' : (pure major : InLean.CheckCM Expr) s₂ = .ok (m, s') := by
+      rw [← hr]
+      generalize hx : Expr.getAppFnT tmaj = x at hfn
+      cases x with
+      | const a b => exact absurd rfl (hfn a b)
+      | _ => rfl
+    obtain ⟨rfl, rfl⟩ := pure_run hr'
+    split
+    · rename_i c us' h'; exact absurd h' (hn c us')
+    · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
+
 end Walks
 
 end InLeanProof
