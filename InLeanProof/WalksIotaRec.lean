@@ -1097,6 +1097,78 @@ theorem certRestIL_run (ih : KnotSpecI .verified eager env r) (henv : ConLeche.E
       rw [htty₄, htm₄, htidx, hty] at hrun₅
       exact ⟨hs₅, ht04.trans ht₅, hrun₅⟩
 
+/-- **The case-3 certificate block** (`iotaCertC_spec`'s twin). -/
+theorem iotaCertIL_specI (ih : KnotSpecI .verified eager env r) (henv : ConLeche.EnvWF env)
+    (hv : EnvViewI fe env) (hfe : EnvRelI fe env) {d : Nat} {rv : RecursorVal} {isQuot : Bool}
+    {us : List Level} (hus : us.all okLv = true) {args : List Expr} {cj : Name}
+    {usj : List Level} (husj : usj.all okLv = true) {cvj : Lean.ConstantVal} {cnP nF : Nat}
+    {ccv ccvj : ConLeche.ConstantVal} {crl : ConLeche.RecRule}
+    (hcv : ccv.levelParams = rv.levelParams.map toName) (hcvj : CVRel cvj ccvj)
+    (hfj : env.find? (toName cj) = some (.ctorInfo ccvj cnP nF))
+    (hfire : FireRel (recFireAt rv isQuot) crl.fire)
+    (hpins : ∀ lvls pins, crl.fire = .nested lvls pins →
+      ∀ p ∈ pins, p.hasFvar = false ∧ p.looseBVarsBounded (rulePrefixOf rv) = true)
+    (hlen : rulePrefixOf rv ≤ args.length)
+    {margs : List Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hargs : OkSL s₀ args = true) (hwa : AllWS d (TrSL s₀ args))
+    (hca : AllClosed (TrSL s₀ args) = true)
+    (hm : OkSL s₀ margs = true) (hwm : AllWS d (TrSL s₀ margs))
+    (hcm : AllClosed (TrSL s₀ margs) = true) :
+    ⦃fun s => s = s₀⦄ iotaCertIL r fe d rv isQuot us args cj usj cvj cnP margs
+    ⦃fun b s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (iotaCertP (ConLeche.fueledFns .verified eager env) env d ccv (majorIdxOf rv)
+        (rulePrefixOf rv) rv.k (us.map trL) (TrSL s₀ args) (usj.map trL) ccvj cnP crl
+        (TrSL s₀ margs)) b; ⊤⦄ := by
+  refine tripleI_iff_run.2 fun b s' hr => ?_
+  unfold iotaCertIL at hr
+  unfold iotaCertP
+  rw [recFireComparands_eq, hcv]
+  obtain ⟨ls, s₁, h1, hr⟩ := bind_run hr
+  obtain ⟨hs₁, ht₁, hls, hlsT⟩ := cmpLvlsIL_run (cnP := cnP) (cargs := TrSL s₀ args)
+    (rP := rulePrefixOf rv) hcvj hfire hus hs h1
+  dsimp only
+  rw [← hlsT]
+  obtain ⟨c3, s₂, h2, hr⟩ := bind_run hr
+  obtain ⟨hs₂, ht₂, hrun₂⟩ := tripleI_iff_run.1
+    (iotaCase3I_specI ih henv hv (isK := rv.k) hcvj hls hs₁) c3 s₂ h2
+  rw [Runs.bind_eq _ hrun₂]
+  cases c3 with
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at hr ⊢
+    obtain ⟨rfl, rfl⟩ := pure_run hr
+    exact ⟨hs₂, ht₁.trans ht₂, Runs.pure _⟩
+  | true =>
+    simp only [↓reduceIte] at hr ⊢
+    obtain ⟨ob, s₃, h3, hr⟩ := bind_run hr
+    obtain ⟨hs₃, ht₃, hob⟩ := tripleI_iff_run.1
+      (isEquivListLM_specI hs₂ (okL_of_okLv husj) (okL_of_okLv hls)) ob s₃ h3
+    obtain ⟨a, s₄, h4, hr⟩ := bind_run hr
+    obtain ⟨hs₄, ht₄, hoa⟩ := tripleI_iff_run.1 (liftFueled_specI hs₃ "level comparison" ob) a s₄ h4
+    rw [← hob, hoa]
+    have hlf : (ConLeche.liftFueled "level comparison" (some a) : ConLeche.FueledM Bool) = pure a :=
+      rfl
+    rw [hlf, Runs.pure_bind_eq]
+    have ht04 := ht₁.trans (ht₂.trans (ht₃.trans ht₄))
+    cases a with
+    | false =>
+      simp only [Bool.false_eq_true, ↓reduceIte] at hr ⊢
+      obtain ⟨rfl, rfl⟩ := pure_run hr
+      exact ⟨hs₄, ht04, Runs.pure _⟩
+    | true =>
+      simp only [↓reduceIte] at hr ⊢
+      obtain ⟨ps, s₅, h5, hr5⟩ := bind_run hr
+      have hargs₄ := okSL_of_tabLe ht04 hargs
+      have hta₄ := TrSL_of_tabLe ht04 hargs
+      obtain ⟨rfl, hps, htps, hwps, hcps⟩ := cmpArgsIL_run (cvjLps := ccvj.levelParams) hus
+        hfire hpins hargs₄ (hta₄ ▸ hwa) (hta₄ ▸ hca) hlen h5
+      rw [hta₄] at htps
+      have hm₄ := okSL_of_tabLe ht04 hm
+      have htm₄ := TrSL_of_tabLe ht04 hm
+      obtain ⟨hs₆, ht₆, hrun₆⟩ := certRestIL_run ih henv hfe husj hfj hs₄ hargs₄ (hta₄ ▸ hwa)
+        (hta₄ ▸ hca) hm₄ (htm₄ ▸ hwm) (htm₄ ▸ hcm) hps hwps hcps hr5
+      rw [hta₄, htm₄, htps] at hrun₆
+      exact ⟨hs₆, ht04.trans ht₆, hrun₆⟩
+
 end Walks
 
 end InLeanProof
