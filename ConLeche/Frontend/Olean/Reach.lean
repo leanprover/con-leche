@@ -522,6 +522,11 @@ def ReachLog.add (L : ReachLog) (d : Declaration) (h : Name) (rd rest : List Nam
   { seen, stored := (declNames d).foldl (fun s n => s.insert n) L.stored,
     ctx := L.ctx.push d, homes := L.homes.push h, stack }
 
+/-- **The worklist's start**: the roots pushed, nothing read. -/
+def ReachLog.init (rs : List Name) : ReachLog :=
+  let p := pushNames {} [] rs
+  { seen := p.1, stored := {}, ctx := #[], homes := #[], stack := p.2 }
+
 /-- Why the record read for `x` does not store it. -/
 def missingError (d : Declaration) (x h : Name) : CheckError :=
   match d with
@@ -612,8 +617,7 @@ def reach {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (wr :
     match rs.find? (!wr.index.first.contains ·) with
     | some x => pure (.error (.invalid s!"module {m} reads {x}, which no module it loads holds"))
     | none =>
-      let (seen, stack) := pushNames {} [] rs
-      let L : ReachLog := { seen, stored := {}, ctx := #[], homes := #[], stack }
+      let L := ReachLog.init rs
       let fuel := wr.index.first.size + wr.index.more.size + (1 <<< 24)
       match ← reachGo env fuel L c with
       | .error e => pure (.error e)
