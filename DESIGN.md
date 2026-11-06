@@ -111051,3 +111051,96 @@ stored.  Four of its `CoreDefs.lean` anchors in that section (the fast-path acco
 `natOpNames`, `natOpGuard`, `natOpCod`) had pointed six to eight lines early before this lane;
 they now cite the definitions.  `divModEnvGuard`'s own `Bool` constructor type tests repeat
 `natOpGuard`'s for the WF names; left as they are.
+
+## TASK #463 — the model's instance: stages landed, the capstone open (2026-11-06, agent/463-modular-model)
+
+The third lane of #460's plan.  **Not complete**: `modular_model_exists` is not proved; the
+stages below are proved, warning-free, without `sorry`; one design question (§4) stands between
+them and the capstone.
+
+**1. Every proof's leaf is the canonical proof** (`Model/Harvest.lean`, `Model/Fold.lean`).  The
+modular theorem's values are leaves (terms), so two proofs of one statement in two modules must
+have one leaf.  A theorem's leaf is now `.prf` (its prop check, `propTypeRun_mem_univZero`, makes
+the value's reading the point, so `.prf` inhabits the statement); a definition or opaque constant
+whose type the checker finds to be a proposition (`PropTypeRun`), at a name with no fast path,
+gets `.prf` too.  `AcvalDefnInst` becomes `∃ t, denote … value = some t ∧ LeafReads V leaf t`
+(the reading, or a graded point where the leaf is `.prf`); the δ rule's soundness carries grading
+and interpretation across the head swap (`wd_interp_mkAppN`, `denote_unfoldDefinition`).
+`EnvFacts.defn_eq`, read by nothing, went.  The step is `declStep_agrees` (`CoveredRel`: the
+result's carrier keeps every stored name's leaf; `DeclProofLeaf`: the leaf of a proof it adds);
+`declStep_preserves` is its corollary; `declBlockAt` records that it keeps leaves.  Ported from
+`cfsg`'s #370 commit, adapted.
+
+**2. The step from a context** (`Model/Modular/Step.lean`): `declsRun_flags` — a `DeclsRun` from
+the canonical index of a context carries a covered model of the context (with `FamilyRan`, the
+η closure, `NatFacts`) to one of the own environment that keeps every context leaf and gives
+every name a record installs and the module flags (`FlagsOk`) the leaf `.prf`.
+
+**3. The `Nat`-operation law at the name, whatever its kind** (sub-lane, `ea63f4d5c`).  `NatOps`
+and `DivMod` are keyed on the name being stored (`∀ ci, env.find? c = some ci → natOpGuard env c ∧
+(natOpDeps c).all (natOpPinnedOk env) ∧ …`, `natOpPinnedOk` the kind-free pin); `op_defn`/`OpDefn`,
+`isDefinitionAt`, `natOpStored_inv`, `StoredFacts.opDefn` and `EnvFacts.nat_op_guard` (unread)
+are gone; `StoredFacts.boolCtors` is keyed on storedness; `Red.natOp_sound` reads storedness off
+the denotation.  Kernel unchanged (no diff under Kernel/Cached/Frontend/Driver).  29 files,
++466/−607.  This is what lets a context present `Nat.gcd` & co. as statements.
+
+**4. The context's model** (`Model/Modular/Read.lean`, `Restrict*.lean`, sub-lane).  `CtxRead C E R`
+states, without modules, a context read from its sources (per stored name its source's own
+environment `E n` and the part read alike `R n`: copies refine (`Refines`), names read alike have
+alike copies (`Alike`) and one table, reads read alike (`scope`, `deep`, `ctors`), tables).
+`ctxModel` builds the context's `EnvModelM` (every field), `LfpCover`, `FamilyRan`, η closure from
+the sources' models, every law read off the source's law across the agreement.  It takes three
+hypotheses beyond `CtxRead`:
+* `hnatC : NatFacts C` — derivable at the instance (a trio name's record is an unreserved-checked
+  inductive record installing all three); not yet derived.
+* `hred` — a context constant at a `reduce*` name is its source's.  **This was a hole in the
+  specification**: a home may accept `def Lean.reduceNat (n : Nat) : Nat := 0`; presented as its
+  statement, it lets an importer's `ofReduceNat` axiom (accepted by the stored name's pinned
+  statement) mean something false.  **Specification change**: `Presents`' statement arm excludes
+  records at `reduce*` names.  Derived (`reading_reduce`).
+* `hdh` — **the open design question.**  A context former whose type is headed by a definition
+  (`inductive Foo : MyType`, `MyType` a definition): its block recorded the reduced telescope, and
+  `FamilyRan`/`LfpTelescope` ask that reduction to run at a part of the environment and the
+  telescope's names to be read alike.  When the context holds `MyType` only as its statement,
+  neither holds, and the importer's own checks do read a context former's telescope (nested
+  containers: `FamilyRead`).  Not derivable from the specification; nothing in Lean's import
+  promises the heading definitions' values.  Options: (a) the importer's worker re-runs the
+  telescope reduction of every reached defn-headed former at its context and the specification
+  asks for that run (`hdh`'s second conjunct at `envB := C`) with the reduct's names read alike —
+  needs a whnf restriction lemma (a run moves to a sub-environment holding what it reads) to tie
+  the importer's run to the home's recorded telescope, or a recorded telescope taken from the
+  importer's run instead; (b) the reach follows the heading definitions' values and the
+  specification asks every definition a defn-headed former's type unfolds to be read alike with
+  its value; (c) decline a context former that is defn-headed whose heading definitions are not
+  presented with values.  Recommendation: (c) now (rare; positively detected), (a) later.  **Ruling
+  needed.**
+
+**5. The reading from the local checks** (`Model/Modular/Valid.lean`).  Every environment is a
+stream of records; a stored name is one record's, with that record's table
+(`streamEnv_findTable?`); an accepting run's records are fresh and unreserved where they are
+value kinds (`checkDeclStepC_unreserved`).  The **owner**: a context name is read from the module
+that declared it among its own records (`owner`, `ownerOf`), so two copies under one key are alike
+with one table (`copies_alike`).  Derived: `CtxRead`'s `nodup`, `entry`, `R_sub`, `self`, `alike`,
+`table` (`reading_basic`), `scope` (`reading_scope`) and `hred`.  Not yet derived: `deep`, `ctors`
+(the context record of an inductive copy is its owner's record, whole), `tables_mem`, `tables_src`
+(a table's structure is its record's former), `hnatC`.  `GroupMates`/`group` are unused and should
+go.
+
+**Remaining after the ruling** (the next lane's steps): the remaining derivations above; the
+instance (`ModularSemantics`: environments with exposed names, a model a leaf assignment with a
+covered `EnvModelM` reading it, a source's view its own environment exposing what the importer
+reads alike, `Assembled` the self case or a `CtxRead`, `amalgamate` by `ctxModel`, the step by
+`declsRun_flags`); `LocalOk ⇒ Valid` (`OneCopy` holds by the views' exposure, `NewNames` by
+`key_own` and `FlagsOk`); `modular_model_exists`/`modular_no_False` in `MainTheorem.lean`, the
+Challenge and the axiom pins.
+
+**Gates.**  `lake build`, `lake test` warning-free; overview links (three `Fold.lean`/
+`BlockRunFacts.lean` anchors repointed after the step's restatement), quote gate, layering, trust
+surface, challenge, no-local-paths and shake pass (the `Model/Modular/*` files rooted in
+`ConLeche/Model.lean`; six import lines measured needed and allowlisted, three demotions
+measured to break their files and recorded as fallbacks; four removals shake proposed after
+#462/#463 applied).  `tests/arena.sh` not run: the lane is not complete and no executed code
+changed (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`, `Main.lean`).
+
+**Sizes.**  `Model/Modular/`: `Step` 127, `Read` 222, `Restrict*` 1 671, `Valid` 611 lines; the
+leaf change +276/−112, the `Nat` law change +466/−607.

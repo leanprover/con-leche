@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #463: the context model's files state over `Env`, `Expr`, `natFragOk` through these.
+    # Each measured by demoting it alone (unknown identifier `Env`, `RestrictLfp.lean:29`;
+    # `Name`, `RestrictNat.lean:29`; `natFragOk`, `RestrictNat.lean:68`).
+    ('ConLeche.Model.Modular.RestrictLfp', 'ConLeche.Model.Modular.RestrictBase'),
+    ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Model.Modular.RestrictBase'),
+    ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Verify.NatOpFrag'),
     # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
     # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).

@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Modular.RestrictBase
-import ConLeche.Verify.ProjTele
 
 public section
 

@@ -3,7 +3,7 @@ module
 public import ConLeche.Model.Modular.Read
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.StreamIndex
-public import ConLeche.Verify.Cached.DeclPushes
+import ConLeche.Verify.Cached.DeclPushes
 import ConLeche.Model.StreamConsts
 
 public section

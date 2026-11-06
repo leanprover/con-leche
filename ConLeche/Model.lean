@@ -146,6 +146,9 @@ public import ConLeche.Model.AxiomMem
 public import ConLeche.Model.AxiomReduce
 public import ConLeche.Model.RecRulesCons
 public import ConLeche.Model.ReduceOps
+public import ConLeche.Model.Modular.Step
+public import ConLeche.Model.Modular.Valid
+public import ConLeche.Model.Modular.Restrict
 
 @[expose] public section
 

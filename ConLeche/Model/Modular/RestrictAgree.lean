@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Model.Modular.Read
-import ConLeche.Model.StreamConsts
 
 public section
 
