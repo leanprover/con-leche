@@ -346,7 +346,7 @@ theorem owner {i : Nat} (hi : ImportOk .verified pins dev i) {x : Name} {ciC : C
     · rw [Module.context_eq, htabC he hi.nodup, Module.own_eq, ht,
         streamEnv_findTable? hndL hpL (by rw [← hOn]; exact List.mem_map_of_mem hO)]
   rcases hpres with ⟨hc, ht⟩ | ⟨hst, hnr⟩
-  · exact fin ciC (hc ▸ hce) hnm (.inl rfl) ht fun _ => rfl
+  · exact fin ciC (hc.mem_iff.1 hce) hnm (.inl rfl) ht fun _ => rfl
   · subst hst
     have hunres : ∀ cv, ((∃ v hint, p = .defnDecl cv v hint) ∨ (∃ v, p = .thmDecl cv v) ∨
         (∃ v, p = .opaqueDecl cv v)) → ciC ∈ declConstants (.axiomDecl cv) → ciC = .axiomInfo cv := by
@@ -832,7 +832,7 @@ stores under the owner's home key; a context record also reads what it reads as 
 theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j : Nat} (hj : j ≤ i)
     {x : Name} {ci : ConstantInfo} (hx : (dev j).own.find? x = some ci) (hk : ci.isIndKind = true) :
     ∃ t ≤ j, ∃ p ∈ (dev t).decls, ∃ r : Declaration, ci ∈ declConstants r ∧
-      declConstants r = declConstants p ∧ declTables r = declTables p ∧
+      (declConstants r).Perm (declConstants p) ∧ declTables r = declTables p ∧
       (∀ c ∈ declConstants r, (dev j).own.find? c.name = some c ∧ (dev j).key c.name = .home t) ∧
       ((r ∈ (dev j).ctx ∧ RecordScoped (readsAlike dev j t) r) ∨ (t = j ∧ r ∈ (dev j).decls)) := by
   have hK := (hok j hj).importOk
@@ -844,7 +844,7 @@ theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j
     have hs := hok ((dev j).src x) (by omega)
     obtain ⟨p, hp, hpres⟩ := hs.iface.presents e (hK.presented e he x hxe)
     -- an inductive copy's record is its owner's record itself
-    have heq : declConstants e = declConstants p ∧ declTables e = declTables p := by
+    have heq : (declConstants e).Perm (declConstants p) ∧ declTables e = declTables p := by
       rcases hpres with h | ⟨rfl, -⟩
       · exact h
       · cases p with
@@ -858,10 +858,10 @@ theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j
           split at hce
           · exact absurd hce (List.not_mem_nil)
           · rw [List.mem_singleton.mp hce] at hk; exact nomatch hk
-        | axiomDecl _ | quotDecl _ _ | indDecl _ _ => exact ⟨rfl, rfl⟩
+        | axiomDecl _ | quotDecl _ _ | indDecl _ _ => exact ⟨.refl _, rfl⟩
     refine ⟨(dev j).src x, by omega, p, hp, e, hce, heq.1, heq.2, fun c hc' => ?_,
       .inl ⟨he, by simpa using hK.reads e he x hxe⟩⟩
-    have hcp : c ∈ declConstants p := heq.1 ▸ hc'
+    have hcp : c ∈ declConstants p := heq.1.mem_iff.1 hc'
     have hcf : (dev j).context.find? c.name = some c :=
       streamEnv_find?_of_mem hK.nodup he hc'
     refine ⟨own_find?_of_context hndO hcf, ?_⟩
@@ -869,8 +869,8 @@ theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j
       hK.one_src e he c.name (List.mem_map_of_mem hc') x hxe
     rw [hK.key_context c.name (by rw [hcf]; rfl), hsrc]
     exact (key_of_own hs.importOk hp hcp
-      (not_flagged_of_ind hs.importOk hp (heq.1 ▸ hce) hk hcp)).2.2
-  · refine ⟨j, Nat.le_refl j, p, hp, p, hcp, rfl, rfl, fun c hc' => ?_, .inr ⟨rfl, hp⟩⟩
+      (not_flagged_of_ind hs.importOk hp (heq.1.mem_iff.1 hce) hk hcp)).2.2
+  · refine ⟨j, Nat.le_refl j, p, hp, p, hcp, .refl _, rfl, fun c hc' => ?_, .inr ⟨rfl, hp⟩⟩
     obtain ⟨h1, -, h3⟩ := key_of_own hK hp hc' (not_flagged_of_ind hK hp hcp hk hc')
     exact ⟨h1, h3⟩
 
@@ -936,7 +936,7 @@ theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
     (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
     (hci : (dev i).context.find? d = some ci) (hk : ci.isIndKind = true) :
     ∃ t, ∃ ri rs : Declaration, ri ∈ (dev i).ctx ∧ ci ∈ declConstants ri ∧
-      declConstants rs = declConstants ri ∧ declTables rs = declTables ri ∧
+      (declConstants rs).Perm (declConstants ri) ∧ declTables rs = declTables ri ∧
       RecordScoped (readsAlike dev i t) ri ∧
       (∀ c ∈ declConstants ri, (dev i).key c.name = .home t) ∧
       (∀ c ∈ declConstants rs, (dev ((dev i).src n)).own.find? c.name = some c ∧
@@ -975,7 +975,7 @@ theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
       obtain ⟨a, ha⟩ := List.getElem?_of_mem (List.mem_append_right (dev t).ctx hp)
       obtain ⟨b, hb⟩ := List.getElem?_of_mem (List.mem_append_right (dev t).ctx hp')
       have hab := recs_unique hnd ha hb (n := ci.name)
-        (List.mem_map_of_mem (hci1 ▸ hri)) (List.mem_map_of_mem (hci2 ▸ hrs))
+        (List.mem_map_of_mem (hci1.mem_iff.1 hri)) (List.mem_map_of_mem (hci2.mem_iff.1 hrs))
       subst hab
       rw [ha] at hb
       obtain rfl := Option.some.inj hb
@@ -984,7 +984,8 @@ theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
       rcases hcase1 with h | ⟨rfl, -⟩
       · exact h
       · omega
-    refine ⟨t, ri, rs, hri_ctx.1, hri, by rw [hci2, hci1, hpp.1], by rw [htab2, htab1, hpp.2],
+    refine ⟨t, ri, rs, hri_ctx.1, hri, hci2.trans (by rw [← hpp.1]; exact hci1.symm),
+      by rw [htab2, htab1, hpp.2],
       hri_ctx.2, fun c hc' => (hall1 c hc').2, hall2, ?_⟩
     rcases hcase2 with h | ⟨rfl, -⟩
     · exact .inl h
@@ -1008,7 +1009,7 @@ theorem reading_deep {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
   have hPi := recordScopedP hRi hcri hdn htab
   generalize hs : (dev i).src n = s at hcase hd ⊢
   rcases hcase with ⟨hrs, hRs⟩ | rfl
-  · have hPs := recordScopedP hRs (hcs ▸ hcri) hdn (fun tb ht => hts ▸ htab tb ht)
+  · have hPs := recordScopedP hRs (hcs.mem_iff.2 hcri) hdn (fun tb ht => hts ▸ htab tb ht)
     refine (hPi.and hPs).mono fun y ⟨h1, h2⟩ => ?_
     rw [readsAlike_find?] at h1 h2 ⊢
     split at h1
@@ -1036,7 +1037,7 @@ theorem reading_ctors {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j
   obtain ⟨t, ri, rs, hri, hcri, hcs, -, -, hki, hall, -⟩ := indReadAlike hok hn hd hci rfl
   obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (declConstants_ctors hcri x hx)
   have hcf : (dev i).context.find? c.name = some c := streamEnv_find?_of_mem hK.nodup hri hc
-  obtain ⟨h1, h2⟩ := hall c (hcs ▸ hc)
+  obtain ⟨h1, h2⟩ := hall c (hcs.mem_iff.2 hc)
   rw [readsAlike_find?, ite_eq_left (show _ ∧ _ from ⟨by rw [hcf]; rfl, (hki c hc).trans h2.symm⟩),
     h1]
   rfl

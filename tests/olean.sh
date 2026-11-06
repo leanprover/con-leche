@@ -256,6 +256,7 @@ home_rejects() { # <description> <pattern> <search path> <module> <exit of --vie
   case_ "$1 [--olean, the private view]" 0 --olean --search-path=$3 "$4"
   views_ "$1 [all views parsed]" "$5" "$2" "$3" "$4"
   cmp_ --home "$1 [a home's read]" 1 "$2" "$3" "$4"
+  case_grep "$1 [the worker]" 1 "$2" --olean --module --search-path=$3 -- "$4"
 }
 d="$TMPDIR/con-leche-olean-home"
 rm -rf "$d"; cp -r "$LIB" "$d"; patch "$d/Tiny.olean" "$cswap"
@@ -612,6 +613,81 @@ for a in Ldg Ldv; do
   reach_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N
 done
 rm -rf "$d"
+
+# --- the worker: one module checked against its context ---------------------
+# (task #466, `con-leche --olean --module`: the home's read and check, the reads,
+# the own records, the reach, the own records' jobs over the context.  Lean
+# compiled every module below, so Lean accepts each one; a verdict that is not
+# 0 names why.)
+work_() { # <description> <expected-exit> <pattern> <search path> <module> [flag]
+  case_grep "$1" "$2" "$3" --olean --module ${6:-} --search-path=$4 -- "$5"
+}
+for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM \
+    DgFlagA DgFlagB DgLiftA DgLiftB DgInferA DgInferB DgCapQ DgCapQ2 DgCapH DgColQ DgColH \
+    HiLamA HiLamB HiInhD HiInhL HiInhT HiInhX HiInhM HiInhM2 \
+    TeqH TeqP1 TeqP2 TeqQ2 TeqX TeqM TeqBoth NsC NsH NsM NsN \
+    LdgQ LdgA LdgM LdgN LdvQ LdvA LdvM LdvN GrN LvA LvB LvC LvM LvN \
+    PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY; do
+  work_ "the worker at $m" 0 "accepted" "$MSP" $m
+done
+# NlX's nl and NlY's nl, behind a private import of an import, are never loaded
+# together: accepted, as by Lean (the merged read of the closure rejects the pair)
+work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM
+# M's own foo and the foo H's exported records read: no record of M's context
+# reads it: accepted, as by Lean (the merged read rejects the pair)
+work_ "the importer declares a name an unreached record reads" 0 "accepted" "$MSP" DgColM
+# H's teqN is not exposed, so the teq it reads is not reached: accepted, as by
+# Lean (the merged read rejects the two teq)
+work_ "two statements under one name, neither reached" 0 "accepted" "$MSP" TeqDM
+# WvA's wv_secret, read by exported values, is completed as its statement: no
+# override flag
+work_ "an exported value reading a private-only constant" 0 "1 completed" "$MSP" WvM --progress
+# PdA's definition of `id True` meets PdB's theorem: the flag inferred, as Lean merges
+work_ "a definition of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" PdM --progress
+# Lean proves False with no axiom here (H's bar.eq_1 reads Q's foo, M holds Q2's):
+# rejected, the target verdict
+work_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" DgCapM
+# an axiom at a certified Nat operation's name (Lean accepts the module): its own
+# record is rejected, as on the merged read (the fast path's names it reads are
+# left to that record's check)
+work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.div" "$LIB" NpAx
+# two axioms of one propositional statement, and an axiom of a proposition and a
+# theorem, meet: the flag inferred, as Lean merges them
+work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
+work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
+for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
+# a module declaring a user axiom: declined at its record, as on the merged read
+# (Lean accepts it)
+for m in AxI AxNA AxNB AxNX; do
+  work_ "a user axiom at its home ($m)" 2 "non-standard axiom" "$MSP" $m
+done
+# the modules Lean refuses to compile, their files swapped in (as for --reads)
+d="$TMPDIR/con-leche-olean-worker"
+rm -rf "$d"; cp -r "$LIB" "$d"
+swap_ "$d" ClashX ClashB
+work_ "two different constants of one name loaded together" 1 "store different constants named clash" "$d" ClashM
+swap_ "$d" TeqX TeqQ2
+work_ "two theorems of one name and two statements loaded together" 1 "store different constants named teq" "$d:$INIT" TeqBad
+swap_ "$d" FrX FrY
+work_ "a module declaring a loaded name" 1 "declares fresh, which the module FrX" "$d" FrM
+swap_ "$d" MoX TinyClassic
+work_ "a module importing one outside the module system" 1 "imports MoX, which is not" "$d" MoM
+rm -rf "$d"
+# a group's constructor reading a name N's view lacks (the import made private):
+# completed; with the import dropped, located nowhere
+for a in Ldg Ldv; do
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch_import "$d/${a}A.olean" private
+  work_ "a group's read completed ($a)" 0 "1 completed" "$d:$INIT" ${a}N --progress
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch_import "$d/${a}A.olean" drop
+  work_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N
+done
+rm -rf "$d"
+# the usage: one module, no --constant, under --olean
+case_ "--module takes one module" 3 --olean --module --search-path=$LIB Tiny TinyUse
+case_ "--module takes no --constant" 3 --olean --module --constant=two --search-path=$LIB Tiny
+case_ "--module takes --olean" 3 --module --search-path=$LIB Tiny
 
 rm -f "$TMPDIR/olean-case.out"
 echo "olean gate: $ok/$total as expected"

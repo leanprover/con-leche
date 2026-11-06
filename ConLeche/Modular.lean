@@ -23,8 +23,8 @@ adds is what a module is for con-leche and what its checks are.
   statement: two proofs of one name and statement are one constant (the model gives every proof the
   point), whatever their bodies or homes.  No name is ever renamed, and there is no merged
   environment: two modules may declare one name and never be loaded together.
-* A **presentation** (`Presents`) of an own record is a record that installs the same constants and
-  tables, or the record's statement (`stmtOf`): a definition, theorem or opaque constant as an axiom
+* A **presentation** (`Presents`) of an own record is a record that installs the same constants (in
+  any order) and tables, or the record's statement (`stmtOf`): a definition, theorem or opaque constant as an axiom
   of its name, level parameters and type.  An inductive group is presented as its record, so it
   reaches an importer whole.
 * A **proof** (`ProofDecl`) is a theorem record, a definition or opaque record whose value passes
@@ -84,13 +84,16 @@ def stmtOf : Declaration → Declaration
   | .opaqueDecl cv _ => .axiomDecl cv
   | d => d
 
-/-- **A presentation of an own record**: a record installing the same constants and tables (a
-theorem record, whatever value it carries, installs its statement), or the record's statement.  A
-record at a `reduce*` name is presented as itself: the compiler-trust axioms (`ofReduceNat`,
-`ofReduceBool`) are accepted at an importer by that name's pinned statement, which is true only
-of the identity its home's opaque install certified. -/
+/-- **A presentation of an own record**: a record installing the same constants, in any order,
+and the same tables (a theorem record, whatever value it carries, installs its statement), or the
+record's statement.  The order is free because a record installs its constants as a set, its
+names distinct: an inductive group read from its home's exported part lists its recursors in that
+part's order, which is sorted by name, where the home's own record lists them in declaration
+order.  A record at a `reduce*` name is presented as itself: the compiler-trust axioms
+(`ofReduceNat`, `ofReduceBool`) are accepted at an importer by that name's pinned statement, which
+is true only of the identity its home's opaque install certified. -/
 def Presents (e p : Declaration) : Prop :=
-  (declConstants e = declConstants p ∧ declTables e = declTables p) ∨
+  ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
     (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 /-- The names a record installs. -/

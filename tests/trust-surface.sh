@@ -610,6 +610,7 @@ IO_FENCE = {
     'ConLeche/Driver/StreamParse.lean': (),
     'ConLeche/Driver/CheckMain.lean': (),
     'ConLeche/Driver/Dispatch.lean': (),
+    'ConLeche/Driver/Worker.lean': (),
     'ConLeche/Driver/Cli.lean': (),
     'ConLeche/Frontend/Olean/Files.lean': (),
     'ConLeche/Frontend/Olean/Closure.lean': (),

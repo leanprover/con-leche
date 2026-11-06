@@ -106,7 +106,8 @@ def synopsis : String := String.intercalate "\n" [
   "Usage:",
   "  con-leche [OPTIONS] [--] FILE.ndjson",
   "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE...",
-  "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE..."]
+  "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE...",
+  "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
@@ -132,6 +133,8 @@ def helpText : String := String.intercalate "\n" [
   "  --constant=NAME     Check only NAME and what it mentions; repeatable",
   "  --check-graph       Check only that the modules' import graph is acyclic",
   "                      and that every import is on the search path",
+  "  --module            Check MODULE's own declarations alone, against what",
+  "                      they read of the modules it loads",
   "",
   "Exit status:",
   "  0  accepted",
@@ -161,6 +164,9 @@ structure Args where
   /-- `--check-graph`: the positional arguments are root module names, and the run checks
   their closure's import graph alone (`Graph.checkGraphG`). -/
   checkGraph : Bool := false
+  /-- `--module`: with `--olean`, the one module named is checked alone, against the records
+  of the modules it loads that its own records read (`checkModuleG`). -/
+  module : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -195,6 +201,7 @@ def parseArgs : List String → Args → Args
   | "--progress" :: rest, a => parseArgs rest { a with progress := .every 1 }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | "--check-graph" :: rest, a => parseArgs rest { a with checkGraph := true }
+  | "--module" :: rest, a => parseArgs rest { a with module := true }
   | s :: rest, a =>
     if let some v := flagValue "--progress=" s then
       match progressPace v with
@@ -262,8 +269,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
       if a.checkGraph then
         -- `--check-graph`: the arguments are root modules; only their closure's import graph
         -- is read and checked (`Graph.checkGraphG`)
-        if a.olean || !a.constants.isEmpty then
-          eprintln "con-leche: --check-graph takes neither --olean nor --constant"
+        if a.olean || a.module || !a.constants.isEmpty then
+          eprintln "con-leche: --check-graph takes none of --olean, --module and --constant"
           eprintln tryHelp
           return 3
         if a.files.isEmpty || a.searchPath.isEmpty then
@@ -300,10 +307,18 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
+        if a.module then
+          -- `--module`: one module, checked alone (`checkModuleG`)
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty with
+          | [m], true => return ← runReq (.module a.searchPath m a.mode a.progress jobs)
+          | _, _ =>
+            eprintln "con-leche: --module takes one module name and no --constant"
+            eprintln tryHelp
+            return 3
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
           a.rootConstants a.mode a.progress jobs)
-      if !a.searchPath.isEmpty || !a.constants.isEmpty then
-        eprintln "con-leche: --search-path and --constant take --olean"
+      if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module then
+        eprintln "con-leche: --search-path, --constant and --module take --olean"
         eprintln tryHelp
         return 3
       match a.files.toList with
