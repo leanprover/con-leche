@@ -152,10 +152,10 @@ structure LazyOf (r : Region) (i : Nat) (skels : List (CEntryF UInt64 UInt64))
   to_skel : ∀ e ∈ es, ∃ s ∈ skels, lazyEntry (nameP r) (exprP r) r i s = some e.toCEntryF
 
 theorem lazyEntries_spec {nm : UInt64 → Option Name} {ex : UInt64 → Option Expr}
-    {r : Region} {i : Nat} {outs : Array (Array UInt64)} :
+    {r : Region} {i : Nat} {flat : Array Name} {ends : Array Nat} :
     ∀ {ss : List (CEntryF UInt64 UInt64)} {k : Nat} {es : List CEntry},
       (∀ s ∈ ss, (∀ x ∈ s.names, nm x = nameP r x) ∧ ∀ x ∈ lazyRoots s, ex x = exprP r x) →
-      lazyEntries nm ex r i outs k ss = some es → LazyOf r i ss es
+      lazyEntries nm ex r i flat ends k ss = some es → LazyOf r i ss es
   | [], k, es, _, h => by
     simp only [lazyEntries, Option.some.injEq] at h
     subst h
@@ -177,7 +177,7 @@ theorem lazyEntries_spec {nm : UInt64 → Option Name} {ex : UInt64 → Option E
         obtain ⟨t1, t2⟩ := lazyEntries_spec (fun s' hs' => hall s' (by simp [hs'])) hes
         refine ⟨fun s' hs' => ?_, fun e' he' => ?_⟩
         · rcases List.mem_cons.mp hs' with rfl | hs'
-          · exact ⟨{ toCEntryF := e, uses := usesRead nm (outs.getD k #[]) }, by simp, hE⟩
+          · exact ⟨_, List.mem_cons_self, hE⟩
           · obtain ⟨x, hx, h⟩ := t1 s' hs'
             exact ⟨x, by simp [hx], h⟩
         · rcases List.mem_cons.mp he' with rfl | he'
@@ -208,6 +208,8 @@ theorem loadAt_spec {i : Nat} {m : Name} {f : ModFiles} {l : Loaded} (h : loadAt
   split at h
   rotate_left
   · cases h
+  generalize usesFlat _ _ = u at h
+  obtain ⟨flat, ends⟩ := u
   obtain ⟨cs, hcs, h⟩ := bind_some_left h
   simp only [pure, Option.some.injEq] at h
   subst h

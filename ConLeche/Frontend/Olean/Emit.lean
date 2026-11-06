@@ -283,7 +283,7 @@ def quotNames : List Name :=
 def quotConstants (mg : Merged) : List CEntry := quotNames.filterMap (mg.map[·]?)
 
 /-- Visits of what some constants mention. -/
-def Work.usesOf (cs : List CEntry) : List Work := cs.flatMap fun c => c.uses.toList.map Work.visit
+def Work.usesOf (cs : List CEntry) : List Work := cs.flatMap fun c => c.uses.toArray.toList.map Work.visit
 
 /-- Visits of some names. -/
 def Work.visits (ns : List Name) : List Work := ns.map Work.visit
