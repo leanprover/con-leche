@@ -82,9 +82,13 @@ def stmtOf : Declaration → Declaration
   | d => d
 
 /-- **A presentation of an own record**: a record installing the same constants and tables (a
-theorem record, whatever value it carries, installs its statement), or the record's statement. -/
+theorem record, whatever value it carries, installs its statement), or the record's statement.  A
+record at a `reduce*` name is presented as itself: the compiler-trust axioms (`ofReduceNat`,
+`ofReduceBool`) are accepted at an importer by that name's pinned statement, which is true only
+of the identity its home's opaque install certified. -/
 def Presents (e p : Declaration) : Prop :=
-  (declConstants e = declConstants p ∧ declTables e = declTables p) ∨ e = stmtOf p
+  (declConstants e = declConstants p ∧ declTables e = declTables p) ∨
+    (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 /-- The names a record installs. -/
 def declNames (d : Declaration) : List Name :=
