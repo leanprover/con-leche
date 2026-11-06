@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== ConLeche/Driver/Cli.lean#L116
-   116  def helpText : String := String.intercalate "\n" [
+== ConLeche/Driver/Cli.lean#L118
+   118  def helpText : String := String.intercalate "\n" [
 
 == ConLeche/Driver/CheckMain.lean#L37
     37    | .notImplemented _ => 2
@@ -125,28 +125,28 @@
    200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
    201          (m j hj).cval n = fun _ => pt := by
 
-== tests/ConLecheTests/Axioms.lean#L104-L108
-   104  /--
-   105  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   106  -/
-   107  #guard_msgs in
-   108  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L105-L109
+   105  /--
+   106  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   107  -/
+   108  #guard_msgs in
+   109  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Dispatch.lean#L39
-    39  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
+== ConLeche/Driver/Dispatch.lean#L47
+    47    | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
 
-== ConLeche/Frontend/CheckerIO.lean#L128
-   128  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L135
+   135  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L278
-   278  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L285
+   285  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L233-L237
-   233  theorem runArgs_accept {file : String} {fs : FS}
-   234      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-   235      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   236        parseChunks [b] = .ok r ∧
-   237        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L238-L242
+   238  theorem runArgs_accept {file : String} {fs : FS}
+   239      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   240      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   241        parseChunks [b] = .ok r ∧
+   242        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -190,13 +190,13 @@
   1748        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
   1749        g.total + (bs.map ByteArray.size).sum⟩ := by
 
-== ConLeche/Driver/CheckMain.lean#L407-L412
-   407      {pace : Pace} {jobs : Nat} {fs : FS}
-   408      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
-   409      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   410        Frontend.parseChunks [b] = .ok r ∧
-   411        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
-   412    -- every value outcome `c` of the run: `c = 0` gives the chain
+== ConLeche/Driver/CheckMain.lean#L410-L415
+   410      {pace : Pace} {jobs : Nat} {fs : FS}
+   411      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
+   412      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   413        Frontend.parseChunks [b] = .ok r ∧
+   414        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+   415    -- every value outcome `c` of the run: `c = 0` gives the chain
 
 == ConLeche/Cached/Decls.lean#L46-L47
     46  def declStep (pins : List NatOpPinSet) (p : Nat × FEnv) (pd : Declaration) :
@@ -245,14 +245,14 @@
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
 
-== ConLeche/Driver/CheckPool.lean#L210-L212
-   210  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
-   211      {ds : Array Declaration} (J : Jobs ds) :
-   212      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
+== ConLeche/Driver/CheckPool.lean#L214-L216
+   214  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
+   215      {ds : Array Declaration} (J : Jobs ds) :
+   216      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
 
-== ConLeche/Driver/CheckPool.lean#L145-L146
-   145  def collect (mode : ConLeche.CheckMode) {ds : Array Declaration} (J : Jobs ds)
-   146      (rs : List (JPass mode J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode J)) :=
+== ConLeche/Driver/CheckPool.lean#L149-L150
+   149  def collect (mode : ConLeche.CheckMode) {ds : Array Declaration} (J : Jobs ds)
+   150      (rs : List (JPass mode J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode J)) :=
 
 == ConLeche/Driver/Run.lean#L85-L88
     85  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)
@@ -1310,8 +1310,8 @@
    237          else throw (.notImplemented
    238            s!"unsupported compiler-trust axiom environment ({cv.name})")
 
-== ConLeche/Driver/Cli.lean#L124
-   124    "  --jobs=N            Worker threads (default: one per hardware thread)",
+== ConLeche/Driver/Cli.lean#L126
+   126    "  --jobs=N            Worker threads (default: one per hardware thread)",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
@@ -1384,20 +1384,20 @@
    224        c.toConstantVal.levelParams = cv.levelParams ∧
    225        c.toConstantVal.type = cv.type := by
 
-== ConLeche/Driver/Cli.lean#L255
-   255  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L277
+   277  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
-== ConLeche/Frontend/CheckerIO.lean#L128
-   128  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L135
+   135  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L150
-   150    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+== ConLeche/Frontend/CheckerIO.lean#L157
+   157    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
 
-== ConLeche/Frontend/CheckerIO.lean#L166
-   166    liftIO : {α : Type} → IO α → m α
+== ConLeche/Frontend/CheckerIO.lean#L173
+   173    liftIO : {α : Type} → IO α → m α
 
-== ConLeche/Frontend/CheckerIO.lean#L278
-   278  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L285
+   285  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
 == ConLeche/MainTheorem.lean#L150-L152
    150  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
@@ -1407,8 +1407,8 @@
 == Main.lean#L95
     95  def main (args : List String) : IO Unit := do
 
-== ConLeche/Driver/Cli.lean#L255
-   255  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+== ConLeche/Driver/Cli.lean#L277
+   277  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do
@@ -1459,8 +1459,8 @@
    201      OmegaInaccessibles.{u} → Nonempty (Σ V : Type (u + 1), ConLeche.SetTheory V) :=
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
-== ConLeche/Driver/Cli.lean#L123
-   123    "  --trusted           Skip the checks only the proof needs; outside the theorem",
+== ConLeche/Driver/Cli.lean#L125
+   125    "  --trusted           Skip the checks only the proof needs; outside the theorem",
 
 == ConLeche/Frontend/Olean/View.lean#L81
     81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do

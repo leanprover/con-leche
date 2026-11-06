@@ -204,36 +204,41 @@ def moduleImports {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Nam
   | .error e => pure (.error e)
   | .ok loc => readImportsAt loc m
 
-/-- **The files of a module a view reads**, each validated, located on the search
-path (`ModFiles.viewRegion`).  A part beside a classic `.olean` is no part of it,
+/-- **The files of a module a view reads at its location**, each validated
+(`ModFiles.viewRegion`).  A part beside a classic `.olean` is no part of it,
 and a module of the module system has all three. -/
+def readFilesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (m : Name) (level : OLeanLevel) :
+    μ (Except CheckError ModFiles) := do
+  let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
+  match ← readPart (modFile loc.dir m "olean") with
+  | .error e => pure (.error e)
+  | .ok ex =>
+    if level == .exported then return .ok { exported := ex }
+    if !(ModFiles.isModule { exported := ex }) then
+      if loc.hasServer || loc.hasPrivate then
+        return .error (bad s!"a module outside the module system (its {m}.olean), with \
+          {if loc.hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
+          in {loc.dir}")
+      return .ok { exported := ex }
+    if !loc.hasServer then
+      return .error (bad s!"a module of the module system without its {m}.olean.server in {loc.dir}")
+    if !loc.hasPrivate then
+      return .error (bad s!"a module of the module system without its {m}.olean.private in {loc.dir}")
+    match ← readPart (modFile loc.dir m "olean.server") with
+    | .error e => pure (.error e)
+    | .ok s =>
+      if level == .server then return .ok { exported := ex, server := some s }
+      match ← readPart (modFile loc.dir m "olean.private") with
+      | .error e => pure (.error e)
+      | .ok p => pure (.ok { exported := ex, server := some s, «private» := some p })
+
+/-- **The files of a module a view reads**, located on the search path (`findModule`), then
+read at that location (`readFilesAt`). -/
 def readFiles {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (level : OLeanLevel) :
     μ (Except CheckError ModFiles) := do
   match ← findModule sp m with
   | .error e => pure (.error e)
-  | .ok loc =>
-    let bad (what : String) : CheckError := .internal s!"module {m}: {what}"
-    match ← readPart (modFile loc.dir m "olean") with
-    | .error e => pure (.error e)
-    | .ok ex =>
-      if level == .exported then return .ok { exported := ex }
-      if !(ModFiles.isModule { exported := ex }) then
-        if loc.hasServer || loc.hasPrivate then
-          return .error (bad s!"a module outside the module system (its {m}.olean), with \
-            {if loc.hasPrivate then s!"{m}.olean.private" else s!"{m}.olean.server"} beside it \
-            in {loc.dir}")
-        return .ok { exported := ex }
-      if !loc.hasServer then
-        return .error (bad s!"a module of the module system without its {m}.olean.server in {loc.dir}")
-      if !loc.hasPrivate then
-        return .error (bad s!"a module of the module system without its {m}.olean.private in {loc.dir}")
-      match ← readPart (modFile loc.dir m "olean.server") with
-      | .error e => pure (.error e)
-      | .ok s =>
-        if level == .server then return .ok { exported := ex, server := some s }
-        match ← readPart (modFile loc.dir m "olean.private") with
-        | .error e => pure (.error e)
-        | .ok p => pure (.ok { exported := ex, server := some s, «private» := some p })
+  | .ok loc => readFilesAt loc m level
 
 /-- **One view of a module**, located on the search path. -/
 def readView {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (level : OLeanLevel) :
@@ -245,12 +250,48 @@ def readView {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (l
     | some d => pure (.ok d)
     | none => pure (.error (viewError m f level))
 
+/-- **One part's name positions**, read off its files at their location. -/
+def readPartNamesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (x : Name × OLeanLevel) :
+    μ (Except CheckError NamePositions) := do
+  match ← readFilesAt loc x.1 x.2 with
+  | .error e => pure (.error e)
+  | .ok f =>
+    match readNamePositions f x.2 with
+    | some ps => pure (.ok ps)
+    | none => pure (.error (viewError x.1 f x.2))
+
+/-- **One part's name positions**, located on the search path. -/
+def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Name × OLeanLevel) :
+    μ (Except CheckError NamePositions) := do
+  match ← findModule sp x.1 with
+  | .error e => pure (.error e)
+  | .ok loc => readPartNamesAt loc x
+
+/-- **What a worker reads off the files**: a module's imports (off the start of its
+`M.olean`), the files of a view, a part's name positions.  On the search path
+(`OleanReads.ofPath`) each is the read of the files it names; the one-process mode
+(`ConLeche/Driver/Modular.lean`) answers from what it read once up front, and where it
+has nothing, by the same read. -/
+structure OleanReads (μ : Type → Type) where
+  /-- a module's imports (`moduleImports`) -/
+  imports : Name → μ (Except CheckError (Array ImportRec))
+  /-- the files of a module's view at a level (`readFiles`) -/
+  files : Name → OLeanLevel → μ (Except CheckError ModFiles)
+  /-- a part's name positions (`readPartNames`) -/
+  names : Name × OLeanLevel → μ (Except CheckError NamePositions)
+
+/-- **The reads on the search path.** -/
+def OleanReads.ofPath {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) : OleanReads μ where
+  imports := moduleImports sp
+  files := readFiles sp
+  names := readPartNames sp
+
 /-- **A module's home read**: its private view loaded (`loadView`, its theorems' values
 left in the file; `i` its place in the order the references name), and its three parts
 checked against each other (`checkViews`). -/
-def readHome {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (i : Nat := 0) :
+def readHome {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (i : Nat := 0) :
     μ (Except CheckError (Loaded × Array Expo)) := do
-  match ← readFiles sp m .private with
+  match ← rd.files m .private with
   | .error e => pure (.error e)
   | .ok f =>
     match loadView i m f with

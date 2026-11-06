@@ -47,9 +47,10 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 | name | theorem (in the model, on a snapshot) |
 |---|---|
 | `parseModName string : Option Name` | |
-| `readFiles sp m level : μ (Except CheckError ModFiles)` | `readFiles_ok`, `readFiles_of_all` |
+| `readFiles sp m level : μ (Except CheckError ModFiles)`: `findModule`, then `readFilesAt loc m level` | `readFiles_ok`, `readFiles_of_all` |
 | `readView sp m level : μ (Except CheckError ModDecoded)` | `readView_of_all` |
-| `readHome sp m : μ (Except CheckError (Loaded × Array Expo))`: `loadAt`, then `checkViews` | |
+| `OleanReads μ`: a worker's reads of the files (a module's imports, a view's files, a part's name positions); `OleanReads.ofPath sp` on the search path | |
+| `readHome rd m : μ (Except CheckError (Loaded × Array Expo))`: `loadAt`, then `checkViews` | |
 | `readAllViews sp m : μ (Except CheckError (AllViews × Array Expo))`, for the tools | `readView_of_all` |
 | `moduleImports sp m : μ (Except CheckError (Array ImportRec))` | `moduleImports_of_view` |
 
@@ -70,9 +71,9 @@ them).  A view is named by its level, `OLeanLevel`: `.exported`, `.server`, `.pr
 
 | name | theorem |
 |---|---|
-| `headerFixpoint sp isModule imports : μ (Except CheckError Loads)`: every module Lean's `importModulesCore` loads for a header, in its order, with the part (`LoadFlags.level`) | none needed: a presentation decides only whether a verdict is Lean's |
+| `headerFixpoint imps isModule imports : μ (Except CheckError Loads)`: every module Lean's `importModulesCore` loads for a header, in its order, with the part (`LoadFlags.level`) | none needed: a presentation decides only whether a verdict is Lean's |
 | `pubClosures ld : Array ModSet`: each loaded module's public-import closure | |
-| `workerReads sp m jobs : μ (Except CheckError WorkerReads)`: the fixpoint, the name index of the loaded parts (`nameIndexOf`), Lean's clash rule (`clashOk`, by `subsumesF`) over every loaded name and freshness (`freshOk`), each a reject | |
+| `workerReads rd m jobs : μ (Except CheckError WorkerReads)`: the fixpoint, the name index of the loaded parts (`nameIndexOf`), Lean's clash rule (`clashOk`, by `subsumesF`) over every loaded name and freshness (`freshOk`), each a reject | |
 | `groupRecord mg n : Except CheckError Declaration`: one inductive group's record, validated as `blocksOk` validates a block; `readGroup` gathers it from one part | `groupRecord_from`, `groupRecord_valid` |
 
 Here `roots` are the modules the closure starts from, and `constants` the constants the

@@ -73,24 +73,14 @@ structure Clash where
 
 /-! ## Reading -/
 
-/-- **One loaded part's name positions**, read off its files. -/
-def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Name × OLeanLevel) :
-    μ (Except CheckError NamePositions) := do
-  match ← readFiles sp x.1 x.2 with
-  | .error e => pure (.error e)
-  | .ok f =>
-    match readNamePositions f x.2 with
-    | some ps => pure (.ok ps)
-    | none => pure (.error (viewError x.1 f x.2))
-
 /-- **The statements and kinds of some copies** of one module, read together. -/
-def readInfosOf {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (ld : Loads) (ix : NameIndex)
+def readInfosOf {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : Loads) (ix : NameIndex)
     (x : Nat × Array Copy) : μ (Except CheckError (Array (Copy × ConstantVal × CKindF Name Unit))) := do
   let (i, cs) := x
   let m := (ld.order[i]?).getD .anonymous
   let level := ((ld.flags[i]?).getD default).level
   let locs := cs.toList.filterMap fun c => (ix.at c).map (·.loc)
-  match ← readFiles sp m level with
+  match ← rd.files m level with
   | .error e => pure (.error e)
   | .ok f =>
     match readStmts f level locs, readKinds f level locs with
@@ -107,10 +97,10 @@ def byModule (cs : Array Copy) : Array (Nat × Array Copy) :=
   (m.toArray.qsort (·.1 < ·.1))
 
 /-- **The statements and kinds of some copies**, module by module, in parallel. -/
-def readInfos {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (ld : Loads) (ix : NameIndex)
+def readInfos {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (ld : Loads) (ix : NameIndex)
     (jobs : Nat) (cs : Array Copy) :
     μ (Except CheckError (Std.HashMap Copy (ConstantVal × CKindF Name Unit))) := do
-  match ← CheckerIO.parMapExcept jobs (readInfosOf sp ld ix) (byModule cs).toList with
+  match ← CheckerIO.parMapExcept jobs (readInfosOf rd ld ix) (byModule cs).toList with
   | .error e => pure (.error e)
   | .ok rs =>
     pure (.ok (rs.foldl (fun m r => r.foldl (fun m (c, s, k) => m.insert c (s, k)) m) {}))
@@ -183,16 +173,16 @@ and names; the header fixpoint; each loaded module's public-import closure; the 
 index of the loaded parts (read in parallel, at most `jobs` modules at once); Lean's
 refusal of a classic import from a module, the clash rule over every loaded name and
 freshness, each a reject (exit 1) naming what it found. -/
-def workerReads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (jobs : Nat := 1) :
+def workerReads {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (jobs : Nat := 1) :
     μ (Except CheckError WorkerReads) := do
-  match ← readPartNames sp (m, .private) with
+  match ← rd.names (m, .private) with
   | .error e => pure (.error e)
   | .ok own =>
-    match ← headerFixpoint sp own.header.isModule own.header.imports with
+    match ← headerFixpoint rd.imports own.header.isModule own.header.imports with
     | .error e => pure (.error e)
     | .ok ld =>
       let xs := (ld.order.zip ld.flags).toList.map fun (n, fl) => (n, fl.level)
-      match ← CheckerIO.parMapExcept jobs (readPartNames sp) xs with
+      match ← CheckerIO.parMapExcept jobs rd.names xs with
       | .error e => pure (.error e)
       | .ok parts =>
         let ix := nameIndexOf parts.toArray
@@ -200,7 +190,7 @@ def workerReads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name)
         | .error e => pure (.error e)
         | .ok () =>
         let cc := clashCopies ix
-        match ← readInfos sp ld ix jobs (cc.flatMap (·.2)) with
+        match ← readInfos rd ld ix jobs (cc.flatMap (·.2)) with
         | .error e => pure (.error e)
         | .ok infos =>
           let clashes : Array Clash := cc.map fun (n, cs) =>
@@ -213,7 +203,7 @@ def workerReads {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name)
               | some c => acc.push c
               | none => acc
             | _ => acc) #[]
-          match ← readInfos sp ld ix jobs heads with
+          match ← readInfos rd ld ix jobs heads with
           | .error e => pure (.error e)
           | .ok hinfos =>
             let headTy (n : Name) : Option Expr :=

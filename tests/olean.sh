@@ -630,6 +630,9 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
+# an own unsafe definition is no record, and what it reads is no root of the reach: UsM's
+# usUse reads UsA's unsafe usPeek, and the module is accepted, as by Lean (task #468)
+work_ "an own unsafe definition reading an imported unsafe one" 0 "accepted 1 declarations" "$MSP" UsM
 # NlX's nl and NlY's nl, behind a private import of an import, are never loaded
 # together: accepted, as by Lean (the merged read of the closure rejects the pair)
 work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM
@@ -688,6 +691,37 @@ rm -rf "$d"
 case_ "--module takes one module" 3 --olean --module --search-path=$LIB Tiny TinyUse
 case_ "--module takes no --constant" 3 --olean --module --constant=two --search-path=$LIB Tiny
 case_ "--module takes --olean" 3 --module --search-path=$LIB Tiny
+
+# --- every module of a closure: in one process, and one worker process each ---
+# (task #468: `--modular` runs each module's worker steps over tables read once; the
+# scheduler `--schedule` runs one `--module` process per module.  Same verdicts as the
+# workers': exit 0 iff every module's is 0, else the first failing module in the graph's
+# order is named, with its code)
+for m in TinyUse NlM PdM WvM LvN; do
+  case_grep "--modular at $m" 0 "accepted .* modules" --olean --modular --search-path=$MSP -- $m
+done
+case_grep "--modular: a module's verdict named" 0 "module NlX: accepted" --olean --modular \
+  --search-path=$MSP -- NlM
+case_grep "--modular: the first failing module, its code" 1 "the first in the graph's order: NpAx" \
+  --olean --modular --search-path=$LIB -- NpAx
+case_grep "--modular at one job" 0 "accepted 4 modules" --jobs=1 --olean --modular \
+  --search-path=$MSP -- PdM
+case_ "--modular takes one module" 3 --olean --modular --search-path=$LIB Tiny TinyUse
+case_ "--modular takes no --module" 3 --olean --modular --module --search-path=$LIB Tiny
+case_ "--modular takes --olean" 3 --modular --search-path=$LIB Tiny
+case_grep "--modular: a missing import" 1 "no .olean on the search path" --olean --modular \
+  --search-path=$LIB -- NlM
+d="$TMPDIR/olean-sched"
+rm -rf "$d"; mkdir -p "$d"
+case_grep "--schedule: one worker per module" 0 "accepted 5 modules, one worker each" --olean \
+  --schedule --schedule-log="$d/log" --jobs=2 --search-path=$MSP -- NlM
+case_grep "--schedule: the log resumed" 0 "5 modules logged, 0 to run" --olean \
+  --schedule --schedule-log="$d/log" --jobs=2 --search-path=$MSP -- NlM
+case_grep "--schedule: the first failing module, its code" 1 "the first in the graph's order: NpAx (1)" \
+  --olean --schedule --search-path=$LIB -- NpAx
+case_ "--schedule: an unknown option" 3 --olean --schedule-frobnicate --search-path=$LIB -- Tiny
+case_ "--schedule takes no --modular" 3 --olean --schedule --modular --search-path=$LIB -- Tiny
+rm -rf "$d"
 
 rm -f "$TMPDIR/olean-case.out"
 echo "olean gate: $ok/$total as expected"

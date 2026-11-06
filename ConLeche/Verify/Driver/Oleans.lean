@@ -276,10 +276,10 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
 /-- **The check phase from position `start` passes every job from there on**, at the records
 with their values in place. -/
 theorem checkOleansG_jobs {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
-    {ds : Array Declaration} {J : Jobs ds} {start : Nat}
+    {ds : Array Declaration} {J : Jobs ds} {start : Nat} {alone : Bool}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J start : ModelIO _) fs
+    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J start alone : ModelIO _) fs
       (.ok (.ok ()))) :
     ∀ t, start ≤ t → t < ds.size → JobFact mode J (fillOf sp fs values) t := by
   simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff] at h

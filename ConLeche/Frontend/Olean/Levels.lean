@@ -23,8 +23,8 @@ is not loaded at all.  Lean's kernel environment is the merge of the loaded part
 in its module order (`finalizeImport`'s `moduleData`); the name index of those
 parts is `ConLeche/Frontend/Olean/Index.lean`.
 
-This reads each module's header once (`moduleImports`) and nothing else of the
-files.  Nothing about soundness rests on it: any presentation of a module's
+This reads each module's header once (`imps`: `moduleImports` on the search path, or
+a table of the headers read up front) and nothing else of the files.  Nothing about soundness rests on it: any presentation of a module's
 interface is sound, the levels decide only whether a verdict is Lean's
 (DESIGN #460 §3).
 -/
@@ -79,16 +79,17 @@ module's imports are expanded at most three times (the flags only grow), so the
 steps are at most three per import edge and two per module; `fuel` bounds them.
 `meta` imports load the same data as plain ones here: what `meta` adds is IR, which
 holds no constants (`mkIRData`). -/
-def levelsGo {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (gPriv : Bool) :
+def levelsGo {μ : Type → Type} [CheckerIO μ] (imps : Name → μ (Except CheckError (Array ImportRec)))
+    (gPriv : Bool) :
     Nat → List LvWork → LvState → μ (Except CheckError LvState)
   | _, [], st => pure (.ok st)
   | 0, _ :: _, _ => pure (.error (.internal "the header fixpoint ran out of steps"))
   | fuel + 1, .done m fl :: rest, st =>
     let { flags, open_, order, imports } := st
-    levelsGo sp gPriv fuel rest
+    levelsGo imps gPriv fuel rest
       { flags := flags.insert m fl, open_ := open_.erase m, order := order.push m, imports }
   | fuel + 1, .imp pf i :: rest, st =>
-    if !(i.isExported || pf.importAll) then levelsGo sp gPriv fuel rest st else
+    if !(i.isExported || pf.importAll) then levelsGo imps gPriv fuel rest st else
     let fl : LoadFlags := { importAll := gPriv || (pf.importAll && i.importAll),
                             isExported := pf.isExported && i.isExported }
     let m := i.module
@@ -96,18 +97,18 @@ def levelsGo {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (gPriv : Bool
     | some old =>
       let fl' : LoadFlags := { importAll := fl.importAll || old.importAll,
                                isExported := fl.isExported || old.isExported }
-      if fl' == old then levelsGo sp gPriv fuel rest st else
-      let imps := (st.imports[m]?).getD #[]
-      levelsGo sp gPriv fuel (LvWork.ofImports fl' imps ++ rest) { st with flags := st.flags.insert m fl' }
+      if fl' == old then levelsGo imps gPriv fuel rest st else
+      let is := (st.imports[m]?).getD #[]
+      levelsGo imps gPriv fuel (LvWork.ofImports fl' is ++ rest) { st with flags := st.flags.insert m fl' }
     | none =>
       if st.open_.contains m then
         pure (.error (.internal s!"import cycle: a module importing {m} is imported by it"))
       else do
-        match ← moduleImports sp m with
+        match ← imps m with
         | .error e => pure (.error e)
-        | .ok imps =>
-          levelsGo sp gPriv fuel (LvWork.ofImports fl imps ++ .done m fl :: rest)
-            { st with open_ := st.open_.insert m, imports := st.imports.insert m imps }
+        | .ok is =>
+          levelsGo imps gPriv fuel (LvWork.ofImports fl is ++ .done m fl :: rest)
+            { st with open_ := st.open_.insert m, imports := st.imports.insert m is }
 
 /-- **What Lean loads for a module**: its header's fixpoint, in Lean's module order. -/
 structure Loads where
@@ -138,10 +139,11 @@ case: a module Lean meets first through a `meta` import of a module loaded witho
 its data (for its IR only), and loads later, has its place at that first meeting in
 Lean's order and at the later one here.  The order decides nothing but which copy of
 a name comes first in the index (`ConLeche/Frontend/Olean/Index.lean`). -/
-def headerFixpoint {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (isModule : Bool)
+def headerFixpoint {μ : Type → Type} [CheckerIO μ]
+    (imps : Name → μ (Except CheckError (Array ImportRec))) (isModule : Bool)
     (imports : Array ImportRec) : μ (Except CheckError Loads) := do
   let root : LoadFlags := { importAll := true, isExported := isModule }
-  match ← levelsGo sp (!isModule) closureFuel (LvWork.ofImports root imports) {} with
+  match ← levelsGo imps (!isModule) closureFuel (LvWork.ofImports root imports) {} with
   | .error e => pure (.error e)
   | .ok st =>
     let flags := st.order.map fun m => (st.flags[m]?).getD default

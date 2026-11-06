@@ -196,30 +196,35 @@ def cycleMsg (C : Array Node) (cyc : List Nat) : String :=
   let names := cyc.map fun k => toString (C[k]?.map (·.1) |>.getD .anonymous)
   " → ".intercalate (names ++ names.take 1)
 
-/-- **The graph check**, generic in the IO class: walk the closure's headers, compute an order,
-validate it; the exit code. -/
-def checkGraphG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (roots : List Name)
-    (jobs : Nat) : μ UInt8 := do
+/-- **The roots' closure, its graph checked**, generic in the IO class: walk the closure's
+headers, compute an order, validate it; the closure, or the first thing wrong (an import cycle
+named by its modules). -/
+def graphOf {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (roots : List Name)
+    (jobs : Nat) : μ (Except CheckError (Array Node)) := do
   let (lvl, seen) := dedup roots
   match ← closureLevels sp jobs levelFuel lvl seen #[] with
-  | .error e =>
-    diagLine s!"con-leche: graph: {e}"
-    return e.exitCode
+  | .error e => pure (.error e)
   | .ok C =>
     let idx := indexOf C
     let deps := depsOf idx C
     let ord := kahn deps
     if let some cyc := cycleOf deps ord then
-      let e : CheckError := .invalid s!"import cycle: {cycleMsg C cyc}"
-      diagLine s!"con-leche: graph: {e}"
-      return e.exitCode
+      return .error (.invalid s!"import cycle: {cycleMsg C cyc}")
     match verdict roots C.toList (rankOf idx (ranksOf C.size ord)) with
-    | some e =>
-      diagLine s!"con-leche: graph: {e}"
-      return e.exitCode
-    | none =>
-      outLine s!"con-leche: graph: acyclic: {C.size} modules, \
-        {C.foldl (· + ·.2.size) 0} import edges"
-      return 0
+    | some e => pure (.error e)
+    | none => pure (.ok C)
+
+/-- **The graph check**, generic in the IO class: the closure's graph checked (`graphOf`); the
+exit code. -/
+def checkGraphG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (roots : List Name)
+    (jobs : Nat) : μ UInt8 := do
+  match ← graphOf sp roots jobs with
+  | .error e =>
+    diagLine s!"con-leche: graph: {e}"
+    return e.exitCode
+  | .ok C =>
+    outLine s!"con-leche: graph: acyclic: {C.size} modules, \
+      {C.foldl (· + ·.2.size) 0} import edges"
+    return 0
 
 end ConLeche.Driver.Graph

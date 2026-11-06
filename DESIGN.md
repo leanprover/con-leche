@@ -111815,3 +111815,139 @@ path its build, its eight packages' builds and the toolchain's `lib/lean`): `--c
 Mathlib`: 10 976 modules, 59 642 import edges; 6.46 G instructions at `--jobs=4`, 6.26 G at
 `--jobs=1`; peak VmHWM 56 MB.  About 590 k instructions per module, nearly all locating the
 module (`findModule`: three files on each of ten directories, real paths) and the header read.
+
+## TASK #468 — every module of a closure: the one-process mode and the scheduler (2026-11-06, agent/468-one-process)
+
+#460's lane #468, on `modular` (off 47fbf1321, `modular` at cecd1ad62 merged in: #467's
+`--check-graph`).  The one-process mode `--olean --modular` and its theorem; the scheduler
+`--olean --schedule`; the measurements.
+
+**1. The worker's reads, made a parameter** (`OleanReads`, `ConLeche/Frontend/Olean/Files.lean`).
+Every read of the files a worker makes goes through three operations: a module's imports
+(`moduleImports`), a view's files (`readFiles`), a part's name positions (`readPartNames`).
+`OleanReads.ofPath sp` is the search path's; `headerFixpoint` takes the imports operation,
+`readHome`, `workerReads`, `reach` (its `ReachEnv` now carries the reads instead of the search
+path) and `workerRead` the reads.  `readFiles` is `findModule` then `readFilesAt loc` and
+`readPartNames` `findModule` then `readPartNamesAt loc`, so a location found once serves every
+later read.  `checkModuleG rd sp m mode pace jobs alone`: `sp` stays for the theorems' values
+(`readValue`); `alone := false` (a module of the one-process mode) marks nothing persistent
+(`Jobs.plain`, `OleanRun.alone`: the module's records, index and frontier are freed with it; a
+mark per module would keep every module's data to the end), prints no statistics and names the
+module in its verdict line (`verdictG … who`).
+
+**Refinement** (`ConLeche/Verify/Driver/Shared.lean`).  `ModelIO.Within fs a b`: every outcome of
+`a` on the snapshot is one of `b`; `OleanReads.Within fs rd sp`: each of the three operations
+refines the search path's.  Binds, matches, `if`s and the parallel map keep refinement
+(`Within.bind`, `Within.ite`, `mapExcept_within`), so each phase written over `rd` refines the
+same phase over `.ofPath sp`: `headerFixpoint_within`, `workerReads_within`, `readHome_within`,
+and the reach's twenty functions up to `reach_within` (one local tactic, `within_tac`, peeling a
+phase with its callees' lemmas; the reach's own lemmas needed `importerSpot`, `wr`, `own` of the
+environment restated over the search path's, three `rfl`s).  `WorkerFacts` is unchanged (still
+the search path's outcomes); `workerRead_ok` and **`checkModuleG_accept`** take any reads with
+`OleanReads.Within fs rd sp` and give the same `WorkerAccepted mode sp fs m jobs`.
+
+**2. The one-process mode** (`ConLeche/Driver/Modular.lean`, `checkModularG`).
+1. The closure by the graph check: `graphOf` (factored out of #467's `checkGraphG`, which is now
+   `graphOf` and its message; `graphOf_ok` is `checkGraphG_ok`'s facts for the closure `graphOf`
+   returns): no second acyclicity check.
+2. The tables, read once (`readModTable` on the parallel map): every module located
+   (`findModule`) and its private and exported parts' name positions read at that location; its
+   imports the graph's.  Marked persistent (`markShared`) before the worker map starts.
+3. Every module's worker steps (`modularStep`: `checkModuleG (T.reads sp) sp m mode .off 1
+   false`) on `CheckerIO.parMapWorkers` (one module claimed at a time), its reads answered from
+   the tables (`ModTables.reads`: imports and name positions from them, a view's files by
+   `readFilesAt` at the location found once; a read the tables lack goes to the search path).
+   Each module's own checks on one thread (jobs 1 inside, the modules in parallel outside).
+4. The verdict: a line per module (the worker's, `con-leche: module M: accepted N declarations`),
+   then exit 0 iff every module's step is 0; else the first failing module in the graph's order
+   is named and its code returned.
+
+**The theorem** (`ConLeche/Verify/Driver/Modular.lean`).  `TablesOk` (every table read off the
+snapshot), `tables_ok`, **`modTables_within`** (the tables' reads refine the search path's),
+**`checkModularG_accept`**: at every outcome that is exit 0, the graph check's closure `C`
+(`graphOf … = .ok C`) and `WorkerAccepted mode sp fs e.1 1` at every module of it.
+**`runArgs_modular_accept`** (`Verify/Driver/Main.lean`): an exit 0 of `runArgs ["--olean",
+"--modular", "--search-path=" ++ dirs, "--", root]` names `m` and gives `checkGraphG_ok`'s facts
+for a closure `C` holding `m` and `WorkerAccepted .verified` at every module of `C`: exactly what
+`runArgs_graph_accept` and `runArgs_module_accept` at every module give, so #467's composition
+applies to it.  All at the three standard axioms (pinned).
+
+**What the mode still reads after the start**: each module's own files (its home, once, in its
+step), the files of the parts its reach reads records from (its `ReachCache` reads each part's
+files once per module), the clash rule's statements (`readInfos`) and the theorems' values
+(`readValue`); all at the locations found once.  The reach's decoded records are not shared
+between modules: sharing them needs the decoded parts as tables (the merged run's memory plus
+the exported parts') and a refinement of `withPart`'s memo reads, a simulation over the memo
+state (`entryWith_spec` gives each read's value; the cache's memos differ between the two runs).
+Not done here.
+
+**3. A fix in the worker** (#466's): `ownRoots` took the load's `uses` of every own constant,
+unsafe and partial ones too, which are no records; their reads reached imported unsafe constants
+and the module was rejected ("a context record reads … which is unsafe or partial"): 121 of the
+2 850 modules of `Mathlib.GroupTheory.Coxeter.Basic`'s closure (`Lean.*`, `Aesop`, `Batteries`,
+`Mathlib.Data.Quot`, `Mathlib.Tactic.*`).  Now skipped; fixture `UsA`/`UsM` (accepted, as by
+Lean).
+
+**4. The scheduler** (`ConLeche/Driver/Schedule.lean`, `scheduleG`; the processes in
+`ConLeche/Driver/ScheduleIO.lean`, through `liftIO`, outside every theorem).
+`con-leche --olean --schedule[-OPT=V]… --search-path=DIRS -- ROOT`: the closure by `graphOf`,
+then one `--olean --module --jobs=1` process of the binary (`IO.appPath`) per module, any order,
+at most `--jobs` at once; staggered starts (`--schedule-stagger=MS`, default 200); a memory budget
+over the running workers' `VmRSS` (`--schedule-memory=MIB`: above it the largest is killed by its
+own `Child` handle, queued to run again alone, killed again its verdict `memory`); a time limit
+per worker (`--schedule-timeout=S`, verdict `timeout`); an append-only log
+(`--schedule-log=FILE`, one `<verdict>\t<module>` line per finished module, flushed; a restart
+skips every logged module).  Exit 0 iff every module's verdict is 0, else the first failing
+module in the graph's order with its code (`timeout`, `memory`, `signal`: 3).  The options are
+one flag family (`--schedule` and `--schedule-…`, one `flagValue` branch, `Args.scheduled`), so
+the CLI's proofs gained one branch.  The trust surface: the **process fence** (new, in
+`tests/trust-surface.sh`: `Process.spawn/output/run`, `kill`, `tryWait`, `Handle.mk`,
+`writeFile`, `appPath` only in `ScheduleIO.lean`); the CheckerIO fence now covers
+`Modular.lean`, `Schedule.lean`, `Graph.lean`; the IO class's assumption (2) names the
+scheduler's action (it writes its log and starts processes; no theorem is about it).
+
+**Fixtures** (`tests/olean.sh`, 295/295): `--modular` at TinyUse, NlM, PdM, WvM, LvN (0), a
+module's verdict line, NpAx (1, named first), one job, the usage (3), a missing import (1);
+`--schedule` at NlM with a log (0) and resumed ("5 modules logged, 0 to run"), NpAx (1), an
+unknown option and `--modular` beside it (3).  The kills and the timeout were exercised by hand
+(below); they depend on timing and memory, not fixtures.
+
+**5. Numbers** (`perf stat -e instructions:u`, one run each, under the 8 GB guard, `--jobs=8`;
+v4.35.0 Mathlib, search path its build, its packages' builds and the toolchain's `lib/lean`):
+
+| run | modules | instructions:u | peak (guard: anon / VmHWM) | verdict |
+|---|---|---|---|---|
+| `--modular -- Mathlib.GroupTheory.Coxeter.Basic` | 2 850 | 2 992 G | 0.96 / 0.96 GiB | 2 (the two `Init` declines below) |
+| merged `--olean -- Mathlib.GroupTheory.Coxeter.Basic` | (one closure) | 1 100 G | 0.94 GiB (stats line) | 0 |
+| `--modular -- Mathlib` | 10 976 | 23 832 G | 2.36 / 2.37 GiB | 2 (the same two) |
+| merged `--olean -- Mathlib` (master's, #489) | | 7 931 G | 3.13 GiB | 0 |
+| `--schedule --schedule-memory=6000 -- Std.Data.HashMap.Lemmas` (216 workers) | 216 | 306 G (with the children) | 0.21 / 0.18 GiB | 2 (the same two) |
+| `--modular -- Std.Data.HashMap.Lemmas` | 216 | 275 G | 0.55 / 0.56 GiB | 2 (the same two) |
+
+The whole of Mathlib fits the 8 GB guard in the one-process mode (2.4 GiB; the tables of 10 976
+modules, 798 311 private names, read in 2.4 s), at 3.0 times the merged run's instructions
+(Coxeter's closure: 2.7 times).  The extra is per module: each module's name index built again
+from the shared tables (its loaded parts' names, about 150 k on Mathlib), its reach (the parts'
+files read and their records decoded and validated again for every module that reaches them),
+its clash rule's statements; the own checks are the merged run's.  Sharing the reach's decoded
+records is the next step (above).  The scheduler on a 216-module closure costs 11 % more
+instructions than the one-process mode there (every worker reads its loaded parts' name tables
+itself), at a third of its peak.  Its kills and limits, by hand on `Init.Data.Nat.Lemmas`' 84
+modules: at `--schedule-memory=60` (MiB, below most workers' peak) 24 kills: 12 modules killed beside
+others, run again alone and killed again, their verdict `memory`, the other 70 as without a
+budget; at `--schedule-timeout=2`
+`Init.Data.BitVec.Lemmas` is `timeout`, the run exit 3 naming it; the log resumed after a full
+run starts nothing ("5 modules logged, 0 to run").
+
+**Verdicts on real closures (premises for #467's corollary on Mathlib).**  Two modules of `Init`
+decline at their homes (exit 2): `Init.Data.Nat.Gcd` and `Init.Data.Nat.Bitwise.Basic`,
+"unsupported Nat.div/mod spelling (Nat.gcd / Nat.shiftRight: no pin variant matched … pin or
+certificate ground constants absent)": a certified operation's ground at its home is not in the
+worker's context.  The same with `--module`; a #462/#466 matter, not this lane's.  So no closure
+holding `Init` passes the one-process mode or the scheduler today (every Mathlib run exits 2).
+
+**Gates** on the final tree (fe5ea2649): `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard (`guard.sh 8000000`): exit 0 (olean gate 295/295, e2e
+555/555, tutorial 90/92 as pinned, selfcheck 54 918 declarations, 57 theorems pinned at the three
+axioms, the trusted and `--jobs` sweeps, layering, trust surface with the process fence, shake,
+overview links, quote gate, whitepaper links and fragment, challenge, no-local-paths).

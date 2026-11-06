@@ -349,7 +349,7 @@ def loadsOf (m : String) : IO (List (String × Bool × Bool)) := do
   let sp : SearchPath := ["tests/olean/lib"]
   let f ← filesOf "tests/olean/lib/" m
   let some ps := readNamePositions f .private | throw (IO.userError s!"{m}: the names")
-  match ← (headerFixpoint sp ps.header.isModule ps.header.imports : IO _) with
+  match ← (headerFixpoint (moduleImports sp) ps.header.isModule ps.header.imports : IO _) with
   | .ok ld => pure ((ld.order.zip ld.flags).toList.map fun (n, fl) => (toString n, fl.importAll, fl.isExported))
   | .error e => throw (IO.userError s!"{m}: {e}")
 
