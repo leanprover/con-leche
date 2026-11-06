@@ -58,9 +58,12 @@ theorem trans_getD_cases (s : InLean.CState) (id : FVarId) :
     obtain ⟨d, ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c h
     exact Or.inl ⟨d, ty, rfl⟩
 
-theorem toName_boolTrueName : toName InLean.boolTrueName = ConLeche.boolTrueName := rfl
-theorem toName_natZeroName : toName InLean.natZeroName = ConLeche.natZeroName := rfl
-theorem toName_natSuccName : toName InLean.natSuccName = ConLeche.natSuccName := rfl
+@[conleche_grind =] theorem toName_boolTrueName :
+    toName InLean.boolTrueName = ConLeche.boolTrueName := rfl
+@[conleche_grind =] theorem toName_natZeroName :
+    toName InLean.natZeroName = ConLeche.natZeroName := rfl
+@[conleche_grind =] theorem toName_natSuccName :
+    toName InLean.natSuccName = ConLeche.natSuccName := rfl
 
 theorem cname_beq_eq_decide (a b : ConLeche.Name) : (a == b) = decide (a = b) := by
   by_cases h : a = b
@@ -537,6 +540,75 @@ theorem TrO_eq_some {o : Option Expr} {c : ConLeche.Expr} (h : TrO s o = some c)
 grind_pattern [conleche_grind] TrO_eq_some => TrO s o, some c
 
 end Offsets
+
+/-! ## String literals and free variables in the stuck comparison -/
+
+section Stuck
+variable (s : InLean.CState)
+
+theorem strLitList_TrS : ∀ cs : List Char,
+    TrS s (cs.foldr (init := .app (.const listNilName [.zero]) (.const charName []))
+      fun c e => .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+          (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e) =
+      cs.foldr (init := .app (.const ConLeche.listNilName [.zero]) (.const ConLeche.charName []))
+        (fun c e => .app (.app (.app (.const ConLeche.listConsName [.zero])
+          (.const ConLeche.charName []))
+          (.app (.const ConLeche.charOfNatName []) (.lit (.natVal c.toNat)))) e) ∧
+    OkS s (cs.foldr (init := .app (.const listNilName [.zero]) (.const charName []))
+      fun c e => .app (.app (.app (.const listConsName [.zero]) (.const charName []))
+          (.app (.const charOfNatName []) (.lit (.natVal c.toNat)))) e) = true
+  | [] => ⟨rfl, rfl⟩
+  | c :: cs => by
+    obtain ⟨h1, h2⟩ := strLitList_TrS cs
+    simp only [List.foldr_cons, TrS_app, OkS_app, h1, h2]
+    exact ⟨rfl, rfl⟩
+theorem strLit_TrS (st : String) :
+    TrS s (InLean.strLitToConstructor st) = ConLeche.strLitToConstructor st ∧
+      OkS s (InLean.strLitToConstructor st) = true := by
+  unfold InLean.strLitToConstructor ConLeche.strLitToConstructor
+  obtain ⟨h1, h2⟩ := strLitList_TrS s st.toList
+  simp only [TrS_app, OkS_app, h1, h2]
+  exact ⟨rfl, rfl⟩
+theorem lbb_strLit (st : String) : (ConLeche.strLitToConstructor st).looseBVarsBounded 0 = true := by
+  unfold ConLeche.strLitToConstructor
+  induction st.toList with
+  | nil => rfl
+  | cons c cs ih =>
+    simp only [List.foldr_cons, ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at ih ⊢
+    simp [ih.2]
+
+@[conleche_grind =] theorem TrS_strLit (st : String) :
+    TrS s (InLean.strLitToConstructor st) = ConLeche.strLitToConstructor st := (strLit_TrS s st).1
+@[conleche_grind =] theorem OkS_strLit (st : String) :
+    OkS s (InLean.strLitToConstructor st) = true := (strLit_TrS s st).2
+attribute [conleche_grind =] lbb_strLit
+
+@[conleche_grind =] theorem map_trL_eq_nil (us : List Level) : (us.map trL = []) = (us = []) := by
+  simp
+
+@[conleche_grind =] theorem toName_stringOfListName :
+    toName InLean.stringOfListName = ConLeche.stringOfListName := rfl
+
+theorem toLit_eq_strVal {l : Literal} {st : String} (h : toLit l = .strVal st) :
+    l = .strVal st := by
+  cases l with
+  | natVal _ => simp [toLit] at h
+  | strVal _ => simp only [toLit, ConLeche.Literal.strVal.injEq] at h; rw [h]
+grind_pattern [conleche_grind] toLit_eq_strVal => toLit l, ConLeche.Literal.strVal st
+
+@[conleche_grind =] theorem toLit_strVal (st : String) : toLit (.strVal st) = .strVal st := rfl
+@[conleche_grind =] theorem toLit_natVal (n : Nat) : toLit (.natVal n) = .natVal n := rfl
+
+/-- An interned free variable's depth is its translation's (`trans_depthOK`). -/
+theorem fvarDepth_TrS {id : FVarId} (h : OkS s (.fvar id) = true) :
+    InLean.fvarDepth? id = some (fvIdxS s id) := by
+  simp only [OkS, okE, Option.isSome_iff_exists] at h
+  obtain ⟨c, hc⟩ := h
+  obtain ⟨d, ty, rfl, hd⟩ := FVarTable.trans_depthOK _ id c hc
+  simp only [InLean.fvarDepth?, hd, fvIdxS, TrS, trE, hc, Option.getD_some]
+grind_pattern [conleche_grind] fvarDepth_TrS => OkS s (.fvar id), InLean.fvarDepth? id
+
+end Stuck
 
 /-! ## Delta steps and the loop's outcome through the translation -/
 
@@ -1591,6 +1663,22 @@ theorem defeqProjPairI_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager e
   sym only [conleche_grind, ConLeche.defeqProjPair.eq_def, defeqLoopFuel_eq] =>
     vcgen [InLean.defeqProjPairI,
       LazyProjSpecI.triple (lazyProjSpecI_all ih hfe henv hunf hspine hproj _)] <;> finish
+
+/-- The stuck comparison (`defeqStuckC_spec`'s twin). -/
+theorem defeqStuckI_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r)
+    (hfe : DefeqEnvI fe env) (hlist : DefEqListSpecI .verified eager env r) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqStuckI .verified r fe d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqStuck .verified (ConLeche.fueledFns .verified eager env) env d
+        (TrS s₀ a) (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.defeqStuck.eq_def, ConLeche.strLitToConstructor_WScoped] =>
+    vcgen [InLean.defeqStuckI, ih.defeq, stuckIrrelI_spec ih hfe hlist, etaCertI_spec ih, hlist,
+      isEquivListLM_specI (mode := .verified) (eager := eager) (env := env),
+      liftFueled_specI (mode := .verified) (eager := eager) (env := env)] <;> finish
 
 end Walks5
 
