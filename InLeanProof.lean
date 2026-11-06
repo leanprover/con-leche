@@ -17,5 +17,6 @@ public import InLeanProof.WalksWhnfLoop
 public import InLeanProof.IotaViews
 public import InLeanProof.LeafGuardI
 public import InLeanProof.WalksIotaRec
+public import InLeanProof.WalksDefeq
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins
