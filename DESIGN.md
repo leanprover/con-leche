@@ -111302,3 +111302,96 @@ but proofs, so no flag was inferred there.
 `emitAll` over the own constants); `Presents` and the key clauses as theorems; the recursor order
 of a group read at an exported part (#464's note) is unchanged; a home's view is built whole for a
 search (rare: 1 search on Gamma, 0 on Coxeter), a per-home cost of its name tables.
+
+## TASK #469 — reduction at a refinement: the runs differ, the derivations carry over (2026-11-06, agent/469-whnf-refine)
+
+**The question (maintainer).**  `env₁` refines `env₂` in the modular sense: every constant of
+`env₁` is `env₂`'s constant of its name or its statement (`stmtOf`: a definition, theorem or opaque
+as the axiom of its level parameters and type).  Do the pure fuelled kernel functions at `env₁`
+either fail or give the result they give at `env₂`, as `knot_ext` says for an extension?  And does
+that give what #463's `FamilyRead` needs (a successful `familyTelescope` of a recorded defn-headed
+member, at a context refining (an extension of) its home's environment, is the recorded
+telescope)?
+
+**Answer: no, not even with `false` counted as a failure.**  At a statement the kernel does not
+fail: it takes another path, and a successful run can end at a different term.  Read off
+`Kernel/Core.lean`:
+* `whnfStep`: `unfoldDefinition` answers `none` at a statement, so `whnf` returns the stuck term (a
+  result, not an error).  `whnf two` is `two` at `env₁`, `2` at `env₂`.
+* `isDefEq`: a side that does not unfold is compared as it is; `two =?= 2` is `false` at `env₁`,
+  `true` at `env₂`.  (The lazy-delta order also reads the hints, which a statement lacks; no claim
+  is made, and none proved, that a `true` at `env₁` is a `true` at `env₂`: the algorithm is not
+  complete.)
+* **Sub-reductions that are inspected and then discarded make a successful run diverge.**
+  `reduceNat`'s binary arm head-normalises its first argument and, finding no literal, gives up,
+  so the operation unfolds instead of folding.  On `Foo : T (two + 1)` (`T` an exposed definition
+  by `Nat.rec`, `T 0 = Type`, `T (k+1) = P k → Type`; `two := 2` unexposed): at `env₂` the major
+  `Nat.add two 1` folds to `3`, whose constructor form binds `k := 2`, telescope `P 2 → Type`; at
+  `env₁` `Nat.add` unfolds by its recursion on `1` to `Nat.succ (Nat.rec two … 0)`, which binds
+  that recursor application, telescope `P (Nat.rec two … 0) → Type`.  Both `reducedFormer` runs
+  succeed; the telescopes differ.  Pinned in `tests/ConLecheTests/RefineTests.lean` (with the two
+  bullets above), on the pure ops at hand-built environments.  The same shape arises wherever a
+  rescue reads a sub-reduction: `prepareMajor`'s structure-η rescue fabricates projections of a
+  major stuck at a statement where `env₂` reduces it to a constructor (not pinned).
+  `inferType` inherits it through the `whnf` of a function's type.
+* No `false` occurs in the counterexample, so "fail or same" is false for `whnf`, `whnfTelescope`,
+  `reducedFormer`, `familyTelescope` and `inferType`, and `FamilyRead` does not follow from any
+  refinement statement about results.
+
+**What holds, proved: the derivation carries over.**  The rules tier reads the environment only
+positively: a constant stored as a given kind (a definition to unfold, a recursor, a constructor,
+a family), a constant's stored type (which a statement keeps), a table entry, a literal's
+constants stored.  `isProofFast`'s identity-wrapper walk (`unwrapIdDefs`) looks through
+definitions without unfolding them; at a statement it stops earlier and answers only where
+`env₂`'s walk gives the same answer.
+* `ConLeche/Rules/Refine.lean`: `FindRefines`, `EnvRefines` (constants: `env₂`'s or
+  `.axiomInfo` of its constant value; tables: `env₂`'s; `env₂` may store more); the readers'
+  lemmas (`EnvRefines.unfoldDefinition`, `.natLitStored`, `.strLitStored`, `.findProj`,
+  `.towerSlotsAll`, `.andRescueSlots`, `.ctorFamily`, `.projGuardRows`, `.isProofFast` over
+  `proofPW_refine`); and one mutual structural recursion, `Red.refine`, `DefEq.refine`,
+  `DefEqLams.refine`, `Infer.refine`, `FormerSort.refine`, `IotaCase.refine`, `GuardRows.refine`,
+  `ProjGuard.refine`, `CertsF.refine`, `DefEqList.refine`: **every derivation at `env₁` is one
+  at `env₂`.**
+* `ConLeche/Verify/Rules/Refine.lean`, composed with the bridge: `whnf_refine`,
+  `isDefEqCore_refine` (a `true`), `inferTypeCore_refine`, `inferTypeCoreIO_refine`: an accepting
+  run at `env₁` is a derivation at `env₂`, so it is sound in every model of `env₂`
+  (`Model/Rules/Sound.lean`).  For formers: `TeleRed` (a telescope of reductions),
+  `whnfTelescope_teleRed`, and **`reducedFormer_refine`**: a former's reduct at `env₁` is
+  `closeTelescope bs 0 (.sort s)` with `TeleRed env₂ 0 n cv.type bs s`.
+
+**What this means for #463's `hdh`.**  `FamilyRead` at a context `C` with the home's recorded
+telescope `f` is false in general (the counterexample, with `Foo` a context former), and so is
+`hdh`'s first conjunct (`f` read alike): `f` comes from unfolding at the home and can mention a
+name `C` lacks (an unexposed definition whose value mentions a private constant).  So `hdh` is
+not derivable from the specification by any refinement lemma, and the context's datum must not
+carry the home's telescope at such a member.  The route the lemma above opens:
+1. The context's datum at a defn-headed context member records **the telescope a run at `C`
+   reads**, `readTelescope C cv caps` (`Model/Inductives/FamilyRan.lean` on #463's branch), where a
+   run at `C` succeeds.  `FamilyRan` then holds at `envB := C` by that run, and `FamilyRead` at `C`
+   and its extensions by `FamilyRan.read` unchanged.  The worker computes nothing new: the run is
+   an existential of the model.
+2. `LfpTelescope`'s semantic clause for that telescope (`denote f' = denote cv.type`, the member
+   inhabits it) from `reducedFormer_refine`: take `C'` the part of `C` read alike from the
+   member's source `n` (`EnvExt C' C` with `StoredFacts C'`, `cv.type` resolving in `C'`, so the
+   run at `C` is the run at `C'` by `knot_ext`), `EnvRefines C' (E n)` by `CtxRead`'s `Refines`
+   and `table`; the `TeleRed` at `E n` is sound in the source's model (`red_sound`), and the
+   reading crosses to `C` by the leaves' agreement on names read alike.  `LfpReads`' Π-tower
+   reading of the former then is the source datum's, since both telescopes read as `cv.type`.
+3. **Open: where no run at `C` succeeds.**  `FamilyRead` is vacuous there (a failure at `C` is a
+   failure at every extension, `knot_ext`), but the datum still needs a telescope satisfying
+   `LfpTelescope`/`LfpReads` at `C`, and the home's `f` may not resolve in `C`.  Two ways, a
+   ruling for #463: (i) the defn-headed clause of `LfpTelescope` asks for a telescope only where
+   a run at the environment succeeds (sound if every reader of the datum's telescope reads it
+   through `FamilyRead`, which #463 would have to check); or (ii) the worker runs `reducedFormer` at its context on every
+   reached defn-headed context member and declines where it fails (positively detected: the
+   member's type does not reduce to its telescope at the context Lean loads; Lean's own kernel
+   would not read it there either).  (ii) needs no model change and is cheap (such members are
+   rare); (i) accepts more.
+
+**Gates.**  `lake build` and `lake test` warning-free (the new test module included); layering
+(the rules closure unchanged: `Rules/Refine.lean` imports `Rules/Rel.lean` only), trust surface,
+overview links, quote gate, no-local-paths, challenge, shake (one public import demoted to
+plain, a `public import ConLeche.Kernel.CoreIO` for the statements), whitepaper links.  No
+executed code changed (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`, `Main.lean`), so
+`tests/arena.sh` was not run; verdicts and counts are `modular`'s.  #463 had not landed on
+`modular`, so nothing is wired into `hdh`.
