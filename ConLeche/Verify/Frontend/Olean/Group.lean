@@ -176,4 +176,61 @@ theorem mergedOfList_names (cs : List CEntry) :
         exact eq_of_beq he
       · exact h n c hc
 
+/-- `mergedOfList`'s fold, from any merged state: its order lists what it holds, it holds only
+constants allowed (`Q`), every constant of the list's name, and what it held. -/
+theorem mergedOfList_fold (Q : CEntry → Prop) :
+    ∀ (cs : List CEntry) (mg : Merged), (∀ n, n ∈ mg.order ↔ mg.map.contains n = true) →
+      (∀ (n : Name) (c : CEntry), mg.map[n]? = some c → Q c) → (∀ c ∈ cs, Q c) →
+      let mg' := cs.foldl (fun mg c =>
+        if mg.map.contains c.name then mg
+        else { map := mg.map.insert c.name c, order := mg.order.push c.name }) mg
+      (∀ n, n ∈ mg'.order ↔ mg'.map.contains n = true) ∧
+        (∀ (n : Name) (c : CEntry), mg'.map[n]? = some c → Q c) ∧
+        (∀ c ∈ cs, mg'.map.contains c.name = true) ∧
+        ∀ n, mg.map.contains n = true → mg'.map.contains n = true
+  | [], mg, h1, h2, _ => ⟨h1, h2, by simp, fun _ h => h⟩
+  | x :: cs, mg, h1, h2, hq => by
+    simp only [List.foldl_cons]
+    have hq' : ∀ c ∈ cs, Q c := fun c hc => hq c (List.mem_cons_of_mem _ hc)
+    split
+    · rename_i hx
+      obtain ⟨a, b, c, d⟩ := mergedOfList_fold Q cs mg h1 h2 hq'
+      refine ⟨a, b, fun c' hc' => ?_, d⟩
+      rcases List.mem_cons.1 hc' with rfl | hc'
+      · exact d _ hx
+      · exact c c' hc'
+    · rename_i hx
+      have g1 : ∀ n, n ∈ (mg.order.push x.name) ↔ (mg.map.insert x.name x).contains n = true := by
+        intro n
+        simp only [Array.mem_push, Std.HashMap.contains_insert, Bool.or_eq_true, beq_iff_eq, h1]
+        constructor
+        · rintro (h | rfl)
+          · exact .inr h
+          · exact .inl rfl
+        · rintro (h | h)
+          · exact .inr h.symm
+          · exact .inl h
+      have g2 : ∀ (n : Name) (c : CEntry), (mg.map.insert x.name x)[n]? = some c → Q c := by
+        intro n c hc
+        rw [Std.HashMap.getElem?_insert] at hc
+        split at hc
+        · cases hc
+          exact hq _ List.mem_cons_self
+        · exact h2 n c hc
+      obtain ⟨a, b, c, d⟩ := mergedOfList_fold Q cs
+        { map := mg.map.insert x.name x, order := mg.order.push x.name } g1 g2 hq'
+      refine ⟨a, b, fun c' hc' => ?_, fun n hn => d n (by simp [Std.HashMap.contains_insert, hn])⟩
+      rcases List.mem_cons.1 hc' with rfl | hc'
+      · exact d _ (by simp [Std.HashMap.contains_insert])
+      · exact c c' hc'
+
+/-- **What `mergedOfList` holds**: its order lists exactly its names, it holds only constants of
+the list, and every constant's name. -/
+theorem mergedOfList_spec (cs : List CEntry) :
+    (∀ n, n ∈ (mergedOfList cs).order ↔ (mergedOfList cs).map.contains n = true) ∧
+    (∀ (n : Name) (c : CEntry), (mergedOfList cs).map[n]? = some c → c ∈ cs) ∧
+    ∀ c ∈ cs, (mergedOfList cs).map.contains c.name = true := by
+  obtain ⟨a, b, c, -⟩ := mergedOfList_fold (· ∈ cs) cs {} (by simp) (by simp) (fun _ h => h)
+  exact ⟨a, b, c⟩
+
 end ConLeche.Frontend.Olean

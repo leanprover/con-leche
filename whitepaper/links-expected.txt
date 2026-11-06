@@ -6839,16 +6839,16 @@
    233      obtain ⟨m', hm'⟩ := h.step m
    234      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
-== ConLeche/Modular.lean#L252-L255
-   252  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   253      Prop where
-   254    iface : InterfaceOk dev i
-   255    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L255-L258
+   255  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   256      Prop where
+   257    iface : InterfaceOk dev i
+   258    importOk : ImportOk mode pins dev i
 
-== ConLeche/Modular.lean#L92-L94
-    92  def Presents (e p : Declaration) : Prop :=
-    93    (declConstants e = declConstants p ∧ declTables e = declTables p) ∨
-    94      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
+== ConLeche/Modular.lean#L95-L97
+    95  def Presents (e p : Declaration) : Prop :=
+    96    ((declConstants e).Perm (declConstants p) ∧ declTables e = declTables p) ∨
+    97      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -7082,10 +7082,10 @@
 == ConLeche/Cached/StreamIndex.lean#L65
     65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
-== ConLeche/Verify/Cached/StreamIndex.lean#L488-L490
-   488  theorem checkDecls_of_jobs {ds : Array Declaration}
-   489      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
-   490      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
+== ConLeche/Verify/Cached/StreamIndex.lean#L514-L516
+   514  theorem checkDecls_of_jobs {ds : Array Declaration}
+   515      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   516      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where
@@ -7286,11 +7286,11 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L252-L255
-   252  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   253      Prop where
-   254    iface : InterfaceOk dev i
-   255    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L255-L258
+   255  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   256      Prop where
+   257    iface : InterfaceOk dev i
+   258    importOk : ImportOk mode pins dev i
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →

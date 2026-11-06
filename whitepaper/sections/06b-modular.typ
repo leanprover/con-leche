@@ -483,9 +483,9 @@ satisfy the scope conditions.
 
 #real[
   Con-leche states these checks over its own records
-  (#src("ConLeche/Modular.lean", 252, 255)[the local checks]): a context is a
+  (#src("ConLeche/Modular.lean", 255, 258)[the local checks]): a context is a
   list of records each of which an earlier module
-  #src("ConLeche/Modular.lean", 92, 94)[presents], as itself or as its
+  #src("ConLeche/Modular.lean", 95, 97)[presents], as itself or as its
   statement, so an inductive type reaches an importer with its whole block;
   what a context record reads is stored under the key its source gives it;
   the module's own records are accepted from the context by the

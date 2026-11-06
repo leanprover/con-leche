@@ -8,6 +8,8 @@ public import ConLeche.Verify.Frontend.Olean.Group
 public import ConLeche.Verify.Frontend.Olean.Present
 public import ConLeche.Verify.Driver.Reach
 public import ConLeche.Verify.Driver.Oleans
+public import ConLeche.Verify.Driver.Worker
+public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Verify.Cached.StreamThm
@@ -230,6 +232,48 @@ info: 'ConLeche.Frontend.Olean.groupRecord_valid' depends on axioms: [propext, C
 -/
 #guard_msgs in
 #print axioms ConLeche.Frontend.Olean.groupRecord_valid
+
+/--
+info: 'ConLeche.Cached.checkDecls_of_jobs_from' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Cached.checkDecls_of_jobs_from
+
+/--
+info: 'ConLeche.Driver.checkModuleG_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.checkModuleG_accept
+
+/--
+info: 'ConLeche.Driver.runArgs_module_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.runArgs_module_accept
+
+/--
+info: 'ConLeche.Driver.worker_ctx' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_ctx
+
+/--
+info: 'ConLeche.Driver.worker_one_record' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_one_record
+
+/--
+info: 'ConLeche.Driver.worker_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_thm
+
+/--
+info: 'ConLeche.Driver.worker_local' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_local
 
 /--
 info: 'ConLeche.Driver.reach_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
