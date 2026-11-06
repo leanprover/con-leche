@@ -1,15 +1,14 @@
 module
 
 public import ConLeche.Driver.Worker
-public import ConLeche.Verify.Driver.Reach
 public import ConLeche.Verify.Driver.Oleans
-import ConLeche.Verify.Frontend.ModelIO
+public import ConLeche.Verify.EnvWF
+import ConLeche.Verify.Driver.Reach
 import ConLeche.Verify.Frontend.Olean.Lazy
 import ConLeche.Verify.Frontend.Olean.Reads
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Group
 import ConLeche.Verify.Frontend.Olean.Emit
-import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Prepare
 
 /-!

@@ -96,7 +96,7 @@ one by one, each against the environment of those before it\; the binary builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
 and runs the checks on a pool of workers, each against the index's view of the declarations before
 it, walking the results in fold order, so its verdict is the fold's.
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 488, 490)[Every check passing is an accept of the fold],
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 514, 516)[Every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
@@ -164,16 +164,18 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 *Modular checking.* In the fragment, a module's context, views and
 what declared its names are given, and the local checks of
 @sec:mod-local say what they must satisfy. Con-leche states
-#src("ConLeche/Modular.lean", 243, 246)[the same checks] over its own
+#src("ConLeche/Modular.lean", 246, 249)[the same checks] over its own
 records, a context being a list of the records its imports present, and
 carries #src("ConLeche/Modular/Generic.lean", 305, 306)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
 models gives #src("ConLeche/MainTheorem.lean", 192, 201)[the modular
 theorem] with one hypothesis beyond the local checks: a type former
 whose declared type is headed by a definition reduces at an importer's
-context to the telescope it reduces to at its source. Computing a
-module's context from the `.olean` files is not part of con-leche
-today.
+context to the telescope it reduces to at its source. Con-leche
+computes a module's context from the `.olean` files and checks the
+module's own records against it, one module per run; that the runs at
+every module of an import closure together give the local checks is not
+proved yet.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

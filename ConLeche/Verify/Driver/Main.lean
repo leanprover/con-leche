@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Driver.Cli
-public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Driver.Worker
 
 /-!
