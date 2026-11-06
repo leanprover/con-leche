@@ -1002,6 +1002,10 @@ theorem reduceNatI_specI (ih : KnotSpecI mode eager env r) {fe : InLean.FEnv}
       cl_natMulName, cl_natPowName, cl_natBeqName, cl_natBleName, cl_natDivName, cl_natModName,
       cl_natGcdName, cl_natLandName, cl_natLorName, cl_natXorName, cl_natShiftLeftName,
       cl_natShiftRightName, toName_eq_iff, natOpWfNames_contains] =>
+    -- `gen := 10`: `reduceNat_TrS`'s three nested matches on InLean's `stripTop`
+    -- are reduced by grind's match congruence, which names the arms' fields
+    -- afresh and equates them with the split's by injectivity; the binary
+    -- arm's comparands sit two generations past the default 8.
     vcgen [InLean.reduceNatI, ih.whnf] <;> finish (gen := 10)
 
 end DiscC1Rest

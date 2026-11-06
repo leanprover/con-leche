@@ -111012,3 +111012,74 @@ Remaining in this lane: `DiscC1`'s `unfoldDefinition`, `iotaCertsFull(Aux)`,
 `WhnfAppSpecI` and `ReduceProjSpecI`.  The pattern for a walk whose pure side
 matches on a translated head: a run-based proof with the head bridges, as
 `defeqSpineI_specI`.
+
+### Lane P2-whnf, phase 3: `DiscC1` done, the family-sort and index walks, the whnf loops (2026-11-07)
+
+**Proved** (no `sorry`, no new axiom; pinned in `InLeanProof/AxiomPins.lean`,
+the stop-gap `mkData` axioms wherever interning or instantiation reads a
+cached field, the standard three for `reduceNatI_specI` and
+`reduceProjCoreI_specI`):
+* `InLeanProof/WalksWhnf.lean` (`DiscC1` complete): `unfoldDefinitionI_specI`
+  (run by run), `iotaCertsFullIAux_specI`, `iotaCertsFullI_specI`,
+  `reduceNatI_specI` (master's scripts).
+* `InLeanProof/WalksIota.lean` (new): `formerSortLoopI_specI`,
+  `formerNeverZeroI_specI`, `iotaCase3I_specI`, `iotaIndexOkI_specI` (run by
+  run: the pure sides match on a knot answer's translation or read stored
+  records).
+* `InLeanProof/WalksWhnfLoop.lean` (new): `whnfLoopI_specI`,
+  `whnfBodyI_specI` (a `BodySpecI`), `betaPeelI_specI`, `whnfCoreLoopI_specI`,
+  `whnfCoreBodyI_specI` (a `BodySpecI`, over `WhnfAppSpecI`/`ReduceProjSpecI`),
+  `whnfAppI_specI` (**discharges `WhnfAppSpecI`** given `IotaRecSpecI`),
+  `reduceProjCoreI_specI` (**discharges `ReduceProjSpecI`**).  Scripts are
+  master's, but for the restatements below.
+
+**The pattern for a pure match on a translated term, in `vcgen` form.**  A
+restatement of the pure step whose `match` is on InLean's `EO.stripTop`
+(`iotaCertsFull_TrS_cons`, `reduceNat_TrS`, `betaPeelW_TrS_cons`,
+`whnfAppW_TrS_cons`), conditional on `OkS s t = true` (which rules out the
+metavariable and the untranslatable free variable), goes into `sym`'s list
+with the hypothesis applied; `vcgen`'s split of InLean's match then reduces
+the pure one.  An arm must not restate the left-hand side (`grind` unfolds it
+forever); a `bvar` arm names its constant (`(.bvar k).instantiateList …`).
+Where the match is on a knot call's *answer* (the family sort's walk), the
+proof stays run by run (`bind_run`, `pure_run`, the shape bridges
+`TrS_ne_sort`, `TrS_ne_forallE`).  `reduceNatI_specI` raises `finish` to
+`gen := 10` (commented: three nested match reductions).
+
+**Vocabulary added** (in the lane's files; nothing in the frozen foundation
+changed): application spines (`TrS_mkAppN`, `OkS_mkAppN`; `import all
+Lean.Expr`, `Lean.mkAppN`'s body), `Nat` literals and operations
+(`rawNatLit_TrS`, `TrO_natOpResult`, the `cl_nat*Name` spellings), zero-ness
+data (`trPW`, `trPW_zeronessOf`, `trPW_substPW`, `trL_substGo_gen`),
+`piResult`/`formerResSort`/`formerNeverZero`/`ctorFamily` through the
+translation, the residual (`piResidual_go_TrS`, `lbb_piResidual`), the bulk
+instantiation as a lemma (`TrS_instI`), closedness of peels and spines
+(`lbb_piDom`, `lbb_piPeel`, `lbb_lamPeel`, `lbb_lamOpen`, `lbb_mkAppN_closed`,
+`lbb_lit`), the projection certificate (`peelPis_TrS`, `projCert_TrS`), the ι
+arity pre-check (`recArity_of_recAt`, `iotaRecI_of_arityOk_false`,
+`iotaArityOk_guardI`; `import all Lean.Declaration`, `QuotKind`'s derived
+`BEq`).  The pure side's closedness of stored constants comes from
+con-leche's `EnvWF env`, as on master.
+
+**New O4 hypotheses (P3's to discharge)**, beside `EnvRelI` and `EnvDomI`:
+* `EnvDefnI fe env` (`WalksWhnf.lean`): InLean sees a stored definition
+  wherever con-leche does (`EnvRelI.val`'s converse); `unfoldDefinition`'s
+  miss needs it.
+* `EnvViewI fe env` (`WalksIota.lean`): InLean's inductive, constructor and
+  projection-table views are the translations of con-leche's records at the
+  translated name (`CVRel`: name, levels, a stored closed type; `toCaps`),
+  and are absent exactly where con-leche's are.
+
+**Remaining in this lane: the ι step proper**, named `IotaRecSpecI`
+(`WalksWhnfLoop.lean`): `iotaRecI`, `prepareMajorI`, `majorToCtorI` with its
+three rescue blocks, `pinArgsI`, the case-3 certificate block.  What it needs
+beyond this phase: (1) a recursor view in `EnvViewI` (`recAt?` against
+`.recInfo cv mI rP isK rules`: `majorIdxOf`, `rulePrefixOf`, `rv.k`, the rules'
+constructors and field counts, and `recFireAt` against every rule's stored
+`fire`, the nested pins as stored open terms; `pinArgsI`'s reversed-array
+instantiation is `instSpine` by master's `instSpine_eq_instantiateList`);
+(2) bridges for the rescue's readers (`isCtorAppC`, `etaRescueOk`,
+`towerSlotsAllF`, `andRescueSlotsF`, `Expr.wscopedBC`, `Expr.closedBV`) and
+triples for `leafGuardM` and `substLevelTreesM`; (3) P2-defeq's
+`proofIrrelI` and `projNodesI` as named callee specs until that lane lands
+them.  Nothing found false as stated.
