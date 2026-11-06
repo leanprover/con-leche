@@ -110991,3 +110991,96 @@ by `vcgen`: they are the walks' callee specs, not walks.
   default discharger does not discharge the side conditions of a local
   `∀`-hypothesis here ("failed to assign proof"), so the level proofs
   rewrite with `rw` and close side goals separately.
+
+### Lane P2-defeq: the definitional-equality walks (2026-11-07)
+
+`InLeanProof/WalksDefeq.lean` (1,819 lines, one session): every twin of
+`Verify/Cached/DiscC2.lean` and `DiscC5.lean` proved, each by its master
+twin's `sym only [conleche_grind, …] => vcgen […] <;> finish` script, the
+callee names swapped for InLean's and the knot's slots taken from
+`KnotSpecI` (`ih.whnf`, `ih.defeq`, …) and `StateOpsI`'s triples.  No
+`sorry`, no new axiom; 39 theorems pinned in `AxiomPins.lean` (the walks
+that instantiate a body at an interned variable use the stop-gap `mkData`
+axioms, through `TrS_inst1`).  No executable code changed, no foundation
+file changed (the root and `AxiomPins.lean` gained the import and the
+pins).
+
+* **DiscC2's twins**: `boolTrueShortcutI_spec`, `proofIrrelI_spec`,
+  `propIrrelI_spec`, `etaCertI_spec`, `structUnitCertI_spec`,
+  `structEtaCertWithI_spec`, `structEtaCertI_spec`, `stuckIrrelI_spec`;
+  InLean's `projNodesI` is pure, so its twin is an equation
+  (`TrSL_projNodes`), not a triple.
+* **DiscC5's twins**: `defeqLamsInnerI_spec`, `lamsStepL_spec` and
+  `lamsSpecI_all` (by induction, `LamsSpecI` a named predicate),
+  `quickDefEqI_spec`, `defeqOffsetI_spec`, `tryUnfoldProjAppI_spec`,
+  `deltaQuickI_spec`, `lazyDeltaStepI_spec`, the loop's blocks
+  (`ldrStepL`/`ldrNatBL`/`ldrNatAL`/`ldrOffL`, `lazySpecI_all` by
+  induction), `lazyProjSpecI_all`, `defeqProjPairI_spec`,
+  `defeqStuckI_spec`, the body's blocks (`bodyTailL` … `bodyQ1L`) and
+  **`defeqBodyI_spec : BodySpecBI .verified eager env (defeqBodyI …)
+  (defeqBody …)`**, the slot P2-infer's knot assembly consumes.  The
+  InLean blocks are named as master's (`…L` for master's `…I`); the pure
+  blocks and their equations are master's own (`lamsStepP`, `ldr…P`,
+  `body…P`, `defeqLams_succ`, `lazyDeltaReduction_succ`, `defeqBody_eq`).
+* **Mode**: every walk that takes InLean's `CheckMode` is stated at
+  `.verified` (InLean's mode is its own type; `SSimI` is at `.verified`);
+  the mode-free ones stay generic in con-leche's mode.
+* **Raised limits** (each commented): `proofIrrelI` 12 (as master's),
+  `etaCertI` 10 (as master's), `structUnitCertI` and `structEtaCertWithI`
+  12 (master's default suffices there; the translation's spine head adds
+  two generations).
+
+**Assumed, as named hypotheses** (other lanes' to discharge):
+* P2-whnf's walks of `DiscC1`/`DiscC4`: `DefEqListSpecI`,
+  `DefeqSpineSpecI`, `UnfoldDefSpecI` (with `OptClosed` of the unfolding),
+  `ReduceNatSpecI`, and KnotI's `ReduceProjSpecI`, each `…C_spec`'s twin in
+  `KnotSpecI`'s post shape.
+* **`DefeqEnvI fe env`** (O4, P3's): the readers at use against
+  con-leche's install, at a term with a reading — `notProofFast`/
+  `isProofFast` (through the state's type table), `etaCtorShape`,
+  `unfoldableHead`, `headHint` (Lean's hints read by `trHint`),
+  `strLitStored`, `towerSlotsAll`, and the two lookups the certificates
+  read, as functions of the name: `ctorRd`/`indRd` (level parameters,
+  counts, the six capability fields) against `ctorView?`/`indView?`.  The
+  pure certificates are restated through them (`structUnitCert_eq`,
+  `structEtaCertWith_eq`, by cases on the lookup).  `etaShape` is
+  derivable from `ctor` and the spine lemmas; kept as a field for now.
+* `EnvWF env` (master's, for `unfoldDefinition_WScoped`).
+
+**What it took (vocabulary, in the lane's file).**
+* *Inversion keyed on a scrutinee.*  InLean matches `EO.stripTop e` or
+  `e.getAppFnT`, the pure side the translation; a pure arm against
+  InLean's wildcard needs "the translation is a `K` ⇒ the stripped term is
+  a `K`" (`invS_*`, `invH_*`, existential conclusions).  Keyed on
+  `TrS s e` and the constructor alone they paired every translation with
+  every constructor term and hit the instance limit (1,000); keyed on
+  `TrS s (EO.stripTop e)` / `TrS s (Expr.getAppFnT e)` they fire only on
+  scrutinees.
+* *Two-sided dispatches* (`quickDefEq`, `defeqProjPair`, `defeqStuck`)
+  unfold the pure side to its `match` (`….eq_def`), not to its equation
+  lemmas: the fall-through equation's premises are `∀`-statements about
+  the translations that `grind` cannot prove; with the `match` it splits
+  the pure side and refutes each foreign arm by an inversion.
+* *Equality*: `clBeq_TrS` (the scoped `==` is equality of translations,
+  P1's `clEq_iff_TransS`), keyed on one side's reading so the other's is
+  derived along the table (`okS_of_tabLe`).  One-value instantiation and
+  the spine readers keyed on the translated term too (`TrS_inst1_eq`,
+  `TrS_getAppFnT`, `TrSL_appArgs`, extra patterns for GrindI's theorems).
+* The term readers (`isBoolTrue`, `ioNeutral`, `headIsProj`, `isNatZero`,
+  `isLitI`, `natPred?`, `lamPair?`, `sameConstHeadsC`, `isForall`,
+  `hasFVar`, `fvarDepth?`, `strLitToConstructor`, `hintLt`,
+  `hintSameRegular`, Lean's literal `==`) against con-leche's; closedness
+  equations for `lam`/`forallE`/`fvar`, of `natPred?`, of the string
+  literal, and of the step and outcome types (`StepClosedD`,
+  `LazyClosed`, with `TrDS`/`TrLR` translating them).
+* `import all Lean.Expr` (reason in the file): `Literal`'s derived `BEq`.
+
+**Notes for the other lanes.**  The pin `toName` of a core name is `rfl`
+(`toName_boolTrueName`, …); InLean's `lamsFuel`/`defeqLoopFuel` equal
+con-leche's by unfolding (`lamsFuel_eq`, `defeqLoopFuel_eq`).  A walk that
+consumes `defeqBodyI_spec` passes the eight hypotheses above; P2-infer's
+knot assembly gets them from `SSimI f` (`ih`), P2-whnf's lemmas and P3's
+`DefeqEnvI`.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
