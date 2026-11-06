@@ -327,9 +327,13 @@ theorem formerSortLoopI_specI (ih : KnotSpecI mode eager env r) :
         rw [← TrS_stripTop, hpi]; rfl
       have hokpi : OkS s₁ dom = true ∧ OkS s₁ b = true := by
         have := hokw; rw [← OkS_stripTop, hpi, OkS_forallE, Bool.and_eq_true] at this; exact this
+      have hcdom : (TrS s₁ dom).looseBVarsBounded 0 = true := by
+        have := hcw
+        rw [hT, ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at this
+        exact this.1
       obtain ⟨fv, s₂, hfv, hr⟩ := bind_run hr
       obtain ⟨hs₂, ht₂, hokfv, htrfv⟩ :=
-        tripleI_iff_run.1 (mkFVarM_specI hs₁ d hokpi.1) fv s₂ hfv
+        tripleI_iff_run.1 (mkFVarM_specI hs₁ d hokpi.1 hcdom) fv s₂ hfv
       have hb₂ : OkS s₂ b = true := okS_of_tabLe ht₂ hokpi.2
       have hcfv : (TrS s₂ fv).looseBVarsBounded 0 = true := by rw [htrfv]; rfl
       obtain ⟨hokI, htrI⟩ := TrS_inst1 hb₂ hokfv hcfv
