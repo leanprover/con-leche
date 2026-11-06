@@ -749,6 +749,111 @@ theorem majorToCtorI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIr
             exact hpost (mtc_notConst hct' rfl hfj (fun T lus h => by
               rw [hhead] at h; simp [TrS, trE] at h))
 
+/-- A `String` literal through the translation. -/
+theorem isStrLitI_TrS (s : InLean.CState) : ∀ e : Expr,
+    InLean.Expr.isStrLitI e = ConLeche.Expr.isStrLit (TrS s e)
+  | .mdata _ e => by rw [InLean.Expr.isStrLitI, TrS_mdata, isStrLitI_TrS s e]
+  | .lit (.strVal _) => rfl
+  | .lit (.natVal _) => rfl
+  | .fvar id => by
+    simp only [InLean.Expr.isStrLitI, TrS, trE]
+    cases hf : FVarTable.trans (tableOf s) id with
+    | none => rfl
+    | some c => obtain ⟨d, ty, rfl⟩ := FVarTable.trans_fvarsOnly _ id c hf; rfl
+  | .bvar _ | .mvar _ | .sort _ | .const .. | .app .. | .lam .. | .forallE .. | .letE ..
+  | .proj .. => rfl
+
+/-- The preparation off K past the first rescue. -/
+theorem prepTailI_specI (ih : KnotSpecI .verified eager env r)
+    (hpi : ProofIrrelSpecI eager env r) (hlg : LeafGuardSpecI .verified eager env)
+    (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env) (hdom : EnvDomI fe env)
+    {d : Nat} {recName : ConLeche.Name} {fire : InLean.RecRuleFire}
+    {rules : List RecursorRule} {crules : List ConLeche.RecRule}
+    (hrules : LRel (RuleRel fire) rules crules)
+    {me : Expr} {s₁ : InLean.CState} (hs₁ : CSOKI .verified eager env s₁) (hok₁ : OkS s₁ me = true)
+    (hw₁ : ConLeche.Expr.WScoped d (TrS s₁ me)) (hc₁ : (TrS s₁ me).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₁⦄ (if InLean.isCtorAppC fe me = true then pure me else do
+        let major₀ ← r.whnf d me
+        let major₁ ← InLean.litMajorToCtorI r fe d major₀
+        InLean.majorToCtorI .verified r fe d false rules major₁ : InLean.CheckCM Expr)
+    ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₁ s' ∧ OkS s' m = true ∧
+      Runs (if ConLeche.isCtorApp env (TrS s₁ me) = true then pure (TrS s₁ me) else do
+        let major₀ ← (ConLeche.fueledFns .verified eager env).whnf d (TrS s₁ me)
+        let major₁ ← ConLeche.litMajorToCtor (ConLeche.fueledFns .verified eager env) env d major₀
+        ConLeche.majorToCtor .verified (ConLeche.fueledFns .verified eager env) env d recName false
+          crules major₁) (TrS s' m) ∧
+      ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+  refine tripleI_iff_run.2 fun m s' hr => ?_
+  rw [isCtorAppC_TrS hv s₁] at hr
+  by_cases hct : ConLeche.isCtorApp env (TrS s₁ me) = true
+  · simp only [hct, ↓reduceIte] at hr ⊢
+    obtain ⟨rfl, rfl⟩ := pure_run hr
+    exact ⟨hs₁, TabLe.refl _, hok₁, Runs.pure _, hw₁, hc₁⟩
+  · simp only [hct, Bool.false_eq_true, ↓reduceIte] at hr ⊢
+    obtain ⟨m₀, s₂, h2, hr⟩ := bind_run hr
+    obtain ⟨hs₂, ht₂, hok₂, hrun₂, hw₂, hc₂⟩ :=
+      tripleI_iff_run.1 (ih.whnf hs₁ hok₁ hw₁ hc₁) m₀ s₂ h2
+    rw [Runs.bind_eq _ hrun₂]
+    obtain ⟨m₁, s₃, h3, hr⟩ := bind_run hr
+    obtain ⟨hs₃, ht₃, hok₃, hrun₃, hw₃, hc₃⟩ :=
+      tripleI_iff_run.1 (litMajorToCtorI_specI ih hdom hs₂ hok₂ hw₂ hc₂) m₁ s₃ h3
+    rw [Runs.bind_eq _ hrun₃]
+    obtain ⟨hs₄, ht₄, hok₄, hrun₄, hw₄, hc₄⟩ := tripleI_iff_run.1
+      (majorToCtorI_specI (recName := recName) ih hpi hlg henv hv hrules hs₃ hok₃ hw₃ hc₃) m s' hr
+    exact ⟨hs₄, ht₂.trans (ht₃.trans ht₄), hok₄, hrun₄, hw₄, hc₄⟩
+
+/-- **The major's preparation** (`prepareMajorC_spec`'s twin). -/
+theorem prepareMajorI_specI (ih : KnotSpecI .verified eager env r)
+    (hpi : ProofIrrelSpecI eager env r) (hlg : LeafGuardSpecI .verified eager env)
+    (henv : ConLeche.EnvWF env) (hv : EnvViewI fe env) (hdom : EnvDomI fe env)
+    {d : Nat} {recName : ConLeche.Name} {isK : Bool} {fire : InLean.RecRuleFire}
+    {rules : List RecursorRule} {crules : List ConLeche.RecRule}
+    (hrules : LRel (RuleRel fire) rules crules)
+    {i : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ i)) (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.prepareMajorI .verified r fe d isK rules i
+    ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
+      Runs (ConLeche.prepareMajor .verified (ConLeche.fueledFns .verified eager env) env d recName
+        isK crules (TrS s₀ i)) (TrS s' m) ∧
+      ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+  refine tripleI_iff_run.2 fun m s' hr => ?_
+  unfold InLean.prepareMajorI at hr
+  unfold ConLeche.prepareMajor
+  cases isK with
+  | true =>
+    simp only [↓reduceIte] at hr ⊢
+    obtain ⟨mk, s₁, h1, hr⟩ := bind_run hr
+    obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1
+      (majorToCtorI_specI (recName := recName) ih hpi hlg henv hv hrules hs hok hw hc) mk s₁ h1
+    rw [Runs.bind_eq _ hrun₁]
+    rw [isCtorAppC_TrS hv s₁] at hr
+    by_cases hct : ConLeche.isCtorApp env (TrS s₁ mk) = true
+    · simp only [hct, ↓reduceIte] at hr ⊢
+      obtain ⟨hs₂, ht₂, hok₂, hrun₂, hw₂, hc₂⟩ := tripleI_iff_run.1
+        (litMajorToCtorI_specI ih hdom hs₁ hok₁ hw₁ hc₁) m s' hr
+      exact ⟨hs₂, ht₁.trans ht₂, hok₂, hrun₂, hw₂, hc₂⟩
+    · simp only [hct, Bool.false_eq_true, ↓reduceIte] at hr ⊢
+      obtain ⟨rfl, rfl⟩ := pure_run hr
+      exact ⟨hs₁, ht₁, hok₁, Runs.pure _, hw₁, hc₁⟩
+  | false =>
+    simp only [Bool.false_eq_true, ↓reduceIte] at hr ⊢
+    rw [isStrLitI_TrS s₀] at hr
+    by_cases hsl : (TrS s₀ i).isStrLit = true
+    · simp only [hsl, ↓reduceIte] at hr ⊢
+      obtain ⟨me, s₁, h1, hr⟩ := bind_run hr
+      obtain ⟨rfl, rfl⟩ := pure_run h1
+      rw [Runs.pure_bind_eq]
+      exact tripleI_iff_run.1
+        (prepTailI_specI (recName := recName) ih hpi hlg henv hv hdom hrules hs hok hw hc) m s' hr
+    · simp only [hsl, Bool.false_eq_true, ↓reduceIte] at hr ⊢
+      obtain ⟨me, s₁, h1, hr⟩ := bind_run hr
+      obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1
+        (majorToCtorI_specI (recName := recName) ih hpi hlg henv hv hrules hs hok hw hc) me s₁ h1
+      rw [Runs.bind_eq _ hrun₁]
+      obtain ⟨hs₂, ht₂, hok₂, hrun₂, hw₂, hc₂⟩ := tripleI_iff_run.1
+        (prepTailI_specI (recName := recName) ih hpi hlg henv hv hdom hrules hs₁ hok₁ hw₁ hc₁) m s' hr
+      exact ⟨hs₂, ht₁.trans ht₂, hok₂, hrun₂, hw₂, hc₂⟩
+
 end Walks
 
 end InLeanProof
