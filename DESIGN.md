@@ -110397,3 +110397,423 @@ header with other contents, and an empty file (exit 0).  Four forged fixtures
 put in front of the header; their scripts now put them after it, and the regenerated files differ only
 in that.
 
+## TASK #460 — modular checking on master: the design (2026-11-06, agent/460-modular-design)
+
+**The task (maintainer).**  Redo modular checking from scratch on master, written as if always meant
+for master's architecture: no ports of `cfsg` code for their own sake, no compatibility layers.  Keep
+the theory's idea (a per-module development with keys, `Refines`, `LocalOk`, a model of each
+module's own environment; no merged global specification), let the worker's reach follow the module
+system's import semantics, and find out how much of `cfsg`'s block machinery survives master's
+trivial install.  A design lane: this record, a throwaway probe, nothing else lands.  The
+maintainer reviews before anything is implemented.
+
+**Read for it.**  Master: #450, #452, #453, #470, #480 (all its lanes), #481, #484, #489, OVERVIEW
+§§1–3, `Frontend/Olean.lean`'s interface, `Cached/StreamIndex.lean`, `Kernel/Install.lean`,
+`Verify/EnvExt.lean`, `Model/Env/EnvModelM.lean`.  `cfsg`: #374, #376, #396, #397, #399, #415,
+#421 (design, landing, cont. 13, 21, 25, 34), #425/#426, #429, `ConLeche/Modular.lean`,
+`Modular/Generic.lean`, `Model/Modular/Restrict.lean`'s header, the whitepaper's §7
+(`whitepaper/sections/06b-modular.typ`) and `whitepaper/PLAN.md`.  Lean v4.35.0's
+`importModulesCore`, `finalizeImport`, `subsumesInfo`, `mkModuleData`.
+
+**Corrections to the brief.**  (1) There is no `whitepaper` branch: the whitepaper is `whitepaper/`
+on master, without a modular section; the modular §7 and its fragment
+(`Fragment/Modular{,Semantics,Model,Instance,Syntactic}.lean`) exist only on `cfsg`.  §5 below plans
+bringing them to master.  (2) `parseFull` is gone since #470: the specification of a view is
+`decodeModuleSpec f level`, and the partial reads' theorems are `_of_view` over `parseView`.
+(3) Mathlib's v4.35.0 `.olean` files are on this machine (`_tmp/ref/mathlib4-v4.35.0`, 8 624 module
+files); CFSG's rc3 closure is the one that is gone.  The probe of §6 uses Mathlib.  (4) master moved to
+`b7558b224` (#489) while this lane ran; the branch is on it.
+
+### 1. The theory on master
+
+**What stays as it is.**  `cfsg`'s `ConLeche/Modular/Generic.lean` (`ModularSemantics`, `Key`,
+`Development.modular`), 403 lines importing nothing, is the whitepaper fragment's interface and
+theorem.  It carries over unchanged: a development is a family of modules, a key is the home module
+or a proof's statement, the theorem is a compatible family of models, one per module's own
+environment, built module by module by amalgamating the sources' models into one of the context and
+extending it by the conservative step.  There is no merged environment.  A merged environment cannot
+represent two modules that declare one name and are never loaded together (`Capture.Q.foo`,
+`Capture.Q2.foo`); the per-module theorem does not need to.
+
+**What the trivial install removes from the specification.**  On `cfsg` an importer *installed* an
+imported block: it generated it at the home's exported view (`presentExported`, `genIndStep`), which is
+where the block clauses, the degradation and the whole of B2 came from.  On master what a
+declaration installs is a function of the declaration (`declConstants`, `declTables`), and its
+checks are its own jobs.  So an imported block is presented as its record, and nothing is installed
+at an importer that is not that function of a record its home checked.  The context becomes a list
+of **presented records**, and the context environment is master's `streamEnv` of that list.  Clause
+by clause, against `cfsg`'s `LocalOk`/`ImportOk`:
+
+| `cfsg` clause | on master |
+|---|---|
+| `accepted` (`AcceptedFrom`: `installDeclStep`, pending checks, `ProofDecl` by `checkPending`) | master's `DeclsRun` from `mkFEnv (streamEnv ctx)`; the pending array is gone; a flagged name is a theorem record (§1, proof flags) |
+| `compared`, `compared_own` | out of scope (question 9) |
+| `context_le` (`Refines` per constant) | per record: a context record is its source's record or that record's statement (`.axiomDecl cv`); master's `expoOf` is exactly this relation |
+| `blocks` (`BlockIn`), `recFam`, `tables`, `tables_mem`, `projs` | gone: a record is the unit of presentation, so a group arrives with all its constants and tables, equal to its source's (`checkDeclC_pushes`); what they asked of the context is a property of the source's own environment restricted to the record |
+| `scoping` (`EntryScoped` over `readsAlike`) | one clause per record: every name its constants read (types, a definition's value, rules, nested pins, a `.proj`'s structure, `pinFootprint`) is stored in the context under the source's key |
+| `below`, `src_lt`, `nodup`, `key_context`, `key_own` | as they are |
+| `Presented` (`ci`, `table`, `reads`) | a `Declaration`: its table is `declTables`, its reads computed |
+| `Env.holes` and the rule X | gone already on `cfsg` (#415); not reintroduced |
+
+The specification sketched (names to be settled in the lane):
+
+```lean
+structure Module where
+  imports : List Nat
+  ctx     : List Declaration      -- the presented records it is checked against
+  decls   : List Declaration      -- its own records
+  src     : Name → Nat
+  key     : Name → Key Stmt
+  iface   : List Declaration      -- what it presents: own records and their statements
+  view    : Name → List Nat       -- the modules whose copy of a name its loaded view holds
+-- context := streamEnv ctx,  own := streamEnv (ctx ++ decls)
+
+structure InterfaceOk (dev) (b) : Prop where   -- at the home, once
+  refines : ∀ e ∈ (dev b).iface, ∃ p ∈ (dev b).decls, e = p ∨ e = stmtOf p
+  oneKey  : ∀ x, ∀ m ∈ (dev b).view x, keyOfCopy m x = (dev b).key x   -- the clash rule
+structure ImportOk (mode pins dev i) : Prop where  -- at the importer
+  below, src_lt, nodup
+  accepted  : DeclsRun mode pins (dev i).decls (k, mkFEnv (streamEnv (dev i).ctx)) _
+  presented : ∀ d ∈ (dev i).ctx, d ∈ (dev (srcOf d)).iface
+  reads     : ∀ d ∈ (dev i).ctx, ∀ x ∈ recordReads d, stored x ∧ (dev i).key x = (dev (srcOf d)).key x
+  key_context, key_own
+```
+
+`stmtOf p` is the statement of a definition, theorem or opaque record as an axiom record, and the
+record itself otherwise.  `oneKey` is what the capture check's shortcut needs of a reader's home
+(§2); `keyOfCopy` is a function of the files (the copy's home, or its statement where it is a
+theorem).  `LocalOk.of_interface` keeps its shape: `InterfaceOk` at every source and
+`ImportOk` at the module give the hypothesis of the generic theorem.
+
+**Proof flags.**  On `cfsg` a flag was a theorem, or a definition or opaque whose value passed the
+theorem check at its home (#376).  On master a theorem record installs its statement alone
+(`.thmDecl cv _ ↦ .thmInfo cv`), so the flag is simply "declared by a theorem record", and a
+flagged constant's value is the point because its type is a proposition, which the theorem's check
+establishes.  The flag is read only where two copies of a name meet: at a clash, and when a
+reached read's copy is compared with what its reader's home means.  There it is the copy's kind as
+the file shows it (`thmInfo`) or, for an exported axiom, the kind in its home's private name table
+(`readNamePositions f .private`, kinds only).  This is stricter than Lean on one shape: two copies
+where one is a definition of a proposition (`cfsg`'s fixture `PdM`): Lean merges them
+(`subsumesInfo`'s theorem/axiom arm), this rejects it.  Question 3.
+
+**The statement we aim for.**  Three layers.
+1. *Per module*, as on `cfsg`: `modular_model_exists V pins dev i (hok : ∀ j ≤ i, LocalOk
+   .verified pins dev j)` gives a compatible family of models of the own environments (same key,
+   same value; every proof the point), and `modular_no_False`: no own environment stores a constant
+   of type `False`.  The statements do not change; `LocalOk` is the simpler one above.
+2. *Per worker*: on a snapshot, an exit 0 of the worker at module `m` (`runArgs ["--olean",
+   "--module", "--search-path=…", "--", m]`, names to be settled) establishes `ImportOk` at `m` and
+   `InterfaceOk` at `m`, for a development whose numbering is any topological order of the import
+   graph of `m`'s closure (all edges, private imports included, since a completion's copy may come
+   from a module only a private import reaches).  `dev m` is read off the worker's evidence:
+   `ctx` its context records, `decls` the module's own records, `src` each record's module.
+3. *A run*: `checkGraphG_ok` (an exit 0 of `--check-graph -- root`) gives `∃ C rk`, every module of
+   the closure in `C` and every import edge decreasing in `rk` (#426, ported).  Then
+   `main_modular_no_False`:
+
+   > On a snapshot where the private view of a module of the closure of `root`, by the
+   > specification (`ViewOf`, `decodeModuleSpec`), holds a theorem of type `False`, it is not the
+   > case that `--check-graph -- root` and the worker at every module of that closure all have an
+   > exit 0 among their outcomes.
+
+   and its one-process twin at `--modular -- root`, whose run does both in one process.
+
+**Its relation to `main_oleans_no_False`.**  The hypothesis about the files is the same (`InClosure`,
+`ViewOf`, a theorem of type `False`); the conclusion is about several runs instead of one.  Every
+theorem of every module's private view is checked in both, at its home; the merged run checks it at
+the merged environment, the modular run at the module's own context.  So the modular run accepts
+strictly more: two modules declaring one name that are never loaded together (rejected by the merge
+as a duplicate) and a module whose importers see only its interface.  It never accepts the capture
+case (§2, completion).  The modular result is the stronger one about models (a compatible family,
+not one model, which need not exist), the same one about `False`.  The run's assumption (1) of
+`CheckerIO.lean` must be stated for several processes: every worker's and the graph check's file
+operations answer on one snapshot.  Under that assumption, the statement needs no theorem about the
+scheduler, which only starts the processes and reports their exits.
+
+### 2. What an interface presents
+
+A module presents its records at the levels Lean's import gives them (`OLeanLevel`): `.exported`
+for an ordinary import of a module of the module system, `.private` under `import all` and for a
+module outside the module system.  At `.exported` the exported part says what it holds, and the
+home's `checkViews` (master's, unchanged) says it refines the private part: `expoOf` is `.same` or
+`.hidden` (an axiom of the same name, level parameters and type, from a definition, theorem or
+opaque).  Per kind:
+
+| home's record | exported part holds | presented record | `Refines` | the reach follows |
+|---|---|---|---|---|
+| definition, exposed | `defnInfo`, with its value | `.defnDecl cv v h` | equal | type and value |
+| definition, not exposed | `axiomInfo` | `.axiomDecl cv` | statement | type |
+| theorem | `axiomInfo` (rarely `thmInfo`) | `.axiomDecl cv`, or `.thmDecl cv _` read without its value | statement; equal (master stores a theorem's statement) | type |
+| opaque | `axiomInfo` or `opaqueInfo` | `.axiomDecl cv` (master's install of an opaque) | equal | type |
+| axiom | `axiomInfo` | `.axiomDecl cv` | equal | type |
+| inductive group | its types, constructors, recursors | `.indDecl block nP`, built as the emission builds it | equal | the whole group: types, rules, nested pins, tables |
+| quotient package | `quotInfo` | `.quotDecl k cv` (master installs the slot's pin) | equal | type |
+| basis-named block (`Eq`, `Nat`, `Empty`, `False`) | its records | its record (master installs the pins at the record's names) | equal | the group |
+| `Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor` (pinned, not exposed in v4.35.0) | `axiomInfo` | `.axiomDecl cv`, the fast path by name | statement | type and `pinFootprint` |
+
+At `.private` a definition carries its value; a theorem is still its statement (master's kernel
+never reads a theorem's value).  A group is always presented whole: on the probe's sample no reached
+group lacks a member, constructor or recursor at the exported level (§6), and where one did, the
+group record is read from the home's private part, as a completion is.  So nothing degrades, and
+`cfsg`'s `degradeBlock`, `blockComp` and the completed-view generation have no counterpart.
+
+**The pins.**  A basis-named block and a quotient record install the pins whatever the record
+says, and the comparison with the pin is the block's job (#480 rulings 4 and 5): the job of the
+home (`Init.Prelude`, `Init.Core`), not of the importers.  `And` is pinned the same way
+(`andPinOk` in the home's job).  The certified `Nat` operations are checked at their homes (their
+certificates are their jobs); the importer's fast path needs the operation stored at its name with
+the pinned type.  Master's `natOpStoredOkF` asks for a `defnInfo`, which `Nat.gcd`, `Nat.land`,
+`Nat.lor` and `Nat.xor` are not at the exported level (§6), so their literals would be stuck at every
+importer of those modules (Lean's kernel accelerates them by name).  Recommended (question 4): the
+fast path reads the name and the pinned type, any kind, as `cfsg`'s #397 did; the model's `OpDefn`
+becomes "the leaf at a pinned name is the pinned operation", supplied at the home and carried to an
+importer by the key.  On the stream and merged paths nothing changes: an axiom at a pinned name is
+rejected at its record (`NpAx`, exit 1).  The home's own ground reordering
+(`Frontend/NatOpGround.lean`) applies to its own records, as `preparePrelude` does to a stream.
+
+**The type-only completion: role and bounds.**  Lean's import leaves out of a module's environment
+names that the constants it loads read: an exposed value that reads its home's private auxiliary
+lemma, an equation lemma whose statement reads a privately imported constant
+(`Option.choice.eq_1` reads `Classical.propDecidable`).  `ImportOk.reads` needs every read of a
+context record stored under its reader's meaning, so the context is completed, as Lean would see it
+if it shipped the missing declarations.  The completion's bounds:
+* only reads of **reached** context records, not of every loaded constant (`cfsg`'s #415 completed
+  every exported constant's reads: 472–5 828 type-only constants per CFSG module; the reach needs
+  0 or 1 on the probe's sample, §6);
+* located in the reader's home's view by headers and name tables only: its own private name table,
+  then the modules its header fixpoint loads, the first copy found (#415's rulings 1 and 2), never
+  by a name's `_private.M.0` spelling;
+* presented as a statement (`.axiomDecl cv` from the private record), a group whole; never a value;
+* closed: a completed statement's reads are resolved or completed in turn, each in its own home's
+  view; a name located nowhere is a malformed file (exit 1);
+* a check that needs a completed definition's value fails as Lean's own check would, since Lean has
+  not even the statement: a reject, with no diagnostic re-run (`cfsg`'s `valueNeeded` re-run would be
+  a retry round).  Question 6.
+
+**The capture check is part of the same pass.**  A reached context record of home `h` reads `x`;
+the importer holds a copy of `x` from module `m`.  If `m` is in `h`'s public-import closure and `x`
+is in `m`'s exported part, `h`'s view holds the same copy (Lean's fixpoint loads that closure at
+both), and `h`'s own clash rule over its loaded view makes every copy `h` might have chosen agree in
+key.  Otherwise `x` is located in `h`'s view as a completion is, and the two copies must have one
+key; if not, the module is rejected ("name capture").  That is the capture example: `H`'s
+`bar.eq_1 : bar = foo` means `Q.foo`, `M` holds `Q2.foo`.  So **the clash rule over every loaded
+name is a home property the importers rely on**, not only an alignment with Lean: without it every
+read would need a search in its reader's home's view.
+
+### 3. The worker
+
+`--module` (name to be settled) checks one module `M` in one process.  Its phases:
+
+1. **Headers and levels.**  `importsPre` of each module Lean's fixpoint reaches from `M`'s header
+   (`importModulesCore`'s rules at the global level `.exported` for a module, `.private` otherwise),
+   giving every loaded module and the level of its part.  No theorem is needed for soundness: any
+   presentation of a source's interface is sound; the levels decide only whether the verdict is
+   Lean's.  Each loaded module's public-import closure, for the capture check, is computed from the
+   same headers.
+2. **The name index** of every loaded module's part, by `readNamePositions f level` (names, kinds,
+   positions; exists, `readNamePositions_of_view`).  While it is built: Lean's clash rule (two copies
+   of a name from two modules: one key, by `subsumes`' shapes and the flags of §1, statements read for
+   those names only), and freshness (no own record's name is a loaded name).
+3. **The own records**: `M`'s private view by `loadAt` (master's lazy load, theorem values left in the
+   file) and its emission restricted to `M`'s own constants: master's `emitAll` with every own
+   constant a root and a non-own name a context read; `emitAll_covers` and `declsOf_from` apply.
+   The home's check of its own interface: `checkViews` over `M`'s three files, a mismatch exit 1
+   (today `.internal`); it takes `AllViews` today and must take the lazy load instead (its `.same`
+   case compares objects by position, its `.hidden` case statements only, so no theorem value is
+   needed).
+4. **The reach**: a plain worklist, from the names the own records read (their theorems' values
+   included: they are checked here).  A name the index finds is read where it is stored, at its level,
+   by a per-constant read (`readEntry`, or a new `readEntries f level cs` sharing one memo per module,
+   with `readEntries_of_view`), and turned into its record; a group is read and pushed as one record
+   (built and validated as `blocksOk` validates a merged block, for that group only).  It pushes what
+   the record's constants read: types; values of definitions presented with values (the **opaque
+   cut**: never an imported theorem's value or a hidden definition's); rules, nested pins, tables;
+   a `.proj`'s structure; the literal names where a literal occurs; `pinFootprint` at a pinned name.
+   A name the index does not find is a completion (§2).  The capture check runs on each reached
+   record.  Termination: every pushed name is new, out of a finite index plus the completions'
+   located positions; a fuel is the sum of the loaded name tables' sizes.
+5. **The restricted index and the cutoff.**  `buildIndex (ctx ++ own)`, master's function: the
+   context records first, then the own records.  Jobs are the own records' only, at their views
+   (`k ≥ ctx.length`): everything of the context visible, the own records from their own on hidden.
+   `checkDecls_of_jobs` generalises to `checkDecls_of_jobs_from`: every own record's job passing is a
+   `DeclsRun` from `mkFEnv (streamEnv ctx)`.  First entry wins, as today; the clash rule has made
+   every copy of a name one key, so the first is as good as any.
+6. **The context's well-formedness.**  The cached kernel's simulation needs `EnvWF` of the
+   environment it runs at; the context records were never checked here.  Recommended: validate them as
+   untrusted input (closed, level parameters declared, names resolving in the context, the group's
+   shape recognised), a syntactic pass over the reach, as `cfsg`'s cont. 23 did for its units.
+7. **Jobs and verdict**: the own records' jobs on `parMapWorkers`, a theorem's value read in its job
+   (`readValue`), the walk in fold order (`collect`).  Exit 0 needs: the reads, the clash rule,
+   freshness, `checkViews`, the completion, the capture check and every job.  A reached group the
+   recogniser does not read is a decline naming it (positively detected, as at its home).
+
+**What the reach must contain for the checks to be exact.**  Master's `knot_ext`
+(`Verify/EnvExt.lean`, #480 lane 4) says the pure knot at an extension `env₂` of `env₁` gives, on
+terms resolving in `env₁`, the same `Except` at every fuel.  The reach context extends to the full
+context Lean loads (stored constants and tables stay) when it holds `StoredFacts`: `EnvWF`, the
+`Nat` block all or nothing (groups as units), `RecCtorsStored` (groups), a table's constructor
+(groups), the `Bool` constructors below `Nat.beq`/`Nat.ble` (`pinFootprint`).  So each job's verdict
+is its verdict at the full context: no eager failure path (`cfsg`'s design ran the eager worker for
+every non-accept), no verdict that depends on how small the reach was.  Two checks read names outside
+the terms and are made over the full name index instead: freshness of own names, and the clash rule.
+Lifting `knot_ext` to the record check (`checkDeclStepC` reads `find?` of the declared names) is a
+lemma of its own; soundness does not need it.  Question 7.
+
+**The scheduler** (sketch): `cfsg`'s #414/#427 scheduler with its rulings (staggered starts, the
+largest worker killed under memory pressure, a resumable append-only log, a timeout per worker), one
+worker per module, in any order: workers depend on files only, never on each other's results.
+`--check-graph` once per run.  Outside the theorem: it only aggregates exit codes.
+
+**The one-process mode** (sketch, for big machines): one process reads every module of the closure
+once up front (headers, the graph check, the name tables into one global index of name to copies,
+every private view by `loadAt` and the exported parts sharing its objects), marks the shared tables
+persistent before any thread starts, then runs, per module, steps 1–7 on a thread of a pool over the
+shared tables (no file read after the start), with a per-thread scratch of the module's levels.  The same reach and the same jobs as
+the worker, so one evidence lemma serves both modes.  Its memory is about the merged `--olean`
+run's (3.1 GiB on Mathlib, #489) plus the exported parts' objects not shared with the private views;
+not for CFSG on this machine.
+
+### 4. `cfsg`'s #421 and its relatives: what ports, what goes, what is proved again
+
+| `cfsg` result | here | rough effort (lane sessions) |
+|---|---|---|
+| `Modular/Generic.lean`, `modular_model_exists`, `modular_no_False` | ports verbatim | 0.5 |
+| `ConLeche/Modular.lean` (`LocalOk`, `ImportOk`, `InterfaceOk`) | rewritten, smaller (§1) | 1 |
+| `Model/Modular/{Instance,Main,Step,Scope,Restrict}` (the instance, the context's model from its sources' models, 3 000 lines) | proved again against master's `EnvModelM` (the at-use capabilities, `ShownFacts`, `NatFacts`, the basis rename are new since); per record, which shortens the block cases | 5–8 |
+| the sparse decoder (O6) | on master since #481 (`Sparse.lean`, `frontierExpr_eq`) | 0 |
+| the reach's worklist invariant (cont. 7, 16–18: `run_inv`, `closure_done`, `collectWalk_refs`) | proved again for the simpler reach (records as units, no presentation decisions) | 2–3 |
+| the records are the module's constants (cont. 20, 38–41) | master's `emitLoop_covers`, `declsOf_from`, `readEntry_of_view` give most of it; the restriction to own roots is new | 1–2 |
+| the completion's caches and their invariant (cont. 8, 9, 13–15: `StOk`, `Indep`, `searchGo_indep`, `complete_indep`, numbering by discovery) | unnecessary: a completion is rare (0–1 per module on the sample), so a plain search with no cache; the numbering is the graph check's existential, keys do not use it | 2 for the plain search's `locate_spec` and `complete_met` |
+| the completion's validation (cont. 34: `completeGo_tyoOk`, `completeGo_met`) | the ideas port; the proofs are about the new search | (in the 2 above) |
+| B2 (cont. 21, 26–33: the generate-only install's footprint, `whnfPres_readsIn`, `genIndStep_run`, `GenFoot`, `checkBlockSkip_ok`, `installFoot_*`) | **unnecessary**: no importer generates a block | 0 |
+| `blockComp`, `presentExported`, degradation (cont. 25), `PresentSound` (cont. 34–36), `CompFoot`, `FullFoot` | **unnecessary** | 0 |
+| the store and isolated modes (`Verify/Modular/{Store,View,Ghost,Mask,IsoCtx,IsoFast,IsoFold,IsoRun,Isolated}`), units and their positions, `unitOk` | **unnecessary**: the worker is the only per-module path; the one-process mode runs the worker's steps | 0 |
+| the context validated, `EnvWF` from the check (cont. 23–24: `lazyUnits_syn`, `isoCtx_envWF`) | the idea ports (§3 step 6), proved again | 2 |
+| the worker in the IO model (#424 cont. 6) | on master's `CheckerIO` and `parMapWorkers` | 2–3 |
+| `--check-graph` (#425/#426, `checkGraphG_ok`) | ports, over master's `importsPre` | 1–2 |
+| the in-process table (#429) | replaced by the one-process mode above | 3–5, later |
+| pinned operations by name (#397) | kernel change and `OpDefn`, §2 | 2 |
+| verdict agreement (cfsg: not proved; the eager path decided) | `knot_ext` lifted to the record check | 2–3, optional |
+| the run's corollaries (`main_modular_no_False`, one-process twin) | new | 2 |
+
+About 25–40 sessions in all, against `cfsg`'s #421 alone at about 30 and unfinished; the largest
+single item is the model's instance.
+
+### 5. The whitepaper
+
+Master's `whitepaper/` has no modular section; `cfsg`'s has §7 "Checking module by module" and five
+fragment modules.  Planned for a later lane on master (this lane edits nothing there):
+
+**The fragment.**  `ModularSemantics.lean` and `ModularSyntactic.lean` unchanged.  `ModularModel.lean`
+and `ModularInstance.lean`: a view is a set of the module's own entries or their statements (an
+assumption of the same type), an inductive type's view entry its type with its constructors and
+recursor as one unit (the fragment has single inductives only), and the local checks split as in §1
+(per home: views refine; per importer: assembled from views, every read under its reader's key;
+declarations accepted; proof flags by declaration kind).  New: a remark-level lemma that a closed
+sub-context is a context (`Pass` over a sub-context is `Pass`), which is why the reach needs no frame
+lemma; and the numbering as the theorem's existential over an acyclic import relation.
+
+**§7, outline.**
+1. Environment models in the abstract (as on `cfsg`).
+2. Developments, keys, validity (as on `cfsg`).
+3. Compatible models and the theorem (as on `cfsg`).
+4. The set-theoretic instance (as on `cfsg`; the proofs' shared value).
+5. The local checks: views as records and statements, groups as units, the two sides.
+6. Checking over a sub-context (new): the reach, the opaque cut (theorems' and hidden definitions'
+   values are never read), why soundness needs only closedness; in `#real`, that the checker's
+   verdict there is the full context's (`knot_ext`).
+7. Completing a context (new): what Lean's import leaves out, located in the reader's home; the
+   capture example and why the one-copy condition rejects it.
+8. What runs in parallel; the numbering from an acyclic import graph (the graph check).
+9. Comparing a module: kept only if `--compare` is in scope (question 9), else one sentence in §8's
+   list of what is left out.
+10. Lean's module system in these terms: the table, with the rows on hidden values, private names and
+    exported values that mention non-exported constants rewritten for the completion.
+`#real`: the worker, the presentations, the reach, the completion, `checkViews`, the graph check,
+the two run corollaries, cited on master's files.  The §7 rulings of 2026-10-28 (careful
+mathematical prose; no world, no renaming) stand.
+
+### 6. Measurements: the reach with the opaque cut
+
+A throwaway probe (`_tmp/460/probe/Probe.lean`, Lean's own API, not con-leche): the context Lean
+loads for a module (`importModules` of its header at `.exported`), its own constants (its private part,
+unsafe and partial ones left out), and the reach from them: imported constants reached, a group as a
+unit, types, exposed values and rules followed, theorems' values not.  A name the context lacks is
+completed from the merged private views of its closure (an approximation of "located in its reader's
+home", enough for counting).  "No cut" follows imported theorems' and hidden definitions' values too,
+from the private views.  One run per module, under the RSS guard.
+
+| module | own | context | modules loaded | reach | groups | modules reached | completed | reach, no cut | completed, no cut |
+|---|---|---|---|---|---|---|---|---|---|
+| Init.Data.Nat.Lemmas | 765 | 11 103 | 79 | 1 142 (10.3 %) | 89 | 36 | 0 | 1 933 | 279 |
+| Init.Data.List.Lemmas | 1 154 | 11 105 | 85 | 1 139 (10.3 %) | 92 | 29 | 0 | 1 522 | 148 |
+| Init.Data.BitVec.Lemmas | 2 091 | 18 090 | 138 | 1 736 (9.6 %) | 106 | 60 | 0 | 2 752 | 481 |
+| Std.Data.HashMap.Lemmas | 726 | 22 844 | 144 | 1 724 (7.5 %) | 109 | 47 | 0 | 5 466 | 1 187 |
+| Lean.Elab.Frontend | 118 | 102 854 | 1 090 | 2 752 (2.7 %) | 336 | 140 | 1 | 13 187 | 3 545 |
+| Mathlib.Order.Basic | 437 | 97 899 | 1 493 | 2 310 (2.4 %) | 315 | 121 | 1 | 6 553 | 1 539 |
+| Mathlib.Topology.Basic | 72 | 142 779 | 2 273 | 686 (0.5 %) | 82 | 43 | 0 | 4 508 | 536 |
+| Mathlib.GroupTheory.Coxeter.Basic | 163 | 196 897 | 2 827 | 2 875 (1.5 %) | 276 | 151 | 0 | 6 497 | 606 |
+| Mathlib.LinearAlgebra.Matrix.Determinant.Basic | 111 | 212 179 | 3 025 | 3 579 (1.7 %) | 270 | 257 | 0 | 10 753 | 1 237 |
+| Mathlib.RingTheory.WittVector.MulP | 17 | 248 873 | 3 587 | 2 539 (1.0 %) | 213 | 145 | 0 | 13 278 | 1 560 |
+| Mathlib.Analysis.Complex.Circle | 153 | 260 039 | 3 565 | 3 467 (1.3 %) | 331 | 214 | 0 | 15 953 | 1 916 |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 92 | 317 101 | 4 441 | 7 973 (2.5 %) | 694 | 581 | 1 | 45 243 | 7 044 |
+| Mathlib.NumberTheory.LSeries.RiemannZeta | 50 | 325 802 | 4 591 | 6 254 (1.9 %) | 435 | 485 | 0 | 48 909 | 7 254 |
+
+The sample: every 400th Mathlib module and every 300th of `Lean`'s and `Std`'s in sorted order, 28 modules
+(`_tmp/460/probe/sample.txt`, results `out4.txt`): context 15 911–330 801 constants (median
+160 904); reach 257–5 702 (median 1 815), 0.3–6.0 % of the context (median 1.0 %), in 1–362 modules,
+0.7–29 % of those loaded (median 3.9 %); without the cut 348–42 324 (median 6 177), 1.3 to 18 times
+the reach (median 3.5); completions with the cut 0 at 24 modules and 1 at 4 (the four `Lean`
+modules), without it 33–11 054 (median 842).  No reached group lacked a member, constructor or
+recursor at the exported level, in any of the 32 modules where that was counted (the sample and
+four of the table's).
+
+**What it says.**  On Mathlib the reach is 0.3–6 % of the constants Lean loads (about 10 % on `Init`'s
+small contexts), in a few per cent of the loaded modules; the opaque cut divides it by 3.5 at the
+median and removes almost every completion.  Completions with the cut: 0 or 1 per module (the one is
+`_private.Init.System.Promise.0.IO.PromisePointed`, read by an exposed value), against `cfsg`'s eager
+completion of every exported constant's reads.
+What a worker decodes is then the reach's constants per constant: decoding the reached modules whole
+would be 10 times the reach (Order.Basic 21 718 constants in the 121 modules reached; Gamma.Basic
+87 294).  The name tables of every loaded module remain the per-worker floor (cfsg #421: 8 % of a full
+decode); the one-process mode reads them once.  Not measured: con-leche's own cost (nothing is
+implemented); CFSG (its closure is gone).
+
+### 7. Questions for the maintainer
+
+1. **The context as records** (`streamEnv ctx`, master's `buildIndex` with a cutoff) and the
+   specification of §1 in place of `cfsg`'s per-constant clauses.  Recommended.
+2. **Groups as units everywhere**, a completed inductive name included (read whole from its home's
+   private part, rules and constructors' types: private statements, but no values).  Recommended:
+   the only alternative is a decline where a completion is read as a type former or constructor.
+3. **Proof flags by declaration kind** (a theorem record), read at clashes from the copy or its home's
+   private name table.  This is **a new reject** relative to Lean and to `cfsg`: a definition of a
+   proposition meeting a theorem of its name and statement (`PdM`).  The alternative: a flag by
+   inference that the type is a proposition, at the home for its own records and at the importer for
+   the copies it compares, with a semantic lemma that the two agree; it accepts `PdM` and costs an
+   inference per definition at its home (`cfsg`: +0.3 % on Mathlib).  Recommended: by kind, and a
+   fixture pinning `PdM`'s reject.
+4. **Pinned `Nat` operations read by name and pinned type, any kind**, at importers.  Recommended;
+   the alternative, reading the private values of `Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor`, pulls
+   their private auxiliary definitions' values into the completion.  Leaving it as it is would lose
+   their literal arithmetic at every importer (a completeness loss, never a reject Lean would not make
+   on its own; Lean's kernel accelerates by name).
+5. **The clash rule over every loaded name** (by name tables, statements of the doubly held names
+   only).  Recommended; it is what makes the capture check's shortcut sound (§2).
+6. **A check needing a completed definition's value is a reject**, not a decline: Lean's own check
+   lacks even the statement.  Recommended; `cfsg`'s re-run with values goes.
+7. **Verdict agreement proved** (`knot_ext` lifted to the record check): the worker's verdict is the
+   full context's.  Recommended as a lane after soundness, since it is what removes any eager
+   fallback; the alternative is gates only.
+8. **One worker per module, the one-process mode running the same steps**, no store or isolated mode.
+   Recommended.
+9. **`--compare` (challenges)** and **`--import-all IMPORTER=IMPORTED`**: not in this design.  The
+   comparison fits the specification as on `cfsg` (a compared module validated by refinement); the
+   override was for `WittVector`, which the Mathlib checkout here already patches upstream-style and
+   which the completion may make unnecessary.  Recommended: later, each its own lane, if wanted.
+10. **`checkViews`' mismatch becomes exit 1** (a malformed file at its home), not 3.  Recommended.
+11. **Assumption (1) for several processes** (one snapshot for all workers and the graph check),
+    stated in `CheckerIO.lean` and the Challenge.  Needed for the multi-process corollary; the
+    one-process corollary needs no change.
+
+**State.**  No code; the probe stays in `_tmp/460/probe/` (not committed).  Nothing landed.
