@@ -4,6 +4,7 @@ public import InLeanProof.Ops
 public import InLeanProof.Statement
 public import InLeanProof.Sim
 public import InLeanProof.FVar
+public import InLeanProof.Range
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -95,3 +96,118 @@ info: 'InLeanProof.toExpr_instantiate' depends on axioms: [propext,
 /-- info: 'InLeanProof.clHash_of_erase' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.clHash_of_erase
+
+/-- info: 'InLeanProof.RangeOk_instantiate' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.RangeOk_instantiate
+
+/-- info: 'InLeanProof.RangeOk_abstractDepthsFrom' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.RangeOk_abstractDepthsFrom
+
+/-- info: 'InLeanProof.RangeOk_instantiateLevelParams' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.RangeOk_instantiateLevelParams
+
+/-- info: 'InLeanProof.FVarTable.trans_depthOK' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.FVarTable.trans_depthOK
+
+/-- info: 'InLeanProof.RangeOk_of_inRange' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.RangeOk_of_inRange
+
+/-- info: 'InLeanProof.anyNode_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.anyNode_spec
+
+/-- info: 'InLeanProof.toExpr_getAppFnT' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_getAppFnT
+
+/-- info: 'InLeanProof.toExpr_getAppArgsT' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_getAppArgsT
+
+/-- info: 'InLeanProof.getAppNumArgsT_eq' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.getAppNumArgsT_eq
+
+/-- info: 'InLeanProof.depthS_subst_le' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.depthS_subst_le
+
+/--
+info: 'InLeanProof.toExpr_instantiate1' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_instantiate1
+
+/--
+info: 'InLeanProof.toExpr_instantiateRev' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_instantiateRev
+
+/--
+info: 'InLeanProof.toExpr_abstractDepthsFrom' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_abstractDepthsFrom
+
+/--
+info: 'InLeanProof.toExpr_instantiateLevelParams' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_instantiateLevelParams
+
+/--
+info: 'InLeanProof.toExpr_hasLooseBVar' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toExpr_hasLooseBVar
+
+/--
+info: 'InLeanProof.looseBVarRange_toExpr' depends on axioms: [propext,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.looseBVarRange_toExpr
+
+/--
+info: 'InLeanProof.hasFVar_toExpr' depends on axioms: [propext,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.hasFVar_toExpr

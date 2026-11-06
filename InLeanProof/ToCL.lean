@@ -42,6 +42,20 @@ def toName : Lean.Name → ConLeche.Name
   | .str p s => .str (toName p) s
   | .num p n => .num (toName p) n
 
+/-- Names back. -/
+def fromName : ConLeche.Name → Lean.Name
+  | .anonymous => .anonymous
+  | .str p s => .str (fromName p) s
+  | .num p n => .num (fromName p) n
+
+theorem fromName_toName : ∀ n : Lean.Name, fromName (toName n) = n
+  | .anonymous => rfl
+  | .str p s => by simp [toName, fromName, fromName_toName p]
+  | .num p n => by simp [toName, fromName, fromName_toName p]
+
+theorem toName_inj {a b : Lean.Name} (h : toName a = toName b) : a = b := by
+  rw [← fromName_toName a, h, fromName_toName]
+
 /-- Levels; a level metavariable has no con-leche reading. -/
 def toLevel : Lean.Level → Option ConLeche.Level
   | .zero => some .zero

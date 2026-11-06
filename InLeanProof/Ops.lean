@@ -5,6 +5,7 @@ public import InLeanProof.Fields
 public import ConLeche.Verify.Shift
 public import ConLeche.Verify.Subst
 public import ConLeche.Verify.InstList
+public import ConLeche.Verify.AbstractRange
 /- `Expr.updateApp!` & co. are `@[implemented_by]` definitions whose
 bodies `Lean.Expr` does not expose; the walk's spec reads them (the
 logical body: the node rebuilt with the new children, binder data kept). -/
@@ -41,7 +42,7 @@ local instance : LawfulHashable Expr := ⟨fun _ _ h => by rw [eq_of_beq h]⟩
 /-- The plain structural map a walk computes: `f` decides a node, or the
 walk rebuilds it from its mapped children (binder offset `+1` under a
 binder). -/
-def mapSpec (f : Expr → Nat → Option Expr) : Expr → Nat → Expr
+@[expose] def mapSpec (f : Expr → Nat → Option Expr) : Expr → Nat → Expr
   | e@(.app g a), k => (f e k).getD (.app (mapSpec f g k) (mapSpec f a k))
   | e@(.lam n t b bi), k => (f e k).getD (.lam n (mapSpec f t k) (mapSpec f b (k + 1)) bi)
   | e@(.forallE n t b bi), k =>
@@ -293,7 +294,7 @@ theorem toExpr_bounded {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly f
 /-! ## Lifting -/
 
 /-- InLean's lift callback (`EO.liftLooseBVars`'s). -/
-def liftF (s d : Nat) (x : Expr) (k : Nat) : Option Expr :=
+@[expose] def liftF (s d : Nat) (x : Expr) (k : Nat) : Option Expr :=
   if x.looseBVarRange ≤ s + k then some x else
   match x with
   | .bvar i => some (.bvar (i + d))
@@ -430,7 +431,7 @@ theorem toExpr_liftLooseBVars {fv : FVarId → Option ConLeche.Expr} (hfv : FVar
 /-! ## Instantiation -/
 
 /-- InLean's instantiation callback (`EO.instantiate`'s). -/
-def instF (subst : Array Expr) (x : Expr) (k : Nat) : Option Expr :=
+@[expose] def instF (subst : Array Expr) (x : Expr) (k : Nat) : Option Expr :=
   if x.looseBVarRange ≤ k then some x else
   match x with
   | .bvar i =>
@@ -592,5 +593,1146 @@ theorem toExpr_instantiate {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOn
       rw [hl] at hb
       rw [ConLeche.Expr.instantiateList_eq_self hb]; exact h
   · exact toExpr_mapSpec_inst hfv hs e hr 0 c h
+
+/-! ## O1: the rest of the operation layer (task #451, lane P1)
+
+Each lemma reads an InLean operation as con-leche's *pure* operation on the
+translation; `ConLeche/Verify/Cached/OpsC.lean` relates the cached
+operations of con-leche's checker to the same pure ones
+(`instantiate1C_spec`, `instantiateRev_spec`, `abstractRangeC_spec`,
+`instLevelParams_spec`, `getAppArgsC_spec`). -/
+
+/-! ### Instantiation by one value, and on a reversed array -/
+
+/-- One value. -/
+theorem SubstReads.single {fv : FVarId → Option ConLeche.Expr} {v : Expr} {cv : ConLeche.Expr}
+    (hv : toExpr fv v = some cv) (hcl : cv.looseBVarsBounded 0 = true) (hvr : Expr.RangeOk v) :
+    SubstReads fv #[v] [cv] where
+  len := rfl
+  entry j hj := by
+    have : j = 0 := by simp at hj; omega
+    subst this; exact hv
+  closed cv' h := by simp at h; subst h; exact hcl
+  range j hj := by
+    have : j = 0 := by simp at hj; omega
+    subst this; exact hvr
+
+/-- **InLean's `instantiate1` simulates con-leche's** (at a closed value,
+every checker site). -/
+theorem toExpr_instantiate1 {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv)
+    {e v : Expr} {c cv : ConLeche.Expr} (hr : Expr.RangeOk e) (hvr : Expr.RangeOk v)
+    (h : toExpr fv e = some c) (hv : toExpr fv v = some cv) (hcl : cv.looseBVarsBounded 0 = true) :
+    toExpr fv (EO.instantiate1 e v) = some (c.instantiate1 cv 0) := by
+  rw [EO.instantiate1, toExpr_instantiate hfv (SubstReads.single hv hcl hvr) hr h,
+    ConLeche.Expr.instantiateList_cons, ConLeche.Expr.instantiateList_nil]
+
+/-- The reversed substitution reads as the reversed list. -/
+theorem SubstReads.reverse {fv : FVarId → Option ConLeche.Expr} {subst : Array Expr}
+    {cvs : List ConLeche.Expr} (hs : SubstReads fv subst cvs) :
+    SubstReads fv subst.reverse cvs.reverse where
+  len := by simp [hs.len]
+  entry j hj := by
+    have hj' : j < subst.size := by simpa using hj
+    have hlen := hs.len
+    rw [Array.getElem_reverse, hs.entry _ (by omega)]
+    simp only [List.getElem_reverse, Option.some.injEq]
+    congr 1; omega
+  closed cv h := hs.closed cv (List.mem_reverse.1 h)
+  range j hj := by
+    have hj' : j < subst.size := by simpa using hj
+    rw [Array.getElem_reverse]; exact hs.range _ (by omega)
+
+/-- **InLean's `instantiateRev` simulates con-leche's** (`instantiateList`
+on the reversed list, `ConLeche.Verify.Cached.instantiateRev_spec`'s right
+side). -/
+theorem toExpr_instantiateRev {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv)
+    {subst : Array Expr} {cvs : List ConLeche.Expr} (hs : SubstReads fv subst cvs)
+    {e : Expr} {c : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some c) :
+    toExpr fv (EO.instantiateRev e subst) = some (c.instantiateList cvs.reverse 0) :=
+  toExpr_instantiate hfv hs.reverse hr h
+
+/-! ### Abstraction by depth -/
+
+/-- An id translation that keeps the id's depth (InLean's table does). -/
+@[expose] def FvDepthOK (fv : FVarId → Option ConLeche.Expr) : Prop :=
+  ∀ id c, fv id = some c → ∃ d ty, c = .fvar d ty ∧ EO.fvDepth? id = some d
+
+/-- A term with no free variable reads as one below every depth. -/
+theorem fvarsBelow_of_fvarS {fv : FVarId → Option ConLeche.Expr} :
+    ∀ (e : Expr) (c : ConLeche.Expr), toExpr fv e = some c → fvarS e = false →
+      ∀ d, c.fvarsBelow d := by
+  intro e
+  induction e with
+  | fvar id => intro c _ h; simp [fvarS] at h
+  | mvar m => intro c h; simp [toExpr] at h
+  | bvar i => intro c h _ d; simp only [toExpr, Option.some.injEq] at h; subst h; trivial
+  | lit l => intro c h _ d; simp only [toExpr, Option.some.injEq] at h; subst h; trivial
+  | sort u =>
+    intro c h _ d
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨_, _, rfl⟩ := h; trivial
+  | const n us =>
+    intro c h _ d
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨_, _, rfl⟩ := h; trivial
+  | app g a ihg iha =>
+    intro c h hf d
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    exact ⟨ihg cg hg hf.1 d, iha ca ha hf.2 d⟩
+  | lam n t b bi iht ihb =>
+    intro c h hf d
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    exact ⟨iht ct ht hf.1 d, ihb cb hb hf.2 d⟩
+  | forallE n t b bi iht ihb =>
+    intro c h hf d
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    exact ⟨iht ct ht hf.1 d, ihb cb hb hf.2 d⟩
+  | letE n t v b nd iht ihv ihb =>
+    intro c h hf d
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    exact ⟨iht ct ht hf.1.1 d, ihv cv hv hf.1.2 d, ihb cb hb hf.2 d⟩
+  | mdata m x ih => intro c h hf d; simp only [toExpr] at h; exact ih c h hf d
+  | proj s i x ih =>
+    intro c h hf d
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cx, hx, rfl⟩ := h
+    exact ih cx hx hf d
+
+/-- `EO.abstractDepthsFrom`'s callback. -/
+@[expose] def absF (d k : Nat) (x : Expr) (c : Nat) : Option Expr :=
+  if !x.hasFVar then some x else
+  match x with
+  | .fvar id =>
+    match EO.fvDepth? id with
+    | some idx =>
+      if d ≤ idx ∧ idx < d + k then
+        let i := c + (d + k - 1 - idx)
+        some (if i ≤ EO.maxBVarIdx then .bvar i else EO.rangePoison)
+      else some x
+    | none => some x
+  | _ => none
+
+theorem abstractDepthsFrom_eq (e : Expr) (d k c₀ : Nat) :
+    EO.abstractDepthsFrom e d k c₀ =
+      if k == 0 || !e.hasFVar then e else mapSpec (absF d k) e c₀ := by
+  unfold EO.abstractDepthsFrom
+  split
+  · rfl
+  · exact mapOff_fresh _ e c₀ e
+
+/-- The cutoff: a node in range with no free variable is its own
+abstraction. -/
+theorem abs_cut {fv : FVarId → Option ConLeche.Expr} {d k : Nat} {x : Expr} {c : Nat}
+    {cx : ConLeche.Expr} (hr : Expr.RangeOk x) (hf : x.hasFVar = false)
+    (h : toExpr fv x = some cx) :
+    toExpr fv (mapSpec (absF d k) x c) = some (cx.abstractRange d k c) := by
+  have hcb : absF d k x c = some x := by simp [absF, hf]
+  rw [mapSpec_eq_of_some hcb, h, ConLeche.abstractRange_eq_self
+    (fvarsBelow_of_fvarS x cx h (by rw [← Expr.hasFVar_eq hr]; exact hf) d)]
+
+theorem toExpr_mapSpec_abs {fv : FVarId → Option ConLeche.Expr} (hfd : FvDepthOK fv) (d k : Nat) :
+    ∀ (e : Expr), Expr.RangeOk e → ∀ (c : Nat) (ce : ConLeche.Expr), toExpr fv e = some ce →
+      emvarS (mapSpec (absF d k) e c) = false →
+      toExpr fv (mapSpec (absF d k) e c) = some (ce.abstractRange d k c) := by
+  intro e
+  induction e with
+  | fvar id =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.fvar id).hasFVar = false
+    · exact abs_cut hr hf h
+    · obtain ⟨idx, ty, rfl, hdep⟩ := hfd id ce h
+      simp only [Bool.not_eq_false] at hf
+      by_cases hin : d ≤ idx ∧ idx < d + k
+      · by_cases hmax : c + (d + k - 1 - idx) ≤ EO.maxBVarIdx
+        · have hcb : absF d k (.fvar id) c = some (.bvar (c + (d + k - 1 - idx))) := by
+            simp [absF, hf, hdep, hin, hmax]
+          rw [mapSpec_eq_of_some hcb]
+          simp [toExpr, ConLeche.Expr.abstractRange, hin]
+        · have hcb : absF d k (.fvar id) c = some EO.rangePoison := by
+            simp [absF, hf, hdep, hin, hmax]
+          rw [mapSpec_eq_of_some hcb] at hm
+          simp [EO.rangePoison, emvarS] at hm
+      · have hcb : absF d k (.fvar id) c = some (.fvar id) := by
+          simp [absF, hf, hdep, hin]
+        rw [mapSpec_eq_of_some hcb, h]
+        simp [ConLeche.Expr.abstractRange, hin]
+  | mvar m => intro _ c ce h; simp [toExpr] at h
+  | bvar i =>
+    intro hr c ce h _
+    exact abs_cut hr (by rw [Expr.hasFVar_eq hr]; rfl) h
+  | sort u =>
+    intro hr c ce h _
+    exact abs_cut hr (by rw [Expr.hasFVar_eq hr]; rfl) h
+  | const n us =>
+    intro hr c ce h _
+    exact abs_cut hr (by rw [Expr.hasFVar_eq hr]; rfl) h
+  | lit l =>
+    intro hr c ce h _
+    exact abs_cut hr (by rw [Expr.hasFVar_eq hr]; rfl) h
+  | app g a ihg iha =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.app g a).hasFVar = false
+    · exact abs_cut hr hf h
+    · have hcb : absF d k (.app g a) c = none := by simp [absF, hf]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hm ⊢
+      simp [toExpr, ihg hr.1 c cg hg hm.1, iha hr.2 c ca ha hm.2, ConLeche.Expr.abstractRange]
+  | lam n t b bi iht ihb =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.lam n t b bi).hasFVar = false
+    · exact abs_cut hr hf h
+    · have hcb : absF d k (.lam n t b bi) c = none := by simp [absF, hf]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hm ⊢
+      simp [toExpr, iht hr.1 c ct ht hm.1, ihb hr.2 (c + 1) cb hb hm.2,
+        ConLeche.Expr.abstractRange]
+  | forallE n t b bi iht ihb =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.forallE n t b bi).hasFVar = false
+    · exact abs_cut hr hf h
+    · have hcb : absF d k (.forallE n t b bi) c = none := by simp [absF, hf]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hm ⊢
+      simp [toExpr, iht hr.1 c ct ht hm.1, ihb hr.2 (c + 1) cb hb hm.2,
+        ConLeche.Expr.abstractRange]
+  | letE n t v b nd iht ihv ihb =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.letE n t v b nd).hasFVar = false
+    · exact abs_cut hr hf h
+    · have hcb : absF d k (.letE n t v b nd) c = none := by simp [absF, hf]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hm ⊢
+      simp [toExpr, iht hr.1 c ct ht hm.1.1, ihv hr.2.1 c cv hv hm.1.2,
+        ihb hr.2.2 (c + 1) cb hb hm.2, ConLeche.Expr.abstractRange]
+  | mdata m x ih =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.mdata m x).hasFVar = false
+    · exact abs_cut hr hf h
+    · have hcb : absF d k (.mdata m x) c = none := by simp [absF, hf]
+      simp only [toExpr] at h
+      simp only [mapSpec, hcb, Option.getD_none, emvarS] at hm ⊢
+      simp [toExpr, ih hr c ce h hm]
+  | proj s i x ih =>
+    intro hr c ce h hm
+    by_cases hf : (Expr.proj s i x).hasFVar = false
+    · exact abs_cut hr hf h
+    · have hcb : absF d k (.proj s i x) c = none := by simp [absF, hf]
+      simp only [toExpr, Option.map_eq_some_iff] at h
+      obtain ⟨cx, hx, rfl⟩ := h
+      simp only [mapSpec, hcb, Option.getD_none, emvarS] at hm ⊢
+      simp [toExpr, ih hr c cx hx hm, ConLeche.Expr.abstractRange]
+
+/-- **InLean's abstraction by depth simulates con-leche's `abstractRange`**
+on a term in range, unless it wrote the out-of-range marker (which its
+checker call site reports as an error, `InLean.abstractRangeM`). -/
+theorem toExpr_abstractDepthsFrom {fv : FVarId → Option ConLeche.Expr} (hfd : FvDepthOK fv)
+    {e : Expr} {ce : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some ce)
+    (d k c₀ : Nat) (hm : emvarS (EO.abstractDepthsFrom e d k c₀) = false) :
+    toExpr fv (EO.abstractDepthsFrom e d k c₀) = some (ce.abstractRange d k c₀) := by
+  rw [abstractDepthsFrom_eq] at hm ⊢
+  split
+  · rename_i hc
+    rcases Bool.or_eq_true_iff.1 hc with hk | hf
+    · have : k = 0 := by simpa using hk
+      subst this
+      rw [h, ConLeche.abstractRange_zero]
+    · have hf' : fvarS e = false := by rw [← Expr.hasFVar_eq hr]; simpa using hf
+      rw [h, ConLeche.abstractRange_eq_self (fvarsBelow_of_fvarS e ce h hf' d)]
+  · rename_i hc
+    have hc' : (k == 0 || !e.hasFVar) = false := by simpa using hc
+    simp only [hc', Bool.false_eq_true, ↓reduceIte] at hm
+    exact toExpr_mapSpec_abs hfd d k e hr c₀ ce h hm
+
+/-! ### Level instantiation (on terms without free variables: every
+checker site instantiates a constant's stored type, value, rule or pin) -/
+
+theorem toLevel_substGo : ∀ (ps : List Name) (us : List Level) (cus : List ConLeche.Level)
+    (n : Name), toLevels us = some cus →
+      toLevel (Lvl.substGo ps us n) = some (ConLeche.Level.subst.go (ps.map toName) cus (toName n))
+  | [], us, cus, n, _ => by
+    cases cus <;> simp [Lvl.substGo, ConLeche.Level.subst.go, toLevel]
+  | p :: ps, [], cus, n, h => by
+    simp only [toLevels, Option.some.injEq] at h; subst h
+    simp [Lvl.substGo, ConLeche.Level.subst.go, toLevel]
+  | p :: ps, u :: us, cus, n, h => by
+    simp only [toLevels, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cu, hu, cus', hus, rfl⟩ := h
+    simp only [Lvl.substGo, List.map_cons, ConLeche.Level.subst.go]
+    by_cases hpn : p = n
+    · subst hpn; simp [hu]
+    · have : toName p ≠ toName n := fun h => hpn (toName_inj h)
+      simp [hpn, this, toLevel_substGo ps us cus' n hus]
+
+/-- **`Lvl.subst` reads as con-leche's `Level.subst`.** -/
+theorem toLevel_subst (ps : List Name) {us : List Level} {cus : List ConLeche.Level}
+    (hus : toLevels us = some cus) :
+    ∀ {u : Level} {cu : ConLeche.Level}, toLevel u = some cu →
+      toLevel (Lvl.subst ps us u) = some (ConLeche.Level.subst (ps.map toName) cus cu) := by
+  intro u
+  induction u with
+  | zero => intro cu h; simp only [toLevel, Option.some.injEq] at h; subst h; rfl
+  | param n =>
+    intro cu h; simp only [toLevel, Option.some.injEq] at h; subst h
+    exact toLevel_substGo ps us cus n hus
+  | mvar m => intro cu h; simp [toLevel] at h
+  | succ u ih =>
+    intro cu h
+    simp only [toLevel, Option.map_eq_some_iff] at h
+    obtain ⟨cu', hu, rfl⟩ := h
+    simp [Lvl.subst, toLevel, ih hu, ConLeche.Level.subst]
+  | max u v ihu ihv =>
+    intro cu h
+    simp only [toLevel, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cu', hu, cv', hv, rfl⟩ := h
+    simp [Lvl.subst, toLevel, ihu hu, ihv hv, ConLeche.Level.subst]
+  | imax u v ihu ihv =>
+    intro cu h
+    simp only [toLevel, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cu', hu, cv', hv, rfl⟩ := h
+    simp [Lvl.subst, toLevel, ihu hu, ihv hv, ConLeche.Level.subst]
+
+theorem toLevels_map_subst (ps : List Name) {us : List Level} {cus : List ConLeche.Level}
+    (hus : toLevels us = some cus) :
+    ∀ {ls : List Level} {cls : List ConLeche.Level}, toLevels ls = some cls →
+      toLevels (ls.map (Lvl.subst ps us)) = some (cls.map (ConLeche.Level.subst (ps.map toName) cus))
+  | [], cls, h => by simp only [toLevels, Option.some.injEq] at h; subst h; rfl
+  | l :: ls, cls, h => by
+    simp only [toLevels, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cl, hl, cls', hls, rfl⟩ := h
+    simp [toLevels, toLevel_subst ps hus hl, toLevels_map_subst ps hus hls]
+
+/-- A level's parameter flag reads as con-leche's. -/
+theorem hasParam_toLevel : ∀ {u : Level} {cu : ConLeche.Level}, toLevel u = some cu →
+    cu.hasParam = lparamS u := by
+  intro u
+  induction u with
+  | zero => intro cu h; simp only [toLevel, Option.some.injEq] at h; subst h; rfl
+  | param n => intro cu h; simp only [toLevel, Option.some.injEq] at h; subst h; rfl
+  | mvar m => intro cu h; simp [toLevel] at h
+  | succ u ih =>
+    intro cu h
+    simp only [toLevel, Option.map_eq_some_iff] at h
+    obtain ⟨cu', hu, rfl⟩ := h
+    simp [ConLeche.Level.hasParam, lparamS, ih hu]
+  | max u v ihu ihv =>
+    intro cu h
+    simp only [toLevel, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cu', hu, cv', hv, rfl⟩ := h
+    simp [ConLeche.Level.hasParam, lparamS, ihu hu, ihv hv]
+  | imax u v ihu ihv =>
+    intro cu h
+    simp only [toLevel, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cu', hu, cv', hv, rfl⟩ := h
+    simp [ConLeche.Level.hasParam, lparamS, ihu hu, ihv hv]
+
+theorem hasParam_toLevels : ∀ {us : List Level} {cus : List ConLeche.Level},
+    toLevels us = some cus → cus.any ConLeche.Level.hasParam = us.any lparamS
+  | [], cus, h => by simp only [toLevels, Option.some.injEq] at h; subst h; rfl
+  | u :: us, cus, h => by
+    simp only [toLevels, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cu, hu, cus', hus, rfl⟩ := h
+    simp [hasParam_toLevel hu, hasParam_toLevels hus]
+
+/-- A term with no free variable: its level-parameter flag reads as con-leche's. -/
+theorem hasLevelParam_toExpr {fv : FVarId → Option ConLeche.Expr} :
+    ∀ (e : Expr) (c : ConLeche.Expr), toExpr fv e = some c → fvarS e = false →
+      c.hasLevelParam = elparamS e := by
+  intro e
+  induction e with
+  | fvar id => intro c _ h; simp [fvarS] at h
+  | mvar m => intro c h; simp [toExpr] at h
+  | bvar i => intro c h _; simp only [toExpr, Option.some.injEq] at h; subst h; rfl
+  | lit l => intro c h _; simp only [toExpr, Option.some.injEq] at h; subst h; rfl
+  | sort u =>
+    intro c h _
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cu, hu, rfl⟩ := h
+    simp [ConLeche.Expr.hasLevelParam, elparamS, hasParam_toLevel hu]
+  | const n us =>
+    intro c h _
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cus, hus, rfl⟩ := h
+    simp [ConLeche.Expr.hasLevelParam, elparamS, hasParam_toLevels hus]
+  | app g a ihg iha =>
+    intro c h hf
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    simp [ConLeche.Expr.hasLevelParam, elparamS, ihg cg hg hf.1, iha ca ha hf.2]
+  | lam n t b bi iht ihb =>
+    intro c h hf
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    simp [ConLeche.Expr.hasLevelParam, elparamS, iht ct ht hf.1, ihb cb hb hf.2]
+  | forallE n t b bi iht ihb =>
+    intro c h hf
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    simp [ConLeche.Expr.hasLevelParam, elparamS, iht ct ht hf.1, ihb cb hb hf.2]
+  | letE n t v b nd iht ihv ihb =>
+    intro c h hf
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+    simp only [fvarS, Bool.or_eq_false_iff] at hf
+    simp [ConLeche.Expr.hasLevelParam, elparamS, iht ct ht hf.1.1, ihv cv hv hf.1.2,
+      ihb cb hb hf.2]
+  | mdata m x ih => intro c h hf; simp only [toExpr] at h; exact ih c h hf
+  | proj s i x ih =>
+    intro c h hf
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cx, hx, rfl⟩ := h
+    simpa [ConLeche.Expr.hasLevelParam, elparamS] using ih cx hx hf
+
+/-- `EO.instantiateLevelParams`'s callback. -/
+@[expose] def instLPF (ps : List Name) (us : List Level) (x : Expr) (_ : Nat) : Option Expr :=
+  if !x.hasLevelParam then some x else
+  match x with
+  | .sort u => some (x.updateSort! (Lvl.subst ps us u))
+  | .const _ ls => some (x.updateConst! (ls.map (Lvl.subst ps us)))
+  | _ => none
+
+theorem instantiateLevelParams_eq (e : Expr) (ps : List Name) (us : List Level) :
+    EO.instantiateLevelParams e ps us =
+      if ps.isEmpty || us.isEmpty || !e.hasLevelParam then e else mapSpec (instLPF ps us) e 0 := by
+  unfold EO.instantiateLevelParams
+  split
+  · rfl
+  · exact mapOff_fresh _ e 0 e
+
+theorem ilp_cut {fv : FVarId → Option ConLeche.Expr} {ps : List Name} {us : List Level}
+    {cus : List ConLeche.Level} {x : Expr} {k : Nat} {cx : ConLeche.Expr}
+    (hr : Expr.RangeOk x) (hfv : fvarS x = false) (hl : x.hasLevelParam = false)
+    (h : toExpr fv x = some cx) :
+    toExpr fv (mapSpec (instLPF ps us) x k) =
+      some (cx.instantiateLevelParams (ps.map toName) cus) := by
+  have hcb : instLPF ps us x k = some x := by simp [instLPF, hl]
+  rw [mapSpec_eq_of_some hcb, h, ConLeche.Expr.instantiateLevelParams_eq_self]
+  rw [hasLevelParam_toExpr x cx h hfv, ← Expr.hasLevelParam_eq hr, hl]
+
+theorem toExpr_mapSpec_ilp {fv : FVarId → Option ConLeche.Expr} (ps : List Name) {us : List Level}
+    {cus : List ConLeche.Level} (hus : toLevels us = some cus) :
+    ∀ (e : Expr), Expr.RangeOk e → fvarS e = false → ∀ (k : Nat) (c : ConLeche.Expr),
+      toExpr fv e = some c →
+      toExpr fv (mapSpec (instLPF ps us) e k) =
+        some (c.instantiateLevelParams (ps.map toName) cus) := by
+  intro e
+  induction e with
+  | fvar id => intro _ h; simp [fvarS] at h
+  | mvar m => intro _ _ k c h; simp [toExpr] at h
+  | bvar i => intro hr hf k c h; exact ilp_cut hr hf (by rw [Expr.hasLevelParam_eq hr]; rfl) h
+  | lit l => intro hr hf k c h; exact ilp_cut hr hf (by rw [Expr.hasLevelParam_eq hr]; rfl) h
+  | sort u =>
+    intro hr hf k c h
+    by_cases hl : (Expr.sort u).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.sort u) k = some (.sort (Lvl.subst ps us u)) := by
+        simp [instLPF, hl, Expr.updateSort!, mkSort]
+      simp only [toExpr, Option.map_eq_some_iff] at h
+      obtain ⟨cu, hu, rfl⟩ := h
+      rw [mapSpec_eq_of_some hcb]
+      simp [toExpr, toLevel_subst ps hus hu, ConLeche.Expr.instantiateLevelParams]
+  | const n ls =>
+    intro hr hf k c h
+    by_cases hl : (Expr.const n ls).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.const n ls) k = some (.const n (ls.map (Lvl.subst ps us))) := by
+        simp [instLPF, hl, Expr.updateConst!, mkConst]
+      simp only [toExpr, Option.map_eq_some_iff] at h
+      obtain ⟨cls, hls, rfl⟩ := h
+      rw [mapSpec_eq_of_some hcb]
+      simp [toExpr, toLevels_map_subst ps hus hls, ConLeche.Expr.instantiateLevelParams]
+  | app g a ihg iha =>
+    intro hr hf k c h
+    by_cases hl : (Expr.app g a).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.app g a) k = none := by simp [instLPF, hl]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+      simp only [fvarS, Bool.or_eq_false_iff] at hf
+      simp [mapSpec, hcb, toExpr, ihg hr.1 hf.1 k cg hg, iha hr.2 hf.2 k ca ha,
+        ConLeche.Expr.instantiateLevelParams]
+  | lam n t b bi iht ihb =>
+    intro hr hf k c h
+    by_cases hl : (Expr.lam n t b bi).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.lam n t b bi) k = none := by simp [instLPF, hl]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+      simp only [fvarS, Bool.or_eq_false_iff] at hf
+      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1 k ct ht, ihb hr.2 hf.2 (k + 1) cb hb,
+        ConLeche.Expr.instantiateLevelParams]
+  | forallE n t b bi iht ihb =>
+    intro hr hf k c h
+    by_cases hl : (Expr.forallE n t b bi).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.forallE n t b bi) k = none := by simp [instLPF, hl]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+      simp only [fvarS, Bool.or_eq_false_iff] at hf
+      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1 k ct ht, ihb hr.2 hf.2 (k + 1) cb hb,
+        ConLeche.Expr.instantiateLevelParams]
+  | letE n t v b nd iht ihv ihb =>
+    intro hr hf k c h
+    by_cases hl : (Expr.letE n t v b nd).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.letE n t v b nd) k = none := by simp [instLPF, hl]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+      simp only [fvarS, Bool.or_eq_false_iff] at hf
+      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1.1 k ct ht, ihv hr.2.1 hf.1.2 k cv hv,
+        ihb hr.2.2 hf.2 (k + 1) cb hb, ConLeche.Expr.instantiateLevelParams]
+  | mdata m x ih =>
+    intro hr hf k c h
+    by_cases hl : (Expr.mdata m x).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.mdata m x) k = none := by simp [instLPF, hl]
+      simp only [toExpr] at h
+      simp [mapSpec, hcb, toExpr, ih hr hf k c h]
+  | proj s i x ih =>
+    intro hr hf k c h
+    by_cases hl : (Expr.proj s i x).hasLevelParam = false
+    · exact ilp_cut hr hf hl h
+    · have hcb : instLPF ps us (.proj s i x) k = none := by simp [instLPF, hl]
+      simp only [toExpr, Option.map_eq_some_iff] at h
+      obtain ⟨cx, hx, rfl⟩ := h
+      simp [mapSpec, hcb, toExpr, ih hr hf k cx hx, ConLeche.Expr.instantiateLevelParams]
+
+/-- con-leche's level substitution with no parameters, or no values, is the
+identity. -/
+theorem cl_subst_nil_left (cus : List ConLeche.Level) :
+    ∀ l : ConLeche.Level, ConLeche.Level.subst [] cus l = l := by
+  intro l; induction l <;> simp_all [ConLeche.Level.subst, ConLeche.Level.subst.go]
+
+theorem cl_subst_nil_right (ks : List ConLeche.Name) :
+    ∀ l : ConLeche.Level, ConLeche.Level.subst ks [] l = l := by
+  intro l
+  induction l with
+  | param n => cases ks <;> simp [ConLeche.Level.subst, ConLeche.Level.subst.go]
+  | _ => simp_all [ConLeche.Level.subst]
+
+theorem cl_ilp_id {ks : List ConLeche.Name} {cus : List ConLeche.Level}
+    (hid : ∀ l, ConLeche.Level.subst ks cus l = l) :
+    ∀ c : ConLeche.Expr, c.instantiateLevelParams ks cus = c := by
+  intro c
+  induction c with
+  | const n us =>
+    simp only [ConLeche.Expr.instantiateLevelParams]
+    congr 1
+    exact List.map_id'' hid us
+  | _ => simp_all [ConLeche.Expr.instantiateLevelParams]
+
+/-- **InLean's level instantiation simulates con-leche's** on a term in range
+with no free variable (every checker site; con-leche's descends into a free
+variable's type annotation, InLean's id has none). -/
+theorem toExpr_instantiateLevelParams {fv : FVarId → Option ConLeche.Expr} {e : Expr}
+    {c : ConLeche.Expr} (hr : Expr.RangeOk e) (hf : fvarS e = false) (h : toExpr fv e = some c)
+    (ps : List Name) {us : List Level} {cus : List ConLeche.Level} (hus : toLevels us = some cus) :
+    toExpr fv (EO.instantiateLevelParams e ps us) =
+      some (c.instantiateLevelParams (ps.map toName) cus) := by
+  rw [instantiateLevelParams_eq]
+  split
+  · rename_i hc
+    rw [h]
+    simp only [Bool.or_eq_true] at hc
+    rcases hc with (hps | hus') | hl
+    · rw [List.isEmpty_iff.1 hps, List.map_nil, cl_ilp_id (cl_subst_nil_left cus)]
+    · have : us = [] := List.isEmpty_iff.1 hus'
+      subst this
+      simp only [toLevels, Option.some.injEq] at hus
+      subst hus
+      rw [cl_ilp_id (cl_subst_nil_right _)]
+    · have hl' : e.hasLevelParam = false := by simpa using hl
+      rw [ConLeche.Expr.instantiateLevelParams_eq_self]
+      rw [hasLevelParam_toExpr e c h hf, ← Expr.hasLevelParam_eq hr, hl']
+  · exact toExpr_mapSpec_ilp ps hus e hr hf 0 c h
+
+/-! ### The memoised fold `EO.anyNode` -/
+
+/-- The plain fold `EO.anyNode` computes: `p` decides a node, or the fold
+asks the children (binder offset `+1` under a binder), left to right. -/
+@[expose] def anySpec (p : Expr → Nat → Option Bool) : Expr → Nat → Bool
+  | e@(.app g a), k => (p e k).getD (anySpec p g k || anySpec p a k)
+  | e@(.lam _ t b _), k => (p e k).getD (anySpec p t k || anySpec p b (k + 1))
+  | e@(.forallE _ t b _), k => (p e k).getD (anySpec p t k || anySpec p b (k + 1))
+  | e@(.letE _ t v b _), k =>
+    (p e k).getD (anySpec p t k || anySpec p v k || anySpec p b (k + 1))
+  | e@(.mdata _ x), k => (p e k).getD (anySpec p x k)
+  | e@(.proj _ _ x), k => (p e k).getD (anySpec p x k)
+  | e, k => (p e k).getD false
+
+section anyNode
+attribute [local instance 2000] instBEqExprExact
+
+/-- The fold's memo invariant: every entry is `anySpec`'s answer. -/
+def AnyMemoInv (p : Expr → Nat → Option Bool) (memo : Std.HashMap (Expr × Nat) Bool) : Prop :=
+  ∀ (key : Expr × Nat) (b : Bool), memo[key]? = some b → b = anySpec p key.1 key.2
+
+theorem AnyMemoInv.insert {p : Expr → Nat → Option Bool} {memo : Std.HashMap (Expr × Nat) Bool}
+    (hm : AnyMemoInv p memo) {e : Expr} {k : Nat} {b : Bool} (hb : b = anySpec p e k) :
+    AnyMemoInv p (memo.insert (e, k) b) := by
+  intro key b' h
+  rw [Std.HashMap.getElem?_insert] at h
+  split at h
+  · rename_i heq
+    have : (e, k) = key := eq_of_beq heq
+    subst this
+    simp only [Option.some.injEq] at h
+    exact h ▸ hb
+  · exact hm key b' h
+
+theorem anySpec_some {p : Expr → Nat → Option Bool} {e : Expr} {k : Nat} {b : Bool}
+    (h : p e k = some b) : anySpec p e k = b := by
+  rw [anySpec.eq_def]; split <;> simp_all
+
+/-- **The memoised fold is its plain spec.** -/
+theorem anyNode_spec (p : Expr → Nat → Option Bool) :
+    ∀ (e : Expr) (k : Nat) (memo : Std.HashMap (Expr × Nat) Bool), AnyMemoInv p memo →
+      (EO.anyNode p e k memo).1 = anySpec p e k ∧ AnyMemoInv p (EO.anyNode p e k memo).2 := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    intro k memo hm
+    rw [EO.anyNode]
+    cases hp : p (.app g a) k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none =>
+      have hs : anySpec p (.app g a) k = (anySpec p g k || anySpec p a k) := by simp [anySpec, hp]
+      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      cases hl : memo[(Expr.app g a, k)]? with
+      | some b => exact ⟨hm _ _ hl, hm⟩
+      | none =>
+        obtain ⟨h1, h2⟩ := ihg k memo hm
+        obtain ⟨h3, h4⟩ := iha k _ h2
+        cases hb : (EO.anyNode p g k memo).1
+        · simp only [Bool.false_eq_true, ↓reduceIte]
+          have hv : (EO.anyNode p a k (EO.anyNode p g k memo).2).1 = anySpec p (.app g a) k := by
+            rw [hs, ← h1, hb, Bool.false_or, h3]
+          exact ⟨hv, h4.insert hv⟩
+        · simp only [↓reduceIte]
+          have hv : true = anySpec p (.app g a) k := by rw [hs, ← h1, hb, Bool.true_or]
+          exact ⟨hv, h2.insert hv⟩
+  | lam n t b bi iht ihb =>
+    intro k memo hm
+    rw [EO.anyNode]
+    cases hp : p (.lam n t b bi) k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none =>
+      have hs : anySpec p (.lam n t b bi) k = (anySpec p t k || anySpec p b (k + 1)) := by
+        simp [anySpec, hp]
+      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      cases hl : memo[(Expr.lam n t b bi, k)]? with
+      | some b => exact ⟨hm _ _ hl, hm⟩
+      | none =>
+        obtain ⟨h1, h2⟩ := iht k memo hm
+        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
+        cases hb : (EO.anyNode p t k memo).1
+        · simp only [Bool.false_eq_true, ↓reduceIte]
+          have hv : (EO.anyNode p b (k + 1) (EO.anyNode p t k memo).2).1 =
+              anySpec p (.lam n t b bi) k := by
+            rw [hs, ← h1, hb, Bool.false_or, h3]
+          exact ⟨hv, h4.insert hv⟩
+        · simp only [↓reduceIte]
+          have hv : true = anySpec p (.lam n t b bi) k := by rw [hs, ← h1, hb, Bool.true_or]
+          exact ⟨hv, h2.insert hv⟩
+  | forallE n t b bi iht ihb =>
+    intro k memo hm
+    rw [EO.anyNode]
+    cases hp : p (.forallE n t b bi) k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none =>
+      have hs : anySpec p (.forallE n t b bi) k = (anySpec p t k || anySpec p b (k + 1)) := by
+        simp [anySpec, hp]
+      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      cases hl : memo[(Expr.forallE n t b bi, k)]? with
+      | some b => exact ⟨hm _ _ hl, hm⟩
+      | none =>
+        obtain ⟨h1, h2⟩ := iht k memo hm
+        obtain ⟨h3, h4⟩ := ihb (k + 1) _ h2
+        cases hb : (EO.anyNode p t k memo).1
+        · simp only [Bool.false_eq_true, ↓reduceIte]
+          have hv : (EO.anyNode p b (k + 1) (EO.anyNode p t k memo).2).1 =
+              anySpec p (.forallE n t b bi) k := by
+            rw [hs, ← h1, hb, Bool.false_or, h3]
+          exact ⟨hv, h4.insert hv⟩
+        · simp only [↓reduceIte]
+          have hv : true = anySpec p (.forallE n t b bi) k := by rw [hs, ← h1, hb, Bool.true_or]
+          exact ⟨hv, h2.insert hv⟩
+  | letE n t v b nd iht ihv ihb =>
+    intro k memo hm
+    rw [EO.anyNode]
+    cases hp : p (.letE n t v b nd) k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none =>
+      have hs : anySpec p (.letE n t v b nd) k =
+          (anySpec p t k || anySpec p v k || anySpec p b (k + 1)) := by
+        simp [anySpec, hp]
+      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      cases hl : memo[(Expr.letE n t v b nd, k)]? with
+      | some b => exact ⟨hm _ _ hl, hm⟩
+      | none =>
+        obtain ⟨h1, h2⟩ := iht k memo hm
+        obtain ⟨h3, h4⟩ := ihv k _ h2
+        obtain ⟨h5, h6⟩ := ihb (k + 1) _ h4
+        cases hb : (EO.anyNode p t k memo).1
+        · simp only [Bool.false_eq_true, ↓reduceIte]
+          cases hb' : (EO.anyNode p v k (EO.anyNode p t k memo).2).1
+          · simp only [Bool.false_eq_true, ↓reduceIte]
+            have hv : (EO.anyNode p b (k + 1) (EO.anyNode p v k (EO.anyNode p t k memo).2).2).1 =
+                anySpec p (.letE n t v b nd) k := by
+              rw [hs, ← h1, hb, ← h3, hb', h5]; simp
+            exact ⟨hv, h6.insert hv⟩
+          · simp only [↓reduceIte]
+            have hv : true = anySpec p (.letE n t v b nd) k := by
+              rw [hs, ← h1, hb, ← h3, hb']; simp
+            exact ⟨hv, h4.insert hv⟩
+        · simp only [↓reduceIte]
+          have hv : true = anySpec p (.letE n t v b nd) k := by rw [hs, ← h1, hb]; simp
+          exact ⟨hv, h2.insert hv⟩
+  | mdata m x ih =>
+    intro k memo hm
+    rw [EO.anyNode]
+    cases hp : p (.mdata m x) k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none =>
+      have hs : anySpec p (.mdata m x) k = anySpec p x k := by simp [anySpec, hp]
+      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      cases hl : memo[(Expr.mdata m x, k)]? with
+      | some b => exact ⟨hm _ _ hl, hm⟩
+      | none =>
+        obtain ⟨h1, h2⟩ := ih k memo hm
+        have hv : (EO.anyNode p x k memo).1 = anySpec p (.mdata m x) k := by rw [hs, h1]
+        exact ⟨hv, h2.insert hv⟩
+  | proj s i x ih =>
+    intro k memo hm
+    rw [EO.anyNode]
+    cases hp : p (.proj s i x) k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none =>
+      have hs : anySpec p (.proj s i x) k = anySpec p x k := by simp [anySpec, hp]
+      simp only [EO.isCompound, Bool.not_true, Bool.false_eq_true, ↓reduceIte]
+      cases hl : memo[(Expr.proj s i x, k)]? with
+      | some b => exact ⟨hm _ _ hl, hm⟩
+      | none =>
+        obtain ⟨h1, h2⟩ := ih k memo hm
+        have hv : (EO.anyNode p x k memo).1 = anySpec p (.proj s i x) k := by rw [hs, h1]
+        exact ⟨hv, h2.insert hv⟩
+  | bvar | fvar | mvar | sort | const | lit =>
+    intro k memo hm
+    unfold EO.anyNode
+    cases hp : p _ k with
+    | some b => exact ⟨(anySpec_some hp).symm, hm⟩
+    | none => simp [EO.isCompound, anySpec, hp]; exact hm
+
+theorem anyNode_fresh (p : Expr → Nat → Option Bool) (e : Expr) (k : Nat) (x : Expr) :
+    (EO.anyNode p e k (EO.freshFor x)).1 = anySpec p e k :=
+  (anyNode_spec p e k _ (fun _ _ h => by simp [EO.freshFor] at h)).1
+
+end anyNode
+
+/-! ### The application spine, `mdata` read through -/
+
+theorem getAppFn_of_not_app {c : ConLeche.Expr} (h : ∀ f a, c ≠ .app f a) : c.getAppFn = c := by
+  cases c <;> simp_all [ConLeche.Expr.getAppFn]
+
+theorem getAppArgs_of_not_app {c : ConLeche.Expr} (h : ∀ f a, c ≠ .app f a) : c.getAppArgs = [] := by
+  cases c <;> simp_all [ConLeche.Expr.getAppArgs]
+
+/-- A translation that is not an application, at a node that is no `app` or
+`mdata`. -/
+theorem toExpr_not_app {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) {e : Expr}
+    {c : ConLeche.Expr} (h : toExpr fv e = some c) (ha : ∀ g a, e ≠ .app g a)
+    (hm : ∀ m x, e ≠ .mdata m x) : ∀ f a, c ≠ .app f a := by
+  intro f a hc
+  subst hc
+  cases e with
+  | app g x => exact ha g x rfl
+  | mdata m x => exact hm m x rfl
+  | fvar id => obtain ⟨_, _, h'⟩ := hfv id _ h; cases h'
+  | mvar m => simp [toExpr] at h
+  | bvar i => simp [toExpr] at h
+  | lit l => simp [toExpr] at h
+  | sort u => simp [toExpr] at h
+  | const n us => simp [toExpr] at h
+  | lam n t b bi =>
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨_, _, _, _, h'⟩ := h; cases h'
+  | forallE n t b bi =>
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨_, _, _, _, h'⟩ := h; cases h'
+  | letE n t v b nd =>
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨_, _, _, _, _, _, h'⟩ := h; cases h'
+  | proj s i x =>
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨_, _, h'⟩ := h; cases h'
+
+/-- **The spine's head reads as con-leche's `getAppFn`.** -/
+theorem toExpr_getAppFnT {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
+    ∀ (e : Expr) (c : ConLeche.Expr), toExpr fv e = some c →
+      toExpr fv (Expr.getAppFnT e) = some c.getAppFn := by
+  intro e
+  induction e with
+  | app g a ihg _ =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, -, rfl⟩ := h
+    simp only [Expr.getAppFnT, ConLeche.Expr.getAppFn]
+    exact ihg cg hg
+  | mdata m x ih => intro c h; simp only [toExpr] at h; simp only [Expr.getAppFnT]; exact ih c h
+  | _ =>
+    intro c h
+    rw [getAppFn_of_not_app (toExpr_not_app hfv h (by simp) (by simp))]
+    exact h
+
+/-- The spine's arguments, accumulated. -/
+theorem toExpr_getAppArgsT_go {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
+    ∀ (e : Expr) (c : ConLeche.Expr) (acc : List Expr) (cacc : List ConLeche.Expr),
+      toExpr fv e = some c → acc.mapM (toExpr fv) = some cacc →
+      (Expr.getAppArgsT.go e acc).mapM (toExpr fv) = some (c.getAppArgs ++ cacc) := by
+  intro e
+  induction e with
+  | app g a ihg _ =>
+    intro c acc cacc h hacc
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+    simp only [Expr.getAppArgsT.go, ConLeche.Expr.getAppArgs, List.append_assoc,
+      List.singleton_append]
+    exact ihg cg (a :: acc) (ca :: cacc) hg (by simp [List.mapM_cons, ha, hacc])
+  | mdata m x ih =>
+    intro c acc cacc h hacc
+    simp only [toExpr] at h; simp only [Expr.getAppArgsT.go]; exact ih c acc cacc h hacc
+  | _ =>
+    intro c acc cacc h hacc
+    rw [getAppArgs_of_not_app (toExpr_not_app hfv h (by simp) (by simp))]
+    simpa [Expr.getAppArgsT.go] using hacc
+
+/-- **The spine's arguments read as con-leche's `getAppArgs`.** -/
+theorem toExpr_getAppArgsT {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv)
+    {e : Expr} {c : ConLeche.Expr} (h : toExpr fv e = some c) :
+    (Expr.getAppArgsT e).toList.mapM (toExpr fv) = some c.getAppArgs := by
+  simpa [Expr.getAppArgsT] using toExpr_getAppArgsT_go hfv e c [] [] h rfl
+
+/-- **The spine's argument count is con-leche's.** -/
+theorem getAppNumArgsT_eq {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
+    ∀ (e : Expr) (c : ConLeche.Expr), toExpr fv e = some c →
+      Expr.getAppNumArgsT e = c.getAppArgs.length := by
+  intro e
+  induction e with
+  | app g a ihg _ =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, -, rfl⟩ := h
+    simp [Expr.getAppNumArgsT, ConLeche.Expr.getAppArgs, ihg cg hg]
+  | mdata m x ih => intro c h; simp only [toExpr] at h; simp only [Expr.getAppNumArgsT]; exact ih c h
+  | _ =>
+    intro c h
+    rw [getAppArgs_of_not_app (toExpr_not_app hfv h (by simp) (by simp))]
+    rfl
+
+/-! ### The guards: the cached fields, on a term in range, read as con-leche's -/
+
+/-- con-leche's loose-variable bound of the translation is the term's range. -/
+theorem bvarBound_toExpr {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
+    ∀ (e : Expr) (c : ConLeche.Expr), toExpr fv e = some c → c.bvarBound = rangeS e := by
+  intro e
+  induction e with
+  | bvar i => intro c h; simp only [toExpr, Option.some.injEq] at h; subst h; rfl
+  | fvar id => intro c h; obtain ⟨_, _, rfl⟩ := hfv id c h; rfl
+  | mvar m => intro c h; simp [toExpr] at h
+  | lit l => intro c h; simp only [toExpr, Option.some.injEq] at h; subst h; rfl
+  | sort u =>
+    intro c h; simp only [toExpr, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+  | const n us =>
+    intro c h; simp only [toExpr, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+  | app g a ihg iha =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+    simp [ConLeche.Expr.bvarBound, rangeS, ihg cg hg, iha ca ha]
+  | lam n t b bi iht ihb =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp [ConLeche.Expr.bvarBound, rangeS, iht ct ht, ihb cb hb]
+  | forallE n t b bi iht ihb =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp [ConLeche.Expr.bvarBound, rangeS, iht ct ht, ihb cb hb]
+  | letE n t v b nd iht ihv ihb =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+    simp [ConLeche.Expr.bvarBound, rangeS, iht ct ht, ihv cv hv, ihb cb hb]
+  | mdata m x ih => intro c h; simp only [toExpr] at h; exact ih c h
+  | proj s i x ih =>
+    intro c h
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cx, hx, rfl⟩ := h
+    simp [ConLeche.Expr.bvarBound, rangeS, ih cx hx]
+
+/-- **The loose-variable guard**: on a term in range, InLean's cached range is
+con-leche's bound of the translation. -/
+theorem looseBVarRange_toExpr {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv)
+    {e : Expr} {c : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some c) :
+    e.looseBVarRange = c.bvarBound := by
+  rw [Expr.looseBVarRange_eq hr, bvarBound_toExpr hfv e c h]
+
+/-- con-leche's free-variable test of the translation is the term's. -/
+theorem hasFvar_toExpr {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) :
+    ∀ (e : Expr) (c : ConLeche.Expr), toExpr fv e = some c → c.hasFvar = fvarS e := by
+  intro e
+  induction e with
+  | bvar i => intro c h; simp only [toExpr, Option.some.injEq] at h; subst h; rfl
+  | fvar id => intro c h; obtain ⟨_, _, rfl⟩ := hfv id c h; rfl
+  | mvar m => intro c h; simp [toExpr] at h
+  | lit l => intro c h; simp only [toExpr, Option.some.injEq] at h; subst h; rfl
+  | sort u =>
+    intro c h; simp only [toExpr, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+  | const n us =>
+    intro c h; simp only [toExpr, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h; rfl
+  | app g a ihg iha =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+    simp [ConLeche.Expr.hasFvar, fvarS, ihg cg hg, iha ca ha]
+  | lam n t b bi iht ihb =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp [ConLeche.Expr.hasFvar, fvarS, iht ct ht, ihb cb hb]
+  | forallE n t b bi iht ihb =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+    simp [ConLeche.Expr.hasFvar, fvarS, iht ct ht, ihb cb hb]
+  | letE n t v b nd iht ihv ihb =>
+    intro c h
+    simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+      Option.some.injEq] at h
+    obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+    simp [ConLeche.Expr.hasFvar, fvarS, iht ct ht, ihv cv hv, ihb cb hb]
+  | mdata m x ih => intro c h; simp only [toExpr] at h; exact ih c h
+  | proj s i x ih =>
+    intro c h
+    simp only [toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cx, hx, rfl⟩ := h
+    simp [ConLeche.Expr.hasFvar, fvarS, ih cx hx]
+
+/-- **The free-variable guard**: on a term in range, InLean's cached flag is
+con-leche's test of the translation. -/
+theorem hasFVar_toExpr {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv)
+    {e : Expr} {c : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some c) :
+    e.hasFVar = c.hasFvar := by
+  rw [Expr.hasFVar_eq hr, hasFvar_toExpr hfv e c h]
+
+/-! ### `EO.hasLooseBVar` -/
+
+/-- `EO.hasLooseBVar`'s test. -/
+@[expose] def hlbF (i : Nat) (x : Expr) (k : Nat) : Option Bool :=
+  if x.looseBVarRange ≤ i + k then some false else
+  match x with
+  | .bvar j => some (j == i + k)
+  | _ => none
+
+theorem hasLooseBVar_eq (e : Expr) (i : Nat) :
+    EO.hasLooseBVar e i = anySpec (hlbF i) e 0 :=
+  anyNode_fresh _ e 0 e
+
+/-- con-leche's test is false at and above a term's bound. -/
+theorem cl_hasLooseBVar_of_bound : ∀ {c : ConLeche.Expr} {n : Nat}, c.bvarBound ≤ n →
+    ConLeche.Expr.hasLooseBVar n c = false := by
+  intro c
+  induction c with
+  | bvar j =>
+    intro n h; simp only [ConLeche.Expr.bvarBound] at h
+    simp only [ConLeche.Expr.hasLooseBVar, beq_eq_false_iff_ne]; omega
+  | app f a ihf iha =>
+    intro n h; simp only [ConLeche.Expr.bvarBound] at h
+    simp [ConLeche.Expr.hasLooseBVar, ihf (n := n) (by omega), iha (n := n) (by omega)]
+  | lam ty b iht ihb =>
+    intro n h; simp only [ConLeche.Expr.bvarBound] at h
+    simp [ConLeche.Expr.hasLooseBVar, iht (n := n) (by omega), ihb (n := n + 1) (by omega)]
+  | forallE ty b iht ihb =>
+    intro n h; simp only [ConLeche.Expr.bvarBound] at h
+    simp [ConLeche.Expr.hasLooseBVar, iht (n := n) (by omega), ihb (n := n + 1) (by omega)]
+  | letE t v b iht ihv ihb =>
+    intro n h; simp only [ConLeche.Expr.bvarBound] at h
+    simp [ConLeche.Expr.hasLooseBVar, iht (n := n) (by omega), ihv (n := n) (by omega),
+      ihb (n := n + 1) (by omega)]
+  | proj s i x ih =>
+    intro n h; simp only [ConLeche.Expr.bvarBound] at h
+    simp [ConLeche.Expr.hasLooseBVar, ih h]
+  | _ => intro n _; simp [ConLeche.Expr.hasLooseBVar]
+
+/-- **InLean's loose-variable occurrence test reads as con-leche's** on a
+term in range (at binder offset `k`). -/
+theorem hasLooseBVar_toExpr {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) (i : Nat) :
+    ∀ (e : Expr), Expr.RangeOk e → ∀ (k : Nat) (c : ConLeche.Expr), toExpr fv e = some c →
+      anySpec (hlbF i) e k = ConLeche.Expr.hasLooseBVar (i + k) c := by
+  intro e
+  induction e with
+  | app g a ihg iha =>
+    intro hr k c h
+    by_cases hcut : (Expr.app g a).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [looseBVarRange_toExpr hfv hr h] at hcut
+      exact (cl_hasLooseBVar_of_bound hcut).symm
+    · have hn : hlbF i (.app g a) k = none := by simp [hlbF, hcut]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨cg, hg, ca, ha, rfl⟩ := h
+      simp [anySpec, hn, ihg hr.1 k cg hg, iha hr.2 k ca ha, ConLeche.Expr.hasLooseBVar]
+  | lam n t b bi iht ihb =>
+    intro hr k c h
+    by_cases hcut : (Expr.lam n t b bi).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [looseBVarRange_toExpr hfv hr h] at hcut
+      exact (cl_hasLooseBVar_of_bound hcut).symm
+    · have hn : hlbF i (.lam n t b bi) k = none := by simp [hlbF, hcut]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+      simp [anySpec, hn, iht hr.1 k ct ht, ihb hr.2 (k + 1) cb hb, ConLeche.Expr.hasLooseBVar,
+        Nat.add_assoc]
+  | forallE n t b bi iht ihb =>
+    intro hr k c h
+    by_cases hcut : (Expr.forallE n t b bi).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [looseBVarRange_toExpr hfv hr h] at hcut
+      exact (cl_hasLooseBVar_of_bound hcut).symm
+    · have hn : hlbF i (.forallE n t b bi) k = none := by simp [hlbF, hcut]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cb, hb, rfl⟩ := h
+      simp [anySpec, hn, iht hr.1 k ct ht, ihb hr.2 (k + 1) cb hb, ConLeche.Expr.hasLooseBVar,
+        Nat.add_assoc]
+  | letE n t v b nd iht ihv ihb =>
+    intro hr k c h
+    by_cases hcut : (Expr.letE n t v b nd).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [looseBVarRange_toExpr hfv hr h] at hcut
+      exact (cl_hasLooseBVar_of_bound hcut).symm
+    · have hn : hlbF i (.letE n t v b nd) k = none := by simp [hlbF, hcut]
+      simp only [toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
+        Option.some.injEq] at h
+      obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
+      simp [anySpec, hn, iht hr.1 k ct ht, ihv hr.2.1 k cv hv, ihb hr.2.2 (k + 1) cb hb,
+        ConLeche.Expr.hasLooseBVar, Nat.add_assoc]
+  | mdata m x ih =>
+    intro hr k c h
+    by_cases hcut : (Expr.mdata m x).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [looseBVarRange_toExpr hfv hr h] at hcut
+      exact (cl_hasLooseBVar_of_bound hcut).symm
+    · have hn : hlbF i (.mdata m x) k = none := by simp [hlbF, hcut]
+      simp only [toExpr] at h
+      simp [anySpec, hn, ih hr k c h]
+  | proj s j x ih =>
+    intro hr k c h
+    by_cases hcut : (Expr.proj s j x).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [looseBVarRange_toExpr hfv hr h] at hcut
+      exact (cl_hasLooseBVar_of_bound hcut).symm
+    · have hn : hlbF i (.proj s j x) k = none := by simp [hlbF, hcut]
+      simp only [toExpr, Option.map_eq_some_iff] at h
+      obtain ⟨cx, hx, rfl⟩ := h
+      simp [anySpec, hn, ih hr k cx hx, ConLeche.Expr.hasLooseBVar]
+  | bvar j =>
+    intro hr k c h
+    simp only [toExpr, Option.some.injEq] at h; subst h
+    by_cases hcut : (Expr.bvar j).looseBVarRange ≤ i + k
+    · rw [anySpec_some (show hlbF i _ k = some false by simp [hlbF, hcut])]
+      rw [Expr.looseBVarRange_eq hr] at hcut
+      simp only [rangeS] at hcut
+      simp only [ConLeche.Expr.hasLooseBVar]
+      exact (beq_false_of_ne (a := i + k) (b := j) (by omega)).symm
+    · rw [anySpec_some (show hlbF i _ k = some (j == i + k) by simp [hlbF, hcut])]
+      simp only [ConLeche.Expr.hasLooseBVar]
+      by_cases hj : j = i + k
+      · subst hj; simp
+      · have : i + k ≠ j := fun h => hj h.symm
+        rw [beq_false_of_ne hj, beq_false_of_ne this]
+  | mvar m => intro _ k c h; simp [toExpr] at h
+  | fvar id =>
+    intro hr k c h
+    obtain ⟨_, _, rfl⟩ := hfv id c h
+    rw [anySpec_some (show hlbF i _ k = some false by
+      simp [hlbF, Expr.looseBVarRange_eq hr, rangeS])]
+    rfl
+  | sort u =>
+    intro hr k c h
+    simp only [toExpr, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h
+    rw [anySpec_some (show hlbF i _ k = some false by
+      simp [hlbF, Expr.looseBVarRange_eq hr, rangeS])]
+    rfl
+  | const n us =>
+    intro hr k c h
+    simp only [toExpr, Option.map_eq_some_iff] at h; obtain ⟨_, _, rfl⟩ := h
+    rw [anySpec_some (show hlbF i _ k = some false by
+      simp [hlbF, Expr.looseBVarRange_eq hr, rangeS])]
+    rfl
+  | lit l =>
+    intro hr k c h
+    simp only [toExpr, Option.some.injEq] at h; subst h
+    rw [anySpec_some (show hlbF i _ k = some false by
+      simp [hlbF, Expr.looseBVarRange_eq hr, rangeS])]
+    rfl
+
+/-- **`EO.hasLooseBVar` reads as con-leche's `hasLooseBVar`.** -/
+theorem toExpr_hasLooseBVar {fv : FVarId → Option ConLeche.Expr} (hfv : FVarsOnly fv) {e : Expr}
+    {c : ConLeche.Expr} (hr : Expr.RangeOk e) (h : toExpr fv e = some c) (i : Nat) :
+    EO.hasLooseBVar e i = ConLeche.Expr.hasLooseBVar i c := by
+  rw [hasLooseBVar_eq, hasLooseBVar_toExpr hfv i e hr 0 c h]; rfl
 
 end InLeanProof

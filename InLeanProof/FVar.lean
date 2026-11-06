@@ -28,20 +28,6 @@ open Lean InLean
 
 /-! ## Left inverses of the translations -/
 
-/-- Names back. -/
-def fromName : ConLeche.Name → Name
-  | .anonymous => .anonymous
-  | .str p s => .str (fromName p) s
-  | .num p n => .num (fromName p) n
-
-theorem fromName_toName : ∀ n : Name, fromName (toName n) = n
-  | .anonymous => rfl
-  | .str p s => by simp [toName, fromName, fromName_toName p]
-  | .num p n => by simp [toName, fromName, fromName_toName p]
-
-theorem toName_inj {a b : Name} (h : toName a = toName b) : a = b := by
-  rw [← fromName_toName a, h, fromName_toName]
-
 /-- Levels back. -/
 def fromLevel : ConLeche.Level → Level
   | .zero => .zero
@@ -412,6 +398,17 @@ theorem FVarTable.trans_fvarsOnly (t : FVarTable) : FVarsOnly t.trans := by
   obtain ⟨d, n, -, hn⟩ := FVarTable.trans_some h
   obtain ⟨-, ty, cty, -, -, rfl⟩ := FVarTable.transNum_some hn
   exact ⟨d, cty, rfl⟩
+
+theorem fvDepth_fvId (d n : Nat) : EO.fvDepth? (fvId d n) = some d := by
+  unfold EO.fvDepth? fvId; simp
+
+/-- The table translates an id at the depth the id carries (what
+`EO.abstractDepths` reads). -/
+theorem FVarTable.trans_depthOK (t : FVarTable) : FvDepthOK t.trans := by
+  intro id c h
+  obtain ⟨d, n, rfl, hn⟩ := FVarTable.trans_some h
+  obtain ⟨-, ty, cty, -, -, rfl⟩ := FVarTable.transNum_some hn
+  exact ⟨d, cty, rfl, fvDepth_fvId d n⟩
 
 theorem FVarTable.inner_some {t : FVarTable} {n : Nat} {id : FVarId} {c : ConLeche.Expr}
     (h : t.inner n id = some c) :
