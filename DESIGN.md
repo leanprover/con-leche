@@ -110507,3 +110507,33 @@ by measurement; the candidates are the core's `StateT`-over-`Except` threading
 had none — allocation and freeing are about 30 % of the profile) and the
 inductive job's flushes at every environment transition (master's discipline,
 which the earlier round did not follow).
+
+**lean4 round 3** (2026-11-06).  `joachim/inlean-kernel` (lean4 clone, off
+`releases/v4.35.0`): 3638c76 re-syncs `src/Lean/Kernel/InLean/*` with this branch's
+`InLean/*` (23 files, 8 515 lines with header and `prelude`; narrative stripped; the
+core glue re-applied: exports with owned arguments, the private adds through the entry
+module and `Push.lean`, `Kernel.check`/`whnf`/`isDefEq` opening the local context with
+`mkFVarM`); round 2's `mkData` bodies, their test and the `csimpCore` entries kept.
+3 720 lines of C++ removed.  The restarted core fires the `Nat` fast path by name, so
+round 1's axiom-view gate is gone.  **Bug found by stage2** (88a5388, ported back as
+fcdb79bdd): #480's gate "a certified Nat operation's name, not a definition" rejected
+`Init.Prelude`'s `Nat.add`, which the elaborator first adds as an axiom
+(`addAsAxiom`, `Elab/PreDefinition/Basic.lean`) while it elaborates the recursive
+definition; a replay never sees that axiom.  Under `coreAxioms` (the official policy)
+the gate is lifted; con-leche's policy keeps it; Init replay unchanged.  The test
+suite cannot catch this kind of thing: stage1's own `Init` was elaborated by stage0's
+C++ kernel.  **Stage2**: 5 152 modules, no error; 21 652 G against stock's 18 503 G,
++17.0 % (round 2: +16.3 %).  **Tests** at stage1: 45 of 4 220 failing (round 2: 42,
+after its `csimpCore` fix): 28 kernel error text, 6 limits not honoured, 1
+`Kernel.check` shape, 5 semantics or policy (round 2's 3, `completion7`, and new
+`completionEOF`: a `prelude` file's `axiom And : Type`, as the `And` pin now
+applies to every declaration, master's `declStep`), 4 heartbeat timeouts
+(`big_beq_rec`, `mut_rec_wf`, and new `bv_stress_structures_1/2`), 1 sandbox; verdicts
+unchanged on the spot-checked carried-over ones.  **`elab_bench`** at bench sizes
+(`instructions:u`, one run; stock / round 2 / round 3): `big_struct_dep1` 5.0 / 54.5 /
+61.3 G, `big_struct` 2.4 / 20.4 / 24.0, `big_match` 9.9 / 42.6 / 42.4, `big_beq` 8.2 /
+22.1 / 22.2, `big_beq_rec` 15.4 / 53.8 / 50.9 (timeout at 200 000 heartbeats both
+rounds), `mut_rec_wf` 20.5 / 71.0 / 51.1 (timeout); over the 56 files passing on both,
+×1.32 (round 2 ×1.26 over 59); `cbv_divisors` now also times out at bench size (test
+size passes).  The push from the shallow clone (boundary `eb6cafb`, the remote branch's
+tip) needs no deepen in principle.
