@@ -14,5 +14,8 @@ public import InLeanProof.StateOpsI
 public import InLeanProof.WalksWhnf
 public import InLeanProof.WalksIota
 public import InLeanProof.WalksWhnfLoop
+public import InLeanProof.IotaViews
+public import InLeanProof.LeafGuardI
+public import InLeanProof.WalksIotaRec
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins

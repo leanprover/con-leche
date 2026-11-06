@@ -111083,3 +111083,75 @@ instantiation is `instSpine` by master's `instSpine_eq_instantiateList`);
 triples for `leafGuardM` and `substLevelTreesM`; (3) P2-defeq's
 `proofIrrelI` and `projNodesI` as named callee specs until that lane lands
 them.  Nothing found false as stated.
+
+### Lane P2-whnf, phase 4: the ι step (2026-11-07)
+
+**Proved** (no `sorry`, no new axiom; pinned in `InLeanProof/AxiomPins.lean`,
+the stop-gap `mkData` axioms wherever a guard or an instantiation reads a cached
+field): `iotaRecI_specI` (`InLeanProof/WalksIotaRec.lean`), which **discharges
+`IotaRecSpecI`**, and with it `whnfAppI_specI_of` (`WhnfAppSpecI` from the
+hypotheses below alone); on the way `majorToCtorI_specI` (its three rescue
+blocks `mtcKIL_specI`, `mtcEtaIL_specI`, `mtcAndIL_specI`, the shared tail
+`fabTailIL_specI`, the dispatch `mtcBodyIL_specI`), `prepareMajorI_specI`,
+`iotaCertIL_specI` (the case-3 certificate block: `cmpLvlsIL_run`,
+`cmpArgsIL_run`, `certRestIL_run`), `substLevelTreesM_specI` and
+`pinArgsI_TrS` (`IotaViews.lean`).  All run by run, as phase 3's walks whose
+pure side matches on a view or a translated head: each InLean block is named
+(`mtcKIL`, …, `iotaCertIL`; `majorToCtorI_eq` by `rfl`) against master's pure
+blocks (`mtcKCont`, `mtcEtaCont`, `mtcAndCont`, `mtcBodyP`, `iotaCertP`,
+`iotaRecK`) and master's arm equations (`mtc_body`, `iotaRec_rec`,
+`iotaRecK_ctor`, …).  One shape note: the elaborator splits the certificate's
+continuation over the two `match fire` comparand bindings, so the block as
+`iotaRecI` writes it is not `rfl`-equal to the named one; `iotaCertInline_eq`
+proves them equal by cases on the firing mode and the pins' answer.
+
+**Readers through the translation** (`IotaViews.lean`, `LeafGuardI.lean`):
+`isCtorAppC_TrS`, `etaRescueOk_CV`, `towerSlotsAllF_V` (one table lookup
+against `towerSlotsAll`'s per-slot reads, `towerSlotsAllF_eq`),
+`andRescueSlotsF_V`, `reserved_contains`, `isStrLitI_TrS`; the scope and
+closedness guards hold on every fabrication (`wscopedBC_of_WScoped`,
+`closedBV_of_lbb`: the fabrication's reading is scoped and closed, from the
+knot's posts, so both sides take the guard's true branch); `EO.fvarIds` is the
+term's free variables (`mem_fvarIds`: `collect`'s `seen` skip and `hasFVar`
+cut); a translation's `fvarLeaves` are the translations of the ids its
+variables reach through the interned types (`term_leaves`, `idLeaves`);
+`leafGuard_value`.
+
+**New O4 hypothesis (P3's)**: `EnvRecI fe env` (`IotaViews.lean`, beside
+`EnvViewI`, not a field of it, to keep the lanes' merges apart): `recAt?`
+(quotient eliminators included) is the translation of con-leche's
+`.recInfo ccv (majorIdxOf rv) (rulePrefixOf rv) rv.k crules` at the
+translated name, rule by rule (`RuleRel`: constructor, field count, and
+`recFireAt rv isQuot` against the stored `fire`, `FireRel`: levels with a
+reading, a nested rule's pins stored open terms), and absent exactly where
+con-leche records none.  The pins' closedness and `rP`-boundedness, and the
+rules' right-hand sides', come from `EnvWF` (`rules_facts`).
+
+**Cross-lane hypothesis**: `ProofIrrelSpecI` (P2-defeq's `proofIrrelI`).
+`projNodesI` is a pure function in InLean, so it needed no spec
+(`projNodesI_facts`).
+
+**Finding: `leafGuardM`'s triple is false on (unrealizable) states, so it stays
+a named hypothesis `LeafGuardSpecI`.**  `leafGuardM.closure` walks the worklist
+on a fuel of `2^62` steps; Lean's logic bounds no array or term size, and a
+table whose variable types form a chain longer than `2^62` (`x_N`'s type
+mentions `x_{N-1}`, …) satisfies `CSOKI`, yet InLean answers `false` where
+con-leche's `fvarLeaves` answers `true`.  `leafGuardM_specI_of` proves the
+triple under two explicit preconditions: `ClosureEnds` (the worklist empties
+within the fuel) and `TysRangeOk` (every interned type is in range, which the
+cached `hasFVar` cut of `EO.fvarIds` needs; `mkFVarM`'s callers intern in-range
+types, but `FVTableOK` does not record it); `leafGuardSpecI_of` lifts them to
+`LeafGuardSpecI`.  Proposed fixes, both outside this lane: (1) executable,
+`InLean/CoreDefs.lean`: let the closure spend fuel only on an expansion and
+key the expanded set by the table number `n` (a live number has one depth),
+with fuel `fvTys.size`; each expansion inserts a fresh `n < fvTys.size`, so the
+fuel cannot run out, and only `closure_spec` changes; (2) foundation: a
+`FVTableOK` clause "interned types are in range", kept by `mkFVarM_specI`.
+
+**Foundation**: no frozen file changed.  `LeafGuardI.lean` adds a global
+`LawfulBEq FVarId` instance (`import all Lean.Expr`: the derived `BEq` is
+not exposed), which the id sets' lemmas need.
+
+**Remaining in this lane**: none of the scope; discharging `LeafGuardSpecI`
+waits for the two fixes above, `ProofIrrelSpecI` for P2-defeq, `EnvRecI` (with
+`EnvRelI`, `EnvDomI`, `EnvDefnI`, `EnvViewI`) for P3.

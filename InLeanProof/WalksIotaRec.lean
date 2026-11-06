@@ -1449,3 +1449,16 @@ theorem iotaRecI_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelS
 end Walks
 
 end InLeanProof
+
+namespace InLeanProof
+
+/-- **The argument loop at the ι step's spec** (`whnfAppI_specI` with
+`IotaRecSpecI` discharged). -/
+theorem whnfAppI_specI_of {eager : Bool} {env : ConLeche.Env} {r : InLean.CoreFnsI}
+    {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+    (hlg : LeafGuardSpecI .verified eager env) (henv : ConLeche.EnvWF env)
+    (hv : EnvViewI fe env) (hrec : EnvRecI fe env) (hfe : EnvRelI fe env)
+    (hdom : EnvDomI fe env) : WhnfAppSpecI eager env r fe :=
+  whnfAppI_specI (iotaRecI_specI ih hpi hlg henv hv hrec hfe hdom)
+
+end InLeanProof

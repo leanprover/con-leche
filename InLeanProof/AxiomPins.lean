@@ -11,6 +11,9 @@ public import InLeanProof.WalksWhnf
 public import InLeanProof.WalksIota
 public import InLeanProof.WalksWhnfLoop
 public import InLeanProof.SquarePilot
+public import InLeanProof.IotaViews
+public import InLeanProof.LeafGuardI
+public import InLeanProof.WalksIotaRec
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -600,3 +603,126 @@ info: 'InLeanProof.reduceProjCoreI_specI' depends on axioms: [propext, Classical
 -/
 #guard_msgs in
 #print axioms InLeanProof.reduceProjCoreI_specI
+
+/-! ## The body walks, part 4 (lane P2-whnf, phase 4: `InLeanProof/IotaViews.lean`,
+`LeafGuardI.lean`, `WalksIotaRec.lean`): the ι step -/
+
+/-- info: 'InLeanProof.isCtorAppC_TrS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.isCtorAppC_TrS
+
+/-- info: 'InLeanProof.towerSlotsAllF_V' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.towerSlotsAllF_V
+
+/-- info: 'InLeanProof.andRescueSlotsF_V' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.andRescueSlotsF_V
+
+/--
+info: 'InLeanProof.substLevelTreesM_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.substLevelTreesM_specI
+
+/--
+info: 'InLeanProof.pinArgsI_TrS' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.pinArgsI_TrS
+
+/--
+info: 'InLeanProof.wscopedBC_of_WScoped' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.wscopedBC_of_WScoped
+
+/--
+info: 'InLeanProof.closedBV_of_lbb' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.closedBV_of_lbb
+
+/--
+info: 'InLeanProof.leafGuardM_specI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.leafGuardM_specI_of
+
+/--
+info: 'InLeanProof.majorToCtorI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.majorToCtorI_specI
+
+/--
+info: 'InLeanProof.prepareMajorI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.prepareMajorI_specI
+
+/--
+info: 'InLeanProof.iotaCertIL_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.iotaCertIL_specI
+
+/--
+info: 'InLeanProof.iotaRecI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.iotaRecI_specI
+
+/--
+info: 'InLeanProof.whnfAppI_specI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfAppI_specI_of
