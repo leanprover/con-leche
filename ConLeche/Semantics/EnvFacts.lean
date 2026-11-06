@@ -89,17 +89,5 @@ structure EnvFacts (env : Env) where
   expression, which is what makes their denotation and residual walks
   computations. -/
   proj_ok : ProjOkT env
-  /-- **The install fold's `Nat`-op invariant, narrowed to what the
-  literal fast path reads** (task #161 B3): a *stored* one of the
-  sixteen accelerated operations is a *guarded* one.
-
-  `reduceNat` tests `isDefinitionAt`, one lookup, instead of re-deriving
-  `natOpGuard` at every literal hit.  This field turns that test back
-  into the guard the literal rules name, and it is not new evidence:
-  the model's `nat_ops`/`div_mod` state exactly this under their
-  `defnInfo` hypothesis (they are what `checkDecl` establishes, by
-  declining a stream that stores one of these names unguarded). -/
-  nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
-    isDefinitionAt env c = true → natOpGuard env c = true
 
 end ConLeche.Semantics

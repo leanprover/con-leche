@@ -46,19 +46,24 @@ install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 `DefEqClaim` — the run-certificate route (`Model/NatEqs.lean`)
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions, which close the literal rows `NatSuccRow`/`NatOpRow` of
-`Model/Rules/Inputs.lean` (`Model/NatStep.lean`).  The stored types'
-pins (`natOpStoredOk`) are kept as well, the operation's own and its
-dependencies': the head row `NatOpHead` reads the operation's domains
-off its own (task #342 L12), and the transports read the dependencies'
-heads off theirs.  The install checks only the operation's own pin and
-that each dependency is stored; a dependency's pin is its own entry's,
-read at the install (`natOpDepsOk_install`, task #462). -/
+`Model/Rules/Inputs.lean` (`Model/NatStep.lean`).
+
+The law is keyed on the name being stored, whatever its kind: the
+literal fast path fires by name, so its soundness reads the law off the
+name.  Only a definition passes the install check at a certified name;
+every other kind is refused there, which is what makes the law hold at
+such a name vacuously.  The stored types' pins (`natOpPinnedOk`) are
+kept as well, the operation's own and its dependencies': the head row
+`NatOpHead` reads the operation's domains off its own (task #342 L12),
+and the transports read the dependencies' heads off theirs.  The
+install checks only the operation's own pin and that each dependency
+is stored; a dependency's pin is its own entry's, read at the install
+(`natOpDepsOk_install`). -/
 @[expose] def NatOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ ConLeche.natOpNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
+  ∀ c ∈ ConLeche.natOpNames, ∀ ci, env.find? c = some ci →
     ConLeche.natOpGuard env c = true ∧
-    (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true ∧
+    (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true ∧
     ∀ eq ∈ ConLeche.natOpEquations 0 c, ∃ L R,
       denote m.acval env φ 2 eq.1 = some L ∧
       denote m.acval env φ 2 eq.2 = some R ∧
@@ -76,14 +81,14 @@ Supplied as an `EnvModelM` field: established at the operation's own
 install from the recorded certificate runs (`checkDivModCerts`'
 verdict) through `InferClaim`/`DefEqClaim` — the run-certificate
 route again (`Model/DivModCert.lean`) — and preserved across every
-other fresh cons.  Consumed by the WF-op numeral transports.  The stored
-types' pins are kept as in `NatOps`. -/
+other fresh cons.  Consumed by the WF-op numeral transports.  Keyed
+on the stored name, whatever its kind, and the stored types' pins
+kept, as in `NatOps`. -/
 @[expose] def DivMod {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ ConLeche.natDivModNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
+  ∀ c ∈ ConLeche.natDivModNames, ∀ ci, env.find? c = some ci →
     ConLeche.natOpGuard env c = true ∧
-    (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true ∧
+    (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true ∧
     ∀ (ρ : Nat → V) (x y : V),
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
       y ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →

@@ -1341,10 +1341,11 @@ instead of trusting the operation's name.
   `Nat.mul`) need only be stored: at a certified operation's name
   nothing but a definition is accepted, and that definition's own step
   pins its type and certifies its recurrences.
-  The model side reads the operation's membership off its pinned type
-  shape and proves the literal semantics from the certified
-  recurrences
-  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1080)).
+  The model side states the operation's law at its stored name,
+  whatever kind of constant is stored there (the fast path fires by
+  name), reads the operation's membership off its pinned type shape
+  and proves the literal semantics from the certified recurrences
+  ([theorem `natOps_install` in `ConLeche/Model/NatEqs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/NatEqs.lean#L1053)).
 * **Well-founded operations** (`Nat.div`, `mod`, `gcd`, `land`, `lor`,
   `xor`, `shiftLeft`, `shiftRight`;
   [the list `natDivModNames` in `ConLeche/Kernel/CoreDefs.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Kernel/CoreDefs.lean#L476))
@@ -1370,7 +1371,7 @@ instead of trusting the operation's name.
   arbitrary variant, because what it consumes is the certificates'
   verdict in the accepted environment and not where the matched
   variant came from:
-  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1982).
+  [theorem `divMod_install` in `ConLeche/Model/DivModCert.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Model/DivModCert.lean#L1971).
   That is why the two statements of §1 quantify over the list: the pins
   buy accepted `Nat.div` streams, never consistency.
 * **`Bool`.** `Nat.beq` and `Nat.ble` return `Bool.true` or

@@ -77,28 +77,26 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
       (env₃.find? n = some ci ↔ env₀.find? n = some ci) :=
     fun n ci hnr =>
       ⟨fun h => hcg.findDown n ci h hnr, fun h => hcg.findUp n ci h hnr⟩
-  -- a pinned `Nat`-operation type: the stored `Bool` entry keeps its
-  -- constant value (a swap changes a recursor's rules only)
-  have hpinUp : ∀ {c : Name} {ty : Expr}, ConLeche.natOpTyPinned env₀ c ty = true →
-      ConLeche.natOpTyPinned env₃ c ty = true := fun h =>
-    ConLeche.Verify.natOpTyPinned_of_find (fun ci hf => by
-      rcases hcorr ConLeche.boolName with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, -,
-          hname, hres⟩
-      · exact ⟨ci, by rw [heq]; exact hf, rfl⟩
-      · rw [hname] at hres
-        exact absurd hres (by decide)) h
-  -- the operations' dependencies' pins: a pinned operation is a
-  -- definition, which the swap keeps
-  have hdepsUp : ∀ {c : Name},
-      (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env₀) = true →
-      (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env₃) = true := fun h =>
-    List.all_eq_true.mpr fun n hn => by
-      obtain ⟨cv, v, hh, hf, hl, hp⟩ :=
-        ConLeche.natOpStoredOk_inv (List.all_eq_true.mp h n hn)
-      unfold ConLeche.natOpStoredOk
-      rw [(hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hf]
-      simp only [hl, List.isEmpty_nil, Bool.true_and]
-      exact hpinUp hp
+  -- the operations', their dependencies' and the `Bool` entry's
+  -- constant values: a swapped recursor's name is not reserved, and
+  -- every one of these is
+  have hcvUp : ∀ (n : Name), ConLeche.reservedRecName n = true →
+      ∀ ci, env₀.find? n = some ci →
+      ∃ ci', env₃.find? n = some ci' ∧ ci'.toConstantVal = ci.toConstantVal := by
+    intro n hr ci hf
+    rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -, -,
+        hname, hres⟩
+    · exact ⟨ci, by rw [heq]; exact hf, rfl⟩
+    · rw [hname] at hres
+      rw [hres] at hr
+      exact nomatch hr
+  have hdepsUp : ∀ {c : Name}, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
+      (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env₀) = true →
+      (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env₃) = true := fun hc h =>
+    ConLeche.Verify.natOpDepsOk_of_find (hcvUp _ (by decide))
+      (fun n hn => hcvUp n (by
+        rcases ConLeche.natOpDeps_mem hc hn with hm | hm <;>
+          simp [ConLeche.reservedRecName, hm])) h
   have hsomeOp : ∀ n, (env₃.find? n).isSome = true → (env₀.find? n).isSome = true := by
     intro n hn
     rcases hcorr n with heq | ⟨cv, cv', mI, rP, isK, rules, rules', h₀, h₃, -⟩
@@ -131,8 +129,6 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
             div_mod := ?_
             eq_law := ?_
             caps_ok := ?_
-            op_defn := mp.op_defn.of_same hsomeOp
-              (fun n cv v hh hf => (hsame _ _ (fun _ _ _ _ _ he => ConstantInfo.noConfusion he)).mpr hf)
             rec_rules := hrecP _ rfl
             reduce_ops := ?_
             tower_ok := ?_
@@ -178,19 +174,19 @@ theorem EnvModelM.swapTyP {env₀ env₃ : Env}
     intro φ hsup ρ
     exact mp.nat_heads φ (hcg.natEq ▸ hsup) ρ
   · -- `nat_ops`
-    intro φ c hc cv value hint hf
-    obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc cv value hint
-      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    refine ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp hpin, ?_⟩
+    intro φ c hc ci hf
+    obtain ⟨ci₀, hf₀⟩ := Option.isSome_iff_exists.mp (hsomeOp c (by rw [hf]; rfl))
+    obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc ci₀ hf₀
+    refine ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp (Or.inl hc) hpin, ?_⟩
     intro eq heq
     obtain ⟨L, R, hL, hR, hval⟩ := hlaw eq heq
     exact ⟨L, R, by rw [← hde]; exact hL,
       by rw [← hde]; exact hR, hval⟩
   · -- `div_mod`
-    intro φ c hc cv value hint hf
-    obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc cv value hint
-      ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    exact ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp hpin, hlaw⟩
+    intro φ c hc ci hf
+    obtain ⟨ci₀, hf₀⟩ := Option.isSome_iff_exists.mp (hsomeOp c (by rw [hf]; rfl))
+    obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc ci₀ hf₀
+    exact ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp (Or.inr hc) hpin, hlaw⟩
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
     intro ci p hf hp
     exact mp.eq_law ci p ((hsame eqName ci

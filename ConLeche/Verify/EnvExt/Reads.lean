@@ -33,9 +33,8 @@ structure StoredFacts (env : Env) : Prop where
       (env.find? natSuccName).isSome = true
   recCtors : RecCtorsStored env
   entryCtors : ∀ T i e, env.findProj? T i = some e → (env.find? e.ctor).isSome = true
-  boolCtors : isDefinitionAt env natBeqName = true ∨ isDefinitionAt env natBleName = true →
+  boolCtors : (env.find? natBeqName).isSome = true ∨ (env.find? natBleName).isSome = true →
     (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true
-  opDefn : OpDefn env
 
 /-- **`env₂` extends `env₁`**: every stored constant stays and a stored structure's table stays. -/
 structure EnvExt (env₁ env₂ : Env) : Prop where
