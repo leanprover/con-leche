@@ -1051,8 +1051,8 @@
    111      else pure false
    112  
 
-== ConLeche/Model/NatEqs.lean#L1080
-  1080  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+== ConLeche/Model/NatEqs.lean#L1053
+  1053  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
 
 == ConLeche/Kernel/CoreDefs.lean#L476
    476  def natDivModNames : List Name :=
@@ -1089,8 +1089,8 @@
     17  
     18  The proofs are written with *controlled* dependencies: no `simp`, no
 
-== ConLeche/Model/DivModCert.lean#L1982
-  1982  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
+== ConLeche/Model/DivModCert.lean#L1971
+  1971  theorem divMod_install {F : Nat} (mp : EnvModelM V env)
 
 == ConLeche/Kernel/CoreDefs.lean#L609-L636
    609  /-- Stored-constant guards for op `c`: the `Nat` basis, every

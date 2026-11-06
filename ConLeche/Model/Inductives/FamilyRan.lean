@@ -149,13 +149,12 @@ theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts 
   wf := mp.base2.wf
   natTrio := hN.trio
   recCtors := mp.base2.rec_ctors
-  opDefn := mp.op_defn
   entryCtors := fun _ _ e hf => by
     obtain ⟨-, -, -, -, -, cvC, hc, -⟩ := mp.base2.proj_ok.towerHead hf
     rw [hc]; rfl
   boolCtors := by
     have hg : ∀ c, c ∈ ConLeche.natOpNames → (c = ConLeche.natBeqName ∨ c = ConLeche.natBleName) →
-        ConLeche.isDefinitionAt env c = true →
+        (env.find? c).isSome = true →
         (env.find? ConLeche.boolTrueName).isSome = true ∧
           (env.find? ConLeche.boolFalseName).isSome = true := by
       intro c hmemc hc hs

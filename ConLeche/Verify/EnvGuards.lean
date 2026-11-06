@@ -482,14 +482,25 @@ theorem natOpGuard_boolTy {c : Name} (h : natOpGuard env c = true)
       exact ⟨ciF, heq, hlp.2⟩
     · intro hh; exact nomatch hh
 
-/-! ## A stored operation's own pin, unpacked
+/-! ## A stored operation's pin, unpacked
 
 The install checks of a certified operation pin its own stored type
-(`natOpStoredOk`); its dependencies are only required stored
-(`natOpGuard`).  The model's laws carry the pin for every dependency
-(each one's own install established it), in the form
-`(natOpDeps c).all (natOpStoredOk env)`, and every clause of the
-literal bridges reads it through the two inversions below. -/
+(`natOpStoredOk`, a definition's); its dependencies are only required
+stored (`natOpGuard`).  The model's laws carry the pin for every
+dependency, of whatever kind the dependency is stored as
+(`natOpPinnedOk`), in the form `(natOpDeps c).all (natOpPinnedOk env)`,
+and every clause of the literal bridges reads it through the inversions
+below. -/
+
+/-- Op `n` is stored, of any kind, level-monomorphically at its pinned
+type: what the literal fast path needs of a name it fires on.  The fast
+path fires by name, so the model reads the pin off the stored name and
+not off its kind (a context may present an operation as an axiom). -/
+@[expose] def natOpPinnedOk (env : Env) (n : Name) : Bool :=
+  match env.find? n with
+  | some ci => ci.toConstantVal.levelParams.isEmpty &&
+      natOpTyPinned env n ci.toConstantVal.type
+  | none => false
 
 /-- `natOpStoredOk`, inverted. -/
 theorem natOpStoredOk_inv {env : Env} {n : Name}
@@ -505,14 +516,53 @@ theorem natOpStoredOk_inv {env : Env} {n : Name}
     exact ⟨cv, v, hh, heq, h.1, h.2⟩
   · intro h; exact nomatch h
 
-/-- Every dependency pinned: each is stored as a definition with no
-level parameters. -/
+/-- `natOpPinnedOk`, inverted. -/
+theorem natOpPinnedOk_inv {env : Env} {n : Name}
+    (h : natOpPinnedOk env n = true) :
+    ∃ ci, env.find? n = some ci ∧ ci.toConstantVal.levelParams = [] ∧
+      natOpTyPinned env n ci.toConstantVal.type = true := by
+  unfold natOpPinnedOk at h
+  revert h
+  split
+  · next ci heq =>
+    intro h
+    simp only [Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨ci, heq, h.1, h.2⟩
+  · intro h; exact nomatch h
+
+/-- `natOpPinnedOk` from its parts. -/
+theorem natOpPinnedOk_of {env : Env} {n : Name} {ci : ConstantInfo}
+    (hf : env.find? n = some ci) (hl : ci.toConstantVal.levelParams = [])
+    (hp : natOpTyPinned env n ci.toConstantVal.type = true) :
+    natOpPinnedOk env n = true := by
+  unfold natOpPinnedOk
+  rw [hf]
+  simp only [hl, List.isEmpty_nil, Bool.true_and]
+  exact hp
+
+/-- A definition's pin is a pin. -/
+theorem natOpPinnedOk_of_storedOk {env : Env} {n : Name}
+    (h : natOpStoredOk env n = true) : natOpPinnedOk env n = true :=
+  let ⟨_, _, _, hf, hl, hp⟩ := natOpStoredOk_inv h
+  natOpPinnedOk_of hf hl hp
+
+/-- Every dependency pinned: each is stored with no level
+parameters. -/
 theorem natOpDepsOk_inv {env : Env} {c : Name}
-    (h : (natOpDeps c).all (natOpStoredOk env) = true) :
-    ∀ n ∈ natOpDeps c, ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
-      cv.levelParams = [] := fun n hn =>
-  let ⟨cv, v, hh, hf, hl, _⟩ := natOpStoredOk_inv (List.all_eq_true.mp h n hn)
-  ⟨cv, v, hh, hf, hl⟩
+    (h : (natOpDeps c).all (natOpPinnedOk env) = true) :
+    ∀ n ∈ natOpDeps c, ∃ ci, env.find? n = some ci ∧
+      ci.toConstantVal.levelParams = [] := fun n hn =>
+  let ⟨ci, hf, hl, _⟩ := natOpPinnedOk_inv (List.all_eq_true.mp h n hn)
+  ⟨ci, hf, hl⟩
+
+/-- A name the install refuses as a certified operation's is none of
+them: how the laws hold vacuously at a fresh cons that is not the
+operation's own install. -/
+theorem not_mem_natOpNames_of {n : Name} (h : natOpName n = false) :
+    n ∉ natOpNames ∧ n ∉ natDivModNames := by
+  simp only [natOpName, Bool.or_eq_false_iff] at h
+  exact ⟨fun hm => by rw [List.contains_iff_mem.mpr hm] at h; exact Bool.noConfusion h.1,
+    fun hm => by rw [List.contains_iff_mem.mpr hm] at h; exact Bool.noConfusion h.2⟩
 
 /-- A certified operation's dependencies are certified operations. -/
 theorem natOpDeps_mem {c n : Name} (hc : c ∈ natOpNames ∨ c ∈ natDivModNames)
@@ -525,18 +575,26 @@ theorem natOpDeps_mem {c n : Name} (hc : c ∈ natOpNames ∨ c ∈ natDivModNam
   · exact h1 c hc n hn
   · exact h2 c hc n hn
 
-/-- A stored certified operation is a definition: the hypothesis `NatOps`/`DivMod` take before
-handing back `natOpGuard`. -/
-theorem natOpStored_inv {env : Env} {c : Name}
-    (h : isDefinitionAt env c = true) :
-    ∃ cv v hh, env.find? c = some (.defnInfo cv v hh) := by
-  unfold isDefinitionAt at h
-  cases hx : env.find? c with
-  | none => rw [hx] at h; exact nomatch h
-  | some ci =>
-    rw [hx] at h
-    cases ci with
-    | defnInfo cv v hh => exact ⟨cv, v, hh, rfl⟩
-    | _ => exact nomatch h
+/-- Every guarded operation is among its own dependencies. -/
+theorem mem_natOpDeps_self {c : Name} (h : c ∈ natOpNames ∨ c ∈ natDivModNames) :
+    c ∈ natOpDeps c := by
+  have h1 : ∀ c ∈ natOpNames, c ∈ natOpDeps c := by decide
+  have h2 : ∀ c ∈ natDivModNames, c ∈ natOpDeps c := by decide
+  rcases h with h | h
+  · exact h1 c h
+  · exact h2 c h
+
+/-- A stored operation whose dependencies are pinned has its pinned
+type. -/
+theorem natOpTyPinned_of_deps {env : Env} {c : Name} {ci : ConstantInfo}
+    (hc : c ∈ natOpNames ∨ c ∈ natDivModNames)
+    (hdeps : (natOpDeps c).all (natOpPinnedOk env) = true)
+    (hf : env.find? c = some ci) :
+    natOpTyPinned env c ci.toConstantVal.type = true := by
+  obtain ⟨ci', hf', -, hpin⟩ :=
+    natOpPinnedOk_inv (List.all_eq_true.mp hdeps c (mem_natOpDeps_self hc))
+  rw [hf] at hf'
+  obtain rfl := Option.some.inj hf'
+  exact hpin
 
 end ConLeche

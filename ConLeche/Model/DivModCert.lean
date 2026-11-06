@@ -1663,7 +1663,7 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
     (hgenv : ConLeche.divModEnvGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) c
       = true)
-    (hdeps : (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk
+    (hdeps : (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env))
       = true)
     {A Ta : (Name → Nat) → Term}
@@ -1717,21 +1717,14 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
   have hstoredDep : ∀ n ∈ ConLeche.natOpDeps c, n ≠ c →
-      ∃ cvn vn hn, env.find? n = some (.defnInfo cvn vn hn) ∧
-        cvn.levelParams = [] ∧
+      ∃ cin, env.find? n = some cin ∧ cin.toConstantVal.levelParams = [] ∧
         ConLeche.natOpTyPinned
           (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩
-            : Env) n cvn.type = true := by
+            : Env) n cin.toConstantVal.type = true := by
     intro n hn hnc
-    obtain ⟨cvn, vn, hintn, hfn2, hpinn⟩ :=
-      ConLeche.natOpStoredOk_tyPinned (hdepAll n hn)
-    have hd := hdepAll n hn
-    unfold ConLeche.natOpStoredOk at hd
-    rw [hfn2] at hd
-    simp only [Bool.and_eq_true, List.isEmpty_iff] at hd
-    exact ⟨cvn, vn, hintn, hdown _ _ hnc hfn2, hd.1, hpinn⟩
-  obtain ⟨cvb, vb, hintb, hfble, hlpble, hpinb⟩ :=
-    hstoredDep _ hbleDep hbleNe
+    obtain ⟨cin, hfn2, hlpn, hpinn⟩ := ConLeche.natOpPinnedOk_inv (hdepAll n hn)
+    exact ⟨cin, hdown _ _ hnc hfn2, hlpn, hpinn⟩
+  obtain ⟨cib, hfble, hlpble, hpinb⟩ := hstoredDep _ hbleDep hbleNe
   obtain ⟨codb, htyb, hcodb⟩ :=
     natOpTyPinned_binaryE (by decide) hpinb
   obtain ⟨rfl, ciB, hfB2, hlpB, htyB⟩ := natOpCod_ble hcodb
@@ -1759,15 +1752,13 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
     simp only [ConLeche.natDivModNames, List.mem_cons,
       List.not_mem_nil, or_false] at hmem
     rcases hmem with h|h|h|h|h|h|h|h <;> (rw [h]; decide)
-  obtain ⟨cvS2, vS2, hS2, hfS2', hpinS2⟩ :=
-    ConLeche.natOpStoredOk_tyPinned (hdepAll _ hselfDep)
-  have htyS2 : cvS2.type = type' := by
+  obtain ⟨ciS2, hfS2', -, hpinS2⟩ :=
+    ConLeche.natOpPinnedOk_inv (hdepAll _ hselfDep)
+  have htyS2 : ciS2.toConstantVal.type = type' := by
     rw [ConLeche.Env.find?_cons] at hfS2'
     rw [ite_eq_left (show (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
       hint).name = c from rfl)] at hfS2'
-    obtain ⟨h1, -, -⟩ :=
-      ConLeche.ConstantInfo.defnInfo.inj (Option.some.inj hfS2')
-    rw [← h1]
+    rw [← Option.some.inj hfS2']; rfl
   -- no pin-certified operation is a comparison
   have hnotcmp : (decide (c = ConLeche.natBeqName)
       || decide (c = ConLeche.natBleName)) = false := by
@@ -1873,8 +1864,7 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
       rcases hn with hn | hn
       · have hnd : n ∈ ConLeche.natOpDeps c :=
           (List.mem_filter.mp hn).1
-        obtain ⟨cvn, vn, hintn, hfn, hlpn, -⟩ :=
-          hstoredDep n hnd hnc
+        obtain ⟨cin, hfn, hlpn, -⟩ := hstoredDep n hnd hnc
         exact ⟨_, hfn, hlpn⟩
       · unfold dmUnNames at hn
         simp only [List.mem_cons, List.not_mem_nil,
@@ -1925,8 +1915,7 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
         from acvalWith_self]
       exact dmBinV_of_parts mp.base2 (heq ▸ hmemA ψ ρ)
         (heq ▸ hTok ψ ρ)
-    · obtain ⟨cvn, vn, hintn, hfn, hlpn, hpinn⟩ :=
-        hstoredDep n hnd hnc
+    · obtain ⟨cin, hfn, hlpn, hpinn⟩ := hstoredDep n hnd hnc
       obtain ⟨codn, htyn, hcodn⟩ :=
         natOpTyPinned_binaryE hnu hpinn
       have hcodN : codn = Expr.const ConLeche.natName [] := by
@@ -2016,7 +2005,7 @@ theorem divMod_install {F : Nat} (mp : EnvModelM V env)
       ⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩)
     (hac : m₂.acval = acvalWith mp.base2.acval c A) :
     DivMod m₂ φ := by
-  intro cq hcqN cv' v' hint' hf₂
+  intro cq hcqN ci' hf₂
   by_cases hne : cq = c
   case neg =>
     exact divMod_entry_cons hprev

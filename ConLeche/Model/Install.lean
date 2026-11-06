@@ -353,8 +353,6 @@ docstring). -/
 theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    -- only a definition takes a certified operation's name
-    (hop : natOpName c₀.name = true → ∃ cv v h, c₀ = .defnInfo cv v h)
     (hh : ConsHead env c₀ A)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -485,19 +483,6 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     div_mod := hdiv_mod
     eq_law := heq_law
     caps_ok := hcaps_ok
-    op_defn := fun c hn hs => by
-      by_cases hc : c = c₀.name
-      · subst hc
-        obtain ⟨cv, v, h, he⟩ := hop hn
-        rw [he, isDefinitionAt]
-        simp [ConLeche.Env.find?_cons]
-      · have ha : isDefinitionAt ⟨c₀ :: env.consts, env.tables⟩ c = isDefinitionAt env c := by
-          unfold isDefinitionAt
-          rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)]
-        rw [ha]
-        refine mp.op_defn c hn ?_
-        rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)] at hs
-        exact hs
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
     tower_ok := htower_ok

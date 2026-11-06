@@ -360,7 +360,7 @@ theorem harvestDefn
   refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
     (declStep_preserves_of_cons mp
     (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
-    (A := L) hfresh (fun _ => ⟨_, _, _, rfl⟩)
+    (A := L) hfresh
     (ConsHead.ofFresh
       (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -505,7 +505,7 @@ theorem harvestDefn
     · exact natOps_cons_fresh mp (mp.nat_ops φ)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
         (A := L) hfresh
-        (Or.inr (fun hm => hno (List.contains_iff_mem.mpr hm))) _ rfl
+        (fun hm => hno (List.contains_iff_mem.mpr hm)) _ rfl
   · -- `div_mod` at the extension: a WF operation's own install goes
     -- through the certificate conversion; any other definition
     -- preserves the stored entries
@@ -527,7 +527,7 @@ theorem harvestDefn
     · exact divMod_cons_fresh (mp.div_mod φ)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
         (A := L) hfresh
-        (Or.inr (fun hm => hno (List.contains_iff_mem.mpr hm))) _ rfl
+        (fun hm => hno (List.contains_iff_mem.mpr hm)) _ rfl
   · -- `eq_law` at the extension: a definition is not an inductive
     exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)
@@ -747,7 +747,7 @@ theorem harvestThm
   refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
     (declStep_preserves_of_cons mp
     (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := L) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
+    (A := L) hfresh
     (ConsHead.ofFresh
       (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -793,17 +793,17 @@ theorem harvestThm
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
-  · -- `nat_ops` at the extension: a theorem is not a definition
+  · -- `nat_ops` at the extension: a theorem is refused at a certified name
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩) (A := L)
       hfresh
-      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
-  · -- `div_mod`/`eq_law` at the extension: a theorem is neither a
-    -- definition nor an inductive
+      (ConLeche.not_mem_natOpNames_of hopn).1 _ rfl
+  · -- `div_mod`/`eq_law` at the extension: a theorem is refused at a
+    -- certified name, and it is not an inductive
     exact fun φ => divMod_cons_fresh (mp.div_mod φ)
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := L) hfresh
-      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+      (ConLeche.not_mem_natOpNames_of hopn).2 _ rfl
   · exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .thmInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := L) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
@@ -931,7 +931,7 @@ theorem harvestAxiom
   -- assemble
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := A) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
+    (A := A) hfresh
     (ConsHead.ofFresh
       (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -978,16 +978,17 @@ theorem harvestAxiom
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
-  · -- `nat_ops` at the extension: an axiom is not a definition
+  · -- `nat_ops` at the extension: an axiom is refused at a certified name
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := A)
       hfresh
-      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
-  · -- `div_mod`/`eq_law` at the extension: an axiom is neither
+      (ConLeche.not_mem_natOpNames_of hopn).1 _ rfl
+  · -- `div_mod`/`eq_law` at the extension: an axiom is refused at a
+    -- certified name, and it is not an inductive
     exact fun φ => divMod_cons_fresh (mp.div_mod φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) hfresh
-      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+      (ConLeche.not_mem_natOpNames_of hopn).2 _ rfl
   · exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := A) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
@@ -1215,7 +1216,7 @@ theorem harvestOpaque
   refine coverStepLeaf_cons hfresh (fun _ _ h => nomatch h) (fun _ _ _ h => nomatch h) hLP
     (declStep_preserves_of_cons mp
     (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
-    (A := L) hfresh (fun hn => Bool.noConfusion ((show natOpName cv.name = true from hn).symm.trans hopn))
+    (A := L) hfresh
     (ConsHead.ofFresh
       (EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf ⟨htf', htp,
         Expr.constsResolve_mono htr, hbt',
@@ -1260,17 +1261,17 @@ theorem harvestOpaque
       hfresh ⟨(fun _ _ h => ConstantInfo.noConfusion h),
           (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
       _ rfl φ
-  · -- `nat_ops` at the extension: an opaque stores an axiom entry
+  · -- `nat_ops` at the extension: an opaque is refused at a certified name
     exact fun φ => natOps_cons_fresh mp (mp.nat_ops φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩) (A := L)
       hfresh
-      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
-  · -- `div_mod`/`eq_law` at the extension: an opaque stores an axiom
-    -- entry, which is neither a definition nor an inductive
+      (ConLeche.not_mem_natOpNames_of hopn).1 _ rfl
+  · -- `div_mod`/`eq_law` at the extension: an opaque is refused at a
+    -- certified name, and its axiom entry is not an inductive
     exact fun φ => divMod_cons_fresh (mp.div_mod φ)
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := L) hfresh
-      (Or.inl (fun _ _ _ h => ConstantInfo.noConfusion h)) _ rfl
+      (ConLeche.not_mem_natOpNames_of hopn).2 _ rfl
   · exact eqLaw_cons_valueKind mp.eq_law
       (c₀ := .axiomInfo ⟨cv.name, cv.levelParams, type'⟩)
       (A := L) (fun _ _ h => ConstantInfo.noConfusion h) _ rfl
