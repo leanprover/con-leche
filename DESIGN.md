@@ -111622,3 +111622,65 @@ length and one value have one set of full fits, and along a fit they end in one 
    sort enters every statement under a fit of the index telescope at the key.
 4. `FormerRuns` out of `Modular.lean`, `Main.lean`, `MainTheorem.lean`, `Challenge.lean`,
    `Axioms.lean`'s table, OVERVIEW §1, whitepaper §7.
+
+### #443: step 1 done; option (e) stops at a container's group mates (#443 cont. 2, 2026-11-06)
+
+**Merged.**  `modular` had nothing past the lane's base (`d3adce1ca`); no merge commit.
+
+**Proved (on the lane, not landed).**
+* `Model/Inductives/FamilyRun.lean` — step 1.  `teleRed_read`: a `TeleRed` chain of a graded
+  type reads, stage by stage through `red_sound_ty` at the binders opened at free variables, as
+  a Π-tower of the chain's length over the sort's value, graded, of the subject's value.
+  `familyTelescope_read`: at a stored definition-headed former, a successful run's result is
+  closed, `ConstsBound`, and at every level assignment reads as such a tower of the declared
+  type's value.  It needs only `RulesInputs` at the model (`EnvModelM` projections and the three
+  literal rows): no field of it reads `lfpBlocks`, so the run at the importer's context is read in
+  the context's own model with no datum.  (`TeleRed` is now `@[expose]`.)
+* `Semantics/Tower/TowerKit.lean`: `mkPisAV_sort_eq_unitSet` (a Π-tower over a sort with no
+  fit is `unitSet`) and **`mkPisAV_tail_eq`**: two towers over sorts of one value, prefixes of one
+  length, rests of one length — past a spine that fits BOTH prefixes, the rests have one value
+  (strict along a fit of the rest, `piSet_inj` stage by stage; where the rest has no fit on one
+  side it has none on the other, and both are the unit).  This is what a hole type at a key needs
+  of a run: its value at the key is the datum's index tower's, provided the key's parameters fit
+  the run's own parameter binders as well as the block's.
+
+**The obstacle.**  The container walk types every group mate's hole by that mate's own run
+(`nestGrowGroup` → `nestInstType` → `familyTelescope`, instantiated at the key's `ds` by
+`instPisWith`, no check), and its frames must satisfy every hole (`frameVals_sat`; every
+`red_sound` under the frame needs `CtxOk`, whose entry for a hole is its annotation's reading).
+The key's parameters are checked against a run only for the group's head (`familyKeyCheck` in
+`nestFrame`); for the head, `checkSpineAt`'s certificates make the key fit the run's binders, and
+`mkPisAV_tail_eq` gives the hole type's value.  For another mate `B` the key fits the block's
+parameter telescope (`Sat params`, `parsSat`) and the run's binders only where it extends to a
+full fit of `B`'s telescope: a parameter stage is determined by the value only where the
+parameters before it extend to a full fit.  Where they do not — `B`'s index telescope empty at
+every extension of a prefix of the key, e.g. `B : (p : Bool) → Empty → Type` with a head whose
+indices are inhabited — the tower from that stage on is the unit whatever its binders, so the
+run's later parameter binders need not admit the key's arguments, and the run's hole type for `B` at that key (its later
+binders substituted at arguments outside their domains), and whether `B`'s hole value inhabits
+it, are not determined; the frame is not shown to satisfy its
+context, and the walk's claims for the OTHER mates at that key (needed: their carriers at that
+key are not empty) are lost.  No statement "along full fits" repairs it: the fit that is missing
+is `B`'s, the claims needed are the head's.  Two reducts of one type disagreeing in their
+parameter binders is excluded by the rules (convertibility), which the value does not see.
+
+**What would work, for a ruling.**
+* **(g) type every mate's instantiation**: `nestFrame` (or `nestGrowGroup`) runs
+  `familyKeyCheck` at every group member's key, not only the head's.  Then every hole's key fits
+  its run's binders and `mkPisAV_tail_eq` gives every hole type's value as the datum's, and plan
+  (e) proceeds with the hole types compared by value.  It is stricter than official (which types
+  the replaced application, the head's) only where a mate's parameter domains are not
+  definitionally the key's arguments' types, which a block whose members share their parameters
+  never is; executed code changes (arena re-run, perf of one spine check per mate per frame).
+  The recursor stage (`RecCheck`'s `familyKeyCheck` at `M.ind`) is to be checked for the same
+  pattern.
+* (f) of the first record (a rules-tier statement that two `TeleRed` chains of one type end in
+  binder-wise convertible telescopes) would also do it, without a kernel change.
+
+**State for the next session.**  Steps 2–4 not started; `FormerRuns` is still in the capstones.
+With (g): step 2 as planned (datum semantic and run-free; the flat members keep a syntactic
+"`denote cv.type` is a Π-tower of the telescope's length over a sort" so that every member reads
+through one lemma), then step 3 with the hole types by value (`mkPisAV_tail_eq` at each mate,
+`spineFit_iff_of_mkPisAV_eq` for the sort along fits).
+
+**Gates.**  `lake build` of the touched modules and the capstone; nothing executed changed.
