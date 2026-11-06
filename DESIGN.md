@@ -109961,3 +109961,19 @@ own typing, a change to the model and outside this lane.
 The streams under 1 G move by −1.79 % to +1.61 % at one job (absolute at most 0.003 G) and by −0.57 % to −32.85 % at
 eight, where the install's thread pool no longer starts.  Peak RSS on init-full: 0.30 GiB at one job, 0.52 GiB at
 eight.  Wall time on this shared machine, a rough note only: init-full at eight jobs, parse 0.3 s, check 5.5 s.
+
+### All of Mathlib, master against this branch (#480; 2026-11-06)
+
+`mathlib-full.ndjson`, `--verified`, `instructions:u`, one run per cell, under the RSS guard.
+Base: `13e9d0a05` (master `65e9659bb` plus the #480 record); head: `24320caa7`.  All four runs
+accept 691203 declaration records.
+
+| | base `--jobs=1` | head `--jobs=1` | base `--jobs=8` | head `--jobs=8` |
+|---|---|---|---|---|
+| instructions | 6.702 T | 6.679 T (−0.34 %) | 6.919 T | 6.804 T (−1.67 %) |
+| phases (wall, rough) | parse 16.0 s, install 32.1 s, check 603.9 s | parse 19.6 s (index 3.6 s), check 607.3 s | parse 8.1 s, install 4.5 s, check 91.9 s | parse 7.1 s (index 0.7 s), check 90.7 s |
+| total wall (rough) | 652.0 s | 626.9 s | 104.5 s | 97.8 s |
+| peak RSS | 4.29 GiB | 4.27 GiB | 4.77 GiB | 4.78 GiB |
+
+The install phase's 32.1 s at one worker is gone; the guards it ran now run in the jobs
+(check +3.4 s at one worker).  The index build is 3.6 s at one worker, 0.7 s at eight.
