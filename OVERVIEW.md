@@ -113,16 +113,15 @@ record in fold order is the one reported. The flag
 `--progress[=N|P%|Ss]` prints a heartbeat on stderr, a line every `N` declarations, per `P` percent
 of a phase, or at the first declaration done once `S` seconds have passed (so a long single check,
 or a step with no declarations, says nothing until it ends), with one line
-shape per phase — `install <i>/<N> <decl>` before a declaration is
-installed, `check <done> (<percent>%)` after a completed check, with its name at `--progress=1` — each phase saying when it starts
+shape per phase — `install <i> (<percent>%)` before a declaration is
+installed, `check <done> (<percent>%)` after a completed check, each with its name at `--progress=1` — each phase saying when it starts
 (`reading`, `checking`), bracketed by `parse done`, `install
 done` (preceded by an `install:` line with the install's own
 phases), `persistent mark`, `check done` and a
 `done:` summary with the three phase durations and the worker count
 (bare, every declaration); on more than one worker, each `install` and
 `check` line ends with the number of busy workers and the oldest record
-one of them is on, with its age, in a `check` line only at `--progress=1` or once it has run for
-10 s. With `--olean` the parse is preceded by
+one of them is on, with its age, only at `--progress=1` or once it has run for 10 s. With `--olean` the parse is preceded by
 `read:` lines, each with the time and the resident set: the import closure traced, the modules
 loading, at the pace asked for (a count of declarations counts their constants), then the merge, the blocks and the emission, so that a run
 that does not get through the read says how far it got and at what size.
@@ -511,7 +510,7 @@ Read from the outside in:
    boundary on — is marked persistent once, so that no check pays
    reference counting on it, and the checks are then run on worker
    threads: a pool of them
-   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L217))
+   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L213))
    claims jobs one at a time off a shared counter, and the results,
    in job order, are walked
    ([definition `collectJobs` in `ConLeche/Verify/Cached/Defer.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Cached/Defer.lean#L304-L308))

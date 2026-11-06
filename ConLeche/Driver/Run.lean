@@ -104,7 +104,7 @@ def installAndMark (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace
     let tCheck ← IO.monoMsNow
     let i : Installed mode ds := ⟨tCheck, dr, ConLeche.Cached.jobOrder dr.p.2.2 dr.D, rfl⟩
     let J := i.jobs
-    beat err pace s!"install done: {total}/{total} declarations installed, \
+    beat err pace s!"install done: {total} declarations installed, \
       {J.order.size} checks pending ({dr.D.size} of them inductive blocks) t={secs (tCheck - t0)}s \
       (install {secs (tCheck - tParse)}s)"
     -- **THE PERSISTENT MARK AT THE PHASE BOUNDARY.**  The installed

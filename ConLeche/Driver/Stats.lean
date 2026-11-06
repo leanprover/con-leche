@@ -152,6 +152,10 @@ def Live.new (workers : Nat) : IO Live := do
 @[inline] def Live.idle (lv : Live) (w : Nat) : IO Unit := do
   if let some r := lv.cur[w]? then r.set 0
 
+/-- How long a job runs before a heartbeat line names it, in nanoseconds: at a pace that does
+not name every job, the oldest in flight is news only once it is taking long. -/
+def oldestAge : Nat := 10_000_000_000
+
 /-- ` busy=<b>/<n>, oldest <label> <age>s`: the heartbeat's suffix.  The oldest is left out
 while it is younger than `minAge` nanoseconds: until then it says nothing. -/
 def Live.report (lv : Live) (label : Nat → String) (minAge : Nat := 0) : IO String := do

@@ -107,10 +107,6 @@ def jobLabel (J : Jobs) (t : Nat) : String :=
     | none => s!"check {t}"
   | none => s!"check {t}"
 
-/-- How long a check runs before a heartbeat line names it, in nanoseconds: at a pace that does
-not name every check, the oldest in flight is news only once it is taking long. -/
-def oldestAge : Nat := 10_000_000_000
-
 /-- The check phase's heartbeat: when `pace` says a line is due, with `n`
 checks completed so far, job `t` the one just completed, one line,
 naming it if every check gets one (`Pace.trace`).  The counter is the number of COMPLETED checks, so in the

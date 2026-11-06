@@ -230,8 +230,8 @@
    255  def runJob (fe : FEnv) (pend : Array PendingCheck) (D : Array BlockCheck) (j : Job) :
    256      JobResult mode pins fe pend D :=
 
-== ConLeche/Driver/CheckPool.lean#L217
-   217  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat) (J : Jobs) :
+== ConLeche/Driver/CheckPool.lean#L213
+   213  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat) (J : Jobs) :
 
 == ConLeche/Verify/Cached/Defer.lean#L304-L308
    304  def collectJobs (fe : FEnv) (pend : Array PendingCheck) (D : Array BlockCheck)

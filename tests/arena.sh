@@ -535,7 +535,7 @@ echo "prelude counts: $prelude_ok/$prelude_total as expected"
 # heartbeat is printed between the steps of the driver whose result
 # carries the proof that `checkDecls` returns its environment, so the
 # flag changes no verdict by construction.  The contract checked here:
-# the lane prints one line SHAPE per phase — `install <i>/<N> <decl>`
+# the lane prints one line SHAPE per phase — `install <i> (<percent>%) <decl>`
 # BEFORE every declaration at stride 1 (the localisation mode: a run
 # dying in the install phase names the declaration it died in on its
 # last line) and `check <done> (<percent>%) <decl>` AFTER every completed check
@@ -566,7 +566,7 @@ prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: install [0-9]')
 # one install line per FOLD record: the stream's records after the
 # built-in prelude's (task #191) — the total the `install done: N/N`
 # line names; the verdict line counts the stream's records only
-prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: [0-9]*\/\([0-9]*\) .*/\1/p')
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: \([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the flag" \
@@ -654,7 +654,7 @@ prog_check "--progress=1000s: no check line in a short run" \
 prog_check "--progress=1000s: it says what it is reading" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: reading ')" = 1 ] && echo ok)"
 prog_check "--progress=1000s: the install says it has started" \
-  "$([ "$(prog_lines "$prog_errS" '^con-leche: install 0/')" = 1 ] && echo ok)"
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: install 0 ')" = 1 ] && echo ok)"
 prog_check "--progress=1000s: the check says it has started" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: checking: ')" = 1 ] && echo ok)"
 for v in 0% 101% x% 0s xs 1.5s; do

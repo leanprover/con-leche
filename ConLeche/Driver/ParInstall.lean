@@ -704,12 +704,13 @@ def commitLoop (err : IO.FS.Stream) (stride total t0 : Nat)
         simp [pd, Array.getElem?_eq_getElem hk]
       if stride > 0 && i % stride == 0 then
         let now ← IO.monoMsNow
-        let extra ← sh.live.report fun j =>
+        -- (a stride of one is a trace: a line names its record only then)
+        let extra ← sh.live.report (minAge := if stride == 1 then 0 else oldestAge) fun j =>
           match ds[j]? with
           | some d => s!"{ConLeche.Cached.declCLabel d} (#{j})"
           | none => s!"record {j}"
-        err.putStr s!"con-leche: install {i}/{total} \
-          {ConLeche.Cached.declCLabel pd} \
+        let l := if stride == 1 then s!" {ConLeche.Cached.declCLabel pd}" else ""
+        err.putStr s!"con-leche: install {i} ({i * 100 / max 1 total}%){l} \
           t={ConLeche.Cached.msSecs (now - t0)}s{extra}\n"
         err.flush
       if hv : vis[k]? = some c then

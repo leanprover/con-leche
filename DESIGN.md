@@ -109165,15 +109165,16 @@ line per module, as asked: its proof (`closureGo_ok`) would have to carry one fo
 **The pace (maintainer).**  `--progress[=N|P%|Ss]`: `Pace` (`ConLeche/Frontend/Pace.lean`) in place of a
 stride.  Simple on purpose: a line comes when an item finishes, so `10s` is not strictly every ten
 seconds, and a long check or a step with no items is silent until it ends; for that every phase says when
-it starts (`reading`, `read:`, the install's first line, `checking`).  Not in the install's loop, which
-another lane is removing: it takes a plain stride derived from the pace (`Pace.strideFor`), so at
-seconds it prints its first line alone.
+it starts (`reading`, `read:`, the install's first line, `checking`).  The install's loop, which
+another lane is removing, keeps a plain stride derived from the pace (`Pace.strideFor`), so at seconds
+it prints its first line alone.
 
 The load's and the check's lines give a count and a percentage (`read: loaded 71906 modules (30%)`,
 `check 322101 (41%) <decl>`), the total being on the phase's first line just above: long numbers are hard
-to read (maintainer).  The install's lines keep `<i>/<N>`, that phase being another lane's to remove.
+to read (maintainer).  The install's lines now follow suit (maintainer), a small edit in the one print of a phase another
+lane is removing.
 
-A line of the check names its declaration only at `--progress=1`, a trace; at any other pace it is an
+A line of the check or the install names its declaration only at `--progress=1`, a trace; at any other pace it is an
 arbitrary one.  The oldest check in flight is named there too, and elsewhere once it has run for 10 s,
 when it is news (maintainer: two long names per line are noise).
 
