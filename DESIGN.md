@@ -111342,6 +111342,25 @@ each name its source's leaf and calls `ctxModel`; the step is `declsRun_flags`. 
   run at the context succeeds (decline in the worker, or weaken `LfpTelescope`).  That is the next
   step that removes `FormerRuns`.
 
+**The ruling's route for `FormerRuns`, tried and stopped** (after #469).  The ruling: record, at
+a definition-headed context member, the telescope of the importer's own run at its context
+(`readTelescope C cv caps`), with `LfpTelescope` conditional on a successful run.  It is not a
+change to `LfpTelescope` alone.  (1) Where a run at `C` succeeds with `f'` ≠ the home's `f` (#469's
+counterexample), the rest of the datum reads the telescope syntactically: `LfpReads` asks
+`denote (formerAt …).type = some (mkPisAV (pars ++ ids) (sort w))` over the datum's own `pars`/`ids`,
+`LfpCtorReads`' `Tys` and `LfpCaps`' `formerZ` likewise; a datum over `f'` needs its `LfpClause`
+moved across binder by binder, while `reducedFormer_refine` + `red_sound` give the whole tower's
+interpretation only — splitting it is Π-injectivity at inhabited Π-sets, which the `SetTheory`
+interface does not have.  (2) Where no run succeeds, `formerAt = cv` and `LfpReads` asks a
+definition-headed type to read as a Π-tower, which it does not; `LfpReads`, `LfpCtorReads` and
+`LfpCaps` would all become conditional, and every reader of them (the container walk,
+`ContWalk.lean`, compares them syntactically with its run's crest) would have to go through
+`FamilyRead`.  Options, a ruling: (a) Π-injectivity in the interface plus the datum transport
+(several hundred lines, new mathematics); (b) semantic `LfpReads`/`LfpCtorReads`/`FamilyRead`;
+(c) the worker re-runs `reducedFormer` at its context on every reached definition-headed member
+and declines where it fails or differs from the home's telescope (a runtime check; the telescope's
+names read alike checked too); (d) `FormerRuns` stays explicit.  Nothing of the route landed.
+
 **Gates.**  After merging `modular` (#464, #469): `lake build`, `lake test` warning-free;
 `tests/arena.sh` in full under the guard (below); overview links, quote gate, shake (measured
 import lines allowlisted, measured demotions recorded as fallbacks), challenge, layering, trust
