@@ -350,8 +350,8 @@
      2  # tests/layering.sh — THE LAYERING GATE (task #161, S1; re-cut at the
      3  # SetR removal, 2026-09-05).
 
-== ConLeche/Frontend/Olean/Lazy.lean#L281
-   281  def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
+== ConLeche/Frontend/Olean/Lazy.lean#L294
+   294  def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
 
 == ConLeche/Frontend/Olean/Records.lean#L152-L153
    152  def readValue {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (values : Array ModRef)

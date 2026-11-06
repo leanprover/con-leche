@@ -578,7 +578,7 @@ the values of its theorems (on Mathlib's closure, 93 of 138 million expression o
 reached from nothing else), and nothing but a theorem's own check reads one: a theorem is
 stored by its statement, the merge compares statements, and the index never looks at the
 value. So the load
-([function `loadAt` in `ConLeche/Frontend/Olean/Lazy.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Lazy.lean#L281))
+([function `loadAt` in `ConLeche/Frontend/Olean/Lazy.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Lazy.lean#L294))
 reads everything of a module except those values, and a theorem's record holds a reference to
 where its value is stored. The check reads it
 ([function `readValue` in `ConLeche/Frontend/Olean/Records.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Olean/Records.lean#L152-L153)),
