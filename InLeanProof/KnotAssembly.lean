@@ -38,6 +38,32 @@ variable (s : InLean.CState)
     OkS { s with inferC := m } e = OkS s e := rfl
 @[conleche_grind =] theorem TabLe_setInferC (s₀ : InLean.CState) (m : Std.HashMap EKey Expr) :
     TabLe s₀ { s with inferC := m } = TabLe s₀ s := rfl
+@[conleche_grind =] theorem TrS_setWhnfCoreC (m : Std.HashMap EKey Expr) (e : Expr) :
+    TrS { s with whnfCoreC := m } e = TrS s e := rfl
+@[conleche_grind =] theorem OkS_setWhnfCoreC (m : Std.HashMap EKey Expr) (e : Expr) :
+    OkS { s with whnfCoreC := m } e = OkS s e := rfl
+@[conleche_grind =] theorem TabLe_setWhnfCoreC (s₀ : InLean.CState) (m : Std.HashMap EKey Expr) :
+    TabLe s₀ { s with whnfCoreC := m } = TabLe s₀ s := rfl
+@[conleche_grind =] theorem TrS_setWhnfCoreCheapC (m : Std.HashMap EKey Expr) (e : Expr) :
+    TrS { s with whnfCoreCheapC := m } e = TrS s e := rfl
+@[conleche_grind =] theorem OkS_setWhnfCoreCheapC (m : Std.HashMap EKey Expr) (e : Expr) :
+    OkS { s with whnfCoreCheapC := m } e = OkS s e := rfl
+@[conleche_grind =] theorem TabLe_setWhnfCoreCheapC (s₀ : InLean.CState)
+    (m : Std.HashMap EKey Expr) : TabLe s₀ { s with whnfCoreCheapC := m } = TabLe s₀ s := rfl
+@[conleche_grind =] theorem TrS_setWhnfC (m : Std.HashMap EKey Expr) (e : Expr) :
+    TrS { s with whnfC := m } e = TrS s e := rfl
+@[conleche_grind =] theorem OkS_setWhnfC (m : Std.HashMap EKey Expr) (e : Expr) :
+    OkS { s with whnfC := m } e = OkS s e := rfl
+@[conleche_grind =] theorem TabLe_setWhnfC (s₀ : InLean.CState) (m : Std.HashMap EKey Expr) :
+    TabLe s₀ { s with whnfC := m } = TabLe s₀ s := rfl
+@[conleche_grind =] theorem TrS_setInferIOC (m : Std.HashMap EKey Expr) (e : Expr) :
+    TrS { s with inferIOC := m } e = TrS s e := rfl
+@[conleche_grind =] theorem OkS_setInferIOC (m : Std.HashMap EKey Expr) (e : Expr) :
+    OkS { s with inferIOC := m } e = OkS s e := rfl
+@[conleche_grind =] theorem TabLe_setInferIOC (s₀ : InLean.CState) (m : Std.HashMap EKey Expr) :
+    TabLe s₀ { s with inferIOC := m } = TabLe s₀ s := rfl
+@[conleche_grind =] theorem TabLe_setDefeqC (s₀ : InLean.CState)
+    (m : Std.HashMap (EKey × EKey) Bool) : TabLe s₀ { s with defeqC := m } = TabLe s₀ s := rfl
 
 end Setters
 
@@ -233,5 +259,287 @@ theorem memoEI_infer_specI (henv : ConLeche.EnvWF env)
     vcgen [coreKnotI_infer_succ, InLean.memoEI, hbody.triple] <;> finish
 
 end Infer
+
+/-! ## The whnfCore memos (one map per mode; `vcgen` splits the knot's `if c`) -/
+
+section WhnfCore
+variable {fe : InLean.FEnv} {f : Nat}
+
+theorem coreKnotI_whnfCore_succ (c : Bool) (d : Nat) (i : Expr) :
+    (coreKnotI .verified eager fe (f + 1)).whnfCore c d i =
+      if c then
+        memoEI (·.whnfCoreCheapC) (fun st mp => { st with whnfCoreCheapC := mp })
+          (fun d e => whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe true d e) d i
+      else
+        memoEI (·.whnfCoreC) (fun st mp => { st with whnfCoreC := mp })
+          (fun d e => whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe false d e) d i := by
+  cases eager <;> cases c <;> rfl
+
+theorem CSOKI.whnfCore_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
+    (hs : CSOKI .verified eager env s) (hl : s.whnfCoreC[EKey.mk i]? = some r) (hok : OkS s i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s i)) :
+    OkS s r = true ∧ Runs ((ConLeche.fueledFns .verified eager env).whnfCore false d (TrS s i)) (TrS s r) ∧
+      ConLeche.Expr.WScoped d (TrS s r) ∧ (TrS s r).looseBVarsBounded 0 = true := by
+  obtain ⟨hokr, hc, F, hF⟩ := (hs.whnfCoreC i r hl).hit hok hw
+  exact ⟨hokr, ⟨F, hF⟩, ConLeche.whnfCore_WScoped henv F hF hw, hc⟩
+grind_pattern [conleche_grind] CSOKI.whnfCore_hit =>
+  CSOKI .verified eager env s, s.whnfCoreC[EKey.mk i]?, TrS s r, ConLeche.Expr.WScoped d (TrS s i)
+
+theorem CSOKI.whnfCoreCheap_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
+    (hs : CSOKI .verified eager env s) (hl : s.whnfCoreCheapC[EKey.mk i]? = some r)
+    (hok : OkS s i = true) (hw : ConLeche.Expr.WScoped d (TrS s i)) :
+    OkS s r = true ∧ Runs ((ConLeche.fueledFns .verified eager env).whnfCore true d (TrS s i)) (TrS s r) ∧
+      ConLeche.Expr.WScoped d (TrS s r) ∧ (TrS s r).looseBVarsBounded 0 = true := by
+  obtain ⟨hokr, hc, F, hF⟩ := (hs.whnfCoreCheapC i r hl).hit hok hw
+  exact ⟨hokr, ⟨F, hF⟩, ConLeche.whnfCore_WScoped henv F hF hw, hc⟩
+grind_pattern [conleche_grind] CSOKI.whnfCoreCheap_hit =>
+  CSOKI .verified eager env s, s.whnfCoreCheapC[EKey.mk i]?, TrS s r, ConLeche.Expr.WScoped d (TrS s i)
+
+theorem CSOKI.whnfCore_insert (henv : ConLeche.EnvWF env) {s₀ s : InLean.CState} {d : Nat}
+    {i r : Expr} (hs : CSOKI .verified eager env s) (htab : TabLe s₀ s) (hok : OkS s₀ i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hr : OkS s r = true) (hc : (TrS s r).looseBVarsBounded 0 = true)
+    (h : Runs ((ConLeche.fueledFns .verified eager env).whnfCore false d (TrS s₀ i)) (TrS s r)) :
+    CSOKI .verified eager env { s with whnfCoreC := s.whnfCoreC.insert (EKey.mk i) r } := by
+  obtain ⟨F, hF⟩ := h
+  have hok' := okS_of_tabLe htab hok
+  rw [← TrS_of_tabLe htab hok] at hw hF
+  exact CSOKI.ofRest (hs.keepMemos.memos _ s.whnfCoreCheapC s.whnfC s.inferC s.inferIOC s.defeqC
+      s.eagerMemos)
+    (UnaryOK.insert (spec := fun F d e => ConLeche.whnfCore .verified eager env F d e)
+      (fun F _ _ _ h₁ h₂ => ConLeche.whnfCore_depth_inv henv F h₁ h₂)
+      hs.whnfCoreC hok' hw hr hc hF)
+    hs.whnfCoreCheapC hs.whnfC hs.inferC hs.inferIOC hs.defeqC (hs.eager.sameTab rfl) rfl
+grind_pattern [conleche_grind] CSOKI.whnfCore_insert =>
+  CSOKI .verified eager env { s with whnfCoreC := s.whnfCoreC.insert (EKey.mk i) r },
+  (ConLeche.fueledFns .verified eager env).whnfCore false d (TrS s₀ i)
+
+theorem CSOKI.whnfCoreCheap_insert (henv : ConLeche.EnvWF env) {s₀ s : InLean.CState} {d : Nat}
+    {i r : Expr} (hs : CSOKI .verified eager env s) (htab : TabLe s₀ s) (hok : OkS s₀ i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hr : OkS s r = true) (hc : (TrS s r).looseBVarsBounded 0 = true)
+    (h : Runs ((ConLeche.fueledFns .verified eager env).whnfCore true d (TrS s₀ i)) (TrS s r)) :
+    CSOKI .verified eager env { s with whnfCoreCheapC := s.whnfCoreCheapC.insert (EKey.mk i) r } := by
+  obtain ⟨F, hF⟩ := h
+  have hok' := okS_of_tabLe htab hok
+  rw [← TrS_of_tabLe htab hok] at hw hF
+  exact CSOKI.ofRest (hs.keepMemos.memos s.whnfCoreC _ s.whnfC s.inferC s.inferIOC s.defeqC
+      s.eagerMemos) hs.whnfCoreC
+    (UnaryOK.insert (spec := fun F d e => ConLeche.whnfCore .verified eager env F d e true)
+      (fun F _ _ _ h₁ h₂ => ConLeche.whnfCore_depth_inv henv F h₁ h₂)
+      hs.whnfCoreCheapC hok' hw hr hc hF)
+    hs.whnfC hs.inferC hs.inferIOC hs.defeqC (hs.eager.sameTab rfl) rfl
+grind_pattern [conleche_grind] CSOKI.whnfCoreCheap_insert =>
+  CSOKI .verified eager env { s with whnfCoreCheapC := s.whnfCoreCheapC.insert (EKey.mk i) r },
+  (ConLeche.fueledFns .verified eager env).whnfCore true d (TrS s₀ i)
+
+/-- The whnfCore memo wrappers simulate the pure whnfCore at one fuel more
+than their bodies. -/
+theorem memoEI_whnfCore_specI (henv : ConLeche.EnvWF env)
+    (hbody : ∀ c, BodySpecI .verified eager env
+      (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe c)
+      (ConLeche.whnfCoreBody .verified (ConLeche.fueledFns .verified eager env) env c))
+    {c : Bool} {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀)
+    (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).whnfCore c d i
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
+      Runs ((ConLeche.fueledFns .verified eager env).whnfCore c d (TrS s₀ i)) (TrS s' v) ∧
+      ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
+  sym only [conleche_grind] =>
+    vcgen [coreKnotI_whnfCore_succ, InLean.memoEI, BodySpecI.triple (hbody true), BodySpecI.triple (hbody false)] <;>
+      finish
+
+end WhnfCore
+
+/-! ## The whnf memo -/
+
+section Whnf
+variable {fe : InLean.FEnv} {f : Nat}
+
+theorem coreKnotI_whnf_succ (d : Nat) (i : Expr) :
+    (coreKnotI .verified eager fe (f + 1)).whnf d i =
+      memoEI (·.whnfC) (fun st mp => { st with whnfC := mp })
+        (fun d e => whnfBodyI (coreKnotI .verified eager fe f) fe d e) d i := by
+  cases eager <;> rfl
+
+theorem CSOKI.whnf_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
+    (hs : CSOKI .verified eager env s) (hl : s.whnfC[EKey.mk i]? = some r) (hok : OkS s i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s i)) :
+    OkS s r = true ∧ Runs ((ConLeche.fueledFns .verified eager env).whnf d (TrS s i)) (TrS s r) ∧
+      ConLeche.Expr.WScoped d (TrS s r) ∧ (TrS s r).looseBVarsBounded 0 = true := by
+  obtain ⟨hokr, hc, F, hF⟩ := (hs.whnfC i r hl).hit hok hw
+  exact ⟨hokr, ⟨F, hF⟩, ConLeche.whnf_WScoped henv F hF hw, hc⟩
+grind_pattern [conleche_grind] CSOKI.whnf_hit =>
+  CSOKI .verified eager env s, s.whnfC[EKey.mk i]?, TrS s r, ConLeche.Expr.WScoped d (TrS s i)
+
+theorem CSOKI.whnf_insert (henv : ConLeche.EnvWF env) {s₀ s : InLean.CState} {d : Nat} {i r : Expr}
+    (hs : CSOKI .verified eager env s) (htab : TabLe s₀ s) (hok : OkS s₀ i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hr : OkS s r = true) (hc : (TrS s r).looseBVarsBounded 0 = true)
+    (h : Runs ((ConLeche.fueledFns .verified eager env).whnf d (TrS s₀ i)) (TrS s r)) :
+    CSOKI .verified eager env { s with whnfC := s.whnfC.insert (EKey.mk i) r } := by
+  obtain ⟨F, hF⟩ := h
+  have hok' := okS_of_tabLe htab hok
+  rw [← TrS_of_tabLe htab hok] at hw hF
+  exact CSOKI.ofRest (hs.keepMemos.memos s.whnfCoreC s.whnfCoreCheapC _ s.inferC s.inferIOC s.defeqC
+      s.eagerMemos) hs.whnfCoreC hs.whnfCoreCheapC
+    (UnaryOK.insert (spec := fun F d e => ConLeche.whnf .verified eager env F d e)
+      (fun F _ _ _ h₁ h₂ => ConLeche.whnf_depth_inv henv F h₁ h₂)
+      hs.whnfC hok' hw hr hc hF) hs.inferC hs.inferIOC hs.defeqC (hs.eager.sameTab rfl) rfl
+grind_pattern [conleche_grind] CSOKI.whnf_insert =>
+  CSOKI .verified eager env { s with whnfC := s.whnfC.insert (EKey.mk i) r },
+  (ConLeche.fueledFns .verified eager env).whnf d (TrS s₀ i)
+
+/-- The whnf memo wrapper simulates the pure whnf at one fuel more than its
+body. -/
+theorem memoEI_whnf_specI (henv : ConLeche.EnvWF env)
+    (hbody : BodySpecI .verified eager env (whnfBodyI (coreKnotI .verified eager fe f) fe)
+      (ConLeche.whnfBody (ConLeche.fueledFns .verified eager env) env))
+    {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀)
+    (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).whnf d i
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
+      Runs ((ConLeche.fueledFns .verified eager env).whnf d (TrS s₀ i)) (TrS s' v) ∧
+      ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
+  sym only [conleche_grind] =>
+    vcgen [coreKnotI_whnf_succ, InLean.memoEI, hbody.triple] <;> finish
+
+end Whnf
+
+/-! ## The io memo -/
+
+section InferIO
+variable {fe : InLean.FEnv} {f : Nat}
+
+theorem coreKnotI_inferIO_succ (d : Nat) (i : Expr) :
+    (coreKnotI .verified eager fe (f + 1)).inferIO d i =
+      memoEI (·.inferIOC) (fun st mp => { st with inferIOC := mp })
+        (fun d e => inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe d e) d i := by
+  cases eager <;> rfl
+
+theorem CSOKI.inferIO_hit (henv : ConLeche.EnvWF env) {s : InLean.CState} {d : Nat} {i r : Expr}
+    (hs : CSOKI .verified eager env s) (hl : s.inferIOC[EKey.mk i]? = some r) (hok : OkS s i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s i)) :
+    OkS s r = true ∧ Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s i)) (TrS s r) ∧
+      ConLeche.Expr.WScoped d (TrS s r) ∧ (TrS s r).looseBVarsBounded 0 = true := by
+  obtain ⟨hokr, hc, F, hF⟩ := (hs.inferIOC i r hl).hit hok hw
+  exact ⟨hokr, ⟨F, hF⟩, ConLeche.inferTypeIO_WScoped henv F hF hw, hc⟩
+grind_pattern [conleche_grind] CSOKI.inferIO_hit =>
+  CSOKI .verified eager env s, s.inferIOC[EKey.mk i]?, TrS s r, ConLeche.Expr.WScoped d (TrS s i)
+
+theorem CSOKI.inferIO_insert (henv : ConLeche.EnvWF env) {s₀ s : InLean.CState} {d : Nat}
+    {i r : Expr} (hs : CSOKI .verified eager env s) (htab : TabLe s₀ s) (hok : OkS s₀ i = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hr : OkS s r = true) (hc : (TrS s r).looseBVarsBounded 0 = true)
+    (h : Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ i)) (TrS s r)) :
+    CSOKI .verified eager env { s with inferIOC := s.inferIOC.insert (EKey.mk i) r } := by
+  obtain ⟨F, hF⟩ := h
+  have hok' := okS_of_tabLe htab hok
+  rw [← TrS_of_tabLe htab hok] at hw hF
+  exact CSOKI.ofRest (hs.keepMemos.memos s.whnfCoreC s.whnfCoreCheapC s.whnfC s.inferC _ s.defeqC
+      s.eagerMemos) hs.whnfCoreC hs.whnfCoreCheapC hs.whnfC hs.inferC
+    (UnaryOK.insert (spec := fun F d e => ConLeche.inferTypeIO .verified eager env F d e)
+      (fun F _ _ _ h₁ h₂ => ConLeche.inferTypeIO_depth_inv henv F h₁ h₂)
+      hs.inferIOC hok' hw hr hc hF) hs.defeqC (hs.eager.sameTab rfl) rfl
+grind_pattern [conleche_grind] CSOKI.inferIO_insert =>
+  CSOKI .verified eager env { s with inferIOC := s.inferIOC.insert (EKey.mk i) r },
+  (ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ i)
+
+/-- The io memo wrapper simulates the pure io slot at one fuel more than its
+body. -/
+theorem memoEI_inferIO_specI (henv : ConLeche.EnvWF env)
+    (hbody : BodySpecI .verified eager env
+      (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe)
+      (ConLeche.inferBodyIO (ConLeche.CoreFns.ioView (ConLeche.fueledFns .verified eager env)) env))
+    {s₀ : InLean.CState} {d : Nat} {i : Expr} (hs : CSOKI .verified eager env s₀)
+    (hok : OkS s₀ i = true) (hw : ConLeche.Expr.WScoped d (TrS s₀ i))
+    (hc : (TrS s₀ i).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).inferIO d i
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
+      Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ i)) (TrS s' v) ∧
+      ConLeche.Expr.WScoped d (TrS s' v) ∧ (TrS s' v).looseBVarsBounded 0 = true; ⊤⦄ := by
+  sym only [conleche_grind] =>
+    vcgen [coreKnotI_inferIO_succ, InLean.memoEI, hbody.triple] <;> finish
+
+end InferIO
+
+/-! ## The defeq memo -/
+
+section Defeq
+variable {fe : InLean.FEnv} {f : Nat}
+
+theorem coreKnotI_defeq_succ (d : Nat) (a b : Expr) :
+    (coreKnotI .verified eager fe (f + 1)).defeq d a b =
+      memoBI (fun d a b => defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe d a b)
+        d a b := by
+  cases eager <;> rfl
+
+theorem CSOKI.defeq_hit {s : InLean.CState} {d : Nat} {a b : Expr} {r : Bool}
+    (hs : CSOKI .verified eager env s) (hl : s.defeqC[(EKey.mk a, EKey.mk b)]? = some r)
+    (hoka : OkS s a = true) (hokb : OkS s b = true)
+    (hwa : ConLeche.Expr.WScoped d (TrS s a)) (hwb : ConLeche.Expr.WScoped d (TrS s b)) :
+    Runs ((ConLeche.fueledFns .verified eager env).defeq d (TrS s a) (TrS s b)) r := by
+  obtain ⟨ca, cb, hca, hcb, F, hF⟩ := hs.defeqC a b r hl
+  rw [TransS_of_ok hoka] at hca
+  rw [TransS_of_ok hokb] at hcb
+  obtain rfl := Option.some.inj hca
+  obtain rfl := Option.some.inj hcb
+  exact ⟨F, hF d hwa.to_wscopedB hwb.to_wscopedB⟩
+grind_pattern [conleche_grind] CSOKI.defeq_hit =>
+  CSOKI .verified eager env s, s.defeqC[(EKey.mk a, EKey.mk b)]?, some r,
+  ConLeche.Expr.WScoped d (TrS s a), ConLeche.Expr.WScoped d (TrS s b)
+
+theorem CSOKI.defeq_insert (henv : ConLeche.EnvWF env) {s₀ s : InLean.CState} {d : Nat}
+    {a b : Expr} {r : Bool} (hs : CSOKI .verified eager env s) (htab : TabLe s₀ s)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true)
+    (hwa : ConLeche.Expr.WScoped d (TrS s₀ a)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
+    (h : Runs ((ConLeche.fueledFns .verified eager env).defeq d (TrS s₀ a) (TrS s₀ b)) r) :
+    CSOKI .verified eager env { s with defeqC := s.defeqC.insert (EKey.mk a, EKey.mk b) r } := by
+  obtain ⟨F, hF⟩ := h
+  have hoka' := okS_of_tabLe htab hoka
+  have hokb' := okS_of_tabLe htab hokb
+  rw [← TrS_of_tabLe htab hoka, ← TrS_of_tabLe htab hokb] at hF
+  rw [← TrS_of_tabLe htab hoka] at hwa
+  rw [← TrS_of_tabLe htab hokb] at hwb
+  refine CSOKI.ofRest (hs.keepMemos.memos s.whnfCoreC s.whnfCoreCheapC s.whnfC s.inferC s.inferIOC _
+      s.eagerMemos) hs.whnfCoreC hs.whnfCoreCheapC hs.whnfC hs.inferC hs.inferIOC ?_
+    (hs.eager.sameTab rfl) rfl
+  intro a' b' r' hl
+  rw [Std.HashMap.getElem?_insert] at hl
+  split at hl
+  · rename_i hk
+    obtain rfl := Option.some.inj hl
+    have hk' : Expr.keyEq a a' = true ∧ Expr.keyEq b b' = true := by
+      simpa [BEq.beq] using hk
+    have hta : TransS s a' = some (TrS s a) := by
+      unfold TransS; rw [← toExpr_of_keyEq _ hk'.1]; exact TransS_of_ok hoka'
+    have htb : TransS s b' = some (TrS s b) := by
+      unfold TransS; rw [← toExpr_of_keyEq _ hk'.2]; exact TransS_of_ok hokb'
+    exact ⟨TrS s a, TrS s b, hta, htb, F, fun d' hda hdb => by
+      show ConLeche.isDefEqCore _ _ _ _ _ _ _ = _; rw [ConLeche.isDefEqCore_depth_inv henv F hda hdb hwa.to_wscopedB hwb.to_wscopedB]; exact hF⟩
+  · exact hs.defeqC a' b' r' hl
+grind_pattern [conleche_grind] CSOKI.defeq_insert =>
+  CSOKI .verified eager env { s with defeqC := s.defeqC.insert (EKey.mk a, EKey.mk b) r },
+  (ConLeche.fueledFns .verified eager env).defeq d (TrS s₀ a) (TrS s₀ b)
+
+/-- The defeq memo wrapper simulates the pure defeq at one fuel more than its
+body. -/
+theorem memoBI_defeq_specI (henv : ConLeche.EnvWF env)
+    (hbody : BodySpecBI .verified eager env
+      (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe)
+      (ConLeche.defeqBody .verified eager (ConLeche.fueledFns .verified eager env) env))
+    {s₀ : InLean.CState} {d : Nat} {a b : Expr} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true)
+    (hwa : ConLeche.Expr.WScoped d (TrS s₀ a)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
+    (hca : (TrS s₀ a).looseBVarsBounded 0 = true) (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).defeq d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs ((ConLeche.fueledFns .verified eager env).defeq d (TrS s₀ a) (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind] =>
+    vcgen [coreKnotI_defeq_succ, InLean.memoBI, hbody.triple] <;> finish
+
+end Defeq
 
 end InLeanProof
