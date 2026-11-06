@@ -111493,3 +111493,90 @@ surface (`lakefile.lean` re-pinned: `ConLeche.Modular` leaves the capstone lib's
 
 **Sizes.**  `Model/Modular/`: `Step` 127, `Read` ~210, `Restrict*` ~1 700, `Valid` ~1 080,
 `Instance` ~230, `Main` ~130 lines.
+
+## TASK #443 — a definition-headed former's telescope, semantically: the analysis, and where it stops (2026-11-06, agent/443-semantic-former)
+
+**The task (maintainer).**  Discharge `FormerRuns` (#463) by making the block datum's telescope
+requirements semantic: a model carries over from home to importer; at most "if the former
+reduces, it is a telescope with this and that".  Ruled out: (a) Π-injectivity in `SetTheory`,
+(c) a runtime re-run/decline, (d) `FormerRuns` explicit.  So (b): `FamilyRead`, `LfpReads`,
+`LfpCtorReads` (and `LfpCaps`) restated so that consumers need the run's result at the importer
+only **up to interpretation** (it denotes what the home's telescope denotes), proved at the
+importer from #469's transport.  First an analysis; stop with the precise obstacle if (b) cannot
+work.  **Result: it stops.**  Nothing but this record is committed.
+
+### 1. What the consumers read of a member's telescope
+
+`FamilyRead` is used only to rewrite a kernel run's result to `(D.formerAt mm cv).type`; a run is in
+hand at every use (`ContSem.instFacts`/`keyCerts`: `nestInstType`, `familyKeyCheck`;
+`TgtOutCls.outsideInst`: `targetOutsideInst`; `GenClsSem` l.1138: `classFormerTy`).  The kernel
+runs `nestInstType` on every mate of a container's group (`nestGrowGroup` over `nestFrameMates`),
+so the container walk has a run for each hole type too.  What is then read off the telescope:
+
+| consumer | reads | kind |
+|---|---|---|
+| `ContWalk.grp_typeT`/`grp_typeT_wd`, `ContN2.instFormer_readB`/`instFormer_read`, `canonHoleTy_read` | the instantiated telescope's binders **as the Terms** `D.pars`/`D.ids` (`abF = pars ++ ids`, `abF.drop n = ids`), the end **as the Term** `.sort (D.w ψ)`; `stripPis`/`instPisWith`/`piBinders` counts | Term equality of binder readings and of the sort |
+| `LfpCtorReads`' `Tys` (`crest_readT`, `frameVals_sat`, `ContInst*`, `ContAccFrame`, `TargetCallFrame`, `GenClsSem` l.678) | each member's hole type, read off `instPisWith (canonParams n) (formerAt ..).type`, Term-equal to the datum's index tower | Term equality (no run needed: the datum's own Terms would do) |
+| `TgtOutCls.read` → `GenOutFacts.genOutIdxLen`/`tailOk`, `GenRecPreRun`, `GenClsData` l.471, `GenFrameTie` | binder count, `TailOk`, the sort (`instPis_sort_of_read`), the parameter prefix (`take |pars|`) | structure, Term-level sort |
+| `GenRecExtra.lfpW_congr` and l.1695, 2371 | the sort `D.w` read off the former's reading (`mkPisAV_sort_inj`) at two valuations | Term-level sort |
+| `ContLeaf` l.70–95, 296–345 | a fit of `pars ++ ids` for a recorded member's application, the key's parameters against the telescope (`certsF_sound`) | interpretation along a fit |
+| `formerAt_mem`/`_wellDenotedTy`/`_interp`, `formerZ_holds`, `LfpCaps` | membership, graded type, zero-ness of the stored former | interpretation, or the stored `cv` |
+| `FamilyRan.read`, `RestrictLfp.telR`/`defhRun`, `CanonCrest` transports | `ConstsBound`/`constsResolve` of the telescope | names read |
+
+The weakest statements that would serve: the hole types `Tys` and the member facts can be the
+datum's own Terms (no Expr, no run: `Tys_mm` the index tower over `D.ids mm`, the member inhabiting
+`mkPisAV (pars ++ ids) (sort w)`, `LfpCaps` on the stored `cv`); the names read can be stated over
+the run's own result.  What remains is the run's result itself: its binders against `pars`/`ids`
+and its end sort against `w`, read by the container walk and the recursor stage.
+
+### 2. What the importer can prove of its run
+
+At a context `C` whose run of `reducedFormer` succeeds with `f'`, #469 gives
+`TeleRed (E n) 0 n cv.type bs s` (`reducedFormer_refine`), sound in the source's model
+(`red_sound_ty`), so `interp (denote f'.type) = interp (denote cv.type)` at every valuation: the
+**whole tower's** value.  The derived Π-injectivity (`SetModel/Tower.lean`, task #480:
+`piSet_inj`, `TowerPath.univ_eq`; a theorem from the interface, no new axiom — #463's record says
+the interface "does not have" it, which is true of the interface and not of what is derived from
+it) splits that value binder by binder **along a fit only**: at an inhabited domain point the
+domains agree and the fibres agree there.
+
+### 3. The obstacle
+
+**The interpretation does not determine a telescope past an empty domain, nor its sort.**
+`piV A B = piR (propN A B) A B`, and over an empty `A` `propN A B = 0` whatever `B`, so
+`piV ∅ B = truthVal True` (`SetModel/Ops.lean`, `piR`, `propN`).  Minimal example: the towers
+`(x : Empty) → Type` and `(x : Empty) → Type 1`, or `(x : Empty) → A → Type` and
+`(x : Empty) → B → Type`, have one interpretation at every valuation.  So "the importer's run's
+result denotes what the home's telescope denotes" is consistent with a run ending in another sort
+or other binders behind an index domain that is empty, and no statement up to interpretation gives
+what the consumers above read: the end sort as `.sort (D.w ψ)` at every level assignment
+(`grp_typeT`, `instFormer_readB`, `TgtOutCls.read`, `lfpW_congr`; the walk's universe check
+`Level.isEquiv s ctx.sort` is modelled through it) and the binders as `D.pars`/`D.ids`.
+Whether two runs of one type can actually differ there is a question about the rules
+(convertibility of two telescopes reduced from one type), which the whole-tower value does not
+decide.  #469's counterexample (`P (Nat.rec two … 0)` against `P 2`) is the other half: there
+the binders differ as Terms with one value, so Term equality is out, and only a value comparison
+along a fit is available.
+
+Re-reading the context's datum at the importer's run (the datum's `telescope`, `pars`, `ids` taken
+from `f'`, the clauses transported) does not avoid it: the datum's `w` is the carrier's universe and
+cannot follow `f'`, and `LfpReads` asks the end sort to be `w` at every level assignment.
+
+### 4. What would work, for a ruling
+
+* **(e) Everything along a fit.**  Restate every consumer's read of a run's result as holding at
+  valuations where the parameter and index telescope has a fit (the binders by a value agreement,
+  `piSet_inj` stage by stage; the sort by `TowerPath.univ_eq`), vacuous elsewhere, and check that
+  each consumer needs it nowhere else (the tuple spaces at `D.w ψ` over an empty index set, the
+  universe check, `lfpW_congr`).  It uses the derived Π-injectivity, no interface change; whether
+  that is inside ruling (a) is the maintainer's to say.  It touches the container walk
+  (`ContWalk`, `ContN2`, `ContInst*`, `ContLeaf`), the recursor stage (`GenClsSem`, `GenRecExtra`,
+  `GenOutFacts`, `GenRecPreRun`, `GenClsData`, `GenFrameTie`, `TargetOutRows`) and the datum's four
+  clauses; several sessions.
+* **(f) The derivations' telescopes, not their values.**  A rules-tier statement that two
+  `TeleRed` chains from one type at one environment end in binder-by-binder convertible telescopes
+  and one sort (`DefEq` per binder, `Level` equivalence at the end) would give, by `defeq_sound`,
+  the value agreement at every valuation, the sort included.  The rules tier has no such statement
+  today; it is a statement about the rules, not about the model.
+
+**Gates.**  Nothing executed or proved changed; no build-relevant diff.
