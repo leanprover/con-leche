@@ -188,7 +188,7 @@ def classNodesAgree (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys 
 
 /-- Twin of `classLeafAt`. -/
 def classLeafAt (M : TargetMajor) (leaf : Expr) : Bool :=
-  match leaf.getAppFn with
+  match leaf.getAppFnT with
   | .const I _ => I == M.ind
   | _ => false
 

@@ -80,9 +80,9 @@ def streamNestedOk (ty : Expr) (mI rP : Nat) : RecRuleFire → Bool
   | .plain => true
   | .levels _ => true
   | .nested lvls pins =>
-    match stripPis mI ty with
-    | some (_, .forallE _ dom _ _) =>
-      (match dom.getAppFn with
+    match (stripPis mI ty).map (fun (p : List Expr × Expr) => EO.stripTop p.2) with
+    | some (.forallE _ dom _ _) =>
+      (match dom.getAppFnT with
        | .const _ us => us == lvls
        | _ => false) &&
       appArgs dom ==

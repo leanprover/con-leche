@@ -63,6 +63,7 @@ def projMissError (fe : FEnv) (hasTable : Bool) (T sn : Name) (i nArgs : Nat) : 
 
 /-- Twin of `Expr.piResult`. -/
 def piResult : Expr → Expr
+  | .mdata _ e => piResult e
   | .forallE _ _ b _ => piResult b
   | e => e
 
@@ -70,10 +71,12 @@ def piResult : Expr → Expr
 def peelPis : Nat → Expr → Option Expr
   | 0, e => some e
   | k + 1, .forallE _ _ b _ => peelPis k b
+  | k + 1, .mdata _ e => peelPis (k + 1) e
   | _ + 1, _ => none
 
 /-- Twin of `Expr.binderDom`. -/
 def binderDom : Nat → Expr → Option Expr
+  | k, .mdata _ e => binderDom k e
   | 0, .forallE _ A _ _ => some A
   | k + 1, .forallE _ _ b _ => binderDom k b
   | _, _ => none
@@ -83,65 +86,77 @@ def teleArityOk (ty : Expr) (args : List Expr) : Bool := (peelPis args.length ty
 
 /-- Twin of `Expr.ioNeutral`. -/
 def Expr.ioNeutral (e : Expr) : Bool :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .lam .. | .letE .. | .bvar _ => false
   | _ => true
 
 /-- Twin of `Expr.headIsProj`. -/
 def Expr.headIsProj (e : Expr) : Bool :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .proj .. => true
   | _ => false
 
 /-- Twin of `Expr.isNatZero`. -/
 def Expr.isNatZero : Expr → Bool
+  | .mdata _ e => Expr.isNatZero e
   | .lit (.natVal 0) => true
   | .const c [] => c == natZeroName
   | _ => false
 
 /-- Twin of `Expr.isLit`. -/
 def Expr.isLitI : Expr → Bool
+  | .mdata _ e => Expr.isLitI e
   | .lit _ => true
   | _ => false
 
 /-- Twin of `Expr.isStrLit`. -/
 def Expr.isStrLitI : Expr → Bool
+  | .mdata _ e => Expr.isStrLitI e
   | .lit (.strVal _) => true
   | _ => false
 
 /-- Twin of `Expr.natPred?`. -/
 def Expr.natPred? : Expr → Option Expr
+  | .mdata _ e => Expr.natPred? e
   | .lit (.natVal (n + 1)) => some (.lit (.natVal n))
-  | .app (.const c []) x => if c == natSuccName then some x else none
+  | .app f x =>
+    match EO.stripTop f with
+    | .const c [] => if c == natSuccName then some x else none
+    | _ => none
   | _ => none
 
 /-- Twin of `Expr.isBoolTrue`. -/
 def Expr.isBoolTrue : Expr → Bool
+  | .mdata _ e => Expr.isBoolTrue e
   | .const c [] => c == boolTrueName
   | _ => false
 
 /-- Twin of `Expr.isEagerReduce`. -/
-def Expr.isEagerReduce : Expr → Bool
-  | .app (.app (.const c _) _) _ => c == eagerReduceName
-  | _ => false
+def Expr.isEagerReduce (e : Expr) : Bool :=
+  e.getAppNumArgsT == 2 &&
+    match e.getAppFnT with
+    | .const c _ => c == eagerReduceName
+    | _ => false
 
 /-- Twin of `Expr.lamPair?`. -/
 def Expr.lamPair? : Expr → Expr → Option (Expr × Expr × Expr × Expr)
+  | .mdata _ a, b => Expr.lamPair? a b
+  | a, .mdata _ b => Expr.lamPair? a b
   | .lam _ t₁ b₁ _, .lam _ t₂ b₂ _ => some (t₁, b₁, t₂, b₂)
   | _, _ => none
 
 /-- Twin of `rawNatLitC?`. -/
 def rawNatLitC? (e : Expr) : Option Nat :=
-  match e with
+  match EO.stripTop (e) with
   | .lit (.natVal n) => some n
   | .const c [] => if c == natZeroName then some 0 else none
   | _ => none
 
 /-- Twin of `sameConstHeadsC`. -/
 def sameConstHeadsC (a b : Expr) : Bool :=
-  match a, b with
+  match EO.stripTop a, EO.stripTop b with
   | .app f₁ _, .app f₂ _ =>
-    match f₁.getAppFn, f₂.getAppFn with
+    match f₁.getAppFnT, f₂.getAppFnT with
     | .const n₁ _, .const n₂ _ => n₁ == n₂
     | _, _ => false
   | _, _ => false
@@ -227,7 +242,7 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
 
 /-- Twin of `formerResSort`. -/
 def formerResSort (ty : Expr) : Option Level :=
-  match piResult ty with
+  match EO.stripTop (piResult ty) with
   | .sort s => some s
   | _ => none
 
@@ -246,7 +261,7 @@ def formerNeverZero (cvT : ConstantVal) (us : List Level) : Bool :=
 
 /-- Twin of `ctorFamily`. -/
 def ctorFamily (fe : FEnv) (cvj : ConstantVal) : Option (ConstantVal × IndCaps) :=
-  match (piResult cvj.type).getAppFn with
+  match EO.stripTop ((piResult cvj.type).getAppFnT) with
   | .const T _ => fe.indView? T
   | _ => none
 
@@ -260,6 +275,7 @@ def etaRescueOk (ctor : Name) (cvj cvT : ConstantVal) (caps : IndCaps) : Bool :=
 variables of depths `i, i + 1, …`. -/
 def openPisAtFvarsM : Nat → Expr → Nat → CheckCM (Option (List Expr × Expr))
   | 0, e, _ => pure (some ([], e))
+  | n + 1, .mdata _ e, i => openPisAtFvarsM (n + 1) e i
   | n + 1, .forallE _ dom body _, i => do
     let fv ← mkFVarM i dom
     match ← openPisAtFvarsM n (body.inst1I fv) (i + 1) with
@@ -319,11 +335,15 @@ def fvarClosureM (e : Expr) : CheckCM (Std.HashSet FVarId) := do
 
 /-- Twin of `residualPW`. -/
 def residualPW : Option Expr → Option PropWhen
-  | some (.sort u) => some (Lvl.zeronessOf u)
-  | _ => none
+  | some e =>
+    match EO.stripTop e with
+    | .sort u => some (Lvl.zeronessOf u)
+    | _ => none
+  | none => none
 
 /-- Twin of `lamProj?`. -/
 def lamProj? : Nat → Expr → Option (Nat × Nat)
+  | k, .mdata _ e => lamProj? k e
   | k, .lam _ _ b _ => lamProj? (k + 1) b
   | k, .bvar j => if j < k then some (k, j) else none
   | _, _ => none
@@ -332,13 +352,13 @@ def lamProj? : Nat → Expr → Option (Nat × Nat)
 def unwrapIdDefs (fe : FEnv) : Nat → Expr → Expr
   | 0, e => e
   | fuel + 1, e =>
-    match e.getAppFn with
+    match e.getAppFnT with
     | .const c _ =>
       match fe.defnView? c with
       | some (_, v, _) =>
         match lamProj? 0 v with
         | some (k, j) =>
-          let args := e.getAppArgs
+          let args := e.getAppArgsT
           if k ≤ args.size && args.size == k then
             unwrapIdDefs fe fuel (args.getD (k - 1 - j) e)
           else e
@@ -350,14 +370,16 @@ def unwrapIdDefs (fe : FEnv) : Nat → Expr → Expr
 def peelPisW (fe : FEnv) : Nat → Expr → Option Expr
   | 0, e => some (unwrapIdDefs fe 4 e)
   | k + 1, .forallE _ _ b _ => peelPisW fe k b
+  | k + 1, .mdata _ e => peelPisW fe (k + 1) e
   | k + 1, e =>
-    match unwrapIdDefs fe 4 e with
+    match EO.stripTop (unwrapIdDefs fe 4 e) with
     | .forallE _ _ b _ => peelPisW fe k b
     | _ => none
 
 /-- Twin of `headTypePW`. -/
 def headTypePW (fe : FEnv) (fvTy : FVarId → Option Expr) (root : Expr) (d : Nat) :
     Expr → Nat → Option PropWhen
+  | .mdata _ e, n => headTypePW fe fvTy root d e n
   | .const I us, n =>
     match fe.find? I with
     | some ci =>
@@ -380,9 +402,10 @@ def headTypePW (fe : FEnv) (fvTy : FVarId → Option Expr) (root : Expr) (d : Na
 /-- Twin of `typeSortPWGo`. -/
 def typeSortPWGo (fe : FEnv) (fvTy : FVarId → Option Expr) (root : Expr) :
     Expr → Nat → Option PropWhen
+  | .mdata _ e, d => typeSortPWGo fe fvTy root e d
   | .forallE _ _ b _, d => typeSortPWGo fe fvTy root b (d + 1)
   | .sort _, _ => some .never
-  | R, d => headTypePW fe fvTy root d R.getAppFn R.getAppNumArgs
+  | R, d => headTypePW fe fvTy root d R.getAppFnT R.getAppNumArgsT
 
 /-- Twin of `typeSortPW`. -/
 def typeSortPW (fe : FEnv) (fvTy : FVarId → Option Expr) (T : Expr) : Option PropWhen :=
@@ -391,6 +414,7 @@ def typeSortPW (fe : FEnv) (fvTy : FVarId → Option Expr) (T : Expr) : Option P
 /-- Twin of `headProofPW`; a projection head reads its field's body
 (`projBodyAt`). -/
 def headProofPW (fe : FEnv) (fvTy : FVarId → Option Expr) : Expr → Option PropWhen
+  | .mdata _ e => headProofPW fe fvTy e
   | .const c us =>
     match fe.find? c with
     | some ci =>

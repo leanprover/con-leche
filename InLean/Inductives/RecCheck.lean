@@ -122,7 +122,7 @@ def targetOutsideInst (ops : CheckerOps) (fe : FEnv) (I : Name) (us : List Level
     | throw (.invalid "target rec: the major's type former does not bind its parameters \
         (official: ill-formed inductive type)")
   let (ibs, s) := piBinders ty
-  let .sort s := s
+  let .sort s := EO.stripTop s
     | throw (.invalid "target rec: the major's type former is not a telescope ending in a \
         sort (official: type expected)")
   pure (ibs.length, s)
@@ -131,7 +131,7 @@ def targetOutsideInst (ops : CheckerOps) (fe : FEnv) (I : Name) (us : List Level
 def targetMajorOf (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
     (mty : Expr) : CheckCM TargetMajor := do
   let args := appArgs mty
-  match mty.getAppFn with
+  match mty.getAppFnT with
   | .const I us =>
     match p.memberNames.findIdx? (· == I) with
     | some t => do
@@ -220,9 +220,9 @@ def targetK53 (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List
   | some (teleW, leafW) =>
     if (← teleW.mapM eraseFVarTys) != (← tele.mapM eraseFVarTys) then pure false
     else
-      match leafW.getAppFn, majDom.getAppFn with
+      match leafW.getAppFnT, majDom.getAppFnT with
       | .const I' us', .const I _ =>
-        if I' == I && leafW.getAppNumArgs == majDom.getAppNumArgs &&
+        if I' == I && leafW.getAppNumArgsT == majDom.getAppNumArgsT &&
             (← ((appArgs leafW).drop Mc.nPc).mapM eraseFVarTys)
               == (← ((appArgs majDom).drop Mc.nPc).mapM eraseFVarTys) &&
             nestOcc p.memberNames 0 0 (mkAppL (.const I' us') ((appArgs leafW).take Mc.nPc)) then

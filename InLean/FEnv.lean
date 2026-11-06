@@ -54,7 +54,7 @@ structure FEnv where
   constant (con-leche installs nothing for it, `declConstants`), so any use
   declines.  `true`, the official kernel's, what Lean needs for ordinary
   use: `sorryAx` is the constant Lean stores, and a certified `Nat`
-  operation's name may hold any declaration. -/
+  operation's name may hold an axiom (`checkAxiomC`). -/
   coreAxioms : Bool := false
 
 /-- Twin of `FEnv.find?`. -/
@@ -115,16 +115,16 @@ def FEnv.ctorView? (fe : FEnv) (n : Name) : Option (ConstantVal × Nat × Nat) :
 
 /-- Twin of `isCtorAppC`. -/
 def isCtorAppC (fe : FEnv) (e : Expr) : Bool :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const cn _ => (fe.ctorView? cn).isSome
   | _ => false
 
 /-- Twin of `etaCtorShapeC`. -/
 def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const c _ =>
     match fe.ctorView? c with
-    | some (_, cnP, cnF) => e.getAppNumArgs == cnP + cnF
+    | some (_, cnP, cnF) => e.getAppNumArgsT == cnP + cnF
     | none => false
   | _ => false
 
@@ -140,7 +140,7 @@ def etaCtorShapeC (fe : FEnv) (e : Expr) : Bool :=
 /-- Twin of `headHintC`.  con-leche's hints are `opaque`/`abbrev`/`regular
 h`, Lean's the same. -/
 def headHintC (fe : FEnv) (e : Expr) : ReducibilityHints :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const nm _ =>
     match fe.defnView? nm with
     | some (_, _, hint) => hint
@@ -149,7 +149,7 @@ def headHintC (fe : FEnv) (e : Expr) : ReducibilityHints :=
 
 /-- Twin of `unfoldableHeadC`. -/
 def unfoldableHeadC (fe : FEnv) (e : Expr) : Bool :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const nm us =>
     match fe.defnView? nm with
     | some (cv, _, _) => us.length == cv.levelParams.length
@@ -210,6 +210,7 @@ def FEnv.recView? (fe : FEnv) (quotRhs : QuotVal → Expr) (n : Name) : Option R
 def piBody? : Nat → Expr → Option Expr
   | 0, e => some e
   | n + 1, .forallE _ _ b _ => piBody? n b
+  | n + 1, .mdata _ e => piBody? (n + 1) e
   | _, _ => none
 
 /-- Twin of `Expr.dropVars`: `n` variables below a term's own, which do not
@@ -224,14 +225,14 @@ container, the parameters moved from under the index binders to the rule
 prefix; the quotient eliminators fire at their first level (`.levels`). -/
 def recFireAt (rv : RecursorVal) (isQuot : Bool) : RecRuleFire :=
   if isQuot then .levels [.param (rv.levelParams.headD .anonymous)] else
-  match piBody? (majorIdxOf rv) rv.type with
+  match (piBody? (majorIdxOf rv) rv.type).map EO.stripTop with
   | some (.forallE _ dom _ _) =>
-    match dom.getAppFn with
+    match dom.getAppFnT with
     | .const T us =>
       if rv.all.contains T then .plain
       else
         let nI := majorIdxOf rv - rulePrefixOf rv
-        let args := dom.getAppArgs.toList
+        let args := dom.getAppArgsT.toList
         .nested us ((args.take (args.length - nI)).map (dropVars nI))
     | _ => .plain
   | _ => .plain
@@ -265,6 +266,7 @@ structure ProjEntry where
 def hasPis : Nat → Expr → Bool
   | 0, _ => true
   | n + 1, .forallE _ _ b _ => hasPis n b
+  | n + 1, .mdata _ e => hasPis (n + 1) e
   | _, _ => false
 
 /-- **Twin of `FEnv.findProj?`**: the table of `T` exists exactly where
@@ -308,15 +310,17 @@ def projBodyAt (T : Name) (nP i : Nat) (cty : Expr) : Option Expr :=
   let rec params : Nat → Expr → Option Expr
     | k, e =>
       if k < nP then
-        match e with
+        match EO.stripTop (e) with
         | .forallE _ _ b _ => params (k + 1) (b.inst1I (.bvar (nP - k)))
         | _ => none
       else some e
     termination_by k => nP - k
   let rec fields : Nat → Expr → Option Expr
-    | j, .forallE _ d b _ =>
-      if j < i then fields (j + 1) (b.inst1I (.proj T j (.bvar 0))) else some d
-    | _, _ => none
+    | j, e =>
+      match EO.stripTop e with
+      | .forallE _ d b _ =>
+        if j < i then fields (j + 1) (b.inst1I (.proj T j (.bvar 0))) else some d
+      | _ => none
     termination_by j => i - j
   (params 0 cty).bind (fields 0)
 

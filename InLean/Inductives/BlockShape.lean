@@ -48,16 +48,19 @@ def unwrapOr (o : Option α) (err : CheckError) : CheckCM α :=
 def stripPis : Nat → Expr → Option (List Expr × Expr)
   | 0, e => some ([], e)
   | n + 1, .forallE _ d b _ => (stripPis n b).map fun (ds, r) => (d :: ds, r)
+  | n + 1, .mdata _ e => stripPis (n + 1) e
   | _ + 1, _ => none
 
 /-- Twin of `Expr.stripLams`. -/
 def stripLams : Nat → Expr → Option (List Expr × Expr)
   | 0, e => some ([], e)
   | n + 1, .lam _ d b _ => (stripLams n b).map fun (ds, r) => (d :: ds, r)
+  | n + 1, .mdata _ e => stripLams (n + 1) e
   | _ + 1, _ => none
 
 /-- Twin of `Expr.piBinders`. -/
 def piBinders : Expr → List Expr × Expr
+  | .mdata _ e => piBinders e
   | .forallE _ ty b _ =>
     let (bs, e) := piBinders b
     (ty :: bs, e)
@@ -72,6 +75,7 @@ def mkPisOf : List Expr → Expr → Expr
 def instPisWith : List Expr → Expr → Option Expr
   | [], e => some e
   | a :: as, .forallE _ _ body _ => instPisWith as (body.inst1I a)
+  | a :: as, .mdata _ e => instPisWith (a :: as) e
   | _ :: _, _ => none
 
 /-- Twin of `Expr.instPisAtLift`. -/
@@ -81,6 +85,7 @@ def instPisAtLift : List Expr → Expr → Option Expr := instPisWith
 def targetPiDomsWith : List Expr → Expr → Option (List Expr)
   | [], _ => some []
   | x :: xs, .forallE _ d b _ => (d :: ·) <$> targetPiDomsWith xs (b.inst1I x)
+  | x :: xs, .mdata _ e => targetPiDomsWith (x :: xs) e
   | _ :: _, _ => none
 
 /-- Twin of `Expr.mkAppN` on a list. -/
@@ -95,7 +100,7 @@ def openPisAtFvars : Nat → Expr → Nat → CheckCM (Option (List Expr × Expr
 
 /-- Twin of `Expr.fvarTypeD`. -/
 def fvarTypeD (x : Expr) : CheckCM Expr := do
-  match x with
+  match EO.stripTop (x) with
   | .fvar id => return (← fvarTypeM? id).getD default
   | _ => return default
 
@@ -207,6 +212,7 @@ def reservedRecName (n : Name) : Bool :=
 
 /-- Twin of `memberIdxAt?`. -/
 def memberIdxAt? (names : List Name) (lvls : List Level) : Expr → Option Nat
+  | .mdata _ e => memberIdxAt? names lvls e
   | .const n us => if us == lvls then names.findIdx? (· == n) else none
   | _ => none
 
@@ -305,9 +311,9 @@ def blockSplit : List ConstantInfo →
 
 /-- Twin of `recTargetOf`. -/
 def recTargetOf (names : List Name) (mI : Nat) (ty : Expr) : Nat :=
-  match stripPis mI ty with
-  | some (_, .forallE _ dom _ _) =>
-    (match dom.getAppFn with
+  match (stripPis mI ty).map (fun (p : List Expr × Expr) => EO.stripTop p.2) with
+  | some (.forallE _ dom _ _) =>
+    (match dom.getAppFnT with
      | .const n _ => names.findIdx? (· == n)
      | _ => none).getD names.length
   | _ => names.length
@@ -330,7 +336,7 @@ def blockCounts? (nPd k nC nR : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat
 def ctorMember? (names : List Name) (lps : List Name) (nP : Nat) (c : ConstantVal × Nat) :
     Option Nat :=
   match stripPis (nP + c.2) c.1.type with
-  | some (_, cbody) => memberIdxAt? names (lps.map .param) cbody.getAppFn
+  | some (_, cbody) => memberIdxAt? names (lps.map .param) cbody.getAppFnT
   | none => none
 
 /-- Twin of `blockGroups`. -/
@@ -384,8 +390,9 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
             (cvTs.all fun c => c.levelParams == lps) &&
             cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps &&
               reservedBasisNames.contains c.1.name == false) then
-          let s : Level := match stripPis (nP + nIdxs.headD 0) cvT0.type with
-            | some (_, .sort s) => s
+          let s : Level := match (stripPis (nP + nIdxs.headD 0) cvT0.type).map
+              (fun (p : List Expr × Expr) => EO.stripTop p.2) with
+            | some (.sort s) => s
             | _ => .zero
           let isProp := Lvl.isEquiv s .zero == some true
           let ctors : List (ConstantVal × Nat) := cs.map fun c => (c.1, c.2.2)
@@ -408,6 +415,7 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
 
 /-- Twin of `Expr.piSortTeleLen?`. -/
 def piSortTeleLen? : Expr → Option Nat
+  | .mdata _ e => piSortTeleLen? e
   | .forallE _ _ body _ => (piSortTeleLen? body).map (· + 1)
   | .sort _ => some 0
   | _ => none

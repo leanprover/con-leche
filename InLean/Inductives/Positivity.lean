@@ -23,12 +23,12 @@ open Lean
 /-- Twin of `whnfTelescope`. -/
 def whnfTelescope (ops : CheckerOps) (env : FEnv) : Nat → Nat → Expr → CheckCM (List Expr × Level)
   | i, 0, e => do
-    match ← ops.whnf env i e with
+    match EO.stripTop (← ops.whnf env i e) with
     | .sort s => pure ([], s)
     | _ => throw (.invalid "direct sum: type former does not reduce to a sort \
         after its parameters and indices")
   | i, n + 1, e => do
-    match ← ops.whnf env i e with
+    match EO.stripTop (← ops.whnf env i e) with
     | .forallE _ dom body _ =>
       let (bs, s) ← whnfTelescope ops env (i + 1) n (body.inst1I (← mkFVarM i dom))
       pure (dom :: bs, s)
@@ -52,7 +52,7 @@ def familyTelescope (ops : CheckerOps) (env : FEnv) (cv : ConstantVal) (caps : I
 def checkSpineAt (ops : CheckerOps) (env : FEnv) (d : Nat) : Expr → List Expr → CheckCM Unit
   | _, [] => pure ()
   | t, a :: as =>
-    match t with
+    match EO.stripTop (t) with
     | .forallE _ ty body _ => do
       let ta ← ops.inferType env d a
       unless ← ops.isDefEq env d ta ty do
@@ -141,7 +141,7 @@ structure NestState where
 def nestCtorEntry (C : Name) (cv : ConstantVal) (nPc nF : Nat) : Option (ConstantVal × Nat × Nat) :=
   match stripPis (nPc + nF) cv.type with
   | some (_, body) =>
-    match body.getAppFn with
+    match body.getAppFnT with
     | .const n _ => if n == C then some (cv, nPc, nF) else none
     | _ => none
   | none => none
@@ -188,14 +188,18 @@ def nestHoleImg (ctx : NestCtx) : List NestHole → Nat → Option Expr
 /-- Twin of `Expr.phApp?`. -/
 def phApp? (b : Nat) : Expr → Nat → Option (Name × List Level)
   | .const c us, 0 => some (c, us)
-  | .app f (.fvar id), n + 1 => if EO.fvDepth? id == some (b + n) then phApp? b f n else none
+  | .mdata _ e, n => phApp? b e n
+  | .app f x, n + 1 =>
+    match EO.stripTop x with
+    | .fvar id => if EO.fvDepth? id == some (b + n) then phApp? b f n else none
+    | _ => none
   | _, _ => none
 
 /-- Twin of `Expr.replaceApps`: an application of a constant to the variables
 of depths `b … b + n - 1` replaced by `f`'s image. -/
 def replaceApps (f : Name → List Level → Option Expr) (b n : Nat) (e : Expr) : Expr :=
   EO.replace (fun x =>
-    match x with
+    match EO.stripTop (x) with
     | .app .. | .const .. => (phApp? b x n).bind fun p => f p.1 p.2
     | _ => none) e
 
@@ -258,7 +262,7 @@ def nestInstType (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (hi : Nat) (key
   pure ((piBinders ty).1.length, ty)
 
 /-- Twin of `nestResHead`. -/
-def nestResHead (e : Expr) : Bool := e.getAppFn.isFVar
+def nestResHead (e : Expr) : Bool := e.getAppFnT.isFVar
 
 /-- The recursion a container's constructors are walked with. -/
 abbrev NestRec := List NestHole → Nat → Nat → Expr → NestState →
@@ -269,7 +273,7 @@ def nestFields (rec : NestRec) (prog : List NestHole) (base : Nat) (err : CheckE
     Nat → Nat → Expr → NestState → CheckCM (List NestFieldKind × List Expr × Expr × NestState)
   | 0, _, cur, st => pure ([], [], cur, st)
   | nF + 1, j, cur, st =>
-    match cur with
+    match EO.stripTop (cur) with
     | .forallE _ a b _ => do
       let (k, nd, st) ← rec prog (base + j) 0 a st
       let (ks, nds, res, st) ← nestFields rec prog base err nF (j + 1)
@@ -419,7 +423,7 @@ def nestPos (ops : CheckerOps) (env : FEnv) (ctx : NestCtx) : Nat → NestRec
     let w ← ops.whnf env dep e
     if !nestOcc ctx.names ctx.nP hi w then
       return (.ordinary, (if nestOcc ctx.names ctx.nP hi e then w else e), st)
-    match w with
+    match EO.stripTop (w) with
     | .forallE _ a b _ =>
       if nestOcc ctx.names ctx.nP hi a then
         throw (.invalid "nested positivity: non positive occurrence of the datatypes \
@@ -429,7 +433,7 @@ def nestPos (ops : CheckerOps) (env : FEnv) (ctx : NestCtx) : Nat → NestRec
       pure (k, .forallE .anonymous a (abstract1 nb dep 0) .default, st)
     | _ =>
       let args := appArgs w
-      match w.getAppFn with
+      match w.getAppFnT with
       | .fvar id =>
         let i := (EO.fvDepth? id).getD 0
         match nestHoleAt ctx prog i with
@@ -467,6 +471,7 @@ def nestRootCanon (ctx : NestCtx) (cv : ConstantVal) : CheckCM (Option Expr) :=
 def piDomsOcc (names : List Name) (lo hi : Nat) : Nat → Expr → Bool
   | 0, _ => false
   | n + 1, .forallE _ d b _ => nestOcc names lo hi d || piDomsOcc names lo hi n b
+  | n + 1, .mdata _ e => piDomsOcc names lo hi (n + 1) e
   | _ + 1, _ => false
 
 /-- Twin of `nestUniformOk`. -/

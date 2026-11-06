@@ -651,7 +651,7 @@ def Elim.replaceIfNested (el : Elim) (lctx : PCtx) (As : Array Expr) (e : Expr) 
   let np := iv.numParams
   let iAs := mkAppN fn (args.extract 0 np)
   let iParams := (iAs.abstractI As).instRevI el.params
-  if let some (_, auxI) := (← get).nestedAux.find? (EO.alphaEq ·.1 iParams) then
+  if let some (_, auxI) := (← get).nestedAux.find? (Expr.clEq ·.1 iParams) then
     return some (mkAppN (mkAppN (.const auxI el.lvls) As) (args.extract np))
   let mut result : Option Expr := none
   for jName in iv.all do

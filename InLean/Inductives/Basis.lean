@@ -208,18 +208,18 @@ def ciAtLps (ci : ConstantInfo) (ps : List Name) : ConstantInfo :=
 infos), and the fields InLean reads at use. -/
 def pinAgrees : ConstantInfo → ConstantInfo → Bool
   | .inductInfo v, .inductInfo v' =>
-    v.name == v'.name && EO.alphaEq v.type v'.type && v.numParams == v'.numParams &&
+    v.name == v'.name && Expr.clEq v.type v'.type && v.numParams == v'.numParams &&
       v.numIndices == v'.numIndices && v.all == v'.all && v.ctors == v'.ctors &&
       v.isRec == v'.isRec
   | .ctorInfo v, .ctorInfo v' =>
-    v.name == v'.name && EO.alphaEq v.type v'.type && v.induct == v'.induct &&
+    v.name == v'.name && Expr.clEq v.type v'.type && v.induct == v'.induct &&
       v.numParams == v'.numParams && v.numFields == v'.numFields
   | .recInfo v, .recInfo v' =>
-    v.name == v'.name && EO.alphaEq v.type v'.type && v.all == v'.all &&
+    v.name == v'.name && Expr.clEq v.type v'.type && v.all == v'.all &&
       majorIdxOf v == majorIdxOf v' && rulePrefixOf v == rulePrefixOf v' && v.k == v'.k &&
       v.rules.length == v'.rules.length &&
       (v.rules.zip v'.rules).all fun (r, r') =>
-        r.ctor == r'.ctor && r.nfields == r'.nfields && EO.alphaEq r.rhs r'.rhs
+        r.ctor == r'.ctor && r.nfields == r'.nfields && Expr.clEq r.rhs r'.rhs
   | _, _ => false
 
 /-- Twin of `pinCopyOk`. -/

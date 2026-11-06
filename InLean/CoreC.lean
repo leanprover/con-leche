@@ -83,6 +83,7 @@ def appArgs (e : Expr) : List Expr := go e []
 where
   go : Expr → List Expr → List Expr
     | .app f a, acc => go f (a :: acc)
+    | .mdata _ e, acc => go e acc
     | _, acc => acc
 
 /-! ### The stored-constant caches -/
@@ -156,7 +157,7 @@ def ruleRhsAtM (fe : FEnv) (c j : Name) (us : List Level) : CheckCM Expr := do
 
 /-- Twin of `unfoldDefinitionI`: a theorem never unfolds. -/
 def unfoldDefinitionI (fe : FEnv) (e : Expr) : CheckCM (Option Expr) := do
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const n us => do
     match fe.defnView? n with
     | some (cv, _, _) =>
@@ -170,7 +171,7 @@ def unfoldDefinitionI (fe : FEnv) (e : Expr) : CheckCM (Option Expr) := do
 
 /-- Twin of `litToCtorIfNatI`. -/
 def litToCtorIfNatI (fe : FEnv) (e : Expr) : CheckCM Expr := do
-  match e with
+  match EO.stripTop (e) with
   | .lit (.natVal n) =>
     if natLitStoredF fe then pure (natLitToConstructor n)
     else pure e
@@ -179,9 +180,9 @@ def litToCtorIfNatI (fe : FEnv) (e : Expr) : CheckCM Expr := do
 /-- Twin of `reduceNatI`. -/
 def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
     CheckCM (Option Expr) := do
-  match e with
+  match EO.stripTop (e) with
   | .app f₁ b =>
-    match f₁ with
+    match EO.stripTop (f₁) with
     | .const c us =>
       match us with
       | _ :: _ => pure none
@@ -193,7 +194,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
           | none => pure none
         else pure none
     | .app f₂ a =>
-      match f₂ with
+      match EO.stripTop (f₂) with
       | .const cn us =>
         match us with
         | _ :: _ => pure none
@@ -235,7 +236,7 @@ def iotaCertsFullIAux (r : CoreFnsI) (depth : Nat) :
     Expr → List Expr → List Expr → CheckCM Bool
   | _, _, [] => pure true
   | ty, acc, arg :: rest => do
-    match ty with
+    match EO.stripTop (ty) with
     | .forallE _ dom body _ => do
         let dom' ← instListM dom acc
         let ta ← r.infer depth arg
@@ -273,7 +274,7 @@ where
   go : List Expr → Expr → List Expr → Option Expr
     | acc, e, [] => some (e.instI acc.toArray)
     | acc, e, a :: as =>
-      match e with
+      match EO.stripTop (e) with
       | .forallE _ _ b _ => go (a :: acc) b as
       | .bvar _ =>
         match acc with
@@ -297,9 +298,9 @@ def iotaIndexOkI (r : CoreFnsI) (depth : Nat) (mI rP cnP : Nat)
 
 /-- Twin of `defeqSpineI`. -/
 def defeqSpineI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM Bool := do
-  match a.getAppFn with
+  match a.getAppFnT with
   | .const n us =>
-    match b.getAppFn with
+    match b.getAppFnT with
     | .const n' us' => do
       let aargs := appArgs a
       let bargs := appArgs b
@@ -317,13 +318,13 @@ def proofIrrelI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM Bool := do
   let ta ← r.inferIO depth a
   let tta ← r.inferIO depth ta
   let wtta ← r.whnf depth tta
-  match wtta with
+  match EO.stripTop (wtta) with
   | .sort uT => do
     let okA ← liftFueled "level comparison" (← isEquivLM uT .zero)
     let tb ← r.inferIO depth b
     let ttb ← r.inferIO depth tb
     let wttb ← r.whnf depth ttb
-    match wttb with
+    match EO.stripTop (wttb) with
     | .sort vT => do
       let okB ← liftFueled "level comparison" (← isEquivLM vT .zero)
       pure (okA && okB)
@@ -350,13 +351,13 @@ def projNodesI (T : Name) (b : Expr) : List Nat → List Expr
 /-- Twin of `structEtaCertWithI`. -/
 def structEtaCertWithI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b wtb : Expr) :
     CheckCM Bool := do
-  match a.getAppFn with
+  match a.getAppFnT with
   | .const cn us => do
     match fe.ctorView? cn with
     | some (cvc, cnP, cnF) => do
       let aargs := appArgs a
       if aargs.length = cnP + cnF then
-        match wtb.getAppFn with
+        match wtb.getAppFnT with
         | .const Tn us' => do
           match fe.indView? Tn with
           | some (cvT, caps) => do
@@ -393,7 +394,7 @@ def structEtaCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : Check
 def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool := do
   let ta ← r.inferIO depth a
   let wta ← r.whnf depth ta
-  match wta.getAppFn with
+  match wta.getAppFnT with
   | .const Tn us' => do
     match fe.indView? Tn with
     | some (cvT, caps) => do
@@ -403,7 +404,7 @@ def structUnitCertI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : Chec
           us'.length = cvT.levelParams.length then do
         let tb ← r.inferIO depth b
         let wtb ← r.whnf depth tb
-        if wtb.isForall then pure false else
+        if (EO.stripTop wtb).isForall then pure false else
         r.defeq depth wta wtb
       else pure false
     | none => pure false
@@ -419,11 +420,11 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM 
 /-- Twin of `formerSortLoopI`. -/
 def formerSortLoopI (wh : Nat → Expr → CheckCM Expr) : Nat → Nat → Expr → CheckCM (Option Level)
   | d, 0, e => do
-    match ← wh d e with
+    match EO.stripTop (← wh d e) with
     | .sort s => pure (some s)
     | _ => pure none
   | d, n + 1, e => do
-    match ← wh d e with
+    match EO.stripTop (← wh d e) with
     | .forallE _ dom b _ => do
       let fv ← mkFVarM d dom
       formerSortLoopI wh (d + 1) n (b.inst1I fv)
@@ -454,7 +455,7 @@ def iotaCase3I (wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (isK : Bool)
 
 /-- Twin of `litMajorToCtorI`. -/
 def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckCM Expr := do
-  match e with
+  match EO.stripTop (e) with
   | .lit (.strVal s) =>
     if strLitStoredF fe then r.whnf depth (strLitToConstructor s)
     else pure e
@@ -462,7 +463,7 @@ def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckC
 
 /-- Twin of `projLitToCtorI`. -/
 def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckCM Expr := do
-  match e with
+  match EO.stripTop (e) with
   | .lit (.strVal s) =>
     if strLitStoredF fe then r.whnf depth (strLitToConstructor s)
     else pure e
@@ -476,12 +477,13 @@ def pinArgsI (lps : List Name) (us : List Level) (args : List Expr) : List Expr 
 
 /-- Twin of `iotaNumArgs`. -/
 def iotaNumArgs : Expr → Nat → Nat
+  | .mdata _ e, n => iotaNumArgs e n
   | .app f _, n => iotaNumArgs f (n + 1)
   | _, n => n
 
 /-- Twin of `iotaArityOk`. -/
 def iotaArityOk (fe : FEnv) (e : Expr) : Bool :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const c us =>
     match fe.recArity? c with
     | some (mI, nL) => iotaNumArgs e 0 == mI + 1 && us.length == nL
@@ -500,7 +502,7 @@ def projCertAtF (fe : FEnv) (verified : Bool) (c : Name) (args : List Expr) : Bo
 
 /-- Twin of `ensureSortI`. -/
 def ensureSortI (r : CoreFnsI) (depth : Nat) (e : Expr) : CheckCM Level := do
-  match ← r.whnf depth e with
+  match EO.stripTop (← r.whnf depth e) with
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
@@ -510,7 +512,7 @@ def checkGuardRowsI (inf wh : Nat → Expr → CheckCM Expr) (guardSort : Level)
   | [] => pure ()
   | (d, dom) :: rest => do
     let t ← inf d dom
-    match ← wh d t with
+    match EO.stripTop (← wh d t) with
     | .sort u =>
       unless Lvl.zeroWhereZero guardSort u do
         throw (.invalid "projection from a propositional structure must be a proposition")
@@ -573,11 +575,11 @@ def inferLamsLeafI (r : CoreFnsI) (d : Nat) (t : Expr) (k : Nat)
 def inferLamsI (r : CoreFnsI) (d : Nat) :
     Nat → Expr → Nat → Array Expr → List Expr → CheckCM Expr
   | fuel + 1, t, k, fvs, stk => do
-    match t with
+    match EO.stripTop (t) with
     | .lam _ ty body _ => do
       let tyo ← instListRevM ty fvs
       let tty ← r.infer (d + k) tyo
-      match ← r.whnf (d + k) tty with
+      match EO.stripTop (← r.whnf (d + k) tty) with
       | .sort _ => do
         let fv ← mkFVarM (d + k) tyo
         inferLamsI r d fuel body (k + 1) (fvs.push fv) (tyo :: stk)
@@ -595,7 +597,7 @@ def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : Expr) (k : Nat)
     (fvs : Array Expr) (stk : List Level) : CheckCM Expr := do
   let ob ← instListRevM t fvs
   let bt ← r.infer (d + k) ob
-  match ← r.whnf (d + k) bt with
+  match EO.stripTop (← r.whnf (d + k) bt) with
   | .sort v => pure (.sort (inferPisOutI stk v))
   | _ => throw (.invalid "expected a sort")
 
@@ -603,11 +605,11 @@ def inferPisLeafI (r : CoreFnsI) (d : Nat) (t : Expr) (k : Nat)
 def inferPisI (r : CoreFnsI) (d : Nat) :
     Nat → Expr → Nat → Array Expr → List Level → CheckCM Expr
   | fuel + 1, t, k, fvs, stk => do
-    match t with
+    match EO.stripTop (t) with
     | .forallE _ ty body _ => do
       let tyo ← instListRevM ty fvs
       let tty ← r.infer (d + k) tyo
-      match ← r.whnf (d + k) tty with
+      match EO.stripTop (← r.whnf (d + k) tty) with
       | .sort u => do
         let fv ← mkFVarM (d + k) tyo
         inferPisI r d fuel body (k + 1) (fvs.push fv) (u :: stk)
@@ -624,7 +626,7 @@ in the eager tower. -/
 def inferSpineI (r : CoreFnsI) (depth : Nat) : Expr → Array Expr → List Expr → CheckCM Expr
   | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
-    match ty with
+    match EO.stripTop (ty) with
     | .forallE _ dom body _ => do
       let dom' ← instListRevM dom acc
       let ta ← r.infer depth a
@@ -633,7 +635,7 @@ def inferSpineI (r : CoreFnsI) (depth : Nat) : Expr → Array Expr → List Expr
       inferSpineI r depth body (acc.push a) rest
     | _ => do
       let ty' ← instListRevM ty acc
-      match ← r.whnf depth ty' with
+      match EO.stripTop (← r.whnf depth ty') with
       | .forallE _ dom body _ => do
         let ta ← r.infer depth a
         unless ← defeqArgI r depth a ta dom do
@@ -645,11 +647,11 @@ def inferSpineI (r : CoreFnsI) (depth : Nat) : Expr → Array Expr → List Expr
 def inferSpineIOI (r : CoreFnsI) (depth : Nat) : Expr → Array Expr → List Expr → CheckCM Expr
   | ty, acc, [] => instListRevM ty acc
   | ty, acc, a :: rest => do
-    match ty with
+    match EO.stripTop (ty) with
     | .forallE _ _ body _ => inferSpineIOI r depth body (acc.push a) rest
     | _ => do
       let ty' ← instListRevM ty acc
-      match ← r.whnf depth ty' with
+      match EO.stripTop (← r.whnf depth ty') with
       | .forallE _ _ body _ => inferSpineIOI r depth body #[a] rest
       | _ => throw (.invalid "function expected")
 
@@ -681,7 +683,7 @@ variable (mode : CheckMode)
 def etaCertI (r : CoreFnsI) (depth : Nat) (ty₁ body₁ : Expr) (b : Expr) : CheckCM Bool := do
   if !(Expr.ioNeutral b) then pure false else
   let tb ← r.inferIO depth b
-  match ← r.whnf depth tb with
+  match EO.stripTop (← r.whnf depth tb) with
   | .forallE _ ty₂ cod₂ _ => do
     if ← r.defeq depth ty₂ ty₁ then do
       let fv ← mkFVarM depth ty₁
@@ -702,13 +704,13 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (isK : Bool)
   | [rl] =>
     match fe.ctorView? rl.ctor with
     | some (cvj, cnP, _) =>
-      match (piResult cvj.type).getAppFn with
+      match EO.stripTop ((piResult cvj.type).getAppFnT) with
       | .const T _ =>
         match fe.indView? T with
         | some (cvT, caps) =>
           if isK = true then do
             let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFn with
+            match tmaj.getAppFnT with
             | .const T' ust =>
               if T' == T ∧ cvj.levelParams.length = ust.length then do
                 let margs := appArgs tmaj
@@ -728,7 +730,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (isK : Bool)
             | _ => pure major
           else if etaRescueOk rl.ctor cvj cvT caps = true then do
             let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFn with
+            match tmaj.getAppFnT with
             | .const T' ust => do
               let margs := appArgs tmaj
               if T' == T ∧ margs.length = caps.etaParams ∧
@@ -747,7 +749,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (isK : Bool)
             | _ => pure major
           else if T == andName then do
             let tmaj ← r.whnf depth (← r.inferIO depth major)
-            match tmaj.getAppFn with
+            match tmaj.getAppFnT with
             | .const T' ust => do
               let margs := appArgs tmaj
               if T' == T ∧ margs.length = cnP ∧
@@ -788,7 +790,7 @@ def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (isK : Bool)
 /-- Twin of `iotaRecI`.  The rule's firing mode is read only inside the
 case-3 certificate (`recFireAt`). -/
 def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckCM (Option Expr) := do
-  match e.getAppFn with
+  match e.getAppFnT with
   | .const c us => do
     match fe.recAt? c with
     | some (rv, isQuot) => do
@@ -798,7 +800,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckCM (Opti
       if args.length = mI + 1 ∧ us.length = rv.levelParams.length ∧
           (peelPis (mI + 1) rv.type).isSome = true then do
         let major ← prepareMajorI mode r fe depth rv.k rv.rules (args.getD mI (.bvar 0))
-        match major.getAppFn with
+        match major.getAppFnT with
         | .const cj usj => do
           match fe.ctorView? cj with
           | some (cvj, cnP, _) =>
@@ -846,7 +848,7 @@ def reduceProjCoreI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name) (i : Na
   let e' ← projLitToCtorI r fe depth c
   match fe.findProj? sn i with
   | some entry =>
-    match e'.getAppFn with
+    match e'.getAppFnT with
     | .const k us => do
       let args := appArgs e'
       if k == entry.ctor ∧ i < entry.numFields ∧
@@ -864,7 +866,7 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
     Expr → List Expr → List Expr → CheckCM WhnfStep
   | t, acc, [] => do pure (.cont (← instListM t acc))
   | t, acc, a :: rest => do
-    match t with
+    match EO.stripTop (t) with
     | .lam _ _ body _ => betaPeelI r fe depth body (a :: acc) rest
     | _ => do
       let e' ← instListM t acc
@@ -874,7 +876,7 @@ def betaPeelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) :
 def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) : Expr → List Expr → CheckCM WhnfStep
   | v, [] => pure (.done v)
   | v, a :: rest => do
-    match v with
+    match EO.stripTop (v) with
     | .lam _ _ body _ => betaPeelI r fe depth body [a] rest
     | _ => do
       let fa := Expr.app v a
@@ -885,10 +887,10 @@ def whnfAppI (r : CoreFnsI) (fe : FEnv) (depth : Nat) : Expr → List Expr → C
 /-- Twin of `whnfCoreStepI`; `mdata` is looked through. -/
 @[inline] def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (cheap : Bool) (depth : Nat)
     (e : Expr) : CheckCM WhnfStep := do
-    match e with
+    match EO.stripTop (e) with
     | .sort _ | .fvar .. | .forallE .. | .lam .. | .const .. | .lit _ => pure (.done e)
     | .app _ _ => do
-      let v ← r.whnfCore cheap depth e.getAppFn
+      let v ← r.whnfCore cheap depth e.getAppFnT
       whnfAppI mode r fe depth v (appArgs e)
     | .proj sn i pe => do
       let c ← if cheap then r.whnfCore true depth pe else r.whnf depth pe
@@ -945,7 +947,7 @@ def checkConstSafety (fe : FEnv) (n : Name) (ci : ConstantInfo) : CheckCM Unit :
 /-- Twin of `inferBodyI`. -/
 def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
   fun depth e => do
-    match e with
+    match EO.stripTop (e) with
     | .sort u => pure (.sort (.succ u))
     | .fvar id =>
       match fvarDepth? id with
@@ -972,25 +974,25 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
       else throw (.notImplemented "string literals before the String support declarations")
     | .forallE _ ty body _ => do
       let tty ← r.infer depth ty
-      match ← r.whnf depth tty with
+      match EO.stripTop (← r.whnf depth tty) with
       | .sort u => do
         let fv ← mkFVarM depth ty
         inferPisI r depth (← peelFuelM) body 1 #[fv] [u]
       | _ => throw (.invalid "expected a sort")
     | .lam _ ty body _ => do
       let tty ← r.infer depth ty
-      match ← r.whnf depth tty with
+      match EO.stripTop (← r.whnf depth tty) with
       | .sort _ => do
         let fv ← mkFVarM depth ty
         inferLamsI r depth (← peelFuelM) body 1 #[fv] [ty]
       | _ => throw (.invalid "expected a sort")
     | .app _ _ => do
-      let tf ← r.infer depth e.getAppFn
+      let tf ← r.infer depth e.getAppFnT
       inferSpineI r depth tf #[] (appArgs e)
     | .proj sn i pe => do
       let tpe ← r.infer depth pe
       let te ← r.whnf depth tpe
-      match te.getAppFn with
+      match te.getAppFnT with
       | .const T us => do
         match fe.findProj? T i with
         | some entry => do
@@ -1022,13 +1024,13 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
 /-- Twin of `inferBodyIOI`. -/
 def inferBodyIOI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
   fun depth e => do
-    match e with
+    match EO.stripTop (e) with
     | .app _ _ => do
-      let tf ← r.infer depth e.getAppFn
+      let tf ← r.infer depth e.getAppFnT
       inferSpineIOI r depth tf #[] (appArgs e)
     | .forallE _ ty body _ => do
       let tty ← r.infer depth ty
-      match ← r.whnf depth tty with
+      match EO.stripTop (← r.whnf depth tty) with
       | .sort u => do
         let fv ← mkFVarM depth ty
         let bt ← r.infer (depth + 1) (body.inst1I fv)
@@ -1072,7 +1074,7 @@ def defeqLamsI (r : CoreFnsI) : Nat → Nat → Expr → Expr → Expr → Expr 
 /-- Twin of `quickDefEqI`. -/
 def quickDefEqI (r : CoreFnsI) (depth : Nat) (a b : Expr) : CheckCM (Option Bool) :=
   if a == b then pure (some true) else
-  match a, b with
+  match EO.stripTop a, EO.stripTop b with
   | .sort u, .sort v => do pure (some (← liftFueled "level comparison" (← isEquivLM u v)))
   | .lit l₁, .lit l₂ => pure (some (l₁ == l₂))
   | .forallE _ ty₁ body₁ _, .forallE _ ty₂ body₂ _ => do
@@ -1170,7 +1172,7 @@ def lazyDeltaProjReductionI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
 
 /-- Twin of `defeqProjPairI`. -/
 def defeqProjPairI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool :=
-  match a, b with
+  match EO.stripTop a, EO.stripTop b with
   | .proj s₁ i₁ e₁, .proj s₂ i₂ e₂ =>
     if s₁ == s₂ && i₁ == i₂ then
       lazyDeltaProjReductionI mode r fe depth s₁ i₁ defeqLoopFuel e₁ e₂
@@ -1180,16 +1182,16 @@ def defeqProjPairI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : Check
 /-- Twin of `defeqStuckI`; two free variables are compared by depth, as
 con-leche compares its levels. -/
 def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM Bool :=
-  match a, b with
+  match EO.stripTop a, EO.stripTop b with
   | .lit l, .app fO _ => do
-    match l, fO with
+    match l, EO.stripTop fO with
     | .strVal s, .const cO usO =>
       if cO == stringOfListName ∧ usO = [] ∧ strLitStoredF fe then
         r.defeq depth (strLitToConstructor s) b
       else stuckIrrelI r fe depth a b
     | _, _ => stuckIrrelI r fe depth a b
   | .app fO _, .lit l => do
-    match l, fO with
+    match l, EO.stripTop fO with
     | .strVal s, .const cO usO =>
       if cO == stringOfListName ∧ usO = [] ∧ strLitStoredF fe then
         r.defeq depth a (strLitToConstructor s)
@@ -1207,7 +1209,7 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) : CheckCM 
     let as₁ := appArgs a
     let as₂ := appArgs b
     if as₁.length = as₂.length then do
-      if ← r.defeq depth a.getAppFn b.getAppFn then do
+      if ← r.defeq depth a.getAppFnT b.getAppFnT then do
         if ← defEqListI r depth as₁ as₂ then pure true
         else stuckIrrelI r fe depth a b
       else stuckIrrelI r fe depth a b
@@ -1253,31 +1255,31 @@ end
 /-! ## The memoised knot -/
 
 /-- Twin of `memoEI`. -/
-@[inline] def memoEI (get' : CState → Std.HashMap Expr Expr)
-    (set' : CState → Std.HashMap Expr Expr → CState)
+@[inline] def memoEI (get' : CState → Std.HashMap EKey Expr)
+    (set' : CState → Std.HashMap EKey Expr → CState)
     (f : Nat → Expr → CheckCM Expr) : Nat → Expr → CheckCM Expr :=
   fun d e => do
-    match (get' (← get))[e]? with
+    match (get' (← get))[EKey.mk e]? with
     | some r => pure r
     | none =>
       let r ← f d e
       modify fun st =>
         let mp := get' st
         let st := set' st ∅
-        set' st (mp.insert e r)
+        set' st (mp.insert (EKey.mk e) r)
       pure r
 
 /-- Twin of `memoBI`. -/
 @[inline] def memoBI (f : Nat → Expr → Expr → CheckCM Bool) : Nat → Expr → Expr → CheckCM Bool :=
   fun d a b => do
-    match (← get).defeqC[(a, b)]? with
+    match (← get).defeqC[(EKey.mk a, EKey.mk b)]? with
     | some r => pure r
     | none =>
       let r ← f d a b
       modify fun st =>
         let mp := st.defeqC
         let st := { st with defeqC := ∅ }
-        { st with defeqC := mp.insert (a, b) r }
+        { st with defeqC := mp.insert (EKey.mk a, EKey.mk b) r }
       pure r
 
 /-- Twin of `knotLevelI`. -/

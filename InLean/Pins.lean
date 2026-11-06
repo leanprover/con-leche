@@ -70,11 +70,11 @@ def canonAt (lps pinLps : List Name) (ty : Expr) : Expr :=
 /-- Twin of `ConstantVal.matchesPin` up to `canon`. -/
 def Pin.matches (p : Pin) (ci : ConstantInfo) : Bool :=
   ci.name == p.name && ci.levelParams.length == p.lps.length &&
-    EO.alphaEq (canonAt ci.levelParams p.lps ci.type) p.type
+    Expr.clEq (canonAt ci.levelParams p.lps ci.type) p.type
 
 /-- `Pin.matches` on a declaration's own name, levels and type. -/
 def Pin.matchesDecl (p : Pin) (n : Name) (lps : List Name) (ty : Expr) : Bool :=
-  n == p.name && lps.length == p.lps.length && EO.alphaEq (canonAt lps p.lps ty) p.type
+  n == p.name && lps.length == p.lps.length && Expr.clEq (canonAt lps p.lps ty) p.type
 
 /-! ## The `Nat` and `Bool` types the guards look up (the basis blocks are
 `InLean/Inductives/Basis.lean`'s) -/

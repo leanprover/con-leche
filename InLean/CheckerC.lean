@@ -94,7 +94,7 @@ def checkTermWF (fe : FEnv) (what : String) (lps : List Name) (e : Expr) : Check
 /-! ## The literal names' shapes (twin of `litShapeOk`) -/
 
 /-- A stored type compared with a shape, `mdata` ignored. -/
-@[inline] def tyIs (ty shape : Expr) : Bool := EO.alphaEq ty shape
+@[inline] def tyIs (ty shape : Expr) : Bool := ty == shape
 
 def natTy : Expr := .const natName []
 def charTy : Expr := .const charName []
@@ -138,9 +138,7 @@ def checkConstantValC (fe : FEnv) (n : Name) (lps : List Name) (ty : Expr)
     (allowOp : Bool := false) : CheckCM Unit := do
   if (fe.env.find? n).isSome then throw (.invalid s!"duplicate declaration {n}")
   if reservedBasisNames.contains n then throw (.invalid s!"reserved basis name {n}")
-  -- the official kernel's policy (`coreAxioms`) admits any declaration at these names: the
-  -- elaborator adds a recursive definition as an axiom while it elaborates it (`addAsAxiom`)
-  if natOpName n && !allowOp && !fe.coreAxioms then
+  if natOpName n && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {n}")
   unless litShapeOk n lps ty do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({n})")
@@ -168,13 +166,15 @@ def natOpCod (fe : FEnv) (c : Name) (e : Expr) : Bool :=
 /-- Twin of `natOpTyPinnedF`. -/
 def natOpTyPinned (fe : FEnv) (c : Name) (ty : Expr) : Bool :=
   if c == natPredName then
-    match ty with
+    match EO.stripTop (ty) with
     | .forallE _ dom body _ => tyIs dom natTy && natOpCod fe c body
     | _ => false
   else
-    match ty with
-    | .forallE _ dom (.forallE _ dom2 body _) _ =>
-      tyIs dom natTy && tyIs dom2 natTy && natOpCod fe c body
+    match EO.stripTop (ty) with
+    | .forallE _ dom b _ =>
+      match EO.stripTop b with
+      | .forallE _ dom2 body _ => tyIs dom natTy && tyIs dom2 natTy && natOpCod fe c body
+      | _ => false
     | _ => false
 
 /-- Twin of `natOpStoredOkF`. -/
@@ -432,7 +432,10 @@ def checkAxiomC (cfg : Config) (fe : FEnv) (v : AxiomVal) : CheckCM Added := do
       return { consts := #[ci] }
     else throw (.notImplemented "quotient soundness axiom mismatch")
   let fe' := { fe with safety := if v.isUnsafe then .unsafe else .safe }
-  checkConstantValC mode fe' v.name v.levelParams v.type
+  -- the official policy (`coreAxioms`) admits an axiom at a certified `Nat`
+  -- operation's name: the elaborator adds a recursive definition as an axiom
+  -- while it elaborates it (`addAsAxiom`); any other declaration there is checked
+  checkConstantValC mode fe' v.name v.levelParams v.type (allowOp := fe.coreAxioms)
   if v.isUnsafe then return { consts := #[ci] }
   if stdAxiomOk fe v.name v.levelParams v.type then return { consts := #[ci] }
   if v.name == trustCompilerName then

@@ -29,7 +29,7 @@ def checkConstantValF (ops : CheckerOps) (fe : FEnv) (cv : ConstantVal) (allowOp
     CheckCM Unit := do
   if (fe.find? cv.name).isSome then throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then throw (.invalid s!"reserved basis name {cv.name}")
-  if natOpName cv.name && !allowOp && !fe.coreAxioms then
+  if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless litShapeOk cv.name cv.levelParams cv.type do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
@@ -51,8 +51,8 @@ def structElimLevel (elim : Name) (large : Bool) : Level :=
 
 /-- Twin of `structCtorResidOk`. -/
 def structCtorResidOk (T : Name) (lps : List Name) (nP o nIdx : Nat) (cbody : Expr) : Bool :=
-  cbody.getAppFn == .const T (lps.map .param) &&
-  cbody.getAppNumArgs == nP + nIdx &&
+  cbody.getAppFnT == .const T (lps.map .param) &&
+  cbody.getAppNumArgsT == nP + nIdx &&
   (appArgs cbody).take nP == structPsAt o nP
 
 /-- Twin of `Expr.mentionsConst`. -/
@@ -62,8 +62,8 @@ def mentionsConst (T : Name) (e : Expr) : CheckCM Bool := mentionsAnyConst [T] e
 
 /-- Twin of `checkSumTele`. -/
 def checkSumTele (n : Nat) (cvTa₀ : ConstantVal) : CheckCM (ConstantVal × Level) :=
-  match stripPis n cvTa₀.type with
-  | some (_, .sort s) => pure (cvTa₀, s)
+  match (stripPis n cvTa₀.type).map (fun (p : List Expr × Expr) => EO.stripTop p.2) with
+  | some (.sort s) => pure (cvTa₀, s)
   | _ => throw (.invalid "direct sum: type former does not reduce to a sort after its \
       parameters and indices")
 
@@ -111,8 +111,8 @@ def checkSumCtorF (ops : CheckerOps) (fe₀ fe : FEnv) (T : Name) (lps : List Na
   checkStructDomsAtF ops fe 0 cq.1 (← tq.1.mapM fvarTypeD) nP
   let xq ← unwrapOr (← openPisAtFvars nF cq.2 nP)
     (.notImplemented "direct sum: constructor field telescope")
-  unless xq.2.getAppFn == Expr.const T (lps.map .param) &&
-      (appArgs xq.2).take nP == cq.1 && xq.2.getAppNumArgs == nP + nIdx do
+  unless xq.2.getAppFnT == Expr.const T (lps.map .param) &&
+      (appArgs xq.2).take nP == cq.1 && xq.2.getAppNumArgsT == nP + nIdx do
     throw (.notImplemented "direct sum: opened constructor residual")
   let fieldsOk ← xq.1.allM fun x => do constsResolveF fe₀ (← fvarTypeD x)
   unless fieldsOk do
@@ -167,6 +167,7 @@ def checkStructProjTableF (w : StructWalkers) (T : Name) (lps : List Name) (nP n
 
 /-- Twin of `Expr.piDomsMentionAny`. -/
 def piDomsMentionAny (names : List Name) : Expr → Bool
+  | .mdata _ e => piDomsMentionAny names e
   | .forallE _ ty b _ =>
     EO.any (fun | .const n _ => names.contains n | .proj s _ _ => names.contains s | _ => false) ty ||
       piDomsMentionAny names b

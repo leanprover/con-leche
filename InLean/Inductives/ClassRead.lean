@@ -55,7 +55,7 @@ def classOfMotiveVar (nP : Nat) (motPos : List Nat) (p : Nat) : Option Nat :=
 
 /-- A variable's depth, at a variable head. -/
 @[inline] def headDepth? (e : Expr) : Option Nat :=
-  match e.getAppFn with
+  match e.getAppFnT with
   | .fvar id => EO.fvDepth? id
   | _ => none
 
@@ -67,7 +67,7 @@ def classReadMinor (nP : Nat) (motPos : List Nat) (d : Nat) (dom : Expr) :
   let some p := headDepth? concl | return none
   let some c := classOfMotiveVar nP motPos p | return none
   let some lastArg := (appArgs concl).getLast? | return none
-  let .const C _ := lastArg.getAppFn | return none
+  let .const C _ := lastArg.getAppFnT | return none
   let mut ihs : List (Nat × Nat) := []
   for q in List.range fvs.length do
     let ty := piResult (← fvarTypeD (fvs.getD q default))
@@ -89,12 +89,13 @@ def classReadMinor (nP : Nat) (motPos : List Nat) (d : Nat) (dom : Expr) :
 def classReadSlots (nPc : Name → Nat) (np : Nat) :
     Nat → List Nat → Nat → Expr → CheckCM (Option (List ClassSlot))
   | 0, _, _, _ => pure (some [])
+  | n + 1, motPos, d, .mdata _ e => classReadSlots nPc np (n + 1) motPos d e
   | n + 1, motPos, d, .forallE _ dom body _ => do
-    let slot? : Option ClassSlot ← match piResult dom with
+    let slot? : Option ClassSlot ← match EO.stripTop (piResult dom) with
       | .sort _ => pure do
         let (bs, _) := piBinders dom
         let mdom ← bs.getLast?
-        let .const I us := mdom.getAppFn | none
+        let .const I us := mdom.getAppFnT | none
         pure (ClassSlot.motive ⟨I, us, (appArgs mdom).take (nPc I)⟩)
       | _ => classReadMinor np motPos d dom
     let some slot := slot? | return none
