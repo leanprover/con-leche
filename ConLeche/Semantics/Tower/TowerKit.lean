@@ -556,6 +556,62 @@ theorem towerPath_of_spineFit {w : Nat} : ∀ {ab : List Term} {ρ : Nat → V} 
   | [], _, _ :: _, h => h.elim
   | _ :: _, _, [], h => h.elim
 
+/-- The universes are distinct. -/
+theorem univ_inj {n m : Nat} (h : (univ n : V) = univ m) : n = m := by
+  have key : ∀ {a b : Nat}, a < b → (univ a : V) ≠ univ b := by
+    intro a b hab he
+    have hm : (univ a : V) ∈ˢ univ b := univ_mono (V := V) hab _ (univ_mem_univ a)
+    rw [← he] at hm
+    exact not_mem_self _ hm
+  rcases Nat.lt_trichotomy n m with hl | rfl | hl
+  · exact absurd h (key hl)
+  · rfl
+  · exact absurd h.symm (key hl)
+
+/-- **Two Π-towers over sorts of one value agree along a fit** (task #443): a spine fitting the
+one fits the other, and they end in one sort.  Off a fit nothing is claimed: over an empty
+domain a function space is a truth value whatever its fibres. -/
+theorem spineFit_of_mkPisAV_eq : ∀ {ab ab' : List Term} {ρ : Nat → V} {vs : List V} {n n' : Nat},
+    ab.length = ab'.length →
+    interp V ρ (mkPisAV ab (.sort n)) = interp V ρ (mkPisAV ab' (.sort n')) →
+    SpineFit ρ ab vs → SpineFit ρ ab' vs ∧ n = n'
+  | [], [], _, [], _, _, _, h, _ => ⟨trivial, univ_inj h⟩
+  | A :: ab, A' :: ab', ρ, v :: vs, n, n', hl, h, hfit => by
+    have hpath := towerPath_of_spineFit (w := n) hfit
+    have hstrict := hpath.strict
+    have hpi : interp V ρ (mkPisAV (A :: ab) (.sort n))
+        = piV (interp V ρ A) fun x => interp V (cons x ρ) (mkPisAV ab (.sort n)) := rfl
+    have hpi' : interp V ρ (mkPisAV (A' :: ab') (.sort n'))
+        = piV (interp V ρ A') fun x => interp V (cons x ρ) (mkPisAV ab' (.sort n')) := rfl
+    rw [hpi, hpi'] at h
+    rw [hpi] at hstrict
+    have hB : ∀ x, x ∈ˢ interp V ρ A →
+        ∃ y, y ∈ˢ interp V (cons x ρ) (mkPisAV ab (.sort n)) :=
+      fun x _ => (towerEnds_mkPisAV ab (cons x ρ) n).nonempty
+    have hne := piV_nonempty hB
+    have h₁ := piV_eq_piSet_of hstrict hne
+    have h₂ := piV_eq_piSet_of (h ▸ hstrict) (h ▸ hne)
+    have hs : piSet (interp V ρ A) (fun x => interp V (cons x ρ) (mkPisAV ab (.sort n)))
+        = piSet (interp V ρ A') (fun x => interp V (cons x ρ) (mkPisAV ab' (.sort n'))) := by
+      rw [← h₁, ← h₂, h]
+    obtain ⟨hv', hf⟩ := piSet_inj hs hB hfit.1
+    obtain ⟨hrest, hn⟩ := spineFit_of_mkPisAV_eq (by simpa using hl) hf hfit.2
+    exact ⟨⟨hv', hrest⟩, hn⟩
+  | [], _ :: _, _, _, _, _, hl, _, _ => nomatch hl
+  | _ :: _, [], _, _, _, _, hl, _, _ => nomatch hl
+  | [], [], _, _ :: _, _, _, _, _, hfit => hfit.elim
+  | _ :: _, _ :: _, _, [], _, _, _, _, hfit => hfit.elim
+
+/-- **Two Π-towers over sorts of one value have one set of fits**, ending in one sort where
+there is one. -/
+theorem spineFit_iff_of_mkPisAV_eq {ab ab' : List Term} {ρ : Nat → V} {n n' : Nat}
+    (hl : ab.length = ab'.length)
+    (h : interp V ρ (mkPisAV ab (.sort n)) = interp V ρ (mkPisAV ab' (.sort n'))) (vs : List V) :
+    (SpineFit ρ ab vs ↔ SpineFit ρ ab' vs) ∧ (SpineFit ρ ab vs → n = n') :=
+  ⟨⟨fun hf => (spineFit_of_mkPisAV_eq hl h hf).1,
+    fun hf => (spineFit_of_mkPisAV_eq hl.symm h.symm hf).1⟩,
+   fun hf => (spineFit_of_mkPisAV_eq hl h hf).2⟩
+
 /-- A Π-tower over a sort that a walk reads above `0`, along a fit, is above `0`. -/
 theorem sort_ne_zero_of_walk {ab : List Term} {ρ : Nat → V} {vs : List V} {w w' : Nat}
     (hfit : SpineFit ρ ab vs)

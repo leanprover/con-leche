@@ -111580,3 +111580,45 @@ cannot follow `f'`, and `LfpReads` asks the end sort to be `w` at every level as
   today; it is a statement about the rules, not about the model.
 
 **Gates.**  Nothing executed or proved changed; no build-relevant diff.
+
+### #443: the ruling, and the state (#443 cont.)
+
+**Ruling (maintainer, 2026-11-06): option (e).**  Every consumer reads a run's result where the
+telescope has a fit, vacuously elsewhere, using the Π-injectivity derived in
+`SetModel/Tower.lean` (`piSet_inj`, `TowerPath.univ_eq`); no interface change, no axiom; uniform
+for every member where possible.  `FormerRuns` is to leave `modular_model_exists` and
+`modular_no_False`, with the axiom pins otherwise unchanged.
+
+**A correction to §4(e).**  Even the domains agree only along a *full* fit: over
+`(x : Nat) → (y : Empty) → Type` every fibre is the truth value `unitSet`, so the whole tower is
+`unitSet`, the value of `(x : Empty) → Type` too, whose first domain differs.  So the agreement to
+state is on fits of the whole telescope, not domain by domain.
+
+**Done (on the lane, not landed).**  `Semantics/Tower/TowerKit.lean`: `univ_inj`;
+**`spineFit_of_mkPisAV_eq`** and `spineFit_iff_of_mkPisAV_eq`: two Π-towers over sorts of one
+length and one value have one set of full fits, and along a fit they end in one sort.
+
+**The plan, in order.**
+1. *The run read in a model* (new, `Model/Env/` next to `CanonCrest.lean`): in `mp : EnvModelM V
+   env`, a successful `familyTelescope (fueledOps .verified F) env cv caps = .ok ty` of a stored
+   former gives `ty` closed, bvar-bounded, `ConstsBound env`, levels defined, and at every `ψ`
+   `denote ty = some (mkPisAV ab (.sort n))` with `interp ab-tower = interp (denote cv.type)` at
+   every `ρ`: from `whnfTelescope_teleRed` at `env` and `red_sound_ty` per stage (`RulesInputs`
+   from `claimsAt_of`, as `storedFormer_sem` gets it), at the fvar-opened stages.  No refinement:
+   the run at the importer's context is a derivation at that context, whose model (`CtxSrc`'s
+   fields) is the one being built; check that the rules' inputs do not read `lfpBlocks`.
+2. *The datum, semantic and run-free*: `LfpReads` asks `interp (denote cv.type) = interp
+   (mkPisAV (pars ++ ids) (.sort w))` and the member inhabits it (graded); `D.w` read off the
+   level parameters as its own clause (what `lfpW_congr` reads today off the reading); `Tys` the
+   datum's own index towers; `LfpCaps` on the stored `cv` (as `formerZ_holds` concludes).  The
+   `telescope` field, `formerAt`, `LfpTelescope`, `FamilyRead`, `FamilyRan`, `readTelescope`,
+   `FormerRunsX` and `ctxModel`'s `hdh` go.  The importer's clauses are then read off the source's
+   by `denote_eq` alone.
+3. *The consumers* read a run's result through 1 and `spineFit_iff_of_mkPisAV_eq`: the container
+   walk (`ContWalk.grp_typeT*`, `ContN2.instFormer_read*`, `canonHoleTy_read`, `ContInst*`,
+   `ContLeaf`), the recursor stage (`TargetOutRows`, `TargetClass.TgtOutCls.read`, `GenOutFacts`,
+   `GenRecPreRun`, `GenClsData`, `GenClsSem`, `GenFrameTie`, `GenRecExtra`), the producers
+   (`DeclBlockStep`, `BlockDatum`, `BlockCtorReads`, `BasisLfp`, `BasisAtBlock`, `Cover`).  The
+   sort enters every statement under a fit of the index telescope at the key.
+4. `FormerRuns` out of `Modular.lean`, `Main.lean`, `MainTheorem.lean`, `Challenge.lean`,
+   `Axioms.lean`'s table, OVERVIEW §1, whitepaper §7.
