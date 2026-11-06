@@ -81,7 +81,8 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
     (hRan : FamilyRan mp) (hNat : NatFacts env)
     (htb : ∀ T, (env.find? T).isSome = true → env₂.findTable? T = env.findTable? T) :
-    ∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp' := by
+    ∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp' ∧
+      ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n := by
   classical
   obtain ⟨hndC₀, hndM₀, hbool₀, isRec, env₁, p₁, sortsss, ctx, holes, rd, Ms, kinds,
     nfs, nodes, st, isorts, outR, hInd, hCtors, hctxR, hcls, hPos, hst, -, hsorts, hRec,
@@ -818,7 +819,19 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   -- ## the tables
   suffices hT : CoverTo mpR [] env₂ [] by
     obtain ⟨mpF, rF, hF'⟩ := hT
-    refine ⟨mpF, hF' (hcovR hcovMpC), fun D hD mm f hmm hs cv caps hf hdh => ?_⟩
+    refine ⟨mpF, hF' (hcovR hcovMpC), fun D hD mm f hmm hs cv caps hf hdh => ?_,
+      fun n hn => ?_⟩
+    rotate_left
+    · -- every stored name keeps its leaf, stage by stage
+      obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hn
+      have hC := hfwdE n ci hci
+      have hnC : ((ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n).isSome = true := by
+        rw [hC]; rfl
+      rw [rF.leaf n (by rw [hfindMono n ci hC]; rfl), show mpR.base2.acval n = mpR₀.base2.acval n
+        from by rw [hbR], hag n hnC]
+      show mpC₀.base2.acval n = _
+      rw [hbC]
+      exact hagE n hn
     have hfw : ∀ n ci, (ConLeche.consBlockCtors p₁.nP p₁.memberCtors env₁).find? n = some ci →
         env₂.find? n = some ci := fun n ci h => rF.find n ci (hfindMono n ci h)
     rcases rF.blocks D hD with h₀ | h₀

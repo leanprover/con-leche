@@ -205,7 +205,9 @@ theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd 
     (hdp : ConLeche.blockShape? nPd block = some p₀)
     (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
     (hRan : FamilyRan mp) (hNat : NatFacts env) :
-    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
+    (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp' ∧
+      ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
+      NatFacts env₂ := by
   obtain ⟨ms, hms, hAt, -, hR⟩ := hrun
   obtain ⟨-, -, -, hmembersOk, -, hClps₀, -, -, -⟩ :=
     ConLeche.blockShape?_inv hdp

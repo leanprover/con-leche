@@ -1024,8 +1024,9 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
     rcases hp with ⟨he, hfe⟩ | ⟨-, -, hrs, -, h4⟩
     · subst he
       rw [hde']
-      have hl := mp.defn_reads ψ cv v ⟨hint, hc⟩
-      rw [hl, show m'.acval cv.name ψ = mp.base2.acval cv.name ψ from congrFun (hsame hfe) ψ]
+      obtain ⟨t, ht, hlr⟩ := mp.defn_reads ψ cv v ⟨hint, hc⟩
+      rw [show m'.acval cv.name ψ = mp.base2.acval cv.name ψ from congrFun (hsame hfe) ψ]
+      exact ⟨t, ht, hlr⟩
     · exact absurd rfl (h4.not_defn (pinnedInfo_wf hrs).2 cv v hint)
   · -- `nat_heads`
     intro φ hsup ρ

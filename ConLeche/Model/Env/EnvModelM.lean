@@ -371,7 +371,6 @@ projection:
 | `cval`, `cval_closed`, `wf`, `proj_ok` | `base2`'s own |
 | `val_params` | `acval_params` |
 | `ty_denotes` | `type_reads` |
-| `defn_eq` | `defn_reads` (definitions only: a theorem is opaque to reduction, and the invariant keeps no equation for its value) |
 | `rec_rhs_denotes`, `rec_params_le` | `rec_rules`' `RecRuleLaw`, whose first two components are exactly those two facts |
 | `nat_op_guard` | `nat_ops`/`div_mod` through `natOpStored_inv` |
 -/
@@ -385,8 +384,6 @@ def toEnvFacts {V : Type w} [SetTheory V]
   ty_denotes := fun c hc ψ => by
     obtain ⟨ta, hta⟩ := m.type_reads c hc ψ
     exact ⟨ta, hta⟩
-  defn_eq := fun cv value hint hmem ψ =>
-    (m.defn_reads ψ cv value ⟨hint, hmem⟩)
   rec_rhs_denotes := fun n cv mI rP isK rules hf r hr us ψ hlen => by
     obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP isK rules hf r hr
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen

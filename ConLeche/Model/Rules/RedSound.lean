@@ -206,7 +206,7 @@ theorem Red.zeta_sound {d : Nat} {ty v body : Expr} :
     RedSem m φ d (.letE ty v body) (body.instantiate1 v) :=
   Red.zeta_soundU.cond
 
-/-- The δ identity (the unfolding has the same reading,
+/-- The δ identity (the unfolding reads and interprets as the subject,
 `denote_unfoldDefinition`) + `unfoldDefinition_WScoped`. -/
 theorem Red.delta_soundU (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
     (h : ConLeche.unfoldDefinition env e = some e') : RedSemU m φ d e e' := by
@@ -215,7 +215,8 @@ theorem Red.delta_soundU (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
       ConLeche.unfoldDefinition_looseBVars m.wf h hf.2.1,
       fun l hl => hf.2.2 l (ConLeche.unfoldDefinition_fvarLeaves m.wf h l hl)⟩,
     fun l hl => ConLeche.unfoldDefinition_fvarLeaves m.wf h l hl,
-    ea, denote_unfoldDefinition hin.defn h hea, fun _ _ _ hg => ⟨hg, rfl⟩⟩
+    (denote_unfoldDefinition hin.defn h hea).imp fun _ h' =>
+      ⟨h'.1, fun ρ _ _ hg => h'.2 ρ hg⟩⟩
 
 theorem Red.delta_sound (hin : RulesInputs V m φ) {d : Nat} {e e' : Expr}
     (h : ConLeche.unfoldDefinition env e = some e') : RedSem m φ d e e' :=
