@@ -27,6 +27,7 @@
 #include "sections/04-inductives.typ"
 #include "sections/05-nested.typ"
 #include "sections/06-extensionality.typ"
+#include "sections/06b-modular.typ"
 #include "sections/07-left-out.typ"
 #include "sections/08-related.typ"
 

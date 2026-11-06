@@ -729,10 +729,6 @@ theorem checkDeclStepC_pushes (mode : CheckMode) (fe : FEnv) (pd : Declaration) 
 
 /-! ## The environment of an accepted stream -/
 
-/-- **The environment a stream denotes**: every record's constants and tables, in order. -/
-@[expose] def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
-  ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
-
 theorem declsRun_env (mode : CheckMode) {ds : List Declaration}
     {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
     q.2.env = streamEnv ds p.2.env := by

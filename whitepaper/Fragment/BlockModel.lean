@@ -549,9 +549,10 @@ variable [LevelOracle]
 /-- **Installing a definition preserves having a block model.** -/
 theorem install_def' {env : Env} {c : Name} {ci : ConstInfo} (hs : Env.Scoped env)
     (m : BlockModel V env) (hok : DefOk env c ci) :
-    ∃ m' : BlockModel V (env.add c ci), ∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls := by
-  obtain ⟨m', hm'⟩ := install_def hs m.toEnvModel hok
-  refine ⟨{ toEnvModel := m', blocks := ?_ }, hm'⟩
+    ∃ m' : BlockModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
+      ∀ v, ci.kind = .defn v → ∀ ls, m'.M c ls = defVal m.M ci v ls := by
+  obtain ⟨m', hm', hval⟩ := install_def hs m.toEnvModel hok
+  refine ⟨{ toEnvModel := m', blocks := ?_ }, hm', hval⟩
   intro K ci' nP nI cs spec hfind hkind
   rw [Env.find?_add] at hfind
   split at hfind
