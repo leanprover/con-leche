@@ -340,22 +340,60 @@ report('rules tier CLOSURE door no longer reached (record the progress)',
        'in the DESIGN record.')
 
 # THE INLEAN FENCE (task #451).  `InLean/*` is con-leche's checker on
-# Lean's own data, meant to be movable into Lean core: it imports `Lean`
-# and itself, never `ConLeche.*`.  (Its proof tier `InLeanProof/*` may
-# import both; it is outside this script's graph.)
+# Lean's own data, to be copied into Lean core: an ALLOWLIST, what core has.
+# Every module under `InLean/` and the root `InLean.lean` imports only
+# `Init`, `Init.*`, `Std`, `Std.*`, `Lean`, `Lean.*` and `InLean.*` (every
+# form: `public`, `private`, `meta`, `import all`); the replay driver
+# `InLeanReplay.lean` those and `InLean`.  `InLeanProof/*` is outside the
+# fence (it may import con-leche's proof tiers).
+INLEAN_CORE = re.compile(r'^(?:(?:Init|Std|Lean)(?:\..+)?|InLean\..+)$')
+
+def inlean_violations(rel, src, extra=()):
+    """The imports of `src` outside the allowlist (`extra`: exact names also
+    allowed).  Block comments are dropped; a line comment never matches IMP."""
+    src = re.sub(r'/-.*?-/', '', src, flags=re.S)
+    return [(rel, m) for m in IMP.findall(src)
+            if not (INLEAN_CORE.match(m) or m in extra)]
+
+# The gate's self-test: fixtures it must refuse and fixtures it must pass,
+# so that a regex that matches nothing cannot keep the gate green.
+_bad = ('import ConLeche.Kernel.Expr\n'
+        'public import ConLeche.Cached.CoreC\n'
+        'public meta import Mathlib.Tactic\n'
+        'import all ConLeche.Kernel.Name\n'
+        'private import Batteries\n'
+        'import InLean\n')
+_good = ('module\n/- import ConLeche.Doc -/\n-- import ConLeche.Comment\n'
+         'public import Lean.Environment\nimport all Lean.Environment\n'
+         'meta import InLean.Basic\npublic meta import Std.Data.HashMap\n'
+         'import Init\nimport Init.Util\nimport Lean\n')
+_bad_found = [m for _, m in inlean_violations('fixture', _bad)]
+selftest = []
+if _bad_found != ['ConLeche.Kernel.Expr', 'ConLeche.Cached.CoreC', 'Mathlib.Tactic',
+                  'ConLeche.Kernel.Name', 'Batteries', 'InLean']:
+    selftest.append(('bad fixture', f'refused {_bad_found}'))
+if inlean_violations('fixture', _good):
+    selftest.append(('good fixture', f'refused {inlean_violations("fixture", _good)}'))
+if inlean_violations('fixture', 'import InLean\n', extra=('InLean',)):
+    selftest.append(('driver fixture', 'refused `import InLean`'))
+report('InLean fence self-test', selftest,
+       'the allowlist check no longer refuses what it must (or refuses what it '
+       'must not); fix `inlean_violations` before trusting the fence.')
+
 inleanv = []
 for dirpath, _, files in os.walk('InLean'):
     for f in sorted(files):
         if f.endswith('.lean'):
             rel = os.path.join(dirpath, f)
-            src = re.sub(r'/-.*?-/', '', open(rel).read(), flags=re.S)
-            inleanv += [(rel, m) for m in IMP.findall(src) if m.startswith('ConLeche')]
-if os.path.exists('InLean.lean'):
-    src = re.sub(r'/-.*?-/', '', open('InLean.lean').read(), flags=re.S)
-    inleanv += [('InLean.lean', m) for m in IMP.findall(src) if m.startswith('ConLeche')]
-report('InLean importing con-leche', inleanv,
-       'task #451: InLean/* imports Lean and InLean only (it must be movable '
-       'into Lean core); proofs about it go in InLeanProof/*.')
+            inleanv += inlean_violations(rel, open(rel).read())
+for rel, extra in (('InLean.lean', ()), ('InLeanReplay.lean', ('InLean',))):
+    if os.path.exists(rel):
+        inleanv += inlean_violations(rel, open(rel).read(), extra)
+report('InLean importing outside Init/Std/Lean/InLean', inleanv,
+       'task #451: InLean/* imports only what Lean core has (Init, Std, Lean, '
+       'InLean.*); the replay driver may add InLean; proofs about it go in '
+       'InLeanProof/*.')
+
 
 n = {l: sum(1 for m in LANE if LANE[m] == l)
      for l in ("base", "model", "caps", "umbrella", "parked")}

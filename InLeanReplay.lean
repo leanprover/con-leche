@@ -29,11 +29,12 @@ structure Config where
   keepGoing : Bool := false
   quiet : Bool := false
   mods : Array Name := #[]
+  inlean : InLean.Config := {}
 
-def addWith (k : KernelSel) (env : Kernel.Environment) (d : Declaration) :
+def addWith (k : KernelSel) (ic : InLean.Config) (env : Kernel.Environment) (d : Declaration) :
     Except Kernel.Exception Kernel.Environment :=
   match k with
-  | .inlean => InLean.addDecl env d
+  | .inlean => InLean.addDecl env d ic
   | _ => env.addDeclCore 0 0 d none
 
 /-! ## Comparison -/
@@ -160,7 +161,7 @@ def blockNames (all : List Name) : M (Array Name) := do
 
 def sendDecl (d : Declaration) (group : List Name) (produced : Array Name) : M Unit := do
   modify fun s => { s with sent := s.sent + 1 }
-  match addWith (← read).cfg.kernel (← get).env d with
+  match addWith (← read).cfg.kernel (← read).cfg.inlean (← get).env d with
   | .ok env =>
     modify fun s => { s with env, accepted := s.accepted + 1 }
     if (← read).cfg.compare then
@@ -261,7 +262,7 @@ open InLeanReplay
 
 def usage : String :=
   "usage: inlean-replay [--kernel=inlean|official|none] [--compare] [--mode=verified|trusted] \
-   [--keep-going] [--quiet] MOD..."
+   [--core-axioms] [--certify-nat-ops] [--keep-going] [--quiet] MOD..."
 
 def parseArgs (args : List String) : Except String Config := do
   let mut cfg : Config := {}
@@ -273,7 +274,10 @@ def parseArgs (args : List String) : Except String Config := do
     | "--compare" => cfg := { cfg with compare := true }
     | "--keep-going" => cfg := { cfg with keepGoing := true }
     | "--quiet" => cfg := { cfg with quiet := true }
-    | "--mode=verified" | "--mode=trusted" => pure ()
+    | "--mode=verified" => cfg := { cfg with inlean.mode := .verified }
+    | "--mode=trusted" => cfg := { cfg with inlean.mode := .trusted }
+    | "--core-axioms" => cfg := { cfg with inlean.coreAxioms := true }
+    | "--certify-nat-ops" => cfg := { cfg with inlean.uncertifiedNatOps := false }
     | _ =>
       if a.startsWith "--" then throw s!"unknown option {a}"
       else cfg := { cfg with mods := cfg.mods.push a.toName }
@@ -284,8 +288,6 @@ public def main (args : List String) : IO UInt32 := do
   let cfg ← match parseArgs args with
     | .ok c => pure c
     | .error e => IO.eprintln s!"{e}\n{usage}"; return 3
-  if args.any (·.startsWith "--mode=") then
-    IO.eprintln "note: --mode is ignored (InLean provides no mode switch yet)"
   if cfg.compare && cfg.kernel == .none then
     IO.eprintln "--compare needs a kernel"; return 3
   try
