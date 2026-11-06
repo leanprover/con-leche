@@ -128,10 +128,12 @@ def RecordScoped (R : Env) (d : Declaration) : Prop :=
 
 /-- **A proof**: a theorem record, or a definition or opaque record whose value passes the theorem
 record's check at `E`, the environment it is installed at (its type a proposition, its value of
-that type). -/
+that type).  An opaque record at a `reduce*` name is never one: its install pins it to the
+identity on `Nat` or `Bool`, and its leaf is that function. -/
 def ProofDecl (mode : CheckMode) (pins : List NatOpPinSet) (E : Env) : Declaration → Prop
   | .thmDecl .. => True
-  | .defnDecl cv v _ | .opaqueDecl cv v =>
+  | .defnDecl cv v _ => ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
+  | .opaqueDecl cv v => reduceOpNames.contains cv.name = false ∧
     ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
   | _ => False
 
