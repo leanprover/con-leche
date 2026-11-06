@@ -426,7 +426,11 @@ theorem readView_of_all {sp : SearchPath} {m : Name} {fs : FS} {v : AllViews} {e
   | none => simp [hv] at h
   | some v' =>
     simp only [hv] at h
-    cases hc : checkViews m f v' with
+    cases hl : loadView 0 m f with
+    | error x => simp [hl] at h
+    | ok l =>
+    simp only [hl] at h
+    cases hc : checkViews m f l with
     | error x => simp [hc] at h
     | ok expo =>
       simp only [hc, ModelIO.pure_iff, Except.ok.injEq, Prod.mk.injEq] at h

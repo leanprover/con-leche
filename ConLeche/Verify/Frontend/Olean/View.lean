@@ -254,4 +254,58 @@ theorem readStmts_of_view {f : ModFiles} {level : OLeanLevel} {d : ModDecoded} {
   · rw [hre]; exact h1
   · simpa only [readStmts, hv, bind, Option.bind] using h2
 
+/-- **Several constants read with one memo** are each read with a memo of its own, on
+every input (where the files have the view's region). -/
+theorem readEntries_eq (f : ModFiles) (level : OLeanLevel) (cs : List Nat) :
+    readEntries f level cs = (f.viewRegion level).bind fun _ => cs.mapM (readEntry f level) := by
+  simp only [readEntries]
+  cases hv : f.viewRegion level with
+  | none => rfl
+  | some ra =>
+    obtain ⟨r, a⟩ := ra
+    have hre : readEntry f level = entryAt r := by
+      funext c
+      simp only [readEntry, hv, bind, Option.bind]
+    simp only [bind, Option.bind, hre]
+    exact entriesAt_eq r cs
+
+/-- **The constants at any positions of a parsed view, read with one memo**: those the full
+parse holds there, the specification's (`parseView_eq_spec`), one for each position. -/
+theorem readEntries_of_view {f : ModFiles} {level : OLeanLevel} {d : ModDecoded}
+    {ps : NamePositions} {cs : List Nat} (h : parseView f level = some d)
+    (hp : readNamePositions f level = some ps) (hc : ∀ c ∈ cs, ∃ q ∈ ps.consts, q.loc = c) :
+    ∃ es, readEntries f level cs = some es ∧ es.length = cs.length ∧
+      ∀ p ∈ cs.zip es, ∃ (i : Nat) (q : NamePosition), ps.consts[i]? = some q ∧ q.loc = p.1 ∧
+        d.constants[i]? = some p.2 := by
+  obtain ⟨r, a, hv, -, -⟩ := parseView_some h
+  rw [readEntries_eq, hv]
+  simp only [Option.bind_some]
+  have step : ∀ c ∈ cs, ∃ (e : CEntryF Name Expr) (i : Nat) (q : NamePosition), ps.consts[i]? = some q ∧
+      q.loc = c ∧ d.constants[i]? = some e ∧
+      readEntry f level c = some e := by
+    intro c hm
+    obtain ⟨q, hq, rfl⟩ := hc c hm
+    obtain ⟨i, hi, hqi⟩ := Array.mem_iff_getElem.mp hq
+    have hq' : ps.consts[i]? = some q := by simp [hi, hqi]
+    have hr := readEntry_of_view h hp hq'
+    obtain ⟨ps', hps', -, hnames, -⟩ := readNamePositions_of_view h
+    rw [hp] at hps'
+    cases hps'
+    have hlen : ps.consts.size = d.constants.size := by
+      simpa using congrArg List.length hnames
+    obtain ⟨e, he⟩ : ∃ e, d.constants[i]? = some e :=
+      ⟨d.constants[i]'(hlen ▸ hi), by simp⟩
+    exact ⟨e, i, q, hq', rfl, he, hr.trans he⟩
+  clear hc
+  induction cs with
+  | nil => exact ⟨[], rfl, rfl, by simp⟩
+  | cons c cs ih =>
+    obtain ⟨e, i, q, h1, h2, h3, h4⟩ := step c (by simp)
+    obtain ⟨es, h5, h6, h7⟩ := ih fun c' hm => step c' (by simp [hm])
+    refine ⟨e :: es, by simp [List.mapM_cons, h4, h5], by simp [h6], fun p hp' => ?_⟩
+    simp only [List.zip_cons_cons, List.mem_cons] at hp'
+    rcases hp' with rfl | hp'
+    · exact ⟨i, q, h1, h2, h3⟩
+    · exact h7 p hp'
+
 end ConLeche.Frontend.Olean

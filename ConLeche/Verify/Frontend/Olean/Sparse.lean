@@ -30,7 +30,7 @@ namespace ConLeche.Frontend.Olean
 open ConLeche
 
 /-- Every value the memo holds is the specification's. -/
-def SM.Good (r : Region) (st : SM) : Prop :=
+@[expose] def SM.Good (r : Region) (st : SM) : Prop :=
   (∀ c v, st.names[c]? = some v → nameAt r c = some v) ∧
   (∀ c v, st.levels[c]? = some v → levelAt r c = some v) ∧
   (∀ c v, st.lists[c]? = some v → levelsAt r c = some v) ∧
@@ -270,7 +270,7 @@ theorem SM.build_spec {r : Region} {b : Frontier} {k : UInt8} {g : Nat} {st : SM
 
 /-- What `sGo` gives: on success the memo holds the object, good; on
 failure the specification fails at it. -/
-def SGoSpec (r : Region) (b : Frontier) (g : Nat) : Prop :=
+@[expose] def SGoSpec (r : Region) (b : Frontier) (g : Nat) : Prop :=
   ∀ k st, IsKind k → st.Good r →
     (∀ st', sGo r b k g st = some st' → st'.Good r ∧ st'.holds b k g = true ∧ SM.Sub st st') ∧
     (sGo r b k g st = none → ¬ KindOK r k g)

@@ -245,7 +245,23 @@ def readView {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (l
     | some d => pure (.ok d)
     | none => pure (.error (viewError m f level))
 
-/-- **All three views of a module, checked against each other**: its home's read. -/
+/-- **A module's home read**: its private view loaded (`loadView`, its theorems' values
+left in the file; `i` its place in the order the references name), and its three parts
+checked against each other (`checkViews`). -/
+def readHome {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (i : Nat := 0) :
+    μ (Except CheckError (Loaded × Array Expo)) := do
+  match ← readFiles sp m .private with
+  | .error e => pure (.error e)
+  | .ok f =>
+    match loadView i m f with
+    | .error e => pure (.error e)
+    | .ok l =>
+      match checkViews m f l with
+      | .ok expo => pure (.ok (l, expo))
+      | .error e => pure (.error e)
+
+/-- **All three views of a module, each parsed whole, and the home's check of them**
+(`checkViews` over the load): for the tools that compare the views. -/
 def readAllViews {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) :
     μ (Except CheckError (AllViews × Array Expo)) := do
   match ← readFiles sp m .private with
@@ -256,8 +272,11 @@ def readAllViews {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name
       let level := ([OLeanLevel.exported, .server].find? fun l => (parseView f l).isNone).getD .private
       pure (.error (viewError m f level))
     | some v =>
-      match checkViews m f v with
-      | .ok expo => pure (.ok (v, expo))
+      match loadView 0 m f with
       | .error e => pure (.error e)
+      | .ok l =>
+        match checkViews m f l with
+        | .ok expo => pure (.ok (v, expo))
+        | .error e => pure (.error e)
 
 end ConLeche.Frontend.Olean

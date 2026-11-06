@@ -313,7 +313,7 @@ way.
 built-in pin, and a stream that declares `False` or `False.rec`
 differently is rejected. The theorems use exactly Lean's three standard
 axioms, `propext`, `Classical.choice` and `Quot.sound`, which the
-[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L95-L99)
+[axiom pin in `tests/ConLecheTests/Axioms.lean`](https://github.com/leanprover/con-leche/blob/master/tests/ConLecheTests/Axioms.lean#L96-L100)
 checks with `#print axioms` guards under `lake test`.
 
 Everything below explains how those theorems are reached.
@@ -574,8 +574,12 @@ constant reads, and its imports are those at the start of `M.olean`. It says wha
 valid view is and is not executable. `parseView` reads one view and `parseAllViews`
 reads all three, each object once; both are proved equal to it on every input
 (`parseView_eq_spec`, `parseAllViews_eq`), so each succeeds exactly where the
-specification does. `checkViews` compares the three views, what a module's home can
-do with all of them.
+specification does. `checkViews` is a module's home's check of its three parts against
+each other, over the load of its private view: the server and private parts are of the
+module system, the other parts' imports and name tables are what they should be, and every
+exported and server constant is the private constant of its name or that constant with its
+value hidden (the same object decided by position, a hidden value by the statement, so no
+theorem's value is read). A mismatch is a malformed file at its home, a reject.
 
 **A theorem's value stays in the file until its check.** Most of what a module stores is
 the values of its theorems (on Mathlib's closure, 93 of 138 million expression objects are
@@ -597,8 +601,9 @@ alone, as only the specification's values are ever put in it. `frontierExpr_eq` 
 over such a frontier is the specification, on every input.
 
 The other reads take less of a view: per stored constant its name, kind and position
-(`readNamePositions`), one constant (`readEntry`), the statements of a few (`readStmts`)
-and the imports off the start of the file (`importsPre`, which reads only a prefix).
+(`readNamePositions`), one constant (`readEntry`), several with one memo (`readEntries`,
+each of them `readEntry`'s on every input), the statements of a few (`readStmts`), their
+kinds without expressions (`readKinds`) and the imports off the start of the file (`importsPre`, which reads only a prefix).
 They are projections of the full view: where it parses, the read succeeds and returns
 its part (`ConLeche/Verify/Frontend/Olean/View.lean`). The converse does not hold, on
 purpose: a read looks only at what it needs. In the IO model a home's read of all three
@@ -607,6 +612,24 @@ the home's (`readView_of_all`), and a view read settles the imports off the file
 (`moduleImports_of_view`; `ConLeche/Verify/Frontend/Olean/Files.lean`). The interface
 is listed in the header of `ConLeche/Frontend/Olean.lean`, the one module of the tree the
 rest of the checker imports.
+
+**What a module's own environment loads.** Checking one module against what Lean loads for
+it starts from reads of the headers and the name tables alone
+(`ConLeche/Frontend/Olean/Levels.lean`, `ConLeche/Frontend/Olean/Index.lean`).
+`headerFixpoint` is Lean's `importModulesCore` read off the headers: every module a module's
+header loads, at its exported part or (under `import all`, or for a root outside the module
+system) its private part, in Lean's module order but for the modules Lean meets first through
+a `meta` import for their IR only; `pubClosures` is each loaded module's public-import closure,
+which is loaded wherever that module is. `workerReads` then indexes the name tables of the loaded
+parts and makes the two checks Lean's import and kernel make over that whole environment, each a
+reject: two loaded copies of one name must merge as `finalizeImport` merges them (`subsumesF`,
+Lean's `subsumesInfo`; the statements and kinds of the names held twice are read and kept), and
+no constant of the module's own private part bears a loaded name. On every fixture and on the
+two Mathlib modules measured, the loaded modules, their parts and the number of loaded names are
+those of Lean's own `importModules`. `groupRecord` builds one inductive group's record from a
+part's constants as the emission does, validated for that group as `blocksOk` validates a merged
+block (`groupRecord_from`: the record is made of stored constants of the group's kinds); read
+from an exported part, it lists the recursors in the part's (sorted) order.
 
 `runArgs_oleans_accept` is `runArgs_accept`'s statement for these arguments:
 every exit 0 read records off the snapshot's files that `checkDecls` accepts, with each
@@ -1592,7 +1615,7 @@ and every such line carries its reason.
 | `ConLeche/Driver/` | The proof-carrying IO driver: the index build and the check phase's worker pool (`CheckPool.lean`), the rounds parse's owner threads (`OwnerParse.lean`), the stream parse over the IO class's folds (`StreamParse.lean`), the end-of-run statistics (`Stats.lean`), `checkDeclsIO` (`Run.lean`), the driver's sequencing generic in the IO class (`CheckMain.lean`), the run of a request (`Dispatch.lean`) and the command line and `runArgs` over them (`Cli.lean`). Checker code, like `Kernel/*`; the one tier besides `Main.lean` that may import `ConLeche/Verify/*`. |
 | `ConLeche/Kernel/` | The pure checker: `Expr`/`Level`/`Name`, what a declaration adds (`Install.lean`), `PropWhen`, the mutually recursive core of reduction, inference and conversion (`Core.lean`), declaration checking (`Checker.lean`, `DeclCheck.lean`), the basis pins (`Basis/`), the inductive installer (`Inductives/`: the recogniser `BlockShape.lean`, the positivity check `Positivity.lean`, the entry `checkBlock` with its constructor stages (`Sum*`) and projection tables (`Struct*`), the recursor generator and check `GenRec.lean`, and `ClassRead.lean`, which reads the classes off the stream's recursor types without checking them), the Nat-op pins. Imports no theory module. |
 | `ConLeche/Cached/` | The shipped cached checker: hashed expressions, memo state, the cached core and declaration step, the parsed-record step (`ParsedC.lean`), the declaration fold `checkDecls` and its accepting runs (`Decls.lean`), the index of a stream and a record's job (`StreamIndex.lean`). |
-| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file's positional reads (`CheckerIO.lean`), the positional read declared in C (`ReadRange.lean`, `native/read_range.c`, its own precompiled library); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean.lean`, the interface, over `Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the reads of a part of a region `Reads.lean`, a module's views `View.lean` and their checks against each other `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean` and the records `Records.lean`). |
+| `ConLeche/Frontend/` | The export parser: the dialect's byte recogniser and syntax records (`Scan/`) and the semantic layer over them (`ExportC.lean`), which decodes the file's records and nothing else; the checker's IO class, its model over a snapshot of the files, the binary's instance and the folds over a file's positional reads (`CheckerIO.lean`), the positional read declared in C (`ReadRange.lean`, `native/read_range.c`, its own precompiled library); the serial streaming driver and a chunk's scan into syntax records apart from their application (`Stream.lean`); the rounds parse's counters and finished tables (`Rounds.lean`) and its rounds (`RoundsWork.lean`); the preparation of the fold's input (`Prepare.lean`, with the built-in prelude of `Prelude.lean` and the reordering of `NatOpGround.lean`, which moves what a pinned Nat operation's certificates mention ahead of it); the `.olean` reader (`Olean.lean`, the interface, over `Olean/`: the byte region `Region.lean`, the specification decoder `Spec.lean`, the fast one `Fast.lean`, the sparse one `Sparse.lean`, the imports off a file's start `Header.lean`, the reads of a part of a region `Reads.lean`, a module's views `View.lean` and their checks against each other `Module.lean`, the files through the IO class `Files.lean`, the closure `Closure.lean`, the merge `Merge.lean`, the emission `Emit.lean`, the records `Records.lean`, the header fixpoint `Levels.lean`, the loaded names and the clash rule `Index.lean`, and one group's record `Group.lean`). |
 | `ConLeche/PinGen/` | Elaboration-time generation of the Nat-op pins and certificate proofs; the committed dump lives in `pins/`. |
 | `ConLeche/Term/` | The term language the denotation targets and the interpretation reads, its substitution operations and the basis constants. |
 | `ConLeche/SetTheory/` | The `SetTheory` class and the derived set operations. |
@@ -1631,7 +1654,8 @@ and every statement it makes is token-identical to the solution's),
 the arena tutorial tests, the end-to-end fixtures and the legacy
 binder-field fixtures with
 pinned verdicts, the `.olean` gate (`tests/olean.sh`: the committed
-fixtures and corrupted copies of them, each verdict pinned), the two readers
+fixtures and corrupted copies of them, each verdict pinned, with a home's read of its
+parts and a module's reads of what it loads through `olean-compare --home` and `--reads`), the two readers
 compared on `Init` (`tests/olean-compare.sh`), the display gate (three fixtures whose names and
 `safety` field carry control sequences, run with `--progress=1`; no
 raw control, bidi or zero-width character and no line starting with
