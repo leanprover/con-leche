@@ -35,7 +35,7 @@ adds is what a module is for con-leche and what its checks are.
 1. at the home, once (`InterfaceOk`): every presentation the module offers presents one of its own
    records;
 2. at the importer (`ImportOk`): the imports and sources come earlier; the context stores each name
-   once; every context record is a presentation of the module its names are read from; what a context
+   once; every context record is read from one module and is a presentation of it; what a context
    record's constants read is stored in the context and read as that module reads it, under one key
    (`RecordScoped` over `readsAlike`); the own records are accepted from the context, one after
    another, each by the fold's own step (`DeclsRun`); a name flagged a proof is declared by a proof;
@@ -50,7 +50,8 @@ records.
 ```
 theorem modular_model_exists (V : Type w) [SetTheory V]
     (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
-    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j) :
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
+    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
     ∃ m : ∀ j ≤ i, Model V (dev j).own,
       (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
         ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
@@ -61,7 +62,8 @@ theorem modular_model_exists (V : Type w) [SetTheory V]
 
 a compatible family of models of the own environments: two modules that store a name under one key
 give it one value, and every proof the point.  Its corollary is that no own environment stores a
-constant of type `False`.
+constant of type `False`.  `FormerRuns` is the one hypothesis beyond the local checks (task #469
+is to discharge it).
 -/
 
 namespace ConLeche.Modular
@@ -82,9 +84,13 @@ def stmtOf : Declaration → Declaration
   | d => d
 
 /-- **A presentation of an own record**: a record installing the same constants and tables (a
-theorem record, whatever value it carries, installs its statement), or the record's statement. -/
+theorem record, whatever value it carries, installs its statement), or the record's statement.  A
+record at a `reduce*` name is presented as itself: the compiler-trust axioms (`ofReduceNat`,
+`ofReduceBool`) are accepted at an importer by that name's pinned statement, which is true only
+of the identity its home's opaque install certified. -/
 def Presents (e p : Declaration) : Prop :=
-  (declConstants e = declConstants p ∧ declTables e = declTables p) ∨ e = stmtOf p
+  (declConstants e = declConstants p ∧ declTables e = declTables p) ∨
+    (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 /-- The names a record installs. -/
 def declNames (d : Declaration) : List Name :=
@@ -128,10 +134,12 @@ def RecordScoped (R : Env) (d : Declaration) : Prop :=
 
 /-- **A proof**: a theorem record, or a definition or opaque record whose value passes the theorem
 record's check at `E`, the environment it is installed at (its type a proposition, its value of
-that type). -/
+that type).  An opaque record at a `reduce*` name is never one: its install pins it to the
+identity on `Nat` or `Bool`, and its leaf is that function. -/
 def ProofDecl (mode : CheckMode) (pins : List NatOpPinSet) (E : Env) : Declaration → Prop
   | .thmDecl .. => True
-  | .defnDecl cv v _ | .opaqueDecl cv v =>
+  | .defnDecl cv v _ => ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
+  | .opaqueDecl cv v => reduceOpNames.contains cv.name = false ∧
     ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
   | _ => False
 
@@ -181,6 +189,27 @@ def readsAlike (dev : Nat → Module) (i b : Nat) : Env :=
     ((dev i).context.find? c.toConstantVal.name).isSome &&
       (dev i).key c.toConstantVal.name == (dev b).key c.toConstantVal.name, []⟩
 
+/-! ## The reduction hypothesis -/
+
+/-- **A definition-headed former's telescope reduces at the context as at its source**: for a
+context name `n` and a type former `T` read alike from `n`'s source, whose declared type does not
+show its telescope (`formerDefHeaded`), a reduction of `T`'s type that runs at the source's own
+environment runs at the context, to the same telescope, whose names are read alike.
+
+**An explicit hypothesis of the modular theorem**, not a local check: the context may hold a
+definition the reduction unfolds only as its statement.  Task #469 (refinement monotonicity of
+reduction: a run at an environment where some definitions are statements fails or gives the full
+environment's result) is to discharge it. -/
+def FormerRuns (dev : Nat → Module) (i : Nat) : Prop :=
+  ∀ n T cv caps, ((dev i).context.find? n).isSome = true →
+    ((readsAlike dev i ((dev i).src n)).find? T).isSome = true →
+    (dev i).context.find? T = some (.indInfo cv caps) → formerDefHeaded cv = true →
+    ∀ F f, reducedFormer (fueledOps .verified F) (dev ((dev i).src n)).own cv
+        (caps.nparams + caps.nIdx) = .ok f →
+      f.type.constsResolve (readsAlike dev i ((dev i).src n)) = true ∧
+      ∃ F', reducedFormer (fueledOps .verified F') (dev i).context cv
+        (caps.nparams + caps.nIdx) = .ok f
+
 /-! ## The local checks -/
 
 /-- **A module's interface is checked once, at the module**: every record it presents is a
@@ -196,6 +225,9 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → M
   nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
   /-- every context record is a presentation of the module its names are read from -/
   presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+  /-- a context record is read from one module: its names have one source -/
+  one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+    (dev i).src n = (dev i).src n'
   /-- what a context record reads is stored in the context, read as its source reads it -/
   reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
   /-- the own records, accepted from the context by the fold's step -/

@@ -12,6 +12,9 @@ import ConLeche.Verify.Frontend.FileFalse
 public import ConLeche.Driver.Cli
 public import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
+public import ConLeche.Modular
+import ConLeche.Model.Modular.Main
+import ConLeche.Model.Capstone
 public section
 
 /-!
@@ -172,5 +175,55 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
   obtain ⟨v', hd⟩ := Olean.readOleans_thm hrd hcl hv hmem hk
   exact no_False_theorem_accepted V _ _ _
     (Array.mem_map_of_mem (f := Cached.fillDecl _) (Frontend.mem_prepareD hd)) hty env hchk
+
+
+/-! ## Modular checking (task #463)
+
+A development of modules (`ConLeche/Modular.lean`) every module of which passes the local checks
+has a compatible family of models of the modules' own environments: two modules that store a name
+under one key give it one value, and every proof the point.  Each module's model is built from its
+sources' models alone (`ConLeche/Modular/Generic.lean`'s `Development.modular`, at con-leche's
+models: `ConLeche/Model/Modular/Instance.lean`).  The statement has one hypothesis beyond the local
+checks, named in it: `FormerRuns`, that a definition-headed former's telescope reduces at an
+importer's context as at its source, which task #469 is to discharge. -/
+
+open Modular in
+/-- **The modular theorem.** -/
+theorem modular_model_exists (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
+    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    ∃ m : ∀ j ≤ i, Model V (dev j).own,
+      (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+        ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+        (m j hj).cval n = (m j' hj').cval n) ∧
+      ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+        (m j hj).cval n = fun _ => pt := by
+  obtain ⟨mm, hc, hp⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok hruns
+  have hex : ∀ j (hj : j ≤ i), ∃ mp : Model.EnvModelM V (dev j).own,
+      ∀ n, ((dev j).own.find? n).isSome = true → mp.base2.acval n = (mm j (by omega)).1 n :=
+    fun j hj => (mm j (by omega)).2.2.2.elim fun mp h => ⟨mp, h.2.2.2.2⟩
+  refine ⟨fun j hj => Model.Model.ofEnvModelM (Classical.choose (hex j hj)), ?_, ?_⟩
+  · intro j hj j' hj' n hn hn' hk
+    rw [Model.Model.ofEnvModelM_cval, Model.Model.ofEnvModelM_cval]
+    apply Model.cvalOf_congr
+    rw [Classical.choose_spec (hex j hj) n hn, Classical.choose_spec (hex j' hj') n hn']
+    exact hc j j' _ _ n ⟨hn, trivial⟩ ⟨hn', trivial⟩ (Development.interchangeable_iff.mpr hk)
+  · intro j hj n s hn hk
+    rw [Model.Model.ofEnvModelM_cval]
+    apply Model.cvalOf_prf
+    rw [Classical.choose_spec (hex j hj) n hn]
+    exact hp j _ n s ⟨hn, trivial⟩ hk
+
+/-- **The modular corollary**: no module's own environment stores a constant of type `False`. -/
+theorem modular_no_False (V : Type w) [SetTheory V]
+    (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+    (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
+    (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+    ∀ j ≤ i, ∀ c ∈ (dev j).own.consts, c.toConstantVal.type = .const falseName [] → False := by
+  intro j hj c hc hty
+  obtain ⟨mm, -⟩ := Model.Modular.modularModels (V := V) (pins := pins) hok hruns
+  obtain ⟨mp, -⟩ := (mm j (by omega)).2.2.2
+  exact Model.no_constant_of_False mp c hc hty
 
 end ConLeche

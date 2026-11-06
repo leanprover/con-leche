@@ -68,7 +68,7 @@ graded. -/
 @[expose] def NatOpRow {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Prop :=
   ∀ {d : Nat} {c : Name} {wa wb r : Expr} {n₁ n₂ : Nat} {ea : Term},
-    c ∈ natBinOpNames → ConLeche.isDefinitionAt env c = true →
+    c ∈ natBinOpNames → (env.find? c).isSome = true →
     ConLeche.rawNatLit? wa = some n₁ → ConLeche.rawNatLit? wb = some n₂ →
     ConLeche.natOpResult c n₁ n₂ = some r →
     denote m.acval env φ d (.app (.app (.const c []) wa) wb) = some ea →
@@ -84,7 +84,7 @@ not the point, so neither is the head, whose graph fixes its domain
 (`piR_dom_unique`, task #342 L12). -/
 @[expose] def NatOpHead {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Prop :=
-  ∀ {c : Name}, c ∈ natBinOpNames → ConLeche.isDefinitionAt env c = true →
+  ∀ {c : Name}, c ∈ natBinOpNames → (env.find? c).isSome = true →
     ConLeche.natLitSupported env = true ∧
     ∀ {d : Nat} {ca : Term},
       denote m.acval env φ d (.const c []) = some ca →
@@ -115,8 +115,6 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
   nat_op : NatOpRow m φ
   /-- literal tier: the binary operations' heads, over `Nat` -/
   nat_op_head : NatOpHead m φ
-  /-- literal tier: an operation's name holds a definition -/
-  op_defn : OpDefn env
 
 /-- **The env-tier inputs, from the fold's invariant**: every field but
 the three literal rows is an `EnvModelM` projection; the rows stay
@@ -137,6 +135,5 @@ theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
   nat_succ := hsucc
   nat_op := hop
   nat_op_head := hhead
-  op_defn := mp.op_defn
 
 end ConLeche.Model.Rules

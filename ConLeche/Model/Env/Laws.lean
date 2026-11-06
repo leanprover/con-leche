@@ -46,19 +46,24 @@ install from the recorded `isDefEqCore` runs (`NatEqsRun`) through
 `DefEqClaim` — the run-certificate route (`Model/NatEqs.lean`)
 — and preserved across every other fresh cons.  Consumed by the
 numeral-transport inductions, which close the literal rows `NatSuccRow`/`NatOpRow` of
-`Model/Rules/Inputs.lean` (`Model/NatStep.lean`).  The stored types'
-pins (`natOpStoredOk`) are kept as well, the operation's own and its
-dependencies': the head row `NatOpHead` reads the operation's domains
-off its own (task #342 L12), and the transports read the dependencies'
-heads off theirs.  The install checks only the operation's own pin and
-that each dependency is stored; a dependency's pin is its own entry's,
-read at the install (`natOpDepsOk_install`, task #462). -/
+`Model/Rules/Inputs.lean` (`Model/NatStep.lean`).
+
+The law is keyed on the name being stored, whatever its kind: the
+literal fast path fires by name, so its soundness reads the law off the
+name.  Only a definition passes the install check at a certified name;
+every other kind is refused there, which is what makes the law hold at
+such a name vacuously.  The stored types' pins (`natOpPinnedOk`) are
+kept as well, the operation's own and its dependencies': the head row
+`NatOpHead` reads the operation's domains off its own (task #342 L12),
+and the transports read the dependencies' heads off theirs.  The
+install checks only the operation's own pin and that each dependency
+is stored; a dependency's pin is its own entry's, read at the install
+(`natOpDepsOk_install`). -/
 @[expose] def NatOps {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ ConLeche.natOpNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
+  ∀ c ∈ ConLeche.natOpNames, ∀ ci, env.find? c = some ci →
     ConLeche.natOpGuard env c = true ∧
-    (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true ∧
+    (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true ∧
     ∀ eq ∈ ConLeche.natOpEquations 0 c, ∃ L R,
       denote m.acval env φ 2 eq.1 = some L ∧
       denote m.acval env φ 2 eq.2 = some R ∧
@@ -76,14 +81,14 @@ Supplied as an `EnvModelM` field: established at the operation's own
 install from the recorded certificate runs (`checkDivModCerts`'
 verdict) through `InferClaim`/`DefEqClaim` — the run-certificate
 route again (`Model/DivModCert.lean`) — and preserved across every
-other fresh cons.  Consumed by the WF-op numeral transports.  The stored
-types' pins are kept as in `NatOps`. -/
+other fresh cons.  Consumed by the WF-op numeral transports.  Keyed
+on the stored name, whatever its kind, and the stored types' pins
+kept, as in `NatOps`. -/
 @[expose] def DivMod {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ c ∈ ConLeche.natDivModNames, ∀ cv v hint,
-    env.find? c = some (.defnInfo cv v hint) →
+  ∀ c ∈ ConLeche.natDivModNames, ∀ ci, env.find? c = some ci →
     ConLeche.natOpGuard env c = true ∧
-    (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true ∧
+    (ConLeche.natOpDeps c).all (ConLeche.natOpPinnedOk env) = true ∧
     ∀ (ρ : Nat → V) (x y : V),
       x ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
       y ∈ˢ interp V ρ (m.acval ConLeche.natName φ) →
@@ -1026,9 +1031,19 @@ membership and the successor's, at the leaf valuation's own
           (m.acval natName (Level.substFn φ [] []))) ∧
     IsTy (interp V ρ (m.acval natName (Level.substFn φ [] [])))
 
+/-- **A definition's leaf against its value's reading**: the reading
+itself, or, for a definition of a proposition, the canonical proof
+`.prf`, where the reading is a graded proof at every valuation.  The
+second arm is what makes every proof's leaf the same term, so that two
+proofs of one statement in two modules are one constant of the modular
+theorem (`ConLeche/Modular.lean`). -/
+@[expose] def LeafReads (V : Type w) [SetTheory V] (leaf t : Term) : Prop :=
+  t = leaf ∨ (leaf = .prf ∧ ∀ ρ : Nat → V, WellDenoted V ρ t ∧ interp V ρ t = pt)
+
 /-- **The unfolding supplier the P-tier delta exit consumes**: a stored
-definition's value reading *is* the constant's own leaf, at
-every level assignment.  Definitions only: a theorem is opaque to
+definition's value reads, at every level assignment, and the reading
+is the constant's own leaf or, for a proof, interprets as the leaf
+does (`LeafReads`).  Definitions only: a theorem is opaque to
 reduction (`unfoldDefinition` has no `thmInfo` arm), so the invariant
 keeps no equation between a theorem's value and its leaf — the leaf is
 an inhabitant of the statement, and that is all the install
@@ -1039,6 +1054,6 @@ The install tier discharges it. -/
   ∀ (ψ : Name → Nat) (cv : ConstantVal) (value : Expr),
     (∃ hint : ReducibilityHint,
       ConstantInfo.defnInfo cv value hint ∈ env.consts) →
-    denote m.acval env ψ 0 value = some (m.acval cv.name ψ)
+    ∃ t, denote m.acval env ψ 0 value = some t ∧ LeafReads V (m.acval cv.name ψ) t
 
 end ConLeche.Model

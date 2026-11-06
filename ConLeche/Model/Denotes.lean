@@ -57,6 +57,16 @@ noncomputable def cvalOf (acval : Name → (Name → Nat) → Term)
     (n : Name) (ψ : Name → Nat) : V :=
   interp V (fun _ => SetTheory.empty) (acval n ψ)
 
+/-- Two leaf assignments alike at a name give it one value. -/
+theorem cvalOf_congr {a b : Name → (Name → Nat) → Term} {n : Name} (h : a n = b n) :
+    cvalOf (V := V) a n = cvalOf b n := by
+  funext ψ; unfold cvalOf; rw [h]
+
+/-- The canonical proof's value is the point. -/
+theorem cvalOf_prf {a : Name → (Name → Nat) → Term} {n : Name} (h : a n = fun _ => .prf) :
+    cvalOf (V := V) a n = fun _ => SetTheory.pt := by
+  funext ψ; unfold cvalOf; rw [h]; rfl
+
 /-- A closed leaf interprets to its `cvalOf` under every environment. -/
 theorem interp_cvalOf {acval : Name → (Name → Nat) → Term}
     (hcl : ∀ n ψ, Term.Closed (acval n ψ)) (n : Name) (ψ : Name → Nat)
@@ -372,5 +382,10 @@ noncomputable def Model.ofEnvModelM {env : Env}
         (by rw [hψ]; exact hA) ha hb
       rw [interp_cvalOf m.base2.cval_closed] at hlaw
       exact hlaw
+
+
+/-- The model's values are the invariant's leaves'. -/
+theorem Model.ofEnvModelM_cval {env : Env} (m : EnvModelM V env) :
+    (Model.ofEnvModelM m).cval = cvalOf m.base2.acval := by rfl
 
 end ConLeche.Model

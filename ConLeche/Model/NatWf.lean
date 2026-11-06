@@ -284,8 +284,8 @@ guards and their step argument) — `natOpV_divmod`'s mirror. -/
 theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ) {c : Name}
     (hc : c = ConLeche.natDivName ∨ c = ConLeche.natModName)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? c = some (.defnInfo cv v hint)) (ρ : Nat → V) :
+    {ci : ConstantInfo}
+    (hf : env.find? c = some ci) (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app (interp V ρ (m.acval c φ))
           (interp V ρ (natLit m φ a)))
@@ -294,14 +294,14 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
           (if c = ConLeche.natDivName then a / b else a % b)) := by
   have hcmem : c ∈ ConLeche.natDivModNames := by
     rcases hc with rfl | rfl <;> decide
-  obtain ⟨hg, hpins, hclauses⟩ := hdm c hcmem cv v hint hf
+  obtain ⟨hg, hpins, hclauses⟩ := hdm c hcmem ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
   have hdepmem : ConLeche.natSubName ∈ ConLeche.natOpDeps c ∧
       ConLeche.natBleName ∈ ConLeche.natOpDeps c := by
     rcases hc with rfl | rfl <;> exact ⟨by decide, by decide⟩
-  obtain ⟨cvsu, vsu, hsu, hfsu, -⟩ := hdeps ConLeche.natSubName hdepmem.1
-  obtain ⟨cvbl, vbl, hbl, hfbl, -⟩ := hdeps ConLeche.natBleName hdepmem.2
+  obtain ⟨_, hfsu, -⟩ := hdeps ConLeche.natSubName hdepmem.1
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName hdepmem.2
   intro a b
   induction a using Nat.strongRecOn with
   | ind a ih =>
@@ -378,8 +378,8 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.div` on literal values. -/
 theorem natOpV_div (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natDivName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natDivName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -394,8 +394,8 @@ theorem natOpV_div (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.mod` on literal values. -/
 theorem natOpV_mod (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natModName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natModName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -410,8 +410,8 @@ theorem natOpV_mod (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.gcd` on literal values. -/
 theorem natOpV_gcd (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natGcdName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natGcdName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -419,11 +419,11 @@ theorem natOpV_gcd (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.gcd a b)) := by
-  obtain ⟨hg, hpins, hclauses⟩ := hdm ConLeche.natGcdName (by decide) cv v hint hf
+  obtain ⟨hg, hpins, hclauses⟩ := hdm ConLeche.natGcdName (by decide) ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨_, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -443,9 +443,9 @@ theorem natOpV_gcd (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.shiftLeft` on literal values. -/
 theorem natOpV_shiftLeft (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    {ci : ConstantInfo}
     (hf : env.find? ConLeche.natShiftLeftName
-      = some (.defnInfo cv v hint))
+      = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -454,12 +454,12 @@ theorem natOpV_shiftLeft (hops : NatOps m φ) (hnh : NatHeads m φ)
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.shiftLeft a b)) := by
   obtain ⟨hg, hpins, hclauses⟩ :=
-    hdm ConLeche.natShiftLeftName (by decide) cv v hint hf
+    hdm ConLeche.natShiftLeftName (by decide) ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
-  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨_, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
+  obtain ⟨_, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
   intro a b
   induction b using Nat.strongRecOn generalizing a with
   | ind b ih =>
@@ -484,9 +484,9 @@ theorem natOpV_shiftLeft (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.shiftRight` on literal values. -/
 theorem natOpV_shiftRight (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
+    {ci : ConstantInfo}
     (hf : env.find? ConLeche.natShiftRightName
-      = some (.defnInfo cv v hint))
+      = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -495,12 +495,12 @@ theorem natOpV_shiftRight (hops : NatOps m φ) (hnh : NatHeads m φ)
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.shiftRight a b)) := by
   obtain ⟨hg, hpins, hclauses⟩ :=
-    hdm ConLeche.natShiftRightName (by decide) cv v hint hf
+    hdm ConLeche.natShiftRightName (by decide) ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
-  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨_, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
+  obtain ⟨_, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
   intro a b
   induction b using Nat.strongRecOn generalizing a with
   | ind b ih =>
@@ -525,8 +525,8 @@ theorem natOpV_shiftRight (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.land` on literal values. -/
 theorem natOpV_land (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natLandName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natLandName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -535,14 +535,14 @@ theorem natOpV_land (hops : NatOps m φ) (hnh : NatHeads m φ)
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.land a b)) := by
   obtain ⟨hg, hpins, hclauses⟩ :=
-    hdm ConLeche.natLandName (by decide) cv v hint hf
+    hdm ConLeche.natLandName (by decide) ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
-  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨_, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
+  obtain ⟨_, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨_, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨_, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -574,8 +574,8 @@ theorem natOpV_land (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.lor` on literal values. -/
 theorem natOpV_lor (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natLorName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natLorName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -584,15 +584,15 @@ theorem natOpV_lor (hops : NatOps m φ) (hnh : NatHeads m φ)
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.lor a b)) := by
   obtain ⟨hg, hpins, hclauses⟩ :=
-    hdm ConLeche.natLorName (by decide) cv v hint hf
+    hdm ConLeche.natLorName (by decide) ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
-  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
-  obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨_, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
+  obtain ⟨_, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨_, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨_, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
+  obtain ⟨_, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>
@@ -626,8 +626,8 @@ theorem natOpV_lor (hops : NatOps m φ) (hnh : NatHeads m φ)
 /-- `Nat.xor` on literal values. -/
 theorem natOpV_xor (hops : NatOps m φ) (hnh : NatHeads m φ)
     (hdm : DivMod m φ)
-    {cv : ConstantVal} {v : Expr} {hint : ReducibilityHint}
-    (hf : env.find? ConLeche.natXorName = some (.defnInfo cv v hint))
+    {ci : ConstantInfo}
+    (hf : env.find? ConLeche.natXorName = some ci)
     (ρ : Nat → V) :
     ∀ a b : Nat,
       SetTheory.app (SetTheory.app
@@ -636,14 +636,14 @@ theorem natOpV_xor (hops : NatOps m φ) (hnh : NatHeads m φ)
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.xor a b)) := by
   obtain ⟨hg, hpins, hclauses⟩ :=
-    hdm ConLeche.natXorName (by decide) cv v hint hf
+    hdm ConLeche.natXorName (by decide) ci hf
   obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
   have hdeps := ConLeche.natOpDepsOk_inv hpins
-  obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
-  obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
-  obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
-  obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
-  obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
+  obtain ⟨_, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
+  obtain ⟨_, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
+  obtain ⟨_, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
+  obtain ⟨_, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
+  obtain ⟨_, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
   induction a using Nat.strongRecOn generalizing b with
   | ind a ih =>

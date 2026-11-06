@@ -353,8 +353,6 @@ docstring). -/
 theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
-    -- only a definition takes a certified operation's name
-    (hop : natOpName c₀.name = true → ∃ cv v h, c₀ = .defnInfo cv v h)
     (hh : ConsHead env c₀ A)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -376,8 +374,8 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
       (value : Expr),
       (∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint = c₀) →
-      denote (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value = some (A ψ))
+      ∃ t, denote (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value = some t ∧ LeafReads V (A ψ) t)
     (hnh : ∀ φ : Name → Nat,
       NatHeads (V := V)
         (coreCons mp.base2 A hfresh hh hAparams hAok) φ)
@@ -458,9 +456,9 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
       (∃ hint : ReducibilityHint,
         ConstantInfo.defnInfo cv value hint
           ∈ (⟨c₀ :: env.consts, env.tables⟩ : Env).consts) →
-      denote (acvalWith mp.base2.acval c₀.name A)
-          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value
-        = some (acvalWith mp.base2.acval c₀.name A cv.name ψ) := by
+      ∃ t, denote (acvalWith mp.base2.acval c₀.name A)
+          ⟨c₀ :: env.consts, env.tables⟩ ψ 0 value = some t ∧
+        LeafReads V (acvalWith mp.base2.acval c₀.name A cv.name ψ) t := by
     intro ψ cv value hmem
     obtain ⟨hint, hdt⟩ := hmem
     rcases List.mem_cons.mp hdt with h | h
@@ -472,8 +470,8 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     · rw [show acvalWith mp.base2.acval c₀.name A cv.name
           = mp.base2.acval cv.name from
           acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
-      exact hcompM ψ value ((hbound _ h).2 cv value hint rfl)
-        (mp.defn_reads ψ cv value ⟨hint, h⟩)
+      obtain ⟨t, ht, hlr⟩ := mp.defn_reads ψ cv value ⟨hint, h⟩
+      exact ⟨t, hcompM ψ value ((hbound _ h).2 cv value hint rfl) ht, hlr⟩
   exact ⟨{
     base2 := coreCons mp.base2 A hfresh hh hAparams hAok
     type_reads := htr
@@ -485,19 +483,6 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     div_mod := hdiv_mod
     eq_law := heq_law
     caps_ok := hcaps_ok
-    op_defn := fun c hn hs => by
-      by_cases hc : c = c₀.name
-      · subst hc
-        obtain ⟨cv, v, h, he⟩ := hop hn
-        rw [he, isDefinitionAt]
-        simp [ConLeche.Env.find?_cons]
-      · have ha : isDefinitionAt ⟨c₀ :: env.consts, env.tables⟩ c = isDefinitionAt env c := by
-          unfold isDefinitionAt
-          rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)]
-        rw [ha]
-        refine mp.op_defn c hn ?_
-        rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)] at hs
-        exact hs
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
     tower_ok := htower_ok

@@ -696,6 +696,33 @@ theorem coverTo_cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
     (fun _ h => Or.inl h) hhead).imp
     fun _ h => h.2
 
+/-- **A value-kind step, with its new leaf**: a covered carrier at the
+result, against the input's, whose leaf at `n` is the canonical proof
+wherever `P` holds.  The modular theorem reads it: a constant a module
+flags as a proof has the canonical proof as its leaf. -/
+@[expose] def CoverStepLeaf {env : Env} (mp : EnvModelM V env) (env' : Env) (n : Name)
+    (P : Prop) : Prop :=
+  ∃ mp' : EnvModelM V env', CoverRel mp mp' ∧ (P → mp'.base2.acval n = fun _ => .prf) ∧
+    (LfpCover mp [] → LfpCover mp' [])
+
+theorem CoverStepLeaf.step {env env' : Env} {mp : EnvModelM V env} {n : Name} {P : Prop}
+    (h : CoverStepLeaf mp env' n P) : CoverStep mp env' :=
+  h.elim fun mp' h' => ⟨mp', h'.1, h'.2.2⟩
+
+/-- A fresh non-inductive cons through the funnel, with its new leaf. -/
+theorem coverStepLeaf_cons {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}
+    {L : (Name → Nat) → Term} {P : Prop}
+    (hfresh : env.find? c₀.name = none)
+    (hni : ∀ cv caps, c₀ ≠ .indInfo cv caps) (hnc : ∀ cv a b, c₀ ≠ .ctorInfo cv a b)
+    (hL : P → L = fun _ => .prf)
+    (h : ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
+      mp'.base2.acval = acvalWith mp.base2.acval c₀.name L) :
+    CoverStepLeaf mp ⟨c₀ :: env.consts, env.tables⟩ c₀.name P := by
+  obtain ⟨mp', hac, hrel, hc⟩ := coverA_cons (ex := []) (ex' := []) hfresh (fun _ h => h)
+    (fun cv caps h => absurd h (hni cv caps)) h (fun _ h => Or.inl h)
+    (fun cv a b h => absurd h (hnc cv a b))
+  exact ⟨mp', hrel, fun hp => by rw [hac, acvalWith_self, hL hp], hc⟩
+
 /-- **A former's cons**, through the funnel: its name joins the
 exemption list. -/
 theorem coverA_pend {env : Env} {mp : EnvModelM V env} {c₀ : ConstantInfo}

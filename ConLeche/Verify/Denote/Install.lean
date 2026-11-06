@@ -1,7 +1,6 @@
 module
 
 import ConLeche.Verify.Denote
-import ConLeche.Verify.EnvWF
 public import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.EnvPreds
 public import ConLeche.Verify.Denote.Pinned
@@ -165,29 +164,51 @@ theorem natOpTyPinned_of_find {env env' : Env} {c : Name} {ty : Expr}
       exact ⟨h.1, natOpCod_of_find hb h.2⟩
     · exact nomatch h
 
-/-- The pinned operation type is monotone under a fresh install. -/
-theorem natOpTyPinned_cons {env : Env} {c₀ : ConstantInfo} {c : Name} {ty : Expr}
-    (hfresh : env.find? c₀.name = none) (h : natOpTyPinned env c ty = true) :
-    natOpTyPinned ⟨c₀ :: env.consts, env.tables⟩ c ty = true :=
-  natOpTyPinned_of_find (fun ci hf =>
-    ⟨ci, by rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf, rfl⟩) h
+/-- A stored operation's pin survives any environment change that keeps
+its stored constant value and the stored `Bool` entry's. -/
+theorem natOpPinnedOk_of_find {env env' : Env} {n : Name}
+    (hb : ∀ ci, env.find? boolName = some ci →
+      ∃ ci', env'.find? boolName = some ci' ∧ ci'.toConstantVal = ci.toConstantVal)
+    (hn : ∀ ci, env.find? n = some ci →
+      ∃ ci', env'.find? n = some ci' ∧ ci'.toConstantVal = ci.toConstantVal)
+    (h : natOpPinnedOk env n = true) : natOpPinnedOk env' n = true := by
+  obtain ⟨ci, hf, hl, hp⟩ := natOpPinnedOk_inv h
+  obtain ⟨ci', hf', hcv⟩ := hn ci hf
+  exact natOpPinnedOk_of hf' (by rw [hcv]; exact hl)
+    (by rw [hcv]; exact natOpTyPinned_of_find hb hp)
+
+/-- Every dependency's pin, across any environment change that keeps
+the dependencies' and the `Bool` entry's stored constant values. -/
+theorem natOpDepsOk_of_find {env env' : Env} {c : Name}
+    (hb : ∀ ci, env.find? boolName = some ci →
+      ∃ ci', env'.find? boolName = some ci' ∧ ci'.toConstantVal = ci.toConstantVal)
+    (hn : ∀ n ∈ natOpDeps c, ∀ ci, env.find? n = some ci →
+      ∃ ci', env'.find? n = some ci' ∧ ci'.toConstantVal = ci.toConstantVal)
+    (h : (natOpDeps c).all (natOpPinnedOk env) = true) :
+    (natOpDeps c).all (natOpPinnedOk env') = true :=
+  List.all_eq_true.mpr fun n hm =>
+    natOpPinnedOk_of_find hb (hn n hm) (List.all_eq_true.mp h n hm)
+
+/-- A stored constant survives a fresh install, unchanged. -/
+theorem find?_cons_keep {env : Env} {c₀ : ConstantInfo} {n : Name}
+    (hfresh : env.find? c₀.name = none) :
+    ∀ ci, env.find? n = some ci →
+      ∃ ci', Env.find? ⟨c₀ :: env.consts, env.tables⟩ n = some ci' ∧
+        ci'.toConstantVal = ci.toConstantVal := fun ci hf =>
+  ⟨ci, by rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf, rfl⟩
 
 /-- A stored operation's pin is monotone under a fresh install. -/
-theorem natOpStoredOk_cons {env : Env} {c₀ : ConstantInfo} {n : Name}
-    (hfresh : env.find? c₀.name = none) (h : natOpStoredOk env n = true) :
-    natOpStoredOk ⟨c₀ :: env.consts, env.tables⟩ n = true := by
-  obtain ⟨cv, v, hh, hf, hl, hpin⟩ := natOpStoredOk_inv h
-  unfold natOpStoredOk
-  rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl), hf]
-  simp only [hl, List.isEmpty_nil, Bool.true_and]
-  exact natOpTyPinned_cons hfresh hpin
+theorem natOpPinnedOk_cons {env : Env} {c₀ : ConstantInfo} {n : Name}
+    (hfresh : env.find? c₀.name = none) (h : natOpPinnedOk env n = true) :
+    natOpPinnedOk ⟨c₀ :: env.consts, env.tables⟩ n = true :=
+  natOpPinnedOk_of_find (find?_cons_keep hfresh) (find?_cons_keep hfresh) h
 
 /-- Every dependency's pin, monotone under a fresh install. -/
 theorem natOpDepsOk_cons {env : Env} {c₀ : ConstantInfo} {c : Name}
     (hfresh : env.find? c₀.name = none)
-    (h : (natOpDeps c).all (natOpStoredOk env) = true) :
-    (natOpDeps c).all (natOpStoredOk ⟨c₀ :: env.consts, env.tables⟩) = true :=
-  List.all_eq_true.mpr fun n hn => natOpStoredOk_cons hfresh (List.all_eq_true.mp h n hn)
+    (h : (natOpDeps c).all (natOpPinnedOk env) = true) :
+    (natOpDeps c).all (natOpPinnedOk ⟨c₀ :: env.consts, env.tables⟩) = true :=
+  List.all_eq_true.mpr fun n hn => natOpPinnedOk_cons hfresh (List.all_eq_true.mp h n hn)
 
 /-! ## The projection-table transport
 

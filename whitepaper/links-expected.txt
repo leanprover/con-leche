@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L101-L104
+   101  theorem model_exists (V : Type w) [SetTheory V]
+   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   103      (accepted : checkDecls .verified pins ds = .ok env) :
+   104      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L101-L104
+   101  theorem model_exists (V : Type w) [SetTheory V]
+   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   103      (accepted : checkDecls .verified pins ds = .ok env) :
+   104      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -2914,11 +2914,10 @@
    355      (m : EnvModel V env) (hok : DefOk env c ci) :
    356      ∃ m' : EnvModel V (env.add c ci), (∀ n, (env.find? n).isSome → ∀ ls, m'.M n ls = m.M n ls) ∧
 
-== ConLeche/Model/Install.lean#L353-L356
+== ConLeche/Model/Install.lean#L353-L355
    353  theorem declStep_preserves_of_cons (mp : EnvModelM V env)
    354      {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
    355      (hfresh : env.find? c₀.name = none)
-   356      -- only a definition takes a certified operation's name
 
 == whitepaper/Fragment/InstallDef.lean#L267-L270
    267  
@@ -4676,42 +4675,42 @@
    834        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
    835        TeleFit m.M φ ρ T xs
 
-== ConLeche/Model/Env/Laws.lean#L500-L534
-   500    · next T us hh => rw [h T us hh]
-   501    · rfl
-   502  
-   503  /-- A constructor's family is a stored inductive. -/
-   504  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
-   505      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
-   506      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
-   507    unfold ConLeche.ctorFamily at h
-   508    split at h
-   509    · next T us hh =>
-   510      split at h
-   511      · next hf =>
-   512        cases Option.some.inj h
-   513        exact ⟨T, us, hh, hf⟩
-   514      · exact nomatch h
-   515    · exact nomatch h
-   516  
-   517  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
-   518  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
-   519      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
-   520      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
-   521      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
-   522        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
-   523        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
-   524        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
-   525      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
-   526    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
-   527    rw [hfam] at hf
-   528    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
-   529    exact ht ta (hde cvT caps ta hf hta) ρ
-   530  
-   531  /-- **The ι case split's environment facts, one rule**.
-   532  `RecRuleLaw`'s main clause takes the levels, parameters and index
-   533  comparisons as equations; under the conditional claims the ι step has
-   534  them only where neither side is the point, and at a K rule or a family
+== ConLeche/Model/Env/Laws.lean#L505-L539
+   505    · next T us hh => rw [h T us hh]
+   506    · rfl
+   507  
+   508  /-- A constructor's family is a stored inductive. -/
+   509  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
+   510      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
+   511      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
+   512    unfold ConLeche.ctorFamily at h
+   513    split at h
+   514    · next T us hh =>
+   515      split at h
+   516      · next hf =>
+   517        cases Option.some.inj h
+   518        exact ⟨T, us, hh, hf⟩
+   519      · exact nomatch h
+   520    · exact nomatch h
+   521  
+   522  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
+   523  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
+   524      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
+   525      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
+   526      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
+   527        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+   528        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+   529        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
+   530      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
+   531    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
+   532    rw [hfam] at hf
+   533    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
+   534    exact ht ta (hde cvT caps ta hf hta) ρ
+   535  
+   536  /-- **The ι case split's environment facts, one rule**.
+   537  `RecRuleLaw`'s main clause takes the levels, parameters and index
+   538  comparisons as equations; under the conditional claims the ι step has
+   539  them only where neither side is the point, and at a K rule or a family
 
 == whitepaper/Fragment/EnvModel.lean#L119-L186
    119  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
@@ -5235,11 +5234,11 @@
     78      obtain ⟨m', -, -⟩ := install_thm h.scoped m hok
     79      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L98-L101
-    98  theorem model_exists (V : Type w) [SetTheory V]
-    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   100      (accepted : checkDecls .verified pins ds = .ok env) :
-   101      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L101-L104
+   101  theorem model_exists (V : Type w) [SetTheory V]
+   102      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   103      (accepted : checkDecls .verified pins ds = .ok env) :
+   104      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -5277,20 +5276,20 @@
    158    no_empty_inductive_inhabitant V hacc (S := IndSpec.falseSpec name recName elim) rfl rfl rfl rfl
    159      hrec e
 
-== ConLeche/Model/Fold.lean#L354-L361
-   354  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   355      {F : Nat}
-   356      {ds : List Declaration} {env' : Env}
-   357      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   358      ∀ c ∈ env'.consts,
-   359        c.toConstantVal.type = .const falseName [] → False := by
-   360    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   361    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L419-L426
+   419  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   420      {F : Nat}
+   421      {ds : List Declaration} {env' : Env}
+   422      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   423      ∀ c ∈ env'.consts,
+   424        c.toConstantVal.type = .const falseName [] → False := by
+   425    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   426    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L283-L285
-   283  theorem foldPM {F : Nat} :
-   284      ∀ (ds : List Declaration) (env : Env) {env' : Env},
-   285        EnvModelOk V env →
+== ConLeche/Model/Fold.lean#L348-L350
+   348  theorem foldPM {F : Nat} :
+   349      ∀ (ds : List Declaration) (env : Env) {env' : Env},
+   350        EnvModelOk V env →
 
 >>> whitepaper/sections/05-nested.typ
 
@@ -6840,15 +6839,16 @@
    233      obtain ⟨m', hm'⟩ := h.step m
    234      exact ⟨m', fun c hc => by rw [hm' c hc], fun _ h => h.elim⟩
 
-== ConLeche/Modular.lean#L211-L214
-   211  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   212      Prop where
-   213    iface : InterfaceOk dev i
-   214    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L243-L246
+   243  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   244      Prop where
+   245    iface : InterfaceOk dev i
+   246    importOk : ImportOk mode pins dev i
 
-== ConLeche/Modular.lean#L86-L87
-    86  def Presents (e p : Declaration) : Prop :=
-    87    (declConstants e = declConstants p ∧ declTables e = declTables p) ∨ e = stmtOf p
+== ConLeche/Modular.lean#L91-L93
+    91  def Presents (e p : Declaration) : Prop :=
+    92    (declConstants e = declConstants p ∧ declTables e = declTables p) ∨
+    93      (e = stmtOf p ∧ ∀ n ∈ (declConstants p).map (·.toConstantVal.name), n ∉ reduceOpNames)
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
@@ -6957,12 +6957,12 @@
     20  definitionally equal to the stream's stored types and value, and whose
     21  certificates check enables the operation's fast path.  The hand-pinned certificate *statements* the proofs are checked against
 
-== ConLeche/Model/NatEqs.lean#L1080-L1084
-  1080  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
-  1081      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
-  1082      (hprev : NatOps mp.base2 φ)
-  1083      {c : Name} {lps : List Name} {type' value' : Expr}
-  1084      {hint : ReducibilityHint}
+== ConLeche/Model/NatEqs.lean#L1053-L1057
+  1053  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+  1054      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
+  1055      (hprev : NatOps mp.base2 φ)
+  1056      {c : Name} {lps : List Name} {type' value' : Expr}
+  1057      {hint : ReducibilityHint}
 
 == ConLeche/Kernel/Basis/Quot.lean#L8-L14
      8  # The pinned `Quot` basis block
@@ -7257,14 +7257,14 @@
    267      A ∈ˢ univ (Level.eval φ u) → a ∈ˢ A → b ∈ˢ A →
    268      app (app (app E A) a) b = eqv a b
 
-== ConLeche/Model/Denotes.lean#L192-L198
-   192  theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
-   193      (hcl : ∀ n ψ, Term.Closed (acval n ψ)) {env : Env} {φ : Name → Nat} :
-   194      ∀ (d : Nat) (e : Expr) {ta : Term},
-   195        denote acval env φ d e = some ta →
-   196        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
-   197        ∀ ρ : Nat → V,
-   198          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
+== ConLeche/Model/Denotes.lean#L202-L208
+   202  theorem Denotes_of_denote {acval : Name → (Name → Nat) → Term}
+   203      (hcl : ∀ n ψ, Term.Closed (acval n ψ)) {env : Env} {φ : Name → Nat} :
+   204      ∀ (d : Nat) (e : Expr) {ta : Term},
+   205        denote acval env φ d e = some ta →
+   206        Expr.fvarsBelow d e → e.looseBVarsBounded 0 = true →
+   207        ∀ ρ : Nat → V,
+   208          Denotes (cvalOf (V := V) acval) env φ ρ (closeN d e) (interp V ρ ta) := by
 
 == ConLeche/Cached/CoreC.lean#L8-L11
      8  # The cached checker core
@@ -7286,15 +7286,27 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Modular.lean#L211-L214
-   211  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
-   212      Prop where
-   213    iface : InterfaceOk dev i
-   214    importOk : ImportOk mode pins dev i
+== ConLeche/Modular.lean#L243-L246
+   243  structure LocalOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → Module) (i : Nat) :
+   244      Prop where
+   245    iface : InterfaceOk dev i
+   246    importOk : ImportOk mode pins dev i
 
 == ConLeche/Modular/Generic.lean#L305-L306
    305  theorem modular : ∀ k, (∀ i < k, dev.Valid i) →
    306      ∃ m : (i : Nat) → i < k → S.Mod (dev.own i), dev.Compatible k m
+
+== ConLeche/MainTheorem.lean#L192-L201
+   192  theorem modular_model_exists (V : Type w) [SetTheory V]
+   193      (pins : List NatOpPinSet) (dev : Nat → Modular.Module) (i : Nat)
+   194      (hok : ∀ j ≤ i, Modular.LocalOk .verified pins dev j)
+   195      (hruns : ∀ j ≤ i, Modular.FormerRuns dev j) :
+   196      ∃ m : ∀ j ≤ i, Model V (dev j).own,
+   197        (∀ j hj j' hj' n, ((dev j).own.find? n).isSome = true →
+   198          ((dev j').own.find? n).isSome = true → (dev j).key n = (dev j').key n →
+   199          (m j hj).cval n = (m j' hj').cval n) ∧
+   200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
+   201          (m j hj).cval n = fun _ => pt := by
 
 == ConLeche/Frontend/Prepare.lean#L174-L175
    174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=

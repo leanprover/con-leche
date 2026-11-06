@@ -111395,3 +111395,101 @@ plain, a `public import ConLeche.Kernel.CoreIO` for the statements), whitepaper 
 executed code changed (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`, `Main.lean`), so
 `tests/arena.sh` was not run; verdicts and counts are `modular`'s.  #463 had not landed on
 `modular`, so nothing is wired into `hdh`.
+
+## TASK #463 — the model's instance and the modular theorem (2026-11-06, agent/463-modular-model)
+
+The third lane of #460's plan.  `modular_model_exists` and `modular_no_False` are proved
+(`ConLeche/MainTheorem.lean`), with **one explicit hypothesis beyond the local checks,
+`FormerRuns`** (below); stated in the Challenge, listed in `comparator.json`, pinned in
+`tests/ConLecheTests/Axioms.lean` (`propext`, `Classical.choice`, `Quot.sound`).
+
+**1. Every proof's leaf is the canonical proof** (`Model/Harvest.lean`, `Model/Fold.lean`).  The
+instance's values are leaves (terms), so two proofs of one statement in two modules must have one
+leaf.  A theorem's leaf is `.prf` (its prop check makes the value's reading the point,
+`propTypeRun_mem_univZero`); a definition or opaque whose type the checker finds to be a
+proposition (`PropTypeRun`), at a name with no fast path, gets `.prf` too.  `AcvalDefnInst` is
+`∃ t, denote … value = some t ∧ LeafReads V leaf t`; the δ rule's soundness carries grading and
+interpretation across the head swap (`wd_interp_mkAppN`).  `EnvFacts.defn_eq` (unread) went.  The
+step is `declStep_agrees` (`CoveredRel`: every stored name keeps its leaf; `DeclProofLeaf`), with
+`declStep_preserves` its corollary; `declBlockAt` records that it keeps leaves.  From `cfsg`'s
+#370 commit, adapted.
+
+**2. The `Nat`-operation law at the name, whatever its kind** (sub-lane).  `NatOps`/`DivMod` are
+keyed on the name being stored (`natOpPinnedOk`, the kind-free pin); `op_defn`/`OpDefn`,
+`isDefinitionAt`, `natOpStored_inv`, `StoredFacts.opDefn`, `EnvFacts.nat_op_guard` (unread) are
+gone; `StoredFacts.boolCtors` is keyed on storedness.  One invariant for the stream and modular
+paths; the kernel is unchanged (no diff under `Kernel`, `Cached`, `Frontend`, `Driver`,
+`Main.lean`), so no verdict moves.  29 files, +466/−607.
+
+**3. The step from a context** (`Model/Modular/Step.lean`, `declsRun_flags`): a `DeclsRun` from a
+context's canonical index carries every covered model of the context to one of the own
+environment keeping every context leaf, every flagged name (`FlagsOk`) at `.prf`.
+
+**4. The context's model** (`Model/Modular/Read.lean`, `Restrict*.lean`, sub-lane).  `CtxRead C E R`
+states, without modules, a context read from its sources: per stored name its source's own
+environment `E n` and the part read alike `R n`; copies refine (`Refines`), names read alike have
+alike copies (`Alike`) and one table, what a context constant reads is read alike (`scope`), and
+an inductive kind read alike brings its reads and constructors (`deep`, `ctors`); a `reduce*`
+name's copy is its source's (`reduce`); tables are their formers'.  `ctxModel` builds the
+context's `EnvModelM` (every field), `LfpCover`, `FamilyRan`, η closure and `NatFacts` from the
+sources' models, every law read off the source's law across the agreement, given `FormerRunsX`.
+
+**5. The reading from the local checks** (`Model/Modular/Valid.lean`, `reading`).  Every
+environment is a stream of records; a stored name is one record's, with its table.  The
+**owner**: a context name is read from the module that declared it among its own records, so two
+copies under one key are alike with one table (`copies_alike`); an inductive copy arrives with its
+owner's record whole (`indRecord`, `indReadAlike`).  Every field of `CtxRead` is derived.
+
+**6. The instance and the theorem** (`Model/Modular/Instance.lean`, `Main.lean`).  Environments
+carry the names they expose; a model (`MMod`) is a leaf assignment with a covered `EnvModelM`
+reading it; a source's view is its own environment exposing what the importer reads alike; one
+copy then holds by the exposure.  Assembly is the self case or a `CtxRead`; amalgamation gives
+each name its source's leaf and calls `ctxModel`; the step is `declsRun_flags`.  `toDev_valid`:
+`LocalOk` and `FormerRuns` give the generic `Valid`; `Development.modular` gives the family.
+
+**Specification changes** (`ConLeche/Modular.lean`), each minimal:
+* `ProofDecl` excludes an opaque at a `reduce*` name (its leaf is the pinned identity, never the
+  canonical proof).
+* `Presents`' statement arm excludes `reduce*` names: a home may accept
+  `def Lean.reduceNat (n : Nat) : Nat := 0`; presented as its statement it would make an importer's
+  `ofReduceNat` (accepted by the name's pinned statement) false in the model.  Pinned by
+  `tests/ConLecheTests/ModularTests.lean`.
+* `ImportOk.one_src`: a context record's names have one source.  Without it a context could take
+  a former from one home and its constructor from another home's identical record, two models
+  that need not fit.
+* `FormerRuns dev j` (new, a hypothesis of the theorem, not a local check): a definition-headed
+  former read alike reduces at the importer's context to the telescope it reduces to at its
+  source, whose names are read alike.  **#469 has since shown it is not derivable from any
+  refinement statement about results** (a run at a refinement can succeed with another
+  telescope); its record lays out the route: the context's datum records the telescope a run at
+  the context reads, its semantic clause from `reducedFormer_refine`, and a ruling for where no
+  run at the context succeeds (decline in the worker, or weaken `LfpTelescope`).  That is the next
+  step that removes `FormerRuns`.
+
+**The ruling's route for `FormerRuns`, tried and stopped** (after #469).  The ruling: record, at
+a definition-headed context member, the telescope of the importer's own run at its context
+(`readTelescope C cv caps`), with `LfpTelescope` conditional on a successful run.  It is not a
+change to `LfpTelescope` alone.  (1) Where a run at `C` succeeds with `f'` ≠ the home's `f` (#469's
+counterexample), the rest of the datum reads the telescope syntactically: `LfpReads` asks
+`denote (formerAt …).type = some (mkPisAV (pars ++ ids) (sort w))` over the datum's own `pars`/`ids`,
+`LfpCtorReads`' `Tys` and `LfpCaps`' `formerZ` likewise; a datum over `f'` needs its `LfpClause`
+moved across binder by binder, while `reducedFormer_refine` + `red_sound` give the whole tower's
+interpretation only — splitting it is Π-injectivity at inhabited Π-sets, which the `SetTheory`
+interface does not have.  (2) Where no run succeeds, `formerAt = cv` and `LfpReads` asks a
+definition-headed type to read as a Π-tower, which it does not; `LfpReads`, `LfpCtorReads` and
+`LfpCaps` would all become conditional, and every reader of them (the container walk,
+`ContWalk.lean`, compares them syntactically with its run's crest) would have to go through
+`FamilyRead`.  Options, a ruling: (a) Π-injectivity in the interface plus the datum transport
+(several hundred lines, new mathematics); (b) semantic `LfpReads`/`LfpCtorReads`/`FamilyRead`;
+(c) the worker re-runs `reducedFormer` at its context on every reached definition-headed member
+and declines where it fails or differs from the home's telescope (a runtime check; the telescope's
+names read alike checked too); (d) `FormerRuns` stays explicit.  Nothing of the route landed.
+
+**Gates.**  After merging `modular` (#464, #469): `lake build`, `lake test` warning-free;
+`tests/arena.sh` in full under the guard (below); overview links, quote gate, shake (measured
+import lines allowlisted, measured demotions recorded as fallbacks), challenge, layering, trust
+surface (`lakefile.lean` re-pinned: `ConLeche.Modular` leaves the capstone lib's roots, since
+`MainTheorem` imports it).
+
+**Sizes.**  `Model/Modular/`: `Step` 127, `Read` ~210, `Restrict*` ~1 700, `Valid` ~1 080,
+`Instance` ~230, `Main` ~130 lines.

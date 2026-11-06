@@ -59,12 +59,6 @@ structure EnvFacts (env : Env) where
   nothing else. -/
   ty_denotes : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
     ∃ t, denoteClosed cval env ψ c.toConstantVal.type = some t
-  /-- Every definition is denoted by its body — the fact that makes a
-  delta step an *identity* of denotations, hence contributes no rule to
-  the family (design §7.2, R17). -/
-  defn_eq : ∀ cv value hint,
-    ConstantInfo.defnInfo cv value hint ∈ env.consts → ∀ ψ : Name → Nat,
-      denoteClosed cval env ψ value = some (cval cv.name ψ)
   /-- **Every stored recursor rule's right-hand side denotes**,
   at every instantiation of the recursor's level parameters.
 
@@ -95,17 +89,5 @@ structure EnvFacts (env : Env) where
   expression, which is what makes their denotation and residual walks
   computations. -/
   proj_ok : ProjOkT env
-  /-- **The install fold's `Nat`-op invariant, narrowed to what the
-  literal fast path reads** (task #161 B3): a *stored* one of the
-  sixteen accelerated operations is a *guarded* one.
-
-  `reduceNat` tests `isDefinitionAt`, one lookup, instead of re-deriving
-  `natOpGuard` at every literal hit.  This field turns that test back
-  into the guard the literal rules name, and it is not new evidence:
-  the model's `nat_ops`/`div_mod` state exactly this under their
-  `defnInfo` hypothesis (they are what `checkDecl` establishes, by
-  declining a stream that stores one of these names unguarded). -/
-  nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
-    isDefinitionAt env c = true → natOpGuard env c = true
 
 end ConLeche.Semantics

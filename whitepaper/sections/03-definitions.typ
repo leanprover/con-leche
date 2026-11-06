@@ -186,7 +186,7 @@ gains three cases, one per rule.
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 351, 356)[extended with $c$ has a model]
-  (#src("ConLeche/Model/Install.lean", 353, 356)[as in con-leche]).
+  (#src("ConLeche/Model/Install.lean", 353, 355)[as in con-leche]).
 ] <thm:install-def>
 
 #proof[
