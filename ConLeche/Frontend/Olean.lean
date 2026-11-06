@@ -3,6 +3,7 @@ module
 public import ConLeche.Frontend.Olean.Records
 public import ConLeche.Frontend.Olean.Index
 public import ConLeche.Frontend.Olean.Group
+public import ConLeche.Frontend.Olean.Present
 
 @[expose] public section
 

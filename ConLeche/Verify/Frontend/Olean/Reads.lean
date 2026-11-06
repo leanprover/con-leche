@@ -3,7 +3,7 @@ module
 public import ConLeche.Frontend.Olean.Reads
 public import ConLeche.Frontend.Olean.Header
 import ConLeche.Verify.Frontend.Olean.Equiv
-import ConLeche.Verify.Frontend.Olean.Sparse
+public import ConLeche.Verify.Frontend.Olean.Sparse
 import Std.Data.HashSet.Lemmas
 
 /-!
@@ -418,7 +418,7 @@ theorem stmtsAt_eq (r : Region) (cs : List Nat) :
 /-! ### Several constants, one memo -/
 
 /-- A root added to a good memo leaves it good. -/
-private theorem memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k) {st : SM} (hG : st.Good r)
+theorem memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k) {st : SM} (hG : st.Good r)
     (v : UInt64) : (memoAdd r k st v).Good r := by
   unfold memoAdd
   split
@@ -431,24 +431,24 @@ private theorem memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k) {st : SM} 
     | some st' => exact (h1 st' e).1
   · exact hG
 
-private theorem foldl_memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k)
+theorem foldl_memoAdd_good {r : Region} {k : UInt8} (hk : IsKind k)
     (vs : List UInt64) (st : SM) (hG : st.Good r) : (vs.foldl (memoAdd r k) st).Good r := by
   induction vs generalizing st with
   | nil => exact hG
   | cons v vs ih => exact ih _ (memoAdd_good hk hG v)
 
-private theorem memoRoots_good {r : Region} {st : SM} (hG : st.Good r) (sk : CEntryF UInt64 UInt64) :
+theorem memoRoots_good {r : Region} {st : SM} (hG : st.Good r) (sk : CEntryF UInt64 UInt64) :
     (memoRoots r st sk).Good r :=
   foldl_memoAdd_good isKind_expr _ _ (foldl_memoAdd_good isKind_name _ _ hG)
 
-private theorem foldl_memoRoots_good {r : Region} (sks : List (CEntryF UInt64 UInt64)) (st : SM)
+theorem foldl_memoRoots_good {r : Region} (sks : List (CEntryF UInt64 UInt64)) (st : SM)
     (hG : st.Good r) : (sks.foldl (memoRoots r) st).Good r := by
   induction sks generalizing st with
   | nil => exact hG
   | cons sk sks ih => exact ih _ (memoRoots_good hG sk)
 
 /-- A name read by a good memo is the specification's. -/
-private theorem memoName_eq {r : Region} {st : SM} (hG : st.Good r) : memoName r st = nameP r := by
+theorem memoName_eq {r : Region} {st : SM} (hG : st.Good r) : memoName r st = nameP r := by
   unfold SM.Good at hG
   funext v
   unfold memoName
@@ -463,7 +463,7 @@ private theorem memoName_eq {r : Region} {st : SM} (hG : st.Good r) : memoName r
       | none => rw [sparseNameP_eq]
 
 /-- An expression read by a good memo is the specification's. -/
-private theorem memoExpr_eq {r : Region} {st : SM} (hG : st.Good r) : memoExpr r st = exprP r := by
+theorem memoExpr_eq {r : Region} {st : SM} (hG : st.Good r) : memoExpr r st = exprP r := by
   unfold SM.Good at hG
   funext v
   unfold memoExpr

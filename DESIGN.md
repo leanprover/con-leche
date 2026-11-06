@@ -111179,6 +111179,130 @@ Not optimised in this lane.
 selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.  The
 order's IR case of 1.
 
+## TASK #465 — the reach of a module, its completion, the capture check, proof flags by inference (2026-11-06, agent/465-reach)
+
+#460's lane #465, on `modular` (off 3cee6cfaa).  Phases 4 and 6 of #460 §3: the records a
+module's own records are checked against, as a list of records, and their validation.  No
+worker CLI (that is #466); the test hook is `olean-compare --reach [--list]`.
+
+**Where it sits.**  The reach reads the kernel (the flags' inference) and the specification's
+`pinFootprint`, which the olean reader's fence (`tests/layering.sh`: the reader imports its base
+types only) does not admit, and it is the worker's phase, so it is `ConLeche/Driver/Reach.lean`,
+reading the reader through its umbrella.  The reader keeps the two reads it needs that are
+reads: `entryWith` and `stmtWith` (`Frontend/Olean/Present.lean`), a constant whole or its
+statement and kind (expressions left out), each with a memo per part that the caller threads, and
+`recordOfEntry` (a constant through `Emit.one` and the stream reader's builder).
+
+**1. The reach** (`reachGo`, a plain worklist; `ReachLog` its logical state, `ReachCache` what
+it has read of the files).  The roots are the names the own records read (`recordReads` of
+each own record, and the load's `uses` of each own constant, so a theorem's value's names are
+in).  A popped name not yet stored is read at the importer's copy (the index's first copy, in its
+module's loaded part) and presented (`readRecord`): a definition with its value where the part
+holds it (exposed, or under `import all`), every other definition, theorem and opaque constant
+as `.axiomDecl` of its statement (master installs an opaque so anyway; a theorem's statement is
+all master stores), an axiom as it is, a quotient constant through the builder, an inductive
+group whole (`groupAt`: the type's entry, its members and constructors by name, the recursors
+of its block from a per-part map of recursors by first member, then `groupRecord`; where the
+part lacks a member or a constructor, from the module's private part).  The record must declare
+the popped name (else a decline for a group the recogniser does not read or a use of `sorryAx`,
+a reject otherwise), and no other record may hold its names.  Its reads (`recordReads`:
+`NeedsSt.const`/`.table` over its installed constants and tables, one memoized walk per
+expression's DAG, `needsGo`, a subterm recorded after its children) are capture-checked and the
+new ones pushed.  The opaque cut is the presentation: no imported theorem's value, no hidden
+definition's, no opaque's is ever read (`stmtWith` does not read them).  Fuel: the index's names
+plus 2^24, an internal error on exhaustion (each pop is a new name).
+
+**2. The completion.**  A read the index lacks is located in its reader's home's view
+(`viewOf h`: `h`'s private name table, then each part `h`'s `headerFixpoint` loads, at its
+level, the first copy of each name; built once per home, the index's tables reused where the
+module and level are the index's) and read from its module's private part (`privSpot`), as its
+statement, a group whole.  Its reads are capture-checked against its own home.  Located nowhere:
+exit 1 ("which no module of its view holds").
+
+**3. The capture check** (`captureOne h y`, every read of every record): a read of one of the
+module's own names is a reject (Lean would accept the edge where both are proofs of one
+statement: noted, not a case seen anywhere); the importer's copy is accepted if its module is `h`,
+or is in `h`'s public-import closure (`WorkerReads.pub`) with `y` in its exported part (read off
+the exported name table where the module is loaded whole); otherwise `y` is located in `h`'s
+view and `keyCheck` asks one key: one module, or equal statements and both proofs.  A completed
+name met by a second home is compared so too.  `DgCapM`: rejected, "name capture at foo, read by
+module DgCapH" (both `foo`s definitions of `Nat`).
+
+**4. Proof flags by inference** (`proofStatus`): a theorem copy is a proof; a definition or opaque
+copy is a proof iff its type is a proposition; an exported axiom is what its home's private name
+table says at that name (a theorem: a proof; a definition or opaque: inferred; an axiom: none);
+an axiom of a private part is none.  "Inferred" is recorded with the statement and decided after
+the context is built and validated: `typeIsPropC` (`infer`, `ensureSort`, `Level.isEquiv u 0`,
+as `checkThmValCI` does) at `mkFEnv (streamEnv ctx)`, the statement first checked to resolve
+there.  The clashes #464 collected (`clashKeys`): every copy must be a proof (the statements are
+equal already, by `subsumesF`); a clash with an inferred flag has its name added to the roots, so
+that its statement's names are in the context.  `PdM`: accepted, "1 flags inferred" (PdA's `def pd
+: id True` exported as an axiom, PdB's theorem).  A clash of two axioms both axioms at their homes
+(which Lean merges where `isPropCheap` holds) would be a reject here: not met on Init, Coxeter or
+Gamma (every clash there is proofs); noted as the one possible new reject against Lean.
+
+**5. The validation** (`validateCtx`: `recordOk` of every record: `constOk` — the type, a
+definition's value, a recursor's rules closed, bound, their level parameters declared, a nested
+rule's datum read off its recursor's type (`nestedOk`, cfsg's cont. 23 ported to master's
+`ConstWF`) — `litShapeOk` of every constant, `tableOk` of every table), a failure exit 1 naming
+the record and its home.  The names' resolution is the reach's closure, proved, not checked.
+
+**Theorems** (`Verify/Driver/Reach.lean`, `Verify/Frontend/Olean/Present.lean`; all at the three
+standard axioms, pinned in `Axioms.lean`):
+* `needsGo_spec`, `constsResolve_of_needs`, `recordReads_covers`, **`recordReads_scoped`**: where
+  every name `recordReads d` lists is stored in `R`, `RecordScoped R d`; `recordReads_table`: a
+  table's structure is among them;
+* `ReachInv` (every read of a record so far pushed; every pushed name stored or on the stack;
+  every stored name a record's), `pushNames_spec`, `ReachInv.add`, `.skip`, **`reachGo_inv`**: at
+  every accepting outcome of `reachGo` in `ModelIO`, on any snapshot, the invariant with an
+  empty stack, whatever the reads returned; **`reachGo_closed`**: every name a context record
+  reads is stored in `streamEnv ctx`, every context record `RecordScoped` there;
+* `exprOk_iff`, `nestedOk_read`, `constOk_wf`, `tableOk_wf`, **`ctx_envWF`**: a list of
+  validated records closed under their reads installs an `EnvWF` environment; `mem_streamEnv_*`;
+* **`reach_ok`**: the three at every accepting outcome of `reach`;
+* `entryWith_spec`, `stmtWith_spec`, **`entryWith_of_view`**, **`stmtWith_of_view`**: a copy read
+  with a part's memo is, at a position of a parsed view, the full parse's constant there
+  (statement and kind constructor for `stmtWith`), and the memo stays good.  `memoAdd_good`,
+  `memoRoots_good`, `memoName_eq`, `memoExpr_eq` of `Verify/Frontend/Olean/Reads.lean` made public
+  for them (with `public import …Sparse`).
+Not proved: that the presentations are the homes' records (`Presents`, #466 with the home's
+check), the clash rule's and capture check's key equalities as `ImportOk.key_context` (#466), and
+the flags' agreement with the home's `ProofDecl` (the home's job is the theorem record's check;
+"type a proposition" at the importer is what it implies given the value's own check — a lemma for
+#466/#463).
+
+**Fixtures** (`tests/olean.sh`, `olean-compare --reach`; 21 new cases, the gate 159/159):
+TinyUse, DgFlagB, DgLiftB, DgInferB, HiLamB, HiInhM, HiInhM2, TeqM, TeqBoth, NsM, NsN (cfsg's,
+ported: nested groups through List, Array, Option, user containers, mutual), LdgM, LdvM, GrN: 0.
+WvM: 0, one completion (`wv_secret`, in WvA's view): **no override**.  DgColM: 0 (no record of M's
+context reads `foo`; Lean accepts; the merged `--olean` read rejects the pair, 1).  TeqDM: 0
+(`teqN` not exposed, `teq` not reached; Lean accepts; merged: 1).  DgCapM: 1 (capture).  PdM: 0
+(flag inferred).  New `LdgN`/`LdvN` (read LdgA's/LdvA's group, not the name its constructor
+reads): with the header's import made private (`patch_import`, cfsg's `patch_last_import`), 0,
+the name completed from its module's private part; with it dropped, 1 (located nowhere).  cfsg's
+`LdgM`/`LdvM` under the private patch are 1, rightly: their own terms read `ldgT`/`ldvW` (a
+binder's type), which their patched view lacks, as Lean's replay would find.
+
+**Numbers** (`perf stat -e instructions:u`, `--jobs=4`, one run each, under the guard; the reach
+is the difference to `--reads`, and includes the own part's load and emission):
+
+| module | loaded | reach: records (constants, groups) | modules reached | completed | `--reads` | `--reach` | reach |
+|---|---|---|---|---|---|---|---|
+| Mathlib.GroupTheory.Coxeter.Basic | 2 479 / 196 897 names | 2 268 (2 874, 276) | 151 | 0 | 6.04 G | 7.23 G | 1.19 G |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 4 092 / 317 101 | 6 326 (7 973, 694) | 581 | 1 | 10.24 G | 13.89 G | 3.65 G |
+
+#460 §6's probe (Lean's API): Coxeter reach 2 875, 276 groups, 151 modules, 0 completed; Gamma
+7 973, 694, 581, 1 (`_private.Init.System.Promise.0.IO.PromisePointed`).  **The same**, but
+Coxeter's one constant (the probe counted one more; not chased).  Gamma's peak VmHWM 475 MB.
+A first run cost 8.7 G for Gamma's reach: a capture message built eagerly per read (`s!` with
+two names rendered); built only at a key mismatch now.  No clash on either module is anything
+but proofs, so no flag was inferred there.
+
+**Not done / for #466.**  The own records' emission restricted to own roots (the hook does it with
+`emitAll` over the own constants); `Presents` and the key clauses as theorems; the recursor order
+of a group read at an exported part (#464's note) is unchanged; a home's view is built whole for a
+search (rare: 1 search on Gamma, 0 on Coxeter), a per-home cost of its name tables.
+
 ## TASK #469 — reduction at a refinement: the runs differ, the derivations carry over (2026-11-06, agent/469-whnf-refine)
 
 **The question (maintainer).**  `env₁` refines `env₂` in the modular sense: every constant of
