@@ -1228,9 +1228,11 @@ theorem relApp_data {i j k : Nat} {ρ : Nat → V} {Aset R a b : V}
 The block's stored axiom, and the basis blocks' only one: its
 `reduce_ops` row is the `hred` disjunct's second branch (`Quot.sound`
 is not a trusted operation), unused by every earlier block.  Its type
-is `Prop`-valued throughout, so the membership obligation is `pt` in a
-five-deep `piR 0` — five `pt_mem_piR_zero` steps whose innermost
-witness is the quotient's own soundness. -/
+is `Prop`-valued throughout, so its leaf is the canonical proof `.prf`,
+as every proof's (so that two copies of it in two modules have one
+leaf), and the membership obligation is `pt` in a five-deep `piR 0` —
+five `pt_mem_piR_zero` steps whose innermost witness is the quotient's
+own soundness. -/
 
 /-- `Quot.sound`'s type reading, named. -/
 def quotSoundTy (E : Term) (u : Nat) : Term :=
@@ -1521,9 +1523,9 @@ theorem extendQuotSound (mp : EnvModelM V env)
     CoverTo mp ex ⟨quotSoundA :: env.consts, env.tables⟩ ex := by
   have hty := fun ψ =>
     denote_quotSoundA_type (m := mp.base2)
-      (A := fun ψ => Term.const .quotSound [ψ uN]) ψ hQ hM hE
+      (A := fun _ => Term.prf) ψ hQ hM hE
   refine coverTo_cons hfresh (fun _ _ h => nomatch h) (declStep_preserves_of_basis_cons mp
-    (A := fun ψ => Term.const .quotSound [ψ uN]) hfresh (by decide)
+    (A := fun _ => Term.prf) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
     (by decide) (by decide) (by decide) (by decide)
     (fun _ _ _ _ _ h => nomatch h)
@@ -1531,13 +1533,13 @@ theorem extendQuotSound (mp : EnvModelM V env)
     (ConsHead.ofBasis hwf (fun _ => trivial) rfl
       (fun ψ t hp => by
         rw [show ConLeche.Verify.pinnedStructT quotSoundA.name ψ
-          = some (Term.const .quotSound [ψ uN]) from rfl] at hp
+          = some Term.prf from rfl] at hp
         rw [← Option.some.inj hp]) (fun _ _ _ _ _ h => nomatch h))
     ?_
     (fun _ _ => trivial)
     (fun ψ => ⟨_, hty ψ⟩) ?_ ?_)
-  · intro ψ₁ ψ₂ hp
-    rw [hp uN (by show uN ∈ [uN]; exact List.mem_cons_self)]
+  · intro ψ₁ ψ₂ _
+    rfl
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
@@ -1545,8 +1547,7 @@ theorem extendQuotSound (mp : EnvModelM V env)
   · intro ψ ta h ρ
     rw [hty ψ] at h
     obtain rfl := (Option.some.inj h).symm
-    rw [interp_const]
-    show (pt : V) ∈ˢ _
+    rw [interp_prf]
     exact quotSoundTy_mem ρ (quotSound_eqLaws mp hE ψ).1
 
 /-! ## `Quot.lift`

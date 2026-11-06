@@ -111176,8 +111176,7 @@ Not optimised in this lane.
 
 **Not done / for the next lanes.**  No theorem about the fixpoint or the index (none needed, #460
 §3).  `readKinds` has no `_of_view` theorem (it feeds only the clash rule and `readGroup`'s
-selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.  The
-order's IR case of 1.
+selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.
 
 ## TASK #465 — the reach of a module, its completion, the capture check, proof flags by inference (2026-11-06, agent/465-reach)
 
@@ -111494,6 +111493,101 @@ surface (`lakefile.lean` re-pinned: `ConLeche.Modular` leaves the capstone lib's
 **Sizes.**  `Model/Modular/`: `Step` 127, `Read` ~210, `Restrict*` ~1 700, `Valid` ~1 080,
 `Instance` ~230, `Main` ~130 lines.
 
+## TASK #444 — axioms merged as Lean merges them (2026-11-06, agent/444-axiom-merge)
+
+On `modular` (off d3adce1ca).  **The maintainer's ruling:** two modules holding an axiom of one
+name are merged where Lean's `subsumesInfo`/`isPropCheap` merges them, not rejected: a copy that
+is an axiom at its home is a proof (one key `.proof stmt`) when its type is a proposition, decided
+by inference as for definitions.  Also ruled: the module order does not matter; its open point
+(#464's "the order's IR case of 1") is dropped from #464's list.
+
+**Lean's rule** (v4.35.0, `Environment.lean`, `subsumesInfo` in `finalizeImport`'s fold): equal
+names, types and level parameters, and a theorem against a theorem (equal `all`), a theorem
+against a safe axiom (no test of the type), or an axiom against an axiom (equal `isUnsafe` and
+`isPropCheap` of the type: `∀ xs, c as` with `c`'s type, after as many binders as `as` has
+arguments, syntactically `Prop`).  Con-leche's clash rule (`clashOk`, `subsumesF`) is this rule
+already, and so is the merged `--olean` read's (`mergeEntry`, `subsumes`): **neither changes**.
+The new reject #465 noted was the key decision after the clash rule: `proofStatus` gave an axiom
+at its home `.no`, so `clashKeys` (and `keyCheck`, at a capture) rejected any pair holding one.
+
+**The worker** (`Driver/Reach.lean`, `proofStatus`): an axiom copy is a proof by inference, an
+exported axiom whose home's private part declares a theorem there still a proof outright (the
+private part's kind tag 2; 0, 1, 3 now inferred).  The inference is `typeIsPropC` at the
+context, as for definitions, recorded with the statement and run after the context's validation;
+the clash's name joins the roots.  **It accepts at least what `isPropCheap` accepts**, on
+well-typed types: `isPropCheap` asks `c`'s type to be `∀ b₁…bₖ, Prop` with `k` arguments applied;
+inferring `c a₁…aₖ` instantiates that telescope's `Prop` (no loose variable) and gives `Sort 0`,
+each enclosing `∀` a sort `imax uᵢ 0`, which `Level.isEquiv` equates with `0`.  The head's type is
+the context's copy, the index's first copy that `isPropCheap` reads too.  So every pair Lean's
+fold merges has one key here (Lean's theorem/axiom arm has no test at all; there the theorem's
+own statement is a proposition, checked at its home, and inference sees the same type).
+
+**The specification** (`ConLeche/Modular.lean`): `TypeIsProp mode E ty` (the theorem record's prop
+row: `inferTypeCore`, `ensureSortCore`, `Level.isEquiv u .zero`, at some fuel), and `ProofDecl`'s
+new arm `.axiomDecl cv => TypeIsProp mode E cv.type`.  `TypeIsProp .verified` is `PropTypeRun`
+(`Semantics/DeclRun.lean`) by definition, so the model reads it as it is.
+
+**The model** (the proofs' route).  An axiom's installed leaf becomes the canonical proof `.prf`
+wherever the checker finds its type to be a proposition, as #463 did for definitions and
+opaque constants:
+* `harvestAxiom` (`Model/Harvest.lean`) installs `L = if PropTypeRun env cv.type then .prf else A`
+  for the branch's leaf `A`, and concludes `CoverStepLeaf … cv.name (PropTypeRun env cv.type)`;
+  the membership at `.prf` is `A`'s, since `A` lies in a truth value and is the point
+  (`propTypeRun_mem_univZero`, `eq_pt_of_mem_univZero`).  `axiomStd`, `axiomTrustCompiler`,
+  `axiomOfReduce` (`Model/AxiomPin.lean`, `Model/AxiomReduce.lean`) pass it through unchanged.
+* `Quot.sound`'s leaf is its pin's (`pinnedStructT`, `Verify/Denote/Pinned.lean`): now `.prf`, in
+  place of the built-in `.const .quotSound`; `extendQuotSound` repaired, and `axiomStepPB_of`
+  reads the leaf off the result's `basis_pinned` (`acval_pinned_free`).
+* `AxiomStepPB` concludes `CoverStepLeaf … (cv.name ≠ sorryAxName ∧ PropTypeRun env cv.type)`
+  (`sorryAx` stores nothing, so no leaf is claimed for it); `DeclProofLeaf`'s new axiom arm says
+  so, and `declStep_agrees` carries it.  **The step keeps every other leaf**: `CoveredRel`'s
+  "every stored name keeps its leaf" is untouched; only the new name's leaf moved.
+* `proofDecl_leaf` (`Model/Modular/Step.lean`) gains the axiom arm (the record's one name, or
+  `Quot.sound`'s pin at its name, or none for `sorryAx`); `ProofDecl.kinds`
+  (`Model/Modular/Valid.lean`) likewise (an axiom record's constants are statement kinds, no
+  table).  Nothing else of `Model/Modular/` moved: `modular_model_exists` is unchanged in its
+  statement and axioms.
+`BConst.quotSound` is now no constant's leaf (it stays as model vocabulary, with its membership
+`bval_mem_quotSound`); `propext`'s branch leaf `.const .propext []` is installed only where the
+checker does not find its pinned type a proposition, which never happens.  Either could go in a
+clean-up.
+
+**Which inputs reach the new case.**  At their homes con-leche accepts only `propext`,
+`Classical.choice`, `Quot.sound` (the quotient record), `Lean.trustCompiler`, `Lean.ofReduceBool`,
+`Lean.ofReduceNat` (pinned statements) and `sorryAx` (stores nothing); any other axiom declines at
+its home's record.  Of those, all but `Classical.choice` are propositions.  A development every
+module of which passes therefore reaches the new case only where two modules each declare one of
+them (outside a closure already holding it, by freshness: `propext` is `Init.Core`'s, `Quot.sound`
+`Init.Prelude`'s; `Lean.trustCompiler` and the `ofReduce*` axioms are in no `.olean` file of
+v4.35.0's library), or one declares it and another proves a theorem of its name and statement.  A worker's
+verdict for one module reaches it with any axioms of its imports, whose own homes then decline.
+
+**Fixtures** (`tests/olean/src`, built by `tests/olean/build.sh`; `tests/olean.sh`, 159 → 164):
+* `AxA`, `AxB`: `axiom Lean.trustCompiler : True` each; `AxM` loads both.  Lean compiles `AxM`
+  (its import merges the pair).  `olean-compare --reach AxM`: 0, "1 flags inferred" (before this lane: 1, "store
+  Lean.trustCompiler, not as one constant").  `con-leche --olean AxA AxB AxM`: 0 (each home
+  accepts its pinned axiom, the merged read the closure).
+* `AxI` (`axiom axi : id True`), `AxIT` (`theorem axi : id True`), `AxIM` (`public import AxI`,
+  `import all AxIT`): Lean merges them by the theorem/axiom arm, which `isPropCheap` does not
+  guard (it fails on `id True`).  `--reach AxIM`: 0, "1 flags inferred" (before: 1).  `--olean
+  AxI`: 2 (a non-standard axiom at its home).  `--olean AxIM`: 0 (the merge keeps the theorem).
+* `AxNA`, `AxNB` (`axiom axn : Nat` each), `AxNX` a stand-in, `AxNM` (`AxNA` and `AxNX`; the gate
+  swaps `AxNB`'s files in as `AxNX`'s, a pair Lean refuses: "environment already contains 'axn'
+  from AxNA").  `--reach AxNM`: 1, "AxNA and AxNX store different constants named axn", by the
+  clash rule, as by Lean; the merged `--olean AxNM`: 1.
+
+**Gates.**  `lake build`, `lake test` warning-free; overview links (two `Fold.lean` anchors
+moved), whitepaper links (`Fold.lean`, `Modular.lean` anchors moved; §7's "a flagged declaration
+is …" now names assumptions; the fragment has no assumption declarations, so it is unchanged),
+quote gate, layering, trust surface, shake, challenge; `tests/arena.sh` in full under the guard
+(`guard.sh 8000000`): exit 0 (olean gate 164/164, e2e 555/555, tutorial 90/92 as pinned, the
+trusted and `--jobs` sweeps without divergence; peak VmHWM 4.4 GB).  lean4export (Lean's own
+`importModules`) exports `AxM` and `AxIM`, and `olean-compare` finds 0 differences against the
+reader's records of both closures.
+
+**Sizes.**  Checker: one function's match (`proofStatus`), no new code path.  Model and spec:
++~90 lines over 9 files.
+
 ## TASK #466 — the worker: one module checked against its context (2026-11-06, agent/466-worker)
 
 #460's lane #466, on `modular` (off d3adce1ca).  Phases 3, 5 and 7 of #460 §3 and the CLI; the
@@ -111600,17 +111694,22 @@ mismatch (its own record is still in declaration order).  The model's use is mem
 users read membership through it (a dozen lines).  Types and constructors follow `all` and `ctors`,
 the same at both levels, and the tables `all`'s order.
 
-**Proof flags of definitions: open, needs a ruling or #467's lemma.**  `FlagsOk` asks, of a
-module's flagged names, a `ProofDecl` at its home: a theorem record, or a definition/opaque whose
-value passes the theorem record's check.  At an importer (`PdM`) the reach accepts a clash of
+**Proof flags beyond theorem records: open, needs a ruling or #467's lemma.**  `FlagsOk` asks, of
+a module's flagged names, a `ProofDecl` at its home: a theorem record, a definition/opaque whose
+value passes the theorem record's check, or (since #444) an axiom record whose type is a
+proposition there (`TypeIsProp`).  At an importer (`PdM`) the reach accepts a clash of
 `PdA`'s definition of `id True` (exported as an axiom) and `PdB`'s theorem by inferring the type a
 proposition, so `PdA`'s key for `pd` must be `.proof`, so `PdA.proofs pd`, so `ProofDecl` of `pd`'s
 record at `PdA`.  The worker at `PdA` does not establish that: its job checks the definition
 (`value : type`, the type a sort), not the theorem record.  Two ways: (a) the home's job of a
 definition or opaque whose type it infers to be a proposition also runs the theorem record's
 check (ruling 3's +0.3 % on Mathlib; a second result per job), or (b) a lemma that a definition's
-passing check at a type that is a proposition gives the theorem record's check.  This lane takes
-`proofs` = the theorem records only, for which `FlagsOk` is immediate.
+passing check at a type that is a proposition gives the theorem record's check.  The same holds of
+an axiom flagged by #444's rule: the worker at its home infers nothing about its own axioms'
+types, so `TypeIsProp` at the home is either a home-side inference (cheap: an axiom's type, once)
+or derived from the importer's `typeIsPropC` at a context where the statement is read alike (a
+lemma: inference is stable under extension, `knot_ext`).  This lane's theorem fixes no `proofs`;
+with `proofs` = the theorem records, `FlagsOk` is immediate.
 
 **5. Fixtures** (`tests/olean.sh`, the gate 249/249).  Every fixture module of `tests/olean/src`
 but the `Up*` ones runs as a worker on `tests/olean/lib` plus the toolchain's `Init`: 0 (Lean

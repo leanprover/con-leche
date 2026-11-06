@@ -34,13 +34,15 @@ checked against, as a list of records, and its validation.
   key); otherwise `y` is located in `h`'s view and the two copies must have one key
   (`keyCheck`): one module, or both proofs of one statement.  Else the module is rejected
   ("name capture").  A context record reading one of `M`'s own names is rejected so too.
-* **Proof flags by inference** (`proofStatus`, ruling 3 of #460): a copy is a proof if it
-  is a theorem, or (an exported axiom) its home's private part declares a theorem there, or
-  it is a definition or opaque constant (exported or not) whose type the kernel infers to
-  be a proposition at the context (`typeIsPropC`, after the context is built and
-  validated).  Every name two loaded modules hold (`WorkerReads.clashes`) must have one key
-  so (`clashKeys`); a clash whose flag is inferred has its name reached, so that its
-  statement's names are in the context.
+* **Proof flags by inference** (`proofStatus`, ruling 3 of #460; axioms by #444's): a copy
+  is a proof if it is a theorem, or (an exported axiom) its home's private part declares a
+  theorem there, or it is a definition, opaque constant or axiom (exported or not, at its
+  home) whose type the kernel infers to be a proposition at the context (`typeIsPropC`,
+  after the context is built and validated).  The inference accepts every well-typed type
+  Lean's `isPropCheap` accepts, so every pair Lean's merge identifies has one key.  Every
+  name two loaded modules hold (`WorkerReads.clashes`) must have one key so (`clashKeys`);
+  a clash whose flag is inferred has its name reached, so that its statement's names are in
+  the context.
 * **What a record reads** (`recordReads`): the names its constants' laws and its tables
   ask stored, `RecordScoped`'s (`ConLeche/Modular.lean`): every constant of a type, of a
   definition's value, of a recursor's rules and nested pins, a literal's and a
@@ -383,22 +385,23 @@ inductive ProofStatus where
   | infer
   deriving BEq, Inhabited
 
-/-- **A copy's proof flag** (ruling 3 of #460): a theorem is a proof; a definition or opaque
-constant is one if its type is a proposition; an exported axiom is what its home's private
-part declares there; an axiom of a private part is none. -/
+/-- **A copy's proof flag** (ruling 3 of #460, and #444's: axioms as Lean merges them): a
+theorem is a proof; a definition, opaque constant or axiom is one if its type is a proposition;
+an exported axiom is what its home's private part declares there (a theorem a proof, a
+definition, opaque constant or axiom by its type). -/
 def proofStatus (env : ReachEnv) (c : ReachCache) (s : Spot) (k : CKindF Name Unit) :
     μ (ReachCache × Except CheckError ProofStatus) := do
   match k with
   | .thm .. => pure (c, .ok .yes)
   | .defn .. | .opaq .. => pure (c, .ok .infer)
   | .ax _ =>
-    if s.part.level == .private then return (c, .ok .no)
+    if s.part.level == .private then return (c, .ok .infer)
     match ← privSpot env c s with
     | (c, .error e) => pure (c, .error e)
     | (c, .ok p) =>
       pure (c, .ok (match p.pos.tag with
         | 2 => .yes
-        | 1 | 3 => .infer
+        | 0 | 1 | 3 => .infer
         | _ => .no))
   | _ => pure (c, .ok .no)
 

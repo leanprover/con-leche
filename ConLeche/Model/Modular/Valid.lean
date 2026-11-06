@@ -423,7 +423,14 @@ theorem ProofDecl.kinds {mode : CheckMode} {E : Env} {d : Declaration}
   | defnDecl cv v hint => exact ⟨fun ci hci => by rw [List.mem_singleton.mp hci]; rfl, rfl⟩
   | thmDecl cv v => exact ⟨fun ci hci => by rw [List.mem_singleton.mp hci]; rfl, rfl⟩
   | opaqueDecl cv v => exact ⟨fun ci hci => by rw [List.mem_singleton.mp hci]; rfl, rfl⟩
-  | axiomDecl _ => exact h.elim
+  | axiomDecl cv =>
+    refine ⟨fun ci hci => ?_, rfl⟩
+    simp only [declConstants] at hci
+    split at hci
+    · rw [List.mem_singleton.mp hci]; rfl
+    · split at hci
+      · exact absurd hci List.not_mem_nil
+      · rw [List.mem_singleton.mp hci]; rfl
   | quotDecl _ _ => exact h.elim
   | indDecl _ _ => exact h.elim
 

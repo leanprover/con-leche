@@ -27,9 +27,10 @@ adds is what a module is for con-leche and what its checks are.
   any order) and tables, or the record's statement (`stmtOf`): a definition, theorem or opaque constant as an axiom
   of its name, level parameters and type.  An inductive group is presented as its record, so it
   reaches an importer whole.
-* A **proof** (`ProofDecl`) is a theorem record, or a definition or opaque record whose value passes
-  the theorem record's check at the environment it is installed at: its type is inferred to be a
-  proposition, as Lean's own merge rule asks of the copies it identifies.
+* A **proof** (`ProofDecl`) is a theorem record, a definition or opaque record whose value passes
+  the theorem record's check at the environment it is installed at, or an axiom record whose type
+  is inferred to be a proposition there (`TypeIsProp`): the copies Lean's own merge rule identifies
+  (`subsumesInfo`, whose `isPropCheap` is a sufficient test of the same).
 
 **The local checks** split by who runs them:
 1. at the home, once (`InterfaceOk`): every presentation the module offers presents one of its own
@@ -135,15 +136,23 @@ def RecordScoped (R : Env) (d : Declaration) : Prop :=
 
 /-! ## Proofs -/
 
-/-- **A proof**: a theorem record, or a definition or opaque record whose value passes the theorem
+/-- **A type the kernel infers to be a proposition** at `E`: the theorem record's check of its type
+(its type's type reduces to a sort of level zero), at some fuel. -/
+def TypeIsProp (mode : CheckMode) (E : Env) (ty : Expr) : Prop :=
+  ∃ F stype u, inferTypeCore mode false E F 0 ty = .ok stype ∧
+    ensureSortCore mode false E F 0 stype = .ok u ∧ Level.isEquiv u .zero = some true
+
+/-- **A proof**: a theorem record, a definition or opaque record whose value passes the theorem
 record's check at `E`, the environment it is installed at (its type a proposition, its value of
-that type).  An opaque record at a `reduce*` name is never one: its install pins it to the
-identity on `Nat` or `Bool`, and its leaf is that function. -/
+that type), or an axiom record whose type is a proposition at `E`.  An opaque record at a
+`reduce*` name is never one: its install pins it to the identity on `Nat` or `Bool`, and its leaf
+is that function. -/
 def ProofDecl (mode : CheckMode) (pins : List NatOpPinSet) (E : Env) : Declaration → Prop
   | .thmDecl .. => True
   | .defnDecl cv v _ => ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
   | .opaqueDecl cv v => reduceOpNames.contains cv.name = false ∧
     ∃ r, checkDeclStepC mode pins (mkFEnv E) (.thmDecl cv v) {} = .ok r
+  | .axiomDecl cv => TypeIsProp mode E cv.type
   | _ => False
 
 /-- **The proof flags of a list of records installed from `E`**: every name a record installs that
