@@ -3,6 +3,7 @@ module
 public import InLeanProof.Ops
 public import InLeanProof.Statement
 public import InLeanProof.Sim
+public import InLeanProof.FVar
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -74,3 +75,23 @@ info: 'InLeanProof.toExpr_instantiate' depends on axioms: [propext,
 /-- info: 'InLeanProof.data_eraseK' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in
 #print axioms InLeanProof.data_eraseK
+
+/-- info: 'InLeanProof.mkFVarM_ok' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.mkFVarM_ok
+
+/-- info: 'InLeanProof.FVTableOK.trans_inj' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.FVTableOK.trans_inj
+
+/-- info: 'InLeanProof.clEq_iff_TransS' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.clEq_iff_TransS
+
+/-- info: 'InLeanProof.erase_eq_of_toExpr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.erase_eq_of_toExpr
+
+/-- info: 'InLeanProof.clHash_of_erase' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.clHash_of_erase

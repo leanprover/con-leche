@@ -17,9 +17,12 @@ free variables outside InLean's interned table.
 type) under the id `fvRoot.d.n` (`InLean.mkFVarM`; the depth `d` is in the
 id, the type is `CState.fvTys[n]`); con-leche's free variable is the value
 `.fvar d type`.  `toExpr` takes the translation of the ids as a parameter
-`fv`; `FVarTable.trans` builds it from InLean's table.  A type mentions only
-variables interned before it (its own context's), so the table is
-translated by recursion on the number.
+`fv`; `FVarTable.trans` builds it from InLean's table.  Numbers are global
+and the classes are per depth, so only a *live* pair (the number registered
+in its depth's class, `FVarTable.live`) translates: a number read at another
+depth is no id the checker built.  A type mentions only variables interned
+before it (its own context's), so the table is translated by recursion on
+the number.
 
 **Declarations.**  A Lean declaration group (one constant, the quotient
 package's constant, an inductive block's formers, constructors and
@@ -71,21 +74,34 @@ def toExpr (fv : Lean.FVarId → Option ConLeche.Expr) : Lean.Expr → Option Co
   | .mdata _ e => toExpr fv e
   | .proj s i e => (toExpr fv e).map (.proj (toName s) i)
 
-/-- InLean's interned free-variable types, as the proof reads them. -/
+/-- InLean's interned free-variable table, as the proof reads it: the types
+(`CState.fvTys`) and the classes (`CState.fvCls`, keyed by depth and
+`EO.clHash` of the type). -/
 structure FVarTable where
   tys : Array Lean.Expr
+  cls : Std.HashMap (Nat × UInt64) (List Nat)
+
+/-- **Number `n` is live at depth `d`**: it was interned at that depth, so it
+sits in the class list of its depth and its type's hash.  Only a live pair
+is an id the checker builds (`InLean.mkFVarM`); a number read at another
+depth is not one. -/
+def FVarTable.live (t : FVarTable) (d n : Nat) : Bool :=
+  match t.tys[n]? with
+  | some ty => (t.cls.getD (d, InLean.EO.clHash ty) []).contains n
+  | none => false
 
 /-- The translation of interned number `n` at depth `d`, by recursion on
-`n` (an interned type mentions earlier numbers only; a later one reads as
-untranslatable). -/
+`n` (an interned type mentions earlier numbers only; a later one, or a pair
+that is not live, reads as untranslatable). -/
 def FVarTable.transNum (t : FVarTable) (d : Nat) : Nat → Option ConLeche.Expr
-  | n => do
-    let ty ← t.tys[n]?
-    let cty ← toExpr (fun id =>
-      match InLean.fvParts? id with
-      | some (d', m) => if m < n then t.transNum d' m else none
-      | none => none) ty
-    pure (.fvar d cty)
+  | n => if t.live d n then do
+      let ty ← t.tys[n]?
+      let cty ← toExpr (fun id =>
+        match InLean.fvParts? id with
+        | some (d', m) => if m < n then t.transNum d' m else none
+        | none => none) ty
+      pure (.fvar d cty)
+    else none
 termination_by n => n
 decreasing_by all_goals assumption
 
@@ -94,6 +110,20 @@ def FVarTable.trans (t : FVarTable) (id : Lean.FVarId) : Option ConLeche.Expr :=
   match InLean.fvParts? id with
   | some (d, n) => t.transNum d n
   | none => none
+
+/-- The id translation an interned type at number `n` is read with: the
+numbers below `n` only. -/
+def FVarTable.inner (t : FVarTable) (n : Nat) (id : Lean.FVarId) : Option ConLeche.Expr :=
+  match InLean.fvParts? id with
+  | some (d', m) => if m < n then t.transNum d' m else none
+  | none => none
+
+theorem FVarTable.transNum_eq (t : FVarTable) (d n : Nat) :
+    t.transNum d n = if t.live d n then (do
+      let ty ← t.tys[n]?
+      let cty ← toExpr (t.inner n) ty
+      pure (.fvar d cty)) else none := by
+  rw [FVarTable.transNum]; rfl
 
 /-- The closed reading (no free variables): declarations' own terms. -/
 def toExprC : Lean.Expr → Option ConLeche.Expr := toExpr (fun _ => none)

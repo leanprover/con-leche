@@ -213,7 +213,7 @@ theorem mapOff_fresh (f : Expr → Nat → Option Expr) (e : Expr) (k : Nat) (x 
 
 /-- A free-variable translation answers only con-leche free variables
 (InLean's table does: `FVarTable.transNum`). -/
-def FVarsOnly (fv : FVarId → Option ConLeche.Expr) : Prop :=
+@[expose] def FVarsOnly (fv : FVarId → Option ConLeche.Expr) : Prop :=
   ∀ id c, fv id = some c → ∃ i ty, c = .fvar i ty
 
 /-- A term's reading has no loose variable at or above its range. -/

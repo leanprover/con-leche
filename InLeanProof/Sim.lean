@@ -91,20 +91,29 @@ instance : LawfulHashable EKey where
 
 /-! ## The translation at a state -/
 
+/-- The state's free-variable table, as the proof reads it. -/
+@[expose] def tableOf (s : InLean.CState) : FVarTable := ⟨s.fvTys, s.fvCls⟩
+
 /-- **The translation of InLean's terms at state `s`**: free variables
 through the state's interned table (`FVarTable.trans`). -/
 @[expose] def TransS (s : InLean.CState) : Expr → Option ConLeche.Expr :=
-  toExpr (FVarTable.trans ⟨s.fvTys⟩)
+  toExpr (FVarTable.trans (tableOf s))
 
-/-- **The free-variable table's invariant** (O3): every interned type
-translates (mentioning earlier numbers only), and two numbers at one depth
-whose types translate equal are one number (the interning is by
-`Expr.clEq`-class), so a free variable's id is determined by its
-translation, as con-leche's `.fvar d ty` is by its depth and type. -/
+/-- **The free-variable table's invariant** (O3), what `mkFVarM` keeps: a
+class holds numbers whose types hash to it, distinct numbers of one class
+have types unequal after `erase` (the interning is by `Expr.clEq`-class),
+every interned type translates at its number (mentioning earlier numbers
+only), and the `keyEq` fast path points at a live number of an `erase`-equal
+type.  From it, a translatable free variable's id is determined by its
+translation (`FVarTable.trans_inj`, `InLeanProof/FVar.lean`), as con-leche's
+`.fvar d ty` is by its depth and type. -/
 structure FVTableOK (s : InLean.CState) : Prop where
-  trans : ∀ n d, n < s.fvTys.size → (FVarTable.trans ⟨s.fvTys⟩ (fvId d n)).isSome
-  inj : ∀ d n m, FVarTable.trans ⟨s.fvTys⟩ (fvId d n) = FVarTable.trans ⟨s.fvTys⟩ (fvId d m) →
-    (FVarTable.trans ⟨s.fvTys⟩ (fvId d n)).isSome → n = m
+  cls : ∀ d h n, n ∈ s.fvCls.getD (d, h) [] → ∃ ty, s.fvTys[n]? = some ty ∧ EO.clHash ty = h
+  distinct : ∀ d h n m tn tm, n ∈ s.fvCls.getD (d, h) [] → m ∈ s.fvCls.getD (d, h) [] →
+    s.fvTys[n]? = some tn → s.fvTys[m]? = some tm → erase tn = erase tm → n = m
+  ty : ∀ n ty, s.fvTys[n]? = some ty → ∃ cty, toExpr ((tableOf s).inner n) ty = some cty
+  seen : ∀ d k n, s.fvSeen[(d, EKey.mk k)]? = some n →
+    (tableOf s).live d n = true ∧ ∃ tn, s.fvTys[n]? = some tn ∧ erase k = erase tn
 
 /-! ## The invariant -/
 
@@ -237,7 +246,7 @@ theorem TransS_sort {s : InLean.CState} {w : Expr} {cw : ConLeche.Expr}
     (h : TransS s w = some cw) :
     ∀ u, EO.stripTop w = .sort u → ∃ cu, toLevel u = some cu ∧ cw = .sort cu := by
   intro u hu
-  have := toExpr_stripTop (FVarTable.trans ⟨s.fvTys⟩) w
+  have := toExpr_stripTop (FVarTable.trans (tableOf s)) w
   unfold TransS at h
   rw [← this, hu] at h
   simp only [toExpr] at h
