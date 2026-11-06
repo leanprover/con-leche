@@ -1034,6 +1034,52 @@ theorem reading_ctors {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j
     h1]
   rfl
 
+/-! ## The reading -/
+
+/-- A module's source environment of a name: its source's own environment, for a stored name. -/
+@[expose] noncomputable def srcOwn (dev : Nat → Module) (i : Nat) (n : Name) : Env :=
+  if ((dev i).context.find? n).isSome then (dev ((dev i).src n)).own else Env.empty
+
+/-- The part of it read alike. -/
+@[expose] noncomputable def srcReads (dev : Nat → Module) (i : Nat) (n : Name) : Env :=
+  if ((dev i).context.find? n).isSome then readsAlike dev i ((dev i).src n) else Env.empty
+
+/-- **The local checks give a context read from its sources.** -/
+theorem reading {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) :
+    CtxRead (dev i).context (srcOwn dev i) (srcReads dev i) := by
+  have hK := (hok i (Nat.le_refl i)).importOk
+  obtain ⟨hentry, hRsub, hself, halike⟩ := reading_basic hok
+  have hE : ∀ n, ((dev i).context.find? n).isSome = true →
+      srcOwn dev i n = (dev ((dev i).src n)).own := fun n h => by simp [srcOwn, h]
+  have hR : ∀ n, ((dev i).context.find? n).isSome = true →
+      srcReads dev i n = readsAlike dev i ((dev i).src n) := fun n h => by simp [srcReads, h]
+  have hst : ∀ {n ci}, (dev i).context.find? n = some ci → ((dev i).context.find? n).isSome = true :=
+    fun h => by rw [h]; rfl
+  refine ⟨hK.nodup, fun n ci h => ?_, fun n d ci h => ?_, fun n h => ?_, fun n d hn hd => ?_,
+    fun n d hn hd => ?_, fun n ci h => ?_, fun n d cv caps hn hd hci => ?_,
+    fun n d ci hn hd hci hk => ?_, fun n ci h hr => ?_, fun t ht => ?_, fun n t ht => ?_⟩
+  · rw [hE n (hst h)]; exact hentry n ci h
+  · by_cases hn : ((dev i).context.find? n).isSome = true
+    · rw [hR n hn] at h; rw [hE n hn]; exact hRsub n d ci h
+    · simp only [srcReads, hn] at h
+      exact nomatch h
+  · rw [hR n h]; exact hself n h
+  · rw [hR n hn] at hd; rw [hE n hn]; exact (halike n d hn hd).1
+  · rw [hR n hn] at hd; rw [hE n hn]; exact (halike n d hn hd).2
+  · rw [hR n (hst h)]; exact reading_scope hK h
+  · rw [hR n hn] at hd ⊢; exact reading_ctors hok hn hd hci
+  · rw [hR n hn] at hd ⊢; exact reading_deep hok hn hd hci hk
+  · rw [hE n (hst h)]; exact reading_reduce hok h hr
+  · exact stream_tables_mem hK.nodup ht
+  · by_cases hn : ((dev i).context.find? n).isSome = true
+    · rw [hE n hn] at ht ⊢
+      have hs := hok ((dev i).src n) (Nat.le_of_lt (hK.src_lt n hn))
+      have hnd := (ImportOk.chain hs.importOk).1
+      rw [Module.own_eq] at hnd ht ⊢
+      exact stream_tables_mem hnd ht
+    · simp [srcOwn, hn] at ht
+      exact absurd ht (List.not_mem_nil)
+
 end
 
 end ConLeche.Model.Modular
