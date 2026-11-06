@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Frontend.Olean.Files
-public import ConLeche.Frontend.Olean.Lazy
 public import ConLeche.Frontend.Olean.Progress
 
 @[expose] public section

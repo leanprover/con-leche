@@ -111051,3 +111051,130 @@ stored.  Four of its `CoreDefs.lean` anchors in that section (the fast-path acco
 `natOpNames`, `natOpGuard`, `natOpCod`) had pointed six to eight lines early before this lane;
 they now cite the definitions.  `divModEnvGuard`'s own `Bool` constructor type tests repeat
 `natOpGuard`'s for the WF names; left as they are.
+
+## TASK #464 — the worker's reads: what a module loads, its names, one group's record (2026-11-06, agent/464-worker-reads)
+
+#460's lane #464, on `modular`.  Phases 1 and 2 of #460 §3, the pieces of phase 4 that are reads,
+and the home's `checkViews` over the lazy load.  No CLI flag of the checker; the gates' hooks are
+`olean-compare --home` and `--reads` (a development tool).
+
+**1. The header fixpoint** (`Frontend/Olean/Levels.lean`).  `headerFixpoint sp isModule imports`
+is `importModulesCore.go` as a worklist (`levelsGo`, explicit stack, `fuel` = `closureFuel`; each
+module's imports are expanded at most three times since its two flags only grow, so the steps are
+at most three per import edge and two per module).  State per module: `importAll` (private part
+loaded) and `isExported` (root's public scope); an import is followed when the importer is
+`importAll` or the import is public (`needsData`); a module met again with larger flags has its
+imports re-expanded at the join (Lean's "bump"); a module met while its own imports are expanded is
+an import cycle (`.internal`, as `closureGo`).  The root starts at `importAll`, `isExported` iff it
+is of the module system; a classic root makes every module `importAll` (global level `.private`).
+`meta` adds IR only, which holds no constants (`mkIRData`: `constants := default`), so data flags
+are exact without simulating IR.  `pubClosures`: each loaded module's public-import closure as a
+bitset over the load order, one pass in order (a public import is always placed before its
+importer).
+
+*Checked against Lean itself* (a throwaway, `_tmp/464/xcheck/Loads.lean`: `importModules` of the
+stored header at the module's global level, `env.header.modules` with `hasData`, and the kernel
+map's size): on the 96 fixture modules of `tests/olean/lib` (all but `UpNum.«12.34».«5»`) and on
+`Mathlib.GroupTheory.Coxeter.Basic` and `Mathlib.Analysis.SpecialFunctions.Gamma.Basic`, **the set
+of loaded modules, each one's two flags, and the number of loaded names are Lean's exactly**
+(Coxeter 2 479 modules / 196 897 names, Gamma 4 092 / 317 101; the names are #460 §6's context
+sizes).  So #460's premise holds: the levels are read off headers alone.  **The order is not
+always Lean's**: on the 31 fixtures of the module system that import `Init` (and both Mathlib
+modules) some modules sit elsewhere; on the classic ones (every module whole, IR loaded with the
+data) and the `prelude` ones it is Lean's.  Cause: `HeaderSyntax.imports` adds `meta import Init` beside `import Init`, and
+Lean pushes a module to `moduleNames` when first met, also when met for its IR only (through a
+private import under `needsIRTrans`, data loaded later by a bump).  Simulating that needs the
+existence of `M.ir.sig` (`readIRPartsOfMod`; `mainModule?` of a data-less module is its IR part),
+and under Lake the IR parts come from the build's artifacts (`arts`), so the order Lean compiled
+with is not a function of the files.  Not simulated; the prelude fixtures, which have no `meta`
+import, match Lean's order exactly (`LvN`: LvA, LvC, LvB).  What the order decides here: which copy
+of a name is first in the index, and the clash rule's fold order (below).
+
+**2. The name index, the clash rule, freshness** (`Frontend/Olean/Index.lean`).  `workerReads sp m
+jobs`: `M`'s own private part's name positions and header; the fixpoint; every loaded part's
+`readNamePositions f level` (in parallel, `parMapExcept`; the files are dropped after each read);
+`nameIndexOf` (name → first copy, the later copies in order); then
+* Lean's refusal of a classic import from a module (`importsModulesOk`, exit 1);
+* **the clash rule over every loaded name** (`clashOk`): the copies of each doubly held name in
+  load order, folded as `finalizeImport` does (the next replaces the kept one where it subsumes it,
+  the kept one stays where it subsumes the next, a reject otherwise, exit 1 naming both modules).
+  `subsumesInfo` is now `subsumesF` (`Merge.lean`), over a statement and a kind with any
+  expressions, so the merge's `subsumes` and the index share it (`subsumes_stands` repaired).  The
+  doubly held names' statements (`readStmts`) and kinds without expressions (`readKinds`, new) are
+  read per module, and kept in `WorkerReads.clashes` for #465's key check;
+* **freshness** (`freshOk`): no constant of `M`'s private part bears a loaded name (exit 1).
+
+Two deviations from Lean, neither a new reject: `isPropCheap` (the axiom/axiom arm) looks the head
+up in the whole index where Lean looks among the constants loaded so far (a pair whose head is
+loaded later is merged here, refused by Lean; both are propositions then, so merging is sound); and
+with three or more copies the fold's verdict can depend on the order, which is Lean's up to the IR
+case above (an edge: two axioms `isPropCheap` does not recognise and a theorem).  On real data
+the rule is busy: `Init`'s closure alone holds 82 names twice (194 copies), all merged.
+
+**3. One group's record** (`Frontend/Olean/Group.lean`).  `groupRecord mg n`: `n`'s group as the
+emission takes it (`blockTys`, `blockCtors`, `blockRecs` over `recMapOf mg`), after `blockStep` of
+`n` and of each of the group's constants, then `Emit.block` and the stream reader's builder.
+`readGroup f level look recs n` gathers the group from one part: members and constructors by name,
+recursors among the part's recursor constants by their block (`readKinds`), all with one memo.
+Theorems (`Verify/Frontend/Olean/Group.lean`): `groupRecord_from` (the record is `declOfF` of one
+`inductive` record whose types, constructors and recursors are stored constants of kinds 5, 6, 7,
+`RecFrom`, as `declsOf_from` for the emission; via the new `Emit.block_out`), `groupRecord_valid`
+(each of the group's names passed `blockStep`), `mergedOfList_names`.  *Found:* read from an
+exported part, the record lists its recursors in that part's order, which is sorted by name
+(`mkModuleData` re-sorts the exported constants), where the home's emission from the private part
+lists them in declaration order (`GrN`'s nested `Tr`: `Tr.rec`, `Tr.rec_1`).  Types and
+constructors follow `all` and `ctors`, the same at both levels.  The test compares up to recursor
+order, as `olean-compare` does; #466's "a presented record is its source's" must compare so too, or
+the home must present in sorted order.
+
+**4. `readEntries`** (`Reads.lean`'s `entriesAt`, `View.lean`).  Every root of every constant into
+one shared `SM` memo by `sGo` (a root that fails leaves the memo; `memoAdd`), then each constant
+built by memo lookups falling back to `sparseNameP`/`sparseExprP`.  `entriesAt_eq`: equal to
+`cs.mapM (entryAt r)` on every region (the memo stays `SM.Good` by `sGo_spec`, and a good memo's
+lookup with the fallback is `nameP`/`exprP` extensionally); hence `readEntries_eq` (every input,
+where the files have the view's region) and `readEntries_of_view` (where the view parses, one
+constant per position, the full parse's at that position's index).  `SM.Good` and `SGoSpec` got
+`@[expose]` for that.  A theorem's value is read too (the reach does not want it; #465 may want a
+statement-only variant, a change of the roots read).
+
+**5. `checkViews` over the load** (`Module.lean`).  It takes the `Loaded` of `loadAt` (theorem
+values left in the file).  `.same` by position, `.hidden` by statement as before; only in the
+decode fallback, where the private constant is a theorem, is it read whole (`entryAt`).  Since it no
+longer runs after `parseAllViews`, it checks itself what that gave: the server and private parts'
+module flags, the server part's imports against `importsPre`, and the exported and server parts'
+name tables (`constNamesOk`).  Every mismatch is `.invalid` (exit 1, ruling 10).  `readHome sp m`
+(Files.lean): `readFiles` private, `loadView`, `checkViews`.  `readAllViews` (for `olean-compare
+--views`) parses the three views whole, then loads and checks; `readView_of_all` repaired.  Pinned
+verdicts that moved: `--views` on a private part outside the module system, an exported constant
+that does not refine, and the 2^80-node exported statement, 3 → 1; the name-table and server-import
+cases stay 3 under `--views` (the whole parse fails first) and are 1 under `--home`.
+
+**Fixtures** (`tests/olean/src`, built by `build.sh`; verdicts in `tests/olean.sh`, facts in
+`OleanTests.lean`).  `LvC`/`LvB`/`LvA`/`LvM`/`LvN` (the fixpoint's rules, exact loads and order
+pinned); `ClashM`+`ClashX` (ClashB's files swapped in: two `clash`, exit 1); `FrM`+`FrX`+`FrY`
+(freshness, exit 1); `TeqBoth` (two proofs of one statement loaded, merged, exit 0); `TeqBad`+`TeqX`
+(TeqQ2's files swapped in: exit 1); `MoM`+`MoX` (TinyClassic's file swapped in: exit 1); `GrN`
+(nested and mutual groups: `groupRecord` of every inductive type at both levels against the merged
+emission).  The swaps stand in for modules Lean refuses to compile.  `NlM` pinned at 0 copies held
+twice (NlX is behind a private import of an import).  `OleanTests`: `readEntries` against the full
+parse on the existing fixtures, in order and reversed; `checkViews` over `loadAt`; `groupRecord`'s
+validation on hand-made constants.  Olean gate: 136/136.
+
+**Numbers** (`perf stat -e instructions:u`, `olean-compare --reads --jobs=1`, one run each, under
+the guard; v4.35.0 Mathlib at `_tmp/ref/mathlib4-v4.35.0`):
+
+| module | loaded modules | names | held twice (copies) | fixpoint + public closures | whole reads |
+|---|---|---|---|---|---|
+| Mathlib.GroupTheory.Coxeter.Basic | 2 479 | 196 897 | 132 (311) | 1.483 G | 5.628 G |
+| Mathlib.Analysis.SpecialFunctions.Gamma.Basic | 4 092 | 317 101 | 204 (498) | 2.512 G | 12.171 G |
+
+Gamma's loaded exported parts are 0.85 GB of files; peak VmHWM about 230 MB.  The name index is
+the larger part (about 30 k instructions per loaded name): a profile shows freeing and allocation
+(constant skeletons with boxed fields, the per-module `distinctGo` set), name decoding with UTF-8
+validation, and path handling in `findModule` (10 search-path directories, three extensions).
+Not optimised in this lane.
+
+**Not done / for the next lanes.**  No theorem about the fixpoint or the index (none needed, #460
+§3).  `readKinds` has no `_of_view` theorem (it feeds only the clash rule and `readGroup`'s
+selection of recursors, which `groupRecord` validates).  The recursor-order point of 3.  The
+order's IR case of 1.
