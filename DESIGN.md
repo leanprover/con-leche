@@ -110537,3 +110537,161 @@ rounds), `mut_rec_wf` 20.5 / 71.0 / 51.1 (timeout); over the 56 files passing on
 ×1.32 (round 2 ×1.26 over 59); `cbv_divisors` now also times out at bench size (test
 size passes).  The push from the shallow clone (boundary `eb6cafb`, the remote branch's
 tip) needs no deepen in principle.
+
+### Lane P0: the lockstep foundation (2026-11-06)
+
+**Rulings (maintainer, 2026-11-06).**  The proof is a lockstep simulation
+against con-leche's cached tier, reusing its caching theory; the theorem is
+"adding a non-axiom declaration to an ok environment gives an ok environment"
+(the `Nat` pins part of "ok", unsafe and `partial` outside); the walks' memo
+cost fixed before proofs.  **Revised mid-lane:** "mdata stripping sounds
+expensive and ptreq breaking. Can you not transparently handle mdata in the
+various functions and still do a lockstep proof?"  So InLean never strips
+`mdata` from a term; it reads through it wherever a node is inspected.  (A
+boundary strip was built first and reverted: Init accepted with it at 969.7 G,
+one exact compare mismatch, `LawfulGetElem.rec`, and a full walk of every
+stored type and value a check reads.)
+
+**Two equalities** (`InLean/ExprEq.lean`):
+* `Expr.clEq`, the checker's comparison and the scoped `==`: equal after
+  `erase`, which drops binder names, binder infos, `nonDep` and `mdata` —
+  exactly what `toCL` drops, so two terms compare equal exactly when their
+  translations are equal (one direction proved, `toExpr_of_clEq`; the other
+  needs the free-variable table's injectivity, O2/O3).  Pointer-first,
+  memoised descent (`clGoX`, `mdata` arms read through, a constructor
+  mismatch decided in O(1)); `@[csimp]` onto the spec `decide (erase a = erase b)`.
+* `Expr.keyEq`, the memo maps' key equality (`EKey`, `InstKey`): `eraseK`
+  keeps `mdata`, which Lean's cached hash reads; the hash reads no binder
+  name, info or `nonDep`, so the maps are lawful (`LawfulHashable EKey`,
+  `data_eraseK`, proved from `Expr.data`'s equations, no axiom).  InLean may
+  miss where con-leche hits (two keys differing in `mdata`), never the
+  converse.
+* The walks (`ExprOps`) and the generator keep exact equality
+  (`instBEqExprExact`, local instance): their results keep binder names.
+
+**`mdata`, read through.**  Every `match` on an `Expr` reads its scrutinee
+through `EO.stripTop` (81 sites), the app spines are transparent
+(`getAppFnT`, `getAppArgsT`, `getAppNumArgsT`, `appArgs`), and the 30
+definitions by pattern matching on `Expr` take an `mdata` arm that recurses
+(nested patterns such as `.app (.const ..) _` split into reads through
+`stripTop`).  No term is rebuilt to drop `mdata`; the walks (substitution)
+pass it through as before.  In the proof an `mdata` node is a stuttering
+step: `toCL` erases it (`toExpr_stripTop`).  The whnf and infer arms for
+`mdata` stay (exhaustiveness; unreachable under `stripTop`).
+
+**Free variables** are interned per depth and `clEq`-class of the type: a
+`keyEq` hit on `(depth, type)` is the fast path; a miss looks the class up
+under `EO.clHash` (a memoised hash that reads no binder data and no `mdata`)
+and compares candidates by `clEq`.  So `clEq` compares two free variables by
+id, which is the class: the alternative, `clEq` falling back to comparing
+types, would need the state's table inside a pure comparison.  Not measured
+apart; the whole lane's Init count is below the previous round's.
+
+**The certified-name gate** (revising be4ce0079): under the official axiom
+policy (`coreAxioms`) only an axiom may sit at a certified `Nat` operation's
+name (the elaborator's `addAsAxiom`); any other declaration there passes the
+gate and the certificates as con-leche's policy has it.  The lean4 copy
+carries the earlier, wider lift (any declaration): to be narrowed at its
+next re-sync.
+
+**The walks' memos** are each walk's own allocation (`EO.freshFor`, sized by
+the term's depth), so the first insert no longer copies a shared closed
+`{}`; `mapOff_spec` is repaired against it (`mapOff_fresh`).
+
+**Validation.**  `inlean-replay --kernel=inlean --compare`:
+
+| closure | accepted | mismatches | instructions:u (gross) | before (restart) |
+|---|---|---|---|---|
+| Init | 64,530 | 0 | 861.7 G | 877.9 G |
+| Std | 110,064 | 0 | 1,666.1 G | — |
+| Lean | 199,645 | 0 | 3,570.6 G | 3,649.2 G |
+
+Negative tests 8/8 (wrong return type still the generator's error);
+`layering.sh`, `trust-surface.sh`, `no-local-paths.sh` pass; InLean,
+InLeanProof and con-leche's `lake build`/`lake test` warning-free.
+
+**The foundation** (`InLeanProof/Sim.lean`):
+* `TransS s`: the translation at state `s` (free variables through the
+  state's table).
+* `CSOKI mode eager env s`: InLean's invariant — the free-variable table's
+  (`FVTableOK`: every interned type translates; one number per depth and
+  translation) and, for every memo, `CSOK`'s clause at the translated key
+  and value (`UnaryOK`, `BinaryOK`; five unary memos and defeq stated, the
+  stored-constant caches, level memos, bulk-instantiation memo and eager set
+  follow the same shape, O4/O5).  **Not** memo-map equality with a cached
+  state.
+* `memoEI_ok`, `memoBI_ok` (proved): one lemma per memo kind, any map — a
+  hit answers by the clause, a miss runs the body, the insert keeps the
+  invariant.  The clause respects `keyEq` (`toExpr_of_keyEq`).
+* Pilot, `ensureSortI_ok` (proved): from `WhnfOK` (the knot's whnf slot
+  answers the pure `whnf` at the translation), `ensureSortI` answers the pure
+  `ensureSort` at the translation; the read of the whnf result goes through
+  `stripTop` (`TransS_sort`).  Functional form (`RunOK`, `SimC`'s shape);
+  the bodies' `vcgen` form is P2's first step.
+* `toExpr_erase`, `toExpr_eraseK`, `toExpr_stripTop`, `toExpr_of_clEq`,
+  `toExpr_of_keyEq`.
+* Axiom pins: all of these use the standard axioms only.
+* The statement (`InLeanProof/Statement.lean`): `SafeDecl` excludes axioms;
+  `theoremConfig` is the official axiom policy with the `Nat` certificates
+  checked.
+
+**The composition with `Verify/Cached`, explicitly.**
+1. The pure fueled checker (`fueledFns`) is the specification of both
+   tiers; `CSOK` and `CSOKI` are the same clauses, `CSOKI`'s at the
+   translation.
+2. A body `B_I` of InLean is its cached twin `B_C`'s control flow on Lean's
+   data.  `Verify/Cached` proves `BodySpec B_C pureBody` from `SSimC` by one
+   `sym/vcgen/finish` per arm; InLean proves `BodySpecI B_I pureBody` from
+   `SSimI` by **the same script**, with the translation lemmas (O1–O4,
+   `toExpr_stripTop`, `toExpr_of_clEq`) in the `grind` set: each `vcgen`
+   obligation of `B_I` is `B_C`'s transported along `toCL`.  Reused as
+   theorems: the pure specification, `Runs`/`FueledM`, depth invariance,
+   scoping (`WScoped`), the `Grind` vocabulary about pure functions.  Reused
+   as scripts: `DiscC1`–`DiscC5`, `BinderLoopC`, `KnotC`, the walk files.
+   Using `BodySpec B_C` itself as a theorem would need `B_C` and `B_I` to be
+   one function generic over the term operations, a refactor of master's
+   cached core that the port does not need.
+3. The memo wrappers: `memoEI_ok`/`memoBI_ok` with the clauses.
+4. The knot: `SSimI` at every fuel, by induction as `ssimC`.
+5. The declaration step: InLean's `checkDecl` accepts `d` ⇒ the pure
+   declaration step accepts `toDecl` of its group at `L` (CheckerC and the
+   inductive job against `checkDeclC` and master's job) ⇒ master's fold
+   theorem gives `EnvModelOk L'` with `Presents E' L'`.
+
+**Obligations** (lockstep against the cached tier's specification):
+
+| # | obligation | estimate |
+|---|---|---|
+| O1 | the expression operations against con-leche's (abstract by depth, lower, level instantiation, `RangeOk` through the cutoffs; `mdata` passed through) | 1–2.5 k |
+| O2 | the converse of `toExpr_of_clEq` (translations equal ⇒ `clEq`), on terms whose free variables are in the table | 0.3 k |
+| O3 | `FVTableOK` kept by `mkFVarM` (class interning: `clHash` compatible with `clEq`) | 0.5–1 k |
+| O4 | the at-use readers (`capsOf`, `recFireAt`, `findProj?`, the spine readers with their `mdata` arms) equal master's install of `toDecl` read through `toCL` | 1–1.5 k |
+| O5 | the knot: `BodySpecI` per body by its twin's script, `SSimI` by fuel induction; the remaining `CSOKI` clauses | 6–9 k |
+| O6 | the declaration step | 1–1.5 k |
+| O7 | the inductive job, by file against master's | 2–3.5 k |
+| O8 | assembly: `Presents`/`installAll` against the fold, `EnvLaws`, `AddDeclSound` | 0.5–1 k |
+| O9 | range preservation | 0.5–1 k |
+| O10 | core's `uncertifiedNatOps` window: a definition at a certified name with an uncheckable certificate, covered only by the premise that the environment holds the certified definitions (the prelude assumed good) | 0.2 k |
+
+About 13.5–22.5 k lines.
+
+**The plan for P1–P4.**
+* **P1, leaf lemmas** (one lane, after P0): O1, O2, O3, O9 —
+  `InLeanProof/Ops.lean`, `Fields.lean`, a new `FVar.lean`.  Template:
+  `toExpr_instantiate` (lane F) and `mapOff_spec`.
+* **P2, the knot** (three lanes in parallel once P1's *statements* are
+  committed): (a) whnf family (`whnfCoreStepI`, the loops, ι, projections,
+  `reduceNatI`, β) against `DiscC1`/`DiscC2`; (b) inference (`inferBodyI`,
+  the binder loops, `inferSpineI`) against `DiscC3`/`DiscC4`, `BinderLoopC`;
+  (c) definitional equality (`quickDefEqI`, lazy delta, `defeqStuckI`, the
+  η and irrelevance certificates) against `DiscC5`.  Lane (a) first states
+  the remaining `CSOKI` clauses and `SSimI`/`BodySpecI` in `vcgen` form from
+  the pilot; `KnotC`'s port (`SSimI` by fuel induction) goes to whichever
+  lane finishes first.  Template: `ensureSortI_ok` and `memoEI_ok`, then
+  each twin's script.
+* **P3, declarations and inductives** (two or three lanes after P2's
+  `SSimI` statement): O4 (`InLean/FEnv.lean` against `Kernel/Install.lean`),
+  O6 (`CheckerC` against `checkDeclC`), O7 (`InLean/Inductives/*` against
+  master's job, split by file).
+* **P4, assembly** (one lane): O8, then `AddDeclSound` proved and the pin of
+  its axioms.
