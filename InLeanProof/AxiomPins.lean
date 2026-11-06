@@ -5,6 +5,8 @@ public import InLeanProof.Statement
 public import InLeanProof.Sim
 public import InLeanProof.FVar
 public import InLeanProof.Range
+public import InLeanProof.KnotI
+public import InLeanProof.SquarePilot
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -227,3 +229,37 @@ info: 'InLeanProof.instLevelParamsChecked_ok' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.instLevelParamsChecked_ok
+
+/-- info: 'InLeanProof.ensureSortI_spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.ensureSortI_spec
+
+/--
+info: 'InLeanProof.whnfCoreStepI_spec' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfCoreStepI_spec
+
+/-- info: 'InLeanProof.ssimI_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.ssimI_zero
+
+/-- info: 'InLeanProof.ensureSortI_by_square' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.ensureSortI_by_square
+
+/--
+info: 'InLeanProof.TrS_inst1' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.TrS_inst1

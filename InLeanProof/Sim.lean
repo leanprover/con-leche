@@ -132,12 +132,33 @@ value, at every depth the key is scoped at (`CSOK`'s clause shape). -/
   ∃ ca cb, TransS s a = some ca ∧ TransS s b = some cb ∧
     ∃ F, ∀ d, ca.wscopedB d = true → cb.wscopedB d = true → spec F d ca cb = .ok r
 
+/-- The eager tower's memos (`ModeMemosOK`'s twin): backed by runs at
+`eager := true`, the flag the `defeqE` slot runs them at.  `s` is the state
+whose table the entries are read with. -/
+structure ModeMemosOKI (mode : ConLeche.CheckMode) (env : ConLeche.Env) (s : InLean.CState)
+    (mm : InLean.ModeMemos) : Prop where
+  whnfCoreC : ∀ k v, mm.whnfCoreC[EKey.mk k]? = some v →
+    UnaryOK s (fun F d e => ConLeche.whnfCore mode true env F d e) k v
+  whnfCoreCheapC : ∀ k v, mm.whnfCoreCheapC[EKey.mk k]? = some v →
+    UnaryOK s (fun F d e => ConLeche.whnfCore mode true env F d e true) k v
+  whnfC : ∀ k v, mm.whnfC[EKey.mk k]? = some v →
+    UnaryOK s (fun F d e => ConLeche.whnf mode true env F d e) k v
+  inferC : ∀ k v, mm.inferC[EKey.mk k]? = some v →
+    UnaryOK s (fun F d e => ConLeche.inferTypeCore mode true env F d e) k v
+  inferIOC : ∀ k v, mm.inferIOC[EKey.mk k]? = some v →
+    UnaryOK s (fun F d e => ConLeche.inferTypeIO mode true env F d e) k v
+  defeqC : ∀ a b r, mm.defeqC[(EKey.mk a, EKey.mk b)]? = some r →
+    BinaryOK s (fun F d x y => ConLeche.isDefEqCore mode true env F d x y) a b r
+
 /-- **`CSOKI`, InLean's state invariant at the pure checker of `env`**:
-the free-variable table's invariant, and every entry of the five unary
-entry-point memos and the defeq memo satisfies `CSOK`'s clause for its map,
-translated.  (The stored-constant caches, the level memos, the
-bulk-instantiation memo and the eager tower's set have their clauses in
-the obligation table, O4/O5: same shape.) -/
+the free-variable table's invariant, and every entry of every memo
+satisfies `CSOK`'s clause for its map, translated: the five unary
+entry-point memos and the defeq memo (`UnaryOK`, `BinaryOK`), the
+stored-constant caches (`constTy`, `constVal`, `ruleRhs`: the stored term
+at the translated levels), the level memos (`lsimp`, `eqv`), the
+bulk-instantiation memo (`instC`: con-leche's `instantiateList` at closed,
+translated values) and the eager tower's memos (`eager`, at `eager := true`).
+A clause is about a *lookup*, so it holds of every `keyEq`-equal key. -/
 structure CSOKI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
     (s : InLean.CState) : Prop where
   fv : FVTableOK s
@@ -153,6 +174,25 @@ structure CSOKI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
     UnaryOK s (fun F d e => ConLeche.inferTypeIO mode eager env F d e) k v
   defeqC : ∀ a b r, s.defeqC[(EKey.mk a, EKey.mk b)]? = some r →
     BinaryOK s (fun F d x y => ConLeche.isDefEqCore mode eager env F d x y) a b r
+  constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ cus ci ct,
+    toLevels us = some cus ∧ env.find? (toName n) = some ci ∧ TransS s i = some ct ∧
+    ct = ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams cus
+  constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ cus cv v h cval,
+    toLevels us = some cus ∧ env.find? (toName n) = some (.defnInfo cv v h) ∧
+    TransS s i = some cval ∧ cval = v.instantiateLevelParams cv.levelParams cus
+  ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i → ∃ cus cv mI rP isK rules rl cr,
+    toLevels us = some cus ∧ env.find? (toName c) = some (.recInfo cv mI rP isK rules) ∧
+    rules.find? (fun r' => r'.ctor == toName j) = some rl ∧
+    TransS s i = some cr ∧ cr = rl.rhs.instantiateLevelParams cv.levelParams cus
+  lsimp : ∀ u v, s.lsimpC[u]? = some v → ∀ cu, toLevel u = some cu →
+    toLevel v = some (ConLeche.Level.simplify cu)
+  eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → ∀ cl cr, toLevel l = some cl → toLevel r = some cr →
+    ConLeche.Level.isEquiv cl cr = some b
+  instC : ∀ k vs r, s.instC[InstKey.mk k vs]? = some r → ∀ ck cvs,
+    TransS s k = some ck → vs.mapM (TransS s) = some cvs →
+    (∀ cv ∈ cvs, cv.looseBVarsBounded 0 = true) →
+    TransS s r = some (ck.instantiateList cvs 0)
+  eager : ModeMemosOKI mode env s s.eagerMemos
 
 /-! ## The generic memo lemma -/
 

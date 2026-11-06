@@ -110786,3 +110786,167 @@ input levels.  To be ruled before P2 states the instantiation steps.
 | O8 | assembly | open (P4) |
 | O9 | range preservation | proved, level instantiation conditional (finding above) |
 | O10 | `uncertifiedNatOps` window | open |
+
+### Lane P2-0: the level-depth check, the `vcgen` foundation, the route comparison, the P2 split (2026-11-07)
+
+**Rulings (maintainer, 2026-11-06).** "Copy the proof scripts for now. We
+can unify later." (each InLean body is proved by its cached twin's
+`Verify/Cached` script, master untouched); "The cheap check sounds fine"
+(the level depth).  Added mid-lane by the coordinator: pilot the
+commuting-square route (reuse `Verify/Cached`'s body theorems as theorems)
+next to the copied script, and recommend.
+
+**The level-depth check** (`InLean/ExprOps.lean`, executable).  Level
+instantiation writes `EO.rangePoison` at a `sort`/`const` node whose level,
+substituted, could pass C's bound: `EO.depthFits` reads the node's cached
+level depth plus the deepest substituted level's (`EO.maxDepthOf`, cached
+depths), against `2^24 − 1`.  The checker's sites report the poison as an
+internal error: `instLevelParamsM`, `substLevelTreesM`, `pinArgsI` (now
+`Option`), `ProjEntry.typeAtI`, and the inductive job's
+(`familyKeyCheck`, nested positivity's two, `targetOutsideInst`,
+`targetCtorAt` (now monadic), `classFormerTy`), all through
+`EO.instLevelParamsChecked?`/`substLevelsChecked?`.  The sites that
+substitute level *parameters* (the quotient rules, the pins' renaming,
+`ciAtLps`, `nestRootCanon`) need no check: a parameter's depth is `0`, and a
+cached depth never exceeds the bound.  Proof side: O9's
+`RangeOk_instantiateLevelParams` is now unconditional given in-range
+substituted levels (it reads cached depths, so it uses the stop-gap
+`Level.mkData_eq`); O1's `toExpr_instantiateLevelParams` takes the call
+site's fact (no metavariable in the answer); `instLevelParamsChecked_ok`
+gives a call site both.  Cost: Init 863.8 G against 861.7 G (+0.24 %).
+
+**Validation** (`inlean-replay --kernel=inlean --compare`): Init 64,530 and
+Std 110,064 declarations accepted, 0 mismatches; Lean below.  Negative tests
+8/8 ("wrong return type" still the generator's error).  Gates
+`layering.sh`, `trust-surface.sh`, `no-local-paths.sh` pass; `InLean`,
+`InLeanProof`, `inlean-replay` warning-free.  No shared con-leche file
+changed.
+
+**The foundation in `vcgen` form.**
+* `InLeanProof/GrindI.lean`, the translation as `grind` vocabulary
+  (`@[conleche_grind]`, the cached walks' own set): the total translation
+  `trL`/`trE`/`TrS s` with one unconditional equation per constructor
+  (`TrS_app`, …; `mdata` and `EO.stripTop` invisible, the latter keyed on
+  `stripTop` itself); the side condition `OkS s` (a reading *and*
+  `Expr.RangeOk`, so one Boolean carries what P1's lemmas need), one
+  equation per constructor; the bridge to the partial `TransS`
+  (`TransS_of_ok`, `ok_of_TransS`, `RangeOk_of_OkS`); stability along the
+  run (`TabLe`, `TrS_of_tabLe`, `okS_of_tabLe`); the spine, lists, options
+  and steps (`TrS_getAppFnT`, `TrSL_appArgs`, `TrO`, `TrStep`, their
+  `Ok*`); one-value instantiation through P1's lemma (`TrS_inst1_eq`,
+  `OkS_inst1`); closedness (`lbb_*`, `lbb_instantiate1`, `AllClosed`,
+  `OptClosed`, `StepClosed`); the core's spellings and shapes (`inst1I_eq`,
+  `stripTop_ne_mdata`, `TrS_fvar` with `fvIdxS`/`fvTyS`).
+* `InLeanProof/Sim.lean`: `CSOKI` now has every clause: the stored-constant
+  caches (`constTy`, `constVal`, `ruleRhs`), the level memos (`lsimp`,
+  `eqv`), the bulk-instantiation memo (`instC`, at closed values) and the
+  eager tower's memos (`eager : ModeMemosOKI`), besides P0's.
+* `InLeanProof/KnotI.lean`: `KnotSpecI r` (the triple forms of `SSimC`'s
+  fields, for any callback record), `BodySpecI`/`BodySpecBI` (`BodySpec`'s
+  twins), `SSimI eager env fe f` (`KnotSpecI` of `coreKnotI … f`),
+  `ssimI_zero` (proved), and the named callee specs `WhnfAppSpecI`,
+  `ReduceProjSpecI`.  The post of every walk: `CSOKI`, `TabLe s₀ s'`, the
+  answer's reading, `Runs (pure … (TrS s₀ i)) (TrS s' v)`, scoped, closed.
+
+**Finding: closedness is InLean's own side condition.**  InLean's
+`EO.instantiate` is Lean's: it lifts the loose bound variables of a
+substituted value under binders (`liftLooseBVars … 0 k`); con-leche's
+`instantiateList` does not.  They agree on closed values only, which every
+checker site substitutes, but `SSimC` never tracks closedness.  So
+`KnotSpecI` carries `(TrS s i).looseBVarsBounded 0` in and out, and the
+body lanes show it kept (`lbb_*` facts per construction): work beyond the
+copied scripts, within O5's estimate.
+
+**The template, both routes.**
+* **Copied script** (proved): `ensureSortI_spec`, master's
+  `ensureSortC_spec` script verbatim
+  (`vcgen [InLean.ensureSortI, ih.whnf hs hok hw hc]`); `whnfCoreStepI_spec`,
+  every arm of the step, master's `whnfCoreStepC_spec` script verbatim but
+  for the callee names (`[InLean.whnfCoreStepI, ih.whnfCore, ih.whnf, hproj, happ]`):
+  the done, `fvar` and `let` arms end to end, the `app` and `proj` arms
+  through the named callee specs.  9 and 13 lines, statement included; each
+  proof is the one `sym … => vcgen … <;> finish` line.  What it took was
+  vocabulary, not proof: two multi-patterns keyed on `stripTop`, the
+  `inst1I` spelling, `TrS_fvar`, `stripTop_ne_mdata`.
+* **Commuting square** (proved for `ensureSortI`, `InLeanProof/SquarePilot.lean`):
+  an oracle knot `oracleC F` (every slot the pure entry at fuel `F`, the
+  state untouched); master's body theorem restated generically
+  (`ensureSortC_spec_gen`: the same script, over a callback record meeting
+  the slot triple `WhnfSpecC` instead of `ih : SSimC`); `oracle_whnfSpec`
+  (the oracle meets it, by `whnf_WScoped`); the square `ensureSort_square`
+  (InLean's run, at the translation, is the cached body's run on the oracle
+  at the fuel InLean's `whnf` call fixes), a hand proof since `vcgen` is
+  unary; the composition `ensureSortI_by_square` (the pure answer, through
+  the reused theorem).  About 30 lines for the square and 13 for the
+  composition, per body, plus the oracle and the generic restatement once.
+* **Recommendation: the copied script.**  Master's body proofs are already
+  one-line scripts; their weight is in the vocabulary about the *pure*
+  functions, which the copied route reuses as theorems anyway.  The square
+  route replaces a one-line script by a body-sized relational proof without
+  automation, and at scale it needs more: (1) every `Verify/Cached`
+  statement generalized from `coreKnotI … f`/`SSimC` to a callback record,
+  the cached callees' own theorems included (`whnfCoreStepC_spec` uses
+  `whnfAppC_spec ih henv` and `reduceProjCoreC_spec ih`), which reopens
+  master; (2) a state relation for the bodies that touch caches themselves
+  (`instListM`, `constTyAtM`, `isEquivLM`), where InLean and the cached
+  tier miss and hit apart; (3) the cached body's *completeness* on the
+  oracle (it must succeed wherever InLean's does), shown arm by arm.  No
+  square framework is built into the foundation; the pilot stays as the
+  evidence.
+
+**The split for the three P2 lanes.**  Frozen (the foundation; a lane adds
+vocabulary in its own files, shared additions reach `GrindI.lean` only
+through the coordinator): `InLeanProof/{MkDataAxioms,Fields,ToCL,Ops,FVar,
+Range,Sim,GrindI,KnotI}.lean`.  Each lane follows CLAUDE.md's cached-
+simulation rules; a walk is a triple under `KnotSpecI` of its callback
+record, proved by its twin's script.
+* **P2-whnf** (`InLeanProof/StateOpsI.lean`, `WalksWhnf.lean`,
+  `WalksIota.lean`).  First `StateOpsI.lean`, committed before the other
+  lanes need it: the triples of the state operations every body uses
+  (`inst1M`, `instListM`, `instListRevM`, `abstractRangeM`, `constTyAtM`,
+  `constValAtM`, `ruleRhsAtM`, `instLevelParamsM`, `isEquivLM`,
+  `isEquivListLM`, `liftFueled`, `mkFVarM` from O3).  Then `DiscC1`'s
+  twins (`defeqArg`, `defEqList`, `iotaCertsFull(Aux)`, `litToCtorIfNat`,
+  `unfoldDefinition`, `litMajorToCtor`, `projLitToCtor`, `defeqSpine`,
+  `reduceNat`), `DiscC3`'s (ι: `iotaRec`, `majorToCtor` and `mtc*`,
+  `prepareMajor`, `iotaCase3`, `iotaCert`, `iotaIndexOk`, `pinArgs`,
+  `formerNeverZero`, `formerSortLoop`) and `DiscC4`'s whnf half
+  (`reduceProjCore` and `whnfApp`, discharging `ReduceProjSpecI` and
+  `WhnfAppSpecI`; `betaPeel`, `whnfCoreLoop`, `whnfCoreBody` and
+  `whnfBody` as `BodySpecI`, `whnfLoop`).
+* **P2-infer** (`InLeanProof/WalksInfer.lean`, `KnotAssembly.lean`).
+  `BinderLoopC`'s twins (`inferLams*`, `inferPis*`) and `DiscC4`'s infer
+  half (`inferSpine`, `inferSpineIO`, `ensureSortIO`, `checkProjGuard`(IO),
+  `checkGuardRows`, `projGuardSort`, `projRows`, `inferBody` and
+  `inferBodyIO` as `BodySpecI`, the io-view slots); then **the knot
+  assembly** (its walk set is the smallest of the three): `KnotC`'s twin,
+  `memoEI_ok`/`memoBI_ok` in triple form with each clause's insert lemma,
+  `withEagerMemos`, and `ssimI_succ`, so `∀ f, SSimI eager env fe f` from
+  the three lanes' body specs.
+* **P2-defeq** (`InLeanProof/WalksDefeq.lean`).  `DiscC2`'s twins (the
+  certificates: `proofIrrel`, `propIrrel`, `etaCert`,
+  `structEtaCert(With)`, `structUnitCert`, `stuckIrrel`, `projNodes`,
+  `boolTrueShortcut`) and `DiscC5`'s (`defeqBody` as `BodySpecBI`,
+  `quickDefEq`, the lazy-delta family, `defeqOffset`, `defeqProjPair`,
+  `defeqStuck`, `defeqLams(Inner)`, `tryUnfoldProjApp`, the `body*`
+  blocks).
+
+Dependencies: all three need `StateOpsI.lean`; a walk owned by another lane
+(e.g. P2-infer's `inferBody` calls P2-whnf's `defeqArg`) is a hypothesis, a
+named `*SpecI` predicate as `WhnfAppSpecI` here, until its owner lands it.
+
+**Obligations after P2-0** (the total estimate unchanged; the square route
+not taken):
+
+| # | obligation | state |
+|---|---|---|
+| O1 | operations against con-leche's | proved for the knot's operations; level instantiation under the check's fact |
+| O2 | converse of `toExpr_of_clEq` | proved (P1) |
+| O3 | interning keeps `FVTableOK` | proved (P1); its triple is `StateOpsI`'s |
+| O4 | at-use readers = master's install | open (P3) |
+| O5 | the knot | foundation in place (`KnotSpecI`, `BodySpecI`, `SSimI`, `ssimI_zero`, every `CSOKI` clause); templates `ensureSortI_spec`, `whnfCoreStepI_spec`; the walks open (P2), closedness included |
+| O6 | declaration step | open (P3) |
+| O7 | inductive job | open (P3) |
+| O8 | assembly | open (P4) |
+| O9 | range preservation | proved; level instantiation by the depth check |
+| O10 | `uncertifiedNatOps` window | open |
