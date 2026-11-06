@@ -630,6 +630,9 @@ for m in Tiny TinyUse TinyClassic LazyVal PrivUnused HidA HidAll HidUse RbH RbM 
     PdA PdB WvA WvB ClashA ClashB ClashX FrX FrY MoX NlB NlX NlY; do
   work_ "the worker at $m" 0 "accepted" "$MSP" $m
 done
+# an own unsafe definition is no record, and what it reads is no root of the reach: UsM's
+# usUse reads UsA's unsafe usPeek, and the module is accepted, as by Lean (task #468)
+work_ "an own unsafe definition reading an imported unsafe one" 0 "accepted 1 declarations" "$MSP" UsM
 # NlX's nl and NlY's nl, behind a private import of an import, are never loaded
 # together: accepted, as by Lean (the merged read of the closure rejects the pair)
 work_ "two modules of one name never loaded together" 0 "accepted" "$MSP" NlM

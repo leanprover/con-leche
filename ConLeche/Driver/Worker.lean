@@ -45,14 +45,16 @@ def ownRecords (l : Loaded) : Except (CheckError × Nat) (Array Declaration) :=
   | .ok () => declsOf (emitAll mg mg.order)
 
 /-- **The reach's roots**: what each own record reads, and what each own constant's load read
-(a theorem's value's names, which its record holds as a reference).  A name a pinned own
+(a theorem's value's names, which its record holds as a reference); an unsafe or partial own
+constant is no record, and what it reads is no root.  A name a pinned own
 constant's fast path reads (`pinFootprint`) that no loaded module holds is left to that
 constant's own check, which asks it stored (`natOpGuard`) and gives the stream path's verdict. -/
 def ownRoots (ix : NameIndex) (l : Loaded) (ds : Array Declaration) : Array Name :=
   let fp : Std.HashSet Name := l.constants.foldl
     (fun s c => (Modular.pinFootprint c.name).foldl (fun s n => s.insert n) s) {}
   (ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
-    l.constants.foldl (fun acc (c : CEntry) => acc ++ c.uses.toArray) #[]).filter
+    l.constants.foldl (fun acc (c : CEntry) =>
+      if c.skipped then acc else acc ++ c.uses.toArray) #[]).filter
     fun x => ix.first.contains x || !fp.contains x
 
 /-- What an own theorem's record mentions, which its reference does not say: what the load read
