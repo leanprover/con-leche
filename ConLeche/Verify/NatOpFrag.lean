@@ -204,6 +204,12 @@ theorem storedNoLevels_exists {env : Env} {n : Name}
   | none => rw [hf] at h; exact nomatch h
   | some ci => rw [hf] at h; exact ⟨ci, rfl, by simpa [List.isEmpty_iff] using h⟩
 
+/-- `storedNoLevels` reads the one lookup. -/
+theorem storedNoLevels_congr {env env' : Env} {n : Name} (he : env'.find? n = env.find? n)
+    (h : storedNoLevels env n) : storedNoLevels env' n := by
+  unfold storedNoLevels at h ⊢
+  rwa [he]
+
 theorem storedNoLevels_of_cons {env : Env} {ci : ConstantInfo} {c n : Name}
     (hname : ci.name = c) (hne : n ≠ c)
     (h : storedNoLevels ⟨ci :: env.consts, env.tables⟩ n) : storedNoLevels env n := by
