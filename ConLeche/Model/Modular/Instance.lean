@@ -200,7 +200,7 @@ theorem AcceptsX.step {pins : List NatOpPinSet} {Γ Γ' : XEnv} {D : List Declar
 
 variable (V) in
 /-- **Con-leche's models as a modular semantics.** -/
-@[reducible] noncomputable def conlecheSemantics (pins : List NatOpPinSet) :
+@[expose, reducible] noncomputable def conlecheSemantics (pins : List NatOpPinSet) :
     ModularSemantics.{0, 0} where
   Env := XEnv
   Name := Name
