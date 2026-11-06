@@ -149,21 +149,24 @@ def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : Olea
   let st ← CheckerIO.liftIO (jobEnd run.err run.pace run.t0 ds pl s.w t ts (r matches .ok _) s.st)
   pure ({ s with st, cache := c }, r)
 
-/-- **The check phase of an `--olean` run**: the jobs on the worker map, in fold order; the
-first failure in that order is the result, whatever the workers' timing. -/
+/-- **The check phase of an `--olean` run**: the jobs from position `start` on, on the worker
+map, in fold order; the first failure in that order is the result, whatever the workers'
+timing.  A run of a closure checks every record (`start = 0`); a module's worker its own
+records, after its context's (`checkModuleG`). -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
     (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : List System.FilePath)
-    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds) :
-    μ (Except (CheckError × Nat) Unit) := do
+    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds)
+    (start : Nat := 0) : μ (Except (CheckError × Nat) Unit) := do
   let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs)
-  let workers := max 1 (min jobs ds.size)
-  let (pl, tStart) ← CheckerIO.liftIO (run.pool ds.size workers values)
+  let n := ds.size - start
+  let workers := max 1 (min jobs n)
+  let (pl, tStart) ← CheckerIO.liftIO (run.pool n workers values)
   let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w } : OleanWorker))
-    (oleanStep mode run pl J sp values) (List.range ds.size)
+    (oleanStep mode run pl J sp values) (List.range' start n)
   let failure := match res with
     | .error e => some e
     | .ok _ => none
-  CheckerIO.liftIO (run.done ds tStart workers (ss.map (·.st)) failure)
+  CheckerIO.liftIO (run.done ds n tStart workers (ss.map (·.st)) failure)
   pure (match res with
     | .error e => .error e
     | .ok _ => .ok ())

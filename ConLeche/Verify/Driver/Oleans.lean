@@ -269,13 +269,15 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
         · exact ⟨b, hu⟩
         · exact mapExcept_each hc x hx
 
-/-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
-theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
-    {ds : Array Declaration} {J : Jobs ds}
+/-- **The check phase from position `start` passes every job from there on**, at the records
+with their values in place. -/
+theorem checkOleansG_jobs {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
+    {ds : Array Declaration} {J : Jobs ds} {start : Nat}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J : ModelIO _) fs (.ok (.ok ()))) :
-    ∃ env, checkDecls mode natOpPinSets (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
+    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J start : ModelIO _) fs
+      (.ok (.ok ()))) :
+    ∀ t, start ≤ t → t < ds.size → JobFact mode J (fillOf sp fs values) t := by
   simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff] at h
   obtain ⟨run, -, ⟨pl, tStart⟩, -, ⟨ss, res⟩, hmap, _, -, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
@@ -283,15 +285,23 @@ theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse j
   · simp at h
   -- the worker map's elements
   obtain ⟨-, hm⟩ := (hmap : workerMap _ _ _ fs (.ok (ss, .ok us)))
-  have hfacts : ∀ t, t < ds.size → JobFact mode J (fillOf sp fs values) t := by
-    intro t ht
-    obtain ⟨u, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range.mpr ht)
-    exact (oleanStep_spec hgood (oleanWorker_reach hgood hreach) hs).2 rfl
+  intro t hs ht
+  obtain ⟨u, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range'_1.mpr ⟨hs, by omega⟩)
+  exact (oleanStep_spec hgood (oleanWorker_reach hgood hreach) hs).2 rfl
+
+/-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
+theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
+    {ds : Array Declaration} {J : Jobs ds}
+    (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
+      f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
+    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J : ModelIO _) fs (.ok (.ok ()))) :
+    ∃ env, checkDecls mode natOpPinSets (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
+  have hfacts := checkOleansG_jobs hgood h
   -- every record's job passed, at the records with their values in place
   refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) fun k hk => ?_⟩
   have hk' : k < ds.size := by simpa using hk
   rw [buildIndex_fill, Array.getElem_map, ← J.hI]
-  exact hfacts k hk' hk'
+  exact hfacts k (Nat.zero_le _) hk' hk'
 
 /-- **An accepted `--olean` run, in the model**: every outcome of the driver's run on the import
 closure of `roots` over a snapshot `fs` that is an exit 0 means the built-in prelude parses, the
