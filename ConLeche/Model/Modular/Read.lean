@@ -198,6 +198,9 @@ structure CtxRead (C : Env) (E R : Name → Env) : Prop where
   group : ∀ n d d', (C.find? n).isSome = true → ((R n).find? d).isSome = true →
     (∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) → GroupMates C d d' →
     ((R n).find? d').isSome = true
+  /-- a former read alike has its constructors read alike (they arrive in its record) -/
+  ctors : ∀ n d cv caps, (C.find? n).isSome = true → ((R n).find? d).isSome = true →
+    C.find? d = some (.indInfo cv caps) → ∀ x ∈ caps.ctors, ((R n).find? x).isSome = true
   /-- what an inductive kind read alike reads is read alike -/
   deep : ∀ n d ci, (C.find? n).isSome = true → ((R n).find? d).isSome = true →
     C.find? d = some ci → ci.isIndKind = true →
