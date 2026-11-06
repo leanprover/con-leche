@@ -117,12 +117,13 @@ structure FVTableOK (s : InLean.CState) : Prop where
 
 /-! ## The invariant -/
 
-/-- A unary memo's clause: the key and the value translate, and a run of
+/-- A unary memo's clause: the key and the value translate, the value is in
+range (so it has a reading, `OkS`, as every post states), and a run of
 the pure function `spec` on the translated key answers the translated
 value, at every depth the key is scoped at (`CSOK`'s clause shape). -/
 @[expose] def UnaryOK (s : InLean.CState) (spec : Nat → Nat → ConLeche.Expr → ConLeche.CheckM ConLeche.Expr)
     (k v : Expr) : Prop :=
-  ∃ ck cv, TransS s k = some ck ∧ TransS s v = some cv ∧
+  ∃ ck cv, TransS s k = some ck ∧ TransS s v = some cv ∧ Expr.RangeOk v ∧
     ∃ F, ∀ d, ck.wscopedB d = true → spec F d ck = .ok cv
 
 /-- The defeq memo's clause. -/
@@ -158,7 +159,13 @@ stored-constant caches (`constTy`, `constVal`, `ruleRhs`: the stored term
 at the translated levels), the level memos (`lsimp`, `eqv`), the
 bulk-instantiation memo (`instC`: con-leche's `instantiateList` at closed,
 translated values) and the eager tower's memos (`eager`, at `eager := true`).
-A clause is about a *lookup*, so it holds of every `keyEq`-equal key. -/
+A clause is about a *lookup*, so it holds of every `keyEq`-equal key.
+
+Every clause states the translations it reads as *facts* (`TransS s k =
+some ck ∧ …`), never as premises: the table only grows (`mkFVarM`), and a
+fact stays true at a later state (`toExpr_mono`), so the invariant is kept
+by interning (`CSOKI.of_tabLe`, `InLeanProof/StateOpsI.lean`).  A stored
+value is in range (`Expr.RangeOk`), so a hit has a reading (`OkS`). -/
 structure CSOKI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
     (s : InLean.CState) : Prop where
   fv : FVTableOK s
@@ -176,22 +183,23 @@ structure CSOKI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
     BinaryOK s (fun F d x y => ConLeche.isDefEqCore mode eager env F d x y) a b r
   constTy : ∀ n us i, s.constTyAt[(n, us)]? = some i → ∃ cus ci ct,
     toLevels us = some cus ∧ env.find? (toName n) = some ci ∧ TransS s i = some ct ∧
+    Expr.RangeOk i ∧
     ct = ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams cus
   constVal : ∀ n us i, s.constValAt[(n, us)]? = some i → ∃ cus cv v h cval,
     toLevels us = some cus ∧ env.find? (toName n) = some (.defnInfo cv v h) ∧
-    TransS s i = some cval ∧ cval = v.instantiateLevelParams cv.levelParams cus
+    TransS s i = some cval ∧ Expr.RangeOk i ∧ cval = v.instantiateLevelParams cv.levelParams cus
   ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i → ∃ cus cv mI rP isK rules rl cr,
     toLevels us = some cus ∧ env.find? (toName c) = some (.recInfo cv mI rP isK rules) ∧
     rules.find? (fun r' => r'.ctor == toName j) = some rl ∧
-    TransS s i = some cr ∧ cr = rl.rhs.instantiateLevelParams cv.levelParams cus
+    TransS s i = some cr ∧ Expr.RangeOk i ∧ cr = rl.rhs.instantiateLevelParams cv.levelParams cus
   lsimp : ∀ u v, s.lsimpC[u]? = some v → ∀ cu, toLevel u = some cu →
     toLevel v = some (ConLeche.Level.simplify cu)
   eqv : ∀ l r b, s.eqvC[(l, r)]? = some b → ∀ cl cr, toLevel l = some cl → toLevel r = some cr →
     ConLeche.Level.isEquiv cl cr = some b
-  instC : ∀ k vs r, s.instC[InstKey.mk k vs]? = some r → ∀ ck cvs,
-    TransS s k = some ck → vs.mapM (TransS s) = some cvs →
-    (∀ cv ∈ cvs, cv.looseBVarsBounded 0 = true) →
-    TransS s r = some (ck.instantiateList cvs 0)
+  instC : ∀ k vs r, s.instC[InstKey.mk k vs]? = some r → ∃ ck cvs cr,
+    TransS s k = some ck ∧ vs.mapM (TransS s) = some cvs ∧ TransS s r = some cr ∧
+    Expr.RangeOk r ∧ (∀ cv ∈ cvs, cv.looseBVarsBounded 0 = true) ∧
+    cr = ck.instantiateList cvs 0
   eager : ModeMemosOKI mode env s s.eagerMemos
 
 /-! ## The generic memo lemma -/

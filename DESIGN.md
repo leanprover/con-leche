@@ -110951,3 +110951,43 @@ not taken):
 | O8 | assembly | open (P4) |
 | O9 | range preservation | proved; level instantiation by the depth check |
 | O10 | `uncertifiedNatOps` window | open |
+
+### Lane P2-whnf, phase 1: the state operations' triples (2026-11-07)
+
+`InLeanProof/StateOpsI.lean` (about 1,350 lines, standard axioms plus the
+stop-gap `mkData` ones where a cutoff reads a cached field; pinned in
+`AxiomPins.lean`): the twins of `Verify/Cached/SimCEff.lean`'s triples, each
+with `KnotSpecI`'s post shape (`CSOKI`, `TabLe`, `OkS`, the translation):
+`inst1M_specI`, `instListRevM_specI`, `abstractRangeM_specI`,
+`instLevelParamsM_specI`, `liftFueled_specI`, `mkFVarM_specI`,
+`instListM_specI`, `constTyAtM_specI`, `constValAtM_specI`,
+`ruleRhsAtM_specI`, `isEquivLM_specI`, `isEquivListLM_specI`, and
+`tripleI_iff_run` (a triple is a statement about the successful runs).
+Proved run by run (`tripleI_iff_run`), as `SimCEff`'s cache triples are, not
+by `vcgen`: they are the walks' callee specs, not walks.
+
+* **`CSOKI` corrected (shared file `Sim.lean`, nothing consumed it yet).**
+  (1) The `instC` clause had its translations as *premises*, so interning,
+  which grows the table, could break it (a key untranslatable before, by a
+  new id, translatable after); it now states them as facts, like every other
+  clause, and the invariant survives interning (`CSOKI.of_tabLe`).
+  (2) The memo and cache clauses (`UnaryOK`, `constTy`, `constVal`,
+  `ruleRhs`, `instC`) now carry `Expr.RangeOk` of the stored value: without
+  it a hit has no reading (`OkS`), which every post states.
+* **The caches read Lean's entries through a named hypothesis
+  `EnvRelI fe env`** (O4, P3's): every stored type, definition value and
+  rule InLean reads is a term without free variables, in range, translating
+  (`toExprC`) to con-leche's entry at the translated name, under the
+  translated level parameters.  Its quotient case comes with `recAt?`.
+* **The level operations commute with the translation** on levels without
+  metavariables (`trL_inj`, `trL_combining`, `trL_simplify`, `trL_subst1`,
+  `leqCore_trL` by fuel induction over the four-function block), which
+  `isEquivLM_specI` uses; `isEquivLM` is restated through a named memo step
+  (`isEquivLM_eqI`, by `rfl`), as master's `isEquivLM_eq`.
+* Notes for the other lanes: `inst1M` has no depth argument (con-leche's
+  `instantiate1 · · 0`); the stored-constant triples state their answers
+  through master's readers (`constTyOf`, `constValAt?`, `ruleRhsOf`) at
+  `toName n` and `us.map trL`, so a walk needs `us.all okLv`; `simp`'s
+  default discharger does not discharge the side conditions of a local
+  `∀`-hypothesis here ("failed to assign proof"), so the level proofs
+  rewrite with `rw` and close side goals separately.
