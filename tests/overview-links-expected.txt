@@ -7,8 +7,8 @@
 
 >>> OVERVIEW.md
 
-== ConLeche/Driver/Cli.lean#L114
-   114  def helpText : String := String.intercalate "\n" [
+== ConLeche/Driver/Cli.lean#L115
+   115  def helpText : String := String.intercalate "\n" [
 
 == ConLeche/Driver/CheckMain.lean#L37
     37    | .notImplemented _ => 2
@@ -125,28 +125,28 @@
    200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
    201          (m j hj).cval n = fun _ => pt := by
 
-== tests/ConLecheTests/Axioms.lean#L100-L104
-   100  /--
-   101  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   102  -/
-   103  #guard_msgs in
-   104  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L102-L106
+   102  /--
+   103  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   104  -/
+   105  #guard_msgs in
+   106  #print axioms ConLeche.model_exists
 
-== ConLeche/Driver/Dispatch.lean#L31
-    31  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
+== ConLeche/Driver/Dispatch.lean#L34
+    34  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
 
-== ConLeche/Frontend/CheckerIO.lean#L121
-   121  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L128
+   128  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
-== ConLeche/Frontend/CheckerIO.lean#L271
-   271  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L278
+   278  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L178-L182
-   178  theorem runArgs_accept {file : String} {fs : FS}
-   179      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-   180      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   181        parseChunks [b] = .ok r ∧
-   182        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L232-L236
+   232  theorem runArgs_accept {file : String} {fs : FS}
+   233      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   234      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   235        parseChunks [b] = .ok r ∧
+   236        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
@@ -1311,7 +1311,7 @@
    238            s!"unsupported compiler-trust axiom environment ({cv.name})")
 
 == ConLeche/Driver/Cli.lean#L122
-   122    "  --jobs=N            Worker threads (default: one per hardware thread)",
+   122    "  --trusted           Skip the checks only the proof needs; outside the theorem",
 
 == ConLeche/Kernel/Basis/False.lean#L50-L51
     50  /-- The pinned `False` basis block, in install order. -/
@@ -1385,19 +1385,19 @@
    225        c.toConstantVal.type = cv.type := by
 
 == ConLeche/Driver/Cli.lean#L241
-   241  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+   241  one place that turns any such exception into exit 3 instead, and it is
 
-== ConLeche/Frontend/CheckerIO.lean#L121
-   121  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
+== ConLeche/Frontend/CheckerIO.lean#L128
+   128  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
 
 == ConLeche/Frontend/CheckerIO.lean#L143
-   143    parMapExcept : {α β ε : Type} → (jobs : Nat) → (α → m (Except ε β)) → List α →
+   143    fileSize : System.FilePath → m Nat
 
 == ConLeche/Frontend/CheckerIO.lean#L159
-   159    liftIO : {α : Type} → IO α → m α
+   159      (σ → α → m (σ × Except ε β)) → List α → m (List σ × Except ε (List β))
 
-== ConLeche/Frontend/CheckerIO.lean#L271
-   271  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
+== ConLeche/Frontend/CheckerIO.lean#L278
+   278  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
 == ConLeche/MainTheorem.lean#L150-L152
    150  theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
@@ -1408,7 +1408,7 @@
     95  def main (args : List String) : IO Unit := do
 
 == ConLeche/Driver/Cli.lean#L241
-   241  def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
+   241  one place that turns any such exception into exit 3 instead, and it is
 
 == Main.lean#L28
     28  def enableAbortOnNonlinear : IO Unit := do
@@ -1460,7 +1460,7 @@
    202    fun h => ⟨⟨ZFSet.{u}, setTheoryOfCarneiro h⟩⟩
 
 == ConLeche/Driver/Cli.lean#L121
-   121    "  --trusted           Skip the checks only the proof needs; outside the theorem",
+   121    "  --verified          Check in the mode the soundness theorem covers (default)",
 
 == ConLeche/Frontend/Olean/View.lean#L81
     81  noncomputable def decodeModuleSpec (f : ModFiles) (level : OLeanLevel) : Option ModDecoded := do
