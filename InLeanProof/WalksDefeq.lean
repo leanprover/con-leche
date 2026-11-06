@@ -2,6 +2,9 @@ module
 
 public import InLeanProof.StateOpsI
 public import ConLeche.Verify.Cached.DiscC5
+/- `Literal`'s derived `BEq` is not exposed by `Lean.Expr`; `lit_beq_toLit`
+reads it. -/
+import all Lean.Expr
 
 /-!
 # The definitional-equality walks (task #451, lane P2-defeq)
@@ -339,6 +342,97 @@ grind_pattern [conleche_grind] OkS_inst1 => OkS s (EO.instantiate1 b v)
 `(TrS s e).getAppFn`, InLean `e.getAppFnT`. -/
 grind_pattern [conleche_grind] TrS_getAppFnT => (TrS s e).getAppFn
 grind_pattern [conleche_grind] TrSL_appArgs => (TrS s e).getAppArgs
+
+/-! ## Vocabulary: equality, literals, λ pairs, the loop budgets -/
+
+section Eq
+
+theorem fv_of_CSOKI {s : InLean.CState} (hs : CSOKI mode eager env s) : FVTableOK s := hs.fv
+grind_pattern [conleche_grind] fv_of_CSOKI => CSOKI mode eager env s
+
+/-- **The checker's equality** (`clEq`, the scoped `==`) on terms with a
+reading is equality of translations (P1's `clEq_iff_TransS`). -/
+theorem clBeq_TrS {s : InLean.CState} (hs : FVTableOK s) {a b : Expr} (ha : OkS s a = true)
+    (hb : OkS s b = true) :
+    (@BEq.beq Expr InLean.instBEqExprI a b) = decide (TrS s a = TrS s b) := by
+  have h := clEq_iff_TransS hs (TransS_of_ok ha) (b := b)
+  rw [TransS_of_ok hb, Option.some.injEq] at h
+  show Expr.clEq a b = _
+  by_cases he : TrS s a = TrS s b
+  · simp only [he, decide_true]; exact h.2 he.symm
+  · simp only [he, decide_false]
+    cases hc : Expr.clEq a b
+    · rfl
+    · exact absurd (h.1 hc).symm he
+grind_pattern [conleche_grind] clBeq_TrS =>
+  OkS s a, OkS s b, @BEq.beq Expr InLean.instBEqExprI a b
+
+@[conleche_grind =] theorem lit_beq_toLit : ∀ (a b : Literal), (a == b) = (toLit a == toLit b)
+  | .natVal n, .natVal m => by
+    show (n == m) = _; rw [Bool.eq_iff_iff]; simp [toLit]
+  | .strVal n, .strVal m => by
+    show (n == m) = _; rw [Bool.eq_iff_iff]; simp [toLit]
+  | .natVal n, .strVal m => by
+    show false = _; rw [Bool.eq_iff_iff]; simp [toLit]
+  | .strVal n, .natVal m => by
+    show false = _; rw [Bool.eq_iff_iff]; simp [toLit]
+
+theorem lamsFuel_eq : InLean.lamsFuel = ConLeche.lamsFuel := by
+  unfold InLean.lamsFuel ConLeche.lamsFuel; rfl
+theorem defeqLoopFuel_eq : InLean.defeqLoopFuel = ConLeche.defeqLoopFuel := by
+  unfold InLean.defeqLoopFuel ConLeche.defeqLoopFuel; rfl
+
+end Eq
+
+section LamPair
+variable (s : InLean.CState)
+
+theorem stripTop_of_ne_mdata {x : Expr} (h : ∀ (m : MData) (y : Expr), x = .mdata m y → False) :
+    EO.stripTop x = x := by
+  cases x with
+  | mdata m y => exact absurd rfl (h m y)
+  | _ => rfl
+
+/-- A pair of λs, read through `mdata`, translates to the translations' pair. -/
+theorem lamPairI_some (a b : Expr) : ∀ {q : Expr × Expr × Expr × Expr},
+    InLean.Expr.lamPair? a b = some q →
+    TrS s a = .lam (TrS s q.1) (TrS s q.2.1) ∧ TrS s b = .lam (TrS s q.2.2.1) (TrS s q.2.2.2) ∧
+      OkS s a = (OkS s q.1 && OkS s q.2.1) ∧ OkS s b = (OkS s q.2.2.1 && OkS s q.2.2.2) ∧
+      (TrS s a).lamPair? (TrS s b) = some (TrS s q.1, TrS s q.2.1, TrS s q.2.2.1, TrS s q.2.2.2) := by
+  induction a, b using InLean.Expr.lamPair?.induct with
+  | case1 _ a b ih => intro q h; rw [InLean.Expr.lamPair?] at h; exact ih h
+  | case2 a _ b hna ih =>
+    intro q h; rw [InLean.Expr.lamPair?.eq_2 _ _ _ hna] at h; exact ih h
+  | case3 =>
+    intro q h; simp only [InLean.Expr.lamPair?, Option.some.injEq] at h; subst h
+    exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+  | case4 x y h1 h2 h3 =>
+    intro q h; rw [InLean.Expr.lamPair?.eq_4 _ _ h1 h2 h3] at h; simp at h
+grind_pattern [conleche_grind] lamPairI_some => InLean.Expr.lamPair? a b, TrS s a, some q
+
+theorem lamPairI_none (a b : Expr) : InLean.Expr.lamPair? a b = none →
+    (TrS s a).lamPair? (TrS s b) = none := by
+  induction a, b using InLean.Expr.lamPair?.induct with
+  | case1 _ a b ih => intro h; rw [InLean.Expr.lamPair?] at h; exact ih h
+  | case2 a _ b hna ih =>
+    intro h; rw [InLean.Expr.lamPair?.eq_2 _ _ _ hna] at h; exact ih h
+  | case3 => intro h; simp [InLean.Expr.lamPair?] at h
+  | case4 x y h1 h2 h3 =>
+    intro _
+    cases hx : TrS s x with
+    | lam t b =>
+      obtain ⟨n, t', b', bi, hx'⟩ := stripTop_of_TrS_lam s hx
+      rw [stripTop_of_ne_mdata h1] at hx'
+      cases hy : TrS s y with
+      | lam t₂ b₂ =>
+        obtain ⟨n₂, t₂', b₂', bi₂, hy'⟩ := stripTop_of_TrS_lam s hy
+        rw [stripTop_of_ne_mdata h2] at hy'
+        exact (h3 _ _ _ _ _ _ _ _ hx' hy').elim
+      | _ => rfl
+    | _ => rfl
+grind_pattern [conleche_grind] lamPairI_none => InLean.Expr.lamPair? a b, TrS s a, TrS s b
+
+end LamPair
 
 /-! ## The readers of the environment at use (O4's statements, P3's to prove)
 
@@ -835,5 +929,115 @@ theorem stuckIrrelI_spec {fe : InLean.FEnv} (ih : KnotSpecI mode eager env r)
       proofIrrelI_spec ih] <;> finish
 
 end Walks
+
+/-! ## DiscC5's twins: definitional equality -/
+
+section Walks5
+
+variable {r : InLean.CoreFnsI}
+
+/-- The innermost level of the λ-telescope comparison
+(`defeqLamsInnerC_spec`'s twin). -/
+theorem defeqLamsInnerI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {b₁ b₂ : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok1 : OkS s₀ b₁ = true)
+    (hok2 : OkS s₀ b₂ = true) (h1 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₁))
+    (h2 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₂)) (hc1 : (TrS s₀ b₁).looseBVarsBounded 0 = true)
+    (hc2 : (TrS s₀ b₂).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqLamsInnerI .verified r d b₁ b₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqLamsInner .verified (ConLeche.fueledFns .verified eager env) d
+        (TrS s₀ b₁) (TrS s₀ b₂)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.defeqLamsInner] =>
+    vcgen [InLean.defeqLamsInnerI, ih.defeq, ih.infer] <;> finish
+
+/-- InLean's λ-telescope comparison past the opened bodies (`lamsStepI`'s
+twin). -/
+@[expose] def lamsStepL (r : InLean.CoreFnsI) (n d : Nat) (b₁ b₂ : Expr) : InLean.CheckCM Bool :=
+  match InLean.Expr.lamPair? b₁ b₂ with
+  | some q =>
+    if b₁ == b₂ then pure true
+    else InLean.defeqLamsI .verified r n (d + 1) q.1 q.2.1 q.2.2.1 q.2.2.2
+  | none => InLean.defeqLamsInnerI .verified r d b₁ b₂
+
+theorem defeqLamsL_zero (r : InLean.CoreFnsI) (d : Nat) (ty₁ body₁ ty₂ body₂ : Expr) :
+    InLean.defeqLamsI .verified r 0 d ty₁ body₁ ty₂ body₂ = (do
+      unless ← r.defeq d ty₁ ty₂ do return false
+      let fv ← mkFVarM d ty₂
+      InLean.defeqLamsInnerI .verified r d (body₁.inst1I fv) (body₂.inst1I fv) :
+        InLean.CheckCM Bool) := rfl
+
+set_option smartUnfolding false in
+/-- `defeqLamsI`'s step (as `defeqLamsI_succ`: the structural recursion sits
+under the binds, where no equation is generated). -/
+theorem defeqLamsL_succ (r : InLean.CoreFnsI) (n d : Nat) (ty₁ body₁ ty₂ body₂ : Expr) :
+    InLean.defeqLamsI .verified r (n + 1) d ty₁ body₁ ty₂ body₂ = (do
+      unless ← r.defeq d ty₁ ty₂ do return false
+      let fv ← mkFVarM d ty₂
+      lamsStepL r n d (body₁.inst1I fv) (body₂.inst1I fv) : InLean.CheckCM Bool) := by
+  refine congrArg (r.defeq d ty₁ ty₂ >>= ·) (funext fun x => ?_)
+  cases x
+  · rfl
+  · refine congrArg (mkFVarM d ty₂ >>= ·) (funext fun fv => ?_)
+    unfold lamsStepL
+    dsimp only
+    cases InLean.Expr.lamPair? (body₁.inst1I fv) (body₂.inst1I fv) <;> rfl
+
+/-- The λ-telescope comparison at fuel `n` (`LamsSpec`'s twin, a named
+predicate: an atom in `grind`'s context). -/
+@[expose] def LamsSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI) (n : Nat) :
+    Prop :=
+  ∀ {d : Nat} {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState}, CSOKI .verified eager env s₀ →
+    OkS s₀ ty₁ = true → OkS s₀ body₁ = true → OkS s₀ ty₂ = true → OkS s₀ body₂ = true →
+    ConLeche.Expr.WScoped d (TrS s₀ ty₁) → ConLeche.Expr.WScoped d (TrS s₀ body₁) →
+    ConLeche.Expr.WScoped d (TrS s₀ ty₂) → ConLeche.Expr.WScoped d (TrS s₀ body₂) →
+    (TrS s₀ ty₁).looseBVarsBounded 0 = true → (TrS s₀ body₁).looseBVarsBounded 1 = true →
+    (TrS s₀ ty₂).looseBVarsBounded 0 = true → (TrS s₀ body₂).looseBVarsBounded 1 = true →
+    ⦃fun s => s = s₀⦄ InLean.defeqLamsI .verified r n d ty₁ body₁ ty₂ body₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqLams .verified (ConLeche.fueledFns .verified eager env) n d (TrS s₀ ty₁)
+        (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄
+
+theorem LamsSpecI.triple {n : Nat} (h : LamsSpecI eager env r n) {d : Nat}
+    {ty₁ body₁ ty₂ body₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (o1 : OkS s₀ ty₁ = true) (o2 : OkS s₀ body₁ = true) (o3 : OkS s₀ ty₂ = true)
+    (o4 : OkS s₀ body₂ = true)
+    (w1 : ConLeche.Expr.WScoped d (TrS s₀ ty₁)) (w2 : ConLeche.Expr.WScoped d (TrS s₀ body₁))
+    (w3 : ConLeche.Expr.WScoped d (TrS s₀ ty₂)) (w4 : ConLeche.Expr.WScoped d (TrS s₀ body₂))
+    (c1 : (TrS s₀ ty₁).looseBVarsBounded 0 = true) (c2 : (TrS s₀ body₁).looseBVarsBounded 1 = true)
+    (c3 : (TrS s₀ ty₂).looseBVarsBounded 0 = true) (c4 : (TrS s₀ body₂).looseBVarsBounded 1 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqLamsI .verified r n d ty₁ body₁ ty₂ body₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqLams .verified (ConLeche.fueledFns .verified eager env) n d (TrS s₀ ty₁)
+        (TrS s₀ body₁) (TrS s₀ ty₂) (TrS s₀ body₂)) v; ⊤⦄ :=
+  h hs o1 o2 o3 o4 w1 w2 w3 w4 c1 c2 c3 c4
+
+theorem lamsStepL_spec (ih : KnotSpecI .verified eager env r) {n : Nat} (hn : LamsSpecI eager env r n)
+    {d : Nat} {b₁ b₂ : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hok1 : OkS s₀ b₁ = true) (hok2 : OkS s₀ b₂ = true)
+    (h1 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₁)) (h2 : ConLeche.Expr.WScoped (d + 1) (TrS s₀ b₂))
+    (hc1 : (TrS s₀ b₁).looseBVarsBounded 0 = true) (hc2 : (TrS s₀ b₂).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ lamsStepL r n d b₁ b₂
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (lamsStepP (ConLeche.fueledFns .verified eager env) .verified n d (TrS s₀ b₁)
+        (TrS s₀ b₂)) v; ⊤⦄ := by
+  sym only [conleche_grind, lamsStepP] =>
+    vcgen [lamsStepL, defeqLamsInnerI_spec ih, hn.triple] <;> finish
+
+/-- By induction on the descent budget (`lamsSpec_all`'s twin). -/
+theorem lamsSpecI_all (ih : KnotSpecI .verified eager env r) (fuel : Nat) :
+    LamsSpecI eager env r fuel := by
+  induction fuel with
+  | zero =>
+    intro d ty₁ body₁ ty₂ body₂ s₀ hs _ _ _ _ _ _ _ _ _ _ _ _
+    sym only [conleche_grind, defeqLams_zero] =>
+      vcgen [defeqLamsL_zero, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
+          (env := env), defeqLamsInnerI_spec ih] <;> finish
+  | succ n ihn =>
+    intro d ty₁ body₁ ty₂ body₂ s₀ hs _ _ _ _ _ _ _ _ _ _ _ _
+    sym only [conleche_grind, defeqLams_succ] =>
+      vcgen [defeqLamsL_succ, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
+          (env := env), lamsStepL_spec ih ihn] <;> finish
+
+end Walks5
 
 end InLeanProof
