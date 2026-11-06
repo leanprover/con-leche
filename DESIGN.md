@@ -109177,3 +109177,7 @@ A line of the check names its declaration only at `--progress=1`, a trace; at an
 arbitrary one.  The oldest check in flight is named there too, and elsewhere once it has run for 10 s,
 when it is news (maintainer: two long names per line are noise).
 
+During the load, `--progress=N` counts the constants loaded, each module's being at hand, so that it
+means one thing along a run (maintainer); a percentage and the clock go by modules, as the constants' total
+is not known yet.  Bare, a line per module.
+

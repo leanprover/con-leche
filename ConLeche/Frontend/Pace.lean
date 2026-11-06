@@ -55,10 +55,4 @@ def Pace.due (pace : Pace) (last : IO.Ref Nat) (k total : Nat) : IO Bool := do
     let now ← IO.monoMsNow
     last.modifyGet fun t => if t + s * 1000 ≤ now then (true, now) else (false, t)
 
-/-- The pace of a phase whose items are too many to name one by one: at a count, a line per
-twentieth. -/
-def Pace.coarse : Pace → Pace
-  | .every _ => .percent 5
-  | p => p
-
 end ConLeche

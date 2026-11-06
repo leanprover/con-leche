@@ -124,7 +124,7 @@ phases), `persistent mark`, `check done` and a
 one of them is on, with its age, in a `check` line only at `--progress=1` or once it has run for
 10 s. With `--olean` the parse is preceded by
 `read:` lines, each with the time and the resident set: the import closure traced, the modules
-loading, at the pace asked for (at a count of declarations, one line per twentieth of them), then the merge, the blocks and the emission, so that a run
+loading, at the pace asked for (a count of declarations counts their constants), then the merge, the blocks and the emission, so that a run
 that does not get through the read says how far it got and at what size.
 With or without the flag, every run closes its stderr with a few
 `stats:` lines: the phase times; per phase (the install pool or the

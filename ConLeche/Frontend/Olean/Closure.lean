@@ -67,7 +67,9 @@ def loadModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : ReadNo
   match ← readFiles sp x.1 .private with
   | .ok f =>
     let r := loadView x.2 x.1 f
-    CheckerIO.liftIO (n.moduleLoaded total)
+    CheckerIO.liftIO (n.moduleLoaded total (match r with
+      | .ok l => l.constants.size
+      | .error _ => 0))
     pure r
   | .error e => pure (.error e)
 

@@ -8,7 +8,7 @@ public import ConLeche.Frontend.Pace
 # Reading `.olean` files: what `--progress` says while they are read
 
 The read's heartbeat (task #484): a line per step of `readOleans`, and during the load lines at
-`--progress`'s pace (at a count of declarations, one per twentieth of the modules), each with the time and the resident set, so that a run that does
+`--progress`'s pace, each with the time and the resident set, so that a run that does
 not get through the read says how far it got and at what size.  `IO` actions, handed to
 `CheckerIO.liftIO`: nothing here changes what the read returns.
 -/
@@ -19,12 +19,13 @@ namespace ConLeche.Frontend.Olean
 structure ReadNotes where
   pace : Pace
   t0 : Nat
-  loaded : IO.Ref Nat
+  /-- the modules and the constants loaded so far -/
+  loaded : IO.Ref (Nat × Nat)
   /-- when the last line was -/
   last : IO.Ref Nat
 
 def ReadNotes.new (pace : Pace) : IO ReadNotes := do
-  return ⟨pace, ← IO.monoMsNow, ← IO.mkRef 0, ← Pace.clock⟩
+  return ⟨pace, ← IO.monoMsNow, ← IO.mkRef (0, 0), ← Pace.clock⟩
 
 /-- The resident set, in the kernel's words; empty where it cannot be read. -/
 def residentSet : IO String := do
@@ -46,11 +47,16 @@ def ReadNotes.say (n : ReadNotes) (line : String) : IO Unit := do
     e.putStrLn s!"con-leche: read: {line} t={ms / 1000}.{(ms % 1000) / 100}s{← residentSet}"
     e.flush
 
-/-- A module of `total` is loaded: a line when `Pace.coarse` of the pace says so. -/
-def ReadNotes.moduleLoaded (n : ReadNotes) (total : Nat) : IO Unit := do
+/-- **A module of `total` is loaded**, with `size` constants.  A count of declarations is
+counted in constants, so that `--progress=N` means one thing all along a run; a percentage or
+the clock in modules, whose total is known. -/
+def ReadNotes.moduleLoaded (n : ReadNotes) (total size : Nat) : IO Unit := do
   if n.pace.on then
-    let k ← n.loaded.modifyGet fun a => (a + 1, a + 1)
-    if ← n.pace.coarse.due n.last k total then
-      n.say s!"loaded {k} modules ({k * 100 / total}%)"
+    let (k, c) ← n.loaded.modifyGet fun (k, c) => ((k + 1, c + size), (k + 1, c + size))
+    let due ← match n.pace with
+      | .every m => pure (m > 0 && c / m != (c - size) / m)
+      | p => p.due n.last k total
+    if due then
+      n.say s!"loaded {k} modules ({k * 100 / max 1 total}%), {c} constants"
 
 end ConLeche.Frontend.Olean
