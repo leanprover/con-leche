@@ -144,6 +144,20 @@
 #   digest).  The other projects' `lakefile.toml`s (`bridge/`,
 #   `pinners/`) build no part of the binary and are not listed.
 #
+#   InLean/Pins.lean                   ofReduceBool
+#       Two `Name` literals, `ofReduceNatName`/`ofReduceBoolName`: the checker
+#       declines those axioms by name (the twin of `Kernel/TrustAxioms`); the
+#       axioms themselves are not used.
+#
+#   InLeanProof/MkDataAxioms.lean      axiom
+#       Task #451 lane G, the maintainer's ruling of 2026-11-04: an explicit,
+#       confined exception to "no new axioms".  What C's `Expr.mkData`,
+#       `Expr.mkAppData` and `Level.mkData` compute, stop-gap until the lean4
+#       branch gives them Lean bodies (the axioms then become theorems).  Only
+#       the InLean proof tier reads them (`InLeanProof/AxiomPins.lean` pins
+#       which theorems do); `InLean/*` and every con-leche capstone are free of
+#       them, and `scripts/inlean_mkdata_check.lean` compares them with C.
+#
 #   ConLeche/Kernel/Exclusive.lean     unsafe, implemented_by
 #       `withExclusive` (tasks #314, #317) — THE ONE
 #       `unsafe`-implemented primitive of the substitution walks.  It
@@ -248,7 +262,9 @@ import os, re, sys
 # --------------------------------------------------------------- the
 # tokens.  Each is a compiler escape that `#print axioms` cannot see.
 TOKENS = {
-    'unsafe':         re.compile(r'\bunsafe\b'),
+    # `.unsafe` (a dot before it) is `DefinitionSafety.unsafe`, a value, never
+    # the keyword.
+    'unsafe':         re.compile(r'(?<!\.)\bunsafe\b'),
     'unsafeCast':     re.compile(r'\bunsafeCast\b'),
     'ptrAddrUnsafe':  re.compile(r'\bptrAddrUnsafe\b'),
     'implemented_by': re.compile(r'\bimplemented_by\b'),
@@ -272,6 +288,8 @@ ALLOW = {
     'ConLeche/Kernel/Name.lean':     {'computed_field'},
     'ConLeche/Kernel/Exclusive.lean': {'unsafe', 'implemented_by'},
     'ConLeche/Frontend/ReadRange.lean': {'extern'},
+    'InLeanProof/MkDataAxioms.lean': {'axiom'},
+    'InLean/Pins.lean': {'ofReduceBool'},
 }
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
@@ -284,7 +302,7 @@ LEXER_FIXTURE = 'tests/trust-surface/lexer.lean'
 
 def sources():
     out = []
-    for top in ('ConLeche', 'tests', 'scripts'):
+    for top in ('ConLeche', 'InLean', 'InLeanProof', 'tests', 'scripts'):
         for dp, dirs, fs in os.walk(top):
             dirs[:] = [d for d in dirs if d != '.lake']
             for f in sorted(fs):

@@ -191,6 +191,21 @@ lean_lib WhitepaperFragment where
   srcDir := "whitepaper"
   roots := #[`Fragment]
 
+-- INLEAN (task #451): con-leche's checker on `Lean.Expr` and
+-- `Lean.Kernel.Environment`, importing `Lean` only, and its proof tier
+-- (the simulation onto con-leche's cached checker).  Not default
+-- targets: `lake build InLean InLeanProof inlean-replay`.
+lean_lib InLean where
+  roots := #[`InLean]
+
+lean_lib InLeanProof where
+  roots := #[`InLeanProof]
+
+-- The replay and comparison driver: replays an import closure through
+-- InLean or the official kernel and compares every constant.
+lean_exe «inlean-replay» where
+  root := `InLeanReplay
+
 -- THE ONE NATIVE FUNCTION (task #450): the stateless positional read
 -- `readRangeIO` (`ConLeche/Frontend/ReadRange.lean`), `pread(2)` in C
 -- (`native/read_range.c`), since Lean's file handles have no positional

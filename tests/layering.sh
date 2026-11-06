@@ -339,6 +339,24 @@ report('rules tier CLOSURE door no longer reached (record the progress)',
        'delete the door from RULES_CLOSURE_DOORS in this script and say so '
        'in the DESIGN record.')
 
+# THE INLEAN FENCE (task #451).  `InLean/*` is con-leche's checker on
+# Lean's own data, meant to be movable into Lean core: it imports `Lean`
+# and itself, never `ConLeche.*`.  (Its proof tier `InLeanProof/*` may
+# import both; it is outside this script's graph.)
+inleanv = []
+for dirpath, _, files in os.walk('InLean'):
+    for f in sorted(files):
+        if f.endswith('.lean'):
+            rel = os.path.join(dirpath, f)
+            src = re.sub(r'/-.*?-/', '', open(rel).read(), flags=re.S)
+            inleanv += [(rel, m) for m in IMP.findall(src) if m.startswith('ConLeche')]
+if os.path.exists('InLean.lean'):
+    src = re.sub(r'/-.*?-/', '', open('InLean.lean').read(), flags=re.S)
+    inleanv += [('InLean.lean', m) for m in IMP.findall(src) if m.startswith('ConLeche')]
+report('InLean importing con-leche', inleanv,
+       'task #451: InLean/* imports Lean and InLean only (it must be movable '
+       'into Lean core); proofs about it go in InLeanProof/*.')
+
 n = {l: sum(1 for m in LANE if LANE[m] == l)
      for l in ("base", "model", "caps", "umbrella", "parked")}
 if not fail:
