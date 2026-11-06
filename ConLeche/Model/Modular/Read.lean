@@ -21,7 +21,7 @@ statement of a definition or theorem); what the copy's laws read lies in `R n` (
 predicate: `EntryScopedP`); a name read alike has alike copies in the context and the source
 (`Alike`: the same constant, or two statements of one statement), with the same table; and an
 inductive group arrives whole, so what a group member read alike reads is read alike too (`group`,
-`deep`).  `CtxModel` (`Model/Modular/Restrict.lean`) builds the context's model from its sources'
+`ctors`, `deep`).  `CtxModel` (`Model/Modular/Restrict.lean`) builds the context's model from its sources'
 models, every law of a context constant read off its source's law.
 -/
 
@@ -198,6 +198,9 @@ structure CtxRead (C : Env) (E R : Name → Env) : Prop where
   group : ∀ n d d', (C.find? n).isSome = true → ((R n).find? d).isSome = true →
     (∃ ci, C.find? d = some ci ∧ ci.isIndKind = true) → GroupMates C d d' →
     ((R n).find? d').isSome = true
+  /-- a former read alike has its constructors read alike (they arrive in its record) -/
+  ctors : ∀ n d cv caps, (C.find? n).isSome = true → ((R n).find? d).isSome = true →
+    C.find? d = some (.indInfo cv caps) → ∀ x ∈ caps.ctors, ((R n).find? x).isSome = true
   /-- what an inductive kind read alike reads is read alike -/
   deep : ∀ n d ci, (C.find? n).isSome = true → ((R n).find? d).isSome = true →
     C.find? d = some ci → ci.isIndKind = true →
