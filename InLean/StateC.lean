@@ -160,14 +160,19 @@ def abstractRangeM (e : Expr) (d k : Nat) : CheckCM Expr := do
 @[inline] def mkAppNM (f : Expr) (args : List Expr) : CheckCM Expr :=
   pure (mkAppN f args.toArray)
 
-/-- Twin of `instLevelParamsM` (con-leche's non-simplifying substitution). -/
+/-- Twin of `instLevelParamsM` (con-leche's non-simplifying substitution).  A
+level past C's depth bound is an error, where C's `Level.mkData` would abort. -/
 @[inline] def instLevelParamsM (ks : List Name) (us : List Level) (e : Expr) : CheckCM Expr :=
-  pure (e.instLvlParamsI ks us)
+  match EO.instLevelParamsChecked? e ks us with
+  | some r => pure r
+  | none => throw (.internal "universe level too deep")
 
-/-- Twin of `substLevelTreesM`. -/
+/-- Twin of `substLevelTreesM` (the depth bound as `instLevelParamsM`'s). -/
 @[inline] def substLevelTreesM (ks : List Name) (us : List Level) (ls : List Level) :
     CheckCM (List Level) :=
-  pure (ls.map (Lvl.subst ks us))
+  match EO.substLevelsChecked? ks us ls with
+  | some r => pure r
+  | none => throw (.internal "universe level too deep")
 
 /-! ## Level operations -/
 

@@ -335,8 +335,9 @@ def structProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr)
 arguments and the subject. -/
 def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level) (targs : List Expr) (pe : Expr) :
     Option Expr :=
-  (projBodyAt entry.structName entry.numParams entry.idx entry.ctorType).map fun body =>
-    (body.instLvlParamsI entry.levelParams us).instI (#[pe] ++ targs.toArray.reverse)
+  (projBodyAt entry.structName entry.numParams entry.idx entry.ctorType).bind fun body =>
+    (EO.instLevelParamsChecked? body entry.levelParams us).map
+      (·.instI (#[pe] ++ targs.toArray.reverse))
 
 /-- The field count of `T`'s table, where it has one. -/
 def FEnv.tableFields? (fe : FEnv) (T : Name) : Option Nat :=

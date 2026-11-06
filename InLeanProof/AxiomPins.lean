@@ -105,7 +105,12 @@ info: 'InLeanProof.toExpr_instantiate' depends on axioms: [propext,
 #guard_msgs in
 #print axioms InLeanProof.RangeOk_abstractDepthsFrom
 
-/-- info: 'InLeanProof.RangeOk_instantiateLevelParams' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/--
+info: 'InLeanProof.RangeOk_instantiateLevelParams' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Level.mkData_eq]
+-/
 #guard_msgs in
 #print axioms InLeanProof.RangeOk_instantiateLevelParams
 
@@ -211,3 +216,14 @@ info: 'InLeanProof.hasFVar_toExpr' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.hasFVar_toExpr
+
+/--
+info: 'InLeanProof.instLevelParamsChecked_ok' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.instLevelParamsChecked_ok

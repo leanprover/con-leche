@@ -68,7 +68,7 @@ def familyKeyCheck (ops : CheckerOps) (env : FEnv) (d : Nat) (c : Name) (us : Li
     unless us.length = cv.levelParams.length do
       throw (.invalid "incorrect number of universe levels at a family's key")
     let ty ← familyTelescope ops env cv caps
-    checkSpineAt ops env d (ty.instLvlParamsI cv.levelParams us) ds
+    checkSpineAt ops env d (← instLevelParamsM cv.levelParams us ty) ds
   | none => throw (.invalid "a family's key is no stored family")
 
 /-! ## The nested walk's records -/
@@ -245,7 +245,7 @@ def nestInstType (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (hi : Nat) (key
   unless (stripPis key.ds.length tyC).isSome do
     throw (.invalid "nested positivity: invalid nested inductive datatype, its type does \
       not bind its parameters (official: ill-formed inductive type)")
-  let ty ← unwrapOr (instPisWith key.ds (tyC.instLvlParamsI cvC.levelParams key.lvls))
+  let ty ← unwrapOr (instPisWith key.ds (← instLevelParamsM cvC.levelParams key.lvls tyC))
     (.invalid "nested positivity: invalid nested inductive datatype, its type does not bind \
       its parameters (official: ill-formed inductive type)")
   let s ← unwrapOr (match (piBinders ty).2 with
@@ -299,7 +299,7 @@ def nestCtors (ctx : NestCtx) (ops : CheckerOps) (env : FEnv) (rec : Expr → Ne
         has a duplicate universe level parameter (official: duplicate universe level \
         parameter)")
     let crest ← unwrapOr
-      (← nestCrest names us ds holes (cv.type.instLvlParamsI cv.levelParams us))
+      (← nestCrest names us ds holes (← instLevelParamsM cv.levelParams us cv.type))
       (.invalid "nested positivity: invalid nested inductive datatype, its constructor type \
         does not bind the parameters (official: ill-formed constructor)")
     let ty ← ops.inferType env hi crest

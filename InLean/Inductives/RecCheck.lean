@@ -118,7 +118,7 @@ def targetOutsideInst (ops : CheckerOps) (fe : FEnv) (I : Name) (us : List Level
   let some (cvI, capsI) := fe.indView? I
     | throw (.invalid "target rec: the recursor's major is not a stored inductive")
   let tyI ← familyTelescope ops fe cvI capsI
-  let some ty := instPisWith ds (tyI.instLvlParamsI cvI.levelParams us)
+  let some ty := instPisWith ds (← instLevelParamsM cvI.levelParams us tyI)
     | throw (.invalid "target rec: the major's type former does not bind its parameters \
         (official: ill-formed inductive type)")
   let (ibs, s) := piBinders ty
@@ -207,10 +207,10 @@ def targetRecPins (p : BlockShape) (block : List ConstantInfo) : CheckCM Unit :=
   | none => throw (.invalid "target rec: the block does not split")
 
 /-- Twin of `targetCtorAt`. -/
-def targetCtorAt (M : TargetMajor) (c : ConstantVal) : Expr :=
+def targetCtorAt (M : TargetMajor) (c : ConstantVal) : CheckCM Expr :=
   match M.member with
-  | some _ => c.type
-  | none => c.type.instLvlParamsI c.levelParams M.lvls
+  | some _ => pure c.type
+  | none => instLevelParamsM c.levelParams M.lvls c.type
 
 /-- Twin of `targetK53`. -/
 def targetK53 (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : List Expr)

@@ -470,10 +470,13 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckCM
   | _ => pure e
 
 /-- Twin of `pinArgsI`: the nested rule's pins at the recursor's levels,
-the rule prefix substituted for their loose variables (`instSpineC`). -/
-def pinArgsI (lps : List Name) (us : List Level) (args : List Expr) : List Expr → List Expr
-  | [] => []
-  | p :: ps => ((p.instLvlParamsI lps us).instI args.toArray.reverse) :: pinArgsI lps us args ps
+the rule prefix substituted for their loose variables (`instSpineC`);
+`none` where a level would pass C's depth bound. -/
+def pinArgsI (lps : List Name) (us : List Level) (args : List Expr) : List Expr → Option (List Expr)
+  | [] => some []
+  | p :: ps => do
+    let q ← EO.instLevelParamsChecked? p lps us
+    return (q.instI args.toArray.reverse) :: (← pinArgsI lps us args ps)
 
 /-- Twin of `iotaNumArgs`. -/
 def iotaNumArgs : Expr → Nat → Nat
@@ -818,11 +821,14 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) : CheckCM (Opti
                       | .levels lvls => substLevelTreesM rv.levelParams us lvls
                     if ← iotaCase3I r.whnf fe rv.k cvj cmpLvls then do
                       if ← liftFueled "level comparison" (← isEquivListLM usj cmpLvls) then do
-                        let cmpArgs : List Expr :=
+                        let cmpArgs : List Expr ←
                           match fire with
-                          | .nested _ pins => pinArgsI rv.levelParams us (args.take rP) pins
-                          | .plain => args.take cnP
-                          | .levels _ => args.take cnP
+                          | .nested _ pins =>
+                            match pinArgsI rv.levelParams us (args.take rP) pins with
+                            | some ps => pure ps
+                            | none => throw (.internal "universe level too deep")
+                          | .plain => pure (args.take cnP)
+                          | .levels _ => pure (args.take cnP)
                         if ← defEqListI r depth (margs.take cnP) cmpArgs then do
                           let tyCtor ← constTyAtM fe cj usj
                           if ← iotaCertsFullI r depth tyCtor margs then

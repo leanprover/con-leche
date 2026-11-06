@@ -17,13 +17,10 @@ build terms keep a term in range:
   checker site) — it only lowers indices;
 * abstraction by depth (`RangeOk_abstractDepthsFrom`) — an index past C's
   bound becomes `EO.rangePoison`, a metavariable, which its call site reports;
-* level instantiation **only under a depth condition**
-  (`RangeOk_instantiateLevelParams`): `Lvl.subst` can deepen a level past
-  C's bound (`depthS_subst_le` bounds the growth by the values' depth), and
-  nothing at run time stops it.  At run time C's `Level.mkData` would abort
-  first; in the logic the term exists and its cached fields are unspecified.
-  A proof of the checker needs either a check at the call sites or a bound on
-  the input levels; see the lane P1 record in DESIGN.md.
+* level instantiation (`RangeOk_instantiateLevelParams`), given in-range
+  substituted levels: the walk checks each node's level against C's bound by
+  cached depths (`EO.depthFits`) and writes `EO.rangePoison` where the bound
+  could be passed; the call sites report it (`instLevelParamsChecked_ok`).
 -/
 
 public section
@@ -224,7 +221,7 @@ theorem RangeOk_of_inRange {e : Expr} (h : EO.inRange e = true) :
   rw [inRange_eq] at h
   exact RangeOk_of_anySpec e 0 (by simpa using h)
 
-/-! ## Level instantiation: in range under a depth condition -/
+/-! ## Level instantiation: in range, by the depth check -/
 
 /-- Every level of a term satisfies `P`. -/
 @[expose] def LevelsOk (P : Level → Prop) : Expr → Prop
@@ -273,83 +270,123 @@ theorem depthS_subst_le (ps : List Name) (us : List Level) :
   | max u v ihu ihv => simp only [Lvl.subst, depthS]; omega
   | imax u v ihu ihv => simp only [Lvl.subst, depthS]; omega
 
-/-- **Level instantiation keeps a term in range when every substituted level
-stays within C's bound** (`depthS_subst_le` gives a sufficient condition).
-Not unconditional: nothing at run time bounds the depth (lane P1 finding). -/
+theorem maxDepthOf_eq : ∀ {us : List Level}, (∀ u ∈ us, depthS u ≤ maxLevelDepth) →
+    EO.maxDepthOf us = maxDepthS us
+  | [], _ => rfl
+  | u :: us, h => by
+    have h1 := (Level.fields u (h u List.mem_cons_self)).1
+    have h2 := maxDepthOf_eq (us := us) (fun v hv => h v (List.mem_cons_of_mem _ hv))
+    simp only [EO.maxDepthOf, maxDepthS, List.foldr_cons] at h2 ⊢
+    rw [h1, h2]
+
+/-- A level that passes the check stays within C's bound once substituted. -/
+theorem depthS_subst_of_fits {ps : List Name} {us : List Level} {u : Level}
+    (hus : ∀ u ∈ us, depthS u ≤ maxLevelDepth) (hu : depthS u ≤ maxLevelDepth)
+    (hfit : EO.depthFits (EO.maxDepthOf us) u = true) :
+    depthS (Lvl.subst ps us u) ≤ maxLevelDepth := by
+  have h1 := (Level.fields u hu).1
+  have h2 := depthS_subst_le ps us u
+  simp only [EO.depthFits, EO.maxLevelDepth, decide_eq_true_eq, h1, maxDepthOf_eq hus] at hfit
+  show _ ≤ 16777215
+  omega
+
+/-- **Level instantiation keeps a term in range** when the substituted
+levels are: a node whose substituted level could pass C's bound becomes
+`EO.rangePoison`, which is in range (a metavariable) and which the checker's
+call sites report (`instLevelParamsChecked?`). -/
 theorem RangeOk_instantiateLevelParams {e : Expr} (ps : List Name) (us : List Level)
-    (hr : Expr.RangeOk e)
-    (hl : LevelsOk (fun u => depthS (Lvl.subst ps us u) ≤ maxLevelDepth) e) :
+    (hr : Expr.RangeOk e) (hus : ∀ u ∈ us, depthS u ≤ maxLevelDepth) :
     Expr.RangeOk (EO.instantiateLevelParams e ps us) := by
   rw [instantiateLevelParams_eq]
   split
   · exact hr
-  · -- a direct induction: the callback's answer needs the depth condition
-    -- at its node, which `RangeOk_mapSpec`'s hypothesis does not carry
-    suffices ∀ (x : Expr) (k : Nat), Expr.RangeOk x →
-        LevelsOk (fun u => depthS (Lvl.subst ps us u) ≤ maxLevelDepth) x →
-        Expr.RangeOk (mapSpec (instLPF ps us) x k) from this e 0 hr hl
+  · suffices ∀ (x : Expr) (k : Nat), Expr.RangeOk x →
+        Expr.RangeOk (mapSpec (instLPF ps us) x k) from this e 0 hr
     intro x
     induction x with
     | sort u =>
-      intro k hx hlx
+      intro k hx
       by_cases hp : (Expr.sort u).hasLevelParam = false
       · rw [mapSpec_eq_of_some (show instLPF ps us (.sort u) k = some (.sort u) by
           simp [instLPF, hp])]; exact hx
-      · rw [mapSpec_eq_of_some (show instLPF ps us (.sort u) k = some (.sort (Lvl.subst ps us u)) by
-          simp [instLPF, hp, Expr.updateSort!, mkSort])]
-        exact hlx
+      · by_cases hfit : EO.depthFits (EO.maxDepthOf us) u = true
+        · rw [mapSpec_eq_of_some (show instLPF ps us (.sort u) k =
+              some (.sort (Lvl.subst ps us u)) by
+            simp [instLPF, hp, hfit, Expr.updateSort!, mkSort])]
+          exact depthS_subst_of_fits hus hx hfit
+        · rw [mapSpec_eq_of_some (show instLPF ps us (.sort u) k = some EO.rangePoison by
+            simp [instLPF, hp, hfit])]
+          trivial
     | const n ls =>
-      intro k hx hlx
+      intro k hx
       by_cases hp : (Expr.const n ls).hasLevelParam = false
       · rw [mapSpec_eq_of_some (show instLPF ps us (.const n ls) k = some (.const n ls) by
           simp [instLPF, hp])]; exact hx
-      · rw [mapSpec_eq_of_some (show instLPF ps us (.const n ls) k =
-            some (.const n (ls.map (Lvl.subst ps us))) by
-          simp [instLPF, hp, Expr.updateConst!, mkConst])]
-        intro u hu
-        obtain ⟨u', hu', rfl⟩ := List.mem_map.1 hu
-        exact hlx u' hu'
+      · by_cases hfit : ls.all (EO.depthFits (EO.maxDepthOf us)) = true
+        · rw [mapSpec_eq_of_some (show instLPF ps us (.const n ls) k =
+              some (.const n (ls.map (Lvl.subst ps us))) by
+            simp only [instLPF, hp, hfit]; simp [Expr.updateConst!, mkConst])]
+          intro u hu
+          obtain ⟨u', hu', rfl⟩ := List.mem_map.1 hu
+          exact depthS_subst_of_fits hus (hx u' hu') (List.all_eq_true.1 hfit u' hu')
+        · rw [mapSpec_eq_of_some (show instLPF ps us (.const n ls) k = some EO.rangePoison by
+            simp only [instLPF, hp, hfit]; simp)]
+          trivial
     | app g a ihg iha =>
-      intro k hx hlx
+      intro k hx
       cases hc : instLPF ps us (.app g a) k with
       | some r => rw [mapSpec_eq_of_some hc]; simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
-      | none => simp only [mapSpec, hc, Option.getD_none]; exact ⟨ihg k hx.1 hlx.1, iha k hx.2 hlx.2⟩
+      | none => simp only [mapSpec, hc, Option.getD_none]; exact ⟨ihg k hx.1, iha k hx.2⟩
     | lam n t b bi iht ihb =>
-      intro k hx hlx
+      intro k hx
       cases hc : instLPF ps us (.lam n t b bi) k with
       | some r => rw [mapSpec_eq_of_some hc]; simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
-      | none =>
-        simp only [mapSpec, hc, Option.getD_none]
-        exact ⟨iht k hx.1 hlx.1, ihb (k + 1) hx.2 hlx.2⟩
+      | none => simp only [mapSpec, hc, Option.getD_none]; exact ⟨iht k hx.1, ihb (k + 1) hx.2⟩
     | forallE n t b bi iht ihb =>
-      intro k hx hlx
+      intro k hx
       cases hc : instLPF ps us (.forallE n t b bi) k with
       | some r => rw [mapSpec_eq_of_some hc]; simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
-      | none =>
-        simp only [mapSpec, hc, Option.getD_none]
-        exact ⟨iht k hx.1 hlx.1, ihb (k + 1) hx.2 hlx.2⟩
+      | none => simp only [mapSpec, hc, Option.getD_none]; exact ⟨iht k hx.1, ihb (k + 1) hx.2⟩
     | letE n t v b nd iht ihv ihb =>
-      intro k hx hlx
+      intro k hx
       cases hc : instLPF ps us (.letE n t v b nd) k with
       | some r => rw [mapSpec_eq_of_some hc]; simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
       | none =>
         simp only [mapSpec, hc, Option.getD_none]
-        exact ⟨iht k hx.1 hlx.1, ihv k hx.2.1 hlx.2.1, ihb (k + 1) hx.2.2 hlx.2.2⟩
+        exact ⟨iht k hx.1, ihv k hx.2.1, ihb (k + 1) hx.2.2⟩
     | mdata m y ih =>
-      intro k hx hlx
+      intro k hx
       cases hc : instLPF ps us (.mdata m y) k with
       | some r => rw [mapSpec_eq_of_some hc]; simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
-      | none => simp only [mapSpec, hc, Option.getD_none]; exact ih k hx hlx
+      | none => simp only [mapSpec, hc, Option.getD_none]; exact ih k hx
     | proj s i y ih =>
-      intro k hx hlx
+      intro k hx
       cases hc : instLPF ps us (.proj s i y) k with
       | some r => rw [mapSpec_eq_of_some hc]; simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
-      | none => simp only [mapSpec, hc, Option.getD_none]; exact ih k hx hlx
+      | none => simp only [mapSpec, hc, Option.getD_none]; exact ih k hx
     | bvar | fvar | mvar | lit =>
-      intro k hx _
+      intro k hx
       rw [mapSpec_leaf _ k rfl]
       cases hc : instLPF ps us _ k with
       | some r => simp [instLPF] at hc; obtain ⟨-, rfl⟩ := hc; exact hx
       | none => exact hx
+
+/-- **What the checker's call sites get** (`instLevelParamsChecked?`): an
+answer is in range and has no metavariable, so the operation lemma
+(`toExpr_instantiateLevelParams`, whose premise is the latter) applies. -/
+theorem instLevelParamsChecked_ok {e r : Expr} {ps : List Name} {us : List Level}
+    (hr : Expr.RangeOk e) (hus : ∀ u ∈ us, depthS u ≤ maxLevelDepth)
+    (h : EO.instLevelParamsChecked? e ps us = some r) :
+    r = EO.instantiateLevelParams e ps us ∧ Expr.RangeOk r ∧ emvarS r = false := by
+  simp only [EO.instLevelParamsChecked?] at h
+  split at h
+  · simp at h
+  · rename_i hm
+    simp only [Option.some.injEq] at h
+    subst h
+    have hok := RangeOk_instantiateLevelParams ps us hr hus
+    refine ⟨rfl, hok, ?_⟩
+    rw [← (Expr.fieldsOk _ hok).emvar]
+    simpa [Expr.hasExprMVar] using hm
 
 end InLeanProof

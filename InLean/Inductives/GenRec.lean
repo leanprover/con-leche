@@ -220,7 +220,7 @@ def classCtorOf (ops : CheckerOps) (env : FEnv) (p : BlockShape) (formerTys : Li
   let kinds ← classFieldsOf p ctor.1.name ihs 0 fvs
   classFieldsAgree ops env p formerTys Ms fvs ctor.1.name E 0 kinds
   let M := Ms.getD c default
-  let tyD ← unwrapOr (instPisWith M.ds (targetCtorAt M ctor.1))
+  let tyD ← unwrapOr (instPisWith M.ds (← targetCtorAt M ctor.1))
     (.internal "generated recursor: constructor parameter telescope")
   pure ⟨ctor.1, ctor.2, kinds, tyD, e0.ty⟩
 
@@ -270,7 +270,7 @@ def classFormerTy (ops : CheckerOps) (fe : FEnv) (formers : List ConstantVal) (M
   | none => match fe.indView? M.ind with
     | some (cv, caps) => do
       let ty ← familyTelescope ops fe cv caps
-      pure (ty.instLvlParamsI cv.levelParams M.lvls)
+      instLevelParamsM cv.levelParams M.lvls ty
     | none => throw (.internal "generated recursor: a class's former vanished")
 
 /-- Twin of `classConstOk`. -/

@@ -246,17 +246,46 @@ def abstractDepthsFrom (e : Expr) (d k c₀ : Nat) : Expr :=
 /-- `abstractDepthsFrom` at binder offset `0` (con-leche's `abstractRangeC e d k`). -/
 @[inline] def abstractDepths (e : Expr) (d k : Nat) : Expr := abstractDepthsFrom e d k 0
 
+/-- The level depth C's `Level.mkData` accepts. -/
+def maxLevelDepth : Nat := 16777215
+
+/-- The deepest of `us`, by their cached depths. -/
+def maxDepthOf (us : List Level) : Nat := us.foldr (fun u m => max u.data.depth.toNat m) 0
+
+/-- Substituting levels at most `md` deep into `u` stays within C's bound,
+by `u`'s cached depth: the substitution adds at most `md`. -/
+@[inline] def depthFits (md : Nat) (u : Level) : Bool := u.data.depth.toNat + md ≤ maxLevelDepth
+
 /-- Twin of `instLevelParams`: the level parameters `ps` to `us` in every
 `sort` and `const`, by con-leche's non-simplifying `Lvl.subst` (lane F:
-core's `Level.instantiateParams` compares by the opaque `Level.beq`). -/
+core's `Level.instantiateParams` compares by the opaque `Level.beq`).  A
+node whose substituted level could pass C's depth bound becomes
+`rangePoison`, which the checker's call sites report (`instLevelParamsChecked?`). -/
 def instantiateLevelParams (e : Expr) (ps : List Name) (us : List Level) : Expr :=
   if ps.isEmpty || us.isEmpty || !e.hasLevelParam then e else
+  let md := maxDepthOf us
   (mapOff (fun x _ =>
     if !x.hasLevelParam then some x else
     match x with
-    | .sort u => some (x.updateSort! (Lvl.subst ps us u))
-    | .const _ ls => some (x.updateConst! (ls.map (Lvl.subst ps us)))
+    | .sort u =>
+      some (if depthFits md u then x.updateSort! (Lvl.subst ps us u) else rangePoison)
+    | .const _ ls =>
+      some (if ls.all (depthFits md) then x.updateConst! (ls.map (Lvl.subst ps us))
+        else rangePoison)
     | _ => none) e 0 (freshFor e)).1
+
+/-- `instantiateLevelParams`, `none` where it wrote `rangePoison` (a level
+past C's depth bound, where C's `Level.mkData` would abort).  Checker terms
+have no metavariable, so `hasExprMVar` reads the poison. -/
+def instLevelParamsChecked? (e : Expr) (ps : List Name) (us : List Level) : Option Expr :=
+  let r := instantiateLevelParams e ps us
+  if r.hasExprMVar then none else some r
+
+/-- `Lvl.subst` over a list of levels, `none` where a result could pass C's
+depth bound. -/
+def substLevelsChecked? (ps : List Name) (us : List Level) (ls : List Level) : Option (List Level) :=
+  let md := maxDepthOf us
+  if ls.all (depthFits md) then some (ls.map (Lvl.subst ps us)) else none
 
 /-- The GENERATOR's level instantiation (unverified, `InLean/IndGen.lean`):
 Lean's simplifying `Level.instantiateParams`, whose shapes the official

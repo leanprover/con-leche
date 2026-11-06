@@ -1020,8 +1020,12 @@ theorem hasLevelParam_toExpr {fv : FVarId → Option ConLeche.Expr} :
 @[expose] def instLPF (ps : List Name) (us : List Level) (x : Expr) (_ : Nat) : Option Expr :=
   if !x.hasLevelParam then some x else
   match x with
-  | .sort u => some (x.updateSort! (Lvl.subst ps us u))
-  | .const _ ls => some (x.updateConst! (ls.map (Lvl.subst ps us)))
+  | .sort u =>
+    some (if EO.depthFits (EO.maxDepthOf us) u then x.updateSort! (Lvl.subst ps us u)
+      else EO.rangePoison)
+  | .const _ ls =>
+    some (if ls.all (EO.depthFits (EO.maxDepthOf us)) then x.updateConst! (ls.map (Lvl.subst ps us))
+      else EO.rangePoison)
   | _ => none
 
 theorem instantiateLevelParams_eq (e : Expr) (ps : List Name) (us : List Level) :
@@ -1045,37 +1049,45 @@ theorem ilp_cut {fv : FVarId → Option ConLeche.Expr} {ps : List Name} {us : Li
 theorem toExpr_mapSpec_ilp {fv : FVarId → Option ConLeche.Expr} (ps : List Name) {us : List Level}
     {cus : List ConLeche.Level} (hus : toLevels us = some cus) :
     ∀ (e : Expr), Expr.RangeOk e → fvarS e = false → ∀ (k : Nat) (c : ConLeche.Expr),
-      toExpr fv e = some c →
+      toExpr fv e = some c → emvarS (mapSpec (instLPF ps us) e k) = false →
       toExpr fv (mapSpec (instLPF ps us) e k) =
         some (c.instantiateLevelParams (ps.map toName) cus) := by
   intro e
   induction e with
   | fvar id => intro _ h; simp [fvarS] at h
-  | mvar m => intro _ _ k c h; simp [toExpr] at h
-  | bvar i => intro hr hf k c h; exact ilp_cut hr hf (by rw [Expr.hasLevelParam_eq hr]; rfl) h
-  | lit l => intro hr hf k c h; exact ilp_cut hr hf (by rw [Expr.hasLevelParam_eq hr]; rfl) h
+  | mvar m => intro _ _ k c h _; simp [toExpr] at h
+  | bvar i => intro hr hf k c h _; exact ilp_cut hr hf (by rw [Expr.hasLevelParam_eq hr]; rfl) h
+  | lit l => intro hr hf k c h _; exact ilp_cut hr hf (by rw [Expr.hasLevelParam_eq hr]; rfl) h
   | sort u =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.sort u).hasLevelParam = false
     · exact ilp_cut hr hf hl h
-    · have hcb : instLPF ps us (.sort u) k = some (.sort (Lvl.subst ps us u)) := by
-        simp [instLPF, hl, Expr.updateSort!, mkSort]
-      simp only [toExpr, Option.map_eq_some_iff] at h
-      obtain ⟨cu, hu, rfl⟩ := h
-      rw [mapSpec_eq_of_some hcb]
-      simp [toExpr, toLevel_subst ps hus hu, ConLeche.Expr.instantiateLevelParams]
+    · by_cases hfit : EO.depthFits (EO.maxDepthOf us) u = true
+      · have hcb : instLPF ps us (.sort u) k = some (.sort (Lvl.subst ps us u)) := by
+          simp [instLPF, hl, hfit, Expr.updateSort!, mkSort]
+        simp only [toExpr, Option.map_eq_some_iff] at h
+        obtain ⟨cu, hu, rfl⟩ := h
+        rw [mapSpec_eq_of_some hcb]
+        simp [toExpr, toLevel_subst ps hus hu, ConLeche.Expr.instantiateLevelParams]
+      · have hcb : instLPF ps us (.sort u) k = some EO.rangePoison := by
+          simp [instLPF, hl, hfit]
+        rw [mapSpec_eq_of_some hcb] at hnp; simp [EO.rangePoison, emvarS] at hnp
   | const n ls =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.const n ls).hasLevelParam = false
     · exact ilp_cut hr hf hl h
-    · have hcb : instLPF ps us (.const n ls) k = some (.const n (ls.map (Lvl.subst ps us))) := by
-        simp [instLPF, hl, Expr.updateConst!, mkConst]
-      simp only [toExpr, Option.map_eq_some_iff] at h
-      obtain ⟨cls, hls, rfl⟩ := h
-      rw [mapSpec_eq_of_some hcb]
-      simp [toExpr, toLevels_map_subst ps hus hls, ConLeche.Expr.instantiateLevelParams]
+    · by_cases hfit : ls.all (EO.depthFits (EO.maxDepthOf us)) = true
+      · have hcb : instLPF ps us (.const n ls) k = some (.const n (ls.map (Lvl.subst ps us))) := by
+          simp only [instLPF, hl, hfit]; simp [Expr.updateConst!, mkConst]
+        simp only [toExpr, Option.map_eq_some_iff] at h
+        obtain ⟨cls, hls, rfl⟩ := h
+        rw [mapSpec_eq_of_some hcb]
+        simp [toExpr, toLevels_map_subst ps hus hls, ConLeche.Expr.instantiateLevelParams]
+      · have hcb : instLPF ps us (.const n ls) k = some EO.rangePoison := by
+          simp only [instLPF, hl, hfit]; simp
+        rw [mapSpec_eq_of_some hcb] at hnp; simp [EO.rangePoison, emvarS] at hnp
   | app g a ihg iha =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.app g a).hasLevelParam = false
     · exact ilp_cut hr hf hl h
     · have hcb : instLPF ps us (.app g a) k = none := by simp [instLPF, hl]
@@ -1083,10 +1095,11 @@ theorem toExpr_mapSpec_ilp {fv : FVarId → Option ConLeche.Expr} (ps : List Nam
         Option.some.injEq] at h
       obtain ⟨cg, hg, ca, ha, rfl⟩ := h
       simp only [fvarS, Bool.or_eq_false_iff] at hf
-      simp [mapSpec, hcb, toExpr, ihg hr.1 hf.1 k cg hg, iha hr.2 hf.2 k ca ha,
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hnp
+      simp [mapSpec, hcb, toExpr, ihg hr.1 hf.1 k cg hg hnp.1, iha hr.2 hf.2 k ca ha hnp.2,
         ConLeche.Expr.instantiateLevelParams]
   | lam n t b bi iht ihb =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.lam n t b bi).hasLevelParam = false
     · exact ilp_cut hr hf hl h
     · have hcb : instLPF ps us (.lam n t b bi) k = none := by simp [instLPF, hl]
@@ -1094,10 +1107,11 @@ theorem toExpr_mapSpec_ilp {fv : FVarId → Option ConLeche.Expr} (ps : List Nam
         Option.some.injEq] at h
       obtain ⟨ct, ht, cb, hb, rfl⟩ := h
       simp only [fvarS, Bool.or_eq_false_iff] at hf
-      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1 k ct ht, ihb hr.2 hf.2 (k + 1) cb hb,
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hnp
+      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1 k ct ht hnp.1, ihb hr.2 hf.2 (k + 1) cb hb hnp.2,
         ConLeche.Expr.instantiateLevelParams]
   | forallE n t b bi iht ihb =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.forallE n t b bi).hasLevelParam = false
     · exact ilp_cut hr hf hl h
     · have hcb : instLPF ps us (.forallE n t b bi) k = none := by simp [instLPF, hl]
@@ -1105,10 +1119,11 @@ theorem toExpr_mapSpec_ilp {fv : FVarId → Option ConLeche.Expr} (ps : List Nam
         Option.some.injEq] at h
       obtain ⟨ct, ht, cb, hb, rfl⟩ := h
       simp only [fvarS, Bool.or_eq_false_iff] at hf
-      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1 k ct ht, ihb hr.2 hf.2 (k + 1) cb hb,
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hnp
+      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1 k ct ht hnp.1, ihb hr.2 hf.2 (k + 1) cb hb hnp.2,
         ConLeche.Expr.instantiateLevelParams]
   | letE n t v b nd iht ihv ihb =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.letE n t v b nd).hasLevelParam = false
     · exact ilp_cut hr hf hl h
     · have hcb : instLPF ps us (.letE n t v b nd) k = none := by simp [instLPF, hl]
@@ -1116,23 +1131,26 @@ theorem toExpr_mapSpec_ilp {fv : FVarId → Option ConLeche.Expr} (ps : List Nam
         Option.some.injEq] at h
       obtain ⟨ct, ht, cv, hv, cb, hb, rfl⟩ := h
       simp only [fvarS, Bool.or_eq_false_iff] at hf
-      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1.1 k ct ht, ihv hr.2.1 hf.1.2 k cv hv,
-        ihb hr.2.2 hf.2 (k + 1) cb hb, ConLeche.Expr.instantiateLevelParams]
+      simp only [mapSpec, hcb, Option.getD_none, emvarS, Bool.or_eq_false_iff] at hnp
+      simp [mapSpec, hcb, toExpr, iht hr.1 hf.1.1 k ct ht hnp.1.1, ihv hr.2.1 hf.1.2 k cv hv hnp.1.2,
+        ihb hr.2.2 hf.2 (k + 1) cb hb hnp.2, ConLeche.Expr.instantiateLevelParams]
   | mdata m x ih =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.mdata m x).hasLevelParam = false
     · exact ilp_cut hr hf hl h
     · have hcb : instLPF ps us (.mdata m x) k = none := by simp [instLPF, hl]
       simp only [toExpr] at h
-      simp [mapSpec, hcb, toExpr, ih hr hf k c h]
+      simp only [mapSpec, hcb, Option.getD_none, emvarS] at hnp
+      simp [mapSpec, hcb, toExpr, ih hr hf k c h hnp]
   | proj s i x ih =>
-    intro hr hf k c h
+    intro hr hf k c h hnp
     by_cases hl : (Expr.proj s i x).hasLevelParam = false
     · exact ilp_cut hr hf hl h
     · have hcb : instLPF ps us (.proj s i x) k = none := by simp [instLPF, hl]
       simp only [toExpr, Option.map_eq_some_iff] at h
       obtain ⟨cx, hx, rfl⟩ := h
-      simp [mapSpec, hcb, toExpr, ih hr hf k cx hx, ConLeche.Expr.instantiateLevelParams]
+      simp only [mapSpec, hcb, Option.getD_none, emvarS] at hnp
+      simp [mapSpec, hcb, toExpr, ih hr hf k cx hx hnp, ConLeche.Expr.instantiateLevelParams]
 
 /-- con-leche's level substitution with no parameters, or no values, is the
 identity. -/
@@ -1163,7 +1181,8 @@ with no free variable (every checker site; con-leche's descends into a free
 variable's type annotation, InLean's id has none). -/
 theorem toExpr_instantiateLevelParams {fv : FVarId → Option ConLeche.Expr} {e : Expr}
     {c : ConLeche.Expr} (hr : Expr.RangeOk e) (hf : fvarS e = false) (h : toExpr fv e = some c)
-    (ps : List Name) {us : List Level} {cus : List ConLeche.Level} (hus : toLevels us = some cus) :
+    (ps : List Name) {us : List Level} {cus : List ConLeche.Level} (hus : toLevels us = some cus)
+    (hnp : emvarS (EO.instantiateLevelParams e ps us) = false) :
     toExpr fv (EO.instantiateLevelParams e ps us) =
       some (c.instantiateLevelParams (ps.map toName) cus) := by
   rw [instantiateLevelParams_eq]
@@ -1181,7 +1200,11 @@ theorem toExpr_instantiateLevelParams {fv : FVarId → Option ConLeche.Expr} {e 
     · have hl' : e.hasLevelParam = false := by simpa using hl
       rw [ConLeche.Expr.instantiateLevelParams_eq_self]
       rw [hasLevelParam_toExpr e c h hf, ← Expr.hasLevelParam_eq hr, hl']
-  · exact toExpr_mapSpec_ilp ps hus e hr hf 0 c h
+  · rename_i hc
+    rw [instantiateLevelParams_eq] at hnp
+    split at hnp
+    · contradiction
+    · exact toExpr_mapSpec_ilp ps hus e hr hf 0 c h hnp
 
 /-! ### The memoised fold `EO.anyNode` -/
 
