@@ -3242,3 +3242,11 @@
 # `Char` at a definition, whose declared type is not that shape; official 0 (run), here 2.
 2 ind_lit_shape_char.ndjson
 2 ind_defhead_lit_char.ndjson
+
+# -- task #480, acyclicity with no install phase: a job reads only the entries below its record,
+# so a declaration cannot read itself or a later one.  cycle_self_def: def a := a.  cycle_mutual:
+# a := b, b := a.  cycle_forward: a := b before a harmless b.  Each refused at a, "unknown
+# constant".  Official 1 inferred (its environment holds only the past), not run; target 1.
+1 cycle_self_def.ndjson
+1 cycle_mutual.ndjson
+1 cycle_forward.ndjson
