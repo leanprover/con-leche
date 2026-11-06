@@ -321,18 +321,18 @@
   1782        defeq := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
   1783        defeqE := fun _ _ _ => throw (.internal "fuel exhausted: defeq")
 
-== ConLeche/Model/Fold.lean#L354-L361
-   354  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
-   355      {F : Nat}
-   356      {ds : List Declaration} {env' : Env}
-   357      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
-   358      ∀ c ∈ env'.consts,
-   359        c.toConstantVal.type = .const falseName [] → False := by
-   360    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
-   361    exact fun c hc hty => no_constant_of_False mp c hc hty
+== ConLeche/Model/Fold.lean#L419-L426
+   419  theorem no_proof_of_False_pure (V : Type w) [SetTheory V]
+   420      {F : Nat}
+   421      {ds : List Declaration} {env' : Env}
+   422      (h : checkDeclsPure .verified (fueledOps .verified F) pins ds = .ok env') :
+   423      ∀ c ∈ env'.consts,
+   424        c.toConstantVal.type = .const falseName [] → False := by
+   425    obtain ⟨mp⟩ := checkDeclsPure_sound_of (V := V) h
+   426    exact fun c hc hty => no_constant_of_False mp c hc hty
 
-== ConLeche/Model/Fold.lean#L225
-   225      (hE : EtaFamiliesClosed env) (hN : NatFacts env)
+== ConLeche/Model/Fold.lean#L337
+   337  theorem declStep_preserves
 
 == ConLeche/Model/Capstone.lean#L137-L143
    137  theorem no_constant_of_False (mp : EnvModelM V env)
@@ -920,11 +920,15 @@
 == ConLeche/SetModel/Access.lean#L243
    243  theorem closed_of_acc (hw : w ≠ 0) (hA : A ∈ˢ (tg w : V)) (hmaps : MapsTuple w k Is Φ)
 
-== ConLeche/Model/Inductives/BlockRunFacts.lean#L205-L208
+== ConLeche/Model/Inductives/BlockRunFacts.lean#L203-L210
+   203  theorem declBlock {F : Nat} {env env₂ : Env} {block : List ConstantInfo} {nPd : Nat} {p₀ : BlockShape}
+   204      (mp : EnvModelM V env) (hE : ConLeche.EtaFamiliesClosed env)
    205      (hdp : ConLeche.blockShape? nPd block = some p₀)
    206      (hrun : ConLeche.Semantics.BlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
    207      (hRan : FamilyRan mp) (hNat : NatFacts env) :
-   208      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp') ∧ NatFacts env₂ := by
+   208      (∃ mp' : EnvModelM V env₂, LfpCover mp' [] ∧ FamilyRan mp' ∧
+   209        ∀ n, (env.find? n).isSome = true → mp'.base2.acval n = mp.base2.acval n) ∧
+   210        NatFacts env₂ := by
 
 == ConLeche/Kernel/CheckDecl.lean#L32-L33
     32  def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) :
