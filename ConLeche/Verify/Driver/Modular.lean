@@ -2,7 +2,7 @@ module
 
 public import ConLeche.Driver.Modular
 public import ConLeche.Verify.Driver.Worker
-public import ConLeche.Verify.Driver.Graph
+import ConLeche.Verify.Driver.Graph
 
 /-!
 # The one-process mode, in the model

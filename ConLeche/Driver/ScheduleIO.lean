@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Frontend.Olean
 public import ConLeche.Cached.ParsedC
+public import ConLeche.Frontend.Olean.Files
 
 @[expose] public section
 

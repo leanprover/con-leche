@@ -2,7 +2,8 @@ module
 
 public import ConLeche.Driver.Cli
 public import ConLeche.Verify.Driver.Worker
-public import ConLeche.Verify.Driver.Modular
+import ConLeche.Verify.Driver.Modular
+import ConLeche.Verify.Driver.Graph
 
 /-!
 # `runArgs`, in the model

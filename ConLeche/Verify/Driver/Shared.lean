@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Driver.Reach
-public import ConLeche.Verify.Frontend.ModelIO
 
 /-!
 # Reads answered from tables, in the model

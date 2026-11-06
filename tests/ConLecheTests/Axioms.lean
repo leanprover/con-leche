@@ -11,6 +11,7 @@ public import ConLeche.Verify.Driver.Graph
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Driver.Worker
+public import ConLeche.Verify.Driver.Modular
 public import ConLeche.Verify.Driver.Main
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts

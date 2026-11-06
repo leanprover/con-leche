@@ -1,7 +1,5 @@
 module
 
-public import ConLeche.Driver.Graph
-public import ConLeche.Driver.Worker
 public import ConLeche.Driver.Modular
 public import ConLeche.Driver.Schedule
 
