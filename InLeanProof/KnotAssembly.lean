@@ -74,7 +74,7 @@ bulk-instantiation caches, so every clause but the six entry-point memos'
 and the eager tower's carries over. -/
 
 /-- Every `CSOKI` clause that reads no entry-point memo. -/
-structure CSOKIRest (eager : Bool) (env : ConLeche.Env) (s : InLean.CState) : Prop where
+structure CSOKIRest (env : ConLeche.Env) (s : InLean.CState) : Prop where
   fv : FVTableOK s
   fvClosed : ∀ (n : Nat) (ty : Expr) (cty : ConLeche.Expr), s.fvTys[n]? = some ty →
     TransS s ty = some cty → cty.looseBVarsBounded 0 = true
@@ -99,14 +99,14 @@ structure CSOKIRest (eager : Bool) (env : ConLeche.Env) (s : InLean.CState) : Pr
     cr = ck.instantiateList cvs 0
 
 theorem CSOKI.keepMemos {mode : ConLeche.CheckMode} {s : InLean.CState} (hs : CSOKI mode eager env s) :
-    CSOKIRest eager env s :=
+    CSOKIRest env s :=
   ⟨hs.fv, hs.fvClosed, hs.constTy, hs.constVal, hs.ruleRhs, hs.lsimp, hs.eqv, hs.instC⟩
 
 /-- The rest of the invariant at a state whose entry-point memos alone differ. -/
-theorem CSOKIRest.memos {s : InLean.CState} (h : CSOKIRest eager env s)
+theorem CSOKIRest.memos {s : InLean.CState} (h : CSOKIRest env s)
     (mwc mwcc mw mi mio : Std.HashMap EKey Expr) (mdq : Std.HashMap (EKey × EKey) Bool)
     (mem : InLean.ModeMemos) :
-    CSOKIRest eager env { s with
+    CSOKIRest env { s with
       whnfCoreC := mwc
       whnfCoreCheapC := mwcc
       whnfC := mw
@@ -123,7 +123,7 @@ theorem ModeMemosOKI.sameTab {mode : ConLeche.CheckMode} {s s' : InLean.CState} 
   h.of_tabLe (by intro id c hc; unfold tableOf at ht; simp only [tableOf, ht] at hc ⊢; exact hc)
 
 /-- `CSOKI` from the rest and the memo clauses. -/
-theorem CSOKI.ofRest {mode : ConLeche.CheckMode} {s : InLean.CState} (h : CSOKIRest eager env s)
+theorem CSOKI.ofRest {mode : ConLeche.CheckMode} {s : InLean.CState} (h : CSOKIRest env s)
     (wc : ∀ k v, s.whnfCoreC[EKey.mk k]? = some v →
       UnaryOK s (fun F d e => ConLeche.whnfCore mode eager env F d e) k v)
     (wcc : ∀ k v, s.whnfCoreCheapC[EKey.mk k]? = some v →
@@ -541,5 +541,170 @@ theorem memoBI_defeq_specI (henv : ConLeche.EnvWF env)
     vcgen [coreKnotI_defeq_succ, InLean.memoBI, hbody.triple] <;> finish
 
 end Defeq
+
+/-! ## The eager slot: the eager tower's memos swapped in and out
+
+`withEagerMemos false` runs the eager tower on its own memos: entering puts
+them in the entry-point fields (where `CSOKI` at `eager := true` reads them,
+from `ModeMemosOKI`), leaving puts them back (`ModeMemosOKI` from the
+`eager := true` clauses) and restores the plain ones, read at the grown
+table.  `withEagerMemos true` swaps nothing. -/
+
+section Eager
+
+theorem modeMemosOKI_empty {mode : ConLeche.CheckMode} {s : InLean.CState} :
+    ModeMemosOKI mode env s {} where
+  whnfCoreC k v h := by simp at h
+  whnfCoreCheapC k v h := by simp at h
+  whnfC k v h := by simp at h
+  inferC k v h := by simp at h
+  inferIOC k v h := by simp at h
+  defeqC a b r h := by simp at h
+
+/-- Entering the eager memos: the invariant at `eager := true`. -/
+theorem CSOKI.enterEager {mode : ConLeche.CheckMode} {s : InLean.CState}
+    (hs : CSOKI mode eager env s) : CSOKI mode true env (s.enterEager eager).2 := by
+  cases eager with
+  | true => exact hs
+  | false =>
+    exact CSOKI.ofRest (hs.keepMemos.memos _ _ _ _ _ _ _) hs.eager.whnfCoreC
+      hs.eager.whnfCoreCheapC hs.eager.whnfC hs.eager.inferC hs.eager.inferIOC hs.eager.defeqC
+      modeMemosOKI_empty rfl
+
+/-- Leaving the eager memos: the invariant at the knot's flag, the plain memos
+restored from the entry state `s₀` and read at the grown table. -/
+theorem CSOKI.leaveEager {mode : ConLeche.CheckMode} {s₀ s₂ : InLean.CState}
+    (hs₀ : CSOKI mode eager env s₀) (htab : TabLe s₀ s₂) (hs₂ : CSOKI mode true env s₂) :
+    CSOKI mode eager env (s₂.leaveEager (s₀.enterEager eager).1) := by
+  cases eager with
+  | true => exact hs₂
+  | false =>
+    exact CSOKI.ofRest (hs₂.keepMemos.memos _ _ _ _ _ _ _)
+      (fun k v h => (hs₀.whnfCoreC k v h).of_tabLe htab)
+      (fun k v h => (hs₀.whnfCoreCheapC k v h).of_tabLe htab)
+      (fun k v h => (hs₀.whnfC k v h).of_tabLe htab)
+      (fun k v h => (hs₀.inferC k v h).of_tabLe htab)
+      (fun k v h => (hs₀.inferIOC k v h).of_tabLe htab)
+      (fun a b r h => (hs₀.defeqC a b r h).of_tabLe htab)
+      ⟨hs₂.whnfCoreC, hs₂.whnfCoreCheapC, hs₂.whnfC, hs₂.inferC, hs₂.inferIOC, hs₂.defeqC⟩ rfl
+
+theorem tableOf_enterEager (s : InLean.CState) : tableOf (s.enterEager eager).2 = tableOf s := by
+  cases eager <;> rfl
+
+theorem tableOf_leaveEager (s : InLean.CState) (o : Option InLean.ModeMemos) :
+    tableOf (s.leaveEager o) = tableOf s := by
+  cases o <;> rfl
+
+/-- A successful `withEagerMemos` run is its body's, between the swaps. -/
+theorem withEagerMemos_run {β : Type} {x : InLean.CheckCM β} {s₀ s' : InLean.CState} {v : β}
+    (h : InLean.withEagerMemos eager x s₀ = .ok (v, s')) :
+    ∃ s₂, x (s₀.enterEager eager).2 = .ok (v, s₂) ∧ s' = s₂.leaveEager (s₀.enterEager eager).1 := by
+  have hrun : InLean.withEagerMemos eager x s₀ =
+      (match x (s₀.enterEager eager).2 with
+        | .ok (v, s₂) => .ok (v, s₂.leaveEager (s₀.enterEager eager).1)
+        | .error e => .error e) := by
+    simp only [InLean.withEagerMemos, bind, StateT.bind, modifyGet, MonadStateOf.modifyGet,
+      StateT.modifyGet, modify, pure, StateT.pure, Except.pure, Except.bind]
+    cases x (s₀.enterEager eager).2 <;> rfl
+  rw [hrun] at h
+  cases hx : x (s₀.enterEager eager).2 with
+  | error e => rw [hx] at h; exact nomatch h
+  | ok p =>
+    obtain ⟨v', s₂⟩ := p
+    rw [hx] at h
+    simp only [Except.ok.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨s₂, rfl, rfl⟩
+
+/-- The eager slot's runs are the eager tower's defeq runs. -/
+theorem Runs.defeqE_of_defeq {d : Nat} {a b : ConLeche.Expr} {r : Bool}
+    (h : Runs ((ConLeche.fueledFns .verified true env).defeq d a b) r) :
+    Runs ((ConLeche.fueledFns .verified eager env).defeqE d a b) r := by
+  obtain ⟨F, hF⟩ := h
+  exact ⟨F, (ConLeche.defeqE_def env F d a b).trans hF⟩
+
+theorem coreKnotI_defeqE_succ {fe : InLean.FEnv} {f : Nat} (d : Nat) (a b : Expr) :
+    (coreKnotI .verified eager fe (f + 1)).defeqE d a b =
+      withEagerMemos eager ((coreKnotI .verified true fe (f + 1)).defeq d a b) := by
+  cases eager <;> rfl
+
+/-- **The eager slot** simulates the pure eager slot: the eager tower's defeq
+memo wrapper, between the swaps. -/
+theorem defeqE_specI {fe : InLean.FEnv} {f : Nat} (henv : ConLeche.EnvWF env)
+    (hbody : BodySpecBI .verified true env
+      (defeqBodyI .verified true (coreKnotI .verified true fe f) fe)
+      (ConLeche.defeqBody .verified true (ConLeche.fueledFns .verified true env) env))
+    {s₀ : InLean.CState} {d : Nat} {a b : Expr} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true)
+    (hwa : ConLeche.Expr.WScoped d (TrS s₀ a)) (hwb : ConLeche.Expr.WScoped d (TrS s₀ b))
+    (hca : (TrS s₀ a).looseBVarsBounded 0 = true) (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ (coreKnotI .verified eager fe (f + 1)).defeqE d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs ((ConLeche.fueledFns .verified eager env).defeqE d (TrS s₀ a) (TrS s₀ b)) v; ⊤⦄ := by
+  rw [coreKnotI_defeqE_succ]
+  refine tripleI_iff_run.2 fun v s' hr => ?_
+  obtain ⟨s₂, hx, rfl⟩ := withEagerMemos_run hr
+  have ht₁ := tableOf_enterEager (eager := eager) s₀
+  have htr : ∀ e, TrS (s₀.enterEager eager).2 e = TrS s₀ e := fun e => by
+    unfold TrS; rw [ht₁]
+  have hok : ∀ e, OkS (s₀.enterEager eager).2 e = OkS s₀ e := fun e => by
+    unfold OkS; rw [ht₁]
+  obtain ⟨hs₂, htab₂, hrun⟩ := tripleI_iff_run.1
+    (memoBI_defeq_specI (f := f) henv hbody hs.enterEager
+      ((hok a).trans hoka) ((hok b).trans hokb) ((htr a).symm ▸ hwa) ((htr b).symm ▸ hwb)
+      ((htr a).symm ▸ hca) ((htr b).symm ▸ hcb)) v s₂ hx
+  have htab : TabLe s₀ s₂ := by
+    intro id c h; apply htab₂; unfold tableOf at ht₁; simp only [tableOf, ht₁]; exact h
+  refine ⟨hs.leaveEager htab hs₂, ?_, ?_⟩
+  · intro id c h
+    have := htab id c h
+    unfold tableOf at this ⊢
+    have h2 := tableOf_leaveEager (s₂) ((s₀.enterEager eager).1)
+    unfold tableOf at h2
+    rw [h2]; exact this
+  · rw [htr a, htr b] at hrun
+    exact Runs.defeqE_of_defeq hrun
+
+end Eager
+
+/-! ## The knot step and the knot induction (`ssimC`'s twin) -/
+
+/-- The five bodies of the knot at fuel `f` simulate their pure bodies (the
+three body lanes' results, P2-whnf, P2-infer, P2-defeq). -/
+structure BodiesI (eager : Bool) (env : ConLeche.Env) (fe : InLean.FEnv) (f : Nat) : Prop where
+  whnfCore : ∀ c, BodySpecI .verified eager env
+    (whnfCoreBodyI .verified (coreKnotI .verified eager fe f) fe c)
+    (ConLeche.whnfCoreBody .verified (ConLeche.fueledFns .verified eager env) env c)
+  whnf : BodySpecI .verified eager env (whnfBodyI (coreKnotI .verified eager fe f) fe)
+    (ConLeche.whnfBody (ConLeche.fueledFns .verified eager env) env)
+  infer : BodySpecI .verified eager env (inferBodyI (coreKnotI .verified eager fe f) fe)
+    (ConLeche.inferBody (ConLeche.fueledFns .verified eager env) env)
+  inferIO : BodySpecI .verified eager env
+    (inferBodyIOI (CoreFnsI.ioView (coreKnotI .verified eager fe f)) fe)
+    (ConLeche.inferBodyIO (ConLeche.CoreFns.ioView (ConLeche.fueledFns .verified eager env)) env)
+  defeq : BodySpecBI .verified eager env
+    (defeqBodyI .verified eager (coreKnotI .verified eager fe f) fe)
+    (ConLeche.defeqBody .verified eager (ConLeche.fueledFns .verified eager env) env)
+
+/-- **The knot step**: from the bodies at fuel `f`, at the knot's flag and at
+`eager := true` (the eager slot's tower), the knot at `f + 1` simulates. -/
+theorem ssimI_succ {fe : InLean.FEnv} {f : Nat} (henv : ConLeche.EnvWF env)
+    (hb : BodiesI eager env fe f) (hbT : BodiesI true env fe f) : SSimI eager env fe (f + 1) where
+  whnfCore hs hok hw hc := memoEI_whnfCore_specI henv hb.whnfCore hs hok hw hc
+  whnf hs hok hw hc := memoEI_whnf_specI henv hb.whnf hs hok hw hc
+  infer hs hok hw hc := memoEI_infer_specI henv hb.infer hs hok hw hc
+  inferIO hs hok hw hc := memoEI_inferIO_specI henv hb.inferIO hs hok hw hc
+  defeq hs hoka hokb hwa hwb hca hcb := memoBI_defeq_specI henv hb.defeq hs hoka hokb hwa hwb hca hcb
+  defeqE hs hoka hokb hwa hwb hca hcb := defeqE_specI henv hbT.defeq hs hoka hokb hwa hwb hca hcb
+
+/-- **The knot simulates at every fuel**, given the bodies' simulation from
+the knot's at the fuel below (what the body lanes prove, `ih : KnotSpecI`). -/
+theorem ssimI {fe : InLean.FEnv} (henv : ConLeche.EnvWF env)
+    (hbodies : ∀ b f, SSimI b env fe f → BodiesI b env fe f) :
+    ∀ f, SSimI eager env fe f := by
+  intro f
+  induction f generalizing eager with
+  | zero => exact ssimI_zero eager env fe
+  | succ f ih => exact ssimI_succ henv (hbodies eager f ih) (hbodies true f ih)
 
 end InLeanProof
