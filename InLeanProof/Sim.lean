@@ -118,12 +118,15 @@ structure FVTableOK (s : InLean.CState) : Prop where
 /-! ## The invariant -/
 
 /-- A unary memo's clause: the key and the value translate, the value is in
-range (so it has a reading, `OkS`, as every post states), and a run of
+range (so it has a reading, `OkS`, as every post states) and closed (every
+knot answer is: lane P2-infer, the knot's `inferIO` slot has no pure closedness
+theorem to read it off), and a run of
 the pure function `spec` on the translated key answers the translated
 value, at every depth the key is scoped at (`CSOK`'s clause shape). -/
 @[expose] def UnaryOK (s : InLean.CState) (spec : Nat → Nat → ConLeche.Expr → ConLeche.CheckM ConLeche.Expr)
     (k v : Expr) : Prop :=
   ∃ ck cv, TransS s k = some ck ∧ TransS s v = some cv ∧ Expr.RangeOk v ∧
+    cv.looseBVarsBounded 0 = true ∧
     ∃ F, ∀ d, ck.wscopedB d = true → spec F d ck = .ok cv
 
 /-- The defeq memo's clause. -/
@@ -169,6 +172,11 @@ value is in range (`Expr.RangeOk`), so a hit has a reading (`OkS`). -/
 structure CSOKI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
     (s : InLean.CState) : Prop where
   fv : FVTableOK s
+  /-- every interned type reads as a closed term (lane P2-infer: an `fvar`'s
+  inferred type is its interned one, and the knot's answers are closed) -/
+  fvClosed : ∀ (n : Nat) (ty : Expr) (cty : ConLeche.Expr), s.fvTys[n]? = some ty →
+    TransS s ty = some cty →
+    cty.looseBVarsBounded 0 = true
   whnfCoreC : ∀ k v, s.whnfCoreC[EKey.mk k]? = some v →
     UnaryOK s (fun F d e => ConLeche.whnfCore mode eager env F d e) k v
   whnfCoreCheapC : ∀ k v, s.whnfCoreCheapC[EKey.mk k]? = some v →
