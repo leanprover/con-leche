@@ -54,6 +54,12 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #469 (measured at the merge into lane #465): `whnf_refine` and its neighbours state
+    # `EnvRefines`, `Expr`, `whnf`, `Red`; demoting the three imports together breaks the file
+    # (`Refine.lean:30`, unknown identifier `EnvRefines`).
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Rules.Refine'),
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Kernel.CoreIO'),
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Kernel.Inductives.Positivity'),
     # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
     # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).
