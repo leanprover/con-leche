@@ -754,6 +754,41 @@ theorem declTables_former {e : Declaration} {t : ProjTable} (ht : t ∈ declTabl
       · exact absurd ht (List.not_mem_nil)
   | _ => simp [declTables] at ht
 
+theorem find?_of_mem_nodupKey {α : Type} (f : α → Name) {L : List α} (hnd : (L.map f).Nodup)
+    {t : α} (ht : t ∈ L) : L.find? (f · == f t) = some t := by
+  induction L with
+  | nil => exact absurd ht (List.not_mem_nil)
+  | cons a L ih =>
+    simp only [List.map_cons, List.nodup_cons] at hnd
+    rcases List.mem_cons.mp ht with rfl | ht
+    · simp
+    · have hne : f a ≠ f t := fun h => hnd.1 (h ▸ List.mem_map_of_mem ht)
+      rw [List.find?_cons_of_neg (by simpa using hne)]
+      exact ih hnd.2 ht
+
+/-- **A stream's tables are its formers'**, each found at its structure. -/
+theorem stream_tables_mem {L : List Declaration} (hnd : NodupNames (streamEnv L))
+    {t : ProjTable} (ht : t ∈ (streamEnv L).tables) :
+    (streamEnv L).findTable? t.structName = some t ∧
+      ∃ cv caps, (streamEnv L).find? t.structName = some (.indInfo cv caps) := by
+  rw [streamEnv_empty_tables, List.mem_reverse] at ht
+  obtain ⟨e, he, hte⟩ := List.mem_flatMap.mp ht
+  obtain ⟨cv, caps, hci, hname⟩ := declTables_former hte
+  have hfind := streamEnv_find?_of_mem hnd he hci
+  have hn : (ConstantInfo.indInfo cv caps).name = t.structName := hname
+  rw [hn] at hfind
+  refine ⟨?_, cv, caps, hfind⟩
+  have hxe : t.structName ∈ (declConstants e).map (·.name) :=
+    List.mem_map.mpr ⟨_, hci, hn⟩
+  rw [streamEnv_findTable? hnd he hxe]
+  have hrec := nodup_recs hnd
+  have hnde : ((declConstants e).map (·.name)).Nodup := by
+    unfold recsC at hrec
+    obtain ⟨A, B, rfl⟩ := List.append_of_mem he
+    simp only [List.flatMap_append, List.flatMap_cons, List.map_append] at hrec
+    exact (List.nodup_append.mp (List.nodup_append.mp hrec).2.1).1
+  exact find?_of_mem_nodupKey (·.structName) ((declTables_sublist e).nodup hnde) hte
+
 end
 
 end ConLeche.Model.Modular
