@@ -110397,3 +110397,18 @@ header with other contents, and an empty file (exit 0).  Four forged fixtures
 put in front of the header; their scripts now put them after it, and the regenerated files differ only
 in that.
 
+## TASK #490 — the final flush failing is exit 3 (2026-11-06, issue14-final-flush)
+
+**The issue.**  GitHub issue #14 (an external review): `main` flushed stdout and stderr after
+`runArgs` returned its code, outside any handler, so a flush that threw reached the runtime's
+top-level handler, which prints "uncaught exception" and exits 1, the code of a rejection: an accepted
+file, a usage error or a malformed file could all end with exit 1 when the output failed.
+
+**The fix.**  `flushStdoutStderr code` (`Main.lean`) flushes both streams and returns `code`, or, if
+the flush throws, prints "cannot write the output" best-effort and returns 3, whatever code `runArgs`
+returned; `main` exits with what it returns, its one `IO.Process.exit code`.  A closed stdout or
+`/dev/full` mostly fails at the verdict's print inside `runArgs` already (exit 3 there); the flush is
+where a buffered write fails.  Reproduced by hand with an `LD_PRELOAD` shim that makes
+`fflush(stdout)` report `EIO`: exit 1 before, 3 after, on an accepted file, a usage error and a
+malformed file.  No gate runs it (maintainer: too much machinery for the corner case).
+

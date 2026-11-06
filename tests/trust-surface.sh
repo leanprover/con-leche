@@ -720,7 +720,8 @@ print(f'checker-io fence (textual): {len(IO_FENCE)} modules reach the runtime on
 # twice: `IO.Process.exit code` and, when the abort variables cannot be
 # set, before `runArgs` starts, `IO.Process.exit 3`.  The C function is
 # pinned above and calls no exit.  And `Main.lean`, read and not proved,
-# declares only `enableAbortOnNonlinear` and `main`.
+# declares only `enableAbortOnNonlinear`, `flushStdoutStderr` and
+# `main` (a failing flush makes the code 3, task #490, not another exit).
 EXIT_RX = re.compile(r'\bProcess\.exit\b|\blean_io_exit\b|\bopen\s+IO\.Process\b')
 exit_hits = []
 for rel in sources():
@@ -742,15 +743,17 @@ with open('Main.lean', encoding='utf-8') as fh:
 _main_expected = ['module', 'public import ConLeche.Driver.Cli',
                   'public import Std.Async.System', '@[expose] public section',
                   'def enableAbortOnNonlinear : IO Unit := do',
+                  'def flushStdoutStderr (code : UInt8) : IO UInt8 := do',
                   'def main (args : List String) : IO Unit := do']
 if _main_top != _main_expected:
-    print(f'MAIN FENCE FAIL - Main.lean must declare only `enableAbortOnNonlinear` and '
-          f'`main`; its top level is:')
+    print(f'MAIN FENCE FAIL - Main.lean must declare only `enableAbortOnNonlinear`, '
+          f'`flushStdoutStderr` and `main`; its top level is:')
     for l in _main_top:
         print(f'    {l}')
     sys.exit(1)
 print('one exit (textual): IO.Process.exit only in Main.lean, the code and the abort '
-      'variables\' 3; Main.lean declares only enableAbortOnNonlinear and main')
+      'variables\' 3; Main.lean declares only enableAbortOnNonlinear, flushStdoutStderr '
+      'and main')
 
 files = len({o[0] for o in occurrences})
 print(f'trust surface: {len(occurrences)} escapes in {files} allowlisted '
