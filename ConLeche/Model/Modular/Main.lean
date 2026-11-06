@@ -1,9 +1,7 @@
 module
 
 public import ConLeche.Model.Modular.Instance
-public import ConLeche.Model.Modular.Valid
-public import ConLeche.Model.Capstone
-import ConLeche.Model.Denotes
+import ConLeche.Model.Modular.Valid
 
 public section
 

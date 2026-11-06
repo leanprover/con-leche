@@ -54,12 +54,20 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #469 (measured in #463's merge): `Verify/Rules/Refine.lean`'s statements name
+    # `inferTypeCoreIO`, `whnfTelescope`, `EnvRefines` through these (unknown identifier at
+    # `Refine.lean:43`, `:68`, `:30` when each is demoted alone).
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Kernel.CoreIO'),
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Kernel.Inductives.Positivity'),
+    ('ConLeche.Verify.Rules.Refine', 'ConLeche.Rules.Refine'),
     # task #463: the context model's files state over `Env`, `Expr`, `natFragOk` through these.
     # Each measured by demoting it alone (unknown identifier `Env`, `RestrictLfp.lean:29`;
     # `Name`, `RestrictNat.lean:29`; `natFragOk`, `RestrictNat.lean:68`).
     ('ConLeche.Model.Modular.RestrictLfp', 'ConLeche.Model.Modular.RestrictBase'),
     ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Model.Modular.RestrictBase'),
     ('ConLeche.Model.Modular.RestrictNat', 'ConLeche.Verify.NatOpFrag'),
+    # (`Main.lean:29`, unknown identifier `SetTheory` in its `variable`s, when demoted alone)
+    ('ConLeche.Model.Modular.Main', 'ConLeche.Model.Modular.Instance'),
     # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
     # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
     # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).

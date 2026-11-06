@@ -14,6 +14,7 @@ public import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
 public import ConLeche.Modular
 import ConLeche.Model.Modular.Main
+import ConLeche.Model.Capstone
 public section
 
 /-!

@@ -716,3 +716,4 @@ ConLeche/Model/Modular/Restrict.lean	public import ConLeche.Model.Modular.Restri
 ConLeche/Model/Modular/Restrict.lean	public import ConLeche.Model.Modular.RestrictRules	# measured: removing it breaks the module (CtxSrc.rec_rules, dot notation); a minimization move with compensating adds
 ConLeche/Model/Modular/RestrictLfp.lean	public import ConLeche.Model.Modular.RestrictBase	# measured: removing it breaks the module (namespace ConLeche.Modular); a minimization move with compensating adds
 ConLeche/Model/Modular/Step.lean	public import ConLeche.Model.DeclsRun	# measured: removing it breaks the module (namespace ConLeche.Semantics, declStep_agrees); a minimization move with compensating adds
+ConLeche/Model/Modular/Instance.lean	public import ConLeche.Model.Modular.Restrict	# measured: removing it breaks the module (CtxRead, ctxModel unresolved); a minimization move with compensating adds

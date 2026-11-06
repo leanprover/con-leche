@@ -168,7 +168,7 @@ what declared its names are given, and the local checks of
 records, a context being a list of the records its imports present, and
 carries #src("ConLeche/Modular/Generic.lean", 305, 306)[the theorem]
 over the interface of @sec:mod-iface, and its instance for con-leche's
-models gives #src("ConLeche/MainTheorem.lean", 191, 200)[the modular
+models gives #src("ConLeche/MainTheorem.lean", 192, 201)[the modular
 theorem] with one hypothesis beyond the local checks: a type former
 whose declared type is headed by a definition reduces at an importer's
 context to the telescope it reduces to at its source. Computing a
