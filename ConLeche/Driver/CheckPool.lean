@@ -69,6 +69,10 @@ def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
   let _ ← unsafe Runtime.markPersistent J
   return J
 
+/-- **The index of the records, not marked**: for a check phase that is one of many in the
+process (a module of the one-process mode), whose records and index are freed with it. -/
+def Jobs.plain (ds : Array Declaration) : Jobs ds := ⟨ConLeche.Cached.buildIndex ds, rfl⟩
+
 /-- What every worker reads besides the records and the index (an `--olean` run's references to
 the values still in their files), marked persistent as they are (`Jobs.build` says why). -/
 def markShared {α : Type} (x : α) : IO Unit := do

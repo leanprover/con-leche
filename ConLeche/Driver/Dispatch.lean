@@ -35,6 +35,6 @@ inductive Req where
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .stream file mode pace jobs => checkMainG (.ndjson file) mode pace jobs
   | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
-  | .module sp m mode pace jobs => checkModuleG sp m mode pace jobs
+  | .module sp m mode pace jobs => checkModuleG (.ofPath sp) sp m mode pace jobs
 
 end ConLeche.Driver

@@ -100,13 +100,13 @@ def workerSay {μ : Type → Type} [CheckerIO μ] (pace : Pace) (t0 : Nat) (line
       e.flush
 
 /-- **Phases 1–4 of the worker at module `m`** (see the module docstring). -/
-def workerRead {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (pace : Pace)
+def workerRead {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (m : Name) (pace : Pace)
     (t0 jobs : Nat) : μ (Except (CheckError × Nat) WorkerRead) := do
-  match ← readHome sp m with
+  match ← readHome rd m with
   | .error e => pure (.error (e, 0))
   | .ok (l, expo) =>
     workerSay pace t0 s!"the home of {m}: {l.constants.size} constants, views checked"
-    match ← workerReads sp m jobs with
+    match ← workerReads rd m jobs with
     | .error e => pure (.error (e, 0))
     | .ok wr =>
       workerSay pace t0 s!"loads {wr.loads.order.size} modules, {wr.index.first.size} names; \
@@ -114,7 +114,7 @@ def workerRead {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) 
       match ownRecords l with
       | .error e => pure (.error e)
       | .ok ds =>
-        match ← reach sp m wr (ownNames l) (ownRoots wr.index l ds) with
+        match ← reach rd m wr (ownNames l) (ownRoots wr.index l ds) with
         | .error e => pure (.error (e, 0))
         | .ok r =>
           if !namesNodupGo {} (r.ctx.toList.flatMap Modular.declNames) then
@@ -126,27 +126,30 @@ def workerRead {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) 
           pure (.ok { home := l, expo, reads := wr, emitted := ds, own := ownDs, reach := r,
                       hoisted })
 
-/-- **The worker at module `m`**, generic in the IO class: phases 1–4 (`workerRead`), then the own
-records' jobs over the index of the context and the own records, and the verdict. -/
-def checkModuleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (mode : CheckMode)
-    (pace : Pace) (jobs : Nat) : μ UInt8 := do
+/-- **The worker at module `m`**, generic in the IO class: phases 1–4 (`workerRead`, its reads of
+the files `rd`), then the own records' jobs over the index of the context and the own records, and
+the verdict.  `alone`: the process's one check (`--module`); else one module of the one-process
+mode, whose data is freed with it (nothing marked persistent, no statistics) and whose verdict
+line names it. -/
+def checkModuleG {μ : Type → Type} [CheckerIO μ] (rd : OleanReads μ) (sp : SearchPath) (m : Name)
+    (mode : CheckMode) (pace : Pace) (jobs : Nat) (alone : Bool := true) : μ UInt8 := do
   let t0 ← clockMs
   let modeTag : String := match mode with
     | .verified => "--verified"
     | .trusted => "--trusted"
   CheckerIO.liftIO (readStarts pace s!"module {m}")
-  match ← workerRead sp m pace t0 jobs with
+  match ← workerRead rd m pace t0 jobs with
   | .error (e, _) =>
     diagLine s!"con-leche: module {m}: {e} ({modeTag})"
     return e.exitCode
   | .ok w =>
     if w.hoisted.size > 0 then
-      diagLine s!"con-leche: {w.hoisted.size} declarations hoisted ahead of \
-        the pinned Nat operations they ground: \
+      diagLine s!"con-leche: {if alone then "" else s!"module {m}: "}{w.hoisted.size} \
+        declarations hoisted ahead of the pinned Nat operations they ground: \
         {String.intercalate ", " (w.hoisted.toList.map toString)}"
     let ds := w.reach.ctx ++ w.own
     let tIndex ← clockMs
-    let J ← CheckerIO.liftIO (Jobs.build ds)
+    let J ← CheckerIO.liftIO (if alone then Jobs.build ds else pure (Jobs.plain ds))
     let tParse ← clockMs
     if pace.on then
       diagLine s!"con-leche: parse done: {w.own.size} records of module {m} after \
@@ -154,6 +157,7 @@ def checkModuleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name
         (parse {ConLeche.Cached.msSecs (tParse - t0)}s)"
     verdictG modeTag w.own.size t0 ds
       (← checkOleansG mode pace t0 tIndex tParse jobs sp #[⟨m, w.home.frontier⟩] J
-        w.reach.ctx.size)
+        w.reach.ctx.size alone)
+      (if alone then "" else s!"module {m}: ")
 
 end ConLeche.Driver

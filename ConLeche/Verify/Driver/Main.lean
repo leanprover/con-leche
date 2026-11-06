@@ -248,7 +248,7 @@ theorem runArgs_module_accept {dirs root : String} {fs : FS}
         | some m =>
           simp only [Array.find?_empty, List.filterMap_cons, hr, List.filterMap_nil,
             Array.isEmpty_empty] at hc
-          exact ⟨m, _, rfl, checkModuleG_accept hc⟩
+          exact ⟨m, _, rfl, checkModuleG_accept (Frontend.Olean.OleanReads.Within.ofPath fs _) hc⟩
   · simp
 
 end ConLeche.Driver

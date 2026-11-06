@@ -110,15 +110,19 @@ structure OleanRun where
   tIndex : Nat
   tParse : Nat
   jobs : Nat
+  /-- the process's one check phase (`true`), or one module's of the one-process mode, whose data
+  is freed with the module: then nothing is marked persistent and no statistics are printed -/
+  alone : Bool := true
 
-def OleanRun.new (pace : Pace) (t0 tIndex tParse jobs : Nat) : IO OleanRun := do
-  return { err := ← IO.getStderr, pace, t0, tIndex, tParse, jobs }
+def OleanRun.new (pace : Pace) (t0 tIndex tParse jobs : Nat) (alone : Bool := true) :
+    IO OleanRun := do
+  return { err := ← IO.getStderr, pace, t0, tIndex, tParse, jobs, alone }
 
 /-- The check phase's first line, the pool's heartbeat lane, and what every worker reads of the read
-marked (`markShared`). -/
+marked (`markShared`) where the phase is the process's one. -/
 def OleanRun.pool {α : Type} (run : OleanRun) (n workers : Nat) (values : α) :
     IO (PoolLive × Nat) := do
-  markShared values
+  if run.alone then markShared values
   checkStarts run.err run.pace run.t0 n run.jobs
   let pl ← PoolLive.new run.pace workers n
   return (pl, ← IO.monoNanosNow)
@@ -126,6 +130,7 @@ def OleanRun.pool {α : Type} (run : OleanRun) (n workers : Nat) (values : α) :
 /-- The check phase's end (`checkDone`) after `n` jobs; `sts` the workers' statistics. -/
 def OleanRun.done (run : OleanRun) (ds : Array ConLeche.Declaration) (n tStart workers : Nat)
     (sts : List WStats) (failure : Option (ConLeche.CheckError × Nat)) : IO Unit := do
+  if !run.alone then return
   let tEnd ← IO.monoNanosNow
   let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd, stats := sts.toArray }
   checkDone run.err run.pace run.t0 run.tIndex run.tParse run.jobs ds n rep failure

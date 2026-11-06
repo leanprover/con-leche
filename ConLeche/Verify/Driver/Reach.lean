@@ -518,7 +518,7 @@ theorem ReachInv.skip {L : ReachLog} {x : Name} {rest : List Name} (hi : ReachIn
 
 /-- **The worklist's closure**: at every accepting outcome, on any snapshot, the invariant
 holds with nothing left to read. -/
-theorem reachGo_inv (env : ReachEnv) (fs : FS) :
+theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) :
     ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache) {L' : ReachLog} {c' : ReachCache},
       ReachInv L → (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c'))) →
         ReachInv L' ∧ L'.stack = [] := by
@@ -619,7 +619,7 @@ theorem streamEnv_find_of_mem {ds : List Declaration} {d : Declaration} (hd : d 
 /-- **The reach's closure, at its records**: at an accepting outcome of the worklist from
 a state satisfying the invariant, every name a context record reads is stored in the
 context, and every context record is `RecordScoped` there. -/
-theorem reachGo_closed (env : ReachEnv) (fs : FS) {fuel : Nat} {L L' : ReachLog}
+theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {fuel : Nat} {L L' : ReachLog}
     {c c' : ReachCache} (hi : ReachInv L)
     (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
     ∀ d ∈ L'.ctx.toList, (∀ y ∈ recordReads d, ((streamEnv L'.ctx.toList).find? y).isSome = true) ∧
@@ -767,9 +767,9 @@ theorem reachInv_init (rs : List Name) : ReachInv (ReachLog.init rs) := by
 /-- **The reach's context is closed and well formed**: at every accepting outcome of
 `reach`, on any snapshot, every context record is `RecordScoped` in the context, every
 name it reads is stored there, and the context is `EnvWF`. -/
-theorem reach_ok {sp : SearchPath} {m : Name} {wr : WorkerReads} {own : Std.HashSet Name}
+theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : Std.HashSet Name}
     {roots : Array Name} {fs : FS} {r : Reach}
-    (h : (reach sp m wr own roots : ModelIO _) fs (.ok (.ok r))) :
+    (h : (reach rd m wr own roots : ModelIO _) fs (.ok (.ok r))) :
     (∀ d ∈ r.ctx.toList, RecordScoped (streamEnv r.ctx.toList) d) ∧
     (∀ d ∈ r.ctx.toList, ∀ y ∈ recordReads d, ((streamEnv r.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv r.ctx.toList) := by
