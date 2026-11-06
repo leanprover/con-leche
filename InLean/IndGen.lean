@@ -1,6 +1,7 @@
 module
 
-public import InLean.IndMonad
+public import InLean.CheckerC
+public import InLean.Push
 
 /-!
 # InLean: the inductive generator (unverified)
@@ -16,7 +17,7 @@ recursors `rec_1`, `rec_2`, … included, binder names and infos included
 (the elaborator reads a recursor's binder names).  It checks nothing
 beyond what generation needs to proceed; a declaration it cannot generate
 is an error, never an acceptance.  The checks are con-leche's
-(`InLean/IndCheck/*`), on these constants.
+(`InLean/Inductives/*`), on these constants.
 
 It is a port of `src/kernel/inductive.cpp` (v4.35.0) with every validity
 check removed: `elim_nested_inductive_fn`, the generating half of
@@ -44,6 +45,83 @@ namespace InLean
 open Lean
 
 namespace Ind
+
+/-! ## The generator's monad -/
+
+/-- The generator's context: the environment it reads (which grows as it
+adds the block's constants) and the declaration's safety and policy. -/
+structure Ctx where
+  env : Kernel.Environment
+  safety : DefinitionSafety := .safe
+  coreAxioms : Bool := false
+
+/-- The context's environment for the core. -/
+def Ctx.fe (c : Ctx) : FEnv := { env := c.env, safety := c.safety, coreAxioms := c.coreAxioms }
+
+/-- The generator's local context: its depth (one local per depth), each
+local's binder name and info, and a counter for fresh names. -/
+structure IState where
+  gdepth : Nat := 0
+  fvNames : Std.HashMap Nat (Name × BinderInfo) := {}
+  nestCtr : Nat := 0
+
+/-- The generator's monad: the core's `CheckCM` under the context, with the
+local context. -/
+abbrev M := ReaderT Ctx (StateT IState CheckCM)
+
+@[inline] def throwInvalid (msg : String) : M α := throw (.invalid msg)
+@[inline] def throwDeclined (msg : String) : M α := throw (.notImplemented msg)
+@[inline] def throwInternal (msg : String) : M α := throw (.internal msg)
+
+/-- Run `x` at the environment `env`, the core's memos flushed (an
+environment transition). -/
+def withEnv (env : Kernel.Environment) (x : M α) : M α := do
+  (flushC : CheckCM Unit)
+  withReader (fun c => { c with env }) x
+
+/-- The core's entry points at the context's environment. -/
+def infer (μ : CheckMode) (d : Nat) (e : Expr) : M Expr := do
+  (opInfer μ (← read).fe d e : CheckCM Expr)
+def defeq (μ : CheckMode) (d : Nat) (a b : Expr) : M Bool := do
+  (opDefeq μ (← read).fe d a b : CheckCM Bool)
+def whnf (μ : CheckMode) (d : Nat) (e : Expr) : M Expr := do
+  (opWhnf μ (← read).fe d e : CheckCM Expr)
+def ensureSort (μ : CheckMode) (d : Nat) (e : Expr) : M Level := do
+  (opSort μ (← read).fe d e : CheckCM Level)
+
+/-- The interned free variable at depth `d` of type `ty`. -/
+def mkFVar (d : Nat) (ty : Expr) : M Expr := (mkFVarM d ty : CheckCM Expr)
+
+/-- An interned free variable's type and depth. -/
+def fvarInfo? (id : FVarId) : M (Option (Expr × Nat)) := do
+  match fvParts? id with
+  | some (d, _) =>
+    match ← (fvarTypeM? id : CheckCM (Option Expr)) with
+    | some ty => return some (ty, d)
+    | none => return none
+  | none => return none
+
+/-- Level equivalence (an exhausted comparison declines, `liftFueled`). -/
+def isEquivL (l r : Level) : M Bool := do
+  let o ← (isEquivLM l r : CheckCM (Option Bool))
+  (liftFueled "level comparison" o : CheckCM Bool)
+
+/-- Pointwise `isEquivL`. -/
+def isEquivListL (ls rs : List Level) : M Bool := do
+  let o ← (isEquivListLM ls rs : CheckCM (Option Bool))
+  (liftFueled "level comparison" o : CheckCM Bool)
+
+/-- A constant's check (`checkConstantValC`), at the context. -/
+def checkConstantVal (μ : CheckMode) (n : Name) (lps : List Name) (ty : Expr) : M Unit := do
+  (checkConstantValC μ (← read).fe n lps ty : CheckCM Unit)
+
+/-- A term's syntactic gates (`checkTermWF`). -/
+def checkExprWF (what : String) (lps : List Name) (e : Expr) : M Unit := do
+  (checkTermWF (← read).fe what lps e : CheckCM Unit)
+
+/-- The level-instantiated type of a stored constant (`constTyAtM`). -/
+def constTyAt (ci : ConstantInfo) (us : List Level) : M Expr := do
+  (constTyAtM (← read).fe ci.name us : CheckCM Expr)
 
 /-! ## Names (the C++ `name::append_after`) -/
 
@@ -267,7 +345,7 @@ structure AIOut where
   env : Kernel.Environment
 
 /-- C++ `add_inductive_fn::operator()`. -/
-def addInductiveFn (μ : CheckMode) (addConst : Kernel.Environment → ConstantInfo → Kernel.Environment)
+def addInductiveFn (μ : CheckMode)
     (env0 : Kernel.Environment) (lps : List Name) (nparams : Nat) (types : Array IT)
     (isUnsafe : Bool) (nnested : Nat) : M AIOut := do
   let safety : DefinitionSafety := if isUnsafe then .unsafe else .safe
@@ -716,7 +794,7 @@ def ElimRes.restoreNested (r : ElimRes) (auxEnv : Kernel.Environment) (e : Expr)
 /-- **`environment::add_inductive`'s output**: the constants a raw
 inductive declaration adds, in the official order — generated, not
 checked. -/
-def genInductive (μ : CheckMode) (addConst : Kernel.Environment → ConstantInfo → Kernel.Environment)
+def genInductive (μ : CheckMode)
     (lps : List Name) (nparams : Nat) (types0 : List InductiveType) (isUnsafe : Bool) :
     M Added := do
   let env ← read <&> (·.env)
@@ -729,7 +807,7 @@ def genInductive (μ : CheckMode) (addConst : Kernel.Environment → ConstantInf
   let res ← elimNested env lps nparams types
   let nnested := res.aux2nested.size
   let out ← withStage "inductive generator" <|
-    addInductiveFn μ addConst env lps nparams res.auxTypes isUnsafe nnested
+    addInductiveFn μ env lps nparams res.auxTypes isUnsafe nnested
   let consts : Array ConstantInfo ← if nnested == 0 then
       pure ((out.inds.map .inductInfo) ++ (out.ctors.map .ctorInfo) ++ (out.recs.map .recInfo))
     else do

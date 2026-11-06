@@ -2,6 +2,7 @@ module
 
 public import InLean.CoreC
 public import InLean.NatOpPins
+public import InLean.Push
 
 /-!
 # InLean: the declaration step
@@ -369,19 +370,18 @@ def checkQuotC (fe : FEnv) : CheckCM Added := do
 /-- A definition (twin of `checkDeclC`'s `defnDecl` arm, the certified
 `Nat` operations included; official `add_definition` for an unsafe one,
 whose own constant is in the environment its value is checked in). -/
-def checkDefnC (cfg : Config) (addConst : Kernel.Environment → ConstantInfo → Kernel.Environment)
-    (fe : FEnv) (v : DefinitionVal) : CheckCM Added := do
+def checkDefnC (cfg : Config) (fe : FEnv) (v : DefinitionVal) : CheckCM Added := do
   let ci := ConstantInfo.defnInfo v
   if v.safety == .unsafe then
     let fe := { fe with safety := .unsafe }
     checkConstantValC mode fe v.name v.levelParams v.type true
-    checkValueC mode { fe with env := addConst fe.env ci } "definition" v.name v.levelParams
+    checkValueC mode (fe.push ci) "definition" v.name v.levelParams
       v.type v.value
     return { consts := #[ci] }
   checkConstantValC mode fe v.name v.levelParams v.type true
   checkValueC mode fe "definition" v.name v.levelParams v.type v.value
   if natOpNames.contains v.name || natDivModNames.contains v.name then
-    let fe2 : FEnv := { fe with env := addConst fe.env ci }
+    let fe2 : FEnv := fe.push ci
     let certify : CheckCM Unit := do
       if natOpNames.contains v.name then
         unless natOpGuard fe2 v.name && (natOpDeps v.name).all (natOpStoredOk fe2) do
@@ -412,13 +412,12 @@ def checkThmC (fe : FEnv) (v : TheoremVal) : CheckCM Added := do
 
 /-- An opaque (twin of `checkOpaqueValCI`; official `add_opaque` checks at
 the safe safety even for an unsafe one). -/
-def checkOpaqueC (addConst : Kernel.Environment → ConstantInfo → Kernel.Environment)
-    (fe : FEnv) (v : OpaqueVal) : CheckCM Added := do
+def checkOpaqueC (fe : FEnv) (v : OpaqueVal) : CheckCM Added := do
   checkConstantValC mode fe v.name v.levelParams v.type
   checkValueC mode fe "opaque" v.name v.levelParams v.type v.value
   let ci := ConstantInfo.opaqueInfo v
   if reduceOpNames.contains v.name then
-    checkReducePin mode fe { fe with env := addConst fe.env ci } v.name v.value
+    checkReducePin mode fe (fe.push ci) v.name v.value
   return { consts := #[ci] }
 
 /-- An axiom (twin of `checkDeclC`'s `axiomDecl` arm).  `sorryAx` is added to
@@ -447,8 +446,7 @@ def checkAxiomC (cfg : Config) (fe : FEnv) (v : AxiomVal) : CheckCM Added := do
 
 /-- A mutual block of unsafe or partial definitions (official `add_mutual`;
 con-leche has no such declaration). -/
-def checkMutualC (addConst : Kernel.Environment → ConstantInfo → Kernel.Environment)
-    (fe : FEnv) (vs : List DefinitionVal) : CheckCM Added := do
+def checkMutualC (fe : FEnv) (vs : List DefinitionVal) : CheckCM Added := do
   let some v₀ := vs.head? | throw (.invalid "invalid empty mutual definition")
   let safety := v₀.safety
   if safety == .safe then
@@ -465,11 +463,9 @@ def checkMutualC (addConst : Kernel.Environment → ConstantInfo → Kernel.Envi
       throw (.invalid s!"invalid mutual definition, duplicate declaration name '{v.name}'")
     found := found.push v.name
     checkConstantValC mode fe v.name v.levelParams v.type true
-  let mut env' := fe.env
+  let fe' := fe.pushAll (vs.map ConstantInfo.defnInfo)
   for v in vs do
-    env' := addConst env' (.defnInfo v)
-  for v in vs do
-    checkValueC mode { fe with env := env' } "definition" v.name v.levelParams v.type v.value
+    checkValueC mode fe' "definition" v.name v.levelParams v.type v.value
   return { consts := (vs.map ConstantInfo.defnInfo).toArray }
 
 end

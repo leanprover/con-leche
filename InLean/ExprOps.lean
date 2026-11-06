@@ -217,7 +217,7 @@ def fvRoot : Name := `_inlean_fv
 /-- Twin of `abstractRangeC e d k`: every free variable at a depth `idx`
 with `d ≤ idx < d + k` to `bvar (c + (d + k - 1 - idx))` at binder offset
 `c` (`rangePoison` if that is out of range), whatever its type. -/
-def abstractDepths (e : Expr) (d k : Nat) : Expr :=
+def abstractDepthsFrom (e : Expr) (d k c₀ : Nat) : Expr :=
   if k == 0 || !e.hasFVar then e else
   (mapOff (fun x c =>
     if !x.hasFVar then some x else
@@ -230,7 +230,10 @@ def abstractDepths (e : Expr) (d k : Nat) : Expr :=
           some (if i ≤ maxBVarIdx then .bvar i else rangePoison)
         else some x
       | none => some x
-    | _ => none) e 0 {}).1
+    | _ => none) e c₀ {}).1
+
+/-- `abstractDepthsFrom` at binder offset `0` (con-leche's `abstractRangeC e d k`). -/
+@[inline] def abstractDepths (e : Expr) (d k : Nat) : Expr := abstractDepthsFrom e d k 0
 
 /-- Twin of `instLevelParams`: the level parameters `ps` to `us` in every
 `sort` and `const`, by con-leche's non-simplifying `Lvl.subst` (lane F:

@@ -1,11 +1,6 @@
 module
 
-public import InLean.IndCheck.Block
-/- `Lean.Kernel.Environment.add` and `markQuotInit` are private to
-`Lean.Environment`: inside core, the kernel calls them directly; here
-`import all` stands in for being part of that module.  The bodies that
-use them are therefore not exposed (`public section`, not `@[expose]`). -/
-import all Lean.Environment
+public import InLean.Inductives.Decl
 
 /-!
 # InLean: the entry points
@@ -18,16 +13,11 @@ view below it and then pushes what the record declares
 `kernelIsDefEq` are the twins of `Kernel.whnf`/`Kernel.isDefEq`.
 -/
 
-public section
+@[expose] public section
 
 namespace InLean
 
 open Lean
-
-/-- Add a constant to a kernel environment, unchecked (core's private
-`Kernel.Environment.add`). -/
-def addConst (env : Kernel.Environment) (ci : ConstantInfo) : Kernel.Environment :=
-  env.add ci
 
 /-- Run a check from a fresh per-declaration state. -/
 def runC (x : CheckCM α) : Except CheckError α :=
@@ -35,22 +25,22 @@ def runC (x : CheckCM α) : Except CheckError α :=
   | .ok (a, _) => .ok a
   | .error e => .error e
 
-/-- Check `decl` (twin of `checkDeclStepC`), returning what it adds. -/
+/-- Check `decl` (twin of `declStep`: the `And` pin, then `checkDeclStepC`),
+returning what it adds. -/
 def checkDecl (cfg : Config) (env : Kernel.Environment) (decl : Declaration) :
     Except CheckError Added :=
   let μ := cfg.mode
   let fe : FEnv := { env, coreAxioms := cfg.coreAxioms }
+  if !andPinOk decl then .error (.invalid "`And` must be the standard `And`") else
   runC do
     match decl with
     | .axiomDecl v => checkAxiomC μ cfg fe v
-    | .defnDecl v => checkDefnC μ cfg addConst fe v
+    | .defnDecl v => checkDefnC μ cfg fe v
     | .thmDecl v => checkThmC μ fe v
-    | .opaqueDecl v => checkOpaqueC μ addConst fe v
-    | .mutualDefnDecl vs => checkMutualC μ addConst fe vs
+    | .opaqueDecl v => checkOpaqueC μ fe v
+    | .mutualDefnDecl vs => checkMutualC μ fe vs
     | .quotDecl => checkQuotC fe
-    | .inductDecl lps nparams types isUnsafe =>
-      (IC.checkInductiveDecl μ addConst lps nparams types isUnsafe).run
-        { env, coreAxioms := cfg.coreAxioms } |>.run' {}
+    | .inductDecl lps nparams types isUnsafe => checkInductiveC μ fe lps nparams types isUnsafe
 
 /-- **Check `decl` and add the constants it declares** — the twin of
 `Lean.Kernel.Environment.addDeclCore`.  A reject, a decline and an error
@@ -61,7 +51,7 @@ def addDecl (env : Kernel.Environment) (decl : Declaration) (cfg : Config := {})
   match checkDecl cfg env decl with
   | .ok a =>
     let env := a.consts.foldl addConst env
-    .ok (if a.quot then env.markQuotInit else env)
+    .ok (if a.quot then markQuot env else env)
   | .error e => .error (.other e.toString)
 
 /-- The twin of `Kernel.whnf` (a closed term; full reduction). -/

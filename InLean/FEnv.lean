@@ -205,10 +205,10 @@ def FEnv.recView? (fe : FEnv) (quotRhs : QuotVal → Expr) (n : Name) : Option R
 @[inline] def rulePrefixOf (rv : RecursorVal) : Nat :=
   rv.numParams + rv.numMotives + rv.numMinors
 
-/-- Twin of `Expr.stripPis`: the type under `n` binders. -/
-def stripPis : Nat → Expr → Option Expr
+/-- The type under `n` binders. -/
+def piBody? : Nat → Expr → Option Expr
   | 0, e => some e
-  | n + 1, .forallE _ _ b _ => stripPis n b
+  | n + 1, .forallE _ _ b _ => piBody? n b
   | _, _ => none
 
 /-- Twin of `Expr.dropVars`: `n` variables below a term's own, which do not
@@ -223,7 +223,7 @@ container, the parameters moved from under the index binders to the rule
 prefix; the quotient eliminators fire at their first level (`.levels`). -/
 def recFireAt (rv : RecursorVal) (isQuot : Bool) : RecRuleFire :=
   if isQuot then .levels [.param (rv.levelParams.headD .anonymous)] else
-  match stripPis (majorIdxOf rv) rv.type with
+  match piBody? (majorIdxOf rv) rv.type with
   | some (.forallE _ dom _ _) =>
     match dom.getAppFn with
     | .const T us =>

@@ -110385,15 +110385,52 @@ with the regenerated recursor's (`streamKCheck`, #480).
 `CheckerBase.checkConstantVal` and the `DeclCheck` guards): #480's gates (a
 certified operation's name only for a definition, `litShapeOk`), the certified
 `Nat` operations, the compiler-trust pins, the pinned axioms, the quotient
-package (Lean's one `quotDecl` for con-leche's four records).  **Inductives**:
-the unverified generator (`IndGen`, the official construction) and con-leche's
-job on its output (`IndCheck/*`), in the inductive monad `IndMonad.M` (the core's
-`CheckCM` under the declaration's context); the job is the #431-era port adapted
-to this core, with #480's K check (`streamKCheck`) and the `Bool`-constructor
-refusal added.  Not yet re-ported from master's current job: `reduceMembers` as
-its own stage (def-headed formers are reduced inside the telescope check),
-`checkBlockIdxSortsF`'s and the positivity walk's #480 reshaping, `StreamRecs`'
-restructuring; their verdicts agree on Init, Std and Lean.
+package (Lean's one `quotDecl` for con-leche's four records), the `And` pin
+on every declaration (`andPinOk`, as master's `declStep`).  **Inductives**: the
+unverified generator (`IndGen`, the official construction, in a monad of its
+own) produces the block's constants; con-leche's job decides on them
+(`InLean/Inductives/*`, the next paragraph).
+
+**The inductive job** (`InLean/Inductives/*`) is master's current job (701d72aef)
+line by line, each function a twin named in its docstring, in master's names
+and order: `BlockShape` (recognition: `blockSplit`, `blockShape?`,
+`indParamsOk`), `Install` (the `Sum*`/`Struct*`/`BlockInstall*` stages:
+`checkConstantValF`, `checkBlockIndsF`, `checkBlockCtorsF`,
+`checkBlockIdxSortsF`, `consBlockCtorsF`, `checkStructProjTableF`,
+`checkBlockTablesF`), `Positivity` (with `blockNestCtx` and
+`checkBlockPositivity`), `ClassRead`, `RecCheck` (with `ShadowOps`,
+`blockRecInfosTF`, `blockLargeElimAllowed`), `GenRec`, `StreamRecs`
+(`streamRecsCheck`, `streamKCheck`), `BlockTail` (`BlockPass`,
+`reduceMembersS` as its own stage, `checkBlockPassS`, `checkBlockTailS`,
+`checkBlockKS`, and `CheckerC`'s `sharedOpsC`, `sharedOpsRuleR`, `shadowOpsC`,
+`structWalkersC`, flushing where master flushes), `Basis` (the pins
+`eqBasis`, `natBasis`, `emptyBasis`, `falseBasis`, `andPin`; `pinCopyOk`,
+`pinListOk`, `blockLinksOk`, `basisNameHit`, `andPinOk`) and `Decl`
+(`checkIndDeclC`, `checkBasisBlockC`, `checkShapelessS`).  Master's
+`CheckerOps m` is one concrete `CheckerOps` over `CheckCM`; there is no
+adapter monad.  What Lean's data forces: a function that builds `.fvar i ty`
+in master interns it and runs in `CheckCM` (`OptionT CheckCM` where master's
+is `Option`, `ClassGen.major` …); a walk that reads a variable's type reads
+it from the state table.  An environment push builds Lean's entry
+(`consBlockIndsF` an `InductiveVal`, `recEntry` a `RecursorVal` at
+`(mI, rP)`).  A pin carries the fields InLean reads at use and is compared up
+to `mdata` and binder names and infos (`pinAgrees`), since InLean adds the
+block, not the pin.  `checkBlockKS` returns nothing: InLean's declaration step
+returns the constants it adds, the generated ones.  Before the job,
+`genEntriesAgree` checks the generated entries' read-at-use fields against
+the block (formers' `all`, counts, constructors, `isRec` = `blockIsRec`;
+constructors' type former and counts; recursors' `all`), and `constInRange`
+their terms.  An unsafe block is checked as the official kernel checks one
+(con-leche has none).  "Wrong return type" is still the generator's error, not
+the job's reject: a constructor whose type does not end in the family has no
+recursor, and the job, like master's, runs only on a block with its recursors
+(`blockShape?`; without them `checkShapelessS` declines).  Making it the job's
+reject would mean running the former and constructor stages on a partial block
+before the recursors are generated, a step master's job does not have.
+With this job: Init, Std and Lean replay with `--compare` as before (64 530,
+110 064 and 199 645 declarations accepted, 0 mismatches), the negative tests
+agree, and the cost is unchanged (`instructions:u`, InLean verified: Init
+877.9 G, Lean 3 649.2 G, against 878.0 G and 3 649.1 G with the #431-era job).
 
 **The fence** (`tests/layering.sh`): `InLean/*` and `InLean.lean` import only
 `Init`, `Init.*`, `Std`, `Std.*`, `Lean`, `Lean.*`, `InLean.*` (every import form);
@@ -110422,11 +110459,11 @@ unchanged (the walks did not change); the axiom pins pass.
 | O4 | the at-use readers equal master's install of `toDecl` (given `genEntriesAgree`, `streamKCheck`) | 1–1.5 k |
 | O5 | the core knot: a port of `Verify/Cached`'s simulation, now against a core in the same shape | 6–9 k |
 | O6 | the declaration step | 1–1.5 k |
-| O7 | the inductive job (after re-porting it to master's current structure) | 3–5 k |
+| O7 | the inductive job, function by function against master's (`InLean/Inductives/*`, 2.9 k lines, twins of master's 5.6 k-line job); the extra over a pure simulation is the interned variables in what master builds purely and `pinAgrees`' alpha-equality | 2–3.5 k |
 | O8 | assembly: `installAll`/`Presents` against the fold, `EnvLaws` | 0.5–1 k |
 | O9 | range preservation | 0.5–1 k |
 
-Total about 14–23 k lines (the earlier round's 20–30 k): O3 and O4 shrank with
+Total about 13–21.5 k lines (the earlier round's 20–30 k): O3 and O4 shrank with
 the depth-carrying ids and #480's install, O5 with the core's shape.
 
 **Findings.**
