@@ -115,9 +115,12 @@ lookup; marking the quotient package changes no lookup. -/
       (InLean.addConst E ci).find? n = if n = ci.name then some ci else E.find? n) ∧
   (∀ (E E' : Kernel.Environment), E'.constants = E.constants → E'.find? = E.find?)
 
-/-- The declarations the theorem is about. -/
+/-- **The declarations the theorem is about** (maintainer's ruling,
+2026-11-06): every safe declaration but an axiom.  An axiom is the user's
+assumption, as in any kernel; an ok environment's axioms are part of its
+being ok (`EnvModelOk` of what presents it). -/
 @[expose] def SafeDecl : Declaration → Prop
-  | .axiomDecl v => v.isUnsafe = false
+  | .axiomDecl _ => False
   | .defnDecl v => v.safety = .safe
   | .thmDecl _ => True
   | .opaqueDecl v => v.isUnsafe = false
@@ -125,10 +128,17 @@ lookup; marking the quotient package changes no lookup. -/
   | .quotDecl => True
   | .inductDecl _ _ _ isUnsafe => isUnsafe = false
 
-/-- The theorem's configuration: the verified mode, con-leche's axiom
-policy, no Nat-operation stopgap. -/
+/-- The theorem's configuration: the verified mode, the official axiom policy
+(core's: it decides only `sorryAx`'s visibility and what an axiom at a
+certified `Nat` operation's name may be, neither of which a non-axiom
+declaration over a model-carrying environment meets), the `Nat`
+certificates checked.  Core runs with `uncertifiedNatOps` on, which
+accepts a definition at a certified name whose certificate cannot be
+checked: covered only where the environment already holds the certified
+definitions (the prelude assumed good), an obligation of the
+environment's being ok (DESIGN, O10). -/
 @[expose] def theoremConfig : InLean.Config :=
-  { mode := .verified, coreAxioms := false, uncertifiedNatOps := false }
+  { mode := .verified, coreAxioms := true, uncertifiedNatOps := false }
 
 /-! ## The target -/
 

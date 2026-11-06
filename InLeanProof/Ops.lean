@@ -31,6 +31,13 @@ namespace InLeanProof
 
 open Lean InLean
 
+/- The walks' memos compare nodes exactly (`instBEqExprExact`, as
+`InLean/ExprOps.lean` elaborates them); their lawfulness is the exact
+equality's. -/
+attribute [local instance 2000] instBEqExprExact
+local instance : LawfulBEq Expr := instBEqExprExact_lawful
+local instance : LawfulHashable Expr := ⟨fun _ _ h => by rw [eq_of_beq h]⟩
+
 /-- The plain structural map a walk computes: `f` decides a node, or the
 walk rebuilds it from its mapped children (binder offset `+1` under a
 binder). -/
@@ -192,10 +199,15 @@ theorem mapOff_spec (f : Expr → Nat → Option Expr) :
     rw [mapSpec_leaf f k rfl]
     cases f _ k <;> exact ⟨rfl, hm⟩
 
-/-- The walk from an empty memo. -/
-theorem mapOff_empty (f : Expr → Nat → Option Expr) (e : Expr) (k : Nat) :
-    (EO.mapOff f e k {}).1 = mapSpec f e k :=
-  (mapOff_spec f e k {} MapMemoInv.empty).1
+/-- A fresh memo of any capacity is empty. -/
+theorem MapMemoInv.fresh {f : Expr → Nat → Option Expr} (n : Nat) :
+    MapMemoInv f (Std.HashMap.emptyWithCapacity n) := by
+  intro key r h; simp at h
+
+/-- The walk from its own fresh memo (`EO.freshFor`). -/
+theorem mapOff_fresh (f : Expr → Nat → Option Expr) (e : Expr) (k : Nat) (x : Expr) :
+    (EO.mapOff f e k (EO.freshFor x)).1 = mapSpec f e k :=
+  (mapOff_spec f e k _ (MapMemoInv.fresh _)).1
 
 /-! ## The reading of a term below its range -/
 
@@ -293,7 +305,7 @@ theorem liftLooseBVars_eq (e : Expr) (s d : Nat) :
   unfold EO.liftLooseBVars
   split
   · rfl
-  · exact mapOff_empty _ e 0
+  · exact mapOff_fresh _ e 0 e
 
 /-- Lifting by zero is the identity (con-leche side). -/
 theorem cl_lift_zero : ∀ (c : ConLeche.Expr) (cut : Nat), c.liftLooseBVars 0 cut = c := by
@@ -434,7 +446,7 @@ theorem instantiate_eq (e : Expr) (subst : Array Expr) :
   dsimp only
   split
   · rfl
-  · exact mapOff_empty _ e 0
+  · exact mapOff_fresh _ e 0 e
 
 /-- The substitution reads, entry by entry, as the closed list `cvs`, and
 is in range. -/
