@@ -7,6 +7,7 @@ public import InLeanProof.FVar
 public import InLeanProof.Range
 public import InLeanProof.KnotI
 public import InLeanProof.StateOpsI
+public import InLeanProof.WalksWhnf
 public import InLeanProof.SquarePilot
 
 /-!
@@ -396,3 +397,41 @@ info: 'InLeanProof.isEquivListLM_specI' depends on axioms: [propext, Classical.c
 -/
 #guard_msgs in
 #print axioms InLeanProof.isEquivListLM_specI
+
+/-! ## The body walks, part 1 (lane P2-whnf, `InLeanProof/WalksWhnf.lean`) -/
+
+/--
+info: 'InLeanProof.defeqArgI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defeqArgI_spec
+
+/--
+info: 'InLeanProof.defEqListI_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defEqListI_spec
+
+/--
+info: 'InLeanProof.litToCtorIfNatI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.litToCtorIfNatI_specI
+
+/--
+info: 'InLeanProof.projLitToCtorI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.projLitToCtorI_specI
+
+/--
+info: 'InLeanProof.litMajorToCtorI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.litMajorToCtorI_specI
+
+/--
+info: 'InLeanProof.defeqSpineI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defeqSpineI_specI

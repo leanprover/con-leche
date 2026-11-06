@@ -110991,3 +110991,24 @@ by `vcgen`: they are the walks' callee specs, not walks.
   default discharger does not discharge the side conditions of a local
   `∀`-hypothesis here ("failed to assign proof"), so the level proofs
   rewrite with `rw` and close side goals separately.
+
+### Lane P2-whnf, phase 2 (in progress): the first body walks (2026-11-07)
+
+`InLeanProof/WalksWhnf.lean`: `defeqArgI_spec` and `defEqListI_spec`
+(master's scripts, verbatim but for qualified names), `litToCtorIfNatI_specI`,
+`projLitToCtorI_specI`, `litMajorToCtorI_specI`, `defeqSpineI_specI` (proved
+run by run: their pure sides match on the *translation's* head,
+`(TrS s e).getAppFn`, which `grind` cannot relate to InLean's
+`Expr.getAppFnT e` match; the bridge lemmas are `TrS_getAppFn_const` and
+`TrS_getAppFn_notConst`, the same for literals).  Vocabulary added here:
+the spine's length and the `eagerReduce` head through the translation, list
+stability along `TabLe`, the literal constructors' translations, and
+**`EnvDomI fe env`** — a second named O4 hypothesis beside `EnvRelI`: InLean
+finds a name exactly where con-leche finds its translation (the literal
+support flags read it, `natLitStoredF_I`, `strLitStoredF_I`).
+
+Remaining in this lane: `DiscC1`'s `unfoldDefinition`, `iotaCertsFull(Aux)`,
+`reduceNat`; all of `DiscC3` (ι); `DiscC4`'s whnf half, which discharges
+`WhnfAppSpecI` and `ReduceProjSpecI`.  The pattern for a walk whose pure side
+matches on a translated head: a run-based proof with the head bridges, as
+`defeqSpineI_specI`.
