@@ -1383,6 +1383,158 @@ theorem lazyDeltaStepI_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager e
     vcgen [InLean.lazyDeltaStepI, tryUnfoldProjAppI_spec ih, deltaQuickI_spec ih, ih.whnfCore,
       hunf, hspine] <;> finish
 
+/-! The lazy-delta loop's continuations, named as the pure ones are
+(`ldr…P`, `DiscC5.lean`), each block its own triple. -/
+
+/-- Past the step. -/
+@[expose] def ldrStepL (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d n : Nat)
+    (a b : Expr) : InLean.DeltaStep → InLean.CheckCM InLean.LazyRes
+  | .cont a' b' => InLean.lazyDeltaReductionI .verified eager r fe d n a' b'
+  | .eq => pure (.verdict true)
+  | .diff => pure (.verdict false)
+  | .unknown => pure (.unknown a b)
+
+/-- Past the right literal acceleration. -/
+@[expose] def ldrNatBL (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d n : Nat)
+    (a b : Expr) : Option Expr → InLean.CheckCM InLean.LazyRes
+  | some b₂ => do
+    let v ← r.defeq d a b₂
+    pure (.verdict v)
+  | none => InLean.lazyDeltaStepI .verified r fe d a b >>= ldrStepL eager r fe d n a b
+
+/-- Past the left literal acceleration. -/
+@[expose] def ldrNatAL (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d n : Nat)
+    (a b : Expr) (fold : Bool) : Option Expr → InLean.CheckCM InLean.LazyRes
+  | some a₂ => do
+    let v ← r.defeq d a₂ b
+    pure (.verdict v)
+  | none =>
+    (if fold then InLean.reduceNatI r fe d b else pure none) >>= ldrNatBL eager r fe d n a b
+
+/-- Past the offset check. -/
+@[expose] def ldrOffL (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d n : Nat)
+    (a b : Expr) : Option Bool → InLean.CheckCM InLean.LazyRes
+  | some v => pure (.verdict v)
+  | none =>
+    (if eager || (!a.hasFVar && !b.hasFVar) then InLean.reduceNatI r fe d a else pure none) >>=
+      ldrNatAL eager r fe d n a b (eager || (!a.hasFVar && !b.hasFVar))
+
+/-- The loop's step with its continuations named. -/
+theorem lazyDeltaReductionL_succ (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d n : Nat)
+    (a b : Expr) :
+    InLean.lazyDeltaReductionI .verified eager r fe d (n + 1) a b =
+      InLean.defeqOffsetI r d a b >>= ldrOffL eager r fe d n a b := by
+  rw [InLean.lazyDeltaReductionI.eq_2]; rfl
+
+/-- The lazy-delta loop at budget `n` (`LazySpec`'s twin, a named predicate). -/
+@[expose] def LazySpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI)
+    (fe : InLean.FEnv) (d n : Nat) : Prop :=
+  ∀ {a b : Expr} {s₀ : InLean.CState}, CSOKI .verified eager env s₀ →
+    OkS s₀ a = true → OkS s₀ b = true →
+    ConLeche.Expr.WScoped d (TrS s₀ a) → ConLeche.Expr.WScoped d (TrS s₀ b) →
+    (TrS s₀ a).looseBVarsBounded 0 = true → (TrS s₀ b).looseBVarsBounded 0 = true →
+    ⦃fun s => s = s₀⦄ InLean.lazyDeltaReductionI .verified eager r fe d n a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkLR s' v = true ∧
+      Runs (ConLeche.lazyDeltaReduction .verified eager (ConLeche.fueledFns .verified eager env)
+        env d n (TrS s₀ a) (TrS s₀ b)) (TrLR s' v) ∧
+      LazyPairWS d (TrLR s' v) ∧ LazyClosed (TrLR s' v) = true; ⊤⦄
+
+theorem LazySpecI.triple {fe : InLean.FEnv} {d n : Nat} (h : LazySpecI eager env r fe d n)
+    {a b : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.lazyDeltaReductionI .verified eager r fe d n a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkLR s' v = true ∧
+      Runs (ConLeche.lazyDeltaReduction .verified eager (ConLeche.fueledFns .verified eager env)
+        env d n (TrS s₀ a) (TrS s₀ b)) (TrLR s' v) ∧
+      LazyPairWS d (TrLR s' v) ∧ LazyClosed (TrLR s' v) = true; ⊤⦄ :=
+  h hs hoka hokb hwa hwb hca hcb
+
+theorem ldrStepL_spec {fe : InLean.FEnv} {d n : Nat} (hn : LazySpecI eager env r fe d n)
+    {a b : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) (st : InLean.DeltaStep)
+    (hok : OkDS s₀ st = true) (hst : StepPairWS d (TrDS s₀ st))
+    (hcst : StepClosedD (TrDS s₀ st) = true) :
+    ⦃fun s => s = s₀⦄ ldrStepL eager r fe d n a b st
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkLR s' v = true ∧
+      Runs (ldrStepP (ConLeche.fueledFns .verified eager env) env d .verified eager n (TrS s₀ a)
+        (TrS s₀ b) (TrDS s₀ st)) (TrLR s' v) ∧
+      LazyPairWS d (TrLR s' v) ∧ LazyClosed (TrLR s' v) = true; ⊤⦄ := by
+  sym only [conleche_grind, ldrStepP] =>
+    vcgen [ldrStepL, LazySpecI.triple hn] <;> finish
+
+theorem ldrNatBL_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r)
+    (hfe : DefeqEnvI fe env) (henv : ConLeche.EnvWF env)
+    (hunf : UnfoldDefSpecI .verified eager env fe) (hspine : DefeqSpineSpecI .verified eager env r)
+    {d n : Nat} (hn : LazySpecI eager env r fe d n)
+    {a b : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) (o : Option Expr) (hok : OkO s₀ o = true)
+    (ho : OptWS d (TrO s₀ o)) (hco : OptClosed (TrO s₀ o) = true) :
+    ⦃fun s => s = s₀⦄ ldrNatBL eager r fe d n a b o
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkLR s' v = true ∧
+      Runs (ldrNatBP (ConLeche.fueledFns .verified eager env) env d .verified eager n (TrS s₀ a)
+        (TrS s₀ b) (TrO s₀ o)) (TrLR s' v) ∧
+      LazyPairWS d (TrLR s' v) ∧ LazyClosed (TrLR s' v) = true; ⊤⦄ := by
+  sym only [conleche_grind, ldrNatBP] =>
+    vcgen [ldrNatBL, ih.defeq, lazyDeltaStepI_spec ih hfe henv hunf hspine, ldrStepL_spec hn] <;>
+      finish
+
+theorem ldrNatAL_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r)
+    (hfe : DefeqEnvI fe env) (henv : ConLeche.EnvWF env)
+    (hunf : UnfoldDefSpecI .verified eager env fe) (hspine : DefeqSpineSpecI .verified eager env r)
+    (hnat : ReduceNatSpecI .verified eager env r fe)
+    {d n : Nat} (hn : LazySpecI eager env r fe d n)
+    {a b : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) (o : Option Expr) (hok : OkO s₀ o = true)
+    (ho : OptWS d (TrO s₀ o)) (hco : OptClosed (TrO s₀ o) = true) :
+    ⦃fun s => s = s₀⦄ ldrNatAL eager r fe d n a b (eager || (!a.hasFVar && !b.hasFVar)) o
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkLR s' v = true ∧
+      Runs (ldrNatAP (ConLeche.fueledFns .verified eager env) env d .verified eager n (TrS s₀ a)
+        (TrS s₀ b) (TrO s₀ o)) (TrLR s' v) ∧
+      LazyPairWS d (TrLR s' v) ∧ LazyClosed (TrLR s' v) = true; ⊤⦄ := by
+  sym only [conleche_grind, ldrNatAP] =>
+    vcgen [ldrNatAL, ih.defeq, hnat, ldrNatBL_spec ih hfe henv hunf hspine hn] <;> finish
+
+theorem ldrOffL_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r)
+    (hfe : DefeqEnvI fe env) (henv : ConLeche.EnvWF env)
+    (hunf : UnfoldDefSpecI .verified eager env fe) (hspine : DefeqSpineSpecI .verified eager env r)
+    (hnat : ReduceNatSpecI .verified eager env r fe)
+    {d n : Nat} (hn : LazySpecI eager env r fe d n)
+    {a b : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) (o : Option Bool) :
+    ⦃fun s => s = s₀⦄ ldrOffL eager r fe d n a b o
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkLR s' v = true ∧
+      Runs (ldrOffP (ConLeche.fueledFns .verified eager env) env d .verified eager n (TrS s₀ a)
+        (TrS s₀ b) o) (TrLR s' v) ∧
+      LazyPairWS d (TrLR s' v) ∧ LazyClosed (TrLR s' v) = true; ⊤⦄ := by
+  sym only [conleche_grind, ldrOffP] =>
+    vcgen [ldrOffL, hnat, ldrNatAL_spec ih hfe henv hunf hspine hnat hn] <;> finish
+
+/-- By induction on the step budget (`lazySpec_all`'s twin). -/
+theorem lazySpecI_all {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r)
+    (hfe : DefeqEnvI fe env) (henv : ConLeche.EnvWF env)
+    (hunf : UnfoldDefSpecI .verified eager env fe) (hspine : DefeqSpineSpecI .verified eager env r)
+    (hnat : ReduceNatSpecI .verified eager env r fe) {d : Nat} (n : Nat) :
+    LazySpecI eager env r fe d n := by
+  induction n with
+  | zero =>
+    intro a b s₀ hs _ _ _ _ _ _
+    sym only [conleche_grind] => vcgen [InLean.lazyDeltaReductionI] <;> finish
+  | succ n ihn =>
+    intro a b s₀ hs _ _ _ _ _ _
+    sym only [conleche_grind, lazyDeltaReduction_succ] =>
+      vcgen [lazyDeltaReductionL_succ, defeqOffsetI_spec ih,
+        ldrOffL_spec ih hfe henv hunf hspine hnat ihn] <;> finish
+
 end Walks5
 
 end InLeanProof
