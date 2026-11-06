@@ -494,6 +494,65 @@ swap_ "$d" MoX TinyClassic
 reads_ "a module importing one outside the module system" 1 "imports MoX, which is not" "$d" MoM
 rm -rf "$d"
 
+# --- a worker's context: the reach, the completion, the capture check ------
+# (task #465, `olean-compare --reach`: from the names the module's own records
+# read, every reached name presented as its record, groups whole, an imported
+# theorem's value and a hidden definition's never read)
+reach_() { cmp_ --reach "$@"; }
+for m in TinyUse DgFlagB DgLiftB DgInferB HiLamB HiInhM HiInhM2 TeqM TeqBoth NsM NsN LdgM LdvM GrN; do
+  reach_ "the reach of $m" 0 "reach" "$MSP" $m
+done
+# an exported value unfolding to a private-only constant (WvA's wv_secret):
+# completed as its statement, located in WvA's view; no override
+reach_ "an exported value reading a private-only constant: completed" 0 "1 completed" "$MSP" WvM
+# M's own foo and the foo H's exported records read: no record of M's context
+# reads it, so the reach accepts, as Lean does (the merged read rejects the pair)
+reach_ "the importer declares a name an unreached record reads" 0 "reach" "$MSP" DgColM
+# the name H's teqN reads is not reached (teqN is not exposed): accepted, as by
+# Lean (the merged read rejects the two teq)
+reach_ "two statements under one name, neither reached" 0 "reach" "$MSP" TeqDM
+# Lean proves False with no axiom: H's bar.eq_1 reads Q's foo, M holds Q2's;
+# the two copies are definitions of Nat, not one key
+reach_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" DgCapM
+# PdA's definition of `id True` (exported as an axiom) and PdB's theorem meet:
+# the definition's type is inferred to be a proposition, so one key (Lean merges
+# them)
+reach_ "a definition of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" PdM
+# LdgA's and LdvA's import of their Q made private (a header Lean does not
+# write for a public statement reading Q): the group's constructor reads a name
+# N's view lacks, completed in LdgA's (LdvA's) view as its statement; with the
+# import dropped, located nowhere
+patch_import() { # <file> private|drop: the module's last import made private, or dropped
+python3 -I - "$1" "$2" <<'PY'
+import struct, sys
+p, mode = sys.argv[1], sys.argv[2]
+b = bytearray(open(p, 'rb').read())
+base = struct.unpack_from('<Q', b, 80)[0]
+ro = struct.unpack_from('<Q', b, 88)[0] - base
+arr = struct.unpack_from('<Q', b, ro + 8)[0] - base
+n = struct.unpack_from('<Q', b, arr + 8)[0]
+assert n == 3, n          # Init (twice), the module's own import
+if mode == 'private':
+    q = struct.unpack_from('<Q', b, arr + 24 + 16)[0] - base
+    assert b[q + 17] == 1     # the import's isExported flag
+    b[q + 17] = 0
+else:
+    struct.pack_into("<Q", b, arr + 8, 2)
+    struct.pack_into("<Q", b, arr + 16, 2)
+open(p, 'wb').write(b)
+PY
+}
+d="$TMPDIR/con-leche-olean-reach"
+for a in Ldg Ldv; do
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch_import "$d/${a}A.olean" private
+  reach_ "a group's read completed ($a)" 0 "1 completed" "$d:$INIT" ${a}N
+  rm -rf "$d"; cp -r "$LIB" "$d"
+  patch_import "$d/${a}A.olean" drop
+  reach_ "a group's read located nowhere ($a)" 1 "which no module of its view holds" "$d:$INIT" ${a}N
+done
+rm -rf "$d"
+
 rm -f "$TMPDIR/olean-case.out"
 echo "olean gate: $ok/$total as expected"
 exit $fail

@@ -13,6 +13,7 @@ environment, and its `main` collides with `Main.lean`'s. -/
     lake exe olean-compare --views SEARCHPATH MODULE...
     lake exe olean-compare --home SEARCHPATH MODULE...
     lake exe olean-compare --reads [--jobs=N] [--loads] [--levels] SEARCHPATH MODULE
+    lake exe olean-compare --reach [--jobs=N] [--list] SEARCHPATH MODULE
 
 Parses a lean4export stream of `MODULE...` with the stream reader and
 the same modules' import closure with the olean reader
@@ -38,6 +39,12 @@ name index of the loaded parts, Lean's clash rule and freshness), with their cou
 `--loads` prints each loaded module with its flags, in the order, for comparing with
 Lean's own `importModules`; `--levels` stops after the header fixpoint and the
 public-import closures.  Exit 0, or the failure's exit code.
+
+`--reach` is a worker's context at one module (`reach`, after `workerReads`): the reach
+from the names the module's own records read, the completion, the capture check, the
+proof flags at clashes, the context's validation, with its counts; `--list` prints each
+context record's first name and home and each completed name.  Exit 0, or the failure's
+exit code.
 
 A development tool, not a default target: the gate it gives
 (`tests/olean-compare.sh`, in the standard battery) is the statement "the
@@ -195,6 +202,44 @@ def runReads (sp : List System.FilePath) (m : Name) (jobs : Nat) (dump levelsOnl
       public-import closure {pubAvg} modules on average"
     return 0
 
+open Frontend.Olean in
+/-- `--reach`: a worker's context at one module. -/
+def runReach (sp : List System.FilePath) (m : Name) (jobs : Nat) (list : Bool) : IO UInt32 := do
+  let fail (e : CheckError) : IO UInt32 := do IO.eprintln s!"{e}"; return e.exitCode.toUInt32
+  match ← (workerReads sp m jobs : IO _) with
+  | .error e => fail e
+  | .ok w =>
+    match ← (readFiles sp m .private : IO _) with
+    | .error e => fail e
+    | .ok f =>
+      match loadView 0 m f with
+      | .error e => fail e
+      | .ok l =>
+        let own : Std.HashSet Name := l.constants.foldl (fun s c => s.insert c.name) {}
+        let cs := l.constants.toList.filter (!·.skipped)
+        let mg := mergedOfList cs
+        match declsOf (emitAll mg (cs.map (·.name)).toArray) with
+        | .error (e, _) => fail e
+        | .ok ds =>
+          let roots := ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
+            cs.foldl (fun acc c => acc ++ c.uses.toArray) #[]
+          match ← (reach sp m w own roots : IO _) with
+          | .error e => fail e
+          | .ok r =>
+            let consts := r.ctx.foldl (fun n d => n + (declConstants d).length) 0
+            let groups := (r.ctx.filter fun | .indDecl .. => true | _ => false).size
+            let mods := (r.homes.foldl (fun (s : Std.HashSet Name) h => s.insert h) {}).size
+            if list then
+              for (d, h) in r.ctx.zip r.homes do
+                IO.println s!"ctx {((Modular.declNames d).head?).getD .anonymous} {h}"
+              for (y, h) in r.completed do
+                IO.println s!"completed {y} in the view of {h}"
+            IO.println s!"{m}: own {ds.size} records; loads {w.loads.order.size} modules, \
+              {w.index.first.size} names; reach {r.ctx.size} records ({consts} constants, \
+              {groups} groups) from {mods} modules; {r.completed.size} completed; \
+              {r.searches} searches; {r.inferred} flags inferred"
+            return 0
+
 /-- Lean's `Name.isInternal`: lean4export's default roots leave out the constants so named,
 which the reader starts from, so a record only the reader has must be so named. -/
 def internalName : Name → Bool
@@ -221,6 +266,15 @@ def main (args : List String) : IO UInt32 := do
           (opts.contains "--levels")
       | none => IO.eprintln s!"not a module name: {m}"; return 3
     | _ => IO.eprintln "usage: olean-compare --reads [--jobs=N] [--loads] [--levels] SEARCHPATH MODULE"; return 3
+  | "--reach" :: rest =>
+    let (opts, rest) := rest.partition (·.startsWith "--")
+    let jobs := (opts.findSome? fun o => (o.dropPrefix? "--jobs=").bind (·.toString.toNat?)).getD 1
+    match rest with
+    | [sp, m] =>
+      match Frontend.Olean.parseModName m with
+      | some m => runReach ((sp.splitOn ":").map System.FilePath.mk) m jobs (opts.contains "--list")
+      | none => IO.eprintln s!"not a module name: {m}"; return 3
+    | _ => IO.eprintln "usage: olean-compare --reach [--jobs=N] [--list] SEARCHPATH MODULE"; return 3
   | "--views" :: sp :: mods@(_ :: _) =>
     runViews ((sp.splitOn ":").map System.FilePath.mk) (mods.toArray.filterMap Frontend.Olean.parseModName)
   | file :: sp :: mods@(_ :: _) =>
