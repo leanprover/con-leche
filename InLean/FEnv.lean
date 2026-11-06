@@ -319,6 +319,13 @@ def projBodyAt (T : Name) (nP i : Nat) (cty : Expr) : Option Expr :=
     termination_by j => i - j
   (params 0 cty).bind (fields 0)
 
+/-- Twin of `structProjBodies`: every field's body (the block check's
+`checkBlockTablesF` reads them all). -/
+def structProjBodies (T : Name) (nP nF : Nat) (cty : Expr) : Option (Array Expr) :=
+  if hasPis (nP + nF) cty then
+    (List.range nF).toArray.mapM fun i => projBodyAt T nP i cty
+  else none
+
 /-- Twin of `ProjEntry.typeAtI`: the body at the levels, the subject type's
 arguments and the subject. -/
 def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level) (targs : List Expr) (pe : Expr) :

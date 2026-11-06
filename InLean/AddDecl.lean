@@ -1,6 +1,6 @@
 module
 
-public import InLean.CheckerC
+public import InLean.IndCheck.Block
 /- `Lean.Kernel.Environment.add` and `markQuotInit` are private to
 `Lean.Environment`: inside core, the kernel calls them directly; here
 `import all` stands in for being part of that module.  The bodies that
@@ -48,7 +48,9 @@ def checkDecl (cfg : Config) (env : Kernel.Environment) (decl : Declaration) :
     | .opaqueDecl v => checkOpaqueC μ addConst fe v
     | .mutualDefnDecl vs => checkMutualC μ addConst fe vs
     | .quotDecl => checkQuotC fe
-    | .inductDecl .. => throw (.internal "inductive declarations: see `addDecl`")
+    | .inductDecl lps nparams types isUnsafe =>
+      (IC.checkInductiveDecl μ addConst lps nparams types isUnsafe).run
+        { env, coreAxioms := cfg.coreAxioms } |>.run' {}
 
 /-- **Check `decl` and add the constants it declares** — the twin of
 `Lean.Kernel.Environment.addDeclCore`.  A reject, a decline and an error
@@ -56,8 +58,6 @@ are each `Kernel.Exception.other`, the message prefixed `(InLean)` and, for a
 decline, `declined:`. -/
 def addDecl (env : Kernel.Environment) (decl : Declaration) (cfg : Config := {}) :
     Except Kernel.Exception Kernel.Environment :=
-  -- TEMPORARY (the restart, before the inductive job's port): the official kernel
-  if decl matches .inductDecl .. then env.addDeclCore 0 0 decl none else
   match checkDecl cfg env decl with
   | .ok a =>
     let env := a.consts.foldl addConst env

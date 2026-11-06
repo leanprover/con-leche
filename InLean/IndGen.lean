@@ -1,6 +1,6 @@
 module
 
-public import InLean.Decl
+public import InLean.IndMonad
 
 /-!
 # InLean: the inductive generator (unverified)
@@ -64,27 +64,16 @@ def mkRecName (I : Name) : Name := .str I "rec"
 def withStage (stage : String) (x : M α) : M α :=
   tryCatch x fun
     | .invalid m => throw (.invalid s!"{m} [{stage}]")
-    | .declined m => throw (.declined s!"{m} [{stage}]")
+    | .notImplemented m => throw (.notImplemented s!"{m} [{stage}]")
     | .internal m => throw (.internal s!"{m} [{stage}]")
 
 /-! ## The generator's local context -/
 
-/-- Run `x` at the environment `env`, the derived-data memos dropped
-(they read the environment; the core's memos stay valid as it grows). -/
-def withEnv (env : Kernel.Environment) (x : M α) : M α := do
-  modify fun s => { s with caps := {}, recs := {}, tabs := {}, guards := {} }
-  withReader (fun c => { c with env }) x
-
-/-- Drop every memo that reads constants' types or values (the core's
-and the derived data's): needed where an environment does not extend
-the previous one — the restored environment of a nested block gives the
-block's constructors other types than the auxiliary one did.  The
-free-variable table stays (its entries mention no constant's meaning). -/
-def flushAllMemos : M Unit :=
-  modify fun s => { s with
-    constTyAt := {}, constValAt := {}, ruleRhsAt := {}, whnfCoreC := {}, whnfCoreCheapC := {},
-    whnfC := {}, inferC := {}, inferIOC := {}, defeqC := {}, instC := {}, eagerMemos := {},
-    caps := {}, recs := {}, tabs := {}, guards := {} }
+/-- Drop every memo that reads constants' types or values: needed where
+an environment does not extend the previous one (the restored environment
+of a nested block gives the block's constructors other types than the
+auxiliary one did).  The free-variable table stays. -/
+def flushAllMemos : M Unit := (flushC : CheckCM Unit)
 
 /-- C++ `mk_local_decl`: a new local at the next depth, its type's
 annotations consumed. -/
@@ -93,7 +82,7 @@ def mkLocal (n : Name) (ty : Expr) (bi : BinderInfo := .default) : M Expr := do
   let fv ← mkFVar d ty.consumeTypeAnnotations
   modify fun s => { s with gdepth := s.gdepth + 1 }
   if let .fvar id := fv then
-    if let some k := fvNum? id then
+    if let some (_, k) := fvParts? id then
       modify fun s =>
         let m := s.fvNames
         let s := { s with fvNames := {} }
@@ -110,11 +99,10 @@ def mkLocalFor (t : Expr) : M Expr :=
 def localDecl (fv : Expr) : M (Name × BinderInfo × Expr) := do
   match fv with
   | .fvar id =>
-    match fvNum? id with
-    | some k =>
-      let s ← get
-      let (n, bi) := s.fvNames.getD k (`a, .default)
-      match s.fvTys[k]? with
+    match fvParts? id with
+    | some (_, k) =>
+      let (n, bi) := (← get).fvNames.getD k (`a, .default)
+      match ← (fvarTypeM? id : CheckCM (Option Expr)) with
       | some ty => return (n, bi, ty)
       | none => throwInternal "inductive: unknown local"
     | none => throwInternal "inductive: foreign local"

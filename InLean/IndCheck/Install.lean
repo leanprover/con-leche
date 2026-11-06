@@ -100,7 +100,7 @@ def checkStructFieldSorts (j : Job) (env : Kernel.Environment) (isProp large : B
     let ty ← j.infer env (nP + k) (← fvarTypeD fv)
     let u ← j.ensureSort env (nP + k) ty
     if !isProp then
-      unless ← liftLevel (Lvl.leq u s) do throwInvalid "direct sum: field universe too large"
+      unless ← (liftFueled "level comparison" (Lvl.leq u s) : CheckCM Bool) do throwInvalid "direct sum: field universe too large"
     else if large then
       unless Lvl.isZero u || idxArgs.contains fv do
         throwInvalid "direct sum: large eliminator with a non-propositional field outside the \
@@ -134,14 +134,14 @@ def checkSumCtor (j : Job) (env₀ env : Kernel.Environment) (T : Name) (lps : L
     M (CV × List Level) := do
   j.checkConstantVal env cvC
   let (_, cbody) ← unwrapOr (stripPis (nP + nF) cvC.type)
-    (.declined "direct sum: constructor telescope")
+    (.notImplemented "direct sum: constructor telescope")
   unless structCtorResidOk T lps nP nF nIdx cbody do
     throwInvalid "direct sum: invalid constructor return type"
-  let cq ← unwrapOr (← openPis nP cvC.type 0) (.declined "direct sum: constructor telescope")
-  let tq ← unwrapOr (← openPis nP cvTa.type 0) (.declined "direct sum: type former telescope")
+  let cq ← unwrapOr (← openPis nP cvC.type 0) (.notImplemented "direct sum: constructor telescope")
+  let tq ← unwrapOr (← openPis nP cvTa.type 0) (.notImplemented "direct sum: type former telescope")
   let tdoms ← tq.1.toArray.mapM fvarTypeD
   checkStructDomsAt j env 0 cq.1.toArray tdoms nP
-  let xq ← unwrapOr (← openPis nF cq.2 nP) (.declined "direct sum: constructor field telescope")
+  let xq ← unwrapOr (← openPis nF cq.2 nP) (.notImplemented "direct sum: constructor field telescope")
   let rargs := xq.2.getAppArgs.toList
   unless xq.2.getAppFn == .const T (lps.map .param) && rargs.take nP == cq.1 &&
       rargs.length == nP + nIdx do

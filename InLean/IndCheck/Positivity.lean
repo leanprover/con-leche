@@ -107,7 +107,7 @@ def nestContainer (env : Kernel.Environment) (C : Name) : Option (Nat × List (C
     | (_, nPc, _) :: _ => some (nPc, cs.map fun c => (c.1, c.2.2))
   | none => none
 
-def nestNonValid : Err := .invalid "nested positivity: non valid occurrence of the datatypes being declared"
+def nestNonValid : CheckError := .invalid "nested positivity: non valid occurrence of the datatypes being declared"
 
 def NestCtx.hiAt (ctx : NestCtx) (nf : Nat) : Nat := ctx.nP + ctx.names.length + nf
 
@@ -248,7 +248,7 @@ def nestAcceptGroup (us : List Level) (ds : List Expr) : List (Name × Expr) →
 abbrev NestRec := List NestHole → Nat → Nat → Expr → NestState → M (NestFieldKind × Expr × NestState)
 
 /-- Twin of `nestFields`. -/
-def nestFields (rec : NestRec) (prog : List NestHole) (base : Nat) (err : Err) :
+def nestFields (rec : NestRec) (prog : List NestHole) (base : Nat) (err : CheckError) :
     Nat → Nat → Expr → NestState → M (List NestFieldKind × List Expr × Expr × NestState)
   | 0, _, cur, st => pure ([], [], cur, st)
   | nF + 1, k, cur, st =>

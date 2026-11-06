@@ -98,13 +98,12 @@ def fvarTypeD (x : Expr) : M Expr := do
     | none => return default
   | _ => return default
 
-/-- The depth snapshot the pure level tests read. -/
-def depths : M (Array Nat) := do return (← get).fvDeps
+/-- The pure level tests read the depth off the variable's id; no snapshot
+is needed (kept as a parameter for the readers' shape). -/
+def depths : M (Array Nat) := pure #[]
 
-def lvlOf (deps : Array Nat) (id : FVarId) : Option Nat :=
-  match fvNum? id with
-  | some n => deps[n]?
-  | none => none
+/-- A variable's level: its interned depth. -/
+def lvlOf (_ : Array Nat) (id : FVarId) : Option Nat := EO.fvDepth? id
 
 /-- con-leche's `openPisAtFvars n e i`: open `n` binders at the variables
 of levels `i, i+1, …`, each typed by its instantiated domain. -/
@@ -122,44 +121,16 @@ def openPis (n : Nat) (e : Expr) (i : Nat) : M (Option (List Expr × Expr)) := d
 
 /-- Every variable of `e` (not through annotations) at level `i`. -/
 def fvarsAtLvl (deps : Array Nat) (i : Nat) (e : Expr) : Array FVarId :=
-  (fvarsOf e).filter fun id => lvlOf deps id == some i
+  (EO.fvarIds e).filter fun id => lvlOf deps id == some i
 
 /-- con-leche's `e.abstract1 i 0`: the level-`i` variables to `bvar 0`. -/
 def abstractLvl (i : Nat) (e : Expr) : M Expr := do
-  if !e.hasFVar then return e
-  let ids := fvarsAtLvl (← depths) i e
-  if ids.isEmpty then return e
-  let c : Expr := .fvar ids[0]!
-  let e' := if ids.size == 1 then e else
-    e.replaceI fun | .fvar id => if ids.contains id then some c else none | _ => none
-  abstractChecked e' #[c]
+  (abstractRangeM e i 1 : CheckCM Expr)
 
 /-- con-leche's `Expr.abstractPrefix k 0`: levels `0 … k-1` to `bvar (k-1)
 … bvar 0`. -/
 def abstractPrefix (k : Nat) (e : Expr) : M Expr := do
-  if !e.hasFVar then return e
-  let deps ← depths
-  let ids := (fvarsOf e).filter fun id => match lvlOf deps id with
-    | some d => d < k
-    | none => false
-  if ids.isEmpty then return e
-  -- one representative per level, every variable of that level mapped to it
-  let mut reps : Array (Option Expr) := Array.replicate k none
-  for id in ids do
-    if let some d := lvlOf deps id then
-      if reps[d]!.isNone then reps := reps.set! d (some (.fvar id))
-  let e' := e.replaceI fun
-    | .fvar id => match lvlOf deps id with
-      | some d => if d < k then reps[d]! else none
-      | none => none
-    | _ => none
-  -- a level that does not occur gets a fresh, unused stand-in
-  let mut xs : Array Expr := #[]
-  for d in [0:k] do
-    match reps[d]! with
-    | some x => xs := xs.push x
-    | none => xs := xs.push (.fvar ⟨.num `_inlean_absent d⟩)
-  abstractChecked e' xs
+  (abstractRangeM e 0 k : CheckCM Expr)
 
 /-- con-leche's `closeTelescope`. -/
 def closeTelescope : List Expr → Nat → Expr → M Expr
@@ -178,11 +149,8 @@ def closeLams : List Expr → Nat → Expr → M Expr
 /-- The types of the variables reachable from `e` (hereditary). -/
 def annotationsOf (e : Expr) : M (Array Expr) := do
   if !e.hasFVar then return #[]
-  let s ← get
-  return (← fvarClosure e).toArray.filterMap fun id =>
-    match fvNum? id with
-    | some n => s.fvTys[n]?
-    | none => none
+  let tys := (← (get : CheckCM CState)).fvTys
+  return (← (fvarClosureM e : CheckCM (Std.HashSet FVarId))).toArray.filterMap (fvTyOf tys)
 
 /-- con-leche's `Expr.mentionsAnyConst` (through annotations; a
 projection names its structure). -/
@@ -212,7 +180,7 @@ variable reachable from `e` (hereditary), `0` for none. -/
 def fvarB (e : Expr) : M Nat := do
   if !e.hasFVar then return 0
   let deps ← depths
-  return (← fvarClosure e).fold (init := 0) fun acc id =>
+  return (← (fvarClosureM e : CheckCM (Std.HashSet FVarId))).fold (init := 0) fun acc id =>
     match lvlOf deps id with
     | some d => max acc (d + 1)
     | none => acc
@@ -235,7 +203,7 @@ def eraseFVarTys (e : Expr) : M Expr := do
   if !e.hasFVar then return e
   let deps ← depths
   let mut m : Std.HashMap FVarId Expr := {}
-  for id in fvarsOf e do
+  for id in EO.fvarIds e do
     if let some i := lvlOf deps id then
       m := m.insert id (← fvar i (.sort .zero))
   return e.replaceI fun
@@ -259,7 +227,7 @@ def constsResolve (env : Kernel.Environment) (e : Expr) : M Bool := do
 
 /-- con-leche's `Expr.allLevelParamsDefined` (through annotations). -/
 def allLevelParamsDefined (lps : List Name) (e : Expr) : M Bool := do
-  let ok (t : Expr) : Bool := !t.hasLevelParam || (levelParamsOf t).all lps.contains
+  let ok (t : Expr) : Bool := !t.hasLevelParam || (EO.levelParams t).all lps.contains
   if !ok e then return false
   return (← annotationsOf e).all ok
 
@@ -319,7 +287,7 @@ def lvlsEquiv : List Level → List Level → Bool
 def isNeverZero : Level → Bool := Ind.isNeverZero
 
 /-- con-leche's `unwrapOr`. -/
-def unwrapOr (o : Option α) (err : Err) : M α :=
+def unwrapOr (o : Option α) (err : CheckError) : M α :=
   match o with
   | some a => pure a
   | none => throw err

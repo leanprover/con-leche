@@ -310,6 +310,11 @@ where
           | none => []
         closure tys fuel (more ++ todo) (seen.insert id)
 
+/-- The free variables reachable from `e`, hereditarily through their types. -/
+def fvarClosureM (e : Expr) : CheckCM (Std.HashSet FVarId) := do
+  if !e.hasFVar then return {}
+  return leafGuardM.closure (← get).fvTys (2 ^ 62) (EO.fvarIds e).toList {}
+
 /-! ## The head-symbol readers (twin of `ConLeche/Kernel/PropRead.lean`) -/
 
 /-- Twin of `residualPW`. -/
