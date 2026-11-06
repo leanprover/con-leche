@@ -325,7 +325,8 @@ Read from the outside in:
 1. **The driver** (`ConLeche/Driver/Cli.lean`, `Main.lean`). `main` is
    plumbing, a few lines that are read and not proved: it sets the
    runtime's abort variables, runs the generic `runArgs` at `IO`,
-   flushes the output and exits with the code `runArgs` returned.
+   flushes the output and exits with the code `runArgs` returned, or
+   with 3 if the flush fails.
    `runArgs` reads the arguments into a request (a
    stream), runs the request's driver
    ([function `runReq` in `ConLeche/Driver/Dispatch.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/Dispatch.lean#L31))
