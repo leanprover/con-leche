@@ -4,6 +4,7 @@ public import ConLeche.Model.DeclsRun
 public import ConLeche.Modular
 import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.Cached.DeclPushes
+import ConLeche.Verify.PinRen
 
 public section
 
@@ -15,9 +16,10 @@ its context one after another by the fold's step (`DeclsRun`), carry a covered m
 context to one of the module's own environment that keeps every context leaf, and whose leaf at
 every name the module flags as a proof (`FlagsOk`) is the canonical proof `.prf`.  Each step is a
 pure `checkDecl` run (`checkDeclStepC_run`), and `declStep_agrees` installs it.  A flagged
-definition or opaque record passed the theorem record's check (`ProofDecl`), so its type is one
-the checker finds to be a proposition (`PropTypeRun`), which is where its install gives it the
-canonical proof (`DeclProofLeaf`).
+definition or opaque record passed the theorem record's check (`ProofDecl`), and a flagged axiom
+record's type is inferred to be a proposition, so either type is one the checker finds to be a
+proposition (`PropTypeRun`), which is where its install gives it the canonical proof
+(`DeclProofLeaf`).
 -/
 
 namespace ConLeche.Model.Modular
@@ -40,9 +42,10 @@ theorem find?_pushDelta_isSome {E : Env} {L : List ConstantInfo} {Q : List ProjT
   · obtain ⟨c, hc, rfl⟩ := List.mem_map.mp h
     exact ⟨c, .inl hc, rfl⟩
 
-/-- **A flagged proof's record is a proof**: a theorem, or a definition or opaque record whose
-type the theorem record's check finds to be a proposition, at a name with no fast path.  Its one
-name gets the canonical proof from its install (`DeclProofLeaf`). -/
+/-- **A flagged proof's record is a proof**: a theorem, a definition or opaque record whose type
+the theorem record's check finds to be a proposition, at a name with no fast path, or an axiom
+record whose type is one.  Its one name gets the canonical proof from its install
+(`DeclProofLeaf`). -/
 theorem proofDecl_leaf {E : Env} (henv : EnvWF E) {d : Declaration}
     (hpd : ProofDecl .verified pins E d) {acval : Name → (Name → Nat) → Term}
     (h : DeclProofLeaf E d acval) :
@@ -74,7 +77,21 @@ theorem proofDecl_leaf {E : Env} (henv : EnvWF E) {d : Declaration}
     obtain rfl : n = cv.name := List.mem_singleton.mp hn
     obtain ⟨hred, r, hr⟩ := hpd
     exact h ⟨hred, (hthm hr).2⟩
-  | axiomDecl _ => exact hpd.elim
+  | axiomDecl cv =>
+    -- the name it stores, if any: `Quot.sound`'s pin at its name, no name for `sorryAx`
+    intro n hn
+    simp only [declNames, declConstants] at hn
+    by_cases hq : cv.name = quotSoundName
+    · simp only [hq, ↓reduceIte, List.map_cons, List.map_nil, List.mem_singleton] at hn
+      have hn' : n = cv.name := by rw [hn, hq]; exact ConLeche.Verify.atLps_name _ _
+      subst hn'
+      exact h ⟨by rw [hq]; decide, hpd⟩
+    · by_cases hs : cv.name = sorryAxName
+      · have hsq : sorryAxName ≠ quotSoundName := by decide
+        simp [hs, hsq] at hn
+      · simp only [hq, hs, ↓reduceIte, List.map_cons, List.map_nil, List.mem_singleton] at hn
+        subst hn
+        exact h ⟨hs, hpd⟩
   | quotDecl _ _ => exact hpd.elim
   | indDecl _ _ => exact hpd.elim
 

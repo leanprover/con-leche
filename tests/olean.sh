@@ -518,6 +518,22 @@ reach_ "a captured name" 1 "name capture at foo, read by module DgCapH" "$MSP" D
 # the definition's type is inferred to be a proposition, so one key (Lean merges
 # them)
 reach_ "a definition of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" PdM
+# AxA's and AxB's `axiom Lean.trustCompiler : True` meet, both axioms at their homes: Lean
+# merges them (`isPropCheap`), so must the reach (task #444): the flag inferred, one key.
+# Every home accepts its own axiom (the pinned statement), and the merged read the closure
+reach_ "two axioms of one propositional statement meet: the flag inferred" 0 "1 flags inferred" "$MSP" AxM
+case_ "…the homes and the merged read" 0 --olean --search-path=$MSP AxA AxB AxM
+# AxI's `axiom axi : id True` meets AxIT's theorem (Lean's theorem/axiom arm, no isPropCheap):
+# the axiom's type inferred to be a proposition (the home's check declines the axiom)
+reach_ "an axiom of a proposition meets a theorem: the flag inferred" 0 "1 flags inferred" "$MSP" AxIM
+case_ "…the axiom's home declines it" 2 --olean --search-path=$MSP AxI
+# AxNA's `axiom axn : Nat` and AxNB's (as AxNX's files; Lean's import refuses the pair):
+# not a proposition, rejected by the clash rule, as by Lean
+d="$TMPDIR/con-leche-olean-axn"
+rm -rf "$d"; cp -r "$LIB" "$d"
+swap_ "$d" AxNX AxNB
+reach_ "two axioms of one type that is not a proposition meet" 1 "AxNA and AxNX store different constants named axn" "$d:$INIT" AxNM
+rm -rf "$d"
 # LdgA's and LdvA's import of their Q made private (a header Lean does not
 # write for a public statement reading Q): the group's constructor reads a name
 # N's view lacks, completed in LdgA's (LdvA's) view as its statement; with the
