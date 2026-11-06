@@ -186,9 +186,9 @@ theorem StoredT.trS {t : Expr} {c : ConLeche.Expr} (h : StoredT t c) (s : InLean
     nparams := c.nparams, nIdx := c.nIdx, ctors := c.ctors.map toName }
 
 /-- **The environment's views** (O4 with `EnvRelI`/`EnvDomI`/`EnvDefnI`, P3's):
-InLean's view of an inductive family or a constructor is the translation of
-con-leche's record at the translated name, and InLean has none exactly where
-con-leche records none. -/
+InLean's view of an inductive family, a constructor or a projection-table
+entry is the translation of con-leche's record at the translated name, and
+InLean has none exactly where con-leche records none. -/
 structure EnvViewI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
   ind : ∀ n cv caps, fe.indView? n = some (cv, caps) →
     ∃ ccv, CVRel cv ccv ∧ env.find? (toName n) = some (.indInfo ccv (toCaps caps))
@@ -197,6 +197,10 @@ structure EnvViewI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop where
     ∃ ccv, CVRel cv ccv ∧ env.find? (toName n) = some (.ctorInfo ccv nP nF)
   ctorNone : ∀ n, fe.ctorView? n = none →
     ∀ ccv nP nF, env.find? (toName n) ≠ some (.ctorInfo ccv nP nF)
+  proj : ∀ T i e, fe.findProj? T i = some e → ∃ ce, env.findProj? (toName T) i = some ce ∧
+    ce.ctor = toName e.ctor ∧ ce.numFields = e.numFields ∧ ce.numParams = e.numParams ∧
+    ce.levelParams = e.levelParams.map toName
+  projNone : ∀ T i, fe.findProj? T i = none → env.findProj? (toName T) i = none
 
 /-- A family's result sort through the translation. -/
 theorem formerResSort_TrS (s : InLean.CState) (t : Expr) :

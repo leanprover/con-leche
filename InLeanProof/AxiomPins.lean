@@ -583,3 +583,20 @@ info: 'InLeanProof.whnfCoreBodyI_specI' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.whnfCoreBodyI_specI
+
+/--
+info: 'InLeanProof.whnfAppI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfAppI_specI
+
+/--
+info: 'InLeanProof.reduceProjCoreI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.reduceProjCoreI_specI
