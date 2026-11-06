@@ -111761,3 +111761,57 @@ the completion builds `Basic`'s view from the name tables of its whole fixpoint 
 per-home cost).
 
 **Gates** on the final tree: below, with the commit.
+
+## TASK #467 — the import graph check, and the trust assumption for several runs (2026-11-06, agent/467-graph)
+
+#460's lane #467, on `modular` (off c11a3a86f).  Stage 1: `--check-graph` and the assumption.
+Stage 2 (`main_modular_no_False`) composes #466's worker theorem and waits for #466 to land.
+
+**The check** (`ConLeche/Driver/Graph.lean`).  `con-leche [--jobs=N] --check-graph
+--search-path=DIRS -- ROOT…`: the roots' closure read level by level (`closureLevels`, the
+headers of a level on `CheckerIO.parMapExcept`), each module's imports by `moduleImports` (the
+header read every reader of the module makes, master's `readImportsAt`), over imports of every
+kind (public, private, `import all`, `meta`: #460 §1, a completion's copy may come from a module
+only a private import reaches).  The order is Kahn's worklist over positions (`kahn`; an import
+listed twice is two edges), the ranks the order's positions, and the validation `verdict`:
+every root in the closure, every module ranked, the ranks distinct (`distinctGo`), every import
+to a module of the closure of a smaller rank.  A cycle is printed (`cycleOf`: from the first
+module outside the order, an import outside it, until one repeats): "import cycle: HidUse →
+HidA → HidUse".  Exit codes: 0 acyclic; 1 a cycle, or a module on no directory of the search
+path (`missingOn`, consulted only after `moduleImports` fails, so the accepting path is
+`moduleImports` itself); 3 an unreadable header or a layout `findModule` refuses.  Note: the
+merged `--olean` read keeps exit 3 for a missing module (`findModule`'s `.internal`); the graph
+check says 1, as the brief asks.  Ported from `cfsg`'s #425/#426 in idea; no `--import-all` or
+`--compare` edges (both out of scope by #460's rulings 9).
+
+**The theorems** (`ConLeche/Verify/Driver/Graph.lean`, at the three standard axioms, pinned in
+`Axioms.lean`):
+* `checkGraphG_ok`: at every outcome of `checkGraphG` in `ModelIO` that is exit 0, `∃ C rk`:
+  each `e ∈ C` has `moduleImports sp e.1` answering `e.2` on the snapshot, every root and every
+  import of a module of `C` is in `C`, every edge decreases in `rk`, `rk` one-to-one on `C`.
+  From `verdict_none`/`verdict_rank` and `closureLevels_good`; Kahn's algorithm has no theorem.
+* `checkGraphG_closure`: every module of `InClosure sp fs roots` (the specification's closure,
+  over the private views' imports) is in `C`, by `moduleImports_of_view`: a view's imports are
+  its header read's answer.
+* `runArgs_graph_accept` (`Verify/Driver/Main.lean`): an exit 0 of `runArgs ["--check-graph",
+  "--search-path=" ++ dirs, "--", root]` is an exit 0 of `checkGraphG (searchPathOf dirs) [r]
+  jobs` for some `jobs`.  `parseArgs_flag` gained the literal `--check-graph`'s hypothesis and
+  `runArgs_oleans_accept` the hypothesis that the arguments do not ask for the graph check.
+
+**The assumption for several runs** (ruling 11 of #460), stated in `CheckerIO.lean`'s header,
+the Challenge and OVERVIEW §10: a statement about several runs (the graph check and the
+per-module workers) assumes (1)–(3) of every run on one snapshot for all of them; nothing is
+assumed of the scheduler, the statement is a composition of the runs' exit-0 facts.
+
+**Fixtures** (`tests/olean.sh`, 164 → 177): a DAG (HidUse: 3 modules, 3 edges), at one job, a
+part of the closure, two roots, `Init`'s closure of TeqBoth (656 modules, 3 410 edges); a missing
+import (1) and a missing root (1); usage errors with `--olean` and without a search path (3);
+a direct cycle by HidA's header's import renamed to HidUse (1, from both roots, the cycle
+pinned); a header cut to 40 bytes (3); a root whose imports field disagrees with its header
+prefix (0: the graph check reads the prefix only; the merged read says 3).
+
+**Numbers** (`perf stat -e instructions:u`, one run each; the v4.35.0 Mathlib checkout, search
+path its build, its eight packages' builds and the toolchain's `lib/lean`): `--check-graph --
+Mathlib`: 10 976 modules, 59 642 import edges; 6.46 G instructions at `--jobs=4`, 6.26 G at
+`--jobs=1`; peak VmHWM 56 MB.  About 590 k instructions per module, nearly all locating the
+module (`findModule`: three files on each of ten directories, real paths) and the header read.

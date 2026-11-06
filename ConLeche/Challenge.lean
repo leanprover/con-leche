@@ -129,6 +129,12 @@ the process, and `--trusted` mode is outside both.  See README.md.
   type former whose declared type is headed by a definition reduces at
   the importer's context as at its source.  It is stated so that it
   is visible; a separate task (#469) is to prove it.
+
+The statements about the binary's runs are in `ConLeche/MainTheorem.lean`, under the assumption
+`ConLeche/Frontend/CheckerIO.lean` states: a run's file operations answer on one snapshot of the
+files.  A statement about several runs (the import graph check, `--check-graph`, and the
+per-module checks of the modules it numbers) assumes one snapshot for all of them: the files do
+not change while the runs read them.
 -/
 
 namespace ConLeche
