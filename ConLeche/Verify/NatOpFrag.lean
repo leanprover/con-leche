@@ -238,7 +238,7 @@ theorem storedNoLevels_of_ctorOk {env : Env} {n : Name}
 laws carry, `natOpDepsOk_inv`), as the fragment lemma wants them. -/
 theorem natOpGuard_stored {env : Env} {c : Name}
     (h : natOpGuard env c = true)
-    (hdeps : (natOpDeps c).all (natOpStoredOk env) = true) :
+    (hdeps : (natOpDeps c).all (natOpPinnedOk env) = true) :
     storedNoLevels env natName ∧ storedNoLevels env natZeroName ∧
     storedNoLevels env natSuccName ∧
     (∀ n ∈ natOpDeps c, storedNoLevels env n) ∧
@@ -258,13 +258,9 @@ theorem natOpGuard_stored {env : Env} {c : Name}
       rw [hfd]; exact (Bool.and_eq_true _ _ ▸ hind : _ ∧ _).1
     · exact nomatch hind
   · intro n hn
-    have hd := List.all_eq_true.mp hdeps n hn
-    unfold natOpStoredOk at hd
+    obtain ⟨ci, hfd, hl, -⟩ := natOpPinnedOk_inv (List.all_eq_true.mp hdeps n hn)
     unfold storedNoLevels
-    split at hd
-    · next _ _ _ hfd =>
-      rw [hfd]; exact (Bool.and_eq_true _ _ ▸ hd : _ ∧ _).1
-    · exact nomatch hd
+    rw [hfd]; dsimp only; rw [hl]; rfl
   · intro hc
     rw [ite_eq_left hc] at hbool
     simp only [Bool.and_eq_true] at hbool

@@ -56,14 +56,14 @@ theorem natOps_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (hT : env.findTable? t.structName = none)
     {m₂ : EnvModel V ⟨env.consts, t :: env.tables⟩} (hac : m₂.acval = mp.base2.acval)
     (φ : Name → Nat) : NatOps m₂ φ := by
-  intro c hcN cv v hint hf
-  obtain ⟨hg, hpin, hlaws⟩ := mp.nat_ops φ c hcN cv v hint hf
+  intro c hcN ci hf
+  obtain ⟨hg, hpin, hlaws⟩ := mp.nat_ops φ c hcN ci hf
   obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg hpin
   obtain ⟨ciN, hfN, -⟩ := ConLeche.Verify.storedNoLevels_exists hN
   refine ⟨hg, hpin, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
   obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg hpin eq hq
-  have hf0 : env.find? c = some (.defnInfo cv v hint) := hf
+  have hf0 : env.find? c = some ci := hf
   have hfE : (env.find? c).isSome = true := by rw [hf0]; rfl
   have hfN' : (env.find? ConLeche.natName).isSome = true := by rw [hfN]; rfl
   refine ⟨L, R, ?_, ?_, ?_⟩
@@ -141,7 +141,6 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     div_mod := mp.div_mod
     eq_law := mp.eq_law
     caps_ok := capsOk_pushTable mp hT hac
-    op_defn := fun c hn hs => mp.op_defn c hn hs
     rec_rules := fun φ n cv mI rP isK rules hf rl hmem =>
       recRuleLaw_ext mp hx φ hf hmem
     reduce_ops := mp.reduce_ops
