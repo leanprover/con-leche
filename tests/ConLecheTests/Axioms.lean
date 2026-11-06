@@ -314,6 +314,36 @@ info: 'ConLeche.Driver.runArgs_graph_accept' depends on axioms: [propext, Classi
 #print axioms ConLeche.Driver.runArgs_graph_accept
 
 /--
+info: 'ConLeche.Driver.Graph.graphOf_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.Graph.graphOf_ok
+
+/--
+info: 'ConLeche.Driver.reach_within' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reach_within
+
+/--
+info: 'ConLeche.Driver.modTables_within' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.modTables_within
+
+/--
+info: 'ConLeche.Driver.checkModularG_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.checkModularG_accept
+
+/--
+info: 'ConLeche.Driver.runArgs_modular_accept' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.runArgs_modular_accept
+
+/--
 info: 'ConLeche.Driver.recordReads_scoped' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in

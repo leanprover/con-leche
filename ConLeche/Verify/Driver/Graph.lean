@@ -173,8 +173,8 @@ theorem verdict_rank {roots : List Name} {C : List Node} {rk : Name → Option N
 
 /-! ## The check -/
 
-/-- **An accepted graph check, in the model**: if an outcome of `checkGraphG` on a snapshot `fs`
-is the exit code 0, there is a list `C` of modules with their imports — the closure — and a rank
+/-- **The graph checked, in the model**: if an outcome of `graphOf` on a snapshot `fs` is a
+closure `C`, there is a list `C` of modules with their imports — the closure — and a rank
 function `rk` such that
 
 * each module's imports are what its header read answers on the snapshot (`moduleImports`; the
@@ -184,6 +184,32 @@ function `rk` such that
 
 So `C` ordered by `rk` numbers the closure with each module after everything it imports, by
 edges of every kind; in particular the graph is acyclic. -/
+theorem graphOf_ok {roots : List Name} {jobs : Nat} {C : Array Node}
+    (h : (graphOf sp roots jobs : ModelIO _) fs (.ok (.ok C))) :
+    ∃ rk : Name → Nat,
+      (∀ e ∈ C.toList, (moduleImports sp e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+      (∀ r ∈ roots, r ∈ C.toList.map (·.1)) ∧
+      (∀ e ∈ C.toList, ∀ i ∈ e.2, i.module ∈ C.toList.map (·.1) ∧ rk i.module < rk e.1) ∧
+      (C.toList.map fun e => rk e.1).Nodup := by
+  simp only [graphOf, ModelIO.bind_ok] at h
+  obtain ⟨x, hx, h⟩ := h
+  rcases x with err | C'
+  · simp at h
+  · simp only at h
+    cases hc : cycleOf (depsOf (indexOf C') C') (kahn (depsOf (indexOf C') C')) with
+    | some cyc => simp [hc] at h
+    | none =>
+      simp only [hc] at h
+      cases hv : verdict roots C'.toList (rankOf (indexOf C') (ranksOf C'.size (kahn (depsOf (indexOf C') C')))) with
+      | some e => simp [hv] at h
+      | none =>
+        simp only [hv, ModelIO.pure_iff, Except.ok.injEq] at h
+        subst h
+        have hgood := closureLevels_good _ _ _ _ _ (by simp) hx
+        obtain ⟨rk, h1, h2, h3⟩ := verdict_rank hv
+        exact ⟨rk, hgood, h1, h2, h3⟩
+
+/-- **An exit 0 of the graph check**: its closure, with `graphOf_ok`'s facts. -/
 theorem checkGraphG_ok {roots : List Name} {jobs : Nat}
     (h : (checkGraphG sp roots jobs : ModelIO UInt8) fs (.ok 0)) :
     ∃ C : List Node, ∃ rk : Name → Nat,
@@ -202,18 +228,8 @@ theorem checkGraphG_ok {roots : List Name} {jobs : Nat}
   rcases x with err | C
   · simp only [diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
     exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
-  · simp only
-    split
-    · simp only [diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
-      exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
-    · split
-      · simp only [diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
-        exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
-      · rename_i hv
-        simp only [outLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
-        have hgood := closureLevels_good _ _ _ _ _ (by simp) hx
-        obtain ⟨rk, h1, h2, h3⟩ := verdict_rank hv
-        exact ⟨C.toList, rk, hgood, h1, h2, h3⟩
+  · simp only [outLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
+    exact ⟨C.toList, graphOf_ok hx⟩
 
 /-- **The closure by the specification is in `C`**: where every module of `C` has the imports
 its header read answers and every import of one is in `C`, every module of the roots' closure

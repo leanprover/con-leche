@@ -26,7 +26,7 @@ public section
 namespace ConLeche
 
 /-- **`a` refines `b` on the snapshot `fs`**: every outcome of `a` there is one of `b`. -/
-def ModelIO.Within {α : Type} (fs : FS) (a b : ModelIO α) : Prop := ∀ o, a fs o → b fs o
+@[expose] def ModelIO.Within {α : Type} (fs : FS) (a b : ModelIO α) : Prop := ∀ o, a fs o → b fs o
 
 namespace ModelIO.Within
 

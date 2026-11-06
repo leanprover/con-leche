@@ -107,7 +107,8 @@ def synopsis : String := String.intercalate "\n" [
   "  con-leche [OPTIONS] [--] FILE.ndjson",
   "  con-leche [OPTIONS] --olean --search-path=DIRS [--] MODULE...",
   "  con-leche [OPTIONS] --check-graph --search-path=DIRS [--] MODULE...",
-  "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE"]
+  "  con-leche [OPTIONS] --olean --module --search-path=DIRS [--] MODULE",
+  "  con-leche [OPTIONS] --olean --modular --search-path=DIRS [--] MODULE"]
 
 /-- The line after a usage error. -/
 def tryHelp : String := "Try 'con-leche --help' for more information."
@@ -135,6 +136,8 @@ def helpText : String := String.intercalate "\n" [
   "                      and that every import is on the search path",
   "  --module            Check MODULE's own declarations alone, against what",
   "                      they read of the modules it loads",
+  "  --modular           Check every module of MODULE's closure as --module",
+  "                      does, in this one process",
   "",
   "Exit status:",
   "  0  accepted",
@@ -167,6 +170,9 @@ structure Args where
   /-- `--module`: with `--olean`, the one module named is checked alone, against the records
   of the modules it loads that its own records read (`checkModuleG`). -/
   module : Bool := false
+  /-- `--modular`: with `--olean`, every module of the one root's closure checked as `--module`
+  checks it, in one process (`checkModularG`). -/
+  modular : Bool := false
   files : Array String := #[]
   bad : Option String := none
 
@@ -202,6 +208,7 @@ def parseArgs : List String → Args → Args
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | "--check-graph" :: rest, a => parseArgs rest { a with checkGraph := true }
   | "--module" :: rest, a => parseArgs rest { a with module := true }
+  | "--modular" :: rest, a => parseArgs rest { a with modular := true }
   | s :: rest, a =>
     if let some v := flagValue "--progress=" s then
       match progressPace v with
@@ -307,6 +314,16 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
         let jobs := a.jobs.getD
           (let hw := (System.Platform.Internal.getHardwareConcurrency ()).toNat
            if hw = 0 then 1 else hw)
+        if a.modular then
+          -- `--modular`: every module of one root's closure, each as its worker checks it
+          match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty,
+              a.module with
+          | [m], true, false => return ← runReq (.modular a.searchPath m a.mode a.progress jobs)
+          | _, _, _ =>
+            eprintln "con-leche: --modular takes one module name, and neither --constant nor \
+              --module"
+            eprintln tryHelp
+            return 3
         if a.module then
           -- `--module`: one module, checked alone (`checkModuleG`)
           match a.files.toList.filterMap Frontend.Olean.parseModName, a.constants.isEmpty with
@@ -317,8 +334,8 @@ def runArgs {m : Type → Type} [CheckerIO m] (args : List String) : m UInt8 :=
             return 3
         return ← runReq (.oleans a.searchPath (a.files.filterMap Frontend.Olean.parseModName)
           a.rootConstants a.mode a.progress jobs)
-      if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module then
-        eprintln "con-leche: --search-path, --constant and --module take --olean"
+      if !a.searchPath.isEmpty || !a.constants.isEmpty || a.module || a.modular then
+        eprintln "con-leche: --search-path, --constant, --module and --modular take --olean"
         eprintln tryHelp
         return 3
       match a.files.toList with

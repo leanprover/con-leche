@@ -250,15 +250,22 @@ def readView {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) (l
     | some d => pure (.ok d)
     | none => pure (.error (viewError m f level))
 
-/-- **One loaded part's name positions**, read off its files. -/
-def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Name × OLeanLevel) :
+/-- **One part's name positions**, read off its files at their location. -/
+def readPartNamesAt {μ : Type → Type} [CheckerIO μ] (loc : Located) (x : Name × OLeanLevel) :
     μ (Except CheckError NamePositions) := do
-  match ← readFiles sp x.1 x.2 with
+  match ← readFilesAt loc x.1 x.2 with
   | .error e => pure (.error e)
   | .ok f =>
     match readNamePositions f x.2 with
     | some ps => pure (.ok ps)
     | none => pure (.error (viewError x.1 f x.2))
+
+/-- **One part's name positions**, located on the search path. -/
+def readPartNames {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Name × OLeanLevel) :
+    μ (Except CheckError NamePositions) := do
+  match ← findModule sp x.1 with
+  | .error e => pure (.error e)
+  | .ok loc => readPartNamesAt loc x
 
 /-- **What a worker reads off the files**: a module's imports (off the start of its
 `M.olean`), the files of a view, a part's name positions.  On the search path
