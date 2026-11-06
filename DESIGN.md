@@ -110695,3 +110695,94 @@ About 13.5–22.5 k lines.
   master's job, split by file).
 * **P4, assembly** (one lane): O8, then `AddDeclSound` proved and the pin of
   its axioms.
+
+### Lane P1: the leaf obligations O1, O2, O3, O9 (2026-11-06)
+
+All proved, no `sorry`, no new axiom; each theorem's axioms are pinned in
+`InLeanProof/AxiomPins.lean` (the stop-gap `mkData` axioms exactly where a
+cutoff reads a cached field).  New files `InLeanProof/FVar.lean` (O2, O3),
+`InLeanProof/Range.lean` (O9); O1 in `InLeanProof/Ops.lean`.  About 2.3 k
+lines, one session.
+
+**P0's table invariant was false as stated, and is restated.**
+`FVTableOK.inj` said two numbers at one depth whose types translate equal are
+one number.  Numbers are global and classes per depth (`mkFVarM`): the same
+type opened at depth 0 and at depth 1 gets numbers 0 and 1, and the old
+translation read `fvId 1 0` and `fvId 1 1` both as `.fvar 1 ty` — reachable,
+so `CSOKI` could not have been kept.  The proof's table now carries the
+classes (`FVarTable.cls`) and translates only a *live* pair, a number read at
+the depth it was interned at (`FVarTable.live`); `FVTableOK` states what
+`mkFVarM` keeps: class entries hash to their class, one class's numbers have
+types unequal after `erase`, every interned type translates at its number,
+the `keyEq` fast path points at a live number of an `erase`-equal type.  No
+executable code changed.
+
+**O2** (`FVar.lean`): `erase_eq_of_toExpr` — two terms translating equal under
+an injective id translation are equal after `erase`, through a left inverse
+`fromExpr`; so `clEq_iff_TransS`: at a state in order, the checker's
+equality is equality of translations.  `clHash_of_erase`: `EO.clHash` (its
+memoised walk proved equal to a structural spec) agrees on `erase`-equal
+terms.
+
+**O3** (`FVar.lean`): `FVTableOK.trans_inj` (the table's translation is
+injective, by strong induction on the number) and `mkFVarM_ok`: interning
+keeps the invariant, answers the free variable con-leche's `.fvar d cty` is,
+only extends the translation, and touches no field but the table's (all
+three paths: the `keyEq` fast path, a class hit, a fresh number).
+`TransS_fvar`: what `fvarTypeM?` reads is the type the translation carries.
+`FVarTable.trans_depthOK`: an id translates at the depth it carries.
+
+**O1** (`Ops.lean`), each against con-leche's *pure* operation (the cached
+ones meet the same in `Verify/Cached/OpsC.lean`): `toExpr_instantiate1`,
+`toExpr_instantiateRev` (`instantiateRev_spec`'s right side), the earlier
+`toExpr_instantiate`/`toExpr_liftLooseBVars`; `toExpr_abstractDepthsFrom`
+(`abstractRange`, unless the walk wrote `EO.rangePoison`, which the call site
+reports); `toExpr_instantiateLevelParams` (`Expr.instantiateLevelParams` at
+the translated parameters and levels, on terms with no free variable — every
+checker site; con-leche's descends into a free variable's type annotation,
+InLean's id has none); the transparent spines (`toExpr_getAppFnT`,
+`toExpr_getAppArgsT`, `getAppNumArgsT_eq`); the guards on a term in range
+(`looseBVarRange_toExpr`: the cached range is con-leche's `bvarBound`;
+`hasFVar_toExpr`); `anyNode_spec` (the memoised fold is its plain spec) and
+`toExpr_hasLooseBVar`.
+
+**O9** (`Range.lean`): `RangeOk_instantiate` (at closed values in range),
+`RangeOk_abstractDepthsFrom`, `RangeOk_of_inRange` (the check the inductive
+job runs on the generator's output gives `RangeOk` and no metavariable).
+
+**Finding: level instantiation is in range only under a depth condition**
+(`RangeOk_instantiateLevelParams`, with `depthS_subst_le` bounding the
+growth by the values' depth).  `Lvl.subst` can deepen a level past C's bound
+(2^24 − 1), and nothing at run time stops it: C's `Level.mkData` would abort
+first, but in the logic the term exists and its cached fields are
+unspecified, so a later cutoff could misread it.  Not changed (P1 changes no
+executable code); the options are a depth check at the level-instantiation
+call sites (the substituted levels only; cheap) or a premise bounding the
+input levels.  To be ruled before P2 states the instantiation steps.
+
+**Notes for the later lanes.**
+* `InLean/FEnv.lean`'s projection-body builders instantiate with *open*
+  values (`.bvar (nP - k)`, `.proj T j (.bvar 0)`); con-leche's
+  `instantiateList` does not lift its replacements, so the O1 lemmas (closed
+  values) do not cover them: O4 must relate them to the operation
+  con-leche's own builder uses.
+* Not covered: `EO.lowerLooseBVars`, `EO.beta`, `EO.stripMData`, `EO.replace`
+  and the `collect`-based walks (`usedConstants`, `levelParams`, `fvarIds`),
+  which the core's knot does not call; the declaration and inductive lanes
+  (O6, O7) state what they need of them.  `instantiateRevRange` is
+  `instantiateRev` on an extracted array (a `SubstReads` of the extract).
+
+**Obligations after P1:**
+
+| # | obligation | state |
+|---|---|---|
+| O1 | operations against con-leche's | proved for the knot's operations; the walks above for O6/O7 |
+| O2 | converse of `toExpr_of_clEq` | proved |
+| O3 | interning keeps `FVTableOK` | proved |
+| O4 | at-use readers = master's install | open (P3) |
+| O5 | the knot | open (P2) |
+| O6 | declaration step | open (P3) |
+| O7 | inductive job | open (P3) |
+| O8 | assembly | open (P4) |
+| O9 | range preservation | proved, level instantiation conditional (finding above) |
+| O10 | `uncertifiedNatOps` window | open |

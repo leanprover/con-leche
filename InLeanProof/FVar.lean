@@ -747,6 +747,20 @@ theorem mkFVarM_ok {s : InLean.CState} (hs : FVTableOK s) {d : Nat} {ty : Expr}
         simp [hinnew]
       · rw [htab]; exact FVarTable.push_trans
 
+/-- **A translated free variable's type is the table's**: what
+`InLean.fvarTypeM?` reads (`CState.fvTys[n]`) translates to the type
+con-leche's node `.fvar d cty` carries. -/
+theorem TransS_fvar {s : InLean.CState} {id : FVarId} {d : Nat} {cty : ConLeche.Expr}
+    (h : TransS s (.fvar id) = some (.fvar d cty)) :
+    ∃ n ty, fvParts? id = some (d, n) ∧ s.fvTys[n]? = some ty ∧ TransS s ty = some cty := by
+  simp only [TransS, toExpr] at h
+  obtain ⟨d', n, rfl, hn⟩ := FVarTable.trans_some h
+  obtain ⟨-, ty, cty', hty, hcty, hc⟩ := FVarTable.transNum_some hn
+  simp only [ConLeche.Expr.fvar.injEq] at hc
+  obtain ⟨rfl, rfl⟩ := hc
+  exact ⟨n, ty, fvParts_fvId d n, hty,
+    toExpr_mono ((tableOf s).inner_le_trans n) ty cty hcty⟩
+
 /-- **O2 at a state**: the checker's equality is equality of translations. -/
 theorem clEq_iff_TransS {s : InLean.CState} (hs : FVTableOK s) {a b : Expr} {c : ConLeche.Expr}
     (ha : TransS s a = some c) : Expr.clEq a b = true ↔ TransS s b = some c := by
