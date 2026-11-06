@@ -125,12 +125,12 @@
    200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
    201          (m j hj).cval n = fun _ => pt := by
 
-== tests/ConLecheTests/Axioms.lean#L98-L102
-    98  /--
-    99  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   100  -/
-   101  #guard_msgs in
-   102  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L100-L104
+   100  /--
+   101  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   102  -/
+   103  #guard_msgs in
+   104  #print axioms ConLeche.model_exists
 
 == ConLeche/Driver/Dispatch.lean#L31
     31  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8

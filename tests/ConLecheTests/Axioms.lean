@@ -5,6 +5,8 @@ public import ConLeche.Verify.Frontend.Olean.Files
 public import ConLeche.Verify.Frontend.Olean.View
 public import ConLeche.Verify.Frontend.Olean.Emit
 public import ConLeche.Verify.Frontend.Olean.Group
+public import ConLeche.Verify.Frontend.Olean.Present
+public import ConLeche.Verify.Driver.Reach
 public import ConLeche.Verify.Driver.Oleans
 public import ConLeche.Verify.Cached.MainC
 public import ConLeche.Model.StreamConsts
@@ -228,6 +230,42 @@ info: 'ConLeche.Frontend.Olean.groupRecord_valid' depends on axioms: [propext, C
 -/
 #guard_msgs in
 #print axioms ConLeche.Frontend.Olean.groupRecord_valid
+
+/--
+info: 'ConLeche.Driver.reach_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reach_ok
+
+/--
+info: 'ConLeche.Driver.reachGo_closed' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reachGo_closed
+
+/--
+info: 'ConLeche.Driver.ctx_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.ctx_envWF
+
+/--
+info: 'ConLeche.Driver.recordReads_scoped' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.recordReads_scoped
+
+/--
+info: 'ConLeche.Frontend.Olean.entryWith_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.entryWith_of_view
+
+/--
+info: 'ConLeche.Frontend.Olean.stmtWith_of_view' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Frontend.Olean.stmtWith_of_view
 
 /--
 info: 'ConLeche.Frontend.Olean.parseAllViews_eq' depends on axioms: [propext, Classical.choice, Quot.sound]

@@ -15,7 +15,8 @@ for m in Tiny TinyClassic TinyUse PrivUnused LazyVal ClashA ClashB HidA HidAll H
     UpQuot UpQuotSol UpThmHole UpThmHoleSol UpMultiA UpMultiB UpSorry DgFlagA DgFlagB \
     DgLiftA DgLiftB DgInferA DgInferB DgColQ DgColH DgColM DgCapQ DgCapQ2 DgCapH DgCapM \
     HiLamA HiLamB HiInhD HiInhX HiInhL HiInhT HiInhM HiInhM2 TeqP1 TeqP2 TeqQ2 TeqH TeqM \
-    TeqDM LvC LvB LvA LvM LvN ClashX ClashM FrX FrY FrM TeqBoth TeqX TeqBad MoX MoM GrN; do
+    TeqDM LvC LvB LvA LvM LvN ClashX ClashM FrX FrY FrM TeqBoth TeqX TeqBad MoX MoM GrN \
+    PdA PdB PdM NsC NsH NsM NsN LdgQ LdgA LdgM LdvQ LdvA LdvM LdgN LdvN; do
   mkdir -p "$(dirname "$OUT/$m")"
   LEAN_PATH="$OUT" "$LEAN" -o "$OUT/$m.olean" "tests/olean/src/$m.lean"
 done
