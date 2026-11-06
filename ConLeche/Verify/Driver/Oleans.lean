@@ -164,6 +164,10 @@ def JobFact (mode : CheckMode) {ds : Array Declaration} (J : Jobs ds) (F : Expr 
     Prop :=
   ∀ ht : t < ds.size, recordJob mode natOpPinSets J.I t (fillDecl F ds[t]) = .ok ()
 
+theorem JobFact.run {mode : CheckMode} {ds : Array Declaration} {J : Jobs ds} {F : Expr → Expr}
+    {t : Nat} (h : JobFact mode J F t) (ht : t < ds.size) :
+    recordJob mode natOpPinSets J.I t (fillDecl F ds[t]) = .ok () := h ht
+
 theorem jobRun_ok {mode : CheckMode} {ds : Array Declaration} {J : Jobs ds} {t : Nat}
     {d : Declaration} (h : jobRun mode J t d = .ok ()) :
     recordJob mode natOpPinSets J.I t d = .ok () := by

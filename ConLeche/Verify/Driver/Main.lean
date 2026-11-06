@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.Cli
 public import ConLeche.Verify.Driver.Oleans
+public import ConLeche.Verify.Driver.Worker
 
 /-!
 # `runArgs`, in the model
@@ -192,6 +193,63 @@ theorem runArgs_accept {file : String} {fs : FS}
   refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
   · simp only [helpWanted_file, parseArgs_file]
     exact fun c hc _ => checkMainG_ndjson_accept (by subst_vars; exact hc)
+  · simp
+
+/-- The arguments `--olean --module --search-path=<dirs> -- <root>`: that one module, those
+directories, every other setting at its default (the mode `.verified`). -/
+theorem parseArgs_module (dirs root : String) :
+    parseArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] {} =
+      { olean := true, module := true, searchPath := searchPathOf dirs, files := #[root] } := by
+  have hfst : parseArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] {} =
+      parseArgs ["--search-path=" ++ dirs, "--", root] { olean := true, module := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_other dirs (by decide) (by decide), flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--olean --module --search-path=<dirs> -- <root>` ask for no help. -/
+theorem helpWanted_module (dirs root : String) :
+    helpWanted ["--olean", "--module", "--search-path=" ++ dirs, "--", root] = false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--olean --module --search-path=<dirs> -- <root>`, in the model**: every
+outcome that is an exit 0 names a module `m` and is an accepted worker at `m`
+(`WorkerAccepted`, `ConLeche/Verify/Driver/Worker.lean`) at the mode `.verified`, on that
+search path, at some worker count. -/
+theorem runArgs_module_accept {dirs root : String} {fs : FS}
+    (h : (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs
+      (.ok 0)) :
+    ∃ m jobs, Olean.parseModName root = some m ∧
+      WorkerAccepted .verified (searchPathOf dirs) fs m jobs := by
+  suffices H : ModelIO.AllOk (runArgs ["--olean", "--module", "--search-path=" ++ dirs, "--", root])
+      fs (fun c => c = 0 → ∃ m jobs, Olean.parseModName root = some m ∧
+        WorkerAccepted .verified (searchPathOf dirs) fs m jobs) from H 0 h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  · simp only [helpWanted_module, parseArgs_module, Bool.false_eq_true, ite_false, ite_true]
+    intro c hc h0
+    subst h0
+    split at hc
+    · simp [eprintln] at hc
+    · cases hf : (#[root] : Array String).find? (fun f => (Olean.parseModName f).isNone) with
+      | some m => simp [hf, eprintln] at hc
+      | none =>
+        simp only [hf] at hc
+        cases hr : Olean.parseModName root with
+        | none => simp [hr] at hf
+        | some m =>
+          simp only [Array.find?_empty, List.filterMap_cons, hr, List.filterMap_nil,
+            Array.isEmpty_empty] at hc
+          exact ⟨m, _, rfl, checkModuleG_accept hc⟩
   · simp
 
 end ConLeche.Driver

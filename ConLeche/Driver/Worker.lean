@@ -64,6 +64,10 @@ def ownUses (l : Loaded) : Declaration → Array Name
     | none => Declaration.usedConsts (.thmDecl cv v)
   | d => d.usedConsts
 
+/-- **A module's own names**: every constant of its private view, unsafe and partial ones
+included (no context record may hold one). -/
+def ownNames (l : Loaded) : Std.HashSet Name := l.constants.foldl (fun s c => s.insert c.name) {}
+
 /-- **No name twice**, one hash set along the list. -/
 def namesNodupGo (s : Std.HashSet Name) : List Name → Bool
   | [] => true
@@ -110,8 +114,7 @@ def workerRead {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (m : Name) 
       match ownRecords l with
       | .error e => pure (.error e)
       | .ok ds =>
-        let own : Std.HashSet Name := l.constants.foldl (fun s c => s.insert c.name) {}
-        match ← reach sp m wr own (ownRoots wr.index l ds) with
+        match ← reach sp m wr (ownNames l) (ownRoots wr.index l ds) with
         | .error e => pure (.error (e, 0))
         | .ok r =>
           if !namesNodupGo {} (r.ctx.toList.flatMap Modular.declNames) then

@@ -295,6 +295,17 @@ theorem streamEnv_consts (ds : List Declaration) (env : Env) :
     rw [ih]
     simp [recsConsts, Env.pushDelta]
 
+/-- **The names of a list of records, distinct**: its environment's names are. -/
+theorem nodupNames_streamEnv {ds : List Declaration}
+    (h : (ds.flatMap fun d => (declConstants d).map (·.name)).Nodup) :
+    NodupNames (streamEnv ds) := by
+  have hc : (streamEnv ds).consts = (recsConsts ds).reverse := by
+    simpa [Env.empty] using streamEnv_consts ds Env.empty
+  unfold NodupNames
+  rw [hc, List.map_reverse]
+  refine (List.reverse_perm _).nodup_iff.mpr ?_
+  simpa [recsConsts, List.map_flatMap] using h
+
 theorem streamEnv_tables (ds : List Declaration) (env : Env) :
     (streamEnv ds env).tables = (ds.flatMap declTables).reverse ++ env.tables := by
   induction ds generalizing env with
