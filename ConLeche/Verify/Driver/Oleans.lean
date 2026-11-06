@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.CheckMain
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Cached.Fill
 
 /-!
 # An `--olean` run, in the model (task #481)

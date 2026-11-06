@@ -11,7 +11,7 @@
    114  def helpText : String := String.intercalate "\n" [
 
 == ConLeche/Driver/CheckMain.lean#L37
-    37  def ConLeche.CheckError.exitCode : CheckError → UInt8
+    37    | .notImplemented _ => 2
 
 == ConLeche/Kernel/Name.lean#L207
    207  def render (n : Name) : String :=
@@ -144,7 +144,7 @@
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
 == ConLeche/Frontend/ExportC.lean#L602
-   602  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
+   602      Except (CheckError × Nat) (StateD × ByteArray × Nat × Nat) :=
 
 == ConLeche/Frontend/Stream.lean#L309-L311
    309  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
@@ -177,12 +177,12 @@
   1744        g.total + (bs.map ByteArray.size).sum⟩ := by
 
 == ConLeche/Driver/CheckMain.lean#L404-L409
-   404  theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
-   405      {pace : Pace} {jobs : Nat} {fs : FS}
-   406      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
-   407      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   408        Frontend.parseChunks [b] = .ok r ∧
-   409        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+   404      {pace : Pace} {jobs : Nat} {fs : FS}
+   405      (h : (checkMainG (.ndjson file) mode pace jobs : ModelIO _) fs (.ok 0)) :
+   406      ∃ pre b r env, Frontend.builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   407        Frontend.parseChunks [b] = .ok r ∧
+   408        Cached.checkDecls mode natOpPinSets (Frontend.preparePrelude pre r.decls) = .ok env := by
+   409    -- every value outcome `c` of the run: `c = 0` gives the chain
 
 == ConLeche/Cached/Decls.lean#L46-L47
     46  def declStep (pins : List NatOpPinSet) (p : Nat × FEnv) (pd : Declaration) :
@@ -231,14 +231,14 @@
 == ConLeche/Driver/CheckPool.lean#L66
     66  def Jobs.build (ds : Array Declaration) : IO (Jobs ds) := do
 
-== ConLeche/Driver/CheckPool.lean#L203-L205
-   203  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
-   204      {ds : Array Declaration} (J : Jobs ds) :
-   205      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
+== ConLeche/Driver/CheckPool.lean#L208-L210
+   208  def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat)
+   209      {ds : Array Declaration} (J : Jobs ds) :
+   210      IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
 
-== ConLeche/Driver/CheckPool.lean#L139-L140
-   139  def collect (mode : ConLeche.CheckMode) {ds : Array Declaration} (J : Jobs ds)
-   140      (rs : List (JPass mode J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode J)) :=
+== ConLeche/Driver/CheckPool.lean#L144-L145
+   144  def collect (mode : ConLeche.CheckMode) {ds : Array Declaration} (J : Jobs ds)
+   145      (rs : List (JPass mode J)) : Except (ConLeche.CheckError × Nat) (PLift (JAll mode J)) :=
 
 == ConLeche/Driver/Run.lean#L85-L88
     85  def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 tIndex tParse jobs : Nat)

@@ -4,7 +4,6 @@ public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.StreamParse
 public import ConLeche.Driver.Run
 public import ConLeche.Frontend.Olean
-public import ConLeche.Verify.Cached.Fill
 
 /-!
 # The driver's sequencing, generic in the IO class (tasks #424, #450)

@@ -476,11 +476,11 @@ Read from the outside in:
    ([function `Jobs.build` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L66)),
    so that no check pays reference counting on them, and the jobs run on
    worker threads, a pool of them at every count, one included
-   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L203-L205))
+   ([function `checkPool` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L208-L210))
    claims jobs one at a time off a shared counter. A job is its own
    evidence: its pass, or its error tagged with the record's position. The
    results, merged by position, are walked in position order
-   ([function `collect` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L139-L140))
+   ([function `collect` in `ConLeche/Driver/CheckPool.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/CheckPool.lean#L144-L145))
    — the walk stops at the first failing job in fold order, so the
    pool's verdict is the sequential walk's. Which thread computed a check is
    irrelevant to what it proves, and so is whether the mark happened:

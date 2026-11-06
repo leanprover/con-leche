@@ -70,8 +70,8 @@ def infoEq : ConstantInfo → ConstantInfo → Bool
   | .thmInfo v, .thmInfo w => valEq v w
   | .indInfo v c, .indInfo w c' => valEq v w && decide (c = c')
   | .ctorInfo v p f, .ctorInfo w p' f' => valEq v w && p == p' && f == f'
-  | .recInfo v m r rs, .recInfo w m' r' rs' =>
-    valEq v w && m == m' && r == r' && listEq ruleEq rs rs'
+  | .recInfo v m r k rs, .recInfo w m' r' k' rs' =>
+    valEq v w && m == m' && r == r' && k == k' && listEq ruleEq rs rs'
   | _, _ => false
 
 def declEq : Declaration → Declaration → Bool
@@ -79,7 +79,6 @@ def declEq : Declaration → Declaration → Bool
   | .defnDecl v e h, .defnDecl w e' h' => valEq v w && e == e' && decide (h = h')
   | .thmDecl v e, .thmDecl w e' => valEq v w && e == e'
   | .opaqueDecl v e, .opaqueDecl w e' => valEq v w && e == e'
-  | .basisDecl k, .basisDecl k' => decide (k = k')
   | .indDecl b n, .indDecl b' n' => listEq infoEq b b' && n == n'
   | .quotDecl k v, .quotDecl k' w => decide (k = k') && valEq v w
   | _, _ => false
@@ -106,12 +105,10 @@ nodes. -/
               (.thmDecl ⟨nm "t", [], .sort .zero⟩ (dag' (nm "a") 200))
 #guard !declEq (.thmDecl ⟨nm "t", [], .sort .zero⟩ (.app (dag (nm "a") 200) (.const (nm "a") [])))
                (.thmDecl ⟨nm "t", [], .sort .zero⟩ (.app (dag' (nm "a") 200) (.const (nm "b") [])))
-#guard !declEq (.indDecl [.recInfo ⟨nm "r", [], .sort .zero⟩ 0 0
-                  [{ ctor := nm "c", nfields := 0, ctorParams := 0, fire := .plain,
-                     rhs := dag (nm "a") 200 }]] 0)
-               (.indDecl [.recInfo ⟨nm "r", [], .sort .zero⟩ 0 0
-                  [{ ctor := nm "c", nfields := 0, ctorParams := 0, fire := .plain,
-                     rhs := dag' (nm "a") 200, k := true }]] 0)
+#guard !declEq (.indDecl [.recInfo ⟨nm "r", [], .sort .zero⟩ 0 0 false
+                  [{ ctor := nm "c", nfields := 0, fire := .plain, rhs := dag (nm "a") 200 }]] 0)
+               (.indDecl [.recInfo ⟨nm "r", [], .sort .zero⟩ 0 0 false
+                  [{ ctor := nm "c", nfields := 1, fire := .plain, rhs := dag' (nm "a") 200 }]] 0)
 
 def toMap (ds : Array Declaration) : Std.HashMap Name Declaration × Nat :=
   ds.foldl (fun (m, dup) d =>

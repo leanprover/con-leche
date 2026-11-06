@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Env
-public import ConLeche.Kernel.ExprOps
 public import ConLeche.Frontend.Export
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`

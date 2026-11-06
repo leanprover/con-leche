@@ -54,6 +54,11 @@ DIR   = os.environ.get('PUBPLAN_DIR', '_tmp/m3')
 # a tree whose `rfl`s stop closing, so they stay public and the gate must not
 # ask for them again.
 FALLBACK = {
+    # task #480 (the merge of #481): `readOleans_filled` and its neighbours state `OleanRead`,
+    # `readOleans`, `Merged`, `mergeAll`, `blocksOk`, `declsOf`.  Measured: demoting either
+    # breaks the file (unknown identifier `OleanRead`, `Files.lean:544`).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Frontend.Olean.Records'),
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.Olean.Merge'),
     # task #480: `reducedFormer_cv` and its neighbours state `CheckerOps`, `reducedFormer` and `WScoped`.
     # Measured: demoting either breaks the file (`NestContInv.lean:28`, unknown identifier).
     ('ConLeche.Verify.Inductives.NestContInv', 'ConLeche.Kernel.Inductives.Positivity'),
