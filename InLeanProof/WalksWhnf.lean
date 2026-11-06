@@ -2,6 +2,9 @@ module
 
 public import InLeanProof.StateOpsI
 import ConLeche.Verify.Cached.DiscC1
+/- `Lean.mkAppN`'s body is not exposed by `Lean.Expr`; the application
+spine's translation unfolds it. -/
+import all Lean.Expr
 
 /-!
 # InLean's body walks, part 1: list helpers and small twins (task #451, lane P2-whnf)
@@ -12,7 +15,9 @@ translation, under `KnotSpecI` of its callback record, proved by the cached
 twin's `sym … => vcgen … <;> finish` script with the translation's vocabulary
 (`InLeanProof/GrindI.lean`) in the `grind` set.  This module adds the
 vocabulary its walks need beyond `GrindI` (the spine's length, the
-`eagerReduce` head).
+`eagerReduce` head, application spines, `Nat` literals and operations), and
+the O4 hypotheses its walks read the environment through (`EnvDomI`,
+`EnvDefnI`, beside `StateOpsI`'s `EnvRelI`).
 -/
 
 set_option experimental.vcgen true
@@ -598,5 +603,407 @@ theorem defeqSpineI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {a b : Exp
     exact ⟨hs, TabLe.refl _, Runs.pure _⟩
 
 end Walks
+
+/-! ## The last `DiscC1` twins: unfolding, the certificate loop, `Nat` literals -/
+
+section DiscC1Rest
+
+variable {r : InLean.CoreFnsI}
+
+theorem TrS_mkAppN (s : InLean.CState) : ∀ (args : List Expr) (f : Expr),
+    TrS s (mkAppN f args.toArray) = ConLeche.Expr.mkAppN (TrS s f) (TrSL s args)
+  | [], f => rfl
+  | a :: as, f => by
+    have := TrS_mkAppN s as (.app f a)
+    simp only [Lean.mkAppN, List.foldl_toArray', List.foldl_cons, Lean.mkApp] at this ⊢
+    rw [this]; rfl
+
+theorem OkS_mkAppN (s : InLean.CState) : ∀ (args : List Expr) (f : Expr),
+    OkS s (mkAppN f args.toArray) = (OkS s f && OkSL s args)
+  | [], f => by simp [Lean.mkAppN, OkSL_nil]
+  | a :: as, f => by
+    have := OkS_mkAppN s as (.app f a)
+    simp only [Lean.mkAppN, List.foldl_toArray', List.foldl_cons, Lean.mkApp] at this ⊢
+    rw [this, OkS_app, OkSL_cons, Bool.and_assoc]
+
+/-- **InLean sees a stored definition wherever con-leche does** (O4, P3's;
+the converse direction is `EnvRelI.val`). -/
+@[expose] def EnvDefnI (fe : InLean.FEnv) (env : ConLeche.Env) : Prop :=
+  ∀ n cv v h, env.find? (toName n) = some (.defnInfo cv v h) → (fe.defnView? n).isSome = true
+
+theorem unfoldDefinition_notConst {e : ConLeche.Expr} (h : ∀ n us, e.getAppFn ≠ .const n us) :
+    ConLeche.unfoldDefinition env e = none := by
+  unfold ConLeche.unfoldDefinition
+  split
+  · rename_i n us hh; exact absurd hh (h n us)
+  · rfl
+
+/-- **`unfoldDefinitionI`** (`unfoldDefinitionC_spec`'s twin): its answer is
+con-leche's `unfoldDefinition` at the translation. -/
+theorem unfoldDefinitionI_specI {fe : InLean.FEnv} (hfe : EnvRelI fe env) (hdef : EnvDefnI fe env)
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) {e : Expr} (he : OkS s₀ e = true) :
+    ⦃fun s => s = s₀⦄ InLean.unfoldDefinitionI fe e
+    ⦃fun o s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
+      TrO s' o = ConLeche.unfoldDefinition env (TrS s₀ e); ⊤⦄ := by
+  refine tripleI_iff_run.2 fun o s' hr => ?_
+  by_cases hA : ∃ n us, Expr.getAppFnT e = .const n us
+  · obtain ⟨n, us, hA⟩ := hA
+    have hTA := TrS_getAppFn_const s₀ hA
+    have hus : us.all okLv = true := by
+      have := OkS_getAppFnT s₀ he; rw [hA] at this; exact this
+    cases hv : fe.defnView? n with
+    | none =>
+      simp only [InLean.unfoldDefinitionI, hA, hv, pure, StateT.pure, Except.pure,
+        Except.ok.injEq, Prod.mk.injEq] at hr
+      obtain ⟨rfl, rfl⟩ := hr
+      refine ⟨hs, TabLe.refl _, rfl, ?_⟩
+      unfold ConLeche.unfoldDefinition
+      rw [hTA]
+      simp only
+      split
+      · rename_i cv v h hf
+        have := hdef n cv v h hf
+        rw [hv] at this; exact absurd this (by simp)
+      · rfl
+    | some t =>
+      obtain ⟨cv, v, hh⟩ := t
+      obtain ⟨ccv, cvv, ch, hfind, -, hlp, -, -⟩ := hfe.val n cv v hh hv
+      have hpure : ConLeche.unfoldDefinition env (TrS s₀ e) =
+          if (us.map trL).length = ccv.levelParams.length then
+            some (ConLeche.Expr.mkAppN (cvv.instantiateLevelParams ccv.levelParams (us.map trL))
+              (TrS s₀ e).getAppArgs)
+          else none := by
+        unfold ConLeche.unfoldDefinition; rw [hTA]; simp only [hfind]
+      rw [hpure]
+      have hlen : ((us.map trL).length = ccv.levelParams.length) ↔
+          (us.length = cv.levelParams.length) := by simp [hlp]
+      by_cases hl : us.length = cv.levelParams.length
+      · simp only [hlen.2 hl, ↓reduceIte]
+        simp only [InLean.unfoldDefinitionI, hA, hv, hl, ↓reduceIte, bind, StateT.bind,
+          Except.bind] at hr
+        cases hq : constValAtM fe n us s₀ with
+        | error x => simp [hq] at hr
+        | ok p =>
+          obtain ⟨t, s₁⟩ := p
+          obtain ⟨hs₁, ht₁, hokt, hval⟩ :=
+            tripleI_iff_run.1 (constValAtM_specI hfe hs n hus) t s₁ hq
+          simp only [hq, InLean.mkAppNM, pure, StateT.pure, Except.pure, Except.ok.injEq,
+            Prod.mk.injEq] at hr
+          obtain ⟨rfl, rfl⟩ := hr
+          have hargs : OkSL s₀ (appArgs e) = true := OkSL_appArgs s₀ he
+          refine ⟨hs₁, ht₁, ?_, ?_⟩
+          · rw [OkO_some, OkS_mkAppN, hokt, okSL_of_tabLe ht₁ hargs]; rfl
+          · rw [TrO_some, TrS_mkAppN, TrSL_of_tabLe ht₁ hargs, TrSL_appArgs]
+            simp only [ConLeche.Cached.constValAt?, hfind, Option.some.injEq] at hval
+            rw [← hval]
+      · simp only [mt hlen.1 hl, ↓reduceIte]
+        simp only [InLean.unfoldDefinitionI, hA, hv, hl, ↓reduceIte, pure, StateT.pure,
+          Except.pure, Except.ok.injEq, Prod.mk.injEq] at hr
+        obtain ⟨rfl, rfl⟩ := hr
+        exact ⟨hs, TabLe.refl _, rfl, rfl⟩
+  · have hA' : ∀ n us, Expr.getAppFnT e ≠ .const n us := fun n us h => hA ⟨n, us, h⟩
+    rw [unfoldDefinition_notConst (TrS_getAppFn_notConst s₀ hA')]
+    have hr' : InLean.unfoldDefinitionI fe e s₀ = .ok (none, s₀) := by
+      unfold InLean.unfoldDefinitionI
+      generalize hx : Expr.getAppFnT e = x at hA'
+      cases x with
+      | const c ls => exact absurd rfl (hA' c ls)
+      | _ => rfl
+    rw [hr'] at hr
+    simp only [Except.ok.injEq, Prod.mk.injEq] at hr
+    obtain ⟨rfl, rfl⟩ := hr
+    exact ⟨hs, TabLe.refl _, rfl, rfl⟩
+
+@[conleche_grind =] theorem OkS_mvar (s : InLean.CState) (m : MVarId) : OkS s (.mvar m) = false := rfl
+
+/-- The domain of a closed instantiated `∀` is closed. -/
+theorem lbb_piDom {dom body : ConLeche.Expr} {acc : List ConLeche.Expr}
+    (h : ((ConLeche.Expr.forallE dom body).instantiateList acc).looseBVarsBounded 0 = true) :
+    (dom.instantiateList acc).looseBVarsBounded 0 = true := by
+  rw [ConLeche.Expr.instantiateList, ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+  exact h.1
+grind_pattern [conleche_grind] lbb_piDom =>
+  ((ConLeche.Expr.forallE dom body).instantiateList acc).looseBVarsBounded 0, dom.instantiateList acc
+
+/-- The peel step keeps a closed instantiated `∀` closed at a closed value. -/
+theorem lbb_piPeel {dom body a : ConLeche.Expr} {acc : List ConLeche.Expr}
+    (h : ((ConLeche.Expr.forallE dom body).instantiateList acc).looseBVarsBounded 0 = true)
+    (ha : a.looseBVarsBounded 0 = true) :
+    (body.instantiateList (a :: acc)).looseBVarsBounded 0 = true := by
+  rw [ConLeche.Expr.instantiateList, ConLeche.Expr.looseBVarsBounded, Bool.and_eq_true] at h
+  rw [ConLeche.Expr.instantiateList_cons]
+  exact lbb_instantiate1 ha h.2
+grind_pattern [conleche_grind] lbb_piPeel =>
+  ((ConLeche.Expr.forallE dom body).instantiateList acc).looseBVarsBounded 0,
+  body.instantiateList (a :: acc)
+
+/-- The pure certificate loop at a translated, bulk-instantiated telescope,
+stepped in InLean's shape (`iotaCertsFull_instList_cons`'s twin, its match on
+InLean's `stripTop`). -/
+theorem iotaCertsFull_TrS_cons {m : Type → Type} [Monad m] (r : ConLeche.CoreFns m)
+    (d : Nat) (s : InLean.CState) {ty : Expr} (hty : OkS s ty = true) (acc : List Expr) (a : Expr)
+    (rest : List Expr) :
+    ConLeche.iotaCertsFull r env d ((TrS s ty).instantiateList (TrSL s acc)) (TrS s a :: TrSL s rest) =
+      match EO.stripTop ty, acc with
+      | .forallE _ dom body _, acc =>
+          r.infer d (TrS s a) >>= fun ta =>
+          r.defeq d ta ((TrS s dom).instantiateList (TrSL s acc)) >>= fun c =>
+          if c then ConLeche.iotaCertsFull r env d ((TrS s body).instantiateList (TrSL s (a :: acc)))
+            (TrSL s rest)
+          else pure false
+      | .bvar _, [] => pure false
+      | .bvar k, _ :: _ =>
+          ConLeche.iotaCertsFull r env d ((ConLeche.Expr.bvar k).instantiateList (TrSL s acc))
+            (TrS s a :: TrSL s rest)
+      | _, _ => pure false := by
+  rw [← TrS_stripTop s ty]
+  rw [← OkS_stripTop s ty] at hty
+  generalize hx : EO.stripTop ty = x at hty
+  cases x with
+  | forallE n dom body bi =>
+    rw [TrS_forallE, ConLeche.Cached.iotaCertsFull_instList_cons]; rfl
+  | bvar k => cases acc with
+    | nil => simp [TrS_bvar, TrSL_nil, ConLeche.Expr.instantiateList, ConLeche.iotaCertsFull]
+    | cons => rfl
+  | fvar id =>
+    rw [TrS_fvar hty]
+    cases acc <;> simp [ConLeche.Expr.instantiateList, ConLeche.iotaCertsFull]
+  | mvar id => simp [OkS_mvar] at hty
+  | mdata _ y => exact (stripTop_ne_mdata hx).elim
+  | _ => cases acc <;> simp [TrS, trE, ConLeche.Expr.instantiateList, ConLeche.iotaCertsFull]
+
+theorem iotaCertsFullIAux_specI (ih : KnotSpecI mode eager env r) {d : Nat} :
+    ∀ {args : List Expr} {ty : Expr} {acc : List Expr} {s₀ : InLean.CState},
+      CSOKI mode eager env s₀ → OkS s₀ ty = true → OkSL s₀ acc = true →
+      AllClosed (TrSL s₀ acc) = true →
+      ConLeche.Expr.WScoped d ((TrS s₀ ty).instantiateList (TrSL s₀ acc)) →
+      ((TrS s₀ ty).instantiateList (TrSL s₀ acc)).looseBVarsBounded 0 = true →
+      OkSL s₀ args = true → AllWS d (TrSL s₀ args) → AllClosed (TrSL s₀ args) = true →
+      ⦃fun s => s = s₀⦄ InLean.iotaCertsFullIAux r d ty acc args
+      ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+          Runs (ConLeche.iotaCertsFull (ConLeche.fueledFns mode eager env) env d
+            ((TrS s₀ ty).instantiateList (TrSL s₀ acc)) (TrSL s₀ args)) v; ⊤⦄
+  | [], _, _, _, _, _, _, _, _, _, _, _, _ => by
+    sym only [conleche_grind, ConLeche.iotaCertsFull.eq_1] =>
+      vcgen [InLean.iotaCertsFullIAux.eq_1] <;> finish
+  | _ :: as, _, [], _, hs, _, _, _, _, _, _, _, _ => by
+    sym only [conleche_grind, iotaCertsFull_TrS_cons] =>
+      vcgen [InLean.iotaCertsFullIAux.eq_def, instListM_specI hs, ih.infer, ih.defeq,
+        iotaCertsFullIAux_specI ih (args := as)] <;> finish
+  | a :: as, _, _ :: _, _, hs, _, _, _, _, _, _, _, _ => by
+    sym only [conleche_grind, iotaCertsFull_TrS_cons, ConLeche.Expr.instantiateList_nil] =>
+      vcgen [InLean.iotaCertsFullIAux.eq_def, instListM_specI hs, ih.infer, ih.defeq,
+        iotaCertsFullIAux_specI ih (args := as),
+        iotaCertsFullIAux_specI ih (args := a :: as) (acc := [])] <;> finish
+termination_by args _ acc => (args.length, acc.length)
+decreasing_by
+  all_goals first
+    | (apply Prod.Lex.left; simp; done)
+    | (apply Prod.Lex.right' <;> simp)
+
+/-- **`iotaCertsFullI`** (`iotaCertsFullC_spec`'s twin). -/
+theorem iotaCertsFullI_specI (ih : KnotSpecI mode eager env r) {d : Nat} {args : List Expr}
+    {ty : Expr} {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hty : OkS s₀ ty = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ ty)) (hc : (TrS s₀ ty).looseBVarsBounded 0 = true)
+    (hargs : OkSL s₀ args = true) (hwa : AllWS d (TrSL s₀ args))
+    (hca : AllClosed (TrSL s₀ args) = true) :
+    ⦃fun s => s = s₀⦄ InLean.iotaCertsFullI r d ty args
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.iotaCertsFull (ConLeche.fueledFns mode eager env) env d (TrS s₀ ty)
+          (TrSL s₀ args)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.Expr.instantiateList_nil] =>
+    vcgen [InLean.iotaCertsFullI, iotaCertsFullIAux_specI ih] <;> finish
+
+/-! ### `reduceNat`'s vocabulary -/
+
+theorem toName_eq_iff {a b : Name} : toName a = toName b ↔ a = b :=
+  ⟨toName_inj, fun h => h ▸ rfl⟩
+
+theorem cl_natPredName : ConLeche.natPredName = toName InLean.natPredName := rfl
+theorem cl_natAddName : ConLeche.natAddName = toName InLean.natAddName := rfl
+theorem cl_natSubName : ConLeche.natSubName = toName InLean.natSubName := rfl
+theorem cl_natMulName : ConLeche.natMulName = toName InLean.natMulName := rfl
+theorem cl_natPowName : ConLeche.natPowName = toName InLean.natPowName := rfl
+theorem cl_natDivName : ConLeche.natDivName = toName InLean.natDivName := rfl
+theorem cl_natModName : ConLeche.natModName = toName InLean.natModName := rfl
+theorem cl_natGcdName : ConLeche.natGcdName = toName InLean.natGcdName := rfl
+theorem cl_natLandName : ConLeche.natLandName = toName InLean.natLandName := rfl
+theorem cl_natLorName : ConLeche.natLorName = toName InLean.natLorName := rfl
+theorem cl_natXorName : ConLeche.natXorName = toName InLean.natXorName := rfl
+theorem cl_natShiftLeftName : ConLeche.natShiftLeftName = toName InLean.natShiftLeftName := rfl
+theorem cl_natShiftRightName : ConLeche.natShiftRightName = toName InLean.natShiftRightName := rfl
+theorem cl_natBeqName : ConLeche.natBeqName = toName InLean.natBeqName := rfl
+theorem cl_natBleName : ConLeche.natBleName = toName InLean.natBleName := rfl
+theorem cl_natSuccName : ConLeche.natSuccName = toName InLean.natSuccName := rfl
+theorem cl_natZeroName : ConLeche.natZeroName = toName InLean.natZeroName := rfl
+theorem cl_boolTrueName : ConLeche.boolTrueName = toName InLean.boolTrueName := rfl
+theorem cl_boolFalseName : ConLeche.boolFalseName = toName InLean.boolFalseName := rfl
+
+@[conleche_grind =] theorem rawNatLit_TrS (s : InLean.CState) {e : Expr} (h : OkS s e = true) :
+    ConLeche.rawNatLit? (TrS s e) = InLean.rawNatLitC? e := by
+  rw [← TrS_stripTop s e]
+  rw [← OkS_stripTop s e] at h
+  unfold InLean.rawNatLitC?
+  generalize hx : EO.stripTop e = x at h
+  cases x with
+  | lit l => cases l <;> rfl
+  | const c us =>
+    cases us with
+    | nil =>
+      simp only [TrS_const, List.map_nil, ConLeche.rawNatLit?]
+      simp [cl_natZeroName, toName_eq_iff]
+    | cons => rfl
+  | fvar id => rw [TrS_fvar h]; rfl
+  | mvar _ => simp [OkS_mvar] at h
+  | mdata _ y => exact (stripTop_ne_mdata hx).elim
+  | _ => rfl
+
+theorem natOpResult_TrO (s : InLean.CState) (c : Name) (a b : Nat) :
+    TrO s (InLean.natOpResult c a b) = ConLeche.natOpResult (toName c) a b ∧
+      OkO s (InLean.natOpResult c a b) = true := by
+  simp only [InLean.natOpResult, ConLeche.natOpResult, cl_natPredName, cl_natAddName, cl_natSubName, cl_natMulName, cl_natPowName, cl_natDivName, cl_natModName, cl_natGcdName, cl_natLandName, cl_natLorName, cl_natXorName, cl_natShiftLeftName, cl_natShiftRightName, cl_natBeqName, cl_natBleName, cl_boolTrueName, cl_boolFalseName, toName_eq_iff, beq_iff_eq]
+  refine ⟨?_, ?_⟩ <;> (
+    by_cases h0 : c = InLean.natPredName
+    · simp only [h0, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h0, ↓reduceIte]
+    by_cases h1 : c = InLean.natAddName
+    · simp only [h1, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h1, ↓reduceIte]
+    by_cases h2 : c = InLean.natSubName
+    · simp only [h2, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h2, ↓reduceIte]
+    by_cases h3 : c = InLean.natMulName
+    · simp only [h3, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h3, ↓reduceIte]
+    by_cases h4 : c = InLean.natPowName
+    · simp only [h4, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h4, ↓reduceIte]
+    by_cases h5 : c = InLean.natDivName
+    · simp only [h5, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h5, ↓reduceIte]
+    by_cases h6 : c = InLean.natModName
+    · simp only [h6, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h6, ↓reduceIte]
+    by_cases h7 : c = InLean.natGcdName
+    · simp only [h7, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h7, ↓reduceIte]
+    by_cases h8 : c = InLean.natLandName
+    · simp only [h8, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h8, ↓reduceIte]
+    by_cases h9 : c = InLean.natLorName
+    · simp only [h9, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h9, ↓reduceIte]
+    by_cases h10 : c = InLean.natXorName
+    · simp only [h10, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h10, ↓reduceIte]
+    by_cases h11 : c = InLean.natShiftLeftName
+    · simp only [h11, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h11, ↓reduceIte]
+    by_cases h12 : c = InLean.natShiftRightName
+    · simp only [h12, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h12, ↓reduceIte]
+    by_cases h13 : c = InLean.natBeqName
+    · simp only [h13, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h13, ↓reduceIte]
+    by_cases h14 : c = InLean.natBleName
+    · simp only [h14, ↓reduceIte]; first | rfl | (split <;> rfl)
+    simp only [h14, ↓reduceIte]
+    rfl)
+
+@[conleche_grind =] theorem TrO_natOpResult (s : InLean.CState) (c : Name) (a b : Nat) :
+    TrO s (InLean.natOpResult c a b) = ConLeche.natOpResult (toName c) a b :=
+  (natOpResult_TrO s c a b).1
+
+@[conleche_grind =] theorem OkO_natOpResult (s : InLean.CState) (c : Name) (a b : Nat) :
+    OkO s (InLean.natOpResult c a b) = true :=
+  (natOpResult_TrO s c a b).2
+
+@[conleche_grind =] theorem lbb_lit (k : Nat) (l : ConLeche.Literal) :
+    (ConLeche.Expr.lit l).looseBVarsBounded k = true := rfl
+
+/-- A native `Nat` operation's answer is closed. -/
+@[conleche_grind .] theorem optClosed_natOpResult (c : ConLeche.Name) (a b : Nat) :
+    OptClosed (ConLeche.natOpResult c a b) = true := by
+  cases h : ConLeche.natOpResult c a b with
+  | none => rfl
+  | some e =>
+    rcases ConLeche.natOpResult_shape h with ⟨n, rfl⟩ | ⟨bn, rfl⟩ <;> rfl
+
+theorem natOpWfNames_contains (c : Name) :
+    ConLeche.natOpWfNames.contains (toName c) = InLean.natOpWfNames.contains c := by
+  have hm : ConLeche.natOpWfNames = InLean.natOpWfNames.map toName := rfl
+  rw [hm, Bool.eq_iff_iff, List.contains_iff_mem, List.contains_iff_mem, List.mem_map]
+  exact ⟨fun ⟨a, ha, h⟩ => toName_inj h ▸ ha, fun h => ⟨c, h, rfl⟩⟩
+
+/-- `reduceNat` at a translation, in InLean's nested shape (one constructor
+per level, the head read through `stripTop`). -/
+theorem reduceNat_TrS {m : Type → Type} [Monad m] [MonadExceptOf ConLeche.CheckError m]
+    (r : ConLeche.CoreFns m) (d : Nat) (s : InLean.CState) {e : Expr} (h : OkS s e = true) :
+    ConLeche.reduceNat r env d (TrS s e) =
+      match EO.stripTop e with
+      | .app f₁ b =>
+        match EO.stripTop f₁ with
+        | .const c us =>
+          match us with
+          | [] => ConLeche.reduceNat r env d (.app (.const (toName c) []) (TrS s b))
+          | _ :: _ => pure none
+        | .app f₂ a =>
+          match EO.stripTop f₂ with
+          | .const c us =>
+            match us with
+            | [] => ConLeche.reduceNat r env d (.app (.app (.const (toName c) []) (TrS s a)) (TrS s b))
+            | _ :: _ => pure none
+          | _ => pure none
+        | _ => pure none
+      | _ => pure none := by
+  rw [← TrS_stripTop s e]; rw [← OkS_stripTop s e] at h
+  generalize hx : EO.stripTop e = x at h
+  cases x with
+  | app f₁ b =>
+    dsimp only
+    simp only [OkS_app, Bool.and_eq_true] at h
+    obtain ⟨h1, -⟩ := h
+    rw [TrS_app, ← TrS_stripTop s f₁]; rw [← OkS_stripTop s f₁] at h1
+    generalize hy : EO.stripTop f₁ = y at h1
+    cases y with
+    | const c us => cases us <;> rfl
+    | app f₂ a =>
+      dsimp only
+      simp only [OkS_app, Bool.and_eq_true] at h1
+      obtain ⟨h2, -⟩ := h1
+      rw [TrS_app, ← TrS_stripTop s f₂]; rw [← OkS_stripTop s f₂] at h2
+      generalize hz : EO.stripTop f₂ = z at h2
+      cases z with
+      | const c us => cases us <;> rfl
+      | fvar id => rw [TrS_fvar h2]; rfl
+      | mvar _ => simp [OkS_mvar] at h2
+      | mdata _ y => exact (stripTop_ne_mdata hz).elim
+      | _ => rfl
+    | fvar id => rw [TrS_fvar h1]; rfl
+    | mvar _ => simp [OkS_mvar] at h1
+    | mdata _ y => exact (stripTop_ne_mdata hy).elim
+    | _ => rfl
+  | fvar id => rw [TrS_fvar h]; rfl
+  | mvar _ => simp [OkS_mvar] at h
+  | mdata _ y => exact (stripTop_ne_mdata hx).elim
+  | _ => rfl
+
+/-- **`reduceNatI`** (`reduceNatC_spec`'s twin). -/
+theorem reduceNatI_specI (ih : KnotSpecI mode eager env r) {fe : InLean.FEnv}
+    (hdom : EnvDomI fe env) {d : Nat} {e : Expr} {s₀ : InLean.CState}
+    (hs : CSOKI mode eager env s₀) (he : OkS s₀ e = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ e)) (hc : (TrS s₀ e).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.reduceNatI r fe d e
+    ⦃fun o s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
+      Runs (ConLeche.reduceNat (ConLeche.fueledFns mode eager env) env d (TrS s₀ e)) (TrO s' o) ∧
+      OptWS d (TrO s' o) ∧ OptClosed (TrO s' o) = true; ⊤⦄ := by
+  sym only [conleche_grind, reduceNat_TrS (env := env) (ConLeche.fueledFns mode eager env) d s₀ he, ConLeche.reduceNat.eq_1,
+      ConLeche.reduceNat.eq_2, natLitStoredF_I hdom, cl_natSuccName, cl_natAddName, cl_natSubName,
+      cl_natMulName, cl_natPowName, cl_natBeqName, cl_natBleName, cl_natDivName, cl_natModName,
+      cl_natGcdName, cl_natLandName, cl_natLorName, cl_natXorName, cl_natShiftLeftName,
+      cl_natShiftRightName, toName_eq_iff, natOpWfNames_contains] =>
+    vcgen [InLean.reduceNatI, ih.whnf] <;> finish (gen := 10)
+
+end DiscC1Rest
 
 end InLeanProof

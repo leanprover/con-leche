@@ -435,3 +435,45 @@ info: 'InLeanProof.defeqSpineI_specI' depends on axioms: [propext, Classical.cho
 -/
 #guard_msgs in
 #print axioms InLeanProof.defeqSpineI_specI
+
+/-! The last `DiscC1` twins (the same file): the cache reads and the bulk
+instantiation use the stop-gap axioms through `StateOpsI`. -/
+
+/--
+info: 'InLeanProof.unfoldDefinitionI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.unfoldDefinitionI_specI
+
+/--
+info: 'InLeanProof.iotaCertsFullIAux_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.iotaCertsFullIAux_specI
+
+/--
+info: 'InLeanProof.iotaCertsFullI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.iotaCertsFullI_specI
+
+/--
+info: 'InLeanProof.reduceNatI_specI' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.reduceNatI_specI
