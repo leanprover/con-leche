@@ -750,6 +750,16 @@ theorem strLit_eq (hfe : DefeqEnvI fe env) : strLitStoredF fe = ConLeche.strLitS
   hfe.strLit
 grind_pattern [conleche_grind] strLit_eq => DefeqEnvI fe env, strLitStoredF fe
 
+theorem unfoldable_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {e : Expr}
+    (h : OkS s e = true) : unfoldableHeadC fe e = ConLeche.unfoldableHead env (TrS s e) :=
+  hfe.unfoldable s e h
+grind_pattern [conleche_grind] unfoldable_TrS => DefeqEnvI fe env, OkS s e, unfoldableHeadC fe e
+
+theorem headHint_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {e : Expr}
+    (h : OkS s e = true) : trHint (headHintC fe e) = ConLeche.headHint env (TrS s e) :=
+  hfe.headHint s e h
+grind_pattern [conleche_grind] headHint_TrS => DefeqEnvI fe env, OkS s e, headHintC fe e
+
 @[conleche_grind =] theorem indGateI_mk (cv : ConstantVal) (caps : InLean.IndCaps) :
     indGateI (cv, caps) = ⟨cv.levelParams.map toName, caps.eta, toName caps.etaCtor,
       caps.etaParams, caps.etaFields, caps.unitlike, caps.unitParams⟩ := rfl
@@ -954,7 +964,100 @@ theorem structEtaCertWith_eq {m : Type → Type} [Monad m] [MonadExceptOf ConLec
       | _ => rfl
   | _ => rfl
 
+/-! ## Hints and same heads through the translation -/
+
+theorem hintLt_trHint : ∀ (a b : ReducibilityHints),
+    hintLt a b = ConLeche.ReducibilityHint.lt (trHint a) (trHint b)
+  | .opaque, .opaque | .opaque, .abbrev | .opaque, .regular _ | .abbrev, .opaque
+  | .abbrev, .abbrev | .abbrev, .regular _ | .regular _, .opaque | .regular _, .abbrev => rfl
+  | .regular h₁, .regular h₂ => by
+    simp only [hintLt, trHint, ConLeche.ReducibilityHint.lt, decide_eq_decide]
+    exact UInt32.lt_iff_toNat_lt
+grind_pattern [conleche_grind] hintLt_trHint => hintLt a b
+
+theorem hintSameRegular_trHint : ∀ (a b : ReducibilityHints),
+    hintSameRegular a b = ConLeche.ReducibilityHint.sameRegular (trHint a) (trHint b)
+  | .opaque, _ | .abbrev, _ | .regular _, .opaque | .regular _, .abbrev => rfl
+  | .regular h₁, .regular h₂ => by
+    simp only [hintSameRegular, trHint, ConLeche.ReducibilityHint.sameRegular]
+    rw [Bool.eq_iff_iff]; simp only [beq_iff_eq]; exact UInt32.toNat_inj.symm
+grind_pattern [conleche_grind] hintSameRegular_trHint => hintSameRegular a b
+
+theorem sameConstHeads_TrS (s : InLean.CState) (a b : Expr) :
+    InLean.sameConstHeadsC a b = ConLeche.sameConstHeads (TrS s a) (TrS s b) := by
+  unfold InLean.sameConstHeadsC
+  rw [← TrS_stripTop s a, ← TrS_stripTop s b]
+  have ha : ∀ m y, EO.stripTop a ≠ .mdata m y := fun m y h => stripTop_ne_mdata h
+  have hb : ∀ m y, EO.stripTop b ≠ .mdata m y := fun m y h => stripTop_ne_mdata h
+  generalize EO.stripTop a = x at ha
+  generalize EO.stripTop b = y at hb
+  cases x with
+  | app f₁ a₁ =>
+    cases y with
+    | app f₂ a₂ =>
+      simp only [TrS_app, ConLeche.sameConstHeads, ← TrS_getAppFnT]
+      have h1 := (getAppFnT_shape f₁).1
+      have h2 := (getAppFnT_shape f₂).1
+      generalize Expr.getAppFnT f₁ = g₁ at h1
+      generalize Expr.getAppFnT f₂ = g₂ at h2
+      cases g₁ with
+      | const n₁ _ =>
+        cases g₂ with
+        | const n₂ _ => simp only [TrS_const, name_beq_eq_decide, cname_beq_eq_decide]
+        | fvar id =>
+          rcases trans_getD_cases s id with ⟨i, ty, h'⟩ | h' <;> simp [TrS, trE, h']
+        | mdata m z => exact absurd rfl (h2 m z)
+        | _ => rfl
+      | fvar id =>
+        rcases trans_getD_cases s id with ⟨i, ty, h'⟩ | h' <;> simp [TrS, trE, h']
+      | mdata m z => exact absurd rfl (h1 m z)
+      | _ => rfl
+    | fvar id =>
+      rcases trans_getD_cases s id with ⟨i, ty, h'⟩ | h' <;>
+        simp [TrS, trE, h', ConLeche.sameConstHeads]
+    | mdata m z => exact absurd rfl (hb m z)
+    | _ => rfl
+  | fvar id =>
+    rcases trans_getD_cases s id with ⟨i, ty, h'⟩ | h' <;>
+      simp [TrS, trE, h', ConLeche.sameConstHeads]
+  | mdata m z => exact absurd rfl (ha m z)
+  | _ => rfl
+grind_pattern [conleche_grind] sameConstHeads_TrS => InLean.sameConstHeadsC a b, TrS s a
+
 /-! ## The callees P2-whnf owns, as named specs (`DiscC1`'s twins) -/
+
+/-- `unfoldDefinitionI`'s spec (`unfoldDefinitionC_spec`'s twin), P2-whnf's to
+prove. -/
+abbrev UnfoldDefSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (fe : InLean.FEnv) : Prop :=
+  ∀ {e : Expr} {s₀ : InLean.CState}, CSOKI mode eager env s₀ → OkS s₀ e = true →
+    (TrS s₀ e).looseBVarsBounded 0 = true →
+    ⦃fun s => s = s₀⦄ unfoldDefinitionI fe e
+    ⦃fun o s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
+      TrO s' o = ConLeche.unfoldDefinition env (TrS s₀ e) ∧ OptClosed (TrO s' o) = true; ⊤⦄
+
+/-- `defeqSpineI`'s spec (`defeqSpineC_spec`'s twin), P2-whnf's to prove. -/
+abbrev DefeqSpineSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (r : InLean.CoreFnsI) : Prop :=
+  ∀ {d : Nat} {a b : Expr} {s₀ : InLean.CState},
+    CSOKI mode eager env s₀ → OkS s₀ a = true → OkS s₀ b = true →
+    ConLeche.Expr.WScoped d (TrS s₀ a) → ConLeche.Expr.WScoped d (TrS s₀ b) →
+    (TrS s₀ a).looseBVarsBounded 0 = true → (TrS s₀ b).looseBVarsBounded 0 = true →
+    ⦃fun s => s = s₀⦄ defeqSpineI r d a b
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqSpine (ConLeche.fueledFns mode eager env) env d (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄
+
+/-- `reduceNatI`'s spec (`reduceNatC_spec`'s twin), P2-whnf's to prove. -/
+abbrev ReduceNatSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (r : InLean.CoreFnsI) (fe : InLean.FEnv) : Prop :=
+  ∀ {d : Nat} {i : Expr} {s₀ : InLean.CState},
+    CSOKI mode eager env s₀ → OkS s₀ i = true → ConLeche.Expr.WScoped d (TrS s₀ i) →
+    (TrS s₀ i).looseBVarsBounded 0 = true →
+    ⦃fun s => s = s₀⦄ reduceNatI r fe d i
+    ⦃fun o s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
+      Runs (ConLeche.reduceNat (ConLeche.fueledFns mode eager env) env d (TrS s₀ i)) (TrO s' o) ∧
+      OptWS d (TrO s' o) ∧ OptClosed (TrO s' o) = true; ⊤⦄
 
 /-- `defEqListI`'s spec (`defEqListC_spec`'s twin), P2-whnf's to prove. -/
 abbrev DefEqListSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
@@ -1262,6 +1365,23 @@ theorem deltaQuickI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {a b :
       StepPairWS d (TrDS s' v) ∧ StepClosedD (TrDS s' v) = true; ⊤⦄ := by
   sym only [conleche_grind, ConLeche.deltaQuick] =>
     vcgen [InLean.deltaQuickI, quickDefEqI_spec ih] <;> finish
+
+/-- One lazy-delta step (`lazyDeltaStepC_spec`'s twin). -/
+theorem lazyDeltaStepI_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r)
+    (hfe : DefeqEnvI fe env) (henv : ConLeche.EnvWF env)
+    (hunf : UnfoldDefSpecI .verified eager env fe) (hspine : DefeqSpineSpecI .verified eager env r)
+    {d : Nat} {a b : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.lazyDeltaStepI .verified r fe d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkDS s' v = true ∧
+      Runs (ConLeche.lazyDeltaStep .verified (ConLeche.fueledFns .verified eager env) env d
+        (TrS s₀ a) (TrS s₀ b)) (TrDS s' v) ∧
+      StepPairWS d (TrDS s' v) ∧ StepClosedD (TrDS s' v) = true; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.lazyDeltaStep, ConLeche.unfoldDefinition_WScoped henv] =>
+    vcgen [InLean.lazyDeltaStepI, tryUnfoldProjAppI_spec ih, deltaQuickI_spec ih, ih.whnfCore,
+      hunf, hspine] <;> finish
 
 end Walks5
 
