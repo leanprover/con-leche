@@ -156,10 +156,13 @@ structure Prepared where
   (names, for the driver's receipt) -/
   hoisted : Array Name := #[]
 
-/-- **`preparePrelude`, with its receipts.** -/
-def prepareD (pre : PreludeIx) (ds : Array Declaration) : Prepared :=
+/-- **`preparePrelude`, with its receipts.**  `used` says what a record mentions, where
+the record itself does not say: a theorem's record read from an `.olean` holds a reference
+to its value (`ConLeche/Frontend/Olean/Lazy.lean`). -/
+def prepareD (pre : PreludeIx) (ds : Array Declaration)
+    (used : Declaration → Array Name := Declaration.usedConsts) : Prepared :=
   let (front, rest) := frontOf #[] pre.decls.toList ds
-  let (decls, hoisted) := hoistNatOpGround (front ++ rest)
+  let (decls, hoisted) := hoistNatOpGround used (front ++ rest)
   ⟨decls, decls.size - ds.size, hoisted⟩
 
 /-- **`preparePrelude`**: the parsed stream, prepared for the fold —

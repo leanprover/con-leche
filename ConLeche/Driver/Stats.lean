@@ -146,8 +146,13 @@ def Live.new (workers : Nat) : IO Live := do
 @[inline] def Live.idle (lv : Live) (w : Nat) : IO Unit := do
   if let some r := lv.cur[w]? then r.set 0
 
-/-- ` busy=<b>/<n>, oldest <label> <age>s`: the heartbeat's suffix. -/
-def Live.report (lv : Live) (label : Nat → String) : IO String := do
+/-- How long a job runs before a heartbeat line names it, in nanoseconds: at a pace that does
+not name every job, the oldest in flight is news only once it is taking long. -/
+def oldestAge : Nat := 10_000_000_000
+
+/-- ` busy=<b>/<n>, oldest <label> <age>s`: the heartbeat's suffix.  The oldest is left out
+while it is younger than `minAge` nanoseconds: until then it says nothing. -/
+def Live.report (lv : Live) (label : Nat → String) (minAge : Nat := 0) : IO String := do
   let now ← IO.monoNanosNow
   let mut busy := 0
   let mut oldest : Option (Nat × Nat) := none
@@ -162,7 +167,9 @@ def Live.report (lv : Live) (label : Nat → String) : IO String := do
       | some (t', _) => if t < t' then oldest := some (t, c - 1)
       | none => oldest := some (t, c - 1)
   match oldest with
-  | some (t, k) => return s!" busy={busy}/{lv.cur.size}, oldest {label k} {nsSecs (now - min now t)}"
+  | some (t, k) =>
+    if now - min now t < minAge then return s!" busy={busy}/{lv.cur.size}"
+    return s!" busy={busy}/{lv.cur.size}, oldest {label k} {nsSecs (now - min now t)}"
   | none => return s!" busy=0/{lv.cur.size}"
 
 end ConLeche.Driver

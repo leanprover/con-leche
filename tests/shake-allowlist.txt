@@ -710,3 +710,4 @@ ConLeche/Verify/Cached/BlockPushes.lean	public import ConLeche.Verify.Cached.Gen
 ConLeche/Verify/EnvExt.lean	public import ConLeche.Kernel.Inductives.BlockTail	# REVERTED BY THE BUILD: its public statements name this module's declarations
 ConLeche/Verify/Cached/MainC.lean	public import ConLeche.Model.DeclsRun	# compensated: +import ConLeche.Model.DeclsRun, +public import ConLeche.Model.Env.EnvModelM, +public import ConLeche.Cached.Decls in ConLeche/Verify/Cached/MainC.lean; +import ConLeche.Verify.ExceptBind in ConLeche/MainTheorem.lean
 ConLeche/Driver/Run.lean	public import ConLeche.Verify.Cached.StreamIndex	# REVERTED BY THE BUILD: the exposed checkDeclsIO names checkDecls_of_jobs in its body (unknown identifier as a private import)
+ConLeche/Driver/CheckMain.lean	public import ConLeche.Frontend.Olean	# the interface of the olean tree: the umbrella is what the rest of the checker imports (tests/layering.sh); shake proposes its modules instead

@@ -65,7 +65,8 @@
 # in trailing `EXPECT:` comment markers, exactly the lines the gate must
 # report; `--selftest` runs that check alone.
 #
-# NOT SCANNED: `tests/e2e/src/*.lean` and `tests/trust-surface/*.lean`.
+# NOT SCANNED: `tests/e2e/src/*.lean`, `tests/olean/src/*.lean` and
+# `tests/trust-surface/*.lean`.
 # The former are fixture *inputs* — the Lean sources that get exported
 # into the streams the checker must REJECT — so they deliberately
 # contain the very constructs this gate hunts
@@ -165,10 +166,12 @@
 #       to avoid (a hidden reference before the read).
 #
 #   ConLeche/Driver/CheckPool.lean     unsafe
-#       THE PERSISTENT MARK BEFORE THE CHECK PHASE.  Two term-level
-#       `unsafe Runtime.markPersistent` calls in `Jobs.build`, taken
+#       THE PERSISTENT MARK BEFORE THE CHECK PHASE.  Three term-level
+#       `unsafe Runtime.markPersistent` calls: two in `Jobs.build`, taken
 #       once at every worker count, on the records and on the stream's
-#       index.  It is the same escape
+#       index, and one in `markShared`, taken once by an `--olean` run on
+#       the references to the theorems' values still in their files.
+#       It is the same escape
 #       `Lean.Environment.finalizeImport` uses for the same call, and
 #       it is `unsafe` for one reason only: a marked closure is never
 #       freed, and this process exits right after.  Nothing else about
@@ -273,7 +276,7 @@ ALLOW = {
 
 # NOT SCANNED (see the header): fixture *inputs* that deliberately
 # contain what the checker must reject, and the lexer's own fixture.
-SKIP_DIRS = ('tests/e2e/src/', 'tests/trust-surface/')
+SKIP_DIRS = ('tests/e2e/src/', 'tests/olean/src/', 'tests/trust-surface/')
 
 ROOTS = ('Main.lean', 'ConLeche.lean', 'PinDump.lean')
 
@@ -532,7 +535,7 @@ for f, t in stale:
 # Pinned by content: path -> (sha256, reason).  See the header.
 import hashlib
 NATIVE = {
-    'lakefile.lean': ('36ffe5376c26ac9d6b4fb46b4dedb4c35d8416b01d7950c775f3b3f735b34dca',
+    'lakefile.lean': ('fdd9f09414278ac4edfe445512ec6ca6ed4476954c3d123728a162d88eb60804',
         'the build: the targets, and the C compile and link of native/'),
     'native/read_range.c': ('6ffff889161f74962d0633e2b906523bfc85b3d4ef68ab80da4160f3d0d7c821',
         'readRangeIO, the positional read behind CheckerIO.readRange'),
@@ -593,6 +596,12 @@ IO_FENCE = {
     # path: the declarations cut out whole (the instance and what only
     # it calls; the class's own `liftIO` field, whose type is `IO α → m α`)
     'ConLeche/Frontend/CheckerIO.lean': ('class CheckerIO', 'def readRangeOf',
+                                         # the parallel maps behind the
+                                         # instance's `parMapExcept` and
+                                         # `parMapWorkers`
+                                         'def parShare', 'def parMapIO',
+                                         'def firstStop', 'def parWorker',
+                                         'def parMapWorkersIO',
                                          'instance instCheckerIOIO',
                                          # the model's instance: its fields are
                                          # named as the operations are
@@ -602,6 +611,9 @@ IO_FENCE = {
     'ConLeche/Driver/CheckMain.lean': (),
     'ConLeche/Driver/Dispatch.lean': (),
     'ConLeche/Driver/Cli.lean': (),
+    'ConLeche/Frontend/Olean/Files.lean': (),
+    'ConLeche/Frontend/Olean/Closure.lean': (),
+    'ConLeche/Frontend/Olean/Records.lean': (),
 }
 IO_OPS = ('pathExists', 'realPath', 'readBinFile', 'readFile', 'readRange', 'fileSize',
           'metadata', 'isDir', 'readDir', 'walkDir', 'lines', 'writeFile', 'writeBinFile',

@@ -162,13 +162,13 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,
-#src("ConLeche/Frontend/Prepare.lean", 171, 172)[`preparePrelude`].
+#src("ConLeche/Frontend/Prepare.lean", 174, 175)[`preparePrelude`].
 It moves the declarations of a built-in copy of the toolchain's
 prelude (`Eq`, `Nat`, `Bool` and their kin) to the front, the stream's
 own record where it has one and the copy's where it has none, and it
 moves the structural `Nat` operations that a pinned `Nat` operation is
 defined from ahead of it.
-#src("ConLeche/Verify/Frontend/Prepare.lean", 160, 161)[A theorem
+#src("ConLeche/Verify/Frontend/Prepare.lean", 174, 175)[A theorem
 says that this is all]. The fold's input is a permutation of the
 decoded list plus records of the built-in prelude, and nothing is
 rewritten or generated. What no theorem says is that the decoded

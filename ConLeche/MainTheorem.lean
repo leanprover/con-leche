@@ -10,6 +10,7 @@ import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
 import ConLeche.Verify.Frontend.FileFalse
 public import ConLeche.Driver.Cli
+public import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Driver.Main
 public section
 
@@ -151,5 +152,25 @@ theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : 
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
   obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
   simp [hp, hr, hc, bind, Except.bind] at he
+
+open Frontend in
+/-- **The main corollary, on `.olean` files.**  On a snapshot where the private view of a module
+of the closure of `root`, by the specification, holds a theorem of type `False`, no outcome of
+`runArgs` at the arguments `--olean --search-path=<dirs> -- <root>` is an exit 0.  At these
+arguments every constant of the closure is checked. -/
+theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r m : Name} {fs : FS}
+    {d : Olean.ModDecoded} {c : Olean.CEntryF Name Expr} {v : Expr} {all : List Name}
+    (hr : Olean.parseModName root = some r)
+    (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
+    (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
+    (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
+    ¬ (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0) := by
+  intro h
+  obtain ⟨pre, rd, env, -, hrd, hchk⟩ := Driver.runArgs_olean_accept h
+  have hroots : (#[root].filterMap Olean.parseModName) = #[r] := by simp [hr]
+  rw [hroots] at hrd
+  obtain ⟨v', hd⟩ := Olean.readOleans_thm hrd hcl hv hmem hk
+  exact no_False_theorem_accepted V _ _ _
+    (Array.mem_map_of_mem (f := Cached.fillDecl _) (Frontend.mem_prepareD hd)) hty env hchk
 
 end ConLeche

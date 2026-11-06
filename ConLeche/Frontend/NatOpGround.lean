@@ -107,7 +107,8 @@ def isNatOpRecord : Declaration → Option Name
 index to the earliest pinned-operation index it must precede.  Empty —
 and then the hoist is the identity — on every stream whose ground
 precedes its operations. -/
-def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
+def hoistTargets (used : Declaration → Array Name) (ds : Array Declaration) :
+    Std.HashMap Nat Nat := Id.run do
   -- name ↦ the index of the record declaring it (the first, on a
   -- duplicate — the fold rejects the second anyway)
   let mut idx : Std.HashMap Name Nat := {}
@@ -130,7 +131,7 @@ def hoistTargets (ds : Array Declaration) : Std.HashMap Nat Nat := Id.run do
         | some t => if t ≤ i then continue
         | none => pure ()
         target := target.insert k i
-        for n in ds[k]!.usedConsts do
+        for n in used ds[k]! do
           if let some m := idx[n]? then
             if m > i && m != k then stack := stack.push m
   return target
@@ -164,8 +165,9 @@ def applyHoist (ds : Array Declaration) (target : Std.HashMap Nat Nat) :
 /-- **The hoist.**  Returns the reordered records and the names of the
 records moved (empty, and the array untouched, when no operation's
 ground is declared after it). -/
-def hoistNatOpGround (ds : Array Declaration) : Array Declaration × Array Name :=
-  let target := hoistTargets ds
+def hoistNatOpGround (used : Declaration → Array Name) (ds : Array Declaration) :
+    Array Declaration × Array Name :=
+  let target := hoistTargets used ds
   if target.isEmpty then (ds, #[]) else applyHoist ds target
 
 end ConLeche.Frontend

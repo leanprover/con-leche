@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L97-L100
-    97  theorem model_exists (V : Type w) [SetTheory V]
-    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    99      (accepted : checkDecls .verified pins ds = .ok env) :
-   100      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L98-L101
+    98  theorem model_exists (V : Type w) [SetTheory V]
+    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   100      (accepted : checkDecls .verified pins ds = .ok env) :
+   101      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L97-L100
-    97  theorem model_exists (V : Type w) [SetTheory V]
-    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    99      (accepted : checkDecls .verified pins ds = .ok env) :
-   100      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L98-L101
+    98  theorem model_exists (V : Type w) [SetTheory V]
+    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   100      (accepted : checkDecls .verified pins ds = .ok env) :
+   101      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1285,18 +1285,18 @@
    795        Infer env Γ (b.inst v) B →
    796        Infer env Γ (letE T v b) B
 
-== ConLeche/Kernel/Core.lean#L1016-L1018
-  1016      | .letE _ v b =>
-  1017        -- Task #342 S0: ζ
-  1018        r.whnfCore cheap depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L988-L990
+   988      | .letE _ v b =>
+   989        -- Task #342 S0: ζ
+   990        r.whnfCore cheap depth (b.instantiate1 v)
 
-== ConLeche/Kernel/Core.lean#L1250-L1255
-  1250      | .letE ty v b => do
-  1251        -- Task #342 S0: official `infer_let`
-  1252        let _ ← ensureSort r env depth (← r.infer depth ty)
-  1253        unless ← r.defeq depth (← r.infer depth v) ty do
-  1254          throw (.invalid "let value type mismatch")
-  1255        r.infer depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1222-L1227
+  1222      | .letE ty v b => do
+  1223        -- Task #342 S0: official `infer_let`
+  1224        let _ ← ensureSort r env depth (← r.infer depth ty)
+  1225        unless ← r.defeq depth (← r.infer depth v) ty do
+  1226          throw (.invalid "let value type mismatch")
+  1227        r.infer depth (b.instantiate1 v)
 
 >>> whitepaper/sections/02b-model-proof.typ
 
@@ -2250,39 +2250,39 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1398-L1404
-  1398  /-- The innermost level of `defeqLams`: the opened bodies, and at the
-  1399  verified mode their FULL-grade types. -/
-  1400  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1401    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1402    if mode.verifiedChecks then
-  1403      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1404          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1370-L1376
+  1370  /-- The innermost level of `defeqLams`: the opened bodies, and at the
+  1371  verified mode their FULL-grade types. -/
+  1372  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1373    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1374    if mode.verifiedChecks then
+  1375      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1376          (← r.infer (depth + 1) b₂) do return false
 
-== ConLeche/Kernel/Core.lean#L471-L476
-   471        -- Task #342 S0: the λ/η tax (T2)
-   472        if mode.verifiedChecks then
-   473          unless ← r.defeq (depth + 1)
-   474              (← r.infer (depth + 1)
-   475                (body₁.instantiate1 (.fvar depth ty₁)))
-   476              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
+== ConLeche/Kernel/Core.lean#L443-L448
+   443        -- Task #342 S0: the λ/η tax (T2)
+   444        if mode.verifiedChecks then
+   445          unless ← r.defeq (depth + 1)
+   446              (← r.infer (depth + 1)
+   447                (body₁.instantiate1 (.fvar depth ty₁)))
+   448              (cod₂.instantiate1 (.fvar depth ty₁)) do return false
 
-== ConLeche/Kernel/Core.lean#L839-L853
-   839      | some (.recInfo cv mI rP isK rules) =>
-   840        let args := e.getAppArgs
-   841        -- checker change #9: the recursor's level arity, guarded as
-   842        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
-   843        -- kernel tests this immediately before instantiating the rule's
-   844        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
-   845        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
-   846        -- nanoda's `subst_expr_levels` asserts it.  Without it
-   847        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
-   848        -- level parameter the subject never had.  Ungated: the reference has it
-   849        -- unconditionally, so a mode gate would break parity.
-   850        -- task #342 L18: the stored type's syntactic arity, which the
-   851        -- uncertified recursor spine is read against
-   852        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
-   853            (Expr.peelPis (mI + 1) cv.type).isSome = true then
+== ConLeche/Kernel/Core.lean#L811-L825
+   811      | some (.recInfo cv mI rP isK rules) =>
+   812        let args := e.getAppArgs
+   813        -- checker change #9: the recursor's level arity, guarded as
+   814        -- `unfoldDefinition` guards it (`Core.lean:174`).  The official
+   815        -- kernel tests this immediately before instantiating the rule's
+   816        -- RHS (`src/kernel/inductive.h:105`, present since v4.0.0);
+   817        -- lean4lean does the same (`Inductive/Reduce.lean:98`) and
+   818        -- nanoda's `subst_expr_levels` asserts it.  Without it
+   819        -- `rl.rhs.instantiateLevelParams cv.levelParams us` can leak a
+   820        -- level parameter the subject never had.  Ungated: the reference has it
+   821        -- unconditionally, so a mode gate would break parity.
+   822        -- task #342 L18: the stored type's syntactic arity, which the
+   823        -- uncertified recursor spine is read against
+   824        if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
+   825            (Expr.peelPis (mI + 1) cv.type).isSome = true then
 
 == whitepaper/Fragment/ValueReading.lean#L177-L184
    177  /-- **Untyped lambda congruence is unsound** in the value-driven model: the
@@ -2463,13 +2463,13 @@
    481      (hA : DefEqSem m φ Γ A₂ A₁)
    482      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (.app (b.liftN 1) (.bvar 0)))
 
-== ConLeche/Kernel/Core.lean#L1259-L1264
-  1259  /-- **The io inference body** (tasks #161, #170, #346): official's
-  1260  `infer_type_core` with `infer_only = true`.  It differs from
-  1261  `inferBody` at three clauses: an application's argument is not
-  1262  checked against the domain, a λ's domain is not checked to be a type,
-  1263  and a `let`'s type and value are not checked (the body is inferred at
-  1264  the value).  The computed types and the "function expected" rejection
+== ConLeche/Kernel/Core.lean#L1231-L1236
+  1231  /-- **The io inference body** (tasks #161, #170, #346): official's
+  1232  `infer_type_core` with `infer_only = true`.  It differs from
+  1233  `inferBody` at three clauses: an application's argument is not
+  1234  checked against the domain, a λ's domain is not checked to be a type,
+  1235  and a `let`'s type and value are not checked (the body is inferred at
+  1236  the value).  The computed types and the "function expected" rejection
 
 >>> whitepaper/sections/03-definitions.typ
 
@@ -5225,11 +5225,11 @@
     69      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
     70      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L97-L100
-    97  theorem model_exists (V : Type w) [SetTheory V]
-    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-    99      (accepted : checkDecls .verified pins ds = .ok env) :
-   100      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L98-L101
+    98  theorem model_exists (V : Type w) [SetTheory V]
+    99      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+   100      (accepted : checkDecls .verified pins ds = .ok env) :
+   101      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -6648,13 +6648,13 @@
     34  theorem checkDecls_sound
     35      {ds : Array Declaration} {env' : Env}
 
-== ConLeche/Frontend/Prepare.lean#L171-L172
-   171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
-   172    (prepareD pre ds).decls
+== ConLeche/Frontend/Prepare.lean#L174-L175
+   174  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=
+   175    (prepareD pre ds).decls
 
-== ConLeche/Verify/Frontend/Prepare.lean#L160-L161
-   160  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
-   161      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
+== ConLeche/Verify/Frontend/Prepare.lean#L174-L175
+   174  theorem preparePrelude_perm (pre : PreludeIx) (ds : Array Declaration) :
+   175      ∃ extra : List Declaration, (∀ d ∈ extra, d ∈ pre.decls.toList) ∧
 
 >>> whitepaper/sections/08-related.typ
 

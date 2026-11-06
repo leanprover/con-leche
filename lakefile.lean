@@ -170,6 +170,11 @@ lean_exe «con-leche» where
 -- and Lake builds that olean first.  Writes
 -- `pins/<toolchain>.json`; `tests/pindump.sh` checks
 -- the committed file against a fresh regeneration.
+-- The olean reader against lean4export, record for record
+-- (`tests/olean-compare.sh`).
+lean_exe «olean-compare» where
+  root := `OleanCompare
+
 lean_exe «natop-pins-export» where
   root := `PinDump
 

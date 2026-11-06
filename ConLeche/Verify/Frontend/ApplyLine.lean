@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.ExportC
 import ConLeche.Verify.ExceptBind
+public import ConLeche.Kernel.Basis.Names
 
 public section
 

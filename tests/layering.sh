@@ -267,6 +267,32 @@ if '--list' in sys.argv[1:]:
         print(f'door {t}: {ch}')
     sys.exit(0)
 
+# --------------------------------------------------------------- the
+# olean reader is a tree of its own (`ConLeche/Frontend/Olean/*`): what it
+# reads of the rest of the checker is a short list of base types, and of the
+# implementation's upper layers only the record builder, at the one module
+# that ends the read.  Its pure modules do not reach the IO class, and its
+# proofs (`ConLeche/Verify/Frontend/Olean/*`) stand on it and the IO model.
+OLEAN_PFX = 'ConLeche.Frontend.Olean.'
+OLEAN_BASE = {'ConLeche.Kernel.Error', 'ConLeche.Kernel.Name', 'ConLeche.Kernel.Expr',
+              'ConLeche.Kernel.Env', 'ConLeche.Frontend.Scan.Types', 'ConLeche.Frontend.Pace'}
+OLEAN_EXTRA = {'ConLeche.Frontend.Olean.Files': {'ConLeche.Frontend.CheckerIO'},
+               'ConLeche.Frontend.Olean.Closure': {'ConLeche.Frontend.CheckerIO'},
+               'ConLeche.Frontend.Olean.Records': {'ConLeche.Frontend.CheckerIO',
+                                                   'ConLeche.Frontend.ExportC'}}
+oleanv = [(a, b) for a in sorted(edges) if a.startswith(OLEAN_PFX) for b in edges[a]
+          if not b.startswith(OLEAN_PFX) and b not in OLEAN_BASE
+          and b not in OLEAN_EXTRA.get(a, set())]
+OLEAN_V_PFX = 'ConLeche.Verify.Frontend.Olean.'
+# The interface: outside the tree and its proofs, only the umbrella
+# `ConLeche.Frontend.Olean`, whose header lists it.
+oleanout = [(a, b) for a in sorted(edges) for b in edges[a]
+            if b.startswith(OLEAN_PFX) and a != 'ConLeche.Frontend.Olean'
+            and not a.startswith((OLEAN_PFX, OLEAN_V_PFX))]
+oleanpv = [(a, b) for a in sorted(edges) if a.startswith(OLEAN_V_PFX) for b in edges[a]
+           if not b.startswith((OLEAN_PFX, OLEAN_V_PFX)) and b not in OLEAN_BASE
+           and b != 'ConLeche.Verify.Frontend.ModelIO']
+
 fail = 0
 def report(title, items, hint):
     global fail
@@ -277,6 +303,15 @@ def report(title, items, hint):
             print(f'    {a} -> {b}')
         print(f'    {hint}')
 
+report('the olean reader importing outside its fence', oleanv,
+       'ConLeche/Frontend/Olean/* imports itself and the base types OLEAN_BASE lists; only '
+       'Files and Closure reach the IO class, only Records the record builder.')
+report('a module importing past the olean interface', oleanout,
+       'Outside ConLeche/Frontend/Olean/* and its proofs, import ConLeche.Frontend.Olean, '
+       'whose header is the interface.')
+report('the olean proofs importing outside their fence', oleanpv,
+       'ConLeche/Verify/Frontend/Olean/* imports itself, the reader, its base types and the '
+       'IO model.')
 report('base module importing the model lane', basev,
        'ConLeche/{Kernel,Verify,SetTheory,Term,SetModel,Semantics}/* stand BELOW the '
        'lane; nothing there may import ConLeche/Model/*.')

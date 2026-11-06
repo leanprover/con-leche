@@ -217,6 +217,10 @@ if tests/challenge.sh; then :; else fail=1; fi
 # built tree; ~1 min, most of it the two olean dumps the fixpoint reads.
 if tests/shake.sh; then :; else fail=1; fi
 
+# THE OLEAN GATE: `--olean` on the committed fixtures of tests/olean/lib and
+# on corrupted copies of them, every verdict pinned.
+if tests/olean.sh; then :; else fail=1; fi
+
 # THE SELF-CHECK (task #199; a sub-gate since task #342 R1).
 # `scripts/selfcheck.sh --fresh` exports this tree's own development
 # (every con-leche declaration and its dependency cone, ~0.7 GB of
@@ -231,6 +235,9 @@ if [ "$SELFCHECK" = on ]; then
     echo "SELFCHECK FAIL: see _tmp/selfcheck-gate.log"; tail -5 _tmp/selfcheck-gate.log
     fail=1
   fi
+  # THE OLEAN COMPARE: the records the olean reader makes of Init's closure
+  # are, record for record, lean4export's (the exporter the self-check built).
+  if tests/olean-compare.sh _tmp/selfcheck-gate/lean4export; then :; else fail=1; fi
 fi
 
 # THE AXIOM PIN (2026-09-06, external review §2/§5.1).  The two main
@@ -410,6 +417,7 @@ dash_case 0 --help                                 # help, before any `--`
 dash_case 0 --help -- no-such-file                 # …help before `--`
 dash_case 3 -- no-such-file --help                 # two files after `--`: usage error
 dash_case 3 -- no-such-file                        # a file that is not there
+dash_case 3                                        # no arguments: usage error
 rm -rf "$DASHDIR"
 echo "mode flags: $mode_ok/$mode_total as expected"
 
@@ -525,12 +533,12 @@ echo "prelude counts: $prelude_ok/$prelude_total as expected"
 # The progress lane (`--progress[=<stride>]`).  One driver, one verdict: the
 # heartbeat is printed between the steps of the driver whose result
 # carries the proof that `checkDecls` accepts, so the flag changes no
-# verdict by construction.  The contract checked here: `check <done>/<N>
-# <decl>` AFTER every completed check, bracketed in order by `parse
-# done`, `check done` and the `done:` summary (the two phase durations and
-# the worker count); EVERY check is reported at stride 1; and the flag
-# changes no verdict, on an accepting and on a rejecting fixture alike, in
-# one thread and on the pool.
+# verdict by construction.  The contract checked here: `check <done>
+# (<percent>%) <decl>` AFTER every completed check, bracketed in order by
+# `parse done`, `check done` and the `done:` summary (the two phase
+# durations and the worker count); EVERY check is reported at stride 1;
+# and the flag changes no verdict, on an accepting and on a rejecting
+# fixture alike, in one thread and on the pool.
 prog_ok=0
 prog_total=0
 prog_check() { # <description> <condition-result>
@@ -548,10 +556,10 @@ prog_err1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_out1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
 # the fold records: the stream's after the built-in prelude's (task #191)
-# -- the total the `check done: N/N` line names; the verdict line counts
-# the stream's records only
+# -- the total the `check done: N declarations` line names; the verdict
+# line counts the stream's records only
 prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: check [0-9]')
-prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: check done: [0-9]*\/\([0-9]*\) .*/\1/p')
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: check done: \([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the flag" \
@@ -598,7 +606,7 @@ prog_check "--progress composes with --trusted in either order" \
 prog_errJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_outJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_codeJ=$?
-prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\)\/.*/\1/p' | tr '\n' ' ')
+prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\) (.*/\1/p' | tr '\n' ' ')
 prog_orderJ=$(printf '%s\n' "$prog_errJ" | sed -n \
   -e 's/^con-leche: parse done: .*/P/p' \
   -e 's/^con-leche: check done: .*/C/p' \
@@ -611,6 +619,30 @@ prog_check "--jobs=4 --progress=1 reports every check once, counting up" \
 prog_check "--jobs=4 --progress=1 brackets the run in order, naming the workers" \
   "$(printf '%s' "$prog_orderJ" | grep -q '^Pc*CD$' && echo ok)"
 # a bad stride is a USAGE error (exit 3), not a silently degraded run
+# the other paces (task #484): per percent of a phase, and by the clock; each phase says when
+# it starts at any pace
+prog_lines() { printf '%s\n' "$1" | grep -c "$2"; }
+prog_errP=$(timeout 120 "$BIN" --jobs=1 --progress=50% "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=50%: two check lines" \
+  "$([ "$(prog_lines "$prog_errP" '^con-leche: check [0-9]')" = 2 ] && echo ok)"
+prog_errN=$(timeout 120 "$BIN" --jobs=4 --progress=2 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=2: the check lines name no declaration, and no check this young" \
+  "$(printf '%s\n' "$prog_errN" | grep -q '^con-leche: check [0-9]* ([0-9]*%) t=.* busy=' && \
+     ! printf '%s\n' "$prog_errN" | grep '^con-leche: check [0-9]' | grep -q 'oldest' && echo ok)"
+prog_errT=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=1: a trace, every check line names its declaration" \
+  "$(printf '%s\n' "$prog_errT" | grep -q '^con-leche: check [0-9]* ([0-9]*%) [a-z]* .*, oldest ' && echo ok)"
+prog_errS=$(timeout 120 "$BIN" --jobs=1 --progress=1000s "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=1000s: no check line in a short run" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: check [0-9]')" = 0 ] && echo ok)"
+prog_check "--progress=1000s: it says what it is reading" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: reading ')" = 1 ] && echo ok)"
+prog_check "--progress=1000s: the check says it has started" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: checking: ')" = 1 ] && echo ok)"
+for v in 0% 101% x% 0s xs 1.5s; do
+  timeout 120 "$BIN" --progress=$v "$SPLIT_GOOD" >/dev/null 2>&1
+  prog_check "--progress=$v is a usage error (exit 3)" "$([ $? = 3 ] && echo ok)"
+done
 timeout 120 "$BIN" --progress=x "$SPLIT_GOOD" >/dev/null 2>&1; prog_codeX=$?
 timeout 120 "$BIN" --progress=0 "$SPLIT_GOOD" >/dev/null 2>&1; prog_code0=$?
 prog_check "--progress=x is a usage error (exit 3)" \
@@ -621,7 +653,7 @@ echo "progress lane: $prog_ok/$prog_total as expected"
 
 # The worker pool (`--jobs=<n>`).  The check phase runs on
 # <n> threads (one worker per hardware thread without the flag;
-# --jobs=1 one worker, with no shared counter and no result table);
+# --jobs=1 one worker);
 # the results are
 # merged by record index and walked in fold order, so the verdict and
 # the declaration a rejection names are the same at every <n>.  The

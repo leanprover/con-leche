@@ -109977,3 +109977,324 @@ accept 691203 declaration records.
 
 The install phase's 32.1 s at one worker is gone; the guards it ran now run in the jobs
 (check +3.4 s at one worker).  The index build is 3.6 s at one worker, 0.7 s at eight.
+## TASK #470 — the `.olean` reader on master, without modular checking (2026-11-04, agent/470-olean)
+
+**The task (maintainer).**  Land the whole olean parsing machinery on
+master, without modular checking, the parsers not yet needed included; the
+cfsg branch says what is needed, not how it is structured.  `olean-compare`
+on master with a CI check; tested on Mathlib.  No `@[csimp]`: the driver calls
+the fast entry points by name, the equality to the specification a plain
+theorem.
+
+**What landed.**  `ConLeche/Frontend/Olean/*`: `Region`, `Spec`, `Fast`,
+`Sparse` from cfsg; `Header`, `Reads`, `Module`, `Files`, `Closure`, `Merge`,
+`Emit`, `Records` cut out of cfsg's `Load`.  `--olean`, `--search-path=` on the
+CLI, `Input.oleans`, `Req.oleans`.  `CheckerIO.parMapExcept` joins the class
+(the model: the sequential map).  `CheckError` moved to `Kernel/Error.lean`, so
+that the reader does not import the core.
+
+**Questioned from cfsg, and changed.**
+* The toolchain allowlist is gone: only the format version and the GMP flag are
+  checked (a decline otherwise), the header's version and githash not looked at.
+  rc3's and v4.35.0's format sources are identical.
+* **Views by level (maintainer's design).**  `decodeModuleSpec f level` is the
+  specification of one view, `noncomputable`; a view reads the files up to its own
+  (`ModFiles.viewRegion`), so `.exported` needs `M.olean` alone.  `parseView` is one
+  view, fast.  `parseAllViews` is all three with one memo, each object once
+  (`parseMany`, the one engine, `parseMany_eq`); it replaces a separate exported parse
+  and separate server and private parses, three passes over overlapping objects.
+  The interface is in levels; the address of a `ModuleData` (`moduleDataAddr`) is
+  internal.  Lean's names: `OLeanLevel`, `.exported`.
+* **`--olean` reads the private view only**, as Lean's import does outside the module
+  system (`Elab/Import.lean`: `.private`) and as lean4export does (`importModules`'s
+  default).  It needs all three files' bytes and decodes what the private view reaches.
+  The cross-part checks moved to `checkViews`, a home's read; `olean-compare --views` runs
+  it.  So `--olean` accepts a module whose exported or server part is bad: five pinned
+  verdicts in `tests/olean.sh` are now pinned both ways.  Every view's imports must be
+  those at the start of `M.olean` (`importsPre`), which is what the closure reads, so
+  that a prefix read follows from any full one.
+* The specification is stricter on a few reads, which honest files satisfy: a scalar is no
+  address (`Region.loc`), a recursor rule's object lies below its recursor's, the kind's
+  object is checked before its first field is read.  Needed: past a file's end the two
+  regions see different bytes.
+* `constNamesOk` is a recursion, not a `for` loop; `Region.ofParts`'s overlap check too.
+  `locateHits` and `readFiles`'s checks have no `for/mut`.
+
+**The uniform theorems (the maintainer's question).**  One direction on purpose: a
+read looks only at what it needs, so it may succeed on a file whose full parse fails.
+`parseView_eq_spec` is an equality, so the fast parser succeeds iff the specification does.
+* `parseAllViews_eq`: all three, with one memo, are the three specifications, each in the
+  region of the files up to its view.  The proof is `Verify/Frontend/Olean/Prefix.lean`:
+  `Region.Sub P r n`, `P` the first `n` bytes of `r`; every object reader agrees below an
+  address `P` knows, because a pointer an object holds points below it.  Only a
+  `ModuleData`'s own address can leave its view, which `parseAllViews` checks.  So an
+  importer holding `M.olean` alone reads what the home read, a theorem and no longer a
+  separate parse.
+* at a level (`Verify/Frontend/Olean/View.lean`), where `parseView f level = some d`:
+  `readNamePositions_of_view`, `readEntry_of_view`, `readStmts_of_view`; on regions,
+  `entryAt_eq` holds unconditionally.  `importsPre_extract` and `importsPre_prefix` relate
+  the prefix read to the file in both directions.
+* on a snapshot (`Verify/Frontend/Olean/Files.lean`), from a value of `readAllViews`:
+  `readView_of_all` and `readFiles_of_all` state those reads are DETERMINED and the home's;
+  `moduleImports_of_view` from any view read.  One snapshot, in one process or in two.
+* `closureOrder_ok` (the module walk holds the roots, each module after its imports),
+  `mergeAll_ok` (every constant stands in the merge: `Stands`, `subsumesInfo`'s rule; every
+  entry is a module's, under its own name), both about code that needed no change.
+* **The emission** (`Verify/Frontend/Olean/Emit.lean`).  `emitLoop_spec`: the tables only grow,
+  every record comes from stored constants (`RecFrom`), every root stored and not filtered out
+  is visited.  A crafted block could mark a constant visited with no record of its own (a block
+  whose `all` names a theorem), so `readOleans` runs `blocksOk` on the merged constants before the
+  walk, on every stored constant, reached or not: an inductive type's block lists it, its members
+  are stored inductive types agreeing on the block, its constructors are stored and name it, a
+  constructor's type is stored and lists it, a recursor's block is its first member's, a block's
+  parts are filtered out together, and a quotient constant is one of the package, all of whose
+  stored constants are quotient constants.  `emitLoop_covers` then proves "visited means declared"
+  (no `Emit.declared`, no second pass over the output, maintainer's ruling), by the walk's
+  invariant `CoverInv`: a visited constant is declared, will be by a stack item (`Will`), or is a
+  part of a type visited or to be visited (`BlockPart`), and all parts of a visited type are
+  declared or will be.  A recursor is found through `recMapOf_mem`.
+  A declared name's record is then its own constant's (`rec_of_declares`), which
+  gives `declsOf_thm`: a theorem constant among the roots has its theorem record, with its own
+  statement and proof.  `declsOf_from`: nothing is added: every declaration is what a stored
+  constant stands for (`entryDecl`), or an inductive block's whose members, constructors and
+  recursors are stored constants of those kinds, by their statements.  Not stated: a block's other
+  fields and its recursor rules, which `validateIndF` and the installer check anyway.
+* **`main_oleans_no_False` is about the files**, as the stream corollary is, and at a concrete
+  argument list, `--olean --search-path=<dirs> -- <root>` (maintainer's ruling), so that it has no
+  hypothesis on the argument parser: `parseArgs_olean`.  On a snapshot where the private view of a
+  module of the closure holds a theorem of type `False`, no run exits 0.  The view is stated through
+  the specification (`ViewOf`: `readFiles` and `decodeModuleSpec`, and `InClosure` over it), not the
+  fast parser.  It needs `Stands`: only a theorem may stand for a theorem, of the same statement.
+  `flagValue` reads a flag's value through `toList`, to make that provable.
+* Pulling the walk's helpers out of `emitLoop` (`blockTys`, `Work.usesOf`, `Emit.ones`, ...)
+  removed the `attach`es the termination preprocessing had put in its body.  `blocksOk` and
+  `declsOf` are recursions over a step.
+
+**Fence.**  `tests/layering.sh`: the reader imports itself and five base modules
+(`Kernel.{Error,Name,Expr,Env}`, `Frontend.Scan.Types`); only `Files` and
+`Closure` reach `CheckerIO`; `Records` alone `ExportC`.  The proofs: themselves,
+the reader, those, `Verify.Frontend.ModelIO`.  `tests/trust-surface.sh`'s IO fence
+covers `Files`, `Closure`, `Records`, with `parShare` and `parMapIO` cut out.
+
+**Tests.**  `tests/olean.sh`: 109 cases, the merged and parts cases of cfsg's gate,
+79 fixture sources (1.4 MB of oleans), upstream Lake and Comparator projects kept;
+`NpAx` is exit 2 here (master declines every other axiom; cfsg's reject is its
+#397, which is not on master).  `tests/ConLecheTests/OleanTests.lean` evaluates
+every partial read and `parseAllViews` on the fixtures.  `tests/olean-compare.sh`, in the battery
+after the self-check, whose exporter it uses.
+
+**Numbers.**  `olean-compare`: `Init` 57 919 records, `Lean` 164 016 records, 0
+differences.  Mathlib (`_tmp/ref/mathlib4-v4.35.0`, `--verified --jobs=8`, one
+run, on the final tree, the private view, every constant): accepted 775 321 declarations,
+peak RSS 5.35 GiB (6.27 GiB on the run before, on a busier machine), 7 652 G instructions:u.  The private view alone took it from 7 772 G to
+7 570 G; the 63 116 records the name filter left out cost 98 G more (+1.3 %), none of them
+rejected or declined.  One run each; wall time on this machine varied too much to compare.  A slice
+of CFSG's rc3 Mathlib (`Mathlib.Logic.Equiv.Defs`, 113 593 declarations) read and was
+accepted before the interface rewrite; that checkout is gone.
+
+**The review (Codex, then the maintainer's rulings, 2026-11-04).**  Run on the
+branch before landing.  The refinement check's fallback ran the unmemoized
+specification on untrusted data: a crafted exported statement of 2^80 nodes as a
+tree hung the reader (not in Codex's list; the fixture timed out before the fix).
+It reads with `readEntry`, and **everything that reads a `Level` or an `Expr` without
+a memo is `noncomputable`**, so that no executed path can (`nameAt` stays
+executable: a `Name` is a chain).  `«»` is refused.  The "every object" wording said
+more than the reader does.  Codex's dense-memo finding was overstated (the memo is
+linear in the file) and its deep-nesting one fails safe, no verdict; both stand.
+
+**The interface (maintainer's rulings).**  The entry points had grown with cfsg's
+layers.  Gone: `parseFull`, `decodeModuleFast`, `parseExported`, `parseModule`, `readHeader`
+(nothing wants the flag and imports without the names), `readImports`, `readExported`,
+`readExportedLight`, `readModule`, `readExpAt`, `locateModule`.  "Light" is now "name
+positions".  `ConLeche/Frontend/Olean.lean` lists the interface; `tests/layering.sh` keeps
+the rest of the checker from importing past it.  `private` cannot express it: checker code
+is exposed, so what an exposed definition mentions must be public.
+
+**Every constant is checked (maintainer's ruling).**  `Name.isInternal` came in with #369,
+copied from lean4export's `Main.lean`, the default of an export tool's command line and not a
+checker's concept: which constants are checked must not depend on how a name is spelled.  An
+unused `private theorem` was never type-checked, 6 018 of `Init`'s records were left out.  The
+roots are now every constant of the closure.  `--constant=NAME` restricts them, as lean4export's
+`--` does, so that the reader subsumes the exporter: `olean-compare` compares a constant's cone
+record for record, and a whole closure up to the records only internal names reach.  Unsafe and
+partial constants stay out: that filter is about the logic, and is `Export.lean`'s own.
+
+## TASK #481 — a theorem's value stays in the file until its check (2026-11-05, agent/481-lazy-values)
+
+**The task (maintainer).**  Most of what an `.olean` holds is theorem values, only needed by
+that theorem's check, in parallel, and not afterwards.  Build the environment without
+decoding them, keep the memo for sharing (a two-tier table if need be), read a value in its
+check and drop it; verified equal to today; say what it does to Mathlib's RSS and to the rest
+of the performance, including the cost of re-decoding what many theorems share.
+
+**The census** (Mathlib's closure, 10 976 modules, 7.2 GB of files, 549 030 theorems).  Expression
+objects: 137.8 M in all, 44.4 M without the theorems' values.  All kinds: 143.8 M, 48.2 M.  Sum over
+the theorems of what each value reaches: 216 M, or 120 M outside what the load read.  So re-decoding
+per theorem costs at most 1.84 times the objects without any memo, 1.17 times with one.
+Largest module 14.6 MB, so a worker keeping one module's bytes costs nothing.
+
+**The variants** (`--jobs=8`, one run each, spike binary; wall is noisy on this machine):
+
+| | peak RSS | instr:u | cycles:u | wall |
+|---|---|---|---|---|
+| today | 6.26 GiB | 7 658 G | 3 898 G | 131 s |
+| no memo kept | 3.52 GiB | 8 357 G | 4 563 G | 153 s |
+| memo per worker, per module | 3.56 GiB | 8 486 G | 4 318 G | 139 s |
+| the load's whole memo kept, as hash maps | 6.29 GiB | 7 889 G | 3 997 G | 125 s |
+| **the frontier kept, memo per job** | **4.01 GiB** | 8 264 G | 4 036 G | 124 s |
+| the frontier and a memo per worker | 3.99 GiB | 8 379 G | 4 176 G | 130 s |
+| the frontier and a dense memo per worker | 4.37 GiB | 8 448 G | 4 553 G | 152 s |
+
+The maintainer's second tier is what removes the slowdown: objects shared with the environment
+are persistent, pay no reference counting, and pointer equality still fires.  (The spike's single runs
+suggested a check faster than today's; the alternating runs below do not: it is flat.)  **The frontier**
+makes it cheap: a value enters
+what the load read only at the objects a value-only object points to (6.0 M of 48.2 M), and everything
+below stays reachable through those, so nothing else of the memo is ever asked for.  Sorted arrays
+(keys and values per kind) rather than hash maps, and a table per module.  The dense memo is rejected on
+the numbers.
+
+**The shipped path** (the real binary against master 7cb7a45cd; `--verified --jobs=8`, 5 runs
+each, alternating, load average 7-30, median and min-max):
+
+| Mathlib | master | this branch | |
+|---|---|---|---|
+| peak RSS | 6.20 GiB (6.18-6.24) | 3.94 GiB (3.93-3.99) | -36 % |
+| instructions:u | 7 656 G (7 652-7 664) | 8 093 G (8 085-8 100) | +5.7 % |
+| cycles:u | 3 862 G (3 755-3 977) | 3 830 G (3 799-3 874) | flat |
+| user | 879 s (855-934) | 878 s (870-889) | flat |
+| wall | 131.4 s (123.5-142.0) | 123.6 s (121.3-125.9) | -6 %, the ranges overlap |
+| parse | 16.7 s (15.4-26.1) | 10.3 s (9.9-11.7) | -38 % |
+| install | 8.6 s (7.9-9.4) | 7.6 s (6.8-7.8) | -12 % |
+| check | 102.7 s (99.0-106.9) | 104.2 s (102.9-108.5) | flat |
+
+So less memory at no real cost, and the wall gain is the parse's.  Instructions go up (the walk at the
+load, and the decoding of what a value reaches beyond the frontier) with cycles flat.  The stream path, on
+the pool it now shares (`mathlib-full.ndjson`, `--jobs=8`, one run each): 6 913.7 G and 6 914.2 G, 4.70
+GiB both.
+
+**The shape.**  `ConLeche/Frontend/Olean/Lazy.lean`: `loadAt`, a value being `valueRef i g` in the
+records, an expression, so that the merge, the emission, the preparation and the install need no change
+(none of them reads it; the install's own comment already said so).  `readValue` in
+`Records.lean`: the module's region (`regionFor`, a worker's cache) and `frontierExpr` (the sparse
+decoder of task #421 over a frontier).  `CheckerIO.parMapWorkers` is the check phase's pool, in the class
+because the elements read files, used by the stream path too (`checkPool`, `checkLoop` gone).  A worker
+claims one job at a time, as before.
+
+**The proof.**
+* `frontierExpr_eq`: a read over any frontier holding only the specification's values is the
+  specification.  `frontierOf` takes only slots the passes' marks hold (`Built`), so a wrong walk
+  loses sharing and nothing else: `frontierWalk` is `partial` with no theorem.
+* `loadAt_spec`, `lazyEntry_of_spec`, `lazyEntry_thm`: the load's constants are the specification's,
+  up to a theorem's value, which is a reference to the location the skeleton's pointer stands for.
+* The model of the worker map is the sequential map at any state `WorkerReach` allows: where a
+  worker starts and what its own elements leave.  So a worker's cache is not a trusted
+  assumption: `oleanWorker_reach` proves every reachable state keeps its module's region of the snapshot.
+* `InstallRun.fill`: the install at any theorems' values is the same run.  `fillOf`, ghost, puts in each
+  reference what it stands for on the snapshot (`ValueAt`, unique).  `checkOleansG_accept`,
+  `checkMainG_oleans_accept`: exit 0 means `checkDecls` accepts the filled records.
+* **`readOleans_filled`**, what "verified equal" means: a theorem's record with its value in place is
+  the constant the specification reads off that module's files (`constSpec`), statement and proof.
+* `main_oleans_no_False`'s statement did not change.
+
+**What is not proved, and what differs from today.**
+* The old pipeline is gone rather than proved equal to this one (no reference copies), so the claim is
+  against the specification, not against the old code.
+* The record ORDER rests on `usesGo`, as it did on `constsGo`, both without a theorem (it was `partial`
+  too).  Checked instead: the 775 321 install lines of the old and new binaries on Mathlib hash the same
+  (sha256 367a3bb5…); `tests/olean-compare.sh`: `Init` 0 differences.  An order that was wrong would make a check fail, never pass.
+* **A value no check reads is no longer decoded**: a theorem shadowed in the merge by another
+  module's copy, or outside `--constant`'s cone.  The walk still goes over its expression objects' shapes
+  (`usesGo`), but a bad string or number in it no longer fails the run: pinned in `tests/olean.sh`
+  (`--constant` past a bad value, exit 0, 3 before).  Such a value means nothing to the run, and no decode is added
+  (maintainer's ruling: a value that is not read is no concern here).
+* A malformed value now fails in its job, at its position, with the same exit 3, so an earlier
+  record's reject can come first.
+* The hoist reads what a theorem mentions from the load (`OleanRead.thmUses`), a value's mentions
+  not being in its record; no real input has reached this (`hoisted` is empty on Init and Mathlib),
+  and a fixture would need a theorem in a Nat operation's ground.
+
+**The worker's state (maintainer's ruling).**  What it holds of a read is the module's region, the
+files' raw bytes.  Measured by reading the files for every theorem instead (Mathlib, `--jobs=8`, 5
+alternating runs, median): wall 119.1 s against 151.1 s, check 102.1 s against 132.8 s, sys 14.5 s
+against 146 s, instructions 8 088 G against 8 472 G, the same RSS.  A cache in the `IO` instance was
+considered, as the model already assumes one snapshot: it would drop `WorkerReach` and `CacheOK` but
+needs a concatenating read and the `Located` kept, and puts unverified state in the instance.  Ruled
+against: the worker map stays, a parallel combinator whose model makes the proof hold at every state a
+worker can reach.  What that gives is exit 0 implies the fact, at any assignment of elements to workers; no
+theorem says two assignments give one result, and that the threads meet the model is assumption (1).
+
+**The load on the worker map** (`parMapExcept`'s instance swapped for it, not kept; parse phase on
+Mathlib, 5 alternating runs, median, min-max): 8 jobs 10.6 s (9.8-11.6) static, 10.2 s (10.1-15.5) claimed;
+32 jobs 7.3 s (7.0-12.0), 7.7 s (7.3-12.0).  No measurable gain: the largest round-robin share by file
+bytes is 1.03 times the mean at 8 workers, 1.16 at 32, and the largest module 22 times the mean module.
+CFSG's closure not measured.
+`parMapExcept` stays as it is for now (maintainer's ruling).
+
+**Follow-ups, not done.**  The stream reader (the maintainer's idea: line boundaries, then the roots).
+Workers read a module's files again each (61 000 reads for 11 000 modules on Mathlib, 2 % of the
+worker time).  CFSG is the maintainer's to run.
+
+## TASK #484 — what `--progress` says while the `.olean` files are read (2026-11-05, agent/484-read-progress)
+
+**The task (maintainer).**  CFSG's 200 GB of `.olean` files do not load within 50 GB, and nothing says
+where it fails: the whole read comes before the first `--progress` line.  It should say what it is doing,
+not every module traced, but that it is tracing imports.
+
+**What it says.**  `ConLeche/Frontend/Olean/Progress.lean`: `read:` lines, each with the time and `VmRSS`:
+the import closure being traced, the modules being loaded, a line per twentieth of them, the merge, the
+blocks' check, the emission.  `IO` actions through `liftIO`, so that `readOleans` at any `stride` has the
+one model, and `readOleans_ok` needed only its peeling extended.  The walk over the imports itself has no
+line per module, as asked: its proof (`closureGo_ok`) would have to carry one for no gain.
+
+**The pace (maintainer).**  `--progress[=N|P%|Ss]`: `Pace` (`ConLeche/Frontend/Pace.lean`) in place of a
+stride.  Simple on purpose: a line comes when an item finishes, so `10s` is not strictly every ten
+seconds, and a long check or a step with no items is silent until it ends; for that every phase says when
+it starts (`reading`, `read:`, the install's first line, `checking`).  The install's loop, which
+another lane is removing, keeps a plain stride derived from the pace (`Pace.strideFor`), so at seconds
+it prints its first line alone.
+
+The load's and the check's lines give a count and a percentage (`read: loaded 71906 modules (30%)`,
+`check 322101 (41%) <decl>`), the total being on the phase's first line just above: long numbers are hard
+to read (maintainer).  The install's lines now follow suit (maintainer), a small edit in the one print of a phase another
+lane is removing.
+
+A line of the check or the install names its declaration only at `--progress=1`, a trace; at any other pace it is an
+arbitrary one.  The oldest check in flight is named there too, and elsewhere once it has run for 10 s,
+when it is news (maintainer: two long names per line are noise).
+
+During the load, `--progress=N` counts the constants loaded, each module's being at hand, so that it
+means one thing along a run (maintainer); a percentage and the clock go by modules, as the constants' total
+is not known yet.  Bare, a line per module.
+
+
+### Merging master: the `.olean` reader, lazy theorem values and the progress lines on one check phase (#480; 2026-11-06)
+
+Master gained tasks #470 (the `.olean` reader), #481 (a theorem's value stays in its file until
+its check) and #484 (`--progress=N|P%|Ss`, every phase saying when it starts), each written on
+the install phase this task removes.  The merge keeps their behaviour on a run that is parse then
+check:
+
+* **One pool.** Master's worker map (`CheckerIO.parMapWorkers`, `parMapWorkersIO` at `IO`) is the
+  check phase's pool on both paths; this branch's own loop and pool (`checkLoop`, `checkWorker`,
+  `mergeResults`) are gone.  A job is still a record position (`recordJob`); the results come back
+  in job order and `collect` walks them into the fact `checkDecls_of_jobs` takes.
+* **A theorem's value in its job.** On an `--olean` run a theorem whose record holds a reference
+  (`.thmDecl cv (.bvar code)`) reads the value in its job and is checked as `.thmDecl cv v`
+  (`oleanJobRun`).  What justifies it is one lemma, `buildIndex_fill`: the index reads a theorem
+  by its statement only, so it is the same at any values.  `checkOleansG_accept` is then
+  `checkDecls_of_jobs` over the records with their values in place; master's `InstallRun.fill`
+  and the `jobOrder` lemmas went with the install.  `checkMainG_oleans_accept` and
+  `main_oleans_no_False` are unchanged in statement.
+* **Progress.** #484's `Pace` and line shapes are kept; its install lines (`install <i>`, `install
+  done`, `persistent mark`) go with the install, and the check phase's first line is `checking:
+  <N> declarations on <W> workers`.  `Pace.strideFor`, used by the install's loop only, is gone.
+  The `checkDone` summary has the two phase durations.
+* **The persistent mark** of what an `--olean` run's workers share besides the records and the
+  index (`markShared`) moved from `Run.lean` to `CheckPool.lean`, the one allowlisted file for the
+  marks (three calls now).
+* **Documents.** OVERVIEW's `--progress` paragraph is #484's without its install lines; master's
+  removal of the eager-flag paragraph is kept; the module map lists the `.olean` reader in the
+  Frontend row.  README keeps the maintainer's two-phase line and master's olean parser line.
+  The citations were moved by the cited text on both sides' records, and the prose compared with
+  the anchors stripped against both sides.

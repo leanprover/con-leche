@@ -70,6 +70,26 @@ FALLBACK = {
     ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
     ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),
+    # task #470: the olean proofs' public statements name `Region`, `nameP`,
+    # `exprP` (through the reader's `Fast`) and `IsKind`, `Kid`, `KindOK`
+    # (through `Kids`); the census attributes them to the private imports.
+    # Each measured by demoting it (unknown identifier `Region`,
+    # `Engine.lean:25`; `IsKind`, `Sparse.lean:104`).
+    ('ConLeche.Verify.Frontend.Olean.Engine', 'ConLeche.Frontend.Olean.Fast'),
+    ('ConLeche.Verify.Frontend.Olean.Sparse', 'ConLeche.Verify.Frontend.Olean.Kids'),
+    # task #481: the snapshot theorems' public statements name `ModelIO.Det`,
+    # `foldList`; the model finds the module's other public-interface miss first
+    # (`Verify.Frontend.Olean.Emit`), one token, so that this one adds nothing.
+    # Measured by demoting it (no field `Det`, `Files.lean:54`).
+    ('ConLeche.Verify.Frontend.Olean.Files', 'ConLeche.Verify.Frontend.ModelIO'),
+    # `ExportC`'s public definitions name `Declaration`, `ConstantVal`
+    # (unknown identifier, `ExportC.lean:65`); the census attributes them to
+    # its other imports.
+    ('ConLeche.Frontend.ExportC', 'ConLeche.Kernel.Env'),
+    # (likewise `Region`, `ImportF`: unknown identifier, `Reads.lean:40`)
+    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Reads'),
+    ('ConLeche.Verify.Frontend.Olean.Prefix', 'ConLeche.Frontend.Olean.Fast'),
+    ('ConLeche.Verify.Frontend.Olean.Reads', 'ConLeche.Frontend.Olean.Header'),
     # lane CHEAPPROJ: `DefEqBridge`'s public statements name `DefEqBridge`/
     # `DefEq` (through `Defs`) and `QuickExit`/`quickDefEqFueled` (through
     # `DefEqStepInv`); the census attributes them to its private `RedBridge`
@@ -806,12 +826,12 @@ files=[f for f in subprocess.check_output(['git','ls-files','*.lean']).decode().
                             'whitepaper/')) and f != 'lakefile.lean']
 mod=lambda f: f[:-5].replace('/','.')
 fileof={mod(f):f for f in files}
-UMBRELLA={'ConLeche.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
+UMBRELLA={'ConLeche.lean','ConLeche/Frontend/Olean.lean','ConLeche/Term.lean','ConLeche/SetModel.lean','ConLeche/Semantics.lean',
           'ConLeche/Model.lean','ConLeche/Verify/Cached.lean','ConLeche/Verify/Denote.lean',
           'ConLeche/Kernel/Basis.lean','ConLeche/Complete.lean'}
 # frozen: the umbrellas exist to re-export, the classic roots have no `public`
 # keyword, `tests/*` and the PinGen generator are outside the census roots.
-CLASSIC={'tests/ProofDeps.lean','PinDump.lean'}
+CLASSIC={'tests/ProofDeps.lean','PinDump.lean','OleanCompare.lean'}
 FROZEN_PREFIX=('tests/','ConLeche/PinGen/','ConLeche/Challenge.lean','ConLeche/PinGen.lean')
 EXT=('Std','Lean','Init')
 
