@@ -1,12 +1,13 @@
 module
 
-public import ConLeche.Driver.CheckMain
+public import ConLeche.Driver.Graph
 
 /-!
 # What a run does, by its request, generic in the IO class (task #424)
 
 `runArgs` (`ConLeche/Driver/Cli.lean`) reads its arguments into a request (`Req`): a
-lean4export stream, or the import closure of root modules from their `.olean` files.  `runReq` runs the request's driver,
+lean4export stream, the import closure of root modules from their `.olean` files, or that
+closure's import graph alone (`Graph.checkGraphG`, `ConLeche/Driver/Graph.lean`).  `runReq` runs the request's driver,
 `checkMainG`, generic in the IO class: the binary runs it at `IO`
 (`ConLeche/Driver/Cli.lean`, `Main.lean`), and `runArgs_accept`
 (`ConLeche/Verify/Driver/Main.lean`) is about the whole run in the
@@ -26,10 +27,13 @@ inductive Req where
   /-- the import closure of root modules (`checkMainG` on `.oleans`) -/
   | oleans (searchPath : List System.FilePath) (roots : Array Name)
       (constants : Option (Array Name)) (mode : CheckMode) (pace : Pace) (jobs : Nat)
+  /-- the import graph of root modules' closure (`Graph.checkGraphG`) -/
+  | graph (searchPath : List System.FilePath) (roots : List Name) (jobs : Nat)
 
 /-- **A request run** by its driver. -/
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
   | .stream file mode pace jobs => checkMainG (.ndjson file) mode pace jobs
   | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
+  | .graph sp roots jobs => Graph.checkGraphG sp roots jobs
 
 end ConLeche.Driver

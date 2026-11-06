@@ -61,7 +61,8 @@ theorem append_ne {other l : String} (d : String) (h : other.toList.isPrefixOf l
 
 /-- `parseArgs` past the literal flags. -/
 theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ "--")
-    (h2 : s ≠ "--verified") (h3 : s ≠ "--trusted") (h4 : s ≠ "--progress") (h5 : s ≠ "--olean") :
+    (h2 : s ≠ "--verified") (h3 : s ≠ "--trusted") (h4 : s ≠ "--progress") (h5 : s ≠ "--olean")
+    (h6 : s ≠ "--check-graph") :
     parseArgs (s :: rest) a =
       if let some v := flagValue "--progress=" s then
         match progressPace v with
@@ -94,7 +95,8 @@ theorem parseArgs_olean (dirs root : String) :
     rw [parseArgs.eq_def]
     rfl
   rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
-      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide)),
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
     flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
     flagValue_other dirs (by decide) (by decide), flagValue_append]
   have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
@@ -115,7 +117,7 @@ files of the roots the arguments name, along the search path they name, and
 prelude and with the theorems' values in place. -/
 theorem runArgs_oleans_accept {args : List String} {fs : FS}
     (hh : helpWanted args = false) (hb : (parseArgs args {}).bad = none)
-    (ho : (parseArgs args {}).olean = true)
+    (ho : (parseArgs args {}).olean = true) (hg : (parseArgs args {}).checkGraph = false)
     (h : (runArgs args : ModelIO _) fs (.ok 0)) :
     ∃ pre rd env, builtinPreludeE = .ok pre ∧
       (Olean.readOleans (parseArgs args {}).searchPath
@@ -134,7 +136,7 @@ theorem runArgs_oleans_accept {args : List String} {fs : FS}
             (Cached.fillDecl (fillOf (parseArgs args {}).searchPath fs rd.values))) = .ok env) from
     H 0 h rfl
   refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
-  · simp only [hh, hb, ho, Bool.false_eq_true, ite_false, ite_true]
+  · simp only [hh, hb, ho, hg, Bool.false_eq_true, ite_false, ite_true]
     intro c hc h0
     subst h0
     split at hc
@@ -170,9 +172,61 @@ theorem runArgs_olean_accept {dirs root : String} {fs : FS}
           (Cached.fillDecl (fillOf (searchPathOf dirs) fs rd.values))) = .ok env := by
   have hp := parseArgs_olean dirs root
   obtain ⟨pre, rd, env, h1, h2, h3⟩ := runArgs_oleans_accept (helpWanted_olean dirs root)
-    (by rw [hp]) (by rw [hp]) h
+    (by rw [hp]) (by rw [hp]) (by rw [hp]) h
   rw [hp] at h2 h3
   exact ⟨pre, rd, env, h1, h2, h3⟩
+
+/-- The arguments `--check-graph --search-path=<dirs> -- <root>`: that one root, those
+directories, and every other setting at its default. -/
+theorem parseArgs_graph (dirs root : String) :
+    parseArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] {} =
+      { checkGraph := true, searchPath := searchPathOf dirs, files := #[root] } := by
+  have hfst : parseArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] {} =
+      parseArgs ["--search-path=" ++ dirs, "--", root] { checkGraph := true } := by
+    rw [parseArgs.eq_def]
+    rfl
+  rw [hfst, parseArgs_flag _ _ (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)) (append_ne _ (by decide)) (append_ne _ (by decide))
+      (append_ne _ (by decide)),
+    flagValue_other dirs (by decide) (by decide), flagValue_other dirs (by decide) (by decide),
+    flagValue_other dirs (by decide) (by decide), flagValue_append]
+  have hj : (("--search-path=" ++ dirs) == "--jobs") = false := by
+    simp only [beq_eq_false_iff_ne]
+    exact append_ne _ (by decide)
+  simp only [hj, Bool.false_eq_true, ↓reduceIte]
+  simp [parseArgs]
+
+/-- The flags of `--check-graph --search-path=<dirs> -- <root>` ask for no help. -/
+theorem helpWanted_graph (dirs root : String) :
+    helpWanted ["--check-graph", "--search-path=" ++ dirs, "--", root] = false := by
+  have h1 : "--search-path=" ++ dirs ≠ "--" := append_ne _ (by decide)
+  have h2 : "--search-path=" ++ dirs ≠ "--help" := append_ne _ (by decide)
+  simp [helpWanted, h1, h2.symm]
+
+/-- **`runArgs` on `--check-graph --search-path=<dirs> -- <root>`, in the model** (task #467):
+every outcome that is an exit 0 is an exit 0 of the graph check of that root's closure, at some
+worker count (`Graph.checkGraphG_ok` says what that means). -/
+theorem runArgs_graph_accept {dirs root : String} {r : Name} {fs : FS}
+    (hr : Frontend.Olean.parseModName root = some r)
+    (h : (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0)) :
+    ∃ jobs, (Graph.checkGraphG (searchPathOf dirs) [r] jobs : ModelIO _) fs (.ok 0) := by
+  suffices H : ModelIO.AllOk (runArgs ["--check-graph", "--search-path=" ++ dirs, "--", root]) fs
+      (fun c => c = 0 → ∃ jobs, (Graph.checkGraphG (searchPathOf dirs) [r] jobs : ModelIO _)
+        fs (.ok 0)) from H 0 h rfl
+  refine ModelIO.allOk_tryCatch ?_ fun _ _ => ?_
+  · simp only [helpWanted_graph, parseArgs_graph, Bool.false_eq_true, ite_false, ite_true]
+    intro c hc h0
+    subst h0
+    have hf : (#[root].find? fun f => (Frontend.Olean.parseModName f).isNone) = none := by
+      simp [hr]
+    simp only [hf] at hc
+    have hm : (#[root].filterMap Frontend.Olean.parseModName).toList = [r] := by simp [hr]
+    simp only [hm, Bool.false_or, Array.isEmpty_empty, Bool.not_true, Bool.false_eq_true,
+      ite_false] at hc
+    split at hc
+    · simp [eprintln] at hc
+    · exact ⟨_, hc⟩
+  · simp
 
 /-- **`runArgs`, in the model** (task #450). -/
 theorem runArgs_accept {file : String} {fs : FS}

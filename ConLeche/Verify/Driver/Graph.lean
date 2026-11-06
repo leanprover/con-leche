@@ -1,0 +1,236 @@
+module
+
+public import ConLeche.Driver.Graph
+public import ConLeche.Verify.Frontend.Olean.Files
+import ConLeche.Verify.Frontend.Olean.Reads
+
+/-!
+# The import graph check, in the model (task #467)
+
+`checkGraphG_ok`: every outcome of `Graph.checkGraphG` on a snapshot that is an exit 0 gives the
+closure as a list `C` of modules with their imports, each module's imports those its header read
+answers on the snapshot (`moduleImports`, the read every reader of the module makes), and a rank
+function `rk`, one-to-one on `C`, every import edge of a module of `C` going to a module of `C` of
+a smaller rank.  The witness is the computed order; the proof uses only its validation
+(`verdict_none`), not Kahn's algorithm.  `checkGraphG_closure`: every module of the closure of
+the roots by the specification (`Olean.InClosure`, over the private views' imports) is in `C`.
+-/
+
+public section
+
+namespace ConLeche.Driver.Graph
+
+open ConLeche ConLeche.Frontend.Olean
+
+variable {sp : SearchPath} {fs : FS}
+
+/-- **A header read that answers** is `moduleImports`' answer. -/
+theorem hdrOf_ok {m : Name} {e : Node} (h : (hdrOf sp m : ModelIO _) fs (.ok (.ok e))) :
+    e.1 = m ∧ (moduleImports sp m : ModelIO _) fs (.ok (.ok e.2)) := by
+  simp only [hdrOf, ModelIO.bind_ok] at h
+  obtain ⟨x, hx, h⟩ := h
+  rcases x with err | imps
+  · simp only [ModelIO.bind_ok] at h
+    obtain ⟨b, -, h⟩ := h
+    cases b <;> simp at h
+  · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+    subst h
+    exact ⟨rfl, hx⟩
+
+theorem expand_mem : ∀ (rs : List Node) (seen : Std.HashSet Name) (out : Array Node)
+    (next : Array Name), ∀ e ∈ (expand seen out next rs).2.1.toList, e ∈ out.toList ∨ e ∈ rs
+  | [], _, _, _, e, he => Or.inl he
+  | (m, imps) :: rest, seen, out, next, e, he => by
+    simp only [expand] at he
+    rcases expand_mem rest _ _ _ e he with h | h
+    · simp only [Array.toList_push, List.mem_append, List.mem_singleton] at h
+      rcases h with h | rfl
+      · exact Or.inl h
+      · exact Or.inr (List.mem_cons_self ..)
+    · exact Or.inr (List.mem_cons_of_mem _ h)
+
+/-- **Every module the walk returns has the imports its header read answers.** -/
+theorem closureLevels_good {jobs : Nat} :
+    ∀ (fuel : Nat) (lvl : List Name) (seen : Std.HashSet Name) (out C : Array Node),
+      (∀ e ∈ out.toList, (moduleImports sp e.1 : ModelIO _) fs (.ok (.ok e.2))) →
+      (closureLevels sp jobs fuel lvl seen out : ModelIO _) fs (.ok (.ok C)) →
+      ∀ e ∈ C.toList, (moduleImports sp e.1 : ModelIO _) fs (.ok (.ok e.2))
+  | _, [], _, out, C, hout, h => by
+    simp only [closureLevels, ModelIO.pure_iff, Except.ok.injEq] at h
+    subst h; exact hout
+  | 0, _ :: _, _, _, _, _, h => by simp [closureLevels] at h
+  | fuel + 1, x :: xs, seen, out, C, hout, h => by
+    simp only [closureLevels, ModelIO.bind_ok] at h
+    obtain ⟨r, hr, h⟩ := h
+    rcases r with err | rs
+    · simp at h
+    · have hr' : (mapExcept (hdrOf sp) (x :: xs) : ModelIO _) fs (.ok (.ok rs)) := hr
+      obtain ⟨-, hrs⟩ := mapExcept_ok₂ (g := Prod.fst) (g' := id)
+        (Q := fun _ y => (moduleImports sp y.1 : ModelIO _) fs (.ok (.ok y.2)))
+        (fun m y hy => by
+          obtain ⟨h1, h2⟩ := hdrOf_ok hy
+          exact ⟨h1, h1 ▸ h2⟩) hr'
+      refine closureLevels_good fuel _ _ _ C ?_ h
+      intro e he
+      rcases expand_mem rs seen out #[] e he with h1 | h1
+      · exact hout e h1
+      · obtain ⟨_, -, hm⟩ := hrs e h1
+        exact hm
+
+/-! ## The validation -/
+
+theorem rankLt_iff {a b : Option Nat} :
+    rankLt a b = true ↔ ∃ x y, a = some x ∧ b = some y ∧ x < y := by
+  cases a <;> cases b <;> simp [rankLt]
+
+theorem namesOf_contains_go {a : Name} :
+    ∀ (C : List Node) (s : Std.HashSet Name),
+      (C.foldl (fun s e => s.insert e.1) s).contains a = true → a ∈ C.map (·.1) ∨ s.contains a = true
+  | [], _, h => Or.inr h
+  | e :: C, s, h => by
+    rcases namesOf_contains_go C _ h with h | h
+    · exact Or.inl (List.mem_cons_of_mem _ h)
+    · simp only [Std.HashSet.contains_insert, Bool.or_eq_true, beq_iff_eq] at h
+      rcases h with rfl | h
+      · exact Or.inl (List.mem_cons_self ..)
+      · exact Or.inr h
+
+theorem namesOf_contains {C : List Node} {a : Name} (h : (namesOf C).contains a = true) :
+    a ∈ C.map (·.1) := by
+  rcases namesOf_contains_go C {} h with h | h
+  · exact h
+  · simp at h
+
+/-- **What a verdict of none says**: the numbering is topological on the closure. -/
+theorem verdict_none {roots : List Name} {C : List Node} {rk : Name → Option Nat}
+    (h : verdict roots C rk = none) :
+    (∀ r ∈ roots, r ∈ C.map (·.1)) ∧
+    (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rankLt (rk i.module) (rk e.1) = true) ∧
+    (∀ e ∈ C, (rk e.1).isSome = true) ∧
+    (C.map fun e => rk e.1).Nodup := by
+  unfold verdict at h
+  simp only at h
+  split at h
+  · cases h
+  rename_i hroots
+  split at h
+  · cases h
+  rename_i hrk
+  split at h
+  · cases h
+  rename_i hdist
+  split at h
+  · cases h
+  rename_i hedge
+  simp only [Bool.not_eq_true', Bool.not_eq_false] at hdist
+  refine ⟨?_, ?_, ?_, ((distinctGo_iff _ _).1 hdist).1⟩
+  · intro r hr
+    have := List.find?_eq_none.1 (by
+      cases hf : roots.find? (fun x => !(namesOf C).contains x) with
+      | none => rfl
+      | some x => exact absurd hf (hroots x)) r hr
+    simp only [Bool.not_eq_true', Bool.not_eq_false] at this
+    exact namesOf_contains this
+  · intro e he i hi
+    have hn : C.find? (fun e => !e.2.all (edgeOk (namesOf C) rk e.1)) = none := by
+      cases hf : C.find? (fun e => !e.2.all (edgeOk (namesOf C) rk e.1)) with
+      | none => rfl
+      | some x => exact absurd hf (hedge x.1 x.2)
+    have := List.find?_eq_none.1 hn e he
+    simp only [Bool.not_eq_true', Bool.not_eq_false, Array.all_eq_true'] at this
+    have hi' := this i hi
+    simp only [edgeOk, Bool.and_eq_true] at hi'
+    exact ⟨namesOf_contains hi'.1, hi'.2⟩
+  · intro e he
+    have hn : C.find? (fun e => (rk e.1).isNone) = none := by
+      cases hf : C.find? (fun e => (rk e.1).isNone) with
+      | none => rfl
+      | some x => exact absurd hf (hrk x.1 x.2)
+    have := List.find?_eq_none.1 hn e he
+    simpa [Option.isNone_iff_eq_none, Option.isSome_iff_ne_none] using this
+
+/-- **A verdict of none gives a rank function**, with the ranks as numbers. -/
+theorem verdict_rank {roots : List Name} {C : List Node} {rk : Name → Option Nat}
+    (h : verdict roots C rk = none) :
+    ∃ r : Name → Nat,
+      (∀ x ∈ roots, x ∈ C.map (·.1)) ∧
+      (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ r i.module < r e.1) ∧
+      (C.map fun e => r e.1).Nodup := by
+  obtain ⟨h1, h2, h3, h4⟩ := verdict_none h
+  have hsome : ∀ e ∈ C, ∃ k, rk e.1 = some k := fun e he => Option.isSome_iff_exists.1 (h3 e he)
+  refine ⟨fun n => (rk n).getD 0, h1, ?_, ?_⟩
+  · intro e he i hi
+    obtain ⟨hm, hl⟩ := h2 e he i hi
+    obtain ⟨x, y, hx, hy, hxy⟩ := rankLt_iff.1 hl
+    exact ⟨hm, by simp [hx, hy, hxy]⟩
+  · unfold List.Nodup at h4 ⊢
+    rw [List.pairwise_map] at h4 ⊢
+    refine h4.imp_of_mem fun {e e'} he he' hne heq => hne ?_
+    obtain ⟨k, hk⟩ := hsome e he
+    obtain ⟨k', hk'⟩ := hsome e' he'
+    simp only [hk, hk', Option.getD_some] at heq
+    rw [hk, hk', heq]
+
+/-! ## The check -/
+
+/-- **An accepted graph check, in the model**: if an outcome of `checkGraphG` on a snapshot `fs`
+is the exit code 0, there is a list `C` of modules with their imports — the closure — and a rank
+function `rk` such that
+
+* each module's imports are what its header read answers on the snapshot (`moduleImports`; the
+  imports of every view of it read there, `moduleImports_of_view`);
+* every root, and every import of a module of `C`, is a module of `C`;
+* every import edge goes to a smaller rank, and `rk` is one-to-one on `C`.
+
+So `C` ordered by `rk` numbers the closure with each module after everything it imports, by
+edges of every kind; in particular the graph is acyclic. -/
+theorem checkGraphG_ok {roots : List Name} {jobs : Nat}
+    (h : (checkGraphG sp roots jobs : ModelIO UInt8) fs (.ok 0)) :
+    ∃ C : List Node, ∃ rk : Name → Nat,
+      (∀ e ∈ C, (moduleImports sp e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+      (∀ r ∈ roots, r ∈ C.map (·.1)) ∧
+      (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
+      (C.map fun e => rk e.1).Nodup := by
+  suffices H : ModelIO.AllOk (checkGraphG sp roots jobs) fs (fun c => c = 0 →
+      ∃ C : List Node, ∃ rk : Name → Nat,
+        (∀ e ∈ C, (moduleImports sp e.1 : ModelIO _) fs (.ok (.ok e.2))) ∧
+        (∀ r ∈ roots, r ∈ C.map (·.1)) ∧
+        (∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1) ∧ rk i.module < rk e.1) ∧
+        (C.map fun e => rk e.1).Nodup) from H 0 h rfl
+  simp only [checkGraphG, ModelIO.allOk_bind]
+  intro x hx
+  rcases x with err | C
+  · simp only [diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
+    exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
+  · simp only
+    split
+    · simp only [diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
+      exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
+    · split
+      · simp only [diagLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
+        exact fun h0 => absurd h0 (CheckError.exitCode_ne_zero _)
+      · rename_i hv
+        simp only [outLine, ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const, ModelIO.allOk_pure]
+        have hgood := closureLevels_good _ _ _ _ _ (by simp) hx
+        obtain ⟨rk, h1, h2, h3⟩ := verdict_rank hv
+        exact ⟨C.toList, rk, hgood, h1, h2, h3⟩
+
+/-- **The closure by the specification is in `C`**: where every module of `C` has the imports
+its header read answers and every import of one is in `C`, every module of the roots' closure
+(`InClosure`: a root, or an import of the private view of a module of it) is a module of `C`. -/
+theorem checkGraphG_closure {roots : Array Name} {C : List Node}
+    (hgood : ∀ e ∈ C, (moduleImports sp e.1 : ModelIO _) fs (.ok (.ok e.2)))
+    (hroots : ∀ r ∈ roots.toList, r ∈ C.map (·.1))
+    (hedges : ∀ e ∈ C, ∀ i ∈ e.2, i.module ∈ C.map (·.1)) {m : Name}
+    (h : InClosure sp fs roots m) : m ∈ C.map (·.1) := by
+  induction h with
+  | root hm => exact hroots _ (Array.mem_toList_iff.mpr hm)
+  | @step m d i _ hv hi ih =>
+    obtain ⟨e, he, rfl⟩ := List.mem_map.1 ih
+    have hdet := moduleImports_of_view (readView_of_viewOf hv)
+    have hg := hgood e he
+    rw [hdet, ModelIO.answer_ok] at hg
+    have : d.imports = e.2 := by simpa using hg
+    exact hedges e he i (this ▸ hi)
+
+end ConLeche.Driver.Graph

@@ -465,6 +465,50 @@ base, b = parts['olean']
 root = struct.unpack_from('<Q', b, 88)[0]
 setfld(root, 0, fld(root, 2))"
 case_grep "a root that disagrees with the header prefix" 3 "malformed .olean data" --olean --search-path=$g/root TinyClassic
+# the graph check reads the prefix alone, and accepts it (every reader of the whole file
+# finds the two different, above)
+case_ "graph: a root that disagrees with the header prefix" 0 \
+  --check-graph --search-path=$g/root TinyClassic
+rm -rf "$g"
+
+# --- the import graph of a closure (task #467) -----------------------------
+# `--check-graph`: the closure's import graph, over edges of every kind, acyclic and every
+# import on the search path, read off the start of each exported file
+case_grep "graph: a DAG" 0 "graph: acyclic: 3 modules, 3 import edges" \
+  --check-graph --search-path=$LIB:$INIT HidUse
+case_ "graph: …at one job" 0 --check-graph --jobs=1 --search-path=$LIB:$INIT HidUse
+case_ "graph: …of a part of the closure" 0 --check-graph --search-path=$LIB:$INIT HidA
+case_ "graph: two roots" 0 --check-graph --search-path=$LIB:$INIT HidUse TeqBoth
+case_grep "graph: Init's closure, private and meta imports included" 0 "graph: acyclic" \
+  --check-graph --search-path=$MSP TeqBoth
+case_grep "graph: a missing import" 1 "Init.Prelude: no .olean on the search path" \
+  --check-graph --search-path=$LIB HidUse
+case_grep "graph: a missing root" 1 "NoSuchModule: no .olean on the search path" \
+  --check-graph --search-path=$LIB NoSuchModule
+case_ "graph: with --olean, a usage error" 3 --check-graph --olean --search-path=$LIB HidUse
+case_ "graph: without a search path, a usage error" 3 --check-graph HidUse
+# an import cycle: HidA's import of Init.Prelude renamed to HidUse, which imports HidA
+# (Lean's import refuses a cycle); no numbering is topological
+g="$TMPDIR/con-leche-olean-graph"
+rm -rf "$g"; mkdir -p "$g"
+cp -r "$LIB" "$g/cyc"
+xpatch "$g/cyc" HidA "
+base, b = parts['olean']
+root = struct.unpack_from('<Q', b, 88)[0]
+imp0 = struct.unpack_from('<Q', b, fld(root, 0) - base + 24)[0]
+n = fld(imp0, 0)
+setfld(n, 0, 1)
+sb, so = at(fld(n, 1))
+struct.pack_into('<QQQ', sb, so + 8, 7, struct.unpack_from('<Q', sb, so + 16)[0], 6)
+sb[so + 32:so + 39] = b'HidUse\\0'"
+case_grep "graph: an import cycle" 1 "import cycle: HidUse → HidA → HidUse" \
+  --check-graph --search-path=$g/cyc:$INIT HidUse
+case_grep "graph: an import cycle, from the other root" 1 "import cycle: HidA → HidUse → HidA" \
+  --check-graph --search-path=$g/cyc:$INIT HidA
+# an unreadable header: HidA's exported file cut short
+cp -r "$LIB" "$g/cut"
+head -c 40 "$LIB/HidA.olean" > "$g/cut/HidA.olean"
+case_ "graph: a header cut short" 3 --check-graph --search-path=$g/cut:$INIT HidUse
 rm -rf "$g"
 
 # --- a worker's reads: the header fixpoint, the name index, the clash rule, freshness ---
