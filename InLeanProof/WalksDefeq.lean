@@ -1680,6 +1680,140 @@ theorem defeqStuckI_spec {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env 
       isEquivListLM_specI (mode := .verified) (eager := eager) (env := env),
       liftFueled_specI (mode := .verified) (eager := eager) (env := env)] <;> finish
 
+/-! The body's continuations, named as the pure ones are (`body…P`,
+`DiscC5.lean`), each block its own triple. -/
+
+/-- Past the lazy-delta loop's stuck pair. -/
+@[expose] def bodyTailL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d : Nat) (a₁ b₁ : Expr) :
+    InLean.CheckCM Bool := do
+  if ← InLean.defeqProjPairI .verified r fe d a₁ b₁ then pure true else
+  if !(InLean.Expr.headIsProj a₁) && !(InLean.Expr.headIsProj b₁) then
+    InLean.defeqStuckI .verified r fe d a₁ b₁ else
+  let a₂ ← r.whnfCore false d a₁
+  let b₂ ← r.whnfCore false d b₁
+  if a₂ == a₁ && b₂ == b₁ then InLean.defeqStuckI .verified r fe d a₁ b₁
+  else r.defeq d a₂ b₂
+
+/-- The lazy-delta loop's outcome. -/
+@[expose] def bodyLazyL (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d : Nat) :
+    InLean.LazyRes → InLean.CheckCM Bool
+  | .verdict v => pure v
+  | .unknown a₁ b₁ => bodyTailL r fe d a₁ b₁
+
+/-- Past `quickDefEq` on the cheaply normalized pair. -/
+@[expose] def bodyQ2L (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d : Nat)
+    (a' b' : Expr) : Option Bool → InLean.CheckCM Bool
+  | some v => pure v
+  | none =>
+    InLean.lazyDeltaReductionI .verified eager r fe d InLean.defeqLoopFuel a' b' >>=
+      bodyLazyL r fe d
+
+/-- Past proof irrelevance. -/
+@[expose] def bodyPIL (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d : Nat)
+    (a b : Expr) : InLean.CheckCM Bool := do
+  if ← InLean.propIrrelI r fe d a b then pure true else
+  let a' ← r.whnfCore true d a
+  let b' ← r.whnfCore true d b
+  InLean.quickDefEqI .verified r d a' b' >>= bodyQ2L eager r fe d a' b'
+
+/-- Past `quickDefEq` on the unreduced pair. -/
+@[expose] def bodyQ1L (eager : Bool) (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d : Nat)
+    (a b : Expr) : Option Bool → InLean.CheckCM Bool
+  | some v => pure v
+  | none => bodyPIL eager r fe d a b
+
+/-- `defeqBodyI` with its continuations named. -/
+theorem defeqBodyL_eq (r : InLean.CoreFnsI) (fe : InLean.FEnv) (d : Nat) (a b : Expr) :
+    InLean.defeqBodyI .verified eager r fe d a b =
+      (if a == b then pure true else do
+        if ← (if InLean.Expr.isBoolTrue b && (eager || !a.hasFVar) then
+            InLean.boolTrueShortcutI r d a else pure false) then pure true else
+        InLean.quickDefEqI .verified r d a b >>= bodyQ1L eager r fe d a b :
+          InLean.CheckCM Bool) := rfl
+
+section Body
+
+variable {fe : InLean.FEnv} (ih : KnotSpecI .verified eager env r) (hfe : DefeqEnvI fe env)
+  (henv : ConLeche.EnvWF env) (hlist : DefEqListSpecI .verified eager env r)
+  (hunf : UnfoldDefSpecI .verified eager env fe) (hspine : DefeqSpineSpecI .verified eager env r)
+  (hnat : ReduceNatSpecI .verified eager env r fe) (hproj : ReduceProjSpecI eager env r fe)
+include ih hfe henv hlist hunf hspine hnat hproj
+
+omit hnat in
+theorem bodyTailL_spec {d : Nat} {a b : Expr} {s₀ : InLean.CState}
+    (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ bodyTailL r fe d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bodyTailP (ConLeche.fueledFns .verified eager env) env d .verified (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, bodyTailP] =>
+    vcgen [bodyTailL, defeqProjPairI_spec ih hfe henv hunf hspine hproj,
+      defeqStuckI_spec ih hfe hlist, ih.whnfCore, ih.defeq] <;> finish
+
+omit hnat in
+theorem bodyLazyL_spec {d : Nat} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
+    (lr : InLean.LazyRes) (hok : OkLR s₀ lr = true) (hlr : LazyPairWS d (TrLR s₀ lr))
+    (hc : LazyClosed (TrLR s₀ lr) = true) :
+    ⦃fun s => s = s₀⦄ bodyLazyL r fe d lr
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bodyLazyP (ConLeche.fueledFns .verified eager env) env d .verified (TrLR s₀ lr)) v;
+        ⊤⦄ := by
+  sym only [conleche_grind, bodyLazyP] =>
+    vcgen [bodyLazyL, bodyTailL_spec ih hfe henv hlist hunf hspine hproj] <;> finish
+
+theorem bodyQ2L_spec {d : Nat} {a b : Expr} {s₀ : InLean.CState}
+    (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) (o : Option Bool) :
+    ⦃fun s => s = s₀⦄ bodyQ2L eager r fe d a b o
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bodyQ2P (ConLeche.fueledFns .verified eager env) env d .verified eager (TrS s₀ a)
+        (TrS s₀ b) o) v; ⊤⦄ := by
+  sym only [conleche_grind, bodyQ2P, defeqLoopFuel_eq] =>
+    vcgen [bodyQ2L, LazySpecI.triple (lazySpecI_all ih hfe henv hunf hspine hnat _),
+      bodyLazyL_spec ih hfe henv hlist hunf hspine hproj] <;> finish
+
+theorem bodyPIL_spec {d : Nat} {a b : Expr} {s₀ : InLean.CState}
+    (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ bodyPIL eager r fe d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bodyPIP (ConLeche.fueledFns .verified eager env) env d .verified eager (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, bodyPIP] =>
+    vcgen [bodyPIL, propIrrelI_spec ih hfe, ih.whnfCore, quickDefEqI_spec ih,
+      bodyQ2L_spec ih hfe henv hlist hunf hspine hnat hproj] <;> finish
+
+theorem bodyQ1L_spec {d : Nat} {a b : Expr} {s₀ : InLean.CState}
+    (hs : CSOKI .verified eager env s₀)
+    (hoka : OkS s₀ a = true) (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) (o : Option Bool) :
+    ⦃fun s => s = s₀⦄ bodyQ1L eager r fe d a b o
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (bodyQ1P (ConLeche.fueledFns .verified eager env) env d .verified eager (TrS s₀ a)
+        (TrS s₀ b) o) v; ⊤⦄ := by
+  sym only [conleche_grind, bodyQ1P] =>
+    vcgen [bodyQ1L, bodyPIL_spec ih hfe henv hlist hunf hspine hnat hproj] <;> finish
+
+/-- **The definitional-equality body simulates its specification**
+(`defeqBodyC_spec`'s twin), in `BodySpecBI`'s form. -/
+theorem defeqBodyI_spec :
+    BodySpecBI .verified eager env (InLean.defeqBodyI .verified eager r fe)
+      (ConLeche.defeqBody .verified eager (ConLeche.fueledFns .verified eager env) env) := by
+  intro s₀ d a b hs hoka hokb hwa hwb hca hcb
+  sym only [conleche_grind, defeqBody_eq] =>
+    vcgen [defeqBodyL_eq, boolTrueShortcutI_spec ih, quickDefEqI_spec ih,
+      bodyQ1L_spec ih hfe henv hlist hunf hspine hnat hproj] <;> finish
+
+end Body
+
 end Walks5
 
 end InLeanProof
