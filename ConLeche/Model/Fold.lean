@@ -54,32 +54,45 @@ universe w
 variable {V : Type w} [SetTheory V]
 variable {pins : List ConLeche.NatOpPinSet}
 
-/-- The axiom kind's whole step, discharged by `axiomStepPB_of` below. -/
+/-- The axiom kind's whole step, discharged by `axiomStepPB_of` below: the leaf of a stored axiom
+whose type is a proposition is the canonical proof. -/
 def AxiomStepPB (V : Type w) [SetTheory V] : Prop :=
   -- the relation premise is the run projection (`DeclAxiomRun`), which
   -- names no valuation; the carrier is the invariant the branches consume
   ∀ {F : Nat} {env : Env} (mp : EnvModelM V env)
     {cv : ConstantVal} {env₂ : Env},
     DeclAxiomRun F env cv env₂ →
-    CoverStep mp env₂
+    CoverStepLeaf mp env₂ cv.name (cv.name ≠ ConLeche.sorryAxName ∧ PropTypeRun env cv.type)
 
 /-- **`AxiomStepPB`, discharged.**  All four `DeclAxiomRun` branches:
 the two standard axioms (`axiomStd`), `Lean.trustCompiler`
 (`axiomTrustCompiler`), `ofReduceNat`/`ofReduceBool` (`axiomOfReduce`,
 on the `ReduceOps` field), and the tolerated skip (`axiomSkip`, which
-stores nothing). -/
+stores nothing).  `Quot.sound`'s leaf is its pin's, the canonical proof. -/
 theorem axiomStepPB_of : AxiomStepPB V := by
-  intro _F _env mp _cv _env₂ hR
+  intro _F _env mp cv _env₂ hR
+  have weak : ∀ {env₂ : Env} {P Q : Prop}, (Q → P) → CoverStepLeaf mp env₂ cv.name P →
+      CoverStepLeaf mp env₂ cv.name Q :=
+    fun hQP h => h.elim fun mp' h' => ⟨mp', h'.1, h'.2.1 ∘ hQP, h'.2.2⟩
   -- the `Quot.sound` arm is a quotient record
-  rcases hR with ⟨-, hq⟩ | hR
-  · exact declQuotPB_at mp hq
+  rcases hR with ⟨hn, hq⟩ | hR
+  · obtain ⟨mp', hrel, hcov⟩ := declQuotPB_at mp hq
+    obtain ⟨-, -, -, rfl⟩ := hq
+    refine ⟨mp', hrel, fun _ => funext fun ψ => ?_, hcov⟩
+    have hname : (ConLeche.quotAt .sound cv).name = cv.name := by
+      rw [hn]; exact ConLeche.Verify.atLps_name _ _
+    have hf : (⟨ConLeche.quotAt .sound cv :: _env.consts, _env.tables⟩ : Env).find? cv.name =
+        some (ConLeche.quotAt .sound cv) := by
+      simp only [ConLeche.Env.find?_cons, hname, ↓reduceIte]
+    exact mp'.base2.acval_pinned_free hf (by rw [hn]; decide)
+      (fun _ => by rw [hn]; simp (decide := true) [ConLeche.Verify.pinnedStructT])
   obtain ⟨type', hopn, hcv, hbranch⟩ := hR
   rcases hbranch with ⟨hok, rfl⟩ | ⟨hname, hok, rfl⟩ |
-    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, -, rfl⟩
-  · exact axiomStd mp hopn hcv hok
-  · exact axiomTrustCompiler mp hopn hcv hname hok
-  · exact axiomOfReduce mp hopn hcv hor hok
-  · exact axiomSkip mp
+    ⟨hor, hok, rfl⟩ | ⟨-, -, -, -, -, -, hsorry, rfl⟩
+  · exact weak And.right (axiomStd mp hopn hcv hok)
+  · exact weak And.right (axiomTrustCompiler mp hopn hcv hname hok)
+  · exact weak And.right (axiomOfReduce mp hopn hcv hor hok)
+  · exact (axiomSkip mp).elim fun mp' h' => ⟨mp', h'.1, fun h => absurd hsorry h.1, h'.2⟩
 
 /-! ## Coverage through the fold
 
@@ -241,7 +254,7 @@ theorem natFacts_basis {env env₂ : Env} {kind : ConLeche.BasisKind} {block : L
 
 /-- **What a step says of its proof's leaf**: a theorem's leaf is the canonical proof, and so is
 a definition's or opaque constant's whose type the checker finds to be a proposition, at a name
-with no fast path. -/
+with no fast path, and a stored axiom's whose type it finds to be one. -/
 @[expose] def DeclProofLeaf (env : Env) :
     Declaration → (Name → (Name → Nat) → Term) → Prop
   | .thmDecl cv _, acval => acval cv.name = fun _ => .prf
@@ -251,6 +264,8 @@ with no fast path. -/
   | .opaqueDecl cv _, acval =>
     ConLeche.reduceOpNames.contains cv.name = false ∧ PropTypeRun env cv.type →
       acval cv.name = fun _ => .prf
+  | .axiomDecl cv, acval =>
+    cv.name ≠ ConLeche.sorryAxName ∧ PropTypeRun env cv.type → acval cv.name = fun _ => .prf
   | _, _ => True
 
 /-- **The per-declaration P step, by dispatch, against the input's carrier.**  The premise is the
@@ -303,7 +318,9 @@ theorem declStep_agrees
     exact leaf (fun _ h => h)
       (PlainStep.closeLeaf (PlainStep.cons (by exact hcv.2.1)) (harvestOpaque mp hrun) hcov hS hN)
   | axiomDecl cv =>
-    exact triv (fun _ => trivial) ((plainStep_axiom hrun).close (axiomStepPB_of mp hrun) hcov hS hN)
+    obtain ⟨new, hnew, htab, hres⟩ := plainStep_axiom hrun
+    exact leaf (fun _ h => h) ⟨(axiomStepPB_of mp hrun).covered hcov hS (findTable_of_added hnew htab),
+      hN.append hnew hres⟩
   | quotDecl k cv =>
     exact triv (fun _ => trivial) ((plainStep_quot hrun).close (declQuotPB_at mp hrun) hcov hS hN)
   | indDecl block nP =>

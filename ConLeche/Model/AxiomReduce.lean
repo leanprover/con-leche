@@ -256,8 +256,9 @@ theorem axiomOfReduce
       cv.name = ConLeche.ofReduceBoolName)
     (hok : ConLeche.ofReduceAxOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
-    CoverStep mp
-      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
+    CoverStepLeaf mp
+      ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ cv.name
+      (PropTypeRun env cv.type) := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
     -, hcvShape⟩ := hcv'
