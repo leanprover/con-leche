@@ -15,7 +15,7 @@ the positivity check's recorded constructor normal forms, compares each
 generated TYPE with the stream's by `isDefEq`, and INSTALLS the generated
 recursors.  The stream's recursor rules are never read.
 
-* **The classes** (`checkBlockClasses`, in the install's PASS, before the
+* **The classes** (`checkBlockClasses`, in the check's PASS, before the
   positivity check).  An UNVERIFIED pre-pass (`ClassRead.lean`) reads the
   classes (one per motive), the prefix layout (motives, minor premises,
   their inductive hypotheses) and every recursor's class off the stream's

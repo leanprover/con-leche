@@ -388,7 +388,7 @@ case reads the whnf, so it accepts (`corner_nestpos_redex_bad`, D1).
 A container with NO constructor is read at its RECORDED parameter
 count (`IndCaps.nparams`); its frame walks nothing.
 
-**Who calls it.**  The install's positivity stage runs the walk
+**Who calls it.**  The check's positivity stage runs the walk
 (`checkBlockPositivity`, `nestRoot`); `nestedBlockPositivity` is
 the unit tests' entry, on a hand-built context.
 -/
@@ -1287,7 +1287,7 @@ above `hi`, U4 on the walked telescope (no later field and not the
 result reads a non-ordinary field), its result
 indices hole-free below `hi`, and its walked normal form recorded
 (K.53′).  Returns every constructor's field kinds and walked normal form
-(closed over its fields, holes kept) — the root's are the install's. -/
+(closed over its fields, holes kept) — the root's are the check's. -/
 def nestCtors (ctx : NestCtx) (ops : CheckerOps m) (env : Env)
     (rec : Expr → List NestHole → Nat → Nat → Expr → NestState →
       m (NestFieldKind × Expr × NestState))

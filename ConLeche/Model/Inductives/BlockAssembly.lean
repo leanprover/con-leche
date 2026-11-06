@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.Inductives.BlockCtorFuns
 import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.Inductives.BlockStageFormer

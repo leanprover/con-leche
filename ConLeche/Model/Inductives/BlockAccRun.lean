@@ -9,7 +9,7 @@ import ConLeche.Model.Inductives.StructEntryKit
 public section
 
 /-!
-# Accessibility from the install's run
+# Accessibility from the check's run
 
 The producer side of (W) by accessibility: at a uniform block's
 install every member constructor's field telescope is accessible along

@@ -708,7 +708,7 @@ theorem nestCtx_params_scb {p : BlockShape} {T rest : Expr} {fvsP : List Expr}
   exact ScB.fvar (by simp [BlockShape.nestCtx]; omega) (by simpa using hty)
 
 /-- **The positivity stage's final state is scoped**: every constructor
-normal form the install's positivity check records is scoped over the
+normal form the positivity check records is scoped over the
 block's parameters. -/
 theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env}
     (henv : EnvWF env₁) {pp : BlockShape}

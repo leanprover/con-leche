@@ -142,7 +142,7 @@ its element type's reading, *is* that member.
 **This is an environment law, as `EqLaw` is**: the opaque's leaf
 value is fixed by its own install (`checkReducePin`'s identity
 certificate) and by nothing else, so the only possible supplier is
-that install (an erasure factoring is refuted here for the same
+that its check (an erasure factoring is refuted here for the same
 reason as at `EqLaw`).
 
 **Establishment**: `reduceOps_install` (`Model/ReduceOps.lean`),

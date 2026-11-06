@@ -119,7 +119,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   them. The checker recovers the specification from the type former's and
   the constructors' types, and checks and stores those two as the
   stream declares them
-  (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 67, 68)[a constructor]).
+  (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 66, 67)[a constructor]).
   The recursor it _generates_, as the official kernel does. From the
   stream's recursor record it takes only the name, the level
   parameters and the type, which must be definitionally equal to the
@@ -988,7 +988,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 99, 102)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 97, 100)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[

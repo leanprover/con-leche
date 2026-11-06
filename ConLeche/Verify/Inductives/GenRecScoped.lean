@@ -634,7 +634,7 @@ see the module docstring) — the hypothesis `hg` of `recStage_of_gen` and
 of the family premise, from the run and:
 
 * `henv₁`/`henvC`: the formers' and the constructors' environments well
-  formed (`EnvWF`, the install's invariant);
+  formed (`EnvWF`, the check's invariant);
 * `hT`/`hct`: the stream's formers and constructors closed (checked
   constants, `checkConstantVal_typeWF`);
 * `hTlen`: a former per member (the formers' pass);

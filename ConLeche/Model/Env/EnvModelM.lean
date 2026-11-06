@@ -133,7 +133,7 @@ normal form's, which reads like it there.
 
 **The constructor's parameters are the block's.**  The stored type reads, at every level assignment, as a
 Π-tower whose first `nPc` binders are satisfied wherever the block's
-parameter telescope is.  It is the install's constructor check (the
+parameter telescope is.  It is the constructor check (the
 constructors' frames, `ctorFramesGen`: the constructor's parameter
 domains are definitionally the former's) and official's
 (`check_constructors`: "arg #i of 'c' does not match inductive

@@ -875,7 +875,7 @@ def iotaRec (r : CoreFns m) (env : Env) (depth : Nat) (e : Expr) :
                 -- the rule's comparands (plain: the recursor's own level
                 -- instantiation and leading arguments; nested: the stored
                 -- major-domain instantiations), from the firing mode
-                -- computed once at install (`sumRules` / `auxRuleFire`)
+                -- computed once at its check (`sumRules` / `auxRuleFire`)
                 let cmp := recFireComparands rl cnP cv.levelParams us cvj.levelParams args rP
                 -- **the ι case split** (task #342 L10, #349, S5c), decided at
                 -- the comparand levels: a K rule, or a family never `Prop`

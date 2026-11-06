@@ -1,9 +1,8 @@
 module
 
-public import ConLeche.Verify.Cached.StreamIndex
+public import ConLeche.Cached.Decls
 public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.SimC
-import ConLeche.Model.Capstone
 import ConLeche.Verify.Cached.BridgeC
 
 public section

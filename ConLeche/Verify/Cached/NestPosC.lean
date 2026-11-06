@@ -15,7 +15,7 @@ public section
 /-!
 # The positivity function at the cached driver
 
-`nestPos` (`Kernel/Inductives/Positivity.lean`) and the install's
+`nestPos` (`Kernel/Inductives/Positivity.lean`) and the check's
 positivity stage (`checkBlockPositivity`, `BlockInstall.lean`) are
 written once, over `CheckerOps`; the cached driver runs them at the
 shared operations (`sharedOpsC`), the model at the fueled ones.  This
@@ -701,7 +701,7 @@ theorem ctorsClosed {memberCtors : List (List (ConstantVal × Nat))}
     ListAll (ListAll CtorClosed) memberCtors :=
   fun cs hcs c hc => not_hasFvar_of_fvarsBelow_zero (hct cs hcs c hc).fvarsBelow
 
-/-- **The install's positivity stage at the shared operations**: every
+/-- **The check's positivity stage at the shared operations**: every
 successful cached run is a fueled one. -/
 theorem checkBlockPositivityS_spec (henv : EnvWF env)
     (p : BlockShape)

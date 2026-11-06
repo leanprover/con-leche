@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Extend.Inversions
 
@@ -322,7 +321,7 @@ theorem consBlockRecs_eq_R (q : BlockShape) :
 
 /-- **The stored rules' SHAPE at a rules function**: every rule the cons
 stores for the recursor at position `j` is the `i`-th constructor's, at
-the `i`-th right-hand side, with the firing `fireOf j r`.  The install's rules have it
+the `i`-th right-hand side, with the firing `fireOf j r`.  The check's rules have it
 (`recRulesShape_tgt`, `RecStage.lean`). -/
 @[expose] def RecRulesShape
     (R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List RecRule)

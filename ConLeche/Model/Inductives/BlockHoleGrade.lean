@@ -1,13 +1,12 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Semantics.Hoist
 public import ConLeche.Model.Inductives.BlockLfpHoles
-public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Denote.ErasedEq
@@ -23,7 +22,7 @@ members' formers can be built over (`LfpDatum.holeChains`, the leaf
 `blockTyG` at them), the fields with holes must be graded at the
 model's hole frame of EVERY tuple of the tuple space — not only at the
 carrier's own family, which is all a stored reading reaches.  Both
-halves come from U2 (`checkAbsCtorTys`, the install's positivity
+halves come from U2 (`checkAbsCtorTys`, the check's positivity
 stage), never from a field classification:
 
 * **grading**: U2 inferred the member-abstracted
@@ -205,7 +204,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V env)
 /-! ## The block -/
 
 /-- **Every member constructor's fields with holes are closed and graded
-at the hole frame of every tuple**, from the install's positivity stage
+at the hole frame of every tuple**, from the check's positivity stage
 (`DeclBlockRun` conjunct 3: `nestPos` and U2) at the formers'
 environment — at ANY model of it holding the formers: the readings
 mention no member constant. -/
@@ -484,7 +483,7 @@ theorem blockRunLink (ψ : Name → Nat)
   exact hS.congr_leaf fun t _ => by rw [hnames]; rfl
 
 include mp hN hF hrun hnames hlps hread hnP hnIdxs hk hnd hmemberCtors hlenCA hclosed hlpsA hparsT in
-/-- **The reading fact at a uniform block's datum**, from the install's
+/-- **The reading fact at a uniform block's datum**, from the check's
 positivity stage (`blockRunLink`) — at a datum whose normal forms are the
 run's and whose fields with holes are the normal forms' readings at the
 model (`hnf`, `habs`). -/

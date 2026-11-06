@@ -7,7 +7,6 @@ public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Semantics.Tower.FixTower
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.TableInstall
-public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Model.Reading.Levels
 import ConLeche.Kernel.PropWhen

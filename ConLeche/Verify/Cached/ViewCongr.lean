@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Decls
+public import ConLeche.Cached.ParsedC
 import ConLeche.Verify.Cached.KnotCongr
 import ConLeche.Verify.Cached.PinOverlay
 import ConLeche.Verify.Cached.BlockOverlay

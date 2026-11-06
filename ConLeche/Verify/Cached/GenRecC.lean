@@ -30,7 +30,7 @@ per-operation simulations (`TargetRecC.lean`), the pass's classes
 the `.indDecl` dispatch (`checkModeledOrNativeSF_run`).  The stages are
 `Std.WP` triples proved by `vcgen` and `grind`, as the positivity walk's
 (`NestPosC.lean`); the rule stage runs from and to a flushed state
-(`CSOKAll`); the install's assembly reads the triples back as runs
+(`CSOKAll`); the check's assembly reads the triples back as runs
 (`triple_iff_run`).
 
 Scoping, per cached operation:

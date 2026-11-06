@@ -157,7 +157,7 @@ not a rule of its relations.
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,
   index-free type (@sec:left-out, "Projections")
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 720, 721)[a member is the constructor at the parameters and its own projections]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 719, 720)[a member is the constructor at the parameters and its own projections]).
   It is proved when
   #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the checker stores the table],
   by the argument above on the tagged tuple.
@@ -195,7 +195,7 @@ by the same argument.
   Unit-likeness is recorded at installation, like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1795, 1796)[the fibre is the one tagged empty tuple]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1794, 1795)[the fibre is the one tagged empty tuple]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]

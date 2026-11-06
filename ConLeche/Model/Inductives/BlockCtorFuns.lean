@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.BlockData
 public section
 

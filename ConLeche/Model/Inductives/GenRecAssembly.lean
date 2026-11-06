@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenStep

@@ -140,7 +140,7 @@ def basisRoots : List Lean.Name :=
 
 /-- The structural `Nat` operations (`natOpNames` in
 `ConLeche/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of
-reach of this `module`): certified at install by definitional
+reach of this `module`): certified at its check by definitional
 recurrence equations, never by a syntactic pin. -/
 def structuralOps : List Lean.Name :=
   [``Nat.pred, ``Nat.add, ``Nat.sub, ``Nat.mul, ``Nat.pow, ``Nat.beq, ``Nat.ble]

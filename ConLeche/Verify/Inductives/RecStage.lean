@@ -350,7 +350,7 @@ end Producer
 `tgtRulesR`: each recursor's rules at ITS major, read off the absolute
 position. -/
 
-/-- The install's rules function: each recursor's stored rules
+/-- The check's rules function: each recursor's stored rules
 at its major `Ms m` (`generatedRules`). -/
 @[expose] def tgtRulesR
     (q : BlockShape) (Ms : Nat → TargetMajor) :
@@ -385,7 +385,7 @@ theorem consBlockRecsT_eq_R (q : BlockShape) (out : List (ConstantVal × TargetM
   consBlockRecsT_eq_R_gen q _ 0 out env fun i t ht => by
     simp [tgtMajorsOf, List.getD_eq_getElem?_getD, ht]
 
-/-- The install's firing at position `j` (the generic `fireOf` shape,
+/-- The check's firing at position `j` (the generic `fireOf` shape,
 `RecRulesShape`; the recursor itself is not read): `auxRuleFire` at an
 OUTSIDE major, `.plain` at a member one. -/
 @[expose] def tgtFireOf (q : BlockShape) (Ms : Nat → TargetMajor)
@@ -418,7 +418,7 @@ theorem tgtFireOf_of_out {q : BlockShape} {Ms : Nat → TargetMajor}
       = .nested (Ms j).lvls ((Ms j).ds.map (Expr.abstractPrefix (q.rulePrefixAt j) 0)) := by
   simp only [tgtFireOf, hm, auxRuleFire]
 
-/-- **The install's rules have the shape**, at each major's
+/-- **The check's rules have the shape**, at each major's
 parameter count and `tgtFireOf`. -/
 theorem recRulesShape_tgt
     (q : BlockShape) (out : List (ConstantVal × TargetMajor × List Expr)) :

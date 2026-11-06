@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Model.Inductives.DeclNative
 public import ConLeche.Model.Inductives.BlockDatum
 public import ConLeche.Semantics.Inductives.DeclBlock

@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.NestNfScope
@@ -27,7 +27,7 @@ import ConLeche.Model.NatEqs
 public section
 
 /-!
-# The install's run: the walk's context
+# The check's run: the walk's context
 
 The facts the accessibility walk (`BlockAccRun*.lean`) and the fields'
 grading (`BlockHoleGrade.lean`) read off the positivity stage's run

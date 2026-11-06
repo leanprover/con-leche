@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.GenRecStage

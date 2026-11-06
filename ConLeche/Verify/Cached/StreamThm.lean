@@ -1,10 +1,9 @@
 module
 
+import ConLeche.Verify.Cached.DeclPushes
 public import ConLeche.Cached.Decls
 public import ConLeche.SetTheory.Core
 import ConLeche.Verify.Cached.MainC
-import ConLeche.Verify.Cached.PushChain
-import ConLeche.Verify.Cached.BridgeCS4
 
 public section
 

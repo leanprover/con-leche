@@ -78,7 +78,7 @@ graded. -/
 
 /-- **The binary acceleration's head**: a stored operation the rule fires
 on is read over the `Nat` leaf, a function on `Nat` of a function on `Nat`
-(its stored type is pinned at install, `natOpTyPinned`), and the literal
+(its stored type is pinned at its check, `natOpTyPinned`), and the literal
 basis is stored.  `Red.natOp_sound` reads the domains off it: the redex is
 not the point, so neither is the head, whose graph fixes its domain
 (`piR_dom_unique`, task #342 L12). -/

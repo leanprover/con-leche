@@ -12,7 +12,7 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 63, 72)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 64, 73)[a
 projection table], the fields' types read off the constructor. The
 real checker #src("ConLeche/Rules/Rel.lean", 169, 184)[reduces a projection of a
 constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 627, 635)[infers its type from
@@ -20,7 +20,7 @@ the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 714, 719)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 713, 718)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -90,14 +90,13 @@ theorem][In the fragment the relations are the checker. The real
 checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 311, 316)[The fold] installs every
-declaration first and then checks the recorded declarations one by one,
-each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Verify/Cached/Defer.lean", 261, 269)[a pool of workers] whose results are reassembled in
-fold order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
-accept of the fold] as an environment in which every declaration was
-checked where it was installed, which is what the one-declaration-at-a-time
-argument of §3 and §4 needs.]
+#left-out[The parallel check][#src("ConLeche/Cached/Decls.lean", 83, 84)[The fold] checks the declarations
+one by one, each against the environment of those before it\; the binary builds
+#src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
+and runs the checks on a pool of workers, each against the index's view of the declarations before
+it, walking the results in fold order, so its verdict is the fold's.
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 488, 490)[Every check passing is an accept of the fold],
+which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
 
@@ -159,7 +158,7 @@ equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 10, 15)[A simul
 that every successful run of the cached core is a successful run of the
 pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
-theorem #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[composes it with the fold's soundness].
+theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the fold's soundness].
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

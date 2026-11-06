@@ -390,7 +390,7 @@ def litShapeOk (c : ConstantInfo) : Bool :=
 The official kernel accelerates the structural `Nat` operations on
 literals (GMP-backed there).  Here the fast path is *certified*: an
 operation participates only when its defining recurrence equations
-hold by definitional equality — checked once, at install: `checkDecl`
+hold by definitional equality — checked once, at its check: `checkDecl`
 positively rejects a nonstandard definition under one of these names,
 so *presence in the store is the certificate* (no runtime flag, no
 re-checking; a reduction-time re-check would in fact livelock — the
@@ -461,7 +461,7 @@ def natOpNames : List Name :=
    natBeqName, natBleName]
 
 /-- The WF-recursive operations with a *pinned-declaration* certified
-fast path: at install, `checkDecl` compares the stream's definition
+fast path: at its check, `checkDecl` compares the stream's definition
 against a vendored pin of the toolchain's own (helper-unfolded)
 definition by definitional equality, and then checks the pinned
 `Nat.ble`-guarded characterization certificates
@@ -631,7 +631,7 @@ def natOpGuard (env : Env) (c : Name) : Bool :=
 net*: the preceding certified branches normally intercept literal
 applications, so this list only fires when a capability is absent
 (op not stored, or a dependency missing — a mismatching declaration
-already declined at install); such a *literal application* is then
+already declined at its check); such a *literal application* is then
 positively declined (arena exit 2) rather than ground unary through
 the fuel recursion.  Declaring the functions themselves is
 unaffected: only the reduction path declines. -/

@@ -67,7 +67,7 @@ constructors' environment `env`, on the stream's own recursor family
 (the raw `block`: the pins read it), the pass's classes and table, and
 the elimination guard's container bit `nested` (`blockNestedBit`).
 Returns every generated recursor with its class and its generated rules
-(`tgtRs` is the install's recursor-list format of it).  The pure
+(`tgtRs` is the check's recursor-list format of it).  The pure
 operations run it at every index (`ShadowOps.ofOps`); the cached driver
 runs the SAME function at its own shadow operations (`checkBlockTailS`,
 `ConLeche/Cached/CheckerC.lean`). -/

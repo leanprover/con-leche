@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.BlockInv
 public import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Verify.Cached.BlockPushes

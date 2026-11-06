@@ -1,7 +1,7 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
-public import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.FamilyRan
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockStageTables
@@ -14,20 +14,20 @@ public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockHoleFold
-public import ConLeche.Verify.Inductives.BlockInv
+import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Verify.Inductives.BlockWF
 public section
 
 /-!
-# The block's representation datum, built from the install's run
+# The block's representation datum, built from the check's run
 
 One stage at a time: the formers' run (`blockFormerFacts_of`), the DUMMY pass
 (`blockDummyPass`), every member's constructors read at its carrier
 (`blockCtorFunsAt`), the fields with holes as the walked term's reading
 there (`nfFieldsRead`, `blockAbsRead_of_run`) with the stored field
 shape facts (`blockDeclaredShapes_of_run`), the members' index telescopes
-(`blockIdxFacts_of`), the HOLE chains graded by U2 — the install's
+(`blockIdxFacts_of`), the HOLE chains graded by U2 — the check's
 positivity stage, run at the dummy carrier (`blockHoleGrade_of_run`,
 `blockHoleChains_facts`) — the REAL pass at the
 formers' HOLE leaves (`blockRealPass`, `blockLeafH`), the constructors
@@ -431,7 +431,7 @@ theorem blockMembers_read {V : Type w} [SetTheory V] {q : BlockShape}
 
 set_option maxHeartbeats 1600000 in
 /-- **The block's representation record and the constructors' stage's
-obligation, from the install's run**.  The two former passes
+obligation, from the check's run**.  The two former passes
 (`blockDummyPass`, `blockRealPass`) around the members' constructor
 readings (`blockCtorFunsAt`); the formers are consed with the block
 operator at the HOLE chains (`blockLeafH`), graded by the positivity

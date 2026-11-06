@@ -258,7 +258,7 @@ refutes, because a head of those kinds can *complete* a stored family
 is the block's own (`T`): every other stored family's capability
 constructor is stored already (the fold's `EtaFamiliesClosed` at the
 pre-block environment).  So the prefix families' laws cross as at any
-fresh cons, and the block's own family's laws are the install's
+fresh cons, and the block's own family's laws are the check's
 premise.
 -/
 
@@ -534,7 +534,7 @@ theorem denote_agree_of_readsAt
 /-!
 ## The opened frames
 
-The install's stage checks run **at opened frames**: each
+The check's stage checks run **at opened frames**: each
 binder-domain comparison (`checkStructDomsAt`), each field's sort
 inference (`checkStructFieldSortsI`) and the recursor's pins run at the
 depth of the binder they concern, over the variables `openPisAtFvars`

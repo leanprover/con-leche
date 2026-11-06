@@ -273,7 +273,7 @@ block (`nR > k`, official's auxiliary recursors ride along) the prefix
 also carries one motive per auxiliary recursor and the auxiliary
 constructors' minors, whose number the block does not record — there
 the prefix is only bounded below (the former's own
-telescope is checked by the install's whnf loop at the count read
+telescope is checked by the check's whnf loop at the count read
 here, so a wrong claim is rejected there). -/
 def blockCounts? (nPd k nC nR : Nat) (cvT : ConstantVal) (r : Option (Nat × Nat)) :
     Option (Nat × Nat) :=
@@ -399,7 +399,7 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
               reservedBasisNames.contains c.1.name == false) then
           -- the result sort: member 0's, read off its declared type when
           -- that is a syntactic telescope ending in a sort; otherwise
-          -- (task #195) a PLACEHOLDER the install's whnf loop replaces
+          -- (task #195) a PLACEHOLDER the check's whnf loop replaces
           let s : Level := match cvT0.type.stripPis (nP + nIdxs.headD 0) with
             | some (_, .sort s) => s
             | _ => .zero

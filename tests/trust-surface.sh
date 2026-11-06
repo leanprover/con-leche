@@ -532,7 +532,7 @@ for f, t in stale:
 # Pinned by content: path -> (sha256, reason).  See the header.
 import hashlib
 NATIVE = {
-    'lakefile.lean': ('f5a0416b3ac7ba58cbdeb6074cf14239601386539c99c8f8ec04100c729bf171',
+    'lakefile.lean': ('36ffe5376c26ac9d6b4fb46b4dedb4c35d8416b01d7950c775f3b3f735b34dca',
         'the build: the targets, and the C compile and link of native/'),
     'native/read_range.c': ('6ffff889161f74962d0633e2b906523bfc85b3d4ef68ab80da4160f3d0d7c821',
         'readRangeIO, the positional read behind CheckerIO.readRange'),

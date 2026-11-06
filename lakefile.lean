@@ -150,7 +150,7 @@ lean_lib ConLecheComplete where
 -- gate — never builds it.  Nothing in the tree imports it.
 --
 -- Which is why it can rot unseen, and did (task #281: the module's
--- import went stale when `checkDecls` moved to `ConLeche.Cached.Installed`
+-- import went stale when `checkDecls` moved to another module
 -- and no gate noticed).  `tests/challenge.sh`, in the standard battery,
 -- is now the one thing that builds this library — and it diffs the
 -- `#check` of every `comparator.json` name against `ConLeche.MainTheorem`.

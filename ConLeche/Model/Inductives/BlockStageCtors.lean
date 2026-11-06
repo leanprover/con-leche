@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.Inductives.BlockCtorsLoop
 import ConLeche.Model.Inductives.FormerInEnv
 import ConLeche.Model.Inductives.FixKit

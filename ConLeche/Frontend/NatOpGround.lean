@@ -23,7 +23,7 @@ declarations by a DFS from arbitrary roots (`lean4export` walks
 `Nat.ble`/`Nat.sub`/`Bool`) declined at the install.
 
 They cannot go into the prelude: the structural operations are
-certified at install by *definitional* recurrence equations
+certified at its check by *definitional* recurrence equations
 (`certifyNatEqs`) — deliberately not by a syntactic pin, so that a
 stream from another toolchain still installs them (`Nat.add` gained a
 separate `._f` functional between the 4.29 fixtures and the 4.33

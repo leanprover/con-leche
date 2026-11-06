@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Cached.Decls
+public import ConLeche.Cached.ParsedC
 
 @[expose] public section
 

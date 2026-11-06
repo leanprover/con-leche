@@ -287,7 +287,7 @@ theorem recRuleLaw_ext (mp : EnvModelM V env) {env' : Env}
       exact hok ρ zs TVa' restR hzl hzok hTVa' hfit
   · intro cvj cnP cnF hfcj usj ρ xs ys TVa TVja restR restC hxl hyl hujl
       hψ hyWD hpin hTVa hTVja hfitR hfitC
-    -- **the environment invariant, not the install's kind**: the rule's
+    -- **the environment invariant, not the check's kind**: the rule's
     -- constructor is stored
     obtain ⟨cvj', cnP', cnF', hst⟩ :=
       mp.base2.rec_ctors n cv mI rP isK rules hfE rl hmem

@@ -65,6 +65,8 @@ FALLBACK = {
     # `OpenedCtx.lean:29`).
     ('ConLeche.Model.OpenedCtx', 'ConLeche.Model.Currency'),
     # task #480: each MEASURED by demoting it alone (the module stops building).
+    ('ConLeche.Verify.Cached.PushChain', 'ConLeche.Verify.Cached.DeclPushes'),
+    ('ConLeche.Verify.Inductives.NestNfScope', 'ConLeche.Verify.Inductives.PositivityInv'),
     ('ConLeche.Model.Inductives.BlockDatum', 'ConLeche.Model.Inductives.FamilyRan'),
     ('ConLeche.Model.Inductives.DeclaredShapes', 'ConLeche.Verify.Inductives.NestScope'),
     ('ConLeche.Verify.Inductives.GenRecRun', 'ConLeche.Verify.EnvWF'),

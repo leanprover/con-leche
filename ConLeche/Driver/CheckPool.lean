@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Cached.StreamIndex
+public import ConLeche.Cached.StreamIndex
 public import Std.Sync.Mutex
 public import ConLeche.Driver.Stats
 

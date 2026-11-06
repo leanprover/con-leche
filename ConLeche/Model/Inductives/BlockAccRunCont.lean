@@ -1,6 +1,5 @@
 module
 
-public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.PosDerivAcc
 import ConLeche.Model.Inductives.PosDerivShape
@@ -11,7 +10,7 @@ import ConLeche.Model.Rules.Inputs
 public section
 
 /-!
-# Accessibility from the install's positivity derivation
+# Accessibility from the check's positivity derivation
 
 The block step of (W) by accessibility, read off the positivity run's
 declarative derivation: at a uniform block's install every

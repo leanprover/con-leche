@@ -33,7 +33,7 @@ here from the environment invariant alone:
 The layers: the two-variable context kit; the graded-argument walk
 (`NatArg`); the head packages (`NatBinHead`/`NatUnHead`) and their
 pinned-type establishment; the per-equation conversion; the crossing
-to the install's extension (`denote_substConst0`); and the field
+to the check's extension (`denote_substConst0`); and the field
 suppliers (`natOps_install` bespoke at the operation's own install,
 `natOps_cons_fresh` at every other fresh cons).
 -/
@@ -654,7 +654,7 @@ theorem natEqLaw_of_run (mp : EnvModelM V env) {ψ : Name → Nat}
 /-! ## The crossing: substituted readings at the prefix are raw
 readings at the extension -/
 
-/-- **The substitution crossing for the install's own constant**: on
+/-- **The substitution crossing for the check's own constant**: on
 the shallow fragment, reading in the extended environment under the
 extended valuation is reading the substituted expression in the old
 one. -/

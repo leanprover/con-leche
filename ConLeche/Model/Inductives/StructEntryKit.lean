@@ -1066,7 +1066,7 @@ theorem denote_projTele {acval : Name → (Name → Nat) → Term} {env : Env}
     rfl
 
 /-- The telescope over the parameters and the subject, at depth `0`:
-the residual is the body at the install's own variable spelling
+the residual is the body at the check's own variable spelling
 (`fvsD`/`tfvD`). -/
 theorem denote_projTele_zero {acval : Name → (Name → Nat) → Term} {env : Env}
     {φ : Name → Nat} {nP : Nat} {body : Expr} {RA : Term}

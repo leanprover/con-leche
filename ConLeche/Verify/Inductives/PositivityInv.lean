@@ -7,7 +7,7 @@ import ConLeche.Verify.Inductives.UniformOcc
 public section
 
 /-!
-# The install's positivity stage, inverted
+# The check's positivity stage, inverted
 
 `checkBlockPositivity` (`Kernel/Inductives/BlockInstall.lean`) read back
 constructor by constructor: the canonical parameters are the head
@@ -282,7 +282,7 @@ theorem checkBlockPositivity_m2 {ops : CheckerOps CheckM} {env₁ : Env}
     nestRootCanon_nestOcc_zero
       (nestUniform_inv hU cs (List.mem_of_getElem? hc) ctor (List.mem_of_getElem? hj))⟩
 
-/-- **The install's positivity stage, constructor by constructor**: the
+/-- **The check's positivity stage, constructor by constructor**: the
 root frame's crest `crest` (at a constructor of the block's own levels:
 its whole member applications replaced by the holes, then instantiated at
 the canonical parameters) walked to its normal form `tyN` (the run's

@@ -12,7 +12,7 @@ public section
 # Accessibility in the holes: the vocabulary
 
 The counterpart of `NestPosMono.lean`'s vocabulary for the closure
-witness (W): joint accessibility at the instantiation is an install-time
+witness (W): joint accessibility at the instantiation is a block
 lemma derived from the positivity walk, like monotonicity, proved by
 induction on the positivity DERIVATION (`posD_acc`, `PosDerivAcc.lean`),
 never on the run; this file holds what that induction states:

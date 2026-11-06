@@ -1267,7 +1267,7 @@ are syntactic telescopes ending in a sort) consed onto a pre-block
 `env`: fresh there, and `envI` agrees with `env` off the members and in
 its tables.  One
 fact about the pre-block environment is needed beyond `EnvWF`, an
-install-time invariant of the checker's environments: `hBool`: no member is
+block invariant of the checker's environments: `hBool`: no member is
 named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path produces by name. -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     {formers : List ConstantVal} {names : List Name}

@@ -1057,7 +1057,7 @@ theorem rootEntry_mem {holes : List Expr} {tbl : List NestCtorNf}
   unfold nestCtorNf at h
   rwa [params_readback hroot []] at h
 
-/-- **The install's positivity stage, derived**: the context
+/-- **The check's positivity stage, derived**: the context
 `checkBlockPositivity` builds, and — at a context whose stored constants
 are closed, canonical parameters well scoped at the walk's depth, closed
 constructors of the block's own levels and member formers of the

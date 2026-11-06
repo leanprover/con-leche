@@ -13,7 +13,7 @@ public section
 
 A closed `∀`-telescope opened at its own variables: each variable's
 annotation reads to the telescope's domain at its depth, and correlates
-with the earlier domains (`CtxOk`).  What the install's frames and a
+with the earlier domains (`CtxOk`).  What the check's frames and a
 projection's guard at its use read.  Below the rules tier: nothing here
 looks at a derivation.
 -/

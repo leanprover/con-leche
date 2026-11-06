@@ -7,6 +7,7 @@ public import ConLeche.Model.Fold
 public import ConLeche.Verify.Cached.BridgeC
 import ConLeche.Verify.EnvBound
 import ConLeche.Model.DeclsRun
+import ConLeche.Verify.Cached.PushChain
 
 public section
 

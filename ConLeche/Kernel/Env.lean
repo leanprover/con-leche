@@ -182,7 +182,7 @@ inductive BasisKind where
   deriving DecidableEq, Repr, Inhabited
 
 /-- Definitional capabilities of a stored inductive type that its block
-alone decides, read off the block's records at install: structure-likeness
+alone decides, read off the block's records at its check: structure-likeness
 for its (single-constructor) values, unit-like collapse (all inhabitants
 definitionally equal), and the family's names and counts.  The family's
 result sort is on no record, so what depends on it is computed where it is
@@ -223,7 +223,7 @@ structure IndCaps where
   reading of the family's sort walks (`formerSortLoop`). -/
   nIdx : Nat := 0
   /-- **The family's constructors, in declaration order** (official's
-  `inductive_val.cnstrs`): recorded at install (uniform: the member's
+  `inductive_val.cnstrs`): recorded at its check (uniform: the member's
   constructors; basis: the pin's).  Read by nested positivity alone
   (`nestContainer`): a container's constructors are looked up by name,
   never by a scan of the environment.  `Quot` records none (it is no
@@ -306,7 +306,7 @@ inductive ConstantInfo where
   numMinors + numIndices, the major premise's argument position) and
   `rulePrefix` (= numParams + numMotives + numMinors, the length of the
   argument prefix a rule's rhs is applied to).  The individual counts
-  are consumed at install time only and are not stored. -/
+  are consumed at its check only and are not stored. -/
   | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
       (isK : Bool) (rules : List RecRule)
   deriving DecidableEq, Repr, Inhabited

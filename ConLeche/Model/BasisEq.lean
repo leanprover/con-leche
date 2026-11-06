@@ -1221,7 +1221,7 @@ theorem extendEqRec (mp : EnvModelM V env)
 
 /-- **The `Eq` block, installed at the P tier**, at the pin's own names — the
 block whose chain reads its own earlier leaves, and so the one that consumes
-the install's exposed `acval`; with its former's and constructor's leaves,
+the check's exposed `acval`; with its former's and constructor's leaves,
 which the block at other names reads. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env

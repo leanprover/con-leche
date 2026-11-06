@@ -11,11 +11,11 @@
 
 >>> whitepaper/main.typ
 
-== ConLeche/MainTheorem.lean#L99-L102
-    99  theorem model_exists (V : Type w) [SetTheory V]
-   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   101      (accepted : checkDecls .verified pins ds = .ok env) :
-   102      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L97-L100
+    97  theorem model_exists (V : Type w) [SetTheory V]
+    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    99      (accepted : checkDecls .verified pins ds = .ok env) :
+   100      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Sound.lean#L2322-L2326
   2322  theorem soundness [LevelOracle] (m : EnvModel V env) (φ : Name → Nat) :
@@ -26,11 +26,11 @@
 
 >>> whitepaper/sections/01-introduction.typ
 
-== ConLeche/MainTheorem.lean#L99-L102
-    99  theorem model_exists (V : Type w) [SetTheory V]
-   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   101      (accepted : checkDecls .verified pins ds = .ok env) :
-   102      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L97-L100
+    97  theorem model_exists (V : Type w) [SetTheory V]
+    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    99      (accepted : checkDecls .verified pins ds = .ok env) :
+   100      Nonempty (Model V env) := by
 
 == ConLeche/Denotes.lean#L248-L268
    248  structure Model (V : Type w) [SetTheory V] (env : Env) where
@@ -1290,13 +1290,13 @@
   1017        -- Task #342 S0: ζ
   1018        r.whnfCore cheap depth (b.instantiate1 v)
 
-== ConLeche/Kernel/Core.lean#L1253-L1258
-  1253      | .letE ty v b => do
-  1254        -- Task #342 S0: official `infer_let`
-  1255        let _ ← ensureSort r env depth (← r.infer depth ty)
-  1256        unless ← r.defeq depth (← r.infer depth v) ty do
-  1257          throw (.invalid "let value type mismatch")
-  1258        r.infer depth (b.instantiate1 v)
+== ConLeche/Kernel/Core.lean#L1250-L1255
+  1250      | .letE ty v b => do
+  1251        -- Task #342 S0: official `infer_let`
+  1252        let _ ← ensureSort r env depth (← r.infer depth ty)
+  1253        unless ← r.defeq depth (← r.infer depth v) ty do
+  1254          throw (.invalid "let value type mismatch")
+  1255        r.infer depth (b.instantiate1 v)
 
 >>> whitepaper/sections/02b-model-proof.typ
 
@@ -2250,14 +2250,14 @@
    545  "reduce, then continue": `redL`.
    546  -/
 
-== ConLeche/Kernel/Core.lean#L1401-L1407
-  1401  /-- The innermost level of `defeqLams`: the opened bodies, and at the
-  1402  verified mode their FULL-grade types. -/
-  1403  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
-  1404    unless ← r.defeq (depth + 1) b₁ b₂ do return false
-  1405    if mode.verifiedChecks then
-  1406      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
-  1407          (← r.infer (depth + 1) b₂) do return false
+== ConLeche/Kernel/Core.lean#L1398-L1404
+  1398  /-- The innermost level of `defeqLams`: the opened bodies, and at the
+  1399  verified mode their FULL-grade types. -/
+  1400  def defeqLamsInner (r : CoreFns m) (depth : Nat) (b₁ b₂ : Expr) : m Bool := do
+  1401    unless ← r.defeq (depth + 1) b₁ b₂ do return false
+  1402    if mode.verifiedChecks then
+  1403      unless ← r.defeq (depth + 1) (← r.infer (depth + 1) b₁)
+  1404          (← r.infer (depth + 1) b₂) do return false
 
 == ConLeche/Kernel/Core.lean#L471-L476
    471        -- Task #342 S0: the λ/η tax (T2)
@@ -2463,13 +2463,13 @@
    481      (hA : DefEqSem m φ Γ A₂ A₁)
    482      (hbody : DefEqSem m φ (A₁ :: Γ) b₁ (.app (b.liftN 1) (.bvar 0)))
 
-== ConLeche/Kernel/Core.lean#L1262-L1267
-  1262  /-- **The io inference body** (tasks #161, #170, #346): official's
-  1263  `infer_type_core` with `infer_only = true`.  It differs from
-  1264  `inferBody` at three clauses: an application's argument is not
-  1265  checked against the domain, a λ's domain is not checked to be a type,
-  1266  and a `let`'s type and value are not checked (the body is inferred at
-  1267  the value).  The computed types and the "function expected" rejection
+== ConLeche/Kernel/Core.lean#L1259-L1264
+  1259  /-- **The io inference body** (tasks #161, #170, #346): official's
+  1260  `infer_type_core` with `infer_only = true`.  It differs from
+  1261  `inferBody` at three clauses: an application's argument is not
+  1262  checked against the domain, a λ's domain is not checked to be a type,
+  1263  and a `let`'s type and value are not checked (the body is inferred at
+  1264  the value).  The computed types and the "function expected" rejection
 
 >>> whitepaper/sections/03-definitions.typ
 
@@ -2551,7 +2551,7 @@
    306    numMinors + numIndices, the major premise's argument position) and
    307    `rulePrefix` (= numParams + numMotives + numMinors, the length of the
    308    argument prefix a rule's rhs is applied to).  The individual counts
-   309    are consumed at install time only and are not stored. -/
+   309    are consumed at its check only and are not stored. -/
    310    | recInfo (val : ConstantVal) (majorIdx rulePrefix : Nat)
    311        (isK : Bool) (rules : List RecRule)
    312    deriving DecidableEq, Repr, Inhabited
@@ -3054,9 +3054,9 @@
    215  def ctorType (c : CtorSpec) : Expr :=
    216    mkPis (S.fieldCtx c.fields ++ S.params) (S.famAt c.fields.length c.idx)
 
-== ConLeche/Kernel/Inductives/SumInstall.lean#L67-L68
-    67  /-- Stage 2, one constructor's type: the ordinary constant check (the
-    68  constructor is stored AS DECLARED), the result
+== ConLeche/Kernel/Inductives/SumInstall.lean#L66-L67
+    66  /-- Stage 2, one constructor's type: the ordinary constant check (the
+    67  constructor is stored AS DECLARED), the result
 
 == ConLeche/Kernel/Inductives/GenRec.lean#L385-L407
    385  only output a verdict): checked as a constant (`classConstOk`) and
@@ -3215,8 +3215,8 @@
 
 == ConLeche/Kernel/Inductives/SumInstall.lean#L50-L64
     50  def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
-    51      (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
-    52    | 0 => pure []
+    51      (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m Unit
+    52    | 0 => pure ()
     53    | j + 1 => do
     54      let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
     55      let ty ← ops.inferType env (nP + j) fv.fvarTypeD
@@ -3228,7 +3228,7 @@
     61        unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
     62          throw (.invalid "direct sum: large eliminator with a non-propositional \
     63            field outside the indices")
-    64      let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
+    64      checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
 
 == whitepaper/Fragment/Decl.lean#L699-L704
    699  /-- The universe bound on a field of sort `v`: the family is a
@@ -5225,11 +5225,11 @@
     69      obtain ⟨m', -⟩ := install_ind_any h.scoped m hok
     70      exact ⟨m'⟩
 
-== ConLeche/MainTheorem.lean#L99-L102
-    99  theorem model_exists (V : Type w) [SetTheory V]
-   100      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
-   101      (accepted : checkDecls .verified pins ds = .ok env) :
-   102      Nonempty (Model V env) := by
+== ConLeche/MainTheorem.lean#L97-L100
+    97  theorem model_exists (V : Type w) [SetTheory V]
+    98      (pins : List NatOpPinSet) (ds : Array Declaration) (env : Env)
+    99      (accepted : checkDecls .verified pins ds = .ok env) :
+   100      Nonempty (Model V env) := by
 
 == whitepaper/Fragment/Install.lean#L176-L181
    176  /-- **Installing a plain inductive block preserves having a model.**
@@ -6191,9 +6191,9 @@
     77        nparams := p.nP
     78        nIdx := nIdx
 
-== ConLeche/Model/Inductives/FixKit.lean#L720-L721
-   720  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
-   721    the parameters and its own projections below the tag.
+== ConLeche/Model/Inductives/FixKit.lean#L719-L720
+   719  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
+   720    the parameters and its own projections below the tag.
 
 == ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
     10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
@@ -6212,23 +6212,23 @@
    293  theorem DefEq.structUnit_sound (hin : RulesInputs V m φ) {d : Nat}
    294      {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
 
-== ConLeche/Model/Inductives/FixKit.lean#L1795-L1796
-  1795  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
-  1796  fibre is the one tagged empty tuple (the point at a squash instance).
+== ConLeche/Model/Inductives/FixKit.lean#L1794-L1795
+  1794  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
+  1795  fibre is the one tagged empty tuple (the point at a squash instance).
 
 >>> whitepaper/sections/07-left-out.typ
 
-== ConLeche/Kernel/Install.lean#L63-L72
-    63  def blockTables (p : BlockShape) : List MemberShape → List ProjTable
-    64    | [] => []
-    65    | ms :: rest =>
-    66      match ms.structCtor? with
-    67      | some c =>
-    68        match structProjBodies ms.declared.name p.nP c.2 c.1.type with
-    69        | some bodies =>
-    70          ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: blockTables p rest
-    71        | none => blockTables p rest
-    72      | none => blockTables p rest
+== ConLeche/Kernel/Install.lean#L64-L73
+    64  def blockTables (p : BlockShape) : List MemberShape → List ProjTable
+    65    | [] => []
+    66    | ms :: rest =>
+    67      match ms.structCtor? with
+    68      | some c =>
+    69        match structProjBodies ms.declared.name p.nP c.2 c.1.type with
+    70        | some bodies =>
+    71          ⟨ms.declared.name, p.lps, p.nP, c.1.name, c.2, bodies⟩ :: blockTables p rest
+    72        | none => blockTables p rest
+    73      | none => blockTables p rest
 
 == ConLeche/Rules/Rel.lean#L169-L184
    169    /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
@@ -6264,13 +6264,13 @@
     11  every member with ONE constructor and no index, nothing at any other
     12  member — with `stageFixTable` at each table (abstract in the former's
 
-== ConLeche/Model/Inductives/FixKit.lean#L714-L719
-   714  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
-   715    `i + 1` into the body's residual — the graph regime by the tower's
-   716    projection membership below the tag, the squash regime by the point;
-   717  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
-   718    projection of a graded constructor application is the selected field
-   719    (`sumMkAV_fold`: the application folds to the tagged tuple);
+== ConLeche/Model/Inductives/FixKit.lean#L713-L718
+   713  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
+   714    `i + 1` into the body's residual — the graph regime by the tower's
+   715    projection membership below the tag, the squash regime by the point;
+   716  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
+   717    projection of a graded constructor application is the selected field
+   718    (`sumMkAV_fold`: the application folds to the tagged tuple);
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L8-L12
      8  
@@ -6437,30 +6437,17 @@
    321        Red env d ttp (.sort v) → Level.isEquiv v .zero = some true →
    322        Red env d major fab
 
-== ConLeche/Cached/Installed.lean#L311-L316
-   311  position in the fold, in the frontend's half of the same error type
-   312  the input's LINE number (`ConLeche/Frontend/Export.lean`). -/
-   313  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet)
-   314      (ds : Array Declaration) :
-   315      Except (CheckError × Nat) Env := do
-   316    let p ← ds.foldlM (installDeclStep mode pins) (0, mkFEnv Env.empty, #[])
+== ConLeche/Cached/Decls.lean#L83-L84
+    83  def checkDecls (mode : CheckMode) (pins : List NatOpPinSet) (ds : Array Declaration) :
+    84      Except (CheckError × Nat) Env := do
 
-== ConLeche/Verify/Cached/Defer.lean#L261-L269
-   261  
-   262  /-! ## The check phase's jobs
-   263  
-   264  The check phase runs two kinds of job: a recorded value check
-   265  (`checkPending`, the record's `GroupChecked` fact) and a deferred check
-   266  (`deferredCheck`, the record's `DeferredCheck.Ok`).  The jobs are put in
-   267  FOLD ORDER (`jobOrder`, the two position-sorted arrays merged), run by
-   268  any number of workers in any order, and assembled by a walk in job
-   269  order that stops at the first failure (`collectJobs`): the verdict is
+== ConLeche/Cached/StreamIndex.lean#L65
+    65  def buildIndex (ds : Array Declaration) : StreamIndex :=
 
-== ConLeche/Verify/Cached/MainC.lean#L37-L40
-    37  
-    38  /-- **Acceptance**: what the fold accepts carries the model. -/
-    39  theorem checkDecls_sound
-    40      {ds : Array Declaration} {env' : Env}
+== ConLeche/Verify/Cached/StreamIndex.lean#L488-L490
+   488  theorem checkDecls_of_jobs {ds : Array Declaration}
+   489      (h : ∀ k (hk : k < ds.size), recordJob mode pins (buildIndex ds) k ds[k] = .ok ()) :
+   490      checkDecls mode pins ds = .ok (streamEnv ds.toList) := by
 
 == ConLeche/Kernel/Expr.lean#L315-L317
    315  inductive Expr where
@@ -6655,11 +6642,11 @@
     14  cached and pure sides are *the same terms*, so the value relation is
     15  equality.
 
-== ConLeche/Verify/Cached/MainC.lean#L37-L40
-    37  
-    38  /-- **Acceptance**: what the fold accepts carries the model. -/
-    39  theorem checkDecls_sound
-    40      {ds : Array Declaration} {env' : Env}
+== ConLeche/Verify/Cached/MainC.lean#L32-L35
+    32  
+    33  /-- **Acceptance**: what the fold accepts carries the model. -/
+    34  theorem checkDecls_sound
+    35      {ds : Array Declaration} {env' : Env}
 
 == ConLeche/Frontend/Prepare.lean#L171-L172
    171  def preparePrelude (pre : PreludeIx) (ds : Array Declaration) : Array Declaration :=

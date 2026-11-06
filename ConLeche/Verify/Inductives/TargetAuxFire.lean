@@ -10,7 +10,6 @@ import ConLeche.Verify.AbstractRange
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 

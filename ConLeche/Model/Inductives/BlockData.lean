@@ -2,7 +2,6 @@ module
 
 import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.SumKit
-public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.BlockInstall
 public section
 

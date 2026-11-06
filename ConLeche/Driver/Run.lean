@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Driver.CheckPool
+public import ConLeche.Verify.Cached.StreamIndex
 
 /-!
 # The driver: `checkDeclsIO`

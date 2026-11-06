@@ -3,7 +3,6 @@ module
 public import ConLeche.Cached.StreamIndex
 public import ConLeche.Verify.Cached.ViewCongr
 public import ConLeche.Verify.Cached.PushChain
-public import ConLeche.Verify.Cached.DeclPushes
 
 /-!
 # Every job passing is an accept of the fold

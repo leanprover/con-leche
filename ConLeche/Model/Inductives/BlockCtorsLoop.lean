@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Verify.Inductives.DirectInv
+import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.FixKit
 public section
 

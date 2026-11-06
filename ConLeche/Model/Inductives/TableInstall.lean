@@ -19,7 +19,7 @@ the table); a reading the prefix already had survives
 none), so every environment law transports along the extension
 (`ModelExt.pushTable`) exactly as at a fresh constant's install.  The
 one row the transports cannot supply — the new table's own
-`TowerEntryLaw` at every field — is the install's.
+`TowerEntryLaw` at every field — is the check's.
 -/
 
 namespace ConLeche.Model

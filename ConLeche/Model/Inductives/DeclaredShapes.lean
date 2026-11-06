@@ -532,7 +532,7 @@ private theorem erasedEq_mkAppN_congr :
       (show Expr.ErasedEq (.app _ _) (.app _ _) from ⟨h, hab⟩) hrest
 
 /-- **THE PRODUCER of the stored field shape facts** — the only place that
-reads a stored constructor's syntax for them.  From the install's
+reads a stored constructor's syntax for them.  From the check's
 positivity run at a stored (DECLARED) constructor of the block — the walk
 takes the crest `crest` (every whole member application abstracted,
 `nestCrest`) to its normal form `tyN` — the constructor's kind-free facts, the members' formers, and the walk's

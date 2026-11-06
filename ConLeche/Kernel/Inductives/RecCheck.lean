@@ -572,7 +572,7 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
 
 /-! ## The stored family -/
 
-/-- **The stored family, in the install's recursor-list format**: each
+/-- **The stored family, in the check's recursor-list format**: each
 checked recursor, its generated rules, its major's index count and its
 major's constructors (`consBlockRecs` conses them). -/
 def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
