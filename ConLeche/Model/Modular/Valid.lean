@@ -569,6 +569,30 @@ theorem reading_basic {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j
       exact ht
     · exact nomatch hd'
 
+/-- **What a context constant's laws read is read alike** (`CtxRead.scope`): its record's reads
+(`ImportOk.reads`), with the former's table its record's. -/
+theorem reading_scope {i : Nat} (hK : ImportOk .verified pins dev i) {n : Name} {ci : ConstantInfo}
+    (h : (dev i).context.find? n = some ci) :
+    EntryScopedP (fun d => ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
+      (dev i).context n ci := by
+  obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some (L := (dev i).ctx) h
+  have hxe : n ∈ declNames e := List.mem_map.mpr ⟨ci, hce, hnm⟩
+  obtain ⟨hents, htabs⟩ := hK.reads e he n hxe
+  obtain ⟨h1, h2, h3, h4, h5⟩ := hents ci hce
+  have hR := fun {x : Expr} (hx : x.constsResolve (readsAlike dev i ((dev i).src n)) = true) =>
+    (Expr.constsResolve_iff _).mp hx
+  refine ⟨hR h1, fun cv v hh he' => hR (h2 cv v hh he'),
+    fun cv mI rP isK rules he' r hr => ?_, fun cv caps he' => ?_, ?_⟩
+  · obtain ⟨a, b, c⟩ := h3 cv mI rP isK rules he' r hr
+    exact ⟨hR a, b, fun lvls pins hf q hq => hR (c lvls pins hf q hq)⟩
+  · obtain ⟨a, b⟩ := h4 cv caps he'
+    refine ⟨a, b, fun t ht => ?_⟩
+    have ht' : (declTables e).find? (·.structName == n) = some t := by
+      rw [← streamEnv_findTable? hK.nodup he hxe]; exact ht
+    obtain ⟨c1, c2⟩ := htabs t (List.mem_of_find?_eq_some ht')
+    exact ⟨c1, fun b hb => hR (c2 b hb)⟩
+  · intro d hd; rw [← hnm] at hd; exact h5 d hd
+
 end
 
 end ConLeche.Model.Modular
