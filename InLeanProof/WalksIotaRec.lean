@@ -2,6 +2,7 @@ module
 
 public import InLeanProof.IotaViews
 public import InLeanProof.WalksWhnfLoop
+public import InLeanProof.LeafGuardI
 
 /-!
 # InLean's body walks, part 4: the ι step (task #451, lane P2-whnf)
@@ -46,13 +47,6 @@ abbrev ProofIrrelSpecI (eager : Bool) (env : ConLeche.Env) (r : InLean.CoreFnsI)
     ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
       Runs (ConLeche.proofIrrel (ConLeche.fueledFns .verified eager env) d (TrS s₀ a) (TrS s₀ b))
         v; ⊤⦄
-
-/-- `leafGuardM`'s spec as a named hypothesis. -/
-abbrev LeafGuardSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env) : Prop :=
-  ∀ {s₀ : InLean.CState} {fab base : Expr}, CSOKI mode eager env s₀ → OkS s₀ fab = true →
-    OkS s₀ base = true →
-    ⦃fun s => s = s₀⦄ InLean.leafGuardM fab base
-    ⦃fun v s' => s' = s₀ ∧ v = ConLeche.Cached.leafGuardP (TrS s₀ fab) (TrS s₀ base); ⊤⦄
 
 /-! ## Lists through the translation -/
 
@@ -194,14 +188,6 @@ end Blocks
 
 /-! ## The rescue's walks -/
 
-/-- The two syntactic guards of a fabrication, at a reading that is scoped
-and closed (the fork's `LeafGuardI.lean` proves both). -/
-abbrev GuardBridges : Prop :=
-  (∀ {s : InLean.CState} {e : Expr} {d : Nat}, OkS s e = true →
-    ConLeche.Expr.WScoped d (TrS s e) → InLean.Expr.wscopedBC d e = true) ∧
-  (∀ {s : InLean.CState} {e : Expr}, OkS s e = true → (TrS s e).looseBVarsBounded 0 = true →
-    InLean.Expr.closedBV e = true)
-
 /-- The post at a term read at an earlier state. -/
 theorem post_of {mode : ConLeche.CheckMode} {s₀ s' : InLean.CState} {d : Nat} {e : Expr}
     {P : ConLeche.FueledM ConLeche.Expr} (hs' : CSOKI mode eager env s') (ht : TabLe s₀ s')
@@ -237,7 +223,7 @@ section Walks
 variable {r : InLean.CoreFnsI} {fe : InLean.FEnv}
 
 theorem fabTailIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (hgb : GuardBridges) {d : Nat}
+    (hlg : LeafGuardSpecI .verified eager env) {d : Nat}
     {tmaj fab major : Expr} {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀)
     (hokt : OkS s₀ tmaj = true) (hwt : ConLeche.Expr.WScoped d (TrS s₀ tmaj))
     (hct : (TrS s₀ tmaj).looseBVarsBounded 0 = true)
@@ -255,7 +241,7 @@ theorem fabTailIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrel
   obtain ⟨g, s₁, hg, hr⟩ := bind_run hr
   obtain ⟨rfl, rfl⟩ := tripleI_iff_run.1 (hlg hs hokf hokm) g s₁ hg
   unfold fabTailP
-  rw [hgb.1 hokf hwf, hgb.2 hokf hcf, Bool.true_and, Bool.true_and] at hr
+  rw [wscopedBC_of_WScoped hokf hwf, closedBV_of_lbb hokf hcf, Bool.true_and, Bool.true_and] at hr
   rw [hwf.to_wscopedB, hcf, Bool.true_and, Bool.true_and]
   by_cases hl : leafGuardP (TrS s₁ fab) (TrS s₁ major) = true
   · simp only [hl, ↓reduceIte] at hr ⊢
@@ -320,7 +306,7 @@ theorem fab_facts {s : InLean.CState} {d : Nat} {c : Name} {us : List Level} {xs
   exact ⟨rfl, rfl, wscoped_mkAppN_const hw, lbb_mkAppN_closed rfl hcl⟩
 
 theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
-    (hlg : LeafGuardSpecI .verified eager env) (hgb : GuardBridges) {d : Nat} {major : Expr}
+    (hlg : LeafGuardSpecI .verified eager env) {d : Nat} {major : Expr}
     {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat} {T : Name} {crl : ConLeche.RecRule}
     {ccvj : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
     {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
@@ -374,7 +360,7 @@ theorem mtcKIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpe
         have hokm := okS_of_tabLe ht02 hok
         have htm := TrS_of_tabLe ht02 hok
         obtain ⟨hs', ht', hokm', hrun', hw', hc'⟩ := tripleI_iff_run.1
-          (fabTailIL_specI ih hpi hlg hgb hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
+          (fabTailIL_specI ih hpi hlg hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
           m s' hr'
         refine ⟨hs', ht02.trans ht', hokm', ?_, hw', hc'⟩
         rw [htrf, hTx, htm] at hrun'
@@ -424,8 +410,7 @@ theorem projNodesI_facts (s : InLean.CState) (T : Name) {b : Expr} {d : Nat} (hb
       · exact h3 x hx
     · rw [InLean.projNodesI, TrSL_cons, AllClosed_cons, h4, TrS_proj, lbb_proj, hc]; rfl
 
-theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSpecI .verified eager env)
-    (hgb : GuardBridges) (hv : EnvViewI fe env) {d : Nat} {major : Expr} {T : Name}
+theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSpecI .verified eager env) (hv : EnvViewI fe env) {d : Nat} {major : Expr} {T : Name}
     {cvT : Lean.ConstantVal} {ccvT : ConLeche.ConstantVal} (hcvT : CVRel cvT ccvT)
     (hcl : ccvT.type.hasFvar = false) (hlbb : ccvT.type.looseBVarsBounded 0 = true)
     {caps : InLean.IndCaps}
@@ -514,7 +499,7 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSp
         obtain ⟨g, s₅, h5, hr⟩ := bind_run hr
         obtain ⟨hst, rfl⟩ := tripleI_iff_run.1 (hlg hs₃ hokf hokm) g s₅ h5
         rw [hst] at hr
-        rw [hgb.1 hokf hwf, hgb.2 hokf hcf, Bool.true_and, Bool.true_and] at hr
+        rw [wscopedBC_of_WScoped hokf hwf, closedBV_of_lbb hokf hcf, Bool.true_and, Bool.true_and] at hr
         have hwf' := hwf
         have hcf' := hcf
         rw [htrf, hTx] at hwf' hcf'
