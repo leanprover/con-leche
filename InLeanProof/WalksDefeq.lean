@@ -85,6 +85,10 @@ theorem okL_of_okLv {u : Level} (h : okLv u = true) : okL u = true := by
   simp only [okLv, Bool.and_eq_true] at h; exact h.1
 grind_pattern [conleche_grind] okL_of_okLv => okLv u
 
+theorem all_okL_of_okLv {us : List Level} (h : us.all okLv = true) : us.all okL = true := by
+  simp only [List.all_eq_true] at h ⊢; exact fun u hu => okL_of_okLv (h u hu)
+grind_pattern [conleche_grind] all_okL_of_okLv => us.all okLv
+
 @[conleche_grind =] theorem verifiedChecks_verifiedI :
     InLean.CheckMode.verifiedChecks .verified = true := rfl
 
@@ -258,6 +262,57 @@ theorem hasFVar_TrS {e : Expr} (h : OkS s e = true) : e.hasFVar = (TrS s e).hasF
   hasFVar_toExpr (FVarTable.trans_fvarsOnly _) (RangeOk_of_OkS h) (TransS_of_ok h)
 grind_pattern [conleche_grind] hasFVar_TrS => OkS s e, e.hasFVar
 
+theorem stripTop_getAppFnT (e : Expr) : EO.stripTop (Expr.getAppFnT e) = Expr.getAppFnT e := by
+  have h := (getAppFnT_shape e).1
+  generalize Expr.getAppFnT e = x at h
+  cases x with
+  | mdata m y => exact absurd rfl (h m y)
+  | _ => rfl
+
+/-! The inversions keyed on a spine's head (`Expr.getAppFnT e`). -/
+
+theorem invH_sort {e : Expr} {v : ConLeche.Level} (h : TrS s (Expr.getAppFnT e) = (.sort v)) :
+    ∃ u, Expr.getAppFnT e = .sort u := by
+  have := stripTop_of_TrS_sort s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_sort => TrS s (Expr.getAppFnT e), ConLeche.Expr.sort v
+
+theorem invH_forallE {e : Expr} {t b : ConLeche.Expr} (h : TrS s (Expr.getAppFnT e) = (.forallE t b)) :
+    ∃ n t' b' bi, Expr.getAppFnT e = .forallE n t' b' bi := by
+  have := stripTop_of_TrS_forallE s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_forallE => TrS s (Expr.getAppFnT e), ConLeche.Expr.forallE t b
+
+theorem invH_lam {e : Expr} {t b : ConLeche.Expr} (h : TrS s (Expr.getAppFnT e) = (.lam t b)) :
+    ∃ n t' b' bi, Expr.getAppFnT e = .lam n t' b' bi := by
+  have := stripTop_of_TrS_lam s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_lam => TrS s (Expr.getAppFnT e), ConLeche.Expr.lam t b
+
+theorem invH_lit {e : Expr} {l : ConLeche.Literal} (h : TrS s (Expr.getAppFnT e) = (.lit l)) :
+    ∃ l', Expr.getAppFnT e = .lit l' := by
+  have := stripTop_of_TrS_lit s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_lit => TrS s (Expr.getAppFnT e), ConLeche.Expr.lit l
+
+theorem invH_const {e : Expr} {n : ConLeche.Name} {us : List ConLeche.Level} (h : TrS s (Expr.getAppFnT e) = (.const n us)) :
+    ∃ n' us', Expr.getAppFnT e = .const n' us' := by
+  have := stripTop_of_TrS_const s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_const => TrS s (Expr.getAppFnT e), ConLeche.Expr.const n us
+
+theorem invH_proj {e : Expr} {n : ConLeche.Name} {i : Nat} {x : ConLeche.Expr} (h : TrS s (Expr.getAppFnT e) = (.proj n i x)) :
+    ∃ n' x', Expr.getAppFnT e = .proj n' i x' := by
+  have := stripTop_of_TrS_proj s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_proj => TrS s (Expr.getAppFnT e), ConLeche.Expr.proj n i x
+
+theorem invH_fvar {e : Expr} {i : Nat} {ty : ConLeche.Expr} (h : TrS s (Expr.getAppFnT e) = (.fvar i ty)) :
+    ∃ id, Expr.getAppFnT e = .fvar id := by
+  have := stripTop_of_TrS_fvar s h
+  rwa [stripTop_getAppFnT] at this
+grind_pattern [conleche_grind] invH_fvar => TrS s (Expr.getAppFnT e), ConLeche.Expr.fvar i ty
+
 end Readers
 
 section Closed
@@ -279,6 +334,11 @@ readings of the pieces at the reading state are then grind's to derive
 (`okS_of_tabLe`), where `GrindI`'s multi-pattern waits for them. -/
 grind_pattern [conleche_grind] TrS_inst1_eq => TrS s (EO.instantiate1 b v)
 grind_pattern [conleche_grind] OkS_inst1 => OkS s (EO.instantiate1 b v)
+
+/- The spine's head, keyed on the translation's head too: the pure side reads
+`(TrS s e).getAppFn`, InLean `e.getAppFnT`. -/
+grind_pattern [conleche_grind] TrS_getAppFnT => (TrS s e).getAppFn
+grind_pattern [conleche_grind] TrSL_appArgs => (TrS s e).getAppArgs
 
 /-! ## The readers of the environment at use (O4's statements, P3's to prove)
 
@@ -395,6 +455,254 @@ theorem propIrrel_eq {m : Type → Type} [Monad m] [MonadExceptOf ConLeche.Check
           ConLeche.isProofFast env.find? env.findTable? b then pure true
         else ConLeche.proofIrrel r d a b) := rfl
 
+section EnvReaders2
+
+variable {fe : InLean.FEnv}
+
+@[conleche_grind =] theorem optionMap_none {α β : Type} (f : α → β) : (none : Option α).map f = none :=
+  rfl
+@[conleche_grind =] theorem optionMap_some {α β : Type} (f : α → β) (x : α) :
+    (some x).map f = some (f x) := rfl
+
+theorem indRd_toName (hfe : DefeqEnvI fe env) (T : Name) :
+    indRd env (toName T) = (fe.indView? T).map indGateI := hfe.ind T
+grind_pattern [conleche_grind] indRd_toName => DefeqEnvI fe env, fe.indView? T
+
+theorem ctorRd_toName (hfe : DefeqEnvI fe env) (c : Name) :
+    ctorRd env (toName c) = (fe.ctorView? c).map ctorGateI := hfe.ctor c
+grind_pattern [conleche_grind] ctorRd_toName => DefeqEnvI fe env, fe.ctorView? c
+
+theorem towerSlots_toName (hfe : DefeqEnvI fe env) (T : Name) (n : Nat) :
+    fe.towerSlotsAllF T n = ConLeche.towerSlotsAll env (toName T) n := hfe.towerSlots T n
+grind_pattern [conleche_grind] towerSlots_toName => DefeqEnvI fe env, fe.towerSlotsAllF T n
+
+theorem etaShape_TrS (hfe : DefeqEnvI fe env) {s : InLean.CState} {a : Expr}
+    (h : OkS s a = true) : etaCtorShapeC fe a = ConLeche.etaCtorShape env (TrS s a) :=
+  hfe.etaShape s a h
+grind_pattern [conleche_grind] etaShape_TrS => DefeqEnvI fe env, OkS s a, etaCtorShapeC fe a
+
+theorem strLit_eq (hfe : DefeqEnvI fe env) : strLitStoredF fe = ConLeche.strLitStored env :=
+  hfe.strLit
+grind_pattern [conleche_grind] strLit_eq => DefeqEnvI fe env, strLitStoredF fe
+
+@[conleche_grind =] theorem indGateI_mk (cv : ConstantVal) (caps : InLean.IndCaps) :
+    indGateI (cv, caps) = ⟨cv.levelParams.map toName, caps.eta, toName caps.etaCtor,
+      caps.etaParams, caps.etaFields, caps.unitlike, caps.unitParams⟩ := rfl
+
+@[conleche_grind =] theorem ctorGateI_mk (cv : ConstantVal) (nP nF : Nat) :
+    ctorGateI (cv, nP, nF) = (cv.levelParams.map toName, nP, nF) := rfl
+
+end EnvReaders2
+
+/-! ## Names and lists through the translation -/
+
+section Lists
+
+theorem contains_map_toName : ∀ (l : List Name) (n : Name),
+    (l.map toName).contains (toName n) = l.contains n
+  | [], _ => rfl
+  | x :: l, n => by
+    simp only [List.map_cons, List.contains_cons, contains_map_toName l n, cname_beq_eq_decide,
+      name_beq_eq_decide]
+
+theorem reservedBasisNames_eq :
+    ConLeche.reservedBasisNames = InLean.reservedBasisNames.map toName := rfl
+
+@[conleche_grind =] theorem reserved_contains (n : Name) :
+    InLean.reservedBasisNames.contains n = ConLeche.reservedBasisNames.contains (toName n) := by
+  rw [reservedBasisNames_eq, contains_map_toName]
+
+theorem toName_map_inj : ∀ {a b : List Name}, a.map toName = b.map toName → a = b
+  | [], [], _ => rfl
+  | [], _ :: _, h | _ :: _, [], h => by simp at h
+  | x :: a, y :: b, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    rw [toName_inj h.1, toName_map_inj h.2]
+
+grind_pattern [conleche_grind] toName_map_inj => a.map toName, b.map toName
+grind_pattern [conleche_grind] toName_inj => toName a, toName b
+
+@[conleche_grind =] theorem length_map_trL (us : List Level) : (us.map trL).length = us.length :=
+  List.length_map _
+@[conleche_grind =] theorem length_map_toName (l : List Name) : (l.map toName).length = l.length :=
+  List.length_map _
+
+variable (s : InLean.CState)
+
+theorem length_appArgs (e : Expr) : (appArgs e).length = (TrS s e).getAppArgs.length := by
+  rw [← TrSL_appArgs, TrSL, List.length_map]
+grind_pattern [conleche_grind] length_appArgs => (appArgs e).length, TrS s e
+
+@[conleche_grind =] theorem TrSL_take (l : List Expr) (n : Nat) :
+    TrSL s (l.take n) = (TrSL s l).take n := by simp [TrSL, List.map_take]
+@[conleche_grind =] theorem TrSL_drop (l : List Expr) (n : Nat) :
+    TrSL s (l.drop n) = (TrSL s l).drop n := by simp [TrSL, List.map_drop]
+@[conleche_grind =] theorem TrSL_reverse (l : List Expr) :
+    TrSL s l.reverse = (TrSL s l).reverse := by simp [TrSL, List.map_reverse]
+
+theorem OkSL_take {l : List Expr} (h : OkSL s l = true) (n : Nat) : OkSL s (l.take n) = true := by
+  simp only [OkSL, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_take hx)
+grind_pattern [conleche_grind] OkSL_take => OkSL s l, l.take n
+
+theorem OkSL_drop {l : List Expr} (h : OkSL s l = true) (n : Nat) : OkSL s (l.drop n) = true := by
+  simp only [OkSL, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_drop hx)
+grind_pattern [conleche_grind] OkSL_drop => OkSL s l, l.drop n
+
+theorem OkSL_reverse {l : List Expr} (h : OkSL s l = true) : OkSL s l.reverse = true := by
+  simp only [OkSL, List.all_eq_true, List.mem_reverse] at h ⊢; exact h
+grind_pattern [conleche_grind] OkSL_reverse => OkSL s l, l.reverse
+
+theorem AllClosed_take {l : List ConLeche.Expr} (h : AllClosed l = true) (n : Nat) :
+    AllClosed (l.take n) = true := by
+  simp only [AllClosed, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_take hx)
+grind_pattern [conleche_grind] AllClosed_take => AllClosed l, l.take n
+
+theorem AllClosed_drop {l : List ConLeche.Expr} (h : AllClosed l = true) (n : Nat) :
+    AllClosed (l.drop n) = true := by
+  simp only [AllClosed, List.all_eq_true] at h ⊢; exact fun x hx => h x (List.mem_of_mem_drop hx)
+grind_pattern [conleche_grind] AllClosed_drop => AllClosed l, l.drop n
+
+theorem AllClosed_reverse {l : List ConLeche.Expr} (h : AllClosed l = true) :
+    AllClosed l.reverse = true := by
+  simp only [AllClosed, List.all_eq_true, List.mem_reverse] at h ⊢; exact h
+grind_pattern [conleche_grind] AllClosed_reverse => AllClosed l, l.reverse
+
+theorem TrSL_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {l : List Expr}
+    (hl : OkSL s₀ l = true) : TrSL s₁ l = TrSL s₀ l := by
+  induction l with
+  | nil => rfl
+  | cons a l ih =>
+    simp only [OkSL_cons, Bool.and_eq_true] at hl
+    simp only [TrSL_cons, TrS_of_tabLe h hl.1, ih hl.2]
+grind_pattern [conleche_grind] TrSL_of_tabLe => TabLe s₀ s₁, TrSL s₁ l
+
+theorem OkSL_of_tabLe {s₀ s₁ : InLean.CState} (h : TabLe s₀ s₁) {l : List Expr}
+    (hl : OkSL s₀ l = true) : OkSL s₁ l = true := by
+  simp only [OkSL, List.all_eq_true] at hl ⊢; exact fun x hx => okS_of_tabLe h (hl x hx)
+grind_pattern [conleche_grind] OkSL_of_tabLe => TabLe s₀ s₁, OkSL s₁ l
+
+/-- The `.proj` spine (`projNodesC_spec`'s twin: InLean's is pure). -/
+@[conleche_grind =] theorem TrSL_projNodes (T : Name) (b : Expr) (l : List Nat) :
+    TrSL s (InLean.projNodesI T b l) = projsOf (toName T) (TrS s b) l := by
+  induction l with
+  | nil => rfl
+  | cons i l ih => simp only [InLean.projNodesI, TrSL_cons, ih, TrS_proj, projsOf_cons]
+
+theorem OkSL_projNodes {b : Expr} (h : OkS s b = true) (T : Name) (l : List Nat) :
+    OkSL s (InLean.projNodesI T b l) = true := by
+  induction l with
+  | nil => rfl
+  | cons i l ih => simp only [InLean.projNodesI, OkSL_cons, OkS_proj, h, ih, Bool.and_self]
+grind_pattern [conleche_grind] OkSL_projNodes => OkS s b, InLean.projNodesI T b l
+
+theorem AllClosed_projsOf {b : ConLeche.Expr} (h : b.looseBVarsBounded 0 = true)
+    (T : ConLeche.Name) (l : List Nat) : AllClosed (projsOf T b l) = true := by
+  simp only [AllClosed, projsOf, List.all_map, List.all_eq_true, Function.comp_apply]
+  exact fun _ _ => h
+grind_pattern [conleche_grind] AllClosed_projsOf => b.looseBVarsBounded 0, projsOf T b l
+
+end Lists
+
+/-- `structUnitCert` with the former's lookup read through `indRd`. -/
+theorem structUnitCert_eq {m : Type → Type} [Monad m] (r : ConLeche.CoreFns m)
+    (env : ConLeche.Env) (d : Nat) (a b : ConLeche.Expr) :
+    ConLeche.structUnitCert r env d a b = (do
+      let ta ← r.inferIO d a
+      let wta ← r.whnf d ta
+      match wta.getAppFn with
+      | .const T us' =>
+        match indRd env T with
+        | some g =>
+          if g.unitlike = true ∧ ConLeche.reservedBasisNames.contains T = false ∧
+              wta.getAppArgs.length = g.unitParams ∧ us'.length = g.lps.length then do
+            let tb ← r.inferIO d b
+            let wtb ← r.whnf d tb
+            if wtb.isForallE then pure false else r.defeq d wta wtb
+          else pure false
+        | none => pure false
+      | _ => pure false) := by
+  unfold ConLeche.structUnitCert indRd
+  refine congrArg (_ >>= ·) (funext fun ta => ?_)
+  refine congrArg (_ >>= ·) (funext fun wta => ?_)
+  cases wta.getAppFn with
+  | const T us' =>
+    dsimp only
+    cases env.find? T with
+    | none => rfl
+    | some ci => cases ci <;> rfl
+  | _ => rfl
+
+/-- `structEtaCertWith` with the lookups read through `ctorRd`/`indRd`. -/
+theorem structEtaCertWith_eq {m : Type → Type} [Monad m] [MonadExceptOf ConLeche.CheckError m]
+    (r : ConLeche.CoreFns m) (env : ConLeche.Env) (d : Nat) (a b wtb : ConLeche.Expr) :
+    ConLeche.structEtaCertWith r env d a b wtb = (do
+      match a.getAppFn with
+      | .const c us =>
+        match ctorRd env c with
+        | some (clps, cnP, cnF) =>
+          if a.getAppArgs.length = cnP + cnF then
+            match wtb.getAppFn with
+            | .const T us' =>
+              match indRd env T with
+              | some g =>
+                if g.eta = true ∧ g.etaCtor = c ∧
+                    ConLeche.reservedBasisNames.contains T = false ∧
+                    ConLeche.reservedBasisNames.contains c = false ∧
+                    wtb.getAppArgs.length = g.etaParams ∧
+                    us'.length = g.lps.length ∧
+                    clps = g.lps ∧
+                    ConLeche.towerSlotsAll env T g.etaFields = true then
+                  if ← ConLeche.liftFueled "level comparison"
+                      (ConLeche.Level.isEquivList us us') then
+                    if ← ConLeche.defEqList r env d
+                        (a.getAppArgs.take g.etaParams) wtb.getAppArgs then
+                      ConLeche.defEqList r env d
+                        (a.getAppArgs.drop g.etaParams)
+                        (ConLeche.etaProjs T b g.etaFields)
+                    else pure false
+                  else pure false
+                else pure false
+              | none => pure false
+            | _ => pure false
+          else pure false
+        | none => pure false
+      | _ => pure false : m Bool) := by
+  unfold ConLeche.structEtaCertWith indRd ctorRd
+  cases a.getAppFn with
+  | const c us =>
+    dsimp only
+    cases env.find? c with
+    | none => rfl
+    | some ci =>
+      cases ci with
+      | ctorInfo cvc cnP cnF =>
+        dsimp only
+        split
+        · cases wtb.getAppFn with
+          | const T us' =>
+            dsimp only
+            cases env.find? T with
+            | none => rfl
+            | some ci' => cases ci' <;> rfl
+          | _ => rfl
+        · rfl
+      | _ => rfl
+  | _ => rfl
+
+/-! ## The callees P2-whnf owns, as named specs (`DiscC1`'s twins) -/
+
+/-- `defEqListI`'s spec (`defEqListC_spec`'s twin), P2-whnf's to prove. -/
+abbrev DefEqListSpecI (mode : ConLeche.CheckMode) (eager : Bool) (env : ConLeche.Env)
+    (r : InLean.CoreFnsI) : Prop :=
+  ∀ {d : Nat} {args brgs : List Expr} {s₀ : InLean.CState},
+    CSOKI mode eager env s₀ → OkSL s₀ args = true → OkSL s₀ brgs = true →
+    AllWS d (TrSL s₀ args) → AllWS d (TrSL s₀ brgs) →
+    AllClosed (TrSL s₀ args) = true → AllClosed (TrSL s₀ brgs) = true →
+    ⦃fun s => s = s₀⦄ defEqListI r d args brgs
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defEqList (ConLeche.fueledFns mode eager env) env d (TrSL s₀ args)
+        (TrSL s₀ brgs)) v; ⊤⦄
+
 /-! ## DiscC2's twins: the stuck-term certificates -/
 
 section Walks
@@ -460,6 +768,71 @@ theorem etaCertI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {ty₁ bo
       mkFVarM_specI (mode := .verified) (eager := eager) (env := env)] <;>
       -- the verified arm is seven binds deep, one `Runs.bind_eq` generation each
       finish (gen := 10)
+
+/-- `structUnitCertI` (`structUnitCertC_spec`'s twin). -/
+theorem structUnitCertI_spec {fe : InLean.FEnv} (ih : KnotSpecI mode eager env r)
+    (hfe : DefeqEnvI fe env) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.structUnitCertI r fe d a b
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.structUnitCert (ConLeche.fueledFns mode eager env) env d (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, structUnitCert_eq] =>
+    vcgen [InLean.structUnitCertI, ih.inferIO, ih.whnf, ih.defeq] <;>
+      -- the pure side is eight binds and matches deep, one generation each, and
+      -- the translation's head (`getAppFnT`) adds two more
+      finish (gen := 12)
+
+/-- `structEtaCertWithI` (`structEtaCertWithC_spec`'s twin). -/
+theorem structEtaCertWithI_spec {fe : InLean.FEnv} (hfe : DefeqEnvI fe env)
+    (hlist : DefEqListSpecI mode eager env r) {d : Nat} {a b wtb : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hokw : OkS s₀ wtb = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hww : ConLeche.Expr.WScoped d (TrS s₀ wtb))
+    (hca : (TrS s₀ a).looseBVarsBounded 0 = true) (hcb : (TrS s₀ b).looseBVarsBounded 0 = true)
+    (hcw : (TrS s₀ wtb).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.structEtaCertWithI r fe d a b wtb
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.structEtaCertWith (ConLeche.fueledFns mode eager env) env d (TrS s₀ a)
+        (TrS s₀ b) (TrS s₀ wtb)) v; ⊤⦄ := by
+  sym only [conleche_grind, structEtaCertWith_eq] =>
+    vcgen [InLean.structEtaCertWithI, isEquivListLM_specI (mode := mode) (eager := eager)
+        (env := env), liftFueled_specI (mode := mode) (eager := eager) (env := env), hlist] <;>
+      -- two lookups and two spine heads deep before the first bind, one generation each
+      finish (gen := 12)
+
+/-- `structEtaCertI` (`structEtaCertC_spec`'s twin). -/
+theorem structEtaCertI_spec {fe : InLean.FEnv} (ih : KnotSpecI mode eager env r)
+    (hfe : DefeqEnvI fe env) (hlist : DefEqListSpecI mode eager env r) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.structEtaCertI r fe d a b
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.structEtaCert (ConLeche.fueledFns mode eager env) env d (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.structEtaCert] =>
+    vcgen [InLean.structEtaCertI, ih.inferIO, ih.whnf, structEtaCertWithI_spec hfe hlist] <;>
+      finish
+
+/-- `stuckIrrelI` (`stuckIrrelC_spec`'s twin). -/
+theorem stuckIrrelI_spec {fe : InLean.FEnv} (ih : KnotSpecI mode eager env r)
+    (hfe : DefeqEnvI fe env) (hlist : DefEqListSpecI mode eager env r) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.stuckIrrelI r fe d a b
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.stuckIrrel (ConLeche.fueledFns mode eager env) env d (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.stuckIrrel] =>
+    vcgen [InLean.stuckIrrelI, structEtaCertI_spec ih hfe hlist, structUnitCertI_spec ih hfe,
+      proofIrrelI_spec ih] <;> finish
 
 end Walks
 
