@@ -302,7 +302,7 @@ def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
 
 /-- `divModEnvGuard` through the index. -/
 def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
-  natOpGuardF fe2 c && (natOpDeps c).all (natOpStoredOkF fe2) &&
+  natOpGuardF fe2 c && natOpStoredOkF fe2 c &&
   (fe2.find? eqName).isSome &&
   (match fe2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []

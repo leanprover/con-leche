@@ -779,6 +779,22 @@ theorem natOpTyPinned_ren (h : RenEnv env env') {c : Name} {ty : Expr}
   natOpTyPinned_of_find (fun ci hf =>
     ⟨ci, by rw [h.find_nonres (n := ConLeche.boolName) (by decide)]; exact hf, rfl⟩) hp
 
+/-- The dependencies' pins, across the renaming (no dependency is a basis name). -/
+theorem natOpDepsOk_ren (h : RenEnv env env') {c : Name}
+    (hc : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames)
+    (hp : (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true) :
+    (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env') = true := by
+  rw [List.all_eq_true] at hp ⊢
+  intro n hn
+  have hok := hp n hn
+  unfold ConLeche.natOpStoredOk at hok ⊢
+  rw [h.find_nonres (natOpDeps_nonres c hc n hn)]
+  revert hok
+  split
+  · simp only [Bool.and_eq_true]
+    exact fun ⟨hl, hpin⟩ => ⟨hl, natOpTyPinned_ren h hpin⟩
+  · exact id
+
 /-- **The transport**: an invariant of `env` is one of `env'`, at the renamed
 valuation, given what the renaming leaves stable and the recorded blocks'
 clauses at the new side. -/
@@ -1023,7 +1039,7 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
     have hc2 : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames := List.mem_append_left _ hc
     rw [h.find_nonres (natOpNames_nonres c hc2)] at hf
     obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc cv v hint hf
-    refine ⟨by rw [natOpGuard_ren h hc2]; exact hgu, natOpTyPinned_ren h hpin, fun eq heq => ?_⟩
+    refine ⟨by rw [natOpGuard_ren h hc2]; exact hgu, natOpDepsOk_ren h hc2 hpin, fun eq heq => ?_⟩
     obtain ⟨L, R, hL, hR, hval⟩ := hlaw eq heq
     have e2 : m'.acval ConLeche.natName = _ := hnl (n := ConLeche.natName) rfl
     exact ⟨L, R, by rw [hde']; exact hL, by rw [hde']; exact hR, by rw [e2]; exact hval⟩
@@ -1032,7 +1048,8 @@ theorem EnvModelM.renameCore (mp : EnvModelM V env) (h : RenEnv env env')
     have hc2 : c ∈ ConLeche.natOpNames ++ ConLeche.natDivModNames := List.mem_append_right _ hc
     rw [h.find_nonres (natOpNames_nonres c hc2)] at hf
     obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc cv v hint hf
-    refine ⟨by rw [natOpGuard_ren h hc2]; exact hgu, natOpTyPinned_ren h hpin, fun ρ x y hx hy => ?_⟩
+    refine ⟨by rw [natOpGuard_ren h hc2]; exact hgu, natOpDepsOk_ren h hc2 hpin,
+      fun ρ x y hx hy => ?_⟩
     have e2 : m'.acval ConLeche.natName = _ := hnl (n := ConLeche.natName) rfl
     rw [e2] at hx hy
     exact (divModClausesV_congr hc fun n hn => by

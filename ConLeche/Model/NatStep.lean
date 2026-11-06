@@ -127,8 +127,9 @@ theorem natOpRow_of (mp : EnvModelM V env) (φ : Name → Nat) :
       first
       | exact Or.inl (by decide)
       | exact Or.inr (by decide)
-  have hguard := natOpGuardLaw_of mp _ hmemN hstored
-  obtain ⟨hnat, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hguard
+  obtain ⟨hguard, hpins⟩ := natOpGuardLaw_of mp _ hmemN hstored
+  obtain ⟨hnat, -, hbool⟩ := ConLeche.natOpGuard_inv hguard
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   have hself : c ∈ ConLeche.natOpDeps c := by
     rcases h14 with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|
       rfl|rfl <;> decide
@@ -271,12 +272,10 @@ theorem natOpHead_of (mp : EnvModelM V env) (φ : Name → Nat) :
     rcases h14 with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
       rfl | rfl | rfl | rfl | rfl | rfl <;> decide
   obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
-  obtain ⟨hguard, hpin⟩ : natOpGuard env c = true ∧
-      ConLeche.natOpTyPinned env c cv.type = true := by
-    rcases hmemN with hm | hm
-    · exact ⟨(mp.nat_ops φ c hm cv v hh hf).1, (mp.nat_ops φ c hm cv v hh hf).2.1⟩
-    · exact ⟨(mp.div_mod φ c hm cv v hh hf).1, (mp.div_mod φ c hm cv v hh hf).2.1⟩
-  obtain ⟨hnat, hdeps, -⟩ := ConLeche.natOpGuard_inv hguard
+  obtain ⟨hguard, hpins⟩ := natOpGuardLaw_of mp _ hmemN hst
+  have hpin := ConLeche.natOpTyPinned_of_deps hmemN hpins hf
+  obtain ⟨hnat, -, -⟩ := ConLeche.natOpGuard_inv hguard
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   refine ⟨hnat, fun {d ca} hca ρ => ?_⟩
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, -, -, hlpN, -⟩ :=
     ConLeche.natLitSupported_inv hnat

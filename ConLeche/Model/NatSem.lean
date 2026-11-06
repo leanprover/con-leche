@@ -161,8 +161,9 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a + b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natAddName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natAddName (by decide) cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natAddName
     (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
@@ -269,7 +270,7 @@ theorem natOpV_add (m : EnvModel V env) (hops : NatOps m φ)
 
 The same recipe as `natOpV_add`.  `sub` reads `pred`'s closed
 form, `mul` reads `add`'s, `pow` reads `mul`'s — each dependency's
-`find?` comes from `natOpGuard_inv`'s `hdeps`. -/
+`find?` comes from the law's pins (`natOpDepsOk_inv`). -/
 
 /-- `Nat.pred` on literal values. -/
 theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
@@ -281,8 +282,9 @@ theorem natOpV_pred (m : EnvModel V env) (hops : NatOps m φ)
       SetTheory.app (interp V ρ (m.acval ConLeche.natPredName φ))
         (interp V ρ (natLit m φ a))
       = interp V ρ (natLit m φ (a - 1)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natPredName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natPredName (by decide) cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvp, vp, hp, hfp, hlpp⟩ := hdeps ConLeche.natPredName (by decide)
   obtain ⟨cvN, caps, cv0, i0, j0, cv1, i1, j1, hfN, hfZ, hfS, hlpN,
     hlpZ, hlpS, -⟩ := ConLeche.natLitSupported_inv hs
@@ -369,8 +371,9 @@ theorem natOpV_sub (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a - b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natSubName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natSubName (by decide) cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natSubName
     (by decide)
   obtain ⟨cvp, vp, hpnt, hfp, hlpp⟩ := hdeps ConLeche.natPredName
@@ -490,8 +493,9 @@ theorem natOpV_mul (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a * b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natMulName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natMulName (by decide) cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natMulName
     (by decide)
   obtain ⟨cva, va, hant, hfa, hlpa⟩ := hdeps ConLeche.natAddName
@@ -611,8 +615,9 @@ theorem natOpV_pow (m : EnvModel V env) (hops : NatOps m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (a ^ b)) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natPowName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natPowName (by decide) cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natPowName
     (by decide)
   obtain ⟨cvm, vm, hmnt, hfm, hlpm⟩ := hdeps ConLeche.natMulName
@@ -739,8 +744,9 @@ theorem natOpV_beq (m : EnvModel V env) (hops : NatOps m φ)
       = interp V ρ (m.acval
           (if a = b then ConLeche.boolTrueName else ConLeche.boolFalseName)
           φ) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natBeqName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natBeqName (by decide) cv v hint hf
+  obtain ⟨hs, -, hbool⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ := hbool (Or.inl rfl)
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natBeqName
     (by decide)
@@ -933,8 +939,9 @@ theorem natOpV_ble (m : EnvModel V env) (hops : NatOps m φ)
       = interp V ρ (m.acval
           (if a ≤ b then ConLeche.boolTrueName else ConLeche.boolFalseName)
           φ) := by
-  obtain ⟨hg, -⟩ := hops ConLeche.natBleName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, hbool⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, -⟩ := hops ConLeche.natBleName (by decide) cv v hint hf
+  obtain ⟨hs, -, hbool⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨⟨ciT, hfT, hlpT⟩, ⟨ciF, hfF, hlpF⟩⟩ :=
     hbool (Or.inr (Or.inl rfl))
   obtain ⟨cvc, vc, hcnt, hfc, hlpc⟩ := hdeps ConLeche.natBleName

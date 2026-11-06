@@ -159,7 +159,7 @@ theorem EnvModelM.storedFacts {env : Env} (mp : EnvModelM V env) (hN : NatFacts 
         (env.find? ConLeche.boolTrueName).isSome = true ∧
           (env.find? ConLeche.boolFalseName).isSome = true := by
       intro c hmemc hc hs
-      obtain ⟨-, -, hb⟩ := ConLeche.natOpGuard_inv (natOpGuardLaw_of mp c (Or.inl hmemc) hs)
+      obtain ⟨-, -, hb⟩ := ConLeche.natOpGuard_inv (natOpGuardLaw_of mp c (Or.inl hmemc) hs).1
       obtain ⟨⟨ciT, hT, -⟩, ⟨ciF, hF', -⟩⟩ := hb (by rcases hc with h | h <;> simp [h])
       rw [hT, hF']
       exact ⟨rfl, rfl⟩

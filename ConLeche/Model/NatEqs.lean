@@ -879,14 +879,15 @@ theorem constsBound_of_natFragOk {c : Name}
   | lit _ => intro h; simp [ConLeche.Verify.natFragOk] at h
 
 /-- The raw sides of a stored operation's recurrences are in the
-fragment, from the guard alone. -/
+fragment, from the guard and the dependencies' pins. -/
 theorem natOpEquations_frag_of_guard {c : Name}
-    (hg : natOpGuard env c = true) :
+    (hg : natOpGuard env c = true)
+    (hd : (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true) :
     ∀ eq ∈ ConLeche.natOpEquations 0 c,
       ConLeche.Verify.natFragOk env c eq.1 = true ∧
         ConLeche.Verify.natFragOk env c eq.2 = true := by
   obtain ⟨hN, hz, hs, hdeps, hbool⟩ :=
-    ConLeche.Verify.natOpGuard_stored hg
+    ConLeche.Verify.natOpGuard_stored hg hd
   refine ConLeche.Verify.natOpEquations_frag hz hs
     (fun n hn _ => hdeps n hn) (fun hc => (hbool (by
       rcases hc with rfl | rfl <;> simp)).1)
@@ -905,7 +906,8 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
     (hf₂ : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? c
       = some (.defnInfo cv' v' hint')) :
     natOpGuard (⟨c₀ :: env.consts, env.tables⟩ : Env) c = true ∧
-    ConLeche.natOpTyPinned (⟨c₀ :: env.consts, env.tables⟩ : Env) c cv'.type = true ∧
+    (ConLeche.natOpDeps c).all
+      (ConLeche.natOpStoredOk (⟨c₀ :: env.consts, env.tables⟩ : Env)) = true ∧
     ∀ eq ∈ ConLeche.natOpEquations 0 c, ∃ L R,
       denote m₂.acval ⟨c₀ :: env.consts, env.tables⟩ φ 2 eq.1 = some L ∧
       denote m₂.acval ⟨c₀ :: env.consts, env.tables⟩ φ 2 eq.2 = some R ∧
@@ -921,7 +923,7 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
     · exact hf₂
   obtain ⟨hg, hpin, hlaws⟩ := hprev c hcN cv' v' hint' hfE
   -- the stored heads are not the fresh cons
-  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg
+  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg hpin
   obtain ⟨ciN, hfN, -⟩ := ConLeche.Verify.storedNoLevels_exists hN
   have hnatne : ConLeche.natName ≠ c₀.name := fun hh => by
     rw [hh, hfresh] at hfN
@@ -929,13 +931,13 @@ theorem natOps_entry_cons (mp : EnvModelM V env) {φ : Name → Nat}
   have hcb : ∀ eq ∈ ConLeche.natOpEquations 0 c,
       ConstsBound env eq.1 ∧ ConstsBound env eq.2 := by
     intro eq hq
-    obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg eq hq
+    obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg hpin eq hq
     exact ⟨constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h1,
       constsBound_of_natFragOk (by simp [hfE]) (by simp [hfN]) h2⟩
   refine ⟨ConLeche.Verify.natOpGuard_cons hfresh hg,
-    ConLeche.Verify.natOpTyPinned_cons hfresh hpin, fun eq hq => ?_⟩
+    ConLeche.Verify.natOpDepsOk_cons hfresh hpin, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
-  have hfrag := natOpEquations_frag_of_guard hg eq hq
+  have hfrag := natOpEquations_frag_of_guard hg hpin eq hq
   refine ⟨L, R, ?_, ?_, ?_⟩
   · rw [hac]
     exact denote_cons_mono hfresh φ 2
@@ -1087,9 +1089,8 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
     (hg2 : natOpGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) c
       = true)
-    (hdepsOk : (ConLeche.natOpDeps c).all
-      (ConLeche.natOpStoredOk
-        (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env))
+    (hself : ConLeche.natOpStoredOk
+      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) c
       = true)
     (hruns : NatEqsRun F env
       ((ConLeche.natOpEquations 0 c).map fun eq =>
@@ -1114,6 +1115,11 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
     (hac : m₂.acval
       = acvalWith mp.base2.acval c A) :
     NatOps m₂ φ := by
+  -- the dependencies' pins: the prefix's laws (the install checks the
+  -- operation's own)
+  have hdepsOk := natOpDepsOk_install mp
+    (ci := .defnInfo ⟨c, lps, type'⟩ value' hint) (c := c)
+    rfl hfresh (Or.inl hcmem) hg2 hself
   intro cq hcqN cv' v' hint' hf₂
   have hname0 : (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
       hint).name = c := rfl
@@ -1129,13 +1135,12 @@ theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
       (show cq ≠ (ConstantInfo.defnInfo ⟨c, lps, type'⟩ value'
         hint).name from hne) hf₂
   subst hne
-  refine ⟨hg2, ConLeche.natOpTyPinned_of_deps (Or.inl hcqN) hdepsOk hf₂,
-    fun eq hq => ?_⟩
+  refine ⟨hg2, hdepsOk, fun eq hq => ?_⟩
   obtain ⟨e1, e2⟩ := eq
   -- the shared preamble: storedness at the prefix, fragments, frames
   have hnh : NatHeads mp.base2 φ := mp.nat_heads φ
   obtain ⟨hN₂, hz₂, hs₂, hdeps₂, hbool₂⟩ :=
-    ConLeche.Verify.natOpGuard_stored hg2
+    ConLeche.Verify.natOpGuard_stored hg2 hdepsOk
   have tr : ∀ {n : Name}, n ≠ cq →
       ConLeche.Verify.storedNoLevels
         (⟨.defnInfo ⟨cq, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) n →

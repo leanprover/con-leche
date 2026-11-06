@@ -102,10 +102,11 @@ theorem natOpGuardF_overlay (env : Env) (ci : ConstantInfo) (c : Name) :
   rw [natOpGuardF_congr (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
     natOpGuardF_eq]
 
-theorem natOpStoredOkF_overlay (env : Env) (ci : ConstantInfo) :
-    natOpStoredOkF ((mkFEnv env).overlay [ci]) = natOpStoredOk ⟨ci :: env.consts, env.tables⟩ := by
+theorem natOpStoredOkF_overlay (env : Env) (ci : ConstantInfo) (n : Name) :
+    natOpStoredOkF ((mkFEnv env).overlay [ci]) n
+      = natOpStoredOk ⟨ci :: env.consts, env.tables⟩ n := by
   rw [natOpStoredOkF_congr (find?_overlay_push (fe := mkFEnv env) rfl ci), push_mkFEnv,
-    natOpStoredOkF_eq_fun]
+    natOpStoredOkF_eq]
 
 theorem checkReducePinF_overlay (ops : CheckerOps CheckCM) (env : Env) (ci : ConstantInfo)
     (c : Name) (value : Expr) :

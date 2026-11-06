@@ -172,6 +172,23 @@ theorem natOpTyPinned_cons {env : Env} {c₀ : ConstantInfo} {c : Name} {ty : Ex
   natOpTyPinned_of_find (fun ci hf =>
     ⟨ci, by rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl)]; exact hf, rfl⟩) h
 
+/-- A stored operation's pin is monotone under a fresh install. -/
+theorem natOpStoredOk_cons {env : Env} {c₀ : ConstantInfo} {n : Name}
+    (hfresh : env.find? c₀.name = none) (h : natOpStoredOk env n = true) :
+    natOpStoredOk ⟨c₀ :: env.consts, env.tables⟩ n = true := by
+  obtain ⟨cv, v, hh, hf, hl, hpin⟩ := natOpStoredOk_inv h
+  unfold natOpStoredOk
+  rw [Env.find?_cons_of_isSome hfresh (by rw [hf]; rfl), hf]
+  simp only [hl, List.isEmpty_nil, Bool.true_and]
+  exact natOpTyPinned_cons hfresh hpin
+
+/-- Every dependency's pin, monotone under a fresh install. -/
+theorem natOpDepsOk_cons {env : Env} {c₀ : ConstantInfo} {c : Name}
+    (hfresh : env.find? c₀.name = none)
+    (h : (natOpDeps c).all (natOpStoredOk env) = true) :
+    (natOpDeps c).all (natOpStoredOk ⟨c₀ :: env.consts, env.tables⟩) = true :=
+  List.all_eq_true.mpr fun n hn => natOpStoredOk_cons hfresh (List.all_eq_true.mp h n hn)
+
 /-! ## The projection-table transport
 
 The head case is a hypothesis (the install must establish its own

@@ -346,9 +346,9 @@ theorem declDefnRun_of {env env₂ : Env} {F : Nat}
       (natOpNames.contains cv.name = true →
         natOpGuard ⟨ConstantInfo.defnInfo { cv with type := cv.type }
             value hint :: env.consts, env.tables⟩ cv.name = true ∧
-        (natOpDeps cv.name).all (natOpStoredOk
+        natOpStoredOk
           ⟨ConstantInfo.defnInfo { cv with type := cv.type } value hint ::
-            env.consts, env.tables⟩) = true ∧
+            env.consts, env.tables⟩ cv.name = true ∧
         certifyNatEqs (m := CheckM) (fueledOps .verified F) env
           ((natOpEquations 0 cv.name).map fun eq =>
             (Expr.substConst0 cv.name value eq.1,
@@ -361,9 +361,9 @@ theorem declDefnRun_of {env env₂ : Env} {F : Nat}
     · rw [ite_eq_left hno] at h
       by_cases hg : (natOpGuard ⟨ConstantInfo.defnInfo
             { cv with type := cv.type } value hint :: env.consts, env.tables⟩ cv.name
-          && (natOpDeps cv.name).all (natOpStoredOk
+          && natOpStoredOk
             ⟨ConstantInfo.defnInfo { cv with type := cv.type } value
-              hint :: env.consts, env.tables⟩)) = true
+              hint :: env.consts, env.tables⟩ cv.name) = true
       · rw [ite_eq_left hg] at h
         rw [hfind2] at h
         dsimp only at h
