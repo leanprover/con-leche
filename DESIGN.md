@@ -110817,3 +110817,109 @@ implemented); CFSG (its closure is gone).
     one-process corollary needs no change.
 
 **State.**  No code; the probe stays in `_tmp/460/probe/` (not committed).  Nothing landed.
+
+### #460: the maintainer's rulings (2026-11-06)
+
+On §7's questions:
+1. Yes: the context is a list of records, master's index with a cutoff.
+2. Yes: groups as units everywhere; a completed name of an inductive group is read whole from its
+   home's private part.
+3. **No** to flags by declaration kind (a new reject against Lean).  Proof flags by **inference**, as
+   Lean does: a theorem, or a definition or opaque whose type the checker infers to be a proposition
+   (`cfsg`'s #376 measured +0.3 % on Mathlib).  `PdM` is accepted.
+4. The fast path fires by name on master (`reduceNat` reads no stored constant; #480): my §2 was wrong
+   there.  What remains is `checkDeclC`'s `Nat`-operation branch, below.
+5. Yes: the clash rule over every loaded name.
+6. Yes: a check needing a completed definition's value is a reject.
+7. Yes: verdict agreement proved, a lane after soundness.
+8. Yes: one worker per module, and the one-process mode running the same steps (the successor of
+   `cfsg`'s isolated mode); no store mode.
+9. `--import-all` goes, with no override flag unless ruled otherwise (below); `--compare` later, its
+   own lane.
+10. Yes: `checkViews`' mismatch is exit 1.
+11. Yes: the trust assumption extended to several processes on one snapshot.  The multi-process
+    result is a composition theorem only; no spawn-self operation in `CheckerIO` for now.
+
+**Question 4: what the `Nat`-operation branch's dependency requirement guards.**  A definition at a
+certified operation's name `c` passes `checkDeclC` only if `natOpGuardF` and
+`(natOpDeps c).all (natOpStoredOkF fe2)` hold: every operation of `c`'s recurrences is stored, as a
+level-free definition, at its pinned type (`c` itself, in the overlay, among them).  Then the
+recurrences are certified by definitional equality with `c`'s value substituted.  The certificate
+treats the dependencies as names: `Nat.mul`'s second equation, `mul a (b+1) ≡ add (mul a b) a`, holds
+by unfolding `mul` alone, whatever `add` is.  What makes the model's law for `mul` the multiplication
+is the law of `add`, which the model has only for a dependency that is itself a certified operation.
+So the requirement guards exactly this: **every dependency is a certified operation**, without which a
+certificate passes over an uninterpreted dependency and the literal fast path for `c` would be
+unsound (an opaque `Nat.add` would make `mul 2 3 ↦ 6` false in the model).
+
+Each dependency's own job establishes that already, given that it is stored: at a certified
+operation's name nothing but a definition is accepted (`checkConstantVal`, `reservedRecName`; this is
+`OpDefn`, `Verify/EnvWF.lean`), and a definition there runs this branch, so its job pins its type and
+certifies its recurrences.  The jobs model is #480's: a later job may read an earlier constant whose
+own job has not run, and the accept needs every job.  So the requirement reduces to **"every
+dependency is stored"**, which is still needed (an absent `add` would let `mul`'s certificate pass with
+nothing behind it), plus `c`'s own pinned type.  Dropping the rest needs the model's invariant to say
+what the requirement gave the step: `OpDefn` ("a stored operation's name holds a definition")
+becomes "a stored operation's name has the pinned type and the operation's law", established at the
+operation's own install and read at a dependent's.  That same invariant is what a modular context
+needs, where `Nat.gcd`, `Nat.land`, `Nat.lor`, `Nat.xor` are axioms at the exported level and their
+law comes from their home through the key.  Planned as lane #462.
+
+**Question 9: what Lean exports under `backward.privateInPublic`, and `WittVector.MulP`.**  Read off
+the fixture `WvA` (`tests/olean/src/WvA.lean`, Lean v4.35.0's files): a private definition declared
+under `privateInPublic` is in the exported part **with its value**, under its `_private` name, and so
+is an exposed definition reading it; a private definition without the option (`wv_secret`) is absent
+from the exported part, though the exported values read it.  This is Mathlib's case
+(`comm_ring_aux₂`, exported with its value, reads `comm_ring_aux₁`, private).  In this design the
+reach of `WvM`'s `rfl` follows `wv_x`'s and `wv_y`'s values to `wv_p`, `wv_q` and then `wv_secret`,
+which the context lacks, so `wv_secret` is completed with its statement from `WvA`'s private part;
+the definitional equality unfolds both sides to the constant `wv_secret` and compares it with itself,
+never its value, as Lean's kernel does.  So `WvM` needs no override.  For Mathlib's own `MulP` the
+same holds as long as its checks never unfold `comm_ring_aux₁`, which Lean's kernel cannot do either
+(it has not even the statement); the worker lane (#466) runs `MulP` against `WittVector.Basic`
+rebuilt without the local patch (`_tmp/ref/mathlib4-v4.35.0`'s `65b513c`) to confirm it.
+
+### #460: the implementation plan
+
+Each lane on its own branch off master, gated (`lake build`, `lake test` warning-free,
+`tests/arena.sh` in full under the guard, the whitepaper gates, links and quotes, shake), stopped
+for the maintainer's review before master.  Sizes in lane sessions.
+
+* **#461 — the specification and the fragment.**  The whitepaper's fragment brought to master from
+  `cfsg` and adjusted: theorems stored as statements (`ConstKind.assumed`, `ThmOk`,
+  `InstallThm.lean`), `Modular.lean`, `ModularSemantics.lean`, `ModularModel.lean` (views as a module's
+  constants or their statements, a type former with its constructors, flags by inference, and new:
+  a closed part of an assembled context is assembled, the reach's lemma), `ModularInstance.lean`,
+  `ModularSyntactic.lean`; `Fragment/Axioms.lean`'s pins.  In the checker: `ConLeche/Modular/Generic.lean`
+  (the abstract theorem, proved, importing nothing) and `ConLeche/Modular.lean`, the specification over
+  master's records (`Module`, `InterfaceOk`, `ImportOk`, `LocalOk`, proof flags by inference), with
+  the capstone's statement fixed in its header.  Theorems: the fragment's (`Development.modular`,
+  the instance, the consequences), the generic one.  2–3.
+* **#462 — certified operations by their law.**  `checkDeclC`'s branch asks every dependency stored
+  and `c`'s own pinned type; `OpDefn` becomes the law at the name.  Model and rules tier repaired;
+  fixtures for a dependency stored as each refused kind; measured on the perf streams.  2.
+* **#463 — the model's instance.**  `ModularSemantics` for con-leche's models over master's
+  `EnvModelM` (the context's model from its sources' models, per record; the step from
+  `declsRun_model`); `modular_model_exists` and `modular_no_False` in `MainTheorem.lean`, the Challenge
+  and the axiom pins.  5–8.
+* **#464 — the worker's reads.**  The header fixpoint (`importModulesCore`'s levels), the public-import
+  closures, the name index of the loaded parts with Lean's clash rule and freshness, one group's record
+  built and validated (`blocksOk` per group), `readEntries` with `readEntries_of_view`, `checkViews`
+  over the lazy load (exit 1).  3–4.
+* **#465 — the reach and the completion.**  The worklist with the opaque cut, groups as units, the
+  completion (located in the reader's home by headers and name tables, statements only, groups whole),
+  the capture check, the proof flags at clashes by inference, the context's validation (`EnvWF`).
+  Theorems: the closure, a located copy is the specification's, the context well formed.  4–6.
+* **#466 — the worker.**  `buildIndex (ctx ++ own)` with the cutoff (`checkDecls_of_jobs_from`), the
+  jobs, the verdict, the CLI; in the IO model, an exit 0 gives `ImportOk` and `InterfaceOk` at the
+  module.  `cfsg`'s modular fixtures re-pinned (`Dg*`, `Teq*`, `Hi*`, `Pd*`, `Wv*`, `Ns*`, `Ldg*`,
+  the capture case), `MulP` without the patch.  4–6.
+* **#467 — the graph check and the run.**  `--check-graph` over master's headers (`checkGraphG_ok`),
+  the trust assumption for several processes, `main_modular_no_False`; the Challenge; the
+  whitepaper's §7 prose on master (the outline of §5 above, `#real` on master's files).  3–4.
+* **#468 — the one-process mode and the scheduler.**  `--modular`: one read of the closure, the
+  shared tables persistent before the threads, the worker's steps per module; its corollary; the
+  scheduler (`--schedule`, outside the theorem); Mathlib measured against the merged `--olean` run.
+  4–6.
+* **#469 — verdict agreement.**  `knot_ext` lifted to `checkDeclStepC`: the worker's verdict is the
+  full context's.  2–3.
