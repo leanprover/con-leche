@@ -108,4 +108,9 @@ def declTables : Declaration → List ProjTable
       | none => []
   | _ => []
 
+/-- **The environment a list of records denotes**: every record's constants and tables, in order,
+pushed onto `env`. -/
+def streamEnv (ds : List Declaration) (env : Env := Env.empty) : Env :=
+  ds.foldl (fun e pd => e.pushDelta (declConstants pd) (declTables pd)) env
+
 end ConLeche

@@ -69,8 +69,9 @@ the stream, with two tolerated exceptions: a declared but unused
 `sorryAx` installs nothing, and Lean's deprecated compiler-trust axioms are
 accepted as pinned definitions of their own types.]
 
-#left-out[Theorems and opaques][The fragment has definitions only. The
-real checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
+#left-out[Opaques][The fragment has definitions and theorems
+(@sec:modular), the latter stored as their statements. The real
+checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean", 138, 141)[only a definition
 unfolds].]
 
 #left-out[Structure η and unit-likeness][The checker has
@@ -159,6 +160,16 @@ that every successful run of the cached core is a successful run of the
 pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
 theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the fold's soundness].
+
+*Modular checking.* In the fragment, a module's context, views and
+what declared its names are given, and the local checks of
+@sec:mod-local say what they must satisfy. Con-leche states
+#src("ConLeche/Modular.lean", 211, 214)[the same checks] over its own
+records, a context being a list of the records its imports present, and
+carries #src("ConLeche/Modular/Generic.lean", 305, 306)[the theorem]
+over the interface of @sec:mod-iface. Computing a module's context from
+the `.olean` files, and the instance of that interface for con-leche's
+models, are not part of con-leche today.
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

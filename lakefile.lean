@@ -121,10 +121,12 @@ lean_lib ConLecheModel where
 -- `preparePrelude` does to the file's records — and the capstone lib is
 -- where the statements that compose with the main theorem's input live.
 -- It is the one theory module that imports `ConLeche.Frontend.*`.
+-- `ConLeche.Modular` (task #461) is the modular theorem's statement half, rooted here until the
+-- capstone that proves it (task #463) imports it.
 @[default_target]
 lean_lib ConLecheCaps where
   roots := #[`ConLeche.Verify.Cached, `ConLeche.MainTheorem,
-    `ConLeche.Verify.Frontend.Prepare]
+    `ConLeche.Verify.Frontend.Prepare, `ConLeche.Modular]
 
 -- The PARKED completeness work (`ConLeche/Complete/*`): official's nested
 -- elimination/positivity as a spec and the positivity walk's completeness

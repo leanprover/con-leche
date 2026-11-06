@@ -110923,3 +110923,58 @@ for the maintainer's review before master.  Sizes in lane sessions.
   4–6.
 * **#469 — verdict agreement.**  `knot_ext` lifted to `checkDeclStepC`: the worker's verdict is the
   full context's.  2–3.
+
+## TASK #461 — modular checking's specification and the whitepaper's §7 on master (2026-11-06, agent/461-modular-spec)
+
+The first lane of #460's plan: the theorem settled before any implementation.
+
+**The whitepaper's fragment** (from `cfsg`, adjusted).  `cfsg`'s fragment changes, brought over as
+they were: theorems stored as their statements (`ConstKind.assumed`, `ThmOk`, `InstallThm.lean`,
+`Consistency.lean`'s third step), and the modular files `Modular.lean`, `ModularSemantics.lean`,
+`ModularModel.lean`, `ModularInstance.lean`, `ModularSyntactic.lean`, with their axiom pins.  What
+the fragment already said matches #460's rulings: a view refines its module's own environment (an
+entry itself or the assumption of its type); a type former is assembled with its constructors
+(`Assembled.blocks`); a proof flag is a theorem or a definition whose type is inferred to be a
+proposition (`Decl.IsProof`).  New: **the reach's lemma**, `Assembled.restrict` (a part of an
+assembled context, each entry as the context has it and closed under what its entries' laws read,
+is assembled from the same family) and `FromViews.restrict` (the same for a module's context and
+the one-copy condition), on `Expr.Scoped.inter` and `IndSpec.Scoped_inter`.  So nothing in the
+theory asks a context to be everything a module loads.  Two rotted file citations in the
+fragment's comments repointed (`Model/Install.lean`, `Model/Capstone.lean`).
+
+**§7's prose** (`whitepaper/sections/06b-modular.typ`, "Checking module by module") from `cfsg`, with
+`cfsg`'s §1, §3, §4 and §8 sentences about it, `PLAN.md`'s §7 rulings, and these changes: a
+paragraph on checking over a closed part of the context; the mapping table's rows on an exported
+entry mentioning a constant the importer does not load (the declaring module's view of it, found
+through its imports) and on `backward.privateInPublic` (its private constants are exported with
+their values, entries like any other); the `#real` block rewritten for what master has (the
+specification and the generic theorem, nothing of `cfsg`'s store and isolated modes); the
+left-out section's modular paragraph saying what is not there yet.  Every citation re-read: the
+ones `cfsg` had left pointing a few lines off (`defVal_eq_pt`, `Checks.blockModel`, `sources`,
+`Compared`, `Assembled.scoped`) now point at their statements.
+
+**The checker's specification.**  `ConLeche/Modular/Generic.lean`: `cfsg`'s, unchanged but for its
+pointer to the instance (task #463): the interface `ModularSemantics`, `Key`, `Development.modular`,
+`own_model`.  `ConLeche/Modular.lean`, new, over master's records:
+* a module's `ctx` is a list of records, its context `streamEnv ctx`, its own environment
+  `streamEnv decls (streamEnv ctx)`; `streamEnv` moved from `Verify/Cached/DeclPushes.lean` to
+  `Kernel/Install.lean`, beside `declConstants`, as a function of records the specification needs;
+* `Presents e p`: `e` installs `p`'s constants and tables (a theorem record, whatever value it
+  carries, installs its statement), or `e = stmtOf p`;
+* `RecordScoped` over `readsAlike`: what a record's constants and tables read, the literal and
+  projection names included (`constsResolve`), and `pinFootprint`;
+* `ProofDecl`: a theorem record, or a definition or opaque record whose value passes the theorem
+  record's check at the environment it is installed at (ruling 3: by inference); `FlagsOk` along
+  the records;
+* `InterfaceOk` (every presentation presents an own record), `ImportOk` (`below`, `src_lt`,
+  `nodup`, `presented`, `reads`, `accepted` as a `DeclsRun` from `mkFEnv context`, `flags`,
+  `key_context`, `key_own`), `LocalOk` the two.
+* The capstone's statement is fixed in the header (`modular_model_exists`, as on `cfsg`, at the new
+  `LocalOk`); its proof is #463.  `cfsg`'s `BlockIn`, `recFam`, `tables`, `tables_mem`, `projs`,
+  `compared` and the pending checks have no counterpart.  The `oneKey` fact of #460 §1 is not a
+  clause: it is what a worker proves about its own loaded view and an importer's worker uses to
+  establish `reads`, so it belongs to the workers' evidence (#466, #467).
+
+`ConLeche.Modular` is rooted in `ConLecheCaps` until #463's capstone imports it; `lakefile.lean`'s
+pin in `tests/trust-surface.sh` re-pinned for that one line.  OVERVIEW's module map has the row.
+No executed code changed: verdicts and instruction counts are master's.
