@@ -110815,8 +110815,9 @@ substituted levels (it reads cached depths, so it uses the stop-gap
 site's fact (no metavariable in the answer); `instLevelParamsChecked_ok`
 gives a call site both.  Cost: Init 863.8 G against 861.7 G (+0.24 %).
 
-**Validation** (`inlean-replay --kernel=inlean --compare`): Init 64,530 and
-Std 110,064 declarations accepted, 0 mismatches; Lean below.  Negative tests
+**Validation** (`inlean-replay --kernel=inlean --compare`): Init 64,530,
+Std 110,064 and Lean 199,645 declarations accepted, 0 mismatches (Lean
+207,958 constants compared; 3,574.9 G against 3,570.6 G, +0.12 %).  Negative tests
 8/8 ("wrong return type" still the generator's error).  Gates
 `layering.sh`, `trust-surface.sh`, `no-local-paths.sh` pass; `InLean`,
 `InLeanProof`, `inlean-replay` warning-free.  No shared con-leche file
