@@ -534,6 +534,95 @@ theorem mtcEtaIL_specI (ih : KnotSpecI .verified eager env r) (hlg : LeafGuardSp
     · rename_i c us' h'; exact absurd h' (hn c us')
     · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
 
+theorem mtcAndIL_specI (ih : KnotSpecI .verified eager env r) (hpi : ProofIrrelSpecI eager env r)
+    (hlg : LeafGuardSpecI .verified eager env) (hv : EnvViewI fe env) {d : Nat} {major : Expr}
+    {rl : RecursorRule} {cvj : Lean.ConstantVal} {cnP : Nat} {T : Name} {crl : ConLeche.RecRule}
+    {ccvj : ConLeche.ConstantVal} (hrl : crl.ctor = toName rl.ctor) (hcvj : CVRel cvj ccvj)
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hok : OkS s₀ major = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ major))
+    (hc : (TrS s₀ major).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ mtcAndIL .verified r fe d major rl cvj cnP T
+    ⦃fun m s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkS s' m = true ∧
+      Runs ((ConLeche.fueledFns .verified eager env).inferIO d (TrS s₀ major) >>= fun tm =>
+        (ConLeche.fueledFns .verified eager env).whnf d tm >>=
+          mtcAndCont .verified (ConLeche.fueledFns .verified eager env) env d (TrS s₀ major) crl ccvj
+            cnP (toName T)) (TrS s' m) ∧
+      ConLeche.Expr.WScoped d (TrS s' m) ∧ (TrS s' m).looseBVarsBounded 0 = true; ⊤⦄ := by
+  refine tripleI_iff_run.2 fun m s' hr => ?_
+  unfold mtcAndIL at hr
+  obtain ⟨tm, s₁, h1, hr⟩ := bind_run hr
+  obtain ⟨hs₁, ht₁, hok₁, hrun₁, hw₁, hc₁⟩ := tripleI_iff_run.1 (ih.inferIO hs hok hw hc) tm s₁ h1
+  obtain ⟨tmaj, s₂, h2, hr⟩ := bind_run hr
+  obtain ⟨hs₂, ht₂, hok₂, hrun₂, hw₂, hc₂⟩ :=
+    tripleI_iff_run.1 (ih.whnf hs₁ hok₁ hw₁ hc₁) tmaj s₂ h2
+  have ht02 := ht₁.trans ht₂
+  rw [Runs.bind_eq _ hrun₁, Runs.bind_eq _ hrun₂]
+  unfold mtcAndCont
+  dsimp only at hr
+  by_cases hconst : ∃ T' ust, Expr.getAppFnT tmaj = .const T' ust
+  · obtain ⟨T', ust, hfn⟩ := hconst
+    rw [hfn] at hr
+    dsimp only at hr
+    rw [TrS_getAppFn_const s₂ hfn]
+    dsimp only
+    have hust := okLv_of_getAppFnT hok₂ hfn
+    have hlen : (appArgs tmaj).length = (TrS s₂ tmaj).getAppArgs.length := by
+      rw [← TrSL_appArgs, TrSL_length]
+    have hiff : ((T' == T) = true ∧ (appArgs tmaj).length = cnP ∧
+        cvj.levelParams.length = ust.length ∧ fe.andRescueSlotsF rl.ctor cnP = true) ↔
+        (toName T' = toName T ∧ (TrS s₂ tmaj).getAppArgs.length = cnP ∧
+        ccvj.levelParams.length = (ust.map trL).length ∧
+        ConLeche.andRescueSlots env crl.ctor cnP = true) := by
+      simp only [hrl, ← andRescueSlotsF_V hv, hcvj.2.1, List.length_map, ← hlen, toName_eq_iff,
+        beq_iff_eq]
+    by_cases hcond : (T' == T) = true ∧ (appArgs tmaj).length = cnP ∧
+        cvj.levelParams.length = ust.length ∧ fe.andRescueSlotsF rl.ctor cnP = true
+    · have hcond' := hiff.1 hcond
+      simp only [hcond, hcond', and_self, ↓reduceIte] at hr ⊢
+      obtain ⟨fab, s₃, h3, hr⟩ := bind_run hr
+      obtain ⟨rfl, rfl⟩ := pure_run h3
+      have hokm := okS_of_tabLe ht02 hok
+      have htm := TrS_of_tabLe ht02 hok
+      obtain ⟨hp1, hp2, hp3, hp4⟩ := projNodesI_facts s₂ T hokm (htm ▸ hw) (htm ▸ hc) [0, 1]
+      have hxs : OkSL s₂ (appArgs tmaj ++ InLean.projNodesI T major [0, 1]) = true :=
+        OkSL_append s₂ (OkSL_appArgs s₂ hok₂) hp1
+      have hTx : TrSL s₂ (appArgs tmaj ++ InLean.projNodesI T major [0, 1]) =
+          (TrS s₂ tmaj).getAppArgs ++
+            [.proj (toName T) 0 (TrS s₀ major), .proj (toName T) 1 (TrS s₀ major)] := by
+        rw [TrSL_append, TrSL_appArgs, hp2, htm]; rfl
+      have hws1 : AllWS d (TrSL s₂ (appArgs tmaj)) := by
+        rw [TrSL_appArgs]; exact allWS_getAppArgs hw₂
+      have hcl1 : AllClosed (TrSL s₂ (appArgs tmaj)) = true := by
+        rw [TrSL_appArgs]; exact allClosed_getAppArgs hc₂
+      obtain ⟨hokf, htrf, hwf, hcf⟩ := fab_facts (c := rl.ctor) hust hxs
+        (by rw [TrSL_append]; exact AllWS.append hws1 hp3)
+        (by rw [TrSL_append]; exact AllClosed_append hcl1 hp4)
+      have hr' : fabTailIL r d tmaj
+          (mkAppN (.const rl.ctor ust) (appArgs tmaj ++ InLean.projNodesI T major [0, 1]).toArray)
+          major s₂ = .ok (m, s') := hr
+      obtain ⟨hs', ht', hokm', hrun', hw', hc'⟩ := tripleI_iff_run.1
+        (fabTailIL_specI ih hpi hlg hs₂ hok₂ hw₂ hc₂ hokf hwf hcf hokm (htm ▸ hw) (htm ▸ hc))
+        m s' hr'
+      refine ⟨hs', ht02.trans ht', hokm', ?_, hw', hc'⟩
+      rw [htrf, hTx, htm] at hrun'
+      rw [hrl]; exact hrun'
+    · have hcond' := mt hiff.2 hcond
+      simp only [hcond, hcond', ↓reduceIte] at hr ⊢
+      obtain ⟨rfl, rfl⟩ := pure_run hr
+      exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
+  · have hfn : ∀ n us, Expr.getAppFnT tmaj ≠ .const n us := fun n us h => hconst ⟨n, us, h⟩
+    have hn := TrS_getAppFn_notConst s₂ hfn
+    have hr' : (pure major : InLean.CheckCM Expr) s₂ = .ok (m, s') := by
+      rw [← hr]
+      generalize hx : Expr.getAppFnT tmaj = x at hfn
+      cases x with
+      | const a b => exact absurd rfl (hfn a b)
+      | _ => rfl
+    obtain ⟨rfl, rfl⟩ := pure_run hr'
+    split
+    · rename_i c us' h'; exact absurd h' (hn c us')
+    · exact post_of hs₂ ht02 hok hw hc (Runs.pure _)
+
 end Walks
 
 end InLeanProof
