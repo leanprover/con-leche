@@ -364,8 +364,8 @@ theorem clBeq_TrS {s : InLean.CState} (hs : FVTableOK s) {a b : Expr} (ha : OkS 
     cases hc : Expr.clEq a b
     · rfl
     · exact absurd (h.1 hc).symm he
-grind_pattern [conleche_grind] clBeq_TrS =>
-  OkS s a, OkS s b, @BEq.beq Expr InLean.instBEqExprI a b
+grind_pattern [conleche_grind] clBeq_TrS => OkS s a, @BEq.beq Expr InLean.instBEqExprI a b
+grind_pattern [conleche_grind] clBeq_TrS => OkS s b, @BEq.beq Expr InLean.instBEqExprI a b
 
 @[conleche_grind =] theorem lit_beq_toLit : ∀ (a b : Literal), (a == b) = (toLit a == toLit b)
   | .natVal n, .natVal m => by
@@ -433,6 +433,177 @@ theorem lamPairI_none (a b : Expr) : InLean.Expr.lamPair? a b = none →
 grind_pattern [conleche_grind] lamPairI_none => InLean.Expr.lamPair? a b, TrS s a, TrS s b
 
 end LamPair
+
+/-! ## The `Nat` offset readers through the translation -/
+
+section Offsets
+variable (s : InLean.CState)
+
+theorem isNatZero_TrS (e : Expr) : InLean.Expr.isNatZero e = (TrS s e).isNatZero := by
+  induction e with
+  | mdata _ x ih => exact ih
+  | lit l =>
+    cases l with
+    | natVal n => cases n <;> rfl
+    | strVal _ => rfl
+  | const c us =>
+    cases us with
+    | nil =>
+      simp only [InLean.Expr.isNatZero, TrS_const, List.map_nil, ConLeche.Expr.isNatZero,
+        name_beq_eq_decide, cname_beq_eq_decide, toName_natZeroName]
+      exact decide_eq_decide.2 Iff.rfl
+    | cons _ _ => rfl
+  | fvar id =>
+    rcases trans_getD_cases s id with ⟨i, ty, h⟩ | h <;>
+      simp [InLean.Expr.isNatZero, TrS, trE, h, ConLeche.Expr.isNatZero]
+  | _ => rfl
+grind_pattern [conleche_grind] isNatZero_TrS => InLean.Expr.isNatZero e, TrS s e
+
+theorem isLitI_TrS (e : Expr) : InLean.Expr.isLitI e = (TrS s e).isLit := by
+  induction e with
+  | mdata _ x ih => exact ih
+  | fvar id =>
+    rcases trans_getD_cases s id with ⟨i, ty, h⟩ | h <;>
+      simp [InLean.Expr.isLitI, TrS, trE, h, ConLeche.Expr.isLit]
+  | _ => rfl
+grind_pattern [conleche_grind] isLitI_TrS => InLean.Expr.isLitI e, TrS s e
+
+theorem natPredI_TrS (e : Expr) : TrO s (InLean.Expr.natPred? e) = (TrS s e).natPred? := by
+  induction e with
+  | mdata _ x ih => exact ih
+  | lit l =>
+    cases l with
+    | natVal n => cases n <;> rfl
+    | strVal _ => rfl
+  | app f x _ _ =>
+    simp only [InLean.Expr.natPred?, TrS_app]
+    rw [← TrS_stripTop s f]
+    have hne : ∀ m y, EO.stripTop f ≠ .mdata m y := fun m y h => stripTop_ne_mdata h
+    generalize EO.stripTop f = g at hne
+    cases g with
+    | const c us =>
+      cases us with
+      | nil =>
+        simp only [TrS_const, List.map_nil, ConLeche.Expr.natPred?, name_beq_eq_decide,
+          toName_natSuccName]
+        by_cases h : toName c = ConLeche.natSuccName <;> simp [h, TrO]
+      | cons _ _ => rfl
+    | fvar id =>
+      rcases trans_getD_cases s id with ⟨i, ty, h⟩ | h <;>
+        simp [TrS, trE, h, ConLeche.Expr.natPred?, TrO]
+    | mdata m y => exact absurd rfl (hne m y)
+    | app f' x' => cases (TrS s f') <;> rfl
+    | _ => rfl
+  | fvar id =>
+    rcases trans_getD_cases s id with ⟨i, ty, h⟩ | h <;>
+      simp [InLean.Expr.natPred?, TrS, trE, h, ConLeche.Expr.natPred?, TrO]
+  | _ => rfl
+grind_pattern [conleche_grind] natPredI_TrS => InLean.Expr.natPred? e, TrS s e
+
+theorem okO_natPredI {e : Expr} (h : OkS s e = true) : OkO s (InLean.Expr.natPred? e) = true := by
+  induction e with
+  | mdata _ x ih => exact ih h
+  | lit l =>
+    cases l with
+    | natVal n => cases n <;> rfl
+    | strVal _ => rfl
+  | app f x _ _ =>
+    simp only [OkS_app, Bool.and_eq_true] at h
+    simp only [InLean.Expr.natPred?]
+    split
+    · split
+      · exact h.2
+      · rfl
+    · rfl
+  | _ => rfl
+grind_pattern [conleche_grind] okO_natPredI => OkS s e, InLean.Expr.natPred? e
+
+theorem closed_natPred {e : ConLeche.Expr} (h : e.looseBVarsBounded 0 = true) :
+    OptClosed e.natPred? = true := by
+  unfold ConLeche.Expr.natPred?
+  split
+  · rfl
+  · split
+    · simp only [lbb_app] at h; simp only [OptClosed_some]; exact (Bool.and_eq_true _ _ ▸ h).2
+    · rfl
+  · rfl
+grind_pattern [conleche_grind] closed_natPred => e.looseBVarsBounded 0, e.natPred?
+
+theorem TrO_eq_some {o : Option Expr} {c : ConLeche.Expr} (h : TrO s o = some c) :
+    ∃ x, o = some x := by
+  cases o with
+  | none => simp [TrO] at h
+  | some x => exact ⟨x, rfl⟩
+grind_pattern [conleche_grind] TrO_eq_some => TrO s o, some c
+
+end Offsets
+
+/-! ## Delta steps and the loop's outcome through the translation -/
+
+section Steps
+variable (s : InLean.CState)
+
+/-- A lazy-delta step, translated. -/
+@[expose] def TrDS : InLean.DeltaStep → ConLeche.DeltaStep
+  | .cont a b => .cont (TrS s a) (TrS s b)
+  | .eq => .eq
+  | .diff => .diff
+  | .unknown => .unknown
+
+/-- A step's pair has a reading. -/
+@[expose] def OkDS : InLean.DeltaStep → Bool
+  | .cont a b => OkS s a && OkS s b
+  | _ => true
+
+@[conleche_grind =] theorem TrDS_cont (a b : Expr) :
+    TrDS s (.cont a b) = .cont (TrS s a) (TrS s b) := rfl
+@[conleche_grind =] theorem TrDS_eq : TrDS s .eq = .eq := rfl
+@[conleche_grind =] theorem TrDS_diff : TrDS s .diff = .diff := rfl
+@[conleche_grind =] theorem TrDS_unknown : TrDS s .unknown = .unknown := rfl
+@[conleche_grind =] theorem OkDS_cont (a b : Expr) : OkDS s (.cont a b) = (OkS s a && OkS s b) :=
+  rfl
+@[conleche_grind =] theorem OkDS_eq : OkDS s .eq = true := rfl
+@[conleche_grind =] theorem OkDS_diff : OkDS s .diff = true := rfl
+@[conleche_grind =] theorem OkDS_unknown : OkDS s .unknown = true := rfl
+
+/-- The loop's outcome, translated. -/
+@[expose] def TrLR : InLean.LazyRes → ConLeche.LazyRes
+  | .verdict v => .verdict v
+  | .unknown a b => .unknown (TrS s a) (TrS s b)
+
+/-- The outcome's pair has a reading. -/
+@[expose] def OkLR : InLean.LazyRes → Bool
+  | .verdict _ => true
+  | .unknown a b => OkS s a && OkS s b
+
+@[conleche_grind =] theorem TrLR_verdict (v : Bool) : TrLR s (.verdict v) = .verdict v := rfl
+@[conleche_grind =] theorem TrLR_unknown (a b : Expr) :
+    TrLR s (.unknown a b) = .unknown (TrS s a) (TrS s b) := rfl
+@[conleche_grind =] theorem OkLR_verdict (v : Bool) : OkLR s (.verdict v) = true := rfl
+@[conleche_grind =] theorem OkLR_unknown (a b : Expr) :
+    OkLR s (.unknown a b) = (OkS s a && OkS s b) := rfl
+
+end Steps
+
+/-- A step's pair is closed. -/
+@[expose] def StepClosedD : ConLeche.DeltaStep → Bool
+  | .cont a b => a.looseBVarsBounded 0 && b.looseBVarsBounded 0
+  | _ => true
+
+@[conleche_grind =] theorem StepClosedD_cont (a b : ConLeche.Expr) :
+    StepClosedD (.cont a b) = (a.looseBVarsBounded 0 && b.looseBVarsBounded 0) := rfl
+@[conleche_grind =] theorem StepClosedD_eq : StepClosedD .eq = true := rfl
+@[conleche_grind =] theorem StepClosedD_diff : StepClosedD .diff = true := rfl
+@[conleche_grind =] theorem StepClosedD_unknown : StepClosedD .unknown = true := rfl
+
+/-- The loop's stuck pair is closed. -/
+@[expose] def LazyClosed : ConLeche.LazyRes → Bool
+  | .unknown a b => a.looseBVarsBounded 0 && b.looseBVarsBounded 0
+  | .verdict _ => true
+
+@[conleche_grind =] theorem LazyClosed_unknown (a b : ConLeche.Expr) :
+    LazyClosed (.unknown a b) = (a.looseBVarsBounded 0 && b.looseBVarsBounded 0) := rfl
+@[conleche_grind =] theorem LazyClosed_verdict (v : Bool) : LazyClosed (.verdict v) = true := rfl
 
 /-! ## The readers of the environment at use (O4's statements, P3's to prove)
 
@@ -1037,6 +1208,60 @@ theorem lamsSpecI_all (ih : KnotSpecI .verified eager env r) (fuel : Nat) :
     sym only [conleche_grind, defeqLams_succ] =>
       vcgen [defeqLamsL_succ, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
           (env := env), lamsStepL_spec ih ihn] <;> finish
+
+/-- The easy cases (`quickDefEqC_spec`'s twin). -/
+theorem quickDefEqI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.quickDefEqI .verified r d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.quickDefEq .verified (ConLeche.fueledFns .verified eager env) d (TrS s₀ a)
+        (TrS s₀ b)) v; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.quickDefEq.eq_def, lamsFuel_eq] =>
+    vcgen [InLean.quickDefEqI, ih.defeq, mkFVarM_specI (mode := .verified) (eager := eager)
+        (env := env), isEquivLM_specI (mode := .verified) (eager := eager) (env := env),
+      liftFueled_specI (mode := .verified) (eager := eager) (env := env),
+      LamsSpecI.triple (lamsSpecI_all ih InLean.lamsFuel)] <;> finish
+
+/-- Offsets (`defeqOffsetC_spec`'s twin). -/
+theorem defeqOffsetI_spec (ih : KnotSpecI mode eager env r) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.defeqOffsetI r d a b
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      Runs (ConLeche.defeqOffset (ConLeche.fueledFns mode eager env) d (TrS s₀ a) (TrS s₀ b)) v;
+        ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.defeqOffset] =>
+    vcgen [InLean.defeqOffsetI, ih.defeq] <;> finish
+
+/-- `try_unfold_proj_app` (`tryUnfoldProjAppC_spec`'s twin). -/
+theorem tryUnfoldProjAppI_spec (ih : KnotSpecI mode eager env r) {d : Nat} {e : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI mode eager env s₀) (hok : OkS s₀ e = true)
+    (hw : ConLeche.Expr.WScoped d (TrS s₀ e)) (hc : (TrS s₀ e).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.tryUnfoldProjAppI r d e
+    ⦃fun o s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkO s' o = true ∧
+      Runs (ConLeche.tryUnfoldProjApp (ConLeche.fueledFns mode eager env) d (TrS s₀ e)) (TrO s' o) ∧
+      OptWS d (TrO s' o) ∧ OptClosed (TrO s' o) = true; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.tryUnfoldProjApp] =>
+    vcgen [InLean.tryUnfoldProjAppI, ih.whnfCore] <;> finish
+
+/-- The end of a step (`deltaQuickC_spec`'s twin). -/
+theorem deltaQuickI_spec (ih : KnotSpecI .verified eager env r) {d : Nat} {a b : Expr}
+    {s₀ : InLean.CState} (hs : CSOKI .verified eager env s₀) (hoka : OkS s₀ a = true)
+    (hokb : OkS s₀ b = true) (hwa : ConLeche.Expr.WScoped d (TrS s₀ a))
+    (hwb : ConLeche.Expr.WScoped d (TrS s₀ b)) (hca : (TrS s₀ a).looseBVarsBounded 0 = true)
+    (hcb : (TrS s₀ b).looseBVarsBounded 0 = true) :
+    ⦃fun s => s = s₀⦄ InLean.deltaQuickI .verified r d a b
+    ⦃fun v s' => CSOKI .verified eager env s' ∧ TabLe s₀ s' ∧ OkDS s' v = true ∧
+      Runs (ConLeche.deltaQuick .verified (ConLeche.fueledFns .verified eager env) d (TrS s₀ a)
+        (TrS s₀ b)) (TrDS s' v) ∧
+      StepPairWS d (TrDS s' v) ∧ StepClosedD (TrDS s' v) = true; ⊤⦄ := by
+  sym only [conleche_grind, ConLeche.deltaQuick] =>
+    vcgen [InLean.deltaQuickI, quickDefEqI_spec ih] <;> finish
 
 end Walks5
 
