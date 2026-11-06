@@ -313,7 +313,8 @@ theorem owner {i : Nat} (hi : ImportOk .verified pins dev i) {x : Name} {ciC : C
       (dev ((dev i).src x)).context.find? x = none ∧
       (∃ p ∈ (dev ((dev i).src x)).decls, ciO ∈ declConstants p) ∧ Refines ciC ciO ∧
       (dev i).key x = (dev ((dev i).src x)).ownKey ((dev i).src x) x ciO ∧
-      (dev i).context.findTable? x = (dev ((dev i).src x)).own.findTable? x := by
+      (dev i).context.findTable? x = (dev ((dev i).src x)).own.findTable? x ∧
+      (x ∈ reduceOpNames → ciC = ciO) := by
   generalize hs : (dev i).src x = s at hsI hsK ⊢
   obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some (L := (dev i).ctx) hx
   have hxe : x ∈ declNames e := List.mem_map.mpr ⟨ciC, hce, hnm⟩
@@ -328,23 +329,24 @@ theorem owner {i : Nat} (hi : ImportOk .verified pins dev i) {x : Name} {ciC : C
     fun h1 h2 => streamEnv_findTable? h2 h1 hxe
   -- the owner's constant, its key and its table
   have fin : ∀ ciO, ciO ∈ declConstants p → ciO.name = x → Refines ciC ciO →
-      declTables e = declTables p →
+      declTables e = declTables p → (x ∈ reduceOpNames → ciC = ciO) →
       ∃ ciO, (dev s).own.find? x = some ciO ∧ (dev s).context.find? x = none ∧
         (∃ p ∈ (dev s).decls, ciO ∈ declConstants p) ∧ Refines ciC ciO ∧
         (dev i).key x = (dev s).ownKey s x ciO ∧
-        (dev i).context.findTable? x = (dev s).own.findTable? x := by
-    intro ciO hO hOn hR ht
+        (dev i).context.findTable? x = (dev s).own.findTable? x ∧
+        (x ∈ reduceOpNames → ciC = ciO) := by
+    intro ciO hO hOn hR ht hred
     have hfO : (dev s).own.find? x = some ciO := by
       rw [← hOn]; exact own_find?_of_decl hndO hp hO
     have hfC : (dev s).context.find? x = none := by
       rw [← hOn]; exact hfr ciO (mem_recsC.mpr ⟨p, hp, hO⟩)
-    refine ⟨ciO, hfO, hfC, ⟨p, hp, hO⟩, hR, ?_, ?_⟩
+    refine ⟨ciO, hfO, hfC, ⟨p, hp, hO⟩, hR, ?_, ?_, hred⟩
     · rw [hi.key_context x (by rw [hx]; rfl), hs]
       exact hsK.key_own x ciO hfO hfC
     · rw [Module.context_eq, htabC he hi.nodup, Module.own_eq, ht,
         streamEnv_findTable? hndL hpL (by rw [← hOn]; exact List.mem_map_of_mem hO)]
-  rcases hpres with ⟨hc, ht⟩ | ⟨hst, -⟩
-  · exact fin ciC (hc ▸ hce) hnm (.inl rfl) ht
+  rcases hpres with ⟨hc, ht⟩ | ⟨hst, hnr⟩
+  · exact fin ciC (hc ▸ hce) hnm (.inl rfl) ht fun _ => rfl
   · subst hst
     have hunres : ∀ cv, ((∃ v hint, p = .defnDecl cv v hint) ∨ (∃ v, p = .thmDecl cv v) ∨
         (∃ v, p = .opaqueDecl cv v)) → ciC ∈ declConstants (.axiomDecl cv) → ciC = .axiomInfo cv := by
@@ -361,15 +363,17 @@ theorem owner {i : Nat} (hi : ImportOk .verified pins dev i) {x : Name} {ciC : C
     | defnDecl cv v hint =>
       obtain rfl := hunres cv (.inl ⟨v, hint, rfl⟩) hce
       exact fin (.defnInfo cv v hint) List.mem_cons_self hnm (.inr ⟨rfl, rfl⟩) rfl
+        fun h => absurd h (hnr x (by rw [← hnm]; exact List.mem_singleton_self _))
     | thmDecl cv v =>
       obtain rfl := hunres cv (.inr (.inl ⟨v, rfl⟩)) hce
       exact fin (.thmInfo cv) List.mem_cons_self hnm (.inr ⟨rfl, rfl⟩) rfl
+        fun h => absurd h (hnr x (by rw [← hnm]; exact List.mem_singleton_self _))
     | opaqueDecl cv v =>
       obtain rfl := hunres cv (.inr (.inr ⟨v, rfl⟩)) hce
-      exact fin (.axiomInfo cv) List.mem_cons_self hnm (.inl rfl) rfl
-    | axiomDecl cv => exact fin ciC hce hnm (.inl rfl) rfl
-    | quotDecl k cv => exact fin ciC hce hnm (.inl rfl) rfl
-    | indDecl b nP => exact fin ciC hce hnm (.inl rfl) rfl
+      exact fin (.axiomInfo cv) List.mem_cons_self hnm (.inl rfl) rfl fun _ => rfl
+    | axiomDecl cv => exact fin ciC hce hnm (.inl rfl) rfl fun _ => rfl
+    | quotDecl k cv => exact fin ciC hce hnm (.inl rfl) rfl fun _ => rfl
+    | indDecl b nP => exact fin ciC hce hnm (.inl rfl) rfl fun _ => rfl
 
 /-- A context name's table in the own environment is its context table. -/
 theorem own_findTable?_of_context {j : Nat} (hnd : NodupNames (dev j).own)
@@ -394,7 +398,7 @@ theorem ownerOf {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j :
   rcases own_find?_cases hK hx with hc | ⟨hc, p, hp, hci⟩
   · have hlt := hK.src_lt x (by rw [hc]; rfl)
     have hs := hok ((dev j).src x) (by omega)
-    obtain ⟨ciO, h1, h2, h3, h4, h5, h6⟩ := owner hK hs.iface hs.importOk hc
+    obtain ⟨ciO, h1, h2, h3, h4, h5, h6, -⟩ := owner hK hs.iface hs.importOk hc
     exact ⟨_, by omega, ciO, h1, h2, h3, h4, h5,
       (own_findTable?_of_context (ImportOk.chain hK).1 hK.nodup (by rw [hc]; rfl)).trans h6⟩
   · exact ⟨j, Nat.le_refl j, ci, hx, hc, ⟨p, hp, hci⟩, .inl rfl, hK.key_own x ci hx hc, rfl⟩
@@ -592,6 +596,15 @@ theorem reading_scope {i : Nat} (hK : ImportOk .verified pins dev i) {n : Name} 
     obtain ⟨c1, c2⟩ := htabs t (List.mem_of_find?_eq_some ht')
     exact ⟨c1, fun b hb => hR (c2 b hb)⟩
   · intro d hd; rw [← hnm] at hd; exact h5 d hd
+
+/-- **A context constant at a `reduce*` name is its source's.** -/
+theorem reading_reduce {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n : Name}
+    {ci : ConstantInfo} (h : (dev i).context.find? n = some ci) (hr : n ∈ reduceOpNames) :
+    (dev ((dev i).src n)).own.find? n = some ci := by
+  have hK := (hok i (Nat.le_refl i)).importOk
+  have hs := hok ((dev i).src n) (Nat.le_of_lt (hK.src_lt n (by rw [h]; rfl)))
+  obtain ⟨ciO, h1, -, -, -, -, -, h7⟩ := owner hK hs.iface hs.importOk h
+  rw [h1, h7 hr]
 
 end
 
