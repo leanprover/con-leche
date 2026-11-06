@@ -333,9 +333,28 @@ def ProjEntry.typeAtI (entry : ProjEntry) (us : List Level) (targs : List Expr) 
   (projBodyAt entry.structName entry.numParams entry.idx entry.ctorType).map fun body =>
     (body.instLvlParamsI entry.levelParams us).instI (#[pe] ++ targs.toArray.reverse)
 
-/-- Twin of `FEnv.towerSlotsAllF`. -/
+/-- The field count of `T`'s table, where it has one. -/
+def FEnv.tableFields? (fe : FEnv) (T : Name) : Option Nat :=
+  match fe.find? T with
+  | some (.inductInfo v) =>
+    match v.ctors with
+    | [c] =>
+      if v.numIndices == 0 then
+        match fe.find? c with
+        | some (.ctorInfo cv) =>
+          if hasPis (v.numParams + cv.numFields) cv.type then some cv.numFields else none
+        | _ => none
+      else none
+    | _ => none
+  | _ => none
+
+/-- Twin of `FEnv.towerSlotsAllF` (`∀ j < nF, findProj? T j` holds): no slot
+to ask for, or a table with at least `nF` fields — one lookup and one binder
+count, not one per field. -/
 def FEnv.towerSlotsAllF (fe : FEnv) (T : Name) (nF : Nat) : Bool :=
-  (List.range nF).all fun j => (fe.findProj? T j).isSome
+  nF == 0 || match fe.tableFields? T with
+    | some n => nF ≤ n
+    | none => false
 
 /-- Twin of `FEnv.andRescueSlotsF` (`andRescueSlotsOf`). -/
 def FEnv.andRescueSlotsF (fe : FEnv) (ctor : Name) (nP : Nat) : Bool :=

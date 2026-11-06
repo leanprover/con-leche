@@ -31,6 +31,8 @@ namespace IC
 def checkBlock (j : Job) (env : Kernel.Environment) (block : List SCI) (p₀ : BlockShape) : M Unit := do
   unless nodup (p₀.allCtors.map (·.1.name)) && nodup p₀.memberNames do
     throwInvalid "direct rec: duplicate constructor"
+  unless !p₀.memberNames.contains boolTrueName && !p₀.memberNames.contains boolFalseName do
+    throwInvalid "direct rec: a family at a `Bool` constructor's name"
   flush
   -- the pass
   let (env₁, cvTas, p) ← checkBlockInds j env p₀
@@ -45,6 +47,7 @@ def checkBlock (j : Job) (env : Kernel.Environment) (block : List SCI) (p₀ : B
   let fe₂ ← consBlockCtors j ctorsAs env₁
   flush
   let out ← genRecCheck j fe₂ p (blockNestedBit p kinds) ctx.params st.ctorNfs.toList rd Ms cvTas block
+  streamKCheck j p p.recs out
   -- the regenerated recursors consed (`blockRecInfosTF`), the stored ones compared there
   let mut feG := fe₂
   for (cv, M', rhss) in out do

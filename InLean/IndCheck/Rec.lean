@@ -662,7 +662,29 @@ def genRecCheck (j : Job) (fe : Kernel.Environment) (p : BlockShape) (nestedBit 
   flush
   pure out
 
-/-! ## The stored recursors against the regenerated ones (twin of `StoredRecs.lean`) -/
+/-- Twin of `recKExpected`: a recursor is K-like when the block is one
+propositional member and the recursor's major is that member, with one
+constructor and no fields; an outside major's recursor never is. -/
+def recKExpected (p : BlockShape) (M' : TargetMajor) : Bool :=
+  match M'.member, M'.ctors with
+  | some _, [c] => p.k == 1 && p.isProp && c.2 == 0
+  | _, _ => false
+
+/-- Twin of `streamKCheck`: each record's K flag is the one the regenerated
+recursor has. -/
+def streamKCheck (j : Job) (p : BlockShape) :
+    List RecShape → List (CV × TargetMajor × List Expr) → M Unit
+  | rc :: rcs, g :: gs => do
+    let recK := match j.gen[rc.cvR.name]? with
+      | some (.recInfo rv) => rv.k
+      | _ => false
+    unless recK == recKExpected p g.2.1 do
+      throwInvalid s!"recursor {rc.cvR.name} declares k := {recK}; the generated recursor of this \
+        block is{if recKExpected p g.2.1 then "" else " not"} K-like"
+    streamKCheck j p rcs gs
+  | _, _ => pure ()
+
+/-! ## The stored recursors against the regenerated ones (twin of `StreamRecs.lean`) -/
 
 /-- Twin of `recDomsAt`. -/
 def recDomsAt (j : Job) (env : Kernel.Environment) (rec : Name) (sfvs gfvs : List Expr) :

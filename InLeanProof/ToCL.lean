@@ -1,7 +1,7 @@
 module
 
 public import InLean
-public import ConLeche.Kernel.ExprOps
+public import ConLeche.Kernel.Install
 
 /-!
 # `toCL`: Lean's data read as con-leche's (task #451, lane F)
@@ -14,12 +14,19 @@ con-leche's checker never sees: metavariables, level metavariables, and
 free variables outside InLean's interned table.
 
 **Free variables.**  InLean interns a free variable as the pair (depth,
-type) under an `FVarId` `fvRoot.num n` (`InLean.mkFVar`, `St.fvDeps`,
-`St.fvTys`); con-leche's free variable is the value `.fvar depth type`.
-`toExpr` takes the translation of the ids as a parameter `fv`;
-`FVarTable.trans` builds it from InLean's table.  A type mentions only
+type) under the id `fvRoot.d.n` (`InLean.mkFVarM`; the depth `d` is in the
+id, the type is `CState.fvTys[n]`); con-leche's free variable is the value
+`.fvar d type`.  `toExpr` takes the translation of the ids as a parameter
+`fv`; `FVarTable.trans` builds it from InLean's table.  A type mentions only
 variables interned before it (its own context's), so the table is
-translated by recursion on the id.
+translated by recursion on the number.
+
+**Declarations.**  A Lean declaration group (one constant, the quotient
+package's constant, an inductive block's formers, constructors and
+recursors) reads as con-leche's record of it (`toDecl`): the record the
+export writes for it, in the stream's shape (`indInfo` without
+capabilities, rules `.plain`).  What con-leche installs for it is then
+`declConstants`/`declTables` of the record (`ConLeche/Kernel/Install.lean`).
 -/
 
 @[expose] public section
@@ -64,20 +71,19 @@ def toExpr (fv : Lean.FVarId → Option ConLeche.Expr) : Lean.Expr → Option Co
   | .mdata _ e => toExpr fv e
   | .proj s i e => (toExpr fv e).map (.proj (toName s) i)
 
-/-- InLean's interned free-variable table, as the proof reads it. -/
+/-- InLean's interned free-variable types, as the proof reads them. -/
 structure FVarTable where
-  deps : Array Nat
   tys : Array Lean.Expr
 
-/-- The translation of interned id `n`, by recursion on `n` (an interned
-type mentions earlier ids only; a later one reads as untranslatable). -/
-def FVarTable.transNum (t : FVarTable) : Nat → Option ConLeche.Expr
+/-- The translation of interned number `n` at depth `d`, by recursion on
+`n` (an interned type mentions earlier numbers only; a later one reads as
+untranslatable). -/
+def FVarTable.transNum (t : FVarTable) (d : Nat) : Nat → Option ConLeche.Expr
   | n => do
-    let d ← t.deps[n]?
     let ty ← t.tys[n]?
     let cty ← toExpr (fun id =>
-      match InLean.fvNum? id with
-      | some m => if m < n then t.transNum m else none
+      match InLean.fvParts? id with
+      | some (d', m) => if m < n then t.transNum d' m else none
       | none => none) ty
     pure (.fvar d cty)
 termination_by n => n
@@ -85,11 +91,66 @@ decreasing_by all_goals assumption
 
 /-- The id translation `toExpr` takes. -/
 def FVarTable.trans (t : FVarTable) (id : Lean.FVarId) : Option ConLeche.Expr :=
-  match InLean.fvNum? id with
-  | some n => t.transNum n
+  match InLean.fvParts? id with
+  | some (d, n) => t.transNum d n
   | none => none
 
 /-- The closed reading (no free variables): declarations' own terms. -/
 def toExprC : Lean.Expr → Option ConLeche.Expr := toExpr (fun _ => none)
+
+/-! ## Constants and declaration groups -/
+
+/-- A constant's name, levels and type. -/
+def toCV (v : Lean.ConstantVal) : Option ConLeche.ConstantVal := do
+  pure ⟨toName v.name, v.levelParams.map toName, ← toExprC v.type⟩
+
+/-- Reducibility hints. -/
+def toHint : Lean.ReducibilityHints → ConLeche.ReducibilityHint
+  | .opaque => .opaque
+  | .abbrev => .abbrev
+  | .regular h => .regular h.toNat
+
+/-- A recursor rule, as the export writes it (`.plain`, con-leche's install
+reads the firing mode off the block). -/
+def toRule (r : Lean.RecursorRule) : Option ConLeche.RecRule := do
+  pure ⟨toName r.ctor, r.nfields, .plain, ← toExprC r.rhs⟩
+
+def toRules : List Lean.RecursorRule → Option (List ConLeche.RecRule)
+  | [] => some []
+  | r :: rs => do pure ((← toRule r) :: (← toRules rs))
+
+/-- An inductive block's constant, as the export's record of it. -/
+def toBlockRecord : Lean.ConstantInfo → Option ConLeche.ConstantInfo
+  | .inductInfo v => do pure (.indInfo (← toCV v.toConstantVal) {})
+  | .ctorInfo v => do pure (.ctorInfo (← toCV v.toConstantVal) v.numParams v.numFields)
+  | .recInfo v => do
+    pure (.recInfo (← toCV v.toConstantVal)
+      (v.numParams + v.numMotives + v.numMinors + v.numIndices)
+      (v.numParams + v.numMotives + v.numMinors) v.k (← toRules v.rules))
+  | _ => none
+
+def toBlock : List Lean.ConstantInfo → Option (List ConLeche.ConstantInfo)
+  | [] => some []
+  | c :: cs => do pure ((← toBlockRecord c) :: (← toBlock cs))
+
+/-- The quotient kinds. -/
+def toQuotKind : Lean.QuotKind → ConLeche.QuotKind
+  | .type => .type
+  | .ctor => .ctor
+  | .lift => .lift
+  | .ind => .ind
+
+/-- **A declaration group, read as con-leche's record**: one constant, or an
+inductive block (formers, constructors, recursors; its parameter count is
+the first former's). -/
+def toDecl : List Lean.ConstantInfo → Option ConLeche.Declaration
+  | [.axiomInfo v] => do pure (.axiomDecl (← toCV v.toConstantVal))
+  | [.defnInfo v] => do
+    pure (.defnDecl (← toCV v.toConstantVal) (← toExprC v.value) (toHint v.hints))
+  | [.thmInfo v] => do pure (.thmDecl (← toCV v.toConstantVal) (← toExprC v.value))
+  | [.opaqueInfo v] => do pure (.opaqueDecl (← toCV v.toConstantVal) (← toExprC v.value))
+  | [.quotInfo v] => do pure (.quotDecl (toQuotKind v.kind) (← toCV v.toConstantVal))
+  | cs@(.inductInfo v :: _) => do pure (.indDecl (← toBlock cs) v.numParams)
+  | _ => none
 
 end InLeanProof

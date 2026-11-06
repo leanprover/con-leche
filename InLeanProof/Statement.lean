@@ -6,46 +6,40 @@ public import ConLeche.Model.Fold
 public import ConLeche.Model.Capstone
 
 /-!
-# The simulation theorem's statement (task #451, lane F)
+# The simulation theorem's statement (task #451)
 
 **The target.**  If a con-leche environment `L` *presents* the kernel
-environment `E` (every safe constant of `E` is in `L`, read through
-`toCL`, and nothing else is) and carries con-leche's fold invariant
-(`EnvModelOk`: the graded set model, `ConLeche/Model/Fold.lean`), and
-InLean accepts a safe declaration `d` at the theorem's configuration,
-then some extension of `L` presents the new environment and carries the
-invariant.  (Every term in range; see below.)  `AddDeclSound` states it; it is not proved yet (the lane F
-record in DESIGN.md lists the obligations).  What it gives is proved:
-`no_false_of_addDeclSound` — InLean never adds a safe constant whose
-type reads as `False`.
+environment `E` — `L` is what con-leche's install makes of `E`'s
+declaration groups, read as its records (`toDecl`), in some order, and every
+safe constant of `E` reads as a constant of `L` — and `L` carries con-leche's
+fold invariant (`EnvModelOk`, `ConLeche/Model/Fold.lean`), and InLean accepts
+a safe declaration `d` at the theorem's configuration, then some extension
+of `L` presents the new environment and carries the invariant.
+`AddDeclSound` states it; it is not proved (the obligations are in DESIGN.md,
+"TASK #451 — restart on master").  What it gives is proved:
+`no_false_of_addDeclSound` — InLean never adds a safe constant whose type
+reads as `False`.
 
-**Why "some `L` presenting `E`" and not a function of `E`.**  con-leche's
-environment is a list, in installation order, and its invariant is
-about that list; a `Kernel.Environment` is a map.  The statement holds
-for every list that presents the map.
+**Why "some `L` presenting `E`".**  con-leche's environment is a list, in
+installation order; a `Kernel.Environment` is a map.  The statement holds
+for every installation order of its groups.
 
-**Install data.**  `L`'s inductive entries carry con-leche's install
-data (`IndCaps`, recursor rule data, projection tables), which a
-`Lean.ConstantInfo` does not: presentation fixes the names, levels,
-types, values, counts and rule right-hand sides, and leaves the install
-data to the invariant (`EnvModelOk` holds of `L` only if its install
-data is the installer's).
+**The install is con-leche's own.**  `L` is `installAll ds`: master's
+`Env.pushDelta (declConstants d) (declTables d)` folded over the records
+`ds`.  The install data (capabilities, firing modes, projection tables) is
+what con-leche computes from the records; InLean reads the same data off
+Lean's entries at use (`InLean/FEnv.lean`).
 
 **The range bound.**  InLean's cutoffs read Lean's cached fields, which the
 stop-gap axioms (`InLeanProof/MkDataAxioms.lean`) describe only in range, so
-the statement is about terms in range: a premise on `E` and `d`, a conclusion on
-`E'`.  This costs no strength in use: `Expr.RangeOk` is what C's constructors
-enforce, so every term that exists at runtime has it.  It is not an axiom about
-all `Expr`s, and it must not be one (`Expr.bvar (2^20)` exists in the logic).
-Inside a run, the terms InLean builds stay in range: instantiation at closed
-substitutions cannot grow an index, `abstract` writes a poison checked at its
-call sites (`InLean.abstractChecked`), and the generator's output is checked
-(`IC.constInRange`); the obligations table in DESIGN.md records the proofs.
+the statement is about terms in range: a premise on `E` and `d`, a conclusion
+on `E'`.  `Expr.RangeOk` is what C's constructors enforce, so every term that
+exists at runtime has it; it is not an axiom about all `Expr`s, and must not
+be one (`Expr.bvar (2^20)` exists in the logic).
 
 **The environment's own operations** are a premise (`EnvLaws`): core's
-`Kernel.Environment.find?`/`add` go through `PersistentHashMap`'s
-`partial` `findAux`/`insertAux`, which no proof can unfold (the
-opaque-surface audit, `scripts/inlean_opaque_audit.lean`).
+`Kernel.Environment.find?`/`add` go through `PersistentHashMap`'s `partial`
+`findAux`/`insertAux`, which no proof can unfold.
 -/
 
 public section
@@ -54,41 +48,18 @@ namespace InLeanProof
 
 open Lean
 
-/-! ## Reading constants -/
+/-! ## Presenting an environment -/
 
-/-- A constant's name, levels and type, read. -/
-@[expose] def ReadsCV (v : ConstantVal) (cv : ConLeche.ConstantVal) : Prop :=
-  toName v.name = cv.name ∧ v.levelParams.map toName = cv.levelParams ∧
-    toExprC v.type = some cv.type
+/-- `cs` is one of `E`'s declaration groups, read as the record `d`. -/
+@[expose] def ReadsGroup (E : Kernel.Environment) (cs : List Lean.ConstantInfo)
+    (d : ConLeche.Declaration) : Prop :=
+  (∀ ci ∈ cs, E.find? ci.name = some ci) ∧ toDecl cs = some d
 
-@[expose] def toHint : ReducibilityHints → ConLeche.ReducibilityHint
-  | .opaque => .opaque
-  | .abbrev => .abbrev
-  | .regular h => .regular h.toNat
-
-/-- One recursor rule, read. -/
-@[expose] def RuleReads (r : RecursorRule) (cr : ConLeche.RecRule) : Prop :=
-  toName r.ctor = cr.ctor ∧ r.nfields = cr.nfields ∧ toExprC r.rhs = some cr.rhs
-
-/-- The kind-specific part of a presentation: values (definitions),
-counts (constructors, recursors) and rule right-hand sides; theorems
-and opaques without their values (con-leche stores neither). -/
-@[expose] def KindPresents : Lean.ConstantInfo → ConLeche.ConstantInfo → Prop
-  | .axiomInfo _, c => ∃ cv, c = .axiomInfo cv
-  | .defnInfo v, c => ∃ cv val, c = .defnInfo cv val (toHint v.hints) ∧ toExprC v.value = some val
-  | .thmInfo _, c => ∃ cv, c = .thmInfo cv
-  | .opaqueInfo _, c => ∃ cv, c = .axiomInfo cv
-  | .quotInfo _, _ => True
-  | .inductInfo _, c => ∃ cv caps, c = .indInfo cv caps
-  | .ctorInfo v, c => ∃ cv, c = .ctorInfo cv v.numParams v.numFields
-  | .recInfo v, c => ∃ cv rules,
-      c = .recInfo cv (v.numParams + v.numMotives + v.numMinors + v.numIndices)
-        (v.numParams + v.numMotives + v.numMinors) rules ∧
-      v.rules.length = rules.length ∧ ∀ p ∈ v.rules.zip rules, RuleReads p.1 p.2
-
-/-- `c` presents `ci`. -/
-@[expose] def ConstPresents (ci : Lean.ConstantInfo) (c : ConLeche.ConstantInfo) : Prop :=
-  ReadsCV ci.toConstantVal c.toConstantVal ∧ KindPresents ci c
+/-- **con-leche's install of a list of records**, in order: each record's
+constants and tables pushed (`Env.pushDelta`, `declConstants`, `declTables`). -/
+@[expose] def installAll (ds : List ConLeche.Declaration) : ConLeche.Env :=
+  ds.foldl (fun L d => L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))
+    ConLeche.Env.empty
 
 /-- The constants the theorem is about: con-leche checks no unsafe
 declaration and no `partial` definition. -/
@@ -96,11 +67,14 @@ declaration and no `partial` definition. -/
   | .defnInfo v => v.safety = .safe
   | ci => ci.isUnsafe = false
 
-/-- **`L` presents `E`**: every safe constant of `E` is in `L`, and every
-constant of `L` presents one of `E`. -/
+/-- **`L` presents `E`**: `L` is con-leche's install of records that each
+read a declaration group of `E`, and every safe constant of `E` reads as a
+constant of `L` (its name and its type). -/
 @[expose] def Presents (E : Kernel.Environment) (L : ConLeche.Env) : Prop :=
-  (∀ n ci, E.find? n = some ci → SafeConst ci → ∃ c ∈ L.consts, ConstPresents ci c) ∧
-  (∀ c ∈ L.consts, ∃ n ci, E.find? n = some ci ∧ ConstPresents ci c)
+  ∃ ds : List ConLeche.Declaration,
+    (∀ d ∈ ds, ∃ cs, ReadsGroup E cs d) ∧ L = installAll ds ∧
+    ∀ n ci, E.find? n = some ci → SafeConst ci →
+      ∃ c ∈ L.consts, toName n = c.name ∧ toExprC ci.type = some c.toConstantVal.type
 
 /-! ## In range -/
 
@@ -165,16 +139,12 @@ universe w
   EnvLaws →
   ∀ (E E' : Kernel.Environment) (d : Declaration) (L : ConLeche.Env),
     SafeDecl d → DeclRangeOk d → EnvRangeOk E →
-    Presents E L → ConLeche.Model.EnvModelOk V .verified L →
+    Presents E L → ConLeche.Model.EnvModelOk V L →
     InLean.addDecl E d theoremConfig = .ok E' →
-    ∃ L', EnvRangeOk E' ∧ Presents E' L' ∧ ConLeche.Model.EnvModelOk V .verified L' ∧
+    ∃ L', EnvRangeOk E' ∧ Presents E' L' ∧ ConLeche.Model.EnvModelOk V L' ∧
       ∃ new, L'.consts = new ++ L.consts
 
 /-! ## What the target gives -/
-
-theorem ConstPresents.type {ci : Lean.ConstantInfo} {c : ConLeche.ConstantInfo}
-    (h : ConstPresents ci c) : toExprC ci.toConstantVal.type = some c.toConstantVal.type :=
-  h.1.2.2
 
 /-- **No proof of `False`**: under the target, InLean never adds a safe
 constant whose type reads as `False` to a presented environment with a
@@ -182,17 +152,14 @@ model. -/
 theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDeclSound V)
     (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
     (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
-    (hM : ConLeche.Model.EnvModelOk V .verified L)
+    (hM : ConLeche.Model.EnvModelOk V L)
     (h : InLean.addDecl E d theoremConfig = .ok E')
     {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
-    (hfalse : toExprC ci.toConstantVal.type = some (.const ConLeche.falseName [])) : False := by
-  obtain ⟨L', -, hP', hM', -⟩ := hS hlaws E E' d L hd hdr hE hP hM h
-  obtain ⟨c, hc, hpres⟩ := hP'.1 n ci hci hsafe
+    (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False := by
+  obtain ⟨L', -, ⟨ds, -, -, hread⟩, hM', -⟩ := hS hlaws E E' d L hd hdr hE hP hM h
+  obtain ⟨c, hc, -, hty⟩ := hread n ci hci hsafe
   obtain ⟨mp⟩ := hM'.nonempty
-  have hty : c.toConstantVal.type = .const ConLeche.falseName [] := by
-    have := hpres.type
-    rw [hfalse] at this
-    exact (Option.some.inj this).symm
-  exact ConLeche.Model.no_constant_of_False mp c hc hty
+  rw [hfalse] at hty
+  exact ConLeche.Model.no_constant_of_False mp c hc (Option.some.inj hty).symm
 
 end InLeanProof
