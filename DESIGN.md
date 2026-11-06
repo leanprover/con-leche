@@ -109893,3 +109893,71 @@ at one sample per 3 M instructions, final against `f99761002`, `--jobs=1`, a net
 What is not established: which declarations pay it, or which commit between `f99761002` and the final tree added
 it.  The likely source is more reduction at a use, the literal guards and the rest of lane 6's stage; this was
 not bisected.
+
+### No install phase: parse, then check (#480, lane 8; 2026-11-06)
+
+The install had become a push of what the record says, so nothing was left for it to do but stand between
+the parse and the checks.  It is gone.  The driver's phases are the parse and the check.
+
+**The index.**  After the parse and `preparePrelude`, one step reads the records (`buildIndex`,
+`Cached/StreamIndex.lean`): `declConstants` and `declTables` of each record, with a constant's counter and a
+table's record position, a name's first entry winning.  It is built once and never written.  A job's view
+(`StreamIndex.view`) is an empty local index over that frozen layer, hiding everything from the record on.
+A duplicate needs no comparison: the later record's job finds the first entry and fails `duplicate
+declaration` through the ordinary guard, at that record.  A name twice inside one record: the block's own check
+sees it (local pushes), and it never reaches an accepted run.  There is no special case for private theorems: a
+private theorem declared twice is a duplicate like any other, as before.  The view of a position answers as the
+fold's index only under name uniqueness (first entry against newest entry), which every passing job before it
+ensures (`viewTwin`, `PushChain`).  Tables are named after their record's constants (`declTables_sublist`), so
+table names are unique where constant names are, and a table's visibility is by record position, so a record with
+no constants needs no special case.
+
+**The theorem.**  `checkDecls_of_jobs` (`Verify/Cached/StreamIndex.lean`): every record's job passing is an accept
+of the fold, at `streamEnv`, what the records say.  It replaces the commit loop's evidence.  The spec fold
+`checkDecls` remains the statement, its step (`declStep`) the `And` pin and `checkDeclStepC`, which now has the
+definition, theorem and opaque arms itself.  No statement in `MainTheorem` or `Challenge` changed; an import did
+(`Cached.Installed` is now `Cached.Decls`).  The driver returns `∃ env, checkDecls … = .ok env` as a proof, so the
+list-shaped environment is never built at run time.
+
+**Deleted.**  Slots, promises, per-record tasks, the dependency walk and dependents, the scheduler (`Sched`,
+`nextReady`, `deferRecord`), the commit loop, `WRes`, `goodB`/`GoodAt`, `mispredicted`, the deferred-job distinction, the
+`PendingCheck` split, the install's pool statistics and progress lines; `Driver/ParInstall.lean`,
+`Verify/Cached/ParInstall.lean`, `Verify/Cached/Defer.lean`, `Verify/Cached/InstalledC.lean`, `Kernel/ValueCheck.lean`,
+`Verify/ValueCheck.lean`, `Model/InstallRun.lean`.  The index's counter went with them: a local index never hides
+anything now, so `FEnv.visibleBelow`, `restrictTo`, `Env.prefixTo` and the counter in a local entry are gone; only
+`FBase` has bounds.
+
+**Verdict order.**  The verdict is the first failure in fold order, without a phase in front of it: before, a
+failing guard at record 9 was reported ahead of a failing value at record 5, because guards ran in the install.
+Accept and not-accept do not move; `tests/e2e-expected.txt` needed no verdict changed.
+
+**The index build stays serial, measured.**  0.1 s of a 1.2 s parse on init-full at `--jobs=1`, 0.2 s of 1.3 s on the
+Mathlib cut (53 272 records).  Linear in the records, so about 2 s on the whole of Mathlib, against minutes of parse
+and check; the whole of Mathlib itself was not run for this.
+
+**An empty local index is not hashed into** (`FEnv.lookup`).  The first version hashed every lookup twice, once into a
+job's empty index and once into the frozen layer: init-full `--jobs=1` 385.95 G.  With the emptiness test, 382.16 G.
+
+**The block's stages return nothing for the proofs** (own commit).  `checkStructFieldSortsI`, `checkSumCtor(s)`,
+`checkBlockCtors` and `checkBlockIdxSorts` return `Unit`; `checkBlockPositivity` returns its outputs and state.  What
+the model reads of them is stated as what an accepting run establishes (`FieldSorts`, `SumCtorRun`, `SumCtorsRun`,
+`BlockCtorsRun`, `BlockIdxSortsRun`, `PositivityRun`), the sorts as witnesses from the inversions.  Each field's sort is
+still inferred where a bound is compared.  One inference remains that only proofs read: `checkBlockIdxSorts` compares
+nothing, and the model takes the index-tuple universe from its sorts.  Removing it needs those sorts from the former's
+own typing, a change to the model and outside this lane.
+
+**Cost** (`instructions:u`, one run per stream, verified, in G, against the baseline of "Phase 0"):
+
+| stream | baseline j=1 | now j=1 | delta | baseline j=8 | now j=8 | delta |
+|---|---|---|---|---|---|---|
+| init-full | 381.764 | 382.123 | +0.09 % | 392.661 | 388.118 | -1.16 % |
+| init-prelude | 1.956 | 1.925 | -1.56 % | 2.131 | 2.011 | -5.62 % |
+| app-lam | 22.080 | 22.069 | -0.05 % | 22.361 | 22.072 | -1.29 % |
+| beta-ladder | 4.847 | 4.843 | -0.09 % | 4.917 | 4.852 | -1.33 % |
+| grind-ring-5 | 15.296 | 15.333 | +0.24 % | 15.681 | 15.611 | -0.45 % |
+| let-ladder | 2.569 | 2.566 | -0.12 % | 2.646 | 2.592 | -2.03 % |
+| Mathlib cut (lane 4's record) | 337.019 | 338.281 | +0.37 % | 350.723 | 348.155 | -0.73 % |
+
+The streams under 1 G move by −1.79 % to +1.61 % at one job (absolute at most 0.003 G) and by −0.57 % to −32.85 % at
+eight, where the install's thread pool no longer starts.  Peak RSS on init-full: 0.30 GiB at one job, 0.52 GiB at
+eight.  Wall time on this shared machine, a rough note only: init-full at eight jobs, parse 0.3 s, check 5.5 s.
