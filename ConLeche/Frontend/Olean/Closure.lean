@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Frontend.Olean.Files
 public import ConLeche.Frontend.Olean.Lazy
+public import ConLeche.Frontend.Olean.Progress
 
 @[expose] public section
 
@@ -61,21 +62,29 @@ def closureOrder {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
 /-- **Load one module** for the merge, what it is in the closure's order: its private
 view, what Lean's own import outside the module system and lean4export load, its
 theorems' values left in the file (`loadView`). -/
-def loadModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (x : Name × Nat) :
-    μ (Except CheckError Loaded) := do
+def loadModule {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : ReadNotes) (total : Nat)
+    (x : Name × Nat) : μ (Except CheckError Loaded) := do
   match ← readFiles sp x.1 .private with
-  | .ok f => pure (loadView x.2 x.1 f)
+  | .ok f =>
+    let r := loadView x.2 x.1 f
+    CheckerIO.liftIO (n.moduleLoaded total (match r with
+      | .ok l => l.constants.size
+      | .error _ => 0))
+    pure r
   | .error e => pure (.error e)
 
 /-- **The closure, loaded**: its modules in Lean's order.  The load of a module needs
 nothing of any other module, so the modules are loaded by the parallel map with a stop
 (`CheckerIO.parMapExcept`: at most `jobs` modules in flight); the result is the sequential
 map's, the first failure in module order the one reported. -/
-def loadClosure {μ : Type → Type} [CheckerIO μ] (sp : SearchPath)
+def loadClosure {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (n : ReadNotes)
     (roots : Array Name) (jobs : Nat := 1) : μ (Except CheckError (Array Loaded)) := do
+  CheckerIO.liftIO (n.say "tracing the import closure")
   match ← closureOrder sp roots with
   | .error e => pure (.error e)
   | .ok order =>
-    return (← CheckerIO.parMapExcept jobs (loadModule sp) order.toList.zipIdx).map List.toArray
+    CheckerIO.liftIO (n.say s!"loading {order.size} modules")
+    return (← CheckerIO.parMapExcept jobs (loadModule sp n order.size)
+      order.toList.zipIdx).map List.toArray
 
 end ConLeche.Frontend.Olean

@@ -541,8 +541,8 @@ theorem mapExcept_ok₂ {α β ε γ : Type} {f : α → ModelIO (Except ε β)}
 loaded (`loadAt`) from the files on the snapshot, whatever the job count: what a theorem's
 check reads comes from those files too. -/
 theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option (Array Name)}
-    {jobs : Nat} {fs : FS} {rd : OleanRead}
-    (h : (readOleans sp roots constants jobs : ModelIO _) fs (.ok (.ok rd))) :
+    {pace : Pace} {jobs : Nat} {fs : FS} {rd : OleanRead}
+    (h : (readOleans sp roots constants jobs pace : ModelIO _) fs (.ok (.ok rd))) :
     ∃ (order : Array Name) (ls : List Loaded) (mg : Merged) (rs : Array Name),
       (closureOrder sp roots : ModelIO _) fs (.ok (.ok order)) ∧
       ls.map (·.name) = order.toList ∧
@@ -553,23 +553,25 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
       mergeAll ls.toArray = .ok mg ∧ blocksOk mg = .ok () ∧ rootConstants mg constants = .ok rs ∧
       declsOf (emitAll mg rs) = .ok rd.decls ∧
       rd.values = ls.toArray.map (fun l => ⟨l.name, l.frontier⟩) ∧ rd.merged = mg := by
-  simp only [readOleans, loadClosure, ModelIO.bind_ok] at h
-  obtain ⟨x, ⟨o, ho, hx⟩, h⟩ := h
+  simp only [readOleans, loadClosure, ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at h
+  obtain ⟨n, x, ⟨_, o, ho, hx⟩, h⟩ := h
   rcases o with e | order
   · simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
     subst hx
     simp at h
-  · simp only [ModelIO.bind_ok] at hx
-    obtain ⟨y, hy, hx⟩ := hx
+  · simp only [ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at hx
+    obtain ⟨_, y, hy, hx⟩ := hx
     simp only [ModelIO.pure_iff, Except.ok.injEq] at hx
     subst hx
     rcases y with e | ls
     · simp [Except.map] at h
-    · simp only [Except.map] at h
+    · simp only [Except.map, ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at h
+      obtain ⟨_, h⟩ := h
       cases hm : mergeAll ls.toArray with
       | error e => simp [hm] at h
       | ok mg =>
-        simp only [hm] at h
+        simp only [hm, ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at h
+        obtain ⟨_, h⟩ := h
         cases hc : blocksOk mg with
         | error e => simp [hc] at h
         | ok u =>
@@ -577,12 +579,13 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
         cases hr : rootConstants mg constants with
         | error e => simp [hr] at h
         | ok rs =>
-          simp only [hr] at h
+          simp only [hr, ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at h
+          obtain ⟨_, h⟩ := h
           cases hd : declsOf (emitAll mg rs) with
           | error e => simp [hd] at h
           | ok ds =>
           simp only [hd, ModelIO.pure_iff, Except.ok.injEq] at h
-          have hF : (mapExcept (loadModule sp) order.toList.zipIdx : ModelIO _) fs (.ok (.ok ls)) := hy
+          have hF : (mapExcept (loadModule sp n order.size) order.toList.zipIdx : ModelIO _) fs (.ok (.ok ls)) := hy
           obtain ⟨h1, h2⟩ := mapExcept_ok₂ (g := Loaded.name) (g' := Prod.fst)
             (Q := fun x l => x.1 = l.name ∧ ∃ f, (readFiles sp x.1 .private : ModelIO _) fs (.ok (.ok f)) ∧
                 loadAt x.2 x.1 f = some l) (fun x l hl => by
@@ -590,7 +593,9 @@ theorem readOleans_ok {sp : SearchPath} {roots : Array Name} {constants : Option
             obtain ⟨z, hz, hl⟩ := hl
             rcases z with e | f
             · simp at hl
-            · simp only [loadView, ModelIO.pure_iff, Except.ok.injEq] at hl
+            · simp only [ModelIO.bind_ok, ModelIO.liftIO_iff, true_and] at hl
+              obtain ⟨_, hl⟩ := hl
+              simp only [loadView, ModelIO.pure_iff, Except.ok.injEq] at hl
               split at hl
               · rename_i l' hl'
                 cases hl

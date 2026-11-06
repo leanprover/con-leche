@@ -64,7 +64,7 @@ theorem parseArgs_flag {s : String} (rest : List String) (a : Args) (h1 : s ≠ 
     (h2 : s ≠ "--verified") (h3 : s ≠ "--trusted") (h4 : s ≠ "--progress") (h5 : s ≠ "--olean") :
     parseArgs (s :: rest) a =
       if let some v := flagValue "--progress=" s then
-        match progressStride v with
+        match progressPace v with
         | .ok n => parseArgs rest { a with progress := n }
         | .error msg => { a with bad := some msg }
       else if let some v := flagValue "--jobs=" s then

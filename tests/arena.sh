@@ -535,10 +535,10 @@ echo "prelude counts: $prelude_ok/$prelude_total as expected"
 # heartbeat is printed between the steps of the driver whose result
 # carries the proof that `checkDecls` returns its environment, so the
 # flag changes no verdict by construction.  The contract checked here:
-# the lane prints one line SHAPE per phase — `install <i>/<N> <decl>`
+# the lane prints one line SHAPE per phase — `install <i> (<percent>%) <decl>`
 # BEFORE every declaration at stride 1 (the localisation mode: a run
 # dying in the install phase names the declaration it died in on its
-# last line) and `check <done>/<M> <decl>` AFTER every completed check
+# last line) and `check <done> (<percent>%) <decl>` AFTER every completed check
 # (M = the recorded checks, below N) — bracketed in order by `parse
 # done`, `install done` (naming M), `check done` and the `done:`
 # summary (the three phase durations and the worker count); it prints
@@ -566,7 +566,7 @@ prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: install [0-9]')
 # one install line per FOLD record: the stream's records after the
 # built-in prelude's (task #191) — the total the `install done: N/N`
 # line names; the verdict line counts the stream's records only
-prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: [0-9]*\/\([0-9]*\) .*/\1/p')
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: \([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the flag" \
@@ -620,7 +620,7 @@ prog_check "--progress composes with --trusted in either order" \
 prog_errJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_outJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_codeJ=$?
-prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\)\/.*/\1/p' | tr '\n' ' ')
+prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\) (.*/\1/p' | tr '\n' ' ')
 prog_orderJ=$(printf '%s\n' "$prog_errJ" | sed -n \
   -e 's/^con-leche: parse done: .*/P/p' \
   -e 's/^con-leche: install done: .*/I/p' \
@@ -635,6 +635,32 @@ prog_check "--jobs=4 --progress=1 reports every check once, counting up" \
 prog_check "--jobs=4 --progress=1 brackets the run in order, naming the workers" \
   "$(printf '%s' "$prog_orderJ" | grep -q '^Pi*Ic*CD$' && echo ok)"
 # a bad stride is a USAGE error (exit 3), not a silently degraded run
+# the other paces (task #484): per percent of a phase, and by the clock; each phase says when
+# it starts at any pace
+prog_lines() { printf '%s\n' "$1" | grep -c "$2"; }
+prog_errP=$(timeout 120 "$BIN" --jobs=1 --progress=50% "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=50%: two check lines" \
+  "$([ "$(prog_lines "$prog_errP" '^con-leche: check [0-9]')" = 2 ] && echo ok)"
+prog_errN=$(timeout 120 "$BIN" --jobs=4 --progress=2 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=2: the check lines name no declaration, and no check this young" \
+  "$(printf '%s\n' "$prog_errN" | grep -q '^con-leche: check [0-9]* ([0-9]*%) t=.* busy=' && \
+     ! printf '%s\n' "$prog_errN" | grep '^con-leche: check [0-9]' | grep -q 'oldest' && echo ok)"
+prog_errT=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=1: a trace, every check line names its declaration" \
+  "$(printf '%s\n' "$prog_errT" | grep -q '^con-leche: check [0-9]* ([0-9]*%) [a-z]* .*, oldest ' && echo ok)"
+prog_errS=$(timeout 120 "$BIN" --jobs=1 --progress=1000s "$SPLIT_GOOD" 2>&1 >/dev/null)
+prog_check "--progress=1000s: no check line in a short run" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: check [0-9]')" = 0 ] && echo ok)"
+prog_check "--progress=1000s: it says what it is reading" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: reading ')" = 1 ] && echo ok)"
+prog_check "--progress=1000s: the install says it has started" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: install 0 ')" = 1 ] && echo ok)"
+prog_check "--progress=1000s: the check says it has started" \
+  "$([ "$(prog_lines "$prog_errS" '^con-leche: checking: ')" = 1 ] && echo ok)"
+for v in 0% 101% x% 0s xs 1.5s; do
+  timeout 120 "$BIN" --progress=$v "$SPLIT_GOOD" >/dev/null 2>&1
+  prog_check "--progress=$v is a usage error (exit 3)" "$([ $? = 3 ] && echo ok)"
+done
 timeout 120 "$BIN" --progress=x "$SPLIT_GOOD" >/dev/null 2>&1; prog_codeX=$?
 timeout 120 "$BIN" --progress=0 "$SPLIT_GOOD" >/dev/null 2>&1; prog_code0=$?
 prog_check "--progress=x is a usage error (exit 3)" \

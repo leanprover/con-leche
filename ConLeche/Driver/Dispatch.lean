@@ -22,14 +22,14 @@ open ConLeche
 /-- **A run's request**: the driver and its configuration. -/
 inductive Req where
   /-- a lean4export stream (`checkMainG` on `.ndjson`) -/
-  | stream (file : String) (mode : CheckMode) (stride jobs : Nat)
+  | stream (file : String) (mode : CheckMode) (pace : Pace) (jobs : Nat)
   /-- the import closure of root modules (`checkMainG` on `.oleans`) -/
   | oleans (searchPath : List System.FilePath) (roots : Array Name)
-      (constants : Option (Array Name)) (mode : CheckMode) (stride jobs : Nat)
+      (constants : Option (Array Name)) (mode : CheckMode) (pace : Pace) (jobs : Nat)
 
 /-- **A request run** by its driver. -/
 def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
-  | .stream file mode stride jobs => checkMainG (.ndjson file) mode stride jobs
-  | .oleans sp roots cs mode stride jobs => checkMainG (.oleans sp roots cs) mode stride jobs
+  | .stream file mode pace jobs => checkMainG (.ndjson file) mode pace jobs
+  | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
 
 end ConLeche.Driver

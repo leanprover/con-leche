@@ -55,18 +55,28 @@ namespace ConLeche.Driver
 open ConLeche
 
 
-/-- The progress heartbeat's stride, read off the `--progress[=<stride>]`
-flag.  No flag is off; bare `--progress` is stride 1.  A value that is
-not a decimal numeral, and `0` — the flag asking for no heartbeat —
+/-- The progress heartbeat's pace, read off the `--progress[=N|P%|Ss]`
+flag: every `N` declarations, per `P` percent of a phase, or at the first
+one done after `S` seconds (`Pace`).  No flag is off; bare `--progress` is every
+one.  A value of another form, and a zero — the flag asking for no heartbeat —
 are usage errors (exit 3): a run's output must be readable off its
 invocation, never silently degraded. -/
-def progressStride (v : String) : Except String Nat :=
-  match v.toNat? with
-  | some 0 => .error "--progress takes a declaration stride of at least 1 \
-      (a decimal numeral); omit the flag for no heartbeat"
-  | some n => .ok n
-  | none => .error s!"--progress takes a declaration stride \
-      (a decimal numeral of at least 1), got {Display.str v}"
+def progressPace (v : String) : Except String Pace :=
+  let bad : Except String Pace := .error s!"--progress takes a number of declarations of at \
+    least 1, a percentage from 1% to 100%, or seconds of at least 1s, got {Display.str v}; \
+    omit the flag for no heartbeat"
+  if v.endsWith "%" then
+    match (v.dropEnd 1).toString.toNat? with
+    | some p => if 1 ≤ p && p ≤ 100 then .ok (.percent p) else bad
+    | none => bad
+  else if v.endsWith "s" then
+    match (v.dropEnd 1).toString.toNat? with
+    | some 0 | none => bad
+    | some s => .ok (.seconds s)
+  else
+    match v.toNat? with
+    | some 0 | none => bad
+    | some n => .ok (.every n)
 
 /-- The worker count, read off the `--jobs=<n>` flag: a decimal numeral
 of at least 1 (`1` is the sequential lane — one worker, no shared
@@ -113,7 +123,8 @@ def helpText : String := String.intercalate "\n" [
   "  --verified          Check in the mode the soundness theorem covers (default)",
   "  --trusted           Skip the checks only the proof needs; outside the theorem",
   "  --jobs=N            Worker threads (default: one per hardware thread)",
-  "  --progress[=N]      Report progress on stderr every N declarations (default 1)",
+  "  --progress[=PACE]   Report progress on stderr: PACE is N declarations",
+  "                      (default 1), P% of each phase, or Ss seconds",
   "  --help              Print this help and exit",
   "  --                  End of options",
   "",
@@ -134,9 +145,9 @@ def helpText : String := String.intercalate "\n" [
 
 structure Args where
   mode : ConLeche.CheckMode := .verified
-  /-- The progress heartbeat's stride (`--progress[=<stride>]`); `0`
-  is "no flag given", i.e. no heartbeat. -/
-  progress : Nat := 0
+  /-- The progress heartbeat's pace (`--progress[=N|P%|Ss]`); `.off` is
+  "no flag given", i.e. no heartbeat. -/
+  progress : Pace := .off
   /-- The check phase's worker count (`--jobs=<n>`); `none` is "no flag
   given": one worker per hardware thread. -/
   jobs : Option Nat := none
@@ -175,14 +186,14 @@ def parseArgs : List String → Args → Args
   -- `--verified`/`--trusted`, and independent of them — it turns on
   -- the heartbeat the ONE driver prints between the steps of its two
   -- phases (`installLoop`/`checkPool`), which is the same driver, at
-  -- the same mode, as a run without it.  Bare is stride 1;
-  -- `--progress=<n>` is the general form (below, with the other
+  -- the same mode, as a run without it.  Bare is every declaration;
+  -- `--progress=<pace>` is the general form (below, with the other
   -- `=`-carrying spellings).
-  | "--progress" :: rest, a => parseArgs rest { a with progress := 1 }
+  | "--progress" :: rest, a => parseArgs rest { a with progress := .every 1 }
   | "--olean" :: rest, a => parseArgs rest { a with olean := true }
   | s :: rest, a =>
     if let some v := flagValue "--progress=" s then
-      match progressStride v with
+      match progressPace v with
       | .ok n => parseArgs rest { a with progress := n }
       | .error msg => { a with bad := some msg }
     else if let some v := flagValue "--jobs=" s then

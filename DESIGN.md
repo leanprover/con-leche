@@ -109149,3 +109149,36 @@ CFSG's closure not measured.
 **Follow-ups, not done.**  The stream reader (the maintainer's idea: line boundaries, then the roots).
 Workers read a module's files again each (61 000 reads for 11 000 modules on Mathlib, 2 % of the
 worker time).  CFSG is the maintainer's to run.
+
+## TASK #484 — what `--progress` says while the `.olean` files are read (2026-11-05, agent/484-read-progress)
+
+**The task (maintainer).**  CFSG's 200 GB of `.olean` files do not load within 50 GB, and nothing says
+where it fails: the whole read comes before the first `--progress` line.  It should say what it is doing,
+not every module traced, but that it is tracing imports.
+
+**What it says.**  `ConLeche/Frontend/Olean/Progress.lean`: `read:` lines, each with the time and `VmRSS`:
+the import closure being traced, the modules being loaded, a line per twentieth of them, the merge, the
+blocks' check, the emission.  `IO` actions through `liftIO`, so that `readOleans` at any `stride` has the
+one model, and `readOleans_ok` needed only its peeling extended.  The walk over the imports itself has no
+line per module, as asked: its proof (`closureGo_ok`) would have to carry one for no gain.
+
+**The pace (maintainer).**  `--progress[=N|P%|Ss]`: `Pace` (`ConLeche/Frontend/Pace.lean`) in place of a
+stride.  Simple on purpose: a line comes when an item finishes, so `10s` is not strictly every ten
+seconds, and a long check or a step with no items is silent until it ends; for that every phase says when
+it starts (`reading`, `read:`, the install's first line, `checking`).  The install's loop, which
+another lane is removing, keeps a plain stride derived from the pace (`Pace.strideFor`), so at seconds
+it prints its first line alone.
+
+The load's and the check's lines give a count and a percentage (`read: loaded 71906 modules (30%)`,
+`check 322101 (41%) <decl>`), the total being on the phase's first line just above: long numbers are hard
+to read (maintainer).  The install's lines now follow suit (maintainer), a small edit in the one print of a phase another
+lane is removing.
+
+A line of the check or the install names its declaration only at `--progress=1`, a trace; at any other pace it is an
+arbitrary one.  The oldest check in flight is named there too, and elsewhere once it has run for 10 s,
+when it is news (maintainer: two long names per line are noise).
+
+During the load, `--progress=N` counts the constants loaded, each module's being at hand, so that it
+means one thing along a run (maintainer); a percentage and the clock go by modules, as the constants' total
+is not known yet.  Bare, a line per module.
+

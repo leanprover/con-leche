@@ -61,10 +61,14 @@ def Installed.jobs {mode : ConLeche.CheckMode} {ds : Array ConLeche.Declaration}
   ⟨i.run.p.2.1, i.run.p.2.2, i.run.D, i.order⟩
 
 /-- A heartbeat line (`--progress`). -/
-def beat (err : IO.FS.Stream) (stride : Nat) (line : String) : IO Unit := do
-  if stride > 0 then
+def beat (err : IO.FS.Stream) (pace : Pace) (line : String) : IO Unit := do
+  if pace.on then
     err.putStr s!"con-leche: {line}\n"
     err.flush
+
+/-- The first line of a run: what it is reading. -/
+def readStarts (pace : Pace) (label : String) : IO Unit := do
+  beat (← IO.getStderr) pace s!"reading {label}"
 
 /-- The persistent mark of what the check phase reads (`installAndMark` says why). -/
 def markJobs (fe : ConLeche.FEnv) (pend : Array ConLeche.Cached.PendingCheck)
@@ -78,21 +82,21 @@ commit thread at `--jobs=<n>`, none at `--jobs=1`), its heartbeat, and the persi
 at the phase boundary.  A failed install prints its summary here.  `joinWorkers` holds the
 join of the install's workers, once they are started: the caller's on every path out, at
 the very end. -/
-def installAndMark (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+def installAndMark (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (total t0 tParse jobs : Nat)
     (instRepR : IO.Ref (IO PoolRep)) (joinWorkers : IO.Ref (BaseIO Unit))
     (ds : Array ConLeche.Declaration) (instLabel : Nat → String) :
     IO (Except (ConLeche.CheckError × Nat) (Installed mode ds)) := do
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
   -- the install's worker count: none at `--jobs=1`, where the commit
   -- thread installs every record itself
-  let installed ← installPhase mode err stride total t0 (if jobs ≤ 1 then 0 else jobs)
+  let installed ← installPhase mode err (pace.strideFor total) total t0 (if jobs ≤ 1 then 0 else jobs)
     instRepR joinWorkers ds
   match installed with
   | .error e =>
     let now ← IO.monoMsNow
-    beat err stride s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
+    beat err pace s!"install failed at {e.2}/{total} t={secs (now - t0)}s \
       (install {secs (now - tParse)}s)"
-    beat err stride s!"done: parse {secs (tParse - t0)}s, install {secs (now - tParse)}s, \
+    beat err pace s!"done: parse {secs (tParse - t0)}s, install {secs (now - tParse)}s, \
       check not reached t={secs (now - t0)}s"
     printStats err (tParse - t0) (now - tParse) none (← (← instRepR.get)) instLabel none (fun _ => "")
     return .error e
@@ -100,7 +104,7 @@ def installAndMark (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride tota
     let tCheck ← IO.monoMsNow
     let i : Installed mode ds := ⟨tCheck, dr, ConLeche.Cached.jobOrder dr.p.2.2 dr.D, rfl⟩
     let J := i.jobs
-    beat err stride s!"install done: {total}/{total} declarations installed, \
+    beat err pace s!"install done: {total} declarations installed, \
       {J.order.size} checks pending ({dr.D.size} of them inductive blocks) t={secs (tCheck - t0)}s \
       (install {secs (tCheck - tParse)}s)"
     -- **THE PERSISTENT MARK AT THE PHASE BOUNDARY.**  The installed
@@ -138,12 +142,14 @@ def installAndMark (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride tota
     -- them; there are few block checks, their counts stay atomic)
     markJobs J.fe J.pend J.order
     let tMark ← IO.monoMsNow
-    beat err stride s!"persistent mark {secs (tMark - tCheck)}s"
+    beat err pace s!"persistent mark {secs (tMark - tCheck)}s"
+    beat err pace s!"checking: {J.order.size} jobs on {max 1 (min jobs J.order.size)} workers \
+      t={secs (tMark - t0)}s"
     return .ok i
 
 /-- **The end of the check phase**, whatever its result: the heartbeat's lines, the summary
 with the three phase durations, and the statistics. -/
-def checkDone (err : IO.FS.Stream) (stride t0 tParse tCheck jobs : Nat) (J : Jobs)
+def checkDone (err : IO.FS.Stream) (pace : Pace) (t0 tParse tCheck jobs : Nat) (J : Jobs)
     (instRepR : IO.Ref (IO PoolRep)) (instLabel : Nat → String) (chkRep : PoolRep)
     (failure : Option (ConLeche.CheckError × Nat)) : IO Unit := do
   let secs (ms : Nat) : String := ConLeche.Cached.msSecs ms
@@ -151,12 +157,12 @@ def checkDone (err : IO.FS.Stream) (stride t0 tParse tCheck jobs : Nat) (J : Job
   let workers := max 1 (min jobs J.order.size)
   match failure with
   | some e' =>
-    beat err stride s!"check failed at fold position {e'.2} t={secs (now - t0)}s \
+    beat err pace s!"check failed at fold position {e'.2} t={secs (now - t0)}s \
       (check {secs (now - tCheck)}s)"
   | none =>
-    beat err stride s!"check done: {J.order.size}/{J.order.size} t={secs (now - t0)}s \
+    beat err pace s!"check done: {J.order.size} jobs t={secs (now - t0)}s \
       (check {secs (now - tCheck)}s)"
-  beat err stride s!"done: parse {secs (tParse - t0)}s, install {secs (tCheck - tParse)}s, \
+  beat err pace s!"done: parse {secs (tParse - t0)}s, install {secs (tCheck - tParse)}s, \
     check {secs (now - tCheck)}s, {workers} worker{if workers = 1 then "" else "s"} \
     t={secs (now - t0)}s"
   printStats err (tParse - t0) (tCheck - tParse) (some (now - tCheck)) (← (← instRepR.get))
@@ -202,7 +208,7 @@ times, each pool's utilisation and tail, the slowest installs and
 checks, the peak resident set.  Performance-only: printed after the
 verdict is known, from timings the loops accumulate beside their
 proofs; stdout and the exit code do not see them. -/
-def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total t0 tParse jobs : Nat)
+def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (total t0 tParse jobs : Nat)
     (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat)
       { env : ConLeche.Env // ConLeche.Cached.checkDecls mode ConLeche.natOpPinSets ds = .ok env }) := do
@@ -212,17 +218,17 @@ def checkDeclsIO (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride total 
   -- they are started
   let joinWorkers ← IO.mkRef (pure () : BaseIO Unit)
   try
-    match ← installAndMark mode err stride total t0 tParse jobs instRepR joinWorkers ds
+    match ← installAndMark mode err pace total t0 tParse jobs instRepR joinWorkers ds
         (recordLabel ds) with
     | .error e => return .error e
     | .ok i =>
-      let (chkRep, res) ← checkPool mode err stride t0 jobs i.jobs
+      let (chkRep, res) ← checkPool mode err pace t0 jobs i.jobs
       match res with
       | .error e' =>
-        checkDone err stride t0 tParse i.tCheck jobs i.jobs instRepR (recordLabel ds) chkRep (some e')
+        checkDone err pace t0 tParse i.tCheck jobs i.jobs instRepR (recordLabel ds) chkRep (some e')
         return .error e'
       | .ok ⟨hall⟩ =>
-        checkDone err stride t0 tParse i.tCheck jobs i.jobs instRepR (recordLabel ds) chkRep none
+        checkDone err pace t0 tParse i.tCheck jobs i.jobs instRepR (recordLabel ds) chkRep none
         -- every deferred block check passed: the serial fold's run
         let e : ConLeche.Cached.InstalledEnv mode ConLeche.natOpPinSets ds.toList :=
           ⟨i.run.p.2.1, i.run.p.2.2, ⟨i.run.p.1, i.run.run hall.2⟩⟩
@@ -241,7 +247,7 @@ The check phase of an `--olean` run reads files, through the class
 /-- An `--olean` run's output and its install's report and workers. -/
 structure OleanRun where
   err : IO.FS.Stream
-  stride : Nat
+  pace : Pace
   total : Nat
   t0 : Nat
   tParse : Nat
@@ -249,14 +255,14 @@ structure OleanRun where
   instRepR : IO.Ref (IO PoolRep)
   joinWorkers : IO.Ref (BaseIO Unit)
 
-def OleanRun.new (stride total t0 tParse jobs : Nat) : IO OleanRun := do
-  return { err := ← IO.getStderr, stride, total, t0, tParse, jobs,
+def OleanRun.new (pace : Pace) (total t0 tParse jobs : Nat) : IO OleanRun := do
+  return { err := ← IO.getStderr, pace, total, t0, tParse, jobs,
            instRepR := ← IO.mkRef (pure default), joinWorkers := ← IO.mkRef (pure ()) }
 
 /-- The install, up to the check phase (`installAndMark`). -/
 def OleanRun.install (run : OleanRun) (mode : ConLeche.CheckMode) (ds : Array ConLeche.Declaration) :
     IO (Except (ConLeche.CheckError × Nat) (Installed mode ds)) :=
-  installAndMark mode run.err run.stride run.total run.t0 run.tParse run.jobs run.instRepR
+  installAndMark mode run.err run.pace run.total run.t0 run.tParse run.jobs run.instRepR
     run.joinWorkers ds (recordLabel ds)
 
 /-- What every worker reads of the read, marked persistent as the install's result is
@@ -268,7 +274,7 @@ def markShared {α : Type} (x : α) : IO Unit := do
 def OleanRun.pool {α : Type} (run : OleanRun) (workers : Nat) (values : α) :
     IO (PoolLive × Nat) := do
   markShared values
-  let pl ← PoolLive.new run.stride workers
+  let pl ← PoolLive.new run.pace workers
   return (pl, ← IO.monoNanosNow)
 
 /-- The check phase's end (`checkDone`); `sts` the workers' statistics. -/
@@ -276,7 +282,7 @@ def OleanRun.done (run : OleanRun) (ds : Array ConLeche.Declaration) (tCheck tSt
     (J : Jobs) (sts : List WStats) (failure : Option (ConLeche.CheckError × Nat)) : IO Unit := do
   let tEnd ← IO.monoNanosNow
   let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd, stats := sts.toArray }
-  checkDone run.err run.stride run.t0 run.tParse tCheck run.jobs J run.instRepR (recordLabel ds)
+  checkDone run.err run.pace run.t0 run.tParse tCheck run.jobs J run.instRepR (recordLabel ds)
     rep failure
 
 /-- The join of the install's workers: on every path out, at the very end
@@ -287,7 +293,7 @@ def OleanRun.join (run : OleanRun) : IO Unit := do
 /-- A job ended on worker `w`: its time, and if it passed its heartbeat (`jobEnd`). -/
 def OleanRun.jobEnded (run : OleanRun) (J : Jobs) (pl : PoolLive) (w t ts : Nat) (st : WStats)
     (ok : Bool) : IO WStats := do
-  if ok then jobEnd run.err run.stride run.t0 J pl w t ts st
+  if ok then jobEnd run.err run.pace run.t0 J pl w t ts st
   else
     let te ← IO.monoNanosNow
     return st.add t ts te

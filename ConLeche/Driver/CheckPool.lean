@@ -4,6 +4,7 @@ public import ConLeche.Verify.Cached.Defer
 public import Std.Sync.Mutex
 public import ConLeche.Driver.Stats
 public import ConLeche.Frontend.CheckerIO
+public import ConLeche.Frontend.Pace
 
 /-!
 # Phase B: the check pool
@@ -106,30 +107,30 @@ def jobLabel (J : Jobs) (t : Nat) : String :=
     | none => s!"check {t}"
   | none => s!"check {t}"
 
-/-- The check phase's heartbeat: on the `stride`-th completed check
-(`n` completed so far, job `t` the one just completed), one line
-naming it.  The counter is the number of COMPLETED checks, so in the
+/-- The check phase's heartbeat: when `pace` says a line is due, with `n`
+checks completed so far, job `t` the one just completed, one line,
+naming it if every check gets one (`Pace.trace`).  The counter is the number of COMPLETED checks, so in the
 pool it is monotone whichever worker finished, and the line is printed
 after the check rather than before it: a check that is running is not
 on any line, the gap between two lines is where it sits.  In the pool
 (`live`), the line ends with the number of busy workers and the oldest
 check in flight with its age (`Live.report`). -/
-def checkHeartbeat (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs)
-    (live : Option Live) (n t : Nat) : IO Unit := do
-  if stride > 0 && n % stride == 0 then
+def checkHeartbeat (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (J : Jobs)
+    (last : IO.Ref Nat) (live : Option Live) (n t : Nat) : IO Unit := do
+  if ← pace.due last n J.order.size then
     let now ← IO.monoMsNow
     let extra ← match live with
-      | some lv => lv.report (jobLabel J)
+      | some lv => lv.report (jobLabel J) (if pace.trace then 0 else oldestAge)
       | none => pure ""
-    let l := match J.order[t]? with
+    let l := if !pace.trace then "" else match J.order[t]? with
       | some (false, k) => match J.pend[k]? with
-        | some p => s!"{p.vg.kind.word} {p.vg.cv.name}"
-        | none => s!"check {t}"
+        | some p => s!" {p.vg.kind.word} {p.vg.cv.name}"
+        | none => s!" check {t}"
       | some (true, k) => match J.D[k]? with
-        | some b => s!"inductive {b.name}"
-        | none => s!"check {t}"
-      | none => s!"check {t}"
-    err.putStr s!"con-leche: check {n}/{J.order.size} {l} \
+        | some b => s!" inductive {b.name}"
+        | none => s!" check {t}"
+      | none => s!" check {t}"
+    err.putStr s!"con-leche: check {n} ({n * 100 / max 1 J.order.size}%){l} \
       t={ConLeche.Cached.msSecs (now - t0)}s{extra}\n"
     err.flush
 
@@ -152,45 +153,47 @@ jobs. -/
 structure PoolLive where
   done : Std.Mutex Nat
   live : Option Live
+  /-- when the last line was -/
+  last : IO.Ref Nat
 
 /-- The heartbeat's lane, for `workers` workers. -/
-def PoolLive.new (stride workers : Nat) : IO PoolLive := do
+def PoolLive.new (pace : Pace) (workers : Nat) : IO PoolLive := do
   let done ← Std.Mutex.new 0
-  let live ← if workers > 1 then some <$> Live.new (if stride > 0 then workers else 0)
+  let live ← if workers > 1 then some <$> Live.new (if pace.on then workers else 0)
     else pure none
-  return ⟨done, live⟩
+  return ⟨done, live, ← Pace.clock⟩
 
 /-- A job starts on worker `w`: the clock, and on the heartbeat lane the job it is on. -/
-def jobBegin (pl : PoolLive) (stride w t : Nat) : IO Nat := do
+def jobBegin (pl : PoolLive) (pace : Pace) (w t : Nat) : IO Nat := do
   let ts ← IO.monoNanosNow
-  if stride > 0 then
+  if pace.on then
     if let some lv := pl.live then lv.begin w t ts
   return ts
 
 /-- A job ended well on worker `w`: on the heartbeat lane the completed-count is bumped
 and its line printed under one lock, so the lines count up.  Its time, into the worker's
 statistics. -/
-def jobEnd (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs) (pl : PoolLive) (w t ts : Nat)
+def jobEnd (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (J : Jobs) (pl : PoolLive) (w t ts : Nat)
     (st : WStats) : IO WStats := do
   let te ← IO.monoNanosNow
-  if stride > 0 then
+  if pace.on then
     if let some lv := pl.live then lv.idle w
     pl.done.atomically do
       let n ← modifyGet fun d => (d + 1, d + 1)
-      checkHeartbeat err stride t0 J pl.live n t
+      checkHeartbeat err pace t0 J pl.last pl.live n t
   return st.add t ts te
 
 /-- One job of the pool, on worker `s.1`: run and timed (the job is forced before the
 clock, by the branch on its result). -/
-def checkStep (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 : Nat) (J : Jobs)
+def checkStep (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 : Nat) (J : Jobs)
     (pl : PoolLive) (s : Nat × WStats) (t : Nat) : IO ((Nat × WStats) × JRes mode J) := do
-  let ts ← jobBegin pl stride s.1 t
+  let ts ← jobBegin pl pace s.1 t
   let r := runAt mode J t
   if r matches .error _ then
     let te ← IO.monoNanosNow
     return ((s.1, s.2.add t ts te), r)
   else
-    let st ← jobEnd err stride t0 J pl s.1 t ts s.2
+    let st ← jobEnd err pace t0 J pl s.1 t ts s.2
     return ((s.1, st), r)
 
 /-- A pool's name in the statistics. -/
@@ -207,15 +210,15 @@ temporaries scattered through it, which costs a factor of two in wall time at Ma
 scale for the same instructions.  A worker that fails as an `IO` action (not a check
 failing) is an internal error, exit 3, never a verdict.  Beside the result, the pool's
 timing report (`PoolRep`, performance-only). -/
-def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (stride t0 jobs : Nat) (J : Jobs) :
+def checkPool (mode : ConLeche.CheckMode) (err : IO.FS.Stream) (pace : Pace) (t0 jobs : Nat) (J : Jobs) :
     IO (PoolRep × Except (ConLeche.CheckError × Nat) (PLift (JAll mode J))) := do
   let m := J.order.size
   let workers := max 1 (min jobs m)
-  let pl ← PoolLive.new stride workers
+  let pl ← PoolLive.new pace workers
   let tStart ← IO.monoNanosNow
   try
     let (ss, res) ← parMapWorkersIO jobs (fun w => (w, ({} : WStats)))
-      (checkStep mode err stride t0 J pl) (List.range m)
+      (checkStep mode err pace t0 J pl) (List.range m)
     let tEnd ← IO.monoNanosNow
     let rep : PoolRep := { name := poolName workers, workers, tStart, tEnd,
                            stats := (ss.map (·.2)).toArray }
