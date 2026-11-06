@@ -110319,3 +110319,36 @@ master's parse 13.1 s, install 7.3 s, check 138.3 s.
 tutorial 90/92 as before, selfcheck 52 671 declarations, the trusted, `--jobs=1` and `--jobs=4`
 sweeps without divergence.  One verdict moved: the olean gate's NpAx (an axiom at `Nat.div`'s name)
 is 1 where master declined it (2), the reject its fixture describes.
+
+## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
+
+**The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
+`--olean` on Mathlib pointed at (spikes on `agent/483-rss-census`, `agent/484-rss-gap`,
+`agent/487-post480-census`, not for landing).
+
+**The finding.**  At the start of the check, master holds 2 054 MiB of live objects in 2 641 MiB resident;
+mimalloc's block list says only 10 MiB of that is allocated and unreached, and 588 MiB is free space
+inside pages, 465 MiB of it in pages of 160-1 280 B blocks: the size classes of `CEntry.uses`, one array
+per constant (794 000 of them, 277 MiB, in the merged constants), freed once the emission has read them,
+in pages that what survives keeps alive.
+
+**The change.**  `CEntry.uses` is a `Subarray` of one array per module (`usesFlat`, `Lazy.lean`), dropped
+in one piece.  The emission's proofs are abstract in `uses`, so the proof change is the load's
+(`loadAt_spec`, two lines).  The same change was measured before #480 on `agent/485-flat-sched`
+(an unlanded lane; its other half, the parallel install's schedule, went with #480).
+
+**Numbers** (Mathlib, `--verified --jobs=8`, 5 alternating rounds against master 701d72aef; two
+rounds ran at a machine load of 150-225 and are left out of the speed columns):
+
+| | peak RSS, all 5 | instr:u | cycles:u, the 3 quiet rounds | wall, the 3 quiet rounds |
+|---|---|---|---|---|
+| master | 3.29 GiB (3.20-3.32) | 7 933 G | 3 944, 3 981, 3 869 G | 124.4, 124.9, 119.3 s |
+| this lane | 3.13 GiB (3.00-3.17) | 7 931 G | 3 917, 3 863, 3 877 G | 120.5, 119.2, 119.4 s |
+
+So −0.16 GiB (−4.9 %), the same instructions and cycles.  Less than the free space suggested: what is
+left there is not all this.
+
+**Not done** (the census's other leads): the frontier's names, 1.95 million entries all but 11 of them
+constants' names, 168 MiB reached by nothing else (module copies, a canonical object after the merge would
+do); the frontier tables built by `push` (106 MiB of entries in about 150 MiB); 145 MiB free in pages of
+24 B blocks, not identified.
