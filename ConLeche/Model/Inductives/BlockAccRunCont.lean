@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.PosDerivAcc
 import ConLeche.Model.Inductives.PosDerivShape
@@ -244,7 +245,7 @@ theorem blockAccTuple_of_run {env : Env} (mp : EnvModelM V env) {F : Nat}
     {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {nodes : ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p = .ok (kinds, nfs, nodes))
+    (hrun : ConLeche.PositivityRun (fueledOps .verified F) env env.find? p kinds nfs nodes)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs) (hk : d.k = d.memberNames.length)
@@ -316,8 +317,8 @@ theorem blockAcc_of_run {F : Nat}
     {env : Env} (mp : EnvModelM V env) {d : BlockData V} {lps : List Name} {p₁ : BlockShape} {isRec : Bool} {p : BlockShape}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
     (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      p = .ok posKs)
+    (hrun : ConLeche.PositivityRun (fueledOps .verified F) env env.find?
+      p posKs.1 posKs.2.1 posKs.2.2)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
     (hread : p.members.map (·.cvT) = p.formers) (hnP : p.nP = d.nP)
     (hnIdxs : p.nIdxs = d.nIdxs) (hresS : p.resSort = d.resSort)

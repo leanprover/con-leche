@@ -1,12 +1,13 @@
 module
 
+public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Semantics.Hoist
 public import ConLeche.Model.Inductives.BlockLfpHoles
-import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.IndDomGrade
 import ConLeche.Model.Inductives.BlockData
 import ConLeche.Verify.Denote.ErasedEq
@@ -114,9 +115,9 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V env)
     (hnf : d.nfFF c j = tyN)
     {xq : List Expr × Expr} {sorts : List Level}
     (hxq : openPisAtFvars ctor.2 tyN ((p.nestCtx fvsP env.find?).hiAt 0) = some xq)
-    (hsorts : ConLeche.checkStructFieldSortsI (fueledOps .verified F) env
+    (hsorts : ConLeche.FieldSorts .verified F env
       (Level.isEquiv p.resSort .zero == some true) false p.resSort
-      ((p.nestCtx fvsP env.find?).hiAt 0) xq.1 [] ctor.2 = .ok sorts) :
+      ((p.nestCtx fvsP env.find?).hiAt 0) xq.1 [] ctor.2 sorts) :
     (DomsBelow (d.nP + d.k) (d.absF ψ c j) ∧
       ∀ e ∈ d.absE ψ c j, Term.bvarsBelow (d.nP + d.k + (d.absF ψ c j).length) e) ∧
     ∀ (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
@@ -166,7 +167,7 @@ theorem blockCtorHoleGrade_of_walk {env : Env} (mp : EnvModelM V env)
       · exfalso
         have h0 := ConLeche.Level.isEquiv_sound (beq_iff_eq.mp h) ψ
         exact hw (by show d.resSort.eval ψ = 0; rw [← hres]; simpa [Level.eval] using h0)
-    obtain ⟨hlenS, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
+    obtain ⟨hlenS, hfields⟩ := hsorts
     rw [hhi] at hxq hfields
     have hxq' : openPisAtFvars ctor.2 tyN (d.nP + d.k) = some (xq.1, xq.2) := hxq
     obtain ⟨pps, b, hst, -, -, hbind⟩ := denote_openPis ctor.2 hxq' hca
@@ -214,8 +215,8 @@ theorem blockHoleGrade_of_run {env : Env}
     {isRec : Bool}
     {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      p = .ok posKs)
+    (hrun : ConLeche.PositivityRun (fueledOps .verified F) env env.find?
+      p posKs.1 posKs.2.1 posKs.2.2)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
   (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hres : p.resSort = d.resSort)
@@ -337,8 +338,8 @@ variable {env : Env} (mp : EnvModelM V env) {F : Nat}
     FormerInEnv mp.base2 cvTb (ConLeche.blockCapsAt p₁ c isRec) ∧
     FormerData mp.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c))
   {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-  (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-    p = .ok posKs)
+  (hrun : ConLeche.PositivityRun (fueledOps .verified F) env env.find?
+    p posKs.1 posKs.2.1 posKs.2.2)
   (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
   (hread : p.members.map (·.cvT) = p.formers)
   (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)
@@ -574,8 +575,8 @@ theorem blockDeclaredShapes_of_run
     {isRec : Bool}
     {p : BlockShape} (hN : BlockNamesOk (V := V) d p.formers) (hcore : BlockHoleCtxFacts mp.base2 d lps p.formers p₁ isRec)
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find?
-      p = .ok posKs)
+    (hrun : ConLeche.PositivityRun (fueledOps .verified F) env env.find?
+      p posKs.1 posKs.2.1 posKs.2.2)
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps)
   (hread : p.members.map (·.cvT) = p.formers)
     (hnP : p.nP = d.nP) (hnIdxs : p.nIdxs = d.nIdxs)

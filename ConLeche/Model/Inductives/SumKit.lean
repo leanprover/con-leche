@@ -400,8 +400,8 @@ theorem sumCtorData_of (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₀ : Env} {caps : IndCaps}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hCtor : ConLeche.SumCtorRun .verified F env₀ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa cvCa sorts)
     (hfT : env.find? T = some (.indInfo cvS caps))
     (hlpsT : cvS.levelParams = lps) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List Term)
@@ -413,7 +413,7 @@ theorem sumCtorData_of (mp : EnvModelM V env)
         idxArgs = xrest.getAppArgs.drop nP) ∧
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
   obtain ⟨⟨heq, hccv⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopC, -, -, hopX, hlenI,
-    -, hres, hsorts⟩ := ConLeche.checkSumCtor_shape hCtor
+    -, hres, hsorts⟩ := hCtor
   obtain ⟨-, -, -, hlbt, hitf, stype, u, htp', -, hst, hens⟩ :=
     ConLeche.checkConstantVal_inv hccv
   rw [← heq] at hlbt hitf htp' hst
@@ -488,7 +488,7 @@ theorem sumCtorData_of (mp : EnvModelM V env)
     exact (bvarsBelow_mkAppN_inv hb).2 _
       (List.mem_append_right _ hE)
   -- the sources
-  obtain ⟨hlenS, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
+  obtain ⟨hlenS, hfields⟩ := hsorts
   have hspec : ∀ ψ, _ := fun ψ => Classical.choose_spec (Classical.choose_spec (hper ψ))
   refine ⟨idxArgs, fun ψ => Classical.choose (hper ψ),
     fun ψ => Classical.choose (Classical.choose_spec (hper ψ)),
@@ -611,8 +611,8 @@ theorem ctorFramesGen (mp : EnvModelM V env)
     {F : Nat} {T : Name} {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₀ : Env}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hCtor : ConLeche.SumCtorRun .verified F env₀ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa cvCa sorts)
     (hTf : cvTa.type.hasFvar = false) (hTb : cvTa.type.looseBVarsBounded 0 = true)
     (hProp : isProp = true → (Level.isEquiv resSort .zero == some true) = true)
     {ppsAll : (Name → Nat) → List Term}
@@ -646,14 +646,14 @@ theorem ctorFramesGen (mp : EnvModelM V env)
           interp V (consList as ρ) ((((ds ψ).drop nP)).getD j default)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) := by
   obtain ⟨⟨heq, hccv⟩, -, fvsP, crest, tfvs, trest, xFvs, idxArgs', hopC, hopT, hdoms, hopX,
-    -, -, -, hsorts⟩ := ConLeche.checkSumCtor_shape hCtor
+    -, -, -, hsorts⟩ := hCtor
   obtain ⟨-, -, -, hlbt, hitf, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccv
   rw [← heq] at hlbt hitf
   have htf' := hitf
   have hbt' := hlbt
   have hlenP : fvsP.length = nP := openPisAtFvars_length _ hopC
   have hopAll := openPisAtFvars_add nP hopC (by rw [Nat.zero_add]; exact hopX)
-  obtain ⟨hlenS, hfields⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
+  obtain ⟨hlenS, hfields⟩ := hsorts
   have hpins := ConLeche.checkStructDomsAt_inv hdoms
   have hlenX : xFvs.length = nF := openPisAtFvars_length _ hopX
   have hframes : ∀ ψ : Name → Nat,
@@ -1033,8 +1033,8 @@ theorem stageCtorGen {T : Name}
       caps'.etaCtor ≠ cvCa.name)
     (mp : EnvModelM V env)
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₀ env₁ T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hCtor : ConLeche.SumCtorRun .verified F env₀ env₁ T lps nP nIdx resSort
+      isProp large cvC nF cvTa cvCa sorts)
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there
     (hfresh : env.find? cvCa.name = none)
@@ -1081,7 +1081,7 @@ theorem stageCtorGen {T : Name}
       mp'.base2.acval = acvalWith mp.base2.acval cvCa.name
         (fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP))
           (uChains (Fss ψ))) := by
-  obtain ⟨⟨hty, hccv⟩, -, -⟩ := ConLeche.checkSumCtor_shape hCtor
+  obtain ⟨⟨hty, hccv⟩, -, -⟩ := hCtor
   obtain ⟨-, hnres, -, hlbt, hitf, -, -, htp, -, -, -⟩ :=
     ConLeche.checkConstantVal_inv hccv
   have htf' := hitf

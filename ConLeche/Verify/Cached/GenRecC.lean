@@ -1480,12 +1480,14 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   obtain rfl : s₁.flushed = sB := congrArg Prod.snd hflB
   simp only [mkFEnv_find?_fun, mkFEnv_env] at h
   rw [checkBlockCtorsF_eqC] at h
-  obtain ⟨sortsss, s₂, hct, h⟩ := bindC_ok h
+  obtain ⟨u₂, s₂, hct, h⟩ := bindC_ok h
+  cases u₂
   obtain ⟨hs₂, F₂, hF₂⟩ :=
-    triple_iff_run.mp (checkBlockCtorsS_spec henv₁ hMc (flushC_csok hs₁.residue)) sortsss s₂ hct
+    triple_iff_run.mp (checkBlockCtorsS_spec henv₁ hMc (flushC_csok hs₁.residue)) () s₂ hct
   have hF₂p : checkBlockCtors (fueledOps .verified F₂) env₁ env₁ p₁
-      p₁.members = .ok sortsss := by
+      p₁.members = .ok () := by
     rw [← checkBlockCtors_datF]; exact hF₂
+  obtain ⟨_, hF₂r⟩ := checkBlockCtors_inv hF₂p
   try simp only at h
   -- the walk's context
   obtain ⟨rc, sX, hX, h⟩ := bindC_ok h
@@ -1502,10 +1504,10 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
   rcases rcl with ⟨rd, Ms⟩
   try simp only at h
   -- the positivity function on the stored constructors (the root frame)
-  obtain ⟨⟨kinds, nfs, pos⟩, sK, hK, h⟩ := bindC_ok h
+  obtain ⟨⟨outs, pos⟩, sK, hK, h⟩ := bindC_ok h
   obtain ⟨hsK, FK, hFK⟩ := triple_iff_run.mp
     (checkBlockPositivityS_spec henv₁ p₁ hMc hwT
-      (checkBlockCtors_types hF₂p) hsL) (kinds, nfs, pos) sK hK
+      (checkBlockCtors_types hF₂p) hsL) (outs, pos) sK hK
   try simp only at h
   -- every outside class, walked from its state
   obtain ⟨st, sT, hT', h⟩ := bindC_ok h
@@ -1522,12 +1524,12 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
       ∃ G, F₁ ≤ G ∧ F₂ ≤ G ∧ FX ≤ G ∧ FL ≤ G ∧ FK ≤ G ∧ FT ≤ G :=
     ⟨max F₁ (max F₂ (max FX (max FL (max FK FT)))), by omega, by omega, by omega, by omega,
       by omega, by omega⟩
-  refine ⟨env₁, rfl, hsT, henv₁, hwT, checkBlockCtors_types hF₂p, checkBlockCtors_fresh hF₂p,
-    direct_block_ctors_wf henv₁ hF₂p, hMsc, hpl, G, ?_⟩
+  refine ⟨env₁, rfl, hsT, henv₁, hwT, checkBlockCtors_types hF₂p, checkBlockCtors_fresh hF₂r,
+    direct_block_ctors_wf henv₁ hF₂r, hMsc, hpl, G, ?_⟩
   have g₁ : checkBlockInds (fueledOps .verified G) env p₀ isRec = .ok (env₁, p₁) := by
     rw [← checkBlockInds_datF]; exact FueledM.up hle₁ hF₁
   have g₂ : checkBlockCtors (fueledOps .verified G) env₁ env₁ p₁
-      p₁.members = .ok sortsss := by
+      p₁.members = .ok () := by
     rw [← checkBlockCtors_datF]; exact FueledM.up hle₂ hF₂
   have gX : blockNestCtx (m := CheckM) p₁ env₁.find? = .ok (ctx, holes) := by
     rw [← blockNestCtx_datF (F := G)]; exact FueledM.up hleX hFX
@@ -1536,7 +1538,7 @@ theorem checkBlockPassS_run {env : Env} (henv : EnvWF env)
       = .ok (rd, Ms) := by
     rw [← checkBlockClasses_datF]; exact FueledM.up hleL hFL
   have gK : checkBlockPositivity (fueledOps .verified G) env₁ env₁.find?
-      p₁ = .ok (kinds, nfs, pos) := by
+      p₁ = .ok (outs, pos) := by
     rw [← checkBlockPositivity_datF]; exact FueledM.up hleK hFK
   have gT : nestSeeds (fueledOps .verified G) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st := by
     rw [← nestSeeds_datF]; exact FueledM.up hleT hFT

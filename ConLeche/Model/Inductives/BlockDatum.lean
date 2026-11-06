@@ -1,5 +1,7 @@
 module
 
+public import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.FamilyRan
 public import ConLeche.Model.Inductives.BlockAssembly
 public import ConLeche.Model.Inductives.BlockStageTables
@@ -12,7 +14,7 @@ public import ConLeche.Model.Inductives.BlockPosRun
 import ConLeche.Model.Inductives.BlockCover
 import ConLeche.Model.Inductives.BlockAccRunCont
 import ConLeche.Model.Inductives.BlockHoleFold
-import ConLeche.Verify.Inductives.BlockInv
+public import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Semantics.Inductives.DeclBlockEta
 public import ConLeche.Verify.Inductives.BlockWF
 public section
@@ -172,15 +174,14 @@ one member): the stored constant's name, level parameters, field count
 and freshness, and the sum route's run that produced it. -/
 theorem blockCtorRuns_of {envI : Env} {q : BlockShape} {F : Nat}
     {sortsss : List (List (List Level))}
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI envI q
-      q.members = .ok sortsss) :
+    (hCtors : ConLeche.BlockCtorsRun .verified F envI envI q
+      q.members sortsss) :
     ∀ (m : Nat) (cvTa : ConstantVal), m < q.k → q.formers[m]? = some cvTa →
-      ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
+      ConLeche.SumCtorsRun .verified F envI envI cvTa.name q.lps q.nP
           (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa
-          (q.members.getD m default).ctors
-        = .ok (q.memberCtors.getD m [], sortsss.getD m []) := by
+          (q.members.getD m default).ctors (q.memberCtors.getD m []) (sortsss.getD m []) := by
   intro m cvTa hm hcv
-  obtain ⟨-, hall⟩ := ConLeche.checkBlockCtors_inv hCtors
+  obtain ⟨-, hall⟩ := hCtors
   have hml : m < q.members.length := hm
   obtain ⟨ms, hms⟩ : ∃ ms, q.members[m]? = some ms := ⟨_, List.getElem?_eq_getElem hml⟩
   obtain ⟨sortss, hsA, hrun⟩ := hall m ms hms
@@ -200,9 +201,8 @@ theorem blockCtorRuns_of {envI : Env} {q : BlockShape} {F : Nat}
 `hrunOf` at a block member. -/
 theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : ConstantVal} {m : Nat}
     {ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hrun : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
-        (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa (q.members.getD m default).ctors
-      = .ok (ctorList, sortss))
+    (hrun : ConLeche.SumCtorsRun .verified F envI envI cvTa.name q.lps q.nP
+        (q.nIdxs.getD m 0) q.resSort q.isProp q.large cvTa (q.members.getD m default).ctors ctorList sortss)
     (hClps : ∀ c ∈ (q.members.getD m default).ctors, c.1.levelParams = q.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false) :
     (ctorList.length = (q.members.getD m default).ctors.length ∧
@@ -217,15 +217,16 @@ theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : Consta
         (ctor.1.type.stripPis (q.nP + ctor.2)).isSome = true ∧
         (ctor.1.type.hasFvar = false ∧
           ∃ stype, inferTypeCore .verified false envI F 0 ctor.1.type = .ok stype) ∧
-        ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
-          (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 ctor.2 cvTa = .ok (ctor.1, sorts) := by
-  obtain ⟨hlenA, hlenS, hall⟩ := ConLeche.checkSumCtors_inv hrun
+        ConLeche.SumCtorRun .verified F envI envI cvTa.name q.lps q.nP
+          (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 ctor.2 cvTa ctor.1 sorts := by
+  obtain ⟨hlenA, hlenS, hall⟩ := hrun
   refine ⟨⟨hlenA, hlenS⟩, fun j ctor hj => ?_⟩
   have hjl : j < (q.members.getD m default).ctors.length := by
     have := (List.getElem?_eq_some_iff.mp hj).1; omega
   obtain ⟨hnF, sorts, hsj, hCtor⟩ :=
     hall j ((q.members.getD m default).ctors[j]) ctor (List.getElem?_eq_getElem hjl) hj
-  obtain ⟨⟨heq, hccvC⟩, ⟨cbs, es, hstrip, -⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
+  have hCtor₀ := hCtor
+  obtain ⟨⟨heq, hccvC⟩, ⟨cbs, es, hstrip, -⟩, -⟩ := hCtor₀
   obtain ⟨hfindC, -, -, -, hfvC, stype, -, -, htrC, hstC, -⟩ :=
     ConLeche.checkConstantVal_inv hccvC
   have hmem : (q.members.getD m default).ctors[j] ∈ (q.members.getD m default).ctors :=
@@ -319,8 +320,8 @@ theorem blockEtaSide_of {env envI : Env} {q : BlockShape} {F : Nat} {isRec : Boo
     (hdcl : ∀ (j : Nat) (cvTb : ConstantVal), q.formers[j]? = some cvTb →
       ∃ cvS, dcl[j]? = some cvS ∧ cvS.name = cvTb.name)
     (hlenCv : q.formers.length = q.k)
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI envI q
-      q.members = .ok sortsss)
+    (hCtors : ConLeche.BlockCtorsRun .verified F envI envI q
+      q.members sortsss)
     (hClps : ∀ c ∈ q.allCtors, c.1.levelParams = q.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false) :
     (∀ (j j' : Nat) (cvTa cvTb : ConstantVal), q.formers[j]? = some cvTa →
@@ -451,14 +452,14 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       ConLeche.reservedBasisNames.contains c.1.name = false)
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, q))
-    (hCtors : ConLeche.checkBlockCtors (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI envI q
-      q.members = .ok sortsss)
-    (hsorts : ConLeche.checkBlockIdxSorts (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI q
-      q.members = .ok isorts)
+    (hCtors : ConLeche.BlockCtorsRun .verified F envI envI q
+      q.members sortsss)
+    (hsorts : ConLeche.BlockIdxSortsRun .verified F envI q
+      q.members isorts)
     -- the positivity stage (`DeclBlockRun` 3): U2 grades the fields with holes
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hPos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
-      envI.find? q = .ok posKs)
+    (hPos : ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
+      envI.find? q posKs.1 posKs.2.1 posKs.2.2)
     -- the input's coverage (the walk's container case reads the containers' clauses)
     (hcovIn : LfpCover mp []) (hRan : FamilyRan mp) (hx : EnvExt env envI) :
     ∃ (pk : Nat → BlockMemberPick) (uOf : Nat → (Name → Nat) → Nat)
@@ -528,8 +529,8 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
           (ctor.1.type.stripPis (q.nP + ctor.2)).isSome = true ∧
           (ctor.1.type.hasFvar = false ∧
             ∃ stype, inferTypeCore .verified false envI F 0 ctor.1.type = .ok stype) ∧
-          ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
-            (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 ctor.2 cvTa = .ok (ctor.1, sorts) :=
+          ConLeche.SumCtorRun .verified F envI envI cvTa.name q.lps q.nP
+            (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 ctor.2 cvTa ctor.1 sorts :=
     fun m cvTa hm hcv =>
       blockCtorFacts_of (hCR m cvTa hm hcv)
         (fun c hc => hClps c (hmemCtors m hm c hc))

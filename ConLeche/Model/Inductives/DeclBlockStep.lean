@@ -102,7 +102,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     have := ConLeche.checkBlockInds_teles hmem0 htele0 hteles
     rw [this, hq]
     simp [ConLeche.BlockShape.formers, ConLeche.BlockShape.k]
-  have hlenSortsss : sortsss.length = p₁.k := (ConLeche.checkBlockCtors_inv hCtors).1
+  have hlenSortsss : sortsss.length = p₁.k := (hCtors).1
   have hlenMemberCtors₀ : p₁.memberCtors.length = p₁.k := by
     simp [ConLeche.BlockShape.memberCtors, ConLeche.BlockShape.k]
   have hnames₀ : p₁.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
@@ -129,7 +129,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       exact hndDcl cv hcv) hf
   obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
     blockTablesStage_of mp hE hlps₀ hAt hndM (by rw [hq]; exact hbool₀) hndC hClps hInd hCtors hsorts
-      hPos hcov hRan hxI
+      (posKs := (kinds, nfs, nodes)) hPos hcov hRan hxI
   have hlenMemberCtors : p₁.memberCtors.length = p₁.k := hlenMemberCtors₀
   have hnames := hnames₀
   have hread : p₁.members.map (·.cvT) = p₁.formers := rfl
@@ -246,7 +246,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     obtain ⟨cvTa, hcv⟩ := hcvOfK m hm
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hctor
     obtain ⟨c, sorts, -, -, -, -, -, -, -, -, -, -, hCtor⟩ := (hfacts m cvTa hm hcv).2 j ctor hj
-    obtain ⟨-, ⟨cbs, es, hs, -⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
+    obtain ⟨-, ⟨cbs, es, hs, -⟩, -⟩ := hCtor
     exact ⟨cbs, _, List.map Level.param p₁.lps, hs, by
       rw [getAppFn_mkAppN_const, hN.1 m cvTa hcv]⟩
   -- every constructor concludes in its member at `nP + nIdx` arguments
@@ -261,7 +261,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     obtain ⟨j, hj⟩ := List.getElem?_of_mem hctor
     obtain ⟨c, sorts, -, -, -, hlpsA, -, -, -, -, -, -, hCtor⟩ :=
       (hfacts m cvTa hm hcv).2 j ctor hj
-    obtain ⟨-, ⟨cbs, es, hs, hes⟩, -⟩ := ConLeche.checkSumCtor_shape hCtor
+    obtain ⟨-, ⟨cbs, es, hs, hes⟩, -⟩ := hCtor
     refine ⟨cbs, ConLeche.structPsAt ctor.2 p₁.nP ++ es, ?_, fun ψ => ?_⟩
     · rw [hN.1 m cvTa hcv, hlpsA]; exact hs
     · have hlen := (hcoreC'.1 m cvTa hcv).2.2.2.len ψ
@@ -439,7 +439,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
           rw [← hN.2.2]; exact hN.2.1 c j ctor hj
         have hf := (hcoreC.2.2 c hck j ctor hj).1
         exact (mpC₀.base2.wf.consts _ (List.mem_of_find?_eq_some hf)).1)
-      (canonOcc_of_positivity hPos rfl rfl rfl
+      (canonOcc_of_positivity (posKs := (kinds, nfs, nodes)) hPos rfl rfl rfl
         (fun c hc => hmemberCtors c (by rw [hlenMemberCtors]; exact hc)) hlpsA)
       (fun c hc j ctor hj ψ ρ hsat =>
         ((hS.toBlockCtorsStage.frames c hc j ctor hj).1 ψ ρ).mp

@@ -259,9 +259,7 @@ theorem checkBlockPassS_push (mode : CheckMode) {env : Env} {fe : FEnv}
     rw [← h.find?]
     exact hfr ms hms
   ybind
-  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun sortsss hr => ?_
-  obtain ⟨-, hfrs⟩ := hr
-  try simp only []
+  refine Yields.bind' (checkBlockCtorsF_fresh _ fe₁ fe₁ _ _) fun _ hfrs => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun _ => ?_
   refine Yields.bind fun kinds => ?_

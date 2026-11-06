@@ -21,7 +21,7 @@ kernel's cons functions' constant lists (`consBlockInds_consts`,
 `consBlockCtors_consts`, `consBlockRecsT_consts`); and the block's own
 constructor ownership at its constructors' environment
 (`blockLfpOwn`), from the constructor check's result head
-(`checkSumCtor_shape`).
+(`SumCtorRun`).
 -/
 
 namespace ConLeche.Model
@@ -276,7 +276,7 @@ omit [SetTheory V] in
 environment**: every member's recorded constructor names
 (`IndCaps.ctors`, the member's constructors in order) look up the
 constructors the block stored, each concluding in its member (the heads
-are the check's, `checkSumCtor_shape`). -/
+are the check's, `SumCtorRun`). -/
 theorem blockLfpOwn {envC : Env} {d : BlockData V}
     {memberCtors : List (List (ConstantVal × Nat))} {lps : List Name}
     (hctorsM : ∀ c, d.ctorsM c = memberCtors.getD c [])

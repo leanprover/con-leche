@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.Inductives.BlockCtorsLoop
 import ConLeche.Model.Inductives.FormerInEnv
 import ConLeche.Model.Inductives.FixKit
@@ -165,8 +166,8 @@ structure BlockCtorsStage (F : Nat) (d : BlockData V) (lps : List Name)
   /-- every member's constructors, as checked at the formers' environment -/
   ctors : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → formersAll[m]? = some cvTa →
     ∃ (cs : List (ConstantVal × Nat)) (sortss : List (List Level)),
-      ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) envI envI cvTa.name lps d.nP (d.nIdxAt m)
-        d.resSort d.isProp d.large cvTa cs = .ok (d.ctorsM m, sortss)
+      ConLeche.SumCtorsRun .verified F envI envI cvTa.name lps d.nP (d.nIdxAt m)
+        d.resSort d.isProp d.large cvTa cs (d.ctorsM m) sortss
   nodup : ∀ m, m < d.k → ((d.ctorsM m).map (·.1.name)).Nodup
   out : ∀ (m : Nat) (cvTa : ConstantVal), m < d.k → formersAll[m]? = some cvTa →
     ∀ ctor ∈ d.ctorsM m, ∀ T'' ∈ d.memberNames, T'' ≠ cvTa.name → ctor.1.name ∉ ctorsOf T''
@@ -389,8 +390,8 @@ theorem stageBlockCtorsAt {F : Nat}
     obtain ⟨ctor, hiA, rfl⟩ := hcdMem ψ i cd hi
     exact ((hframes i ctor hiA).2 ψ ρ (((hframes i ctor hiA).1 ψ ρ).mp hρ)).1
   -- ## the member's constructors, consed
-  have hCtors' : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) envI envI (d.memberName m) lps
-      d.nP (d.nIdxAt m) d.resSort d.isProp d.large cvTa ctors = .ok (d.ctorsM m, sortss) := by
+  have hCtors' : ConLeche.SumCtorsRun .verified F envI envI (d.memberName m) lps
+      d.nP (d.nIdxAt m) d.resSort d.isProp d.large cvTa ctors (d.ctorsM m) sortss := by
     rw [hTname]; exact hCtors
   have hout' : ∀ ctor ∈ d.ctorsM m, ∀ T'' ∈ d.memberNames, T'' ≠ d.memberName m →
       ctor.1.name ∉ ctorsOf T'' := by rw [hTname]; exact hS.out m cvTa hm hcvTa

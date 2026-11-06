@@ -9,7 +9,7 @@ import ConLeche.Model.Env.CanonCrest
 import ConLeche.Model.Install
 import ConLeche.Model.Inductives.DeclaredShapes
 import ConLeche.Model.Inductives.BlockHoleRead
-import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 
@@ -146,7 +146,7 @@ stage's run** (official's uniform check `nestUniform`). -/
 theorem canonOcc_of_positivity {ops : ConLeche.CheckerOps ConLeche.CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
     {posKs : List (List (List ConLeche.NestFieldKind)) × List (List Expr) × ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity ops env₁ find? p = .ok posKs)
+    (hrun : ConLeche.PositivityRun ops env₁ find? p posKs.1 posKs.2.1 posKs.2.2)
     {d : BlockData V} {lps : List Name}
     (hnames : p.memberNames = d.memberNames) (hlps : p.lps = lps) (hnP : p.nP = d.nP)
     (hmemberCtors : ∀ c, c < d.k → p.memberCtors[c]? = some (d.ctorsM c))

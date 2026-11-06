@@ -178,15 +178,15 @@ formers and all the constructors is well-formed. -/
 theorem direct_block_ctors_wf {env₀ env₁ : Env} (henv : EnvWF env₁)
     {q : BlockShape} {l : List MemberShape} {sortsss : List (List (List Level))}
     {nP F : Nat}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env₁ q l = .ok sortsss) :
+    (h : BlockCtorsRun mode F env₀ env₁ q l sortsss) :
     EnvWF (consBlockCtors nP (l.map (·.ctors)) env₁) := by
-  obtain ⟨hlen, hall⟩ := checkBlockCtors_inv h
+  obtain ⟨hlen, hall⟩ := h
   refine envWF_consBlockCtors henv ?_
   intro ctorList hctor c hc
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hctor
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
   obtain ⟨sortss, -, hcs⟩ := hall i ms hi
-  obtain ⟨-, -, hallc⟩ := checkSumCtors_inv hcs
+  obtain ⟨-, -, hallc⟩ := hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
   obtain ⟨-, sorts, -, hctor⟩ := hallc j c c hj hj
   exact direct_sum_ctor_typeWF hctor
@@ -196,17 +196,17 @@ environment they are checked at (`checkConstantVal` rejects a name
 already there). -/
 theorem checkBlockCtors_fresh {env₀ env : Env} {q : BlockShape} {F : Nat}
     {l : List MemberShape} {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok sortsss) :
+    (h : BlockCtorsRun mode F env₀ env q l sortsss) :
     ∀ ctorList ∈ l.map (·.ctors), ∀ c ∈ ctorList, env.find? c.1.name = none := by
-  obtain ⟨-, hall⟩ := checkBlockCtors_inv h
+  obtain ⟨-, hall⟩ := h
   intro ctorList hctor c hc
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hctor
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
   obtain ⟨sortss, -, hcs⟩ := hall i ms hi
-  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
+  obtain ⟨hlenC, -, hallc⟩ := hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
   obtain ⟨-, sorts, -, hrun⟩ := hallc j c c hj hj
-  obtain ⟨⟨heq, hccv⟩, -, -⟩ := checkSumCtor_shape hrun
+  obtain ⟨⟨heq, hccv⟩, -, -⟩ := hrun
   rw [heq]
   exact (checkConstantVal_inv hccv).1
 

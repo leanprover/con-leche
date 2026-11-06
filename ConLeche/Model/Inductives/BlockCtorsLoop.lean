@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.FixKit
 public section
 
@@ -60,8 +61,8 @@ theorem blockCtorsLoop
     {ctors ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)} {cvS : ConstantVal}
     {names : List Name} {ctorsOf : Name → List Name}
     (hout : ∀ ctor ∈ ctorList, ∀ T'' ∈ names, T'' ≠ T → ctor.1.name ∉ ctorsOf T'')
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) env₀ envI T
-      lps nP nIdx resSort isProp large cvTa ctors = .ok (ctorList, sortss))
+    (hCtors : ConLeche.SumCtorsRun .verified F env₀ envI T
+      lps nP nIdx resSort isProp large cvTa ctors ctorList sortss)
     (hnd : (ctorList.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = lps)
     (hlpsA : ∀ ctor ∈ ctorList, ctor.1.levelParams = lps)

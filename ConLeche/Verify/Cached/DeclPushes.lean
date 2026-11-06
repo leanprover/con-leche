@@ -202,37 +202,6 @@ theorem checkSumTele_name (n : Nat) (cvTa₀ : ConstantVal) :
   · exact Yields.pure rfl
   · exact Yields.ofThrow
 
-theorem checkSumCtorF_name (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
-    Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
-      (fun r => r.1.name = cvC.name) := by
-  unfold checkSumCtorF
-  ybind
-  yields
-  all_goals (apply Yields.pure; rfl)
-
-/-- The constructor list's names and field counts are the block's, and
-the field-sort lists come one per constructor (task #210 Part A). -/
-theorem checkSumCtorsF_names (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
-    (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) :
-    ∀ (cs : List (ConstantVal × Nat)),
-      Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
-        (fun r => r.1.map (fun c => (c.1.name, c.2))
-          = cs.map (fun c => (c.1.name, c.2)) ∧ r.2.length = cs.length)
-  | [] => Yields.pure ⟨rfl, rfl⟩
-  | c :: cs => by
-    unfold checkSumCtorsF
-    refine Yields.bind' (checkSumCtorF_name ops fe₀ fe T lps nP nIdx rs isProp
-      large c.1 c.2 cvTa) fun q hn => ?_
-    obtain ⟨cvCa, sorts⟩ := q
-    refine Yields.bind' (checkSumCtorsF_names ops fe₀ fe T lps nP nIdx rs isProp
-      large cvTa cs) fun rest hrest => ?_
-    obtain ⟨rest, srest⟩ := rest
-    have hn' : cvCa.name = c.1.name := hn
-    exact Yields.pure ⟨by simp [hn', hrest.1], by simpa using hrest.2⟩
-
 /-! ### Freshness of the stored names -/
 
 theorem checkConstantValF_fresh (ops : CheckerOps CheckCM) (fe : FEnv)
@@ -247,37 +216,26 @@ theorem checkSumCtorF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) :
     Yields (checkSumCtorF ops fe₀ fe T lps nP nIdx rs isProp large cvC nF cvTa)
-      (fun r => r.1.name = cvC.name ∧ fe.find? cvC.name = none) := by
+      (fun _ => fe.find? cvC.name = none) := by
   unfold checkSumCtorF
   refine Yields.bind' (checkConstantValF_fresh ops fe cvC) fun _ hfr => ?_
-  yields
-  all_goals (apply Yields.pure; exact ⟨rfl, hfr⟩)
+  exact Yields.const hfr
 
 theorem checkSumCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv)
     (T : Name) (lps : List Name) (nP nIdx : Nat) (rs : Level) (isProp large : Bool)
     (cvTa : ConstantVal) :
     ∀ (cs : List (ConstantVal × Nat)),
       Yields (checkSumCtorsF ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs)
-        (fun r => r.1.map (·.1.name) = cs.map (·.1.name) ∧
-          ∀ c ∈ r.1, fe.find? c.1.name = none)
-  | [] => Yields.pure ⟨rfl, fun _ hc => nomatch hc⟩
+        (fun _ => ∀ c ∈ cs, fe.find? c.1.name = none)
+  | [] => Yields.pure fun _ hc => nomatch hc
   | c :: cs => by
     unfold checkSumCtorsF
     refine Yields.bind' (checkSumCtorF_fresh ops fe₀ fe T lps nP nIdx rs isProp
-      large c.1 c.2 cvTa) fun q hq => ?_
-    obtain ⟨cvCa, sorts⟩ := q
-    obtain ⟨hn, hfr⟩ := hq
-    refine Yields.bind' (checkSumCtorsF_fresh ops fe₀ fe T lps nP nIdx rs isProp
-      large cvTa cs) fun rest hrest => ?_
-    obtain ⟨rest, srest⟩ := rest
-    obtain ⟨hrest, hfrs⟩ := hrest
-    have hn' : cvCa.name = c.1.name := hn
-    have hrest' : rest.map (·.1.name) = cs.map (·.1.name) := hrest
-    refine Yields.pure ⟨by simp [hn', hrest'], ?_⟩
-    intro d hd
+      large c.1 c.2 cvTa) fun _ hfr => ?_
+    refine (checkSumCtorsF_fresh ops fe₀ fe T lps nP nIdx rs isProp large cvTa cs).mono ?_
+    intro _ hfrs d hd
     rcases List.mem_cons.mp hd with rfl | hd
-    · show fe.find? cvCa.name = none
-      rw [hn]; exact hfr
+    · exact hfr
     · exact hfrs d hd
 
 /-! ### The block install at k members
@@ -363,39 +321,21 @@ theorem consBlockCtorsF_flatten (nP : Nat) :
     rw [consBlockCtorsF, List.flatten_cons, consSumCtorsF_append]
     exact consBlockCtorsF_flatten nP rest _
 
-/-- The constructors' stage: one field-sort list per constructor, and every declared name fresh at
-the environment the stage runs at. -/
+/-- The constructors' stage: every declared name fresh at the environment the stage runs at. -/
 theorem checkBlockCtorsF_fresh (ops : CheckerOps CheckCM) (fe₀ fe : FEnv) (p : BlockShape) :
     ∀ l : List MemberShape,
       Yields (checkBlockCtorsF ops fe₀ fe p l)
-        (fun r => r.map List.length = l.map (fun x => x.ctors.length) ∧
-          ∀ ms ∈ l, ∀ c ∈ ms.ctors, fe.find? c.1.name = none)
-  | [] => Yields.pure ⟨rfl, fun _ h => nomatch h⟩
+        (fun _ => ∀ ms ∈ l, ∀ c ∈ ms.ctors, fe.find? c.1.name = none)
+  | [] => Yields.pure fun _ h => nomatch h
   | ms :: rest => by
     unfold checkBlockCtorsF
-    refine Yields.bind' (Yields.and
-      (checkSumCtorsF_names ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
-        p.large ms.cvT ms.ctors)
-      (checkSumCtorsF_fresh ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort p.isProp
-        p.large ms.cvT ms.ctors)) fun q hq => ?_
-    obtain ⟨ctorList, sortss⟩ := q
-    obtain ⟨⟨hn, hlS⟩, -, hfr⟩ := hq
-    refine Yields.bind' (checkBlockCtorsF_fresh ops fe₀ fe p rest) fun restS hr => ?_
-    obtain ⟨hlS', hfr'⟩ := hr
-    refine Yields.pure ⟨?_, ?_⟩
-    · simp only [List.map_cons, List.cons.injEq]
-      exact ⟨hlS, hlS'⟩
-    · intro ms' hms' c hc
-      rcases List.mem_cons.mp hms' with rfl | hms'
-      · have hmem : c.1.name ∈ ctorList.map (·.1.name) := by
-          have := congrArg (List.map Prod.fst) hn
-          simp only [List.map_map, Function.comp_def] at this
-          simp only [this]
-          exact List.mem_map_of_mem hc
-        obtain ⟨c', hc', he⟩ := List.mem_map.mp hmem
-        rw [← he]
-        exact hfr c' hc'
-      · exact hfr' ms' hms' c hc
+    refine Yields.bind' (checkSumCtorsF_fresh ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx p.resSort
+      p.isProp p.large ms.cvT ms.ctors) fun _ hfr => ?_
+    refine (checkBlockCtorsF_fresh ops fe₀ fe p rest).mono ?_
+    intro _ hfr' ms' hms' c hc
+    rcases List.mem_cons.mp hms' with rfl | hms'
+    · exact hfr c hc
+    · exact hfr' ms' hms' c hc
 
 theorem Yields.unwrapOr {α : Type} {o : Option α} {e : CheckError} :
     Yields (unwrapOr o e : CheckCM α) (fun a => o = some a) := by

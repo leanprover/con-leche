@@ -7,7 +7,7 @@ public import ConLeche.Model.Inductives.BlockData
 public import ConLeche.Semantics.Tower.FixTower
 public import ConLeche.Model.Inductives.StructEntryKit
 import ConLeche.Model.Inductives.TableInstall
-import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Model.Reading.Levels
 import ConLeche.Kernel.PropWhen
@@ -84,8 +84,8 @@ theorem idxOk_of (mp : EnvModelM V env)
     {tfvs : List Expr} {trest : Expr}
     (hopT : openPisAtFvars (nP + nIdx) cvTa.type 0 = some (tfvs, trest))
     {isorts : List Level}
-    (hsorts : ConLeche.checkStructFieldSortsI (ConLeche.fueledOps .verified F) env true false resSort nP
-      (tfvs.drop nP) [] nIdx = .ok isorts)
+    (hsorts : ConLeche.FieldSorts .verified F env true false resSort nP
+      (tfvs.drop nP) [] nIdx isorts)
     {ppsAll : (Name → Nat) → List Term}
     (hFD : FormerData mp.base2 cvTa (nP + nIdx) resSort ppsAll)
     (ψ : Name → Nat) (ρp : Nat → V)
@@ -95,7 +95,7 @@ theorem idxOk_of (mp : EnvModelM V env)
       (((ppsAll ψ)).reverse) (.sort (resSort.eval ψ)) :=
     opened_of_peel hopT hTf hTb (hFD.read ψ) (hFD.len ψ) (hFD.okTy ψ)
   have hc := claimsAt_of mp ψ F
-  obtain ⟨-, hrows⟩ := ConLeche.checkStructFieldSortsI_inv hsorts
+  obtain ⟨-, hrows⟩ := hsorts
   have hlenT : tfvs.length = nP + nIdx := openPisAtFvars_length _ hopT
   have hΓ : (((ppsAll ψ)).reverse).length = nP + nIdx := by simp [hFD.len ψ]
   -- the index binders' universes at their frames
@@ -304,8 +304,8 @@ leaves up to `k` families pending. -/
 theorem ctorsLoopEta
     {F : Nat} {p : InductiveShape} {env₀ envI : Env} {cvS cvTa : ConstantVal}
     {ctors ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)}
-    (hCtors : ConLeche.checkSumCtors (ConLeche.fueledOps .verified F) env₀ envI p.cvT.name
-      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors = .ok (ctorList, sortss))
+    (hCtors : ConLeche.SumCtorsRun .verified F env₀ envI p.cvT.name
+      p.cvT.levelParams p.nP p.nIdx p.resSort p.isProp p.large cvTa ctors ctorList sortss)
     (hnd : (ctorList.map (·.1.name)).Nodup)
     (hlpsT : cvTa.levelParams = p.cvT.levelParams)
     (hlpsA : ∀ ctor ∈ ctorList, ctor.1.levelParams = p.cvT.levelParams)
@@ -394,7 +394,7 @@ theorem ctorsLoopEta
   | ctor :: rest, k, env, mp, hrest, hk, hE, hfT, hrT, hFD, hleafT, hcons, hpend, hinv => by
     have hcAk : ctorList[k]? = some ctor := by
       have := hrest 0; simpa using this.symm
-    obtain ⟨hlen, -, hall⟩ := ConLeche.checkSumCtors_inv hCtors
+    have ⟨hlen, _, hall⟩ := hCtors
     have hkl : k < ctors.length := by
       have := (List.getElem?_eq_some_iff.mp hcAk).1; omega
     obtain ⟨hnF, _, -, hCtor⟩ := hall k (ctors[k]) ctor (List.getElem?_eq_getElem hkl) hcAk

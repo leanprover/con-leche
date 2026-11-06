@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.DirectInv
 public import ConLeche.Model.Inductives.BlockData
 public section
 
@@ -44,8 +45,8 @@ theorem blockCtorFuns_of (mp : EnvModelM V env)
     (hlpsT : cvS.levelParams = lps)
     (hrunOf : ∀ (j : Nat) (ctor : ConstantVal × Nat), ctorList[j]? = some ctor →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx
-          resSort isProp large c.1 ctor.2 cvTa = .ok (ctor.1, sorts)) :
+        ConLeche.SumCtorRun .verified F env₁ env T lps nP nIdx
+          resSort isProp large c.1 ctor.2 cvTa ctor.1 sorts) :
     ∃ (idxF : Nat → List Expr) (dsF : Nat → (Name → Nat) → List Term)
       (esF : Nat → (Name → Nat) → List Term) (srcsF : Nat → List (Option Nat))
       (fvsPF xFvsF : Nat → List Expr) (xrestF : Nat → Expr),

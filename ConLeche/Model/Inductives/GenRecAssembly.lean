@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.Inductives.DeclBlock
 import ConLeche.Model.Inductives.ClassRecKit
 public import ConLeche.Model.Inductives.ClassGenStep
@@ -120,8 +121,8 @@ check's. -/
     (A : Nat → (Name → Nat) → Term)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
     (posR : ConLeche.NestState) : Prop :=
-  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
-      envI.find? pp = .ok (kindsR, nfsR, posR) ∧
+  ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
+      envI.find? pp kindsR nfsR posR ∧
   envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
   pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧

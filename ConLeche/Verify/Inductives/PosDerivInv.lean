@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Kernel.Inductives.BlockInstall
-import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.PosDerivFun
 public import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestContInv
@@ -1072,7 +1072,7 @@ theorem checkBlockPositivity_deriv {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     (hwsc : ∀ dep e w, ops.whnf env₁ dep e = .ok w → WScoped dep e → WScoped dep w)
-    (h : checkBlockPositivity ops env₁ find? p = .ok (kinds, nfs, pos)) :
+    (h : PositivityRun ops env₁ find? p kinds nfs pos) :
     ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧

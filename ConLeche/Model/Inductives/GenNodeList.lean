@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.GenRecAssembly
 public import ConLeche.Model.Inductives.GenRecStage
@@ -287,8 +287,8 @@ theorem genOutsideClass_reachedNode {envC envI : Env} (hwf : ConLeche.EnvWF envI
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
     {nested : Bool} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (hpos : ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (fueledOps .verified F) envI
-      envI.find? pp = .ok (kinds, nfs, pos))
+    (hpos : ConLeche.PositivityRun (fueledOps .verified F) envI
+      envI.find? pp kinds nfs pos)
     (R : GenRecRun .verified F (mkFEnv envI) envI (mkFEnv envC) pp nested pos
       block out)
     (henvC : envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI)

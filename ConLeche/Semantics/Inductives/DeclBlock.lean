@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.BlockInv
 public import ConLeche.Verify.Inductives.StreamRecsInv
 import ConLeche.Verify.Cached.BlockPushes
@@ -54,8 +55,8 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
       = .ok (env₁, p₁) ∧
     -- 2  the constructors, per member, at the environment holding all k formers,
     --    each stored as declared
-    checkBlockCtors (m := ConLeche.CheckM) (fueledOps .verified F) env₁ env₁ p₁
-      p₁.members = .ok sortsss ∧
+    BlockCtorsRun .verified F env₁ env₁ p₁
+      p₁.members sortsss ∧
     -- 3  the walk's context; the classes the stream's recursor family eliminates
     --    (read off its raw recursor types, each checked as a major)
     blockNestCtx (m := ConLeche.CheckM) p₁ env₁.find?
@@ -65,13 +66,13 @@ def DeclBlockRun (F : Nat) (env : Env) (block : List ConstantInfo)
     --    their member-abstracted types typed at the holes' context; its field
     --    kinds are the block's `is_rec`, its normal forms the model's fields
     --    with holes; then every outside class walked from its state
-    checkBlockPositivity (m := ConLeche.CheckM) (fueledOps .verified F) env₁ env₁.find? p₁ = .ok (kinds, nfs, pos) ∧
+    PositivityRun (fueledOps .verified F) env₁ env₁.find? p₁ kinds nfs pos ∧
     nestSeeds (fueledOps .verified F) env₁ ctx (classSeeds ctx holes Ms) pos = .ok st ∧
     -- 5  the formers carry the record at official's `is_rec`, the syntactic one
     isRec = blockIsRec p₀ ∧
     -- 6  every member's index binders' sorts
-    checkBlockIdxSorts (m := ConLeche.CheckM) (fueledOps .verified F) env₁ p₁
-      p₁.members = .ok isorts ∧
+    BlockIdxSortsRun .verified F env₁ p₁
+      p₁.members isorts ∧
     -- 7  the recursor stage: the GENERATED recursors, one per record of the
     --    stream's family, on the classes and the walk's table (the block's
     --    container bit)

@@ -1,6 +1,6 @@
 module
 
-import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.PositivityInv
 public import ConLeche.Verify.Inductives.ClassGenScope
 public import ConLeche.Verify.Inductives.NestScope
 public import ConLeche.Verify.EnvWF
@@ -716,8 +716,7 @@ theorem checkBlockPositivity_nfScoped {mode : CheckMode} {F : Nat} {env₁ : Env
     (hM : ∀ ms ∈ pp.members, ms.cvT.type.hasFvar = false)
     (hT : ∀ cv ∈ pp.formers, ScB 0 cv.type)
     (hct : ∀ ctorList ∈ pp.memberCtors, ∀ c ∈ ctorList, ScB 0 c.1.type)
-    (h : checkBlockPositivity (fueledOps mode F) env₁ env₁.find? pp
-      = .ok (kinds, nfs, pos)) :
+    (h : PositivityRun (fueledOps mode F) env₁ env₁.find? pp kinds nfs pos) :
     NfStScoped pp.nP pos := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, h0, hop, hh, -, hroot, -⟩ := checkBlockPositivity_inv h
   obtain ⟨hc, hb⟩ := nestCtx_ok_of_envWF henv pp fvsP hM

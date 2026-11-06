@@ -385,15 +385,15 @@ theorem checkBlockTablesS_run (p : BlockShape) (env : Env) :
 
 /-- The constructors' stage stores fvar-free constructor types. -/
 theorem checkBlockCtors_types {env₀ env : Env} {q : BlockShape} {F : Nat}
-    {l : List MemberShape} {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok sortsss) :
+    {l : List MemberShape}
+    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok ()) :
     ∀ ctorList ∈ l.map (·.ctors), ∀ c ∈ ctorList, WScoped 0 c.1.type := by
-  obtain ⟨-, hall⟩ := checkBlockCtors_inv h
+  obtain ⟨_, -, hall⟩ := checkBlockCtors_inv h
   intro ctorList hctor c hc
   obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hctor
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
   obtain ⟨sortss, -, hcs⟩ := hall i ms hi
-  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
+  obtain ⟨hlenC, -, hallc⟩ := hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
   obtain ⟨-, sorts, -, hrun⟩ := hallc j c c hj hj
   exact WScoped.of_not_hasFvar (direct_sum_ctor_typeWF hrun).1

@@ -1,5 +1,6 @@
 module
 
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Model.Inductives.BlockCtorFuns
 import ConLeche.Model.Inductives.BlockLeafOk
 public import ConLeche.Model.Inductives.BlockStageFormer
@@ -624,8 +625,7 @@ theorem blockIdxFacts_of {F : Nat} {envI : Env}
     (mpI : EnvModelM V envI) {q : BlockShape}
     {isorts : List (List Level)} {isRec : Bool}
     {ppsOf : Nat → (Name → Nat) → List Term}
-    (hsorts : ConLeche.checkBlockIdxSorts (ConLeche.fueledOps .verified F) envI q q.members
-      = .ok isorts)
+    (hsorts : ConLeche.BlockIdxSortsRun .verified F envI q q.members isorts)
     (hfind : ∀ (j : Nat) (cvTa : ConstantVal), q.formers[j]? = some cvTa →
       FormerInEnv mpI.base2 cvTa (ConLeche.blockCapsAt q j isRec))
     (hFD : ∀ (j : Nat) (cvTa : ConstantVal), q.formers[j]? = some cvTa →
@@ -639,7 +639,7 @@ theorem blockIdxFacts_of {F : Nat} {envI : Env}
         IdxOk (uOf j ψ) ρp (((ppsOf j ψ).drop q.nP))) ∧
       ∀ (j : Nat) (ψ₁ ψ₂ : Name → Nat), (∀ n ∈ q.lps, ψ₁ n = ψ₂ n) →
         uOf j ψ₁ = uOf j ψ₂ := by
-  obtain ⟨-, hall⟩ := ConLeche.checkBlockIdxSorts_inv hsorts
+  obtain ⟨-, hall⟩ := hsorts
   refine ⟨fun j ψ => idxUniv (restrictΨ q.lps ψ) (isorts.getD j []), ?_, ?_⟩
   · intro j cvTa hj ψ ρp hρp
     have hjk : j < q.members.length := by
@@ -704,8 +704,8 @@ theorem blockCtorFunsAt {F : Nat}
       FormerInEnv mpI.base2 cvTb (ConLeche.blockCapsAt q j isRec))
     (hrunOf : ∀ (j : Nat) (ctor : ConstantVal × Nat), ctorList[j]? = some ctor →
       ∃ (c : ConstantVal × Nat) (sorts : List Level),
-        ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) envI envI cvTa.name q.lps q.nP
-          (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 ctor.2 cvTa = .ok (ctor.1, sorts)) :
+        ConLeche.SumCtorRun .verified F envI envI cvTa.name q.lps q.nP
+          (q.nIdxs.getD m 0) q.resSort q.isProp q.large c.1 ctor.2 cvTa ctor.1 sorts) :
     ∃ pk : BlockMemberPick,
       ∀ (j : Nat) (ctor : ConstantVal × Nat), ctorList[j]? = some ctor →
         BlockCtorDataI mpI.base2 (q.memberNames.getD m .anonymous)

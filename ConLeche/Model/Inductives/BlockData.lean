@@ -2,7 +2,7 @@ module
 
 import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.SumKit
-import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Verify.Inductives.DirectInv
 import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
@@ -171,8 +171,8 @@ theorem blockCtorData_of (mp : EnvModelM V env)
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
     {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
     {sorts : List Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
+    (hCtor : ConLeche.SumCtorRun .verified F env₁ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa cvCa sorts)
     (hfT : env.find? T = some (.indInfo cvS caps))
     (hlpsT : cvS.levelParams = lps) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List Term)
@@ -186,7 +186,7 @@ theorem blockCtorData_of (mp : EnvModelM V env)
   obtain ⟨hlenP, hidxP, -⟩ := opening_vars_at hopP
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   obtain ⟨-, -, fvsP₂, crest₂, tfvs, trest, xFvs₂, idxArgs₂, hopC, -, -, hopX₂, -, -, -, -⟩ :=
-    ConLeche.checkSumCtor_shape hCtor
+    hCtor
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, hxr⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX₂))
   have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := hidxX

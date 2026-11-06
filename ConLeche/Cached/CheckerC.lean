@@ -133,12 +133,12 @@ def checkBlockPassS (fe : FEnv) (p₀ : BlockShape) (isRec : Bool) :
     CheckCM (BlockPass FEnv) := do
   let (fe₁, p₁) ← checkBlockIndsF (sharedOpsC mode fe) fe p₀ isRec
   flushC
-  let _sortsss ← checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
+  checkBlockCtorsF (sharedOpsC mode fe₁) fe₁ fe₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtx p₁ fe₁.find?
   let (rd, Ms) ← checkBlockClasses (sharedOpsC mode fe₁) fe₁ p₁ ctx.params
-  let (kinds, _nfs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
+  let (outs, pos) ← checkBlockPositivity (sharedOpsC mode fe₁) fe₁.env fe₁.find? p₁
   let st ← nestSeeds (sharedOpsC mode fe₁) fe₁.env ctx (classSeeds ctx holes Ms) pos
-  pure ⟨fe₁, p₁, kinds, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨fe₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **`checkBlockTail` through the index**: one flush entering the recursors' environment.  The
 constructors' index `fe₂` is read at once by the rule-less recursors (the rule stage reads `fe₂` and
@@ -148,7 +148,7 @@ array, once per inductive block. -/
 def checkBlockTailS (block : List ConstantInfo) (q : BlockPass FEnv) : CheckCM Unit :=
   match q with
   | ⟨env₁, p, kinds, params, rd, cls, tbl⟩ => do
-  let _isorts ← checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
+  checkBlockIdxSortsF (sharedOpsC mode env₁) env₁ p p.members
   let fe₂ := consBlockCtorsF p.nP p.memberCtors env₁
   flushC
   let out ← genRecCheck (shadowOpsC mode) fe₂ p

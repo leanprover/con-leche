@@ -127,9 +127,9 @@ theorem checkAbsCtorSorts_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestC
       ∀ (j : Nat) (ctor : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some ctor →
         os[j]? = some o →
         o.2.allLevelParamsDefined ctx.lps = true ∧
-        ∃ xq sorts, openPisAtFvars ctor.2 o.2 (ctx.hiAt 0) = some xq ∧
+        ∃ xq, openPisAtFvars ctor.2 o.2 (ctx.hiAt 0) = some xq ∧
           checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
-            ctx.sort (ctx.hiAt 0) xq.1 [] ctor.2 = .ok sorts
+            ctx.sort (ctx.hiAt 0) xq.1 [] ctor.2 = .ok ()
   | [], _, _, j, ctor, _, hj, _ => by simp at hj
   | _ :: _, [], _, j, ctor, _, _, ho => by simp at ho
   | c :: cs, o :: os, h, j, ctor, o', hj, ho => by
@@ -143,12 +143,13 @@ theorem checkAbsCtorSorts_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestC
     rename_i xq hxq
     split at h
     · simp at h
-    rename_i sorts hsorts
+    rename_i u hsorts
+    cases u
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj ho
       subst hj ho
-      exact ⟨hlp', xq, sorts, unwrapOr_ok hxq, hsorts⟩
+      exact ⟨hlp', xq, unwrapOr_ok hxq, hsorts⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ho
       exact checkAbsCtorSorts_inv h j ctor o' hj ho
@@ -198,14 +199,22 @@ theorem blockNestCtx_inv {p : BlockShape}
   obtain ⟨rfl, rfl⟩ := h
   exact ⟨cvTa0, pq.1, pq.2, unwrapOr_ok hcv, unwrapOr_ok hpq, rfl, unwrapOr_ok hholes⟩
 
-/-- **The install's positivity stage, inverted into its parts**: the
+/-- **What an accepting positivity stage establishes**: its outputs' field kinds and normal forms, its
+final state. -/
+abbrev PositivityRun (ops : CheckerOps CheckM) (env₁ : Env) (find? : Name → Option ConstantInfo)
+    (p : BlockShape) (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr))
+    (pos : NestState) : Prop :=
+  ∃ outs, checkBlockPositivity ops env₁ find? p = .ok (outs, pos) ∧
+    kinds = nestOutKinds outs ∧ nfs = outs.map (·.map (·.2))
+
+/-- **The positivity stage, inverted into its parts**: the
 walk's context, official's uniform check, the root frame's run (from the
 empty state), the fields' universes — and the outputs are its kinds and
 normal forms, its final state the stage's. -/
 theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
-    (h : checkBlockPositivity ops env₁ find? p = .ok (kinds, nfs, pos)) :
+    (h : PositivityRun ops env₁ find? p kinds nfs pos) :
     ∃ cvTa0 fvsP rest holes outs, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
@@ -213,6 +222,7 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
       nestRoot ops env₁ (p.nestCtx fvsP find?) holes p.memberCtors {} = .ok (outs, pos) ∧
       checkAbsCtorSortsAll ops env₁ (p.nestCtx fvsP find?) p.memberCtors outs = .ok () ∧
       kinds = outs.map (·.map (·.1)) ∧ nfs = outs.map (·.map (·.2)) := by
+  obtain ⟨outs₀, h, rfl, rfl⟩ := h
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -234,7 +244,7 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   rename_i u hA
   cases u
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl, rfl⟩ := h
+  obtain ⟨rfl, rfl⟩ := h
   exact ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hL, hr, hA, rfl, rfl⟩
 
 /-- The root's instantiation at a constructor of the block's own levels
@@ -258,7 +268,7 @@ its hole) mentions no member constant. -/
 theorem checkBlockPositivity_m2 {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
-    (h : checkBlockPositivity ops env₁ find? p = .ok (kinds, nfs, pos)) :
+    (h : PositivityRun ops env₁ find? p kinds nfs pos) :
     ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
@@ -283,7 +293,7 @@ read once, into its derivation (`checkBlockPositivity_deriv`,
 theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
     {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
-    (h : checkBlockPositivity ops env₁ find? p = .ok (kinds, nfs, pos))
+    (h : PositivityRun ops env₁ find? p kinds nfs pos)
     (hlps : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
       ∀ ctor ∈ cs, ctor.1.levelParams = p.lps) :
     ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
@@ -296,9 +306,9 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
           (∃ ty u, ops.inferType env₁ ((p.nestCtx fvsP find?).hiAt 0) crest = .ok ty ∧
             ops.ensureSort env₁ ((p.nestCtx fvsP find?).hiAt 0) ty = .ok u) ∧
           tyN.allLevelParamsDefined p.lps = true ∧
-          (∃ xq sorts, openPisAtFvars ctor.2 tyN ((p.nestCtx fvsP find?).hiAt 0) = some xq ∧
+          (∃ xq, openPisAtFvars ctor.2 tyN ((p.nestCtx fvsP find?).hiAt 0) = some xq ∧
             checkStructFieldSortsI ops env₁ (Level.isEquiv p.resSort .zero == some true) false
-              p.resSort ((p.nestCtx fvsP find?).hiAt 0) xq.1 [] ctor.2 = .ok sorts) ∧
+              p.resSort ((p.nestCtx fvsP find?).hiAt 0) xq.1 [] ctor.2 = .ok ()) ∧
           ∃ A, nestCanonCrest (p.nestCtx fvsP find?).names (p.lps.map .param) p.nP
               ctor.1.type = some A ∧
             A.nestOcc (p.nestCtx fvsP find?).names 0 0 = false := by
@@ -319,9 +329,9 @@ theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
   change nestCanonCrest _ (p.lps.map .param) _ (ctor.1.type.instantiateLevelParams p.lps
     (p.lps.map .param)) = some A at hA'
   rw [Expr.instantiateLevelParams_self] at hA'
-  obtain ⟨hlp, xq, sorts, hxq, hsorts⟩ :=
+  obtain ⟨hlp, xq, hxq, hsorts⟩ :=
     checkAbsCtorSorts_inv (checkAbsCtorSortsAll_inv hA c cs os hc hoc) j ctor o hj hoj
   exact ⟨crest, o.2, hcrest, outs_getD hoc hoj default, ⟨ty, u, hty, hsort⟩, hlp,
-    ⟨xq, sorts, hxq, hsorts⟩, A, hA', hocc⟩
+    ⟨xq, hxq, hsorts⟩, A, hA', hocc⟩
 
 end ConLeche

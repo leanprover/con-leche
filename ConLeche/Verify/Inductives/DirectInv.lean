@@ -214,29 +214,29 @@ theorem checkSumTele_shape {n : Nat} {cvTa₀ cvTa : ConstantVal} {s : Level}
 
 /-! ## Stage 2: one constructor -/
 
-/-- `checkStructFieldSortsI`, inverted: the sorts
-are returned in field order, one per field, each the `ensureSort` of
+/-- **The fields' sorts at an accepting walk**: one per field, in field order, each the `ensureSort` of
 the field domain's inferred type at the field's own frame, under
 the official universe bound (`isProp = false`) or — at a large
 eliminator on a `Prop` family — the subsingleton-elimination criterion:
 the field is a proposition OR one of the residual's index expressions. -/
+abbrev FieldSorts (mode : CheckMode) (F : Nat) (env : Env) (isProp large : Bool)
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) (j : Nat) (sorts : List Level) : Prop :=
+  sorts.length = j ∧
+  ∀ i, i < j → ∃ fv ty u, fvs[i]? = some fv ∧ sorts[i]? = some u ∧
+    inferTypeCore mode false env F (nP + i) (Expr.fvarTypeD fv) = .ok ty ∧
+    ensureSortCore mode false env F (nP + i) ty = .ok u ∧
+    (isProp = false → Level.leq u s = some true) ∧
+    (isProp = true → large = true →
+      (Level.isEquiv u .zero == some true) = true ∨ idxArgs.contains fv = true)
+
+/-- `checkStructFieldSortsI`, inverted: an accepting walk has its fields' sorts. -/
 theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
     {s : Level} {nP F : Nat} {fvs idxArgs : List Expr} :
-    ∀ {j : Nat} {sorts : List Level},
-      checkStructFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j
-        = .ok sorts →
-      sorts.length = j ∧
-      ∀ i, i < j → ∃ fv ty u, fvs[i]? = some fv ∧ sorts[i]? = some u ∧
-        inferTypeCore mode false env F (nP + i) (Expr.fvarTypeD fv) = .ok ty ∧
-        ensureSortCore mode false env F (nP + i) ty = .ok u ∧
-        (isProp = false → Level.leq u s = some true) ∧
-        (isProp = true → large = true →
-          (Level.isEquiv u .zero == some true) = true ∨ idxArgs.contains fv = true)
-  | 0, sorts, h => by
-    simp only [checkStructFieldSortsI, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨rfl, fun i hi => absurd hi (Nat.not_lt_zero _)⟩
-  | j + 1, sorts, h => by
+    ∀ {j : Nat},
+      checkStructFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j = .ok () →
+      ∃ sorts, FieldSorts mode F env isProp large s nP fvs idxArgs j sorts
+  | 0, _ => ⟨[], rfl, fun i hi => absurd hi (Nat.not_lt_zero _)⟩
+  | j + 1, h => by
     unfold checkStructFieldSortsI at h
     obtain ⟨fv, hfv, h⟩ := exceptBind_ok h
     have hfv' := unwrapOr_ok hfv
@@ -247,15 +247,14 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
     have hu : ensureSortCore mode false env F (nP + j) ty = .ok u := hu₀
     try simp only at h
     -- the guard, as one fact per branch
-    suffices hs : ∃ rest,
-        checkStructFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j
-          = .ok rest ∧ sorts = rest ++ [u] ∧
+    suffices hs :
+        checkStructFieldSortsI (fueledOps mode F) env isProp large s nP fvs idxArgs j = .ok () ∧
         (isProp = false → Level.leq u s = some true) ∧
         (isProp = true → large = true →
           (Level.isEquiv u .zero == some true) = true ∨ idxArgs.contains fv = true) by
-      obtain ⟨rest, hrest, rfl, hleq, hz⟩ := hs
-      obtain ⟨hlen, hall⟩ := checkStructFieldSortsI_inv hrest
-      refine ⟨by simp [hlen], ?_⟩
+      obtain ⟨hrest, hleq, hz⟩ := hs
+      obtain ⟨rest, hlen, hall⟩ := checkStructFieldSortsI_inv hrest
+      refine ⟨rest ++ [u], by simp [hlen], ?_⟩
       intro i hi
       rcases Nat.lt_or_ge i j with hij | hij
       · obtain ⟨fv', ty', u', hfv'', hu'', hty'', hen'', hl'', hz''⟩ :=
@@ -285,10 +284,7 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
         close_throw
       | true =>
       rw [ite_eq_left rfl] at h
-      simp only [pure, Except.pure, bind, Except.bind] at h
-      obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
-      simp only [Except.ok.injEq] at h
-      refine ⟨rest, hrest, h.symm, fun _ => hb', fun hp => ?_⟩
+      refine ⟨h, fun _ => hb', fun hp => ?_⟩
       simp [hp] at hnp
     · rw [ite_eq_right hnp] at h
       have hp : isProp = true := by simpa using hnp
@@ -296,45 +292,46 @@ theorem checkStructFieldSortsI_inv {env : Env} {isProp large : Bool}
       · rw [ite_eq_left hl] at h
         by_cases hz : (Level.isEquiv u .zero == some true || idxArgs.contains fv) = true
         · rw [ite_eq_left hz] at h
-          simp only [pure, Except.pure, bind, Except.bind] at h
-          obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
-          simp only [Except.ok.injEq] at h
-          refine ⟨rest, hrest, h.symm, fun h0 => ?_, fun _ _ => ?_⟩
+          refine ⟨h, fun h0 => ?_, fun _ _ => ?_⟩
           · rw [hp] at h0
             exact nomatch h0
           · exact Bool.or_eq_true_iff.mp hz
         · rw [ite_eq_right hz] at h
           close_throw
       · rw [ite_eq_right hl] at h
-        simp only [pure, Except.pure, bind, Except.bind] at h
-        obtain ⟨rest, hrest, h⟩ := exceptBind_ok h
-        simp only [Except.ok.injEq] at h
-        refine ⟨rest, hrest, h.symm, fun h0 => ?_, fun _ h1 => absurd h1 hl⟩
+        refine ⟨h, fun h0 => ?_, fun _ h1 => absurd h1 hl⟩
         rw [hp] at h0
         exact nomatch h0
 
-theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
-    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
-    {nF : Nat} {F : Nat} {sorts : List Level}
+/-- **What an accepting constructor check establishes**, with the fields' sorts: the ordinary
+constant check, the result shape, the parameters' pins, the opened telescope and its fields' sorts. -/
+abbrev SumCtorRun (mode : CheckMode) (F : Nat) (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP nIdx : Nat) (resSort : Level) (isProp large : Bool) (cvC : ConstantVal) (nF : Nat)
+    (cvTa cvCa : ConstantVal) (sorts : List Level) : Prop :=
+  (cvCa = cvC ∧ checkConstantVal (fueledOps mode F) env cvC = .ok ()) ∧
+  (∃ cbs es, cvCa.type.stripPis (nP + nF)
+    = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (structPsAt nF nP ++ es)) ∧
+    es.length = nIdx) ∧
+  ∃ (fvsP : List Expr) (crest : Expr) (tfvs : List Expr) (trest : Expr)
+    (xFvs : List Expr) (idxArgs : List Expr),
+    openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
+    openPisAtFvars nP cvTa.type 0 = some (tfvs, trest) ∧
+    checkStructDomsAt (fueledOps mode F) env 0 fvsP
+      (tfvs.map Expr.fvarTypeD) nP = .ok () ∧
+    openPisAtFvars nF crest nP
+      = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)) ∧
+    idxArgs.length = nIdx ∧
+    (∀ x ∈ xFvs, x.fvarTypeD.constsResolve env₀ = true) ∧
+    (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
+    FieldSorts mode F env isProp large resSort nP xFvs idxArgs nF sorts
+
+/-- `checkSumCtor`, inverted. -/
+theorem checkSumCtor_inv {env₀ env : Env} {T : Name} {lps : List Name}
+    {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa : ConstantVal}
+    {nF : Nat} {F : Nat}
     (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-      cvC nF cvTa = .ok (cvCa, sorts)) :
-    (cvCa = cvC ∧ checkConstantVal (fueledOps mode F) env cvC = .ok ()) ∧
-    (∃ cbs es, cvCa.type.stripPis (nP + nF)
-      = some (cbs, Expr.mkAppN (.const T (lps.map .param)) (structPsAt nF nP ++ es)) ∧
-      es.length = nIdx) ∧
-    ∃ (fvsP : List Expr) (crest : Expr) (tfvs : List Expr) (trest : Expr)
-      (xFvs : List Expr) (idxArgs : List Expr),
-      openPisAtFvars nP cvCa.type 0 = some (fvsP, crest) ∧
-      openPisAtFvars nP cvTa.type 0 = some (tfvs, trest) ∧
-      checkStructDomsAt (fueledOps mode F) env 0 fvsP
-        (tfvs.map Expr.fvarTypeD) nP = .ok () ∧
-      openPisAtFvars nF crest nP
-        = some (xFvs, Expr.mkAppN (.const T (lps.map .param)) (fvsP ++ idxArgs)) ∧
-      idxArgs.length = nIdx ∧
-      (∀ x ∈ xFvs, x.fvarTypeD.constsResolve env₀ = true) ∧
-      (∀ e ∈ idxArgs, e.constsResolve env₀ = true) ∧
-      checkStructFieldSortsI (fueledOps mode F) env isProp large resSort
-        nP xFvs idxArgs nF = .ok sorts := by
+      cvC nF cvTa = .ok ()) :
+    ∃ sorts, SumCtorRun mode F env₀ env T lps nP nIdx resSort isProp large cvC nF cvTa cvC sorts := by
   unfold checkSumCtor at h
   obtain ⟨u₀, hccv₀, h⟩ := exceptBind_ok h
   cases u₀
@@ -368,14 +365,12 @@ theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   by_cases h4 : ((xrest.getAppArgs.drop nP).all fun e => Expr.constsResolve env₀ e) = true
   case neg => rw [ite_eq_right h4] at h; close_throw
   rw [ite_eq_left h4] at h
-  obtain ⟨sorts', hsorts, h⟩ := exceptBind_ok h
-  simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl⟩ := h
+  obtain ⟨sorts, hsorts⟩ := checkStructFieldSortsI_inv h
   -- the two residual tests, read back as spines
   simp only [structCtorResidOk, Bool.and_eq_true, beq_iff_eq] at hc
   simp only [Bool.and_eq_true, beq_iff_eq] at h2
   obtain ⟨es, hes, hesl⟩ := residual_shape hc.1.1 hc.2 hc.1.2
-  refine ⟨⟨rfl, hccv₀⟩, ⟨cbs, es, by rw [hq', hes], hesl⟩,
+  refine ⟨sorts, ⟨rfl, hccv₀⟩, ⟨cbs, es, by rw [hq', hes], hesl⟩,
     fvsP, crest, tfvs, trest, xFvs, xrest.getAppArgs.drop nP,
     hcq', htq', by cases u; exact hdoms, ?_, ?_, ?_, ?_, hsorts⟩
   · rw [hxq']
@@ -387,40 +382,37 @@ theorem checkSumCtor_shape {env₀ env : Env} {T : Name} {lps : List Name}
   · intro e he
     exact List.all_eq_true.mp h4 e he
 
-/-- All constructors, positionally: the checked list is as long as
-the input and every entry is its constructor's run. -/
+/-- **What an accepting constructor loop establishes**, positionally: every entry is its constructor's
+run, with its fields' sorts. -/
+abbrev SumCtorsRun (mode : CheckMode) (F : Nat) (env₀ env : Env) (T : Name) (lps : List Name)
+    (nP nIdx : Nat) (resSort : Level) (isProp large : Bool) (cvTa : ConstantVal)
+    (cs ctorList : List (ConstantVal × Nat)) (sortss : List (List Level)) : Prop :=
+  ctorList.length = cs.length ∧ sortss.length = cs.length ∧
+  ∀ (j : Nat) (c ctor : ConstantVal × Nat), cs[j]? = some c → ctorList[j]? = some ctor →
+    ctor.2 = c.2 ∧
+    ∃ sorts, sortss[j]? = some sorts ∧
+    SumCtorRun mode F env₀ env T lps nP nIdx resSort isProp large c.1 c.2 cvTa ctor.1 sorts
+
+/-- All constructors, positionally. -/
 theorem checkSumCtors_inv {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvTa : ConstantVal} {F : Nat} :
-    ∀ {cs ctorList : List (ConstantVal × Nat)} {sortss : List (List Level)},
-      checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-        cvTa cs = .ok (ctorList, sortss) →
-      ctorList.length = cs.length ∧ sortss.length = cs.length ∧
-      ∀ (j : Nat) (c ctor : ConstantVal × Nat), cs[j]? = some c → ctorList[j]? = some ctor →
-        ctor.2 = c.2 ∧
-        ∃ sorts, sortss[j]? = some sorts ∧
-        checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-          c.1 c.2 cvTa = .ok (ctor.1, sorts)
-  | [], ctorList, sortss, h => by
-    simp only [checkSumCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, rfl, fun j c ctor hc _ => by simp at hc⟩
-  | c :: cs, ctorList, sortss, h => by
+    ∀ {cs : List (ConstantVal × Nat)},
+      checkSumCtors (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large cvTa cs = .ok () →
+      ∃ sortss, SumCtorsRun mode F env₀ env T lps nP nIdx resSort isProp large cvTa cs cs sortss
+  | [], _ => ⟨[], rfl, rfl, fun j c ctor hc _ => by simp at hc⟩
+  | c :: cs, h => by
     unfold checkSumCtors at h
-    obtain ⟨q, hc, h⟩ := exceptBind_ok h
-    obtain ⟨cvCa, sorts⟩ := q
-    try simp only at h
-    obtain ⟨q', hrest, h⟩ := exceptBind_ok h
-    obtain ⟨rest, srest⟩ := q'
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    obtain ⟨hlen, hlenS, hall⟩ := checkSumCtors_inv hrest
-    refine ⟨by simp [hlen], by simp [hlenS], ?_⟩
+    obtain ⟨u, hc, h⟩ := exceptBind_ok h
+    cases u
+    obtain ⟨sorts, hS⟩ := checkSumCtor_inv hc
+    obtain ⟨srest, hlen, hlenS, hall⟩ := checkSumCtors_inv h
+    refine ⟨sorts :: srest, rfl, by simp [hlenS], ?_⟩
     intro j c' ctor hc' hctor
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hc' hctor
       subst hc'; subst hctor
-      exact ⟨rfl, sorts, rfl, hc⟩
+      exact ⟨rfl, sorts, rfl, hS⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hc' hctor
       exact hall j c' ctor hc' hctor
@@ -440,12 +432,11 @@ closed and bounded. -/
 theorem direct_sum_ctor_typeWF {env₀ env : Env} {T : Name} {lps : List Name}
     {nP nIdx : Nat} {resSort : Level} {isProp large : Bool} {cvC cvTa cvCa : ConstantVal}
     {nF : Nat} {F : Nat} {sorts : List Level}
-    (h : checkSumCtor (fueledOps mode F) env₀ env T lps nP nIdx resSort isProp large
-      cvC nF cvTa = .ok (cvCa, sorts)) :
+    (h : SumCtorRun mode F env₀ env T lps nP nIdx resSort isProp large cvC nF cvTa cvCa sorts) :
     cvCa.type.hasFvar = false ∧ cvCa.type.allLevelParamsDefined cvCa.levelParams = true ∧
     cvCa.type.constsResolve env = true ∧ cvCa.type.looseBVarsBounded 0 = true ∧
     LitShapeAt cvCa := by
-  obtain ⟨⟨rfl, hccv⟩, -, -⟩ := checkSumCtor_shape h
+  obtain ⟨⟨rfl, hccv⟩, -, -⟩ := h
   obtain ⟨g1, g2, g3, g4⟩ := checkConstantVal_typeWF hccv
   exact ⟨g1, g2, g3, g4, checkConstantVal_litShapeAt hccv⟩
 

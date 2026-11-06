@@ -52,14 +52,14 @@ every outside class (`nestSeeds`: a cache hit, or its frame walked). -/
 def checkBlockPass (ops : CheckerOps m) (env : Env) (p₀ : BlockShape) (isRec : Bool) :
     m (BlockPass Env) := do
   let (env₁, p₁) ← checkBlockInds ops env p₀ isRec
-  let _sortsss ← checkBlockCtors ops env₁ env₁ p₁ p₁.members
+  checkBlockCtors ops env₁ env₁ p₁ p₁.members
   let (ctx, holes) ← blockNestCtx p₁ env₁.find?
   -- the classes
   let (rd, Ms) ← checkBlockClasses ops (mkFEnv env₁) p₁ ctx.params
   -- positivity: every class from the empty stack, the members (the root frame) first
-  let (kinds, _nfs, pos) ← checkBlockPositivity ops env₁ env₁.find? p₁
+  let (outs, pos) ← checkBlockPositivity ops env₁ env₁.find? p₁
   let st ← nestSeeds ops env₁ ctx (classSeeds ctx holes Ms) pos
-  pure ⟨env₁, p₁, kinds, ctx.params, rd, Ms, st.ctorNfs⟩
+  pure ⟨env₁, p₁, nestOutKinds outs, ctx.params, rd, Ms, st.ctorNfs⟩
 
 /-- **The installer's recursor stage** (charter item 5): the
 GENERATED recursor stage `genRecCheck` (`GenRec.lean`) at the
@@ -106,7 +106,7 @@ holding the generated ones) and the projection tables. -/
 def checkBlockTail (ops : CheckerOps m) (block : List ConstantInfo) (q : BlockPass Env) :
     m Unit := do
   let p := q.p
-  let _isorts ← checkBlockIdxSorts ops q.env₁ p p.members
+  checkBlockIdxSorts ops q.env₁ p p.members
   let env₂ := consBlockCtors p.nP p.memberCtors q.env₁
   let out ← checkBlockRec ops env₂ p (blockNestedBit p q.kinds) q.params
     q.tbl.toList q.rd q.cls block

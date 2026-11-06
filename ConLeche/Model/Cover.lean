@@ -184,7 +184,7 @@ structure LfpOwn (env : Env) (D : LfpDatum V) : Prop where
   parameters and indices**: past its parameters and fields
   the stored type is the member at the constructor's own level
   parameters applied to `nPc + |ids c|`
-  arguments — the install's constructor check (`checkSumCtor_shape`), as
+  arguments — the install's constructor check (`SumCtorRun`), as
   official's (`check_constructors`, `is_valid_ind_app`: `nparams +
   nindices` arguments, `inductive.cpp`) -/
   ctorConcl : ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,

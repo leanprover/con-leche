@@ -95,27 +95,24 @@ def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
 
 /-- `checkBlockCtors` through the index. -/
 def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
-    List MemberShape → m (List (List (List Level)))
-  | [] => pure []
+    List MemberShape → m Unit
+  | [] => pure ()
   | ms :: rest => do
-    let (_, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
+    checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
       p.resSort p.isProp p.large ms.cvT ms.ctors
-    let restS ← checkBlockCtorsF ops fe₀ fe p rest
-    pure (sortss :: restS)
+    checkBlockCtorsF ops fe₀ fe p rest
 
 /-! ## Stage 2: the tail -/
 
 /-- `checkBlockIdxSorts` through the index. -/
 def checkBlockIdxSortsF (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape) :
-    List MemberShape → m (List (List Level))
-  | [] => pure []
+    List MemberShape → m Unit
+  | [] => pure ()
   | ms :: rest => do
     let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
-    let isorts ← checkStructFieldSortsIF ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) []
-      ms.nIdx
-    let rest ← checkBlockIdxSortsF ops fe₁ p rest
-    pure (isorts :: rest)
+    checkStructFieldSortsIF ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
+    checkBlockIdxSortsF ops fe₁ p rest
 
 /-- `consBlockCtors` through the index. -/
 def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → FEnv

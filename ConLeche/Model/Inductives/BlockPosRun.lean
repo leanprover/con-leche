@@ -1,6 +1,7 @@
 module
 
-import ConLeche.Verify.Inductives.PositivityInv
+public import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Verify.Inductives.PositivityInv
 import ConLeche.Model.OpenedCtx
 import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.Denote.IndFrame
@@ -706,7 +707,7 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
     {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)}
     {pos : ConLeche.NestState}
-    (hrun : ConLeche.checkBlockPositivity (m := CheckM) (fueledOps .verified F) env env.find? p = .ok (kinds, nfs, pos))
+    (hrun : ConLeche.PositivityRun (fueledOps .verified F) env env.find? p kinds nfs pos)
     (hread : p.members.map (·.cvT) = p.formers)
     (hT : ∀ cv ∈ p.formers, cv.type.hasFvar = false)
     (hcl : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
@@ -730,9 +731,9 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
           ((nfs.getD c []).getD j default).allLevelParamsDefined p.lps = true ∧
           (∃ xq sorts, openPisAtFvars ctor.2 ((nfs.getD c []).getD j default)
               ((p.nestCtx fvsP env.find?).hiAt 0) = some xq ∧
-            ConLeche.checkStructFieldSortsI (fueledOps .verified F) env
+            ConLeche.FieldSorts .verified F env
               (Level.isEquiv p.resSort .zero == some true) false p.resSort
-              ((p.nestCtx fvsP env.find?).hiAt 0) xq.1 [] ctor.2 = .ok sorts) ∧
+              ((p.nestCtx fvsP env.find?).hiAt 0) xq.1 [] ctor.2 sorts) ∧
           (∃ A, ConLeche.nestCanonCrest (p.nestCtx fvsP env.find?).names (p.lps.map .param) p.nP
               ctor.1.type = some A ∧ A.nestOcc (p.nestCtx fvsP env.find?).names 0 0 = false) ∧
           ConLeche.TreeRec (fueledOps .verified F) env (p.nestCtx fvsP env.find?)
@@ -769,6 +770,8 @@ theorem checkBlockPositivity_derivM {env : Env} (hwf : ConLeche.EnvWF env) {F : 
   rw [hcr] at hcr'
   obtain rfl := Option.some.inj hcr'
   subst hnf
-  exact ⟨crest, ks, ts, hcr, hd, hks, hty, hlp, hsorts, hocc, htr⟩
+  obtain ⟨xq, hxq, hS⟩ := hsorts
+  obtain ⟨sorts, hS⟩ := ConLeche.checkStructFieldSortsI_inv hS
+  exact ⟨crest, ks, ts, hcr, hd, hks, hty, hlp, ⟨xq, sorts, hxq, hS⟩, hocc, htr⟩
 
 end ConLeche.Model
