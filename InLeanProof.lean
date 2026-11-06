@@ -13,5 +13,6 @@ public import InLeanProof.KnotI
 public import InLeanProof.StateOpsI
 public import InLeanProof.WalksWhnf
 public import InLeanProof.WalksIota
+public import InLeanProof.WalksWhnfLoop
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins

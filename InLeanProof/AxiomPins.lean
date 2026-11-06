@@ -9,6 +9,7 @@ public import InLeanProof.KnotI
 public import InLeanProof.StateOpsI
 public import InLeanProof.WalksWhnf
 public import InLeanProof.WalksIota
+public import InLeanProof.WalksWhnfLoop
 public import InLeanProof.SquarePilot
 
 /-!
@@ -525,3 +526,60 @@ info: 'InLeanProof.iotaIndexOkI_specI' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.iotaIndexOkI_specI
+
+/-! ## The body walks, part 3 (lane P2-whnf, `InLeanProof/WalksWhnfLoop.lean`) -/
+
+/--
+info: 'InLeanProof.whnfLoopI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfLoopI_specI
+
+/--
+info: 'InLeanProof.whnfBodyI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfBodyI_specI
+
+/--
+info: 'InLeanProof.betaPeelI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.betaPeelI_specI
+
+/--
+info: 'InLeanProof.whnfCoreLoopI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfCoreLoopI_specI
+
+/--
+info: 'InLeanProof.whnfCoreBodyI_specI' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.whnfCoreBodyI_specI
