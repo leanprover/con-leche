@@ -110298,3 +110298,24 @@ check:
   Frontend row.  README keeps the maintainer's two-phase line and master's olean parser line.
   The citations were moved by the cited text on both sides' records, and the prose compared with
   the anchors stripped against both sides.
+
+**Measured** (`instructions:u`, `--verified`, one run each; master `41747733a` against the merge
+`239ac2a09`):
+
+| stream | master | merge |
+|---|---|---|
+| init-full `--jobs=1` | 381.800 G | 382.029 G (+0.06 %) |
+| init-full `--jobs=8` | 392.006 G | 388.002 G (−1.02 %) |
+| grind-ring-5 `--jobs=1` | 15.304 G | 15.342 G (+0.25 %) |
+| grind-ring-5 `--jobs=8` | 15.677 G | 15.611 G (−0.42 %) |
+| Mathlib, `--olean`, `--jobs=8` | 8 085.1 G | 7 930.8 G (−1.91 %) |
+
+The `--olean` Mathlib run accepts 775 321 declarations on both; its peak RSS is 3.30 GiB against
+master's 4.01 GiB, and its phases (wall, rough) parse 14.6 s (index 2.0 s), check 113.3 s against
+master's parse 13.1 s, install 7.3 s, check 138.3 s.
+
+**Gates on `239ac2a09`**: `lake build`, `lake test` warning-free; `tests/arena.sh` in full under the
+8 GB guard: e2e 544/544, the olean gate 122/122, olean-compare 0 differences on Init, arena
+tutorial 90/92 as before, selfcheck 52 671 declarations, the trusted, `--jobs=1` and `--jobs=4`
+sweeps without divergence.  One verdict moved: the olean gate's NpAx (an axiom at `Nat.div`'s name)
+is 1 where master declined it (2), the reject its fixture describes.
