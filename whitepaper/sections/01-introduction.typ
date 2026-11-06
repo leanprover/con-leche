@@ -11,7 +11,7 @@ stream, checking what the official kernel checks (on a few features
 it declines instead; @sec:left-out). It comes with a proof, written in
 Lean itself, of what an acceptance means: every environment the
 checker accepts
-#src("ConLeche/MainTheorem.lean", 100, 103)[has a model in set theory].
+#src("ConLeche/MainTheorem.lean", 98, 101)[has a model in set theory].
 #src("ConLeche/Denotes.lean", 248, 268)[Each constant is assigned a set], each type denotes a set, and every stored
 constant is a member of the set its type denotes. The constant `False`
 denotes the empty set, and `Eq` denotes set equality, so every
@@ -43,8 +43,8 @@ equality. Our proof needs none of it.
 Nor does it have a typing judgement. In its place is a description of
 what the checker _does_: three inductively defined relations, one for
 #src("ConLeche/Rules/Rel.lean", 101)[reduction], one for the verdicts
-of the #src("ConLeche/Rules/Rel.lean", 358)[definitional-equality test]
-and one for #src("ConLeche/Rules/Rel.lean", 550)[type inference] (six
+of the #src("ConLeche/Rules/Rel.lean", 348)[definitional-equality test]
+and one for #src("ConLeche/Rules/Rel.lean", 540)[type inference] (six
 in the real proof, where premises about lists get relations of their
 own; @sec:left-out). Their rules are exactly the moves the checker
 makes, and each rule's premises are what the checker verified at that

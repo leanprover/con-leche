@@ -46,7 +46,7 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche.SetTheory
 open ConLeche.SetTheory.Tower
 
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts TargetMajor)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor)
 
 universe w
 
@@ -54,42 +54,41 @@ variable {V : Type w} [SetTheory V]
 
 section MemberHoles
 
-variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockParts}
-  {cvTas : List ConstantVal}
+variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockShape}
+  {formers : List ConstantVal}
 
 /-- **The holes' values at their formers' types**: each member former's
 type is closed and read, graded at every valuation, and holds the hole's
 value `hv` — the formers' facts a call's typing (`targetCall_genW`) asks
 for, from the members' run and `hv`'s typing. -/
-theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+theorem memberHoles_formers (hmr : BlockMembersRun mpC.base2 d pp)
     (ψ : Name → Nat) (ρ : Nat → V) {hv : List V}
-    (hvTy : ∀ t, t < cvTas.length → ∃ T : Term,
-      denote mpC.base2.acval envC ψ 0 (cvTas.getD t default).type = some T ∧
+    (hvTy : ∀ t, t < pp.formers.length → ∃ T : Term,
+      denote mpC.base2.acval envC ψ 0 (pp.formers.getD t default).type = some T ∧
       hv.getD t pt ∈ˢ interp V ρ T) :
-    ∀ t', t' < (cvTas.map (fun cv : ConstantVal => cv.type)).length →
-      ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default).hasFvar = false ∧
-      ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default).looseBVarsBounded 0 = true ∧
-      ConstsBound envC ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default) ∧
+    ∀ t', t' < (pp.formers.map (fun cv : ConstantVal => cv.type)).length →
+      ((pp.formers.map (fun cv : ConstantVal => cv.type)).getD t' default).hasFvar = false ∧
+      ((pp.formers.map (fun cv : ConstantVal => cv.type)).getD t' default).looseBVarsBounded 0 = true ∧
+      ConstsBound envC ((pp.formers.map (fun cv : ConstantVal => cv.type)).getD t' default) ∧
       ∃ T : Term, denote mpC.base2.acval envC ψ 0
-          ((cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default)
+          ((pp.formers.map (fun cv : ConstantVal => cv.type)).getD t' default)
           = some T ∧ (∀ σ : Nat → V, WellDenotedTy V σ T) ∧
         ∀ σ : Nat → V, hv.getD t' pt ∈ˢ interp V σ T := by
   intro t' ht'
-  have ht'' : t' < cvTas.length := by simpa using ht'
-  obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t']? = some cv := ⟨_, List.getElem?_eq_getElem ht''⟩
-  obtain ⟨-, -, ⟨caps, hfind⟩, hfv, hbv, hFD'⟩ := hmr.2.2.2.1 t' cv hcv
-  have hg : (cvTas.map (fun cv : ConstantVal => cv.type)).getD t' default = cv.type := by
+  have ht'' : t' < pp.formers.length := by simpa using ht'
+  obtain ⟨cv, hcv⟩ : ∃ cv, pp.formers[t']? = some cv := ⟨_, List.getElem?_eq_getElem ht''⟩
+  obtain ⟨-, -, ⟨caps, _, -, hDS⟩, hfv, hbv, hFD'⟩ := hmr.2.2.2.1 t' cv hcv
+  have hg : (pp.formers.map (fun cv : ConstantVal => cv.type)).getD t' default = cv.type := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_map, hcv]; rfl
-  have hwf := mpC.base2.wf.consts _ (List.mem_of_find?_eq_some hfind)
   obtain ⟨T', hT', hmemT'⟩ := hvTy t' ht''
-  have hgc : (cvTas.getD t' default).type = cv.type := by
+  have hgc : (pp.formers.getD t' default).type = cv.type := by
     rw [List.getD_eq_getElem?_getD, hcv]; rfl
   rw [hgc, hFD'.read ψ] at hT'
   obtain rfl := Option.some.inj hT'
   have hcl := bvarsBelow_of_reading (m := mpC.base2) (Expr.WScoped.of_not_hasFvar hfv) hbv
     (hFD'.read ψ)
   rw [hg]
-  exact ⟨hfv, hbv, constsBound_of_constsResolve _ hwf.2.2.1, _, hFD'.read ψ,
+  exact ⟨hfv, hbv, constsBound_of_constsResolve _ hDS.readResolve, _, hFD'.read ψ,
     fun σ => ⟨hFD'.okTy ψ σ, IsTy_mkPisAV_sort _ _ _⟩,
     fun σ => by rw [interp_closed V hcl σ ρ]; exact hmemT'⟩
 

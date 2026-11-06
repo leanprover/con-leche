@@ -17,7 +17,7 @@ checks and stores about a block is generated from this
 the type former (`ConstKind.induct`, `Env.lean`), so that a later
 block nesting through this one can read it back.
 
-Con-leche's counterparts: `BlockShape` (`BlockParts.lean`) for the block,
+Con-leche's counterparts: `BlockShape` (`BlockShape.lean`) for the block,
 and the container-instance record of the positivity walk
 (`ConLeche/Kernel/Inductives/Positivity.lean`, `nestContainer`) for
 the class.
@@ -78,7 +78,7 @@ structure CtorSpec where
   deriving DecidableEq
 
 /-- **The data of a single inductive block** without its class
-(con-leche's `MemberShape`/`InductiveShape`, `BlockParts.lean:62`,
+(con-leche's `MemberShape`/`InductiveShape`, `BlockShape.lean:62`,
 `SumParts.lean:36`). -/
 structure IndBase where
   /-- The type former's name. -/

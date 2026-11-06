@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Kernel.Checker
 
+public import ConLeche.Verify.EnvWF
 public section
 
 /-!
@@ -36,8 +37,8 @@ theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
     (fueledOps mode F).whnf env d e = ConLeche.whnf mode false env F d e := rfl
 
 /-- Inversion for `checkConstantVal`. -/
-theorem checkConstantVal_inv {env : Env} {cv : ConstantVal}
-    (h : checkConstantVal (fueledOps mode F) env cv = .ok ()) :
+theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) :
     env.find? cv.name = none ∧
     reservedBasisNames.contains cv.name = false ∧
     Name.nodup cv.levelParams = true ∧
@@ -58,6 +59,14 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal}
     rw [ite_eq_left hres] at h
     exact nomatch h
   simp only [hres] at h
+  by_cases hop : (natOpName cv.name && !a) = true
+  case pos =>
+    rw [ite_eq_left hop] at h
+    exact nomatch h
+  simp only [hop] at h
+  by_cases hshape : litShapeOk (.axiomInfo cv) = true
+  case neg => simp [hshape] at h
+  simp only [hshape] at h
   by_cases hnd : Name.nodup cv.levelParams = true
   case neg => simp [hnd] at h
   simp only [hnd] at h
@@ -89,9 +98,56 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal}
     by simpa using hif,
     stype, u, htp, htr, by first | rfl | exact hst, by first | rfl | exact hsort⟩
 
-/-- Reserved basis names are all `str`-shaped. -/
-theorem reservedBasisNames_not_num (p : Name) (k : Nat) :
-    reservedBasisNames.contains (Name.num p k) = false := rfl
+/-- A constant's check says its shape at a literal's name. -/
+theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) :
+    litShapeOk (.axiomInfo cv) = true := by
+  by_cases hs : litShapeOk (.axiomInfo cv) = true
+  · exact hs
+  exfalso
+  simp only [checkConstantVal, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  by_cases hfind : (env.find? cv.name).isSome = true
+  · simp [hfind] at h
+  simp only [hfind] at h
+  by_cases hres : reservedBasisNames.contains cv.name = true
+  · rw [ite_eq_left hres] at h
+    exact nomatch h
+  simp only [hres] at h
+  by_cases hop : (natOpName cv.name && !a) = true
+  · rw [ite_eq_left hop] at h
+    exact nomatch h
+  simp only [hop] at h
+  simp [hs] at h
+
+theorem checkConstantVal_litShapeAt {env : Env} {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) : LitShapeAt cv :=
+  litShapeAt_of_check (checkConstantVal_inv h).2.1 (checkConstantVal_shape h)
+
+/-- Only a definition takes a certified operation's name. -/
+theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps mode F) env cv a = .ok ())
+    (hn : natOpName cv.name = true) : a = true := by
+  cases a with
+  | true => rfl
+  | false =>
+  have hop : (natOpName cv.name && !false) = true := by simp [hn]
+  simp only [checkConstantVal, Bind.bind, Except.bind, Pure.pure, Except.pure] at h
+  by_cases hfind : (env.find? cv.name).isSome = true
+  · simp [hfind] at h
+  simp only [hfind] at h
+  by_cases hres : reservedBasisNames.contains cv.name = true
+  · rw [ite_eq_left hres] at h
+    exact nomatch h
+  simp only [hres] at h
+  rw [ite_eq_left hop] at h
+  exact nomatch h
+
+/-- Only a definition takes a certified operation's name, at `allowOp`'s default. -/
+theorem checkConstantVal_opName_false {env : Env} {cv : ConstantVal}
+    (h : checkConstantVal (fueledOps mode F) env cv = .ok ()) : natOpName cv.name = false := by
+  cases hn : natOpName cv.name with
+  | false => rfl
+  | true => exact nomatch checkConstantVal_opName h hn
 
 /-- One pinned basis install, inverted (relocated from the TT lane,
 task #148 T6: both lanes' basis-block bridges invert the same fold). -/

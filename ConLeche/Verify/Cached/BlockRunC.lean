@@ -6,7 +6,6 @@ import ConLeche.Verify.Inductives.BlockWF
 import ConLeche.Verify.Inductives.BlockRecRun
 import ConLeche.Verify.Inductives.BlockInv
 import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Verify.Extend.Inversions
 
 public section
 
@@ -55,7 +54,7 @@ variable (ops : CheckerOps CheckCM)
 theorem checkBlockTeleF_eqC (env : Env) (nP : Nat) (ms : MemberShape) :
     checkBlockTeleF ops (mkFEnv env) nP ms = checkBlockTele ops env nP ms := by
   unfold checkBlockTeleF checkBlockTele
-  simp only [checkConstantValF_eq, checkSumTeleF_pushC]
+  simp only [checkConstantValF_eq]
 
 theorem checkBlockTelesF_eqC (env : Env) (nP : Nat) :
     ∀ mss : List MemberShape,
@@ -83,14 +82,14 @@ theorem checkBlockAgreeF_eqC (env : Env) (nP : Nat) (cvTa0 : ConstantVal) (s0 : 
       checkBlockAgreeF_eqC env nP cvTa0 s0 rest]
 
 theorem consBlockIndsF_mkFEnv (p₁ : BlockShape) (isRec : Bool) :
-    ∀ (cvTas : List ConstantVal) (i : Nat) (env : Env),
-      consBlockIndsF p₁ isRec cvTas i (mkFEnv env) = mkFEnv (consBlockInds p₁ isRec cvTas i env)
+    ∀ (formers : List ConstantVal) (i : Nat) (env : Env),
+      consBlockIndsF p₁ isRec formers i (mkFEnv env) = mkFEnv (consBlockInds p₁ isRec formers i env)
   | [], _, _ => rfl
   | cvTa :: rest, i, env => by
     simp only [consBlockIndsF, consBlockInds, push_mkFEnv]
     exact consBlockIndsF_mkFEnv p₁ isRec rest (i + 1) _
 
-theorem checkBlockIndsF_eqC (env : Env) (p : BlockParts) (isRec : Bool) :
+theorem checkBlockIndsF_eqC (env : Env) (p : BlockShape) (isRec : Bool) :
     checkBlockIndsF ops (mkFEnv env) p isRec
       = checkBlockInds ops env p isRec >>= fun r => pure (mkFEnv r.1, r.2) := by
   unfold checkBlockIndsF checkBlockInds
@@ -100,28 +99,28 @@ theorem checkBlockIndsF_eqC (env : Env) (p : BlockParts) (isRec : Bool) :
       pure_bind, consBlockIndsF_mkFEnv]
 
 theorem checkBlockCtorsF_eqC (env₀ env : Env) (p : BlockShape) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       checkBlockCtorsF ops (mkFEnv env₀) (mkFEnv env) p l = checkBlockCtors ops env₀ env p l
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     simp only [checkBlockCtorsF, checkBlockCtors, checkSumCtorsF_eq,
       checkBlockCtorsF_eqC env₀ env p rest]
 
 theorem checkBlockIdxSortsF_eqC (env : Env) (p : BlockShape) :
-    ∀ l : List (MemberShape × ConstantVal),
+    ∀ l : List MemberShape,
       checkBlockIdxSortsF ops (mkFEnv env) p l = checkBlockIdxSorts ops env p l
   | [] => rfl
-  | (ms, cvTa) :: rest => by
+  | ms :: rest => by
     simp only [checkBlockIdxSortsF, checkBlockIdxSorts, checkStructFieldSortsIF_eq,
       checkBlockIdxSortsF_eqC env p rest]
 
 end Mirrors
 
 theorem consBlockCtorsF_mkFEnv (nP : Nat) :
-    ∀ (ctorsAs : List (List (ConstantVal × Nat))) (env : Env),
-      consBlockCtorsF nP ctorsAs (mkFEnv env) = mkFEnv (consBlockCtors nP ctorsAs env)
+    ∀ (memberCtors : List (List (ConstantVal × Nat))) (env : Env),
+      consBlockCtorsF nP memberCtors (mkFEnv env) = mkFEnv (consBlockCtors nP memberCtors env)
   | [], _ => rfl
-  | ctorsA :: rest, env => by
+  | ctorList :: rest, env => by
     simp only [consBlockCtorsF, consBlockCtors, consSumCtorsF_mkFEnv]
     exact consBlockCtorsF_mkFEnv nP rest _
 
@@ -171,7 +170,7 @@ theorem checkBlockTeleS_spec (henv : EnvWF env) {nP : Nat}
       WScoped 0 v.1.type; ⊤⦄ := by
   sym only [conleche_grind, checkBlockTele.eq_1, unwrapOr] =>
     vcgen [checkBlockTele, unwrapOr, checkConstantValS_spec henv hs,
-      checkSumTeleS_spec henv] <;> finish
+      checkSumTeleS_spec (env := env)] <;> finish
 
 theorem checkBlockTelesS_spec (henv : EnvWF env) {nP : Nat} :
     ∀ {mss : List MemberShape} {s₀ : CState}, CSOK .verified false env s₀ →
@@ -227,18 +226,17 @@ theorem checkBlockAgreeS_spec (henv : EnvWF env) {nP : Nat}
         liftFueledS_spec (mode := .verified) (env := env), ih] <;> finish
 
 theorem checkBlockIndsS_spec (henv : EnvWF env)
-    {p : BlockParts} {isRec : Bool} {s₀ : CState} (hs : CSOK .verified false env s₀) :
+    {p : BlockShape} {isRec : Bool} {s₀ : CState} (hs : CSOK .verified false env s₀) :
     ⦃fun s => s = s₀⦄ checkBlockInds (sharedOpsC .verified (mkFEnv env)) env p isRec
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkBlockInds (fueledOpsM .verified) env p isRec) v ∧
-      CvsWS v.2.1; ⊤⦄ := by
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkBlockInds (fueledOpsM .verified) env p isRec) v; ⊤⦄ := by
   sym only [conleche_grind, checkBlockInds.eq_1] =>
     vcgen [checkBlockInds, checkBlockTeleS_spec henv hs, checkBlockTelesS_spec henv,
       checkBlockAgreeS_spec henv] <;> finish
 
 theorem checkBlockCtorsS_spec (henv : EnvWF env)
     {env₀ : Env} {p : BlockShape} :
-    ∀ {l : List (MemberShape × ConstantVal)} {s₀ : CState},
-      (∀ x ∈ l, x.2.type.hasFvar = false) → CSOK .verified false env s₀ →
+    ∀ {l : List MemberShape} {s₀ : CState},
+      (∀ x ∈ l, x.cvT.type.hasFvar = false) → CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄ checkBlockCtors (sharedOpsC .verified (mkFEnv env)) env₀ env p l
       ⦃fun v s' => CSOK .verified false env s' ∧
         Runs (checkBlockCtors (fueledOpsM .verified) env₀ env p l) v; ⊤⦄ := by
@@ -247,12 +245,11 @@ theorem checkBlockCtorsS_spec (henv : EnvWF env)
   | nil =>
     intro _ _ _
     sym only [conleche_grind, checkBlockCtors.eq_1] => vcgen [checkBlockCtors] <;> finish
-  | cons x rest ih =>
-    obtain ⟨ms, cvTa⟩ := x
+  | cons ms rest ih =>
     intro _ hl _
     sym only [conleche_grind, checkBlockCtors.eq_2] =>
       vcgen [checkBlockCtors, checkSumCtorsS_spec henv
-          (show cvTa.type.hasFvar = false from hl (ms, cvTa) List.mem_cons_self),
+          (show ms.cvT.type.hasFvar = false from hl ms List.mem_cons_self),
         ih (fun x hx => hl x (List.mem_cons_of_mem _ hx))] <;> finish
 
 /-- An opened telescope's variables past a prefix carry types scoped at
@@ -269,8 +266,8 @@ grind_pattern [conleche_grind] openers_drop_fvarTypeD_WScoped =>
 
 theorem checkBlockIdxSortsS_spec (henv : EnvWF env)
     {p : BlockShape} :
-    ∀ {l : List (MemberShape × ConstantVal)} {s₀ : CState},
-      (∀ x ∈ l, WScoped 0 x.2.type) → CSOK .verified false env s₀ →
+    ∀ {l : List MemberShape} {s₀ : CState},
+      (∀ x ∈ l, WScoped 0 x.cvT.type) → CSOK .verified false env s₀ →
       ⦃fun s => s = s₀⦄ checkBlockIdxSorts (sharedOpsC .verified (mkFEnv env)) env p l
       ⦃fun v s' => CSOK .verified false env s' ∧
         Runs (checkBlockIdxSorts (fueledOpsM .verified) env p l) v; ⊤⦄ := by
@@ -279,11 +276,10 @@ theorem checkBlockIdxSortsS_spec (henv : EnvWF env)
   | nil =>
     intro _ _ _
     sym only [conleche_grind, checkBlockIdxSorts.eq_1] => vcgen [checkBlockIdxSorts] <;> finish
-  | cons x rest ih =>
-    obtain ⟨ms, cvTa⟩ := x
+  | cons ms rest ih =>
     intro _ hl _
     sym only [conleche_grind, checkBlockIdxSorts.eq_2, unwrapOr, FvsWS,
-        show WScoped 0 cvTa.type from hl (ms, cvTa) List.mem_cons_self] =>
+        show WScoped 0 ms.cvT.type from hl ms List.mem_cons_self] =>
       vcgen [checkBlockIdxSorts, unwrapOr, checkStructFieldSortsIS_spec henv,
         ih (fun x hx => hl x (List.mem_cons_of_mem _ hx))] <;> finish
 
@@ -331,17 +327,16 @@ theorem ruleR_infer_simG {envR : Env} (henvR : EnvWF envR)
 /-! ## 5. The assembly -/
 
 /-- The rule-less recursors' cons is a `consBlockRecs` with no rules. -/
-theorem consBlockRecsBare_eq_consBlockRecs (find? : Name → Option ConstantInfo) (q : BlockShape)
-    (nP : Nat) :
+theorem consBlockRecsBare_eq_consBlockRecs (q : BlockShape) :
     ∀ (m : Nat) (cvRas : List (ConstantVal × Nat)) (env : Env),
       consBlockRecsBare q m cvRas env
-        = consBlockRecs find? q nP m
+        = consBlockRecs q m
             (cvRas.map fun c => (c.1, ([] : List Expr), c.2, ([] : List (ConstantVal × Nat))))
             env
   | _, [], _ => rfl
   | m, (cv, n) :: rest, env => by
     simp only [consBlockRecsBare, consBlockRecs, List.map_cons, sumRules]
-    exact consBlockRecsBare_eq_consBlockRecs find? q nP (m + 1) rest _
+    exact consBlockRecsBare_eq_consBlockRecs q (m + 1) rest _
 
 /-- **The rule-less recursors' environment is well-formed** when their
 checked types are. -/
@@ -349,107 +344,58 @@ theorem envWF_consBlockRecsBare {q : BlockShape} {cvRas : List (ConstantVal × N
     (henv : EnvWF env)
     (hall : ∀ c ∈ cvRas, c.1.type.hasFvar = false ∧
       c.1.type.allLevelParamsDefined c.1.levelParams = true ∧
-      c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true) :
+      c.1.type.constsResolve env = true ∧ c.1.type.looseBVarsBounded 0 = true)
+    (hlit : ∀ c ∈ cvRas, LitShapeAt c.1) :
     EnvWF (consBlockRecsBare q 0 cvRas env) := by
-  rw [consBlockRecsBare_eq_consBlockRecs env.find? q 0]
-  refine envWF_consBlockRecs henv ?_
-  intro r hr
-  obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
-  obtain ⟨h1, h2, h3, h4⟩ := hall c hc
-  exact ⟨h1, h2, h3, h4, fun _ h => nomatch h⟩
+  rw [consBlockRecsBare_eq_consBlockRecs q]
+  refine envWF_consBlockRecs henv ?_ ?_
+  · intro r hr
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
+    obtain ⟨h1, h2, h3, h4⟩ := hall c hc
+    exact ⟨h1, h2, h3, h4, fun _ h => nomatch h⟩
+  · intro r hr
+    obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hr
+    exact hlit c hc
 
-/-- The projection tables at the cached driver: operation-free, the
-state unchanged, the environment the pure stage's. -/
-theorem checkBlockTablesS_run (p : BlockShape) :
-    ∀ (l : List (MemberShape × List (ConstantVal × Nat) × List (List Level))) (env : Env)
-      {s₀ : CState} {fe' : FEnv} {s' : CState}, EnvWF env → CSOKF s₀ →
-      checkBlockTablesF (m := CheckCM) .plain p l (mkFEnv env) s₀ = .ok (fe', s') →
-      CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
-        checkBlockTables (m := CheckM) p l env = .ok fe'.env
-  | [], env, s₀, fe', s', henv, hwf, h => by
+/-- The projection tables' checks at the cached driver: operation-free, the state unchanged, the
+verdict the pure stage's. -/
+theorem checkBlockTablesS_run (p : BlockShape) (env : Env) :
+    ∀ (l : List MemberShape) {s₀ : CState} {u : Unit} {s' : CState},
+      checkBlockTablesF (m := CheckCM) .plain p (mkFEnv env) l s₀ = .ok (u, s') →
+      s' = s₀ ∧ checkBlockTables (m := CheckM) p env l = .ok ()
+  | [], s₀, u, s', h => by
     simp only [checkBlockTablesF] at h
-    obtain ⟨rfl, rfl⟩ := pureC_ok h
-    exact ⟨hwf, rfl, henv, rfl⟩
-  | (ms, ctorsA, sortss) :: rest, env, s₀, fe', s', henv, hwf, h => by
-    match ctorsA, sortss with
-    | [cA], [sorts] =>
-      simp only [checkBlockTablesF] at h
-      by_cases hi : (ms.nIdx == 0) = true
-      · rw [ite_eq_left hi] at h
-        obtain ⟨fe₁, s₁, h1, h⟩ := bindC_ok h
-        obtain ⟨hwf₁, hfe₁, henv₁, F₁, hF₁⟩ := checkStructProjTableS_run env henv hwf h1
-        rw [hfe₁] at h
-        obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest fe₁.env henv₁ hwf₁ h
-        refine ⟨hwf', hfe', henv', ?_⟩
-        rw [checkStructProjTable_datF] at hF₁
-        simp only [checkBlockTables, ite_eq_left hi, Bind.bind, Except.bind]
-        rw [hF₁]
-        exact hrest
-      · rw [ite_eq_right hi] at h
-        simp only [pure_bind] at h
-        obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest env henv hwf h
-        refine ⟨hwf', hfe', henv', ?_⟩
-        simp only [checkBlockTables, ite_eq_right hi, pure_bind]
-        exact hrest
-    | [], _ =>
-      simp only [checkBlockTablesF, pure_bind] at h
-      obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest env henv hwf h
-      exact ⟨hwf', hfe', henv', by simpa [checkBlockTables] using hrest⟩
-    | _ :: _ :: _, _ =>
-      simp only [checkBlockTablesF, pure_bind] at h
-      obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest env henv hwf h
-      exact ⟨hwf', hfe', henv', by simpa [checkBlockTables] using hrest⟩
-    | [_], [] =>
-      simp only [checkBlockTablesF, pure_bind] at h
-      obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest env henv hwf h
-      exact ⟨hwf', hfe', henv', by simpa [checkBlockTables] using hrest⟩
-    | [_], _ :: _ :: _ =>
-      simp only [checkBlockTablesF, pure_bind] at h
-      obtain ⟨hwf', hfe', henv', hrest⟩ := checkBlockTablesS_run p rest env henv hwf h
-      exact ⟨hwf', hfe', henv', by simpa [checkBlockTables] using hrest⟩
+    obtain ⟨-, rfl⟩ := pureC_ok h
+    exact ⟨rfl, rfl⟩
+  | ms :: rest, s₀, u, s', h => by
+    unfold checkBlockTablesF at h
+    unfold checkBlockTables
+    obtain ⟨u₁, s₁, h₁, h⟩ := bindC_ok h
+    obtain ⟨rfl, hrest⟩ := checkBlockTablesS_run p env rest h
+    cases hc : ms.structCtor? with
+    | none =>
+      rw [hc] at h₁
+      obtain ⟨-, rfl⟩ := pureC_ok h₁
+      exact ⟨rfl, hrest⟩
+    | some c =>
+      rw [hc] at h₁
+      obtain ⟨rfl, hT⟩ := checkStructProjTableS_run env h₁
+      refine ⟨rfl, ?_⟩
+      simp only [hT, bind, Except.bind, hrest]
 
 /-- The constructors' stage stores fvar-free constructor types. -/
 theorem checkBlockCtors_types {env₀ env : Env} {q : BlockShape} {F : Nat}
-    {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-    {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss)) :
-    ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, WScoped 0 c.1.type := by
-  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
-  intro ctorsA hcA c hc
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
-  have hil : i < l.length := by
-    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨ctorsA', sortss, hcA', -, hcs⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
-  obtain rfl := Option.some.inj (hi.symm.trans hcA')
-  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
+    {l : List MemberShape}
+    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok ()) :
+    ∀ ctorList ∈ l.map (·.ctors), ∀ c ∈ ctorList, WScoped 0 c.1.type := by
+  obtain ⟨_, -, hall⟩ := checkBlockCtors_inv h
+  intro ctorList hctor c hc
+  obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hctor
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hms
+  obtain ⟨sortss, -, hcs⟩ := hall i ms hi
+  obtain ⟨hlenC, -, hallc⟩ := hcs
   obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-  have hjl : j < l[i].1.ctors.length := by
-    rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨-, sorts, -, hrun⟩ := hallc j (l[i].1.ctors[j]) c (List.getElem?_eq_getElem hjl) hj
+  obtain ⟨-, sorts, -, hrun⟩ := hallc j c c hj hj
   exact WScoped.of_not_hasFvar (direct_sum_ctor_typeWF hrun).1
-
-/-- The constructors' stage stores constructors fresh in the
-environment they are checked at (`checkConstantVal` rejects a name
-already there). -/
-theorem checkBlockCtors_fresh {env₀ env : Env} {q : BlockShape} {F : Nat}
-    {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-    {sortsss : List (List (List Level))}
-    (h : checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss)) :
-    ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, env.find? c.1.name = none := by
-  obtain ⟨hlen, -, hall⟩ := checkBlockCtors_inv h
-  intro ctorsA hcA c hc
-  obtain ⟨i, hi⟩ := List.getElem?_of_mem hcA
-  have hil : i < l.length := by
-    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hi).1
-  obtain ⟨ctorsA', sortss, hcA', -, hcs⟩ := hall i l[i] (List.getElem?_eq_getElem hil)
-  obtain rfl := Option.some.inj (hi.symm.trans hcA')
-  obtain ⟨hlenC, -, hallc⟩ := checkSumCtors_inv hcs
-  obtain ⟨j, hj⟩ := List.getElem?_of_mem hc
-  have hjl : j < l[i].1.ctors.length := by
-    rw [← hlenC]; exact (List.getElem?_eq_some_iff.mp hj).1
-  obtain ⟨-, sorts, -, hrun⟩ := hallc j (l[i].1.ctors[j]) c (List.getElem?_eq_getElem hjl) hj
-  obtain ⟨⟨heq, hccv⟩, -, -⟩ := checkSumCtor_shape hrun
-  rw [heq]
-  exact (checkConstantVal_inv hccv).1
 
 end ConLeche.Cached

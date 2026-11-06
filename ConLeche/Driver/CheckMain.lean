@@ -4,7 +4,6 @@ public import ConLeche.Frontend.Prelude
 public import ConLeche.Driver.StreamParse
 public import ConLeche.Driver.Run
 public import ConLeche.Frontend.Olean
-public import ConLeche.Verify.Cached.Fill
 
 /-!
 # The driver's sequencing, generic in the IO class (tasks #424, #450)
@@ -15,9 +14,10 @@ the preparation, the fold, the verdict line and the exit code —
 written against `CheckerIO`.  The binary runs it at `IO` (`Cli.lean`
 runs it through `runReq`); the theorem below is about its run in the
 model `ModelIO` over a snapshot of the files.  The output, the clock
-and the fold's two phases with their thread pools (`checkDeclsIO`,
+the index build (`Jobs.build`, `ConLeche/Driver/CheckPool.lean`) and the
+check phase with its thread pool (`checkDeclsIO`,
 `ConLeche/Driver/Run.lean`) are `IO` actions handed to
-`CheckerIO.liftIO`; the fold's result carries its proof in its type.
+`CheckerIO.liftIO`; the check's result carries its proof in its type.
 
 * `checkMainG_ndjson_accept`: an exit 0 on a stream means the file's
   bytes in the snapshot, as one chunk, parse to records that
@@ -110,33 +110,27 @@ reads are in the model like the load's; the check itself is a pure function of w
 they return.  What the phase establishes is then a theorem about the run in the
 model (`ConLeche/Verify/Driver/Oleans.lean`), not a value's type. -/
 
-/-- A job that reads no file: `runAt`. -/
-def runPlain (mode : CheckMode) (J : Jobs) (t : Nat) : Except (CheckError × Nat) Unit :=
-  match runAt mode J t with
-  | .ok _ => .ok ()
-  | .error e => .error e
+/-- Record `d`'s check at position `t`, its error tagged with the position. -/
+def jobRun (mode : CheckMode) {ds : Array Declaration} (J : Jobs ds) (t : Nat) (d : Declaration) :
+    Except (CheckError × Nat) Unit :=
+  match Cached.recordJob mode natOpPinSets J.I t d with
+  | .ok () => .ok ()
+  | .error e => .error (e, t)
 
-/-- **One job's run**, from the region a worker kept: a theorem's check reads the value
-its reference names, any other job is `runAt`.  The value is dropped when the check ends. -/
-def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (J : Jobs)
-    (sp : List System.FilePath) (values : Array Frontend.Olean.ModRef)
+/-- **One job's run**, from the region a worker kept: a theorem whose value is still in its
+file reads it and is checked with it in place, any other record as it stands.  The value is
+dropped when the check ends. -/
+def oleanJobRun {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) {ds : Array Declaration}
+    (J : Jobs ds) (sp : List System.FilePath) (values : Array Frontend.Olean.ModRef)
     (c : Frontend.Olean.ValueCache) (t : Nat) :
     μ (Frontend.Olean.ValueCache × Except (CheckError × Nat) Unit) :=
-  match J.order[t]? with
-  | some (false, k) =>
-    match J.pend[k]? with
-    | some pc =>
-      match pc.vg.kind, pc.vg.jv with
-      | .thm, .bvar code => do
-        match ← Frontend.Olean.readValue sp values c code with
-        | (c, .error e) => pure (c, .error (e, pc.pos))
-        | (c, .ok v) =>
-          match Cached.checkPending mode J.fe (Cached.fillPend (fun _ => v) pc) {} with
-          | .ok _ => pure (c, .ok ())
-          | .error e => pure (c, .error (e, pc.pos))
-      | _, _ => pure (c, runPlain mode J t)
-    | none => pure (c, runPlain mode J t)
-  | _ => pure (c, runPlain mode J t)
+  match ds[t]? with
+  | some (.thmDecl cv (.bvar code)) => do
+    match ← Frontend.Olean.readValue sp values c code with
+    | (c, .error e) => pure (c, .error (e, t))
+    | (c, .ok v) => pure (c, jobRun mode J t (.thmDecl cv v))
+  | some d => pure (c, jobRun mode J t d)
+  | none => pure (c, .error (.internal s!"check phase: no job {t}", t))
 
 /-- A worker of an `--olean` run's check phase: which one, its statistics, and the
 module it read last. -/
@@ -147,43 +141,32 @@ structure OleanWorker where
 
 /-- **One job of the pool**: timed, with the heartbeat. -/
 def oleanStep {μ : Type → Type} [CheckerIO μ] (mode : CheckMode) (run : OleanRun) (pl : PoolLive)
-    (J : Jobs) (sp : List System.FilePath) (values : Array Frontend.Olean.ModRef)
-    (s : OleanWorker) (t : Nat) : μ (OleanWorker × Except (CheckError × Nat) Unit) := do
+    {ds : Array Declaration} (J : Jobs ds) (sp : List System.FilePath)
+    (values : Array Frontend.Olean.ModRef) (s : OleanWorker) (t : Nat) :
+    μ (OleanWorker × Except (CheckError × Nat) Unit) := do
   let ts ← CheckerIO.liftIO (jobBegin pl run.pace s.w t)
   let (c, r) ← oleanJobRun mode J sp values s.cache t
-  let st ← CheckerIO.liftIO (run.jobEnded J pl s.w t ts s.st (r matches .ok _))
+  let st ← CheckerIO.liftIO (jobEnd run.err run.pace run.t0 ds pl s.w t ts (r matches .ok _) s.st)
   pure ({ s with st, cache := c }, r)
 
-/-- **The two phases of an `--olean` run**: the install (`installAndMark`, through
-`liftIO`), then the jobs on the worker map, in fold order; the first failure in that
-order is the result, whatever the workers' timing.  The install's workers are joined on
-every path out, an exception's included (`checkDeclsIO` says why). -/
+/-- **The check phase of an `--olean` run**: the jobs on the worker map, in fold order; the
+first failure in that order is the result, whatever the workers' timing. -/
 def checkOleansG {μ : Type → Type} [CheckerIO μ] (mode : CheckMode)
-    (pace : Pace) (total t0 tParse jobs : Nat) (sp : List System.FilePath)
-    (values : Array Frontend.Olean.ModRef) (ds : Array Declaration) :
+    (pace : Pace) (t0 tIndex tParse jobs : Nat) (sp : List System.FilePath)
+    (values : Array Frontend.Olean.ModRef) {ds : Array Declaration} (J : Jobs ds) :
     μ (Except (CheckError × Nat) Unit) := do
-  let run ← CheckerIO.liftIO (OleanRun.new pace total t0 tParse jobs)
-  let body : μ (Except (CheckError × Nat) Unit) := do
-    match ← CheckerIO.liftIO (run.install mode ds) with
-    | .error e => pure (.error e)
-    | .ok i =>
-      let J := i.jobs
-      let workers := max 1 (min jobs J.order.size)
-      let (pl, tStart) ← CheckerIO.liftIO (run.pool workers values)
-      let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w } : OleanWorker))
-        (oleanStep mode run pl J sp values) (List.range J.order.size)
-      let failure := match res with
-        | .error e => some e
-        | .ok _ => none
-      CheckerIO.liftIO (run.done ds i.tCheck tStart workers J (ss.map (·.st)) failure)
-      pure (match res with
-        | .error e => .error e
-        | .ok _ => .ok ())
-  let res ← tryCatchThe IO.Error body fun e => do
-    CheckerIO.liftIO run.join
-    throwThe IO.Error e
-  CheckerIO.liftIO run.join
-  pure res
+  let run ← CheckerIO.liftIO (OleanRun.new pace t0 tIndex tParse jobs)
+  let workers := max 1 (min jobs ds.size)
+  let (pl, tStart) ← CheckerIO.liftIO (run.pool ds.size workers values)
+  let (ss, res) ← CheckerIO.parMapWorkers jobs (fun w => ({ w } : OleanWorker))
+    (oleanStep mode run pl J sp values) (List.range ds.size)
+  let failure := match res with
+    | .error e => some e
+    | .ok _ => none
+  CheckerIO.liftIO (run.done ds tStart workers (ss.map (·.st)) failure)
+  pure (match res with
+    | .error e => .error e
+    | .ok _ => .ok ())
 
 /-- **The verdict of a run**: the line and the exit code, from the fold's result. -/
 def verdictG {μ : Type → Type} [CheckerIO μ] (modeTag : String) (size t0 : Nat)
@@ -248,7 +231,7 @@ configuration.
 to `Expr` (`parseStreamG`) and checked by the one
 driver — `checkDeclsIO` in `ConLeche/Driver/Run.lean`, through `liftIO` — at `.verified` under `--verified` (the
 default), at `.trusted` under `--trusted`.  The driver returns the
-environment with the proof that the fold `checkDecls` returns it, the
+proof that the fold `checkDecls` accepts the records, the
 fold the main theorem `ConLeche.model_exists`
 (`ConLeche/MainTheorem.lean`) is about; the trusted instance is
 unverified by design.
@@ -265,8 +248,8 @@ parse, established from the good entries its rounds built
 `Frontend.parseChunks` of the file's reads, and the chunk boundaries
 are proved invisible (`parseStreamG_model`: the file's bytes as one
 chunk).  `Frontend.prepareD` is `Frontend.preparePrelude` plus the
-receipts printed below.  `checkDeclsIO` returns its environment with
-the evidence `checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
+receipts printed below.  `checkDeclsIO` returns the evidence
+`∃ env, checkDecls mode natOpPinSets ds = .ok env`.  What the driver adds is
 IO — the heartbeat, the parallel check pool, the diagnostics that say
 which step failed and with what exit code — and none of it touches
 the verdict.  The three steps fail in ONE error type, the checker's
@@ -292,7 +275,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
     -- pinned basis blocks, `Bool` and `And`, parsed from the
     -- committed `pins/<toolchain>.prelude.ndjson`.  `preparePrelude`
     -- PREPENDS them to the parsed stream, so the fold
-    -- installs them first and unconditionally; a stream's own copy of
+    -- checks them first and unconditionally; a stream's own copy of
     -- one is dropped there when identical, and the fold declines the
     -- run when it differs.  A prelude that does not parse is a
     -- corrupted build, reported before any input is read.
@@ -349,14 +332,11 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       -- mode is the shared bodies at `.trusted`, the verified mode the
       -- same bodies at `.verified` — the mode is passed straight down.
       -- **One driver, and it returns its proof.**  `checkDeclsIO`
-      -- above runs the fold's two phases — phase A installs every
-      -- record and carries its accepting run, phase B checks every
-      -- recorded declaration against the prefix view of the installed
-      -- index and carries every check — and what comes out is the
-      -- environment with the proof that `ConLeche.Cached.checkDecls`
-      -- returns it, the fold the main theorem
-      -- `ConLeche.model_exists` (`ConLeche/MainTheorem.lean`) is
-      -- about.  The success line below is printed from that value and
+      -- checks every record at the frozen index's view of its position
+      -- and carries every check, and what comes out is the proof that
+      -- `ConLeche.Cached.checkDecls` accepts the records, the fold the
+      -- main theorem `ConLeche.model_exists`
+      -- (`ConLeche/MainTheorem.lean`) is about.  The success line below is printed from that value and
       -- from nothing else.  Printing between the steps (`--progress`)
       -- changes nothing about the proof, so there is no second loop.
       --
@@ -368,10 +348,13 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       -- synthesises NONE of them and only moves the stream's own
       -- records to the front.)  The declaration NAME on the line is
       -- the portable handle.
+      -- The records' frozen index, the last step of the parse phase.
+      let tIndex ← clockMs
+      let J ← CheckerIO.liftIO (Jobs.build decls)
       -- The heartbeat's first line (`--progress`): the parse is done,
-      -- and the fold is about to start on this many records.  The
-      -- install and check phases print their own lines
-      -- (`checkDeclsIO`), and the summary closes the run.
+      -- and the check phase is about to start on this many records.  It
+      -- prints its own lines (`checkDeclsIO`), and the summary closes
+      -- the run.
       let tParse ← clockMs
       if pace.on then
         diagLine s!"con-leche: parse done: {decls.size} fold records — \
@@ -382,7 +365,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
       match src with
       | none =>
         let verdict ← CheckerIO.liftIO do
-          checkDeclsIO mode (← IO.getStderr) pace decls.size t0 tParse jobs decls
+          checkDeclsIO mode (← IO.getStderr) pace t0 tIndex tParse jobs J
         verdictG modeTag parsed.size t0 decls (match verdict with
           | .ok _ => .ok ()
           | .error e => .error e)
@@ -390,7 +373,7 @@ def checkMainG {μ : Type → Type} [CheckerIO μ] (input : Input) (mode : Check
         -- the theorems' values are read in their checks, and what the
         -- read kept of the merge is dropped here
         verdictG modeTag parsed.size t0 decls
-          (← checkOleansG mode pace decls.size t0 tParse jobs sp rd.values decls)
+          (← checkOleansG mode pace t0 tIndex tParse jobs sp rd.values J)
 
 /-- **An exit 0 is the fold's accept**: the verdict's code is 0 only on an `.ok`. -/
 theorem verdictG_ok {modeTag : String} {size t0 : Nat} {decls : Array Declaration}
@@ -445,16 +428,16 @@ theorem checkMainG_ndjson_accept {file : String} {mode : CheckMode}
     rotate_right
     · obtain ⟨b, hb, hpc⟩ := parseStreamG_model hx
       simp only [Except.map]
-      -- the tail after the parse: the receipts, the fold through
+      -- the tail after the parse: the receipts, the index, the check through
       -- `liftIO`, whose value carries its proof, and the verdict
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
-        intro _ <;>
+        intro _ _ _ <;>
         refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
         intro v <;>
         intro c hc h0 <;>
-        rcases v with ⟨e, _⟩ | ⟨env, henv⟩
+        rcases v with ⟨e, _⟩ | ⟨⟨env, henv⟩⟩
       -- a rejection's exit code is not 0; an accept carries its proof
       all_goals first
         | exact ⟨pre, b, r, env, rfl, hb, hpc, henv⟩

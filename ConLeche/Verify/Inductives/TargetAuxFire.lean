@@ -10,14 +10,13 @@ import ConLeche.Verify.AbstractRange
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.RecStage
 import ConLeche.Verify.Inductives.NestScope
-import ConLeche.Verify.Inductives.PositivityInv
 
 public section
 
 /-!
 # The auxiliary recursors' `.nested` rules
 
-The install (`tgtStoredRules`) stores every rule of a recursor
+The install (`generatedRules`) stores every rule of a recursor
 whose major is OUTSIDE its block (a nested block's container) as
 `auxRuleFire`: `.nested lvls pins`, the class's levels and its
 parameters closed over the rule prefix (`Expr.abstractPrefix`).
@@ -512,10 +511,9 @@ domain `I.{lvls} (pins⇑ ++ indices)`, the pins being the class's
 parameters closed over the rule prefix (`auxRuleFire`), and the pins
 pass `EnvWF`'s guards (their levels and constants are the type's). -/
 theorem genStage_nestedRead {env : Env} {p : BlockShape} {nestedBit : Bool}
-    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor}
-    {cvTas : List ConstantVal} {block : List ConstantInfo}
+    {params : List Expr} {tbl : List NestCtorNf} {rd : ClassRead} {Ms₀ : List TargetMajor} {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)} {F : Nat}
-    (S : GenStageRun mode F (mkFEnv env) p nestedBit params tbl rd Ms₀ cvTas block out)
+    (S : GenStageRun mode F (mkFEnv env) p nestedBit params tbl rd Ms₀ block out)
     (hpl : params.length = p.nP) (hMs₀ : ∀ M ∈ Ms₀, ClassOutParams p.nP M)
     {j : Nat} {t : ConstantVal × TargetMajor × List Expr} (ht : out[j]? = some t)
     (hm : t.2.1.member = none) :
@@ -670,10 +668,9 @@ theorem genStage_nestedRead {env : Env} {p : BlockShape} {nestedBit : Bool}
 /-- The stage of a run with the pass's classes (`GenRecRun` carries
 every bind of `GenStageRun`). -/
 def GenRecRun.stage {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : BlockShape}
-    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : GenRecRun mode F fe₁ env₁ fe p nestedBit pos cvTas block ctorsAs out) :
-    GenStageRun mode F fe p nestedBit R.ctx.params R.st.ctorNfs.toList R.rd R.Ms₀ cvTas block
+    {nestedBit : Bool} {pos : NestState} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : GenRecRun mode F fe₁ env₁ fe p nestedBit pos block out) :
+    GenStageRun mode F fe p nestedBit R.ctx.params R.st.ctorNfs.toList R.rd R.Ms₀ block
       out where
   cvRis := R.cvRis
   Ms := R.Ms
@@ -697,9 +694,8 @@ def GenRecRun.stage {F : Nat} {fe₁ : FEnv} {env₁ : Env} {fe : FEnv} {p : Blo
 run's canonical parameters are the block's, and every outside class's
 parameters pass `targetMajorOf`'s check (`TargetMajorRun.outside_facts`). -/
 theorem GenRecRun.nestedRead {F : Nat} {fe₁ : FEnv} {env₁ : Env} {env : Env} {p : BlockShape}
-    {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-    {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : GenRecRun mode F fe₁ env₁ (mkFEnv env) p nestedBit pos cvTas block ctorsAs out)
+    {nestedBit : Bool} {pos : NestState} {block : List ConstantInfo} {out : List (ConstantVal × TargetMajor × List Expr)}
+    (R : GenRecRun mode F fe₁ env₁ (mkFEnv env) p nestedBit pos block out)
     {j : Nat} {t : ConstantVal × TargetMajor × List Expr} (ht : out[j]? = some t)
     (hm : t.2.1.member = none) :
     NestedRead (·.constsResolve env) t.1.levelParams t.1.type (p.majorIdxAt j)
@@ -724,10 +720,10 @@ theorem GenRecRun.nestedRead {F : Nat} {fe₁ : FEnv} {env₁ : Env} {env : Env}
 /-- **A stored `.nested` firing reads off the stored type**, at a run
 (`GenRecRun.nestedRead` at the firing's datum, `tgtFireOf_nested_eq`). -/
 theorem GenRecRun.fire_nestedRead {F : Nat} {fe₁ : FEnv} {env₁ : Env} {env : Env}
-    {p : BlockShape} {nestedBit : Bool} {pos : NestState} {cvTas : List ConstantVal}
-    {block : List ConstantInfo} {ctorsAs : List (List (ConstantVal × Nat))}
+    {p : BlockShape} {nestedBit : Bool} {pos : NestState}
+    {block : List ConstantInfo}
     {out : List (ConstantVal × TargetMajor × List Expr)}
-    (R : GenRecRun mode F fe₁ env₁ (mkFEnv env) p nestedBit pos cvTas block ctorsAs out)
+    (R : GenRecRun mode F fe₁ env₁ (mkFEnv env) p nestedBit pos block out)
     {j : Nat} {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)}
     (hr : (tgtRs out)[j]? = some r) {lvls : List Level} {pins : List Expr}
     (hf : tgtFireOf p (tgtMajorsOf out) j r = .nested lvls pins) :

@@ -30,7 +30,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
-  BlockParts BlockShape fueledOps PosTree)
+  BlockShape BlockShape fueledOps PosTree)
 
 universe w
 
@@ -113,7 +113,7 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
     {own : Nat → Nat} {G : Nat → Nat → V → V → Prop} {prog : List NestHole} {σ : Nat → V}
     (hσ : AdmVal mk mpC ctx d ns ψ ρ xs own G prog σ) {i : Nat} {hk : NestHole}
     (hi : prog.reverse[i]? = some hk)
-    {is : List V} (his : is.length + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname)
+    {is : List V} (his : is.length = hk.nIdx)
     (hext : is.length = ((nlDb mpC d ns (own i)).ids (nlComp mpC d ns (own i) hk.key.cname)
           (nlψ envC ns ψ (own i))).length →
       ∀ k, SpineFit (nlFr mpC ctx d ns ψ ρ xs (own i))
@@ -164,7 +164,6 @@ theorem admVal_frameLand (H : DynCtx F mk mpC ctx d ns) {ψ : Name → Nat} {ρ 
     simp only at his hfit hy' hext ⊢
     rw [hpm, idxOf_member hnN hkN hmm'] at harity hy' hfit hext
     have hisl : is.length = ((lfpSel mpC d.toLfp u.key.cname).ids mm' (nodeψ envC ψ u)).length := by
-      rw [hpm] at his
       omega
     -- the true value is not the point: every fitting prefix of the spine
     -- extends (`hext`), and the carrier's fibres are never the point

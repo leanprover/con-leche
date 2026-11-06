@@ -1,6 +1,8 @@
 module
 
 public import ConLeche.Verify.Inductives.DirectInv
+public import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Kernel.Inductives.BlockTail
 
 public section
@@ -76,9 +78,8 @@ theorem checkBlockTele_shape {env : Env} {nP : Nat} {ms : MemberShape}
     obtain ⟨rfl, rfl⟩ := h
     have hstrip : cvTa'.type.stripPis (nP + ms.nIdx) = some (bs, Expr.sort s') := by
       rw [hr', beq_iff_eq.mp hc]
-    rcases checkSumTele_shape htele with ⟨rfl, -⟩ | ⟨ty, heq, hccv⟩
-    · exact ⟨ms.cvT, rfl, rfl, rfl, hccv₀, bs, hstrip⟩
-    · exact ⟨{ ms.cvT with type := ty }, rfl, rfl, heq, hccv, bs, hstrip⟩
+    obtain ⟨rfl, -⟩ := checkSumTele_shape htele
+    exact ⟨ms.cvT, rfl, rfl, rfl, hccv₀, bs, hstrip⟩
   · rw [ite_eq_right hc] at h
     close_throw
 
@@ -195,15 +196,14 @@ theorem checkBlockAgree_inv {env : Env} {nP : Nat} {cvTa0 : ConstantVal} {s0 : L
 formers, official's two agreements against member 0, the record
 completed with member 0's result sort, and the k formers consed at
 once — the environment every constructor is then checked at. -/
-theorem checkBlockInds_shape {env envI : Env} {p : BlockParts} {isRec : Bool}
-    {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
-    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
+theorem checkBlockInds_shape {env envI : Env} {p : BlockShape} {isRec : Bool}
+    {p₁ : BlockShape} {F : Nat}
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
     ∃ (ms0 : MemberShape) (rest : List MemberShape) (cvTa0 : ConstantVal) (s0 : Level)
       (cvs : List (ConstantVal × Level)),
       p.members = ms0 :: rest ∧
-      cvTas = cvTa0 :: cvs.map (·.1) ∧
-      p₁ = p.toBlockShape.withSort s0 ∧
-      envI = consBlockInds p₁ isRec cvTas 0 env ∧
+      p₁ = p.withSort s0 ∧
+      envI = consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env ∧
       checkBlockTele (fueledOps mode F) env p.nP ms0 = .ok (cvTa0, s0) ∧
       checkBlockTeles (fueledOps mode F) env p.nP rest = .ok cvs ∧
       checkBlockAgree (fueledOps mode F) env p.nP cvTa0 s0 cvs = .ok () := by
@@ -220,56 +220,204 @@ theorem checkBlockInds_shape {env envI : Env} {p : BlockParts} {isRec : Bool}
   try simp only at h
   obtain ⟨u, hagree, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl, rfl⟩ := h
-  exact ⟨ms0, rest, cvTa0, s0, cvs, rfl, rfl, rfl, rfl, hq, hcvs, by cases u; exact hagree⟩
+  obtain ⟨rfl, rfl⟩ := h
+  exact ⟨ms0, rest, cvTa0, s0, cvs, rfl, rfl, rfl, hq, hcvs, by cases u; exact hagree⟩
 
-/-- The checked formers are one per member. -/
-theorem checkBlockInds_length {env envI : Env} {p : BlockParts} {isRec : Bool}
-    {cvTas : List ConstantVal} {p₁ : BlockShape} {F : Nat}
-    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, cvTas, p₁)) :
-    cvTas.length = p.k := by
-  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, -, -, -, hcvs, -⟩ := checkBlockInds_shape h
-  obtain ⟨hlen, -⟩ := checkBlockTeles_inv hcvs
-  simp [BlockShape.k, hm, hlen]
+/-- **A member under check, against what the stream declares**: its former at its telescope is
+the declared one where that shows a telescope, else the declared one's reduct, the declared type
+checked and the two compared. -/
+structure MemberAt (F : Nat) (env : Env) (nP : Nat) (m : MemberShape) : Prop where
+  name : m.cvT.name = m.declared.name
+  lps : m.cvT.levelParams = m.declared.levelParams
+  how : (formerDefHeaded m.declared = false ∧ m.cvT = m.declared) ∨
+    (formerDefHeaded m.declared = true ∧ declinedAtDefinition.contains m.declared.name = false ∧
+      checkConstantVal (fueledOps .verified F) env m.declared = .ok () ∧
+      (fueledOps .verified F).isDefEq env 0 m.declared.type m.cvT.type = .ok true ∧
+      reducedFormer (fueledOps .verified F) env m.declared (nP + m.nIdx) = .ok m.cvT)
+
+/-- A member's reduction, inverted: the recogniser's member, at its telescope. -/
+theorem reduceMember_inv {F : Nat} {env : Env} {nP : Nat} {m₀ m : MemberShape}
+    (hd₀ : m₀.declared = m₀.cvT)
+    (h : reduceMember (m := CheckM) (fueledOps .verified F) env m₀ nP = .ok m) :
+    MemberAt F env nP m ∧ m.declared = m₀.declared ∧ m.nIdx = m₀.nIdx ∧ m.ctors = m₀.ctors := by
+  unfold reduceMember at h
+  by_cases hd : formerDefHeaded m₀.cvT = true
+  · rw [ite_eq_left hd] at h
+    by_cases hg : declinedAtDefinition.contains m₀.cvT.name = true
+    · rw [ite_eq_left hg] at h
+      exact nomatch h
+    rw [ite_eq_right hg] at h
+    obtain ⟨u₁, h₁, h⟩ := exceptBind_ok h
+    cases u₁
+    obtain ⟨cvR, hR, h⟩ := exceptBind_ok h
+    obtain ⟨b, hb, h⟩ := exceptBind_ok h
+    cases b with
+    | false => simp [throw, throwThe, MonadExceptOf.throw, Bind.bind, Except.bind] at h
+    | true =>
+      simp only [pure, Except.pure, Except.ok.injEq, ↓reduceIte] at h
+      subst h
+      have hrf := reducedFormer_cv hR
+      refine ⟨⟨?_, ?_, .inr ?_⟩, rfl, rfl, rfl⟩
+      · show cvR.name = m₀.declared.name
+        rw [hd₀, hrf]
+      · show cvR.levelParams = m₀.declared.levelParams
+        rw [hd₀, hrf]
+      · show formerDefHeaded m₀.declared = true ∧ declinedAtDefinition.contains m₀.declared.name = false ∧
+          checkConstantVal (fueledOps .verified F) env m₀.declared = .ok () ∧
+          (fueledOps .verified F).isDefEq env 0 m₀.declared.type cvR.type = .ok true ∧
+          reducedFormer (fueledOps .verified F) env m₀.declared (nP + m₀.nIdx) = .ok cvR
+        rw [hd₀]
+        exact ⟨hd, by simpa using hg, h₁, hb, hR⟩
+  · rw [ite_eq_right hd] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    refine ⟨⟨by rw [hd₀], by rw [hd₀], .inl ⟨?_, hd₀.symm⟩⟩, rfl, rfl, rfl⟩
+    rw [hd₀]; simpa using hd
+
+/-- The members' reduction, inverted. -/
+theorem reduceMembers_inv {F : Nat} {env : Env} {nP : Nat} :
+    ∀ {l l' : List MemberShape}, (∀ m ∈ l, m.declared = m.cvT) →
+      reduceMembers (m := CheckM) (fueledOps .verified F) env nP l = .ok l' →
+      (∀ m ∈ l', MemberAt F env nP m) ∧ l'.map (·.declared) = l.map (·.declared) ∧
+        l'.map (·.cvT.name) = l.map (·.cvT.name) ∧ l'.map (·.nIdx) = l.map (·.nIdx) ∧
+        l'.map (·.ctors) = l.map (·.ctors)
+  | [], l', _, h => by
+    simp only [reduceMembers, pure, Except.pure, Except.ok.injEq] at h
+    subst h; simp
+  | m₀ :: rest, l', hd, h => by
+    unfold reduceMembers at h
+    obtain ⟨m', hm', h⟩ := exceptBind_ok h
+    obtain ⟨r', hr', h⟩ := exceptBind_ok h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    have hd₀ := hd m₀ List.mem_cons_self
+    obtain ⟨ha, h₁, h₃, h₄⟩ := reduceMember_inv hd₀ hm'
+    obtain ⟨hall, e₁, e₂, e₃, e₄⟩ := reduceMembers_inv (fun m hm => hd m (List.mem_cons_of_mem _ hm)) hr'
+    refine ⟨fun m hm => ?_, by simp [h₁, e₁], ?_, by simp [h₃, e₃], by simp [h₄, e₄]⟩
+    · rcases List.mem_cons.mp hm with rfl | hm
+      · exact ha
+      · exact hall m hm
+    · simp only [List.map_cons, e₂, List.cons.injEq, and_true]
+      rw [ha.name, h₁, hd₀]
+
+/-- The checked formers are the members' telescopes, and the shape keeps the members. -/
+theorem checkBlockInds_members {env envI : Env} {p : BlockShape} {isRec : Bool}
+    {p₁ : BlockShape} {F : Nat}
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
+    p₁.members = p.members := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, rfl, -, hq, hcvs, -⟩ := checkBlockInds_shape h
+  rfl
+
+/-- The checked teles are the members' formers. -/
+theorem checkBlockInds_teles {env : Env} {p : BlockShape} {F : Nat}
+    {ms0 : MemberShape} {rest : List MemberShape} {cvTa0 : ConstantVal} {s0 : Level}
+    {cvs : List (ConstantVal × Level)} (hm : p.members = ms0 :: rest)
+    (hq : checkBlockTele (fueledOps mode F) env p.nP ms0 = .ok (cvTa0, s0))
+    (hcvs : checkBlockTeles (fueledOps mode F) env p.nP rest = .ok cvs) :
+    cvTa0 :: cvs.map (·.1) = p.formers := by
+  have hone : ∀ {ms : MemberShape} {x : ConstantVal × Level},
+      checkBlockTele (fueledOps mode F) env p.nP ms = .ok x → x.1 = ms.cvT := by
+    intro ms x hx
+    obtain ⟨cv, s⟩ := x
+    unfold checkBlockTele at hx
+    obtain ⟨_, -, hx⟩ := exceptBind_ok hx
+    obtain ⟨q, htele, hx⟩ := exceptBind_ok hx
+    obtain ⟨cvTa', s'⟩ := q
+    obtain ⟨r, -, hx⟩ := exceptBind_ok hx
+    obtain ⟨rfl, -⟩ := checkSumTele_shape htele
+    obtain ⟨bs, tbody⟩ := r
+    try simp only at hx
+    by_cases hc : (tbody == Expr.sort s') = true
+    · rw [ite_eq_left hc] at hx
+      simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at hx
+      exact hx.1.symm
+    · rw [ite_eq_right hc] at hx
+      close_throw
+  have hall : ∀ {l : List MemberShape} {xs : List (ConstantVal × Level)},
+      checkBlockTeles (fueledOps mode F) env p.nP l = .ok xs → xs.map (·.1) = l.map (·.cvT) := by
+    intro l
+    induction l with
+    | nil => intro xs hx; simp only [checkBlockTeles, pure, Except.pure, Except.ok.injEq] at hx; subst hx; rfl
+    | cons ms l ih =>
+      intro xs hx
+      unfold checkBlockTeles at hx
+      obtain ⟨y, hy, hx⟩ := exceptBind_ok hx
+      obtain ⟨ys, hys, hx⟩ := exceptBind_ok hx
+      simp only [pure, Except.pure, Except.ok.injEq] at hx
+      subst hx
+      simp [hone hy, ih hys]
+  show _ = p.members.map _
+  rw [hm]
+  have h0 : cvTa0 = ms0.cvT := hone hq
+  simp [h0, hall hcvs]
+
+/-- Every member's telescope was checked as a constant. -/
+theorem checkBlockInds_checked {env envI : Env} {p : BlockShape} {isRec : Bool}
+    {p₁ : BlockShape} {F : Nat}
+    (h : checkBlockInds (fueledOps mode F) env p isRec = .ok (envI, p₁)) :
+    ∀ ms ∈ p.members, checkConstantVal (fueledOps mode F) env ms.cvT = .ok () := by
+  obtain ⟨ms0, rest, cvTa0, s0, cvs, hm, -, -, hq, hcvs, -⟩ := checkBlockInds_shape h
+  have hone : ∀ {ms : MemberShape} {x : ConstantVal × Level},
+      checkBlockTele (fueledOps mode F) env p.nP ms = .ok x →
+      checkConstantVal (fueledOps mode F) env ms.cvT = .ok () := by
+    intro ms x hx
+    unfold checkBlockTele at hx
+    obtain ⟨u, hu, -⟩ := exceptBind_ok hx
+    cases u
+    exact hu
+  have hall : ∀ {l : List MemberShape} {xs : List (ConstantVal × Level)},
+      checkBlockTeles (fueledOps mode F) env p.nP l = .ok xs →
+      ∀ ms ∈ l, checkConstantVal (fueledOps mode F) env ms.cvT = .ok () := by
+    intro l
+    induction l with
+    | nil => intro _ _ _ hm; exact nomatch hm
+    | cons ms l ih =>
+      intro xs hx m hm
+      unfold checkBlockTeles at hx
+      obtain ⟨y, hy, hx⟩ := exceptBind_ok hx
+      obtain ⟨ys, hys, -⟩ := exceptBind_ok hx
+      rcases List.mem_cons.mp hm with rfl | hm
+      · exact hone hy
+      · exact ih hys m hm
+  intro m hmm
+  rw [hm] at hmm
+  rcases List.mem_cons.mp hmm with rfl | hmm
+  · exact hone hq
+  · exact hall hcvs m hmm
 
 /-! ## Stage 1b: the constructors, per member -/
 
-/-- **Every member's constructors**, positionally: the sum route's
+/-- **What an accepting constructor stage establishes**, positionally: the sum route's
 constructor loop at the member's own name and index count, at the
 BLOCK's level parameters, parameter count, result sort and
-elimination data (deviation D-e: official's
-`Level.isEquiv` agreement makes the universe bound and the
-subsingleton criterion the same test for every member). -/
+elimination data, with the constructors' fields' sorts. -/
+abbrev BlockCtorsRun (mode : CheckMode) (F : Nat) (env₀ env : Env) (q : BlockShape)
+    (l : List MemberShape) (sortsss : List (List (List Level))) : Prop :=
+  sortsss.length = l.length ∧
+  ∀ (i : Nat) (ms : MemberShape), l[i]? = some ms →
+    ∃ sortss, sortsss[i]? = some sortss ∧
+      SumCtorsRun mode F env₀ env ms.cvT.name q.lps q.nP ms.nIdx
+        q.resSort q.isProp q.large ms.cvT ms.ctors ms.ctors sortss
+
+/-- **Every member's constructors**, positionally. -/
 theorem checkBlockCtors_inv {env₀ env : Env} {q : BlockShape} {F : Nat} :
-    ∀ {l : List (MemberShape × ConstantVal)} {ctorsAs : List (List (ConstantVal × Nat))}
-      {sortsss : List (List (List Level))},
-      checkBlockCtors (fueledOps mode F) env₀ env q l = .ok (ctorsAs, sortsss) →
-      ctorsAs.length = l.length ∧ sortsss.length = l.length ∧
-      ∀ (i : Nat) (mc : MemberShape × ConstantVal), l[i]? = some mc →
-        ∃ ctorsA sortss, ctorsAs[i]? = some ctorsA ∧ sortsss[i]? = some sortss ∧
-          checkSumCtors (fueledOps mode F) env₀ env mc.1.cvT.name q.lps q.nP mc.1.nIdx
-            q.resSort q.isProp q.large mc.2 mc.1.ctors = .ok (ctorsA, sortss)
-  | [], ctorsAs, sortsss, h => by
-    simp only [checkBlockCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    exact ⟨rfl, rfl, fun i mc hmc => by simp at hmc⟩
-  | (ms, cvTa) :: rest, ctorsAs, sortsss, h => by
+    ∀ {l : List MemberShape},
+      checkBlockCtors (fueledOps mode F) env₀ env q l = .ok () →
+      ∃ sortsss, BlockCtorsRun mode F env₀ env q l sortsss
+  | [], _ => ⟨[], rfl, fun i ms hmc => by simp at hmc⟩
+  | ms :: rest, h => by
     unfold checkBlockCtors at h
-    obtain ⟨r, hr, h⟩ := exceptBind_ok h
-    obtain ⟨ctorsA, sortss⟩ := r
-    try simp only at h
-    obtain ⟨r', hr', h⟩ := exceptBind_ok h
-    obtain ⟨restC, restS⟩ := r'
-    simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    obtain ⟨hlen, hlenS, hall⟩ := checkBlockCtors_inv hr'
-    refine ⟨by simp [hlen], by simp [hlenS], ?_⟩
+    obtain ⟨u, hr, h⟩ := exceptBind_ok h
+    cases u
+    obtain ⟨sortss, hS⟩ := checkSumCtors_inv hr
+    obtain ⟨restS, hlenS, hall⟩ := checkBlockCtors_inv h
+    refine ⟨sortss :: restS, by simp [hlenS], ?_⟩
     intro i mc hmc
     cases i with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hmc
       subst hmc
-      exact ⟨ctorsA, sortss, rfl, rfl, hr⟩
+      exact ⟨sortss, rfl, hS⟩
     | succ i =>
       simp only [List.getElem?_cons_succ] at hmc ⊢
       exact hall i mc hmc
@@ -282,69 +430,67 @@ formers, the walk's context, the classes (`checkBlockClasses`), the
 positivity function's run on the stored constructors (the root frame),
 the walk of the outside classes from its state, and the record
 completed. -/
-theorem checkBlockPass_inv {env : Env} {p₀ : BlockParts} {isRec : Bool}
+theorem checkBlockPass_inv {env : Env} {p₀ : BlockShape} {isRec : Bool}
     {q : BlockPass Env} {F : Nat}
     (h : checkBlockPass (fueledOps mode F) env p₀ isRec = .ok q) :
-    ∃ (p₁ : BlockShape) (ctx : NestCtx) (holes : List Expr) (pos st : NestState),
-      checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.cvTas, p₁) ∧
-      checkBlockCtors (fueledOps mode F) q.env₁ q.env₁ (p₀.complete p₁).toBlockShape
-        ((p₀.complete p₁).members.zip q.cvTas) = .ok (q.ctorsAs, q.sortsss) ∧
-      blockNestCtx (m := CheckM) (p₀.complete p₁).toBlockShape q.cvTas q.env₁.find?
-        = .ok (ctx, holes) ∧
-      checkBlockClasses (fueledOps mode F) (mkFEnv q.env₁) (p₀.complete p₁).toBlockShape
-        ctx.params q.ctorsAs = .ok (q.rd, q.cls) ∧
-      checkBlockPositivity (m := CheckM) (fueledOps mode F) q.env₁ q.env₁.find?
-        (p₀.complete p₁) q.cvTas q.ctorsAs = .ok (q.kinds, q.nfs, pos) ∧
+    ∃ (sortsss : List (List (List Level))) (nfs : List (List Expr)) (ctx : NestCtx)
+      (holes : List Expr) (pos st : NestState),
+      checkBlockInds (fueledOps mode F) env p₀ isRec = .ok (q.env₁, q.p) ∧
+      BlockCtorsRun mode F q.env₁ q.env₁ q.p q.p.members sortsss ∧
+      blockNestCtx (m := CheckM) q.p q.env₁.find? = .ok (ctx, holes) ∧
+      checkBlockClasses (fueledOps mode F) (mkFEnv q.env₁) q.p
+        ctx.params = .ok (q.rd, q.cls) ∧
+      PositivityRun (fueledOps mode F) q.env₁ q.env₁.find? q.p q.kinds nfs pos ∧
       nestSeeds (fueledOps mode F) q.env₁ ctx (classSeeds ctx holes q.cls) pos = .ok st ∧
-      q.params = ctx.params ∧ q.tbl = st.ctorNfs ∧
-      q.p = p₀.complete p₁ := by
+      q.params = ctx.params ∧ q.tbl = st.ctorNfs := by
   unfold checkBlockPass at h
   obtain ⟨r₁, hInd, h⟩ := exceptBind_ok h
-  obtain ⟨env₁, cvTas, p₁⟩ := r₁
+  obtain ⟨env₁, p₁⟩ := r₁
   try simp only at h
-  obtain ⟨r₂, hCtors, h⟩ := exceptBind_ok h
-  obtain ⟨ctorsAs, sortsss⟩ := r₂
-  try simp only at h
+  obtain ⟨u, hCtors, h⟩ := exceptBind_ok h
+  cases u
+  obtain ⟨sortsss, hCtors⟩ := checkBlockCtors_inv hCtors
   obtain ⟨⟨ctx, holes⟩, hctx, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨⟨rd, Ms⟩, hcls, h⟩ := exceptBind_ok h
   try simp only at h
-  obtain ⟨⟨kinds, nfs, pos⟩, hK, h⟩ := exceptBind_ok h
+  obtain ⟨⟨outs, pos⟩, hK, h⟩ := exceptBind_ok h
   try simp only at h
   obtain ⟨st, hst, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq] at h
   subst h
-  exact ⟨p₁, ctx, holes, pos, st, hInd, hCtors, hctx, hcls, hK, hst, rfl, rfl, rfl⟩
+  exact ⟨sortsss, outs.map (·.map (·.2)), ctx, holes, pos, st, hInd, hCtors, hctx, hcls,
+    ⟨outs, hK, rfl, rfl⟩, hst, rfl, rfl⟩
 
 /-! ## Stage 2: the tail -/
 
+/-- **What an accepting index-sorts stage establishes**, positionally: every member's index binders'
+sorts. -/
+abbrev BlockIdxSortsRun (mode : CheckMode) (F : Nat) (env₁ : Env) (q : BlockShape)
+    (l : List MemberShape) (isorts : List (List Level)) : Prop :=
+  isorts.length = l.length ∧
+  ∀ (i : Nat) (ms : MemberShape), l[i]? = some ms →
+    ∃ is tfvs trest, isorts[i]? = some is ∧
+      openPisAtFvars (q.nP + ms.nIdx) ms.cvT.type 0 = some (tfvs, trest) ∧
+      FieldSorts mode F env₁ true false q.resSort q.nP (tfvs.drop q.nP) [] ms.nIdx is
+
 /-- Every member's index binders' sorts, positionally. -/
 theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
-    ∀ {l : List (MemberShape × ConstantVal)} {isorts : List (List Level)},
-      checkBlockIdxSorts (fueledOps mode F) env₁ q l = .ok isorts →
-      isorts.length = l.length ∧
-      ∀ (i : Nat) (mc : MemberShape × ConstantVal), l[i]? = some mc →
-        ∃ is tfvs trest, isorts[i]? = some is ∧
-          openPisAtFvars (q.nP + mc.1.nIdx) mc.2.type 0 = some (tfvs, trest) ∧
-          checkStructFieldSortsI (fueledOps mode F) env₁ true false q.resSort q.nP
-            (tfvs.drop q.nP) [] mc.1.nIdx = .ok is
-  | [], isorts, h => by
-    simp only [checkBlockIdxSorts, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨rfl, fun i mc hmc => by simp at hmc⟩
-  | (ms, cvTa) :: rest, isorts, h => by
+    ∀ {l : List MemberShape},
+      checkBlockIdxSorts (fueledOps mode F) env₁ q l = .ok () →
+      ∃ isorts, BlockIdxSortsRun mode F env₁ q l isorts
+  | [], _ => ⟨[], rfl, fun i mc hmc => by simp at hmc⟩
+  | ms :: rest, h => by
     unfold checkBlockIdxSorts at h
     obtain ⟨tq, htq, h⟩ := exceptBind_ok h
     have htq' := unwrapOr_ok htq
     obtain ⟨tfvs, trest⟩ := tq
     try simp only at h
-    obtain ⟨is, his, h⟩ := exceptBind_ok h
-    try simp only at h
-    obtain ⟨rest', hrest, h⟩ := exceptBind_ok h
-    simp only [pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    obtain ⟨hlen, hall⟩ := checkBlockIdxSorts_inv hrest
-    refine ⟨by simp [hlen], ?_⟩
+    obtain ⟨u, his, h⟩ := exceptBind_ok h
+    cases u
+    obtain ⟨is, his⟩ := checkStructFieldSortsI_inv his
+    obtain ⟨rest', hlen, hall⟩ := checkBlockIdxSorts_inv h
+    refine ⟨is :: rest', by simp [hlen], ?_⟩
     intro i mc hmc
     cases i with
     | zero =>
@@ -357,55 +503,165 @@ theorem checkBlockIdxSorts_inv {env₁ : Env} {q : BlockShape} {F : Nat} :
 
 /-! ## The install after the pass -/
 
+/-- The tables' stage, inverted: each structure-like member's table checks passed. -/
+theorem checkBlockTables_inv {p : BlockShape} {env : Env} :
+    ∀ {l : List MemberShape}, checkBlockTables (m := CheckM) p env l = .ok () →
+      ∀ ms ∈ l, ∀ c, ms.structCtor? = some c →
+        checkStructProjTable (m := CheckM) ms.cvT.name p.lps p.nP c.2 c.1 env = .ok ()
+  | [], _, _, h, _, _ => nomatch h
+  | ms :: rest, h, m, hm, c, hc => by
+    unfold checkBlockTables at h
+    obtain ⟨u, hu, h⟩ := exceptBind_ok h
+    rcases List.mem_cons.mp hm with rfl | hm'
+    · rw [hc] at hu
+      cases u
+      exact hu
+    · exact checkBlockTables_inv h m hm' c hc
+
+/-! ## The install does not read the telescope a former was reduced to -/
+
+theorem getD_map_congr {α β : Type} [Inhabited α] {f : α → β} {l l' : List α} (h : l.map f = l'.map f)
+    (i : Nat) : f (l.getD i default) = f (l'.getD i default) := by
+  have hi := congrArg (·[i]?) h
+  simp only [List.getElem?_map] at hi
+  simp only [List.getD_eq_getElem?_getD]
+  cases h₁ : l[i]? <;> cases h₂ : l'[i]? <;> simp_all
+
+theorem blockCapsAt_congr {p q : BlockShape} (hnP : p.nP = q.nP)
+    (hnm : p.memberNames = q.memberNames)
+    (hc : p.members.map (·.ctors) = q.members.map (·.ctors))
+    (hi : p.members.map (·.nIdx) = q.members.map (·.nIdx)) (mi : Nat) (isRec : Bool) :
+    blockCapsAt p mi isRec = blockCapsAt q mi isRec := by
+  unfold blockCapsAt
+  rw [getD_map_congr hc mi, getD_map_congr hi mi, hnP, hnm]
+
+theorem blockRecs_congr {p q : BlockShape} (hk : p.k = q.k) :
+    ∀ l : List RecShape, blockRecs p l = blockRecs q l
+  | [] => rfl
+  | rc :: rest => by
+    have hf : recFire p rc = recFire q rc := by
+      unfold recFire
+      rw [hk]
+    simp only [blockRecs, hf, blockRecs_congr hk rest]
+
+theorem blockTables_congr {p q : BlockShape} (hnP : p.nP = q.nP) (hlps : p.lps = q.lps) :
+    ∀ {l l' : List MemberShape}, l.map (·.declared) = l'.map (·.declared) →
+      l.map (·.ctors) = l'.map (·.ctors) → l.map (·.nIdx) = l'.map (·.nIdx) →
+      blockTables p l = blockTables q l'
+  | [], [], _, _, _ => rfl
+  | [], _ :: _, h, _, _ => nomatch h
+  | _ :: _, [], h, _, _ => nomatch h
+  | a :: l, b :: l', hd, hc, hi => by
+    simp only [List.map_cons, List.cons.injEq] at hd hc hi
+    have hs : a.structCtor? = b.structCtor? := by
+      unfold MemberShape.structCtor?
+      rw [hc.1, hi.1]
+    simp only [blockTables, hs, hd.1, hnP, hlps, blockTables_congr hnP hlps hd.2 hc.2 hi.2]
+
+/-- **What a reduction of its formers leaves of a block's install**: nothing changes. -/
+theorem blockInstall_reduced {F : Nat} {env : Env} {p₀ : BlockShape} {ms : List MemberShape}
+    (hd : ∀ m ∈ p₀.members, m.declared = m.cvT)
+    (h : reduceMembers (m := CheckM) (fueledOps .verified F) env p₀.nP p₀.members = .ok ms) :
+    blockConstants { p₀ with members := ms } = blockConstants p₀ ∧
+    blockTables ({ p₀ with members := ms } : BlockShape) ms
+      = blockTables p₀ p₀.members := by
+  obtain ⟨hAt, hdecl, hname, hidx, hctors⟩ := reduceMembers_inv hd h
+  have hnm : ({ p₀ with members := ms } : BlockShape).memberNames = p₀.memberNames := hname
+  have hcaps : ∀ i r, blockCapsAt ({ p₀ with members := ms } : BlockShape) i r
+      = blockCapsAt p₀ i r := fun i r =>
+    blockCapsAt_congr (p := ({ p₀ with members := ms } : BlockShape))
+      (q := p₀) rfl hnm hctors hidx i r
+  have hlen : ms.length = p₀.members.length := by
+    simpa using congrArg List.length hdecl
+  have hrec : blockIsRec ({ p₀ with members := ms } : BlockShape) = blockIsRec p₀ := by
+    unfold blockIsRec
+    show (ms.any _) = (p₀.members.any _)
+    rw [hnm]
+    have e : ∀ (l : List MemberShape) (g : List (ConstantVal × Nat) → Bool),
+        l.any (fun m => g m.ctors) = (l.map (·.ctors)).any g := by
+      intro l g; induction l <;> simp_all
+    exact (e ms fun cs => cs.any fun c => Expr.piDomsMentionAny p₀.memberNames c.1.type).trans
+      (by rw [hctors]; exact (e p₀.members _).symm)
+  have hall : ({ p₀ with members := ms } : BlockShape).allCtors
+      = p₀.allCtors := by
+    show (ms.map (·.ctors)).flatten = (p₀.members.map (·.ctors)).flatten
+    rw [hctors]
+  have hlps : ({ p₀ with members := ms } : BlockShape).lps = p₀.lps := by
+    show (ms.head?.map (·.cvT.levelParams)).getD [] = (p₀.members.head?.map (·.cvT.levelParams)).getD []
+    cases hm : ms with
+    | nil =>
+      rw [hm] at hlen
+      cases hp : p₀.members with
+      | nil => rfl
+      | cons _ _ => simp [hp] at hlen
+    | cons a as =>
+      cases hp : p₀.members with
+      | nil => simp [hm, hp] at hlen
+      | cons b bs =>
+        rw [hm, hp] at hdecl
+        simp only [List.map_cons, List.cons.injEq] at hdecl
+        show a.cvT.levelParams = b.cvT.levelParams
+        rw [(hAt a (by rw [hm]; exact List.mem_cons_self)).lps, hdecl.1,
+          hd b (by rw [hp]; exact List.mem_cons_self)]
+  refine ⟨?_, blockTables_congr (p := ({ p₀ with members := ms } : BlockShape))
+    (q := p₀) rfl hlps hdecl hctors hidx⟩
+  unfold blockConstants blockFormers blockCtors
+  simp only [hrec, hall, hcaps]
+  rw [blockRecs_congr (p := ({ p₀ with members := ms } : BlockShape))
+    (q := p₀) hlen]
+  show ((ms.map (·.declared)).zipIdx.map _) ++ _ ++ _ =
+    ((p₀.members.map (·.declared)).zipIdx.map _) ++ _ ++ _
+  rw [hdecl]
+
 /-- **The tail, inverted**: every member's index binders' sorts, the
 constructors consed,
 the RECURSOR STAGE — left opaque, as `checkBlockRec … = .ok out` — the
 stored recursors against the generated ones at the generated install
-(`storedRecsCheck`, task #431), the stored recursors consed
+(`streamRecsCheck`, task #431), the stored recursors consed
 with their rules at their majors, and the projection tables. -/
-theorem checkBlockTail_inv {env₂ : Env} {block : List ConstantInfo} {q : BlockPass Env}
-    {F : Nat}
-    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok env₂) :
+theorem checkBlockTail_inv {block : List ConstantInfo} {q : BlockPass Env} {F : Nat}
+    (h : checkBlockTail (m := CheckM) (fueledOps mode F) block q = .ok ()) :
     ∃ (isorts : List (List Level))
       (out : List (ConstantVal × TargetMajor × List Expr)),
-      checkBlockIdxSorts (fueledOps mode F) q.env₁ q.p.toBlockShape
-        (q.p.members.zip q.cvTas) = .ok isorts ∧
-      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.ctorsAs q.env₁)
-        q.p (blockNestedBit q.p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls block
-          q.cvTas = .ok out ∧
-      storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
-        (mkFEnv (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
-          q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out
+      BlockIdxSortsRun mode F q.env₁ q.p q.p.members isorts ∧
+      checkBlockRec (fueledOps mode F) (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
+        q.p (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block = .ok out ∧
+      streamKCheck (m := CheckM) q.p q.p.recs out = .ok () ∧
+      streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
+        (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out
         = .ok () ∧
-      checkBlockTables (m := CheckM) q.p.toBlockShape
-        (q.p.members.zip (q.ctorsAs.zip q.sortsss))
-        (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find? q.p.toBlockShape 0
-          (storedOut q.p.recs out) (consBlockCtors q.p.nP q.ctorsAs q.env₁)) = .ok env₂ := by
+      checkBlockTables (m := CheckM) q.p (consBlockCtors q.p.nP q.p.memberCtors q.env₁)
+        q.p.members = .ok () := by
   rw [checkBlockTail] at h
   simp only [bind, Except.bind] at h
-  try simp only [bind, Except.bind] at h
-  cases hsorts : checkBlockIdxSorts (m := CheckM) (fueledOps mode F) q.env₁ q.p.toBlockShape
-      (q.p.members.zip q.cvTas) with
+  cases hsorts : checkBlockIdxSorts (m := CheckM) (fueledOps mode F) q.env₁ q.p
+      q.p.members with
   | error e => rw [hsorts] at h; exact nomatch h
-  | ok isorts =>
+  | ok u =>
+  cases u
   rw [hsorts] at h
   dsimp only at h
+  obtain ⟨isorts, hIs⟩ := checkBlockIdxSorts_inv hsorts
   cases hRec : checkBlockRec (m := CheckM) (fueledOps mode F)
-      (consBlockCtors q.p.nP q.ctorsAs q.env₁) q.p
-      (blockNestedBit q.p.toBlockShape q.kinds) q.params q.tbl.toList q.rd q.cls block
-      q.cvTas with
+      (consBlockCtors q.p.nP q.p.memberCtors q.env₁) q.p
+      (blockNestedBit q.p q.kinds) q.params q.tbl.toList q.rd q.cls block with
   | error e => rw [hRec] at h; exact nomatch h
   | ok out =>
   rw [hRec] at h
   dsimp only at h
-  cases hS : storedRecsCheck (m := CheckM) (fueledOps mode F) .plain
-      (mkFEnv (consBlockRecsT (consBlockCtors q.p.nP q.ctorsAs q.env₁).find?
-        q.p.toBlockShape 0 out (consBlockCtors q.p.nP q.ctorsAs q.env₁))) q.p.recs out with
+  cases hK : streamKCheck (m := CheckM) q.p q.p.recs out with
+  | error e => rw [hK] at h; exact nomatch h
+  | ok uK =>
+  cases uK
+  rw [hK] at h
+  dsimp only at h
+  cases hS : streamRecsCheck (m := CheckM) (fueledOps mode F) .plain
+      (mkFEnv (consBlockRecsT q.p 0 out (consBlockCtors q.p.nP q.p.memberCtors q.env₁))) q.p.recs out with
   | error e => rw [hS] at h; exact nomatch h
   | ok u =>
   cases u
   rw [hS] at h
   dsimp only at h
-  exact ⟨isorts, out, rfl, rfl, hS, h⟩
+  exact ⟨isorts, out, hIs, rfl, hK, hS, h⟩
 
 end ConLeche

@@ -100,10 +100,10 @@ theorem inferTypeCore_const_inv_full {d : Nat} {n : Name} {us : List Level}
 /-- The `Nat`-literal clause: the support guard and `Nat`. -/
 theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
     (h : inferTypeCore mode eager env (fuel + 1) d (.lit (.natVal k)) = .ok t) :
-    natLitSupported env = true ∧ t = .const natName [] := by
+    natLitStored env = true ∧ t = .const natName [] := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
-  by_cases hg : natLitSupported env = true
+  by_cases hg : natLitStored env = true
   · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
@@ -113,10 +113,10 @@ theorem inferTypeCore_natLit_inv' {d k : Nat} {t : Expr}
 /-- The string-literal clause: the support guard and `String`. -/
 theorem inferTypeCore_strLit_inv' {d : Nat} {s : String} {t : Expr}
     (h : inferTypeCore mode eager env (fuel + 1) d (.lit (.strVal s)) = .ok t) :
-    strLitSupported env = true ∧ t = .const stringName [] := by
+    strLitStored env = true ∧ t = .const stringName [] := by
   rw [inferTypeCore_succ] at h
   simp only [inferBody, pure, Except.pure] at h
-  by_cases hg : strLitSupported env = true
+  by_cases hg : strLitStored env = true
   · rw [ite_eq_left hg] at h
     simp only [Except.ok.injEq] at h
     exact ⟨hg, h.symm⟩
@@ -131,7 +131,8 @@ theorem inferTypeCoreIO_bvar_inv {d i : Nat} {t : Expr}
 
 /-- **`inferTypeCore` at `fuel + 1`**, full grade. -/
 theorem infer_bridge_succ (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge μ eager env fuel)
-    (hdE : DefEqBridge μ true env fuel) (hi : InferBridge μ eager env fuel) :
+    (hdE : DefEqBridge μ true env fuel) (hi : InferBridge μ eager env fuel)
+    (hio : InferIOBridge μ eager env fuel) :
     InferBridge μ eager env (fuel + 1) := by
   intro d e t h
   match e, h with
@@ -173,8 +174,8 @@ theorem infer_bridge_succ (hw : WhnfBridge μ eager env fuel) (hd : DefEqBridge 
   | .proj sn i pe, h =>
     obtain ⟨tpe, te, T, us, entry, hpe, hwpe, hfn, hentry, hlen, hlvl, hprop,
       rfl, rfl⟩ := inferTypeCore_proj_inv h
-    simp only [beq_iff_eq] at hprop
-    exact .proj (hi hpe) (hw hwpe) hfn hentry hlen hlvl hprop
+    exact .proj (hi hpe) (hw hwpe) hfn hentry hlen hlvl
+      (checkProjGuard_bridge (fun _ _ _ h => inferTypeIO_bridge hio h) (fun _ _ _ h => hw h) hprop)
   | .lam ty body, h =>
     obtain ⟨tty, u, bt, hty, hwt, hbt, rfl⟩ :=
       inferTypeCore_lam_inv h
@@ -218,8 +219,10 @@ theorem inferIO_bridge_succ (hw : WhnfBridge μ eager env fuel)
   | .proj sn i pe, h =>
     obtain ⟨tpe, te, T, us, entry, hpe, hwpe, hfn, hentry, hlen, hlvl, hprop,
       rfl, rfl⟩ := inferTypeCoreIO_proj_inv h
-    simp only [beq_iff_eq] at hprop
-    exact .proj (hio hpe) (hw hwpe) hfn hentry hlen hlvl hprop
+    exact .proj (hio hpe) (hw hwpe) hfn hentry hlen hlvl
+      (checkProjGuard_bridge
+        (inf := (pureFnsIO μ eager env fuel).infer) (wh := (pureFnsIO μ eager env fuel).whnf)
+        (fun _ _ _ h => hio h) (fun _ _ _ h => hw (by rwa [pureFnsIO_whnf] at h)) hprop)
   | .app f a, h =>
     obtain ⟨tf, ty', body', htf, hwf, rfl⟩ :=
       inferTypeCoreIO_app_inv h

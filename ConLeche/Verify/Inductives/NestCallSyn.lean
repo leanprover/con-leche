@@ -90,6 +90,27 @@ theorem replaceFVars_abstract1_instantiate1 {f : Nat → Option Expr} {v : Nat}
 
 end Expr
 
+open Expr in
+/-- A telescope closed over well-scoped pieces is well scoped. -/
+theorem closeTelescope_wscoped :
+    ∀ (nds : List Expr) (i : Nat) (body : Expr),
+      (∀ (k : Nat) (nd : Expr), nds[k]? = some nd → WScoped (i + k) nd) →
+      WScoped (i + nds.length) body → WScoped i (closeTelescope nds i body) := by
+  intro nds
+  induction nds with
+  | nil =>
+    intro i body _ hb
+    simpa [closeTelescope] using hb
+  | cons dom bs ih =>
+    intro i body h hb
+    simp only [closeTelescope, WScoped]
+    refine ⟨by simpa using h 0 _ rfl, WScoped.abstract1 0 (ih (i + 1) body
+      (fun k nd hk => ?_) ?_)⟩
+    · have := h (k + 1) nd (by simpa using hk)
+      rwa [show i + (k + 1) = i + 1 + k by omega] at this
+    · rw [show i + 1 + bs.length = i + (List.length (dom :: bs)) by simp; omega]
+      exact hb
+
 /-- A closed telescope has no loose bound variable, when its domains and
 body have none. -/
 theorem closeTelescope_bounded :

@@ -4,7 +4,7 @@ import ConLeche.Verify.Cached.MainC
 public import ConLeche.Denotes
 public import ConLeche.Accepts
 import ConLeche.Frontend.Prelude
-import ConLeche.Cached.Installed
+import ConLeche.Cached.Decls
 import ConLeche.Model.Denotes
 import ConLeche.Verify.Cached.StreamThm
 import ConLeche.Verify.Frontend.Prepare
@@ -39,15 +39,13 @@ every name in them, are in `ConLeche/Challenge.lean`; the reading of
 terms and the notion of model — and `Denotes_functional`, which says a
 term has at most one denotation — in `ConLeche/Denotes.lean`.
 
-* `checkDecls` (`ConLeche/Cached/Installed.lean`) is the declaration
-  fold: it installs every parsed declaration — a definition, theorem
-  or opaque guarded and pushed with its check recorded, everything
-  else checked in full as it is installed — and then checks every
-  recorded declaration against the prefix of the environment it was
-  installed at.  The binary's driver (`ConLeche/Driver/Cli.lean`) runs this fold with a
-  heartbeat between the steps and returns its environment together
-  with the proof that `checkDecls` returns it
-  (`Cached.fullyChecked_checkDecls`), so the success line is printed
+* `checkDecls` (`ConLeche/Cached/Decls.lean`) is the declaration
+  fold: it checks every parsed declaration in order, each against the
+  environment of the declarations before it, and pushes what the
+  declaration says.  The binary's driver (`ConLeche/Driver/Cli.lean`)
+  runs the same checks independently, against views of an index built
+  from the records, and returns the proof that `checkDecls` accepts
+  (`Cached.checkDecls_of_jobs`), so the success line is printed
   from an accept of `checkDecls` and from nothing else.
 * `Frontend.builtinPreludeE` is the parsed built-in prelude,
   `Frontend.parseChunks` the streaming parse of the file's chunks (the

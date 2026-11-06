@@ -17,23 +17,10 @@ section Mirrors
 
 variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- `checkSumTele` through the index (task #195): the whnf loop
-runs at the index's environment through the shared operations, the
-re-check of the closed telescope is `checkConstantValF`. -/
-def checkSumTeleF (ops : CheckerOps m) (fe : FEnv) (cv : ConstantVal) (n : Nat)
-    (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
-  match cvTa₀.type.stripPis n with
-  | some (_, .sort s) => pure (cvTa₀, s)
-  | _ => do
-    let (bs, s) ← whnfTelescope ops fe.env 0 n cvTa₀.type
-    let cvTa := { cv with type := closeTelescope bs 0 (.sort s) }
-    checkConstantValF ops fe cvTa
-    pure (cvTa, s)
-
 /-- `checkStructFieldSortsI` through the index. -/
 def checkStructFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
-  | 0 => pure []
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m Unit
+  | 0 => pure ()
   | j + 1 => do
     let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
     let ty ← ops.inferType fe.env (nP + j) fv.fvarTypeD
@@ -45,15 +32,14 @@ def checkStructFieldSortsIF (ops : CheckerOps m) (fe : FEnv) (isProp large : Boo
       unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
         throw (.invalid "direct sum: large eliminator with a non-propositional \
           field outside the indices")
-    let rest ← checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
-    pure (rest ++ [u])
+    checkStructFieldSortsIF ops fe isProp large s nP fvs idxArgs j
 
 /-- `checkStructFieldSortsIF` over an array of field variables (the
 callers convert once).  Equal to it at `List.toArray`:
 `checkStructFieldSortsIFA_eq`. -/
 def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs : Array Expr) (idxArgs : List Expr) : Nat → m (List Level)
-  | 0 => pure []
+    (s : Level) (nP : Nat) (fvs : Array Expr) (idxArgs : List Expr) : Nat → m Unit
+  | 0 => pure ()
   | j + 1 => do
     let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
     let ty ← ops.inferType fe.env (nP + j) fv.fvarTypeD
@@ -65,16 +51,14 @@ def checkStructFieldSortsIFA (ops : CheckerOps m) (fe : FEnv) (isProp large : Bo
       unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
         throw (.invalid "direct sum: large eliminator with a non-propositional \
           field outside the indices")
-    let rest ← checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
-    pure (rest ++ [u])
+    checkStructFieldSortsIFA ops fe isProp large s nP fvs idxArgs j
 
 /-- `checkSumCtor` through the index. -/
 def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m Unit := do
   checkConstantValF ops fe cvC
-  let cvCa := cvC
-  let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
+  let (_, cbody) ← unwrapOr (cvC.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   -- official's `is_valid_ind_app` on the constructor's result
   -- ("invalid return type for 'C'", `check_constructors`): a REJECT,
@@ -83,7 +67,7 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
   -- further arguments
   unless structCtorResidOk T lps nP nF nIdx cbody do
     throw (.invalid "direct sum: invalid constructor return type")
-  let cq ← unwrapOr (openPisAtFvarsF nP cvCa.type 0)
+  let cq ← unwrapOr (openPisAtFvarsF nP cvC.type 0)
     (.notImplemented "direct sum: constructor telescope")
   let tq ← unwrapOr (openPisAtFvarsF nP cvTa.type 0)
     (.notImplemented "direct sum: type former telescope")
@@ -97,22 +81,16 @@ def checkSumCtorF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     throw (.notImplemented "direct sum: field domain after the block")
   unless (xq.2.getAppArgs.drop nP).all fun e => e.constsResolveF fe₀ do
     throw (.invalid "direct sum: index expression mentions the block")
-  let sorts ← checkStructFieldSortsIFA ops fe isProp large resSort nP xq.1.toArray
-    (xq.2.getAppArgs.drop nP) nF
-  pure (cvCa, sorts)
+  checkStructFieldSortsIFA ops fe isProp large resSort nP xq.1.toArray (xq.2.getAppArgs.drop nP) nF
 
 /-- `checkSumCtors` through the index. -/
 def checkSumCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) :
-    List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
-  | [] => pure ([], [])
+    (cvTa : ConstantVal) : List (ConstantVal × Nat) → m Unit
+  | [] => pure ()
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2
-      cvTa
-    let (rest, srest) ← checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa
-      cs
-    pure ((cvCa, c.2) :: rest, sorts :: srest)
+    checkSumCtorF ops fe₀ fe T lps nP nIdx resSort isProp large c.1 c.2 cvTa
+    checkSumCtorsF ops fe₀ fe T lps nP nIdx resSort isProp large cvTa cs
 
 /-- `consSumCtors` through the index. -/
 def consSumCtorsF (nP : Nat) : List (ConstantVal × Nat) → FEnv → FEnv

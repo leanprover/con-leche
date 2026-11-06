@@ -40,7 +40,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (CheckMode Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx
-  NestHole NestCtorNf BlockParts BlockShape TargetMajor fueledOps PosD PosTree
+  NestHole NestCtorNf BlockShape BlockShape TargetMajor fueledOps PosD PosTree
   NestFieldKind PosNodeOk closeTelescope targetPiDomsWith targetMajorNfs
   openPisAtFvars)
 

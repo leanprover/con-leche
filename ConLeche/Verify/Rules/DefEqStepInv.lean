@@ -196,14 +196,14 @@ inductive DefeqStuckExit (μ : CheckMode) (eager : Bool) (env : Env) (fuel d : N
       DefeqStuckExit μ eager env fuel d a b
   /-- A string literal against a `String.ofList` application. -/
   | strLitL {s : String} {x : Expr} :
-      strLitSupported env = true →
+      strLitStored env = true →
       isDefEqCore μ eager env fuel d (strLitToConstructor s)
         (.app (.const stringOfListName []) x) = .ok true →
       DefeqStuckExit μ eager env fuel d (.lit (.strVal s))
         (.app (.const stringOfListName []) x)
   /-- The mirror. -/
   | strLitR {s : String} {x : Expr} :
-      strLitSupported env = true →
+      strLitStored env = true →
       isDefEqCore μ eager env fuel d (.app (.const stringOfListName []) x)
         (strLitToConstructor s) = .ok true →
       DefeqStuckExit μ eager env fuel d (.app (.const stringOfListName []) x)

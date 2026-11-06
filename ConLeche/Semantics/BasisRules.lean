@@ -1,6 +1,5 @@
 module
 
-import ConLeche.Kernel.BasisA
 public import ConLeche.Verify.EnvPreds
 
 @[expose] public section
@@ -17,7 +16,7 @@ namespace ConLeche.Semantics
 open ConLeche
 /-- `Nat.rec`'s two stored rules. -/
 def natRecZeroRule : RecRule :=
-  { ctor := natZeroName, nfields := 0, ctorParams := 0, fire := .plain,
+  { ctor := natZeroName, nfields := 0, fire := .plain,
     rhs := Expr.lam
       (Expr.forallE (.const natName [])
         (.sort (.param uN)))
@@ -31,7 +30,7 @@ def natRecZeroRule : RecRule :=
           (.bvar 1))) }
 
 def natRecSuccRule : RecRule :=
-  { ctor := natSuccName, nfields := 1, ctorParams := 0, fire := .plain,
+  { ctor := natSuccName, nfields := 1, fire := .plain,
     rhs := Expr.lam
       (Expr.forallE (.const natName [])
         (.sort (.param uN)))
@@ -50,13 +49,13 @@ def natRecSuccRule : RecRule :=
 
 theorem natRecA_eq :
     natRecA = .recInfo natRecA.toConstantVal 3 3
-      [natRecZeroRule, natRecSuccRule] := by
+      false [natRecZeroRule, natRecSuccRule] := by
   show natRecA = _
   rfl
 
 /-- `Quot.ind`'s single stored rule. -/
 def quotIndRule : RecRule :=
-  { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
+  { ctor := quotMkName, nfields := 1, fire := .levels [.param uN],
     rhs := Expr.lam (.sort (.param uN))
       (Expr.lam
         (Expr.forallE (.bvar 0)
@@ -77,7 +76,7 @@ def quotIndRule : RecRule :=
 
 /-- `Quot.lift`'s single stored rule. -/
 def quotLiftRule : RecRule :=
-  { ctor := quotMkName, nfields := 1, ctorParams := 2, fire := .plain,
+  { ctor := quotMkName, nfields := 1, fire := .levels [.param uN],
     rhs := Expr.lam (.sort (.param uN))
       (Expr.lam
         (Expr.forallE (.bvar 0)
@@ -99,8 +98,7 @@ def quotLiftRule : RecRule :=
 
 /-- `Eq.rec`'s single stored rule. -/
 def eqRecRule : RecRule :=
-  { ctor := eqReflName, nfields := 0, ctorParams := 2, fire := .plain,
-    k := true,
+  { ctor := eqReflName, nfields := 0, fire := .plain,
     rhs := Expr.lam (.sort (.param uN))
       (Expr.lam (.bvar 0)
         (Expr.lam
@@ -118,17 +116,17 @@ def eqRecRule : RecRule :=
 
 /-- The stored declaration, with its rule named. -/
 theorem quotIndA_eq :
-    quotIndA = .recInfo quotIndA.toConstantVal 4 4 [quotIndRule] := by rfl
+    quotIndA = .recInfo quotIndA.toConstantVal 4 4 false [quotIndRule] := by rfl
 
 
 theorem quotLiftA_eq :
-    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 [quotLiftRule] := by
+    quotLiftA = .recInfo quotLiftA.toConstantVal 5 5 false [quotLiftRule] := by
       rfl
 
 
 /-- The stored declaration, with its rule named. -/
 theorem eqRecA_eq :
-    eqRecA = .recInfo eqRecA.toConstantVal 5 4 [eqRecRule] := by rfl
+    eqRecA = .recInfo eqRecA.toConstantVal 5 4 true [eqRecRule] := by rfl
 
 
 end ConLeche.Semantics

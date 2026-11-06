@@ -502,7 +502,7 @@ head carries `Eq.{1}`, whose level argument is not `[]`, so the
 operation substitution leaves it alone. -/
 theorem denote_eqSpine {acval : Name → (Name → Nat) → Term}
     {ψ : Name → Nat} {c : Name} {value' : Expr}
-    (hEq : env.find? eqName = some eqA) {A a b : Expr}
+    (hEq : ConLeche.Verify.EqStored env) {A a b : Expr}
     {Aa aa ba : Term} {d : Nat}
     (hA : denote acval env ψ d (Expr.substConst0 c value' A)
       = some Aa)
@@ -513,17 +513,17 @@ theorem denote_eqSpine {acval : Name → (Name → Nat) → Term}
     denote acval env ψ d (Expr.substConst0 c value'
         (.app (.app (.app (.const eqName [.succ .zero]) A) a) b))
       = some (.app (.app (.app (acval eqName (Level.substFn ψ
-          eqA.toConstantVal.levelParams [Level.zero.succ])) Aa) aa)
+          [ConLeche.Verify.eqLp env] [Level.zero.succ])) Aa) aa)
           ba) := by
   have hhead : denote acval env ψ d
       (Expr.substConst0 c value' (.const eqName [.succ .zero]))
       = some (acval eqName (Level.substFn ψ
-          eqA.toConstantVal.levelParams [Level.zero.succ])) := by
+          [ConLeche.Verify.eqLp env] [Level.zero.succ])) := by
     rw [show Expr.substConst0 c value' (.const eqName [.succ .zero])
         = .const eqName [.succ .zero] from by
       simp only [Expr.substConst0]
       rw [ite_eq_right (by rintro ⟨-, hh⟩; exact nomatch hh)]]
-    exact denote_const hEq rfl
+    exact ConLeche.Verify.denote_eqConst hEq ψ d _
   show denote acval env ψ d
       (.app (.app (.app (Expr.substConst0 c value'
         (.const eqName [.succ .zero]))
@@ -534,8 +534,8 @@ theorem denote_eqSpine {acval : Name → (Name → Nat) → Term}
 
 /-- The `Eq.{1}` level assignment sends `u` to `1`. -/
 theorem eqSubst_uN (ψ : Name → Nat) :
-    Level.substFn ψ eqA.toConstantVal.levelParams [Level.zero.succ] uN
-      = 1 := rfl
+    Level.substFn ψ [ConLeche.Verify.eqLp env] [Level.zero.succ] (ConLeche.Verify.eqLp env)
+      = 1 := by simp [Level.substFn, Level.eval]
 
 /-! ## The head names a certificate block reads -/
 
@@ -670,7 +670,7 @@ structure DmFrame {env : Env} (mp : EnvModelM V env) (c : Name)
     (A : (Name → Nat) → Term) (value' : Expr) (ψ : Name → Nat) :
     Prop where
   /-- the pinned `Eq` is stored -/
-  eqStored : env.find? eqName = some eqA
+  eqStored : ConLeche.Verify.EqStored env
   /-- neither pinned type name is the operation being installed -/
   natNe : ConLeche.natName ≠ c
   boolNe : ConLeche.boolName ≠ c
@@ -919,14 +919,14 @@ theorem dmStmtEq {F : Nat} {mp : EnvModelM V env} {c : Name}
   -- the statement's grading
   have hokE : ∀ ρ : Nat → V, Sat V Δa ρ →
       WellDenotedTy V ρ ((.app (.app (.app (mp.base2.acval eqName
-        (Level.substFn ψ eqA.toConstantVal.levelParams
+        (Level.substFn ψ [ConLeche.Verify.eqLp env]
           [Level.zero.succ])) (mp.base2.acval ConLeche.natName ψ)) lhsa)
         rhsa : Term)) := by
     intro ρ hρ
     obtain ⟨hx, hy⟩ := hslots ρ hρ
     obtain ⟨hokl, hml, -⟩ := hfl ρ hx hy
     obtain ⟨hokr, hmr, -⟩ := hfr ρ hx hy
-    have h := (heqlaw fr.eqStored (Level.substFn ψ eqA.toConstantVal.levelParams
+    have h := (EqLaw.at heqlaw fr.eqStored (Level.substFn ψ [ConLeche.Verify.eqLp env]
         [Level.zero.succ])).2 ρ (mp.base2.acval ConLeche.natName ψ) lhsa rhsa
       (mp.base2.acval_wellDenoted _ _ ρ) hokl hokr
       (by rw [eqSubst_uN, hmove ρ]; exact fr.natU ρ4)
@@ -972,12 +972,12 @@ theorem dmStmtEq {F : Nat} {mp : EnvModelM V env} {c : Name}
   obtain ⟨-, hml4, hel⟩ := hfl ρ4 hx4 hy4
   obtain ⟨-, hmr4, her⟩ := hfr ρ4 hx4 hy4
   rw [show interp V ρ4 ((.app (.app (.app (mp.base2.acval eqName
-        (Level.substFn ψ eqA.toConstantVal.levelParams
+        (Level.substFn ψ [ConLeche.Verify.eqLp env]
           [Level.zero.succ])) (mp.base2.acval ConLeche.natName ψ)) lhsa)
         rhsa : Term))
       = eqv (interp V ρ4 lhsa) (interp V ρ4 rhsa) from by
     rw [interp_app, interp_app, interp_app]
-    exact (heqlaw fr.eqStored _).1 ρ4 _ _ _
+    exact (EqLaw.at heqlaw fr.eqStored _).1 ρ4 _ _ _
       (by rw [eqSubst_uN]; exact fr.natU ρ4) hml4 hmr4] at hw
   have hlr := eq_of_mem_eqv hw
   show dmEvalV V
@@ -1111,8 +1111,8 @@ theorem dmGuardSpine {mp : EnvModelM V env} {c : Name}
       ∈ˢ interp V ρ (mp.base2.acval ConLeche.boolName ψ) := by
     rw [interp_app, interp_app]
     exact DmBinV.app hbleV hm1 hm2
-  have hlaw := (heqlaw fr.eqStored (Level.substFn ψ
-      eqA.toConstantVal.levelParams [Level.zero.succ])).2 ρ
+  have hlaw := (EqLaw.at heqlaw fr.eqStored (Level.substFn ψ
+      [ConLeche.Verify.eqLp env] [Level.zero.succ])).2 ρ
     (mp.base2.acval ConLeche.boolName ψ) _ (dmLeaf mp.base2 c A ψ bn)
     (mp.base2.acval_wellDenoted _ _ ρ) hbleOk
     (fr.leafOk _ ρ)
@@ -1120,8 +1120,8 @@ theorem dmGuardSpine {mp : EnvModelM V env} {c : Name}
     (fr.boolCtorMem bn hbn ρ)
   refine ⟨hlaw.1, ?_⟩
   rw [interp_app, interp_app, interp_app]
-  rw [(heqlaw fr.eqStored (Level.substFn ψ
-      eqA.toConstantVal.levelParams [Level.zero.succ])).1 ρ _ _ _
+  rw [(EqLaw.at heqlaw fr.eqStored (Level.substFn ψ
+      [ConLeche.Verify.eqLp env] [Level.zero.succ])).1 ρ _ _ _
     (by rw [eqSubst_uN]; exact fr.boolU ρ) hbleMem
     (fr.boolCtorMem bn hbn ρ)]
   rw [interp_app, interp_app, he1, he2]
@@ -1833,7 +1833,9 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
       ψ _ hta ρ
     rwa [show ci.name = n from ConLeche.Env.find?_name hf] at h
   refine
-    { eqStored := hdown _ _ hnE hEq2
+    { eqStored := mp.base2.basis_pinned.eqStored (by
+        obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.mp hEq2
+        rw [hdown _ _ hnE hci]; rfl)
       natNe := hnN
       boolNe := hnB
       selfRead := fun d => denote_depth_of_closed

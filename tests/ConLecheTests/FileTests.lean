@@ -2,13 +2,13 @@ module
 
 public import ConLeche.Accepts
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 /- The `#guard`s below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a module needed at both levels is imported
 twice. -/
 meta import ConLeche.Accepts
 meta import ConLeche.Frontend.Prelude
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 /- `import all`: the template interpolates `Nat`s with `toString`, which
 is `Nat.repr`, and `Init/Data/Repr.lean` is a module that does not
 expose it — so the kernel could not decide the string equation below

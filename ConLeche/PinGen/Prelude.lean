@@ -47,7 +47,7 @@ operation `c`:
 
 1. **the pinned basis blocks** (`Eq`, `Nat`, …): already
    hand-pinned, installed from the pin whenever the stream's record
-   arrives — now installed *first*, unconditionally;
+   arrives, installed *first*, unconditionally;
 2. **prelude members**: order-sensitive constants that no
    stream-certified operation sits under — today exactly the `Bool`
    block.  They go into the built-in prelude as the toolchain's own
@@ -128,7 +128,7 @@ def ownersOf (env : Environment) (s : NameSet) : NameSet :=
 /-! ## The basis and the operations, as the generator sees them -/
 
 /-- The pinned basis blocks' record heads, in the checker's install
-order (`ConLeche/Kernel/BasisA.lean`); `Quot.sound` rides with `Quot`. -/
+order (`ConLeche/Kernel/Basis.lean`); `Quot.sound` rides with `Quot`. -/
 def basisHeads : List Lean.Name :=
   [`Eq, `Nat, `Empty, `False, `Quot]
 
@@ -140,7 +140,7 @@ def basisRoots : List Lean.Name :=
 
 /-- The structural `Nat` operations (`natOpNames` in
 `ConLeche/Kernel/Core.lean`, mirrored: `Core` is a classic library, out of
-reach of this `module`): certified at install by definitional
+reach of this `module`): certified at its check by definitional
 recurrence equations, never by a syntactic pin. -/
 def structuralOps : List Lean.Name :=
   [``Nat.pred, ``Nat.add, ``Nat.sub, ``Nat.mul, ``Nat.pow, ``Nat.beq, ``Nat.ble]

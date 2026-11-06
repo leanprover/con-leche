@@ -7,7 +7,7 @@ import ConLeche.Verify.Inductives.UniformOcc
 public section
 
 /-!
-# The install's positivity stage, inverted
+# The check's positivity stage, inverted
 
 `checkBlockPositivity` (`Kernel/Inductives/BlockInstall.lean`) read back
 constructor by constructor: the canonical parameters are the head
@@ -24,11 +24,6 @@ which yields M2′ here, `UniformOcc.lean`), then the fields' universes at the h
 
 namespace ConLeche
 
-/-- The context `checkBlockPositivity` builds. -/
-@[expose] def BlockParts.nestCtx (p : BlockParts) (fvsP : List Expr)
-    (find? : Name → Option ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?⟩
-
 /-- **A frame's constructor list, run**: one output per constructor, and
 every constructor's instantiated type typed at the frame's depth. -/
 theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
@@ -39,9 +34,9 @@ theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
     ∀ {cs : List (ConstantVal × Nat)} {st : NestState} {os : List (List NestFieldKind × Expr)}
       {st' : NestState},
       nestCtors ctx ops env rec prog hi us ds names holes cs st = .ok (os, st') →
-      os.length = cs.length ∧ ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
+      os.length = cs.length ∧ ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor →
         ∃ crest ty u, nestCrest names us ds holes
-            (cA.1.type.instantiateLevelParams cA.1.levelParams us) = some crest ∧
+            (ctor.1.type.instantiateLevelParams ctor.1.levelParams us) = some crest ∧
           ops.inferType env hi crest = .ok ty ∧ ops.ensureSort env hi ty = .ok u
   | [], st, os, st', h => by
     simp only [nestCtors, pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
@@ -74,7 +69,7 @@ theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
       simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
       obtain ⟨rfl, -⟩ := h
       obtain ⟨hl, hall⟩ := nestCtors_typed hr
-      refine ⟨by simp [hl], fun j cA hj => ?_⟩
+      refine ⟨by simp [hl], fun j ctor hj => ?_⟩
       cases j with
       | zero =>
         simp only [List.getElem?_cons_zero, Option.some.injEq] at hj
@@ -82,7 +77,7 @@ theorem nestCtors_typed {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx}
         exact ⟨crest, ty, u, unwrapOr_ok hcrest, hty, hsort⟩
       | succ j =>
         simp only [List.getElem?_cons_succ] at hj
-        exact hall j cA hj
+        exact hall j ctor hj
     · simp [throw, throwThe, MonadExceptOf.throw] at h
 
 /-- **The root frame, run**: every member's constructors through the one
@@ -129,15 +124,15 @@ theorem nestRoot_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} {hole
 theorem checkAbsCtorSorts_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} :
     ∀ {cs : List (ConstantVal × Nat)} {os : List (List NestFieldKind × Expr)},
       checkAbsCtorSorts ops env ctx cs os = .ok () →
-      ∀ (j : Nat) (cA : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some cA →
+      ∀ (j : Nat) (ctor : ConstantVal × Nat) (o : List NestFieldKind × Expr), cs[j]? = some ctor →
         os[j]? = some o →
         o.2.allLevelParamsDefined ctx.lps = true ∧
-        ∃ xq sorts, openPisAtFvars cA.2 o.2 (ctx.hiAt 0) = some xq ∧
+        ∃ xq, openPisAtFvars ctor.2 o.2 (ctx.hiAt 0) = some xq ∧
           checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
-            ctx.sort (ctx.hiAt 0) xq.1 [] cA.2 = .ok sorts
-  | [], _, _, j, cA, _, hj, _ => by simp at hj
-  | _ :: _, [], _, j, cA, _, _, ho => by simp at ho
-  | c :: cs, o :: os, h, j, cA, o', hj, ho => by
+            ctx.sort (ctx.hiAt 0) xq.1 [] ctor.2 = .ok ()
+  | [], _, _, j, ctor, _, hj, _ => by simp at hj
+  | _ :: _, [], _, j, ctor, _, _, ho => by simp at ho
+  | c :: cs, o :: os, h, j, ctor, o', hj, ho => by
     simp only [checkAbsCtorSorts, bind, Except.bind] at h
     by_cases hlp' : o.2.allLevelParamsDefined ctx.lps = true
     case neg =>
@@ -148,15 +143,16 @@ theorem checkAbsCtorSorts_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestC
     rename_i xq hxq
     split at h
     · simp at h
-    rename_i sorts hsorts
+    rename_i u hsorts
+    cases u
     cases j with
     | zero =>
       simp only [List.getElem?_cons_zero, Option.some.injEq] at hj ho
       subst hj ho
-      exact ⟨hlp', xq, sorts, unwrapOr_ok hxq, hsorts⟩
+      exact ⟨hlp', xq, unwrapOr_ok hxq, hsorts⟩
     | succ j =>
       simp only [List.getElem?_cons_succ] at hj ho
-      exact checkAbsCtorSorts_inv h j cA o' hj ho
+      exact checkAbsCtorSorts_inv h j ctor o' hj ho
 
 theorem checkAbsCtorSortsAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : NestCtx} :
     ∀ {css : List (List (ConstantVal × Nat))} {oss : List (List (List NestFieldKind × Expr))},
@@ -182,11 +178,11 @@ theorem checkAbsCtorSortsAll_inv {ops : CheckerOps CheckM} {env : Env} {ctx : Ne
 /-- **The walk's context, inverted** (`blockNestCtx`): the first
 former's parameter telescope opened at the canonical variables, the
 context at them, its holes. -/
-theorem blockNestCtx_inv {p : BlockShape} {cvTas : List ConstantVal}
+theorem blockNestCtx_inv {p : BlockShape}
     {find? : Name → Option ConstantInfo} {ctx : NestCtx}
     {holes : List Expr}
-    (h : blockNestCtx (m := CheckM) p cvTas find? = .ok (ctx, holes)) :
-    ∃ cvTa0 fvsP rest, cvTas.head? = some cvTa0 ∧
+    (h : blockNestCtx (m := CheckM) p find? = .ok (ctx, holes)) :
+    ∃ cvTa0 fvsP rest, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       ctx = p.nestCtx fvsP find? ∧ nestHoles ctx = some holes := by
   simp only [blockNestCtx, bind, Except.bind] at h
@@ -203,22 +199,30 @@ theorem blockNestCtx_inv {p : BlockShape} {cvTas : List ConstantVal}
   obtain ⟨rfl, rfl⟩ := h
   exact ⟨cvTa0, pq.1, pq.2, unwrapOr_ok hcv, unwrapOr_ok hpq, rfl, unwrapOr_ok hholes⟩
 
-/-- **The install's positivity stage, inverted into its parts**: the
+/-- **What an accepting positivity stage establishes**: its outputs' field kinds and normal forms, its
+final state. -/
+abbrev PositivityRun (ops : CheckerOps CheckM) (env₁ : Env) (find? : Name → Option ConstantInfo)
+    (p : BlockShape) (kinds : List (List (List NestFieldKind))) (nfs : List (List Expr))
+    (pos : NestState) : Prop :=
+  ∃ outs, checkBlockPositivity ops env₁ find? p = .ok (outs, pos) ∧
+    kinds = nestOutKinds outs ∧ nfs = outs.map (·.map (·.2))
+
+/-- **The positivity stage, inverted into its parts**: the
 walk's context, official's uniform check, the root frame's run (from the
 empty state), the fields' universes — and the outputs are its kinds and
 normal forms, its final state the stage's. -/
 theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
-    (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
-    ∃ cvTa0 fvsP rest holes outs, cvTas.head? = some cvTa0 ∧
+    (h : PositivityRun ops env₁ find? p kinds nfs pos) :
+    ∃ cvTa0 fvsP rest holes outs, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
-      nestUniform (m := CheckM) (p.nestCtx fvsP find?) ctorsAs = .ok () ∧
-      nestRoot ops env₁ (p.nestCtx fvsP find?) holes ctorsAs {} = .ok (outs, pos) ∧
-      checkAbsCtorSortsAll ops env₁ (p.nestCtx fvsP find?) ctorsAs outs = .ok () ∧
+      nestUniform (m := CheckM) (p.nestCtx fvsP find?) p.memberCtors = .ok () ∧
+      nestRoot ops env₁ (p.nestCtx fvsP find?) holes p.memberCtors {} = .ok (outs, pos) ∧
+      checkAbsCtorSortsAll ops env₁ (p.nestCtx fvsP find?) p.memberCtors outs = .ok () ∧
       kinds = outs.map (·.map (·.1)) ∧ nfs = outs.map (·.map (·.2)) := by
+  obtain ⟨outs₀, h, rfl, rfl⟩ := h
   simp only [checkBlockPositivity, bind, Except.bind] at h
   split at h
   · simp at h
@@ -240,7 +244,7 @@ theorem checkBlockPositivity_inv {ops : CheckerOps CheckM} {env₁ : Env}
   rename_i u hA
   cases u
   simp only [pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
-  obtain ⟨rfl, rfl, rfl⟩ := h
+  obtain ⟨rfl, rfl⟩ := h
   exact ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hL, hr, hA, rfl, rfl⟩
 
 /-- The root's instantiation at a constructor of the block's own levels
@@ -262,24 +266,23 @@ theorem outs_getD {α β : Type} [Inhabited β] {outs : List (List α)} {f : α 
 canonical crest (every whole member application `T_m.{lps} p⃗` replaced by
 its hole) mentions no member constant. -/
 theorem checkBlockPositivity_m2 {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
-    (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos)) :
-    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
+    (h : PositivityRun ops env₁ find? p kinds nfs pos) :
+    ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
-      ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
-        ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
-          ∃ A, nestRootCanon (p.nestCtx fvsP find?) cA.1 = some A ∧
+      ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
+        ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor →
+          ∃ A, nestRootCanon (p.nestCtx fvsP find?) ctor.1 = some A ∧
             A.nestOcc (p.nestCtx fvsP find?).names 0 0 = false := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hU, -, -, -, -⟩ :=
     checkBlockPositivity_inv h
-  exact ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j cA hj =>
+  exact ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j ctor hj =>
     nestRootCanon_nestOcc_zero
-      (nestUniform_inv hU cs (List.mem_of_getElem? hc) cA (List.mem_of_getElem? hj))⟩
+      (nestUniform_inv hU cs (List.mem_of_getElem? hc) ctor (List.mem_of_getElem? hj))⟩
 
-/-- **The install's positivity stage, constructor by constructor**: the
+/-- **The check's positivity stage, constructor by constructor**: the
 root frame's crest `crest` (at a constructor of the block's own levels:
 its whole member applications replaced by the holes, then instantiated at
 the canonical parameters) walked to its normal form `tyN` (the run's
@@ -288,48 +291,47 @@ and level parameters, M2′ on the canonical crest.  The walk itself is
 read once, into its derivation (`checkBlockPositivity_deriv`,
 `PosDerivInv.lean`). -/
 theorem checkBlockPositivity_inv_gen {ops : CheckerOps CheckM} {env₁ : Env}
-    {find? : Name → Option ConstantInfo} {p : BlockParts}
-    {cvTas : List ConstantVal} {ctorsAs : List (List (ConstantVal × Nat))}
+    {find? : Name → Option ConstantInfo} {p : BlockShape}
     {kinds : List (List (List NestFieldKind))} {nfs : List (List Expr)} {pos : NestState}
-    (h : checkBlockPositivity ops env₁ find? p cvTas ctorsAs = .ok (kinds, nfs, pos))
-    (hlps : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs →
-      ∀ cA ∈ cs, cA.1.levelParams = p.lps) :
-    ∃ cvTa0 fvsP rest holes, cvTas.head? = some cvTa0 ∧
+    (h : PositivityRun ops env₁ find? p kinds nfs pos)
+    (hlps : ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs →
+      ∀ ctor ∈ cs, ctor.1.levelParams = p.lps) :
+    ∃ cvTa0 fvsP rest holes, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (fvsP, rest) ∧
       nestHoles (p.nestCtx fvsP find?) = some holes ∧
-      ∀ (c : Nat) (cs : List (ConstantVal × Nat)), ctorsAs[c]? = some cs → ∀ (j : Nat) (cA : ConstantVal × Nat), cs[j]? = some cA →
+      ∀ (c : Nat) (cs : List (ConstantVal × Nat)), p.memberCtors[c]? = some cs → ∀ (j : Nat) (ctor : ConstantVal × Nat), cs[j]? = some ctor →
         ∃ crest tyN, nestCrest (p.nestCtx fvsP find?).names (p.lps.map .param) fvsP holes
-            cA.1.type = some crest ∧
+            ctor.1.type = some crest ∧
           (nfs.getD c []).getD j default = tyN ∧
           (∃ ty u, ops.inferType env₁ ((p.nestCtx fvsP find?).hiAt 0) crest = .ok ty ∧
             ops.ensureSort env₁ ((p.nestCtx fvsP find?).hiAt 0) ty = .ok u) ∧
           tyN.allLevelParamsDefined p.lps = true ∧
-          (∃ xq sorts, openPisAtFvars cA.2 tyN ((p.nestCtx fvsP find?).hiAt 0) = some xq ∧
+          (∃ xq, openPisAtFvars ctor.2 tyN ((p.nestCtx fvsP find?).hiAt 0) = some xq ∧
             checkStructFieldSortsI ops env₁ (Level.isEquiv p.resSort .zero == some true) false
-              p.resSort ((p.nestCtx fvsP find?).hiAt 0) xq.1 [] cA.2 = .ok sorts) ∧
+              p.resSort ((p.nestCtx fvsP find?).hiAt 0) xq.1 [] ctor.2 = .ok ()) ∧
           ∃ A, nestCanonCrest (p.nestCtx fvsP find?).names (p.lps.map .param) p.nP
-              cA.1.type = some A ∧
+              ctor.1.type = some A ∧
             A.nestOcc (p.nestCtx fvsP find?).names 0 0 = false := by
   obtain ⟨cvTa0, fvsP, rest, holes, outs, hcv', hpq', hh, hU, hr, hA, rfl, rfl⟩ :=
     checkBlockPositivity_inv h
-  refine ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j cA hj => ?_⟩
+  refine ⟨cvTa0, fvsP, rest, holes, hcv', hpq', hh, fun c cs hc j ctor hj => ?_⟩
   obtain ⟨-, hall⟩ := nestRoot_inv hr
   obtain ⟨st₀, os, st₁, hms, hoc⟩ := hall c cs hc
   obtain ⟨hlen, htyped⟩ := nestCtors_typed hms
-  obtain ⟨crest, ty, u, hcrest, hty, hsort⟩ := htyped j cA hj
-  have hl := hlps c cs hc cA (List.mem_of_getElem? hj)
+  obtain ⟨crest, ty, u, hcrest, hty, hsort⟩ := htyped j ctor hj
+  have hl := hlps c cs hc ctor (List.mem_of_getElem? hj)
   rw [rootCrest_eq _ _ hl] at hcrest
   obtain ⟨o, hoj⟩ : ∃ o, os[j]? = some o :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlen]; exact (List.getElem?_eq_some_iff.mp hj).1)⟩
   obtain ⟨A, hA', hocc⟩ := nestRootCanon_nestOcc_zero
-    (nestUniform_inv hU cs (List.mem_of_getElem? hc) cA (List.mem_of_getElem? hj))
+    (nestUniform_inv hU cs (List.mem_of_getElem? hc) ctor (List.mem_of_getElem? hj))
   rw [nestRootCanon, hl] at hA'
-  change nestCanonCrest _ (p.lps.map .param) _ (cA.1.type.instantiateLevelParams p.lps
+  change nestCanonCrest _ (p.lps.map .param) _ (ctor.1.type.instantiateLevelParams p.lps
     (p.lps.map .param)) = some A at hA'
   rw [Expr.instantiateLevelParams_self] at hA'
-  obtain ⟨hlp, xq, sorts, hxq, hsorts⟩ :=
-    checkAbsCtorSorts_inv (checkAbsCtorSortsAll_inv hA c cs os hc hoc) j cA o hj hoj
+  obtain ⟨hlp, xq, hxq, hsorts⟩ :=
+    checkAbsCtorSorts_inv (checkAbsCtorSortsAll_inv hA c cs os hc hoc) j ctor o hj hoj
   exact ⟨crest, o.2, hcrest, outs_getD hoc hoj default, ⟨ty, u, hty, hsort⟩, hlp,
-    ⟨xq, sorts, hxq, hsorts⟩, A, hA', hocc⟩
+    ⟨xq, hxq, hsorts⟩, A, hA', hocc⟩
 
 end ConLeche

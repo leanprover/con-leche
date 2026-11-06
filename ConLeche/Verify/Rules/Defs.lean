@@ -72,6 +72,109 @@ theorem inferTypeIO_bridge {fuel : Nat} (hio : InferIOBridge μ eager env fuel)
     (h : inferTypeIO μ eager env fuel d e = .ok t) : Infer env .io d e t :=
   hio (by rwa [inferTypeIO_on] at h)
 
+/-- A successful run of a projection guard's rows is the relation's
+walk. -/
+theorem checkGuardRows_bridge {inf wh : Nat → Expr → CheckM Expr} {guardSort : Level}
+    (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
+    (hwh : ∀ d e t, wh d e = .ok t → Red env d e t) :
+    ∀ rows, checkGuardRows inf wh guardSort rows = .ok () → GuardRows env guardSort rows
+  | [], _ => .nil
+  | (d, dom) :: rest, h => by
+    unfold checkGuardRows at h
+    simp only [Bind.bind, Except.bind] at h
+    cases hi : inf d dom with
+    | error err => rw [hi] at h; exact nomatch h
+    | ok t =>
+    rw [hi] at h
+    dsimp only at h
+    cases hw : wh d t with
+    | error err => rw [hw] at h; exact nomatch h
+    | ok w =>
+    rw [hw] at h
+    dsimp only at h
+    cases w with
+    | sort u =>
+      dsimp only at h
+      split at h
+      next hz =>
+        exact .row (hinf _ _ _ hi) (hwh _ _ _ hw) (by simpa using hz)
+          (checkGuardRows_bridge hinf hwh rest h)
+      next => exact nomatch h
+    | _ => exact nomatch h
+
+/-- The walk to a family's sort is `FormerSort`. -/
+theorem formerSortLoop_bridgeW {wh : Nat → Expr → CheckM Expr}
+    (hwh : ∀ d e t, wh d e = .ok t → Red env d e t) :
+    ∀ {n d : Nat} {e : Expr} {s : Level},
+      formerSortLoop wh d n e = .ok (some s) → FormerSort env d n e s
+  | 0, d, e, s, h => by
+    unfold formerSortLoop at h
+    cases hr : wh d e with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok w =>
+      rw [hr] at h
+      cases w with
+      | sort s' =>
+        cases Option.some.inj (Except.ok.inj h)
+        exact .sort (hwh _ _ _ hr)
+      | _ => exact nomatch h
+  | n + 1, d, e, s, h => by
+    unfold formerSortLoop at h
+    cases hr : wh d e with
+    | error err => rw [hr] at h; exact nomatch h
+    | ok w =>
+      rw [hr] at h
+      cases w with
+      | forallE dom b => exact .pi (hwh _ _ _ hr) (formerSortLoop_bridgeW hwh h)
+      | _ => exact nomatch h
+
+/-- A successful run of a projection's guard is `ProjGuard`. -/
+theorem checkProjGuard_bridge {inf wh : Nat → Expr → CheckM Expr}
+    (hinf : ∀ d e t, inf d e = .ok t → Infer env .io d e t)
+    (hwh : ∀ d e t, wh d e = .ok t → Red env d e t)
+    {entry : ProjEntry} {us : List Level}
+    (h : checkProjGuard inf wh env entry us = .ok ()) : ProjGuard env entry us := by
+  unfold checkProjGuard at h
+  split at h
+  case h_2 => exact nomatch h
+  rename_i cvT caps hfT
+  cases hb : projGuardSort wh cvT caps us with
+  | error err => rw [hb] at h; exact nomatch h
+  | ok o =>
+  rw [hb] at h
+  unfold projGuardSort at hb
+  split at hb
+  · next s hs =>
+    cases hz : s.isAlwaysZero with
+    | false =>
+      simp only [hz, Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
+      exact .notProp hfT hs hz
+    | true =>
+      simp only [hz, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
+      subst hb
+      split at h
+      · next rows hr => exact .prop hfT hs hz hr (checkGuardRows_bridge hinf hwh rows h)
+      · exact nomatch h
+  · next hs =>
+    simp only [Bind.bind, Except.bind] at hb
+    cases hl : formerSortLoop wh 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) with
+    | error err => rw [hl] at hb; exact nomatch hb
+    | ok o' =>
+    rw [hl] at hb
+    cases o' with
+    | none => exact nomatch hb
+    | some s =>
+    have hfs := formerSortLoop_bridgeW hwh hl
+    cases hnv : (Level.zeronessOf s).isNever with
+    | true => exact .never hfT hs hfs hnv
+    | false =>
+      simp only [hnv, Bool.false_eq_true, ↓reduceIte, pure, Except.pure, Except.ok.injEq] at hb
+      subst hb
+      split at h
+      · next rows hr => exact .mayVanish hfT hs hfs hnv hr (checkGuardRows_bridge hinf hwh rows h)
+      · exact nomatch h
+
 /-! ## The zero cases: every entry point throws at fuel `0` -/
 
 theorem whnfCore_bridge_zero : WhnfCoreBridge μ eager env 0 := by

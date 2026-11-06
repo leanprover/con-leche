@@ -31,7 +31,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
-  BlockParts BlockShape fueledOps PosTree)
+  BlockShape BlockShape fueledOps PosTree)
 
 universe w
 
@@ -48,11 +48,11 @@ theorem frame0_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) {ρp : Nat
     (hs : Sat V (d.params ψ).reverse ρp)
     {Y : Nat → V} (hY : InTupleSpace (d.toLfp.w ψ) d.toLfp.N (d.toLfp.idx ψ ρp) Y) :
     Sat V (d.holeCtx ψ).reverse (d.toLfp.frame ψ ρp Y) := by
-  obtain ⟨cvTas, p, isRec, hN, hF⟩ := H.hformers
+  obtain ⟨formers, p, isRec, hN, hF⟩ := H.hformers
   have hcl := mpC.lfpClause_of_mem H.hd0
   simp only [BlockData.holeCtx, List.reverse_append]
   refine sat_of_spineFit hs (spineFit_range_lift d.k (fun t ht => ?_))
-  obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTas[t]? = some cvTb :=
+  obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, formers[t]? = some cvTb :=
     ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact ht)⟩
   obtain ⟨-, hFDt⟩ := hF t cvTb hcvb
   exact LfpDatum.holeVal_mem hcl.kN hY.toU ht (ab := (d.ppsM t ψ).drop d.nP) rfl

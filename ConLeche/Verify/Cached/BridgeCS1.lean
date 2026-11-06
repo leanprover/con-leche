@@ -1,7 +1,7 @@
 module
 
 public import ConLeche.Verify.Cached.SimCS
-public import ConLeche.Verify.BridgeWfImp
+import ConLeche.Verify.BridgeWfImp
 
 public section
 

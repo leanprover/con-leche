@@ -100,6 +100,8 @@ structure BlockData (V : Type w) where
   memberNames : List Name
   /-- per member: its index count -/
   nIdxs : List Nat
+  /-- per member: its former as the block's check read it -/
+  telescope : Nat → Option ConstantVal
   /-- per component: its parameter-and-index telescope reading -/
   ppsM : Nat → (Name → Nat) → List Term
   /-- per component: its index-tuple sort -/
@@ -193,7 +195,7 @@ variable (d : BlockData V)
 the parameter frame `ρp` and the index tuple `t`: its field readings
 at `ρp`, and the constructor's result index readings at it are the
 components of `t` — the fit a rule's certificates read. -/
-@[expose] def StoredFit (ψ : Name → Nat) (ρp : Nat → V) (t : V) (c j : Nat) (fs : List V) :
+@[expose] def DeclaredFit (ψ : Name → Nat) (ρp : Nat → V) (t : V) (c j : Nat) (fs : List V) :
     Prop :=
   j < (d.ctorsM c).length ∧ SpineFit ρp ((d.Fss c ψ).getD j []) fs ∧
   ∀ l, l < (d.IdsM c ψ).length →
@@ -207,10 +209,10 @@ end BlockData
 the constructor is stored with the block's level parameters and its
 type reads as the block data says. -/
 @[expose] def BlockCtorFacts {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
-    (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
-  env.find? cA.1.name = some (.ctorInfo cA.1 d.nP cA.2) ∧
-  cA.1.levelParams = lps ∧
-  BlockCtorDataI m (d.memberName c) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
+    (c j : Nat) (ctor : ConstantVal × Nat) : Prop :=
+  env.find? ctor.1.name = some (.ctorInfo ctor.1 d.nP ctor.2) ∧
+  ctor.1.levelParams = lps ∧
+  BlockCtorDataI m (d.memberName c) lps ctor.1 d.nP ctor.2 (d.nIdxAt c) d.resSort d.isProp d.large
     (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j)
 
 /-- **A block component's constructor's READING facts** —
@@ -218,8 +220,8 @@ type reads as the block data says. -/
 reads as at the model, whether or not the constructor is stored yet (the
 formers' stage reads the constructors before they are consed). -/
 @[expose] def BlockCtorRead {env : Env} (m : EnvModel V env) (d : BlockData V) (lps : List Name)
-    (c j : Nat) (cA : ConstantVal × Nat) : Prop :=
-  BlockCtorDataI m (d.memberName c) lps cA.1 d.nP cA.2 (d.nIdxAt c) d.resSort d.isProp d.large
+    (c j : Nat) (ctor : ConstantVal × Nat) : Prop :=
+  BlockCtorDataI m (d.memberName c) lps ctor.1 d.nP ctor.2 (d.nIdxAt c) d.resSort d.isProp d.large
     (d.idxF c j) (d.dsF c j) (d.esF c j) (d.srcsF c j) (d.fvsPF c j) (d.xFvsF c j) (d.xrestF c j)
 
 /-! ## The constructors' fields WITH HOLES
@@ -232,7 +234,7 @@ at the parameters, then one variable per member (member `m` at
 primary field (`absFF`): the walked term's reading, chosen once
 (`BlockAbsRead`, `Model/Inductives/BlockAbsRead.lean`).  No field is
 classified: every fact about their shape is the stored field shape
-facts' (`StoredFieldShapes`). -/
+facts' (`DeclaredFieldShapes`). -/
 
 namespace BlockData
 
@@ -260,6 +262,7 @@ The clause is produced in `BlockLfpHoles.lean`. -/
 @[expose] def BlockData.toLfp (d : BlockData V) : LfpDatum V where
   names := d.memberNames
   k := d.k
+  telescope := d.telescope
   N := d.N
   w := d.w
   params := d.params
@@ -308,10 +311,10 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
           (d.tup ψ mm is)
   /-- **the constructors**: component `c`'s constructor `j` at fitting
   parameters and fields is its injection -/
-  ctor : ∀ c, c < d.N → ∀ j cA, (d.ctorsM c)[j]? = some cA →
+  ctor : ∀ c, c < d.N → ∀ j ctor, (d.ctorsM c)[j]? = some ctor →
     ∀ (ψ : Name → Nat) (ρ : Nat → V) (as fs : List V),
       SpineFit ρ (d.params ψ) as → SpineFit (consList as ρ) ((d.Fss c ψ).getD j []) fs →
-      (as ++ fs).foldl app (interp V ρ (m.acval cA.1.name ψ)) = d.inj ψ c j fs
+      (as ++ fs).foldl app (interp V ρ (m.acval ctor.1.name ψ)) = d.inj ψ c j fs
   /-- **the constructors' RESULT index fit**: at a fitting parameter
   frame, a field spine fitting the constructor's own field domains
   carries the constructor's result index readings into the COMPONENT's
@@ -331,7 +334,7 @@ structure BlockModelAt (m : EnvModel V env) (names : List Name) (d : BlockData V
   carrier : ∀ (ψ : Name → Nat) (ρp : Nat → V), Sat V (d.params ψ).reverse ρp →
     ∀ c, c < d.N → ∀ t, t ∈ˢ d.idx ψ ρp c → ∀ (j : Nat) (fs : List V),
       d.toLfp.HFits ψ ρp (lfpTuple (d.w ψ) d.N (d.idx ψ ρp) (d.Φ ψ ρp)) t c j fs ↔
-        d.StoredFit ψ ρp t c j fs
+        d.DeclaredFit ψ ρp t c j fs
   /-- at a `Prop`-valued block every injection is the point -/
   mkZero : ∀ ψ : Name → Nat, d.w ψ = 0 → ∀ c j fs, d.inj ψ c j fs = pt
   /-- at a `Type`-valued block a component's injections are injective

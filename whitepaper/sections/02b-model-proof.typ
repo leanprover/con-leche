@@ -422,7 +422,7 @@ type, also when its value is the point
 #src("whitepaper/Fragment/Probe.lean", 65, 72)[only at some values of a variable].
 
 The three claims are proved together, by #src("whitepaper/Fragment/Sound.lean", 2202, 2311)[one structural induction] over
-the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 49, 50)[as in con-leche]).
+the three mutually inductive relations (#src("ConLeche/Model/Rules/Sound.lean", 51, 52)[as in con-leche]).
 Every rule is one case, and every case is a lemma about that rule
 alone, with the induction hypothesis for each premise as an assumption.
 The routine cases are listed at the end; the others follow.
@@ -630,9 +630,9 @@ take from typing. The two kinds are:
 
 #real[
   The checks are the checker's
-  #src("ConLeche/Kernel/Core.lean", 1301, 1307)[innermost lambda level],
-  #src("ConLeche/Kernel/Core.lean", 455, 460)[its $eta$] and
-  #src("ConLeche/Kernel/Core.lean", 823, 837)[the case of ι]. On real
+  #src("ConLeche/Kernel/Core.lean", 1370, 1376)[innermost lambda level],
+  #src("ConLeche/Kernel/Core.lean", 443, 448)[its $eta$] and
+  #src("ConLeche/Kernel/Core.lean", 811, 825)[the case of ι]. On real
   input neither kind ever fails: they never change a verdict on a
   stream the official kernel accepts. Both run at `--verified` only;
   `--trusted` skips them.
@@ -723,7 +723,7 @@ keeps the results of the two modes apart.
 
 #real[
   The checker's cheaper mode is
-  #src("ConLeche/Kernel/Core.lean", 1156, 1161)[`infer_only` exactly]. Like it,
+  #src("ConLeche/Kernel/Core.lean", 1231, 1236)[`infer_only` exactly]. Like it,
   the mode does not check a let-binding's value against its type
   (full inference does, @sec:infer); the soundness proof needs no
   such check, since the value is substituted.

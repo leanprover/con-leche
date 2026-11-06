@@ -98,8 +98,8 @@ spine. -/
 theorem recFireComparands_fst_congr (rl : RecRule) (lps : List Name)
     (us : List Level) (cvjLps : List Name) (args args' : List Expr)
     (mI : Nat) :
-    (recFireComparands rl lps us cvjLps args mI).1 =
-      (recFireComparands rl lps us cvjLps args' mI).1 := by
+    (recFireComparands rl cnP lps us cvjLps args mI).1 =
+      (recFireComparands rl cnP lps us cvjLps args' mI).1 := by
   cases hf : rl.fire <;> simp [recFireComparands, hf]
 
 /-- The parameter comparand commutes with `shiftFrom` on the argument
@@ -109,9 +109,9 @@ theorem recFireComparands_snd_shift {p : Nat} (rl : RecRule)
     (args : List Expr) (mI : Nat)
     (hpins : ∀ lvls pins, rl.fire = .nested lvls pins →
       ∀ pin ∈ pins, pin.hasFvar = false) :
-    (recFireComparands rl lps us cvjLps
+    (recFireComparands rl cnP lps us cvjLps
         (args.map (shiftFrom p)) mI).2 =
-      ((recFireComparands rl lps us cvjLps args mI).2).map
+      ((recFireComparands rl cnP lps us cvjLps args mI).2).map
         (shiftFrom p) := by
   cases hf : rl.fire with
   | nested lvls pins =>
@@ -128,6 +128,8 @@ theorem recFireComparands_snd_shift {p : Nat} (rl : RecRule)
         exact hpins lvls pins hf pin hpin)]
   | plain =>
     simp only [recFireComparands, hf, List.map_take]
+  | levels lvls =>
+    simp only [recFireComparands, hf, List.map_take]
 
 /-- The parameter comparand's entries are well-scoped at the ambient
 depth (arguments well-scoped; a nested rule's stored instantiations
@@ -138,7 +140,7 @@ theorem recFireComparands_snd_WScoped {d : Nat} (rl : RecRule)
     (hargs : ∀ a ∈ args, WScoped d a)
     (hpins : ∀ lvls pins, rl.fire = .nested lvls pins →
       ∀ pin ∈ pins, pin.hasFvar = false) :
-    ∀ x ∈ (recFireComparands rl lps us cvjLps args mI).2,
+    ∀ x ∈ (recFireComparands rl cnP lps us cvjLps args mI).2,
       WScoped d x := by
   cases hf : rl.fire with
   | nested lvls pins =>
@@ -151,6 +153,10 @@ theorem recFireComparands_snd_WScoped {d : Nat} (rl : RecRule)
         exact hpins lvls pins hf pin hpin))
       (fun a ha => hargs a (List.mem_of_mem_take ha))
   | plain =>
+    intro x hx
+    simp only [recFireComparands, hf] at hx
+    exact hargs x (List.mem_of_mem_take hx)
+  | levels lvls =>
     intro x hx
     simp only [recFireComparands, hf] at hx
     exact hargs x (List.mem_of_mem_take hx)
@@ -184,7 +190,7 @@ installs read. -/
 theorem recFireComparands_plain {rl : RecRule} {lps : List Name}
     {us : List Level} {cvjLps : List Name} {args : List Expr} {rP : Nat}
     (h : RecRule.fire rl = .plain) :
-    (recFireComparands rl lps us cvjLps args rP).1 =
+    (recFireComparands rl cnP lps us cvjLps args rP).1 =
       cvjLps.map fun p => Level.subst lps us (.param p) := by
   unfold recFireComparands
   rw [h]

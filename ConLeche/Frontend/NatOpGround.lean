@@ -23,7 +23,7 @@ declarations by a DFS from arbitrary roots (`lean4export` walks
 `Nat.ble`/`Nat.sub`/`Bool`) declined at the install.
 
 They cannot go into the prelude: the structural operations are
-certified at install by *definitional* recurrence equations
+certified at its check by *definitional* recurrence equations
 (`certifyNatEqs`) — deliberately not by a syntactic pin, so that a
 stream from another toolchain still installs them (`Nat.add` gained a
 separate `._f` functional between the 4.29 fixtures and the 4.33
@@ -89,10 +89,10 @@ def _root_.ConLeche.Declaration.usedConsts : Declaration → Array Name
       fun (seen, acc) ci =>
         let (seen, acc) := usedConstsGo seen acc ci.toConstantVal.type
         match ci with
-        | .recInfo _ _ _ rules =>
+        | .recInfo _ _ _ _ rules =>
           rules.foldl (fun (seen, acc) r => usedConstsGo seen acc r.rhs) (seen, acc)
         | _ => (seen, acc)).2
-  | .basisDecl _ | .quotDecl .. => #[]
+  | .quotDecl .. => #[]
 
 /-- The pinned `Nat` operation records whose ground the pass serves:
 the pin-certified WF operations and the structural ones (whose

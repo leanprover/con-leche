@@ -62,15 +62,28 @@ structure EnvModel (env : Env) where
 
 variable {V}
 
-/-- **A pinned constant's leaf is its direct pin**: `basis_pinned`'s
-second component. -/
+/-- **A pinned constant's leaf is its direct pin**, where that reads no
+level parameter: `basis_pinned`'s last component. -/
+theorem EnvModel.acval_pinned_free {env : Env} (m : EnvModel V env)
+    {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
+    (hres : ConLeche.reservedBasisNames.contains n = true)
+    {ψ : Name → Nat} {t : Term}
+    (hpin : ∀ ψ' : Name → Nat, ConLeche.Verify.pinnedStructT n ψ' = some t) :
+    m.acval n ψ = t :=
+  (m.basis_pinned n ci hf hres).2.2 t ψ (hpin _)
+
+/-- **A pinned constant's leaf is its direct pin**, at a constant stored
+at the pin's own level-parameter names. -/
 theorem EnvModel.acval_pinned {env : Env} (m : EnvModel V env)
     {n : Name} {ci : ConstantInfo} (hf : env.find? n = some ci)
     (hres : ConLeche.reservedBasisNames.contains n = true)
     {ψ : Name → Nat} {t : Term}
-    (hpin : ConLeche.Verify.pinnedStructT n ψ = some t) :
+    (hpin : ConLeche.Verify.pinnedStructT n ψ = some t)
+    (hl : (ConLeche.pinnedInfo n).toConstantVal.levelParams
+      = ci.toConstantVal.levelParams := by rfl) :
     m.acval n ψ = t :=
-  (m.basis_pinned n ci hf hres).2 t ψ hpin
+  (m.basis_pinned n ci hf hres).2.2 t ψ (by
+    rw [ConLeche.Verify.pinVal, hl, Level.substFn_param_self]; exact hpin)
 
 /-- **Every leaf is lift-invariant**: `cval_closed` at every cut. -/
 theorem EnvModel.acval_closed {env : Env} (m : EnvModel V env)
@@ -81,7 +94,7 @@ theorem EnvModel.acval_closed {env : Env} (m : EnvModel V env)
 /-- The empty environment's core: the leaf is the bare `.const .empty
 [0]` at every name, and every syntactic field is vacuous over `env.consts = []`. -/
 @[expose] def EnvModel.empty : EnvModel V Env.empty where
-  wf := ⟨fun c hc => (by cases hc), fun t ht => (by cases ht)⟩
+  wf := ⟨fun c hc => (by cases hc), fun c hc => (by cases hc), fun t ht => (by cases ht)⟩
   acval := fun _ _ => .const .empty [0]
   cval_closed := fun _ _ => trivial
   basis_pinned := BasisPinnedTT.empty _

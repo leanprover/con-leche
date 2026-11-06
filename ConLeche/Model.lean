@@ -14,7 +14,7 @@ public import ConLeche.Model.Inductives.BlockCtorsLoop
 public import ConLeche.Model.Inductives.BlockModel
 public import ConLeche.Model.Inductives.BlockModelRecords
 public import ConLeche.Model.Inductives.BlockHoleRead
-public import ConLeche.Model.Inductives.StoredShapes
+public import ConLeche.Model.Inductives.DeclaredShapes
 public import ConLeche.Model.Inductives.BlockAbsRead
 public import ConLeche.Model.Inductives.BlockCaps
 public import ConLeche.Model.Inductives.BlockStageCtors
@@ -135,7 +135,7 @@ public import ConLeche.Model.Swap
 public import ConLeche.Model.AxiomPin
 public import ConLeche.Model.Harvest
 public import ConLeche.Model.Fold
-public import ConLeche.Model.InstallRun
+public import ConLeche.Model.DeclsRun
 public import ConLeche.Model.StreamConsts
 public import ConLeche.Semantics.Tower.TowerKit
 public import ConLeche.Verify.Denote

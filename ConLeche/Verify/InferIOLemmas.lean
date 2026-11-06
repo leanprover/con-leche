@@ -161,11 +161,10 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
       env.findProj? T i = some entry ∧
       te.getAppArgs.length = entry.numParams ∧
       us.length = entry.levelParams.length ∧
-      -- the official `infer_proj` restriction (task #175 W4c/O4), as in
+      -- the official `infer_proj` restriction, as in
       -- `inferTypeCore_proj_inv`
-      ((Level.isEquiv entry.structSort .zero == some true) = true →
-        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true) ∧
+      checkProjGuard (pureFnsIO mode eager env fuel).infer (pureFnsIO mode eager env fuel).whnf
+        env entry us = .ok () ∧
       (t = entry.typeAt us te.getAppArgs e ∧
        -- task #175 wiring W5: the node's struct name is the head's
        T = sn) := by
@@ -207,29 +206,15 @@ theorem inferTypeCoreIO_proj_inv {env : Env} {fuel d : Nat} {sn : Name}
   case isFalse => exact nomatch h
   case isTrue hcond =>
     obtain ⟨hsn, hlen, hus⟩ := hcond
-    -- the Prop guard (task #175 W4c/O4), then the residual walk's
-    -- result
-    have hg : (Level.isEquiv entry.structSort .zero == some true) = true →
-        (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true := by
-      intro hp
-      rw [ite_eq_left hp] at h
-      by_cases hf : (Level.isEquiv
-          (Level.subst entry.levelParams us entry.fieldSort) .zero
-          == some true) = true
-      · exact hf
-      · rw [ite_eq_right hf] at h
-        exact absurd h (by
-          simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind])
-    have h' : (pure (entry.typeAt us te.getAppArgs e) : Except CheckError Expr) = .ok t := by
-      by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-      · rw [ite_eq_left hp, ite_eq_left (hg hp)] at h
-        exact h
-      · rw [ite_eq_right hp] at h
-        exact h
-    simp only [pure, Except.pure, Except.ok.injEq] at h'
-    exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
-      hg, h'.symm, hsn⟩
+    -- the guard at this use, then the residual walk's result
+    cases hg : checkProjGuard (pureFnsIO mode eager env fuel).infer
+        (pureFnsIO mode eager env fuel).whnf env entry us with
+    | error err => rw [hg] at h; exact nomatch h
+    | ok _ =>
+      rw [hg] at h
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      exact ⟨tpe, te, T, us, entry, rfl, hw, hfn, hfp, hlen, hus,
+        hg, h.symm, hsn⟩
 
 /-- **The literal clauses are lane-independent**: neither recurses, so
 the io run *is* the full run — the io twins of the two literal claims

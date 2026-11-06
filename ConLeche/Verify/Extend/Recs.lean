@@ -34,8 +34,8 @@ open Expr
 /-- The shape-level swap pair (no obligations). -/
 @[expose] def SwapPairSh (c₀ c₃ : ConstantInfo) : Prop :=
   c₀ = c₃ ∨
-  ∃ cv mI rP rules,
-    c₀ = .recInfo cv mI rP [] ∧ c₃ = .recInfo cv mI rP rules
+  ∃ cv mI rP isK rules,
+    c₀ = .recInfo cv mI rP false [] ∧ c₃ = .recInfo cv mI rP isK rules
 
 /-- Pointwise shape-level swap of two constant lists. -/
 inductive SwapShList : List ConstantInfo → List ConstantInfo → Prop
@@ -50,7 +50,7 @@ theorem SwapShList.of_eq : ∀ (l : List ConstantInfo), SwapShList l l
 
 theorem SwapPairSh.name_eq {c₀ c₃ : ConstantInfo}
     (h : SwapPairSh c₀ c₃) : c₀.name = c₃.name := by
-  rcases h with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
+  rcases h with rfl | ⟨cv, mI, rP, isK, rules, rfl, rfl⟩
   · rfl
   · rfl
 
@@ -60,9 +60,9 @@ theorem swapSh_find?_corr {ts : List ProjTable} :
     SwapShList consts₀ consts₃ →
     ∀ n : Name,
     (Env.mk consts₃ ts).find? n = (Env.mk consts₀ ts).find? n ∨
-    ∃ cv mI rP rules,
-      (Env.mk consts₀ ts).find? n = some (.recInfo cv mI rP []) ∧
-      (Env.mk consts₃ ts).find? n = some (.recInfo cv mI rP rules) ∧
+    ∃ cv mI rP isK rules,
+      (Env.mk consts₀ ts).find? n = some (.recInfo cv mI rP false []) ∧
+      (Env.mk consts₃ ts).find? n = some (.recInfo cv mI rP isK rules) ∧
       cv.name = n := by
   intro consts₀ consts₃ hsw
   induction hsw with
@@ -77,9 +77,9 @@ theorem swapSh_find?_corr {ts : List ProjTable} :
       have h₀ : (Env.mk (c₀ :: rest₀) ts).find? n = some c₀ := by
         show (c₀ :: rest₀).find? (·.name == n) = some c₀
         rw [List.find?_cons_of_pos (by simp [hn₀])]
-      rcases hpair with rfl | ⟨cv, mI, rP, rules, rfl, rfl⟩
+      rcases hpair with rfl | ⟨cv, mI, rP, isK, rules, rfl, rfl⟩
       · exact Or.inl (h₃.trans h₀.symm)
-      · exact Or.inr ⟨cv, mI, rP, rules, h₀, h₃,
+      · exact Or.inr ⟨cv, mI, rP, isK, rules, h₀, h₃,
           (show cv.name = n from hn)⟩
     · have hn₀ : ¬c₀.name = n := by
         rw [SwapPairSh.name_eq hpair]
@@ -137,11 +137,11 @@ structure SwapCongr (env₀ env₃ : Env) : Prop where
   guardEq : ∀ c, natOpGuard env₀ c = natOpGuard env₃ c
   /-- A non-recursor lookup transports down. -/
   findDown : ∀ (n : Name) (ci : ConstantInfo), env₃.find? n = some ci →
-    (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
     env₀.find? n = some ci
   /-- …and up. -/
   findUp : ∀ (n : Name) (ci : ConstantInfo), env₀.find? n = some ci →
-    (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
+    (∀ cv mI rP isK rules, ci ≠ .recInfo cv mI rP isK rules) →
     env₃.find? n = some ci
   /-- The projection tables are unchanged. -/
   tablesEq : env₀.tables = env₃.tables
@@ -166,69 +166,69 @@ theorem SwapShList.congr {consts₀ consts₃ : List ConstantInfo} {ts : List Pr
     SwapCongr (Env.mk consts₀ ts) (Env.mk consts₃ ts) := by
   have hcorr := swapSh_find?_corr (ts := ts) hsw
   have hchk : ∀ (chk : Option ConstantInfo → Bool),
-      (∀ cv mI rP rules rules',
-        chk (some (.recInfo cv mI rP rules)) =
-        chk (some (.recInfo cv mI rP rules'))) →
+      (∀ cv mI rP isK isK' rules rules',
+        chk (some (.recInfo cv mI rP isK rules)) =
+        chk (some (.recInfo cv mI rP isK' rules'))) →
       ∀ n, chk ((Env.mk consts₀ ts).find? n) = chk ((Env.mk consts₃ ts).find? n) := by
     intro chk hins n
-    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]
-      exact hins cv mI rP [] rules
+      exact hins cv mI rP false isK [] rules
   have hnat : natLitSupported (Env.mk consts₀ ts)
       = natLitSupported (Env.mk consts₃ ts) := by
     unfold natLitSupported
-    rw [hchk natIndOk (fun _ _ _ _ _ => rfl) natName,
-      hchk natZeroOk (fun _ _ _ _ _ => rfl) natZeroName,
-      hchk natSuccOk (fun _ _ _ _ _ => rfl) natSuccName]
+    rw [hchk natIndOk (fun _ _ _ _ _ _ _ => rfl) natName,
+      hchk natZeroOk (fun _ _ _ _ _ _ _ => rfl) natZeroName,
+      hchk natSuccOk (fun _ _ _ _ _ _ _ => rfl) natSuccName]
   refine ⟨?_, ?_, hnat, ?_, ?_, ?_, ?_, rfl⟩
   · intro n
-    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]; rfl
   · intro n
-    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
     · rw [heq]
     · rw [h₀, h₃]; rfl
   · unfold strLitSupported
     rw [hnat,
-      hchk stringTyOk (fun _ _ _ _ _ => rfl) stringName,
-      hchk stringOfListTyOk (fun _ _ _ _ _ => rfl) stringOfListName,
-      hchk listTyOk (fun _ _ _ _ _ => rfl) listName,
-      hchk listNilTyOk (fun _ _ _ _ _ => rfl) listNilName,
-      hchk listConsTyOk (fun _ _ _ _ _ => rfl) listConsName,
-      hchk charTyOk (fun _ _ _ _ _ => rfl) charName,
-      hchk charOfNatTyOk (fun _ _ _ _ _ => rfl) charOfNatName]
+      hchk stringTyOk (fun _ _ _ _ _ _ _ => rfl) stringName,
+      hchk stringOfListTyOk (fun _ _ _ _ _ _ _ => rfl) stringOfListName,
+      hchk listTyOk (fun _ _ _ _ _ _ _ => rfl) listName,
+      hchk listNilTyOk (fun _ _ _ _ _ _ _ => rfl) listNilName,
+      hchk listConsTyOk (fun _ _ _ _ _ _ _ => rfl) listConsName,
+      hchk charTyOk (fun _ _ _ _ _ _ _ => rfl) charName,
+      hchk charOfNatTyOk (fun _ _ _ _ _ _ _ => rfl) charOfNatName]
   · intro c
     unfold natOpGuard
     rw [hnat]
     congr 1
     · congr 1
       refine congrArg (List.all (natOpDeps c)) (funext fun n => ?_)
-      rcases hcorr n with heq | ⟨cv2, a, b, c2, h₀, h₃, -⟩
+      rcases hcorr n with heq | ⟨cv2, a, b, kk, c2, h₀, h₃, -⟩
       · rw [heq]
       · rw [h₀, h₃]
     · split
       · congr 1
-        · rcases hcorr boolTrueName with heq | ⟨cv2, a, b, c2, h₀, h₃, -⟩
+        · rcases hcorr boolTrueName with heq | ⟨cv2, a, b, kk, c2, h₀, h₃, -⟩
           · rw [heq]
           · rw [h₀, h₃]; rfl
-        · rcases hcorr boolFalseName with heq | ⟨cv2, a, b, c2, h₀, h₃, -⟩
+        · rcases hcorr boolFalseName with heq | ⟨cv2, a, b, kk, c2, h₀, h₃, -⟩
           · rw [heq]
           · rw [h₀, h₃]; rfl
       · rfl
   · intro n ci hf hnr
-    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
     · rw [← heq]; exact hf
     · rw [h₃] at hf
       obtain rfl := Option.some.inj hf
-      exact absurd rfl (hnr cv mI rP rules)
+      exact absurd rfl (hnr cv mI rP isK rules)
   · intro n ci hf hnr
-    rcases hcorr n with heq | ⟨cv, mI, rP, rules, h₀, h₃, -⟩
+    rcases hcorr n with heq | ⟨cv, mI, rP, isK, rules, h₀, h₃, -⟩
     · rw [heq]; exact hf
     · rw [h₀] at hf
       obtain rfl := Option.some.inj hf
-      exact absurd rfl (hnr cv mI rP [])
+      exact absurd rfl (hnr cv mI rP false [])
 
 /-- A shape-level swap of two environments' constants, their tables
 equal, induces the congruences. -/
@@ -245,9 +245,9 @@ environments' constants (lookups read the constants alone). -/
 theorem swapSh_find?_corrEnv {env₀ env₃ : Env} (hsw : SwapShList env₀.consts env₃.consts)
     (n : Name) :
     env₃.find? n = env₀.find? n ∨
-    ∃ cv mI rP rules,
-      env₀.find? n = some (.recInfo cv mI rP []) ∧
-      env₃.find? n = some (.recInfo cv mI rP rules) ∧
+    ∃ cv mI rP isK rules,
+      env₀.find? n = some (.recInfo cv mI rP false []) ∧
+      env₃.find? n = some (.recInfo cv mI rP isK rules) ∧
       cv.name = n :=
   swapSh_find?_corr (ts := []) hsw n
 

@@ -503,7 +503,7 @@ display_case render_safety.ndjson
 echo "display gate: $display_ok/$display_total as expected"
 
 # THE BUILT-IN PRELUDE'S COUNT INVARIANT (task #191; the arithmetic is
-# task #293's).  Every run installs the prelude's declarations first —
+# task #293's).  Every run checks the prelude's declarations first —
 # the stream's OWN record wherever the stream has one, a synthesised
 # copy where it has none.  The verdict line counts the FILE's
 # declaration records, which no step of the preparation moves: the
@@ -530,21 +530,15 @@ prelude_count natop_before_eq.ndjson 35
 prelude_count natop_before_ble.ndjson 35
 echo "prelude counts: $prelude_ok/$prelude_total as expected"
 
-# The progress lane (`--progress[=<stride>]`, 2026-09-07; a FLAG since
-# task #229; two phases since task #260).  One driver, one verdict: the
+# The progress lane (`--progress[=<stride>]`).  One driver, one verdict: the
 # heartbeat is printed between the steps of the driver whose result
-# carries the proof that `checkDecls` returns its environment, so the
-# flag changes no verdict by construction.  The contract checked here:
-# the lane prints one line SHAPE per phase — `install <i> (<percent>%) <decl>`
-# BEFORE every declaration at stride 1 (the localisation mode: a run
-# dying in the install phase names the declaration it died in on its
-# last line) and `check <done> (<percent>%) <decl>` AFTER every completed check
-# (M = the recorded checks, below N) — bracketed in order by `parse
-# done`, `install done` (naming M), `check done` and the `done:`
-# summary (the three phase durations and the worker count); it prints
-# EVERY declaration and EVERY check at stride 1; and it changes no
-# verdict, on an accepting and on a rejecting fixture alike, in one
-# thread and on the pool.
+# carries the proof that `checkDecls` accepts, so the flag changes no
+# verdict by construction.  The contract checked here: `check <done>
+# (<percent>%) <decl>` AFTER every completed check, bracketed in order by
+# `parse done`, `check done` and the `done:` summary (the two phase
+# durations and the worker count); EVERY check is reported at stride 1;
+# and the flag changes no verdict, on an accepting and on a rejecting
+# fixture alike, in one thread and on the pool.
 prog_ok=0
 prog_total=0
 prog_check() { # <description> <condition-result>
@@ -556,41 +550,33 @@ prog_check() { # <description> <condition-result>
   fi
 }
 # the accepting fixture: exit 0 with and without the flag, same
-# stdout verdict line, one install line per fold record and one check
-# line per recorded check at stride 1
+# stdout verdict line, one check line per fold record at stride 1
 prog_out=$(timeout 120 "$BIN" "$SPLIT_GOOD" 2>/dev/null); prog_code=$?
 prog_err1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_out1=$(timeout 120 "$BIN" --progress=1 "$SPLIT_GOOD" 2>/dev/null)
 prog_code1=$?
-prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: install [0-9]')
-# one install line per FOLD record: the stream's records after the
-# built-in prelude's (task #191) — the total the `install done: N/N`
-# line names; the verdict line counts the stream's records only
-prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: \([0-9]*\) .*/\1/p')
+# the fold records: the stream's after the built-in prelude's (task #191)
+# -- the total the `check done: N declarations` line names; the verdict
+# line counts the stream's records only
+prog_lines=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: check [0-9]')
+prog_decls=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: check done: \([0-9]*\) .*/\1/p')
 prog_check "stride 1 exits 0 on the accepting fixture" \
   "$([ "$prog_code1" = 0 ] && echo ok)"
 prog_check "the verdict line is unchanged by the flag" \
   "$([ "$prog_out" = "$prog_out1" ] && [ "$prog_code" = "$prog_code1" ] && echo ok)"
-prog_check "stride 1 prints one install line per fold record" \
-  "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && echo ok)"
-# the check phase: one `check` line per recorded check, the number the
-# `install done` line names (M, below N)
-prog_lines_c=$(printf '%s\n' "$prog_err1" | grep -c '^con-leche: check [0-9]')
-prog_pending=$(printf '%s\n' "$prog_err1" | sed -n 's/^con-leche: install done: .*, \([0-9]*\) checks pending.*/\1/p')
-prog_check "stride 1 prints one check line per recorded check" \
-  "$([ -n "$prog_pending" ] && [ "$prog_lines_c" = "$prog_pending" ] && \
-     [ "$prog_pending" -gt 0 ] && [ "$prog_pending" -lt "$prog_decls" ] && echo ok)"
-# the bracket lines, in order: parse done, install done, check done,
-# the summary — and every install line before every check line
+prog_check "stride 1 prints one check line per fold record" \
+  "$([ -n "$prog_decls" ] && [ "$prog_lines" = "$prog_decls" ] && [ "$prog_decls" -gt 0 ] && echo ok)"
+# the bracket lines, in order: parse done, the checks, check done, the
+# summary
 prog_order=$(printf '%s\n' "$prog_err1" | sed -n \
   -e 's/^con-leche: parse done: .*/P/p' \
-  -e 's/^con-leche: install done: .*/I/p' \
   -e 's/^con-leche: check done: .*/C/p' \
-  -e 's/^con-leche: done: parse .*, install .*, check .*, [0-9]* worker.*/D/p' \
-  -e 's/^con-leche: install [0-9].*/i/p' \
+  -e 's/^con-leche: done: parse .*, check .*, [0-9]* worker.*/D/p' \
   -e 's/^con-leche: check [0-9].*/c/p' | tr -d '\n')
-prog_check "the lane brackets the run in order (parse done, install…, install done, check…, check done, done)" \
-  "$(printf '%s' "$prog_order" | grep -q '^Pi*Ic*CD$' && echo ok)"
+prog_check "the lane brackets the run in order (parse done, check…, check done, done)" \
+  "$(printf '%s' "$prog_order" | grep -q '^Pc*CD$' && echo ok)"
+prog_check "no phase but parse and check is mentioned" \
+  "$(printf '%s\n' "$prog_err1" | grep -q 'install' || echo ok)"
 # the rejecting fixture: still exit 1, still naming the declaration,
 # the check phase's closing line saying it failed, the summary still printed
 prog_errB=$(timeout 120 "$BIN" --progress=1 "$SPLIT_BAD" 2>&1 >/dev/null)
@@ -608,13 +594,13 @@ prog_errBare=$(timeout 120 "$BIN" --progress "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_errPost=$(timeout 120 "$BIN" --trusted --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_errPre=$(timeout 120 "$BIN" --progress=1 --trusted "$SPLIT_GOOD" 2>&1 >/dev/null)
 prog_check "bare --progress is stride 1" \
-  "$([ "$(printf '%s\n' "$prog_errBare" | grep -c '^con-leche: install [0-9]')" \
+  "$([ "$(printf '%s\n' "$prog_errBare" | grep -c '^con-leche: check [0-9]')" \
       = "$prog_lines" ] && echo ok)"
 prog_check "--progress composes with --trusted in either order" \
-  "$([ "$(printf '%s\n' "$prog_errPost" | grep -c '^con-leche: install [0-9]')" \
-      = "$(printf '%s\n' "$prog_errPre" | grep -c '^con-leche: install [0-9]')" ] && \
+  "$([ "$(printf '%s\n' "$prog_errPost" | grep -c '^con-leche: check [0-9]')" \
+      = "$(printf '%s\n' "$prog_errPre" | grep -c '^con-leche: check [0-9]')" ] && \
     printf '%s' "$prog_errPost" | grep -q '^con-leche: check done' && echo ok)"
-# the pool (task #260): the same lines at --jobs=4 — every check
+# the pool: the same lines at --jobs=4 — every check
 # reported once, the count monotone (the completed-count, from
 # whichever worker finished), the same brackets in the same order
 prog_errJ=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
@@ -623,17 +609,15 @@ prog_codeJ=$?
 prog_countsJ=$(printf '%s\n' "$prog_errJ" | sed -n 's/^con-leche: check \([0-9]*\) (.*/\1/p' | tr '\n' ' ')
 prog_orderJ=$(printf '%s\n' "$prog_errJ" | sed -n \
   -e 's/^con-leche: parse done: .*/P/p' \
-  -e 's/^con-leche: install done: .*/I/p' \
   -e 's/^con-leche: check done: .*/C/p' \
-  -e 's/^con-leche: done: parse .*, install .*, check .*, [0-9]* workers.*/D/p' \
-  -e 's/^con-leche: install [0-9].*/i/p' \
+  -e 's/^con-leche: done: parse .*, check .*, [0-9]* workers.*/D/p' \
   -e 's/^con-leche: check [0-9].*/c/p' | tr -d '\n')
 prog_check "--jobs=4 --progress=1: the verdict is unchanged" \
   "$([ "$prog_outJ" = "$prog_out" ] && [ "$prog_codeJ" = "$prog_code" ] && echo ok)"
 prog_check "--jobs=4 --progress=1 reports every check once, counting up" \
-  "$([ "$prog_countsJ" = "$(seq -s ' ' 1 "$prog_pending") " ] && echo ok)"
+  "$([ "$prog_countsJ" = "$(seq -s ' ' 1 "$prog_decls") " ] && echo ok)"
 prog_check "--jobs=4 --progress=1 brackets the run in order, naming the workers" \
-  "$(printf '%s' "$prog_orderJ" | grep -q '^Pi*Ic*CD$' && echo ok)"
+  "$(printf '%s' "$prog_orderJ" | grep -q '^Pc*CD$' && echo ok)"
 # a bad stride is a USAGE error (exit 3), not a silently degraded run
 # the other paces (task #484): per percent of a phase, and by the clock; each phase says when
 # it starts at any pace
@@ -653,8 +637,6 @@ prog_check "--progress=1000s: no check line in a short run" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: check [0-9]')" = 0 ] && echo ok)"
 prog_check "--progress=1000s: it says what it is reading" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: reading ')" = 1 ] && echo ok)"
-prog_check "--progress=1000s: the install says it has started" \
-  "$([ "$(prog_lines "$prog_errS" '^con-leche: install 0 ')" = 1 ] && echo ok)"
 prog_check "--progress=1000s: the check says it has started" \
   "$([ "$(prog_lines "$prog_errS" '^con-leche: checking: ')" = 1 ] && echo ok)"
 for v in 0% 101% x% 0s xs 1.5s; do
@@ -669,7 +651,7 @@ prog_check "--progress=0 is a usage error (exit 3)" \
   "$([ "$prog_code0" = 3 ] && echo ok)"
 echo "progress lane: $prog_ok/$prog_total as expected"
 
-# The worker pool (`--jobs=<n>`, task #260).  The check phase runs on
+# The worker pool (`--jobs=<n>`).  The check phase runs on
 # <n> threads (one worker per hardware thread without the flag;
 # --jobs=1 one worker);
 # the results are
@@ -729,14 +711,13 @@ jobs_check "--jobs=x is a usage error (exit 3)" "$([ "$j_cx" = 3 ] && echo ok)"
 jobs_check "bare --jobs is a usage error (exit 3)" "$([ "$j_cbare" = 3 ] && echo ok)"
 echo "worker pool: $jobs_ok/$jobs_total as expected"
 
-# The end-of-run statistics (task #329): every run, flag
-# or not, closes its stderr with `con-leche: stats:` lines — the phase
-# times, the install's and the check's utilisation (with the tail at
-# more than one worker), the slowest installs and checks — after the
-# verdict is known.  They are performance-only: stdout and the exit
-# code are the same with them, which the worker-pool lane above already
-# checks with the lines dropped.  Checked here: present on an accept
-# and on a rejection, in one thread and on the pool.
+# The end-of-run statistics: every run, flag or not, closes its stderr
+# with `con-leche: stats:` lines -- the phase times, the check phase's
+# utilisation (with the tail at more than one worker), the slowest checks
+# -- after the verdict is known.  They are performance-only: stdout and the
+# exit code are the same with them, which the worker-pool lane above
+# already checks with the lines dropped.  Checked here: present on an
+# accept and on a rejection, in one thread and on the pool.
 stats_ok=0
 stats_total=0
 stats_check() { # <description> <condition-result>
@@ -750,70 +731,57 @@ stats_check() { # <description> <condition-result>
 for jn in 1 4; do
   s_good=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_GOOD" 2>&1 >/dev/null)
   s_bad=$(timeout 120 "$BIN" --jobs=$jn "$SPLIT_BAD" 2>&1 >/dev/null)
-  stats_check "--jobs=$jn: an accept prints the phases, both reports and the slowest records" \
-    "$(printf '%s\n' "$s_good" | grep -q '^con-leche: stats: phases: parse .*, install .*, check [0-9]' && \
-       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: install.* wall, .* busy ' && \
+  stats_check "--jobs=$jn: an accept prints the phases, the report and the slowest records" \
+    "$(printf '%s\n' "$s_good" | grep -q '^con-leche: stats: phases: parse .*, check [0-9]' && \
        printf '%s\n' "$s_good" | grep -q '^con-leche: stats: check.* wall, .* busy ' && \
-       printf '%s\n' "$s_good" | grep -q '^con-leche: stats: slowest installs: [0-9]' && \
        printf '%s\n' "$s_good" | grep -q '^con-leche: stats: slowest checks: [0-9]' && echo ok)"
   stats_check "--jobs=$jn: a rejection prints them too" \
     "$(printf '%s\n' "$s_bad" | grep -q '^con-leche: stats: slowest checks: ' && echo ok)"
 done
 s_pool=$(timeout 120 "$BIN" --jobs=4 "$SPLIT_GOOD" 2>&1 >/dev/null)
-stats_check "--jobs=4: the pools report their tail" \
+stats_check "--jobs=4: the pool reports its tail" \
   "$(printf '%s\n' "$s_pool" | grep -q '^con-leche: stats: check pool: .* tail .* after the last start' && echo ok)"
 s_prog=$(timeout 120 "$BIN" --jobs=4 --progress=1 "$SPLIT_GOOD" 2>&1 >/dev/null)
 stats_check "--jobs=4 --progress=1: heartbeats name the busy workers" \
-  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/[0-9]' && \
-     printf '%s\n' "$s_prog" | grep -q '^con-leche: install [0-9].* busy=[0-9]*/5' && echo ok)"
+  "$(printf '%s\n' "$s_prog" | grep -q '^con-leche: check [0-9].* busy=[0-9]*/[0-9]' && echo ok)"
 echo "statistics: $stats_ok/$stats_total as expected"
 
-# The install pool (task #329).  At --jobs=<n> > 1 the records (every
-# kind) are installed on <n> workers, each against a view
-# of the records before it, and committed in stream order by the main
-# thread, so the installed environment — and a rejection, with the
-# declaration it names — is the one-thread install's.  Checked here on
-# the parallel-install fixtures (scripts/mk_pinstall_fixtures.py): the
-# output at --jobs=8 and --jobs=32 equals --jobs=1's on a rejection in
+# A wide stream on the pool (scripts/mk_wide_fixtures.py): the output at
+# --jobs=8 and --jobs=32 equals --jobs=1's, on an accept, on a rejection in
 # the middle of the stream and on a duplicate declaration far from its
-# first occurrence.  (A misprediction, which no stream reaches, is an
-# internal error, exit 3; a failed `And` pin is the serial step's
-# rejection — the `corner_andpin_*_bad` fixtures above, run at the
-# default worker count.)
-pinst_ok=0
-pinst_total=0
-pinst_check() { # <description> <condition-result>
-  pinst_total=$((pinst_total+1))
+# first occurrence.
+wide_ok=0
+wide_total=0
+wide_check() { # <description> <condition-result>
+  wide_total=$((wide_total+1))
   if [ "$2" = ok ]; then
-    pinst_ok=$((pinst_ok+1))
+    wide_ok=$((wide_ok+1))
   else
-    echo "INSTALL POOL FAIL: $1"; fail=1
+    echo "WIDE STREAM FAIL: $1"; fail=1
   fi
 }
-pinst_run() { # <args...>: stdout+stderr, timings stripped, exit code appended
+wide_run() { # <args...>: stdout+stderr, timings stripped, exit code appended
   local out code
   out=$(timeout 120 "$BIN" "$@" 2>&1 | nostats; exit "${PIPESTATUS[0]}"); code=$?
   printf '%s\nexit %s\n' "$(printf '%s' "$out" | sed 's/ t=[0-9.]*s$//')" "$code"
 }
-for f in pinstall_ok pinstall_reject_mid pinstall_dup; do
-  ref=$(pinst_run --jobs=1 "tests/e2e/$f.ndjson")
+for f in wide_ok wide_reject_mid wide_dup; do
+  ref=$(wide_run --jobs=1 "tests/e2e/$f.ndjson")
   for jn in 8 32; do
-    got=$(pinst_run --jobs=$jn "tests/e2e/$f.ndjson")
-    pinst_check "$f at --jobs=$jn is --jobs=1's" "$([ "$got" = "$ref" ] && echo ok)"
+    got=$(wide_run --jobs=$jn "tests/e2e/$f.ndjson")
+    wide_check "$f at --jobs=$jn is --jobs=1's" "$([ "$got" = "$ref" ] && echo ok)"
   done
 done
-# An IO exception on the commit thread — here the heartbeat's write
-# into a pipe whose reader has gone — stops the workers and ends the
-# run as an internal error (exit 3); it once left them waiting, and the
-# process hung at its exit (the timeout's 124).
-for jn in 4 32; do
-  timeout 60 "$BIN" --progress=1 --jobs=$jn tests/e2e/pinstall_ok.ndjson 2>&1 >/dev/null \
+# An IO exception on a worker -- here the heartbeat's write into a pipe
+# whose reader has gone -- ends the run as an internal error (exit 3).
+for jn in 1 4 32; do
+  timeout 60 "$BIN" --progress=1 --jobs=$jn tests/e2e/wide_ok.ndjson 2>&1 >/dev/null \
     | head -c 1500 >/dev/null
   code=${PIPESTATUS[0]}
-  pinst_check "--jobs=$jn: a failing heartbeat write ends the run (exit $code)" \
+  wide_check "--jobs=$jn: a failing heartbeat write ends the run (exit $code)" \
     "$([ "$code" = 3 ] && echo ok)"
 done
-echo "install pool: $pinst_ok/$pinst_total as expected"
+echo "wide streams: $wide_ok/$wide_total as expected"
 
 # THE DAG-TOWER GATE (tasks #215, #226).  The frontend tree-size budget
 # is gone; what stands in its place is a fixture, not a limit.

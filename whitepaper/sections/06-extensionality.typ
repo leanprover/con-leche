@@ -63,7 +63,7 @@ set. That is the proof-irrel case of @thm:sound, which
 propositions that imply each other have
 #src("whitepaper/Fragment/Lib.lean", 173, 174)[the same truth value], by extensionality of sets. This is Lean's
 axiom `propext`, which therefore
-#src("ConLeche/Model/AxiomMem.lean", 297, 304)[holds in the model].
+#src("ConLeche/Model/AxiomMem.lean", 261, 268)[holds in the model].
 
 == η for structures <sec:ext-eta>
 
@@ -138,21 +138,21 @@ not a rule of its relations.
 
 #real[
   The checker has the rule as Lean has it,
-  #src("ConLeche/Rules/Rel.lean", 459, 470)[the constructor's fields compared with the projections of the other side],
+  #src("ConLeche/Rules/Rel.lean", 449, 460)[the constructor's fields compared with the projections of the other side],
   with
-  #src("ConLeche/Model/Rules/DefEqSound.lean", 655, 657)[its soundness case].
+  #src("ConLeche/Model/Rules/DefEqSound.lean", 652, 654)[its soundness case].
   It uses the same law when it prepares the major premise of a
   recursor on a structure that is never a proposition at the instance.
   The major is taken as found, before any head normalisation, and the
   constructor is applied to its projections, with no further check
-  (#src("ConLeche/Rules/Rel.lean", 275, 285)[the rule],
-  #src("ConLeche/Model/Rules/IotaSound.lean", 721, 722)[its soundness case]).
+  (#src("ConLeche/Rules/Rel.lean", 266, 276)[the rule],
+  #src("ConLeche/Model/Rules/IotaSound.lean", 704, 705)[its soundness case]).
   Only if that does not give a constructor application is the major
   head-normalised, and the same expansion is tried once more on the
   result. Whether a type has the rule at all is decided once, when it
-  is installed, from its shape (one constructor, no index, not a
-  proposition, in a block where no constructor is recursive), and
-  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 80)[recorded with the type]\;
+  is installed, from its shape (one constructor, no index, in a block
+  where no constructor is recursive), and
+  #src("ConLeche/Kernel/Inductives/BlockInstall.lean", 67, 78)[recorded with the type]\;
   the law itself is established there too, not at the use. It is the
   η law of the structure's _projection table_, the record of its
   fields' types that the checker stores for every one-constructor,
@@ -189,13 +189,13 @@ by the same argument.
 
 #real[
   The checker has the rule for
-  #src("ConLeche/Rules/Rel.lean", 495, 500)[any stored unit-like family],
+  #src("ConLeche/Rules/Rel.lean", 485, 490)[any stored unit-like family],
   with
   #src("ConLeche/Model/Rules/DefEqSound.lean", 293, 294)[its soundness case].
   Unit-likeness is recorded at installation, like η (one constructor,
   no index, no field, in a block where no constructor is recursive),
   and the law is established there from the fixed point
-  (#src("ConLeche/Model/Inductives/FixKit.lean", 1729, 1730)[the fibre is the one tagged empty tuple]).
+  (#src("ConLeche/Model/Inductives/FixKit.lean", 1794, 1795)[the fibre is the one tagged empty tuple]).
   Neither `PUnit` nor `True` is special to the checker: both are
   installed like any other block.
 ]

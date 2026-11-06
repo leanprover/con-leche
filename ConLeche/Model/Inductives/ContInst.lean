@@ -200,7 +200,7 @@ theorem instCtor_read {c j : Nat} (hc : c < D.k) (hj : j < D.nctors c) {cv : Con
       ConLeche.instPisWith ds (cv.type.instantiateLevelParams cv.levelParams us) = some crest ∧
       (∃ Tys : List Term, Tys.length = D.k ∧
         (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-          ConLeche.instPisWith (canonParams ds.length) cvm.type = some ty ∧
+          ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
           denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
             = some (Tys.getD mm default)) ∧
         FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
@@ -354,7 +354,7 @@ frame; and the recorded result indices read alike at the two. -/
 theorem instCtor_fit {c j : Nat} (_hc : c < D.k) (_hj : j < D.nctors c) {nF : Nat}
     {ab : List Term} {Tys : List Term} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      ConLeche.instPisWith (canonParams ds.length) cvm.type = some ty ∧
+      ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
       denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
         = some (Tys.getD mm default))
     (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)
@@ -400,7 +400,7 @@ theorem instCtor_decode {c j : Nat} (hc : c < D.k)
     (hj : j < D.nctors c) {nF : Nat}
     {ab : List Term} {Tys : List Term} (hlT : Tys.length = D.k)
     (hTys : ∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-      ConLeche.instPisWith (canonParams ds.length) cvm.type = some ty ∧
+      ConLeche.instPisWith (canonParams ds.length) (D.formerAt mm cvm).type = some ty ∧
       denote mp.base2.acval env (Level.substFn φ lps us) (ds.length + mm) ty
         = some (Tys.getD mm default))
     (hEq : FieldsEqOn V (D.params (Level.substFn φ lps us) ++ Tys).reverse (ab)

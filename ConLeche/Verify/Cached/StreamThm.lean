@@ -1,10 +1,9 @@
 module
 
-public import ConLeche.Cached.Installed
+import ConLeche.Verify.Cached.DeclPushes
+public import ConLeche.Cached.Decls
 public import ConLeche.SetTheory.Core
 import ConLeche.Verify.Cached.MainC
-import ConLeche.Verify.Cached.PushChain
-import ConLeche.Verify.Cached.BridgeCS4
 
 public section
 
@@ -14,21 +13,19 @@ public section
 The letters of the fold (`ConLeche/Verify/Cached/MainC.lean`) are about
 the environment `checkDecls` RETURNS.  This module carries one fact the
 other way, from the fold's INPUT: a `thmDecl` record whose declared type
-is a bare constant is installed, with that very type, and the constant
+is a bare constant is stored, with that very type, and the constant
 survives to the end of the run.
 
 Three ingredients, one per step of the walk:
 
-* **the header is stored as declared.**  Phase A's header install
-  (`installHeaderC`) runs guards only; the stored header is the
-  declared one, used directly.
-* **a theorem record is never dropped.**  `installStepC`'s `thmDecl` arm
-  either throws or pushes `.thmInfo ⟨cv.name, cv.levelParams, jty⟩`
-  with the declared type `jty`: `installStepC_thm_consts`.
-* **pushed constants persist.**  An accepting `InstallRun` only ever
-  extends the constants list (`installRun_trace`, `PushChain`), so what
-  the theorem's step pushed is still there at the end of phase A —
-  and phase B pushes nothing at all.
+* **the header is stored as declared.**  The check runs guards only;
+  the stored header is the declared one, used directly.
+* **a theorem record is never dropped.**  The check's `thmDecl` arm
+  either throws or pushes `declConstants` of the record, the theorem at
+  its declared type: `checkDeclStepC_pushes`.
+* **pushed constants persist.**  An accepting `DeclsRun` only ever
+  extends the constants list, so what the theorem's step pushed is still
+  there at the end of the run.
 
 `checkDecls_thmDecl_const` is the three composed: the returned
 environment holds a constant of the record's declared type.  Nothing
@@ -45,55 +42,37 @@ variable {pins : List NatOpPinSet}
 
 /-! ## A theorem record is installed, with its declared type -/
 
-/-- Phase A's step at a `thmDecl` record with a bare declared type:
-the constant it pushes is a `.thmInfo` of that very type. -/
-theorem installStepC_thm_consts {mode : CheckMode} {i : Nat} {fe : FEnv}
-    {pend : Array PendingCheck} {cv : ConstantVal} {value : Expr}
-    {n : Name} {ls : List Level} {s₀ s' : CState}
-    {fe' : FEnv} {pend' : Array PendingCheck} (hty : cv.type = .const n ls)
-    (h : installStepC mode pins i fe pend (.thmDecl cv value) s₀ = .ok ((fe', pend'), s')) :
-    fe'.env.consts =
-      ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩ ::
-        fe.env.consts := by
-  unfold installStepC at h
-  simp only [] at h
-  obtain ⟨_, s₁, hfl, h⟩ := bindC_ok h
-  rw [show (flushC : CheckCM Unit) s₀ = .ok ((), s₀.flushed) from rfl] at hfl
-  have hs₁ : s₀.flushed = s₁ := congrArg Prod.snd (Except.ok.inj hfl)
-  subst hs₁
-  obtain ⟨_, s₂, _hcv, h'⟩ := bindC_ok h
-  obtain ⟨hv, _⟩ := pureC_ok h'
-  obtain ⟨rfl, _⟩ := Prod.mk.injEq .. ▸ hv
-  rw [← hty]
-  rfl
-
-/-! ## The constant survives to the end of phase A -/
-
-/-- **A theorem record of the stream is stored**: if phase A accepts a
-list of records containing a `thmDecl` whose declared type is a bare
-constant, the environment it returns holds a constant of that type. -/
-theorem installRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
+/-- **A theorem record of the stream is stored**: if the fold's run accepts a list of records
+containing a `thmDecl` whose declared type is a bare constant, the environment it returns holds a
+constant of that type. -/
+theorem declsRun_thmDecl_const {mode : CheckMode} {ds : List Declaration}
     {cv : ConstantVal} {value : Expr} {n : Name} {ls : List Level}
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
-    {p q : Nat × FEnv × Array PendingCheck}
-    (h : InstallRun mode pins ds p q) (hcanon : p.2.1 = mkFEnv p.2.1.env) :
-    ∃ c ∈ q.2.1.env.consts, c.toConstantVal.type = .const n ls := by
+    {p q : Nat × FEnv} (h : DeclsRun mode pins ds p q) :
+    ∃ c ∈ q.2.env.consts, c.toConstantVal.type = .const n ls := by
   induction h with
   | nil p => exact absurd hmem (List.not_mem_nil)
   | @cons pd ds p p₁ q hstep rest ih =>
-    obtain ⟨fe₁, pend₁, s₁, rfl, hstepC⟩ := installDeclStep_ok hstep
-    have hchain : PushChain p.2.1.env fe₁ :=
-      (installStepC_push mode p.1 (PushChain.self hcanon) p.2.2 pd {} (fe₁, pend₁) s₁
-        hstepC).1
+    obtain ⟨fe₁, s₁, rfl, hstepC⟩ := declStep_ok hstep
     rcases List.mem_cons.mp hmem with rfl | hmem'
     · -- the record is this step's: its constant is pushed here
-      have hconsts := installStepC_thm_consts hty hstepC
-      obtain ⟨⟨_, ⟨new, hnew⟩, _⟩, _⟩ :=
-        installRun_trace mode rest (PushChain.self hchain.canon)
-      refine ⟨ConstantInfo.thmInfo ⟨cv.name, cv.levelParams, .const n ls⟩, ?_, rfl⟩
-      rw [hnew]
-      exact List.mem_append_right _ (hconsts ▸ List.mem_cons_self)
-    · exact ih hmem' hchain.canon
+      have hpush := checkDeclStepC_pushes (pins := pins) mode p.2 (.thmDecl cv value) {} fe₁ s₁ hstepC
+      have henv := declsRun_env mode rest
+      have hmemc : ConstantInfo.thmInfo cv ∈ (streamEnv ds fe₁.env).consts := by
+        have hconsts : ∀ (l : List Declaration) (e : Env), e.consts ⊆ (streamEnv l e).consts := by
+          intro l
+          induction l with
+          | nil => intro e; exact List.Subset.refl _
+          | cons d l ih =>
+            intro e c hc
+            refine ih (e.pushDelta (declConstants d) (declTables d)) ?_
+            simp [Env.pushDelta, hc]
+        refine hconsts ds fe₁.env ?_
+        rw [hpush, pushDelta_env]
+        simp [Env.pushDelta, declConstants]
+      rw [henv]
+      exact ⟨_, hmemc, by simp [ConstantInfo.toConstantVal, hty]⟩
+    · exact ih hmem'
 
 /-- **The main corollary's ingredient at the stream**: an accepted stream
 that declares a theorem of a bare constant type leaves a constant of
@@ -103,9 +82,8 @@ theorem checkDecls_thmDecl_const {mode : CheckMode} {ds : Array Declaration} {en
     (hty : cv.type = .const n ls) (hmem : Declaration.thmDecl cv value ∈ ds)
     (h : checkDecls mode pins ds = .ok env) :
     ∃ c ∈ env.consts, c.toConstantVal.type = .const n ls := by
-  obtain ⟨fc, rfl⟩ := checkDecls_fullyChecked mode h
-  obtain ⟨_, run⟩ := fc.1.run
-  exact installRun_thmDecl_const hty (Array.mem_toList_iff.mpr hmem) run rfl
+  obtain ⟨_, _, run, rfl⟩ := checkDecls_run mode h
+  exact declsRun_thmDecl_const hty (Array.mem_toList_iff.mpr hmem) run
 
 end ConLeche.Cached
 

@@ -5,6 +5,8 @@ import ConLeche.Model.Rules.RedSound
 import ConLeche.Model.Rules.IotaSound
 import ConLeche.Model.Rules.DefEqSound
 import ConLeche.Model.Rules.InferSound
+import ConLeche.Model.Rules.GuardSound
+import ConLeche.Model.Rules.FormerSound
 import ConLeche.Model.Rules.CertsSound
 import ConLeche.Model.Rules.DefEqSoundKit
 import ConLeche.Model.CtxOkKit
@@ -56,19 +58,20 @@ theorem red_sound (hin : RulesInputs V m φ) :
   | _, _, _, .beta => Red.beta_sound
   | _, _, _, .zeta => Red.zeta_sound
   | _, _, _, .delta h => Red.delta_sound hin h
-  | _, _, _, .natLit h => Red.natLit_sound h
-  | _, _, _, .strLit h => Red.strLit_sound h
-  | _, _, _, .proj hent hhead hi hlen hus hfire hctor hcerts =>
-    Red.proj_sound hin hent hhead hi hlen hus hfire hctor (teleArity_sound hcerts)
-  | _, _, _, .natSucc hsup hw hn => Red.natSucc_sound hin hsup (red_sound hin hw) hn
-  | _, _, _, .natOp hc hst hwa hn₁ hwb hn₂ hr =>
-    Red.natOp_sound hin hc hst (red_sound hin hwa) hn₁ (red_sound hin hwb) hn₂ hr
+  | _, _, _, .natLit h => Red.natLit_sound (ConLeche.natLitSupported_of_stored m.wf h)
+  | _, _, _, .strLit h => Red.strLit_sound (ConLeche.strLitSupported_of_stored m.wf h)
+  | _, _, _, .proj hent hhead hi hlen hus hctor hcerts =>
+    Red.proj_sound hin hent hhead hi hlen hus hctor (teleArity_sound hcerts)
+  | _, _, _, .natSucc hsup hw hn =>
+    Red.natSucc_sound hin (ConLeche.natLitSupported_of_stored m.wf hsup) (red_sound hin hw) hn
+  | _, _, _, .natOp hc hwa hn₁ hwb hn₂ hr =>
+    Red.natOp_sound hin hc (red_sound hin hwa) hn₁ (red_sound hin hwb) hn₂ hr
   -- ι and the K/`And` rescues (task #342 L10): one lemma each, from the
   -- conditional claims of their premises
-  | _, _, _, .iota hhead hrec hlen hus hmajor hmhead hctor hrule hmlen hlv
+  | _, _, _, .iota hhead hrec hlen hus hmajor hmhead hctor hrule hmlen hcase hlv
       hparams hcertR hcertC hres hidx =>
     Red.iota_sound hin hhead hrec hlen hus (red_sound hin hmajor) hmhead hctor
-      hrule hmlen hlv (fun hc => defEqList_sound hin (hparams hc))
+      hrule hmlen (iotaCase_sound hin hcase) hlv (fun hc => defEqList_sound hin (hparams hc))
       (teleArity_sound hcertR) (fun h3 => certsF_sound hin (hcertC h3)) hres
       (fun h3 hne => defEqList_sound hin (hidx h3 hne))
   | _, _, _, .rescueK hrec hk hctor hres hind htm htmaj hthead hlv hnP hfab hws
@@ -84,10 +87,10 @@ theorem red_sound (hin : RulesInputs V m φ) :
       (infer_sound hin htp)
       (prop_pt_io hin http rfl (infer_sound hin http) hv (red_sound hin hv)
         (ConLeche.Level.isEquiv_sound hv0 φ))
-  | _, _, _, .rescueEta hrec heta hctor hres hind htm htmaj hthead hlen hlv hnz
+  | _, _, _, .rescueEta hrec heta hctor hres hind htm htmaj hthead hlen hlv
       hfab hws hb hlv' hresT hresC htow =>
     Red.rescueEta_sound hin hrec heta hctor hres hind (infer_sound hin htm)
-      (red_sound hin htmaj) htmaj hthead hlen hlv hnz hfab hws hb hlv' hresT hresC
+      (red_sound hin htmaj) htmaj hthead hlen hlv hfab hws hb hlv' hresT hresC
       htow
 
 theorem defeq_sound (hin : RulesInputs V m φ) :
@@ -138,8 +141,8 @@ theorem infer_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .sort => Infer.sort_sound
   | _, _, _, _, .fvar h => Infer.fvar_sound h
   | _, _, _, _, .const hf hus => Infer.const_sound hin hf hus
-  | _, _, _, _, .natLit h => Infer.natLit_sound hin h
-  | _, _, _, _, .strLit h => Infer.strLit_sound hin h
+  | _, _, _, _, .natLit h => Infer.natLit_sound hin (ConLeche.natLitSupported_of_stored m.wf h)
+  | _, _, _, _, .strLit h => Infer.strLit_sound hin (ConLeche.strLitSupported_of_stored m.wf h)
   | _, _, _, _, .forallE hs hu hbs hv =>
     Infer.forallE_sound (infer_sound hin hs) (red_sound hin hu) (fun _ => hu)
       (infer_sound hin hbs) (red_sound hin hv) (fun _ => hv)
@@ -151,9 +154,9 @@ theorem infer_sound (hin : RulesInputs V m φ) :
   | _, _, _, _, .app htf hw hta hd =>
     Infer.app_sound (infer_sound hin htf) (red_sound hin hw) (fun _ => hw)
       (fun hg => infer_sound hin (hta hg)) (fun hg => defeq_sound hin (hd hg))
-  | _, _, _, _, .proj htpe hte hhead hent hlen hus hprop =>
+  | _, _, _, _, .proj htpe hte hhead hent hlen hus hg =>
     Infer.proj_sound hin (infer_sound hin htpe) (red_sound hin hte) (fun _ => hte) hhead hent
-      hlen hus hprop
+      hlen hus (projGuard_sound hin hg)
 
 /-- **Proof irrelevance at the io grade** (task #342 L18): a type whose
 io-inferred sort reduces to a sort evaluating to zero holds only the
@@ -186,6 +189,41 @@ theorem prop_pt_io (hin : RulesInputs V m φ) :
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
   | _, _, _, _, .proj _ _ _ _ _ _ _, rfl, hsem, _, hr, hrs, hw0 =>
     propPt_of_not_forallE hsem hrs hr hw0 (fun _ _ h => nomatch h)
+
+theorem formerSort_sound (hin : RulesInputs V m φ) :
+    ∀ {d n : Nat} {e : Expr} {s : Level}, FormerSort env d n e s → FormerSortSem m φ d n e s
+  | _, _, _, _, .sort hr => FormerSort.sort_sound (red_sound hin hr)
+  | _, _, _, _, .pi hr hrest => FormerSort.pi_sound (red_sound hin hr) (formerSort_sound hin hrest)
+
+theorem iotaCase_sound (hin : RulesInputs V m φ) :
+    ∀ {isK : Bool} {cvj : ConstantVal} {us : List Level} {c3 : Bool},
+      IotaCase env isK cvj us c3 → IotaCaseSem m φ isK cvj us c3
+  | _, _, _, _, .three => IotaCase.three_sound
+  | _, _, _, _, .k => IotaCase.k_sound
+  | _, _, _, _, .never hfam hlen hnz => IotaCase.never_sound hfam hlen hnz
+  | _, _, _, _, .walk hfam hlen hnone hs hnv =>
+    IotaCase.walk_sound hin hfam hlen hnone (formerSort_sound hin hs) hnv
+
+theorem projGuard_sound (hin : RulesInputs V m φ) :
+    ∀ {entry : ProjEntry} {us : List Level}, ProjGuard env entry us → ProjGuardSem m φ entry us
+  | _, _, .notProp hT hs hz => fun _ _ _ _ _ _ => .inl ⟨_, _, _, hT, hs, hz⟩
+  | _, _, .prop _ _ _ hr hg => fun _ _ _ hfC hus _ =>
+    .inr (.inl (rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg) rfl))
+  | _, _, .never hT _ hs hnv => fun _ _ _ _ hus hl =>
+    .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
+      .inl (eval_ne_zero_of_isNever hnv φ)⟩)
+  | _, _, .mayVanish hT _ hs _ hr hg => fun _ _ _ hfC hus hl =>
+    .inr (.inr ⟨_, _, _, hT, formerSort_tower hin hT (hl _ _ hT) (formerSort_sound hin hs),
+      if hz : Level.eval φ _ = 0 then
+        .inr (by rw [hz]; exact rowsAt_of_rows hin hfC hus hr (guardRows_sound hin hg) hz)
+      else .inl hz⟩)
+
+theorem guardRows_sound (hin : RulesInputs V m φ) :
+    ∀ {guardSort : Level} {rows : List (Nat × Expr)}, GuardRows env guardSort rows →
+      GuardRowsSem m φ guardSort rows
+  | _, _, .nil => GuardRows.nil_sound
+  | _, _, .row hi hr hz hrest =>
+    GuardRows.row_sound (infer_sound hin hi) (red_sound hin hr) hr hz (guardRows_sound hin hrest)
 
 theorem certsF_sound (hin : RulesInputs V m φ) :
     ∀ {d : Nat} {ty : Expr} {args : List Expr},

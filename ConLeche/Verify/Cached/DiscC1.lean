@@ -319,7 +319,7 @@ theorem ensureSortC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s�
 theorem litToCtorIfNatC_spec {s₀ : CState} (hs : CSOK mode eager env s₀) (i : Expr) :
     ⦃fun s => s = s₀⦄ litToCtorIfNatI (mkFEnv env) i
     ⦃fun r s' => CSOK mode eager env s' ∧ r = litToCtorIfNat env i; ⊤⦄ := by
-  sym only [conleche_grind, litToCtorIfNat, natLitSupportedF_eq] =>
+  sym only [conleche_grind, litToCtorIfNat, natLitStoredF_eq] =>
     vcgen [litToCtorIfNatI] <;> finish
 
 /-- The cached twin computes the spec's pure `unfoldDefinition`. -/
@@ -342,7 +342,7 @@ theorem litMajorToCtorC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} 
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs (litMajorToCtor (fueledFns mode eager env) env d i)
         r ∧
       Expr.WScoped d r; ⊤⦄ := by
-  sym only [conleche_grind, litMajorToCtor, strLitSupportedF_eq, strLitToConstructor_WScoped,
+  sym only [conleche_grind, litMajorToCtor, strLitStoredF_eq, strLitToConstructor_WScoped,
       litToCtorIfNat_WScoped] =>
     vcgen [litMajorToCtorI, litToCtorIfNatC_spec hs, ih.whnf_spec] <;> finish
 
@@ -353,7 +353,7 @@ theorem projLitToCtorC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {
     ⦃fun r s' => CSOK mode eager env s' ∧ Runs (projLitToCtor (fueledFns mode eager env) env d i) r
         ∧
       Expr.WScoped d r; ⊤⦄ := by
-  sym only [conleche_grind, projLitToCtor, strLitSupportedF_eq, strLitToConstructor_WScoped] =>
+  sym only [conleche_grind, projLitToCtor, strLitStoredF_eq, strLitToConstructor_WScoped] =>
     vcgen [projLitToCtorI, ih.whnf_spec] <;> finish
 
 /-- `defeqSpineI` simulates its fueled original. -/
@@ -411,7 +411,7 @@ theorem reduceNatC_spec (ih : SSimC mode eager env f) {d : Nat} {i : Expr} {s₀
     ⦃fun o s' => CSOK mode eager env s' ∧ Runs (reduceNat (fueledFns mode eager env) env d i) o ∧
       OptWS d o; ⊤⦄ := by
   sym only [conleche_grind, reduceNat_nested, reduceNat.eq_1, reduceNat.eq_2,
-      natLitSupportedF_eq, natOpStoredF_eq, rawNatLitC?_spec] =>
+      natLitStoredF_eq, rawNatLitC?_spec] =>
     vcgen [reduceNatI, ih.whnf_spec] <;> finish
 
 end Walks4

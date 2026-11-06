@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Verify.Cached.BridgeCS4
-import ConLeche.Verify.Inductives.DirectInv
 
 public section
 
@@ -60,80 +59,43 @@ theorem installBasisFoldF_pushC :
 
 /-! ### The direct simple-structure path's extending stages (task #175) -/
 
-/-- The former's telescope stage through the index (task #195): the
-whnf loop reads the index's environment, the re-check is the indexed
-`checkConstantValF`. -/
-theorem checkSumTeleF_pushC (ops : CheckerOps CheckCM) (env : Env)
-    (cv : ConstantVal) (n : Nat) (cvTa₀ : ConstantVal) :
-    checkSumTeleF ops (mkFEnv env) cv n cvTa₀
-      = checkSumTele ops env cv n cvTa₀ := by
-  unfold checkSumTeleF checkSumTele
-  cases hst : cvTa₀.type.stripPis n with
-  | none => simp only [checkConstantValF_eq, mkFEnv_env]
-  | some q =>
-    obtain ⟨bs, body⟩ := q
-    cases body <;> simp only [checkConstantValF_eq, mkFEnv_env]
-
-/-- The projection table through the index (task #175 S1). -/
-theorem checkStructProjTableF_pushC (T C : Name) (lps : List Name)
-    (nP nF : Nat) (rs : Level) (guards : List Level) (cvCa : ConstantVal)
-    (env : Env) :
-    checkStructProjTableF (m := CheckCM) .plain T C lps nP nF rs guards cvCa (mkFEnv env)
-      = checkStructProjTable (m := CheckCM) T C lps nP nF rs guards cvCa env
-          >>= fun e => pure (mkFEnv e) := by
+/-- The projection table's checks through the index. -/
+theorem checkStructProjTableF_pushC (T : Name) (lps : List Name)
+    (nP nF : Nat) (cvCa : ConstantVal) (env : Env) :
+    checkStructProjTableF (m := CheckCM) .plain T lps nP nF cvCa (mkFEnv env)
+      = checkStructProjTable (m := CheckCM) T lps nP nF cvCa env := by
   unfold checkStructProjTableF checkStructProjTable
-  simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?,
-    pushTable_mkFEnv, bind_assoc, pure_bind, ite_bindC] <;> rfl
+  simp only [StructWalkers.plain, constsResolveF_eq, mkFEnv_find?, mkFEnv_findTable?]
 
-/-! ## The direct simple-structure install (task #82; the direct install
-is the only projection route) -/
-
-/-- The projection-table stage of the cached driver, run-level (task
-#175 S1): operation-free, the state is unchanged, the environment is
-the pure stage's. -/
-theorem checkStructProjTableS_run {T C : Name} {lps : List Name} {nP nF : Nat}
-    {rs : Level} {guards : List Level} {cvCa : ConstantVal}
-    (env : Env) {s₀ : CState} {fe' : FEnv} {s' : CState}
-    (henv : EnvWF env) (hwf : CSOKF s₀)
-    (h : checkStructProjTableF (m := CheckCM) .plain T C lps nP nF rs guards cvCa
-      (mkFEnv env) s₀ = .ok (fe', s')) :
-    CSOKF s' ∧ fe' = mkFEnv fe'.env ∧ EnvWF fe'.env ∧
-    ∃ F, (checkStructProjTable T C lps nP nF rs guards cvCa env : FueledM Env).val F
-      = .ok fe'.env := by
+/-- The projection table's checks at the cached driver: operation-free, the state unchanged, the
+verdict the pure stage's. -/
+theorem checkStructProjTableS_run {T : Name} {lps : List Name} {nP nF : Nat}
+    {cvCa : ConstantVal} (env : Env) {s₀ : CState} {u : Unit} {s' : CState}
+    (h : checkStructProjTableF (m := CheckCM) .plain T lps nP nF cvCa
+      (mkFEnv env) s₀ = .ok (u, s')) :
+    s' = s₀ ∧ checkStructProjTable (m := CheckM) T lps nP nF cvCa env = .ok () := by
   rw [checkStructProjTableF_pushC] at h
-  obtain ⟨e₁, s₁, hstep, h⟩ := bindC_ok h
-  obtain ⟨hfe, rfl⟩ := pureC_ok h
-  subst hfe
-  -- the pure stage in the cached monad: state unchanged, the value the
-  -- `CheckM` instantiation's
-  have hrun : s₀ = s₁ ∧ checkStructProjTable (m := CheckM) T C lps nP nF rs guards cvCa env
-      = .ok e₁ := by
-    unfold checkStructProjTable at hstep ⊢
-    cases hb : structProjBodies T nP nF cvCa.type with
-    | none =>
-      try rw [hb] at hstep
-      exact absurd hstep throwC_bind_ok
-    | some bodies =>
-      try rw [hb] at hstep
-      simp only [unwrapOr, pure_bind] at hstep ⊢
-      split at hstep
-      · next hg =>
-        rw [ite_eq_left hg]
-        split at hstep
-        · next hT =>
-          rw [ite_eq_left hT]
-          split at hstep
-          · next hn =>
-            rw [ite_eq_left hn]
-            obtain ⟨hfe, rfl⟩ := pureC_ok hstep
-            subst hfe
-            exact ⟨rfl, rfl⟩
-          · exact absurd hstep throwC_bind_ok
-        · exact absurd hstep throwC_bind_ok
-      · exact absurd hstep throwC_bind_ok
-  obtain ⟨rfl, hpure⟩ := hrun
-  refine ⟨hwf, rfl, direct_table_wf henv hpure, 0, ?_⟩
-  rw [checkStructProjTable_datF]
-  exact hpure
+  unfold checkStructProjTable at h ⊢
+  cases hb : structProjBodies T nP nF cvCa.type with
+  | none =>
+    try rw [hb] at h
+    exact absurd h throwC_bind_ok
+  | some bodies =>
+    try rw [hb] at h
+    simp only [unwrapOr, pure_bind] at h ⊢
+    split at h
+    · next hg =>
+      rw [ite_eq_left hg]
+      split at h
+      · next hT =>
+        rw [ite_eq_left hT]
+        split at h
+        · next hn =>
+          rw [ite_eq_left hn]
+          obtain ⟨-, rfl⟩ := pureC_ok h
+          exact ⟨rfl, rfl⟩
+        · exact nomatch h
+      · exact absurd h throwC_bind_ok
+    · exact absurd h throwC_bind_ok
 
 end ConLeche.Cached

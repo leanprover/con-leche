@@ -22,9 +22,8 @@ path.  `DeclRun`'s family is valuation-free outright, since
 parameter, supplied at the call site (`checkDeclRun_ofEnvFactsK`,
 `Bridge/Sound.lean`).
 
-**The `basisDecl` kind is `declBasisRun` verbatim** (`Bridge/Decl.lean`):
-that kind's record is guards-only and `DeclRun` re-uses `DeclBasisRun`
-as-is.
+**A pinned block and a quotient record are `DeclBasisRun` and `DeclQuotRun`
+verbatim** (`Bridge/Decl.lean`): their records are guards-only.
 -/
 
 namespace ConLeche.Semantics
@@ -39,15 +38,15 @@ variable {pins : List NatOpPinSet}
 inversion, the two closedness facts beside it, and `ConstantValRun`.
 No `EnvFacts`, no valuation. -/
 theorem constantValRun_of {env : Env} {F : Nat}
-    {cv : ConstantVal}
-    (h : checkConstantVal (fueledOps .verified F) env cv = .ok ()) :
+    {cv : ConstantVal} {a : Bool}
+    (h : checkConstantVal (fueledOps .verified F) env cv a = .ok ()) :
     cv.type.hasFvar = false ∧ cv.type.looseBVarsBounded 0 = true ∧
       ConstantValRun F env cv cv.type := by
   obtain ⟨hfind, hres, hnd, hlbt, hitf, stype, u, htp,
     htr, hst, hsort⟩ := checkConstantVal_inv h
   exact ⟨hitf, hlbt,
     Option.isNone_iff_eq_none.mpr hfind, hres, hnd, hlbt, hitf,
-    rfl, htp, htr, ⟨stype, u, hst, hsort⟩⟩
+    rfl, htp, htr, ⟨stype, u, hst, hsort⟩, checkConstantVal_litShapeAt h⟩
 
 /-- **The value front door, run half.**  The premises *are*
 `ValueFrontRun`'s conjuncts (task #161 P4 H1), so the run bridge is the
@@ -159,7 +158,7 @@ theorem declThmRun_of {env env₂ : Env} {F : Nat}
   | false => exact nomatch h
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte, Except.ok.injEq] at h
-  exact ⟨cv.type, value, hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
+  exact ⟨checkConstantVal_opName_false hccv, cv.type, value, hcv, ⟨stype2, u2, hst2, hsort2, hpz⟩,
     valueFrontRun_of hlbv hivf' rfl hvp hvr hvt hde, h.symm⟩
 
 /-- **`axiomDecl`, run half.**  Nothing but stored-data guards happens
@@ -169,16 +168,10 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
     (h : checkDecl .verified (fueledOps .verified F) pins env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomRun F env cv env₂ := by
   simp only [checkDecl, Bind.bind, Except.bind] at h
-  -- **`Quot.sound`** (task #293): compared with the pin before the
-  -- common checks, installing nothing.
+  -- **`Quot.sound`**: compared with the pin before the common checks.
   by_cases hqs : cv.name = quotSoundName
   · rw [ite_eq_left hqs] at h
-    by_cases hpin : ConstantInfo.canonEq (.axiomInfo cv)
-        (quotBasis.getD 4 (.axiomInfo default)) = true
-    · rw [ite_eq_left hpin] at h
-      simp only [pure, Except.pure, Except.ok.injEq] at h
-      exact Or.inl ⟨hqs, h.symm⟩
-    · rw [ite_eq_right hpin] at h; exact nomatch h
+    exact Or.inl ⟨hqs, declQuotRunOf h⟩
   rw [ite_eq_right hqs] at h
   refine Or.inr ?_
   cases hccv : checkConstantVal (fueledOps .verified F) env cv with
@@ -187,7 +180,7 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
   rw [hccv] at h
   try dsimp only at h
   obtain ⟨-, -, hcv⟩ := constantValRun_of hccv
-  refine ⟨cv.type, hcv, ?_⟩
+  refine ⟨cv.type, checkConstantVal_opName_false hccv, hcv, ?_⟩
   by_cases hstd : stdAxiomOk env { cv with type := cv.type } = true
   · rw [ite_eq_left hstd] at h
     simp only [pure, Except.pure, Except.ok.injEq] at h
@@ -271,7 +264,7 @@ theorem declOpaqueRun_of {env env₂ : Env} {F : Nat}
   | false => exact nomatch h
   | true =>
   simp only [Bool.false_eq_true, ↓reduceIte] at h
-  refine ⟨cv.type, value, hcv,
+  refine ⟨checkConstantVal_opName_false hccv, cv.type, value, hcv,
     valueFrontRun_of hlbv hivf' rfl hvp hvr hvt hde, ?_, ?_⟩
   · by_cases hro : reduceOpNames.contains cv.name = true
     · rw [ite_eq_left hro] at h
@@ -308,7 +301,7 @@ theorem declDefnRun_of {env env₂ : Env} {F : Nat}
       = .ok env₂) :
     DeclDefnRun F env cv value hint env₂ := by
   simp only [checkDecl, checkDefnVal, fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
-  cases hccv : checkConstantVal (fueledOps .verified F) env cv with
+  cases hccv : checkConstantVal (fueledOps .verified F) env cv true with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
   rw [hccv] at h
@@ -446,7 +439,7 @@ through `Ind`. -/
 theorem checkDeclRun_of {F : Nat}
     {Ind : List ConstantInfo → Nat → Env → Prop} {env env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {nP : Nat},
-      basisPinHit block = none →
+      basisNameHit block = none →
       checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) = .ok env₂ →
       Ind block nP env₂)
     {d : Declaration}
@@ -457,26 +450,16 @@ theorem checkDeclRun_of {F : Nat}
   | thmDecl cv value => exact declThmRun_of h
   | opaqueDecl cv value => exact declOpaqueRun_of h
   | axiomDecl cv => exact declAxiomRun_of h
-  | basisDecl kind => exact declBasisRun h
-  | quotDecl k cv =>
-    -- task #293: the `type` record installs the pinned block, the other
-    -- members install nothing
-    simp only [checkDecl] at h
-    cases k <;> simp only [DeclRun] <;> split at h
-    case type.isTrue => exact declBasisRunOf h
-    case type.isFalse => exact nomatch h
-    all_goals first
-      | (simp only [pure, Except.pure, Except.ok.injEq] at h; exact h.symm)
-      | exact nomatch h
+  | quotDecl k cv => exact declQuotRunOf h
   | indDecl block nP =>
-    -- task #293: a block the fold recognises as a pinned one installs
-    -- the pin; everything else is the caller's `Ind`
-    show (match basisPinHit block with
-      | some kind => DeclBasisRun env kind env₂
+    -- a block with a pinned block's names is that block's; everything
+    -- else is the caller's `Ind`
+    show (match basisNameHit block with
+      | some kind => DeclBasisRun env kind block env₂
       | none => Ind block nP env₂)
     have h' := h
     simp only [checkDecl] at h'
-    cases hpin : basisPinHit block with
+    cases hpin : basisNameHit block with
     | some kind =>
       rw [hpin] at h'
       exact declBasisRunOf h'

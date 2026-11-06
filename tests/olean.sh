@@ -66,8 +66,9 @@ MSP="$LIB:$INIT"
 case_ "conflicting constants in one closure" 1 --olean --search-path=$MSP NlM
 
 # an axiom at a certified `Nat` operation's name (Lean accepts the module):
-# any axiom but the three is declined
-case_grep "an axiom at a certified Nat operation's name" 2 "non-standard axiom (Nat.div)" --olean --search-path=$LIB NpAx
+# the name holds its certified definition or nothing, so the record is
+# rejected (the fixture's comment, and task #397's ruling)
+case_grep "an axiom at a certified Nat operation's name" 1 "a certified Nat operation's name, not a definition: Nat.div" --olean --search-path=$LIB NpAx
 # a module hiding the value of a kind-pinned constant (`Lean.reduceBool` an
 # opaque constant): the merged read has its value
 case_ "a hidden kind-pinned value" 0 --olean --search-path=$LIB RbM

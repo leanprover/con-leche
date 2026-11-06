@@ -551,7 +551,7 @@ theorem defeqStuckC_spec (ih : SSimC mode eager env f) {d : Nat} {a b : Expr} {s
     ⦃fun s => s = s₀⦄ defeqStuckI mode (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env) d a b
     ⦃fun v s' => CSOK mode eager env s' ∧
       Runs (defeqStuck mode (fueledFns mode eager env) env d a b) v; ⊤⦄ := by
-  sym only [conleche_grind, defeqStuck, strLitSupportedF_eq, strLitToConstructor_WScoped] =>
+  sym only [conleche_grind, defeqStuck, strLitStoredF_eq, strLitToConstructor_WScoped] =>
     vcgen [defeqStuckI, ih.defeq_spec, stuckIrrelC_spec ih, etaCertC_spec ih, defEqListC_spec ih,
       isEquivListLM_spec (mode := mode) (eager := eager) (env := env),
       liftFueled_spec (mode := mode) (eager := eager) (env := env)] <;> finish

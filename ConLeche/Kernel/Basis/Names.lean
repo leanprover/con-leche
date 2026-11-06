@@ -53,7 +53,7 @@ def quotIndName : Name := quotName |>.str "ind"
 def quotSoundName : Name := quotName |>.str "sound"
 
 /-! The names of the string-literal support constants (see
-`strLitSupported` in `ConLeche.Kernel.Core`).  These are *not* basis
+`litShapeOk` in `ConLeche.Kernel.CoreDefs`).  These are *not* basis
 names — the constants are ordinary stream-installed declarations
 (inductive blocks and plain definitions); the names are
 pinned only so that a string literal knows what it unfolds to

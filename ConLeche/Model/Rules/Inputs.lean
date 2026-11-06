@@ -14,7 +14,7 @@ discharges each field.
 
 Eight fields are the laws `EnvModelM` already carries: `ConstType`,
 `NatHeads`, `AcvalDefnInst`, `TowerOk`, `RecRules`,
-`CapsOk` and `IndFibLaw`, all of them `Model/Env/Laws.lean`'s (re-exported by
+`CapsOk`, all of them `Model/Env/Laws.lean`'s (re-exported by
 `Model/Env/EnvModelM.lean`).  `RulesInputs.ofEnvModelM` below reads
 each of them off the fold's invariant.
 
@@ -68,7 +68,7 @@ graded. -/
 @[expose] def NatOpRow {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Prop :=
   ∀ {d : Nat} {c : Name} {wa wb r : Expr} {n₁ n₂ : Nat} {ea : Term},
-    c ∈ natBinOpNames → ConLeche.natOpStored env c = true →
+    c ∈ natBinOpNames → ConLeche.isDefinitionAt env c = true →
     ConLeche.rawNatLit? wa = some n₁ → ConLeche.rawNatLit? wb = some n₂ →
     ConLeche.natOpResult c n₁ n₂ = some r →
     denote m.acval env φ d (.app (.app (.const c []) wa) wb) = some ea →
@@ -78,13 +78,13 @@ graded. -/
 
 /-- **The binary acceleration's head**: a stored operation the rule fires
 on is read over the `Nat` leaf, a function on `Nat` of a function on `Nat`
-(its stored type is pinned at install, `natOpTyPinned`), and the literal
+(its stored type is pinned at its check, `natOpTyPinned`), and the literal
 basis is stored.  `Red.natOp_sound` reads the domains off it: the redex is
 not the point, so neither is the head, whose graph fixes its domain
 (`piR_dom_unique`, task #342 L12). -/
 @[expose] def NatOpHead {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Prop :=
-  ∀ {c : Name}, c ∈ natBinOpNames → ConLeche.natOpStored env c = true →
+  ∀ {c : Name}, c ∈ natBinOpNames → ConLeche.isDefinitionAt env c = true →
     ConLeche.natLitSupported env = true ∧
     ∀ {d : Nat} {ca : Term},
       denote m.acval env φ d (.const c []) = some ca →
@@ -109,16 +109,14 @@ structure RulesInputs (V : Type w) [SetTheory V] {env : Env}
   rec_rules : RecRules m φ
   /-- caps tier: the stored families' capability laws -/
   caps_ok : CapsOk m
-  /-- iota tier: the stored families' fibres — truth values where the
-  stored sort is `0`, strict elsewhere (task #342 L7; the case-2 ι
-  case split's input) -/
-  ind_fib : IndFibLaw m φ
   /-- literal tier: successor packing -/
   nat_succ : NatSuccRow m φ
   /-- literal tier: the binary operations -/
   nat_op : NatOpRow m φ
   /-- literal tier: the binary operations' heads, over `Nat` -/
   nat_op_head : NatOpHead m φ
+  /-- literal tier: an operation's name holds a definition -/
+  op_defn : OpDefn env
 
 /-- **The env-tier inputs, from the fold's invariant**: every field but
 the three literal rows is an `EnvModelM` projection; the rows stay
@@ -136,9 +134,9 @@ theorem RulesInputs.ofEnvModelM {env : Env} {φ : Name → Nat}
   tower_ok := mp.tower_ok φ
   rec_rules := mp.rec_rules φ
   caps_ok := mp.caps_ok
-  ind_fib := mp.indFibLaw φ
   nat_succ := hsucc
   nat_op := hop
   nat_op_head := hhead
+  op_defn := mp.op_defn
 
 end ConLeche.Model.Rules

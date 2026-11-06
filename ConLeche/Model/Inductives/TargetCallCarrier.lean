@@ -38,7 +38,7 @@ open ConLeche.Term ConLeche.Verify
 open ConLeche.SetTheory
 open ConLeche.SetTheory.Tower
 
-open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockParts TargetMajor)
+open ConLeche (CheckMode Env Expr Name Level ConstantVal ConstantInfo FEnv BlockShape TargetMajor)
 
 universe w
 
@@ -46,60 +46,59 @@ variable {V : Type w} [SetTheory V]
 
 section MemberHoles
 
-variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockParts}
-  {cvTas : List ConstantVal}
+variable {envC : Env} {mpC : EnvModelM V envC} {d : BlockData V} {pp : BlockShape}
+  {formers : List ConstantVal}
 
 /-- **The member constants' own values lie in their formers' types**
 (`EnvModelM.mem_type`): the holes' values `hv`, when they are the
 members' own values. -/
-theorem memberHoles_ty (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+theorem memberHoles_ty (hmr : BlockMembersRun mpC.base2 d pp)
     (ψ : Name → Nat) (ρ : Nat → V) {hv : List V}
-    (hvget : ∀ t, t < cvTas.length →
+    (hvget : ∀ t, t < pp.formers.length →
       hv.getD t pt = interp V ρ (mpC.base2.acval (d.memberName t) ψ)) :
-    ∀ t, t < cvTas.length → ∃ T : Term,
-      denote mpC.base2.acval envC ψ 0 (cvTas.getD t default).type = some T ∧
+    ∀ t, t < pp.formers.length → ∃ T : Term,
+      denote mpC.base2.acval envC ψ 0 (pp.formers.getD t default).type = some T ∧
       hv.getD t pt ∈ˢ interp V ρ T := by
   intro t ht
-  obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem ht⟩
+  obtain ⟨cv, hcv⟩ : ∃ cv, pp.formers[t]? = some cv := ⟨_, List.getElem?_eq_getElem ht⟩
   obtain ⟨hname, -, ⟨caps, hfind⟩, -, -, hFD⟩ := hmr.2.2.2.1 t cv hcv
-  have hgc : cvTas.getD t default = cv := by rw [List.getD_eq_getElem?_getD, hcv]; rfl
+  have hgc : pp.formers.getD t default = cv := by rw [List.getD_eq_getElem?_getD, hcv]; rfl
   rw [hgc, hvget t ht]
   refine ⟨_, hFD.read ψ, ?_⟩
-  have hm := mpC.mem_type (.indInfo cv caps) (List.mem_of_find?_eq_some hfind) ψ _
-    (hFD.read ψ) ρ
   rw [hname]
-  exact hm
+  exact hfind.mem (hFD.read ψ) ρ
 
 /-- **The member constants: found, at the block's levels, valued by
 `hvC`** — `targetAbs_read`'s name premise at the members' own values. -/
-theorem memberHoles_names (hN : BlockNamesOk (V := V) d cvTas)
-    (hmr : BlockMembersRun mpC.base2 d pp.toBlockShape cvTas)
+theorem memberHoles_names (hN : BlockNamesOk (V := V) d pp.formers)
+    (hmr : BlockMembersRun mpC.base2 d pp)
     (ψ : Name → Nat) (ρ : Nat → V) {hvC : Nat → V}
-    (hvget : ∀ t, t < cvTas.length → hvC t = interp V ρ (mpC.base2.acval (d.memberName t) ψ)) :
+    (hvget : ∀ t, t < pp.formers.length → hvC t = interp V ρ (mpC.base2.acval (d.memberName t) ψ)) :
     ∀ (n : Name) (t : Nat),
-      pp.toBlockShape.memberNames.findIdx? (· == n) = some t →
-      t < (cvTas.map (·.type)).length ∧ ∃ ci : ConstantInfo, envC.find? n = some ci ∧
-        (pp.toBlockShape.lps.map Level.param).length = ci.toConstantVal.levelParams.length ∧
+      pp.memberNames.findIdx? (· == n) = some t →
+      t < (pp.formers.map (·.type)).length ∧ ∃ ci : ConstantInfo, envC.find? n = some ci ∧
+        (pp.lps.map Level.param).length = ci.toConstantVal.levelParams.length ∧
         ∀ σ : Nat → V, interp V σ (mpC.base2.acval n
-          (Level.substFn ψ ci.toConstantVal.levelParams (pp.toBlockShape.lps.map Level.param)))
+          (Level.substFn ψ ci.toConstantVal.levelParams (pp.lps.map Level.param)))
           = hvC t := by
   intro n t hft
   obtain ⟨htl, hbeq, -⟩ := List.findIdx?_eq_some_iff_getElem.mp hft
-  have hmn : pp.toBlockShape.memberNames[t] = n := by simpa using hbeq
-  have htl' : t < pp.toBlockShape.members.length := by
+  have hmn : pp.memberNames[t] = n := by simpa using hbeq
+  have htl' : t < pp.members.length := by
     simpa [ConLeche.BlockShape.memberNames] using htl
-  have htc : t < cvTas.length := by rw [hN.2.2, hmr.2.1]; exact htl'
-  obtain ⟨cv, hcv⟩ : ∃ cv, cvTas[t]? = some cv := ⟨_, List.getElem?_eq_getElem htc⟩
-  obtain ⟨hname, hlps, ⟨caps, hfind⟩, -, -, -⟩ := hmr.2.2.2.1 t cv hcv
+  have htc : t < pp.formers.length := by rw [hN.2.2, hmr.2.1]; exact htl'
+  obtain ⟨cv, hcv⟩ : ∃ cv, pp.formers[t]? = some cv := ⟨_, List.getElem?_eq_getElem htc⟩
+  obtain ⟨hname, hlps, ⟨caps, cvS, hfind, hDS⟩, -, -, -⟩ := hmr.2.2.2.1 t cv hcv
   obtain ⟨hnameMs, -⟩ := hmr.2.2.2.2.1 t _ (List.getElem?_eq_getElem htl')
   have hn : n = cv.name := by
     rw [← hmn, ← hname, hnameMs]
     simp [ConLeche.BlockShape.memberNames]
   subst hn
-  refine ⟨by simpa using htc, .indInfo cv caps, hfind,
-    by show _ = cv.levelParams.length; rw [hlps]; simp, fun σ => ?_⟩
-  show interp V σ (mpC.base2.acval cv.name (Level.substFn ψ cv.levelParams
-    (pp.toBlockShape.lps.map Level.param))) = _
+  refine ⟨by simpa using htc, .indInfo cvS caps, hfind,
+    by show _ = cvS.levelParams.length; rw [hDS.lps, hlps]; simp, fun σ => ?_⟩
+  show interp V σ (mpC.base2.acval cv.name (Level.substFn ψ cvS.levelParams
+    (pp.lps.map Level.param))) = _
+  rw [hDS.lps]
   rw [hlps, Level.substFn_param_self, ← hname, hvget t htc]
   exact acval_interp_closed mpC.base2 _ ψ σ ρ
 

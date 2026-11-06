@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Env
-public import ConLeche.Kernel.ExprOps
 public import ConLeche.Frontend.Export
 public import ConLeche.Cached.ExprNodes
 /- The line reader the driver calls is the SPECIFICATION, `scanLineSpec`
@@ -65,11 +64,8 @@ structure StateD where
   decls : Array Declaration := #[]
 
 /-- **One parsed record, appended** (task #293): the decoder keeps the
-file's records in the file's order.  What used to sit here was the
-prelude dedupe — a basis block the prelude held dropped by kind, a
-record under a prelude name dropped when identical and DECLINING the
-stream when different — and it is `preparePrelude`'s and the fold's
-now (`ConLeche/Frontend/Prepare.lean`). -/
+file's records in the file's order; the prelude's records are `preparePrelude`'s and the fold's
+business (`ConLeche/Frontend/Prepare.lean`). -/
 def pushDecl (st : StateD) (d : Declaration) : StateD :=
   { st with decls := st.decls.push d }
 
@@ -100,10 +96,8 @@ builder's result depends on its lookups' answers alone, and that is
 what the proofs of the rounds parse use
 (`ConLeche/Verify/Frontend/Dense.lean`).
 
-The frontend tree-size budget that used to sit on the declaration-level
-expression lookup was **retired at task #215**: every consumer it
-bounded is now either name-selected (the basis-pin match) or a
-memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
+The declaration-level expression lookup has no tree-size budget: every consumer is either
+name-selected (the basis-pin match) or a memoized DAG walk (`Expr.renameConsts`, `Expr.instantiate1`;
 `@[csimp]` in `ConLeche/Kernel/ExprOps.lean`), and the adversarial
 DAG-tower fixtures in `tests/e2e` are the standing gate in its place —
 a limit told a user "no", a fixture tells *us* which walker
@@ -236,8 +230,7 @@ def indPiTeleLen : Expr → Nat
 
 /-- One recursor rule of an inductive record, resolved. -/
 @[specialize] def ruleOfF (nm : Nat → M Name) (_lv : Nat → M Level) (ex : Nat → M Expr) (ru : RuleRec) : M RecRule := do
-  pure (RecRule.mk (← nm ru.ctor) ru.nfields 0 .plain
-    (← ex ru.rhs) false false)
+  pure (RecRule.mk (← nm ru.ctor) ru.nfields .plain (← ex ru.rhs))
 
 /-- **An inductive record, validated** (tasks #217, #228, #271): the
 half of the record's processing that reads the state and changes
@@ -354,18 +347,6 @@ state need not look here at all. -/
   let nested := tys.any (·.numNested != 0)
   let nTypes := tys.length
   let nCtors := cts.length
-  -- official's `is_K_target`: the block is a `Prop`, has ONE type
-  -- with ONE constructor, and that constructor takes only the
-  -- parameters.  At a former whose declared type is not a syntactic
-  -- Π-telescope ending in a sort (task #195) the sort cannot be read
-  -- here and the flag is left to the install.
-  let kExpected? : Option Bool :=
-    match tyTypes, listed, cts with
-    | [ty], [[_]], [c] =>
-      match ty.piResult with
-      | .sort s => some (c.numFields == 0 && Level.isEquiv s .zero == some true)
-      | _ => none
-    | _, _, _ => some false
   for r in (if nested then [] else rcs) do
     let rn ← nm r.cv.name
     unless r.numParams == nPd do
@@ -377,10 +358,6 @@ state need not look here at all. -/
     unless r.numMinors == nCtors do
       return .inl (.invalid s!"recursor {rn} declares {r.numMinors} minor premises; \
         the block has {nCtors} constructors")
-    if let some kE := kExpected? then
-      unless r.k == kE do
-        return .inl (.invalid s!"recursor {rn} declares k := {r.k}; the generated \
-          recursor of this block is{if kE then "" else " not"} K-like")
     -- `numIndices` of `T.rec` is what is left of `T`'s own telescope
     -- once the parameters are peeled; unreadable at a former declared
     -- at a definition, and then not checked
@@ -405,16 +382,11 @@ state need not look here at all. -/
     let rules ← r.rules.mapM (ruleOfF nm lv ex)
     pure (ConstantInfo.recInfo (← cvOfF nm lv ex r.cv)
       (r.numParams + r.numMotives + r.numMinors + r.numIndices)
-      (r.numParams + r.numMotives + r.numMinors) rules)
+      (r.numParams + r.numMotives + r.numMinors) r.k rules)
   let block := types ++ ctors ++ recs
-  -- **EVERY BLOCK IS AN `indDecl`** (task #293): the basis-pin match
-  -- that used to stand here — a name pre-filter (task #215) and then
-  -- `canonEqList` against the five pinned blocks — is
-  -- `preparePrelude`'s (`ConLeche/Frontend/Prepare.lean`), which
-  -- retags a matching block to its `basisDecl` kind before the fold
-  -- sees it.  A block under a pinned name that does NOT match keeps
-  -- its `indDecl` form and is rejected by the fold's reserved-name
-  -- check, exactly as before.
+  -- **EVERY BLOCK IS AN `indDecl`**: the fold recognises a pinned block by
+  -- its members' names (`basisNameHit`) and its check compares it with the
+  -- pin.
   return .indDecl block nPd
 
 /-- The record's own semantics: the declaration kinds, producing
@@ -429,8 +401,7 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
       return .inr (.declined "unsafe axiom")
     -- **`Quot.sound` is the FOLD's** (task #293): the axiom record is
     -- forwarded like any other, and the fold compares it with the
-    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm) — the
-    -- decline on a mismatch was the parser's and is not any more.
+    -- pinned soundness axiom (`checkDecl`'s `.axiomDecl` arm).
     return .inl (.axiomDecl cvp)
   | .defn cvr value hints safety =>
     let cvp ← cvOfF nm lv ex cvr
@@ -457,10 +428,8 @@ changed, from key lookups in a DOM to fields of a syntax record. -/
     -- **ONE RECORD PER `#QUOT` LINE** (task #293): the file declares
     -- the quotient package as four records, and the decoder emits four
     -- — the constant as the file declares it, at the kind the file
-    -- declares it at.  The comparison with the pinned block
-    -- (`preparePrelude`, which retags a matching record to
-    -- `basisDecl .quotK`) and the decline on a mismatch (the fold's
-    -- `.quotDecl` arm) are not the parser's any more.
+    -- declares it at.  The comparison with the slot's pin and the decline
+    -- on a mismatch are the fold's (`checkQuotRecord`).
     let cv ← cvOfF nm lv ex cvr
     let qk ← match kind with
       | "type" => pure QuotKind.type

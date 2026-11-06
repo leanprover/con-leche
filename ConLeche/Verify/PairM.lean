@@ -346,10 +346,92 @@ theorem liftFueled_snd_proj {α : Type} (what : String) (o : Option α) :
     (liftFueled what o : PairM rel α).val.2 = liftFueled what o := by
   cases o <;> rfl
 
+theorem formerSortLoop_fst {wh : Nat → Expr → PairM rel Expr} {wh' : Nat → Expr → M₁ Expr}
+    (hw : ∀ d e, (wh d e).val.1 = wh' d e) :
+    ∀ (d n : Nat) (e : Expr),
+      (formerSortLoop wh d n e).val.1 = formerSortLoop wh' d n e
+  | d, 0, e => by
+    unfold formerSortLoop
+    rw [PairM.fst_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> rfl
+  | d, n + 1, e => by
+    unfold formerSortLoop
+    rw [PairM.fst_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    exact formerSortLoop_fst hw (d + 1) n _
+
+theorem formerNeverZeroAt_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (formerNeverZeroAt (pairFns r₁ r₂ h).whnf cvT caps us).val.1 =
+      formerNeverZeroAt r₁.whnf cvT caps us := by
+  unfold formerNeverZeroAt
+  split
+  · rfl
+  · rw [PairM.fst_bind, formerSortLoop_fst (fun _ _ => rfl)]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem iotaCase3At_fst_proj (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+    (us : List Level) :
+    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK cvj us).val.1 =
+      iotaCase3At r₁.whnf find? isK cvj us := by
+  unfold iotaCase3At
+  split
+  · rfl
+  · split
+    · split
+      · rw [PairM.fst_bind, formerNeverZeroAt_fst_proj]
+        rfl
+      · rfl
+    · rfl
+
+theorem formerSortLoop_snd {wh : Nat → Expr → PairM rel Expr} {wh' : Nat → Expr → M₂ Expr}
+    (hw : ∀ d e, (wh d e).val.2 = wh' d e) :
+    ∀ (d n : Nat) (e : Expr),
+      (formerSortLoop wh d n e).val.2 = formerSortLoop wh' d n e
+  | d, 0, e => by
+    unfold formerSortLoop
+    rw [PairM.snd_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> rfl
+  | d, n + 1, e => by
+    unfold formerSortLoop
+    rw [PairM.snd_bind, hw]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    exact formerSortLoop_snd hw (d + 1) n _
+
+theorem formerNeverZeroAt_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (formerNeverZeroAt (pairFns r₁ r₂ h).whnf cvT caps us).val.2 =
+      formerNeverZeroAt r₂.whnf cvT caps us := by
+  unfold formerNeverZeroAt
+  split
+  · rfl
+  · rw [PairM.snd_bind, formerSortLoop_snd (fun _ _ => rfl)]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem iotaCase3At_snd_proj (find? : Name → Option ConstantInfo) (isK : Bool) (cvj : ConstantVal)
+    (us : List Level) :
+    (iotaCase3At (pairFns r₁ r₂ h).whnf find? isK cvj us).val.2 =
+      iotaCase3At r₂.whnf find? isK cvj us := by
+  unfold iotaCase3At
+  split
+  · rfl
+  · split
+    · split
+      · rw [PairM.snd_bind, formerNeverZeroAt_snd_proj]
+        rfl
+      · rfl
+    · rfl
+
 macro "fst_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -368,6 +450,8 @@ macro "snd_step" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])
@@ -405,6 +489,124 @@ theorem ensureSort_snd_proj (d : Nat) (e : Expr) :
       ensureSort r₂ env d e := by
   unfold ensureSort
   snd_tac
+
+theorem checkGuardRows_fst (guardSort : Level) {inf wh : Nat → Expr → PairM rel Expr} {inf₁ wh₁ : Nat → Expr → M₁ Expr}
+    (hi : ∀ d e, (inf d e).val.1 = inf₁ d e) (hw : ∀ d e, (wh d e).val.1 = wh₁ d e) :
+    ∀ rows, (checkGuardRows inf wh guardSort rows).val.1 = checkGuardRows inf₁ wh₁ guardSort rows
+  | [] => rfl
+  | (d, dom) :: rest => by
+    unfold checkGuardRows
+    rw [PairM.fst_bind]
+    rw [hi d dom]; refine congrArg _ (funext fun t => ?_)
+    rw [PairM.fst_bind]
+    rw [hw d t]; refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    dsimp only []
+    have hk := checkGuardRows_fst guardSort hi hw rest
+    split
+    · exact hk
+    · rw [PairM.fst_bind, hk]; rfl
+
+theorem checkGuardRows_snd (guardSort : Level) {inf wh : Nat → Expr → PairM rel Expr} {inf₂ wh₂ : Nat → Expr → M₂ Expr}
+    (hi : ∀ d e, (inf d e).val.2 = inf₂ d e) (hw : ∀ d e, (wh d e).val.2 = wh₂ d e) :
+    ∀ rows, (checkGuardRows inf wh guardSort rows).val.2 = checkGuardRows inf₂ wh₂ guardSort rows
+  | [] => rfl
+  | (d, dom) :: rest => by
+    unfold checkGuardRows
+    rw [PairM.snd_bind]
+    rw [hi d dom]; refine congrArg _ (funext fun t => ?_)
+    rw [PairM.snd_bind]
+    rw [hw d t]; refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    dsimp only []
+    have hk := checkGuardRows_snd guardSort hi hw rest
+    split
+    · exact hk
+    · rw [PairM.snd_bind, hk]; rfl
+
+theorem projGuardSort_fst_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (projGuardSort (pairFns r₁ r₂ h).whnf cvT caps us).val.1 =
+      projGuardSort r₁.whnf cvT caps us := by
+  unfold projGuardSort
+  split
+  · rfl
+  · rw [PairM.fst_bind, formerSortLoop_fst (fun _ _ => rfl)]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem checkProjGuard_fst_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).inferIO (pairFns r₁ r₂ h).whnf env entry us).val.1 =
+      checkProjGuard r₁.inferIO r₁.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · rw [PairM.fst_bind, projGuardSort_fst_proj]
+    refine congrArg _ (funext fun o => ?_)
+    cases o with
+    | none => rfl
+    | some guardSort =>
+      dsimp only
+      split
+      · exact checkGuardRows_fst guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
+      · rfl
+  · rfl
+
+theorem projGuardSort_snd_proj (cvT : ConstantVal) (caps : IndCaps) (us : List Level) :
+    (projGuardSort (pairFns r₁ r₂ h).whnf cvT caps us).val.2 =
+      projGuardSort r₂.whnf cvT caps us := by
+  unfold projGuardSort
+  split
+  · rfl
+  · rw [PairM.snd_bind, formerSortLoop_snd (fun _ _ => rfl)]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem checkProjGuard_snd_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).inferIO (pairFns r₁ r₂ h).whnf env entry us).val.2 =
+      checkProjGuard r₂.inferIO r₂.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · rw [PairM.snd_bind, projGuardSort_snd_proj]
+    refine congrArg _ (funext fun o => ?_)
+    cases o with
+    | none => rfl
+    | some guardSort =>
+      dsimp only
+      split
+      · exact checkGuardRows_snd guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
+      · rfl
+  · rfl
+
+theorem checkProjGuardI_fst_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).infer (pairFns r₁ r₂ h).whnf env entry us).val.1 =
+      checkProjGuard r₁.infer r₁.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · rw [PairM.fst_bind, projGuardSort_fst_proj]
+    refine congrArg _ (funext fun o => ?_)
+    cases o with
+    | none => rfl
+    | some guardSort =>
+      dsimp only
+      split
+      · exact checkGuardRows_fst guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
+      · rfl
+  · rfl
+
+theorem checkProjGuardI_snd_proj (entry : ProjEntry) (us : List Level) :
+    (checkProjGuard (pairFns r₁ r₂ h).infer (pairFns r₁ r₂ h).whnf env entry us).val.2 =
+      checkProjGuard r₂.infer r₂.whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · rw [PairM.snd_bind, projGuardSort_snd_proj]
+    refine congrArg _ (funext fun o => ?_)
+    cases o with
+    | none => rfl
+    | some guardSort =>
+      dsimp only
+      split
+      · exact checkGuardRows_snd guardSort (fun _ _ => rfl) (fun _ _ => rfl) _
+      · rfl
+  · rfl
 
 theorem proofIrrel_fst_proj (d : Nat) (a b : Expr) :
     (proofIrrel (pairFns r₁ r₂ h) d a b).val.1 =
@@ -470,6 +672,8 @@ macro "fst_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -495,6 +699,8 @@ macro "snd_step2" : tactic =>
   `(tactic| repeat (first
     | rfl
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])
@@ -533,9 +739,9 @@ theorem structEtaCert_snd_proj (d : Nat) (a b : Expr) :
 -- tower), so the outer casing is peeled by hand and the macro closes
 -- each rescue branch separately.
 set_option maxHeartbeats 800000 in
-theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (majorToCtor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
-      majorToCtor mode r₁ env d c rules e := by
+theorem majorToCtor_fst_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (majorToCtor mode (pairFns r₁ r₂ h) env d c isK rules e).val.1 =
+      majorToCtor mode r₁ env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -558,11 +764,11 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : rl.k = true
+    by_cases hK : isK = true
     · rw [ite_eq_left hK, ite_eq_left hK]
       fst_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     · rw [ite_eq_left hE, ite_eq_left hE]
       fst_tac2
     rw [ite_eq_right hE, ite_eq_right hE]
@@ -573,9 +779,9 @@ theorem majorToCtor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     rfl
 
 set_option maxHeartbeats 800000 in
-theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (majorToCtor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
-      majorToCtor mode r₂ env d c rules e := by
+theorem majorToCtor_snd_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (majorToCtor mode (pairFns r₁ r₂ h) env d c isK rules e).val.2 =
+      majorToCtor mode r₂ env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -598,11 +804,11 @@ theorem majorToCtor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Ex
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : rl.k = true
+    by_cases hK : isK = true
     · rw [ite_eq_left hK, ite_eq_left hK]
       snd_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     · rw [ite_eq_left hE, ite_eq_left hE]
       snd_tac2
     rw [ite_eq_right hE, ite_eq_right hE]
@@ -624,9 +830,9 @@ theorem litMajorToCtor_snd_proj (d : Nat) (e : Expr) :
   unfold litMajorToCtor
   snd_tac2
 
-theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.1 =
-      prepareMajor mode r₁ env d c rules e := by
+theorem prepareMajor_fst_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c isK rules e).val.1 =
+      prepareMajor mode r₁ env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first
@@ -640,9 +846,9 @@ theorem prepareMajor_fst_proj (d : Nat) (c : Name) (rules : List RecRule) (e : E
       majorToCtor_fst_proj, litMajorToCtor_fst_proj]
     rfl
 
-theorem prepareMajor_snd_proj (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) :
-    (prepareMajor mode (pairFns r₁ r₂ h) env d c rules e).val.2 =
-      prepareMajor mode r₂ env d c rules e := by
+theorem prepareMajor_snd_proj (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) :
+    (prepareMajor mode (pairFns r₁ r₂ h) env d c isK rules e).val.2 =
+      prepareMajor mode r₂ env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first
@@ -673,6 +879,8 @@ macro "fst_core3" x:tactic : tactic =>
     | rfl
     | $x:tactic
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -705,6 +913,8 @@ macro "snd_core3" x:tactic : tactic =>
     | rfl
     | $x:tactic
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])
@@ -887,7 +1097,11 @@ macro "fst_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
     | $x:tactic
+    | (rw [checkProjGuard_fst_proj])
+    | (rw [checkProjGuardI_fst_proj])
     | (rw [liftFueled_fst_proj])
+    | (rw [iotaCase3At_fst_proj])
+    | (rw [formerNeverZeroAt_fst_proj])
     | (rw [iotaCertsFull_fst])
     | (rw [defeqLams_fst])
     | (rw [iotaIndexOk_fst])
@@ -943,7 +1157,11 @@ macro "snd_core4" x:tactic : tactic =>
   `(tactic| repeat (first
     | rfl
     | $x:tactic
+    | (rw [checkProjGuard_snd_proj])
+    | (rw [checkProjGuardI_snd_proj])
     | (rw [liftFueled_snd_proj])
+    | (rw [iotaCase3At_snd_proj])
+    | (rw [formerNeverZeroAt_snd_proj])
     | (rw [iotaCertsFull_snd])
     | (rw [defeqLams_snd])
     | (rw [iotaIndexOk_snd])

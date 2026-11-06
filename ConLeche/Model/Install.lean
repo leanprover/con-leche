@@ -159,28 +159,49 @@ theorem ModelExt.pushTable (mp : EnvModelM V env) {t : ConLeche.ProjTable}
     ModelExt mp ⟨env.consts, t :: env.tables⟩ mp.base2.acval :=
   ⟨fun _ _ => rfl, fun _ _ => rfl, fun hcb h => denote_pushTable_mono hT _ _ hcb h⟩
 
+/-- **A pin is a copy of itself.** -/
+theorem pinCopy_self {n : Name} (hres : ConLeche.reservedBasisNames.contains n = true) :
+    PinCopy (pinnedInfo n) (pinnedInfo n) := by
+  have hmem : n ∈ ConLeche.reservedBasisNames := by simpa using hres
+  simp only [ConLeche.reservedBasisNames, List.mem_cons, List.not_mem_nil, or_false] at hmem
+  rcases hmem with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
+    rfl | rfl | rfl <;> exact ⟨rfl, by decide, rfl⟩
+
 /-- The pinned-basis valuation survives any fresh cons that moves no
 other name (`BasisPinnedTT.cons` without the install record — its
 proof consults only freshness and agreement). -/
 theorem basisPinnedTT_consFresh {cval cval' : (Name → (Name → Nat) → Term)}
     {c₀ : ConstantInfo} (h : BasisPinnedTT env cval)
+    (hrc : ConLeche.RecCtorsStored env)
     (hfresh : env.find? c₀.name = none)
     (hag : ∀ n, n ≠ c₀.name → cval n = cval' n)
     (hhead : ConLeche.reservedBasisNames.contains c₀.name = true →
-      c₀ = pinnedInfo c₀.name ∧
+      PinCopy c₀ (pinnedInfo c₀.name) ∧
+      PinLinked ⟨c₀ :: env.consts, env.tables⟩ c₀.name c₀ ∧
       ∀ (ψ : Name → Nat) (t : Term),
-        pinnedStructT c₀.name ψ = some t → cval' c₀.name ψ = t) :
+        pinnedStructT c₀.name (pinVal (pinnedInfo c₀.name).toConstantVal.levelParams
+          c₀.toConstantVal.levelParams ψ) = some t → cval' c₀.name ψ = t) :
     BasisPinnedTT ⟨c₀ :: env.consts, env.tables⟩ cval' := by
   intro n ci hf hres
   by_cases hn : c₀.name = n
   · subst hn
     rw [ConLeche.Env.find?_cons, ite_eq_left rfl] at hf
     obtain rfl : ci = c₀ := (Option.some.inj hf).symm
-    exact ⟨(hhead hres).1, fun t ψ hp => (hhead hres).2 ψ t hp⟩
+    exact ⟨(hhead hres).1, (hhead hres).2.1, fun t ψ hp => (hhead hres).2.2 ψ t hp⟩
   · rw [ConLeche.Env.find?_cons, ite_eq_right hn] at hf
-    refine ⟨(h n ci hf hres).1, fun t ψ hp => ?_⟩
-    rw [← hag n (fun hh => hn hh.symm)]
-    exact (h n ci hf hres).2 t ψ hp
+    obtain ⟨hcopy, hlink, hleaf⟩ := h n ci hf hres
+    refine ⟨hcopy, ?_, fun t ψ hp => ?_⟩
+    · intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
+      rw [ConLeche.Env.find?_cons] at hfc
+      obtain ⟨cvj₀, cnP₀, cnF₀, hstored⟩ := hrc n cv mI rP isK rules (hci ▸ hf) rl hrl
+      have hne : c₀.name ≠ RecRule.ctor rl := by
+        intro he
+        rw [← he, hfresh] at hstored
+        exact nomatch hstored
+      rw [ite_eq_right hne] at hfc
+      exact hlink cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us hus
+    · rw [← hag n (fun hh => hn hh.symm)]
+      exact hleaf t ψ hp
 
 /-! ## The core at a fresh cons, model-free (task #161 S7)
 
@@ -202,23 +223,22 @@ structure ConsHead (env : Env) (c₀ : ConstantInfo)
   /-- if the head sits at a reserved basis name, it is the pinned
   declaration and its leaf erases to the direct pin -/
   pin : ConLeche.reservedBasisNames.contains c₀.name = true →
-    c₀ = pinnedInfo c₀.name ∧
+    PinCopy c₀ (pinnedInfo c₀.name) ∧
+    PinLinked ⟨c₀ :: env.consts, env.tables⟩ c₀.name c₀ ∧
     ∀ (ψ : Name → Nat) (t : Term),
-      pinnedStructT c₀.name ψ = some t → (A ψ) = t
-  /-- a head recursor's rules' constructors are stored and its two
-  rescue bits are the store's own verdict (`RecCtorsStored`'s head) -/
-  ctorsHead : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+      pinnedStructT c₀.name (pinVal (pinnedInfo c₀.name).toConstantVal.levelParams
+        c₀.toConstantVal.levelParams ψ) = some t → (A ψ) = t
+  /-- a head recursor's rules' constructors are stored and its K
+  bit is the store's own verdict (`RecCtorsStored`'s head) -/
+  ctorsHead : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
     ∀ r ∈ rules,
       (∃ cvj cnP cnF,
         env.find? (ConLeche.RecRule.ctor r)
-          = some (.ctorInfo cvj cnP cnF)) ∧
-      (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
-      (r.eta = true →
-        ConLeche.recRuleEtaOf env.find? r.ctor = true)
+          = some (.ctorInfo cvj cnP cnF))
 
 /-- **The head obligations of a basis cons**: the head is the pinned
 declaration, its leaf is the direct pin, and (for a recursor) its rules'
-constructors are stored. -/
+constructors are stored as their pins. -/
 theorem ConsHead.ofBasis {c₀ : ConstantInfo}
     {A : (Name → Nat) → Term}
     (hwf : EnvWF ⟨c₀ :: env.consts, env.tables⟩)
@@ -226,16 +246,38 @@ theorem ConsHead.ofBasis {c₀ : ConstantInfo}
     (hpinned : c₀ = pinnedInfo c₀.name)
     (hleaf : ∀ (ψ : Name → Nat) (t : Term),
       pinnedStructT c₀.name ψ = some t → (A ψ) = t)
-    (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
-          env.find? (ConLeche.RecRule.ctor r)
-            = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf env.find? r.ctor = true)) :
+          env.find? (ConLeche.RecRule.ctor r) = some (.ctorInfo cvj cnP cnF) ∧
+          (ConLeche.RecRule.fire r = .plain →
+            .ctorInfo cvj cnP cnF = pinnedInfo (ConLeche.RecRule.ctor r)))) :
     ConsHead env c₀ A :=
-  ⟨hwf, hvclosed, fun _ => ⟨hpinned, hleaf⟩, hctors⟩
+  ⟨hwf, hvclosed, fun hres =>
+    have hself := pinCopy_self hres
+    ⟨hpinned ▸ hself, by
+      intro cv mI rP isK rules hci rl hrl hpl cvj cnP cnF hfc us _
+      obtain ⟨cvj', cnP', cnF', hf', hp₀⟩ := hctors cv mI rP isK rules hci rl hrl
+      have hp := hp₀ hpl
+      rw [ConLeche.Env.find?_cons] at hfc
+      split at hfc
+      · rw [hci] at hfc
+        exact nomatch hfc
+      · rw [hf'] at hfc
+        injection hfc with hfc
+        injection hfc with h1 _ _
+        have hl : (pinnedInfo (ConLeche.RecRule.ctor rl)).toConstantVal = cvj' := by
+          rw [← hp]; rfl
+        have hr : (pinnedInfo c₀.name).toConstantVal = cv := by
+          rw [← hpinned, hci]; rfl
+        rw [hl, hr, ← h1], fun ψ t hp => by
+      have hl : (pinnedInfo c₀.name).toConstantVal.levelParams = c₀.toConstantVal.levelParams := by
+        rw [← hpinned]
+      rw [hl, pinVal, Level.substFn_param_self] at hp
+      exact hleaf ψ t hp⟩,
+    fun cvR mI rP isK rules hc r hr =>
+      let ⟨cvj, cnP, cnF, hf, _⟩ := hctors cvR mI rP isK rules hc r hr
+      ⟨cvj, cnP, cnF, hf⟩⟩
 
 /-- **The head obligations of an ordinary (non-reserved) cons**: the
 pin clause is vacuous. -/
@@ -244,14 +286,11 @@ theorem ConsHead.ofFresh {c₀ : ConstantInfo}
     (hwf : EnvWF ⟨c₀ :: env.consts, env.tables⟩)
     (hvclosed : ∀ ψ : Name → Nat, Term.Closed (A ψ))
     (hnres : ConLeche.reservedBasisNames.contains c₀.name = false)
-    (hctors : ∀ cvR mI rP rules, c₀ = .recInfo cvR mI rP rules →
+    (hctors : ∀ cvR mI rP isK rules, c₀ = .recInfo cvR mI rP isK rules →
       ∀ r ∈ rules,
         (∃ cvj cnP cnF,
           env.find? (ConLeche.RecRule.ctor r)
-            = some (.ctorInfo cvj cnP cnF)) ∧
-        (r.k = true → ConLeche.recRuleKOf env.find? r.ctor = true) ∧
-        (r.eta = true →
-          ConLeche.recRuleEtaOf env.find? r.ctor = true)) :
+            = some (.ctorInfo cvj cnP cnF))) :
     ConsHead env c₀ A :=
   ⟨hwf, hvclosed,
     fun hres => absurd hres (by rw [hnres]; exact fun h => nomatch h),
@@ -297,46 +336,25 @@ head's obligation; nothing of the collapsed model is consulted. -/
         acvalWith_ne hn]
       exact m.cval_closed n ψ
   basis_pinned :=
-    basisPinnedTT_consFresh m.basis_pinned hfresh
+    basisPinnedTT_consFresh m.basis_pinned m.rec_ctors hfresh
       (fun n hn => funext fun ψ => by rw [acvalWith_ne hn])
-      (fun hres => ⟨(hh.pin hres).1, fun ψ t hp => by
+      (fun hres => ⟨(hh.pin hres).1, (hh.pin hres).2.1, fun ψ t hp => by
         show (acvalWith m.acval c₀.name A c₀.name ψ) = t
         rw [show acvalWith m.acval c₀.name A c₀.name = A from
           acvalWith_self]
-        exact (hh.pin hres).2 ψ t hp⟩)
+        exact (hh.pin hres).2.2 ψ t hp⟩)
   proj_ok := ProjOkT.cons m.proj_ok m.wf hfresh
   rec_ctors := ConLeche.RecCtorsStored.cons m.rec_ctors hfresh hh.ctorsHead
   acval_params := acvalWith_params m.acval_params hAparams
   acval_wellDenoted := acvalWith_wellDenoted m.acval_wellDenoted hAok
-
-/-- `indStrictHead_of` at a cons's own leaf. -/
-theorem indStrictHead_cons {acval : Name → (Name → Nat) → Term} {env : Env}
-    {cv : ConstantVal} {caps : IndCaps} {A : (Name → Nat) → Term}
-    {ab : (Name → Nat) → List Term} {s : (Name → Nat) → Nat}
-    (hread : ∀ ψ, denote (acvalWith acval cv.name A) env ψ 0 cv.type
-      = some (mkPisAV (ab ψ) (.sort (s ψ))))
-    (h : ∀ ψ, s ψ ≠ 0 → ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ (ab ψ) vs →
-      Strict (vs.foldl SetTheory.app (interp V ρ (A ψ)))) :
-    IndStrictHead (V := V) (acvalWith acval cv.name A) env (.indInfo cv caps) :=
-  indStrictHead_of hread fun ψ hn ρ vs hsp => by
-    rw [show acvalWith acval cv.name A cv.name ψ = A ψ from congrFun acvalWith_self ψ]
-    exact h ψ hn ρ vs hsp
-
-/-- `indStrictHead_cons` at a former whose sort is `Prop` at every
-assignment: nothing to prove. -/
-theorem indStrictHead_cons_prop {acval : Name → (Name → Nat) → Term} {env : Env}
-    {cv : ConstantVal} {caps : IndCaps} {A : (Name → Nat) → Term}
-    {ab : (Name → Nat) → List Term}
-    (hread : ∀ ψ, denote (acvalWith acval cv.name A) env ψ 0 cv.type
-      = some (mkPisAV (ab ψ) (.sort 0))) :
-    IndStrictHead (V := V) (acvalWith acval cv.name A) env (.indInfo cv caps) :=
-  indStrictHead_cons (s := fun _ => 0) hread fun _ hn => absurd rfl hn
 
 /-- **The P declaration step, cons shape** (see the module
 docstring). -/
 theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     {c₀ : ConstantInfo} {A : (Name → Nat) → Term}
     (hfresh : env.find? c₀.name = none)
+    -- only a definition takes a certified operation's name
+    (hop : natOpName c₀.name = true → ∃ cv v h, c₀ = .defnInfo cv v h)
     (hh : ConsHead env c₀ A)
     (hAparams : ∀ ψ₁ ψ₂ : Name → Nat,
       (∀ p ∈ c₀.toConstantVal.levelParams, ψ₁ p = ψ₂ p) →
@@ -376,12 +394,7 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     (hreduce_ops : ReduceOps (V := V)
         ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _))
     (htower_ok : ∀ φ : Name → Nat,
-      TowerOk (V := V) ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _) φ)
-    -- the head's fibres above a proposition, if it is a former (task
-    -- #342 L7); vacuous at every other head kind
-    (hind : IndStrictHead (V := V) (acvalWith mp.base2.acval c₀.name A)
-      ⟨c₀ :: env.consts, env.tables⟩ c₀ := by
-      intro _ _ h; first | exact nomatch h | exact ConstantInfo.noConfusion h) :
+      TowerOk (V := V) ((coreCons mp.base2 A hfresh hh hAparams hAok) : EnvModel V _) φ) :
     ∃ mp' : EnvModelM V ⟨c₀ :: env.consts, env.tables⟩,
       mp'.base2.acval = acvalWith mp.base2.acval c₀.name A := by
   have hbound := envWF_constsBound mp.base2.wf
@@ -461,29 +474,6 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
           acvalWith_ne (show cv.name ≠ c₀.name from hne _ h)]
       exact hcompM ψ value ((hbound _ h).2 cv value hint rfl)
         (mp.defn_reads ψ cv value ⟨hint, h⟩)
-  -- the stored formers' strict fibres: the head's is `hind`; a prefix
-  -- former keeps its leaf and its type's reading
-  have hind' : IndStrictOk (V := V) (coreCons mp.base2 A hfresh hh hAparams hAok) := by
-    intro I cv caps hf ψ ab n hread hn ρ vs hsp
-    by_cases hI : I = c₀.name
-    · subst hI
-      rw [ConLeche.Env.find?_cons_self] at hf
-      exact hind cv caps (Option.some.inj hf) ψ ab n hread hn ρ vs hsp
-    · have hfE : env.find? I = some (.indInfo cv caps) := by
-        rw [ConLeche.Env.find?_cons, ite_eq_right (fun hh' => hI hh'.symm)] at hf
-        exact hf
-      have hm := ConLeche.Env.find?_mem hfE
-      obtain ⟨ta, hta⟩ := mp.type_reads _ hm ψ
-      have hcv : (ConstantInfo.indInfo cv caps).toConstantVal = cv := rfl
-      rw [hcv] at hta
-      have hta' := hcompM ψ _ ((hbound _ hm).1) hta
-      rw [hcv] at hta'
-      have hEq : ta = mkPisAV ab (.sort n) := Option.some.inj (hta'.symm.trans hread)
-      subst hEq
-      show Strict (vs.foldl SetTheory.app
-        (interp V ρ (acvalWith mp.base2.acval c₀.name A I ψ)))
-      rw [acvalWith_ne hI]
-      exact mp.ind_strict I cv caps hfE ψ ab n hta hn ρ vs hsp
   exact ⟨{
     base2 := coreCons mp.base2 A hfresh hh hAparams hAok
     type_reads := htr
@@ -495,23 +485,29 @@ theorem declStep_preserves_of_cons (mp : EnvModelM V env)
     div_mod := hdiv_mod
     eq_law := heq_law
     caps_ok := hcaps_ok
+    op_defn := fun c hn hs => by
+      by_cases hc : c = c₀.name
+      · subst hc
+        obtain ⟨cv, v, h, he⟩ := hop hn
+        rw [he, isDefinitionAt]
+        simp [ConLeche.Env.find?_cons]
+      · have ha : isDefinitionAt ⟨c₀ :: env.consts, env.tables⟩ c = isDefinitionAt env c := by
+          unfold isDefinitionAt
+          rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)]
+        rw [ha]
+        refine mp.op_defn c hn ?_
+        rw [ConLeche.Env.find?_cons, ite_eq_right (fun h => hc h.symm)] at hs
+        exact hs
     rec_rules := hrec_rules
     reduce_ops := hreduce_ops
     tower_ok := htower_ok
-    ind_strict := hind'
     -- the recorded lfp clauses: a fresh cons re-reads no stored name
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => findPreserved_cons hfresh hf)
       (fun n _ hf _ => acvalWith_ne fun h => by
         rw [h, hfresh] at hf; exact nomatch hf)
-      (fun _ _ _ hf ψ _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hcompM ψ _ (hbound _ hm).1 hta)
-      (fun _ _ _ _ hf ψ _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hcompM ψ _ (hbound _ hm).1 hta)
-      (fun _ _ hf _ _ hA ψ d _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        denote_cons_mono hfresh ψ d (canonOf_constsBound (hbound _ hm).1 hA) hta) }, rfl⟩
+      (fun ψ d _ _ hb hta => denote_cons_mono hfresh ψ d hb hta)
+      (fun _ => ConstsBound.of_isSome fun _ h => by
+        rw [ConLeche.Env.find?_cons]; split <;> simp_all) }, rfl⟩
 
 end ConLeche.Model

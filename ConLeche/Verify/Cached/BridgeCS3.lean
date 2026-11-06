@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Verify.Cached.BridgeCS1
 import ConLeche.Verify.Cached.NestPosC
 
@@ -99,37 +100,14 @@ theorem checkStructDomsAtS_spec (henv : EnvWF env) {off : Nat}
     sym only [conleche_grind, checkStructDomsAt.eq_2, unwrapOr] =>
       vcgen [checkStructDomsAt, unwrapOr, defeqS_spec henv, ih] <;> finish
 
-/-- Official's telescope loop (task #195) at the shared operations:
-every `whnf` is the shared one, on a well-scoped input at its depth
-(the opened body is well-scoped one deeper). -/
-theorem whnfTelescopeS_spec (henv : EnvWF env) :
-    ∀ {i n : Nat} {e : Expr} {s₀ : CState}, CSOK .verified false env s₀ → WScoped i e →
-      ⦃fun s => s = s₀⦄ whnfTelescope (sharedOpsC .verified (mkFEnv env)) env i n e
-      ⦃fun v s' => CSOK .verified false env s' ∧
-        Runs (whnfTelescope (fueledOpsM .verified) env i n e) v; ⊤⦄ := by
-  intro i n
-  induction n generalizing i with
-  | zero =>
-    intro _ _ _ _
-    sym only [conleche_grind, whnfTelescope.eq_1] =>
-      vcgen [whnfTelescope, whnfS_spec henv] <;> finish
-  | succ n ih =>
-    intro _ _ _ _
-    sym only [conleche_grind, whnfTelescope.eq_2] =>
-      vcgen [whnfTelescope, whnfS_spec henv, ih] <;>
-        finish
-
-/-- The former's telescope stage (task #195) at the shared operations:
-the checked constant's type is well-scoped either way. -/
-theorem checkSumTeleS_spec (henv : EnvWF env)
-    {cv : ConstantVal} {n : Nat} {cvTa₀ : ConstantVal}
+/-- The former's telescope stage: the former, scoped. -/
+theorem checkSumTeleS_spec {n : Nat} {cvTa₀ : ConstantVal}
     (hs : CSOK .verified false env s₀) (hTw : WScoped 0 cvTa₀.type) :
-    ⦃fun s => s = s₀⦄ checkSumTele (sharedOpsC .verified (mkFEnv env)) env cv n cvTa₀
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumTele (fueledOpsM .verified) env cv n cvTa₀) v ∧
+    ⦃fun s => s = s₀⦄ (checkSumTele n cvTa₀ : CheckCM _)
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkSumTele n cvTa₀) v ∧
       WScoped 0 v.1.type; ⊤⦄ := by
   sym only [conleche_grind, checkSumTele.eq_1] =>
-    vcgen [checkSumTele, whnfTelescopeS_spec henv, checkConstantValS_spec henv] <;>
-      finish
+    vcgen [checkSumTele] <;> finish
 
 /-- Stage 2 (one constructor, the constructor and its field count
 explicit) at the shared operations. -/

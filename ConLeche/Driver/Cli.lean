@@ -7,8 +7,7 @@ public import ConLeche.Driver.Dispatch
 /-!
 Command-line driver: `con-leche FILE.ndjson` reads a **raw** lean4export
 NDJSON file and checks the declarations in order.  There is no
-preprocessor and no external dependency: every inductive block is
-installed by the uniform installer; no model is ever read from the
+preprocessor and no external dependency; no model is ever read from the
 input.
 
 Exit codes follow the lean kernel arena convention:
@@ -41,11 +40,10 @@ directory.
 codes; here everything generic in the IO class, `runArgs`, which the
 main corollary lifted to the driver (`ConLeche.main_no_False`) is about,
 in `Main.lean` the plumbing around it, followed by the exit.  The
-proof-carrying driver — the parallel parse, the install and check
-loops and the phase sequencing — lives in
+proof-carrying driver — the parallel parse, the check loops and the
+phase sequencing — lives in
 `ConLeche/Driver/*` (`OwnerParse.lean`, `StreamParse.lean`,
-`CheckPool.lean`, `ParInstall.lean`, `Run.lean`, `CheckMain.lean`,
-`Dispatch.lean`).  The driver may import `ConLeche/Verify/*`
+`CheckPool.lean`, `Run.lean`, `CheckMain.lean`, `Dispatch.lean`).  The driver may import `ConLeche/Verify/*`
 (the theorems about kernel functions that need no model) and nothing
 else of the theory; `ConLeche/{Kernel,Cached,Frontend}/*` keep the full
 fence. -/
@@ -79,9 +77,8 @@ def progressPace (v : String) : Except String Pace :=
     | some n => .ok (.every n)
 
 /-- The worker count, read off the `--jobs=<n>` flag: a decimal numeral
-of at least 1 (`1` is the sequential lane — one worker, no shared
-counter and no result table, but a worker THREAD all the same: see
-`checkDeclsIO` for the heap the check phase must not allocate from).
+of at least 1 (`1` is one worker, a worker THREAD all the same: see
+`checkPool` for the heap the check phase must not allocate from).
 `0` and a non-numeral are usage errors (exit 3).  Without the flag the
 count is the machine's hardware thread count (`main`).
 
@@ -184,9 +181,9 @@ def parseArgs : List String → Args → Args
   | "--trusted" :: rest, a => parseArgs rest { a with mode := .trusted }
   -- The progress heartbeat: a FLAG, in either order with
   -- `--verified`/`--trusted`, and independent of them — it turns on
-  -- the heartbeat the ONE driver prints between the steps of its two
-  -- phases (`installLoop`/`checkPool`), which is the same driver, at
-  -- the same mode, as a run without it.  Bare is every declaration;
+  -- the heartbeat the ONE driver prints between the steps of its
+  -- check phase (`checkPool`), which is the same driver, at the same
+  -- mode, as a run without it.  Bare is every declaration;
   -- `--progress=<pace>` is the general form (below, with the other
   -- `=`-carrying spellings).
   | "--progress" :: rest, a => parseArgs rest { a with progress := .every 1 }

@@ -30,9 +30,9 @@ open ConLeche.Term ConLeche.Verify
 /-- The reserved-name side condition of the group swap: a genuinely
 swapped entry never sits at a pinned basis name. -/
 def SwapNResS (env₀ env₃ : Env) : Prop :=
-  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (rules : List RecRule),
-    env₀.find? n = some (.recInfo cv mI rP []) →
-    env₃.find? n = some (.recInfo cv mI rP rules) →
-    rules = [] ∨ reservedBasisNames.contains n = false
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rules : List RecRule),
+    env₀.find? n = some (.recInfo cv mI rP false []) →
+    env₃.find? n = some (.recInfo cv mI rP isK rules) →
+    (isK = false ∧ rules = []) ∨ reservedBasisNames.contains n = false
 
 end ConLeche.Semantics

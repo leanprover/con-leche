@@ -142,33 +142,33 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   /-- A `Nat`-literal major converts to constructor form, one layer
   (`litMajorToCtor`'s `litToCtorIfNat` arm, `Core.lean:739`). -/
   | natLit {d : Nat} {n : Nat} :
-      natLitSupported env = true →
+      natLitStored env = true →
       Red env d (.lit (.natVal n)) (natLitToConstructor n)
   /-- A `String` literal expands to its constructor form
   (`litMajorToCtor`, `Kernel/Core.lean`; `projLitToCtor`, `:752-754`;
   `defeqStuck`'s string arms — one rule for the three
   sites; the sites that re-reduce chain a `Red` after it). -/
   | strLit {d : Nat} {s : String} :
-      strLitSupported env = true →
+      strLitStored env = true →
       Red env d (.lit (.strVal s)) (strLitToConstructor s)
   /-- **`Nat.succ` packing** (`reduceNat`, `Kernel/Core.lean`): the
   argument reduces to a literal reading. -/
   | natSucc {d : Nat} {a w : Expr} {n : Nat} :
-      natLitSupported env = true →
+      natLitStored env = true →
       Red env d a w → rawNatLit? w = some n →
       Red env d (.app (.const natSuccName []) a) (.lit (.natVal (n + 1)))
   /-- **Binary `Nat` acceleration** (`reduceNat`, `Kernel/Core.lean`):
-  a stored operation on two arguments that reduce to literal readings
+  an operation, by name, on two arguments that reduce to literal readings
   folds to `natOpResult`. -/
   | natOp {d : Nat} {c : Name} {a wa b wb r : Expr} {n₁ n₂ : Nat} :
-      c ∈ natBinOpNames → natOpStored env c = true →
+      c ∈ natBinOpNames →
       Red env d a wa → rawNatLit? wa = some n₁ →
       Red env d b wb → rawNatLit? wb = some n₂ →
       natOpResult c n₁ n₂ = some r →
       Red env d (.app (.app (.const c []) a) b) r
   /-- **The structural projection** `proj_i (ctor p⃗ x⃗) ↦ x_i`
   (`whnfCoreBody`'s `.proj` clause, `Kernel/Core.lean`), driven by
-  the projection table, fired under the entry's guard, with the
+  the projection table, with the
   constructor telescope's syntactic arity (`projCertAt`,
   `teleArityOk`). -/
   | proj {d : Nat} {sn : Name} {i : Nat} {e : Expr} {entry : ProjEntry}
@@ -178,7 +178,6 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       i < entry.numFields →
       e.getAppArgs.length = entry.numParams + entry.numFields →
       us.length = entry.levelParams.length →
-      entry.fireOk us = true →
       env.find? entry.ctor = some (.ctorInfo cvC nP nF) →
       (Expr.peelPis e.getAppArgs.length
         (cvC.type.instantiateLevelParams cvC.levelParams us)).isSome = true →
@@ -192,56 +191,48 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   the constructor's full-grade telescope certificate and the index
   comparison are the checker's, in its order.
 
-  **The ι case split** (task #342 L10, S5c): `iotaCase3` at the comparand
+  **The ι case split** (task #342 L10, S5c): `IotaCase` at the comparand
   levels is the checker's test.  A K rule, and a rule whose
   constructor's family is never `Prop` at the comparand levels (case 2),
   carry no premise about the constructor application; case 3 carries
   all four. -/
   | iota {d : Nat} {e : Expr} {c : Name} {us : List Level} {cv : ConstantVal}
-      {mI rP : Nat} {rules : List RecRule} {major : Expr} {cj : Name}
+      {mI rP : Nat} {isK : Bool} {rules : List RecRule} {major : Expr} {cj : Name}
       {usj : List Level} {cvj : ConstantVal} {cnP cnF : Nat} {rl : RecRule}
-      {residual : Expr} :
+      {residual : Expr} {c3 : Bool} :
       e.getAppFn = .const c us →
-      env.find? c = some (.recInfo cv mI rP rules) →
+      env.find? c = some (.recInfo cv mI rP isK rules) →
       e.getAppArgs.length = mI + 1 →
       us.length = cv.levelParams.length →
       Red env d (e.getAppArgs.getD mI (.bvar 0)) major →
       major.getAppFn = .const cj usj →
       env.find? cj = some (.ctorInfo cvj cnP cnF) →
       rules.find? (fun r' => r'.ctor == cj) = some rl →
-      major.getAppArgs.length = rl.ctorParams + rl.nfields →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
-            e.getAppArgs rP).1 = true →
+      major.getAppArgs.length = cnP + rl.nfields →
+      IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
+        e.getAppArgs rP).1 c3 →
+      (c3 = true →
         Level.isEquivList usj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).1 = some true) →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
-            e.getAppArgs rP).1 = true →
-        DefEqList env d (major.getAppArgs.take rl.ctorParams)
-          (recFireComparands rl cv.levelParams us cvj.levelParams
+      (c3 = true →
+        DefEqList env d (major.getAppArgs.take cnP)
+          (recFireComparands rl cnP cv.levelParams us cvj.levelParams
             e.getAppArgs rP).2) →
       (Expr.peelPis e.getAppArgs.length
         (cv.type.instantiateLevelParams cv.levelParams us)).isSome = true →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
-            e.getAppArgs rP).1 = true →
+      (c3 = true →
         CertsF env d (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs) →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
-            e.getAppArgs rP).1 = true → mI ≠ rP →
+      (c3 = true → mI ≠ rP →
         piResidual (cvj.type.instantiateLevelParams cvj.levelParams usj)
           major.getAppArgs = some residual) →
-      (iotaCase3 env.find? rl cvj
-          (recFireComparands rl cv.levelParams us cvj.levelParams
-            e.getAppArgs rP).1 = true → mI ≠ rP →
-        DefEqList env d (residual.getAppArgs.drop rl.ctorParams)
+      (c3 = true → mI ≠ rP →
+        DefEqList env d (residual.getAppArgs.drop cnP)
           ((e.getAppArgs.take mI).drop rP)) →
       Red env d e
         (Expr.mkAppN (rl.rhs.instantiateLevelParams cv.levelParams us)
-          (e.getAppArgs.take rP ++ major.getAppArgs.drop rl.ctorParams))
+          (e.getAppArgs.take rP ++ major.getAppArgs.drop cnP))
   /-- **The K rescue** (`majorToCtor`'s K branch, `Kernel/Core.lean`;
   official `to_cnstr_when_K`): at a K-flagged single-rule recursor the
   parameters-only constructor application is fabricated from the
@@ -253,11 +244,11 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   major is a proof — the point at every valuation, about which a
   reduction claims nothing (task #342 L18). -/
   | rescueK {d : Nat} {major tm tmaj fab tf tp ttp : Expr} {v : Level} {recName : Name}
-      {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+      {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
-      env.find? recName = some (.recInfo cv mI rP [rl]) →
-      rl.k = true →
+      env.find? recName = some (.recInfo cv mI rP isK [rl]) →
+      isK = true →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const T tus →
       env.find? T = some (.indInfo cvT caps) →
@@ -283,11 +274,11 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   on: the two names not reserved, every field slot a projection-table
   entry. -/
   | rescueEta {d : Nat} {major tm tmaj fab : Expr} {recName : Name}
-      {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+      {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {T : Name} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
-      env.find? recName = some (.recInfo cv mI rP [rl]) →
-      rl.eta = true →
+      env.find? recName = some (.recInfo cv mI rP isK [rl]) →
+      etaRescueOk rl.ctor cvj cvT caps = true →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const T tus →
       env.find? T = some (.indInfo cvT caps) →
@@ -295,7 +286,6 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       tmaj.getAppFn = .const T ust →
       tmaj.getAppArgs.length = caps.etaParams →
       ust.length = cvT.levelParams.length →
-      capsNeverZero cvT.levelParams ust caps = true →
       fab = Expr.mkAppN (.const caps.etaCtor ust)
         (etaFabArgsE T tmaj.getAppArgs major caps.etaFields) →
       fab.wscopedB d = true → fab.looseBVarsBounded 0 = true →
@@ -310,10 +300,10 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
   `h`, certified the K branch's way; the last four premises are the
   major's half of the `proofIrrel` run, as in the K branch. -/
   | rescueAnd {d : Nat} {major tm tmaj fab tf tp ttp : Expr} {v : Level} {recName : Name}
-      {cv : ConstantVal} {mI rP : Nat} {rl : RecRule} {cvj : ConstantVal}
+      {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rl : RecRule} {cvj : ConstantVal}
       {cnP cnF : Nat} {tus ust : List Level} {cvT : ConstantVal}
       {caps : IndCaps} :
-      env.find? recName = some (.recInfo cv mI rP [rl]) →
+      env.find? recName = some (.recInfo cv mI rP isK [rl]) →
       env.find? rl.ctor = some (.ctorInfo cvj cnP cnF) →
       (cvj.type.piResult).getAppFn = .const andName tus →
       env.find? andName = some (.indInfo cvT caps) →
@@ -321,7 +311,7 @@ inductive Red (env : Env) : Nat → Expr → Expr → Prop where
       tmaj.getAppFn = .const andName ust →
       tmaj.getAppArgs.length = cnP →
       cvj.levelParams.length = ust.length →
-      andRescueSlots env rl.ctor cnP ust = true →
+      andRescueSlots env rl.ctor cnP = true →
       fab = Expr.mkAppN (.const rl.ctor ust)
         (tmaj.getAppArgs ++ [.proj andName 0 major, .proj andName 1 major]) →
       fab.wscopedB d = true → fab.looseBVarsBounded 0 = true →
@@ -566,11 +556,11 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
           ci.toConstantVal.levelParams us)
   /-- `Kernel/Core.lean` / `:1310-1312`. -/
   | natLit {g : Grade} {d n : Nat} :
-      natLitSupported env = true →
+      natLitStored env = true →
       Infer env g d (.lit (.natVal n)) (.const natName [])
   /-- `Kernel/Core.lean` / `:1313-1316`. -/
   | strLit {g : Grade} {d : Nat} {s : String} :
-      strLitSupported env = true →
+      strLitStored env = true →
       Infer env g d (.lit (.strVal s)) (.const stringName [])
   /-- **∀-formation** (`Kernel/Core.lean`): the domain's type reduces to
   a sort, the opened body's type reduces to a sort; Lean's own rule. -/
@@ -632,10 +622,76 @@ inductive Infer (env : Env) : Grade → Nat → Expr → Expr → Prop where
       env.findProj? sn i = some entry →
       te.getAppArgs.length = entry.numParams →
       us.length = entry.levelParams.length →
-      (Level.isEquiv entry.structSort .zero = some true →
-        Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-          = some true) →
+      ProjGuard env entry us →
       Infer env g d (.proj sn i pe) (entry.typeAt us te.getAppArgs pe)
+
+/-- **Official's walk to a family's sort** (`formerSortLoop`): the binders, each
+reached by reduction, and then a sort. -/
+inductive FormerSort (env : Env) : Nat → Nat → Expr → Level → Prop where
+  | sort {d : Nat} {e : Expr} {s : Level} :
+      Red env d e (.sort s) → FormerSort env d 0 e s
+  | pi {d n : Nat} {e dom b : Expr} {s : Level} :
+      Red env d e (.forallE dom b) →
+      FormerSort env (d + 1) n (b.instantiate1 (.fvar d dom)) s →
+      FormerSort env d (n + 1) e s
+
+/-- **The ι case split's verdict** (`iotaCase3At`): `true`, the checked case,
+needs no reason; `false` needs a K rule or a family whose sort is never zero at
+`us`, read off its type (`never`) or walked at this environment (`walk`). -/
+inductive IotaCase (env : Env) : Bool → ConstantVal → List Level → Bool → Prop where
+  | three {isK : Bool} {cvj : ConstantVal} {us : List Level} : IotaCase env isK cvj us true
+  | k {cvj : ConstantVal} {us : List Level} : IotaCase env true cvj us false
+  | never {cvj cvT : ConstantVal} {caps : IndCaps} {us : List Level} :
+      ctorFamily env.find? cvj = some (cvT, caps) →
+      cvT.levelParams.length = us.length →
+      formerNeverZero cvT us = true →
+      IotaCase env false cvj us false
+  | walk {cvj cvT : ConstantVal} {caps : IndCaps} {us : List Level} {s : Level} :
+      ctorFamily env.find? cvj = some (cvT, caps) →
+      cvT.levelParams.length = us.length →
+      formerResSort cvT.type = none →
+      FormerSort env 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) s →
+      (Level.zeronessOf s).isNever = true →
+      IotaCase env false cvj us false
+
+/-- **The rows of a projection's guard** (`checkGuardRows`,
+`Kernel/Core.lean`; official `infer_proj`'s `is_prop`): each row's term
+has, at the io grade, a type reducing to a sort that is zero wherever `guardSort` is. -/
+inductive GuardRows (env : Env) : Level → List (Nat × Expr) → Prop where
+  | nil {guardSort : Level} : GuardRows env guardSort []
+  | row {guardSort : Level} {d : Nat} {dom t : Expr} {u : Level} {rest : List (Nat × Expr)} :
+      Infer env .io d dom t → Red env d t (.sort u) →
+      Level.zeroWhereZero guardSort u = true →
+      GuardRows env guardSort rest → GuardRows env guardSort ((d, dom) :: rest)
+
+/-- **A projection's guard at a use** (`checkProjGuard`), by the structure's stored
+type: a sort that is not `Prop` asks nothing, `Prop` asks for propositions; a
+reduction to a sort asks nothing where it is never zero, else asks each row to vanish
+with it. -/
+inductive ProjGuard (env : Env) : ProjEntry → List Level → Prop where
+  | notProp {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = some s → s.isAlwaysZero = false → ProjGuard env entry us
+  | prop {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} {rows : List (Nat × Expr)} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = some s → s.isAlwaysZero = true →
+      projGuardRows env.find? entry us = some rows → GuardRows env .zero rows →
+      ProjGuard env entry us
+  | never {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = none →
+      FormerSort env 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) s →
+      (Level.zeronessOf s).isNever = true → ProjGuard env entry us
+  | mayVanish {entry : ProjEntry} {us : List Level} {cvT : ConstantVal} {caps : IndCaps} {s : Level} {rows : List (Nat × Expr)} :
+      env.find? entry.structName = some (.indInfo cvT caps) →
+      formerResSort cvT.type = none →
+      FormerSort env 0 (caps.nparams + caps.nIdx)
+        (cvT.type.instantiateLevelParams cvT.levelParams us) s →
+      (Level.zeronessOf s).isNever = false →
+      projGuardRows env.find? entry us = some rows → GuardRows env s rows →
+      ProjGuard env entry us
 
 /-- **The full-grade telescope certificate** (`iotaCertsFull`,
 `Kernel/Core.lean`; ι's case 3, task #342 L10): each argument's

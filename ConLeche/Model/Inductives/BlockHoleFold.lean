@@ -23,7 +23,7 @@ directly at those chains, with no field classification in the argument:
   parameters IS the hole frame at the least tuple (`blockLeaf_frame`),
   and a constructor's fields with holes read at it as its STORED fields
   read at the parameter frame (the override law, `blockOverride`: the
-  stored field shape facts' `override`, `StoredFieldShapes`);
+  stored field shape facts' `override`, `DeclaredFieldShapes`);
 * the member's fibre at the least tuple is then the tagged union of its
   constructors' stored fields (`blockHoleFold`): the fixed-point
   equation (monotonicity and a closed tuple premises), the hole
@@ -199,7 +199,7 @@ theorem blockHFits_lfp_iff (hH : BlockHoleFacts mo d lps) (hinst : d.nInst = 0)
         = interp V (consList as ρp) (((d.Fss m ψ).getD j []).getD i default))
     (t : V) (j : Nat) (fs : List V) :
     d.toLfp.HFits ψ ρp (blockFamG d.k (d.w ψ) ρp (fun c => d.uM c ψ) (fun c => d.IdsM c ψ)
-        (d.toLfp.holeChains ψ)) t m j fs ↔ d.StoredFit ψ ρp t m j fs := by
+        (d.toLfp.holeChains ψ)) t m j fs ↔ d.DeclaredFit ψ ρp t m j fs := by
   have hNk : d.N = d.k := by simp [BlockData.N, hinst]
   have hmN : m < d.N := by rw [hNk]; exact hm
   have hsP : ∀ c, c < d.k → Sat V (d.toLfp.pars c ψ).reverse ρp :=

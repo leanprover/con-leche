@@ -66,7 +66,8 @@ def ConstantValRun (F : Nat) (env : Env)
   type'.allLevelParamsDefined cv.levelParams = true ∧
   type'.constsResolve env = true ∧
   (∃ stype u, inferTypeCore .verified false env F 0 type' = .ok stype ∧
-    ensureSortCore .verified false env F 0 stype = .ok u)
+    ensureSortCore .verified false env F 0 stype = .ok u) ∧
+  LitShapeAt cv
 
 /-- The value front door's guards and runs. -/
 def ValueFrontRun (F : Nat) (env : Env)
@@ -138,6 +139,7 @@ def DeclDefnRun (F : Nat) (env : Env)
 /-- A `thmDecl`'s guards and runs. -/
 def DeclThmRun (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
+  natOpName cv.name = false ∧
   ∃ type' value',
     ConstantValRun F env cv type' ∧
     (∃ stype u, inferTypeCore .verified false env F 0 type' = .ok stype ∧
@@ -152,6 +154,7 @@ def DeclThmRun (F : Nat) (env : Env)
 /-- An `opaqueDecl`'s guards and runs. -/
 def DeclOpaqueRun (F : Nat) (env : Env)
     (cv : ConstantVal) (value : Expr) (env₂ : Env) : Prop :=
+  natOpName cv.name = false ∧
   ∃ type' value',
     ConstantValRun F env cv type' ∧
     ValueFrontRun F env cv value type' value' ∧
@@ -163,13 +166,12 @@ def DeclOpaqueRun (F : Nat) (env : Env)
 stored-data guards and is carried verbatim. -/
 def DeclAxiomRun (F : Nat) (env : Env)
     (cv : ConstantVal) (env₂ : Env) : Prop :=
-  -- **`Quot.sound`** (task #293): the pinned quotient block's own
-  -- record, compared with the pin BEFORE the common checks (its name is
-  -- a reserved basis name) and installing nothing of its own — the
-  -- block installs it.  No `ConstantValRun`: the record's type is not
-  -- checked here.
-  (cv.name = quotSoundName ∧ env₂ = env) ∨
+  -- **`Quot.sound`**: the pinned quotient package's own record, compared
+  -- with the pin BEFORE the common checks (its name is a reserved basis
+  -- name).  No `ConstantValRun`: the pin is what is stored.
+  (cv.name = quotSoundName ∧ DeclQuotRun env .sound cv env₂) ∨
   ∃ type',
+    natOpName cv.name = false ∧
     ConstantValRun F env cv type' ∧
     (let cv : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
      (stdAxiomOk env cv = true ∧
@@ -198,18 +200,12 @@ def DeclRun (F : Nat)
   | .thmDecl cv value, env₂ => DeclThmRun F env cv value env₂
   | .opaqueDecl cv value, env₂ => DeclOpaqueRun F env cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomRun F env cv env₂
-  | .basisDecl kind, env₂ => DeclBasisRun env kind env₂
-  -- **The pinned blocks are recognised in the FOLD** (task #293): a
-  -- stream block that IS one of the five pins installs the pin, and the
-  -- quotient package's `type` record installs the sixth (its other
-  -- records are members of the block that one installs).
+  -- **The pinned blocks are recognised in the FOLD**, by their members'
+  -- names; each quotient record stores its own slot.
   | .indDecl block nP, env₂ =>
-    match basisPinHit block with
-    | some kind => DeclBasisRun env kind env₂
+    match basisNameHit block with
+    | some kind => DeclBasisRun env kind block env₂
     | none => Ind block nP env₂
-  | .quotDecl k _, env₂ =>
-    match k with
-    | .type => DeclBasisRun env .quotK env₂
-    | _ => env₂ = env
+  | .quotDecl k cv, env₂ => DeclQuotRun env k cv env₂
 
 end ConLeche.Semantics

@@ -32,14 +32,6 @@ def Pace.trace : Pace → Bool
   | .every 1 => true
   | _ => false
 
-/-- A plain stride over `total` items, for the install's loop: its first line says the phase has
-started, and at seconds, which it has no clock for, the only one. -/
-def Pace.strideFor (total : Nat) : Pace → Nat
-  | .off => 0
-  | .every n => n
-  | .percent p => max 1 (total * p / 100)
-  | .seconds _ => total + 1
-
 /-- A phase's clock, for `Pace.due`. -/
 def Pace.clock : IO (IO.Ref Nat) := do IO.mkRef (← IO.monoMsNow)
 

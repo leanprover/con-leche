@@ -78,9 +78,9 @@ theorem opSIxC_spec (henv : EnvWF env) {d : Nat} {i : Expr}
 /-- `checkConstantValC` simulates the generic `checkConstantVal` at the
 fueled families; the checked type is well scoped. -/
 theorem checkConstantValC_spec (henv : EnvWF env)
-    {cv : ConstantVal} (hs : CSOK .verified false env s₀) :
-    ⦃fun s => s = s₀⦄ checkConstantValC .verified (mkFEnv env) cv
-    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkConstantVal (fueledOpsM .verified) env cv) v ∧
+    {cv : ConstantVal} {a : Bool} (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkConstantValC .verified (mkFEnv env) cv a
+    ⦃fun v s' => CSOK .verified false env s' ∧ Runs (checkConstantVal (fueledOpsM .verified) env cv a) v ∧
       Expr.WScoped 0 cv.type; ⊤⦄ := by
   sym only [conleche_grind, checkConstantVal.eq_1,
       Expr.allLevelParamsDefinedC_spec, constsResolveFC_spec, constsResolveF_eq,
@@ -168,6 +168,20 @@ theorem checkDefnValCI_spec (henv : EnvWF env)
       constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 value] =>
     vcgen [checkDefnValCI, inferK_spec henv hs, defeqK_spec henv] <;> finish
 
+/-- `checkThmValCI` simulates the generic `checkThmVal`: the record it returns is the statement the
+fueled side conses. -/
+theorem checkThmValCI_spec (henv : EnvWF env)
+    {cv : ConstantVal} {value : Expr}
+    (htf : Expr.WScoped 0 cv.type) (hs : CSOK .verified false env s₀) :
+    ⦃fun s => s = s₀⦄ checkThmValCI .verified (mkFEnv env) cv value
+    ⦃fun v s' => CSOK .verified false env s' ∧
+      Runs (checkThmVal (fueledOpsM .verified) env cv value) ⟨v :: env.consts, env.tables⟩ ∧
+      v = .thmInfo cv; ⊤⦄ := by
+  sym only [conleche_grind, checkThmVal.eq_1, Expr.allLevelParamsDefinedC_spec,
+      constsResolveFC_spec, constsResolveF_eq, @wscoped_of_hasFvar_false 0 value] =>
+    vcgen [checkThmValCI, inferK_spec henv, opSIxC_spec henv,
+      liftFueled_spec (mode := .verified) (eager := false) (env := env), defeqK_spec henv] <;> finish
+
 /-- `checkOpaqueValCI` simulates the generic `checkOpaqueVal`: the
 record it returns is the axiom the fueled side conses, the value
 closed. -/
@@ -184,14 +198,45 @@ theorem checkOpaqueValCI_spec (henv : EnvWF env)
 
 /-! ## The converted declaration -/
 
-/-- The pinned-block install simulates its generic twin (task #293:
-three of `checkDeclC`'s arms share this body). -/
-theorem checkBasisDeclC_spec (hs : CSOK mode false env s₀) (kind : BasisKind) :
-    ⦃fun s => s = s₀⦄ checkBasisDeclC (mkFEnv env) kind
-    ⦃fun v s' => CSOK mode false env s' ∧ Runs (checkBasisDecl (m := FueledM) env kind) v.env ∧
+/-- A pinned block's install simulates its generic twin. -/
+theorem checkBasisBlockC_spec (hs : CSOK mode false env s₀) (kind : BasisKind)
+    (block : List ConstantInfo) :
+    ⦃fun s => s = s₀⦄ checkBasisBlockC (mkFEnv env) kind block
+    ⦃fun v s' => CSOK mode false env s' ∧
+      Runs (checkBasisBlock (m := FueledM) env kind block) v.env ∧
       v = mkFEnv v.env; ⊤⦄ := by
-  sym only [conleche_grind, checkBasisDecl.eq_1, mkFEnv_env] =>
-    vcgen [checkBasisDeclC, installBasisFoldF_pushC, installBasisFoldS_spec (mode := mode) (env := env)] <;> finish
+  sym only [conleche_grind, checkBasisBlock.eq_1, mkFEnv_env] =>
+    vcgen [checkBasisBlockC, installBasisFoldF_pushC, installBasisFoldS_spec (mode := mode) (env := env)] <;> finish
+
+/-- A quotient record's install simulates its generic twin: operation-free,
+the state is unchanged and the environment is the generic twin's. -/
+theorem checkQuotRecordC_spec (hs : CSOK mode false env s₀) (k : QuotKind) (cv : ConstantVal) :
+    ⦃fun s => s = s₀⦄ checkQuotRecordC (mkFEnv env) k cv
+    ⦃fun v s' => CSOK mode false env s' ∧
+      Runs (checkQuotRecord (m := FueledM) env k cv) v.env ∧
+      v = mkFEnv v.env; ⊤⦄ := by
+  refine triple_iff_run.mpr fun v s' h => ?_
+  unfold checkQuotRecordC at h
+  rw [mkFEnv_find_fun] at h
+  by_cases h1 : quotPinHit k cv = true
+  · rw [ite_eq_left h1] at h
+    by_cases h2 : quotPredsOk env.find? k = true
+    · rw [ite_eq_left h2, installBasisDeclF_pushC] at h
+      by_cases h3 : (env.find? (quotAt k cv).name).isNone = true
+      · simp only [installBasisDecl, Option.isNone_iff_eq_none.mp h3] at h
+        obtain ⟨rfl, rfl⟩ := pureC_ok h
+        refine ⟨hs, ⟨0, ?_⟩, by simp only [mkFEnv_env]⟩
+        rw [mkFEnv_env, checkQuotRecord_datF]
+        unfold checkQuotRecord
+        rw [ite_eq_left h1, ite_eq_left h2]
+        simp [installBasisDecl, Option.isNone_iff_eq_none.mp h3]
+        rfl
+      · simp only [installBasisDecl, h3] at h
+        exact nomatch h
+    · rw [ite_eq_right h2] at h
+      exact nomatch h
+  · rw [ite_eq_right h1] at h
+    exact nomatch h
 
 /-- The non-inductive branches of the converted-declaration driver
 `checkDeclC` simulate the generic `checkDecl` at the fueled families
@@ -206,18 +251,16 @@ theorem checkDeclC_spec (henv : EnvWF env)
       v = mkFEnv v.env; ⊤⦄ := by
   cases pd with
   | indDecl block nP => exact absurd rfl (hnotind _ _)
-  | basisDecl kind =>
-    sym only [conleche_grind, checkDecl] => vcgen [checkDeclC, checkBasisDeclC_spec hs] <;> finish
   | quotDecl k cv =>
-    cases k <;>
-      sym only [conleche_grind, checkDecl, mkFEnv_env] =>
-        vcgen [checkDeclC, checkBasisDeclC_spec hs] <;> finish
+    sym only [conleche_grind, checkDecl, mkFEnv_env] =>
+      vcgen [checkDeclC, checkQuotRecordC_spec hs] <;> finish
   | axiomDecl cv =>
     sym only [conleche_grind, checkDecl, stdAxiomOkF_eq, trustCompilerOkF_eq, ofReduceAxOkF_eq,
         push_mkFEnv, mkFEnv_env] =>
-      vcgen [checkDeclC, checkConstantValC_spec henv hs] <;> finish
+      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkQuotRecordC_spec hs] <;> finish
   | thmDecl cv value =>
-    sym only [conleche_grind] => vcgen [checkDeclC] <;> finish
+    sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env] =>
+      vcgen [checkDeclC, checkConstantValC_spec henv hs, checkThmValCI_spec henv] <;> finish
   | opaqueDecl cv value =>
     sym only [conleche_grind, checkDecl, push_mkFEnv, mkFEnv_env] =>
       vcgen [checkDeclC, checkConstantValC_spec henv hs, checkOpaqueValCI_spec henv,
@@ -256,27 +299,27 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
     exact hF
   cases pd with
   | indDecl block nP =>
-    -- task #293: a block the fold recognises as one of the five pinned
-    -- ones installs the pin, on both sides; the declared parameter
-    -- count (task #228) below it is a guard whose `false` throws on
-    -- both sides, so only the passing branch reaches the bridge
-    have hd : (match basisPinHit block with
-        | some kind => checkBasisDeclC (mkFEnv env) kind
+    -- a block with a pinned block's names is that block's, on both sides;
+    -- the declared parameter count (task #228) below it is a guard whose
+    -- `false` throws on both sides, so only the passing branch reaches
+    -- the bridge
+    have hd : (match basisNameHit block with
+        | some kind => checkBasisBlockC (mkFEnv env) kind block
         | none =>
           if indParamsOk nP block = true then
-            (match blockParts? nP block with
+            (match blockShape? nP block with
               | some p => checkBlockKS .verified (mkFEnv env) block p
               | none => checkShapelessS .verified (mkFEnv env) block)
           else throw (CheckError.invalid "number of parameters mismatch"))
         s₀.flushed = .ok (fe', s') := h
-    cases hpin : basisPinHit block with
+    cases hpin : basisNameHit block with
     | some kind =>
       rw [hpin] at hd
-      obtain ⟨hs', ⟨F, hF⟩, hmk⟩ := triple_iff_run.mp (checkBasisDeclC_spec hcsok kind) fe' s' hd
+      obtain ⟨hs', ⟨F, hF⟩, hmk⟩ := triple_iff_run.mp (checkBasisBlockC_spec hcsok kind block) fe' s' hd
       refine ⟨hs'.residue, hmk, F, ?_⟩
       show checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) = _
       simp only [checkDecl, hpin]
-      rw [← checkBasisDecl_datF]
+      rw [← checkBasisBlock_datF]
       exact hF
     | none =>
       rw [hpin] at hd
@@ -291,7 +334,6 @@ theorem checkDeclStepC_run {env : Env} (henv : EnvWF env) {pd : Declaration}
   | thmDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
   | opaqueDecl cv value => exact main (fun _ _ h => Declaration.noConfusion h)
   | axiomDecl cv => exact main (fun _ _ h => Declaration.noConfusion h)
-  | basisDecl kind => exact main (fun _ _ h => Declaration.noConfusion h)
   | quotDecl k cv => exact main (fun _ _ h => Declaration.noConfusion h)
 
 end WalksP

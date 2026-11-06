@@ -5,7 +5,7 @@ public import ConLeche.Verify.Inductives.PosDeriv
 import ConLeche.Verify.Inductives.UniformOcc
 import ConLeche.Verify.EnvGuards
 import ConLeche.Verify.Knot
-import ConLeche.Verify.EnvPreds
+public import ConLeche.Kernel.Inductives.BlockTail
 
 public section
 
@@ -199,9 +199,7 @@ about a name the kernel fabricates:
 
 * the stored type of every non-member constant (inference);
 * the value of every non-member definition (δ);
-* the rule right-hand sides of every non-member recursor (ι), and its
-  η-rescue bits are the store's verdict (`recRuleEtaOf`: the η rescue's
-  constructor is the rule's own, a stored constructor);
+* the rule right-hand sides of every non-member recursor (ι);
 * the body of every projection-table entry (a `.proj` node's type);
 * constructors are no members (the K / `And` rescues and the `Nat`
   literal's constructor form fabricate constructor heads);
@@ -214,17 +212,15 @@ about a name the kernel fabricates:
     ci.toConstantVal.type.occDeep names = false) ∧
   (∀ n cv v hint, env.find? n = some (.defnInfo cv v hint) → n ∉ names →
     v.occDeep names = false) ∧
-  (∀ n cv mI rP rules, env.find? n = some (.recInfo cv mI rP rules) → n ∉ names →
-    ∀ r ∈ rules, r.rhs.occDeep names = false ∧
-      (r.eta = true → recRuleEtaOf env.find? r.ctor = true)) ∧
+  (∀ n cv mI rP isK rules, env.find? n = some (.recInfo cv mI rP isK rules) → n ∉ names →
+    ∀ r ∈ rules, r.rhs.occDeep names = false) ∧
   (∀ T i entry, env.findProj? T i = some entry → entry.body.occDeep names = false) ∧
   (∀ c cv nP nF, env.find? c = some (.ctorInfo cv nP nF) → c ∉ names) ∧
-  (natLitSupported env = true → natName ∉ names) ∧
-  (strLitSupported env = true →
+  (natLitStored env = true → natName ∉ names ∧ natZeroName ∉ names ∧ natSuccName ∉ names) ∧
+  (strLitStored env = true →
     stringName ∉ names ∧ stringOfListName ∉ names ∧ listNilName ∉ names ∧
       listConsName ∉ names ∧ charName ∉ names ∧ charOfNatName ∉ names) ∧
-  (natOpStored env natBeqName = true ∨ natOpStored env natBleName = true →
-    boolTrueName ∉ names ∧ boolFalseName ∉ names)
+  boolTrueName ∉ names ∧ boolFalseName ∉ names
 
 /-! ## Literals -/
 
@@ -236,7 +232,7 @@ theorem strLitList_occDeep {names : List Name} (hc : charName ∉ names)
     simp [strLitList, Expr.occDeep, hc, hk, ho, strLitList_occDeep hc hn hk ho cs]
 
 theorem strLitToConstructor_occDeep {env : Env} {names : List Name}
-    (hN : WhnfNamesFree env names) (hs : strLitSupported env = true) (s : String) :
+    (hN : WhnfNamesFree env names) (hs : strLitStored env = true) (s : String) :
     (strLitToConstructor s).occDeep names = false := by
   obtain ⟨-, hso, hn, hk, hc, ho⟩ := hN.2.2.2.2.2.2.1 hs
   rw [strLitToConstructor_eq]
@@ -251,9 +247,7 @@ theorem litToCtorIfNat_occDeep {env : Env} {names : List Name}
     rw [litToCtorIfNat]
     split
     · rename_i hs
-      obtain ⟨cv, caps, cv0, i0, j0, cv1, i1, j1, -, h0, h1, -⟩ := natLitSupported_inv hs
-      have hz := hN.2.2.2.2.1 _ _ _ _ h0
-      have hsu := hN.2.2.2.2.1 _ _ _ _ h1
+      obtain ⟨-, hz, hsu⟩ := hN.2.2.2.2.2.1 hs
       cases n <;> simp [natLitToConstructor, Expr.occDeep, hz, hsu]
     · exact he
   | .lit (.strVal _) => exact he
@@ -320,12 +314,11 @@ theorem natOpResult_const {c : Name} {a b : Nat} {bn : Name}
   exact nomatch h
 
 /-- Literal acceleration's reducts, precisely: a literal, or a `Bool`
-constructor produced while `Nat.beq` or `Nat.ble` is stored. -/
+constructor. -/
 theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
     (h : reduceNatFueled mode false env fuel d e = .ok (some e₂)) :
     (∃ n, e₂ = .lit (.natVal n)) ∨
-    (∃ bn, e₂ = .const bn [] ∧ (bn = boolTrueName ∨ bn = boolFalseName) ∧
-      (natOpStored env natBeqName = true ∨ natOpStored env natBleName = true)) := by
+    (∃ bn, e₂ = .const bn [] ∧ (bn = boolTrueName ∨ bn = boolFalseName)) := by
   dsimp only [reduceNatFueled] at h
   revert h
   match e with
@@ -404,11 +397,8 @@ theorem reduceNat_inv_bool {env : Env} {fuel d : Nat} {e e₂ : Expr}
             subst h
             rcases natOpResult_shape hres with hl | ⟨bn, rfl⟩
             · exact Or.inl hl
-            · obtain ⟨hc, hb⟩ := natOpResult_const hres
-              refine Or.inr ⟨bn, rfl, hb, ?_⟩
-              rcases hc with rfl | rfl
-              · exact Or.inl hcond.2
-              · exact Or.inr hcond.2
+            · obtain ⟨-, hb⟩ := natOpResult_const hres
+              exact Or.inr ⟨bn, rfl, hb⟩
         | none => intro h; simp [pure, Except.pure] at h
     · split
       · intro h
@@ -457,7 +447,7 @@ theorem unfoldDefinition_occDeep {env : Env} {names : List Name}
   | some (.thmInfo _) => intro h; exact nomatch h
   | some (.indInfo _ _) => intro h; exact nomatch h
   | some (.ctorInfo _ _ _) => intro h; exact nomatch h
-  | some (.recInfo _ _ _ _) => intro h; exact nomatch h
+  | some (.recInfo _ _ _ _ _) => intro h; exact nomatch h
   | some (.defnInfo cv value hint) => ?_
   intro h
   dsimp only at h
@@ -497,10 +487,10 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
       e.occDeep names = false → w.occDeep names = false)
     (hI : ∀ {e t : Expr}, inferTypeIO mode false env fuel d e = .ok t →
       e.occDeep names = false → t.occDeep names = false)
-    {recName : Name} {cv : ConstantVal} {mI rP : Nat} {rules : List RecRule}
-    (hrec : env.find? recName = some (.recInfo cv mI rP rules)) (hrn : recName ∉ names)
+    {recName : Name} {cv : ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List RecRule}
+    (_hrec : env.find? recName = some (.recInfo cv mI rP isK rules)) (_hrn : recName ∉ names)
     {major major' : Expr}
-    (h : majorToCtorFueled mode false env fuel d recName rules major = .ok major')
+    (h : majorToCtorFueled mode false env fuel d recName isK rules major = .ok major')
     (hm : major.occDeep names = false) : major'.occDeep names = false := by
   rcases majorToCtor_inv h with rfl | ⟨-, -, -, rl, cvj, cnP, cnF, tmaj₀, tmaj, T, us₀, ust,
       cvT, caps, hrules, hfc, hpr, hfT, hinf, hwt, -, hcase⟩
@@ -508,19 +498,10 @@ theorem majorToCtor_occDeep {env : Env} {names : List Name}
   have hctor : rl.ctor ∉ names := hN.2.2.2.2.1 _ _ _ _ hfc
   have htmaj : tmaj.occDeep names = false := hW hwt (hI hinf hm)
   have hargs := Expr.occDeep_getAppArgs htmaj
-  rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨heta, -, -, -, rfl, -⟩ | ⟨rfl, -, -, -, rfl, -⟩
+  rcases hcase with ⟨-, -, -, rfl, -⟩ | ⟨heta, -, -, rfl, -⟩ | ⟨rfl, -, -, -, rfl, -⟩
   · exact Expr.occDeep_mkAppN (Expr.occDeep_const hctor)
       (fun x hx => hargs x (List.mem_of_mem_take hx))
-  · subst hrules
-    have hbit := (hN.2.2.1 _ _ _ _ _ hrec hrn rl List.mem_cons_self).2 heta
-    obtain ⟨cvj', _, _, T', _, cvT', caps', hfc', hpr', hfT', -, hec, -⟩ :=
-      recRuleEtaOf_inv hbit
-    rw [hfc] at hfc'
-    obtain ⟨rfl, -, -⟩ := ConstantInfo.ctorInfo.inj (Option.some.inj hfc')
-    rw [hpr] at hpr'
-    obtain ⟨rfl, -⟩ := Expr.const.inj hpr'
-    rw [hfT] at hfT'
-    obtain ⟨-, rfl⟩ := ConstantInfo.indInfo.inj (Option.some.inj hfT')
+  · obtain ⟨-, hec, -⟩ := etaRescueOk_inv heta
     refine Expr.occDeep_mkAppN (Expr.occDeep_const (hec ▸ hctor)) ?_
     exact etaFabArgsE_occDeep hargs hm
   · refine Expr.occDeep_mkAppN (Expr.occDeep_const hctor) ?_
@@ -621,7 +602,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
         rcases hcase with ⟨ty, body, rfl, hbeta⟩ | ⟨e'', hio, hwe''⟩ | rfl
         · simp only [Expr.occDeep, Bool.or_eq_false_iff] at hf'
           exact ihCore hbeta (Expr.occDeep_instantiate1 he.2 body 0 hf'.2)
-        · obtain ⟨c, us, cv, mI, rP, rules, major, cj, usj,
+        · obtain ⟨c, us, cv, mI, rP, isK, rules, major, cj, usj,
             cvj, cnP, cnF, r, hfn, hfc, hlen, -, hprep,
             hmfn, hfj, hrule, hml, hlev, hpeq, hmcerts, -, rfl⟩ :=
             iotaRec_inv hio
@@ -638,7 +619,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
               (Expr.occDeep_getAppArgs happ _ (getD_mem (by omega)))
           refine ihCore hwe'' (Expr.occDeep_mkAppN ?_ ?_)
           · rw [Expr.occDeep_instantiateLevelParams]
-            exact (hN.2.2.1 _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)).1
+            exact hN.2.2.1 _ _ _ _ _ _ hfc hc r (List.mem_of_find?_eq_some hrule)
           · intro x hx
             rcases List.mem_append.mp hx with hx | hx
             · exact Expr.occDeep_getAppArgs happ _ (List.mem_of_mem_take hx)
@@ -669,9 +650,9 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           have h1 := ihCore hwc he
           rcases hcase with ⟨e₂, hrn, hcont⟩ | ⟨-, e₂, hu, hcont⟩ | ⟨-, -, rfl⟩
           · refine ihN hcont ?_
-            rcases reduceNat_inv_bool hrn with ⟨k, rfl⟩ | ⟨bn, rfl, hbn, hst⟩
+            rcases reduceNat_inv_bool hrn with ⟨k, rfl⟩ | ⟨bn, rfl, hbn⟩
             · rfl
-            · obtain ⟨ht, hf⟩ := hN.2.2.2.2.2.2.2 hst
+            · obtain ⟨ht, hf⟩ := hN.2.2.2.2.2.2.2
               rcases hbn with rfl | rfl
               · exact Expr.occDeep_const ht
               · exact Expr.occDeep_const hf
@@ -742,7 +723,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           intro h
           simp only [Except.ok.injEq] at h
           subst h
-          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs)
+          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs).1
     | forallE ty body =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ := inferTypeCore_forall_inv h
       rfl
@@ -834,7 +815,7 @@ theorem whnfPres_occDeep {env : Env} {names : List Name} (hN : WhnfNamesFree env
           intro h
           simp only [Except.ok.injEq] at h
           subst h
-          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs)
+          exact Expr.occDeep_const (hN.2.2.2.2.2.1 hs).1
     | forallE ty body =>
       obtain ⟨tty, u, bt, v, hty, hwt, hbt, hes, -, rfl⟩ := inferTypeCoreIO_forall_inv h
       rfl
@@ -1190,6 +1171,13 @@ theorem piResult_of_stripPis_sort :
     | .bvar _ | .sort _ | .const _ _ | .lit _ | .fvar _ _ | .app _ _ | .lam _ _
     | .letE _ _ _ | .proj _ _ _ => exact absurd h (by simp [Expr.stripPis])
 
+/-- A former whose type is a syntactic telescope ending in `Sort s` has `s`'s
+zero-ness datum. -/
+theorem formerZ_of_stripPis {cv : ConstantVal} {n : Nat} {bs : List Expr} {s : Level}
+    (h : cv.type.stripPis n = some (bs, .sort s)) :
+    formerZ cv = Level.zeronessOf s := by
+  simp only [formerZ, formerResSort, piResult_of_stripPis_sort n h]
+
 /-- A term whose constants all resolve before the block names no member. -/
 theorem Expr.occDeep_of_constsResolve {env : Env} {names : List Name}
     (hfresh : ∀ n ∈ names, env.find? n = none) :
@@ -1277,36 +1265,33 @@ theorem listConsTyOk_piResult {ci : ConstantInfo} (h : listConsTyOk (some ci) = 
 the block's formers (members `names`, stored as `indInfo`s whose types
 are syntactic telescopes ending in a sort) consed onto a pre-block
 `env`: fresh there, and `envI` agrees with `env` off the members and in
-its tables.  Two
-facts about the pre-block environment are needed beyond `EnvWF`, each
-an install-time invariant of the checker's environments:
-
-* `hRecEta`: a set η-rescue bit is the store's verdict (the η part of
-  `RecCtorsStored`, `ConLeche/Verify/EnvPreds.lean`);
-* `hBool`: `Nat.beq`/`Nat.ble` are stored only with the `Bool`
-  constructors (`natOpGuard` at the operation's install). -/
+its tables.  One
+fact about the pre-block environment is needed beyond `EnvWF`, an
+block invariant of the checker's environments: `hBool`: no member is
+named as a `Bool` constructor (`checkBlock`), which the comparisons' fast path produces by name. -/
 theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
-    {cvTas : List ConstantVal} {names : List Name}
-    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ cvTas, cvTb.name = n)
-    (hfindM : ∀ cvTb ∈ cvTas, (∃ caps, envI.find? cvTb.name = some (.indInfo cvTb caps)) ∧
-      ∃ k bs s, cvTb.type.stripPis k = some (bs, .sort s))
-    (hfresh : ∀ cvTb ∈ cvTas, env.find? cvTb.name = none)
-    (hI : ∀ n, (∀ cvTb ∈ cvTas, cvTb.name ≠ n) → envI.find? n = env.find? n)
+    {formers : List ConstantVal} {names : List Name}
+    (hnames : ∀ n, n ∈ names ↔ ∃ cvTb ∈ formers, cvTb.name = n)
+    (hfindM : ∀ cvTb ∈ formers, ∃ cvS caps, envI.find? cvTb.name = some (.indInfo cvS caps) ∧
+      (declinedAtDefinition.contains cvTb.name = true → ∃ k bs s, cvS.type.stripPis k = some (bs, .sort s)))
+    (hfresh : ∀ cvTb ∈ formers, env.find? cvTb.name = none)
+    (hI : ∀ n, (∀ cvTb ∈ formers, cvTb.name ≠ n) → envI.find? n = env.find? n)
     (hT : envI.tables = env.tables)
-    (hRecEta : ∀ n cv mI rP rules, env.find? n = some (.recInfo cv mI rP rules) →
-      ∀ r ∈ rules, r.eta = true → recRuleEtaOf env.find? r.ctor = true)
-    (hBool : natOpStored env natBeqName = true ∨ natOpStored env natBleName = true →
-      (env.find? boolTrueName).isSome = true ∧ (env.find? boolFalseName).isSome = true) :
+    (hBool : boolTrueName ∉ names ∧ boolFalseName ∉ names)
+    (hsh : ∀ n c, envI.find? n = some c → litShapeOk c = true) :
     WhnfNamesFree envI names := by
-  -- a member: an `indInfo` of `envI` whose type ends in a sort, fresh in `env`
-  have hmem : ∀ n ∈ names, ∃ cvTb caps s, envI.find? n = some (.indInfo cvTb caps) ∧
-      cvTb.type.piResult = .sort s ∧ env.find? n = none := by
+  -- a member: an `indInfo` of `envI`, fresh in `env`, whose type ends in a sort at a guarded name
+  have hmem : ∀ n ∈ names, ∃ cvS caps, envI.find? n = some (.indInfo cvS caps) ∧
+      (declinedAtDefinition.contains n = true → ∃ s, cvS.type.piResult = .sort s) ∧
+      env.find? n = none := by
     intro n hn
     obtain ⟨cvTb, hcv, rfl⟩ := (hnames n).mp hn
-    obtain ⟨⟨caps, hf⟩, k, bs, s, hs⟩ := hfindM cvTb hcv
-    exact ⟨cvTb, caps, s, hf, piResult_of_stripPis_sort k hs, hfresh cvTb hcv⟩
+    obtain ⟨cvS, caps, hf, hs⟩ := hfindM cvTb hcv
+    refine ⟨cvS, caps, hf, fun hg => ?_, hfresh cvTb hcv⟩
+    obtain ⟨k, bs, s, h⟩ := hs hg
+    exact ⟨s, piResult_of_stripPis_sort k h⟩
   have hmemE : ∀ n ∈ names, env.find? n = none := fun n hn => by
-    obtain ⟨-, -, -, -, -, h⟩ := hmem n hn
+    obtain ⟨-, -, -, -, h⟩ := hmem n hn
     exact h
   have hnon : ∀ n, n ∉ names → envI.find? n = env.find? n := fun n hn =>
     hI n (fun cvTb hcv h => hn ((hnames n).mpr ⟨cvTb, hcv, h⟩))
@@ -1314,11 +1299,12 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     intro n hs hn
     rw [hmemE n hn] at hs
     exact nomatch hs
-  -- a constant of `envI` whose type ends in no sort is no member
-  have hnotSort : ∀ n ci, envI.find? n = some ci →
+  -- a constant of `envI` at a guarded name whose type ends in no sort is no member
+  have hnotSort : ∀ n ci, declinedAtDefinition.contains n = true → envI.find? n = some ci →
       (∀ s, ci.toConstantVal.type.piResult ≠ .sort s) → n ∉ names := by
-    intro n ci hf hs hn
-    obtain ⟨cvTb, caps, s, hf', hsort, -⟩ := hmem n hn
+    intro n ci hg hf hs hn
+    obtain ⟨cvTb, caps, hf', hsort, -⟩ := hmem n hn
+    obtain ⟨s, hsort⟩ := hsort hg
     rw [hf] at hf'
     obtain rfl := Option.some.inj hf'
     exact hs s hsort
@@ -1326,7 +1312,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
   have hnotInd : ∀ n ci, envI.find? n = some ci → (∀ cv caps, ci ≠ .indInfo cv caps) →
       n ∉ names := by
     intro n ci hf hs hn
-    obtain ⟨cvTb, caps, s, hf', -, -⟩ := hmem n hn
+    obtain ⟨cvTb, caps, hf', -, -⟩ := hmem n hn
     rw [hf] at hf'
     exact hs _ _ (Option.some.inj hf')
   have hres : ∀ e : Expr, e.constsResolve env = true → e.occDeep names = false :=
@@ -1341,15 +1327,9 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hnon n hn] at hf
     exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.1 cv v hint rfl).2.2.1
   · -- recursor rules
-    intro n cv mI rP rules hf hn r hr
+    intro n cv mI rP isK rules hf hn r hr
     rw [hnon n hn] at hf
-    refine ⟨hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2.1 cv mI rP rules rfl r hr).2.2.1, ?_⟩
-    intro heta
-    obtain ⟨cvj, cnP, cnF, T, us, cvT, caps, h1, h2, h3, h4, h5, h7⟩ :=
-      recRuleEtaOf_inv (hRecEta n cv mI rP rules hf r hr heta)
-    refine recRuleEtaOf_of (f := envI.find?) (cnP := cnP) (cnF := cnF) ?_ h2 ?_ h4 h5 h7
-    · rw [hnon _ (hold _ (by rw [h1]; rfl))]; exact h1
-    · rw [hnon _ (hold _ (by rw [h3]; rfl))]; exact h3
+    exact hres _ ((hwf.consts _ (Env.find?_mem hf)).2.2.2.2.2 cv mI rP isK rules rfl r hr).2.2.1
   · -- projection-table bodies
     intro T i entry hfp
     obtain ⟨tbl, hft, hi, rfl⟩ := Env.findProj?_some hfp
@@ -1367,15 +1347,18 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     exact hnotInd c _ hf (fun cv' caps h => nomatch h)
   · -- `Nat`
     intro hs
-    obtain ⟨-, -, cv0, i0, j0, -, -, -, -, h0, -, -, -, -, -, hty0, -⟩ := natLitSupported_inv hs
+    obtain ⟨-, -, cv0, i0, j0, cv1, i1, j1, -, h0, hsc, -, -, -, -, hty0, -⟩ :=
+      natLitSupported_inv (natLitSupported_of_shapes hsh hs)
     have hz : natZeroName ∉ names := hnotInd _ _ h0 (fun cv caps h => nomatch h)
+    have hsu : natSuccName ∉ names := hnotInd _ _ hsc (fun cv caps h => nomatch h)
     rw [hnon _ hz] at h0
     have hr := (hwf.consts _ (Env.find?_mem h0)).2.2.1
     change cv0.type.constsResolve env = true at hr
     rw [hty0] at hr
-    exact hold _ (by simpa [Expr.constsResolve] using hr)
+    exact ⟨hold _ (by simpa [Expr.constsResolve] using hr), hz, hsu⟩
   · -- the string-support names
     intro hs
+    have hs := strLitSupported_of_shapes hsh hs
     simp only [strLitSupported, Bool.and_eq_true] at hs
     obtain ⟨⟨⟨⟨⟨⟨⟨-, -⟩, hO⟩, -⟩, hNil⟩, hCons⟩, -⟩, hCO⟩ := hs
     obtain ⟨ciO, hfO⟩ : ∃ ci, envI.find? stringOfListName = some ci := by
@@ -1385,7 +1368,7 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hfO] at hO
     obtain ⟨l1, us1, htyO⟩ := stringOfListTyOk_inv hO
     have hO' : stringOfListName ∉ names :=
-      hnotSort _ _ hfO (fun s => by rw [htyO]; simp [Expr.piResult])
+      hnotSort _ _ (by simp [declinedAtDefinition]) hfO (fun s => by rw [htyO]; simp [Expr.piResult])
     obtain ⟨ciC, hfC⟩ : ∃ ci, envI.find? charOfNatName = some ci := by
       cases h : envI.find? charOfNatName with
       | none => rw [h] at hCO; exact nomatch hCO
@@ -1393,15 +1376,15 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [hfC] at hCO
     have htyC := charOfNatTyOk_inv hCO
     have hCO' : charOfNatName ∉ names :=
-      hnotSort _ _ hfC (fun s => by rw [htyC]; simp [Expr.piResult])
+      hnotSort _ _ (by simp [declinedAtDefinition]) hfC (fun s => by rw [htyC]; simp [Expr.piResult])
     have hNil' : listNilName ∉ names := by
       cases h : envI.find? listNilName with
       | none => rw [h] at hNil; exact nomatch hNil
-      | some ci => rw [h] at hNil; exact hnotSort _ _ h (listNilTyOk_piResult hNil)
+      | some ci => rw [h] at hNil; exact hnotSort _ _ (by simp [declinedAtDefinition]) h (listNilTyOk_piResult hNil)
     have hCons' : listConsName ∉ names := by
       cases h : envI.find? listConsName with
       | none => rw [h] at hCons; exact nomatch hCons
-      | some ci => rw [h] at hCons; exact hnotSort _ _ h (listConsTyOk_piResult hCons)
+      | some ci => rw [h] at hCons; exact hnotSort _ _ (by simp [declinedAtDefinition]) h (listConsTyOk_piResult hCons)
     -- `String.ofList : List Char → String` is older than the block, and
     -- so are the `String` and `Char` it mentions
     rw [hnon _ hO'] at hfO
@@ -1409,24 +1392,6 @@ theorem whnfNamesFree_formers {env envI : Env} (hwf : EnvWF env)
     rw [htyO] at hrO
     simp only [Expr.constsResolve, Bool.and_eq_true] at hrO
     exact ⟨hold _ hrO.2, hO', hNil', hCons', hold _ hrO.1.2, hCO'⟩
-  · -- the `Bool` constructors
-    intro hst
-    have hE : natOpStored env natBeqName = true ∨ natOpStored env natBleName = true := by
-      have key : ∀ c, natOpStored envI c = true → natOpStored env c = true := by
-        intro c hc
-        unfold natOpStored at hc ⊢
-        cases h : envI.find? c with
-        | none => rw [h] at hc; exact nomatch hc
-        | some ci =>
-          rw [h] at hc
-          have hcn : c ∉ names := hnotInd _ _ h (fun cv caps he => by
-            subst he; exact nomatch hc)
-          rw [← hnon c hcn, h]
-          exact hc
-      rcases hst with h | h
-      · exact Or.inl (key _ h)
-      · exact Or.inr (key _ h)
-    obtain ⟨ht, hf⟩ := hBool hE
-    exact ⟨hold _ ht, hold _ hf⟩
+  · exact hBool
 
 end ConLeche

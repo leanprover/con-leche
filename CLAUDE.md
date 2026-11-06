@@ -128,8 +128,8 @@ arm or induction case). No custom tactic, macro or elab.
   `main`: the plumbing around `runArgs`, followed by the exit;
   `ConLeche/Driver/Cli.lean` is the CLI: the argument parse and the
   generic `runArgs`; the rest of
-  `ConLeche/Driver/*` is the driver proper (the install and check
-  loops, the parallel install, the phase sequencing), and all of it is
+  `ConLeche/Driver/*` is the driver proper (the parse and check
+  loops, the phase sequencing), and all of it is
   checker code like `Kernel/*` (a `module` header, one
   `@[expose] public section`).
 * `ConLeche/Model/*` (the graded model) is imported only by itself, the
@@ -185,7 +185,6 @@ arm or induction case). No custom tactic, macro or elab.
   the toolchain (`Init.Util`'s `withPtrEq`,
   `Init.Data.Repr`, the Nat-op certificate generator's `Init.Data.Nat.*`);
   each site carries its reason.
-* Elaboration-time code (`Kernel/BasisGen`, `PinGen/*`, the pin and
-  basis splices) is `meta`: `meta section`, `public meta import`; a
+* Elaboration-time code (`PinGen/*`, the pin splices) is `meta`: `meta section`, `public meta import`; a
   module needed at both levels is imported twice (`public import X` +
   `meta import X`).

@@ -45,7 +45,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal IndCaps CheckM NestCtx NestHole
-  BlockParts BlockShape fueledOps PosTree PosNodeOk PosD)
+  BlockShape BlockShape fueledOps PosTree PosNodeOk PosD)
 
 universe w
 
@@ -104,8 +104,8 @@ structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvM
   hsubC : ∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks
   htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
     denote mk.base2.acval envI ψ dd e = some ea → denote mpC.base2.acval envC ψ dd e = some ea
-  henvC : ∃ (nP : Nat) (ctorsAs : List (List (ConstantVal × Nat))),
-    envC = ConLeche.consBlockCtors nP ctorsAs envI
+  henvC : ∃ (nP : Nat) (memberCtors : List (List (ConstantVal × Nat))),
+    envC = ConLeche.consBlockCtors nP memberCtors envI
   hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI ctx t
   hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns
   hpar : ∀ t ∈ ns, t.occ ≠ [] → ∃ p ∈ ns, t ∈ p.kids
@@ -120,10 +120,10 @@ structure DynCtx (F : Nat) {envI envC : Env} (mk : EnvModelM V envI) (mpC : EnvM
   hΔ0 : ∀ ψ, ((d.holeCtx ψ).reverse).length = ctx.hiAt 0
   hlpsM : ∀ n ∈ ctx.names, ∃ cv caps, envI.find? n = some (.indInfo cv caps) ∧
     cv.levelParams = ctx.lps
-  hformers : ∃ (cvTas : List ConstantVal) (p : BlockShape) (isRec : Bool),
-    BlockNamesOk (V := V) d cvTas ∧
-    ∀ (c : Nat) (cvTb : ConstantVal), cvTas[c]? = some cvTb →
-      envI.find? cvTb.name = some (.indInfo cvTb (ConLeche.blockCapsAt p c isRec)) ∧
+  hformers : ∃ (formers : List ConstantVal) (p : BlockShape) (isRec : Bool),
+    BlockNamesOk (V := V) d formers ∧
+    ∀ (c : Nat) (cvTb : ConstantVal), formers[c]? = some cvTb →
+      FormerInEnv mk.base2 cvTb (ConLeche.blockCapsAt p c isRec) ∧
       FormerData mk.base2 cvTb (d.nP + d.nIdxAt c) d.resSort (d.ppsM c)
 
 /-! ## A listed node's recorded block -/
@@ -223,11 +223,12 @@ theorem dyn_nodeBlock {F : Nat} {envI envC : Env} {mk : EnvModelM V envI}
   have hp₀ : p₀ ∈ t.grp := by rw [hp]; exact List.mem_cons_self
   have hp₀H : p₀.1 = (t.grp.headD default).1 := by rw [hp]; rfl
   obtain ⟨nI, hnI⟩ := hinst p₀ hp₀
-  obtain ⟨cvI, capsI, hfI, hul⟩ := ConLeche.nestInstType_lvls hnI
+  obtain ⟨cvI, capsI, _, hfI, -, hFI⟩ := ConLeche.nestInstType_inv hnI
+  have hul := hFI.lvls
   rw [H.hcov.find, hp₀H, ← hmmH, hfc] at hfI
   obtain ⟨rfl, rfl⟩ : cv = cvI ∧ caps = capsI := by simpa using hfI
   -- the key's container's level parameters, at the constructors' environment
-  obtain ⟨nPc, ctorsAs, henvC⟩ := H.henvC
+  obtain ⟨nPc, memberCtors, henvC⟩ := H.henvC
   have hlpsC := posNodeOk_lps H.hcov H.hsub henvC hok _ hheadG
   obtain ⟨lps', hl'⟩ := blk_lps_envC H.hcov H.hsub henvC hD
   obtain ⟨cv', caps', hfC', hfI', hcl'⟩ := hl' mm hmm
@@ -428,7 +429,7 @@ theorem dyn_hAdm (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ : Nat �
     rw [hψ]
     have hws := posNodeOk_dsAnc (H.hok t ht)
     have hdsa := dyn_dsaI H ht ψ
-    refine ⟨nodeKeyFit mk (H.hΔ0 ψ) (H.hok t ht) (H.hsem t ht ψ) H.hcov.find hD hmm hmmH hfc (hlenP _).symm
+    refine ⟨nodeKeyFit mk (H.hΔ0 ψ) (H.hok t ht) (H.hsem t ht ψ) H.hcov hD hmm hmmH hfc (hlenP _).symm
       hdsa σ hσ.sat, fun c hc => ?_⟩
     rw [hwid] at hc
     exact grp_idx_eq mk hD hnN hkN H.hcov.find hlps hndl hul hws hdsa (hlenP _) hg (hall c hc)
@@ -513,7 +514,7 @@ theorem trueVal_frameVal (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ 
   have hI : nodeDsaI mk ctx ψ o = dsa := by rw [nodeDsaI, DenoteSpine.getD_eq hdsa]
   rw [hI]
   -- the recorded former at its block's parameters is the hole value
-  have hkey := nodeKeyFit mk (H.hΔ0 ψ) (H.hok o ho) (H.hsem o ho ψ) H.hcov.find hD hmm hmmH hfc
+  have hkey := nodeKeyFit mk (H.hΔ0 ψ) (H.hok o ho) (H.hsem o ho ψ) H.hcov hD hmm hmmH hfc
     (hlenP _).symm hdsa _ hsat
   have hfe := former_app_eq mpC (H.hsub D hD) hmm' hkey (consList xs ρ)
   have hdl : (D.params (Level.substFn ψ cv.levelParams o.key.lvls)).length
@@ -539,7 +540,7 @@ theorem dyn_trueVal_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ :
   have hxs' : ctx.nP ≤ xs.length := by rw [H.hnP]; exact hxs
   have base : Sat V (stackCtx mk.base2 ψ ctx [] (d.holeCtx ψ).reverse)
       (trueVal mpC ctx ψ ρ xs []) := by
-    obtain ⟨cvTas, p, isRec, hN, hF⟩ := H.hformers
+    obtain ⟨formers, p, isRec, hN, hF⟩ := H.hformers
     have hkN : d.toLfp.names.length = d.k := lfp_namesLen mpC H.hd0
     obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok _ H.hd0
     rw [stackCtx_nil]
@@ -616,8 +617,7 @@ theorem dyn_trueVal_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ :
       have hdsa := dyn_dsaI H hu ψ
       rw [hta]
       -- the stack: the group's hole types on top
-      rw [stackCtx_frame H.hcov.find (grpWf_ty mk hD hnN hkN H.hcov.find hlps hndl hul
-        (posNodeOk_dsAnc (H.hok u hu)) hdsa (hlenP _) hg) u.anc]
+      rw [stackCtx_frame (posD_frame_inv (H.hok u hu).1).2.2.2.1 u.anc]
       -- the true valuation: the group's hole values on top
       have hψ : nodeψ envC ψ u = Level.substFn ψ cv.levelParams u.key.lvls := by
         unfold nodeψ; rw [hlpsOf]
@@ -671,7 +671,7 @@ theorem dyn_trueVal_sat (H : DynCtx F mk mpC ctx d ns) (ψ : Name → Nat) (ρ :
           rw [List.getElem?_eq_getElem hj', Option.map_some, Option.getD_some]
           congr 1
           have : G[G.length - 1 - q] = ⟨⟨u.grp[G.length - 1 - q].1, u.key.lvls, u.key.ds⟩,
-              ctx.hiAt u.anc.length⟩ := by
+              ctx.hiAt u.anc.length, u.grp[G.length - 1 - q].2.piBinders.1.length⟩ := by
             subst hG; simp [ConLeche.grpNews]
           rw [this]
         · -- below the group: the parent's frames
@@ -1070,20 +1070,20 @@ end Frames
 /-- **The dynamic part's context from the stage's** (`nestedClassNodes`'
 node context). -/
 theorem dynCtx_of {F : Nat}
-    {envC envI : Env} {pp : BlockParts} {cvTasR : List ConstantVal}
-    {ctorsAsR : List (List (ConstantVal × Nat))} {mpC : EnvModelM V envC}
+    {envC envI : Env} {pp : BlockShape} {mpC : EnvModelM V envC}
     {dR : BlockData V} {isRecR : Bool} {A : Nat → (Name → Nat) → Term}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
-    (hctx : RecCtxBase V F envC envI pp cvTasR ctorsAsR mpC dR isRecR A kindsR nfsR posR)
-    {mk : EnvModelM V envI} (hmkC : LfpCover mk pp.toBlockShape.memberNames)
+    (hctx : RecCtxBase V F envC envI pp mpC dR isRecR A kindsR nfsR posR)
+    {mk : EnvModelM V envI} (hmkC : LfpCover mk pp.memberNames)
     (hmk : ∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks)
     (hag : ∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n)
     (hsubC : ∀ D ∈ mpC.lfpBlocks, D = dR.toLfp ∨ D ∈ mk.lfpBlocks)
     (htr : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
       denote mk.base2.acval envI ψ dd e = some ea →
         denote mpC.base2.acval envC ψ dd e = some ea)
-    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps cvTasR pp.toBlockShape isRecR)
+    (hcoreK : BlockHoleCtxFacts mk.base2 dR pp.lps pp.formers pp isRecR)
+    (hreads : ∀ F, FamilyRead mk F)
     {fvsP : List Expr} {ns : List PosTree}
     (hok : ∀ t ∈ ns, PosNodeOk (fueledOps .verified F) envI (pp.nestCtx fvsP envI.find?) t)
     (hkids : ∀ t ∈ ns, ∀ k ∈ t.kids, k ∈ ns)
@@ -1099,38 +1099,38 @@ theorem dynCtx_of {F : Nat}
   obtain ⟨cvTa0, -, -, -, h0, -⟩ := ConLeche.checkBlockPositivity_m2 hPos
   obtain ⟨pk, uOfD, ppsOf, rfl⟩ := hdR
   have hkN := lfp_namesLen mpC hlfp
-  refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl), hmk, hag, hsubC, htr,
-    ⟨pp.nP, ctorsAsR, henvC⟩, hok, hkids, hpar, hsem, hF, rfl, hparF, hparS, rfl,
+  refine ⟨hcovC, hlfp, contCover_of hmkC (fun _ => rfl) hreads, hmk, hag, hsubC, htr,
+    ⟨pp.nP, pp.memberCtors, henvC⟩, hok, hkids, hpar, hsem, hF, rfl, hparF, hparS, rfl,
     fun ψ => ?_,
-    fun n hn => ?_, ⟨cvTasR, pp.toBlockShape, isRecR, hN, hcoreK.1⟩⟩
+    fun n hn => ?_, ⟨pp.formers, pp, isRecR, hN, hcoreK.1⟩⟩
   · -- the hole context: the parameters, then one hole per member
-    have h0' : cvTasR[0]? = some cvTa0 := by rw [List.head?_eq_getElem?] at h0; exact h0
+    have h0' : pp.formers[0]? = some cvTa0 := by rw [List.head?_eq_getElem?] at h0; exact h0
     obtain ⟨-, hFD0⟩ := hcoreK.1 0 cvTa0 h0'
     rw [List.length_reverse, BlockData.holeCtx, List.length_append, List.length_map,
       List.length_range, BlockData.params, List.length_take, hFD0.len ψ]
     show min _ _ + _ = pp.nP + pp.memberNames.length + 0
-    have : (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k = pp.memberNames.length := by
+    have : (blockDataOf V pp pk uOfD ppsOf).k = pp.memberNames.length := by
       simp [blockDataOf, blockDataPre, BlockData.withPhi, ConLeche.BlockShape.k,
         ConLeche.BlockShape.memberNames]
     rw [this]
-    have : (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).nP = pp.nP := rfl
+    have : (blockDataOf V pp pk uOfD ppsOf).nP = pp.nP := rfl
     rw [this]
     omega
   · -- the members are stored at the block's level parameters
-    change n ∈ pp.toBlockShape.memberNames at hn
+    change n ∈ pp.memberNames at hn
     obtain ⟨c, hc, rfl⟩ := List.getElem_of_mem hn
-    have hck : c < (blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf).k := by
-      change c < pp.toBlockShape.members.length
+    have hck : c < (blockDataOf V pp pk uOfD ppsOf).k := by
+      change c < pp.members.length
       simpa [ConLeche.BlockShape.memberNames] using hc
-    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, cvTasR[c]? = some cvTb :=
+    obtain ⟨cvTb, hcvb⟩ : ∃ cvTb, pp.formers[c]? = some cvTb :=
       ⟨_, List.getElem?_eq_getElem (by rw [hN.2.2]; exact hck)⟩
     have hname := hN.1 c cvTb hcvb
-    obtain ⟨hf, -⟩ := hcoreK.1 c cvTb hcvb
+    obtain ⟨⟨cvS, hf, hDS⟩, -⟩ := hcoreK.1 c cvTb hcvb
     rw [← hname] at hf
     unfold BlockData.memberName at hf
-    change envI.find? (pp.toBlockShape.memberNames.getD c .anonymous) = _ at hf
+    change envI.find? (pp.memberNames.getD c .anonymous) = _ at hf
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hc, Option.getD_some] at hf
-    exact ⟨_, _, hf, hS.lpsT c cvTb hck hcvb⟩
+    exact ⟨_, _, hf, hDS.lps.trans (hS.lpsT c cvTb hck hcvb)⟩
 
 omit [SetTheory V] in
 /-- **The canonical parameters**, opened off a closed former type: the

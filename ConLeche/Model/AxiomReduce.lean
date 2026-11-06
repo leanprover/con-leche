@@ -68,7 +68,7 @@ theorem ofReduce_shapeS {n : Name} {type' : Expr}
 reads. -/
 theorem ofReduce_gatesS {cv : ConstantVal}
     (hok : ConLeche.ofReduceAxOk env cv = true) :
-    env.find? eqName = some eqA ∧
+    (env.find? eqName).isSome = true ∧
     ConLeche.reduceElemOk env (ConLeche.ofReduceOp cv.name) = true ∧
     (∃ cvR, env.find? (ConLeche.ofReduceOp cv.name)
         = some (.axiomInfo cvR) ∧
@@ -76,8 +76,7 @@ theorem ofReduce_gatesS {cv : ConstantVal}
         (ConLeche.reduceOpCvA (ConLeche.ofReduceOp cv.name)) = true) ∧
     cv.type
       = (ConLeche.ofReducePinA cv.name).type := by
-  simp only [ConLeche.ofReduceAxOk, Bool.and_eq_true,
-    decide_eq_true_eq] at hok
+  simp only [ConLeche.ofReduceAxOk, Bool.and_eq_true] at hok
   obtain ⟨⟨⟨hEq, helem⟩, hstored⟩, hpin⟩ := hok
   refine ⟨hEq, helem, ?_, ?_⟩
   · rw [ConLeche.reduceStoredOk] at hstored
@@ -118,8 +117,9 @@ theorem ofReduce_mem (mp : EnvModelM V env)
   have hsh := ofReduce_shapeS hor hApinT
   rw [hsh] at hta
   -- the `Eq` former's one level parameter is pinned to `1`
-  have heqψ : Level.substFn ψ eqA.toConstantVal.levelParams
-      [Level.zero.succ] uN = 1 := rfl
+  have hEqS : ConLeche.Verify.EqStored env := mp.base2.basis_pinned.eqStored hEq
+  have heqψ : Level.substFn ψ [ConLeche.Verify.eqLp env]
+      [Level.zero.succ] (ConLeche.Verify.eqLp env) = 1 := by simp [Level.substFn, Level.eval]
   have hEd : ∀ e, denote mp.base2.acval env ψ e
       (.const (ConLeche.reduceElemName (ConLeche.ofReduceOp cv.name)) [])
       = some (mp.base2.acval
@@ -134,8 +134,8 @@ theorem ofReduce_mem (mp : EnvModelM V env)
   have hQd : ∀ e, denote mp.base2.acval env ψ e
       (.const eqName [Level.zero.succ])
       = some (mp.base2.acval eqName (Level.substFn ψ
-          eqA.toConstantVal.levelParams [Level.zero.succ])) :=
-    fun e => denote_const hEq rfl
+          [ConLeche.Verify.eqLp env] [Level.zero.succ])) :=
+    fun e => ConLeche.Verify.denote_eqConst hEqS ψ e _
   -- the stored type's reading
   have hden : denote mp.base2.acval env ψ 0
       (.forallE
@@ -158,14 +158,14 @@ theorem ofReduce_mem (mp : EnvModelM V env)
           (.pi (mp.base2.acval (ConLeche.reduceElemName
               (ConLeche.ofReduceOp cv.name)) ψ)
             (.pi (.app (.app (.app (mp.base2.acval eqName
-                    (Level.substFn ψ eqA.toConstantVal.levelParams
+                    (Level.substFn ψ [ConLeche.Verify.eqLp env]
                       [Level.zero.succ]))
                   (mp.base2.acval (ConLeche.reduceElemName
                     (ConLeche.ofReduceOp cv.name)) ψ))
                 (.app (mp.base2.acval (ConLeche.ofReduceOp cv.name) ψ)
                   (.bvar 1))) (.bvar 0))
               (.app (.app (.app (mp.base2.acval eqName
-                    (Level.substFn ψ eqA.toConstantVal.levelParams
+                    (Level.substFn ψ [ConLeche.Verify.eqLp env]
                       [Level.zero.succ]))
                   (mp.base2.acval (ConLeche.reduceElemName
                     (ConLeche.ofReduceOp cv.name)) ψ))
@@ -186,10 +186,10 @@ theorem ofReduce_mem (mp : EnvModelM V env)
     fun ρ' => acval_interp_closed mp.base2 _ ψ ρ' ρ
   have hclQ : ∀ ρ' : Nat → V,
       interp V ρ' (mp.base2.acval eqName
-          (Level.substFn ψ eqA.toConstantVal.levelParams
+          (Level.substFn ψ [ConLeche.Verify.eqLp env]
             [Level.zero.succ]))
         = interp V ρ (mp.base2.acval eqName
-          (Level.substFn ψ eqA.toConstantVal.levelParams
+          (Level.substFn ψ [ConLeche.Verify.eqLp env]
             [Level.zero.succ])) :=
     fun ρ' => acval_interp_closed mp.base2 _ _ ρ' ρ
   -- the element type inhabits `Sort 1`
@@ -206,11 +206,11 @@ theorem ofReduce_mem (mp : EnvModelM V env)
         (ConLeche.reduceElemName (ConLeche.ofReduceOp cv.name)) ψ) →
       SetTheory.app (SetTheory.app (SetTheory.app
         (interp V ρ (mp.base2.acval eqName (Level.substFn ψ
-          eqA.toConstantVal.levelParams [Level.zero.succ])))
+          [ConLeche.Verify.eqLp env] [Level.zero.succ])))
         (interp V ρ (mp.base2.acval
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cv.name)) ψ))) x) y
         = eqv x y :=
-    fun x y hx hy => (mp.eq_law hEq _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy
+    fun x y hx hy => (EqLaw.at mp.eq_law hEqS _).1 ρ _ x y (by rw [heqψ]; exact hEmem) hx hy
   -- **the field pays here**: the trusted operation is the identity
   have hopx : ∀ x, x ∈ˢ interp V ρ (mp.base2.acval
         (ConLeche.reduceElemName (ConLeche.ofReduceOp cv.name)) ψ) →
@@ -228,7 +228,7 @@ theorem ofReduce_mem (mp : EnvModelM V env)
         (ConLeche.reduceElemName (ConLeche.ofReduceOp cv.name)) ψ) →
       SetTheory.app (SetTheory.app (SetTheory.app
         (interp V ρ (mp.base2.acval eqName (Level.substFn ψ
-          eqA.toConstantVal.levelParams [Level.zero.succ])))
+          [ConLeche.Verify.eqLp env] [Level.zero.succ])))
         (interp V ρ (mp.base2.acval
           (ConLeche.reduceElemName (ConLeche.ofReduceOp cv.name)) ψ))) x) y
         ∈ˢ (univZero : V) :=
@@ -250,6 +250,7 @@ or a `simp` on a leaf clause and the whole content is the
 membership. -/
 theorem axiomOfReduce
     (mp : EnvModelM V env) {cv : ConstantVal} {type' : Expr}
+    (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
     (hor : cv.name = ConLeche.ofReduceNatName ∨
       cv.name = ConLeche.ofReduceBoolName)
@@ -259,18 +260,17 @@ theorem axiomOfReduce
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    -⟩ := hcv'
+    -, hcvShape⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
   have hwfc : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts, env.tables⟩ := by
-    refine ConLeche.EnvWF.cons mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
+    refine ConLeche.EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf
+      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
-    · intro cv2 mI rP rules heq; exact nomatch heq
-    · intro cv2 caps heq; exact nomatch heq
-  refine harvestAxiom (V := V) mp hcv
+    · intro cv2 mI rP isK rules heq; exact nomatch heq
+  refine harvestAxiom (V := V) mp hopn hcv
     (A := fun _ => Term.prf) (fun _ => trivial)
     (fun _ _ _ => rfl) (fun _ _ => by simp) ?_
     (by rcases hor with h | h <;> rw [h] <;> decide)

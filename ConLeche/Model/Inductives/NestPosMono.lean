@@ -313,7 +313,7 @@ structure HoleRel (m : EnvModel V env) (φ : Name → Nat) (ctx : NestCtx) (prog
   member : ∀ t, t < ctx.names.length →
     HoleOn R (d - 1 - (ctx.nP + t)) (ctx.nIdxs.getD t 0)
   frame : ∀ (i : Nat) (hk : NestHole), prog.reverse[i]? = some hk → ∀ ni,
-    ni + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname →
+    ni = hk.nIdx →
     HoleOn R (d - 1 - (ctx.hiAt 0 + i)) ni
   /-- the frames' parameter terms are scoped below the frames' holes (the
   kernel checks `fvarB ≤ hiAt` at each frame's entry) -/

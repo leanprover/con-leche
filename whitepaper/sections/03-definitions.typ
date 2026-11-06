@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 500)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 457)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 318, 332)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 294, 312)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -45,14 +45,14 @@ $
 declared with level parameters $arrow(p)$ is taken at the levels
 $arrow(ell)$, replaces the parameters in sorts and in the level lists
 of constants
-(#src("ConLeche/Kernel/Level.lean", 218, 231)[as in con-leche]).
+(#src("ConLeche/Kernel/Level.lean", 234, 247)[as in con-leche]).
 
 *The rules for constants.* A constant
 #src("whitepaper/Fragment/Rules.lean", 749, 753)[has its declared type] at the
 levels it is used at, and two constants of the same name
 #src("whitepaper/Fragment/Rules.lean", 563, 566)[are compared] through the level oracle
-(in con-leche: #src("ConLeche/Rules/Rel.lean", 560, 566)[inference]
-and #src("ConLeche/Rules/Rel.lean", 381, 386)[equality]).
+(in con-leche: #src("ConLeche/Rules/Rel.lean", 550, 556)[inference]
+and #src("ConLeche/Rules/Rel.lean", 371, 376)[equality]).
 
 #rules(
   rule(name: "const",
@@ -78,7 +78,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 #src("whitepaper/Fragment/Decl.lean", 591, 605)[checks four things]
-(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 105, 121)[the common checks]
+(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 105, 126)[the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 
 - the name $c$ is fresh;
@@ -144,7 +144,7 @@ the declared level parameters.
 
 #real[
   The real proof's model carries the same two laws among others
-  (#src("ConLeche/Model/Env/EnvModelM.lean", 229, 252)[the carrier's invariant]).
+  (#src("ConLeche/Model/Env/EnvModelM.lean", 244, 267)[the carrier's invariant]).
 ]
 
 The empty environment #src("whitepaper/Fragment/EnvModel.lean", 364, 373)[has a model
@@ -185,7 +185,7 @@ gains three cases, one per rule.
   If the environment has a model and the definition $c$ passes the
   checks above, then the environment
   #src("whitepaper/Fragment/InstallDef.lean", 345, 350)[extended with $c$ has a model]
-  (#src("ConLeche/Model/Install.lean", 337, 340)[as in con-leche]).
+  (#src("ConLeche/Model/Install.lean", 353, 356)[as in con-leche]).
 ] <thm:install-def>
 
 #proof[

@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.BlockRecRule
 import ConLeche.Verify.Inductives.RecStage
 public import ConLeche.Model.Inductives.BlockRecMem
@@ -83,12 +84,12 @@ It is a bundle and not five premises because every clause below needs
 two or three of them, and it has exactly one consumer, the shape's
 producer. -/
 @[expose] def BlockMembersRun {envC : Env} (mo : EnvModel V envC) (d : BlockData V)
-    (q : ConLeche.BlockShape) (cvTas : List ConstantVal) : Prop :=
+    (q : ConLeche.BlockShape) : Prop :=
   d.nP = q.nP ∧ d.k = q.members.length ∧
-  cvTas.length = d.k ∧
-  (∀ (m : Nat) (cvTb : ConstantVal), cvTas[m]? = some cvTb →
+  q.formers.length = d.k ∧
+  (∀ (m : Nat) (cvTb : ConstantVal), q.formers[m]? = some cvTb →
     d.memberName m = cvTb.name ∧ cvTb.levelParams = q.lps ∧
-    (∃ caps, envC.find? cvTb.name = some (.indInfo cvTb caps)) ∧
+    (∃ caps, FormerInEnv mo cvTb caps) ∧
     cvTb.type.hasFvar = false ∧ cvTb.type.looseBVarsBounded 0 = true ∧
     FormerData mo cvTb (d.nP + d.nIdxAt m) d.resSort (d.ppsM m)) ∧
   (∀ (m : Nat) (ms : ConLeche.MemberShape), q.members[m]? = some ms →
@@ -100,8 +101,8 @@ producer. -/
 
 section Run
 
-variable {envC : Env} {p : ConLeche.BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))}
+variable {envC : Env} {p : ConLeche.BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))}
   {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
   {d : BlockData V}
 
@@ -146,11 +147,11 @@ section Keys
 contributes has that member's index count — the one that ties the
 field's readings to the CALLEE's telescope. -/
 theorem blockMembers_IdsM_length {envC : Env} {mo : EnvModel V envC} {d : BlockData V}
-    {q : ConLeche.BlockShape} {cvTas : List ConstantVal}
-    (hmr : BlockMembersRun mo d q cvTas) {mm : Nat} (hmm : mm < d.k) (ψ : Name → Nat) :
+    {q : ConLeche.BlockShape}
+    (hmr : BlockMembersRun mo d q) {mm : Nat} (hmm : mm < d.k) (ψ : Name → Nat) :
     (d.IdsM mm ψ).length = d.nIdxAt mm := by
   obtain ⟨-, -, hlenCv, hcvF, -, -, -⟩ := hmr
-  obtain ⟨cvTb, hcvTa⟩ : ∃ cvTb, cvTas[mm]? = some cvTb :=
+  obtain ⟨cvTb, hcvTa⟩ : ∃ cvTb, q.formers[mm]? = some cvTb :=
     ⟨_, List.getElem?_eq_getElem (by rw [hlenCv]; exact hmm)⟩
   obtain ⟨-, -, -, -, -, hFD⟩ := hcvF _ _ hcvTa
   rw [BlockData.IdsM, List.length_drop, hFD.len ψ]

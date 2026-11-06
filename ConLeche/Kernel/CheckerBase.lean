@@ -101,12 +101,17 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- Checks common to all declarations: fresh name, well-formed universe
 parameters, and a type that is a type and mentions only declared
-parameters. -/
-def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Unit := do
+parameters.  `allowOp` is a definition's: only it may take a certified operation's name. -/
+def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
+    (allowOp : Bool := false) : m Unit := do
   if (env.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -116,46 +121,9 @@ def checkConstantVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal) : m Uni
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"type of {cv.name}" cv.type)
   let stype ← ops.inferType env 0 cv.type
   let _u ← ops.ensureSort env 0 stype
-
-/-- Open the first `n` `∀`-binders at fresh free variables `0..n-1`
-(each fvar's type is the binder domain, instantiated with the earlier
-fvars).  Returns the fvars and the opened body. -/
-def openPisAtFvars : Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i dom
-    match openPisAtFvars n (body.instantiate1 fv) (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- Core of `openPisAtFvarsF`: `acc` holds the already-created fvars,
-innermost binder first.  Computes
-`openPisAtFvars n (e.instantiateList acc) i` whenever `e` raw-strips
-`n` `∀`-binders (`openPisAtFvarsFGo_sound`), `none` otherwise —
-one `instantiateList` pass per domain instead of one whole-telescope
-`instantiate1` pass per binder. -/
-def openPisAtFvarsFGo (acc : List Expr) :
-    Nat → Expr → Nat → Option (List Expr × Expr)
-  | 0, e, _ => some ([], e.instantiateList acc)
-  | n + 1, .forallE dom body, i =>
-    let fv : Expr := .fvar i (dom.instantiateList acc)
-    match openPisAtFvarsFGo (fv :: acc) n body (i + 1) with
-    | some (fvs, e) => some (fv :: fvs, e)
-    | none => none
-  | _ + 1, _, _ => none
-
-/-- One-pass `openPisAtFvars` (equal to it: `openPisAtFvarsF_eq`; the
-fallback covers telescopes whose binders only appear after
-substitution). -/
-def openPisAtFvarsF (n : Nat) (e : Expr) (i : Nat) :
-    Option (List Expr × Expr) :=
-  match openPisAtFvarsFGo [] n e i with
-  | some r => some r
-  | none => openPisAtFvars n e i
 
 open Expr in
 theorem openPisAtFvarsFGo_sound :

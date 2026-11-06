@@ -37,7 +37,7 @@ open ConLeche.Semantics
 open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
-open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockParts TargetMajor
+open ConLeche (Env Expr Name Level ConstantInfo ConstantVal BlockShape BlockShape TargetMajor
   ClassGen ClassCtor ClassRead FEnv GenRecRun)
 
 universe w
@@ -70,8 +70,8 @@ end Ihv
 
 section Eqs
 
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC}
 
 /-- **The generated equation list, at the chain spelling** (`tgtClsEqs_eq`
@@ -79,29 +79,29 @@ at any `ih` terms and residue): the prefix domains are closed
 (`blockRecPdomsK_run`), and the chain lifts keep the field domains'
 lengths. -/
 theorem genClsEqs_eq
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (ihs : (Name → Nat) → Nat → Nat → List Term)
     (Rb0 : (Name → Nat) → Nat → Nat → Term) (ψ : Name → Nat) :
     iotaEqsAV (tgtRs out).length (blockRecNCt (tgtRs out))
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-        (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+        (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ)
         (fun c j => liftEsK (tgtRs out).length
-          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-            + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-          (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
-        (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+          ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+            + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+          (tgtEsAV pp out mpC.base2.acval envC ψ c j))
+        (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ)
         (ihs ψ)
         (fun c j => (Rb0 ψ c j).liftN (tgtRs out).length
-          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-            + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c
+          ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+            + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c
               j).length
             + (ihs ψ c j).length))
       = blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp out mpC.base2.acval envC ψ')
           ihs
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp out mpC.base2.acval envC ψ')
           Rb0 ψ := by
   show _ = iotaEqsAV _ _ _ _ _ _ _ _
   refine iotaEqsAV_congr (fun c hc => ?_) (fun c _ j _ => ?_)
@@ -129,8 +129,8 @@ stated exactly as the producer consumes it (§4 discharges them). -/
 
 section Cand
 
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal} {g : ClassGen} {rd : ClassRead}
 
@@ -138,130 +138,130 @@ set_option maxHeartbeats 4000000 in
 /-- **The candidate of the generated family** — `BlockRecPre.hCand` at the
 generated components, from the producer's rows at the old class data. -/
 theorem genRecPre_hCand
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (ψ : Name → Nat) (ρ : Nat → V)
     (hsplit : ∀ c, c < (tgtRs out).length →
-      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)) ys →
-      (prefOf (pp.toBlockShape.rulePrefixAt c) ys).length = pp.toBlockShape.rulePrefixAt c ∧
-      ys = prefOf (pp.toBlockShape.rulePrefixAt c) ys
-        ++ (idxOf (pp.toBlockShape.rulePrefixAt c) ys ++ [majOf ys]) ∧
-      tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c (idxOf (pp.toBlockShape.rulePrefixAt c) ys)
-        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ
-          (prefOf (pp.toBlockShape.rulePrefixAt c) ys) c ∧
-      majOf ys ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ
-          (prefOf (pp.toBlockShape.rulePrefixAt c) ys) c)
-        (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-          (idxOf (pp.toBlockShape.rulePrefixAt c) ys)))
+      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
+      (prefOf (pp.rulePrefixAt c) ys).length = pp.rulePrefixAt c ∧
+      ys = prefOf (pp.rulePrefixAt c) ys
+        ++ (idxOf (pp.rulePrefixAt c) ys ++ [majOf ys]) ∧
+      tgtClsTup d Dc mc cvc pp out ψ c (idxOf (pp.rulePrefixAt c) ys)
+        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ
+          (prefOf (pp.rulePrefixAt c) ys) c ∧
+      majOf ys ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ
+          (prefOf (pp.rulePrefixAt c) ys) c)
+        (tgtClsTup d Dc mc cvc pp out ψ c
+          (idxOf (pp.rulePrefixAt c) ys)))
     (hconcl : ∀ c, c < (tgtRs out).length →
-      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)) ys →
-      blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval envC pp.toBlockShape
-          (tgtRs out) ψ) (tgtClsU d Dc mc cvc pp.toBlockShape out ψ)
-          (tgtClsNIdx d pp.toBlockShape out) ρ (prefOf (pp.toBlockShape.rulePrefixAt c) ys)
-          (tagged c (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-            (idxOf (pp.toBlockShape.rulePrefixAt c) ys)) (majOf ys))
+      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
+      blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval envC pp
+          (tgtRs out) ψ) (tgtClsU d Dc mc cvc pp out ψ)
+          (tgtClsNIdx d pp out) ρ (prefOf (pp.rulePrefixAt c) ys)
+          (tagged c (tgtClsTup d Dc mc cvc pp out ψ c
+            (idxOf (pp.rulePrefixAt c) ys)) (majOf ys))
         = interp V (consList ys ρ)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c))
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c))
     (hconclTy : ∀ xs : List V, ∀ c, c < (tgtRs out).length →
-      ∀ i, i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-      ∀ x, x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) i →
-      interp V (consList (xs ++ (isOfW (tgtClsU d Dc mc cvc pp.toBlockShape out ψ c)
-          (tgtClsNIdx d pp.toBlockShape out c) i ++ [x])) ρ)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)
-        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
-          pp.toBlockShape.large)) : V))
+      ∀ i, i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
+      ∀ x, x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) i →
+      interp V (consList (xs ++ (isOfW (tgtClsU d Dc mc cvc pp out ψ c)
+          (tgtClsNIdx d pp out c) i ++ [x])) ρ)
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c)
+        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.elim
+          pp.large)) : V))
     (hstep : ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ (i : V) (fs : List V),
-      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs → ∀ gv : V,
-      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) (tgtRs out).length
-          (genCallT (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ
+      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c i j fs → ∀ gv : V,
+      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ) (tgtRs out).length
+          (genCallT (tgtClsTup d Dc mc cvc pp out ψ) ρ
             (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)) xs (c, j, fs) →
         app gv v ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs v) →
-      interp V (consList (genIhvT (tgtRs out).length ρ pp.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs v) →
+      interp V (consList (genIhvT (tgtRs out).length ρ pp.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+            (tgtClsTup d Dc mc cvc pp out ψ)
             (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ) xs c j fs gv)
           (consList (xs ++ fs) ρ)) (genRbAV g rd c j)
         ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs
-          (tagged c i (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ c j fs)))
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs
+          (tagged c i (tgtClsInj d Dc mc cvc pp out ψ c j fs)))
     (huniq : ∀ xs : List V,
       ∀ u, u ∈ˢ unionSet (tgtRs out).length
-          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
+          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs) →
       ∀ e e',
-        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
-          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
           xs u e →
-        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
-          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
           xs u e' →
       e = e' ∨ ∀ v v',
         v ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs u →
         v' ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs u →
         v = v')
-    (hind : GenClassInd mpC.base2.acval envC pp.toBlockShape out d Dc mc cvc
+    (hind : GenClassInd mpC.base2.acval envC pp out d Dc mc cvc
       (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j) ψ ρ)
     (hrule : ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j) (xs ++ fs) →
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c))
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j) (xs ++ fs) →
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c))
         (xs ++ ((liftEsK (tgtRs out).length
-              ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-                + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-              (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+              ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+                + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+              (tgtEsAV pp out mpC.base2.acval envC ψ c j)).map
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
-            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)])))
+            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)])))
     (hdec : ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j) (xs ++ fs) →
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
-          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j) (xs ++ fs) →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c
+          (tgtClsTup d Dc mc cvc pp out ψ c
             ((liftEsK (tgtRs out).length
-                ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-                  + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-              (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+                ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+                  + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+              (tgtEsAV pp out mpC.base2.acval envC ψ c j)).map
               (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))))) j fs ∧
         interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
-            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
-          = tgtClsInj d Dc mc cvc pp.toBlockShape out ψ c j fs)
+            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
+          = tgtClsInj d Dc mc cvc pp out ψ c j fs)
     (hchain : ∀ (a : Nat → V) (xs : List V) (r : V → V),
       (∀ c', c' < (tgtRs out).length → ∀ (is : List V) (x : V),
-        xs.length = pp.toBlockShape.rulePrefixAt c' →
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c')) (xs ++ (is ++ [x])) →
-        r (tagged c' (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c' is) x)
+        xs.length = pp.rulePrefixAt c' →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c')) (xs ++ (is ++ [x])) →
+        r (tagged c' (tgtClsTup d Dc mc cvc pp out ψ c' is) x)
           = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
       ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ fs : List V,
-        xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+        xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
         SpineFit (chainFrame (tgtRs out).length a ρ)
-          (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-            ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+          (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+            ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
           (xs ++ fs) →
-        genIhvT (tgtRs out).length ρ pp.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+        genIhvT (tgtRs out).length ρ pp.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+            (tgtClsTup d Dc mc cvc pp out ψ)
             (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ) xs c j fs
-            (graph r (graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+            (graph r (graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
               (tgtRs out).length
-              (genCallT (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ
+              (genCallT (tgtClsTup d Dc mc cvc pp out ψ) ρ
                 (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)) xs
               (c, j, fs)))
           = (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ c j).map
@@ -269,41 +269,41 @@ theorem genRecPre_hCand
     ∃ a : Nat → V, (∀ c, c < (tgtRs out).length →
         a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) ∧
       ∀ e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp out mpC.base2.acval envC ψ')
           (fun ψ' => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp out mpC.base2.acval envC ψ')
           (fun _ => genRbAV g rd) ψ,
         (pt : V) ∈ˢ interp V (chainFrame (tgtRs out).length a ρ) e := by
   obtain ⟨uOf, hruns⟩ := blockRecElimLevel_run h
-  have H := graphRecPre_coreR (ℓ := Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
-      pp.toBlockShape.large)) (K := (tgtRs out).length) (ρ := ρ)
-    (nCt := blockRecNCt (tgtRs out)) (rP := pp.toBlockShape.rulePrefixAt)
-    (rds := blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (concl := blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
+  have H := graphRecPre_coreR (ℓ := Level.eval ψ (ConLeche.structElimLevel pp.elim
+      pp.large)) (K := (tgtRs out).length) (ρ := ρ)
+    (nCt := blockRecNCt (tgtRs out)) (rP := pp.rulePrefixAt)
+    (rds := blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (concl := blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
     (RecTy := blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ)
-    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ)
     (es := fun c j => liftEsK (tgtRs out).length
-            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+            ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp out mpC.base2.acval envC ψ c j))
     (ihs := genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ)
-    (mk := tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (mk := tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ)
     (Rb0 := genRbAV g rd)
-    (ihv := genIhvT (tgtRs out).length ρ pp.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+    (ihv := genIhvT (tgtRs out).length ρ pp.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+            (tgtClsTup d Dc mc cvc pp out ψ)
             (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ))
-    (call := genCallT (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ
+    (call := genCallT (tgtClsTup d Dc mc cvc pp out ψ) ρ
                 (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j))
-    (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ)
-    (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out)
-    (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
-    (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+    (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (tgtClsInj d Dc mc cvc pp out ψ)
+    (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out)
+    (tgtClsTup d Dc mc cvc pp out ψ)
+    (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
     (fun c hc =>
       (recStage_tyPis (V := V) mpC h (List.getElem?_eq_getElem hc)
         ψ).choose_spec.choose_spec.2.2.1)
@@ -631,8 +631,8 @@ base frame):
 
 section Rows
 
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape} {formers : List ConstantVal}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal}
 
@@ -642,26 +642,26 @@ data, split at the rule prefix and the class's index count, is a major of
 class `c`, its index spine recovered from its tuple. -/
 @[expose] def GenClsSplit (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
   ∀ c, c < (tgtRs out).length → ∀ (xs is : List V) (x : V),
-    xs.length = pp.toBlockShape.rulePrefixAt c → is.length = (tgtMajor out c).nIdx →
-    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c))
+    xs.length = pp.rulePrefixAt c → is.length = (tgtMajor out c).nIdx →
+    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c))
       (xs ++ (is ++ [x])) →
-    tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c is
-        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c ∧
-      x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
-        (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c is) ∧
-      isOfW (tgtClsU d Dc mc cvc pp.toBlockShape out ψ c) (tgtClsNIdx d pp.toBlockShape out c)
-        (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c is) = is
+    tgtClsTup d Dc mc cvc pp out ψ c is
+        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c ∧
+      x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c)
+        (tgtClsTup d Dc mc cvc pp out ψ c is) ∧
+      isOfW (tgtClsU d Dc mc cvc pp out ψ c) (tgtClsNIdx d pp out c)
+        (tgtClsTup d Dc mc cvc pp out ψ c is) = is
 
 variable (mpC d Dc mc cvc pp out) in
 /-- **The converse**: every major of class `c` spells a fit of recursor
 `c`'s stored domains. -/
 @[expose] def GenClsBack (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
   ∀ c, c < (tgtRs out).length → ∀ (xs : List V) (i x : V),
-    i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-    x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) i →
-    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c))
-      (xs ++ (isOfW (tgtClsU d Dc mc cvc pp.toBlockShape out ψ c)
-        (tgtClsNIdx d pp.toBlockShape out c) i ++ [x]))
+    i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
+    x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) i →
+    SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c))
+      (xs ++ (isOfW (tgtClsU d Dc mc cvc pp out ψ c)
+        (tgtClsNIdx d pp out c) i ++ [x]))
 
 variable (mpC d Dc mc cvc pp out) in
 /-- **The decoding at the rule frame**: a spine fitting the rule's prefix
@@ -671,29 +671,29 @@ set, its spine recovered — and the constructor application reads to the
 injection, which lies in the carrier there. -/
 @[expose] def GenClsDec (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
   ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs fs : List V,
-    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) →
-    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
-        (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-          ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+      ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c
+        (tgtClsTup d Dc mc cvc pp out ψ c
+          ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
             (interp V (consList (xs ++ fs) ρ)))) j fs ∧
-      tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-          ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+      tgtClsTup d Dc mc cvc pp out ψ c
+          ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
             (interp V (consList (xs ++ fs) ρ)))
-        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c ∧
-      isOfW (tgtClsU d Dc mc cvc pp.toBlockShape out ψ c) (tgtClsNIdx d pp.toBlockShape out c)
-          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-            ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c ∧
+      isOfW (tgtClsU d Dc mc cvc pp out ψ c) (tgtClsNIdx d pp out c)
+          (tgtClsTup d Dc mc cvc pp out ψ c
+            ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
               (interp V (consList (xs ++ fs) ρ))))
-        = (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+        = (tgtEsAV pp out mpC.base2.acval envC ψ c j).map
             (interp V (consList (xs ++ fs) ρ)) ∧
-      interp V (consList (xs ++ fs) ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j)
-        = tgtClsInj d Dc mc cvc pp.toBlockShape out ψ c j fs ∧
-      tgtClsInj d Dc mc cvc pp.toBlockShape out ψ c j fs
-        ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
-          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-            ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+      interp V (consList (xs ++ fs) ρ) (tgtMkAV pp out mpC.base2.acval envC ψ c j)
+        = tgtClsInj d Dc mc cvc pp out ψ c j fs ∧
+      tgtClsInj d Dc mc cvc pp out ψ c j fs
+        ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c)
+          (tgtClsTup d Dc mc cvc pp out ψ c
+            ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
               (interp V (consList (xs ++ fs) ρ))))
 
 variable (mpC d Dc mc cvc pp out) in
@@ -703,20 +703,20 @@ the tuple is the declared index expressions' readings'. -/
 @[expose] def GenClsDecInv (ψ : Name → Nat) (ρ : Nat → V) : Prop :=
   ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
     ∀ (xs : List V) (i : V) (fs : List V),
-    i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs →
-    SpineFit (consList xs ρ) (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) fs ∧
-    i = tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-      ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+    i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c i j fs →
+    SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs ∧
+    i = tgtClsTup d Dc mc cvc pp out ψ c
+      ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
         (interp V (consList (xs ++ fs) ρ)))
 
 /-- A class's index set is guarded by the rule prefix's fit. -/
 theorem tgtClsIs_prefix {ψ : Name → Nat} {ρ : Nat → V} {xs : List V} {c : Nat} {i : V}
-    (hi : i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) :
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs := by
+    (hi : i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) :
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs := by
   classical
   unfold tgtClsIs at hi
-  by_cases hg : tgtClsG d mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
+  by_cases hg : tgtClsG d mpC.base2.acval envC pp out ψ ρ xs c
   · unfold tgtClsG at hg
     by_cases hm : (tgtMajor out c).member.isSome = true
     · rw [ite_eq_left hm] at hg; exact hg.2
@@ -732,9 +732,9 @@ theorem isOfW_length (u n : Nat) (t : V) : (isOfW u n t).length = n := by
 
 /-- The major index of a stored recursor is its rule prefix plus its
 stored index count. -/
-theorem genRec_mI (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) {c : Nat}
+theorem genRec_mI (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) {c : Nat}
     {r : ConstantVal × List Expr × Nat × List (ConstantVal × Nat)} (hr : (tgtRs out)[c]? = some r) :
-    pp.toBlockShape.majorIdxAt c = pp.toBlockShape.rulePrefixAt c + r.2.2.1 := by
+    pp.majorIdxAt c = pp.rulePrefixAt c + r.2.2.1 := by
   obtain ⟨R⟩ := h
   obtain ⟨rc, u, hrc, hcu, hE⟩ := R.tyGenAt hr
   obtain ⟨E⟩ := hE
@@ -743,10 +743,10 @@ theorem genRec_mI (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
 /-- The stored domains' length: the rule prefix, the class's
 indices, the major. -/
 theorem genRds_length
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     {c : Nat} (hc : c < (tgtRs out).length) :
-    (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-      = pp.toBlockShape.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
+    (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+      = pp.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
   have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
   obtain ⟨-, -, -, -, -, hlen, -⟩ := recStage_tyPis (V := V) mpC h hr ψ
   rw [hlen, genRec_mI h hr]
@@ -756,22 +756,22 @@ theorem genRds_length
 
 /-- **Row `hsplit`**, from the class split. -/
 theorem genRow_hsplit
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ) :
     ∀ c, c < (tgtRs out).length →
-      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)) ys →
-      (prefOf (pp.toBlockShape.rulePrefixAt c) ys).length = pp.toBlockShape.rulePrefixAt c ∧
-      ys = prefOf (pp.toBlockShape.rulePrefixAt c) ys
-        ++ (idxOf (pp.toBlockShape.rulePrefixAt c) ys ++ [majOf ys]) ∧
-      tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c (idxOf (pp.toBlockShape.rulePrefixAt c) ys)
-        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ
-          (prefOf (pp.toBlockShape.rulePrefixAt c) ys) c ∧
-      majOf ys ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ
-          (prefOf (pp.toBlockShape.rulePrefixAt c) ys) c)
-        (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-          (idxOf (pp.toBlockShape.rulePrefixAt c) ys)) := by
+      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
+      (prefOf (pp.rulePrefixAt c) ys).length = pp.rulePrefixAt c ∧
+      ys = prefOf (pp.rulePrefixAt c) ys
+        ++ (idxOf (pp.rulePrefixAt c) ys ++ [majOf ys]) ∧
+      tgtClsTup d Dc mc cvc pp out ψ c (idxOf (pp.rulePrefixAt c) ys)
+        ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ
+          (prefOf (pp.rulePrefixAt c) ys) c ∧
+      majOf ys ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ
+          (prefOf (pp.rulePrefixAt c) ys) c)
+        (tgtClsTup d Dc mc cvc pp out ψ c
+          (idxOf (pp.rulePrefixAt c) ys)) := by
   intro c hc ys hfit
-  have hlen : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)).length = pp.toBlockShape.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
+  have hlen : ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)).length = pp.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
     rw [genRds_length h ψ hc]
   obtain ⟨xs, is, x, rfl, hxl, hisl, -, -, -⟩ := spineFit_split_three hlen hfit
   obtain ⟨hI, hC, -⟩ := hS c hc xs is x hxl hisl hfit
@@ -780,19 +780,19 @@ theorem genRow_hsplit
 
 /-- **Row `hconcl`**, from the class split. -/
 theorem genRow_hconcl
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ) :
     ∀ c, c < (tgtRs out).length →
-      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)) ys →
-      blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval envC pp.toBlockShape
-          (tgtRs out) ψ) (tgtClsU d Dc mc cvc pp.toBlockShape out ψ)
-          (tgtClsNIdx d pp.toBlockShape out) ρ (prefOf (pp.toBlockShape.rulePrefixAt c) ys)
-          (tagged c (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
-            (idxOf (pp.toBlockShape.rulePrefixAt c) ys)) (majOf ys))
+      ∀ ys, SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
+      blockRecMot (tgtRs out).length (blockRecConclAV mpC.base2.acval envC pp
+          (tgtRs out) ψ) (tgtClsU d Dc mc cvc pp out ψ)
+          (tgtClsNIdx d pp out) ρ (prefOf (pp.rulePrefixAt c) ys)
+          (tagged c (tgtClsTup d Dc mc cvc pp out ψ c
+            (idxOf (pp.rulePrefixAt c) ys)) (majOf ys))
         = interp V (consList ys ρ)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) := by
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c) := by
   intro c hc ys hfit
-  have hlen : ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)).length = pp.toBlockShape.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
+  have hlen : ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)).length = pp.rulePrefixAt c + (tgtMajor out c).nIdx + 1 := by
     rw [genRds_length h ψ hc]
   obtain ⟨xs, is, x, rfl, hxl, hisl, -, -, -⟩ := spineFit_split_three hlen hfit
   obtain ⟨-, -, hret⟩ := hS c hc xs is x hxl hisl hfit
@@ -802,13 +802,13 @@ theorem genRow_hconcl
 (the stage record's inferred sort, `blockRecConcl_univ`, at the pinned
 elimination level). -/
 theorem genRec_conclTy
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) :
     ∀ c, c < (tgtRs out).length → ∀ ys,
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)) ys →
-      interp V (consList ys ρ) (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)
-        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
-          pp.toBlockShape.large)) : V) := by
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)) ys →
+      interp V (consList ys ρ) (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c)
+        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.elim
+          pp.large)) : V) := by
   intro c hc ys hfit
   obtain ⟨uOf, hruns⟩ := blockRecElimLevel_run h
   have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
@@ -816,62 +816,62 @@ theorem genRec_conclTy
   have hrd : (tgtRs out).getD c default = (tgtRs out)[c] := by
     rw [List.getD_eq_getElem?_getD, hr]; rfl
   rw [hrd] at hop
-  have hsat : Sat V (((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)).reverse) (consList ys ρ) := by
+  have hsat : Sat V (((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c)).reverse) (consList ys ρ) := by
     simpa using sat_of_spineFit (Sat_nil V ρ) hfit
   have hu := blockRecConcl_univ mpC h hr ψ hop hinf hens _ hsat
   rwa [blockRecElimPin_run h hruns ψ hc] at hu
 
 /-- **Row `hconclTy`**, from the converse split. -/
 theorem genRow_hconclTy
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length →
-      ∀ i, i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-      ∀ x, x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c) i →
-      interp V (consList (xs ++ (isOfW (tgtClsU d Dc mc cvc pp.toBlockShape out ψ c)
-          (tgtClsNIdx d pp.toBlockShape out c) i ++ [x])) ρ)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)
-        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim
-          pp.toBlockShape.large)) : V) :=
+      ∀ i, i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
+      ∀ x, x ∈ˢ app (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c) i →
+      interp V (consList (xs ++ (isOfW (tgtClsU d Dc mc cvc pp out ψ c)
+          (tgtClsNIdx d pp out c) i ++ [x])) ρ)
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c)
+        ∈ˢ (univ (Level.eval ψ (ConLeche.structElimLevel pp.elim
+          pp.large)) : V) :=
   fun xs c hc i hi x hx => genRec_conclTy h ψ ρ c hc _ (hB c hc xs i x hi hx)
 
 /-- A spine fitting the chain-lifted prefix and field domains fits the
 base ones, and the lifted index expressions and constructor application
 read at the chain frame as the base ones at the base frame. -/
 theorem genRec_chainBase
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ a : Nat → V) {c j : Nat} (hc : c < (tgtRs out).length) {xs fs : List V}
     (hxl : xs.length
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length)
+      = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length)
     (hsp : SpineFit (chainFrame (tgtRs out).length a ρ)
-      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-        ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
       (xs ++ fs)) :
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) ∧
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+      ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) ∧
     (liftEsK (tgtRs out).length
-        ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-        (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+        ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+        (tgtEsAV pp out mpC.base2.acval envC ψ c j)).map
         (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
-      = (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+      = (tgtEsAV pp out mpC.base2.acval envC ψ c j).map
         (interp V (consList (xs ++ fs) ρ)) ∧
     interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
-        (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
-      = interp V (consList (xs ++ fs) ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j) := by
+        (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
+      = interp V (consList (xs ++ fs) ρ) (tgtMkAV pp out mpC.base2.acval envC ψ c j) := by
   have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
   have hpK : liftDomsK (tgtRs out).length 0
-      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)
-      = blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c :=
+      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c)
+      = blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c :=
     blockRecPdomsK_run (V := V) mpC h hr ψ _
   have hbase := chainFit_base hpK hxl hsp
-  have hfl : fs.length = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := by
+  have hfl : fs.length = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length := by
     have := hbase.length_eq
     simp only [List.length_append, hxl] at this
     omega
   have hwl : (xs ++ fs).length
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-        + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := by
+      = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+        + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length := by
     rw [List.length_append, hxl, hfl]
   refine ⟨hbase, ?_, ?_⟩
   · simp only [liftEsK, List.map_map]
@@ -882,24 +882,24 @@ theorem genRec_chainBase
 
 /-- **Row `hdec`**, from the decoding at the rule frame. -/
 theorem genRow_hdec
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
     ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j) (xs ++ fs) →
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c
-          (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j) (xs ++ fs) →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c
+          (tgtClsTup d Dc mc cvc pp out ψ c
             ((liftEsK (tgtRs out).length
-                ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-                  + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-              (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+                ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+                  + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+              (tgtEsAV pp out mpC.base2.acval envC ψ c j)).map
               (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))))) j fs ∧
         interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
-            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
-          = tgtClsInj d Dc mc cvc pp.toBlockShape out ψ c j fs := by
+            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
+          = tgtClsInj d Dc mc cvc pp out ψ c j fs := by
   intro a c hc j hj xs fs hxl hsp
   obtain ⟨hbase, hes, hmk⟩ := genRec_chainBase h ψ ρ a hc hxl hsp
   obtain ⟨hfit, -, -, hmkE, -⟩ := hD c hc j hj xs fs hxl hbase
@@ -909,23 +909,23 @@ theorem genRow_hdec
 /-- **Row `hrule`**, from the decoding at the rule frame and the converse
 split. -/
 theorem genRow_hrule
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
     (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) :
     ∀ a : Nat → V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j) (xs ++ fs) →
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c))
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j) (xs ++ fs) →
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c))
         (xs ++ ((liftEsK (tgtRs out).length
-              ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-                + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-              (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+              ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+                + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+              (tgtEsAV pp out mpC.base2.acval envC ψ c j)).map
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length a ρ))
-            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)])) := by
+            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)])) := by
   intro a c hc j hj xs fs hxl hsp
   obtain ⟨hbase, hes, hmk⟩ := genRec_chainBase h ψ ρ a hc hxl hsp
   obtain ⟨-, hI, hret, hmkE, hC⟩ := hD c hc j hj xs fs hxl hbase
@@ -939,44 +939,44 @@ class fit is the clause's hole fit at the carrier and the injection the
 clause's, definitionally; at `ℓ = 0` the conclusion's typing; at a
 `Prop`-valued class under a nonzero elimination level, the elimination guard. -/
 theorem genRow_huniq
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ)
     (hDin : ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks)
-    (hmN : ∀ c, c < (tgtRs out).length → tgtClsM mc pp.toBlockShape out c < (tgtClsD d Dc out c).N)
-    (hlic : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
+    (hmN : ∀ c, c < (tgtRs out).length → tgtClsM mc pp out c < (tgtClsD d Dc out c).N)
+    (hlic : Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) ≠ 0 →
       ∀ xs, ∀ c, c < (tgtRs out).length →
       (tgtClsD d Dc out c).w (tgtClsψ cvc out ψ c) = 0 →
-      ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+      ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
       ∀ j fs j' fs',
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j fs →
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j' fs' →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c t j fs →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c t j' fs' →
       j = j' ∧ fs = fs') :
     ∀ xs : List V,
       ∀ u, u ∈ˢ unionSet (tgtRs out).length
-          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs) →
+          (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs) →
       ∀ e e',
-        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
-          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
           xs u e →
-        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ) (blockRecNCt (tgtRs out))
-          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+        graphDecG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+          (tgtClsInj d Dc mc cvc pp out ψ) (blockRecNCt (tgtRs out))
+          (tgtRs out).length (tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
           xs u e' →
       e = e' ∨ ∀ v v',
         v ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs u →
         v' ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs u →
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs u →
         v = v' := by
   intro xs
   exact genUniq (acval := mpC.base2.acval) (nCt := blockRecNCt (tgtRs out))
     (fun c => tgtClsD d Dc out c) (fun c => tgtClsψ cvc out ψ c)
-    (fun c => tgtClsFr d mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c)
-    (fun c => tgtClsM mc pp.toBlockShape out c)
+    (fun c => tgtClsFr d mpC.base2.acval envC pp out ψ ρ xs c)
+    (fun c => tgtClsM mc pp out c)
     (fun c hc _ _ => (mpC.lfp_ok _ (hDin c hc)).1) (fun c hc _ _ => hmN c hc)
     (fun _ _ _ _ _ _ => rfl) (fun _ _ _ _ _ _ hf => hf)
     (genRow_hconclTy h ψ ρ hB xs) (hlic · xs)
@@ -990,63 +990,63 @@ depths: the shared prefix is the rule prefix (`hgpre`), the constructor's
 field count the declared fields' (`hnF`). -/
 theorem genIhsAV_eq (ψ : Name → Nat) {c j : Nat}
     (hgpre : g.pre.length
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length)
-    (hnF : (genCtorAt g rd c j).nF = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+      = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length)
+    (hnF : (genCtorAt g rd c j).nF = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
     (K : Nat) (fl : Nat)
-    (hfl : fl = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length) :
+    (hfl : fl = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length) :
     genIhsAV mpC.base2.acval envC K g rd ψ c j
       = (genIhdAV mpC.base2.acval envC g rd ψ c j).map
-        (genIhAV K (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length + fl)) := by
+        (genIhAV K (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length + fl)) := by
   rw [genIhsAV, hgpre, hnF, hfl]
 
 set_option maxHeartbeats 2000000 in
 /-- **Row `hchain`**, from the `ih` calls' typing at the rule frame
 (`hcallTy`), the class split and the `ih` data's bounds. -/
 theorem genRow_hchain
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ)
     (hgpre : ∀ c, c < (tgtRs out).length → g.pre.length
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length)
+      = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length)
     (hnF : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      (genCtorAt g rd c j).nF = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+      (genCtorAt g rd c j).nF = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
     (hcal : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j, q.1 < (tgtRs out).length)
     (hbelow : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j,
-        IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length) q)
+        IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length) q)
     (hcallTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
       ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j,
       ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1) bs →
-        q.1 < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt q.1 ∧
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1))
+        q.1 < (tgtRs out).length ∧ xs.length = pp.rulePrefixAt q.1 ∧
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ q.1))
           (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
             ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2]))) :
     ∀ (a : Nat → V) (xs : List V) (r : V → V),
       (∀ c', c' < (tgtRs out).length → ∀ (is : List V) (x : V),
-        xs.length = pp.toBlockShape.rulePrefixAt c' →
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c')) (xs ++ (is ++ [x])) →
-        r (tagged c' (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ c' is) x)
+        xs.length = pp.rulePrefixAt c' →
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ c')) (xs ++ (is ++ [x])) →
+        r (tagged c' (tgtClsTup d Dc mc cvc pp out ψ c' is) x)
           = (xs ++ (is ++ [x])).foldl SetTheory.app (a c')) →
       ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ fs : List V,
-        xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
+        xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
         SpineFit (chainFrame (tgtRs out).length a ρ)
-          (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-            ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+          (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+            ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
           (xs ++ fs) →
-        genIhvT (tgtRs out).length ρ pp.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+        genIhvT (tgtRs out).length ρ pp.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+            (tgtClsTup d Dc mc cvc pp out ψ)
             (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ) xs c j fs
-            (graph r (graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
+            (graph r (graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+              (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
               (tgtRs out).length
-              (genCallT (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ
+              (genCallT (tgtClsTup d Dc mc cvc pp out ψ) ρ
                 (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)) xs
               (c, j, fs)))
           = (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ c j).map
@@ -1056,44 +1056,44 @@ theorem genRow_hchain
       genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ c' j'
         = (genIhdAV mpC.base2.acval envC g rd ψ c' j').map
           (genIhAV (tgtRs out).length
-            (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length
-            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length
-              + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c'
+            (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c').length
+            ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c').length
+              + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c'
                 j').length)) :=
     fun c' hc' j' hj' => genIhsAV_eq ψ (hgpre c' hc') (hnF c' hc' j' hj') _ _
       (by simp [tgtFdomsK, liftDomsK_length])
   -- the chain-frame call typing, from the base one
   have hcallC : ∀ c', c' < (tgtRs out).length → ∀ j', j' < blockRecNCt (tgtRs out) c' →
       ∀ (xs fs : List V) (a : Nat → V),
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c').length →
       SpineFit (chainFrame (tgtRs out).length a ρ)
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c'
-          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c' j')
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c'
+          ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c' j')
         (xs ++ fs) →
       ∀ t is x, genIhCallAt ρ (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)
           xs c' j' fs t is x →
-        t < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt t ∧
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ t)) (xs ++ (is ++ [x])) := by
+        t < (tgtRs out).length ∧ xs.length = pp.rulePrefixAt t ∧
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ t)) (xs ++ (is ++ [x])) := by
     intro c' hc' j' hj' xs fs a hxl hsp t is x hcall
     obtain ⟨hbase, -, -⟩ := genRec_chainBase h ψ ρ a hc' hxl hsp
     obtain ⟨q, hq, rfl, bs, hbs, rfl, rfl⟩ := hcall
     exact hcallTy c' hc' j' hj' xs fs hxl hbase q hq bs hbs
   -- `hihRead`, by construction
   have hread := genIhs_hihRead (K := (tgtRs out).length) (ρ := ρ) (nCt := blockRecNCt (tgtRs out))
-    (pre := fun c'' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ
+    (pre := fun c'' => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ
           c'')
-    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ)
     (ihd := fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j) hcal
     (fun c' hc' j' hj' q hq => by
       simpa [tgtFdomsK, liftDomsK_length] using hbelow c' hc' j' hj' q hq)
-  have H := genHchainG (K := (tgtRs out).length) (ρ := ρ) (rP := pp.toBlockShape.rulePrefixAt)
+  have H := genHchainG (K := (tgtRs out).length) (ρ := ρ) (rP := pp.rulePrefixAt)
     (nCt := blockRecNCt (tgtRs out))
-    (rds := blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (Is := tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (Cr := tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (tup := tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
-    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ)
+    (rds := blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (Is := tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (Cr := tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (tup := tgtClsTup d Dc mc cvc pp out ψ)
+    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (fdoms := tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ)
     (ihd := fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)
     (fun c' hc' xs is x hxl hfit => by
       have hisl : is.length = (tgtMajor out c').nIdx := by
@@ -1116,95 +1116,95 @@ set_option maxHeartbeats 2000000 in
 (`hminor`), the stored conclusion as the motive applied (`hconclMot`), the
 `ih` calls' typing, the class split and the decoding both ways. -/
 theorem genRow_hstep
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) (ψ : Name → Nat)
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) (ψ : Name → Nat)
     (ρ : Nat → V) (hS : GenClsSplit pp out mpC d Dc mc cvc ψ ρ)
     (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ) (hDI : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ)
     (hnIdx : ∀ c, c < (tgtRs out).length →
-      tgtClsNIdx d pp.toBlockShape out c = (tgtMajor out c).nIdx)
+      tgtClsNIdx d pp out c = (tgtMajor out c).nIdx)
     (hgpre : ∀ c, c < (tgtRs out).length → g.pre.length
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length)
+      = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length)
     (hnF : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      (genCtorAt g rd c j).nF = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+      (genCtorAt g rd c j).nF = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
     (hmot : ∀ c, c < (tgtRs out).length →
-      classMotPos g (genClsOf rd c) < pp.toBlockShape.rulePrefixAt c)
+      classMotPos g (genClsOf rd c) < pp.rulePrefixAt c)
     (hmin : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      g.nP + genMinorSlot g rd c j < pp.toBlockShape.rulePrefixAt c)
+      g.nP + genMinorSlot g rd c j < pp.rulePrefixAt c)
     (hbelow : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j,
-        IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length) q)
+        IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length) q)
     (hcallTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ xs fs : List V,
-      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+      xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
       ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j,
       ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1) bs →
-        q.1 < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt q.1 ∧
-        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1))
+        q.1 < (tgtRs out).length ∧ xs.length = pp.rulePrefixAt q.1 ∧
+        SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ q.1))
           (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
             ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2])))
     (hconclMot : ∀ c, c < (tgtRs out).length → ∀ (xs zs : List V) (x : V),
-      xs.length = pp.toBlockShape.rulePrefixAt c → zs.length = (tgtMajor out c).nIdx →
+      xs.length = pp.rulePrefixAt c → zs.length = (tgtMajor out c).nIdx →
       interp V (consList (xs ++ (zs ++ [x])) ρ)
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c)
         = (zs ++ [x]).foldl SetTheory.app (xs.getD (classMotPos g (genClsOf rd c)) pt))
     (hminor : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
-      ∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) fs →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
+      ∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs →
       ∀ hs : List V, hs.length = (genIhdAV mpC.base2.acval envC g rd ψ c j).length →
       (∀ (l : Nat) (q : IhDatum) (hv : V),
         (genIhdAV mpC.base2.acval envC g rd ψ c j)[l]? = some q → hs[l]? = some hv →
         hv ∈ˢ interp V (consList (xs ++ fs) ρ)
-          (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+          (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
             (classMotPos g (genClsOf rd q.1)) q)) →
       (fs ++ hs).foldl SetTheory.app (xs.getD (g.nP + genMinorSlot g rd c j) pt)
-        ∈ˢ ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+        ∈ˢ ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
               (interp V (consList (xs ++ fs) ρ))
             ++ [interp V (consList (xs ++ fs) ρ)
-              (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
+              (tgtMkAV pp out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
             (xs.getD (classMotPos g (genClsOf rd c)) pt)) :
     ∀ xs : List V, ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
       ∀ (i : V) (fs : List V),
-      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
-      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c i j fs → ∀ gv : V,
-      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ) (tgtRs out).length
-          (genCallT (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ) ρ
+      i ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
+      tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c i j fs → ∀ gv : V,
+      (∀ v, v ∈ˢ graphPredG (tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+          (tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ) (tgtRs out).length
+          (genCallT (tgtClsTup d Dc mc cvc pp out ψ) ρ
             (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)) xs (c, j, fs) →
         app gv v ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs v) →
-      interp V (consList (genIhvT (tgtRs out).length ρ pp.toBlockShape.rulePrefixAt
-            (blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-            (tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs v) →
+      interp V (consList (genIhvT (tgtRs out).length ρ pp.rulePrefixAt
+            (blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+            (tgtClsTup d Dc mc cvc pp out ψ)
             (genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ) xs c j fs gv)
           (consList (xs ++ fs) ρ)) (genRbAV g rd c j)
         ∈ˢ blockRecMot (tgtRs out).length
-          (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (tgtClsNIdx d pp.toBlockShape out) ρ xs
-          (tagged c i (tgtClsInj d Dc mc cvc pp.toBlockShape out ψ c j fs)) := by
+          (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (tgtClsU d Dc mc cvc pp out ψ) (tgtClsNIdx d pp out) ρ xs
+          (tagged c i (tgtClsInj d Dc mc cvc pp out ψ c j fs)) := by
   intro xs c hc j hj i fs hi hfit gv hg
   have hpdl : ∀ c', c' < (tgtRs out).length →
-      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c').length
-        = pp.toBlockShape.rulePrefixAt c' :=
+      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c').length
+        = pp.rulePrefixAt c' :=
     fun c' hc' => blockRulePdomsAV_length mpC h (List.getElem?_eq_getElem hc') ψ
-  have H := genHstepG (K := (tgtRs out).length) (ρ := ρ) (rP := pp.toBlockShape.rulePrefixAt)
+  have H := genHstepG (K := (tgtRs out).length) (ρ := ρ) (rP := pp.rulePrefixAt)
     (nCt := blockRecNCt (tgtRs out))
-    (rds := blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (Is := tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (Cr := tgtClsCr d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (tup := tgtClsTup d Dc mc cvc pp.toBlockShape out ψ)
-    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (fdoms := fun c j => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)
+    (rds := blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (Is := tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (Cr := tgtClsCr d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (tup := tgtClsTup d Dc mc cvc pp out ψ)
+    (pdoms := blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (fdoms := fun c j => tgtFdomsAV pp out mpC.base2.acval envC ψ c j)
     (ihd := fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j)
-    (uX := tgtClsU d Dc mc cvc pp.toBlockShape out ψ) (nIdxX := tgtClsNIdx d pp.toBlockShape out)
-    (concl := blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-    (fit := tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ)
-    (injX := tgtClsInj d Dc mc cvc pp.toBlockShape out ψ)
-    (es := fun c j => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)
-    (mk := fun c j => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j)
+    (uX := tgtClsU d Dc mc cvc pp out ψ) (nIdxX := tgtClsNIdx d pp out)
+    (concl := blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ)
+    (fit := tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ)
+    (injX := tgtClsInj d Dc mc cvc pp out ψ)
+    (es := fun c j => tgtEsAV pp out mpC.base2.acval envC ψ c j)
+    (mk := fun c j => tgtMkAV pp out mpC.base2.acval envC ψ c j)
     (fun r => classMotPos g (genClsOf rd r)) (fun c j => g.nP + genMinorSlot g rd c j)
     hpdl
     (fun c' hc' => by rw [genRds_length h ψ hc', hnIdx c' hc'])
@@ -1237,9 +1237,9 @@ theorem genRow_hstep
   have hih := genIhsAV_eq (mpC := mpC) (envC := envC) (pp := pp) (out := out) (g := g) (rd := rd)
     ψ (hgpre c hc) (hnF c hc j hj) (tgtRs out).length _ rfl
   have hRb : genRbAV g rd c j = genRb0
-      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
       (g.nP + genMinorSlot g rd c j)
-      (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length
+      (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length
       (genIhdAV mpC.base2.acval envC g rd ψ c j).length := by
     rw [genRbAV, hgpre c hc, hnF c hc j hj]
     simp [genIhdAV]
@@ -1258,33 +1258,33 @@ fits it, `genRow_hrule`, its arguments graded, `hargs`), the right-hand
 side from the `ih` terms' and the residue's grading at typed tuples
 (`hrhs`). -/
 theorem genRecEqs_wd
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out)) {g : ClassGen}
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out)) {g : ClassGen}
     {rd : ClassRead} (ψ : Name → Nat) (ρ : Nat → V)
     (hB : GenClsBack pp out mpC d Dc mc cvc ψ ρ) (hD : GenClsDec pp out mpC d Dc mc cvc ψ ρ)
     (hfdB : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      DomsBelow (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-        (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+      DomsBelow (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+        (tgtFdomsAV pp out mpC.base2.acval envC ψ c j))
     (hframe : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length →
+      ∀ l, l < (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+          ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length →
       ∀ (σ : Nat → V) (ys : List V),
-        SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-          ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).take l) ys →
+        SpineFit σ ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+          ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j).take l) ys →
         WellDenotedTy V (consList ys σ)
-          ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-            ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).getD l default))
+          ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+            ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j).getD l default))
     (hargs : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
-      (∀ e ∈ tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j,
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) ys →
+      (∀ e ∈ tgtEsAV pp out mpC.base2.acval envC ψ c j,
         WellDenoted V (consList ys ρ) e) ∧
-      WellDenoted V (consList ys ρ) (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j))
+      WellDenoted V (consList ys ρ) (tgtMkAV pp out mpC.base2.acval envC ψ c j))
     (hrhs : ∀ rs : List V, rs.length = (tgtRs out).length →
       (∀ c, c < (tgtRs out).length →
         rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
       ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ ys : List V,
-      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-        ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) ys →
+      SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) ys →
       (∀ v ∈ genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ c j,
         WellDenoted V (consList ys (consList rs ρ)) v) ∧
       WellDenoted V (consList ((genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ c j).map (interp V (consList ys (consList rs ρ)))) (consList ys ρ))
@@ -1293,19 +1293,19 @@ theorem genRecEqs_wd
       (∀ c, c < (tgtRs out).length →
         rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
       ∀ e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
-          (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (fun ψ => tgtFdomsAV pp out mpC.base2.acval envC ψ)
+          (fun ψ => tgtEsAV pp out mpC.base2.acval envC ψ)
           (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ)
-          (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ,
+          (fun ψ => tgtMkAV pp out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ,
         WellDenoted V (consList rs ρ) e := by
   intro tup hlen htyp e he
   rw [← genClsEqs_eq h (fun ψ' => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ') (fun _ => genRbAV g rd) ψ] at he
   refine (hEq_iotaEqsAV_of (fun as hl ht c hc j hj => ?_) tup hlen htyp e he).2
   have hr : (tgtRs out)[c]? = some (tgtRs out)[c] := List.getElem?_eq_getElem hc
   have hpl := blockRulePdomsAV_length mpC h hr ψ
-  have hfdK : tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j
-      = tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j := by
+  have hfdK : tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j
+      = tgtFdomsAV pp out mpC.base2.acval envC ψ c j := by
     rw [tgtFdomsK]
     exact liftDomsK_eq_self_of_bounded _ _ (domsBelow_getD (hfdB c hc j hj))
   have hch := consList_eq_chainFrame (V := V) hl ρ
@@ -1316,78 +1316,78 @@ theorem genRecEqs_wd
   obtain ⟨xs, fs, rfl, hxs, hfs⟩ := spineFit_append_inv hys
   have hxl := hxs.length_eq
   have hsp : SpineFit (chainFrame (tgtRs out).length (fun c => as.getD c pt) ρ)
-      (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-        ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)
+      (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+        ++ tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)
       (xs ++ fs) := by rw [← hch]; exact hys
   obtain ⟨hbase, hesE, hmkE⟩ := genRec_chainBase h ψ ρ (fun c => as.getD c pt) hc hxl hsp
-  have hfl : fs.length = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := by
+  have hfl : fs.length = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length := by
     have := hbase.length_eq
     simp only [List.length_append, hxl] at this
     omega
   have hwl : (xs ++ fs).length
-      = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-        + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length := by
+      = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+        + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length := by
     rw [List.length_append, hxl, hfl]
   obtain ⟨hE, hMk⟩ := hargs c hc j hj (xs ++ fs) hbase
   refine ⟨?_, ?_⟩
   · -- the left-hand side: an application chain along the recursor's type
     have hfit := genRow_hrule h ψ ρ hB hD (fun c => as.getD c pt) c hc j hj xs fs hxl hsp
-    have hflK : (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+    have hflK : (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
         = fs.length := by rw [hfdK, hfl]
     have hpv : (prefVarsAV
-        (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-        (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length).map
+        (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+        (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length).map
           (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
             (fun c => as.getD c pt) ρ)))
         = xs := by
       rw [hflK]; exact interp_prefVarsAV hxl
     have hhead : interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
           (fun c => as.getD c pt) ρ))
-        (.bvar ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+        (.bvar ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
           + ((tgtRs out).length - 1 - c))) = as.getD c pt := by
       show consList (xs ++ fs) _ _ = _
-      rw [show (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+      rw [show (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
           + ((tgtRs out).length - 1 - c) = ((tgtRs out).length - 1 - c) + (xs ++ fs).length from by
             rw [List.length_append, hxl, hflK]; omega,
         consList_apply_add, chainFrame_apply hc]
     obtain ⟨-, -, -, -, hTyE, -, -, -, hwdTy⟩ := recStage_tyPis (V := V) mpC h hr ψ
     have hTF := teleFit_mkPisAV_of_spineFit
-      (B := blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) hfit
+      (B := blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c) hfit
     rw [← hTyE] at hTF
     have hvals : (prefVarsAV
-            (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-            (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+            (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+            (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
           ++ liftEsK (tgtRs out).length
-            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)
-          ++ [tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j]).map
+            ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp out mpC.base2.acval envC ψ c j)
+          ++ [tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j]).map
           (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
             (fun c => as.getD c pt) ρ)))
         = xs ++ ((liftEsK (tgtRs out).length
-            ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-              + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
-            (tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j)).map
+            ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+              + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
+            (tgtEsAV pp out mpC.base2.acval envC ψ c j)).map
             (interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
               (fun c => as.getD c pt) ρ)))
           ++ [interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
               (fun c => as.getD c pt) ρ))
-            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j)]) := by
+            (tgtMkK (tgtRs out).length mpC.base2.acval envC pp out ψ c j)]) := by
       rw [List.map_append, List.map_append, hpv, List.map_cons, List.map_nil, List.append_assoc]
     rw [← hvals] at hTF
     have hmem' : interp V (consList (xs ++ fs) (chainFrame (tgtRs out).length
           (fun c => as.getD c pt) ρ))
-        (.bvar ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+        (.bvar ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
           + ((tgtRs out).length - 1 - c)))
         ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) := by
       rw [hhead]; exact ht c hc
     rw [← hch] at hTF hmem'
     refine (Rules.wellDenoted_mkAppN_of_fit _
-      (f := .bvar ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp.toBlockShape out ψ c j).length
+      (f := .bvar ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+          + (tgtFdomsK (tgtRs out).length mpC.base2.acval envC pp out ψ c j).length
           + ((tgtRs out).length - 1 - c))) (hwdTy ρ) trivial (fun x hx => ?_)
       hmem' hTF).1
     rcases List.mem_append.mp hx with hx | hx
@@ -1419,8 +1419,8 @@ end Rows
 
 section Assembly
 
-variable {F : Nat} {envC : Env} {pp : BlockParts} {cvTas : List ConstantVal}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+variable {F : Nat} {envC : Env} {pp : BlockShape}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
   {mpC : EnvModelM V envC} {d : BlockData V} {Dc : Nat → LfpDatum V} {mc : Nat → Nat}
   {cvc : Nat → ConstantVal} {g : ClassGen} {rd : ClassRead}
 
@@ -1437,79 +1437,79 @@ structure GenPreHyps (ψ : Name → Nat) (ρ : Nat → V) : Prop where
   dec : GenClsDec pp out mpC d Dc mc cvc ψ ρ
   decInv : GenClsDecInv pp out mpC d Dc mc cvc ψ ρ
   nIdx : ∀ c, c < (tgtRs out).length →
-    tgtClsNIdx d pp.toBlockShape out c = (tgtMajor out c).nIdx
+    tgtClsNIdx d pp out c = (tgtMajor out c).nIdx
   din : ∀ c, c < (tgtRs out).length → tgtClsD d Dc out c ∈ mpC.lfpBlocks
-  mN : ∀ c, c < (tgtRs out).length → tgtClsM mc pp.toBlockShape out c < (tgtClsD d Dc out c).N
-  lic : Level.eval ψ (ConLeche.structElimLevel pp.toBlockShape.elim pp.toBlockShape.large) ≠ 0 →
+  mN : ∀ c, c < (tgtRs out).length → tgtClsM mc pp out c < (tgtClsD d Dc out c).N
+  lic : Level.eval ψ (ConLeche.structElimLevel pp.elim pp.large) ≠ 0 →
     ∀ xs, ∀ c, c < (tgtRs out).length →
     (tgtClsD d Dc out c).w (tgtClsψ cvc out ψ c) = 0 →
-    ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c →
+    ∀ t, t ∈ˢ tgtClsIs d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c →
     ∀ j fs j' fs',
-    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j fs →
-    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp.toBlockShape out ψ ρ xs c t j' fs' →
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c t j fs →
+    tgtClsFit d Dc mc cvc mpC.base2.acval envC pp out ψ ρ xs c t j' fs' →
     j = j' ∧ fs = fs'
   gpre : ∀ c, c < (tgtRs out).length → g.pre.length
-    = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
+    = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
   nF : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-    (genCtorAt g rd c j).nF = (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length
+    (genCtorAt g rd c j).nF = (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length
   mot : ∀ c, c < (tgtRs out).length →
-    classMotPos g (genClsOf rd c) < pp.toBlockShape.rulePrefixAt c
+    classMotPos g (genClsOf rd c) < pp.rulePrefixAt c
   min : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
-    g.nP + genMinorSlot g rd c j < pp.toBlockShape.rulePrefixAt c
+    g.nP + genMinorSlot g rd c j < pp.rulePrefixAt c
   cal : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
     ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j, q.1 < (tgtRs out).length
   below : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
     ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j,
-      IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-        + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length) q
+      IhDatumBelow ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+        + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length) q
   callTy : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c →
     ∀ xs fs : List V,
-    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length →
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c
-      ++ tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) (xs ++ fs) →
+    xs.length = (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length →
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c
+      ++ tgtFdomsAV pp out mpC.base2.acval envC ψ c j) (xs ++ fs) →
     ∀ q ∈ genIhdAV mpC.base2.acval envC g rd ψ c j,
     ∀ bs, SpineFit (consList (xs ++ fs) ρ) (q.2.1) bs →
-      q.1 < (tgtRs out).length ∧ xs.length = pp.toBlockShape.rulePrefixAt q.1 ∧
-      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ q.1))
+      q.1 < (tgtRs out).length ∧ xs.length = pp.rulePrefixAt q.1 ∧
+      SpineFit ρ ((blockRecRdsAV mpC.base2.acval envC pp (tgtRs out) ψ q.1))
         (xs ++ (q.2.2.1.map (interp V (consList bs (consList (xs ++ fs) ρ)))
           ++ [interp V (consList bs (consList (xs ++ fs) ρ)) q.2.2.2]))
   conclMot : ∀ c, c < (tgtRs out).length → ∀ (xs zs : List V) (x : V),
-    xs.length = pp.toBlockShape.rulePrefixAt c → zs.length = (tgtMajor out c).nIdx →
+    xs.length = pp.rulePrefixAt c → zs.length = (tgtMajor out c).nIdx →
     interp V (consList (xs ++ (zs ++ [x])) ρ)
-        (blockRecConclAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c)
+        (blockRecConclAV mpC.base2.acval envC pp (tgtRs out) ψ c)
       = (zs ++ [x]).foldl SetTheory.app (xs.getD (classMotPos g (genClsOf rd c)) pt)
   minor : ∀ c, c < (tgtRs out).length → ∀ j, j < blockRecNCt (tgtRs out) c → ∀ xs,
-    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c) xs →
-    ∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j) fs →
+    SpineFit ρ (blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c) xs →
+    ∀ fs, SpineFit (consList xs ρ) (tgtFdomsAV pp out mpC.base2.acval envC ψ c j) fs →
     ∀ hs : List V, hs.length = (genIhdAV mpC.base2.acval envC g rd ψ c j).length →
     (∀ (l : Nat) (q : IhDatum) (hv : V),
       (genIhdAV mpC.base2.acval envC g rd ψ c j)[l]? = some q → hs[l]? = some hv →
       hv ∈ˢ interp V (consList (xs ++ fs) ρ)
-        (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ c).length
-            + (tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).length)
+        (genIhDomAV ((blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ c).length
+            + (tgtFdomsAV pp out mpC.base2.acval envC ψ c j).length)
           (classMotPos g (genClsOf rd q.1)) q)) →
     (fs ++ hs).foldl SetTheory.app (xs.getD (g.nP + genMinorSlot g rd c j) pt)
-      ∈ˢ ((tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ c j).map
+      ∈ˢ ((tgtEsAV pp out mpC.base2.acval envC ψ c j).map
             (interp V (consList (xs ++ fs) ρ))
           ++ [interp V (consList (xs ++ fs) ρ)
-            (tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
+            (tgtMkAV pp out mpC.base2.acval envC ψ c j)]).foldl SetTheory.app
           (xs.getD (classMotPos g (genClsOf rd c)) pt)
-  ind : GenClassInd mpC.base2.acval envC pp.toBlockShape out d Dc mc cvc
+  ind : GenClassInd mpC.base2.acval envC pp out d Dc mc cvc
     (fun c j => genIhdAV mpC.base2.acval envC g rd ψ c j) ψ ρ
 
 set_option maxHeartbeats 4000000 in
 /-- **The candidate, from `GenPreHyps`.** -/
 theorem genRecPre_hCandH
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     (ψ : Name → Nat) (ρ : Nat → V) (H : GenPreHyps pp out mpC d Dc mc cvc g rd ψ ρ) :
     ∃ a : Nat → V, (∀ c, c < (tgtRs out).length →
         a c ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) ∧
       ∀ e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ')
-          (fun ψ' => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ')
-          (fun ψ' => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ')
+          (fun ψ' => tgtFdomsAV pp out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtEsAV pp out mpC.base2.acval envC ψ')
           (fun ψ' => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ')
-          (fun ψ' => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ')
+          (fun ψ' => tgtMkAV pp out mpC.base2.acval envC ψ')
           (fun _ => genRbAV g rd) ψ,
         (pt : V) ∈ˢ interp V (chainFrame (tgtRs out).length a ρ) e :=
   genRecPre_hCand h ψ ρ
@@ -1527,7 +1527,7 @@ goal, from the family's level (`hTy`, `blockRecLevel_run`), the equations'
 grading at typed tuples (`hEqWd`), and `GenPreHyps` at every level
 assignment and base frame. -/
 theorem genRecPre
-    (h : ConLeche.RecStageG .verified F envC pp cvTas (tgtRs out))
+    (h : ConLeche.RecStageG .verified F envC pp (tgtRs out))
     {s : (Name → Nat) → Nat}
     (hTy : ∀ (ψ : Name → Nat) (ρ : Nat → V) (c : Nat), c < (tgtRs out).length →
       interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c) ∈ˢ univ (s ψ) ∧
@@ -1536,21 +1536,21 @@ theorem genRecPre
       (∀ c, c < (tgtRs out).length →
         rs.getD c pt ∈ˢ interp V ρ (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ c)) →
       ∀ e ∈ blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
-          (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (fun ψ => tgtFdomsAV pp out mpC.base2.acval envC ψ)
+          (fun ψ => tgtEsAV pp out mpC.base2.acval envC ψ)
           (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ)
-          (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ,
+          (fun ψ => tgtMkAV pp out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ,
         WellDenoted V (consList rs ρ) e)
     (H : ∀ (ψ : Name → Nat) (ρ : Nat → V), GenPreHyps pp out mpC d Dc mc cvc g rd ψ ρ) :
     ∀ (ψ : Name → Nat) (ρ : Nat → V),
       BlockRecPre V (s ψ) (tgtRs out).length (blockRecTyAV mpC.base2.acval envC (tgtRs out) ψ)
         (blockRecEqs (blockRecNCt (tgtRs out)) (tgtRs out)
-          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp.toBlockShape (tgtRs out) ψ)
-          (fun ψ => tgtFdomsAV pp.toBlockShape out mpC.base2.acval envC ψ)
-          (fun ψ => tgtEsAV pp.toBlockShape out mpC.base2.acval envC ψ)
+          (fun ψ => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
+          (fun ψ => tgtFdomsAV pp out mpC.base2.acval envC ψ)
+          (fun ψ => tgtEsAV pp out mpC.base2.acval envC ψ)
           (fun ψ => genIhsAV mpC.base2.acval envC (tgtRs out).length g rd ψ)
-          (fun ψ => tgtMkAV pp.toBlockShape out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ)
+          (fun ψ => tgtMkAV pp out mpC.base2.acval envC ψ) (fun _ => genRbAV g rd) ψ)
         ρ := by
   intro ψ ρ
   refine ⟨fun c hc => hTy ψ ρ c hc, fun rs hl ht e he =>

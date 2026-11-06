@@ -47,8 +47,8 @@
 # cold build is the arbiter and not this script: a bare `open N` needs `N` to
 # EXIST and no constant analysis records that, and two individually-clean
 # removals can JOINTLY orphan a third module.  Task #235 adds a third: a need
-# that arises only INSIDE an elaboration-time splice (`#stored_basis`'s
-# `meta def`s) stores no constant, so shake does not see it — the
+# that arises only INSIDE an elaboration-time splice (a `meta def`) stores
+# no constant, so shake does not see it — the
 # build asked for `ConLeche/Kernel/StdAxioms.lean`'s `public meta import`
 # back by name.
 #

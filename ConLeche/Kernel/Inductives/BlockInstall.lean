@@ -9,7 +9,7 @@ public import ConLeche.Kernel.Inductives.BlockRec
 /-!
 # The uniform inductive install, at k members
 
-ONE installer over `BlockParts` (`ConLeche/Kernel/Inductives/BlockParts.lean`),
+ONE installer over `BlockShape` (`ConLeche/Kernel/Inductives/BlockShape.lean`),
 in official's order (`declare_inductive_types`, `check_constructors`,
 `declare_recursors`, `inductive.cpp`):
 
@@ -67,23 +67,18 @@ official's `!is_rec` is load-bearing.) -/
 def blockCapsAt (p : BlockShape) (mi : Nat) (isRec : Bool) : IndCaps :=
   match (p.members.getD mi default).ctors, (p.members.getD mi default).nIdx with
   | [c], nIdx =>
-    { eta := nIdx == 0 && !p.isProp && !isRec
+    { eta := nIdx == 0 && !isRec
       etaCtor := c.1.name
       etaParams := p.nP
       etaFields := c.2
       unitlike := nIdx == 0 && c.2 == 0 && !isRec
       unitParams := p.nP
-      ruleK := p.k == 1 && c.2 == 0 && p.isProp
-      sortZ := Level.zeronessOf p.resSort
       all := p.memberNames
       nparams := p.nP
+      nIdx := nIdx
       ctors := [c.1.name] }
-  -- Task #349: the result sort's zero-ness is recorded for EVERY member,
-  -- not only single-constructor ones: the ι case split (`iotaCtorNeverProp`)
-  -- reads it at every redex (left at the default `ifAllZero []`, every
-  -- multi-constructor family read "always `Prop`" and fell into case 3)
-  | cs, _ => { sortZ := Level.zeronessOf p.resSort, all := p.memberNames, nparams := p.nP,
-               ctors := cs.map (·.1.name) }
+  | cs, nIdx => { all := p.memberNames, nparams := p.nP, nIdx := nIdx,
+                  ctors := cs.map (·.1.name) }
 
 /-- Does some binder domain of the SYNTACTIC `∀`-telescope of `e`
 mention one of `names`?  No reduction: the walk stops at the first
@@ -103,7 +98,7 @@ accept-superset, stream `whnfswap_unitcaps_bad`).  Known before any
 constructor is checked, so the formers are installed at it once.  The
 parameter domains are scanned too, as official does; they cannot hold a
 member on a stream official accepts (`check_uniform_ind_occs`). -/
-def blockRawRec (p : BlockParts) : Bool :=
+def blockIsRec (p : BlockShape) : Bool :=
   p.members.any fun ms => ms.ctors.any fun c => c.1.type.piDomsMentionAny p.memberNames
 
 /-! ## Stage 1: the formers -/
@@ -114,7 +109,7 @@ which at k members happens only once every former has been checked. -/
 def checkBlockTele (ops : CheckerOps m) (env : Env) (nP : Nat)
     (ms : MemberShape) : m (ConstantVal × Level) := do
   checkConstantVal ops env ms.cvT
-  let (cvTa, s) ← checkSumTele ops env ms.cvT (nP + ms.nIdx) ms.cvT
+  let (cvTa, s) ← checkSumTele (nP + ms.nIdx) ms.cvT
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + ms.nIdx))
     (.internal "direct sum: type former telescope")
   unless tbody == Expr.sort s do
@@ -179,17 +174,16 @@ def consBlockInds (p₁ : BlockShape) (isRec : Bool) :
 /-- **Stage 1**: the k type formers, checked, agreed and consed —
 official's `declare_inductive_types`, which puts every former in the
 environment before any constructor is looked at. -/
-def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockParts)
-    (isRec : Bool) : m (Env × List ConstantVal × BlockShape) :=
+def checkBlockInds (ops : CheckerOps m) (env : Env) (p : BlockShape)
+    (isRec : Bool) : m (Env × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
     let (cvTa0, s0) ← checkBlockTele ops env p.nP ms0
     let cvs ← checkBlockTeles ops env p.nP rest
     checkBlockAgree ops env p.nP cvTa0 s0 cvs
-    let p₁ := p.toBlockShape.withSort s0
-    let cvTas := cvTa0 :: cvs.map (·.1)
-    pure (consBlockInds p₁ isRec cvTas 0 env, cvTas, p₁)
+    let p₁ := p.withSort s0
+    pure (consBlockInds p₁ isRec (p.members.map (·.declared)) 0 env, p₁)
 
 /-! ## Stage 1b: the constructors -/
 
@@ -199,21 +193,18 @@ environment's lookup: the members, their level parameters, the shared
 parameter count, the members' index counts and the block's sort. -/
 def BlockShape.nestCtx (p : BlockShape) (fvsP : List Expr)
     (find? : Name → Option ConstantInfo) : NestCtx :=
-  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?⟩
+  ⟨p.memberNames, p.lps, p.nP, p.nIdxs, fvsP, p.resSort, find?, p.members.map (·.cvT)⟩
 
 /-- The constructors of every member, at the environment holding ALL
 the formers (the resolution guard pointed at that same environment, as
 the one-member stage does), each stored as declared. -/
 def checkBlockCtors (ops : CheckerOps m) (env₀ env : Env)
-    (p : BlockShape) :
-    List (MemberShape × ConstantVal) →
-      m (List (List (ConstantVal × Nat)) × List (List (List Level)))
-  | [] => pure ([], [])
-  | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtors ops env₀ env p rest
-    pure (ctorsA :: restC, sortss :: restS)
+    (p : BlockShape) : List MemberShape → m Unit
+  | [] => pure ()
+  | ms :: rest => do
+    checkSumCtors ops env₀ env ms.cvT.name p.lps p.nP ms.nIdx
+      p.resSort p.isProp p.large ms.cvT ms.ctors
+    checkBlockCtors ops env₀ env p rest
 
 /-! ## Positivity: the ONE function, on the stored constructors
 
@@ -229,7 +220,7 @@ uniform-occurrence check (`nestUniform`: every member occurrence is
 `T.{lps} p⃗`); after it, the fields' universes at the holes
 (`checkAbsCtorSorts`).  The walk's kinds are the
 model's; the capability record's `is_rec` is official's syntactic one
-(`blockRawRec`), not read off them. -/
+(`blockIsRec`), not read off them. -/
 
 /-- **The fields' universes at the holes** (the root's line, U2's sort
 half): the fields of every constructor's positivity NORMAL FORM `tyN`
@@ -250,7 +241,7 @@ def checkAbsCtorSorts (ops : CheckerOps m) (env : Env) (ctx : NestCtx) :
         parameters")
     let xq ← unwrapOr (openPisAtFvars c.2 o.2 (ctx.hiAt 0))
       (.internal "direct rec: abstracted constructor fields")
-    let _ ← checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
+    checkStructFieldSortsI ops env (Level.isEquiv ctx.sort .zero == some true) false
       ctx.sort (ctx.hiAt 0) xq.1 [] c.2
     checkAbsCtorSorts ops env ctx cs os
   | _, _ => pure ()
@@ -269,69 +260,65 @@ environment's lookup (the pure `Env`'s or the index's), with the
 members' holes (`nestHoles`).  Built by the positivity check and by the
 pass for the classes and their walk (`checkBlockPass`), from the same
 inputs. -/
-def blockNestCtx (p : BlockShape) (cvTas : List ConstantVal)
-    (find? : Name → Option ConstantInfo) :
+def blockNestCtx (p : BlockShape) (find? : Name → Option ConstantInfo) :
     m (NestCtx × List Expr) := do
-  let cvTa0 ← unwrapOr cvTas.head? (.internal "direct rec: no type former")
+  let cvTa0 ← unwrapOr p.formers.head? (.internal "direct rec: no type former")
   let pq ← unwrapOr (openPisAtFvars p.nP cvTa0.type 0)
     (.internal "direct rec: type former telescope")
   let ctx := p.nestCtx pq.1 find?
   let holes ← unwrapOr (nestHoles ctx) (.internal "direct rec: a member is not a stored former")
   pure (ctx, holes)
 
+/-- The field kinds of the root frame's outputs. -/
+def nestOutKinds (outs : List (List (List NestFieldKind × Expr))) : List (List (List NestFieldKind)) :=
+  outs.map (·.map (·.1))
+
 /-- **The block's positivity, on its stored constructors** (see the
 section docstring), at the walk's context (`blockNestCtx`): official's
 uniform-occurrence check, the root frame, the fields' universes.
-Returns the walk's field kinds, its normal forms (member-abstracted, at the
-walk's context; OUTPUT only: nothing is stored from them) and its state —
-the cache and the recorded constructor normal forms, which the walk of the
-other classes continues (`checkBlockPass`, `BlockTail.lean`); the walk's
-verdict is the install's. -/
+Returns the root frame's outputs (each constructor's field kinds and normal form) and the walk's
+state -- the cache and the recorded constructor normal forms, which the walk of the
+other classes continues (`checkBlockPass`, `BlockTail.lean`). -/
 def checkBlockPositivity (ops : CheckerOps m) (env₁ : Env) (find? : Name → Option ConstantInfo)
-    (p : BlockParts) (cvTas : List ConstantVal)
-    (ctorsAs : List (List (ConstantVal × Nat))) :
-    m (List (List (List NestFieldKind)) × List (List Expr) × NestState) := do
-  let (ctx, holes) ← blockNestCtx p.toBlockShape cvTas find?
+    (p : BlockShape) :
+    m (List (List (List NestFieldKind × Expr)) × NestState) := do
+  let (ctx, holes) ← blockNestCtx p find?
   -- official's `check_uniform_ind_occs`, before the walk
-  nestUniform ctx ctorsAs
-  -- the root frame on the STORED (declared) constructors; their normal forms are output only
-  let (outs, st) ← nestRoot ops env₁ ctx holes ctorsAs {}
-  checkAbsCtorSortsAll ops env₁ ctx ctorsAs outs
-  pure (outs.map (·.map (·.1)), outs.map (·.map (·.2)), st)
+  nestUniform ctx p.memberCtors
+  -- the root frame on the STORED (declared) constructors
+  let (outs, st) ← nestRoot ops env₁ ctx holes p.memberCtors {}
+  checkAbsCtorSortsAll ops env₁ ctx p.memberCtors outs
+  pure (outs, st)
 
 /-! ## Stage 2: the tail -/
 
-/-- Every member's INDEX binders' universes, exposed for the model's
-index-tuple universe: the member's telescope opened at variables, each
-index domain's sort inferred (no bound is checked — the sorts are
-read, not compared). -/
+/-- Every member's INDEX binders have sorts: the member's telescope opened at variables, each
+index domain's sort inferred (no bound is checked).  The model's index-tuple universe is the join of
+these sorts (`checkBlockIdxSorts_inv`). -/
 def checkBlockIdxSorts (ops : CheckerOps m) (env₁ : Env) (p : BlockShape) :
-    List (MemberShape × ConstantVal) → m (List (List Level))
-  | [] => pure []
-  | (ms, cvTa) :: rest => do
-    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) cvTa.type 0)
+    List MemberShape → m Unit
+  | [] => pure ()
+  | ms :: rest => do
+    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
-    let isorts ← checkStructFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) []
-      ms.nIdx
-    let rest ← checkBlockIdxSorts ops env₁ p rest
-    pure (isorts :: rest)
+    checkStructFieldSortsI ops env₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
+    checkBlockIdxSorts ops env₁ p rest
 
 /-- The members' constructors consed, member by member, in block
 order. -/
 def consBlockCtors (nP : Nat) : List (List (ConstantVal × Nat)) → Env → Env
   | [], env => env
-  | ctorsA :: rest, env => consBlockCtors nP rest (consSumCtors nP ctorsA env)
+  | ctorList :: rest, env => consBlockCtors nP rest (consSumCtors nP ctorList env)
 
 /-- The members' recursors consed with their rules, in block order.
-`find?` is the environment holding the block's constructors (the
-recursors' own records are not read by `recRuleBits`). -/
-def consBlockRecs (find? : Name → Option ConstantInfo) (p : BlockShape) (nP : Nat) :
+The rule-less stage's K flag (`false`) is all a proof about it reads. -/
+def consBlockRecs (p : BlockShape) :
     Nat → List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat)) → Env → Env
   | _, [], env => env
-  | m, (cvRa, rhss, _nIdx, ctorsA) :: rest, env =>
-    consBlockRecs find? p nP (m + 1) rest
+  | m, (cvRa, rhss, _nIdx, ctorList) :: rest, env =>
+    consBlockRecs p (m + 1) rest
       ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m)
-        (sumRules find? cvRa.name nP ctorsA rhss)
+        false (sumRules ctorList rhss)
         :: env.consts, env.tables⟩
 
 /-! ### The recursor stage as CHECKING
@@ -349,6 +336,6 @@ def consBlockRecsBare (p : BlockShape) : Nat → List (ConstantVal × Nat) → E
   | _, [], env => env
   | m, (cvRa, _nIdx) :: rest, env =>
     consBlockRecsBare p (m + 1) rest
-      ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) [] :: env.consts, env.tables⟩
+      ⟨.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false [] :: env.consts, env.tables⟩
 
 end ConLeche

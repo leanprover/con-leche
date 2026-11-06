@@ -13,7 +13,7 @@ At every non-inductive kind the η-closure follows from
 (`EtaFamiliesClosed.cons_nonind`; at a pinned basis block,
 `basisInstallRun_etaClosed`).  The inductive kind's is the one premise
 `hind`, at `DeclRun`'s `Ind` payload (discharged at the fold's
-`DeclIndRunDispatchK` by `declIndRunDispatchKEtaClosed`).
+`DeclIndRunDispatchK`, `Model/Fold.lean`).
 
 This module is model-free by construction: no `V`, no `SetTheory`.
 -/
@@ -62,9 +62,28 @@ theorem basisInstallRun_etaClosed :
           basisIndOk_mem hok List.mem_cons_self heq hcape)
 
 /-- Every pinned basis block passes the former check, by computation. -/
-theorem basisIndOk_declsA (kind : BasisKind) :
-    basisIndOk kind.declsA = true := by
+theorem basisIndOk_decls (kind : BasisKind) :
+    basisIndOk kind.decls = true := by
   cases kind <;> decide
+
+/-- The former check reads no level-parameter name. -/
+theorem basisIndOk_atBlock : ∀ (pins block : List ConstantInfo), basisIndOk pins = true →
+    basisIndOk (List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) pins block) = true
+  | [], _, _ => by simp [basisIndOk]
+  | _ :: _, [], _ => by simp [basisIndOk]
+  | p :: ps, c :: cs, h => by
+    simp only [basisIndOk, List.all_cons, Bool.and_eq_true, List.zipWith_cons_cons] at h ⊢
+    refine ⟨?_, basisIndOk_atBlock ps cs h.2⟩
+    cases p <;> first | exact h.1 | rfl
+
+/-- A quotient slot passes the former check. -/
+theorem basisIndOk_quotPin (k : QuotKind) : basisIndOk [quotPin k] = true := by
+  cases k <;> decide
+
+/-- A quotient record's constant passes the former check. -/
+theorem basisIndOk_quotAt (k : QuotKind) (cv : ConstantVal) :
+    basisIndOk [quotAt k cv] = true :=
+  basisIndOk_atBlock [quotPin k] [.axiomInfo cv] (basisIndOk_quotPin k)
 
 /-- **The declaration fold's η-closure half, on the run record** (#161).
 It reads `ConstantValRun`'s freshness guard and the kinds' cons shapes
@@ -87,18 +106,18 @@ theorem declEtaStepRun {F : Nat}
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | thmDecl cv value =>
-    obtain ⟨type', value', hcv, -, -, rfl⟩ := h
+    obtain ⟨-, type', value', hcv, -, -, rfl⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | opaqueDecl cv value =>
-    obtain ⟨type', value', hcv, -, rfl, -⟩ := h
+    obtain ⟨-, type', value', hcv, -, rfl, -⟩ := h
     exact EtaFamiliesClosed.cons_nonind hE
       (Option.isNone_iff_eq_none.mp hcv.1) (fun _ _ heq => nomatch heq)
   | axiomDecl cv =>
-    -- the `Quot.sound` arm (task #293) installs nothing
-    rcases h with ⟨-, rfl⟩ | h
-    · exact hE
-    obtain ⟨type', hcv, harm⟩ := h
+    rcases h with ⟨-, -, -, hf, rfl⟩ | h
+    · exact EtaFamiliesClosed.cons_nonind hE (Option.isNone_iff_eq_none.mp hf)
+        (fun _ _ heq => nomatch heq)
+    obtain ⟨type', -, hcv, harm⟩ := h
     have hfresh : env.find? cv.name = none :=
       Option.isNone_iff_eq_none.mp hcv.1
     rcases harm with ⟨-, rfl⟩ | ⟨-, -, rfl⟩ | ⟨-, -, rfl⟩ |
@@ -110,21 +129,14 @@ theorem declEtaStepRun {F : Nat}
     · exact EtaFamiliesClosed.cons_nonind hE hfresh
         (fun _ _ heq => nomatch heq)
     · exact hE
-  | basisDecl kind =>
-    exact basisInstallRun_etaClosed kind.declsA h.2
-      (basisIndOk_declsA kind) hE
   | quotDecl k cv =>
-    -- the quotient package's `type` record installs the pinned block;
-    -- its other records install nothing (task #293)
-    cases k with
-    | type => exact basisInstallRun_etaClosed _ h.2 (basisIndOk_declsA .quotK) hE
-    | _ => exact (show env₂ = env from h) ▸ hE
+    obtain ⟨-, -, hf, rfl⟩ := h
+    exact basisInstallRun_etaClosed [quotAt k cv] ⟨hf, rfl⟩ (basisIndOk_quotAt k cv) hE
   | indDecl block nP =>
-    -- a block the fold recognises as a pinned one installs the pin
-    -- (task #293)
     simp only [DeclRun] at h
     split at h
-    · exact basisInstallRun_etaClosed _ h.2 (basisIndOk_declsA _) hE
+    · exact basisInstallRun_etaClosed _ h.2
+        (basisIndOk_atBlock _ _ (basisIndOk_decls _)) hE
     · exact hind h
 
 end ConLeche.Semantics

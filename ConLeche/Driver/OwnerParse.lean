@@ -71,7 +71,7 @@ does a pending line.
 **Memory.**  The table entries — every name, level and expression the
 parse builds — and the records are marked persistent by the owner that
 built them, before it hands them out (`markEach`, `markSlots`: the
-install driver's escape `Runtime.markPersistent`; they live to the end
+escape `Runtime.markPersistent`; they live to the end
 of the run, but for a window that falls back and names only binders
 read, `tests/trust-surface.sh`).  Nothing else is marked: the arrays that hold the entries
 and the bookkeeping are dropped and freed when the window, or the
@@ -125,15 +125,15 @@ theorem sameB_eq {α : Type} [BEq α] [LawfulBEq α] (a b : α) : sameB a b = (a
 theorem sameB_iff {α : Type} [BEq α] [LawfulBEq α] {a b : α} : sameB a b = true ↔ a = b := by
   rw [sameB_eq, beq_iff_eq]
 
-/-- Mark one value persistent: the install driver's escape
-`Runtime.markPersistent`, the identity on the value. -/
+/-- Mark one value persistent: the escape `Runtime.markPersistent`, the
+identity on the value. -/
 def markOne {α : Type} (x : α) : IO Unit := do
   let _ ← unsafe Runtime.markPersistent x
 
 /-- Mark the ELEMENTS of an array persistent, not the array (which is
-dropped later).  The escape is the
-install driver's (`Runtime.markPersistent`, the identity on the value;
-the object graph is marked in place and never freed).  An element's
+dropped later).  The escape is
+`Runtime.markPersistent`, the identity on the value (the object graph
+is marked in place and never freed).  An element's
 walk stops at children already persistent: the entries it was built
 from. -/
 def markEach {α : Type} (a : Array α) : IO Unit :=

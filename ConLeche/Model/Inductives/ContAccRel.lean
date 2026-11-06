@@ -52,7 +52,7 @@ moved up. -/
 theorem holeQ_frame_iff {ctx : NestCtx} {prog news : List NestHole} {i n : Nat} :
     HoleQ ctx (news.reverse ++ prog) (ctx.hiAt prog.length + news.length) i n ↔
       (∃ (j : Nat) (hk : NestHole), news[j]? = some hk ∧ i = news.length - 1 - j ∧
-        n + hk.key.ds.length = ConLeche.nestArity ctx hk.key.cname) ∨
+        n = hk.nIdx) ∨
       (news.length ≤ i ∧ HoleQ ctx prog (ctx.hiAt prog.length) (i - news.length) n) := by
   constructor
   · rintro (⟨t, ht, hlt, rfl, hn⟩ | ⟨j, hk, hj, hlt, rfl, hn⟩)
@@ -159,7 +159,7 @@ frame's walk (see the module docstring). -/
 theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = hi)
     {Δh : List Term} {R₀ : FrameRel V} (hR₀ : HoleRelA mp.base2 φ w ctx prog hi Δh R₀)
     (hwD : D.w (Level.substFn φ lps us) = w)
-    (harity : ∀ p ∈ grp, ConLeche.nestArity ctx p.1
+    (harity : ∀ p ∈ grp, ds.length + p.2.piBinders.1.length
       = (D.pars (D.names.idxOf p.1) (Level.substFn φ lps us)).length
         + (D.ids (D.names.idxOf p.1) (Level.substFn φ lps us)).length) :
     HoleRelA mp.base2 φ w ctx ((grpNews us ds hi grp).reverse ++ prog) (hi + grp.length)
@@ -191,7 +191,8 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
     simp [grpVals]
   -- the new frames are the group's members at the key
   have hnewj : ∀ (j : Nat) (hk : NestHole), (grpNews us ds (ctx.hiAt prog.length) grp)[j]? = some hk →
-      ∃ hj : j < grp.length, hk = { key := ⟨(grp[j]).1, us, ds⟩, base := ctx.hiAt prog.length } := by
+      ∃ hj : j < grp.length, hk =
+        NestHole.mk ⟨(grp[j]).1, us, ds⟩ (ctx.hiAt prog.length) (grp[j]).2.piBinders.1.length := by
     intro j hk h
     have hj : j < grp.length := by
       have := (List.getElem?_eq_some_iff.mp h).1; rwa [hnl] at this
@@ -202,12 +203,14 @@ theorem frameRelA_holeRelA {prog : List NestHole} (hhi : ctx.hiAt prog.length = 
   -- the members' index arities at the group
   have hmm_of : ∀ (j : Nat) (hj : j < grp.length), ∃ mm, mm < D.k ∧
       D.names.idxOf (grp[j]).1 = mm ∧
-      ConLeche.nestArity ctx (grp[j]).1 = ds.length + (D.ids mm (Level.substFn φ lps us)).length := by
+      (grp[j]).2.piBinders.1.length = (D.ids mm (Level.substFn φ lps us)).length := by
     intro j hj
     have hpi : grp[j] ∈ grp := List.getElem_mem _
     obtain ⟨mm, hmm, -, hidx, -⟩ := grpMember mp hD hnN hkN hfind hlps hnd hul hds hdsa hlenP hg hpi
     refine ⟨mm, hmm, hidx, ?_⟩
-    rw [harity _ hpi, hidx, parsLen_dsa mp hD hdsa hlenP hmm, ← DenoteSpine.length_eq hdsa]
+    have h := harity _ hpi
+    rw [hidx, parsLen_dsa mp hD hdsa hlenP hmm, ← DenoteSpine.length_eq hdsa] at h
+    omega
   -- the admissible positions
   have hQiff := fun (i n : Nat) => holeQ_frame_iff (ctx := ctx) (prog := prog)
     (news := grpNews us ds (ctx.hiAt prog.length) grp) (i := i) (n := n)
@@ -288,29 +291,20 @@ theorem grp_arity (mp : EnvModelM V env) {D : LfpDatum V}
     (hD : D ∈ mp.lfpBlocks) (hnN : D.names.Nodup) (hkN : D.names.length = D.k) {ctx : NestCtx}
     (hfind : ∀ n, ctx.find? n = env.find? n) {hi : Nat} {us : List Level} {ds : List Expr}
     {grp : List (Name × Expr)} (hg : GrpWf ctx D hi us ds grp) (ψ : Name → Nat) :
-    ∀ p ∈ grp, ConLeche.nestArity ctx p.1
+    ∀ p ∈ grp, ds.length + p.2.piBinders.1.length
       = (D.pars (D.names.idxOf p.1) ψ).length + (D.ids (D.names.idxOf p.1) ψ).length := by
   intro p hp
-  obtain ⟨⟨mm, hmm, hpm⟩, nI, hrun⟩ := hg.2.2 p hp
-  obtain ⟨cvC, caps, hfC, -, -, ty, s, hty, hs, -, -, -⟩ := ConLeche.nestInstType_inv hrun
-  obtain ⟨cv, caps', hf, hab⟩ := (mp.lfp_ok D hD).2.2.1 mm hmm
-  have hfC' : env.find? (D.member mm) = some (.indInfo cvC caps) := by
-    rw [← hfind, ← hpm]; exact hfC
+  obtain ⟨-, mm, cv, caps, nI, hmm, hpm, hfc, hF⟩ := hg.2.2 p hp
+  obtain ⟨cv', caps', hf, -, hab⟩ := (mp.lfp_ok D hD).2.2.1 mm hmm
+  have hfC' : env.find? (D.member mm) = some (.indInfo cv caps) := by
+    rw [← hfind, ← hpm]; exact hfc
   rw [hf] at hfC'
-  obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps' = caps := by simpa using hfC'
+  obtain ⟨rfl, rfl⟩ : cv' = cv ∧ caps' = caps := by simpa using hfC'
   obtain ⟨ab, hread, hmap⟩ := hab ψ
-  have hok := tailOk_of_read _ cv.type rfl hread
-  obtain ⟨-, l2, l3⟩ := tail_instantiateLevelParams cv.levelParams us cv.type
-  obtain ⟨-, k2⟩ := tail_instPisWith ds (l3.mpr hok) hty
-  have hsty : SortTail ty := by
-    unfold SortTail; rw [← piBinders_snd_eq, hs]; trivial
-  have hse : SortTail cv.type := l2.mp (k2.mp hsty)
-  obtain ⟨ab', u', heq, hlen⟩ := read_of_sortTail _ cv.type rfl hse hread
-  obtain ⟨hab', -⟩ := mkPisAV_sort_eq heq
-  have hll : ab.length = ab'.length := by simpa using congrArg List.length hab'
+  obtain ⟨s, hs, -⟩ := hF.sort
+  have hc := instPis_count_of_read hread cv'.levelParams us hF.inst hs
   have hidx : D.names.idxOf p.1 = mm := by rw [hpm]; exact idxOf_member hnN hkN hmm
-  have hnA : ConLeche.nestArity ctx p.1 = cv.type.piBinders.1.length := by
-    unfold ConLeche.nestArity; rw [hfC]
-  rw [hnA, hidx, ← piCount_eq_length, ← hlen, ← hll, ← List.length_append, ← hmap]
+  simp only at hc
+  rw [hc, hidx, ← List.length_append, ← hmap]
 
 end ConLeche.Model

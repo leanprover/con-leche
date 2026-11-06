@@ -92,28 +92,48 @@ read).
 **This is an environment law**, a field and not a theorem, because
 the `Eq` leaf's value is fixed by the basis install (`eqValT` — the
 `.eqE` former η-expanded) and by nothing else; its supplier is the
-basis install (`BasisStepPB`).  See the task #161 LITERAL TIER
+basis install (`declBasisPB_at`).  See the task #161 LITERAL TIER
 seal III record. -/
 @[expose] def EqLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) : Prop :=
-  env.find? eqName = some eqA →
+  ∀ (ci : ConstantInfo) (p : Name), env.find? eqName = some ci →
+  ci.toConstantVal.levelParams = [p] →
   ∀ ψ : Name → Nat,
     -- the spine's **value**: the truth set of the equation
     (∀ (ρ : Nat → V) (A a b : V),
-      A ∈ˢ (univ (ψ uN) : V) → a ∈ˢ A → b ∈ˢ A →
+      A ∈ˢ (univ (ψ p) : V) → a ∈ˢ A → b ∈ˢ A →
       SetTheory.app (SetTheory.app (SetTheory.app
           (interp V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
     -- the spine's **grading**, and that it is a proposition (the
     -- certificate frame reads exactly these)
     ∀ (ρ : Nat → V) (Aa la ra : Term),
       WellDenoted V ρ Aa → WellDenoted V ρ la → WellDenoted V ρ ra →
-      interp V ρ Aa ∈ˢ (univ (ψ uN) : V) →
+      interp V ρ Aa ∈ˢ (univ (ψ p) : V) →
       interp V ρ la ∈ˢ interp V ρ Aa →
       interp V ρ ra ∈ˢ interp V ρ Aa →
       WellDenoted V ρ
           (.app (.app (.app (m.acval eqName ψ) Aa) la) ra) ∧
         interp V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
           ∈ˢ (univZero : V)
+
+/-- `EqLaw` at the stored `Eq`'s parameter. -/
+theorem EqLaw.at {V : Type w} [SetTheory V] {env : Env} {m : EnvModel V env}
+    (h : EqLaw m) (hs : ConLeche.Verify.EqStored env) (ψ : Name → Nat) :
+    (∀ (ρ : Nat → V) (A a b : V),
+      A ∈ˢ (univ (ψ (ConLeche.Verify.eqLp env)) : V) → a ∈ˢ A → b ∈ˢ A →
+      SetTheory.app (SetTheory.app (SetTheory.app
+          (interp V ρ (m.acval eqName ψ)) A) a) b = eqv a b) ∧
+    ∀ (ρ : Nat → V) (Aa la ra : Term),
+      WellDenoted V ρ Aa → WellDenoted V ρ la → WellDenoted V ρ ra →
+      interp V ρ Aa ∈ˢ (univ (ψ (ConLeche.Verify.eqLp env)) : V) →
+      interp V ρ la ∈ˢ interp V ρ Aa →
+      interp V ρ ra ∈ˢ interp V ρ Aa →
+      WellDenoted V ρ
+          (.app (.app (.app (m.acval eqName ψ) Aa) la) ra) ∧
+        interp V ρ (.app (.app (.app (m.acval eqName ψ) Aa) la) ra)
+          ∈ˢ (univZero : V) :=
+  let ⟨ci, hf, hl⟩ := hs
+  h ci _ hf hl ψ
 
 /-- **The compiler-trust opaques are the identity, at `interp`**: the
 stored `Lean.reduceNat`/`Lean.reduceBool` leaf, applied to a member of
@@ -122,7 +142,7 @@ its element type's reading, *is* that member.
 **This is an environment law, as `EqLaw` is**: the opaque's leaf
 value is fixed by its own install (`checkReducePin`'s identity
 certificate) and by nothing else, so the only possible supplier is
-that install (an erasure factoring is refuted here for the same
+that its check (an erasure factoring is refuted here for the same
 reason as at `EqLaw`).
 
 **Establishment**: `reduceOps_install` (`Model/ReduceOps.lean`),
@@ -202,11 +222,18 @@ theorem teleFit_nil_inv {ρ : Nat → V} {T : Term} {rest : V}
 
 end
 
+/-- **A graded spine at a family's leaf**: the values `ts` are a spine of terms whose
+application to the leaf `L` is graded and not the point.  What the η and unit laws ask
+of the parameters; it reads no type, and at a recorded block it gives the fit of the
+telescope (`spineFit_of_wellDenoted_mkAppN_lam`). -/
+@[expose] def FamFit (V : Type w) [SetTheory V] (ρ : Nat → V) (L : Term) (ts : List V) : Prop :=
+  ∃ vs : List Term, ts = vs.map (interp V ρ) ∧ WellDenoted V ρ (Term.mkAppN L vs) ∧
+    interp V ρ (Term.mkAppN L vs) ≠ pt
+
 /-- **The η constructor's telescope coherence** (task #342 L11b): at the
-use's levels `us`, a member `x` of the family `T` at parameters `ts`
-fitting the former's type reading `TVa` gives a spine `fab ρ ts x`
-(the parameters, then `x`'s projections) that fits the η constructor
-`C`'s own type reading.  Without it the former's parameter telescope
+use's levels `us`, a member `x` of the family `T` at a graded spine of parameters `ts`
+gives a spine `fab ρ ts x` (the parameters, then `x`'s projections) that fits the η
+constructor `C`'s own type reading.  Without it the former's parameter telescope
 and the constructor's are unrelated: a parameter compared only where
 neither side is the point (structure η's comparison) says nothing
 about a point-valued parameter, which only the constructor's telescope
@@ -214,18 +241,19 @@ pins (L11's finding 2).  Keyed on the constructor's lookup, so a stage
 that has not stored it yet owes nothing. -/
 @[expose] def EtaCoherent {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) (T C : Name) (lps : List Name)
-    (us : List Level) (TVa : Term) (nP : Nat)
+    (us : List Level) (nP : Nat)
     (fab : (Nat → V) → List V → V → List V) : Prop :=
   ∀ (cvC : ConstantVal) (nPc nFc : Nat),
     env.find? C = some (.ctorInfo cvC nPc nFc) →
     ∃ TCa : Term,
       denote m.acval env φ 0
         (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
-      ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
+      ∀ (ρ : Nat → V) (ts : List V) (x : V),
         ts.length = nP →
-        TeleFit V ρ TVa ts rest →
+        FamFit V ρ (m.acval T (Level.substFn φ lps us)) ts →
         x ∈ˢ ts.foldl SetTheory.app
           (interp V ρ (m.acval T (Level.substFn φ lps us))) →
+        x ≠ pt →
         ∃ restC : V, TeleFit V ρ TCa (fab ρ ts x) restC
 
 /-- **`EtaCoherent` crosses a change of environment** that keeps the
@@ -233,9 +261,9 @@ constructor's lookup (backwards), its type's reading (forwards), the
 family's leaf and the fabricated spine. -/
 theorem EtaCoherent.transport {env env₂ : Env} {m : EnvModel V env}
     {m₂ : EnvModel V env₂} {φ : Name → Nat} {T C : Name} {lps : List Name}
-    {us : List Level} {TVa : Term} {nP : Nat}
+    {us : List Level} {nP : Nat}
     {fab fab₂ : (Nat → V) → List V → V → List V}
-    (h : EtaCoherent m φ T C lps us TVa nP fab)
+    (h : EtaCoherent m φ T C lps us nP fab)
     (hfind : ∀ cvC nPc nFc, env₂.find? C = some (.ctorInfo cvC nPc nFc) →
       env.find? C = some (.ctorInfo cvC nPc nFc))
     (hread : ∀ (cvC : ConstantVal) (nPc nFc : Nat) (TCa : Term),
@@ -246,14 +274,14 @@ theorem EtaCoherent.transport {env env₂ : Env} {m : EnvModel V env}
         (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa)
     (hT : m₂.acval T (Level.substFn φ lps us) = m.acval T (Level.substFn φ lps us))
     (hfab : ∀ ρ ts x, fab₂ ρ ts x = fab ρ ts x) :
-    EtaCoherent m₂ φ T C lps us TVa nP fab₂ := by
+    EtaCoherent m₂ φ T C lps us nP fab₂ := by
   intro cvC nPc nFc hf₂
   have hf := hfind cvC nPc nFc hf₂
   obtain ⟨TCa, hTCa, hfit⟩ := h cvC nPc nFc hf
-  refine ⟨TCa, hread cvC nPc nFc TCa hf hTCa, fun ρ ts rest x hlen hft hmem => ?_⟩
-  rw [hT] at hmem
+  refine ⟨TCa, hread cvC nPc nFc TCa hf hTCa, fun ρ ts x hlen hft hmem => ?_⟩
+  rw [hT] at hmem hft
   rw [hfab]
-  exact hfit ρ ts rest x hlen hft hmem
+  exact hfit ρ ts x hlen hft hmem
 
 /-- **The fired structural-η law of an η-capable stored family**
 (see the section note for the shape), with the η constructor's
@@ -262,21 +290,16 @@ telescope coherence (`EtaCoherent`). -/
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
-  ∃ TVa : Term,
-    denote m.acval env φ' 0
-      (cvT.type.instantiateLevelParams cvT.levelParams us)
-      = some TVa ∧
-    (∀ ρ : Nat → V, WellDenoted V ρ TVa) ∧
-    (∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
+    (∀ (ρ : Nat → V) (ts : List V) (x : V),
       ts.length = caps.etaParams →
-      TeleFit V ρ TVa ts rest →
+      FamFit V ρ (m.acval T (Level.substFn φ' cvT.levelParams us)) ts →
       x ∈ˢ ts.foldl SetTheory.app
         (interp V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
       x = ts.foldl SetTheory.app
           (interp V ρ
             (m.acval caps.etaCtor
               (Level.substFn φ' cvT.levelParams us)))) ∧
-    EtaCoherent m φ' T caps.etaCtor cvT.levelParams us TVa caps.etaParams
+    EtaCoherent m φ' T caps.etaCtor cvT.levelParams us caps.etaParams
       (fun _ ts _ => ts)
 
 /-- **The fired unit-like law of a unit-like stored family.** -/
@@ -284,14 +307,9 @@ telescope coherence (`EtaCoherent`). -/
     (m : EnvModel V env) (φ' : Name → Nat) (T : Name)
     (cvT : ConstantVal) (caps : IndCaps) : Prop :=
   ∀ us : List Level, us.length = cvT.levelParams.length →
-  ∃ TVa : Term,
-    denote m.acval env φ' 0
-      (cvT.type.instantiateLevelParams cvT.levelParams us)
-      = some TVa ∧
-    (∀ ρ : Nat → V, WellDenoted V ρ TVa) ∧
-    ∀ (ρ : Nat → V) (ts : List V) (rest : V) (x y : V),
+    ∀ (ρ : Nat → V) (ts : List V) (x y : V),
       ts.length = caps.unitParams →
-      TeleFit V ρ TVa ts rest →
+      FamFit V ρ (m.acval T (Level.substFn φ' cvT.levelParams us)) ts →
       x ∈ˢ ts.foldl SetTheory.app
         (interp V ρ (m.acval T (Level.substFn φ' cvT.levelParams us))) →
       y ∈ˢ ts.foldl SetTheory.app
@@ -329,57 +347,7 @@ as a Π-tower over its parameters and indices ending in `.sort n`, and
 `n` is the stored sort at the reading's assignment (a block member's
 `FormerData.read`: `.sort (resSort.eval ψ)`).
 
-* The **field** (`EnvModelM.ind_strict`, `IndStrictOk`) is the strict
-  half, per former and at the uninstantiated type, the form every
-  install proves.
-* The **law** (`IndFibLaw`) is both halves at a use's instantiated
-  levels, the form the rules tier reads; it is derived
-  (`EnvModelM.indFibLaw`): the truth-value half from the stored
-  former's membership in its graded type, the strict half from the
-  field. -/
-
-/-- **A stored former's fibres above a proposition are strict**: at every
-assignment where its type reads as a Π-tower ending in `.sort n` with
-`n ≠ 0`, the former applied to values fitting the tower's domains is
-strict (task #342 L7). -/
-@[expose] def IndStrictAt {V : Type w} [SetTheory V]
-    (acval : Name → (Name → Nat) → Term) (env : Env) (I : Name)
-    (cv : ConstantVal) : Prop :=
-  ∀ (ψ : Name → Nat) (ab : List Term) (n : Nat),
-    denote acval env ψ 0 cv.type = some (mkPisAV ab (.sort n)) → n ≠ 0 →
-    ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ ab vs →
-      Strict (vs.foldl SetTheory.app (interp V ρ (acval I ψ)))
-
-/-- `IndStrictAt` at a cons's head, if it is a former. -/
-@[expose] def IndStrictHead {V : Type w} [SetTheory V]
-    (acval : Name → (Name → Nat) → Term) (env : Env) (c₀ : ConstantInfo) : Prop :=
-  ∀ (cv : ConstantVal) (caps : IndCaps), c₀ = .indInfo cv caps →
-    IndStrictAt (V := V) acval env c₀.name cv
-
-/-- **Every stored former's fibres above a proposition are strict**
-(the `EnvModelM` field; established at the formers' installs). -/
-@[expose] def IndStrictOk {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvModel V env) : Prop :=
-  ∀ (I : Name) (cv : ConstantVal) (caps : IndCaps),
-    env.find? I = some (.indInfo cv caps) → IndStrictAt (V := V) m.acval env I cv
-
-/-- **The fibre law of the stored families** (task #342 L7; the
-fragment's `IndFibLaw`, task #342 F1): a stored former `I` at the
-use's levels `us`, whose instantiated type reads as a Π-tower ending
-in `.sort n`, applied to values fitting the tower's domains, is a
-truth value where `n = 0` and strict where `n ≠ 0` (`Fib`).  At any
-depth `d`: the type is closed. -/
-@[expose] def IndFibLaw {V : Type w} [SetTheory V] {env : Env}
-    (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ (d : Nat) (I : Name) (cv : ConstantVal) (caps : IndCaps) (us : List Level),
-    env.find? I = some (.indInfo cv caps) → us.length = cv.levelParams.length →
-    ∀ (ab : List Term) (n : Nat),
-      denote m.acval env φ d (cv.type.instantiateLevelParams cv.levelParams us)
-        = some (mkPisAV ab (.sort n)) →
-      ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ ab vs →
-        Fib (decide (n = 0))
-          (vs.foldl SetTheory.app
-            (interp V ρ (m.acval I (Level.substFn φ cv.levelParams us))))
+-/
 
 /-- A Π-tower over a sort determines its domains and its sort. -/
 theorem mkPisAV_sort_inj :
@@ -394,22 +362,6 @@ theorem mkPisAV_sort_inj :
     obtain ⟨h1, h⟩ := h
     obtain ⟨h2, rfl⟩ := mkPisAV_sort_inj h
     exact ⟨by simp [h1, h2], rfl⟩
-
-/-- **The strict fibres of a former, at its cons** — from its one type
-reading: at every assignment the stored type reads as `mkPisAV (ab ψ)
-(.sort (s ψ))`, and where `s ψ ≠ 0` the leaf applied along a fitting
-spine is strict. -/
-theorem indStrictHead_of {acval : Name → (Name → Nat) → Term} {env : Env}
-    {cv : ConstantVal} {caps : IndCaps}
-    {ab : (Name → Nat) → List Term} {s : (Name → Nat) → Nat}
-    (hread : ∀ ψ, denote acval env ψ 0 cv.type = some (mkPisAV (ab ψ) (.sort (s ψ))))
-    (h : ∀ ψ, s ψ ≠ 0 → ∀ (ρ : Nat → V) (vs : List V), SpineFit ρ (ab ψ) vs →
-      Strict (vs.foldl SetTheory.app (interp V ρ (acval cv.name ψ)))) :
-    IndStrictHead (V := V) acval env (.indInfo cv caps) := by
-  intro cv' caps' hc ψ ab' n hr hn ρ vs hsp
-  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj hc
-  obtain ⟨hab, rfl⟩ := mkPisAV_sort_inj (Option.some.inj ((hread ψ).symm.trans hr))
-  exact h ψ hn ρ vs (hab ▸ hsp)
 
 /-! ## The fired modeled-iota contract (task #161, iota tier)
 
@@ -518,6 +470,60 @@ conditional claims. -/
       interp V ρ (cargsa.getD (cnP + i) default)
         = interp V ρ (xs.getD (rP + i) default)
 
+/-- **What the ι case split's `false` establishes** at a constructor and the
+comparand levels, with no K rule: the family a constructor concludes in is never
+`Prop` there.  Its stored type ends in a sort that is never zero, or it reaches
+one only by reduction, and then the use walked it (`FormerSort`): at every
+valuation its reading is a tower of function spaces over a universe above `0`,
+unless a stage is the point. -/
+@[expose] def FamNZ {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term) (env : Env)
+    (φ : Name → Nat) (cvj : ConstantVal) (us : List Level) : Prop :=
+  ∃ cvT caps, ConLeche.ctorFamily env.find? cvj = some (cvT, caps) ∧
+    cvT.levelParams.length = us.length ∧
+    (ConLeche.formerNeverZero cvT us = true ∨
+      (ConLeche.formerResSort cvT.type = none ∨
+        ConLeche.reservedBasisNames.contains cvT.name = false) ∧ ∃ w : Nat, w ≠ 0 ∧
+        ∀ ta : Term, denote acval env φ 0
+            (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+          ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) w)
+
+/-- A constructor's family reads the lookup at the name its type concludes in. -/
+theorem ctorFamily_congr {f g : Name → Option ConstantInfo} {cvj : ConstantVal}
+    (h : ∀ T us, cvj.type.piResult.getAppFn = .const T us → f T = g T) :
+    ConLeche.ctorFamily f cvj = ConLeche.ctorFamily g cvj := by
+  unfold ConLeche.ctorFamily
+  split
+  · next T us hh => rw [h T us hh]
+  · rfl
+
+/-- A constructor's family is a stored inductive. -/
+theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
+    {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
+    ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
+  unfold ConLeche.ctorFamily at h
+  split at h
+  · next T us hh =>
+    split at h
+    · next hf =>
+      cases Option.some.inj h
+      exact ⟨T, us, hh, hf⟩
+    · exact nomatch h
+  · exact nomatch h
+
+/-- `FamNZ` reads the family's lookup and the reading of its type. -/
+theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
+    {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
+    (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
+    (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
+      ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+      denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+      denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
+    (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
+  obtain ⟨cvT, caps, hf, hl, hc⟩ := h
+  rw [hfam] at hf
+  refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
+  exact ht ta (hde cvT caps ta hf hta) ρ
+
 /-- **The ι case split's environment facts, one rule**.
 `RecRuleLaw`'s main clause takes the levels, parameters and index
 comparisons as equations; under the conditional claims the ι step has
@@ -526,7 +532,7 @@ that is never `Prop` at the comparand levels it runs no check of the
 constructor application at all.  What the step consumes instead, at the
 recursor's levels:
 
-* **K** (`RecRule.k`): the rule's law at the recursor's own
+* **K** (the recursor's K flag): the rule's law at the recursor's own
   parameters, for any major value in the major's domain (the
   fragment's `RecRuleLawK`: inversion of the family's least
   fixed point) — the reduct, the minor, does not mention the major;
@@ -534,8 +540,8 @@ recursor's levels:
   syntactically, so a graded application of it that is not the point
   fits its telescope;
 * **(S) case 2**: where the family is never `Prop` at the comparand
-  levels (`iotaCtorNeverProp`, the checker's test), the recursor's major
-  domain holds no point;
+  levels (`FamNZ`, what the checker's test establishes), the recursor's
+  major domain holds no point;
 * **(T) case 2, the constructor's levels**: there a fired application
   that is not the point, at the constructor's own levels and spine, is
   also an application of the constructor at the comparand levels, to a
@@ -555,13 +561,13 @@ recursor's levels:
 (P) and (U) are read only at case 3, so they take the level equation. -/
 @[expose] def RecRuleExtra {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
-    (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) : Prop :=
+    (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rl : RecRule) : Prop :=
   ∀ us : List Level, us.length = cv.levelParams.length →
     ∀ TVa : Term,
       denote m.acval env φ 0
         (cv.type.instantiateLevelParams cv.levelParams us) = some TVa →
     -- K
-    (RecRule.k rl = true → RecRule.nfields rl = 0 ∧
+    (isK = true → RecRule.nfields rl = 0 ∧
       ∀ Ra : Term,
         denote m.acval env φ 0
           ((RecRule.rhs rl).instantiateLevelParams cv.levelParams us) = some Ra →
@@ -577,24 +583,24 @@ recursor's levels:
     ∀ (cvj : ConstantVal) (cnP cnF : Nat),
       env.find? (RecRule.ctor rl) = some (.ctorInfo cvj cnP cnF) →
     -- the constructor's arity
-    (cvj.type.stripPis (RecRule.ctorParams rl + RecRule.nfields rl)).isSome = true ∧
-    (RecRule.k rl = false →
+    (cvj.type.stripPis (cnP + RecRule.nfields rl)).isSome = true ∧
+    (isK = false →
     -- (S)
-    (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 = true →
+    (FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
       ∀ (ρ : Nat → V) (xs : List Term) (a restR : Term),
         xs.length = mI → TeleFitPA V ρ TVa (xs ++ [a]) restR →
         interp V ρ a ≠ pt) ∧
     -- (T)
-    (ConLeche.iotaCtorNeverProp env.find? cvj
-        (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 = true →
+    (FamNZ (V := V) m.acval env φ cvj
+        (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
       ∀ (usj : List Level), usj.length = cvj.levelParams.length →
       ∀ TVja : Term,
         denote m.acval env φ 0
           (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
       ∀ (ρ : Nat → V) (xs ys : List Term) (restR restC : Term),
         xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         TeleFitPA V ρ TVa
           (xs ++ [Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]) restR →
@@ -606,11 +612,11 @@ recursor's levels:
           usj'.length = cvj.levelParams.length ∧
           Level.substFn φ cvj.levelParams usj'
             = Level.substFn φ cvj.levelParams
-                (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 ∧
+                (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 ∧
           denote m.acval env φ 0
             (cvj.type.instantiateLevelParams cvj.levelParams usj') = some TVja' ∧
           ys'.length = ys.length ∧
-          ys'.drop (RecRule.ctorParams rl) = ys.drop (RecRule.ctorParams rl) ∧
+          ys'.drop cnP = ys.drop cnP ∧
           (∀ y ∈ ys', WellDenoted V ρ y) ∧
           TeleFitPA V ρ TVja' ys' restC' ∧
           interp V ρ (Term.mkAppN
@@ -620,7 +626,7 @@ recursor's levels:
     ∀ (usj : List Level), usj.length = cvj.levelParams.length →
       Level.substFn φ cvj.levelParams usj
         = Level.substFn φ cvj.levelParams
-            (ConLeche.recFireComparands rl cv.levelParams us cvj.levelParams [] rP).1 →
+            (ConLeche.recFireComparands rl cnP cv.levelParams us cvj.levelParams [] rP).1 →
     ∀ TVja : Term,
       denote m.acval env φ 0
         (cvj.type.instantiateLevelParams cvj.levelParams usj) = some TVja →
@@ -629,14 +635,14 @@ recursor's levels:
         xs.length = mI → TeleFitPA V ρ TVa (xs ++ [a]) restR →
         interp V ρ a = pt →
       ∀ (ys : List Term) (restC : Term), TeleFitPA V ρ TVja ys restC →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         (∀ y ∈ ys, WellDenoted V ρ y) →
         interp V ρ (Term.mkAppN
           (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt) ∧
     -- (U)
     (∀ (ρ : Nat → V) (xs ys : List Term) (restR restC : Term),
         xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         TeleFitPA V ρ TVa
           (xs ++ [Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys]) restR →
@@ -645,13 +651,13 @@ recursor's levels:
         (RecRule.fire rl = .plain →
           interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          ∀ i, i < RecRule.ctorParams rl → i < mI →
+          ∀ i, i < cnP → i < mI →
             interp V ρ (ys.getD i default) ≠ pt → interp V ρ (xs.getD i default) ≠ pt →
             interp V ρ (ys.getD i default) = interp V ρ (xs.getD i default)) →
         (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
           interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          ∀ i, i < RecRule.ctorParams rl →
+          ∀ i, i < cnP →
           ∀ vpa : Term,
             denote m.acval env φ rP
               (ConLeche.Verify.openRev 0 rP
@@ -663,16 +669,16 @@ recursor's levels:
               = interp V ρ (Term.instRevChain (xs.take rP) vpa)) →
         (interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          IotaIndexPinC (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs) →
+          IotaIndexPinC (V := V) ρ restC cnP mI rP xs) →
         interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs))
+          IotaIndexPin (V := V) ρ restC cnP mI rP xs))
 
 /-- **One rule's fired modeled-iota contract at `interp`** (see the
 section note). -/
 @[expose] def RecRuleLaw {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat)
-    (n : Name) (cv : ConstantVal) (mI rP : Nat) (rl : RecRule) :
+    (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool) (rl : RecRule) :
     Prop :=
   rP ≤ mI ∧
   (∀ us : List Level, us.length = cv.levelParams.length →
@@ -690,7 +696,7 @@ section note). -/
       -- environment's `Sat` in closed form.  The consumer reads it to
       -- run the case-3 pin comparison's claim (`RecRuleExtra`'s (U)).
       (∀ lvls pins, RecRule.fire rl = .nested lvls pins →
-        ∀ i, i < RecRule.ctorParams rl →
+        ∀ i, i < pins.length →
         ∃ vpa : Term,
           denote m.acval env φ rP
             (ConLeche.Verify.openRev 0 rP
@@ -710,11 +716,11 @@ section note). -/
       ∀ (usj : List Level) (ρ : Nat → V) (xs ys : List Term)
         (TVa TVja restR restC : Term),
         xs.length = mI →
-        ys.length = RecRule.ctorParams rl + RecRule.nfields rl →
+        ys.length = cnP + RecRule.nfields rl →
         usj.length = cvj.levelParams.length →
         Level.substFn φ cvj.levelParams usj
           = Level.substFn φ cvj.levelParams
-              (ConLeche.recFireComparands rl cv.levelParams us
+              (ConLeche.recFireComparands rl cnP cv.levelParams us
                 cvj.levelParams [] rP).1 →
         -- the fired spine is graded (task #342 S5b: the constructor's own
         -- parameters are not compared outside case 3; its application is
@@ -726,7 +732,7 @@ section note). -/
         -- only at a `Prop` valuation)
         (interp V ρ (Term.mkAppN
             (m.acval (RecRule.ctor rl) (Level.substFn φ cvj.levelParams usj)) ys) = pt →
-          IotaIndexPin (V := V) ρ restC (RecRule.ctorParams rl) mI rP xs) →
+          IotaIndexPin (V := V) ρ restC cnP mI rP xs) →
         denote m.acval env φ 0
           (cv.type.instantiateLevelParams cv.levelParams us)
           = some TVa →
@@ -746,20 +752,20 @@ section note). -/
                   (Level.substFn φ cvj.levelParams usj)) ys]))
           = interp V ρ
               (Term.mkAppN Ra
-                (xs.take rP ++ ys.drop (RecRule.ctorParams rl))) ∧
+                (xs.take rP ++ ys.drop cnP)) ∧
         ((∀ a ∈ xs, WellDenoted V ρ a) → (∀ b ∈ ys, WellDenoted V ρ b) →
           WellDenoted V ρ
             (Term.mkAppN Ra
-              (xs.take rP ++ ys.drop (RecRule.ctorParams rl)))))
-  ∧ RecRuleExtra m φ n cv mI rP rl
+              (xs.take rP ++ ys.drop cnP))))
+  ∧ RecRuleExtra m φ n cv mI rP isK rl
 
 /-- The fired modeled-iota contract, keyed on every stored recursor. -/
 @[expose] def RecRules {V : Type w} [SetTheory V] {env : Env}
     (m : EnvModel V env) (φ : Name → Nat) : Prop :=
-  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat)
+  ∀ (n : Name) (cv : ConstantVal) (mI rP : Nat) (isK : Bool)
     (rules : List RecRule),
-    env.find? n = some (.recInfo cv mI rP rules) →
-    ∀ rl ∈ rules, RecRuleLaw m φ n cv mI rP rl
+    env.find? n = some (.recInfo cv mI rP isK rules) →
+    ∀ rl ∈ rules, RecRuleLaw m φ n cv mI rP isK rl
 
 /-! ## The tower projection law (task #175 wiring, W5)
 
@@ -825,13 +831,9 @@ an all-tower family. -/
   ∀ (cvT : ConstantVal) (capsT : IndCaps),
     env.find? T = some (.indInfo cvT capsT) →
     ∀ us : List Level, us.length = entry.levelParams.length →
-    ∃ TVa : Term,
-      denote m.acval env φ 0
-        (cvT.type.instantiateLevelParams cvT.levelParams us) = some TVa ∧
-      (∀ ρ : Nat → V, WellDenoted V ρ TVa) ∧
-      (∀ (ρ : Nat → V) (ts : List V) (rest : V) (x : V),
+      (∀ (ρ : Nat → V) (ts : List V) (x : V),
         ts.length = entry.numParams →
-        TeleFit V ρ TVa ts rest →
+        FamFit V ρ (m.acval T (Level.substFn φ entry.levelParams us)) ts →
         x ∈ˢ ts.foldl SetTheory.app
           (interp V ρ (m.acval T (Level.substFn φ entry.levelParams us))) →
         x = (ts ++ (List.range entry.numFields).map fun j =>
@@ -839,67 +841,72 @@ an all-tower family. -/
             (interp V ρ
               (m.acval entry.ctor (Level.substFn φ entry.levelParams us)))) ∧
       (capsT.eta = true →
-        EtaCoherent m φ T entry.ctor entry.levelParams us TVa entry.numParams
+        EtaCoherent m φ T entry.ctor entry.levelParams us entry.numParams
           (fun _ ts x => ts ++ (List.range entry.numFields).map fun j =>
             ConLeche.SetTheory.Tower.projS (j + 1) x))
 
-/-- **The `Prop` guard at a use's valuation** (task #175 W4c/O4): if
-the structure is a proposition there, so is the field's guard level.
-The typing and iota laws of a tower entry hold under it — a data
-field of a `Prop`-declared structure has no projection law (its value
-is not the point).  Consumers discharge it from the kernel's syntactic
-guard (`inferTypeCore`'s tower branch, `ProjEntry.fireOk`) through
-`towerGuardAt_of`. -/
-@[expose] def TowerGuardAt (φ : Name → Nat) (entry : ProjEntry) (us : List Level) :
-    Prop :=
-  Level.eval (Level.substFn φ entry.levelParams us) entry.structSort = 0 →
-    Level.eval (Level.substFn φ entry.levelParams us) entry.fieldSort = 0
+/-- **The rows of a projection's guard, read** (task #480): over a reading
+`ds` of the constructor's telescope, the projected field's domain and that
+of every earlier field a later one uses are propositions.  Term-level: what
+the use's own derivations (`projGuardRows`) establish, at the environment
+of the use. -/
+@[expose] def TowerRowsAt (V : Type w) [SetTheory V] (w : Nat) (cty : Expr) (nP idx : Nat)
+    (ds : List Term) : Prop :=
+  ∀ j, j ≤ idx → (j = idx ∨ ConLeche.structUsedLater cty nP j = true) →
+    ∀ ρ : Nat → V, Sat V (ds.take (nP + j)).reverse ρ →
+      interp V ρ (ds.getD (nP + j) default) ∈ˢ (univ w : V)
 
-/-- **The O5 conjunct**: a non-`Prop` family's guard level is bounded
-by its result sort at every valuation (the field sorts are checked
-`≤` the result sort, `checkStructFieldSortsI`), so the guard holds
-wherever the structure happens to be a proposition. -/
-@[expose] def TowerO5 (entry : ProjEntry) : Prop :=
-  (Level.isEquiv entry.structSort .zero == some true) = false →
-    ∀ ψ : Name → Nat,
-      Level.eval ψ entry.structSort = 0 → Level.eval ψ entry.fieldSort = 0
+/-- The rows at a use lie in the universe `w`, read off the constructor's type. -/
+@[expose] def RowsAt {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (entry : ProjEntry) (us : List Level)
+    (cvC : ConstantVal) (u : Nat) : Prop :=
+  ∀ (ds : List Term) (b : Term),
+    denote m.acval env φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
+      = some (mkPisAV ds b) →
+    entry.numParams + entry.idx < ds.length →
+    TowerRowsAt V u cvC.type entry.numParams entry.idx ds
 
-/-- The guard at a valuation, from the kernel's syntactic guard and O5. -/
-theorem towerGuardAt_of {entry : ProjEntry} {us : List Level} {φ : Name → Nat}
-    (hO5 : TowerO5 entry)
-    (hg : (Level.isEquiv entry.structSort .zero == some true) = true →
-      (Level.isEquiv (Level.subst entry.levelParams us entry.fieldSort) .zero
-        == some true) = true) :
-    TowerGuardAt φ entry us := by
-  intro hs
-  by_cases hp : (Level.isEquiv entry.structSort .zero == some true) = true
-  · have h1 := Level.isEquiv_sound (beq_iff_eq.mp (hg hp)) φ
-    rw [Level.eval_subst] at h1
-    simpa [Level.eval] using h1
-  · exact hO5 (by simpa using hp) _ hs
+/-- **The typing law's premise at a use** (official `infer_proj`), what the guard
+establishes by the structure's stored type: a sort that is not `Prop`; the rows
+propositions; or, where the sort is walked to, a tower over `u` at every valuation,
+with `u` above `0` or the rows in `univ u`. -/
+@[expose] def TowerGuardAt {V : Type w} [SetTheory V] {env : Env}
+    (m : EnvModel V env) (φ : Name → Nat) (entry : ProjEntry) (us : List Level)
+    (cvC : ConstantVal) : Prop :=
+  (∃ cvT caps s, env.find? entry.structName = some (.indInfo cvT caps) ∧
+    ConLeche.formerResSort cvT.type = some s ∧ s.isAlwaysZero = false) ∨
+  RowsAt m φ entry us cvC 0 ∨
+  ∃ cvT caps u, env.find? entry.structName = some (.indInfo cvT caps) ∧
+    (∀ ta : Term, denote m.acval env φ 0
+        (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+      ∀ ρ : Nat → V, TowerEndsPt (caps.nparams + caps.nIdx) (interp V ρ ta) u) ∧
+    (u ≠ 0 ∨ RowsAt m φ entry us cvC u)
 
-/-- **The guard at a valuation, from the fire guard** (task #175 W6):
-`whnfCore`'s tower fire (`ProjEntry.fireOk`) is the tower infer
-branch's own guard — a `Prop`-declared family fires only where the
-field's guard level is a proposition, any other family unconditionally
-— so with O5 it yields `TowerGuardAt` exactly as the infer branch
-does.  The squash regime is justified by the certified spine's fit,
-see `TowerEntryLaw`'s clause (B). -/
-theorem towerGuardAt_of_fireOk {entry : ProjEntry} {us : List Level}
-    {φ : Name → Nat} (hO5 : TowerO5 entry)
-    (hfire : entry.fireOk us = true) : TowerGuardAt φ entry us := by
-  unfold ProjEntry.fireOk at hfire
-  refine towerGuardAt_of hO5 (fun hp => ?_)
-  rw [hp] at hfire
-  simpa using hfire
+/-- The premise moves against a reading's transport. -/
+theorem TowerGuardAt.mono {V : Type w} [SetTheory V] {env₁ env₂ : Env}
+    {m₁ : EnvModel V env₁} {m₂ : EnvModel V env₂} {φ : Name → Nat} {entry : ProjEntry}
+    {us : List Level} {cvC : ConstantVal}
+    (hf : env₂.find? entry.structName = env₁.find? entry.structName)
+    (hdT : ∀ cvT caps t, env₁.find? entry.structName = some (.indInfo cvT caps) →
+      denote m₁.acval env₁ φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some t →
+      denote m₂.acval env₂ φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some t)
+    (hd : ∀ t, denote m₁.acval env₁ φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us)
+        = some t →
+      denote m₂.acval env₂ φ 0 (cvC.type.instantiateLevelParams cvC.levelParams us) = some t)
+    (h : TowerGuardAt m₂ φ entry us cvC) : TowerGuardAt m₁ φ entry us cvC := by
+  rcases h with ⟨cvT, caps, s, hT, hs, hz⟩ | hr | ⟨cvT, caps, u, hT, ht, hu⟩
+  · exact .inl ⟨cvT, caps, s, hf ▸ hT, hs, hz⟩
+  · exact .inr (.inl fun ds b hrd hl => hr ds b (hd _ hrd) hl)
+  · refine .inr (.inr ⟨cvT, caps, u, hf ▸ hT, fun ta hta ρ => ht ta (hdT _ _ _ (hf ▸ hT) hta) ρ,
+      hu.imp id fun hr ds b hrd hl => hr ds b (hd _ hrd) hl⟩)
 
 /-- **One tower-backed entry's projection law** (see the section
 docstring): the entry's stored data agrees with the stored former and
 constructor (whose η capability is the entry's at a non-`Prop` family
-— task #175 W4c/O4), the O5 bound, and at every level instantiation
-the typing law and the iota law hold under the `Prop` guard at the
-entry's own body reading and the constructor's, and the family's
-structural-η law holds (clause (C), `TowerEtaLaw`).
+— task #175 W4c/O4), and at every level instantiation the typing law
+holds under the guard at the use (`TowerGuardAt`), the iota law where the
+redex is not the point, and the family's structural-η law holds (clause
+(C), `TowerEtaLaw`).
 
 Task #175 S1: the entry stores a *body* scoped at the parameters and
 the subject, not a type; the typing law is stated over the reading
@@ -921,11 +928,9 @@ dummy binders carry the reading only; the law never reads them. -/
     -- official's `is_structure_like` has `!is_rec`): the family is
     -- not a proposition, and the record names this table's shape
     (capsT.eta = true →
-      (Level.isEquiv entry.structSort .zero == some true) = false ∧
       capsT.etaCtor = entry.ctor ∧
       capsT.etaParams = entry.numParams ∧
       capsT.etaFields = entry.numFields)) ∧
-  TowerO5 entry ∧
   ∃ cvC : ConstantVal,
     env.find? entry.ctor
       = some (.ctorInfo cvC entry.numParams entry.numFields) ∧
@@ -936,8 +941,7 @@ dummy binders carry the reading only; the law never reads them. -/
         denote m.acval env φ 0
           (ConLeche.projTele (entry.numParams + 1)
             (entry.body.instantiateLevelParams entry.levelParams us)) = some Ta ∧
-        (TowerGuardAt φ entry us →
-        ∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
+        (∀ (ρ : Nat → V) (vs : List Term) (x rest : Term),
           vs.length = entry.numParams →
           WellDenoted V ρ (Term.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
@@ -948,24 +952,27 @@ dummy binders carry the reading only; the law never reads them. -/
           interp V ρ x ∈ˢ interp V ρ (Term.mkAppN
             (m.acval T (Level.substFn φ entry.levelParams us)) vs) →
           Term.peelPis Ta (vs ++ [x]) = some rest →
+          -- the guard at the use, or a subject that is not the point
+          (TowerGuardAt m φ entry us cvC ∨ interp V ρ x ≠ pt) →
           WellDenoted V ρ (projNV (i + 1) x) ∧ WellDenotedTy V ρ rest ∧
             interp V ρ (projNV (i + 1) x) ∈ˢ interp V ρ rest)) ∧
       -- (B) the iota law: the projection of a *graded* constructor
-      -- application is the selected field, at every valuation under
-      -- the guard (task #175 W6).  Two premises: the application's
-      -- grading (its slot chain), and the spine's fit against the
-      -- constructor's own type reading (`projCert`'s arity check,
-      -- `teleArity_sound`), which places the selected field in its
-      -- domain where the application is the point.
+      -- application is the selected field, where it is not the point
+      -- (a reduction claims nothing of the point, and at a squash
+      -- instance the application is the point).  Two premises: the
+      -- application's grading (its slot chain), and the spine's fit
+      -- against the constructor's own type reading (`projCert`'s arity
+      -- check, `teleArity_sound`).
       (∃ TCa : Term,
         denote m.acval env φ 0
           (cvC.type.instantiateLevelParams cvC.levelParams us) = some TCa ∧
-        (TowerGuardAt φ entry us →
-        ∀ (ρ : Nat → V) (ys : List Term) (rest : V),
+        (∀ (ρ : Nat → V) (ys : List Term) (rest : V),
         ys.length = entry.numParams + entry.numFields →
         WellDenoted V ρ (Term.mkAppN
           (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys) →
         TeleFit V ρ TCa (ys.map (interp V ρ)) rest →
+        interp V ρ (projNV (i + 1) (Term.mkAppN
+            (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys)) ≠ pt →
         interp V ρ (projNV (i + 1) (Term.mkAppN
             (m.acval entry.ctor (Level.substFn φ entry.levelParams us)) ys))
           = interp V ρ (ys.getD (entry.numParams + i) default)))) ∧

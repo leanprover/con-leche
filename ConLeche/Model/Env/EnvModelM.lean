@@ -1,12 +1,12 @@
 module
 
 public import ConLeche.Model.Env.Laws
+public import ConLeche.Verify.Denote.ConstsBound
 import ConLeche.Model.Reading.Levels
 import ConLeche.Verify.Denote.Closed
 public import ConLeche.Semantics.EnvFacts
 public import ConLeche.Model.Env.BlockLfp
 public import ConLeche.Semantics.Inductives.FieldsEqOn
-import ConLeche.Kernel.Inductives.Positivity
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.VClosed
 
@@ -66,6 +66,20 @@ clause, whose `leaf` and `ctor` read the leaf valuation at those names
   ∀ c, c < D.N → ∀ j, j < D.nctors c →
     ∃ cv nP nF, env.find? (D.ctorName c j) = some (.ctorInfo cv nP nF)
 
+/-- A member's former where the stored one does not show its telescope: closed, resolving, and
+inhabited by the member. -/
+@[expose] def LfpTelescope {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
+    (env : Env) (D : LfpDatum V) (mm : Nat) (cv : ConstantVal) : Prop :=
+  (ConLeche.formerDefHeaded cv = false → D.formerAt mm cv = cv) ∧
+  ((D.telescope mm = none ∧ ConLeche.formerDefHeaded cv = false) ∨ ∃ f, D.telescope mm = some f ∧
+    f.name = cv.name ∧ f.levelParams = cv.levelParams ∧
+    f.type.hasFvar = false ∧ f.type.looseBVarsBounded 0 = true ∧ ConstsBound env f.type ∧
+    f.type.allLevelParamsDefined f.levelParams = true ∧
+    ∀ ψ : Name → Nat, ∃ ta ta₀ : Term, denote acval env ψ 0 f.type = some ta ∧
+      denote acval env ψ 0 cv.type = some ta₀ ∧
+      ∀ ρ : Nat → V, interp V ρ ta₀ = interp V ρ ta ∧
+        interp V ρ (acval (D.member mm) ψ) ∈ˢ interp V ρ ta ∧ WellDenotedTy V ρ ta)
+
 /-- **A recorded block's formers read as its hole telescopes** (M4):
 member `mm`'s stored type reads, at every level
 assignment, as the Π-tower over its own parameters and indices (the
@@ -77,8 +91,9 @@ with its hole value applied to the frame's parameters. -/
 @[expose] def LfpReads {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
     (env : Env) (D : LfpDatum V) : Prop :=
   ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
+    LfpTelescope acval env D mm cv ∧
     ∀ ψ : Name → Nat, ∃ ab : List Term,
-      denote acval env ψ 0 cv.type = some (mkPisAV ab (.sort (D.w ψ))) ∧
+      denote acval env ψ 0 (D.formerAt mm cv).type = some (mkPisAV ab (.sort (D.w ψ))) ∧
       ab = D.pars mm ψ ++ D.ids mm ψ
 
 /-! ### The recorded constructor readings (M2)
@@ -118,7 +133,7 @@ normal form's, which reads like it there.
 
 **The constructor's parameters are the block's.**  The stored type reads, at every level assignment, as a
 Π-tower whose first `nPc` binders are satisfied wherever the block's
-parameter telescope is.  It is the install's constructor check (the
+parameter telescope is.  It is the constructor check (the
 constructors' frames, `ctorFramesGen`: the constructor's parameter
 domains are definitionally the former's) and official's
 (`check_constructors`: "arg #i of 'c' does not match inductive
@@ -147,7 +162,7 @@ parameter binders. -/
                 (D.resIdx ψ c j))) ∧
           ab.length = nF ∧ Tys.length = D.k ∧
           (∀ mm, mm < D.k → ∃ cvm caps ty, env.find? (D.member mm) = some (.indInfo cvm caps) ∧
-            ConLeche.instPisWith (canonParams nPc) cvm.type = some ty ∧
+            ConLeche.instPisWith (canonParams nPc) (D.formerAt mm cvm).type = some ty ∧
             denote acval env ψ (nPc + mm) ty = some (Tys.getD mm default)) ∧
           FieldsEqOn V (D.params ψ ++ Tys).reverse ab (D.fields ψ c j)
 
@@ -160,12 +175,12 @@ fields, in its member at its own level parameters applied to the
 parameter variables and then the index expressions (official's
 `check_constructors`: the result's parameters are the parameters).  The
 ι case split's facts at an outside class read them: a container's
-capabilities decide its sort's zero-ness and its K rule, and its
+capabilities decide its sort's zero-ness, and its
 constructor's residual is the former at the constructor's parameters. -/
 @[expose] def LfpCaps {V : Type w} [SetTheory V] (env : Env) (D : LfpDatum V) : Prop :=
   (∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
-    (∀ ψ : Name → Nat, D.w ψ = 0 → caps.sortZ.holds ψ = true) ∧
-    (caps.ruleK = true → D.nctors mm = 1)) ∧
+    (∀ ψ : Name → Nat, D.w ψ = 0 → (ConLeche.formerZ (D.formerAt mm cv)).holds ψ = true) ∧
+    ∀ ψ : Name → Nat, (D.pars mm ψ ++ D.ids mm ψ).length = caps.nparams + caps.nIdx) ∧
   ∀ c, c < D.k → ∀ j, j < D.nctors c → ∃ cv nPc nF,
     env.find? (D.ctorName c j) = some (.ctorInfo cv nPc nF) ∧
     ∃ (bs : List Expr) (es : List Expr),
@@ -263,7 +278,7 @@ structure EnvModelM (env : Env) where
   /-- the pinned `Eq` spine's value and grading (an *environment law*:
   the `Eq` leaf is fixed by the basis install and
   by nothing else, so the supplier is the P basis install —
-  `BasisStepPB`, routed.  Consumed by the WF operations' certificate
+  `declBasisPB_at`.  Consumed by the WF operations' certificate
   frame) -/
   eq_law : EqLaw base2
   /-- the stored families' fired capability laws (an *environment law* for the same reason `eq_law` is — an
@@ -272,6 +287,8 @@ structure EnvModelM (env : Env) where
   by the structure-η and unit-like rules' soundness
   (`Model/Rules/DefEqSound.lean`, through `RulesInputs.caps_ok`) -/
   caps_ok : CapsOk base2
+  /-- a certified operation's name holds a definition: the fast path fires by name -/
+  op_defn : OpDefn env
   /-- the stored recursors' fired modeled-iota contracts (an
   *environment law* for the same reason `caps_ok` is — a
   recursor's rules are fixed by the inductive install and by nothing
@@ -291,13 +308,6 @@ structure EnvModelM (env : Env) where
   install and by nothing else, so the supplier is the direct install
   step.  Consumed by the `.proj` rows' tower branches) -/
   tower_ok : ∀ φ : Name → Nat, TowerOk base2 φ
-  /-- the stored formers' fibres above a proposition are strict (an
-  *environment law* for the same reason `caps_ok` is — a former's leaf
-  is fixed by its install and by nothing else, so the supplier is the
-  former's install: the block's fixpoint leaf, the pinned basis
-  formers; task #342 L7).  Consumed through `IndFibLaw`
-  (`EnvModelM.indFibLaw`) -/
-  ind_strict : IndStrictOk base2
   /-- **the recorded blocks**: the lfp data of the
   inductive blocks whose lfp clause this carrier records — a ghost
   list, filled by the uniform block install at its constructors'
@@ -352,41 +362,6 @@ theorem constType (m : EnvModelM V env) : ConstType m.base2 φ := by
   · have := m.mem_type ci hmem _ ta hta
     rwa [hname] at this
 
-/-- **The fibre law of the stored families, from the P invariant**
-(task #342 L7; `IndFibLaw`): at the use's levels the instantiated type
-reads as the stored type at the composed assignment (the `constType`
-crossing), so a fitting spine fits the stored reading.  Where the sort
-is `0`, the former's membership in its graded type puts the
-application in `Sort 0` (`foldl_app_mem_mkPisAV`); elsewhere the
-`ind_strict` field gives a strict set. -/
-theorem indFibLaw (m : EnvModelM V env) (φ : Name → Nat) : IndFibLaw m.base2 φ := by
-  intro d I cv caps us hf _hlen ab n hread ρ vs hsp
-  have hmem := ConLeche.Env.find?_mem hf
-  have hname := ConLeche.Env.find?_name hf
-  have hcv : (ConstantInfo.indInfo cv caps).toConstantVal = cv := rfl
-  have hwf := m.base2.wf.consts _ hmem
-  obtain ⟨ta, hta⟩ := m.type_reads _ hmem (Level.substFn φ cv.levelParams us)
-  rw [hcv] at hta
-  have hcl : ∀ k : Nat, ta.liftN 1 k = ta := fun k =>
-    denote_liftN_eq_self m.base2.cval_closed
-      hwf.1 hwf.2.2.2.1 hta 1 k
-  have hdepth : denote m.base2.acval env (Level.substFn φ cv.levelParams us) d cv.type
-      = some ta :=
-    denote_depth_of_closed m.base2.acval_closed hwf.1 hcl hta d
-  have hcross := denotePInstLevels m.base2 φ cv.levelParams us d cv.type
-  rw [hcross, hdepth] at hread
-  obtain rfl := Option.some.inj hread
-  have hnm : I = cv.name := hname.symm
-  subst hnm
-  by_cases hn : n = 0
-  · subst hn
-    have hin := m.mem_type _ hmem _ _ hta ρ
-    have h0 := foldl_app_mem_mkPisAV hsp hin
-    rw [interp_sort, univ_zero] at h0
-    exact h0
-  · simp only [hn, decide_false, Fib_false]
-    exact m.ind_strict cv.name cv caps hf _ ab n hta hn ρ vs hsp
-
 /-- **The bridge invariant, from the P invariant**.  Every field is a
 projection:
 
@@ -411,12 +386,12 @@ def toEnvFacts {V : Type w} [SetTheory V]
     exact ⟨ta, hta⟩
   defn_eq := fun cv value hint hmem ψ =>
     (m.defn_reads ψ cv value ⟨hint, hmem⟩)
-  rec_rhs_denotes := fun n cv mI rP rules hf r hr us ψ hlen => by
-    obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP rules hf r hr
+  rec_rhs_denotes := fun n cv mI rP isK rules hf r hr us ψ hlen => by
+    obtain ⟨-, hus, -⟩ := m.rec_rules ψ n cv mI rP isK rules hf r hr
     obtain ⟨Ra, hRa, -, -⟩ := hus us hlen
     exact ⟨Ra, hRa⟩
-  rec_params_le := fun n cv mI rP rules hf r hr =>
-    (m.rec_rules (fun _ => 0) n cv mI rP rules hf r hr).1
+  rec_params_le := fun n cv mI rP isK rules hf r hr =>
+    (m.rec_rules (fun _ => 0) n cv mI rP isK rules hf r hr).1
   proj_ok := m.base2.proj_ok
   nat_op_guard := fun c hmem hst => by
     obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
@@ -447,25 +422,23 @@ field is vacuous — no constants, guards false. -/
   div_mod := fun φ c _ cv v hint hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
-  eq_law := fun hf => by
+  eq_law := fun _ _ hf => by
     rw [show Env.empty.find? eqName = none from rfl] at hf
     exact nomatch hf
   caps_ok := by
     refine ⟨fun T cvT caps hf => ?_, fun T cvT caps hf => ?_⟩ <;>
       · rw [show Env.empty.find? T = none from rfl] at hf
         exact nomatch hf
-  rec_rules := fun _ n _ _ _ _ hf => by
+  rec_rules := fun _ n _ _ _ _ _ hf => by
     rw [show Env.empty.find? n = none from rfl] at hf
     exact nomatch hf
   reduce_ops := fun c _ cv hf => by
     rw [show Env.empty.find? c = none from rfl] at hf
     exact nomatch hf
+  op_defn := fun _ _ hs => nomatch hs
   tower_ok := fun _ T i entry hf => by
     have : Env.empty.findProj? T i = none := rfl
     rw [this] at hf
-    exact nomatch hf
-  ind_strict := fun I _ _ hf => by
-    rw [show Env.empty.find? I = none from rfl] at hf
     exact nomatch hf
   lfpBlocks := []
   lfp_ok := fun _ hD => nomatch hD
@@ -501,69 +474,6 @@ theorem lfpClause_of_mem (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.
     LfpClause mp.base2.acval D :=
   (mp.lfp_ok D hD).1
 
-/-- **The recorded clauses cross an environment extension** that keeps
-every stored inductive former and its leaf, and every successful reading
-of a stored former's type — the transport every construction site of
-the invariant (the cons funnel, the rule-list swap) instantiates. -/
-theorem lfp_ok_transport (mp : EnvModelM V env) {env' : Env}
-    {acval' : Name → (Name → Nat) → Term}
-    (hfind : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-      env'.find? n = some ci)
-    (hag : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-      acval' n = mp.base2.acval n)
-    (hread : ∀ n cv caps, env.find? n = some (.indInfo cv caps) → ∀ (ψ : Name → Nat)
-      (ta : Term), denote mp.base2.acval env ψ 0 cv.type = some ta →
-      denote acval' env' ψ 0 cv.type = some ta)
-    (hreadT : ∀ n cv nPc nF, env.find? n = some (.ctorInfo cv nPc nF) → ∀ (ψ : Name → Nat)
-      (ta : Term), denote mp.base2.acval env ψ 0 cv.type = some ta →
-      denote acval' env' ψ 0 cv.type = some ta)
-    (hreadC : ∀ n ci, env.find? n = some ci → (∀ cv mI rP rules, ci ≠ .recInfo cv mI rP rules) →
-      ∀ A, CanonOf ci.toConstantVal.type A →
-      ∀ (ψ : Name → Nat) (d : Nat) (ta : Term),
-      denote mp.base2.acval env ψ d A = some ta →
-      denote acval' env' ψ d A = some ta) :
-    ∀ D ∈ mp.lfpBlocks, LfpClause acval' D ∧ LfpStored env' D ∧ LfpReads acval' env' D ∧
-      LfpCtorReads acval' env' D ∧ LfpCaps env' D := by
-  intro D hD
-  obtain ⟨hL, ⟨hst, hstC⟩, hrd, ⟨hnk, hrdC⟩, ⟨hcK, hcC⟩⟩ := mp.lfp_ok D hD
-  refine ⟨hL.congr (fun mm hmm => ?_) (fun c hc j hj => ?_),
-    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩, fun mm hmm => ?_, ⟨hnk, fun c hc j hj => ?_⟩,
-    ⟨fun mm hmm => ?_, fun c hc j hj => ?_⟩⟩
-  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact hag _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h
-  · obtain ⟨cv, caps, hf⟩ := hst mm hmm
-    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, a, b, hf⟩ := hstC c hc j hj
-    exact ⟨cv, a, b, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h⟩
-  · obtain ⟨cv, caps, hf, hab⟩ := hrd mm hmm
-    refine ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, fun ψ => ?_⟩
-    obtain ⟨ab, hta, h1⟩ := hab ψ
-    exact ⟨ab, hread _ _ _ hf ψ _ hta, h1⟩
-  · obtain ⟨cv, nPc, nF, hf, hcf, hlps, hpars, A, hA, hocc, hrdA⟩ := hrdC c hc j hj
-    refine ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hcf,
-      fun mm hmm => ?_, fun ψ dsC bodyC hrd' hle => ?_, A, hA, hocc, fun ψ => ?_⟩
-    · obtain ⟨cvm, caps, hfm, hl⟩ := hlps mm hmm
-      exact ⟨cvm, caps, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hl⟩
-    · -- the new reading is the old one (the old one exists, and crosses)
-      obtain ⟨ta, hta⟩ := mp.type_reads _ (List.mem_of_find?_eq_some hf) ψ
-      change denote mp.base2.acval env ψ 0 cv.type = some ta at hta
-      have hta' := hreadT _ _ _ _ hf ψ _ hta
-      rw [hrd'] at hta'
-      obtain rfl := Option.some.inj hta'
-      exact hpars ψ dsC bodyC hta hle
-    · obtain ⟨h1, h2, ab, Tys, hta, hlab, hlT, hTys, hab⟩ := hrdA ψ
-      refine ⟨h1, h2, ab, Tys, hreadC _ _ hf (fun _ _ _ _ h => ConstantInfo.noConfusion h) A
-        (.inl ⟨_, _, _, hA⟩) ψ _ _ hta, hlab, hlT, fun mm hmm => ?_, hab⟩
-      obtain ⟨cvm, caps, ty, hfm, hty, hr⟩ := hTys mm hmm
-      exact ⟨cvm, caps, ty, hfind _ _ hfm fun _ _ _ _ h => ConstantInfo.noConfusion h, hty,
-        hreadC _ _ hfm (fun _ _ _ _ h => ConstantInfo.noConfusion h) ty (.inr ⟨_, hty⟩) ψ _ _ hr⟩
-  · obtain ⟨cv, caps, hf, hz, hk⟩ := hcK mm hmm
-    exact ⟨cv, caps, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hz, hk⟩
-  · obtain ⟨cv, nPc, nF, hf, hsh⟩ := hcC c hc j hj
-    exact ⟨cv, nPc, nF, hfind _ _ hf fun _ _ _ _ h => ConstantInfo.noConfusion h, hsh⟩
-
 end EnvModelM
 
 /-! ## The `Nat`-op guard law -/
@@ -572,7 +482,7 @@ section
 variable {V : Type w} [SetTheory V] {env : Env}
 
 /-- **The install fold's `Nat`-op invariant, in the form the literal
-tier reads it**.  `reduceNat` tests `natOpStored` — one `Env.find?`;
+tier reads it**.  `reduceNat` tests `isDefinitionAt` — one `Env.find?`;
 the guard is what
 the leaf analysis below needs (`natLitSupported` for the numeral
 shapes, the two `Bool` constructors for the comparison shapes), and it
@@ -581,7 +491,7 @@ as a `defnInfo` → guard ∧ the recurrences".  So the tier reads the
 guard off the environment. -/
 @[expose] def NatOpGuardLaw (env : Env) : Prop :=
   ∀ c, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
-    ConLeche.natOpStored env c = true → ConLeche.natOpGuard env c = true
+    ConLeche.isDefinitionAt env c = true → ConLeche.natOpGuard env c = true
 
 /-- `EnvModelM` supplies it, from `nat_ops` and `div_mod`. -/
 theorem natOpGuardLaw_of (mp : EnvModelM V env) : NatOpGuardLaw env := by

@@ -350,26 +350,25 @@ noncomputable def Model.ofEnvModelM {env : Env}
       cases h with
       | const hf hlen => exact hs _ _ hf
     intro ψ ci hf
-    have hpd : ConLeche.Verify.pinnedStructT falseName ψ
-        = some (Term.const .empty [0]) := by
+    have hpd : ∀ ψ' : Name → Nat, ConLeche.Verify.pinnedStructT falseName ψ'
+        = some (Term.const .empty [0]) := fun _ => by
       simp +decide [ConLeche.Verify.pinnedStructT]
     have he : (m.base2.acval falseName ψ) = Term.const .empty [0] :=
-      m.base2.acval_pinned hf (by decide) hpd
+      m.base2.acval_pinned_free hf (by decide) hpd
     rw [cvalOf, he, interp_const]
     rfl
   eq_equality := by
     intro u φ ρ E A a b h hA ha hb
     cases h with
     | const hf hlen =>
-      have hpin := (m.base2.basis_pinned _ _ hf (by decide)).1
-      rw [show ConLeche.pinnedInfo ConLeche.eqName = ConLeche.eqA from rfl]
-        at hpin
-      subst hpin
-      rw [show (ConLeche.eqA : ConstantInfo).toConstantVal.levelParams
-        = [ConLeche.uN] from rfl]
-      have hψ : Level.substFn φ [ConLeche.uN] [u] ConLeche.uN = Level.eval φ u := by
+      rename_i ci
+      obtain ⟨-, -, hl⟩ := (m.base2.basis_pinned _ _ hf (by decide)).1
+      have hl' : ci.toConstantVal.levelParams.length = 1 := hl
+      match hq : ci.toConstantVal.levelParams, hl' with
+      | [p], _ =>
+      have hψ : Level.substFn φ [p] [u] p = Level.eval φ u := by
         simp [Level.substFn]
-      have hlaw := (m.eq_law hf (Level.substFn φ [ConLeche.uN] [u])).1 ρ A a b
+      have hlaw := (m.eq_law ci p hf hq (Level.substFn φ [p] [u])).1 ρ A a b
         (by rw [hψ]; exact hA) ha hb
       rw [interp_cvalOf m.base2.cval_closed] at hlaw
       exact hlaw

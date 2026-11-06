@@ -56,9 +56,7 @@ equation the compiled equality rests on.
 | `ConLeche.no_False_theorem_accepted` | the step it rests on, at the STREAM: records one of which declares a theorem of type `False` are never accepted by `checkDecls` (`ConLeche/Verify/Cached/StreamThm.lean`) |
 | `no_proof_of_False_cached` / `no_proof_of_Empty_cached` | the fold's letters at every validating mode |
 | `checkDecls_sound` | the model an accept of the fold carries |
-| `fullyChecked_checkDecls` / `checkDecls_fullyChecked` | the driver's fully checked environment is an accept of the fold, and conversely |
-| `no_proof_of_False_checked` / `no_proof_of_Empty_checked` | the letters on the driver's fully checked environment |
-| `fullyChecked_sound` | the model a fully checked environment carries |
+| `checkDecls_of_jobs` | every record's job at the frozen index passing is an accept of the fold |
 | `no_proof_of_False_pure` | the pure fueled checker's letter |
 | `no_proof_of_Empty_pure` | the same about `Empty` |
 | `no_proof_of_Empty_pure_of` | its install-tier-conditional milestone shape |
@@ -236,38 +234,13 @@ info: 'ConLeche.Cached.checkDecls_sound' depends on axioms: [propext, Classical.
 #guard_msgs in
 #print axioms ConLeche.Cached.checkDecls_sound
 
-/-! ## The fold and the driver's fully checked environment
-(`ConLeche/Cached/Installed.lean`, `ConLeche/Model/InstallRun.lean`) -/
+/-! ## The driver's jobs and the fold (`ConLeche/Verify/Cached/StreamIndex.lean`) -/
 
 /--
-info: 'ConLeche.Cached.fullyChecked_checkDecls' depends on axioms: [propext, Classical.choice, Quot.sound]
+info: 'ConLeche.Cached.checkDecls_of_jobs' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
-#print axioms ConLeche.Cached.fullyChecked_checkDecls
-
-/--
-info: 'ConLeche.Cached.checkDecls_fullyChecked' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Cached.checkDecls_fullyChecked
-
-/--
-info: 'ConLeche.Cached.no_proof_of_False_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Cached.no_proof_of_False_checked
-
-/--
-info: 'ConLeche.Cached.no_proof_of_Empty_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Cached.no_proof_of_Empty_checked
-
-/--
-info: 'ConLeche.Cached.fullyChecked_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
--/
-#guard_msgs in
-#print axioms ConLeche.Cached.fullyChecked_sound
+#print axioms ConLeche.Cached.checkDecls_of_jobs
 
 /-! ## The pure fueled checker (`ConLeche/Model/Fold.lean`) -/
 

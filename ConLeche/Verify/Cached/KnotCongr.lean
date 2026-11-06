@@ -15,22 +15,14 @@ file proves it, one congruence lemma per `fe`-taking function of
 `ConLeche/Kernel/FEnv.lean` and `ConLeche/Cached/*` reachable from the
 knot's bodies, bottom-up, landing on `coreKnotI_congr`.
 
-The consumers are the re-check at a task-#108 prefix view —
-`feFinal.restrictTo k` and `mkFEnv env` for the environment `env` of
-the first `k` constants have the same `find?` and `findTable?`, so
-`coreKnotI_congr` says they run the *same* core, and the simulation
-stated at `mkFEnv env` therefore covers a run at the prefix view — and
-the parallel install (task #329, `ConLeche/Verify/Cached/ParInstall.lean`):
-a worker installs a record at a view whose lookups are the serial
-index's, so its result is the serial step's.
+The consumer is the record's job (`ConLeche/Verify/Cached/ViewCongr.lean`): a job checks a record
+at a view of the stream's index whose lookups are the fold's index's, so `coreKnotI_congr` says they
+run the *same* core.
 
-**Why this is `Verify/Cached`, not `Cached`.**  The parallel install's
-driver (`ConLeche/Driver/ParInstall.lean`) carries the serial fold's
-accepting run, and the step it adds for a record a worker installed is
-this congruence; the driver (`ConLeche/Driver/*`) may import
-`Verify/*` (maintainer's ruling, 2026-10-08), so the file sits where a
-proof about kernel functions that needs no model belongs.  It imports
-only the cached checker — nothing from the theory — and opens a plain
+**Why this is `Verify/Cached`, not `Cached`.**  The driver (`ConLeche/Driver/*`) carries the proof
+that the jobs passing is an accept of the fold, and that proof rests on this congruence; the driver
+may import `Verify/*` (maintainer's ruling, 2026-10-08), so the file sits where a proof about kernel
+functions that needs no model belongs.  It imports only the cached checker — nothing from the theory — and opens a plain
 `public section` (it defines nothing for anyone to unfold).
 -/
 
@@ -40,12 +32,10 @@ variable {mode : CheckMode} {eager : Bool} {fe₁ fe₂ : FEnv}
 
 /-! ## The table component (task #362)
 
-A table install touches the table map alone, a constant push the
-constant index alone: what the congruences below and the parallel
-install's commit (`ConLeche/Verify/Cached/ParInstall.lean`) read off
-an install. -/
+A table push touches the table map alone, a constant push the
+constant index alone: what the congruences below read off a push. -/
 
-/-- A table install leaves the constant lookups alone. -/
+/-- A table push leaves the constant lookups alone. -/
 theorem FEnv.find?_pushTable (fe : FEnv) (t : ProjTable) :
     (fe.pushTable t).find? = fe.find? := rfl
 
@@ -54,41 +44,12 @@ theorem FEnv.find?_pushTables :
   | [], _ => rfl
   | t :: Q, fe => (FEnv.find?_pushTables Q (fe.pushTable t)).trans (FEnv.find?_pushTable fe t)
 
-theorem FEnv.visibleBelow_pushTables :
-    ∀ (Q : List ProjTable) (fe : FEnv), (FEnv.pushTables Q fe).visibleBelow = fe.visibleBelow
-  | [], _ => rfl
-  | t :: Q, fe => FEnv.visibleBelow_pushTables Q (fe.pushTable t)
-
 /-- A table install answers its structure's name in the raw table
 lookup, and leaves every other raw lookup alone. -/
 theorem FEnv.rawTable?_pushTable (fe : FEnv) (t : ProjTable) (T : Name) :
     (fe.pushTable t).rawTable? T = if t.structName = T then some t else fe.rawTable? T := by
   simp only [FEnv.rawTable?, FEnv.pushTable, Std.HashMap.getElem?_insert, beq_iff_eq]
   by_cases hT : t.structName = T <;> simp [hT]
-
-/-- **Installing tables answers, for each name, the last one installed.** -/
-theorem FEnv.rawTable?_pushTables (T : Name) :
-    ∀ (Q : List ProjTable) (fe : FEnv), (FEnv.pushTables Q fe).rawTable? T =
-      match ProjTable.lastOf? T Q with
-      | some t => some t
-      | none => fe.rawTable? T
-  | [], _ => rfl
-  | t :: Q, fe => by
-    show (FEnv.pushTables Q (fe.pushTable t)).rawTable? T = _
-    rw [FEnv.rawTable?_pushTables T Q (fe.pushTable t), FEnv.rawTable?_pushTable]
-    show _ = (match (match ProjTable.lastOf? T Q with
-      | some r => some r
-      | none => if t.structName == T then some t else none) with
-      | some t => some t
-      | none => fe.rawTable? T)
-    cases ProjTable.lastOf? T Q with
-    | some r => rfl
-    | none =>
-      by_cases hT : t.structName = T
-      · simp [hT]
-      · have hb : (t.structName == T) = false := by simpa using hT
-        simp only [hT, hb, ↓reduceIte, Bool.false_eq_true]
-
 theorem FEnv.rawTable?_push (fe : FEnv) (ci : ConstantInfo) :
     (fe.push ci).rawTable? = fe.rawTable? := rfl
 
@@ -115,23 +76,18 @@ theorem towerSlotsAllF_congr (hfe : fe₁.find? = fe₂.find?)
 theorem andRescueSlotsF_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) :
     fe₁.andRescueSlotsF = fe₂.andRescueSlotsF := by
-  funext ctor nP ust; unfold FEnv.andRescueSlotsF
+  funext ctor nP; unfold FEnv.andRescueSlotsF
   simp only [findProj?_congr hfe htb]
 
-/-- `natLitSupportedF` reads `fe` only through `find?`. -/
-theorem natLitSupportedF_congr (hfe : fe₁.find? = fe₂.find?) :
-    natLitSupportedF fe₁ = natLitSupportedF fe₂ := by
-  unfold natLitSupportedF; simp only [hfe]
+/-- `natLitStoredF` reads `fe` only through `find?`. -/
+theorem natLitStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
+    natLitStoredF fe₁ = natLitStoredF fe₂ := by
+  unfold natLitStoredF; simp only [hfe]
 
-/-- `strLitSupportedF` reads `fe` only through `find?`. -/
-theorem strLitSupportedF_congr (hfe : fe₁.find? = fe₂.find?) :
-    strLitSupportedF fe₁ = strLitSupportedF fe₂ := by
-  unfold strLitSupportedF; simp only [hfe, natLitSupportedF_congr hfe]
-
-/-- `natOpStoredF` reads `fe` only through `find?`. -/
-theorem natOpStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
-    natOpStoredF fe₁ = natOpStoredF fe₂ := by
-  funext c; unfold natOpStoredF; simp only [hfe]
+/-- `strLitStoredF` reads `fe` only through `find?`. -/
+theorem strLitStoredF_congr (hfe : fe₁.find? = fe₂.find?) :
+    strLitStoredF fe₁ = strLitStoredF fe₂ := by
+  unfold strLitStoredF; simp only [hfe, natLitStoredF_congr hfe]
 
 /-! ## The cached guards and stored-constant reads
 (`ConLeche/Cached/StateC.lean`) -/
@@ -212,13 +168,13 @@ theorem unfoldDefinitionI_congr (hfe : fe₁.find? = fe₂.find?) :
 /-- `litToCtorIfNatI` reads `fe` only through `find?`. -/
 theorem litToCtorIfNatI_congr (hfe : fe₁.find? = fe₂.find?) :
     litToCtorIfNatI fe₁ = litToCtorIfNatI fe₂ := by
-  funext e; unfold litToCtorIfNatI; simp only [natLitSupportedF_congr hfe]
+  funext e; unfold litToCtorIfNatI; simp only [natLitStoredF_congr hfe]
 
 /-- `reduceNatI` reads `fe` only through `find?`. -/
 theorem reduceNatI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     reduceNatI r fe₁ = reduceNatI r fe₂ := by
   funext depth e; unfold reduceNatI
-  simp only [natLitSupportedF_congr hfe, natOpStoredF_congr hfe]
+  simp only [natLitStoredF_congr hfe]
 
 /-- `iotaCertsFullIAux` only threads `fe`. -/
 theorem iotaCertsFullIAux_congr (_hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
@@ -321,12 +277,12 @@ theorem majorToCtorI_congr (hfe : fe₁.find? = fe₂.find?)
 theorem litMajorToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     litMajorToCtorI r fe₁ = litMajorToCtorI r fe₂ := by
   funext depth e; unfold litMajorToCtorI
-  simp only [strLitSupportedF_congr hfe, litToCtorIfNatI_congr hfe]
+  simp only [strLitStoredF_congr hfe, litToCtorIfNatI_congr hfe]
 
 /-- `projLitToCtorI` reads `fe` only through `find?`. -/
 theorem projLitToCtorI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     projLitToCtorI r fe₁ = projLitToCtorI r fe₂ := by
-  funext depth e; unfold projLitToCtorI; simp only [strLitSupportedF_congr hfe]
+  funext depth e; unfold projLitToCtorI; simp only [strLitStoredF_congr hfe]
 
 /-- `prepareMajorI` reads `fe` only through `find?` and `findTable?`. -/
 theorem prepareMajorI_congr (hfe : fe₁.find? = fe₂.find?)
@@ -437,13 +393,21 @@ theorem whnfBodyI_congr (hfe : fe₁.find? = fe₂.find?) (r : CoreFnsI) :
     whnfBodyI r fe₁ = whnfBodyI r fe₂ := by
   funext depth e; unfold whnfBodyI; rw [whnfLoopI_congr hfe]
 
+/-- `checkProjGuardI` reads `fe` only through `find?`. -/
+theorem checkProjGuardI_congr (hfe : fe₁.find? = fe₂.find?)
+    (inf wh : Nat → Expr → CheckCM Expr) :
+    checkProjGuardI inf wh fe₁ = checkProjGuardI inf wh fe₂ := by
+  funext entry us; unfold checkProjGuardI checkProjRowsI
+  simp only [hfe, constTyAtM_congr hfe]
+
 /-- `inferBodyI` reads `fe` only through `find?` and `findTable?`. -/
 theorem inferBodyI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     inferBodyI r fe₁ = inferBodyI r fe₂ := by
   funext depth e; unfold inferBodyI
-  simp only [hfe, natLitSupportedF_congr hfe, strLitSupportedF_congr hfe,
-    constTyAtM_congr hfe, inferSpineI_congr hfe, findProj?_congr hfe htb, htb]
+  simp only [hfe, natLitStoredF_congr hfe, strLitStoredF_congr hfe,
+    constTyAtM_congr hfe, inferSpineI_congr hfe, findProj?_congr hfe htb, htb,
+    checkProjGuardI_congr hfe]
 
 /-- `inferBodyIOI` reads `fe` only through `find?` and `findTable?`. -/
 theorem inferBodyIOI_congr (hfe : fe₁.find? = fe₂.find?)
@@ -492,7 +456,7 @@ theorem defeqStuckI_congr (hfe : fe₁.find? = fe₂.find?)
     (htb : fe₁.findTable? = fe₂.findTable?) (r : CoreFnsI) :
     defeqStuckI mode r fe₁ = defeqStuckI mode r fe₂ := by
   funext depth a b; unfold defeqStuckI
-  simp only [stuckIrrelI_congr hfe htb, strLitSupportedF_congr hfe,
+  simp only [stuckIrrelI_congr hfe htb, strLitStoredF_congr hfe,
     defEqListI_congr hfe, etaCertI_congr hfe]
 
 /-- `defeqBodyI` reads `fe` only through `find?` and `findTable?`. -/

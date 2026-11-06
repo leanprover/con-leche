@@ -2,7 +2,6 @@ module
 
 public import ConLeche.Kernel.DeclCheck
 import ConLeche.Verify.Cached.BlockOverlay
-import ConLeche.Verify.Cached.KnotCongr
 
 public section
 
@@ -43,7 +42,7 @@ theorem natOpStoredOkF_congr (hfe : fe₁.find? = fe₂.find?) :
 
 theorem natOpGuardF_congr (hfe : fe₁.find? = fe₂.find?) :
     natOpGuardF fe₁ = natOpGuardF fe₂ := by
-  funext c; unfold natOpGuardF; simp only [hfe, natLitSupportedF_congr hfe]
+  funext c; unfold natOpGuardF natLitSupportedF; simp only [hfe]
 
 theorem divModEnvGuardF_congr (hfe : fe₁.find? = fe₂.find?) :
     divModEnvGuardF fe₁ = divModEnvGuardF fe₂ := by

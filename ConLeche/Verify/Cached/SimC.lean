@@ -247,8 +247,8 @@ structure CSOK (mode : CheckMode) (eager : Bool) (env : Env) (s : CState) : Prop
     env.find? n = some (.defnInfo cv v h) ∧
     RelC i (v.instantiateLevelParams cv.levelParams us)
   ruleRhs : ∀ c j us i, s.ruleRhsAt[(c, j, us)]? = some i →
-    ∃ cv mI rP rules rl,
-    env.find? c = some (.recInfo cv mI rP rules) ∧
+    ∃ cv mI rP isK rules rl,
+    env.find? c = some (.recInfo cv mI rP isK rules) ∧
     rules.find? (fun r' => r'.ctor == j) = some rl ∧
     RelC i (rl.rhs.instantiateLevelParams cv.levelParams us)
   whnfCoreC : ∀ k v, s.whnfCoreC[k]? = some v →

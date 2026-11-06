@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Kernel.Inductives.StructInstall
-public import ConLeche.Kernel.Inductives.Positivity
 
 @[expose] public section
 
@@ -31,48 +30,14 @@ namespace ConLeche
 
 variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 
-/-- **Official's telescope loop** (`check_inductive_types`,
-`inductive.cpp`; task #195): peel `n` Π binders off `e`, reducing the
-residual to weak head normal form before each binder and at the end,
-where it must be a sort.  Binder `i` is opened at the free variable
-`i` (its domain instantiated at the earlier ones, as `openPisAtFvars`
-does), so the returned binder domains and the sort are scoped at the
-free variables `0 ..< n`.  A residual that does not reduce to a Π, or
-finally to a sort, is INVALID input — official fails there too. -/
-def whnfTelescope (ops : CheckerOps m) (env : Env) :
-    Nat → Nat → Expr → m (List Expr × Level)
-  | i, 0, e => do
-    let e' ← ops.whnf env i e
-    match e' with
-    | .sort s => pure ([], s)
-    | _ => throw (.invalid "direct sum: type former does not reduce to a sort \
-        after its parameters and indices")
-  | i, n + 1, e => do
-    let e' ← ops.whnf env i e
-    match e' with
-    | .forallE dom body =>
-      let (bs, s) ← whnfTelescope ops env (i + 1) n (body.instantiate1 (.fvar i dom))
-      pure (dom :: bs, s)
-    | _ => throw (.invalid "direct sum: type former does not reduce to a telescope \
-        of its parameters and indices")
-
-/-- The type former's TELESCOPE (task #195): the checked declared type
-when it is already a syntactic telescope of `n` Π binders ending in a
-sort, else the declared type's whnf'd telescope (`whnfTelescope`),
-closed and checked as the former's type in its place —
-`checkConstantVal` from scratch, so nothing about the reduction is
-trusted: the stored type is the one this run inferred and sorted.  Returns the checked constant and the result sort. -/
-def checkSumTele (ops : CheckerOps m) (env : Env) (cv : ConstantVal) (n : Nat)
-    (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
+/-- The type former's TELESCOPE: `n` Π binders ending in a sort (`reduceMember` puts a former
+at its telescope).  Returns the former and its sort. -/
+def checkSumTele (n : Nat) (cvTa₀ : ConstantVal) : m (ConstantVal × Level) :=
   match cvTa₀.type.stripPis n with
   | some (_, .sort s) => pure (cvTa₀, s)
-  | _ => do
-    let (bs, s) ← whnfTelescope ops env 0 n cvTa₀.type
-    let cvTa := { cv with type := closeTelescope bs 0 (.sort s) }
-    checkConstantVal ops env cvTa
-    pure (cvTa, s)
+  | _ => throw (.invalid "direct sum: type former does not reduce to a sort after its parameters and indices")
 
-/-- The fields' sorts over the opened constructor telescope, with the
+/-- Every field's domain has a sort over the opened constructor telescope, under the
 official per-field universe bound unless the family is
 propositional: at a
 `Prop` family with a large eliminator every field must be a
@@ -81,10 +46,10 @@ proposition OR one of the residual's index expressions — official's
 elimination criterion, `Eq`'s rule; `inductive.cpp`).  A block with
 two or more constructors has its large eliminator rejected by
 the recursor stage's elimination guard (`blockLargeElimAllowed`).  Walks the fields from
-the last to the first and returns the sorts in field order. -/
+the last to the first. -/
 def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool)
-    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m (List Level)
-  | 0 => pure []
+    (s : Level) (nP : Nat) (fvs idxArgs : List Expr) : Nat → m Unit
+  | 0 => pure ()
   | j + 1 => do
     let fv ← unwrapOr fvs[j]? (.internal "direct sum: field index")
     let ty ← ops.inferType env (nP + j) fv.fvarTypeD
@@ -96,8 +61,7 @@ def checkStructFieldSortsI (ops : CheckerOps m) (env : Env) (isProp large : Bool
       unless Level.isEquiv u .zero == some true || idxArgs.contains fv do
         throw (.invalid "direct sum: large eliminator with a non-propositional \
           field outside the indices")
-    let rest ← checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
-    pure (rest ++ [u])
+    checkStructFieldSortsI ops env isProp large s nP fvs idxArgs j
 
 /-- Stage 2, one constructor's type: the ordinary constant check (the
 constructor is stored AS DECLARED), the result
@@ -108,15 +72,12 @@ domains, and the per-field universe bound (`env₀` is the pre-block environment
 `env` the one holding the type former).  Every constructor is checked
 at the environment holding the type former alone — the constructors do
 not mention each other — and the block conses them afterwards
-(`consBlockCtors`).  Returns the checked constructor and its fields'
-sorts (the projection table's guard levels at a structure-like member
-are computed from them). -/
+(`consBlockCtors`). -/
 def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m (ConstantVal × List Level) := do
+    (cvC : ConstantVal) (nF : Nat) (cvTa : ConstantVal) : m Unit := do
   checkConstantVal ops env cvC
-  let cvCa := cvC
-  let (_, cbody) ← unwrapOr (cvCa.type.stripPis (nP + nF))
+  let (_, cbody) ← unwrapOr (cvC.type.stripPis (nP + nF))
     (.notImplemented "direct sum: constructor telescope")
   -- official's `is_valid_ind_app` on the constructor's result
   -- ("invalid return type for 'C'", `check_constructors`): a REJECT,
@@ -125,7 +86,7 @@ def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
   -- further arguments
   unless structCtorResidOk T lps nP nF nIdx cbody do
     throw (.invalid "direct sum: invalid constructor return type")
-  let cq ← unwrapOr (openPisAtFvars nP cvCa.type 0)
+  let cq ← unwrapOr (openPisAtFvars nP cvC.type 0)
     (.notImplemented "direct sum: constructor telescope")
   let tq ← unwrapOr (openPisAtFvars nP cvTa.type 0)
     (.notImplemented "direct sum: type former telescope")
@@ -143,24 +104,17 @@ def checkSumCtor (ops : CheckerOps m) (env₀ env : Env) (T : Name)
   -- `is_valid_ind_app`: no inductive occurrence in an index argument)
   unless (xq.2.getAppArgs.drop nP).all fun e => e.constsResolve env₀ do
     throw (.invalid "direct sum: index expression mentions the block")
-  let sorts ← checkStructFieldSortsI ops env isProp large resSort nP xq.1
-    (xq.2.getAppArgs.drop nP) nF
-  pure (cvCa, sorts)
+  checkStructFieldSortsI ops env isProp large resSort nP xq.1 (xq.2.getAppArgs.drop nP) nF
 
 /-- Stage 2, all constructors' types, at the environment holding the
-type former; returns the checked constructors with their field
-counts, and beside them the constructors' field sorts. -/
+type former. -/
 def checkSumCtors (ops : CheckerOps m) (env₀ env : Env) (T : Name)
     (lps : List Name) (nP nIdx : Nat) (resSort : Level) (isProp large : Bool)
-    (cvTa : ConstantVal) :
-    List (ConstantVal × Nat) → m (List (ConstantVal × Nat) × List (List Level))
-  | [] => pure ([], [])
+    (cvTa : ConstantVal) : List (ConstantVal × Nat) → m Unit
+  | [] => pure ()
   | c :: cs => do
-    let (cvCa, sorts) ← checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2
-      cvTa
-    let (rest, srest) ← checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa
-      cs
-    pure ((cvCa, c.2) :: rest, sorts :: srest)
+    checkSumCtor ops env₀ env T lps nP nIdx resSort isProp large c.1 c.2 cvTa
+    checkSumCtors ops env₀ env T lps nP nIdx resSort isProp large cvTa cs
 
 /-- The constructors' conses, in order (the first constructor deepest). -/
 def consSumCtors (nP : Nat) : List (ConstantVal × Nat) → Env → Env
@@ -169,15 +123,10 @@ def consSumCtors (nP : Nat) : List (ConstantVal × Nat) → Env → Env
 
 /-- The stored rules: constructor `j`'s with the generated right-hand
 side `j`, `.plain` (the major is the family at the recursor's
-parameters), carrying the two rescue bits
-`recRuleBits` reads off the block's own store — the family and its
-constructors are installed before the recursor. -/
-def sumRules (find? : Name → Option ConstantInfo) (recName : Name) (nP : Nat) :
-    List (ConstantVal × Nat) → List Expr → List RecRule
+parameters). -/
+def sumRules : List (ConstantVal × Nat) → List Expr → List RecRule
   | c :: cs, rhs :: rhss =>
-    recRuleBits find?
-      { ctor := c.1.name, nfields := c.2, ctorParams := nP, fire := .plain, rhs := rhs }
-      :: sumRules find? recName nP cs rhss
+    { ctor := c.1.name, nfields := c.2, fire := .plain, rhs := rhs } :: sumRules cs rhss
   | _, _ => []
 
 end ConLeche

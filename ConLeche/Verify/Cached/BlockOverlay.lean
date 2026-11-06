@@ -34,51 +34,47 @@ open ConLeche
 
 /-! ## The overlay answers as the pushes would -/
 
-/-- The bounded index lookup, as `FEnv.find?` reads it. -/
-private def bnd (idx : Std.HashMap Name (Nat × ConstantInfo)) (base : FBase) (b : Nat)
-    (n : Name) : Option ConstantInfo :=
+/-- The index lookup, as `FEnv.find?` reads it. -/
+private def bnd (idx : Std.HashMap Name ConstantInfo) (base : FBase) (n : Name) :
+    Option ConstantInfo :=
   match idx[n]? with
-  | some (c, ci) => if c < b then some ci else none
+  | some ci => some ci
   | none => base.find? n
 
 private theorem find?_of_ovl_nil {fe : FEnv} (h : fe.ovl = []) (n : Name) :
-    fe.find? n = bnd fe.idx fe.base fe.visibleBelow n := by
-  obtain ⟨env, idx, vis, base, ovl, tbls⟩ := fe
+    fe.find? n = bnd fe.idx fe.base n := by
+  obtain ⟨env, idx, base, ovl, tbls⟩ := fe
   subst h
-  rfl
+  exact FEnv.lookup_eq _ n
 
 private theorem find?_overlay_bnd {fe : FEnv} (h : fe.ovl = []) (new : List ConstantInfo)
     (n : Name) :
-    (fe.overlay new).find? n
-      = (new.find? (·.name == n)).or (bnd fe.idx fe.base (fe.visibleBelow + new.length) n) := by
-  obtain ⟨env, idx, vis, base, ovl, tbls⟩ := fe
+    (fe.overlay new).find? n = (new.find? (·.name == n)).or (bnd fe.idx fe.base n) := by
+  obtain ⟨env, idx, base, ovl, tbls⟩ := fe
   subst h
   cases new with
-  | nil => rfl
+  | nil => exact FEnv.lookup_eq _ n
   | cons ci rest =>
     show (match (ci :: rest ++ []).find? (·.name == n) with
         | some ci => some ci
-        | none => bnd idx base (vis + (ci :: rest ++ []).length) n) = _
-    rw [List.append_nil]
+        | none => FEnv.lookup ⟨_, idx, base, ci :: rest ++ [], tbls⟩ n) = _
+    rw [FEnv.lookup_eq, List.append_nil]
     cases (ci :: rest).find? (·.name == n) <;> rfl
 
-private theorem bnd_insert (idx : Std.HashMap Name (Nat × ConstantInfo)) (base : FBase)
-    {vis b : Nat} (hb : vis < b) (ci : ConstantInfo) (n : Name) :
-    bnd (idx.insert ci.name (vis, ci)) base b n
-      = if ci.name == n then some ci else bnd idx base b n := by
+private theorem bnd_insert (idx : Std.HashMap Name ConstantInfo) (base : FBase)
+    (ci : ConstantInfo) (n : Name) :
+    bnd (idx.insert ci.name ci) base n = if ci.name == n then some ci else bnd idx base n := by
   unfold bnd
   rw [Std.HashMap.getElem?_insert]
   by_cases hn : ci.name == n
   · rw [ite_eq_left hn, ite_eq_left hn]
-    exact ite_eq_left hb
   · rw [ite_eq_right hn, ite_eq_right hn]
 
 private theorem pushAll_shape : ∀ (cis : List ConstantInfo) (fe : FEnv), fe.ovl = [] →
     (FEnv.pushAll cis fe).ovl = [] ∧
     (FEnv.pushAll cis fe).env = ⟨cis.reverse ++ fe.env.consts, fe.env.tables⟩ ∧
     ∀ n, (FEnv.pushAll cis fe).find? n
-      = (cis.reverse.find? (·.name == n)).or
-          (bnd fe.idx fe.base (fe.visibleBelow + cis.length) n)
+      = (cis.reverse.find? (·.name == n)).or (bnd fe.idx fe.base n)
   | [], fe, h => by
     refine ⟨h, rfl, fun n => ?_⟩
     rw [FEnv.pushAll, find?_of_ovl_nil h]
@@ -90,13 +86,8 @@ private theorem pushAll_shape : ∀ (cis : List ConstantInfo) (fe : FEnv), fe.ov
     · rw [FEnv.pushAll, he]
       simp [FEnv.push]
     · rw [FEnv.pushAll, hf n]
-      show (rest.reverse.find? (·.name == n)).or
-          (bnd (fe.idx.insert ci.name (fe.visibleBelow, ci)) fe.base
-            (fe.visibleBelow + 1 + rest.length) n)
-        = _
-      rw [bnd_insert _ _ (by omega), List.reverse_cons, List.find?_append, Option.or_assoc,
-        List.length_cons, show fe.visibleBelow + (rest.length + 1)
-          = fe.visibleBelow + 1 + rest.length by omega]
+      show (rest.reverse.find? (·.name == n)).or (bnd (fe.idx.insert ci.name ci) fe.base n) = _
+      rw [bnd_insert, List.reverse_cons, List.find?_append, Option.or_assoc]
       congr 1
       simp only [List.find?_cons, List.find?_nil]
       by_cases hn : ci.name == n
@@ -108,7 +99,7 @@ an environment without an overlay. -/
 theorem find?_overlay_pushAll {fe : FEnv} (h : fe.ovl = []) (cis : List ConstantInfo) :
     (fe.overlay cis.reverse).find? = (FEnv.pushAll cis fe).find? := by
   funext n
-  rw [find?_overlay_bnd h, (pushAll_shape cis fe h).2.2 n, List.length_reverse]
+  rw [find?_overlay_bnd h, (pushAll_shape cis fe h).2.2 n]
 
 /-- An overlay's environment is the pushed one. -/
 theorem env_overlay_pushAll (fe : FEnv) (h : fe.ovl = []) (cis : List ConstantInfo) :
@@ -187,12 +178,12 @@ theorem constsResolveF_congr {fe₁ fe₂ : FEnv} (hfe : fe₁.find? = fe₂.fin
 
 /-- The stored recursors' check (task #431) reads its index through
 `resolve` and `env` alone. -/
-theorem storedRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
+theorem streamRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
     {ops : CheckerOps m} {w : StructWalkers} {fe₁ fe₂ : FEnv}
     (hres : w.resolve fe₁ = w.resolve fe₂) (henv : fe₁.env = fe₂.env) :
-    storedRecsCheck ops w fe₁ = storedRecsCheck ops w fe₂ := by
-  have hrules : ∀ rec lps rs gs, storedRulesCheck ops w fe₁ rec lps rs gs
-      = storedRulesCheck ops w fe₂ rec lps rs gs := by
+    streamRecsCheck ops w fe₁ = streamRecsCheck ops w fe₂ := by
+  have hrules : ∀ rec lps rs gs, streamRulesCheck ops w fe₁ rec lps rs gs
+      = streamRulesCheck ops w fe₂ rec lps rs gs := by
     intro rec lps rs
     induction rs with
     | nil => intro gs; cases gs <;> rfl
@@ -200,7 +191,7 @@ theorem storedRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
       intro gs
       cases gs with
       | nil => rfl
-      | cons g gs => simp only [storedRulesCheck, ruleAgree, hres, henv, ih]
+      | cons g gs => simp only [streamRulesCheck, ruleAgree, hres, henv, ih]
   funext recs
   induction recs with
   | nil => funext out; cases out <;> rfl
@@ -209,7 +200,7 @@ theorem storedRecsCheck_congr {m : Type → Type} [Monad m] [MonadExceptOf Check
     cases out with
     | nil => rfl
     | cons g gs =>
-      simp only [storedRecsCheck, storedRecCheck, storedRecCompare, recTyCheck, hres, henv,
+      simp only [streamRecsCheck, streamRecCheck, streamRecCompare, recTyCheck, hres, henv,
         hrules, ih]
 
 /-! ## The rule stage reads `feR` through `resolve` and `env` -/

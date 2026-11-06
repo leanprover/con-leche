@@ -98,6 +98,20 @@ The clause equations and the closure facts the binder cases need. -/
 
 /-- Instantiation preserves prefix-boundness: every constant leaf of
 the result comes from the body or from the substituted term. -/
+theorem ConstsBound.of_isSome {env₀ env₁ : Env}
+    (h : ∀ n, (env₀.find? n).isSome = true → (env₁.find? n).isSome = true) {e : Expr}
+    (he : ConstsBound env₀ e) : ConstsBound env₁ e := by
+  induction e with
+  | const n us => simp only [constsBound_const] at he ⊢; exact h n he
+  | fvar i ty ih => simp only [constsBound_fvar] at he ⊢; exact ih he
+  | proj _ _ x ih => simp only [constsBound_proj] at he ⊢; exact ih he
+  | app f a ihf iha => simp only [constsBound_app] at he ⊢; exact ⟨ihf he.1, iha he.2⟩
+  | lam ty b ihf iha => simp only [constsBound_lam] at he ⊢; exact ⟨ihf he.1, iha he.2⟩
+  | forallE ty b ihf iha => simp only [constsBound_forallE] at he ⊢; exact ⟨ihf he.1, iha he.2⟩
+  | letE t v b ih1 ih2 ih3 =>
+    simp only [constsBound_letE] at he ⊢; exact ⟨ih1 he.1, ih2 he.2.1, ih3 he.2.2⟩
+  | _ => simp
+
 theorem ConstsBound.instantiate1 {env₀ : Env} {v : Expr}
     (hv : ConstsBound env₀ v) :
     ∀ (e : Expr) (d : Nat), ConstsBound env₀ e →

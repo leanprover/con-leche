@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Model.OpenedCtx
 import ConLeche.Semantics.Tower.TowerKit
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.Lemmas

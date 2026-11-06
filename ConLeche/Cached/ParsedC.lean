@@ -12,28 +12,18 @@ flushed per declaration, declarations consumed as `Declaration` records
 straight from the direct parse (`ConLeche/Frontend/ExportC.lean`, task
 #171 — no conversion detour).
 
-`checkDeclStepC` is the fold's step for every declaration kind that is
-checked as it is installed: axioms, inductive and basis blocks, the
-pinned `Nat`-operation definitions and `reduce*` opaques.  The
-declaration fold itself, `checkDecls` (`ConLeche/Cached/Installed.lean`),
-installs every record first (a separable value declaration — every
-theorem, every other definition and opaque — by its own install half,
-pushed with its check recorded; everything else by this step) and
-checks the recorded declarations afterwards, so this step never sees a
-separable value declaration: it throws an internal error on one; the
-binary's driver (`ConLeche/Driver/*`) runs that fold with a heartbeat between
-the steps and returns its environment together with the proof that
-`checkDecls` returns it.  The fold runs at `.verified` and at
-`.trusted` alike (the trusted mode is the same fold at the other
-mode, and nothing else): acceptance at
-`.verified` is covered by the main corollary
-`no_False_declaration` (`ConLeche/MainTheorem.lean`, through
-`no_False_theorem_accepted` in `ConLeche/Verify/Cached/StreamThm.lean`), and the two
-modes agree on the install skeletons whenever both accept
-(`trusted_agrees_skels_D`, `ConLeche/Verify/Cached/AgreeFloor.lean`).
+`checkDeclStepC` is the check of one record, every kind: the fold `checkDecls`
+(`ConLeche/Cached/Decls.lean`) runs it at each position, and the binary's driver
+(`ConLeche/Driver/*`) runs it as a job at a view of the stream's index and returns the fold's
+environment together with the proof that `checkDecls` returns it.  It runs at `.verified` and at
+`.trusted` alike (the trusted mode is the same fold at the other mode, and nothing else):
+acceptance at `.verified` is covered by the main corollary `no_False_declaration`
+(`ConLeche/MainTheorem.lean`, through `no_False_theorem_accepted` in
+`ConLeche/Verify/Cached/StreamThm.lean`), and two modes that both accept end in the same
+environment (`checkDecls_agree`, `ConLeche/Verify/Cached/DeclPushes.lean`).
 
 The driver's parameter is the `CheckMode` itself (task #185): the knot it
-ties (`coreKnotI mode`) and the install-time stages all take the same
+ties (`coreKnotI mode`) and the block's stages all take the same
 mode.
 -/
 
@@ -52,12 +42,16 @@ def opSIxC (fe : FEnv) (d : Nat) (i : Expr) : CheckCM Level :=
 /-- `checkConstantVal` on a parsed declaration: the checks of
 `checkConstantValF` with the syntactic passes memoized on the `Expr`
 DAG and the cached operations on its nodes. -/
-def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
+def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
     CheckCM Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless Expr.looseBVarsBounded 0 cv.type do
@@ -67,7 +61,7 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) :
   unless Expr.allLevelParamsDefinedC cv.levelParams cv.type do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless constsResolveFC fe cv.type do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
   let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
   let _u ← opSIxC mode fe 0 jsty
 
@@ -94,11 +88,33 @@ def checkDefnValCI (fe : FEnv) (cv : ConstantVal)
   unless Expr.allLevelParamsDefinedC cv.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"value of {cv.name}" jv)
   let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
   pure (.defnInfo cv jv hint)
+
+/-- Check a theorem's value against its declared type, returning the
+record to install, unpushed: its statement alone, a theorem being opaque
+to reduction. -/
+def checkThmValCI (fe : FEnv) (cv : ConstantVal) (value : Expr) : CheckCM ConstantInfo := do
+  let jsty ← (coreKnotI mode false fe checkFuel).infer 0 cv.type
+  let u ← opSIxC mode fe 0 jsty
+  unless (← liftFueled "level comparison" (Level.isEquiv u .zero)) do
+    throw (.invalid s!"type of theorem {cv.name} is not a proposition")
+  unless Expr.looseBVarsBounded 0 value do
+    throw (.invalid s!"loose bound variable in value of {cv.name}")
+  if value.hasFvar then
+    throw (.invalid s!"unexpected free variable in value of {cv.name}")
+  let jv := value
+  unless Expr.allLevelParamsDefinedC cv.levelParams jv do
+    throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
+  unless constsResolveFC fe jv do
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"value of {cv.name}" jv)
+  let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
+  unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
+    throw (.invalid s!"type mismatch in theorem {cv.name}")
+  pure (.thmInfo cv)
 
 /-- Check an opaque's value against its declared type, returning the
 axiom record to install, unpushed (as `checkDefnValCI`). -/
@@ -112,27 +128,34 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
   unless Expr.allLevelParamsDefinedC cv.levelParams jv do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless constsResolveFC fe jv do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"value of {cv.name}" jv)
   let jvt ← (coreKnotI mode false fe checkFuel).infer 0 jv
   unless ← (coreKnotI mode false fe checkFuel).defeq 0 jvt cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
   pure (.axiomInfo cv)
 
-/-- `checkBasisDecl`'s cached twin: the body the three records that
-install a pinned basis block share (task #293). -/
-def checkBasisDeclC (fe : FEnv) (kind : BasisKind) : CheckCM FEnv := do
-  if kind = .quotK then
-    unless fe.find? eqName = some eqA do
-      throw (.notImplemented "quotient basis requires the pinned Eq basis")
-  kind.declsA.foldlM installBasisDeclF fe
+/-- `checkBasisBlock`'s cached twin. -/
+def checkBasisBlockC (fe : FEnv) (kind : BasisKind) (block : List ConstantInfo) :
+    CheckCM FEnv := do
+  unless pinListOk block kind.decls do
+    throw (.invalid "reserved basis name: the block is not the pinned one")
+  (kind.atBlock block).foldlM installBasisDeclF fe
+
+/-- `checkQuotRecord`'s cached twin. -/
+def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEnv := do
+  unless quotPinHit k cv do
+    throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
+  unless quotPredsOk fe.find? k do
+    throw (.notImplemented "quotient declaration before what it needs")
+  installBasisDeclF fe (quotAt k cv)
 
 /-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
 twin).
 
-* **The pinned basis blocks** (task #293): the stream's own `Nat`
-  block, recognised here and installed as the pin; a block under a
-  pinned name that does not match falls through and the reserved-name
-  check rejects it.
+* **The pinned basis blocks**: a stream's own `Nat` block, recognised by
+  its names, compared with the pin and installed at its own names.
 * Task #228: the stream's DECLARED parameter count, checked before the
   dispatch.
 * ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
@@ -140,83 +163,66 @@ twin).
   any other declines (`checkShapelessS`). -/
 def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
-  match basisPinHit block with
-  | some kind => checkBasisDeclC fe kind
+  match basisNameHit block with
+  | some kind => checkBasisBlockC fe kind block
   | none =>
     if indParamsOk nP block then
-      match blockParts? nP block with
+      match blockShape? nP block with
       | some p => checkBlockKS mode fe block p
       | none => checkShapelessS mode fe block
     else throw (.invalid "number of parameters mismatch")
 
-/-- One converted declaration (inductive and basis blocks reuse the
-`Expr`-level drivers).  A separable value declaration (a theorem, a
-definition other than a pinned `Nat` operation, an opaque other than a
-`reduce*` one) never reaches it — phase A installs it by its install
-half (`installStepC`, `ConLeche/Cached/Installed.lean`) — and is an
-internal error here.
-`pins` is the `Nat.div`/`Nat.mod` pin-variant list the install gate
-tries (task #304), threaded from the fold.
+/-- One declaration, every kind (inductive and basis blocks reuse the
+`Expr`-level drivers).  `pins` is the `Nat.div`/`Nat.mod` pin-variant list
+the gate tries (task #304), threaded from the fold.
 
 **The pinned arms push last.**  A pinned `Nat`-operation definition and
 a `reduce*` opaque are certified against the environment before the
 push (`fe`) AND after it.  Holding both alive across a push would copy
 the whole index, so the value check returns the record unpushed
 (`checkDefnValCI`, `checkOpaqueValCI`), the "after" environment is an
-overlay sharing `fe`'s index (`FEnv.overlay`, read-only; on the
-install's environments it answers `find?` as the push would,
-`find?_overlay_push`), and the push comes last, onto an index nothing
-else holds. -/
+overlay sharing `fe`'s index (`FEnv.overlay`, read-only; it answers
+`find?` as the push would, `find?_overlay_push`), and the push comes
+last, onto an index nothing else holds. -/
 def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
-    checkConstantValC mode fe cv
-    if natOpNames.contains cv.name || natDivModNames.contains cv.name then
-      let ci ← checkDefnValCI mode fe cv value hint
+    checkConstantValC mode fe cv true
+    let ci ← checkDefnValCI mode fe cv value hint
+    if natOpNames.contains cv.name then
       let fe2 := fe.overlay [ci]
-      if natOpNames.contains cv.name then
-        unless natOpGuardF fe2 cv.name &&
-            (natOpDeps cv.name).all (natOpStoredOkF fe2) do
+      unless natOpGuardF fe2 cv.name &&
+          (natOpDeps cv.name).all (natOpStoredOkF fe2) do
+        throw (.notImplemented
+          s!"nonstandard structural Nat operation environment ({cv.name})")
+      match fe2.find? cv.name with
+      | some (.defnInfo _ value' _) =>
+        let ok ← certifyNatEqs (sharedOpsC mode fe) fe.env
+          ((natOpEquations 0 cv.name).map fun eq =>
+            (Expr.substConst0 cv.name value' eq.1,
+             Expr.substConst0 cv.name value' eq.2))
+        unless ok do
           throw (.notImplemented
-            s!"nonstandard structural Nat operation environment ({cv.name})")
-        match fe2.find? cv.name with
-        | some (.defnInfo _ value' _) =>
-          let ok ← certifyNatEqs (sharedOpsC mode fe) fe.env
-            ((natOpEquations 0 cv.name).map fun eq =>
-              (Expr.substConst0 cv.name value' eq.1,
-               Expr.substConst0 cv.name value' eq.2))
-          unless ok do
-            throw (.notImplemented
-              s!"nonstandard structural Nat operation ({cv.name})")
-        | _ => throw (.internal
-            s!"structural Nat operation not stored ({cv.name})")
-      if natDivModNames.contains cv.name then
-        checkDivModPinF (sharedOpsC mode fe) pins fe fe2 cv.name
-      pure (fe.push ci)
-    else
-      throw (.internal s!"definition {cv.name} reached the ordinary step")
-  | .thmDecl cv _ =>
-    throw (.internal s!"theorem {cv.name} reached the ordinary step")
+            s!"nonstandard structural Nat operation ({cv.name})")
+      | _ => throw (.internal
+          s!"structural Nat operation not stored ({cv.name})")
+    if natDivModNames.contains cv.name then
+      checkDivModPinF (sharedOpsC mode fe) pins fe (fe.overlay [ci]) cv.name
+    pure (fe.push ci)
+  | .thmDecl cv value => do
+    checkConstantValC mode fe cv
+    let ci ← checkThmValCI mode fe cv value
+    pure (fe.push ci)
   | .opaqueDecl cv value => do
     checkConstantValC mode fe cv
-    -- only a `reduce*` opaque reaches this step: phase A installs the
-    -- others (`installStepC`)
-    if reduceOpNames.contains cv.name then do
-      let ci ← checkOpaqueValCI mode fe cv value
+    let ci ← checkOpaqueValCI mode fe cv value
+    if reduceOpNames.contains cv.name then
       checkReducePinF (sharedOpsC mode fe) fe (fe.overlay [ci]) cv.name value
-      pure (fe.push ci)
-    else
-      throw (.internal s!"opaque {cv.name} reached the ordinary step")
+    pure (fe.push ci)
   | .axiomDecl cv =>
-    -- `checkDecl`'s twin (task #293): `Quot.sound` is the pinned
-    -- quotient block's own record — compared with the pin, installing
-    -- nothing, declining on a mismatch.
     if cv.name = quotSoundName then
-      (if ConstantInfo.canonEq (.axiomInfo cv) (quotBasis.getD 4 (.axiomInfo default)) then
-        pure fe
-      else
-        throw (.notImplemented "quotient soundness axiom mismatch"))
+      checkQuotRecordC fe .sound cv
     else do
       checkConstantValC mode fe cv
       if stdAxiomOkF fe cv then
@@ -237,19 +243,8 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
         pure fe
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
-  | .basisDecl kind => checkBasisDeclC fe kind
   | .indDecl block nP => checkIndDeclC mode fe block nP
-  | .quotDecl k cv =>
-    -- `checkDecl`'s twin (task #293): the `type` record installs the
-    -- pinned block whole, the other members install nothing, and a
-    -- record that does not match its pin is a positive decline.
-    if quotPinHit k cv then
-      (match k with
-       | .type => checkBasisDeclC fe .quotK
-       | _ => pure fe)
-    else throw (.notImplemented (match k with
-      | .sound => "quotient soundness axiom mismatch"
-      | _ => "quotient declaration mismatch"))
+  | .quotDecl k cv => checkQuotRecordC fe k cv
 
 /-! ## Names and durations for the driver's messages -/
 
@@ -266,10 +261,9 @@ def declCLabel : Declaration → String
   | .opaqueDecl cv _ => s!"opaque {cv.name}"
   | .axiomDecl cv => s!"axiom {cv.name}"
   | .indDecl b _ => s!"inductive {(b.head?.map (·.name)).getD .anonymous}"
-  | .basisDecl k => s!"basis block {repr k}"
   | .quotDecl _ cv => s!"quot {cv.name}"
 
-/-- One step of the converted-declaration fold: flush, then check. -/
+/-- The check of one record: flush, then check. -/
 def checkDeclStepC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     CheckCM FEnv := do
   flushC

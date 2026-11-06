@@ -2942,17 +2942,15 @@
 # accept (the exception is needed: the recursor's value is data read
 # off the constructor the major reduces to).
 0 acc_major_reduce.ndjson
-# The parallel install (task #329; scripts/mk_pinstall_fixtures.py):
-# 3000 definitions whose dependencies form a tree of depth log N, so the
-# install pool installs many at once.  `pinstall_ok` accepts.
-# `pinstall_reject_mid` rejects `c1500` (an undeclared constant in its
-# type) and `pinstall_dup` rejects the second `c7`, two thousand records
-# after the first: the same verdict and the same named declaration at
-# every worker count, although the pool may have installed records past
-# the rejection.
-0 pinstall_ok.ndjson
-1 pinstall_reject_mid.ndjson
-1 pinstall_dup.ndjson
+# A wide stream (scripts/mk_wide_fixtures.py): 3000 definitions whose
+# dependencies form a tree of depth log N.  `wide_ok` accepts.
+# `wide_reject_mid` rejects `c1500` (an undeclared constant in its type)
+# and `wide_dup` rejects the second `c7`, two thousand records after the
+# first: the same verdict and the same named declaration at every worker
+# count, although the pool may have checked records past the rejection.
+0 wide_ok.ndjson
+1 wide_reject_mid.ndjson
+1 wide_dup.ndjson
 # eta_struct_major_no_whnf, eta_struct_major_and_no_whnf (task #342 R2;
 # the arena's corner-cases of the same names, lean4#15351/#15371): a
 # `Prod` major and an `And` major whose head normalization does not
@@ -3086,8 +3084,13 @@
 # the stored type, so each fails by a boolean `false` before its
 # certificates are inferred (before the type pins, inferring them threw
 # "application type mismatch" and the variant-fallback combinator
-# caught it).  No variant matches: DECLINE, today and as the target.
-2 natop_typepin_foreign.ndjson
+# caught it).  No variant matches: that record's job declines, which
+# `natopForeignDeclines` (tests/ConLecheTests/DeferTests.lean) pins.  The
+# stream's verdict is an earlier failure since task #480: the theorem
+# `ite_self` (fold position 97) mentions the deleted constant, a reject its
+# check phase job reports first; the operation's decline at install used
+# to overtake it.  Target verdict: 1.
+1 natop_typepin_foreign.ndjson
 # --- task #431: the STORED recursor installed once it agrees with the
 # generated one up to definitional equality (the type binder by binder).
 # stored_rec_outparam: a class with an `outParam` parameter, a structure
@@ -3106,3 +3109,144 @@
 # stored_type_dom_bad: the same field's domain `Nat' → Nat'`: rejected
 # (official 1).
 1 stored_type_dom_bad.ndjson
+# rec_record_k_off_bad / rec_record_k_on_nested_bad / rec_record_nfields_bad /
+# rec_record_ctor_numparams_bad (`scripts/mk_rec_record_fixtures.py`, task
+# #480): the install reads a recursor's K flag, rules and firing data off
+# the record, the block's job checks them.  `MyEq.rec` (K) declaring
+# `k := false`; the auxiliary `TL.rec_1` declaring `k := true`, which
+# nothing used to compare (accepted before #480); an auxiliary rule with
+# one field too many; a constructor record with one parameter more than
+# its block.  Official 1 (inferred from ind_rec_k_bad, not run), target 1.
+1 rec_record_k_off_bad.ndjson
+1 rec_record_k_on_nested_bad.ndjson
+1 rec_record_nfields_bad.ndjson
+1 rec_record_ctor_numparams_bad.ndjson
+# rec_nested_container_params: block `T` with one parameter nested through
+# the two-parameter container `P2`, whose auxiliary recursor's rule fires
+# in two `rfl`s; the firing data come off the record without looking `P2`
+# up.  Official 0, target 0.
+0 rec_nested_container_params.ndjson
+
+# Task #480: axioms' and pinned operations' checks are jobs of the check
+# phase, the first failure in fold order is the verdict
+# (scripts/mk_defer_order.py).
+#   defer_value_reject_then_axiom: a value reject before a non-standard
+#     axiom.  The reject: until #480 this was 2, the axiom's decline at
+#     install overtaking every value check.  Target verdict: 1.
+#   defer_axiom_then_value_reject: the same two records swapped.  Target: 2.
+#   natop_perturbed_used_later, natop_perturbed_later_reject: a perturbed
+#     pinned `Nat.land` and after it a theorem that may fire its literal
+#     fast path before its job has run, right or wrong by any reading of
+#     the operation.  The operation's decline, earlier in the fold.  Target: 2.
+1 defer_value_reject_then_axiom.ndjson
+2 defer_axiom_then_value_reject.ndjson
+2 natop_perturbed_used_later.ndjson
+2 natop_perturbed_later_reject.ndjson
+# Task #480: the projection guard, computed at the use (`projGuardRows`,
+# official `infer_proj`).  proj_guard_* derive from prop_proj_raw
+# (scripts/mk_proj_guard_fixtures.py), all as official:
+#   proj_guard_data_bad: field 1, data.
+#   proj_guard_prop_after_data: field 2, a proposition; the data before it
+#     is used by no later field.
+#   proj_guard_used_data_bad: field 4, a proposition about field 3, data.
+#   proj_guard_past_used_data_bad: field 5, a proposition after field 3, data
+#     a later field uses.
+#   proj_guard_unfold (tests/e2e/src): a field whose type's sort is only
+#     visible after unfolding a definition; `whnf` at the use sees it.
+1 proj_guard_data_bad.ndjson
+0 proj_guard_prop_after_data.ndjson
+1 proj_guard_used_data_bad.ndjson
+1 proj_guard_past_used_data_bad.ndjson
+0 proj_guard_unfold.ndjson
+# eta_prop_struct (tests/e2e/src, task #480): a `Prop` structure is structure-like,
+# as official's `is_non_rec_structure` has it.  Official 0 (Lean elaborated it), target 0.
+0 eta_prop_struct.ndjson
+# ind_defhead_* (tests/e2e/src, task #480): a former stored at a definition, its block
+# checked at the reducts, what a use needs computed at the use.  ind_defhead_chain: through
+# two definitions, with ι; official 0 (run).  ind_defhead_prop_field: a `Prop` family with a
+# data field stays accepted; official 0 (run).  ind_defhead_prop_field_proj_bad: projecting
+# that field; official 1 (run).  ind_defhead_sort_u: a projection at `Sort u`; official 0
+# (run).  ind_defhead_lit_family: `Bool` stored at a definition, declined: the frontend puts a stream's
+# `Bool` ahead of the definition it is declared at; official 0 (run).
+0 ind_defhead_chain.ndjson
+0 ind_defhead_prop_field.ndjson
+1 ind_defhead_prop_field_proj_bad.ndjson
+0 ind_defhead_sort_u.ndjson
+2 ind_defhead_lit_family.ndjson
+# -- task #480: a pinned block is the stream's constants, at the record's own
+# level-parameter names; the comparison with the pin (up to those names) is
+# the block's check, a job in fold order.  Forged by
+# `scripts/mk_basis_names_fixtures.py`; official's verdicts were run
+# (`checkers/official-v4.33.0`).
+# `Eq.{w}`, `Eq.refl.{w}`, `Eq.rec.{u, w}`: the pin up to its names.
+0 basis_eq_other_names.ndjson
+# `Eq.rec.{m, w}`: the motive's parameter at another name.  Official rejects
+# ("Invalid recursor Eq.rec": it compares the record with the recursor it
+# generates, names included).  ACCEPTED here, as the base did: the comparison is
+# up to the names, and the rule still reads `Eq.refl`'s parameter at `w`.
+0 basis_eq_rec_motive_name.ndjson
+# `Eq.rec.{w, m}`: the pin's positions, but the rule's by-name reading of
+# `Eq.refl`'s parameter is the motive's.  Rejected, by official as well ("Invalid
+# recursor Eq.rec").
+1 basis_eq_rec_swapped_names_bad.ndjson
+# `Eq.refl.{v}` under `Eq.{w}`.  Rejected, by official as well ("invalid reference
+# to undefined universe level parameter 'v'").
+1 basis_eq_refl_other_name_bad.ndjson
+# `Nat.rec`'s `Nat.zero` rule at the wrong right-hand side, from the job, at the
+# block's fold position.  Rejected, by official as well ("Invalid recursor Nat.rec").
+1 basis_nat_rule_bad.ndjson
+# the same with the rest of the stream reading the name: every later record is
+# installed before the block's job can report, and the verdict is the job's, in
+# fold order.  Rejected, by official as well.
+1 basis_nat_rule_used_bad.ndjson
+# -- quotient records at the stream's names (ruling 2026-11-05).  Official's kernel
+# makes the package itself and reads no record: it accepts all of these (run).
+# `Quot.lift`'s and `Quot.ind`'s reductions at a universe-polymorphic `α`.
+0 quot_lift_iota.ndjson
+# `Quot.{w}`, the others at the exporter's names.
+0 basis_quot_other_names.ndjson
+# every record at its own names, the reductions used: no record reads another's.
+0 basis_quot_all_other_names.ndjson
+# `Quot.lift.{y, z}` whose result is another variable: not the pin beyond its names.
+# DECLINE, as a quotient record that disagrees with its pin always did.
+2 basis_quot_lift_type_bad.ndjson
+# -- task #480: the literal fast path fires on a certified operation's name, as official's.
+# Only a definition may take such a name (its job holds it to the pin): a theorem or a family
+# there is refused.  natop_foreign_thm, natop_foreign_former: official 0 (run); 1 by the
+# maintainer's ruling that a foreign declaration at a certified name is a reject.
+# bool_ctor_name_former: a family at a `Bool` constructor's name, which the comparisons' fast
+# path produces by name; official 0 (run), 1 here, a prelude-only corner.
+1 natop_foreign_thm.ndjson
+1 natop_foreign_former.ndjson
+1 bool_ctor_name_former.ndjson
+# -- task #480: a projection's guard at a def-headed structure asks each row to be zero
+# wherever the walked sort is, by zero-ness: exact, and it takes no fuel.  level_fuel_guard:
+# the row and the sort at a level chain deeper than `Level.leq`'s fuel, which the former test
+# read as a refusal.  Official 0 (run); the structure of `ind_defhead_sort_u` passes official's
+# block check, so its rows lie under its sort at every level.  `scripts/mk_level_fuel.py`.
+0 level_fuel_guard.ndjson
+# -- task #480, K.52 read against official.  ind_nest_key_own_ctor: a key `K T T.base` naming the
+# block's own constructor, in a parameter the container's fields do not read.  Official 0 (run on
+# v4.35.0, `tc.check(nested, …)` runs in the environment holding the whole block); here 1, "unknown
+# constant", from the constructor's constant check at the formers' environment, not from K.52.
+# Master rejects it too, so it is no regression of #480; the target is open: such a block may not be
+# desirable at all, and the elaborator does not produce it.
+# ind_defhead_param_bad (`scripts/mk_defhead_param_fixture.py`, base ind_defhead_param_base): member
+# 0 stored at a definition holding its parameters.  Official 1 (run, the source's `mk_official`,
+# `get_params`, "incorrect number of parameters"); here 0, a deliberate accept beyond official.
+1 ind_nest_key_own_ctor.ndjson
+0 ind_defhead_param_base.ndjson
+0 ind_defhead_param_bad.ndjson
+# -- task #480: the shape a literal's meaning reads, checked at the declaration.  ind_lit_shape_char: a
+# `Char` of another shape; official 0 (run), here 2, a deliberate refusal.  ind_defhead_lit_char: a
+# `Char` at a definition, whose declared type is not that shape; official 0 (run), here 2.
+2 ind_lit_shape_char.ndjson
+2 ind_defhead_lit_char.ndjson
+
+# -- task #480, acyclicity with no install phase: a job reads only the entries below its record,
+# so a declaration cannot read itself or a later one.  cycle_self_def: def a := a.  cycle_mutual:
+# a := b, b := a.  cycle_forward: a := b before a harmless b.  Each refused at a, "unknown
+# constant".  Official 1 inferred (its environment holds only the past), not run; target 1.
+1 cycle_self_def.ndjson
+1 cycle_mutual.ndjson
+1 cycle_forward.ndjson

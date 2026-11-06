@@ -23,7 +23,7 @@ record pins:
   `TargetMajor`) and an outside class's parameters typed
   (`targetMajorPins`);
 * the recursor records' pins (`targetRecPins`);
-* the stored family's formats (`tgtRs`, `tgtStoredRules`,
+* the stored family's formats (`tgtRs`, `generatedRules`,
   `blockRecInfosTF`) and the container bit (`blockNestedBit`).
 
 Everything is written over an `FEnv`, parameterised by `ShadowOps` (the
@@ -367,16 +367,17 @@ def targetMajorNfs (ops : CheckerOps m) (env : Env) (p : BlockShape) (formerTys 
 looked up by the names its stored record lists (`nestContainer`'s
 reading). -/
 def targetCtorsOf (fe : FEnv) (I : Name) : Option (Nat × List (ConstantVal × Nat)) :=
-  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?⟩ I
+  nestContainer ⟨[], [], 0, [], [], .zero, fe.find?, []⟩ I
 
 /-- The instantiated type former of an OUTSIDE major `I.{us} ds`: its
 index count and its result sort (a syntactic telescope, as
 `nestInstType` reads it). -/
-def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) :
-    m (Nat × Level) := do
-  let some (.indInfo cvI _) := fe.find? I
+def targetOutsideInst (ops : CheckerOps m) (fe : FEnv) (I : Name) (us : List Level)
+    (ds : List Expr) : m (Nat × Level) := do
+  let some (.indInfo cvI capsI) := fe.find? I
     | throw (.invalid "target rec: the recursor's major is not a stored inductive")
-  let some ty := instPisWith ds (cvI.type.instantiateLevelParams cvI.levelParams us)
+  let tyI ← familyTelescope ops fe.env cvI capsI
+  let some ty := instPisWith ds (tyI.instantiateLevelParams cvI.levelParams us)
     | throw (.invalid "target rec: the major's type former does not bind its parameters \
         (official: ill-formed inductive type)")
   let (ibs, s) := ty.piBinders
@@ -391,8 +392,7 @@ def targetOutsideInst (fe : FEnv) (I : Name) (us : List Level) (ds : List Expr) 
 (`fvs` the recursor type's openers): a MEMBER of the block at the
 block's levels and parameters, or — a nested block's container — any
 other stored inductive at one of the block's auxiliary types. -/
-def targetMajorOf (fe : FEnv) (p : BlockShape)
-    (ctorsAs : List (List (ConstantVal × Nat))) (pfvs fvs : List Expr)
+def targetMajorOf (ops : CheckerOps m) (fe : FEnv) (p : BlockShape) (pfvs fvs : List Expr)
     (mty : Expr) : m TargetMajor := do
   let args := mty.getAppArgs
   match mty.getAppFn with
@@ -401,12 +401,11 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
     | some t => do
       -- a MEMBER: at the block's levels and parameters
       let ms ← unwrapOr p.members[t]? (.internal "target rec: member")
-      let ctorsA ← unwrapOr ctorsAs[t]? (.internal "target rec: member constructors")
       unless us == p.lps.map .param && args.take p.nP == fvs.take p.nP do
         throw (.invalid "target rec: the recursor's major premise is not the member at its \
           parameters and its index binders")
       pure { ind := I, lvls := us, ds := fvs.take p.nP, nPc := p.nP, nIdx := ms.nIdx,
-             ctors := ctorsA, member := some t, pfvs := pfvs : TargetMajor }
+             ctors := ms.ctors, member := some t, pfvs := pfvs : TargetMajor }
     | none => do
       -- an OUTSIDE inductive (a nested block's container)
       if I == quotName then
@@ -434,7 +433,7 @@ def targetMajorOf (fe : FEnv) (p : BlockShape)
         throw (.invalid "target rec: the recursor's major is an outside inductive at an \
           instantiation that is no auxiliary type of the block (official generates no such \
           auxiliary recursor: `elim_nested_inductive`, `is_nested`)")
-      let (nIdx, sI) ← targetOutsideInst fe I us ds
+      let (nIdx, sI) ← targetOutsideInst ops fe I us ds
       -- **Q1**: an outside major in ANOTHER
       -- universe than the block (a Type block's family eliminating a
       -- Prop inductive, or the converse) is refused here: the
@@ -478,11 +477,10 @@ application `I Ds` in the parameters' context (`inductive.cpp` v4.33.0
 :1223–1231, "the parametric arguments `Ds` do not appear in the auxiliary
 declaration, so they would otherwise escape type checking"); the `D⃗`
 mention only the parameter binders, below `rP`.  Nothing at a member. -/
-def targetMajorPins (ops : CheckerOps m) (env : Env) (rP : Nat) (M : TargetMajor) : m Unit :=
+def targetMajorPins (ops : CheckerOps m) (fe : FEnv) (rP : Nat) (M : TargetMajor) : m Unit :=
   if M.member.isNone then do
-    targetPinTys ops env rP M.ds
-    let _ ← ops.inferType env rP (Expr.mkAppN (.const M.ind M.lvls) M.ds)
-    pure ()
+    targetPinTys ops fe.env rP M.ds
+    familyKeyCheck ops fe.env fe.find? rP M.ind M.lvls M.ds
   else pure ()
 
 /-! ## The recursor records' pins -/
@@ -574,7 +572,7 @@ def targetPiDomsWith : List Expr → Expr → Option (List Expr)
 
 /-! ## The stored family -/
 
-/-- **The stored family, in the install's recursor-list format**: each
+/-- **The stored family, in the check's recursor-list format**: each
 checked recursor, its generated rules, its major's index count and its
 major's constructors (`consBlockRecs` conses them). -/
 def tgtRs (out : List (ConstantVal × TargetMajor × List Expr)) :
@@ -604,14 +602,35 @@ MAJOR's parameter count and constructors;
 at an OUTSIDE major (a nested block's auxiliary recursor) every rule
 fires `auxRuleFire` (`.nested` at the major's instantiation), at a
 member major as `sumRules` builds it. -/
-def tgtStoredRules (find? : Name → Option ConstantInfo)
-    (cv : ConstantVal) (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
-  let rules := sumRules find? cv.name M.nPc M.ctors rhss
+def generatedRules (rP : Nat) (M : TargetMajor) (rhss : List Expr) : List RecRule :=
+  let rules := sumRules M.ctors rhss
   match M.member with
   | none =>
     let fire := auxRuleFire M rP
     rules.map fun rl => { rl with fire := fire }
   | some _ => rules
+
+/-- **The K flag a recursor of this block has** (official's
+`is_K_target`, `inductive.cpp`): the block is a proposition with one
+member, and the recursor's major is that member, with one constructor
+and no fields.  An outside major's recursor is never K (official's
+`is_K_target` sees the auxiliary types as further members).  The job
+checks the record's flag against it. -/
+def recKExpected (p : BlockShape) (M : TargetMajor) : Bool :=
+  match M.member, M.ctors with
+  | some _, [c] => p.k == 1 && p.isProp && c.2 == 0
+  | _, _ => false
+
+/-- What the K flag says of a member major: one constructor, no fields. -/
+theorem recKExpected_member {p : BlockShape} {M : TargetMajor} {t : Nat}
+    (hm : M.member = some t) (h : recKExpected p M = true) :
+    ∃ c, M.ctors = [c] ∧ c.2 = 0 := by
+  unfold recKExpected at h
+  rw [hm] at h
+  match hc : M.ctors, h with
+  | [c], h =>
+    simp only [Bool.and_eq_true, beq_iff_eq] at h
+    exact ⟨c, rfl, h.2⟩
 
 /-- **The block's container bit** (official's `m_nested`):
 some field kind is not flat (the positivity function reached a
@@ -622,15 +641,15 @@ def blockNestedBit (p : BlockShape) (kinds : List (List (List NestFieldKind))) :
   !nestKindsFlat kinds || p.recs.any (fun rc => !(rc.tgt < p.k))
 
 /-- **The checked family's records, at their majors**, in push order:
-each recursor's rules at ITS major (`tgtStoredRules`).  The cached
+each recursor's rules at ITS major (`generatedRules`).  The cached
 install pushes them (`FEnv.pushAll`, `checkBlockTailS`), every record
 built before the first push. -/
-def blockRecInfosTF (find? : Name → Option ConstantInfo)
+def blockRecInfosTF
     (p : BlockShape) : Nat → List (ConstantVal × TargetMajor × List Expr) → List ConstantInfo
   | _, [] => []
   | m, (cv, M, rhss) :: rest =>
     .recInfo cv (p.majorIdxAt m) (p.rulePrefixAt m)
-        (tgtStoredRules find? cv (p.rulePrefixAt m) M rhss)
-      :: blockRecInfosTF find? p (m + 1) rest
+        (recKExpected p M) (generatedRules (p.rulePrefixAt m) M rhss)
+      :: blockRecInfosTF p (m + 1) rest
 
 end ConLeche

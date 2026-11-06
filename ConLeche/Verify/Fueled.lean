@@ -203,6 +203,88 @@ theorem ensureSort_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold ensureSort
   atF_tac
 
+theorem checkGuardRows_atF (guardSort : Level) (F : Nat) :
+    ∀ rows, (checkGuardRows (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf guardSort rows).val F =
+      checkGuardRows (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf guardSort rows
+  | [] => rfl
+  | (d, dom) :: rest => by
+    unfold checkGuardRows
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun t => ?_)
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    dsimp only []
+    have hk := checkGuardRows_atF guardSort F rest
+    split
+    · exact hk
+    · rw [FueledM.atF_bind, hk]; rfl
+
+theorem formerSortLoop_atF (F : Nat) :
+    ∀ (d n : Nat) (e : Expr),
+      (formerSortLoop (fueledFns mode eager env).whnf d n e).val F =
+        formerSortLoop (pureFns mode eager env F).whnf d n e
+  | d, 0, e => by
+    unfold formerSortLoop
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> rfl
+  | d, n + 1, e => by
+    unfold formerSortLoop
+    rw [FueledM.atF_bind]
+    refine congrArg _ (funext fun w => ?_)
+    cases w <;> try rfl
+    exact formerSortLoop_atF F (d + 1) n _
+
+theorem formerNeverZeroAt_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
+    (formerNeverZeroAt (fueledFns mode eager env).whnf cvT caps us).val F =
+      formerNeverZeroAt (pureFns mode eager env F).whnf cvT caps us := by
+  unfold formerNeverZeroAt
+  split
+  · rfl
+  · rw [FueledM.atF_bind, formerSortLoop_atF]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem iotaCase3At_atF (isK : Bool) (cvj : ConstantVal) (us : List Level) (F : Nat) :
+    (iotaCase3At (fueledFns mode eager env).whnf env.find? isK cvj us).val F =
+      iotaCase3At (pureFns mode eager env F).whnf env.find? isK cvj us := by
+  unfold iotaCase3At
+  split
+  · rfl
+  · split
+    · split
+      · rw [FueledM.atF_bind, formerNeverZeroAt_atF]
+        rfl
+      · rfl
+    · rfl
+
+theorem projGuardSort_atF (cvT : ConstantVal) (caps : IndCaps) (us : List Level) (F : Nat) :
+    (projGuardSort (fueledFns mode eager env).whnf cvT caps us).val F =
+      projGuardSort (pureFns mode eager env F).whnf cvT caps us := by
+  unfold projGuardSort
+  split
+  · rfl
+  · rw [FueledM.atF_bind, formerSortLoop_atF]
+    refine congrArg _ (funext fun o => ?_)
+    cases o <;> rfl
+
+theorem checkProjGuard_atF (entry : ProjEntry) (us : List Level) (F : Nat) :
+    (checkProjGuard (fueledFns mode eager env).inferIO (fueledFns mode eager env).whnf env entry us).val F =
+      checkProjGuard (pureFns mode eager env F).inferIO (pureFns mode eager env F).whnf env entry us := by
+  unfold checkProjGuard
+  split
+  · rw [FueledM.atF_bind, projGuardSort_atF]
+    refine congrArg _ (funext fun o => ?_)
+    cases o with
+    | none => rfl
+    | some guardSort =>
+      dsimp only
+      split
+      · exact checkGuardRows_atF guardSort F _
+      · rfl
+  · rfl
+
 theorem proofIrrel_atF (d : Nat) (a b : Expr) (F : Nat) :
     (proofIrrel (fueledFns mode eager env) d a b).val F =
       proofIrrel (pureFns mode eager env F) d a b := by
@@ -242,6 +324,9 @@ macro "atF_step2" : tactic =>
     | (rw [defEqList_atF])
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
+    | (rw [checkProjGuard_atF])
+    | (rw [iotaCase3At_atF])
+    | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
@@ -266,9 +351,9 @@ theorem structEtaCert_atF (d : Nat) (a b : Expr) (F : Nat) :
 -- Outer casing peeled by hand (as in `ConLeche/Verify/PairM.lean`): the
 -- body outgrew the split-driven macro.
 set_option maxHeartbeats 800000 in
-theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (F : Nat) :
-    (majorToCtor mode (fueledFns mode eager env) env d c rules e).val F =
-      majorToCtor mode (pureFns mode eager env F) env d c rules e := by
+theorem majorToCtor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr) (F : Nat) :
+    (majorToCtor mode (fueledFns mode eager env) env d c isK rules e).val F =
+      majorToCtor mode (pureFns mode eager env F) env d c isK rules e := by
   unfold majorToCtor
   by_cases hca : isCtorApp env e = true
   · rw [ite_eq_left hca, ite_eq_left hca]; rfl
@@ -291,11 +376,11 @@ theorem majorToCtor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr) (
     cases ciT <;> try rfl
     case indInfo cvT caps =>
     dsimp only
-    by_cases hK : rl.k = true
+    by_cases hK : isK = true
     · rw [ite_eq_left hK, ite_eq_left hK]
       atF_tac2
     rw [ite_eq_right hK, ite_eq_right hK]
-    by_cases hE : rl.eta = true
+    by_cases hE : etaRescueOk rl.ctor cvj cvT caps = true
     · rw [ite_eq_left hE, ite_eq_left hE]
       atF_tac2
     rw [ite_eq_right hE, ite_eq_right hE]
@@ -311,10 +396,10 @@ theorem litMajorToCtor_atF (d : Nat) (e : Expr) (F : Nat) :
   unfold litMajorToCtor
   atF_tac2
 
-theorem prepareMajor_atF (d : Nat) (c : Name) (rules : List RecRule) (e : Expr)
+theorem prepareMajor_atF (d : Nat) (c : Name) (isK : Bool) (rules : List RecRule) (e : Expr)
     (F : Nat) :
-    (prepareMajor mode (fueledFns mode eager env) env d c rules e).val F =
-      prepareMajor mode (pureFns mode eager env F) env d c rules e := by
+    (prepareMajor mode (fueledFns mode eager env) env d c isK rules e).val F =
+      prepareMajor mode (pureFns mode eager env F) env d c isK rules e := by
   unfold prepareMajor
   split
   · repeat (first
@@ -344,6 +429,9 @@ macro "atF_core3" x:tactic : tactic =>
     | (rw [defEqList_atF])
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
+    | (rw [checkProjGuard_atF])
+    | (rw [iotaCase3At_atF])
+    | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])
@@ -481,6 +569,9 @@ macro "atF_core4" x:tactic : tactic =>
     | (rw [defEqList_atF])
     | (rw [reduceNat_atF])
     | (rw [ensureSort_atF])
+    | (rw [checkProjGuard_atF])
+    | (rw [iotaCase3At_atF])
+    | (rw [formerNeverZeroAt_atF])
     | (rw [proofIrrel_atF])
     | (rw [propIrrel_atF])
     | (rw [structEtaCertWith_atF])

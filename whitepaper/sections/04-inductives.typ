@@ -48,7 +48,7 @@ interpretations of a binder from §2, decided for a whole family at
 once. The fragment takes a block with one type former, neither mutual
 nor nested; nested blocks are the subject of @sec:nested. The block is given by a
 #src("whitepaper/Fragment/Spec.lean", 80, 103)[_specification_]
-(#src("ConLeche/Kernel/Inductives/BlockParts.lean", 106, 124)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockShape.lean", 116, 134)[as in con-leche]):
 
 - a name $I$ and level parameters $arrow(p)$;
 - a _parameter_ telescope $(x_1 : P_1) dots (x_k : P_k)$ and, under
@@ -62,7 +62,7 @@ nor nested; nested blocks are the subject of @sec:nested. The block is given by 
   $arrow(e)_j$ of its result $I thick arrow(x) thick arrow(e)_j$.
 
 A field is one of #src("whitepaper/Fragment/Spec.lean", 28, 42)[two kinds]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 598, 608)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 672, 682)[as in con-leche]):
 
 - _ordinary_: its domain does not mention $I$;
 - _reflexive_: its domain is
@@ -78,7 +78,7 @@ mentions $I$ anywhere else; this is
 #src("whitepaper/Fragment/Decl.lean", 628, 642)[strict positivity].
 And nothing after a reflexive field
 #src("whitepaper/Fragment/Decl.lean", 645, 650)[may depend on its value]
-(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1246, 1249)[as in con-leche] and the
+(#src("ConLeche/Kernel/Inductives/Positivity.lean", 1324, 1327)[as in con-leche] and the
 official kernel), so that the model can read a constructor's domains
 without knowing the values of its reflexive fields.
 
@@ -89,7 +89,7 @@ without knowing the values of its reflexive fields.
   domain after weak head normal form, with $I$ at the block's
   parameters replaced by a variable standing for the family being
   defined; @sec:nested uses the same check
-  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1453, 1454)[positivity]).
+  (#src("ConLeche/Kernel/Inductives/Positivity.lean", 1512, 1513)[positivity]).
 ]
 
 Reflexive fields with a non-empty telescope matter to the model. A
@@ -119,13 +119,13 @@ or $0$ (_small elimination_); the elimination rule below says which.
   them. The checker recovers the specification from the type former's and
   the constructors' types, and checks and stores those two as the
   stream declares them
-  (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 102, 103)[a constructor]).
+  (#src("ConLeche/Kernel/Inductives/SumInstall.lean", 66, 67)[a constructor]).
   The recursor it _generates_, as the official kernel does. From the
   stream's recursor record it takes only the name, the level
   parameters and the type, which must be definitionally equal to the
   generated one, and the record's two layout counts, which must equal
   the generated ones
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 383, 405)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 385, 407)[the comparison]).
   An unverified pre-pass reads off that type which type the recursor
   eliminates and how its motive and minor premises are laid out (the
   arguments named on $Nat$ in @ex:nat); a wrong reading can only make
@@ -135,7 +135,7 @@ or $0$ (_small elimination_); the elimination rule below says which.
   once they agree with the generated ones: the type binder by binder up
   to the major premise, each rule up to definitional equality, at the
   generated recursor's firing data
-  (#src("ConLeche/Kernel/Inductives/StoredRecs.lean", 187, 193)[the comparison]).
+  (#src("ConLeche/Kernel/Inductives/StreamRecs.lean", 182, 188)[the comparison]).
 ]
 
 Here is the recursor of the natural numbers.
@@ -224,8 +224,8 @@ eliminator on a family whose sort _may_ be zero
 #real[
   The checker asks the constructor count of every family whose sort
   may be zero (#src("ConLeche/Kernel/Inductives/BlockRec.lean", 82, 84)[the guard],
-  #src("ConLeche/Kernel/Inductives/GenRec.lean", 560, 562)[applied])
-  but the #src("ConLeche/Kernel/Inductives/SumInstall.lean", 85, 99)[per-field condition]
+  #src("ConLeche/Kernel/Inductives/GenRec.lean", 562, 564)[applied])
+  but the #src("ConLeche/Kernel/Inductives/SumInstall.lean", 50, 64)[per-field condition]
   only of a family whose sort is provably zero, which is sound because
   the universe bound (the third check below) makes every field a
   proposition at any valuation that sends the result sort to zero.
@@ -268,7 +268,7 @@ the checker answers each with the level oracle:
 === When a block is accepted
 
 A block #src("whitepaper/Fragment/Decl.lean", 719, 764)[is accepted] when
-(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 147, 152)[as in con-leche]):
+(#src("ConLeche/Kernel/Inductives/BlockTail.lean", 154, 163)[as in con-leche]):
 
 - its names are distinct and fresh;
 - the specification is in scope, positivity included;
@@ -294,7 +294,7 @@ generated type a well-denoted type.
 #real[
   The same steps run in this order, and each generated rule is
   type-checked in the environment holding the rule-less recursor
-  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 424, 446)[a generated rule]).
+  (#src("ConLeche/Kernel/Inductives/GenRec.lean", 426, 448)[a generated rule]).
 ]
 
 === What is stored
@@ -302,7 +302,7 @@ generated type a well-denoted type.
 The block #src("whitepaper/Fragment/Decl.lean", 531, 572)[adds three kinds of constant] to the
 environment, the ones @sec:env left to this section
 (#src("whitepaper/Fragment/Env.lean", 63, 80)[the kinds],
-#src("ConLeche/Kernel/Env.lean", 129, 146)[as in con-leche]). Written
+#src("ConLeche/Kernel/Env.lean", 132, 140)[as in con-leche]). Written
 with the notation of @sec:env, a stored declaration is one of
 
 - $(c.\{arrow(p)\} : T := v)$, a definition (@sec:env);
@@ -537,12 +537,12 @@ which holds in both cases, is used here only for monotonicity.
   (the recursive field). Assembled along the fields, that is
   #src("ConLeche/Model/Inductives/BlockAccRunCont.lean", 311, 316)[the fit's accessibility, for both kinds of family, with a bound in the universe for a type-valued one]
   (#src("ConLeche/SetModel/Access.lean", 56, 63)[the notion above]), and
-  #src("ConLeche/Model/Env/BlockLfp.lean", 511, 515)[the operator's monotonicity] follows from it, as in the fragment.
+  #src("ConLeche/Model/Env/BlockLfp.lean", 517, 521)[the operator's monotonicity] follows from it, as in the fragment.
   The fragment's simplification is to take the field kinds from the
   specification instead of the run. The universe bound on the fields the real proof records
   from a check made for the proof alone, the constructor type-checked
   with the holes in context
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 450, 456)[the recorded bound]);
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 456, 462)[the recorded bound]);
   the fragment reads it off the constructor's ordinary typing.
 ]
 
@@ -644,16 +644,16 @@ every constructor denotes the point.
   graph over an index set. What the model records of an installed
   block is one clause: the operator maps the universe to itself and
   its fit is accessible, for both kinds of family
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 388, 395)[the operator]).
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 394, 401)[the operator]).
   So it has a closed family
   (#src("ConLeche/SetModel/Access.lean", 298, 303)[the constant family at a proposition, and from accessibility for a type-valued family])
   and is
-  #src("ConLeche/Model/Env/BlockLfp.lean", 511, 515)[monotone]\;
+  #src("ConLeche/Model/Env/BlockLfp.lean", 517, 521)[monotone]\;
   its fibres are the tagged tuples of fitting fields
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 396, 401)[the fibres]),
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 402, 407)[the fibres]),
   and the type former denotes
-  #src("ConLeche/Model/Env/BlockLfp.lean", 181, 183)[the least fixed point]
-  (#src("ConLeche/Model/Env/BlockLfp.lean", 517, 520)[the fixed-point equation]).
+  #src("ConLeche/Model/Env/BlockLfp.lean", 187, 189)[the least fixed point]
+  (#src("ConLeche/Model/Env/BlockLfp.lean", 523, 526)[the fixed-point equation]).
   Its constructors are
   #src("ConLeche/SetModel/TaggedSum.lean", 65)[tagged pairs] of
   #src("ConLeche/SetModel/TupleTower.lean", 93)[nested pairs], the
@@ -744,7 +744,7 @@ $c_j.\{arrow(ell)'\} thick arrow(a)' thick arrow(f)$ for which $r$ has
 a rule with right-hand side $R_j$. The reduct is
 $R_j[arrow(p) := arrow(ell)]$ applied to the parameters, motive and
 minors from $arrow(a)$ and to the fields $arrow(f)$
-(#src("ConLeche/Rules/Rel.lean", 186, 243)[as in con-leche]). Besides
+(#src("ConLeche/Rules/Rel.lean", 185, 243)[as in con-leche]). Besides
 finding $r$, $c_j$ and the rule in the environment, the fragment's
 rule has three _comparisons_ as premises:
 
@@ -782,7 +782,7 @@ uniqueness the two have one domain, which holds the argument.
   kernel. The law there is proved without the comparisons: when the
   redex is not the point, the major is a tagged tuple, which ties the
   constructor application to the recursor's levels and parameters
-  (#src("ConLeche/Model/Env/Laws.lean", 521, 555)[what the law
+  (#src("ConLeche/Model/Env/Laws.lean", 496, 530)[what the law
   provides instead]).
 ]
 
@@ -828,7 +828,7 @@ and #src("ConLeche/Model/Rules/IotaSound.lean", 88)[the law] gives the rest.
   Every rule of the recursor of an accepted block
   #src("whitepaper/Fragment/InstallIota.lean", 822, 828)[satisfies its $iota$ law] in the model of @sec:ind-model.
   (Via #src("whitepaper/Fragment/IndRec.lean", 280, 290)[the equation on the semantic recursor]\; in con-leche,
-  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 874, 880)[the graph's equation], lifted to the law of @def:iota-law.)
+  #src("ConLeche/Model/Inductives/BlockRecLaw.lean", 872, 878)[the graph's equation], lifted to the law of @def:iota-law.)
 ] <thm:iota>
 
 #proof[
@@ -967,11 +967,11 @@ without a certificate, through the projections of the major.
 #real[
   The checker decides the case with one level test per redex: whether
   the constructor's family is
-  #src("ConLeche/Kernel/CoreDefs.lean", 85, 93)[never a proposition]
-  at the levels the rule compares with, read off the sort recorded for
-  the family when it was installed. A K rule and a family that is never
+  #src("ConLeche/Kernel/CoreDefs.lean", 83, 91)[never a proposition]
+  at the levels the rule compares with, read off the family's type where
+  the question is asked. A K rule and a family that is never
   a proposition fire with no check; every
-  #src("ConLeche/Kernel/CoreDefs.lean", 102, 104)[other rule] is the
+  #src("ConLeche/Kernel/CoreDefs.lean", 100, 102)[other rule] is the
   certified case, as in the fragment.
 ]
 
@@ -988,7 +988,7 @@ assumed of the environment they extend.
 #theorem(name: "Every accepted environment has a model")[
   For every model of the extended theory, every accepted environment
   #src("whitepaper/Fragment/Consistency.lean", 57, 70)[has a model in it]
-  (#src("ConLeche/MainTheorem.lean", 100, 103)[con-leche's main theorem]).
+  (#src("ConLeche/MainTheorem.lean", 98, 101)[con-leche's main theorem]).
 ] <thm:accepted-model>
 
 #proof[
@@ -1011,7 +1011,7 @@ assumed of the environment they extend.
   environment. Then #src("whitepaper/Fragment/Consistency.lean", 89, 98)[no closed term $e$ has] $tack e => I$; in
   particular no stored constant has type $I$
   (#src("whitepaper/Fragment/Consistency.lean", 134, 138)[at the block `inductive False : Prop`]\;
-  #src("ConLeche/Model/Fold.lean", 268, 275)[as in con-leche]).
+  #src("ConLeche/Model/Fold.lean", 354, 361)[as in con-leche]).
 ] <cor:consistency>
 
 #proof[
@@ -1039,7 +1039,7 @@ assumed of the environment they extend.
   name `False` and say that it denotes the empty set and `Eq` set
   equality, with no hypothesis about the stream (#overview(1)); and
   its acceptance is the run of a program,
-  #src("ConLeche/Model/Fold.lean", 198, 200)[the declaration fold],
+  #src("ConLeche/Model/Fold.lean", 283, 285)[the declaration fold],
   rather than a relation, so a bridge theorem turns each accepting
   run into the derivations §3 and §4 consume (@sec:left-out). The
   argument in between is the one above.

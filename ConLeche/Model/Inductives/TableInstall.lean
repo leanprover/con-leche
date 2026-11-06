@@ -13,13 +13,13 @@ public section
 projection table.  A table is not a constant: its install adds no name
 and moves no leaf, so the leaf valuation stays the prefix's, and every
 stored name looks up as before.  The only thing it changes is that the
-structure's `.proj` nodes now read (`denote`'s `.proj` clause consults
+structure's `.proj` nodes read (`denote`'s `.proj` clause consults
 the table); a reading the prefix already had survives
 (`denote_pushTable_mono`: the new table is of a structure that had
 none), so every environment law transports along the extension
 (`ModelExt.pushTable`) exactly as at a fresh constant's install.  The
 one row the transports cannot supply — the new table's own
-`TowerEntryLaw` at every field — is the install's.
+`TowerEntryLaw` at every field — is the check's.
 -/
 
 namespace ConLeche.Model
@@ -82,12 +82,9 @@ theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
     CapsOk m₂ := by
   constructor
   · intro T cvT caps hf hcape hres hfam φ' us hlen
-    obtain ⟨TVa, hTVa, hokTVa, hlaw, hcoh⟩ :=
+    obtain ⟨hlaw, hcoh⟩ :=
       mp.caps_ok.1 T cvT caps hf hcape hres hfam φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_, ?_⟩
-    · rw [hac]
-      exact denote_pushTable_mono hT _ 0
-        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTVa
+    refine ⟨?_, ?_⟩
     · rw [hac]
       exact hlaw
     · refine hcoh.transport (fun cvC nPc nFc hf₂ => hf₂)
@@ -96,13 +93,9 @@ theorem capsOk_pushTable (mp : EnvModelM V env) {t : ProjTable}
       exact denote_pushTable_mono hT _ 0
         (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTCa
   · intro T cvT caps hf hcapu hres φ' us hlen
-    obtain ⟨TVa, hTVa, hokTVa, hlaw⟩ := mp.caps_ok.2 T cvT caps hf hcapu hres φ' us hlen
-    refine ⟨TVa, ?_, hokTVa, ?_⟩
-    · rw [hac]
-      exact denote_pushTable_mono hT _ 0
-        (constsBound_instType mp.base2.wf (ConLeche.Env.find?_mem hf) us) hTVa
-    · rw [hac]
-      exact hlaw
+    have hlaw := mp.caps_ok.2 T cvT caps hf hcapu hres φ' us hlen
+    rw [hac]
+    exact hlaw
 
 /-- **The P step at a projection table's install.**  The structure has
 no table yet, the table is well formed and carries its head data at
@@ -147,7 +140,8 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
     div_mod := mp.div_mod
     eq_law := mp.eq_law
     caps_ok := capsOk_pushTable mp hT hac
-    rec_rules := fun φ n cv mI rP rules hf rl hmem =>
+    op_defn := fun c hn hs => mp.op_defn c hn hs
+    rec_rules := fun φ n cv mI rP isK rules hf rl hmem =>
       recRuleLaw_ext mp hx φ hf hmem
     reduce_ops := mp.reduce_ops
     tower_ok := fun φ T i entry hf => by
@@ -162,19 +156,9 @@ theorem declStep_preserves_of_pushTable (mp : EnvModelM V env) {t : ProjTable}
           rw [ConLeche.Env.findTable?_pushTable, ite_eq_right hh]
         rw [hP] at hf
         exact towerEntryLaw_ext mp hx φ hf
-    ind_strict := fun I cv caps hf ψ ab n hread hn ρ vs hsp => by
-      have hm := ConLeche.Env.find?_mem hf
-      exact mp.ind_strict I cv caps hf ψ ab n (hreadT _ hm ψ _ hread) hn ρ vs hsp
     lfpBlocks := mp.lfpBlocks
     lfp_ok := mp.lfp_ok_transport (fun _ _ hf _ => hf) (fun _ _ _ _ => rfl)
-      (fun _ _ _ hf ψ _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hx.denote (hbound _ hm).1 hta)
-      (fun _ _ _ _ hf ψ _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hx.denote (hbound _ hm).1 hta)
-      (fun _ _ hf _ _ hA ψ d _ hta =>
-        have hm := ConLeche.Env.find?_mem hf
-        hx.denote (canonOf_constsBound (hbound _ hm).1 hA) hta) }, rfl⟩
+      (fun ψ d _ _ hb hta => hx.denote hb hta)
+      (fun _ => ConstsBound.of_isSome (env₀ := env) (env₁ := ⟨env.consts, t :: env.tables⟩) fun _ h => h) }, rfl⟩
 
 end ConLeche.Model

@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Verify.Cached.BinderLoopC
 import ConLeche.Verify.BetaSpine
+public import ConLeche.Verify.ProjGuard
 
 public section
 
@@ -79,7 +80,7 @@ private theorem iotaRecI_of_arityOk_false {mi : CheckMode} {r : CoreFnsI}
     | some ci =>
       rw [hf] at h
       cases ci with
-      | recInfo cv mI rP rules =>
+      | recInfo cv mI rP isK rules =>
         dsimp only at h ⊢
         rw [ite_eq_right]
         rintro ⟨hlen, hlvl, -⟩
@@ -402,19 +403,121 @@ theorem inferLamsC_tail_spec (ih : SSimC mode eager env f) (henv : EnvWF env) {d
         pure (Expr.forallE ty (bt.abstract1 d))) r ∧ Expr.WScoped d r; ⊤⦄ :=
   (inferLamsC_tail_sim ih henv hs rfl rfl rfl hwty hwb).triple relEC_inv
 
+/-- The rows of a projection's guard simulate their fueled original. -/
+theorem checkGuardRowsC_spec (ih : SSimC mode eager env f) (guardSort : Level) :
+    ∀ {rows : List (Nat × Expr)} {s₀ : CState}, CSOK mode eager env s₀ → GuardRowsWS rows →
+      ⦃fun s => s = s₀⦄ checkGuardRowsI (coreKnotI mode eager (mkFEnv env) f).inferIO
+        (coreKnotI mode eager (mkFEnv env) f).whnf guardSort rows
+      ⦃fun v s' => CSOK mode eager env s' ∧
+        Runs (checkGuardRows (fueledFns mode eager env).inferIO
+          (fueledFns mode eager env).whnf guardSort rows) v; ⊤⦄ := by
+  intro rows
+  induction rows with
+  | nil =>
+    intro _ _ _
+    sym only [conleche_grind, checkGuardRows] =>
+      vcgen [checkGuardRowsI] <;> finish
+  | cons p rest ihr =>
+    obtain ⟨d, dom⟩ := p
+    intro s₀ hs hw
+    have hd := hw.head
+    have hr := hw.tail
+    sym only [conleche_grind, checkGuardRows] =>
+      vcgen [checkGuardRowsI.eq_def, ih.inferIO_spec, ih.whnf_spec, ihr] <;> finish
+
+/-- What a projection's rows lie under simulates its fueled original. -/
+theorem projGuardSortC_spec (ih : SSimC mode eager env f) {cvT : ConstantVal} {caps : IndCaps}
+    {us : List Level} {s₀ : CState} (hcl : cvT.type.hasFvar = false)
+    (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ projGuardSortI (coreKnotI mode eager (mkFEnv env) f).whnf cvT caps us
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (projGuardSort (fueledFns mode eager env).whnf cvT caps us) v; ⊤⦄ := by
+  have hw : Expr.WScoped 0 (cvT.type.instantiateLevelParams cvT.levelParams us) :=
+    Expr.WScoped.of_not_hasFvar (by rw [hasFvar_instantiateLevelParams]; exact hcl)
+  sym only [conleche_grind, projGuardSort] =>
+    vcgen [projGuardSortI, instLevelParamsM, formerSortLoopC_spec ih] <;> finish
+
+/-- The rows at a guardSort simulate their fueled original. -/
+theorem projRowsC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
+    {entry : ProjEntry} {us : List Level} {guardSort : Level} {s₀ : CState}
+    (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ checkProjRowsI (coreKnotI mode eager (mkFEnv env) f).inferIO
+      (coreKnotI mode eager (mkFEnv env) f).whnf (mkFEnv env) entry us guardSort
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (match projGuardRows env.find? entry us with
+        | some rows => checkGuardRows (fueledFns mode eager env).inferIO
+            (fueledFns mode eager env).whnf guardSort rows
+        | none => throw (.invalid "projection from a propositional structure must be a proposition"))
+        v; ⊤⦄ := by
+  cases hc : env.find? entry.ctor with
+  | none =>
+    have hp : projGuardRows env.find? entry us = none := by
+      simp only [projGuardRows, hc]
+    sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+      vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
+        checkGuardRowsC_spec ih] <;> finish
+  | some ci =>
+    cases ho : openPisAtFvars (entry.numParams + entry.idx + 1)
+        (ci.toConstantVal.type.instantiateLevelParams ci.toConstantVal.levelParams us) 0 with
+    | none =>
+      have hp : projGuardRows env.find? entry us = none := by
+        simp only [projGuardRows, hc, ho]
+      sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+        vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
+          checkGuardRowsC_spec ih] <;> finish
+    | some p =>
+      obtain ⟨fvs, b⟩ := p
+      have hp : projGuardRows env.find? entry us
+          = some (projGuardRowsAt ci.toConstantVal.type entry.numParams entry.idx fvs) := by
+        simp only [projGuardRows, hc, ho]
+      have hws : GuardRowsWS (projGuardRowsAt ci.toConstantVal.type entry.numParams entry.idx fvs) :=
+        projGuardRowsAt_ws ho (Expr.WScoped.of_not_hasFvar (by
+          rw [hasFvar_instantiateLevelParams]; exact (henv.consts _ (Env.find?_mem hc)).1))
+      sym only [conleche_grind, constTyOf, Option.isSome_some, openPisAtFvarsF_eq] =>
+        vcgen [checkProjRowsI, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
+          checkGuardRowsC_spec ih] <;> finish
+
+/-- A projection's guard simulates its fueled original. -/
+theorem checkProjGuardC_spec (ih : SSimC mode eager env f) (henv : EnvWF env)
+    {entry : ProjEntry} {us : List Level} {s₀ : CState} (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ checkProjGuardI (coreKnotI mode eager (mkFEnv env) f).inferIO
+      (coreKnotI mode eager (mkFEnv env) f).whnf (mkFEnv env) entry us
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (checkProjGuard (fueledFns mode eager env).inferIO
+        (fueledFns mode eager env).whnf env entry us) v; ⊤⦄ := by
+  unfold checkProjGuardI checkProjGuard
+  simp only [mkFEnv_find_fun]
+  split
+  · next cvT caps hT =>
+    have hcl : cvT.type.hasFvar = false := (henv.consts _ (Env.find?_mem hT)).1
+    sym only [conleche_grind] =>
+      vcgen [projGuardSortC_spec ih hcl, projRowsC_spec ih henv] <;> finish
+  · sym only [conleche_grind] => vcgen <;> finish
+
+/-- `checkProjGuardC_spec` at the io views the io body runs it at. -/
+theorem checkProjGuardC_specIO (ih : SSimC mode eager env f) (henv : EnvWF env)
+    {entry : ProjEntry} {us : List Level} {s₀ : CState} (hs : CSOK mode eager env s₀) :
+    ⦃fun s => s = s₀⦄ checkProjGuardI (CoreFnsI.ioView (coreKnotI mode eager (mkFEnv env) f)).inferIO
+      (CoreFnsI.ioView (coreKnotI mode eager (mkFEnv env) f)).whnf (mkFEnv env) entry us
+    ⦃fun v s' => CSOK mode eager env s' ∧
+      Runs (checkProjGuard (CoreFns.ioView (fueledFns mode eager env)).infer
+        (CoreFns.ioView (fueledFns mode eager env)).whnf env entry us) v; ⊤⦄ :=
+  checkProjGuardC_spec ih henv hs
+
 /-- The cached inference body simulates the specification body; the
 application clause through the spine walk and `inferSpine_sound_body`. -/
 theorem inferBodyC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
     BodySpec mode eager env (inferBodyI (coreKnotI mode eager (mkFEnv env) f) (mkFEnv env))
       (inferBody (fueledFns mode eager env) env) := by
   intro s₀ d i hs hw
-  sym only [conleche_grind, inferBody, natLitSupportedF_eq, strLitSupportedF_eq,
+  sym only [conleche_grind, inferBody, natLitStoredF_eq, strLitStoredF_eq,
       mkFEnv_findProj?, constTyOf, ProjEntry.typeAtI_eq,
       toListRev_empty, Option.isSome_some, EnvWF.constTy_closed henv, wscoped_typeAt henv] =>
     vcgen [inferBodyI, peelFuelM, inst1M_spec (mode := mode) (eager := eager) (env := env),
         ih.infer_spec, ih.whnf_spec, ih.defeq_spec,
       ensureSortC_spec ih, constTyAtM_spec (mode := mode) (eager := eager) (env := env),
-      inferSpineC_spec ih, inferPisC_tail_spec ih, inferLamsC_tail_spec ih henv] <;> finish
+      inferSpineC_spec ih, inferPisC_tail_spec ih, inferLamsC_tail_spec ih henv,
+      checkProjGuardC_spec ih henv] <;> finish
 
 /-- Abstracting away the top variable lowers the scope bound. -/
 theorem wscoped_abstract1 {d : Nat} {e : Expr} (k : Nat) (h : Expr.WScoped (d + 1) e) :
@@ -446,12 +549,13 @@ theorem inferBodyIOC_spec (ih : SSimC mode eager env f) (henv : EnvWF env) :
       (inferBodyIO (CoreFns.ioView (fueledFns mode eager env)) env) := by
   intro s₀ d i hs hw
   sym only [conleche_grind, inferBodyIO, CoreFns.ioView_infer, CoreFns.ioView_whnf,
-      natLitSupportedF_eq, strLitSupportedF_eq, mkFEnv_findProj?, constTyOf,
+      natLitStoredF_eq, strLitStoredF_eq, mkFEnv_findProj?, constTyOf,
       ProjEntry.typeAtI_eq, toListRev_empty, Option.isSome_some,
       abstract1C_spec, EnvWF.constTy_closed henv, wscoped_typeAt henv] =>
     vcgen [inferBodyIOI, inferBodyI, abstract1M, ensureSortIOC_spec ih,
       inst1M_spec (mode := mode) (eager := eager) (env := env), ih.ioInfer_spec, ih.ioWhnf_spec,
-      constTyAtM_spec (mode := mode) (eager := eager) (env := env), inferSpineIOC_spec ih] <;>
+      constTyAtM_spec (mode := mode) (eager := eager) (env := env), inferSpineIOC_spec ih,
+      checkProjGuardC_specIO ih henv] <;>
           finish
 
 end Walks3

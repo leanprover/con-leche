@@ -1,8 +1,7 @@
 module
 
+import ConLeche.Model.OpenedCtx
 public import ConLeche.Model.Inductives.SumKit
-import ConLeche.Verify.Inductives.DirectInv
-import ConLeche.Kernel.Inductives.FieldTele
 import ConLeche.Kernel.Inductives.BlockInstall
 public section
 
@@ -16,7 +15,7 @@ fields at `nP ..< nP + nF`): every field's opened domain reads to its
 entry (`domRead`), and the opened residual is the member at the
 parameter variables and the index arguments (`resShape`).  No field is
 classified: what a field reading a member looks like is the stored
-field shape facts' (`StoredFieldShapes`).
+field shape facts' (`DeclaredFieldShapes`).
 -/
 
 namespace ConLeche.Model
@@ -169,25 +168,24 @@ environment holding ALL the block's formers. -/
 theorem blockCtorData_of (mp : EnvModelM V env)
     {F : Nat} {T : Name}
     {lps : List Name} {nP nF nIdx : Nat} {resSort : Level}
-    {isProp large : Bool} {cvC cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
-    {bs : List Expr} {sorts : List Level} {sT : Level}
-    (hCtor : ConLeche.checkSumCtor (ConLeche.fueledOps .verified F) env₁ env T lps nP nIdx resSort
-      isProp large cvC nF cvTa = .ok (cvCa, sorts))
-    (hfT : env.find? T = some (.indInfo cvTa caps))
-    (hlpsT : cvTa.levelParams = lps)
-    (hstripT : cvTa.type.stripPis (nP + nIdx) = some (bs, .sort sT)) :
+    {isProp large : Bool} {cvC cvS cvTa cvCa : ConstantVal} {env₁ : Env} {caps : IndCaps}
+    {sorts : List Level}
+    (hCtor : ConLeche.SumCtorRun .verified F env₁ env T lps nP nIdx resSort
+      isProp large cvC nF cvTa cvCa sorts)
+    (hfT : env.find? T = some (.indInfo cvS caps))
+    (hlpsT : cvS.levelParams = lps) :
     ∃ (idxArgs : List Expr) (ds : (Name → Nat) → List Term)
       (Es : (Name → Nat) → List Term) (srcs : List (Option Nat))
       (fvsP xFvs : List Expr) (xrest : Expr),
       BlockCtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large
         idxArgs ds Es srcs fvsP xFvs xrest := by
   obtain ⟨idxArgs, ds, Es, srcs, -, ⟨fvsP, crest, xFvs, xrest, hopP, hopX, hidxEq⟩, hCD⟩ :=
-    sumCtorData_of mp hCtor hfT hlpsT hstripT
-  obtain ⟨hcf, -, -, hcb⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
+    sumCtorData_of mp hCtor hfT hlpsT
+  obtain ⟨hcf, -, -, hcb, -⟩ := ConLeche.direct_sum_ctor_typeWF hCtor
   obtain ⟨hlenP, hidxP, -⟩ := opening_vars_at hopP
   obtain ⟨hlenX, hidxX, -⟩ := opening_vars_at hopX
   obtain ⟨-, -, fvsP₂, crest₂, tfvs, trest, xFvs₂, idxArgs₂, hopC, -, -, hopX₂, -, -, -, -⟩ :=
-    ConLeche.checkSumCtor_shape hCtor
+    hCtor
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj (hopP.symm.trans hopC))
   obtain ⟨rfl, hxr⟩ := Prod.mk.inj (Option.some.inj (hopX.symm.trans hopX₂))
   have hidxX' : ∀ k x, xFvs[k]? = some x → ∃ ty, x = Expr.fvar (nP + k) ty := hidxX

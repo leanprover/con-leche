@@ -74,8 +74,8 @@ structure EnvFacts (env : Env) where
   referenced constants, not the level-arity matches `denote`'s `.const`
   clause tests — so denotability is a genuinely extra fact, consumed by
   the ι rule's `denoteClosed` side condition. -/
-  rec_rhs_denotes : ∀ n cv mI rP rules,
-    env.find? n = some (.recInfo cv mI rP rules) →
+  rec_rhs_denotes : ∀ n cv mI rP isK rules,
+    env.find? n = some (.recInfo cv mI rP isK rules) →
     ∀ r ∈ rules,
       ∀ (us : List Level) (ψ : Name → Nat),
         us.length = cv.levelParams.length →
@@ -86,8 +86,8 @@ structure EnvFacts (env : Env) where
   branch, while the ι rule's *index* side condition needs it on
   `.plain` fires too (its length disjunct is otherwise open at
   `mI < rP`).  Backed by `rec_rules`' `RecRuleLaw`. -/
-  rec_params_le : ∀ n cv mI rP rules,
-    env.find? n = some (.recInfo cv mI rP rules) →
+  rec_params_le : ∀ n cv mI rP isK rules,
+    env.find? n = some (.recInfo cv mI rP isK rules) →
     ∀ r ∈ rules, rP ≤ mI
   /-- Every stored native projection-table entry is a pinned pair entry
   with its block stored (`ProjOkT`).  Syntactic; the projection
@@ -99,13 +99,13 @@ structure EnvFacts (env : Env) where
   literal fast path reads** (task #161 B3): a *stored* one of the
   sixteen accelerated operations is a *guarded* one.
 
-  `reduceNat` tests `natOpStored`, one lookup, instead of re-deriving
+  `reduceNat` tests `isDefinitionAt`, one lookup, instead of re-deriving
   `natOpGuard` at every literal hit.  This field turns that test back
   into the guard the literal rules name, and it is not new evidence:
   the model's `nat_ops`/`div_mod` state exactly this under their
   `defnInfo` hypothesis (they are what `checkDecl` establishes, by
   declining a stream that stores one of these names unguarded). -/
   nat_op_guard : ∀ c, (c ∈ natOpNames ∨ c ∈ natDivModNames) →
-    natOpStored env c = true → natOpGuard env c = true
+    isDefinitionAt env c = true → natOpGuard env c = true
 
 end ConLeche.Semantics

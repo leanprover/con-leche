@@ -1,6 +1,6 @@
 module
 
-public import ConLeche.Kernel.BasisA
+public import ConLeche.Kernel.Basis.Builder
 
 @[expose] public section
 
@@ -121,7 +121,7 @@ def iffRecA : ConstantInfo :=
     pi "motive" (pi "t" (ap2 (cnst iffName) (bv 1) (bv 0)) (srt u)) <|
     pi "intro" iffRecIntro <|
     pi "t" (ap2 (cnst iffName) (bv 3) (bv 2)) (.app (bv 2) (bv 0))⟩
-    4 4 []
+    4 4 false []
 
 /-- The raw `propext` declaration:
 `propext (a b : Prop) : Iff a b → Eq.{1} Prop a b`. -/
@@ -156,7 +156,7 @@ def nonemptyRecA : ConstantInfo :=
       (pi "val" (bv 1) <|
         .app (bv 1) (ap2 (cnst nonemptyIntroName [u]) (bv 2) (bv 0))) <|
     pi "t" (.app (cnst nonemptyName [u]) (bv 2)) (.app (bv 2) (bv 0))⟩
-    3 3 []
+    3 3 false []
 
 /-- The raw `Classical.choice` declaration:
 `Classical.choice.{u} (α : Sort u) : Nonempty α → α`. -/
@@ -184,7 +184,7 @@ Only the recursors' *types* are used — never their reduction rules
 (DESIGN.md, task #209).  This is the reason the pins are right. -/
 def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
   if cv.name = propextName then
-    decide (env.find? eqName = some eqA) &&
+    (env.find? eqName).isSome &&
     (match env.find? iffName with
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&
@@ -193,7 +193,7 @@ def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
      | _ => false) &&
     (match env.find? iffRecName with
-     | some (.recInfo cvIr 4 4 _) =>
+     | some (.recInfo cvIr 4 4 _ _) =>
        ConstantVal.matchesPin cvIr iffRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv propextA
@@ -207,7 +207,7 @@ def stdAxiomOk (env : Env) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
      | _ => false) &&
     (match env.find? nonemptyRecName with
-     | some (.recInfo cvNr 3 3 _) =>
+     | some (.recInfo cvNr 3 3 _ _) =>
        ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv choiceA

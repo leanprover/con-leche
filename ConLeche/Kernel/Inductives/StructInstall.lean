@@ -52,18 +52,16 @@ def checkStructDomsAt (ops : CheckerOps m) (env : Env) (off : Nat)
 /-- Stage 5: **the projection table** (task #175 S1).  One table per
 structure, in the environment's table component (task #362): the fields' result-type bodies read off the
 stored constructor type by substitution alone
-(`structProjBodies`), the per-field guard levels
-(`structProjGuards`), the constructor and the counts.  Nothing is
+(`structProjBodies`), the constructor and the counts.  Nothing is
 inferred or pinned here — a `.proj T i e` use instantiates
 `bodies[i]` at its own arguments (`ProjEntry.typeAt`) after the
-official `infer_proj` guard test, and a slot with no legal
+official `infer_proj` guard (`checkProjGuard`, at the use), and a slot with no legal
 instantiation (a used-later data field of a `Prop` structure) simply
 fails that guard at every use (`invalid`, as official).  The body
 walk cannot fail on a constructor type `checkSumCtor` accepted
 (it peels exactly `nP + nF` binders), so its failure is internal. -/
-def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
-    (resSort : Level) (guards : List Level) (cvCa : ConstantVal) (env : Env) :
-    m Env := do
+def checkStructProjTable (T : Name) (lps : List Name) (nP nF : Nat)
+    (cvCa : ConstantVal) (env : Env) : m Unit := do
   let bodies ← unwrapOr (structProjBodies T nP nF cvCa.type)
     (.internal "direct structure: projection bodies")
   -- the bodies' scoping, validated once at insertion (the stage's own
@@ -74,13 +72,11 @@ def checkStructProjTable (T C : Name) (lps : List Name) (nP nF : Nat)
       b.allLevelParamsDefined lps && b.constsResolve env &&
       b.looseBVarsBounded (nP + 1)) do
     throw (.internal "direct structure: projection body scoping")
-  -- the table follows its structure (installed by the same block):
-  -- `EnvWF`'s table clause records it, and the prefix views hide the
-  -- table with the structure
+  -- the table follows its structure (declared by the same block):
+  -- `EnvWF`'s table clause records it
   unless (env.find? T).isSome do
     throw (.internal "direct structure: projection table before its structure")
   unless (env.findTable? T).isNone do
     throw (.invalid "projection table taken")
-  pure ⟨env.consts, ⟨T, lps, nP, C, nF, resSort, bodies, guards⟩ :: env.tables⟩
 
 end ConLeche

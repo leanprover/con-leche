@@ -10,8 +10,8 @@ public import ConLeche.Kernel.Basis.Builder
 The raw pin — the `Eq` block exactly as an export carries it: the
 toolchain's `Init.Prelude` declaration as the parser reads it (the
 recursor rules' install-computed fields at their parse placeholders).
-The *stored* forms (`eqA`, `eqReflA`, `eqRecA`) are computed from these at
-elaboration time; see `ConLeche/Kernel/BasisA.lean`.
+A block's check compares its records with these pins (`eqA`, `eqReflA`,
+`eqRecA`), up to the records' level-parameter names (`ConLeche/Kernel/Basis.lean`).
 -/
 
 namespace ConLeche
@@ -19,15 +19,15 @@ namespace ConLeche
 open BasisDSL
 
 /-- `Eq.{u} {α : Sort u} : α → α → Prop`. -/
-def eqRaw : ConstantInfo :=
+def eqA : ConstantInfo :=
   .indInfo ⟨eqName, [uN],
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
     pi "b" (bv 1) prop⟩
-    { ruleK := true, all := [eqName], nparams := 2, ctors := [eqReflName] }
+    { all := [eqName], nparams := 2, nIdx := 1, ctors := [eqReflName] }
 
 /-- `Eq.refl.{u} {α : Sort u} (a : α) : Eq α a a`. -/
-def eqReflRaw : ConstantInfo :=
+def eqReflA : ConstantInfo :=
   .ctorInfo ⟨eqReflName, [uN],
     piI "α" (srt u) <|
     pi "a" (bv 0) <|
@@ -42,7 +42,7 @@ def eqRecMotive : Expr :=
 
 /-- `Eq.rec.{u_1, u} {α : Sort u} {a : α} {motive : ∀ b, Eq α a b → Sort u_1}
 (refl : motive a (Eq.refl α a)) {b : α} (t : Eq α a b) : motive b t`. -/
-def eqRecRaw : ConstantInfo :=
+def eqRecA : ConstantInfo :=
   .recInfo ⟨eqName.str "rec", [u1N, uN],
     piI "α" (srt u) <|
     piI "a" (bv 0) <|
@@ -52,7 +52,7 @@ def eqRecRaw : ConstantInfo :=
     pi "t" (ap3 (cnst eqName [u]) (bv 4) (bv 3) (bv 0)) <|
     ap2 (bv 3) (bv 1) (bv 0)⟩
     5 4
-    [rule eqReflName 0 <|
+    true [rule eqReflName 0 <|
       lmI "α" (srt u) <|
       lm "a" (bv 0) <|
       lm "motive" eqRecMotive <|
@@ -60,6 +60,6 @@ def eqRecRaw : ConstantInfo :=
       bv 0]
 
 /-- The pinned `Eq` basis block, in install order. -/
-def eqBasis : List ConstantInfo := [eqRaw, eqReflRaw, eqRecRaw]
+def eqBasis : List ConstantInfo := [eqA, eqReflA, eqRecA]
 
 end ConLeche

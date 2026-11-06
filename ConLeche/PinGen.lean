@@ -219,7 +219,7 @@ partial def inlineClosure (allowed : Lean.Name → Bool) (e : Lean.Expr) :
 The certificate proofs are closed not over a stream-prefix allowlist
 (which dependency-*sliced* streams need not respect) but over the
 operation's **own dependency cone**: a residual constant must be the
-operation itself (substituted away at install), one of the
+operation itself (substituted away at its check), one of the
 guard-enforced ground constants (`natOpGuard`/`divModEnvGuard` decline
 the install anyway when these are absent), or a member of the
 transitive type/value dependency closure of the operation — which
@@ -364,7 +364,7 @@ structure OpSpec where
   certs : List Lean.Name
   /-- Guard-enforced ground operations, mirroring `natOpDeps` in
   `ConLeche/Kernel/Core.lean` (`Core` is a classic library, out of reach
-  of this `module`): the install's `divModEnvGuard` requires each of
+  of this `module`): the check's `divModEnvGuard` requires each of
   these stored, so they may stay residual in the certificate proofs
   even outside the operation's own dependency cone. -/
   groundOps : List Lean.Name

@@ -82,29 +82,6 @@ theorem Env.findTable?_pushTable (env : Env) (t : ProjTable) (T : Name) :
     (tbl.entry i).numParams = tbl.numParams := rfl
 @[simp] theorem ProjTable.entry_body (tbl : ProjTable) (i : Nat) :
     (tbl.entry i).body = tbl.bodies.getD i default := rfl
-/-- **The capability arities**: an inductive stored with the unit-like
-or the η capability has the `∀`-telescope its capability record's
-parameter count names.  A property of the stored declaration alone —
-established ONCE at the block's install (the install pins the
-former's telescope before storing it, `checkBlockTele`'s
-`stripPis (nP + nIdx)`; the basis blocks' types are literal) and consumed by
-the structure-η and unit-like rows
-(`ConLeche/Model/Caps.lean`) from the invariant rather than re-checked
-per call ("invariants over runtime gates"). -/
-@[expose] def IndCapsWF (c : ConstantInfo) : Prop :=
-  ∀ cv caps, c = .indInfo cv caps →
-    (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-    (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true)
-
-/-- `IndCapsWF` at an inductive, from the two arity facts. -/
-theorem IndCapsWF.of_caps {cv : ConstantVal} {caps : IndCaps}
-    (hu : caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true)
-    (he : caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :
-    IndCapsWF (.indInfo cv caps) := by
-  intro cv' caps' heq
-  obtain ⟨rfl, rfl⟩ := ConstantInfo.indInfo.inj heq
-  exact ⟨hu, he⟩
-
 /-- A `stripPis` at a larger count strips at a smaller one. -/
 theorem stripPis_isSome_of_le :
     ∀ {k n : Nat} {e : Expr}, k ≤ n → (e.stripPis n).isSome = true →
@@ -132,7 +109,7 @@ theorem stripPis_isSome_of_le :
     value.allLevelParamsDefined cv.levelParams = true ∧
     value.constsResolve env = true ∧
     value.looseBVarsBounded 0 = true) ∧
-  (∀ cv mI rP rules, c = .recInfo cv mI rP rules →
+  (∀ cv mI rP isK rules, c = .recInfo cv mI rP isK rules →
     ∀ r, r ∈ rules →
       (RecRule.rhs r).hasFvar = false ∧
       (RecRule.rhs r).allLevelParamsDefined cv.levelParams = true ∧
@@ -145,12 +122,10 @@ theorem stripPis_isSome_of_le :
       -- followed by the index variables; what the generated stage
       -- stores, `genStage_nestedRead`)
       ∀ lvls pins, RecRule.fire r = .nested lvls pins →
-        NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins) ∧
+        NestedRead (·.constsResolve env) cv.levelParams cv.type mI rP pins.length lvls pins)
   -- (a theorem's stored value carries NO clause: a theorem is opaque
   -- to reduction and stored by its statement — the value is the
   -- record's own, unread by the kernel and by the invariant)
-  -- the capability arities (environment-independent)
-  IndCapsWF c
 
 /-- **Syntactic well-formedness of one stored projection table** w.r.t.
 `env` (task #175 S1; task #362 for the first clause): its structure is
@@ -167,10 +142,47 @@ and scoped at the parameters and the subject; there are exactly
     b.constsResolve env = true ∧
     b.looseBVarsBounded (tbl.numParams + 1) = true
 
+/-- `c` is stored as a definition. -/
+@[expose] def isDefinitionAt (env : Env) (c : Name) : Bool :=
+  match env.find? c with
+  | some (.defnInfo _ _ _) => true
+  | _ => false
+
+/-- **A stored certified operation's name holds a definition.**  The fast path fires by name; every
+other kind of declaration is refused at such a name (`checkConstantVal`, `reservedRecName`). -/
+@[expose] def OpDefn (env : Env) : Prop :=
+  ∀ c, natOpName c = true → (env.find? c).isSome = true → isDefinitionAt env c = true
+
+/-- A certified operation's name is not a pinned basis name. -/
+theorem natOpName_not_reserved {c : Name} (h : natOpName c = true) :
+    reservedBasisNames.contains c = false := by
+  simp only [natOpName, Bool.or_eq_true, List.contains_iff_mem] at h
+  rcases h with h | h
+  · exact (by decide : ∀ c ∈ natOpNames, reservedBasisNames.contains c = false) c h
+  · exact (by decide : ∀ c ∈ natDivModNames, reservedBasisNames.contains c = false) c h
+
+/-- `OpDefn` across a change that keeps which names are stored and every definition. -/
+theorem OpDefn.of_same {env₀ env₃ : Env} (h : OpDefn env₀)
+    (hs : ∀ n, (env₃.find? n).isSome = true → (env₀.find? n).isSome = true)
+    (hd : ∀ n cv v hh, env₀.find? n = some (.defnInfo cv v hh) →
+      env₃.find? n = some (.defnInfo cv v hh)) : OpDefn env₃ := by
+  intro c hn hc
+  have h₀ := h c hn (hs c hc)
+  unfold isDefinitionAt at h₀ ⊢
+  cases hx : env₀.find? c with
+  | none => rw [hx] at h₀; exact nomatch h₀
+  | some ci =>
+    rw [hx] at h₀
+    cases ci with
+    | defnInfo cv v hh => rw [hd c cv v hh hx]
+    | _ => exact nomatch h₀
+
 /-- Every stored constant and every stored table is syntactically
 well-formed. -/
 structure EnvWF (env : Env) : Prop where
   consts : ∀ c ∈ env.consts, ConstWF env c
+  /-- a constant at a literal's name has the shape a literal's meaning reads -/
+  shapes : ∀ c ∈ env.consts, litShapeOk c = true
   tables : ∀ t ∈ env.tables, TableWF env t
 
 /-- The table of a stored structure, off `EnvWF`. -/
@@ -180,13 +192,43 @@ theorem EnvWF.table {env : Env} (henv : EnvWF env) {T : Name} {tbl : ProjTable}
 
 
 
-/-- The capability arities of a stored inductive, off `EnvWF`. -/
-theorem EnvWF.indCaps {env : Env} (henv : EnvWF env) {T : Name}
-    {cv : ConstantVal} {caps : IndCaps}
-    (h : env.find? T = some (.indInfo cv caps)) :
-    (caps.unitlike = true → (cv.type.stripPis caps.unitParams).isSome = true) ∧
-    (caps.eta = true → (cv.type.stripPis caps.etaParams).isSome = true) :=
-  (henv.consts _ (List.mem_of_find?_eq_some h)).2.2.2.2.2.2 cv caps rfl
+/-- **A constant value's shape at a literal's name**, whatever kind of constant carries it. -/
+@[expose] def LitShapeAt (cv : ConstantVal) : Prop :=
+  ∀ c : ConstantInfo, c.toConstantVal = cv → litShapeOk c = true
+
+/-- Off the reserved names, a constant's shape reads only its name, level parameters and type. -/
+theorem litShapeAt_of_check {cv : ConstantVal} (hres : reservedBasisNames.contains cv.name = false)
+    (h : litShapeOk (.axiomInfo cv) = true) : LitShapeAt cv := by
+  intro c hc
+  subst hc
+  have hn : (ConstantInfo.axiomInfo c.toConstantVal).name = c.name := rfl
+  have hn' : c.toConstantVal.name = c.name := rfl
+  rw [hn'] at hres
+  have h₁ : c.name ≠ natName := fun e => by rw [e] at hres; exact absurd hres (by decide)
+  have h₂ : c.name ≠ natZeroName := fun e => by rw [e] at hres; exact absurd hres (by decide)
+  have h₃ : c.name ≠ natSuccName := fun e => by rw [e] at hres; exact absurd hres (by decide)
+  unfold litShapeOk at h ⊢
+  rw [hn] at h
+  simp only [h₁, h₂, h₃, ↓reduceIte] at h ⊢
+  cases c <;> exact h
+
+/-- A name off the ten has no shape to keep. -/
+theorem litShapeOk_of_not_lit {c : ConstantInfo} (hn : litGuardNames.contains c.name = false) :
+    litShapeOk c = true := by
+  simp only [litGuardNames, List.contains_cons, List.contains_nil, Bool.or_false, Bool.or_eq_false_iff,
+    beq_eq_false_iff_ne, ne_eq] at hn
+  obtain ⟨h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀⟩ := hn
+  unfold litShapeOk
+  simp only [h₁, h₂, h₃, h₄, h₅, h₆, h₇, h₈, h₉, h₁₀, ↓reduceIte]
+
+/-- A recursor's name is off the ten, so it has no shape to keep. -/
+theorem litShapeAt_of_reservedRec {cv : ConstantVal} (h : reservedRecName cv.name = false) :
+    LitShapeAt cv := by
+  intro c hc
+  subst hc
+  refine litShapeOk_of_not_lit ?_
+  simp only [reservedRecName, Bool.or_eq_false_iff] at h
+  exact h.1.1.1.1.1.2
 
 /-- `find?` on a cons. -/
 theorem Env.find?_cons {c : ConstantInfo} {cs : List ConstantInfo} {ts : List ProjTable}
@@ -403,18 +445,21 @@ theorem TableWF.cons {c : ConstantInfo} {env : Env} {t : ProjTable} (h : TableWF
     exact ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩
 
 /-- Extending with a fresh, well-formed constant preserves `EnvWF`. -/
-theorem EnvWF.cons {c : ConstantInfo} {env : Env}
+theorem EnvWF.cons {c : ConstantInfo} {env : Env} (hs : litShapeOk c = true)
     (henv : EnvWF env)
-    (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c) : EnvWF ⟨c :: env.consts, env.tables⟩ := by
-  refine ⟨fun c' hc' => ?_, fun t ht => (henv.tables t ht).cons⟩
+    (hc : ConstWF ⟨c :: env.consts, env.tables⟩ c) :
+    EnvWF ⟨c :: env.consts, env.tables⟩ := by
+  refine ⟨fun c' hc' => ?_,
+    fun c' hc' => (List.mem_cons.mp hc').elim (fun e => e ▸ hs) (henv.shapes c'),
+    fun t ht => (henv.tables t ht).cons⟩
   rcases List.mem_cons.mp hc' with rfl | hmem
   · exact hc
-  · obtain ⟨h1, h2, h3, h4, h5, h6, h9⟩ := henv.consts c' hmem
+  · obtain ⟨h1, h2, h3, h4, h5, h6⟩ := henv.consts c' hmem
     refine ⟨h1, h2, Expr.constsResolve_mono h3, h4, fun cv value hint heq =>
       let ⟨g1, g2, g3, g4⟩ := h5 cv value hint heq
-      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_, h9⟩
-    intro cv mI rP rules heq r hr
-    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP rules heq r hr
+      ⟨g1, g2, Expr.constsResolve_mono g3, g4⟩, ?_⟩
+    intro cv mI rP isK rules heq r hr
+    obtain ⟨g1, g2, g3, g4, g5⟩ := h6 cv mI rP isK rules heq r hr
     refine ⟨g1, g2, Expr.constsResolve_mono g3, g4, ?_⟩
     intro lvls pins hfr
     obtain ⟨n1, n2, n3, n4⟩ := g5 lvls pins hfr
@@ -440,6 +485,32 @@ theorem ConstWF.of_find {env env' : Env} (h : env'.find? = env.find?) {c : Const
   simp only [Expr.constsResolve_eq_of_find h]
   exact hc
 
+theorem Expr.constsResolve_eq_of_isSome {env env' : Env}
+    (h : ∀ n, (env'.find? n).isSome = (env.find? n).isSome) (e : Expr) :
+    e.constsResolve env' = e.constsResolve env := by
+  cases h₂ : e.constsResolve env with
+  | true => exact Expr.constsResolve_of_find (fun n hn => by rw [h]; exact hn) h₂
+  | false =>
+    cases h₁ : e.constsResolve env' with
+    | true =>
+      have := Expr.constsResolve_of_find (env := env') (env' := env)
+        (fun n hn => by rw [← h]; exact hn) h₁
+      rw [this] at h₂; exact nomatch h₂
+    | false => rfl
+
+/-- A constant's well-formedness reads which names are stored. -/
+theorem ConstWF.of_isSome {env env' : Env} (h : ∀ n, (env'.find? n).isSome = (env.find? n).isSome)
+    {c : ConstantInfo} (hc : ConstWF env c) : ConstWF env' c := by
+  unfold ConstWF at hc ⊢
+  simp only [Expr.constsResolve_eq_of_isSome h]
+  exact hc
+
+theorem TableWF.of_isSome {env env' : Env} (h : ∀ n, (env'.find? n).isSome = (env.find? n).isSome)
+    {t : ProjTable} (ht : TableWF env t) : TableWF env' t := by
+  unfold TableWF at ht ⊢
+  simp only [Expr.constsResolve_eq_of_isSome h, h]
+  exact ht
+
 /-- A table's well-formedness reads the environment only through
 `find?`. -/
 theorem TableWF.of_find {env env' : Env} (h : env'.find? = env.find?) {t : ProjTable}
@@ -453,7 +524,7 @@ constants read the environment only through `find?`, which a table
 install leaves alone. -/
 theorem EnvWF.pushTable {env : Env} {t : ProjTable} (henv : EnvWF env)
     (ht : TableWF env t) : EnvWF ⟨env.consts, t :: env.tables⟩ :=
-  ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), fun t' ht' => by
+  ⟨fun c hc => (henv.consts c hc).of_find (Env.find?_pushTable env t), henv.shapes, fun t' ht' => by
     rcases List.mem_cons.mp ht' with rfl | hmem
     · exact ht.of_find (Env.find?_pushTable env _)
     · exact (henv.tables t' hmem).of_find (Env.find?_pushTable env t)⟩

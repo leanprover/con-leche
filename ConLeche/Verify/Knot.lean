@@ -228,14 +228,14 @@ abbrev etaCertFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) 
   etaCert mode (pureFns mode eager env fuel) env d ty body b
 
 abbrev majorToCtorFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Name →
-    List RecRule → Expr → CheckM Expr := majorToCtor mode (pureFns mode eager env fuel) env
+    Bool → List RecRule → Expr → CheckM Expr := majorToCtor mode (pureFns mode eager env fuel) env
 
 abbrev litMajorToCtorFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr
     →
     CheckM Expr := litMajorToCtor (pureFns mode eager env fuel) env
 
 abbrev prepareMajorFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Name →
-    List RecRule → Expr → CheckM Expr := prepareMajor mode (pureFns mode eager env fuel) env
+    Bool → List RecRule → Expr → CheckM Expr := prepareMajor mode (pureFns mode eager env fuel) env
 
 abbrev projLitToCtorFueled (mode : CheckMode) (eager : Bool) (env : Env) (fuel : Nat) : Nat → Expr →
     CheckM Expr := projLitToCtor (pureFns mode eager env fuel) env

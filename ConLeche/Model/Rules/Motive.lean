@@ -216,6 +216,41 @@ sort, at the hereditary clause's witness. -/
     ∀ (ρ : Nat → V) (v : V), Sat V Δa ρ → LeavesGr m φ d T ρ →
       IORel m φ d T ρ v → v = pt
 
+/-- **The guard rows' motive** (`GuardRows`): each row's io claim, its
+type's reduction to a sort, and that sort's vanishing with `guardSort`. -/
+@[expose] def GuardRowsSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (guardSort : Level) (rows : List (Nat × Expr)) : Prop :=
+  ∀ p ∈ rows, ∃ (t : Expr) (u : Level), InferSemIO m φ p.1 p.2 t ∧ RedSem m φ p.1 t (.sort u) ∧
+    Red env p.1 t (.sort u) ∧ Level.zeroWhereZero guardSort u = true
+
+/-- **A projection's guard's motive** (`ProjGuard`): at a stored constructor, the
+typing law's premise. -/
+@[expose] def ProjGuardSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (entry : ProjEntry) (us : List Level) : Prop :=
+  ∀ (cvC : ConstantVal) (nP nF : Nat),
+    env.find? entry.ctor = some (.ctorInfo cvC nP nF) → us.length = cvC.levelParams.length →
+    (∀ cvT caps, env.find? entry.structName = some (.indInfo cvT caps) →
+      us.length = cvT.levelParams.length) →
+    TowerGuardAt m φ entry us cvC
+
+/-- **The walk to a sort's motive** (`FormerSort`): where the subject is graded its
+value is a tower of function spaces over the universe of the walk's sort, unless
+a stage is the point, of which a reduction claims nothing. -/
+@[expose] def FormerSortSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (d n : Nat) (e : Expr) (s : Level) : Prop :=
+  Frame d e →
+  ∀ {Δa : List Term} {ea : Term},
+    CtxOkS m φ d Δa e →
+    denote m.acval env φ d e = some ea →
+    ∀ ρ : Nat → V, Sat V Δa ρ → LeavesGr m φ d e ρ → WellDenoted V ρ ea →
+      TowerEndsPt n (interp V ρ ea) (s.eval φ)
+
+/-- **The ι case split's motive** (`IotaCase`): off a K rule, `false` means the
+family is never `Prop` at the levels. -/
+@[expose] def IotaCaseSem {env : Env} (m : EnvModel V env) (φ : Name → Nat)
+    (isK : Bool) (cvj : ConstantVal) (us : List Level) (c3 : Bool) : Prop :=
+  c3 = false → isK = false → FamNZ (V := V) m.acval env φ cvj us
+
 /-- The grade-dispatched inference motive. -/
 @[expose] def InferSem {env : Env} (m : EnvModel V env) (φ : Name → Nat) :
     Grade → Nat → Expr → Expr → Prop

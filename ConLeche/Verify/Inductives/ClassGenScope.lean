@@ -3,13 +3,11 @@ module
 public import ConLeche.Kernel.Inductives.GenRec
 public import ConLeche.Verify.Shift
 import ConLeche.Verify.Abstract
-import ConLeche.Verify.BridgeWfImp
 import ConLeche.Verify.Denote.IndFrame
 import ConLeche.Verify.InferLemmas
 import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.Inductives.NestScope
 import ConLeche.Verify.Inductives.NestCallSyn
-import ConLeche.Verify.Cached.NestPosC
 
 public section
 
@@ -83,7 +81,7 @@ theorem ScB.getAppArgs {d : Nat} {e : Expr} (he : ScB d e) : ∀ x ∈ e.getAppA
 theorem ScB.of_closeTelescope {i : Nat} {nds : List Expr} {body : Expr}
     (hn : ∀ (k : Nat) (nd : Expr), nds[k]? = some nd → ScB (i + k) nd)
     (hb : ScB (i + nds.length) body) : ScB i (ConLeche.closeTelescope nds i body) :=
-  ⟨Cached.closeTelescope_wscoped nds i body (fun k nd h => (hn k nd h).1) hb.1,
+  ⟨closeTelescope_wscoped nds i body (fun k nd h => (hn k nd h).1) hb.1,
     closeTelescope_bounded nds i body (fun nd hnd => by
       obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hnd
       exact (hn k _ (List.getElem?_eq_getElem hk)).2) hb.2⟩

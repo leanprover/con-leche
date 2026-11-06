@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Driver.CheckMain
 public import ConLeche.Verify.Frontend.Olean.Files
+public import ConLeche.Verify.Cached.Fill
 
 /-!
 # An `--olean` run, in the model (task #481)
@@ -14,9 +15,9 @@ and what an exit 0 means is about the records with those values in place:
   reach (`CacheOK`), over any frontier that holds only the specification's values;
 * `oleanStep_spec`: a job that passes has passed on the record holding the value
   (`JobFact`), which is the check phase's whole contribution;
-* `checkOleansG_accept`: all the jobs passing, and the install's run transported across the
-  values (`InstallRun.fill`), is an accept of `checkDecls` over the records with their
-  values in place;
+* `checkOleansG_accept`: all the jobs passing is an accept of `checkDecls` over the records
+  with their values in place, since the index does not read a theorem's value
+  (`buildIndex_fill`);
 * `checkMainG_oleans_accept`: the same from the driver's run.
 
 That those records are the specification's own is `readOleans_filled`
@@ -159,169 +160,72 @@ theorem readValue_spec {c : ValueCache} {code : Nat} {o : ValueCache × Except C
 /-! ## A job -/
 
 /-- **What a job that passed establishes**, at the record holding its value. -/
-def JobFact (mode : CheckMode) (J : Jobs) (F : Expr → Expr) (t : Nat) : Prop :=
-  match J.order[t]? with
-  | some (false, k) => ∀ h : k < J.pend.size, ∃ s,
-      checkPending mode J.fe (fillPend F J.pend[k]) {} = .ok ((), s)
-  | some (true, b) => ∀ h : b < J.D.size, J.D[b].Ok mode natOpPinSets
-  | none => True
+def JobFact (mode : CheckMode) {ds : Array Declaration} (J : Jobs ds) (F : Expr → Expr) (t : Nat) :
+    Prop :=
+  ∀ ht : t < ds.size, recordJob mode natOpPinSets J.I t (fillDecl F ds[t]) = .ok ()
 
-/-- `runJob` answers about the job it was asked. -/
-theorem runJob_job {mode : CheckMode} {pins : List NatOpPinSet} {fe : FEnv}
-    {pend : Array PendingCheck} {D : Array BlockCheck} {j : Job} {x : { j : Job // JobOk mode pins fe pend D j }}
-    (h : runJob mode pins fe pend D j = .ok x) : x.1 = j := by
-  unfold runJob at h
+theorem jobRun_ok {mode : CheckMode} {ds : Array Declaration} {J : Jobs ds} {t : Nat}
+    {d : Declaration} (h : jobRun mode J t d = .ok ()) :
+    recordJob mode natOpPinSets J.I t d = .ok () := by
+  unfold jobRun at h
   split at h
-  · split at h
-    · split at h
-      · simp only [Except.ok.injEq] at h
-        subst h
-        rfl
-      · cases h
-    · cases h
-  · split at h
-    · split at h
-      · simp only [Except.ok.injEq] at h
-        subst h
-        rfl
-      · cases h
-    · cases h
-
-/-- A job that reads no file passed: what it establishes, where no value is in question. -/
-theorem runPlain_fact {mode : CheckMode} {J : Jobs} {F : Expr → Expr} {t : Nat}
-    (hF : ∀ k (h : k < J.pend.size), J.order[t]? = some (false, k) →
-      fillPend F J.pend[k] = J.pend[k])
-    (h : runPlain mode J t = .ok ()) : JobFact mode J F t := by
-  unfold runPlain at h
-  cases hx : runAt mode J t with
-  | error e => simp [hx] at h
-  | ok x =>
-    unfold runAt at hx
-    unfold JobFact
-    cases ho : J.order[t]? with
-    | none => simp [ho] at hx
-    | some j =>
-      simp only [ho] at hx
-      obtain ⟨j', hj⟩ := x
-      obtain rfl : j' = j := runJob_job hx
-      obtain ⟨b, k⟩ := j'
-      cases b with
-      | false =>
-        simp only
-        intro hk
-        have := (hj : JobOk _ _ _ _ _ _)
-        simp only [JobOk, Bool.false_eq_true, ↓reduceIte] at this
-        obtain ⟨s, hs⟩ := this hk
-        exact ⟨s, by rw [hF k hk ho]; exact hs⟩
-      | true =>
-        simp only
-        intro hk
-        have := (hj : JobOk _ _ _ _ _ _)
-        simp only [JobOk, ↓reduceIte] at this
-        exact this hk
+  · assumption
+  · cases h
 
 /-- **One job's run.** -/
-theorem oleanJobRun_spec {mode : CheckMode} {J : Jobs} {c : ValueCache} {t : Nat}
-    {o : ValueCache × Except (CheckError × Nat) Unit}
+theorem oleanJobRun_spec {mode : CheckMode} {ds : Array Declaration} {J : Jobs ds}
+    {c : ValueCache} {t : Nat} {o : ValueCache × Except (CheckError × Nat) Unit}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     (hc : CacheOK sp fs values c)
     (h : (oleanJobRun mode J sp values c t : ModelIO _) fs (.ok o)) :
     CacheOK sp fs values o.1 ∧ (o.2 = .ok () → JobFact mode J (fillOf sp fs values) t) := by
-  have hplain : ∀ {r : ValueCache × Except (CheckError × Nat) Unit},
-      (pure (c, runPlain mode J t) : ModelIO _) fs (.ok r) →
-      (∀ k (hk : k < J.pend.size), J.order[t]? = some (false, k) →
-        fillPend (fillOf sp fs values) J.pend[k] = J.pend[k]) →
-      CacheOK sp fs values r.1 ∧ (r.2 = .ok () → JobFact mode J (fillOf sp fs values) t) := by
-    intro r hr hF
-    simp only [ModelIO.pure_iff, Except.ok.injEq] at hr
-    subst hr
-    exact ⟨hc, runPlain_fact hF⟩
+  -- a record whose value, if any, is in place already
+  have hplain : ∀ d, ds[t]? = some d → fillDecl (fillOf sp fs values) d = d →
+      (pure (c, jobRun mode J t d) : ModelIO _) fs (.ok o) →
+      CacheOK sp fs values o.1 ∧ (o.2 = .ok () → JobFact mode J (fillOf sp fs values) t) := by
+    intro d hd hF h
+    simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+    subst h
+    refine ⟨hc, fun hok ht => ?_⟩
+    obtain ⟨_, hdt⟩ := Array.getElem?_eq_some_iff.mp hd
+    rw [hdt, hF]
+    exact jobRun_ok hok
   unfold oleanJobRun at h
-  cases hord : J.order[t]? with
+  cases hd : ds[t]? with
   | none =>
-    simp only [hord] at h
-    refine hplain h fun k' hk' ho => ?_
-    rw [hord] at ho
-    cases ho
-  | some j =>
-    obtain ⟨b, k⟩ := j
-    cases b with
-    | true =>
-      simp only [hord] at h
-      refine hplain h fun k' hk' ho => ?_
-      rw [hord] at ho
-      simp at ho
-    | false =>
-      simp only [hord] at h
-      cases hpc : J.pend[k]? with
-      | none =>
-        simp only [hpc] at h
-        refine hplain h fun k' hk' ho => ?_
-        rw [hord] at ho
-        simp only [Option.some.injEq, Prod.mk.injEq, true_and] at ho
-        subst ho
-        rw [Array.getElem?_eq_getElem hk'] at hpc
-        cases hpc
-      | some pc =>
-        simp only [hpc] at h
-        obtain ⟨hk, hpk⟩ := Array.getElem?_eq_some_iff.mp hpc
-        -- a theorem's check on a reference reads its value
-        by_cases hth : ∃ code, pc.vg.kind = .thm ∧ pc.vg.jv = .bvar code
-        · obtain ⟨code, hkind, hjv⟩ := hth
-          simp only [hkind, hjv, ModelIO.bind_ok] at h
-          obtain ⟨x, hx, h⟩ := h
-          obtain ⟨hc', hv⟩ := readValue_spec hgood hc hx
-          obtain ⟨c', y⟩ := x
-          simp only at hc' hv
-          rcases y with e | v
-          · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
-            subst h
-            exact ⟨hc', fun he => by simp at he⟩
-          · cases hch : checkPending mode J.fe (fillPend (fun _ => v) pc) {} with
-            | error e =>
-              simp only [hch, ModelIO.pure_iff, Except.ok.injEq] at h
-              subst h
-              exact ⟨hc', fun he => by simp at he⟩
-            | ok x =>
-              simp only [hch, ModelIO.pure_iff, Except.ok.injEq] at h
-              subst h
-              refine ⟨hc', fun _ => ?_⟩
-              unfold JobFact
-              simp only [hord]
-              intro hk'
-              obtain ⟨⟨⟩, s⟩ := x
-              refine ⟨s, ?_⟩
-              have hval := fillOf_value (hv v rfl)
-              have hsame : fillPend (fillOf sp fs values) J.pend[k] = fillPend (fun _ => v) pc := by
-                rw [hpk]
-                simp only [fillPend, hkind, hjv, hval]
-              rw [hsame]
-              exact hch
-        · have hpl : (pure (c, runPlain mode J t) : ModelIO _) fs (.ok o) := by
-            revert h
-            cases hkind : pc.vg.kind <;> cases hj : pc.vg.jv <;> simp only [] <;>
-              first
-                | exact id
-                | exact fun _ => absurd ⟨_, hkind, hj⟩ hth
-          refine hplain hpl fun k' hk' ho => ?_
-          rw [hord] at ho
-          simp only [Option.some.injEq, Prod.mk.injEq, true_and] at ho
-          subst ho
-          rw [hpk]
-          unfold fillPend
-          cases hkind : pc.vg.kind
-          case thm =>
-            have hF : fillOf sp fs values pc.vg.jv = pc.vg.jv := by
-              cases hj : pc.vg.jv with
-              | bvar code => exact absurd ⟨code, hkind, hj⟩ hth
-              | _ => rfl
-            simp only [hF]
-          all_goals rfl
+    simp only [hd, ModelIO.pure_iff, Except.ok.injEq] at h
+    subst h
+    exact ⟨hc, fun he => by simp at he⟩
+  | some d =>
+    simp only [hd] at h
+    cases d with
+    | thmDecl cv v =>
+      cases v with
+      | bvar code =>
+        -- a theorem whose value is still in its file: the value read is the reference's
+        simp only [ModelIO.bind_ok] at h
+        obtain ⟨x, hx, h⟩ := h
+        obtain ⟨hc', hv⟩ := readValue_spec hgood hc hx
+        obtain ⟨c', y⟩ := x
+        simp only at hc' hv
+        rcases y with e | v
+        · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+          subst h
+          exact ⟨hc', fun he => by simp at he⟩
+        · simp only [ModelIO.pure_iff, Except.ok.injEq] at h
+          subst h
+          refine ⟨hc', fun hok ht => ?_⟩
+          obtain ⟨_, hdt⟩ := Array.getElem?_eq_some_iff.mp hd
+          rw [hdt]
+          simp only [fillDecl, fillOf_value (hv v rfl)]
+          exact jobRun_ok hok
+      | _ => exact hplain _ hd rfl h
+    | _ => exact hplain _ hd rfl h
 
 /-- **One job of the pool.** -/
-theorem oleanStep_spec {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {J : Jobs}
-    {s : OleanWorker} {t : Nat} {o : OleanWorker × Except (CheckError × Nat) Unit}
+theorem oleanStep_spec {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
+    {J : Jobs ds} {s : OleanWorker} {t : Nat} {o : OleanWorker × Except (CheckError × Nat) Unit}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     (hc : CacheOK sp fs values s.cache)
@@ -334,7 +238,8 @@ theorem oleanStep_spec {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {J : 
   exact oleanJobRun_spec hgood hc hx
 
 /-- **Every state a worker can reach keeps its module's region.** -/
-theorem oleanWorker_reach {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {J : Jobs}
+theorem oleanWorker_reach {mode : CheckMode} {run : OleanRun} {pl : PoolLive} {ds : Array Declaration}
+    {J : Jobs ds}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
     {s : OleanWorker}
@@ -364,69 +269,29 @@ theorem mapExcept_each {α β ε : Type} {f : α → ModelIO (Except ε β)} {fs
         · exact ⟨b, hu⟩
         · exact mapExcept_each hc x hx
 
-/-- **The two phases of an `--olean` run accept the records with their values in place.** -/
-theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {total t0 tParse jobs : Nat}
-    {ds : Array Declaration}
+/-- **The check phase of an `--olean` run accepts the records with their values in place.** -/
+theorem checkOleansG_accept {mode : CheckMode} {pace : Pace} {t0 tIndex tParse jobs : Nat}
+    {ds : Array Declaration} {J : Jobs ds}
     (hgood : ∀ md ∈ values, ∃ f r a, (readFiles sp md.name .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ md.frontier.Good r)
-    (h : (checkOleansG mode pace total t0 tParse jobs sp values ds : ModelIO _) fs (.ok (.ok ()))) :
+    (h : (checkOleansG mode pace t0 tIndex tParse jobs sp values J : ModelIO _) fs (.ok (.ok ()))) :
     ∃ env, checkDecls mode natOpPinSets (ds.map (fillDecl (fillOf sp fs values))) = .ok env := by
-  simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff, ModelIO.tryCatch_ok] at h
-  obtain ⟨run, -, res, hres, _, -, h⟩ := h
+  simp only [checkOleansG, ModelIO.bind_ok, ModelIO.liftIO_iff] at h
+  obtain ⟨run, -, ⟨pl, tStart⟩, -, ⟨ss, res⟩, hmap, _, -, h⟩ := h
   simp only [ModelIO.pure_iff, Except.ok.injEq] at h
-  subst h
-  rcases hres with hres | ⟨e, -, hres⟩
-  rotate_left
-  · obtain ⟨_, -, hres⟩ := hres
-    exact ((ModelIO.throw_ok e _ _).1 hres).elim
-  obtain ⟨inst, -, hres⟩ := hres
-  rcases inst with e | i
-  · simp at hres
-  simp only [ModelIO.bind_ok, ModelIO.liftIO_iff] at hres
-  obtain ⟨⟨pl, tStart⟩, -, ⟨ss, res⟩, hmap, _, -, hres⟩ := hres
-  simp only [ModelIO.pure_iff, Except.ok.injEq] at hres
   rcases res with e | us
-  · simp at hres
+  · simp at h
   -- the worker map's elements
   obtain ⟨-, hm⟩ := (hmap : workerMap _ _ _ fs (.ok (ss, .ok us)))
-  have hfacts : ∀ t, t < i.jobs.order.size → JobFact mode i.jobs (fillOf sp fs values) t := by
+  have hfacts : ∀ t, t < ds.size → JobFact mode J (fillOf sp fs values) t := by
     intro t ht
     obtain ⟨u, s, hreach, s', hs⟩ := mapExcept_each hm t (List.mem_range.mpr ht)
     exact (oleanStep_spec hgood (oleanWorker_reach hgood hreach) hs).2 rfl
-  -- every record and every block is a job
-  have hord : i.jobs.order = jobOrder i.jobs.pend i.jobs.D := i.horder
-  have hP : ∀ k (hk : k < i.jobs.pend.size), ∃ s,
-      checkPending mode i.jobs.fe (fillPend (fillOf sp fs values) i.jobs.pend[k]) {} = .ok ((), s) := by
-    intro k hk
-    obtain ⟨t, ht, ho⟩ := jobOrder_pend hk
-    rw [← hord] at ht ho
-    have := hfacts t ht
-    unfold JobFact at this
-    rw [ho] at this
-    exact this hk
-  have hD : ∀ b ∈ i.jobs.D.toList, b.Ok mode natOpPinSets := by
-    intro b hb
-    obtain ⟨k, hk, rfl⟩ := Array.getElem_of_mem (Array.mem_toList_iff.mp hb)
-    obtain ⟨t, ht, ho⟩ := jobOrder_block (pend := i.jobs.pend) hk
-    rw [← hord] at ht ho
-    have := hfacts t ht
-    unfold JobFact at this
-    rw [ho] at this
-    exact this hk
-  -- the install's run, at the values
-  have hrun := InstallRun.fill (fillOf sp fs values) (i.run.run hD)
-  let F := fillOf sp fs values
-  let e : InstalledEnv mode natOpPinSets (ds.map (fillDecl F)).toList :=
-    ⟨i.run.p.2.1, i.run.p.2.2.map (fillPend F), ⟨i.run.p.1, by
-      rw [Array.toList_map]
-      simpa using hrun⟩⟩
-  let fc : FullyChecked mode natOpPinSets (ds.map (fillDecl F)).toList :=
-    ⟨e, groupChecked_of_pendOk mode natOpPinSets (e := e) fun k hk => by
-      have hk' : k < i.jobs.pend.size := by simpa [e, Installed.jobs] using hk
-      obtain ⟨s, hs⟩ := hP k hk'
-      refine ⟨s, ?_⟩
-      simpa [e, Installed.jobs] using hs⟩
-  exact ⟨fc.env, fullyChecked_checkDecls mode fc⟩
+  -- every record's job passed, at the records with their values in place
+  refine ⟨_, checkDecls_of_jobs (mode := mode) (pins := natOpPinSets) fun k hk => ?_⟩
+  have hk' : k < ds.size := by simpa using hk
+  rw [buildIndex_fill, Array.getElem_map, ← J.hI]
+  exact hfacts k hk' hk'
 
 /-- **An accepted `--olean` run, in the model**: every outcome of the driver's run on the import
 closure of `roots` over a snapshot `fs` that is an exit 0 means the built-in prelude parses, the
@@ -467,7 +332,7 @@ theorem checkMainG_oleans_accept {roots : Array Name}
       simp only [Except.map]
       refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
-        intro _ <;>
+        intro _ _ _ <;>
         refine ModelIO.allOk_ite (fun _ => ?_) (fun _ => ?_) <;>
         simp only [ModelIO.allOk_bind, ModelIO.liftIO_iff, forall_const] <;>
         intro v hv c hc h0

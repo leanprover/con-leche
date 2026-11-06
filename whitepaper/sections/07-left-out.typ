@@ -12,10 +12,10 @@ architecture differs from the fragment's on the features they share.
 
 #left-out[Projections][Lean's primitive projection `e.i`, the `i`-th
 field of a structure value. For every inductive type with one
-constructor and no index the checker stores #src("ConLeche/Kernel/Inductives/BlockTail.lean", 107, 110)[a
+constructor and no index the checker stores #src("ConLeche/Kernel/Install.lean", 64, 73)[a
 projection table], the fields' types read off the constructor. The
-real checker #src("ConLeche/Rules/Rel.lean", 169, 185)[reduces a projection of a
-constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 628, 638)[infers its type from
+real checker #src("ConLeche/Rules/Rel.lean", 169, 184)[reduces a projection of a
+constructor application to that field] and #src("ConLeche/Rules/Rel.lean", 627, 635)[infers its type from
 the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
@@ -42,25 +42,26 @@ each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a
 #src("ConLeche/Model/NatEqs.lean", 1078, 1082)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
-axiom `Quot.sound` are installed from #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
+axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the
 set-theoretic quotient of a set by a relation], for which the pinned
-constants are #src("ConLeche/Model/BasisQuot.lean", 2431, 2435)[shown to be members of their types].]
+constants are #src("ConLeche/Model/BasisQuot.lean", 2504, 2510)[shown to be members of their types].]
 
 #left-out[Pinned blocks][In the fragment `False` is whatever empty
-proposition the stream declares. The real checker installs `Eq`,
-`Nat`, `Empty`, `False` and the quotient `Quot` from hand-written
-copies of the toolchain's declarations
+proposition the stream declares. The real checker has hand-written
+copies of the toolchain's `Eq`, `Nat`, `Empty`, `False` and the quotient
+`Quot`
 (#src("ConLeche/Kernel/Basis/False.lean", 37, 39)[`False`, for instance],
-#src("ConLeche/Kernel/Basis/Builder.lean", 9, 18)[the builder]): a
-stream block that carries a pin's names and agrees with it up to
-renaming of universe parameters
-#src("ConLeche/Kernel/Basis.lean", 64, 67)[installs the pin], and one that
-disagrees is rejected. The pins are how the main theorem
+#src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]): a
+stream block that carries a pin's names
+#src("ConLeche/Kernel/Basis.lean", 140, 141)[stores the pin at the universe parameters it declares],
+its check compares it with the pin up to those names, and one that
+disagrees is rejected; a quotient record is stored and compared the same
+way, and one that disagrees is declined. The pins are how the main theorem
 can name `False` and `Eq` and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
 exactly Lean's three standard axioms: `propext` and `Classical.choice`,
-each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 635, 641)[true in the
+each #src("ConLeche/Kernel/StdAxioms.lean", 8, 15)[pinned to the toolchain's statement] and each #src("ConLeche/Model/AxiomMem.lean", 600, 606)[true in the
 model] (`propext` by the extensionality of truth values, `choice` by
 choice in the meta-logic), and `Quot.sound` as
 part of the pinned `Quot` block above. Any other axiom record declines
@@ -73,14 +74,14 @@ real checker never unfolds a theorem or an opaque: #src("ConLeche/Rules/Rel.lean
 unfolds].]
 
 #left-out[Structure η and unit-likeness][The checker has
-#src("ConLeche/Rules/Rel.lean", 467, 470)[structure η] and
-#src("ConLeche/Rules/Rel.lean", 495, 500)[unit-likeness] as Lean has them;
+#src("ConLeche/Rules/Rel.lean", 457, 460)[structure η] and
+#src("ConLeche/Rules/Rel.lean", 485, 490)[unit-likeness] as Lean has them;
 @sec:ext-eta and @sec:ext-unit derive both from extensionality.]
 
 #left-out[Recursors on stuck proofs of `A ∧ B`][The checker never
 unfolds a theorem, while the official kernel does. Some elaborated
 terms rely on that, with a case split on a stuck proof `h` of `A ∧ B`.
-There the recursor #src("ConLeche/Rules/Rel.lean", 307, 332)[fires on `And.intro h.1 h.2`],
+There the recursor #src("ConLeche/Rules/Rel.lean", 297, 322)[fires on `And.intro h.1 h.2`],
 the constructor applied to `h`'s two projections, built from `h`'s
 type.]
 
@@ -89,14 +90,13 @@ theorem][In the fragment the relations are the checker. The real
 checker is a program, connected to the relations by further theorems
 (@sec:differs).]
 
-#left-out[The two-phase parallel fold][#src("ConLeche/Cached/Installed.lean", 329, 334)[The fold] installs every
-declaration first and then checks the recorded declarations one by one,
-each against the prefix of the environment it was installed at\; the binary runs the
-second phase on #src("ConLeche/Verify/Cached/Defer.lean", 223, 231)[a pool of workers] whose results are reassembled in
-fold order, so its verdict is the fold's. #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[The proof reads an
-accept of the fold] as an environment in which every declaration was
-checked where it was installed, which is what the one-declaration-at-a-time
-argument of §3 and §4 needs.]
+#left-out[The parallel check][#src("ConLeche/Cached/Decls.lean", 83, 84)[The fold] checks the declarations
+one by one, each against the environment of those before it\; the binary builds
+#src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
+and runs the checks on a pool of workers, each against the index's view of the declarations before
+it, walking the results in fold order, so its verdict is the fold's.
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 488, 490)[Every check passing is an accept of the fold],
+which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
 
@@ -105,7 +105,7 @@ context. The real checker keeps no context at all. When it opens a binder it
 substitutes a free variable that carries its own type,
 #src("ConLeche/Kernel/Expr.lean", 315, 317)[`fvar idx type`], identified by the depth at which it was opened\; so a variable is never
 looked up, the relations are indexed by the opening depth in place of a
-context, and two free variables are #src("ConLeche/Rules/Rel.lean", 380, 381)[compared by depth alone]. Stored types are closed
+context, and two free variables are #src("ConLeche/Rules/Rel.lean", 370, 371)[compared by depth alone]. Stored types are closed
 terms, and `Denotes`, the relation the main theorem is stated over
 (below), reads them with de Bruijn indices under binders, with no
 opening at all.
@@ -125,10 +125,10 @@ denotation on the terms themselves.
 
 *Six relations, and a mode index.* Beside reduction,
 definitional equality and inference the real description has three
-more: #src("ConLeche/Rules/Rel.lean", 640, 649)[the certification of an argument spine against
+more: #src("ConLeche/Rules/Rel.lean", 696, 705)[the certification of an argument spine against
 a binder telescope] (the certified case of $iota$),
-#src("ConLeche/Rules/Rel.lean", 651, 656)[pairwise definitional equality], and
-#src("ConLeche/Rules/Rel.lean", 508, 547)[the congruence of two lambda telescopes]
+#src("ConLeche/Rules/Rel.lean", 707, 712)[pairwise definitional equality], and
+#src("ConLeche/Rules/Rel.lean", 498, 537)[the congruence of two lambda telescopes]
 (@sec:tax). A rule with a premise about a list or a telescope needs a
 relation of its own in a mutual block; the paper inlines them into the
 rules that use them. Inference also carries a
@@ -138,7 +138,7 @@ states as a relation of its own.
 *The bridge and the recomposition.* Because the real checker is a
 program, its proof has three parts where the paper has one. #src("ConLeche/Verify/Rules/Bridge.lean", 29, 32)[The bridge] turns an accepting
 run at any fuel into a derivation, by one induction on fuel in which
-each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 49, 50)[The soundness] is the paper's
+each checker site lands on one rule. #src("ConLeche/Model/Rules/Sound.lean", 51, 52)[The soundness] is the paper's
 induction: one structural induction over the six relations, each case a
 lemma about one rule, never mentioning the implementation. #src("ConLeche/Model/Rules/Recompose.lean", 50, 55)[The
 recomposition] puts them together, claim by claim. It bridges the run,
@@ -158,7 +158,7 @@ equality and inference. #src("ConLeche/Verify/Cached/SimC.lean", 10, 15)[A simul
 that every successful run of the cached core is a successful run of the
 pure fuelled core at some fuel, with the memo tables' invariant
 preserved\; the main
-theorem #src("ConLeche/Verify/Cached/MainC.lean", 37, 40)[composes it with the fold's soundness].
+theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the fold's soundness].
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,

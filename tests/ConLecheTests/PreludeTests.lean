@@ -1,12 +1,12 @@
 module
 
 public import ConLeche.Frontend.Prelude
-public import ConLeche.Cached.Installed
+public import ConLeche.Cached.Decls
 /- The `#guard`s below are EVALUATED, so the constants they name have to be
 reachable from meta code too; a plain import is not (`IO of declaration …
 not available`).  A module needed at both levels is imported twice. -/
 meta import ConLeche.Frontend.Prelude
-meta import ConLeche.Cached.Installed
+meta import ConLeche.Cached.Decls
 
 public section
 
@@ -55,8 +55,7 @@ def preludeIx : PreludeIx :=
    quotName, quotMkName, quotLiftName, quotIndName, quotSoundName,
    andName, boolName]
 -- and the kinds: four inductive blocks, four quotient records, one
--- axiom record, two more inductive blocks — no `basisDecl`, which no
--- frontend function produces since task #293
+-- axiom record, two more inductive blocks
 #guard preludeIx.decls.toList.map (fun d => match d with
   | .indDecl .. => 0 | .quotDecl .. => 1 | .axiomDecl _ => 2 | _ => 3) ==
   [0, 0, 0, 0, 1, 1, 1, 1, 2, 0, 0]
@@ -64,9 +63,9 @@ def preludeIx : PreludeIx :=
 /-- The fold accepts the prelude alone, at both modes, from the empty
 environment: 23 constants (16 basis + `And`, `And.intro`, `And.rec` +
 `Bool`, `Bool.false`, `Bool.true`, `Bool.rec`) and one projection
-table (`And`'s).  The four pinned blocks and the quotient package install
-as the PINS — `checkDecl` recognises them (`basisPinHit`,
-`quotPinHit`), which is the whole of task #293's move. -/
+table (`And`'s).  The four pinned blocks and the quotient package are
+compared with their pins (`pinListOk`, `quotPinHit`) and installed at the
+names their records declare. -/
 def preludeEnvSize (mode : CheckMode) : Option (Nat × Nat) :=
   match checkDecls mode natOpPinSets preludeIx.decls with
   | .ok env => some (env.consts.length, env.tables.length)
@@ -82,7 +81,7 @@ another kind under a pinned `And` name, or the block with its
 parameter count changed, does not. -/
 
 /-- The prelude's `And` record. -/
-def preludeAnd : Declaration := preludeIx.decls.getD 9 (.basisDecl .eqK)
+def preludeAnd : Declaration := preludeIx.decls.getD 9 default
 
 #guard preludeAnd.names == andPinNames
 #guard (match preludeAnd with

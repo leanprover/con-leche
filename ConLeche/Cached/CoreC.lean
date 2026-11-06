@@ -25,7 +25,7 @@ certificate families (every `certAtI` site), and
 nothing else (DESIGN.md, "CORET
 RETIRED").  Every read is a `match` on the two-constructor enum
 (`ConLeche/Kernel/Env.lean`), so at either literal mode it reduces by
-`rfl` and the branch is gone, not collapsed.
+`rfl`, with no branch left.
 -/
 
 namespace ConLeche.Cached
@@ -80,7 +80,7 @@ def unfoldDefinitionI (fe : FEnv) (e : Expr) : CheckCM (Option Expr) := do
 def litToCtorIfNatI (fe : FEnv) (e : Expr) : CheckCM Expr := do
   match e with
   | .lit (.natVal n) =>
-    if natLitSupportedF fe then pure (natLitToConstructor n)
+    if natLitStoredF fe then pure (natLitToConstructor n)
     else pure e
   | _ => pure e
 
@@ -95,7 +95,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
       | _ :: _ => pure none
       | [] => do
         let cn ← pure c
-        if cn = natSuccName ∧ natLitSupportedF fe then do
+        if cn = natSuccName ∧ natLitStoredF fe then do
           let w ← r.whnf depth b
           match ← pure (rawNatLitC? w) with
           | some n => do
@@ -114,8 +114,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
               cn = natPowName ∨ cn = natBeqName ∨ cn = natBleName ∨
               cn = natDivName ∨ cn = natModName ∨ cn = natGcdName ∨
               cn = natLandName ∨ cn = natLorName ∨ cn = natXorName ∨
-              cn = natShiftLeftName ∨ cn = natShiftRightName) ∧
-              natOpStoredF fe cn = true then do
+              cn = natShiftLeftName ∨ cn = natShiftRightName) then do
             -- first argument first; the second only behind a literal
             -- (official `reduce_bin_nat_op`; the spec's D15 note)
             let w₁ ← r.whnf depth a
@@ -131,7 +130,7 @@ def reduceNatI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                 | none => pure none
               | none => pure none
             | none => pure none
-          else if natOpWfNames.contains cn ∧ natLitSupportedF fe then do
+          else if natOpWfNames.contains cn then do
             let w₁ ← r.whnf depth a
             match ← pure (rawNatLitC? w₁) with
             | some _ => do
@@ -241,11 +240,9 @@ def proofIrrelI (r : CoreFnsI) (depth : Nat) (a b : Expr) :
     | _ => pure false
   | _ => pure false
 
-/- Task #172 batch B2 — **THE BODY TEMPLATE'S PARAMETER** (the mode
-itself since task #185).  Every configured body below takes
+/- **THE BODY TEMPLATE'S PARAMETER** is the mode.  Every configured body below takes
 `mode : CheckMode` and is instantiated at the two named concrete cores
-at the end of this module (`…PC` at `.verified`, `…TC` at `.trusted`;
-the `…RC` half retired with the R core, 2026-09-05).  Every read below
+at the end of this module (`…PC` at `.verified`, `…TC` at `.trusted`).  Every read below
 is one of the `CheckMode` functions of `ConLeche/Kernel/Env.lean`, each
 a `match` on the enum.  The ι cone (`majorToCtorI` → `prepareMajorI`
 → `iotaRecI`) reads the mode through `certAtI`. -/
@@ -424,9 +421,48 @@ def stuckIrrelI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   else if ← structUnitCertI r fe depth a b then pure true
   else proofIrrelI r depth a b
 
+/-- Twin of `formerSortLoop`, through the shared instantiation. -/
+def formerSortLoopI (wh : Nat → Expr → CheckCM Expr) : Nat → Nat → Expr → CheckCM (Option Level)
+  | d, 0, e => do
+    let w ← wh d e
+    match w with
+    | .sort s => pure (some s)
+    | _ => pure none
+  | d, n + 1, e => do
+    let w ← wh d e
+    match w with
+    | .forallE dom b => do
+      let b' ← inst1M b (.fvar d dom)
+      formerSortLoopI wh (d + 1) n b'
+    | _ => pure none
+
+/-- Twin of `formerNeverZeroAt`. -/
+def formerNeverZeroI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : CheckCM Bool :=
+  match formerResSort cvT.type with
+  | some _ => pure (formerNeverZero cvT us)
+  | none => do
+    let ty ← instLevelParamsM cvT.levelParams us cvT.type
+    let o ← formerSortLoopI wh 0 (caps.nparams + caps.nIdx) ty
+    match o with
+    | some s => pure (Level.zeronessOf s).isNever
+    | none => pure false
+
+/-- Twin of `iotaCase3At`. -/
+def iotaCase3I (wh : Nat → Expr → CheckCM Expr) (find? : Name → Option ConstantInfo) (isK : Bool)
+    (cvj : ConstantVal) (us : List Level) : CheckCM Bool :=
+  if isK then pure false else
+  match ctorFamily find? cvj with
+  | some (cvT, caps) =>
+    if cvT.levelParams.length == us.length then do
+      let nz ← formerNeverZeroI wh cvT caps us
+      pure !nz
+    else pure true
+  | none => pure true
+
 /-- Twin of `majorToCtor`. -/
 def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (_recName : Name) (rules : List RecRule) (major : Expr) :
+    (_recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
     CheckCM Expr := do
   if ← pure (isCtorAppC fe major) then pure major else
   match rules with
@@ -437,7 +473,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
       | .const T _ =>
         match fe.find? T with
         | some (.indInfo cvT caps) =>
-          if rl.k = true then do
+          if isK = true then do
             let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match Expr.getAppFn tmaj with
@@ -466,7 +502,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
                 else pure major
               else pure major
             | _ => pure major
-          else if rl.eta = true then do
+          else if etaRescueOk rl.ctor cvj cvT caps = true then do
             let tmaj₀ ← r.inferIO depth major
             let tmaj ← r.whnf depth tmaj₀
             match Expr.getAppFn tmaj with
@@ -478,20 +514,21 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               -- and the η law's keys, as in the spec body
               if (← pure (T' == T)) ∧ margs.length = caps.etaParams ∧
                   ust.length = cvT.levelParams.length ∧
-                  capsNeverZero cvT.levelParams ustL caps = true ∧
                   reservedBasisNames.contains T = false ∧
                   reservedBasisNames.contains caps.etaCtor = false ∧
                   fe.towerSlotsAllF T caps.etaFields = true then do
-                let TI ← pure T
-                let projs ← projNodesI TI major (List.range caps.etaFields)
-                let ctorI ← pure caps.etaCtor
-                let h ← pure (Expr.const ctorI ust)
-                let fab ← mkAppNM h (margs ++ projs)
-                -- no certificate on the fabricated spine (task #342 L11b)
-                if ← pure (Expr.wscopedBC depth fab &&
-                    Expr.looseBVarsBounded 0 fab &&
-                    Expr.leafGuard fab major) then
-                  pure fab
+                if ← formerNeverZeroI r.whnf cvT caps ustL then do
+                  let TI ← pure T
+                  let projs ← projNodesI TI major (List.range caps.etaFields)
+                  let ctorI ← pure caps.etaCtor
+                  let h ← pure (Expr.const ctorI ust)
+                  let fab ← mkAppNM h (margs ++ projs)
+                  -- no certificate on the fabricated spine (task #342 L11b)
+                  if ← pure (Expr.wscopedBC depth fab &&
+                      Expr.looseBVarsBounded 0 fab &&
+                      Expr.leafGuard fab major) then
+                    pure fab
+                  else pure major
                 else pure major
               else pure major
             | _ => pure major
@@ -504,7 +541,7 @@ def majorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
               let margs ← pure (Expr.getAppArgsC tmaj)
               if (← pure (T' == T)) ∧ margs.length = cnP ∧
                   cvj.levelParams.length = ust.length ∧
-                  fe.andRescueSlotsF rl.ctor cnP ust = true then do
+                  fe.andRescueSlotsF rl.ctor cnP = true then do
                 let TI ← pure T
                 let projs ← projNodesI TI major [0, 1]
                 let ctorI ← pure rl.ctor
@@ -533,7 +570,7 @@ def litMajorToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
     CheckCM Expr := do
   match e with
   | .lit (.strVal s) =>
-    if strLitSupportedF fe then do
+    if strLitStoredF fe then do
       let x ← pure (strLitToConstructor s)
       r.whnf depth x
     else pure e
@@ -544,7 +581,7 @@ def projLitToCtorI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
     CheckCM Expr := do
   match e with
   | .lit (.strVal s) =>
-    if strLitSupportedF fe then do
+    if strLitStoredF fe then do
       let x ← pure (strLitToConstructor s)
       r.whnf depth x
     else pure e
@@ -556,23 +593,23 @@ constructor, only the literal conversion follows; if it failed, the
 major is left exactly as it is; elsewhere the structure rescues on the
 raw major first (lean4#15351, task #342 R2), and only if they produce
 no constructor whnf, literal, rescue).  The K flag is the single rule's
-stored bit, as in the spec (`recRuleK`). -/
+record's flag, as in the spec. -/
 def prepareMajorI (r : CoreFnsI) (fe : FEnv) (depth : Nat)
-    (recName : Name) (rules : List RecRule) (major : Expr) :
+    (recName : Name) (isK : Bool) (rules : List RecRule) (major : Expr) :
     CheckCM Expr := do
-  if recRuleK rules then do
-    let majorK ← majorToCtorI mode r fe depth recName rules major
+  if isK then do
+    let majorK ← majorToCtorI mode r fe depth recName isK rules major
     if isCtorAppC fe majorK then
       litMajorToCtorI r fe depth majorK
     else pure majorK
   else do
     let majorE ← if major.isStrLit then pure major
-      else majorToCtorI mode r fe depth recName rules major
+      else majorToCtorI mode r fe depth recName isK rules major
     if isCtorAppC fe majorE then pure majorE
     else do
       let major₀ ← r.whnf depth majorE
       let major₁ ← litMajorToCtorI r fe depth major₀
-      majorToCtorI mode r fe depth recName rules major₁
+      majorToCtorI mode r fe depth recName isK rules major₁
 
 /-- The nested-rule pin instantiations (structural recursion;
 the spec side is `(recFireComparands …).2`'s `List.map`). -/
@@ -602,7 +639,7 @@ def iotaArityOk (fe : FEnv) (e : Expr) : Bool :=
   match Expr.getAppFn e with
   | .const c us =>
     match fe.find? c with
-    | some (.recInfo cv mI _ _) =>
+    | some (.recInfo cv mI _ _ _) =>
       iotaNumArgs e 0 == mI + 1 && us.length == cv.levelParams.length
     | _ => false
   | _ => false
@@ -614,26 +651,23 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
   | .const c us => do
     let cn ← pure c
     match fe.find? cn with
-    | some (.recInfo cv mI rP rules) => do
+    | some (.recInfo cv mI rP isK rules) => do
       let args ← pure (Expr.getAppArgsC e)
       -- checker change #9 (twin of `Core.lean`'s `iotaRec`): guard the
       -- recursor's level arity before the rule's RHS is instantiated.
       if args.length = mI + 1 ∧ us.length = cv.levelParams.length ∧
           (Expr.peelPis (mI + 1) cv.type).isSome = true then do
         let bvar0 ← pure (Expr.mkBvar 0)
-        let major ← prepareMajorI mode r fe depth cn rules (args.getD mI bvar0)
+        let major ← prepareMajorI mode r fe depth cn isK rules (args.getD mI bvar0)
         match Expr.getAppFn major with
         | .const cj usj => do
           let cjn ← pure cj
           match fe.find? cjn with
-          | some (.ctorInfo cvj _ _) =>
+          | some (.ctorInfo cvj cnP _) =>
             match rules.find? (fun r' => r'.ctor == cjn) with
             | some rl => do
               let margs ← pure (Expr.getAppArgsC major)
-              if margs.length = rl.ctorParams + rl.nfields then do
-                -- (the ι batch: the two `stripPis` pins are gone — see
-                -- the spec's `iotaRec`)
-                --
+              if margs.length = cnP + rl.nfields then do
                 -- ONE certificate family (task #342 L10, S5c; official's
                 -- `inductive_reduce_rec` checks nothing of the major's
                 -- constructor), so the whole block is what `.trusted`
@@ -656,18 +690,20 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                       | .plain =>
                         substLevelTreesM cv.levelParams us
                           (cvj.levelParams.map Level.param)
-                    if iotaCase3 fe.find? rl cvj cmpLvls then do
+                      | .levels lvls => substLevelTreesM cv.levelParams us lvls
+                    if ← iotaCase3I r.whnf fe.find? isK cvj cmpLvls then do
                       let oL ← isEquivListLM usj cmpLvls
                       if ← liftFueled "level comparison" oL then do
                         let cmpArgs : List Expr ←
                           match rl.fire with
                           | .nested _ pins =>
                             pinArgsI cv.levelParams us (args.take rP) (rP - 1) pins
-                          | .plain => pure (args.take rl.ctorParams)
-                        if ← defEqListI r fe depth (margs.take rl.ctorParams) cmpArgs then do
+                          | .plain => pure (args.take cnP)
+                          | .levels _ => pure (args.take cnP)
+                        if ← defEqListI r fe depth (margs.take cnP) cmpArgs then do
                           let tyCtor ← constTyAtM fe cj cjn usj
                           if ← iotaCertsFullI r fe depth tyCtor margs then
-                            iotaIndexOkI r fe depth mI rP rl.ctorParams tyCtor
+                            iotaIndexOkI r fe depth mI rP cnP tyCtor
                               margs ((args.take mI).drop rP)
                           else pure false
                         else pure false
@@ -675,7 +711,7 @@ def iotaRecI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (e : Expr) :
                     else pure true) then do
                   let rhs ← ruleRhsAtM fe c cj cn cjn us
                   let red ← mkAppNM rhs
-                    (args.take rP ++ margs.drop rl.ctorParams)
+                    (args.take rP ++ margs.drop cnP)
                   pure (some red)
                 else pure none
               else pure none
@@ -709,8 +745,7 @@ def reduceProjCoreI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (sn : Name)
       let args ← pure (Expr.getAppArgsC e')
       if (← pure (k == entry.ctor)) ∧ i < entry.numFields ∧
           args.length = entry.numParams + entry.numFields ∧
-          us.length = entry.levelParams.length ∧
-          entry.fireOk us = true then do
+          us.length = entry.levelParams.length then do
         let bvar0 ← pure (Expr.mkBvar 0)
         let arg := args.getD (entry.numParams + i) bvar0
         -- task #100 de-gating / task #175 W6 / `projCertAt`: see the
@@ -775,10 +810,8 @@ projection), returning the head normal form or the term to continue
 with; `cheap` is the official `cheap_proj` flag (see `whnfCoreBody`).
 Only the spine head's normalization stays a knot call (genuine
 nesting, bounded by the term's depth); every *reduction* step is
-iteration, so a chain no longer charges the shared recursion-depth
-budget one unit per step (task #106 — that is what made the
-`Nat.brecOn` grind of `Std.Time…toDays._proof_1` exhaust
-`checkFuel`).  `@[inline]` (a compiler attribute): inlined into
+iteration, so a chain does not charge the shared recursion-depth
+budget per step (task #106: a `Nat.brecOn` grind would exhaust `checkFuel`).  `@[inline]` (a compiler attribute): inlined into
 `whnfCoreLoopI`, whose continuation is then its own tail call. -/
 @[inline] def whnfCoreStepI (r : CoreFnsI) (fe : FEnv) (cheap : Bool) (depth : Nat)
     (e : Expr) : CheckCM WhnfStep := do
@@ -916,6 +949,60 @@ def ensureSortI (r : CoreFnsI) (depth : Nat) (e : Expr) : CheckCM Level := do
   | .sort u => pure u
   | _ => throw (.invalid "expected a sort")
 
+/-- Twin of `checkGuardRows`. -/
+def checkGuardRowsI (inf wh : Nat → Expr → CheckCM Expr) (guardSort : Level) :
+    List (Nat × Expr) → CheckCM Unit
+  | [] => pure ()
+  | (d, dom) :: rest => do
+    let t ← inf d dom
+    let w ← wh d t
+    match w with
+    | .sort u =>
+      unless Level.zeroWhereZero guardSort u do
+        throw (.invalid "projection from a propositional structure must be a proposition")
+      checkGuardRowsI inf wh guardSort rest
+    | _ => throw (.invalid "expected a sort")
+
+/-- Twin of `projGuardSort`. -/
+def projGuardSortI (wh : Nat → Expr → CheckCM Expr) (cvT : ConstantVal) (caps : IndCaps)
+    (us : List Level) : CheckCM (Option Level) :=
+  match formerResSort cvT.type with
+  | some s => pure (if s.isAlwaysZero then some .zero else none)
+  | none => do
+    let ty ← instLevelParamsM cvT.levelParams us cvT.type
+    let o ← formerSortLoopI wh 0 (caps.nparams + caps.nIdx) ty
+    match o with
+    | some s => pure (if (Level.zeronessOf s).isNever then none else some s)
+    | none => throw (.invalid "projection from a structure whose type reaches no sort")
+
+/-- The rows of a projection's guard, against the sort they answer to. -/
+def checkProjRowsI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
+    (us : List Level) (guardSort : Level) : CheckCM Unit :=
+  match fe.find? entry.ctor with
+  | some ci => do
+    let cv := ci.toConstantVal
+    let cty ← constTyAtM fe entry.ctor entry.ctor us
+    match openPisAtFvarsF (entry.numParams + entry.idx + 1) cty 0 with
+    | some (fvs, _) =>
+      checkGuardRowsI inf wh guardSort (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
+    | none =>
+      throw (.invalid "projection from a propositional structure must be a proposition")
+  | none =>
+    throw (.invalid "projection from a propositional structure must be a proposition")
+
+/-- Twin of `checkProjGuard`: the constructor's type at the use's levels
+through the per-declaration memo (`constTyAtM`), opened in one pass
+(`openPisAtFvarsF`). -/
+def checkProjGuardI (inf wh : Nat → Expr → CheckCM Expr) (fe : FEnv) (entry : ProjEntry)
+    (us : List Level) : CheckCM Unit := do
+  match fe.find? entry.structName with
+  | some (.indInfo cvT caps) => do
+    let b? ← projGuardSortI wh cvT caps us
+    match b? with
+    | none => pure ()
+    | some guardSort => checkProjRowsI inf wh fe entry us guardSort
+  | _ => throw (.invalid "projection from a propositional structure must be a proposition")
+
 /-! ### Binder-telescope loops (task #72)
 
 The official-kernel discipline (lean4lean's `inferLambda`/`inferForall`
@@ -1052,12 +1139,12 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
           throw (.invalid s!"incorrect number of universe levels for {nm}")
         constTyAtM fe n nm us
     | .lit (.natVal _) => do
-      if natLitSupportedF fe then do
+      if natLitStoredF fe then do
         let ni ← pure natName
         pure (Expr.const ni [])
       else throw (.invalid "Nat literal without the Nat basis declarations")
     | .lit (.strVal _) => do
-      if strLitSupportedF fe then do
+      if strLitStoredF fe then do
         let si ← pure stringName
         pure (Expr.const si [])
       else throw (.notImplemented
@@ -1107,14 +1194,8 @@ def inferBodyI (r : CoreFnsI) (fe : FEnv) : Nat → Expr → CheckCM Expr :=
           unless targs.length = entry.numParams do
             throw (.invalid "projection parameter mismatch")
           if us.length = entry.levelParams.length then do
-            -- the official `infer_proj` restriction (task #175
-            -- W4c/O4), as in the spec body
-            if Level.isEquiv entry.structSort .zero == some true then
-              unless Level.isEquiv
-                  (Level.subst entry.levelParams us entry.fieldSort) .zero
-                  == some true do
-                throw (.invalid
-                  "projection from a propositional structure must be a proposition")
+            -- the official `infer_proj` restriction, as in the spec body
+            checkProjGuardI r.inferIO r.whnf fe entry us
             -- the body at the arguments and the subject, as in the
             -- spec body (task #175 S1) — through the memoized,
             -- sharing-preserving `Expr` instantiations
@@ -1374,7 +1455,7 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | .lit l, .app fO _x => do
     match l, fO with
     | .strVal s, .const cO usO =>
-      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitStoredF fe then do
         let sc ← pure (strLitToConstructor s)
         r.defeq depth sc b
       else stuckIrrelI r fe depth a b
@@ -1382,7 +1463,7 @@ def defeqStuckI (r : CoreFnsI) (fe : FEnv) (depth : Nat) (a b : Expr) :
   | .app fO _x, .lit l => do
     match l, fO with
     | .strVal s, .const cO usO =>
-      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitSupportedF fe then do
+      if (← pure (cO == stringOfListName)) ∧ usO = [] ∧ strLitStoredF fe then do
         let sc ← pure (strLitToConstructor s)
         r.defeq depth a sc
       else stuckIrrelI r fe depth a b
@@ -1450,7 +1531,7 @@ def defeqBodyI (eager : Bool) (r : CoreFnsI) (fe : FEnv) : Nat → Expr → Expr
 
 /-- Memoize a unary entry point under its node (`O(1)` key).
 
-`@[inline]` (the retired twin's perf-eng E2, now the one knot's): after
+`@[inline]`: after
 inlining the getter/setter lambdas beta-reduce away and the memo probe
 compiles into the record field's own closure.  A compiler attribute
 only — the term the proofs unfold is unchanged. -/
@@ -1487,10 +1568,9 @@ index pair (`@[inline]` as `memoEI`). -/
 tower's level below (`prevE`). -/
 @[inline] def knotLevelI (mode : CheckMode) (eager : Bool) (fe : FEnv)
     (prev prevE : Unit → CoreFnsI) : CoreFnsI :=
-  -- **NOT a `Thunk`** (task #179).  The previous fuel level used to be
-  -- `Thunk`-cached (perf-eng E1: built once per record rather than once
-  -- per cache-missing call), and that single word cost 13.8 % of
-  -- `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
+  -- **NOT a `Thunk`** (task #179): caching the previous fuel level in a
+  -- `Thunk` (built once per record rather than once per cache-missing call)
+  -- costs 13.8 % of `init-full`.  `lean_thunk_get_core` calls `mark_mt` on the forced
   -- **value** — the runtime's invariant is that a single-threaded object
   -- may not be reachable from a multi-threaded one, and a thunk may be
   -- forced from another thread — so forcing this thunk marked the whole

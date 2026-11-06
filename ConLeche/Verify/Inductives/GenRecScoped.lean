@@ -3,6 +3,7 @@ module
 public import ConLeche.Verify.Inductives.GenRecRun
 public import ConLeche.Verify.Inductives.NestNfScope
 import ConLeche.Verify.Inductives.PositivityInv
+import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Verify.CheckerF
 import ConLeche.Verify.ExceptBind
 import ConLeche.Verify.Inductives.RecCheckScope
@@ -12,6 +13,8 @@ import ConLeche.Verify.InferLeaves
 import ConLeche.Verify.InstLevels
 import ConLeche.Verify.Cached.Erase
 import ConLeche.Verify.Cached.GenRecC
+import ConLeche.Verify.Inductives.ReplaceApps
+import ConLeche.Verify.Denote.IndFrame
 
 public section
 
@@ -353,14 +356,14 @@ theorem classFieldsOf_rec {p : BlockShape} {ctor : Name} {ihs : List (Nat × Nat
 section Run
 
 variable {mode : CheckMode} {F : Nat} {env₁ envC : Env} {p : BlockShape} {nestedBit : Bool}
-  {pos : NestState} {cvTas : List ConstantVal} {block : List ConstantInfo}
-  {ctorsAs : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
+  {pos : NestState} {formers : List ConstantVal} {block : List ConstantInfo}
+  {memberCtors : List (List (ConstantVal × Nat))} {out : List (ConstantVal × TargetMajor × List Expr)}
 
 /-- The run's walk context: the first former opened, the environment's
 lookups. -/
 theorem genRun_ctx
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out) :
-    ∃ cvTa0 rest, cvTas.head? = some cvTa0 ∧
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out) :
+    ∃ cvTa0 rest, p.formers.head? = some cvTa0 ∧
       openPisAtFvars p.nP cvTa0.type 0 = some (R.ctx.params, rest) ∧
       R.ctx = p.nestCtx R.ctx.params env₁.find? ∧ nestHoles R.ctx = some R.holes := by
   obtain ⟨cvTa0, fvsP, rest, h0, hop, hctx, hh⟩ := blockNestCtx_inv R.hctx
@@ -371,8 +374,8 @@ theorem genRun_ctx
 
 /-- **The canonical parameters**: `fvar i`, typed over the earlier ones. -/
 theorem genRun_params
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) :
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type) :
     R.ctx.params.length = p.nP ∧
       ∀ (i : Nat) (x : Expr), R.ctx.params[i]? = some x → ∃ ty, x = .fvar i ty ∧ ScB i ty := by
   obtain ⟨cvTa0, rest, h0, hop, -, -⟩ := genRun_ctx R
@@ -380,8 +383,8 @@ theorem genRun_params
   exact ⟨hl, fun i x hx => by simpa using hfvs i x hx⟩
 
 theorem genRun_params_scb
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) : ∀ x ∈ R.ctx.params, ScB p.nP x := by
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type) : ∀ x ∈ R.ctx.params, ScB p.nP x := by
   obtain ⟨hl, hP⟩ := genRun_params R hT
   intro x hx
   obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hx
@@ -393,8 +396,8 @@ theorem genRun_params_scb
 each parameter moved to them, kept below them by the guard
 (`classKeyOf`). -/
 theorem genRun_keys_scoped
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) :
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type) :
     ∀ key ∈ R.keys, ∀ x ∈ key.ds, WScoped p.nP x := by
   have hpar := genRun_params_scb R hT
   obtain ⟨hlP, -⟩ := genRun_params R hT
@@ -414,15 +417,49 @@ theorem genRun_keys_scoped
   exact replaceFVars_WScoped_of_below (fun i r hr => (hpar r (List.mem_of_getElem? hr)).1)
     (fun i hi => by simp [hlP, hi]) y0 (Expr.fvarB_le hyg.2)
 
+/-- **A class key's parameters are over the canonical parameters**: every variable of them is
+one. -/
+theorem genRun_keys_leaves
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type) :
+    ∀ key ∈ R.keys, ∀ x ∈ key.ds, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.ctx.params := by
+  obtain ⟨hlP, -⟩ := genRun_params R hT
+  obtain ⟨cvTa0, rest, h0, hop, -, -⟩ := genRun_ctx R
+  have hT0 : cvTa0.type.hasFvar = false :=
+    (ScB.closed (hT _ (List.mem_of_getElem? (List.head?_eq_getElem?.symm.trans h0)))).1
+  have hkw := genRun_keys_scoped R hT
+  intro key hk x hx l hl
+  obtain ⟨i, hi⟩ := List.getElem?_of_mem hk
+  have hll := mapM_ok_length R.hkeys
+  have hil : i < R.rd.classes.length := by
+    rw [← hll]; exact (List.getElem?_eq_some_iff.mp hi).1
+  obtain ⟨key', hkey', hrun⟩ := mapM_ok_getElem? R.hkeys i _ (List.getElem?_eq_getElem hil)
+  rw [hi] at hkey'
+  obtain rfl := Option.some.inj hkey'
+  obtain ⟨rfl, -⟩ := classKeyOf_run hrun
+  have hw := hkw _ hk x hx
+  simp only [classKeyCanon, List.mem_map] at hx
+  obtain ⟨y, -, rfl⟩ := hx
+  rcases fvarLeaves_replaceFVars y l hl with ⟨j, ty, -, hg, -, hkept⟩ | ⟨j, a, hg, hl'⟩
+  · -- a variable past the parameters stays, and the key is scoped below them
+    exfalso
+    have hjs := Expr.fvarLeaves_lt_of_wscoped hw (j, ty) hkept
+    rw [List.getElem?_eq_none_iff] at hg
+    simp only at hjs
+    omega
+  · rcases ConLeche.Verify.openPisAtFvars_leaves _ hop l (.inr ⟨a, List.mem_of_getElem? hg, hl'⟩) with h | h
+    · rw [Expr.fvarLeaves_eq_nil_of_not_hasFvar hT0] at h; exact nomatch h
+    · exact h
+
 /-- **Every class checked as a major**, scoped: its parameters scoped over
 the canonical parameters (an outside class's below them), its
 constructors closed, a member's index a member. -/
 theorem genRun_Ms₀
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (henvC : EnvWF envC) (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type) :
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (henvC : EnvWF envC) (hT : ∀ cv ∈ p.formers, ScB 0 cv.type)
+    (hct : ∀ ctorList ∈ p.memberCtors, ∀ c ∈ ctorList, ScB 0 c.1.type) :
     ∀ M ∈ R.Ms₀, (∀ x ∈ M.ds, ScB p.nP x) ∧ (M.member = none → ∀ x ∈ M.ds, x.fvarB ≤ p.nP) ∧
-      (∀ cA ∈ M.ctors, ScB 0 (targetCtorAt M cA.1)) ∧
+      (∀ ctor ∈ M.ctors, ScB 0 (targetCtorAt M ctor.1)) ∧
       (∀ t, M.member = some t → t < p.memberNames.length) ∧
       (M.member = none → ∃ cv caps, envC.find? M.ind = some (.indInfo cv caps)) := by
   have hpar := genRun_params_scb R hT
@@ -437,16 +474,16 @@ theorem genRun_Ms₀
   have hkey : R.keys[i] ∈ R.keys := List.getElem_mem _
   generalize R.keys[i] = key at hkey C
   cases C.major with
-  | member I t ms ctorsA hfn ht hms hctors hpar' nfs =>
+  | member I t ms hfn ht hms hpar' nfs =>
     dsimp only
     refine ⟨fun x hx => hpar x (List.mem_of_mem_take hx), fun h => by simp at h,
-      fun cA hcA => hct ctorsA (List.mem_of_getElem? hctors) cA hcA, fun t' ht' => ?_,
+      fun ctor hctor => hct ms.ctors (List.mem_map_of_mem (List.mem_of_getElem? hms)) ctor hctor, fun t' ht' => ?_,
       fun h => by simp at h⟩
     obtain rfl : t = t' := Option.some.inj ht'
     exact (List.findIdx?_eq_some_iff_getElem.mp ht).1
   | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort nfs =>
     dsimp only
-    refine ⟨fun x hx => ?_, fun _ x hx => (hdsSc x hx).2, fun cA hcA => ?_, fun _ h => by simp at h,
+    refine ⟨fun x hx => ?_, fun _ x hx => (hdsSc x hx).2, fun ctor hctor => ?_, fun _ h => by simp at h,
       fun _ => ?_⟩
     · have hxa := List.mem_of_mem_take hx
       rw [Expr.getAppArgs_mkAppN] at hxa
@@ -454,12 +491,13 @@ theorem genRun_Ms₀
       have hw := hkeys key hkey x hxa
       exact ⟨WScoped.of_fvarsBelow hw (Expr.fvarB_le (hdsSc _ hx).2),
         Expr.bvarB_le (by rw [(hdsSc _ hx).1]; exact Nat.le_refl 0)⟩
-    · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?⟩ : NestCtx) ∧
-          NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?⟩ : NestCtx) := by
+    · have hc : NestCtxOk (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?, []⟩ : NestCtx) ∧
+          NestCtxB (⟨[], [], 0, [], [], .zero, (mkFEnv envC).find?, []⟩ : NestCtx) := by
         rw [mkFEnv_find?_fun]
-        exact ⟨fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).1,
+        exact ⟨⟨fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).1,
+          fun _ h => nomatch h⟩,
           fun _ ci hf => (henvC.consts ci (List.mem_of_find?_eq_some hf)).2.2.2.1⟩
-      have h0 := nestContainer_scb hc.1 hc.2 hctors cA hcA
+      have h0 := nestContainer_scb hc.1 hc.2 hctors ctor hctor
       simp only [targetCtorAt]
       refine ScB.of_closed ?_ ?_ 0
       · rw [Expr.hasFvar_instantiateLevelParams]; exact (ScB.closed h0).1
@@ -475,7 +513,7 @@ theorem genRun_Ms₀
 /-- **Every class with its table entries**: the class checked as a major,
 its entries among the table's. -/
 theorem genRun_Ms
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out) :
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out) :
     R.Ms.length = R.Ms₀.length ∧ ∀ (c : Nat) (M : TargetMajor), R.Ms[c]? = some M →
       ∃ M₀, R.Ms₀[c]? = some M₀ ∧ M = { M₀ with nfs := M.nfs } ∧
         ∀ e ∈ M.nfs, e ∈ R.st.ctorNfs.toList := by
@@ -487,19 +525,47 @@ theorem genRun_Ms
   obtain rfl := Option.some.inj hMs
   exact ⟨_, List.getElem?_eq_getElem hc, rfl, targetMajorNfs_sub hnfs⟩
 
+/-- **An outside class's parameters are over the canonical parameters.** -/
+theorem genRun_out_leaves
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type) {c : Nat} {M : TargetMajor} (hM : R.Ms[c]? = some M)
+    (hMo : M.member = none) :
+    ∀ x ∈ M.ds, ∀ l ∈ x.fvarLeaves, Expr.fvar l.1 l.2 ∈ R.ctx.params := by
+  obtain ⟨-, hall⟩ := genRun_Ms R
+  obtain ⟨M₀, hM₀, hMe, -⟩ := hall c M hM
+  obtain ⟨hlen, hmaj⟩ := R.majors
+  have hkl : c < R.keys.length := by
+    rw [← hlen]; exact (List.getElem?_eq_some_iff.mp hM₀).1
+  obtain ⟨M', hM', ⟨C⟩⟩ := hmaj c _ (List.getElem?_eq_getElem hkl)
+  rw [hM₀] at hM'
+  obtain rfl := Option.some.inj hM'
+  have hkey : R.keys[c] ∈ R.keys := List.getElem_mem _
+  generalize R.keys[c] = key at hkey C
+  have hleaves := genRun_keys_leaves R hT key hkey
+  rw [hMe] at hMo ⊢
+  cases C.major with
+  | member I t ms hfn ht hms hpar' nfs => exact nomatch hMo
+  | outside I us nPc nIdx ctors sI hfn ht hnq hctors hdsLen hdsSc hment hinst hsort nfs =>
+    intro x hx
+    have hxa := List.mem_of_mem_take hx
+    rw [Expr.getAppArgs_mkAppN] at hxa
+    simp only [Expr.getAppArgs, List.nil_append] at hxa
+    exact hleaves x hxa
+
 /-- **The positivity check's table after the seeds is scoped** over the
 parameters: every entry the generated stage reads a datum off
 (`ClassCtor.tyN`) — lane B2's fact. -/
 theorem genRun_tbl_scoped
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (henv₁ : EnvWF env₁) (henvC : EnvWF envC) (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type) (hpos : NfStScoped p.nP pos) :
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (henv₁ : EnvWF env₁) (henvC : EnvWF envC) (hM : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type)
+    (hct : ∀ ctorList ∈ p.memberCtors, ∀ c ∈ ctorList, ScB 0 c.1.type) (hpos : NfStScoped p.nP pos) :
     ∀ e ∈ R.st.ctorNfs.toList, ScB p.nP e.ty := by
   obtain ⟨cvTa0, rest, h0, hop, hctx, hh⟩ := genRun_ctx R
   obtain ⟨hlP, -⟩ := genRun_params R hT
   have hMs₀ := genRun_Ms₀ R henvC hT hct
   have hcb : NestCtxOk R.ctx ∧ NestCtxB R.ctx := by
-    rw [hctx]; exact nestCtx_ok_of_envWF henv₁ p R.ctx.params
+    rw [hctx]; exact nestCtx_ok_of_envWF henv₁ p R.ctx.params hM
   have hnP : R.ctx.nP = p.nP := by rw [hctx]; rfl
   have hparH : ∀ x ∈ R.ctx.params, ScB (R.ctx.hiAt 0) x := by
     intro x hx
@@ -527,10 +593,10 @@ theorem genRun_tbl_scoped
 
 /-- A generated constructor of class `c`, as its run. -/
 theorem genRun_ctor
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
     {c : Nat} {x : ClassCtor} (hx : x ∈ R.ctors.getD c []) :
-    ∃ M cA, R.Ms[c]? = some M ∧ cA ∈ M.ctors ∧
-      Nonempty (ClassCtorRun mode F (mkFEnv envC).env p (cvTas.map (·.type)) R.rd R.Ms c cA x) := by
+    ∃ M ctor, R.Ms[c]? = some M ∧ ctor ∈ M.ctors ∧
+      Nonempty (ClassCtorRun mode F (mkFEnv envC).env p (p.formers.map (·.type)) R.rd R.Ms c ctor x) := by
   obtain ⟨hlen, hall⟩ := classesCtors_run R.hctors
   by_cases hc : c < R.Ms.length
   · obtain ⟨xs, hxs, hrun⟩ := hall c _ (List.getElem?_eq_getElem hc)
@@ -549,11 +615,11 @@ theorem genRun_ctor
 /-- A class of the run (checked, with its table entries), at its index:
 the scoping facts of the major it was checked as. -/
 theorem genRun_cls
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (henvC : EnvWF envC) (hT : ∀ cv ∈ cvTas, ScB 0 cv.type)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type) {c : Nat} {M : TargetMajor}
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (henvC : EnvWF envC) (hT : ∀ cv ∈ p.formers, ScB 0 cv.type)
+    (hct : ∀ ctorList ∈ p.memberCtors, ∀ c ∈ ctorList, ScB 0 c.1.type) {c : Nat} {M : TargetMajor}
     (hM : R.Ms[c]? = some M) :
-    (∀ x ∈ M.ds, ScB p.nP x) ∧ (∀ cA ∈ M.ctors, ScB 0 (targetCtorAt M cA.1)) ∧
+    (∀ x ∈ M.ds, ScB p.nP x) ∧ (∀ ctor ∈ M.ctors, ScB 0 (targetCtorAt M ctor.1)) ∧
       (∀ t, M.member = some t → t < p.memberNames.length) ∧
       (M.member = none → ∃ cv caps, envC.find? M.ind = some (.indInfo cv caps)) ∧
       ∀ e ∈ M.nfs, e ∈ R.st.ctorNfs.toList := by
@@ -568,21 +634,21 @@ see the module docstring) — the hypothesis `hg` of `recStage_of_gen` and
 of the family premise, from the run and:
 
 * `henv₁`/`henvC`: the formers' and the constructors' environments well
-  formed (`EnvWF`, the install's invariant);
+  formed (`EnvWF`, the check's invariant);
 * `hT`/`hct`: the stream's formers and constructors closed (checked
   constants, `checkConstantVal_typeWF`);
 * `hTlen`: a former per member (the formers' pass);
 * `hpos`: the positivity stage's final state scoped
   (`checkBlockPositivity_nfScoped`). -/
 theorem genScoped_of_run
-    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos cvTas block ctorsAs out)
-    (henv₁ : EnvWF env₁) (henvC : EnvWF envC)
-    (hT : ∀ cv ∈ cvTas, ScB 0 cv.type) (hTlen : p.memberNames.length ≤ cvTas.length)
-    (hct : ∀ ctorsA ∈ ctorsAs, ∀ c ∈ ctorsA, ScB 0 c.1.type)
+    (R : GenRecRun mode F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos block out)
+    (henv₁ : EnvWF env₁) (henvC : EnvWF envC) (hMc : ∀ ms ∈ p.members, ms.cvT.type.hasFvar = false)
+    (hT : ∀ cv ∈ p.formers, ScB 0 cv.type) (hTlen : p.memberNames.length ≤ p.formers.length)
+    (hct : ∀ ctorList ∈ p.memberCtors, ∀ c ∈ ctorList, ScB 0 c.1.type)
     (hpos : NfStScoped p.nP pos) :
     ClassGenScoped R.g := by
   obtain ⟨hlP, hP⟩ := genRun_params R hT
-  have htbl := genRun_tbl_scoped R henv₁ henvC hT hct hpos
+  have htbl := genRun_tbl_scoped R henv₁ henvC hMc hT hct hpos
   have hcls := fun {c} {M} (hM : R.Ms[c]? = some M) => genRun_cls R henvC hT hct hM
   refine ⟨hlP, hP, ?ds, ?former, ?tyN, ?tyD, ?order, ?pre⟩
   case ds =>
@@ -606,24 +672,29 @@ theorem genScoped_of_run
     · rename_i t ht
       simp only [pure, Except.pure, Except.ok.injEq] at hrun
       subst hrun
-      have htl : t < cvTas.length := Nat.lt_of_lt_of_le (hmem t ht) hTlen
+      have htl : t < p.formers.length := Nat.lt_of_lt_of_le (hmem t ht) hTlen
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem htl, Option.getD_some]
       exact hT _ (List.getElem_mem htl)
     · rename_i hn
       split at hrun
       · rename_i cv caps hf
+        simp only [bind, Except.bind] at hrun
+        split at hrun
+        · simp at hrun
+        rename_i ty hfam
         simp only [pure, Except.pure, Except.ok.injEq] at hrun
         subst hrun
         rw [mkFEnv_find?_fun] at hf
         have hw := henvC.consts _ (List.mem_of_find?_eq_some hf)
         refine ScB.of_closed ?_ ?_ 0
-        · rw [Expr.hasFvar_instantiateLevelParams]; exact hw.1
-        · rw [Expr.looseBVarsBounded_instantiateLevelParams]; exact hw.2.2.2.1
+        · rw [Expr.hasFvar_instantiateLevelParams]; exact familyTelescope_hasFvar (fun _ _ _ hw he => whnf_WScoped henvC F hw he) hfam hw.1
+        · rw [Expr.looseBVarsBounded_instantiateLevelParams]
+          exact familyTelescope_bounded (fun _ _ _ hw he => whnf_looseBVars henvC F hw he) hfam hw.2.2.2.1
       · simp [throw, throwThe, MonadExceptOf.throw] at hrun
   case tyN =>
     intro c x hx
     change ScB p.nP x.tyN
-    obtain ⟨M, cA, hM, -, ⟨Q⟩⟩ := genRun_ctor R hx
+    obtain ⟨M, ctor, hM, -, ⟨Q⟩⟩ := genRun_ctor R hx
     have hty : x.tyN = Q.e0.ty := congrArg ClassCtor.tyN Q.hx
     rw [hty]
     have he0 : Q.e0 ∈ Q.E := List.mem_of_mem_head? Q.he0
@@ -632,18 +703,18 @@ theorem genScoped_of_run
   case tyD =>
     intro c x hx
     change ScB p.nP x.tyD
-    obtain ⟨M, cA, hM, hcA, ⟨Q⟩⟩ := genRun_ctor R hx
+    obtain ⟨M, ctor, hM, hctor, ⟨Q⟩⟩ := genRun_ctor R hx
     have hD := Q.hD
     rw [List.getD_eq_getElem?_getD, hM, Option.getD_some] at hD
     obtain ⟨hds, hctA, -⟩ := hcls hM
-    exact ScB.of_instPisWith hD ((hctA cA hcA).mono (Nat.zero_le _)) hds
+    exact ScB.of_instPisWith hD ((hctA ctor hctor).mono (Nat.zero_le _)) hds
   case order =>
     intro s c C ihs hs
     change R.rd.slots[s]? = some (.minor c C ihs) at hs
     obtain ⟨hc, hq⟩ := classRead_order R.hrd s c C ihs hs
     refine ⟨hc, fun x hx hxC t tele ht => ?_⟩
-    obtain ⟨M, cA, -, -, ⟨Q⟩⟩ := genRun_ctor R hx
-    have hcv : x.cv = cA.1 := congrArg ClassCtor.cv Q.hx
+    obtain ⟨M, ctor, -, -, ⟨Q⟩⟩ := genRun_ctor R hx
+    have hcv : x.cv = ctor.1 := congrArg ClassCtor.cv Q.hx
     have hkinds := Q.hkinds
     have hslot := Q.hslot
     rw [← hcv, hxC] at hslot hkinds

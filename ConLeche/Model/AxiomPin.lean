@@ -74,6 +74,7 @@ leaf valuation, and the membership is that constant's own
 axiom's does. -/
 theorem axiomTrustCompiler
     (mp : EnvModelM V env) {cv : ConstantVal} {type' : Expr}
+    (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
     (hname : cv.name = ConLeche.trustCompilerName)
     (hok : ConLeche.trustCompilerOk env ⟨cv.name, cv.levelParams, type'⟩
@@ -122,7 +123,7 @@ theorem axiomTrustCompiler
     exact hA.2
   have hnameTi : ciTi.name = ConLeche.trueIntroName := Env.find?_name hfTi
   -- the leaf: the stored `True.intro`'s leaf valuation
-  refine harvestAxiom (V := V) mp hcv
+  refine harvestAxiom (V := V) mp hopn hcv
     (A := fun ψ => mp.base2.acval ConLeche.trueIntroName ψ)
     (fun ψ => mp.base2.cval_closed _ ψ) ?_ ?_ ?_
     -- `trustCompiler` is not a compiler-trust *operation*: the pin
@@ -156,6 +157,7 @@ own constant in both halves, so every syntactic obligation is `rfl` or
 a `const` clause, and the whole content is the membership. -/
 theorem axiomStd
     (mp : EnvModelM V env) {cv : ConstantVal} {type' : Expr}
+    (hopn : natOpName cv.name = false)
     (hcv : ConstantValRun F env cv type')
     (hok : ConLeche.stdAxiomOk env ⟨cv.name, cv.levelParams, type'⟩
       = true) :
@@ -163,19 +165,18 @@ theorem axiomStd
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
   have hcv' := hcv
   obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
-    -⟩ := hcv'
+    -, hcvShape⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
     Option.isNone_iff_eq_none.mp hfind
   have hwfc : ConLeche.EnvWF ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ ::
       env.consts, env.tables⟩ := by
-    refine ConLeche.EnvWF.cons mp.base2.wf
-      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_, ?_⟩
+    refine ConLeche.EnvWF.cons (hcvShape _ (by rw [hann]; rfl)) mp.base2.wf
+      ⟨htf', htp, Expr.constsResolve_mono htr, hbt', ?_, ?_⟩
     · intro cv2 value2 hint2 heq; exact nomatch heq
-    · intro cv2 mI rP rules heq; exact nomatch heq
-    · intro cv2 caps heq; exact nomatch heq
+    · intro cv2 mI rP isK rules heq; exact nomatch heq
   by_cases hn : cv.name = propextName
-  · refine harvestAxiom (V := V) mp hcv
+  · refine harvestAxiom (V := V) mp hopn hcv
       (A := fun _ => .const .propext []) (fun _ => trivial)
       (fun _ _ _ => rfl) (fun _ _ => by simp)
       ?_ (by rw [hn]; decide)
@@ -193,7 +194,7 @@ theorem axiomStd
         refine hp uN ?_
         rw [hlpA, show choiceA.levelParams = [uN] from rfl]
         exact List.Mem.head _
-      refine harvestAxiom (V := V) mp hcv
+      refine harvestAxiom (V := V) mp hopn hcv
         (A := fun ψ => .const .choice [ψ uN])
         (fun _ => trivial)
         (fun ψ₁ ψ₂ hp => by

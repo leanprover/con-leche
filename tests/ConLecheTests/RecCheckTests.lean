@@ -40,7 +40,7 @@ open ConLeche
   [.indInfo ⟨nm "U", [], .sort (.succ .zero)⟩ {},
    .ctorInfo ⟨nm2 "U" "u", [], cU⟩ 0 0,
    .recInfo ⟨nm2 "U" "rec", [nm "v"], recTy⟩ 2 2
-     [{ ctor := nm2 "U" "u", nfields := 0, ctorParams := 0, fire := .plain, rhs := rhs }]]
+     false [{ ctor := nm2 "U" "u", nfields := 0, fire := .plain, rhs := rhs }]]
 
 /-- The fold step's verdict on the block (`accept`/`reject`/`decline`/`error`). -/
 @[expose] def run (rhs : Expr) : String :=
@@ -55,8 +55,8 @@ open ConLeche
   == "accept"
 -- a stream rule recursing on a CLOSED major (`U.rec motive h U.u`):
 -- the install compares the stream's rule with the generated one at the
--- generated install (`storedRecsCheck`,
--- `ConLeche/Kernel/Inductives/StoredRecs.lean`), where it ι-reduces to
+-- generated install (`streamRecsCheck`,
+-- `ConLeche/Kernel/Inductives/StreamRecs.lean`), where it ι-reduces to
 -- `h`: definitionally the generated rule, so the block is ACCEPTED with
 -- the stream's rule installed (official, comparing syntactically,
 -- rejects)

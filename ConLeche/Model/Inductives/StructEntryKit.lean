@@ -1,5 +1,6 @@
 module
 
+import ConLeche.Verify.Denote.IndFrame
 public import ConLeche.Model.Inductives.StructRecKit
 import ConLeche.Model.Rules.RedSoundKit
 import ConLeche.Verify.Inductives.DirectGen
@@ -997,24 +998,6 @@ theorem spineFit_take_length {Fs : List Term} {ρ : Nat → V} {as : List V}
 /-! ## The official guard's spelling -/
 
 omit [SetTheory V] in
-/-- The evaluated join over the used slots is zero exactly when the
-base and every used joined level are. -/
-theorem eval_foldl_max_if_zero_iff (ψ : Name → Nat) (used : Nat → Bool) (s : Nat → Level) :
-    ∀ (l : List Nat) (s0 : Level),
-      Level.eval ψ (l.foldl (fun acc j => if used j then Level.max acc (s j) else acc) s0) = 0 ↔
-        Level.eval ψ s0 = 0 ∧ ∀ j ∈ l, used j = true → Level.eval ψ (s j) = 0
-  | [], s0 => by simp
-  | a :: l, s0 => by
-    rw [List.foldl_cons, eval_foldl_max_if_zero_iff ψ used s l]
-    cases hu : used a
-    · simp only [Bool.false_eq_true, ↓reduceIte, List.mem_cons, forall_eq_or_imp, hu,
-        false_implies, true_and]
-    · simp only [↓reduceIte, Level.eval, Nat.max_eq_zero_iff, List.mem_cons, forall_eq_or_imp,
-        hu, forall_const]
-      constructor
-      · rintro ⟨⟨h0, ha⟩, hl⟩; exact ⟨h0, ha, hl⟩
-      · rintro ⟨h0, ha, hl⟩; exact ⟨⟨h0, ha⟩, hl⟩
-
 
 /-!
 ## The projection body's frame
@@ -1083,7 +1066,7 @@ theorem denote_projTele {acval : Name → (Name → Nat) → Term} {env : Env}
     rfl
 
 /-- The telescope over the parameters and the subject, at depth `0`:
-the residual is the body at the install's own variable spelling
+the residual is the body at the check's own variable spelling
 (`fvsD`/`tfvD`). -/
 theorem denote_projTele_zero {acval : Name → (Name → Nat) → Term} {env : Env}
     {φ : Name → Nat} {nP : Nat} {body : Expr} {RA : Term}

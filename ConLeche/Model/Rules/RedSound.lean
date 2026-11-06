@@ -350,12 +350,20 @@ theorem Red.natSucc_sound (hin : RulesInputs V m φ) {d : Nat} {a w : Expr}
 /-- The binary row at the reduced arguments, at the conditional motive. -/
 theorem Red.natOp_sound (hin : RulesInputs V m φ) {d : Nat} {c : Name}
     {a wa b wb r : Expr} {n₁ n₂ : Nat}
-    (hc : c ∈ natBinOpNames) (hst : ConLeche.natOpStored env c = true)
+    (hc : c ∈ natBinOpNames)
     (hwa : RedSem m φ d a wa) (hn₁ : ConLeche.rawNatLit? wa = some n₁)
     (hwb : RedSem m φ d b wb) (hn₂ : ConLeche.rawNatLit? wb = some n₂)
     (hr : ConLeche.natOpResult c n₁ n₂ = some r) :
     RedSem m φ d (.app (.app (.const c []) a) b) r := by
   intro hf Δa ea hC hea
+  have hst : ConLeche.isDefinitionAt env c = true := by
+    obtain ⟨ga, ba, hga, hba, rfl⟩ := denote_app_inv hea
+    obtain ⟨ca, aa, hca, haa, rfl⟩ := denote_app_inv hga
+    refine hin.op_defn c ?_ ?_
+    · exact (by decide : ∀ c ∈ natBinOpNames, ConLeche.natOpName c = true) c hc
+    · cases hfc : env.find? c with
+      | some _ => rfl
+      | none => rw [denote, hfc] at hca; exact nomatch hca
   obtain ⟨hsup, hhead⟩ := hin.nat_op_head hc hst
   obtain ⟨hws, hb, hLb⟩ := hf
   simp only [Expr.WScoped] at hws
@@ -425,7 +433,6 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
     (hi : i < entry.numFields)
     (hlen : e.getAppArgs.length = entry.numParams + entry.numFields)
     (hus : us.length = entry.levelParams.length)
-    (hfire : entry.fireOk us = true)
     (hctor : env.find? entry.ctor = some (.ctorInfo cvC nP nF))
     (hcerts : TeleAritySem m φ d
       (cvC.type.instantiateLevelParams cvC.levelParams us) e.getAppArgs) :
@@ -441,7 +448,7 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
   have hCe : CtxOkS m φ d Δa e := hC.of_subset hsube
   obtain ⟨vp, -, hvp, -, rfl⟩ := denote_proj_inv hea
   -- the tower entry's laws
-  obtain ⟨-, -, -, -, hO5, cvC₀, hfC, hlpsC, hlaw, -⟩ := hin.tower_ok sn i entry hent
+  obtain ⟨-, -, -, -, cvC₀, hfC, hlpsC, hlaw, -⟩ := hin.tower_ok sn i entry hent
   obtain rfl : cvC₀ = cvC := by
     obtain ⟨rfl, -, -⟩ :=
       ConstantInfo.ctorInfo.inj (Option.some.inj (hfC.symm.trans hctor))
@@ -529,6 +536,6 @@ theorem Red.proj_sound (hin : RulesInputs V m φ) {d : Nat} {sn : Name} {i : Nat
   refine ⟨hokArg, ?_⟩
   have hfit : TeleFit V σ TCa (vs.map (interp V σ)) (interp V σ resta) :=
     teleFit_of_teleFitPA (by rw [← hspa.length]; exact hpc) hfitσ
-  rw [hveq, hB (towerGuardAt_of_fireOk hO5 hfire) σ vs _ hlenVs hgvp hfit]
+  rw [hveq, hB σ vs _ hlenVs hgvp hfit (by rw [← hveq]; exact hne)]
 
 end ConLeche.Model.Rules

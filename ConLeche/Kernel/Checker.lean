@@ -40,7 +40,7 @@ def checkDefnVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" value)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" value)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in definition {cv.name}")
@@ -53,10 +53,9 @@ is opaque to reduction (`unfoldDefinition` has no `thmInfo` arm), and
 the checked value is a *realizability witness*, checked against the
 statement and then discarded, exactly as an opaque's is: the result
 environment does not mention `value`, so nothing downstream can read a
-proof term.  This is what lets the driver install a theorem before its
-value is looked at at all (phase A pushes the statement; phase B
-checks the value from the pending record,
-`ConLeche/Cached/Installed.lean`). -/
+proof term.  This is what lets a later record's job read a theorem whose
+own job has not run: what it reads is the statement alone
+(`ConLeche/Cached/StreamIndex.lean`). -/
 def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
     (value : Expr) : m Env := do
   -- the type of a theorem must be a proposition
@@ -72,7 +71,7 @@ def checkThmVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless jv.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless jv.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" jv)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" jv)
   let vtype ← ops.inferType env 0 jv
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in theorem {cv.name}")
@@ -96,7 +95,7 @@ def checkOpaqueVal (ops : CheckerOps m) (env : Env) (cv : ConstantVal)
   unless value.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in value of {cv.name}")
   unless value.constsResolve env do
-    throw (unresolvedConstsErrorL (strLitSupported env) s!"value of {cv.name}" value)
+    throw (unresolvedConstsErrorL (strLitStored env) s!"value of {cv.name}" value)
   let vtype ← ops.inferType env 0 value
   unless ← ops.isDefEq env 0 vtype cv.type do
     throw (.invalid s!"type mismatch in opaque {cv.name}")
@@ -300,7 +299,7 @@ certificate statements are equations in the pinned equality), and the
 `true`/`false` must inhabit the `Bool` value semantically). -/
 def divModEnvGuard (env2 : Env) (c : Name) : Bool :=
   natOpGuard env2 c && (natOpDeps c).all (natOpStoredOk env2) &&
-  env2.find? eqName == some eqA &&
+  (env2.find? eqName).isSome &&
   (match env2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []
     | none => false) &&
@@ -461,16 +460,26 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
   else throw (.notImplemented
     s!"unsupported compiler-trust opaque declaration ({c})")
 
-/-- **Install the pinned basis block.**  The three
-records that install one — the fold's own `basisDecl` kind, a stream
-block `basisPinHit` recognises and a quotient record `quotPinHit`
-recognises — share this body, so what is proved of one is proved of
-all three.  The quotient block's types mention the pinned equality
-former. -/
-def checkBasisDecl (env : Env) (kind : BasisKind) : m Env := do
-  if kind = .quotK then
-    unless env.find? eqName = some eqA do
-      throw (.notImplemented "quotient basis requires the pinned Eq basis")
-  kind.declsA.foldlM installBasisDecl env
+/-- **A pinned block's check and install**: the records compared with
+the pin, and each pin installed at the names its record declares.  A
+block with a pinned block's names that is not the pin is invalid input
+(a basis redefinition). -/
+def checkBasisBlock (env : Env) (kind : BasisKind) (block : List ConstantInfo) : m Env := do
+  unless pinListOk block kind.decls do
+    throw (.invalid "reserved basis name: the block is not the pinned one")
+  (kind.atBlock block).foldlM installBasisDecl env
+
+/-- **A quotient record's check and install**: compared with its slot's
+pin, the slots it needs stored, and installed at its own names.  A record
+that does not match is a quotient this checker positively does not
+support. -/
+def checkQuotRecord (env : Env) (k : QuotKind) (cv : ConstantVal) : m Env := do
+  unless quotPinHit k cv do
+    throw (.notImplemented (match k with
+      | .sound => "quotient soundness axiom mismatch"
+      | _ => "quotient declaration mismatch"))
+  unless quotPredsOk env.find? k do
+    throw (.notImplemented "quotient declaration before what it needs")
+  installBasisDecl env (quotAt k cv)
 
 end ConLeche

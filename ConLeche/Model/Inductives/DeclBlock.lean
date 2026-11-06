@@ -23,7 +23,7 @@ open ConLeche.SetModel
 open ConLeche.Term ConLeche.Verify SetTheory
 
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecFieldKind IndCaps
-  BlockShape BlockParts MemberShape RecRule)
+  BlockShape BlockShape MemberShape RecRule)
 
 universe w
 
@@ -53,32 +53,33 @@ It is three cons-monotonicities and mentions no `BlockData`. -/
 /-- **The tables' invariant crosses the recursors' conses**, by the
 three facts of `BlockRecStagedAt` and nothing else. -/
 theorem BlockTablesCore.consRecs {envC envR : Env} {mC : EnvModel V envC} {mR : EnvModel V envR}
-    {d : BlockData V} {lps : List Name} {cvTasAll : List ConstantVal} {p₁ : ConLeche.BlockShape}
+    {d : BlockData V} {lps : List Name} {formersAll : List ConstantVal} {p₁ : ConLeche.BlockShape}
     {isRec : Bool} {A : Nat → (Name → Nat) → Term}
-    (h : BlockTablesCore mC d lps cvTasAll p₁ isRec A)
+    (h : BlockTablesCore mC d lps formersAll p₁ isRec A)
     (hag : ∀ n : Name, (envC.find? n).isSome = true → mR.acval n = mC.acval n)
     (hfind : ∀ (n : Name) (c : ConstantInfo), envC.find? n = some c → envR.find? n = some c)
     (hden : ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr), ConstsBound envC e →
       denote mR.acval envR ψ dd e = denote mC.acval envC ψ dd e) :
-    BlockTablesCore mR d lps cvTasAll p₁ isRec A := by
+    BlockTablesCore mR d lps formersAll p₁ isRec A := by
   obtain ⟨hform, hctor⟩ := h
   have hsome : ∀ n : Name, (envC.find? n).isSome = true → (envR.find? n).isSome = true := by
     intro n hn
     cases hc : envC.find? n with
     | none => rw [hc] at hn; exact nomatch hn
     | some c => rw [hfind n c hc]; rfl
-  refine ⟨fun c cvTb hc => ?_, fun c j cA hj => ?_⟩
+  refine ⟨fun c cvTb hc => ?_, fun c j ctor hj => ?_⟩
   · obtain ⟨hfindT, hres, hleaf, hFD⟩ := hform c cvTb hc
-    refine ⟨hfind _ _ hfindT, Expr.constsResolve_of_find hsome hres, fun ψ => ?_, ?_⟩
-    · rw [hag cvTb.name (by rw [hfindT]; rfl)]; exact hleaf ψ
+    refine ⟨hfindT.of_ext hfind hden, Expr.constsResolve_of_find hsome hres, fun ψ => ?_, ?_⟩
+    · obtain ⟨cvS, hfS, -⟩ := hfindT
+      rw [hag cvTb.name (by rw [hfS]; rfl)]; exact hleaf ψ
     · exact ⟨fun ψ => by
         rw [hden ψ 0 cvTb.type (constsBound_of_constsResolve _ hres)]; exact hFD.read ψ,
       hFD.len, hFD.okTy, hFD.below, hFD.params, hFD.syn⟩
-  · obtain ⟨hfindC, hlps, hres, hread, hleaf⟩ := hctor c j cA hj
+  · obtain ⟨hfindC, hlps, hres, hread, hleaf⟩ := hctor c j ctor hj
     refine ⟨hfind _ _ hfindC, hlps, Expr.constsResolve_of_find hsome hres, fun ψ => ?_,
       fun ψ => ?_⟩
-    · rw [hden ψ 0 cA.1.type (constsBound_of_constsResolve _ hres)]; exact hread ψ
-    · rw [hag cA.1.name (by rw [hfindC]; rfl)]; exact hleaf ψ
+    · rw [hden ψ 0 ctor.1.type (constsBound_of_constsResolve _ hres)]; exact hread ψ
+    · rw [hag ctor.1.name (by rw [hfindC]; rfl)]; exact hleaf ψ
 
 /-- **The recursors' stage's obligation at the cons at the majors**:
 `BlockRecStagedAt`'s three cons-monotonicities at
@@ -89,7 +90,7 @@ major (`.nested` at an outside one). -/
     (out : List (ConstantVal × ConLeche.TargetMajor × List Expr))
     (mpC : EnvModelM V envC) : Prop :=
   BlockRecStagedAt envC
-    (ConLeche.consBlockRecsT envC.find? p 0 out envC) mpC
+    (ConLeche.consBlockRecsT p 0 out envC) mpC
 
 
 /-- **The block over an older environment**: a well-formed environment `env₀` in which no member
@@ -112,14 +113,15 @@ environment `envI`) reads, tied to the recursor stage's carrier.  Every
 block `mpC` records is `mk`'s or the block's own `D0` (`FrameMono` asks a container's block in `mk.lfpBlocks`, `lfpSel` selects
 from `mpC.lfpBlocks`). -/
 @[expose] def FormersModelAt (envI : Env) (names : List Name) {envC : Env}
-    (mpC : EnvModelM V envC) (d : BlockData V) (lps : List Name) (cvTas : List ConstantVal)
+    (mpC : EnvModelM V envC) (d : BlockData V) (lps : List Name) (formers : List ConstantVal)
     (p : BlockShape) (isRec : Bool) : Prop :=
-  ∃ mk : EnvModelM V envI, LfpCover mk names ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
+  ∃ mk : EnvModelM V envI, LfpCover mk names ∧ (∀ F, FamilyRead mk F) ∧
+    (∀ F, FamilyRead mpC F) ∧ (∀ D ∈ mk.lfpBlocks, D ∈ mpC.lfpBlocks) ∧
     (∀ n, (envI.find? n).isSome = true → mpC.base2.acval n = mk.base2.acval n) ∧
     (∀ D ∈ mpC.lfpBlocks, D = d.toLfp ∨ D ∈ mk.lfpBlocks) ∧
     -- the member constructors' hole contexts at the formers' model (the
     -- node-semantics induction's root)
-    BlockHoleCtxFacts mk.base2 d lps cvTas p isRec ∧
+    BlockHoleCtxFacts mk.base2 d lps formers p isRec ∧
     -- a reading at the formers' environment is one at the constructors'
     ∀ (ψ : Name → Nat) (dd : Nat) (e : Expr) {ea : Term},
       denote mk.base2.acval envI ψ dd e = some ea → denote mpC.base2.acval envC ψ dd e = some ea
@@ -130,32 +132,31 @@ cons, the block's representation and model records, the block over the
 input environment.  The node route's facts that read no recursor run take
 this (`nodeListFacts_of`, `dynCtx_of`). -/
 @[expose] def RecCtxBase (V : Type w) [SetTheory V] (F : Nat)
-    (envC envI : Env) (pp : BlockParts)
-    (cvTasR : List ConstantVal) (ctorsAsR : List (List (ConstantVal × Nat)))
+    (envC envI : Env) (pp : BlockShape)
     (mpC : EnvModelM V envC) (dR : BlockData V) (isRecR : Bool)
     (A : Nat → (Name → Nat) → Term)
     (kindsR : List (List (List ConLeche.NestFieldKind))) (nfsR : List (List Expr))
     (posR : ConLeche.NestState) : Prop :=
-  ConLeche.checkBlockPositivity (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) envI
-      envI.find? pp cvTasR ctorsAsR = .ok (kindsR, nfsR, posR) ∧
-  envC = ConLeche.consBlockCtors pp.nP ctorsAsR envI ∧
-  ctorsAsR.map (·.map (fun cA => (cA.1.name, cA.2)))
+  ConLeche.PositivityRun (ConLeche.fueledOps .verified F) envI
+      envI.find? pp kindsR nfsR posR ∧
+  envC = ConLeche.consBlockCtors pp.nP pp.memberCtors envI ∧
+  pp.memberCtors.map (·.map (fun ctor => (ctor.1.name, ctor.2)))
     = pp.members.map (fun ms => ms.ctors.map (fun c => (c.1.name, c.2))) ∧
-  pp.toBlockShape.memberNames.Nodup ∧
-  BlockNamesOk (V := V) dR cvTasR ∧
-  BlockCtorsStage (V := V) F dR pp.lps cvTasR pp.toBlockShape isRecR A envI pp.ctorNamesAt ∧
-  BlockCtorsCore mpC.base2 dR pp.lps cvTasR pp.toBlockShape isRecR A dR.k ∧
-  (∀ c, c < ctorsAsR.length → ctorsAsR[c]? = some (dR.ctorsM c)) ∧
+  pp.memberNames.Nodup ∧
+  BlockNamesOk (V := V) dR pp.formers ∧
+  BlockCtorsStage (V := V) F dR pp.lps pp.formers pp isRecR A envI pp.ctorNamesAt ∧
+  BlockCtorsCore mpC.base2 dR pp.lps pp.formers pp isRecR A dR.k ∧
+  (∀ c, c < pp.memberCtors.length → pp.memberCtors[c]? = some (dR.ctorsM c)) ∧
   (∃ (pk : Nat → BlockMemberPick) (uOfD : Nat → (Name → Nat) → Nat)
       (ppsOf : Nat → (Name → Nat) → List Term),
-    dR = blockDataOf V pp.toBlockShape ctorsAsR pk uOfD ppsOf) ∧
+    dR = blockDataOf V pp pk uOfD ppsOf) ∧
   dR.toLfp ∈ mpC.lfpBlocks ∧
   LfpCover mpC [] ∧
-  FormersModelAt (V := V) envI pp.toBlockShape.memberNames mpC dR pp.lps cvTasR
-    pp.toBlockShape isRecR ∧
-  BlockOverEnv envC pp.toBlockShape.memberNames ∧
-  (∀ c ∈ ctorsAsR.flatten, envI.find? c.1.name = none ∧
+  FormersModelAt (V := V) envI pp.memberNames mpC dR pp.lps pp.formers
+    pp isRecR ∧
+  BlockOverEnv envC pp.memberNames ∧
+  (∀ c ∈ pp.memberCtors.flatten, envI.find? c.1.name = none ∧
     ∀ C, (ctorEntry C (.ctorInfo c.1 pp.nP c.2)).isSome = true →
-      C ∈ pp.toBlockShape.memberNames)
+      C ∈ pp.memberNames)
 
 end ConLeche.Model

@@ -233,7 +233,7 @@ def natOpStoredOkF (fe : FEnv) (n : Name) : Bool :=
 /-- `stdAxiomOk` through the index. -/
 def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   if cv.name = propextName then
-    decide (fe.find? eqName = some eqA) &&
+    (fe.find? eqName).isSome &&
     (match fe.find? iffName with
      | some (.indInfo cvI _) => ConstantVal.matchesPin cvI iffA.toConstantVal
      | _ => false) &&
@@ -242,7 +242,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvIi iffIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? iffRecName with
-     | some (.recInfo cvIr 4 4 _) =>
+     | some (.recInfo cvIr 4 4 _ _) =>
        ConstantVal.matchesPin cvIr iffRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv propextA
@@ -256,7 +256,7 @@ def stdAxiomOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
        ConstantVal.matchesPin cvNi nonemptyIntroA.toConstantVal
      | _ => false) &&
     (match fe.find? nonemptyRecName with
-     | some (.recInfo cvNr 3 3 _) =>
+     | some (.recInfo cvNr 3 3 _ _) =>
        ConstantVal.matchesPin cvNr nonemptyRecA.toConstantVal
      | _ => false) &&
     ConstantVal.matchesPin cv choiceA
@@ -289,7 +289,7 @@ def reduceElemOkF (fe : FEnv) (c : Name) : Bool :=
 /-- `ofReduceAxOk` through the index. -/
 def ofReduceAxOkF (fe : FEnv) (cv : ConstantVal) : Bool :=
   let c := ofReduceOp cv.name
-  decide (fe.find? eqName = some eqA) &&
+  (fe.find? eqName).isSome &&
   reduceElemOkF fe c &&
   reduceStoredOkF fe c &&
   ConstantVal.matchesPin cv (ofReducePinA cv.name)
@@ -303,7 +303,7 @@ def reducePinGuardF (fe : FEnv) (c : Name) : Bool :=
 /-- `divModEnvGuard` through the index. -/
 def divModEnvGuardF (fe2 : FEnv) (c : Name) : Bool :=
   natOpGuardF fe2 c && (natOpDeps c).all (natOpStoredOkF fe2) &&
-  fe2.find? eqName == some eqA &&
+  (fe2.find? eqName).isSome &&
   (match fe2.find? boolTrueName with
     | some ci => ci.toConstantVal.type == .const boolName []
     | none => false) &&
@@ -360,11 +360,15 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 
 /-- `checkConstantVal` through the index. -/
 def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
-    (cv : ConstantVal) : m Unit := do
+    (cv : ConstantVal) (allowOp : Bool := false) : m Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then
     throw (.invalid s!"reserved basis name {cv.name}")
+  if natOpName cv.name && !allowOp then
+    throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
+  unless litShapeOk (.axiomInfo cv) do
+    throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")
   unless Name.nodup cv.levelParams do
     throw (.invalid s!"duplicate universe parameters in {cv.name}")
   unless cv.type.looseBVarsBounded 0 do
@@ -374,7 +378,7 @@ def checkConstantValF (ops : CheckerOps m) (fe : FEnv)
   unless cv.type.allLevelParamsDefined cv.levelParams do
     throw (.invalid s!"undeclared universe parameter in type of {cv.name}")
   unless cv.type.constsResolveF fe do
-    throw (unresolvedConstsErrorL (strLitSupportedF fe) s!"type of {cv.name}" cv.type)
+    throw (unresolvedConstsErrorL (strLitStoredF fe) s!"type of {cv.name}" cv.type)
   let stype ← ops.inferType fe.env 0 cv.type
   let _u ← ops.ensureSort fe.env 0 stype
 

@@ -28,7 +28,7 @@ variable {m : Type → Type} [Monad m] [MonadExceptOf CheckError m]
 def checkBlockTeleF (ops : CheckerOps m) (fe : FEnv) (nP : Nat)
     (ms : MemberShape) : m (ConstantVal × Level) := do
   checkConstantValF ops fe ms.cvT
-  let (cvTa, s) ← checkSumTeleF ops fe ms.cvT (nP + ms.nIdx) ms.cvT
+  let (cvTa, s) ← checkSumTele (nP + ms.nIdx) ms.cvT
   let (_, tbody) ← unwrapOr (cvTa.type.stripPis (nP + ms.nIdx))
     (.internal "direct sum: type former telescope")
   unless tbody == Expr.sort s do
@@ -80,49 +80,44 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) :
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.indInfo cvTa (blockCapsAt p₁ i isRec)))
 
 /-- `checkBlockInds` through the index. -/
-def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockParts)
-    (isRec : Bool) : m (FEnv × List ConstantVal × BlockShape) :=
+def checkBlockIndsF (ops : CheckerOps m) (fe : FEnv) (p : BlockShape)
+    (isRec : Bool) : m (FEnv × BlockShape) :=
   match p.members with
   | [] => throw (.internal "block: no type former")
   | ms0 :: rest => do
     let (cvTa0, s0) ← checkBlockTeleF ops fe p.nP ms0
     let cvs ← checkBlockTelesF ops fe p.nP rest
     checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
-    let p₁ := p.toBlockShape.withSort s0
-    let cvTas := cvTa0 :: cvs.map (·.1)
-    pure (consBlockIndsF p₁ isRec cvTas 0 fe, cvTas, p₁)
+    let p₁ := p.withSort s0
+    pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0 fe, p₁)
 
 /-! ## Stage 1b: the constructors -/
 
 /-- `checkBlockCtors` through the index. -/
 def checkBlockCtorsF (ops : CheckerOps m) (fe₀ fe : FEnv) (p : BlockShape) :
-    List (MemberShape × ConstantVal) →
-      m (List (List (ConstantVal × Nat)) × List (List (List Level)))
-  | [] => pure ([], [])
-  | (ms, cvTa) :: rest => do
-    let (ctorsA, sortss) ← checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
-      p.resSort p.isProp p.large cvTa ms.ctors
-    let (restC, restS) ← checkBlockCtorsF ops fe₀ fe p rest
-    pure (ctorsA :: restC, sortss :: restS)
+    List MemberShape → m Unit
+  | [] => pure ()
+  | ms :: rest => do
+    checkSumCtorsF ops fe₀ fe ms.cvT.name p.lps p.nP ms.nIdx
+      p.resSort p.isProp p.large ms.cvT ms.ctors
+    checkBlockCtorsF ops fe₀ fe p rest
 
 /-! ## Stage 2: the tail -/
 
 /-- `checkBlockIdxSorts` through the index. -/
 def checkBlockIdxSortsF (ops : CheckerOps m) (fe₁ : FEnv) (p : BlockShape) :
-    List (MemberShape × ConstantVal) → m (List (List Level))
-  | [] => pure []
-  | (ms, cvTa) :: rest => do
-    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) cvTa.type 0)
+    List MemberShape → m Unit
+  | [] => pure ()
+  | ms :: rest => do
+    let tq ← unwrapOr (openPisAtFvars (p.nP + ms.nIdx) ms.cvT.type 0)
       (.internal "direct rec: type former telescope")
-    let isorts ← checkStructFieldSortsIF ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) []
-      ms.nIdx
-    let rest ← checkBlockIdxSortsF ops fe₁ p rest
-    pure (isorts :: rest)
+    checkStructFieldSortsIF ops fe₁ true false p.resSort p.nP (tq.1.drop p.nP) [] ms.nIdx
+    checkBlockIdxSortsF ops fe₁ p rest
 
 /-- `consBlockCtors` through the index. -/
 def consBlockCtorsF (nP : Nat) : List (List (ConstantVal × Nat)) → FEnv → FEnv
   | [], fe => fe
-  | ctorsA :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorsA fe)
+  | ctorList :: rest, fe => consBlockCtorsF nP rest (consSumCtorsF nP ctorList fe)
 
 /-- Push a list of records, head first. -/
 def FEnv.pushAll : List ConstantInfo → FEnv → FEnv
@@ -143,7 +138,7 @@ def consBlockRecsBareF (p : BlockShape) : Nat → List (ConstantVal × Nat) → 
   | _, [], fe => fe
   | m, (cvRa, _nIdx) :: rest, fe =>
     consBlockRecsBareF p (m + 1) rest
-      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) []))
+      (fe.push (.recInfo cvRa (p.majorIdxAt m) (p.rulePrefixAt m) false []))
 
 /-!
 The recursor stage has NO `F` twin here: it is written once over the
@@ -155,19 +150,14 @@ holding the rule-less recursors its rules are inferred at.
 /-! ## The tables and the install -/
 
 /-- `checkBlockTables` through the index. -/
-def checkBlockTablesF (w : StructWalkers) (p : BlockShape) :
-    List (MemberShape × List (ConstantVal × Nat) × List (List Level)) → FEnv → m FEnv
-  | [], fe => pure fe
-  | (ms, ctorsA, sortss) :: rest, fe => do
-    let fe' ←
-      (match ctorsA, sortss with
-       | [cA], [sorts] =>
-         if ms.nIdx == 0 then
-           checkStructProjTableF w ms.cvT.name cA.1.name p.lps p.nP cA.2 p.resSort
-             (structProjGuards cA.1.type p.nP cA.2 sorts) cA.1 fe
-         else pure fe
-       | _, _ => pure fe)
-    checkBlockTablesF w p rest fe'
+def checkBlockTablesF (w : StructWalkers) (p : BlockShape) (fe : FEnv) :
+    List MemberShape → m Unit
+  | [] => pure ()
+  | ms :: rest => do
+    (match ms.structCtor? with
+     | some c => checkStructProjTableF w ms.cvT.name p.lps p.nP c.2 c.1 fe
+     | none => pure ())
+    checkBlockTablesF w p fe rest
 
 end Mirrors
 
