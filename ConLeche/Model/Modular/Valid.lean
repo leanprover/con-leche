@@ -789,6 +789,84 @@ theorem stream_tables_mem {L : List Declaration} (hnd : NodupNames (streamEnv L)
     exact (List.nodup_append.mp (List.nodup_append.mp hrec).2.1).1
   exact find?_of_mem_nodupKey (·.structName) ((declTables_sublist e).nodup hnde) hte
 
+/-! ## An inductive copy arrives with its record -/
+
+theorem not_ind_of_stmt {ci : ConstantInfo} (h : ci.isStmtKind = true) : ci.isIndKind = false := by
+  cases ci <;> simp_all [ConstantInfo.isStmtKind, ConstantInfo.isIndKind]
+
+/-- An inductive record's names are never flagged proofs. -/
+theorem not_flagged_of_ind {j : Nat} (hK : ImportOk .verified pins dev j) {p : Declaration}
+    (hp : p ∈ (dev j).decls) {ci : ConstantInfo} (hci : ci ∈ declConstants p)
+    (hk : ci.isIndKind = true) {c : ConstantInfo} (hc : c ∈ declConstants p) :
+    (dev j).proofs c.name = false := by
+  cases h : (dev j).proofs c.name with
+  | false => rfl
+  | true =>
+    obtain ⟨E', hpd⟩ := flagsOk_mem hK.flags p hp c.name (List.mem_map_of_mem hc) h
+    have := not_ind_of_stmt ((ProofDecl.kinds hpd).1 ci hci)
+    rw [hk] at this; exact nomatch this
+
+/-- An own record's constant, not flagged, is under the module's home key. -/
+theorem key_of_own {j : Nat} (hK : ImportOk .verified pins dev j) {p : Declaration}
+    (hp : p ∈ (dev j).decls) {c : ConstantInfo} (hc : c ∈ declConstants p)
+    (hpr : (dev j).proofs c.name = false) :
+    (dev j).own.find? c.name = some c ∧ (dev j).context.find? c.name = none ∧
+      (dev j).key c.name = .home j := by
+  obtain ⟨hnd, hfr, -⟩ := ImportOk.chain hK
+  have h1 := own_find?_of_decl hnd hp hc
+  have h2 := hfr c (mem_recsC.mpr ⟨p, hp, hc⟩)
+  refine ⟨h1, h2, ?_⟩
+  rw [hK.key_own _ c h1 h2]
+  simp [Module.ownKey, hpr]
+
+/-- **The record of an inductive copy**: a module's copy of an inductive kind is installed by a
+record equal (in constants and tables) to its owner's own record, every constant of which it
+stores under the owner's home key; a context record also reads what it reads as the owner. -/
+theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j : Nat} (hj : j ≤ i)
+    {x : Name} {ci : ConstantInfo} (hx : (dev j).own.find? x = some ci) (hk : ci.isIndKind = true) :
+    ∃ t ≤ j, ∃ p ∈ (dev t).decls, ∃ r : Declaration, ci ∈ declConstants r ∧
+      declConstants r = declConstants p ∧ declTables r = declTables p ∧
+      (∀ c ∈ declConstants r, (dev j).own.find? c.name = some c ∧ (dev j).key c.name = .home t) ∧
+      ((r ∈ (dev j).ctx ∧ RecordScoped (readsAlike dev j t) r) ∨ (t = j ∧ r ∈ (dev j).decls)) := by
+  have hK := (hok j hj).importOk
+  obtain ⟨hndO, -, -⟩ := ImportOk.chain hK
+  rcases own_find?_cases hK hx with hc | ⟨-, p, hp, hcp⟩
+  · obtain ⟨e, he, hce, hnm⟩ := streamEnv_find?_some (L := (dev j).ctx) hc
+    have hxe : x ∈ declNames e := List.mem_map.mpr ⟨ci, hce, hnm⟩
+    have hlt := hK.src_lt x (by rw [hc]; rfl)
+    have hs := hok ((dev j).src x) (by omega)
+    obtain ⟨p, hp, hpres⟩ := hs.iface.presents e (hK.presented e he x hxe)
+    -- an inductive copy's record is its owner's record itself
+    have heq : declConstants e = declConstants p ∧ declTables e = declTables p := by
+      rcases hpres with h | ⟨rfl, -⟩
+      · exact h
+      · cases p with
+        | defnDecl cv v hint | thmDecl cv v | opaqueDecl cv v =>
+          exfalso
+          obtain ⟨fe, r, hr⟩ := (ImportOk.chain hs.importOk).2.2 _ hp
+          have hres := checkDeclStepC_unreserved hr cv (by simp)
+          have hq : cv.name ≠ quotSoundName := by
+            intro h; rw [h] at hres; exact absurd hres (by decide)
+          simp only [stmtOf, declConstants, hq, ↓reduceIte] at hce
+          split at hce
+          · exact absurd hce (List.not_mem_nil)
+          · rw [List.mem_singleton.mp hce] at hk; exact nomatch hk
+        | axiomDecl _ | quotDecl _ _ | indDecl _ _ => exact ⟨rfl, rfl⟩
+    refine ⟨(dev j).src x, by omega, p, hp, e, hce, heq.1, heq.2, fun c hc' => ?_,
+      .inl ⟨he, by simpa using hK.reads e he x hxe⟩⟩
+    have hcp : c ∈ declConstants p := heq.1 ▸ hc'
+    have hcf : (dev j).context.find? c.name = some c :=
+      streamEnv_find?_of_mem hK.nodup he hc'
+    refine ⟨own_find?_of_context hndO hcf, ?_⟩
+    have hsrc : (dev j).src c.name = (dev j).src x :=
+      hK.one_src e he c.name (List.mem_map_of_mem hc') x hxe
+    rw [hK.key_context c.name (by rw [hcf]; rfl), hsrc]
+    exact (key_of_own hs.importOk hp hcp
+      (not_flagged_of_ind hs.importOk hp (heq.1 ▸ hce) hk hcp)).2.2
+  · refine ⟨j, Nat.le_refl j, p, hp, p, hcp, rfl, rfl, fun c hc' => ?_, .inr ⟨rfl, hp⟩⟩
+    obtain ⟨h1, -, h3⟩ := key_of_own hK hp hc' (not_flagged_of_ind hK hp hcp hk hc')
+    exact ⟨h1, h3⟩
+
 end
 
 end ConLeche.Model.Modular

@@ -35,7 +35,7 @@ adds is what a module is for con-leche and what its checks are.
 1. at the home, once (`InterfaceOk`): every presentation the module offers presents one of its own
    records;
 2. at the importer (`ImportOk`): the imports and sources come earlier; the context stores each name
-   once; every context record is a presentation of the module its names are read from; what a context
+   once; every context record is read from one module and is a presentation of it; what a context
    record's constants read is stored in the context and read as that module reads it, under one key
    (`RecordScoped` over `readsAlike`); the own records are accepted from the context, one after
    another, each by the fold's own step (`DeclsRun`); a name flagged a proof is declared by a proof;
@@ -202,6 +202,9 @@ structure ImportOk (mode : CheckMode) (pins : List NatOpPinSet) (dev : Nat → M
   nodup : ((dev i).context.consts.map (·.toConstantVal.name)).Nodup
   /-- every context record is a presentation of the module its names are read from -/
   presented : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, d ∈ (dev ((dev i).src n)).iface
+  /-- a context record is read from one module: its names have one source -/
+  one_src : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, ∀ n' ∈ declNames d,
+    (dev i).src n = (dev i).src n'
   /-- what a context record reads is stored in the context, read as its source reads it -/
   reads : ∀ d ∈ (dev i).ctx, ∀ n ∈ declNames d, RecordScoped (readsAlike dev i ((dev i).src n)) d
   /-- the own records, accepted from the context by the fold's step -/
