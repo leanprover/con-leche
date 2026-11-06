@@ -1,7 +1,6 @@
 module
 
 public import ConLeche.Cached.ParsedC
-public import ConLeche.Frontend.Olean.Files
 
 @[expose] public section
 
@@ -98,13 +97,15 @@ def rssKiB (pid : UInt32) : IO Nat := do
     | none => pure 0
   catch _ => pure 0
 
-/-- The log's verdicts, by module: every line `<verdict>\t<module>` of it. -/
-def readLog (p : System.FilePath) : IO (Std.HashMap Name String) := do
+/-- The log's verdicts, by module: every line `<verdict>\t<module>` of it, the module's name
+read by `parse`. -/
+def readLog (parse : String → Option Name) (p : System.FilePath) :
+    IO (Std.HashMap Name String) := do
   if !(← p.pathExists) then return {}
   let s ← IO.FS.readFile p
   return (s.splitOn "\n").foldl (fun m l =>
     match l.splitOn "\t" with
-    | [w, n] => match Frontend.Olean.parseModName n with
+    | [w, n] => match parse n with
       | some x => m.insert x w
       | none => m
     | _ => m) {}
@@ -119,12 +120,12 @@ structure St where
 
 /-- **The scheduler**: the modules' workers (`args m`, the worker's arguments at `m`, of the
 binary `app`) run as the module docstring says; the verdict of every module of `mods`. -/
-def run (app : System.FilePath) (args : Name → Array String) (mods : Array Name) (o : Opts)
-    (jobs : Nat) : IO (Std.HashMap Name String) := do
+def run (parse : String → Option Name) (app : System.FilePath) (args : Name → Array String)
+    (mods : Array Name) (o : Opts) (jobs : Nat) : IO (Std.HashMap Name String) := do
   let err ← IO.getStderr
   let out ← IO.getStdout
   let logged ← match o.log with
-    | some p => readLog p
+    | some p => readLog parse p
     | none => pure {}
   let todo := mods.toList.filter (!logged.contains ·)
   if logged.size > 0 then
@@ -236,9 +237,9 @@ def summary (mods : Array Name) (vs : Std.HashMap Name String) (modeTag : String
 
 /-- **The scheduler's run**: the workers of `mods`, this binary at the arguments `args m`
 (`run`), then the verdict (`summary`). -/
-def runAll (args : Name → Array String) (mods : Array Name) (o : Opts) (jobs : Nat)
-    (modeTag : String) : IO UInt8 := do
-  let vs ← run (← IO.appPath) args mods o jobs
+def runAll (parse : String → Option Name) (args : Name → Array String) (mods : Array Name)
+    (o : Opts) (jobs : Nat) (modeTag : String) : IO UInt8 := do
+  let vs ← run parse (← IO.appPath) args mods o jobs
   summary mods vs modeTag
 
 end ConLeche.Driver.Schedule

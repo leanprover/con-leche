@@ -47,6 +47,6 @@ def scheduleG {μ : Type → Type} [CheckerIO μ] (sp : SearchPath) (root : Name
       let args (m : Name) : Array String :=
         #["--olean", "--module", "--jobs=1", modeTag, "--search-path=" ++ dirs, "--",
           Schedule.spell m]
-      CheckerIO.liftIO (Schedule.runAll args mods o jobs modeTag)
+      CheckerIO.liftIO (Schedule.runAll parseModName args mods o jobs modeTag)
 
 end ConLeche.Driver

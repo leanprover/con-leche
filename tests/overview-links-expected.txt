@@ -125,15 +125,15 @@
    200        ∀ j hj n s, ((dev j).own.find? n).isSome = true → (dev j).key n = .proof s →
    201          (m j hj).cval n = fun _ => pt := by
 
-== tests/ConLecheTests/Axioms.lean#L104-L108
-   104  /--
-   105  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
-   106  -/
-   107  #guard_msgs in
-   108  #print axioms ConLeche.model_exists
+== tests/ConLecheTests/Axioms.lean#L105-L109
+   105  /--
+   106  info: 'ConLeche.model_exists' depends on axioms: [propext, Classical.choice, Quot.sound]
+   107  -/
+   108  #guard_msgs in
+   109  #print axioms ConLeche.model_exists
 
 == ConLeche/Driver/Dispatch.lean#L47
-    47  def runReq {μ : Type → Type} [CheckerIO μ] : Req → μ UInt8
+    47    | .oleans sp roots cs mode pace jobs => checkMainG (.oleans sp roots cs) mode pace jobs
 
 == ConLeche/Frontend/CheckerIO.lean#L135
    135  class CheckerIO (m : Type → Type) extends Monad m, MonadExceptOf IO.Error m where
@@ -141,12 +141,12 @@
 == ConLeche/Frontend/CheckerIO.lean#L285
    285  def ModelIO (α : Type) : Type := FS → Except IO.Error α → Prop
 
-== ConLeche/Verify/Driver/Main.lean#L237-L241
-   237  theorem runArgs_accept {file : String} {fs : FS}
-   238      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
-   239      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
-   240        parseChunks [b] = .ok r ∧
-   241        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
+== ConLeche/Verify/Driver/Main.lean#L238-L242
+   238  theorem runArgs_accept {file : String} {fs : FS}
+   239      (h : (runArgs ["--", file] : ModelIO _) fs (.ok 0)) :
+   240      ∃ pre b r env, builtinPreludeE = .ok pre ∧ fs.file file = some b ∧
+   241        parseChunks [b] = .ok r ∧
+   242        Cached.checkDecls .verified natOpPinSets (preparePrelude pre r.decls) = .ok env := by
 
 == ConLeche/Driver/StreamParse.lean#L118-L119
    118  def parseStreamG {μ : Type → Type} [CheckerIO μ] (file : String) (jobs : Nat) :
