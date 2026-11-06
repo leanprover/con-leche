@@ -197,8 +197,10 @@ inductive Msg where
   | start (P : Prior) (c0 : Ctr) (c : Nat) (out : IO.Promise (ORes (R0 × Nat × Nat) (R0Q P c0)))
   /-- a later round of the owner's chunk -/
   | round (P : Prior) (W : Win) (out : IO.Promise (ORes (RR × Nat) (RRQ P W)))
-  /-- slice `c` of `m` of the window's pages, and chunk `c`'s records -/
-  | finish (P : Prior) (W : Win) (m c : Nat) (out : IO.Promise (ORes FinPart (FinOK P W m)))
+  /-- slice `c` of `m` of the window's pages, and chunk `c`'s records
+  (`top`: the window starts the file) -/
+  | finish (P : Prior) (W : Win) (m : Nat) (top : Bool) (c : Nat)
+      (out : IO.Promise (ORes FinPart (FinOK P W m top)))
   | stop
 
 /-- An owner's mailbox. -/
@@ -358,14 +360,14 @@ partial def ownerLoop (bx : Box) (cur : Option Cur) (nxt : Option Mine)
     | none =>
       out.resolve (.none 0)
       ownerLoop bx cur nxt fin
-  | .finish P W m c out =>
+  | .finish P W m top c out =>
     let pn := finSlice P.n W.n m c
     let pl := finSlice P.l W.l m c
     let pe := finSlice P.e W.e m c
     match cur with
     | some x =>
       if x.is P W.c0 && x.c == c then
-        let ds := chunkDecls P W c x.sc.recs
+        let ds := chunkDecls P W c (top && c == 0) x.sc.recs
         if let some d := ds then markEach d
         out.resolve ⟨c, x.b, scanEnds x.b x.sc && W.fullAt c && ds.isSome,
           ⟨pn, pl, pe, ds.getD #[]⟩, by
@@ -531,10 +533,11 @@ def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
     let some ⟨W, hW, nr⟩ ← roundsLoop bxs P bs W hW (vs.map (·.2.1)) 0 | fall ()
     cfg.windows.modify (· + 1); cfg.rounds.modify (· + nr)
     -- the pages after the window, a slice per owner, and its records
-    let mut fps : Array (IO.Promise (ORes FinPart (FinOK P W m))) := Array.mkEmpty m
+    let top := g.lineNo == 0
+    let mut fps : Array (IO.Promise (ORes FinPart (FinOK P W m top))) := Array.mkEmpty m
     for j in [0:m] do
       let p ← IO.Promise.new
-      sendTo bxs j (.finish P W m j p)
+      sendTo bxs j (.finish P W m top j p)
       fps := fps.push p
     -- meanwhile the next window's chunks go to their owners
     let nbs ← nxt
@@ -548,7 +551,7 @@ def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
     if hm : 0 < m ∧ W.c0 = g.c ∧ g.total + tot < USize.size then
       have hm' : ps.size = bs.toList.length := by simpa using hpsz
       have hps : ∀ c (h : c < ps.size) (hb : c < bs.toList.length),
-          FinOK g.P W ps.size c bs.toList[c] ps[c] := by
+          FinOK g.P W ps.size (g.lineNo == 0) c bs.toList[c] ps[c] := by
         intro c h hb; rw [hpsz]; simpa using hpq c h (by simpa using hb)
       let g' : GSt := ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd,
         g.ds ++ joinD ps, g.lineNo + nl, g.total + tot⟩

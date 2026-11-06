@@ -710,25 +710,30 @@ messages. -/
   | none => throw s!"undefined expr index {j}"
 
 /-- The declarations of a chunk (records `d`) from line `i`, the
-counters `ct` there: `none` if a declaration line's builder yields no
-record. -/
-def chunkDeclsGo (P : @& Prior) (W : @& Win) (d : @& Array LineRec) (i : Nat) (ct : Ctr)
-    (acc : Array Declaration) : Option (Array Declaration) :=
+counters `ct` there: `none` if a line stands where it may not
+(`LineRec.placed`: the header exactly as the chunk's first line when the
+chunk starts the file, `first`) or a declaration line's builder yields
+no record. -/
+def chunkDeclsGo (P : @& Prior) (W : @& Win) (d : @& Array LineRec) (first : Bool) (i : Nat)
+    (ct : Ctr) (acc : Array Declaration) : Option (Array Declaration) :=
   if h : i < d.size then
-    match d[i] with
-    | .decl r =>
-      match declOfF (vN P W ct.n) (vL P W ct.l) (vE P W ct.e) r with
-      | .ok (.inl x) => chunkDeclsGo P W d (i + 1) ct (acc.push x)
-      | _ => none
-    | r => chunkDeclsGo P W d (i + 1) (ct.step r) acc
+    if d[i].placed (first && i == 0) then
+      match d[i] with
+      | .decl r =>
+        match declOfF (vN P W ct.n) (vL P W ct.l) (vE P W ct.e) r with
+        | .ok (.inl x) => chunkDeclsGo P W d first (i + 1) ct (acc.push x)
+        | _ => none
+      | r => chunkDeclsGo P W d first (i + 1) (ct.step r) acc
+    else none
   else some acc
 termination_by d.size - i
 
 /-- **The declarations of chunk `c`**: its records walked from the
-chunk's start counters. -/
-def chunkDecls (P : @& Prior) (W : @& Win) (c : Nat) (d : @& Array LineRec) :
+chunk's start counters; `first` says the chunk starts the file, and
+then it must hold the file's first line. -/
+def chunkDecls (P : @& Prior) (W : @& Win) (c : Nat) (first : Bool) (d : @& Array LineRec) :
     Option (Array Declaration) :=
-  chunkDeclsGo P W d 0 (W.start c) #[]
+  if first && d.isEmpty then none else chunkDeclsGo P W d first 0 (W.start c) #[]
 
 /-! ## A window's assembly -/
 

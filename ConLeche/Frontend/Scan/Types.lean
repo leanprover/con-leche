@@ -233,9 +233,10 @@ inductive LineRec where
   | level (i : Nat) (r : LevelRec)
   | expr (i : Nat) (r : ExprRec)
   | decl (d : DeclRec)
-  /-- the header record, validated loosely and skipped -/
+  /-- the header record, validated loosely; skipped as the first line,
+  which it must be, malformed on any other (`applyLine`) -/
   | header
-  /-- whitespace only -/
+  /-- whitespace only: malformed (`applyLine`) -/
   | blank
 
 /-! ## The key alphabet -/

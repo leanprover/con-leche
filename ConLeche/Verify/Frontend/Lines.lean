@@ -32,22 +32,24 @@ namespace ConLeche.Frontend
 
 /-- The parse of a byte list, line by line: the recogniser on the
 input, `applyLine` on its record, the rest again; the last line is the
-one without a newline.  Error messages are those of `feedChunk` and
-`applyFinalLine`: the line number and, for a syntactic failure, the
-byte offset into the line.  Exposed: `ConLeche/Verify/Frontend/Chunks.lean`
-unfolds it. -/
+one without a newline, and an empty one is no line.  Error messages are
+those of `feedChunk` and `applyFinalLine`: the line number and, for a
+syntactic failure, the byte offset into the line.  Exposed:
+`ConLeche/Verify/Frontend/Chunks.lean` unfolds it. -/
 @[expose] def parseLines (st : StateD) (l : List UInt8) (lineNo : Nat) :
     Except (CheckError × Nat) StateD :=
   match naiveLine l with
   | .err e rest =>
     .error (.internal (ScanErr.render ⟨l.length - rest.length, e⟩), lineNo + 1)
   | .ok (r, none) _ =>
-    match applyLine st r with
-    | .error msg => .error (.internal msg, lineNo + 1)
-    | .ok (.inr v) => .error (v.toError, lineNo + 1)
-    | .ok (.inl st) => .ok st
+    if l.isEmpty then .ok st
+    else
+      match applyLine st r lineNo with
+      | .error msg => .error (.internal msg, lineNo + 1)
+      | .ok (.inr v) => .error (v.toError, lineNo + 1)
+      | .ok (.inl st) => .ok st
   | .ok (r, some rest) _ =>
-    match applyLine st r with
+    match applyLine st r lineNo with
     | .error msg => .error (.internal msg, lineNo + 1)
     | .ok (.inr v) => .error (v.toError, lineNo + 1)
     | .ok (.inl st) =>
@@ -62,7 +64,7 @@ def finishChunk (b : ByteArray) : Except (CheckError × Nat) (StateD × Nat × U
     Except (CheckError × Nat) StateD
   | .error e => .error e
   | .ok (st, lineNo, tail) =>
-    if tail < b.usize then applyFinalLine st b tail (lineNo + 1) else .ok st
+    if tail < b.usize then applyFinalLine st b tail lineNo else .ok st
 
 theorem naiveLine_nil : naiveLine [] = .ok (.blank, none) [] := by rfl
 
@@ -130,7 +132,8 @@ theorem feedChunk_spec (st : StateD) (b : ByteArray) (i : USize) (lineNo : Nat) 
     · rw [hs] at hj; simp at hj
     · rw [hs] at hj; injection hj with hj1 hj2; subst hj1
       rw [parseLines, hnv]
-      simp only [finishChunk, h, ↓reduceIte, applyFinalLine, hs]
+      simp only [finishChunk, h, ↓reduceIte, applyFinalLine, hs, tailAt_of_lt h,
+        List.isEmpty_cons, Bool.false_eq_true]
       rfl
     · exfalso
       rw [hs] at hj; injection hj with hj1 hj2; subst hj2
@@ -205,7 +208,7 @@ theorem parseBytes_eq_parseLines (b : ByteArray)
     obtain ⟨st, lineNo, tail⟩ := p
     simp only [finishChunk]
     split
-    · cases applyFinalLine st b tail (lineNo + 1) <;> rfl
+    · cases applyFinalLine st b tail lineNo <;> rfl
     · rfl
 
 /-! ## Reading `parseLines` through the newlines -/
@@ -213,7 +216,7 @@ theorem parseBytes_eq_parseLines (b : ByteArray)
 /-- A chain of successful line applications. -/
 inductive Reach : StateD → StateD → Prop
   | refl (st : StateD) : Reach st st
-  | step {st st₁ st₂ : StateD} (r : LineRec) (h : applyLine st r = .ok (.inl st₁))
+  | step {st st₁ st₂ : StateD} {n : Nat} (r : LineRec) (h : applyLine st r n = .ok (.inl st₁))
       (h₂ : Reach st₁ st₂) : Reach st st₂
 
 theorem Reach.trans {st₁ st₂ st₃ : StateD} (h₁ : Reach st₁ st₂) (h₂ : Reach st₂ st₃) :
@@ -222,22 +225,22 @@ theorem Reach.trans {st₁ st₂ st₃ : StateD} (h₁ : Reach st₁ st₂) (h�
   | refl => exact h₂
   | step r h _ ih => exact .step r h (ih h₂)
 
-theorem Reach.single {st st₁ : StateD} (r : LineRec) (h : applyLine st r = .ok (.inl st₁)) :
-    Reach st st₁ := .step r h (.refl _)
+theorem Reach.single {st st₁ : StateD} {n : Nat} (r : LineRec)
+    (h : applyLine st r n = .ok (.inl st₁)) : Reach st st₁ := .step r h (.refl _)
 
 /-- One line with a newline after it: the parse applies its record and
 goes on with the rest. -/
 theorem parseLines_line {st : StateD} {l x : List UInt8} {r : LineRec} {n : Nat}
     (hl : naiveLine (l ++ 10 :: x) = .ok (r, some x) x) :
     parseLines st (l ++ 10 :: x) n =
-      match applyLine st r with
+      match applyLine st r n with
       | .error msg => .error (.internal msg, n + 1)
       | .ok (.inr v) => .error (v.toError, n + 1)
       | .ok (.inl st) => parseLines st x (n + 1) := by
   rw [parseLines, hl]
   simp only []
   have : x.length < (l ++ 10 :: x).length := by simp; omega
-  cases applyLine st r with
+  cases applyLine st r n with
   | error msg => rfl
   | ok v => cases v with
     | inr v => rfl
@@ -296,9 +299,7 @@ theorem parseLines_reach : ∀ (k : Nat) (l : List UInt8), l.length ≤ k →
     have : l = [] := List.eq_nil_of_length_eq_zero (Nat.le_zero.mp hl)
     subst this
     rw [parseLines, naiveLine_nil] at h
-    simp only at h
-    rw [show applyLine st .blank = .ok (.inl st) from rfl] at h
-    simp only [Except.ok.injEq] at h
+    simp only [List.isEmpty_nil, ↓reduceIte, Except.ok.injEq] at h
     rw [← h]; exact .refl _
   | succ k ih =>
     intro l hl st st' n h
@@ -313,11 +314,14 @@ theorem parseLines_reach : ∀ (k : Nat) (l : List UInt8), l.length ≤ k →
       · exact absurd h (by simp)
       · rename_i r rest hnv
         split at h
-        · exact absurd h (by simp)
-        · exact absurd h (by simp)
-        · rename_i st₁ happ
-          simp only [Except.ok.injEq] at h
-          rw [← h]; exact .single r happ
+        · simp only [Except.ok.injEq] at h
+          rw [← h]; exact .refl _
+        · split at h
+          · exact absurd h (by simp)
+          · exact absurd h (by simp)
+          · rename_i st₁ happ
+            simp only [Except.ok.injEq] at h
+            rw [← h]; exact .single r happ
       · rename_i r rest rest' hnv
         exact absurd (naiveLine_some hnv) (fun ⟨pre, hpre, _, _⟩ =>
           hnl (hpre ▸ List.mem_append.mpr (.inr (List.mem_cons_self ..))))

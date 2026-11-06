@@ -89,7 +89,7 @@ each failure at its line number. -/
 def applyRecs (st : StateD) (rs : @& Array LineRec) (k : Nat) (lineNo : Nat) :
     Except (CheckError × Nat) (StateD × Nat) :=
   if h : k < rs.size then
-    match applyLine st rs[k] with
+    match applyLine st rs[k] lineNo with
     | .error msg => .error (.internal msg, lineNo + 1)
     | .ok (.inr v) => .error (v.toError, lineNo + 1)
     | .ok (.inl st) => applyRecs st rs (k + 1) (lineNo + 1)
@@ -114,7 +114,7 @@ def applyScanned (st : StateD) (sc : @& ScannedChunk) (lineNo : Nat) :
 def applyList (st : StateD) : List LineRec → Nat → Except (CheckError × Nat) (StateD × Nat)
   | [], n => .ok (st, n)
   | r :: rs, n =>
-    match applyLine st r with
+    match applyLine st r n with
     | .error msg => .error (.internal msg, n + 1)
     | .ok (.inr v) => .error (v.toError, n + 1)
     | .ok (.inl st) => applyList st rs (n + 1)
@@ -144,7 +144,7 @@ theorem applyList_append (st : StateD) (l₁ l₂ : List LineRec) (n : Nat) :
   | nil => rfl
   | cons r l₁ ih =>
     simp only [List.cons_append, applyList]
-    cases applyLine st r with
+    cases applyLine st r n with
     | error msg => rfl
     | ok v => cases v with
       | inr v => rfl
@@ -187,7 +187,7 @@ theorem applyScanned_scanChunkGo (b : ByteArray) (i : USize) (acc : Array LineRe
       simp only [applyList]
       conv => rhs; rw [feedChunk]
       simp only [h, hj, hj0, hij, ↓reduceDIte, Bool.false_eq_true, ↓reduceIte]
-      cases applyLine st' r with
+      cases applyLine st' r n' with
       | error msg => rfl
       | ok v => cases v with
         | inr v => rfl
@@ -202,7 +202,7 @@ theorem applyScanned_scanChunkGo (b : ByteArray) (i : USize) (acc : Array LineRe
       simp only [applyList]
       conv => rhs; rw [feedChunk]
       simp only [h, hj, hj0, hij, ↓reduceDIte, Bool.false_eq_true, ↓reduceIte]
-      cases applyLine st' r with
+      cases applyLine st' r n' with
       | error msg => rfl
       | ok v => cases v with
         | inr v => rfl

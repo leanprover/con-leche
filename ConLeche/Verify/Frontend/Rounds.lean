@@ -1355,12 +1355,14 @@ structure FinPart where
   deriving Inhabited
 
 /-- Chunk `c`'s part of a window's finish (of `m` parts, the chunk's
-bytes `b`), as it must be: the `c`-th slice of each table's pages, the
-chunk's scan ended at its end, its late entries all done, and its
-records. -/
-@[expose] def FinOK (P : Prior) (W : Win) (m c : Nat) (b : ByteArray) (x : FinPart) : Prop :=
+bytes `b`; `top`: the window starts the file), as it must be: the
+`c`-th slice of each table's pages, the chunk's scan ended at its end,
+its late entries all done, and its records. -/
+@[expose] def FinOK (P : Prior) (W : Win) (m : Nat) (top : Bool) (c : Nat) (b : ByteArray)
+    (x : FinPart) : Prop :=
   x.pn = finSlice P.n W.n m c ∧ x.pl = finSlice P.l W.l m c ∧ x.pe = finSlice P.e W.e m c ∧
-  scanEnds b (scanChunk b) = true ∧ W.fullAt c = true ∧ chunkDecls P W c (recsOf b) = some x.ds
+  scanEnds b (scanChunk b) = true ∧ W.fullAt c = true ∧
+  chunkDecls P W c (top && c == 0) (recsOf b) = some x.ds
 
 /-- The parts joined. -/
 def joinN (ps : Array FinPart) : Array (Array Name) := ps.foldl (fun a x => a ++ x.pn) #[]
@@ -1575,22 +1577,24 @@ theorem window_goodTabs {P : Prior} {bs : List ByteArray} {W : Win} (hW : WinInv
     exact TB.get_full hspec hL hfT hkd
 
 theorem AllOK.split {T : Tabs} :
-    ∀ {c : Ctr} {l₁ l₂ : List LineRec}, AllOK T c (l₁ ++ l₂) →
-    AllOK T c l₁ ∧ AllOK T (c.stepAll l₁) l₂ := by
-  intro c l₁ l₂ h
-  induction l₁ generalizing c with
+    ∀ {c : Ctr} {n : Nat} {l₁ l₂ : List LineRec}, AllOK T c n (l₁ ++ l₂) →
+    AllOK T c n l₁ ∧ AllOK T (c.stepAll l₁) (n + l₁.length) l₂ := by
+  intro c n l₁ l₂ h
+  induction l₁ generalizing c n with
   | nil => exact ⟨trivial, h⟩
   | cons r l ih =>
-    obtain ⟨h1, h2⟩ := h
+    obtain ⟨h0, h1, h2⟩ := h
     obtain ⟨i1, i2⟩ := ih h2
-    exact ⟨⟨h1, i1⟩, i2⟩
+    refine ⟨⟨h0, h1, i1⟩, ?_⟩
+    rw [show n + (r :: l).length = n + 1 + l.length by simp only [List.length_cons]; omega]
+    exact i2
 
 theorem ByteArray.extract_size_self (b : ByteArray) : b.extract b.size b.size = .empty := by
   ext1; simp [ByteArray.empty, ByteArray.emptyWithCapacity]
 
 /-- **A chunk whose lines are right is one more serial step.** -/
 theorem chunkStep_of_allOK {st : StateD} {T : Tabs} {c : Ctr} {n tot : Nat} {b : ByteArray}
-    (hh : Holds st T c) (hok : AllOK T c (recsOf b).toList)
+    (hh : Holds st T c) (hok : AllOK T c n (recsOf b).toList)
     (hend : scanEnds b (scanChunk b) = true) (htot : tot + b.size < USize.size) :
     ∃ st', chunkStep st .empty n tot b = .ok (st', .empty, n + (recsOf b).size, tot + b.size) ∧
       Holds st' T (c.stepAll (recsOf b).toList) ∧
@@ -1662,8 +1666,8 @@ theorem Sel.pages_setFrom (S : Sel α) (P : Prior) (W : Win) (ps : Array FinPart
       (S.pages P).after (S.seg W) (S.join ps) := by
   cases S <;> rfl
 
-theorem FinOK.sel {P : Prior} {W : Win} {m c : Nat} {b : ByteArray} {x : FinPart}
-    (h : FinOK P W m c b x) (S : Sel α) :
+theorem FinOK.sel {P : Prior} {W : Win} {m c : Nat} {top : Bool} {b : ByteArray} {x : FinPart}
+    (h : FinOK P W m top c b x) (S : Sel α) :
     letI := S.inh
     S.part x = finSlice (S.pages P) (S.seg W) m c := by
   cases S
@@ -1737,7 +1741,8 @@ theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : Lis
     {W : Win}
     (hW : WinInv g.P bs W) (hc0 : W.c0 = g.c)
     {ps : Array FinPart} (hm : ps.size = bs.length) (hb : 0 < bs.length)
-    (hps : ∀ c (h : c < ps.size) (hb : c < bs.length), FinOK g.P W ps.size c bs[c] ps[c])
+    (hps : ∀ c (h : c < ps.size) (hb : c < bs.length),
+      FinOK g.P W ps.size (g.lineNo == 0) c bs[c] ps[c])
     (htot : g.total + (bs.map ByteArray.size).sum < USize.size) :
     GOK (done ++ bs) ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd, g.ds ++ joinD ps,
       g.lineNo + (bs.map fun b => (recsOf b).size).sum,
@@ -1783,7 +1788,8 @@ theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : Lis
     · rfl
     · rw [ite_eq_left (by have := hctrE (chunkOff bs c + q) S.tb; omega)]
   have hDs : ∀ c (hc : c < bs.length),
-      chunkDecls g.P W c (recsOf bs[c]) = some (ps[c]'(by omega)).ds := fun c hc =>
+      chunkDecls g.P W c ((g.lineNo == 0) && c == 0) (recsOf bs[c]) =
+        some (ps[c]'(by omega)).ds := fun c hc =>
     (hps c (by omega) hc).2.2.2.2.2
   have hD : ∀ p (hp : p < (winCtx g.P W.c0 bs).rs.length) d,
       (winCtx g.P W.c0 bs).rs[p] = .decl d →
@@ -1797,7 +1803,37 @@ theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : Lis
       rw [List.getElem?_eq_getElem hp] at this; exact Option.some.inj this
     rw [hrq] at hd
     exact (chunkDecls_spec (hW.chunkCtx hc) (hV c hc) (hDs c hc)).1 q hq d hd
-  have hAll := allOK_of_good hGT hD
+  -- a window that starts the file holds the file's first line in its first chunk
+  have hfirst : g.lineNo = 0 → 0 < (recsOf bs[0]).size := fun h0 =>
+    (chunkDecls_spec (hW.chunkCtx hb) (hV 0 hb) (hDs 0 hb)).2.2.2 (by simp [h0])
+  have hP : ∀ p (hp : p < (winCtx g.P W.c0 bs).rs.length),
+      (winCtx g.P W.c0 bs).rs[p].placed (g.lineNo + p == 0) = true := by
+    intro p hp
+    obtain ⟨c, q, hc, hq, rfl⟩ := chunk_of_pos bs p hp
+    have hE := winCtx_emb g.P W.c0 bs hc
+    have hrq : (winCtx g.P W.c0 bs).rs[chunkOff bs c + q] = (recsOf bs[c])[q] := by
+      have := hE.2.2.2 q hq
+      rw [List.getElem?_eq_getElem hp] at this; exact Option.some.inj this
+    rw [hrq]
+    have hpl := (chunkDecls_spec (hW.chunkCtx hc) (hV c hc) (hDs c hc)).2.2.1 q hq
+    -- the chunk's first line is the file's exactly when the chunk is the
+    -- first of a window that starts the file
+    have heq : ((g.lineNo == 0) && c == 0 && q == 0) = (g.lineNo + (chunkOff bs c + q) == 0) := by
+      rcases Nat.eq_zero_or_pos c with hc0 | hc0
+      · subst hc0
+        rw [chunkOff_zero, Nat.zero_add]
+        cases g.lineNo <;> cases q <;> simp
+      · have hne : (c == 0) = false := by simp; omega
+        rw [hne, Bool.and_false, Bool.false_and]
+        symm
+        by_cases h0 : g.lineNo = 0
+        · have h1 := hfirst h0
+          have h2 : chunkOff bs 1 ≤ chunkOff bs c := chunkOff_mono bs hc0
+          rw [chunkOff_succ bs hb, chunkOff_zero] at h2
+          simp only [beq_eq_false_iff_ne]; omega
+        · simp only [beq_eq_false_iff_ne]; omega
+    rw [← heq]; exact hpl
+  have hAll := allOK_of_good hGT hD hP
   -- the window, chunk by chunk
   have hchain : ∀ k, k ≤ bs.length → ∃ st, Reached (done ++ bs.take k) st .empty
       (g.lineNo + chunkOff bs k)
@@ -1834,6 +1870,8 @@ theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : Lis
       simp only [winCtx] at hAll'
       rw [hrs] at hAll'
       have hok := (AllOK.split (AllOK.split hAll').2).1
+      rw [List.length_take_of_le (by rw [← chunkOff_length]; exact chunkOff_mono bs (by omega))]
+        at hok
       have hcc : W.c0.stepAll ((chunkRecs bs).take (chunkOff bs k)) =
           (winCtx g.P W.c0 bs).ctr (chunkOff bs k) := rfl
       rw [hcc] at hok
@@ -1847,7 +1885,7 @@ theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : Lis
         exact hr.step hs
       · rw [winCtx_ctr_succ g.P W.c0 bs hkl]; exact hh'
       · rw [hd', declsAlong_acc, hd, joinD_take ps k (by omega),
-          ← (chunkDecls_spec (hW.chunkCtx hkl) (hV k hkl) (hDs k hkl)).2]
+          ← (chunkDecls_spec (hW.chunkCtx hkl) (hV k hkl) (hDs k hkl)).2.1]
         simp
   obtain ⟨st, hr, hh, hd⟩ := hchain bs.length (Nat.le_refl _)
   refine ⟨st, ?_, ?_, ?_, ?_⟩

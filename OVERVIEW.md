@@ -269,11 +269,11 @@ rebinding is a parse error), so the entry a template line bound is the
 entry the theorem line reads; the record list only grows; the
 streaming parse of any cut of the file is the wholesale parse of the
 whole
-([`parseChunks_ok_parseBytes` in `ConLeche/Verify/Frontend/Chunks.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Chunks.lean#L353),
+([`parseChunks_ok_parseBytes` in `ConLeche/Verify/Frontend/Chunks.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Chunks.lean#L363),
 with the streaming reader's running byte count as the same guard the
 wholesale parse applies up front); and the template's lines scan to
 exactly the records the fold then forbids
-([`parseChunks_jsonWithTheoremFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L173)).
+([`parseChunks_jsonWithTheoremFalse` in `ConLeche/Verify/Frontend/FileFalse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/FileFalse.lean#L174)).
 The preparation puts the built-in prelude's records first and moves
 the definitions a pinned `Nat` operation's certificates are spelled
 over ahead of it (§6); it is a permutation of the
@@ -382,13 +382,13 @@ Read from the outside in:
    model they are proved to be the folds over the snapshot's bytes cut
    as the reads cut them. At one worker the parse feeds every read of
    the stream to the pure streaming parse's step over a chunk
-   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L602)),
+   ([function `chunkStep` in `ConLeche/Frontend/ExportC.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/ExportC.lean#L625)),
    on one thread
    ([function `parseFileS` in `ConLeche/Frontend/Stream.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Frontend/Stream.lean#L309-L311)).
    With more workers the parse runs on as many owner threads and takes
    a window of chunks at a time, one chunk of whole lines per owner,
    the next window read before the current one is computed
-   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L490-L492)):
+   ([function `windowStep` in `ConLeche/Driver/OwnerParse.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Driver/OwnerParse.lean#L492-L494)):
    the owner scans its chunk once into syntax records that never leave
    its thread and applies its lines, deferring a line that reads an
    entry of another chunk of the window to a later round, until nothing
@@ -406,19 +406,22 @@ Read from the outside in:
    value the builder of the line binding that index yields over lookups
    that answered good entries only, at indices the serial parse may read
    at that line
-   ([inductive `Good` in `ConLeche/Verify/Frontend/Good.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Good.lean#L522)),
+   ([inductive `Good` in `ConLeche/Verify/Frontend/Good.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Good.lean#L528)),
    which is proved of the round functions once. Tables that hold good
    entries, and one for every line of a window whose lines bind each
-   table in increasing order, make every line of the window right
-   ([theorem `allOK_of_good` in `ConLeche/Verify/Frontend/Good.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Good.lean#L705-L708)),
+   table in increasing order and stand where they may (the `meta`
+   header exactly as the file's first line, no blank line), make every
+   line of the window right
+   ([theorem `allOK_of_good` in `ConLeche/Verify/Frontend/Good.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Good.lean#L712-L716)),
    so a window whose deferred lines are all done is one more stretch of
    the serial parse
-   ([theorem `GOK.window` in `ConLeche/Verify/Frontend/Rounds.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Rounds.lean#L1736-L1744)).
+   ([theorem `GOK.window` in `ConLeche/Verify/Frontend/Rounds.lean`](https://github.com/leanprover/con-leche/blob/master/ConLeche/Verify/Frontend/Rounds.lean#L1740-L1749)).
    A window whose chunks or rounds meet anything unusual — an index
-   below its table's counter, a line the serial parse fails at — is
-   handed to the serial parse from the state the chunks before reached,
-   which gives the serial verdict at the serial line; so are the bytes
-   after the stream's last newline, a final line without one. Each
+   below its table's counter, a line out of place, a line the serial
+   parse fails at — is handed to the serial parse from the state the
+   chunks before reached, which gives the serial verdict at the serial
+   line; so are the bytes after the stream's last newline, a final line
+   without one. Each
    window's result carries the proof that it advances the serial parse
    over the window's chunks, so that in the model, whatever the owner
    threads answered, every outcome that is an exit 0 is one where the

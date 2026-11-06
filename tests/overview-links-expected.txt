@@ -83,11 +83,11 @@
    105      (hmem : Declaration.thmDecl cv v ∈ ds) (hty : cv.type = .const falseName []) :
    106      ∀ env, Cached.checkDecls .verified pins ds ≠ .ok env := by
 
-== ConLeche/Verify/Frontend/Chunks.lean#L353
-   353  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
+== ConLeche/Verify/Frontend/Chunks.lean#L363
+   363  theorem parseChunks_ok_parseBytes {cs : List ByteArray}
 
-== ConLeche/Verify/Frontend/FileFalse.lean#L173
-   173  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
+== ConLeche/Verify/Frontend/FileFalse.lean#L174
+   174  theorem parseChunks_jsonWithTheoremFalse {chunks : List ByteArray}
 
 == ConLeche/Verify/Frontend/Prepare.lean#L190
    190  theorem mem_preparePrelude {pre : PreludeIx} {ds : Array Declaration}
@@ -143,38 +143,40 @@
 == ConLeche/Frontend/Scan/Equiv.lean#L1002
   1002  @[csimp] theorem scanLineSpec_eq_scanLineFwd : @scanLineSpec = @scanLineFwd := by
 
-== ConLeche/Frontend/ExportC.lean#L602
-   602      Except (CheckError × Nat) (StateD × ByteArray × Nat × Nat) :=
+== ConLeche/Frontend/ExportC.lean#L625
+   625  def chunkStep (st : StateD) (carry : ByteArray) (lineNo total : Nat) (buf0 : ByteArray) :
 
 == ConLeche/Frontend/Stream.lean#L309-L311
    309  def parseFileS {μ : Type → Type} [CheckerIO μ] (path : System.FilePath)
    310      (chunk : USize := chunkSize) : μ (Except (CheckError × Nat) ParseResultD) :=
    311    foldChunks path chunk ((StateD.init.markLinear, .empty, 0, 0) : SerSt) serStep serFin
 
-== ConLeche/Driver/OwnerParse.lean#L490-L492
-   490  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
-   491      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
-   492      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
+== ConLeche/Driver/OwnerParse.lean#L492-L494
+   492  def windowStep (bxs : Array Box) (cfg : Cfg) (primed : IO.Ref Bool) (g : GSt)
+   493      (bs : Array ByteArray) (nxt : IO (Array ByteArray)) :
+   494      IO (Option {g' : GSt // WinAdv g bs.toList g'}) := do
 
-== ConLeche/Verify/Frontend/Good.lean#L522
-   522  inductive Good (Γ : WCtx) : Nat → TV → Prop where
+== ConLeche/Verify/Frontend/Good.lean#L528
+   528  inductive Good (Γ : WCtx) : Nat → TV → Prop where
 
-== ConLeche/Verify/Frontend/Good.lean#L705-L708
-   705  theorem allOK_of_good {Γ : WCtx} {T : Tabs} (hT : GoodTabs Γ T)
-   706      (hD : ∀ p (h : p < Γ.rs.length) d, Γ.rs[p] = .decl d →
-   707        ∃ x, declOf (cutLk T (Γ.ctr p)) d = .ok (.inl x)) :
-   708      AllOK T Γ.c0 Γ.rs := by
+== ConLeche/Verify/Frontend/Good.lean#L712-L716
+   712  theorem allOK_of_good {Γ : WCtx} {T : Tabs} {n : Nat} (hT : GoodTabs Γ T)
+   713      (hD : ∀ p (h : p < Γ.rs.length) d, Γ.rs[p] = .decl d →
+   714        ∃ x, declOf (cutLk T (Γ.ctr p)) d = .ok (.inl x))
+   715      (hP : ∀ p (h : p < Γ.rs.length), Γ.rs[p].placed (n + p == 0) = true) :
+   716      AllOK T Γ.c0 n Γ.rs := by
 
-== ConLeche/Verify/Frontend/Rounds.lean#L1736-L1744
-  1736  theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : List ByteArray}
-  1737      {W : Win}
-  1738      (hW : WinInv g.P bs W) (hc0 : W.c0 = g.c)
-  1739      {ps : Array FinPart} (hm : ps.size = bs.length) (hb : 0 < bs.length)
-  1740      (hps : ∀ c (h : c < ps.size) (hb : c < bs.length), FinOK g.P W ps.size c bs[c] ps[c])
-  1741      (htot : g.total + (bs.map ByteArray.size).sum < USize.size) :
-  1742      GOK (done ++ bs) ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd, g.ds ++ joinD ps,
-  1743        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
-  1744        g.total + (bs.map ByteArray.size).sum⟩ := by
+== ConLeche/Verify/Frontend/Rounds.lean#L1740-L1749
+  1740  theorem GOK.window {done : List ByteArray} {g : GSt} (hg : GOK done g) {bs : List ByteArray}
+  1741      {W : Win}
+  1742      (hW : WinInv g.P bs W) (hc0 : W.c0 = g.c)
+  1743      {ps : Array FinPart} (hm : ps.size = bs.length) (hb : 0 < bs.length)
+  1744      (hps : ∀ c (h : c < ps.size) (hb : c < bs.length),
+  1745        FinOK g.P W ps.size (g.lineNo == 0) c bs[c] ps[c])
+  1746      (htot : g.total + (bs.map ByteArray.size).sum < USize.size) :
+  1747      GOK (done ++ bs) ⟨g.P.setFrom W (joinN ps) (joinL ps) (joinE ps), W.cEnd, g.ds ++ joinD ps,
+  1748        g.lineNo + (bs.map fun b => (recsOf b).size).sum,
+  1749        g.total + (bs.map ByteArray.size).sum⟩ := by
 
 == ConLeche/Driver/CheckMain.lean#L404-L409
    404      {pace : Pace} {jobs : Nat} {fs : FS}

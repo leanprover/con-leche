@@ -356,6 +356,24 @@
 # parse's error at its line (exit 3) whichever path reads it.  Target
 # verdict = today's.
 3 rounds_error_late.ndjson
+# The line placement (task #488, issue #15; scripts/mk_meta_line_fixtures.py
+# over prop_proj.ndjson).  The format's first line is its `meta` header
+# and every later line a record; Lean's reader skips the first line and
+# parses every later one as a record.  No header, the first line a
+# record (meta_line_absent), the header again as line 2
+# (meta_line_second) or midway (meta_line_late), an empty line midway
+# (blank_line_mid) or after the last record (blank_line_final) are
+# malformed (exit 3), on the serial parse and the rounds parse alike.
+# What the header holds is not read (meta_line_free: other contents
+# than lean4export's, exit 0), and a file of no lines checks nothing
+# (empty_file, exit 0, as Lean's reader).  Target verdict = today's.
+3 meta_line_absent.ndjson
+3 meta_line_second.ndjson
+3 meta_line_late.ndjson
+3 blank_line_mid.ndjson
+3 blank_line_final.ndjson
+0 meta_line_free.ndjson
+0 empty_file.ndjson
 # reducenat_guard.ndjson (task #94): defeq-side Nat-literal folding is
 # guarded on both sides being fvar-free (official kernel
 # lazy_delta_reduction; lean4lean TypeChecker.lean:782).  Unguarded,

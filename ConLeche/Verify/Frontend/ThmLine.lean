@@ -13,7 +13,7 @@ public section
 `{"thm":{"all":[k],"levelParams":[],"name":k,"type":j,"value":v}}`,
 applied at a state whose expression `j` is the constant `False`: the
 record is pushed as a `thmDecl` whose declared type is `False`.
-`applyLine_thmFalse` is what the file theorem reads off the theorem's
+`applyRecord_thmFalse` is what the file theorem reads off the theorem's
 line.  (The parse keeps the file's records as they are — the prelude
 dedupe and the basis-pin match are `preparePrelude`'s since task #293
 — so there is nothing else the record can become.)
@@ -50,11 +50,11 @@ theorem processLineCoreD_thmFalse {st st' : StateD} {k j v : Nat}
 /-- **The theorem line.**  At a state whose expression `j` is `False`,
 the record `{"thm":{…,"name":k,"type":j,"value":v}}` leaves a `thmDecl`
 of type `False` in the list. -/
-theorem applyLine_thmFalse {st st' : StateD} {k j v : Nat}
-    (h : applyLine st (.decl (.thm ⟨k, [], j⟩ v)) = .ok (.inl st'))
+theorem applyRecord_thmFalse {st st' : StateD} {k j v : Nat}
+    (h : applyRecord st (.decl (.thm ⟨k, [], j⟩ v)) = .ok (.inl st'))
     (hj : st.exprs.get? j = some (Expr.mkConst falseName [])) :
     ∃ cv vl, cv.type = .const falseName [] ∧ Declaration.thmDecl cv vl ∈ st'.decls := by
-  simp only [applyLine] at h
+  simp only [applyRecord] at h
   exact processLineCoreD_thmFalse h hj
 
 end ConLeche.Frontend

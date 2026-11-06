@@ -13,18 +13,18 @@ The file theorem reads three facts off the parse state — a name index
 bound to `False`, an expression index bound to the constant `False`, a
 theorem record pushed with that type — and carries each across every
 other line of the file.  This module proves what it needs of
-`applyLine`, line by line:
+`applyRecord`, line by line:
 
 * **the frame of a declaration record** (`Frame`): the index tables
   are untouched and the record list only grows.
   `processLineCoreD_frame`:
   every kind is `declOf` — which returns no state — followed by one
   `pushDecl`.
-* **preservation across any line** (`applyLine_keeps`): a bound index
+* **preservation across any line** (`applyRecord_keeps`): a bound index
   stays bound to its entry (a rebinding is a parse error since task
   #290) and a pushed record stays.
-* **the two table lines of the template** (`applyLine_nameFalse`,
-  `applyLine_constFalse`): what the name entry and the expression
+* **the two table lines of the template** (`applyRecord_nameFalse`,
+  `applyRecord_constFalse`): what the name entry and the expression
   entry do.  The theorem record is `ThmLine.lean`'s.
 -/
 
@@ -160,44 +160,44 @@ theorem parseExprEntryD_spec {st st' : StateD} {i : Nat} {r : ExprRec}
   simp only [pure, Except.pure, Except.ok.injEq] at h
   exact ⟨e, h.symm⟩
 
-theorem applyLine_keeps {st st' : StateD} {r : LineRec} (h : applyLine st r = .ok (.inl st')) :
+theorem applyRecord_keeps {st st' : StateD} {r : LineRec} (h : applyRecord st r = .ok (.inl st')) :
     Keeps st st' := by
   cases r with
   | header =>
-    simp only [applyLine, pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+    simp only [applyRecord, pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
     exact Keeps.refl _
   | blank =>
-    simp only [applyLine, pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
+    simp only [applyRecord, pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
     exact Keeps.refl _
   | name i r =>
-    simp only [applyLine] at h
+    simp only [applyRecord] at h
     obtain ⟨st₁, hn, h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
     obtain ⟨hfresh, n, rfl⟩ := parseNameEntryD_spec hn
     exact ⟨fun j y hj => get?_insert_fresh hfresh hj, fun _ _ h => h, fun _ h => h⟩
   | level i r =>
-    simp only [applyLine] at h
+    simp only [applyRecord] at h
     obtain ⟨st₁, hl, h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
     obtain ⟨l, rfl⟩ := parseLevelEntryD_spec hl
     exact ⟨fun _ _ h => h, fun _ _ h => h, fun _ h => h⟩
   | expr i r =>
-    simp only [applyLine] at h
+    simp only [applyRecord] at h
     obtain ⟨st₁, he, h⟩ := exceptBind_ok h
     simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
     obtain ⟨hfresh, e, rfl⟩ := parseExprEntryD_spec he
     exact ⟨fun _ _ h => h, fun j y hj => get?_insert_fresh hfresh hj, fun _ h => h⟩
   | decl d =>
-    simp only [applyLine] at h
+    simp only [applyRecord] at h
     exact Keeps.of_frame (applyDeclD_frame h)
 
 /-! ## The two table lines of the template -/
 
 /-- `{"in":i,"str":{"pre":0,"str":"False"}}`: index `i` is `False`. -/
-theorem applyLine_nameFalse {st st' : StateD} {i : Nat}
-    (h : applyLine st (.name i (.str 0 "False")) = .ok (.inl st'))
+theorem applyRecord_nameFalse {st st' : StateD} {i : Nat}
+    (h : applyRecord st (.name i (.str 0 "False")) = .ok (.inl st'))
     (h0 : st.names.get? 0 = some .anonymous) : st'.names.get? i = some falseName := by
-  simp only [applyLine] at h
+  simp only [applyRecord] at h
   obtain ⟨st₁, hn, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
   unfold parseNameEntryD at hn
@@ -213,11 +213,11 @@ theorem applyLine_nameFalse {st st' : StateD} {i : Nat}
 
 /-- `{"ie":j,"const":{"name":i,"us":[]}}`: index `j` is the constant
 `False`. -/
-theorem applyLine_constFalse {st st' : StateD} {i j : Nat}
-    (h : applyLine st (.expr j (.const i [])) = .ok (.inl st'))
+theorem applyRecord_constFalse {st st' : StateD} {i j : Nat}
+    (h : applyRecord st (.expr j (.const i [])) = .ok (.inl st'))
     (hi : st.names.get? i = some falseName) :
     st'.exprs.get? j = some (Expr.mkConst falseName []) := by
-  simp only [applyLine] at h
+  simp only [applyRecord] at h
   obtain ⟨st₁, he, h⟩ := exceptBind_ok h
   simp only [pure, Except.pure, Except.ok.injEq, Sum.inl.injEq] at h; subst h
   unfold parseExprEntryD at he
@@ -229,5 +229,14 @@ theorem applyLine_constFalse {st st' : StateD} {i j : Nat}
   subst hex
   simp only [pure, Except.pure, Except.ok.injEq] at he; subst he
   simp [IdTable.get?_insert]
+
+/-- A line that applies is a record that applies (where it stands is
+the only other thing `applyLine` looks at). -/
+theorem applyLine_ok {st : StateD} {r : LineRec} {n : Nat} {x : StateD ⊕ RecordVerdict}
+    (h : applyLine st r n = .ok x) : applyRecord st r = .ok x := by
+  unfold applyLine at h
+  split at h
+  · exact h
+  · simp [throw, throwThe, MonadExcept.throw, MonadExceptOf.throw] at h
 
 end ConLeche.Frontend

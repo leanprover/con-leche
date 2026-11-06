@@ -110352,3 +110352,48 @@ left there is not all this.
 constants' names, 168 MiB reached by nothing else (module copies, a canonical object after the merge would
 do); the frontier tables built by `push` (106 MiB of entries in about 150 MiB); 145 MiB free in pages of
 24 B blocks, not identified.
+
+## TASK #488 — the `meta` header, exactly as the first line (2026-11-06, issue15-meta-line1)
+
+**The issue.**  GitHub issue #15 (an external review): the checker and Lean's export reader accept
+different sets of files.  The format's first line is its `meta` header (lean4export's
+`format_ndjson.md`: a file "will begin with" it); Lean's `parseFile` skips the first line, whatever it
+holds, and parses every later line as a JSON record.  The checker took a `meta` line or a blank line
+anywhere, and a file without the header, whose first record Lean drops.  The review's other points are
+ruled acceptable (maintainer): an escaped key (`"in"`) stays refused, for the scanner's speed;
+`mdata` records stay refused, as no one asked for them; and the fields the checker does not use (a
+definition's `all` and `hints`, a binder's name) stay unread and unresolved.  Its recursor-rule point
+was already closed by task #431's stored-against-generated check.
+
+**The rule.**  `LineRec.placed first r` (`ConLeche/Frontend/ExportC.lean`): the header only first,
+every other record never first, a blank line nowhere.  `applyLine st r lineNo` takes the count of
+lines before the record and applies it (`applyRecord`, the record's content, the header a no-op) if it
+stands where it may; otherwise the line is malformed (exit 3 at its line: "the first line is not the
+meta header", "a meta line after the first line", "a blank line").  What the header holds is read
+loosely, as before (maintainer: be liberal there): the recogniser's balanced object, its contents
+unread.  A file of no lines checks no declarations, as Lean's reader does.  The bytes after the last
+newline are a line only if there are any (the parse already left them out when empty), so a file
+ending in one newline is fine and one ending in two is not.  The serial paths thread the count they
+already had (`feedChunk`, `applyRecs`, `applyList`; `applyFinalLine` now takes the count before the
+line, like the others), and the line fold (`parseLines`, `ConLeche/Verify/Frontend/Lines.lean`) says
+the same, an empty last line being no line.  The lemmas about what a record does to the state are
+about `applyRecord` (`applyLine_ok` passes from one to the other).
+
+**The rounds parse.**  A window does not apply its lines, so it checks the placement itself, in
+`chunkDecls`, with `first` true for the first line of the first chunk of a window that starts the file
+(`top := g.lineNo == 0`, sent with the `finish` message and recorded in `FinOK`); that chunk must then
+hold a line, or the window falls back.  A misplaced line makes the window fall back, and the serial
+parse reports it.  The proof: `AllOK` (`Dense.lean`) takes the line count and asks each line's
+placement beside `LineOK`, `allOK_of_good` takes the placement of every window line, and `GOK.window`
+gets it from `chunkDecls_spec`, where a non-empty first chunk makes "first line of a chunk that
+starts the file" and "line 0 of the file" the same.  The first line of an ordinary file does not
+cause a fallback (checked with temporary counters on `stored_rec_outparam`: three windows, none fallen
+back).
+
+**Fixtures.**  `scripts/mk_meta_line_fixtures.py` over `prop_proj.ndjson`: no header, the header again
+as line 2 or midway, an empty line midway or at the end (exit 3, at `--jobs=1` and `--jobs=4`); a
+header with other contents, and an empty file (exit 0).  Four forged fixtures
+(`corner_{mutual,nest_and,nest_or}_prop_large_bad`, `corner_rec_mono_large_bad`) had their new records
+put in front of the header; their scripts now put them after it, and the regenerated files differ only
+in that.
+

@@ -59,9 +59,10 @@ def serialAgrees (path : System.FilePath) : IO Unit := do
 -- scan, is `feedChunk`'s (a theorem, `applyScanned_scanChunk`; here
 -- on a value, with the tail position)
 #guard
-  let b := "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n{\"in\":2,\"str\":{\"pre\":1,".toUTF8
+  let b := ("{\"meta\":{}}\n{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
+    "{\"in\":2,\"str\":{\"pre\":1,").toUTF8
   match applyScanned .init (scanChunk b) 0, feedChunk .init b 0 0 with
-  | .ok (_, n, t), .ok (_, n', t') => n == 1 && n' == 1 && t == t' && t.toNat == 35
+  | .ok (_, n, t), .ok (_, n', t') => n == 2 && n' == 2 && t == t' && t.toNat == 47
   | _, _ => false
 
 end ConLecheTests

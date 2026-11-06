@@ -195,8 +195,11 @@ for r in recs:
             if k in r and r[k]["type"] in motive_doms:
                 r[k] = dict(r[k], type=relevel(r[k]["type"]))
                 hits += 1
-    out.extend(pending)
-    pending.clear()
+    # the new records go after the `meta` header, which must stay the
+    # first line (task #488, issue #15)
+    if "meta" not in r:
+        out.extend(pending)
+        pending.clear()
     out.append(r)
 assert hits, "no motive binder found"
 assert not pending
