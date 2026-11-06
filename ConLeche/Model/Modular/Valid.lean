@@ -867,6 +867,173 @@ theorem indRecord {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {j
     obtain ⟨h1, -, h3⟩ := key_of_own hK hp hc' (not_flagged_of_ind hK hp hcp hk hc')
     exact ⟨h1, h3⟩
 
+theorem Expr.constsAll_and {p q : Name → Prop} :
+    ∀ {e : Expr}, Expr.constsAll p e → Expr.constsAll q e → Expr.constsAll (fun n => p n ∧ q n) e := by
+  intro e
+  induction e with
+  | bvar _ => exact fun _ _ => trivial
+  | sort _ => exact fun _ _ => trivial
+  | const n _ => exact fun a b => ⟨a, b⟩
+  | lit l =>
+    cases l with
+    | natVal _ => exact fun ⟨a1, a2, a3⟩ ⟨b1, b2, b3⟩ => ⟨⟨a1, b1⟩, ⟨a2, b2⟩, ⟨a3, b3⟩⟩
+    | strVal _ =>
+      exact fun ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9, a10⟩ ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10⟩ =>
+        ⟨⟨a1, b1⟩, ⟨a2, b2⟩, ⟨a3, b3⟩, ⟨a4, b4⟩, ⟨a5, b5⟩, ⟨a6, b6⟩, ⟨a7, b7⟩, ⟨a8, b8⟩,
+          ⟨a9, b9⟩, ⟨a10, b10⟩⟩
+  | fvar _ _ ih => exact ih
+  | app _ _ ihf iha => exact fun ⟨a, b⟩ ⟨c, d⟩ => ⟨ihf a c, iha b d⟩
+  | lam _ _ ih1 ih2 => exact fun ⟨a, b⟩ ⟨c, d⟩ => ⟨ih1 a c, ih2 b d⟩
+  | forallE _ _ ih1 ih2 => exact fun ⟨a, b⟩ ⟨c, d⟩ => ⟨ih1 a c, ih2 b d⟩
+  | letE _ _ _ ih1 ih2 ih3 => exact fun ⟨a, b, c⟩ ⟨d, e, f⟩ => ⟨ih1 a d, ih2 b e, ih3 c f⟩
+  | proj _ _ _ ih => exact fun ⟨a, b⟩ ⟨c, d⟩ => ⟨⟨a, c⟩, ih b d⟩
+
+theorem EntryScopedP.and {p q : Name → Prop} {C : Env} {n : Name} {ci : ConstantInfo}
+    (hp : EntryScopedP p C n ci) (hq : EntryScopedP q C n ci) :
+    EntryScopedP (fun d => p d ∧ q d) C n ci := by
+  obtain ⟨a1, a2, a3, a4, a5⟩ := hp
+  obtain ⟨b1, b2, b3, b4, b5⟩ := hq
+  refine ⟨Expr.constsAll_and a1 b1, fun cv v h he => Expr.constsAll_and (a2 cv v h he) (b2 cv v h he),
+    fun cv mI rP isK rules he r hr => ?_, fun cv caps he => ?_, fun d hd => ⟨a5 d hd, b5 d hd⟩⟩
+  · obtain ⟨x1, x2, x3⟩ := a3 cv mI rP isK rules he r hr
+    obtain ⟨y1, y2, y3⟩ := b3 cv mI rP isK rules he r hr
+    exact ⟨Expr.constsAll_and x1 y1, ⟨x2, y2⟩, fun lv ps hf q hq' =>
+      Expr.constsAll_and (x3 lv ps hf q hq') (y3 lv ps hf q hq')⟩
+  · obtain ⟨x1, x2, x3⟩ := a4 cv caps he
+    obtain ⟨y1, y2, y3⟩ := b4 cv caps he
+    exact ⟨fun m hm => ⟨x1 m hm, y1 m hm⟩, fun h => ⟨x2 h, y2 h⟩, fun t ht =>
+      ⟨⟨(x3 t ht).1, (y3 t ht).1⟩, fun b hb => Expr.constsAll_and ((x3 t ht).2 b hb) ((y3 t ht).2 b hb)⟩⟩
+
+/-- **A record's reads, as a constant's**: what a record reads, its constant reads, with the
+former's table one of the record's. -/
+theorem recordScopedP {R C : Env} {r : Declaration} (hR : RecordScoped R r) {ci : ConstantInfo}
+    (hci : ci ∈ declConstants r) {d : Name} (hd : ci.name = d)
+    (htab : ∀ tb, C.findTable? d = some tb → tb ∈ declTables r) :
+    EntryScopedP (fun y => (R.find? y).isSome = true) C d ci := by
+  obtain ⟨hents, htabs⟩ := hR
+  obtain ⟨h1, h2, h3, h4, h5⟩ := hents ci hci
+  have hc := fun {x : Expr} (hx : x.constsResolve R = true) => (Expr.constsResolve_iff R).mp hx
+  refine ⟨hc h1, fun cv v hh he' => hc (h2 cv v hh he'),
+    fun cv mI rP isK rules he' r hr => ?_, fun cv caps he' => ?_, ?_⟩
+  · obtain ⟨a, b, c⟩ := h3 cv mI rP isK rules he' r hr
+    exact ⟨hc a, b, fun lvls pins hf q hq => hc (c lvls pins hf q hq)⟩
+  · obtain ⟨a, b⟩ := h4 cv caps he'
+    refine ⟨a, b, fun t ht => ?_⟩
+    obtain ⟨c1, c2⟩ := htabs t (htab t ht)
+    exact ⟨c1, fun b hb => hc (c2 b hb)⟩
+  · intro y hy; rw [← hd] at hy; exact h5 y hy
+
+/-- The two records of an inductive name read alike, at the importer and at the source. -/
+theorem indReadAlike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n d : Name}
+    {ci : ConstantInfo} (hn : ((dev i).context.find? n).isSome = true)
+    (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
+    (hci : (dev i).context.find? d = some ci) (hk : ci.isIndKind = true) :
+    ∃ t, ∃ ri rs : Declaration, ri ∈ (dev i).ctx ∧ ci ∈ declConstants ri ∧
+      declConstants rs = declConstants ri ∧ declTables rs = declTables ri ∧
+      RecordScoped (readsAlike dev i t) ri ∧
+      (∀ c ∈ declConstants ri, (dev i).key c.name = .home t) ∧
+      (∀ c ∈ declConstants rs, (dev ((dev i).src n)).own.find? c.name = some c ∧
+        (dev ((dev i).src n)).key c.name = .home t) ∧
+      ((rs ∈ (dev ((dev i).src n)).ctx ∧ RecordScoped (readsAlike dev ((dev i).src n) t) rs) ∨
+        t = (dev i).src n) := by
+  have hK := (hok i (Nat.le_refl i)).importOk
+  have hsi : (dev i).src n < i := hK.src_lt n hn
+  generalize hs : (dev i).src n = s at hd hsi ⊢
+  have hd' := hd
+  rw [readsAlike_find?] at hd'
+  split at hd'
+  · next hc =>
+    obtain ⟨ciE, hE⟩ := Option.isSome_iff_exists.mp hd'
+    have hndO := (ImportOk.chain hK).1
+    have hOi := own_find?_of_context hndO hci
+    obtain ⟨ha, -⟩ := copies_alike hok (Nat.le_refl i) (by omega) hOi hE hc.2
+    obtain rfl : ci = ciE := ha.eq_of_indKind (.inl hk)
+    obtain ⟨t, ht, p, hp, ri, hri, hci1, htab1, hall1, hcase1⟩ := indRecord hok (Nat.le_refl i) hOi hk
+    obtain ⟨t', ht', p', hp', rs, hrs, hci2, htab2, hall2, hcase2⟩ := indRecord hok (by omega) hE hk
+    -- one owner: the keys at `d` agree
+    have hkt : t = t' := by
+      have h1 := (hall1 ci hri).2
+      have h2 := (hall2 ci hrs).2
+      have hdn : ci.name = d := ConLeche.Env.find?_name hci
+      rw [hdn] at h1 h2
+      rw [hc.2, h2] at h1
+      injection h1 with h1
+      exact h1.symm
+    subst hkt
+    -- one owner's record: the two records' constants are the owner's one record's
+    have hpp : declConstants p = declConstants p' ∧ declTables p = declTables p' := by
+      have hndT := (ImportOk.chain (hok t (by omega)).importOk).1
+      rw [Module.own_eq] at hndT
+      have hnd := nodup_recs hndT
+      obtain ⟨a, ha⟩ := List.getElem?_of_mem (List.mem_append_right (dev t).ctx hp)
+      obtain ⟨b, hb⟩ := List.getElem?_of_mem (List.mem_append_right (dev t).ctx hp')
+      have hab := recs_unique hnd ha hb (n := ci.name)
+        (List.mem_map_of_mem (hci1 ▸ hri)) (List.mem_map_of_mem (hci2 ▸ hrs))
+      subst hab
+      rw [ha] at hb
+      obtain rfl := Option.some.inj hb
+      exact ⟨rfl, rfl⟩
+    have hri_ctx : ri ∈ (dev i).ctx ∧ RecordScoped (readsAlike dev i t) ri := by
+      rcases hcase1 with h | ⟨rfl, -⟩
+      · exact h
+      · omega
+    refine ⟨t, ri, rs, hri_ctx.1, hri, by rw [hci2, hci1, hpp.1], by rw [htab2, htab1, hpp.2],
+      hri_ctx.2, fun c hc' => (hall1 c hc').2, hall2, ?_⟩
+    rcases hcase2 with h | ⟨rfl, -⟩
+    · exact .inl h
+    · exact .inr rfl
+  · exact nomatch hd'
+
+/-- **What an inductive kind read alike reads is read alike** (`CtxRead.deep`). -/
+theorem reading_deep {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n d : Name}
+    {ci : ConstantInfo} (hn : ((dev i).context.find? n).isSome = true)
+    (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
+    (hci : (dev i).context.find? d = some ci) (hk : ci.isIndKind = true) :
+    EntryScopedP (fun y => ((readsAlike dev i ((dev i).src n)).find? y).isSome = true)
+      (dev i).context d ci := by
+  have hK := (hok i (Nat.le_refl i)).importOk
+  obtain ⟨t, ri, rs, hri, hcri, hcs, hts, hRi, -, -, hcase⟩ := indReadAlike hok hn hd hci hk
+  have hdn : ci.name = d := ConLeche.Env.find?_name hci
+  have hxe : d ∈ declNames ri := List.mem_map.mpr ⟨ci, hcri, hdn⟩
+  have htab : ∀ tb, (dev i).context.findTable? d = some tb → tb ∈ declTables ri := fun tb ht => by
+    rw [Module.context_eq, streamEnv_findTable? hK.nodup hri hxe] at ht
+    exact List.mem_of_find?_eq_some ht
+  have hPi := recordScopedP hRi hcri hdn htab
+  generalize hs : (dev i).src n = s at hcase hd ⊢
+  rcases hcase with ⟨hrs, hRs⟩ | rfl
+  · have hPs := recordScopedP hRs (hcs ▸ hcri) hdn (fun tb ht => hts ▸ htab tb ht)
+    refine (hPi.and hPs).mono fun y ⟨h1, h2⟩ => ?_
+    rw [readsAlike_find?] at h1 h2 ⊢
+    split at h1
+    · next hc1 =>
+      split at h2
+      · next hc2 =>
+        have hsn : s ≤ i := by have := hK.src_lt n hn; omega
+        have hKs := (hok s hsn).importOk
+        obtain ⟨cy, hcy⟩ := Option.isSome_iff_exists.mp hc2.1
+        rw [ite_eq_left (show _ ∧ _ from ⟨hc1.1, hc1.2.trans hc2.2.symm⟩),
+          own_find?_of_context (ImportOk.chain hKs).1 hcy]
+        rfl
+      · exact nomatch h2
+    · exact nomatch h1
+  · exact hPi
+
+/-- **A former read alike has its constructors read alike** (`CtxRead.ctors`). -/
+theorem reading_ctors {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j) {n d : Name}
+    {cv : ConstantVal} {caps : IndCaps} (hn : ((dev i).context.find? n).isSome = true)
+    (hd : ((readsAlike dev i ((dev i).src n)).find? d).isSome = true)
+    (hci : (dev i).context.find? d = some (.indInfo cv caps)) :
+    ∀ x ∈ caps.ctors, ((readsAlike dev i ((dev i).src n)).find? x).isSome = true := by
+  intro x hx
+  have hK := (hok i (Nat.le_refl i)).importOk
+  obtain ⟨t, ri, rs, hri, hcri, hcs, -, -, hki, hall, -⟩ := indReadAlike hok hn hd hci rfl
+  obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (declConstants_ctors hcri x hx)
+  have hcf : (dev i).context.find? c.name = some c := streamEnv_find?_of_mem hK.nodup hri hc
+  obtain ⟨h1, h2⟩ := hall c (hcs ▸ hc)
+  rw [readsAlike_find?, ite_eq_left (show _ ∧ _ from ⟨by rw [hcf]; rfl, (hki c hc).trans h2.symm⟩),
+    h1]
+  rfl
+
 end
 
 end ConLeche.Model.Modular
