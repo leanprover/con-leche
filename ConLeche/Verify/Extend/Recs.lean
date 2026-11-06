@@ -207,7 +207,7 @@ theorem SwapShList.congr {consts₀ consts₃ : List ConstantInfo} {ts : List Pr
       refine congrArg (List.all (natOpDeps c)) (funext fun n => ?_)
       rcases hcorr n with heq | ⟨cv2, a, b, kk, c2, h₀, h₃, -⟩
       · rw [heq]
-      · rw [h₀, h₃]
+      · rw [h₀, h₃]; rfl
     · split
       · congr 1
         · rcases hcorr boolTrueName with heq | ⟨cv2, a, b, kk, c2, h₀, h₃, -⟩

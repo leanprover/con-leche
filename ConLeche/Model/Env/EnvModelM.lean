@@ -9,6 +9,7 @@ public import ConLeche.Model.Env.BlockLfp
 public import ConLeche.Semantics.Inductives.FieldsEqOn
 import ConLeche.Verify.Denote
 import ConLeche.Verify.Denote.VClosed
+import ConLeche.Verify.Denote.Install
 
 public section
 
@@ -485,21 +486,62 @@ variable {V : Type w} [SetTheory V] {env : Env}
 tier reads it**.  `reduceNat` tests `isDefinitionAt` — one `Env.find?`;
 the guard is what
 the leaf analysis below needs (`natLitSupported` for the numeral
-shapes, the two `Bool` constructors for the comparison shapes), and it
-is carried by `NatOps`/`DivMod`, whose statement is exactly "stored
-as a `defnInfo` → guard ∧ the recurrences".  So the tier reads the
-guard off the environment. -/
+shapes, the two `Bool` constructors for the comparison shapes) with
+the pins of the operation and its dependencies (their heads' readings),
+and it is carried by `NatOps`/`DivMod`, whose statement is exactly
+"stored as a `defnInfo` → guard ∧ pins ∧ the recurrences".  So the tier
+reads the guard off the environment. -/
 @[expose] def NatOpGuardLaw (env : Env) : Prop :=
   ∀ c, (c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames) →
-    ConLeche.isDefinitionAt env c = true → ConLeche.natOpGuard env c = true
+    ConLeche.isDefinitionAt env c = true →
+    ConLeche.natOpGuard env c = true ∧
+      (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env) = true
 
 /-- `EnvModelM` supplies it, from `nat_ops` and `div_mod`. -/
 theorem natOpGuardLaw_of (mp : EnvModelM V env) : NatOpGuardLaw env := by
   intro c hmem hst
   obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv hst
   rcases hmem with hm | hm
-  · exact (mp.nat_ops (fun _ => 0) c hm cv v hh hf).1
-  · exact (mp.div_mod (fun _ => 0) c hm cv v hh hf).1
+  · exact ⟨(mp.nat_ops (fun _ => 0) c hm cv v hh hf).1,
+      (mp.nat_ops (fun _ => 0) c hm cv v hh hf).2.1⟩
+  · exact ⟨(mp.div_mod (fun _ => 0) c hm cv v hh hf).1,
+      (mp.div_mod (fun _ => 0) c hm cv v hh hf).2.1⟩
+
+/-- **A certified operation's dependencies at its install** (task
+#462).  The install checks that every dependency is stored
+(`natOpGuard`) and pins the operation's own type (`natOpStoredOk`);
+the dependencies' pins come from the prefix's invariant.  A stored
+dependency other than the operation is in the prefix, holds a
+definition there (`op_defn`: nothing else is accepted at a certified
+name), and so carries its own law (`nat_ops`/`div_mod`), which records
+its own pin, established at its own install.  The pin survives the
+cons. -/
+theorem natOpDepsOk_install (mp : EnvModelM V env) {ci : ConstantInfo} {c : Name}
+    (hname : ci.name = c) (hfresh : env.find? c = none)
+    (hc : c ∈ ConLeche.natOpNames ∨ c ∈ ConLeche.natDivModNames)
+    (hg : ConLeche.natOpGuard ⟨ci :: env.consts, env.tables⟩ c = true)
+    (hself : ConLeche.natOpStoredOk ⟨ci :: env.consts, env.tables⟩ c = true) :
+    (ConLeche.natOpDeps c).all
+      (ConLeche.natOpStoredOk ⟨ci :: env.consts, env.tables⟩) = true := by
+  subst hname
+  rw [List.all_eq_true]
+  intro n hn
+  by_cases hne : n = ci.name
+  · subst hne; exact hself
+  · have hs2 := (ConLeche.natOpGuard_inv hg).2.1 n hn
+    have hsE : (env.find? n).isSome = true := by
+      rwa [ConLeche.Env.find?_cons, ite_eq_right (fun h => hne h.symm)] at hs2
+    have hnm := ConLeche.natOpDeps_mem hc hn
+    have hop : ConLeche.natOpName n = true := by
+      simp only [ConLeche.natOpName, Bool.or_eq_true, List.contains_iff_mem]
+      exact hnm
+    obtain ⟨cv, v, hh, hf⟩ := ConLeche.natOpStored_inv (mp.op_defn n hop hsE)
+    have hok : (ConLeche.natOpDeps n).all (ConLeche.natOpStoredOk env) = true := by
+      rcases hnm with hm | hm
+      · exact (mp.nat_ops (fun _ => 0) n hm cv v hh hf).2.1
+      · exact (mp.div_mod (fun _ => 0) n hm cv v hh hf).2.1
+    exact ConLeche.Verify.natOpStoredOk_cons hfresh
+      (List.all_eq_true.mp hok n (ConLeche.mem_natOpDeps_self hnm))
 
 end
 

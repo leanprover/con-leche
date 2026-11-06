@@ -401,16 +401,11 @@ theorem harvestDefn
     intro φ
     by_cases hno : ConLeche.natOpNames.contains cv.name = true
     · -- the install
-      obtain ⟨hg2, hdeps₂, hruns⟩ := hnatc hno
+      obtain ⟨hg2, hself₂, hruns⟩ := hnatc hno
       have hcmem : cv.name ∈ ConLeche.natOpNames :=
         List.contains_iff_mem.mp hno
-      -- the self entry of the dependency check: level-mono + pinned
-      have hself : cv.name ∈ ConLeche.natOpDeps cv.name := by
-        have h7 := hcmem
-        simp only [ConLeche.natOpNames, List.mem_cons,
-          List.not_mem_nil, or_false] at h7
-        rcases h7 with h | h | h | h | h | h | h <;> rw [h] <;> decide
-      have hd := List.all_eq_true.mp hdeps₂ cv.name (by simpa using hself)
+      -- the operation's own pin: level-mono + pinned
+      have hd := hself₂
       unfold ConLeche.natOpStoredOk at hd
       rw [show (⟨ConstantInfo.defnInfo ⟨cv.name, cv.levelParams, type'⟩
             value' hint :: env.consts, env.tables⟩ : Env).find? cv.name
@@ -428,7 +423,7 @@ theorem harvestDefn
         natLitSupported_cons_back
           ⟨(fun _ _ h => ConstantInfo.noConfusion h),
             (fun _ _ _ h => ConstantInfo.noConfusion h)⟩
-          (ConLeche.natOpGuard_deps hg2).1
+          (ConLeche.natOpGuard_inv hg2).1
       have hTok : ∀ (ψ : Name → Nat) (ρ : Nat → V),
           WellDenoted V ρ (Ta ψ) := fun ψ ρ => by
         obtain ⟨sta, hsta, hT1, -, -⟩ := hrowsT ψ
@@ -441,7 +436,7 @@ theorem harvestDefn
         hcmem hfresh hpin hsE hTa hTok hA2
         hAok hmemA
       exact natOps_install mp ((hclaims φ).2.2.1) (mp.nat_ops φ)
-        hcmem hfresh hlpcv hsE hg2 hdeps₂ hruns hA hAclosed hvf' hbv'
+        hcmem hfresh hlpcv hsE hg2 hself₂ hruns hA hAclosed hvf' hbv'
         hSelfBin hSelfUn hBoolS _ rfl
     · exact natOps_cons_fresh mp (mp.nat_ops φ)
         (c₀ := .defnInfo ⟨cv.name, cv.levelParams, type'⟩ value' hint)

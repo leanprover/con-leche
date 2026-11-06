@@ -128,7 +128,7 @@ def DeclDefnRun (F : Nat) (env : Env)
       env.consts, env.tables⟩ ∧
     (natOpNames.contains cv.name = true →
       natOpGuard env₂ cv.name = true ∧
-      (natOpDeps cv.name).all (natOpStoredOk env₂) = true ∧
+      natOpStoredOk env₂ cv.name = true ∧
       NatEqsRun F env
         ((natOpEquations 0 cv.name).map fun eq =>
           (Expr.substConst0 cv.name value' eq.1,

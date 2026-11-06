@@ -58,11 +58,11 @@ theorem natOps_pushTable (mp : EnvModelM V env) {t : ProjTable}
     (φ : Name → Nat) : NatOps m₂ φ := by
   intro c hcN cv v hint hf
   obtain ⟨hg, hpin, hlaws⟩ := mp.nat_ops φ c hcN cv v hint hf
-  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg
+  obtain ⟨hN, -, -, -, -⟩ := ConLeche.Verify.natOpGuard_stored hg hpin
   obtain ⟨ciN, hfN, -⟩ := ConLeche.Verify.storedNoLevels_exists hN
   refine ⟨hg, hpin, fun eq hq => ?_⟩
   obtain ⟨L, R, hL, hR, hlaw⟩ := hlaws eq hq
-  obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg eq hq
+  obtain ⟨h1, h2⟩ := natOpEquations_frag_of_guard hg hpin eq hq
   have hf0 : env.find? c = some (.defnInfo cv v hint) := hf
   have hfE : (env.find? c).isSome = true := by rw [hf0]; rfl
   have hfN' : (env.find? ConLeche.natName).isSome = true := by rw [hfN]; rfl

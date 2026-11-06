@@ -39,7 +39,7 @@ constructor form when reduction needs it
 binary `Nat` operations] on literals with machine arithmetic. The folding is sound only for
 the operations as the toolchain defines them, so the checker compares
 each stream's definition against #src("ConLeche/Kernel/NatOpPins.lean", 8, 21)[a pinned copy] and the model
-#src("ConLeche/Model/NatEqs.lean", 1078, 1082)[establishes the operations' recurrences] from that comparison.]
+#src("ConLeche/Model/NatEqs.lean", 1080, 1084)[establishes the operations' recurrences] from that comparison.]
 
 #left-out[Quotients][`Quot`, `Quot.mk`, `Quot.lift`, `Quot.ind` and the
 axiom `Quot.sound` have #src("ConLeche/Kernel/Basis/Quot.lean", 8, 14)[a built-in pin] and are modelled by #src("ConLeche/SetTheory/Derive/Quot.lean", 65, 67)[the

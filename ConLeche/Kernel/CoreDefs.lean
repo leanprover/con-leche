@@ -403,9 +403,11 @@ after insertion would let the operation's own just-enabled fast path
 discharge its all-literal-argument equations (`pred zero ≡ zero`,
 `beq zero zero ≡ true`) vacuously — accepting definitions that
 disagree with the fast path on those points, which is unsound.  The
-install also pins the operation's and its dependencies' types to the
-expected `Nat → … → Nat`/`Bool` shapes (`natOpStoredOk`): the model
-reads the operations' function-space memberships off these shapes.
+install also pins the operation's type to the expected
+`Nat → … → Nat`/`Bool` shape (`natOpStoredOk`): the model reads the
+operations' function-space memberships off these shapes.  Its
+dependencies need only be stored (`natOpGuard`): each is pinned and
+certified by its own install.
 
 The environment model carries the matching semantic clause: a stored
 definition under one of these names satisfies its recurrences, from
@@ -605,17 +607,23 @@ def natOpResult (c : Name) (a b : Nat) : Option Expr :=
   else none
 
 /-- Stored-constant guards for op `c`: the `Nat` basis, every
-dependency stored as a definition, and (for the `Bool`-valued ops and
+dependency stored, and (for the `Bool`-valued ops and
 the `ble`-guarded `div`/`mod`, whose semantic clauses mention the
 `Bool` constructor values) the `Bool` constructors stored, level-free,
 at the type `Bool` itself (their values must be members of `Bool`'s,
 so that a recurrence `beq 0 0 = true` relates two members of one
-type). -/
+type).
+
+A dependency is only required to be stored: what kind of constant it
+is, its level parameters and its type are its own job's business.  At
+a certified operation's name nothing but a definition is accepted, and
+a definition there runs the operation's own install check, which pins
+its type (`natOpStoredOk`) and certifies its recurrences.  Storedness
+is what that leaves: an absent dependency would let a certificate pass
+over a name with nothing behind it. -/
 def natOpGuard (env : Env) (c : Name) : Bool :=
   natLitSupported env &&
-  (natOpDeps c).all (fun n => match env.find? n with
-    | some (.defnInfo cv _ _) => cv.levelParams.isEmpty
-    | _ => false) &&
+  (natOpDeps c).all (fun n => (env.find? n).isSome) &&
   (if c = natBeqName || c = natBleName || natDivModNames.contains c then
     (match env.find? boolTrueName with
       | some ci => ci.toConstantVal.levelParams.isEmpty &&

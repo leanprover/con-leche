@@ -1648,7 +1648,8 @@ theorem dmClause2 {F : Nat} {mp : EnvModelM V env} {c : Name}
 
 /-! ## The frame, assembled from the guards
 
-Everything is read off `divModEnvGuard` at the
+Everything is read off `divModEnvGuard` and the dependencies' pins
+(`hdeps`, the prefix's laws through `natOpDepsOk_install`) at the
 *extension* and descended to the prefix, except the operation's own
 head, which comes through the value front door's products the harvest
 already holds (`hmemA`/`hTok`) — `c` is not stored in `env`; it is
@@ -1662,6 +1663,9 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
     (hgenv : ConLeche.divModEnvGuard
       (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env) c
       = true)
+    (hdeps : (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk
+      (⟨.defnInfo ⟨c, lps, type'⟩ value' hint :: env.consts, env.tables⟩ : Env))
+      = true)
     {A Ta : (Name → Nat) → Term}
     (hA : ∀ ψ, denote mp.base2.acval env ψ 0 value' = some (A ψ))
     (hAclosed : ∀ (ψ : Name → Nat) (k : Nat), (A ψ).liftN 1 k = A ψ)
@@ -1674,7 +1678,7 @@ theorem dmFrame_of {mp : EnvModelM V env} {c : Name}
       interp V ρ (A ψ) ∈ˢ interp V ρ (Ta ψ))
     (ψ : Name → Nat) :
     DmFrame mp c A value' ψ := by
-  obtain ⟨hnog, hdeps, hEq2, hbT2, hbF2⟩ :=
+  obtain ⟨hnog, -, hEq2, hbT2, hbF2⟩ :=
     ConLeche.divModEnvGuard_inv hgenv
   obtain ⟨hs, hdeps', hbool⟩ := ConLeche.natOpGuard_inv hnog
   have hdepAll := List.all_eq_true.mp hdeps
@@ -2023,14 +2027,16 @@ theorem divMod_install {F : Nat} (mp : EnvModelM V env)
         hint).name from hne) hf₂
   subst hne
   clear hcqN
-  refine ⟨(ConLeche.divModEnvGuard_inv hgenv).1,
-    ConLeche.natOpTyPinned_of_deps (Or.inr hcmem)
-      (ConLeche.divModEnvGuard_inv hgenv).2.1 hf₂, fun ρ x y hx hy => ?_⟩
+  have hdeps := natOpDepsOk_install mp
+    (ci := .defnInfo ⟨cq, lps, type'⟩ value' hint) (c := cq)
+    rfl hfresh (Or.inr hcmem)
+    (ConLeche.divModEnvGuard_inv hgenv).1 (ConLeche.divModEnvGuard_inv hgenv).2.1
+  refine ⟨(ConLeche.divModEnvGuard_inv hgenv).1, hdeps, fun ρ x y hx hy => ?_⟩
   have hnatNe : ConLeche.natName ≠ cq :=
     (ConLeche.natDivModNames_ne_env hcmem).1.symm
   rw [hac, show acvalWith mp.base2.acval cq A ConLeche.natName
     = mp.base2.acval ConLeche.natName from acvalWith_ne hnatNe] at hx hy
-  have fr := dmFrame_of hcmem hgenv hA hAclosed hvf' hbv' hTa hTok
+  have fr := dmFrame_of hcmem hgenv hdeps hA hAclosed hvf' hbv' hTa hTok
     hAok hmemA φ
   have hruns := ConLeche.checkDivModCerts_inv hcerts
   -- the matched variant's proof list stays opaque (task #273): the

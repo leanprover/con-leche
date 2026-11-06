@@ -192,8 +192,7 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     let ci ← checkDefnValCI mode fe cv value hint
     if natOpNames.contains cv.name then
       let fe2 := fe.overlay [ci]
-      unless natOpGuardF fe2 cv.name &&
-          (natOpDeps cv.name).all (natOpStoredOkF fe2) do
+      unless natOpGuardF fe2 cv.name && natOpStoredOkF fe2 cv.name do
         throw (.notImplemented
           s!"nonstandard structural Nat operation environment ({cv.name})")
       match fe2.find? cv.name with

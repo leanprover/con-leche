@@ -148,11 +148,9 @@ theorem dmValNames_stored {c : Name} (hc : c ∈ ConLeche.natDivModNames)
   · simp [hfF]
   · simp [hfZ]
   · simp [hfS]
-  · obtain ⟨cvb, vb, hb, hfb, -⟩ := hdeps _ hble
-    simp [hfb]
+  · exact hdeps _ hble
   · exact hcs
-  · obtain ⟨cvn, vn, hn', hfn, -⟩ := hdeps n hn
-    simp [hfn]
+  · exact hdeps n hn
 
 /-! ## Preservation across a fresh cons -/
 
@@ -172,7 +170,8 @@ theorem divMod_entry_cons {m : EnvModel V env} {φ : Name → Nat}
     (hf₂ : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? c
       = some (.defnInfo cv' v' hint')) :
     natOpGuard (⟨c₀ :: env.consts, env.tables⟩ : Env) c = true ∧
-    ConLeche.natOpTyPinned (⟨c₀ :: env.consts, env.tables⟩ : Env) c cv'.type = true ∧
+    (ConLeche.natOpDeps c).all
+      (ConLeche.natOpStoredOk (⟨c₀ :: env.consts, env.tables⟩ : Env)) = true ∧
     ∀ (ρ : Nat → V) (x y : V),
       x ∈ˢ interp V ρ (m₂.acval ConLeche.natName φ) →
       y ∈ˢ interp V ρ (m₂.acval ConLeche.natName φ) →
@@ -197,7 +196,7 @@ theorem divMod_entry_cons {m : EnvModel V env} {φ : Name → Nat}
   have hnat : m₂.acval ConLeche.natName φ = m.acval ConLeche.natName φ :=
     hmove _ (by simp [dmValNames])
   refine ⟨ConLeche.Verify.natOpGuard_cons hfresh hg,
-    ConLeche.Verify.natOpTyPinned_cons hfresh hpin, fun ρ x y hx hy => ?_⟩
+    ConLeche.Verify.natOpDepsOk_cons hfresh hpin, fun ρ x y hx hy => ?_⟩
   rw [hnat] at hx hy
   exact (divModClausesV_congr hcN
     (fun n hn => by rw [hmove n hn])).mp (hclauses ρ x y hx hy)

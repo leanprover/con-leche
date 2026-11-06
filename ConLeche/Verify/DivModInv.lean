@@ -233,7 +233,7 @@ theorem natDivModNames_ne_env {c : Name} (hc : c ∈ natDivModNames) :
 theorem divModEnvGuard_inv {env2 : Env} {c : Name}
     (h : divModEnvGuard env2 c = true) :
     natOpGuard env2 c = true ∧
-    (natOpDeps c).all (natOpStoredOk env2) = true ∧
+    natOpStoredOk env2 c = true ∧
     (env2.find? eqName).isSome = true ∧
     (∃ ci, env2.find? boolTrueName = some ci ∧
       ci.toConstantVal.type = .const boolName []) ∧

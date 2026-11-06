@@ -294,8 +294,9 @@ theorem natOpV_divmod (hops : NatOps m φ) (hnh : NatHeads m φ)
           (if c = ConLeche.natDivName then a / b else a % b)) := by
   have hcmem : c ∈ ConLeche.natDivModNames := by
     rcases hc with rfl | rfl <;> decide
-  obtain ⟨hg, -, hclauses⟩ := hdm c hcmem cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, hclauses⟩ := hdm c hcmem cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   have hdepmem : ConLeche.natSubName ∈ ConLeche.natOpDeps c ∧
       ConLeche.natBleName ∈ ConLeche.natOpDeps c := by
     rcases hc with rfl | rfl <;> exact ⟨by decide, by decide⟩
@@ -418,8 +419,9 @@ theorem natOpV_gcd (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.gcd a b)) := by
-  obtain ⟨hg, -, hclauses⟩ := hdm ConLeche.natGcdName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hg, hpins, hclauses⟩ := hdm ConLeche.natGcdName (by decide) cv v hint hf
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
   obtain ⟨cvmo, vmo, himo, hfmo, -⟩ := hdeps ConLeche.natModName (by decide)
   intro a b
@@ -451,9 +453,10 @@ theorem natOpV_shiftLeft (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.shiftLeft a b)) := by
-  obtain ⟨hg, -, hclauses⟩ :=
+  obtain ⟨hg, hpins, hclauses⟩ :=
     hdm ConLeche.natShiftLeftName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
   obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
   obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
@@ -491,9 +494,10 @@ theorem natOpV_shiftRight (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.shiftRight a b)) := by
-  obtain ⟨hg, -, hclauses⟩ :=
+  obtain ⟨hg, hpins, hclauses⟩ :=
     hdm ConLeche.natShiftRightName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
   obtain ⟨cvsu, vsu, hisu, hfsu, -⟩ := hdeps ConLeche.natSubName (by decide)
   obtain ⟨cvdi, vdi, hidi, hfdi, -⟩ := hdeps ConLeche.natDivName (by decide)
@@ -530,9 +534,10 @@ theorem natOpV_land (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.land a b)) := by
-  obtain ⟨hg, -, hclauses⟩ :=
+  obtain ⟨hg, hpins, hclauses⟩ :=
     hdm ConLeche.natLandName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
   obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
   obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
@@ -578,9 +583,10 @@ theorem natOpV_lor (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.lor a b)) := by
-  obtain ⟨hg, -, hclauses⟩ :=
+  obtain ⟨hg, hpins, hclauses⟩ :=
     hdm ConLeche.natLorName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
   obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
   obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)
@@ -629,9 +635,10 @@ theorem natOpV_xor (hops : NatOps m φ) (hnh : NatHeads m φ)
           (interp V ρ (natLit m φ a)))
         (interp V ρ (natLit m φ b))
       = interp V ρ (natLit m φ (Nat.xor a b)) := by
-  obtain ⟨hg, -, hclauses⟩ :=
+  obtain ⟨hg, hpins, hclauses⟩ :=
     hdm ConLeche.natXorName (by decide) cv v hint hf
-  obtain ⟨hs, hdeps, -⟩ := ConLeche.natOpGuard_inv hg
+  obtain ⟨hs, -, -⟩ := ConLeche.natOpGuard_inv hg
+  have hdeps := ConLeche.natOpDepsOk_inv hpins
   obtain ⟨cvbl, vbl, hibl, hfbl, -⟩ := hdeps ConLeche.natBleName (by decide)
   obtain ⟨cvad, vad, hiad, hfad, -⟩ := hdeps ConLeche.natAddName (by decide)
   obtain ⟨cvmu, vmu, himu, hfmu, -⟩ := hdeps ConLeche.natMulName (by decide)

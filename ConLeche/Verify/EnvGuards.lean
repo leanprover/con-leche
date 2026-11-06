@@ -408,8 +408,7 @@ theorem EtaFamiliesClosed.keep {env env' : Env}
 /-- Everything `natOpGuard` checked, as separate facts. -/
 theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
     natLitSupported env = true ∧
-    (∀ n ∈ natOpDeps c, ∃ cvn vn hn,
-      env.find? n = some (.defnInfo cvn vn hn) ∧ cvn.levelParams = []) ∧
+    (∀ n ∈ natOpDeps c, (env.find? n).isSome = true) ∧
     ((c = natBeqName ∨ c = natBleName ∨ c ∈ natDivModNames) →
       (∃ ciT, env.find? boolTrueName = some ciT ∧
         ciT.toConstantVal.levelParams = []) ∧
@@ -418,15 +417,7 @@ theorem natOpGuard_inv {c : Name} (h : natOpGuard env c = true) :
   unfold natOpGuard at h
   simp only [Bool.and_eq_true] at h
   obtain ⟨⟨hs, hdeps⟩, hbool⟩ := h
-  refine ⟨hs, ?_, ?_⟩
-  · intro n hn
-    have := List.all_eq_true.mp hdeps n hn
-    revert this
-    split
-    · next cvn vn hn heq =>
-      intro hlp
-      exact ⟨cvn, vn, hn, heq, List.isEmpty_iff.mp (by simpa using hlp)⟩
-    · intro hh; exact nomatch hh
+  refine ⟨hs, fun n hn => List.all_eq_true.mp hdeps n hn, ?_⟩
   · intro hc
     have hcb : (c = natBeqName || c = natBleName ||
         natDivModNames.contains c) = true := by
@@ -491,37 +482,48 @@ theorem natOpGuard_boolTy {c : Name} (h : natOpGuard env c = true)
       exact ⟨ciF, heq, hlp.2⟩
     · intro hh; exact nomatch hh
 
-/-! ## The `Nat` fast-path guard, unpacked
+/-! ## A stored operation's own pin, unpacked
 
-`natOpGuard` is the certificate that a structural-`Nat` operation may
-be accelerated on literals.  Its three consequences below are read by
-every clause of both lanes' `reduceNat` bridges — the literal support,
-the operation's and its dependencies' storage with no level parameters,
-and the two `Bool` constructors for the comparison and div/mod
-branches.  All of them are statements about `Env.find?` alone. -/
+The install checks of a certified operation pin its own stored type
+(`natOpStoredOk`); its dependencies are only required stored
+(`natOpGuard`).  The model's laws carry the pin for every dependency
+(each one's own install established it), in the form
+`(natOpDeps c).all (natOpStoredOk env)`, and every clause of the
+literal bridges reads it through the two inversions below. -/
 
-/-- The guard's own consequences, in the form every operation clause
-reads them: the literal support, and that the operation and each of its
-dependencies is stored with no level parameters. -/
-theorem natOpGuard_deps {env : Env} {c : Name}
-    (hguard : natOpGuard env c = true) :
-    natLitSupported env = true ∧
-      ∀ n ∈ natOpDeps c, ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
-        cv.levelParams = [] := by
-  simp only [natOpGuard, Bool.and_eq_true] at hguard
-  refine ⟨hguard.1.1, ?_⟩
-  intro n hn
-  have hd := hguard.1.2
-  rw [List.all_eq_true] at hd
-  have h := hd n (by simpa using hn)
-  cases hx : env.find? n with
-  | none => rw [hx] at h; exact nomatch h
-  | some ci =>
-    rw [hx] at h
-    cases ci with
-    | defnInfo cv v hh =>
-      exact ⟨cv, v, hh, rfl, by simpa [List.isEmpty_iff] using h⟩
-    | _ => simp at h
+/-- `natOpStoredOk`, inverted. -/
+theorem natOpStoredOk_inv {env : Env} {n : Name}
+    (h : natOpStoredOk env n = true) :
+    ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
+      cv.levelParams = [] ∧ natOpTyPinned env n cv.type = true := by
+  unfold natOpStoredOk at h
+  revert h
+  split
+  · next cv v hh heq =>
+    intro h
+    simp only [Bool.and_eq_true, List.isEmpty_iff] at h
+    exact ⟨cv, v, hh, heq, h.1, h.2⟩
+  · intro h; exact nomatch h
+
+/-- Every dependency pinned: each is stored as a definition with no
+level parameters. -/
+theorem natOpDepsOk_inv {env : Env} {c : Name}
+    (h : (natOpDeps c).all (natOpStoredOk env) = true) :
+    ∀ n ∈ natOpDeps c, ∃ cv v hh, env.find? n = some (.defnInfo cv v hh) ∧
+      cv.levelParams = [] := fun n hn =>
+  let ⟨cv, v, hh, hf, hl, _⟩ := natOpStoredOk_inv (List.all_eq_true.mp h n hn)
+  ⟨cv, v, hh, hf, hl⟩
+
+/-- A certified operation's dependencies are certified operations. -/
+theorem natOpDeps_mem {c n : Name} (hc : c ∈ natOpNames ∨ c ∈ natDivModNames)
+    (hn : n ∈ natOpDeps c) : n ∈ natOpNames ∨ n ∈ natDivModNames := by
+  have h1 : ∀ c ∈ natOpNames, ∀ n ∈ natOpDeps c,
+      n ∈ natOpNames ∨ n ∈ natDivModNames := by decide
+  have h2 : ∀ c ∈ natDivModNames, ∀ n ∈ natOpDeps c,
+      n ∈ natOpNames ∨ n ∈ natDivModNames := by decide
+  rcases hc with hc | hc
+  · exact h1 c hc n hn
+  · exact h2 c hc n hn
 
 /-- A stored certified operation is a definition: the hypothesis `NatOps`/`DivMod` take before
 handing back `natOpGuard`. -/

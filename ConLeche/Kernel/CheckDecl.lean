@@ -56,10 +56,10 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
     -- replaced by its stored value (see `ConLeche/Kernel/Core.lean`:
     -- certifying after insertion would let the operation's own fast
     -- path discharge its all-literal equations vacuously), and the
-    -- operation's and its dependencies' stored types are pinned.
+    -- operation's stored type is pinned (its dependencies need only be
+    -- stored: each one's own install pins and certifies it).
     if natOpNames.contains cv.name then
-      unless natOpGuard env2 cv.name &&
-          (natOpDeps cv.name).all (natOpStoredOk env2) do
+      unless natOpGuard env2 cv.name && natOpStoredOk env2 cv.name do
         throw (.notImplemented
           s!"nonstandard structural Nat operation environment ({cv.name})")
       match env2.find? cv.name with

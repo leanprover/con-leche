@@ -3237,6 +3237,15 @@
 1 natop_foreign_thm.ndjson
 1 natop_foreign_former.ndjson
 1 bool_ctor_name_former.ndjson
+# -- task #462: a certified operation's install requires each dependency STORED; its kind,
+# levels and type are its own job's.  natop_dep_absent: `Nat.mul` over an addition of its own,
+# `Nat.add` absent: 2, declined at `Nat.mul`'s install (official 0).  natop_dep_axiom,
+# natop_dep_opaque, natop_dep_thm: `Nat.add` declared as each refused kind under a `Nat.mul`:
+# 1, refused at `Nat.add`'s own record (official 0).  Verdicts unchanged by #462.
+2 natop_dep_absent.ndjson
+1 natop_dep_axiom.ndjson
+1 natop_dep_opaque.ndjson
+1 natop_dep_thm.ndjson
 # -- task #480: a projection's guard at a def-headed structure asks each row to be zero
 # wherever the walked sort is, by zero-ness: exact, and it takes no fuel.  level_fuel_guard:
 # the row and the sort at a level chain deeper than `Level.leq`'s fuel, which the former test

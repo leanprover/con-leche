@@ -110994,3 +110994,60 @@ where a buffered write fails.  Reproduced by hand with an `LD_PRELOAD` shim that
 `fflush(stdout)` report `EIO`: exit 1 before, 3 after, on an accepted file, a usage error and a
 malformed file.  No gate runs it (maintainer: too much machinery for the corner case).
 
+
+## TASK #462 — certified operations: a dependency is stored, its own job does the rest (2026-11-06, agent/462-natop-deps)
+
+Implements #460's Question 4.  **What changed.**  A definition at a certified `Nat`
+operation's name `c` passed the install check only if `natOpGuard` held (which asked every
+dependency in `natOpDeps c` to be a level-free definition) and every dependency passed
+`natOpStoredOk` (level-free definition at its pinned type); `divModEnvGuard(F)` asked the same
+for the WF operations.  Now `natOpGuard` asks of a dependency only that it is stored, and the
+checks (`checkDecl`, `checkDeclC`, `divModEnvGuard`, `divModEnvGuardF`) add `c`'s own
+`natOpStoredOk`.  What stays: `natLitSupported`, every dependency stored (an absent `Nat.add`
+would let `Nat.mul`'s certificate pass over a name with nothing behind it), `c`'s own pinned
+type and level-freeness, the `Bool` constructor guard.
+
+**Why that is enough.**  At a certified name nothing but a definition is accepted
+(`checkConstantVal`'s refusal; `OpDefn`), and a definition there runs this branch in its own
+job, pinning its own type and certifying its recurrences.  The accept needs every job.
+
+**The proofs' route.**  The laws `NatOps`/`DivMod` (`Model/Env/Laws.lean`) record, for a
+stored operation, `natOpGuard env c ∧ (natOpDeps c).all (natOpStoredOk env) ∧ …` in place of
+the former `natOpTyPinned env c cv.type` (the own pin is the self entry, `natOpTyPinned_of_deps`).
+At the operation's install the pins come from the prefix's invariant:
+`natOpDepsOk_install` (`Model/Env/EnvModelM.lean`) takes a dependency `n ≠ c`, stored at the
+extension by the weakened guard, hence in the prefix; `op_defn` makes it a definition there,
+`natOpDeps_mem` a certified name, so its own `nat_ops`/`div_mod` entry gives its pin, which
+`natOpStoredOk_cons` carries across the cons; `n = c` is the check's own `natOpStoredOk`.
+`natOps_install` and `divMod_install` call it (their `hdepsOk` parameter became the own pin);
+the run records `DeclDefnRun`/`DivModPinRun` and the bridge carry the own pin.  Everything
+that read a dependency's definition, level-freeness or pin off `natOpGuard_inv`
+(`NatSem`'s and `NatWf`'s transports, `NatStep`, `natOpEquations_frag_of_guard`, `dmFrame_of`)
+reads it off the law's pins through `natOpDepsOk_inv`/`natOpStoredOk_inv`
+(`Verify/EnvGuards.lean`); `natOpGuard_stored` takes the pins as a second argument.  The pins
+are transported by `natOpDepsOk_cons`, `natOpDepsOk_ren` (basis renaming) and the two swaps'
+`hdepsUp`.  `natOpGuard_deps` and `natOpStoredOkF_eq_fun` went (no use left).  No dropped fact
+failed to come from the invariant.  Delta: implementation +24/−19 lines, proofs +286/−160.
+
+**Fixtures** (`tests/e2e/src/natop_dep_*.lean`, prelude sources, exported with
+`scripts/export-fixture.sh`).  `natop_dep_absent`: `Nat.mul` over an addition of its own,
+`Nat.add` absent: 2, declined at `Nat.mul`'s install.  `natop_dep_axiom`, `natop_dep_opaque`,
+`natop_dep_thm`: `Nat.add` as each refused kind under a `Nat.mul`: 1, refused at `Nat.add`'s
+own record.  All four verdicts are the same before and after (and at `--jobs=1`/`8`); no
+pinned verdict changed.
+
+**Numbers** (`perf stat -e instructions:u`, `--verified`, one run each; base = `modular`
+23a16a2a8):
+
+| stream | `--jobs=1` base | #462 | `--jobs=8` base | #462 |
+|---|---|---|---|---|
+| init-full | 382.247 G | +0.007 % | 388.188 G | −0.006 % |
+| grind-ring-5 | 15.3484 G | −0.000 % | 15.6152 G | +0.010 % |
+
+Noise: the dropped tests were a few lookups per certified operation.
+
+**Documents.**  OVERVIEW's structural-operations paragraph says that a dependency need only be
+stored.  Four of its `CoreDefs.lean` anchors in that section (the fast-path account,
+`natOpNames`, `natOpGuard`, `natOpCod`) had pointed six to eight lines early before this lane;
+they now cite the definitions.  `divModEnvGuard`'s own `Bool` constructor type tests repeat
+`natOpGuard`'s for the WF names; left as they are.

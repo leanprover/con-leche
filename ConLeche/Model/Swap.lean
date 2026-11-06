@@ -191,6 +191,18 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
       · rw [h₀] at hf
         obtain rfl := Option.some.inj hf
         exact ⟨_, h₃, rfl⟩) h
+  -- the operations' dependencies' pins: a pinned operation is a
+  -- definition, which the swap keeps
+  have hdepsUp : ∀ {c : Name},
+      (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env₀) = true →
+      (ConLeche.natOpDeps c).all (ConLeche.natOpStoredOk env₃) = true := fun h =>
+    List.all_eq_true.mpr fun n hn => by
+      obtain ⟨cv, v, hh, hf, hl, hp⟩ :=
+        ConLeche.natOpStoredOk_inv (List.all_eq_true.mp h n hn)
+      unfold ConLeche.natOpStoredOk
+      rw [(hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mpr hf]
+      simp only [hl, List.isEmpty_nil, Bool.true_and]
+      exact hpinUp hp
   -- the member correspondence, at the level of `toConstantVal`
   have hmemcorr : ∀ c₃ ∈ env₃.consts, ∃ c₀ ∈ env₀.consts,
       c₀.toConstantVal = c₃.toConstantVal ∧ c₀.name = c₃.name := by
@@ -284,7 +296,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     intro φ c hc cv value hint hf
     obtain ⟨hgu, hpin, hlaw⟩ := mp.nat_ops φ c hc cv value hint
       ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    refine ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, ?_⟩
+    refine ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp hpin, ?_⟩
     intro eq heq
     obtain ⟨L, R, hL, hR, hval⟩ := hlaw eq heq
     exact ⟨L, R, by rw [← hde]; exact hL,
@@ -293,7 +305,7 @@ theorem EnvModelM.swapP {env₀ env₃ : Env}
     intro φ c hc cv value hint hf
     obtain ⟨hgu, hpin, hlaw⟩ := mp.div_mod φ c hc cv value hint
       ((hsame _ _ (fun _ _ _ _ _ h => ConstantInfo.noConfusion h)).mp hf)
-    exact ⟨by rw [← hcg.guardEq]; exact hgu, hpinUp hpin, hlaw⟩
+    exact ⟨by rw [← hcg.guardEq]; exact hgu, hdepsUp hpin, hlaw⟩
   · -- `eq_law`: `Eq` is stored as an `indInfo`, so it is never swapped
     intro ci p hf hp
     exact mp.eq_law ci p ((hsame eqName ci

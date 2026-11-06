@@ -9,9 +9,10 @@ public section
 
 `natOpEquations`' equation sides live in a four-constructor grammar —
 `sort`, the two `Nat`-annotated free variables, resolving constants,
-and application — and `natOpGuard` pins exactly the constants that
-grammar admits.  Every statement below mentions only `Env`, `Expr`
-and the kernel's own `natOp*` data.
+and application — and `natOpGuard` with the dependencies' pins
+(`natOpStoredOk`) stores exactly the constants that grammar admits.
+Every statement below mentions only `Env`, `Expr` and the kernel's own
+`natOp*` data.
 -/
 
 -- the namespace follows `Verify/Denote/*`'s (`ConLeche.Verify`), so
@@ -233,9 +234,11 @@ theorem storedNoLevels_of_ctorOk {env : Env} {n : Name}
       rw [hfd]; exact (Bool.and_eq_true _ _ ▸ h : _ ∧ _).1
     · exact nomatch h
 
-/-- The guard's three clauses, as the fragment lemma wants them. -/
+/-- The guard's clauses and the dependencies' pins (which the model's
+laws carry, `natOpDepsOk_inv`), as the fragment lemma wants them. -/
 theorem natOpGuard_stored {env : Env} {c : Name}
-    (h : natOpGuard env c = true) :
+    (h : natOpGuard env c = true)
+    (hdeps : (natOpDeps c).all (natOpStoredOk env) = true) :
     storedNoLevels env natName ∧ storedNoLevels env natZeroName ∧
     storedNoLevels env natSuccName ∧
     (∀ n ∈ natOpDeps c, storedNoLevels env n) ∧
@@ -243,7 +246,7 @@ theorem natOpGuard_stored {env : Env} {c : Name}
         natDivModNames.contains c) = true →
       storedNoLevels env boolTrueName ∧ storedNoLevels env boolFalseName) := by
   simp only [natOpGuard, Bool.and_eq_true] at h
-  obtain ⟨⟨hlit, hdeps⟩, hbool⟩ := h
+  obtain ⟨⟨hlit, -⟩, hbool⟩ := h
   simp only [natLitSupported, Bool.and_eq_true] at hlit
   obtain ⟨⟨hind, hzero⟩, hsucc⟩ := hlit
   refine ⟨?_, storedNoLevels_of_ctorOk (Or.inl hzero),
@@ -256,9 +259,11 @@ theorem natOpGuard_stored {env : Env} {c : Name}
     · exact nomatch hind
   · intro n hn
     have hd := List.all_eq_true.mp hdeps n hn
+    unfold natOpStoredOk at hd
     unfold storedNoLevels
     split at hd
-    · next _ _ _ hfd => rw [hfd]; exact hd
+    · next _ _ _ hfd =>
+      rw [hfd]; exact (Bool.and_eq_true _ _ ▸ hd : _ ∧ _).1
     · exact nomatch hd
   · intro hc
     rw [ite_eq_left hc] at hbool

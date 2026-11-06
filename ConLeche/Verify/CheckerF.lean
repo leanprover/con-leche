@@ -100,14 +100,10 @@ theorem reducePinGuardF_eq (env : Env) (c : Name) :
     reducePinGuardF (mkFEnv env) c = reducePinGuard env c := by
   simp only [reducePinGuardF, reducePinGuard, constsResolveF_eq] <;> rfl
 
-theorem natOpStoredOkF_eq_fun (env : Env) :
-    natOpStoredOkF (mkFEnv env) = natOpStoredOk env :=
-  funext (natOpStoredOkF_eq env)
-
 theorem divModEnvGuardF_eq (env : Env) (c : Name) :
     divModEnvGuardF (mkFEnv env) c = divModEnvGuard env c := by
   simp only [divModEnvGuardF, divModEnvGuard, mkFEnv_find?,
-    natOpGuardF_eq, natOpStoredOkF_eq_fun] <;> rfl
+    natOpGuardF_eq, natOpStoredOkF_eq] <;> rfl
 
 theorem divModCertGuardF_eq (env : Env) (c : Name) (annVal : Expr)
     (hyps : List Expr) (eqE proof : Expr) :
