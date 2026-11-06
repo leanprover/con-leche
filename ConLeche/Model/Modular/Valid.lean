@@ -606,6 +606,154 @@ theorem reading_reduce {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev 
   obtain ⟨ciO, h1, -, -, -, -, -, h7⟩ := owner hK hs.iface hs.importOk h
   rw [h1, h7 hr]
 
+/-! ## What a record's constants say of its names -/
+
+/-- A pinned block's formers list only the block's names as constructors (checked per kind). -/
+@[expose] def pinCtorsOk (pins : List ConstantInfo) : Bool :=
+  pins.all fun pin => match pin with
+    | .indInfo _ caps => caps.ctors.all fun x => (pins.map (·.name)).contains x
+    | _ => true
+
+theorem pinCtorsOk_basis : ∀ kind ∈ [BasisKind.eqK, .natK, .emptyK, .falseK],
+    pinCtorsOk kind.decls = true := by decide
+
+theorem atLps_indInfo {pin : ConstantInfo} {ps : List Name} {cv : ConstantVal} {caps : IndCaps}
+    (h : pin.atLps ps = .indInfo cv caps) : ∃ cv', pin = .indInfo cv' caps := by
+  cases pin <;> simp [ConstantInfo.atLps] at h
+  case indInfo cv' caps' => exact ⟨cv', by rw [h.2]⟩
+
+theorem quotPins_noCtors : BasisKind.quotK.decls.all (fun pin => match pin with
+    | .indInfo _ caps => caps.ctors.isEmpty
+    | _ => true) = true := by decide
+
+theorem quotPin_mem (k : QuotKind) : quotPin k ∈ BasisKind.quotK.decls := by
+  cases k <;> decide
+
+theorem blockRecs_not_ind (p : BlockShape) :
+    ∀ (l : List RecShape) {cv : ConstantVal} {caps : IndCaps}, .indInfo cv caps ∉ blockRecs p l
+  | [], _, _, h => nomatch h
+  | rc :: rest, cv, caps, h => by
+    simp only [blockRecs, List.mem_cons] at h
+    rcases h with h | h
+    · exact nomatch h
+    · exact blockRecs_not_ind p rest h
+
+/-- A quotient record's constant lists no constructor. -/
+theorem quotAt_ctors {k : QuotKind} {ps : ConstantVal} {cv : ConstantVal} {caps : IndCaps}
+    (h : quotAt k ps = .indInfo cv caps) : caps.ctors = [] := by
+  obtain ⟨cvp, hp⟩ := atLps_indInfo h
+  have := List.all_eq_true.mp quotPins_noCtors _ (quotPin_mem k)
+  rw [hp] at this
+  simpa using this
+
+/-- **A former's constructors are its record's names.** -/
+theorem declConstants_ctors {e : Declaration} {cv : ConstantVal} {caps : IndCaps}
+    (h : .indInfo cv caps ∈ declConstants e) :
+    ∀ x ∈ caps.ctors, x ∈ (declConstants e).map (·.name) := by
+  intro x hx
+  cases e with
+  | indDecl block nP =>
+    simp only [declConstants] at h ⊢
+    split at h
+    · next kind hk =>
+      have hn := List.find?_some hk
+      simp only [beq_iff_eq] at hn
+      have hmem : kind ∈ [BasisKind.eqK, .natK, .emptyK, .falseK] := List.mem_of_find?_eq_some hk
+      have hnames := atBlock_names kind.decls block hn
+      show x ∈ (kind.atBlock block).map (·.name)
+      unfold BasisKind.atBlock
+      rw [hnames]
+      obtain ⟨j, hj⟩ := List.getElem?_of_mem h
+      obtain ⟨pin, c, hpin, -, hpe⟩ := List.getElem?_zipWith_eq_some.mp hj
+      obtain ⟨cv', rfl⟩ := atLps_indInfo hpe
+      have hpin : ConstantInfo.indInfo cv' caps ∈ kind.decls := List.mem_of_getElem? hpin
+      have hok := pinCtorsOk_basis kind hmem
+      unfold pinCtorsOk at hok
+      have := List.all_eq_true.mp hok _ hpin
+      simp only [List.all_eq_true, List.contains_iff_mem] at this
+      exact this x hx
+    · split at h
+      · next p hp =>
+        simp only [blockConstants, List.mem_append] at h
+        rcases h with (h | h) | h
+        · unfold blockFormers at h
+          obtain ⟨⟨cvm, i⟩, hi, he⟩ := List.mem_map.mp h
+          simp only [ConstantInfo.indInfo.injEq] at he
+          obtain ⟨rfl, rfl⟩ := he
+          have hlt : i < p.members.length := by
+            have := List.mem_zipIdx hi
+            simp at this
+            omega
+          rw [blockConstants_names]
+          refine List.mem_append_left _ (List.mem_append_right _ ?_)
+          have hsub : ∀ ms ∈ p.members, ∀ c ∈ ms.ctors, c ∈ p.allCtors := fun ms hms c hc =>
+            List.mem_flatten.mpr ⟨ms.ctors, List.mem_map.mpr ⟨ms, hms, rfl⟩, hc⟩
+          have hm : p.members.getD i default ∈ p.members := by
+            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+            exact List.getElem_mem _
+          have hcs : ∀ x ∈ (blockCapsAt p i (blockIsRec p)).ctors,
+              x ∈ (p.members.getD i default).ctors.map (·.1.name) := by
+            unfold blockCapsAt
+            split <;> simp_all
+          obtain ⟨c, hc, rfl⟩ := List.mem_map.mp (hcs x hx)
+          exact List.mem_map.mpr ⟨c, hsub _ hm c hc, rfl⟩
+        · unfold blockCtors at h
+          obtain ⟨c, -, he⟩ := List.mem_map.mp h
+          exact nomatch he
+        · exact absurd h (blockRecs_not_ind p p.recs)
+      · exact absurd h (List.not_mem_nil)
+  | quotDecl k cv' =>
+    simp only [declConstants, List.mem_singleton] at h
+    rw [quotAt_ctors h.symm] at hx
+    exact absurd hx (List.not_mem_nil)
+  | defnDecl _ _ _ => simp [declConstants] at h
+  | thmDecl _ _ => simp [declConstants] at h
+  | opaqueDecl _ _ => simp [declConstants] at h
+  | axiomDecl cv' =>
+    simp only [declConstants] at h
+    split at h
+    · rw [quotAt_ctors (List.mem_singleton.mp h).symm] at hx
+      exact absurd hx (List.not_mem_nil)
+    · split at h <;> simp at h
+
+theorem blockTables_member (p : BlockShape) :
+    ∀ (l : List MemberShape) {t : ProjTable}, t ∈ blockTables p l →
+      ∃ ms ∈ l, t.structName = ms.declared.name
+  | [], _, h => nomatch h
+  | ms :: rest, t, h => by
+    simp only [blockTables] at h
+    split at h
+    · split at h
+      · rcases List.mem_cons.mp h with rfl | h
+        · exact ⟨ms, List.mem_cons_self, rfl⟩
+        · obtain ⟨m, hm, he⟩ := blockTables_member p rest h
+          exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
+      · obtain ⟨m, hm, he⟩ := blockTables_member p rest h
+        exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
+    · obtain ⟨m, hm, he⟩ := blockTables_member p rest h
+      exact ⟨m, List.mem_cons_of_mem _ hm, he⟩
+
+/-- **A record's table is one of its formers'.** -/
+theorem declTables_former {e : Declaration} {t : ProjTable} (ht : t ∈ declTables e) :
+    ∃ cv caps, .indInfo cv caps ∈ declConstants e ∧ cv.name = t.structName := by
+  cases e with
+  | indDecl block nP =>
+    simp only [declTables, declConstants] at ht ⊢
+    split at ht
+    · exact absurd ht (List.not_mem_nil)
+    · split at ht
+      · next p hp =>
+        obtain ⟨ms, hms, he⟩ := blockTables_member p p.members ht
+        obtain ⟨i, hi⟩ := List.getElem_of_mem hms
+        refine ⟨ms.declared, blockCapsAt p i (blockIsRec p), ?_, he.symm⟩
+        simp only [blockConstants, blockFormers, List.mem_append]
+        refine .inl (.inl (List.mem_map.mpr ⟨(ms.declared, i), ?_, rfl⟩))
+        rw [List.mem_zipIdx_iff_getElem?]
+        obtain ⟨hlt, rfl⟩ := hi
+        simp [List.getElem?_eq_getElem hlt]
+      · exact absurd ht (List.not_mem_nil)
+  | _ => simp [declTables] at ht
+
 end
 
 end ConLeche.Model.Modular
