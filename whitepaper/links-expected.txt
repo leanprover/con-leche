@@ -2822,31 +2822,31 @@
    316        WellDenoted M φ ρ (v.instL ci.lparams ls) ∧
    317        interp M φ ρ (v.instL ci.lparams ls) = M c (ls.map (Level.eval φ))
 
-== ConLeche/Model/Env/EnvModelM.lean#L244-L267
-   244  structure EnvModelM (env : Env) where
-   245    /-- the environment carrier, contained -/
-   246    base2 : EnvModel V env
-   247    /-- every stored type reads, at every ground assignment -/
-   248    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
-   249      ∃ ta : Term,
-   250        denote base2.acval env ψ 0 c.toConstantVal.type = some ta
-   251    /-- the stored types' readings are graded types -/
-   252    type_wellDenotedTy : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : Term),
-   253      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
-   254      ∀ ρ : Nat → V, WellDenotedTy V ρ ta
-   255    /-- stored constants inhabit their types' readings (a projection
-   256    table's constant type is the closed dummy `Sort 1` and its leaf is
-   257    `Sort 0`, so the row holds of tables too; that a table is not a term
-   258    is `inferTypeCore`'s own rejection of a `.const` naming one) -/
-   259    mem_type : ∀ c ∈ env.consts,
-   260      ∀ (ψ : Name → Nat) (ta : Term),
-   261      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
-   262      ∀ ρ : Nat → V,
-   263        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
-   264    /-- stored definition and theorem values read, to the constant's own
-   265    leaf (existence) -/
-   266    defn_reads : AcvalDefnInst base2
-   267    /-- the two `Nat`-literal head facts, at every assignment -/
+== ConLeche/Model/Env/EnvModelM.lean#L245-L268
+   245  structure EnvModelM (env : Env) where
+   246    /-- the environment carrier, contained -/
+   247    base2 : EnvModel V env
+   248    /-- every stored type reads, at every ground assignment -/
+   249    type_reads : ∀ c ∈ env.consts, ∀ ψ : Name → Nat,
+   250      ∃ ta : Term,
+   251        denote base2.acval env ψ 0 c.toConstantVal.type = some ta
+   252    /-- the stored types' readings are graded types -/
+   253    type_wellDenotedTy : ∀ c ∈ env.consts, ∀ (ψ : Name → Nat) (ta : Term),
+   254      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
+   255      ∀ ρ : Nat → V, WellDenotedTy V ρ ta
+   256    /-- stored constants inhabit their types' readings (a projection
+   257    table's constant type is the closed dummy `Sort 1` and its leaf is
+   258    `Sort 0`, so the row holds of tables too; that a table is not a term
+   259    is `inferTypeCore`'s own rejection of a `.const` naming one) -/
+   260    mem_type : ∀ c ∈ env.consts,
+   261      ∀ (ψ : Name → Nat) (ta : Term),
+   262      denote base2.acval env ψ 0 c.toConstantVal.type = some ta →
+   263      ∀ ρ : Nat → V,
+   264        interp V ρ (base2.acval c.name ψ) ∈ˢ interp V ρ ta
+   265    /-- stored definition and theorem values read, to the constant's own
+   266    leaf (existence) -/
+   267    defn_reads : AcvalDefnInst base2
+   268    /-- the two `Nat`-literal head facts, at every assignment -/
 
 == whitepaper/Fragment/EnvModel.lean#L364-L373
    364  /-- The empty environment has a model: any assignment, vacuous laws. -/
@@ -4676,42 +4676,42 @@
    834        WellDenoted m.M φ ρ (Expr.mkAppN f xs) → interp m.M φ ρ (Expr.mkAppN f xs) ≠ pt →
    835        TeleFit m.M φ ρ T xs
 
-== ConLeche/Model/Env/Laws.lean#L496-L530
-   496    · next T us hh => rw [h T us hh]
-   497    · rfl
-   498  
-   499  /-- A constructor's family is a stored inductive. -/
-   500  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
-   501      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
-   502      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
-   503    unfold ConLeche.ctorFamily at h
-   504    split at h
-   505    · next T us hh =>
-   506      split at h
-   507      · next hf =>
-   508        cases Option.some.inj h
-   509        exact ⟨T, us, hh, hf⟩
-   510      · exact nomatch h
-   511    · exact nomatch h
-   512  
-   513  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
-   514  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
-   515      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
-   516      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
-   517      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
-   518        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
-   519        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
-   520        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
-   521      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
-   522    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
-   523    rw [hfam] at hf
-   524    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
-   525    exact ht ta (hde cvT caps ta hf hta) ρ
-   526  
-   527  /-- **The ι case split's environment facts, one rule**.
-   528  `RecRuleLaw`'s main clause takes the levels, parameters and index
-   529  comparisons as equations; under the conditional claims the ι step has
-   530  them only where neither side is the point, and at a K rule or a family
+== ConLeche/Model/Env/Laws.lean#L500-L534
+   500    · next T us hh => rw [h T us hh]
+   501    · rfl
+   502  
+   503  /-- A constructor's family is a stored inductive. -/
+   504  theorem ctorFamily_find {f : Name → Option ConstantInfo} {cvj cvT : ConstantVal}
+   505      {caps : ConLeche.IndCaps} (h : ConLeche.ctorFamily f cvj = some (cvT, caps)) :
+   506      ∃ T us, cvj.type.piResult.getAppFn = .const T us ∧ f T = some (.indInfo cvT caps) := by
+   507    unfold ConLeche.ctorFamily at h
+   508    split at h
+   509    · next T us hh =>
+   510      split at h
+   511      · next hf =>
+   512        cases Option.some.inj h
+   513        exact ⟨T, us, hh, hf⟩
+   514      · exact nomatch h
+   515    · exact nomatch h
+   516  
+   517  /-- `FamNZ` reads the family's lookup and the reading of its type. -/
+   518  theorem FamNZ.congr {V : Type w} [SetTheory V] {acval acval' : Name → (Name → Nat) → Term}
+   519      {env env' : Env} {φ : Name → Nat} {cvj cvj' : ConstantVal} {us : List Level}
+   520      (hfam : ConLeche.ctorFamily env'.find? cvj' = ConLeche.ctorFamily env.find? cvj)
+   521      (hde : ∀ (cvT : ConstantVal) (caps : ConLeche.IndCaps) (ta : Term),
+   522        ConLeche.ctorFamily env.find? cvj = some (cvT, caps) →
+   523        denote acval env φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta →
+   524        denote acval' env' φ 0 (cvT.type.instantiateLevelParams cvT.levelParams us) = some ta)
+   525      (h : FamNZ (V := V) acval' env' φ cvj' us) : FamNZ (V := V) acval env φ cvj us := by
+   526    obtain ⟨cvT, caps, hf, hl, hc⟩ := h
+   527    rw [hfam] at hf
+   528    refine ⟨cvT, caps, hf, hl, hc.imp id fun ⟨hn, w, hw, ht⟩ => ⟨hn, w, hw, fun ta hta ρ => ?_⟩⟩
+   529    exact ht ta (hde cvT caps ta hf hta) ρ
+   530  
+   531  /-- **The ι case split's environment facts, one rule**.
+   532  `RecRuleLaw`'s main clause takes the levels, parameters and index
+   533  comparisons as equations; under the conditional claims the ι step has
+   534  them only where neither side is the point, and at a K rule or a family
 
 == whitepaper/Fragment/EnvModel.lean#L119-L186
    119  /-- **The ι law of one recursor rule** (con-leche's `RecRuleLaw`,
@@ -5700,20 +5700,20 @@
    610      rules.map fun rl => { rl with fire := fire }
    611    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1138-L1150
-  1138    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-  1139  
-  1140  /-- The level and constructor-parameter comparands a firing rule's
-  1141  checks compare the major's constructor levels and parameters against:
-  1142  for a `.plain` rule the constructor's levels link to the recursor's by
-  1143  name and its parameters are the recursor's leading arguments; for a
-  1144  `.nested` rule both are the stored instantiations (the class the
-  1145  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-  1146  recursor's level instantiation and (for the parameters) instantiated at
-  1147  the recursor's leading-argument spine (the stored pins live in the
-  1148  `rP`-binder prefix context; index arguments never occur in them); a
-  1149  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-  1150  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L1146-L1158
+  1146    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+  1147  
+  1148  /-- The level and constructor-parameter comparands a firing rule's
+  1149  checks compare the major's constructor levels and parameters against:
+  1150  for a `.plain` rule the constructor's levels link to the recursor's by
+  1151  name and its parameters are the recursor's leading arguments; for a
+  1152  `.nested` rule both are the stored instantiations (the class the
+  1153  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+  1154  recursor's level instantiation and (for the parameters) instantiated at
+  1155  the recursor's leading-argument spine (the stored pins live in the
+  1156  `rP`-binder prefix context; index arguments never occur in them); a
+  1157  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+  1158  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -6957,12 +6957,12 @@
     20  definitionally equal to the stream's stored types and value, and whose
     21  certificates check enables the operation's fast path.  The hand-pinned certificate *statements* the proofs are checked against
 
-== ConLeche/Model/NatEqs.lean#L1078-L1082
-  1078  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
-  1079      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
-  1080      (hprev : NatOps mp.base2 φ)
-  1081      {c : Name} {lps : List Name} {type' value' : Expr}
-  1082      {hint : ReducibilityHint}
+== ConLeche/Model/NatEqs.lean#L1080-L1084
+  1080  theorem natOps_install (mp : EnvModelM V env) {φ : Name → Nat}
+  1081      {F : Nat} (hde : DefEqClaim mp.base2 φ F)
+  1082      (hprev : NatOps mp.base2 φ)
+  1083      {c : Name} {lps : List Name} {type' value' : Expr}
+  1084      {hint : ReducibilityHint}
 
 == ConLeche/Kernel/Basis/Quot.lean#L8-L14
      8  # The pinned `Quot` basis block
