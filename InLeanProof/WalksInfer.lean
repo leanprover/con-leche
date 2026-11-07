@@ -18,9 +18,7 @@ closedness one constructor at a time and through the walks' operations
 the fall-through refutation for a binder (`stripTop_of_TrS_lam_binderOf`/`_forallE`),
 the zero-ness test through the level translation.
 
-Callees owned by P2-whnf are named hypotheses (`DefeqArgSpecI`).  The
-∀-loops state no reading of their answer: InLean builds an `imax` chain
-nothing bounds (DESIGN.md, task #451, lane P2-infer).
+Callees owned by P2-whnf are named hypotheses (`DefeqArgSpecI`).
 -/
 
 set_option experimental.vcgen true
@@ -246,10 +244,9 @@ theorem inferLamsI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) 
 
 /-! ## The infer-∀ loop walks
 
-The ∀-loop's answer is a sort at an `imax` chain InLean builds; its
-translation is the mirror's, but nothing bounds its depth (`okLv`), so
-these posts state no reading of the answer: see the lane's record
-(DESIGN.md, task #451, lane P2-infer). -/
+The ∀-loop's answer is a sort at an `imax` chain InLean builds, its depth
+checked against C's bound (`EO.imaxChainFits`), so it has a reading
+(`okLv_inferPisOutI`). -/
 
 /-- The `imax` fold is the mirror's, through the level translation. -/
 theorem inferPisOut_trL :
@@ -261,14 +258,67 @@ theorem inferPisOut_trL :
     rw [List.map_cons, ConLeche.inferPisOut, InLean.inferPisOutI]
     exact inferPisOut_trL rest (.imax u v)
 
+/-- The `imax` chain is as deep as its deepest level plus its length. -/
+theorem depthS_inferPisOutI : ∀ (stk : List Level) (v : Level),
+    depthS (inferPisOutI stk v) ≤ maxDepthS (v :: stk) + stk.length
+  | [], v => by simp [InLean.inferPisOutI, maxDepthS]
+  | u :: rest, v => by
+    have := depthS_inferPisOutI rest (.imax u v)
+    simp only [InLean.inferPisOutI, maxDepthS, List.foldr_cons, depthS, List.length_cons] at this ⊢
+    omega
+
+theorem okL_inferPisOutI : ∀ (stk : List Level) (v : Level),
+    okL (inferPisOutI stk v) = (okL v && stk.all okL)
+  | [], v => by simp [InLean.inferPisOutI]
+  | u :: rest, v => by
+    rw [InLean.inferPisOutI, okL_inferPisOutI rest (.imax u v)]
+    simp only [okL, List.all_cons]
+    cases okL u <;> cases okL v <;> simp
+
+/-- **The `imax` chain the depth check admits has a reading.** -/
+theorem okLv_inferPisOutI {stk : List Level} {v : Level} (hfit : EO.imaxChainFits stk v = true)
+    (hv : okLv v = true) (hstk : stk.all okLv = true) : okLv (inferPisOutI stk v) = true := by
+  have hall : ∀ u ∈ v :: stk, depthS u ≤ maxLevelDepth := by
+    intro u hu
+    simp only [List.all_eq_true, okLv, Bool.and_eq_true, decide_eq_true_eq] at hstk hv
+    rcases List.mem_cons.1 hu with rfl | hu
+    · exact hv.2
+    · exact (hstk u hu).2
+  simp only [EO.imaxChainFits, maxDepthOf_eq hall, decide_eq_true_eq] at hfit
+  have hd := depthS_inferPisOutI stk v
+  simp only [List.all_eq_true, okLv, Bool.and_eq_true, decide_eq_true_eq] at hstk hv
+  simp only [okLv, okL_inferPisOutI, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
+  refine ⟨⟨hv.1, fun u hu => (hstk u hu).1⟩, ?_⟩
+  simp only [EO.maxLevelDepth] at hfit
+  simp only [InLeanProof.maxLevelDepth]
+  omega
+grind_pattern [conleche_grind] okLv_inferPisOutI => okLv (inferPisOutI stk v)
+
+/-- **A successor the depth check admits has a reading.** -/
+theorem okLv_succ_of_fits {u : Level} (hfit : EO.depthFits 1 u = true) (hu : okLv u = true) :
+    okLv (.succ u) = true := by
+  simp only [okLv, Bool.and_eq_true, decide_eq_true_eq] at hu
+  have h1 := (Level.fields u hu.2).1
+  have h2 : u.data.depth.toNat + 1 ≤ 16777215 := by
+    simpa [EO.depthFits, EO.maxLevelDepth] using hfit
+  have h3 : depthS u + 1 ≤ 16777215 := by rw [← h1]; exact h2
+  simp only [okLv, okL, hu.1, depthS, Bool.true_and]
+  exact decide_eq_true h3
+grind_pattern [conleche_grind] okLv_succ_of_fits => okLv (.succ u)
+
+theorem okLv_imax_of_fits {u v : Level} (hfit : EO.imaxChainFits [u] v = true) (hu : okLv u = true)
+    (hv : okLv v = true) : okLv (.imax u v) = true :=
+  okLv_inferPisOutI (stk := [u]) hfit hv (by simp [hu])
+grind_pattern [conleche_grind] okLv_imax_of_fits => okLv (.imax u v)
+
 theorem inferPisLeafI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat}
     {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : InLean.CState}
     (hs : CSOKI mode eager env s₀) (ht : OkS s₀ t = true) (hfv : OkSL s₀ fvs.toList = true)
-    (hfc : AllClosed (TrSL s₀ fvs.toList) = true)
+    (hfc : AllClosed (TrSL s₀ fvs.toList) = true) (hstk : stk.all okLv = true)
     (hw : ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse))
     (hc : ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true) :
     ⦃fun s => s = s₀⦄ inferPisLeafI r d t k fvs stk
-    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+    ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
       Runs (ConLeche.inferPisLeaf (ConLeche.fueledFns mode eager env) d (TrS s₀ t) k
         (TrSL s₀ fvs.toList).reverse (stk.map trL)) (TrS s' v); ⊤⦄ := by
   sym only [conleche_grind, ConLeche.inferPisLeaf.eq_1, inferPisOut_trL] =>
@@ -277,22 +327,23 @@ theorem inferPisLeafI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env 
 theorem inferPisI_spec {r : InLean.CoreFnsI} (ih : KnotSpecI mode eager env r) {d : Nat} :
     ∀ (fuel : Nat) {t : Expr} {k : Nat} {fvs : Array Expr} {stk : List Level} {s₀ : InLean.CState},
       CSOKI mode eager env s₀ → OkS s₀ t = true → OkSL s₀ fvs.toList = true →
-      AllClosed (TrSL s₀ fvs.toList) = true →
+      AllClosed (TrSL s₀ fvs.toList) = true → stk.all okLv = true →
       ConLeche.Expr.WScoped (d + k) ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse) →
       ((TrS s₀ t).instantiateList (TrSL s₀ fvs.toList).reverse).looseBVarsBounded 0 = true →
       ⦃fun s => s = s₀⦄ inferPisI r d fuel t k fvs stk
-      ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧
+      ⦃fun v s' => CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkS s' v = true ∧
         Runs (ConLeche.inferPis (ConLeche.fueledFns mode eager env) d fuel (TrS s₀ t) k
           (TrSL s₀ fvs.toList).reverse (stk.map trL)) (TrS s' v); ⊤⦄ := by
   intro fuel
   induction fuel with
   | zero =>
-    intro _ _ _ _ _ hs _ _ _ _ _
+    intro _ _ _ _ _ hs _ _ _ _ _ _
     sym only [conleche_grind, ConLeche.inferPis.eq_3] =>
       vcgen [InLean.inferPisI, inferPisLeafI_spec ih] <;> finish
   | succ fuel ihFuel =>
-    intro _ _ _ _ _ hs _ _ _ _ _
-    sym only [conleche_grind, ConLeche.inferPis.eq_1, ConLeche.inferPis.eq_2, List.map_cons] =>
+    intro _ _ _ _ _ hs _ _ _ _ _ _
+    sym only [conleche_grind, ConLeche.inferPis.eq_1, ConLeche.inferPis.eq_2, List.map_cons,
+        List.all_cons] =>
       vcgen [InLean.inferPisI.eq_def, instListRevM_specI hs, ih.infer, ih.whnf,
         mkFVarM_specI (mode := mode) (eager := eager) (env := env), ihFuel,
         inferPisLeafI_spec ih] <;> finish

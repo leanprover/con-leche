@@ -111337,3 +111337,89 @@ and drops its copies of `lbb_*`, `AllClosed_nil/cons`, `okSL_of_tabLe`,
 `TrSL_of_tabLe`, `trPW`, `trPW_inter`, `contains_map_toName`; its two
 `stripTop_of_TrS_*` (a different statement from `WalksDefeq`'s) are renamed
 `..._binderOf`.
+
+### Lane P2-close: the level depth at inference, the leaf guard, the inference bodies, `BodiesI` (2026-11-07)
+
+**Executable changes** (`InLean/*`, `InLeanReplay.lean`).
+* *Level depth at inference.*  `inferBodyI`'s sort arm builds `.succ u` only
+  if `EO.depthFits 1 u`; the `imax` chains (`inferPisLeafI`, `inferBodyIOI`'s
+  ∀ arm) only if `EO.imaxChainFits stk v` (`maxDepthOf (v :: stk) +
+  stk.length ≤ 2^24 − 1`, cached depths; one `imax` is the chain `[u]`); past
+  the bound an internal error ("universe level too deep"), as P2-0's
+  level-instantiation check.  P2-infer's finding 2 is closed.
+* *The leaf guard cannot run out.*  `leafGuardM.closure` puts every id it
+  meets into `seen`, expands a table number's type once (`done`, keyed by
+  the number) and spends fuel only on an expansion, at fuel `fvTys.size`
+  (well-founded on `(fuel, todo.length)`); `fvarClosureM` the same.
+* *Declines exit 2.*  `inlean-replay` counts a kernel exception whose
+  message starts `(InLean) declined:` as a decline (`DECLINE` line, exit 2
+  when there is no reject or exact mismatch); rejects stay 1.
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`, the three
+in parallel): Init 64,530, Std 110,064, Lean 199,645 declarations accepted, 0
+rejected, 0 declined, 0 exact and 0 cosmetic mismatches.  `instructions:u`:
+Init 863.9 G (863.8 G before), Std 1,669.9 G, Lean 3,575.5 G (3,574.9 G):
++0.02 %.  `scripts/inlean_negtest.lean`: 8/8 agree ("wrong return type" still
+the generator's error).  `lake build InLean InLeanProof inlean-replay`
+warning-free; `tests/layering.sh`, `tests/trust-surface.sh`,
+`tests/no-local-paths.sh` pass.
+
+**Proofs** (no `sorry`, no new axiom; pinned in `AxiomPins.lean`, the
+stop-gap `mkData` axioms wherever a translation's cached fields are read).
+* *Foundation*: `FVTableOK.range` (every interned type is in range), kept by
+  `mkFVarM_ok` (now with the type's range as a premise; `mkFVarM_specI` has
+  it from `OkS`).  `TysRangeOk` is gone.
+* *The leaf guard* (`LeafGuardI.lean`): `ClosureInv` (an expanded number's
+  successors are seen or pending, a seen id with an interned type has its
+  number expanded, expanded numbers index the table, `tys.size ≤ done.size +
+  fuel`) and `closure_spec` by the closure's functional induction; the
+  `fuel = 0` branch is refuted by counting (`hashSetNat_size_le`: a set of
+  numbers below `N` has at most `N` elements).  **`LeafGuardSpecI` is
+  discharged** (`leafGuardSpecI`, no premise); `ClosureEnds` is gone and the
+  ι step's walks (`WalksIotaRec.lean`) drop the `hlg` hypothesis.
+* *The ∀ loop's answer has a reading*: `okLv_inferPisOutI` (from
+  `EO.imaxChainFits`, by `depthS_inferPisOutI`), `okLv_succ_of_fits`,
+  `okLv_imax_of_fits`; `inferPisLeafI_spec`/`inferPisI_spec` now state `OkS` of
+  the answer (premise `stk.all okLv`).
+* *`WalksInferBody.lean` (new)*: the chained tails (`Pure.runs_inferLams_tail`,
+  `Pure.runs_inferPis_tail`, from master's `inferLams_sound`/`inferPis_sound`,
+  the private `…Tail_atF` restated), `inferLamsI_tail_spec`,
+  `inferPisI_tail_spec`; `ensureSortIOI_spec`; `fvarTypeM_specI`; the
+  projection type through the translation (`typeAtI_TrS`, from a stored body,
+  as `pinArgsI_TrS`); `inferBodyI_leaf` (the leaf arms — sort, free variable,
+  constant, literals, projection — at any record whose `infer`/`whnf` slots
+  simulate a pure record's: the knot's and its io view's); **`inferBodyI_spec`**
+  and **`inferBodyIOI_spec`** as `BodySpecI`.
+* *Closedness of the λ arm* comes from the pure side, not the loop: a
+  reading's free variables carry closed types (`leavesBounded_TrS`, from
+  `CSOKI.fvClosed` through `term_leaves`), so master's
+  `inferTypeCore_looseBVars` applies to the tail's inference
+  (`Pure.closed_lamTail`).  Threading it through `inferLamsI` instead (an
+  invariant `stk.length = k`) made `grind` loop in the fuel step, with the
+  length opaque too; not pursued.
+* *`BodiesI.lean` (new)*: `bodiesI_of` assembles `BodiesI` from the three
+  body lanes' theorems (P2-defeq's `proofIrrelI_spec` discharges
+  `ProofIrrelSpecI`; `defEqListI_spec`, `defeqSpineI_specI`,
+  `reduceNatI_specI`, `unfoldDefinitionI_specI` with `lbb_unfoldDefinition`,
+  `defeqArgI_spec` discharge the defeq body's and the spine's callee specs),
+  and `ssimI_of_env : SSimI eager env fe f` for every fuel.
+
+**What remains in the core** (named hypotheses, all P3's):
+* `EnvBodiesI fe env`: `EnvWF env`, `EnvRelI`, `EnvDomI`, `EnvDefnI`,
+  `EnvViewI`, `EnvRecI`, `DefeqEnvI`, and the new **`EnvProjI`** — InLean's
+  `findProj? T i = some e` gives con-leche's entry at `toName T` with
+  `ProjEntryRel e ce`: the same structure name, index, constructor name,
+  parameter and field counts, translated level parameters, and the body
+  `InLean.projBodyAt e.structName e.numParams e.idx e.ctorType` a stored open
+  term (`StoredT`: no free variable, in range, translating to `ce.body`).
+* **`ProjGuardSpecI eager env r fe`**: `checkProjGuardI r.inferIO r.whnf fe e
+  us` simulates `checkProjGuard` at `ce` and `us.map trL`, for `ProjEntryRel e
+  ce` and levels with a reading (the io view's guard is the same program).
+  Not proved, by the coordinator's ruling: master's guard is being re-shaped
+  (task #492, official `infer_proj`'s shape), and InLean's
+  `projGuardSortI`/`checkProjRowsI`/`checkProjGuardI` are re-ported after it.
+  `ssimI_of_env` takes it at every knot that simulates.
+
+**Obligations after P2-close**: O5 (the knot) is complete modulo
+`EnvBodiesI` (O4) and `ProjGuardSpecI` (the guard's re-port); O4, O6, O7, O8,
+O10 as before.

@@ -19,6 +19,8 @@ public import InLeanProof.LeafGuardI
 public import InLeanProof.WalksIotaRec
 public import InLeanProof.WalksDefeq
 public import InLeanProof.WalksInfer
+public import InLeanProof.WalksInferBody
 public import InLeanProof.KnotAssembly
+public import InLeanProof.BodiesI
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins
