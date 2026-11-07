@@ -26,5 +26,10 @@ public import InLeanProof.EnvPresI
 public import InLeanProof.EnvBodiesPres
 public import InLeanProof.QuotPres
 public import InLeanProof.IndPres
+public import InLeanProof.IndShape
+public import InLeanProof.IndOps
+public import InLeanProof.IndDecl
+public import InLeanProof.IndBlockKS
+public import InLeanProof.IndMembers
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins

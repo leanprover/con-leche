@@ -23,6 +23,7 @@ public import InLeanProof.EnvPresI
 public import InLeanProof.EnvBodiesPres
 public import InLeanProof.QuotPres
 public import InLeanProof.IndPres
+public import InLeanProof.IndMembers
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1610,3 +1611,125 @@ info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext, Classical.choice,
 -/
 #guard_msgs in
 #print axioms InLeanProof.toCaps_capsOf
+
+/-! ## O7: the inductive job (lane O7) -/
+
+/-- info: 'InLeanProof.toBlock_eq' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.toBlock_eq
+
+/-- info: 'InLeanProof.blockSplit_tr' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.blockSplit_tr
+
+/-- info: 'InLeanProof.blockShape?_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockShape?_tr
+
+/-- info: 'InLeanProof.indParamsOk_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.indParamsOk_tr
+
+/-- info: 'InLeanProof.basisNameHit_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.basisNameHit_tr
+
+/-- info: 'InLeanProof.flushI_csoki' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.flushI_csoki
+
+/-- info: 'InLeanProof.opsSimI_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.opsSimI_of
+
+/--
+info: 'InLeanProof.JobEnvI.ops' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.JobEnvI.ops
+
+/--
+info: 'InLeanProof.genEntriesAgree_noSt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.genEntriesAgree_noSt
+
+/--
+info: 'InLeanProof.checkBasisBlockC_noSt' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkBasisBlockC_noSt
+
+/--
+info: 'InLeanProof.checkShapelessS_not_ok' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkShapelessS_not_ok
+
+/--
+info: 'InLeanProof.checkIndDeclC_sim' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkIndDeclC_sim
+
+/-- info: 'InLeanProof.blockIsRec_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockIsRec_tr
+
+/--
+info: 'InLeanProof.reduceMembersSimI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.reduceMembersSimI_of
+
+/-- info: 'InLeanProof.blockShape?_memberOk' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockShape?_memberOk
+
+/-- info: 'InLeanProof.blockKSSimI_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.blockKSSimI_of
+
+/--
+info: 'InLeanProof.reduceMemberSimI_of' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.reduceMemberSimI_of
+
+/--
+info: 'InLeanProof.blockKSSimI_of_stages' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.blockKSSimI_of_stages
+
+/--
+info: 'InLeanProof.passTailSimI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.passTailSimI_of
+
+/--
+info: 'InLeanProof.checkIndDeclC_sim_stages' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkIndDeclC_sim_stages

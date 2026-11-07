@@ -149,4 +149,69 @@ theorem blockKSSimI_of_stages (hC : CheckConstantValFSimI) (hRF : ReducedFormerS
     (hPT : PassTailSimI) : BlockKSSimI :=
   blockKSSimI_of (reduceMemberSimI_of hC hRF) hPT fun _ _ _ hk h => blockShape?_memberOk hk h
 
+/-! ## The pass and the tail, split at a relation
+
+Master's `checkBlockKS_run` splits at `BlockPass Env`.  For InLean the split
+needs a relation between InLean's `BlockPass` (at the state the pass ends in:
+its parameters are interned variables) and master's; `passTailSimI_of` splits
+`PassTailSimI` at *any* such relation, so the lane that proves the two stages
+chooses it (the formers' environment related by `EnvPresI` and `JobEnvI`, the
+shape by `trShape`, the parameters by `TrS`, the class reading, classes and
+table by their translations). -/
+
+/-- **The pass** (`checkBlockPassS_run`'s twin), into a relation `R`. -/
+@[expose] def PassSimI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
+    Prop :=
+  ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (p₀ : InLean.BlockShape) (isRec : Bool)
+    (q : InLean.BlockPass) (s₀ s' : InLean.CState),
+    JobEnvI fe L → CSOKIF s₀ → (∀ ms ∈ p₀.members, MemberOk ms) →
+    InLean.checkBlockPassS .verified fe p₀ isRec s₀ = .ok (q, s') →
+    CSOKIF s' ∧ ∃ F cq, ConLeche.checkBlockPass (ConLeche.fueledOps .verified F) L (trShape p₀) isRec
+      = .ok cq ∧ R s' q cq
+
+/-- **The stages after the pass** (`checkBlockTailS_run`'s twin), from `R`. -/
+@[expose] def TailSimI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
+    Prop :=
+  ∀ (block : List Lean.ConstantInfo) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env)
+    (s₀ s' : InLean.CState),
+    R s₀ q cq → CSOKIF s₀ → (∀ ci ∈ block, CIRange ci) →
+    (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
+    InLean.checkBlockTailS .verified block q s₀ = .ok ((), s') →
+    CSOKIF s' ∧ ∃ F, ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) cq = .ok ()
+
+/-- **The pass and the tail together** from the two, at any relation. -/
+theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
+    (hP : PassSimI R) (hT : TailSimI R) : PassTailSimI := by
+  intro fe L block p₀ isRec s₀ s' hJ hs hr hk hms h
+  obtain ⟨q, s₁, h1, h2⟩ := bindI_ok h
+  obtain ⟨hs₁, F₁, cq, hF₁, hR⟩ := hP fe L p₀ isRec q s₀ s₁ hJ hs hms h1
+  obtain ⟨hs', F₂, hF₂⟩ := hT block q cq s₁ s' hR hs₁ hr hk h2
+  refine ⟨hs', max F₁ F₂, cq, ?_, ?_⟩
+  · rw [← ConLeche.checkBlockPass_datF]
+    exact FueledM.up (Nat.le_max_left _ _) (by rw [ConLeche.checkBlockPass_datF]; exact hF₁)
+  · rw [← ConLeche.checkBlockTail_datF]
+    exact FueledM.up (Nat.le_max_right _ _) (by rw [ConLeche.checkBlockTail_datF]; exact hF₂)
+
+/-! ## O7's top, from the named stages -/
+
+variable {pins : List ConLeche.NatOpPinSet}
+
+/-- **InLean's inductive declaration simulates master's pure declaration step**
+on the translated block, from the remaining named stages: the pinned block
+(`BasisBlockSimI`), the former's constant check (`CheckConstantValFSimI`), its
+reduct (`ReducedFormerSimI`), the pass and the tail at a relation of the
+prover's choice (`PassSimI R`, `TailSimI R`). -/
+theorem checkIndDeclC_sim_stages (hB : BasisBlockSimI) (hC : CheckConstantValFSimI)
+    (hRF : ReducedFormerSimI)
+    {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}
+    (hP : PassSimI R) (hT : TailSimI R)
+    {fe : InLean.FEnv} {L : ConLeche.Env} (hJ : JobEnvI fe L)
+    {block : List Lean.ConstantInfo} {cb : List ConLeche.ConstantInfo} {nP : Nat}
+    {s₀ s' : InLean.CState} (hs : CSOKIF s₀) (hr : ∀ ci ∈ block, CIRange ci)
+    (hb : toBlock block = some cb)
+    (h : InLean.checkIndDeclC .verified fe block nP s₀ = .ok ((), s')) :
+    CSOKIF s' ∧ ∃ F L', ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins L
+      (.indDecl cb nP) = .ok L' :=
+  checkIndDeclC_sim hB (blockKSSimI_of_stages hC hRF (passTailSimI_of hP hT)) hJ hs hr hb h
+
 end InLeanProof
