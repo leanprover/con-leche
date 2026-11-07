@@ -1,0 +1,176 @@
+module
+
+public import ConLeche.Model.Modular.RestrictAgree
+public import ConLeche.Model.Harvest
+public import ConLeche.Verify.Cached.PushChain
+import ConLeche.Verify.PinRen
+
+public section
+
+/-!
+# Every model gives a proof the canonical proof
+
+The invariant behind agreement by proof irrelevance (`ConLeche.Modular.Agree.proof`): in every
+model of the modular instance, a stored theorem's leaf is the canonical proof `.prf`, and so is
+a stored definition's or axiom's whose type reads as a truth value under the model
+(`SemPropType`), at a name whose leaf is not pinned (`ProofLeaves`).  It is a property of the
+model, not of the checker: the step chooses those leaves (`DeclProofLeaf`), and a context's
+model reads them off its sources'.  Because the condition is the type's reading, it carries
+between two models that read the type alike (`SemPropType.of_denote`), which is how an
+importer's inference over a part of its context reaches a source's model.
+-/
+
+namespace ConLeche.Model.Modular
+
+open ConLeche ConLeche.Modular ConLeche.Model ConLeche.Verify ConLeche.Cached
+open ConLeche.Term (Term)
+
+universe w
+
+variable {V : Type w} [SetTheory V]
+
+variable (V) in
+/-- **Every proof's leaf is the canonical proof** (see the module docstring). -/
+@[expose] def ProofLeaves (E : Env) (a : Name → (Name → Nat) → Term) : Prop :=
+  ∀ n ci, E.find? n = some ci → ci.isStmtKind = true → pinnedLeafName n = false →
+    n ≠ quotSoundName → ((∃ cv, ci = .thmInfo cv) ∨ SemPropType V a E ci.toConstantVal.type) →
+    a n = fun _ => .prf
+
+theorem ProofLeaves.empty (a : Name → (Name → Nat) → Term) : ProofLeaves V Env.empty a :=
+  fun _ _ h => nomatch h
+
+/-- **A truth value read alike is a truth value.** -/
+theorem SemPropType.of_denote {a₁ a₂ : Name → (Name → Nat) → Term} {E₁ E₂ : Env} {ty : Expr}
+    (h : ∀ ψ, denote a₁ E₁ ψ 0 ty = denote a₂ E₂ ψ 0 ty) (hs : SemPropType V a₂ E₂ ty) :
+    SemPropType V a₁ E₁ ty :=
+  fun ψ Ta hT ρ => hs ψ Ta ((h ψ).symm.trans hT) ρ
+
+/-! ## A step from an environment -/
+
+theorem pushChain_find_old {env : Env} {fe : FEnv} (h : PushChain env fe) {x : Name}
+    (hx : (env.find? x).isSome = true) : fe.env.find? x = env.find? x := by
+  obtain ⟨-, ⟨new, hc, -, hfr⟩, -, -⟩ := h
+  unfold Env.find? at *
+  rw [hc, List.find?_append]
+  have : new.find? (·.name == x) = none := by
+    rw [List.find?_eq_none]
+    intro c hcm he
+    have hcx : c.name = x := by simpa using he
+    have := hfr c hcm
+    rw [hcx] at this
+    rw [this] at hx
+    exact nomatch hx
+  rw [this]; rfl
+
+theorem pushChain_table_old {env : Env} {fe : FEnv} (h : PushChain env fe) {x : Name}
+    (hx : (env.find? x).isSome = true) : fe.env.findTable? x = env.findTable? x := by
+  have hf := pushChain_find_old h hx
+  obtain ⟨-, -, -, ⟨newQ, hq, hfr⟩⟩ := h
+  unfold Env.findTable?
+  rw [hf]
+  simp only [hx, ↓reduceIte]
+  rw [hq, List.find?_append]
+  have : newQ.find? (·.structName == x) = none := by
+    rw [List.find?_eq_none]
+    intro t ht he
+    have htx : t.structName = x := by simpa using he
+    have := hfr t ht
+    rw [htx] at this
+    rw [this] at hx
+    exact nomatch hx
+  rw [this]; rfl
+
+/-- **A step reads the earlier names as before**: a term resolving in `env` reads the same at an
+extension's carrier that keeps `env`'s leaves. -/
+theorem pushChain_denote_old {env : Env} {fe : FEnv} (h : PushChain env fe)
+    {a a' : Name → (Name → Nat) → Term} (hleaf : ∀ n, (env.find? n).isSome = true → a' n = a n)
+    {e : Expr} (he : e.constsResolve env = true) (ψ : Name → Nat) :
+    denote a' fe.env ψ 0 e = denote a env ψ 0 e :=
+  denote_alike (R := env) (fun {x} hx => by
+      obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hx
+      exact ⟨c, c, by rw [pushChain_find_old h hx, hc], hc, .inl rfl⟩)
+    hleaf (fun hx => pushChain_table_old h hx) ψ 0 e he
+
+theorem mem_zipWith {α β γ : Type} {f : α → β → γ} :
+    ∀ {l₁ : List α} {l₂ : List β} {c : γ}, c ∈ List.zipWith f l₁ l₂ →
+      ∃ a ∈ l₁, ∃ b ∈ l₂, c = f a b
+  | [], _, _, h => by simp at h
+  | _ :: _, [], _, h => by simp at h
+  | a :: l₁, b :: l₂, c, h => by
+    simp only [List.zipWith_cons_cons, List.mem_cons] at h
+    rcases h with rfl | h
+    · exact ⟨a, .head _, b, .head _, rfl⟩
+    · obtain ⟨a', ha, b', hb, rfl⟩ := mem_zipWith h
+      exact ⟨a', .tail _ ha, b', .tail _ hb, rfl⟩
+
+theorem atLps_stmtKind (ci : ConstantInfo) (ps : List Name) :
+    (ci.atLps ps).isStmtKind = ci.isStmtKind := by
+  cases ci <;> rfl
+
+/-- The pinned blocks are inductive kinds, but for `Quot.sound`. -/
+theorem basis_pins_not_stmt (kind : BasisKind) :
+    ∀ pin ∈ kind.decls, pin.isStmtKind = true → pin.name ≠ quotSoundName → False := by
+  cases kind <;> decide
+
+/-- An inductive or quotient record installs no definition, theorem or axiom off the quotient's
+`Quot.sound`. -/
+theorem stmt_of_record {d : Declaration} {ci : ConstantInfo} (hci : ci ∈ declConstants d)
+    (hk : ci.isStmtKind = true) (hq : ci.name ≠ quotSoundName) :
+    (∃ cv v h, d = .defnDecl cv v h ∧ ci = .defnInfo cv v h) ∨
+      (∃ cv v, d = .thmDecl cv v ∧ ci = .thmInfo cv) ∨
+      (∃ cv v, d = .opaqueDecl cv v ∧ ci = .axiomInfo cv) ∨
+      (∃ cv, d = .axiomDecl cv ∧ cv.name ≠ sorryAxName ∧ ci = .axiomInfo cv) := by
+  cases d with
+  | defnDecl cv v h => exact .inl ⟨cv, v, h, rfl, List.mem_singleton.mp hci⟩
+  | thmDecl cv v => exact .inr (.inl ⟨cv, v, rfl, List.mem_singleton.mp hci⟩)
+  | opaqueDecl cv v => exact .inr (.inr (.inl ⟨cv, v, rfl, List.mem_singleton.mp hci⟩))
+  | axiomDecl cv =>
+    simp only [declConstants] at hci
+    by_cases hs : cv.name = quotSoundName
+    · simp only [hs, ↓reduceIte, List.mem_singleton] at hci
+      subst hci
+      exact absurd (by rw [show (quotAt .sound cv).name = (quotPin .sound).name from
+        atLps_name _ _]; rfl) hq
+    · simp only [hs, ↓reduceIte] at hci
+      by_cases hy : cv.name = sorryAxName
+      · simp only [hy, ↓reduceIte] at hci; exact absurd hci List.not_mem_nil
+      · simp only [hy, ↓reduceIte, List.mem_singleton] at hci
+        exact .inr (.inr (.inr ⟨cv, rfl, hy, hci⟩))
+  | quotDecl k cv =>
+    simp only [declConstants, List.mem_singleton] at hci
+    subst hci
+    exfalso
+    cases k <;> first
+      | exact absurd (by rw [show (quotAt .sound cv).name = (quotPin .sound).name from
+          atLps_name _ _]; rfl) hq
+      | (unfold quotAt at hk; rw [atLps_stmtKind] at hk; revert hk; decide)
+  | indDecl block nP =>
+    exfalso
+    simp only [declConstants] at hci
+    split at hci
+    · next kind _ =>
+      unfold BasisKind.atBlock at hci
+      obtain ⟨pin, hpin, c, -, rfl⟩ := mem_zipWith hci
+      rw [atLps_stmtKind] at hk
+      rw [atLps_name] at hq
+      exact basis_pins_not_stmt kind pin hpin hk hq
+    · split at hci
+      · next p _ =>
+        unfold blockConstants blockFormers blockCtors at hci
+        simp only [List.mem_append, List.mem_map] at hci
+        rcases hci with (⟨_, -, rfl⟩ | ⟨_, -, rfl⟩) | hr
+        · exact nomatch hk
+        · exact nomatch hk
+        · have : ∀ rs, ∀ c ∈ blockRecs p rs, c.isStmtKind = false := by
+            intro rs
+            induction rs with
+            | nil => exact fun _ h => nomatch h
+            | cons r rs ih =>
+              intro c hc
+              rcases List.mem_cons.mp hc with rfl | hc
+              · rfl
+              · exact ih c hc
+          rw [this _ _ hr] at hk; exact nomatch hk
+      · exact absurd hci List.not_mem_nil
+
+end ConLeche.Model.Modular
