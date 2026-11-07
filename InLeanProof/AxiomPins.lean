@@ -27,6 +27,7 @@ public import InLeanProof.StepPres
 public import InLeanProof.IndMembers
 public import InLeanProof.IndBasis
 public import InLeanProof.DeclStep
+public import InLeanProof.DeclPins
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -2182,3 +2183,100 @@ info: 'InLeanProof.checkDeclKindC_sim_cert' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkDeclKindC_sim_cert
+
+/-! ## Lane O6: the pinned families -/
+
+/-- info: 'InLeanProof.matchesPin_tr' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.matchesPin_tr
+
+/-- info: 'InLeanProof.pinFoundInd_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.pinFoundInd_tr
+
+/-- info: 'InLeanProof.pinFoundCtor_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.pinFoundCtor_tr
+
+/-- info: 'InLeanProof.pinFoundRec_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.pinFoundRec_tr
+
+/-- info: 'InLeanProof.stdAxiomOk_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.stdAxiomOk_tr
+
+/-- info: 'InLeanProof.trustCompilerOk_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.trustCompilerOk_tr
+
+/-- info: 'InLeanProof.reduceElemOk_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.reduceElemOk_tr
+
+/-- info: 'InLeanProof.reduceStoredOk_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.reduceStoredOk_tr
+
+/-- info: 'InLeanProof.ofReduceAxOk_tr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.ofReduceAxOk_tr
+
+/--
+info: 'InLeanProof.checkAxiomC_pinned_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkAxiomC_pinned_sim
+
+/--
+info: 'InLeanProof.checkReducePin_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkReducePin_sim
+
+/--
+info: 'InLeanProof.checkOpaqueC_reduce_sim' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkOpaqueC_reduce_sim
+
+/-- info: 'InLeanProof.checkDecl_sim_of' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.checkDecl_sim_of
+
+/--
+info: 'InLeanProof.checkDeclKindC_sim_full' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDeclKindC_sim_full
+
+/--
+info: 'InLeanProof.checkDecl_sim_full' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound,
+ InLeanProof.Expr.mkAppData_fields,
+ InLeanProof.Expr.mkData_eq,
+ InLeanProof.Level.mkData_eq]
+-/
+#guard_msgs in
+#print axioms InLeanProof.checkDecl_sim_full

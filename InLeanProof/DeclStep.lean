@@ -665,6 +665,46 @@ theorem CSOKIF_empty : CSOKIF ({} : InLean.CState) where
 theorem CSOKI_empty (L : ConLeche.Env) : CSOKI .verified false L ({} : InLean.CState) :=
   flushI_csoki CSOKIF_empty .verified false L
 
+/-- The entry point from the kinds' simulation at the fresh state: the
+`sorryAxSquat` decline read as "no constant but an axiom at `sorryAx`". -/
+theorem checkDecl_sim_of {E : Kernel.Environment} {L : ConLeche.Env}
+    {pins : List ConLeche.NatOpPinSet} {decl : Declaration} {a : InLean.Added}
+    (hK : ∀ {a : InLean.Added} {s' : InLean.CState},
+      InLean.checkDeclKindC .verified InLeanProof.theoremConfig { env := E, coreAxioms := false } decl
+        {} = .ok (a, s') →
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
+          .ok L')
+    (h : InLean.checkDecl InLeanProof.theoremConfig E decl = .ok a) :
+    (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
+      ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
+        ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
+          .ok L' := by
+  unfold InLean.checkDecl at h
+  split at h
+  · exact nomatch h
+  unfold InLean.runC at h
+  dsimp only at h
+  split at h
+  · rename_i a' s' hrun
+    cases h
+    obtain ⟨b, s₁, hKr, hT⟩ := bindI_ok hrun
+    have hab : b = a ∧ b.consts.any InLean.sorryAxSquat = false := by
+      split at hT
+      · exact (throw_bindI_ok hT).elim
+      · rename_i hc
+        obtain ⟨rfl, -⟩ := pureI_ok hT
+        exact ⟨rfl, by simpa [show theoremConfig.coreAxioms = false from rfl] using hc⟩
+    obtain ⟨rfl, hsq'⟩ := hab
+    obtain ⟨ds, hds, F, L', hF⟩ := hK hKr
+    refine ⟨fun ci hci hn => ?_, ds, hds, F, L', hF⟩
+    simp only [← Array.any_toList, List.any_eq_false] at hsq'
+    have := hsq' ci hci
+    cases ci with
+    | axiomInfo v => exact ⟨v, rfl⟩
+    | _ => simp [InLean.sorryAxSquat, hn] at this
+  · exact nomatch h
+
 /-- **InLean's declaration check, the non-inductive kinds** (O6, at the entry
 point): InLean's `checkDecl` at the theorem's configuration accepting a safe
 declaration in range on a proved arm means master's pure fueled step accepts
@@ -680,31 +720,8 @@ theorem checkDecl_sim {E : Kernel.Environment} {L : ConLeche.Env}
     (∀ ci ∈ a.consts.toList, ci.name = InLean.sorryAxName → ∃ v, ci = .axiomInfo v) ∧
       ∃ ds, a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds ∧
         ∃ F L', ds.foldlM (ConLeche.checkDecl .verified (ConLeche.fueledOps .verified F) pins) L =
-          .ok L' := by
-  unfold InLean.checkDecl at h
-  split at h
-  · exact nomatch h
-  unfold InLean.runC at h
-  dsimp only at h
-  split at h
-  · rename_i a' s' hrun
-    cases h
-    obtain ⟨b, s₁, hK, hT⟩ := bindI_ok hrun
-    have hab : b = a ∧ b.consts.any InLean.sorryAxSquat = false := by
-      split at hT
-      · exact (throw_bindI_ok hT).elim
-      · rename_i hc
-        obtain ⟨rfl, -⟩ := pureI_ok hT
-        exact ⟨rfl, by simpa [show theoremConfig.coreAxioms = false from rfl] using hc⟩
-    obtain ⟨rfl, hsq'⟩ := hab
-    obtain ⟨-, -, ds, hds, F, L', hF⟩ := checkDeclKindC_sim (pins := pins) hJ rfl rfl (CSOKI_empty L)
-      hd hr harm hK
-    refine ⟨fun ci hci hn => ?_, ds, hds, F, L', hF⟩
-    simp only [← Array.any_toList, List.any_eq_false] at hsq'
-    have := hsq' ci hci
-    cases ci with
-    | axiomInfo v => exact ⟨v, rfl⟩
-    | _ => simp [InLean.sorryAxSquat, hn] at this
-  · exact nomatch h
+          .ok L' :=
+  checkDecl_sim_of (fun hK =>
+    (checkDeclKindC_sim (pins := pins) hJ rfl rfl (CSOKI_empty L) hd hr harm hK).2.2) h
 
 end InLeanProof
