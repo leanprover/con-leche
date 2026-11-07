@@ -1,6 +1,7 @@
 module
 
 public import InLeanProof.IndBasis
+import ConLeche.Verify.Denote.IndFrame
 
 /-!
 # O7-stages: the formers' stage against master's (task #451, lane O7-stages)
@@ -327,5 +328,173 @@ theorem checkBlockDomsAtFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSi
     refine Runs.bind hR3 ?_
     simp only [↓reduceIte]
     exact Runs.bind (Runs.pure _) hR
+
+/-- A closed term's telescope, opened by InLean, read at a later state. -/
+theorem openClosedI_run {s₀ s' s'' : InLean.CState} {n : Nat} {e : Lean.Expr}
+    {fvs : List Lean.Expr} {b : Lean.Expr} (hs : CSOKI mode eager env s₀) (hok : okC e = true)
+    (hc : (trC e).looseBVarsBounded 0 = true)
+    (h : InLean.openPisAtFvars n e 0 s₀ = .ok (some (fvs, b), s')) (ht : TabLe s' s'') :
+    CSOKI mode eager env s' ∧ TabLe s₀ s' ∧ OkSL s' fvs = true ∧
+      ConLeche.openPisAtFvars n (trC e) 0 = some (TrSL s'' fvs, TrS s' b) ∧
+      ∀ (i : Nat) (x : ConLeche.Expr), (TrSL s'' fvs)[i]? = some x →
+        (∃ k ty, x = .fvar k ty) ∧ ConLeche.Expr.WScoped i x.fvarTypeD ∧
+          x.fvarTypeD.looseBVarsBounded 0 = true := by
+  unfold InLean.openPisAtFvars at h
+  obtain ⟨hs', ht', hR⟩ := openPisAtFvarsI_run n 0 hs (OkS_of_okC _ hok)
+    (by rw [TrS_of_okC _ hok]; exact hc) h
+  obtain ⟨hokf, -, hm⟩ := hR fvs b rfl
+  rw [TrS_of_okC _ hok, ← TrSL_of_tabLe ht hokf] at hm
+  refine ⟨hs', ht', hokf, hm, fun i x hx => ⟨?_, ?_, ?_⟩⟩
+  · obtain ⟨ty, rfl⟩ := ConLeche.openPisAtFvars_index n _ 0 hm i x hx
+    exact ⟨_, _, rfl⟩
+  · have := ConLeche.openPisAtFvars_typeWScoped n hm (trC_wscoped 0 e) i x hx
+    rwa [Nat.zero_add] at this
+  · exact (ConLeche.Verify.openPisAtFvars_bounded n hm hc).2 x (List.mem_of_getElem? hx)
+
+/-- **The members' agreement** (`checkBlockAgreeS_spec`'s twin). -/
+theorem checkBlockAgreeFI_run {fe : InLean.FEnv} {L : ConLeche.Env} (hO : OpsSimI fe L) {nP : Nat}
+    {cvTa0 : Lean.ConstantVal} {s0 : Lean.Level} (h0 : okC cvTa0.type = true)
+    (hc0 : (trC cvTa0.type).looseBVarsBounded 0 = true) (hl0 : okL s0 = true) :
+    ∀ {cvs : List (Lean.ConstantVal × Lean.Level)} {s₀ s' : InLean.CState} {u : Unit},
+      CSOKI .verified false L s₀ →
+      (∀ x ∈ cvs, okC x.1.type = true ∧ (trC x.1.type).looseBVarsBounded 0 = true ∧
+        okL x.2 = true) →
+      InLean.checkBlockAgreeF (sharedOpsC .verified fe) fe nP cvTa0 s0 cvs s₀ = .ok (u, s') →
+      CSOKI .verified false L s' ∧ TabLe s₀ s' ∧
+        Runs (ConLeche.checkBlockAgree (ConLeche.fueledOpsM .verified) L nP (trCV cvTa0) (trL s0)
+          (cvs.map trTele)) ()
+  | [], s₀, s', u, hs, _, h => by
+    unfold InLean.checkBlockAgreeF at h
+    obtain ⟨-, rfl⟩ := pureI_ok h
+    exact ⟨hs, TabLe.refl _, Runs.pure _⟩
+  | (cvTa, sx) :: rest, s₀, s', u, hs, hall, h => by
+    obtain ⟨hokx, hcx, hlx⟩ := hall _ (List.mem_cons_self ..)
+    unfold InLean.checkBlockAgreeF at h
+    obtain ⟨r0, s₁, h1, hk1⟩ := bindI_ok h
+    obtain ⟨tq0, s₁', h1', hk1'⟩ := bindI_ok hk1
+    cases r0 with
+    | none => simp only [InLean.unwrapOr] at h1'; exact (throwI_ok h1').elim
+    | some tq0' =>
+    simp only [InLean.unwrapOr] at h1'
+    obtain ⟨rfl, rfl⟩ := pureI_ok h1'
+    obtain ⟨r, s₂, h2, hk2⟩ := bindI_ok hk1'
+    obtain ⟨tq, s₂', h2', hk2'⟩ := bindI_ok hk2
+    cases r with
+    | none => simp only [InLean.unwrapOr] at h2'; exact (throwI_ok h2').elim
+    | some tq' =>
+    simp only [InLean.unwrapOr] at h2'
+    obtain ⟨rfl, rfl⟩ := pureI_ok h2'
+    obtain ⟨fvs0, b0⟩ := tq0'
+    obtain ⟨fvs, b⟩ := tq'
+    simp only at hk2'
+    split at hk2'
+    case isFalse =>
+      obtain ⟨_, _, h, -⟩ := bindI_ok hk2'; exact (throwI_ok h).elim
+    rename_i hlen
+    obtain ⟨ds, s₄, h4, hk4⟩ := bindI_ok hk2'
+    -- the two telescopes, read at the state after the second
+    obtain ⟨hs₁, ht₁, hokf0, hm0, hfv0⟩ := openClosedI_run hs h0 hc0 h1 (TabLe.refl _)
+    obtain ⟨hs₂, ht₂, hokf, hm, hfv⟩ := openClosedI_run hs₁ hokx hcx h2 (TabLe.refl _)
+    have hT0 : TrSL s₂ fvs0 = TrSL s₁ fvs0 := TrSL_of_tabLe ht₂ hokf0
+    have hokf0₂ : OkSL s₂ fvs0 = true := okSL_of_tabLe ht₂ hokf0
+    obtain ⟨hs42, hokds, htds⟩ := mapM_fvarTypeDI_run hs₂ hokf0₂
+      (by
+        intro x hx
+        obtain ⟨i, hi⟩ := List.getElem?_of_mem (hT0 ▸ hx)
+        exact (hfv0 i x hi).1)
+      h4
+    subst s₄
+    obtain ⟨_, s₅, h5, hk5⟩ := bindI_ok hk4
+    obtain ⟨hs₅, ht₅, hR5⟩ := checkBlockDomsAtFI_run hO
+      (cfvs := TrSL s₂ fvs) (cdoms := (TrSL s₁ fvs0).map ConLeche.Expr.fvarTypeD)
+      (fun i x hx => by
+        obtain ⟨h1, h2, -⟩ := hfv i x hx
+        exact ⟨h1, by rw [Nat.zero_add]; exact h2⟩)
+      (fun i x hx => by
+        rw [List.getElem?_map] at hx
+        cases hy : (TrSL s₁ fvs0)[i]? with
+        | none => rw [hy] at hx; cases hx
+        | some y =>
+          rw [hy] at hx
+          obtain rfl := Option.some.inj hx
+          obtain ⟨-, h2, h3⟩ := hfv0 i y hy
+          exact ⟨by rw [Nat.zero_add]; exact h2, h3⟩)
+      nP hs₂ hokf hokds rfl (by rw [htds, hT0]) h5
+    obtain ⟨b', s₆, h6, hk6⟩ := bindI_ok hk5
+    obtain ⟨hs₆, ht₆, hb'⟩ := tripleI_iff_run.1 (liftFueled_specI hs₅ _ _) b' s₆ h6
+    cases b' with
+    | false =>
+      split at hk6
+      · contradiction
+      obtain ⟨_, _, h, -⟩ := bindI_ok hk6
+      exact (throwI_ok h).elim
+    | true =>
+    simp only [↓reduceIte] at hk6
+    obtain ⟨hs', ht', hR⟩ := checkBlockAgreeFI_run hO h0 hc0 hl0 hs₆
+      (fun x hx => hall x (List.mem_cons_of_mem _ hx)) hk6
+    refine ⟨hs', ht₁.trans (ht₂.trans (ht₅.trans (ht₆.trans ht'))), ?_⟩
+    have hlen' : ((TrSL s₂ fvs).length == (TrSL s₁ fvs0).length) = true := by
+      simpa [TrSL] using hlen
+    have heq : ConLeche.Level.isEquiv (trL sx) (trL s0) = some true := by
+      rw [← isEquiv_trL hlx hl0]; exact hb'
+    unfold ConLeche.checkBlockAgree
+    simp only [List.map_cons, trTele, trCV_type, hm0, hm, ConLeche.unwrapOr, heq,
+      ConLeche.liftFueled]
+    refine Runs.bind (Runs.pure _) (Runs.bind (Runs.pure _) ?_)
+    dsimp only
+    simp only [hlen', ↓reduceIte]
+    refine Runs.bind hR5 (Runs.bind (Runs.pure _) ?_)
+    simp only [↓reduceIte]
+    exact hR
+
+/-! ## The formers' stage -/
+
+theorem trShape_withSort (p : InLean.BlockShape) {s : Lean.Level} (h : okL s = true) :
+    trShape (p.withSort s) = (trShape p).withSort (trL s) := by
+  simp only [trShape, InLean.BlockShape.withSort, ConLeche.BlockShape.withSort, isEquiv_zero_tr h]
+
+/-- **The formers' stage** (`checkBlockIndsS_spec`'s twin): InLean's run at
+`fe` answers master's `checkBlockInds` at `L` on the translated shape; the
+formers' environment is `fe` marked with the block and the formers pushed. -/
+theorem checkBlockIndsFI_run (hC : CheckConstantValFSimI) {fe : InLean.FEnv} {L : ConLeche.Env}
+    (hJ : JobEnvI fe L) {p : InLean.BlockShape} {isRec : Bool} {s₀ s' : InLean.CState}
+    {fe₁ : InLean.FEnv} {p₁ : InLean.BlockShape}
+    (hs : CSOKI .verified false L s₀) (hok : ∀ ms ∈ p.members, okC ms.cvT.type = true)
+    (h : InLean.checkBlockIndsF (sharedOpsC .verified fe) fe p isRec s₀ = .ok ((fe₁, p₁), s')) :
+    CSOKI .verified false L s' ∧ TabLe s₀ s' ∧ ∃ s0, okL s0 = true ∧ p₁ = p.withSort s0 ∧
+      fe₁ = InLean.consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
+        { fe with pending := InLean.blockMarks p₁ ++ fe.pending } ∧
+      Runs (ConLeche.checkBlockInds (ConLeche.fueledOpsM .verified) L (trShape p) isRec)
+        (ConLeche.consBlockInds (trShape p₁) isRec ((trShape p).members.map (·.declared)) 0 L,
+          trShape p₁) := by
+  unfold InLean.checkBlockIndsF at h
+  generalize hm : p.members = mems at h hok
+  cases mems with
+  | nil => exact (throwI_ok h).elim
+  | cons ms0 rest =>
+  simp only at h
+  obtain ⟨⟨cvTa0, s0⟩, s₁, h1, hk1⟩ := bindI_ok h
+  obtain ⟨hs₁, ht₁, hc1, hl0, hcl0, hR1⟩ :=
+    checkBlockTeleFI_run hC hJ hs (hok ms0 (List.mem_cons_self ..)) h1
+  simp only at hc1
+  subst hc1
+  obtain ⟨cvs, s₂, h2, hk2⟩ := bindI_ok hk1
+  obtain ⟨hs₂, ht₂, hcvs, hall, hR2⟩ :=
+    checkBlockTelesFI_run hC hJ hs₁ (fun m hm' => hok m (List.mem_cons_of_mem _ hm')) h2
+  obtain ⟨_, s₃, h3, hk3⟩ := bindI_ok hk2
+  obtain ⟨hs₃, ht₃, hR3⟩ := checkBlockAgreeFI_run hJ.ops (hok ms0 (List.mem_cons_self ..)) hcl0
+    hl0 hs₂ hall h3
+  obtain ⟨hp, rfl⟩ := pureI_ok hk3
+  simp only [Prod.mk.injEq] at hp
+  obtain ⟨rfl, rfl⟩ := hp
+  refine ⟨hs₃, ht₁.trans (ht₂.trans ht₃), s0, hl0, rfl, rfl, ?_⟩
+  have hmC : (trShape p).members = trMember ms0 :: rest.map trMember := by
+    simp [trShape, hm]
+  unfold ConLeche.checkBlockInds
+  rw [hmC]
+  simp only
+  refine Runs.bind hR1 (Runs.bind hR2 (Runs.bind hR3 ?_))
+  rw [← trShape_withSort p hl0]
+  exact Runs.pure _
 
 end InLeanProof
