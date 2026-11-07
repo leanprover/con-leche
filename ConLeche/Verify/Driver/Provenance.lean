@@ -8,6 +8,7 @@ import ConLeche.Verify.Frontend.Olean.Files
 import ConLeche.Verify.Frontend.Olean.Equiv
 import ConLeche.Verify.Frontend.Olean.Lazy
 public import ConLeche.Verify.Frontend.Olean.Emit
+public import ConLeche.Verify.Frontend.Olean.Prefix
 import ConLeche.Verify.Frontend.Olean.Group
 
 /-!
@@ -205,7 +206,7 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
     ∃ f r a sk skels, (readFiles sp h .private : ModelIO _) fs (.ok (.ok f)) ∧
       f.viewRegion .private = some (r, a) ∧ moduleSkel r a = some sk ∧
       sk.consts.mapM (constSkel r) = some skels ∧ constNamesOk r a = true ∧
-      checkViews h f w.home = .ok w.expo ∧
+      checkViews h f w.home = .ok w.expo ∧ loadAt 0 h f = some w.home ∧
       (∀ (n : Name) (c : CEntry), (homeMerged w).map[n]? = some c → c.name = n) ∧
       (∀ n, n ∈ (homeMerged w).order ↔ (homeMerged w).map.contains n = true) ∧
       blocksOk (homeMerged w) = .ok () ∧
@@ -241,7 +242,7 @@ theorem home_records {sp : SearchPath} {fs : FS} {h : Name} {jobs : Nat} {w : Wo
   | error e => simp [ownRecords, hb] at hown
   | ok u =>
   simp only [ownRecords, hb] at hown
-  refine ⟨f, r, a, sk, skels, hx, hreg, hsk, hskels, hcn, hc, hN, hO, hb, hown,
+  refine ⟨f, r, a, sk, skels, hx, hreg, hsk, hskels, hcn, hc, hload, hN, hO, hb, hown,
     fun loc s hloc hs hskp => ?_⟩
   obtain ⟨s', hs'mem, hs'⟩ := mapM_mem hskels hloc
   rw [hs] at hs'
@@ -701,5 +702,459 @@ theorem expoOfParts_ok {r : Region} {pa ea : UInt64} {cs : Array (CEntryF Name E
              exact ⟨base (.inr ⟨e, cs[i]!, x, he, hx, fun ⟨v, all, h'⟩ => absurd h' (hk v all),
                fun _ => rfl⟩), _, rfl⟩
            · simp [throw, throwThe, MonadExceptOf.throw] at hrr)
+
+/-- **The home's check of its views reached its exported part's.** -/
+theorem checkViews_expo {m : Name} {f : ModFiles} {l : Loaded} {expo : Array Expo}
+    (h : checkViews m f l = .ok expo)
+    (hm : f.isModule = true) {sv p : Part} (hs : f.server = some sv) (hp : f.private = some p) :
+    ∃ r, Region.ofParts #[f.exported, sv, p] = .ok r ∧
+      expoOfParts r p.moduleDataAddr f.exported.moduleDataAddr (l.constants.map (·.toCEntryF)) =
+        .ok expo := by
+  unfold checkViews at h
+  simp only [hs, hp, hm, ite_true] at h
+  cases hr : Region.ofParts #[f.exported, sv, p] with
+  | error e => simp [hr, bind, Except.bind] at h
+  | ok r =>
+  refine ⟨r, rfl, ?_⟩
+  simp only [hr, bind, Except.bind] at h
+  generalize (forIn [("server", sv.moduleDataAddr), ("private", p.moduleDataAddr)] PUnit.unit _ :
+    Except CheckError PUnit) = x at h
+  cases x with
+  | error e => simp at h
+  | ok u =>
+  simp only at h
+  split at h
+  · generalize (forIn [("exported", f.exported.moduleDataAddr), ("server", sv.moduleDataAddr)]
+      PUnit.unit _ : Except CheckError PUnit) = y at h
+    cases y with
+    | error e => simp at h
+    | ok u =>
+    simp only at h
+    split at h
+    · rename_i e1 a h1 h2
+      simp only [pure, Except.pure, Except.ok.injEq] at h
+      rw [h1, h]
+    · simp at h
+    · simp at h
+  · simp at h
+
+theorem mapM_some_eq {α : Type} : ∀ l : List α, l.mapM some = some l
+  | [] => rfl
+  | x :: l => by simp [List.mapM_cons, mapM_some_eq l, bind, Option.bind, pure]
+
+theorem listMapM_isSome {α β γ : Type} {f : α → Option β} {g : α → Option γ} :
+    ∀ {l : List α}, (∀ x ∈ l, (f x).isSome → (g x).isSome) → (l.mapM f).isSome → (l.mapM g).isSome
+  | [], _, _ => rfl
+  | x :: l, hfg, h => by
+    simp only [List.mapM_cons, bind, Option.bind] at h ⊢
+    cases hf : f x with
+    | none => simp [hf] at h
+    | some b =>
+      obtain ⟨c, hc⟩ := Option.isSome_iff_exists.1 (hfg x List.mem_cons_self (by simp [hf]))
+      rw [hc]
+      simp only [hf] at h
+      cases hl : List.mapM f l with
+      | none => simp [hl] at h
+      | some w =>
+        obtain ⟨w', hw'⟩ := Option.isSome_iff_exists.1
+          (listMapM_isSome (fun y hy => hfg y (List.mem_cons_of_mem _ hy)) (by simp [hl]))
+        simp [hw', pure]
+
+/-- **A kind's names, from a decoded one**: they read, to a kind of the same constructor, a
+quotient constant's the same. -/
+theorem kind_names {r : Region} {s : CEntryF UInt64 UInt64} {e : CEntryF Name Expr}
+    (h : s.mapM (nameP r) (exprP r) = some e) :
+    ∃ k', s.kind.mapM (nameP r) (fun _ => some ()) = some k' ∧ k'.tag = e.kind.tag ∧
+      ∀ q, e.kind = .quot q → k' = .quot q := by
+  simp only [CEntryF.mapM] at h
+  obtain ⟨_, -, h⟩ := bind_some_left h
+  obtain ⟨_, -, h⟩ := bind_some_left h
+  obtain ⟨_, -, h⟩ := bind_some_left h
+  obtain ⟨k, hk, h⟩ := bind_some_left h
+  simp only [pure, Option.some.injEq] at h
+  subst h
+  simp only
+  cases hs : s.kind with
+  | ax u => rw [hs] at hk; cases hk; exact ⟨.ax u, rfl, rfl, fun q h => by cases h⟩
+  | defn v hh sf =>
+    rw [hs] at hk
+    obtain ⟨_, -, hk⟩ := bind_some_left hk
+    cases hk
+    exact ⟨.defn () hh sf, rfl, rfl, fun q h => by cases h⟩
+  | thm v all =>
+    rw [hs] at hk
+    obtain ⟨_, -, hk⟩ := bind_some_left hk
+    obtain ⟨as, ha, hk⟩ := bind_some_left hk
+    cases hk
+    exact ⟨.thm () as, by simp [CKindF.mapM, ha, bind, Option.bind, pure], rfl,
+      fun q h => by cases h⟩
+  | opaq v u =>
+    rw [hs] at hk
+    obtain ⟨_, -, hk⟩ := bind_some_left hk
+    cases hk
+    exact ⟨.opaq () u, rfl, rfl, fun q h => by cases h⟩
+  | quot q =>
+    rw [hs] at hk; cases hk
+    exact ⟨.quot q, rfl, rfl, fun q' h => by cases h; rfl⟩
+  | induct np ni all cs nn ir iu irf =>
+    rw [hs] at hk
+    obtain ⟨as, ha, hk⟩ := bind_some_left hk
+    obtain ⟨cs', hc, hk⟩ := bind_some_left hk
+    cases hk
+    exact ⟨.induct np ni as cs' nn ir iu irf,
+      by simp [CKindF.mapM, ha, hc, bind, Option.bind, pure], rfl, fun q h => by cases h⟩
+  | ctor ind cidx np nf iu =>
+    rw [hs] at hk
+    obtain ⟨i', hi, hk⟩ := bind_some_left hk
+    cases hk
+    exact ⟨.ctor i' cidx np nf iu, by simp [CKindF.mapM, hi, bind, Option.bind, pure], rfl,
+      fun q h => by cases h⟩
+  | recur all np ni nmo nmi rules kk iu =>
+    rw [hs] at hk
+    obtain ⟨as, ha, hk⟩ := bind_some_left hk
+    obtain ⟨rs, hr, hk⟩ := bind_some_left hk
+    cases hk
+    have hsome : (rules.mapM fun (x : UInt64 × Nat × UInt64) => do
+        let c ← nameP r x.1
+        let e ← (fun _ => some ()) x.2.2
+        pure (c, x.2.1, e)).isSome := by
+      refine listMapM_isSome (fun x _ hx => ?_) (Option.isSome_iff_exists.2 ⟨_, hr⟩)
+      simp only [bind, Option.bind] at hx ⊢
+      cases hn : nameP r x.1 with
+      | none => simp [hn] at hx
+      | some c => simp [pure]
+    obtain ⟨rs', hrs'⟩ := Option.isSome_iff_exists.1 hsome
+    refine ⟨.recur as np ni nmo nmi rs' kk iu, ?_, rfl, fun q h => by cases h⟩
+    simp only [CKindF.mapM, ha, bind, Option.bind]
+    simp only [bind, Option.bind] at hrs'
+    rw [hrs']
+    rfl
+
+/-- **A statement read in a region's first bytes reads the same in the region.** -/
+theorem StmtSkel.sub {P R : Region} {n : Nat} (hs : Region.Sub P R n) {c : Nat} (hc : P.Good c)
+    {cv : ConstantVal} {k : CKindF Name Unit} (h : StmtSkel P c cv k) : StmtSkel R c cv k := by
+  obtain ⟨s, h1, h2, h3, h4, h5⟩ := h
+  obtain ⟨g1, g2⟩ := constSkel_ok h1
+  have hn : nameP R s.name = some cv.name := by
+    rw [hs.nameP_sub (g1 _ (by simp [CEntryF.names]))]; exact h2
+  have hl : s.levelParams.mapM (nameP R) = some cv.levelParams := by
+    rw [listMapM_congr _ fun x hx => hs.nameP_sub (g1 x (by simp [CEntryF.names, hx]))]; exact h3
+  refine ⟨s, by rw [hs.constSkel_sub hc]; exact h1, hn, hl, ?_, ?_⟩
+  · rw [hs.exprP_sub (g2 _ (by simp [CEntryF.exprs]))]; exact h4
+  · have hE := CEntryF.mapM_congr (fn := nameP R) (fn' := nameP P)
+      (fe := fun _ : UInt64 => (some () : Option Unit)) (fe' := fun _ => some ()) s
+      (fun v hv => hs.nameP_sub (g1 v hv)) (fun _ _ => rfl)
+    simp only [CEntryF.mapM, hn, h2, hl, h3, bind, Option.bind, h5] at hE
+    cases hk : s.kind.mapM (nameP R) (fun _ => some ()) with
+    | none => simp [hk] at hE
+    | some k' =>
+      simp only [hk, pure, Option.some.injEq, CEntryF.mk.injEq] at hE
+      rw [hE.2.2.2]
+
+/-- **How a copy's skeleton stands for the home's private constant behind it**: the same (its
+statement and kind constructor read alike, a quotient constant's kind the same, and the whole
+constant where it decodes), or its value hidden (an axiom of the statement the private
+skeleton reads, a definition, theorem or opaque constant). -/
+@[expose] def Behind (r1 : Region) (c : Nat) (r : Region) (loc : Nat) (sP : CEntryF UInt64 UInt64) :
+    Prop :=
+  ((∀ cv k, StmtSkel r1 c cv k → ∃ k', StmtSkel r loc cv k' ∧ k'.tag = k.tag ∧
+      ∀ q, k = .quot q → k' = .quot q) ∧
+    ∀ e, entryAt r1 c = some e → entryAt r loc = some e) ∨
+  (∀ cv k, StmtSkel r1 c cv k → (∃ u, k = .ax u) ∧ nameP r sP.name = some cv.name ∧
+    sP.levelParams.mapM (nameP r) = some cv.levelParams ∧ exprP r sP.type = some cv.type ∧
+    (sP.kind.tag = 1 ∨ sP.kind.tag = 2 ∨ sP.kind.tag = 3))
+
+theorem Behind.refl (r : Region) (c : Nat) (sP : CEntryF UInt64 UInt64) : Behind r c r c sP :=
+  .inl ⟨fun _ k h => ⟨k, h, rfl, fun _ h => h⟩, fun _ h => h⟩
+
+theorem hintsEq_eq {a b : HintsRec} (h : hintsEq a b = true) : a = b := by
+  cases a <;> cases b <;> simp_all [hintsEq]
+
+theorem rulesEq_eq : ∀ {a b : List (Name × Nat × Expr)}, rulesEq a b = true → a = b
+  | [], [], _ => rfl
+  | (x, y, z) :: xs, (x', y', z') :: ys, h => by
+    simp only [rulesEq, Bool.and_eq_true, beq_iff_eq] at h
+    obtain ⟨⟨⟨rfl, rfl⟩, rfl⟩, h⟩ := h
+    rw [rulesEq_eq h]
+  | [], _ :: _, h => by simp [rulesEq] at h
+  | _ :: _, [], h => by simp [rulesEq] at h
+
+/-- **`entrySame` is equality.** -/
+theorem entrySame_eq {a b : CEntryF Name Expr} (h : entrySame a b = true) : a = b := by
+  obtain ⟨n, l, t, k⟩ := a
+  obtain ⟨n', l', t', k'⟩ := b
+  simp only [entrySame, Bool.and_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨⟨rfl, rfl⟩, rfl⟩, h⟩ := h
+  congr 1
+  cases k <;> cases k' <;> simp only [Bool.and_eq_true, beq_iff_eq, Bool.false_eq_true] at h
+  all_goals first
+    | (obtain ⟨⟨h1, h2⟩, h3⟩ := h; rw [h1, hintsEq_eq h2, h3])
+    | (rcases h with ⟨⟨⟨⟨⟨⟨⟨ha, hb⟩, hc⟩, hd⟩, he⟩, hf⟩, hg⟩, hh⟩
+       rw [ha, hb, hc, hd, he, rulesEq_eq hf, hg, hh])
+    | simp_all
+
+/-- `expoOf`'s verdict on two decoded constants: the same, or the second an axiom of the
+first's statement, the first a definition, theorem or opaque constant, filtered alike. -/
+theorem expoOf_cases {pc e : CEntryF Name Expr} {x : Expo} (h : expoOf pc e = some x) :
+    pc = e ∨ (pc.stmt = e.stmt ∧ ∃ u, e.kind = .ax u ∧ pc.kind.skipped = u ∧
+      (pc.kind.tag = 1 ∨ pc.kind.tag = 2 ∨ pc.kind.tag = 3)) := by
+  unfold expoOf at h
+  split at h
+  · rename_i hs
+    exact .inl (entrySame_eq hs)
+  · split at h
+    · rename_i hst
+      simp only [Bool.and_eq_true, beq_iff_eq] at hst
+      obtain ⟨⟨hn, hl⟩, ht⟩ := hst
+      have hst' : pc.stmt = e.stmt := by simp [CEntryF.stmt, hn, hl, ht]
+      right
+      refine ⟨hst', ?_⟩
+      split at h
+      · rename_i v hh sf u hk1 hk2
+        split at h
+        · rename_i hu
+          exact ⟨u, hk2, by simp [hk1, CKindF.skipped]; exact (beq_iff_eq.1 hu).symm,
+            by simp [hk1, CKindF.tag]⟩
+        · cases h
+      · rename_i v all u hk1 hk2
+        split at h
+        · rename_i hu
+          exact ⟨u, hk2, by simp [hk1, CKindF.skipped]; simpa using hu, by simp [hk1, CKindF.tag]⟩
+        · cases h
+      · rename_i v u' u hk1 hk2
+        split at h
+        · rename_i hu
+          exact ⟨u, hk2, by simp [hk1, CKindF.skipped]; exact (beq_iff_eq.1 hu).symm,
+            by simp [hk1, CKindF.tag]⟩
+        · cases h
+      · cases h
+    · cases h
+
+/-- **The home's private constant behind a copy** of one of its names, at a level a load reads
+(`.exported` or `.private`): a skeleton of the home's private part, filtered as the copy is, that
+the copy's stands for (`Behind`), by the home's check of its views where the copy is exported. -/
+theorem copy_behind {sp : SearchPath} {fs : FS} {h : Name} {f : ModFiles} {r : Region}
+    {a : UInt64} {sk : ModSkel} {l : Loaded} {expo : Array Expo}
+    (hf : (readFiles sp h .private : ModelIO _) fs (.ok (.ok f)))
+    (hreg : f.viewRegion .private = some (r, a)) (hsk : moduleSkel r a = some sk)
+    (hload : loadAt 0 h f = some l) (hcv : checkViews h f l = .ok expo)
+    {s : Spot} (hmod : s.part.mod = h) (hs : CopyAt sp fs s) (hl : s.part.level ≠ .server)
+    {r1 : Region} (hr1 : PartRegion sp fs s.part r1) :
+    ∃ loc sP s1, loc ∈ sk.consts ∧ constSkel r loc = some sP ∧
+      constSkel r1 s.pos.loc = some s1 ∧ nameP r1 s1.name = some s.pos.name ∧
+      s.pos.skipped = s1.kind.skipped ∧ sP.kind.skipped = s1.kind.skipped ∧
+      Behind r1 s.pos.loc r loc sP := by
+  obtain ⟨⟨m, L⟩, q⟩ := s
+  simp only at hmod
+  subst hmod
+  obtain ⟨t, ht, hq⟩ := hs
+  have hnt := readPartNames_of_all hf ht
+  obtain ⟨f1, a1, hf1, hreg1⟩ := hr1
+  have hf1' := partFiles_of_all hf hf1
+  subst hf1'
+  simp only at hl hreg1 hnt ⊢
+  cases L with
+  | server => exact absurd rfl hl
+  | «private» =>
+    simp only [ModFiles.upTo] at hreg1 hnt
+    rw [hreg] at hreg1
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg1)
+    simp only [readNamePositions, hreg, Option.bind_eq_bind, Option.bind_some] at hnt
+    obtain ⟨sk', hsk', -, hall⟩ := namePositionsAt_mem hnt
+    rw [hsk] at hsk'
+    cases hsk'
+    obtain ⟨hloc, s1, hs1, hn1, -, hsk1⟩ := hall q hq
+    exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _⟩
+  | exported =>
+    simp only [ModFiles.upTo, ModFiles.viewRegion, Option.some.injEq, Prod.mk.injEq] at hreg1
+    obtain ⟨rfl, rfl⟩ := hreg1
+    simp only [readNamePositions, ModFiles.upTo, ModFiles.viewRegion, Option.bind_eq_bind,
+      Option.bind_some] at hnt
+    obtain ⟨skE, hskE, -, hall⟩ := namePositionsAt_mem hnt
+    obtain ⟨hloc, s1, hs1, hn1, -, hsk1⟩ := hall q hq
+    cases hm : f.isModule with
+    | false =>
+      have hreg' : f.viewRegion .private =
+          some (Region.single f.exported, f.exported.moduleDataAddr) := by
+        simp [ModFiles.viewRegion, hm]
+      rw [hreg] at hreg'
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg')
+      rw [hsk] at hskE
+      cases hskE
+      exact ⟨q.loc, s1, s1, hloc, hs1, hs1, hn1, hsk1, rfl, Behind.refl _ _ _⟩
+    | true =>
+      obtain ⟨loc0, b, ex, -, -, -, hex, hpriv, -⟩ := readFiles_ok hf
+      have hm' : ModFiles.isModule { exported := ex } = true := by rw [← hex]; exact hm
+      obtain ⟨bs, bp, sv, p, -, -, -, -, -, -, hfeq⟩ := hpriv rfl hm'
+      subst hfeq
+      simp only at hm hskE hs1 hn1 ⊢
+      obtain ⟨r3, hr3, hexpo⟩ := checkViews_expo hcv hm rfl rfl
+      have hreg3 : (ModFiles.viewRegion ⟨ex, some sv, some p⟩ .private) = some (r3, p.moduleDataAddr) := by
+        simp [ModFiles.viewRegion, hm, hr3, Except.toOption, bind, Option.bind, pure]
+      rw [hreg] at hreg3
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg3)
+      obtain ⟨hrshape, ho1, ho2⟩ := ofParts_three hr3
+      have hsub : Region.Sub (Region.single ex) r ex.bytes.size := by
+        rw [hrshape]
+        exact Region.Sub.trans (Region.Sub.single_two ex sv ho1) (Region.Sub.two_three ex sv p ho1 ho2)
+          (by simp)
+      obtain ⟨skP, skE', hskP, hskE', hexpoAt⟩ := expoOfParts_ok hexpo
+      rw [hsk] at hskP
+      cases hskP
+      have hlocE : ∃ g, (Region.single ex).loc ex.moduleDataAddr = some g := by
+        unfold moduleSkel at hskE
+        obtain ⟨g, hg, -⟩ := bind_some_left hskE
+        exact ⟨g, hg⟩
+      obtain ⟨g, hg⟩ := hlocE
+      rw [hsub.moduleSkel_sub hg, hskE] at hskE'
+      cases hskE'
+      have hgood := (hsub.moduleSkel_ok hskE).1 q.loc hloc
+      have hs1r : constSkel r q.loc = some s1 := by rw [hsub.constSkel_sub hgood]; exact hs1
+      have hentry : ∀ e, entryAt (Region.single ex) q.loc = some e → entryAt r q.loc = some e := by
+        intro e he
+        rw [entryAt_eq] at he ⊢
+        rw [hsub.constSpec_sub hgood]
+        exact he
+      have hstmt : ∀ cv k, StmtSkel (Region.single ex) q.loc cv k → StmtSkel r q.loc cv k :=
+        fun cv k h => h.sub hsub hgood
+      rcases hexpoAt q.loc hloc with hin | ⟨se, sp, en, i, loc, hse, hen, ⟨hi, hcsi⟩, hloci, hsp, alt⟩
+      · exact ⟨q.loc, s1, s1, hin, hs1r, hs1, hn1, hsk1, rfl,
+          .inl ⟨fun cv k h => ⟨k, hstmt cv k h, rfl, fun _ h => h⟩, hentry⟩⟩
+      rw [hs1r] at hse
+      cases hse
+      -- the private constant at `loc`, as the load read it
+      obtain ⟨r', a', sk', skels', hreg', hsk', hskels', hlen, hal⟩ := loadAt_aligned hload
+      rw [hreg] at hreg'
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hreg')
+      rw [hsk] at hsk'
+      cases hsk'
+      have hlocm : loc ∈ sk.consts := List.mem_of_getElem? hloci
+      have hil : i < skels'.length := by
+        have := mapM_length_opt hskels'
+        have := (List.getElem?_eq_some_iff.1 hloci).1
+        omega
+      have hski : skels'[i] = sp := by
+        have h1 := mapM_getElem? hskels' i
+        rw [hloci, Option.bind_some, hsp, List.getElem?_eq_getElem hil] at h1
+        exact Option.some.inj h1
+      have hcs : (l.constants.map (·.toCEntryF))[i]'(by simpa using hi) =
+          (l.constants[i]'(by simpa using hi)).toCEntryF := by simp
+      have hlz : lazyEntry (nameP r) (exprP r) r 0 sp = some (l.constants[i]'(hlen ▸ hil)).toCEntryF := by
+        rw [← hski]; exact hal i hil
+      have hspn : nameP r sp.name = some en := by
+        rw [(lazyEntry_stmt hlz).1, ← hcsi, hcs]
+      -- the statement of a copy, as the private part reads it at `q.loc`
+      have hst1 : ∀ cv k, StmtSkel (Region.single ex) q.loc cv k →
+          nameP r s1.name = some cv.name ∧ s1.levelParams.mapM (nameP r) = some cv.levelParams ∧
+          exprP r s1.type = some cv.type ∧ s1.kind.mapM (nameP r) (fun _ => some ()) = some k := by
+        intro cv k h
+        obtain ⟨s', hs', h1, h2, h3, h4⟩ := hstmt cv k h
+        rw [hs1r] at hs'
+        cases hs'
+        exact ⟨h1, h2, h3, h4⟩
+      rcases alt with ⟨hk, hty, hlps⟩ | ⟨e, pc, x, he, hx, hthm, hnthm⟩
+      · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, ?_, .inr fun cv k h => ?_⟩
+        · unfold hiddenKind at hk
+          split at hk <;> rename_i hk1 hk2 <;> simp only [hk1, hk2, CKindF.skipped] at hk ⊢
+          all_goals first
+            | (cases hk; done)
+            | exact (beq_iff_eq.1 hk).symm
+            | (simp only [Bool.not_eq_true'] at hk; exact hk.symm)
+        · obtain ⟨h1, h2, h3, h4⟩ := hst1 cv k h
+          rw [hen] at h1
+          cases h1
+          refine ⟨?_, hspn, hlps ▸ h2, hty ▸ h3, ?_⟩
+          · unfold hiddenKind at hk
+            split at hk <;> rename_i hk1 hk2
+            all_goals first
+              | (rw [hk1] at h4; simp only [CKindF.mapM, pure, Option.some.injEq] at h4
+                 exact ⟨_, h4.symm⟩)
+              | cases hk
+          · unfold hiddenKind at hk
+            split at hk <;> rename_i hk1 hk2 <;> simp [hk2, CKindF.tag] at hk ⊢
+      · -- the private constant decoded at `loc`
+        have hpc : entryAt r loc = some pc := by
+          by_cases ht : ∃ v all, (l.constants.map CEntry.toCEntryF)[i]!.kind = CKindF.thm v all
+          · exact hthm ht
+          · have hpc' := hnthm (fun v all h' => ht ⟨v, all, h'⟩)
+            subst hpc'
+            have hbang : (l.constants.map CEntry.toCEntryF)[i]! =
+                (l.constants[i]'(hlen ▸ hil)).toCEntryF := by
+              rw [getElem!_pos _ _ (by simpa using hi)]; simp
+            rw [hbang] at ht ⊢
+            have htag := (lazyEntry_kind hlz).2
+            rw [entryAt_eq]
+            simp only [constSpec, hsp, Option.bind_eq_bind, Option.bind_some]
+            revert hlz htag
+            rcases sp with ⟨sn, sl, st, sk0⟩
+            cases sk0 with
+            | thm v all =>
+              intro _ htag
+              exfalso
+              apply ht
+              cases hk : (l.constants[i]'(hlen ▸ hil)).kind <;> rw [hk] at htag <;>
+                simp [CKindF.tag] at htag
+              exact ⟨_, _, rfl⟩
+            | _ => intro hlz _; simp only [lazyEntry] at hlz; exact hlz
+        have hmP : sp.mapM (nameP r) (exprP r) = some pc := by
+          rw [entryAt_eq] at hpc
+          obtain ⟨s'', hs'', hm''⟩ := constSpec_parts hpc
+          rw [hsp] at hs''
+          cases hs''
+          exact hm''
+        have hm1 : s1.mapM (nameP r) (exprP r) = some e := by
+          rw [entryAt_eq] at he
+          obtain ⟨s'', hs'', hm''⟩ := constSpec_parts he
+          rw [hs1r] at hs''
+          cases hs''
+          exact hm''
+        have he1 : entryAt (Region.single ex) q.loc = some e := by
+          rw [entryAt_eq, ← hsub.constSpec_sub hgood, ← entryAt_eq]; exact he
+        obtain ⟨hn1', hl1', ht1', htag1, hsk1'⟩ := CEntryF.mapM_parts hmP
+        obtain ⟨hnE, hlE, htE, htagE, hskE'⟩ := CEntryF.mapM_parts hm1
+        -- a copy's statement is its decoded constant's
+        have hcvE : ∀ cv k, StmtSkel (Region.single ex) q.loc cv k → cv = e.stmt ∧
+            s1.kind.mapM (nameP r) (fun _ => some ()) = some k := by
+          intro cv k h
+          obtain ⟨h1, h2, h3, h4⟩ := hst1 cv k h
+          refine ⟨?_, h4⟩
+          rw [hnE] at h1; rw [hlE] at h2; rw [htE] at h3
+          obtain ⟨n, l', t'⟩ := cv
+          simp only [Option.some.injEq] at h1 h2 h3
+          simp [CEntryF.stmt, h1, h2, h3]
+        rcases expoOf_cases hx with rfl | ⟨hst, u, heu, hpu, hpt⟩
+        · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, by rw [hsk1', hskE'], .inl ⟨?_, ?_⟩⟩
+          · intro cv k h
+            obtain ⟨hcv, hk1⟩ := hcvE cv k h
+            obtain ⟨k', hk', htk', hq'⟩ := kind_names hmP
+            obtain ⟨k'', hk'', htk'', hq''⟩ := kind_names hm1
+            rw [hk1] at hk''
+            cases hk''
+            refine ⟨k', ⟨sp, hsp, ?_, ?_, ?_, hk'⟩, by rw [htk', ← htk''], fun q0 hq0 => ?_⟩
+            · rw [hn1', hcv]; rfl
+            · rw [hl1', hcv]; rfl
+            · rw [ht1', hcv]; rfl
+            · subst hq0
+              have h4 : pc.kind.tag = 4 := by rw [← htk'']; rfl
+              cases hpk : pc.kind with
+              | quot q1 =>
+                have := hq'' q1 hpk
+                cases this
+                exact hq' _ hpk
+              | _ => rw [hpk] at h4; simp [CKindF.tag] at h4
+          · intro e' he'
+            rw [he1] at he'
+            cases he'
+            exact hpc
+        · refine ⟨loc, sp, s1, hlocm, hsp, hs1, hn1, hsk1, ?_, .inr fun cv k h => ?_⟩
+          · rw [hsk1', hskE', heu, hpu]; rfl
+          · obtain ⟨hcv, hk1⟩ := hcvE cv k h
+            refine ⟨?_, ?_, ?_, ?_, by rw [htag1]; exact hpt⟩
+            · have h0 : k.tag = 0 := by
+                rw [← (CKindF.mapM_tag hk1).1, htagE, heu]; rfl
+              cases k <;> simp_all [CKindF.tag]
+            · rw [hn1', hcv, ← hst]; rfl
+            · rw [hl1', hcv, ← hst]; rfl
+            · rw [ht1', hcv, ← hst]; rfl
 
 end ConLeche.Driver
