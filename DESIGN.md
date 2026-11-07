@@ -110582,3 +110582,71 @@ wrapper). That is enough for the executable to build. What remains, in dependenc
    own writing rules (PLAN.md), not just its line numbers.
 7. Dead after the change: `installBasisDeclF_twin`, `RelRun.foldlM_push` (`ViewCongr`), if
    nothing else uses them once the proofs build.
+
+**The proofs (done, 2026-11-08, same branch).** The repairs, in the record's order; one point
+departs from the plan above (item 4).
+
+1. *Constant-check inversions.* `checkConstantVal_inv` and `classConstOk_inv` lost the reservedness
+   conjunct, `ConstChecked` its `unreserved` field, `recStage_cvFacts` its second half,
+   `ConstantValRun` its reservation guard, and `litShapeAt_of_check` its premise (the `Nat` tests
+   read a type). The facts the consumers read now come from the reserved names' check, threaded as
+   premises: the harvests (`harvestDefn`/`Thm`/`Opaque`/`Axiom`, `Model/Harvest.lean`) take the
+   declaration's name unreserved; the three pinned-axiom arms derive it from their fixed names;
+   the block route takes `∀ c ∈ block, reservedBasisNames.contains c.name = false`
+   (`unreserved_of_basisNamesOk`, `Model/Fold.lean`) into `declBlock`, which hands
+   `declBlockAt` the members' (`hresM`), constructors' (`hClps₀`, as before) and recursors'
+   (`hresR`) facts, read off the recogniser's names (`blockShape?_names`,
+   `Verify/Inductives/BlockShapeInv.lean`; `recStage_names`). They reach `blockFormerFacts_of`,
+   `blockTablesStage_of`, `BlockCtorsStage.resA` → `blockCtorsLoop` → `ctorsLoopEta` →
+   `stageCtorGen`, `genRecStage` → `genRecHdataS`/`blockRecStaged_dataR` →
+   `blockRuleRhsOk_base`/`blockRuleRhs_read_run` → `blockRecBareModel_run`/`blockRecStaged_runR`,
+   and `blockRecStagedAt_stored` → `storedSwap_sem` (whose `BasisPinnedTT` half read the basis
+   names off `reservedRecName`, which no longer lists them).
+2. *The `Nat` kinds.* `NatKinds` (`Verify/EnvWF.lean`): the three `Nat` names hold an inductive and
+   two constructors where stored. `natLitSupported_of_shapes`/`_of_stored` and
+   `strLitSupported_*` take it; the model gives it from `BasisPinnedTT.natKinds`; at a block's
+   formers' environment (`whnfNamesFree_formers`) it is the pre-block one's, since no member takes
+   a reserved name. `OfReducePin` needed only a simp set.
+3. *The run relation.* `DeclRun` is `basisNamesOk d = true ∧ DeclKindRun …`, `DeclKindRun` the kind
+   dispatch with the `.indDecl` arm the block route at every name; `DeclBasisRun` is gone and
+   `BasisInstallRun` stays as the push chain the model reads a pinned block's install as.
+   `DeclAxiomRun`'s non-quotient arm records its guard `cv.name ≠ quotSoundName` (the checker's
+   branch), so the fold reads the name unreserved off `basisNamesOk`. `checkDecl_inv` and
+   `checkDecl_of_kind` (`Verify/BridgeDecl.lean`) split and join `checkDecl`; `checkDeclKind_datF`,
+   `checkDeclKindC_spec` (`Verify/Cached/BridgeC.lean`) and `checkModeledOrNativeSF_run` follow
+   the split; `declEtaStepRun` reads `DeclKindRun` (the quotient arm by its one former's
+   capabilities; `basisIndOk` and its lemmas are gone).
+4. *The key lemma*, `blockInstall_pinned` (`Verify/BasisBlock.lean`): for `basisNameHit block =
+   some kind`, `pinListOk block kind.decls`, `blockShape? nP block = some p`,
+   `blockConstants p = kind.storedAt block` and `blockTables p p.members = []`. The comparison and
+   the recogniser both ignore a former's capabilities (`blockShape?_dropCaps`,
+   `listBeqBy_pinCopyOk_dropCaps`), so the block is read as the pins at its names; the rest is the
+   recogniser's computation at the four pins, at any level-parameter names (`simp` over the
+   definitions, one case split on the declared parameter count and, for `Eq`, on the names).
+   *Departure from the plan:* `PinCopy` was NOT weakened. The basis models read their formers'
+   capabilities (`LfpCaps`: `caps.nparams + caps.nIdx`; `LfpCover.all`: `caps.all`; the quotient
+   arm reads `Quot`'s through `BasisPinnedTT`), so a model at caps-free pins does not go through.
+   Instead the proof side names the pins as the install stores them: `eqI`, `natI`, `emptyI`,
+   `falseI` and `BasisKind.installed` (`Verify/EnvPreds.lean`; each former at the capabilities
+   `blockCapsAt` computes, which `blockInstall_pinned` proves), `pinnedInfo` returns those, and the
+   basis models (`BasisEq`, `BasisBlocks`, `BasisEmpty`, `BasisFalse`, `EqTower`, `BasisAtBlock`)
+   run at `kind.installed`; `PinCopy` and the renaming chain are unchanged. `declBasisPB_at` takes
+   `pinListOk` and `BasisInstallRun E (kind.storedAt block) env₂`; `pinPairs_of_ok` compares
+   against `kind.decls` and pairs with `kind.installed`. The kernel's pins keep `{}`.
+5. *The fold.* `declStep_preserves`'s `.indDecl` arm: recognised blocks only; a pinned one goes
+   through `basisInstallRun_of_block` (the push from `blockRun_env`, its freshness from
+   `blockRun_fresh`, its names distinct by computation) into `declBasisPB_at` and
+   `natFacts_basis`; any other through `declBlock`. `blockRun_env`
+   (`Semantics/Inductives/DeclBlock.lean`): a block's run installs `blockConstants`/`blockTables`.
+   `natFacts_block` and `blockRun_findTable` read the install off it; `declBlockRun_consts`,
+   `declBlockRun_tables`, `consBlockInds_indexed`, `streamRecs_mem_name` are gone. `BasisStep`,
+   `BasisCons` needed nothing.
+6. *Documents.* The whitepaper's "Pinned blocks" paragraph (§7) describes the uniform install and
+   the one check after it; its citations and OVERVIEW's follow the tree; OVERVIEW §5 cites
+   `blockInstall_pinned`.
+7. *Dead code removed:* `installBasisFoldS_spec`, `installBasisFoldF_pushC`, `RelRun.foldlM_push`,
+   `checkBasisBlock_datF`, `foldlM_installBasisDecl_invR`, `declBasisRunOf`.
+   `installBasisDeclF_twin`/`_push`/`_pushC` stay: the quotient records use them.
+
+Size: 62 files under `ConLeche/`, +1322 −872 against the checker commit (98f92792f);
+`Verify/BasisBlock.lean` is 314 of the additions.
