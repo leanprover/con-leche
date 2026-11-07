@@ -420,12 +420,14 @@ namespace ConLeche.Driver
 
 open ConLeche ConLeche.Modular ConLeche.Frontend.Olean
 
-/-- **The worklist's invariant**: every name a record read so far reads has been pushed;
-every pushed name is stored or still to read; every stored name is a record's. -/
-@[expose] def ReachInv (L : ReachLog) : Prop :=
+/-- **The worklist's invariant** from the roots `rs`: every name a record read so far reads
+has been pushed; every pushed name is stored or still to read; every stored name is a record's;
+every root has been pushed. -/
+@[expose] def ReachInv (rs : List Name) (L : ReachLog) : Prop :=
   (∀ d ∈ L.ctx, ∀ y ∈ recordReads d, L.seen.contains y = true) ∧
   (∀ y, L.seen.contains y = true → L.stored.contains y = true ∨ y ∈ L.stack) ∧
-  (∀ y, L.stored.contains y = true → ∃ d ∈ L.ctx, y ∈ declNames d)
+  (∀ y, L.stored.contains y = true → ∃ d ∈ L.ctx, y ∈ declNames d) ∧
+  ∀ y ∈ rs, L.seen.contains y = true
 
 theorem pushNames_spec :
     ∀ (ys : List Name) (seen : Std.HashSet Name) (stack : List Name),
@@ -480,13 +482,13 @@ theorem foldl_insert_contains :
       · exact .inr h
 
 /-- **A record added keeps the invariant**, where it declares the name popped. -/
-theorem ReachInv.add {L : ReachLog} {x : Name} {rest : List Name} (hi : ReachInv L)
-    (hs : L.stack = x :: rest) {d : Declaration} (hx : x ∈ declNames d) (h : Name) :
-    ReachInv (L.add d h (recordReads d).toList rest) := by
-  obtain ⟨i1, i2, i3⟩ := hi
+theorem ReachInv.add {rs : List Name} {L : ReachLog} {x : Name} {rest : List Name}
+    (hi : ReachInv rs L) (hs : L.stack = x :: rest) {d : Declaration} (hx : x ∈ declNames d)
+    (h : Name) : ReachInv rs (L.add d h (recordReads d).toList rest) := by
+  obtain ⟨i1, i2, i3, i4⟩ := hi
   obtain ⟨p1, p2, p3, p4⟩ := pushNames_spec (recordReads d).toList L.seen rest
   simp only [ReachLog.add]
-  refine ⟨fun d' hd' y hy => ?_, fun y hy => ?_, fun y hy => ?_⟩
+  refine ⟨fun d' hd' y hy => ?_, fun y hy => ?_, fun y hy => ?_, fun y hy => p4 y (i4 y hy)⟩
   · rcases Array.mem_push.1 hd' with hd' | rfl
     · exact p4 y (i1 d' hd' y hy)
     · exact p1 y (Array.mem_toList_iff.2 hy)
@@ -504,11 +506,11 @@ theorem ReachInv.add {L : ReachLog} {x : Name} {rest : List Name} (hi : ReachInv
     · exact ⟨d, Array.mem_push_self, hy⟩
 
 /-- A name popped that is stored: the invariant without it on the stack. -/
-theorem ReachInv.skip {L : ReachLog} {x : Name} {rest : List Name} (hi : ReachInv L)
-    (hs : L.stack = x :: rest) (hx : L.stored.contains x = true) :
-    ReachInv { L with stack := rest } := by
-  obtain ⟨i1, i2, i3⟩ := hi
-  refine ⟨i1, fun y hy => ?_, i3⟩
+theorem ReachInv.skip {rs : List Name} {L : ReachLog} {x : Name} {rest : List Name}
+    (hi : ReachInv rs L) (hs : L.stack = x :: rest) (hx : L.stored.contains x = true) :
+    ReachInv rs { L with stack := rest } := by
+  obtain ⟨i1, i2, i3, i4⟩ := hi
+  refine ⟨i1, fun y hy => ?_, i3, i4⟩
   rcases i2 y hy with h | h
   · exact .inl h
   · rw [hs] at h
@@ -518,10 +520,10 @@ theorem ReachInv.skip {L : ReachLog} {x : Name} {rest : List Name} (hi : ReachIn
 
 /-- **The worklist's closure**: at every accepting outcome, on any snapshot, the invariant
 holds with nothing left to read. -/
-theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) :
+theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
     ∀ (fuel : Nat) (L : ReachLog) (c : ReachCache) {L' : ReachLog} {c' : ReachCache},
-      ReachInv L → (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c'))) →
-        ReachInv L' ∧ L'.stack = [] := by
+      ReachInv rs L → (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c'))) →
+        ReachInv rs L' ∧ L'.stack = [] := by
   intro fuel
   induction fuel with
   | zero =>
@@ -619,12 +621,12 @@ theorem streamEnv_find_of_mem {ds : List Declaration} {d : Declaration} (hd : d 
 /-- **The reach's closure, at its records**: at an accepting outcome of the worklist from
 a state satisfying the invariant, every name a context record reads is stored in the
 context, and every context record is `RecordScoped` there. -/
-theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {fuel : Nat} {L L' : ReachLog}
-    {c c' : ReachCache} (hi : ReachInv L)
+theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel : Nat}
+    {L L' : ReachLog} {c c' : ReachCache} (hi : ReachInv rs L)
     (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
     ∀ d ∈ L'.ctx.toList, (∀ y ∈ recordReads d, ((streamEnv L'.ctx.toList).find? y).isSome = true) ∧
       RecordScoped (streamEnv L'.ctx.toList) d := by
-  obtain ⟨⟨i1, i2, i3⟩, hs⟩ := reachGo_inv env fs fuel L c hi h
+  obtain ⟨⟨i1, i2, i3, -⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
   have hr : ∀ d ∈ L'.ctx.toList, ∀ y ∈ recordReads d,
       ((streamEnv L'.ctx.toList).find? y).isSome = true := by
     intro d hd y hy
@@ -633,6 +635,19 @@ theorem reachGo_closed (env : ReachEnv ModelIO) (fs : FS) {fuel : Nat} {L L' : R
       exact streamEnv_find_of_mem (Array.mem_toList_iff.2 hd') hy'
     · rw [hs] at h'; cases h'
   exact fun d hd => ⟨hr d hd, recordReads_scoped (hr d hd)⟩
+
+/-- **The reach's closure, at its roots**: at an accepting outcome of the worklist from a state
+satisfying the invariant from the roots `rs`, every root is stored in the context. -/
+theorem reachGo_roots (env : ReachEnv ModelIO) (fs : FS) {rs : List Name} {fuel : Nat}
+    {L L' : ReachLog} {c c' : ReachCache} (hi : ReachInv rs L)
+    (h : (reachGo env fuel L c : ModelIO _) fs (.ok (.ok (L', c')))) :
+    ∀ y ∈ rs, ((streamEnv L'.ctx.toList).find? y).isSome = true := by
+  obtain ⟨⟨-, i2, i3, i4⟩, hs⟩ := reachGo_inv env fs rs fuel L c hi h
+  intro y hy
+  rcases i2 y (i4 y hy) with h' | h'
+  · obtain ⟨d', hd', hy'⟩ := i3 y h'
+    exact streamEnv_find_of_mem (Array.mem_toList_iff.2 hd') hy'
+  · rw [hs] at h'; cases h'
 
 end ConLeche.Driver
 
@@ -757,22 +772,24 @@ theorem validateCtx_ok {ds : Array Declaration} {hs : Array Name}
   · split at h <;> simp at h
 
 /-- The worklist starts in its invariant. -/
-theorem reachInv_init (rs : List Name) : ReachInv (ReachLog.init rs) := by
+theorem reachInv_init (rs : List Name) : ReachInv rs (ReachLog.init rs) := by
   refine ⟨fun d hd => by simp [ReachLog.init] at hd, fun z hz => ?_,
-    fun z hz => by simp [ReachLog.init] at hz⟩
+    fun z hz => by simp [ReachLog.init] at hz, fun z hz => (pushNames_spec rs {} []).1 z hz⟩
   rcases (pushNames_spec rs {} []).2.1 z hz with h' | h'
   · simp at h'
   · exact .inr h'
 
 /-- **The reach's context is closed and well formed**: at every accepting outcome of
 `reach`, on any snapshot, every context record is `RecordScoped` in the context, every
-name it reads is stored there, and the context is `EnvWF`. -/
+name it reads is stored there, the context is `EnvWF`, and every root that is not an own name
+is stored there. -/
 theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : Std.HashSet Name}
     {roots : Array Name} {fs : FS} {r : Reach}
     (h : (reach rd m wr own roots : ModelIO _) fs (.ok (.ok r))) :
     (∀ d ∈ r.ctx.toList, RecordScoped (streamEnv r.ctx.toList) d) ∧
     (∀ d ∈ r.ctx.toList, ∀ y ∈ recordReads d, ((streamEnv r.ctx.toList).find? y).isSome = true) ∧
-    EnvWF (streamEnv r.ctx.toList) := by
+    EnvWF (streamEnv r.ctx.toList) ∧
+    (∀ x ∈ roots, own.contains x = false → ((streamEnv r.ctx.toList).find? x).isSome = true) := by
   unfold reach at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, -, h⟩ := h
@@ -798,7 +815,9 @@ theorem reach_ok {rd : OleanReads ModelIO} {m : Name} {wr : WorkerReads} {own : 
     subst h
     have hc := reachGo_closed _ fs (reachInv_init _) hy
     have hcl := fun d hd => (hc d hd).1
-    exact ⟨fun d hd => (hc d hd).2, hcl, ctx_envWF (validateCtx_ok hv) hcl⟩
+    refine ⟨fun d hd => (hc d hd).2, hcl, ctx_envWF (validateCtx_ok hv) hcl, fun x hx ho => ?_⟩
+    exact reachGo_roots _ fs (reachInv_init _) hy x
+      (List.mem_filter.2 ⟨by simp [hx], by simp [ho]⟩)
 
 end ConLeche.Driver
 

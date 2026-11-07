@@ -700,7 +700,10 @@ in place, which is `ImportOk.accepted`; with it `worker_local` gives the context
 names, one source per record, its closure and `EnvWF`, and `worker_thm` that every theorem of the
 module's private view by the specification is an own record with its value. What relates the
 module to the others (the presentations, the keys, the proof flags of its sources) is not part
-of one run's theorem. Every fixture module Lean compiles is accepted but for the capture case,
+of one run's theorem. The reach's roots are, beside what the own records read, the constants of
+the pins and certificates of every certified `Nat` operation the module declares that a loaded
+module holds (`pinGround`): its install check reads them and no record does; each is stored in
+the context at every exit 0 (`worker_ground`). Every fixture module Lean compiles is accepted but for the capture case,
 which Lean accepts while proving `False`, and an axiom at a certified `Nat` operation's name, both
 rejected as on the merged read; two modules declaring one name that the module never reads
 together are accepted, where the merged read rejects the pair. `Mathlib.RingTheory.WittVector.MulP`

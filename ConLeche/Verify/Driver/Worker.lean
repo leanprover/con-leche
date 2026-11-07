@@ -237,8 +237,34 @@ theorem worker_ctx {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : Work
       ((streamEnv w.reach.ctx.toList).find? y).isSome = true) ∧
     EnvWF (streamEnv w.reach.ctx.toList) ∧
     ((streamEnv w.reach.ctx.toList).consts.map (·.toConstantVal.name)).Nodup := by
-  obtain ⟨a, b, c⟩ := reach_ok hw.reach
+  obtain ⟨a, b, c, -⟩ := reach_ok hw.reach
   exact ⟨a, b, c, nodupNames_streamEnv hw.nodup⟩
+
+theorem mem_foldl_append_if {α β : Type} (p : α → Bool) (f : α → Array β) (y : β) :
+    ∀ (xs : List α) (acc : Array β),
+      y ∈ xs.foldl (fun acc a => if p a then acc else acc ++ f a) acc ↔
+        y ∈ acc ∨ ∃ a ∈ xs, p a = false ∧ y ∈ f a
+  | [], acc => by simp
+  | a :: xs, acc => by
+    rw [List.foldl_cons, mem_foldl_append_if p f y xs]
+    cases hp : p a <;> simp [hp, or_assoc]
+
+/-- **A certified own operation's pin ground is in the context**: at a worker's accept, every
+name of the pin ground of an own constant (`pinGround` over the shipped variants) that a loaded
+module holds and that is not an own name is stored in the context, so the operation's install
+check finds there whatever of its variants' pins and certificates the loaded modules hold. -/
+theorem worker_ground {sp : SearchPath} {fs : FS} {m : Name} {jobs : Nat} {w : WorkerRead}
+    (hw : WorkerFacts sp fs m jobs w) {c : CEntry} (hc : c ∈ w.home.constants)
+    (hsk : c.skipped = false) {g : Name} (hg : g ∈ pinGround natOpPinSets c.name)
+    (hix : w.reads.index.first.contains g = true) (ho : (ownNames w.home).contains g = false) :
+    ((streamEnv w.reach.ctx.toList).find? g).isSome = true := by
+  refine (reach_ok hw.reach).2.2.2 g ?_ ho
+  unfold ownRoots
+  refine Array.mem_append.2 (.inr (Array.mem_filter.2 ⟨?_, hix⟩))
+  rw [← Array.foldl_toList]
+  exact (mem_foldl_append_if (fun c : CEntry => c.skipped)
+    (fun c : CEntry => pinGround natOpPinSets c.name) g _ _).2
+    (.inr ⟨c, Array.mem_toList_iff.2 hc, hsk, hg⟩)
 
 /-- Two members of a list whose images, concatenated, are distinct, sharing an element of their
 images, are one. -/
