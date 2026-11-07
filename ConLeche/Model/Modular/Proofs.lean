@@ -87,6 +87,15 @@ theorem Expr.constsResolve_of_readNames {R : Env} :
   | lit l => cases l <;> intro h <;> simp_all [Expr.readNames, ConLeche.Expr.constsResolve]
   | _ => intro h; simp_all [Expr.readNames, ConLeche.Expr.constsResolve]
 
+/-- **A term's names are stored where it resolves.** -/
+theorem Expr.readNames_of_constsResolve {R : Env} :
+    ∀ {e : Expr}, e.constsResolve R = true → ∀ c ∈ e.readNames, (R.find? c).isSome = true := by
+  intro e
+  induction e with
+  | lit l => cases l <;> intro h c hc <;> simp_all [Expr.readNames, ConLeche.Expr.constsResolve] <;>
+      rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp_all
+  | _ => intro h c hc; simp_all [Expr.readNames, ConLeche.Expr.constsResolve] <;> grind
+
 /-! ## A step from an environment -/
 
 theorem pushChain_find_old {env : Env} {fe : FEnv} (h : PushChain env fe) {x : Name}

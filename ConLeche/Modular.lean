@@ -197,7 +197,8 @@ def ThmAt (dev : Nat → Module) (b : Nat) (n : Name) : Prop :=
 /-- **Module `b`'s copy of `n`, of type `ty`, is a proof for module `i`**: `i` infers `ty` to be a
 proposition over the part of its context below `n`, or it is a theorem where it comes from. -/
 def ProofSide (dev : Nat → Module) (i b : Nat) (n : Name) (ty : Expr) : Prop :=
-  TypeIsProp .verified ((dev i).part n) ty ∨ ThmAt dev b n
+  (ty.constsResolve ((dev i).part n) = true ∧ TypeIsProp .verified ((dev i).part n) ty) ∨
+    ThmAt dev b n
 
 /-- **Module `b`'s copy of `n` agrees with the one module `i` reads** (see the module docstring). -/
 inductive Agree (dev : Nat → Module) : Nat → Nat → Name → Prop
