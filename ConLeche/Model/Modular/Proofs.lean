@@ -52,6 +52,41 @@ theorem SemPropType.of_denote {a₁ a₂ : Name → (Name → Nat) → Term} {E�
     SemPropType V a₁ E₁ ty :=
   fun ψ Ta hT ρ => hs ψ Ta ((h ψ).symm.trans hT) ρ
 
+/-! ## Lookups in a filtered environment, resolution by names -/
+
+theorem find?_filter_name {l : List ConstantInfo} {t : List ProjTable} {q : Name → Bool}
+    {n : Name} :
+    (⟨l.filter fun c => q c.toConstantVal.name, []⟩ : Env).find? n =
+      if q n = true then (⟨l, t⟩ : Env).find? n else none := by
+  induction l with
+  | nil => split <;> rfl
+  | cons c l ih =>
+    have e1 : ∀ (cs : List ConstantInfo) (ts : List ProjTable),
+        (⟨cs, ts⟩ : Env).find? n = cs.find? (·.name == n) := fun _ _ => rfl
+    rw [e1] at ih ⊢
+    rw [e1, List.filter_cons]
+    by_cases hc : c.name = n
+    · have hc' : c.toConstantVal.name = n := hc
+      by_cases hq : q n = true
+      · simp [hc', hq, hc]
+      · have hqf : q c.toConstantVal.name = false := by rw [hc']; simpa using hq
+        rw [ite_eq_right hq] at ih ⊢
+        simpa [hqf] using ih
+    · have hc' : (c.name == n) = false := by simpa using hc
+      split <;> simp only [List.find?_cons, hc'] <;> exact ih
+
+theorem find?_isSome_of_mem' {E : Env} {ci : ConstantInfo} (h : ci ∈ E.consts) :
+    (E.find? ci.name).isSome = true := by
+  unfold Env.find?; rw [List.find?_isSome]; exact ⟨ci, h, by simp⟩
+
+/-- **A term resolves where its names are stored.** -/
+theorem Expr.constsResolve_of_readNames {R : Env} :
+    ∀ {e : Expr}, (∀ c ∈ e.readNames, (R.find? c).isSome = true) → e.constsResolve R = true := by
+  intro e
+  induction e with
+  | lit l => cases l <;> intro h <;> simp_all [Expr.readNames, ConLeche.Expr.constsResolve]
+  | _ => intro h; simp_all [Expr.readNames, ConLeche.Expr.constsResolve]
+
 /-! ## A step from an environment -/
 
 theorem pushChain_find_old {env : Env} {fe : FEnv} (h : PushChain env fe) {x : Name}

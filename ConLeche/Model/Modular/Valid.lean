@@ -1,6 +1,7 @@
 module
 
 public import ConLeche.Model.Modular.Read
+public import ConLeche.Model.Modular.Proofs
 public import ConLeche.Verify.Cached.PushChain
 import ConLeche.Verify.Cached.StreamIndex
 import ConLeche.Verify.Cached.DeclPushes
@@ -502,27 +503,6 @@ theorem copies_alike {i : Nat} (hok : ∀ j ≤ i, LocalOk .verified pins dev j)
 /-! ## The reading at a module -/
 
 /-- The lookup in a filtered environment. -/
-theorem find?_filter_name {l : List ConstantInfo} {t : List ProjTable} {q : Name → Bool}
-    {n : Name} :
-    (⟨l.filter fun c => q c.toConstantVal.name, []⟩ : Env).find? n =
-      if q n = true then (⟨l, t⟩ : Env).find? n else none := by
-  induction l with
-  | nil => split <;> rfl
-  | cons c l ih =>
-    have e1 : ∀ (cs : List ConstantInfo) (ts : List ProjTable),
-        (⟨cs, ts⟩ : Env).find? n = cs.find? (·.name == n) := fun _ _ => rfl
-    rw [e1] at ih ⊢
-    rw [e1, List.filter_cons]
-    by_cases hc : c.name = n
-    · have hc' : c.toConstantVal.name = n := hc
-      by_cases hq : q n = true
-      · simp [hc', hq, hc]
-      · have hqf : q c.toConstantVal.name = false := by rw [hc']; simpa using hq
-        rw [ite_eq_right hq] at ih ⊢
-        simpa [hqf] using ih
-    · have hc' : (c.name == n) = false := by simpa using hc
-      split <;> simp only [List.find?_cons, hc'] <;> exact ih
-
 /-- **What module `i` reads alike from module `b`**: the names its context stores under `b`'s key,
 at `b`'s copies. -/
 theorem readsAlike_find? {i b : Nat} {d : Name} :
