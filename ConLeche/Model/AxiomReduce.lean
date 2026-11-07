@@ -259,7 +259,7 @@ theorem axiomOfReduce
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
   have hcv' := hcv
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     -, hcvShape⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
@@ -271,6 +271,7 @@ theorem axiomOfReduce
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP isK rules heq; exact nomatch heq
   refine harvestAxiom (V := V) mp hopn hcv
+    (by rcases hor with h | h <;> rw [h] <;> decide)
     (A := fun _ => Term.prf) (fun _ => trivial)
     (fun _ _ _ => rfl) (fun _ _ => by simp) ?_
     (by rcases hor with h | h <;> rw [h] <;> decide)

@@ -45,9 +45,11 @@ record's: the law is stated at the record's counts. -/
   (∃ cvC cnP cnF, env.find? caps.etaCtor = some (.ctorInfo cvC cnP cnF)) ∧
   caps.etaFields = 0
 
-/-- **A literal's constants stored are at their shapes**: what the declarations' own check says. -/
+/-- **A literal's constants stored are at their shapes**: what the declarations' own check says,
+at the kinds the `Nat` names hold. -/
 theorem natLitSupported_of_shapes {env : Env}
-    (hsh : ∀ n c, env.find? n = some c → litShapeOk c = true) (h : natLitStored env = true) :
+    (hsh : ∀ n c, env.find? n = some c → litShapeOk c = true) (hk : NatKinds env)
+    (h : natLitStored env = true) :
     natLitSupported env = true := by
   simp only [natLitStored, Bool.and_eq_true, Option.isSome_iff_exists] at h
   obtain ⟨⟨⟨a, ha⟩, ⟨b, hb⟩⟩, ⟨c, hc⟩⟩ := h
@@ -57,14 +59,19 @@ theorem natLitSupported_of_shapes {env : Env}
   simp (decide := true) only [litShapeOk, Env.find?_name ha, ↓reduceIte] at sa
   simp (decide := true) only [litShapeOk, Env.find?_name hb, ↓reduceIte] at sb
   simp (decide := true) only [litShapeOk, Env.find?_name hc, ↓reduceIte] at sc
-  simp only [natLitSupported, ha, hb, hc, sa, sb, sc, Bool.and_self]
+  obtain ⟨cva, capsa, rfl⟩ := hk.1 _ ha
+  obtain ⟨cvb, nPb, nFb, rfl⟩ := hk.2.1 _ hb
+  obtain ⟨cvc, nPc, nFc, rfl⟩ := hk.2.2 _ hc
+  simp only [natLitSupported, ha, hb, hc]
+  exact Bool.and_eq_true_iff.mpr ⟨Bool.and_eq_true_iff.mpr ⟨sa, sb⟩, sc⟩
 
 theorem strLitSupported_of_shapes {env : Env}
-    (hsh : ∀ n c, env.find? n = some c → litShapeOk c = true) (h : strLitStored env = true) :
+    (hsh : ∀ n c, env.find? n = some c → litShapeOk c = true) (hk : NatKinds env)
+    (h : strLitStored env = true) :
     strLitSupported env = true := by
   simp only [strLitStored, Bool.and_eq_true] at h
   obtain ⟨⟨⟨⟨⟨⟨⟨hn, h₁⟩, h₂⟩, h₃⟩, h₄⟩, h₅⟩, h₆⟩, h₇⟩ := h
-  have hnat := natLitSupported_of_shapes hsh hn
+  have hnat := natLitSupported_of_shapes hsh hk hn
   have hs : ∀ {n : Name}, (env.find? n).isSome = true →
       ∃ c, env.find? n = some c ∧ litShapeOk c = true ∧ c.name = n := fun hsome => by
     obtain ⟨c, hc⟩ := Option.isSome_iff_exists.mp hsome
@@ -86,13 +93,13 @@ theorem strLitSupported_of_shapes {env : Env}
   simp only [strLitSupported, hnat, f₁, f₂, f₃, f₄, f₅, f₆, f₇, s₁, s₂, s₃, s₄, s₅, s₆, s₇,
     Bool.and_self]
 
-theorem natLitSupported_of_stored {env : Env} (henv : EnvWF env) (h : natLitStored env = true) :
-    natLitSupported env = true :=
-  natLitSupported_of_shapes (fun _ _ hc => henv.shapes _ (Env.find?_mem hc)) h
+theorem natLitSupported_of_stored {env : Env} (henv : EnvWF env) (hk : NatKinds env)
+    (h : natLitStored env = true) : natLitSupported env = true :=
+  natLitSupported_of_shapes (fun _ _ hc => henv.shapes _ (Env.find?_mem hc)) hk h
 
-theorem strLitSupported_of_stored {env : Env} (henv : EnvWF env) (h : strLitStored env = true) :
-    strLitSupported env = true :=
-  strLitSupported_of_shapes (fun _ _ hc => henv.shapes _ (Env.find?_mem hc)) h
+theorem strLitSupported_of_stored {env : Env} (henv : EnvWF env) (hk : NatKinds env)
+    (h : strLitStored env = true) : strLitSupported env = true :=
+  strLitSupported_of_shapes (fun _ _ hc => henv.shapes _ (Env.find?_mem hc)) hk h
 
 /-- Everything `natLitSupported` checked, as separate facts. -/
 theorem natLitSupported_inv {env : Env} (hs : natLitSupported env = true) :

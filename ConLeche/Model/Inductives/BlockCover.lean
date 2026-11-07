@@ -235,7 +235,7 @@ theorem checkBlockTele_nodup {env : Env} {nP : Nat} {ms : ConLeche.MemberShape} 
     ms.cvT.levelParams.Nodup := by
   unfold ConLeche.checkBlockTele at h
   obtain ⟨cv, hcv, -⟩ := exceptBind_ok h
-  exact nodup_of_nameNodup (ConLeche.checkConstantVal_inv hcv).2.2.1
+  exact nodup_of_nameNodup (ConLeche.checkConstantVal_inv hcv).2.1
 
 theorem blockCapsAt_all (p : BlockShape) (mi : Nat) (isRec : Bool) :
     (ConLeche.blockCapsAt p mi isRec).all = p.memberNames := by

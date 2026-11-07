@@ -186,8 +186,7 @@ alone decides, read off the block's records at its check: structure-likeness
 for its (single-constructor) values, unit-like collapse (all inhabitants
 definitionally equal), and the family's names and counts.  The family's
 result sort is on no record, so what depends on it is computed where it is
-read, from the former's type (`formerResSort`, `formerNeverZero`).
-The pinned basis blocks carry pinned capabilities. -/
+read, from the former's type (`formerResSort`, `formerNeverZero`). -/
 structure IndCaps where
   /-- Official's `is_non_rec_structure`: one constructor, no index, a block that
   is not recursive.  A proposition may have it: a proof is the point, and the

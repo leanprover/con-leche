@@ -20,7 +20,7 @@ the table]\; in the model a structure value is the tagged tuple of
 @sec:ext-eta and a projection reads a component, which
 #src("ConLeche/Model/Inductives/BlockStageTables.lean", 10, 12)[the
 install of the table] establishes
-(#src("ConLeche/Model/Inductives/FixKit.lean", 713, 718)[its typing
+(#src("ConLeche/Model/Inductives/FixKit.lean", 716, 721)[its typing
 and ι laws]).]
 
 #left-out[Mutual inductive types][Several types declared together,
@@ -51,13 +51,16 @@ proposition the stream declares. The real checker has hand-written
 copies of the toolchain's `Eq`, `Nat`, `Empty`, `False` and the quotient
 `Quot`
 (#src("ConLeche/Kernel/Basis/False.lean", 37, 39)[`False`, for instance],
-#src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]): a
-stream block that carries a pin's names
-#src("ConLeche/Kernel/Basis.lean", 140, 141)[stores the pin at the universe parameters it declares],
-its check compares it with the pin up to those names, and one that
-disagrees is rejected; a quotient record is stored and compared the same
-way, and one that disagrees is declined. The pins are how the main theorem
-can name `False` and `Eq` and say what they denote.]
+#src("ConLeche/Kernel/Basis/Builder.lean", 8, 17)[the builder]). A
+stream block that carries a pin's names is checked and stored like any
+other block; after those checks,
+#src("ConLeche/Kernel/Basis.lean", 144, 151)[one more check] compares it
+with the pin up to the universe parameters it declares and rejects it
+if they disagree, as it rejects any other declaration that takes a
+pinned name. A quotient record is compared with its pin and stores the
+pin at the universe parameters it declares; one that disagrees is
+declined. The pins are how the main theorem can name `False` and `Eq`
+and say what they denote.]
 
 #left-out[Axioms][The fragment has none. The real checker accepts
 exactly Lean's three standard axioms: `propext` and `Classical.choice`,
@@ -95,7 +98,7 @@ one by one, each against the environment of those before it\; the binary builds
 #src("ConLeche/Cached/StreamIndex.lean", 65, 65)[one index of the whole stream] from the declarations alone
 and runs the checks on a pool of workers, each against the index's view of the declarations before
 it, walking the results in fold order, so its verdict is the fold's.
-#src("ConLeche/Verify/Cached/StreamIndex.lean", 488, 490)[Every check passing is an accept of the fold],
+#src("ConLeche/Verify/Cached/StreamIndex.lean", 484, 486)[Every check passing is an accept of the fold],
 which is what the one-declaration-at-a-time argument of §3 and §4 needs.]
 
 == How the real proof differs from the fragment <sec:differs>
@@ -162,7 +165,7 @@ theorem #src("ConLeche/Verify/Cached/MainC.lean", 32, 35)[composes it with the f
 
 *The frontend.* Between the export file and the declaration fold sit
 a decoder and one transformation of the decoded list,
-#src("ConLeche/Frontend/Prepare.lean", 174, 175)[`preparePrelude`].
+#src("ConLeche/Frontend/Prepare.lean", 173, 174)[`preparePrelude`].
 It moves the declarations of a built-in copy of the toolchain's
 prelude (`Eq`, `Nat`, `Bool` and their kin) to the front, the stream's
 own record where it has one and the copy's where it has none, and it

@@ -123,14 +123,64 @@ theorem res_openPisAtFvars : ∀ (n : Nat) {e : Expr} (i : Nat) {fvs : List Expr
       · exact nomatch h
     | _ => simp [openPisAtFvars] at h
 
-theorem res_fvarTypeD {x : Expr} (h : Res env₁ x) : Res env₁ x.fvarTypeD := by
-  cases x <;> first | exact h | exact res_fvar.mp h
-
 theorem projGuardRows_ext (hx : EnvExt env₁ env₂) {entry : ProjEntry}
     (hc : (env₁.find? entry.ctor).isSome = true) (us : List Level) :
     projGuardRows env₂.find? entry us = projGuardRows env₁.find? entry us := by
   unfold projGuardRows
   rw [hx.find_of_isSome hc]
+
+/-- What an opening leaves resolves. -/
+theorem res_openPisAtFvars_body : ∀ (n : Nat) {e : Expr} (i : Nat) {fvs : List Expr} {b : Expr},
+    Res env₁ e → openPisAtFvars n e i = some (fvs, b) → Res env₁ b
+  | 0, _, _, _, _, he, h => by
+    simp only [openPisAtFvars, Option.some.injEq, Prod.mk.injEq] at h
+    rw [← h.2]; exact he
+  | n + 1, e, i, fvs, b, he, h => by
+    cases e with
+    | forallE dom body =>
+      obtain ⟨hd, hb⟩ := res_forall.mp he
+      simp only [openPisAtFvars] at h
+      split at h
+      · rename_i fvs' e' heq
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨-, rfl⟩ := h
+        exact res_openPisAtFvars_body n (i + 1) (res_open hd hb) heq
+      · exact nomatch h
+    | _ => simp [openPisAtFvars] at h
+
+/-- The rows of the field loop resolve. -/
+theorem res_projGuardRowsGo : ∀ (k : Nat) {d : Nat} {r : Expr} {rows : List (Nat × Expr)},
+    Res env₁ r → projGuardRowsGo k d r = some rows → ∀ row ∈ rows, Res env₁ row.2
+  | 0, d, .forallE dom body, rows, he, h => by
+    obtain ⟨hd, -⟩ := res_forall.mp he
+    simp only [projGuardRowsGo, Option.some.injEq] at h
+    subst h
+    intro row hrow
+    rcases List.mem_singleton.mp hrow with rfl
+    exact hd
+  | k + 1, d, .forallE dom body, rows, he, h => by
+    obtain ⟨hd, hb⟩ := res_forall.mp he
+    simp only [projGuardRowsGo] at h
+    split at h
+    · revert h
+      cases hrec : projGuardRowsGo k (d + 1) (body.instantiate1 (.fvar d dom)) with
+      | none => intro h; exact nomatch h
+      | some rows' =>
+        intro h
+        simp only [Option.some.injEq] at h
+        subst h
+        intro row hrow
+        rcases List.mem_cons.mp hrow with rfl | hrow
+        · exact hd
+        · exact res_projGuardRowsGo k (res_open hd hb) hrec row hrow
+    · exact res_projGuardRowsGo k hb h
+  | 0, _, .bvar _, _, _, h | 0, _, .fvar .., _, _, h | 0, _, .sort _, _, _, h
+  | 0, _, .const .., _, _, h | 0, _, .app .., _, _, h | 0, _, .lam .., _, _, h
+  | 0, _, .letE .., _, _, h | 0, _, .lit _, _, _, h | 0, _, .proj .., _, _, h
+  | _ + 1, _, .bvar _, _, _, h | _ + 1, _, .fvar .., _, _, h | _ + 1, _, .sort _, _, _, h
+  | _ + 1, _, .const .., _, _, h | _ + 1, _, .app .., _, _, h | _ + 1, _, .lam .., _, _, h
+  | _ + 1, _, .letE .., _, _, h | _ + 1, _, .lit _, _, _, h | _ + 1, _, .proj .., _, _, h => by
+    simp [projGuardRowsGo] at h
 
 theorem res_projGuardRows (hf : StoredFacts env₁) {entry : ProjEntry} {us : List Level}
     {rows : List (Nat × Expr)} (h : projGuardRows env₁.find? entry us = some rows) :
@@ -142,20 +192,9 @@ theorem res_projGuardRows (hf : StoredFacts env₁) {entry : ProjEntry} {us : Li
     rw [hc] at h
     dsimp only at h
     split at h
-    · rename_i fvs b heq
-      obtain rfl := Option.some.inj h
+    · rename_i fvs r heq
       have hty := res_inst ci.toConstantVal.levelParams us (hf.type hc)
-      have hfvs := res_openPisAtFvars _ 0 hty heq
-      intro row hrow
-      obtain ⟨j, -, hj⟩ := List.mem_filterMap.mp hrow
-      split at hj
-      · cases hx : fvs[entry.numParams + j]? with
-        | none => rw [hx] at hj; exact nomatch hj
-        | some x =>
-          rw [hx] at hj
-          obtain rfl := Option.some.inj hj
-          exact res_fvarTypeD (hfvs x (List.mem_of_getElem? hx))
-      · exact nomatch hj
+      exact res_projGuardRowsGo _ (res_openPisAtFvars_body _ 0 hty heq) h
     · exact nomatch h
 
 /-- A rule's comparands at resolved arguments. -/

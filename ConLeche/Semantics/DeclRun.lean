@@ -18,17 +18,20 @@ one is read off a consumer):
 
 | record | kept, and its consumer |
 |---|---|
-| `ConstantValRun` | the six freshness/reservation/level/scoping guards (`hfresh` at every harvest and at `declEtaStepRun`), the stored term (`stored_syntax`), the two `allLevelParamsDefined`/`constsResolve` guards, and the run chain `∃ stype u, inferTypeCore … ∧ ensureSortCore …` (the type's reading, through `acceptedReads_of`) |
+| `ConstantValRun` | the five freshness/level/scoping guards (`hfresh` at every harvest and at `declEtaStepRun`), the stored term (`stored_syntax`), the two `allLevelParamsDefined`/`constsResolve` guards, and the run chain `∃ stype u, inferTypeCore … ∧ ensureSortCore …` (the type's reading, through `acceptedReads_of`) |
 | `ValueFrontRun` | the value's two syntactic guards, the stored value (`value' = value`), its two resolution guards, and the run **pair** `∃ vtype, inferTypeCore … ∧ isDefEqCore …` (the leaf's reading, and the membership crossing) |
 | `NatEqsRun` | one `isDefEqCore` run per recurrence, carried by `DeclDefnRun`; `natOps_install` consumes the runs |
 | `DivModPinRun` | the guards and the certificate verdict; `divMod_install` consumes them |
 | `ReducePinRun` | the three storage guards and the recorded identity-certificate run; `reduceOps_install` consumes exactly these |
 | `DeclThmRun` | the prop-check run triple (`inferTypeCore` + `ensureSortCore` + `Level.isEquiv`) |
 | `DeclAxiomRun` | the four-way branch disjunction verbatim — pure stored-data guards |
-| `DeclBasisRun` | guards only |
 | the inductive kind | the `Ind` parameter below |
 
-**The inductive kind is a parameter.**  `DeclRun`
+**The reserved names' check is one conjunct beside the kind's record** (`DeclRun`), as
+`checkDecl` runs `basisNamesOk` after `checkDeclKind`: a pinned basis block's record is the
+inductive kind's like any other block's.
+
+**The inductive kind is a parameter.**  `DeclKindRun`
 takes the inductive kind's payload as a **`Prop`-valued parameter**
 `Ind`, as `declEtaStepRun` (`Semantics/DeclEta.lean`) takes the ind
 kind's η-closure as its one premise.  The caller instantiates
@@ -58,7 +61,6 @@ theorem stored_syntax {e e' : Expr} (hst : e' = e)
 def ConstantValRun (F : Nat) (env : Env)
     (cv : ConstantVal) (type' : Expr) : Prop :=
   (env.find? cv.name).isNone = true ∧
-  reservedBasisNames.contains cv.name = false ∧
   Name.nodup cv.levelParams = true ∧
   cv.type.looseBVarsBounded 0 = true ∧
   cv.type.hasFvar = false ∧
@@ -170,7 +172,7 @@ def DeclAxiomRun (F : Nat) (env : Env)
   -- with the pin BEFORE the common checks (its name is a reserved basis
   -- name).  No `ConstantValRun`: the pin is what is stored.
   (cv.name = quotSoundName ∧ DeclQuotRun env .sound cv env₂) ∨
-  ∃ type',
+  cv.name ≠ quotSoundName ∧ ∃ type',
     natOpName cv.name = false ∧
     ConstantValRun F env cv type' ∧
     (let cv : ConstantVal := ⟨cv.name, cv.levelParams, type'⟩
@@ -190,22 +192,23 @@ def DeclAxiomRun (F : Nat) (env : Env)
 
 /-! ## The assembly -/
 
-/-- **The per-declaration run relation**: the kind dispatch, with the
-inductive kind's payload taken as a parameter (see the module
-docstring). -/
-def DeclRun (F : Nat)
+/-- **A declaration's own checks' run relation**: the kind dispatch, with the inductive kind's
+payload taken as a parameter (see the module docstring). -/
+def DeclKindRun (F : Nat)
     (Ind : List ConstantInfo → Nat → Env → Prop) (env : Env) :
     Declaration → Env → Prop
   | .defnDecl cv value hint, env₂ => DeclDefnRun F env cv value hint env₂
   | .thmDecl cv value, env₂ => DeclThmRun F env cv value env₂
   | .opaqueDecl cv value, env₂ => DeclOpaqueRun F env cv value env₂
   | .axiomDecl cv, env₂ => DeclAxiomRun F env cv env₂
-  -- **The pinned blocks are recognised in the FOLD**, by their members'
-  -- names; each quotient record stores its own slot.
-  | .indDecl block nP, env₂ =>
-    match basisNameHit block with
-    | some kind => DeclBasisRun env kind block env₂
-    | none => Ind block nP env₂
+  | .indDecl block nP, env₂ => Ind block nP env₂
   | .quotDecl k cv, env₂ => DeclQuotRun env k cv env₂
+
+/-- **The per-declaration run relation**: the declaration's own checks, then the reserved names'
+(`basisNamesOk`). -/
+def DeclRun (F : Nat)
+    (Ind : List ConstantInfo → Nat → Env → Prop) (env : Env) (d : Declaration) (env₂ : Env) :
+    Prop :=
+  basisNamesOk d = true ∧ DeclKindRun F Ind env d env₂
 
 end ConLeche.Semantics

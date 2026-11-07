@@ -112585,4 +112585,419 @@ Nothing unexplained.
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`,
+
 `tests/inlean-sync.sh` pass.
+## TASK #489 — what a module's constants mention, in one array per module (2026-11-06, agent/489-flat-uses)
+
+**The task (maintainer).**  After #480, take the self-contained one of the memory fixes a census of
+`--olean` on Mathlib pointed at (spikes on `agent/483-rss-census`, `agent/484-rss-gap`,
+`agent/487-post480-census`, not for landing).
+
+**The finding.**  At the start of the check, master holds 2 054 MiB of live objects in 2 641 MiB resident;
+mimalloc's block list says only 10 MiB of that is allocated and unreached, and 588 MiB is free space
+inside pages, 465 MiB of it in pages of 160-1 280 B blocks: the size classes of `CEntry.uses`, one array
+per constant (794 000 of them, 277 MiB, in the merged constants), freed once the emission has read them,
+in pages that what survives keeps alive.
+
+**The change.**  `CEntry.uses` is a `Subarray` of one array per module (`usesFlat`, `Lazy.lean`), dropped
+in one piece.  The emission's proofs are abstract in `uses`, so the proof change is the load's
+(`loadAt_spec`, two lines).  The same change was measured before #480 on `agent/485-flat-sched`
+(an unlanded lane; its other half, the parallel install's schedule, went with #480).
+
+**Numbers** (Mathlib, `--verified --jobs=8`, 5 alternating rounds against master 701d72aef; two
+rounds ran at a machine load of 150-225 and are left out of the speed columns):
+
+| | peak RSS, all 5 | instr:u | cycles:u, the 3 quiet rounds | wall, the 3 quiet rounds |
+|---|---|---|---|---|
+| master | 3.29 GiB (3.20-3.32) | 7 933 G | 3 944, 3 981, 3 869 G | 124.4, 124.9, 119.3 s |
+| this lane | 3.13 GiB (3.00-3.17) | 7 931 G | 3 917, 3 863, 3 877 G | 120.5, 119.2, 119.4 s |
+
+So −0.16 GiB (−4.9 %), the same instructions and cycles.  Less than the free space suggested: what is
+left there is not all this.
+
+**Not done** (the census's other leads): the frontier's names, 1.95 million entries all but 11 of them
+constants' names, 168 MiB reached by nothing else (module copies, a canonical object after the merge would
+do); the frontier tables built by `push` (106 MiB of entries in about 150 MiB); 145 MiB free in pages of
+24 B blocks, not identified.
+
+## TASK #488 — the `meta` header, exactly as the first line (2026-11-06, issue15-meta-line1)
+
+**The issue.**  GitHub issue #15 (an external review): the checker and Lean's export reader accept
+different sets of files.  The format's first line is its `meta` header (lean4export's
+`format_ndjson.md`: a file "will begin with" it); Lean's `parseFile` skips the first line, whatever it
+holds, and parses every later line as a JSON record.  The checker took a `meta` line or a blank line
+anywhere, and a file without the header, whose first record Lean drops.  The review's other points are
+ruled acceptable (maintainer): an escaped key (`"in"`) stays refused, for the scanner's speed;
+`mdata` records stay refused, as no one asked for them; and the fields the checker does not use (a
+definition's `all` and `hints`, a binder's name) stay unread and unresolved.  Its recursor-rule point
+was already closed by task #431's stored-against-generated check.
+
+**The rule.**  `LineRec.placed first r` (`ConLeche/Frontend/ExportC.lean`): the header only first,
+every other record never first, a blank line nowhere.  `applyLine st r lineNo` takes the count of
+lines before the record and applies it (`applyRecord`, the record's content, the header a no-op) if it
+stands where it may; otherwise the line is malformed (exit 3 at its line: "the first line is not the
+meta header", "a meta line after the first line", "a blank line").  What the header holds is read
+loosely, as before (maintainer: be liberal there): the recogniser's balanced object, its contents
+unread.  A file of no lines checks no declarations, as Lean's reader does.  The bytes after the last
+newline are a line only if there are any (the parse already left them out when empty), so a file
+ending in one newline is fine and one ending in two is not.  The serial paths thread the count they
+already had (`feedChunk`, `applyRecs`, `applyList`; `applyFinalLine` now takes the count before the
+line, like the others), and the line fold (`parseLines`, `ConLeche/Verify/Frontend/Lines.lean`) says
+the same, an empty last line being no line.  The lemmas about what a record does to the state are
+about `applyRecord` (`applyLine_ok` passes from one to the other).
+
+**The rounds parse.**  A window does not apply its lines, so it checks the placement itself, in
+`chunkDecls`, with `first` true for the first line of the first chunk of a window that starts the file
+(`top := g.lineNo == 0`, sent with the `finish` message and recorded in `FinOK`); that chunk must then
+hold a line, or the window falls back.  A misplaced line makes the window fall back, and the serial
+parse reports it.  The proof: `AllOK` (`Dense.lean`) takes the line count and asks each line's
+placement beside `LineOK`, `allOK_of_good` takes the placement of every window line, and `GOK.window`
+gets it from `chunkDecls_spec`, where a non-empty first chunk makes "first line of a chunk that
+starts the file" and "line 0 of the file" the same.  The first line of an ordinary file does not
+cause a fallback (checked with temporary counters on `stored_rec_outparam`: three windows, none fallen
+back).
+
+**Fixtures.**  `scripts/mk_meta_line_fixtures.py` over `prop_proj.ndjson`: no header, the header again
+as line 2 or midway, an empty line midway or at the end (exit 3, at `--jobs=1` and `--jobs=4`); a
+header with other contents, and an empty file (exit 0).  Four forged fixtures
+(`corner_{mutual,nest_and,nest_or}_prop_large_bad`, `corner_rec_mono_large_bad`) had their new records
+put in front of the header; their scripts now put them after it, and the regenerated files differ only
+in that.
+
+## TASK #490 — the final flush failing is exit 3 (2026-11-06, issue14-final-flush)
+
+**The issue.**  GitHub issue #14 (an external review): `main` flushed stdout and stderr after
+`runArgs` returned its code, outside any handler, so a flush that threw reached the runtime's
+top-level handler, which prints "uncaught exception" and exits 1, the code of a rejection: an accepted
+file, a usage error or a malformed file could all end with exit 1 when the output failed.
+
+**The fix.**  `flushStdoutStderr code` (`Main.lean`) flushes both streams and returns `code`, or, if
+the flush throws, prints "cannot write the output" best-effort and returns 3, whatever code `runArgs`
+returned; `main` exits with what it returns, its one `IO.Process.exit code`.  A closed stdout or
+`/dev/full` mostly fails at the verdict's print inside `runArgs` already (exit 3 there); the flush is
+where a buffered write fails.  Reproduced by hand with an `LD_PRELOAD` shim that makes
+`fflush(stdout)` report `EIO`: exit 1 before, 3 after, on an accepted file, a usage error and a
+malformed file.  No gate runs it (maintainer: too much machinery for the corner case).
+
+
+## TASK #491 — the file reads through a handle, and no C (2026-11-06, agent/handles)
+
+**The question** (maintainer): the C positional read (`pread(2)`, `native/read_range.c`, task
+#450) is used much less than expected; is custom C justified for it?  It was not: every call of
+`readRange` came from `foldReads`, at the offsets `0, csz, 2·csz, …` from the file's start, in
+order.  Nothing read at an offset of its choosing.  Its two users were the stream parse
+(`foldChunks` at one job, `foldWindows` above, over streams of gigabytes) and the header read of
+an `.olean` (`readImportsAt`: `foldChunks` in 4096-byte reads, stopping once the walk to the
+imports is inside what it read).  A prefix read alone serves the second and not the first.
+
+**Ruling** (maintainer): expose a file handle through the class — the runtime's handle at `IO`,
+and in the model the handles' state carried through the monad, so that a handle is mutable at
+both instances and an old handle value has no meaning of its own (the alternative, an immutable
+model handle with the binary checking that a read is at the position it names, was discussed and
+not taken).
+
+**What changed.**
+
+* **The class** (`ConLeche/Frontend/CheckerIO.lean`): `readRange` is gone; `Handle : Type`,
+  `openRead : FilePath → m Handle` (a regular file, at its start; throws where the path names
+  none) and `read : Handle → USize → m ByteArray` (the next `n` bytes, fewer at the end) are its
+  file reading.  At `IO`: `openReadIO` (the metadata says a regular file — a directory opens and
+  fails only at its first read — then `IO.FS.Handle.mk`) and `IO.FS.Handle.read`, the C
+  library's `fread`, which reads until it has the bytes or the file ends.  The file closes when
+  its handle's last reference drops.
+* **The folds**: `foldReads` takes the read as an action, done once for each of
+  `0, csz, 2·csz, …` below the size; `foldChunks` and `foldWindows` read the size, open the file
+  and fold `CheckerIO.read h csz`.  The handle stays inside the fold.
+* **The model**: `ModelIO α = FS → HS → Except IO.Error α → HS → Prop`, with `HS` the open
+  handles (`Array (ByteArray × Nat)`: a file's bytes and the position of its next read, a handle
+  its index).  `openRead` pushes `(bytes, 0)`; `read h n` is the slice from the position, cut at
+  the end, and moves the position past it; the other file operations leave the handles;
+  `liftIO` has any outcome and leaves them; the parallel maps are the sequential maps threading
+  the handles (the binary's threads each read only the handles they opened, which the trust
+  assumption now says).
+* **The calculus** (`ConLeche/Verify/Frontend/ModelIO.lean`): the outcome lemmas with the handles
+  (`bind_ok`, `AllOk x fs hs P`, `allOk_liftIO_bind`, …); `Det` (one answer from any handles),
+  `Gives x fs v` (determined, the value `v`) and `CanGive x fs v` (a value outcome from some
+  handles to some), which the `.olean` specifications now use (`ClosedOrder`, `WalkGood`,
+  `ViewOf`, `ValueAt`, `CacheOK`, `readOleans_ok`'s parts); `NoHandles` (an action whose
+  outcomes are its outcomes from no handles and that leaves them: `pure`, `liftIO`, closed under
+  bind).  The windows' step (`winStep`, the owners through `liftIO`) is `NoHandles`, which is what
+  `foldWindows_model` needs; `foldReads_pure` (pure steps: determined) and `foldReads_model`
+  carry the reads of a handle to `readsFrom` as before.
+* **The capstones** say that the run cannot give the exit code 0:
+  `¬ ModelIO.CanGive (Driver.runArgs …) fs 0`, no outcome from any open handles to any
+  (maintainer's suggestion, over spelling out `hs` and `hs'`).  `runArgs_accept`,
+  `runArgs_olean_accept`, `runArgs_oleans_accept` and `checkMainG_*_accept` take an outcome
+  between given handles.  The capstones' axioms are unchanged.  The README's two quoted statements are re-synced and its links
+  repointed; its prose is unchanged.
+* **Removed**: `native/read_range.c`, `ConLeche/Frontend/ReadRange.lean`, the library
+  `ConLecheNative` (the one `precompileModules`) and the `cc` target; the
+  build needs no system C compiler.  `tests/trust-surface.sh`: the `extern` allowlist entry and
+  the C file's pin are gone, the build file is pinned as `lakefile.toml`, the checker-IO fence cuts
+  `openReadIO` instead of `readRangeOf`; the CI cache keys drop `native/**`.  The package is
+  `lakefile.toml` again (maintainer's ruling): nothing needs code in the build file, and a
+  declarative one is less to trust; it is #450's predecessor with the `olean-compare`
+  executable added since.
+* **Tests** (`tests/ConLecheTests/CheckerIOTests.lean`): the model's answers restated as data and
+  checked by `rfl`, `openRead` and `read` by `ModelIO.openRead_at`/`read_at`; the binary's handle
+  reads, in sequences of sizes that end inside, at and past the end and read on after it, against
+  the model's slices on the committed fixtures, a directory and a missing path; the folds as
+  before.
+
+**Measurements** (`perf stat -e instructions:u`, one run each; master 2bd1a1d69 against the lane):
+
+| run | master | lane | Δ |
+|---|---|---|---|
+| `--olean --constant=Nat.add_comm --jobs=1 -- Init` | 30 857 702 944 | 30 860 005 143 | +0.007 % |
+| `--olean --jobs=8 -- Init` | 437 284 169 512 | 437 603 124 664 | +0.07 % |
+| init-full `--jobs=1` | 382 243 201 733 | 382 282 098 222 | +0.010 % |
+| init-full `--jobs=8` | 388 302 761 210 | 388 181 968 619 | −0.031 % |
+
+The same verdicts everywhere (63 937 declarations of the `Init` closure, 57 977 declarations of init-full).
+
+**Gates**: `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 551/551, olean gate 122/122, axioms pinned, the sweeps without divergence), and on its own each of the gates it runs.
+
+## TASK #492 — the projection guard in the official `infer_proj`'s shape (2026-11-07, agent/492-projguard)
+
+**Finding.** On lean4's `elab_bench/bv_stress_structures_1` (five layers of
+200-field structures `PayloadK`, `NodeK` and a `Prop`-valued `RelK`, and one
+`bv_decide` theorem) con-leche spent 402.4 G instructions on the file's own
+declarations (1,053.0 G against an `import Std.Tactic.BVDecide` baseline of
+650.6 G, `--olean --jobs=1`), against the official kernel's 23.6 G. The five
+`RelK.casesOn` were the slowest checks. Lean v4.35 builds a `Prop`
+structure's `casesOn` as the minor premise applied to every projection of the
+major, so `Rel0.casesOn` holds 201 distinct `.proj` nodes, and each `.proj` on
+a `Prop` structure runs the guard. The guard opened the whole telescope
+through the projected field and then asked, for every earlier field,
+`structUsedLater` of the STORED constructor type, where the structure's
+parameter is a loose bound variable in every field's type: the `bvarB ≤ 0`
+cutoff never fired, every answer was `false`, and each earlier field walked
+the whole remaining telescope — `O(idx · size)` per projection, cubic for the
+`casesOn`. A probe stubbing the walk (measurement only) brought the file to
+54.7 G: the walk was 86 % of it.
+
+**The guard now.** One definition for both tiers, the field loop of the
+official `infer_proj` (`type_checker.cpp:268–285`): `projGuardRows` opens the
+constructor's parameters at the telescope's own variables and hands the rest
+to `projGuardRowsGo` (`ConLeche/Kernel/CoreDefs.lean`), which steps the
+fields. At each field the binder's body can mention only the current field's
+variable, so `hasLooseBVarB 0` is answered by the packed bound at once; a used
+field is a row and is opened at its variable, an unused one is stepped over
+without being opened, as official does; the projected field's domain is the
+last row. The cached `checkProjRowsI` is its twin: the parameters through the
+memoised constructor type (`constTyAtM`) and `openPisAtFvarsF`, then the same
+loop. `projGuardRowsAt` (rows read off a full opening and `structUsedLater`)
+is gone. `structUsedLater` stays as the occurrence predicate the model states
+the guard's law in (`TowerRowsAt`, `Model/Env/Laws.lean`; `FixKit`) and
+positivity's U4 test reads; the guard does not call it. (A first version kept
+the old rows as a specification and swapped a faster copy in by `@[csimp]`;
+it was replaced by this one, which has a single implementation.)
+
+**Proofs.** The rules tier and the model's statements are unchanged.
+`Verify/ProjGuard.lean` states what the loop gives: its rows are scoped
+(`projGuardRowsGo_ws`, `projGuardRows_ws`), and over a closed telescope it is
+complete (`projGuardRowsGo_complete`, `projGuardRows_complete`): the projected
+field and every earlier field `structUsedLater` reports used are rows, at
+their domains in the telescope opened through the projected field. Over a
+closed telescope stepping over an unused field is the same term as opening it,
+so the loop runs along the full opening; `structUsedLater` is invariant under
+level instantiation and under opening a binder at a closed variable
+(`structUsedLater_open_step`, `structUsedLater_openPis`). `GuardSound` reads
+its row through `projGuardRows_complete`; `DiscC4`'s `projRowsC_spec` follows
+the two tiers' matches and takes the scoping from `projGuardRows_ws`;
+`EnvExt/Whnf` shows the loop's rows resolve (`res_projGuardRowsGo`). The
+loose-variable facts the loop needs live in `Verify/LooseBVar.lean`: the
+cutoff's soundness (`Expr.hasLooseBVar_eq_false_of_bound`,
+`Expr.hasLooseBVarB_eq`, moved there from `Verify/Inductives/DirectGen.lean`,
+now their second consumer), that substituting a closed term at a higher index
+leaves a lower one's occurrence alone, and that a bound tightens where its top
+index does not occur. About 430 lines added and 175 removed over nine files,
+plus the 221-line `LooseBVar.lean`.
+
+**Numbers** (`instructions:u`, one run each; the stream rows at the default job count):
+
+| | master | `@[csimp]` version | now |
+|---|---|---|---|
+| `bv_stress_structures_1`, the file's own declarations (`--olean --jobs=1`) | 402.4 G | 62.1 G | 50.3 G |
+| `Rel0.casesOn` closure (`--constant`, `--jobs=1`) | 120.5 G | 86.9 G | 85.7 G |
+| `prop_struct_proj_wide` (new fixture) | 8.43 G | 2.23 G | 1.79 G |
+| init-full | 390.58 G | — | 390.57 G |
+| arena `grind-ring-5` | 15.906 G | — | 15.900 G |
+
+The remaining 50.3 G (official 23.6 G) has no single hotspot: its profile is
+the baseline's (allocation, freeing, instantiation, equality).
+
+**Fixture.** `tests/e2e/prop_struct_proj_wide.ndjson`, exported from
+`tests/e2e/src/prop_struct_proj_wide.lean`: a 150-field `Prop` structure over a
+`Nat` parameter and its 150 projection functions (each a raw `.proj`; the
+pinned v4.29.1 exporter's `casesOn` is still `rec`-based). Verdict 0 before and
+after.
+
+## TASK #493 — the basis blocks installed like any other block (2026-11-08, agent/493-basis-uniform)
+
+**Ruling (maintainer, 2026-11-08).** "The checker should stop treating Eq special during
+installation, and only, after doing all the 'normal' checks, do the necessary checks to justify
+our special interpretation. This should move the special handling to a very narrow place in the
+code." Model side: option (A), the model keeps its fixed meanings of `Eq`, `Nat`, `Empty`, `False`
+(`pinnedStructT`, `EqLaw`); the narrow check justifies them. Scope: `Eq`, `Nat`, `Empty`, `False`.
+`Quot` stays a primitive (no inductive declaration to install); `And` already works this way. The
+built-in prelude stays (preprocessing below the fold).
+
+**The checker (done).**
+
+* `declConstants`/`declTables` (`Kernel/Install.lean`) no longer consult `basisNameHit`: every
+  `.indDecl` is `blockShape?` → `blockConstants`/`blockTables`. A pinned block stores the
+  stream's constants with the uniform install data (`blockCapsAt`, `recFire`).
+* The scattered reserved-name refusals are gone: `blockShape?`'s three, `checkConstantVal`,
+  `checkConstantValF`, `checkConstantValC`, `classConstOk`, and the basis names in
+  `reservedRecName` (a pinned block's own recursor carries one).
+* **The one narrow place**: `basisNamesOk` (`Kernel/Basis.lean`), run by `checkDecl` and
+  `checkDeclC` after the declaration's own checks (`checkDeclKind`/`checkDeclKindC`, the former
+  dispatch). A block whose names hit a pinned block must pass `pinListOk` (the comparison with
+  the pin up to level-parameter names, as before); any other block, definition, theorem, opaque
+  or axiom may not take a reserved name (`Quot.sound` and the quotient records are compared with
+  their own pins). Failure is a reject (`basisNamesError`), as the reserved-name refusals were.
+* `checkBasisBlock`/`checkBasisBlockC` and `BasisKind.atBlock` are deleted.
+* The pinned formers carry no capabilities (`eqA`, `natA`, `emptyA`, `falseA` at `{}`): the pins
+  are what an export writes, and the install computes the rest.
+* `litShapeOk`'s three `Nat` clauses read a constant's level parameters and type only (at the
+  kinds `natIndOk`/`natZeroOk`/`natSuccOk` ask for), as the seven other literal-shape tests do. A
+  declaration check cannot show a kind (`litShapeOk (.axiomInfo cv)`), so on the uniform route the
+  `Nat` block's former would otherwise have declined. The literal guard at use
+  (`natLitSupported`) still asks the stored entries' kinds; what `Nat` is beyond its type is
+  `basisNamesOk`'s.
+* `reduceElemOk(F)` compares the stored `Nat` former's `ConstantVal` with the pin's
+  (`matchesPin`, as `Bool` already was) instead of the whole stored entry with `natA`.
+
+**Verdicts.** init-full accepts the same 57,977 declarations; the arena tutorial 90/92, as
+before. One e2e verdict moved: `basis_eq_refl_other_name_bad` (`Eq.refl.{v}` under `Eq.{w}`) from
+reject to DECLINE. The uniform recogniser does not read a constructor at other level parameters
+than its former and declines the block as shapeless before the reserved names' check runs, as it
+does any block with that defect; official rejects, so the target stays 1. New fixture
+`basis_eq_mixed_block` (a mutual block declaring `Eq` beside a twin type): reject, at the reserved
+names' check (rejected before too, by the constant check).
+
+**Cost** (`instructions:u`, one run each, before → after): init-full 390.54 G → 390.15 G
+(−0.10 %), grind-ring-5 15.897 G → 15.887 G (−0.06 %), magma-list-deep-n36 200.96 G → 201.05 G
+(+0.04 %).
+
+**The proofs (NOT done; this lane stops here).** Repaired so far: `BlockShapeOk` lost its three
+reservedness conjuncts (`Verify/Inductives/BlockShapeInv.lean`); `EnvWF`'s `reservedRecName`
+projections; the cached step's pushes and twins (`Verify/Cached/DeclPushes.lean`,
+`ViewCongr.lean`, `PushChain.lean`, `StreamIndex.lean`: `checkDeclKindC_*` lemmas plus one for the
+wrapper). That is enough for the executable to build. What remains, in dependency order:
+
+1. **Constant-check inversions.** `checkConstantVal_inv` (`Verify/Extend/Inversions.lean`) states
+   `reservedBasisNames.contains cv.name = false`; it is no longer the check's. 27 uses in 20 files
+   (`Model/Inductives/*`, `Semantics/Bridge/DeclRun.lean`, `Verify/Inductives/*`, `BridgeWfImp`)
+   read it, mostly for "a stored ordinary-block constant is not a reserved name" (the
+   `BasisPinnedTT` and `CapsOk` preservation). That fact now comes from `basisNamesOk` (a block that
+   does not hit a pinned block has no reserved name). Plan: drop the conjunct, thread
+   `basisNamesOk d = true` (via the run relation, item 3) to the consumers.
+   `litShapeAt_of_check` no longer needs its `hres` premise (the `Nat` tests are kind-agnostic).
+2. **The `Nat` shape at declarations.** `litShapeOk` no longer says the stored `Nat` constants'
+   kinds, so `natLitSupported_of_shapes` (`Verify/EnvGuards.lean`, the first error) needs them from
+   elsewhere: from `BasisPinnedTT` (a stored `Nat`, `Nat.zero`, `Nat.succ` is a pin copy) through
+   the environment invariant. `natLitSupported` and its inversion are unchanged.
+   `Verify/OfReducePin.lean`'s `reduceElem_sort` is repaired for the new `reduceElemOk` but sits
+   behind `EnvGuards`.
+3. **The run relation.** `DeclRun` (`Semantics/Decl.lean`) gets the reserved names' check as one
+   more conjunct; its `.indDecl` case loses the basis arm (`DeclBasisRun` with `atBlock`) and is the
+   block route at every name. `checkDeclRun_ofEnvFactsK` and `Verify/BridgeDecl.lean` follow the
+   split `checkDecl` = `checkDeclKind` + `basisNamesOk`.
+4. **The key lemma.** For `basisNameHit block = some kind`, `pinListOk block kind.decls`,
+   `blockShape? nP block = some p`: `blockConstants p` and `kind.decls` agree position by
+   position as pin copies UP TO THE FORMERS' CAPABILITIES (the pins' formers carry `{}`, the
+   install `blockCapsAt`), every `recFire` is `.plain` (the major's head is the block's own
+   member), and `blockTables p p.members = []` (no basis member is structure-like). Plan:
+   weaken `PinCopy` (`Verify/Denote/Pinned.lean`) to compare up to an inductive's capabilities.
+   That is cheap where it is read: the renaming layer's `PinCopy.ind` returns `caps' = caps`, and
+   its one use (`Model/BasisRename.lean`:515) discards it; `CapsOk` is keyed on unreserved
+   names only (`capsOk_cons_basis`). Then `declBasisPB_at` (`Model/BasisAtBlock.lean`) takes the
+   uniform install of a pinned block (`BasisInstallRun` of `blockConstants p`) through the same
+   renaming chain (`ConstRen` holds between a pin copy at `{}` and one at the formula's caps).
+5. **The fold's basis arm** (`Model/Fold.lean`, `natFacts_basis`, `atBlock_names`;
+   `Model/BasisStep.lean`, `Model/BasisCons.lean`, `Semantics/DeclEta.lean`'s `basisIndOk_atBlock`)
+   moves from `atBlock` to `blockConstants p`, and the ordinary arm (`declBlock`) takes the
+   not-reserved facts from `basisNamesOk` (item 1).
+6. **Documents.** The whitepaper cites `BasisKind.atBlock` (deleted) and the old basis install
+   (`whitepaper/links-gate.sh` fails): its prose needs updating to the uniform install, under its
+   own writing rules (PLAN.md), not just its line numbers.
+7. Dead after the change: `installBasisDeclF_twin`, `RelRun.foldlM_push` (`ViewCongr`), if
+   nothing else uses them once the proofs build.
+
+**The proofs (done, 2026-11-08, same branch).** The repairs, in the record's order; one point
+departs from the plan above (item 4).
+
+1. *Constant-check inversions.* `checkConstantVal_inv` and `classConstOk_inv` lost the reservedness
+   conjunct, `ConstChecked` its `unreserved` field, `recStage_cvFacts` its second half,
+   `ConstantValRun` its reservation guard, and `litShapeAt_of_check` its premise (the `Nat` tests
+   read a type). The facts the consumers read now come from the reserved names' check, threaded as
+   premises: the harvests (`harvestDefn`/`Thm`/`Opaque`/`Axiom`, `Model/Harvest.lean`) take the
+   declaration's name unreserved; the three pinned-axiom arms derive it from their fixed names;
+   the block route takes `∀ c ∈ block, reservedBasisNames.contains c.name = false`
+   (`unreserved_of_basisNamesOk`, `Model/Fold.lean`) into `declBlock`, which hands
+   `declBlockAt` the members' (`hresM`), constructors' (`hClps₀`, as before) and recursors'
+   (`hresR`) facts, read off the recogniser's names (`blockShape?_names`,
+   `Verify/Inductives/BlockShapeInv.lean`; `recStage_names`). They reach `blockFormerFacts_of`,
+   `blockTablesStage_of`, `BlockCtorsStage.resA` → `blockCtorsLoop` → `ctorsLoopEta` →
+   `stageCtorGen`, `genRecStage` → `genRecHdataS`/`blockRecStaged_dataR` →
+   `blockRuleRhsOk_base`/`blockRuleRhs_read_run` → `blockRecBareModel_run`/`blockRecStaged_runR`,
+   and `blockRecStagedAt_stored` → `storedSwap_sem` (whose `BasisPinnedTT` half read the basis
+   names off `reservedRecName`, which no longer lists them).
+2. *The `Nat` kinds.* `NatKinds` (`Verify/EnvWF.lean`): the three `Nat` names hold an inductive and
+   two constructors where stored. `natLitSupported_of_shapes`/`_of_stored` and
+   `strLitSupported_*` take it; the model gives it from `BasisPinnedTT.natKinds`; at a block's
+   formers' environment (`whnfNamesFree_formers`) it is the pre-block one's, since no member takes
+   a reserved name. `OfReducePin` needed only a simp set.
+3. *The run relation.* `DeclRun` is `basisNamesOk d = true ∧ DeclKindRun …`, `DeclKindRun` the kind
+   dispatch with the `.indDecl` arm the block route at every name; `DeclBasisRun` is gone and
+   `BasisInstallRun` stays as the push chain the model reads a pinned block's install as.
+   `DeclAxiomRun`'s non-quotient arm records its guard `cv.name ≠ quotSoundName` (the checker's
+   branch), so the fold reads the name unreserved off `basisNamesOk`. `checkDecl_inv` and
+   `checkDecl_of_kind` (`Verify/BridgeDecl.lean`) split and join `checkDecl`; `checkDeclKind_datF`,
+   `checkDeclKindC_spec` (`Verify/Cached/BridgeC.lean`) and `checkModeledOrNativeSF_run` follow
+   the split; `declEtaStepRun` reads `DeclKindRun` (the quotient arm by its one former's
+   capabilities; `basisIndOk` and its lemmas are gone).
+4. *The key lemma*, `blockInstall_pinned` (`Verify/BasisBlock.lean`): for `basisNameHit block =
+   some kind`, `pinListOk block kind.decls`, `blockShape? nP block = some p`,
+   `blockConstants p = kind.storedAt block` and `blockTables p p.members = []`. The comparison and
+   the recogniser both ignore a former's capabilities (`blockShape?_dropCaps`,
+   `listBeqBy_pinCopyOk_dropCaps`), so the block is read as the pins at its names; the rest is the
+   recogniser's computation at the four pins, at any level-parameter names (`simp` over the
+   definitions, one case split on the declared parameter count and, for `Eq`, on the names).
+   *Departure from the plan:* `PinCopy` was NOT weakened. The basis models read their formers'
+   capabilities (`LfpCaps`: `caps.nparams + caps.nIdx`; `LfpCover.all`: `caps.all`; the quotient
+   arm reads `Quot`'s through `BasisPinnedTT`), so a model at caps-free pins does not go through.
+   Instead the proof side names the pins as the install stores them: `eqI`, `natI`, `emptyI`,
+   `falseI` and `BasisKind.installed` (`Verify/EnvPreds.lean`; each former at the capabilities
+   `blockCapsAt` computes, which `blockInstall_pinned` proves), `pinnedInfo` returns those, and the
+   basis models (`BasisEq`, `BasisBlocks`, `BasisEmpty`, `BasisFalse`, `EqTower`, `BasisAtBlock`)
+   run at `kind.installed`; `PinCopy` and the renaming chain are unchanged. `declBasisPB_at` takes
+   `pinListOk` and `BasisInstallRun E (kind.storedAt block) env₂`; `pinPairs_of_ok` compares
+   against `kind.decls` and pairs with `kind.installed`. The kernel's pins keep `{}`.
+5. *The fold.* `declStep_preserves`'s `.indDecl` arm: recognised blocks only; a pinned one goes
+   through `basisInstallRun_of_block` (the push from `blockRun_env`, its freshness from
+   `blockRun_fresh`, its names distinct by computation) into `declBasisPB_at` and
+   `natFacts_basis`; any other through `declBlock`. `blockRun_env`
+   (`Semantics/Inductives/DeclBlock.lean`): a block's run installs `blockConstants`/`blockTables`.
+   `natFacts_block` and `blockRun_findTable` read the install off it; `declBlockRun_consts`,
+   `declBlockRun_tables`, `consBlockInds_indexed`, `streamRecs_mem_name` are gone. `BasisStep`,
+   `BasisCons` needed nothing.
+6. *Documents.* The whitepaper's "Pinned blocks" paragraph (§7) describes the uniform install and
+   the one check after it; its citations and OVERVIEW's follow the tree; OVERVIEW §5 cites
+   `blockInstall_pinned`.
+7. *Dead code removed:* `installBasisFoldS_spec`, `installBasisFoldF_pushC`, `RelRun.foldlM_push`,
+   `checkBasisBlock_datF`, `foldlM_installBasisDecl_invR`, `declBasisRunOf`.
+   `installBasisDeclF_twin`/`_push`/`_pushC` stay: the quotient records use them.
+
+Size: 62 files under `ConLeche/`, +1322 −872 against the checker commit (98f92792f);
+`Verify/BasisBlock.lean` is 314 of the additions.
+
+Imports the change left unneeded (shake): `Kernel/Core.lean`'s `Kernel.Error`, `EnvModel`'s
+`Verify.EnvWF`; `Semantics/Bridge/Decl.lean`'s `Verify.Extend.Inversions` is private (its allowlist
+line gone). Gates, on the final tree: `lake build` and `lake test` warning-free; `tests/arena.sh`
+exit 0 (layering, shake, trust surface, overview links, whitepaper links, fragment, quote gate,
+pindump, no-local-paths, challenge, olean gate 122/122, selfcheck, axioms pinned (30 theorems,
+`tests/ConLecheTests/Axioms.lean` unchanged), arena tutorial 90/92 as before, e2e 552/552, the
+trusted and `--jobs` sweeps without divergence). No `sorry`, no new axiom.

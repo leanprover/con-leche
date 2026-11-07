@@ -371,11 +371,14 @@ def strLitStored (env : Env) : Bool :=
     (env.find? charOfNatName).isSome
 
 /-- **The shape a declaration at a literal's name must have**: what a literal's meaning reads off
-it.  Checked at the declaration, once; nothing at a literal's use compares a stored type. -/
+it, its level parameters and type.  Checked at the declaration, once; nothing at a literal's use
+compares a stored type.  A declaration check cannot show a kind, so the three `Nat` names are read
+at the kinds their guards ask for; what they are beyond their types is the pinned `Nat` block's
+(`basisNamesOk`). -/
 def litShapeOk (c : ConstantInfo) : Bool :=
-  if c.name = natName then natIndOk (some c)
-  else if c.name = natZeroName then natZeroOk (some c)
-  else if c.name = natSuccName then natSuccOk (some c)
+  if c.name = natName then natIndOk (some (.indInfo c.toConstantVal {}))
+  else if c.name = natZeroName then natZeroOk (some (.ctorInfo c.toConstantVal 0 0))
+  else if c.name = natSuccName then natSuccOk (some (.ctorInfo c.toConstantVal 0 1))
   else if c.name = stringName then stringTyOk (some c)
   else if c.name = stringOfListName then stringOfListTyOk (some c)
   else if c.name = listName then listTyOk (some c)
@@ -486,8 +489,8 @@ def natOpName (n : Name) : Bool :=
 `natLitStored` and `strLitStored` decide whether a literal may be READ,
 by looking ten fixed names up in the store; `litShapeOk` says what a
 declaration at one of them is.  Three of them (`Nat`, `Nat.zero`,
-`Nat.succ`) are reserved basis names, so no stream declaration can ever
-fill or change them; the other seven — `String`, `String.ofList`, `List`,
+`Nat.succ`) are reserved basis names, so only the pinned `Nat` block can
+fill them (`basisNamesOk`); the other seven — `String`, `String.ofList`, `List`,
 `List.nil`, `List.cons`, `Char`, `Char.ofNat` — are ORDINARY stream
 declarations, and a stream is free to install them (it must: that is how
 a stream earns string literals).
@@ -504,9 +507,8 @@ def litGuardNames : List Name :=
    stringName, stringOfListName, listName, listNilName, listConsName,
    charName, charOfNatName]
 
-/-- **A name no block RECURSOR may take**: one the pinned basis blocks
-reserve, one a literal guard looks up, one of the certified `Nat`
-operations (whose presence in the store IS their certificate, so a
+/-- **A name no block RECURSOR may take**: one a literal guard looks
+up, one of the certified `Nat` operations (whose presence in the store IS their certificate, so a
 recursor stored under such a name would claim a capability nothing
 certified), or `Bool` and its two constructors, whose stored entries the
 certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
@@ -514,9 +516,10 @@ certified operations' guards read (`natOpTyPinned`, `natOpGuard`; task
 must not move a guard).  Type formers and constructors are NOT held to this — a
 stream must be able to declare `List`, `List.cons` and `Nat.add` —
 which is why the block install spends this predicate on the recursors
-alone and keeps `reservedBasisNames` for every declaration. -/
+alone.  The basis names are `basisNamesOk`'s: a pinned block's own
+recursor carries one, and no other declaration may. -/
 def reservedRecName (n : Name) : Bool :=
-  reservedBasisNames.contains n || litGuardNames.contains n ||
+  litGuardNames.contains n ||
     natOpNames.contains n || natDivModNames.contains n ||
     n == boolName || n == boolTrueName || n == boolFalseName
 
@@ -808,7 +811,7 @@ def Expr.hasLooseBVar : Nat → Expr → Bool
 node whose loose-bvar bound is at or below `i` has no `bvar i`, so the
 walk stops there without descending, so `structUsedLater` calls touch
 only the spine of a large telescope, never its shared instance towers.  Read as `hasLooseBVar`
-by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/Inductives/DirectGen.lean`). -/
+by `Expr.hasLooseBVarB_eq` (`ConLeche/Verify/LooseBVar.lean`). -/
 def Expr.hasLooseBVarB (i : Nat) (e : Expr) : Bool :=
   if e.bvarB ≤ i then false else
   match e with
@@ -842,7 +845,7 @@ The cutoff and the memo are complementary — this keeps both.  As with
 task #215), the memoized walk is swapped in by `@[csimp]`:
 kernel-checked, no trust point, and the pure definition stays what
 every proof consumes (`Expr.hasLooseBVarB_eq`,
-`ConLeche/Verify/Inductives/DirectGen.lean`, is unchanged).  The memo
+`ConLeche/Verify/LooseBVar.lean`, is unchanged).  The memo
 is keyed by the *node and the index* — the index shifts under binders,
 so a node's answer is not a function of the node alone — and dropped
 after each call. -/
@@ -1065,40 +1068,52 @@ def Expr.hasLooseBVarBFast (i : Nat) (e : Expr) : Bool :=
   funext i e
   exact (hasLooseBVarBGo_spec e i {} LooseBVarMemoInv.empty).1.symm
 
-/-- **Field `j` is used by a later field** — the official
-`infer_proj`'s `has_loose_bvars(binding_body(r))` at step `j`: the
-field's variable occurs in the constructor telescope's remainder after
-binder `j` (a later field's domain; the result never mentions a
-field). -/
+/-- **Binder `nP + j` is used by the rest of the telescope**: its
+variable occurs in the remainder of `cty` after it (a later field's
+domain or the result).  The occurrence predicate the positivity check
+and the model state their facts in. -/
 def structUsedLater (cty : Expr) (nP j : Nat) : Bool :=
   match cty.stripPis (nP + j + 1) with
   | some (_, rest) => rest.hasLooseBVarB 0
   | none => false
 
-/-- The rows of `projGuardRows` read off an opened constructor telescope
-`fvs`: field `idx`, and every earlier field a later one uses. -/
-def projGuardRowsAt (cty : Expr) (nP idx : Nat) (fvs : List Expr) : List (Nat × Expr) :=
-  (List.range (idx + 1)).filterMap fun j =>
-    if j = idx ∨ structUsedLater cty nP j = true then
-      (fvs[nP + j]?).map fun x => (nP + j, x.fvarTypeD)
-    else none
+/-- **The rows of a projection's guard: the field loop of the official
+`infer_proj`.**  `r` is the constructor telescope with its parameters and
+every field before the current one opened, the current field's variable
+at depth `d`; `k` fields remain before the projected one.  A field the
+rest of the telescope uses is a row, its domain at depth `d`, and is
+opened at its variable; one it does not use is stepped over, as official
+does.  The rest's only loose variable is the current field's, so
+`hasLooseBVarB 0` is answered by the packed bound at the binder.  The
+projected field's domain is the last row.  `none` where the telescope
+binds too few fields. -/
+def projGuardRowsGo : Nat → Nat → Expr → Option (List (Nat × Expr))
+  | 0, d, .forallE dom _ => some [(d, dom)]
+  | k + 1, d, .forallE dom body =>
+    if body.hasLooseBVarB 0 then
+      match projGuardRowsGo k (d + 1) (body.instantiate1 (.fvar d dom)) with
+      | some rows => some ((d, dom) :: rows)
+      | none => none
+    else projGuardRowsGo k (d + 1) body
+  | _, _, _ => none
 
 /-- **What a `.proj` use on a `Prop`-declared structure must show**
 (official `infer_proj`, task #480): the domains, at the use's level
 instantiation and at the constructor telescope's own variables, that
 must be propositions — the projected field's, and that of every earlier
-field a later field's type uses.  Each row is a depth and a term at that
-depth.  `none` where the stored constructor does not bind what the entry
-says (the use is a reject).  Computed where it is read; nothing about it is
-stored. -/
+field a later field's type uses.  The parameters are opened, then the
+fields stepped (`projGuardRowsGo`).  Each row is a depth and a term at
+that depth.  `none` where the stored constructor does not bind what the
+entry says (the use is a reject).  Computed where it is read; nothing
+about it is stored. -/
 def projGuardRows (find? : Name → Option ConstantInfo) (entry : ProjEntry)
     (us : List Level) : Option (List (Nat × Expr)) :=
   match find? entry.ctor with
   | some ci =>
     let cv := ci.toConstantVal
-    match openPisAtFvars (entry.numParams + entry.idx + 1)
+    match openPisAtFvars entry.numParams
         (cv.type.instantiateLevelParams cv.levelParams us) 0 with
-    | some (fvs, _) => some (projGuardRowsAt cv.type entry.numParams entry.idx fvs)
+    | some (_, r) => projGuardRowsGo entry.idx entry.numParams r
     | none => none
   | none => none
 

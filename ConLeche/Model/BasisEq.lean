@@ -50,7 +50,7 @@ attribute [local simp] ConLeche.BasisDSL.bv ConLeche.BasisDSL.srt ConLeche.Basis
   ConLeche.BasisDSL.ap2 ConLeche.BasisDSL.ap3 ConLeche.BasisDSL.u ConLeche.BasisDSL.v
   ConLeche.BasisDSL.uN ConLeche.BasisDSL.vN ConLeche.BasisDSL.u1N ConLeche.BasisDSL.bn ConLeche.eqRecMotive
 
-open ConLeche (eqA eqReflA eqRecA eqName eqReflName)
+open ConLeche (eqI eqA eqReflA eqRecA eqName eqReflName)
 
 variable {m : EnvModel V env} {A : (Name → Nat) → Term}
 
@@ -106,10 +106,10 @@ theorem eqReflSpine_data {ψ : Name → Nat} {i j : Nat} {ρ : Nat → V}
 
 /-- `Eq` at the pin's own parameter, at a later cons. -/
 theorem denote_eqPinLeaf {c₀ : ConstantInfo} {m : EnvModel V env} {A : (Name → Nat) → Term}
-    (ψ : Name → Nat) (hne : ¬ c₀.name = eqName) (hE : env.find? eqName = some eqA) (d : Nat) :
+    (ψ : Name → Nat) (hne : ¬ c₀.name = eqName) (hE : env.find? eqName = some eqI) (d : Nat) :
     denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ d
         (.const eqName [.param uN]) = some (m.acval eqName ψ) := by
-  have hf' : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? eqName = some eqA := by
+  have hf' : (⟨c₀ :: env.consts, env.tables⟩ : Env).find? eqName = some eqI := by
     rw [ConLeche.Env.find?_cons, ite_eq_right hne]; exact hE
   rw [denote_const hf' rfl, acvalWith_ne (fun h => hne h.symm)]
   exact congrArg (fun ψ' => some (m.acval eqName ψ')) (Level.substFn_param_self ψ [uN])
@@ -125,9 +125,9 @@ def eqReflTy (ψ : Name → Nat) : Term :=
 /-- **`Eq`'s type reading.** -/
 theorem denote_eqA_type {env' : Env}
     {acval : Name → (Name → Nat) → Term} (ψ : Name → Nat) :
-    denote acval env' ψ 0 eqA.toConstantVal.type
+    denote acval env' ψ 0 eqI.toConstantVal.type
       = some (eqTy ψ) := by
-  simp [eqA, ConstantInfo.toConstantVal, denote_forallE, denote_sort,
+  simp [eqI, eqA, ConstantInfo.toConstantVal, denote_forallE, denote_sort,
     denote_fvar, Expr.instantiate1, eqTy, Level.eval, uN]
 
 theorem eqTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
@@ -155,7 +155,7 @@ cons is not `Eq`, because `Eq.rec`'s row reads it as its fired
 constructor's telescope. -/
 theorem denote_eqReflTy {c₀ : ConstantInfo} (ψ : Name → Nat)
     (hne : ¬ c₀.name = eqName)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ) :
     denote (acvalWith m.acval c₀.name A) ⟨c₀ :: env.consts, env.tables⟩ ψ 0
         eqReflA.toConstantVal.type
@@ -214,10 +214,10 @@ theorem eqReflTy_data (ψ : Name → Nat) (ρ : Nat → V) :
 bespoke cons. -/
 theorem extendEq (mp : EnvModelM V env)
     (hfresh : env.find? eqName = none)
-    (hwf : EnvWF ⟨eqA :: env.consts, env.tables⟩) :
-    ∃ mp' : EnvModelM V ⟨eqA :: env.consts, env.tables⟩,
+    (hwf : EnvWF ⟨eqI :: env.consts, env.tables⟩) :
+    ∃ mp' : EnvModelM V ⟨eqI :: env.consts, env.tables⟩,
       mp'.base2.acval
-        = acvalWith mp.base2.acval eqA.name eqValT ∧ CoverRel mp mp' ∧
+        = acvalWith mp.base2.acval eqI.name eqValT ∧ CoverRel mp mp' ∧
       (LfpCover mp [] → LfpCover mp' [eqName]) := by
   refine coverA_pend hfresh <| declStep_preserves_of_basis_cons_eqrow mp (A := eqValT) hfresh (by decide)
     (fun _ _ _ h => nomatch h)
@@ -228,7 +228,7 @@ theorem extendEq (mp : EnvModelM V env)
       (fun ψ => by exact eqValT_closed ψ)
       rfl
       (fun ψ t hp => by
-        rw [show ConLeche.Verify.pinnedStructT eqA.name ψ
+        rw [show ConLeche.Verify.pinnedStructT eqI.name ψ
           = none from rfl] at hp
         exact nomatch hp) (fun _ _ _ _ _ h => nomatch h))
     (fun ψ₁ ψ₂ hp => eqValT_congr
@@ -246,11 +246,11 @@ theorem extendEq (mp : EnvModelM V env)
     exact eqValT_mem ψ ρ
   · intro m₂ hac
     refine eqLaw_of_tower m₂ (by rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl) fun ψ => ?_
-    rw [hac, show eqName = eqA.name from rfl, acvalWith_self]
+    rw [hac, show eqName = eqI.name from rfl, acvalWith_self]
 
 /-- **`Eq.refl`, installed at the P tier.** -/
 theorem extendEqRefl (mp : EnvModelM V env)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT ψ)
     (hfresh : env.find? eqReflA.name = none)
     (hwf : EnvWF ⟨eqReflA :: env.consts, env.tables⟩) :
@@ -602,7 +602,7 @@ theorem eqRecRaTower_data (ψ : Name → Nat)
 
 /-- **`Eq.rec`'s type reading.** -/
 theorem denote_eqRecA_type (ψ : Name → Nat)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ) :
@@ -652,7 +652,7 @@ theorem denote_eqRecA_type (ψ : Name → Nat)
 
 /-- **`Eq.rec`'s rule's RHS reading.** -/
 theorem denote_eqRec_rhs (ψ : Name → Nat)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ) :
@@ -839,7 +839,7 @@ transport is the row's four `WellDenoted_app_fibre` steps.
 K and are vacuous. -/
 theorem eqRecExtra {m : EnvModel V env}
     (m₂ : EnvModel V ⟨eqRecA :: env.consts, env.tables⟩)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
@@ -937,7 +937,7 @@ premise on both sides (`eqRecRaTower_app₆` against `eqRecRa_app₄`),
 and the transport is four `WellDenoted_app_fibre` steps. -/
 theorem eqRecLaw {m : EnvModel V env}
     (m₂ : EnvModel V ⟨eqRecA :: env.consts, env.tables⟩)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat, m.acval eqReflName ψ = eqReflValT ψ)
@@ -1165,7 +1165,7 @@ theorem eqRecTy_wellDenoted (ψ : Name → Nat) (ρ : Nat → V) :
 
 /-- **`Eq.rec`, installed at the P tier.** -/
 theorem extendEqRec (mp : EnvModelM V env)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hR : env.find? eqReflName = some eqReflA)
     (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat,
@@ -1225,33 +1225,33 @@ the check's exposed `acval`; with its former's and constructor's leaves,
 which the block at other names reads. -/
 theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
     (h : ConLeche.Semantics.BasisInstallRun env
-      ConLeche.BasisKind.eqK.decls env₁) :
+      ConLeche.BasisKind.eqK.installed env₁) :
     ∃ mp' : EnvModelM V env₁, CoverRel mp mp' ∧ (LfpCover mp [] → LfpCover mp' []) ∧
       (∀ ψ : Name → Nat, mp'.base2.acval eqName ψ = eqValT ψ) ∧
       ∀ ψ : Name → Nat, mp'.base2.acval eqReflName ψ = eqReflValT ψ := by
-  rw [show ConLeche.BasisKind.eqK.decls = [eqA, eqReflA, eqRecA]
+  rw [show ConLeche.BasisKind.eqK.installed = [eqI, eqReflA, eqRecA]
     from rfl] at h
   obtain ⟨h1, h2, h3, hnil⟩ := h
   subst hnil
   have hf1 : env.find? eqName = none := Option.isNone_iff_eq_none.mp h1
-  have hwf1 : EnvWF ⟨eqA :: env.consts, env.tables⟩ :=
+  have hwf1 : EnvWF ⟨eqI :: env.consts, env.tables⟩ :=
     EnvWF.cons (by decide) mp.base2.wf ⟨rfl, rfl, rfl, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
   obtain ⟨mp1, hac1, hr1, hc1⟩ := extendEq mp hf1 hwf1
   have hEv1 : ∀ ψ : Name → Nat, mp1.base2.acval eqName ψ
       = eqValT ψ := by
     intro ψ
-    rw [hac1, show eqName = eqA.name from rfl, acvalWith_self]
-  have hE1 : (⟨eqA :: env.consts, env.tables⟩ : Env).find? eqName = some eqA := by
+    rw [hac1, show eqName = eqI.name from rfl, acvalWith_self]
+  have hE1 : (⟨eqI :: env.consts, env.tables⟩ : Env).find? eqName = some eqI := by
     rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
-  have hf2 : (⟨eqA :: env.consts, env.tables⟩ : Env).find? eqReflA.name = none :=
+  have hf2 : (⟨eqI :: env.consts, env.tables⟩ : Env).find? eqReflA.name = none :=
     Option.isNone_iff_eq_none.mp h2
-  have hwf2 : EnvWF ⟨eqReflA :: eqA :: env.consts, env.tables⟩ := by
+  have hwf2 : EnvWF ⟨eqReflA :: eqI :: env.consts, env.tables⟩ := by
     refine EnvWF.cons (by decide) hwf1 ⟨rfl, rfl, ?_, rfl,
       (fun _ _ _ heq => nomatch heq), (fun _ _ _ _ _ heq => nomatch heq)⟩
     show Expr.constsResolve _ eqReflA.toConstantVal.type = true
-    have hf : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find? eqName
-        = some eqA := by
+    have hf : (⟨eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find? eqName
+        = some eqI := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE1
     rw [show eqReflA.toConstantVal.type
         = Expr.forallE (.sort (.param uN))
@@ -1260,10 +1260,10 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
                 (.bvar 0)) (.bvar 0))) from rfl]
     simp [Expr.constsResolve, hf]
   obtain ⟨mp2, hac2, hr2, hc2⟩ := extendEqRefl mp1 hE1 hEv1 hf2 hwf2
-  have hE2 : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find? eqName
-      = some eqA := by
+  have hE2 : (⟨eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find? eqName
+      = some eqI := by
     rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE1
-  have hR2 : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find? eqReflName
+  have hR2 : (⟨eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find? eqReflName
       = some eqReflA := by
     rw [ConLeche.Env.find?_cons]; exact ite_eq_left rfl
   have hEv2 : ∀ ψ : Name → Nat, mp2.base2.acval eqName ψ
@@ -1288,7 +1288,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
       obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
       obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
       refine ⟨eqReflA.toConstantVal, 2, 0, hR2, rfl,
-        fun mm hmm => ⟨eqA.toConstantVal, _, by
+        fun mm hmm => ⟨eqI.toConstantVal, _, by
           obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
           exact hE2, rfl⟩,
         -- `Eq.refl`'s parameter binders read as `Eq`'s parameters
@@ -1321,7 +1321,7 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         fun ψ => ⟨rfl, rfl, [], [.pi (.bvar 1) (.sort 0)], ?_, rfl, rfl,
           fun mm hmm => by
             obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-            refine ⟨eqA.toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero), hE2, rfl, ?_⟩
+            refine ⟨eqI.toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero), hE2, rfl, ?_⟩
             simp [denote_forallE, denote_sort, denote_fvar, Expr.instantiate1, Level.eval],
           trivial⟩⟩
       simp [denote_app, denote_fvar, mkPisAV, eqLfp]⟩
@@ -1331,13 +1331,13 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
         rw [ConLeche.PropWhen.holds_ifAllZero]; rfl)
       rfl
       ⟨_, _, _, hR2, _, [.bvar 0], rfl⟩)
-  have hf3 : (⟨eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find?
+  have hf3 : (⟨eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find?
       eqRecA.name = none := Option.isNone_iff_eq_none.mp h3
-  have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqA :: env.consts, env.tables⟩ := by
-    have hfE : (⟨eqRecA :: eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find?
-        eqName = some eqA := by
+  have hwf3 : EnvWF ⟨eqRecA :: eqReflA :: eqI :: env.consts, env.tables⟩ := by
+    have hfE : (⟨eqRecA :: eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find?
+        eqName = some eqI := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hE2
-    have hfR : (⟨eqRecA :: eqReflA :: eqA :: env.consts, env.tables⟩ : Env).find?
+    have hfR : (⟨eqRecA :: eqReflA :: eqI :: env.consts, env.tables⟩ : Env).find?
         eqReflName = some eqReflA := by
       rw [ConLeche.Env.find?_cons, ite_eq_right (by decide)]; exact hR2
     refine EnvWF.cons (by decide) hwf2 ⟨rfl, rfl, ?_, rfl,
@@ -1377,11 +1377,11 @@ theorem declBasisPB_eqK {env₁ : Env} (mp : EnvModelM V env)
   -- closes it
   refine ⟨mp3, (hr1.trans (hr2.addLfp _ (fun _ => rfl) _ _ _ _ _)).trans hr3,
     fun h0 => hc3 ((hc2 (hc1 h0)).addLfp_to _ _ _ _ _ _ (nodup_one _) rfl
-    (lfpAll_one (n := eqName) (c := eqA) rfl rfl hE2
+    (lfpAll_one (n := eqName) (c := eqI) rfl rfl hE2
       (fun _ _ h => by injection h with _ h; subst h; rfl))
     (lfpOwn_one (T := eqName) (cs := [(eqReflA.toConstantVal, 2, 0)]) rfl rfl hE2
       (by
-        show List.filterMap (ctorLook (ConLeche.Env.find? ⟨eqReflA :: eqA :: env.consts, env.tables⟩) eqName)
+        show List.filterMap (ctorLook (ConLeche.Env.find? ⟨eqReflA :: eqI :: env.consts, env.tables⟩) eqName)
           [eqReflA.name] = _
         rfl)
       ⟨2, [(eqReflA.toConstantVal, 0)], rfl, rfl, fun j hj => by

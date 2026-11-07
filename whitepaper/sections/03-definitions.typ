@@ -22,9 +22,9 @@ corollary follow in @sec:ind.
 
 *The environment* $E$, fixed throughout like the valuation, is a
 #src("whitepaper/Fragment/Env.lean", 109, 125)[list of the constants] accepted so far,
-#src("ConLeche/Kernel/Env.lean", 457)[most recent first]. A
+#src("ConLeche/Kernel/Env.lean", 456)[most recent first]. A
 #src("whitepaper/Fragment/Env.lean", 63, 100)[stored constant] has its level parameters $arrow(p)$, its type (a closed
-term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 294, 312)[its _kind_]. We write
+term over $arrow(p)$) and #src("ConLeche/Kernel/Env.lean", 293, 311)[its _kind_]. We write
 $(c.\{arrow(p)\} : T) in E$ for "$c$ is stored with parameters
 $arrow(p)$ and type $T$", and $(c.\{arrow(p)\} : T := v) in E$ when
 it is a definition with value $v$. A
@@ -78,7 +78,7 @@ head rule of @sec:rules, an applied definition unfolds at its head.
 *What a definition must satisfy.* Before the checker stores a
 definition $c$ with parameters $arrow(p)$, type $T$ and value $v$, it
 #src("whitepaper/Fragment/Decl.lean", 591, 605)[checks four things]
-(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 105, 126)[the common checks]
+(in con-leche: #src("ConLeche/Kernel/CheckerBase.lean", 105, 124)[the common checks]
 and #src("ConLeche/Kernel/Checker.lean", 34, 47)[the value check]):
 
 - the name $c$ is fresh;

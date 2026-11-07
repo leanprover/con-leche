@@ -40,7 +40,6 @@ theorem fueledOps_whnf (F : Nat) (env : Env) (d : Nat) (e : Expr) :
 theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
     (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) :
     env.find? cv.name = none ∧
-    reservedBasisNames.contains cv.name = false ∧
     Name.nodup cv.levelParams = true ∧
     cv.type.looseBVarsBounded 0 = true ∧
     cv.type.hasFvar = false ∧
@@ -54,11 +53,6 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
   by_cases hfind : (env.find? cv.name).isSome = true
   case pos => simp [hfind] at h
   simp only [hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  case pos =>
-    rw [ite_eq_left hres] at h
-    exact nomatch h
-  simp only [hres] at h
   by_cases hop : (natOpName cv.name && !a) = true
   case pos =>
     rw [ite_eq_left hop] at h
@@ -94,7 +88,7 @@ theorem checkConstantVal_inv {env : Env} {cv : ConstantVal} {a : Bool}
   have hfind0 : env.find? cv.name = none := by
     revert hfind
     cases env.find? cv.name <;> simp
-  exact ⟨hfind0, by simpa using hres, hnd, hlb,
+  exact ⟨hfind0, hnd, hlb,
     by simpa using hif,
     stype, u, htp, htr, by first | rfl | exact hst, by first | rfl | exact hsort⟩
 
@@ -109,10 +103,6 @@ theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a : Bool}
   by_cases hfind : (env.find? cv.name).isSome = true
   · simp [hfind] at h
   simp only [hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  · rw [ite_eq_left hres] at h
-    exact nomatch h
-  simp only [hres] at h
   by_cases hop : (natOpName cv.name && !a) = true
   · rw [ite_eq_left hop] at h
     exact nomatch h
@@ -121,7 +111,7 @@ theorem checkConstantVal_shape {env : Env} {cv : ConstantVal} {a : Bool}
 
 theorem checkConstantVal_litShapeAt {env : Env} {cv : ConstantVal} {a : Bool}
     (h : checkConstantVal (fueledOps mode F) env cv a = .ok ()) : LitShapeAt cv :=
-  litShapeAt_of_check (checkConstantVal_inv h).2.1 (checkConstantVal_shape h)
+  litShapeAt_of_check (checkConstantVal_shape h)
 
 /-- Only a definition takes a certified operation's name. -/
 theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a : Bool}
@@ -135,10 +125,6 @@ theorem checkConstantVal_opName {env : Env} {cv : ConstantVal} {a : Bool}
   by_cases hfind : (env.find? cv.name).isSome = true
   · simp [hfind] at h
   simp only [hfind] at h
-  by_cases hres : reservedBasisNames.contains cv.name = true
-  · rw [ite_eq_left hres] at h
-    exact nomatch h
-  simp only [hres] at h
   rw [ite_eq_left hop] at h
   exact nomatch h
 

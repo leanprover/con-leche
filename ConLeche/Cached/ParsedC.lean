@@ -46,8 +46,6 @@ def checkConstantValC (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
     CheckCM Unit := do
   if (fe.find? cv.name).isSome then
     throw (.invalid s!"duplicate declaration {cv.name}")
-  if reservedBasisNames.contains cv.name then
-    throw (.invalid s!"reserved basis name {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
   unless litShapeOk (.axiomInfo cv) do
@@ -134,13 +132,6 @@ def checkOpaqueValCI (fe : FEnv) (cv : ConstantVal)
     throw (.invalid s!"type mismatch in opaque {cv.name}")
   pure (.axiomInfo cv)
 
-/-- `checkBasisBlock`'s cached twin. -/
-def checkBasisBlockC (fe : FEnv) (kind : BasisKind) (block : List ConstantInfo) :
-    CheckCM FEnv := do
-  unless pinListOk block kind.decls do
-    throw (.invalid "reserved basis name: the block is not the pinned one")
-  (kind.atBlock block).foldlM installBasisDeclF fe
-
 /-- `checkQuotRecord`'s cached twin. -/
 def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEnv := do
   unless quotPinHit k cv do
@@ -151,30 +142,25 @@ def checkQuotRecordC (fe : FEnv) (k : QuotKind) (cv : ConstantVal) : CheckCM FEn
     throw (.notImplemented "quotient declaration before what it needs")
   installBasisDeclF fe (quotAt k cv)
 
-/-- **An inductive block's install** (`checkDecl`'s `.indDecl` arm's
+/-- **An inductive block's install** (`checkDeclKind`'s `.indDecl` arm's
 twin).
 
-* **The pinned basis blocks**: a stream's own `Nat` block, recognised by
-  its names, compared with the pin and installed at its own names.
 * Task #228: the stream's DECLARED parameter count, checked before the
   dispatch.
 * ONE ROUTE (task #210), dispatched by the RECOGNISER alone (task
-  #219): a recognised block is the installer's, nested ones included;
-  any other declines (`checkShapelessS`). -/
+  #219): a recognised block is the installer's, nested ones and the
+  pinned basis blocks included; any other declines (`checkShapelessS`). -/
 def checkIndDeclC (fe : FEnv) (block : List ConstantInfo) (nP : Nat) :
     CheckCM FEnv :=
-  match basisNameHit block with
-  | some kind => checkBasisBlockC fe kind block
-  | none =>
-    if indParamsOk nP block then
-      match blockShape? nP block with
-      | some p => checkBlockKS mode fe block p
-      | none => checkShapelessS mode fe block
-    else throw (.invalid "number of parameters mismatch")
+  if indParamsOk nP block then
+    match blockShape? nP block with
+    | some p => checkBlockKS mode fe block p
+    | none => checkShapelessS mode fe block
+  else throw (.invalid "number of parameters mismatch")
 
-/-- One declaration, every kind (inductive and basis blocks reuse the
-`Expr`-level drivers).  `pins` is the `Nat.div`/`Nat.mod` pin-variant list
-the gate tries (task #304), threaded from the fold.
+/-- **A declaration's own checks** (`checkDeclKind`'s twin), every kind (inductive blocks reuse
+the `Expr`-level drivers).  `pins` is the `Nat.div`/`Nat.mod` pin-variant list the gate tries
+(task #304), threaded from the fold.
 
 **The pinned arms push last.**  A pinned `Nat`-operation definition and
 a `reduce*` opaque are certified against the environment before the
@@ -184,7 +170,7 @@ the whole index, so the value check returns the record unpushed
 overlay sharing `fe`'s index (`FEnv.overlay`, read-only; it answers
 `find?` as the push would, `find?_overlay_push`), and the push comes
 last, onto an index nothing else holds. -/
-def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
+def checkDeclKindC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
     CheckCM FEnv :=
   match pd with
   | .defnDecl cv value hint => do
@@ -245,6 +231,14 @@ def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
         throw (.notImplemented (nonStdAxiomMsg cv.name))
   | .indDecl block nP => checkIndDeclC mode fe block nP
   | .quotDecl k cv => checkQuotRecordC fe k cv
+
+/-- **One declaration** (`checkDecl`'s twin): its own checks, then the reserved names'. -/
+def checkDeclC (pins : List NatOpPinSet) (fe : FEnv) (pd : Declaration) :
+    CheckCM FEnv := do
+  let fe₂ ← checkDeclKindC mode pins fe pd
+  unless basisNamesOk pd do
+    throw (basisNamesError pd)
+  pure fe₂
 
 /-! ## Names and durations for the driver's messages -/
 

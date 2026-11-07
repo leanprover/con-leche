@@ -555,7 +555,7 @@ theorem genRun_storedTy
   have hr : (tgtRs out)[c]? = some (cvG, rhss, (R.Ms.getD cls default).nIdx,
       (R.Ms.getD cls default).ctors) := by
     simp [tgtRs, List.getElem?_map, ho]
-  obtain ⟨-, -, -, -, -, -, -, S, -, hinf, -⟩ := ConLeche.classConstOk_inv T.hcv
+  obtain ⟨-, -, -, -, -, -, S, -, hinf, -⟩ := ConLeche.classConstOk_inv T.hcv
   have htype : cvG.type = T.gty := T.type_eq
   rw [T.hcvG] at hinf
   dsimp only at hinf

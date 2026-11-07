@@ -143,11 +143,12 @@ of the binary that exits 0 is one of the model's outcomes. -/
 open Frontend in
 /-- **The main corollary, lifted to the driver.**  On a snapshot where the
 file's bytes are a `jsonWithTheoremFalse` file, no outcome of `runArgs` at
-the arguments `-- <file>` is an exit 0. -/
+the arguments `-- <file>` is an exit 0 (`ModelIO.CanGive`: from whatever
+files the run finds open). -/
 theorem main_no_False (V : Type w) [SetTheory V] {file : String} {fs : FS} {b : ByteArray}
     (hb : fs.file file = some b) (hF : jsonWithTheoremFalse [b]) :
-    ¬ (Driver.runArgs ["--", file] : ModelIO _) fs (.ok 0) := by
-  intro h
+    ¬ ModelIO.CanGive (Driver.runArgs ["--", file]) fs 0 := by
+  rintro ⟨_, _, h⟩
   obtain ⟨pre, b', r, env, hp, hb', hr, hc⟩ := Driver.runArgs_accept h
   obtain rfl : b = b' := Option.some.inj (hb.symm.trans hb')
   obtain ⟨e, he⟩ := no_False_declaration V natOpPinSets [b] hF
@@ -164,11 +165,12 @@ theorem main_oleans_no_False (V : Type w) [SetTheory V] {dirs root : String} {r 
     (hcl : Olean.InClosure (Driver.searchPathOf dirs) fs #[r] m)
     (hv : Olean.ViewOf (Driver.searchPathOf dirs) fs m d)
     (hmem : c ∈ d.constants) (hk : c.kind = .thm v all) (hty : c.type = .const falseName []) :
-    ¬ (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root] : ModelIO _) fs (.ok 0) := by
-  intro h
+    ¬ ModelIO.CanGive (Driver.runArgs ["--olean", "--search-path=" ++ dirs, "--", root]) fs 0 := by
+  rintro ⟨_, _, h⟩
   obtain ⟨pre, rd, env, -, hrd, hchk⟩ := Driver.runArgs_olean_accept h
   have hroots : (#[root].filterMap Olean.parseModName) = #[r] := by simp [hr]
   rw [hroots] at hrd
+  obtain ⟨_, _, hrd⟩ := hrd
   obtain ⟨v', hd⟩ := Olean.readOleans_thm hrd hcl hv hmem hk
   exact no_False_theorem_accepted V _ _ _
     (Array.mem_map_of_mem (f := Cached.fillDecl _) (Frontend.mem_prepareD hd)) hty env hchk

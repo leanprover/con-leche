@@ -2,6 +2,7 @@ module
 
 public import ConLeche.Model.BasisRename
 public import ConLeche.Model.Cover
+public import ConLeche.Verify.BasisBlock
 import ConLeche.Semantics.Decl
 public import ConLeche.Semantics.EqTower
 import ConLeche.Model.BasisEq
@@ -15,9 +16,10 @@ public section
 /-!
 # A pinned block at the stream's level-parameter names
 
-A block's check compares each record with its pin up to the record's
-level-parameter names (`pinListOk`) and stores each pin at those names
-(`BasisKind.atBlock`).  The P tier proves the block at the pin's own names
+A pinned block passes the reserved names' check only if each record is its
+pin up to the record's level-parameter names (`pinListOk`), and its install
+stores each installed pin at those names (`BasisKind.storedAt`,
+`blockInstall_pinned`).  The P tier proves the block at the pin's own names
 (`Model/BasisEq.lean`, `Model/BasisBlocks.lean`, …) and carries the result to
 the record's names (`EnvModelM.renameCore`).
 -/
@@ -26,7 +28,7 @@ namespace ConLeche.Model
 
 open ConLeche.Semantics ConLeche.SetModel ConLeche.Term ConLeche.Verify SetTheory
 open ConLeche (Env Expr Name Level ConstantInfo ConstantVal RecRule IndCaps
-  reservedBasisNames pinnedInfo uN eqName eqReflName eqA eqReflA eqRecA
+  reservedBasisNames pinnedInfo uN eqName eqReflName eqA eqI eqReflA eqRecA
   quotA quotMkA quotName quotMkName quotAt quotPin)
 
 universe w
@@ -153,25 +155,29 @@ theorem renRel_chain {κ : Prop} {L₀ : List ConstantInfo} {E : Env} :
       (R.cons hres hc hc' hk (hL p List.mem_cons_self) (Option.isNone_iff_eq_none.mp hf)) hrest
     exact ⟨env₂, ⟨hf, h₂⟩, R₂⟩
 
-/-- A record's copies of the pins, position by position. -/
+/-- A record's copies of the installed pins, position by position: the comparison is with the pins
+(`pins`), the copies are of the installed ones (`ins`), at the same level parameters. -/
 theorem pinPairs_of_ok {κ : Prop} :
-    ∀ {block pins : List ConstantInfo}, ConLeche.listBeqBy ConLeche.pinCopyOk block pins = true →
-      (∀ p ∈ pins, reservedBasisNames.contains p.name = true ∧ pinnedInfo p.name = p ∧
+    ∀ {block pins ins : List ConstantInfo}, ConLeche.listBeqBy ConLeche.pinCopyOk block pins = true →
+      pins.map (·.toConstantVal.levelParams) = ins.map (·.toConstantVal.levelParams) →
+      (∀ p ∈ ins, reservedBasisNames.contains p.name = true ∧ pinnedInfo p.name = p ∧
         (κ → (∀ cv mI rP isK rules, p ≠ .recInfo cv mI rP isK rules) →
           p.toConstantVal.levelParams = [] ∧ p.atLps [] = p)) →
-      PinPairs κ pins (List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) pins block)
-  | [], [], _, _ => .nil
-  | c :: cs, p :: ps, h, hp => by
+      PinPairs κ ins (List.zipWith (fun pin c => pin.atLps c.toConstantVal.levelParams) ins block)
+  | [], [], [], _, _, _ => .nil
+  | c :: cs, q :: qs, p :: ps, h, hl, hp => by
     simp only [ConLeche.listBeqBy, Bool.and_eq_true] at h
+    simp only [List.map_cons, List.cons.injEq] at hl
     obtain ⟨hok, hrest⟩ := h
     obtain ⟨hres, hpi, hkp⟩ := hp p List.mem_cons_self
     simp only [ConLeche.pinCopyOk, Bool.and_eq_true, beq_iff_eq] at hok
     obtain ⟨⟨hnd, hlen⟩, -⟩ := hok
+    rw [hl.1] at hlen
     have hlps : (p.atLps c.toConstantVal.levelParams).toConstantVal.levelParams
         = c.toConstantVal.levelParams := by
       rw [atLps_cv]; rfl
     refine .cons hres (by rw [hpi]; exact hpi ▸ pinCopy_self hres) ?_ (fun hκ hnr => ?_)
-      (pinPairs_of_ok hrest fun x hx => hp x (List.mem_cons_of_mem _ hx))
+      (pinPairs_of_ok hrest hl.2 fun x hx => hp x (List.mem_cons_of_mem _ hx))
     · rw [hpi]
       exact ⟨by rw [hlps], by rw [hlps]; exact nodup_of_nameNodup hnd, by rw [hlps]; exact hlen⟩
     · obtain ⟨h0, h1⟩ := hkp hκ hnr
@@ -179,8 +185,10 @@ theorem pinPairs_of_ok {κ : Prop} :
         List.eq_nil_of_length_eq_zero (by rw [hlen, h0]; rfl)
       show p.atLps c.toConstantVal.levelParams = p
       rw [hps]; exact h1
-  | [], _ :: _, h, _ => nomatch h
-  | _ :: _, [], h, _ => nomatch h
+  | [], _ :: _, _, h, _, _ => nomatch h
+  | _ :: _, [], _, h, _, _ => nomatch h
+  | [], [], _ :: _, _, hl, _ => nomatch hl
+  | _ :: _, _ :: _, [], _, hl, _ => nomatch hl
 
 /-! ## What the block does not touch -/
 
@@ -429,19 +437,19 @@ theorem coverStep_keep {E env env' : Env} {L₀ : List ConstantInfo}
 parameter, the recursor's motive at another. -/
 theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hne : p1 ≠ p)
     (mpE : EnvModelM V E)
-    (mp : EnvModelM V ⟨eqRecA :: eqReflA :: eqA :: E.consts, E.tables⟩)
+    (mp : EnvModelM V ⟨eqRecA :: eqReflA :: eqI :: E.consts, E.tables⟩)
     (hEv : ∀ ψ : Name → Nat, mp.base2.acval eqName ψ = eqValT ψ)
     (hRv : ∀ ψ : Name → Nat, mp.base2.acval eqReflName ψ = eqReflValT ψ)
-    (R : RenRel False L₀ E ⟨eqRecA :: eqReflA :: eqA :: E.consts, E.tables⟩ env')
-    (henv' : env' = ⟨eqRecA.atLps [p1, p] :: eqReflA.atLps [p] :: eqA.atLps [p] :: E.consts, E.tables⟩) :
+    (R : RenRel False L₀ E ⟨eqRecA :: eqReflA :: eqI :: E.consts, E.tables⟩ env')
+    (henv' : env' = ⟨eqRecA.atLps [p1, p] :: eqReflA.atLps [p] :: eqI.atLps [p] :: E.consts, E.tables⟩) :
     ∃ mp' : EnvModelM V env', mp'.base2.acval = renAcval mp.base2.acval
-        ⟨eqRecA :: eqReflA :: eqA :: E.consts, E.tables⟩ env' ∧
+        ⟨eqRecA :: eqReflA :: eqI :: E.consts, E.tables⟩ env' ∧
       (∀ D ∈ mp'.lfpBlocks, D ∈ mp.lfpBlocks ∨ ∀ mm, D.telescope mm = none) ∧
       (LfpCover mp [] → LfpCover mp' []) := by
   subst henv'
   have h := R.ren
-  generalize henv : (⟨eqRecA :: eqReflA :: eqA :: E.consts, E.tables⟩ : Env) = env at mp R h
-  generalize hen' : (⟨eqRecA.atLps [p1, p] :: eqReflA.atLps [p] :: eqA.atLps [p] :: E.consts,
+  generalize henv : (⟨eqRecA :: eqReflA :: eqI :: E.consts, E.tables⟩ : Env) = env at mp R h
+  generalize hen' : (⟨eqRecA.atLps [p1, p] :: eqReflA.atLps [p] :: eqI.atLps [p] :: E.consts,
     E.tables⟩ : Env) = env' at R h
   -- the block's lookups
   have f3 : env.find? (eqName.str "rec") = some eqRecA := by
@@ -450,7 +458,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
   have f2 : env.find? eqReflName = some eqReflA := by
     subst henv
     rw [Env.find?_cons, ite_eq_right (by decide), Env.find?_cons]; exact ite_eq_left rfl
-  have f1 : env.find? eqName = some eqA := by
+  have f1 : env.find? eqName = some eqI := by
     subst henv
     rw [Env.find?_cons, ite_eq_right (by decide), Env.find?_cons, ite_eq_right (by decide),
       Env.find?_cons]
@@ -462,7 +470,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     subst hen'
     rw [Env.find?_cons, ite_eq_right (by rw [atLps_name]; decide), Env.find?_cons]
     exact ite_eq_left rfl
-  have f1' : env'.find? eqName = some (eqA.atLps [p]) := by
+  have f1' : env'.find? eqName = some (eqI.atLps [p]) := by
     subst hen'
     rw [Env.find?_cons, ite_eq_right (by rw [atLps_name]; decide), Env.find?_cons,
       ite_eq_right (by rw [atLps_name]; decide), Env.find?_cons]
@@ -474,13 +482,13 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     · subst henv
       rw [Env.find?_cons, ite_eq_right (show ¬ eqRecA.name = n from h3), Env.find?_cons,
         ite_eq_right (show ¬ eqReflA.name = n from h2), Env.find?_cons,
-        ite_eq_right (show ¬ eqA.name = n from h1)]
+        ite_eq_right (show ¬ eqI.name = n from h1)]
     · subst hen'
       rw [Env.find?_cons, ite_eq_right (by rw [atLps_name]; exact h3), Env.find?_cons,
         ite_eq_right (by rw [atLps_name]; exact h2), Env.find?_cons,
         ite_eq_right (by rw [atLps_name]; exact h1)]
   have hnd1 : ([p] : List Name).Nodup := by simp
-  have hpairE : ConstRen eqA (eqA.atLps [p]) :=
+  have hpairE : ConstRen eqI (eqI.atLps [p]) :=
     .inr ⟨by decide, ⟨rfl, by decide, rfl⟩, ⟨rfl, hnd1, rfl⟩⟩
   have hde : ∀ (φ : Name → Nat) (d : Nat) (e : Expr),
       denote (renAcval mp.base2.acval env env') env' φ d e = denote mp.base2.acval env φ d e :=
@@ -628,13 +636,13 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
       rw [ha.1, ha.2]
   -- `Eq`'s block at the record's names
   have hty : ∀ ψ : Name → Nat, denote (renAcval mp.base2.acval env env') env' ψ 0
-      (eqA.atLps [p]).toConstantVal.type
+      (eqI.atLps [p]).toConstantVal.type
         = some (.pi (.sort (ψ p)) (.pi (.bvar 0) (.pi (.bvar 1) (.sort 0)))) := fun ψ => by
     rw [hde, denote_pair mp.base2 hpairE, denote_eqA_type]
     show some (eqTy _) = _
     unfold eqTy
-    rw [show Level.substFn ψ eqA.toConstantVal.levelParams
-        ((eqA.atLps [p]).toConstantVal.levelParams.map Level.param) uN = ψ p from htr ψ]
+    rw [show Level.substFn ψ eqI.toConstantVal.levelParams
+        ((eqI.atLps [p]).toConstantVal.levelParams.map Level.param) uN = ψ p from htr ψ]
   have hrefty : (eqReflA.atLps [p]).toConstantVal.type
       = Expr.forallE (.sort (.param p))
           (Expr.forallE (.bvar 0)
@@ -675,7 +683,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     obtain rfl : c = 0 := Nat.lt_one_iff.mp hc
     obtain rfl : j = 0 := Nat.lt_one_iff.mp hj
     refine ⟨(eqReflA.atLps [p]).toConstantVal, 2, 0, f2', rfl,
-      fun mm hmm => ⟨(eqA.atLps [p]).toConstantVal, _, by
+      fun mm hmm => ⟨(eqI.atLps [p]).toConstantVal, _, by
         obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
         exact f1', rfl⟩,
       (fun ψ dsC bodyC hrd hle ρ hsat => by
@@ -701,7 +709,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
       fun ψ => ⟨rfl, rfl, [], [.pi (.bvar 1) (.sort 0)], ?_, rfl, rfl,
         fun mm hmm => by
           obtain rfl : mm = 0 := Nat.lt_one_iff.mp hmm
-          refine ⟨(eqA.atLps [p]).toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero),
+          refine ⟨(eqI.atLps [p]).toConstantVal, _, .forallE (.fvar 0 (.sort .zero)) (.sort .zero),
             f1', rfl, ?_⟩
           simp [denote_forallE, denote_sort, denote_fvar, Expr.instantiate1, Level.eval],
         trivial⟩⟩
@@ -730,7 +738,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     have hmem : D.member m = eqName := by
       unfold LfpDatum.member
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hm, Option.getD_some, he]
-    have hall := hcov.all D hD m hmk (eqA.toConstantVal) _ (by rw [hmem]; exact f1)
+    have hall := hcov.all D hD m hmk (eqI.toConstantVal) _ (by rw [hmem]; exact f1)
     exact hall.symm
   have hlookC : ∀ {C : Name}, C ≠ eqName → ∀ n,
       ctorLook env'.find? C n = ctorLook env.find? C n := by
@@ -789,7 +797,7 @@ theorem coverStep_eq {E env' : Env} {L₀ : List ConstantInfo} {p p1 : Name} (hn
     all := fun D hD mm hmm cv caps hf => by
       rw [hbl] at hD
       rcases List.mem_cons.mp hD with rfl | hD'
-      · exact lfpAll_one (n := eqName) (c := eqA.atLps [p]) rfl rfl f1'
+      · exact lfpAll_one (n := eqName) (c := eqI.atLps [p]) rfl rfl f1'
           (fun _ _ h => by injection h with _ h; subst h; rfl) mm hmm cv caps hf
       · obtain ⟨h1, h2⟩ := hkept hD'
         rw [(hkeepD h1 h2).1 mm hmm] at hf
@@ -875,17 +883,17 @@ theorem CoverRel.ren {κ : Prop} {L₀ : List ConstantInfo} {E env env' : Env} {
 
 /-- **A pinned block, at the record's names, at the P tier.** -/
 theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.BasisKind}
-    {block : List ConstantInfo} (hk : kind ≠ .quotK) (h : DeclBasisRun E kind block env₂) :
+    {block : List ConstantInfo} (hk : kind ≠ .quotK) (hOk : ConLeche.pinListOk block kind.decls = true)
+    (hrun : BasisInstallRun E (kind.storedAt block) env₂) :
     CoverStep mp env₂ := by
-  obtain ⟨hOk, hrun⟩ := h
   simp only [ConLeche.pinListOk, Bool.and_eq_true] at hOk
   obtain ⟨hlist, hlinks⟩ := hOk
   cases kind with
   | quotK => exact absurd rfl hk
   | natK =>
-    have pairs := pinPairs_of_ok (κ := True) hlist (by
+    have pairs := pinPairs_of_ok (κ := True) (ins := ConLeche.BasisKind.natK.installed) hlist rfl (by
       intro p hp
-      simp only [show ConLeche.BasisKind.natK.decls = [ConLeche.natA, ConLeche.natZeroA,
+      simp only [show ConLeche.BasisKind.natK.installed = [ConLeche.natI, ConLeche.natZeroA,
         ConLeche.natSuccA, ConLeche.natRecA] from rfl, List.mem_cons, List.not_mem_nil,
         or_false] at hp
       rcases hp with rfl | rfl | rfl | rfl
@@ -898,9 +906,9 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
     obtain ⟨mp', hac', hb', hc'⟩ := coverStep_keep mp mp₁ R (hlf_of (by decide))
     exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
   | emptyK =>
-    have pairs := pinPairs_of_ok (κ := True) hlist (by
+    have pairs := pinPairs_of_ok (κ := True) (ins := ConLeche.BasisKind.emptyK.installed) hlist rfl (by
       intro p hp
-      simp only [show ConLeche.BasisKind.emptyK.decls = [ConLeche.emptyA, ConLeche.emptyRecA] from rfl,
+      simp only [show ConLeche.BasisKind.emptyK.installed = [ConLeche.emptyI, ConLeche.emptyRecA] from rfl,
         List.mem_cons, List.not_mem_nil, or_false] at hp
       rcases hp with rfl | rfl
       · exact ⟨by decide, rfl, fun _ _ => ⟨rfl, rfl⟩⟩
@@ -910,9 +918,9 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
     obtain ⟨mp', hac', hb', hc'⟩ := coverStep_keep mp mp₁ R (hlf_of (by decide))
     exact ⟨mp', r₁.ren R hac' hb', hc' ∘ hc₁⟩
   | falseK =>
-    have pairs := pinPairs_of_ok (κ := True) hlist (by
+    have pairs := pinPairs_of_ok (κ := True) (ins := ConLeche.BasisKind.falseK.installed) hlist rfl (by
       intro p hp
-      simp only [show ConLeche.BasisKind.falseK.decls = [ConLeche.falseA, ConLeche.falseRecA] from rfl,
+      simp only [show ConLeche.BasisKind.falseK.installed = [ConLeche.falseI, ConLeche.falseRecA] from rfl,
         List.mem_cons, List.not_mem_nil, or_false] at hp
       rcases hp with rfl | rfl
       · exact ⟨by decide, rfl, fun _ _ => ⟨rfl, rfl⟩⟩
@@ -968,7 +976,7 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
         intro he
         have := (List.nodup_cons.mp hnd3).1
         exact this (by rw [he]; exact List.mem_cons_self)
-      have pairs := pinPairs_of_ok (κ := False) hlist0 (by
+      have pairs := pinPairs_of_ok (κ := False) (ins := [eqI, eqReflA, eqRecA]) hlist0 rfl (by
         intro p hp
         simp only [List.mem_cons, List.not_mem_nil, or_false] at hp
         rcases hp with rfl | rfl | rfl
@@ -980,9 +988,9 @@ theorem declBasisPB_at {E env₂ : Env} (mp : EnvModelM V E) {kind : ConLeche.Ba
       obtain ⟨-, -, -, rfl⟩ := hrs
       obtain ⟨mp₁, r₁, hc₁, hEv, hRv⟩ := declBasisPB_eqK mp hrs₀
       have hrun' := hrun
-      rw [show ConLeche.BasisKind.eqK.atBlock [ConstantInfo.indInfo v1 cp1, ConstantInfo.ctorInfo v2 a2 b2',
+      rw [show ConLeche.BasisKind.eqK.storedAt [ConstantInfo.indInfo v1 cp1, ConstantInfo.ctorInfo v2 a2 b2',
           ConstantInfo.recInfo v3 mI rP isK rs]
-          = [eqA.atLps v1.levelParams, eqReflA.atLps v2.levelParams, eqRecA.atLps v3.levelParams] from rfl,
+          = [eqI.atLps v1.levelParams, eqReflA.atLps v2.levelParams, eqRecA.atLps v3.levelParams] from rfl,
         hv1, hv2, hv3] at hrun'
       obtain ⟨-, -, -, henv₂⟩ := hrun'
       obtain ⟨mp', hac', hb', hc'⟩ := coverStep_eq hne mp mp₁ hEv hRv R henv₂

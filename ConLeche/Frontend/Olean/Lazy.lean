@@ -141,13 +141,23 @@ the literal dependencies lean4export adds (`dumpNatDeps`, `dumpStrDeps`): `Nat` 
 numeral, `Char.ofNat` and `String.ofList` for a string.  Where a name does not read, the
 walk's output has no such name, and it is left out: this is about the records' order
 alone. -/
-def usesRead (nm : UInt64 → Option Name) (out : Array UInt64) : Array Name :=
+def usesRead (nm : UInt64 → Option Name) (out : Array UInt64) (flat : Array Name) : Array Name :=
   (out.foldl (fun x v =>
     if v == usesNat then addUse x (mkN ["Nat"])
     else if v == usesStr then addUse (addUse x (mkN ["Char", "ofNat"])) (mkN ["String", "ofList"])
     else match nm v with
       | some n => addUse x n
-      | none => x) ((Std.HashSet.emptyWithCapacity 64 : Std.HashSet Name), #[])).2
+      | none => x) ((Std.HashSet.emptyWithCapacity 64 : Std.HashSet Name), flat)).2
+
+/-- **What a module's constants mention, in one array**: the constants' `usesRead`s end to
+end, and where each ends.  One array per module, not one per constant: it is dropped in
+one piece once the emission has read it, leaving nothing interleaved with what survives. -/
+def usesFlat (nm : UInt64 → Option Name) (outs : Array (Array UInt64)) : Array Name × Array Nat :=
+  let total := outs.foldl (fun n o => n + o.size) 0
+  outs.foldl (fun (flat, ends) o =>
+    let flat := usesRead nm o flat
+    let e := flat.size
+    (flat, ends.push e)) (Array.mkEmpty total, Array.mkEmpty outs.size)
 
 /-! ## A stored constant -/
 
@@ -155,7 +165,7 @@ def usesRead (nm : UInt64 → Option Name) (out : Array UInt64) : Array Name :=
 (`lazyEntry`: a theorem's value is its reference) and the constants its type and values
 mention, in first-visit order. -/
 structure CEntry extends CEntryF Name Expr where
-  uses : Array Name := #[]
+  uses : Subarray Name := (#[] : Array Name).toSubarray
 
 instance : Inhabited CEntry := ⟨{ toCEntryF := default }⟩
 
@@ -207,15 +217,18 @@ def lazyEntry (nm : UInt64 → Option Name) (ex : UInt64 → Option Expr) (r : R
 
 /-- `lazyEntry` of every constant, each with what it mentions (`outs`, by position). -/
 def lazyEntries (nm : UInt64 → Option Name) (ex : UInt64 → Option Expr) (r : Region) (i : Nat)
-    (outs : Array (Array UInt64)) (k : Nat) : List (CEntryF UInt64 UInt64) → Option (List CEntry)
+    (flat : Array Name) (ends : Array Nat) (k : Nat) :
+    List (CEntryF UInt64 UInt64) → Option (List CEntry)
   | [] => some []
   | s :: ss =>
     match lazyEntry nm ex r i s with
     | none => none
     | some e =>
-      match lazyEntries nm ex r i outs (k + 1) ss with
+      match lazyEntries nm ex r i flat ends (k + 1) ss with
       | none => none
-      | some es => some ({ toCEntryF := e, uses := usesRead nm (outs.getD k #[]) } :: es)
+      | some es =>
+        some ({ toCEntryF := e,
+                uses := flat.toSubarray (if k = 0 then 0 else ends.getD (k - 1) 0) (ends.getD k 0) } :: es)
 
 /-! ## The frontier -/
 
@@ -289,7 +302,8 @@ def loadAt (i : Nat) (m : Name) (f : ModFiles) : Option Loaded := do
   let (nm, ms, st) ← runMarked r (namesB ++ usesNames outs) (skels.flatMap lazyRoots)
   let imports ← sk.imports.mapM (ImportF.mapM (st.nameOf r))
   unless importsPre f.exported.bytes == some imports.toArray do none
-  let cs ← lazyEntries (st.nameOf r) (st.exprOf r) r i outs 0 skels
+  let (flat, ends) := usesFlat (st.nameOf r) outs
+  let cs ← lazyEntries (st.nameOf r) (st.exprOf r) r i flat ends 0 skels
   let values := skels.filterMap fun c => match c.kind with
     | .thm v _ => (r.loc v).map (· + kindCode kExpr)
     | _ => none

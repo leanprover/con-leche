@@ -414,7 +414,7 @@ theorem sumCtorData_of (mp : EnvModelM V env)
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
   obtain ⟨⟨heq, hccv⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopC, -, -, hopX, hlenI,
     -, hres, hsorts⟩ := hCtor
-  obtain ⟨-, -, -, hlbt, hitf, stype, u, htp', -, hst, hens⟩ :=
+  obtain ⟨-, -, hlbt, hitf, stype, u, htp', -, hst, hens⟩ :=
     ConLeche.checkConstantVal_inv hccv
   rw [← heq] at hlbt hitf htp' hst
   have htf' := hitf
@@ -647,7 +647,7 @@ theorem ctorFramesGen (mp : EnvModelM V env)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) := by
   obtain ⟨⟨heq, hccv⟩, -, fvsP, crest, tfvs, trest, xFvs, idxArgs', hopC, hopT, hdoms, hopX,
     -, -, -, hsorts⟩ := hCtor
-  obtain ⟨-, -, -, hlbt, hitf, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccv
+  obtain ⟨-, -, hlbt, hitf, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccv
   rw [← heq] at hlbt hitf
   have htf' := hitf
   have hbt' := hlbt
@@ -1038,6 +1038,8 @@ theorem stageCtorGen {T : Name}
     -- the constructor is fresh at the cons's environment and its type
     -- resolves there
     (hfresh : env.find? cvCa.name = none)
+    -- the reserved names' check (`basisNamesOk`)
+    (hresC : ConLeche.reservedBasisNames.contains cvCa.name = false)
     (htr : cvCa.type.constsResolve env = true)
     (hfT : env.find? T = some (.indInfo cvS caps))
     (hlpsT : cvTa.levelParams = lps)
@@ -1082,7 +1084,7 @@ theorem stageCtorGen {T : Name}
         (fun ψ => sumMkAV (resSort.eval ψ) j (ds ψ) (((ds ψ).drop nP))
           (uChains (Fss ψ))) := by
   obtain ⟨⟨hty, hccv⟩, -, -⟩ := hCtor
-  obtain ⟨-, hnres, -, hlbt, hitf, -, -, htp, -, -, -⟩ :=
+  obtain ⟨-, -, hlbt, hitf, -, -, htp, -, -, -⟩ :=
     ConLeche.checkConstantVal_inv hccv
   have htf' := hitf
   have hbt' := hlbt
@@ -1113,9 +1115,7 @@ theorem stageCtorGen {T : Name}
         = some (mkPisAV (ds ψ) (ctorBodyAVI mp.base2 T nP nF ψ (Es ψ))) := fun ψ =>
     denote_cons_mono (c₀ := .ctorInfo cvCa nP nF) hfresh ψ 0 hcb (hCD.read ψ)
   have hnresC : ConLeche.reservedBasisNames.contains
-      (ConstantInfo.ctorInfo cvCa nP nF).name = false := by
-    show ConLeche.reservedBasisNames.contains cvCa.name = false
-    rw [hCname]; exact hnres
+      (ConstantInfo.ctorInfo cvCa nP nF).name = false := hresC
   refine declStep_preserves_of_ind_member_cons mp (c₀ := .ctorInfo cvCa nP nF)
     (A := A) hfresh hnresC (by
       show natOpName cvCa.name = false

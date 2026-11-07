@@ -1192,7 +1192,7 @@ theorem genMemExtra
   have hrPle := blockRecHrPle (p := pp) h hj
   have hcv := recStage_cvFacts h
   have hkeep := find?_consBlockRecsR_keep (R := Rr) (q := pp)
-    (fun r' hr' => (hcv r' hr').1)
+    (fun r' hr' => hcv r' hr')
   have hfind3 : (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC).find?
       (ConLeche.RecRule.ctor rl) = some (.ctorInfo ctor.1 d.nP ctor.2) := by
     rw [hct]; exact hkeep _ _ G.hcf.1
@@ -1203,7 +1203,7 @@ theorem genMemExtra
       FamNZ (V := V) m₃.acval (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC)
           φ ctor.1 usj →
         FamNZ (V := V) mpC.base2.acval envC φ ctor.1 usj := fun _ =>
-    famNZ_of_recStage mpC (fun r' hr' => (hcv r' hr').1)
+    famNZ_of_recStage mpC (fun r' hr' => hcv r' hr')
       (fun ψ e ta hCB hta => blockRecDenote_cross h hac ψ 0 e hCB hta) G.hcf.1
   -- the constructor's reading at the cons
   have hTVjaOf : ∀ usj : List Level,
@@ -2506,7 +2506,7 @@ theorem genOutExtra
     rw [hname]; exact hfc0
   have hcv := recStage_cvFacts h
   have hkeep := find?_consBlockRecsR_keep (R := Rr) (q := pp)
-    (fun r' hr' => (hcv r' hr').1)
+    (fun r' hr' => hcv r' hr')
   have hfind3 : (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC).find?
       (ConLeche.RecRule.ctor rl) = some (.ctorInfo ctor.1 (tgtMajor out j).ds.length ctor.2) := by
     rw [hct]; exact hkeep _ _ hfindC
@@ -2525,7 +2525,7 @@ theorem genOutExtra
       FamNZ (V := V) m₃.acval (ConLeche.consBlockRecsR Rr pp 0 (tgtRs out) envC)
           φ ctor.1 usj →
         FamNZ (V := V) mpC.base2.acval envC φ ctor.1 usj := fun _ =>
-    famNZ_of_recStage mpC (fun r' hr' => (hcv r' hr').1)
+    famNZ_of_recStage mpC (fun r' hr' => hcv r' hr')
       (fun ψ e ta hCB hta => blockRecDenote_cross h hac ψ 0 e hCB hta) hfindC
   -- the pins, read at the cons as at the constructors' environment
   obtain ⟨-, -, hpinsWf, -⟩ := R.fire_nestedRead hr hf

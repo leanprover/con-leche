@@ -268,6 +268,8 @@ theorem blockRecStaged_runR {envC : Env}
     {rs : List (ConstantVal × List Expr × Nat × List (ConstantVal × Nat))} {F : Nat}
     {s : (Name → Nat) → Nat} {eqs : (Name → Nat) → List Term}
     (h : ConLeche.RecStageG .verified F envC p rs)
+    -- the reserved names' check (`basisNamesOk`), at the block's recursors
+    (hresR : ∀ rc ∈ p.recs, ConLeche.reservedBasisNames.contains rc.cvR.name = false)
     (hnd : (rs.map (·.1.name)).Nodup)
     {R : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) → Bool × List ConLeche.RecRule}
     {fireOf : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
@@ -284,12 +286,15 @@ theorem blockRecStaged_runR {envC : Env}
       mpC := by
   have hfacts := ConLeche.recStage_facts h
   have hcv := recStage_cvFacts h
+  have hres : ∀ r ∈ rs, ConLeche.reservedBasisNames.contains r.1.name = false := fun r hr => by
+    obtain ⟨rc, hrc, hn⟩ := ConLeche.recStage_names h r hr
+    rw [hn]; exact hresR rc hrc
   have hag : ∀ n : Name, (∀ r ∈ rs, n ≠ r.1.name) →
       blockRecAcv mpC.base2.acval envC rs s eqs n = mpC.base2.acval n :=
     fun _ => blockRecAcv_of_notin
   have hL := fun r (hr : r ∈ rs) => hleaf.stored hnd hr
   exact blockRecStaged_of mpC hnd
-    (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2)
+    (fun r hr => hcv r hr) hres
     (fun r hr => ConLeche.recStage_opName h r hr)
     (fun r hr => ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1,
       (hfacts r hr).2.2.2.1, ConLeche.litShapeAt_of_reservedRec (ConLeche.recStage_reserved h r hr)⟩)
@@ -300,7 +305,7 @@ theorem blockRecStaged_runR {envC : Env}
       (fun i r hr ψ => blockRecAcv_at hnd hr ψ) hleaf.pre)
     (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
     hctorsIn hshape hnest
-    (hrecP_ofR mpC hshape (fun r hr => (hcv r hr).1) hag hnew)
+    (hrecP_ofR mpC hshape (fun r hr => hcv r hr) hag hnew)
     (ConLeche.recStage_reserved h)
 
 

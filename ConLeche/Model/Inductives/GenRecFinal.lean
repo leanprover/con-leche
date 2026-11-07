@@ -62,7 +62,9 @@ theorem genRecStage {F : Nat}
     {kindsR : List (List (List ConLeche.NestFieldKind))} {nfsR : List (List Expr)}
     {posR : ConLeche.NestState}
     (hctx : GenRecCtx V F block envC envI pp out mpC dR isRecR A kindsR nfsR
-      posR) :
+      posR)
+    -- the reserved names' check (`basisNamesOk`), at the block's recursors
+    (hresR : ∀ rc ∈ pp.recs, ConLeche.reservedBasisNames.contains rc.cvR.name = false) :
     BlockRecStagedT (V := V) envC pp out mpC := by
   have hctx0 := hctx
   obtain ⟨hPos, henvC, hnames, hndM, hN, hS, hcore, hmemberCtors, hdR, hlfp, hcov, hmk, hover,
@@ -242,7 +244,7 @@ theorem genRecStage {F : Nat}
     hrhs
   have heqB := genRecHeqB (mpC := mpC) R hg h
   have heqP := genRecHeqP R hg h hsP hrowP
-  have hdataS := genRecHdataS R hg h hndM heqB heqP hpre hfind
+  have hdataS := genRecHdataS R hg h hresR hndM heqB heqP hpre hfind
     (genRulePrefRead mpC R hg h) (genRuleFieldRead R hg mpC.base2.acval) hrow3
   -- the ι case split's facts (task #342 L10)
   have hseam := genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
@@ -295,7 +297,7 @@ theorem genRecStage {F : Nat}
   unfold BlockRecStagedT
   rw [ConLeche.consBlockRecsT_eq_R]
   exact blockRecStaged_dataR (ctorTy := fun j i ψ =>
-      blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) mpC h
+      blockRecCtorTy mpC.base2.acval envC (tgtRs out) j i ψ) mpC h hresR
     (ConLeche.recStageG_nodup h hndM)
     (ConLeche.recRulesShape_tgt pp out)
     (fun j r hr lvls pins hf => by

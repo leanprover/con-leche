@@ -293,6 +293,8 @@ theorem storedSwap_sem {envC : Env}
     (mpG : EnvModelM V (ConLeche.consBlockRecsT q 0 out envC))
     (hlen : out.length = q.recs.length)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
+    -- the reserved names' check (`basisNamesOk`), at the generated recursors
+    (hresB : ∀ g ∈ out, ConLeche.reservedBasisNames.contains g.1.name = false)
     (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ()) :
     ConLeche.RecCtorsStored (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC) ∧
@@ -411,9 +413,8 @@ theorem storedSwap_sem {envC : Env}
     rcases hC.1 n ci hf with hG | ⟨j, rc, g, ⟨-, hg, -⟩, hn, -, -⟩
     · have hp := mpG.base2.basis_pinned n ci hG hres
       exact ⟨hp.1, hp.2.1.mono hctor, hp.2.2⟩
-    · have := hnres g (List.mem_of_getElem? hg)
-      rw [hn, ConLeche.reservedRecName, hres] at this
-      simp only [Bool.true_or] at this
+    · have := hresB g (List.mem_of_getElem? hg)
+      rw [hn, hres] at this
       exact nomatch this
   · -- `ProjOkT`: projection tables are untouched
     intro n tbl hf i hi
@@ -501,6 +502,8 @@ theorem blockRecStagedAt_stored {envC : Env}
     (hlen : out.length = q.recs.length)
     (hfr : ∀ g ∈ out, envC.find? g.1.name = none)
     (hnres : ∀ g ∈ out, ConLeche.reservedRecName g.1.name = false)
+    -- the reserved names' check (`basisNamesOk`), at the generated recursors
+    (hresB : ∀ g ∈ out, ConLeche.reservedBasisNames.contains g.1.name = false)
     (hS : ConLeche.streamRecsCheck (ConLeche.fueledOps .verified F) .plain
       (ConLeche.mkFEnv (ConLeche.consBlockRecsT q 0 out envC)) q.recs out = .ok ())
     (hwfS : EnvWF (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC)) :
@@ -512,7 +515,7 @@ theorem blockRecStagedAt_stored {envC : Env}
   have htab : (ConLeche.consBlockRecsT q 0 (ConLeche.streamRecs q.recs out) envC).tables
       = (ConLeche.consBlockRecsT q 0 out envC).tables := by
     rw [consBlockRecsT_tables 0, consBlockRecsT_tables 0]
-  obtain ⟨hctors, hbp, hproj, hrecP, htyS⟩ := storedSwap_sem mpG hlen hnres hS
+  obtain ⟨hctors, hbp, hproj, hrecP, htyS⟩ := storedSwap_sem mpG hlen hnres hresB hS
   obtain ⟨mpS, hac, -⟩ := EnvModelM.swapTyP mpG hsw htab hwfS hctors hbp hproj hrecP htyS
   have hcg := ConLeche.SwapTyList.congrEnv hsw htab
   have hnm : ∀ n, (envC.find? n).isSome = true → ∀ t ∈ ConLeche.streamRecs q.recs out,

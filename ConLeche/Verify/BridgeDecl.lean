@@ -1172,18 +1172,6 @@ theorem checkReducePin_datF (env env2 : Env) (c : Name) (value : Expr)
     | rfl
     | (simp only [FueledM.atF_pure, FueledM.atF_throw]))
 
-/-- A pinned block's check and install at a fuel datum. -/
-theorem checkBasisBlock_datF (env : Env) (kind : BasisKind) (block : List ConstantInfo) (F : Nat) :
-    (checkBasisBlock (m := FueledM) env kind block).val F =
-      checkBasisBlock (m := CheckM) env kind block := by
-  unfold checkBasisBlock
-  by_cases h : pinListOk block kind.decls = true
-  · rw [ite_eq_left h, ite_eq_left h, foldlM_atF]
-    simp only [installBasisDecl_datF]
-  · rw [ite_eq_right h, ite_eq_right h, FueledM.atF_bind]
-    simp only [FueledM.atF_throw]
-    rfl
-
 /-- A quotient record's check and install at a fuel datum. -/
 theorem checkQuotRecord_datF (env : Env) (k : QuotKind) (cv : ConstantVal) (F : Nat) :
     (checkQuotRecord (m := FueledM) env k cv).val F =
@@ -1202,10 +1190,10 @@ theorem checkQuotRecord_datF (env : Env) (k : QuotKind) (cv : ConstantVal) (F : 
     rfl
 
 
-theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
-    (checkDecl mode (fueledOpsM mode) pins env d).val F =
-      checkDecl mode (fueledOps mode F) pins env d := by
-  unfold checkDecl
+theorem checkDeclKind_datF (env : Env) (d : Declaration) (F : Nat) :
+    (checkDeclKind (fueledOpsM mode) pins env d).val F =
+      checkDeclKind (fueledOps mode F) pins env d := by
+  unfold checkDeclKind
   cases d with
   | defnDecl cv value hint =>
     dsimp only
@@ -1256,15 +1244,43 @@ theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
   | quotDecl k cv => exact checkQuotRecord_datF env k cv F
   | indDecl block nP =>
     dsimp only
-    -- the pinned-block recognition (task #293) and the declared
-    -- parameter count (task #228) are pure guards: the two sides take
-    -- the same branch, and the guards' `throw` is fuel-free
+    -- the declared parameter count (task #228) is a pure guard: the two
+    -- sides take the same branch, and the guard's `throw` is fuel-free
     split
-    · exact checkBasisBlock_datF env _ block F
     · split
-      · split
-        · exact checkBlock_datF env block _ F
-        · exact checkShapeless_datF env block F
-      · rfl
+      · exact checkBlock_datF env block _ F
+      · exact checkShapeless_datF env block F
+    · rfl
+
+theorem checkDecl_datF (env : Env) (d : Declaration) (F : Nat) :
+    (checkDecl mode (fueledOpsM mode) pins env d).val F =
+      checkDecl mode (fueledOps mode F) pins env d := by
+  unfold checkDecl
+  rw [FueledM.atF_bind, checkDeclKind_datF]
+  congr 1
+  funext env₂
+  simp only [FueledM.atF_bind, FueledM.atF_ite, FueledM.atF_pure, FueledM.atF_throw]
+
+/-- **A declaration's check, inverted**: its own checks, then the reserved names'. -/
+theorem checkDecl_inv {ops : CheckerOps CheckM} {pins : List NatOpPinSet} {env env₂ : Env}
+    {d : Declaration} (h : checkDecl mode ops pins env d = .ok env₂) :
+    checkDeclKind ops pins env d = .ok env₂ ∧ basisNamesOk d = true := by
+  simp only [checkDecl, Bind.bind, Except.bind] at h
+  cases hk : checkDeclKind ops pins env d with
+  | error e => rw [hk] at h; exact nomatch h
+  | ok env₁ =>
+    rw [hk] at h
+    by_cases hb : basisNamesOk d = true
+    · simp only [hb, ↓reduceIte, Pure.pure, Except.pure,
+        Except.ok.injEq] at h
+      exact ⟨by rw [h], hb⟩
+    · simp [hb, throw, throwThe, MonadExceptOf.throw] at h
+
+/-- **A declaration's check from its parts**: its own checks, then the reserved names'. -/
+theorem checkDecl_of_kind {ops : CheckerOps CheckM} {env env₂ : Env} {d : Declaration}
+    (h : checkDeclKind ops pins env d = .ok env₂) (hb : basisNamesOk d = true) :
+    checkDecl mode ops pins env d = .ok env₂ := by
+  simp only [checkDecl, Bind.bind, Except.bind, h, hb]
+  rfl
 
 end ConLeche

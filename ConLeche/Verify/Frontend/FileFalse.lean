@@ -23,8 +23,8 @@ carries the state across each arbitrary part to the next template
 line as a line start; `Reach.keeps` says what those steps keep (bound
 entries, pushed records); the three line lemmas of
 `ConLeche/Verify/Frontend/FalseLines.lean` say what each template line
-scans to; `applyLine_nameFalse`, `applyLine_constFalse` and
-`applyLine_thmFalse` say what the state does with it.  The name entry
+scans to; `applyRecord_nameFalse`, `applyRecord_constFalse` and
+`applyRecord_thmFalse` say what the state does with it.  The name entry
 for the theorem's own name is not read at all: it is absorbed into the
 part before the theorem line, which may be anything.
 `parseChunks_jsonWithTheoremFalse` then puts the chunks' bytes into
@@ -42,7 +42,7 @@ namespace ConLeche.Frontend
 theorem Reach.keeps {st st' : StateD} (h : Reach st st') : Keeps st st' := by
   induction h with
   | refl => exact Keeps.refl _
-  | step r h _ ih => exact (applyLine_keeps h).trans ih
+  | step r h _ ih => exact (applyRecord_keeps (applyLine_ok h)).trans ih
 
 /-! ## The initial state -/
 
@@ -131,7 +131,8 @@ theorem parseLines_template {st st' : StateD} {n : Nat}
   · exact absurd hp (by simp)
   · exact absurd hp (by simp)
   rename_i st₂ h₂
-  have hi : st₂.names.get? i = some falseName := applyLine_nameFalse h₂ (K₁.names 0 _ h0)
+  have hi : st₂.names.get? i = some falseName :=
+    applyRecord_nameFalse (applyLine_ok h₂) (K₁.names 0 _ h0)
   -- the part between
   obtain ⟨st₃, n₃, r₃, hp⟩ := parseLines_split b₁.length b₁
     (Nat.le_refl _) st₂ st' _ _ hp
@@ -143,7 +144,7 @@ theorem parseLines_template {st st' : StateD} {n : Nat}
   · exact absurd hp (by simp)
   rename_i st₄ h₄
   have hj : st₄.exprs.get? j = some (Expr.mkConst falseName []) :=
-    applyLine_constFalse h₄ (K₃.names i _ hi)
+    applyRecord_constFalse (applyLine_ok h₄) (K₃.names i _ hi)
   -- the two parts and the theorem's name entry between, as one part
   have hshape : b₂ ++ 10 :: (lit s!"\{\"in\":{k},\"str\":\{\"pre\":0,\"str\":\"{name}\"}}" ++
       10 :: (b₃ ++ 10 ::
@@ -163,7 +164,7 @@ theorem parseLines_template {st st' : StateD} {n : Nat}
   · exact absurd hp (by simp)
   · exact absurd hp (by simp)
   rename_i st₆ h₆
-  obtain ⟨cv, vl, hty, hmem⟩ := applyLine_thmFalse h₆ (K₅.exprs j _ hj)
+  obtain ⟨cv, vl, hty, hmem⟩ := applyRecord_thmFalse (applyLine_ok h₆) (K₅.exprs j _ hj)
   -- the part after
   have K₇ := (parseLines_reach _ _ (Nat.le_refl _) _ _ _ hp).keeps
   exact ⟨cv, vl, hty, K₇.decls _ hmem⟩

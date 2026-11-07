@@ -166,7 +166,7 @@ theorem eqValT_app₃_okP (ψ : Name → Nat) (ρ : Nat → V)
 /-- **`EqLaw` from the tower.**  Any environment carrier whose `Eq`
 leaf is the tower `eqValT` satisfies the field. -/
 theorem eqLaw_of_tower {env : ConLeche.Env} (m : EnvModel V env)
-    (hE : env.find? eqName = some eqA)
+    (hE : env.find? eqName = some eqI)
     (hleaf : ∀ ψ : Name → Nat, m.acval eqName ψ = eqValT ψ) :
     EqLaw m := by
   intro ci p hf hp ψ

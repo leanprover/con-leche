@@ -1702,20 +1702,21 @@ theorem ChunkCtx.start {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {recs : Array
 
 theorem chunkDeclsGo_spec {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {recs : Array LineRec}
     {off : Nat} (hC : ChunkCtx Γ P W c recs off) {T : Tabs}
-    (hV : ViewBelow Γ P W off recs.size T) :
-    ∀ i ct acc ds, chunkDeclsGo P W recs i ct acc = some ds → ct = Γ.ctr (off + i) →
+    (hV : ViewBelow Γ P W off recs.size T) (first : Bool) :
+    ∀ i ct acc ds, chunkDeclsGo P W recs first i ct acc = some ds → ct = Γ.ctr (off + i) →
     ds = declsAlong T ct (recs.toList.drop i) acc ∧
-    ∀ q (hq : q < recs.size) d, i ≤ q → recs[q] = .decl d →
-      ∃ x, declOf (cutLk T (Γ.ctr (off + q))) d = .ok (.inl x) := by
+    (∀ q (hq : q < recs.size) d, i ≤ q → recs[q] = .decl d →
+      ∃ x, declOf (cutLk T (Γ.ctr (off + q))) d = .ok (.inl x)) ∧
+    ∀ q (hq : q < recs.size), i ≤ q → recs[q].placed (first && q == 0) = true := by
   have hsucc : ∀ i (h : i < recs.size), Γ.ctr (off + (i + 1)) = (Γ.ctr (off + i)).step recs[i] := by
     intro i h
     rw [hC.emb.ctr (by omega), hC.emb.ctr (by omega)]
     exact ctrAt_succ (Γ.ctr off) recs.toList i (by simpa using h)
   intro i ct acc
-  induction i, ct, acc using chunkDeclsGo.induct P W recs with
-  | case1 i ct acc h r hr x hx ih =>
+  induction i, ct, acc using chunkDeclsGo.induct P W recs first with
+  | case1 i ct acc h hp r hr x hx ih =>
     intro ds hds hct
-    rw [chunkDeclsGo, dite_eq_left h] at hds
+    rw [chunkDeclsGo, dite_eq_left h, ite_eq_left hp] at hds
     simp only [hr, hx] at hds
     have v1 := hV i (Nat.le_of_lt h) .n
     have v2 := hV i (Nat.le_of_lt h) .l
@@ -1727,9 +1728,9 @@ theorem chunkDeclsGo_spec {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {recs : Ar
     have hdecl : declOf (cutLk T ct) r = .ok (.inl x) := by
       rw [← hx, w1, w2, w3]; rfl
     have hct' : ct = Γ.ctr (off + (i + 1)) := by rw [hsucc i h, hr, ← hct]; rfl
-    obtain ⟨ih1, ih2⟩ := ih ds hds hct'
+    obtain ⟨ih1, ih2, ih3⟩ := ih ds hds hct'
     rw [List.drop_eq_getElem_cons (by simpa using h)]
-    refine ⟨?_, ?_⟩
+    refine ⟨?_, ?_, ?_⟩
     · rw [ih1]
       simp only [declsAlong, Array.getElem_toList, hr, lineDecl, hdecl]
       rfl
@@ -1740,20 +1741,25 @@ theorem chunkDeclsGo_spec {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {recs : Ar
         subst this
         rw [hr] at hd; cases hd
         rw [← hct]; exact ⟨x, hdecl⟩
-  | case2 i ct acc h r hr hx =>
+    · intro q hq hiq
+      rcases Nat.lt_or_ge i q with hlt | hge
+      · exact ih3 q hq hlt
+      · have : q = i := by omega
+        subst this; exact hp
+  | case2 i ct acc h hp r hr hx =>
     intro ds hds _
-    rw [chunkDeclsGo, dite_eq_left h] at hds
+    rw [chunkDeclsGo, dite_eq_left h, ite_eq_left hp] at hds
     simp only [hr] at hds
     cases hds
-  | case3 i ct acc h hr ih =>
+  | case3 i ct acc h hp hr ih =>
     intro ds hds hct
-    rw [chunkDeclsGo, dite_eq_left h] at hds
+    rw [chunkDeclsGo, dite_eq_left h, ite_eq_left hp] at hds
     split at hds
     · rename_i r hr'; exact absurd hr' (hr r)
     · have hct' : ct.step recs[i] = Γ.ctr (off + (i + 1)) := by rw [hsucc i h, hct]
-      obtain ⟨ih1, ih2⟩ := ih ds hds hct'
+      obtain ⟨ih1, ih2, ih3⟩ := ih ds hds hct'
       rw [List.drop_eq_getElem_cons (by simpa using h)]
-      refine ⟨?_, ?_⟩
+      refine ⟨?_, ?_, ?_⟩
       · rw [ih1]
         simp only [declsAlong, Array.getElem_toList]
         have : lineDecl T ct recs[i] = none := by
@@ -1766,26 +1772,46 @@ theorem chunkDeclsGo_spec {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {recs : Ar
         · exact ih2 q hq d hlt hd
         · have : q = i := by omega
           subst this; exact absurd hd (hr d)
-  | case4 i ct acc h =>
+      · intro q hq hiq
+        rcases Nat.lt_or_ge i q with hlt | hge
+        · exact ih3 q hq hlt
+        · have : q = i := by omega
+          subst this; exact hp
+  | case4 i ct acc h hp =>
+    intro ds hds _
+    rw [chunkDeclsGo, dite_eq_left h, ite_eq_right hp] at hds
+    cases hds
+  | case5 i ct acc h =>
     intro ds hds _
     rw [chunkDeclsGo, dite_eq_right h] at hds
     cases hds
     rw [List.drop_eq_nil_of_le (by simp; omega)]
-    refine ⟨rfl, fun q hq _ hiq _ => absurd hq (by omega)⟩
+    exact ⟨rfl, fun q hq _ hiq _ => absurd hq (by omega), fun q hq hiq => absurd hq (by omega)⟩
 
 /-- **A chunk's declarations**, when every declaration line's builder
-yields a record: each is the serial parse's at the line, over tables
-holding the window's view, and together they are the records the
-serial parse pushes for the chunk. -/
-theorem chunkDecls_spec {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {recs : Array LineRec}
+yields a record and every line stands where it may: each record is the
+serial parse's at the line, over tables holding the window's view, and
+together they are the records the serial parse pushes for the chunk. -/
+theorem chunkDecls_spec {Γ : WCtx} {P : Prior} {W : Win} {c : Nat} {first : Bool}
+    {recs : Array LineRec}
     {off : Nat} (hC : ChunkCtx Γ P W c recs off) {T : Tabs}
     (hV : ViewBelow Γ P W off recs.size T) {ds : Array Declaration}
-    (h : chunkDecls P W c recs = some ds) :
+    (h : chunkDecls P W c first recs = some ds) :
     (∀ q (hq : q < recs.size) d, recs[q] = .decl d →
       ∃ x, declOf (cutLk T (Γ.ctr (off + q))) d = .ok (.inl x)) ∧
-    ds = declsAlong T (Γ.ctr off) recs.toList #[] := by
-  obtain ⟨h1, h2⟩ := chunkDeclsGo_spec hC hV 0 _ _ ds h (by rw [hC.start]; rfl)
-  rw [hC.start, List.drop_zero] at h1
-  exact ⟨fun q hq d hd => h2 q hq d (Nat.zero_le _) hd, h1⟩
+    ds = declsAlong T (Γ.ctr off) recs.toList #[] ∧
+    (∀ q (hq : q < recs.size), recs[q].placed (first && q == 0) = true) ∧
+    (first = true → 0 < recs.size) := by
+  unfold chunkDecls at h
+  split at h
+  · cases h
+  · rename_i hne
+    obtain ⟨h1, h2, h3⟩ := chunkDeclsGo_spec hC hV first 0 _ _ ds h (by rw [hC.start]; rfl)
+    rw [hC.start, List.drop_zero] at h1
+    refine ⟨fun q hq d hd => h2 q hq d (Nat.zero_le _) hd, h1,
+      fun q hq => h3 q hq (Nat.zero_le _), fun hf => ?_⟩
+    subst hf
+    simp only [Bool.true_and, Array.isEmpty_iff_size_eq_zero] at hne
+    omega
 
 end ConLeche.Frontend

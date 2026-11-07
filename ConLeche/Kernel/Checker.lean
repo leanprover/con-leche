@@ -460,15 +460,6 @@ def checkReducePin (ops : CheckerOps m) (env env2 : Env) (c : Name)
   else throw (.notImplemented
     s!"unsupported compiler-trust opaque declaration ({c})")
 
-/-- **A pinned block's check and install**: the records compared with
-the pin, and each pin installed at the names its record declares.  A
-block with a pinned block's names that is not the pin is invalid input
-(a basis redefinition). -/
-def checkBasisBlock (env : Env) (kind : BasisKind) (block : List ConstantInfo) : m Env := do
-  unless pinListOk block kind.decls do
-    throw (.invalid "reserved basis name: the block is not the pinned one")
-  (kind.atBlock block).foldlM installBasisDecl env
-
 /-- **A quotient record's check and install**: compared with its slot's
 pin, the slots it needs stored, and installed at its own names.  A record
 that does not match is a quotient this checker positively does not

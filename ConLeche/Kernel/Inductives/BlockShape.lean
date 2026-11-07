@@ -392,11 +392,8 @@ def blockShape? (nPd : Nat) (block : List ConstantInfo) : Option BlockShape :=
       | none => none
       | some nIdxs =>
         let nP := nPd
-        if (cvTs.all fun c => reservedBasisNames.contains c.name == false) &&
-            (rs.all fun r => reservedBasisNames.contains r.1.name == false) &&
-            (cvTs.all fun c => c.levelParams == lps) &&
-            cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps &&
-              reservedBasisNames.contains c.1.name == false) then
+        if (cvTs.all fun c => c.levelParams == lps) &&
+            cs.all (fun c => c.2.1 == nP && c.1.levelParams == lps) then
           -- the result sort: member 0's, read off its declared type when
           -- that is a syntactic telescope ending in a sort; otherwise
           -- (task #195) a PLACEHOLDER the check's whnf loop replaces

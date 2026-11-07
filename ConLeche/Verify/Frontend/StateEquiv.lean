@@ -49,11 +49,11 @@ def ResRel : Except String (StateD ⊕ RecordVerdict) → Except String (StateD 
   | .ok (.inr v), .ok (.inr v') => v = v'
   | _, _ => False
 
-theorem applyLine_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) :
-    ResRel (applyLine a r) (applyLine b r) := by
+theorem applyRecord_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) :
+    ResRel (applyRecord a r) (applyRecord b r) := by
   cases r with
   | name i x =>
-    simp only [applyLine, parseNameEntryD, h.lk, StateD.freshName]
+    simp only [applyRecord, parseNameEntryD, h.lk, StateD.freshName]
     rw [IdTable.bound_congr h.names i]
     cases nameOf b.lk x with
     | error e => simp [bind, Except.bind, ResRel]
@@ -63,7 +63,7 @@ theorem applyLine_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) :
         exact ⟨IdTable.get?_insert_congr h.names i n, h.levels, h.exprs, h.decls⟩
       · simp [bind, Except.bind, ResRel, throw, throwThe, MonadExcept.throw, MonadExceptOf.throw]
   | level i x =>
-    simp only [applyLine, parseLevelEntryD, h.lk, StateD.freshLevel]
+    simp only [applyRecord, parseLevelEntryD, h.lk, StateD.freshLevel]
     rw [IdTable.bound_congr h.levels i]
     cases b.levels.bound i
     · cases levelOf b.lk x with
@@ -73,7 +73,7 @@ theorem applyLine_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) :
         exact ⟨h.names, IdTable.get?_insert_congr h.levels i l, h.exprs, h.decls⟩
     · simp [bind, Except.bind, ResRel, throw, throwThe, MonadExcept.throw, MonadExceptOf.throw]
   | expr i x =>
-    simp only [applyLine, parseExprEntryD, h.lk, StateD.freshExpr]
+    simp only [applyRecord, parseExprEntryD, h.lk, StateD.freshExpr]
     rw [IdTable.bound_congr h.exprs i]
     cases b.exprs.bound i
     · cases exprOf b.lk x with
@@ -83,7 +83,7 @@ theorem applyLine_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) :
         exact ⟨h.names, h.levels, IdTable.get?_insert_congr h.exprs i e, h.decls⟩
     · simp [bind, Except.bind, ResRel, throw, throwThe, MonadExcept.throw, MonadExceptOf.throw]
   | decl d =>
-    simp only [applyLine, applyDeclD, processLineCoreD, h.lk]
+    simp only [applyRecord, applyDeclD, processLineCoreD, h.lk]
     cases declOf b.lk d with
     | error e => simp [bind, Except.bind, ResRel]
     | ok y =>
@@ -94,6 +94,13 @@ theorem applyLine_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) :
       | inr v => simp [bind, Except.bind, pure, Except.pure, ResRel]
   | header => exact h
   | blank => exact h
+
+theorem applyLine_equiv {a b : StateD} (h : a.Equiv b) (r : LineRec) (n : Nat) :
+    ResRel (applyLine a r n) (applyLine b r n) := by
+  simp only [applyLine]
+  split
+  · exact applyRecord_equiv h r
+  · simp [ResRel, throw, throwThe, MonadExcept.throw, MonadExceptOf.throw]
 
 /-- Results of a chunk feed, related. -/
 def FeedRel : Except (CheckError × Nat) (StateD × Nat × USize) →
@@ -116,30 +123,30 @@ theorem feedChunk_equiv (buf : ByteArray) (i : USize) (n : Nat) :
     exact ⟨hb, rfl, rfl⟩
   | case4 st i n h r j he hj msg happ =>
     intro b hb; rw [feedChunk, feedChunk]; simp only [h, ↓reduceDIte, he, hj]
-    have := applyLine_equiv hb r; rw [happ] at this
-    revert this; cases applyLine b r with
+    have := applyLine_equiv hb r n; rw [happ] at this
+    revert this; cases applyLine b r n with
     | error e => intro h'; simp only [ResRel] at h'; subst h'; simp [happ, FeedRel]
     | ok y => cases y <;> intro h' <;> simp [ResRel] at h'
   | case5 st i n h r j he hj v happ =>
     intro b hb; rw [feedChunk, feedChunk]; simp only [h, ↓reduceDIte, he, hj]
-    have := applyLine_equiv hb r; rw [happ] at this
-    revert this; cases applyLine b r with
+    have := applyLine_equiv hb r n; rw [happ] at this
+    revert this; cases applyLine b r n with
     | error e => intro h'; simp [ResRel] at h'
     | ok y => cases y with
       | inl s => intro h'; simp [ResRel] at h'
       | inr v' => intro h'; simp only [ResRel] at h'; subst h'; simp [happ, FeedRel]
   | case6 st i n h r j he hj st' happ hij ih =>
     intro b hb; rw [feedChunk, feedChunk]; simp only [h, ↓reduceDIte, he, hj]
-    have := applyLine_equiv hb r; rw [happ] at this
-    revert this; cases applyLine b r with
+    have := applyLine_equiv hb r n; rw [happ] at this
+    revert this; cases applyLine b r n with
     | error e => intro h'; simp [ResRel] at h'
     | ok y => cases y with
       | inl s => intro h'; simp only [ResRel] at h'; simp only [happ, hij, ↓reduceDIte]; exact ih s h'
       | inr v' => intro h'; simp [ResRel] at h'
   | case7 st i n h r j he hj st' happ hij =>
     intro b hb; rw [feedChunk, feedChunk]; simp only [h, ↓reduceDIte, he, hj]
-    have := applyLine_equiv hb r; rw [happ] at this
-    revert this; cases applyLine b r with
+    have := applyLine_equiv hb r n; rw [happ] at this
+    revert this; cases applyLine b r n with
     | error e => intro h'; simp [ResRel] at h'
     | ok y => cases y with
       | inl s => intro h'; simp [happ, hij, FeedRel]
@@ -157,20 +164,20 @@ theorem applyFinalLine_equiv {a b : StateD} (h : a.Equiv b) (buf : ByteArray) (i
   cases scanLineSpec buf i with
   | err e => rfl
   | ok r j =>
-    have := applyLine_equiv h r
+    have := applyLine_equiv h r n
     simp only []
     revert this
-    cases applyLine a r with
-    | error e => cases applyLine b r with
+    cases applyLine a r n with
+    | error e => cases applyLine b r n with
       | error e' => intro h'; simp only [ResRel] at h'; subst h'; rfl
       | ok y => cases y <;> simp [ResRel]
     | ok x => cases x with
-      | inl s => cases applyLine b r with
+      | inl s => cases applyLine b r n with
         | error e' => simp [ResRel]
         | ok y => cases y with
           | inl s' => intro h'; exact h'
           | inr v => simp [ResRel]
-      | inr v => cases applyLine b r with
+      | inr v => cases applyLine b r n with
         | error e' => simp [ResRel]
         | ok y => cases y with
           | inl s' => simp [ResRel]
@@ -181,9 +188,9 @@ theorem chunkFinish_equiv {a b : StateD} (h : a.Equiv b) (carry : ByteArray) (n 
   simp only [chunkFinish]
   split
   · simp [ParseResultD.ofState, h.decls]
-  · have := applyFinalLine_equiv h carry 0 (n + 1)
+  · have := applyFinalLine_equiv h carry 0 n
     revert this
-    cases applyFinalLine a carry 0 (n + 1) <;> cases applyFinalLine b carry 0 (n + 1) <;>
+    cases applyFinalLine a carry 0 n <;> cases applyFinalLine b carry 0 n <;>
       simp only [] <;> intro h'
     · subst h'; rfl
     · exact h'.elim

@@ -105,10 +105,11 @@ private def bogusFalse (r : ParseResultD) : Bool :=
 -- reads off the tables: an entry bound once is the entry every later
 -- line reads)
 #guard
-  match parseChunks [("{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
+  match parseChunks [("{\"meta\":{}}\n" ++
+      "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"a\"}}\n" ++
       "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"b\"}}\n").toUTF8] with
   | .ok _ => false
-  | .error (.internal _, 2) => true
+  | .error (.internal _, 3) => true
   | .error _ => false
 
 end ConLecheTests

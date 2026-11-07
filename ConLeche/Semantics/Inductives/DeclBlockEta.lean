@@ -170,7 +170,7 @@ theorem checkBlockInds_fresh {mode : CheckMode} {env envI : Env} {p : BlockShape
       env.find? cv.name = none := by
     intro ms cv s hh
     obtain ⟨cvT, -, -, heq, hcv, -⟩ := ConLeche.checkBlockTele_shape hh
-    obtain ⟨hf, -, -, -, -, -, -, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hcv
+    obtain ⟨hf, -, -, -, -, -, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hcv
     rw [heq]; exact hf
   intro cv hcv
   rw [← ConLeche.checkBlockInds_teles hm h0 hcvs] at hcv

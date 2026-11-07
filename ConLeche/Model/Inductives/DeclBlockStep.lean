@@ -78,6 +78,9 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     (hAt : ∀ ms ∈ p₀.members, ConLeche.MemberAt F env p₀.nP ms)
     (hClps₀ : ∀ c ∈ p₀.allCtors, c.1.levelParams = p₀.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false)
+    -- the reserved names' check (`basisNamesOk`), at the members and the recursors
+    (hresM : ∀ ms ∈ p₀.members, ConLeche.reservedBasisNames.contains ms.cvT.name = false)
+    (hresR : ∀ rc ∈ p₀.recs, ConLeche.reservedBasisNames.contains rc.cvR.name = false)
     (hrun : ConLeche.Semantics.DeclBlockRun F env block p₀ env₂) (hcov : LfpCover mp [])
     (hRan : FamilyRan mp) (hNat : NatFacts env)
     (htb : ∀ T, (env.find? T).isSome = true → env₂.findTable? T = env.findTable? T) :
@@ -94,7 +97,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
   have hClps : ∀ c ∈ p₁.allCtors, c.1.levelParams = p₁.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false := by rw [hq]; exact hClps₀
   -- ## the formers' and the constructors' run, read positionally
-  obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of mp hInd hlps₀ hAt
+  obtain ⟨ppsOf₀, sOf₀, hF⟩ := blockFormerFacts_of mp hInd hlps₀ hAt hresM
   have hCR := blockCtorRuns_of (q := p₁) hCtors
   have hfreshCA : ∀ ctorList ∈ p₁.memberCtors, ∀ c ∈ ctorList, env₁.find? c.1.name = none :=
     ConLeche.checkBlockCtors_fresh hCtors
@@ -128,7 +131,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       obtain ⟨cv, hcv, -, rfl⟩ := hnewI₀all c hc
       exact hndDcl cv hcv) hf
   obtain ⟨pk, uOf, ppsOf, mpI, hN, hS, hcore, hEtaI, hfreshC, hnfs, hagI⟩ :=
-    blockTablesStage_of mp hE hlps₀ hAt hndM (by rw [hq]; exact hbool₀) hndC hClps hInd hCtors hsorts
+    blockTablesStage_of mp hE hlps₀ hAt hndM (by rw [hq]; exact hbool₀) hndC hClps hresM hInd hCtors hsorts
       (posKs := (kinds, nfs, nodes)) hPos hcov hRan hxI
   have hlenMemberCtors : p₁.memberCtors.length = p₁.k := hlenMemberCtors₀
   have hnames := hnames₀
@@ -771,6 +774,7 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
       ⟨hPos, rfl, hnames, hndM, hN, hS.toBlockCtorsStage, hcoreC,
         fun c hc => hmemberCtors c hc, ⟨pk, uOf, ppsOf, rfl⟩,
         EnvModelM.mem_addLfp mpC₀ _ hLC hstC hrdC hcrC hcapsC, hcovMpC, hmkI, hover, hR, hheads⟩
+      (by rw [show p₁.recs = p₀.recs by rw [hq]; rfl]; exact hresR)
   -- ## the STORED recursors (task #431): the generated install's stage
   -- carried to the install of the records' types and right-hand sides
   have hRec' : ConLeche.genRecCheck (ConLeche.ShadowOps.fueled .verified F)
@@ -796,10 +800,21 @@ theorem declBlockAt {F : Nat} {env env₂ : Env}
     | member => intro h; exact nomatch h
     | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc => exact fun _ => ⟨hdsLen, hdsSc⟩
   have hwfS := ConLeche.Cached.streamRecs_recsWF mpC.base2.wf hRec' hpl hMs₀ hSt
+  -- the generated recursors are named as the block's
+  have hresB : ∀ g ∈ outR, ConLeche.reservedBasisNames.contains g.1.name = false := by
+    intro g hg
+    obtain ⟨i, hi⟩ := List.getElem?_of_mem hg
+    obtain ⟨hlenO, hcvO⟩ := ConLeche.Cached.genRecCheck_outCv hRec'
+    have hil : i < p₁.recs.length := by
+      have := (List.getElem?_eq_some_iff.mp hi).1; omega
+    have hrc : p₁.recs[i]? = some p₁.recs[i] := List.getElem?_eq_getElem hil
+    rw [hcvO i _ g hrc hi]
+    have hrecs : p₁.recs = p₀.recs := by rw [hq]; rfl
+    exact hresR _ (hrecs ▸ List.getElem_mem hil)
   obtain ⟨mpR₀, hag, hfindMono, hden⟩ :=
     blockRecStagedAt_stored hG (ConLeche.Cached.genRecCheck_outCv hRec').1
       (ConLeche.genRecCheck_out_fresh hRec') (ConLeche.Cached.genRecCheck_out_unreserved hRec')
-      hSt hwfS
+      hresB hSt hwfS
   have hcoreT :=
     (blockTablesCore_of hN hcoreC).consRecs hag hfindMono hden
   -- ## coverage across the recursors' conses: only recursors

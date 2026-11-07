@@ -227,7 +227,7 @@ theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : Consta
     hall j ((q.members.getD m default).ctors[j]) ctor (List.getElem?_eq_getElem hjl) hj
   have hCtor₀ := hCtor
   obtain ⟨⟨heq, hccvC⟩, ⟨cbs, es, hstrip, -⟩, -⟩ := hCtor₀
-  obtain ⟨hfindC, -, -, -, hfvC, stype, -, -, htrC, hstC, -⟩ :=
+  obtain ⟨hfindC, -, -, hfvC, stype, -, -, htrC, hstC, -⟩ :=
     ConLeche.checkConstantVal_inv hccvC
   have hmem : (q.members.getD m default).ctors[j] ∈ (q.members.getD m default).ctors :=
     List.getElem_mem hjl
@@ -450,6 +450,8 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
     (hndC : (q.allCtors.map (·.1.name)).Nodup)
     (hClps : ∀ c ∈ q.allCtors, c.1.levelParams = q.lps ∧
       ConLeche.reservedBasisNames.contains c.1.name = false)
+    -- the reserved names' check (`basisNamesOk`), at the members
+    (hresM : ∀ ms ∈ p₀.members, ConLeche.reservedBasisNames.contains ms.cvT.name = false)
     (hInd : ConLeche.checkBlockInds (m := ConLeche.CheckM) (ConLeche.fueledOps .verified F) env p₀ isRec
       = .ok (envI, q))
     (hCtors : ConLeche.BlockCtorsRun .verified F envI envI q
@@ -491,7 +493,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
   have hlenNI : q.nIdxs.length = q.memberNames.length := by
     show (q.members.map _).length = _; rw [hlenN]; simp
   -- the formers' data
-  obtain ⟨ppsOf, sOf, hF⟩ := blockFormerFacts_of mp hInd hlps₀ hAt
+  obtain ⟨ppsOf, sOf, hF⟩ := blockFormerFacts_of mp hInd hlps₀ hAt hresM
   -- the η side conditions of the two passes
   have hdclOf := hF.dclAt
   have hofDcl := hF.ofDcl
@@ -839,7 +841,10 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       exact hn cvTb hb
   have hWI : ConLeche.WhnfNamesFree envI q.memberNames := by
     refine ConLeche.whnfNamesFree_formers mp.base2.wf hnamesIff hfindMI hfreshI hII
-      (by rw [hcons]; exact consBlockInds_tables _ 0 env) hboolM fun n c hc => ?_
+      (by rw [hcons]; exact consBlockInds_tables _ 0 env) hboolM (fun n c hc => ?_)
+      mp.base2.basis_pinned.natKinds (fun n hn => by
+        obtain ⟨ms, hms, rfl⟩ := List.mem_map.mp hn
+        exact hresM ms (by rw [← hqm]; exact hms))
     by_cases hn : ∀ cvTb ∈ q.formers, cvTb.name ≠ n
     · rw [hII n hn] at hc
       exact mp.base2.wf.shapes c (ConLeche.Env.find?_mem hc)
@@ -1333,6 +1338,7 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
         out := ?_
         lpsT := fun m cvTa hm hcv => hF.lpsOf m cvTa hcv
         lpsA := ?_
+        resA := ?_
         ndBlock := ?_
         paramsOf := fun m hm ψ ρp hρ c hc => hρpOf ψ ρp m hm hρ c hc
         lenPps := ?_
@@ -1359,6 +1365,14 @@ theorem blockTablesStage_of {F : Nat} {env envI : Env}
       obtain ⟨cvTa, hcv⟩ := hcvOf m hm
       obtain ⟨-, -, -, -, -, hlps, -⟩ := (hfacts m cvTa hm hcv).2 j ctor hj
       exact hlps
+    · -- resA
+      intro m hm ctor hctor
+      have hn : ctor.1.name ∈ (q.members.getD m default).ctors.map (·.1.name) := by
+        rw [← hnamesEq m hm]
+        exact List.mem_map.mpr ⟨ctor, hctor, rfl⟩
+      obtain ⟨c, hc, he⟩ := List.mem_map.mp hn
+      rw [← he]
+      exact (hClps c (hmemCtors m hm c hc)).2
     · -- ndBlock
       intro m hm c hcm j cB hj hmem
       have hck : c < q.k := hctorLt c j cB hj

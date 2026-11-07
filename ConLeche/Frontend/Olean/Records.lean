@@ -91,7 +91,7 @@ structure OleanRead where
 /-- **What a theorem's record mentions**, which its reference does not say: what the load
 read off the file.  `none` for any other record, whose own expressions say it. -/
 def OleanRead.thmUses (rd : OleanRead) : Declaration → Option (Array Name)
-  | .thmDecl cv _ => rd.merged.map[cv.name]?.map (·.uses)
+  | .thmDecl cv _ => rd.merged.map[cv.name]?.map (·.uses.toArray)
   | _ => none
 
 /-- **The whole read**: load, merge, emit, build.  `constants` names the constants to

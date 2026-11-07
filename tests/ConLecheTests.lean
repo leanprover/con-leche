@@ -202,6 +202,7 @@ merits, not silently dropped (the pinned basis install never consults
 it). -/
 
 private def basisModelExport : String := String.intercalate "\n" [
+  "{\"meta\":{}}",
   "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"Eq\"}}",
   "{\"in\":2,\"str\":{\"pre\":1,\"str\":\"_model\"}}",
   "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"Empty\"}}",
@@ -253,6 +254,7 @@ installs nothing), `theorem usesAx : ∀ (p : Prop), p := sorryAx` (a
 use: declines), `theorem usesUse : ∀ (p : Prop), p := usesAx` (a
 transitive use), `def after : Type := Prop`. -/
 private def sorryAxExport : String := String.intercalate "\n" [
+  "{\"meta\":{}}",
   "{\"in\":1,\"str\":{\"pre\":0,\"str\":\"sorryAx\"}}",
   "{\"in\":2,\"str\":{\"pre\":0,\"str\":\"p\"}}",
   "{\"in\":3,\"str\":{\"pre\":0,\"str\":\"usesAx\"}}",

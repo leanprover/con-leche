@@ -225,18 +225,28 @@ theorem parseChunks_go :
     · rename_i he
       rw [bytes_of_isEmpty he, parseLines, naiveLine_nil]
       rfl
-    · have hcs : carry.size < USize.size := by
+    · rename_i hce
+      have hcs : carry.size < USize.size := by
         simp only [concatBytes, ByteArray.size_empty] at hsz; omega
       have hi : (0 : USize).toNat ≤ (bytes carry).length := by simp
+      have hne : (bytes carry).isEmpty = false := by
+        cases hb : bytes carry with
+        | cons => rfl
+        | nil =>
+          exfalso; apply hce
+          have := congrArg List.length hb
+          rw [length_bytes, toNat_usize, Nat.mod_eq_of_lt hcs] at this
+          simp only [ByteArray.isEmpty, this, List.length_nil, beq_self_eq_true]
       rw [← tailAt_zero]
+      rw [← tailAt_zero] at hne
       rcases scanLineSpec_cases carry 0 hi with ⟨t, rest, hnv, hs⟩ | ⟨r, rest, hnv, hs⟩ |
         ⟨r, rest, hnv, hs, _⟩
       · rw [parseLines, hnv]
         simp only [applyFinalLine, hs, posAt, USize.toNat_zero, Nat.zero_add, Nat.sub_zero]
         rfl
       · rw [parseLines, hnv]
-        simp only [applyFinalLine, hs]
-        cases applyLine st r with
+        simp only [applyFinalLine, hs, hne, Bool.false_eq_true, ↓reduceIte]
+        cases applyLine st r lineNo with
         | error msg => rfl
         | ok v => cases v <;> rfl
       · exfalso

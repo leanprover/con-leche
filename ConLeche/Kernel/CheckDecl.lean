@@ -24,8 +24,8 @@ variable {m : Type -> Type} [Monad m] [MonadExceptOf CheckError m]
 variable (mode : CheckMode)
 
 /-- **An inductive block the recogniser does not read** (`blockShape? =
-none`): its type formers are checked as constants — a reserved name, a
-duplicate, a malformed type are official's rejects and stay rejects —
+none`): its type formers are checked as constants — a duplicate, a
+malformed type are official's rejects and stay rejects —
 and what survives that is a POSITIVE decline, since the installer
 takes every block it recognises and there is no other route.  It never
 returns an environment. -/
@@ -37,10 +37,9 @@ def checkShapeless (ops : CheckerOps m) (env : Env) (block : List ConstantInfo) 
   throw (.notImplemented s!"inductive block \
     {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
 
-/-- Check a single declaration, extending the environment on success.
-The mode is part of the signature although no arm reads it; every
-caller and every statement passes it. -/
-def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
+/-- **A declaration's own checks**, by its kind, extending the environment on success.  A block
+under a pinned basis block's names takes the same route as every other block. -/
+def checkDeclKind (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
     (d : Declaration) : m Env := do
   match d with
   | .defnDecl cv value hint => do
@@ -156,12 +155,6 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
       else
         throw (.notImplemented (nonStdAxiomMsg cv.name))
   | .indDecl block nP =>
-    -- **THE PINNED BASIS BLOCKS**: a stream's `Nat` block arrives as an
-    -- ordinary `indDecl` (the decoder emits the file's records and nothing
-    -- else); its members' names say it is the pinned block's record.
-    match basisNameHit block with
-    | some kind => checkBasisBlock env kind block
-    | none =>
     -- TASK #228 — THE DECLARED PARAMETER COUNT, first.  Official reads
     -- `nparams` off the declaration and checks
     -- the block against it (`check_inductive_types`' telescope loop,
@@ -183,6 +176,16 @@ def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet)
       | none => checkShapeless ops env block
     else throw (.invalid "number of parameters mismatch")
   | .quotDecl k cv => checkQuotRecord env k cv
+
+/-- **Check a single declaration**: its own checks, then the reserved names' (`basisNamesOk`),
+which justify the model's fixed meanings of the basis names.  The mode is part of the signature
+although nothing reads it; every caller and every statement passes it. -/
+def checkDecl (_mode : CheckMode) (ops : CheckerOps m) (pins : List NatOpPinSet) (env : Env)
+    (d : Declaration) : m Env := do
+  let env₂ ← checkDeclKind ops pins env d
+  unless basisNamesOk d do
+    throw (basisNamesError d)
+  pure env₂
 
 /-- Check a list of declarations in order, starting from the empty
 environment. -/

@@ -82,7 +82,7 @@ theorem axiomTrustCompiler
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
   have hcv' := hcv
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     -⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
@@ -123,7 +123,7 @@ theorem axiomTrustCompiler
     exact hA.2
   have hnameTi : ciTi.name = ConLeche.trueIntroName := Env.find?_name hfTi
   -- the leaf: the stored `True.intro`'s leaf valuation
-  refine harvestAxiom (V := V) mp hopn hcv
+  refine harvestAxiom (V := V) mp hopn hcv (by rw [hname]; decide)
     (A := fun ψ => mp.base2.acval ConLeche.trueIntroName ψ)
     (fun ψ => mp.base2.cval_closed _ ψ) ?_ ?_ ?_
     -- `trustCompiler` is not a compiler-trust *operation*: the pin
@@ -164,7 +164,7 @@ theorem axiomStd
     CoverStep mp
       ⟨.axiomInfo ⟨cv.name, cv.levelParams, type'⟩ :: env.consts, env.tables⟩ := by
   have hcv' := hcv
-  obtain ⟨hfind, hnres, hnd, hlbt, hitf, hann, htp, htr,
+  obtain ⟨hfind, hnd, hlbt, hitf, hann, htp, htr,
     -, hcvShape⟩ := hcv'
   obtain ⟨htf', hbt'⟩ := stored_syntax hann hitf hlbt
   have hfresh : env.find? cv.name = none :=
@@ -176,7 +176,7 @@ theorem axiomStd
     · intro cv2 value2 hint2 heq; exact nomatch heq
     · intro cv2 mI rP isK rules heq; exact nomatch heq
   by_cases hn : cv.name = propextName
-  · refine harvestAxiom (V := V) mp hopn hcv
+  · refine harvestAxiom (V := V) mp hopn hcv (by rw [hn]; decide)
       (A := fun _ => .const .propext []) (fun _ => trivial)
       (fun _ _ _ => rfl) (fun _ _ => by simp)
       ?_ (by rw [hn]; decide)
@@ -194,7 +194,7 @@ theorem axiomStd
         refine hp uN ?_
         rw [hlpA, show choiceA.levelParams = [uN] from rfl]
         exact List.Mem.head _
-      refine harvestAxiom (V := V) mp hopn hcv
+      refine harvestAxiom (V := V) mp hopn hcv (by rw [hn2]; decide)
         (A := fun ψ => .const .choice [ψ uN])
         (fun _ => trivial)
         (fun ψ₁ ψ₂ hp => by

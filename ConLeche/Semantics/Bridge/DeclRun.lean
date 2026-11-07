@@ -3,6 +3,7 @@ module
 public import ConLeche.Semantics.DeclRun
 public import ConLeche.Kernel.CheckDecl
 import ConLeche.Semantics.Bridge.Decl
+import ConLeche.Verify.BridgeDecl
 import ConLeche.Verify.ReducePinInv
 import ConLeche.Verify.DivModInv
 
@@ -22,8 +23,9 @@ path.  `DeclRun`'s family is valuation-free outright, since
 parameter, supplied at the call site (`checkDeclRun_ofEnvFactsK`,
 `Bridge/Sound.lean`).
 
-**A pinned block and a quotient record are `DeclBasisRun` and `DeclQuotRun`
-verbatim** (`Bridge/Decl.lean`): their records are guards-only.
+**A quotient record is `DeclQuotRun` verbatim** (`Bridge/Decl.lean`): its record is
+guards-only.  The reserved names' check (`basisNamesOk`) is `DeclRun`'s own conjunct, read off
+`checkDecl` beside the declaration's own checks (`checkDecl_inv`).
 -/
 
 namespace ConLeche.Semantics
@@ -42,10 +44,10 @@ theorem constantValRun_of {env : Env} {F : Nat}
     (h : checkConstantVal (fueledOps .verified F) env cv a = .ok ()) :
     cv.type.hasFvar = false ∧ cv.type.looseBVarsBounded 0 = true ∧
       ConstantValRun F env cv cv.type := by
-  obtain ⟨hfind, hres, hnd, hlbt, hitf, stype, u, htp,
+  obtain ⟨hfind, hnd, hlbt, hitf, stype, u, htp,
     htr, hst, hsort⟩ := checkConstantVal_inv h
   exact ⟨hitf, hlbt,
-    Option.isNone_iff_eq_none.mpr hfind, hres, hnd, hlbt, hitf,
+    Option.isNone_iff_eq_none.mpr hfind, hnd, hlbt, hitf,
     rfl, htp, htr, ⟨stype, u, hst, hsort⟩, checkConstantVal_litShapeAt h⟩
 
 /-- **The value front door, run half.**  The premises *are*
@@ -100,10 +102,10 @@ record. -/
 /-- **`thmDecl`, run half.** -/
 theorem declThmRun_of {env env₂ : Env} {F : Nat}
     {cv : ConstantVal} {value : Expr}
-    (h : checkDecl .verified (fueledOps .verified F) pins env (.thmDecl cv value)
+    (h : checkDeclKind (fueledOps .verified F) pins env (.thmDecl cv value)
       = .ok env₂) :
     DeclThmRun F env cv value env₂ := by
-  simp only [checkDecl, checkThmVal, fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
+  simp only [checkDeclKind, checkThmVal, fueledOps_inferType, fueledOps_isDefEq, fueledOps_ensureSort,
     Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps .verified F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
@@ -165,15 +167,15 @@ theorem declThmRun_of {env env₂ : Env} {F : Nat}
 past the front door here. -/
 theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
     {cv : ConstantVal}
-    (h : checkDecl .verified (fueledOps .verified F) pins env (.axiomDecl cv) = .ok env₂) :
+    (h : checkDeclKind (fueledOps .verified F) pins env (.axiomDecl cv) = .ok env₂) :
     DeclAxiomRun F env cv env₂ := by
-  simp only [checkDecl, Bind.bind, Except.bind] at h
+  simp only [checkDeclKind, Bind.bind, Except.bind] at h
   -- **`Quot.sound`**: compared with the pin before the common checks.
   by_cases hqs : cv.name = quotSoundName
   · rw [ite_eq_left hqs] at h
     exact Or.inl ⟨hqs, declQuotRunOf h⟩
   rw [ite_eq_right hqs] at h
-  refine Or.inr ?_
+  refine Or.inr ⟨hqs, ?_⟩
   cases hccv : checkConstantVal (fueledOps .verified F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
@@ -226,10 +228,10 @@ theorem declAxiomRun_of {env env₂ : Env} {F : Nat}
 inversion in place of the pin bridge. -/
 theorem declOpaqueRun_of {env env₂ : Env} {F : Nat}
     {cv : ConstantVal} {value : Expr}
-    (h : checkDecl .verified (fueledOps .verified F) pins env (.opaqueDecl cv value)
+    (h : checkDeclKind (fueledOps .verified F) pins env (.opaqueDecl cv value)
       = .ok env₂) :
     DeclOpaqueRun F env cv value env₂ := by
-  simp only [checkDecl, checkOpaqueVal, fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
+  simp only [checkDeclKind, checkOpaqueVal, fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps .verified F) env cv with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
@@ -297,10 +299,10 @@ pin bridges.  The `key` block — the dispatch on the two pin guards — is
 pure control flow and names nothing semantic. -/
 theorem declDefnRun_of {env env₂ : Env} {F : Nat}
     {cv : ConstantVal} {value : Expr} {hint : ReducibilityHint}
-    (h : checkDecl .verified (fueledOps .verified F) pins env (.defnDecl cv value hint)
+    (h : checkDeclKind (fueledOps .verified F) pins env (.defnDecl cv value hint)
       = .ok env₂) :
     DeclDefnRun F env cv value hint env₂ := by
-  simp only [checkDecl, checkDefnVal, fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
+  simp only [checkDeclKind, checkDefnVal, fueledOps_inferType, fueledOps_isDefEq, Bind.bind, Except.bind] at h
   cases hccv : checkConstantVal (fueledOps .verified F) env cv true with
   | error e => rw [hccv] at h; exact nomatch h
   | ok _ =>
@@ -439,30 +441,19 @@ through `Ind`. -/
 theorem checkDeclRun_of {F : Nat}
     {Ind : List ConstantInfo → Nat → Env → Prop} {env env₂ : Env}
     (hind : ∀ {block : List ConstantInfo} {nP : Nat},
-      basisNameHit block = none →
-      checkDecl .verified (fueledOps .verified F) pins env (.indDecl block nP) = .ok env₂ →
+      checkDeclKind (fueledOps .verified F) pins env (.indDecl block nP) = .ok env₂ →
       Ind block nP env₂)
     {d : Declaration}
     (h : checkDecl .verified (fueledOps .verified F) pins env d = .ok env₂) :
     DeclRun F Ind env d env₂ := by
+  obtain ⟨h, hnames⟩ := checkDecl_inv h
+  refine ⟨hnames, ?_⟩
   cases d with
   | defnDecl cv value hint => exact declDefnRun_of h
   | thmDecl cv value => exact declThmRun_of h
   | opaqueDecl cv value => exact declOpaqueRun_of h
   | axiomDecl cv => exact declAxiomRun_of h
   | quotDecl k cv => exact declQuotRunOf h
-  | indDecl block nP =>
-    -- a block with a pinned block's names is that block's; everything
-    -- else is the caller's `Ind`
-    show (match basisNameHit block with
-      | some kind => DeclBasisRun env kind block env₂
-      | none => Ind block nP env₂)
-    have h' := h
-    simp only [checkDecl] at h'
-    cases hpin : basisNameHit block with
-    | some kind =>
-      rw [hpin] at h'
-      exact declBasisRunOf h'
-    | none => exact hind hpin h
+  | indDecl block nP => exact hind h
 
 end ConLeche.Semantics
