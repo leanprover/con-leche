@@ -291,6 +291,18 @@ info: 'ConLeche.Driver.reachGo_closed' depends on axioms: [propext, Classical.ch
 #print axioms ConLeche.Driver.reachGo_closed
 
 /--
+info: 'ConLeche.Driver.reachGo_roots' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.reachGo_roots
+
+/--
+info: 'ConLeche.Driver.worker_ground' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms ConLeche.Driver.worker_ground
+
+/--
 info: 'ConLeche.Driver.ctx_envWF' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in
