@@ -111512,3 +111512,86 @@ the quotient pins at the record's names.
 
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane P3b: `EnvBodiesI` from the relation, the quotient group, the inductive group's assembly (2026-11-07)
+
+Three new files, no `sorry`, no new axiom; 16 theorems pinned in
+`AxiomPins.lean` (`quotGroupPres`, `ssimI_of_pres` and
+`emvarS_instantiateLevelParams` carry the stop-gap `mkData` axioms, the rest
+the standard three).  No executable code changed; no existing proof file
+changed beyond the root's and `AxiomPins.lean`'s imports and pins.
+
+**`EnvBodiesPres.lean`.**  `envProjI_of`, `envBodiesI_of` (`EnvBodiesI` from
+`EnvPresI`, `EnvWF` and `ProjBodiesInRange`) and `ssimI_of_pres` (the knot at
+every fuel from those and `ProjGuardSpecI`).  `envWF_of_modelOk`: `EnvWF L`
+from the theorem's own premise `EnvModelOk V L` (its carrier's base model);
+so `EnvWF` needs no preservation argument of its own: at the extended
+environment it comes from `EnvModelOk V L'`, `AddDeclSound`'s conclusion
+(master's fold, `foldPM`).
+
+**`QuotPres.lean`: `quotGroupPres : QuotGroupPres`.**  `checkQuotC_ok` reads
+the accepted run (the four names fresh, the four pinned constants added);
+every term is then closed, so each constant's record, con-leche's `quotAt`
+and `EntryRelI` are evaluated (`decide`; `rangeB`/`lvFitsB` stand for
+`Expr.RangeOk`/`LvFits`).  The eliminators' rule is InLean's level
+instantiation of the pin's, read through `toExpr_instantiateLevelParams`
+once it writes no `rangePoison`: `emvarS_instantiateLevelParams` (a term in
+range whose levels fit the substituted ones' depth).  The constants are
+pushed one by one (`presI_one`); `markQuot` changes no lookup
+(`presI_congr`: the relation reads only `find?`; core's private
+`markQuotInit` read through `import all Lean.Environment`/`InLean.Push`).
+
+**`IndPres.lean`.**  `presI_group` (fresh, distinct constants added by
+`foldl addConst`, from the group's own names; `find_foldl_addConst`),
+`IndGroupPresB` with `indGroupPresB_of : BlockPresObl → IndGroupPresB`
+(what remains, stated: the installed names, entries, tables), and
+`toCaps_capsOf` (`capsOf` is `blockCapsAt` given the member's data as
+`genEntriesAgree` checks it, read through the two shapes' agreement).
+
+**Findings.**
+1. *`IndGroupPres` is false as stated*: its premises constrain `consts`
+   only through `storedBlock consts`, its conclusion adds all of `consts`.
+   A fresh, in-range axiom `foo` added to `consts` passes every premise and
+   InLean then finds `foo` where con-leche has nothing.  `IndGroupPresB`
+   adds `∀ ci ∈ consts, ci ∈ storedBlock consts` (the generator's output
+   has only block constants; P4 must establish it of `Ind.genInductive`,
+   or `checkInductiveC` checks it).
+2. *Projection bodies out of range.*  `projBodyAt` instantiates a
+   parameter by `bvar (nP - k)`, which `EO.liftLooseBVars` lifts unchecked;
+   a reference to parameter `k` at depth `j` of field 0's domain has index
+   `j + 1` in the body against `j` in the constructor type.  A constructor
+   type in range (`constInRange`, indices up to `maxBVarIdx`) can thus
+   yield a body with index `maxBVarIdx + 1`, past C's bound.  Then
+   `ProjEntryRel`'s `StoredT` is false (`EnvProjI` is not implied by
+   `EnvPresI`: hence `ProjBodiesInRange`), and `TableRelI`'s reading of the
+   body is not provable either (instantiation is read only in range).  Not
+   reachable by real input (a binder nest a million deep), but a gap.
+   Proposed fix (executable, outside this lane): the block check rejects
+   (declines) a structure whose projection bodies are not `EO.inRange`
+   (InLean's `structProjBodies`, read by the table check); then
+   `ProjBodiesInRange` is preserved by the inductive step and holds of
+   every environment the theorem reaches.
+3. *`Quot.sound`*: `presI_axiom` excludes it and `QuotGroupPres` does not add
+   it (official declares it as an axiom after `quotDecl`).  Its step needs
+   `checkAxiomC`'s `quotSoundPin.matches` read as con-leche's `quotAt .sound`
+   at the record's names: `Expr.clEq` and `canonAt` against the
+   translation.  Not done.
+
+**What remains of O4** (all named):
+* `BlockPresObl`, for the recognised (non-pinned) branch: InLean's
+  `blockShape?` against con-leche's on the translated block (split, member
+  counts through `recTargetOf`/`blockCounts?`, groups through
+  `ctorMember?`, the large-eliminator test, `blockIsRec`); then the
+  former entries by `toCaps_capsOf`, the constructor and recursor entries
+  (`recFireAt` against `recFire`: both read the major's domain at the
+  record's `mI`; the head's membership in `rv.all` against `tgt < k`), the
+  tables (`projBodyAt` against `structProjBodies`, needs instantiation at
+  `bvar` values read through the translation, and finding 2).  For the
+  pinned branch (`checkBasisBlockC`): `pinListOk` against the generated
+  entries, as for `Quot.sound`.  The shapeless branch throws.
+* `ProjBodiesInRange` (finding 2) and `Quot.sound` (finding 3).
+* `ProjGuardSpecI`, after task #492.
+
+Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
+`tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh`
+pass.
