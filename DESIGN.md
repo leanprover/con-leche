@@ -112278,3 +112278,81 @@ No small fixture: the toolchain's two homes are the class (the homes of `Nat.div
 The homes' increase is their checks running (Bitwise's certificates are its cost); elsewhere noise.
 No non-accept remains on Mathlib's closure.  (The brief's "CompleteFlag" module is not in the
 v4.35.0 checkout; `MulP` stands in.)
+
+### #443: the value kit, and the frame relation restricted to keys that fit (#443 cont. 4, 2026-11-07)
+
+**Merged.**  `modular` (#446) into the lane (`7cb7cda92`); the only conflict was DESIGN.md (both
+sides appended records; both kept, the lane's first).
+
+**Proved (on the lane, not landed; the old clauses stay until the consumers have moved; the
+first moved is `keyFit_of_wd`, which now reads the member's membership in its stored type's value).**  Staged so that every commit builds: the semantic facts are first derived
+from today's clauses, the consumers move onto them one at a time, then the clauses are swapped.
+* `LfpReadsV` (`Model/Env/EnvModelM.lean`), the datum's telescope clause by value and run-free:
+  each member's stored type reads as a type of the value of `mkPisAV (pars ++ ids) (.sort w)`,
+  that tower graded; a member whose former shows its telescope reads as a Π-tower of the family's
+  length over a sort.  `EnvModelM.lfpReadsV` (`CanonCrest.lean`) derives it from today's
+  `LfpReads`/`LfpTelescope`; at the swap it becomes the clause (and `lfpW_congr` a clause of its own).
+* `FormerRead` and **`familyRead`** (`Model/Inductives/FamilyRun.lean`): for EVERY member, flat or
+  definition-headed, a successful `familyTelescope` run's result is closed, `ConstsBound`, and at
+  every level assignment a graded Π-tower over a sort of the block's telescope's length and value.
+  A theorem from `LfpReadsV` and `familyTelescope_read` (`RulesInputs.ofSem` at every assignment:
+  the Cont*/Gen* modules may import `Capstone`), replacing the hypothesis `FamilyRead`.
+* `ContN2.lean`: `instTele_read` (any closed telescope instantiated at a key, read;
+  `instFormer_readB` is now its corollary); **`runHoleTy_read`** (a member's hole type at a key, by
+  its run: where the key's parameters fit the run's parameter binders AND the block's, the run's
+  rest has the block's index tower's value at the key frame, `mkPisAV_tail_eq`); **`n2_tower`** (N2
+  by value: under the same fits at two valuations agreeing off the holes, the block's index tower
+  has one value at both key frames); `holeFam_of_mkPisAV_eq`, `idxSet_of_mkPisAV_eq` (a hole value
+  and an index set are fixed by the tower's value: along a fit the domains and fibres agree, off
+  every fit both are the point / empty), `TeleEq.tower`, `interp_substTele_key`.  These replace
+  `TeleEq` of the block's ids, which the value does not give (domains differ off strict stages).
+* `TowerKit.lean`: `spineFit_of_mkPisAV_eq`, `spineFit_iff_of_mkPisAV_eq`, `mkPisAV_tail_eq` now
+  compare two towers each at its own valuation; `mkPisAV_cons_eq` (one first domain and one
+  fibre over it, along a fit).
+* `HoleRel.restrict`, `HoleRelA.restrict`: a hole relation restricted to pairs whose frames pass a
+  test is one (every field is per pair; `lrefl`/`symm` keep the test).
+
+**A step the plan missed: the frame relation must be restricted to keys that fit the block.**
+The plan (cont., cont. 3) assumed a frame's key satisfies the block's parameter telescope
+(`Sat (D.params ψ) (keyFrame dsa hi ρ)`).  Today `keyParamsFit` derives it from the head's key
+certificates, which are against the run's telescope, Term-equal to the datum's through
+`FamilyRead`.  By value the key fits the block's parameters only where it extends to a full fit
+(e.g. run `(p : Bool) → Empty → Type`, datum `(p : Nat) → Empty → Type`: one value, `unitSet`; the
+key `true` fits only the run).  What reads it: `frameIter`/`frameIterAcc`'s `hfit` (the clause's
+carrier facts, `frameVals_sat`, `carrier_le_on_group'`) and `frameRel_holeRel`'s `dom` (the hole
+values in the run's hole types, through `runHoleTy_read`).  What does NOT read it: the crest's
+typing (`crest_frameT`: its grading is `gradedTy_of_sort` from the kernel's inference, and the
+hole types' grading needs only the key against each member's own run, which (g) checks).  Every
+use of a frame's claims is at a graded instance `C.{us} (ds ++ is)`, where `keyLeaf` gives the
+key's full fit of the block's telescope.  So, along ruling (e): **the frame relation pairs only
+valuations whose key frames fit the block** — `frameRel` over `R₀` restricted
+(`HoleRel.restrict`) to `KeyFit ρ := Sat (D.params ψ).reverse (keyFrame dsa hi ρ) ∧ ∃ is, SpineFit
+(keyFrame dsa hi ρ) (D.ids head ψ) is`; `frameIter`'s, `FrameJ`/`FrameAccJ`'s and `KeyAcc`'s
+conclusions hold at such pairs; `hkey` keeps only the readings' grading and each member's run fit;
+the level link becomes `n2_sort` at a fit (`spineFit_of_mkPisAV_eq`'s sort), so `hwD` is
+`∀ ρ, KeyFit ρ → D.w ψ = w`, used only at related pairs.  The consumers that supply the fits:
+`contNew_*` and the cache-hit sites (`keyLeaf` at a graded instance, both sides of the relation).
+
+**The rest of the plan, in order** (unchanged otherwise):
+1. The container walk: `GrpWf`/`GrpTy` carry a run's result with `FormerRead` instead of
+   `formerAt`; `grp_typeT`/`grp_typeT_wd`/`grpVals_fit`/`frameVals_sat`/`grp_idx_eq`/
+   `frameRel_holeRel` by `runHoleTy_read`, `n2_tower`, `idxSet_of_mkPisAV_eq`,
+   `holeFam_of_mkPisAV_eq`; `keyParamsFit` gives the run's parameter fit only; `keyFit_of_wd` from
+   `LfpReadsV` (membership in the stored type's value); the restricted frame relation above through
+   `ContWalk`, `PosDerivMono`, `ContAccFrame`, `ContAccRel`, `ContAcc`, `PosDerivAcc`, `ContLeaf`,
+   `TargetCallKid`/`TargetCallPatch` (they read `grpMember`'s `TeleEq`).
+2. The recursor stage (`TargetClass.TgtOutCls.read`, `GenOutFacts`, `GenRecPreRun`, `GenClsData`,
+   `GenClsSem`, `GenFrameTie`, `GenRecExtra`, `TargetOutRows`, `GenOutKeyFit`, `TargetNodeAdm`):
+   the same, majors giving the full fit.
+3. The swap: `LfpReads := LfpReadsV` plus the `w` clause; `LfpCtorReads`' `Tys` the datum's own
+   towers (`(mkPisAV (D.ids mm ψ) (.sort (D.w ψ))).liftN mm 0` at depth `nPc + mm`); `LfpCaps` on the
+   stored former; producers (`BlockDatum`, `DeclBlockStep`, `BlockCtorReads`, `BlockStageCtors`,
+   `BlockAssembly`, `BlockStageTables`, `BasisAtBlock`, `Cover`) prove them from the home's run;
+   `telescope`, `formerAt`, `LfpTelescope`, `FamilyRead`, `FamilyRan` (+ `Fold`, `BlockRunFacts`,
+   `DeclBlock*` threading), `readTelescope`, `FormerRunsX` and `ctxModel`'s `hdh` go; `RestrictLfp`
+   transports the clauses by `denote_eq` alone.
+4. `FormerRuns` out of `Modular.lean`, `Model/Modular/Main.lean`, `MainTheorem.lean`,
+   `Challenge.lean`, `Axioms.lean`'s table, OVERVIEW §1, whitepaper §7.
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed
+changed since cont. 3's full gates.

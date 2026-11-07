@@ -77,22 +77,24 @@ theorem keyFit_of_wd (mp : EnvModelM V env) {D : LfpDatum V}
   dsimp only [ConLeche.ConstantInfo.toConstantVal] at hul ⊢
   refine ⟨hul, vs, hsp, rfl, fun ρ hwd σ => ?_⟩
   generalize hψ : Level.substFn φ cv.levelParams us = ψ at hlen hwd ⊢
-  obtain ⟨-, -, hrd, -⟩ := mp.lfp_ok D hD
-  obtain ⟨cv', caps', hf', -, hab⟩ := hrd mm hmm
+  obtain ⟨cv', caps', hf', -, hval⟩ := mp.lfpReadsV hD mm hmm
   rw [hf] at hf'
   obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
-  obtain ⟨ab, hta, hmap⟩ := hab ψ
-  have hin := mp.formerAt_mem hD hmm hf hta ρ
-  have hwf := mp.formerAt_wf hD hmm hf
-  have hcl : Term.bvarsBelow 0 (mkPisAV ab (.sort (D.w ψ))) :=
+  obtain ⟨ta₀, hta₀, hv⟩ := hval ψ
+  have hmem := ConLeche.Env.find?_mem hf
+  have hwf := mp.base2.wf.consts _ hmem
+  -- the member inhabits its stored type, whose value is the block's telescope's, at every frame
+  have hcl : Term.bvarsBelow 0 ta₀ :=
     ConLeche.Verify.denote_bvarsBelow mp.base2.cval_closed 0 _
-      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.1
-      hta
-  rw [interp_closed V hcl ρ σ] at hin
+      (ConLeche.Expr.WScoped.of_not_hasFvar hwf.1) hwf.2.2.2.1 hta₀
+  have hin : interp V ρ (mp.base2.acval (D.member mm) ψ)
+      ∈ˢ interp V σ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) := by
+    rw [← (hv σ).1, interp_closed V hcl σ ρ]
+    have := mp.mem_type _ hmem ψ _ hta₀ ρ
+    rwa [ConLeche.Env.find?_name hf] at this
   -- "not pt" source (1): the family instance is a type
-  have hsp' := spineFit_of_wellDenoted_mkAppN_pi hwd.2.ne_pt hwd.1 hin
-    (by rw [← DenoteSpine.length_eq hsp, hlen, ← List.length_append, ← hmap])
-  rwa [hmap] at hsp'
+  exact spineFit_of_wellDenoted_mkAppN_pi hwd.2.ne_pt hwd.1 hin
+    (by rw [← DenoteSpine.length_eq hsp, hlen, List.length_append])
 
 /-- The valuation `n` positions down. -/
 @[expose] def dropV (n : Nat) (ρ : Nat → V) : Nat → V := fun i => ρ (i + n)

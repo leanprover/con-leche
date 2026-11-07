@@ -568,21 +568,21 @@ theorem univ_inj {n m : Nat} (h : (univ n : V) = univ m) : n = m := by
   · rfl
   · exact absurd h.symm (key hl)
 
-/-- **Two Π-towers over sorts of one value agree along a fit** (task #443): a spine fitting the
-one fits the other, and they end in one sort.  Off a fit nothing is claimed: over an empty
-domain a function space is a truth value whatever its fibres. -/
-theorem spineFit_of_mkPisAV_eq : ∀ {ab ab' : List Term} {ρ : Nat → V} {vs : List V} {n n' : Nat},
-    ab.length = ab'.length →
-    interp V ρ (mkPisAV ab (.sort n)) = interp V ρ (mkPisAV ab' (.sort n')) →
-    SpineFit ρ ab vs → SpineFit ρ ab' vs ∧ n = n'
-  | [], [], _, [], _, _, _, h, _ => ⟨trivial, univ_inj h⟩
-  | A :: ab, A' :: ab', ρ, v :: vs, n, n', hl, h, hfit => by
+/-- **Two Π-towers over sorts of one value agree along a fit** (task #443), each read at its own
+valuation: a spine fitting the one fits the other, and they end in one sort.  Off a fit nothing
+is claimed: over an empty domain a function space is a truth value whatever its fibres. -/
+theorem spineFit_of_mkPisAV_eq : ∀ {ab ab' : List Term} {ρ ρ' : Nat → V} {vs : List V}
+    {n n' : Nat}, ab.length = ab'.length →
+    interp V ρ (mkPisAV ab (.sort n)) = interp V ρ' (mkPisAV ab' (.sort n')) →
+    SpineFit ρ ab vs → SpineFit ρ' ab' vs ∧ n = n'
+  | [], [], _, _, [], _, _, _, h, _ => ⟨trivial, univ_inj h⟩
+  | A :: ab, A' :: ab', ρ, ρ', v :: vs, n, n', hl, h, hfit => by
     have hpath := towerPath_of_spineFit (w := n) hfit
     have hstrict := hpath.strict
     have hpi : interp V ρ (mkPisAV (A :: ab) (.sort n))
         = piV (interp V ρ A) fun x => interp V (cons x ρ) (mkPisAV ab (.sort n)) := rfl
-    have hpi' : interp V ρ (mkPisAV (A' :: ab') (.sort n'))
-        = piV (interp V ρ A') fun x => interp V (cons x ρ) (mkPisAV ab' (.sort n')) := rfl
+    have hpi' : interp V ρ' (mkPisAV (A' :: ab') (.sort n'))
+        = piV (interp V ρ' A') fun x => interp V (cons x ρ') (mkPisAV ab' (.sort n')) := rfl
     rw [hpi, hpi'] at h
     rw [hpi] at hstrict
     have hB : ∀ x, x ∈ˢ interp V ρ A →
@@ -592,22 +592,22 @@ theorem spineFit_of_mkPisAV_eq : ∀ {ab ab' : List Term} {ρ : Nat → V} {vs :
     have h₁ := piV_eq_piSet_of hstrict hne
     have h₂ := piV_eq_piSet_of (h ▸ hstrict) (h ▸ hne)
     have hs : piSet (interp V ρ A) (fun x => interp V (cons x ρ) (mkPisAV ab (.sort n)))
-        = piSet (interp V ρ A') (fun x => interp V (cons x ρ) (mkPisAV ab' (.sort n'))) := by
+        = piSet (interp V ρ' A') (fun x => interp V (cons x ρ') (mkPisAV ab' (.sort n'))) := by
       rw [← h₁, ← h₂, h]
     obtain ⟨hv', hf⟩ := piSet_inj hs hB hfit.1
     obtain ⟨hrest, hn⟩ := spineFit_of_mkPisAV_eq (by simpa using hl) hf hfit.2
     exact ⟨⟨hv', hrest⟩, hn⟩
-  | [], _ :: _, _, _, _, _, hl, _, _ => nomatch hl
-  | _ :: _, [], _, _, _, _, hl, _, _ => nomatch hl
-  | [], [], _, _ :: _, _, _, _, _, hfit => hfit.elim
-  | _ :: _, _ :: _, _, [], _, _, _, _, hfit => hfit.elim
+  | [], _ :: _, _, _, _, _, _, hl, _, _ => nomatch hl
+  | _ :: _, [], _, _, _, _, _, hl, _, _ => nomatch hl
+  | [], [], _, _, _ :: _, _, _, _, _, hfit => hfit.elim
+  | _ :: _, _ :: _, _, _, [], _, _, _, _, hfit => hfit.elim
 
 /-- **Two Π-towers over sorts of one value have one set of fits**, ending in one sort where
 there is one. -/
-theorem spineFit_iff_of_mkPisAV_eq {ab ab' : List Term} {ρ : Nat → V} {n n' : Nat}
+theorem spineFit_iff_of_mkPisAV_eq {ab ab' : List Term} {ρ ρ' : Nat → V} {n n' : Nat}
     (hl : ab.length = ab'.length)
-    (h : interp V ρ (mkPisAV ab (.sort n)) = interp V ρ (mkPisAV ab' (.sort n'))) (vs : List V) :
-    (SpineFit ρ ab vs ↔ SpineFit ρ ab' vs) ∧ (SpineFit ρ ab vs → n = n') :=
+    (h : interp V ρ (mkPisAV ab (.sort n)) = interp V ρ' (mkPisAV ab' (.sort n'))) (vs : List V) :
+    (SpineFit ρ ab vs ↔ SpineFit ρ' ab' vs) ∧ (SpineFit ρ ab vs → n = n') :=
   ⟨⟨fun hf => (spineFit_of_mkPisAV_eq hl h hf).1,
     fun hf => (spineFit_of_mkPisAV_eq hl.symm h.symm hf).1⟩,
    fun hf => (spineFit_of_mkPisAV_eq hl h hf).2⟩
@@ -624,54 +624,66 @@ theorem mkPisAV_sort_eq_unitSet : ∀ {ab : List Term} {ρ : Nat → V} {n : Nat
     rw [piV_eq_zero fun x hx => by rw [hB x hx]; exact mem_univZero.mpr fun _ h => h, piR_zero]
     exact truthVal_eq_unitSet fun x hx => ⟨pt, by rw [hB x hx]; exact pt_mem_unitSet⟩
 
-/-- **Two Π-towers over sorts of one value agree past a common fit of their prefixes**: where a
-fit of the rest exists, the towers are strict along it and their fibres agree stage by stage
-(`piSet_inj`); where none exists on either side, both rests are the unit. -/
-theorem mkPisAV_tail_eq : ∀ {pre pre' ab ab' : List Term} {ρ : Nat → V} {vs : List V} {n n' : Nat},
-    pre.length = pre'.length → ab.length = ab'.length →
-    interp V ρ (mkPisAV (pre ++ ab) (.sort n)) = interp V ρ (mkPisAV (pre' ++ ab') (.sort n')) →
-    SpineFit ρ pre vs → SpineFit ρ pre' vs →
+/-- **Two Π-towers over sorts of one value, each read at its own valuation, agree stage by
+stage where one of them has a fit**: their first domains are one, and so are their fibres over
+it (`piSet_inj`, the towers strict along the fit). -/
+theorem mkPisAV_cons_eq {A A' : Term} {ab ab' : List Term} {ρ ρ' : Nat → V} {n n' : Nat}
+    (h : interp V ρ (mkPisAV (A :: ab) (.sort n)) = interp V ρ' (mkPisAV (A' :: ab') (.sort n')))
+    {vs : List V} (hfit : SpineFit ρ (A :: ab) vs) :
+    interp V ρ A = interp V ρ' A' ∧ ∀ x, x ∈ˢ interp V ρ A →
+      interp V (cons x ρ) (mkPisAV ab (.sort n))
+        = interp V (cons x ρ') (mkPisAV ab' (.sort n')) := by
+  have hstrict := (towerPath_of_spineFit (w := n) hfit).strict
+  have hpi : interp V ρ (mkPisAV (A :: ab) (.sort n))
+      = piV (interp V ρ A) fun x => interp V (cons x ρ) (mkPisAV ab (.sort n)) := rfl
+  have hpi' : interp V ρ' (mkPisAV (A' :: ab') (.sort n'))
+      = piV (interp V ρ' A') fun x => interp V (cons x ρ') (mkPisAV ab' (.sort n')) := rfl
+  rw [hpi, hpi'] at h
+  rw [hpi] at hstrict
+  have hB : ∀ x, x ∈ˢ interp V ρ A → ∃ y, y ∈ˢ interp V (cons x ρ) (mkPisAV ab (.sort n)) :=
+    fun x _ => (towerEnds_mkPisAV ab (cons x ρ) n).nonempty
+  have hne := piV_nonempty hB
+  have h₁ := piV_eq_piSet_of hstrict hne
+  have h₂ := piV_eq_piSet_of (h ▸ hstrict) (h ▸ hne)
+  have hs : piSet (interp V ρ A) (fun x => interp V (cons x ρ) (mkPisAV ab (.sort n)))
+      = piSet (interp V ρ' A') (fun x => interp V (cons x ρ') (mkPisAV ab' (.sort n'))) := by
+    rw [← h₁, ← h₂, h]
+  have hB' : ∀ x, x ∈ˢ interp V ρ' A' → ∃ y, y ∈ˢ interp V (cons x ρ') (mkPisAV ab' (.sort n')) :=
+    fun x _ => (towerEnds_mkPisAV ab' (cons x ρ') n').nonempty
+  exact ⟨SetTheory.ext fun y => ⟨fun hy => (piSet_inj hs hB hy).1,
+    fun hy => (piSet_inj hs.symm hB' hy).1⟩, fun x hx => (piSet_inj hs hB hx).2⟩
+
+/-- **Two Π-towers over sorts of one value agree past a common fit of their prefixes**, each
+read at its own valuation: where a fit of the rest exists, the towers are strict along it and
+their fibres agree stage by stage (`piSet_inj`); where none exists on either side, both rests
+are the unit. -/
+theorem mkPisAV_tail_eq : ∀ {pre pre' ab ab' : List Term} {ρ ρ' : Nat → V} {vs : List V}
+    {n n' : Nat}, pre.length = pre'.length → ab.length = ab'.length →
+    interp V ρ (mkPisAV (pre ++ ab) (.sort n)) = interp V ρ' (mkPisAV (pre' ++ ab') (.sort n')) →
+    SpineFit ρ pre vs → SpineFit ρ' pre' vs →
     interp V (consList vs ρ) (mkPisAV ab (.sort n))
-      = interp V (consList vs ρ) (mkPisAV ab' (.sort n'))
-  | [], [], _, _, _, [], _, _, _, _, h, _, _ => h
-  | A :: pre, A' :: pre', ab, ab', ρ, v :: vs, n, n', hl, hl', h, hfit, hfit' => by
-    have hpi : interp V ρ (mkPisAV (A :: pre ++ ab) (.sort n))
-        = piV (interp V ρ A) fun x => interp V (cons x ρ) (mkPisAV (pre ++ ab) (.sort n)) := rfl
-    have hpi' : interp V ρ (mkPisAV (A' :: pre' ++ ab') (.sort n'))
-        = piV (interp V ρ A') fun x => interp V (cons x ρ) (mkPisAV (pre' ++ ab') (.sort n')) :=
-      rfl
+      = interp V (consList vs ρ') (mkPisAV ab' (.sort n'))
+  | [], [], _, _, _, _, [], _, _, _, _, h, _, _ => h
+  | A :: pre, A' :: pre', ab, ab', ρ, ρ', v :: vs, n, n', hl, hl', h, hfit, hfit' => by
     have hlen : (pre ++ ab).length = (pre' ++ ab').length := by
       simp only [List.length_append]; simp at hl; omega
     have hv : interp V (cons v ρ) (mkPisAV (pre ++ ab) (.sort n))
-        = interp V (cons v ρ) (mkPisAV (pre' ++ ab') (.sort n')) := by
+        = interp V (cons v ρ') (mkPisAV (pre' ++ ab') (.sort n')) := by
       by_cases hws : ∃ ws, SpineFit (cons v ρ) (pre ++ ab) ws
       · obtain ⟨ws, hws⟩ := hws
-        have hfull : SpineFit ρ (A :: pre ++ ab) (v :: ws) := ⟨hfit.1, hws⟩
-        have hstrict := (towerPath_of_spineFit (w := n) hfull).strict
-        have hB : ∀ x, x ∈ˢ interp V ρ A →
-            ∃ y, y ∈ˢ interp V (cons x ρ) (mkPisAV (pre ++ ab) (.sort n)) :=
-          fun x _ => (towerEnds_mkPisAV _ (cons x ρ) n).nonempty
-        have hne := piV_nonempty hB
-        rw [hpi] at hstrict
-        rw [hpi, hpi'] at h
-        have h₁ := piV_eq_piSet_of hstrict hne
-        have h₂ := piV_eq_piSet_of (h ▸ hstrict) (h ▸ hne)
-        have hs : piSet (interp V ρ A) (fun x => interp V (cons x ρ) (mkPisAV (pre ++ ab) (.sort n)))
-            = piSet (interp V ρ A')
-                (fun x => interp V (cons x ρ) (mkPisAV (pre' ++ ab') (.sort n'))) := by
-          rw [← h₁, ← h₂, h]
-        exact (piSet_inj hs hB hfit.1).2
-      · have hws' : ¬ ∃ ws, SpineFit (cons v ρ) (pre' ++ ab') ws := by
+        exact (mkPisAV_cons_eq h (vs := v :: ws) ⟨hfit.1, hws⟩).2 v hfit.1
+      · have hws' : ¬ ∃ ws, SpineFit (cons v ρ') (pre' ++ ab') ws := by
           rintro ⟨ws, hw⟩
-          have hfull : SpineFit ρ (A' :: pre' ++ ab') (v :: ws) := ⟨hfit'.1, hw⟩
+          have hfull : SpineFit ρ' (A' :: pre' ++ ab') (v :: ws) := ⟨hfit'.1, hw⟩
           exact hws ⟨ws, (spineFit_of_mkPisAV_eq (by simpa using hlen.symm) h.symm hfull).1.2⟩
         rw [mkPisAV_sort_eq_unitSet fun ws h' => hws ⟨ws, h'⟩,
           mkPisAV_sort_eq_unitSet fun ws h' => hws' ⟨ws, h'⟩]
-    exact mkPisAV_tail_eq (ρ := cons v ρ) (by simpa using hl) hl' hv hfit.2 hfit'.2
-  | [], _ :: _, _, _, _, _, _, _, hl, _, _, _, _ => nomatch hl
-  | _ :: _, [], _, _, _, _, _, _, hl, _, _, _, _ => nomatch hl
-  | [], [], _, _, _, _ :: _, _, _, _, _, _, hfit, _ => hfit.elim
-  | _ :: _, _ :: _, _, _, _, [], _, _, _, _, _, hfit, _ => hfit.elim
+    exact mkPisAV_tail_eq (ρ := cons v ρ) (ρ' := cons v ρ') (by simpa using hl) hl' hv hfit.2
+      hfit'.2
+  | [], _ :: _, _, _, _, _, _, _, _, hl, _, _, _, _ => nomatch hl
+  | _ :: _, [], _, _, _, _, _, _, _, hl, _, _, _, _ => nomatch hl
+  | [], [], _, _, _, _, _ :: _, _, _, _, _, _, hfit, _ => hfit.elim
+  | _ :: _, _ :: _, _, _, _, _, [], _, _, _, _, _, hfit, _ => hfit.elim
 
 /-- A Π-tower over a sort that a walk reads above `0`, along a fit, is above `0`. -/
 theorem sort_ne_zero_of_walk {ab : List Term} {ρ : Nat → V} {vs : List V} {w w' : Nat}

@@ -97,6 +97,24 @@ with its hole value applied to the frame's parameters. -/
       denote acval env ψ 0 (D.formerAt mm cv).type = some (mkPisAV ab (.sort (D.w ψ))) ∧
       ab = D.pars mm ψ ++ D.ids mm ψ
 
+/-- **A recorded block's formers have its telescope's value** (M4, by value): member `mm`'s
+stored type reads, at every level assignment, as a type of the value of the Π-tower over its
+own parameters and indices (the binders of its hole value, `LfpDatum.holeVal`) ending in the
+block's sort, and that tower is graded.  A former that shows its telescope reads as a Π-tower of
+the family's length over a sort.  Nothing of a run is recorded: a run's result, read in a model,
+has the stored type's value (`familyTelescope_read`), and is compared with the block's telescope
+along fits (`spineFit_iff_of_mkPisAV_eq`, `mkPisAV_tail_eq`). -/
+@[expose] def LfpReadsV {V : Type w} [SetTheory V] (acval : Name → (Name → Nat) → Term)
+    (env : Env) (D : LfpDatum V) : Prop :=
+  ∀ mm, mm < D.k → ∃ cv caps, env.find? (D.member mm) = some (.indInfo cv caps) ∧
+    (ConLeche.formerDefHeaded cv = false → ∀ ψ : Name → Nat, ∃ (ab : List Term) (u : Nat),
+      denote acval env ψ 0 cv.type = some (mkPisAV ab (.sort u)) ∧
+      ab.length = caps.nparams + caps.nIdx) ∧
+    ∀ ψ : Name → Nat, ∃ ta : Term, denote acval env ψ 0 cv.type = some ta ∧
+      ∀ ρ : Nat → V,
+        interp V ρ ta = interp V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) ∧
+        WellDenotedTy V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ)))
+
 /-! ### The recorded constructor readings (M2)
 
 A container frame (`nestCtors`) walks a stored constructor type with its

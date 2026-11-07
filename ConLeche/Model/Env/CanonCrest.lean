@@ -317,4 +317,23 @@ theorem EnvModelM.formerAt_interp {V : Type w} [SetTheory V] {env : Env} (mp : E
     obtain rfl := Option.some.inj hta₀'
     exact (hin ρ).1
 
+open SetTheory ConLeche.Term in
+/-- **A recorded block's formers have its telescope's value.** -/
+theorem EnvModelM.lfpReadsV {V : Type w} [SetTheory V] {env : Env} (mp : EnvModelM V env)
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) : LfpReadsV mp.base2.acval env D := by
+  obtain ⟨-, -, hrd, -, ⟨hcp, -⟩⟩ := mp.lfp_ok D hD
+  intro mm hmm
+  obtain ⟨cv, caps, hf, ⟨hfa, -⟩, hab⟩ := hrd mm hmm
+  refine ⟨cv, caps, hf, fun hflat ψ => ?_, fun ψ => ?_⟩
+  · obtain ⟨ab, hta, rfl⟩ := hab ψ
+    rw [hfa hflat] at hta
+    obtain ⟨cv', caps', hf', -, hlen⟩ := hcp mm hmm
+    rw [hf] at hf'
+    obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+    exact ⟨_, _, hta, hlen ψ⟩
+  · obtain ⟨ta₀, hta₀⟩ := mp.type_reads _ (ConLeche.Env.find?_mem hf) ψ
+    obtain ⟨ab, hta, rfl⟩ := hab ψ
+    exact ⟨ta₀, hta₀, fun ρ => ⟨mp.formerAt_interp hD hmm hf hta₀ hta ρ,
+      mp.formerAt_wellDenotedTy hD hmm hf hta ρ⟩⟩
+
 end ConLeche.Model

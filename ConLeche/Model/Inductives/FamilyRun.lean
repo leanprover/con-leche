@@ -16,6 +16,8 @@ import ConLeche.Verify.Denote.Lemmas
 import ConLeche.Verify.Denote.ErasedEq
 import ConLeche.Verify.Denote.ConstsBound
 import ConLeche.Verify.Inductives.NestContInv
+import ConLeche.Model.Env.CanonCrest
+import ConLeche.Model.Capstone
 
 public section
 
@@ -170,5 +172,59 @@ theorem familyTelescope_read (mp : EnvModelM V env) {n : Name} {cv : ConstantVal
       teleRed_read (hin ψ) 0 _ _ bs s hT hfr (hC ψ) hta₀ hg₀
     exact ⟨ta₀, ab, _, hta₀, hab, hlen, fun ρ =>
       ⟨heq ρ (Sat_nil V ρ), hg ρ (Sat_nil V ρ)⟩⟩
+
+/-- **A run's result, read against its block** (`familyRead`): closed, naming stored constants
+only, and at every level assignment a graded Π-tower over a sort of the length of the block's
+telescope for the member and of its value. -/
+@[expose] def FormerRead (mp : EnvModelM V env) (D : LfpDatum V) (mm : Nat) (ty : Expr) : Prop :=
+  ty.hasFvar = false ∧ ty.looseBVarsBounded 0 = true ∧ ConstsBound env ty ∧
+    ∀ ψ : Name → Nat, ∃ (ab : List Term) (u : Nat),
+      denote mp.base2.acval env ψ 0 ty = some (mkPisAV ab (.sort u)) ∧
+      ab.length = (D.pars mm ψ ++ D.ids mm ψ).length ∧
+      ∀ ρ : Nat → V, interp V ρ (mkPisAV ab (.sort u))
+          = interp V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) ∧
+        WellDenotedTy V ρ (mkPisAV ab (.sort u))
+
+/-- **What a run reads of a recorded family's telescope** has the block's telescope's value
+(see the module docstring), for every member alike: a former that shows its telescope is its
+own run's result. -/
+theorem familyRead (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat}
+    (hmm : mm < D.k) {cv : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {F : Nat} {ty : Expr}
+    (hrun : ConLeche.familyTelescope (fueledOps .verified F) env cv caps = .ok ty) :
+    FormerRead mp D mm ty := by
+  obtain ⟨cv', caps', hf', hflat, hval⟩ := mp.lfpReadsV hD mm hmm
+  rw [hf] at hf'
+  obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+  obtain ⟨-, -, -, -, ⟨hcp, -⟩⟩ := mp.lfp_ok D hD
+  have hlen : ∀ ψ, (D.pars mm ψ ++ D.ids mm ψ).length = caps.nparams + caps.nIdx := by
+    obtain ⟨cv', caps', hf', -, hl⟩ := hcp mm hmm
+    rw [hf] at hf'
+    obtain ⟨rfl, rfl⟩ : cv = cv' ∧ caps = caps' := by simpa using hf'
+    exact hl
+  -- the run's own reading: a tower of the declared type's value
+  have hown : ty.hasFvar = false ∧ ty.looseBVarsBounded 0 = true ∧ ConstsBound env ty ∧
+      ∀ ψ : Name → Nat, ∃ (ta₀ : Term) (ab : List Term) (u : Nat),
+        denote mp.base2.acval env ψ 0 cv.type = some ta₀ ∧
+        denote mp.base2.acval env ψ 0 ty = some (mkPisAV ab (.sort u)) ∧
+        ab.length = caps.nparams + caps.nIdx ∧
+        ∀ ρ : Nat → V, interp V ρ ta₀ = interp V ρ (mkPisAV ab (.sort u)) ∧
+          WellDenotedTy V ρ (mkPisAV ab (.sort u)) := by
+    rcases ConLeche.familyTelescope_cases hrun with ⟨hfl, rfl⟩ | ⟨hdh, -⟩
+    · have hmem := ConLeche.Env.find?_mem hf
+      have hwf := mp.base2.wf.consts _ hmem
+      refine ⟨hwf.1, hwf.2.2.2.1, (ConLeche.Verify.envWF_constsBound mp.base2.wf _ hmem).1,
+        fun ψ => ?_⟩
+      obtain ⟨ab, u, hta, hl⟩ := hflat hfl ψ
+      exact ⟨_, ab, u, hta, hta, hl, fun ρ =>
+        ⟨rfl, mp.type_wellDenotedTy _ hmem ψ _ hta ρ⟩⟩
+    · exact familyTelescope_read mp hf hdh hrun fun ψ => Rules.RulesInputs.ofSem mp ψ
+  obtain ⟨h1, h2, h3, hrd⟩ := hown
+  refine ⟨h1, h2, h3, fun ψ => ?_⟩
+  obtain ⟨ta₀, ab, u, hta₀, hty, hl, hv⟩ := hrd ψ
+  obtain ⟨ta₀', hta₀', hv'⟩ := hval ψ
+  rw [hta₀] at hta₀'
+  obtain rfl := Option.some.inj hta₀'
+  exact ⟨ab, u, hty, by rw [hl, hlen], fun ρ => ⟨((hv ρ).1.symm.trans (hv' ρ).1), (hv ρ).2⟩⟩
 
 end ConLeche.Model
