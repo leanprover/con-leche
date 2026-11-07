@@ -111760,3 +111760,45 @@ lemma it twins):
 
 Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
 `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane P3d: O7's first round merged; `BlockPresObl` is false at the pinned `Eq` (2026-11-07)
+
+**Merge.**  O7's first round (`f88ba0129`) is merged into `agent/451-inlean2`:
+the root's imports, the axiom pins and the DESIGN records as unions.  Three
+names clashed between O7's files and P3c's `StepPres.lean`: `trKind`
+(identical) stays in `IndShape.lean`, which `StepPres.lean` now imports (P3c's
+`kindNames_tr` is O7's `decls_names_tr`); P3c's differently stated
+`basisNameHit_tr` and `checkShapelessS_not_ok` are renamed
+`basisNameHit_toBlock` and `checkShapelessS_run_ne`.
+
+**FINDING: `BlockPresObl` (so `IndGroupPresB`, and `EnvPresI` after any
+environment holding `Eq`) is false for the code at the pinned `Eq` block.**
+con-leche installs the pin `eqA.atLps ps`, whose capabilities are `eqA`'s
+hand-written `{ all := [Eq], nparams := 2, nIdx := 1, ctors := [Eq.refl] }`
+(`etaCtor := .anonymous`, `etaParams := 0`, `unitParams := 0`); `atLps` keeps
+them.  `EntryRelI`'s former clause asks `caps = toCaps (capsOf E' v)`, and
+InLean's `capsOf` (the twin of `blockCapsAt`) at a one-constructor former
+gives `etaCtor := Eq.refl`, `etaParams := 2`, `unitParams := 2` whatever the
+index count (`pinAgrees` forces `v.ctors = [Eq.refl]`).  So no `cci` at
+`toName Eq` is `EntryRelI`-related to the accepted `Eq` entry; Init declares
+`Eq`, so this is reached.  Checked mechanically (a scratch `example`: for every
+`E` and every `v` with `v.ctors = [Eq.refl]`, `eqA`'s caps differ from
+`toCaps (capsOf E v)`).  `Nat`, `Empty`, `False` agree (zero or two
+constructors: `capsOf`'s second arm, and their pins' counts are the
+defaults' or written).  The difference is not observable: every read of
+`etaCtor`/`etaParams`/`etaFields`/`unitParams` is behind `eta` or `unitlike`
+(`etaRescueOk`, `Core.lean`'s η and unit-η arms), both `false` in both.
+
+Possible fixes (a ruling is needed; none applied, the lane stopped here):
+* con-leche: `eqA`'s capabilities as `blockCapsAt` computes them (`etaCtor :=
+  eqReflName`, `etaParams := 2`, `unitParams := 2`), the pin then agreeing
+  with what the recogniser would install; master's proofs about `eqA` to be
+  checked.
+* InLean: `capsOf` returns `eqA`'s capabilities at `Eq` (a pin special case;
+  the twin then reads the pinned caps, as con-leche does).
+* proof side: `EntryRelI` (and `EnvViewI.ind`) relate capabilities up to the
+  η-gated fields when `eta`/`unitlike` are false; this ripples into every
+  walk reading `indView?`.
+
+Not started beyond this: the pinned branch for `Nat`/`Empty`/`False`, the
+recognised branch, `IndGroupPresB`.
