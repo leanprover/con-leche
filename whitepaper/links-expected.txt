@@ -5687,20 +5687,20 @@
    610      rules.map fun rl => { rl with fire := fire }
    611    | some _ => rules
 
-== ConLeche/Kernel/CoreDefs.lean#L1141-L1153
-  1141    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
-  1142  
-  1143  /-- The level and constructor-parameter comparands a firing rule's
-  1144  checks compare the major's constructor levels and parameters against:
-  1145  for a `.plain` rule the constructor's levels link to the recursor's by
-  1146  name and its parameters are the recursor's leading arguments; for a
-  1147  `.nested` rule both are the stored instantiations (the class the
-  1148  auxiliary recursor's type was generated from, `auxRuleFire`), at the
-  1149  recursor's level instantiation and (for the parameters) instantiated at
-  1150  the recursor's leading-argument spine (the stored pins live in the
-  1151  `rP`-binder prefix context; index arguments never occur in them); a
-  1152  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
-  1153  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
+== ConLeche/Kernel/CoreDefs.lean#L1153-L1165
+  1153    exact ⟨h.1.1.1, h.1.1.2, h.1.2⟩
+  1154  
+  1155  /-- The level and constructor-parameter comparands a firing rule's
+  1156  checks compare the major's constructor levels and parameters against:
+  1157  for a `.plain` rule the constructor's levels link to the recursor's by
+  1158  name and its parameters are the recursor's leading arguments; for a
+  1159  `.nested` rule both are the stored instantiations (the class the
+  1160  auxiliary recursor's type was generated from, `auxRuleFire`), at the
+  1161  recursor's level instantiation and (for the parameters) instantiated at
+  1162  the recursor's leading-argument spine (the stored pins live in the
+  1163  `rP`-binder prefix context; index arguments never occur in them); a
+  1164  `.levels` rule's levels are stored and its parameters a `.plain` rule's. -/
+  1165  def recFireComparands (rl : RecRule) (cnP : Nat) (lps : List Name)
 
 == ConLeche/Rules/Rel.lean#L212-L223
    212        IotaCase env isK cvj (recFireComparands rl cnP cv.levelParams us cvj.levelParams
@@ -6190,8 +6190,8 @@
     78        nIdx := nIdx
 
 == ConLeche/Model/Inductives/FixKit.lean#L722-L723
-   722  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
-   723    the parameters and its own projections below the tag.
+   722    (`sumMkAV_fold`: the application folds to the tagged tuple);
+   723  * **(C) the η law** (`fixEntryEtaCore`): a member is the constructor at
 
 == ConLeche/Model/Inductives/BlockStageTables.lean#L10-L12
     10  `stageBlockTables`: the loop `checkBlockTables` runs — a table at
@@ -6211,8 +6211,8 @@
    294      {a ta wta b tb wtb : Expr} {T : Name} {us' : List Level}
 
 == ConLeche/Model/Inductives/FixKit.lean#L1797-L1798
-  1797  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
-  1798  fibre is the one tagged empty tuple (the point at a squash instance).
+  1797  
+  1798  /-- **Unit-likeness at a fieldless one-constructor block's leaf**: the
 
 >>> whitepaper/sections/07-left-out.typ
 
@@ -6263,12 +6263,12 @@
     12  member — with `stageFixTable` at each table (abstract in the former's
 
 == ConLeche/Model/Inductives/FixKit.lean#L716-L721
-   716  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
-   717    `i + 1` into the body's residual — the graph regime by the tower's
-   718    projection membership below the tag, the squash regime by the point;
-   719  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
-   720    projection of a graded constructor application is the selected field
-   721    (`sumMkAV_fold`: the application folds to the tagged tuple);
+   716  
+   717  * **(A) the typing law** (`fixEntryTypingCore`): a member projects at
+   718    `i + 1` into the body's residual — the graph regime by the tower's
+   719    projection membership below the tag, the squash regime by the point;
+   720  * **(B) the iota law** (`fixEntryIotaCore`/`fixEntryIotaZeroPt`): the
+   721    projection of a graded constructor application is the selected field
 
 == ConLeche/SetTheory/Derive/LfpTuple.lean#L8-L12
      8  

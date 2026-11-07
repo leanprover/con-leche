@@ -3279,3 +3279,12 @@
 1 cycle_self_def.ndjson
 1 cycle_mutual.ndjson
 1 cycle_forward.ndjson
+
+# -- task #492, the projection guard on a wide `Prop` structure: prop_struct_proj_wide is a
+# 150-field `Prop` structure over a `Nat` parameter and its 150 projection functions.  Each
+# `.proj` asks, for every earlier field, whether a later field uses it; asked of the stored
+# constructor type (the parameter a loose variable in every field) that walked the whole
+# remainder each time.  The guard now opens the parameters first and steps the fields as the
+# official `infer_proj` does (`projGuardRowsGo`), each answer a packed-bound read.  Accepted
+# before and after; official 0 (run); target 0.
+0 prop_struct_proj_wide.ndjson

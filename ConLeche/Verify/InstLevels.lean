@@ -59,6 +59,19 @@ theorem stripPis_instantiateLevelParams_isSome (ks : List Name)
         Option.isSome_map] at h ⊢
       exact ih h
 
+/-- Level instantiation commutes with stripping a `∀`-telescope. -/
+theorem stripPis_instantiateLevelParams (ks : List Name) (us : List Level) :
+    ∀ (k : Nat) (e : Expr), (e.instantiateLevelParams ks us).stripPis k =
+      (e.stripPis k).map fun p =>
+        (p.1.map (·.instantiateLevelParams ks us), p.2.instantiateLevelParams ks us) := by
+  intro k
+  induction k with
+  | zero => intro e; simp [Expr.stripPis]
+  | succ k ih =>
+    intro e
+    cases e <;> simp [Expr.instantiateLevelParams, Expr.stripPis, ih, Option.map_map,
+      Function.comp_def]
+
 /-- Level instantiation distributes over an application spine's
 arguments. -/
 theorem getAppArgs_instantiateLevelParams (ks : List Name)

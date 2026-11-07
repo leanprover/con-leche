@@ -110490,6 +110490,82 @@ The same verdicts everywhere (63 937 declarations of the `Init` closure, 57 977 
 
 **Gates**: `lake build` and `lake test` warning-free; `tests/arena.sh` green (e2e 551/551, olean gate 122/122, axioms pinned, the sweeps without divergence), and on its own each of the gates it runs.
 
+## TASK #492 — the projection guard in the official `infer_proj`'s shape (2026-11-07, agent/492-projguard)
+
+**Finding.** On lean4's `elab_bench/bv_stress_structures_1` (five layers of
+200-field structures `PayloadK`, `NodeK` and a `Prop`-valued `RelK`, and one
+`bv_decide` theorem) con-leche spent 402.4 G instructions on the file's own
+declarations (1,053.0 G against an `import Std.Tactic.BVDecide` baseline of
+650.6 G, `--olean --jobs=1`), against the official kernel's 23.6 G. The five
+`RelK.casesOn` were the slowest checks. Lean v4.35 builds a `Prop`
+structure's `casesOn` as the minor premise applied to every projection of the
+major, so `Rel0.casesOn` holds 201 distinct `.proj` nodes, and each `.proj` on
+a `Prop` structure runs the guard. The guard opened the whole telescope
+through the projected field and then asked, for every earlier field,
+`structUsedLater` of the STORED constructor type, where the structure's
+parameter is a loose bound variable in every field's type: the `bvarB ≤ 0`
+cutoff never fired, every answer was `false`, and each earlier field walked
+the whole remaining telescope — `O(idx · size)` per projection, cubic for the
+`casesOn`. A probe stubbing the walk (measurement only) brought the file to
+54.7 G: the walk was 86 % of it.
+
+**The guard now.** One definition for both tiers, the field loop of the
+official `infer_proj` (`type_checker.cpp:268–285`): `projGuardRows` opens the
+constructor's parameters at the telescope's own variables and hands the rest
+to `projGuardRowsGo` (`ConLeche/Kernel/CoreDefs.lean`), which steps the
+fields. At each field the binder's body can mention only the current field's
+variable, so `hasLooseBVarB 0` is answered by the packed bound at once; a used
+field is a row and is opened at its variable, an unused one is stepped over
+without being opened, as official does; the projected field's domain is the
+last row. The cached `checkProjRowsI` is its twin: the parameters through the
+memoised constructor type (`constTyAtM`) and `openPisAtFvarsF`, then the same
+loop. `projGuardRowsAt` (rows read off a full opening and `structUsedLater`)
+is gone. `structUsedLater` stays as the occurrence predicate the model states
+the guard's law in (`TowerRowsAt`, `Model/Env/Laws.lean`; `FixKit`) and
+positivity's U4 test reads; the guard does not call it. (A first version kept
+the old rows as a specification and swapped a faster copy in by `@[csimp]`;
+it was replaced by this one, which has a single implementation.)
+
+**Proofs.** The rules tier and the model's statements are unchanged.
+`Verify/ProjGuard.lean` states what the loop gives: its rows are scoped
+(`projGuardRowsGo_ws`, `projGuardRows_ws`), and over a closed telescope it is
+complete (`projGuardRowsGo_complete`, `projGuardRows_complete`): the projected
+field and every earlier field `structUsedLater` reports used are rows, at
+their domains in the telescope opened through the projected field. Over a
+closed telescope stepping over an unused field is the same term as opening it,
+so the loop runs along the full opening; `structUsedLater` is invariant under
+level instantiation and under opening a binder at a closed variable
+(`structUsedLater_open_step`, `structUsedLater_openPis`). `GuardSound` reads
+its row through `projGuardRows_complete`; `DiscC4`'s `projRowsC_spec` follows
+the two tiers' matches and takes the scoping from `projGuardRows_ws`;
+`EnvExt/Whnf` shows the loop's rows resolve (`res_projGuardRowsGo`). The
+loose-variable facts the loop needs live in `Verify/LooseBVar.lean`: the
+cutoff's soundness (`Expr.hasLooseBVar_eq_false_of_bound`,
+`Expr.hasLooseBVarB_eq`, moved there from `Verify/Inductives/DirectGen.lean`,
+now their second consumer), that substituting a closed term at a higher index
+leaves a lower one's occurrence alone, and that a bound tightens where its top
+index does not occur. About 430 lines added and 175 removed over nine files,
+plus the 221-line `LooseBVar.lean`.
+
+**Numbers** (`instructions:u`, one run each; the stream rows at the default job count):
+
+| | master | `@[csimp]` version | now |
+|---|---|---|---|
+| `bv_stress_structures_1`, the file's own declarations (`--olean --jobs=1`) | 402.4 G | 62.1 G | 50.3 G |
+| `Rel0.casesOn` closure (`--constant`, `--jobs=1`) | 120.5 G | 86.9 G | 85.7 G |
+| `prop_struct_proj_wide` (new fixture) | 8.43 G | 2.23 G | 1.79 G |
+| init-full | 390.58 G | — | 390.57 G |
+| arena `grind-ring-5` | 15.906 G | — | 15.900 G |
+
+The remaining 50.3 G (official 23.6 G) has no single hotspot: its profile is
+the baseline's (allocation, freeing, instantiation, equality).
+
+**Fixture.** `tests/e2e/prop_struct_proj_wide.ndjson`, exported from
+`tests/e2e/src/prop_struct_proj_wide.lean`: a 150-field `Prop` structure over a
+`Nat` parameter and its 150 projection functions (each a raw `.proj`; the
+pinned v4.29.1 exporter's `casesOn` is still `rec`-based). Verdict 0 before and
+after.
+
 ## TASK #493 — the basis blocks installed like any other block (2026-11-08, agent/493-basis-uniform)
 
 **Ruling (maintainer, 2026-11-08).** "The checker should stop treating Eq special during
