@@ -112687,3 +112687,72 @@ warning-free; `FormerRuns` is still in the capstones.  Not landed (a partial lan
 
 **Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed changed
 since cont. 3's full gates.
+
+### #443: a rule frame's class is live at a typed tuple (#443 cont. 8, 2026-11-07)
+
+**Merged.**  Not yet: `modular` is merged once, before landing.
+
+**Done** (`12970c595`; the whole tree builds, `lake test` green, warning-free, axiom pins
+unchanged).  Cont. 7's next steps 1–3:
+* **`genRule_motNe`** (`GenClsRhs`; cont. 7 called it `genRule_live`): at a fit of rule
+  `(c, j)`'s prefix and fields, with a typed tuple `rs`, the class's motive is no point.  The
+  tuple's `ih` values inhabit the `ih` binder types (`genIh_mem`, extracted from `genRhs`), so the
+  minor premise's graded type has a full fit, whose fibre — the motive applied to the declared
+  indices and the constructor — is a type: `genCls_minor` now concludes that `IsTy` too (the
+  minor's domain is `WellDenotedTy`, `blockRulePdomsAV_graded`), and `foldl_app_pt'` refutes a
+  point motive.
+* **`genMot_idxFit`** (`GenClsCall`): a motive that is no point has a fit of its class's stored
+  index binders at the prefix (its type is the index and major telescope over a sort,
+  `genMotRds`; with no fit that tower is `unitSet`, `mkPisAV_sort_eq_unitSet`, whose element is
+  the point).  `genCls_core` is split: **`genCls_coreI`** (a stored index fit gives the
+  parameters' satisfaction at the key, the datum's index fit and the carrier, by `keyLeaf`; no
+  former) and `genCls_coreII` (the converse, still through `hformer`).  `GenRecFinal`'s
+  `hliveM`: motive no point ⇒ `tgtClsLive` (`genMot_idxFit`, `genCls_coreI`, `genCls_live`).
+* **`GenClsDec` takes `tgtClsLive … xs c`.**  `GenPreSem`/`GenPreHyps` carry `live` (at a typed
+  candidate, every rule frame's class is live; from `genRule_motNe` + `hliveM` in
+  `GenRecFinal`) to `genRow_hrule`, `genRow_hdec`, `genRecEqs_wd`; `genRow_hstep`'s and
+  `genRow3_core`'s decodings take it from their index-set member (`tgtClsIs_guard`).
+  `genMinor_pt`'s index-count premise (and `genRuleRaZ`'s `hlenEs`) asks a motive that is no
+  point, which `genMinor_pt` derives from its own full fit.
+* **`GenClsRd.hsat` asks a live class** (outside: `FrFit`'s first half; member: its own
+  parameters, unchanged).  Its users take liveness from a major (`genCls_back`,
+  `genCls_decInv`, `genOut_major`, `genRows3_out`) or the hypothesis (`genCls_dec`);
+  `genOutCtorFit` and `genOut_pins` take the satisfaction itself.  **`genOut_keyFit` and
+  `GenRecFinal`'s `hkf` are deleted** (`genClsRd_out`, `genClsRd_all`, `genClsSem_run` lose the
+  hypothesis; `GenOutKeyFit.lean` keeps `genOut_runFit`).
+
+**Next, in order** (cont. 7's step 4 = cont. 6's items 2–5).
+1. `hformer` → the run (`GenClsSem`).  Restate it as "the generated `formerTys` entry is
+   `ty.instantiateLevelParams cvI.levelParams lvls` for a `ty` with `FormerRead mpC (tgtClsD …)
+   (tgtClsM …) ty`".  Outside: `ty` is the class's family run (`genClsRd_out`'s `hfam`, today
+   turned into `formerAt` by `hcl.family_eq`), `FormerRead` by `familyRead`.  Member: `ty` is the
+   stage's former `cvTa.type` (`genClsRd_mem`'s `hsh`/`hfr1`), `FormerRead` from
+   `BlockMembersRun`'s `FormerData` (the tower over `d.ppsM t`, which is `pars ++ ids` of
+   `d.toLfp`).  `genCls_coreII` then reads the instantiated entry by `runHoleTy_read` /
+   `instTele_read` (the run's rest at the key, substituted) and moves the fit by value:
+   `Sat params` at the key frame and an index fit give a full fit of `pars ++ ids` at the
+   frame's tail, hence of the run's tower (`spineFit_iff_of_mkPisAV_eq`), whose drop is the
+   stored index binders' reading (`spineFit_substTele`); the old `hIdxE` argument is the
+   template.
+2. Then `TgtOutCls.hread`, `.family_eq`, `.read` (users: `GenOutFacts` l.77/91, `GenClsData`
+   l.472, `GenRecPreRun` l.673, `TargetOutRows` l.111) go over the run's `FormerRead`, and the
+   `hrd : ∀ F, FamilyRead mpC F` threading leaves `tgtOutCls_*`, `GenRecClasses` (4) and
+   `GenRecFinal`; `GenOutFacts`' `TailOk (formerAt).type` becomes the run's tail;
+   `GenRecExtra`'s `formerAt_wf` (l.105, 2366) and `formerAt_mem` (l.1694) become
+   `FormerRead`'s closedness and `EnvModelM.member_mem_tower`.
+3. Cont. 6's item 3 (the container walk's leftovers: `ContSem.ContCover.reads`, `ContSem`
+   l.85/144, `ContLeaf.keyParamsFit` l.393, `ContN2.instFormer_read*` l.434–650, `ContInst*`,
+   `ContInstRule`, `ContWalk` l.467/587/1015 — the `Tys` of `LfpCtorReads` at `formerAt`), item 4
+   (the swap: `LfpReads := LfpReadsV`, `LfpCtorReads`' `Tys` := the datum's own index towers;
+   producers; delete `LfpDatum.telescope`, `formerAt`, `LfpTelescope`, `FamilyRead`,
+   `FamilyRan`, `readTelescope`, `FormerRunsX`, `hdh`), item 5 (FormerRuns out of
+   `Modular.lean`, `Model/Modular/Main.lean`, `MainTheorem.lean`, `Challenge.lean`,
+   `tests/ConLecheTests/Axioms.lean`'s table, OVERVIEW §1, whitepaper §7), the merge of
+   `modular`, the full gates and the landing.
+
+**State.**  Branch `agent/443-semantic-former` at `12970c595` (+ this record), worktree
+`_tmp/443/wt`, builds and tests warning-free; `FormerRuns` is still in the capstones.  Not
+landed (a partial lane).
+
+**Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed
+changed since cont. 3's full gates.
