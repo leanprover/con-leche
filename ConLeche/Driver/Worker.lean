@@ -44,18 +44,39 @@ def ownRecords (l : Loaded) : Except (CheckError × Nat) (Array Declaration) :=
   | .error e => .error (e, 0)
   | .ok () => declsOf (emitAll mg mg.order)
 
-/-- **The reach's roots**: what each own record reads, and what each own constant's load read
-(a theorem's value's names, which its record holds as a reference); an unsafe or partial own
-constant is no record, and what it reads is no root.  A name a pinned own
+/-- **A certified operation's pin ground**: the names its install check asks resolved beyond
+`pinFootprint`, over every pin variant of `pins` (`divModPinGuard`, `divModCertsGuard`,
+`divModEnvGuard`): the constants of the variant's pinned defining expression, of its certificates'
+proofs and statements, its type pins' names and types, and `Eq`.  Empty at every other name.  At
+the operation's home these are no read of any of its records: the certificates are the install
+check's own terms (DESIGN #446). -/
+def pinGround (pins : List NatOpPinSet) (c : Name) : Array Name :=
+  if !natDivModNames.contains c then #[] else
+  let go : Std.HashSet Expr × Array Name → Expr → Std.HashSet Expr × Array Name :=
+    fun x e => Frontend.usedConstsGo x.1 x.2 e
+  let x := (divModCertStmts c).foldl (fun x st => go (st.1.foldl go x) st.2) ({}, #[eqName])
+  (pins.foldl (fun x ps =>
+    (divModTypePins ps c).foldl (fun x p => go (x.1, x.2.push p.1) p.2)
+      ((divModCertProofs ps c).foldl go (go x (divModDeclPin ps c)))) x).2
+
+/-- **The reach's roots**: what each own record reads, what each own constant's load read
+(a theorem's value's names, which its record holds as a reference), and the pin ground of each
+own certified operation (`pinGround` over `natOpPinSets`) that a loaded module holds; an unsafe
+or partial own constant is no record, and what it reads is no root.  A name a pinned own
 constant's fast path reads (`pinFootprint`) that no loaded module holds is left to that
-constant's own check, which asks it stored (`natOpGuard`) and gives the stream path's verdict. -/
+constant's own check, which asks it stored (`natOpGuard`) and gives the stream path's verdict;
+so is a name of a pin ground no loaded module holds (another toolchain's variant's, or one the
+check then finds absent and declines). -/
 def ownRoots (ix : NameIndex) (l : Loaded) (ds : Array Declaration) : Array Name :=
   let fp : Std.HashSet Name := l.constants.foldl
     (fun s c => (Modular.pinFootprint c.name).foldl (fun s n => s.insert n) s) {}
   (ds.foldl (fun acc d => acc ++ recordReads d) #[] ++
     l.constants.foldl (fun acc (c : CEntry) =>
       if c.skipped then acc else acc ++ c.uses.toArray) #[]).filter
-    fun x => ix.first.contains x || !fp.contains x
+    (fun x => ix.first.contains x || !fp.contains x) ++
+  (l.constants.foldl (fun acc (c : CEntry) =>
+      if c.skipped then acc else acc ++ pinGround natOpPinSets c.name) #[]).filter
+    ix.first.contains
 
 /-- What an own theorem's record mentions, which its reference does not say: what the load read
 off the file (for the ground hoist). -/

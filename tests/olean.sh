@@ -659,6 +659,12 @@ work_ "an axiom at a certified Nat operation's name" 1 "not a definition: Nat.di
 work_ "two axioms of one propositional statement meet" 0 "1 flags inferred" "$MSP" AxM --progress
 work_ "an axiom of a proposition meets a theorem" 0 "1 flags inferred" "$MSP" AxIM --progress
 for m in AxA AxB AxIT AxNM; do work_ "the worker at $m" 0 "accepted" "$MSP" $m; done
+# the toolchain's homes of certified Nat operations (Nat.gcd; Nat.land, Nat.lor, Nat.xor,
+# Nat.shiftLeft, Nat.shiftRight): their pins' and certificates' constants are reached, so
+# their install checks find them (exit 2 before task #446)
+for m in Init.Data.Nat.Gcd Init.Data.Nat.Bitwise.Basic; do
+  work_ "the worker at $m" 0 "accepted" "$INIT" $m
+done
 # a module declaring a user axiom: declined at its record, as on the merged read
 # (Lean accepts it)
 for m in AxI AxNA AxNB AxNX; do
@@ -700,6 +706,8 @@ case_ "--module takes --olean" 3 --module --search-path=$LIB Tiny
 for m in TinyUse NlM PdM WvM LvN; do
   case_grep "--modular at $m" 0 "accepted .* modules" --olean --modular --search-path=$MSP -- $m
 done
+case_grep "--modular at Init.Data.Nat.Gcd" 0 "accepted .* modules" --olean --modular \
+  --search-path=$INIT -- Init.Data.Nat.Gcd
 case_grep "--modular: a module's verdict named" 0 "module NlX: accepted" --olean --modular \
   --search-path=$MSP -- NlM
 case_grep "--modular: the first failing module, its code" 1 "the first in the graph's order: NpAx" \
