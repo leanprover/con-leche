@@ -263,4 +263,46 @@ theorem presI_consBlockIndsF (hlaws : EnvLaws) {p : InLean.BlockShape} {isRec : 
     · exact hso.2
     · exact hpf.2
 
+theorem pendingGo_marks {rest : List (Name × Nat)} :
+    ∀ {l : List InLean.MemberShape}, (l.map (·.declared.name)).Nodup → ∀ ms ∈ l,
+      InLean.FEnv.pendingFields?.go ms.declared.name
+        (l.map (fun m => (m.declared.name, markOf m)) ++ rest) = some (markOf ms)
+  | [], _, _, h => by cases h
+  | m :: l, hnd, ms, hms => by
+    simp only [List.map_cons, List.cons_append, InLean.FEnv.pendingFields?.go]
+    simp only [List.map_cons, List.nodup_cons, List.mem_map] at hnd
+    rcases List.mem_cons.1 hms with rfl | hms
+    · simp
+    · have hne : (m.declared.name == ms.declared.name) = false := by
+        simp only [beq_eq_false_iff_ne]
+        exact fun h => hnd.1 ⟨ms, hms, h.symm⟩
+      rw [hne]
+      exact pendingGo_marks hnd.2 ms hms
+
+/-- **The formers' environment against master's** (Lane R's ruling 4): `fe`
+with the block's mark in front and the formers pushed presents master's
+`consBlockInds` at `blockCapsAt`. -/
+theorem presI_formers (hlaws : EnvLaws) (hP : EnvPresI fe L) {p : InLean.BlockShape} {isRec : Bool}
+    (hfr : ∀ ms ∈ p.members, fe.env.find? ms.declared.name = none)
+    (hnd : (p.members.map (·.declared.name)).Nodup)
+    (hso : ∀ ms ∈ p.members, ms.declared.name = InLean.sorryAxName → fe.coreAxioms = true)
+    (hst : ∀ ms ∈ p.members, StoredT ms.declared.type (trC ms.declared.type)) :
+    EnvPresI (InLean.consBlockIndsF p isRec (p.members.map (·.declared)) 0
+        { fe with pending := InLean.blockMarks p ++ fe.pending })
+      (ConLeche.consBlockInds (trShape p) isRec ((trShape p).members.map (·.declared)) 0 L) := by
+  have hM := presI_mark hP (marks := InLean.blockMarks p) (by
+    intro m hm
+    rw [blockMarks_eq] at hm
+    obtain ⟨ms, hms, rfl⟩ := List.mem_map.1 hm
+    exact hfr ms hms)
+  have hmap : (trShape p).members.map (·.declared) = p.members.map (trCV ·.declared) := by
+    simp [trShape, trMember]
+  rw [hmap]
+  exact presI_consBlockIndsF hlaws p.members 0 (List.drop_zero) hM hfr hnd hso
+    (fun ms hms => by
+      show InLean.FEnv.pendingFields?.go _ (InLean.blockMarks p ++ fe.pending) = _
+      rw [blockMarks_eq]
+      exact pendingGo_marks hnd ms hms)
+    hst
+
 end InLeanProof
