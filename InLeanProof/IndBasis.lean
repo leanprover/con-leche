@@ -207,4 +207,221 @@ theorem pinAgrees_tr {ci pin : Lean.ConstantInfo} (hci : CIOk ci) (hpin : CIOk p
   | axiomInfo _ | defnInfo _ | thmInfo _ | opaqueInfo _ | quotInfo _ =>
     simp [InLean.pinAgrees] at h
 
+theorem trCI_levelParams (ci : Lean.ConstantInfo) :
+    (trCI ci).toConstantVal.levelParams = ci.levelParams.map toName := by
+  cases ci <;> rfl
+
+theorem capsFree_toConstantVal (P : ConLeche.ConstantInfo) :
+    (capsFree P).toConstantVal = P.toConstantVal := by
+  cases P <;> rfl
+
+theorem capsFree_name (P : ConLeche.ConstantInfo) : (capsFree P).name = P.name := by
+  cases P <;> rfl
+
+theorem nodup_tr : ∀ (l : List Lean.Name), ConLeche.Name.nodup (l.map toName) = InLean.namesNodup l
+  | [] => rfl
+  | n :: l => by
+    simp only [List.map_cons, ConLeche.Name.nodup, InLean.namesNodup, contains_map_toName, nodup_tr l]
+
+/-- **One constant against its pin**, master's at the translation. -/
+theorem pinCopyOk_tr {ci pin : Lean.ConstantInfo} {P : ConLeche.ConstantInfo}
+    (hci : CIOk ci) (hpin : CIOk pin) (hP : capsFree P = trCI pin)
+    (h : InLean.pinCopyOk ci pin = true) : ConLeche.pinCopyOk (trCI ci) P = true := by
+  simp only [InLean.pinCopyOk, Bool.and_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨hnd, hlen⟩, hag⟩ := h
+  have hPl : P.toConstantVal.levelParams = pin.levelParams.map toName := by
+    rw [← capsFree_toConstantVal, hP, trCI_levelParams]
+  simp only [ConLeche.pinCopyOk, trCI_levelParams, nodup_tr, hnd, hPl, List.length_map, hlen,
+    beq_self_eq_true, Bool.true_and]
+  rw [pinAgrees_capsFree, hP]
+  exact pinAgrees_tr hci hpin hag
+
+/-- The lists, pairwise. -/
+theorem listBeqBy_tr : ∀ {block pins : List Lean.ConstantInfo} {Ps : List ConLeche.ConstantInfo},
+    Ps.map capsFree = pins.map trCI → (∀ ci ∈ block, CIOk ci) → (∀ p ∈ pins, CIOk p) →
+    InLean.listBeqBy InLean.pinCopyOk block pins = true →
+    ConLeche.listBeqBy ConLeche.pinCopyOk (block.map trCI) Ps = true
+  | [], [], [], _, _, _, _ => rfl
+  | c :: cs, p :: ps, P :: Ps, hPs, hb, hp, h => by
+    simp only [List.map_cons, List.cons.injEq] at hPs
+    simp only [InLean.listBeqBy, Bool.and_eq_true] at h
+    simp only [List.map_cons, ConLeche.listBeqBy, Bool.and_eq_true]
+    exact ⟨pinCopyOk_tr (hb c List.mem_cons_self) (hp p List.mem_cons_self) hPs.1 h.1,
+      listBeqBy_tr hPs.2 (fun x hx => hb x (List.mem_cons_of_mem _ hx))
+        (fun x hx => hp x (List.mem_cons_of_mem _ hx)) h.2⟩
+  | [], [], _ :: _, hPs, _, _, _ => by simp at hPs
+  | [], _ :: _, _, _, _, _, h => by simp [InLean.listBeqBy] at h
+  | _ :: _, [], _, _, _, _, h => by simp [InLean.listBeqBy] at h
+  | _ :: _, _ :: _, [], hPs, _, _, _ => by simp at hPs
+
+/-! ## The links -/
+
+theorem getParamSubst_tr (p : Lean.Name) :
+    ∀ (Rp : List Lean.Name) (us : List Lean.Level),
+      trL ((Level.param p).substParams (Level.getParamSubst Rp us)) =
+        ConLeche.Level.subst.go (Rp.map toName) (us.map trL) (toName p)
+  | [], us => by cases us <;> simp [Level.substParams, Level.substParams.go, Level.getParamSubst,
+      ConLeche.Level.subst.go, trL]
+  | _ :: _, [] => by simp [Level.substParams, Level.substParams.go, Level.getParamSubst,
+      ConLeche.Level.subst.go, trL]
+  | r :: Rp, u :: us => by
+    have ih := getParamSubst_tr p Rp us
+    simp only [Level.substParams, Level.substParams.go, Level.getParamSubst] at ih ⊢
+    simp only [List.map_cons, ConLeche.Level.subst.go]
+    rw [name_beq_eq_decide]
+    by_cases h : toName r = toName p
+    · simp [h]
+    · simp only [h, decide_false, Bool.false_eq_true, ↓reduceIte]
+      exact ih
+
+theorem okL_param_list (C : List Lean.Name) : (C.map Level.param).all okL = true := by
+  simp [okL]
+
+theorem pinLinkOk_tr (R Rp C Cp : List Lean.Name) (h : InLean.pinLinkOk R Rp C Cp = true) :
+    ConLeche.pinLinkOk (R.map toName) (Rp.map toName) (C.map toName) (Cp.map toName) = true := by
+  simp only [InLean.pinLinkOk, beq_iff_eq] at h
+  simp only [ConLeche.pinLinkOk, beq_iff_eq]
+  have := congrArg (List.map trL) h
+  simp only [List.map_map] at this
+  simp only [List.map_map]
+  have e1 : List.map (ConLeche.Level.param ∘ toName) C = List.map (trL ∘ Level.param) C :=
+    List.map_congr_left fun _ _ => rfl
+  have e2 : List.map ((fun p => ConLeche.Level.subst (List.map toName Rp)
+      (List.map (ConLeche.Level.param ∘ toName) R) (ConLeche.Level.param p)) ∘ toName) Cp =
+      List.map (trL ∘ fun p => (Level.param p).instantiateParams Rp (List.map Level.param R)) Cp := by
+    apply List.map_congr_left
+    intro p _
+    simp only [Function.comp_apply, Level.instantiateParams, ConLeche.Level.subst]
+    rw [getParamSubst_tr]
+    simp [Function.comp_def, trL]
+  rw [e1, e2]
+  exact this
+
+/-- A list's constant by name, translated. -/
+theorem constNamed?_tr (n : Lean.Name) (l : List Lean.ConstantInfo) :
+    ConLeche.constNamed? (l.map trCI) (toName n) = (InLean.constNamed? l n).map trCI := by
+  simp only [ConLeche.constNamed?, InLean.constNamed?, List.find?_map]
+  congr 2
+  funext c
+  simp only [Function.comp_apply, trCI_name, toName_beq]
+
+theorem constNamed?_caps (n : Lean.Name) : ∀ (Ps : List ConLeche.ConstantInfo) (l : List Lean.ConstantInfo),
+    Ps.map capsFree = l.map trCI →
+    (ConLeche.constNamed? Ps (toName n)).map capsFree = (InLean.constNamed? l n).map trCI
+  | [], [], _ => rfl
+  | P :: Ps, c :: l, h => by
+    simp only [List.map_cons, List.cons.injEq] at h
+    have hn : P.name = toName c.name := by rw [← capsFree_name, h.1, trCI_name]
+    simp only [ConLeche.constNamed?, InLean.constNamed?, List.find?_cons, hn, toName_beq]
+    split
+    · simp [h.1]
+    · exact constNamed?_caps n Ps l h.2
+  | [], _ :: _, h | _ :: _, [], h => by simp at h
+
+theorem levelParams_capsFree_some {o : Option ConLeche.ConstantInfo} {o' : Option Lean.ConstantInfo}
+    (h : o.map capsFree = o'.map trCI) :
+    o.map (·.toConstantVal.levelParams) = o'.map (fun c => c.levelParams.map toName) := by
+  cases o <;> cases o' <;> simp_all
+  rename_i P c
+  rw [← capsFree_toConstantVal, h, trCI_levelParams]
+
+/-- **The links**, master's at the translation. -/
+theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLeche.ConstantInfo}
+    (hPs : Ps.map capsFree = pins.map trCI) (h : InLean.blockLinksOk block pins = true) :
+    ConLeche.blockLinksOk (block.map trCI) Ps = true := by
+  unfold InLean.blockLinksOk at h
+  unfold ConLeche.blockLinksOk
+  have hF : ((block.map trCI).head?.map (·.toConstantVal.levelParams)).getD [] =
+      ((block.head?.map (·.levelParams)).getD []).map toName := by
+    cases block <;> simp [trCI_levelParams]
+  rw [hF]
+  generalize (block.head?.map (·.levelParams)).getD [] = F at h ⊢
+  -- pairwise, keeping the whole lists for `constNamed?`
+  have key : ∀ (bs : List Lean.ConstantInfo) (qs : List Lean.ConstantInfo)
+      (Qs : List ConLeche.ConstantInfo), Qs.map capsFree = qs.map trCI →
+      ((bs.zip qs).all fun (cp : Lean.ConstantInfo × Lean.ConstantInfo) =>
+        match cp.1, cp.2 with
+        | .ctorInfo v, _ => v.levelParams == F
+        | .recInfo v, .recInfo vp =>
+          vp.rules.all fun rl =>
+            match InLean.constNamed? block rl.ctor, InLean.constNamed? pins rl.ctor with
+            | some C, some Cp =>
+              InLean.pinLinkOk v.levelParams vp.levelParams C.levelParams Cp.levelParams
+            | _, _ => false
+        | _, _ => true) = true →
+      (((bs.map trCI).zip Qs).all fun (cp : ConLeche.ConstantInfo × ConLeche.ConstantInfo) =>
+        match cp.1, cp.2 with
+        | .ctorInfo cv _ _, _ => cv.levelParams == F.map toName
+        | .recInfo cv .., .recInfo cvp _ _ _ rules =>
+          rules.all fun rl =>
+            match ConLeche.constNamed? (block.map trCI) rl.ctor, ConLeche.constNamed? Ps rl.ctor with
+            | some C, some Cp =>
+              ConLeche.pinLinkOk cv.levelParams cvp.levelParams C.toConstantVal.levelParams
+                Cp.toConstantVal.levelParams
+            | _, _ => false
+        | _, _ => true) = true := by
+    intro bs
+    induction bs with
+    | nil => intro _ _ _ _; rfl
+    | cons c bs ih =>
+      intro qs Qs hQ hall
+      cases qs with
+      | nil => cases Qs with
+        | nil => rfl
+        | cons _ _ => simp at hQ
+      | cons q qs =>
+        cases Qs with
+        | nil => simp at hQ
+        | cons Q Qs =>
+          simp only [List.map_cons, List.cons.injEq] at hQ
+          simp only [List.zip_cons_cons, List.all_cons, Bool.and_eq_true] at hall
+          simp only [List.map_cons, List.zip_cons_cons, List.all_cons, Bool.and_eq_true]
+          refine ⟨?_, ih qs Qs hQ.2 hall.2⟩
+          have h1 := hall.1
+          cases c with
+          | ctorInfo v =>
+            simp only [trCI] at h1 ⊢
+            rw [show (trCV v.toConstantVal).levelParams = v.levelParams.map toName from rfl,
+              map_toName_beq]
+            exact h1
+          | recInfo v =>
+            cases q with
+            | recInfo vp =>
+              have hQ' : Q = .recInfo (trCV vp.toConstantVal) (majorIdxOf vp) (rulePrefixOf vp) vp.k
+                  (vp.rules.map trRule) := by
+                have hq1 := hQ.1
+                cases Q with
+                | recInfo cv mI rP k rules => exact hq1
+                | indInfo _ _ => simp [capsFree, trCI] at hq1
+                | _ => simp [capsFree, trCI] at hq1
+              subst hQ'
+              simp only [trCI, List.all_map, List.all_eq_true, Function.comp_apply] at h1 ⊢
+              intro rl hrl
+              have h2 := h1 rl hrl
+              simp only [trRule]
+              rw [constNamed?_tr]
+              have hc := levelParams_capsFree_some (constNamed?_caps rl.ctor Ps pins hPs)
+              generalize InLean.constNamed? block rl.ctor = A at h2 ⊢
+              generalize InLean.constNamed? pins rl.ctor = B at h2 hc
+              generalize ConLeche.constNamed? Ps (toName rl.ctor) = Cc at hc ⊢
+              cases A with
+              | none => simp at h2
+              | some a =>
+                cases B with
+                | none => simp at h2
+                | some b =>
+                  cases Cc with
+                  | none => simp at hc
+                  | some cc =>
+                    simp only [Option.map_some, Option.some.injEq] at hc h2 ⊢
+                    rw [trCI_levelParams, hc]
+                    exact pinLinkOk_tr _ _ _ _ h2
+            | _ =>
+              have hq1 := hQ.1
+              cases Q with
+              | recInfo cv mI rP k rules => simp [capsFree, trCI] at hq1
+              | _ => rfl
+          | _ => cases Q <;> rfl
+  exact key block pins Ps hPs h
+
 end InLeanProof
