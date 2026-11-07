@@ -31,5 +31,6 @@ public import InLeanProof.IndOps
 public import InLeanProof.IndDecl
 public import InLeanProof.IndBlockKS
 public import InLeanProof.IndMembers
+public import InLeanProof.IndTele
 public import InLeanProof.SquarePilot
 public import InLeanProof.AxiomPins
