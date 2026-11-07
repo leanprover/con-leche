@@ -227,7 +227,7 @@ theorem blockCtorFacts_of {envI : Env} {q : BlockShape} {F : Nat} {cvTa : Consta
     hall j ((q.members.getD m default).ctors[j]) ctor (List.getElem?_eq_getElem hjl) hj
   have hCtor₀ := hCtor
   obtain ⟨⟨heq, hccvC⟩, ⟨cbs, es, hstrip, -⟩, -⟩ := hCtor₀
-  obtain ⟨hfindC, -, -, -, hfvC, stype, -, -, htrC, hstC, -⟩ :=
+  obtain ⟨hfindC, -, -, hfvC, stype, -, -, htrC, hstC, -⟩ :=
     ConLeche.checkConstantVal_inv hccvC
   have hmem : (q.members.getD m default).ctors[j] ∈ (q.members.getD m default).ctors :=
     List.getElem_mem hjl

@@ -296,7 +296,7 @@ theorem genRecTy_run
     Nonempty (RecTyGen .verified F envC p false i rc cvG (R.Ms.getD c default).nIdx
       (structElimLevel p.elim p.large)) := by
   have hcv := ConLeche.classConstOk_checked T.hcv
-  obtain ⟨-, -, -, -, hfv0, -, -, stype, u0, hinf, -⟩ := ConLeche.classConstOk_inv T.hcv
+  obtain ⟨-, -, -, hfv0, -, -, stype, u0, hinf, -⟩ := ConLeche.classConstOk_inv T.hcv
   have htype : cvG.type = T.gty := T.type_eq
   rw [T.hcvG] at hfv0 hinf
   dsimp only at hfv0 hinf

@@ -110,6 +110,14 @@ speak about the stored `Eq` without hypothesising its declaration. -/
         ci.toConstantVal.levelParams ψ) = some t →
       cval n ψ = t
 
+/-- A stored `Nat`, `Nat.zero`, `Nat.succ` is a copy of its pin, so of its pin's kind. -/
+theorem BasisPinnedTT.natKinds {env : Env} {cval : Name → (Name → Nat) → Term}
+    (h : BasisPinnedTT env cval) : NatKinds env := by
+  refine ⟨fun c hf => ?_, fun c hf => ?_, fun c hf => ?_⟩
+  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, rfl⟩
+  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, rfl⟩
+  · rw [(h _ c hf (by decide)).1.1]; exact ⟨_, _, _, rfl⟩
+
 /-- The one level parameter the stored `Eq` is at. -/
 @[expose] def eqLp (env : Env) : Name :=
   match env.find? eqName with
@@ -127,7 +135,7 @@ theorem eqCopy_not_rec {ci : ConstantInfo} (h : PinCopy ci (pinnedInfo eqName))
   intro hc
   have h1 := h.1
   rw [hc] at h1
-  simp only [show pinnedInfo eqName = eqA from rfl, eqA, ConstantInfo.atLps] at h1
+  simp only [show pinnedInfo eqName = eqI from rfl, eqI, ConstantInfo.atLps] at h1
   exact nomatch h1
 
 /-- A reserved `Eq` is a copy of the pin, at one parameter. -/

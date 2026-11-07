@@ -250,12 +250,12 @@ private theorem acceptedReads_aux (m : EnvModel V env) (φ : Name → Nat) :
       obtain ⟨ci, hf, hlen⟩ := inferTypeCore_const_inv_len h
       exact ⟨_, denote_const hf hlen⟩
     | .lit (.natVal k) =>
-      exact ⟨_, denote_natLit (ConLeche.natLitSupported_of_stored m.wf (inferTypeCore_natLit_inv h))⟩
+      exact ⟨_, denote_natLit (ConLeche.natLitSupported_of_stored m.wf m.basis_pinned.natKinds (inferTypeCore_natLit_inv h))⟩
     | .lit (.strVal s) =>
       -- the reading is the (long) pinned character spine; name it by
       -- case analysis rather than transcribing it
       rcases hd : denote m.acval env φ d (.lit (.strVal s)) with _ | ea
-      · rw [denote, ite_eq_left (ConLeche.strLitSupported_of_stored m.wf (inferTypeCore_strLit_inv h))] at hd
+      · rw [denote, ite_eq_left (ConLeche.strLitSupported_of_stored m.wf m.basis_pinned.natKinds (inferTypeCore_strLit_inv h))] at hd
         exact nomatch hd
       · exact ⟨ea, rfl⟩
     | .app f a =>

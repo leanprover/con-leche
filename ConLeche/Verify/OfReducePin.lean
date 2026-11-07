@@ -64,7 +64,7 @@ theorem reduceElem_sort {env : Env} {c : Name}
         · simp only [ConstantVal.matchesPin, Bool.and_eq_true,
             beq_iff_eq] at h
           show cvN.type = _
-          simpa [natA] using h.2
+          simpa [natA, ConstantInfo.toConstantVal, BasisDSL.type1] using h.2
       | _ => exact nomatch h
   · rw [reduceElemOk, ite_eq_right hc] at h
     rw [reduceElemName, ite_eq_right hc]

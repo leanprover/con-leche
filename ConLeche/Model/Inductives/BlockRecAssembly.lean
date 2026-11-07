@@ -289,7 +289,7 @@ theorem blockRecStaged_runR {envC : Env}
     fun _ => blockRecAcv_of_notin
   have hL := fun r (hr : r ∈ rs) => hleaf.stored hnd hr
   exact blockRecStaged_of mpC hnd
-    (fun r hr => (hcv r hr).1) (fun r hr => (hcv r hr).2)
+    (fun r hr => hcv r hr) (fun r hr => (hcv r hr).2)
     (fun r hr => ConLeche.recStage_opName h r hr)
     (fun r hr => ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1,
       (hfacts r hr).2.2.2.1, ConLeche.litShapeAt_of_reservedRec (ConLeche.recStage_reserved h r hr)⟩)
@@ -300,7 +300,7 @@ theorem blockRecStaged_runR {envC : Env}
       (fun i r hr ψ => blockRecAcv_at hnd hr ψ) hleaf.pre)
     (fun r hr rhs hrhs => (hfacts r hr).2.2.2.2 rhs hrhs)
     hctorsIn hshape hnest
-    (hrecP_ofR mpC hshape (fun r hr => (hcv r hr).1) hag hnew)
+    (hrecP_ofR mpC hshape (fun r hr => hcv r hr) hag hnew)
     (ConLeche.recStage_reserved h)
 
 

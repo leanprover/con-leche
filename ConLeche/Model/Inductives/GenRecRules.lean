@@ -1233,7 +1233,7 @@ theorem genHcallee
     simp only [tgtRs, List.getElem?_map, ho]; rfl
   have hcv := ConLeche.recStage_cvFacts h
   have hfind := find?_consBlockRecsR_at (R := Rr) (q := pp) (m := 0) hnd
-    (fun r₀ hr₀ => (hcv r₀ hr₀).1) hr'
+    (fun r₀ hr₀ => hcv r₀ hr₀) hr'
   have hlps : R.cvGs[r0].levelParams = r.1.levelParams := recStage_lps h hr' hr
   have hname : (R.cvGs.getD r0 default).name = R.cvGs[r0].name := by
     rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr0]; rfl
@@ -1643,7 +1643,7 @@ theorem genIhFree_run
   rw [hopI] at hop2
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hop2)
   -- the stored type: its constants resolve at the constructors' environment
-  obtain ⟨-, -, -, -, -, -, hres, -, -, -, -⟩ := ConLeche.classConstOk_inv TR.hcv
+  obtain ⟨-, -, -, -, -, hres, -, -, -, -⟩ := ConLeche.classConstOk_inv TR.hcv
   rw [TR.type_eq] at hres
   have hgtyC : CBNF envC TR.gty :=
     constsBound_eraseFVars _ (constsBound_of_constsResolve _ hres)

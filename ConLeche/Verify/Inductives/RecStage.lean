@@ -270,13 +270,10 @@ theorem recStageG_recNames (h : RecStageG mode F env p rs) :
   obtain ⟨rc, u, hrc, -, ⟨E⟩⟩ := R.tyGenAt hr
   exact ⟨rc, _, hrc, hr, E.name_eq, ⟨E.cv0, E.hcv0.1, E.hcv0.2, E.hcv⟩, E.nP_le, _, E.mI_eq⟩
 
-/-- **The stored recursors' name facts**, from the per-recursor check
-(`ConstChecked`): freshness at the constructors' environment and the
-two name guards. -/
+/-- **The stored recursors are fresh** at the constructors' environment, from the per-recursor
+check (`ConstChecked`). -/
 theorem recStage_cvFacts (h : RecStageG mode F env p rs) :
-    ∀ r ∈ rs,
-      env.find? r.1.name = none ∧
-      reservedBasisNames.contains r.1.name = false := by
+    ∀ r ∈ rs, env.find? r.1.name = none := by
   obtain ⟨-, hlenR, hall⟩ := recStageG_recNames h
   intro r hr
   obtain ⟨i, hi⟩ := List.getElem?_of_mem hr
@@ -286,7 +283,7 @@ theorem recStage_cvFacts (h : RecStageG mode F env p rs) :
   obtain ⟨rc, r', hrc, hr', hname, ⟨cv0, hn0, -, hcv⟩, -, -⟩ := hall i hil
   obtain rfl := Option.some.inj (hi.symm.trans hr')
   have hname' : r.1.name = cv0.name := by rw [hname, hn0]
-  refine ⟨by rw [hname']; exact hcv.fresh, by rw [hname']; exact hcv.unreserved⟩
+  rw [hname']; exact hcv.fresh
 
 /-- A recursor takes no certified operation's name. -/
 theorem recStage_opName (h : RecStageG mode F env p rs) :

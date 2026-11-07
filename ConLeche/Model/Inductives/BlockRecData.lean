@@ -1418,7 +1418,7 @@ theorem blockRecBareModel_run {envC : Env}
   have hL := fun r (hr : r ∈ rs) => hleaf.stored hnd hr
   exact envModelM_consBlockRecsBare (q := p) (m := 0) mpC
     (by rw [bareOf_map_name]; exact hnd)
-    (hB fun r hr => (hcv r hr).1) (hB fun r hr => (hcv r hr).2)
+    (hB fun r hr => hcv r hr) (hB fun r hr => (hcv r hr).2)
     (hB fun r hr => ConLeche.recStage_opName h r hr)
     (hB fun r hr =>
       ⟨(hfacts r hr).1, (hfacts r hr).2.1, (hfacts r hr).2.2.1, (hfacts r hr).2.2.2.1,
@@ -1576,7 +1576,7 @@ theorem blockRecDenote_cross {mpC : EnvModelM V envC}
       = some ea := by
   have hcv := recStage_cvFacts h
   rw [hac]
-  refine denote_consBlockRecsR_mono (fun r hr => (hcv r hr).1)
+  refine denote_consBlockRecsR_mono (fun r hr => hcv r hr)
     (fun n hne => ?_) ψ d e hcb hread
   refine blockRecAcvOf_of_ne (fun m hm => ?_)
   obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
@@ -1596,7 +1596,7 @@ theorem blockRecAcv_stored {mpC : EnvModelM V envC}
   refine blockRecAcvOf_of_ne (fun m hm => ?_)
   obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
   intro hh
-  rw [hh, (hcv r hr).1] at hn
+  rw [hh, hcv r hr] at hn
   exact nomatch hn
 
 /-- **THE ENVIRONMENT CROSSING, as an EQUATION** — the two readings of
@@ -1626,17 +1626,17 @@ theorem blockRecDenote_cross_eq {mpC : EnvModelM V envC}
   have hcv := recStage_cvFacts h
   have hres := ConLeche.recStage_reserved h
   have hkeep := find?_consBlockRecsR_keep (R := R) (q := p)
-    (fun r hr => (hcv r hr).1)
+    (fun r hr => hcv r hr)
   rw [← denote_envExtend (acval := blockRecAcv mpC.base2.acval envC rs s eqs) (φ := ψ)
       (fun {n} {ci} hf => hkeep n ci hf)
       ⟨(ConLeche.natLitSupported_consBlockRecsR hres).symm,
         (ConLeche.strLitSupported_consBlockRecsR hres).symm⟩
-      (findProj?_consBlockRecsR mpC.base2.wf (fun r hr => (hcv r hr).1)) d e hcb]
+      (findProj?_consBlockRecsR mpC.base2.wf (fun r hr => hcv r hr)) d e hcb]
   refine denote_acval_congr (fun n hn => ?_) d e
   refine (blockRecAcvOf_of_ne (fun m hm => ?_)).symm
   obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hm
   intro hh
-  rw [hh, (hcv r hr).1] at hn
+  rw [hh, hcv r hr] at hn
   exact nomatch hn
 
 /-- **The contract's `TVa` binder, ELIMINATED**: the recursor type's
@@ -1875,7 +1875,7 @@ theorem blockRuleRhsOk_base {envC : Env}
   -- the rule's constructor is `ctor`, stored below the recursors
   have hkeep := find?_consBlockRecsR_keep
     (R := R) (q := p)
-    (fun r' hr' => (recStage_cvFacts h r' hr').1) ctor.1.name _ hcfind
+    (fun r' hr' => recStage_cvFacts h r' hr') ctor.1.name _ hcfind
   have hfind' : (ConLeche.consBlockRecsR R p 0 rs envC).find?
       (ConLeche.RecRule.ctor rl) = some (.ctorInfo ctor.1 nP ctor.2) := by
     rw [hct]; exact hkeep

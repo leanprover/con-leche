@@ -414,7 +414,7 @@ theorem sumCtorData_of (mp : EnvModelM V env)
       CtorDataI mp.base2 T lps cvCa nP nF nIdx resSort isProp large idxArgs ds Es srcs := by
   obtain ⟨⟨heq, hccv⟩, hresid, fvsP, crest, tfvs, trest, xFvs, idxArgs, hopC, -, -, hopX, hlenI,
     -, hres, hsorts⟩ := hCtor
-  obtain ⟨-, -, -, hlbt, hitf, stype, u, htp', -, hst, hens⟩ :=
+  obtain ⟨-, -, hlbt, hitf, stype, u, htp', -, hst, hens⟩ :=
     ConLeche.checkConstantVal_inv hccv
   rw [← heq] at hlbt hitf htp' hst
   have htf' := hitf
@@ -647,7 +647,7 @@ theorem ctorFramesGen (mp : EnvModelM V env)
             ∈ˢ (univ ((sorts.getD j .zero).eval ψ) : V)) := by
   obtain ⟨⟨heq, hccv⟩, -, fvsP, crest, tfvs, trest, xFvs, idxArgs', hopC, hopT, hdoms, hopX,
     -, -, -, hsorts⟩ := hCtor
-  obtain ⟨-, -, -, hlbt, hitf, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccv
+  obtain ⟨-, -, hlbt, hitf, -, -, -, -⟩ := ConLeche.checkConstantVal_inv hccv
   rw [← heq] at hlbt hitf
   have htf' := hitf
   have hbt' := hlbt

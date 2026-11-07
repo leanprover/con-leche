@@ -9,15 +9,13 @@ import ConLeche.Kernel.Checker
 /-!
 # The declaration-level RUN inversions (task #148 T6)
 
-Three inversions from `checkDecl`'s own steps into the V-free run
+Two inversions from `checkDecl`'s own steps into the V-free run
 records of `Semantics/Decl.lean`: `certifyNatEqs` into `NatEqsRun`, and
-the pinned basis fold into `BasisInstallRun`/`DeclBasisRun`.  Each inverts a statement
+a quotient record into `DeclQuotRun`.  Each inverts a statement
 about the checker into a statement about the checker; no valuation, no
 relation and no model appears in any of them.
 
-Consumers: `Semantics/Bridge/DeclRun.lean` for the walks' runs and
-the template fold, and `checkDeclRun_of`'s basis arm for the pair
-below.
+Consumer: `Semantics/Bridge/DeclRun.lean`.
 -/
 
 namespace ConLeche.Semantics
@@ -57,42 +55,10 @@ theorem natEqsRun_of_certs {F : Nat} {env : Env} :
         · exact hx
         · exact ih h eq heq'
 
-/-! ## A pinned block and a quotient record
+/-! ## A quotient record
 
-The simplest branches: the comparison with the pin, then a fold of
-duplicate checks.  `BasisInstallRun` records exactly the fold's output —
-each constant fresh, then consed — so the inversion is one induction
-over `installBasisDecl_inv`. -/
-
-/-- **The pinned-block fold, inverted** into `BasisInstallRun`. -/
-theorem foldlM_installBasisDecl_invR :
-    ∀ (l : List ConstantInfo) {env env₁ : Env},
-      l.foldlM (installBasisDecl (m := CheckM)) env = .ok env₁ →
-      BasisInstallRun env l env₁
-  | [], env, env₁, h => by
-    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
-    exact h.symm
-  | ci :: l, env, env₁, h => by
-    simp only [List.foldlM, Bind.bind, Except.bind] at h
-    revert h
-    cases hi : installBasisDecl (m := CheckM) env ci with
-    | error e => intro h; exact nomatch h
-    | ok env' =>
-      intro h
-      obtain ⟨hfresh, rfl⟩ := installBasisDecl_inv hi
-      exact ⟨Option.isNone_iff_eq_none.mpr hfresh,
-        foldlM_installBasisDecl_invR l h⟩
-
-/-- **A pinned block's check and install, bridged.** -/
-theorem declBasisRunOf {env env₂ : Env} {kind : BasisKind} {block : List ConstantInfo}
-    (h : checkBasisBlock (m := CheckM) env kind block = .ok env₂) :
-    DeclBasisRun env kind block env₂ := by
-  unfold checkBasisBlock at h
-  by_cases hok : pinListOk block kind.decls = true
-  · rw [ite_eq_left hok] at h
-    exact ⟨hok, foldlM_installBasisDecl_invR _ h⟩
-  · rw [ite_eq_right hok] at h
-    exact nomatch h
+The comparison with the slot's pin, the slots it needs, and one fresh
+push (`installBasisDecl_inv`). -/
 
 /-- **A quotient record's check and install, bridged.** -/
 theorem declQuotRunOf {env env₂ : Env} {k : QuotKind} {cv : ConstantVal}

@@ -55,7 +55,7 @@ attribute [local simp] ConLeche.BasisDSL.bv ConLeche.BasisDSL.srt ConLeche.Basis
   ConLeche.quotRel ConLeche.quotLiftF ConLeche.quotLiftH ConLeche.quotIndMotive ConLeche.quotIndMk
 
 open ConLeche (quotA quotMkA quotLiftA quotIndA quotSoundA quotName
-  quotMkName quotLiftName quotIndName quotSoundName eqA eqName)
+  quotMkName quotLiftName quotIndName quotSoundName eqI eqName)
 
 variable {m : EnvModel V env} {A : (Name → Nat) → Term}
 

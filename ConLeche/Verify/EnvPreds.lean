@@ -97,18 +97,50 @@ theorem ProjOkT.towerHead {env : Env} (h : ProjOkT env)
   obtain ⟨tbl, hf', hi, rfl⟩ := Env.findProj?_some hf
   exact h _ _ hf' i hi
 
+/-! ## The pinned blocks as the install stores them
+
+A pin is what an export writes, so its former carries no capabilities; a pinned block is installed
+like any other block, and its former stores the capabilities the block gives it (`blockCapsAt`). -/
+
+/-- `Eq`'s former as stored. -/
+@[expose] def eqI : ConstantInfo :=
+  .indInfo eqA.toConstantVal
+    { etaCtor := eqReflName, etaParams := 2, unitParams := 2, all := [eqName], nparams := 2,
+      nIdx := 1, ctors := [eqReflName] }
+
+/-- `Nat`'s former as stored. -/
+@[expose] def natI : ConstantInfo :=
+  .indInfo natA.toConstantVal { all := [natName], ctors := [natZeroName, natSuccName] }
+
+/-- `Empty`'s former as stored. -/
+@[expose] def emptyI : ConstantInfo :=
+  .indInfo emptyA.toConstantVal { all := [emptyName] }
+
+/-- `False`'s former as stored. -/
+@[expose] def falseI : ConstantInfo :=
+  .indInfo falseA.toConstantVal { all := [falseName] }
+
+/-- **A pinned block as the install stores it**, in install order: the pins, each former with its
+block's capabilities.  The quotient package is no block: its records store their pins. -/
+@[expose] def BasisKind.installed : BasisKind → List ConstantInfo
+  | .eqK => [eqI, eqReflA, eqRecA]
+  | .natK => [natI, natZeroA, natSuccA, natRecA]
+  | .emptyK => [emptyI, emptyRecA]
+  | .falseK => [falseI, falseRecA]
+  | .quotK => quotBasis
+
 /-- The pinned (stored) declaration of one basis constant. -/
 @[expose] def pinnedInfo (n : Name) : ConstantInfo :=
-  if n = eqName then eqA
+  if n = eqName then eqI
   else if n = eqReflName then eqReflA
   else if n = eqName.str "rec" then eqRecA
-  else if n = natName then natA
+  else if n = natName then natI
   else if n = natZeroName then natZeroA
   else if n = natSuccName then natSuccA
   else if n = natName.str "rec" then natRecA
-  else if n = emptyName then emptyA
+  else if n = emptyName then emptyI
   else if n = emptyName.str "rec" then emptyRecA
-  else if n = falseName then falseA
+  else if n = falseName then falseI
   else if n = falseName.str "rec" then falseRecA
   else if n = quotName then quotA
   else if n = quotMkName then quotMkA
