@@ -111337,3 +111337,92 @@ and drops its copies of `lbb_*`, `AllClosed_nil/cons`, `okSL_of_tabLe`,
 `TrSL_of_tabLe`, `trPW`, `trPW_inter`, `contains_map_toName`; its two
 `stripTop_of_TrS_*` (a different statement from `WalksDefeq`'s) are renamed
 `..._binderOf`.
+
+### Lane P3a: O4, the environment relation (2026-11-07)
+
+`InLeanProof/EnvPresI.lean` (1.6 k lines, one session), no `sorry`, no new
+axiom; 14 theorems pinned in `AxiomPins.lean` (the standard three each).  No
+executable code changed; no foundation or walk file changed (the root and
+`AxiomPins.lean` gained the import and the pins).
+
+**The relation**, `EnvPresI fe L`, pointwise:
+* `entry`/`none`: InLean finds an entry at `n` (`fe.find?`, so `sorryAx` is
+  hidden unless `coreAxioms`) exactly where con-leche finds one at `toName n`
+  (`toName` is a bijection, `fromName`), related by `EntryRelI fe.env`: an
+  axiom or `opaque` against con-leche's `axiomInfo`, a theorem against
+  `thmInfo`, a definition with its value (`StoredT`) and hint (`trHint`), a
+  former against `indInfo` with `toCaps (capsOf fe.env v)` and its
+  constructors stored (so what `capsOf` reads does not change when the
+  environment grows), a constructor with its counts, a recursor
+  (`RecRelI`: `majorIdxOf`, `rulePrefixOf`, `k`, and rule by rule
+  `RuleRel (recFireAt rv false)` with the right-hand side stored), the
+  quotient package as InLean's views read it (`indInfo · {}`, `ctorInfo · 2 1`,
+  `RecRelI` of `quotRecVal q (quotRuleRhs q)` at `isQuot`); every pair relates
+  name, levels and type (`CVRel`).
+* `table`: `L.findTable? (toName T)` against InLean's readers
+  (`TableRelI`): none where `tableFields?` finds none, else the former and its
+  one constructor with the table's name, levels, counts, constructor, and
+  field by field `projBodyAt` a closed term translating to the stored body.
+* `tabNames`: every stored table belongs to a stored constant (a push never
+  reveals a table).
+
+**The six hypotheses from it**: `envDomI_of`, `envDefnI_of`, `envRecI_of`,
+`envRelI_of`, `envViewI_of`, `defeqEnvI_of`, all at once `envHyps_of`.  The
+inversions (`EntryRelI.inv_*`) and the views (`defnView_rel`, `recAt_rel`,
+`indView_rel`, `ctorView_rel` and their `_none`) carry the work;
+`DefeqEnvI`'s prop-ness readers are the walk `proofPW_tr` (with
+`unwrap_tr`, `peelPisW_tr`, `residualPW_tr`, `binderDom_tr`,
+`headTypePW_tr`, `typeSortPWGo_tr`, `headProofPW_tr`), stated on `toExpr fv`
+for any id translation whose variables' types are the readers' (`FvTyRel`,
+`fvTyRel_state` at a state: no `FVTableOK` or range of interned types
+needed).  A con-leche fall-through arm is matched to InLean's by the head
+constructor (`tagC`/`tagL`, `tag_tr`) and one equation per reader
+(`peelPisWC_other`, …).
+
+**Preservation**: `presI_push` (a group of fresh names added, every other
+name reading as before; the premises are the group's own names: entries,
+absences, tables, the installed constants and tables at the group's names).
+Proved per kind through it: `presI_axiom`, `presI_defn` (any safety),
+`presI_thm`, `presI_opaque`, and `presI_empty` to start.  Their premises:
+`toDecl [ci] = some d`, the name fresh in `fe.env`, the terms in range
+(closedness follows from `toDecl`, `fvarS_of_toExprC`), `EnvLaws`, and
+`sorryAx`'s visibility matching con-leche's install (an axiom at `sorryAx`
+needs `coreAxioms` off, any other kind there needs it on); an axiom at
+`Quot.sound` belongs to the quotient group.  Conclusion
+`EnvPresI {fe with env := addConst fe.env ci} (L.pushDelta (declConstants d)
+(declTables d))`, the step `installAll` folds.  **Stated, not proved**:
+`QuotGroupPres` (premise `checkQuotC` accepted) and `IndGroupPres` (premise
+`checkIndDeclC .verified` accepted the stored block, the generated constants
+fresh, distinct, in range, the names' `sorryAx` condition); what remains is
+`presI_push`'s premises for them: `capsOf` against `blockCapsAt` (by
+`genEntriesAgree`), `recFireAt` against `recFire` (both read the major's
+domain at the record's `majorIdx`), the tables against `blockTables`/
+`structProjBodies`, a pinned block's pins against the generated entries,
+the quotient pins at the record's names.
+
+**Findings (not false as stated, but for the assembly).**
+1. *Unsafe and `partial` constants.*  The six hypotheses quantify over every
+   name `fe.find?` finds, and `FEnv.find?` hides only `sorryAx`; so does
+   `EnvPresI`, which therefore puts `E`'s unsafe and `partial` constants into
+   `L` (as `toDecl` reads them).  `Presents` and master's `EnvModelOk L` are
+   about safe constants: an `L` holding `unsafe def f : False := f` has no
+   model.  So for an `E` with such a constant, no `L` satisfies both the
+   walks' hypotheses and `EnvModelOk`, and P4 cannot use the walks there.
+   The hypotheses are needed as stated (whnf at an unsafe head unfolds it in
+   InLean, gets stuck in con-leche).  Proposed fix (executable, outside this
+   lane): in a safe check, `FEnv.find?` hides a constant that is not
+   `SafeConst` (as it hides `sorryAx`; official rejects its use anyway, the
+   verdict is unchanged, the message becomes "unknown constant"); then
+   `EnvPresI` relates exactly the safe constants, matching `Presents`, with
+   no proof change beyond `presI_*`'s visibility premise.
+2. *`sorryAx` under `theoremConfig`.*  `Presents E L` requires every safe
+   constant of `E` in `L`, and con-leche installs nothing for `sorryAx`; so
+   `Presents` is false for every `E` holding `sorryAx` (every environment
+   with `Init.Prelude`), and `AddDeclSound` says nothing there.  With
+   `coreAxioms := true` (`theoremConfig`) `EnvPresI` agrees (InLean sees it,
+   con-leche has none).  A statement question for P4: either the theorem is
+   about environments without `sorryAx`, or `coreAxioms := false` in
+   `theoremConfig` (con-leche's policy, under which both relations allow it).
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
