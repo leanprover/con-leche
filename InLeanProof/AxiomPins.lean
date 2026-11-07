@@ -17,6 +17,7 @@ public import InLeanProof.SquarePilot
 public import InLeanProof.IotaViews
 public import InLeanProof.LeafGuardI
 public import InLeanProof.WalksIotaRec
+public import InLeanProof.EnvPresI
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1261,3 +1262,89 @@ info: 'InLeanProof.ssimI' depends on axioms: [propext, Classical.choice, Quot.so
 -/
 #guard_msgs in
 #print axioms InLeanProof.ssimI
+
+-- Lane P3a (O4): the six environment hypotheses from `EnvPresI`, and its preservation.
+
+/--
+info: 'InLeanProof.envRelI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envRelI_of
+
+/--
+info: 'InLeanProof.envDomI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envDomI_of
+
+/--
+info: 'InLeanProof.envDefnI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envDefnI_of
+
+/--
+info: 'InLeanProof.envViewI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envViewI_of
+
+/--
+info: 'InLeanProof.envRecI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envRecI_of
+
+/--
+info: 'InLeanProof.defeqEnvI_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.defeqEnvI_of
+
+/--
+info: 'InLeanProof.envHyps_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.envHyps_of
+
+/--
+info: 'InLeanProof.presI_push' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_push
+
+/--
+info: 'InLeanProof.presI_one' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_one
+
+/--
+info: 'InLeanProof.presI_axiom' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_axiom
+
+/--
+info: 'InLeanProof.presI_defn' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_defn
+
+/--
+info: 'InLeanProof.presI_thm' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_thm
+
+/--
+info: 'InLeanProof.presI_opaque' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_opaque
+
+/--
+info: 'InLeanProof.presI_empty' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_empty

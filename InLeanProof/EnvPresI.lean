@@ -1102,7 +1102,7 @@ theorem fvTyRel_state (s : InLean.CState) :
   obtain ⟨n, ty, hp, hty, htr⟩ := TransS_fvar (s := s) (id := id) h
   exact ⟨d, ty, cty, rfl, by simp [fvTyOf, hp, hty], htr⟩
 
-/-- **`DefeqEnvI`**, but for its two prop-ness readers (`defeqEnvI_of`). -/
+/-- The η constructor-shape gate through the relation (`DefeqEnvI.etaShape`). -/
 theorem etaShape_of (hP : EnvPresI fe L) (s : InLean.CState) (a : Expr) (ha : OkS s a = true) :
     etaCtorShapeC fe a = ConLeche.etaCtorShape L (TrS s a) := by
   unfold etaCtorShapeC ConLeche.etaCtorShape
@@ -1227,6 +1227,11 @@ theorem defeqEnvI_of (hP : EnvPresI fe L) : DefeqEnvI fe L where
   towerSlots := towerSlotsAllF_V (envViewI_of hP)
   ctor := ctorRd_of hP
   ind := indRd_of hP
+
+/-- **All six** environment hypotheses of the core walks, from the relation. -/
+theorem envHyps_of (hP : EnvPresI fe L) :
+    EnvRelI fe L ∧ EnvDomI fe L ∧ EnvDefnI fe L ∧ EnvViewI fe L ∧ EnvRecI fe L ∧ DefeqEnvI fe L :=
+  ⟨envRelI_of hP, envDomI_of hP, envDefnI_of hP, envViewI_of hP, envRecI_of hP, defeqEnvI_of hP⟩
 
 end Six
 
@@ -1392,12 +1397,39 @@ theorem toHint_eq_trHint (h : ReducibilityHints) : toHint h = trHint h := by cas
 theorem ci_cv_name (ci : Lean.ConstantInfo) : ci.name = ci.toConstantVal.name := by
   cases ci <;> rfl
 
+/-- A term with a closed reading has no free variable. -/
+theorem fvarS_of_toExprC : ∀ {e : Expr} {c : ConLeche.Expr}, toExprC e = some c → fvarS e = false := by
+  intro e
+  induction e with
+  | fvar _ => intro c h; simp [toExprC, toExpr] at h
+  | app f a ihf iha | lam _ f a _ ihf iha | forallE _ f a _ ihf iha =>
+    intro c h
+    simp only [toExprC, toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def] at h
+    obtain ⟨cf, hf, ca, ha, -⟩ := h
+    simp [fvarS, ihf hf, iha ha]
+  | letE _ t v b _ iht ihv ihb =>
+    intro c h
+    simp only [toExprC, toExpr, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def] at h
+    obtain ⟨ct, ht, cv, hv, cb, hb, -⟩ := h
+    simp [fvarS, iht ht, ihv hv, ihb hb]
+  | mdata _ x ih => intro c h; exact ih h
+  | proj _ _ x ih =>
+    intro c h
+    simp only [toExprC, toExpr, Option.map_eq_some_iff] at h
+    obtain ⟨cx, hx, -⟩ := h
+    exact ih hx
+  | _ => intro _ _; rfl
+
+/-- A stored term: in range, with a closed reading. -/
+theorem StoredT_of {t : Expr} {c : ConLeche.Expr} (hr : Expr.RangeOk t) (h : toExprC t = some c) :
+    StoredT t c := ⟨fvarS_of_toExprC h, hr, h⟩
+
 theorem CVRel_of_toCV {v : Lean.ConstantVal} {ccv : ConLeche.ConstantVal} (h : toCV v = some ccv)
-    (hf : fvarS v.type = false) (hr : Expr.RangeOk v.type) : CVRel v ccv := by
+    (hr : Expr.RangeOk v.type) : CVRel v ccv := by
   simp only [toCV, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
     Option.some.injEq] at h
   obtain ⟨cty, hty, rfl⟩ := h
-  exact ⟨rfl, rfl, hf, hr, hty⟩
+  exact ⟨rfl, rfl, StoredT_of hr hty⟩
 
 /-- The pushed environment's lookups (`EnvLaws`). -/
 theorem find_addConst (hlaws : EnvLaws) {E : Kernel.Environment} {ci : Lean.ConstantInfo}
@@ -1489,7 +1521,7 @@ InLean hides it unless `coreAxioms`, so the relation needs `coreAxioms` off
 there).  The `Quot.sound` record is the quotient group's (`QuotGroupPres`). -/
 theorem presI_axiom (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
     {d : ConLeche.Declaration} (hd : toDecl [.axiomInfo v] = some d)
-    (hfresh : fe.env.find? v.name = none) (hf : fvarS v.type = false) (hr : Expr.RangeOk v.type)
+    (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
     (hq : v.name ≠ InLean.quotSoundName)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = false) :
     EnvPresI { fe with env := InLean.addConst fe.env (.axiomInfo v) }
@@ -1497,7 +1529,7 @@ theorem presI_axiom (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
   simp only [toDecl, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
     Option.some.injEq] at hd
   obtain ⟨cv, hcv, rfl⟩ := hd
-  have hrel := CVRel_of_toCV hcv hf hr
+  have hrel := CVRel_of_toCV hcv hr
   have hname : cv.name = toName v.name := hrel.1
   have hq' : cv.name ≠ ConLeche.quotSoundName := by
     rw [hname, ← toName_quotSoundName]; exact fun h => hq (toName_inj h)
@@ -1517,44 +1549,44 @@ definitions too, so con-leche's environment holds what `toDecl` reads off
 them). -/
 theorem presI_defn (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : DefinitionVal}
     {d : ConLeche.Declaration} (hd : toDecl [.defnInfo v] = some d)
-    (hfresh : fe.env.find? v.name = none) (hf : fvarS v.type = false) (hr : Expr.RangeOk v.type)
-    (hfv : fvarS v.value = false) (hrv : Expr.RangeOk v.value)
+    (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
+    (hrv : Expr.RangeOk v.value)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = true) :
     EnvPresI { fe with env := InLean.addConst fe.env (.defnInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
   simp only [toDecl, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
     Option.some.injEq] at hd
   obtain ⟨cv, hcv, cval, hval, rfl⟩ := hd
-  have hrel := CVRel_of_toCV hcv hf hr
+  have hrel := CVRel_of_toCV hcv hr
   simp only [ConLeche.declConstants, ConLeche.declTables]
   exact presI_one (ci := .defnInfo v) hlaws hP hfresh (fun _ h => by cases h)
-    (.inr ⟨_, rfl, hrel.1, ⟨hrel, ⟨hfv, hrv, hval⟩, toHint_eq_trHint _⟩, hsorry⟩)
+    (.inr ⟨_, rfl, hrel.1, ⟨hrel, StoredT_of hrv hval, toHint_eq_trHint _⟩, hsorry⟩)
 
 /-- **A theorem** (con-leche stores its statement). -/
 theorem presI_thm (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : TheoremVal}
     {d : ConLeche.Declaration} (hd : toDecl [.thmInfo v] = some d)
-    (hfresh : fe.env.find? v.name = none) (hf : fvarS v.type = false) (hr : Expr.RangeOk v.type)
+    (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = true) :
     EnvPresI { fe with env := InLean.addConst fe.env (.thmInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
   simp only [toDecl, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
     Option.some.injEq] at hd
   obtain ⟨cv, hcv, cval, -, rfl⟩ := hd
-  have hrel := CVRel_of_toCV hcv hf hr
+  have hrel := CVRel_of_toCV hcv hr
   simp only [ConLeche.declConstants, ConLeche.declTables]
   exact presI_one (ci := .thmInfo v) hlaws hP hfresh (fun _ h => by cases h) (.inr ⟨_, rfl, hrel.1, hrel, hsorry⟩)
 
 /-- **An `opaque`** (con-leche stores it as an axiom). -/
 theorem presI_opaque (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : OpaqueVal}
     {d : ConLeche.Declaration} (hd : toDecl [.opaqueInfo v] = some d)
-    (hfresh : fe.env.find? v.name = none) (hf : fvarS v.type = false) (hr : Expr.RangeOk v.type)
+    (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = true) :
     EnvPresI { fe with env := InLean.addConst fe.env (.opaqueInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
   simp only [toDecl, Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def,
     Option.some.injEq] at hd
   obtain ⟨cv, hcv, cval, -, rfl⟩ := hd
-  have hrel := CVRel_of_toCV hcv hf hr
+  have hrel := CVRel_of_toCV hcv hr
   simp only [ConLeche.declConstants, ConLeche.declTables]
   exact presI_one (ci := .opaqueInfo v) hlaws hP hfresh (fun _ h => by cases h) (.inr ⟨_, rfl, hrel.1, hrel, hsorry⟩)
 
@@ -1571,5 +1603,43 @@ theorem presI_empty (h : ∀ n, fe.find? n = none) : EnvPresI fe ConLeche.Env.em
   tabNames _ ht := by cases ht
 
 end One
+
+/-! ## The groups stated, not proved here
+
+The quotient package and an inductive block, each with what InLean checks as
+the premise: InLean's own check of the group accepted (`checkQuotC`,
+`checkIndDeclC` at the verified mode), the generated constants fresh, distinct
+and in range, and the records `toDecl` reads off them.  What is left to prove
+(a later lane's, with O7): the installed constants and tables against Lean's
+entries, through `presI_push` — the capabilities (`capsOf` against
+`blockCapsAt`, by `genEntriesAgree`), the firing modes (`recFireAt` against
+`recFire`: both read the major's domain at the record's `majorIdx`), the
+projection tables (`tableFields?`/`projBodyAt` against `blockTables`/
+`structProjBodies`), a pinned block's pins against the generated entries,
+and the quotient pins at the record's names. -/
+
+/-- **The quotient group keeps the relation** (stated). -/
+@[expose] def QuotGroupPres : Prop :=
+  EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (s s' : InLean.CState) (a : InLean.Added)
+    (ds : List ConLeche.Declaration),
+    EnvPresI fe L → (InLean.checkQuotC fe).run s = .ok (a, s') →
+    a.consts.toList.mapM (fun ci => toDecl [ci]) = some ds →
+    EnvPresI { fe with env := InLean.markQuot (a.consts.foldl InLean.addConst fe.env) }
+      (ds.foldl (fun L d => L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) L)
+
+/-- **An inductive block keeps the relation** (stated): the generator's
+constants `consts`, accepted by InLean's inductive check as the stored block
+(`storedBlock`), read as one record `d`. -/
+@[expose] def IndGroupPres : Prop :=
+  EnvLaws → ∀ (fe : InLean.FEnv) (L : ConLeche.Env) (consts : Array Lean.ConstantInfo) (nP : Nat)
+    (s s' : InLean.CState) (d : ConLeche.Declaration),
+    EnvPresI fe L →
+    (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
+    (∀ ci ∈ consts.toList, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
+    consts.all InLean.constInRange = true →
+    (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
+    toDecl (InLean.storedBlock consts) = some d →
+    EnvPresI { fe with env := consts.foldl InLean.addConst fe.env }
+      (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d))
 
 end InLeanProof
