@@ -154,10 +154,12 @@ theorem blockKSSimI_of_stages (hC : CheckConstantValFSimI) (hRF : ReducedFormerS
 Master's `checkBlockKS_run` splits at `BlockPass Env`.  For InLean the split
 needs a relation between InLean's `BlockPass` (at the state the pass ends in:
 its parameters are interned variables) and master's; `passTailSimI_of` splits
-`PassTailSimI` at *any* such relation, so the lane that proves the two stages
-chooses it (the formers' environment related by `EnvPresI` and `JobEnvI`, the
-shape by `trShape`, the parameters by `TrS`, the class reading, classes and
-table by their translations). -/
+`PassTailSimI` at *any* such relation.  `PassRelI` is the relation the stages
+are to be proved at: the formers' environment related by `JobEnvI` under the
+block's mark (`PassEnvRelI`), the shape by `trShape`, the parameters by `TrS`,
+and the positivity and class data by their translations (`D`, left to the
+lane that proves the stages).  The job's freshness tests read Lean's
+environment itself, so the pushes are read by `EnvLaws` from the run alone. -/
 
 /-- **The pass** (`checkBlockPassS_run`'s twin), into a relation `R`. -/
 @[expose] def PassSimI (R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop) :
@@ -178,6 +180,28 @@ table by their translations). -/
     (∀ ci ∈ block, isBlockKind ci = true ∧ okC ci.toConstantVal.type = true) →
     InLean.checkBlockTailS .verified block q s₀ = .ok ((), s') →
     CSOKIF s' ∧ ∃ F, ConLeche.checkBlockTail (ConLeche.fueledOps .verified F) (block.map trCI) cq = .ok ()
+
+/-- **The formers' environment after the pass**, the relation's environment
+part (rulings of 2026-11-08).  InLean's `env₁` is `fe` with the block's
+members marked (`blockMarks`, read by `capsOf` and the table readers) and the
+formers pushed; master's is `L` with the formers pushed at `blockCapsAt` and
+no table.  Under the mark InLean reads a member as master's staged
+environments hold it (its capabilities at the shape's field count, no
+projection table), so the job's premises can hold between the two: a former's
+`EntryRelI` clause is `toCaps_capsOf` at the marked field count, its table
+clause `none` on both sides.  The same reading carries through the tail's
+pushes (the constructors, the generated recursors), which keep the mark. -/
+@[expose] def PassEnvRelI (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env) : Prop :=
+  (∃ rest, q.env₁.pending = InLean.blockMarks q.p ++ rest) ∧ cq.p = trShape q.p ∧
+    JobEnvI q.env₁ cq.env₁
+
+/-- **The pass's relation**, concrete but for the positivity and class data
+(`D`: the field kinds, the class reading, the classes, the table, each to be
+related by its translation at the state `s` by the lane that proves the
+stages): the environment and shape by `PassEnvRelI`, the parameters by `TrS`. -/
+@[expose] def PassRelI (D : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop)
+    (s : InLean.CState) (q : InLean.BlockPass) (cq : ConLeche.BlockPass ConLeche.Env) : Prop :=
+  PassEnvRelI q cq ∧ cq.params = q.params.map (TrS s) ∧ D s q cq
 
 /-- **The pass and the tail together** from the two, at any relation. -/
 theorem passTailSimI_of {R : InLean.CState → InLean.BlockPass → ConLeche.BlockPass ConLeche.Env → Prop}

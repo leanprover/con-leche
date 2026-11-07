@@ -11,10 +11,12 @@ public import ConLeche.Model.Capstone
 **The target.**  If a con-leche environment `L` *presents* the kernel
 environment `E` — `L` is what con-leche's install makes of `E`'s
 declaration groups, read as its records (`toDecl`), in some order, and every
-safe constant of `E` reads as a constant of `L` — and `L` carries con-leche's
-fold invariant (`EnvModelOk`, `ConLeche/Model/Fold.lean`), and InLean accepts
-a safe declaration `d` at the theorem's configuration, then some extension
-of `L` presents the new environment and carries the invariant.
+safe constant of `E` but `sorryAx` reads as a constant of `L` — and `L`
+carries con-leche's fold invariant (`EnvModelOk`, `ConLeche/Model/Fold.lean`),
+and InLean accepts a safe declaration `d` that is not a non-standard axiom, at
+con-leche's axiom policy (`theoremConfig`), then some extension of `L`
+presents the new environment and carries the invariant (maintainer's ruling,
+2026-11-08).
 `AddDeclSound` states it; it is not proved (the obligations are in DESIGN.md,
 "TASK #451 — restart on master").  What it gives is proved:
 `no_false_of_addDeclSound` — InLean never adds a safe constant whose type
@@ -23,6 +25,12 @@ reads as `False`.
 **Why "some `L` presenting `E`".**  con-leche's environment is a list, in
 installation order; a `Kernel.Environment` is a map.  The statement holds
 for every installation order of its groups.
+
+**The axiom policy.**  `sorryAx` is a constant of `E` (the elaborator needs
+it), and con-leche installs nothing for it: at con-leche's policy InLean hides
+it (`FEnv.sees`), so any use declines, and `Presents` asks nothing of it.
+Unsafe and `partial` constants are not about the theorem either: a safe check
+does not see them (`FEnv.sees`), and con-leche's install has none.
 
 **The install is con-leche's own.**  `L` is `installAll ds`: master's
 `Env.pushDelta (declConstants d) (declTables d)` folded over the records
@@ -68,12 +76,13 @@ declaration and no `partial` definition. -/
   | ci => ci.isUnsafe = false
 
 /-- **`L` presents `E`**: `L` is con-leche's install of records that each
-read a declaration group of `E`, and every safe constant of `E` reads as a
+read a declaration group of `E`, and every safe constant of `E` but `sorryAx`
+(present on Lean's side only: con-leche installs nothing for it) reads as a
 constant of `L` (its name and its type). -/
 @[expose] def Presents (E : Kernel.Environment) (L : ConLeche.Env) : Prop :=
   ∃ ds : List ConLeche.Declaration,
     (∀ d ∈ ds, ∃ cs, ReadsGroup E cs d) ∧ L = installAll ds ∧
-    ∀ n ci, E.find? n = some ci → SafeConst ci →
+    ∀ n ci, E.find? n = some ci → SafeConst ci → n ≠ InLean.sorryAxName →
       ∃ c ∈ L.consts, toName n = c.name ∧ toExprC ci.type = some c.toConstantVal.type
 
 /-! ## In range -/
@@ -115,12 +124,22 @@ lookup; marking the quotient package changes no lookup. -/
       (InLean.addConst E ci).find? n = if n = ci.name then some ci else E.find? n) ∧
   (∀ (E E' : Kernel.Environment), E'.constants = E.constants → E'.find? = E.find?)
 
-/-- **The declarations the theorem is about** (maintainer's ruling,
-2026-11-06): every safe declaration but an axiom.  An axiom is the user's
-assumption, as in any kernel; an ok environment's axioms are part of its
-being ok (`EnvModelOk` of what presents it). -/
+/-- **The standard axioms**: those con-leche's fold carries a model through
+(`axiomStepPB_of`: `propext`, `Classical.choice`, `Quot.sound`, the
+compiler-trust family) and `sorryAx`, which it installs as nothing.  At
+con-leche's policy InLean declines any other axiom (`checkAxiomC`). -/
+@[expose] def StdAxiomName (n : Name) : Prop :=
+  n = InLean.propextName ∨ n = InLean.choiceName ∨ n = InLean.quotSoundName ∨
+    n = InLean.trustCompilerName ∨ n = InLean.ofReduceNatName ∨ n = InLean.ofReduceBoolName ∨
+    n = InLean.sorryAxName
+
+/-- **The declarations the theorem is about** (maintainer's rulings,
+2026-11-06 and 2026-11-08): every safe declaration that is not a
+non-standard axiom.  A non-standard axiom is the user's assumption, as in
+any kernel; an ok environment's axioms are part of its being ok
+(`EnvModelOk` of what presents it). -/
 @[expose] def SafeDecl : Declaration → Prop
-  | .axiomDecl _ => False
+  | .axiomDecl v => v.isUnsafe = false ∧ StdAxiomName v.name
   | .defnDecl v => v.safety = .safe
   | .thmDecl _ => True
   | .opaqueDecl v => v.isUnsafe = false
@@ -128,17 +147,16 @@ being ok (`EnvModelOk` of what presents it). -/
   | .quotDecl => True
   | .inductDecl _ _ _ isUnsafe => isUnsafe = false
 
-/-- The theorem's configuration: the verified mode, the official axiom policy
-(core's: it decides only `sorryAx`'s visibility and what an axiom at a
-certified `Nat` operation's name may be, neither of which a non-axiom
-declaration over a model-carrying environment meets), the `Nat`
-certificates checked.  Core runs with `uncertifiedNatOps` on, which
+/-- The theorem's configuration: the verified mode, con-leche's axiom policy
+(`coreAxioms` off: `sorryAx` is no constant, any use of it declines, and no
+other constant may take its name; an axiom at a certified `Nat` operation's
+name is refused), the `Nat` certificates checked.  Core runs with `uncertifiedNatOps` on, which
 accepts a definition at a certified name whose certificate cannot be
 checked: covered only where the environment already holds the certified
 definitions (the prelude assumed good), an obligation of the
 environment's being ok (DESIGN, O10). -/
 @[expose] def theoremConfig : InLean.Config :=
-  { mode := .verified, coreAxioms := true, uncertifiedNatOps := false }
+  { mode := .verified, coreAxioms := false, uncertifiedNatOps := false }
 
 /-! ## The target -/
 
@@ -158,16 +176,18 @@ universe w
 
 /-- **No proof of `False`**: under the target, InLean never adds a safe
 constant whose type reads as `False` to a presented environment with a
-model. -/
+model (`sorryAx` aside: con-leche's policy hides it, so nothing it checks
+can use it). -/
 theorem no_false_of_addDeclSound (V : Type w) [ConLeche.SetTheory V] (hS : AddDeclSound V)
     (hlaws : EnvLaws) {E E' : Kernel.Environment} {d : Declaration} {L : ConLeche.Env}
     (hd : SafeDecl d) (hdr : DeclRangeOk d) (hE : EnvRangeOk E) (hP : Presents E L)
     (hM : ConLeche.Model.EnvModelOk V L)
     (h : InLean.addDecl E d theoremConfig = .ok E')
     {n : Name} {ci : Lean.ConstantInfo} (hci : E'.find? n = some ci) (hsafe : SafeConst ci)
+    (hn : n ≠ InLean.sorryAxName)
     (hfalse : toExprC ci.type = some (.const ConLeche.falseName [])) : False := by
   obtain ⟨L', -, ⟨ds, -, -, hread⟩, hM', -⟩ := hS hlaws E E' d L hd hdr hE hP hM h
-  obtain ⟨c, hc, -, hty⟩ := hread n ci hci hsafe
+  obtain ⟨c, hc, -, hty⟩ := hread n ci hci hsafe hn
   obtain ⟨mp⟩ := hM'.nonempty
   rw [hfalse] at hty
   exact ConLeche.Model.no_constant_of_False mp c hc (Option.some.inj hty).symm

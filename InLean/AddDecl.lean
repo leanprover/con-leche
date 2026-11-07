@@ -25,22 +25,36 @@ def runC (x : CheckCM α) : Except CheckError α :=
   | .ok (a, _) => .ok a
   | .error e => .error e
 
+/-- The kinds' checks, at a declaration's own environment. -/
+def checkDeclKindC (μ : CheckMode) (cfg : Config) (fe : FEnv) : Declaration → CheckCM Added
+  | .axiomDecl v => checkAxiomC μ cfg fe v
+  | .defnDecl v => checkDefnC μ cfg fe v
+  | .thmDecl v => checkThmC μ fe v
+  | .opaqueDecl v => checkOpaqueC μ fe v
+  | .mutualDefnDecl vs => checkMutualC μ fe vs
+  | .quotDecl => checkQuotC fe
+  | .inductDecl lps nparams types isUnsafe => checkInductiveC μ fe lps nparams types isUnsafe
+
+/-- A constant other than an axiom at `sorryAx`'s name.  At con-leche's axiom
+policy (`coreAxioms` off) the name is hidden (`FEnv.sees`) and con-leche
+installs nothing only for the axiom, so any other constant there is declined
+(official's environments declare the axiom in `Init.Prelude`, so no stream
+reaches this). -/
+def sorryAxSquat (ci : ConstantInfo) : Bool :=
+  ci.name == sorryAxName && !(ci matches .axiomInfo _)
+
 /-- Check `decl` (twin of `declStep`: the `And` pin, then `checkDeclStepC`),
-returning what it adds. -/
+returning what it adds; at con-leche's axiom policy, no constant but the axiom
+at `sorryAx`'s name (`sorryAxSquat`). -/
 def checkDecl (cfg : Config) (env : Kernel.Environment) (decl : Declaration) :
     Except CheckError Added :=
-  let μ := cfg.mode
   let fe : FEnv := { env, coreAxioms := cfg.coreAxioms }
   if !andPinOk decl then .error (.invalid "`And` must be the standard `And`") else
   runC do
-    match decl with
-    | .axiomDecl v => checkAxiomC μ cfg fe v
-    | .defnDecl v => checkDefnC μ cfg fe v
-    | .thmDecl v => checkThmC μ fe v
-    | .opaqueDecl v => checkOpaqueC μ fe v
-    | .mutualDefnDecl vs => checkMutualC μ fe vs
-    | .quotDecl => checkQuotC fe
-    | .inductDecl lps nparams types isUnsafe => checkInductiveC μ fe lps nparams types isUnsafe
+    let a ← checkDeclKindC cfg.mode cfg fe decl
+    if !cfg.coreAxioms && a.consts.any sorryAxSquat then
+      throw (.notImplemented "a constant other than an axiom at `sorryAx`'s name")
+    return a
 
 /-- **Check `decl` and add the constants it declares** — the twin of
 `Lean.Kernel.Environment.addDeclCore`.  A reject, a decline and an error

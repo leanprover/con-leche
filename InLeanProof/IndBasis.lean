@@ -428,29 +428,26 @@ theorem blockLinksOk_tr {block pins : List Lean.ConstantInfo} {Ps : List ConLech
 
 /-! ## The fold -/
 
-/-- `FEnv.find?` away from `sorryAx` is the environment's. -/
-theorem FEnv_find_of_ne {fe : InLean.FEnv} {n : Lean.Name} (h : n ≠ InLean.sorryAxName) :
-    fe.find? n = fe.env.find? n := by
-  unfold InLean.FEnv.find?
-  have : (n == InLean.sorryAxName) = false := by simpa using h
-  simp [this]
+/-- A name the environment does not hold, no check sees. -/
+theorem FEnv_find_none {fe : InLean.FEnv} {n : Lean.Name} (h : fe.env.find? n = none) :
+    fe.find? n = none := by
+  simp only [FEnv.find?_eq_filter, h, Option.filter_none]
 
 /-- **InLean's freshness fold**: its names are distinct and fresh in the
 starting environment. -/
 theorem basisFold_fresh (hlaws : EnvLaws) :
     ∀ (cs : List Lean.ConstantInfo) (fe fe' : InLean.FEnv) (s s' : InLean.CState),
-      (∀ c ∈ cs, c.name ≠ InLean.sorryAxName) →
       cs.foldlM (m := InLean.CheckCM) (fun (fe : InLean.FEnv) ci => do
-        unless (fe.find? ci.name).isNone do
+        unless (fe.env.find? ci.name).isNone do
           throw (InLean.CheckError.invalid s!"duplicate declaration {ci.name}")
         pure (fe.push ci)) fe s = .ok (fe', s') →
-      (cs.map (·.name)).Nodup ∧ ∀ c ∈ cs, fe.find? c.name = none
-  | [], _, _, _, _, _, _ => by simp
-  | c :: cs, fe, fe', s, s', hn, h => by
+      (cs.map (·.name)).Nodup ∧ ∀ c ∈ cs, fe.env.find? c.name = none
+  | [], _, _, _, _, _ => by simp
+  | c :: cs, fe, fe', s, s', h => by
     rw [List.foldlM_cons] at h
     obtain ⟨fe₁, s₁, h1, h2⟩ := bindI_ok h
-    have hc : fe.find? c.name = none := by
-      cases hf : fe.find? c.name with
+    have hc : fe.env.find? c.name = none := by
+      cases hf : fe.env.find? c.name with
       | none => rfl
       | some x =>
         simp only [hf, Option.isNone_some, Bool.false_eq_true, ↓reduceIte] at h1
@@ -458,19 +455,16 @@ theorem basisFold_fresh (hlaws : EnvLaws) :
         exact (throwI_ok h3).elim
     simp only [hc, Option.isNone_none, ↓reduceIte] at h1
     obtain ⟨rfl, rfl⟩ := pureI_ok h1
-    obtain ⟨hnd, hfr⟩ := basisFold_fresh hlaws cs _ fe' _ s' (fun x hx => hn x (List.mem_cons_of_mem _ hx)) h2
-    have hce : fe.env.find? c.name = none := by
-      rw [← FEnv_find_of_ne (hn c List.mem_cons_self)]; exact hc
-    have hpush : ∀ x ∈ cs, x.name ≠ c.name ∧ fe.find? x.name = none := by
+    obtain ⟨hnd, hfr⟩ := basisFold_fresh hlaws cs _ fe' _ s' h2
+    have hpush : ∀ x ∈ cs, x.name ≠ c.name ∧ fe.env.find? x.name = none := by
       intro x hx
       have := hfr x hx
-      rw [FEnv_find_of_ne (hn x (List.mem_cons_of_mem _ hx))] at this
       simp only [InLean.FEnv.push] at this
-      rw [find_addConst hlaws hce] at this
+      rw [find_addConst hlaws hc] at this
       by_cases he : x.name = c.name
       · simp [he] at this
       · simp only [he, ↓reduceIte] at this
-        exact ⟨he, by rw [FEnv_find_of_ne (hn x (List.mem_cons_of_mem _ hx))]; exact this⟩
+        exact ⟨he, this⟩
     refine ⟨?_, ?_⟩
     · simp only [List.map_cons, List.nodup_cons]
       refine ⟨fun hm => ?_, hnd⟩
@@ -534,16 +528,11 @@ theorem basisBlockSimI : BasisBlockSimI := by
     unfold InLean.basisNameHit at hbn
     have := List.find?_some hbn
     simpa using this
-  have hsorry : ∀ c ∈ block, c.name ≠ InLean.sorryAxName := by
-    intro c hc
-    have : c.name ∈ kind.decls.map (·.name) := hnames ▸ List.mem_map_of_mem hc
-    obtain ⟨p, hp, he⟩ := List.mem_map.1 this
-    exact he ▸ pins_names kind p hp
   unfold InLean.checkBasisBlockC at h
   by_cases hp : InLean.pinListOk block kind.decls = true
   · simp only [hp, ↓reduceIte] at h
     obtain ⟨fe', s₁, h1, -⟩ := bindI_ok h
-    obtain ⟨hnd, hfr⟩ := basisFold_fresh hJ.laws block fe fe' s₀ s₁ hsorry h1
+    obtain ⟨hnd, hfr⟩ := basisFold_fresh hJ.laws block fe fe' s₀ s₁ h1
     have hPs := pins_tr kind
     have hp' : ConLeche.pinListOk (block.map trCI) (trKind kind).decls = true := by
       simp only [InLean.pinListOk, Bool.and_eq_true] at hp
@@ -565,7 +554,7 @@ theorem basisBlockSimI : BasisBlockSimI := by
         obtain ⟨n, hn, he⟩ := List.mem_map.1 hm
         obtain ⟨c, hc, rfl⟩ := List.mem_map.1 hn
         rw [← he]
-        exact hJ.pres.none _ (hfr c hc))
+        exact hJ.pres.none _ (FEnv_find_none (hfr c hc)))
     refine ⟨L', ?_⟩
     simp only [ConLeche.checkBasisBlock, hp', ↓reduceIte]
     exact hL'

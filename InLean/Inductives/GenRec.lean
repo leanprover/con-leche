@@ -273,9 +273,10 @@ def classFormerTy (ops : CheckerOps) (fe : FEnv) (formers : List ConstantVal) (M
       instLevelParamsM cv.levelParams M.lvls ty
     | none => throw (.internal "generated recursor: a class's former vanished")
 
-/-- Twin of `classConstOk`. -/
+/-- Twin of `classConstOk`; the name's freshness read off the environment
+itself (`checkConstantValF`). -/
 def classConstOk (ops : CheckerOps) (fe : FEnv) (cv : ConstantVal) : CheckCM Unit := do
-  if (fe.find? cv.name).isSome then throw (.invalid s!"duplicate declaration {cv.name}")
+  if (fe.env.find? cv.name).isSome then throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then throw (.invalid s!"reserved basis name {cv.name}")
   unless litShapeOk cv.name cv.levelParams cv.type do
     throw (.notImplemented s!"a declaration at a literal's name with another shape ({cv.name})")

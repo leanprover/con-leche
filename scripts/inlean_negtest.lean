@@ -1,4 +1,4 @@
-/- Task #451: InLean against the official kernel on inductive declarations the official kernel
+/- Task #451: InLean against the official kernel on declarations (mostly inductive) the official kernel
    rejects (and two it accepts).  `lake build InLean && lake env lean --run scripts/inlean_negtest.lean`;
    exit 0 when every verdict agrees. -/
 import InLean
@@ -21,7 +21,14 @@ def cases : List (String × Declaration) := [
   ("good prop small elim", mkInd `Ex (.sort 0) [(`Ex.intro, .forallE `n nat (.const `Ex []) .default)]),
   ("non-uniform param", mkInd `NU (.forallE `n nat ty0 .default)
       [(`NU.mk, .forallE `n nat (.forallE `x (.app (.const `NU []) (.app (.const `Nat.succ []) (.bvar 0))) (.app (.const `NU []) (.bvar 1)) .default) .default)] [] 1),
-  ("duplicate name", mkInd `Nat ty0 [])
+  ("duplicate name", mkInd `Nat ty0 []),
+  -- a safe check does not see an unsafe constant (`FEnv.sees`); a name is
+  -- fresh in the environment itself
+  ("safe definition using an unsafe one", .defnDecl
+    { name := `useUnsafe, levelParams := [], type := .const `Bool [], hints := .abbrev, safety := .safe,
+      all := [`useUnsafe],
+      value := mkApp3 (.const `ptrEq [0]) nat (.lit (.natVal 0)) (.lit (.natVal 0)) }),
+  ("inductive at an unsafe constant's name", mkInd `ptrEq ty0 [])
 ]
 
 def main : IO UInt32 := do

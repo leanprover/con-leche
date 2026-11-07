@@ -24,10 +24,12 @@ namespace InLean
 
 open Lean
 
-/-- Twin of `checkConstantValF`. -/
+/-- Twin of `checkConstantValF`; the name's freshness read off the environment
+itself, as official's `check_name` (`FEnv.find?` hides constants a check does
+not see). -/
 def checkConstantValF (ops : CheckerOps) (fe : FEnv) (cv : ConstantVal) (allowOp : Bool := false) :
     CheckCM Unit := do
-  if (fe.find? cv.name).isSome then throw (.invalid s!"duplicate declaration {cv.name}")
+  if (fe.env.find? cv.name).isSome then throw (.invalid s!"duplicate declaration {cv.name}")
   if reservedBasisNames.contains cv.name then throw (.invalid s!"reserved basis name {cv.name}")
   if natOpName cv.name && !allowOp then
     throw (.invalid s!"a certified Nat operation's name, not a definition: {cv.name}")
@@ -240,7 +242,16 @@ def consBlockIndsF (p₁ : BlockShape) (isRec : Bool) : List ConstantVal → Nat
         isReflexive := false }
     consBlockIndsF p₁ isRec rest (i + 1) (fe.push (.inductInfo v))
 
-/-- Twin of `checkBlockIndsF`. -/
+/-- The block's members as the job's environments mark them (`FEnv.pending`):
+each pushed former's name with its one constructor's field count, which
+`blockCapsAt` reads off the shape. -/
+def blockMarks (p : BlockShape) : List (Name × Nat) :=
+  p.members.map fun ms => (ms.declared.name, match ms.ctors with | [c] => c.2 | _ => 0)
+
+/-- Twin of `checkBlockIndsF`.  The formers are pushed onto `fe` marked with
+the block (`blockMarks`): from here to the end of the job InLean reads the
+members' capabilities and projection tables as master's staged
+environments hold them. -/
 def checkBlockIndsF (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (isRec : Bool) :
     CheckCM (FEnv × BlockShape) :=
   match p.members with
@@ -250,7 +261,8 @@ def checkBlockIndsF (ops : CheckerOps) (fe : FEnv) (p : BlockShape) (isRec : Boo
     let cvs ← checkBlockTelesF ops fe p.nP rest
     checkBlockAgreeF ops fe p.nP cvTa0 s0 cvs
     let p₁ := p.withSort s0
-    pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0 fe, p₁)
+    pure (consBlockIndsF p₁ isRec (p.members.map (·.declared)) 0
+      { fe with pending := blockMarks p₁ ++ fe.pending }, p₁)
 
 /-- Twin of `checkBlockCtorsF`. -/
 def checkBlockCtorsF (ops : CheckerOps) (fe₀ fe : FEnv) (p : BlockShape) :

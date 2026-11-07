@@ -82,13 +82,14 @@ def checkShapelessS (fe : FEnv) (block : List ConstantInfo) : CheckCM Unit := do
     {(block.head?.map (·.name)).getD .anonymous}: shape not recognised")
 
 /-- Twin of `checkBasisBlockC`: the block is the pin (up to its level
-parameters' names), its constants new (`installBasisDeclF`). -/
+parameters' names), its constants new in the environment itself
+(`installBasisDeclF`, `checkConstantValF`). -/
 def checkBasisBlockC (fe : FEnv) (kind : BasisKind) (block : List ConstantInfo) :
     CheckCM Unit := do
   unless pinListOk block kind.decls do
     throw (.invalid "reserved basis name: the block is not the pinned one")
   let _ ← block.foldlM (fun (fe : FEnv) ci => do
-    unless (fe.find? ci.name).isNone do
+    unless (fe.env.find? ci.name).isNone do
       throw (.invalid s!"duplicate declaration {ci.name}")
     pure (fe.push ci)) fe
 
@@ -126,8 +127,16 @@ def checkInductiveC (fe : FEnv) (lps : List Name) (nparams : Nat) (types : List 
     throw (.internal "inductive generator: a constant outside the block")
   unless gen.consts.all constInRange do
     throw (.internal "too many bound variables in a generated constant")
-  -- every projection body the extended environment reads is in range (an
-  -- unsafe block's tables are read as a safe one's)
+  -- every name fresh in the environment itself, as official's `check_name`
+  -- (the block check tests its own names; the generated recursors' and the
+  -- auxiliary constants' are tested here)
+  unless gen.consts.all (fun ci => (fe.env.find? ci.name).isNone) do
+    let dup := gen.consts.find? (fun ci => (fe.env.find? ci.name).isSome)
+    throw (.invalid s!"duplicate declaration {(dup.map (·.name)).getD .anonymous}")
+  -- a safe block's constants are safe (the generator is not verified)
+  unless isUnsafe || gen.consts.all safeConst do
+    throw (.internal "inductive generator: an unsafe constant in a safe block")
+  -- every projection body the extended environment reads is in range
   let feN : FEnv := { fe with env := gen.consts.foldl addConst fe.env }
   unless gen.consts.all fun ci => feN.projBodiesInRange ci.name do
     throw (.internal "too many bound variables in a projection body")

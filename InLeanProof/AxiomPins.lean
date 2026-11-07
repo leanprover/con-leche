@@ -1972,3 +1972,31 @@ info: 'InLeanProof.checkIndDeclC_sim_rest' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.checkIndDeclC_sim_rest
+
+/-- info: 'InLeanProof.FEnv.find?_congr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.FEnv.find?_congr
+
+/-- info: 'InLeanProof.capsOf_congr' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.capsOf_congr
+
+/-- info: 'InLeanProof.sees_safe' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.sees_safe
+
+/-- info: 'InLeanProof.FEnv_find_none' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.FEnv_find_none
+
+/-- info: 'InLeanProof.fresh_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.fresh_of_checkInductiveC
+
+/-- info: 'InLeanProof.sees_of_checkInductiveC' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms InLeanProof.sees_of_checkInductiveC
+
+/-- info: 'InLeanProof.quot_safe' depends on axioms: [propext] -/
+#guard_msgs in
+#print axioms InLeanProof.quot_safe

@@ -140,12 +140,13 @@ theorem emvarS_instantiateLevelParams {e : Expr} (ps : List Name) (us : List Lev
 
 /-! ## The relation reads only lookups -/
 
-/-- **`EnvPresI` reads only `find?`**: an environment with the same lookups
-and the same axiom policy is related to the same `L`. -/
+/-- **`EnvPresI` reads only `find?`**: an environment with the same lookups,
+the same axiom policy, safety and block mark is related to the same `L`. -/
 theorem presI_congr {fe fe' : InLean.FEnv} {L : ConLeche.Env} (hP : EnvPresI fe L)
-    (hcore : fe'.coreAxioms = fe.coreAxioms) (hfind : ∀ n, fe'.env.find? n = fe.env.find? n) :
+    (hcore : fe'.coreAxioms = fe.coreAxioms) (hsafe : fe'.safety = fe.safety)
+    (hpend : fe'.pending = fe.pending) (hfind : ∀ n, fe'.env.find? n = fe.env.find? n) :
     EnvPresI fe' L := by
-  have h := presI_push (fe' := fe') (news := []) (tabs := []) (names := []) hP hcore
+  have h := presI_push (fe' := fe') (news := []) (tabs := []) (names := []) hP hcore hsafe hpend
     (fun _ h => by cases h) (fun n _ => hfind n) (fun _ h => by cases h) (fun _ h => by cases h)
     (fun _ h => by cases h) (fun _ h => by cases h) (fun _ h => by cases h) (fun _ h => by cases h)
   exact h
@@ -248,13 +249,13 @@ theorem StoredT.of_eq {t : Expr} {c c' : ConLeche.Expr} (h : StoredT t c) (he : 
 theorem quotConstsI_eq : quotConstsI.toList =
     [.quotInfo qTypeI, .quotInfo qCtorI, .quotInfo qLiftI, .quotInfo qIndI] := rfl
 
-theorem entry_qType (E : Kernel.Environment) : EntryRelI E (.quotInfo qTypeI) ConLeche.quotA :=
+theorem entry_qType (fe : InLean.FEnv) : EntryRelI fe (.quotInfo qTypeI) ConLeche.quotA :=
   ⟨_, rfl, by decide, by decide, by decide, RangeOk_of_rangeB (by decide), by decide⟩
 
-theorem entry_qCtor (E : Kernel.Environment) : EntryRelI E (.quotInfo qCtorI) ConLeche.quotMkA :=
+theorem entry_qCtor (fe : InLean.FEnv) : EntryRelI fe (.quotInfo qCtorI) ConLeche.quotMkA :=
   ⟨_, rfl, by decide, by decide, by decide, RangeOk_of_rangeB (by decide), by decide⟩
 
-theorem entry_qLift (E : Kernel.Environment) : EntryRelI E (.quotInfo qLiftI) ConLeche.quotLiftA := by
+theorem entry_qLift (fe : InLean.FEnv) : EntryRelI fe (.quotInfo qLiftI) ConLeche.quotLiftA := by
   refine ⟨_, rfl, _, _, rfl, ⟨by decide, by decide, by decide, RangeOk_of_rangeB (by decide), by decide⟩,
     .cons ⟨⟨by decide, by decide, by decide, by decide⟩, ?_⟩ .nil⟩
   have h := storedT_instantiateLevelParams [BasisDSL.uN, BasisDSL.vN] (R := quotLiftRule)
@@ -267,7 +268,7 @@ theorem entry_qLift (E : Kernel.Environment) : EntryRelI E (.quotInfo qLiftI) Co
   rw [hq]
   exact StoredT.of_eq h (by decide)
 
-theorem entry_qInd (E : Kernel.Environment) : EntryRelI E (.quotInfo qIndI) ConLeche.quotIndA := by
+theorem entry_qInd (fe : InLean.FEnv) : EntryRelI fe (.quotInfo qIndI) ConLeche.quotIndA := by
   refine ⟨_, rfl, _, _, rfl, ⟨by decide, by decide, by decide, RangeOk_of_rangeB (by decide), by decide⟩,
     .cons ⟨⟨by decide, by decide, by decide, by decide⟩, ?_⟩ .nil⟩
   have h := storedT_instantiateLevelParams [BasisDSL.uN] (R := quotIndRule)
@@ -283,7 +284,7 @@ table, at its name, related to it in every environment. -/
 theorem quotStep {ci : Lean.ConstantInfo} (hci : ci ∈ quotConstsI.toList) {d : ConLeche.Declaration}
     (hd : toDecl [ci] = some d) :
     ConLeche.declTables d = [] ∧ ∃ cci, ConLeche.declConstants d = [cci] ∧
-      cci.name = toName ci.name ∧ ∀ E, EntryRelI E ci cci := by
+      cci.name = toName ci.name ∧ ∀ fe : InLean.FEnv, EntryRelI fe ci cci := by
   rw [quotConstsI_eq] at hci
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hci
   rcases hci with rfl | rfl | rfl | rfl
@@ -306,6 +307,13 @@ theorem quotStep {ci : Lean.ConstantInfo} (hci : ci ∈ quotConstsI.toList) {d :
     cases hd
     exact ⟨rfl, _, rfl, by decide, fun E => (show ConLeche.quotAt .ind ConLeche.quotIndA.toConstantVal =
       ConLeche.quotIndA by decide) ▸ entry_qInd E⟩
+
+/-- The quotient constants are safe. -/
+theorem quot_safe {ci : Lean.ConstantInfo} (hci : ci ∈ quotConstsI.toList) :
+    InLean.safeConst ci = true := by
+  rw [quotConstsI_eq] at hci
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hci
+  rcases hci with rfl | rfl | rfl | rfl <;> rfl
 
 /-- The quotient constants' names are none of `sorryAx`. -/
 theorem quot_not_sorry {ci : Lean.ConstantInfo} (hci : ci ∈ quotConstsI.toList) :
@@ -336,7 +344,7 @@ theorem presI_quotFold (hlaws : EnvLaws) :
         (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
       rw [ht, hcs]
       refine presI_one hlaws hP (hfresh c List.mem_cons_self) ?_
-        (.inr ⟨cci, rfl, hn, hrel _, fun h => absurd h (quot_not_sorry hc)⟩)
+        (.inr ⟨cci, rfl, hn, hrel _, sees_safe (quot_safe hc) fun h => absurd h (quot_not_sorry hc)⟩)
       rw [quotConstsI_eq] at hc
       simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
       rcases hc with rfl | rfl | rfl | rfl <;> intro v h <;> cases h
@@ -364,7 +372,7 @@ theorem quotGroupPres : QuotGroupPres := by
   have hfold := presI_quotFold hlaws quotConstsI.toList ds fe L (fun _ h => h) hds hP ?_
     (List.Pairwise.of_map (S := fun a b => a ≠ b) toName
       (fun _ _ h e => h (congrArg toName e)) (by decide))
-  · refine presI_congr hfold rfl ?_
+  · refine presI_congr hfold rfl rfl rfl ?_
     intro n
     show (InLean.markQuot _).find? n = _
     rw [markQuot_find hlaws, ← Array.foldl_toList]

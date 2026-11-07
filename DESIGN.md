@@ -111921,3 +111921,120 @@ new: `propext`, `Classical.choice`, `Quot.sound`; the other two unchanged).
 What remains of O7: `CheckConstantValFSimI` (O6), `PassSimI R`/`TailSimI R`
 (blocked on the ruling in "Lane O7, continued"), `ProjBodiesInRange`,
 `ProjGuardSpecI`.
+
+### Lane R (rulings 1, 2, 4) (2026-11-08)
+
+Maintainer's rulings of 2026-11-08: (1) for the proofs no unsafe constant is
+present: a safe check does not see unsafe or `partial` constants; (2) the
+theorem is stated at con-leche's axiom policy for declarations that are not
+non-standard axioms, `sorryAx` allowed on Lean's side with nothing on
+con-leche's; (4) InLean marks the block being checked and its at-use readers
+read the block's members as master's staged environments hold them (O7's
+divergences 1 and 2).
+
+**Executable changes** (`InLean/*`).
+* *What a check sees* (ruling 1).  `FEnv.find?` is Lean's lookup filtered by
+  `FEnv.sees`: not `sorryAx` unless `coreAxioms`, and in the check of a safe
+  declaration (`FEnv.safety = .safe`) no constant that is not `safeConst`
+  (an `unsafe` constant, a `partial` definition).  A safe declaration using
+  one now fails with "unknown constant" (official: "uses unsafe
+  declaration"; both reject).  `checkConstSafety` still guards the `partial`
+  checks, which see everything.
+* *Freshness is read off Lean's environment* (`fe.env.find?`), as official's
+  `check_name`, in the job's tests too (`checkConstantValF`, `classConstOk`,
+  `checkBasisBlockC`'s fold; `checkConstantValC` already did).  Hiding made a
+  view-based test unsound: an inductive at an unsafe constant's name passed
+  and `addConst` overwrote the entry (official: already declared).
+  `checkInductiveC` also tests every generated constant's name, recursors
+  and auxiliary constants included, before the block check
+  (`checkInductiveC_ok` reads it off the run).
+* *A safe block's generated constants are safe* (`checkInductiveC`, internal
+  error otherwise): the generator is not verified, and a constant it marked
+  unsafe would be hidden from InLean while con-leche installs it.
+* *No constant but the axiom at `sorryAx`'s name* at con-leche's policy
+  (`InLean.checkDecl`, `sorryAxSquat`, a decline): con-leche installs a
+  definition there while InLean hides the name.  Unreachable from Lean
+  (`Init.Prelude` declares the axiom); `checkDecl` now runs the kinds through
+  `checkDeclKindC`.
+* *The block mark* (ruling 4).  `FEnv.pending : List (Name × Nat)`, each
+  member's name with its one constructor's field count as the shape reads it
+  (`blockMarks`), put in front by `checkBlockIndsF` where the formers are
+  pushed; every later environment of the job is built on that one, and the
+  job's environments are dropped with it.  `capsOf` takes the `FEnv` and
+  reads the field count through `FEnv.fieldsOf` (the mark's for a marked
+  member, else its stored constructor's): master's `blockCapsAt` on `env₁`
+  and `env₂`.  `findProj?`, `hasTable`, `tableFields?` find no table at a
+  marked member: master installs none before the block's install.  The mark
+  is keyed by the found entry's name (`v.name`), so the relation's clauses
+  and the readers agree without a name invariant on Lean's map.
+  `recFireAt` reads only the recursor's own type and `all`: no staging
+  difference (whether it agrees with `generatedRules`' firing at the
+  generated recursors' push is the tail's own obligation).
+* Cost: `FEnv.find?` is a `match` (no closure), the mark's lookup a
+  closure-free recursion (`pendingFields?.go`).  `instructions:u` on Init
+  868.6 G against 864.1 G at `0559b0788` (+0.53 %); of it 3.2 G is the
+  safety filter (measured by dropping it), the rest the mark's reads.
+* `scripts/inlean_negtest.lean` gains "safe definition using an unsafe one"
+  and "inductive at an unsafe constant's name" (11/11 agree; the second is
+  what hiding with a view-based freshness test would accept).
+
+**The theorem** (`InLeanProof/Statement.lean`).  `theoremConfig` has
+`coreAxioms := false`.  `Presents E L` asks every safe constant of `E` but
+`sorryAx` to read as a constant of `L`.  `SafeDecl`'s axiom arm is
+`v.isUnsafe = false ∧ StdAxiomName v.name` (`propext`, `Classical.choice`,
+`Quot.sound`, `Lean.trustCompiler`, `Lean.ofReduceNat`, `Lean.ofReduceBool`,
+`sorryAx`: the axioms master's fold carries a model through, and the one it
+installs as nothing); the other arms are unchanged (unsafe and `partial`
+declarations stay out: an unsafe block's constants come from the unverified
+generator, which may mark one safe).  `no_false_of_addDeclSound` takes
+`n ≠ sorryAx`.  `AddDeclSound` itself is unchanged in shape.
+
+**The relation** (`EnvPresI.lean`).  `EnvPresI` is unchanged in shape and,
+through `FEnv.find?`, covers the safe constants only (P3a's finding 1) and
+allows Lean's `sorryAx` against nothing.  `EntryRelI` takes the `FEnv`: a
+former's capabilities are `capsOf fe v`, its constructors stored *or* it is
+marked; `TableRelI`'s `some` clause asks the former unmarked.  `presI_push`
+takes the safety and the mark kept (`hsafe`, `hpend`); `presI_one`'s
+visibility premise is `fe.sees` (hidden: nothing installed, seen: related);
+`presI_axiom`/`_defn`/`_opaque` and `presI_quotSound` take the declaration
+safe; `presI_group` and `IndGroupPresB` take `fe.sees` of every constant.
+New: `FEnv.find?_congr`, `fieldsOf_congr`, `capsOf_congr`, `sees_safe`,
+`FEnv_find_none`, `quot_safe`, and from an accepted `checkInductiveC`
+`fresh_of_checkInductiveC` and `sees_of_checkInductiveC` (`IndGroupPresB`'s
+freshness and visibility premises; `Nodup` is still P4's).  `toCaps_capsOf`
+takes `fe.fieldsOf v c = cc.2`, so it serves the marked formers too.
+Repaired: `presI_push`, `presI_one`, the per-kind lemmas, `presI_empty`,
+`envViewI_of`/`findProj_of` (the unmarked premise), the prop-ness readers'
+table arm, `envBodiesI_of`, `presI_group`, `quotStep`/`presI_quotFold`/
+`presI_congr`, `CtorsStored` (unmarked formers) and the projection-range
+lemmas, `checkInductiveC_ok` (two more guards), `basisFold_fresh` (now on
+Lean's environment: no `sorryAx` premise, stronger conclusion) and
+`basisBlockSimI`.  No statement turned out false; no `sorry`, no new axiom;
+7 new pins.
+
+**O7's pass and tail** (`IndMembers.lean`).  `PassSimI`/`TailSimI` keep
+their premises: with the job's freshness tests on Lean's environment the
+pushes are read by `EnvLaws` from the run alone, and the mark is put in front
+of any earlier one, so no premise on `fe`'s mark is needed.  The relation is
+stated: `PassRelI D` = `PassEnvRelI` (`env₁` carries `blockMarks q.p` in
+front, `cq.p = trShape q.p`, `JobEnvI q.env₁ cq.env₁`) ∧ the parameters by
+`TrS` ∧ `D` (the field kinds, class reading, classes and table, whose
+translations the stage lane defines).  `EnvPresI fe₁ env₁` is now provable:
+a member's `EntryRelI` is `toCaps_capsOf` at the marked count, its table
+clause `none` on both sides; the constructors' push (`env₂`) and the
+generated recursors' keep the mark.  `JobEnvI`'s `guard` at `fe₁` is task
+#492's (to become a lemma there).
+
+**What is unblocked.**  O7's stages at `PassRelI` (both divergences gone);
+`BlockPresObl`'s recognised branch (the former entries by `toCaps_capsOf`
+with the stored constructor's count, `IndGroupPresB`'s freshness and
+visibility premises from the run); O6 (`CheckConstantValFSimI`: the
+freshness guard is now on Lean's environment, stricter than master's, which
+is the direction the simulation needs).
+
+**Validation** (`inlean-replay --kernel=inlean --compare --quiet`, final
+binary): Init 64,530, Std 110,064, Lean 199,645 declarations accepted, 0
+rejected, 0 declined, 0 exact and 0 cosmetic mismatches.
+`scripts/inlean_negtest.lean` 11/11 agree.  `lake build InLean InLeanProof
+inlean-replay` warning-free; `tests/layering.sh`, `tests/trust-surface.sh`,
+`tests/no-local-paths.sh` pass.

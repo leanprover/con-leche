@@ -33,13 +33,21 @@ group, the shape the assembly (P4) folds over:
   Lean's entries).  Old names keep their entries: a former's constructors are
   stored (`EntryRelI`'s `inductInfo` clause), so `capsOf` and the table
   readers read the same after the push.
-* Per kind: `presI_axiom` (an axiom, `sorryAx` included: con-leche installs
-  nothing for it and InLean hides it unless `coreAxioms`), `presI_defn`,
-  `presI_thm`, `presI_opaque`; the quotient record and an inductive block are
+* Per kind: `presI_axiom` (a safe axiom, `sorryAx` included: con-leche
+  installs nothing for it and InLean hides it unless `coreAxioms`), `presI_defn`,
+  `presI_thm`, `presI_opaque` (safe ones); the quotient record and an inductive block are
   stated (`QuotGroupPres`, `IndGroupPres`) with the facts InLean checks as
   premises, for a later lane.
 * `presI_empty`: an environment InLean finds nothing in is related to
   `Env.empty`.
+* **What a check sees** (rulings of 2026-11-08).  The relation reads
+  `FEnv.find?`, which hides `sorryAx` at con-leche's policy and, in a safe
+  check, every `unsafe` or `partial` constant (`FEnv.sees`): so it covers the
+  safe constants only, and Lean's `sorryAx` stands against nothing on
+  con-leche's side.  Inside an inductive block's job the members are marked
+  (`FEnv.pending`): a marked former's capabilities are read at the mark's
+  field count and it has no table, as in master's staged environments, so a
+  former's constructors need be stored only when it is unmarked.
 -/
 
 public section
@@ -66,16 +74,19 @@ as InLean computes it at use. -/
 /-- **Lean's entry against con-leche's at the translated name.**  An
 `opaque` is stored by con-leche as an axiom, a theorem by its statement; the
 quotient package as InLean's views read it (`indView?`, `ctorView?`,
-`recAt?`).  A former's constructors are stored, so that what `capsOf` reads
-does not change when the environment grows. -/
-@[expose] def EntryRelI (E : Kernel.Environment) : Lean.ConstantInfo → ConLeche.ConstantInfo → Prop
+`recAt?`).  A former's capabilities are `capsOf`'s at `fe`; its constructors
+are stored, or it is a member of the block being checked (`FEnv.pending`,
+whose field counts `capsOf` reads), so that what `capsOf` reads does not
+change when the environment grows. -/
+@[expose] def EntryRelI (fe : InLean.FEnv) : Lean.ConstantInfo → ConLeche.ConstantInfo → Prop
   | .axiomInfo v, .axiomInfo ccv => CVRel v.toConstantVal ccv
   | .opaqueInfo v, .axiomInfo ccv => CVRel v.toConstantVal ccv
   | .thmInfo v, .thmInfo ccv => CVRel v.toConstantVal ccv
   | .defnInfo v, .defnInfo ccv cval h =>
     CVRel v.toConstantVal ccv ∧ StoredT v.value cval ∧ h = trHint v.hints
   | .inductInfo v, .indInfo ccv caps =>
-    CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf E v) ∧ ∀ c ∈ v.ctors, (E.find? c).isSome
+    CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf fe v) ∧
+      (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome)
   | .ctorInfo v, .ctorInfo ccv nP nF => CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields
   | .recInfo rv, cci => RecRelI rv false cci
   | .quotInfo q, cci =>
@@ -89,10 +100,11 @@ does not change when the environment grows. -/
 `tableFields?` finds none; otherwise the table InLean reads off the former
 and its one constructor (`findProj?`), field by field the body
 `projBodyAt` builds, a term without free variables translating to the
-stored one. -/
+stored one, the structure not a member of the block being checked. -/
 @[expose] def TableRelI (fe : InLean.FEnv) (T : Name) : Option ConLeche.ProjTable → Prop
   | none => fe.tableFields? T = none
-  | some tbl => ∃ v c cv, fe.find? T = some (.inductInfo v) ∧ v.ctors = [c] ∧ v.numIndices = 0 ∧
+  | some tbl => ∃ v c cv, fe.find? T = some (.inductInfo v) ∧ fe.isPending v.name = false ∧
+      v.ctors = [c] ∧ v.numIndices = 0 ∧
       fe.find? c = some (.ctorInfo cv) ∧ hasPis (v.numParams + cv.numFields) cv.type = true ∧
       tbl.structName = toName T ∧ tbl.levelParams = v.levelParams.map toName ∧
       tbl.numParams = v.numParams ∧ tbl.ctor = toName c ∧ tbl.numFields = cv.numFields ∧
@@ -108,12 +120,51 @@ push).  Kept by the install of each declaration group (`presI_push` and the
 per-kind lemmas). -/
 structure EnvPresI (fe : InLean.FEnv) (L : ConLeche.Env) : Prop where
   entry : ∀ n ci, fe.find? n = some ci →
-    ∃ cci, L.find? (toName n) = some cci ∧ EntryRelI fe.env ci cci
+    ∃ cci, L.find? (toName n) = some cci ∧ EntryRelI fe ci cci
   none : ∀ n, fe.find? n = none → L.find? (toName n) = none
   table : ∀ T, TableRelI fe T (L.findTable? (toName T))
   tabNames : ∀ tbl ∈ L.tables, (L.find? tbl.structName).isSome = true
 
 /-! ## Basic facts -/
+
+/-- `FEnv.find?` is Lean's lookup filtered by `FEnv.sees`. -/
+theorem FEnv.find?_eq_filter (fe : InLean.FEnv) (n : Name) :
+    fe.find? n = (fe.env.find? n).filter (fe.sees n) := by
+  unfold InLean.FEnv.find?
+  cases fe.env.find? n <;> rfl
+
+/-- Two environments with the same policy and safety see the same constant
+where they store the same. -/
+theorem FEnv.find?_congr {fe fe' : InLean.FEnv} (hc : fe'.coreAxioms = fe.coreAxioms)
+    (hs : fe'.safety = fe.safety) {n : Name} (h : fe'.env.find? n = fe.env.find? n) :
+    fe'.find? n = fe.find? n := by
+  have he : fe'.sees n = fe.sees n := by
+    funext ci; simp only [InLean.FEnv.sees, hc, hs]
+  simp only [FEnv.find?_eq_filter, h, he]
+
+/-- A former's field count reads the same at two environments marking it
+alike, where its constructor is read alike unless it is marked. -/
+theorem fieldsOf_congr {fe fe' : InLean.FEnv} {v : InductiveVal} {c : Name}
+    (hp : fe'.pendingFields? v.name = fe.pendingFields? v.name)
+    (hc : fe.isPending v.name = false → fe'.find? c = fe.find? c) :
+    fe'.fieldsOf v c = fe.fieldsOf v c := by
+  unfold InLean.FEnv.fieldsOf
+  rw [hp]
+  cases h : fe.pendingFields? v.name with
+  | some _ => rfl
+  | none => simp only; rw [hc (by simp [InLean.FEnv.isPending, h])]
+
+/-- `capsOf` reads the same at two environments marking the former alike,
+where its constructors are read alike unless it is marked. -/
+theorem capsOf_congr {fe fe' : InLean.FEnv} {v : InductiveVal}
+    (hp : fe'.pendingFields? v.name = fe.pendingFields? v.name)
+    (hc : fe.isPending v.name = false → ∀ c ∈ v.ctors, fe'.find? c = fe.find? c) :
+    capsOf fe' v = capsOf fe v := by
+  unfold InLean.capsOf
+  split
+  · rename_i c hcs
+    rw [fieldsOf_congr hp (fun h => hc h c (by simp [hcs]))]
+  · rfl
 
 theorem toName_fromName : ∀ n : ConLeche.Name, toName (fromName n) = n
   | .anonymous => rfl
@@ -140,8 +191,8 @@ theorem RecRelI.cv {rv : RecursorVal} {b : Bool} {cci : ConLeche.ConstantInfo}
   obtain ⟨ccv, crules, rfl, hcv, -⟩ := h; exact hcv
 
 /-- Every related pair relates the name, levels and type. -/
-theorem EntryRelI.cv {E : Kernel.Environment} {ci : Lean.ConstantInfo}
-    {cci : ConLeche.ConstantInfo} (h : EntryRelI E ci cci) :
+theorem EntryRelI.cv {fe : InLean.FEnv} {ci : Lean.ConstantInfo}
+    {cci : ConLeche.ConstantInfo} (h : EntryRelI fe ci cci) :
     CVRel ci.toConstantVal cci.toConstantVal := by
   cases ci with
   | quotInfo q =>
@@ -158,10 +209,10 @@ theorem EntryRelI.cv {E : Kernel.Environment} {ci : Lean.ConstantInfo}
 
 section Inv
 
-variable {E : Kernel.Environment} {ci : Lean.ConstantInfo}
+variable {fe : InLean.FEnv} {ci : Lean.ConstantInfo}
 
 theorem EntryRelI.inv_defn {ccv : ConLeche.ConstantVal} {cval : ConLeche.Expr}
-    {h : ConLeche.ReducibilityHint} (hr : EntryRelI E ci (.defnInfo ccv cval h)) :
+    {h : ConLeche.ReducibilityHint} (hr : EntryRelI fe ci (.defnInfo ccv cval h)) :
     ∃ v, ci = .defnInfo v ∧ CVRel v.toConstantVal ccv ∧ StoredT v.value cval ∧ h = trHint v.hints := by
   cases ci with
   | defnInfo v => exact ⟨v, rfl, hr⟩
@@ -175,9 +226,9 @@ theorem EntryRelI.inv_defn {ccv : ConLeche.ConstantVal} {cval : ConLeche.Expr}
   | _ => simp only [EntryRelI] at hr
 
 theorem EntryRelI.inv_ind {ccv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
-    (hr : EntryRelI E ci (.indInfo ccv caps)) :
-    (∃ v, ci = .inductInfo v ∧ CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf E v) ∧
-      ∀ c ∈ v.ctors, (E.find? c).isSome) ∨
+    (hr : EntryRelI fe ci (.indInfo ccv caps)) :
+    (∃ v, ci = .inductInfo v ∧ CVRel v.toConstantVal ccv ∧ caps = toCaps (capsOf fe v) ∧
+      (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome)) ∨
     (∃ q, ci = .quotInfo q ∧ q.kind = .type ∧ caps = {} ∧ CVRel q.toConstantVal ccv) := by
   cases ci with
   | inductInfo v => exact .inl ⟨v, rfl, hr⟩
@@ -195,7 +246,7 @@ theorem EntryRelI.inv_ind {ccv : ConLeche.ConstantVal} {caps : ConLeche.IndCaps}
   | _ => simp only [EntryRelI] at hr
 
 theorem EntryRelI.inv_ctor {ccv : ConLeche.ConstantVal} {nP nF : Nat}
-    (hr : EntryRelI E ci (.ctorInfo ccv nP nF)) :
+    (hr : EntryRelI fe ci (.ctorInfo ccv nP nF)) :
     (∃ v, ci = .ctorInfo v ∧ CVRel v.toConstantVal ccv ∧ nP = v.numParams ∧ nF = v.numFields) ∨
     (∃ q, ci = .quotInfo q ∧ q.kind = .ctor ∧ nP = 2 ∧ nF = 1 ∧ CVRel q.toConstantVal ccv) := by
   cases ci with
@@ -213,7 +264,7 @@ theorem EntryRelI.inv_ctor {ccv : ConLeche.ConstantVal} {nP nF : Nat}
   | recInfo rv => obtain ⟨_, _, h1, -⟩ := hr; cases h1
   | _ => simp only [EntryRelI] at hr
 
-theorem EntryRelI.inv_rec {cci : ConLeche.ConstantInfo} (hr : EntryRelI E ci cci)
+theorem EntryRelI.inv_rec {cci : ConLeche.ConstantInfo} (hr : EntryRelI fe ci cci)
     {ccv : ConLeche.ConstantVal} {mI rP : Nat} {isK : Bool} {rules : List ConLeche.RecRule}
     (hc : cci = .recInfo ccv mI rP isK rules) :
     (∃ rv, ci = .recInfo rv ∧ RecRelI rv false cci) ∨
@@ -467,13 +518,14 @@ theorem findProj_none_of {T : Name} (h : fe.tableFields? T = none) (i : Nat) :
 
 /-- A table InLean reads: its entries. -/
 theorem findProj_of {T c : Name} {v : InductiveVal} {cv : ConstructorVal}
-    (hT : fe.find? T = some (.inductInfo v)) (hcs : v.ctors = [c]) (hI : v.numIndices = 0)
+    (hT : fe.find? T = some (.inductInfo v)) (hpd : fe.isPending v.name = false)
+    (hcs : v.ctors = [c]) (hI : v.numIndices = 0)
     (hc : fe.find? c = some (.ctorInfo cv)) (hp : hasPis (v.numParams + cv.numFields) cv.type = true)
     (i : Nat) :
     fe.findProj? T i = if i < cv.numFields then
       some ⟨T, i, v.levelParams, v.numParams, c, cv.numFields, cv.type⟩ else none := by
   unfold InLean.FEnv.findProj?
-  simp [hT, hcs, hI, hc, hp]
+  simp [hT, hpd, hcs, hI, hc, hp]
 
 /-- **`EnvViewI`** from the relation. -/
 theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
@@ -491,8 +543,8 @@ theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
       rw [findProj_none_of ht] at h; cases h
     | some tbl =>
       rw [hL] at ht
-      obtain ⟨v, c, cv, hT, hcs, hI, hc, hp, -, h2, h3, h4, h5, -⟩ := ht
-      rw [findProj_of hT hcs hI hc hp] at h
+      obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, -, h2, h3, h4, h5, -⟩ := ht
+      rw [findProj_of hT hpd hcs hI hc hp] at h
       split at h
       · rename_i hi
         simp only [Option.some.injEq] at h; subst h
@@ -507,8 +559,8 @@ theorem envViewI_of (hP : EnvPresI fe L) : EnvViewI fe L where
     | none => rfl
     | some tbl =>
       rw [hL] at ht
-      obtain ⟨v, c, cv, hT, hcs, hI, hc, hp, -, -, -, -, h5, -⟩ := ht
-      rw [findProj_of hT hcs hI hc hp] at h
+      obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, -, -, -, -, h5, -⟩ := ht
+      rw [findProj_of hT hpd hcs hI hc hp] at h
       split at h
       · cases h
       · rename_i hi; simp [h5, hi]
@@ -1044,8 +1096,8 @@ theorem headProofPW_tr : ∀ (h : Expr) (ch : ConLeche.Expr), toExpr fv h = some
       rw [findProj_none_of ht]; rfl
     | some tbl =>
       rw [hL] at ht
-      obtain ⟨v, c, cv, hT, hcs, hI, hc, hp, -, -, -, -, h5, hb⟩ := ht
-      rw [findProj_of hT hcs hI hc hp]
+      obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, -, -, -, -, h5, hb⟩ := ht
+      rw [findProj_of hT hpd hcs hI hc hp]
       by_cases hi : i < cv.numFields
       · obtain ⟨b, hb1, hb2, hb3⟩ := hb i hi
         simp only [hi, ↓reduceIte, h5, hb1]
@@ -1241,10 +1293,8 @@ section Push
 
 theorem FEnv.env_of_find {fe : InLean.FEnv} {n : Name} {ci : Lean.ConstantInfo}
     (h : fe.find? n = some ci) : fe.env.find? n = some ci := by
-  unfold InLean.FEnv.find? at h
-  split at h
-  · cases h
-  · exact h
+  simp only [FEnv.find?_eq_filter, Option.filter_eq_some_iff] at h
+  exact h.1
 
 theorem pushDelta_find (L : ConLeche.Env) (news : List ConLeche.ConstantInfo)
     (tabs : List ConLeche.ProjTable) (x : ConLeche.Name) :
@@ -1261,29 +1311,38 @@ theorem find_none_of_forall {α : Type} {p : α → Bool} {l : List α} (h : ∀
 
 /-- **Adding a group keeps the relation**, once the group's own names are
 related.  `names` are the group's Lean names, fresh in `fe`; `fe'` is `fe`
-with them added (every other name reads as before); `news` and `tabs` are
-what con-leche installs, all at the group's names. -/
+with them added (every other name reads as before; the policy, the safety
+and the block mark kept); `news` and `tabs` are what con-leche installs, all
+at the group's names. -/
 theorem presI_push {fe fe' : InLean.FEnv} {L : ConLeche.Env}
     {news : List ConLeche.ConstantInfo} {tabs : List ConLeche.ProjTable} {names : List Name}
     (hP : EnvPresI fe L)
-    (hcore : fe'.coreAxioms = fe.coreAxioms)
+    (hcore : fe'.coreAxioms = fe.coreAxioms) (hsafe : fe'.safety = fe.safety)
+    (hpend : fe'.pending = fe.pending)
     (hfresh : ∀ n ∈ names, fe.env.find? n = none)
     (hold : ∀ n, n ∉ names → fe'.env.find? n = fe.env.find? n)
     (hnewC : ∀ c ∈ news, ∃ n ∈ names, c.name = toName n)
     (hnewT : ∀ t ∈ tabs, ∃ n ∈ names, t.structName = toName n)
     (hentry : ∀ n ∈ names, ∀ ci, fe'.find? n = some ci →
-      ∃ cci, (L.pushDelta news tabs).find? (toName n) = some cci ∧ EntryRelI fe'.env ci cci)
+      ∃ cci, (L.pushDelta news tabs).find? (toName n) = some cci ∧ EntryRelI fe' ci cci)
     (hnone : ∀ n ∈ names, fe'.find? n = none → (L.pushDelta news tabs).find? (toName n) = none)
     (htab : ∀ T ∈ names, TableRelI fe' T ((L.pushDelta news tabs).findTable? (toName T)))
     (htabFound : ∀ t ∈ tabs, ((L.pushDelta news tabs).find? t.structName).isSome) :
     EnvPresI fe' (L.pushDelta news tabs) := by
   -- old names read as before, on both sides
-  have hfeOld : ∀ n, n ∉ names → fe'.find? n = fe.find? n := by
-    intro n hn; unfold InLean.FEnv.find?; rw [hcore, hold n hn]
-  have hext : ∀ n, (fe.env.find? n).isSome → fe'.env.find? n = fe.env.find? n := by
+  have hfeOld : ∀ n, n ∉ names → fe'.find? n = fe.find? n := fun n hn =>
+    FEnv.find?_congr hcore hsafe (hold n hn)
+  have hext : ∀ n, (fe.find? n).isSome → fe'.find? n = fe.find? n := by
     intro n hs
-    apply hold
-    intro hn; rw [hfresh n hn] at hs; cases hs
+    apply hfeOld
+    intro hn
+    obtain ⟨ci, hci⟩ := Option.isSome_iff_exists.1 hs
+    have := FEnv.env_of_find hci
+    rw [hfresh n hn] at this; cases this
+  have hpf : ∀ T, fe'.pendingFields? T = fe.pendingFields? T := by
+    intro T; simp only [InLean.FEnv.pendingFields?, hpend]
+  have hip : ∀ T, fe'.isPending T = fe.isPending T := by
+    intro T; simp only [InLean.FEnv.isPending, hpf]
   have hnotin : ∀ n, n ∉ names → ∀ c ∈ news, (c.name == toName n) = false := by
     intro n hn c hc
     obtain ⟨m, hm, he⟩ := hnewC c hc
@@ -1308,19 +1367,24 @@ theorem presI_push {fe fe' : InLean.FEnv} {L : ConLeche.Env}
       cases h : m == T
       · rfl
       · rw [eq_of_beq h] at hm; exact absurd hm hT
-  have hentryExt : ∀ ci cci, EntryRelI fe.env ci cci → EntryRelI fe'.env ci cci := by
+  -- a former's capabilities read as before: marked alike, its constructors stored
+  have hcapsExt : ∀ v : InductiveVal,
+      (fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome) →
+      capsOf fe' v = capsOf fe v := by
+    intro v h3
+    apply capsOf_congr (hpf v.name)
+    intro hnp c hc
+    rcases h3 with h3 | h3
+    · rw [hnp] at h3; cases h3
+    · exact hext c (h3 c hc)
+  have hentryExt : ∀ ci cci, EntryRelI fe ci cci → EntryRelI fe' ci cci := by
     intro ci cci hr
     cases ci <;> cases cci <;> simp only [EntryRelI] at hr ⊢ <;> try exact hr
     rename_i v ccv caps
     obtain ⟨h1, h2, h3⟩ := hr
-    refine ⟨h1, ?_, fun c hc => by rw [hext c (h3 c hc)]; exact h3 c hc⟩
-    rw [h2]
-    congr 1
-    unfold capsOf
-    split
-    · rename_i c hcs
-      rw [hext c (h3 c (by simp [hcs]))]
-    · rfl
+    refine ⟨h1, by rw [h2, hcapsExt v h3], ?_⟩
+    rw [hip]
+    exact h3.imp id fun h c hc => by rw [hext c (h c hc)]; exact h c hc
   -- a name found in `fe` is not new
   have hfoundOld : ∀ n ci, fe.find? n = some ci → n ∉ names := by
     intro n ci hf hn
@@ -1355,21 +1419,27 @@ theorem presI_push {fe fe' : InLean.FEnv} {L : ConLeche.Env}
           cases ci with
           | inductInfo v =>
             obtain ⟨cci, -, hr⟩ := hP.entry T _ hf
-            have hcl : ∀ c ∈ v.ctors, (fe.env.find? c).isSome := by
+            have hcl : fe.isPending v.name = true ∨ ∀ c ∈ v.ctors, (fe.find? c).isSome := by
               cases cci <;> simp only [EntryRelI] at hr; exact hr.2.2
-            simp only at ht ⊢
+            simp only [hip] at ht ⊢
             split
-            · rename_i c hcs
-              have hc : c ∉ names := by
-                intro hc; have := hcl c (by simp [hcs]); rw [hfresh c hc] at this; cases this
-              rw [hfeOld c hc]
-              rw [hcs] at ht; exact ht
             · rfl
+            · rename_i hnp
+              simp only [hnp] at ht
+              split
+              · rename_i c hcs
+                have hcl' : (fe.find? c).isSome := by
+                  rcases hcl with h | h
+                  · exact absurd h hnp
+                  · exact h c (by simp [hcs])
+                rw [hext c hcl']
+                rw [hcs] at ht; exact ht
+              · rfl
           | _ => rfl
       | some tbl =>
         rw [ho] at ht
-        obtain ⟨v, c, cv, hTf, hcs, hI, hc, hp, rest⟩ := ht
-        exact ⟨v, c, cv, by rw [hfeOld T hT]; exact hTf, hcs, hI,
+        obtain ⟨v, c, cv, hTf, hpd, hcs, hI, hc, hp, rest⟩ := ht
+        exact ⟨v, c, cv, by rw [hfeOld T hT]; exact hTf, by rw [hip]; exact hpd, hcs, hI,
           by rw [hfeOld c (hfoundOld c _ hc)]; exact hc, hp, rest⟩
   · intro tbl ht
     simp only [ConLeche.Env.pushDelta, List.mem_append, List.mem_reverse] at ht
@@ -1453,24 +1523,25 @@ theorem findTable_fresh (hP : EnvPresI fe L) {n : Name} (hn : fe.find? n = none)
   · rfl
 
 /-- The one-constant step, by `presI_push`: `news` is what con-leche installs,
-related to `ci` where InLean sees it, empty where it hides it (`sorryAx`). -/
+related to `ci` where InLean sees it, empty where it hides it (`FEnv.sees`:
+`sorryAx` at con-leche's policy, an `unsafe` or `partial` constant in a safe
+check). -/
 theorem presI_one (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo}
     (hfresh : fe.env.find? ci.name = none) (hnotInd : ∀ v, ci ≠ .inductInfo v)
     {news : List ConLeche.ConstantInfo}
-    (hnews : (news = [] ∧ ci.name = InLean.sorryAxName ∧ fe.coreAxioms = false) ∨
+    (hnews : (news = [] ∧ fe.sees ci.name ci = false) ∨
       (∃ cci, news = [cci] ∧ cci.name = toName ci.name ∧
-        EntryRelI (InLean.addConst fe.env ci) ci cci ∧
-        (ci.name = InLean.sorryAxName → fe.coreAxioms = true))) :
+        EntryRelI { fe with env := InLean.addConst fe.env ci } ci cci ∧
+        fe.sees ci.name ci = true)) :
     EnvPresI { fe with env := InLean.addConst fe.env ci } (L.pushDelta news []) := by
   have hfeNone : fe.find? ci.name = none := by
-    unfold InLean.FEnv.find?; split
-    · rfl
-    · exact hfresh
+    simp only [FEnv.find?_eq_filter, hfresh, Option.filter_none]
   have hfe' : ({ fe with env := InLean.addConst fe.env ci } : InLean.FEnv).find? ci.name =
-      if (ci.name == InLean.sorryAxName && !fe.coreAxioms) = true then none else some ci := by
-    unfold InLean.FEnv.find?
-    simp only [find_addConst hlaws hfresh, ↓reduceIte]
-  apply presI_push (fe' := { fe with env := InLean.addConst fe.env ci }) (names := [ci.name]) hP rfl
+      if fe.sees ci.name ci = true then some ci else none := by
+    simp only [FEnv.find?_eq_filter, find_addConst hlaws hfresh, ↓reduceIte, Option.filter_some]
+    rfl
+  apply presI_push (fe' := { fe with env := InLean.addConst fe.env ci }) (names := [ci.name]) hP
+    rfl rfl rfl
   · intro n hn; simp only [List.mem_singleton] at hn; subst hn; exact hfresh
   · intro n hn
     simp only [List.mem_singleton] at hn
@@ -1484,24 +1555,19 @@ theorem presI_one (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo
   · intro n hn ci' hf
     simp only [List.mem_singleton] at hn; subst hn
     rw [hfe'] at hf
-    rcases hnews with ⟨rfl, hs, hc⟩ | ⟨cci, rfl, hname, hrel, hvis⟩
-    · simp [hs, hc] at hf
-    · split at hf
-      · cases hf
-      · cases hf
-        refine ⟨cci, ?_, hrel⟩
-        rw [pushDelta_find]
-        simp [hname]
+    rcases hnews with ⟨rfl, hs⟩ | ⟨cci, rfl, hname, hrel, hvis⟩
+    · simp [hs] at hf
+    · simp only [hvis, ↓reduceIte, Option.some.injEq] at hf
+      subst hf
+      refine ⟨cci, ?_, hrel⟩
+      rw [pushDelta_find]
+      simp [hname]
   · intro n hn hf
     simp only [List.mem_singleton] at hn; subst hn
     rw [hfe'] at hf
-    rcases hnews with ⟨rfl, hs, hc⟩ | ⟨cci, rfl, hname, hrel, hvis⟩
+    rcases hnews with ⟨rfl, hs⟩ | ⟨cci, rfl, hname, hrel, hvis⟩
     · rw [pushDelta_find]; exact hP.none _ hfeNone
-    · split at hf
-      · rename_i hcond
-        simp only [Bool.and_eq_true, beq_iff_eq, Bool.not_eq_true'] at hcond
-        rw [hvis hcond.1] at hcond; cases hcond.2
-      · cases hf
+    · simp [hvis] at hf
   · intro T hT
     simp only [List.mem_singleton] at hT; subst hT
     rw [findTable_fresh hP hfeNone]
@@ -1511,19 +1577,29 @@ theorem presI_one (hlaws : EnvLaws) (hP : EnvPresI fe L) {ci : Lean.ConstantInfo
     split
     · rename_i v heq
       split at heq
-      · cases heq
       · cases heq; exact absurd rfl (hnotInd v)
+      · cases heq
     · rfl
   · intro t ht; cases ht
 
+/-- A safe constant is seen unless it is `sorryAx` at con-leche's policy. -/
+theorem sees_safe {fe : InLean.FEnv} {n : Name} {ci : Lean.ConstantInfo}
+    (hs : InLean.safeConst ci = true) (hn : n = InLean.sorryAxName → fe.coreAxioms = true) :
+    fe.sees n ci = true := by
+  unfold InLean.FEnv.sees
+  by_cases h : n = InLean.sorryAxName
+  · rw [hn h]; cases fe.safety <;> simp [hs]
+  · cases fe.safety <;> simp [h, hs]
+
 /-- **An axiom** (`sorryAx` included: con-leche installs nothing for it, and
 InLean hides it unless `coreAxioms`, so the relation needs `coreAxioms` off
-there).  `Quot.sound` is installed as the quotient pin's slot; its step is
+there), safe (an unsafe one is hidden from the safe checks the relation is
+about).  `Quot.sound` is installed as the quotient pin's slot; its step is
 `presI_quotSound` (`StepPres.lean`). -/
 theorem presI_axiom (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
     {d : ConLeche.Declaration} (hd : toDecl [.axiomInfo v] = some d)
     (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
-    (hq : v.name ≠ InLean.quotSoundName)
+    (hq : v.name ≠ InLean.quotSoundName) (hsafe : v.isUnsafe = false)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = false) :
     EnvPresI { fe with env := InLean.addConst fe.env (.axiomInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
@@ -1538,20 +1614,24 @@ theorem presI_axiom (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
   by_cases hs : v.name = InLean.sorryAxName
   · have hs' : cv.name = ConLeche.sorryAxName := by rw [hname, hs]; rfl
     simp only [hs', ↓reduceIte]
-    exact presI_one (ci := .axiomInfo v) hlaws hP hfresh (fun _ h => by cases h) (.inl ⟨rfl, hs, hsorry hs⟩)
+    exact presI_one (ci := .axiomInfo v) hlaws hP hfresh (fun _ h => by cases h)
+      (.inl ⟨rfl, by
+        simp [InLean.FEnv.sees, show (Lean.ConstantInfo.axiomInfo v).name = v.name from rfl, hs,
+          hsorry hs]⟩)
   · have hs' : cv.name ≠ ConLeche.sorryAxName := by
       rw [hname, ← toName_sorryAxName]; exact fun h => hs (toName_inj h)
     simp only [hs', ↓reduceIte]
     exact presI_one (ci := .axiomInfo v) hlaws hP hfresh (fun _ h => by cases h)
-      (.inr ⟨_, rfl, hname, hrel, fun h => absurd h hs⟩)
+      (.inr ⟨_, rfl, hname, hrel,
+        sees_safe (by simp [InLean.safeConst, Lean.ConstantInfo.isUnsafe, hsafe])
+          (fun h => absurd h hs)⟩)
 
-/-- **A definition**, at any safety (InLean finds unsafe and `partial`
-definitions too, so con-leche's environment holds what `toDecl` reads off
-them). -/
+/-- **A safe definition** (an `unsafe` or `partial` one is hidden from the
+safe checks the relation is about). -/
 theorem presI_defn (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : DefinitionVal}
     {d : ConLeche.Declaration} (hd : toDecl [.defnInfo v] = some d)
     (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
-    (hrv : Expr.RangeOk v.value)
+    (hrv : Expr.RangeOk v.value) (hsafe : v.safety = .safe)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = true) :
     EnvPresI { fe with env := InLean.addConst fe.env (.defnInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
@@ -1561,7 +1641,8 @@ theorem presI_defn (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : DefinitionVal}
   have hrel := CVRel_of_toCV hcv hr
   simp only [ConLeche.declConstants, ConLeche.declTables]
   exact presI_one (ci := .defnInfo v) hlaws hP hfresh (fun _ h => by cases h)
-    (.inr ⟨_, rfl, hrel.1, ⟨hrel, StoredT_of hrv hval, toHint_eq_trHint _⟩, hsorry⟩)
+    (.inr ⟨_, rfl, hrel.1, ⟨hrel, StoredT_of hrv hval, toHint_eq_trHint _⟩,
+      sees_safe (by simp only [InLean.safeConst, hsafe]) hsorry⟩)
 
 /-- **A theorem** (con-leche stores its statement). -/
 theorem presI_thm (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : TheoremVal}
@@ -1575,12 +1656,15 @@ theorem presI_thm (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : TheoremVal}
   obtain ⟨cv, hcv, cval, -, rfl⟩ := hd
   have hrel := CVRel_of_toCV hcv hr
   simp only [ConLeche.declConstants, ConLeche.declTables]
-  exact presI_one (ci := .thmInfo v) hlaws hP hfresh (fun _ h => by cases h) (.inr ⟨_, rfl, hrel.1, hrel, hsorry⟩)
+  exact presI_one (ci := .thmInfo v) hlaws hP hfresh (fun _ h => by cases h)
+    (.inr ⟨_, rfl, hrel.1, hrel,
+      sees_safe (by simp [InLean.safeConst, Lean.ConstantInfo.isUnsafe]) hsorry⟩)
 
-/-- **An `opaque`** (con-leche stores it as an axiom). -/
+/-- **A safe `opaque`** (con-leche stores it as an axiom). -/
 theorem presI_opaque (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : OpaqueVal}
     {d : ConLeche.Declaration} (hd : toDecl [.opaqueInfo v] = some d)
     (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
+    (hsafe : v.isUnsafe = false)
     (hsorry : v.name = InLean.sorryAxName → fe.coreAxioms = true) :
     EnvPresI { fe with env := InLean.addConst fe.env (.opaqueInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
@@ -1589,7 +1673,9 @@ theorem presI_opaque (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : OpaqueVal}
   obtain ⟨cv, hcv, cval, -, rfl⟩ := hd
   have hrel := CVRel_of_toCV hcv hr
   simp only [ConLeche.declConstants, ConLeche.declTables]
-  exact presI_one (ci := .opaqueInfo v) hlaws hP hfresh (fun _ h => by cases h) (.inr ⟨_, rfl, hrel.1, hrel, hsorry⟩)
+  exact presI_one (ci := .opaqueInfo v) hlaws hP hfresh (fun _ h => by cases h)
+    (.inr ⟨_, rfl, hrel.1, hrel,
+      sees_safe (by simp [InLean.safeConst, Lean.ConstantInfo.isUnsafe, hsafe]) hsorry⟩)
 
 /-- **The start**: an environment InLean finds nothing in is related to
 `Env.empty`. -/
@@ -1636,7 +1722,7 @@ constants `consts`, accepted by InLean's inductive check as the stored block
     (s s' : InLean.CState) (d : ConLeche.Declaration),
     EnvPresI fe L →
     (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
-    (∀ ci ∈ consts.toList, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
+    (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
     consts.all InLean.constInRange = true →
     (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
     toDecl (InLean.storedBlock consts) = some d →

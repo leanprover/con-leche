@@ -80,16 +80,17 @@ theorem find_foldl_addConst (hlaws : EnvLaws) :
 variable {fe : InLean.FEnv} {L : ConLeche.Env}
 
 /-- **A group of fresh, distinct constants keeps the relation**, from the
-group's own names (`presI_push`, with the lookups after the fold and
-`sorryAx`'s visibility discharged). -/
+group's own names (`presI_push`, with the lookups after the fold discharged),
+every constant seen (`FEnv.sees`: safe, not at `sorryAx`'s name at
+con-leche's policy). -/
 theorem presI_group (hlaws : EnvLaws) (hP : EnvPresI fe L) {cs : List Lean.ConstantInfo}
     (hfresh : ∀ ci ∈ cs, fe.env.find? ci.name = none) (hnd : (cs.map (·.name)).Nodup)
-    (hsorry : ∀ ci ∈ cs, ci.name = InLean.sorryAxName → fe.coreAxioms = true)
+    (hsees : ∀ ci ∈ cs, fe.sees ci.name ci = true)
     {news : List ConLeche.ConstantInfo} {tabs : List ConLeche.ProjTable}
     (hnewC : ∀ c ∈ news, ∃ ci ∈ cs, c.name = toName ci.name)
     (hnewT : ∀ t ∈ tabs, ∃ ci ∈ cs, t.structName = toName ci.name)
     (hentry : ∀ ci ∈ cs, ∃ cci, (L.pushDelta news tabs).find? (toName ci.name) = some cci ∧
-      EntryRelI (cs.foldl InLean.addConst fe.env) ci cci)
+      EntryRelI { fe with env := cs.foldl InLean.addConst fe.env } ci cci)
     (htab : ∀ ci ∈ cs, TableRelI { fe with env := cs.foldl InLean.addConst fe.env } ci.name
       ((L.pushDelta news tabs).findTable? (toName ci.name)))
     (htabFound : ∀ t ∈ tabs, ((L.pushDelta news tabs).find? t.structName).isSome) :
@@ -98,15 +99,11 @@ theorem presI_group (hlaws : EnvLaws) (hP : EnvPresI fe L) {cs : List Lean.Const
   have hfind : ∀ ci ∈ cs, ({ fe with env := cs.foldl InLean.addConst fe.env } : InLean.FEnv).find? ci.name =
       some ci := by
     intro ci hci
-    unfold InLean.FEnv.find?
-    rw [hin ci hci]
-    split
-    · rename_i hc
-      simp only [Bool.and_eq_true, beq_iff_eq, Bool.not_eq_true'] at hc
-      rw [hsorry ci hci hc.1] at hc; cases hc.2
-    · rfl
+    rw [FEnv.find?_eq_filter]
+    show ((cs.foldl InLean.addConst fe.env).find? ci.name).filter (fe.sees ci.name) = some ci
+    rw [hin ci hci, Option.filter_some]; simp only [hsees ci hci, ↓reduceIte]
   apply presI_push (fe' := { fe with env := cs.foldl InLean.addConst fe.env })
-    (names := cs.map (·.name)) hP rfl
+    (names := cs.map (·.name)) hP rfl rfl rfl
   · intro n hn
     obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hn
     exact hfresh ci hci
@@ -141,7 +138,7 @@ the statement is false, see the module docstring). -/
     EnvPresI fe L →
     (∀ ci ∈ consts.toList, ci ∈ InLean.storedBlock consts) →
     (∀ ci ∈ consts.toList, fe.env.find? ci.name = none) → (consts.toList.map (·.name)).Nodup →
-    (∀ ci ∈ consts.toList, ci.name = InLean.sorryAxName → fe.coreAxioms = true) →
+    (∀ ci ∈ consts.toList, fe.sees ci.name ci = true) →
     consts.all InLean.constInRange = true →
     (InLean.checkIndDeclC .verified fe (InLean.storedBlock consts) nP).run s = .ok ((), s') →
     toDecl (InLean.storedBlock consts) = some d →
@@ -166,16 +163,17 @@ table related, each installed table at an installed constant. -/
     let L' := L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)
     (∀ c ∈ ConLeche.declConstants d, ∃ ci ∈ consts.toList, c.name = toName ci.name) ∧
     (∀ t ∈ ConLeche.declTables d, ∃ ci ∈ consts.toList, t.structName = toName ci.name) ∧
-    (∀ ci ∈ consts.toList, ∃ cci, L'.find? (toName ci.name) = some cci ∧ EntryRelI E' ci cci) ∧
+    (∀ ci ∈ consts.toList, ∃ cci, L'.find? (toName ci.name) = some cci ∧
+      EntryRelI { fe with env := E' } ci cci) ∧
     (∀ ci ∈ consts.toList, TableRelI { fe with env := E' } ci.name (L'.findTable? (toName ci.name))) ∧
     (∀ t ∈ ConLeche.declTables d, (L'.find? t.structName).isSome)
 
 /-- **The block's step from what remains of it** (`presI_group`). -/
 theorem indGroupPresB_of (h : BlockPresObl) : IndGroupPresB := by
-  intro hlaws fe L consts nP s s' d hP hblk hfresh hnd hsorry hrange hrun hd
+  intro hlaws fe L consts nP s s' d hP hblk hfresh hnd hsees hrange hrun hd
   obtain ⟨h1, h2, h3, h4, h5⟩ := h hlaws fe L consts nP s s' d hP hblk hfresh hnd hrange hrun hd
   rw [← Array.foldl_toList]
-  exact presI_group hlaws hP hfresh hnd hsorry h1 h2 h3 h4 h5
+  exact presI_group hlaws hP hfresh hnd hsees h1 h2 h3 h4 h5
 
 /-! ## A former's capabilities -/
 
@@ -183,15 +181,16 @@ theorem indGroupPresB_of (h : BlockPresObl) : IndGroupPresB := by
 entry's constructors, index and parameter counts, members and `isRec`
 (what `genEntriesAgree` checks against InLean's shape), read as
 con-leche's shape's member `mi`, and the one constructor's field count
-where there is one. -/
-theorem toCaps_capsOf {E : Kernel.Environment} {v : InductiveVal} {p : ConLeche.BlockShape}
+where there is one (`FEnv.fieldsOf`: the stored constructor's, or the
+shape's for a member of the block being checked). -/
+theorem toCaps_capsOf {fe : InLean.FEnv} {v : InductiveVal} {p : ConLeche.BlockShape}
     {mi : Nat} {isRec : Bool}
     (hcs : v.ctors.map toName = (p.members.getD mi default).ctors.map (·.1.name))
     (hidx : v.numIndices = (p.members.getD mi default).nIdx) (hnP : v.numParams = p.nP)
     (hall : v.all.map toName = p.memberNames) (hrec : v.isRec = isRec)
     (hnF : ∀ c cc, v.ctors = [c] → (p.members.getD mi default).ctors = [cc] →
-      ∃ cv, E.find? c = some (.ctorInfo cv) ∧ cv.numFields = cc.2) :
-    toCaps (capsOf E v) = ConLeche.blockCapsAt p mi isRec := by
+      fe.fieldsOf v c = cc.2) :
+    toCaps (capsOf fe v) = ConLeche.blockCapsAt p mi isRec := by
   unfold ConLeche.blockCapsAt capsOf
   generalize hms : p.members.getD mi default = ms at hcs hidx hnF
   cases hv : v.ctors with
@@ -211,8 +210,7 @@ theorem toCaps_capsOf {E : Kernel.Environment} {v : InductiveVal} {p : ConLeche.
       | nil =>
         cases rest' with
         | nil =>
-          obtain ⟨cv, hf, hnf⟩ := hnF c cc hv hc
-          simp [toCaps, hf, hnf, hall, hidx, hnP, hrec, hcs.1]
+          simp [toCaps, hnF c cc hv hc, hall, hidx, hnP, hrec, hcs.1]
         | cons _ _ => cases hcs.2
       | cons c2 rest2 =>
         cases rest' with

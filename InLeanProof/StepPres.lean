@@ -47,16 +47,19 @@ variable {fe : InLean.FEnv} {L : ConLeche.Env}
 
 /-! ## The projection bodies' range -/
 
-/-- **A stored former's constructors are stored** (`EntryRelI`'s former
-clause). -/
+/-- **A stored former's constructors are stored**, unless it is a member of
+the block being checked (`EntryRelI`'s former clause). -/
 @[expose] def CtorsStored (fe : InLean.FEnv) : Prop :=
-  ∀ T v, fe.find? T = some (.inductInfo v) → ∀ c ∈ v.ctors, (fe.env.find? c).isSome
+  ∀ T v, fe.find? T = some (.inductInfo v) → fe.isPending v.name = false →
+    ∀ c ∈ v.ctors, (fe.find? c).isSome
 
 theorem ctorsStored_of_pres (hP : EnvPresI fe L) : CtorsStored fe := by
-  intro T v h c hc
+  intro T v h hnp c hc
   obtain ⟨cci, -, hr⟩ := hP.entry T _ h
   cases cci <;> simp only [EntryRelI] at hr
-  exact hr.2.2 c hc
+  rcases hr.2.2 with h' | h'
+  · rw [hnp] at h'; cases h'
+  · exact h' c hc
 
 /-- **What the check says of one table**: every body `findProj?` gives rise
 to is in range. -/
@@ -68,6 +71,8 @@ theorem inRange_of_projBodiesInRange {T : Name} {i : Nat} {e : ProjEntry} {b : E
   split at h
   next v hT =>
     simp only [hT] at hc
+    split at h
+    · cases h
     split at h
     next c hcs =>
       simp only [hcs] at hc
@@ -101,9 +106,9 @@ theorem projBodiesInRange_of_none (h : ∀ T i, fe.findProj? T i = none) : ProjB
 theorem feFind_foldl_out (hlaws : EnvLaws) {cs : List Lean.ConstantInfo}
     (hfresh : ∀ ci ∈ cs, fe.env.find? ci.name = none) (hnd : (cs.map (·.name)).Nodup)
     {n : Name} (hn : n ∉ cs.map (·.name)) :
-    ({ fe with env := cs.foldl InLean.addConst fe.env } : InLean.FEnv).find? n = fe.find? n := by
-  unfold InLean.FEnv.find?
-  rw [(find_foldl_addConst hlaws cs fe.env hfresh hnd).2 n hn]
+    ({ fe with env := cs.foldl InLean.addConst fe.env } : InLean.FEnv).find? n = fe.find? n :=
+  FEnv.find?_congr (fe := fe) (fe' := { fe with env := cs.foldl InLean.addConst fe.env }) rfl rfl
+    ((find_foldl_addConst hlaws cs fe.env hfresh hnd).2 n hn)
 
 /-- **A stored structure's table reads as before** a group of fresh names. -/
 theorem findProj_foldl_old (hlaws : EnvLaws) (hcs : CtorsStored fe) {cs : List Lean.ConstantInfo}
@@ -118,19 +123,24 @@ theorem findProj_foldl_old (hlaws : EnvLaws) (hcs : CtorsStored fe) {cs : List L
   | some ci =>
     cases ci with
     | inductInfo v =>
-      simp only
-      cases hv : v.ctors with
-      | nil => rfl
-      | cons c rest =>
-        cases rest with
-        | cons _ _ => rfl
-        | nil =>
-          have hc : c ∉ cs.map (·.name) := by
-            intro hm
-            obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hm
-            have := hcs T v hTf ci.name (by simp [hv])
-            rw [hfresh ci hci] at this; cases this
-          simp only [feFind_foldl_out hlaws hfresh hnd hc]
+      show (if fe.isPending v.name = true then none else _) =
+        (if fe.isPending v.name = true then none else _)
+      cases hnp : fe.isPending v.name
+      · simp only [Bool.false_eq_true, ↓reduceIte]
+        cases hv : v.ctors with
+        | nil => rfl
+        | cons c rest =>
+          cases rest with
+          | cons _ _ => rfl
+          | nil =>
+            have hc : c ∉ cs.map (·.name) := by
+              intro hm
+              obtain ⟨ci, hci, rfl⟩ := List.mem_map.1 hm
+              obtain ⟨x, hx⟩ := Option.isSome_iff_exists.1 (hcs T v hTf hnp ci.name (by simp [hv]))
+              have := FEnv.env_of_find hx
+              rw [hfresh ci hci] at this; cases this
+            simp only [feFind_foldl_out hlaws hfresh hnd hc]
+      · rfl
     | _ => rfl
 
 /-- **A group of fresh, distinct constants keeps the bodies' range**, given
@@ -168,12 +178,10 @@ theorem projBodiesInRange_one (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
     subst hc
     apply projBodiesInRange_notInd
     intro v hv
-    unfold InLean.FEnv.find? at hv
-    split at hv
-    · cases hv
-    · have := (find_foldl_addConst hlaws [c] fe.env (by simpa using hfresh) (by simp)).1 c (by simp)
-      rw [this, Option.some.injEq] at hv
-      exact hnotInd v hv
+    have hv' := FEnv.env_of_find hv
+    have := (find_foldl_addConst hlaws [c] fe.env (by simpa using hfresh) (by simp)).1 c (by simp)
+    rw [this, Option.some.injEq] at hv'
+    exact hnotInd v hv'
 
 /-! ## The generator's constants -/
 
@@ -198,12 +206,15 @@ theorem except_error_bind {ε α β : Type} (e : ε) (f : α → Except ε β) :
 theorem except_ok_bind {ε α β : Type} (x : α) (f : α → Except ε β) : (Except.ok x >>= f) = f x := rfl
 
 /-- **What an accepted inductive declaration says of its constants**: block
-constants only, in range, every projection body the extended environment reads
-at their names in range. -/
+constants only, in range, fresh in the environment, safe when the block is,
+every projection body the extended environment reads at their names in
+range. -/
 theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name} {nP : Nat}
     {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
     a.consts.all isBlockConst = true ∧ a.consts.all constInRange = true ∧
+    a.consts.all (fun ci => (fe.env.find? ci.name).isNone) = true ∧
+    (u || a.consts.all safeConst) = true ∧
     a.consts.all (fun ci =>
       ({ fe with env := a.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange ci.name) =
       true := by
@@ -217,14 +228,18 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
     obtain ⟨gen, s1⟩ := p
     rw [hg, except_ok_bind] at h
     generalize checkUnsafeBlock μ fe gen.consts = X at h
+    cases u <;>
     cases h1 : gen.consts.all isBlockConst <;> cases h2 : gen.consts.all constInRange <;>
+    cases h4 : gen.consts.all (fun ci => (fe.env.find? ci.name).isNone) <;>
+    cases h5 : gen.consts.all safeConst <;>
     cases h3 : gen.consts.all (fun ci =>
       ({ fe with env := gen.consts.foldl InLean.addConst fe.env } : InLean.FEnv).projBodiesInRange
-        ci.name) <;> cases u <;>
-    simp only [h1, h2, h3, ↓reduceIte, Bool.false_eq_true, throw, throwThe, MonadExceptOf.throw,
+        ci.name) <;>
+    simp only [h1, h2, h3, h4, h5, Bool.or_false, Bool.or_true, ↓reduceIte,
+      Bool.false_eq_true, throw, throwThe, MonadExceptOf.throw,
       StateT.run_bind, StateT.run_lift, Function.comp, except_error_bind, reduceCtorEq] at h
     all_goals
-      suffices hag : a = gen by subst hag; exact ⟨h1, h2, h3⟩
+      suffices hag : a = gen by subst hag; exact ⟨h1, h2, h4, by simp [h5], h3⟩
       rw [show StateT.run flushC s1 = Except.ok ((), s1.flushed) from rfl, except_ok_bind] at h
     · split at h
       · rw [StateT.run_bind] at h
@@ -234,7 +249,8 @@ theorem checkInductiveC_ok {μ : CheckMode} {fe : InLean.FEnv} {lps : List Name}
           rw [hy, except_ok_bind] at h
           exact (Prod.mk.inj (Except.ok.inj h)).1.symm
       · simp only [StateT.run_bind, StateT.run_lift, except_error_bind, reduceCtorEq] at h
-    · cases hx : StateT.run X ((), s1.flushed).snd with
+    all_goals
+      cases hx : StateT.run X ((), s1.flushed).snd with
       | error e => rw [hx, except_error_bind] at h; cases h
       | ok q =>
         rw [hx, except_ok_bind] at h
@@ -248,7 +264,7 @@ theorem projBodiesInRange_ind (hlaws : EnvLaws) (hR : ProjBodiesInRange fe) (hcs
     (hfresh : ∀ ci ∈ a.consts.toList, fe.env.find? ci.name = none)
     (hnd : (a.consts.toList.map (·.name)).Nodup) :
     ProjBodiesInRange { fe with env := a.consts.foldl InLean.addConst fe.env } := by
-  obtain ⟨-, -, h3⟩ := checkInductiveC_ok h
+  obtain ⟨-, -, -, -, h3⟩ := checkInductiveC_ok h
   rw [← Array.foldl_toList] at h3 ⊢
   refine projBodiesInRange_group hlaws hR hcs hfresh hnd ?_
   intro ci hci
@@ -261,6 +277,31 @@ theorem storedBlock_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : 
     (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
     ∀ ci ∈ a.consts.toList, ci ∈ storedBlock a.consts :=
   storedBlock_all (checkInductiveC_ok h).1
+
+/-- **`IndGroupPresB`'s freshness premise from an accepted inductive
+declaration**: its constants' names are fresh in Lean's environment. -/
+theorem fresh_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
+    {types : List InductiveType} {u : Bool} {s s' : CState} {a : Added}
+    (h : (checkInductiveC μ fe lps nP types u).run s = .ok (a, s')) :
+    ∀ ci ∈ a.consts.toList, fe.env.find? ci.name = none := by
+  intro ci hci
+  have h3 := (checkInductiveC_ok h).2.2.1
+  rw [Array.all_eq_true_iff_forall_mem] at h3
+  simpa using h3 ci (Array.mem_toList_iff.1 hci)
+
+/-- **`IndGroupPresB`'s visibility premise from an accepted safe inductive
+declaration**: its constants are safe, so a check sees each one whose name
+is not `sorryAx` (which `InLean.checkDecl` refuses at con-leche's policy,
+`sorryAxSquat`). -/
+theorem sees_of_checkInductiveC {μ : CheckMode} {lps : List Name} {nP : Nat}
+    {types : List InductiveType} {s s' : CState} {a : Added}
+    (h : (checkInductiveC μ fe lps nP types false).run s = .ok (a, s'))
+    (hsorry : ∀ ci ∈ a.consts.toList, ci.name ≠ InLean.sorryAxName) :
+    ∀ ci ∈ a.consts.toList, fe.sees ci.name ci = true := by
+  intro ci hci
+  have h4 := (checkInductiveC_ok h).2.2.2.1
+  simp only [Bool.false_or, Array.all_eq_true_iff_forall_mem] at h4
+  exact sees_safe (h4 ci (Array.mem_toList_iff.1 hci)) fun hn => absurd hn (hsorry ci hci)
 
 /-! ## `Quot.sound` -/
 
@@ -286,6 +327,7 @@ axiom's level name makes the axiom con-leche's `quotAt .sound` at its record. -/
 theorem presI_quotSound (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
     {d : ConLeche.Declaration} (hd : toDecl [.axiomInfo v] = some d)
     (hfresh : fe.env.find? v.name = none) (hr : Expr.RangeOk v.type)
+    (hsafe : v.isUnsafe = false)
     (hhit : quotSoundHit v.name v.levelParams v.type = true) :
     EnvPresI { fe with env := InLean.addConst fe.env (.axiomInfo v) }
       (L.pushDelta (ConLeche.declConstants d) (ConLeche.declTables d)) := by
@@ -322,7 +364,7 @@ theorem presI_quotSound (hlaws : EnvLaws) (hP : EnvPresI fe L) {v : AxiomVal}
   · rw [hq]
     refine ⟨hnm, hrel.2.1, ?_⟩
     rw [← hcvT]; exact hrel.2.2
-  · intro hs
+  · refine sees_safe (by simp [InLean.safeConst, Lean.ConstantInfo.isUnsafe, hsafe]) fun hs => ?_
     have : v.name = InLean.sorryAxName := hs
     rw [hn] at this; exact absurd (congrArg toName this) (by decide)
 

@@ -55,8 +55,8 @@ theorem envProjI_of (hP : EnvPresI fe L) (hR : ProjBodiesInRange fe) : EnvProjI 
       rw [findProj_none_of ht] at h; cases h
     | some tbl =>
       rw [hL] at ht
-      obtain ⟨v, c, cv, hT, hcs, hI, hc, hp, h1, h2, h3, h4, h5, hb⟩ := ht
-      rw [findProj_of hT hcs hI hc hp] at h
+      obtain ⟨v, c, cv, hT, hpd, hcs, hI, hc, hp, h1, h2, h3, h4, h5, hb⟩ := ht
+      rw [findProj_of hT hpd hcs hI hc hp] at h
       split at h
       · rename_i hi
         simp only [Option.some.injEq] at h; subst h
