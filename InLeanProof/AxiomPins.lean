@@ -22,6 +22,7 @@ public import InLeanProof.BodiesI
 public import InLeanProof.EnvPresI
 public import InLeanProof.EnvBodiesPres
 public import InLeanProof.QuotPres
+public import InLeanProof.IndPres
 
 /-!
 # The axiom pins of the InLean proof tier (task #451, lane G)
@@ -1585,3 +1586,27 @@ info: 'InLeanProof.quotGroupPres' depends on axioms: [propext,
 -/
 #guard_msgs in
 #print axioms InLeanProof.quotGroupPres
+
+/--
+info: 'InLeanProof.find_foldl_addConst' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.find_foldl_addConst
+
+/--
+info: 'InLeanProof.presI_group' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.presI_group
+
+/--
+info: 'InLeanProof.indGroupPresB_of' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.indGroupPresB_of
+
+/--
+info: 'InLeanProof.toCaps_capsOf' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in
+#print axioms InLeanProof.toCaps_capsOf
