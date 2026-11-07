@@ -2185,7 +2185,7 @@ fired constructor application is the class's injection of its fields,
 read at its own parameters (`genOutCtorOwn`: the step compares them
 only at case 3); the major lies in the class's carrier at the pins'
 frame and the recursor's index tuple, and the class is never `Prop`
-here (`genOutNZ`, `genOutW`), so the carrier's decomposition there is
+here (`genOutNZ`, `genRun_outW`), so the carrier's decomposition there is
 that injection (`mkInj`): the fields hole-fit at the pins' frame —
 `genRow3_core` does the rest. -/
 theorem genRows3_out
@@ -2274,7 +2274,9 @@ theorem genRows3_out
     have e1 : tgtClsD d Dc out j = Dc j := by simp [tgtClsD, hMo]
     have e2 : tgtClsψ cvc out ψ j
         = Level.substFn ψ (cvc j).levelParams (tgtMajor out j).lvls := by simp [tgtClsψ, hMo]
-    rw [e1, e2, genOutW R hj hMo hcl ψ]
+    obtain ⟨ρ', vs, hvs⟩ := tgtClsIs_outFit (mp := mpC) hMo hcl.hD hcl.hmm hTin
+    rw [e2] at hvs
+    rw [e1, e2, (genRun_outW mpC R hj hMo hcl ψ hvs).1]
     exact ConLeche.Level.isNeverZero_sound _ _ (genOutNZ R hj hMo hℓ)
   -- the carrier's decomposition at the recursor's index tuple
   rw [tgtClsIs_of hG (tgtClsIs_guard hTin).2] at hTin

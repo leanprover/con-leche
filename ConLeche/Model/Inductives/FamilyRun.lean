@@ -185,6 +185,18 @@ telescope for the member and of its value. -/
           = interp V ρ (mkPisAV (D.pars mm ψ ++ D.ids mm ψ) (.sort (D.w ψ))) ∧
         WellDenotedTy V ρ (mkPisAV ab (.sort u))
 
+/-- **A run's result ends in its block's sort along a fit**: where the block's telescope has a
+full fit, the run's tower (of one value) ends in the block's sort (`spineFit_iff_of_mkPisAV_eq`). -/
+theorem FormerRead.sort_eq {mp : EnvModelM V env} {D : LfpDatum V} {mm : Nat} {ty : Expr}
+    (hR : FormerRead mp D mm ty) {ψ : Name → Nat} {ab : List Term} {u : Nat}
+    (hta : denote mp.base2.acval env ψ 0 ty = some (mkPisAV ab (.sort u))) {ρ : Nat → V}
+    {vs : List V} (hfit : SpineFit ρ (D.pars mm ψ ++ D.ids mm ψ) vs) : u = D.w ψ := by
+  obtain ⟨-, -, -, hrd⟩ := hR
+  obtain ⟨ab', u', hta', hl, hv⟩ := hrd ψ
+  rw [hta] at hta'
+  obtain ⟨rfl, rfl⟩ := mkPisAV_sort_inj (Option.some.inj hta')
+  exact ((spineFit_iff_of_mkPisAV_eq hl.symm (hv ρ).1.symm vs).2 hfit).symm
+
 /-- **What a run reads of a recorded family's telescope** has the block's telescope's value
 (see the module docstring), for every member alike: a former that shows its telescope is its
 own run's result. -/

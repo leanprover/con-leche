@@ -1335,9 +1335,11 @@ theorem genNodeCalls {F : Nat}
         unfold nlDb
         rw [ite_eq_right (by omega), hb''u]
         exact (dyn_nodeBlock H hu''ns).1
-      have hFk := H.hcov.instFacts hDmk hTO'.hmm (by rw [hTO'.hmem]; exact hfE)
+      have hfEm : envI.find? ((Dc r).member (mc r)) = some (.indInfo (cvc r) caps') := by
+        rw [hTO'.hmem]; exact hfE
+      obtain ⟨tyK, hfamK, hFk⟩ := H.hcov.instRun hfEm
         (by show I = _; rw [hTO'.hmem, hIMt]) hnIW
-      refine nestInstType_count hTO' hFk hinst' ?_
+      refine nestInstType_count hTO' (familyRead mk hDmk hTO'.hmm hfEm hfamK) hFk hinst' ?_
       show (w.getAppArgs.take nPc).length = _
       rw [List.length_take, Nat.min_eq_left hnPcL, ← hPl', hPwLen]
     have hhead : (mpC.base2.acval (tgtMajor out r).ind

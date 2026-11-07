@@ -173,6 +173,21 @@ theorem tgtClsIs_guard {xs : List V} {t : V}
   · rw [tgtClsIs, ite_eq_right hg] at ht
     exact absurd ht (not_mem_empty t)
 
+/-- **An index of an outside class gives a full fit** of its member's telescope: the key frame
+satisfies the parameters (the class is live) and the index tuple is a fit of the member's index
+telescope there. -/
+theorem tgtClsIs_outFit {mp : EnvModelM V envC} (hMo : (tgtMajor out c).member = none)
+    (hD : Dc c ∈ mp.lfpBlocks) (hmm : mc c < (Dc c).k)
+    {xs : List V} {t : V} (ht : t ∈ˢ tgtClsIs d Dc mc cvc acval envC p out ψ ρ xs c) :
+    ∃ (ρ' : Nat → V) (vs : List V), SpineFit ρ'
+      ((Dc c).pars (mc c) (tgtClsψ cvc out ψ c) ++ (Dc c).ids (mc c) (tgtClsψ cvc out ψ c)) vs := by
+  obtain ⟨hg, hl⟩ := tgtClsIs_guard ht
+  rw [tgtClsIs_of hg hl] at ht
+  have hm : (tgtMajor out c).member.isSome = false := by rw [hMo]; rfl
+  simp only [tgtClsLive, tgtClsD, tgtClsFr, tgtClsM, hm, Bool.false_eq_true, ite_false] at hl ht
+  obtain ⟨is, his, -⟩ := mem_idxSet_elim ht
+  exact ⟨_, _, lfp_frameFullFit mp hD hmm hl.1 his⟩
+
 theorem tgtClsCr_mem (hm : (tgtMajor out c).member.isSome = true) (xs : List V) :
     tgtClsCr d Dc mc cvc acval envC p out ψ ρ xs c = blockRecCr d ψ ρ p.recTgtAt xs c := by
   simp only [tgtClsCr, tgtClsD, tgtClsψ, tgtClsFr, tgtClsM, hm, ite_true]

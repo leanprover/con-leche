@@ -20,11 +20,9 @@ class's recorded clause (`TgtOutCls`):
   without the target run);
 * `nestInstType_count` — the positivity walk's index count of a container
   instance (`nestInstType`) is the class check's (`targetOutsideInst`):
-  both count the index binders of the container's former, which the
-  parameters do not change — provided the former's syntactic Π-tail is
-  no variable (`TailOk`; else a parameter could be substituted into the
-  tail and open binders).  A recorded class has it off its former's
-  reading (`TgtOutCls.tailOk`).
+  each counts the index binders of a run's result for the container,
+  which the parameters do not change (`instPis_count_of_read`), and both
+  results read as towers of the block's telescope's length (`FormerRead`).
 -/
 
 namespace ConLeche.Model
@@ -71,45 +69,36 @@ theorem genOutIdxLen {envC : Env} {mpC : EnvModelM V envC}
       = .ok (M.nIdx, sI)) (ψ : Name → Nat)
     (hlenP : (D.params (Level.substFn ψ cvI.levelParams M.lvls)).length = M.ds.length) :
     (D.ids mm (Level.substFn ψ cvI.levelParams M.lvls)).length = M.nIdx := by
-  obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst
+  obtain ⟨-, tyI, ty, s, -, -, hR, hty, hs, hr'⟩ := hcl.outsideInst hinst
   obtain ⟨hC, -, -, -⟩ := mpC.lfp_ok D hcl.hD
   generalize hψ : Level.substFn ψ cvI.levelParams M.lvls = ψ' at hlenP ⊢
-  obtain ⟨ab, hta, hmap⟩ := hcl.read ψ'
+  obtain ⟨ab, u, hta, habl, -⟩ := hR.2.2.2 ψ'
   have hc := instPis_count_of_read hta cvI.levelParams M.lvls hty hs
   have hpl := hC.parsLen mm hcl.hmm ψ'
-  have habl : ab.length = (D.pars mm ψ').length + (D.ids mm ψ').length := by
-    have := congrArg List.length hmap
-    simpa using this
+  rw [List.length_append] at habl
   have hn : M.nIdx = ty.piBinders.1.length := congrArg Prod.fst hr'
   omega
 
-/-- **A recorded class's telescope has a variable-free Π-tail** (its
-reading is a Π-tower ending in a sort, `tailOk_of_read`). -/
-theorem TgtOutCls.tailOk {envC : Env} {mpC : EnvModelM V envC}
-    {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC M D mm cvI) : TailOk (D.formerAt mm cvI).type := by
-  obtain ⟨ab, hta, -⟩ := hcl.read (fun _ => 0)
-  exact tailOk_of_read _ _ rfl hta
-
 /-- **The walk's index count of a container instance is the class
-check's.** -/
-theorem nestInstType_count {envC : Env} {mpC : EnvModelM V envC} {M : TargetMajor} {D : LfpDatum V}
-    {mm : Nat} {cvI : ConstantVal} (hcl : TgtOutCls mpC M D mm cvI) {ctx : NestCtx}
+check's**: the walk's run (at its own model `mk`) and the class check's
+both read as towers of the block's telescope's length. -/
+theorem nestInstType_count {envC envK : Env} {mpC : EnvModelM V envC} {mk : EnvModelM V envK}
+    {M : TargetMajor} {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
+    (hcl : TgtOutCls mpC M D mm cvI) {ty : Expr} (hRK : FormerRead mk D mm ty) {ctx : NestCtx}
     {hi F : Nat} {key : ConLeche.NestKey} {nI : Nat} {cty : Expr}
-    (hF : ConLeche.NestInstFacts ctx hi key cvI.levelParams (D.formerAt mm cvI).type nI cty)
+    (hF : ConLeche.NestInstFacts ctx hi key cvI.levelParams ty nI cty)
     {us' : List Level} {ds' : List Expr} {nIdx : Nat} {sI : Level}
     (h2 : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv envC) M.ind us' ds'
       = .ok (nIdx, sI))
     (hlen : key.ds.length = ds'.length) : nI = nIdx := by
-  have htl := hcl.tailOk
-  obtain ⟨ty', s', hty', -, hr'⟩ := hcl.outsideInst h2
+  obtain ⟨-, tyI, ty', s', -, -, hR, hty', hs', hr'⟩ := hcl.outsideInst h2
+  obtain ⟨s, hs, -⟩ := hF.sort
+  obtain ⟨abK, uK, htaK, hlK, -⟩ := hRK.2.2.2 (fun _ => 0)
+  obtain ⟨abI, uI, htaI, hlI, -⟩ := hR.2.2.2 (fun _ => 0)
+  have hcK := instPis_count_of_read htaK cvI.levelParams key.lvls hF.inst hs
+  have hcI := instPis_count_of_read htaI cvI.levelParams us' hty' hs'
   have hn : nIdx = ty'.piBinders.1.length := congrArg Prod.fst hr'
-  have hty := hF.inst
-  obtain ⟨a1, -, a3⟩ := tail_instantiateLevelParams cvI.levelParams key.lvls (D.formerAt mm cvI).type
-  obtain ⟨b1, -, b3⟩ := tail_instantiateLevelParams cvI.levelParams us' (D.formerAt mm cvI).type
-  obtain ⟨k1, -⟩ := tail_instPisWith key.ds (a3.mpr htl) hty
-  obtain ⟨k1', -⟩ := tail_instPisWith ds' (b3.mpr htl) hty'
-  rw [hF.count, hn, ← piCount_eq_length, ← piCount_eq_length]
+  rw [hF.count, hn]
   omega
 
 end ConLeche.Model

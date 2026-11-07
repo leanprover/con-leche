@@ -77,9 +77,6 @@ theorem genRecStage {F : Nat}
     obtain ⟨c, hc⟩ := List.getElem?_of_mem hcv
     obtain ⟨⟨_, -, hD⟩, -⟩ := hcore.1 c cv hc
     exact ConLeche.ScB.of_closed hD.readFvar hD.readBounded 0
-  have hrd : ∀ F, FamilyRead mpC F := by
-    obtain ⟨_, -, -, h, -⟩ := hmk
-    exact h
   have hread : pp.members.map (·.cvT) = pp.formers := by
     rw [hdRe] at hN hS
     exact blockMembers_read hN hS.telescopeAt
@@ -106,9 +103,9 @@ theorem genRecStage {F : Nat}
   have hTbl := ConLeche.genRun_tbl_scoped R hwfI hwfC hM hT hct hpos
   have h : ConLeche.RecStageG .verified F envC pp (tgtRs out) :=
     recStage_of_gen R hg
-  have hfind := genRecCtor_find (mpC := mpC) R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
+  have hfind := genRecCtor_find (mpC := mpC) R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
   obtain ⟨s, hsP, hTy⟩ := blockRecLevel_run (V := V) (mpC := mpC) h
-  obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov hrd dR.toLfp
+  obtain ⟨Dc, mc, cvc, hcls, hsel⟩ := genOutCls (mpC := mpC) R hcov dR.toLfp
   -- the open class-side rows
   have hcallTy : ∀ (ψ : Name → Nat) (ρ : Nat → V), ∀ c, c < (tgtRs out).length →
       ∀ j, j < blockRecNCt (tgtRs out) c →
@@ -257,7 +254,7 @@ theorem genRecStage {F : Nat}
   have hdataS := genRecHdataS R hg h hndM heqB heqP hpre hfind
     (genRulePrefRead mpC R hg h) (genRuleFieldRead R hg mpC.base2.acval) hrow3
   -- the ι case split's facts (task #342 L10)
-  have hseam := genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd
+  have hseam := genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov
   have hleaf := blockRecLeafOk_of mpC h heqB heqP hpre
   have hextra : ∀ (Rr : Nat → ConstantVal × List Expr × Nat × List (ConstantVal × Nat) →
         Bool × List ConLeche.RecRule)
@@ -314,7 +311,7 @@ theorem genRecStage {F : Nat}
       have hread := R.fire_nestedRead hr hf
       obtain ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3, -⟩ := id hread
       exact ⟨n1, n2, n3, pre, dom, body, D, e1, e2, e3⟩)
-    (genRecCtor_in R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd)
+    (genRecCtor_in R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov)
     (pdoms0 := fun ψ => blockRulePdomsAV mpC.base2.acval envC pp (tgtRs out) ψ)
     (fdoms0 := fun ψ => tgtFdomsAV pp out mpC.base2.acval envC ψ)
     (es0 := fun ψ => tgtEsAV pp out mpC.base2.acval envC ψ)
@@ -324,7 +321,7 @@ theorem genRecStage {F : Nat}
     heqB heqP hpre
     (fun j r hr => blockRecNCt_ge hr)
     (fun ψ j r hr => blockRulePdomsAV_length mpC h hr ψ)
-    (genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov hrd) (genRecHtower R)
+    (genRecCtor_seam R hN hcore hmemberCtors ⟨pk, uOfD, ppsOf, hdRe⟩ hcov) (genRecHtower R)
     (fun m₃ hac φ j r hr _ ctor rhs _ _ => recStagePinsOk mpC h m₃ hac φ j r hr ctor rhs
       (fun _ _ hf' => R.fire_nestedRead hr hf'))
     (fun m₃ hac => hextra _ m₃ hac) hdataS

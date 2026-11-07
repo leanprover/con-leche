@@ -645,36 +645,39 @@ theorem genRun_cls_lt
   rw [hgc, hlN, hlM, R.keys_length]
   exact motiveSlot_lt_classesR R.rd.slots [] cls s hs
 
-/-- **An outside class's sort is the block's** at every level assignment
-(`TargetMajorRun.outside`'s `isEquiv sI resSort`, read through the
-recorded former). -/
+/-- **An outside class's sort is the block's** wherever its member's telescope has a fit
+(`TargetMajorRun.outside`'s `isEquiv sI resSort`, read through a run's result, which ends in the
+block's sort along a fit: `FormerRead.sort_eq`). -/
 theorem genRun_outW (mpC : EnvModelM V envC)
     (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) p nestedBit pos
       block out)
     {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
     {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI) (ψ : Name → Nat) :
+    (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI) (ψ : Name → Nat) {ρ' : Nat → V}
+    {vs : List V}
+    (hfit : SpineFit ρ' (D.pars mm (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
+      ++ D.ids mm (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)) vs) :
     D.w (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
       = Level.eval ψ p.resSort ∧
     R.Ms₀.any (·.member.isNone) = true := by
   obtain ⟨-, cls, -, -, -, -, -, -, -, hM, hgc⟩ := genRun_at R hc
-  rw [hM] at hMo hcl ⊢
+  rw [hM] at hMo hcl hfit ⊢
   have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
   obtain ⟨key, M₀, nfs, hMs, hMs₀, ⟨CR⟩⟩ := genRun_class R hi
   have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
     rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
-  rw [hget] at hMo hcl ⊢
+  rw [hget] at hMo hcl hfit ⊢
   have hmaj := CR.major
   cases hmaj with
   | member => exact nomatch hMo
   | outside I us nPc nIdx ctors sI hfn ht hnq hct hdsLen hdsSc hment hinst hsort nfs' =>
     refine ⟨?_, List.any_eq_true.mpr ⟨_, List.mem_of_getElem? hMs₀, rfl⟩⟩
-    obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst
-    obtain ⟨ab, hta, -⟩ := hcl.read (Level.substFn ψ cvI.levelParams us)
+    obtain ⟨-, tyI, ty, s, -, -, hR, hty, hs, hr'⟩ := hcl.outsideInst hinst
+    obtain ⟨ab, u, hta, -, -⟩ := hR.2.2.2 (Level.substFn ψ cvI.levelParams us)
     have hsI : s = sI := (congrArg Prod.snd hr').symm
     subst hsI
     show D.w (Level.substFn ψ cvI.levelParams us) = _
-    rw [instPis_sort_of_read (φ := ψ) cvI.levelParams us hta hty hs]
+    rw [← hR.sort_eq hta hfit, instPis_sort_of_read (φ := ψ) cvI.levelParams us hta hty hs]
     exact ConLeche.Level.isEquiv_sound hsort ψ
 
 set_option maxHeartbeats 2000000 in
@@ -728,7 +731,11 @@ theorem genRun_lic (mpC : EnvModelM V envC)
   | none =>
     exfalso
     have hcl := hcls c hc hmb
-    obtain ⟨hwE, hany⟩ := genRun_outW mpC R hc hmb hcl ψ
+    obtain ⟨ρ', vs, hvs⟩ := tgtClsIs_outFit (mp := mpC) hmb hcl.hD hcl.hmm ht
+    have hψc : tgtClsψ cvc out ψ c = Level.substFn ψ (cvc c).levelParams (tgtMajor out c).lvls := by
+      simp [tgtClsψ, hmb]
+    rw [hψc] at hvs
+    obtain ⟨hwE, hany⟩ := genRun_outW mpC R hc hmb hcl ψ hvs
     have hm : (tgtMajor out c).member.isSome = false := by rw [hmb]; rfl
     simp only [tgtClsD, tgtClsψ, hm, Bool.false_eq_true, ite_false] at hw
     rw [hwE] at hw

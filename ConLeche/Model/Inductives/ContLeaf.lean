@@ -56,6 +56,18 @@ theorem spineFit_of_sat_consList {Ds : List Term} {as : List V} {ρ : Nat → V}
   have := spineFit_frameIdx_of_sat h
   rwa [← hlen, shiftE_consList, frameIdx_consList'] at this
 
+/-- **A frame satisfying the parameters, with an index fit there, is a full fit** of a member's
+telescope (the frame's own parameter values over its shift). -/
+theorem lfp_frameFullFit (mp : EnvModelM V env) {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks)
+    {mm : Nat} (hmm : mm < D.k) {ψ : Name → Nat} {σ : Nat → V}
+    (hsat : Sat V (D.params ψ).reverse σ) {is : List V} (his : SpineFit σ (D.ids mm ψ) is) :
+    SpineFit (shiftE (D.params ψ).length 0 σ) (D.pars mm ψ ++ D.ids mm ψ)
+      (frameIdx (D.params ψ).length σ ++ is) := by
+  obtain ⟨hC, -, -, -⟩ := mp.lfp_ok D hD
+  have hP := spineFit_frameIdx_of_sat (hC.parsSat mm hmm ψ σ hsat)
+  rw [hC.parsLen mm hmm] at hP
+  exact SpineFit.append hP (by rw [consList_frameIdx]; exact his)
+
 /-- **The key's arguments fit the container's former telescope** (the
 former's reading, M4, at the key's levels), at every valuation where the
 application is graded. -/

@@ -447,34 +447,6 @@ theorem genCount
   obtain ⟨hl, -, -, hcn⟩ := blockLargeElim_counting hel hw
   exact ⟨hl, hcn⟩
 
-/-- **An outside class's sort is the block's** (the class check's
-`Level.isEquiv sI p.resSort`). -/
-theorem genOutW
-    (R : GenRecRun .verified F (mkFEnv env₁) env₁ (mkFEnv envC) pp nestedBit pos
-      block out)
-    {c : Nat} (hc : c < (tgtRs out).length) (hMo : (tgtMajor out c).member = none)
-    {D : LfpDatum V} {mm : Nat} {cvI : ConstantVal}
-    (hcl : TgtOutCls mpC (tgtMajor out c) D mm cvI) (ψ : Name → Nat) :
-    D.w (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
-      = Level.eval ψ pp.resSort := by
-  obtain ⟨-, cls, -, -, -, -, -, -, -, hM, hgc⟩ := genRun_at R hc
-  have hi : cls < R.Ms.length := by rw [← hgc]; exact genRun_cls_lt R hc
-  obtain ⟨key, M₀, nfs, hMs, -, ⟨CR⟩⟩ := genRun_class R hi
-  have hget : R.Ms.getD cls default = { M₀ with nfs := nfs } := by
-    rw [List.getD_eq_getElem?_getD, hMs, Option.getD_some]
-  rw [hget] at hM
-  have hMo₀ : M₀.member = none := by rw [hM] at hMo; exact hMo
-  obtain ⟨sI, -, -, -, -, -, -, -, hinst, hequiv⟩ := CR.major.outside_facts hMo₀
-  have hinst' : ConLeche.targetOutsideInst (ConLeche.fueledOps .verified F) (mkFEnv envC)
-      (tgtMajor out c).ind (tgtMajor out c).lvls (tgtMajor out c).ds
-      = .ok ((tgtMajor out c).nIdx, sI) := by rw [hM]; exact hinst
-  obtain ⟨ty, s, hty, hs, hr'⟩ := hcl.outsideInst hinst'
-  obtain ⟨ab, hta, -⟩ := hcl.read (Level.substFn ψ cvI.levelParams (tgtMajor out c).lvls)
-  have hsI : s = sI := (congrArg Prod.snd hr').symm
-  subst hsI
-  rw [instPis_sort_of_read (φ := ψ) cvI.levelParams (tgtMajor out c).lvls hta hty hs]
-  exact ConLeche.Level.isEquiv_sound hequiv ψ
-
 end Guard
 
 /-! ## The rule frame's constructor, read -/
