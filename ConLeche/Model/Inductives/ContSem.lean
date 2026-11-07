@@ -6,6 +6,7 @@ import ConLeche.Verify.Inductives.NestContInv
 import ConLeche.Model.Inductives.ContFrame
 import ConLeche.Model.Inductives.ContLeaf
 import ConLeche.Model.Inductives.ContN2
+import ConLeche.Model.Inductives.FamilyRun
 import ConLeche.SetTheory.Derive.Univ
 import ConLeche.SetTheory.Derive.Graphs
 import ConLeche.Verify.Cached.Erase
@@ -87,6 +88,49 @@ theorem ContCover.instFacts {mp : EnvModelM V env} {ctx : NestCtx} (hcov : ContC
   obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
   rw [← hcov.reads F D hD mm cv caps tyC hmm hf hfam]
   exact hF
+
+/-- **A walk's instantiation of a recorded family, by its run**: the context's former, run, and
+the instantiation's facts at the run's result. -/
+theorem ContCover.instRun {mp : EnvModelM V env} {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
+    {mm : Nat} {D : LfpDatum V} {cv : ConstantVal} {caps : IndCaps}
+    (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {hi : Nat}
+    {key : ConLeche.NestKey} (hk : key.cname = D.member mm) {nI : Nat} {cty : Expr}
+    (h : ConLeche.nestInstType (m := CheckM) ctx (ConLeche.fueledOps .verified F) env hi key
+      = .ok (nI, cty)) :
+    ∃ ty, ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cv caps = .ok ty ∧
+      ConLeche.NestInstFacts ctx hi key cv.levelParams ty nI cty := by
+  obtain ⟨cvC, capsC, tyC, hfC, hfam, hF⟩ := ConLeche.nestInstType_inv h
+  rw [hcov.find, hk, hf] at hfC
+  obtain ⟨rfl, rfl⟩ : cv = cvC ∧ caps = capsC := by simpa using hfC
+  exact ⟨tyC, hfam, hF⟩
+
+/-- **A container instance has as many indices as its member** (N2, `n2_tower`). -/
+theorem ContCover.idsLen {mp : EnvModelM V env} {ctx : NestCtx} (hcov : ContCover mp ctx) {F : Nat}
+    {D : LfpDatum V} (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {cv : ConstantVal}
+    {caps : IndCaps} (hf : env.find? (D.member mm) = some (.indInfo cv caps)) {hi : Nat}
+    {us : List Level} {ds : List Expr} {nI : Nat} {cty : Expr}
+    (h : ConLeche.nestInstType (m := CheckM) ctx (ConLeche.fueledOps .verified F) env hi
+      ⟨D.member mm, us, ds⟩ = .ok (nI, cty))
+    (hlenP : (D.params (Level.substFn φ cv.levelParams us)).length = ds.length)
+    (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
+    {dsa : List Term} (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa) :
+    (D.ids mm (Level.substFn φ cv.levelParams us)).length = nI := by
+  obtain ⟨ty, hfam, hF⟩ := hcov.instRun hf rfl h
+  obtain ⟨h0, -, -, -⟩ := mp.lfp_ok D hD
+  obtain ⟨-, -, hl, -⟩ := n2_tower mp (familyRead mp hD hmm hf hfam) hF
+    ((h0.parsLen mm hmm _).trans hlenP) hds hdsa
+  exact hl
+
+/-- **A family's key typed against its run**: the arguments' certificates at the run's result. -/
+theorem familyKeyCheck_run {find? : Name → Option ConLeche.ConstantInfo} {F d : Nat} {c : Name}
+    {cv : ConstantVal} {caps : IndCaps} (hf : find? c = some (.indInfo cv caps)) {us : List Level}
+    {ds : List Expr}
+    (h : ConLeche.familyKeyCheck (ConLeche.fueledOps .verified F) env find? d c us ds = .ok ()) :
+    ∃ ty, ConLeche.familyTelescope (ConLeche.fueledOps .verified F) env cv caps = .ok ty ∧
+      us.length = cv.levelParams.length ∧
+      ConLeche.Rules.CertsF env d (ty.instantiateLevelParams cv.levelParams us) ds := by
+  obtain ⟨tyC, hl, hfam, hsp⟩ := familyKeyCheck_inv hf h
+  exact ⟨tyC, hfam, hl, checkSpineAt_certs hsp⟩
 
 /-- A family's key typed against its telescope: its arguments' certificates at the telescope its
 block read. -/

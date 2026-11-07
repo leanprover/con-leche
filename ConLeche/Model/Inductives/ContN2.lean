@@ -649,52 +649,53 @@ theorem instFormer_read (mp : EnvModelM V env) {D : LfpDatum V}
     instFormer_readB mp hD hmm hf hnd hul hlenP hds hdsa hstrip hty
   exact ⟨_, hmap, hrd⟩
 
-/-- **N2 linked to the clause**.  A container instance's type former, checked by `nestInstType` at the
-key `C.{us} ds` below the hole bound `hi`, has the recorded member's index
-telescope (M4) as its index telescope: as many indices, and — because
-the instantiated index telescope mentions no hole (N2) — read the same at
-the key's parameter frames of any two walk valuations agreeing off the
-holes (`TeleEq`).  So the container's index sets, the fit of an index
-spine, and a hole value applied to the key's parameters are the same at
-both sides of a hole relation. -/
-theorem n2_link (mp : EnvModelM V env) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
-    {hi : Nat} {us : List Level} {ds : List Expr}
-    {nI : Nat} {cty : Expr}
-    {cvC : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
-    (hF : ConLeche.NestInstFacts ctx hi ⟨D.member mm, us, ds⟩ cvC.levelParams
-      (D.formerAt mm cvC).type nI cty)
-    (hnd : cvC.levelParams.Nodup) (hul : us.length = cvC.levelParams.length)
-    (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
+/-- **A run's hole type at a key, by value, across the holes** (N2): `runHoleTy_read`'s rest of
+the run's tower, read at the key frames of two walk valuations agreeing off the holes, has one
+value — the run's instantiated index telescope mentions no hole. -/
+theorem runRest_agree (mp : EnvModelM V env) {D : LfpDatum V} {mm : Nat} {ty : Expr}
+    (hR : FormerRead mp D mm ty) {ctx : NestCtx} {hi : Nat} {lps : List Name} {us : List Level}
+    {ds : List Expr} {nI : Nat} {cty : Expr} {c : Name}
+    (hF : ConLeche.NestInstFacts ctx hi ⟨c, us, ds⟩ lps ty nI cty)
+    (hpl : (D.pars mm (Level.substFn φ lps us)).length = ds.length)
     (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
     {dsa : List Term} (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa) :
-    ConLeche.instPisWith ds ((D.formerAt mm cvC).type.instantiateLevelParams cvC.levelParams us) = some cty ∧
-    (D.ids mm (Level.substFn φ cvC.levelParams us)).length = nI ∧
-    ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
-      TeleEq (keyFrame dsa hi ρ) (keyFrame dsa hi ρ') (D.ids mm (Level.substFn φ cvC.levelParams us)) := by
+    ∃ (ab : List Term) (u : Nat),
+      denote mp.base2.acval env (Level.substFn φ lps us) 0 ty = some (mkPisAV ab (.sort u)) ∧
+      ab.length = (D.pars mm (Level.substFn φ lps us) ++ D.ids mm (Level.substFn φ lps us)).length ∧
+      (∀ ρ : Nat → V, WellDenotedTy V ρ (mkPisAV ab (.sort u))) ∧
+      (D.ids mm (Level.substFn φ lps us)).length = nI ∧
+      (∀ ρ : Nat → V,
+        SpineFit (fun j => ρ (j + hi)) (ab.take ds.length) (dsa.map (interp V ρ)) →
+        SpineFit (fun j => ρ (j + hi)) (D.pars mm (Level.substFn φ lps us))
+          (dsa.map (interp V ρ)) →
+        interp V (keyFrame dsa hi ρ) (mkPisAV (ab.drop ds.length) (.sort u))
+          = interp V (keyFrame dsa hi ρ)
+              (mkPisAV (D.ids mm (Level.substFn φ lps us))
+                (.sort (D.w (Level.substFn φ lps us))))) ∧
+      ∀ ρ ρ' : Nat → V, AgreeOff (holeP hi ctx.nP hi) ρ ρ' →
+        interp V (keyFrame dsa hi ρ) (mkPisAV (ab.drop ds.length) (.sort u))
+          = interp V (keyFrame dsa hi ρ') (mkPisAV (ab.drop ds.length) (.sort u)) := by
   obtain ⟨-, hstrip, hty, ⟨s, hs, -⟩, hocc, hnI⟩ := hF
-  refine ⟨hty, ?_⟩
-  obtain ⟨ab, hmap, hcrd⟩ := instFormer_read mp hD hmm hf hnd hul hlenP hds hdsa hstrip hty
-  generalize hψ : Level.substFn φ cvC.levelParams us = ψ at hlenP hmap hcrd ⊢
+  obtain ⟨ab, u, hta, hl, hwd, hcrd, hval⟩ := runHoleTy_read mp hR hds hdsa hpl hstrip hty
   have hdl : dsa.length = ds.length := (DenoteSpine.length_eq hdsa).symm
-  have hcl : (D.formerAt mm cvC).type.hasFvar = false := (mp.formerAt_wf hD hmm hf).1
-  -- N2: the index telescope's reading mentions no hole
+  -- N2: the run's index telescope's reading mentions no hole
   have hPDF := piDomsFree_of_binders cty hs hocc
   have hWty : Expr.WScoped hi cty :=
     ConLeche.wscoped_instPisWith (fun x hx => (hds x hx).1)
-      (Expr.WScoped.of_not_hasFvar (by rw [Expr.hasFvar_instantiateLevelParams]; exact hcl)) hty
-  obtain ⟨ab'', u, hread, hnob, hlen''⟩ :=
+      (Expr.WScoped.of_not_hasFvar (by rw [Expr.hasFvar_instantiateLevelParams]; exact hR.1)) hty
+  obtain ⟨ab'', u', hread, hnob, hlen''⟩ :=
     noBVarTele_of_piDomsFree (m := mp.base2) (φ := φ) _ cty rfl hPDF hWty (Nat.le_refl _) hcrd
   obtain ⟨hdoms, -⟩ := mkPisAV_sort_eq hread
   rw [← hdoms] at hnob
-  refine ⟨?_, fun ρ ρ' hag => ?_⟩
-  · have hl := congrArg List.length hdoms
-    simp only [substTele_length] at hl
-    rw [hnI, ← piCount_eq_length, ← hlen'', ← hl, ← hmap]
-  · have hte := teleEq_substTele _ _ 0 (teleEq_of_noBVarTele hnob hag)
-    rw [← keyFrame_eq_substE hdl, ← keyFrame_eq_substE hdl] at hte
-    rwa [hmap] at hte
+  refine ⟨ab, u, hta, hl, hwd, ?_, hval, fun ρ ρ' hag => ?_⟩
+  · have hl' := congrArg List.length hdoms
+    simp only [substTele_length, List.length_drop] at hl'
+    rw [hnI, ← piCount_eq_length, ← hlen'', ← hl', hl, List.length_append, hpl]
+    omega
+  · have hte := TeleEq.tower (B := .sort u) (teleEq_of_noBVarTele hnob hag) (fun _ _ => rfl)
+    rw [← hdl, interp_substTele_key, interp_substTele_key] at hte
+    rw [← hdl]
+    exact hte
 
 /-- **N2 by value**.  A container instance's type former, checked by `nestInstType` at the key
 `C.{us} ds` below the hole bound `hi` against a run's result, has as many indices as the
@@ -726,28 +727,10 @@ theorem n2_tower (mp : EnvModelM V env) {D : LfpDatum V} {mm : Nat} {ty : Expr}
           = interp V (keyFrame dsa hi ρ')
             (mkPisAV (D.ids mm (Level.substFn φ lps us))
               (.sort (D.w (Level.substFn φ lps us)))) := by
-  obtain ⟨-, hstrip, hty, ⟨s, hs, -⟩, hocc, hnI⟩ := hF
-  obtain ⟨ab, u, hta, hl, -, hcrd, hval⟩ := runHoleTy_read mp hR hds hdsa hpl hstrip hty
-  have hdl : dsa.length = ds.length := (DenoteSpine.length_eq hdsa).symm
-  -- N2: the run's index telescope's reading mentions no hole
-  have hPDF := piDomsFree_of_binders cty hs hocc
-  have hWty : Expr.WScoped hi cty :=
-    ConLeche.wscoped_instPisWith (fun x hx => (hds x hx).1)
-      (Expr.WScoped.of_not_hasFvar (by rw [Expr.hasFvar_instantiateLevelParams]; exact hR.1)) hty
-  obtain ⟨ab'', u', hread, hnob, hlen''⟩ :=
-    noBVarTele_of_piDomsFree (m := mp.base2) (φ := φ) _ cty rfl hPDF hWty (Nat.le_refl _) hcrd
-  obtain ⟨hdoms, -⟩ := mkPisAV_sort_eq hread
-  rw [← hdoms] at hnob
-  refine ⟨ab, ⟨u, hta⟩, ?_, fun ρ ρ' hag hfR hfD hfR' hfD' => ?_⟩
-  · have hl' := congrArg List.length hdoms
-    simp only [substTele_length, List.length_drop] at hl'
-    rw [hnI, ← piCount_eq_length, ← hlen'', ← hl', hl, List.length_append, hpl]
-    omega
-  · have hte := TeleEq.tower (B := .sort u) (teleEq_of_noBVarTele hnob hag) (fun _ _ => rfl)
-    rw [← hdl, interp_substTele_key, interp_substTele_key] at hte
-    rw [← hval ρ hfR hfD, ← hval ρ' hfR' hfD']
-    rw [← hdl]
-    exact hte
+  obtain ⟨ab, u, hta, -, -, hnI, hval, hag⟩ := runRest_agree mp hR hF hpl hds hdsa
+  refine ⟨ab, ⟨u, hta⟩, hnI, fun ρ ρ' hagr hfR hfD hfR' hfD' => ?_⟩
+  rw [← hval ρ hfR hfD, ← hval ρ' hfR' hfD']
+  exact hag ρ ρ' hagr
 
 /-! ## The level link -/
 
@@ -804,29 +787,38 @@ theorem denote_piEndsSort {s : Level} :
         (by rw [piCount_instantiate1_fvar]; exact hn) (PiEndsSort.instantiate1 _ b 0 hf) hba
       exact ⟨ta :: ab, rfl⟩
 
-/-- **The level link** (the kernel's N3): a
-container instance checked by `nestInstType` lives at the block's sort —
-the recorded block's level at the key's levels is the value of the walk
-context's sort. -/
-theorem n2_sort (mp : EnvModelM V env) {D : LfpDatum V}
-    (hD : D ∈ mp.lfpBlocks) {mm : Nat} (hmm : mm < D.k) {ctx : NestCtx}
-    {hi : Nat} {us : List Level} {ds : List Expr}
-    {nI : Nat} {cty : Expr}
-    {cvC : ConstantVal} {caps : IndCaps}
-    (hf : env.find? (D.member mm) = some (.indInfo cvC caps))
-    (hF : ConLeche.NestInstFacts ctx hi ⟨D.member mm, us, ds⟩ cvC.levelParams
-      (D.formerAt mm cvC).type nI cty)
-    (hnd : cvC.levelParams.Nodup) (hul : us.length = cvC.levelParams.length)
-    (hlenP : (D.params (Level.substFn φ cvC.levelParams us)).length = ds.length)
+/-- **The level link by value** (the kernel's N3): a container instance checked by `nestInstType`
+against a run's result lives at the walk context's sort, and where the key's parameters fit the
+run's parameter binders and the block's and extend to a full fit of the block's index telescope,
+the recorded block's level at the key's levels is that sort's value (`spineFit_of_mkPisAV_eq`:
+along a fit two towers of one value end in one sort). -/
+theorem n2_sortV (mp : EnvModelM V env) {D : LfpDatum V} {mm : Nat} {ty : Expr}
+    (hR : FormerRead mp D mm ty) {ctx : NestCtx} {hi : Nat} {lps : List Name} {us : List Level}
+    {ds : List Expr} {nI : Nat} {cty : Expr} {c : Name}
+    (hF : ConLeche.NestInstFacts ctx hi ⟨c, us, ds⟩ lps ty nI cty)
+    (hpl : (D.pars mm (Level.substFn φ lps us)).length = ds.length)
     (hds : ∀ x ∈ ds, Expr.WScoped hi x ∧ x.looseBVarsBounded 0 = true)
     {dsa : List Term} (hdsa : DenoteSpine mp.base2.acval env φ hi ds dsa) :
-    D.w (Level.substFn φ cvC.levelParams us) = ctx.sort.eval φ := by
+    ∃ ab : List Term,
+      (∃ u, denote mp.base2.acval env (Level.substFn φ lps us) 0 ty = some (mkPisAV ab (.sort u))) ∧
+      ∀ ρ : Nat → V,
+        SpineFit (fun j => ρ (j + hi)) (ab.take ds.length) (dsa.map (interp V ρ)) →
+        SpineFit (fun j => ρ (j + hi)) (D.pars mm (Level.substFn φ lps us))
+          (dsa.map (interp V ρ)) →
+        ∀ is, SpineFit (keyFrame dsa hi ρ) (D.ids mm (Level.substFn φ lps us)) is →
+        D.w (Level.substFn φ lps us) = ctx.sort.eval φ := by
   obtain ⟨-, hstrip, hty, ⟨s, hs, hequiv⟩, -, -⟩ := hF
-  obtain ⟨ab, -, hcrd⟩ := instFormer_read mp hD hmm hf hnd hul hlenP hds hdsa hstrip hty
+  obtain ⟨ab, u, hta, hl, -, hcrd, hval⟩ := runHoleTy_read mp hR hds hdsa hpl hstrip hty
+  refine ⟨ab, ⟨u, hta⟩, fun ρ hfR hfD is hfI => ?_⟩
+  -- the run's instantiated former ends in the context's sort
   obtain ⟨ab', hread⟩ := denote_piEndsSort (m := mp.base2) (φ := φ) _ cty rfl
     (piEndsSort_of_binders cty hs) hcrd
-  obtain ⟨-, hw⟩ := mkPisAV_sort_eq hread
-  rw [hw]
+  obtain ⟨-, hu⟩ := mkPisAV_sort_eq hread
+  -- and, along the fit, in the block's
+  have hlen : (D.ids mm (Level.substFn φ lps us)).length = (ab.drop ds.length).length := by
+    rw [List.length_drop, hl, List.length_append, hpl]; omega
+  obtain ⟨-, hw⟩ := spineFit_of_mkPisAV_eq hlen (hval ρ hfR hfD).symm hfI
+  rw [hw, hu]
   exact ConLeche.Level.isEquiv_sound hequiv φ
 
 end ConLeche.Model

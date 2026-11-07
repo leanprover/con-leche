@@ -96,9 +96,12 @@ the level, and the group's carriers accessible in the enclosing frame
     Δh.length = ctx.hiAt prog.length →
     (∀ x ∈ ds, CtxOkP mp.base2 φ (ctx.hiAt prog.length) Δh x) →
     (∀ x ∈ ds, Expr.LeavesBounded x) →
-    lps.Nodup ∧ GrpOk ctx D (ctx.hiAt prog.length) us ds grp ∧
-      D.w (Level.substFn φ lps us) = w ∧
-      FrameAccOut w ctx prog (ctx.hiAt prog.length) R₀ D (Level.substFn φ lps us) dsa (InGrp D grp)
+    lps.Nodup ∧ GrpOk env ctx D (ctx.hiAt prog.length) us ds grp ∧
+      (∀ ρ ρ', fitRel R₀ D (Level.substFn φ lps us) dsa (ctx.hiAt prog.length) ρ ρ' →
+        D.w (Level.substFn φ lps us) = w) ∧
+      FrameAccOut w ctx prog (ctx.hiAt prog.length)
+        (fitRel R₀ D (Level.substFn φ lps us) dsa (ctx.hiAt prog.length)) D
+        (Level.substFn φ lps us) dsa (InGrp D grp)
 
 /-- **What a derivation proves** of its judgment's reading (see the
 module docstring). -/
@@ -171,7 +174,7 @@ theorem acc_of_whnf {mp : EnvModelM V env}
 
 /-- **A frame's conclusion from its derivation**: the group well formed,
 the level parameters distinct (`frame_lps_nodup`), the block at the walk
-context's level (`n2_sort` at the head), and `frameIterAcc` along the
+context's level at every pair fitting it (`grp_sort`), and `frameIterAcc` along the
 walked constructors. -/
 theorem frame_accD (mp : EnvModelM V env)
     (hin : RulesInputs V mp.base2 φ) {w : Nat} {ctx : NestCtx} {F : Nat}
@@ -181,8 +184,8 @@ theorem frame_accD (mp : EnvModelM V env)
       (ctx.hiAt prog.length) ⟨p.1, us, ds⟩ = .ok (nI, p.2))
     (hgrp : grp.map (·.1) = (grp.headD default).1 :: ConLeche.nestFrameMates ctx (grp.headD default).1)
     (hctors : groupCtors ctx ds.length (grp.map (·.1)) = some ctors)
-    (hkty : ConLeche.familyKeyCheck (fueledOps .verified F) env ctx.find? (ctx.hiAt prog.length)
-      (grp.headD default).1 us ds = .ok ())
+    (hkty : ∀ p ∈ grp, ConLeche.familyKeyCheck (fueledOps .verified F) env ctx.find?
+      (ctx.hiAt prog.length) p.1 us ds = .ok ())
     {ts : List PosTree}
     (hwalkD : PosD (fueledOps .verified F) env ctx
       (.ctors ((grpNews us ds (ctx.hiAt prog.length) grp).reverse ++ prog)
@@ -197,26 +200,19 @@ theorem frame_accD (mp : EnvModelM V env)
   have hcov := hok.1
   have hblkD := hcov.block D hD
   have hkN := lfp_namesLen mp hD
-  have hg := frame_grpOk mp hcov hne hnd hinst hgrp hD hmm hhead hlps
+  have hg := frame_grpOk mp hcov hne hnd hinst hgrp hkty hD hmm hhead hlps
   obtain ⟨p₀, ps₀, rfl⟩ := List.exists_cons_of_ne_nil hne
-  simp only [List.headD_cons] at hhead hkty
-  obtain ⟨cv₀, caps₀, hf₀, hlp₀⟩ := hlps mm hmm
-  -- the level parameters are distinct, the block at the level (N3 at the head)
+  simp only [List.headD_cons] at hhead
+  -- the level parameters are distinct
   have hndl : lps.Nodup := frame_lps_nodup mp hcov hD hmm hlps (by rw [hhead]; simp) hctors
     (posD_ctors_nodup hwalkD) hnL
-  have hwD : D.w (Level.substFn φ lps us) = w := by
-    obtain ⟨nI₀, hnI₀⟩ := hinst p₀ List.mem_cons_self
-    have := n2_sort mp hD hmm hf₀ (by rw [hhead]; exact hcov.instFacts hD hmm hf₀ (key := ⟨p₀.1, us, ds⟩) hhead.symm hnI₀)
-      (by rw [hlp₀]; exact hndl)
-      (by rw [hlp₀]; exact hul) (by rw [hlp₀]; exact hlenP) hds hdsa
-    rw [hlp₀] at this
-    exact this.trans hok.2
-  -- the key, graded
-  have hkey := frameKey_of_check mp hin hcov hD hmm hf₀ hds hLds hΔ hCds
-    hdsa (by rw [hlp₀]; exact hlenP) (by rw [hhead]; exact hkty)
-  rw [hlp₀] at hkey
+  -- the block at the level (N3), at every pair fitting the block
+  have hwD : ∀ ρ ρ', fitRel R₀ D (Level.substFn φ lps us) dsa (ctx.hiAt prog.length) ρ ρ' →
+      D.w (Level.substFn φ lps us) = w := fun ρ ρ' hr =>
+    (grp_sort mp hD hblkD.nodup hkN hcov.find hlps hds hdsa hlenP hg.2 hin hΔ hCds hLds
+      (hR₀.dom ρ ρ' hr.1).1 hr.2.1).trans hok.2
   exact ⟨hndl, hg, hwD, frameIterAcc mp hD hblkD.nodup hkN hcov.find hlps hndl hul hds hdsa hlenP
-    hg.2 hin hwD hblkD.ctors rfl hR₀ hΔ hCds hLds hkey hctors
+    hg.2 hin hok.2 hblkD.ctors rfl hR₀ hΔ hCds hLds hctors
     (fun hR Q hprem hQ => ih hok (by simp [grpNews, ConLeche.NestCtx.hiAt]; omega) hR Q hprem hQ)⟩
 
 /-! ## The container instance -/
@@ -272,9 +268,7 @@ theorem contNew_accD (mp : EnvModelM V env) {w : Nat} {F : Nat}
     simp only [List.headD_cons] at hhead ⊢
     rw [hhead]
     exact List.mem_cons_self
-  obtain ⟨-, hids, -⟩ := n2_link mp hD hmm hf (hok.1.instFacts hD hmm hf rfl hnI)
-    (by rw [hcvl]; exact hnd)
-    (by rw [hcvl]; exact hul) (by rw [hcvl, hlenP]) hdsw hdsa
+  have hids := hok.1.idsLen hD hmm hf hnI (by rw [hcvl, hlenP]) hdsw hdsa
   rw [← hcvl] at hacc hwD
   exact accConcl_of_frameAccOut mp hD hmm hf hhid hwa (by rw [hlenP]) (by rw [hids, hisl])
     (fun x hx => (hdsw x hx).1) hdsa hR hgr hisC hwD hacc
@@ -317,7 +311,17 @@ theorem keyAcc_of_frameD (mp : EnvModelM V env) {w : Nat}
     (fun x hx => ⟨Expr.WScoped.mono hle0' (hds x hx).1, (hds x hx).2⟩) hdsaL (hlenP _)
     (Or.inr hnd) hR₀
     (by rw [List.length_append, List.length_replicate, hΔ0, hhiEq]; omega) hCds hLds
-  exact ⟨hwD, frameAccOut_unextend (hacc.mono fun c hc => hc ▸ hmmG)⟩
+  have e : ∀ ρ : Nat → V, keyFrame (dsa0.map (Term.liftN prog'.length · 0)) (ctx.hiAt prog'.length)
+      (consList (List.replicate prog'.length (empty : V)) ρ) = keyFrame dsa0 (ctx.hiAt 0) ρ := by
+    intro ρ
+    have e := keyFrame_lift dsa0 (ctx.hiAt 0) (List.replicate prog'.length (empty : V)) ρ
+    rwa [List.length_replicate, ← hhiEq] at e
+  have hkF : ∀ ρ : Nat → V, KeyFit D (Level.substFn φ lps key.lvls) dsa0 (ctx.hiAt 0) ρ →
+      KeyFit D (Level.substFn φ lps key.lvls) (dsa0.map (Term.liftN prog'.length · 0))
+        (ctx.hiAt prog'.length) (consList (List.replicate prog'.length (empty : V)) ρ) :=
+    fun ρ h => by unfold KeyFit; rw [e]; exact h
+  exact ⟨fun ρ ρ' hr => hwD _ _ ⟨⟨ρ, ρ', hr.1, rfl, rfl⟩, hkF ρ hr.2.1, hkF ρ' hr.2.2⟩,
+    frameAccOut_unextend (hacc.mono fun c hc => hc ▸ hmmG)⟩
 
 /-! ## THE INDUCTION -/
 
@@ -530,8 +534,7 @@ theorem posD_acc (mp : EnvModelM V env)
     rw [List.take_append_drop] at hc
     exact ⟨⟨hc.1, hc.2.1, hc.2.2.trans hlw⟩, hfrw.2.1, hfrw.1, nofun, wa, hwa0, fun _ _ => rfl⟩
   | @frame prog us ds grp ctors ts hne hhd hhdC hnd hinst hblk hgrp hctors hkty hwalk ih =>
-    exact frame_accD mp hin hne hnd hinst hgrp hctors
-      (hkty _ (ConLeche.headD_mem_of_ne_nil hne)) hwalk ih
+    exact frame_accD mp hin hne hnd hinst hgrp hctors hkty hwalk ih
   | ctorsNil =>
     intro _ _ Δ R _ Q _ _ x hx
     exact nomatch hx

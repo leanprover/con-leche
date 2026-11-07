@@ -225,7 +225,7 @@ theorem blockCtorAcc_of_walk {env : Env} (mp : EnvModelM V env)
 
 omit [SetTheory V] in
 /-- **The walk context's sort is the block's level**: the caller's side
-of the container case's level link (`n2_sort`) — `NestCtx.sort` is the
+of the container case's level link (`grp_sort`) — `NestCtx.sort` is the
 block's result sort. -/
 theorem nestCtx_sort_eval {d : BlockData V} {p : BlockShape} (hR : p.resSort = d.resSort)
     (fvsP : List Expr) (find? : Name → Option ConLeche.ConstantInfo) (ψ : Name → Nat) :

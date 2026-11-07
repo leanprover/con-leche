@@ -112356,3 +112356,81 @@ the level link becomes `n2_sort` at a fit (`spineFit_of_mkPisAV_eq`'s sort), so 
 
 **Gates.**  `lake build`, `lake test` warning-free (axiom pins unchanged); nothing executed
 changed since cont. 3's full gates.
+
+### #443: the container walk along fits; the recursor stage's dead nodes (#443 cont. 5, 2026-11-07)
+
+**Merged.**  `modular` had nothing past the lane's last merge; no merge commit.
+
+**Step 1 done: the container walk reads every run by value, along fits** (committed as one WIP
+commit: everything up to and including `PosDerivAcc`/`PosDerivNodes` builds warning-free; the
+recursor stage from `TargetNodeDynOf` on does not build yet, see below).
+* `GrpWf env ctx D hi us ds grp` (and `GrpOk`) carries, per group member, a run's result `ty`
+  (`∃ F, familyTelescope … = .ok ty`), `NestInstFacts` at `ty`, and the key's certificates
+  `CertsF env hi (ty.instantiateLevelParams …) ds` (`familyKeyCheck` at EVERY member, (g));
+  `frame_grpOk` builds it from `hinst` and `hkty : ∀ p ∈ grp, …` (`ContCover.instRun`,
+  `familyKeyCheck_run`).  No `formerAt`, no `FamilyRead` in the walk.  `GrpTy mp D hi us ds grp`
+  likewise (with `FormerRead`).
+* `KeyFit D ψ dsa hi ρ` (`ContLeaf.lean`): the key frame satisfies the block's parameter telescope
+  and extends to a full fit of some member's telescope; `fitRel R D ψ dsa hi` the relation at such
+  pairs.  `keyLeaf` supplies it at every graded instance (`monoOn_of_famLe`'s and
+  `accConcl_of_frameAccOut`'s callbacks now receive it at both sides).
+* `keyRunFit` (`ContLeaf`): the key's certificates fit the RUN's parameter binders at every
+  valuation of the key's context (`keyParamsFit` is now its corollary at `formerAt`, kept only for
+  the recursor stage).  `crest_frame`/`crest_frameT` take `hin : RulesInputs` instead of `hkey`
+  (the hole types are graded from each member's own run fit); `frameKey_of_check` is gone.
+* `ContN2`: `runRest_agree` (the run's rest at a key, by value, one value across the holes, N2),
+  `n2_tower` from it, `n2_sortV` (the level link at a full fit); `n2_link`, `n2_sort` deleted.
+* `ContWalk` (`Fits` section, hypotheses `hin hΔ hCds hLds`): `grp_typeT` (a hole type by its run:
+  reading, run fit from the certificates, value at a fit), `grp_typeT_wd`, `grp_holeTy`, `grp_n2`,
+  **`keyFit_agree`** (of two valuations agreeing off the holes and satisfying the key's context,
+  the second's key frame fits where the first's does: the full fit's index spine fits the run's
+  hole-free rest, hence at the other side, where the run's parameter binders fit by the
+  certificates; one value with the block's tower), `grp_sort` (`D.w ψ = ctx.sort.eval φ` at a
+  fitting key frame), `grp_idx_eq`/`grpTuple_mem`/`grpVals_fit` at fitting pairs, `keyFit_pars`.
+  `frameRel` pairs only `KeyFit` valuations; `frameIter` concludes at `R₀ ρ ρ' → KeyFit ρ →
+  KeyFit ρ' → …`; `FrameMono`, `KeyPos` likewise.
+* Accessibility: `frameRelA_holeRelA`, `frameCtor_acc`, `frameAccOut_of` take `hkf` (pairs fit)
+  and a pairwise `hwD`; `frameIterAcc` concludes over `fitRel R₀ …` (`HoleRelA.restrict`), its
+  `hwD` from `grp_sort` and `ctx.sort.eval φ = w`; `FrameAccJ`, `KeyAcc`,
+  `frameAccOut_unextend`, `accConcl_of_frameAccOut` over `fitRel`, the level link pairwise.
+  `grp_arity` reads the run (`familyRead`).  `ContCover.idsLen` (index count by `n2_tower`)
+  replaces the `instFacts`/`n2_link` index counts.
+
+**The recursor stage: what step 2 must handle (found while starting it).**  Its node presentation
+(`TgtNodeDyn`: `hAdm`, `top`, `trans`; `TargetNestKit.lfpNestKit`; `SetModel/NestRec.lean`'s
+`NestKit.ok`/`okT`/`top`) asks every node's class to be a clause at its TRUE frame and at every
+admissible frame: `Sat params` there, and the true frame's index sets (`hAdm`, via
+`nodeKeyFit` = `keyParamsFit` at `formerAt`, i.e. `FamilyRead`).  By value this holds only where the
+node's key frame fits (`KeyFit`); by `keyFit_agree` it fits at one admissible frame iff at the true
+one (they agree off the holes and satisfy the stack context).  A node whose true frame does not fit
+is **dead**: no call lands there (a call's target is a field graded at a fitting frame, `keyLeaf`,
+`keyFit_agree` carries it to the true frame), but its datum's index sets at the true frame may be
+junk (where the block's parameters are unsatisfied, the index telescope reads arguments outside
+its domains; e.g. run `(p : Bool) → B' p → Type`, datum `(p : Nat) → B p → Type` with no full fit
+on either side and `B true` read nonempty), so the kit's majors `U` would contain elements of a
+class that is no clause there.  Plan for step 2, within ruling (e):
+1. `NestKit` (`SetModel/NestRec.lean`, a pure set construction): `top`/`okT` only for classes with
+   an index (`∃ c t, t ∈ˢ Is c`), or a liveness predicate; `lfpNestKit` pins a dead node's class
+   empty (or `N := 0`), so `U` has no element of it.
+2. `nodeAdm b`: admissible frames of live nodes; `hAdm` from `KeyFit` at the true frame and
+   `keyFit_agree` (`Sat params`), `grp_idx_eq` (index sets).  Liveness of a node holding a call's
+   target: the target field's grading (`keyLeaf`).
+3. `dyn_trueVal_sat` (the true valuation satisfies the stack context): a frame hole's true value
+   is its container applied to the key read back, which inhabits the RUN's hole type by the
+   former's membership in its stored type (value = the run's tower, `familyRead`; the key fits the
+   run's parameter binders by the certificates) — not through `former_app_eq`/`holeVal`, which
+   need `Sat params`.
+4. `trans`: the admissible frame's `HFits` with the clause's `resIdxFit` gives the full fit there
+   (`KeyFit` at `σ`), `keyFit_agree` at the true valuation, then `FrameMono`'s conclusion.
+5. The outside classes (`TgtOutCls`, `GenOutKeyFit`'s `genOut_keyFit`, `GenRecPreRun`,
+   `GenClsSem`, `GenFrameTie`, `GenRecExtra`, `TargetOutRows`): "at every fitting prefix, the
+   class's parameters satisfy the family's telescope" holds by value only at a full fit; the major
+   (graded, `keyLeaf`) supplies it at every use; the classes' index sets at a non-fitting class
+   frame need the same guard as dead nodes (the recursor's majors range only over fitting frames).
+Then steps 3 (the swap) and 4 of cont. 4, unchanged.
+
+**State.**  Branch `agent/443-semantic-former`, worktree `_tmp/443/wt`.  `FormerRuns` is still in
+the capstones.  The tree does not build from `TargetNodeDynOf` on (8 errors there; `TargetCall*`,
+`GenNodeCalls`, … downstream unchecked); everything else builds warning-free.
+
+**Gates.**  None run beyond the module builds above (a partial lane).
