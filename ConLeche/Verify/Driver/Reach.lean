@@ -591,8 +591,12 @@ theorem reachGo_inv (env : ReachEnv ModelIO) (fs : FS) (rs : List Name) :
               obtain ⟨⟨c₂, r⟩, -, h⟩ := h
               rcases r with e | u
               · simp at h
-              · simp only at h
-                exact ih _ _ (hi.add hs (by simpa using hx) hm) h
+              · simp only [ModelIO.bind_ok] at h
+                obtain ⟨⟨c₃, r⟩, -, h⟩ := h
+                rcases r with e | u
+                · simp at h
+                · simp only at h
+                  exact ih _ _ (hi.add hs (by simpa using hx) hm) h
 
 /-- The constants of a list's environment are its records'. -/
 theorem mem_streamEnv_consts {ci : ConstantInfo} :

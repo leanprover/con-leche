@@ -752,6 +752,40 @@ theorem capturePairs_ok (he : EnvOk sp fs env) :
     | ok u => exact capturePairs_ok he c' ps h1
 
 
+theorem CacheOk.insert_located' {c : ReachCache} (hc : CacheOk sp fs c) {y : Name} {s : Spot}
+    (hl : s.part.level = .private) (hs : CopyAt sp fs s) :
+    CacheOk sp fs { c with located := c.located.insert y s } :=
+  hc.insert_located hl hs c.completed
+
+theorem storedNamesOk_ok (he : EnvOk sp fs env) (h : Name) :
+    ∀ (c : ReachCache) (ns : List Name), CacheOk sp fs c →
+      ModelIO.AllOk (storedNamesOk env c h ns) fs fun p => CacheOk sp fs p.1
+  | c, [], hc => by simpa [storedNamesOk] using hc
+  | c, n :: ns, hc => by
+    unfold storedNamesOk
+    split
+    · split
+      · exact storedNamesOk_ok he h c ns hc
+      · simpa using hc
+    · split
+      · split
+        · exact storedNamesOk_ok he h c ns hc
+        · simpa using hc
+      · simp only [ModelIO.allOk_bind]
+        intro x hx
+        obtain ⟨h1, h2⟩ := lookOf_ok he hc _ x hx
+        obtain ⟨c', r⟩ := x
+        cases r with
+        | error e => simpa using h1
+        | ok l =>
+          obtain ⟨t, ht, rfl⟩ := h2 l rfl
+          simp only []
+          split
+          · rename_i q hq
+            exact storedNamesOk_ok he h _ ns
+              (h1.insert_located' rfl ⟨t, ht, (lookTable_spec t hq).1⟩)
+          · simpa using h1
+
 /-! ## A record read -/
 
 theorem entriesWith_spec {r : Region} :
@@ -1131,7 +1165,14 @@ theorem reachGo_from (he : EnvOk sp fs env) :
               obtain ⟨c₂, r⟩ := z
               cases r with
               | error e => simp
-              | ok u => exact ih _ c₂ h3 (hL.add hd _ _)
+              | ok u =>
+                simp only [ModelIO.allOk_bind]
+                intro z hz
+                have h4 := storedNamesOk_ok he h c₂ _ h3 z hz
+                obtain ⟨c₃, r⟩ := z
+                cases r with
+                | error e => simp
+                | ok u => exact ih _ _ (h4.partners _) (hL.add hd _ _)
 
 /-- **What the reach read, from where**: at every accepting outcome of `reach` on the search
 path's reads, from a name index whose parts are the snapshot's tables, every context record
@@ -1145,7 +1186,8 @@ theorem reach_from {sp : SearchPath} {fs : FS} {m : Name} {wr : WorkerReads}
     r.ctx.size = r.homes.size ∧
       ∀ (i : Nat) (d : Declaration) (hm : Name), r.ctx[i]? = some d → r.homes[i]? = some hm →
         RecordFrom sp fs d hm := by
-  have he : EnvOk sp fs { rd := .ofPath sp, mod := m, wr, own } := ⟨rfl, hparts, hindex⟩
+  have he : EnvOk sp fs { rd := .ofPath sp, mod := m, wr, own, copies := clashCopiesOf wr } :=
+    ⟨rfl, hparts, hindex⟩
   unfold reach at h
   simp only [ModelIO.bind_ok] at h
   obtain ⟨⟨c, x⟩, hx, h⟩ := h
