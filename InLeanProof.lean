@@ -38,6 +38,9 @@ public import InLeanProof.PassInds
 public import InLeanProof.PassEnv
 public import InLeanProof.PassCtors
 public import InLeanProof.PassNest
+public import InLeanProof.DeclGuards
+public import InLeanProof.DeclStep
+public import InLeanProof.DeclPins
 public import InLeanProof.SquarePilot
 public import InLeanProof.ProjBodiesTr
 public import InLeanProof.BlockRecogRun

@@ -112393,3 +112393,143 @@ test for the new check: a structure whose intermediate projection terms pass
 
 Gates: `lake build InLean InLeanProof inlean-replay` warning-free;
 `tests/layering.sh`, `tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+### Lane O6: the declaration step for the non-inductive kinds (2026-11-08)
+
+**Target.**  InLean's `checkDecl theoremConfig E decl` accepting a safe
+declaration in range means master's pure fueled step accepts the records of
+what it adds, in order: `∃ ds, a.consts.toList.mapM (toDecl [·]) = some ds ∧
+∃ F L', ds.foldlM (checkDecl .verified (fueledOps .verified F) pins) L = .ok L'`,
+the shape `foldPM` folds, next to the preservation lemmas (`presI_*`,
+`quotGroupPres`, the one-record or four-record `mapM` they take).  Two new files,
+no executable code and no existing proof file changed (the root and
+`AxiomPins.lean` gained imports and 22 pins: the standard three, and the
+stop-gap `mkData` axioms wherever a cached flag is read); no `sorry`, no new
+axiom.  The proofs are functional (`bindI_ok`, master's `Runs`), as O7's.
+
+**`DeclGuards.lean`** (the guards at the translation):
+* *Resolution from inference* (`crNF_of_infer`, `constsResolve_of_infer`).
+  Master's `checkConstantVal`/value checks test `Expr.constsResolve` (every
+  constant, every projection's structure, the literals' support
+  declarations); InLean's `checkTermWF` tests only the constants
+  (`EO.usedConstants`, Lean's `getUsedConstants`).  Master's check-mode
+  inference walks every subterm and reads the rest (a projection through
+  `findProj?`, whose `findTable?` asks the structure stored; a literal through
+  `natLitStored`/`strLitStored`), so its success, which the knot's spec gives,
+  implies the guard.  The order differs (master tests before inferring); the
+  verdict does not.
+* *Cached flags on a term in range* (`checkTermWF_ok`): an accepted term is
+  closed, has no free variable or metavariable, has a closed reading (`okC`,
+  `okC_of_flags`), and master's `allLevelParamsDefined` holds of its
+  translation (`allLevelParamsDefined_of_guard`): `EO.levelParams` collects
+  every level parameter (`levelParams_complete`), through a generic
+  completeness of `EO.collect` (`collectG_go_spec`, `collect_complete`: the
+  `seen` skip and the `stop` cut, `LeafGuardI`'s argument without its
+  free-variable specifics).
+* `litShapeOk_tr` (InLean's literal-name shapes are master's off the reserved
+  names), `natOpName_tr`.
+
+**`DeclStep.lean`** (the arms):
+* `checkConstantValC_sim` (any `allowOp`), and **`checkConstantValFSimI`**
+  (O7's named callee, discharged: the job's `checkConstantValF` over
+  `sharedOpsC` is `checkConstantValC`).
+* `checkValueC_sim` (`ValRuns`: master's value guards, inference and defeq),
+  `checkDefnVal_runs`, `checkOpaqueVal_runs`; `checkThmC_sim` (master's
+  `checkThmVal`, the proposition test by `isEquiv_zero_tr`).
+* `checkDefnC_sim` off the certified `Nat` names, `checkOpaqueC_sim` off the
+  compiler-trust names, `checkAxiomC_sorry_sim` (installs nothing in master),
+  `checkAxiomC_quotSound_sim` (master's `checkQuotRecord .sound`: the hit at
+  the axiom's level name read as `quotPinHit`), `checkQuotC_sim` (InLean's one
+  `quotDecl` against master's four records, `quotFold_ok`); a mutual block is
+  never a `SafeDecl`.
+* `checkDeclKindC_sim` on `ProvedArm`; `checkDeclKindC_sim_cert` adds the
+  certified operations' arm from the named `CertArmSimI pins`; and
+  **`checkDecl_sim`** at the entry point (fresh state, `CSOKI_empty`; the
+  `sorryAxSquat` decline read as "no constant but an axiom at `sorryAx`", the
+  premise `presI_defn`/`_thm`/`_opaque` need at `coreAxioms` off).  The job
+  premise is `JobEnvI {env := E, coreAxioms := false} L`.
+
+**What remains** (named):
+* `CertArmSimI pins`: a definition at a certified `Nat` operation's name.
+  The structural operations (`certifyNatEqs` over two interned `Nat`
+  variables, `natOpGuard`/`natOpStoredOk` at the pushed environment, master's
+  `natLitSupported` from `EnvWF.shapes` since `Nat` is reserved) look true and
+  mechanical; the WF operations (`checkDivModPin`) need `pins` related to
+  InLean's run-time `loadPinSets ()` (a translation of `PinSet`, a variant
+  without the operation mapped to one master's guard refuses).
+* The compiler-trust opaques (`checkReducePin`) and the pinned axioms
+  (`propext`, `Classical.choice`, `Lean.trustCompiler`, `Lean.ofReduce*`):
+  **false for the code** (next paragraph).  `Lean.reduceNat` alone would also
+  need master's `env.find? natName = some natA` from `L`'s install (P4's
+  `NatFacts`).
+* `ProjGuardSpecI` (task #492) stays a `JobEnvI` premise.
+
+**FINDING: the pinned families' kinds and counts.**  Master's guards read the
+stored constant's kind and counts: `stdAxiomOk` asks `Iff` an `.indInfo`,
+`Iff.intro` a `.ctorInfo _ 2 2`, `Iff.rec` a `.recInfo _ 4 4 _ _` (and
+`Nonempty`'s likewise, `ConLeche/Kernel/StdAxioms.lean`), `trustCompilerOk`
+`True` an `.indInfo` and `True.intro` a `.ctorInfo _ 0 0`, `reduceElemOk`
+`Bool` an `.indInfo` (`ConLeche/Kernel/TrustAxioms.lean`).  InLean's
+`pinFound` (`InLean/CheckerC.lean`) reads name, level count and type only.
+Counterexample to "InLean accepts ⇒ master accepts": a `prelude` environment
+with `def Iff (a b : Prop) : Prop := (a → b) ∧ (b → a)`, `Iff.intro` and
+`Iff.rec` definitions at the pinned types (`Iff.rec := fun … intro t => intro
+t.1 t.2`, typed by proof irrelevance), `Eq` and `And`; then `axiom propext
+{a b : Prop} : Iff a b → a = b` is accepted by InLean and declined by master
+("standard axiom shape mismatch").  The same for an `Iff` inductive declared
+with one parameter and one index (other counts, same types), for `True` in
+`Lean.trustCompiler`, and for `Bool` in `Lean.reduceBool`/`Lean.ofReduceBool`.
+Not reachable from Lean's own `Init` (the families are inductives there).
+Fix (executable, outside this lane): InLean's pins for these families carry
+the kind and counts master reads (`pinFound` on an inductive, a constructor
+with `numParams`/`numFields`, a recursor with master's `majorIdx`/
+`rulePrefix`), after which the arm is the translation of master's guards.
+
+Gates: `lake build InLean InLeanProof` warning-free; `tests/layering.sh`,
+`tests/trust-surface.sh`, `tests/no-local-paths.sh` pass.
+
+**Lane O6, continued: the pinned families fixed, their arms proved (2026-11-08).**
+Coordinator's ruling: finding 1 is a twin bug (InLean must read what master reads).
+
+*Executable change* (`InLean/Pins.lean`, `InLean/CheckerC.lean`).  The
+standard-axiom and compiler-trust guards read the families as master's do:
+`pinFoundInd` (an inductive), `pinFoundCtor p nP nF` (a constructor with
+master's counts: `Iff.intro` 2 2, `Nonempty.intro` 1 1, `True.intro` 0 0),
+`pinFoundRec p mI rP` (a recursor with master's `majorIdx`/`rulePrefix`:
+`Iff.rec` 4 4, `Nonempty.rec` 3 3), and the matches compare the level
+parameters *as named* (`Pin.matchesDeclExact`/`matchesExact`, master's
+`ConstantVal.matchesPin`), where InLean had compared them up to renaming
+(`canonAt`): a second divergence of the same class, found while proving
+(`axiom Classical.choice.{v}` was accepted, master declines).  `Bool` in
+`reduceElemOk`, the reduce operations' stored entries and the `ofReduce*`
+types likewise.  Order and error classes unchanged (the guards are the
+same Booleans in the same places).  `scripts/inlean_negtest.lean` gains
+`policyCases` (a prelude added through InLean, then a declaration InLean must
+not accept at con-leche's policy, whatever the official kernel says):
+"propext over an Iff of definitions" and "Classical.choice at another level
+name"; both failed before the change (checked on the old code: InLean
+accepted the first), both decline now; 13/13.
+
+*Validation* (`inlean-replay --kernel=inlean --compare --quiet`): Init 64,530,
+Std 110,064 declarations accepted, 0 rejected, 0 declined, 0 exact and 0
+cosmetic mismatches; Lean 199,645 accepted, the same 0s.  `instructions:u` on Init
+868.8 G (868.6 G at Lane R).
+
+*Proofs* (`InLeanProof/DeclPins.lean`, new; `DeclStep.lean`'s entry point
+factored as `checkDecl_sim_of`): `matchesPin_tr`, `pinFoundInd_tr`/
+`pinFoundCtor_tr`/`pinFoundRec_tr` (an entry InLean reads of a kind and counts
+is master's at the translated name, through `EnvPresI`'s `EntryRelI`),
+`stdAxiomOk_tr`, `trustCompilerOk_tr`, `reduceElemOk_tr`, `reduceStoredOk_tr`,
+`ofReduceAxOk_tr`; **`checkAxiomC_pinned_sim`** (every axiom but `sorryAx` and
+`Quot.sound`), `checkReducePin_sim` (the pin and the identity certificate over
+an interned variable, `mkFVarM_specI`), **`checkOpaqueC_reduce_sim`**; and
+**`checkDeclKindC_sim_full`/`checkDecl_sim_full`**: every non-inductive kind,
+from `CertArmSimI pins` and `NatPinned L` (`L.find? Nat`, where present, is
+`natA`: master's `reduceElemOk` compares the entry itself; P4 reads it off
+`NatFacts`).  15 pins.
+
+*What remains of O6*: `CertArmSimI pins` only (the certified `Nat`
+operations: the structural ones' `certifyNatEqs` over two interned variables
+with `natOpGuard`/`natOpStoredOk` at the pushed environment, and the WF ones'
+`checkDivModPin` with master's `pins` related to InLean's run-time
+`loadPinSets ()` through a `PinSet` translation).  Gates as before.
